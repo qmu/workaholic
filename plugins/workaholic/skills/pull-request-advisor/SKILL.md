@@ -1,87 +1,55 @@
 ---
 name: pull-request-advisor
-description: Advise on pull request best practices and help create well-structured PRs. Use when user asks about PRs, wants to create a PR, or needs help with PR descriptions.
-allowed-tools:
-  - Bash
-  - Read
-  - Glob
-  - Grep
+description: Propose a better /pull-request command for the user's project. Use when user wants to improve their PR workflow in Claude Code.
 ---
 
 # Pull Request Advisor
 
-Help users create well-structured, reviewable pull requests.
+Analyze the user's project and propose a customized `/pull-request` command for their `.claude/` directory.
 
 ## When to Activate
 
-- User wants to create a pull request
-- User asks about PR best practices
-- User needs help writing PR descriptions
-- User wants to review changes before PR
+- User wants to improve their PR workflow
+- User asks about PR best practices for Claude Code
+- Workaholic command proposes command installation
 
-## Guidance to Provide
+## Instructions
 
-### PR Title Format
+1. Check if user already has a pull-request command in `.claude/commands/`
+2. Analyze project conventions (branch naming, CHANGELOG usage, etc.)
+3. Read the template from `references/pull-request-command-template.md`
+4. Propose a customized pull-request command based on the template
+5. Ask user if they want to customize any rules
+6. Create the command in `.claude/commands/pull-request.md`
 
-```
-<type>: <concise description>
-```
+## Reference Template
 
-Types: feat, fix, docs, refactor, test, chore
+See `references/pull-request-command-template.md` for the recommended starting point.
 
-### PR Description Template
+## Customization Questions
 
-```markdown
-## Summary
-<1-3 bullet points of what this PR does>
+Ask user about:
 
-## Changes
-- <specific change 1>
-- <specific change 2>
+1. **Branch naming**: What pattern? (e.g., `i<issue>-<date>-<time>`, `feature/<name>`)
+2. **CHANGELOG**: Does project use CHANGELOG.md? Where?
+3. **PR format**: Three sections (Summary, Changes, Notes) or different?
+4. **Issue linking**: How to derive issue URL from branch?
 
-## Test Plan
-- [ ] <how to test this>
-- [ ] <edge cases considered>
-
-## Screenshots (if UI changes)
-<before/after if applicable>
-```
-
-### Best Practices
-
-1. **Small PRs**: Easier to review, faster to merge
-2. **Clear scope**: One feature/fix per PR
-3. **Self-review first**: Check your own diff before requesting review
-4. **Link issues**: Reference related issues/tickets
-
-## Actions
-
-1. Run `git log main..HEAD` to see commits in branch
-2. Run `git diff main...HEAD` to see all changes
-3. Analyze changes and suggest PR structure
-4. Propose PR title and description
-5. Check if PR should be split
-
-## Example Advice
+## Example Flow
 
 ```
-Analyzing your branch (feature/user-auth):
-- 5 commits, 8 files changed
-- Main changes: auth logic, user model, tests
+User: "I want a better PR workflow"
 
-Suggested PR:
+Advisor:
+1. Check .claude/commands/ - no pull-request command found
+2. Check git log - sees branch naming pattern
+3. Check root - CHANGELOG.md exists
 
-Title: feat: Add user authentication system
+Propose:
+"I'll create a /pull-request command for your project. Based on your setup:
+- Branch pattern: feature/<name>
+- CHANGELOG integration enabled
+- Standard 3-section format
 
-## Summary
-- Add JWT-based authentication
-- Create user model with password hashing
-- Add login/logout endpoints
-
-## Test Plan
-- [ ] Test login with valid credentials
-- [ ] Test login with invalid credentials
-- [ ] Verify token expiration
-
-Ready to create this PR?
+Want me to create this command? Any customizations?"
 ```

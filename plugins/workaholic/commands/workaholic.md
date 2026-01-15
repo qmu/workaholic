@@ -2,6 +2,14 @@
 
 Analyze project and .claude configuration, then guide user through migration planning.
 
+## Important
+
+This command **only updates the repository root**:
+- `.claude/` directory (commands, skills, agents, settings)
+- `CLAUDE.md` file
+
+It does NOT modify any other project files or directories.
+
 ## Phase 1: Discovery
 
 Launch **two sub-agents in parallel** using the Task tool:
@@ -65,6 +73,8 @@ question: "What else do you want to configure?"
 header: "Config"
 multiSelect: true
 options:
+  - label: "CLAUDE.md"
+    description: "Create or update project instructions file"
   - label: "Agents"
     description: "Add custom subagents for this project"
   - label: "Commands"
@@ -83,9 +93,10 @@ Copy skill directories to project's `.claude/skills/`:
 
 ### For Other Selections
 
-1. **Agents**: Ask what agents to create, then create in `.claude/agents/`
-2. **Commands**: Ask what commands to create, then create in `.claude/commands/`
-3. **Settings**: Fetch latest docs and suggest settings updates
+1. **CLAUDE.md**: Analyze project and create/update root `CLAUDE.md` with project instructions
+2. **Agents**: Ask what agents to create, then create in `.claude/agents/`
+3. **Commands**: Ask what commands to create, then create in `.claude/commands/`
+4. **Settings**: Fetch latest docs and suggest settings updates
 
 ## Example Flow
 

@@ -1,3 +1,8 @@
+---
+name: sync
+description: Analyze project and .claude configuration, then guide user through migration planning.
+---
+
 # Sync
 
 Analyze project and .claude configuration, then guide user through migration planning.

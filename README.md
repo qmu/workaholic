@@ -4,13 +4,16 @@ Private marketplace for internal team.
 
 ## Installation
 
-```sh
+```bash
 claude
+```
+
+```bash
 /plugin marketplace add qmu/cc-market-place-internal
 /plugin install workaholic@qmu/cc-market-place-internal
-Install for you (user scope)
-
 ```
+
+Choose user scope.
 
 ## Structure
 

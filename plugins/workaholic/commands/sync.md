@@ -1,4 +1,4 @@
-# Workaholic
+# Sync
 
 Analyze project and .claude configuration, then guide user through migration planning.
 
@@ -33,7 +33,7 @@ Synthesize results into a concise overview:
 
 ## Phase 3: Propose Skills
 
-Based on discovery, recommend installing these workaholic skills:
+Based on discovery, recommend installing these skills:
 
 ### Available Skills to Propose
 

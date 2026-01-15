@@ -11,5 +11,5 @@ Configure project's `.claude/` to make Claude Code work harder.
 ## Installation
 
 ```bash
-claude /install workaholic --marketplace tamurayoshiya/cc-market-place-internal
+claude /install workaholic --marketplace qmu/cc-market-place-internal
 ```

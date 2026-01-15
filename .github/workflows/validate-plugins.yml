@@ -1,0 +1,102 @@
+name: Validate Plugins
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate marketplace.json
+        run: |
+          echo "Validating marketplace.json..."
+          if ! jq empty .claude-plugin/marketplace.json 2>/dev/null; then
+            echo "Error: marketplace.json is not valid JSON"
+            exit 1
+          fi
+          echo "marketplace.json is valid JSON"
+
+      - name: Validate plugin.json files
+        run: |
+          echo "Validating plugin.json files..."
+          for plugin_json in plugins/*/.claude-plugin/plugin.json; do
+            if [ -f "$plugin_json" ]; then
+              echo "Checking $plugin_json..."
+              if ! jq empty "$plugin_json" 2>/dev/null; then
+                echo "Error: $plugin_json is not valid JSON"
+                exit 1
+              fi
+
+              # Check required fields
+              name=$(jq -r '.name' "$plugin_json")
+              version=$(jq -r '.version' "$plugin_json")
+
+              if [ "$name" = "null" ] || [ -z "$name" ]; then
+                echo "Error: $plugin_json missing 'name' field"
+                exit 1
+              fi
+
+              if [ "$version" = "null" ] || [ -z "$version" ]; then
+                echo "Error: $plugin_json missing 'version' field"
+                exit 1
+              fi
+
+              echo "  - $name@$version: valid"
+            fi
+          done
+          echo "All plugin.json files are valid"
+
+      - name: Check skill files exist
+        run: |
+          echo "Checking skill files..."
+          for plugin_json in plugins/*/.claude-plugin/plugin.json; do
+            if [ -f "$plugin_json" ]; then
+              plugin_dir=$(dirname $(dirname "$plugin_json"))
+
+              # Get skill paths from plugin.json
+              jq -r '.skills[]?.path // empty' "$plugin_json" | while read skill_path; do
+                full_path="$plugin_dir/$skill_path"
+                if [ ! -f "$full_path" ]; then
+                  echo "Error: Skill file not found: $full_path"
+                  exit 1
+                fi
+                echo "  - Found: $full_path"
+              done
+            fi
+          done
+          echo "All skill files exist"
+
+      - name: Validate marketplace plugins match directories
+        run: |
+          echo "Checking marketplace plugins match directories..."
+
+          # Get plugin names from marketplace.json
+          marketplace_plugins=$(jq -r '.plugins[].name' .claude-plugin/marketplace.json | sort)
+
+          # Get plugin directories
+          dir_plugins=$(ls -1 plugins/ | sort)
+
+          echo "Marketplace plugins: $marketplace_plugins"
+          echo "Directory plugins: $dir_plugins"
+
+          # Check each marketplace plugin has a directory
+          for plugin in $marketplace_plugins; do
+            if [ ! -d "plugins/$plugin" ]; then
+              echo "Error: Plugin '$plugin' in marketplace.json but directory not found"
+              exit 1
+            fi
+          done
+
+          echo "All marketplace plugins have corresponding directories"

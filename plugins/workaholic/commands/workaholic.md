@@ -1,161 +1,126 @@
 ---
 name: workaholic
-description: Analyze project and .claude configuration, then guide user through migration planning.
+description: Analyze .claude configuration and update it to follow best practices.
 ---
 
 # Workaholic
 
-Analyze project and .claude configuration, then guide user through migration planning.
+Analyze `.claude/` configuration and update it to follow best practices.
 
-## Important
+## Scope
 
-This command **only updates the repository root**:
-- `.claude/` directory (commands, templates, agents, settings)
+This command **only updates**:
+- `.claude/` directory (commands, settings)
 - `CLAUDE.md` file
-
-It does NOT modify any other project files or directories.
 
 ## Phase 1: Discovery
 
-Launch **two sub-agents in parallel** using the Task tool:
+Launch the **discover-claude-dir** agent using the Task tool to explore the `.claude/` directory configuration.
 
-1. **discover-claude-dir** - Explores `.claude/` directory configuration
-2. **discover-project** - Explores project structure (excluding .claude/, node_modules/, etc.)
+## Phase 2: Analyze and Output Proposal
 
-## Phase 2: Present Overview
+Based on discovery results, analyze what's missing or could be improved.
 
-Synthesize results into a concise overview:
+Use the advisor skills as reference knowledge:
+- `commit-advisor` - Best practices for /commit command
+- `pull-request-advisor` - Best practices for /pull-request command
 
-```
-## Current State
-
-### .claude Configuration
-[summary from discover-claude-dir]
-
-### Project Structure
-[summary from discover-project]
-```
-
-## Phase 3: Propose Configuration Merge
-
-Present the templates that will be merged into the project's `.claude/` directory:
+Output the proposal:
 
 ```
-## Templates to Merge
+## Proposal
 
-The following templates will be added to your `.claude/` directory:
+### Already Configured
+- [item]: [status]
 
-- **commit-advisor/** - Git commit best practices and `/commit` command customization
-- **pull-request-advisor/** - PR creation best practices and `/pull-request` command customization
-- **sync-claude-config/** - Keep .claude/ configuration up to date with latest Claude Code features
+### Will Update
+- [item]: [what will be changed]
 ```
 
-Do NOT ask the user to select which templates to install - all templates will be merged by default.
+## Phase 3: Get User Approval
 
-## Phase 4: Analyze Gaps and Propose Updates
+After outputting the proposal, call **AskUserQuestion** to let the user select which updates to apply:
 
-Based on the discovery results, analyze what's missing or outdated and propose a comprehensive update plan. Do NOT ask the user what to configure - instead, proactively identify gaps and recommend updates.
-
-### Analysis Checklist
-
-Compare the project's current state against best practices:
-
-1. **CLAUDE.md**: Does it exist? Is it comprehensive? Does it describe the project accurately?
-2. **Commands**: Are there missing essential commands like `/commit` or `/pull-request`?
-3. **Settings**: Is `settings.json` present? Are there recommended settings missing?
-4. **Skills**: Are the standard skills (commit-advisor, pull-request-advisor, sync-claude-config) installed?
-
-### Present Proposal
-
-Output a clear proposal like:
-
-```
-## Proposed Updates
-
-Based on my analysis, here's what I recommend updating:
-
-### ✓ Will Add
-- [item]: [reason why it's needed]
-
-### ○ Already Configured
-- [item]: [current state is good]
-
-### Optional Improvements
-- [item]: [suggestion if applicable]
-
-Proceed with these updates? (Y/n)
+```json
+{
+  "questions": [{
+    "question": "Which updates do you want to apply?",
+    "header": "Updates",
+    "multiSelect": true,
+    "options": [
+      {"label": "/commit command", "description": "[specific improvement]"},
+      {"label": "/pull-request command", "description": "[specific improvement]"},
+      {"label": "settings.json", "description": "[specific improvement]"}
+    ]
+  }]
+}
 ```
 
-Wait for user confirmation before proceeding to Phase 5.
+Only include items from "Will Update" section as options.
 
-## Phase 5: Execute Plan
+### If AskUserQuestion is denied (dontAsk mode)
 
-After user confirms the proposal, execute all recommended updates.
+Apply ALL recommended updates automatically and output:
 
-### Always Merge Skills
+```
+dontAsk mode: Applying all updates...
+```
 
-Copy all skill directories to project's `.claude/skills/`:
-- `commit-advisor/` → `.claude/skills/commit-advisor/`
-- `pull-request-advisor/` → `.claude/skills/pull-request-advisor/`
-- `sync-claude-config/` → `.claude/skills/sync-claude-config/`
+## Phase 4: Execute Updates
 
-Preserve YAML frontmatter and all instructions in each skill.
+Execute the user-selected updates (or all updates in dontAsk mode).
 
-### Execute Based on Proposal
+For each selected item:
 
-For each item in the "Will Add" section:
-
-1. **CLAUDE.md**: Create/update root `CLAUDE.md` based on project structure analysis
-2. **settings.json**: Create `.claude/settings.json` with recommended settings for the project type
-3. **Commands**: Create missing essential commands in `.claude/commands/`
-4. **Agents**: Create project-specific agents in `.claude/agents/` if needed
+1. **/commit command**: Read `commit-advisor` skill, then create/update `.claude/commands/commit.md`
+2. **/pull-request command**: Read `pull-request-advisor` skill, then create/update `.claude/commands/pull-request.md`
+3. **CLAUDE.md**: Create/update based on project analysis
+4. **settings.json**: Create/update `.claude/settings.json`
 
 ## Example Flow
 
 ```
-[Phase 1: Discovery agents run in parallel]
+[Phase 1: discover-claude-dir agent]
 
 ## Current State
-### .claude Configuration
-- No skills configured
-- 1 command found: /release
-- settings.json: missing
+- Has /release command
+- Missing /commit and /pull-request commands
+- settings.json present
 
-### Project Structure
-- TypeScript/Node.js project with git
-- Has package.json, tsconfig.json
-- Uses ESLint and Prettier
+[Phase 2: Output proposal]
 
-[Phase 3: Templates to Merge]
+## Proposal
 
-The following templates will be added to your `.claude/` directory:
+### Already Configured
+- /release command: Working well
+- CLAUDE.md: Comprehensive
 
-- commit-advisor/ - Git commit best practices
-- pull-request-advisor/ - PR creation best practices
-- sync-claude-config/ - Keep config up to date
+### Will Update
+- /commit command: Create with conventional commits format
+- /pull-request command: Create with PR template
+- settings.json: Add read-only git commands
 
-[Phase 4: Analyze and Propose]
+[Phase 3: AskUserQuestion dialog]
 
-## Proposed Updates
+┌─ Updates ─────────────────────────────────────────┐
+│ Which updates do you want to apply?               │
+│                                                   │
+│ ☑ /commit command                                 │
+│   Create with conventional commits format         │
+│                                                   │
+│ ☑ /pull-request command                           │
+│   Create with PR template                         │
+│                                                   │
+│ ☐ settings.json                                   │
+│   Add read-only git commands                      │
+└───────────────────────────────────────────────────┘
 
-Based on my analysis, here's what I recommend updating:
+[User selects /commit and /pull-request]
 
-### ✓ Will Add
-- **commit-advisor/**: Not found - enables better commit workflows
-- **pull-request-advisor/**: Not found - enables better PR creation
-- **sync-claude-config/**: Not found - keeps config up to date
-- **settings.json**: Missing - will add recommended settings
-- **CLAUDE.md**: Missing - will create project instructions
+[Phase 4: Execute selected updates]
 
-### ○ Already Configured
-- **/release command**: Present and working
+Creating .claude/commands/commit.md...
+Creating .claude/commands/pull-request.md...
 
-Proceed with these updates? (Y/n)
-
-[User confirms]
-
-[Phase 5: Execute]
-- Copy all skills to .claude/skills/
-- Create settings.json with recommended config
-- Generate CLAUDE.md based on project analysis
+Done.
 ```

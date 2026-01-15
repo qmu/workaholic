@@ -10,10 +10,9 @@ claude
 
 ```bash
 /plugin marketplace add qmu/cc-market-place-internal
-/plugin install workaholic@qmu/cc-market-place-internal
 ```
 
-Choose user scope.
+Choose user scope, and better enable auto-updates.
 
 ## Structure
 

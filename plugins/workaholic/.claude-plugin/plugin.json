@@ -1,18 +1,9 @@
 {
   "name": "workaholic",
-  "version": "1.0.0",
   "description": "Configure project's .claude/ to make Claude Code work harder",
+  "version": "1.0.0",
   "author": {
     "name": "tamurayoshiya",
     "email": "a@qmu.jp"
-  },
-  "skills": [
-    {
-      "name": "sync-claude-config",
-      "description": "Sync .claude/ config with latest Claude Code documentation",
-      "path": "./skills/sync-claude-config.md"
-    }
-  ],
-  "agents": [],
-  "commands": []
+  }
 }

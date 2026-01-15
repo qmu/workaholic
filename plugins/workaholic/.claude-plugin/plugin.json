@@ -1,5 +1,4 @@
 {
-  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
   "name": "workaholic",
   "version": "1.0.0",
   "description": "Configure project's .claude/ to make Claude Code work harder",
@@ -15,6 +14,5 @@
     }
   ],
   "agents": [],
-  "commands": [],
-  "rules": []
+  "commands": []
 }

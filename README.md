@@ -4,16 +4,12 @@ Private marketplace for internal team.
 
 ## Installation
 
-```bash
-claude /install workaholic --marketplace tamurayoshiya/cc-market-place-internal
-```
+```sh
+claude
+/plugin marketplace add qmu/cc-market-place-internal
+/plugin install workaholic@qmu/cc-market-place-internal
+Install for you (user scope)
 
-Or add to `~/.claude/settings.json` for global use:
-
-```json
-{
-  "plugins": ["tamurayoshiya/cc-market-place-internal:workaholic"]
-}
 ```
 
 ## Structure

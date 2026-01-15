@@ -52,42 +52,63 @@ The following templates will be added to your `.claude/` directory:
 
 Do NOT ask the user to select which templates to install - all templates will be merged by default.
 
-## Phase 4: Ask Migration Plan
+## Phase 4: Analyze Gaps and Propose Updates
 
-Use **AskUserQuestion** to ask what else to update:
+Based on the discovery results, analyze what's missing or outdated and propose a comprehensive update plan. Do NOT ask the user what to configure - instead, proactively identify gaps and recommend updates.
+
+### Analysis Checklist
+
+Compare the project's current state against best practices:
+
+1. **CLAUDE.md**: Does it exist? Is it comprehensive? Does it describe the project accurately?
+2. **Commands**: Are there missing essential commands like `/commit` or `/pull-request`?
+3. **Settings**: Is `settings.json` present? Are there recommended settings missing?
+4. **Skills**: Are the standard skills (commit-advisor, pull-request-advisor, sync-claude-config) installed?
+
+### Present Proposal
+
+Output a clear proposal like:
 
 ```
-question: "What else do you want to configure?"
-header: "Config"
-multiSelect: true
-options:
-  - label: "CLAUDE.md"
-    description: "Create or update project instructions file"
-  - label: "Agents"
-    description: "Add custom subagents for this project"
-  - label: "Commands"
-    description: "Add slash commands"
-  - label: "Settings"
-    description: "Update settings.json"
+## Proposed Updates
+
+Based on my analysis, here's what I recommend updating:
+
+### ✓ Will Add
+- [item]: [reason why it's needed]
+
+### ○ Already Configured
+- [item]: [current state is good]
+
+### Optional Improvements
+- [item]: [suggestion if applicable]
+
+Proceed with these updates? (Y/n)
 ```
+
+Wait for user confirmation before proceeding to Phase 5.
 
 ## Phase 5: Execute Plan
 
-### Merge All Templates
+After user confirms the proposal, execute all recommended updates.
 
-Copy all template directories to project's `.claude/skills/`:
+### Always Merge Skills
+
+Copy all skill directories to project's `.claude/skills/`:
 - `commit-advisor/` → `.claude/skills/commit-advisor/`
 - `pull-request-advisor/` → `.claude/skills/pull-request-advisor/`
 - `sync-claude-config/` → `.claude/skills/sync-claude-config/`
 
-Preserve YAML frontmatter and all instructions in each template.
+Preserve YAML frontmatter and all instructions in each skill.
 
-### For Additional Selections (from Phase 4)
+### Execute Based on Proposal
 
-1. **CLAUDE.md**: Analyze project and create/update root `CLAUDE.md` with project instructions
-2. **Agents**: Ask what agents to create, then create in `.claude/agents/`
-3. **Commands**: Ask what commands to create, then create in `.claude/commands/`
-4. **Settings**: Fetch latest docs and suggest settings updates
+For each item in the "Will Add" section:
+
+1. **CLAUDE.md**: Create/update root `CLAUDE.md` based on project structure analysis
+2. **settings.json**: Create `.claude/settings.json` with recommended settings for the project type
+3. **Commands**: Create missing essential commands in `.claude/commands/`
+4. **Agents**: Create project-specific agents in `.claude/agents/` if needed
 
 ## Example Flow
 
@@ -96,15 +117,16 @@ Preserve YAML frontmatter and all instructions in each template.
 
 ## Current State
 ### .claude Configuration
-- No templates configured
-- 1 command found
-...
+- No skills configured
+- 1 command found: /release
+- settings.json: missing
 
 ### Project Structure
 - TypeScript/Node.js project with git
-...
+- Has package.json, tsconfig.json
+- Uses ESLint and Prettier
 
-## Templates to Merge
+[Phase 3: Templates to Merge]
 
 The following templates will be added to your `.claude/` directory:
 
@@ -112,11 +134,28 @@ The following templates will be added to your `.claude/` directory:
 - pull-request-advisor/ - PR creation best practices
 - sync-claude-config/ - Keep config up to date
 
-[Phase 4: AskUserQuestion - additional config]
+[Phase 4: Analyze and Propose]
 
-User selects: Settings
+## Proposed Updates
+
+Based on my analysis, here's what I recommend updating:
+
+### ✓ Will Add
+- **commit-advisor/**: Not found - enables better commit workflows
+- **pull-request-advisor/**: Not found - enables better PR creation
+- **sync-claude-config/**: Not found - keeps config up to date
+- **settings.json**: Missing - will add recommended settings
+- **CLAUDE.md**: Missing - will create project instructions
+
+### ○ Already Configured
+- **/release command**: Present and working
+
+Proceed with these updates? (Y/n)
+
+[User confirms]
 
 [Phase 5: Execute]
-- Copy all templates to .claude/skills/
-- Update settings.json with latest schema
+- Copy all skills to .claude/skills/
+- Create settings.json with recommended config
+- Generate CLAUDE.md based on project analysis
 ```

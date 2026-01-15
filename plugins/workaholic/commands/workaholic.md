@@ -24,6 +24,7 @@ Based on discovery results, analyze what's missing or could be improved.
 Use the advisor skills as reference knowledge:
 - `commit-advisor` - Best practices for /commit command
 - `pull-request-advisor` - Best practices for /pull-request command
+- `tdd-advisor` - Best practices for /ticket and /drive commands (spec-driven development)
 
 Output the proposal:
 
@@ -74,8 +75,10 @@ For each selected item:
 
 1. **/commit command**: Read `commit-advisor` skill, then create/update `.claude/commands/commit.md`
 2. **/pull-request command**: Read `pull-request-advisor` skill, then create/update `.claude/commands/pull-request.md`
-3. **CLAUDE.md**: Create/update based on project analysis
-4. **settings.json**: Create/update `.claude/settings.json`
+3. **/ticket command**: Read `tdd-advisor` skill, then create/update `.claude/commands/ticket.md`
+4. **/drive command**: Read `tdd-advisor` skill, then create/update `.claude/commands/drive.md`
+5. **CLAUDE.md**: Create/update based on project analysis
+6. **settings.json**: Create/update `.claude/settings.json`
 
 ## Example Flow
 

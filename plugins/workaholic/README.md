@@ -6,7 +6,10 @@ Configure project's `.claude/` to make Claude Code work harder.
 
 | Skill | Description |
 |-------|-------------|
-| `/refer-cc-document` | Reference Claude Code documentation |
+| `refer-cc-document` | Reference Claude Code documentation |
+| `commit-advisor` | Best practices for /commit command |
+| `pull-request-advisor` | Best practices for /pull-request command |
+| `tdd-advisor` | Best practices for /ticket and /drive commands |
 
 ## Installation
 

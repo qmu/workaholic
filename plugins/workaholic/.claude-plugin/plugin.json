@@ -7,7 +7,13 @@
     "name": "tamurayoshiya",
     "email": "a@qmu.jp"
   },
-  "skills": [],
+  "skills": [
+    {
+      "name": "sync-claude-config",
+      "description": "Sync .claude/ config with latest Claude Code documentation",
+      "path": "./skills/sync-claude-config.md"
+    }
+  ],
   "agents": [],
   "commands": [],
   "rules": []

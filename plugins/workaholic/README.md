@@ -2,17 +2,11 @@
 
 Configure project's `.claude/` to make Claude Code work harder.
 
-## Structure
+## Skills
 
-```
-workaholic/
-├── .claude-plugin/plugin.json
-├── skills/       # Custom skills
-├── agents/       # Custom agents
-├── commands/     # Custom commands
-├── rules/        # Custom rules
-└── README.md
-```
+| Skill | Description |
+|-------|-------------|
+| `/sync-claude-config` | Sync .claude/ config with latest Claude Code documentation |
 
 ## Installation
 

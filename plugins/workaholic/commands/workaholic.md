@@ -21,10 +21,23 @@ Launch the **discover-claude-dir** agent using the Task tool to explore the `.cl
 
 Based on discovery results, analyze what's missing or could be improved.
 
-Use the advisor skills as reference knowledge:
+### Legacy Command Detection
+
+Check for legacy command names that should be renamed:
+
+| Legacy Name | New Name | Action |
+|-------------|----------|--------|
+| `/spec` | `/ticket` | Rename spec.md → ticket.md |
+| `/impl-spec` | `/drive` | Rename impl-spec.md → drive.md |
+
+If legacy commands are found, propose renaming them.
+
+### Advisor Skills
+
+Use as reference knowledge:
 - `commit-advisor` - Best practices for /commit command
 - `pull-request-advisor` - Best practices for /pull-request command
-- `tdd-advisor` - Best practices for /ticket and /drive commands (spec-driven development)
+- `tdd-advisor` - Best practices for /ticket and /drive commands
 
 Output the proposal:
 
@@ -73,57 +86,66 @@ Execute the user-selected updates (or all updates in dontAsk mode).
 
 For each selected item:
 
+### Rename Legacy Commands
+
+If renaming legacy commands:
+1. **Rename /spec → /ticket**: `mv .claude/commands/spec.md .claude/commands/ticket.md`, update name in frontmatter
+2. **Rename /impl-spec → /drive**: `mv .claude/commands/impl-spec.md .claude/commands/drive.md`, update name in frontmatter
+
+### Create/Update Commands
+
 1. **/commit command**: Read `commit-advisor` skill, then create/update `.claude/commands/commit.md`
 2. **/pull-request command**: Read `pull-request-advisor` skill, then create/update `.claude/commands/pull-request.md`
 3. **/ticket command**: Read `tdd-advisor` skill, then create/update `.claude/commands/ticket.md`
 4. **/drive command**: Read `tdd-advisor` skill, then create/update `.claude/commands/drive.md`
+
+### Other Updates
+
 5. **CLAUDE.md**: Create/update based on project analysis
 6. **settings.json**: Create/update `.claude/settings.json`
 
 ## Example Flow
 
+### Example: Rename legacy commands
+
 ```
 [Phase 1: discover-claude-dir agent]
 
 ## Current State
-- Has /release command
-- Missing /commit and /pull-request commands
-- settings.json present
+- Has /spec command (legacy)
+- Has /impl-spec command (legacy)
+- Has /commit, /pull-request commands
 
 [Phase 2: Output proposal]
 
 ## Proposal
 
 ### Already Configured
-- /release command: Working well
-- CLAUDE.md: Comprehensive
+- /commit command: Well configured
+- /pull-request command: Well configured
 
 ### Will Update
-- /commit command: Create with conventional commits format
-- /pull-request command: Create with PR template
-- settings.json: Add read-only git commands
+- Rename /spec → /ticket
+- Rename /impl-spec → /drive
 
 [Phase 3: AskUserQuestion dialog]
 
 ┌─ Updates ─────────────────────────────────────────┐
 │ Which updates do you want to apply?               │
 │                                                   │
-│ ☑ /commit command                                 │
-│   Create with conventional commits format         │
+│ ☑ Rename /spec → /ticket                          │
+│   Rename command to new standard name             │
 │                                                   │
-│ ☑ /pull-request command                           │
-│   Create with PR template                         │
-│                                                   │
-│ ☐ settings.json                                   │
-│   Add read-only git commands                      │
+│ ☑ Rename /impl-spec → /drive                      │
+│   Rename command to new standard name             │
 └───────────────────────────────────────────────────┘
 
-[User selects /commit and /pull-request]
+[User selects both]
 
-[Phase 4: Execute selected updates]
+[Phase 4: Execute]
 
-Creating .claude/commands/commit.md...
-Creating .claude/commands/pull-request.md...
+Renaming .claude/commands/spec.md → ticket.md...
+Renaming .claude/commands/impl-spec.md → drive.md...
 
 Done.
 ```

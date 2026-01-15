@@ -10,7 +10,7 @@
     {
       "name": "workaholic",
       "description": "Configure project's .claude/ to make Claude Code work harder",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": {
         "name": "tamurayoshiya",
         "email": "a@qmu.jp"

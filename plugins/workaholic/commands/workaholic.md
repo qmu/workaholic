@@ -23,63 +23,101 @@ Synthesize results into a concise overview:
 [summary from discover-project]
 ```
 
-## Phase 3: Ask Migration Plan
+## Phase 3: Propose Skills
 
-Use **AskUserQuestion** to ask what the user wants to update:
+Based on discovery, recommend installing these workaholic skills:
+
+### Available Skills to Propose
+
+1. **commit-advisor** - Helps create well-structured git commits
+   - Atomic commits, clear messages, staged review
+   - Useful for: Any project with git
+
+2. **pull-request-advisor** - Helps create reviewable PRs
+   - PR templates, scope review, description generation
+   - Useful for: Projects with code review workflow
+
+3. **sync-claude-config** - Keeps .claude/ config up to date
+   - Fetches latest docs, validates schema
+   - Useful for: Staying current with Claude Code features
+
+Use **AskUserQuestion** to ask which skills to install:
 
 ```
-question: "What do you want to update or migrate?"
-header: "Migration"
+question: "Which skills would you like to add to your project's .claude/?"
+header: "Skills"
+multiSelect: true
+options:
+  - label: "commit-advisor"
+    description: "Best practices for git commits and commit messages"
+  - label: "pull-request-advisor"
+    description: "Best practices for creating reviewable PRs"
+  - label: "sync-claude-config"
+    description: "Keep .claude/ configuration up to date"
+```
+
+## Phase 4: Ask Migration Plan
+
+Use **AskUserQuestion** to ask what else to update:
+
+```
+question: "What else do you want to configure?"
+header: "Config"
 multiSelect: true
 options:
   - label: "Agents"
-    description: "Add/update custom subagents for this project"
-  - label: "Skills"
-    description: "Add/update skills with YAML metadata"
+    description: "Add custom subagents for this project"
   - label: "Commands"
-    description: "Add/update slash commands"
+    description: "Add slash commands"
   - label: "Settings"
-    description: "Update settings.json configuration"
+    description: "Update settings.json"
 ```
 
-## Phase 4: Execute Plan
+## Phase 5: Execute Plan
 
-Based on user selection, for each selected item:
+### For Selected Skills
 
-1. **Agents**: Ask what new agents to create or which to update
-2. **Skills**: Ask what skills to add or migrate to YAML format
-3. **Commands**: Ask what commands to create or update
-4. **Settings**: Fetch latest docs and suggest settings updates
+Copy skill directories to project's `.claude/skills/`:
+- Create `.claude/skills/<skill-name>/SKILL.md`
+- Preserve YAML frontmatter and instructions
 
-For each item, ask clarifying questions before implementation:
-- What should it do?
-- What tools does it need?
-- Any specific behavior?
+### For Other Selections
+
+1. **Agents**: Ask what agents to create, then create in `.claude/agents/`
+2. **Commands**: Ask what commands to create, then create in `.claude/commands/`
+3. **Settings**: Fetch latest docs and suggest settings updates
 
 ## Example Flow
 
 ```
-[Phase 1: Run discover agents in parallel]
+[Phase 1: Discovery agents run in parallel]
 
 ## Current State
 ### .claude Configuration
-- 2 agents, 1 skill, 1 command configured
+- No skills configured
+- 1 command found
 ...
 
 ### Project Structure
-- TypeScript/Node.js project
+- TypeScript/Node.js project with git
 ...
 
-[Phase 3: AskUserQuestion - multiselect]
+## Recommended Skills
 
-User selects: Agents, Commands
+Based on your project:
+- commit-advisor (git project detected)
+- pull-request-advisor (collaborative project)
 
-[Phase 4: Follow-up questions]
+[Phase 3: AskUserQuestion - skills selection]
 
-"What agents do you want to add or update?"
-- Create new agent
-- Update discover-claude-dir
-- Update discover-project
+User selects: commit-advisor, pull-request-advisor
 
-[Implement based on answers]
+[Phase 4: AskUserQuestion - additional config]
+
+User selects: Settings
+
+[Phase 5: Execute]
+- Copy commit-advisor to .claude/skills/
+- Copy pull-request-advisor to .claude/skills/
+- Update settings.json with latest schema
 ```

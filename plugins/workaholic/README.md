@@ -6,7 +6,7 @@ Configure project's `.claude/` to make Claude Code work harder.
 
 | Skill | Description |
 |-------|-------------|
-| `/sync-claude-config` | Sync .claude/ config with latest Claude Code documentation |
+| `/refer-cc-document` | Reference Claude Code documentation |
 
 ## Installation
 

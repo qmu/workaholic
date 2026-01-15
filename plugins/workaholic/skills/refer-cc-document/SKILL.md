@@ -1,6 +1,6 @@
 ---
-name: sync-claude-config
-description: Keep project's `.claude/` configuration up to date with the latest Claude Code documentation. Use when the user asks to sync, update, or check their Claude configuration, or wants to know what's new in Claude Code config options.
+name: refer-cc-document
+description: Reference Claude Code documentation. Use when you need to check the latest Claude Code docs for settings, plugins, hooks, skills, or commands.
 allowed-tools:
   - Read
   - Write

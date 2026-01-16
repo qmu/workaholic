@@ -1,0 +1,43 @@
+# CC Marketplace Internal
+
+Internal marketplace for Claude Code plugins.
+
+## Project Structure
+
+```
+.claude-plugin/          # Marketplace configuration
+  marketplace.json       # Marketplace metadata and plugin list
+plugins/                 # Plugin source directories
+  workaholic/            # Workaholic plugin
+    .claude-plugin/      # Plugin configuration
+    commands/            # Plugin commands
+    skills/              # Plugin skills
+    agents/              # Plugin agents
+```
+
+## Commands
+
+| Command                          | Description                                              |
+| -------------------------------- | -------------------------------------------------------- |
+| `/commit`                        | Commit changes in logical units with meaningful messages |
+| `/pull-request`                  | Create or update PR with CHANGELOG-based summary         |
+| `/release [major\|minor\|patch]` | Release new marketplace version                          |
+| `/ticket <description>`          | Write implementation spec for a feature                  |
+| `/drive`                         | Implement queued specs one by one                        |
+
+## Development Workflow
+
+1. **Create specs**: Use `/ticket` to write implementation specs
+2. **Implement specs**: Use `/drive` to implement and commit each spec
+3. **Create PR**: Use `/pull-request` to create PR with auto-generated summary
+4. **Release**: Use `/release` to bump version and publish
+
+## Type Checking
+
+No build step required - this is a configuration/documentation project.
+
+## Version Management
+
+- Marketplace version: `.claude-plugin/marketplace.json`
+- Plugin versions: `plugins/<name>/.claude-plugin/plugin.json`
+- Keep versions in sync when releasing

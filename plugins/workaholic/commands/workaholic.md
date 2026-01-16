@@ -51,40 +51,24 @@ Output the proposal:
 - [item]: [what will be changed]
 ```
 
-## Phase 3: Get User Approval
+## Phase 3: Propose and Execute Updates One by One
 
-After outputting the proposal, call **AskUserQuestion** to let the user select which updates to apply:
+For each item in the "Will Update" section, propose and execute sequentially:
 
-```json
-{
-  "questions": [{
-    "question": "Which updates do you want to apply?",
-    "header": "Updates",
-    "multiSelect": true,
-    "options": [
-      {"label": "/commit command", "description": "[specific improvement]"},
-      {"label": "/pull-request command", "description": "[specific improvement]"},
-      {"label": "settings.json", "description": "[specific improvement]"}
-    ]
-  }]
-}
-```
+1. **Present the update**: Explain what will be changed and why
+2. **Execute immediately**: Apply the update without asking for confirmation
+3. **Report result**: Show what was done
+4. **Move to next**: Proceed to the next update
 
-Only include items from "Will Update" section as options.
+This approach allows the user to interrupt at any time if they don't want to continue.
 
-### If AskUserQuestion is denied (dontAsk mode)
+### If user interrupts
 
-Apply ALL recommended updates automatically and output:
+Stop immediately and report what has been completed so far.
 
-```
-dontAsk mode: Applying all updates...
-```
+## Update Procedures Reference
 
-## Phase 4: Execute Updates
-
-Execute the user-selected updates (or all updates in dontAsk mode).
-
-For each selected item:
+For each update type, follow these procedures:
 
 ### Rename Legacy Commands
 
@@ -127,25 +111,29 @@ If renaming legacy commands:
 ### Will Update
 - Rename /spec → /ticket
 - Rename /impl-spec → /drive
+- Update CLAUDE.md
 
-[Phase 3: AskUserQuestion dialog]
+[Phase 3: Propose and execute one by one]
 
-┌─ Updates ─────────────────────────────────────────┐
-│ Which updates do you want to apply?               │
-│                                                   │
-│ ☑ Rename /spec → /ticket                          │
-│   Rename command to new standard name             │
-│                                                   │
-│ ☑ Rename /impl-spec → /drive                      │
-│   Rename command to new standard name             │
-└───────────────────────────────────────────────────┘
+### 1. Rename /spec → /ticket
 
-[User selects both]
+The /spec command uses a legacy name. Renaming to /ticket for consistency.
 
-[Phase 4: Execute]
+Renaming .claude/commands/spec.md → ticket.md... Done.
 
-Renaming .claude/commands/spec.md → ticket.md...
-Renaming .claude/commands/impl-spec.md → drive.md...
+### 2. Rename /impl-spec → /drive
 
-Done.
+The /impl-spec command uses a legacy name. Renaming to /drive for consistency.
+
+Renaming .claude/commands/impl-spec.md → drive.md... Done.
+
+### 3. Update CLAUDE.md
+
+Updating command table to reflect renamed commands.
+
+Updating CLAUDE.md... Done.
+
+---
+
+All updates complete.
 ```

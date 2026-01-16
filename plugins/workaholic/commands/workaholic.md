@@ -10,7 +10,8 @@ Analyze `.claude/` configuration and update it to follow best practices.
 ## Scope
 
 This command **only updates**:
-- `.claude/` directory (commands, settings)
+
+- `.claude/` directory (commands, settings, rules)
 - `CLAUDE.md` file
 
 ## Phase 1: Discovery
@@ -25,19 +26,21 @@ Based on discovery results, analyze what's missing or could be improved.
 
 Check for legacy command names that should be renamed:
 
-| Legacy Name | New Name | Action |
-|-------------|----------|--------|
-| `/spec` | `/ticket` | Rename spec.md → ticket.md |
-| `/impl-spec` | `/drive` | Rename impl-spec.md → drive.md |
+| Legacy Name  | New Name  | Action                         |
+| ------------ | --------- | ------------------------------ |
+| `/spec`      | `/ticket` | Rename spec.md → ticket.md     |
+| `/impl-spec` | `/drive`  | Rename impl-spec.md → drive.md |
 
 If legacy commands are found, propose renaming them.
 
 ### Advisor Skills
 
 Use as reference knowledge:
+
 - `commit-advisor` - Best practices for /commit command
 - `pull-request-advisor` - Best practices for /pull-request command
 - `tdd-advisor` - Best practices for /ticket and /drive commands
+- `rule-advisor` - Best practices for .claude/rules/ with TypeScript conventions
 
 Output the proposal:
 
@@ -73,6 +76,7 @@ For each update type, follow these procedures:
 ### Rename Legacy Commands
 
 If renaming legacy commands:
+
 1. **Rename /spec → /ticket**: `mv .claude/commands/spec.md .claude/commands/ticket.md`, update name in frontmatter
 2. **Rename /impl-spec → /drive**: `mv .claude/commands/impl-spec.md .claude/commands/drive.md`, update name in frontmatter
 
@@ -83,10 +87,14 @@ If renaming legacy commands:
 3. **/ticket command**: Read `tdd-advisor` skill, then create/update `.claude/commands/ticket.md`
 4. **/drive command**: Read `tdd-advisor` skill, then create/update `.claude/commands/drive.md`
 
+### Create/Update Rules
+
+5. **TypeScript conventions**: Read `rule-advisor` skill, then create `.claude/rules/typescript-conventions.md`
+
 ### Other Updates
 
-5. **CLAUDE.md**: Create/update based on project analysis
-6. **settings.json**: Create/update `.claude/settings.json`
+6. **CLAUDE.md**: Create/update based on project analysis
+7. **settings.json**: Create/update `.claude/settings.json`
 
 ## Example Flow
 

@@ -41,6 +41,7 @@ Use as reference knowledge:
 - `pull-request-advisor` - Best practices for /pull-request command
 - `tdd-advisor` - Best practices for /ticket and /drive commands
 - `rule-advisor` - Best practices for .claude/rules/ with TypeScript conventions
+- `claude-md-advisor` - Best practices for CLAUDE.md structure
 
 Output the proposal:
 
@@ -93,7 +94,7 @@ If renaming legacy commands:
 
 ### Other Updates
 
-6. **CLAUDE.md**: Create/update based on project analysis
+6. **CLAUDE.md**: Read `claude-md-advisor` skill, then create/update `CLAUDE.md`
 7. **settings.json**: Create/update `.claude/settings.json`
 
 ## Example Flow

@@ -9,13 +9,14 @@ Reference skill providing best practices for configuring Claude Code projects.
 
 ## Topics
 
-| Topic | Description | Template |
-|-------|-------------|----------|
-| [commit](topics/commit.md) | /commit command best practices | `templates/commit-command.md` |
-| [pull-request](topics/pull-request.md) | /pull-request command best practices | `templates/pull-request-command.md` |
-| [tdd](topics/tdd.md) | /ticket and /drive workflow | `templates/ticket-command.md`, `templates/drive-command.md` |
-| [rules](topics/rules.md) | TypeScript coding conventions | `templates/typescript-conventions.md` |
-| [claude-md](topics/claude-md.md) | CLAUDE.md structure | `templates/claude-md.md` |
+| Topic                                  | Description                          | Template                                                    |
+| -------------------------------------- | ------------------------------------ | ----------------------------------------------------------- |
+| [commit](topics/commit.md)             | /commit command best practices       | `templates/commit-command.md`                               |
+| [pull-request](topics/pull-request.md) | /pull-request command best practices | `templates/pull-request-command.md`                         |
+| [tdd](topics/tdd.md)                   | /ticket and /drive workflow          | `templates/ticket-command.md`, `templates/drive-command.md` |
+| [general](topics/general.md)           | General rules (commit permission)    | `templates/general-rules.md`                                |
+| [rules](topics/rules.md)               | TypeScript coding conventions        | `templates/typescript-conventions.md`                       |
+| [claude-md](topics/claude-md.md)       | CLAUDE.md structure                  | `templates/claude-md.md`                                    |
 
 ## How to Use
 

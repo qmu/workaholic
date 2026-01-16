@@ -33,17 +33,72 @@ ls -1 doc/tickets/*.md 2>/dev/null | sort
 - Run type checks (per CLAUDE.md) to verify changes
 - Fix any type errors or test failures before proceeding
 
-#### 2.3 Ask User to Review Implementation
+#### 2.3 Update Documentation
+
+Update `doc/specs/` to reflect the changes:
+
+- Read changes to understand what was modified
+- Create files if they don't exist (generate from codebase analysis)
+- Only update sections relevant to the current changes
+- Update `README.md` with links to all documents
+
+**Index:**
+
+- `README.md` - Links to all documentation (user and developer)
+
+**User Documentation:**
+
+- `GETTING_STARTED.md` - Quick start, installation, first steps
+- `USER_GUIDE.md` - Complete usage instructions, workflows
+- `FAQ.md` - Common questions and answers
+
+**Developer Documentation:**
+
+- `FEATURES.md` - Feature catalog by category
+- `ARCHITECTURE.md` - System design, components, data flow
+- `NFR.md` - Performance, scalability, reliability
+- `API.md` - Interfaces, contracts, endpoints
+- `DATA_MODEL.md` - Data structures, schemas
+- `CONFIGURATION.md` - Settings, environment variables
+- `SECURITY.md` - Auth, permissions, vulnerabilities
+- `TESTING.md` - Test strategy, coverage
+- `DEPENDENCIES.md` - External libraries, requirements
+
+**README.md format:**
+
+```markdown
+# Documentation
+
+## User Documentation
+
+- [Getting Started](GETTING_STARTED.md) - Quick start, installation, first steps
+- [User Guide](USER_GUIDE.md) - Complete usage instructions, workflows
+- [FAQ](FAQ.md) - Common questions and answers
+
+## Developer Documentation
+
+- [Features](FEATURES.md) - Feature catalog by category
+- [Architecture](ARCHITECTURE.md) - System design, components, data flow
+- [NFR](NFR.md) - Performance, scalability, reliability
+- [API](API.md) - Interfaces, contracts, endpoints
+- [Data Model](DATA_MODEL.md) - Data structures, schemas
+- [Configuration](CONFIGURATION.md) - Settings, environment variables
+- [Security](SECURITY.md) - Auth, permissions, vulnerabilities
+- [Testing](TESTING.md) - Test strategy, coverage
+- [Dependencies](DEPENDENCIES.md) - External libraries, requirements
+```
+
+#### 2.4 Ask User to Review Implementation
 
 - **STOP and ask the user to review the implementation before proceeding**
-- Show a summary of changes made
+- Show a summary of changes made (including doc updates)
 - Use AskUserQuestion tool to confirm:
   - "Approve" - implementation is correct, proceed to commit
   - "Needs changes" - user will provide feedback to fix
 - Do NOT proceed to commit until user explicitly approves
 - If user requests changes, make them and ask for review again
 
-#### 2.4 Commit Following /commit Manner
+#### 2.5 Commit Following /commit Manner
 
 - Run `git status` to see all changes
 - Run `npx prettier --write` on modified files if needed
@@ -55,7 +110,7 @@ ls -1 doc/tickets/*.md 2>/dev/null | sort
   - Keep title concise (50 chars or less)
   - Add body with context if needed
 
-#### 2.5 Archive the Ticket and Update Branch CHANGELOG
+#### 2.6 Archive the Ticket and Update Branch CHANGELOG
 
 - Get current branch name: `git branch --show-current`
 - Create branch archive directory: `doc/tickets/archive/<branch-name>/`
@@ -96,10 +151,10 @@ ls -1 doc/tickets/*.md 2>/dev/null | sort
 
 Each entry includes a relative link to the archived ticket file for easy reference on GitHub.
 
-#### 2.6 Move to Next Ticket
+#### 2.7 Move to Next Ticket
 
 - Proceed to the next ticket in the list
-- Repeat steps 2.1 through 2.5
+- Repeat steps 2.1 through 2.6
 
 ### 3. Completion
 

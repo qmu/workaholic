@@ -1,4 +1,10 @@
-## TypeScript Coding Conventions
+---
+paths:
+  - '**/*.ts'
+  - '**/*.tsx'
+---
+
+# TypeScript Coding Conventions
 
 - **Use path aliases for imports** - Use path aliases (e.g., `@lib/*`, `@utils/*`) instead of relative imports (`../`). Only use `./` for same-directory imports.
 - **Avoid `any`** - Use `unknown` instead of `any` as the first option

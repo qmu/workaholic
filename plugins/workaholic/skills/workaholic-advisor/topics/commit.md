@@ -12,16 +12,15 @@ Best practices for the `/commit` command.
 1. Check `.claude/commands/` for existing commit command
 2. Review `git log` for commit message patterns
 3. Check for prettier/eslint in package.json
-4. Check if project uses `doc/specs/` workflow
+4. Check if project uses `doc/tickets/` workflow
 
 ## Customization Questions
 
-| Question | Options | Default |
-|----------|---------|---------|
-| Formatter | prettier, eslint --fix, none | prettier |
+| Question        | Options                                 | Default     |
+| --------------- | --------------------------------------- | ----------- |
+| Formatter       | prettier, eslint --fix, none            | prettier    |
 | Commit prefixes | conventional (feat:, fix:), plain verbs | plain verbs |
-| Spec workflow | archive completed specs | no |
-| Co-author | add Co-Authored-By line | yes |
+| Co-author       | add Co-Authored-By line                 | yes         |
 
 ## Template
 

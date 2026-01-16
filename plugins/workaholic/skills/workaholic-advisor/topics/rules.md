@@ -1,6 +1,6 @@
 # TypeScript Rules
 
-Best practices for `.claude/rules/` with TypeScript coding conventions.
+Best practices for `.claude/rules/typescript.md` with TypeScript coding conventions.
 
 ## When to Propose
 
@@ -13,34 +13,15 @@ Best practices for `.claude/rules/` with TypeScript coding conventions.
 2. Review tsconfig.json (strict mode, paths)
 3. Check ESLint/Biome config if present
 4. Analyze existing code patterns
-
-## Rule Categories
-
-### Import Patterns
-
-- Use path aliases instead of `../` relative imports
-- Only use `./` for same-directory imports
-
-### Type Safety
-
-- Avoid `any` - use `unknown` as first option
-- Avoid `as` assertions - prefer type guards
-- Use `type` over `interface`
-- Use `undefined` over `null`
-
-### Code Hygiene
-
-- Inline single-use types in function signatures
-- Avoid unnecessary optionals without reason
-- Delete dead code immediately
+5. Determine appropriate `paths` globs for the project
 
 ## Customization Questions
 
-| Question | Options | Default |
-|----------|---------|---------|
-| Path aliases | project-specific from tsconfig | detect |
-| Null policy | undefined only, allow null | undefined |
-| Interface policy | type only, allow interface | type only |
+| Question         | Options                        | Default   |
+| ---------------- | ------------------------------ | --------- |
+| Path aliases     | project-specific from tsconfig | detect    |
+| Null policy      | undefined only, allow null     | undefined |
+| Interface policy | type only, allow interface     | type only |
 
 ## Template
 

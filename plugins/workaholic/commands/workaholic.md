@@ -37,13 +37,14 @@ If legacy commands are found, propose renaming them.
 
 Read `workaholic-advisor` skill for best practices. Topics available:
 
-| Topic | Use For |
-|-------|---------|
-| `topics/commit.md` | /commit command |
-| `topics/pull-request.md` | /pull-request command |
-| `topics/tdd.md` | /ticket and /drive commands |
-| `topics/rules.md` | .claude/rules/ TypeScript conventions |
-| `topics/claude-md.md` | CLAUDE.md structure |
+| Topic                    | Use For                               |
+| ------------------------ | ------------------------------------- |
+| `topics/commit.md`       | /commit command                       |
+| `topics/pull-request.md` | /pull-request command                 |
+| `topics/tdd.md`          | /ticket and /drive commands           |
+| `topics/general.md`      | .claude/rules/general.md              |
+| `topics/rules.md`        | .claude/rules/ TypeScript conventions |
+| `topics/claude-md.md`    | CLAUDE.md structure                   |
 
 Output the proposal:
 
@@ -92,12 +93,13 @@ If renaming legacy commands:
 
 ### Create/Update Rules
 
-5. **TypeScript conventions**: Read `workaholic-advisor/topics/rules.md` and `templates/typescript-conventions.md`
+5. **General rules**: Read `workaholic-advisor/topics/general.md` and `templates/general-rules.md`
+6. **TypeScript conventions**: Read `workaholic-advisor/topics/rules.md` and `templates/typescript-conventions.md`
 
 ### Other Updates
 
-6. **CLAUDE.md**: Read `workaholic-advisor/topics/claude-md.md` and `templates/claude-md.md`
-7. **settings.json**: Create/update `.claude/settings.json`
+7. **CLAUDE.md**: Read `workaholic-advisor/topics/claude-md.md` and `templates/claude-md.md`
+8. **settings.json**: Create/update `.claude/settings.json`
 
 ## Example Flow
 

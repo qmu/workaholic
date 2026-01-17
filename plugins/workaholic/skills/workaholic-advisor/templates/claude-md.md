@@ -2,7 +2,7 @@
 
 ## Written Language
 
-All documentation, commit messages, issues, and pull requests should be written in **English**.
+All documentation, commit messages, and pull requests should be written in **English**.
 
 ## Project Summary
 
@@ -15,6 +15,15 @@ Brief description of what the project does and its main purpose.
 - **Framework**: Next.js 14
 - **Database**: PostgreSQL with Prisma
 - **Testing**: Vitest
+
+## Commands
+
+| Command        | Description                                          |
+| -------------- | ---------------------------------------------------- |
+| `/commit`      | Commit changes with meaningful messages              |
+| `/pull-request`| Create or update PR with summary                     |
+| `/ticket`      | Explore codebase and write implementation spec       |
+| `/drive`       | Implement specs one by one, commit each, and archive |
 
 ## Setup
 

@@ -12,30 +12,94 @@ Analyze `.claude/` configuration and update it to follow best practices.
 This command **only updates**:
 
 - `.claude/` directory (commands, settings, rules)
-- `CLAUDE.md` file
+- `CLAUDE.md` file (add missing sections only)
+
+## Principle
+
+**Add missing items, never overwrite existing content.**
 
 ## Phase 1: Discovery
 
-Launch the **discover-claude-dir** agent using the Task tool to explore the `.claude/` directory configuration.
+Launch the **discover-claude-dir** agent to explore:
 
-## Phase 2: Analyze and Output Proposal
+- `.claude/` directory configuration
+- Existing `CLAUDE.md` content
+- `package.json`, `Cargo.toml`, `go.mod` for tech stack
 
-Based on discovery results, analyze what's missing or could be improved.
+## Phase 2: Validation
 
-### Legacy Command Detection
+Check for missing or incomplete items using this checklist:
 
-Check for legacy command names that should be renamed:
+### CLAUDE.md Checklist
+
+| Section          | Required | Check                                    |
+| ---------------- | -------- | ---------------------------------------- |
+| Written Language | Yes      | Must specify language (English, etc.)    |
+| Tech Stack       | Yes      | Must list runtime, language, framework   |
+| Project Summary  | Yes      | Must describe what the project does      |
+| Setup            | No       | Installation and run instructions        |
+| Commands         | No       | Table of available commands if any exist |
+
+### .claude/ Checklist
+
+| Item                 | Check                                         |
+| -------------------- | --------------------------------------------- |
+| /commit command      | Exists and follows best practices             |
+| /pull-request        | Exists and follows best practices             |
+| /ticket command      | Exists (or legacy /spec to rename)            |
+| /drive command       | Exists (or legacy /impl-spec to rename)       |
+| General rules        | .claude/rules/general.md exists               |
+| TypeScript rules     | .claude/rules/typescript.md if TS project     |
+
+### Legacy Detection
 
 | Legacy Name  | New Name  | Action                         |
 | ------------ | --------- | ------------------------------ |
 | `/spec`      | `/ticket` | Rename spec.md → ticket.md     |
 | `/impl-spec` | `/drive`  | Rename impl-spec.md → drive.md |
 
-If legacy commands are found, propose renaming them.
+## Phase 3: Proposal
 
-### Advisor Skill
+Output what's found and what will be added:
 
-Read `workaholic-advisor` skill for best practices. Topics available:
+```
+## Current State
+
+### CLAUDE.md
+- Written Language: [found / MISSING]
+- Tech Stack: [found / MISSING]
+- Project Summary: [found / MISSING]
+- Commands: [found / not needed / MISSING]
+
+### .claude/
+- /commit: [found / MISSING]
+- /pull-request: [found / MISSING]
+- /ticket: [found / legacy /spec / MISSING]
+- /drive: [found / legacy /impl-spec / MISSING]
+- General rules: [found / MISSING]
+- TypeScript rules: [found / not needed / MISSING]
+
+## Will Add
+
+- [item]: [what will be added]
+```
+
+**Important**: If CLAUDE.md has existing command descriptions, do NOT propose changing them.
+
+## Phase 4: Execute Updates
+
+For each item in "Will Add":
+
+1. **Present**: Explain what will be added
+2. **Execute**: Add the missing item
+3. **Report**: Show what was done
+4. **Continue**: Move to next item
+
+User can interrupt at any time.
+
+## Advisor Reference
+
+Read `workaholic-advisor` skill for templates:
 
 | Topic                    | Use For                               |
 | ------------------------ | ------------------------------------- |
@@ -44,109 +108,5 @@ Read `workaholic-advisor` skill for best practices. Topics available:
 | `topics/tdd.md`          | /ticket and /drive commands           |
 | `topics/general.md`      | .claude/rules/general.md              |
 | `topics/rules.md`        | .claude/rules/ TypeScript conventions |
-| `topics/claude-md.md`    | CLAUDE.md structure                   |
+| `topics/claude-md.md`    | CLAUDE.md missing sections            |
 
-Output the proposal:
-
-```
-## Proposal
-
-### Already Configured
-- [item]: [status]
-
-### Will Update
-- [item]: [what will be changed]
-```
-
-## Phase 3: Propose and Execute Updates One by One
-
-For each item in the "Will Update" section, propose and execute sequentially:
-
-1. **Present the update**: Explain what will be changed and why
-2. **Execute immediately**: Apply the update without asking for confirmation
-3. **Report result**: Show what was done
-4. **Move to next**: Proceed to the next update
-
-This approach allows the user to interrupt at any time if they don't want to continue.
-
-### If user interrupts
-
-Stop immediately and report what has been completed so far.
-
-## Update Procedures Reference
-
-For each update type, follow these procedures:
-
-### Rename Legacy Commands
-
-If renaming legacy commands:
-
-1. **Rename /spec → /ticket**: `mv .claude/commands/spec.md .claude/commands/ticket.md`, update name in frontmatter
-2. **Rename /impl-spec → /drive**: `mv .claude/commands/impl-spec.md .claude/commands/drive.md`, update name in frontmatter
-
-### Create/Update Commands
-
-1. **/commit command**: Read `workaholic-advisor/topics/commit.md` and `templates/commit-command.md`
-2. **/pull-request command**: Read `workaholic-advisor/topics/pull-request.md` and `templates/pull-request-command.md`
-3. **/ticket command**: Read `workaholic-advisor/topics/tdd.md` and `templates/ticket-command.md`
-4. **/drive command**: Read `workaholic-advisor/topics/tdd.md` and `templates/drive-command.md`
-
-### Create/Update Rules
-
-5. **General rules**: Read `workaholic-advisor/topics/general.md` and `templates/general-rules.md`
-6. **TypeScript conventions**: Read `workaholic-advisor/topics/rules.md` and `templates/typescript-conventions.md`
-
-### Other Updates
-
-7. **CLAUDE.md**: Read `workaholic-advisor/topics/claude-md.md` and `templates/claude-md.md`
-8. **settings.json**: Create/update `.claude/settings.json`
-
-## Example Flow
-
-### Example: Rename legacy commands
-
-```
-[Phase 1: discover-claude-dir agent]
-
-## Current State
-- Has /spec command (legacy)
-- Has /impl-spec command (legacy)
-- Has /commit, /pull-request commands
-
-[Phase 2: Output proposal]
-
-## Proposal
-
-### Already Configured
-- /commit command: Well configured
-- /pull-request command: Well configured
-
-### Will Update
-- Rename /spec → /ticket
-- Rename /impl-spec → /drive
-- Update CLAUDE.md
-
-[Phase 3: Propose and execute one by one]
-
-### 1. Rename /spec → /ticket
-
-The /spec command uses a legacy name. Renaming to /ticket for consistency.
-
-Renaming .claude/commands/spec.md → ticket.md... Done.
-
-### 2. Rename /impl-spec → /drive
-
-The /impl-spec command uses a legacy name. Renaming to /drive for consistency.
-
-Renaming .claude/commands/impl-spec.md → drive.md... Done.
-
-### 3. Update CLAUDE.md
-
-Updating command table to reflect renamed commands.
-
-Updating CLAUDE.md... Done.
-
----
-
-All updates complete.
-```

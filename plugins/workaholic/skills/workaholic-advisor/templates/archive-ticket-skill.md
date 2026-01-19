@@ -1,31 +1,28 @@
 ---
 name: archive-ticket
-description: Archive a completed ticket to the branch-specific archive folder. Use after committing a ticket implementation.
+description: Archive a completed ticket to branch-specific folder. Use when moving a ticket file to the archive after implementation is committed.
 allowed-tools: Bash
+user-invocable: false
 ---
 
 # Archive Ticket
 
-Archive a completed ticket to `doc/tickets/archive/<branch>/`.
+Move a completed ticket to `doc/tickets/archive/<branch>/`.
 
-## Usage
+## When to Use
 
-Invoke after committing a ticket:
-
-```
-/archive-ticket doc/tickets/20260115-feature.md
-```
+Use this skill after committing a ticket implementation to archive the ticket file.
 
 ## Instructions
 
-Run the archive script with the ticket path:
+Run the bundled script with the ticket path:
 
 ```bash
-bash .claude/skills/archive-ticket/scripts/archive.sh "$ARGUMENTS"
+bash .claude/skills/archive-ticket/scripts/archive.sh <ticket-path>
 ```
 
-The script will:
-1. Get the current branch name
-2. Create the archive directory if needed
-3. Move the ticket to `doc/tickets/archive/<branch>/`
-4. Output the new location
+Example:
+
+```bash
+bash .claude/skills/archive-ticket/scripts/archive.sh doc/tickets/20260115-feature.md
+```

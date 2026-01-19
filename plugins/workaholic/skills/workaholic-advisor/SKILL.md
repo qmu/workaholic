@@ -1,6 +1,6 @@
 ---
 name: workaholic-advisor
-description: Best practices for Claude Code configuration (.claude/, CLAUDE.md, commands, rules).
+description: Best practices for Claude Code configuration (.claude/, CLAUDE.md, commands, skills, rules).
 ---
 
 # Workaholic Advisor
@@ -9,29 +9,39 @@ Reference skill providing best practices for configuring Claude Code projects.
 
 ## Topics
 
-| Topic                                  | Description                          | Template                                                    |
-| -------------------------------------- | ------------------------------------ | ----------------------------------------------------------- |
-| [commit](topics/commit.md)             | /commit command best practices       | `templates/commit-command.md`                               |
-| [pull-request](topics/pull-request.md) | /pull-request command best practices | `templates/pull-request-command.md`                         |
-| [tdd](topics/tdd.md)                   | /ticket and /drive workflow          | `templates/ticket-command.md`, `templates/drive-command.md` |
-| [general](topics/general.md)           | General rules (commit permission)    | `templates/general-rules.md`                                |
-| [rules](topics/rules.md)               | TypeScript coding conventions        | `templates/typescript-conventions.md`                       |
-| [claude-md](topics/claude-md.md)       | CLAUDE.md structure                  | `templates/claude-md.md`                                    |
+| Topic | Type | Target Path | Condition | Template(s) |
+| ----- | ---- | ----------- | --------- | ----------- |
+| [commit](topics/commit.md) | command | `.claude/commands/commit.md` | Always | `templates/commit-command.md` |
+| [pull-request](topics/pull-request.md) | command | `.claude/commands/pull-request.md` | Always | `templates/pull-request-command.md` |
+| [tdd](topics/tdd.md) | command | `.claude/commands/ticket.md`, `.claude/commands/drive.md` | Always | `templates/ticket-command.md`, `templates/drive-command.md` |
+| [archive-ticket](topics/archive-ticket.md) | skill | `.claude/skills/archive-ticket/` | If /drive exists | `templates/archive-ticket-skill.md`, `templates/archive-ticket-script.sh` |
+| [general](topics/general.md) | rule | `.claude/rules/general.md` | Always | `templates/general-rules.md` |
+| [rules](topics/rules.md) | rule | `.claude/rules/typescript.md` | If TypeScript project | `templates/typescript-conventions.md` |
+| [claude-md](topics/claude-md.md) | file | `CLAUDE.md` | Always (add missing sections) | `templates/claude-md.md` |
 
 ## How to Use
 
-1. Read the relevant **topic** file for guidance and customization options
-2. Read the **template** file for the actual content to create
-3. Customize based on project analysis
-4. Create the file in the user's project
+1. Read the **topic** file to understand:
+   - What it provides
+   - When to propose it (condition)
+   - Customization options
+2. Check if the **target path** exists in the user's project
+3. If MISSING and condition is met, read the **template** and create it
 
-## Common Workflow
+## Legacy Detection
+
+| Legacy Path | Current Path | Action |
+| ----------- | ------------ | ------ |
+| `.claude/commands/spec.md` | `.claude/commands/ticket.md` | Rename |
+| `.claude/commands/impl-spec.md` | `.claude/commands/drive.md` | Rename |
+
+## Skill Structure
+
+Skills require a directory with SKILL.md and optional scripts:
 
 ```
-1. Check if configuration already exists
-2. Analyze project conventions (git log, package.json, etc.)
-3. Read topic guide for customization questions
-4. Read template for content structure
-5. Propose customized version to user
-6. Create/update the configuration file
+.claude/skills/<name>/
+├── SKILL.md
+└── scripts/
+    └── <script>.sh
 ```

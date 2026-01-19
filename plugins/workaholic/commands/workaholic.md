@@ -11,12 +11,16 @@ Analyze `.claude/` configuration and update it to follow best practices.
 
 This command **only updates**:
 
-- `.claude/` directory (commands, settings, rules)
+- `.claude/` directory (commands, skills, rules)
 - `CLAUDE.md` file (add missing sections only)
 
-## Principle
+## Core Rule
 
-**Add missing items, never overwrite existing content.**
+**Apply all knowledge from `workaholic-advisor` skill.**
+
+1. Read `workaholic-advisor/SKILL.md` to discover all available topics
+2. For each topic, check if the corresponding item exists in the user's project
+3. Every MISSING item MUST be added - no exceptions
 
 ## Phase 1: Discovery
 
@@ -26,87 +30,43 @@ Launch the **discover-claude-dir** agent to explore:
 - Existing `CLAUDE.md` content
 - `package.json`, `Cargo.toml`, `go.mod` for tech stack
 
+Read `workaholic-advisor/SKILL.md` to get the list of all topics and templates.
+
 ## Phase 2: Validation
 
-Check for missing or incomplete items using this checklist:
+For each topic in `workaholic-advisor`:
 
-### CLAUDE.md Checklist
-
-| Section          | Required | Check                                    |
-| ---------------- | -------- | ---------------------------------------- |
-| Written Language | Yes      | Must specify language (English, etc.)    |
-| Tech Stack       | Yes      | Must list runtime, language, framework   |
-| Project Summary  | Yes      | Must describe what the project does      |
-| Setup            | No       | Installation and run instructions        |
-| Commands         | No       | Table of available commands if any exist |
-
-### .claude/ Checklist
-
-| Item                 | Check                                         |
-| -------------------- | --------------------------------------------- |
-| /commit command      | Exists and follows best practices             |
-| /pull-request        | Exists and follows best practices             |
-| /ticket command      | Exists (or legacy /spec to rename)            |
-| /drive command       | Exists (or legacy /impl-spec to rename)       |
-| General rules        | .claude/rules/general.md exists               |
-| TypeScript rules     | .claude/rules/typescript.md if TS project     |
-
-### Legacy Detection
-
-| Legacy Name  | New Name  | Action                         |
-| ------------ | --------- | ------------------------------ |
-| `/spec`      | `/ticket` | Rename spec.md → ticket.md     |
-| `/impl-spec` | `/drive`  | Rename impl-spec.md → drive.md |
+1. Read the topic file to understand what it provides and when it applies
+2. Check if the item exists in the user's project
+3. Mark status:
+   - ✅ found - exists and correct
+   - 🔄 legacy - exists but needs rename/update
+   - ⏭️ not needed - condition not met (e.g., TypeScript rules for non-TS project)
+   - ❌ MISSING - must be added
 
 ## Phase 3: Proposal
 
-Output what's found and what will be added:
+Output status for every topic checked:
 
 ```
 ## Current State
 
-### CLAUDE.md
-- Written Language: [found / MISSING]
-- Tech Stack: [found / MISSING]
-- Project Summary: [found / MISSING]
-- Commands: [found / not needed / MISSING]
-
-### .claude/
-- /commit: [found / MISSING]
-- /pull-request: [found / MISSING]
-- /ticket: [found / legacy /spec / MISSING]
-- /drive: [found / legacy /impl-spec / MISSING]
-- General rules: [found / MISSING]
-- TypeScript rules: [found / not needed / MISSING]
+[For each topic from workaholic-advisor, show status]
 
 ## Will Add
 
-- [item]: [what will be added]
+[List ALL items marked ❌ MISSING or 🔄 legacy]
 ```
 
-**Important**: If CLAUDE.md has existing command descriptions, do NOT propose changing them.
+**Rule**: Every ❌ MISSING and 🔄 legacy item MUST appear in "Will Add".
 
 ## Phase 4: Execute Updates
 
 For each item in "Will Add":
 
-1. **Present**: Explain what will be added
-2. **Execute**: Add the missing item
-3. **Report**: Show what was done
-4. **Continue**: Move to next item
+1. Read the topic from `workaholic-advisor` for guidance
+2. Read the template(s) from `workaholic-advisor` for content
+3. Create the file/directory in the user's project
+4. Report what was created
 
-User can interrupt at any time.
-
-## Advisor Reference
-
-Read `workaholic-advisor` skill for templates:
-
-| Topic                    | Use For                               |
-| ------------------------ | ------------------------------------- |
-| `topics/commit.md`       | /commit command                       |
-| `topics/pull-request.md` | /pull-request command                 |
-| `topics/tdd.md`          | /ticket and /drive commands           |
-| `topics/general.md`      | .claude/rules/general.md              |
-| `topics/rules.md`        | .claude/rules/ TypeScript conventions |
-| `topics/claude-md.md`    | CLAUDE.md missing sections            |
-
+**Do not skip items. Do not ask if user wants to add MISSING items - add them.**

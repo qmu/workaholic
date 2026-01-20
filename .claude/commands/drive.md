@@ -51,60 +51,42 @@ ls -1 doc/specs/*.md 2>/dev/null | sort
 - This two-step process (approve implementation → approve commit) prevents accidental commits
 - Only proceed to commit when user explicitly says "Commit" or equivalent
 
-#### 2.5 Commit Following /commit Manner
+#### 2.5 Commit and Archive Using Skill
 
-- Run `git status` to see all changes
-- Run `npx prettier --write` on modified files if needed
-- Group changes into a single logical commit for the spec
-- **Commit Message Rules**:
-  - NO prefixes (no `[feat]`, `fix:`, etc.)
-  - Start with present-tense verb (Add, Update, Fix, Remove, Refactor)
-  - Focus on **WHY** the change was made
-  - Keep title concise (50 chars or less)
-  - Add body with context if needed
+After user approves, run the archive-ticket skill which handles everything:
 
-#### 2.6 Archive the Spec and Update Branch CHANGELOG
-
-- Get current branch name: `git branch --show-current`
-- Create branch archive directory: `doc/specs/archive/<branch-name>/`
-- Move the spec file to the branch archive
-- **Update branch CHANGELOG**:
-  - Create/update `doc/specs/archive/<branch-name>/CHANGELOG.md`
-  - Add entry for the implemented spec under appropriate section (Added/Changed/Removed)
-  - Format: `- <commit message> ([hash](commit-url)) - [spec](spec-filename.md)`
-  - Include relative link to archived spec file for GitHub viewing
-  - Categorize by commit verb (Add→Added, Update/Fix→Changed, Remove→Removed)
-- Include both the move and CHANGELOG update in the commit by amending:
-  ```bash
-  BRANCH=$(git branch --show-current)
-  mkdir -p "doc/specs/archive/${BRANCH}"
-  mv "doc/specs/<spec-file>.md" "doc/specs/archive/${BRANCH}/"
-  # Update branch CHANGELOG.md (see format below)
-  git add -A
-  git commit --amend --no-edit
-  ```
-
-**Branch CHANGELOG format** (`doc/specs/archive/<branch>/CHANGELOG.md`):
-
-```markdown
-# Branch Changelog
-
-## Added
-
-- New feature description ([abc1234](commit-url)) - [spec](spec-filename.md)
-
-## Changed
-
-- Modification description ([def5678](commit-url)) - [spec](spec-filename.md)
-
-## Removed
-
-- Removed item description ([ghi9012](commit-url)) - [spec](spec-filename.md)
+```bash
+bash .claude/skills/archive-ticket/scripts/archive.sh \
+  <spec-path> \
+  "<commit-message>" \
+  <repo-url> \
+  [modified-files...]
 ```
 
-Each entry includes a relative link to the archived spec file for easy reference on GitHub.
+Example:
 
-#### 2.7 Re-check Specs Queue Before Next
+```bash
+bash .claude/skills/archive-ticket/scripts/archive.sh \
+  doc/specs/20260115-feature.md \
+  "Add new feature for user authentication" \
+  https://github.com/org/repo \
+  src/auth.ts src/login.tsx
+```
+
+The script handles:
+1. Format modified files with prettier
+2. Archive spec to `doc/specs/archive/<branch>/`
+3. Create/update branch CHANGELOG
+4. Stage all changes and commit
+5. Add commit hash to CHANGELOG (via amend)
+
+**Commit Message Rules**:
+- NO prefixes (no `[feat]`, `fix:`, etc.)
+- Start with present-tense verb (Add, Update, Fix, Remove, Refactor)
+- Focus on **WHY** the change was made
+- Keep title concise (50 chars or less)
+
+#### 2.6 Re-check Specs Queue Before Next
 
 - After archiving, re-scan `doc/specs/` for any new or remaining spec files:
   ```bash
@@ -121,10 +103,10 @@ Each entry includes a relative link to the archived spec file for easy reference
   - "Stop" / "Pause" - stop here, user can resume later
 - This ensures user has control over the pace and can pause at any time
 
-#### 2.8 Move to Next Spec
+#### 2.7 Move to Next Spec
 
 - Only if user confirms to continue, proceed to the next spec in the list
-- Repeat steps 2.1 through 2.7
+- Repeat steps 2.1 through 2.6
 
 ### 3. Completion
 

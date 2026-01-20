@@ -98,63 +98,45 @@ Update `doc/specs/` to reflect the changes:
 - Do NOT proceed to commit until user explicitly approves
 - If user requests changes, make them and ask for review again
 
-#### 2.5 Commit Following /commit Manner
+#### 2.5 Commit and Archive Using Skill
 
-- Run `git status` to see all changes
-- Run `npx prettier --write` on modified files if needed
-- Group changes into a single logical commit for the ticket
-- **Commit Message Rules**:
-  - NO prefixes (no `[feat]`, `fix:`, etc.)
-  - Start with present-tense verb (Add, Update, Fix, Remove, Refactor)
-  - Focus on **WHY** the change was made
-  - Keep title concise (50 chars or less)
-  - Add body with context if needed
+After user approves, run the archive-ticket skill which handles everything:
 
-#### 2.6 Archive the Ticket and Update Branch CHANGELOG
-
-- Get current branch name: `git branch --show-current`
-- Create branch archive directory: `doc/tickets/archive/<branch-name>/`
-- Move the ticket file to the branch archive
-- **Update branch CHANGELOG**:
-  - Create/update `doc/tickets/archive/<branch-name>/CHANGELOG.md`
-  - Add entry for the implemented ticket under appropriate section (Added/Changed/Removed)
-  - Format: `- <commit message> ([hash](commit-url)) - [ticket](ticket-filename.md)`
-  - Include relative link to archived ticket file for GitHub viewing
-  - Categorize by commit verb (Add→Added, Update/Fix→Changed, Remove→Removed)
-- Include both the move and CHANGELOG update in the commit by amending:
-  ```bash
-  BRANCH=$(git branch --show-current)
-  mkdir -p "doc/tickets/archive/${BRANCH}"
-  mv "doc/tickets/<ticket-file>.md" "doc/tickets/archive/${BRANCH}/"
-  # Update branch CHANGELOG.md (see format below)
-  git add -A
-  git commit --amend --no-edit
-  ```
-
-**Branch CHANGELOG format** (`doc/tickets/archive/<branch>/CHANGELOG.md`):
-
-```markdown
-# Branch Changelog
-
-## Added
-
-- New feature description ([abc1234](commit-url)) - [ticket](ticket-filename.md)
-
-## Changed
-
-- Modification description ([def5678](commit-url)) - [ticket](ticket-filename.md)
-
-## Removed
-
-- Removed item description ([ghi9012](commit-url)) - [ticket](ticket-filename.md)
+```bash
+bash .claude/skills/archive-ticket/scripts/archive.sh \
+  <ticket-path> \
+  "<commit-message>" \
+  <repo-url> \
+  [modified-files...]
 ```
 
-Each entry includes a relative link to the archived ticket file for easy reference on GitHub.
+Example:
 
-#### 2.7 Move to Next Ticket
+```bash
+bash .claude/skills/archive-ticket/scripts/archive.sh \
+  doc/tickets/20260115-feature.md \
+  "Add new feature for user authentication" \
+  https://github.com/org/repo \
+  src/auth.ts src/login.tsx
+```
+
+The script handles:
+1. Format modified files with prettier
+2. Archive ticket to `doc/tickets/archive/<branch>/`
+3. Create/update branch CHANGELOG
+4. Stage all changes and commit
+5. Add commit hash to CHANGELOG (via amend)
+
+**Commit Message Rules**:
+- NO prefixes (no `[feat]`, `fix:`, etc.)
+- Start with present-tense verb (Add, Update, Fix, Remove, Refactor)
+- Focus on **WHY** the change was made
+- Keep title concise (50 chars or less)
+
+#### 2.6 Move to Next Ticket
 
 - Proceed to the next ticket in the list
-- Repeat steps 2.1 through 2.6
+- Repeat steps 2.1 through 2.5
 
 ### 3. Completion
 

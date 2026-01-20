@@ -1,10 +1,10 @@
 # Archive Ticket Skill
 
-Best practices for archiving completed tickets using a skill with bundled shell script.
+Complete commit workflow - format, archive, update changelog, and commit in one operation.
 
 ## Overview
 
-A skill that provides a reusable shell script for archiving tickets to branch-specific folders. The `/drive` command can invoke this skill instead of outputting raw bash commands.
+A skill that provides a reusable shell script for the complete commit workflow. The `/drive` command invokes this skill after user approves implementation, handling everything in a single bash call.
 
 ## When to Propose
 
@@ -19,22 +19,29 @@ A skill that provides a reusable shell script for archiving tickets to branch-sp
 └── archive-ticket/
     ├── SKILL.md              # Skill definition
     └── scripts/
-        └── archive.sh        # Shell script for archiving
+        └── archive.sh        # Shell script for complete workflow
 ```
 
 ## How It Works
 
-1. `/drive` completes implementation and commits
-2. `/drive` invokes archive-ticket skill: `/archive-ticket <ticket-path>`
-3. Skill runs `scripts/archive.sh` with the ticket path
-4. Script moves ticket to `doc/tickets/archive/<branch>/`
+1. User approves implementation in `/drive`
+2. `/drive` runs the archive script with ticket path, commit message, and repo URL
+3. Script handles everything:
+   - Format modified files with prettier
+   - Archive ticket to `<ticket-dir>/archive/<branch>/`
+   - Create/update branch CHANGELOG
+   - Stage all changes and commit
+   - Add commit hash to CHANGELOG (via amend)
 
-## Customization Questions
+## Usage
 
-| Question | Options | Default |
-|----------|---------|---------|
-| Archive location | doc/tickets/archive/, .archive/, custom | doc/tickets/archive/ |
-| Organize by | branch, date, flat | branch |
+```bash
+bash .claude/skills/archive-ticket/scripts/archive.sh \
+  <ticket-path> \
+  "<commit-message>" \
+  <repo-url> \
+  [modified-files...]
+```
 
 ## Template
 

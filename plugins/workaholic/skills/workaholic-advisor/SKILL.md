@@ -9,15 +9,16 @@ Reference skill providing best practices for configuring Claude Code projects.
 
 ## Topics
 
-| Topic | Type | Target Path | Condition | Template(s) |
-| ----- | ---- | ----------- | --------- | ----------- |
-| [commit](topics/commit.md) | command | `.claude/commands/commit.md` | Always | `templates/commit-command.md` |
-| [pull-request](topics/pull-request.md) | command | `.claude/commands/pull-request.md` | Always | `templates/pull-request-command.md` |
-| [tdd](topics/tdd.md) | command | `.claude/commands/ticket.md`, `.claude/commands/drive.md` | Always | `templates/ticket-command.md`, `templates/drive-command.md` |
-| [archive-ticket](topics/archive-ticket.md) | skill | `.claude/skills/archive-ticket/` | If /drive exists | `templates/archive-ticket-skill.md`, `templates/archive-ticket-script.sh` |
-| [general](topics/general.md) | rule | `.claude/rules/general.md` | Always | `templates/general-rules.md` |
-| [rules](topics/rules.md) | rule | `.claude/rules/typescript.md` | If TypeScript project | `templates/typescript-conventions.md` |
-| [claude-md](topics/claude-md.md) | file | `CLAUDE.md` | Always (add missing sections) | `templates/claude-md.md` |
+| Topic                                      | Type    | Target Path                                               | Condition                     | Template(s)                                                               |
+| ------------------------------------------ | ------- | --------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------- |
+| [branch](topics/branch.md)                 | command | `.claude/commands/branch.md`                              | Always                        | `templates/branch-command.md`                                             |
+| [commit](topics/commit.md)                 | command | `.claude/commands/commit.md`                              | Always                        | `templates/commit-command.md`                                             |
+| [pull-request](topics/pull-request.md)     | command | `.claude/commands/pull-request.md`                        | Always                        | `templates/pull-request-command.md`                                       |
+| [tdd](topics/tdd.md)                       | command | `.claude/commands/ticket.md`, `.claude/commands/drive.md` | Always                        | `templates/ticket-command.md`, `templates/drive-command.md`               |
+| [archive-ticket](topics/archive-ticket.md) | skill   | `.claude/skills/archive-ticket/`                          | If /drive exists              | `templates/archive-ticket-skill.md`, `templates/archive-ticket-script.sh` |
+| [general](topics/general.md)               | rule    | `.claude/rules/general.md`                                | Always                        | `templates/general-rules.md`                                              |
+| [rules](topics/rules.md)                   | rule    | `.claude/rules/typescript.md`                             | If TypeScript project         | `templates/typescript-conventions.md`                                     |
+| [claude-md](topics/claude-md.md)           | file    | `CLAUDE.md`                                               | Always (add missing sections) | `templates/claude-md.md`                                                  |
 
 ## How to Use
 
@@ -30,10 +31,10 @@ Reference skill providing best practices for configuring Claude Code projects.
 
 ## Legacy Detection
 
-| Legacy Path | Current Path | Action |
-| ----------- | ------------ | ------ |
-| `.claude/commands/spec.md` | `.claude/commands/ticket.md` | Rename |
-| `.claude/commands/impl-spec.md` | `.claude/commands/drive.md` | Rename |
+| Legacy Path                     | Current Path                 | Action |
+| ------------------------------- | ---------------------------- | ------ |
+| `.claude/commands/spec.md`      | `.claude/commands/ticket.md` | Rename |
+| `.claude/commands/impl-spec.md` | `.claude/commands/drive.md`  | Rename |
 
 ## Skill Structure
 

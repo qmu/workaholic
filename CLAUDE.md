@@ -2,6 +2,10 @@
 
 Internal marketplace for Claude Code plugins.
 
+## Written Language
+
+All documentation, commit messages, and pull requests should be written in **English**.
+
 ## Project Structure
 
 ```

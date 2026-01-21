@@ -7,6 +7,15 @@ description: Implement specs from doc/specs/ one by one, commit each, and archiv
 
 Implement all specs stored in `doc/specs/` from top to bottom, committing and archiving each one before moving to the next.
 
+## Icebox Mode
+
+If `$ARGUMENT` contains "icebox":
+
+1. List specs in `doc/specs/icebox/`
+2. Ask user which ticket to retrieve (use AskUserQuestion)
+3. Move selected ticket: `mv doc/specs/icebox/<ticket>.md doc/specs/`
+4. **STOP** - Tell user to run `/drive` to implement (do NOT auto-continue)
+
 ## Instructions
 
 ### 1. List and Sort Specs
@@ -74,6 +83,7 @@ bash .claude/skills/archive-ticket/scripts/archive.sh \
 ```
 
 The script handles:
+
 1. Format modified files with prettier
 2. Archive spec to `doc/specs/archive/<branch>/`
 3. Create/update branch CHANGELOG
@@ -81,6 +91,7 @@ The script handles:
 5. Add commit hash to CHANGELOG (via amend)
 
 **Commit Message Rules**:
+
 - NO prefixes (no `[feat]`, `fix:`, etc.)
 - Start with present-tense verb (Add, Update, Fix, Remove, Refactor)
 - Focus on **WHY** the change was made

@@ -13,6 +13,7 @@ Explore the codebase to understand requirements and write an implementation spec
 
    - Parse `$ARGUMENT` to understand what the user wants to implement
    - If `$ARGUMENT` is empty, ask the user what they want to spec
+   - **Icebox Support**: If `$ARGUMENT` contains "icebox", the spec will be stored in `doc/specs/icebox/` for later consideration instead of the main queue
 
 2. **Explore the Codebase**
 
@@ -28,7 +29,10 @@ Explore the codebase to understand requirements and write an implementation spec
 
 4. **Write the Spec**
 
-   - Create a spec file in `doc/specs/` with a descriptive filename
+   - Create a spec file with a descriptive filename
+   - **Location**:
+     - Normal: `doc/specs/`
+     - Icebox: `doc/specs/icebox/` (when "icebox" is in `$ARGUMENT`)
    - Filename format: `YYYYMMDDHHmmss-<short-description>.md`
    - Use current timestamp: `date +%Y%m%d%H%M%S`
    - Example: `20260114153042-add-dark-mode.md`
@@ -60,7 +64,8 @@ Explore the codebase to understand requirements and write an implementation spec
 6. **Present the Spec**
    - Show the user where the spec was saved
    - Summarize the key points
-   - Count and report the number of queued specs in `doc/specs/` (excluding archive/)
+   - **If icebox**: Tell user the spec was added to icebox and can be retrieved later with `/drive icebox`
+   - **If normal**: Count and report the number of queued specs in `doc/specs/` (excluding archive/ and icebox/)
    - Tell user to run `/drive` to implement queued specs
    - **NEVER ask "Would you like me to proceed with implementation?" - that is NOT your job**
 

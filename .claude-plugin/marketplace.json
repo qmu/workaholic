@@ -1,6 +1,6 @@
 {
   "name": "qmu-plugins-internal",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Internal team marketplace",
   "owner": {
     "name": "tamurayoshiya",
@@ -10,7 +10,7 @@
     {
       "name": "workaholic",
       "description": "Configure project's .claude/ to make Claude Code work harder",
-      "version": "1.0.7",
+      "version": "1.0.8",
       "author": {
         "name": "tamurayoshiya",
         "email": "a@qmu.jp"

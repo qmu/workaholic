@@ -9,10 +9,7 @@ Commit pending changes by grouping them into logical units.
 
 ## CRITICAL RULES
 
-- **NEVER commit automatically** - Only commit when the developer explicitly says "commit"
-- **NEVER commit repeatedly** - After making changes, WAIT for developer approval before committing
-- **NEVER amend or commit again** after a commit without explicit instruction
-- When editing files, stage changes but DO NOT commit until told
+- **NEVER amend** existing commits without explicit instruction
 - If developer says "revert" or cancels, do NOT commit the reverted state
 
 ## Instructions
@@ -27,7 +24,7 @@ Commit pending changes by grouping them into logical units.
 5. For each logical unit:
    - Stage relevant files with `git add`
    - Create a commit with a meaningful message
-6. STOP and wait for developer - do NOT continue committing
+6. Proceed through all logical units without asking for confirmation
 
 ## Commit Message Rules
 

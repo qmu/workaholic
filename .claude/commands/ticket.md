@@ -1,19 +1,19 @@
 ---
 name: ticket
-description: Explore codebase and write implementation spec for `$ARGUMENT`
+description: Explore codebase and write implementation ticket for `$ARGUMENT`
 ---
 
 # Ticket
 
-Explore the codebase to understand requirements and write an implementation spec.
+Explore the codebase to understand requirements and write an implementation ticket.
 
 ## Instructions
 
 1. **Understand the Request**
 
    - Parse `$ARGUMENT` to understand what the user wants to implement
-   - If `$ARGUMENT` is empty, ask the user what they want to spec
-   - **Icebox Support**: If `$ARGUMENT` contains "icebox", the spec will be stored in `doc/specs/icebox/` for later consideration instead of the main queue
+   - If `$ARGUMENT` is empty, ask the user what they want to ticket
+   - If `$ARGUMENT` contains "icebox", store in `doc/tickets/icebox/` instead
 
 2. **Explore the Codebase**
 
@@ -27,17 +27,14 @@ Explore the codebase to understand requirements and write an implementation spec
    - Clarify scope, approach preferences, or technical decisions
    - Don't ask obvious questions - use your judgment for reasonable defaults
 
-4. **Write the Spec**
+4. **Write the Ticket**
 
-   - Create a spec file with a descriptive filename
-   - **Location**:
-     - Normal: `doc/specs/`
-     - Icebox: `doc/specs/icebox/` (when "icebox" is in `$ARGUMENT`)
+   - Create a ticket file in `doc/tickets/` (or `doc/tickets/icebox/` for icebox) with a descriptive filename
    - Filename format: `YYYYMMDDHHmmss-<short-description>.md`
    - Use current timestamp: `date +%Y%m%d%H%M%S`
    - Example: `20260114153042-add-dark-mode.md`
 
-5. **Spec File Structure**
+5. **Ticket File Structure**
 
    ```markdown
    # <Title>
@@ -61,16 +58,16 @@ Explore the codebase to understand requirements and write an implementation spec
    - <Any trade-offs, risks, or things to watch out for>
    ```
 
-6. **Present the Spec**
-   - Show the user where the spec was saved
+6. **Present the Ticket**
+   - Show the user where the ticket was saved
    - Summarize the key points
-   - **If icebox**: Tell user the spec was added to icebox and can be retrieved later with `/drive icebox`
-   - **If normal**: Count and report the number of queued specs in `doc/specs/` (excluding archive/ and icebox/)
-   - Tell user to run `/drive` to implement queued specs
+   - If icebox: tell user to run `/drive icebox` later to retrieve it
+   - If normal: count queued tickets in `doc/tickets/` (excluding archive/, icebox/)
+   - Tell user to run `/drive` to implement queued tickets
    - **NEVER ask "Would you like me to proceed with implementation?" - that is NOT your job**
 
 ## Notes
 
 - Focus on the "why" and "what", not just "how"
-- Keep implementation steps actionable and specific
+- Keep implementation steps actionable and ticketific
 - Reference existing code patterns when applicable

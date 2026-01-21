@@ -37,15 +37,13 @@ Read `workaholic-advisor/SKILL.md` to get the list of all topics and templates.
 
 For each topic **in the SKILL.md table only** (do NOT invent new topics):
 
-1. Read the topic file to understand what it provides
-2. Read the template(s) to know required features
-3. Check user's project:
-   - Does the file exist?
-   - Does it have all features from the template? (e.g., icebox support)
+1. Read the template(s) content
+2. Read the user's file (if exists)
+3. **Compare for 100% equivalence** - files must match templates exactly
 4. Mark status:
-   - ✅ found - exists with all features
-   - 🔄 outdated - exists but missing features from template
-   - 🔄 legacy - exists but needs rename
+   - ✅ synced - exists and matches template
+   - 🔄 outdated - exists but differs from template (any difference)
+   - 🔄 legacy - wrong path, needs rename
    - ⏭️ not needed - condition not met
    - ❌ MISSING - must be added
 
@@ -69,13 +67,13 @@ Output status for every topic checked:
 
 For each item in "Will Update":
 
-1. Read the topic and template(s) from `workaholic-advisor`
+1. Read the template from `workaholic-advisor`
 2. For ❌ MISSING: create from template
-3. For 🔄 outdated: update file to include missing features from template
-4. For 🔄 legacy: rename to correct path
+3. For 🔄 outdated: **replace entirely** with template content
+4. For 🔄 legacy: rename to correct path, then replace with template
 5. Report what was changed
 
-**Do not skip items. Do not ask - just update them.**
+**Sync to 100% match with templates. Do not ask - just update them.**
 
 ## Important
 

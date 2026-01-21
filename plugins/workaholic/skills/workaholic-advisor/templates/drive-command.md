@@ -106,7 +106,11 @@ Update `doc/specs/` to reflect the changes:
   - "Approve" - implementation is correct, proceed to commit
   - "Needs changes" - user will provide feedback to fix
 - Do NOT proceed to commit until user explicitly approves
-- If user requests changes, make them and ask for review again
+- If user requests changes:
+  1. **Update the ticket file first** - add/modify steps based on feedback
+  2. Then implement the changes
+  3. Ask for review again
+- This ensures the ticket always reflects the final implementation
 
 #### 2.5 Commit and Archive Using Skill
 

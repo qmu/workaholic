@@ -36,7 +36,7 @@ doc/tickets/
 └── archive/
     └── <branch-name>/
         ├── CHANGELOG.md       # Branch-level changelog
-        └── 20260114-done.md   # Completed tickets
+        └── 20260114-feature.md   # Completed tickets
 ```
 
 ## Customization Questions

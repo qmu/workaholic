@@ -11,12 +11,9 @@ Complete commit workflow after user approves implementation.
 
 ## When to Use
 
-Use this skill after user approves implementation to:
-1. Format modified files with prettier
-2. Archive ticket to `doc/tickets/archive/<branch>/`
-3. Update branch CHANGELOG
-4. Create commit with proper message
-5. Add commit hash to CHANGELOG (via amend)
+Use this skill after user approves implementation. The script handles formatting, archiving, changelog, and commit.
+
+**IMPORTANT**: Always use the script. Never manually move tickets or create changelogs.
 
 ## Instructions
 
@@ -56,6 +53,7 @@ Remove unused RegisterTool type after consolidation
 ## CHANGELOG Categorization
 
 Entries are automatically categorized based on commit verb:
+
 - **Added**: Add, Create, Implement, Introduce
 - **Changed**: Update, Fix, Refactor (default)
 - **Removed**: Remove, Delete

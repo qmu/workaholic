@@ -31,6 +31,8 @@ Claude: [implements ticket, asks for review, commits, archives]
 doc/tickets/
 ├── 20260115-feature-a.md      # Pending tickets (queue)
 ├── 20260115-feature-b.md
+├── icebox/                    # Deferred tickets
+│   └── 20260110-idea.md
 └── archive/
     └── <branch-name>/
         ├── CHANGELOG.md       # Branch-level changelog
@@ -39,12 +41,12 @@ doc/tickets/
 
 ## Customization Questions
 
-| Question | Options | Default |
-|----------|---------|---------|
-| Ticket location | doc/tickets/, .tickets/, custom | doc/tickets/ |
-| Approval gates | implementation + commit, commit only | both |
-| Archive strategy | by branch, flat | by branch |
-| Branch CHANGELOG | yes, no | yes |
+| Question         | Options                              | Default      |
+| ---------------- | ------------------------------------ | ------------ |
+| Ticket location  | doc/tickets/, .tickets/, custom      | doc/tickets/ |
+| Approval gates   | implementation + commit, commit only | both         |
+| Archive strategy | by branch, flat                      | by branch    |
+| Branch CHANGELOG | yes, no                              | yes          |
 
 ## Templates
 

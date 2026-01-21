@@ -7,6 +7,15 @@ description: Implement tickets from doc/tickets/ one by one, commit each, and ar
 
 Implement all tickets stored in `doc/tickets/` from top to bottom, committing and archiving each one before moving to the next.
 
+## Icebox Mode
+
+If `$ARGUMENT` contains "icebox":
+
+1. List tickets in `doc/tickets/icebox/`
+2. Ask user which ticket to retrieve
+3. Move selected ticket to `doc/tickets/`
+4. **STOP** - do not auto-implement (user runs `/drive` separately)
+
 ## Instructions
 
 ### 1. List and Sort Tickets
@@ -121,6 +130,7 @@ bash .claude/skills/archive-ticket/scripts/archive.sh \
 ```
 
 The script handles:
+
 1. Format modified files with prettier
 2. Archive ticket to `doc/tickets/archive/<branch>/`
 3. Create/update branch CHANGELOG
@@ -128,15 +138,20 @@ The script handles:
 5. Add commit hash to CHANGELOG (via amend)
 
 **Commit Message Rules**:
+
 - NO prefixes (no `[feat]`, `fix:`, etc.)
 - Start with present-tense verb (Add, Update, Fix, Remove, Refactor)
 - Focus on **WHY** the change was made
 - Keep title concise (50 chars or less)
 
-#### 2.6 Move to Next Ticket
+#### 2.6 Ask Before Next Ticket
 
-- Proceed to the next ticket in the list
-- Repeat steps 2.1 through 2.5
+- Show remaining tickets count
+- Use AskUserQuestion to confirm:
+  - "Continue" - proceed with next ticket
+  - "Stop" - pause here
+- **NEVER auto-continue** - always wait for explicit confirmation
+- Repeat steps 2.1 through 2.5 only after user confirms
 
 ### 3. Completion
 
@@ -166,11 +181,21 @@ User:   Approve
 
 Claude: [creates commit, archives ticket]
 
-        Starting with 20260113-feature-b.md...
-        [continues with remaining tickets...]
+        Remaining tickets (2):
+        1. doc/tickets/20260113-feature-b.md
+        2. doc/tickets/20260113-feature-c.md
+
+        Continue with next ticket?
+        [Continue / Stop]
+
+User:   Continue
+
+Claude: Starting with 20260113-feature-b.md...
 ```
 
 ## Notes
 
 - Each ticket gets its own commit - do not batch multiple tickets
 - If implementation fails, stop and report the error
+- **ALWAYS require user confirmation** - never skip approval steps, even after interruption/resume
+- After any interruption, re-ask for confirmation before proceeding

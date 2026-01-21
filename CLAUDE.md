@@ -2,6 +2,10 @@
 
 Internal marketplace for Claude Code plugins.
 
+## Important
+
+Edit `plugins/` not `.claude/`. This repo develops plugins - changes go to `plugins/`, never `.claude/` unless explicitly requested.
+
 ## Written Language
 
 All documentation, commit messages, and pull requests should be written in **English**.

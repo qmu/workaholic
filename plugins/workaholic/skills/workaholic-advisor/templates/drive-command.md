@@ -14,7 +14,8 @@ If `$ARGUMENT` contains "icebox":
 1. List tickets in `doc/tickets/icebox/`
 2. Ask user which ticket to retrieve
 3. Move selected ticket to `doc/tickets/`
-4. **STOP** - do not auto-implement (user runs `/drive` separately)
+4. Implement that ticket (steps 2.1-2.5)
+5. **ALWAYS ask confirmation** before proceeding to next ticket
 
 ## Instructions
 

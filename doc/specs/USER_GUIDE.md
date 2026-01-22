@@ -26,8 +26,9 @@
 The `/commit` command:
 
 1. Groups changes into logical units
-2. Formats code with prettier
-3. Creates meaningful commit messages
+2. Creates meaningful commit messages
+
+Note: Code formatting happens automatically via PostToolUse hooks after Write/Edit operations.
 
 ### Documentation Auto-Update
 

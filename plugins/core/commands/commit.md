@@ -11,15 +11,14 @@ Commit pending changes by grouping them into logical units.
 
 1. Run `git status` to see all staged and unstaged changes
 2. Run `git diff` and `git diff --cached` to understand the changes
-3. Run `npx prettier --write` on modified files to format before committing
-4. Analyze and group changes into logical commit units:
+3. Analyze and group changes into logical commit units:
    - Related changes belong in the same commit
    - Unrelated changes should be split into separate commits
    - Each commit represents a single coherent change
-5. For each logical unit:
+4. For each logical unit:
    - Stage relevant files with `git add`
    - Create a commit with a meaningful message
-6. Proceed through all logical units without asking for confirmation
+5. Proceed through all logical units without asking for confirmation
 
 ## Commit Message Rules
 

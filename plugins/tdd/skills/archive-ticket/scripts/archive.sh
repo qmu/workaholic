@@ -34,26 +34,13 @@ ARCHIVE_DIR="${TICKET_DIR}/archive/${BRANCH}"
 CHANGELOG="${ARCHIVE_DIR}/CHANGELOG.md"
 TICKET_FILENAME=$(basename "$TICKET")
 
-# Step 1: Format modified files with prettier
-echo "==> Formatting files..."
-if [ ${#FILES[@]} -gt 0 ]; then
-    for file in "${FILES[@]}"; do
-        if [ -f "$file" ]; then
-            npx prettier --write "$file" 2>/dev/null || true
-        fi
-    done
-else
-    # Format all modified files
-    git diff --name-only | xargs -I {} sh -c '[ -f "{}" ] && npx prettier --write "{}" 2>/dev/null || true'
-fi
-
-# Step 2: Move ticket to archive
+# Step 1: Move ticket to archive
 echo "==> Archiving ticket..."
 mkdir -p "$ARCHIVE_DIR"
 mv "$TICKET" "$ARCHIVE_DIR/"
 echo "    ${ARCHIVE_DIR}/${TICKET_FILENAME}"
 
-# Step 3: Initialize CHANGELOG if not exists
+# Step 2: Initialize CHANGELOG if not exists
 if [ ! -f "$CHANGELOG" ]; then
     cat > "$CHANGELOG" << 'HEADER'
 # Branch Changelog
@@ -66,7 +53,7 @@ if [ ! -f "$CHANGELOG" ]; then
 HEADER
 fi
 
-# Step 4: Determine section based on commit message verb
+# Step 3: Determine section based on commit message verb
 SECTION="Changed"
 case "$COMMIT_MSG" in
     Add*|Create*|Implement*|Introduce*)
@@ -77,7 +64,7 @@ case "$COMMIT_MSG" in
         ;;
 esac
 
-# Step 5: Create changelog entry with placeholder
+# Step 4: Create changelog entry with placeholder
 ENTRY="- ${COMMIT_MSG} - [ticket](${TICKET_FILENAME})"
 
 awk -v section="## $SECTION" -v entry="$ENTRY" '
@@ -86,7 +73,7 @@ awk -v section="## $SECTION" -v entry="$ENTRY" '
 ' "$CHANGELOG" > "${CHANGELOG}.tmp" && mv "${CHANGELOG}.tmp" "$CHANGELOG"
 echo "==> Updated CHANGELOG"
 
-# Step 6: Stage all changes and commit
+# Step 5: Stage all changes and commit
 echo "==> Committing..."
 git add -A
 git commit -m "${COMMIT_MSG}
@@ -95,7 +82,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 COMMIT_HASH=$(git rev-parse --short HEAD)
 
-# Step 7: Update CHANGELOG with commit hash and amend
+# Step 6: Update CHANGELOG with commit hash and amend
 if [ -n "$REPO_URL" ]; then
     sed -i.bak "s|- ${COMMIT_MSG} - \[ticket\]|- ${COMMIT_MSG} ([${COMMIT_HASH}](${REPO_URL}/commit/${COMMIT_HASH})) - [ticket]|" "$CHANGELOG"
     rm -f "${CHANGELOG}.bak"

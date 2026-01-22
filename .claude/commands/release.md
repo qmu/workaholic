@@ -22,10 +22,12 @@ Release a new version of the marketplace by incrementing the semantic version.
    - `minor`: Increment MINOR, reset PATCH to 0 (e.g., 1.2.3 → 1.3.0)
    - `patch` (default): Increment PATCH (e.g., 1.2.3 → 1.2.4)
 4. Update the `version` field in `.claude-plugin/marketplace.json` using the Edit tool
-5. Update the `version` field in `plugins/workaholic/.claude-plugin/plugin.json` to match the new version
-6. Update the plugin version in the `plugins` array within `.claude-plugin/marketplace.json` to match the new version
-7. Commit the change with message: `Release v{new_version}`
-8. Push to remote
+5. Update the `version` field in `plugins/core/.claude-plugin/plugin.json` to match the new version
+6. Update the `version` field in `plugins/tdd/.claude-plugin/plugin.json` to match the new version
+7. Update the `core` plugin version in the `plugins` array within `.claude-plugin/marketplace.json` to match the new version
+8. Update the `tdd` plugin version in the `plugins` array within `.claude-plugin/marketplace.json` to match the new version
+9. Commit the change with message: `Release v{new_version}`
+10. Push to remote
 
 ## Output
 

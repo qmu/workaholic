@@ -2,7 +2,7 @@
 name: doc-writer
 description: Documentation specialist for exploring, planning, and writing project documentation
 tools: Read, Glob, Grep, Write, Edit
-model: sonnet
+model: opus
 ---
 
 # Doc Writer
@@ -49,11 +49,11 @@ Documentation specialist that analyzes repositories and creates appropriate docu
 
 5. **Maintain Link Hierarchy**
 
-   Ensure all documents are linked from parent READMEs:
+   Ensure documents are discoverable from root README:
 
-   - `README.md` (root) → `doc/README.md`
-   - `doc/README.md` → `doc/specs/README.md`, `doc/tickets/README.md`
-   - `doc/specs/README.md` → individual spec documents
+   - Keep documentation minimal and close to code
+   - Link from root `README.md` when docs are essential for users
+   - Don't create elaborate doc hierarchies for simple projects
 
 ## Output
 

@@ -33,6 +33,7 @@ Explore the codebase to understand requirements and write an implementation tick
    - Filename format: `YYYYMMDDHHmmss-<short-description>.md`
    - Use current timestamp: `date +%Y%m%d%H%M%S`
    - Example: `20260114153042-add-dark-mode.md`
+   - Use the Write tool directly - it creates parent directories automatically, no explicit `mkdir` needed
 
 5. **Ticket File Structure**
 

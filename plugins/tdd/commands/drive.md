@@ -45,19 +45,24 @@ ls -1 doc/tickets/*.md 2>/dev/null | sort
 
 #### 2.3 Update Documentation
 
-Delegate documentation updates to the `doc-writer` subagent:
+**MANDATORY**: Always delegate to doc-writer subagent. Never skip this step.
 
-- Use the Task tool with `subagent_type: doc-writer`
-- The subagent follows standards in `plugins/core/rules/documentation.md`
-- Documentation structure is repository-specific, not a fixed list
-- Subagent determines appropriate docs based on project needs
+Use the Task tool with `subagent_type: doc-writer` and instruct it to:
 
-**Documentation Standards** (see `documentation.md` rule):
+1. **Audit entire documentation structure** - not just files related to the current ticket
+2. **Delete outdated or invalid documentation** - remove docs that no longer reflect reality
+3. **Reorganize if needed** - ensure documentation structure matches actual project
+4. **Update relevant docs** - modify existing docs affected by the ticket's changes
+5. **Create new docs only if necessary** - when the change introduces something that needs documenting
+
+The subagent follows standards in `plugins/core/rules/documentation.md`:
 
 - YAML frontmatter on every file
 - Mermaid charts for diagrams
 - Prose paragraphs, not bullet fragments
 - Proper link hierarchy from root README.md
+
+**Important**: The doc-writer must evaluate the entire doc structure, not just check if existing docs mention the current change. Outdated documentation is worse than no documentation.
 
 #### 2.4 Ask User to Review Implementation
 

@@ -15,9 +15,9 @@ Documentation for users installing and using Workaholic plugins.
 
 See [user-guide/README.md](user-guide/README.md) for the full index:
 
-- [Getting Started](user-guide/GETTING_STARTED.md) - Installation and first steps
-- [Commands](user-guide/COMMANDS.md) - Complete command reference
-- [Workflow](user-guide/WORKFLOW.md) - Ticket-driven development guide
+- [Getting Started](user-guide/getting-started.md) - Installation and first steps
+- [Commands](user-guide/commands.md) - Complete command reference
+- [Workflow](user-guide/workflow.md) - Ticket-driven development guide
 
 ## For Developers
 
@@ -25,5 +25,5 @@ Documentation for developers contributing to Workaholic.
 
 See [developer-guide/README.md](developer-guide/README.md) for the full index:
 
-- [Architecture](developer-guide/ARCHITECTURE.md) - Plugin structure and marketplace design
-- [Contributing](developer-guide/CONTRIBUTING.md) - How to add or modify plugins
+- [Architecture](developer-guide/architecture.md) - Plugin structure and marketplace design
+- [Contributing](developer-guide/contributing.md) - How to add or modify plugins

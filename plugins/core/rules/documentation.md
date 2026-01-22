@@ -5,6 +5,16 @@ description: Standards for project documentation
 
 # Documentation Standards
 
+## File Naming
+
+Use kebab-case for all markdown files except README.md:
+
+- `getting-started.md` (not `GETTING_STARTED.md`)
+- `api-reference.md` (not `API_REFERENCE.md`)
+- `data-model.md` (not `DATA_MODEL.md`)
+
+README.md files use uppercase as a universal convention.
+
 ## File Format
 
 Every markdown file must have YAML frontmatter:
@@ -87,8 +97,8 @@ last_updated: 2026-01-23
 ```markdown
 # User Documentation
 
-- [Getting Started](GETTING_STARTED.md) - Installation and first steps
-- [Commands](COMMANDS.md) - Complete command reference
+- [Getting Started](getting-started.md) - Installation and first steps
+- [Commands](commands.md) - Complete command reference
 ```
 
 ## Constraints

@@ -9,6 +9,6 @@ last_updated: 2026-01-23
 
 Documentation for installing and using Workaholic plugins.
 
-- [Getting Started](GETTING_STARTED.md) - Installation and first steps
-- [Commands](COMMANDS.md) - Complete command reference
-- [Workflow](WORKFLOW.md) - Ticket-driven development guide
+- [Getting Started](getting-started.md) - Installation and first steps
+- [Commands](commands.md) - Complete command reference
+- [Workflow](workflow.md) - Ticket-driven development guide

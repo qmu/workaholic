@@ -67,10 +67,8 @@ plugins/
         SKILL.md
         scripts/
           archive.sh     # Shell script for commit workflow
-      doc-writer/
-        SKILL.md         # Documentation specialist
     rules/
-      documentation.md   # Documentation standards
+      doc-specs.md       # Path-specific documentation standards
 ```
 
 ## Plugin Types
@@ -88,7 +86,6 @@ Rules are always-on guidelines that Claude follows throughout the conversation. 
 Skills are complex capabilities that may include scripts or multiple files. They are invoked via the Skill tool and provide inline instructions. The TDD plugin includes two skills:
 
 - **archive-ticket**: Shell script that handles the complete commit workflow (archive ticket, update CHANGELOG, commit)
-- **doc-writer**: Documentation specialist that audits and updates documentation. Has access to Read, Glob, Grep, Write, Edit, and Bash tools. The Bash tool enables it to delete outdated documentation files and remove empty directories within `doc/`.
 
 ## How Claude Code Loads Plugins
 
@@ -118,32 +115,29 @@ sequenceDiagram
 
 ## Documentation Enforcement
 
-Workaholic enforces comprehensive documentation through the doc-writer skill. This mechanism ensures that documentation remains synchronized with code changes.
+Workaholic enforces comprehensive documentation through the `doc-specs` rule. This path-specific rule auto-loads when working in `doc/specs/` and ensures documentation remains synchronized with code changes.
 
 ### How It Works
 
 ```mermaid
 flowchart TD
     A[/pull-request command] --> B[Consolidate CHANGELOG]
-    B --> C[Invoke doc-writer skill]
-    C --> D[Read archived tickets]
-    D --> E[Audit documentation]
-    E --> F[Update affected docs]
-    F --> G[Commit docs]
-    G --> H[Create/update PR]
+    B --> C[Read archived tickets]
+    C --> D[Update doc/specs/]
+    D --> E[doc-specs rule auto-loads]
+    E --> F[Commit docs]
+    F --> G[Create/update PR]
 ```
 
-The `/pull-request` command invokes the doc-writer skill which:
+The `/pull-request` command updates documentation by:
 
-1. **Reads archived tickets** - Analyzes all tickets from `doc/tickets/archive/<branch-name>/`
-2. **Audits documentation** - Checks entire `doc/specs/` structure
-3. **Updates affected docs** - Modifies docs based on cumulative changes
-4. **Deletes outdated docs** - Uses Bash to remove obsolete files within `doc/`
-5. **Creates new docs** - When changes introduce new concepts to document
+1. **Reading archived tickets** - Analyzes all tickets from `doc/tickets/archive/<branch-name>/`
+2. **Updating `doc/specs/`** - The `doc-specs` rule auto-loads and enforces standards
+3. **Committing documentation** - Commits all documentation changes before creating PR
 
 ### Critical Requirements
 
-The doc-writer operates under strict requirements:
+The `doc-specs` rule enforces strict requirements:
 
 - **Document every change** - No exceptions, no judgment calls about what's "worth" documenting
 - **Never skip documentation** - "Internal implementation detail" is never a valid reason
@@ -152,7 +146,7 @@ The doc-writer operates under strict requirements:
 
 ### Design Philosophy
 
-The doc-writer is an executor, not a gatekeeper. It does not have discretion to decide whether documentation should be updated. This ensures that documentation debt does not accumulate and that all changes are properly documented.
+Documentation is mandatory, not optional. The path-specific rule ensures that documentation standards are automatically enforced whenever working in `doc/specs/`, preventing documentation debt from accumulating.
 
 ## Version Management
 

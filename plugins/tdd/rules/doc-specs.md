@@ -1,9 +1,12 @@
 ---
-name: documentation
-description: Standards for project documentation
+name: doc-specs
+description: Documentation standards for doc/specs/
+paths: doc/specs/**
 ---
 
-# Documentation Standards
+# Documentation Standards for doc/specs/
+
+This rule applies automatically when working in `doc/specs/`.
 
 ## File Naming
 
@@ -34,7 +37,6 @@ last_updated: YYYY-MM-DD
 - `doc/specs/README.md` - Index for all specifications
 - `doc/specs/user-guide/README.md` - Index for user documentation
 - `doc/specs/developer-guide/README.md` - Index for developer documentation
-- `doc/tickets/README.md` - Index for ticket system
 
 **Requirement**: Every subdirectory under `doc/specs/` must have a README.md that links to all documents in that directory.
 
@@ -52,15 +54,6 @@ last_updated: YYYY-MM-DD
 - Code blocks must specify language
 - Links use relative paths within doc/
 - Tables for structured data comparisons
-
-## Mermaid Usage
-
-```mermaid
-flowchart TD
-    A[Start] --> B{Decision}
-    B -->|Yes| C[Action]
-    B -->|No| D[End]
-```
 
 ## Link Hierarchy
 
@@ -101,10 +94,24 @@ last_updated: 2026-01-23
 - [Commands](commands.md) - Complete command reference
 ```
 
-## Constraints
+## PR-Time Documentation Updates
 
+When preparing a pull request, update documentation based on all archived tickets:
+
+1. **Read archived tickets** from `doc/tickets/archive/<branch-name>/`
+2. **Extract changes** - What changed (from Implementation Steps) and why (from Overview)
+3. **Audit current docs** - Check what exists in `doc/specs/`
+4. **Update documentation**:
+   - Update existing docs that reference changed components
+   - Create new docs if changes introduced new concepts
+   - Delete outdated docs (only within `doc/`)
+   - Update subdirectory READMEs when adding/removing docs
+
+## Critical Rules
+
+- **Document everything** - Every ticket affects docs somehow
+- **"No updates needed" is wrong** - Re-analyze if you think nothing changed
+- **Only delete within `doc/`** - Safety constraint for file deletions
+- **Update READMEs** - Keep subdirectory indexes current
 - No orphan documents (must be linked from parent)
-- Every subdirectory in `doc/specs/` must have a README.md
 - Follow written language specified in CLAUDE.md
-- Update relevant docs with every code change
-- Keep docs close to what they document

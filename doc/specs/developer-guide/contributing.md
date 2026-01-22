@@ -36,7 +36,7 @@ flowchart LR
 2. **Implement**: `/drive` - follows the ticket, updates documentation, commits when approved
 3. **Create PR**: `/pull-request` - generates summary from CHANGELOG
 
-Every implementation automatically updates documentation via the doc-writer subagent. This is mandatory and cannot be skipped.
+Every implementation includes documentation updates. This is mandatory and cannot be skipped.
 
 ## Adding a Command
 
@@ -107,9 +107,9 @@ plugins/<plugin>/skills/my-skill/
 
 ## Documentation Standards
 
-Documentation updates are mandatory for every change. The `/drive` command automatically delegates to the doc-writer subagent, which audits and updates all relevant documentation.
+Documentation updates are mandatory for every change. The `doc-specs` rule in `plugins/tdd/rules/doc-specs.md` auto-loads when working in `doc/specs/` and enforces documentation standards.
 
-Follow the standards in `plugins/core/rules/documentation.md`:
+Follow the standards:
 
 - YAML frontmatter on every markdown file
 - Use Mermaid for diagrams
@@ -117,7 +117,7 @@ Follow the standards in `plugins/core/rules/documentation.md`:
 - Maintain link hierarchy from root README
 - Update `last_updated` field when modifying documents
 
-The doc-writer is an executor, not a gatekeeper. It has no discretion to skip documentation. Every code change affects documentation in some way, whether updating existing docs, creating new ones, removing outdated files, or reorganizing the structure. The doc-writer uses the Bash tool to delete obsolete documentation files with `rm` and remove empty directories with `rmdir`, ensuring that the documentation structure accurately reflects the current state of the project.
+Documentation is not optional. Every code change affects documentation in some way, whether updating existing docs, creating new ones, removing outdated files, or reorganizing the structure.
 
 ## Testing Changes
 
@@ -141,5 +141,5 @@ Follow the commit message rules:
 Create PRs with `/pull-request`. The summary is auto-generated from the branch CHANGELOG. Ensure your PR:
 
 - Has clear commit history (one ticket = one commit)
-- Includes documentation updates (handled automatically by doc-writer)
+- Includes documentation updates
 - Follows existing patterns in the codebase

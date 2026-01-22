@@ -23,8 +23,8 @@ plugins/                 # Plugin source directories
   tdd/                   # Ticket-driven development plugin
     .claude-plugin/      # Plugin configuration
     commands/            # ticket, drive
-    skills/              # archive-ticket, doc-writer
-    rules/               # documentation
+    skills/              # archive-ticket
+    rules/               # doc-specs
 ```
 
 ## Commands

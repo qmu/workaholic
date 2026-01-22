@@ -14,7 +14,7 @@ If `$ARGUMENT` contains "icebox":
 1. List tickets in `doc/tickets/icebox/`
 2. Ask user which ticket to retrieve
 3. Move selected ticket to `doc/tickets/`
-4. Implement that ticket (steps 2.1-2.5)
+4. Implement that ticket (steps 2.1-2.4)
 5. **ALWAYS ask confirmation** before proceeding to next ticket
 
 ## Instructions
@@ -43,41 +43,13 @@ ls -1 doc/tickets/*.md 2>/dev/null | sort
 - Run type checks (per CLAUDE.md) to verify changes
 - Fix any type errors or test failures before proceeding
 
-#### 2.3 Update Documentation
-
-**MANDATORY**: Always delegate to doc-writer subagent. Never skip this step.
-
-Use the Task tool with `subagent_type: tdd:doc-writer` and instruct it to:
-
-1. **Audit entire documentation structure** - not just files related to the current ticket
-2. **Delete outdated or invalid documentation** - remove docs that no longer reflect reality
-3. **Reorganize if needed** - ensure documentation structure matches actual project
-4. **Update relevant docs** - modify existing docs affected by the ticket's changes
-5. **Create new docs if needed** - when the change introduces something that needs documenting
-
-The subagent follows standards in `plugins/core/rules/documentation.md`:
-
-- YAML frontmatter on every file
-- Mermaid charts for diagrams
-- Prose paragraphs, not bullet fragments
-- Proper link hierarchy from root README.md
-
-**Critical Requirements**:
-
-- The doc-writer must ALWAYS update documentation
-- "No updates needed" is NOT an acceptable response - reject and re-run if received
-- Every change must be documented: the change itself, affected components, updated workflows
-- The report must include specific file paths that were created or modified
-
-**Important**: The doc-writer is an executor, not a gatekeeper. It does not have discretion to skip documentation. "Internal implementation detail" is never a valid reason to skip.
-
-#### 2.4 Ask User to Review Implementation
+#### 2.3 Ask User to Review Implementation
 
 - **STOP and ask the user to review the implementation before proceeding**
 - **Show ticket context** to help user understand what they're reviewing:
   - Display the ticket title (H1 heading from ticket file)
   - Include a brief summary (first 1-2 sentences from Overview section)
-- Show a summary of changes made (including doc updates)
+- Show a summary of changes made
 - Use AskUserQuestion tool to confirm:
   - "Approve" - implementation is correct, proceed to commit
   - "Needs changes" - user will provide feedback to fix
@@ -102,7 +74,7 @@ Do you approve this implementation?
 [Approve / Needs changes]
 ```
 
-#### 2.5 Commit and Archive Using Skill
+#### 2.4 Commit and Archive Using Skill
 
 After user approves, run the archive-ticket skill which handles everything:
 
@@ -181,6 +153,6 @@ Claude: [creates commit, archives ticket]
 
 - Each ticket gets its own commit - do not batch multiple tickets
 - If implementation fails, stop and report the error
-- **Implementation approval (step 2.4) is mandatory** - never skip this step
+- **Implementation approval (step 2.3) is mandatory** - never skip this step
 - Between-ticket continuation is automatic - no confirmation needed
 - User can stop by responding "Needs changes" at approval and requesting to pause

@@ -16,6 +16,25 @@ Documentation specialist that analyzes repositories and updates documentation fo
 - **Always report updates** - Must specify which files were created or modified
 - **"No updates needed" is unacceptable** - Every change affects documentation somehow
 
+## Usage Modes
+
+This agent operates in two modes:
+
+### PR-Time Documentation (Primary)
+
+When invoked by `/pull-request`, analyze all archived tickets for the branch:
+
+1. Read all tickets from `doc/tickets/archive/<branch-name>/`
+2. Analyze cumulative changes across all tickets
+3. Plan holistic documentation reorganization
+4. Update `doc/specs/` to reflect the complete set of changes
+
+This provides a comprehensive view rather than incremental per-ticket updates.
+
+### Ad-hoc Documentation
+
+When invoked for specific changes, document those changes following the instructions below.
+
 ## Instructions
 
 1. **Read Standards First**

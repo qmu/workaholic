@@ -45,58 +45,19 @@ ls -1 doc/tickets/*.md 2>/dev/null | sort
 
 #### 2.3 Update Documentation
 
-Update `doc/specs/` to reflect the changes:
+Delegate documentation updates to the `doc-writer` subagent:
 
-- Read changes to understand what was modified
-- Create files if they don't exist (generate from codebase analysis)
-- Only update sections relevant to the current changes
-- Update `README.md` with links to all documents
+- Use the Task tool with `subagent_type: doc-writer`
+- The subagent follows standards in `plugins/core/rules/documentation.md`
+- Documentation structure is repository-specific, not a fixed list
+- Subagent determines appropriate docs based on project needs
 
-**Index:**
+**Documentation Standards** (see `documentation.md` rule):
 
-- `README.md` - Links to all documentation (user and developer)
-
-**User Documentation:**
-
-- `GETTING_STARTED.md` - Quick start, installation, first steps
-- `USER_GUIDE.md` - Complete usage instructions, workflows
-- `FAQ.md` - Common questions and answers
-
-**Developer Documentation:**
-
-- `FEATURES.md` - Feature catalog by category
-- `ARCHITECTURE.md` - System design, components, data flow
-- `NFR.md` - Performance, scalability, reliability
-- `API.md` - Interfaces, contracts, endpoints
-- `DATA_MODEL.md` - Data structures, schemas
-- `CONFIGURATION.md` - Settings, environment variables
-- `SECURITY.md` - Auth, permissions, vulnerabilities
-- `TESTING.md` - Test strategy, coverage
-- `DEPENDENCIES.md` - External libraries, requirements
-
-**README.md format:**
-
-```markdown
-# Documentation
-
-## User Documentation
-
-- [Getting Started](GETTING_STARTED.md) - Quick start, installation, first steps
-- [User Guide](USER_GUIDE.md) - Complete usage instructions, workflows
-- [FAQ](FAQ.md) - Common questions and answers
-
-## Developer Documentation
-
-- [Features](FEATURES.md) - Feature catalog by category
-- [Architecture](ARCHITECTURE.md) - System design, components, data flow
-- [NFR](NFR.md) - Performance, scalability, reliability
-- [API](API.md) - Interfaces, contracts, endpoints
-- [Data Model](DATA_MODEL.md) - Data structures, schemas
-- [Configuration](CONFIGURATION.md) - Settings, environment variables
-- [Security](SECURITY.md) - Auth, permissions, vulnerabilities
-- [Testing](TESTING.md) - Test strategy, coverage
-- [Dependencies](DEPENDENCIES.md) - External libraries, requirements
-```
+- YAML frontmatter on every file
+- Mermaid charts for diagrams
+- Prose paragraphs, not bullet fragments
+- Proper link hierarchy from root README.md
 
 #### 2.4 Ask User to Review Implementation
 

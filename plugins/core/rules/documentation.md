@@ -22,8 +22,8 @@ last_updated: YYYY-MM-DD
 
 - `doc/README.md` - Index linking to specs/ and tickets/
 - `doc/specs/README.md` - Index for all specifications
-- `doc/specs/for-user/README.md` - Index for user documentation
-- `doc/specs/for-developer/README.md` - Index for developer documentation
+- `doc/specs/user-guide/README.md` - Index for user documentation
+- `doc/specs/developer-guide/README.md` - Index for developer documentation
 - `doc/tickets/README.md` - Index for ticket system
 
 **Requirement**: Every subdirectory under `doc/specs/` must have a README.md that links to all documents in that directory.
@@ -58,9 +58,9 @@ flowchart TD
 README.md (root)
 └── doc/README.md
     ├── doc/specs/README.md
-    │   ├── doc/specs/for-user/README.md
+    │   ├── doc/specs/user-guide/README.md
     │   │   └── (individual user docs)
-    │   └── doc/specs/for-developer/README.md
+    │   └── doc/specs/developer-guide/README.md
     │       └── (individual developer docs)
     └── doc/tickets/README.md
 ```

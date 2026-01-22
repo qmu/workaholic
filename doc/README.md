@@ -13,8 +13,8 @@ This directory contains documentation for the Workaholic plugin marketplace.
 
 Detailed documentation is organized in [specs/](specs/README.md):
 
-- **[For Users](specs/for-user/)** - Installation, commands, and workflow guides
-- **[For Developers](specs/for-developer/)** - Architecture and contribution guidelines
+- **[For Users](specs/user-guide/)** - Installation, commands, and workflow guides
+- **[For Developers](specs/developer-guide/)** - Architecture and contribution guidelines
 
 ## Tickets
 
@@ -34,10 +34,10 @@ Create tickets with `/ticket <description>` and implement with `/drive`.
 
 ## Quick Links
 
-| Document                                             | Description                     |
-| ---------------------------------------------------- | ------------------------------- |
-| [Getting Started](specs/for-user/GETTING_STARTED.md) | Installation and setup          |
-| [Commands](specs/for-user/COMMANDS.md)               | All available commands          |
-| [Workflow](specs/for-user/WORKFLOW.md)               | Ticket-driven development guide |
-| [Architecture](specs/for-developer/ARCHITECTURE.md)  | Plugin structure                |
-| [Contributing](specs/for-developer/CONTRIBUTING.md)  | How to contribute               |
+| Document                                               | Description                     |
+| ------------------------------------------------------ | ------------------------------- |
+| [Getting Started](specs/user-guide/GETTING_STARTED.md) | Installation and setup          |
+| [Commands](specs/user-guide/COMMANDS.md)               | All available commands          |
+| [Workflow](specs/user-guide/WORKFLOW.md)               | Ticket-driven development guide |
+| [Architecture](specs/developer-guide/ARCHITECTURE.md)  | Plugin structure                |
+| [Contributing](specs/developer-guide/CONTRIBUTING.md)  | How to contribute               |

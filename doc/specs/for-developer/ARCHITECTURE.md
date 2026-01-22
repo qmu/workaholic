@@ -27,7 +27,8 @@ flowchart TD
     end
     subgraph TDD Plugin
         T1[commands/]
-        T2[skills/]
+        T2[agents/]
+        T3[skills/]
     end
     M --> P1
     M --> P2
@@ -36,6 +37,7 @@ flowchart TD
     P1 --> C3
     P2 --> T1
     P2 --> T2
+    P2 --> T3
 ```
 
 ## Directory Layout
@@ -66,6 +68,8 @@ plugins/
     commands/
       ticket.md          # /ticket command
       drive.md           # /drive command
+    agents/
+      doc-writer.md      # Documentation specialist
     skills/
       archive-ticket/
         SKILL.md
@@ -83,7 +87,7 @@ Commands are user-invocable via slash syntax (`/commit`, `/ticket`). Each comman
 
 Agents are subagent types that can be spawned with the Task tool. They specialize in specific tasks like exploring codebases or writing documentation. Agents define which tools they can use and what model to run on.
 
-The doc-writer agent is a critical component that enforces documentation standards. It is automatically invoked during the `/drive` command to audit and update documentation for every change. This agent operates as an executor, not a gatekeeper: it cannot skip documentation updates and must always report which files were created or modified.
+The core plugin provides discovery agents for analyzing projects and Claude Code configurations. The TDD plugin provides the doc-writer agent, which is a critical component that enforces documentation standards. It is automatically invoked during the `/drive` command to audit and update documentation for every change. This agent operates as an executor, not a gatekeeper: it cannot skip documentation updates and must always report which files were created or modified.
 
 ### Rules
 
@@ -137,7 +141,7 @@ flowchart TD
     G -->|Revise| B
 ```
 
-The `/drive` command step 2.3 mandates documentation updates. The doc-writer agent is spawned with `subagent_type: core:doc-writer` and must:
+The `/drive` command step 2.3 mandates documentation updates. The doc-writer agent is spawned with `subagent_type: tdd:doc-writer` and must:
 
 1. **Audit entire documentation structure** - not just files related to the current ticket
 2. **Delete outdated or invalid documentation** - remove docs that no longer reflect reality

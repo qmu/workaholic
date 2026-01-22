@@ -47,7 +47,7 @@ ls -1 doc/tickets/*.md 2>/dev/null | sort
 
 **MANDATORY**: Always delegate to doc-writer subagent. Never skip this step.
 
-Use the Task tool with `subagent_type: core:doc-writer` and instruct it to:
+Use the Task tool with `subagent_type: tdd:doc-writer` and instruct it to:
 
 1. **Audit entire documentation structure** - not just files related to the current ticket
 2. **Delete outdated or invalid documentation** - remove docs that no longer reflect reality

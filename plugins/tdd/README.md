@@ -16,6 +16,12 @@ Ticket-driven development workflow for Claude Code projects.
 | `archive-ticket` | Complete commit workflow - format, archive, update changelog, and commit |
 | `doc-writer`     | Documentation specialist that updates docs for every code change         |
 
+## Rules
+
+| Rule               | Description                                                     |
+| ------------------ | --------------------------------------------------------------- |
+| `documentation.md` | Standards for project documentation (naming, structure, format) |
+
 ## Workflow
 
 1. **Create tickets**: Use `/ticket` to write implementation specs

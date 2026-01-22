@@ -39,7 +39,7 @@ When invoked for specific changes, document those changes following the instruct
 
 1. **Read Standards First**
 
-   Read `plugins/core/rules/documentation.md` to understand documentation requirements:
+   Read `plugins/tdd/rules/documentation.md` to understand documentation requirements:
 
    - YAML frontmatter on every file
    - Mermaid for diagrams

@@ -6,7 +6,8 @@
   Enables doc-writer to delete outdated documentation files and empty directories, fulfilling the cleanup requirement in drive.md step 2.3.
   Enables richer PR summaries by capturing the motivation behind each change in the branch CHANGELOG.
 ## Changed
-- Convert doc-writer from agent to skill ([92db616](https://github.com/qmu/workaholic/commit/92db616)) - [ticket](20260123020302-doc-writer-agent-to-skill.md)
+- Move documentation rule from core to TDD plugin ([c7aa44b](https://github.com/qmu/workaholic/commit/c7aa44b)) - [ticket](20260123020703-move-docs-rule-to-tdd.md)
+  The documentation rule is TDD-specific, used only by doc-writer skill in the TDD workflow.
   Skills run in the main conversation context, providing better access to current state and eliminating subprocess overhead.
   Kebab-case is more readable and URL-friendly than UPPER_CASE for documentation files.
   The new names are more descriptive and follow common documentation conventions.

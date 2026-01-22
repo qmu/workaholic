@@ -22,6 +22,13 @@ if [ ! -f "$TICKET" ]; then
 fi
 
 BRANCH=$(git branch --show-current)
+
+if [ -z "$BRANCH" ]; then
+    echo "Error: Cannot archive ticket: not on a named branch."
+    echo "       Please checkout a branch first (e.g., git checkout -b feature-branch)"
+    exit 1
+fi
+
 TICKET_DIR=$(dirname "$TICKET")
 ARCHIVE_DIR="${TICKET_DIR}/archive/${BRANCH}"
 CHANGELOG="${ARCHIVE_DIR}/CHANGELOG.md"

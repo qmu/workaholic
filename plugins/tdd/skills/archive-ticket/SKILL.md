@@ -15,6 +15,8 @@ Use this skill after user approves implementation. The script handles formatting
 
 **IMPORTANT**: Always use the script. Never manually move tickets or create changelogs.
 
+**Note**: Archiving requires being on a named branch (not detached HEAD). The script will exit with an error if not on a branch.
+
 ## Instructions
 
 Run the bundled script with ticket path, commit message, and repo URL:

@@ -21,12 +21,14 @@ cc-market-place-internal/
 ├── .claude-plugin/
 │   └── marketplace.json
 ├── plugins/
-│   └── workaholic/
-│       ├── .claude-plugin/plugin.json
-│       ├── skills/
-│       ├── agents/
-│       ├── commands/
-│       └── rules/
+│   ├── core/              # Core development commands
+│   │   ├── commands/      # branch, commit, pull-request
+│   │   ├── skills/        # refer-cc-document
+│   │   ├── agents/        # discover-project, discover-claude-dir
+│   │   └── rules/         # general, typescript
+│   └── tdd/               # Ticket-driven development
+│       ├── commands/      # ticket, drive
+│       └── skills/        # archive-ticket
 └── README.md
 ```
 

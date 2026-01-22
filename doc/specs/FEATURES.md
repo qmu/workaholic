@@ -8,31 +8,54 @@
 | Plugin versioning   | Semantic versioning for plugins          |
 | Plugin discovery    | Browse available plugins in marketplace  |
 
-## Workaholic Plugin
+## Core Plugin
+
+Core development commands and project discovery.
 
 ### Commands
 
 | Feature         | Description                             |
 | --------------- | --------------------------------------- |
+| `/branch`       | Create topic branch with timestamp      |
 | `/commit`       | Structured commits with formatting      |
 | `/pull-request` | PR creation with auto-generated summary |
-| `/ticket`       | Implementation ticket generation        |
-| `/drive`        | Ticket-driven implementation workflow   |
-| `/release`      | Version management and publishing       |
 
 ### Skills
 
-| Skill                | Description                                  |
-| -------------------- | -------------------------------------------- |
-| `workaholic-advisor` | Best practices for Claude Code configuration |
-| `refer-cc-document`  | Reference Claude Code documentation          |
+| Skill               | Description                         |
+| ------------------- | ----------------------------------- |
+| `refer-cc-document` | Reference Claude Code documentation |
 
 ### Agents
 
 | Agent                 | Description                               |
 | --------------------- | ----------------------------------------- |
-| `discover-claude-dir` | Analyze existing .claude/ configuration   |
 | `discover-project`    | Analyze project structure and conventions |
+| `discover-claude-dir` | Analyze existing .claude/ configuration   |
+
+### Rules
+
+| Rule            | Description                   |
+| --------------- | ----------------------------- |
+| `general.md`    | Commit confirmation required  |
+| `typescript.md` | TypeScript coding conventions |
+
+## TDD Plugin
+
+Ticket-driven development workflow.
+
+### Commands
+
+| Feature   | Description                           |
+| --------- | ------------------------------------- |
+| `/ticket` | Implementation ticket generation      |
+| `/drive`  | Ticket-driven implementation workflow |
+
+### Skills
+
+| Skill            | Description                                  |
+| ---------------- | -------------------------------------------- |
+| `archive-ticket` | Format, archive, changelog, commit in one op |
 
 ## Auto-Documentation
 

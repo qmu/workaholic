@@ -13,15 +13,16 @@ First, add the internal marketplace:
 /plugin marketplace add qmu/cc-market-place-internal
 ```
 
-Then install the workaholic plugin:
+Then install the plugins:
 
 ```
-/plugin install workaholic@qmu/cc-market-place-internal
+/plugin install core@qmu/cc-market-place-internal
+/plugin install tdd@qmu/cc-market-place-internal
 ```
 
 ## First Steps
 
-1. **Run `/workaholic`** to configure your project's `.claude/` directory
+1. **Use `/branch`** to create a topic branch
 2. **Use `/commit`** for structured commits
 3. **Use `/ticket`** to create implementation tickets
 4. **Use `/drive`** to implement tickets one by one

@@ -39,7 +39,7 @@ Commands are configured via markdown files in `commands/` directory.
 
 ## Directory Structure
 
-Projects using workaholic plugin should have:
+Projects using these plugins should have:
 
 ```
 .claude/

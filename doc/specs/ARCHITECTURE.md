@@ -7,11 +7,16 @@ cc-market-place-internal/
 ├── .claude-plugin/           # Marketplace configuration
 │   └── marketplace.json      # Plugin registry
 ├── plugins/                  # Plugin source directories
-│   └── workaholic/          # Workaholic plugin
+│   ├── core/                # Core development plugin
+│   │   ├── .claude-plugin/  # Plugin metadata
+│   │   ├── commands/        # branch, commit, pull-request
+│   │   ├── skills/          # refer-cc-document
+│   │   ├── agents/          # discover-project, discover-claude-dir
+│   │   └── rules/           # general, typescript
+│   └── tdd/                 # Ticket-driven development plugin
 │       ├── .claude-plugin/  # Plugin metadata
-│       ├── commands/        # Slash commands
-│       ├── skills/          # Reference skills
-│       └── agents/          # Agent definitions
+│       ├── commands/        # ticket, drive
+│       └── skills/          # archive-ticket
 └── doc/
     ├── specs/               # Auto-generated documentation
     └── tickets/             # Implementation tickets queue
@@ -26,12 +31,13 @@ cc-market-place-internal/
 
 ### Plugin Structure
 
-Each plugin contains:
+Each plugin is self-contained with:
 
 - **plugin.json**: Name, version, description, author
 - **commands/**: Slash command definitions (markdown)
-- **skills/**: Reference skills with topics and templates
-- **agents/**: Agent prompt definitions
+- **skills/**: Skills with scripts and templates
+- **agents/**: Agent prompt definitions (core only)
+- **rules/**: Coding conventions (core only)
 
 ### Documentation Flow
 

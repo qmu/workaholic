@@ -29,7 +29,7 @@ None. This is a configuration-only project.
 
 ## Plugin Dependencies
 
-The workaholic plugin has no dependencies on other plugins.
+The core and tdd plugins have no dependencies on other plugins.
 
 ## Version Compatibility
 

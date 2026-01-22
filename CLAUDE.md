@@ -19,12 +19,12 @@ plugins/                 # Plugin source directories
   core/                  # Core development plugin
     .claude-plugin/      # Plugin configuration
     commands/            # branch, commit, pull-request
-    agents/              # discover-project, discover-claude-dir
     rules/               # general, typescript
   tdd/                   # Ticket-driven development plugin
     .claude-plugin/      # Plugin configuration
     commands/            # ticket, drive
-    skills/              # archive-ticket
+    skills/              # archive-ticket, doc-writer
+    rules/               # documentation
 ```
 
 ## Commands

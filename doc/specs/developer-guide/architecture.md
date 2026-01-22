@@ -7,7 +7,7 @@ last_updated: 2026-01-23
 
 # Architecture
 
-Workaholic is a Claude Code plugin marketplace. It contains no runtime code; plugins are markdown files with JSON metadata that Claude Code interprets as commands, agents, rules, and skills.
+Workaholic is a Claude Code plugin marketplace. It contains no runtime code; plugins are markdown files with JSON metadata that Claude Code interprets as commands, rules, and skills.
 
 ## Marketplace Structure
 
@@ -22,19 +22,17 @@ flowchart TD
     end
     subgraph Core Plugin
         C1[commands/]
-        C2[agents/]
-        C3[rules/]
+        C2[rules/]
     end
     subgraph TDD Plugin
         T1[commands/]
-        T2[agents/]
-        T3[skills/]
+        T2[skills/]
+        T3[rules/]
     end
     M --> P1
     M --> P2
     P1 --> C1
     P1 --> C2
-    P1 --> C3
     P2 --> T1
     P2 --> T2
     P2 --> T3
@@ -54,13 +52,9 @@ plugins/
       branch.md          # /branch command
       commit.md          # /commit command
       pull-request.md    # /pull-request command
-    agents/
-      discover-project.md
-      discover-claude-dir.md
     rules/
       general.md
       typescript.md
-      documentation.md
 
   tdd/
     .claude-plugin/
@@ -68,13 +62,15 @@ plugins/
     commands/
       ticket.md          # /ticket command
       drive.md           # /drive command
-    agents/
-      doc-writer.md      # Documentation specialist
     skills/
       archive-ticket/
         SKILL.md
         scripts/
           archive.sh     # Shell script for commit workflow
+      doc-writer/
+        SKILL.md         # Documentation specialist
+    rules/
+      documentation.md   # Documentation standards
 ```
 
 ## Plugin Types
@@ -83,21 +79,16 @@ plugins/
 
 Commands are user-invocable via slash syntax (`/commit`, `/ticket`). Each command is a markdown file with YAML frontmatter defining the name and description, followed by instructions that Claude follows when the command is invoked.
 
-### Agents
-
-Agents are subagent types that can be spawned with the Task tool. They specialize in specific tasks like exploring codebases or writing documentation. Agents define which tools they can use and what model to run on.
-
-The core plugin provides discovery agents for analyzing projects and Claude Code configurations. The TDD plugin provides the doc-writer agent, which is a critical component that enforces documentation standards. It is automatically invoked during the `/drive` command to audit and update documentation for every change. This agent operates as an executor, not a gatekeeper: it cannot skip documentation updates and must always report which files were created or modified.
-
-The doc-writer has access to Read, Glob, Grep, Write, Edit, and Bash tools. The Bash tool enables it to delete outdated documentation files with `rm` and remove empty directories with `rmdir`. This capability is restricted to the `doc/` directory for safety, ensuring that obsolete documentation can be cleaned up automatically during the documentation audit process.
-
 ### Rules
 
 Rules are always-on guidelines that Claude follows throughout the conversation. They define coding standards, documentation requirements, and best practices.
 
 ### Skills
 
-Skills are more complex capabilities that may include scripts or multiple files. The `archive-ticket` skill includes a shell script that handles the complete commit workflow.
+Skills are complex capabilities that may include scripts or multiple files. They are invoked via the Skill tool and provide inline instructions. The TDD plugin includes two skills:
+
+- **archive-ticket**: Shell script that handles the complete commit workflow (archive ticket, update CHANGELOG, commit)
+- **doc-writer**: Documentation specialist that audits and updates documentation. Has access to Read, Glob, Grep, Write, Edit, and Bash tools. The Bash tool enables it to delete outdated documentation files and remove empty directories within `doc/`.
 
 ## How Claude Code Loads Plugins
 
@@ -105,7 +96,7 @@ When a user installs the marketplace with `/plugin marketplace add qmu/workaholi
 
 1. Reads `.claude-plugin/marketplace.json` to find available plugins
 2. For each plugin, reads `plugins/<name>/.claude-plugin/plugin.json`
-3. Loads commands, agents, rules, and skills from the plugin directories
+3. Loads commands, rules, and skills from the plugin directories
 4. Makes commands available as slash commands in the conversation
 
 ## Data Flow
@@ -127,44 +118,41 @@ sequenceDiagram
 
 ## Documentation Enforcement
 
-Workaholic enforces comprehensive documentation through the doc-writer agent. This mechanism ensures that documentation remains synchronized with code changes.
+Workaholic enforces comprehensive documentation through the doc-writer skill. This mechanism ensures that documentation remains synchronized with code changes.
 
 ### How It Works
 
 ```mermaid
 flowchart TD
-    A[/drive command] --> B[Implement ticket]
-    B --> C[Invoke doc-writer agent]
-    C --> D[Audit documentation]
-    D --> E[Update affected docs]
-    E --> F[Report changes]
-    F --> G{User approval}
-    G -->|Approve| H[Commit with docs]
-    G -->|Revise| B
+    A[/pull-request command] --> B[Consolidate CHANGELOG]
+    B --> C[Invoke doc-writer skill]
+    C --> D[Read archived tickets]
+    D --> E[Audit documentation]
+    E --> F[Update affected docs]
+    F --> G[Commit docs]
+    G --> H[Create/update PR]
 ```
 
-The `/drive` command step 2.3 mandates documentation updates. The doc-writer agent is spawned with `subagent_type: tdd:doc-writer` and must:
+The `/pull-request` command invokes the doc-writer skill which:
 
-1. **Audit entire documentation structure** - not just files related to the current ticket
-2. **Delete outdated or invalid documentation** - remove docs that no longer reflect reality using the Bash tool to execute `rm` for files and `rmdir` for empty directories within `doc/`
-3. **Reorganize if needed** - ensure documentation structure matches actual project
-4. **Update relevant docs** - modify existing docs affected by the ticket's changes
-5. **Create new docs if needed** - when the change introduces something that needs documenting
+1. **Reads archived tickets** - Analyzes all tickets from `doc/tickets/archive/<branch-name>/`
+2. **Audits documentation** - Checks entire `doc/specs/` structure
+3. **Updates affected docs** - Modifies docs based on cumulative changes
+4. **Deletes outdated docs** - Uses Bash to remove obsolete files within `doc/`
+5. **Creates new docs** - When changes introduce new concepts to document
 
 ### Critical Requirements
 
 The doc-writer operates under strict requirements:
 
 - **Document every change** - No exceptions, no judgment calls about what's "worth" documenting
-- **Never skip documentation** - "Internal implementation detail" is never a valid reason to skip
+- **Never skip documentation** - "Internal implementation detail" is never a valid reason
 - **Always report updates** - Must specify which files were created or modified
 - **"No updates needed" is unacceptable** - Every change affects documentation somehow
 
-These requirements are embedded in both the doc-writer agent definition and the `/drive` command. The drive command will reject a "no updates needed" response and re-run the doc-writer agent.
-
 ### Design Philosophy
 
-The doc-writer is an executor, not a gatekeeper. It does not have discretion to decide whether documentation should be updated. This ensures that documentation debt does not accumulate and that all changes are properly documented at the time they are made.
+The doc-writer is an executor, not a gatekeeper. It does not have discretion to decide whether documentation should be updated. This ensures that documentation debt does not accumulate and that all changes are properly documented.
 
 ## Version Management
 

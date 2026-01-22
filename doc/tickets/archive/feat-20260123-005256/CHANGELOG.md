@@ -15,3 +15,5 @@
   The doc-writer is TDD-specific tooling used by /drive, so it belongs with the rest of the TDD workflow components.
   The doc-writer agent was skipping documentation. Now it must document everything without exception or judgment calls.
 ## Removed
+- Remove unused agents from core plugin ([a8c1e81](https://github.com/qmu/workaholic/commit/a8c1e81)) - [ticket](20260123021925-remove-core-agents.md)
+  The discover-project and discover-claude-dir agents were not actively used, simplifying the core plugin to commands and rules only.

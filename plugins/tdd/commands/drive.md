@@ -43,29 +43,13 @@ ls -1 doc/tickets/*.md 2>/dev/null | sort
 - Run type checks (per CLAUDE.md) to verify changes
 - Fix any type errors or test failures before proceeding
 
-#### 2.3 Update Documentation
-
-Delegate documentation updates to the `doc-writer` subagent:
-
-- Use the Task tool with `subagent_type: doc-writer`
-- The subagent follows standards in `plugins/core/rules/documentation.md`
-- Documentation structure is repository-specific, not a fixed list
-- Subagent determines appropriate docs based on project needs
-
-**Documentation Standards** (see `documentation.md` rule):
-
-- YAML frontmatter on every file
-- Mermaid charts for diagrams
-- Prose paragraphs, not bullet fragments
-- Proper link hierarchy from root README.md
-
-#### 2.4 Ask User to Review Implementation
+#### 2.3 Ask User to Review Implementation
 
 - **STOP and ask the user to review the implementation before proceeding**
 - **Show ticket context** to help user understand what they're reviewing:
   - Display the ticket title (H1 heading from ticket file)
   - Include a brief summary (first 1-2 sentences from Overview section)
-- Show a summary of changes made (including doc updates)
+- Show a summary of changes made
 - Use AskUserQuestion tool to confirm:
   - "Approve" - implementation is correct, proceed to commit
   - "Needs changes" - user will provide feedback to fix
@@ -90,15 +74,41 @@ Do you approve this implementation?
 [Approve / Needs changes]
 ```
 
+#### 2.4 Write Final Report
+
+After user approves, append a "## Final Report" section to the ticket file.
+
+**If no changes were requested:**
+
+```markdown
+## Final Report
+
+Development completed as planned.
+```
+
+**If user requested changes during review:**
+
+```markdown
+## Final Report
+
+Implementation deviated from original plan:
+
+- **Change**: <what was changed>
+  **Reason**: <why the user requested this change>
+```
+
+This creates a historical record of decisions made during implementation.
+
 #### 2.5 Commit and Archive Using Skill
 
-After user approves, run the archive-ticket skill which handles everything:
+After writing the final report, run the archive-ticket skill which handles everything:
 
 ```bash
 bash .claude/skills/archive-ticket/scripts/archive.sh \
   <ticket-path> \
   "<commit-message>" \
   <repo-url> \
+  "<description>" \
   [modified-files...]
 ```
 
@@ -109,6 +119,7 @@ bash .claude/skills/archive-ticket/scripts/archive.sh \
   doc/tickets/20260115-feature.md \
   "Add new feature for user authentication" \
   https://github.com/org/repo \
+  "Enables users to log in with session-based authentication, addressing the need for secure access control." \
   src/auth.ts src/login.tsx
 ```
 
@@ -120,6 +131,12 @@ bash .claude/skills/archive-ticket/scripts/archive.sh \
 - Start with present-tense verb (Add, Update, Fix, Remove, Refactor)
 - Focus on **WHY** the change was made
 - Keep title concise (50 chars or less)
+
+**Description Rules**:
+
+- 1-2 sentences explaining the motivation behind the change
+- Capture the "why" from the ticket's Overview section
+- This appears in CHANGELOG and helps generate meaningful PR descriptions
 
 After committing, automatically proceed to the next ticket without asking for confirmation.
 
@@ -161,6 +178,7 @@ Claude: [creates commit, archives ticket]
 
 - Each ticket gets its own commit - do not batch multiple tickets
 - If implementation fails, stop and report the error
-- **Implementation approval (step 2.4) is mandatory** - never skip this step
+- **Implementation approval (step 2.3) is mandatory** - never skip this step
+- **Final report (step 2.4) is mandatory** - document what happened
 - Between-ticket continuation is automatic - no confirmation needed
 - User can stop by responding "Needs changes" at approval and requesting to pause

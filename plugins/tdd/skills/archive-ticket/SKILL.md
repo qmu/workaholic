@@ -19,10 +19,10 @@ Use this skill after user approves implementation. The script handles formatting
 
 ## Instructions
 
-Run the bundled script with ticket path, commit message, and repo URL:
+Run the bundled script with ticket path, commit message, repo URL, and optional description:
 
 ```bash
-bash .claude/skills/archive-ticket/scripts/archive.sh <ticket-path> <commit-message> <repo-url> [files...]
+bash .claude/skills/archive-ticket/scripts/archive.sh <ticket-path> <commit-message> <repo-url> [description] [files...]
 ```
 
 Example:
@@ -32,6 +32,7 @@ bash .claude/skills/archive-ticket/scripts/archive.sh \
   doc/tickets/20260115-feature.md \
   "Add new feature" \
   https://github.com/org/repo \
+  "Enables users to authenticate with session-based login, addressing the need for secure access control." \
   src/foo.ts src/bar.ts
 ```
 
@@ -39,23 +40,48 @@ bash .claude/skills/archive-ticket/scripts/archive.sh \
 
 - **NO prefixes** - Do not use `[feat]`, `[fix]`, `feat:`, `fix:`, etc.
 - Start with a present-tense verb (Add, Update, Fix, Remove, Refactor)
-- Focus on **WHY** the change was made, not just what changed
 - Keep the title concise (50 characters or less)
-- Use body for additional context if needed
+- Focus on **WHAT** changed in the title
 
 ### Examples
 
 ```
-Add JSDoc comments to gateway exports for documentation
-Update traceparent format with W3C spec explanation
-Fix session decryption to handle invalid tokens gracefully
+Add JSDoc comments to gateway exports
+Update traceparent format with W3C spec
+Fix session decryption to handle invalid tokens
 Remove unused RegisterTool type after consolidation
 ```
 
-## CHANGELOG Categorization
+## Description Rules
 
-Entries are automatically categorized based on commit verb:
+The optional description parameter captures the **WHY** behind the change:
+
+- 1-2 sentences explaining the motivation or problem being solved
+- Extract from the ticket's Overview section
+- Appears as a second line in CHANGELOG entries
+- Used by `/pull-request` to generate comprehensive PR descriptions
+
+### Example
+
+```
+"Enables users to authenticate with session-based login, addressing the need for secure access control."
+```
+
+## CHANGELOG Format
+
+Entries are automatically categorized based on commit verb and include optional descriptions:
+
+### Categorization
 
 - **Added**: Add, Create, Implement, Introduce
 - **Changed**: Update, Fix, Refactor (default)
 - **Removed**: Remove, Delete
+
+### Entry Format
+
+```markdown
+- Commit title ([hash](url)) - [ticket](file.md)
+  Description explaining why this change was made.
+```
+
+The description line is optional but recommended for generating comprehensive PR summaries.

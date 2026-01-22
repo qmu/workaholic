@@ -1,19 +1,29 @@
-# Documentation
+---
+title: Specifications
+description: Index for all Workaholic specifications
+category: developer
+last_updated: 2026-01-23
+---
 
-## User Documentation
+# Specifications
 
-- [Getting Started](GETTING_STARTED.md) - Quick start, installation, first steps
-- [User Guide](USER_GUIDE.md) - Complete usage instructions, workflows
-- [FAQ](FAQ.md) - Common questions and answers
+This directory contains detailed specifications for the Workaholic plugin marketplace.
 
-## Developer Documentation
+## For Users
 
-- [Features](FEATURES.md) - Feature catalog by category
-- [Architecture](ARCHITECTURE.md) - System design, components, data flow
-- [NFR](NFR.md) - Performance, scalability, reliability
-- [API](API.md) - Interfaces, contracts, endpoints
-- [Data Model](DATA_MODEL.md) - Data structures, schemas
-- [Configuration](CONFIGURATION.md) - Settings, environment variables
-- [Security](SECURITY.md) - Auth, permissions, vulnerabilities
-- [Testing](TESTING.md) - Test strategy, coverage
-- [Dependencies](DEPENDENCIES.md) - External libraries, requirements
+Documentation for users installing and using Workaholic plugins.
+
+See [user-guide/README.md](user-guide/README.md) for the full index:
+
+- [Getting Started](user-guide/getting-started.md) - Installation and first steps
+- [Commands](user-guide/commands.md) - Complete command reference
+- [Workflow](user-guide/workflow.md) - Ticket-driven development guide
+
+## For Developers
+
+Documentation for developers contributing to Workaholic.
+
+See [developer-guide/README.md](developer-guide/README.md) for the full index:
+
+- [Architecture](developer-guide/architecture.md) - Plugin structure and marketplace design
+- [Contributing](developer-guide/contributing.md) - How to add or modify plugins

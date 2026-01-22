@@ -62,10 +62,21 @@ EOF
 
 ### If PR already exists:
 
-Use `gh api` to update the PR body (avoids Projects classic deprecation error):
+Use `gh api` to update the PR title and body (avoids Projects classic deprecation error):
+
+1. **Derive title from CHANGELOG**:
+
+   - Parse CHANGELOG entries for this branch
+   - If single change: use that change as title (e.g., "Add dark mode toggle")
+   - If multiple changes: use first change + "etc" (e.g., "Add dark mode toggle etc")
+   - Keep title concise (GitHub truncates long titles)
+
+2. **Update with `gh api`**:
 
 ```sh
-gh api repos/{owner}/{repo}/pulls/<number> -X PATCH -f body="$(cat <<'EOF'
+gh api repos/{owner}/{repo}/pulls/<number> -X PATCH \
+  -f title="<derived-title>" \
+  -f body="$(cat <<'EOF'
 ## Summary
 ...
 EOF

@@ -29,10 +29,3 @@ If user selects "feat" at 2026-01-20 20:54:18:
 ```bash
 git checkout -b feat-20260120-205418
 ```
-
-## Output
-
-After creating the branch, confirm:
-
-- Branch name created
-- Current branch status

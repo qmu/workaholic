@@ -23,11 +23,11 @@ Commit pending changes by grouping them into logical units.
 
 ## Commit Message Rules
 
-- **NO prefixes** - Do not use `[feat]`, `[fix]`, `feat:`, `fix:`, etc.
-- Start with a present-tense verb (Add, Update, Fix, Remove, Refactor)
-- Focus on **WHY** the change was made, not just what changed
-- Keep the title concise (50 characters or less)
+- Focus on **WHY** the change was made in the body, not just what changed
 - Use body for additional context if needed
+- NO prefixes - Do not use `[feat]`, `[fix]`, `feat:`, `fix:`, etc.
+- Start with a present-tense verb (Add, Update, Fix, Remove, Refactor)
+- Keep the title concise (50 characters or less)
 
 ## Examples
 

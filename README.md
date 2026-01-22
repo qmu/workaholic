@@ -41,7 +41,8 @@ Ticket-driven development workflow for structured implementation.
 
 Also includes:
 
-- **Skills**: `archive-ticket`, `doc-writer` - Commit workflow and documentation management
+- **Skills**: `archive-ticket` - Complete commit workflow
+- **Rules**: `doc-specs` - Path-specific documentation standards for doc/specs/
 - **Rules**: Documentation standards
 
 ## Workflow

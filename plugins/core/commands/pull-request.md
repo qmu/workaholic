@@ -19,13 +19,10 @@ Create or update a pull request for the current branch.
    - Reorganize: deduplicate, sort by category, combine related entries
    - Write updated root `CHANGELOG.md`
    - Stage and commit: "Update CHANGELOG for PR"
-4. **Update documentation using doc-writer skill**:
-   - Use the Skill tool with `skill: "tdd:doc-writer"`
-   - The skill will:
-     1. Read all archived tickets from `doc/tickets/archive/<branch-name>/`
-     2. Analyze cumulative changes across all tickets in the branch
-     3. Plan holistic documentation reorganization for `doc/specs/`
-     4. Update, create, or delete documentation files as needed
+4. **Update documentation in `doc/specs/`**:
+   - Read all archived tickets from `doc/tickets/archive/<branch-name>/`
+   - Analyze cumulative changes across all tickets in the branch
+   - Update `doc/specs/` following the doc-specs rule (auto-loaded for that path)
    - Stage and commit: "Update documentation for PR"
 5. Check if a PR already exists for this branch:
    ```sh

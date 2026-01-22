@@ -8,6 +8,14 @@ paths: doc/specs/**
 
 This rule applies automatically when working in `doc/specs/`.
 
+## Philosophy
+
+Specs represent a **snapshot of the current state**. They describe what exists now, not what changed. When updating specs:
+
+- Rewrite to reflect the present reality, not append changes
+- Think "what does a new reader need to know today?"
+- Don't preserve historical context - that belongs in tickets
+
 ## File Naming
 
 Use kebab-case for all markdown files except README.md:

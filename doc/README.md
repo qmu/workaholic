@@ -9,6 +9,24 @@ last_updated: 2026-01-23
 
 This directory contains documentation for the Workaholic plugin marketplace.
 
+## Philosophy
+
+### Specs (doc/specs/)
+
+Specifications represent a **snapshot of the current state**. They describe what exists now - the comprehensive present situation of the project. When you read specs, you understand how things work today.
+
+- Always up-to-date with the current implementation
+- Comprehensive coverage of all features and architecture
+- Written as reference documentation
+
+### Tickets (doc/tickets/)
+
+Tickets represent **change requests** - past and future. They are a working log focused on specific topics. Each ticket captures what needs to change or what has changed.
+
+- Queued tickets: Future work to be implemented
+- Archived tickets: Historical record of completed changes
+- Focused on the delta, not the whole picture
+
 ## Specifications
 
 Detailed documentation is organized in [specs/](specs/README.md):

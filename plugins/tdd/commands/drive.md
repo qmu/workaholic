@@ -104,6 +104,7 @@ bash .claude/skills/archive-ticket/scripts/archive.sh \
   <ticket-path> \
   "<commit-message>" \
   <repo-url> \
+  "<description>" \
   [modified-files...]
 ```
 
@@ -114,6 +115,7 @@ bash .claude/skills/archive-ticket/scripts/archive.sh \
   doc/tickets/20260115-feature.md \
   "Add new feature for user authentication" \
   https://github.com/org/repo \
+  "Enables users to log in with session-based authentication, addressing the need for secure access control." \
   src/auth.ts src/login.tsx
 ```
 
@@ -125,6 +127,12 @@ bash .claude/skills/archive-ticket/scripts/archive.sh \
 - Start with present-tense verb (Add, Update, Fix, Remove, Refactor)
 - Focus on **WHY** the change was made
 - Keep title concise (50 chars or less)
+
+**Description Rules**:
+
+- 1-2 sentences explaining the motivation behind the change
+- Capture the "why" from the ticket's Overview section
+- This appears in CHANGELOG and helps generate meaningful PR descriptions
 
 After committing, automatically proceed to the next ticket without asking for confirmation.
 

@@ -3,7 +3,7 @@
 ## System Overview
 
 ```
-cc-market-place-internal/
+workaholic/
 ├── .claude-plugin/           # Marketplace configuration
 │   └── marketplace.json      # Plugin registry
 ├── plugins/                  # Plugin source directories

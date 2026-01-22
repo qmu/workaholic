@@ -9,7 +9,7 @@ An internal marketplace for Claude Code plugins, hosting the "core" and "tdd" pl
 ### How do I install plugins?
 
 ```
-/plugin install <plugin-name>@qmu/cc-market-place-internal
+/plugin install <plugin-name>@qmu/workaholic
 ```
 
 ## Commands

@@ -8,8 +8,8 @@ This is a configuration/documentation project with no executable code. Testing i
 
 ### Plugin Installation
 
-1. Run `/plugin install core@qmu/cc-market-place-internal`
-2. Run `/plugin install tdd@qmu/cc-market-place-internal`
+1. Run `/plugin install core@qmu/workaholic`
+2. Run `/plugin install tdd@qmu/workaholic`
 3. Verify `.claude/` directory is configured
 4. Verify commands are available
 

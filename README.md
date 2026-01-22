@@ -1,4 +1,4 @@
-# cc-market-place-internal
+# workaholic
 
 Private marketplace for internal team.
 
@@ -9,7 +9,7 @@ claude
 ```
 
 ```bash
-/plugin marketplace add qmu/cc-market-place-internal
+/plugin marketplace add qmu/workaholic
 ```
 
 Choose user scope, and better enable auto-updates.
@@ -17,7 +17,7 @@ Choose user scope, and better enable auto-updates.
 ## Structure
 
 ```
-cc-market-place-internal/
+workaholic/
 ├── .claude-plugin/
 │   └── marketplace.json
 ├── plugins/

@@ -10,14 +10,14 @@
 First, add the internal marketplace:
 
 ```
-/plugin marketplace add qmu/cc-market-place-internal
+/plugin marketplace add qmu/workaholic
 ```
 
 Then install the plugins:
 
 ```
-/plugin install core@qmu/cc-market-place-internal
-/plugin install tdd@qmu/cc-market-place-internal
+/plugin install core@qmu/workaholic
+/plugin install tdd@qmu/workaholic
 ```
 
 ## First Steps

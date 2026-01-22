@@ -1,6 +1,6 @@
-# CC Marketplace Internal
+# Workaholic
 
-Internal marketplace for Claude Code plugins.
+Private marketplace for internal Claude Code plugins.
 
 ## Important
 
@@ -16,11 +16,16 @@ All documentation, commit messages, and pull requests should be written in **Eng
 .claude-plugin/          # Marketplace configuration
   marketplace.json       # Marketplace metadata and plugin list
 plugins/                 # Plugin source directories
-  workaholic/            # Workaholic plugin
+  core/                  # Core development plugin
     .claude-plugin/      # Plugin configuration
-    commands/            # Plugin commands
-    skills/              # Plugin skills
-    agents/              # Plugin agents
+    commands/            # branch, commit, pull-request
+    skills/              # refer-cc-document
+    agents/              # discover-project, discover-claude-dir
+    rules/               # general, typescript
+  tdd/                   # Ticket-driven development plugin
+    .claude-plugin/      # Plugin configuration
+    commands/            # ticket, drive
+    skills/              # archive-ticket
 ```
 
 ## Commands

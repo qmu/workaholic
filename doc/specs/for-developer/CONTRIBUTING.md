@@ -33,8 +33,10 @@ flowchart LR
 ```
 
 1. **Create a ticket**: `/ticket add new validation rule`
-2. **Implement**: `/drive` - follows the ticket, commits when approved
+2. **Implement**: `/drive` - follows the ticket, updates documentation, commits when approved
 3. **Create PR**: `/pull-request` - generates summary from CHANGELOG
+
+Every implementation automatically updates documentation via the doc-writer subagent. This is mandatory and cannot be skipped.
 
 ## Adding a Command
 
@@ -105,12 +107,17 @@ plugins/<plugin>/skills/my-skill/
 
 ## Documentation Standards
 
+Documentation updates are mandatory for every change. The `/drive` command automatically delegates to the doc-writer subagent, which audits and updates all relevant documentation.
+
 Follow the standards in `plugins/core/rules/documentation.md`:
 
 - YAML frontmatter on every markdown file
 - Use Mermaid for diagrams
 - Write prose paragraphs, not bullet fragments
 - Maintain link hierarchy from root README
+- Update `last_updated` field when modifying documents
+
+The doc-writer is an executor, not a gatekeeper. It has no discretion to skip documentation. Every code change affects documentation in some way, whether updating existing docs, creating new ones, or reorganizing the structure.
 
 ## Testing Changes
 
@@ -134,5 +141,5 @@ Follow the commit message rules:
 Create PRs with `/pull-request`. The summary is auto-generated from the branch CHANGELOG. Ensure your PR:
 
 - Has clear commit history (one ticket = one commit)
-- Updates relevant documentation
+- Includes documentation updates (handled automatically by doc-writer)
 - Follows existing patterns in the codebase

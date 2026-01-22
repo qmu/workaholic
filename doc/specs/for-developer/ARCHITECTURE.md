@@ -83,6 +83,8 @@ Commands are user-invocable via slash syntax (`/commit`, `/ticket`). Each comman
 
 Agents are subagent types that can be spawned with the Task tool. They specialize in specific tasks like exploring codebases or writing documentation. Agents define which tools they can use and what model to run on.
 
+The doc-writer agent is a critical component that enforces documentation standards. It is automatically invoked during the `/drive` command to audit and update documentation for every change. This agent operates as an executor, not a gatekeeper: it cannot skip documentation updates and must always report which files were created or modified.
+
 ### Rules
 
 Rules are always-on guidelines that Claude follows throughout the conversation. They define coding standards, documentation requirements, and best practices.
@@ -116,6 +118,47 @@ sequenceDiagram
     Claude->>Filesystem: Write ticket to doc/tickets/
     Claude-->>User: Ticket created
 ```
+
+## Documentation Enforcement
+
+Workaholic enforces comprehensive documentation through the doc-writer agent. This mechanism ensures that documentation remains synchronized with code changes.
+
+### How It Works
+
+```mermaid
+flowchart TD
+    A[/drive command] --> B[Implement ticket]
+    B --> C[Invoke doc-writer agent]
+    C --> D[Audit documentation]
+    D --> E[Update affected docs]
+    E --> F[Report changes]
+    F --> G{User approval}
+    G -->|Approve| H[Commit with docs]
+    G -->|Revise| B
+```
+
+The `/drive` command step 2.3 mandates documentation updates. The doc-writer agent is spawned with `subagent_type: core:doc-writer` and must:
+
+1. **Audit entire documentation structure** - not just files related to the current ticket
+2. **Delete outdated or invalid documentation** - remove docs that no longer reflect reality
+3. **Reorganize if needed** - ensure documentation structure matches actual project
+4. **Update relevant docs** - modify existing docs affected by the ticket's changes
+5. **Create new docs if needed** - when the change introduces something that needs documenting
+
+### Critical Requirements
+
+The doc-writer operates under strict requirements:
+
+- **Document every change** - No exceptions, no judgment calls about what's "worth" documenting
+- **Never skip documentation** - "Internal implementation detail" is never a valid reason to skip
+- **Always report updates** - Must specify which files were created or modified
+- **"No updates needed" is unacceptable** - Every change affects documentation somehow
+
+These requirements are embedded in both the doc-writer agent definition and the `/drive` command. The drive command will reject a "no updates needed" response and re-run the doc-writer agent.
+
+### Design Philosophy
+
+The doc-writer is an executor, not a gatekeeper. It does not have discretion to decide whether documentation should be updated. This ensures that documentation debt does not accumulate and that all changes are properly documented at the time they are made.
 
 ## Version Management
 

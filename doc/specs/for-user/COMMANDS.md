@@ -65,7 +65,9 @@ Implements queued tickets from top to bottom.
 /drive icebox
 ```
 
-Claude picks up tickets from `doc/tickets/`, implements them one by one, asks for your approval, then commits and archives each ticket before moving to the next. The `icebox` argument lets you select from deferred tickets.
+Claude picks up tickets from `doc/tickets/`, implements them one by one, updates documentation via the doc-writer agent, asks for your approval, then commits and archives each ticket before moving to the next. The `icebox` argument lets you select from deferred tickets.
+
+Documentation updates are mandatory for every ticket. The doc-writer agent audits the entire documentation structure and updates all affected files.
 
 ## Workflow Summary
 

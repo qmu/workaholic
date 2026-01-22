@@ -19,11 +19,19 @@ Create or update a pull request for the current branch.
    - Reorganize: deduplicate, sort by category, combine related entries
    - Write updated root `CHANGELOG.md`
    - Stage and commit: "Update CHANGELOG for PR"
-4. Check if a PR already exists for this branch:
+4. **Update documentation using doc-writer subagent**:
+   - Use the Task tool with `subagent_type: tdd:doc-writer`
+   - Instruct it to:
+     1. Read all archived tickets from `doc/tickets/archive/<branch-name>/`
+     2. Analyze cumulative changes across all tickets in the branch
+     3. Plan holistic documentation reorganization for `doc/specs/`
+     4. Update, create, or delete documentation files as needed
+   - Stage and commit: "Update documentation for PR"
+5. Check if a PR already exists for this branch:
    ```sh
    gh pr list --head $(git branch --show-current) --json number,title,url
    ```
-5. **Read CHANGELOG entries for this branch** (primary source for both summary and details):
+6. **Read CHANGELOG entries for this branch** (primary source for both summary and details):
    - Parse root `CHANGELOG.md` for the section matching the current branch
    - Collect bullets from all subsections (Added, Changed, Removed)
    - Each entry has format: `- Title ([hash](url)) - [ticket](file.md)`
@@ -31,10 +39,10 @@ Create or update a pull request for the current branch.
    - Use entry titles for numbered Summary list
    - Use descriptions for detailed Changes section explanations
    - If CHANGELOG section doesn't exist, fall back to git log
-6. **Derive issue URL** from branch name and remote:
+7. **Derive issue URL** from branch name and remote:
    - Extract issue number from branch (e.g., `i111-20260113-1832` → `111`)
    - Convert remote URL to issue link for reference in PR
-7. Generate PR description:
+8. Generate PR description:
    - Title: Concise summary of the overall change
    - Summary list: Use CHANGELOG entry titles as the numbered list
    - Changes section: Use CHANGELOG entry descriptions to explain the WHY

@@ -9,17 +9,12 @@ Ticket-driven development workflow for Claude Code projects.
 | `/ticket <description>` | Explore codebase and write implementation ticket                         |
 | `/drive`                | Implement tickets from doc/tickets/ one by one, commit each, and archive |
 
-## Agents
-
-| Agent        | Description                                                      |
-| ------------ | ---------------------------------------------------------------- |
-| `doc-writer` | Documentation specialist that updates docs for every code change |
-
 ## Skills
 
 | Skill            | Description                                                              |
 | ---------------- | ------------------------------------------------------------------------ |
 | `archive-ticket` | Complete commit workflow - format, archive, update changelog, and commit |
+| `doc-writer`     | Documentation specialist that updates docs for every code change         |
 
 ## Workflow
 

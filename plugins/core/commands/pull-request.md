@@ -19,9 +19,9 @@ Create or update a pull request for the current branch.
    - Reorganize: deduplicate, sort by category, combine related entries
    - Write updated root `CHANGELOG.md`
    - Stage and commit: "Update CHANGELOG for PR"
-4. **Update documentation using doc-writer subagent**:
-   - Use the Task tool with `subagent_type: tdd:doc-writer`
-   - Instruct it to:
+4. **Update documentation using doc-writer skill**:
+   - Use the Skill tool with `skill: "tdd:doc-writer"`
+   - The skill will:
      1. Read all archived tickets from `doc/tickets/archive/<branch-name>/`
      2. Analyze cumulative changes across all tickets in the branch
      3. Plan holistic documentation reorganization for `doc/specs/`

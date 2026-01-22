@@ -1,7 +1,8 @@
 # Branch Changelog
 
 ## Added
-- Add Bash tool to doc-writer for documentation cleanup ([e2b4023](https://github.com/qmu/workaholic/commit/e2b4023)) - [ticket](20260123012527-doc-writer-bash-tool.md)
+- Add README.md requirement for doc/specs subdirectories ([df5f5ea](https://github.com/qmu/workaholic/commit/df5f5ea)) - [ticket](20260123014944-readme-in-specs-subdirs.md)
+  Ensures every subdirectory has an index for discoverability and enforces the no-orphan-documents constraint.
   Enables doc-writer to delete outdated documentation files and empty directories, fulfilling the cleanup requirement in drive.md step 2.3.
   Enables richer PR summaries by capturing the motivation behind each change in the branch CHANGELOG.
 ## Changed

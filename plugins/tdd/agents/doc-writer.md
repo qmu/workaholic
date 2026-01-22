@@ -86,7 +86,16 @@ When invoked for specific changes, document those changes following the instruct
    - Link from specs index to individual docs
    - No orphan documents
 
-6. **Clean Up Outdated Documentation**
+6. **Maintain Subdirectory READMEs**
+
+   Every subdirectory under `doc/specs/` must have a README.md:
+
+   - When creating a document in a subdirectory, update that directory's README.md
+   - When deleting a document, remove it from the directory's README.md
+   - When renaming a document, update the link in the README.md
+   - When auditing docs, verify all subdirectory READMEs are current and complete
+
+7. **Clean Up Outdated Documentation**
 
    Use Bash to remove obsolete documentation:
 

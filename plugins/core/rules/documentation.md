@@ -22,9 +22,11 @@ last_updated: YYYY-MM-DD
 
 - `doc/README.md` - Index linking to specs/ and tickets/
 - `doc/specs/README.md` - Index for all specifications
-- `doc/specs/for-user/` - User-facing documentation
-- `doc/specs/for-developer/` - Technical documentation
+- `doc/specs/for-user/README.md` - Index for user documentation
+- `doc/specs/for-developer/README.md` - Index for developer documentation
 - `doc/tickets/README.md` - Index for ticket system
+
+**Requirement**: Every subdirectory under `doc/specs/` must have a README.md that links to all documents in that directory.
 
 ## Heading Levels
 
@@ -52,16 +54,47 @@ flowchart TD
 
 ## Link Hierarchy
 
+```
 README.md (root)
 └── doc/README.md
     ├── doc/specs/README.md
-    │   ├── doc/specs/for-user/
-    │   └── doc/specs/for-developer/
+    │   ├── doc/specs/for-user/README.md
+    │   │   └── (individual user docs)
+    │   └── doc/specs/for-developer/README.md
+    │       └── (individual developer docs)
     └── doc/tickets/README.md
+```
+
+## Subdirectory README Format
+
+Each subdirectory README must:
+
+- Have YAML frontmatter with title and description
+- List all documents in the directory with brief descriptions
+- Use relative links to documents
+
+Example:
+
+```yaml
+---
+title: User Documentation
+description: Documentation for end users of the project
+category: user
+last_updated: 2026-01-23
+---
+```
+
+```markdown
+# User Documentation
+
+- [Getting Started](GETTING_STARTED.md) - Installation and first steps
+- [Commands](COMMANDS.md) - Complete command reference
+```
 
 ## Constraints
 
 - No orphan documents (must be linked from parent)
+- Every subdirectory in `doc/specs/` must have a README.md
 - Follow written language specified in CLAUDE.md
 - Update relevant docs with every code change
 - Keep docs close to what they document

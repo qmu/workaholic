@@ -134,13 +134,7 @@ bash .claude/skills/archive-ticket/scripts/archive.sh \
   src/auth.ts src/login.tsx
 ```
 
-The script handles:
-
-1. Format modified files with prettier
-2. Archive ticket to `doc/tickets/archive/<branch>/`
-3. Create/update branch CHANGELOG
-4. Stage all changes and commit
-5. Add commit hash to CHANGELOG (via amend)
+**IMPORTANT**: Always use the script. Never manually move tickets or create changelogs.
 
 **Commit Message Rules**:
 

@@ -1,0 +1,9 @@
+{
+  "name": "core",
+  "description": "Core development commands: branch, commit, pull-request, and project discovery agents",
+  "version": "1.0.0",
+  "author": {
+    "name": "tamurayoshiya",
+    "email": "a@qmu.jp"
+  }
+}

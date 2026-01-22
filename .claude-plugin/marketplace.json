@@ -8,14 +8,25 @@
   },
   "plugins": [
     {
-      "name": "workaholic",
-      "description": "Configure project's .claude/ to make Claude Code work harder",
-      "version": "1.0.8",
+      "name": "core",
+      "description": "Core development commands: branch, commit, pull-request, and project discovery agents",
+      "version": "1.0.0",
       "author": {
         "name": "tamurayoshiya",
         "email": "a@qmu.jp"
       },
-      "source": "./plugins/workaholic",
+      "source": "./plugins/core",
+      "category": "development"
+    },
+    {
+      "name": "tdd",
+      "description": "Ticket-driven development: create tickets, implement them one by one, and archive",
+      "version": "1.0.0",
+      "author": {
+        "name": "tamurayoshiya",
+        "email": "a@qmu.jp"
+      },
+      "source": "./plugins/tdd",
       "category": "development"
     }
   ]

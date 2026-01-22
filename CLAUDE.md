@@ -1,6 +1,6 @@
 # Workaholic
 
-Private marketplace for internal Claude Code plugins.
+Private marketplace for Claude Code plugins.
 
 ## Important
 

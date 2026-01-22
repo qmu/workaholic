@@ -7,7 +7,7 @@
 
 ## Installation
 
-First, add the internal marketplace:
+First, add the workaholic marketplace:
 
 ```
 /plugin marketplace add qmu/workaholic

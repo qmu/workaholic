@@ -61,7 +61,7 @@ Run drive to implement:
 /drive
 ```
 
-Claude follows the spec, makes changes, runs any type checks, and updates documentation. Documentation updates are mandatory for every change. After implementation, Claude asks for your approval. If you approve, it commits and archives the ticket. If not, provide feedback and it will adjust.
+Claude follows the spec, makes changes, and runs any type checks. After implementation, Claude asks for your approval. If you approve, it writes a Final Report to the ticket documenting any deviations from the plan, then commits and archives the ticket. If not, provide feedback and it will adjust.
 
 ### 4. Repeat as Needed
 
@@ -89,13 +89,15 @@ doc/tickets/
 │   └── 20260120-refactor-db.md
 └── archive/
     └── feat-20260123-143022/       # Branch-specific archive
-        ├── 20260122-add-auth.md    # Completed ticket
+        ├── 20260122-add-auth.md    # Completed ticket with Final Report
         └── CHANGELOG.md            # Branch changelog
 ```
 
+Completed tickets include a "Final Report" section that documents whether implementation went as planned or any deviations that occurred during development. This creates a historical record of decisions made during implementation.
+
 ## Benefits
 
-The ticket-driven approach provides several advantages. Specs are reviewed before implementation, catching issues early. Each commit maps to one ticket, creating clean history. The CHANGELOG auto-generates PR summaries. All planning artifacts stay in the repository for future reference. Documentation updates are mandatory for every change, ensuring docs stay synchronized with code.
+The ticket-driven approach provides several advantages. Specs are reviewed before implementation, catching issues early. Each commit maps to one ticket, creating clean history. The CHANGELOG auto-generates PR summaries. All planning artifacts stay in the repository for future reference. Final Reports in archived tickets document what actually happened during implementation, preserving institutional knowledge.
 
 ## When to Use Icebox
 

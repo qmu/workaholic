@@ -36,8 +36,8 @@ Create tickets with `/ticket <description>` and implement with `/drive`.
 
 | Document                                               | Description                     |
 | ------------------------------------------------------ | ------------------------------- |
-| [Getting Started](specs/user-guide/GETTING_STARTED.md) | Installation and setup          |
-| [Commands](specs/user-guide/COMMANDS.md)               | All available commands          |
-| [Workflow](specs/user-guide/WORKFLOW.md)               | Ticket-driven development guide |
-| [Architecture](specs/developer-guide/ARCHITECTURE.md)  | Plugin structure                |
-| [Contributing](specs/developer-guide/CONTRIBUTING.md)  | How to contribute               |
+| [Getting Started](specs/user-guide/getting-started.md) | Installation and setup          |
+| [Commands](specs/user-guide/commands.md)               | All available commands          |
+| [Workflow](specs/user-guide/workflow.md)               | Ticket-driven development guide |
+| [Architecture](specs/developer-guide/architecture.md)  | Plugin structure                |
+| [Contributing](specs/developer-guide/contributing.md)  | How to contribute               |

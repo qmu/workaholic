@@ -6,7 +6,8 @@
   Enables doc-writer to delete outdated documentation files and empty directories, fulfilling the cleanup requirement in drive.md step 2.3.
   Enables richer PR summaries by capturing the motivation behind each change in the branch CHANGELOG.
 ## Changed
-- Rename doc/specs directories to user-guide and developer-guide ([61472a5](https://github.com/qmu/workaholic/commit/61472a5)) - [ticket](20260123015256-rename-doc-dirs.md)
+- Use kebab-case for documentation file names ([c976398](https://github.com/qmu/workaholic/commit/c976398)) - [ticket](20260123015448-kebab-case-docs.md)
+  Kebab-case is more readable and URL-friendly than UPPER_CASE for documentation files.
   The new names are more descriptive and follow common documentation conventions.
   PR-time documentation provides a holistic view of all changes rather than incremental per-ticket fragments.
   The doc-writer is TDD-specific tooling used by /drive, so it belongs with the rest of the TDD workflow components.

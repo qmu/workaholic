@@ -17,26 +17,32 @@ Update all references from the old repository name (`qmu/cc-market-place-interna
 ## Implementation Steps
 
 1. **Update README.md**
+
    - Change title from `cc-market-place-internal` to `workaholic`
    - Update plugin add command: `qmu/cc-market-place-internal` → `qmu/workaholic`
    - Update directory structure: `cc-market-place-internal/` → `workaholic/`
 
 2. **Update CLAUDE.md**
+
    - Change title from `CC Marketplace Internal` to `Workaholic`
    - Update description to reflect new name
    - Update project structure to show actual plugins (core, tdd) instead of outdated `workaholic/`
 
 3. **Update doc/specs/GETTING_STARTED.md**
+
    - Update marketplace add command: `qmu/cc-market-place-internal` → `qmu/workaholic`
    - Update plugin install commands: `@qmu/cc-market-place-internal` → `@qmu/workaholic`
 
 4. **Update doc/specs/FAQ.md**
+
    - Update plugin install example: `@qmu/cc-market-place-internal` → `@qmu/workaholic`
 
 5. **Update doc/specs/TESTING.md**
+
    - Update plugin install commands: `@qmu/cc-market-place-internal` → `@qmu/workaholic`
 
 6. **Update doc/specs/ARCHITECTURE.md**
+
    - Update directory structure: `cc-market-place-internal/` → `workaholic/`
 
 7. **Update doc/tickets/archive/main/CHANGELOG.md**
@@ -44,6 +50,6 @@ Update all references from the old repository name (`qmu/cc-market-place-interna
 
 ## Considerations
 
-- The `.claude-plugin/marketplace.json` name field (`qmu-plugins-internal`) is a semantic identifier, not the repo name - no change needed
+- The `.claude-plugin/marketplace.json` name field (`workaholic`) is a semantic identifier, not the repo name - no change needed
 - Example URLs like `github.com/org/repo` in templates are placeholders and don't need updating
 - The CLAUDE.md project structure is outdated (shows `workaholic/` plugin which was split into `core/` and `tdd/`) - update to match actual structure

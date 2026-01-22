@@ -20,12 +20,6 @@ Core development commands and project discovery.
 | `/commit`       | Structured commits with formatting      |
 | `/pull-request` | PR creation with auto-generated summary |
 
-### Skills
-
-| Skill               | Description                         |
-| ------------------- | ----------------------------------- |
-| `refer-cc-document` | Reference Claude Code documentation |
-
 ### Agents
 
 | Agent                 | Description                               |

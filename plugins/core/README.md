@@ -10,12 +10,6 @@ Core development commands and agents for Claude Code projects.
 | `/commit`       | Commit all changes in logical units with meaningful messages      |
 | `/pull-request` | Create or update a pull request with CHANGELOG-based summary      |
 
-## Skills
-
-| Skill               | Description                                                      |
-| ------------------- | ---------------------------------------------------------------- |
-| `refer-cc-document` | Reference Claude Code documentation for settings, plugins, hooks |
-
 ## Agents
 
 | Agent                 | Description                                          |

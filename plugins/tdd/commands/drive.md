@@ -45,62 +45,26 @@ ls -1 doc/tickets/*.md 2>/dev/null | sort
 
 #### 2.3 Update Documentation
 
-Update `doc/specs/` to reflect the changes:
+Delegate documentation updates to the `doc-writer` subagent:
 
-- Read changes to understand what was modified
-- Create files if they don't exist (generate from codebase analysis)
-- Only update sections relevant to the current changes
-- Update `README.md` with links to all documents
+- Use the Task tool with `subagent_type: doc-writer`
+- The subagent follows standards in `plugins/core/rules/documentation.md`
+- Documentation structure is repository-specific, not a fixed list
+- Subagent determines appropriate docs based on project needs
 
-**Index:**
+**Documentation Standards** (see `documentation.md` rule):
 
-- `README.md` - Links to all documentation (user and developer)
-
-**User Documentation:**
-
-- `GETTING_STARTED.md` - Quick start, installation, first steps
-- `USER_GUIDE.md` - Complete usage instructions, workflows
-- `FAQ.md` - Common questions and answers
-
-**Developer Documentation:**
-
-- `FEATURES.md` - Feature catalog by category
-- `ARCHITECTURE.md` - System design, components, data flow
-- `NFR.md` - Performance, scalability, reliability
-- `API.md` - Interfaces, contracts, endpoints
-- `DATA_MODEL.md` - Data structures, schemas
-- `CONFIGURATION.md` - Settings, environment variables
-- `SECURITY.md` - Auth, permissions, vulnerabilities
-- `TESTING.md` - Test strategy, coverage
-- `DEPENDENCIES.md` - External libraries, requirements
-
-**README.md format:**
-
-```markdown
-# Documentation
-
-## User Documentation
-
-- [Getting Started](GETTING_STARTED.md) - Quick start, installation, first steps
-- [User Guide](USER_GUIDE.md) - Complete usage instructions, workflows
-- [FAQ](FAQ.md) - Common questions and answers
-
-## Developer Documentation
-
-- [Features](FEATURES.md) - Feature catalog by category
-- [Architecture](ARCHITECTURE.md) - System design, components, data flow
-- [NFR](NFR.md) - Performance, scalability, reliability
-- [API](API.md) - Interfaces, contracts, endpoints
-- [Data Model](DATA_MODEL.md) - Data structures, schemas
-- [Configuration](CONFIGURATION.md) - Settings, environment variables
-- [Security](SECURITY.md) - Auth, permissions, vulnerabilities
-- [Testing](TESTING.md) - Test strategy, coverage
-- [Dependencies](DEPENDENCIES.md) - External libraries, requirements
-```
+- YAML frontmatter on every file
+- Mermaid charts for diagrams
+- Prose paragraphs, not bullet fragments
+- Proper link hierarchy from root README.md
 
 #### 2.4 Ask User to Review Implementation
 
 - **STOP and ask the user to review the implementation before proceeding**
+- **Show ticket context** to help user understand what they're reviewing:
+  - Display the ticket title (H1 heading from ticket file)
+  - Include a brief summary (first 1-2 sentences from Overview section)
 - Show a summary of changes made (including doc updates)
 - Use AskUserQuestion tool to confirm:
   - "Approve" - implementation is correct, proceed to commit
@@ -111,6 +75,20 @@ Update `doc/specs/` to reflect the changes:
   2. Then implement the changes
   3. Ask for review again
 - This ensures the ticket always reflects the final implementation
+
+**Approval prompt format:**
+
+```
+**Ticket: <Title from H1>**
+<Summary from Overview section - first 1-2 sentences>
+
+Implementation complete. Changes made:
+- <Change 1>
+- <Change 2>
+
+Do you approve this implementation?
+[Approve / Needs changes]
+```
 
 #### 2.5 Commit and Archive Using Skill
 
@@ -143,14 +121,7 @@ bash .claude/skills/archive-ticket/scripts/archive.sh \
 - Focus on **WHY** the change was made
 - Keep title concise (50 chars or less)
 
-#### 2.6 Ask Before Next Ticket
-
-- Show remaining tickets count
-- Use AskUserQuestion to confirm:
-  - "Continue" - proceed with next ticket
-  - "Stop" - pause here
-- **NEVER auto-continue** - always wait for explicit confirmation
-- Repeat steps 2.1 through 2.5 only after user confirms
+After committing, automatically proceed to the next ticket without asking for confirmation.
 
 ### 3. Completion
 
@@ -169,6 +140,9 @@ Claude: Found 3 tickets to implement:
         Starting with 20260113-feature-a.md...
         [implements feature-a]
 
+        **Ticket: Add User Authentication**
+        Implement user authentication with session-based login and logout.
+
         Implementation complete. Changes made:
         - Modified src/foo.ts (added function X)
         - Updated src/bar.ts (fixed Y)
@@ -180,21 +154,13 @@ User:   Approve
 
 Claude: [creates commit, archives ticket]
 
-        Remaining tickets (2):
-        1. doc/tickets/20260113-feature-b.md
-        2. doc/tickets/20260113-feature-c.md
-
-        Continue with next ticket?
-        [Continue / Stop]
-
-User:   Continue
-
-Claude: Starting with 20260113-feature-b.md...
+        Starting with 20260113-feature-b.md...
 ```
 
 ## Notes
 
 - Each ticket gets its own commit - do not batch multiple tickets
 - If implementation fails, stop and report the error
-- **ALWAYS require user confirmation** - never skip approval steps, even after interruption/resume
-- After any interruption, re-ask for confirmation before proceeding
+- **Implementation approval (step 2.4) is mandatory** - never skip this step
+- Between-ticket continuation is automatic - no confirmation needed
+- User can stop by responding "Needs changes" at approval and requesting to pause

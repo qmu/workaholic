@@ -1,6 +1,6 @@
 # Workaholic
 
-Private marketplace for internal Claude Code plugins.
+Private marketplace for Claude Code plugins.
 
 ## Important
 
@@ -19,7 +19,6 @@ plugins/                 # Plugin source directories
   core/                  # Core development plugin
     .claude-plugin/      # Plugin configuration
     commands/            # branch, commit, pull-request
-    skills/              # refer-cc-document
     agents/              # discover-project, discover-claude-dir
     rules/               # general, typescript
   tdd/                   # Ticket-driven development plugin

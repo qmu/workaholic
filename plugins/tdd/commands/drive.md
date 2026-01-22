@@ -14,7 +14,7 @@ If `$ARGUMENT` contains "icebox":
 1. List tickets in `doc/tickets/icebox/`
 2. Ask user which ticket to retrieve
 3. Move selected ticket to `doc/tickets/`
-4. Implement that ticket (steps 2.1-2.4)
+4. Implement that ticket (steps 2.1-2.5)
 5. **ALWAYS ask confirmation** before proceeding to next ticket
 
 ## Instructions
@@ -74,9 +74,34 @@ Do you approve this implementation?
 [Approve / Needs changes]
 ```
 
-#### 2.4 Commit and Archive Using Skill
+#### 2.4 Write Final Report
 
-After user approves, run the archive-ticket skill which handles everything:
+After user approves, append a "## Final Report" section to the ticket file.
+
+**If no changes were requested:**
+
+```markdown
+## Final Report
+
+Development completed as planned.
+```
+
+**If user requested changes during review:**
+
+```markdown
+## Final Report
+
+Implementation deviated from original plan:
+
+- **Change**: <what was changed>
+  **Reason**: <why the user requested this change>
+```
+
+This creates a historical record of decisions made during implementation.
+
+#### 2.5 Commit and Archive Using Skill
+
+After writing the final report, run the archive-ticket skill which handles everything:
 
 ```bash
 bash .claude/skills/archive-ticket/scripts/archive.sh \
@@ -154,5 +179,6 @@ Claude: [creates commit, archives ticket]
 - Each ticket gets its own commit - do not batch multiple tickets
 - If implementation fails, stop and report the error
 - **Implementation approval (step 2.3) is mandatory** - never skip this step
+- **Final report (step 2.4) is mandatory** - document what happened
 - Between-ticket continuation is automatic - no confirmation needed
 - User can stop by responding "Needs changes" at approval and requesting to pause

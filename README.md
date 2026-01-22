@@ -28,7 +28,6 @@ Essential development commands for everyday git workflow.
 
 Also includes:
 
-- **Agents**: `discover-project`, `discover-claude-dir` - Codebase exploration
 - **Rules**: General and TypeScript coding guidelines
 
 ### tdd
@@ -42,7 +41,8 @@ Ticket-driven development workflow for structured implementation.
 
 Also includes:
 
-- **Skills**: `archive-ticket` - Complete commit workflow with changelog update
+- **Skills**: `archive-ticket`, `doc-writer` - Commit workflow and documentation management
+- **Rules**: Documentation standards
 
 ## Workflow
 

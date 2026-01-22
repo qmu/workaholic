@@ -1,6 +1,6 @@
 # Core
 
-Core development commands and agents for Claude Code projects.
+Core development commands for Claude Code projects.
 
 ## Commands
 
@@ -9,13 +9,6 @@ Core development commands and agents for Claude Code projects.
 | `/branch`       | Create a topic branch with timestamp (e.g., feat-20260120-205418) |
 | `/commit`       | Commit all changes in logical units with meaningful messages      |
 | `/pull-request` | Create or update a pull request with CHANGELOG-based summary      |
-
-## Agents
-
-| Agent                 | Description                                          |
-| --------------------- | ---------------------------------------------------- |
-| `discover-project`    | Explore and analyze project structure                |
-| `discover-claude-dir` | Explore and analyze .claude/ directory configuration |
 
 ## Rules
 

@@ -101,6 +101,9 @@ Update `doc/specs/` to reflect the changes:
 #### 2.4 Ask User to Review Implementation
 
 - **STOP and ask the user to review the implementation before proceeding**
+- **Show ticket context** to help user understand what they're reviewing:
+  - Display the ticket title (H1 heading from ticket file)
+  - Include a brief summary (first 1-2 sentences from Overview section)
 - Show a summary of changes made (including doc updates)
 - Use AskUserQuestion tool to confirm:
   - "Approve" - implementation is correct, proceed to commit
@@ -111,6 +114,20 @@ Update `doc/specs/` to reflect the changes:
   2. Then implement the changes
   3. Ask for review again
 - This ensures the ticket always reflects the final implementation
+
+**Approval prompt format:**
+
+```
+**Ticket: <Title from H1>**
+<Summary from Overview section - first 1-2 sentences>
+
+Implementation complete. Changes made:
+- <Change 1>
+- <Change 2>
+
+Do you approve this implementation?
+[Approve / Needs changes]
+```
 
 #### 2.5 Commit and Archive Using Skill
 
@@ -168,6 +185,9 @@ Claude: Found 3 tickets to implement:
 
         Starting with 20260113-feature-a.md...
         [implements feature-a]
+
+        **Ticket: Add User Authentication**
+        Implement user authentication with session-based login and logout.
 
         Implementation complete. Changes made:
         - Modified src/foo.ts (added function X)

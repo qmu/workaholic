@@ -65,7 +65,7 @@ Implements queued tickets from top to bottom.
 /drive icebox
 ```
 
-Claude picks up tickets from `doc/tickets/`, implements them one by one, asks for your approval, then commits and archives each ticket before moving to the next. The `icebox` argument lets you select from deferred tickets.
+Claude picks up tickets from `doc/tickets/`, implements them one by one, asks for your approval, writes a Final Report documenting any deviations, then commits and archives each ticket before moving to the next. The `icebox` argument lets you select from deferred tickets.
 
 ## Workflow Summary
 

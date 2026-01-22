@@ -60,25 +60,6 @@ Instructions for Claude to follow when this command is invoked.
 
 The `name` in frontmatter becomes the slash command (`/mycommand`).
 
-## Adding an Agent
-
-Agents live in `plugins/<plugin>/agents/`. They require additional frontmatter:
-
-```markdown
----
-name: my-agent
-description: What this agent specializes in
-tools: Read, Glob, Grep
-model: haiku
----
-
-# My Agent
-
-Instructions for the agent.
-```
-
-The `tools` field limits what the agent can use. Available tools include Read, Write, Edit, Glob, Grep, and Bash. The Bash tool allows agents to execute shell commands, which is useful for operations like deleting files or running scripts. The `model` field specifies which Claude model to run (haiku, sonnet, or opus).
-
 ## Adding a Rule
 
 Rules live in `plugins/<plugin>/rules/`. They're always active:

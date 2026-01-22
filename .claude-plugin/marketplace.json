@@ -1,6 +1,6 @@
 {
   "name": "workaholic",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "description": "Standard Claude Code Configuration in qmu",
   "owner": {
     "name": "tamurayoshiya",
@@ -10,7 +10,7 @@
     {
       "name": "core",
       "description": "Core development commands: branch, commit, pull-request, and project discovery agents",
-      "version": "1.0.12",
+      "version": "1.0.13",
       "author": {
         "name": "tamurayoshiya",
         "email": "a@qmu.jp"
@@ -21,7 +21,7 @@
     {
       "name": "tdd",
       "description": "Ticket-driven development: create tickets, implement them one by one, and archive",
-      "version": "1.0.12",
+      "version": "1.0.13",
       "author": {
         "name": "tamurayoshiya",
         "email": "a@qmu.jp"

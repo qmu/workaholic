@@ -1,7 +1,7 @@
 {
   "name": "tdd",
   "description": "Ticket-driven development: create tickets, implement them one by one, and archive",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "author": {
     "name": "tamurayoshiya",
     "email": "a@qmu.jp"

@@ -4,7 +4,7 @@
 
 ### What is this marketplace?
 
-An internal marketplace for Claude Code plugins, hosting the "core" and "tdd" plugins for productive development workflows.
+A private marketplace for Claude Code plugins, hosting the "core" and "tdd" plugins for productive development workflows.
 
 ### How do I install plugins?
 

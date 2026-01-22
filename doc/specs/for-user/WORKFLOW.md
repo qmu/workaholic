@@ -61,7 +61,7 @@ Run drive to implement:
 /drive
 ```
 
-Claude follows the spec, makes changes, runs any type checks, and updates documentation. Documentation updates are mandatory for every change, handled by the doc-writer subagent. After implementation and documentation, Claude asks for your approval. If you approve, it commits and archives the ticket. If not, provide feedback and it will adjust.
+Claude follows the spec, makes changes, runs any type checks, and updates documentation. Documentation updates are mandatory for every change, handled by the doc-writer subagent, which can create, modify, or delete documentation files to ensure accuracy. After implementation and documentation, Claude asks for your approval. If you approve, it commits and archives the ticket. If not, provide feedback and it will adjust.
 
 ### 4. Repeat as Needed
 
@@ -95,7 +95,7 @@ doc/tickets/
 
 ## Benefits
 
-The ticket-driven approach provides several advantages. Specs are reviewed before implementation, catching issues early. Each commit maps to one ticket, creating clean history. The CHANGELOG auto-generates PR summaries. All planning artifacts stay in the repository for future reference. Documentation updates happen automatically for every change, ensuring docs stay synchronized with code.
+The ticket-driven approach provides several advantages. Specs are reviewed before implementation, catching issues early. Each commit maps to one ticket, creating clean history. The CHANGELOG auto-generates PR summaries. All planning artifacts stay in the repository for future reference. Documentation updates happen automatically for every change, ensuring docs stay synchronized with code. The doc-writer subagent audits the entire documentation structure, removing outdated files and creating new ones as needed.
 
 ## When to Use Icebox
 

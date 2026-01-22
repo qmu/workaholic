@@ -89,6 +89,8 @@ Agents are subagent types that can be spawned with the Task tool. They specializ
 
 The core plugin provides discovery agents for analyzing projects and Claude Code configurations. The TDD plugin provides the doc-writer agent, which is a critical component that enforces documentation standards. It is automatically invoked during the `/drive` command to audit and update documentation for every change. This agent operates as an executor, not a gatekeeper: it cannot skip documentation updates and must always report which files were created or modified.
 
+The doc-writer has access to Read, Glob, Grep, Write, Edit, and Bash tools. The Bash tool enables it to delete outdated documentation files with `rm` and remove empty directories with `rmdir`. This capability is restricted to the `doc/` directory for safety, ensuring that obsolete documentation can be cleaned up automatically during the documentation audit process.
+
 ### Rules
 
 Rules are always-on guidelines that Claude follows throughout the conversation. They define coding standards, documentation requirements, and best practices.
@@ -144,7 +146,7 @@ flowchart TD
 The `/drive` command step 2.3 mandates documentation updates. The doc-writer agent is spawned with `subagent_type: tdd:doc-writer` and must:
 
 1. **Audit entire documentation structure** - not just files related to the current ticket
-2. **Delete outdated or invalid documentation** - remove docs that no longer reflect reality
+2. **Delete outdated or invalid documentation** - remove docs that no longer reflect reality using the Bash tool to execute `rm` for files and `rmdir` for empty directories within `doc/`
 3. **Reorganize if needed** - ensure documentation structure matches actual project
 4. **Update relevant docs** - modify existing docs affected by the ticket's changes
 5. **Create new docs if needed** - when the change introduces something that needs documenting

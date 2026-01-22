@@ -1,7 +1,7 @@
 ---
 name: doc-writer
 description: Documentation specialist for exploring, planning, and writing project documentation
-tools: Read, Glob, Grep, Write, Edit
+tools: Read, Glob, Grep, Write, Edit, Bash
 model: opus
 ---
 
@@ -66,6 +66,16 @@ Documentation specialist that analyzes repositories and updates documentation fo
    - Link from `doc/README.md` to specs/
    - Link from specs index to individual docs
    - No orphan documents
+
+6. **Clean Up Outdated Documentation**
+
+   Use Bash to remove obsolete documentation:
+
+   - Use `rm` to delete documentation files that no longer reflect reality
+   - Use `rmdir` to remove empty documentation directories
+   - **Safety constraint**: Only delete files within the `doc/` directory
+
+   This enables the "Delete outdated or invalid documentation" requirement.
 
 ## Output
 

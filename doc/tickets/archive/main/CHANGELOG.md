@@ -1,7 +1,7 @@
 # Branch Changelog
 
 ## Added
-- Add branch validation to archive script to prevent archiving in detached HEAD state ([6051bec](https://github.com/anthropics/cc-market-place-internal/commit/6051bec)) - [ticket](20260122145608-organize-archive-by-branch.md)
+- Add feedback loop documentation explaining ticket-update-first pattern ([64038b8](https://github.com/anthropics/cc-market-place-internal/commit/64038b8)) - [ticket](20260122150455-ticket-update-first-guidance.md)
 ## Changed
 
 ## Removed

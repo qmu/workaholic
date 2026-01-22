@@ -15,6 +15,8 @@
    - Implements and commits each ticket
    - Archives completed tickets
 
+   **Feedback loop**: When requesting changes during review, the ticket is updated first, then changes are implemented. This ensures archived tickets accurately reflect what was built.
+
 3. **Create PR** with `/pull-request`
    - Auto-generates summary from commits
    - Links to implemented tickets

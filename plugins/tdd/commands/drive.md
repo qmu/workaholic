@@ -160,14 +160,7 @@ bash .claude/skills/archive-ticket/scripts/archive.sh \
 - Focus on **WHY** the change was made
 - Keep title concise (50 chars or less)
 
-#### 2.6 Ask Before Next Ticket
-
-- Show remaining tickets count
-- Use AskUserQuestion to confirm:
-  - "Continue" - proceed with next ticket
-  - "Stop" - pause here
-- **NEVER auto-continue** - always wait for explicit confirmation
-- Repeat steps 2.1 through 2.5 only after user confirms
+After committing, automatically proceed to the next ticket without asking for confirmation.
 
 ### 3. Completion
 
@@ -200,21 +193,13 @@ User:   Approve
 
 Claude: [creates commit, archives ticket]
 
-        Remaining tickets (2):
-        1. doc/tickets/20260113-feature-b.md
-        2. doc/tickets/20260113-feature-c.md
-
-        Continue with next ticket?
-        [Continue / Stop]
-
-User:   Continue
-
-Claude: Starting with 20260113-feature-b.md...
+        Starting with 20260113-feature-b.md...
 ```
 
 ## Notes
 
 - Each ticket gets its own commit - do not batch multiple tickets
 - If implementation fails, stop and report the error
-- **ALWAYS require user confirmation** - never skip approval steps, even after interruption/resume
-- After any interruption, re-ask for confirmation before proceeding
+- **Implementation approval (step 2.4) is mandatory** - never skip this step
+- Between-ticket continuation is automatic - no confirmation needed
+- User can stop by responding "Needs changes" at approval and requesting to pause

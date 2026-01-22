@@ -19,31 +19,30 @@ Create or update a pull request for the current branch.
    - Reorganize: deduplicate, sort by category, combine related entries
    - Write updated root `CHANGELOG.md`
    - Stage and commit: "Update CHANGELOG for PR"
-4. Check if a PR already exists for this branch:
+4. **Update documentation in `doc/specs/`**:
+   - Read all archived tickets from `doc/tickets/archive/<branch-name>/`
+   - Analyze cumulative changes across all tickets in the branch
+   - Update `doc/specs/` following the doc-specs rule (auto-loaded for that path)
+   - Stage and commit: "Update documentation for PR"
+5. Check if a PR already exists for this branch:
    ```sh
    gh pr list --head $(git branch --show-current) --json number,title,url
    ```
-5. **Read CHANGELOG entries for this branch** (primary source for summary):
+6. **Read CHANGELOG entries for this branch** (primary source for both summary and details):
    - Parse root `CHANGELOG.md` for the section matching the current branch
    - Collect bullets from all subsections (Added, Changed, Removed)
-   - These combined bullets become the numbered Summary list
+   - Each entry has format: `- Title ([hash](url)) - [ticket](file.md)`
+   - Entries may include a second line with description explaining the WHY
+   - Use entry titles for numbered Summary list
+   - Use descriptions for detailed Changes section explanations
    - If CHANGELOG section doesn't exist, fall back to git log
-6. Get commit details for the "Changes" section:
-   ```sh
-   git log main..HEAD --pretty=format:"- %s%n%b" --reverse
-   ```
-7. **Extract the WHY from commit bodies**:
-   - The commit body contains the actual reasoning and context
-   - Titles are just summaries - the body explains WHY
-   - Extract the motivation from each commit's body text
-   - Group related changes together based on their purpose
-8. **Derive issue URL** from branch name and remote:
+7. **Derive issue URL** from branch name and remote:
    - Extract issue number from branch (e.g., `i111-20260113-1832` → `111`)
    - Convert remote URL to issue link for reference in PR
-9. Generate PR description:
+8. Generate PR description:
    - Title: Concise summary of the overall change
-   - Summary list: Use CHANGELOG entries as the numbered list
-   - Changes section: Explain the WHY using commit body details
+   - Summary list: Use CHANGELOG entry titles as the numbered list
+   - Changes section: Use CHANGELOG entry descriptions to explain the WHY
    - Reference the linked issue from branch name
 
 ## Creating vs Updating
@@ -102,11 +101,11 @@ Refs #<issue-number>
 
 ### 1. First meaningful change
 
-Detailed explanation of why this was needed and what it solves. (from commit body)
+Detailed explanation of why this was needed and what it solves. (from CHANGELOG description)
 
 ### 2. Second meaningful change
 
-Detailed explanation of why this was needed and what it solves. (from commit body)
+Detailed explanation of why this was needed and what it solves. (from CHANGELOG description)
 
 ## Notes
 

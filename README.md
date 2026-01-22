@@ -28,7 +28,6 @@ Essential development commands for everyday git workflow.
 
 Also includes:
 
-- **Agents**: `discover-project`, `discover-claude-dir` - Codebase exploration
 - **Rules**: General and TypeScript coding guidelines
 
 ### tdd
@@ -42,13 +41,25 @@ Ticket-driven development workflow for structured implementation.
 
 Also includes:
 
-- **Skills**: `archive-ticket` - Complete commit workflow with changelog update
+- **Skills**: `archive-ticket` - Complete commit workflow
+- **Rules**: `doc-specs` - Path-specific documentation standards for doc/specs/
+- **Rules**: Documentation standards
 
 ## Workflow
 
 1. **Create ticket**: `/ticket add user authentication` - writes ticket to `doc/tickets/`
 2. **Implement**: `/drive` - picks up tickets, implements, commits, archives
 3. **Ship**: `/pull-request` - creates PR with summary from changelog
+
+## Development Routine
+
+Workaholic takes a local-first approach to development planning. Instead of creating GitHub issues and waiting for discussion, you write implementation tickets directly as markdown files in your repository. Claude Code explores your codebase, understands the context, and generates detailed implementation specs that you review and approve before any code is written.
+
+This workflow differs significantly from traditional issue-driven development. In conventional workflows, you create a GitHub issue, discuss requirements in comments, wait for assignment, create a branch, implement the feature, and finally open a pull request for review. With workaholic, you run `/ticket` to generate a spec, run `/drive` to implement it immediately after approval, and only touch GitHub when you run `/pull-request` at the end.
+
+The benefits become apparent in rapid prototyping and small team environments. There's no waiting for issue triage or assignment, no context switching between GitHub's web interface and your editor, and no long discussion threads to parse. Claude Code acts as an AI pair programmer that reads your entire codebase, writes thorough specs, and implements them in one continuous flow. You stay in your terminal, review specs when they're ready, and ship features faster.
+
+This approach works best when you have clear goals and don't need extensive stakeholder discussion before implementation. For solo developers and small teams who want to move quickly, keeping planning artifacts local as markdown files provides the same documentation benefits as GitHub issues without the coordination overhead. GitHub remains valuable for pull request review and collaboration, but planning and implementation happen locally with AI assistance.
 
 ## Author
 

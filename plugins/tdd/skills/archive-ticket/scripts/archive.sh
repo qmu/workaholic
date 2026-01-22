@@ -7,12 +7,13 @@ set -e
 TICKET="$1"
 COMMIT_MSG="$2"
 REPO_URL="$3"
-shift 3 2>/dev/null || true
+DESCRIPTION="$4"
+shift 4 2>/dev/null || true
 FILES=("$@")
 
 if [ -z "$TICKET" ] || [ -z "$COMMIT_MSG" ]; then
-    echo "Usage: archive.sh <ticket-path> <commit-message> [repo-url] [files...]"
-    echo "Example: archive.sh doc/tickets/20260115-feature.md 'Add new feature' https://github.com/org/repo src/foo.ts"
+    echo "Usage: archive.sh <ticket-path> <commit-message> <repo-url> [description] [files...]"
+    echo "Example: archive.sh doc/tickets/20260115-feature.md 'Add new feature' https://github.com/org/repo 'Enables users to authenticate with session-based login' src/foo.ts"
     exit 1
 fi
 
@@ -67,8 +68,14 @@ esac
 # Step 4: Create changelog entry with placeholder
 ENTRY="- ${COMMIT_MSG} - [ticket](${TICKET_FILENAME})"
 
-awk -v section="## $SECTION" -v entry="$ENTRY" '
-    $0 == section { print; getline; print entry; next }
+awk -v section="## $SECTION" -v entry="$ENTRY" -v desc="$DESCRIPTION" '
+    $0 == section {
+        print
+        getline
+        print entry
+        if (desc != "") print "  " desc
+        next
+    }
     { print }
 ' "$CHANGELOG" > "${CHANGELOG}.tmp" && mv "${CHANGELOG}.tmp" "$CHANGELOG"
 echo "==> Updated CHANGELOG"

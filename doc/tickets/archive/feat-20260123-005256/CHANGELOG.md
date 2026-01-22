@@ -1,7 +1,8 @@
 # Branch Changelog
 
 ## Added
-- Add documentation philosophy explaining specs vs tickets ([8e2cd91](https://github.com/qmu/workaholic/commit/8e2cd91)) - [ticket](20260123023805-explain-specs-vs-tickets.md)
+- Add final report step to drive command workflow ([2788d9d](https://github.com/qmu/workaholic/commit/2788d9d)) - [ticket](20260123024044-drive-final-report.md)
+  Creates historical record of implementation decisions by appending a Final Report section to tickets before archiving.
   Clarifies the conceptual difference: specs are snapshots of current state while tickets are change requests (past/future work log).
   Ensures every subdirectory has an index for discoverability and enforces the no-orphan-documents constraint.
   Enables doc-writer to delete outdated documentation files and empty directories, fulfilling the cleanup requirement in drive.md step 2.3.

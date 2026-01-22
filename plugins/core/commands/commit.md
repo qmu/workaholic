@@ -7,11 +7,6 @@ description: Commit all changes (staged and unstaged) in logical units. ONLY com
 
 Commit pending changes by grouping them into logical units.
 
-## CRITICAL RULES
-
-- **NEVER amend** existing commits without explicit instruction
-- If developer says "revert" or cancels, do NOT commit the reverted state
-
 ## Instructions
 
 1. Run `git status` to see all staged and unstaged changes

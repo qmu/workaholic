@@ -28,7 +28,6 @@ Essential development commands for everyday git workflow.
 
 Also includes:
 
-- **Skills**: `refer-cc-document` - Reference Claude Code documentation
 - **Agents**: `discover-project`, `discover-claude-dir` - Codebase exploration
 - **Rules**: General and TypeScript coding guidelines
 

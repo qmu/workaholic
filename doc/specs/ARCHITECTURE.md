@@ -10,7 +10,6 @@ workaholic/
 │   ├── core/                # Core development plugin
 │   │   ├── .claude-plugin/  # Plugin metadata
 │   │   ├── commands/        # branch, commit, pull-request
-│   │   ├── skills/          # refer-cc-document
 │   │   ├── agents/          # discover-project, discover-claude-dir
 │   │   └── rules/           # general, typescript
 │   └── tdd/                 # Ticket-driven development plugin

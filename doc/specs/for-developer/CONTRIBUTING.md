@@ -77,7 +77,7 @@ model: haiku
 Instructions for the agent.
 ```
 
-The `tools` field limits what the agent can use. The `model` field specifies which Claude model to run.
+The `tools` field limits what the agent can use. Available tools include Read, Write, Edit, Glob, Grep, and Bash. The Bash tool allows agents to execute shell commands, which is useful for operations like deleting files or running scripts. The `model` field specifies which Claude model to run (haiku, sonnet, or opus).
 
 ## Adding a Rule
 
@@ -117,7 +117,7 @@ Follow the standards in `plugins/core/rules/documentation.md`:
 - Maintain link hierarchy from root README
 - Update `last_updated` field when modifying documents
 
-The doc-writer is an executor, not a gatekeeper. It has no discretion to skip documentation. Every code change affects documentation in some way, whether updating existing docs, creating new ones, or reorganizing the structure.
+The doc-writer is an executor, not a gatekeeper. It has no discretion to skip documentation. Every code change affects documentation in some way, whether updating existing docs, creating new ones, removing outdated files, or reorganizing the structure. The doc-writer uses the Bash tool to delete obsolete documentation files with `rm` and remove empty directories with `rmdir`, ensuring that the documentation structure accurately reflects the current state of the project.
 
 ## Testing Changes
 

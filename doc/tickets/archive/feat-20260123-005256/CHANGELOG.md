@@ -1,7 +1,8 @@
 # Branch Changelog
 
 ## Added
-- Add description field to CHANGELOG entries ([c7a9251](https://github.com/qmu/workaholic/commit/c7a9251)) - [ticket](20260123005822-comprehensive-changelog-entries.md)
+- Add Bash tool to doc-writer for documentation cleanup ([e2b4023](https://github.com/qmu/workaholic/commit/e2b4023)) - [ticket](20260123012527-doc-writer-bash-tool.md)
+  Enables doc-writer to delete outdated documentation files and empty directories, fulfilling the cleanup requirement in drive.md step 2.3.
   Enables richer PR summaries by capturing the motivation behind each change in the branch CHANGELOG.
 ## Changed
 - Move doc-writer agent from core to TDD plugin ([84b4292](https://github.com/qmu/workaholic/commit/84b4292)) - [ticket](20260123012356-move-doc-writer-to-tdd.md)

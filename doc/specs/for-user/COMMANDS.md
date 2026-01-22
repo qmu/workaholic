@@ -67,7 +67,7 @@ Implements queued tickets from top to bottom.
 
 Claude picks up tickets from `doc/tickets/`, implements them one by one, updates documentation via the doc-writer agent, asks for your approval, then commits and archives each ticket before moving to the next. The `icebox` argument lets you select from deferred tickets.
 
-Documentation updates are mandatory for every ticket. The doc-writer agent audits the entire documentation structure and updates all affected files.
+Documentation updates are mandatory for every ticket. The doc-writer agent audits the entire documentation structure, creates new files when needed, updates existing documentation to reflect changes, and removes outdated files that no longer match the current state of the project.
 
 ## Workflow Summary
 

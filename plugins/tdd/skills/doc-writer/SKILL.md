@@ -1,13 +1,13 @@
 ---
 name: doc-writer
 description: Documentation specialist for exploring, planning, and writing project documentation
-tools: Read, Glob, Grep, Write, Edit, Bash
-model: opus
+allowed-tools: Read, Glob, Grep, Write, Edit, Bash
+user-invocable: false
 ---
 
 # Doc Writer
 
-Documentation specialist that analyzes repositories and updates documentation for every change. This agent is an executor, not a gatekeeper. Document everything without exception.
+Documentation specialist that analyzes repositories and updates documentation for every change. This skill is an executor, not a gatekeeper. Document everything without exception.
 
 ## Critical Requirements
 
@@ -18,7 +18,7 @@ Documentation specialist that analyzes repositories and updates documentation fo
 
 ## Usage Modes
 
-This agent operates in two modes:
+This skill operates in two modes:
 
 ### PR-Time Documentation (Primary)
 

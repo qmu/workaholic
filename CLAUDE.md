@@ -19,11 +19,8 @@ plugins/                 # Plugin source directories
   core/                  # Core development plugin
     .claude-plugin/      # Plugin configuration
     agents/              # performance-analyst
-    commands/            # branch, commit, pull-request
+    commands/            # branch, commit, pull-request, ticket, drive, sync-src-doc
     rules/               # general, typescript
-  tdd/                   # Ticket-driven development plugin
-    .claude-plugin/      # Plugin configuration
-    commands/            # ticket, drive, sync-src-doc
     skills/              # archive-ticket
 ```
 

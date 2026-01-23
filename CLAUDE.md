@@ -8,7 +8,12 @@ Edit `plugins/` not `.claude/`. This repo develops plugins - changes go to `plug
 
 ## Written Language
 
-All documentation, commit messages, and pull requests should be written in **English**.
+- **`.work/` directory**: English or Japanese (bilingual)
+- **All other content**: English only
+  - Code and code comments
+  - Commit messages
+  - Pull requests
+  - Documentation outside `.work/`
 
 ## Project Structure
 

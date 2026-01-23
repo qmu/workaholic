@@ -32,7 +32,7 @@ fi
 
 TICKET_DIR=$(dirname "$TICKET")
 ARCHIVE_DIR="${TICKET_DIR}/archive/${BRANCH}"
-CHANGELOG="doc/changelogs/${BRANCH}.md"
+CHANGELOG="work/changelogs/${BRANCH}.md"
 TICKET_FILENAME=$(basename "$TICKET")
 
 # Step 1: Move ticket to archive

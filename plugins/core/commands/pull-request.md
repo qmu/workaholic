@@ -12,7 +12,7 @@ Create or update a pull request for the current branch.
 1. Check the current branch name with `git branch --show-current`
 2. Get the base branch (usually `main`) with `git remote show origin | grep 'HEAD branch'`
 3. **Consolidate branch CHANGELOG to root**:
-   - Read `doc/tickets/archive/<branch-name>/CHANGELOG.md` if it exists
+   - Read `doc/changelogs/<branch-name>.md` if it exists
    - Read existing `CHANGELOG.md` (root)
    - Merge branch entries into root CHANGELOG under branch section header
    - Format: `## [<branch-name>](issue-url)`
@@ -28,7 +28,7 @@ Create or update a pull request for the current branch.
 
    Read all archived tickets for this branch:
    ```bash
-   ls -1 doc/tickets/archive/<branch-name>/*.md 2>/dev/null | grep -v CHANGELOG
+   ls -1 doc/tickets/archive/<branch-name>/*.md 2>/dev/null
    ```
 
    For each ticket, extract:

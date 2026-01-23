@@ -57,11 +57,23 @@ tickets/
 ├── icebox/                        # Deferred tickets
 └── archive/
     └── <branch>/
-        ├── <ticket>.md            # Completed tickets
-        └── CHANGELOG.md           # Branch changes
+        └── <ticket>.md            # Completed tickets
 ```
 
 Create tickets with `/ticket <description>` and implement with `/drive`.
+
+## Changelogs
+
+The [changelogs/](changelogs/) directory tracks changes per branch:
+
+```
+changelogs/
+├── README.md                      # Index
+├── main.md                        # Changes on main
+└── <branch>.md                    # Branch-specific changes
+```
+
+Each branch changelog records commits during development. When a PR is created, entries are consolidated into the root `CHANGELOG.md`.
 
 ## Quick Links
 

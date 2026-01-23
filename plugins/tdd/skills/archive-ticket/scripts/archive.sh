@@ -32,12 +32,13 @@ fi
 
 TICKET_DIR=$(dirname "$TICKET")
 ARCHIVE_DIR="${TICKET_DIR}/archive/${BRANCH}"
-CHANGELOG="${ARCHIVE_DIR}/CHANGELOG.md"
+CHANGELOG="doc/changelogs/${BRANCH}.md"
 TICKET_FILENAME=$(basename "$TICKET")
 
 # Step 1: Move ticket to archive
 echo "==> Archiving ticket..."
 mkdir -p "$ARCHIVE_DIR"
+mkdir -p "doc/changelogs"
 mv "$TICKET" "$ARCHIVE_DIR/"
 echo "    ${ARCHIVE_DIR}/${TICKET_FILENAME}"
 

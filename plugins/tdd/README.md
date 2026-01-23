@@ -20,6 +20,7 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 | ----------------------- | ------------------------------------------------------------------------ |
 | `/ticket <description>` | Explore codebase and write implementation ticket                         |
 | `/drive`                | Implement tickets from .work/tickets/ one by one, commit each, and archive |
+| `/sync-src-doc`         | Sync source code to documentation (specs and terminology)                |
 
 ## Skills
 

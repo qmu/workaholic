@@ -12,12 +12,13 @@ This is the working artifacts hub for the Workaholic plugin marketplace.
 - [changelogs/](changelogs/README.md) - Historical record of changes per branch
 - [specs/](specs/README.md) - Current state reference documentation
 - [stories/](stories/README.md) - Development narratives per branch
+- [terminology/](terminology/README.md) - Consistent term definitions across the project
 - [tickets/](tickets/README.md) - Implementation work queue and archives
 
 ## Plugins
 
 - [Core](../plugins/core/README.md) - Git workflow commands (`/branch`, `/commit`, `/pull-request`)
-- [TDD](../plugins/tdd/README.md) - Ticket-driven development (`/ticket`, `/drive`, `/sync-doc-specs`)
+- [TDD](../plugins/tdd/README.md) - Ticket-driven development (`/ticket`, `/drive`, `/sync-src-doc`)
 
 ## Design Policy
 

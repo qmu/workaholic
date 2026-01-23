@@ -1,11 +1,11 @@
 ---
-name: sync-doc-specs
-description: Update .work/specs comprehensively following doc-specs rules
+name: sync-src-doc
+description: Sync source code to documentation (specs and terminology)
 ---
 
-# Sync Doc Specs
+# Sync Source to Documentation
 
-Update `.work/specs/` to reflect the current codebase state based on changes made in the current branch.
+Update `.work/specs/` and `.work/terminology/` to reflect the current codebase state.
 
 ## Instructions
 
@@ -34,10 +34,11 @@ ls -1 .work/tickets/archive/<branch-name>/*.md 2>/dev/null
 
 ### 2. Audit Current Documentation
 
-Survey what exists in `.work/specs/`:
+Survey what exists in `.work/specs/` and `.work/terminology/`:
 
 ```bash
 find .work/specs -name "*.md" -type f | sort
+find .work/terminology -name "*.md" -type f | sort
 ```
 
 For each document:
@@ -50,10 +51,19 @@ For each document:
 
 Based on changes and current docs, determine:
 
+**For specs:**
+
 - **Updates needed**: Existing docs that reference changed components
 - **New docs needed**: Changes that introduced new concepts requiring docs
 - **Deletions needed**: Docs for removed features (only within `.work/`)
 - **README updates**: Index files needing link additions/removals
+
+**For terminology:**
+
+- **New terms**: Concepts introduced that need definitions
+- **Updated definitions**: Terms whose meaning has evolved
+- **Inconsistencies**: Terms used differently across files
+- **Deprecated terms**: Concepts no longer in use
 
 ### 4. Identify Cross-Cutting Concerns
 
@@ -80,9 +90,9 @@ For each cross-cutting concern identified:
 - Document the "why" behind design decisions, not just implementation details
 - Think like a new developer - what would they need to understand before diving into individual files?
 
-### 5. Execute File Updates
+### 5. Execute Spec Updates
 
-Apply updates following these formatting rules:
+Apply updates to `.work/specs/` following these formatting rules:
 
 **Frontmatter** (required for every file):
 
@@ -126,7 +136,47 @@ git rev-parse --short HEAD
 - Think "what does a new reader need to know today?"
 - Historical context belongs in tickets, not specs
 
-### 6. Update Index Files
+### 6. Execute Terminology Updates
+
+Apply updates to `.work/terminology/` following these rules:
+
+**Term categories:**
+
+| File | Terms |
+|------|-------|
+| `core-concepts.md` | plugin, command, skill, rule |
+| `artifacts.md` | ticket, spec, story, changelog |
+| `workflow-terms.md` | drive, archive, sync, release |
+| `file-conventions.md` | kebab-case, frontmatter, icebox, archive |
+| `inconsistencies.md` | Known terminology issues |
+
+**Term Entry Format**:
+
+```markdown
+## term-name
+
+Brief one-sentence definition.
+
+### Definition
+
+Full explanation of what this term means in the Workaholic context.
+
+### Usage Patterns
+
+- **Directory names**: examples
+- **File names**: examples
+- **Code references**: examples
+
+### Related Terms
+
+- Related term 1, related term 2
+
+### Inconsistencies (if any)
+
+- Description of inconsistency and potential resolution
+```
+
+### 7. Update Index Files
 
 Ensure documentation hierarchy is maintained:
 
@@ -140,6 +190,7 @@ The root .work/README.md should be a simple index linking to subdirectory README
 - [changelogs/](changelogs/README.md) - Historical record of changes per branch
 - [specs/](specs/README.md) - Current state reference documentation
 - [stories/](stories/README.md) - Development narratives per branch
+- [terminology/](terminology/README.md) - Consistent term definitions
 - [tickets/](tickets/README.md) - Implementation work queue and archives
 
 ## Plugins
@@ -169,13 +220,13 @@ Keep detailed content in subdirectory READMEs, not in .work/README.md.
 - [Another Doc](another-doc.md) - Brief description
 ```
 
-### 7. Completion
+### 8. Completion
 
 Summarize changes made:
 
-- List documents updated
-- List documents created
-- List documents deleted
+- List specs updated/created/deleted
+- List terminology terms added/updated/deprecated
+- List inconsistencies identified
 - Confirm all new docs are linked from READMEs
 
 ## Critical Rules
@@ -184,5 +235,6 @@ Summarize changes made:
 - **Every ticket affects docs somehow** - Even small changes have documentation implications
 - **Only delete within `.work/`** - Safety constraint for file deletions
 - **No orphan documents** - Every doc must be linked from a parent README
+- **Consistency over precision** - A term should mean the same thing everywhere
 - **Update `last_updated`** - Set to today's date when modifying any doc
 - **Update `commit_hash`** - Run `git rev-parse --short HEAD` and set this value

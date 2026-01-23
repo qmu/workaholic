@@ -24,11 +24,16 @@ Create or update a pull request for the current branch.
    - Analyze cumulative changes across all tickets in the branch
    - Update `doc/specs/` following the doc-specs rule (auto-loaded for that path)
    - Stage and commit: "Update documentation for PR"
-5. Check if a PR already exists for this branch:
+5. **Format changed files** (silent step):
+   - Run project linter/formatter on changed files
+   - Do NOT announce "reading file again" or similar verbose messages
+   - Just silently format and continue
+   - Stage and commit any formatting changes: "Format code"
+6. Check if a PR already exists for this branch:
    ```sh
    gh pr list --head $(git branch --show-current) --json number,title,url
    ```
-6. **Read CHANGELOG entries for this branch** (primary source for both summary and details):
+7. **Read CHANGELOG entries for this branch** (primary source for both summary and details):
    - Parse root `CHANGELOG.md` for the section matching the current branch
    - Collect bullets from all subsections (Added, Changed, Removed)
    - Each entry has format: `- Title ([hash](url)) - [ticket](file.md)`
@@ -36,10 +41,10 @@ Create or update a pull request for the current branch.
    - Use entry titles for numbered Summary list
    - Use descriptions for detailed Changes section explanations
    - If CHANGELOG section doesn't exist, fall back to git log
-7. **Derive issue URL** from branch name and remote:
+8. **Derive issue URL** from branch name and remote:
    - Extract issue number from branch (e.g., `i111-20260113-1832` → `111`)
    - Convert remote URL to issue link for reference in PR
-8. Generate PR description:
+9. Generate PR description:
    - Title: Concise summary of the overall change
    - Summary list: Use CHANGELOG entry titles as the numbered list
    - Changes section: Use CHANGELOG entry descriptions to explain the WHY

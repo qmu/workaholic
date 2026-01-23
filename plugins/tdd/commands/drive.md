@@ -1,19 +1,19 @@
 ---
 name: drive
-description: Implement tickets from work/tickets/ one by one, commit each, and archive.
+description: Implement tickets from .work/tickets/ one by one, commit each, and archive.
 ---
 
 # Drive
 
-Implement all tickets stored in `work/tickets/` from top to bottom, committing and archiving each one before moving to the next.
+Implement all tickets stored in `.work/tickets/` from top to bottom, committing and archiving each one before moving to the next.
 
 ## Icebox Mode
 
 If `$ARGUMENT` contains "icebox":
 
-1. List tickets in `work/tickets/icebox/`
+1. List tickets in `.work/tickets/icebox/`
 2. Ask user which ticket to retrieve
-3. Move selected ticket to `work/tickets/`
+3. Move selected ticket to `.work/tickets/`
 4. Implement that ticket (steps 2.1-2.5)
 5. **ALWAYS ask confirmation** before proceeding to next ticket
 
@@ -22,7 +22,7 @@ If `$ARGUMENT` contains "icebox":
 ### 1. List and Sort Tickets
 
 ```bash
-ls -1 work/tickets/*.md 2>/dev/null | sort
+ls -1 .work/tickets/*.md 2>/dev/null | sort
 ```
 
 - If no tickets found, inform the user and stop
@@ -116,7 +116,7 @@ Example:
 
 ```bash
 bash .claude/skills/archive-ticket/scripts/archive.sh \
-  work/tickets/20260115-feature.md \
+  .work/tickets/20260115-feature.md \
   "Add new feature for user authentication" \
   https://github.com/org/repo \
   "Enables users to log in with session-based authentication, addressing the need for secure access control." \
@@ -150,9 +150,9 @@ After committing, automatically proceed to the next ticket without asking for co
 
 ```
 Claude: Found 3 tickets to implement:
-        1. work/tickets/20260113-feature-a.md
-        2. work/tickets/20260113-feature-b.md
-        3. work/tickets/20260113-feature-c.md
+        1. .work/tickets/20260113-feature-a.md
+        2. .work/tickets/20260113-feature-b.md
+        3. .work/tickets/20260113-feature-c.md
 
         Starting with 20260113-feature-a.md...
         [implements feature-a]

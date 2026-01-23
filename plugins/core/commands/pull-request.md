@@ -39,8 +39,8 @@ Create or update a pull request for the current branch.
    ```yaml
    ---
    branch: <branch-name>
-   started: YYYY-MM-DD  # from first ticket timestamp
-   last_updated: YYYY-MM-DD  # today
+   started_at: YYYY-MM-DDTHH:MM:SS+TZ  # from first commit timestamp
+   ended_at: YYYY-MM-DDTHH:MM:SS+TZ    # from last commit timestamp
    tickets_completed: <count>
    commits: <count>
    duration_hours: <number>  # time between first and last commit
@@ -53,9 +53,9 @@ Create or update a pull request for the current branch.
    # Get commit count for this branch
    git rev-list --count main..HEAD
 
-   # Get first and last commit timestamps
-   git log main..HEAD --reverse --format=%ci | head -1
-   git log main..HEAD --format=%ci | head -1
+   # Get first and last commit timestamps (ISO 8601 format)
+   git log main..HEAD --reverse --format=%cI | head -1
+   git log main..HEAD --format=%cI | head -1
 
    # Calculate duration in hours between first and last commit
    # velocity = commits / duration_hours (handle 0 duration as 1 hour minimum)

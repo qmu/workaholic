@@ -130,6 +130,26 @@ git rev-parse --short HEAD
 
 Ensure documentation hierarchy is maintained:
 
+**doc/README.md structure:**
+
+The root doc/README.md should be a simple index linking to subdirectory READMEs:
+
+```markdown
+# Documentation
+
+- [changelogs/](changelogs/README.md) - Historical record of changes per branch
+- [specs/](specs/README.md) - Current state reference documentation
+- [stories/](stories/README.md) - Development narratives per branch
+- [tickets/](tickets/README.md) - Implementation work queue and archives
+
+## Plugins
+
+- [Core](../plugins/core/README.md) - Git workflow commands
+- [TDD](../plugins/tdd/README.md) - Ticket-driven development
+```
+
+Keep detailed content in subdirectory READMEs, not in doc/README.md.
+
 **When adding a document:**
 
 - Add link to parent README (subdirectory or `doc/specs/README.md`)

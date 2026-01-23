@@ -68,6 +68,9 @@ Create or update a pull request for the current branch.
    - Highlight decision points and trade-offs
    - Keep it concise (aim for 200-400 words)
 
+   **Update doc/stories/README.md** to include the new story:
+   - Add entry: `- [<branch-name>.md](<branch-name>.md) - Brief description of the branch work`
+
    Stage and commit: "Generate branch story"
 
 6. **Format changed files** (silent step):

@@ -8,7 +8,7 @@ paths: doc/specs/**
 
 This rule applies automatically when working in `doc/specs/`.
 
-## Philosophy
+## Design Policy
 
 Specs represent a **snapshot of the current state**. They describe what exists now, not what changed. Documentation serves two audiences: someone looking up a specific file, and someone trying to understand how the system works. The former needs file-level docs; the latter needs cross-cutting docs that explain flows, patterns, and architectural decisions.
 

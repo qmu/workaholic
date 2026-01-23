@@ -147,7 +147,7 @@ The `doc-specs` rule enforces strict requirements:
 - **Always report updates** - Must specify which files were created or modified
 - **"No updates needed" is unacceptable** - Every change affects documentation somehow
 
-### Design Philosophy
+### Design Policy
 
 Documentation is mandatory, not optional. The path-specific rule ensures that documentation standards are automatically enforced whenever working in `doc/specs/`, preventing documentation debt from accumulating.
 

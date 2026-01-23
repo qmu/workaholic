@@ -9,7 +9,7 @@ last_updated: 2026-01-23
 
 This directory contains documentation for the Workaholic plugin marketplace.
 
-## Philosophy
+## Design Policy
 
 ### Specs (doc/specs/)
 

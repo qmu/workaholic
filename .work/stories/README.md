@@ -1,19 +1,63 @@
 ---
 title: Stories
-description: Branch development narratives capturing motivation, journey, and outcomes
+description: Branch development narratives that serve as PR descriptions
 category: developer
-last_updated: 2026-01-23
+last_updated: 2026-01-24
 ---
 
 [English](README.md) | [日本語](README_ja.md)
 
 # Stories
 
-This directory contains narrative documents that capture the developer's journey through each branch. Stories synthesize archived tickets into a coherent narrative explaining what motivated the work, what challenges arose, and how decisions were made.
+This directory contains comprehensive story documents that serve as the single source of truth for PR descriptions. Each story synthesizes archived tickets and CHANGELOG entries into a complete PR-ready document.
 
 ## Purpose
 
-Stories serve as high-level context for reviewers and future developers. While changelogs list individual changes and tickets capture implementation details, stories explain the "why" behind a body of work.
+Stories are PR descriptions stored as files. When creating a pull request, the `/pull-request` command generates a story file and copies its content directly to GitHub. This eliminates duplication between story generation and PR description assembly.
+
+Stories serve multiple purposes:
+- **PR description**: Content is copied directly to GitHub PR body
+- **Historical record**: Preserved in repository for future reference
+- **Reviewer context**: Explains the "why" behind a body of work
+
+## Story Format
+
+Stories contain YAML frontmatter for metrics, followed by seven sections that form the PR body:
+
+```markdown
+---
+branch: <branch-name>
+started_at: YYYY-MM-DDTHH:MM:SS+TZ
+ended_at: YYYY-MM-DDTHH:MM:SS+TZ
+tickets_completed: <count>
+commits: <count>
+duration_hours: <number>
+velocity: <number>
+---
+
+Refs #<issue-number>
+
+## Summary
+[Numbered list of changes from CHANGELOG]
+
+## Motivation
+[Why this work was needed]
+
+## Journey
+[How the work progressed]
+
+## Changes
+[Detailed explanation of each change]
+
+## Outcome
+[What was accomplished]
+
+## Performance
+[Metrics, pace analysis, decision review]
+
+## Notes
+[Additional context for reviewers]
+```
 
 ## Stories
 

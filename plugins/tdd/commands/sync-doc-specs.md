@@ -18,7 +18,7 @@ Understand what changed in the current branch:
 git branch --show-current
 
 # List archived tickets for this branch
-ls -1 doc/tickets/archive/<branch-name>/*.md 2>/dev/null | grep -v CHANGELOG
+ls -1 doc/tickets/archive/<branch-name>/*.md 2>/dev/null
 ```
 
 **If archived tickets exist:**

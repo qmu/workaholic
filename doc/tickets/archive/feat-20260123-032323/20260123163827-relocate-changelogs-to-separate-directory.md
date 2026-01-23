@@ -28,6 +28,7 @@ Move CHANGELOG files out of `doc/tickets/archive/<branch>/` into a dedicated `do
 1. **Create `doc/changelogs/` directory structure**:
 
    - Create `doc/changelogs/README.md` with brief explanation and list of changelogs
+   - Use descriptive summaries for each branch (not just "Feature branch") - e.g., PR title or key changes
 
 2. **Migrate existing CHANGELOGs**:
 
@@ -74,3 +75,10 @@ Move CHANGELOG files out of `doc/tickets/archive/<branch>/` into a dedicated `do
 - Branch changelogs in `doc/changelogs/` are per-branch working logs
 - Ticket archive directories (`doc/tickets/archive/<branch>/`) will only contain ticket .md files
 - The `doc/changelogs/` directory provides a single place to browse all branch change summaries
+
+## Final Report
+
+Implementation deviated from original plan:
+
+- **Change**: Added descriptive summaries for each branch in README.md instead of generic "Feature branch" labels
+  **Reason**: User requested more meaningful descriptions like PR titles or key changes to make changelogs more discoverable

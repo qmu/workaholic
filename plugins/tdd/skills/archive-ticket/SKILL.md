@@ -67,6 +67,15 @@ The optional description parameter captures the **WHY** behind the change:
 "Enables users to authenticate with session-based login, addressing the need for secure access control."
 ```
 
+## File Locations
+
+The script manages two separate locations:
+
+- **Tickets** are archived to `doc/tickets/archive/<branch>/`
+- **Changelogs** are written to `doc/changelogs/<branch>.md`
+
+This separation keeps change requests (tickets) distinct from change summaries (changelogs).
+
 ## CHANGELOG Format
 
 Entries are automatically categorized based on commit verb and include optional descriptions:

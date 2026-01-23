@@ -24,16 +24,62 @@ Create or update a pull request for the current branch.
    - Analyze cumulative changes across all tickets in the branch
    - Update `doc/specs/` following the doc-specs rule (auto-loaded for that path)
    - Stage and commit: "Update documentation for PR"
-5. **Format changed files** (silent step):
+5. **Generate branch story** in `doc/stories/<branch-name>.md`:
+
+   Read all archived tickets for this branch:
+   ```bash
+   ls -1 doc/tickets/archive/<branch-name>/*.md 2>/dev/null | grep -v CHANGELOG
+   ```
+
+   For each ticket, extract:
+   - **Overview section**: The "why" - motivation and problem description
+   - **Final Report section**: The "how" - what actually happened, including deviations
+
+   Create story file with YAML frontmatter:
+   ```yaml
+   ---
+   branch: <branch-name>
+   started: YYYY-MM-DD  # from first ticket timestamp
+   last_updated: YYYY-MM-DD  # today
+   tickets_completed: <count>
+   ---
+   ```
+
+   Story content structure:
+   ```markdown
+   # Story: <Branch Name>
+
+   ## Motivation
+
+   [Synthesize the "why" from ticket Overviews. What problem or opportunity started this work? Write as a narrative, not a list.]
+
+   ## Journey
+
+   [Describe the progression of work. What was planned? What unexpected challenges arose? How were decisions made? Draw from Final Reports to capture deviations and learnings.]
+
+   ## Outcome
+
+   [Summarize what was accomplished. Reference key tickets for details.]
+   ```
+
+   **Writing guidelines:**
+   - Write in third person ("The developer discovered..." not "I discovered...")
+   - Connect tickets into a narrative arc, not a list
+   - Highlight decision points and trade-offs
+   - Keep it concise (aim for 200-400 words)
+
+   Stage and commit: "Generate branch story"
+
+6. **Format changed files** (silent step):
    - Run project linter/formatter on changed files
    - Do NOT announce "reading file again" or similar verbose messages
    - Just silently format and continue
    - Stage and commit any formatting changes: "Format code"
-6. Check if a PR already exists for this branch:
+7. Check if a PR already exists for this branch:
    ```sh
    gh pr list --head $(git branch --show-current) --json number,title,url
    ```
-7. **Read CHANGELOG entries for this branch** (primary source for both summary and details):
+8. **Read CHANGELOG entries for this branch** (primary source for both summary and details):
    - Parse root `CHANGELOG.md` for the section matching the current branch
    - Collect bullets from all subsections (Added, Changed, Removed)
    - Each entry has format: `- Title ([hash](url)) - [ticket](file.md)`
@@ -41,10 +87,10 @@ Create or update a pull request for the current branch.
    - Use entry titles for numbered Summary list
    - Use descriptions for detailed Changes section explanations
    - If CHANGELOG section doesn't exist, fall back to git log
-8. **Derive issue URL** from branch name and remote:
+9. **Derive issue URL** from branch name and remote:
    - Extract issue number from branch (e.g., `i111-20260113-1832` → `111`)
    - Convert remote URL to issue link for reference in PR
-9. Generate PR description:
+10. Generate PR description:
    - Title: Concise summary of the overall change
    - Summary list: Use CHANGELOG entry titles as the numbered list
    - Changes section: Use CHANGELOG entry descriptions to explain the WHY
@@ -89,18 +135,20 @@ EOF
 
 ## PR Description Format
 
-Only three headings: Summary, Changes, Notes.
+Four headings: Summary, Story, Changes, Notes.
 
 ```markdown
 Refs #<issue-number>
 
 ## Summary
 
-[Motivation paragraph: What problem existed and why this work was needed. Write for someone unfamiliar with the context.]
-
 1. First meaningful change (from CHANGELOG)
 2. Second meaningful change (from CHANGELOG)
 3. Third meaningful change (from CHANGELOG)
+
+## Story
+
+[Include Motivation and Journey sections from doc/stories/<branch>.md - the narrative of what problem existed, how the work progressed, and what decisions were made along the way.]
 
 ## Changes
 

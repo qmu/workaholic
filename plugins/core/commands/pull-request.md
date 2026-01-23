@@ -92,13 +92,12 @@ Create or update a pull request for the current branch.
    [Quantitative reflection on development pace - was velocity consistent or varied? Were commits small and focused or large? Any patterns in timing?]
 
    ### Decision Review
-   [Qualitative analysis of decision-making throughout the branch:
-   - Were decisions well-considered or hasty?
-   - Any risk-taking? Was it justified?
-   - Consistency in approach or frequent pivots?
-   - Trade-offs made - were they reasonable?
-   - Anything that should have been done differently in hindsight?
-   Be fair and constructive - highlight both good decisions and areas for improvement.]
+   [Invoke the performance-analyst subagent with:
+   - Archived tickets for this branch
+   - Git log (main..HEAD)
+   - Performance metrics from frontmatter
+
+   Include the subagent's output here.]
    ```
 
    **Writing guidelines:**

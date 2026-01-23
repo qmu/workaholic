@@ -29,9 +29,9 @@ Did decisions follow established patterns? Were similar problems solved similarl
 
 Were solutions obvious and easy to understand? Did decisions align with common expectations? Would another developer find the choices natural?
 
-### 3. Reasonability
+### 3. Describability
 
-Were trade-offs well-considered? Were decisions proportional to the problem? Did the scope match the requirements?
+Were names and descriptions clear and concise? Did terminology avoid semantic conflicts? Were conventions extensible and consistent across the codebase?
 
 ### 4. Agility
 
@@ -52,7 +52,7 @@ Return structured markdown:
 |-----------|--------|-------|
 | Consistency | Strong/Adequate/Needs Improvement | Brief observation |
 | Intuitivity | ... | ... |
-| Reasonability | ... | ... |
+| Describability | ... | ... |
 | Agility | ... | ... |
 | Density | ... | ... |
 

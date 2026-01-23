@@ -27,10 +27,12 @@ The performance analyst will evaluate decision-making quality across these dimen
 ## Implementation Steps
 
 1. **Create agents directory in core plugin**:
+
    - Create `plugins/core/agents/` directory
 
 2. **Create `plugins/core/agents/performance-analyst.md`** with this structure:
-   ```markdown
+
+   ````markdown
    ---
    name: performance-analyst
    description: Evaluate decision-making quality across five viewpoints
@@ -43,6 +45,7 @@ The performance analyst will evaluate decision-making quality across these dimen
    ## Input
 
    You will receive:
+
    - Branch story with motivation and journey
    - List of archived tickets with overviews and final reports
    - Git log showing commit history
@@ -51,42 +54,50 @@ The performance analyst will evaluate decision-making quality across these dimen
    ## Evaluation Framework
 
    Evaluate the developer's decision-making across five dimensions. For each, provide:
+
    - A rating: Strong / Adequate / Needs Improvement
    - 1-2 sentences of evidence-based analysis
 
    ### 1. Consistency
+
    [Did decisions follow established patterns?...]
 
    ### 2. Intuitivity
+
    [Were solutions natural and obvious?...]
 
    ### 3. Reasonability
+
    [Were trade-offs proportional?...]
 
    ### 4. Agility
+
    [How well were pivots handled?...]
 
    ### 5. Density
+
    [Was effort focused efficiently?...]
 
    ## Output Format
 
    Return structured markdown:
+
    ```markdown
    ### Decision Quality Analysis
 
-   | Dimension | Rating | Notes |
-   |-----------|--------|-------|
-   | Consistency | Strong/Adequate/Needs Improvement | Brief observation |
-   | Intuitivity | ... | ... |
-   | Reasonability | ... | ... |
-   | Agility | ... | ... |
-   | Density | ... | ... |
+   | Dimension     | Rating                            | Notes             |
+   | ------------- | --------------------------------- | ----------------- |
+   | Consistency   | Strong/Adequate/Needs Improvement | Brief observation |
+   | Intuitivity   | ...                               | ...               |
+   | Reasonability | ...                               | ...               |
+   | Agility       | ...                               | ...               |
+   | Density       | ...                               | ...               |
 
    **Strengths**: [Key positive patterns observed]
 
    **Areas for Improvement**: [Constructive suggestions]
    ```
+   ````
 
    ## Guidelines
 
@@ -94,14 +105,21 @@ The performance analyst will evaluate decision-making quality across these dimen
    - Base ratings on evidence from tickets and commits
    - Highlight both strengths and improvement areas
    - Keep analysis concise (150-250 words total)
+
+   ```
+
    ```
 
 3. **Update `plugins/core/commands/pull-request.md`**:
+
    - In the story generation section (step 6), replace inline "Decision Review" with subagent invocation
    - Change from inline instructions to:
+
      ```markdown
      ### Decision Review
+
      [Invoke the performance-analyst subagent with:
+
      - Archived tickets for this branch
      - Git log (main..HEAD)
      - Performance metrics from frontmatter
@@ -110,6 +128,7 @@ The performance analyst will evaluate decision-making quality across these dimen
      ```
 
 4. **Update `plugins/core/README.md`**:
+
    - Add Agents section documenting performance-analyst
 
 5. **Update `CLAUDE.md`**:

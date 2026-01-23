@@ -142,13 +142,13 @@ Apply updates to `.work/terminology/` following these rules:
 
 **Term categories:**
 
-| File | Terms |
-|------|-------|
-| `core-concepts.md` | plugin, command, skill, rule |
-| `artifacts.md` | ticket, spec, story, changelog |
-| `workflow-terms.md` | drive, archive, sync, release |
+| File                  | Terms                                    |
+| --------------------- | ---------------------------------------- |
+| `core-concepts.md`    | plugin, command, skill, rule             |
+| `artifacts.md`        | ticket, spec, story, changelog           |
+| `workflow-terms.md`   | drive, archive, sync, release            |
 | `file-conventions.md` | kebab-case, frontmatter, icebox, archive |
-| `inconsistencies.md` | Known terminology issues |
+| `inconsistencies.md`  | Known terminology issues                 |
 
 **Term Entry Format**:
 

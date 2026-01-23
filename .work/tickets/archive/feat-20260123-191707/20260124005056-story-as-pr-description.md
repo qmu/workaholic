@@ -12,10 +12,12 @@ Refactor the story format to contain the complete PR description content, then s
 ## Current State
 
 **Story format** (narrative only):
+
 - Motivation, Journey, Outcome, Performance sections
 - Generated during `/pull-request` step 6
 
 **PR description format** (in pull-request.md):
+
 - Summary (numbered list from CHANGELOG)
 - Story (Motivation + Journey from story file)
 - Changes (detailed explanations from CHANGELOG)
@@ -27,6 +29,7 @@ Refactor the story format to contain the complete PR description content, then s
 ## Target State
 
 **New story format** (complete PR content):
+
 ```markdown
 ---
 branch: <branch-name>
@@ -73,9 +76,11 @@ Detailed explanation from CHANGELOG description.
 **Metrics**: X commits over Y hours (Z commits/hour)
 
 ### Pace Analysis
+
 [Quantitative reflection on development pace]
 
 ### Decision Review
+
 [Output from performance-analyst subagent]
 
 ## Notes
@@ -84,6 +89,7 @@ Additional context for reviewers.
 ```
 
 **Simplified pull-request command**:
+
 1. Check remaining tickets → move to icebox
 2. Consolidate CHANGELOG
 3. Sync documentation
@@ -95,6 +101,7 @@ Additional context for reviewers.
 ## Implementation Steps
 
 1. **Update story format in pull-request.md step 6**:
+
    - Add Summary section (from CHANGELOG entry titles)
    - Rename "Motivation" as-is
    - Rename "Journey" as-is
@@ -105,11 +112,13 @@ Additional context for reviewers.
    - Include `Refs #<issue>` at the top of content
 
 2. **Simplify PR generation steps 9-11**:
+
    - Remove CHANGELOG parsing for PR (already done in story)
    - Remove separate PR description assembly
    - Just read story file and use content (minus YAML frontmatter) as PR body
 
 3. **Update PR title derivation**:
+
    - Derive from story's Summary section (first item or "First item etc" if multiple)
 
 4. **Update .work/stories/README.md**:

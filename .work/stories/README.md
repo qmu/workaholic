@@ -16,6 +16,7 @@ This directory contains comprehensive story documents that serve as the single s
 Stories are PR descriptions stored as files. When creating a pull request, the `/pull-request` command generates a story file and copies its content directly to GitHub. This eliminates duplication between story generation and PR description assembly.
 
 Stories serve multiple purposes:
+
 - **PR description**: Content is copied directly to GitHub PR body
 - **Historical record**: Preserved in repository for future reference
 - **Reviewer context**: Explains the "why" behind a body of work
@@ -38,24 +39,31 @@ velocity: <number>
 Refs #<issue-number>
 
 ## Summary
+
 [Numbered list of changes from CHANGELOG]
 
 ## Motivation
+
 [Why this work was needed]
 
 ## Journey
+
 [How the work progressed]
 
 ## Changes
+
 [Detailed explanation of each change]
 
 ## Outcome
+
 [What was accomplished]
 
 ## Performance
+
 [Metrics, pace analysis, decision review]
 
 ## Notes
+
 [Additional context for reviewers]
 ```
 

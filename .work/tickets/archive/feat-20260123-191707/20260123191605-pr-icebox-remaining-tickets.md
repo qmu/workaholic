@@ -15,15 +15,18 @@ This improves workflow hygiene by explicitly handling deferred work rather than 
 ## Implementation Steps
 
 1. Add a new step at the beginning of the pull-request command (before CHANGELOG consolidation) to check for remaining tickets:
+
    - List files in `.work/tickets/*.md` (excluding README.md)
    - If any tickets exist, proceed to step 2
    - If no tickets, continue with normal PR flow
 
 2. Display a warning to the user listing the remaining tickets:
+
    - Show the count and filenames of unfinished tickets
    - Inform user these will be moved to icebox
 
 3. Automatically move remaining tickets to icebox:
+
    - Create `.work/tickets/icebox/` if it doesn't exist
    - Move each ticket file to the icebox directory
    - Stage and commit: "Move remaining tickets to icebox"

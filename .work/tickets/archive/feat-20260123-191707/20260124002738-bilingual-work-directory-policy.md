@@ -11,6 +11,7 @@ Update the "Written Language" section in CLAUDE.md to allow both English and Jap
 ## Implementation Steps
 
 1. Update the "Written Language" section in `CLAUDE.md` to:
+
    - Declare that `.work/` directory content can be written in either English or Japanese
    - Explicitly state that all other content (code, code comments, commit messages, PRs) must remain in English
    - Keep the section concise and clear

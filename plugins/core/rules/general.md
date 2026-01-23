@@ -10,6 +10,7 @@ When a project needs documentation in multiple languages:
 ### File Structure
 
 **Root-level READMEs (suffix-based):**
+
 ```
 README.md           # Primary language (as specified in CLAUDE.md)
 README_ja.md        # Japanese translation
@@ -18,6 +19,7 @@ README_ko.md        # Korean translation
 ```
 
 **Documentation directories (folder-based):**
+
 ```
 docs/
   en/               # English (or primary language)
@@ -37,6 +39,7 @@ docs/
 3. **Use ISO 639-1 language codes** - Standard two-letter codes: `ja`, `zh`, `ko`, `es`, `fr`, `de`, etc.
 
 4. **Add language navigation badges** at the top of each README:
+
    ```markdown
    [English](README.md) | [日本語](README_ja.md) | [中文](README_zh.md)
    ```

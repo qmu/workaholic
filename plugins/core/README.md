@@ -7,6 +7,7 @@ Core development workflow for Claude Code projects.
 This plugin intentionally generates extensive documentation artifacts (tickets, changelogs, archives) as **cognitive investments**. Developer cognitive load is the primary bottleneck in software productivity - context-switching, onboarding, and understanding past decisions consume significant mental energy.
 
 Each artifact reduces this load:
+
 - **Tickets** capture intent before implementation, preventing "what was I trying to do?"
 - **Specs** provide authoritative reference for current state, eliminating guesswork
 - **Stories** preserve the narrative of how decisions were made across a feature
@@ -16,14 +17,14 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 
 ## Commands
 
-| Command                 | Description                                                              |
-| ----------------------- | ------------------------------------------------------------------------ |
-| `/branch`               | Create a topic branch with timestamp (e.g., feat-20260120-205418)        |
-| `/commit`               | Commit all changes in logical units with meaningful messages             |
-| `/pull-request`         | Create or update a pull request with CHANGELOG-based summary             |
-| `/ticket <description>` | Explore codebase and write implementation ticket                         |
+| Command                 | Description                                                                |
+| ----------------------- | -------------------------------------------------------------------------- |
+| `/branch`               | Create a topic branch with timestamp (e.g., feat-20260120-205418)          |
+| `/commit`               | Commit all changes in logical units with meaningful messages               |
+| `/pull-request`         | Create or update a pull request with CHANGELOG-based summary               |
+| `/ticket <description>` | Explore codebase and write implementation ticket                           |
 | `/drive`                | Implement tickets from .work/tickets/ one by one, commit each, and archive |
-| `/sync-src-doc`         | Sync source code to documentation (specs and terminology)                |
+| `/sync-src-doc`         | Sync source code to documentation (specs and terminology)                  |
 
 ## Agents
 

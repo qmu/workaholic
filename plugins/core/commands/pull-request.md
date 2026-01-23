@@ -28,11 +28,9 @@ Create or update a pull request for the current branch.
    - Reorganize: deduplicate, sort by category, combine related entries
    - Write updated root `CHANGELOG.md`
    - Stage and commit: "Update CHANGELOG for PR"
-5. **Update documentation in `.work/specs/`**:
-   - Read all archived tickets from `.work/tickets/archive/<branch-name>/`
-   - Analyze cumulative changes across all tickets in the branch
-   - Update `.work/specs/` following `/sync-doc-specs` command guidelines
-   - Stage and commit: "Update documentation for PR"
+5. **Sync documentation**:
+   - Run `/sync-src-doc` to update `.work/specs/` and `.work/terminology/`
+   - Stage and commit: "Sync documentation for PR"
 6. **Generate branch story** in `.work/stories/<branch-name>.md`:
 
    Read all archived tickets for this branch:

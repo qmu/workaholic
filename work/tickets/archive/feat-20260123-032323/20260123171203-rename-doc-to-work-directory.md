@@ -28,41 +28,51 @@ Rename the documentation directory from `doc/` to `work/` as the new default, an
 ## Implementation Steps
 
 1. **Move the directory**:
+
    ```bash
    git mv doc/ work/
    ```
 
 2. **Update `plugins/tdd/commands/ticket.md`**:
+
    - Replace all `doc/tickets/` with `work/tickets/`
 
 3. **Update `plugins/tdd/commands/drive.md`**:
+
    - Replace all `doc/tickets/` with `work/tickets/`
 
 4. **Update `plugins/tdd/commands/sync-doc-specs.md`**:
+
    - Replace all `doc/specs/` with `work/specs/`
    - Replace all `doc/tickets/` with `work/tickets/`
    - Consider renaming command from `sync-doc-specs` to `sync-specs` (separate ticket if desired)
 
 5. **Update `plugins/core/commands/pull-request.md`**:
+
    - Replace all `doc/changelogs/` with `work/changelogs/`
    - Replace all `doc/tickets/` with `work/tickets/`
    - Replace all `doc/specs/` with `work/specs/`
    - Replace all `doc/stories/` with `work/stories/`
 
 6. **Update `plugins/tdd/skills/archive-ticket/scripts/archive.sh`**:
+
    - Replace `doc/tickets/` with `work/tickets/`
    - Replace `doc/changelogs/` with `work/changelogs/`
 
 7. **Update `plugins/tdd/skills/archive-ticket/SKILL.md`**:
+
    - Replace all `doc/tickets/` with `work/tickets/`
 
 8. **Update `plugins/tdd/README.md`**:
+
    - Replace all `doc/tickets/` with `work/tickets/`
 
 9. **Update `CLAUDE.md`**:
+
    - Update project structure to show `work/` instead of `doc/`
 
 10. **Update `README.md`**:
+
     - Update workflow examples to use `work/tickets/`
 
 11. **Update internal references within `work/`**:

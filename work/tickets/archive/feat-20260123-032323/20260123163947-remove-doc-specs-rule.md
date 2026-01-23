@@ -23,13 +23,16 @@ Delete `plugins/tdd/rules/doc-specs.md` because path-specific rules don't work r
 1. **Delete `plugins/tdd/rules/doc-specs.md`**
 
 2. **Update `plugins/tdd/README.md`**:
+
    - Remove the entire Rules table section (no rules remain after this deletion)
    - Or if keeping the section, just remove the doc-specs.md row
 
 3. **Update `plugins/core/commands/pull-request.md`**:
+
    - Change step 4 from "following the doc-specs rule (auto-loaded for that path)" to just "following `/sync-doc-specs` command guidelines"
 
 4. **Update `doc/specs/developer-guide/architecture.md`**:
+
    - In the "Documentation Enforcement" section, remove mentions of the rule auto-loading
    - Update the mermaid diagram to remove "doc-specs rule enforces standards" step
    - Change "with the `doc-specs` rule enforcing standards" to explain `/sync-doc-specs` handles it
@@ -37,10 +40,12 @@ Delete `plugins/tdd/rules/doc-specs.md` because path-specific rules don't work r
    - Remove the "Design Policy" subsection about "path-specific rule ensures..."
 
 5. **Update `doc/specs/developer-guide/contributing.md`**:
+
    - Remove the paragraph about `doc-specs` rule auto-loading
    - Update to just reference `/sync-doc-specs` command
 
 6. **Update `doc/specs/user-guide/commands.md`**:
+
    - Change "doc-specs formatting rules" to something like "documentation standards"
 
 7. **Remove `rules/` directory if empty**:

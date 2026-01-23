@@ -22,7 +22,7 @@
   The name 'work' better reflects the purpose - containing working artifacts (tickets, changelogs, stories, specs) that support development, not just documentation.
 
 - Rename story datetime fields to started_at/ended_at ([63da69a](https://github.com/qmu/workaholic/commit/63da69a)) - [ticket](work/tickets/archive/feat-20260123-032323/20260123170651-rename-story-datetime-fields.md)
-  Uses ISO 8601 datetime format for precise timing, following the _at naming convention common for timestamp fields.
+  Uses ISO 8601 datetime format for precise timing, following the \_at naming convention common for timestamp fields.
 
 - Relocate changelogs to dedicated directory ([2d8d877](https://github.com/qmu/workaholic/commit/2d8d877)) - [ticket](work/tickets/archive/feat-20260123-032323/20260123163827-relocate-changelogs-to-separate-directory.md)
   Separates change summaries from tickets into work/changelogs/ with flat structure, making changelogs easier to discover and browse.

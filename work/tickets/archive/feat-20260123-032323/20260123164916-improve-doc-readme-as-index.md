@@ -22,6 +22,7 @@ The `doc/README.md` currently only indexes `doc/specs/` and `doc/tickets/`, miss
    - **Design Policy** - Keep the existing design policy section
 
 2. **Add Plugins section** with direct links:
+
    ```markdown
    ## Plugins
 
@@ -30,11 +31,13 @@ The `doc/README.md` currently only indexes `doc/specs/` and `doc/tickets/`, miss
    ```
 
 3. **Improve Quick Links table** to be more discoverable:
+
    - Group by audience (users vs developers)
    - Include plugin docs in the table
    - Consider moving Quick Links to top for faster access
 
 4. **Update the introductory paragraph** to mention plugins:
+
    - Make it clear this is the documentation hub for both `doc/` and `plugins/`
 
 5. **Verify relative links work** from `doc/README.md` to `plugins/*/README.md`:

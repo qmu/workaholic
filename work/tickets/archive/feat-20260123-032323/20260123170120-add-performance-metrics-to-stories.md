@@ -14,15 +14,16 @@ Add developer performance analysis to branch story files by including metrics in
 1. **Update `plugins/core/commands/pull-request.md`** step 5 (Generate branch story):
 
    Add performance metrics to the YAML frontmatter specification:
+
    ```yaml
    ---
    branch: <branch-name>
-   started: YYYY-MM-DD  # from first ticket timestamp
-   last_updated: YYYY-MM-DD  # today
+   started: YYYY-MM-DD # from first ticket timestamp
+   last_updated: YYYY-MM-DD # today
    tickets_completed: <count>
    # New performance metrics
    commits: <count>
-   duration_hours: <number>  # time between first and last commit
+   duration_hours: <number> # time between first and last commit
    velocity: <commits per hour, rounded to 1 decimal>
    ---
    ```
@@ -50,9 +51,11 @@ Add developer performance analysis to branch story files by including metrics in
    **Metrics**: <commits> commits over <duration> hours (<velocity> commits/hour)
 
    ### Pace Analysis
+
    [Quantitative reflection on development pace]
 
    ### Decision Review
+
    [Qualitative analysis of decision-making - were decisions well-considered, risky, consistent? Trade-offs reasonable? Hindsight improvements?]
    ```
 

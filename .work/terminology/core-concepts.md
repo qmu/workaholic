@@ -2,8 +2,8 @@
 title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
-last_updated: 2026-01-23
-commit_hash: a0b2b29
+last_updated: 2026-01-24
+commit_hash: 6843f78
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -14,21 +14,21 @@ Fundamental building blocks of the Workaholic plugin system.
 
 ## plugin
 
-A modular collection of commands, skills, and rules that extends Claude Code functionality.
+A modular collection of commands, skills, rules, and agents that extends Claude Code functionality.
 
 ### Definition
 
-A plugin packages related functionality into a single distributable unit. Each plugin has its own directory under `plugins/` containing a `.claude-plugin/` configuration folder with `plugin.json` metadata. Plugins can define commands (user-invocable), skills (helper routines), and rules (guidelines).
+A plugin packages related functionality into a single distributable unit. Each plugin has its own directory under `plugins/` containing a `.claude-plugin/` configuration folder with `plugin.json` metadata. Plugins can define commands (user-invocable), skills (helper routines), rules (guidelines), and agents (specialized subagents).
 
 ### Usage Patterns
 
-- **Directory names**: `plugins/core/`, `plugins/tdd/`
+- **Directory names**: `plugins/core/`
 - **File names**: `plugins/<name>/.claude-plugin/plugin.json`
-- **Code references**: "Install the tdd plugin", "Core plugin commands"
+- **Code references**: "Install the core plugin", "Core plugin commands"
 
 ### Related Terms
 
-- command, skill, rule
+- command, skill, rule, agent
 
 ## command
 
@@ -83,3 +83,21 @@ Rules provide persistent guidelines that Claude follows when working within a pl
 ### Related Terms
 
 - plugin, command
+
+## agent
+
+A specialized subagent that can be spawned to handle complex analysis tasks.
+
+### Definition
+
+Agents are AI subprocesses that run with specific prompts and tools to perform focused analysis work. Unlike commands (user-invocable) or skills (helper routines), agents are spawned by other commands when specialized analysis is needed. They receive context and return structured output. Agents are defined in a plugin's `agents/` directory.
+
+### Usage Patterns
+
+- **Directory names**: `plugins/<name>/agents/`
+- **File names**: `performance-analyst.md`
+- **Code references**: "The performance-analyst agent evaluates...", "Spawn the agent with..."
+
+### Related Terms
+
+- plugin, command, skill

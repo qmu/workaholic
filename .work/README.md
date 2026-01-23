@@ -2,7 +2,7 @@
 title: Work
 description: Working artifacts index for Workaholic plugin marketplace
 category: developer
-last_updated: 2026-01-23
+last_updated: 2026-01-24
 ---
 
 [English](README.md) | [日本語](README_ja.md)
@@ -13,14 +13,13 @@ This is the working artifacts hub for the Workaholic plugin marketplace.
 
 - [changelogs/](changelogs/README.md) - Historical record of changes per branch
 - [specs/](specs/README.md) - Current state reference documentation
-- [stories/](stories/README.md) - Development narratives per branch
+- [stories/](stories/README.md) - Development narratives and PR descriptions per branch
 - [terminology/](terminology/README.md) - Consistent term definitions across the project
 - [tickets/](tickets/README.md) - Implementation work queue and archives
 
 ## Plugins
 
-- [Core](../plugins/core/README.md) - Git workflow commands (`/branch`, `/commit`, `/pull-request`)
-- [TDD](../plugins/tdd/README.md) - Ticket-driven development (`/ticket`, `/drive`, `/sync-src-doc`)
+- [Core](../plugins/core/README.md) - Complete development workflow (`/branch`, `/commit`, `/pull-request`, `/ticket`, `/drive`, `/sync-src-doc`)
 
 ## Design Policy
 

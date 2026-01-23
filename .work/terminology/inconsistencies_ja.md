@@ -2,8 +2,8 @@
 title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
-last_updated: 2026-01-23
-commit_hash: a0b2b29
+last_updated: 2026-01-24
+commit_hash: 6843f78
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -74,3 +74,18 @@ commit_hash: a0b2b29
 ### 推奨される解決策
 
 これは標準的な英語の使用法であり、許容されます。明確さが必要な場合は、名詞形には「archive directory」、アクションには「archive」（動詞）を優先してください。
+
+## レガシー「TDD Plugin」参照
+
+### 問題
+
+過去のドキュメントは、coreプラグインに統合された別の「TDD plugin」（`plugins/tdd/`）を参照している可能性があります。
+
+### 現在の使用状況
+
+- 現在：すべてのコマンド、スキル、ルールは`plugins/core/`にある
+- 過去：一部のドキュメントは`plugins/tdd/`や「TDD plugin」を参照している可能性がある
+
+### 推奨される解決策
+
+TDDプラグインへの残りの参照をcoreプラグインへの参照に更新します。チケット駆動開発コマンド（`/ticket`、`/drive`、`/sync-src-doc`）は現在、統一されたcoreプラグインの一部です。

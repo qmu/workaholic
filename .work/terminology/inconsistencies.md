@@ -2,8 +2,8 @@
 title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
-last_updated: 2026-01-23
-commit_hash: a0b2b29
+last_updated: 2026-01-24
+commit_hash: 6843f78
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -74,3 +74,18 @@ Ensure all current documentation references `.work/` consistently. When encounte
 ### Recommended Resolution
 
 This is standard English usage and acceptable. When clarity is needed, prefer "archive directory" for the noun form and "archive" (verb) for the action.
+
+## Legacy "TDD Plugin" References
+
+### Issue
+
+Historical documentation may reference a separate "TDD plugin" (`plugins/tdd/`) that has been merged into the core plugin.
+
+### Current Usage
+
+- Current: All commands, skills, and rules are in `plugins/core/`
+- Historical: Some docs may reference `plugins/tdd/` or "TDD plugin"
+
+### Recommended Resolution
+
+Update any remaining references to the TDD plugin to refer to the core plugin instead. The ticket-driven development commands (`/ticket`, `/drive`, `/sync-src-doc`) are now part of the unified core plugin.

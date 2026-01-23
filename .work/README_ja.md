@@ -2,7 +2,7 @@
 title: Work
 description: Working artifacts index for Workaholic plugin marketplace
 category: developer
-last_updated: 2026-01-23
+last_updated: 2026-01-24
 ---
 
 [English](README.md) | [日本語](README_ja.md)
@@ -13,14 +13,13 @@ Workaholicプラグインマーケットプレイスの作業成果物ハブで�
 
 - [changelogs/](changelogs/README_ja.md) - ブランチごとの変更履歴
 - [specs/](specs/README_ja.md) - 現状のリファレンスドキュメント
-- [stories/](stories/README_ja.md) - ブランチごとの開発ナラティブ
+- [stories/](stories/README_ja.md) - ブランチごとの開発ナラティブとPRの説明文
 - [terminology/](terminology/README_ja.md) - プロジェクト全体で統一された用語定義
 - [tickets/](tickets/README_ja.md) - 実装作業キューとアーカイブ
 
 ## Plugins
 
-- [Core](../plugins/core/README.md) - Gitワークフローコマンド (`/branch`, `/commit`, `/pull-request`)
-- [TDD](../plugins/tdd/README.md) - チケット駆動開発 (`/ticket`, `/drive`, `/sync-src-doc`)
+- [Core](../plugins/core/README.md) - 完全な開発ワークフロー (`/branch`, `/commit`, `/pull-request`, `/ticket`, `/drive`, `/sync-src-doc`)
 
 ## Design Policy
 

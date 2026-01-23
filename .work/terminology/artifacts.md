@@ -2,8 +2,8 @@
 title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
-last_updated: 2026-01-23
-commit_hash: a0b2b29
+last_updated: 2026-01-24
+commit_hash: 6843f78
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -18,7 +18,7 @@ An implementation work request that captures what should change.
 
 ### Definition
 
-A ticket defines a discrete unit of work to be implemented. It captures intent, context, and implementation steps before coding begins. Tickets are change-focused, describing what should be different after implementation. They live in `.work/tickets/` when active, `.work/tickets/icebox/` when deferred, and `.work/tickets/archive/<branch>/` when completed.
+A ticket defines a discrete unit of work to be implemented. It captures intent, context, and implementation steps before coding begins. Tickets are change-focused, describing what should be different after implementation. They live in `.work/tickets/` when active, `.work/tickets/icebox/` when deferred, and `.work/tickets/archive/<branch>/` when completed. Ticket files created by `/ticket` are automatically included in `/drive` commits via `git add -A`.
 
 ### Usage Patterns
 
@@ -36,7 +36,7 @@ Current state documentation that provides an authoritative reference snapshot.
 
 ### Definition
 
-Specs document the present reality of the codebase. Unlike tickets (which describe changes), specs describe what exists now. They are updated via `/sync-doc-specs` to reflect the current state after changes are made. Specs reduce cognitive load by providing a single source of truth.
+Specs document the present reality of the codebase. Unlike tickets (which describe changes), specs describe what exists now. They are updated via `/sync-src-doc` to reflect the current state after changes are made. Specs reduce cognitive load by providing a single source of truth.
 
 ### Usage Patterns
 
@@ -54,17 +54,17 @@ Specs document the present reality of the codebase. Unlike tickets (which descri
 
 ## story
 
-A development narrative that captures the journey of work on a branch.
+A comprehensive document that serves as the single source of truth for PR descriptions.
 
 ### Definition
 
-A story synthesizes the motivation, progression, and outcome of development work across multiple tickets on a single branch. Stories are generated during the PR workflow and include performance metrics. They help future developers understand not just what was built, but why and how decisions were made.
+A story synthesizes the motivation, progression, and outcome of development work across multiple tickets on a single branch. Stories are generated during the PR workflow and contain the complete PR description content: Summary (from CHANGELOG), Motivation, Journey, Changes (detailed explanations), Outcome, Performance (metrics and decision review), and Notes. The story content (minus YAML frontmatter) is copied directly to GitHub as the PR body.
 
 ### Usage Patterns
 
 - **Directory names**: `.work/stories/`
 - **File names**: `<branch-name>.md`
-- **Code references**: "The branch story captures...", "Story metrics show..."
+- **Code references**: "The branch story captures...", "Story is copied to PR..."
 
 ### Related Terms
 

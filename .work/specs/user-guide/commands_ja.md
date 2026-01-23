@@ -2,17 +2,17 @@
 title: Command Reference
 description: Complete documentation for all Workaholic commands
 category: user
-last_updated: 2026-01-23
-commit_hash: 5df4de4
+last_updated: 2026-01-24
+commit_hash: 6843f78
 ---
 
 [English](commands.md) | [日本語](commands_ja.md)
 
 # コマンドリファレンス
 
-Workaholicは2つのプラグインを提供します：基本的なgitワークフローコマンドの**core**と、チケット駆動開発の**tdd**です。
+Workaholicは統一された**core**プラグインを提供し、gitワークフローコマンドとチケット駆動開発機能を組み合わせています。
 
-## Core Plugin
+## Gitワークフローコマンド
 
 ### /branch
 
@@ -42,25 +42,18 @@ Claudeはステージングされた変更とステージングされていな�
 /pull-request
 ```
 
-PRの説明には3つの主要なセクションが含まれます：
+PRの説明にはストーリードキュメントの内容が使用されます。ストーリーには以下のセクションが含まれます：
 
 - **Summary** - ブランチのCHANGELOGから生成された変更の番号付きリスト
-- **Story** - アーカイブされたチケットから合成されたナラティブで、開発中の動機、過程、決定を説明
+- **Motivation** - なぜこの作業が必要だったか
+- **Journey** - 開発中の意思決定と進行
 - **Changes** - 各変更の詳細な説明
+- **Outcome** - 達成されたこと
+- **Performance** - メトリクスと意思決定レビュー
 
-ストーリードキュメントは将来の参照のために`.work/stories/<branch-name>.md`にも保存されます。
+ストーリードキュメントは`.work/stories/<branch-name>.md`に保存され、PR説明文の単一の真実の情報源として機能します。
 
-## TDD Plugin
-
-### /sync-doc-specs
-
-`.work/specs/`内のドキュメントを現在のコードベースの状態に合わせて更新します。
-
-```bash
-/sync-doc-specs
-```
-
-Claudeは現在のブランチのアーカイブされたチケットからコンテキストを収集し、既存のドキュメントを監査し、何を更新する必要があるかを特定し、ドキュメント基準に従って変更を適用します。このコマンドにより、プルリクエストを作成する前にドキュメントがコード変更と同期されることを保証します。
+## チケット駆動開発コマンド
 
 ### /ticket
 
@@ -86,6 +79,16 @@ Claudeは既存のパターンとアーキテクチャを理解するために�
 
 Claudeは`.work/tickets/`からチケットを取り出し、一つずつ実装し、承認を求め、逸脱を文書化するFinal Reportを作成し、次に進む前にコミットとアーカイブを行います。`icebox`引数を使用すると、延期されたチケットから選択できます。
 
+### /sync-src-doc
+
+`.work/specs/`と`.work/terminology/`内のドキュメントを現在のコードベースの状態に合わせて更新します。
+
+```bash
+/sync-src-doc
+```
+
+Claudeは現在のブランチのアーカイブされたチケットからコンテキストを収集し、既存のドキュメントを監査し、何を更新する必要があるかを特定し、ドキュメント基準に従って変更を適用します。このコマンドにより、プルリクエストを作成する前にドキュメントがコード変更と同期されることを保証します。
+
 ## ワークフローサマリー
 
 一般的なワークフローはこれらのコマンドを組み合わせます：
@@ -93,7 +96,7 @@ Claudeは`.work/tickets/`からチケットを取り出し、一つずつ実装�
 1. `/branch` - 新しいフィーチャーブランチを開始
 2. `/ticket <description>` - 実装仕様を記述
 3. `/drive` - チケットを実装
-4. `/sync-doc-specs` - ドキュメントを更新（オプション、`/pull-request`中にも実行）
+4. `/sync-src-doc` - ドキュメントを更新（オプション、`/pull-request`中にも実行）
 5. `/pull-request` - レビュー用のPRを作成
 
 各チケットは独自のコミットを取得し、CHANGELOGがPRサマリーのためにすべての変更を追跡します。

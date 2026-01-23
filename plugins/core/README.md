@@ -1,20 +1,41 @@
 # Core
 
-Core development commands for Claude Code projects.
+Core development workflow for Claude Code projects.
+
+## Why Documentation?
+
+This plugin intentionally generates extensive documentation artifacts (tickets, changelogs, archives) as **cognitive investments**. Developer cognitive load is the primary bottleneck in software productivity - context-switching, onboarding, and understanding past decisions consume significant mental energy.
+
+Each artifact reduces this load:
+- **Tickets** capture intent before implementation, preventing "what was I trying to do?"
+- **Specs** provide authoritative reference for current state, eliminating guesswork
+- **Stories** preserve the narrative of how decisions were made across a feature
+- **Changelogs** explain what changed and why, enabling quick catch-up
+
+The upfront cost of documentation pays dividends when you (or a teammate) return to code weeks later.
 
 ## Commands
 
-| Command         | Description                                                       |
-| --------------- | ----------------------------------------------------------------- |
-| `/branch`       | Create a topic branch with timestamp (e.g., feat-20260120-205418) |
-| `/commit`       | Commit all changes in logical units with meaningful messages      |
-| `/pull-request` | Create or update a pull request with CHANGELOG-based summary      |
+| Command                 | Description                                                              |
+| ----------------------- | ------------------------------------------------------------------------ |
+| `/branch`               | Create a topic branch with timestamp (e.g., feat-20260120-205418)        |
+| `/commit`               | Commit all changes in logical units with meaningful messages             |
+| `/pull-request`         | Create or update a pull request with CHANGELOG-based summary             |
+| `/ticket <description>` | Explore codebase and write implementation ticket                         |
+| `/drive`                | Implement tickets from .work/tickets/ one by one, commit each, and archive |
+| `/sync-src-doc`         | Sync source code to documentation (specs and terminology)                |
 
 ## Agents
 
-| Agent                | Description                                        |
-| -------------------- | -------------------------------------------------- |
+| Agent                 | Description                                             |
+| --------------------- | ------------------------------------------------------- |
 | `performance-analyst` | Evaluate decision-making quality across five viewpoints |
+
+## Skills
+
+| Skill            | Description                                                              |
+| ---------------- | ------------------------------------------------------------------------ |
+| `archive-ticket` | Complete commit workflow - format, archive, update changelog, and commit |
 
 ## Rules
 
@@ -22,6 +43,35 @@ Core development commands for Claude Code projects.
 | --------------- | -------------------------------------------------------- |
 | `general.md`    | General development rules (commit confirmation required) |
 | `typescript.md` | TypeScript coding conventions                            |
+
+## Workflow
+
+1. **Create tickets**: Use `/ticket` to write implementation specs
+2. **Implement tickets**: Use `/drive` to implement and commit each ticket
+3. **Create PR**: Use `/pull-request` to create PR with auto-generated summary
+
+## Feedback Loop
+
+When reviewing an implementation and requesting changes:
+
+1. **Update the ticket first** - Add/modify steps based on feedback
+2. **Then implement** - Make the requested changes
+3. **Review again** - Ask for approval once more
+
+```
+User:   [Needs changes] "Add error handling for edge case X"
+Claude: [Updates ticket with new step for error handling]
+Claude: [Implements error handling]
+Claude: [Asks for review again]
+```
+
+**Why this matters**: Archived tickets become project documentation. Keeping tickets updated ensures accurate history of what was built and helps future developers understand the full scope of changes.
+
+## Ticket Storage
+
+- Active tickets: `.work/tickets/`
+- Icebox (deferred): `.work/tickets/icebox/`
+- Archived: `.work/tickets/archive/<branch-name>/`
 
 ## Installation
 

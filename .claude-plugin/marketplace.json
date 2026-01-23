@@ -9,24 +9,13 @@
   "plugins": [
     {
       "name": "core",
-      "description": "Core development commands: branch, commit, pull-request, and project discovery agents",
+      "description": "Core development workflow: branch, commit, pull-request, ticket-driven development",
       "version": "1.0.15",
       "author": {
         "name": "tamurayoshiya",
         "email": "a@qmu.jp"
       },
       "source": "./plugins/core",
-      "category": "development"
-    },
-    {
-      "name": "tdd",
-      "description": "Ticket-driven development: create tickets, implement them one by one, and archive",
-      "version": "1.0.15",
-      "author": {
-        "name": "tamurayoshiya",
-        "email": "a@qmu.jp"
-      },
-      "source": "./plugins/tdd",
       "category": "development"
     }
   ]

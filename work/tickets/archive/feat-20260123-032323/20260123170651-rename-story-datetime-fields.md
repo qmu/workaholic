@@ -14,15 +14,17 @@ Rename the story frontmatter fields `started` and `last_updated` to `started_at`
 1. **Update `plugins/core/commands/pull-request.md`** step 5 (Generate branch story):
 
    Change the YAML frontmatter specification from:
+
    ```yaml
-   started: YYYY-MM-DD  # from first ticket timestamp
-   last_updated: YYYY-MM-DD  # today
+   started: YYYY-MM-DD # from first ticket timestamp
+   last_updated: YYYY-MM-DD # today
    ```
 
    To:
+
    ```yaml
-   started_at: YYYY-MM-DDTHH:MM:SS  # from first commit timestamp
-   ended_at: YYYY-MM-DDTHH:MM:SS    # from last commit timestamp
+   started_at: YYYY-MM-DDTHH:MM:SS # from first commit timestamp
+   ended_at: YYYY-MM-DDTHH:MM:SS # from last commit timestamp
    ```
 
 2. **Update git commands** to extract datetime instead of date:
@@ -40,12 +42,14 @@ Rename the story frontmatter fields `started` and `last_updated` to `started_at`
 3. **Update `doc/stories/feat-20260123-032323.md`**:
 
    Change:
+
    ```yaml
    started: 2026-01-23
    last_updated: 2026-01-23
    ```
 
    To (with actual timestamps from git history):
+
    ```yaml
    started_at: 2026-01-23T12:06:08+09:00
    ended_at: 2026-01-23T16:14:28+09:00

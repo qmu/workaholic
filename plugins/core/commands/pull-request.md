@@ -11,7 +11,16 @@ Create or update a pull request for the current branch.
 
 1. Check the current branch name with `git branch --show-current`
 2. Get the base branch (usually `main`) with `git remote show origin | grep 'HEAD branch'`
-3. **Consolidate branch CHANGELOG to root**:
+3. **Check for remaining tickets**:
+   - List files in `.work/tickets/*.md` (excluding README.md)
+   - If any tickets exist:
+     - Warn the user: "Found X unfinished ticket(s) that will be moved to icebox:"
+     - List the ticket filenames
+     - Create `.work/tickets/icebox/` if it doesn't exist
+     - Move each ticket to `.work/tickets/icebox/`
+     - Stage and commit: "Move remaining tickets to icebox"
+   - If no tickets, continue with normal PR flow
+4. **Consolidate branch CHANGELOG to root**:
    - Read `.work/changelogs/<branch-name>.md` if it exists
    - Read existing `CHANGELOG.md` (root)
    - Merge branch entries into root CHANGELOG under branch section header
@@ -19,12 +28,12 @@ Create or update a pull request for the current branch.
    - Reorganize: deduplicate, sort by category, combine related entries
    - Write updated root `CHANGELOG.md`
    - Stage and commit: "Update CHANGELOG for PR"
-4. **Update documentation in `.work/specs/`**:
+5. **Update documentation in `.work/specs/`**:
    - Read all archived tickets from `.work/tickets/archive/<branch-name>/`
    - Analyze cumulative changes across all tickets in the branch
    - Update `.work/specs/` following `/sync-doc-specs` command guidelines
    - Stage and commit: "Update documentation for PR"
-5. **Generate branch story** in `.work/stories/<branch-name>.md`:
+6. **Generate branch story** in `.work/stories/<branch-name>.md`:
 
    Read all archived tickets for this branch:
    ```bash
@@ -105,16 +114,16 @@ Create or update a pull request for the current branch.
 
    Stage and commit: "Generate branch story"
 
-6. **Format changed files** (silent step):
+7. **Format changed files** (silent step):
    - Run project linter/formatter on changed files
    - Do NOT announce "reading file again" or similar verbose messages
    - Just silently format and continue
    - Stage and commit any formatting changes: "Format code"
-7. Check if a PR already exists for this branch:
+8. Check if a PR already exists for this branch:
    ```sh
    gh pr list --head $(git branch --show-current) --json number,title,url
    ```
-8. **Read CHANGELOG entries for this branch** (primary source for both summary and details):
+9. **Read CHANGELOG entries for this branch** (primary source for both summary and details):
    - Parse root `CHANGELOG.md` for the section matching the current branch
    - Collect bullets from all subsections (Added, Changed, Removed)
    - Each entry has format: `- Title ([hash](url)) - [ticket](file.md)`
@@ -122,10 +131,10 @@ Create or update a pull request for the current branch.
    - Use entry titles for numbered Summary list
    - Use descriptions for detailed Changes section explanations
    - If CHANGELOG section doesn't exist, fall back to git log
-9. **Derive issue URL** from branch name and remote:
-   - Extract issue number from branch (e.g., `i111-20260113-1832` → `111`)
-   - Convert remote URL to issue link for reference in PR
-10. Generate PR description:
+10. **Derive issue URL** from branch name and remote:
+    - Extract issue number from branch (e.g., `i111-20260113-1832` → `111`)
+    - Convert remote URL to issue link for reference in PR
+11. Generate PR description:
    - Title: Concise summary of the overall change
    - Summary list: Use CHANGELOG entry titles as the numbered list
    - Changes section: Use CHANGELOG entry descriptions to explain the WHY

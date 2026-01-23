@@ -6,7 +6,8 @@
   Enhances documentation to capture the big picture across files, directories, and layers rather than just file-by-file details.
   Enables AI to understand documentation state at a specific git commit and discover changes by comparing hashes.
 ## Changed
-- Rename Philosophy to Design Policy throughout codebase ([0aa9fa6](https://github.com/qmu/workaholic/commit/0aa9fa6)) - [ticket](20260123161440-rename-philosophy-to-design-policy.md)
+- Document cognitive investment as core design principle ([b56b287](https://github.com/qmu/workaholic/commit/b56b287)) - [ticket](20260123162007-document-cognitive-investment-principle.md)
+  Explains why Workaholic generates extensive documentation artifacts - investing in tickets, specs, stories, and changelogs reduces developer cognitive load.
   Uses more concrete and actionable terminology - these are deliberate choices to follow, not abstract principles to contemplate.
   Converts the thin 5-line wrapper into a comprehensive step-by-step command that Claude can execute directly without referencing external rules.
   Eliminates verbose 'let me read the file again' announcements by removing per-edit formatting hooks and adding formatting as a pre-PR step instead.

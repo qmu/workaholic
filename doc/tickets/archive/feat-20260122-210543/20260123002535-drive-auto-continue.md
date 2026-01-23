@@ -11,14 +11,17 @@ Remove the "Continue with next ticket?" confirmation from `/drive`. After a tick
 ## Implementation Steps
 
 1. Remove section 2.6 "Ask Before Next Ticket" entirely:
+
    - Delete the section that shows remaining tickets and asks Continue/Stop
    - The loop should automatically proceed to the next ticket after commit
 
 2. Update section 2.5 to note auto-continuation:
+
    - After commit and archive, proceed directly to next ticket
    - No confirmation needed between tickets
 
 3. Update the Example Workflow to reflect new flow:
+
    - Remove the "Continue with next ticket? [Continue / Stop]" prompt
    - Show direct transition: commit → next ticket implementation
 

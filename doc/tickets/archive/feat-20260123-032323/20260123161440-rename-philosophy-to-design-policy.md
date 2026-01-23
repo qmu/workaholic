@@ -14,15 +14,19 @@ Replace the term "Philosophy" with "Design Policy" (or "Design Decisions") throu
 ## Implementation Steps
 
 1. **Update `doc/README.md`**:
+
    - Rename `## Philosophy` to `## Design Policy`
 
 2. **Update `doc/specs/developer-guide/architecture.md`**:
+
    - Rename `### Design Philosophy` to `### Design Policy`
 
 3. **Update `plugins/tdd/rules/doc-specs.md`**:
+
    - Rename `## Philosophy` to `## Design Policy`
 
 4. **Update `plugins/tdd/commands/sync-doc-specs.md`**:
+
    - Rename `**Philosophy**:` to `**Design Policy**:`
 
 5. **Update any doc templates or examples** that reference "Philosophy" as a section name

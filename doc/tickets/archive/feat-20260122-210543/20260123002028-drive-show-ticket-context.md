@@ -11,9 +11,11 @@ When `/drive` asks for approval, the user needs context about which ticket is be
 ## Implementation Steps
 
 1. Update section 2.4 "Ask User to Review Implementation" to include ticket context:
+
    - Show the ticket title (H1 heading from ticket file)
    - Show summarized description (first sentence or two from Overview section)
    - Format example:
+
      ```
      **Ticket: Remove doc/specs/icebox Directory**
      Remove the incorrectly located icebox directory since it should be under doc/tickets/.

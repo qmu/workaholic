@@ -14,7 +14,7 @@ Replace the rigid prefixed documentation structure in `/drive` with a flexible, 
 
 1. Create `plugins/core/rules/documentation.md` with documentation standards:
 
-   ```markdown
+   ````markdown
    ---
    name: documentation
    description: Standards for project documentation
@@ -26,13 +26,15 @@ Replace the rigid prefixed documentation structure in `/drive` with a flexible, 
 
    Every markdown file must have YAML frontmatter:
 
-   ⁠```yaml
-   ---
+   ## ⁠```yaml
+
    title: Document Title
    description: Brief description of this document
    category: user | developer
    last_updated: YYYY-MM-DD
+
    ---
+
    ⁠```
 
    ## Structure
@@ -60,21 +62,21 @@ Replace the rigid prefixed documentation structure in `/drive` with a flexible, 
 
    ## Mermaid Usage
 
-   ⁠```mermaid
+   ⁠`mermaid
    flowchart TD
        A[Start] --> B{Decision}
        B -->|Yes| C[Action]
        B -->|No| D[End]
-   ⁠```
+   ⁠`
 
    ## Link Hierarchy
 
    README.md (root)
    └── doc/README.md
-       ├── doc/specs/README.md
-       │   ├── doc/specs/for-user/
-       │   └── doc/specs/for-developer/
-       └── doc/tickets/README.md
+   ├── doc/specs/README.md
+   │ ├── doc/specs/for-user/
+   │ └── doc/specs/for-developer/
+   └── doc/tickets/README.md
 
    ## Constraints
 
@@ -82,7 +84,7 @@ Replace the rigid prefixed documentation structure in `/drive` with a flexible, 
    - Follow written language specified in CLAUDE.md
    - Update relevant docs with every code change
    - Keep docs close to what they document
-   ```
+   ````
 
 2. Create `plugins/core/agents/doc-writer.md` subagent:
 
@@ -96,6 +98,7 @@ Replace the rigid prefixed documentation structure in `/drive` with a flexible, 
    ```
 
    Subagent instructions:
+
    - Read `plugins/core/rules/documentation.md` for standards
    - Analyze repository to determine appropriate doc structure
    - If no docs exist, enter plan mode first

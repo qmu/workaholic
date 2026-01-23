@@ -13,11 +13,13 @@ Add a design policy section to the documentation explaining the core philosophy 
 ## Implementation Steps
 
 1. **Update `doc/README.md`**:
+
    - Add a new subsection under "Design Policy" titled "Cognitive Investment"
    - Explain the principle: documentation is an investment in reducing cognitive load
    - List the types of knowledge artifacts (tickets, specs, changelogs) and their purpose
 
 2. **Update `doc/specs/developer-guide/architecture.md`**:
+
    - Expand the "Design Policy" section to reference cognitive investment
    - Connect documentation enforcement to this principle
 

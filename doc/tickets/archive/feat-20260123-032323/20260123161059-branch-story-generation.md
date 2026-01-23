@@ -25,6 +25,7 @@ This story file (`doc/stories/<branch-name>.md`) is generated during `/pull-requ
    ```
 
    For each ticket, extract:
+
    - **Overview section**: The "why" - motivation and problem description
    - **Final Report section**: The "how" - what actually happened, including deviations
 
@@ -56,6 +57,7 @@ This story file (`doc/stories/<branch-name>.md`) is generated during `/pull-requ
    ```
 
    **Writing guidelines:**
+
    - Write in third person ("The developer discovered..." not "I discovered...")
    - Connect tickets into a narrative arc, not a list
    - Highlight decision points and trade-offs
@@ -72,6 +74,7 @@ This story file (`doc/stories/<branch-name>.md`) is generated during `/pull-requ
    ```
 
    The PR format becomes:
+
    - Refs #issue
    - Summary (list of changes from CHANGELOG)
    - Story (narrative from story file)

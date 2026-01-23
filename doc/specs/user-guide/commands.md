@@ -3,7 +3,7 @@ title: Command Reference
 description: Complete documentation for all Workaholic commands
 category: user
 last_updated: 2026-01-23
-commit_hash: 928baa2
+commit_hash: 5df4de4
 ---
 
 # Command Reference
@@ -40,7 +40,13 @@ Creates or updates a pull request with an auto-generated summary.
 /pull-request
 ```
 
-The summary is generated from the branch CHANGELOG, which tracks all commits made during ticket implementation. This provides reviewers with context about what changed and why.
+The PR description includes three main sections:
+
+- **Summary** - A numbered list of changes generated from the branch CHANGELOG
+- **Story** - A narrative synthesized from archived tickets that explains the motivation, journey, and decisions made during development
+- **Changes** - Detailed explanations for each change
+
+The story document is also saved to `doc/stories/<branch-name>.md` for future reference.
 
 ## TDD Plugin
 

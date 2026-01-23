@@ -3,6 +3,7 @@ title: Architecture
 description: Plugin structure and marketplace design
 category: developer
 last_updated: 2026-01-23
+commit_hash: f5236d6
 ---
 
 # Architecture

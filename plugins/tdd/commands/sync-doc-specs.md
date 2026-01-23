@@ -67,7 +67,14 @@ title: Document Title
 description: Brief description of this document
 category: user | developer
 last_updated: YYYY-MM-DD
+commit_hash: <short-hash>
 ---
+```
+
+Get the current commit hash with:
+
+```bash
+git rev-parse --short HEAD
 ```
 
 **File Naming**:
@@ -133,3 +140,4 @@ Summarize changes made:
 - **Only delete within `doc/`** - Safety constraint for file deletions
 - **No orphan documents** - Every doc must be linked from a parent README
 - **Update `last_updated`** - Set to today's date when modifying any doc
+- **Update `commit_hash`** - Run `git rev-parse --short HEAD` and set this value

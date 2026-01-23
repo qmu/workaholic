@@ -1,5 +1,32 @@
 # Changelog
 
+## [feat-20260123-032323](https://github.com/qmu/workaholic/tree/feat-20260123-032323)
+
+### Added
+
+- Add branch story generation to pull-request workflow ([d1d7dc0](https://github.com/qmu/workaholic/commit/d1d7dc0)) - [ticket](doc/tickets/archive/feat-20260123-032323/20260123161059-branch-story-generation.md)
+  Creates a narrative story document during PR creation that captures the developer's journey - motivation, challenges, and decisions - giving reviewers high-level context.
+
+- Add commit_hash to doc specs frontmatter ([928baa2](https://github.com/qmu/workaholic/commit/928baa2)) - [ticket](doc/tickets/archive/feat-20260123-032323/20260123135636-add-commit-hash-frontmatter.md)
+  Enables AI to understand documentation state at a specific git commit and discover changes by comparing hashes.
+
+- Add cross-cutting documentation guidance to sync-doc-specs ([6ba46d5](https://github.com/qmu/workaholic/commit/6ba46d5)) - [ticket](doc/tickets/archive/feat-20260123-032323/20260123154228-sync-doc-specs-cross-cutting-docs.md)
+  Enhances documentation to capture the big picture across files, directories, and layers rather than just file-by-file details.
+
+### Changed
+
+- Rewrite sync-doc-specs as actionable command ([f5236d6](https://github.com/qmu/workaholic/commit/f5236d6)) - [ticket](doc/tickets/archive/feat-20260123-032323/20260123135431-rewrite-sync-doc-specs-command.md)
+  Converts the thin 5-line wrapper into a comprehensive step-by-step command that Claude can execute directly without referencing external rules.
+
+- Move code formatting from edit hook to PR workflow ([7eb9738](https://github.com/qmu/workaholic/commit/7eb9738)) - [ticket](doc/tickets/archive/feat-20260123-032323/20260123120608-silent-linter-reread.md)
+  Eliminates verbose 'let me read the file again' announcements by removing per-edit formatting hooks and adding formatting as a pre-PR step instead.
+
+- Rename Philosophy to Design Policy throughout codebase ([4355638](https://github.com/qmu/workaholic/commit/4355638)) - [ticket](doc/tickets/archive/feat-20260123-032323/20260123161440-rename-philosophy-to-design-policy.md)
+  Uses more concrete and actionable terminology - these are deliberate choices to follow, not abstract principles to contemplate.
+
+- Document cognitive investment as core design principle ([c5e6de0](https://github.com/qmu/workaholic/commit/c5e6de0)) - [ticket](doc/tickets/archive/feat-20260123-032323/20260123162007-document-cognitive-investment-principle.md)
+  Explains why Workaholic generates extensive documentation artifacts - investing in tickets, specs, stories, and changelogs reduces developer cognitive load.
+
 ## [feat-20260123-005256](https://github.com/qmu/workaholic/tree/feat-20260123-005256)
 
 ### Added

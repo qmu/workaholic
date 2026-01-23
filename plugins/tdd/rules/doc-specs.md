@@ -36,8 +36,11 @@ title: Document Title
 description: Brief description of this document
 category: user | developer
 last_updated: YYYY-MM-DD
+commit_hash: <short-hash>
 ---
 ```
+
+The `commit_hash` is the short git hash (7 chars) where this document was last meaningfully updated. Use `git rev-parse --short HEAD` to get the current hash when updating a document.
 
 ## Structure
 

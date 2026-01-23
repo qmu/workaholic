@@ -3,6 +3,7 @@ title: Command Reference
 description: Complete documentation for all Workaholic commands
 category: user
 last_updated: 2026-01-23
+commit_hash: f5236d6
 ---
 
 # Command Reference

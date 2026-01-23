@@ -3,6 +3,7 @@ title: Developer Documentation
 description: Documentation for developers contributing to Workaholic
 category: developer
 last_updated: 2026-01-23
+commit_hash: f5236d6
 ---
 
 # Developer Documentation

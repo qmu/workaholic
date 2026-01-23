@@ -6,6 +6,8 @@ last_updated: 2026-01-23
 commit_hash: a0b2b29
 ---
 
+[English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
+
 # Inconsistencies
 
 Known terminology issues and potential resolutions.

@@ -6,6 +6,8 @@ last_updated: 2026-01-23
 commit_hash: a0b2b29
 ---
 
+[English](README.md) | [日本語](README_ja.md)
+
 # Terminology
 
 Consistent term definitions across the Workaholic project.

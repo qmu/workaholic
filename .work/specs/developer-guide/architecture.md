@@ -6,6 +6,8 @@ last_updated: 2026-01-23
 commit_hash: 5df4de4
 ---
 
+[English](architecture.md) | [日本語](architecture_ja.md)
+
 # Architecture
 
 Workaholic is a Claude Code plugin marketplace. It contains no runtime code; plugins are markdown files with JSON metadata that Claude Code interprets as commands, rules, and skills.

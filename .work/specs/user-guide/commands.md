@@ -6,6 +6,8 @@ last_updated: 2026-01-23
 commit_hash: 5df4de4
 ---
 
+[English](commands.md) | [日本語](commands_ja.md)
+
 # Command Reference
 
 Workaholic provides two plugins: **core** for essential git workflow commands, and **tdd** for ticket-driven development.

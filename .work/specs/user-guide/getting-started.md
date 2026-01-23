@@ -6,6 +6,8 @@ last_updated: 2026-01-23
 commit_hash: 928baa2
 ---
 
+[English](getting-started.md) | [日本語](getting-started_ja.md)
+
 # Getting Started
 
 Workaholic is a Claude Code plugin marketplace that provides development workflow commands. This guide covers installation and basic setup.

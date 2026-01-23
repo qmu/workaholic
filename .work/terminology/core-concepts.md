@@ -6,6 +6,8 @@ last_updated: 2026-01-23
 commit_hash: a0b2b29
 ---
 
+[English](core-concepts.md) | [日本語](core-concepts_ja.md)
+
 # Core Concepts
 
 Fundamental building blocks of the Workaholic plugin system.

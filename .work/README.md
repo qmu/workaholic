@@ -5,6 +5,8 @@ category: developer
 last_updated: 2026-01-23
 ---
 
+[English](README.md) | [日本語](README_ja.md)
+
 # Work
 
 This is the working artifacts hub for the Workaholic plugin marketplace.

@@ -13,7 +13,7 @@ FILES=("$@")
 
 if [ -z "$TICKET" ] || [ -z "$COMMIT_MSG" ]; then
     echo "Usage: archive.sh <ticket-path> <commit-message> <repo-url> [description] [files...]"
-    echo "Example: archive.sh doc/tickets/20260115-feature.md 'Add new feature' https://github.com/org/repo 'Enables users to authenticate with session-based login' src/foo.ts"
+    echo "Example: archive.sh .work/tickets/20260115-feature.md 'Add new feature' https://github.com/org/repo 'Enables users to authenticate with session-based login' src/foo.ts"
     exit 1
 fi
 
@@ -32,12 +32,13 @@ fi
 
 TICKET_DIR=$(dirname "$TICKET")
 ARCHIVE_DIR="${TICKET_DIR}/archive/${BRANCH}"
-CHANGELOG="${ARCHIVE_DIR}/CHANGELOG.md"
+CHANGELOG=".work/changelogs/${BRANCH}.md"
 TICKET_FILENAME=$(basename "$TICKET")
 
 # Step 1: Move ticket to archive
 echo "==> Archiving ticket..."
 mkdir -p "$ARCHIVE_DIR"
+mkdir -p ".work/changelogs"
 mv "$TICKET" "$ARCHIVE_DIR/"
 echo "    ${ARCHIVE_DIR}/${TICKET_FILENAME}"
 

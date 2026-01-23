@@ -2,24 +2,30 @@
 
 Ticket-driven development workflow for Claude Code projects.
 
+## Why So Much Documentation?
+
+TDD intentionally generates extensive documentation artifacts (tickets, changelogs, archives) as **cognitive investments**. Developer cognitive load is the primary bottleneck in software productivity - context-switching, onboarding, and understanding past decisions consume significant mental energy.
+
+Each artifact reduces this load:
+- **Tickets** capture intent before implementation, preventing "what was I trying to do?"
+- **Specs** provide authoritative reference for current state, eliminating guesswork
+- **Stories** preserve the narrative of how decisions were made across a feature
+- **Changelogs** explain what changed and why, enabling quick catch-up
+
+The upfront cost of documentation pays dividends when you (or a teammate) return to code weeks later.
+
 ## Commands
 
 | Command                 | Description                                                              |
 | ----------------------- | ------------------------------------------------------------------------ |
 | `/ticket <description>` | Explore codebase and write implementation ticket                         |
-| `/drive`                | Implement tickets from doc/tickets/ one by one, commit each, and archive |
+| `/drive`                | Implement tickets from .work/tickets/ one by one, commit each, and archive |
 
 ## Skills
 
 | Skill            | Description                                                              |
 | ---------------- | ------------------------------------------------------------------------ |
 | `archive-ticket` | Complete commit workflow - format, archive, update changelog, and commit |
-
-## Rules
-
-| Rule           | Description                                                        |
-| -------------- | ------------------------------------------------------------------ |
-| `doc-specs.md` | Path-specific documentation standards for doc/specs/ (auto-loaded) |
 
 ## Workflow
 
@@ -46,9 +52,9 @@ Claude: [Asks for review again]
 
 ## Ticket Storage
 
-- Active tickets: `doc/tickets/`
-- Icebox (deferred): `doc/tickets/icebox/`
-- Archived: `doc/tickets/archive/<branch-name>/`
+- Active tickets: `.work/tickets/`
+- Icebox (deferred): `.work/tickets/icebox/`
+- Archived: `.work/tickets/archive/<branch-name>/`
 
 ## Installation
 

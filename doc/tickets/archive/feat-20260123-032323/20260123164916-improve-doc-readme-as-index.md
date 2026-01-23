@@ -46,3 +46,7 @@ The `doc/README.md` currently only indexes `doc/specs/` and `doc/tickets/`, miss
 - Don't duplicate content from plugin READMEs - just link to them
 - The root `README.md` remains the GitHub landing page; `doc/README.md` is the detailed documentation hub
 - Consider whether `doc/specs/` should absorb some content currently in plugin READMEs (but this may be out of scope for this ticket)
+
+## Final Report
+
+Development completed as planned.

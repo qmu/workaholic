@@ -18,6 +18,7 @@ All documentation, commit messages, and pull requests should be written in **Eng
 plugins/                 # Plugin source directories
   core/                  # Core development plugin
     .claude-plugin/      # Plugin configuration
+    agents/              # performance-analyst
     commands/            # branch, commit, pull-request
     rules/               # general, typescript
   tdd/                   # Ticket-driven development plugin

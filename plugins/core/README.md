@@ -10,6 +10,12 @@ Core development commands for Claude Code projects.
 | `/commit`       | Commit all changes in logical units with meaningful messages      |
 | `/pull-request` | Create or update a pull request with CHANGELOG-based summary      |
 
+## Agents
+
+| Agent                | Description                                        |
+| -------------------- | -------------------------------------------------- |
+| `performance-analyst` | Evaluate decision-making quality across five viewpoints |
+
 ## Rules
 
 | Rule            | Description                                              |

@@ -52,7 +52,7 @@ Describe what you want to implement:
 /ticket add dark mode toggle to settings
 ```
 
-Claude explores your codebase, understands the architecture, and generates a detailed implementation spec. Review the spec in `work/tickets/` and revise if needed.
+Claude explores your codebase, understands the architecture, and generates a detailed implementation spec. Review the spec in `.work/tickets/` and revise if needed.
 
 ### 3. Implement the Ticket
 
@@ -83,7 +83,7 @@ The command automatically runs `/sync-doc-specs` to update documentation before 
 Tickets follow this structure:
 
 ```
-work/tickets/
+.work/tickets/
 ├── 20260123-add-dark-mode.md      # Queued ticket
 ├── 20260123-fix-login-bug.md      # Another queued ticket
 ├── icebox/                         # Deferred tickets

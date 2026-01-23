@@ -107,7 +107,7 @@ sequenceDiagram
     Claude->>Plugin: Load ticket.md
     Plugin-->>Claude: Command instructions
     Claude->>Filesystem: Explore codebase
-    Claude->>Filesystem: Write ticket to work/tickets/
+    Claude->>Filesystem: Write ticket to .work/tickets/
     Claude-->>User: Ticket created
 ```
 
@@ -122,7 +122,7 @@ flowchart TD
     A[/pull-request command] --> B[Consolidate CHANGELOG]
     B --> C[/sync-doc-specs]
     C --> D[Read archived tickets]
-    D --> E[Audit work/specs/]
+    D --> E[Audit .work/specs/]
     E --> F[Update documentation]
     F --> G[Commit docs]
     G --> H[Create/update PR]
@@ -130,8 +130,8 @@ flowchart TD
 
 Documentation is updated automatically during the `/pull-request` workflow, which internally runs `/sync-doc-specs`. You can also run `/sync-doc-specs` directly at any time to update documentation. The command:
 
-1. **Gathers context** - Reads archived tickets from `work/tickets/archive/<branch-name>/` to understand what changed
-2. **Audits current docs** - Surveys existing documentation in `work/specs/`
+1. **Gathers context** - Reads archived tickets from `.work/tickets/archive/<branch-name>/` to understand what changed
+2. **Audits current docs** - Surveys existing documentation in `.work/specs/`
 3. **Updates documentation** - Creates, updates, or removes docs as needed, following documentation standards
 
 ### Critical Requirements

@@ -15,4 +15,4 @@ Stories serve as high-level context for reviewers and future developers. While c
 
 ## Stories
 
-- [feat-20260123-032323.md](feat-20260123-032323.md) - Documentation experience improvements and work/ directory restructuring
+- [feat-20260123-032323.md](feat-20260123-032323.md) - Documentation experience improvements and .work/ directory restructuring

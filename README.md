@@ -37,7 +37,7 @@ Ticket-driven development workflow for structured implementation.
 | Command                 | Description                                                   |
 | ----------------------- | ------------------------------------------------------------- |
 | /ticket `<description>` | Explore codebase and write implementation spec                |
-| /drive                  | Implement tickets from `work/tickets/` one by one, commit each |
+| /drive                  | Implement tickets from `.work/tickets/` one by one, commit each |
 
 Also includes:
 
@@ -45,7 +45,7 @@ Also includes:
 
 ## Workflow
 
-1. **Create ticket**: `/ticket add user authentication` - writes ticket to `work/tickets/`
+1. **Create ticket**: `/ticket add user authentication` - writes ticket to `.work/tickets/`
 2. **Implement**: `/drive` - picks up tickets, implements, commits, archives
 3. **Ship**: `/pull-request` - creates PR with summary from changelog
 

@@ -28,7 +28,6 @@ flowchart TD
     subgraph TDD Plugin
         T1[commands/]
         T2[skills/]
-        T3[rules/]
     end
     M --> P1
     M --> P2
@@ -36,7 +35,6 @@ flowchart TD
     P1 --> C2
     P2 --> T1
     P2 --> T2
-    P2 --> T3
 ```
 
 ## Directory Layout
@@ -63,13 +61,12 @@ plugins/
     commands/
       ticket.md          # /ticket command
       drive.md           # /drive command
+      sync-doc-specs.md  # /sync-doc-specs command
     skills/
       archive-ticket/
         SKILL.md
         scripts/
           archive.sh     # Shell script for commit workflow
-    rules/
-      doc-specs.md       # Path-specific documentation standards
 ```
 
 ## Plugin Types
@@ -116,7 +113,7 @@ sequenceDiagram
 
 ## Documentation Enforcement
 
-Workaholic enforces comprehensive documentation through the `doc-specs` rule and the `/sync-doc-specs` command. The rule auto-loads when working in `doc/specs/` and the command provides an explicit way to synchronize documentation with code changes.
+Workaholic enforces comprehensive documentation through the `/sync-doc-specs` command, which provides explicit control over documentation synchronization with code changes.
 
 ### How It Works
 
@@ -127,20 +124,19 @@ flowchart TD
     C --> D[Read archived tickets]
     D --> E[Audit doc/specs/]
     E --> F[Update documentation]
-    F --> G[doc-specs rule enforces standards]
-    G --> H[Commit docs]
-    H --> I[Create/update PR]
+    F --> G[Commit docs]
+    G --> H[Create/update PR]
 ```
 
 Documentation is updated automatically during the `/pull-request` workflow, which internally runs `/sync-doc-specs`. You can also run `/sync-doc-specs` directly at any time to update documentation. The command:
 
 1. **Gathers context** - Reads archived tickets from `doc/tickets/archive/<branch-name>/` to understand what changed
 2. **Audits current docs** - Surveys existing documentation in `doc/specs/`
-3. **Updates documentation** - Creates, updates, or removes docs as needed, with the `doc-specs` rule enforcing standards
+3. **Updates documentation** - Creates, updates, or removes docs as needed, following documentation standards
 
 ### Critical Requirements
 
-The `doc-specs` rule enforces strict requirements:
+The `/sync-doc-specs` command enforces strict requirements:
 
 - **Document every change** - No exceptions, no judgment calls about what's "worth" documenting
 - **Never skip documentation** - "Internal implementation detail" is never a valid reason
@@ -157,8 +153,6 @@ The four primary artifact types are:
 - **Specs** - Current state snapshots serving as reference documentation
 - **Stories** - Narrative accounts of the developer journey per branch
 - **Changelogs** - Historical records of what changed and why
-
-The path-specific rule ensures that documentation standards are automatically enforced whenever working in `doc/specs/`, preventing documentation debt from accumulating.
 
 ## Version Management
 

@@ -22,7 +22,7 @@ Create or update a pull request for the current branch.
 4. **Update documentation in `doc/specs/`**:
    - Read all archived tickets from `doc/tickets/archive/<branch-name>/`
    - Analyze cumulative changes across all tickets in the branch
-   - Update `doc/specs/` following the doc-specs rule (auto-loaded for that path)
+   - Update `doc/specs/` following `/sync-doc-specs` command guidelines
    - Stage and commit: "Update documentation for PR"
 5. **Generate branch story** in `doc/stories/<branch-name>.md`:
 

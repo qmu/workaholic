@@ -58,7 +58,7 @@ Updates documentation in `doc/specs/` to reflect the current codebase state.
 /sync-doc-specs
 ```
 
-Claude gathers context from archived tickets in the current branch, audits existing documentation, identifies what needs to be updated, and applies changes following the doc-specs formatting rules. This command ensures documentation stays synchronized with code changes before creating a pull request.
+Claude gathers context from archived tickets in the current branch, audits existing documentation, identifies what needs to be updated, and applies changes following documentation standards. This command ensures documentation stays synchronized with code changes before creating a pull request.
 
 ### /ticket
 

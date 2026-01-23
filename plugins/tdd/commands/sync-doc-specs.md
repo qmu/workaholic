@@ -120,7 +120,7 @@ git rev-parse --short HEAD
 - Links use relative paths within `doc/`
 - Use Mermaid charts for diagrams
 
-**Philosophy**:
+**Design Policy**:
 
 - Rewrite to reflect present reality, not append changes
 - Think "what does a new reader need to know today?"

@@ -91,7 +91,7 @@ plugins/<plugin>/skills/my-skill/
 
 Documentation updates are mandatory for every change. Use the `/sync-doc-specs` command to update documentation before creating a pull request, or let `/pull-request` run it automatically.
 
-The `doc-specs` rule in `plugins/tdd/rules/doc-specs.md` auto-loads when working in `doc/specs/` and enforces:
+The `/sync-doc-specs` command enforces documentation standards:
 
 - YAML frontmatter on every markdown file (including `commit_hash` field)
 - Use Mermaid for diagrams

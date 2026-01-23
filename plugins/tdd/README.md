@@ -27,12 +27,6 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 | ---------------- | ------------------------------------------------------------------------ |
 | `archive-ticket` | Complete commit workflow - format, archive, update changelog, and commit |
 
-## Rules
-
-| Rule           | Description                                                        |
-| -------------- | ------------------------------------------------------------------ |
-| `doc-specs.md` | Path-specific documentation standards for doc/specs/ (auto-loaded) |
-
 ## Workflow
 
 1. **Create tickets**: Use `/ticket` to write implementation specs

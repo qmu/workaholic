@@ -7,7 +7,24 @@ last_updated: 2026-01-23
 
 # Documentation
 
-This directory contains documentation for the Workaholic plugin marketplace.
+This is the documentation hub for the Workaholic plugin marketplace, indexing specifications, tickets, changelogs, and plugin documentation.
+
+## Quick Links
+
+| Document                                                | Description                     |
+| ------------------------------------------------------- | ------------------------------- |
+| [Getting Started](specs/user-guide/getting-started.md)  | Installation and setup          |
+| [Commands](specs/user-guide/commands.md)                | All available commands          |
+| [Workflow](specs/user-guide/workflow.md)                | Ticket-driven development guide |
+| [Architecture](specs/developer-guide/architecture.md)   | Plugin structure                |
+| [Contributing](specs/developer-guide/contributing.md)   | How to contribute               |
+
+## Plugins
+
+Plugin-specific documentation with command references and configuration:
+
+- **[Core](../plugins/core/README.md)** - Git workflow commands (`/branch`, `/commit`, `/pull-request`)
+- **[TDD](../plugins/tdd/README.md)** - Ticket-driven development (`/ticket`, `/drive`, `/sync-doc-specs`)
 
 ## Design Policy
 
@@ -74,13 +91,3 @@ changelogs/
 ```
 
 Each branch changelog records commits during development. When a PR is created, entries are consolidated into the root `CHANGELOG.md`.
-
-## Quick Links
-
-| Document                                               | Description                     |
-| ------------------------------------------------------ | ------------------------------- |
-| [Getting Started](specs/user-guide/getting-started.md) | Installation and setup          |
-| [Commands](specs/user-guide/commands.md)               | All available commands          |
-| [Workflow](specs/user-guide/workflow.md)               | Ticket-driven development guide |
-| [Architecture](specs/developer-guide/architecture.md)  | Plugin structure                |
-| [Contributing](specs/developer-guide/contributing.md)  | How to contribute               |

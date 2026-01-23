@@ -42,7 +42,23 @@ Create or update a pull request for the current branch.
    started: YYYY-MM-DD  # from first ticket timestamp
    last_updated: YYYY-MM-DD  # today
    tickets_completed: <count>
+   commits: <count>
+   duration_hours: <number>  # time between first and last commit
+   velocity: <commits per hour, rounded to 1 decimal>
    ---
+   ```
+
+   **Calculate performance metrics:**
+   ```bash
+   # Get commit count for this branch
+   git rev-list --count main..HEAD
+
+   # Get first and last commit timestamps
+   git log main..HEAD --reverse --format=%ci | head -1
+   git log main..HEAD --format=%ci | head -1
+
+   # Calculate duration in hours between first and last commit
+   # velocity = commits / duration_hours (handle 0 duration as 1 hour minimum)
    ```
 
    Story content structure:
@@ -60,6 +76,22 @@ Create or update a pull request for the current branch.
    ## Outcome
 
    [Summarize what was accomplished. Reference key tickets for details.]
+
+   ## Performance
+
+   **Metrics**: <commits> commits over <duration> hours (<velocity> commits/hour)
+
+   ### Pace Analysis
+   [Quantitative reflection on development pace - was velocity consistent or varied? Were commits small and focused or large? Any patterns in timing?]
+
+   ### Decision Review
+   [Qualitative analysis of decision-making throughout the branch:
+   - Were decisions well-considered or hasty?
+   - Any risk-taking? Was it justified?
+   - Consistency in approach or frequent pivots?
+   - Trade-offs made - were they reasonable?
+   - Anything that should have been done differently in hindsight?
+   Be fair and constructive - highlight both good decisions and areas for improvement.]
    ```
 
    **Writing guidelines:**
@@ -138,7 +170,7 @@ EOF
 
 ## PR Description Format
 
-Four headings: Summary, Story, Changes, Notes.
+Five headings: Summary, Story, Changes, Performance, Notes.
 
 ```markdown
 Refs #<issue-number>
@@ -162,6 +194,10 @@ Detailed explanation of why this was needed and what it solves. (from CHANGELOG 
 ### 2. Second meaningful change
 
 Detailed explanation of why this was needed and what it solves. (from CHANGELOG description)
+
+## Performance
+
+[Include the Performance section from doc/stories/<branch>.md - metrics, pace analysis, and decision review. This provides AI performance coaching directly in the PR.]
 
 ## Notes
 

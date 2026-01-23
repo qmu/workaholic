@@ -12,23 +12,109 @@ Create or update a pull request for the current branch.
 1. Check the current branch name with `git branch --show-current`
 2. Get the base branch (usually `main`) with `git remote show origin | grep 'HEAD branch'`
 3. **Consolidate branch CHANGELOG to root**:
-   - Read `doc/tickets/archive/<branch-name>/CHANGELOG.md` if it exists
+   - Read `.work/changelogs/<branch-name>.md` if it exists
    - Read existing `CHANGELOG.md` (root)
    - Merge branch entries into root CHANGELOG under branch section header
    - Format: `## [<branch-name>](issue-url)`
    - Reorganize: deduplicate, sort by category, combine related entries
    - Write updated root `CHANGELOG.md`
    - Stage and commit: "Update CHANGELOG for PR"
-4. **Update documentation in `doc/specs/`**:
-   - Read all archived tickets from `doc/tickets/archive/<branch-name>/`
+4. **Update documentation in `.work/specs/`**:
+   - Read all archived tickets from `.work/tickets/archive/<branch-name>/`
    - Analyze cumulative changes across all tickets in the branch
-   - Update `doc/specs/` following the doc-specs rule (auto-loaded for that path)
+   - Update `.work/specs/` following `/sync-doc-specs` command guidelines
    - Stage and commit: "Update documentation for PR"
-5. Check if a PR already exists for this branch:
+5. **Generate branch story** in `.work/stories/<branch-name>.md`:
+
+   Read all archived tickets for this branch:
+   ```bash
+   ls -1 .work/tickets/archive/<branch-name>/*.md 2>/dev/null
+   ```
+
+   For each ticket, extract:
+   - **Overview section**: The "why" - motivation and problem description
+   - **Final Report section**: The "how" - what actually happened, including deviations
+
+   Create story file with YAML frontmatter:
+   ```yaml
+   ---
+   branch: <branch-name>
+   started_at: YYYY-MM-DDTHH:MM:SS+TZ  # from first commit timestamp
+   ended_at: YYYY-MM-DDTHH:MM:SS+TZ    # from last commit timestamp
+   tickets_completed: <count>
+   commits: <count>
+   duration_hours: <number>  # time between first and last commit
+   velocity: <commits per hour, rounded to 1 decimal>
+   ---
+   ```
+
+   **Calculate performance metrics:**
+   ```bash
+   # Get commit count for this branch
+   git rev-list --count main..HEAD
+
+   # Get first and last commit timestamps (ISO 8601 format)
+   git log main..HEAD --reverse --format=%cI | head -1
+   git log main..HEAD --format=%cI | head -1
+
+   # Calculate duration in hours between first and last commit
+   # velocity = commits / duration_hours (handle 0 duration as 1 hour minimum)
+   ```
+
+   Story content structure:
+   ```markdown
+   # Story: <Branch Name>
+
+   ## Motivation
+
+   [Synthesize the "why" from ticket Overviews. What problem or opportunity started this work? Write as a narrative, not a list.]
+
+   ## Journey
+
+   [Describe the progression of work. What was planned? What unexpected challenges arose? How were decisions made? Draw from Final Reports to capture deviations and learnings.]
+
+   ## Outcome
+
+   [Summarize what was accomplished. Reference key tickets for details.]
+
+   ## Performance
+
+   **Metrics**: <commits> commits over <duration> hours (<velocity> commits/hour)
+
+   ### Pace Analysis
+   [Quantitative reflection on development pace - was velocity consistent or varied? Were commits small and focused or large? Any patterns in timing?]
+
+   ### Decision Review
+   [Qualitative analysis of decision-making throughout the branch:
+   - Were decisions well-considered or hasty?
+   - Any risk-taking? Was it justified?
+   - Consistency in approach or frequent pivots?
+   - Trade-offs made - were they reasonable?
+   - Anything that should have been done differently in hindsight?
+   Be fair and constructive - highlight both good decisions and areas for improvement.]
+   ```
+
+   **Writing guidelines:**
+   - Write in third person ("The developer discovered..." not "I discovered...")
+   - Connect tickets into a narrative arc, not a list
+   - Highlight decision points and trade-offs
+   - Keep it concise (aim for 200-400 words)
+
+   **Update .work/stories/README.md** to include the new story:
+   - Add entry: `- [<branch-name>.md](<branch-name>.md) - Brief description of the branch work`
+
+   Stage and commit: "Generate branch story"
+
+6. **Format changed files** (silent step):
+   - Run project linter/formatter on changed files
+   - Do NOT announce "reading file again" or similar verbose messages
+   - Just silently format and continue
+   - Stage and commit any formatting changes: "Format code"
+7. Check if a PR already exists for this branch:
    ```sh
    gh pr list --head $(git branch --show-current) --json number,title,url
    ```
-6. **Read CHANGELOG entries for this branch** (primary source for both summary and details):
+8. **Read CHANGELOG entries for this branch** (primary source for both summary and details):
    - Parse root `CHANGELOG.md` for the section matching the current branch
    - Collect bullets from all subsections (Added, Changed, Removed)
    - Each entry has format: `- Title ([hash](url)) - [ticket](file.md)`
@@ -36,10 +122,10 @@ Create or update a pull request for the current branch.
    - Use entry titles for numbered Summary list
    - Use descriptions for detailed Changes section explanations
    - If CHANGELOG section doesn't exist, fall back to git log
-7. **Derive issue URL** from branch name and remote:
+9. **Derive issue URL** from branch name and remote:
    - Extract issue number from branch (e.g., `i111-20260113-1832` → `111`)
    - Convert remote URL to issue link for reference in PR
-8. Generate PR description:
+10. Generate PR description:
    - Title: Concise summary of the overall change
    - Summary list: Use CHANGELOG entry titles as the numbered list
    - Changes section: Use CHANGELOG entry descriptions to explain the WHY
@@ -84,18 +170,20 @@ EOF
 
 ## PR Description Format
 
-Only three headings: Summary, Changes, Notes.
+Five headings: Summary, Story, Changes, Performance, Notes.
 
 ```markdown
 Refs #<issue-number>
 
 ## Summary
 
-[Motivation paragraph: What problem existed and why this work was needed. Write for someone unfamiliar with the context.]
-
 1. First meaningful change (from CHANGELOG)
 2. Second meaningful change (from CHANGELOG)
 3. Third meaningful change (from CHANGELOG)
+
+## Story
+
+[Include Motivation and Journey sections from .work/stories/<branch>.md - the narrative of what problem existed, how the work progressed, and what decisions were made along the way.]
 
 ## Changes
 
@@ -106,6 +194,10 @@ Detailed explanation of why this was needed and what it solves. (from CHANGELOG 
 ### 2. Second meaningful change
 
 Detailed explanation of why this was needed and what it solves. (from CHANGELOG description)
+
+## Performance
+
+[Include the Performance section from .work/stories/<branch>.md - metrics, pace analysis, and decision review. This provides AI performance coaching directly in the PR.]
 
 ## Notes
 

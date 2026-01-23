@@ -29,7 +29,7 @@ Example:
 
 ```bash
 bash .claude/skills/archive-ticket/scripts/archive.sh \
-  doc/tickets/20260115-feature.md \
+  .work/tickets/20260115-feature.md \
   "Add new feature" \
   https://github.com/org/repo \
   "Enables users to authenticate with session-based login, addressing the need for secure access control." \
@@ -66,6 +66,15 @@ The optional description parameter captures the **WHY** behind the change:
 ```
 "Enables users to authenticate with session-based login, addressing the need for secure access control."
 ```
+
+## File Locations
+
+The script manages two separate locations:
+
+- **Tickets** are archived to `.work/tickets/archive/<branch>/`
+- **Changelogs** are written to `.work/changelogs/<branch>.md`
+
+This separation keeps change requests (tickets) distinct from change summaries (changelogs).
 
 ## CHANGELOG Format
 

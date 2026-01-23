@@ -13,7 +13,7 @@ Explore the codebase to understand requirements and write an implementation tick
 
    - Parse `$ARGUMENT` to understand what the user wants to implement
    - If `$ARGUMENT` is empty, ask the user what they want to ticket
-   - If `$ARGUMENT` contains "icebox", store in `doc/tickets/icebox/` instead
+   - If `$ARGUMENT` contains "icebox", store in `.work/tickets/icebox/` instead
 
 2. **Explore the Codebase**
 
@@ -29,7 +29,7 @@ Explore the codebase to understand requirements and write an implementation tick
 
 4. **Write the Ticket**
 
-   - Create a ticket file in `doc/tickets/` (or `doc/tickets/icebox/` for icebox) with a descriptive filename
+   - Create a ticket file in `.work/tickets/` (or `.work/tickets/icebox/` for icebox) with a descriptive filename
    - Filename format: `YYYYMMDDHHmmss-<short-description>.md`
    - Use current timestamp: `date +%Y%m%d%H%M%S`
    - Example: `20260114153042-add-dark-mode.md`
@@ -63,7 +63,7 @@ Explore the codebase to understand requirements and write an implementation tick
    - Show the user where the ticket was saved
    - Summarize the key points
    - If icebox: tell user to run `/drive icebox` later to retrieve it
-   - If normal: count queued tickets in `doc/tickets/` (excluding archive/, icebox/)
+   - If normal: count queued tickets in `.work/tickets/` (excluding archive/, icebox/)
    - Tell user to run `/drive` to implement queued tickets
    - **NEVER ask "Would you like me to proceed with implementation?" - that is NOT your job**
 

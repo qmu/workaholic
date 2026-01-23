@@ -15,6 +15,7 @@ Add a policy to the core plugin's general rules that guides how documentation sh
 ### Recommended Structure
 
 **For root-level READMEs (suffix-based approach):**
+
 ```
 README.md           # Primary language (as specified in CLAUDE.md)
 README_ja.md        # Japanese translation
@@ -23,6 +24,7 @@ README_ko.md        # Korean translation
 ```
 
 **For documentation directories (folder-based approach):**
+
 ```
 docs/
   en/               # English (or primary language)
@@ -42,11 +44,13 @@ docs/
 3. **Use ISO 639-1 language codes** - Use standard two-letter codes: `ja` (Japanese), `zh` (Chinese), `ko` (Korean), `es` (Spanish), `fr` (French), `de` (German), etc.
 
 4. **Add language navigation badges** - Include language selection badges at the top of each README linking to all available translations:
+
    ```markdown
    [English](README.md) | [日本語](README_ja.md) | [中文](README_zh.md)
    ```
 
 5. **For large documentation sites, use folder-based structure** - When a project has many documentation files (>5), organize by language folders under `docs/`:
+
    - `docs/en/` for English
    - `docs/ja/` for Japanese
    - Each folder mirrors the same structure

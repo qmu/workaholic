@@ -11,6 +11,7 @@ Replace the "Reasonability" evaluation dimension with "Describability" in the pe
 ## Implementation Steps
 
 1. **Update dimension heading and description** in `plugins/core/agents/performance-analyst.md`:
+
    - Change `### 3. Reasonability` to `### 3. Describability`
    - Replace the description with:
      ```

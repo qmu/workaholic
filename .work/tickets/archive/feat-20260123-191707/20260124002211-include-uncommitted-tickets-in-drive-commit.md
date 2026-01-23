@@ -12,14 +12,17 @@ When user approves an implementation during `/drive`, include any uncommitted ti
 ## Implementation Steps
 
 1. **Update `plugins/tdd/commands/ticket.md`** - Add a note in the "Present the Ticket" section:
+
    ```markdown
    - Note: The ticket file doesn't need to be committed separately. It will be included
      in the next `/drive` commit automatically when implementation is approved.
    ```
 
 2. **Update `plugins/core/commands/drive.md`** - Add clarification in section 2.5 (Commit and Archive):
+
    ```markdown
    **Note**: The archive script uses `git add -A`, which includes:
+
    - All implementation changes
    - The archived ticket file
    - Any uncommitted ticket files in `.work/tickets/`

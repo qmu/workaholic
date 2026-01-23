@@ -38,21 +38,25 @@ Create or update a pull request for the current branch.
    **Gather source data:**
 
    Read archived tickets for this branch:
+
    ```bash
    ls -1 .work/tickets/archive/<branch-name>/*.md 2>/dev/null
    ```
 
    Read CHANGELOG entries for this branch:
+
    - Parse root `CHANGELOG.md` for the section matching the current branch
    - Collect entries from all subsections (Added, Changed, Removed)
    - Each entry has format: `- Title ([hash](url)) - [ticket](file.md)`
    - Entries may include a description line explaining the WHY
 
    For each ticket, extract:
+
    - **Overview section**: The "why" - motivation and problem description
    - **Final Report section**: The "how" - what actually happened, including deviations
 
    **Calculate performance metrics:**
+
    ```bash
    # Get commit count for this branch
    git rev-list --count main..HEAD
@@ -66,24 +70,27 @@ Create or update a pull request for the current branch.
    ```
 
    **Derive issue URL** from branch name and remote:
+
    - Extract issue number from branch (e.g., `i111-20260113-1832` → `111`)
    - Convert remote URL to issue link for reference in PR
    - Branch format: `i<issue>-<date>-<time>` or `feat-<date>-<time>` (no issue)
 
    **Create story file with YAML frontmatter:**
+
    ```yaml
    ---
    branch: <branch-name>
-   started_at: YYYY-MM-DDTHH:MM:SS+TZ  # from first commit timestamp
-   ended_at: YYYY-MM-DDTHH:MM:SS+TZ    # from last commit timestamp
+   started_at: YYYY-MM-DDTHH:MM:SS+TZ # from first commit timestamp
+   ended_at: YYYY-MM-DDTHH:MM:SS+TZ # from last commit timestamp
    tickets_completed: <count>
    commits: <count>
-   duration_hours: <number>  # time between first and last commit
+   duration_hours: <number> # time between first and last commit
    velocity: <commits per hour, rounded to 1 decimal>
    ---
    ```
 
    **Story content structure (this IS the PR description):**
+
    ```markdown
    Refs #<issue-number>
 
@@ -120,10 +127,13 @@ Create or update a pull request for the current branch.
    **Metrics**: <commits> commits over <duration> hours (<velocity> commits/hour)
 
    ### Pace Analysis
+
    [Quantitative reflection on development pace - was velocity consistent or varied? Were commits small and focused or large? Any patterns in timing?]
 
    ### Decision Review
+
    [Invoke the performance-analyst subagent with:
+
    - Archived tickets for this branch
    - Git log (main..HEAD)
    - Performance metrics from frontmatter
@@ -136,6 +146,7 @@ Create or update a pull request for the current branch.
    ```
 
    **Writing guidelines:**
+
    - Write in third person ("The developer discovered..." not "I discovered...")
    - Connect tickets into a narrative arc, not a list
    - Highlight decision points and trade-offs
@@ -143,6 +154,7 @@ Create or update a pull request for the current branch.
    - Changes section can be longer to explain each change fully
 
    **Update .work/stories/README.md** to include the new story:
+
    - Add entry: `- [<branch-name>.md](<branch-name>.md) - Brief description of the branch work`
 
    Stage and commit: "Generate branch story"

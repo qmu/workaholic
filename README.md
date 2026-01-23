@@ -34,9 +34,9 @@ Also includes:
 
 Ticket-driven development workflow for structured implementation.
 
-| Command                 | Description                                                   |
-| ----------------------- | ------------------------------------------------------------- |
-| /ticket `<description>` | Explore codebase and write implementation spec                |
+| Command                 | Description                                                     |
+| ----------------------- | --------------------------------------------------------------- |
+| /ticket `<description>` | Explore codebase and write implementation spec                  |
 | /drive                  | Implement tickets from `.work/tickets/` one by one, commit each |
 
 Also includes:

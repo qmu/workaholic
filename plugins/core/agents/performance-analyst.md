@@ -10,6 +10,7 @@ Analyze a development branch's decision-making quality.
 ## Input
 
 You will receive:
+
 - Branch story with motivation and journey
 - List of archived tickets with overviews and final reports
 - Git log showing commit history
@@ -18,6 +19,7 @@ You will receive:
 ## Evaluation Framework
 
 Evaluate the developer's decision-making across five dimensions. For each, provide:
+
 - A rating: Strong / Adequate / Needs Improvement
 - 1-2 sentences of evidence-based analysis
 
@@ -48,13 +50,13 @@ Return structured markdown:
 ```markdown
 ### Decision Quality Analysis
 
-| Dimension | Rating | Notes |
-|-----------|--------|-------|
-| Consistency | Strong/Adequate/Needs Improvement | Brief observation |
-| Intuitivity | ... | ... |
-| Describability | ... | ... |
-| Agility | ... | ... |
-| Density | ... | ... |
+| Dimension      | Rating                            | Notes             |
+| -------------- | --------------------------------- | ----------------- |
+| Consistency    | Strong/Adequate/Needs Improvement | Brief observation |
+| Intuitivity    | ...                               | ...               |
+| Describability | ...                               | ...               |
+| Agility        | ...                               | ...               |
+| Density        | ...                               | ...               |
 
 **Strengths**: [Key positive patterns observed]
 

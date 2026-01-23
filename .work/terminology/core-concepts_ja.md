@@ -2,8 +2,8 @@
 title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
-last_updated: 2026-01-23
-commit_hash: a0b2b29
+last_updated: 2026-01-24
+commit_hash: 6843f78
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -14,21 +14,21 @@ Workaholicプラグインシステムの基本的な構成要素。
 
 ## plugin
 
-Claude Code機能を拡張するコマンド、スキル、ルールのモジュラーコレクション。
+Claude Code機能を拡張するコマンド、スキル、ルール、エージェントのモジュラーコレクション。
 
 ### 定義
 
-プラグインは関連する機能を単一の配布可能なユニットにパッケージ化します。各プラグインは`plugins/`下に独自のディレクトリを持ち、`plugin.json`メタデータを含む`.claude-plugin/`設定フォルダを含みます。プラグインはコマンド（ユーザー呼び出し可能）、スキル（ヘルパールーチン）、ルール（ガイドライン）を定義できます。
+プラグインは関連する機能を単一の配布可能なユニットにパッケージ化します。各プラグインは`plugins/`下に独自のディレクトリを持ち、`plugin.json`メタデータを含む`.claude-plugin/`設定フォルダを含みます。プラグインはコマンド（ユーザー呼び出し可能）、スキル（ヘルパールーチン）、ルール（ガイドライン）、エージェント（特殊なサブエージェント）を定義できます。
 
 ### 使用パターン
 
-- **ディレクトリ名**: `plugins/core/`、`plugins/tdd/`
+- **ディレクトリ名**: `plugins/core/`
 - **ファイル名**: `plugins/<name>/.claude-plugin/plugin.json`
-- **コード参照**: 「tddプラグインをインストール」、「Coreプラグインコマンド」
+- **コード参照**: 「coreプラグインをインストール」、「Coreプラグインコマンド」
 
 ### 関連用語
 
-- command、skill、rule
+- command、skill、rule、agent
 
 ## command
 
@@ -41,7 +41,7 @@ Claude Code機能を拡張するコマンド、スキル、ルールのモジュ
 ### 使用パターン
 
 - **ディレクトリ名**: `plugins/<name>/commands/`
-- **ファイル名**: `commit.md`、`pull-request.md`、`sync-doc-specs.md`
+- **ファイル名**: `commit.md`、`pull-request.md`、`sync-src-doc.md`
 - **コード参照**: 「`/commit`を実行して...」、「`/ticket`コマンド...」
 
 ### 関連用語
@@ -83,3 +83,21 @@ Claude Code機能を拡張するコマンド、スキル、ルールのモジュ
 ### 関連用語
 
 - plugin、command
+
+## agent
+
+複雑な分析タスクを処理するために生成される特殊なサブエージェント。
+
+### 定義
+
+エージェントは特定のプロンプトとツールを持つサブプロセスで実行されます。自律的にタスクを完了し、結果を親の会話に報告できます。Workaholicにはperformance-analystエージェントが含まれており、PRの説明文のために意思決定の質を5つの観点で評価します。
+
+### 使用パターン
+
+- **ディレクトリ名**: `plugins/<name>/agents/`
+- **ファイル名**: `performance-analyst.md`
+- **コード参照**: 「エージェントを起動して...」、「performance-analystは...を評価する」
+
+### 関連用語
+
+- plugin、command、skill

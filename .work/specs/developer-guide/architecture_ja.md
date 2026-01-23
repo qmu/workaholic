@@ -2,15 +2,15 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-last_updated: 2026-01-23
-commit_hash: 5df4de4
+last_updated: 2026-01-24
+commit_hash: 6843f78
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
 
 # アーキテクチャ
 
-WorkaholicはClaude Codeプラグインマーケットプレイスです。ランタイムコードを含まず、プラグインはClaude Codeがコマンド、ルール、スキルとして解釈するJSONメタデータを持つマークダウンファイルです。
+WorkaholicはClaude Codeプラグインマーケットプレイスです。ランタイムコードを含まず、プラグインはClaude Codeがコマンド、ルール、スキル、エージェントとして解釈するJSONメタデータを持つマークダウンファイルです。
 
 ## マーケットプレイス構造
 
@@ -19,24 +19,18 @@ flowchart TD
     subgraph Marketplace
         M[.claude-plugin/marketplace.json]
     end
-    subgraph Plugins
-        P1[plugins/core/]
-        P2[plugins/tdd/]
-    end
     subgraph Core Plugin
+        P1[plugins/core/]
         C1[commands/]
         C2[rules/]
-    end
-    subgraph TDD Plugin
-        T1[commands/]
-        T2[skills/]
+        C3[skills/]
+        C4[agents/]
     end
     M --> P1
-    M --> P2
     P1 --> C1
     P1 --> C2
-    P2 --> T1
-    P2 --> T2
+    P1 --> C3
+    P1 --> C4
 ```
 
 ## ディレクトリレイアウト
@@ -49,21 +43,18 @@ plugins/
   core/
     .claude-plugin/
       plugin.json        # プラグインメタデータ
+    agents/
+      performance-analyst.md  # 意思決定レビューサブエージェント
     commands/
       branch.md          # /branch コマンド
       commit.md          # /commit コマンド
+      drive.md           # /drive コマンド
       pull-request.md    # /pull-request コマンド
+      sync-src-doc.md    # /sync-src-doc コマンド
+      ticket.md          # /ticket コマンド
     rules/
       general.md
       typescript.md
-
-  tdd/
-    .claude-plugin/
-      plugin.json        # プラグインメタデータ
-    commands/
-      ticket.md          # /ticket コマンド
-      drive.md           # /drive コマンド
-      sync-doc-specs.md  # /sync-doc-specs コマンド
     skills/
       archive-ticket/
         SKILL.md
@@ -83,9 +74,15 @@ plugins/
 
 ### スキル
 
-スキルはスクリプトや複数のファイルを含む可能性のある複雑な機能です。Skillツールで呼び出され、インライン指示を提供します。TDDプラグインには以下のスキルが含まれます：
+スキルはスクリプトや複数のファイルを含む可能性のある複雑な機能です。Skillツールで呼び出され、インライン指示を提供します。coreプラグインには以下が含まれます：
 
 - **archive-ticket**: 完全なコミットワークフロー（チケットのアーカイブ、CHANGELOG更新、コミット）を処理するシェルスクリプト
+
+### エージェント
+
+エージェントは複雑な分析タスクを処理するために生成できる特殊なサブエージェントです。特定のプロンプトとツールを持つサブプロセスで実行されます。coreプラグインには以下が含まれます：
+
+- **performance-analyst**: PRの説明文のために5つの観点（Consistency、Intuitivity、Describability、Agility、Density）で意思決定の質を評価
 
 ## Claude Codeがプラグインをロードする方法
 
@@ -130,7 +127,7 @@ flowchart TD
     G --> H[PRを作成/更新]
 ```
 
-ドキュメントは`/pull-request`ワークフロー中に自動的に更新され、内部的に`/sync-doc-specs`を実行します。いつでも直接`/sync-doc-specs`を実行してドキュメントを更新することもできます。コマンドは：
+ドキュメントは`/pull-request`ワークフロー中に自動的に更新され、内部的に`/sync-src-doc`を実行します。いつでも直接`/sync-src-doc`を実行してドキュメントを更新することもできます。コマンドは：
 
 1. **コンテキストを収集** - `.work/tickets/archive/<branch-name>/`からアーカイブされたチケットを読んで何が変更されたかを理解
 2. **現在のドキュメントを監査** - `.work/specs/`内の既存ドキュメントを調査
@@ -138,7 +135,7 @@ flowchart TD
 
 ### 重要な要件
 
-`/sync-doc-specs`コマンドは厳格な要件を強制します：
+`/sync-src-doc`コマンドは厳格な要件を強制します：
 
 - **すべての変更をドキュメント化** - 例外なし、何が「ドキュメント化する価値がある」かの判断なし
 - **ドキュメントをスキップしない** - 「内部実装の詳細」は決して有効な理由にならない

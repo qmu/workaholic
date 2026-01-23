@@ -2,15 +2,15 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-last_updated: 2026-01-23
-commit_hash: 5df4de4
+last_updated: 2026-01-24
+commit_hash: 6843f78
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
 
 # Architecture
 
-Workaholic is a Claude Code plugin marketplace. It contains no runtime code; plugins are markdown files with JSON metadata that Claude Code interprets as commands, rules, and skills.
+Workaholic is a Claude Code plugin marketplace. It contains no runtime code; plugins are markdown files with JSON metadata that Claude Code interprets as commands, rules, skills, and agents.
 
 ## Marketplace Structure
 
@@ -19,24 +19,18 @@ flowchart TD
     subgraph Marketplace
         M[.claude-plugin/marketplace.json]
     end
-    subgraph Plugins
-        P1[plugins/core/]
-        P2[plugins/tdd/]
-    end
     subgraph Core Plugin
+        P1[plugins/core/]
         C1[commands/]
         C2[rules/]
-    end
-    subgraph TDD Plugin
-        T1[commands/]
-        T2[skills/]
+        C3[skills/]
+        C4[agents/]
     end
     M --> P1
-    M --> P2
     P1 --> C1
     P1 --> C2
-    P2 --> T1
-    P2 --> T2
+    P1 --> C3
+    P1 --> C4
 ```
 
 ## Directory Layout
@@ -49,21 +43,18 @@ plugins/
   core/
     .claude-plugin/
       plugin.json        # Plugin metadata
+    agents/
+      performance-analyst.md  # Decision review subagent
     commands/
       branch.md          # /branch command
       commit.md          # /commit command
+      drive.md           # /drive command
       pull-request.md    # /pull-request command
+      sync-src-doc.md    # /sync-src-doc command
+      ticket.md          # /ticket command
     rules/
       general.md
       typescript.md
-
-  tdd/
-    .claude-plugin/
-      plugin.json        # Plugin metadata
-    commands/
-      ticket.md          # /ticket command
-      drive.md           # /drive command
-      sync-doc-specs.md  # /sync-doc-specs command
     skills/
       archive-ticket/
         SKILL.md
@@ -83,9 +74,15 @@ Rules are always-on guidelines that Claude follows throughout the conversation. 
 
 ### Skills
 
-Skills are complex capabilities that may include scripts or multiple files. They are invoked via the Skill tool and provide inline instructions. The TDD plugin includes two skills:
+Skills are complex capabilities that may include scripts or multiple files. They are invoked via the Skill tool and provide inline instructions. The core plugin includes:
 
 - **archive-ticket**: Shell script that handles the complete commit workflow (archive ticket, update CHANGELOG, commit)
+
+### Agents
+
+Agents are specialized subagents that can be spawned to handle complex analysis tasks. They run in a subprocess with specific prompts and tools. The core plugin includes:
+
+- **performance-analyst**: Evaluates decision-making quality across five viewpoints (Consistency, Intuitivity, Describability, Agility, Density) for PR descriptions
 
 ## How Claude Code Loads Plugins
 

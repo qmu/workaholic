@@ -3,7 +3,7 @@ title: Getting Started
 description: Installation and first steps with Workaholic
 category: user
 last_updated: 2026-01-23
-commit_hash: f5236d6
+commit_hash: 928baa2
 ---
 
 # Getting Started
@@ -35,11 +35,12 @@ When prompted, choose user scope for personal use. Enabling auto-updates is reco
 After installation, the following commands become available:
 
 ```bash
-/branch       # Create timestamped topic branches
-/commit       # Commit with meaningful messages
-/pull-request # Create PRs with auto-generated summaries
-/ticket       # Write implementation specs
-/drive        # Implement tickets one by one
+/branch         # Create timestamped topic branches
+/commit         # Commit with meaningful messages
+/pull-request   # Create PRs with auto-generated summaries
+/ticket         # Write implementation specs
+/drive          # Implement tickets one by one
+/sync-doc-specs # Update documentation to match code
 ```
 
 ## Next Steps

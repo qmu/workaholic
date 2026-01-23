@@ -3,7 +3,7 @@ title: Workflow Guide
 description: How to use ticket-driven development with Workaholic
 category: user
 last_updated: 2026-01-23
-commit_hash: f5236d6
+commit_hash: 928baa2
 ---
 
 # Workflow Guide
@@ -76,7 +76,7 @@ When ready for review:
 /pull-request
 ```
 
-The PR summary is generated from the branch CHANGELOG, which recorded what each commit accomplished and why.
+The command automatically runs `/sync-doc-specs` to update documentation before creating the PR. The PR summary is generated from the branch CHANGELOG, which recorded what each commit accomplished and why.
 
 ## Directory Structure
 

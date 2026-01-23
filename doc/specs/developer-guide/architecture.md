@@ -3,7 +3,7 @@ title: Architecture
 description: Plugin structure and marketplace design
 category: developer
 last_updated: 2026-01-23
-commit_hash: f5236d6
+commit_hash: 928baa2
 ---
 
 # Architecture
@@ -116,25 +116,27 @@ sequenceDiagram
 
 ## Documentation Enforcement
 
-Workaholic enforces comprehensive documentation through the `doc-specs` rule. This path-specific rule auto-loads when working in `doc/specs/` and ensures documentation remains synchronized with code changes.
+Workaholic enforces comprehensive documentation through the `doc-specs` rule and the `/sync-doc-specs` command. The rule auto-loads when working in `doc/specs/` and the command provides an explicit way to synchronize documentation with code changes.
 
 ### How It Works
 
 ```mermaid
 flowchart TD
     A[/pull-request command] --> B[Consolidate CHANGELOG]
-    B --> C[Read archived tickets]
-    C --> D[Update doc/specs/]
-    D --> E[doc-specs rule auto-loads]
-    E --> F[Commit docs]
-    F --> G[Create/update PR]
+    B --> C[/sync-doc-specs]
+    C --> D[Read archived tickets]
+    D --> E[Audit doc/specs/]
+    E --> F[Update documentation]
+    F --> G[doc-specs rule enforces standards]
+    G --> H[Commit docs]
+    H --> I[Create/update PR]
 ```
 
-The `/pull-request` command updates documentation by:
+Documentation is updated automatically during the `/pull-request` workflow, which internally runs `/sync-doc-specs`. You can also run `/sync-doc-specs` directly at any time to update documentation. The command:
 
-1. **Reading archived tickets** - Analyzes all tickets from `doc/tickets/archive/<branch-name>/`
-2. **Updating `doc/specs/`** - The `doc-specs` rule auto-loads and enforces standards
-3. **Committing documentation** - Commits all documentation changes before creating PR
+1. **Gathers context** - Reads archived tickets from `doc/tickets/archive/<branch-name>/` to understand what changed
+2. **Audits current docs** - Surveys existing documentation in `doc/specs/`
+3. **Updates documentation** - Creates, updates, or removes docs as needed, with the `doc-specs` rule enforcing standards
 
 ### Critical Requirements
 

@@ -3,7 +3,7 @@ title: Command Reference
 description: Complete documentation for all Workaholic commands
 category: user
 last_updated: 2026-01-23
-commit_hash: f5236d6
+commit_hash: 928baa2
 ---
 
 # Command Reference
@@ -44,6 +44,16 @@ The summary is generated from the branch CHANGELOG, which tracks all commits mad
 
 ## TDD Plugin
 
+### /sync-doc-specs
+
+Updates documentation in `doc/specs/` to reflect the current codebase state.
+
+```bash
+/sync-doc-specs
+```
+
+Claude gathers context from archived tickets in the current branch, audits existing documentation, identifies what needs to be updated, and applies changes following the doc-specs formatting rules. This command ensures documentation stays synchronized with code changes before creating a pull request.
+
 ### /ticket
 
 Explores the codebase and writes an implementation specification.
@@ -75,6 +85,7 @@ The typical workflow combines these commands:
 1. `/branch` - Start a new feature branch
 2. `/ticket <description>` - Write implementation spec
 3. `/drive` - Implement the ticket
-4. `/pull-request` - Create PR for review
+4. `/sync-doc-specs` - Update documentation (optional, also runs during `/pull-request`)
+5. `/pull-request` - Create PR for review
 
 Each ticket gets its own commit, and the CHANGELOG tracks all changes for the PR summary.

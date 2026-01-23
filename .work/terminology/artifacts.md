@@ -6,6 +6,8 @@ last_updated: 2026-01-23
 commit_hash: a0b2b29
 ---
 
+[English](artifacts.md) | [日本語](artifacts_ja.md)
+
 # Artifacts
 
 Documentation artifacts generated during development workflows.

@@ -6,6 +6,8 @@ last_updated: 2026-01-23
 commit_hash: a0b2b29
 ---
 
+[English](file-conventions.md) | [日本語](file-conventions_ja.md)
+
 # File Conventions
 
 Naming patterns and directory structures used in Workaholic.

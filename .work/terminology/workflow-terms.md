@@ -6,6 +6,8 @@ last_updated: 2026-01-23
 commit_hash: a0b2b29
 ---
 
+[English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
+
 # Workflow Terms
 
 Actions and operations in the development workflow.

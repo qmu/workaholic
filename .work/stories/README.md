@@ -5,6 +5,8 @@ category: developer
 last_updated: 2026-01-23
 ---
 
+[English](README.md) | [日本語](README_ja.md)
+
 # Stories
 
 This directory contains narrative documents that capture the developer's journey through each branch. Stories synthesize archived tickets into a coherent narrative explaining what motivated the work, what challenges arose, and how decisions were made.

@@ -2,6 +2,18 @@
 
 Ticket-driven development workflow for Claude Code projects.
 
+## Why So Much Documentation?
+
+TDD intentionally generates extensive documentation artifacts (tickets, changelogs, archives) as **cognitive investments**. Developer cognitive load is the primary bottleneck in software productivity - context-switching, onboarding, and understanding past decisions consume significant mental energy.
+
+Each artifact reduces this load:
+- **Tickets** capture intent before implementation, preventing "what was I trying to do?"
+- **Specs** provide authoritative reference for current state, eliminating guesswork
+- **Stories** preserve the narrative of how decisions were made across a feature
+- **Changelogs** explain what changed and why, enabling quick catch-up
+
+The upfront cost of documentation pays dividends when you (or a teammate) return to code weeks later.
+
 ## Commands
 
 | Command                 | Description                                                              |

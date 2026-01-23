@@ -11,6 +11,19 @@ This directory contains documentation for the Workaholic plugin marketplace.
 
 ## Design Policy
 
+### Cognitive Investment
+
+Developer cognitive load is the primary bottleneck in software productivity. Workaholic invests heavily in generating structured knowledge artifacts to reduce this load. The trade-off is intentional: more upfront work creating documentation pays dividends in reduced context-switching, faster onboarding, and better decision-making.
+
+Each artifact type serves a specific cognitive purpose:
+
+| Artifact | Purpose | Reduces cognitive load by... |
+|----------|---------|------------------------------|
+| Tickets | Change requests (future and past) | Capturing intent before implementation |
+| Specs | Current state snapshot | Providing authoritative reference |
+| Stories | Development narrative | Preserving decision context |
+| Changelogs | Historical record | Explaining what changed and why |
+
 ### Specs (doc/specs/)
 
 Specifications represent a **snapshot of the current state**. They describe what exists now - the comprehensive present situation of the project. When you read specs, you understand how things work today.

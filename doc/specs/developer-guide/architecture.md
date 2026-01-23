@@ -149,7 +149,9 @@ The `doc-specs` rule enforces strict requirements:
 
 ### Design Policy
 
-Documentation is mandatory, not optional. The path-specific rule ensures that documentation standards are automatically enforced whenever working in `doc/specs/`, preventing documentation debt from accumulating.
+Documentation is mandatory, not optional. This reflects Workaholic's core principle of **cognitive investment**: developer cognitive load is the primary bottleneck in software productivity, so we invest heavily in generating structured knowledge artifacts (tickets, specs, changelogs, stories, archives) to reduce this load.
+
+The path-specific rule ensures that documentation standards are automatically enforced whenever working in `doc/specs/`, preventing documentation debt from accumulating.
 
 ## Version Management
 

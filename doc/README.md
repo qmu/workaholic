@@ -17,12 +17,12 @@ Developer cognitive load is the primary bottleneck in software productivity. Wor
 
 Each artifact type serves a specific cognitive purpose:
 
-| Artifact | Purpose | Reduces cognitive load by... |
-|----------|---------|------------------------------|
-| Tickets | Change requests (future and past) | Capturing intent before implementation |
-| Specs | Current state snapshot | Providing authoritative reference |
-| Stories | Development narrative | Preserving decision context |
-| Changelogs | Historical record | Explaining what changed and why |
+| Artifact   | Purpose                           | Reduces cognitive load by...           |
+| ---------- | --------------------------------- | -------------------------------------- |
+| Tickets    | Change requests (future and past) | Capturing intent before implementation |
+| Specs      | Current state snapshot            | Providing authoritative reference      |
+| Stories    | Development narrative             | Preserving decision context            |
+| Changelogs | Historical record                 | Explaining what changed and why        |
 
 ### Specs (doc/specs/)
 

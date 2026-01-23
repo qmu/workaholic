@@ -15,11 +15,13 @@ The current implementation already uses `ARCHIVE_DIR="${TICKET_DIR}/archive/${BR
 ## Implementation Steps
 
 1. **Add branch name validation in archive-ticket-script.sh**
+
    - After getting `BRANCH=$(git branch --show-current)`, check if branch is empty
    - If empty (detached HEAD or error), exit with error message asking user to checkout a branch first
    - Add validation at line ~25 after `BRANCH` assignment
 
 2. **Update error message to be descriptive**
+
    - Error should explain: "Cannot archive ticket: not on a named branch. Please checkout a branch first."
    - This prevents accidental archiving to `archive//` (empty branch) or `archive/` directly
 

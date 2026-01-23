@@ -26,6 +26,7 @@ When multiple tickets modify related components, the cumulative effect creates p
    - **Architectural patterns**: Design decisions that affect multiple areas
 
    For each cross-cutting concern identified:
+
    - Check if `doc/specs/` already has a document covering this concept
    - If not, consider whether it warrants a new document or a section in `architecture.md`
    - If yes, update the existing document to reflect the current state

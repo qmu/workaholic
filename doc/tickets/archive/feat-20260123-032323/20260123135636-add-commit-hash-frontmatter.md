@@ -13,6 +13,7 @@ Add a `commit_hash` field to the YAML frontmatter in `doc/specs/` files. This en
 ## Implementation Steps
 
 1. **Update `plugins/tdd/rules/doc-specs.md`** frontmatter specification:
+
    ```yaml
    ---
    title: Document Title
@@ -22,14 +23,16 @@ Add a `commit_hash` field to the YAML frontmatter in `doc/specs/` files. This en
    commit_hash: <short-hash>
    ---
    ```
+
    - Use short hash (7 chars) for readability: `git rev-parse --short HEAD`
    - Document that this represents the commit where the doc was last meaningfully updated
 
 2. **Update `plugins/tdd/commands/sync-doc-specs.md`** to include instruction:
+
    - When updating a doc file, also update `commit_hash` to current HEAD
    - Run `git rev-parse --short HEAD` to get the hash
 
-3. **Update all existing `doc/specs/**/*.md` files** with current commit hash:
+3. **Update all existing `doc/specs/**/\*.md` files\*\* with current commit hash:
    - Add `commit_hash: <current-short-hash>` to each file's frontmatter
 
 ## Considerations

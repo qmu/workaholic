@@ -12,6 +12,7 @@ Update the workaholic-advisor's TDD topic documentation to emphasize the "update
 ## Implementation Steps
 
 1. **Add a new section to `topics/tdd.md` explaining the ticket-update-first pattern**
+
    - Add after the "Workflow" section
    - Title: "## Feedback Loop"
    - Explain that when implementation is not approved:
@@ -21,6 +22,7 @@ Update the workaholic-advisor's TDD topic documentation to emphasize the "update
    - Emphasize: "This ensures archived tickets always reflect the final implementation"
 
 2. **Include a visual workflow example showing the feedback loop**
+
    ```
    User: [Needs changes] - "Add error handling for edge case X"
    Claude: [Updates ticket with new step for error handling]

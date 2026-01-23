@@ -1,13 +1,13 @@
 ---
-title: Documentation
-description: Documentation index for Workaholic plugin marketplace
+title: Work
+description: Working artifacts index for Workaholic plugin marketplace
 category: developer
 last_updated: 2026-01-23
 ---
 
-# Documentation
+# Work
 
-This is the documentation hub for the Workaholic plugin marketplace.
+This is the working artifacts hub for the Workaholic plugin marketplace.
 
 - [changelogs/](changelogs/README.md) - Historical record of changes per branch
 - [specs/](specs/README.md) - Current state reference documentation

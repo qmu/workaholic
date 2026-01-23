@@ -12,23 +12,23 @@ Create or update a pull request for the current branch.
 1. Check the current branch name with `git branch --show-current`
 2. Get the base branch (usually `main`) with `git remote show origin | grep 'HEAD branch'`
 3. **Consolidate branch CHANGELOG to root**:
-   - Read `doc/changelogs/<branch-name>.md` if it exists
+   - Read `work/changelogs/<branch-name>.md` if it exists
    - Read existing `CHANGELOG.md` (root)
    - Merge branch entries into root CHANGELOG under branch section header
    - Format: `## [<branch-name>](issue-url)`
    - Reorganize: deduplicate, sort by category, combine related entries
    - Write updated root `CHANGELOG.md`
    - Stage and commit: "Update CHANGELOG for PR"
-4. **Update documentation in `doc/specs/`**:
-   - Read all archived tickets from `doc/tickets/archive/<branch-name>/`
+4. **Update documentation in `work/specs/`**:
+   - Read all archived tickets from `work/tickets/archive/<branch-name>/`
    - Analyze cumulative changes across all tickets in the branch
-   - Update `doc/specs/` following `/sync-doc-specs` command guidelines
+   - Update `work/specs/` following `/sync-doc-specs` command guidelines
    - Stage and commit: "Update documentation for PR"
-5. **Generate branch story** in `doc/stories/<branch-name>.md`:
+5. **Generate branch story** in `work/stories/<branch-name>.md`:
 
    Read all archived tickets for this branch:
    ```bash
-   ls -1 doc/tickets/archive/<branch-name>/*.md 2>/dev/null
+   ls -1 work/tickets/archive/<branch-name>/*.md 2>/dev/null
    ```
 
    For each ticket, extract:
@@ -100,7 +100,7 @@ Create or update a pull request for the current branch.
    - Highlight decision points and trade-offs
    - Keep it concise (aim for 200-400 words)
 
-   **Update doc/stories/README.md** to include the new story:
+   **Update work/stories/README.md** to include the new story:
    - Add entry: `- [<branch-name>.md](<branch-name>.md) - Brief description of the branch work`
 
    Stage and commit: "Generate branch story"
@@ -183,7 +183,7 @@ Refs #<issue-number>
 
 ## Story
 
-[Include Motivation and Journey sections from doc/stories/<branch>.md - the narrative of what problem existed, how the work progressed, and what decisions were made along the way.]
+[Include Motivation and Journey sections from work/stories/<branch>.md - the narrative of what problem existed, how the work progressed, and what decisions were made along the way.]
 
 ## Changes
 
@@ -197,7 +197,7 @@ Detailed explanation of why this was needed and what it solves. (from CHANGELOG 
 
 ## Performance
 
-[Include the Performance section from doc/stories/<branch>.md - metrics, pace analysis, and decision review. This provides AI performance coaching directly in the PR.]
+[Include the Performance section from work/stories/<branch>.md - metrics, pace analysis, and decision review. This provides AI performance coaching directly in the PR.]
 
 ## Notes
 

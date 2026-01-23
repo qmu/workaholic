@@ -19,7 +19,7 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 | Command                 | Description                                                              |
 | ----------------------- | ------------------------------------------------------------------------ |
 | `/ticket <description>` | Explore codebase and write implementation ticket                         |
-| `/drive`                | Implement tickets from doc/tickets/ one by one, commit each, and archive |
+| `/drive`                | Implement tickets from work/tickets/ one by one, commit each, and archive |
 
 ## Skills
 
@@ -52,9 +52,9 @@ Claude: [Asks for review again]
 
 ## Ticket Storage
 
-- Active tickets: `doc/tickets/`
-- Icebox (deferred): `doc/tickets/icebox/`
-- Archived: `doc/tickets/archive/<branch-name>/`
+- Active tickets: `work/tickets/`
+- Icebox (deferred): `work/tickets/icebox/`
+- Archived: `work/tickets/archive/<branch-name>/`
 
 ## Installation
 

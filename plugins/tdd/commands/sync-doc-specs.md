@@ -1,11 +1,11 @@
 ---
 name: sync-doc-specs
-description: Update doc/specs comprehensively following doc-specs rules
+description: Update work/specs comprehensively following doc-specs rules
 ---
 
 # Sync Doc Specs
 
-Update `doc/specs/` to reflect the current codebase state based on changes made in the current branch.
+Update `work/specs/` to reflect the current codebase state based on changes made in the current branch.
 
 ## Instructions
 
@@ -18,7 +18,7 @@ Understand what changed in the current branch:
 git branch --show-current
 
 # List archived tickets for this branch
-ls -1 doc/tickets/archive/<branch-name>/*.md 2>/dev/null
+ls -1 work/tickets/archive/<branch-name>/*.md 2>/dev/null
 ```
 
 **If archived tickets exist:**
@@ -34,10 +34,10 @@ ls -1 doc/tickets/archive/<branch-name>/*.md 2>/dev/null
 
 ### 2. Audit Current Documentation
 
-Survey what exists in `doc/specs/`:
+Survey what exists in `work/specs/`:
 
 ```bash
-find doc/specs -name "*.md" -type f | sort
+find work/specs -name "*.md" -type f | sort
 ```
 
 For each document:
@@ -52,7 +52,7 @@ Based on changes and current docs, determine:
 
 - **Updates needed**: Existing docs that reference changed components
 - **New docs needed**: Changes that introduced new concepts requiring docs
-- **Deletions needed**: Docs for removed features (only within `doc/`)
+- **Deletions needed**: Docs for removed features (only within `work/`)
 - **README updates**: Index files needing link additions/removals
 
 ### 4. Identify Cross-Cutting Concerns
@@ -68,7 +68,7 @@ Look for:
 
 For each cross-cutting concern identified:
 
-- Check if `doc/specs/` already has a document covering this concept
+- Check if `work/specs/` already has a document covering this concept
 - If not, consider whether it warrants a new document or a section in `architecture.md`
 - If yes, update the existing document to reflect the current state
 - Prefer extending existing docs over creating new files for minor patterns
@@ -117,7 +117,7 @@ git rev-parse --short HEAD
 
 - Write full paragraphs, not bullet-point fragments
 - Code blocks must specify language
-- Links use relative paths within `doc/`
+- Links use relative paths within `work/`
 - Use Mermaid charts for diagrams
 
 **Design Policy**:
@@ -130,9 +130,9 @@ git rev-parse --short HEAD
 
 Ensure documentation hierarchy is maintained:
 
-**doc/README.md structure:**
+**work/README.md structure:**
 
-The root doc/README.md should be a simple index linking to subdirectory READMEs:
+The root work/README.md should be a simple index linking to subdirectory READMEs:
 
 ```markdown
 # Documentation
@@ -148,11 +148,11 @@ The root doc/README.md should be a simple index linking to subdirectory READMEs:
 - [TDD](../plugins/tdd/README.md) - Ticket-driven development
 ```
 
-Keep detailed content in subdirectory READMEs, not in doc/README.md.
+Keep detailed content in subdirectory READMEs, not in work/README.md.
 
 **When adding a document:**
 
-- Add link to parent README (subdirectory or `doc/specs/README.md`)
+- Add link to parent README (subdirectory or `work/specs/README.md`)
 - Include brief description of the document
 
 **When removing a document:**
@@ -182,7 +182,7 @@ Summarize changes made:
 
 - **"No updates needed" is almost always wrong** - Re-analyze if you think nothing changed
 - **Every ticket affects docs somehow** - Even small changes have documentation implications
-- **Only delete within `doc/`** - Safety constraint for file deletions
+- **Only delete within `work/`** - Safety constraint for file deletions
 - **No orphan documents** - Every doc must be linked from a parent README
 - **Update `last_updated`** - Set to today's date when modifying any doc
 - **Update `commit_hash`** - Run `git rev-parse --short HEAD` and set this value

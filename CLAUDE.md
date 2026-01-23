@@ -22,9 +22,8 @@ plugins/                 # Plugin source directories
     rules/               # general, typescript
   tdd/                   # Ticket-driven development plugin
     .claude-plugin/      # Plugin configuration
-    commands/            # ticket, drive
+    commands/            # ticket, drive, sync-doc-specs
     skills/              # archive-ticket
-    rules/               # doc-specs
 ```
 
 ## Commands

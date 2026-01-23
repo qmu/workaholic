@@ -46,13 +46,13 @@ The PR description includes three main sections:
 - **Story** - A narrative synthesized from archived tickets that explains the motivation, journey, and decisions made during development
 - **Changes** - Detailed explanations for each change
 
-The story document is also saved to `doc/stories/<branch-name>.md` for future reference.
+The story document is also saved to `work/stories/<branch-name>.md` for future reference.
 
 ## TDD Plugin
 
 ### /sync-doc-specs
 
-Updates documentation in `doc/specs/` to reflect the current codebase state.
+Updates documentation in `work/specs/` to reflect the current codebase state.
 
 ```bash
 /sync-doc-specs
@@ -71,7 +71,7 @@ Explores the codebase and writes an implementation specification.
 
 Claude reads your codebase to understand existing patterns and architecture, then generates a detailed implementation ticket. The ticket includes an overview, key files to modify, step-by-step implementation plan, and considerations.
 
-Tickets are saved to `doc/tickets/` with timestamps. Use `icebox` to store tickets for later implementation in `doc/tickets/icebox/`.
+Tickets are saved to `work/tickets/` with timestamps. Use `icebox` to store tickets for later implementation in `work/tickets/icebox/`.
 
 ### /drive
 
@@ -82,7 +82,7 @@ Implements queued tickets from top to bottom.
 /drive icebox
 ```
 
-Claude picks up tickets from `doc/tickets/`, implements them one by one, asks for your approval, writes a Final Report documenting any deviations, then commits and archives each ticket before moving to the next. The `icebox` argument lets you select from deferred tickets.
+Claude picks up tickets from `work/tickets/`, implements them one by one, asks for your approval, writes a Final Report documenting any deviations, then commits and archives each ticket before moving to the next. The `icebox` argument lets you select from deferred tickets.
 
 ## Workflow Summary
 

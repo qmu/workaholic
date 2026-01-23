@@ -10,11 +10,14 @@ This rule applies automatically when working in `doc/specs/`.
 
 ## Philosophy
 
-Specs represent a **snapshot of the current state**. They describe what exists now, not what changed. When updating specs:
+Specs represent a **snapshot of the current state**. They describe what exists now, not what changed. Documentation serves two audiences: someone looking up a specific file, and someone trying to understand how the system works. The former needs file-level docs; the latter needs cross-cutting docs that explain flows, patterns, and architectural decisions.
+
+When updating specs:
 
 - Rewrite to reflect the present reality, not append changes
 - Think "what does a new reader need to know today?"
 - Don't preserve historical context - that belongs in tickets
+- Capture the big picture, not just file-by-file details
 
 ## File Naming
 
@@ -65,6 +68,24 @@ The `commit_hash` is the short git hash (7 chars) where this document was last m
 - Code blocks must specify language
 - Links use relative paths within doc/
 - Tables for structured data comparisons
+
+## Cross-Cutting Documentation
+
+Documentation should explain concepts that span multiple files, not just catalog individual components. When changes touch multiple areas, look for patterns worth documenting:
+
+- **Data flow paths**: How data moves through layers (request → middleware → handler → database)
+- **Shared concepts**: Abstractions used across multiple files (error handling, validation)
+- **Integration points**: Where different subsystems connect
+- **Architectural patterns**: Design decisions that affect multiple areas
+
+**Writing cross-cutting docs:**
+
+- Prefer prose over file listings - explain how components work together
+- Use Mermaid sequence diagrams to show interactions between layers
+- Document the "why" behind design decisions, not just implementation details
+- Think like a new developer - what context do they need before diving into code?
+
+Cross-cutting documentation typically lives in `architecture.md` or dedicated concept documents. Prefer extending existing docs over creating new files for minor patterns.
 
 ## Link Hierarchy
 

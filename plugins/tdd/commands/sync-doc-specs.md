@@ -55,7 +55,32 @@ Based on changes and current docs, determine:
 - **Deletions needed**: Docs for removed features (only within `doc/`)
 - **README updates**: Index files needing link additions/removals
 
-### 4. Execute Updates
+### 4. Identify Cross-Cutting Concerns
+
+Before updating individual docs, analyze changes for patterns that span multiple components. Documentation serves two audiences: someone looking up a specific file, and someone trying to understand how the system works. The former needs file-level docs; the latter needs cross-cutting docs that explain flows, patterns, and architectural decisions.
+
+Look for:
+
+- **Data flow paths**: How data moves through layers (e.g., request → middleware → handler → database)
+- **Shared concepts**: Abstractions used across multiple files (e.g., error handling patterns, validation approaches)
+- **Integration points**: Where different subsystems connect
+- **Architectural patterns**: Design decisions that affect multiple areas
+
+For each cross-cutting concern identified:
+
+- Check if `doc/specs/` already has a document covering this concept
+- If not, consider whether it warrants a new document or a section in `architecture.md`
+- If yes, update the existing document to reflect the current state
+- Prefer extending existing docs over creating new files for minor patterns
+
+**Writing cross-cutting documentation:**
+
+- Prefer prose over file listings - explain how components work together
+- Use Mermaid sequence diagrams to show interactions between layers
+- Document the "why" behind design decisions, not just implementation details
+- Think like a new developer - what would they need to understand before diving into individual files?
+
+### 5. Execute File Updates
 
 Apply updates following these formatting rules:
 
@@ -101,7 +126,7 @@ git rev-parse --short HEAD
 - Think "what does a new reader need to know today?"
 - Historical context belongs in tickets, not specs
 
-### 5. Update Index Files
+### 6. Update Index Files
 
 Ensure documentation hierarchy is maintained:
 
@@ -124,7 +149,7 @@ Ensure documentation hierarchy is maintained:
 - [Another Doc](another-doc.md) - Brief description
 ```
 
-### 6. Completion
+### 7. Completion
 
 Summarize changes made:
 

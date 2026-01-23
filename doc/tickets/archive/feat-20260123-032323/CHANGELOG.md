@@ -1,7 +1,8 @@
 # Branch Changelog
 
 ## Added
-- Add commit_hash to doc specs frontmatter ([3c3c01d](https://github.com/qmu/workaholic/commit/3c3c01d)) - [ticket](20260123135636-add-commit-hash-frontmatter.md)
+- Add cross-cutting documentation guidance to sync-doc-specs ([c73ed30](https://github.com/qmu/workaholic/commit/c73ed30)) - [ticket](20260123154228-sync-doc-specs-cross-cutting-docs.md)
+  Enhances documentation to capture the big picture across files, directories, and layers rather than just file-by-file details.
   Enables AI to understand documentation state at a specific git commit and discover changes by comparing hashes.
 ## Changed
 - Rewrite sync-doc-specs as actionable command ([a59efda](https://github.com/qmu/workaholic/commit/a59efda)) - [ticket](20260123135431-rewrite-sync-doc-specs-command.md)

@@ -3,7 +3,7 @@ title: Architecture
 description: Plugin structure and marketplace design
 category: developer
 last_updated: 2026-01-23
-commit_hash: 928baa2
+commit_hash: 5df4de4
 ---
 
 # Architecture
@@ -149,7 +149,14 @@ The `doc-specs` rule enforces strict requirements:
 
 ### Design Policy
 
-Documentation is mandatory, not optional. This reflects Workaholic's core principle of **cognitive investment**: developer cognitive load is the primary bottleneck in software productivity, so we invest heavily in generating structured knowledge artifacts (tickets, specs, changelogs, stories, archives) to reduce this load.
+Documentation is mandatory, not optional. This reflects Workaholic's core principle of **cognitive investment**: developer cognitive load is the primary bottleneck in software productivity, so we invest heavily in generating structured knowledge artifacts to reduce this load.
+
+The four primary artifact types are:
+
+- **Tickets** - Change requests describing future and past work
+- **Specs** - Current state snapshots serving as reference documentation
+- **Stories** - Narrative accounts of the developer journey per branch
+- **Changelogs** - Historical records of what changed and why
 
 The path-specific rule ensures that documentation standards are automatically enforced whenever working in `doc/specs/`, preventing documentation debt from accumulating.
 

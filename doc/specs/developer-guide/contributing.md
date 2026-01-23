@@ -3,7 +3,7 @@ title: Contributing
 description: How to add or modify plugins in Workaholic
 category: developer
 last_updated: 2026-01-23
-commit_hash: f5236d6
+commit_hash: 928baa2
 ---
 
 # Contributing
@@ -89,15 +89,15 @@ plugins/<plugin>/skills/my-skill/
 
 ## Documentation Standards
 
-Documentation updates are mandatory for every change. The `doc-specs` rule in `plugins/tdd/rules/doc-specs.md` auto-loads when working in `doc/specs/` and enforces documentation standards.
+Documentation updates are mandatory for every change. Use the `/sync-doc-specs` command to update documentation before creating a pull request, or let `/pull-request` run it automatically.
 
-Follow the standards:
+The `doc-specs` rule in `plugins/tdd/rules/doc-specs.md` auto-loads when working in `doc/specs/` and enforces:
 
-- YAML frontmatter on every markdown file
+- YAML frontmatter on every markdown file (including `commit_hash` field)
 - Use Mermaid for diagrams
 - Write prose paragraphs, not bullet fragments
 - Maintain link hierarchy from root README
-- Update `last_updated` field when modifying documents
+- Update `last_updated` and `commit_hash` fields when modifying documents
 
 Documentation is not optional. Every code change affects documentation in some way, whether updating existing docs, creating new ones, removing outdated files, or reorganizing the structure.
 

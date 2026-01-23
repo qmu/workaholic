@@ -1,7 +1,8 @@
 # Branch Changelog
 
 ## Added
-- Add cross-cutting documentation guidance to sync-doc-specs ([c73ed30](https://github.com/qmu/workaholic/commit/c73ed30)) - [ticket](20260123154228-sync-doc-specs-cross-cutting-docs.md)
+- Add branch story generation to pull-request workflow ([5a440d4](https://github.com/qmu/workaholic/commit/5a440d4)) - [ticket](20260123161059-branch-story-generation.md)
+  Creates a narrative story document during PR creation that captures the developer's journey - motivation, challenges, and decisions - giving reviewers high-level context.
   Enhances documentation to capture the big picture across files, directories, and layers rather than just file-by-file details.
   Enables AI to understand documentation state at a specific git commit and discover changes by comparing hashes.
 ## Changed

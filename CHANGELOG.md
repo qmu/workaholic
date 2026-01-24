@@ -21,6 +21,9 @@
 
 ### Changed
 
+- Rebalance performance-analyst to value iteration over perfection ([3f6691e](https://github.com/qmu/workaholic/commit/3f6691e)) - [ticket](.work/tickets/archive/feat-20260123-191707/20260124012341-performance-analyst-value-iteration.md)
+  Shifts the evaluation framework to reward convergent iteration while only penalizing indecisive oscillation. Fast try-and-change cycles are healthy development practice, not poor planning.
+
 - Refactor story to be the single source for PR description ([faa8b5a](https://github.com/qmu/workaholic/commit/faa8b5a)) - [ticket](.work/tickets/archive/feat-20260123-191707/20260124005056-story-as-pr-description.md)
   Stories now contain the complete PR description content. The pull-request command generates a story and copies it directly to GitHub, eliminating duplication.
 

@@ -11,7 +11,6 @@ last_updated: 2026-01-24
 
 Workaholicプラグインマーケットプレイスの作業成果物ハブです。
 
-- [changelogs/](changelogs/README_ja.md) - ブランチごとの変更履歴
 - [specs/](specs/README_ja.md) - 現状のリファレンスドキュメント
 - [stories/](stories/README_ja.md) - ブランチごとの開発ナラティブとPRの説明文
 - [terminology/](terminology/README_ja.md) - プロジェクト全体で統一された用語定義
@@ -34,4 +33,3 @@ Workaholicプラグインマーケットプレイスの作業成果物ハブで�
 | Tickets    | 変更リクエスト（将来・過去） | 実装前に意図を記録                   |
 | Specs      | 現状のスナップショット       | 権威あるリファレンスを提供           |
 | Stories    | 開発ナラティブ               | 意思決定のコンテキストを保存         |
-| Changelogs | 履歴記録                     | 何が変更され、なぜ変更されたかを説明 |

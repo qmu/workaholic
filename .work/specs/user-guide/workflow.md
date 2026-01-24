@@ -3,7 +3,7 @@ title: Workflow Guide
 description: How to use ticket-driven development with Workaholic
 category: user
 last_updated: 2026-01-24
-commit_hash: 5275c02
+commit_hash: f293fb8
 ---
 
 [English](workflow.md) | [日本語](workflow_ja.md)

@@ -193,16 +193,13 @@ EOF
 
 ### If PR already exists:
 
-Use `gh api` to update the PR title and body:
+Update the PR using `gh pr edit` with the story file:
 
 ```sh
-gh api repos/{owner}/{repo}/pulls/<number> -X PATCH \
-  -f title="<derived-title>" \
-  -f body="$(cat <<'EOF'
-<story content without frontmatter>
-EOF
-)"
+gh pr edit <number> --title "<derived-title>" --body-file .work/stories/<branch-name>.md
 ```
+
+Note: The `--body-file` flag reads the file directly, so strip the YAML frontmatter from the story file first, or use a temporary file without frontmatter.
 
 ## Story as PR Description
 

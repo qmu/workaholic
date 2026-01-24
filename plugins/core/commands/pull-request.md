@@ -7,6 +7,15 @@ description: Create or update a pull request with a summary focused on why chang
 
 Create or update a pull request for the current branch.
 
+## Critical Behavior
+
+- **NEVER stop to ask** "Should I continue?" or "Would you like me to proceed?"
+- **NEVER ask for confirmation** between steps - execute ALL steps in sequence without pausing
+- **NEVER interrupt the flow** for sub-commands (like `/sync-src-doc`) - they run as part of this command
+- **ALWAYS complete the entire workflow** from start to finish
+- **ALWAYS create or update the PR** at the end
+- **ALWAYS display the PR URL** when finished (see Completion Output section)
+
 ## Instructions
 
 1. Check the current branch name with `git branch --show-current`
@@ -28,7 +37,7 @@ Create or update a pull request for the current branch.
    - Reorganize: deduplicate, sort by category, combine related entries
    - Write updated root `CHANGELOG.md`
    - Stage and commit: "Update CHANGELOG for PR"
-5. **Sync documentation**:
+5. **Sync documentation** (do NOT ask for confirmation - continue immediately):
    - Run `/sync-src-doc` to update `.work/specs/` and `.work/terminology/`
    - Stage and commit: "Sync documentation for PR"
 6. **Generate branch story** in `.work/stories/<branch-name>.md`:
@@ -200,6 +209,15 @@ gh pr edit <number> --title "<derived-title>" --body-file .work/stories/<branch-
 ```
 
 Note: The `--body-file` flag reads the file directly, so strip the YAML frontmatter from the story file first, or use a temporary file without frontmatter.
+
+## Completion Output (MANDATORY)
+
+After creating or updating the PR, you **MUST** display the result:
+
+- **New PR**: `PR created: <PR-URL>`
+- **Updated PR**: `PR updated: <PR-URL>`
+
+This URL display is **mandatory** - the command is NOT complete without it. The user needs the URL to review and share the PR.
 
 ## Story as PR Description
 

@@ -56,3 +56,10 @@ The error occurs because `gh pr edit` queries `repository.pullRequest.projectCar
 - The `gh api` approach requires extracting the owner/repo from the remote, which adds a step but is more reliable
 - This is a GitHub CLI issue that may be fixed in future versions, but the workaround is stable
 - The REST API approach also returns more detailed response data which could be useful for verification
+
+## Final Report
+
+Implementation deviated from original plan:
+
+- **Change**: Used `gh pr edit --body-file` instead of `gh api`
+  **Reason**: Testing showed `gh pr edit` works without GraphQL errors on this repo. The `--body-file` flag provides a cleaner solution than heredocs or `gh api`

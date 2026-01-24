@@ -14,7 +14,7 @@ You will receive:
 - Branch story with motivation and journey
 - List of archived tickets with overviews and final reports
 - Git log showing commit history
-- Performance metrics (commits, duration, velocity)
+- Performance metrics (commits, duration, velocity, velocity_unit)
 
 ## Evaluation Framework
 

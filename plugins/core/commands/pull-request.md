@@ -76,7 +76,17 @@ Create or update a pull request for the current branch.
 
    # Calculate duration in hours between first and last commit
    # velocity = commits / duration_hours (handle 0 duration as 1 hour minimum)
+
+   # Count distinct calendar days with commits (for multi-day work)
+   git log main..HEAD --format=%cd --date=short | sort -u | wc -l
    ```
+
+   **Duration unit selection:**
+
+   - If `duration_hours < 8`: use hours as the unit (single work session)
+   - If `duration_hours >= 8`: use business days (count of distinct calendar days with commits)
+
+   Business days are more meaningful than raw hours for multi-day work because developers sleep, eat, and do other activities between sessions.
 
    **Derive issue URL** from branch name and remote:
 
@@ -93,8 +103,10 @@ Create or update a pull request for the current branch.
    ended_at: YYYY-MM-DDTHH:MM:SS+TZ # from last commit timestamp
    tickets_completed: <count>
    commits: <count>
-   duration_hours: <number> # time between first and last commit
-   velocity: <commits per hour, rounded to 1 decimal>
+   duration_hours: <number> # raw elapsed time (always included for data completeness)
+   duration_days: <number> # only if duration_hours >= 8 (count of calendar days with commits)
+   velocity: <number> # commits/hour if duration_hours < 8, commits/day if >= 8
+   velocity_unit: hour | day # indicates which unit velocity uses
    ---
    ```
 
@@ -133,11 +145,14 @@ Create or update a pull request for the current branch.
 
    ## Performance
 
-   **Metrics**: <commits> commits over <duration> hours (<velocity> commits/hour)
+   **Metrics**: <commits> commits over <duration> <unit> (<velocity> commits/<unit>)
+
+   - If duration_hours < 8: `X commits over Y hours (Z commits/hour)`
+   - If duration_hours >= 8: `X commits over Y business days (~Z commits/day)`
 
    ### Pace Analysis
 
-   [Quantitative reflection on development pace - was velocity consistent or varied? Were commits small and focused or large? Any patterns in timing?]
+   [Quantitative reflection on development pace - was velocity consistent or varied? Were commits small and focused or large? Any patterns in timing? Reference the appropriate unit (hours for single-session work, days for multi-day work).]
 
    ### Decision Review
 

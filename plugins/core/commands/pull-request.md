@@ -7,6 +7,14 @@ description: Create or update a pull request with a summary focused on why chang
 
 Create or update a pull request for the current branch.
 
+The story file in `.work/stories/<branch-name>.md` contains the complete PR description. Seven sections: 1. Summary, 2. Motivation, 3. Journey, 4. Changes, 5. Outcome, 6. Performance, 7. Notes.
+
+This design makes stories the single source of truth for PR content, eliminating duplication between story generation and PR description assembly.
+
+## Critical Behavior
+
+- **ALWAYS display the PR URL** when finished (see Completion Output section)
+
 ## Instructions
 
 1. Check the current branch name with `git branch --show-current`
@@ -28,10 +36,7 @@ Create or update a pull request for the current branch.
    - Reorganize: deduplicate, sort by category, combine related entries
    - Write updated root `CHANGELOG.md`
    - Stage and commit: "Update CHANGELOG for PR"
-5. **Sync documentation**:
-   - Run `/sync-src-doc` to update `.work/specs/` and `.work/terminology/`
-   - Stage and commit: "Sync documentation for PR"
-6. **Generate branch story** in `.work/stories/<branch-name>.md`:
+5. **Generate branch story** in `.work/stories/<branch-name>.md`:
 
    The story serves as the single source of truth for PR content. It contains the complete PR description that will be copied to GitHub.
 
@@ -67,7 +72,17 @@ Create or update a pull request for the current branch.
 
    # Calculate duration in hours between first and last commit
    # velocity = commits / duration_hours (handle 0 duration as 1 hour minimum)
+
+   # Count distinct calendar days with commits (for multi-day work)
+   git log main..HEAD --format=%cd --date=short | sort -u | wc -l
    ```
+
+   **Duration unit selection:**
+
+   - If `duration_hours < 8`: use hours as the unit (single work session)
+   - If `duration_hours >= 8`: use business days (count of distinct calendar days with commits)
+
+   Business days are more meaningful than raw hours for multi-day work because developers sleep, eat, and do other activities between sessions.
 
    **Derive issue URL** from branch name and remote:
 
@@ -84,8 +99,10 @@ Create or update a pull request for the current branch.
    ended_at: YYYY-MM-DDTHH:MM:SS+TZ # from last commit timestamp
    tickets_completed: <count>
    commits: <count>
-   duration_hours: <number> # time between first and last commit
-   velocity: <commits per hour, rounded to 1 decimal>
+   duration_hours: <number> # raw elapsed time (always included for data completeness)
+   duration_days: <number> # only if duration_hours >= 8 (count of calendar days with commits)
+   velocity: <number> # commits/hour if duration_hours < 8, commits/day if >= 8
+   velocity_unit: hour | day # indicates which unit velocity uses
    ---
    ```
 
@@ -94,43 +111,46 @@ Create or update a pull request for the current branch.
    ```markdown
    Refs #<issue-number>
 
-   ## Summary
+   ## 1. Summary
 
    1. First meaningful change (from CHANGELOG entry titles)
    2. Second meaningful change (from CHANGELOG entry titles)
    3. ...
 
-   ## Motivation
+   ## 2. Motivation
 
    [Synthesize the "why" from ticket Overviews. What problem or opportunity started this work? Write as a narrative, not a list.]
 
-   ## Journey
+   ## 3. Journey
 
    [Describe the progression of work. What was planned? What unexpected challenges arose? How were decisions made? Draw from Final Reports to capture deviations and learnings.]
 
-   ## Changes
+   ## 4. Changes
 
-   ### 1. First meaningful change
-
-   Detailed explanation from CHANGELOG description. Why this was needed and what it solves.
-
-   ### 2. Second meaningful change
+   ### 4.1. First meaningful change
 
    Detailed explanation from CHANGELOG description. Why this was needed and what it solves.
 
-   ## Outcome
+   ### 4.2. Second meaningful change
+
+   Detailed explanation from CHANGELOG description. Why this was needed and what it solves.
+
+   ## 5. Outcome
 
    [Summarize what was accomplished. Reference key tickets for details.]
 
-   ## Performance
+   ## 6. Performance
 
-   **Metrics**: <commits> commits over <duration> hours (<velocity> commits/hour)
+   **Metrics**: <commits> commits over <duration> <unit> (<velocity> commits/<unit>)
 
-   ### Pace Analysis
+   - If duration_hours < 8: `X commits over Y hours (Z commits/hour)`
+   - If duration_hours >= 8: `X commits over Y business days (~Z commits/day)`
 
-   [Quantitative reflection on development pace - was velocity consistent or varied? Were commits small and focused or large? Any patterns in timing?]
+   ### 6.1. Pace Analysis
 
-   ### Decision Review
+   [Quantitative reflection on development pace - was velocity consistent or varied? Were commits small and focused or large? Any patterns in timing? Reference the appropriate unit (hours for single-session work, days for multi-day work).]
+
+   ### 6.2. Decision Review
 
    [Invoke the performance-analyst subagent with:
 
@@ -140,7 +160,7 @@ Create or update a pull request for the current branch.
 
    Include the subagent's output here.]
 
-   ## Notes
+   ## 7. Notes
 
    Additional context for reviewers or future reference.
    ```
@@ -159,20 +179,20 @@ Create or update a pull request for the current branch.
 
    Stage and commit: "Generate branch story"
 
-7. **Format changed files** (silent step):
+6. **Format changed files** (silent step):
    - Run project linter/formatter on changed files
    - Do NOT announce "reading file again" or similar verbose messages
    - Just silently format and continue
    - Stage and commit any formatting changes: "Format code"
-8. Check if a PR already exists for this branch:
+7. Check if a PR already exists for this branch:
    ```sh
    gh pr list --head $(git branch --show-current) --json number,title,url
    ```
-9. **Read story file and prepare PR content**:
+8. **Read story file and prepare PR content**:
    - Read `.work/stories/<branch-name>.md`
    - Strip YAML frontmatter (everything between `---` delimiters)
    - The remaining content IS the PR body
-10. **Derive PR title from Summary section**:
+9. **Derive PR title from Summary section**:
     - Parse the Summary section from the story
     - If single change: use that change as title (e.g., "Add dark mode toggle")
     - If multiple changes: use first change + "etc" (e.g., "Add dark mode toggle etc")
@@ -193,19 +213,20 @@ EOF
 
 ### If PR already exists:
 
-Use `gh api` to update the PR title and body:
+Update the PR using `gh pr edit` with the story file:
 
 ```sh
-gh api repos/{owner}/{repo}/pulls/<number> -X PATCH \
-  -f title="<derived-title>" \
-  -f body="$(cat <<'EOF'
-<story content without frontmatter>
-EOF
-)"
+gh pr edit <number> --title "<derived-title>" --body-file .work/stories/<branch-name>.md
 ```
 
-## Story as PR Description
+Note: The `--body-file` flag reads the file directly, so strip the YAML frontmatter from the story file first, or use a temporary file without frontmatter.
 
-The story file in `.work/stories/<branch-name>.md` contains the complete PR description. Seven sections: Summary, Motivation, Journey, Changes, Outcome, Performance, Notes.
+## Completion Output (MANDATORY)
 
-This design makes stories the single source of truth for PR content, eliminating duplication between story generation and PR description assembly.
+After creating or updating the PR, you **MUST** display the result:
+
+- **New PR**: `PR created: <PR-URL>`
+- **Updated PR**: `PR updated: <PR-URL>`
+
+This URL display is **mandatory** - the command is NOT complete without it. The user needs the URL to review and share the PR.
+

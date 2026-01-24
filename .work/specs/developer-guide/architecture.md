@@ -3,7 +3,7 @@ title: Architecture
 description: Plugin structure and marketplace design
 category: developer
 last_updated: 2026-01-24
-commit_hash: 6843f78
+commit_hash: f293fb8
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -53,13 +53,17 @@ plugins/
       sync-src-doc.md    # /sync-src-doc command
       ticket.md          # /ticket command
     rules/
-      general.md
-      typescript.md
+      diagrams.md      # Mermaid diagram requirements
+      general.md       # Git workflow rules
+      i18n.md          # Multi-language documentation rules
+      typescript.md    # TypeScript coding standards
     skills/
       archive-ticket/
         SKILL.md
         scripts/
-          archive.sh     # Shell script for commit workflow
+          archive.sh   # Shell script for commit workflow
+      translate/
+        SKILL.md       # Translation policies for i18n
 ```
 
 ## Plugin Types
@@ -77,6 +81,7 @@ Rules are always-on guidelines that Claude follows throughout the conversation. 
 Skills are complex capabilities that may include scripts or multiple files. They are invoked via the Skill tool and provide inline instructions. The core plugin includes:
 
 - **archive-ticket**: Shell script that handles the complete commit workflow (archive ticket, update CHANGELOG, commit)
+- **translate**: Translation policies for converting English markdown files to other languages (primarily Japanese)
 
 ### Agents
 

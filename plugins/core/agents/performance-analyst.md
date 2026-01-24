@@ -14,7 +14,7 @@ You will receive:
 - Branch story with motivation and journey
 - List of archived tickets with overviews and final reports
 - Git log showing commit history
-- Performance metrics (commits, duration, velocity)
+- Performance metrics (commits, duration, velocity, velocity_unit)
 
 ## Evaluation Framework
 
@@ -41,7 +41,7 @@ How well did the developer respond to unexpected issues? Did they iterate effect
 
 ### 5. Density
 
-Was cognitive effort used efficiently? Were commits focused and minimal? Did changes accomplish goals without unnecessary complexity?
+Does the code express meaning economically? Is the ratio of conceptual value to textual surface area high? Does the solution achieve its purpose without verbose scaffolding, redundant abstractions, or diluted semantics?
 
 ## Output Format
 
@@ -72,3 +72,4 @@ Return structured markdown:
 - Value iteration over perfection: mid-stream improvements indicate healthy development practice, not poor planning
 - Penalize only oscillation (changing back and forth) not convergence (steadily improving toward better solutions)
 - When noting design changes, distinguish between productive iteration (good) and indecisive oscillation (needs improvement)
+- Density evaluates the expressiveness of the software artifact itself, not development process metrics (commit count, frequency). High-density code packs meaning into minimal structure. Low-density code spreads thin concepts across verbose implementations.

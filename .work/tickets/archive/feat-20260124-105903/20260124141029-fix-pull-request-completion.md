@@ -11,6 +11,7 @@ The `/pull-request` command often stops mid-execution to ask for confirmation (e
 ## Implementation Steps
 
 1. Add a "Critical Behavior" section at the top of the instructions that explicitly states:
+
    - NEVER stop to ask "Should I continue?" or "Would you like me to proceed?"
    - NEVER ask for confirmation between steps
    - Execute ALL steps in sequence without pausing

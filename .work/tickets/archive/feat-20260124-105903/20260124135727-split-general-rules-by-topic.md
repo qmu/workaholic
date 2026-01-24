@@ -3,6 +3,7 @@
 ## Overview
 
 `plugins/core/rules/general.md` (113 lines) mixes 3 unrelated topics:
+
 1. **Git workflow** (2 rules) - commit permission, no `git -C`
 2. **Multi-language documentation** (~50 lines) - file structure, policies
 3. **Diagram standards** (~60 lines) - Mermaid requirements, examples
@@ -26,36 +27,40 @@ plugins/core/rules/
 Extract content from `general.md` lines 56-112 (the Diagrams section).
 
 **Add path-specific frontmatter:**
+
 ```yaml
 ---
 paths:
-  - "**/*.md"
+  - '**/*.md'
 ---
 ```
 
 ### 2. Create `rules/i18n.md`
 
 Merge two sources:
+
 - General multi-language documentation (`general.md` lines 6-54)
 - `.work/` specific rules (from `i18n-work-docs.md`) with clear section header
 
 **Add path-specific frontmatter:**
+
 ```yaml
 ---
 paths:
-  - "**/README*.md"
-  - ".work/**/*.md"
-  - "docs/**/*.md"
+  - '**/README*.md'
+  - '.work/**/*.md'
+  - 'docs/**/*.md'
 ---
 ```
 
 ### 3. Trim `rules/general.md`
 
 Keep only git rules with path-specific frontmatter:
+
 ```markdown
 ---
 paths:
-  - "**/*"
+  - '**/*'
 ---
 
 # General Rules

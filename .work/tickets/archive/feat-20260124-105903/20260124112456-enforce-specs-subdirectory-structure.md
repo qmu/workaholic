@@ -17,10 +17,10 @@ The `/sync-src-doc` command should explicitly enforce organizing documentation u
 
    All spec documents must be placed in the appropriate subdirectory based on audience:
 
-   | Audience   | Directory                    | Content                                      |
-   | ---------- | ---------------------------- | -------------------------------------------- |
-   | Users      | `.work/specs/user-guide/`    | How to use: commands, workflows, setup       |
-   | Developers | `.work/specs/developer-guide/` | How it works: architecture, contributing   |
+   | Audience   | Directory                      | Content                                  |
+   | ---------- | ------------------------------ | ---------------------------------------- |
+   | Users      | `.work/specs/user-guide/`      | How to use: commands, workflows, setup   |
+   | Developers | `.work/specs/developer-guide/` | How it works: architecture, contributing |
 
    - The `category` in frontmatter must match the directory
    - Do not place documents directly in `.work/specs/` (except README.md)
@@ -30,7 +30,7 @@ The `/sync-src-doc` command should explicitly enforce organizing documentation u
 2. Update the frontmatter example to clarify the category-directory relationship:
 
    ```yaml
-   category: user | developer  # Must match parent directory (user-guide or developer-guide)
+   category: user | developer # Must match parent directory (user-guide or developer-guide)
    ```
 
 3. Add a validation rule to the Critical Rules section:

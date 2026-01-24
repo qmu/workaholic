@@ -1,6 +1,6 @@
 ---
 paths:
-  - "**/*.md"
+  - '**/*.md'
 ---
 
 # Diagrams
@@ -34,6 +34,7 @@ flowchart LR
 ## Common Diagram Types
 
 **Flowchart** for process flows:
+
 ```mermaid
 flowchart TD
     Start --> Decision{Condition?}
@@ -42,6 +43,7 @@ flowchart TD
 ```
 
 **Sequence** for interactions:
+
 ```mermaid
 sequenceDiagram
     Client->>Server: Request
@@ -49,6 +51,7 @@ sequenceDiagram
 ```
 
 **Class** for architecture:
+
 ```mermaid
 classDiagram
     class Service {

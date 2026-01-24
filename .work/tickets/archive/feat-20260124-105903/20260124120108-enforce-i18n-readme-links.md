@@ -5,6 +5,7 @@
 When creating Japanese versions of documents (e.g., `commands_ja.md`), the corresponding Japanese README (`README_ja.md`) must also be updated to link to it. Currently, the rules mention "Keep translations in sync" but don't explicitly enforce that README index files must mirror each other's link structure.
 
 The pattern should be:
+
 - `README.md` links to `commands.md`, `workflow.md`, etc.
 - `README_ja.md` links to `commands_ja.md`, `workflow_ja.md`, etc.
 
@@ -21,16 +22,21 @@ Without this enforcement, Japanese READMEs become orphaned indexes that don't li
 
    ```markdown
    7. **Mirror README link structure across languages** - Each language's README must link to documents in the same language:
+
       - If `README.md` links to `getting-started.md`, then `README_ja.md` must link to `getting-started_ja.md`
       - When creating a translated document, ALWAYS update the corresponding language README
       - The link structure must be identical between READMEs (same sections, same order)
 
       Example parallel structure:
-      ```
-      README.md:                          README_ja.md:
-      - [Getting Started](getting-started.md)    - [はじめに](getting-started_ja.md)
-      - [Commands](commands.md)                  - [コマンド](commands_ja.md)
-      ```
+   ```
+
+   README.md: README_ja.md:
+
+   - [Getting Started](getting-started.md) - [はじめに](getting-started_ja.md)
+   - [Commands](commands.md) - [コマンド](commands_ja.md)
+
+   ```
+
    ```
 
 2. Renumber the existing rule 7 ("Respect CLAUDE.md language setting") to rule 8.
@@ -41,6 +47,7 @@ Without this enforcement, Japanese READMEs become orphaned indexes that don't li
    **Bilingual README mirroring:**
 
    When the project has multiple language READMEs (e.g., `README.md` and `README_ja.md`):
+
    - Any document added to one README must have its translation linked in the other
    - See `plugins/core/rules/general.md` for multi-language documentation policy
    ```

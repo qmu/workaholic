@@ -13,11 +13,13 @@ Add a `/translate` command to the core plugin that converts English-based markdo
 ## Implementation Steps
 
 1. Create `plugins/core/commands/translate.md` with the following structure:
+
    - Frontmatter with name, description
    - Instructions for translating markdown files
    - Translation policy rules for consistency
 
 2. Define translation policies in the command:
+
    - Preserve code blocks unchanged (including comments inside)
    - Preserve frontmatter keys (translate values only where appropriate)
    - Preserve markdown structure (headings, lists, tables, links)
@@ -26,11 +28,13 @@ Add a `/translate` command to the core plugin that converts English-based markdo
    - Preserve file references and paths unchanged
 
 3. Define command arguments:
+
    - `$ARGUMENT` format: `<target-language> <file-path>`
    - Examples: `/translate ja README.md`, `/translate ja docs/guide.md`
    - Default target language: Japanese (ja) if only file path provided
 
 4. Define output behavior:
+
    - Create translated file with language suffix: `README.ja.md`
    - Or create in parallel directory structure: `docs/ja/README.md`
    - Let user choose via argument or ask if ambiguous

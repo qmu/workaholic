@@ -94,13 +94,26 @@ For each cross-cutting concern identified:
 
 Apply updates to `.work/specs/` following these formatting rules:
 
+**Directory Structure** (required):
+
+All spec documents must be placed in the appropriate subdirectory based on audience:
+
+| Audience   | Directory                      | Content                                  |
+| ---------- | ------------------------------ | ---------------------------------------- |
+| Users      | `.work/specs/user-guide/`      | How to use: commands, workflows, setup   |
+| Developers | `.work/specs/developer-guide/` | How it works: architecture, contributing |
+
+- The `category` in frontmatter must match the directory
+- Do not place documents directly in `.work/specs/` (except README.md)
+- Each subdirectory has its own README.md as an index
+
 **Frontmatter** (required for every file):
 
 ```yaml
 ---
 title: Document Title
 description: Brief description of this document
-category: user | developer
+category: user | developer # Must match parent directory (user-guide or developer-guide)
 last_updated: YYYY-MM-DD
 commit_hash: <short-hash>
 ---
@@ -220,6 +233,13 @@ Keep detailed content in subdirectory READMEs, not in .work/README.md.
 - [Another Doc](another-doc.md) - Brief description
 ```
 
+**i18n README mirroring:**
+
+When the project has multiple language READMEs (e.g., `README.md` and `README_ja.md`):
+
+- Any document added to one README must have its translation linked in the other
+- See `plugins/core/rules/i18n.md` for `.work/` i18n policy
+
 ### 8. Completion
 
 Summarize changes made:
@@ -236,5 +256,6 @@ Summarize changes made:
 - **Only delete within `.work/`** - Safety constraint for file deletions
 - **No orphan documents** - Every doc must be linked from a parent README
 - **Consistency over precision** - A term should mean the same thing everywhere
+- **Category matches directory** - A doc with `category: user` must be in `user-guide/`, `category: developer` in `developer-guide/`
 - **Update `last_updated`** - Set to today's date when modifying any doc
 - **Update `commit_hash`** - Run `git rev-parse --short HEAD` and set this value

@@ -3,7 +3,7 @@ title: Architecture
 description: Plugin structure and marketplace design
 category: developer
 last_updated: 2026-01-24
-commit_hash: 6843f78
+commit_hash: f293fb8
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -53,13 +53,17 @@ plugins/
       sync-src-doc.md    # /sync-src-doc コマンド
       ticket.md          # /ticket コマンド
     rules/
-      general.md
-      typescript.md
+      diagrams.md      # Mermaid図表要件
+      general.md       # Gitワークフロールール
+      i18n.md          # 多言語ドキュメントルール
+      typescript.md    # TypeScriptコーディング規約
     skills/
       archive-ticket/
         SKILL.md
         scripts/
-          archive.sh     # コミットワークフロー用シェルスクリプト
+          archive.sh   # コミットワークフロー用シェルスクリプト
+      translate/
+        SKILL.md       # i18n用翻訳ポリシー
 ```
 
 ## プラグインタイプ
@@ -77,6 +81,7 @@ plugins/
 スキルはスクリプトや複数のファイルを含む可能性のある複雑な機能です。Skillツールで呼び出され、インライン指示を提供します。coreプラグインには以下が含まれます：
 
 - **archive-ticket**: 完全なコミットワークフロー（チケットのアーカイブ、CHANGELOG更新、コミット）を処理するシェルスクリプト
+- **translate**: 英語のマークダウンファイルを他の言語（主に日本語）に変換するための翻訳ポリシー
 
 ### エージェント
 

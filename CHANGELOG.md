@@ -1,5 +1,27 @@
 # Changelog
 
+## [feat-20260124-105903](https://github.com/qmu/workaholic/tree/feat-20260124-105903)
+
+### Added
+
+- Add Mermaid diagram requirement to general rules ([1f6cfb0](https://github.com/qmu/workaholic/commit/1f6cfb0)) - [ticket](.work/tickets/archive/feat-20260124-105903/20260124120158-enforce-mermaid-for-diagrams.md)
+  Prohibits ASCII art diagrams in favor of Mermaid syntax for better rendering and maintainability.
+  Ensures language-specific READMEs maintain parallel link structure and replaces 'bilingual' terminology with 'i18n'.
+  Provides translation policies as background knowledge for Claude, keeping technical terms in English for developer documentation.
+  Enforces that spec documents must be placed in user-guide/ or developer-guide/ subdirectories matching their category.
+
+### Changed
+
+- Redefine Density to measure semantic expressiveness ([1fc163a](https://github.com/qmu/workaholic/commit/1fc163a)) - [ticket](.work/tickets/archive/feat-20260124-105903/20260124192456-redefine-density-metric.md)
+  The Density metric now evaluates how economically code expresses meaning, not commit efficiency. This separates code quality (semantic density) from workflow metrics (commit count).
+
+- Use business days for multi-day performance metrics ([53f9765](https://github.com/qmu/workaholic/commit/53f9765)) - [ticket](.work/tickets/archive/feat-20260124-105903/20260124144224-business-day-metrics.md)
+  Raw elapsed hours are misleading for multi-day work because developers sleep and do other activities.
+  Changed to use business days (count of distinct calendar days with commits) when duration exceeds 8 hours.
+  Prevent /pull-request from pausing mid-execution by adding explicit no-confirmation instructions and mandatory PR URL output.
+  Improve rule reliability by splitting 113-line general.md into focused files (diagrams.md, i18n.md) with path-specific frontmatter.
+  Replaces complex heredoc approach with cleaner --body-file flag for updating existing PRs.
+
 ## [feat-20260123-191707](https://github.com/qmu/workaholic/tree/feat-20260123-191707)
 
 ### Added

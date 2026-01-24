@@ -13,11 +13,11 @@ Without this enforcement, Japanese READMEs become orphaned indexes that don't li
 ## Key Files
 
 - `plugins/core/rules/general.md` - Contains Multi-Language Documentation rules that need strengthening
-- `plugins/core/commands/sync-src-doc.md` - Should reference the bilingual rules when updating docs
+- `plugins/core/commands/sync-src-doc.md` - Should reference the i18n rules when updating docs
 
 ## Implementation Steps
 
-1. Update `plugins/core/rules/general.md` section "### Policy" to add a new rule after item 6:
+1. Create a separate rule file `plugins/core/rules/i18n-work-docs.md` scoped to `.work/` directory:
 
    ```markdown
    7. **Mirror README link structure across languages** - Each language's README must link to documents in the same language:
@@ -35,7 +35,7 @@ Without this enforcement, Japanese READMEs become orphaned indexes that don't li
 
 2. Renumber the existing rule 7 ("Respect CLAUDE.md language setting") to rule 8.
 
-3. Add a reference in `plugins/core/commands/sync-src-doc.md` Section 7 (Update Index Files) to remind about bilingual mirroring:
+3. Add a reference in `plugins/core/commands/sync-src-doc.md` Section 7 (Update Index Files) to remind about i18n mirroring:
 
    ```markdown
    **Bilingual README mirroring:**
@@ -47,7 +47,17 @@ Without this enforcement, Japanese READMEs become orphaned indexes that don't li
 
 ## Considerations
 
-- This applies to the `.work/` directory which allows bilingual content per CLAUDE.md
+- This applies to the `.work/` directory which allows i18n content per CLAUDE.md
 - The suffix-based pattern (`_ja.md`) is already established in this codebase
 - Enforcement is about ensuring the agent remembers to update BOTH READMEs, not just the English one
 - Could consider adding a validation step to check README link parity, but explicit instructions should suffice
+
+## Final Report
+
+Implementation deviated from original plan:
+
+- **Change**: Created separate rule file `i18n-work-docs.md` instead of adding to `general.md`
+  **Reason**: User requested scoping the rule specifically to `.work/` directory
+
+- **Change**: Replaced "bilingual" with "i18n" across all active files
+  **Reason**: User preferred "i18n" as the terminology (historical records kept unchanged)

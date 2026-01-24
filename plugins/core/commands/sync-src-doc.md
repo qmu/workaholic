@@ -233,6 +233,12 @@ Keep detailed content in subdirectory READMEs, not in .work/README.md.
 - [Another Doc](another-doc.md) - Brief description
 ```
 
+**i18n README mirroring:**
+
+When the project has multiple language READMEs (e.g., `README.md` and `README_ja.md`):
+- Any document added to one README must have its translation linked in the other
+- See `plugins/core/rules/i18n-work-docs.md` for `.work/` i18n policy
+
 ### 8. Completion
 
 Summarize changes made:

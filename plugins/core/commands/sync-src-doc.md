@@ -98,10 +98,10 @@ Apply updates to `.work/specs/` following these formatting rules:
 
 All spec documents must be placed in the appropriate subdirectory based on audience:
 
-| Audience   | Directory                      | Content                                    |
-| ---------- | ------------------------------ | ------------------------------------------ |
-| Users      | `.work/specs/user-guide/`      | How to use: commands, workflows, setup     |
-| Developers | `.work/specs/developer-guide/` | How it works: architecture, contributing   |
+| Audience   | Directory                      | Content                                  |
+| ---------- | ------------------------------ | ---------------------------------------- |
+| Users      | `.work/specs/user-guide/`      | How to use: commands, workflows, setup   |
+| Developers | `.work/specs/developer-guide/` | How it works: architecture, contributing |
 
 - The `category` in frontmatter must match the directory
 - Do not place documents directly in `.work/specs/` (except README.md)
@@ -113,7 +113,7 @@ All spec documents must be placed in the appropriate subdirectory based on audie
 ---
 title: Document Title
 description: Brief description of this document
-category: user | developer  # Must match parent directory (user-guide or developer-guide)
+category: user | developer # Must match parent directory (user-guide or developer-guide)
 last_updated: YYYY-MM-DD
 commit_hash: <short-hash>
 ---
@@ -236,6 +236,7 @@ Keep detailed content in subdirectory READMEs, not in .work/README.md.
 **i18n README mirroring:**
 
 When the project has multiple language READMEs (e.g., `README.md` and `README_ja.md`):
+
 - Any document added to one README must have its translation linked in the other
 - See `plugins/core/rules/i18n.md` for `.work/` i18n policy
 

@@ -23,7 +23,7 @@ The error occurs because `gh pr edit` queries `repository.pullRequest.projectCar
 
 2. Update the "If PR already exists" section to be more explicit:
 
-   ```markdown
+   ````markdown
    ### If PR already exists:
 
    **Use `gh api` (NOT `gh pr edit`)** to update the PR title and body:
@@ -39,8 +39,12 @@ The error occurs because `gh pr edit` queries `repository.pullRequest.projectCar
    EOF
    )"
    ```
+   ````
 
    Do NOT use `gh pr edit` as it causes GraphQL errors with Projects (classic) deprecation.
+
+   ```
+
    ```
 
 3. Add to the Critical Rules or Notes section at the end:

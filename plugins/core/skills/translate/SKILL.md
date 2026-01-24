@@ -10,14 +10,14 @@ Guidelines for translating English markdown files to other languages while prese
 
 ## Supported Languages
 
-| Code | Language   |
-| ---- | ---------- |
-| ja   | Japanese   |
-| zh   | Chinese    |
-| ko   | Korean     |
-| de   | German     |
-| fr   | French     |
-| es   | Spanish    |
+| Code | Language |
+| ---- | -------- |
+| ja   | Japanese |
+| zh   | Chinese  |
+| ko   | Korean   |
+| de   | German   |
+| fr   | French   |
+| es   | Spanish  |
 
 ## Preservation Rules
 

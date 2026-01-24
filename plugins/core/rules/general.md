@@ -1,6 +1,6 @@
 ---
 paths:
-  - "**/*"
+  - '**/*'
 ---
 
 # General Rules

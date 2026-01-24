@@ -13,6 +13,7 @@ Add a rule to prevent ASCII-style diagrams in documentation and code comments, r
 1. Add a new section to `plugins/core/rules/general.md` titled "## Diagrams"
 
 2. Include the following rules:
+
    - Prohibit ASCII art diagrams (box-drawing characters, arrow combinations like `-->`, `|`, `+--+`)
    - Require Mermaid syntax for all diagrams (flowcharts, sequence diagrams, class diagrams, etc.)
    - Provide examples of common diagram types in Mermaid

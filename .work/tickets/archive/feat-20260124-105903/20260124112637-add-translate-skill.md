@@ -36,7 +36,8 @@ Add a `/translate` command to the core plugin that converts English-based markdo
    - Let user choose via argument or ask if ambiguous
 
 5. Add consistency rules:
-   - Maintain a terminology glossary approach (common terms translated the same way)
+   - Keep technical terms in English for developer documentation (plugin, command, skill, rule, ticket, workflow, repository, branch, commit, merge, pull request)
+   - Only translate technical terms for user-facing documentation if it improves clarity
    - Use formal/polite tone for documentation
    - Preserve original meaning over literal translation
 
@@ -47,3 +48,13 @@ Add a `/translate` command to the core plugin that converts English-based markdo
 - **Incremental updates**: Consider how to handle updates to source file (re-translate vs. merge)
 - **Quality assurance**: Claude's translation quality is generally good but technical accuracy should be verified
 - **Output naming convention**: Need to decide between `file.ja.md` vs `ja/file.md` patterns
+
+## Final Report
+
+Implementation deviated from original plan:
+
+- **Change**: Created as `plugins/core/skills/translate/SKILL.md` with `user-invocable: false` instead of `plugins/core/commands/translate.md`
+  **Reason**: User wanted translation policies as background knowledge for Claude, not a user-invocable `/translate` command
+
+- **Change**: Technical terms (plugin, command, skill, etc.) kept in English without Japanese translations
+  **Reason**: User concerned about over-translating developer documentation; technical terms should remain in English for developers

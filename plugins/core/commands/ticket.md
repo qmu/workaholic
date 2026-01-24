@@ -65,6 +65,8 @@ Explore the codebase to understand requirements and write an implementation tick
    - If icebox: tell user to run `/drive icebox` later to retrieve it
    - If normal: count queued tickets in `.work/tickets/` (excluding archive/, icebox/)
    - Tell user to run `/drive` to implement queued tickets
+   - Note: The ticket file doesn't need to be committed separately. It will be included
+     in the next `/drive` commit automatically when implementation is approved.
    - **NEVER ask "Would you like me to proceed with implementation?" - that is NOT your job**
 
 ## Notes

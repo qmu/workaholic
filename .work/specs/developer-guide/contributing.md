@@ -6,6 +6,8 @@ last_updated: 2026-01-23
 commit_hash: 928baa2
 ---
 
+[English](contributing.md) | [日本語](contributing_ja.md)
+
 # Contributing
 
 This guide covers how to contribute to Workaholic, whether adding new commands, fixing bugs, or creating new plugins.

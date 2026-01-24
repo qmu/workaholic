@@ -2,15 +2,17 @@
 title: Command Reference
 description: Complete documentation for all Workaholic commands
 category: user
-last_updated: 2026-01-23
-commit_hash: 5df4de4
+last_updated: 2026-01-24
+commit_hash: 6843f78
 ---
+
+[English](commands.md) | [日本語](commands_ja.md)
 
 # Command Reference
 
-Workaholic provides two plugins: **core** for essential git workflow commands, and **tdd** for ticket-driven development.
+Workaholic provides a unified **core** plugin with all development workflow commands.
 
-## Core Plugin
+## Git Workflow Commands
 
 ### /branch
 
@@ -40,25 +42,11 @@ Creates or updates a pull request with an auto-generated summary.
 /pull-request
 ```
 
-The PR description includes three main sections:
+The PR description is generated from a story document that includes seven sections: Summary, Motivation, Journey, Changes, Outcome, Performance, and Notes. The story serves as the single source of truth for PR content and is saved to `.work/stories/<branch-name>.md`.
 
-- **Summary** - A numbered list of changes generated from the branch CHANGELOG
-- **Story** - A narrative synthesized from archived tickets that explains the motivation, journey, and decisions made during development
-- **Changes** - Detailed explanations for each change
+Any remaining unfinished tickets are automatically moved to icebox before creating the PR.
 
-The story document is also saved to `.work/stories/<branch-name>.md` for future reference.
-
-## TDD Plugin
-
-### /sync-doc-specs
-
-Updates documentation in `.work/specs/` to reflect the current codebase state.
-
-```bash
-/sync-doc-specs
-```
-
-Claude gathers context from archived tickets in the current branch, audits existing documentation, identifies what needs to be updated, and applies changes following documentation standards. This command ensures documentation stays synchronized with code changes before creating a pull request.
+## Ticket-Driven Development Commands
 
 ### /ticket
 
@@ -71,7 +59,7 @@ Explores the codebase and writes an implementation specification.
 
 Claude reads your codebase to understand existing patterns and architecture, then generates a detailed implementation ticket. The ticket includes an overview, key files to modify, step-by-step implementation plan, and considerations.
 
-Tickets are saved to `.work/tickets/` with timestamps. Use `icebox` to store tickets for later implementation in `.work/tickets/icebox/`.
+Tickets are saved to `.work/tickets/` with timestamps. Use `icebox` to store tickets for later implementation in `.work/tickets/icebox/`. Ticket files don't need to be committed separately - they're automatically included in the next `/drive` commit.
 
 ### /drive
 
@@ -84,6 +72,16 @@ Implements queued tickets from top to bottom.
 
 Claude picks up tickets from `.work/tickets/`, implements them one by one, asks for your approval, writes a Final Report documenting any deviations, then commits and archives each ticket before moving to the next. The `icebox` argument lets you select from deferred tickets.
 
+### /sync-src-doc
+
+Updates documentation in `.work/specs/` and `.work/terminology/` to reflect the current codebase state.
+
+```bash
+/sync-src-doc
+```
+
+Claude gathers context from archived tickets in the current branch, audits existing documentation, identifies what needs to be updated, and applies changes following documentation standards. This command ensures documentation stays synchronized with code changes before creating a pull request.
+
 ## Workflow Summary
 
 The typical workflow combines these commands:
@@ -91,7 +89,7 @@ The typical workflow combines these commands:
 1. `/branch` - Start a new feature branch
 2. `/ticket <description>` - Write implementation spec
 3. `/drive` - Implement the ticket
-4. `/sync-doc-specs` - Update documentation (optional, also runs during `/pull-request`)
+4. `/sync-src-doc` - Update documentation (optional, also runs during `/pull-request`)
 5. `/pull-request` - Create PR for review
 
 Each ticket gets its own commit, and the CHANGELOG tracks all changes for the PR summary.

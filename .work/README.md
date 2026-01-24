@@ -11,7 +11,6 @@ last_updated: 2026-01-24
 
 This is the working artifacts hub for the Workaholic plugin marketplace.
 
-- [changelogs/](changelogs/README.md) - Historical record of changes per branch
 - [specs/](specs/README.md) - Current state reference documentation
 - [stories/](stories/README.md) - Development narratives and PR descriptions per branch
 - [terminology/](terminology/README.md) - Consistent term definitions across the project
@@ -34,4 +33,3 @@ Each artifact type serves a specific cognitive purpose:
 | Tickets    | Change requests (future and past) | Capturing intent before implementation |
 | Specs      | Current state snapshot            | Providing authoritative reference      |
 | Stories    | Development narrative             | Preserving decision context            |
-| Changelogs | Historical record                 | Explaining what changed and why        |

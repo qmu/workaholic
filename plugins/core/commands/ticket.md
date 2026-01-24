@@ -44,6 +44,8 @@ Explore the codebase to understand requirements and write an implementation tick
    type: enhancement | bugfix | refactoring | housekeeping
    layer: [<layers affected>]
    effort: <filled after implementation>
+   commit_hash: <filled when archived>
+   category: <filled when archived>
    ---
 
    # <Title>
@@ -83,6 +85,8 @@ Explore the codebase to understand requirements and write an implementation tick
      - `DB` - Database, storage, migrations
      - `Config` - Configuration, build, tooling
    - `effort`: Time spent on implementation. Leave as placeholder when creating ticket; filled in after implementation (e.g., 0.1h, 0.25h, 0.5h, 1h, 2h)
+   - `commit_hash`: Short git commit hash. Set automatically by archive script after commit.
+   - `category`: Change category (Added, Changed, or Removed). Set automatically by archive script based on commit message verb.
    - Only ask the user about type if truly ambiguous
 
 6. **Present the Ticket**

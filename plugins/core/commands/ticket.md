@@ -38,6 +38,14 @@ Explore the codebase to understand requirements and write an implementation tick
 5. **Ticket File Structure**
 
    ```markdown
+   ---
+   date: YYYY-MM-DD
+   author: <git user.email>
+   type: enhancement | bugfix | refactoring | housekeeping
+   layer: [<layers affected>]
+   effort: <filled after implementation>
+   ---
+
    # <Title>
 
    ## Overview
@@ -58,6 +66,24 @@ Explore the codebase to understand requirements and write an implementation tick
 
    - <Any trade-offs, risks, or things to watch out for>
    ```
+
+   **Frontmatter Fields:**
+
+   - `date`: Current date in ISO format. Use `date +%Y-%m-%d`
+   - `author`: Git email. Use `git config user.email`
+   - `type`: Infer from request context:
+     - `enhancement` - New features or capabilities (keywords: add, create, implement, new)
+     - `bugfix` - Fixing broken behavior (keywords: fix, bug, broken, error)
+     - `refactoring` - Restructuring without changing behavior (keywords: refactor, restructure, reorganize)
+     - `housekeeping` - Maintenance, cleanup, documentation (keywords: clean, update, remove, deprecate)
+   - `layer`: Architectural layers affected (YAML array, can specify multiple):
+     - `UX` - User interface, components, styling
+     - `Domain` - Business logic, models, services
+     - `Infrastructure` - External integrations, APIs, networking
+     - `DB` - Database, storage, migrations
+     - `Config` - Configuration, build, tooling
+   - `effort`: Time spent on implementation. Leave as placeholder when creating ticket; filled in after implementation (e.g., 0.1h, 0.25h, 0.5h, 1h, 2h)
+   - Only ask the user about type if truly ambiguous
 
 6. **Present the Ticket**
    - Show the user where the ticket was saved

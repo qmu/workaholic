@@ -74,9 +74,13 @@ Do you approve this implementation?
 [Approve / Needs changes]
 ```
 
-#### 2.4 Write Final Report
+#### 2.4 Update Effort and Write Final Report
 
-After user approves, append a "## Final Report" section to the ticket file.
+After user approves:
+
+1. **Update the `effort` field** in the ticket's YAML frontmatter with actual time spent (e.g., 0.1h, 0.25h, 0.5h, 1h, 2h). Estimate based on implementation complexity.
+
+2. **Append a "## Final Report" section** to the ticket file.
 
 **If no changes were requested:**
 

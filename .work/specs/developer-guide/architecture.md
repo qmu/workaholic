@@ -3,7 +3,7 @@ title: Architecture
 description: Plugin structure and marketplace design
 category: developer
 last_updated: 2026-01-24
-commit_hash: f293fb8
+commit_hash: 56855c7
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -80,7 +80,7 @@ Rules are always-on guidelines that Claude follows throughout the conversation. 
 
 Skills are complex capabilities that may include scripts or multiple files. They are invoked via the Skill tool and provide inline instructions. The core plugin includes:
 
-- **archive-ticket**: Shell script that handles the complete commit workflow (archive ticket, update CHANGELOG, commit)
+- **archive-ticket**: Shell script that handles the complete commit workflow (archive ticket, update ticket frontmatter with commit hash/category, commit)
 - **translate**: Translation policies for converting English markdown files to other languages (primarily Japanese)
 
 ### Agents
@@ -123,7 +123,7 @@ Workaholic enforces comprehensive documentation through the `/sync-doc-specs` co
 
 ```mermaid
 flowchart TD
-    A[/pull-request command] --> B[Consolidate CHANGELOG]
+    A[/pull-request command] --> B[Update CHANGELOG from tickets]
     B --> C[/sync-doc-specs]
     C --> D[Read archived tickets]
     D --> E[Audit .work/specs/]
@@ -151,12 +151,13 @@ The `/sync-doc-specs` command enforces strict requirements:
 
 Documentation is mandatory, not optional. This reflects Workaholic's core principle of **cognitive investment**: developer cognitive load is the primary bottleneck in software productivity, so we invest heavily in generating structured knowledge artifacts to reduce this load.
 
-The four primary artifact types are:
+The three primary artifact types are:
 
-- **Tickets** - Change requests describing future and past work
+- **Tickets** - Change requests with structured metadata (date, author, type, layer, effort, commit_hash, category)
 - **Specs** - Current state snapshots serving as reference documentation
 - **Stories** - Narrative accounts of the developer journey per branch
-- **Changelogs** - Historical records of what changed and why
+
+Tickets serve as the single source of truth for change metadata. The root `CHANGELOG.md` is generated from archived tickets during PR creation.
 
 ## Version Management
 

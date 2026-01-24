@@ -3,7 +3,7 @@ title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
 last_updated: 2026-01-24
-commit_hash: 6843f78
+commit_hash: 56855c7
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -14,11 +14,23 @@ commit_hash: 6843f78
 
 ## ticket
 
-何を変更すべきかを記録する実装作業リクエスト。
+何を変更すべきかを記録し、何が起こったかを記録する実装作業リクエスト。
 
 ### 定義
 
-チケットは実装される作業の離散的な単位を定義します。コーディング開始前に意図、コンテキスト、実装ステップを記録します。チケットは変更に焦点を当て、実装後に何が異なるべきかを記述します。アクティブな場合は`.work/tickets/`、延期された場合は`.work/tickets/icebox/`、完了した場合は`.work/tickets/archive/<branch>/`に存在します。`/ticket`で作成されたチケットファイルは`/drive`コミット時に`git add -A`で自動的に含まれます。
+チケットは実装される作業の離散的な単位を定義します。コーディング開始前に意図、コンテキスト、実装ステップを記録します。チケットは変更に焦点を当て、実装後に何が異なるべきかを記述します。アクティブな場合は`.work/tickets/`、延期された場合は`.work/tickets/icebox/`、完了した場合は`.work/tickets/archive/<branch>/`に存在します。
+
+チケットには構造化メタデータを持つYAMLフロントマターが含まれます：
+
+- `date`: 作成日（ISO形式）
+- `author`: 作成者のGitメール
+- `type`: enhancement、bugfix、refactoring、housekeepingのいずれか
+- `layer`: 影響を受けるアーキテクチャレイヤー（UX、Domain、Infrastructure、DB、Config）
+- `effort`: 実装にかかった時間（完了後に記入）
+- `commit_hash`: 短いgitハッシュ（コミット後にアーカイブスクリプトが設定）
+- `category`: Added、Changed、Removed（コミットメッセージに基づいてアーカイブスクリプトが設定）
+
+`/ticket`で作成されたチケットファイルは`/drive`コミット時に`git add -A`で自動的に含まれます。アーカイブされると、チケットは変更メタデータの単一の真実の情報源となり、個別のchangelogファイルが不要になります。
 
 ### 使用パターン
 
@@ -28,7 +40,7 @@ commit_hash: 6843f78
 
 ### 関連用語
 
-- spec、story、changelog
+- spec、story
 
 ## spec
 
@@ -58,7 +70,9 @@ PR説明文の単一の真実の情報源として機能する包括的なドキ
 
 ### 定義
 
-ストーリーは、単一のブランチで複数のチケットにわたる開発作業の動機、進行、結果を統合します。ストーリーはPRワークフロー中に生成され、完全なPR説明文の内容を含みます：Summary（CHANGELOGから）、Motivation、Journey、Changes（詳細な説明）、Outcome、Performance（メトリクスと意思決定レビュー）、Notes。ストーリーの内容（YAMLフロントマターを除く）はPRボディとしてそのままGitHubにコピーされます。
+ストーリーは、単一のブランチで複数のチケットにわたる開発作業の動機、進行、結果を統合します。ストーリーはPRワークフロー中に生成され、完全なPR説明文の内容を含みます：Summary（チケットタイトルから）、Motivation、Journey、Changes（詳細な説明）、Outcome、Performance（メトリクスと意思決定レビュー）、Notes。ストーリーの内容（YAMLフロントマターを除く）はPRボディとしてそのままGitHubにコピーされます。
+
+ストーリーはアーカイブされたチケットから直接データを収集し、フロントマターフィールド（`commit_hash`、`category`）とコンテンツセクション（Overview、Final Report）を抽出してナラティブを構築します。
 
 ### 使用パターン
 
@@ -68,21 +82,20 @@ PR説明文の単一の真実の情報源として機能する包括的なドキ
 
 ### 関連用語
 
-- ticket、changelog
+- ticket
 
 ## changelog
 
-何が変更され、なぜ変更されたかを説明するコミットレベルの変更記録。
+すべてのブランチの変更履歴を集約するルートCHANGELOG.mdファイル。
 
 ### 定義
 
-チェンジログはブランチごとおよびルートで集約された変更の履歴記録を維持します。各エントリにはコミットハッシュ、簡単な説明、元のチケットへのリンクが含まれます。ブランチチェンジログは`.work/changelogs/<branch>.md`に存在し、PR作成時に`CHANGELOG.md`に統合されます。
+ルート`CHANGELOG.md`はすべてのブランチにわたるすべての変更の履歴記録を維持します。エントリはPR作成時にアーカイブされたチケットから生成されます。各エントリにはコミットハッシュ、簡単な説明、元のチケットへのリンクが含まれます。ブランチchangelog（`.work/changelogs/`）はもう存在せず、チケットが変更メタデータの単一の真実の情報源として機能します。
 
 ### 使用パターン
 
-- **ディレクトリ名**: `.work/changelogs/`
-- **ファイル名**: `<branch-name>.md`、ルート`CHANGELOG.md`
-- **コード参照**: 「changelogに追加」、「CHANGELOGエントリ」
+- **ファイル名**: ルート`CHANGELOG.md`のみ
+- **コード参照**: 「CHANGELOGエントリ」、「ルートCHANGELOGを更新」
 
 ### 関連用語
 

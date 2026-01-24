@@ -11,20 +11,24 @@ Rebalance the performance-analyst agent's evaluation criteria to stop penalizing
 ## Implementation Steps
 
 1. **Update Consistency dimension** to clarify that pivots based on new understanding are positive:
+
    - Current: "Did the approach remain stable or have unnecessary pivots?"
    - Change to: "Were decisions coherent within their context? Did pivots improve the outcome rather than oscillate?"
    - The key distinction: pivots that converge toward better solutions are good; pivots that go back and forth are problematic
 
 2. **Update Describability dimension** to remove penalty for mid-stream naming changes:
+
    - Current wording implies names should be right from the start
    - New framing: "Did final names land well? Were naming improvements made when better options were discovered?"
    - Reward recognizing and fixing naming issues, not penalize discovering them
 
 3. **Update Agility dimension** to explicitly value iteration:
+
    - Add: "Did the developer iterate effectively, incorporating lessons learned into subsequent work?"
    - Agility should encompass both responding to external issues AND improving one's own earlier decisions
 
 4. **Add a new guideline** in the Guidelines section:
+
    - "Value iteration over perfection - mid-stream improvements indicate healthy development practice, not poor planning"
    - "Penalize only oscillation (changing back and forth) not convergence (steadily improving)"
 

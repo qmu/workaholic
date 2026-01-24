@@ -3,7 +3,7 @@ title: Workflow Guide
 description: How to use ticket-driven development with Workaholic
 category: user
 last_updated: 2026-01-24
-commit_hash: f293fb8
+commit_hash: 56855c7
 ---
 
 [English](workflow.md) | [日本語](workflow_ja.md)
@@ -78,7 +78,7 @@ When ready for review:
 /pull-request
 ```
 
-The command automatically runs `/sync-doc-specs` to update documentation before creating the PR. The PR summary is generated from the branch CHANGELOG, which recorded what each commit accomplished and why.
+The command automatically runs `/sync-doc-specs` to update documentation before creating the PR. The PR summary is generated from archived tickets, which contain the commit hash, category, and description of what each change accomplished and why.
 
 ## Directory Structure
 
@@ -92,15 +92,16 @@ Tickets follow this structure:
 │   └── 20260120-refactor-db.md
 └── archive/
     └── feat-20260123-143022/       # Branch-specific archive
-        ├── 20260122-add-auth.md    # Completed ticket with Final Report
-        └── CHANGELOG.md            # Branch changelog
+        └── 20260122-add-auth.md    # Completed ticket with Final Report
 ```
+
+Each ticket includes YAML frontmatter with metadata: `date`, `author`, `type`, `layer`, `effort`, plus `commit_hash` and `category` added when archived.
 
 Completed tickets include a "Final Report" section that documents whether implementation went as planned or any deviations that occurred during development. This creates a historical record of decisions made during implementation.
 
 ## Benefits
 
-The ticket-driven approach provides several advantages. Specs are reviewed before implementation, catching issues early. Each commit maps to one ticket, creating clean history. The CHANGELOG auto-generates PR summaries. All planning artifacts stay in the repository for future reference. Final Reports in archived tickets document what actually happened during implementation, preserving institutional knowledge. Branch stories synthesize the entire development journey into a narrative, giving reviewers quick context before diving into individual changes. Performance metrics in stories use hours for single-session work and business days for multi-day work, providing meaningful velocity measurements rather than misleading raw elapsed time.
+The ticket-driven approach provides several advantages. Specs are reviewed before implementation, catching issues early. Each commit maps to one ticket, creating clean history. Tickets serve as the single source of truth for change metadata, and the root CHANGELOG is auto-generated from them during PR creation. All planning artifacts stay in the repository for future reference. Final Reports in archived tickets document what actually happened during implementation, preserving institutional knowledge. Branch stories synthesize the entire development journey into a narrative, giving reviewers quick context before diving into individual changes. Performance metrics in stories use hours for single-session work and business days for multi-day work, providing meaningful velocity measurements rather than misleading raw elapsed time.
 
 ## When to Use Icebox
 

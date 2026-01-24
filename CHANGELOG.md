@@ -1,5 +1,41 @@
 # Changelog
 
+## [feat-20260123-191707](https://github.com/qmu/workaholic/tree/feat-20260123-191707)
+
+### Added
+
+- Add Japanese translations for .work/ documentation ([b24e45c](https://github.com/qmu/workaholic/commit/b24e45c)) - [ticket](.work/tickets/archive/feat-20260123-191707/20260124003751-bilingual-work-documentation.md)
+  Creates Japanese translations for specs, stories, and terminology directories, implementing bilingual support for Japanese-speaking contributors.
+
+- Add bilingual policy for .work/ directory ([6ef2421](https://github.com/qmu/workaholic/commit/6ef2421)) - [ticket](.work/tickets/archive/feat-20260123-191707/20260124002738-bilingual-work-directory-policy.md)
+  Allows Japanese content in .work/ directory while maintaining English-only policy for code, commits, and PRs.
+
+- Add performance-analyst subagent for decision review ([bd64d64](https://github.com/qmu/workaholic/commit/bd64d64)) - [ticket](.work/tickets/archive/feat-20260123-191707/20260123235437-performance-analyst-subagent.md)
+  Extracts decision review logic into a dedicated subagent that evaluates decision-making quality across five viewpoints, providing more structured and consistent feedback in PR descriptions.
+
+- Add multi-language documentation policy to general rules ([d378907](https://github.com/qmu/workaholic/commit/d378907)) - [ticket](.work/tickets/archive/feat-20260123-191707/20260123234825-multi-language-documentation-policy.md)
+  Provides guidance for structuring documentation when projects need multiple language support, covering naming conventions, folder structures, and language navigation.
+
+- Move remaining tickets to icebox during PR creation ([c7acd5d](https://github.com/qmu/workaholic/commit/c7acd5d)) - [ticket](.work/tickets/archive/feat-20260123-191707/20260123191605-pr-icebox-remaining-tickets.md)
+  Prevents unfinished tickets from being silently ignored when creating a PR. Remaining tickets are now automatically moved to icebox with a warning.
+
+### Changed
+
+- Rebalance performance-analyst to value iteration over perfection ([3f6691e](https://github.com/qmu/workaholic/commit/3f6691e)) - [ticket](.work/tickets/archive/feat-20260123-191707/20260124012341-performance-analyst-value-iteration.md)
+  Shifts the evaluation framework to reward convergent iteration while only penalizing indecisive oscillation. Fast try-and-change cycles are healthy development practice, not poor planning.
+
+- Refactor story to be the single source for PR description ([faa8b5a](https://github.com/qmu/workaholic/commit/faa8b5a)) - [ticket](.work/tickets/archive/feat-20260123-191707/20260124005056-story-as-pr-description.md)
+  Stories now contain the complete PR description content. The pull-request command generates a story and copies it directly to GitHub, eliminating duplication.
+
+- Document automatic inclusion of uncommitted tickets in drive commits ([01ce7b6](https://github.com/qmu/workaholic/commit/01ce7b6)) - [ticket](.work/tickets/archive/feat-20260123-191707/20260124002211-include-uncommitted-tickets-in-drive-commit.md)
+  Clarifies that git add -A includes uncommitted ticket files, eliminating the need for separate ticket commits.
+
+- Replace Reasonability with Describability in performance-analyst ([1418173](https://github.com/qmu/workaholic/commit/1418173)) - [ticket](.work/tickets/archive/feat-20260123-191707/20260124001610-replace-reasonability-with-describability.md)
+  Changes the evaluation focus from trade-off consideration to naming quality, semantic clarity, and extensible conventions.
+
+- Merge tdd plugin into core for unified workflow ([8c6e57d](https://github.com/qmu/workaholic/commit/8c6e57d)) - [ticket](.work/tickets/archive/feat-20260123-191707/20260124001231-merge-core-and-tdd-plugins.md)
+  Simplifies the marketplace by consolidating ticket-driven development commands into the core plugin, providing a single comprehensive development workflow.
+
 ## [feat-20260123-032323](https://github.com/qmu/workaholic/tree/feat-20260123-032323)
 
 ### Added

@@ -6,6 +6,8 @@ last_updated: 2026-01-23
 commit_hash: 5df4de4
 ---
 
+[English](workflow.md) | [日本語](workflow_ja.md)
+
 # Workflow Guide
 
 Workaholic uses a ticket-driven development approach where implementation planning happens locally in your repository rather than in GitHub issues.

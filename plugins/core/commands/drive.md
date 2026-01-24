@@ -125,6 +125,16 @@ bash .claude/skills/archive-ticket/scripts/archive.sh \
 
 **IMPORTANT**: Always use the script. Never manually move tickets or create changelogs.
 
+**Note**: The archive script uses `git add -A`, which includes:
+
+- All implementation changes
+- The archived ticket file
+- Any uncommitted ticket files in `.work/tickets/`
+- CHANGELOG updates
+
+This means newly created tickets are automatically included in drive commits,
+eliminating the need for separate "add tickets" commits.
+
 **Commit Message Rules**:
 
 - NO prefixes (no `[feat]`, `fix:`, etc.)

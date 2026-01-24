@@ -8,7 +8,12 @@ Edit `plugins/` not `.claude/`. This repo develops plugins - changes go to `plug
 
 ## Written Language
 
-All documentation, commit messages, and pull requests should be written in **English**.
+- **`.work/` directory**: English or Japanese (bilingual)
+- **All other content**: English only
+  - Code and code comments
+  - Commit messages
+  - Pull requests
+  - Documentation outside `.work/`
 
 ## Project Structure
 
@@ -18,11 +23,9 @@ All documentation, commit messages, and pull requests should be written in **Eng
 plugins/                 # Plugin source directories
   core/                  # Core development plugin
     .claude-plugin/      # Plugin configuration
-    commands/            # branch, commit, pull-request
+    agents/              # performance-analyst
+    commands/            # branch, commit, pull-request, ticket, drive, sync-src-doc
     rules/               # general, typescript
-  tdd/                   # Ticket-driven development plugin
-    .claude-plugin/      # Plugin configuration
-    commands/            # ticket, drive, sync-doc-specs
     skills/              # archive-ticket
 ```
 

@@ -11,7 +11,16 @@ Create or update a pull request for the current branch.
 
 1. Check the current branch name with `git branch --show-current`
 2. Get the base branch (usually `main`) with `git remote show origin | grep 'HEAD branch'`
-3. **Consolidate branch CHANGELOG to root**:
+3. **Check for remaining tickets**:
+   - List files in `.work/tickets/*.md` (excluding README.md)
+   - If any tickets exist:
+     - Warn the user: "Found X unfinished ticket(s) that will be moved to icebox:"
+     - List the ticket filenames
+     - Create `.work/tickets/icebox/` if it doesn't exist
+     - Move each ticket to `.work/tickets/icebox/`
+     - Stage and commit: "Move remaining tickets to icebox"
+   - If no tickets, continue with normal PR flow
+4. **Consolidate branch CHANGELOG to root**:
    - Read `.work/changelogs/<branch-name>.md` if it exists
    - Read existing `CHANGELOG.md` (root)
    - Merge branch entries into root CHANGELOG under branch section header
@@ -19,36 +28,35 @@ Create or update a pull request for the current branch.
    - Reorganize: deduplicate, sort by category, combine related entries
    - Write updated root `CHANGELOG.md`
    - Stage and commit: "Update CHANGELOG for PR"
-4. **Update documentation in `.work/specs/`**:
-   - Read all archived tickets from `.work/tickets/archive/<branch-name>/`
-   - Analyze cumulative changes across all tickets in the branch
-   - Update `.work/specs/` following `/sync-doc-specs` command guidelines
-   - Stage and commit: "Update documentation for PR"
-5. **Generate branch story** in `.work/stories/<branch-name>.md`:
+5. **Sync documentation**:
+   - Run `/sync-src-doc` to update `.work/specs/` and `.work/terminology/`
+   - Stage and commit: "Sync documentation for PR"
+6. **Generate branch story** in `.work/stories/<branch-name>.md`:
 
-   Read all archived tickets for this branch:
+   The story serves as the single source of truth for PR content. It contains the complete PR description that will be copied to GitHub.
+
+   **Gather source data:**
+
+   Read archived tickets for this branch:
+
    ```bash
    ls -1 .work/tickets/archive/<branch-name>/*.md 2>/dev/null
    ```
 
+   Read CHANGELOG entries for this branch:
+
+   - Parse root `CHANGELOG.md` for the section matching the current branch
+   - Collect entries from all subsections (Added, Changed, Removed)
+   - Each entry has format: `- Title ([hash](url)) - [ticket](file.md)`
+   - Entries may include a description line explaining the WHY
+
    For each ticket, extract:
+
    - **Overview section**: The "why" - motivation and problem description
    - **Final Report section**: The "how" - what actually happened, including deviations
 
-   Create story file with YAML frontmatter:
-   ```yaml
-   ---
-   branch: <branch-name>
-   started_at: YYYY-MM-DDTHH:MM:SS+TZ  # from first commit timestamp
-   ended_at: YYYY-MM-DDTHH:MM:SS+TZ    # from last commit timestamp
-   tickets_completed: <count>
-   commits: <count>
-   duration_hours: <number>  # time between first and last commit
-   velocity: <commits per hour, rounded to 1 decimal>
-   ---
-   ```
-
    **Calculate performance metrics:**
+
    ```bash
    # Get commit count for this branch
    git rev-list --count main..HEAD
@@ -61,9 +69,36 @@ Create or update a pull request for the current branch.
    # velocity = commits / duration_hours (handle 0 duration as 1 hour minimum)
    ```
 
-   Story content structure:
+   **Derive issue URL** from branch name and remote:
+
+   - Extract issue number from branch (e.g., `i111-20260113-1832` → `111`)
+   - Convert remote URL to issue link for reference in PR
+   - Branch format: `i<issue>-<date>-<time>` or `feat-<date>-<time>` (no issue)
+
+   **Create story file with YAML frontmatter:**
+
+   ```yaml
+   ---
+   branch: <branch-name>
+   started_at: YYYY-MM-DDTHH:MM:SS+TZ # from first commit timestamp
+   ended_at: YYYY-MM-DDTHH:MM:SS+TZ # from last commit timestamp
+   tickets_completed: <count>
+   commits: <count>
+   duration_hours: <number> # time between first and last commit
+   velocity: <commits per hour, rounded to 1 decimal>
+   ---
+   ```
+
+   **Story content structure (this IS the PR description):**
+
    ```markdown
-   # Story: <Branch Name>
+   Refs #<issue-number>
+
+   ## Summary
+
+   1. First meaningful change (from CHANGELOG entry titles)
+   2. Second meaningful change (from CHANGELOG entry titles)
+   3. ...
 
    ## Motivation
 
@@ -72,6 +107,16 @@ Create or update a pull request for the current branch.
    ## Journey
 
    [Describe the progression of work. What was planned? What unexpected challenges arose? How were decisions made? Draw from Final Reports to capture deviations and learnings.]
+
+   ## Changes
+
+   ### 1. First meaningful change
+
+   Detailed explanation from CHANGELOG description. Why this was needed and what it solves.
+
+   ### 2. Second meaningful change
+
+   Detailed explanation from CHANGELOG description. Why this was needed and what it solves.
 
    ## Outcome
 
@@ -82,133 +127,85 @@ Create or update a pull request for the current branch.
    **Metrics**: <commits> commits over <duration> hours (<velocity> commits/hour)
 
    ### Pace Analysis
+
    [Quantitative reflection on development pace - was velocity consistent or varied? Were commits small and focused or large? Any patterns in timing?]
 
    ### Decision Review
-   [Qualitative analysis of decision-making throughout the branch:
-   - Were decisions well-considered or hasty?
-   - Any risk-taking? Was it justified?
-   - Consistency in approach or frequent pivots?
-   - Trade-offs made - were they reasonable?
-   - Anything that should have been done differently in hindsight?
-   Be fair and constructive - highlight both good decisions and areas for improvement.]
+
+   [Invoke the performance-analyst subagent with:
+
+   - Archived tickets for this branch
+   - Git log (main..HEAD)
+   - Performance metrics from frontmatter
+
+   Include the subagent's output here.]
+
+   ## Notes
+
+   Additional context for reviewers or future reference.
    ```
 
    **Writing guidelines:**
+
    - Write in third person ("The developer discovered..." not "I discovered...")
    - Connect tickets into a narrative arc, not a list
    - Highlight decision points and trade-offs
-   - Keep it concise (aim for 200-400 words)
+   - Keep Motivation/Journey/Outcome concise (aim for 200-400 words total)
+   - Changes section can be longer to explain each change fully
 
    **Update .work/stories/README.md** to include the new story:
+
    - Add entry: `- [<branch-name>.md](<branch-name>.md) - Brief description of the branch work`
 
    Stage and commit: "Generate branch story"
 
-6. **Format changed files** (silent step):
+7. **Format changed files** (silent step):
    - Run project linter/formatter on changed files
    - Do NOT announce "reading file again" or similar verbose messages
    - Just silently format and continue
    - Stage and commit any formatting changes: "Format code"
-7. Check if a PR already exists for this branch:
+8. Check if a PR already exists for this branch:
    ```sh
    gh pr list --head $(git branch --show-current) --json number,title,url
    ```
-8. **Read CHANGELOG entries for this branch** (primary source for both summary and details):
-   - Parse root `CHANGELOG.md` for the section matching the current branch
-   - Collect bullets from all subsections (Added, Changed, Removed)
-   - Each entry has format: `- Title ([hash](url)) - [ticket](file.md)`
-   - Entries may include a second line with description explaining the WHY
-   - Use entry titles for numbered Summary list
-   - Use descriptions for detailed Changes section explanations
-   - If CHANGELOG section doesn't exist, fall back to git log
-9. **Derive issue URL** from branch name and remote:
-   - Extract issue number from branch (e.g., `i111-20260113-1832` → `111`)
-   - Convert remote URL to issue link for reference in PR
-10. Generate PR description:
-   - Title: Concise summary of the overall change
-   - Summary list: Use CHANGELOG entry titles as the numbered list
-   - Changes section: Use CHANGELOG entry descriptions to explain the WHY
-   - Reference the linked issue from branch name
+9. **Read story file and prepare PR content**:
+   - Read `.work/stories/<branch-name>.md`
+   - Strip YAML frontmatter (everything between `---` delimiters)
+   - The remaining content IS the PR body
+10. **Derive PR title from Summary section**:
+    - Parse the Summary section from the story
+    - If single change: use that change as title (e.g., "Add dark mode toggle")
+    - If multiple changes: use first change + "etc" (e.g., "Add dark mode toggle etc")
+    - Keep title concise (GitHub truncates long titles)
 
 ## Creating vs Updating
 
-Use heredoc for multi-line descriptions:
+The story file content (minus YAML frontmatter) IS the PR body.
 
 ### If NO PR exists:
 
 ```sh
-gh pr create --title "Title" --body "$(cat <<'EOF'
-## Summary
-...
+gh pr create --title "<derived-title>" --body "$(cat <<'EOF'
+<story content without frontmatter>
 EOF
 )"
 ```
 
 ### If PR already exists:
 
-Use `gh api` to update the PR title and body (avoids Projects classic deprecation error):
-
-1. **Derive title from CHANGELOG**:
-
-   - Parse CHANGELOG entries for this branch
-   - If single change: use that change as title (e.g., "Add dark mode toggle")
-   - If multiple changes: use first change + "etc" (e.g., "Add dark mode toggle etc")
-   - Keep title concise (GitHub truncates long titles)
-
-2. **Update with `gh api`**:
+Use `gh api` to update the PR title and body:
 
 ```sh
 gh api repos/{owner}/{repo}/pulls/<number> -X PATCH \
   -f title="<derived-title>" \
   -f body="$(cat <<'EOF'
-## Summary
-...
+<story content without frontmatter>
 EOF
 )"
 ```
 
-## PR Description Format
+## Story as PR Description
 
-Five headings: Summary, Story, Changes, Performance, Notes.
+The story file in `.work/stories/<branch-name>.md` contains the complete PR description. Seven sections: Summary, Motivation, Journey, Changes, Outcome, Performance, Notes.
 
-```markdown
-Refs #<issue-number>
-
-## Summary
-
-1. First meaningful change (from CHANGELOG)
-2. Second meaningful change (from CHANGELOG)
-3. Third meaningful change (from CHANGELOG)
-
-## Story
-
-[Include Motivation and Journey sections from .work/stories/<branch>.md - the narrative of what problem existed, how the work progressed, and what decisions were made along the way.]
-
-## Changes
-
-### 1. First meaningful change
-
-Detailed explanation of why this was needed and what it solves. (from CHANGELOG description)
-
-### 2. Second meaningful change
-
-Detailed explanation of why this was needed and what it solves. (from CHANGELOG description)
-
-## Performance
-
-[Include the Performance section from .work/stories/<branch>.md - metrics, pace analysis, and decision review. This provides AI performance coaching directly in the PR.]
-
-## Notes
-
-Additional context for reviewers or future reference.
-```
-
-### Deriving Issue Number and URL
-
-- Branch format: `i<issue>-<date>-<time>` (e.g., `i111-20260113-1832`)
-- Extract issue number: `111`
-- Remote URL: `git remote get-url origin`
-- Convert to issues URL:
-  - `git@github.com:owner/repo.git` → `https://github.com/owner/repo/issues/111`
-  - `https://github.com/owner/repo.git` → `https://github.com/owner/repo/issues/111`
+This design makes stories the single source of truth for PR content, eliminating duplication between story generation and PR description assembly.

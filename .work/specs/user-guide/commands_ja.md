@@ -3,7 +3,7 @@ title: Command Reference
 description: Complete documentation for all Workaholic commands
 category: user
 last_updated: 2026-01-24
-commit_hash: 6843f78
+commit_hash: 5275c02
 ---
 
 [English](commands.md) | [日本語](commands_ja.md)
@@ -51,7 +51,7 @@ PRの説明にはストーリードキュメントの内容が使用されます
 - **Outcome** - 達成されたこと
 - **Performance** - メトリクスと意思決定レビュー
 
-ストーリードキュメントは`.work/stories/<branch-name>.md`に保存され、PR説明文の単一の真実の情報源として機能します。
+ストーリードキュメントは`.work/stories/<branch-name>.md`に保存され、PR説明文の単一の真実の情報源として機能します。パフォーマンスメトリクスは単一セッションの作業（8時間未満）には時間を、複数日にわたる作業にはbusiness dayを使用し、意味のある速度測定を提供します。
 
 ## チケット駆動開発コマンド
 

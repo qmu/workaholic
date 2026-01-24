@@ -3,7 +3,7 @@ title: Command Reference
 description: Complete documentation for all Workaholic commands
 category: user
 last_updated: 2026-01-24
-commit_hash: 6843f78
+commit_hash: 5275c02
 ---
 
 [English](commands.md) | [日本語](commands_ja.md)
@@ -42,7 +42,7 @@ Creates or updates a pull request with an auto-generated summary.
 /pull-request
 ```
 
-The PR description is generated from a story document that includes seven sections: Summary, Motivation, Journey, Changes, Outcome, Performance, and Notes. The story serves as the single source of truth for PR content and is saved to `.work/stories/<branch-name>.md`.
+The PR description is generated from a story document that includes seven sections: Summary, Motivation, Journey, Changes, Outcome, Performance, and Notes. The story serves as the single source of truth for PR content and is saved to `.work/stories/<branch-name>.md`. Performance metrics use hours for single-session work (under 8 hours) and business days for multi-day work, providing meaningful velocity measurements.
 
 Any remaining unfinished tickets are automatically moved to icebox before creating the PR.
 

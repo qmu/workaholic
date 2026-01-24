@@ -2,8 +2,8 @@
 title: Workflow Guide
 description: How to use ticket-driven development with Workaholic
 category: user
-last_updated: 2026-01-23
-commit_hash: 5df4de4
+last_updated: 2026-01-24
+commit_hash: 5275c02
 ---
 
 [English](workflow.md) | [日本語](workflow_ja.md)
@@ -100,7 +100,7 @@ Completed tickets include a "Final Report" section that documents whether implem
 
 ## Benefits
 
-The ticket-driven approach provides several advantages. Specs are reviewed before implementation, catching issues early. Each commit maps to one ticket, creating clean history. The CHANGELOG auto-generates PR summaries. All planning artifacts stay in the repository for future reference. Final Reports in archived tickets document what actually happened during implementation, preserving institutional knowledge. Branch stories synthesize the entire development journey into a narrative, giving reviewers quick context before diving into individual changes.
+The ticket-driven approach provides several advantages. Specs are reviewed before implementation, catching issues early. Each commit maps to one ticket, creating clean history. The CHANGELOG auto-generates PR summaries. All planning artifacts stay in the repository for future reference. Final Reports in archived tickets document what actually happened during implementation, preserving institutional knowledge. Branch stories synthesize the entire development journey into a narrative, giving reviewers quick context before diving into individual changes. Performance metrics in stories use hours for single-session work and business days for multi-day work, providing meaningful velocity measurements rather than misleading raw elapsed time.
 
 ## When to Use Icebox
 

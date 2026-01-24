@@ -12,6 +12,9 @@
 
 ### Changed
 
+- Redefine Density to measure semantic expressiveness ([1fc163a](https://github.com/qmu/workaholic/commit/1fc163a)) - [ticket](.work/tickets/archive/feat-20260124-105903/20260124192456-redefine-density-metric.md)
+  The Density metric now evaluates how economically code expresses meaning, not commit efficiency. This separates code quality (semantic density) from workflow metrics (commit count).
+
 - Use business days for multi-day performance metrics ([53f9765](https://github.com/qmu/workaholic/commit/53f9765)) - [ticket](.work/tickets/archive/feat-20260124-105903/20260124144224-business-day-metrics.md)
   Raw elapsed hours are misleading for multi-day work because developers sleep and do other activities.
   Changed to use business days (count of distinct calendar days with commits) when duration exceeds 8 hours.

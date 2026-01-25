@@ -3,7 +3,7 @@ title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
 last_updated: 2026-01-25
-commit_hash: a87a013
+commit_hash: 18ac266
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -22,7 +22,7 @@ A ticket defines a discrete unit of work to be implemented. It captures intent, 
 
 Tickets include YAML frontmatter with structured metadata:
 
-- `date`: Creation date (ISO format)
+- `created_at`: Creation timestamp (ISO 8601 datetime)
 - `author`: Git email of the creator
 - `type`: enhancement, bugfix, refactoring, or housekeeping
 - `layer`: Architectural layers affected (UX, Domain, Infrastructure, DB, Config)

@@ -18,7 +18,7 @@ This is the working artifacts hub for the Workaholic plugin marketplace.
 
 ## Plugins
 
-- [Core](../plugins/core/README.md) - Complete development workflow (`/branch`, `/commit`, `/pull-request`, `/ticket`, `/drive`, `/sync-src-doc`)
+- [Core](../plugins/core/README.md) - Complete development workflow (`/branch`, `/commit`, `/pull-request`, `/ticket`, `/drive`, `/sync-work`)
 
 ## Design Policy
 

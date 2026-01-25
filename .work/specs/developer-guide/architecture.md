@@ -50,7 +50,7 @@ plugins/
       commit.md          # /commit command
       drive.md           # /drive command
       pull-request.md    # /pull-request command
-      sync-src-doc.md    # /sync-src-doc command
+      sync-work.md    # /sync-work command
       ticket.md          # /ticket command
     rules/
       diagrams.md      # Mermaid diagram requirements

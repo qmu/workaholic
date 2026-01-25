@@ -72,12 +72,12 @@ Implements queued tickets from top to bottom.
 
 Claude picks up tickets from `.work/tickets/`, implements them one by one, asks for your approval, writes a Final Report documenting any deviations, then commits and archives each ticket before moving to the next. The `icebox` argument lets you select from deferred tickets.
 
-### /sync-src-doc
+### /sync-work
 
 Updates documentation in `.work/specs/` and `.work/terminology/` to reflect the current codebase state.
 
 ```bash
-/sync-src-doc
+/sync-work
 ```
 
 Claude gathers context from archived tickets in the current branch, audits existing documentation, identifies what needs to be updated, and applies changes following documentation standards. This command ensures documentation stays synchronized with code changes before creating a pull request.
@@ -89,7 +89,7 @@ The typical workflow combines these commands:
 1. `/branch` - Start a new feature branch
 2. `/ticket <description>` - Write implementation spec
 3. `/drive` - Implement the ticket
-4. `/sync-src-doc` - Update documentation (optional, also runs during `/pull-request`)
+4. `/sync-work` - Update documentation (optional, also runs during `/pull-request`)
 5. `/pull-request` - Create PR for review
 
 Each ticket gets its own commit, and the CHANGELOG tracks all changes for the PR summary.

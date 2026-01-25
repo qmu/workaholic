@@ -69,5 +69,6 @@ Refs #<issue-number>
 
 ## Stories
 
+- [feat-20260124-200439.md](feat-20260124-200439.md) - Ticket metadata and single source of truth consolidation
 - [feat-20260124-105903.md](feat-20260124-105903.md) - Rule modularization and PR workflow improvements
 - [feat-20260123-032323.md](feat-20260123-032323.md) - Documentation experience improvements and .work/ directory restructuring

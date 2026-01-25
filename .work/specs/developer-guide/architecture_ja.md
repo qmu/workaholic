@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-last_updated: 2026-01-24
-commit_hash: 56855c7
+last_updated: 2026-01-25
+commit_hash: a87a013
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -117,14 +117,14 @@ sequenceDiagram
 
 ## ドキュメント強制
 
-Workaholicは`/sync-doc-specs`コマンドを通じて包括的なドキュメントを強制し、コード変更とのドキュメント同期を明示的に制御します。
+Workaholicは`/sync-work`コマンドを通じて包括的なドキュメントを強制し、コード変更とのドキュメント同期を明示的に制御します。
 
 ### 仕組み
 
 ```mermaid
 flowchart TD
     A[/pull-request コマンド] --> B[チケットからCHANGELOGを更新]
-    B --> C[/sync-doc-specs]
+    B --> C[/sync-work]
     C --> D[アーカイブされたチケットを読む]
     D --> E[.work/specs/を監査]
     E --> F[ドキュメントを更新]

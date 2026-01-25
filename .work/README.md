@@ -2,7 +2,8 @@
 title: Work
 description: Working artifacts index for Workaholic plugin marketplace
 category: developer
-last_updated: 2026-01-24
+last_updated: 2026-01-25
+commit_hash: a87a013
 ---
 
 [English](README.md) | [日本語](README_ja.md)

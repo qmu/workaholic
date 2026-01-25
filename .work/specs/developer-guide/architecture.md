@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-last_updated: 2026-01-24
-commit_hash: 56855c7
+last_updated: 2026-01-25
+commit_hash: a87a013
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -117,14 +117,14 @@ sequenceDiagram
 
 ## Documentation Enforcement
 
-Workaholic enforces comprehensive documentation through the `/sync-doc-specs` command, which provides explicit control over documentation synchronization with code changes.
+Workaholic enforces comprehensive documentation through the `/sync-work` command, which provides explicit control over documentation synchronization with code changes.
 
 ### How It Works
 
 ```mermaid
 flowchart TD
     A[/pull-request command] --> B[Update CHANGELOG from tickets]
-    B --> C[/sync-doc-specs]
+    B --> C[/sync-work]
     C --> D[Read archived tickets]
     D --> E[Audit .work/specs/]
     E --> F[Update documentation]
@@ -132,7 +132,7 @@ flowchart TD
     G --> H[Create/update PR]
 ```
 
-Documentation is updated automatically during the `/pull-request` workflow, which internally runs `/sync-doc-specs`. You can also run `/sync-doc-specs` directly at any time to update documentation. The command:
+Documentation is updated automatically during the `/pull-request` workflow, which internally runs `/sync-work`. You can also run `/sync-work` directly at any time to update documentation. The command:
 
 1. **Gathers context** - Reads archived tickets from `.work/tickets/archive/<branch-name>/` to understand what changed
 2. **Audits current docs** - Surveys existing documentation in `.work/specs/`
@@ -140,7 +140,7 @@ Documentation is updated automatically during the `/pull-request` workflow, whic
 
 ### Critical Requirements
 
-The `/sync-doc-specs` command enforces strict requirements:
+The `/sync-work` command enforces strict requirements:
 
 - **Document every change** - No exceptions, no judgment calls about what's "worth" documenting
 - **Never skip documentation** - "Internal implementation detail" is never a valid reason

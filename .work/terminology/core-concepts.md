@@ -2,8 +2,8 @@
 title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
-last_updated: 2026-01-24
-commit_hash: f293fb8
+last_updated: 2026-01-25
+commit_hash: a87a013
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -41,7 +41,7 @@ Commands are the primary user interface for plugins. Users invoke them with a sl
 ### Usage Patterns
 
 - **Directory names**: `plugins/<name>/commands/`
-- **File names**: `commit.md`, `pull-request.md`, `sync-doc-specs.md`
+- **File names**: `commit.md`, `pull-request.md`, `sync-work.md`
 - **Code references**: "Run `/commit` to...", "The `/ticket` command..."
 
 ### Related Terms

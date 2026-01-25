@@ -89,14 +89,20 @@ Explore the codebase to understand requirements and write an implementation tick
    - `category`: Change category (Added, Changed, or Removed). Set automatically by archive script based on commit message verb.
    - Only ask the user about type if truly ambiguous
 
-6. **Present the Ticket**
-   - Show the user where the ticket was saved
+6. **Commit the Ticket**
+
+   - Stage only the newly created ticket file: `git add <ticket-path>`
+   - Commit with message: "Add ticket for <short-description>"
+   - Use the ticket's H1 title for the description
+   - Example: `git add .work/tickets/20260125-add-auth.md && git commit -m "Add ticket for user authentication"`
+
+7. **Present the Ticket**
+
+   - Show the user where the ticket was created and committed
    - Summarize the key points
    - If icebox: tell user to run `/drive icebox` later to retrieve it
    - If normal: count queued tickets in `.work/tickets/` (excluding archive/, icebox/)
    - Tell user to run `/drive` to implement queued tickets
-   - Note: The ticket file doesn't need to be committed separately. It will be included
-     in the next `/drive` commit automatically when implementation is approved.
    - **NEVER ask "Would you like me to proceed with implementation?" - that is NOT your job**
 
 ## Notes

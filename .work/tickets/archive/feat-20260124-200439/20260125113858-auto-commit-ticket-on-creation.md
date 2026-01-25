@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: enhancement
 layer: [Config]
 effort:
-commit_hash:
-category:
+commit_hash: 455ed62
+category: Added
 ---
 
 # Auto-commit ticket file on creation
@@ -44,3 +44,18 @@ After the `/ticket` command creates a ticket file, it should immediately commit 
 - **Clean history**: Each ticket creation becomes a distinct commit, making it easy to trace when work items were planned
 - **Conflict with drive behavior**: The drive command's archive script uses `git add -A`. This is still correct because at drive time, we want to include implementation changes. The ticket commit happens earlier, before implementation begins.
 - **Commit message format**: Following existing conventions - no prefix, present-tense verb ("Add ticket for...")
+
+## Final Report
+
+Implemented auto-commit for ticket files on creation:
+
+1. Added step 6 "Commit the Ticket" to `plugins/core/commands/ticket.md`:
+   - Stage only the ticket file with `git add <ticket-path>`
+   - Commit with message "Add ticket for <description>"
+   - Includes example command
+
+2. Updated step 7 "Present the Ticket":
+   - Changed wording from "saved" to "created and committed"
+   - Removed the note about tickets being included in next `/drive` commit
+
+This ensures tickets are immediately tracked in git history upon creation, providing clean separation between planning and implementation commits.

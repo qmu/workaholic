@@ -3,9 +3,9 @@ date: 2026-01-25
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: c82b53e
+category: Changed
 ---
 
 # Change ticket date field to datetime format
@@ -65,3 +65,7 @@ The `date` field in ticket YAML frontmatter currently uses date-only format (`YY
 - **Field rename**: Changing from `date` to `created_at` follows the `_at` naming convention used for timestamps in stories (`started_at`, `ended_at`). This is clearer than `date` which could be ambiguous.
 - **Backward compatibility**: Existing tickets with `date` field will still be readable, but new tickets will use `created_at`. This is acceptable since archived tickets are historical records.
 - **Command simplicity**: `date -Iseconds` is a single command that outputs ISO 8601 with timezone, cleaner than building the format manually.
+
+## Final Report
+
+Development completed as planned.

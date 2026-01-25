@@ -39,7 +39,7 @@ Explore the codebase to understand requirements and write an implementation tick
 
    ```markdown
    ---
-   date: YYYY-MM-DD
+   created_at: YYYY-MM-DDTHH:MM:SS+TZ
    author: <git user.email>
    type: enhancement | bugfix | refactoring | housekeeping
    layer: [<layers affected>]
@@ -71,7 +71,7 @@ Explore the codebase to understand requirements and write an implementation tick
 
    **Frontmatter Fields:**
 
-   - `date`: Current date in ISO format. Use `date +%Y-%m-%d`
+   - `created_at`: Creation timestamp in ISO 8601 format. Use `date -Iseconds`
    - `author`: Git email. Use `git config user.email`
    - `type`: Infer from request context:
      - `enhancement` - New features or capabilities (keywords: add, create, implement, new)

@@ -3,7 +3,7 @@ title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
 last_updated: 2026-01-25
-commit_hash: a87a013
+commit_hash: 18ac266
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -22,7 +22,7 @@ commit_hash: a87a013
 
 チケットには構造化メタデータを持つYAMLフロントマターが含まれます：
 
-- `date`: 作成日（ISO形式）
+- `created_at`: 作成タイムスタンプ（ISO 8601日時）
 - `author`: 作成者のGitメール
 - `type`: enhancement、bugfix、refactoring、housekeepingのいずれか
 - `layer`: 影響を受けるアーキテクチャレイヤー（UX、Domain、Infrastructure、DB、Config）

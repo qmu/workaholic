@@ -2,8 +2,8 @@
 title: Terminology
 description: Consistent term definitions across the Workaholic project
 category: developer
-last_updated: 2026-01-23
-commit_hash: a0b2b29
+last_updated: 2026-01-25
+commit_hash: a87a013
 ---
 
 [English](README.md) | [日本語](README_ja.md)

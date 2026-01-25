@@ -2,8 +2,8 @@
 title: File Conventions
 description: Naming patterns and directory structures used in Workaholic
 category: developer
-last_updated: 2026-01-24
-commit_hash: f293fb8
+last_updated: 2026-01-25
+commit_hash: a87a013
 ---
 
 [English](file-conventions.md) | [日本語](file-conventions_ja.md)
@@ -18,12 +18,12 @@ Workaholicで使用される命名パターンとディレクトリ構造。
 
 ### 定義
 
-kebab-caseはWorkaholicのファイルとディレクトリの標準命名規約です。小文字を使用し、単語をハイフンで区切ります（例：`sync-doc-specs.md`、`pull-request.md`）。この規約は一貫性を確保し、大文字小文字を区別するファイルシステムでの問題を回避します。
+kebab-caseはWorkaholicのファイルとディレクトリの標準命名規約です。小文字を使用し、単語をハイフンで区切ります（例：`sync-work.md`、`pull-request.md`）。この規約は一貫性を確保し、大文字小文字を区別するファイルシステムでの問題を回避します。
 
 ### 使用パターン
 
 - **ディレクトリ名**: `core-concepts/`、`file-conventions/`
-- **ファイル名**: `sync-doc-specs.md`、`archive-ticket.md`
+- **ファイル名**: `sync-work.md`、`archive-ticket.md`
 - **コード参照**: 「ファイル名にはkebab-caseを使用」
 
 ### 例外

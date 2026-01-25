@@ -3,9 +3,9 @@ date: 2026-01-25
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 4b7b10e
+category: Added
 ---
 
 # Add "Approve and stop" option to drive command
@@ -60,3 +60,7 @@ The `/drive` command currently offers two approval options: "Approve" (continue 
 - The "Approve and stop" wording is clear about its dual action: approving the current work AND stopping the drive loop
 - The option order (Approve / Approve and stop / Needs changes) groups the two approval variants together
 - When stopping, inform the user how many tickets remain so they can resume later with `/drive`
+
+## Final Report
+
+Development completed as planned.

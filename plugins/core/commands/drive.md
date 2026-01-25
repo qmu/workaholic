@@ -51,7 +51,8 @@ ls -1 .work/tickets/*.md 2>/dev/null | sort
   - Include a brief summary (first 1-2 sentences from Overview section)
 - Show a summary of changes made
 - Use AskUserQuestion tool to confirm:
-  - "Approve" - implementation is correct, proceed to commit
+  - "Approve" - implementation is correct, proceed to commit and continue to next ticket
+  - "Approve and stop" - implementation is correct, commit this ticket but stop driving
   - "Needs changes" - user will provide feedback to fix
 - Do NOT proceed to commit until user explicitly approves
 - If user requests changes:
@@ -71,7 +72,7 @@ Implementation complete. Changes made:
 - <Change 2>
 
 Do you approve this implementation?
-[Approve / Needs changes]
+[Approve / Approve and stop / Needs changes]
 ```
 
 #### 2.4 Update Effort and Write Final Report
@@ -152,7 +153,10 @@ eliminating the need for separate "add tickets" commits.
 - Capture the "why" from the ticket's Overview section
 - This appears in CHANGELOG and helps generate meaningful PR descriptions
 
-After committing, automatically proceed to the next ticket without asking for confirmation.
+After committing:
+
+- If user selected "Approve": automatically proceed to the next ticket without asking for confirmation
+- If user selected "Approve and stop": stop driving and report how many tickets remain (e.g., "Stopped. 2 tickets remaining in queue.")
 
 ### 3. Completion
 
@@ -179,7 +183,7 @@ Claude: Found 3 tickets to implement:
         - Updated src/bar.ts (fixed Y)
 
         Do you approve this implementation?
-        [Approve / Needs changes]
+        [Approve / Approve and stop / Needs changes]
 
 User:   Approve
 
@@ -195,4 +199,4 @@ Claude: [creates commit, archives ticket]
 - **Implementation approval (step 2.3) is mandatory** - never skip this step
 - **Final report (step 2.4) is mandatory** - document what happened
 - Between-ticket continuation is automatic - no confirmation needed
-- User can stop by responding "Needs changes" at approval and requesting to pause
+- User can stop cleanly by selecting "Approve and stop" at any approval prompt

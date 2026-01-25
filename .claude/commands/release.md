@@ -26,8 +26,9 @@ Release a new version of the marketplace by incrementing the semantic version.
 6. Update the `version` field in `plugins/tdd/.claude-plugin/plugin.json` to match the new version
 7. Update the `core` plugin version in the `plugins` array within `.claude-plugin/marketplace.json` to match the new version
 8. Update the `tdd` plugin version in the `plugins` array within `.claude-plugin/marketplace.json` to match the new version
-9. Commit the change with message: `Release v{new_version}`
-10. Push to remote
+9. Sync documentation: Read `plugins/core/commands/sync-work.md` and follow its instructions to update `.work/` documentation
+10. Commit the change with message: `Release v{new_version}`
+11. Push to remote
 
 ## Output
 

@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: bugfix
 layer: [Config]
 effort:
-commit_hash:
-category:
+commit_hash: 8935f8a
+category: Changed
 ---
 
 # Require Developer Approval Before Moving Tickets to Icebox
@@ -39,3 +39,12 @@ Claude Code must **always** ask the developer before moving any ticket to icebox
 - This is a behavior constraint, not a feature addition
 - The explicit prohibition needs to be prominent so Claude Code follows it
 - The options give the developer control while not blocking progress entirely
+
+## Final Report
+
+Added "## Critical Rules" section to `plugins/core/commands/drive.md`:
+
+1. Explicit prohibition: "NEVER autonomously move tickets to icebox"
+2. Instructions to stop and ask developer when ticket cannot be implemented
+3. Three options: "Move to icebox", "Skip for now", "Abort drive"
+4. Final reminder about requiring explicit approval for all ticket moves

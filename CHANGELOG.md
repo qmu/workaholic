@@ -1,5 +1,22 @@
 # Changelog
 
+## [feat-20260124-200439](https://github.com/qmu/workaholic/tree/feat-20260124-200439)
+
+### Added
+
+- Add YAML frontmatter metadata to ticket files ([b7938ac](https://github.com/qmu/workaholic/commit/b7938ac)) - [ticket](.work/tickets/archive/feat-20260124-200439/20260124210721-ticket-yaml-frontmatter.md)
+  Enhances tickets with structured metadata (date, author, type, layer, effort) for better management and tracking.
+
+### Changed
+
+- Rename /sync-src-doc to /sync-work ([a87a013](https://github.com/qmu/workaholic/commit/a87a013)) - [ticket](.work/tickets/archive/feat-20260124-200439/20260124225237-rename-sync-src-doc-to-sync-work.md)
+  The new name better reflects the target directory `.work/` rather than a generic "doc" folder.
+
+### Removed
+
+- Remove branch changelogs in favor of ticket frontmatter ([56855c7](https://github.com/qmu/workaholic/commit/56855c7)) - [ticket](.work/tickets/archive/feat-20260124-200439/20260124223106-eliminate-branch-changelogs.md)
+  Tickets are now the single source of truth for change metadata, eliminating the intermediate `.work/changelogs/` directory.
+
 ## [feat-20260124-105903](https://github.com/qmu/workaholic/tree/feat-20260124-105903)
 
 ### Added

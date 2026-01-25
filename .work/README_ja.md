@@ -18,7 +18,7 @@ Workaholicプラグインマーケットプレイスの作業成果物ハブで�
 
 ## Plugins
 
-- [Core](../plugins/core/README.md) - 完全な開発ワークフロー (`/branch`, `/commit`, `/pull-request`, `/ticket`, `/drive`, `/sync-src-doc`)
+- [Core](../plugins/core/README.md) - 完全な開発ワークフロー (`/branch`, `/commit`, `/pull-request`, `/ticket`, `/drive`, `/sync-work`)
 
 ## Design Policy
 

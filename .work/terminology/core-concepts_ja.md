@@ -41,7 +41,7 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 ### 使用パターン
 
 - **ディレクトリ名**: `plugins/<name>/commands/`
-- **ファイル名**: `commit.md`、`pull-request.md`、`sync-src-doc.md`
+- **ファイル名**: `commit.md`、`pull-request.md`、`sync-work.md`
 - **コード参照**: 「`/commit`を実行して...」、「`/ticket`コマンド...」
 
 ### 関連用語

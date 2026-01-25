@@ -91,9 +91,9 @@ plugins/<plugin>/skills/my-skill/
 
 ## Documentation Standards
 
-Documentation updates are mandatory for every change. Use the `/sync-src-doc` command to update documentation before creating a pull request, or let `/pull-request` run it automatically.
+Documentation updates are mandatory for every change. Use the `/sync-work` command to update documentation before creating a pull request, or let `/pull-request` run it automatically.
 
-The `/sync-src-doc` command enforces documentation standards:
+The `/sync-work` command enforces documentation standards:
 
 - YAML frontmatter on every markdown file (including `commit_hash` field)
 - Use Mermaid for diagrams (ASCII art diagrams are prohibited)

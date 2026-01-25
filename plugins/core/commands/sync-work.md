@@ -1,9 +1,9 @@
 ---
-name: sync-src-doc
-description: Sync source code to documentation (specs and terminology)
+name: sync-work
+description: Sync source code changes to .work/ directory (specs and terminology)
 ---
 
-# Sync Source to Documentation
+# Sync Work
 
 Update `.work/specs/` and `.work/terminology/` to reflect the current codebase state.
 

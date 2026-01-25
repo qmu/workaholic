@@ -48,7 +48,7 @@ Current state documentation that provides an authoritative reference snapshot.
 
 ### Definition
 
-Specs document the present reality of the codebase. Unlike tickets (which describe changes), specs describe what exists now. They are updated via `/sync-src-doc` to reflect the current state after changes are made. Specs reduce cognitive load by providing a single source of truth.
+Specs document the present reality of the codebase. Unlike tickets (which describe changes), specs describe what exists now. They are updated via `/sync-work` to reflect the current state after changes are made. Specs reduce cognitive load by providing a single source of truth.
 
 ### Usage Patterns
 

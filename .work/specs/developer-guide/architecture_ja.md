@@ -50,7 +50,7 @@ plugins/
       commit.md          # /commit コマンド
       drive.md           # /drive コマンド
       pull-request.md    # /pull-request コマンド
-      sync-src-doc.md    # /sync-src-doc コマンド
+      sync-work.md    # /sync-work コマンド
       ticket.md          # /ticket コマンド
     rules/
       diagrams.md      # Mermaid図表要件
@@ -132,7 +132,7 @@ flowchart TD
     G --> H[PRを作成/更新]
 ```
 
-ドキュメントは`/pull-request`ワークフロー中に自動的に更新され、内部的に`/sync-src-doc`を実行します。いつでも直接`/sync-src-doc`を実行してドキュメントを更新することもできます。コマンドは：
+ドキュメントは`/pull-request`ワークフロー中に自動的に更新され、内部的に`/sync-work`を実行します。いつでも直接`/sync-work`を実行してドキュメントを更新することもできます。コマンドは：
 
 1. **コンテキストを収集** - `.work/tickets/archive/<branch-name>/`からアーカイブされたチケットを読んで何が変更されたかを理解
 2. **現在のドキュメントを監査** - `.work/specs/`内の既存ドキュメントを調査
@@ -140,7 +140,7 @@ flowchart TD
 
 ### 重要な要件
 
-`/sync-src-doc`コマンドは厳格な要件を強制します：
+`/sync-work`コマンドは厳格な要件を強制します：
 
 - **すべての変更をドキュメント化** - 例外なし、何が「ドキュメント化する価値がある」かの判断なし
 - **ドキュメントをスキップしない** - 「内部実装の詳細」は決して有効な理由にならない

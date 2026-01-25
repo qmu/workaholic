@@ -200,3 +200,18 @@ Claude: [creates commit, archives ticket]
 - **Final report (step 2.4) is mandatory** - document what happened
 - Between-ticket continuation is automatic - no confirmation needed
 - User can stop cleanly by selecting "Approve and stop" at any approval prompt
+
+## Critical Rules
+
+**NEVER autonomously move tickets to icebox.** Moving tickets is a developer decision, not an AI decision.
+
+If a ticket cannot be implemented (out of scope, too complex, blocked, or any other reason):
+
+1. **Stop and ask the developer** using AskUserQuestion
+2. Explain why implementation cannot proceed
+3. Offer these options:
+   - "Move to icebox" - Move ticket to `.work/tickets/icebox/` and continue to next
+   - "Skip for now" - Leave ticket in queue, move to next ticket
+   - "Abort drive" - Stop the drive session entirely
+
+**Never commit ticket moves without explicit developer approval.**

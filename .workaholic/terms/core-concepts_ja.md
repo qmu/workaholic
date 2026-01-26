@@ -93,14 +93,14 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 エージェント（サブエージェントとも呼ばれる）は特定のプロンプトとツールを持つAIサブプロセスで実行されます。親の会話のコンテキストを保持しながら、大量のファイル読み取りや複雑な分析を独自のコンテキストウィンドウで実行します。コマンドはTaskツールを介してエージェントを呼び出し、構造化された出力を受け取ります。エージェントは他のエージェントを呼び出すこともできます（サブエージェントチェーン）。エージェントはプラグインの`agents/`ディレクトリで定義されます。
 
 一般的なエージェントタイプ:
-- **ライターエージェント**: ドキュメントを生成（spec-writer、terminology-writer、story-writer、changelog-writer）
+- **ライターエージェント**: ドキュメントを生成（spec-writer、terms-writer、story-writer、changelog-writer）
 - **アナリストエージェント**: 評価と分析を実行（performance-analyst）
 - **クリエイターエージェント**: 外部操作を実行（pr-creator）
 
 ### 使用パターン
 
 - **ディレクトリ名**: `plugins/<name>/agents/`
-- **ファイル名**: `performance-analyst.md`、`spec-writer.md`、`story-writer.md`、`changelog-writer.md`、`pr-creator.md`、`terminology-writer.md`
+- **ファイル名**: `performance-analyst.md`、`spec-writer.md`、`story-writer.md`、`changelog-writer.md`、`pr-creator.md`、`terms-writer.md`
 - **コード参照**: 「story-writerエージェントを呼び出す」、「changelog-writerエージェントが処理する...」、「Taskツールでエージェントを起動」
 
 ### 関連用語
@@ -116,7 +116,7 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 オーケストレーターは、インラインでタスクを実行する代わりに、専門化された作業を複数のエージェントに委譲するコマンドです。オーケストレーターは初期コンテキストを収集し、エージェントを（パフォーマンスのために並列で）呼び出し、その出力を統合します。このパターンは、複雑なマルチステップワークフローを可能にしながら、メイン会話のコンテキストウィンドウを保持します。
 
 例:
-- `/pull-request`はchangelog-writer、story-writer、spec-writer、terminology-writerを同時に、その後pr-creatorを順次オーケストレート
+- `/pull-request`はchangelog-writer、story-writer、spec-writer、terms-writerを同時に、その後pr-creatorを順次オーケストレート
 
 ### 使用パターン
 

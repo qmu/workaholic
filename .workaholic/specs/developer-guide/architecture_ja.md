@@ -49,7 +49,7 @@ plugins/
       pr-creator.md           # GitHub PRの作成/更新
       spec-writer.md          # .workaholic/specs/を更新
       story-writer.md         # PR用のブランチストーリーを生成
-      terminology-writer.md   # .workaholic/terminology/を更新
+      terms-writer.md   # .workaholic/terms/を更新
     commands/
       branch.md          # /branch コマンド
       commit.md          # /commit コマンド
@@ -96,7 +96,7 @@ plugins/
 - **pr-creator**: ストーリーファイルをPRボディとして使用してGitHub PRを作成または更新、タイトル導出と`gh` CLI操作を処理
 - **spec-writer**: 現在のコードベースの状態を反映するように`.workaholic/specs/`ドキュメントを更新
 - **story-writer**: PR内容の単一の真実の情報源として機能する`.workaholic/stories/`にブランチストーリーを生成、パフォーマンスメトリクスと意思決定レビューを含む
-- **terminology-writer**: 一貫した用語定義を維持するために`.workaholic/terminology/`を更新
+- **terms-writer**: 一貫した用語定義を維持するために`.workaholic/terms/`を更新
 
 ## Claude Codeがプラグインをロードする方法
 
@@ -139,7 +139,7 @@ flowchart TD
         D[changelog-writer]
         E[story-writer]
         F[spec-writer]
-        G[terminology-writer]
+        G[terms-writer]
     end
 
     C --> D
@@ -150,7 +150,7 @@ flowchart TD
     D --> H[CHANGELOG.md]
     E --> I[.workaholic/stories/]
     F --> J[.workaholic/specs/]
-    G --> K[.workaholic/terminology/]
+    G --> K[.workaholic/terms/]
 
     H --> L[docsをコミット]
     I --> L

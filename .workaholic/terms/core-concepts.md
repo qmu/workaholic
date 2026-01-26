@@ -93,14 +93,14 @@ A specialized subagent that can be spawned to handle focused tasks in its own co
 Agents (also called subagents) are AI subprocesses that run with specific prompts and tools to perform focused work. They execute in their own context window, preserving the parent conversation's context while handling extensive file reads or complex analysis. Commands invoke agents via the Task tool and receive structured output. Agents can also invoke other agents (subagent chaining). Agents are defined in a plugin's `agents/` directory.
 
 Common agent types:
-- **Writer agents**: Generate documentation (spec-writer, terminology-writer, story-writer, changelog-writer)
+- **Writer agents**: Generate documentation (spec-writer, terms-writer, story-writer, changelog-writer)
 - **Analyst agents**: Evaluate and analyze (performance-analyst)
 - **Creator agents**: Perform external operations (pr-creator)
 
 ### Usage Patterns
 
 - **Directory names**: `plugins/<name>/agents/`
-- **File names**: `performance-analyst.md`, `spec-writer.md`, `story-writer.md`, `changelog-writer.md`, `pr-creator.md`, `terminology-writer.md`
+- **File names**: `performance-analyst.md`, `spec-writer.md`, `story-writer.md`, `changelog-writer.md`, `pr-creator.md`, `terms-writer.md`
 - **Code references**: "Invoke the story-writer agent", "The changelog-writer agent handles...", "Spawn the agent via Task tool"
 
 ### Related Terms
@@ -116,7 +116,7 @@ A command that coordinates multiple agents to complete a complex workflow.
 An orchestrator is a command that delegates specialized work to multiple agents rather than performing tasks inline. The orchestrator gathers initial context, invokes agents (potentially in parallel for performance), and consolidates their outputs. This pattern preserves the main conversation's context window while enabling complex multi-step workflows.
 
 Examples:
-- `/pull-request` orchestrates changelog-writer, story-writer, spec-writer, terminology-writer concurrently, then pr-creator sequentially
+- `/pull-request` orchestrates changelog-writer, story-writer, spec-writer, terms-writer concurrently, then pr-creator sequentially
 
 ### Usage Patterns
 

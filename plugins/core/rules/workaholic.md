@@ -11,7 +11,7 @@ The `.workaholic/` directory has a fixed structure. Only these subdirectories ar
 | --------------- | ------------------------------------------ |
 | `specs/`        | Current state reference documentation      |
 | `stories/`      | Development narratives per branch          |
-| `terminology/`  | Term definitions                           |
+| `terms/`  | Term definitions                           |
 | `tickets/`      | Implementation work queue and archives     |
 
 README files at the root level are allowed (`README.md`, `README_ja.md`, etc.).
@@ -45,7 +45,7 @@ modified_at: <ISO 8601 timestamp>
 | --------------- | ------------------------------------------------------ |
 | `specs/`        | `title`, `description`, `category`, `commit_hash`      |
 | `stories/`      | `branch`, `started_at`, `ended_at`, metrics fields     |
-| `terminology/`  | `title`, `description`, `category`                     |
+| `terms/`  | `title`, `description`, `category`                     |
 | `tickets/`      | See `/ticket` command for full schema                  |
 
 **Exceptions:**

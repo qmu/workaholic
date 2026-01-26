@@ -14,7 +14,7 @@ Workaholicプラグインマーケットプレイスの作業成果物ハブで�
 
 - [specs/](specs/README_ja.md) - 現状のリファレンスドキュメント
 - [stories/](stories/README_ja.md) - ブランチごとの開発ナラティブとPRの説明文
-- [terminology/](terminology/README_ja.md) - プロジェクト全体で統一された用語定義
+- [terms/](terms/README_ja.md) - プロジェクト全体で統一された用語定義
 - [tickets/](tickets/README_ja.md) - 実装作業キューとアーカイブ
 
 ## Plugins

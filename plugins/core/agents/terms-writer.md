@@ -1,12 +1,12 @@
 ---
-name: terminology-writer
-description: Update .workaholic/terminology/ documentation to maintain consistent term definitions. Use after completing implementation work.
+name: terms-writer
+description: Update .workaholic/terms/ documentation to maintain consistent term definitions. Use after completing implementation work.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
-# Terminology Writer
+# Terms Writer
 
-Update `.workaholic/terminology/` to maintain consistent term definitions across the codebase.
+Update `.workaholic/terms/` to maintain consistent term definitions across the codebase.
 
 ## Git Command Guidelines
 
@@ -41,10 +41,10 @@ ls -1 .workaholic/tickets/archive/<branch-name>/*.md 2>/dev/null
 
 ### 2. Audit Current Terminology
 
-Survey what exists in `.workaholic/terminology/`:
+Survey what exists in `.workaholic/terms/`:
 
 ```bash
-find .workaholic/terminology -name "*.md" -type f | sort
+find .workaholic/terms -name "*.md" -type f | sort
 ```
 
 For each document:

@@ -1,5 +1,5 @@
 ---
-title: Terminology
+title: Terms
 description: Consistent term definitions across the Workaholic project
 category: developer
 last_updated: 2026-01-25
@@ -8,7 +8,7 @@ commit_hash: a87a013
 
 [English](README.md) | [日本語](README_ja.md)
 
-# Terminology
+# Terms
 
 Consistent term definitions across the Workaholic project.
 
@@ -20,7 +20,7 @@ Consistent term definitions across the Workaholic project.
 
 ## Purpose
 
-This directory maintains consistent terminology definitions to:
+This directory maintains consistent term definitions to:
 
 - Reduce confusion when reading documentation
 - Ensure commands and descriptions use terms consistently

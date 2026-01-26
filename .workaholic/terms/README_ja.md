@@ -1,5 +1,5 @@
 ---
-title: Terminology
+title: Terms
 description: Consistent term definitions across the Workaholic project
 category: developer
 last_updated: 2026-01-25

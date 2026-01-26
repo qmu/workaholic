@@ -14,7 +14,7 @@ This is the working artifacts hub for the Workaholic plugin marketplace.
 
 - [specs/](specs/README.md) - Current state reference documentation
 - [stories/](stories/README.md) - Development narratives and PR descriptions per branch
-- [terminology/](terminology/README.md) - Consistent term definitions across the project
+- [terms/](terms/README.md) - Consistent term definitions across the project
 - [tickets/](tickets/README.md) - Implementation work queue and archives
 
 ## Plugins

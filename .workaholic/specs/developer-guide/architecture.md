@@ -49,7 +49,7 @@ plugins/
       pr-creator.md           # Creates/updates GitHub PRs
       spec-writer.md          # Updates .workaholic/specs/
       story-writer.md         # Generates branch stories for PRs
-      terminology-writer.md   # Updates .workaholic/terminology/
+      terms-writer.md   # Updates .workaholic/terms/
     commands/
       branch.md          # /branch command
       commit.md          # /commit command
@@ -96,7 +96,7 @@ Agents are specialized subagents that can be spawned to handle complex tasks. Th
 - **pr-creator**: Creates or updates GitHub pull requests using the story file as PR body, handling title derivation and `gh` CLI operations
 - **spec-writer**: Updates `.workaholic/specs/` documentation to reflect current codebase state
 - **story-writer**: Generates branch stories in `.workaholic/stories/` that serve as the single source of truth for PR content, including performance metrics and decision review
-- **terminology-writer**: Updates `.workaholic/terminology/` to maintain consistent term definitions
+- **terms-writer**: Updates `.workaholic/terms/` to maintain consistent term definitions
 
 ## How Claude Code Loads Plugins
 
@@ -139,7 +139,7 @@ flowchart TD
         D[changelog-writer]
         E[story-writer]
         F[spec-writer]
-        G[terminology-writer]
+        G[terms-writer]
     end
 
     C --> D
@@ -150,7 +150,7 @@ flowchart TD
     D --> H[CHANGELOG.md]
     E --> I[.workaholic/stories/]
     F --> J[.workaholic/specs/]
-    G --> K[.workaholic/terminology/]
+    G --> K[.workaholic/terms/]
 
     H --> L[Commit docs]
     I --> L

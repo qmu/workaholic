@@ -54,7 +54,7 @@ Update documentation to match the current state.
 
 ### Definition
 
-Sync operations update derived documentation (specs, terminology) to reflect the current codebase state. Unlike commits that record changes, syncs ensure documentation accuracy. The `/pull-request` command automatically synchronizes the `.workaholic/` directory (specs and terminology) with the current codebase via spec-writer and terminology-writer subagents.
+Sync operations update derived documentation (specs, terms) to reflect the current codebase state. Unlike commits that record changes, syncs ensure documentation accuracy. The `/pull-request` command automatically synchronizes the `.workaholic/` directory (specs and terms) with the current codebase via spec-writer and terms-writer subagents.
 
 ### Usage Patterns
 
@@ -64,7 +64,7 @@ Sync operations update derived documentation (specs, terminology) to reflect the
 
 ### Related Terms
 
-- spec, terminology
+- spec, terms
 
 ## release
 
@@ -93,7 +93,7 @@ Run multiple independent agents simultaneously for improved performance.
 Concurrent execution is a pattern where multiple agents are invoked in parallel when they write to different locations and have no dependencies on each other. The orchestrating command sends multiple Task tool invocations in a single message, allowing agents to work simultaneously. This significantly reduces total execution time compared to sequential processing.
 
 Examples of concurrent execution:
-- `/pull-request` runs changelog-writer, story-writer, spec-writer, terminology-writer concurrently
+- `/pull-request` runs changelog-writer, story-writer, spec-writer, terms-writer concurrently
 
 Sequential execution is still required when outputs depend on prior results (e.g., pr-creator runs after story-writer because it reads the story file).
 

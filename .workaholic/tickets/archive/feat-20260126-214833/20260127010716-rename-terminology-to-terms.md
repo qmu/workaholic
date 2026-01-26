@@ -3,9 +3,9 @@ created_at: 2026-01-27T01:07:16+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: d213ea1
+category: Changed
 ---
 
 # Rename terminology to terms
@@ -77,3 +77,7 @@ Changes:
 - CHANGELOG.md entries are historical and should remain unchanged
 - The agent subagent_type in Task tool calls needs to change from `core:terminology-writer` to `core:terms-writer`
 - Files inside the renamed directory keep their original names (e.g., `core-concepts.md` stays the same)
+
+## Final Report
+
+Development completed as planned.

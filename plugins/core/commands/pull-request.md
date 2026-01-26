@@ -35,7 +35,7 @@ This design makes stories the single source of truth for PR content, eliminating
    - **changelog-writer** (`subagent_type: "core:changelog-writer"`): Updates `CHANGELOG.md` with entries from archived tickets
    - **story-writer** (`subagent_type: "core:story-writer"`): Creates `.workaholic/stories/<branch-name>.md` with PR narrative
    - **spec-writer** (`subagent_type: "core:spec-writer"`): Updates `.workaholic/specs/` to reflect codebase changes
-   - **terminology-writer** (`subagent_type: "core:terminology-writer"`): Updates `.workaholic/terminology/` with new terms
+   - **terms-writer** (`subagent_type: "core:terms-writer"`): Updates `.workaholic/terms/` with new terms
 
    Pass to each agent:
    - Branch name and base branch as context
@@ -45,7 +45,7 @@ This design makes stories the single source of truth for PR content, eliminating
    - `CHANGELOG.md`
    - `.workaholic/stories/<branch-name>.md`
    - `.workaholic/specs/**/*.md`
-   - `.workaholic/terminology/**/*.md`
+   - `.workaholic/terms/**/*.md`
 
    After all complete, stage all changes and commit: "Update documentation for PR"
 

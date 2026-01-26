@@ -13,7 +13,7 @@ Explore the codebase to understand requirements and write an implementation tick
 
    - Parse `$ARGUMENT` to understand what the user wants to implement
    - If `$ARGUMENT` is empty, ask the user what they want to ticket
-   - If `$ARGUMENT` contains "icebox", store in `.work/tickets/icebox/` instead
+   - If `$ARGUMENT` contains "icebox", store in `.workaholic/tickets/icebox/` instead
 
 2. **Explore the Codebase**
 
@@ -29,7 +29,7 @@ Explore the codebase to understand requirements and write an implementation tick
 
 4. **Write the Ticket**
 
-   - Create a ticket file in `.work/tickets/` (or `.work/tickets/icebox/` for icebox) with a descriptive filename
+   - Create a ticket file in `.workaholic/tickets/` (or `.workaholic/tickets/icebox/` for icebox) with a descriptive filename
    - Filename format: `YYYYMMDDHHmmss-<short-description>.md`
    - Use current timestamp: `date +%Y%m%d%H%M%S`
    - Example: `20260114153042-add-dark-mode.md`
@@ -94,14 +94,14 @@ Explore the codebase to understand requirements and write an implementation tick
    - Stage only the newly created ticket file: `git add <ticket-path>`
    - Commit with message: "Add ticket for <short-description>"
    - Use the ticket's H1 title for the description
-   - Example: `git add .work/tickets/20260125-add-auth.md && git commit -m "Add ticket for user authentication"`
+   - Example: `git add .workaholic/tickets/20260125-add-auth.md && git commit -m "Add ticket for user authentication"`
 
 7. **Present the Ticket**
 
    - Show the user where the ticket was created and committed
    - Summarize the key points
    - If icebox: tell user to run `/drive icebox` later to retrieve it
-   - If normal: count queued tickets in `.work/tickets/` (excluding archive/, icebox/)
+   - If normal: count queued tickets in `.workaholic/tickets/` (excluding archive/, icebox/)
    - Tell user to run `/drive` to implement queued tickets
    - **NEVER ask "Would you like me to proceed with implementation?" - that is NOT your job**
 

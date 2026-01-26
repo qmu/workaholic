@@ -1,11 +1,11 @@
 ---
 name: sync-work
-description: Sync source code changes to .work/ directory (specs and terminology)
+description: Sync source code changes to .workaholic/ directory (specs and terminology)
 ---
 
 # Sync Work
 
-Update `.work/specs/` and `.work/terminology/` to reflect the current codebase state.
+Update `.workaholic/specs/` and `.workaholic/terminology/` to reflect the current codebase state.
 
 ## Instructions
 
@@ -18,7 +18,7 @@ Understand what changed in the current branch:
 git branch --show-current
 
 # List archived tickets for this branch
-ls -1 .work/tickets/archive/<branch-name>/*.md 2>/dev/null
+ls -1 .workaholic/tickets/archive/<branch-name>/*.md 2>/dev/null
 ```
 
 **If archived tickets exist:**
@@ -34,11 +34,11 @@ ls -1 .work/tickets/archive/<branch-name>/*.md 2>/dev/null
 
 ### 2. Audit Current Documentation
 
-Survey what exists in `.work/specs/` and `.work/terminology/`:
+Survey what exists in `.workaholic/specs/` and `.workaholic/terminology/`:
 
 ```bash
-find .work/specs -name "*.md" -type f | sort
-find .work/terminology -name "*.md" -type f | sort
+find .workaholic/specs -name "*.md" -type f | sort
+find .workaholic/terminology -name "*.md" -type f | sort
 ```
 
 For each document:
@@ -55,7 +55,7 @@ Based on changes and current docs, determine:
 
 - **Updates needed**: Existing docs that reference changed components
 - **New docs needed**: Changes that introduced new concepts requiring docs
-- **Deletions needed**: Docs for removed features (only within `.work/`)
+- **Deletions needed**: Docs for removed features (only within `.workaholic/`)
 - **README updates**: Index files needing link additions/removals
 
 **For terminology:**
@@ -78,7 +78,7 @@ Look for:
 
 For each cross-cutting concern identified:
 
-- Check if `.work/specs/` already has a document covering this concept
+- Check if `.workaholic/specs/` already has a document covering this concept
 - If not, consider whether it warrants a new document or a section in `architecture.md`
 - If yes, update the existing document to reflect the current state
 - Prefer extending existing docs over creating new files for minor patterns
@@ -92,7 +92,7 @@ For each cross-cutting concern identified:
 
 ### 5. Execute Spec Updates
 
-Apply updates to `.work/specs/` following these formatting rules:
+Apply updates to `.workaholic/specs/` following these formatting rules:
 
 **Directory Structure** (required):
 
@@ -100,11 +100,11 @@ All spec documents must be placed in the appropriate subdirectory based on audie
 
 | Audience   | Directory                      | Content                                  |
 | ---------- | ------------------------------ | ---------------------------------------- |
-| Users      | `.work/specs/user-guide/`      | How to use: commands, workflows, setup   |
-| Developers | `.work/specs/developer-guide/` | How it works: architecture, contributing |
+| Users      | `.workaholic/specs/user-guide/`      | How to use: commands, workflows, setup   |
+| Developers | `.workaholic/specs/developer-guide/` | How it works: architecture, contributing |
 
 - The `category` in frontmatter must match the directory
-- Do not place documents directly in `.work/specs/` (except README.md)
+- Do not place documents directly in `.workaholic/specs/` (except README.md)
 - Each subdirectory has its own README.md as an index
 
 **Frontmatter** (required for every file):
@@ -140,7 +140,7 @@ git rev-parse --short HEAD
 
 - Write full paragraphs, not bullet-point fragments
 - Code blocks must specify language
-- Links use relative paths within `.work/`
+- Links use relative paths within `.workaholic/`
 - Use Mermaid charts for diagrams
 
 **Design Policy**:
@@ -151,7 +151,7 @@ git rev-parse --short HEAD
 
 ### 6. Execute Terminology Updates
 
-Apply updates to `.work/terminology/` following these rules:
+Apply updates to `.workaholic/terminology/` following these rules:
 
 **Term categories:**
 
@@ -193,9 +193,9 @@ Full explanation of what this term means in the Workaholic context.
 
 Ensure documentation hierarchy is maintained:
 
-**.work/README.md structure:**
+**.workaholic/README.md structure:**
 
-The root .work/README.md should be a simple index linking to subdirectory READMEs:
+The root .workaholic/README.md should be a simple index linking to subdirectory READMEs:
 
 ```markdown
 # Documentation
@@ -212,11 +212,11 @@ The root .work/README.md should be a simple index linking to subdirectory README
 - [TDD](../plugins/tdd/README.md) - Ticket-driven development
 ```
 
-Keep detailed content in subdirectory READMEs, not in .work/README.md.
+Keep detailed content in subdirectory READMEs, not in .workaholic/README.md.
 
 **When adding a document:**
 
-- Add link to parent README (subdirectory or `.work/specs/README.md`)
+- Add link to parent README (subdirectory or `.workaholic/specs/README.md`)
 - Include brief description of the document
 
 **When removing a document:**
@@ -238,7 +238,7 @@ Keep detailed content in subdirectory READMEs, not in .work/README.md.
 When the project has multiple language READMEs (e.g., `README.md` and `README_ja.md`):
 
 - Any document added to one README must have its translation linked in the other
-- See `plugins/core/rules/i18n.md` for `.work/` i18n policy
+- See `plugins/core/rules/i18n.md` for `.workaholic/` i18n policy
 
 ### 8. Completion
 
@@ -253,7 +253,7 @@ Summarize changes made:
 
 - **"No updates needed" is almost always wrong** - Re-analyze if you think nothing changed
 - **Every ticket affects docs somehow** - Even small changes have documentation implications
-- **Only delete within `.work/`** - Safety constraint for file deletions
+- **Only delete within `.workaholic/`** - Safety constraint for file deletions
 - **No orphan documents** - Every doc must be linked from a parent README
 - **Consistency over precision** - A term should mean the same thing everywhere
 - **Category matches directory** - A doc with `category: user` must be in `user-guide/`, `category: developer` in `developer-guide/`

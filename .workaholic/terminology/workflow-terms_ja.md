@@ -2,8 +2,8 @@
 title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
-modified_at: 2026-01-26T21:44:25+09:00
-commit_hash: c4a627b
+last_updated: 2026-01-27
+commit_hash: b262207
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -83,3 +83,27 @@ sync操作は派生ドキュメント（specs、terminology）を現在のコー
 ### 関連用語
 
 - changelog、plugin
+
+## concurrent-execution
+
+パフォーマンス向上のために複数の独立したエージェントを同時に実行。
+
+### 定義
+
+concurrent execution（並行実行）は、異なる場所に書き込み、互いに依存関係がない複数のエージェントを並列で呼び出すパターンです。オーケストレーションコマンドは単一のメッセージで複数のTaskツール呼び出しを送信し、エージェントが同時に作業できるようにします。これにより、順次処理と比較して合計実行時間が大幅に短縮されます。
+
+concurrent executionの例:
+- `/sync-workaholic`はspec-writerとterminology-writerを並列実行
+- `/pull-request`はchangelog-writer、story-writer、spec-writer、terminology-writerを同時実行
+
+出力が先行する結果に依存する場合は、順次実行が依然として必要です（例：pr-creatorはstory-writerの後に実行される。ストーリーファイルを読み取るため）。
+
+### 使用パターン
+
+- **ディレクトリ名**: N/A（パターンであり、ストレージではない）
+- **ファイル名**: N/A
+- **コード参照**: 「エージェントを同時実行」、「並列で呼び出す」、「同時に実行」
+
+### 関連用語
+
+- agent、orchestrator、Task tool

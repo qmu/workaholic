@@ -1,5 +1,14 @@
 # Changelog
 
+## feat-20260126-214833
+
+### Changed
+
+- Convert sync-workaholic command to subagent ([d4e6a07](https://github.com/qmu/workaholic/commit/d4e6a07f95d7c129f16db5bc5d73ef34e9e649af)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127003251-sync-workaholic-subagent.md)
+- Extract story-writer as subagent from pull-request command ([4c83014](https://github.com/qmu/workaholic/commit/4c83014d088d90ad784012bb5044ed3d79eff02a)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127004417-story-writer-subagent.md)
+- Extract changelog-writer subagent and run 4 agents concurrently in pull-request ([b65d371](https://github.com/qmu/workaholic/commit/b65d371f39eaac6309eecba9612449a31d9e0c43)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127005414-changelog-writer-subagent-and-concurrent-pr-agents.md)
+- Extract pr-creator subagent from pull-request command ([4ee763d](https://github.com/qmu/workaholic/commit/4ee763d9c0d9a07fdc4f202d0c058e36ecf4bf00)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127005601-pr-creator-subagent.md)
+
 ## [feat-20260126-131531](https://github.com/qmu/workaholic/tree/feat-20260126-131531)
 
 ### Added

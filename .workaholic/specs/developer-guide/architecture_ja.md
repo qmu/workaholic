@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-last_updated: 2026-01-25
-commit_hash: a87a013
+modified_at: 2026-01-27T00:58:50+09:00
+commit_hash: b262207
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -44,13 +44,18 @@ plugins/
     .claude-plugin/
       plugin.json        # プラグインメタデータ
     agents/
-      performance-analyst.md  # 意思決定レビューサブエージェント
+      changelog-writer.md     # チケットからCHANGELOG.mdを更新
+      performance-analyst.md  # PRストーリーの意思決定レビュー
+      pr-creator.md           # GitHub PRの作成/更新
+      spec-writer.md          # .workaholic/specs/を更新
+      story-writer.md         # PR用のブランチストーリーを生成
+      terminology-writer.md   # .workaholic/terminology/を更新
     commands/
       branch.md          # /branch コマンド
       commit.md          # /commit コマンド
       drive.md           # /drive コマンド
       pull-request.md    # /pull-request コマンド
-      sync-work.md    # /sync-work コマンド
+      sync-workaholic.md # /sync-workaholic コマンド
       ticket.md          # /ticket コマンド
     rules/
       diagrams.md      # Mermaid図表要件
@@ -85,9 +90,14 @@ plugins/
 
 ### エージェント
 
-エージェントは複雑な分析タスクを処理するために生成できる特殊なサブエージェントです。特定のプロンプトとツールを持つサブプロセスで実行されます。coreプラグインには以下が含まれます：
+エージェントは複雑なタスクを処理するために生成できる特殊なサブエージェントです。特定のプロンプトとツールを持つサブプロセスで実行され、メイン会話のコンテキストウィンドウをインタラクティブな作業用に保持します。coreプラグインには以下が含まれます：
 
-- **performance-analyst**: PRの説明文のために5つの観点（Consistency、Intuitivity、Describability、Agility、Density）で意思決定の質を評価
+- **changelog-writer**: アーカイブされたチケットからルート`CHANGELOG.md`をカテゴリ別（Added、Changed、Removed）に更新
+- **performance-analyst**: PRストーリーのために5つの観点（Consistency、Intuitivity、Describability、Agility、Density）で意思決定の質を評価
+- **pr-creator**: ストーリーファイルをPRボディとして使用してGitHub PRを作成または更新、タイトル導出と`gh` CLI操作を処理
+- **spec-writer**: 現在のコードベースの状態を反映するように`.workaholic/specs/`ドキュメントを更新
+- **story-writer**: PR内容の単一の真実の情報源として機能する`.workaholic/stories/`にブランチストーリーを生成、パフォーマンスメトリクスと意思決定レビューを含む
+- **terminology-writer**: 一貫した用語定義を維持するために`.workaholic/terminology/`を更新
 
 ## Claude Codeがプラグインをロードする方法
 
@@ -117,30 +127,53 @@ sequenceDiagram
 
 ## ドキュメント強制
 
-Workaholicは`/sync-work`コマンドを通じて包括的なドキュメントを強制し、コード変更とのドキュメント同期を明示的に制御します。
+Workaholicは並列サブエージェントアーキテクチャを通じて包括的なドキュメントを強制します。`/pull-request`コマンドは4つのドキュメントエージェントを同時に実行し、それぞれが特定のドメインを担当します。
 
 ### 仕組み
 
 ```mermaid
 flowchart TD
-    A[/pull-request コマンド] --> B[チケットからCHANGELOGを更新]
-    B --> C[/sync-work]
-    C --> D[アーカイブされたチケットを読む]
-    D --> E[.workaholic/specs/を監査]
-    E --> F[ドキュメントを更新]
-    F --> G[docsをコミット]
-    G --> H[PRを作成/更新]
+    A[/pull-request コマンド] --> B[残りのチケットをiceboxに移動]
+    B --> C[4つのサブエージェントを並列で呼び出し]
+
+    subgraph 並列ドキュメント生成
+        D[changelog-writer]
+        E[story-writer]
+        F[spec-writer]
+        G[terminology-writer]
+    end
+
+    C --> D
+    C --> E
+    C --> F
+    C --> G
+
+    D --> H[CHANGELOG.md]
+    E --> I[.workaholic/stories/]
+    F --> J[.workaholic/specs/]
+    G --> K[.workaholic/terminology/]
+
+    H --> L[docsをコミット]
+    I --> L
+    J --> L
+    K --> L
+
+    L --> M[pr-creator サブエージェント]
+    M --> N[PRを作成/更新]
 ```
 
-ドキュメントは`/pull-request`ワークフロー中に自動的に更新され、内部的に`/sync-work`を実行します。いつでも直接`/sync-work`を実行してドキュメントを更新することもできます。コマンドは：
+ドキュメントは`/pull-request`ワークフロー中に自動的に更新されます。PRを作成せずにspecsとterminologyのみを更新する場合は、直接`/sync-workaholic`を実行することもできます。
 
-1. **コンテキストを収集** - `.workaholic/tickets/archive/<branch-name>/`からアーカイブされたチケットを読んで何が変更されたかを理解
-2. **現在のドキュメントを監査** - `.workaholic/specs/`内の既存ドキュメントを調査
-3. **ドキュメントを更新** - ドキュメント基準に従って必要に応じてドキュメントを作成、更新、削除
+サブエージェントアーキテクチャにはいくつかの利点があります：
+
+1. **並列実行** - 4つのエージェントが同時に実行され、待ち時間を短縮
+2. **コンテキスト分離** - 各エージェントが独自のコンテキストウィンドウで動作し、メイン会話を保持
+3. **単一責任** - 各エージェントが1つのドキュメントドメインを担当
+4. **障害耐性** - 1つのエージェントが失敗しても、他は完了可能
 
 ### 重要な要件
 
-`/sync-work`コマンドは厳格な要件を強制します：
+すべてのドキュメントエージェントは厳格な要件を強制します：
 
 - **すべての変更をドキュメント化** - 例外なし、何が「ドキュメント化する価値がある」かの判断なし
 - **ドキュメントをスキップしない** - 「内部実装の詳細」は決して有効な理由にならない

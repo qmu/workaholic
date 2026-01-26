@@ -2,8 +2,8 @@
 title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
-modified_at: 2026-01-26T21:44:25+09:00
-commit_hash: c4a627b
+last_updated: 2026-01-27
+commit_hash: b262207
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -83,3 +83,27 @@ A release increments the marketplace version, updates version metadata, and publ
 ### Related Terms
 
 - changelog, plugin
+
+## concurrent-execution
+
+Run multiple independent agents simultaneously for improved performance.
+
+### Definition
+
+Concurrent execution is a pattern where multiple agents are invoked in parallel when they write to different locations and have no dependencies on each other. The orchestrating command sends multiple Task tool invocations in a single message, allowing agents to work simultaneously. This significantly reduces total execution time compared to sequential processing.
+
+Examples of concurrent execution:
+- `/sync-workaholic` runs spec-writer and terminology-writer in parallel
+- `/pull-request` runs changelog-writer, story-writer, spec-writer, terminology-writer concurrently
+
+Sequential execution is still required when outputs depend on prior results (e.g., pr-creator runs after story-writer because it reads the story file).
+
+### Usage Patterns
+
+- **Directory names**: N/A (pattern, not storage)
+- **File names**: N/A
+- **Code references**: "Run agents concurrently", "Invoke in parallel", "Execute simultaneously"
+
+### Related Terms
+
+- agent, orchestrator, Task tool

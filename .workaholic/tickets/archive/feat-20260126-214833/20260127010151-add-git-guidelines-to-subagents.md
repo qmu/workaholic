@@ -3,9 +3,9 @@ created_at: 2026-01-27T01:01:51+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 7933c67
+category: Added
 ---
 
 # Add git guidelines to subagents to prevent confirmation prompts
@@ -41,3 +41,7 @@ The rule "Never use `git -C`" exists in `general.md` but subagents don't see it.
 - The `changelog-writer.md` and `pr-creator.md` don't need this change because they don't run git commands directly (changelog-writer reads frontmatter, pr-creator uses `gh` CLI)
 - The `performance-analyst.md` doesn't need this because it receives data as input rather than running commands
 - Keep the guideline concise - one line is enough since the agents are focused tools
+
+## Final Report
+
+Development completed as planned.

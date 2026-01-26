@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-last_updated: 2026-01-25
-commit_hash: a87a013
+modified_at: 2026-01-27T00:58:50+09:00
+commit_hash: b262207
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -44,13 +44,18 @@ plugins/
     .claude-plugin/
       plugin.json        # Plugin metadata
     agents/
-      performance-analyst.md  # Decision review subagent
+      changelog-writer.md     # Updates CHANGELOG.md from tickets
+      performance-analyst.md  # Decision review for PR stories
+      pr-creator.md           # Creates/updates GitHub PRs
+      spec-writer.md          # Updates .workaholic/specs/
+      story-writer.md         # Generates branch stories for PRs
+      terminology-writer.md   # Updates .workaholic/terminology/
     commands/
       branch.md          # /branch command
       commit.md          # /commit command
       drive.md           # /drive command
       pull-request.md    # /pull-request command
-      sync-work.md    # /sync-work command
+      sync-workaholic.md # /sync-workaholic command
       ticket.md          # /ticket command
     rules/
       diagrams.md      # Mermaid diagram requirements
@@ -85,9 +90,14 @@ Skills are complex capabilities that may include scripts or multiple files. They
 
 ### Agents
 
-Agents are specialized subagents that can be spawned to handle complex analysis tasks. They run in a subprocess with specific prompts and tools. The core plugin includes:
+Agents are specialized subagents that can be spawned to handle complex tasks. They run in a subprocess with specific prompts and tools, preserving the main conversation's context window for interactive work. The core plugin includes:
 
-- **performance-analyst**: Evaluates decision-making quality across five viewpoints (Consistency, Intuitivity, Describability, Agility, Density) for PR descriptions
+- **changelog-writer**: Updates root `CHANGELOG.md` with entries from archived tickets, grouped by category (Added, Changed, Removed)
+- **performance-analyst**: Evaluates decision-making quality across five viewpoints (Consistency, Intuitivity, Describability, Agility, Density) for PR stories
+- **pr-creator**: Creates or updates GitHub pull requests using the story file as PR body, handling title derivation and `gh` CLI operations
+- **spec-writer**: Updates `.workaholic/specs/` documentation to reflect current codebase state
+- **story-writer**: Generates branch stories in `.workaholic/stories/` that serve as the single source of truth for PR content, including performance metrics and decision review
+- **terminology-writer**: Updates `.workaholic/terminology/` to maintain consistent term definitions
 
 ## How Claude Code Loads Plugins
 
@@ -117,30 +127,53 @@ sequenceDiagram
 
 ## Documentation Enforcement
 
-Workaholic enforces comprehensive documentation through the `/sync-work` command, which provides explicit control over documentation synchronization with code changes.
+Workaholic enforces comprehensive documentation through a parallel subagent architecture. The `/pull-request` command orchestrates four documentation agents that run concurrently, each handling a specific domain.
 
 ### How It Works
 
 ```mermaid
 flowchart TD
-    A[/pull-request command] --> B[Update CHANGELOG from tickets]
-    B --> C[/sync-work]
-    C --> D[Read archived tickets]
-    D --> E[Audit .workaholic/specs/]
-    E --> F[Update documentation]
-    F --> G[Commit docs]
-    G --> H[Create/update PR]
+    A[/pull-request command] --> B[Move remaining tickets to icebox]
+    B --> C[Invoke 4 subagents in parallel]
+
+    subgraph Parallel Documentation
+        D[changelog-writer]
+        E[story-writer]
+        F[spec-writer]
+        G[terminology-writer]
+    end
+
+    C --> D
+    C --> E
+    C --> F
+    C --> G
+
+    D --> H[CHANGELOG.md]
+    E --> I[.workaholic/stories/]
+    F --> J[.workaholic/specs/]
+    G --> K[.workaholic/terminology/]
+
+    H --> L[Commit docs]
+    I --> L
+    J --> L
+    K --> L
+
+    L --> M[pr-creator subagent]
+    M --> N[Create/update PR]
 ```
 
-Documentation is updated automatically during the `/pull-request` workflow, which internally runs `/sync-work`. You can also run `/sync-work` directly at any time to update documentation. The command:
+Documentation is updated automatically during the `/pull-request` workflow. You can also run `/sync-workaholic` directly to update specs and terminology without creating a PR.
 
-1. **Gathers context** - Reads archived tickets from `.workaholic/tickets/archive/<branch-name>/` to understand what changed
-2. **Audits current docs** - Surveys existing documentation in `.workaholic/specs/`
-3. **Updates documentation** - Creates, updates, or removes docs as needed, following documentation standards
+The subagent architecture provides several benefits:
+
+1. **Parallel execution** - All four agents run simultaneously, reducing wait time
+2. **Context isolation** - Each agent works in its own context window, preserving the main conversation
+3. **Single responsibility** - Each agent handles one documentation domain
+4. **Resilient to failures** - If one agent fails, others can still complete
 
 ### Critical Requirements
 
-The `/sync-work` command enforces strict requirements:
+All documentation agents enforce strict requirements:
 
 - **Document every change** - No exceptions, no judgment calls about what's "worth" documenting
 - **Never skip documentation** - "Internal implementation detail" is never a valid reason

@@ -2,8 +2,8 @@
 title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
-last_updated: 2026-01-25
-commit_hash: a87a013
+last_updated: 2026-01-27
+commit_hash: b262207
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -86,18 +86,45 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 
 ## agent
 
-複雑な分析タスクを処理するために生成される特殊なサブエージェント。
+フォーカスされたタスクを独自のコンテキストウィンドウで処理するために生成される特殊なサブエージェント。
 
 ### 定義
 
-エージェントは特定のプロンプトとツールを持つサブプロセスで実行されます。自律的にタスクを完了し、結果を親の会話に報告できます。Workaholicにはperformance-analystエージェントが含まれており、PRの説明文のために意思決定の質を5つの観点で評価します。
+エージェント（サブエージェントとも呼ばれる）は特定のプロンプトとツールを持つAIサブプロセスで実行されます。親の会話のコンテキストを保持しながら、大量のファイル読み取りや複雑な分析を独自のコンテキストウィンドウで実行します。コマンドはTaskツールを介してエージェントを呼び出し、構造化された出力を受け取ります。エージェントは他のエージェントを呼び出すこともできます（サブエージェントチェーン）。エージェントはプラグインの`agents/`ディレクトリで定義されます。
+
+一般的なエージェントタイプ:
+- **ライターエージェント**: ドキュメントを生成（spec-writer、terminology-writer、story-writer、changelog-writer）
+- **アナリストエージェント**: 評価と分析を実行（performance-analyst）
+- **クリエイターエージェント**: 外部操作を実行（pr-creator）
 
 ### 使用パターン
 
 - **ディレクトリ名**: `plugins/<name>/agents/`
-- **ファイル名**: `performance-analyst.md`
-- **コード参照**: 「エージェントを起動して...」、「performance-analystは...を評価する」
+- **ファイル名**: `performance-analyst.md`、`spec-writer.md`、`story-writer.md`、`changelog-writer.md`、`pr-creator.md`、`terminology-writer.md`
+- **コード参照**: 「story-writerエージェントを呼び出す」、「changelog-writerエージェントが処理する...」、「Taskツールでエージェントを起動」
 
 ### 関連用語
 
-- plugin、command、skill
+- plugin、command、skill、orchestrator
+
+## orchestrator
+
+複雑なワークフローを完了するために複数のエージェントを調整するコマンド。
+
+### 定義
+
+オーケストレーターは、インラインでタスクを実行する代わりに、専門化された作業を複数のエージェントに委譲するコマンドです。オーケストレーターは初期コンテキストを収集し、エージェントを（パフォーマンスのために並列で）呼び出し、その出力を統合します。このパターンは、複雑なマルチステップワークフローを可能にしながら、メイン会話のコンテキストウィンドウを保持します。
+
+例:
+- `/sync-workaholic`はspec-writerとterminology-writerを並列でオーケストレート
+- `/pull-request`はchangelog-writer、story-writer、spec-writer、terminology-writerを同時に、その後pr-creatorを順次オーケストレート
+
+### 使用パターン
+
+- **ディレクトリ名**: N/A（パターンであり、ストレージではない）
+- **ファイル名**: N/A
+- **コード参照**: 「コマンドはオーケストレーターとして機能する」、「エージェントを並列でオーケストレート」
+
+### 関連用語
+
+- command、agent、concurrent execution

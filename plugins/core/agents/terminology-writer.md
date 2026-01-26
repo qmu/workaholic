@@ -8,6 +8,10 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 
 Update `.workaholic/terminology/` to maintain consistent term definitions across the codebase.
 
+## Git Command Guidelines
+
+Run git commands from the working directory. Never use `git -C` flag.
+
 ## Instructions
 
 ### 1. Gather Context

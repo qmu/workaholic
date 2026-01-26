@@ -55,7 +55,6 @@ plugins/
       commit.md          # /commit コマンド
       drive.md           # /drive コマンド
       pull-request.md    # /pull-request コマンド
-      sync-workaholic.md # /sync-workaholic コマンド
       ticket.md          # /ticket コマンド
     rules/
       diagrams.md      # Mermaid図表要件
@@ -162,7 +161,7 @@ flowchart TD
     M --> N[PRを作成/更新]
 ```
 
-ドキュメントは`/pull-request`ワークフロー中に自動的に更新されます。PRを作成せずにspecsとterminologyのみを更新する場合は、直接`/sync-workaholic`を実行することもできます。
+ドキュメントは`/pull-request`ワークフロー中に自動的に更新されます。
 
 サブエージェントアーキテクチャにはいくつかの利点があります：
 

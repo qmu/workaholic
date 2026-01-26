@@ -54,13 +54,13 @@ driveオペレーションは`.workaholic/tickets/`からチケットを順次�
 
 ### 定義
 
-sync操作は派生ドキュメント（specs、terminology）を現在のコードベースの状態を反映するように更新します。変更を記録するコミットとは異なり、syncはドキュメントの正確性を確保します。`/sync-workaholic`コマンドは`.workaholic/`ディレクトリ（specsとterminology）を現在のコードベースと同期します。
+sync操作は派生ドキュメント（specs、terminology）を現在のコードベースの状態を反映するように更新します。変更を記録するコミットとは異なり、syncはドキュメントの正確性を確保します。`/pull-request`コマンドはspec-writerとterminology-writerサブエージェントを介して`.workaholic/`ディレクトリ（specsとterminology）を現在のコードベースと自動的に同期します。
 
 ### 使用パターン
 
 - **ディレクトリ名**: N/A（アクションであり、ストレージではない）
 - **ファイル名**: N/A
-- **コード参照**: 「docsをsyncする」、「`/sync-workaholic`を実行」
+- **コード参照**: 「docsをsyncする」、「/pull-request中にドキュメントが同期される」
 
 ### 関連用語
 
@@ -93,7 +93,6 @@ sync操作は派生ドキュメント（specs、terminology）を現在のコー
 concurrent execution（並行実行）は、異なる場所に書き込み、互いに依存関係がない複数のエージェントを並列で呼び出すパターンです。オーケストレーションコマンドは単一のメッセージで複数のTaskツール呼び出しを送信し、エージェントが同時に作業できるようにします。これにより、順次処理と比較して合計実行時間が大幅に短縮されます。
 
 concurrent executionの例:
-- `/sync-workaholic`はspec-writerとterminology-writerを並列実行
 - `/pull-request`はchangelog-writer、story-writer、spec-writer、terminology-writerを同時実行
 
 出力が先行する結果に依存する場合は、順次実行が依然として必要です（例：pr-creatorはstory-writerの後に実行される。ストーリーファイルを読み取るため）。

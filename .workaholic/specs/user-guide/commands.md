@@ -72,16 +72,6 @@ Implements queued tickets from top to bottom.
 
 Claude picks up tickets from `.workaholic/tickets/`, implements them one by one, asks for your approval, writes a Final Report documenting any deviations, then commits and archives each ticket before moving to the next. The `icebox` argument lets you select from deferred tickets.
 
-### /sync-workaholic
-
-Updates documentation in `.workaholic/specs/` and `.workaholic/terminology/` to reflect the current codebase state.
-
-```bash
-/sync-workaholic
-```
-
-Claude gathers context from archived tickets in the current branch, audits existing documentation, identifies what needs to be updated, and applies changes following documentation standards. This command ensures documentation stays synchronized with code changes before creating a pull request.
-
 ## Workflow Summary
 
 The typical workflow combines these commands:
@@ -89,7 +79,6 @@ The typical workflow combines these commands:
 1. `/branch` - Start a new feature branch
 2. `/ticket <description>` - Write implementation spec
 3. `/drive` - Implement the ticket
-4. `/sync-workaholic` - Update documentation (optional, also runs during `/pull-request`)
-5. `/pull-request` - Create PR for review
+4. `/pull-request` - Create PR for review (automatically updates documentation)
 
 Each ticket gets its own commit, and the CHANGELOG tracks all changes for the PR summary.

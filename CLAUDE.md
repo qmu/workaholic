@@ -8,12 +8,12 @@ Edit `plugins/` not `.claude/`. This repo develops plugins - changes go to `plug
 
 ## Written Language
 
-- **`.work/` directory**: English or Japanese (i18n)
+- **`.workaholic/` directory**: English or Japanese (i18n)
 - **All other content**: English only
   - Code and code comments
   - Commit messages
   - Pull requests
-  - Documentation outside `.work/`
+  - Documentation outside `.workaholic/`
 
 ## Project Structure
 

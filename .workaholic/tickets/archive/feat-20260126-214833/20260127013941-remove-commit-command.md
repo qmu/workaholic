@@ -3,9 +3,9 @@ created_at: 2026-01-27T01:39:42+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 4e7658c
+category: Removed
 ---
 
 # Remove /commit command
@@ -33,3 +33,7 @@ Remove the standalone `/commit` command from the core plugin. Running `/commit` 
 - Users who relied on `/commit` for ad-hoc commits will need to use `/ticket` + `/drive` workflow instead
 - This change reinforces the core philosophy: all changes should flow through tickets for proper documentation
 - The general rule about "never commit without explicit request" remains valid but should reference `/drive` and `/pull-request` instead of `/commit`
+
+## Final Report
+
+Development completed as planned.

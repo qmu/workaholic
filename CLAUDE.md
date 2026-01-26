@@ -24,20 +24,19 @@ plugins/                 # Plugin source directories
   core/                  # Core development plugin
     .claude-plugin/      # Plugin configuration
     agents/              # performance-analyst
-    commands/            # branch, commit, pull-request, ticket, drive, sync-work
+    commands/            # branch, ticket, drive, pull-request
     rules/               # general, typescript
     skills/              # archive-ticket
 ```
 
 ## Commands
 
-| Command                          | Description                                              |
-| -------------------------------- | -------------------------------------------------------- |
-| `/commit`                        | Commit changes in logical units with meaningful messages |
-| `/pull-request`                  | Create or update PR with CHANGELOG-based summary         |
-| `/release [major\|minor\|patch]` | Release new marketplace version                          |
-| `/ticket <description>`          | Write implementation spec for a feature                  |
-| `/drive`                         | Implement queued specs one by one                        |
+| Command                          | Description                                      |
+| -------------------------------- | ------------------------------------------------ |
+| `/ticket <description>`          | Write implementation spec for a feature          |
+| `/drive`                         | Implement queued specs one by one                |
+| `/pull-request`                  | Create or update PR with CHANGELOG-based summary |
+| `/release [major\|minor\|patch]` | Release new marketplace version                  |
 
 ## Development Workflow
 

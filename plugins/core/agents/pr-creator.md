@@ -26,81 +26,42 @@ You will receive:
 
 ## Instructions
 
-### 1. Check for Existing PR
+### 1. Prepare PR Body File
 
-```bash
-gh pr list --head <branch-name> --json number,title,url
-```
-
-Parse the result:
-
-- Empty array `[]`: No PR exists, will create new
-- Array with PR object: PR exists, will update
-
-### 2. Read Story File
-
-Read `.workaholic/stories/<branch-name>.md`
-
-Strip YAML frontmatter (everything between the first `---` and second `---` delimiters). The remaining content IS the PR body.
-
-### 3. Derive PR Title
-
-Parse the Summary section from the story content:
-
-```markdown
-## 1. Summary
-
-1. First meaningful change
-2. Second meaningful change
-```
-
-Title derivation rules:
-
-- **Single change**: Use as-is (e.g., "Add dark mode toggle")
-- **Multiple changes**: Use first change + "etc" (e.g., "Add dark mode toggle etc")
-- Keep title concise (GitHub truncates long titles)
-
-### 4. Create or Update PR
-
-**If NO PR exists:**
-
-```bash
-gh pr create --title "<derived-title>" --body "$(cat <<'EOF'
-<story content without frontmatter>
-EOF
-)"
-```
-
-**If PR already exists:**
-
-First, create a temporary file without frontmatter, then update:
-
-```bash
-# Strip frontmatter and write to temp file
-tail -n +<line-after-frontmatter> .workaholic/stories/<branch-name>.md > /tmp/pr-body.md
-
-# Update PR
-gh pr edit <number> --title "<derived-title>" --body-file /tmp/pr-body.md
-```
-
-Or use sed to strip frontmatter in one command:
+Read `.workaholic/stories/<branch-name>.md` and write content without YAML frontmatter to `/tmp/pr-body.md`:
 
 ```bash
 sed '1,/^---$/d;1,/^---$/d' .workaholic/stories/<branch-name>.md > /tmp/pr-body.md
 ```
 
-### 5. Get PR URL
+### 2. Derive PR Title
 
-After creating or updating, capture the PR URL:
+Extract the first item from the Summary section in the story file. Look for:
 
-- For `gh pr create`: The command outputs the URL
-- For `gh pr edit`: Get URL from the original list response or run `gh pr view --json url`
+```markdown
+## 1. Summary
+
+1. First meaningful change
+```
+
+Use that first item as the title. If multiple items exist, append "etc" (e.g., "Add dark mode toggle etc").
+
+### 3. Check PR and Create/Update
+
+Check if PR exists and create or update in one flow:
+
+```bash
+gh pr list --head <branch-name> --json number,url --jq '.[0]'
+```
+
+- **Empty result**: Create new PR with `gh pr create --title "<title>" --body-file /tmp/pr-body.md`
+- **Has result**: Update with `gh pr edit <number> --title "<title>" --body-file /tmp/pr-body.md`
+
+For create, the URL is printed. For edit, use the URL from the list result.
 
 ## Output
 
-Return the PR URL and operation type. This is mandatory - the calling command needs to display it.
-
-Format:
+Return exactly one line:
 
 ```
 PR created: <URL>
@@ -111,11 +72,3 @@ or
 ```
 PR updated: <URL>
 ```
-
-## Error Handling
-
-If PR operations fail:
-
-- Return the error message from `gh` CLI
-- Include any relevant context (branch name, existing PR number)
-- Do not silently fail - the error must be visible

@@ -137,7 +137,17 @@ Detailed explanation from CHANGELOG description. Why this was needed and what it
 
 ### 6.2. Decision Review
 
-[Invoke the performance-analyst subagent to evaluate decision-making quality. Include the subagent's output here.]
+| Dimension      | Rating                            | Notes             |
+| -------------- | --------------------------------- | ----------------- |
+| Consistency    | Strong/Adequate/Needs Improvement | Brief observation |
+| Intuitivity    | ...                               | ...               |
+| Describability | ...                               | ...               |
+| Agility        | ...                               | ...               |
+| Density        | ...                               | ...               |
+
+**Strengths**: [Key positive patterns observed]
+
+**Areas for Improvement**: [Constructive suggestions]
 ```
 
 **Invoking performance-analyst:**
@@ -148,7 +158,7 @@ Use the Task tool with `subagent_type: "core:performance-analyst"` and provide:
 - Git log (main..HEAD)
 - Performance metrics from frontmatter
 
-Include the subagent's complete output in section 6.2.
+The subagent returns the table and analysis in the format shown above. Include its complete output in section 6.2.
 
 ```markdown
 ## 7. Notes

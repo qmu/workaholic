@@ -3,9 +3,9 @@ created_at: 2026-01-27T01:17:34+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: d32bc52
+category: Changed
 ---
 
 # Fix Decision Review format in story-writer to match performance-analyst output
@@ -42,3 +42,7 @@ The newly generated story (feat-20260126-214833.md) has only prose sections with
 
 - The performance-analyst output format is already correctly specified; the issue is that story-writer doesn't reinforce this format expectation
 - Showing the expected format in story-writer helps ensure the subagent output is properly incorporated
+
+## Final Report
+
+Development completed as planned.

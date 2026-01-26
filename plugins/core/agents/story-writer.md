@@ -15,10 +15,6 @@ You will receive:
 - Branch name to generate story for
 - Base branch (usually `main`)
 
-## Git Command Guidelines
-
-Run git commands from the working directory. Never use `git -C` flag.
-
 ## Instructions
 
 ### 1. Gather Source Data

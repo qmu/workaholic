@@ -8,10 +8,6 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 
 Update `.workaholic/specs/` to reflect the current codebase state.
 
-## Git Command Guidelines
-
-Run git commands from the working directory. Never use `git -C` flag.
-
 ## Instructions
 
 ### 1. Gather Context

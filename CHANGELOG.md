@@ -2,12 +2,21 @@
 
 ## feat-20260126-214833
 
+### Added
+
+- Add git guidelines to subagents to prevent confirmation prompts ([7933c67](https://github.com/qmu/workaholic/commit/7933c67958070b9132c948c6d17b8efa15629de8)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127010151-add-git-guidelines-to-subagents.md)
+
 ### Changed
 
 - Convert sync-workaholic command to subagent ([d4e6a07](https://github.com/qmu/workaholic/commit/d4e6a07f95d7c129f16db5bc5d73ef34e9e649af)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127003251-sync-workaholic-subagent.md)
 - Extract story-writer as subagent from pull-request command ([4c83014](https://github.com/qmu/workaholic/commit/4c83014d088d90ad784012bb5044ed3d79eff02a)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127004417-story-writer-subagent.md)
 - Extract changelog-writer subagent and run 4 agents concurrently in pull-request ([b65d371](https://github.com/qmu/workaholic/commit/b65d371f39eaac6309eecba9612449a31d9e0c43)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127005414-changelog-writer-subagent-and-concurrent-pr-agents.md)
 - Extract pr-creator subagent from pull-request command ([4ee763d](https://github.com/qmu/workaholic/commit/4ee763d9c0d9a07fdc4f202d0c058e36ecf4bf00)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127005601-pr-creator-subagent.md)
+- Rename terminology to terms ([d213ea1](https://github.com/qmu/workaholic/commit/d213ea1d96b901c6194e44f730c31139f5cb6b19)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127010716-rename-terminology-to-terms.md)
+
+### Removed
+
+- Remove /sync-workaholic command ([d142373](https://github.com/qmu/workaholic/commit/d1423732616245c77e0438ea5047d089f03fcb11)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127010400-remove-sync-workaholic-command.md)
 
 ## [feat-20260126-131531](https://github.com/qmu/workaholic/tree/feat-20260126-131531)
 

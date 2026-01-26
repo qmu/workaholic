@@ -2,8 +2,8 @@
 title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
-last_updated: 2026-01-25
-commit_hash: a87a013
+last_updated: 2026-01-27
+commit_hash: f034f63
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -38,11 +38,43 @@ commit_hash: a87a013
 
 - 現在のコマンド名：`sync-work`
 - 過去の名前：`sync-doc-specs`、`sync-src-doc`
-- ターゲット：`.workaholic/specs/`と`.workaholic/terminology/`
+- ターゲット：`.workaholic/specs/`と`.workaholic/terms/`
 
 ### 推奨される解決策
 
 残りの参照を`/sync-doc-specs`または`/sync-src-doc`から`/sync-work`に更新します。新しい名前はコマンドの目的をより良く反映しています：`.workaholic/`ディレクトリに同期する。
+
+## レガシー「terminology」参照
+
+### 問題
+
+ディレクトリ`.workaholic/terminology/`は簡潔さのため`.workaholic/terms/`に改名されました。同様に、エージェント`terminology-writer`は`terms-writer`になりました。
+
+### 現在の使用状況
+
+- 現在のディレクトリ：`.workaholic/terms/`
+- 現在のエージェント：`terms-writer`
+- 過去のディレクトリ：`.workaholic/terminology/`
+- 過去のエージェント：`terminology-writer`
+
+### 推奨される解決策
+
+残りの`terminology`参照を`terms`に更新します。過去のドキュメント（アーカイブされたチケット、ストーリー）はその時点の状態を反映しているため、変更しないでください。
+
+## レガシー「/sync-workaholic」コマンド参照
+
+### 問題
+
+`/sync-workaholic`コマンドは削除されました。その機能は現在`/pull-request`の一部であり、spec-writerとterms-writerサブエージェントを自動的に実行します。
+
+### 現在の使用状況
+
+- 現在のワークフロー：`/pull-request`は4つのドキュメントエージェントを同時実行（changelog-writer、story-writer、spec-writer、terms-writer）
+- 過去のコマンド：`/sync-workaholic`はspec-writerとterms-writerをオーケストレート
+
+### 推奨される解決策
+
+`/sync-workaholic`への参照を、ドキュメント同期が`/pull-request`中に自動的に行われることを説明するように更新します。過去のドキュメントは変更しないでください。
 
 ## 過去の`doc/`および`.work/`ディレクトリ参照
 

@@ -2,8 +2,8 @@
 title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
-last_updated: 2026-01-25
-commit_hash: a87a013
+last_updated: 2026-01-27
+commit_hash: f034f63
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -38,11 +38,43 @@ Historical documentation may reference `/sync-doc-specs` or `/sync-src-doc` whic
 
 - Current command name: `sync-work`
 - Historical names: `sync-doc-specs`, `sync-src-doc`
-- Targets: `.workaholic/specs/` and `.workaholic/terminology/`
+- Targets: `.workaholic/specs/` and `.workaholic/terms/`
 
 ### Recommended Resolution
 
 Update any remaining references from `/sync-doc-specs` or `/sync-src-doc` to `/sync-work`. The new name better reflects the command's purpose: syncing to the `.workaholic/` directory.
+
+## Legacy "terminology" References
+
+### Issue
+
+The directory `.workaholic/terminology/` has been renamed to `.workaholic/terms/` for brevity. Similarly, the agent `terminology-writer` is now `terms-writer`.
+
+### Current Usage
+
+- Current directory: `.workaholic/terms/`
+- Current agent: `terms-writer`
+- Historical directory: `.workaholic/terminology/`
+- Historical agent: `terminology-writer`
+
+### Recommended Resolution
+
+Update any remaining references from `terminology` to `terms`. Historical documents (archived tickets, stories) should remain unchanged as they reflect what existed at the time.
+
+## Legacy "/sync-workaholic" Command References
+
+### Issue
+
+The `/sync-workaholic` command has been removed. Its functionality is now part of `/pull-request` which automatically runs spec-writer and terms-writer subagents.
+
+### Current Usage
+
+- Current workflow: `/pull-request` runs 4 documentation agents concurrently (changelog-writer, story-writer, spec-writer, terms-writer)
+- Historical command: `/sync-workaholic` orchestrated spec-writer and terms-writer
+
+### Recommended Resolution
+
+Update any references to `/sync-workaholic` to explain that documentation sync happens automatically during `/pull-request`. Historical documents should remain unchanged.
 
 ## Historical `doc/` and `.work/` Directory References
 

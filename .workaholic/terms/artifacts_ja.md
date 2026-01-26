@@ -2,8 +2,8 @@
 title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
-last_updated: 2026-01-25
-commit_hash: 18ac266
+last_updated: 2026-01-27
+commit_hash: f034f63
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -48,7 +48,7 @@ commit_hash: 18ac266
 
 ### 定義
 
-スペックはコードベースの現在の現実をドキュメント化します。（変更を記述する）チケットとは異なり、スペックは現在存在するものを記述します。変更が行われた後に`/sync-work`で更新され、現在の状態を反映します。スペックは単一の真実の情報源を提供することで認知負荷を軽減します。
+スペックはコードベースの現在の現実をドキュメント化します。（変更を記述する）チケットとは異なり、スペックは現在存在するものを記述します。変更が行われた後にspec-writerサブエージェント（`/pull-request`で呼び出される）で更新され、現在の状態を反映します。スペックは単一の真実の情報源を提供することで認知負荷を軽減します。
 
 ### 使用パターン
 

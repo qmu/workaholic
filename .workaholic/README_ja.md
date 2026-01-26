@@ -2,8 +2,8 @@
 title: Work
 description: Working artifacts index for Workaholic plugin marketplace
 category: developer
-last_updated: 2026-01-25
-commit_hash: a87a013
+modified_at: 2026-01-27T01:12:47+09:00
+commit_hash: f034f63
 ---
 
 [English](README.md) | [日本語](README_ja.md)
@@ -19,7 +19,7 @@ Workaholicプラグインマーケットプレイスの作業成果物ハブで�
 
 ## Plugins
 
-- [Core](../plugins/core/README.md) - 完全な開発ワークフロー (`/branch`, `/commit`, `/pull-request`, `/ticket`, `/drive`, `/sync-work`)
+- [Core](../plugins/core/README.md) - 完全な開発ワークフロー (`/branch`, `/commit`, `/pull-request`, `/ticket`, `/drive`)
 
 ## Design Policy
 

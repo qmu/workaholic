@@ -56,42 +56,13 @@ This design makes stories the single source of truth for PR content, eliminating
    - Do NOT announce "reading file again" or similar verbose messages
    - Just silently format and continue
    - Stage and commit any formatting changes: "Format code"
-6. Check if a PR already exists for this branch:
-   ```sh
-   gh pr list --head $(git branch --show-current) --json number,title,url
-   ```
-7. **Read story file and prepare PR content**:
-   - Read `.workaholic/stories/<branch-name>.md`
-   - Strip YAML frontmatter (everything between `---` delimiters)
-   - The remaining content IS the PR body
-8. **Derive PR title from Summary section**:
-    - Parse the Summary section from the story
-    - If single change: use that change as title (e.g., "Add dark mode toggle")
-    - If multiple changes: use first change + "etc" (e.g., "Add dark mode toggle etc")
-    - Keep title concise (GitHub truncates long titles)
+6. **Create or update PR** using the pr-creator subagent:
 
-## Creating vs Updating
+   Invoke the pr-creator subagent via Task tool with `subagent_type: "core:pr-creator"`:
 
-The story file content (minus YAML frontmatter) IS the PR body.
-
-### If NO PR exists:
-
-```sh
-gh pr create --title "<derived-title>" --body "$(cat <<'EOF'
-<story content without frontmatter>
-EOF
-)"
-```
-
-### If PR already exists:
-
-Update the PR using `gh pr edit` with the story file:
-
-```sh
-gh pr edit <number> --title "<derived-title>" --body-file .workaholic/stories/<branch-name>.md
-```
-
-Note: The `--body-file` flag reads the file directly, so strip the YAML frontmatter from the story file first, or use a temporary file without frontmatter.
+   - Pass the branch name and base branch as context
+   - The subagent handles: checking if PR exists, reading story file, deriving title, `gh` CLI operations
+   - The subagent returns the PR URL (required for completion output)
 
 ## Completion Output (MANDATORY)
 

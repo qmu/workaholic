@@ -2,8 +2,8 @@
 title: Workflow Guide
 description: How to use ticket-driven development with Workaholic
 category: user
-last_updated: 2026-01-25
-commit_hash: a87a013
+modified_at: 2026-01-26T21:44:25+09:00
+commit_hash: c4a627b
 ---
 
 [English](workflow.md) | [日本語](workflow_ja.md)
@@ -78,7 +78,7 @@ When ready for review:
 /pull-request
 ```
 
-The command automatically runs `/sync-work` to update documentation before creating the PR. The PR summary is generated from archived tickets, which contain the commit hash, category, and description of what each change accomplished and why.
+The command automatically runs `/sync-workaholic` to update documentation before creating the PR. The PR summary is generated from archived tickets, which contain the commit hash, category, and description of what each change accomplished and why.
 
 ## Directory Structure
 

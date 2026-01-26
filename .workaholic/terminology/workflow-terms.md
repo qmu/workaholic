@@ -2,8 +2,8 @@
 title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
-last_updated: 2026-01-25
-commit_hash: a87a013
+modified_at: 2026-01-26T21:44:25+09:00
+commit_hash: c4a627b
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -54,13 +54,13 @@ Update documentation to match the current state.
 
 ### Definition
 
-Sync operations update derived documentation (specs, terminology) to reflect the current codebase state. Unlike commits that record changes, syncs ensure documentation accuracy. The `/sync-work` command synchronizes the `.workaholic/` directory (specs and terminology) with the current codebase.
+Sync operations update derived documentation (specs, terminology) to reflect the current codebase state. Unlike commits that record changes, syncs ensure documentation accuracy. The `/sync-workaholic` command synchronizes the `.workaholic/` directory (specs and terminology) with the current codebase.
 
 ### Usage Patterns
 
 - **Directory names**: N/A (action, not storage)
 - **File names**: N/A
-- **Code references**: "Sync the docs", "Run `/sync-work`"
+- **Code references**: "Sync the docs", "Run `/sync-workaholic`"
 
 ### Related Terms
 

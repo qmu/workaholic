@@ -1,5 +1,23 @@
 # Changelog
 
+## [feat-20260126-131531](https://github.com/qmu/workaholic/tree/feat-20260126-131531)
+
+### Added
+
+- Add workaholic.md rule file for .workaholic/ directory conventions ([6ee6278](https://github.com/qmu/workaholic/commit/6ee6278))
+  Enforces directory structure (only specs/, stories/, terminology/, tickets/ allowed), frontmatter requirements (author, modified_at), and timestamp field naming (_at suffix with datetime).
+
+- Add commit_hash to stories README files ([cb96538](https://github.com/qmu/workaholic/commit/cb96538))
+  Enables Claude to quickly identify git state and determine what changes need reflection.
+
+### Changed
+
+- Rename .work/ directory to .workaholic/ ([8778abe](https://github.com/qmu/workaholic/commit/8778abe))
+  Aligns directory name with product name for consistency across the project.
+
+- Standardize timestamp fields to _at convention with datetime ([5452b2d](https://github.com/qmu/workaholic/commit/5452b2d))
+  All timestamp frontmatter fields now use _at suffix (e.g., modified_at instead of last_updated) with ISO 8601 datetime format.
+
 ## [feat-20260124-200439](https://github.com/qmu/workaholic/tree/feat-20260124-200439)
 
 ### Added

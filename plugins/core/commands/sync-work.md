@@ -114,7 +114,7 @@ All spec documents must be placed in the appropriate subdirectory based on audie
 title: Document Title
 description: Brief description of this document
 category: user | developer # Must match parent directory (user-guide or developer-guide)
-last_updated: YYYY-MM-DD
+modified_at: <ISO 8601 datetime>
 commit_hash: <short-hash>
 ---
 ```
@@ -257,5 +257,5 @@ Summarize changes made:
 - **No orphan documents** - Every doc must be linked from a parent README
 - **Consistency over precision** - A term should mean the same thing everywhere
 - **Category matches directory** - A doc with `category: user` must be in `user-guide/`, `category: developer` in `developer-guide/`
-- **Update `last_updated`** - Set to today's date when modifying any doc
+- **Update `modified_at`** - Set to current datetime (use `date -Iseconds`) when modifying any doc
 - **Update `commit_hash`** - Run `git rev-parse --short HEAD` and set this value

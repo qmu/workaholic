@@ -51,3 +51,21 @@ modified_at: <ISO 8601 timestamp>
 **Exceptions:**
 - README files are exempt from the `author` requirement
 - Existing files without frontmatter don't need immediate migration
+
+# Timestamp Field Convention
+
+All timestamp fields MUST:
+- Use `_at` suffix (e.g., `created_at`, not `created` or `creation_date`)
+- Use ISO 8601 datetime with timezone (e.g., `2026-01-26T14:30:00+09:00`)
+- Be generated with `date -Iseconds`
+
+**Standard timestamp fields:**
+
+| Field        | Purpose                              |
+| ------------ | ------------------------------------ |
+| `created_at` | When the file was created            |
+| `modified_at`| When the file was last modified      |
+| `started_at` | When work began (stories)            |
+| `ended_at`   | When work completed (stories)        |
+
+**Migration:** Files with legacy `last_updated` are updated to `modified_at` when edited.

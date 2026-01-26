@@ -2,8 +2,8 @@
 title: Command Reference
 description: Complete documentation for all Workaholic commands
 category: user
-modified_at: 2026-01-27T01:21:14+09:00
-commit_hash: 5d468b0
+modified_at: 2026-01-27T01:51:01+09:00
+commit_hash: e303e17
 ---
 
 [English](commands.md) | [日本語](commands_ja.md)
@@ -24,23 +24,15 @@ Creates a topic branch with a timestamp prefix for consistent naming.
 
 This generates branches like `feat-20260120-205418`, ensuring unique branch names and chronological ordering. The prefix helps identify when work started on a feature.
 
-### /commit
+### /report
 
-Commits changes in logical units with meaningful commit messages.
-
-```bash
-/commit
-```
-
-Claude analyzes your staged and unstaged changes, groups them logically, and creates commits with messages that explain the purpose of each change. The commit message follows conventional style: present-tense verb, focused on the "why" rather than the "what".
-
-### /pull-request
-
-Creates or updates a pull request with an auto-generated summary.
+Generates comprehensive documentation and creates or updates a pull request.
 
 ```bash
-/pull-request
+/report
 ```
+
+The command orchestrates five subagents to generate documentation artifacts: changelog-writer updates `CHANGELOG.md`, story-writer generates the PR narrative, spec-writer updates `.workaholic/specs/`, terms-writer updates `.workaholic/terms/`, and pr-creator handles GitHub PR creation. The first four run in parallel, then pr-creator runs after to create the PR using the generated story as the body.
 
 The PR description is generated from a story document that includes seven sections: Summary, Motivation, Journey, Changes, Outcome, Performance, and Notes. The story serves as the single source of truth for PR content and is saved to `.workaholic/stories/<branch-name>.md`. Performance metrics use hours for single-session work (under 8 hours) and business days for multi-day work, providing meaningful velocity measurements.
 
@@ -79,6 +71,6 @@ The typical workflow combines these commands:
 1. `/branch` - Start a new feature branch
 2. `/ticket <description>` - Write implementation spec
 3. `/drive` - Implement the ticket
-4. `/pull-request` - Create PR for review (automatically updates documentation)
+4. `/report` - Generate documentation and create PR for review
 
 Each ticket gets its own commit, and the CHANGELOG tracks all changes for the PR summary.

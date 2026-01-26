@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-27T01:21:14+09:00
-commit_hash: 5d468b0
+modified_at: 2026-01-27T01:51:01+09:00
+commit_hash: e303e17
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -49,12 +49,11 @@ plugins/
       pr-creator.md           # GitHub PRの作成/更新
       spec-writer.md          # .workaholic/specs/を更新
       story-writer.md         # PR用のブランチストーリーを生成
-      terms-writer.md   # .workaholic/terms/を更新
+      terms-writer.md         # .workaholic/terms/を更新
     commands/
       branch.md          # /branch コマンド
-      commit.md          # /commit コマンド
       drive.md           # /drive コマンド
-      pull-request.md    # /pull-request コマンド
+      report.md          # /report コマンド
       ticket.md          # /ticket コマンド
     rules/
       diagrams.md      # Mermaid図表要件
@@ -74,7 +73,7 @@ plugins/
 
 ### コマンド
 
-コマンドはスラッシュ構文（`/commit`、`/ticket`）でユーザーが呼び出せます。各コマンドは名前と説明を定義するYAMLフロントマター付きのマークダウンファイルで、その後にコマンドが呼び出されたときにClaudeが従う指示が続きます。
+コマンドはスラッシュ構文（`/ticket`、`/drive`、`/report`）でユーザーが呼び出せます。各コマンドは名前と説明を定義するYAMLフロントマター付きのマークダウンファイルで、その後にコマンドが呼び出されたときにClaudeが従う指示が続きます。
 
 ### ルール
 
@@ -126,13 +125,13 @@ sequenceDiagram
 
 ## ドキュメント強制
 
-Workaholicは並列サブエージェントアーキテクチャを通じて包括的なドキュメントを強制します。`/pull-request`コマンドは4つのドキュメントエージェントを同時に実行し、それぞれが特定のドメインを担当します。
+Workaholicは並列サブエージェントアーキテクチャを通じて包括的なドキュメントを強制します。`/report`コマンドは4つのドキュメントエージェントを同時に実行し、それぞれが特定のドメインを担当します。
 
 ### 仕組み
 
 ```mermaid
 flowchart TD
-    A[/pull-request コマンド] --> B[残りのチケットをiceboxに移動]
+    A[/report コマンド] --> B[残りのチケットをiceboxに移動]
     B --> C[4つのサブエージェントを並列で呼び出し]
 
     subgraph 並列ドキュメント生成
@@ -161,7 +160,7 @@ flowchart TD
     M --> N[PRを作成/更新]
 ```
 
-ドキュメントは`/pull-request`ワークフロー中に自動的に更新されます。
+ドキュメントは`/report`ワークフロー中に自動的に更新されます。
 
 サブエージェントアーキテクチャにはいくつかの利点があります：
 

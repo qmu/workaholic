@@ -2,8 +2,8 @@
 title: Workflow Guide
 description: How to use ticket-driven development with Workaholic
 category: user
-modified_at: 2026-01-27T01:21:14+09:00
-commit_hash: 5d468b0
+modified_at: 2026-01-27T01:51:01+09:00
+commit_hash: e303e17
 ---
 
 [English](workflow.md) | [日本語](workflow_ja.md)
@@ -29,7 +29,7 @@ flowchart TD
     D -->|修正| C
     E --> F{チケット追加?}
     F -->|はい| C
-    F -->|いいえ| G[/pull-request]
+    F -->|いいえ| G[/report]
     G --> H[コードレビュー]
     H --> I[マージ]
 ```
@@ -70,15 +70,15 @@ Claudeは仕様に従い、変更を行い、型チェックを実行します�
 
 複数チケットの機能の場合、追加のチケットを記述し、再度`/drive`を実行します。各チケットは明確な目的を持つ1つのコミットになります。
 
-### 5. プルリクエストを作成
+### 5. レポートを生成してプルリクエストを作成
 
 レビューの準備ができたら：
 
 ```bash
-/pull-request
+/report
 ```
 
-コマンドは4つのドキュメントサブエージェントを並列で自動実行します：changelog-writerが`CHANGELOG.md`を更新し、story-writerがPRナラティブを生成し、spec-writerが`.workaholic/specs/`を更新し、terms-writerが`.workaholic/terms/`を更新します。PRサマリーはストーリーファイルから生成され、すべてのアーカイブされたチケットをパフォーマンスメトリクスを含む一貫したナラティブに統合します。
+コマンドは4つのドキュメントサブエージェントを並列で自動実行します：changelog-writerが`CHANGELOG.md`を更新し、story-writerがPRナラティブを生成し、spec-writerが`.workaholic/specs/`を更新し、terms-writerが`.workaholic/terms/`を更新します。ドキュメントがコミットされた後、pr-creatorサブエージェントがGitHub PRを作成または更新します。PRサマリーはストーリーファイルから生成され、すべてのアーカイブされたチケットをパフォーマンスメトリクスを含む一貫したナラティブに統合します。
 
 ## ディレクトリ構造
 

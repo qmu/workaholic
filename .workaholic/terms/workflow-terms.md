@@ -3,7 +3,7 @@ title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
 last_updated: 2026-01-27
-commit_hash: 5d468b0
+commit_hash: e303e17
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -54,13 +54,13 @@ Update documentation to match the current state.
 
 ### Definition
 
-Sync operations update derived documentation (specs, terms) to reflect the current codebase state. Unlike commits that record changes, syncs ensure documentation accuracy. The `/pull-request` command automatically synchronizes the `.workaholic/` directory (specs and terms) with the current codebase via spec-writer and terms-writer subagents.
+Sync operations update derived documentation (specs, terms) to reflect the current codebase state. Unlike commits that record changes, syncs ensure documentation accuracy. The `/report` command automatically synchronizes the `.workaholic/` directory (specs and terms) with the current codebase via spec-writer and terms-writer subagents.
 
 ### Usage Patterns
 
 - **Directory names**: N/A (action, not storage)
 - **File names**: N/A
-- **Code references**: "Sync the docs", "Documentation is synced during /pull-request"
+- **Code references**: "Sync the docs", "Documentation is synced during /report"
 
 ### Related Terms
 
@@ -93,7 +93,7 @@ Run multiple independent agents simultaneously for improved performance.
 Concurrent execution is a pattern where multiple agents are invoked in parallel when they write to different locations and have no dependencies on each other. The orchestrating command sends multiple Task tool invocations in a single message, allowing agents to work simultaneously. This significantly reduces total execution time compared to sequential processing.
 
 Examples of concurrent execution:
-- `/pull-request` runs changelog-writer, story-writer, spec-writer, terms-writer concurrently
+- `/report` runs changelog-writer, story-writer, spec-writer, terms-writer concurrently
 
 Sequential execution is still required when outputs depend on prior results (e.g., pr-creator runs after story-writer because it reads the story file).
 

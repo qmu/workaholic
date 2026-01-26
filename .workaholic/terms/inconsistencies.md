@@ -3,7 +3,7 @@ title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
 last_updated: 2026-01-27
-commit_hash: 5d468b0
+commit_hash: e303e17
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -36,13 +36,13 @@ Historical documentation may reference `/sync-doc-specs`, `/sync-src-doc`, or `/
 
 ### Current Usage
 
-- Current workflow: `/pull-request` runs spec-writer and terms-writer subagents automatically
+- Current workflow: `/report` runs spec-writer and terms-writer subagents automatically
 - Historical commands: `sync-doc-specs`, `sync-src-doc`, `sync-work`, `sync-workaholic`
 - Targets: `.workaholic/specs/` and `.workaholic/terms/`
 
 ### Recommended Resolution
 
-Update any remaining references to explain that documentation sync happens automatically during `/pull-request`. Historical documents should remain unchanged.
+Update any remaining references to explain that documentation sync happens automatically during `/report`. Historical documents should remain unchanged.
 
 ## Legacy "terminology" References
 
@@ -65,16 +65,16 @@ Update any remaining references from `terminology` to `terms`. Historical docume
 
 ### Issue
 
-The `/sync-workaholic` command has been removed. Its functionality is now part of `/pull-request` which automatically runs spec-writer and terms-writer subagents.
+The `/sync-workaholic` command has been removed. Its functionality is now part of `/report` which automatically runs spec-writer and terms-writer subagents.
 
 ### Current Usage
 
-- Current workflow: `/pull-request` runs 4 documentation agents concurrently (changelog-writer, story-writer, spec-writer, terms-writer)
+- Current workflow: `/report` runs 4 documentation agents concurrently (changelog-writer, story-writer, spec-writer, terms-writer)
 - Historical command: `/sync-workaholic` orchestrated spec-writer and terms-writer
 
 ### Recommended Resolution
 
-Update any references to `/sync-workaholic` to explain that documentation sync happens automatically during `/pull-request`. Historical documents should remain unchanged.
+Update any references to `/sync-workaholic` to explain that documentation sync happens automatically during `/report`. Historical documents should remain unchanged.
 
 ## Historical `doc/` and `.work/` Directory References
 
@@ -121,3 +121,34 @@ Historical documentation may reference a separate "TDD plugin" (`plugins/tdd/`) 
 ### Recommended Resolution
 
 Update any remaining references to the TDD plugin to refer to the core plugin instead. The ticket-driven development commands (`/ticket`, `/drive`) are now part of the unified core plugin.
+
+## Legacy "/pull-request" Command References
+
+### Issue
+
+The `/pull-request` command has been renamed to `/report`. The new name better reflects that this command generates comprehensive documentation (changelog, story, specs, terms) in addition to creating a GitHub PR.
+
+### Current Usage
+
+- Current command: `/report`
+- Historical command: `/pull-request`
+- The `pr-creator` agent name remains unchanged (internal implementation detail)
+
+### Recommended Resolution
+
+Update any references to `/pull-request` to use `/report`. Historical documents (archived tickets, stories) should remain unchanged as they reflect what existed at the time.
+
+## Legacy "/commit" Command References
+
+### Issue
+
+The `/commit` command has been removed. Running `/commit` during a `/drive` session would flush context, disrupting the workflow. Additionally, the command encouraged ad-hoc commits without tickets, undermining the ticket-driven development philosophy.
+
+### Current Usage
+
+- Current workflow: Commits happen through `/drive` (for ticket implementation) or `/report` (for documentation)
+- Historical command: `/commit` allowed standalone commits
+
+### Recommended Resolution
+
+Update any references to `/commit` to explain that commits now happen through ticket-driven workflows (`/drive`, `/report`). All changes should flow through tickets for proper documentation.

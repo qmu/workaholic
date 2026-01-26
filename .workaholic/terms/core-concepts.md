@@ -3,7 +3,7 @@ title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
 last_updated: 2026-01-27
-commit_hash: 5d468b0
+commit_hash: e303e17
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -36,13 +36,13 @@ A user-invocable slash command that performs a specific task.
 
 ### Definition
 
-Commands are the primary user interface for plugins. Users invoke them with a slash prefix (e.g., `/commit`, `/ticket`). Each command has a markdown file in the plugin's `commands/` directory that defines its behavior and instructions.
+Commands are the primary user interface for plugins. Users invoke them with a slash prefix (e.g., `/ticket`, `/drive`). Each command has a markdown file in the plugin's `commands/` directory that defines its behavior and instructions.
 
 ### Usage Patterns
 
 - **Directory names**: `plugins/<name>/commands/`
-- **File names**: `commit.md`, `pull-request.md`, `sync-work.md`
-- **Code references**: "Run `/commit` to...", "The `/ticket` command..."
+- **File names**: `ticket.md`, `drive.md`, `report.md`
+- **Code references**: "Run `/drive` to...", "The `/ticket` command..."
 
 ### Related Terms
 
@@ -116,7 +116,7 @@ A command that coordinates multiple agents to complete a complex workflow.
 An orchestrator is a command that delegates specialized work to multiple agents rather than performing tasks inline. The orchestrator gathers initial context, invokes agents (potentially in parallel for performance), and consolidates their outputs. This pattern preserves the main conversation's context window while enabling complex multi-step workflows.
 
 Examples:
-- `/pull-request` orchestrates changelog-writer, story-writer, spec-writer, terms-writer concurrently, then pr-creator sequentially
+- `/report` orchestrates changelog-writer, story-writer, spec-writer, terms-writer concurrently, then pr-creator sequentially
 
 ### Usage Patterns
 

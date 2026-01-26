@@ -5,6 +5,7 @@
 ### Added
 
 - Add git guidelines to subagents to prevent confirmation prompts ([7933c67](https://github.com/qmu/workaholic/commit/7933c67958070b9132c948c6d17b8efa15629de8)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127010151-add-git-guidelines-to-subagents.md)
+- Consolidate git guidelines into a rule for all subagents ([b94045a](https://github.com/qmu/workaholic/commit/b94045af226b52921e9e59dd49e02436bed8cb30)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127012323-strengthen-git-guidelines-in-subagents.md)
 
 ### Changed
 
@@ -14,10 +15,13 @@
 - Extract pr-creator subagent from pull-request command ([4ee763d](https://github.com/qmu/workaholic/commit/4ee763d9c0d9a07fdc4f202d0c058e36ecf4bf00)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127005601-pr-creator-subagent.md)
 - Rename terminology to terms ([d213ea1](https://github.com/qmu/workaholic/commit/d213ea1d96b901c6194e44f730c31139f5cb6b19)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127010716-rename-terminology-to-terms.md)
 - Fix Decision Review format in story-writer to match performance-analyst output ([d32bc52](https://github.com/qmu/workaholic/commit/d32bc52f912b2c07f28b070561e8978807995eb6)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127011734-fix-story-decision-review-format.md)
+- Embed git guidelines directly in each subagent definition ([13101ad](https://github.com/qmu/workaholic/commit/13101ade1fbe400e79854bacc8324ccfb9377f67)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127013608-embed-git-guidelines-in-each-agent.md)
+- Rename /pull-request to /report ([3005144](https://github.com/qmu/workaholic/commit/30051441da5c802398a053d9fdb760edd9cdb75d)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127014257-rename-pull-request-to-report.md)
 
 ### Removed
 
 - Remove /sync-workaholic command ([d142373](https://github.com/qmu/workaholic/commit/d1423732616245c77e0438ea5047d089f03fcb11)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127010400-remove-sync-workaholic-command.md)
+- Remove /commit command ([4e7658c](https://github.com/qmu/workaholic/commit/4e7658c7b5e0b865c829b4009a5e9988893e457b)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127013941-remove-commit-command.md)
 
 ## [feat-20260126-131531](https://github.com/qmu/workaholic/tree/feat-20260126-131531)
 

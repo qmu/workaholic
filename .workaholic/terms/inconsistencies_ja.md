@@ -3,7 +3,7 @@ title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
 last_updated: 2026-01-27
-commit_hash: 5d468b0
+commit_hash: e303e17
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -36,13 +36,13 @@ commit_hash: 5d468b0
 
 ### 現在の使用状況
 
-- 現在のワークフロー：`/pull-request`はspec-writerとterms-writerサブエージェントを自動的に実行
+- 現在のワークフロー：`/report`はspec-writerとterms-writerサブエージェントを自動的に実行
 - 過去のコマンド：`sync-doc-specs`、`sync-src-doc`、`sync-work`、`sync-workaholic`
 - ターゲット：`.workaholic/specs/`と`.workaholic/terms/`
 
 ### 推奨される解決策
 
-残りの参照を、ドキュメント同期が`/pull-request`中に自動的に行われることを説明するように更新します。過去のドキュメントは変更しないでください。
+残りの参照を、ドキュメント同期が`/report`中に自動的に行われることを説明するように更新します。過去のドキュメントは変更しないでください。
 
 ## レガシー「terminology」参照
 
@@ -65,16 +65,16 @@ commit_hash: 5d468b0
 
 ### 問題
 
-`/sync-workaholic`コマンドは削除されました。その機能は現在`/pull-request`の一部であり、spec-writerとterms-writerサブエージェントを自動的に実行します。
+`/sync-workaholic`コマンドは削除されました。その機能は現在`/report`の一部であり、spec-writerとterms-writerサブエージェントを自動的に実行します。
 
 ### 現在の使用状況
 
-- 現在のワークフロー：`/pull-request`は4つのドキュメントエージェントを同時実行（changelog-writer、story-writer、spec-writer、terms-writer）
+- 現在のワークフロー：`/report`は4つのドキュメントエージェントを同時実行（changelog-writer、story-writer、spec-writer、terms-writer）
 - 過去のコマンド：`/sync-workaholic`はspec-writerとterms-writerをオーケストレート
 
 ### 推奨される解決策
 
-`/sync-workaholic`への参照を、ドキュメント同期が`/pull-request`中に自動的に行われることを説明するように更新します。過去のドキュメントは変更しないでください。
+`/sync-workaholic`への参照を、ドキュメント同期が`/report`中に自動的に行われることを説明するように更新します。過去のドキュメントは変更しないでください。
 
 ## 過去の`doc/`および`.work/`ディレクトリ参照
 
@@ -121,3 +121,34 @@ commit_hash: 5d468b0
 ### 推奨される解決策
 
 TDDプラグインへの残りの参照をcoreプラグインへの参照に更新します。チケット駆動開発コマンド（`/ticket`、`/drive`）は現在、統一されたcoreプラグインの一部です。
+
+## レガシー「/pull-request」コマンド参照
+
+### 問題
+
+`/pull-request`コマンドは`/report`に改名されました。新しい名前は、GitHub PRの作成に加えて、このコマンドが包括的なドキュメント（changelog、story、specs、terms）を生成することをより適切に反映しています。
+
+### 現在の使用状況
+
+- 現在のコマンド：`/report`
+- 過去のコマンド：`/pull-request`
+- `pr-creator`エージェント名は変更されていない（内部実装の詳細）
+
+### 推奨される解決策
+
+`/pull-request`への参照を`/report`に更新します。過去のドキュメント（アーカイブされたチケット、ストーリー）はその時点の状態を反映しているため、変更しないでください。
+
+## レガシー「/commit」コマンド参照
+
+### 問題
+
+`/commit`コマンドは削除されました。`/drive`セッション中に`/commit`を実行するとコンテキストがフラッシュされ、ワークフローが中断されます。さらに、このコマンドはチケットなしのアドホックコミットを促進し、チケット駆動開発の哲学を損なっていました。
+
+### 現在の使用状況
+
+- 現在のワークフロー：コミットは`/drive`（チケット実装用）または`/report`（ドキュメント用）を通じて行われる
+- 過去のコマンド：`/commit`はスタンドアロンコミットを許可していた
+
+### 推奨される解決策
+
+`/commit`への参照を、コミットがチケット駆動ワークフロー（`/drive`、`/report`）を通じて行われることを説明するように更新します。適切なドキュメント化のため、すべての変更はチケットを通じて流れるべきです。

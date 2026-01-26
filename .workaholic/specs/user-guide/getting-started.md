@@ -2,8 +2,8 @@
 title: Getting Started
 description: Installation and first steps with Workaholic
 category: user
-modified_at: 2026-01-27T01:21:14+09:00
-commit_hash: 5d468b0
+modified_at: 2026-01-27T01:51:01+09:00
+commit_hash: e303e17
 ---
 
 [English](getting-started.md) | [日本語](getting-started_ja.md)
@@ -38,10 +38,9 @@ After installation, the following commands become available:
 
 ```bash
 /branch         # Create timestamped topic branches
-/commit         # Commit with meaningful messages
-/pull-request   # Create PRs with auto-generated summaries
 /ticket         # Write implementation specs
 /drive          # Implement tickets one by one
+/report         # Generate docs and create PRs
 ```
 
 ## Next Steps

@@ -2,8 +2,8 @@
 title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
-last_updated: 2026-01-25
-commit_hash: 18ac266
+last_updated: 2026-01-27
+commit_hash: f034f63
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -48,7 +48,7 @@ Current state documentation that provides an authoritative reference snapshot.
 
 ### Definition
 
-Specs document the present reality of the codebase. Unlike tickets (which describe changes), specs describe what exists now. They are updated via `/sync-work` to reflect the current state after changes are made. Specs reduce cognitive load by providing a single source of truth.
+Specs document the present reality of the codebase. Unlike tickets (which describe changes), specs describe what exists now. They are updated via the spec-writer subagent (invoked by `/pull-request`) to reflect the current state after changes are made. Specs reduce cognitive load by providing a single source of truth.
 
 ### Usage Patterns
 

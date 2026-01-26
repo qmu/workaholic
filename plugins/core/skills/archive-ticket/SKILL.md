@@ -59,7 +59,7 @@ The optional description parameter captures the **WHY** behind the change:
 - 1-2 sentences explaining the motivation or problem being solved
 - Extract from the ticket's Overview section
 - Appears as a second line in CHANGELOG entries
-- Used by `/pull-request` to generate comprehensive PR descriptions
+- Used by `/report` to generate comprehensive PR descriptions
 
 ### Example
 

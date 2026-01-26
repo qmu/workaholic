@@ -1,11 +1,11 @@
 ---
-name: pull-request
-description: Create or update a pull request with a summary focused on why changes were made.
+name: report
+description: Generate documentation (changelog, story, specs, terms) and create/update a pull request.
 ---
 
-# Pull Request
+# Report
 
-Create or update a pull request for the current branch.
+Generate comprehensive documentation and create or update a pull request for the current branch.
 
 The story file in `.workaholic/stories/<branch-name>.md` contains the complete PR description. Seven sections: 1. Summary, 2. Motivation, 3. Journey, 4. Changes, 5. Outcome, 6. Performance, 7. Notes.
 

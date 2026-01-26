@@ -24,7 +24,6 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 | `/pull-request`         | Create or update a pull request with CHANGELOG-based summary               |
 | `/ticket <description>` | Explore codebase and write implementation ticket                           |
 | `/drive`                | Implement tickets from .workaholic/tickets/ one by one, commit each, and archive |
-| `/sync-workaholic`      | Sync source code changes to .workaholic/ directory (specs and terminology)       |
 
 ## Agents
 

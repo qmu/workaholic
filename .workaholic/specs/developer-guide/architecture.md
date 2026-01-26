@@ -55,7 +55,6 @@ plugins/
       commit.md          # /commit command
       drive.md           # /drive command
       pull-request.md    # /pull-request command
-      sync-workaholic.md # /sync-workaholic command
       ticket.md          # /ticket command
     rules/
       diagrams.md      # Mermaid diagram requirements
@@ -162,7 +161,7 @@ flowchart TD
     M --> N[Create/update PR]
 ```
 
-Documentation is updated automatically during the `/pull-request` workflow. You can also run `/sync-workaholic` directly to update specs and terminology without creating a PR.
+Documentation is updated automatically during the `/pull-request` workflow.
 
 The subagent architecture provides several benefits:
 

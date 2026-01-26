@@ -116,7 +116,6 @@ A command that coordinates multiple agents to complete a complex workflow.
 An orchestrator is a command that delegates specialized work to multiple agents rather than performing tasks inline. The orchestrator gathers initial context, invokes agents (potentially in parallel for performance), and consolidates their outputs. This pattern preserves the main conversation's context window while enabling complex multi-step workflows.
 
 Examples:
-- `/sync-workaholic` orchestrates spec-writer and terminology-writer in parallel
 - `/pull-request` orchestrates changelog-writer, story-writer, spec-writer, terminology-writer concurrently, then pr-creator sequentially
 
 ### Usage Patterns

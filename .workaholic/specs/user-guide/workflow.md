@@ -78,7 +78,7 @@ When ready for review:
 /pull-request
 ```
 
-The command automatically runs `/sync-workaholic` to update documentation before creating the PR. The PR summary is generated from archived tickets, which contain the commit hash, category, and description of what each change accomplished and why.
+The command automatically runs spec-writer and terminology-writer subagents to update documentation before creating the PR. The PR summary is generated from archived tickets, which contain the commit hash, category, and description of what each change accomplished and why.
 
 ## Directory Structure
 

@@ -116,7 +116,6 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 オーケストレーターは、インラインでタスクを実行する代わりに、専門化された作業を複数のエージェントに委譲するコマンドです。オーケストレーターは初期コンテキストを収集し、エージェントを（パフォーマンスのために並列で）呼び出し、その出力を統合します。このパターンは、複雑なマルチステップワークフローを可能にしながら、メイン会話のコンテキストウィンドウを保持します。
 
 例:
-- `/sync-workaholic`はspec-writerとterminology-writerを並列でオーケストレート
 - `/pull-request`はchangelog-writer、story-writer、spec-writer、terminology-writerを同時に、その後pr-creatorを順次オーケストレート
 
 ### 使用パターン

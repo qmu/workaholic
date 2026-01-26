@@ -2,8 +2,8 @@
 title: Getting Started
 description: Installation and first steps with Workaholic
 category: user
-last_updated: 2026-01-25
-commit_hash: a87a013
+modified_at: 2026-01-27T01:21:14+09:00
+commit_hash: 5d468b0
 ---
 
 [English](getting-started.md) | [日本語](getting-started_ja.md)
@@ -42,9 +42,8 @@ After installation, the following commands become available:
 /pull-request   # Create PRs with auto-generated summaries
 /ticket         # Write implementation specs
 /drive          # Implement tickets one by one
-/sync-work      # Update documentation to match code
 ```
 
 ## Next Steps
 
-Read the [Command Reference](COMMANDS.md) for detailed documentation on each command, or the [Workflow Guide](WORKFLOW.md) to understand the ticket-driven development approach.
+Read the [Command Reference](commands.md) for detailed documentation on each command, or the [Workflow Guide](workflow.md) to understand the ticket-driven development approach.

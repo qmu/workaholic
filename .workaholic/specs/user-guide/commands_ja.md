@@ -2,8 +2,8 @@
 title: Command Reference
 description: Complete documentation for all Workaholic commands
 category: user
-modified_at: 2026-01-27T01:12:47+09:00
-commit_hash: f034f63
+modified_at: 2026-01-27T01:21:14+09:00
+commit_hash: 5d468b0
 ---
 
 [English](commands.md) | [日本語](commands_ja.md)

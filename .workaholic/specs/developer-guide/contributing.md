@@ -2,8 +2,8 @@
 title: Contributing
 description: How to add or modify plugins in Workaholic
 category: developer
-last_updated: 2026-01-25
-commit_hash: a87a013
+modified_at: 2026-01-27T01:21:14+09:00
+commit_hash: 5d468b0
 ---
 
 [English](contributing.md) | [日本語](contributing_ja.md)
@@ -91,15 +91,15 @@ plugins/<plugin>/skills/my-skill/
 
 ## Documentation Standards
 
-Documentation updates are mandatory for every change. Use the `/sync-work` command to update documentation before creating a pull request, or let `/pull-request` run it automatically.
+Documentation updates are mandatory for every change. The `/pull-request` command automatically runs four documentation subagents in parallel (changelog-writer, story-writer, spec-writer, terms-writer), so documentation is always updated before PR creation.
 
-The `/sync-work` command enforces documentation standards:
+Documentation standards enforced by the spec-writer and terms-writer subagents:
 
 - YAML frontmatter on every markdown file (including `commit_hash` field)
 - Use Mermaid for diagrams (ASCII art diagrams are prohibited)
 - Write prose paragraphs, not bullet fragments
 - Maintain link hierarchy from root README
-- Update `last_updated` and `commit_hash` fields when modifying documents
+- Update `modified_at` and `commit_hash` fields when modifying documents
 - Place docs in correct subdirectory: `user-guide/` for user-facing, `developer-guide/` for architecture
 
 Documentation is not optional. Every code change affects documentation in some way, whether updating existing docs, creating new ones, removing outdated files, or reorganizing the structure.
@@ -123,8 +123,8 @@ Follow the commit message rules:
 
 ## Pull Requests
 
-Create PRs with `/pull-request`. The summary is auto-generated from the branch CHANGELOG. Ensure your PR:
+Create PRs with `/pull-request`. The summary is auto-generated from the story file, which synthesizes archived tickets into a coherent narrative. Ensure your PR:
 
 - Has clear commit history (one ticket = one commit)
-- Includes documentation updates
+- Includes documentation updates (handled automatically by subagents)
 - Follows existing patterns in the codebase

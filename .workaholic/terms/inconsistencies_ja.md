@@ -3,7 +3,7 @@ title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
 last_updated: 2026-01-27
-commit_hash: f034f63
+commit_hash: 5d468b0
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -28,21 +28,21 @@ commit_hash: f034f63
 
 実装作業リクエストには一貫して「ticket」を使用し、「spec」は現状ドキュメントにのみ使用します。「implementation spec」への残りの参照を「ticket」に更新してください。
 
-## レガシー「doc-specs」および「sync-src-doc」参照
+## レガシー「doc-specs」、「sync-src-doc」、「sync-work」参照
 
 ### 問題
 
-過去のドキュメントは`/sync-work`に改名された`/sync-doc-specs`または`/sync-src-doc`を参照している可能性があります。
+過去のドキュメントは、もう存在しない`/sync-doc-specs`、`/sync-src-doc`、または`/sync-work`コマンドを参照している可能性があります。これらのコマンドは`/pull-request`に統合されました。
 
 ### 現在の使用状況
 
-- 現在のコマンド名：`sync-work`
-- 過去の名前：`sync-doc-specs`、`sync-src-doc`
+- 現在のワークフロー：`/pull-request`はspec-writerとterms-writerサブエージェントを自動的に実行
+- 過去のコマンド：`sync-doc-specs`、`sync-src-doc`、`sync-work`、`sync-workaholic`
 - ターゲット：`.workaholic/specs/`と`.workaholic/terms/`
 
 ### 推奨される解決策
 
-残りの参照を`/sync-doc-specs`または`/sync-src-doc`から`/sync-work`に更新します。新しい名前はコマンドの目的をより良く反映しています：`.workaholic/`ディレクトリに同期する。
+残りの参照を、ドキュメント同期が`/pull-request`中に自動的に行われることを説明するように更新します。過去のドキュメントは変更しないでください。
 
 ## レガシー「terminology」参照
 
@@ -120,4 +120,4 @@ commit_hash: f034f63
 
 ### 推奨される解決策
 
-TDDプラグインへの残りの参照をcoreプラグインへの参照に更新します。チケット駆動開発コマンド（`/ticket`、`/drive`、`/sync-work`）は現在、統一されたcoreプラグインの一部です。
+TDDプラグインへの残りの参照をcoreプラグインへの参照に更新します。チケット駆動開発コマンド（`/ticket`、`/drive`）は現在、統一されたcoreプラグインの一部です。

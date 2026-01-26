@@ -3,7 +3,7 @@ title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
 last_updated: 2026-01-27
-commit_hash: f034f63
+commit_hash: 5d468b0
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -28,21 +28,21 @@ The `/ticket` command description uses "implementation spec" to describe tickets
 
 Consistently use "ticket" for implementation work requests and "spec" only for current state documentation. Update any remaining references to "implementation spec" to use "ticket" instead.
 
-## Legacy "doc-specs" and "sync-src-doc" References
+## Legacy "doc-specs", "sync-src-doc", and "sync-work" References
 
 ### Issue
 
-Historical documentation may reference `/sync-doc-specs` or `/sync-src-doc` which have been renamed to `/sync-work`.
+Historical documentation may reference `/sync-doc-specs`, `/sync-src-doc`, or `/sync-work` commands that no longer exist. These commands have been consolidated into `/pull-request`.
 
 ### Current Usage
 
-- Current command name: `sync-work`
-- Historical names: `sync-doc-specs`, `sync-src-doc`
+- Current workflow: `/pull-request` runs spec-writer and terms-writer subagents automatically
+- Historical commands: `sync-doc-specs`, `sync-src-doc`, `sync-work`, `sync-workaholic`
 - Targets: `.workaholic/specs/` and `.workaholic/terms/`
 
 ### Recommended Resolution
 
-Update any remaining references from `/sync-doc-specs` or `/sync-src-doc` to `/sync-work`. The new name better reflects the command's purpose: syncing to the `.workaholic/` directory.
+Update any remaining references to explain that documentation sync happens automatically during `/pull-request`. Historical documents should remain unchanged.
 
 ## Legacy "terminology" References
 
@@ -120,4 +120,4 @@ Historical documentation may reference a separate "TDD plugin" (`plugins/tdd/`) 
 
 ### Recommended Resolution
 
-Update any remaining references to the TDD plugin to refer to the core plugin instead. The ticket-driven development commands (`/ticket`, `/drive`, `/sync-work`) are now part of the unified core plugin.
+Update any remaining references to the TDD plugin to refer to the core plugin instead. The ticket-driven development commands (`/ticket`, `/drive`) are now part of the unified core plugin.

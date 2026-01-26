@@ -3,9 +3,9 @@ created_at: 2026-01-26T13:52:12+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 83889e1
+category: Added
 ---
 
 # Add commit_hash to Stories README
@@ -40,4 +40,11 @@ Add `commit_hash` frontmatter field to `.workaholic/stories/README.md` (and its 
 
 - This is a simple frontmatter addition, consistent with other READMEs in `.workaholic/`
 - The `commit_hash` allows Claude to run `git log <hash>..HEAD` to see what changed since the README was last updated
-- Future edits to these READMEs should update the `commit_hash` along with `last_updated`
+- Future edits to these READMEs should update the `commit_hash` along with `modified_at`
+
+## Final Report
+
+Implementation deviated from original plan:
+
+- **Change**: Also migrated `last_updated` to `modified_at`
+  **Reason**: Applied the timestamp convention established in the previous ticket

@@ -2,7 +2,8 @@
 title: Stories
 description: Branch development narratives that serve as PR descriptions
 category: developer
-last_updated: 2026-01-24
+modified_at: 2026-01-26T14:30:00+09:00
+commit_hash: 5452b2d
 ---
 
 [English](README.md) | [日本語](README_ja.md)

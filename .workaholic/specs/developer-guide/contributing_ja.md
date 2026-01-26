@@ -2,8 +2,8 @@
 title: Contributing
 description: How to add or modify plugins in Workaholic
 category: developer
-last_updated: 2026-01-25
-commit_hash: a87a013
+modified_at: 2026-01-27T01:21:14+09:00
+commit_hash: 5d468b0
 ---
 
 [English](contributing.md) | [日本語](contributing_ja.md)
@@ -91,15 +91,15 @@ plugins/<plugin>/skills/my-skill/
 
 ## ドキュメント基準
 
-ドキュメント更新はすべての変更に対して必須です。プルリクエストを作成する前に`/sync-work`コマンドを使用してドキュメントを更新するか、`/pull-request`に自動的に実行させます。
+ドキュメント更新はすべての変更に対して必須です。`/pull-request`コマンドは4つのドキュメントサブエージェント（changelog-writer、story-writer、spec-writer、terms-writer）を自動的に並列実行するため、PR作成前にドキュメントは常に更新されます。
 
-`/sync-work`コマンドはドキュメント基準を強制します：
+spec-writerとterms-writerサブエージェントが強制するドキュメント基準：
 
 - すべてのマークダウンファイルにYAMLフロントマター（`commit_hash`フィールドを含む）
 - 図にはMermaidを使用（ASCII図は禁止）
 - 箇条書きの断片ではなく、散文の段落を書く
 - ルートREADMEからのリンク階層を維持
-- ドキュメント修正時に`last_updated`と`commit_hash`フィールドを更新
+- ドキュメント修正時に`modified_at`と`commit_hash`フィールドを更新
 - ドキュメントは適切なサブディレクトリに配置: `user-guide/`はユーザー向け、`developer-guide/`はアーキテクチャ向け
 
 ドキュメントは任意ではありません。すべてのコード変更は何らかの形でドキュメントに影響します。既存のドキュメントの更新、新しいドキュメントの作成、古いファイルの削除、構造の再編成など。
@@ -123,8 +123,8 @@ plugins/<plugin>/skills/my-skill/
 
 ## プルリクエスト
 
-`/pull-request`でPRを作成します。サマリーはブランチのCHANGELOGから自動生成されます。PRが以下を満たしていることを確認してください：
+`/pull-request`でPRを作成します。サマリーはストーリーファイルから自動生成され、アーカイブされたチケットを一貫したナラティブに統合します。PRが以下を満たしていることを確認してください：
 
 - クリーンなコミット履歴（1チケット = 1コミット）
-- ドキュメント更新を含む
+- ドキュメント更新を含む（サブエージェントによって自動的に処理）
 - コードベースの既存パターンに従う

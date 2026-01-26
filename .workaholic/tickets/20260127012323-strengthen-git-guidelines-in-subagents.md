@@ -8,33 +8,37 @@ commit_hash:
 category:
 ---
 
-# Strengthen git guidelines in subagents to prevent -C flag usage
+# Consolidate git guidelines into a rule for all subagents
 
 ## Overview
 
-Despite adding "Git Command Guidelines" to subagents (story-writer, spec-writer, terms-writer), the story-writer still uses `git -C` flag when running commands like `git rev-list --count main..HEAD`. The current guideline text is too weak - it needs to be more emphatic and positioned prominently.
+Despite adding "Git Command Guidelines" to subagents (story-writer, spec-writer, terms-writer), the story-writer still uses `git -C` flag when running commands like `git rev-list --count main..HEAD`. The current approach of duplicating guidelines in each agent file is:
 
-The issue is that Claude Code's default behavior may add `-C` flags to git commands. The subagent instructions need to explicitly override this behavior with stronger language.
+1. Not DRY - same text repeated in 3 files
+2. Too weak - needs stronger, more emphatic language
+3. Easy to miss when adding new agents
+
+A better approach is to create a dedicated rule file that applies to all subagents.
 
 ## Key Files
 
-- `plugins/core/agents/story-writer.md` - Runs git rev-list, git log commands
-- `plugins/core/agents/spec-writer.md` - Runs git branch, git diff, git rev-parse commands
-- `plugins/core/agents/terms-writer.md` - Runs git branch, git diff, git rev-parse commands
+- `plugins/core/rules/subagents.md` - NEW: Rule file for all subagent behavior
+- `plugins/core/agents/story-writer.md` - Remove duplicated Git Command Guidelines section
+- `plugins/core/agents/spec-writer.md` - Remove duplicated Git Command Guidelines section
+- `plugins/core/agents/terms-writer.md` - Remove duplicated Git Command Guidelines section
 
 ## Implementation Steps
 
-1. Update the "Git Command Guidelines" section in all three agent files to use stronger, more emphatic language:
+1. Create `plugins/core/rules/subagents.md` with strong git guidelines:
 
-   **Current text:**
    ```markdown
-   ## Git Command Guidelines
+   ---
+   paths:
+     - 'plugins/core/agents/**/*'
+   ---
 
-   Run git commands from the working directory. Never use `git -C` flag.
-   ```
+   # Subagent Rules
 
-   **New text:**
-   ```markdown
    ## CRITICAL: Git Command Format
 
    **NEVER use `git -C <path>` flag.** Always run git commands directly without path arguments:
@@ -45,10 +49,15 @@ The issue is that Claude Code's default behavior may add `-C` flags to git comma
    All git commands must run from the current working directory. The `-C` flag causes permission prompts and must not be used.
    ```
 
-2. The section should remain after the "Input" section (for story-writer) or at the start of Instructions (for spec-writer, terms-writer) - the position is fine, but the content needs to be stronger.
+2. Remove the "Git Command Guidelines" section from `story-writer.md` (lines 18-20)
+
+3. Remove the "Git Command Guidelines" section from `spec-writer.md` (lines 11-13)
+
+4. Remove the "Git Command Guidelines" section from `terms-writer.md` (lines 11-13)
 
 ## Considerations
 
-- The changelog-writer, pr-creator, and performance-analyst agents don't run git commands directly, so they don't need this section
-- The stronger wording with "CRITICAL" and explicit WRONG/RIGHT examples should help Claude understand this is a hard requirement, not a soft suggestion
-- Including the explanation "causes permission prompts" gives context for why this matters
+- The `paths` pattern `plugins/core/agents/**/*` ensures the rule applies when any agent file is active
+- New agents automatically get the git guidelines without needing to add them manually
+- The stronger wording with "CRITICAL" and explicit WRONG/RIGHT examples makes this a hard requirement
+- All subagents benefit from this rule, even ones that don't currently run git commands

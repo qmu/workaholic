@@ -28,40 +28,43 @@ This design makes stories the single source of truth for PR content, eliminating
      - Move each ticket to `.workaholic/tickets/icebox/`
      - Stage and commit: "Move remaining tickets to icebox"
    - If no tickets, continue with normal PR flow
-4. **Update root CHANGELOG from archived tickets**:
-   - Read all tickets from `.workaholic/tickets/archive/<branch-name>/*.md`
-   - For each ticket, extract from frontmatter: `commit_hash`, `category`
-   - Extract title from `# <Title>` heading
-   - Extract first sentence from Overview section for description
-   - Get repo URL from git remote
-   - Generate entries in format: `- Title ([hash](url)) - [ticket](path)`
-   - Group entries by category (Added, Changed, Removed)
-   - Add branch section to root `CHANGELOG.md`: `## [<branch-name>](issue-url)`
-   - Stage and commit: "Update CHANGELOG for PR"
-5. **Generate branch story** using the story-writer subagent:
+4. **Generate documentation** using 4 subagents concurrently:
 
-   Invoke the story-writer subagent via Task tool with `subagent_type: "core:story-writer"`:
+   Invoke all 4 documentation agents in parallel via Task tool (single message with 4 tool calls):
 
-   - Pass the branch name and base branch as context
-   - The subagent handles: reading archived tickets, calculating metrics, generating story file, invoking performance-analyst
-   - The story file is created at `.workaholic/stories/<branch-name>.md`
+   - **changelog-writer** (`subagent_type: "core:changelog-writer"`): Updates `CHANGELOG.md` with entries from archived tickets
+   - **story-writer** (`subagent_type: "core:story-writer"`): Creates `.workaholic/stories/<branch-name>.md` with PR narrative
+   - **spec-writer** (`subagent_type: "core:spec-writer"`): Updates `.workaholic/specs/` to reflect codebase changes
+   - **terminology-writer** (`subagent_type: "core:terminology-writer"`): Updates `.workaholic/terminology/` with new terms
 
-   Stage and commit: "Generate branch story"
+   Pass to each agent:
+   - Branch name and base branch as context
+   - Repository URL (for changelog-writer)
 
-6. **Format changed files** (silent step):
+   Wait for all 4 agents to complete. Each writes to different locations:
+   - `CHANGELOG.md`
+   - `.workaholic/stories/<branch-name>.md`
+   - `.workaholic/specs/**/*.md`
+   - `.workaholic/terminology/**/*.md`
+
+   After all complete, stage all changes and commit: "Update documentation for PR"
+
+   **Failure handling**: If any agent fails, report which succeeded and which failed. Continue with PR creation if story-writer succeeded (it's required for PR body).
+
+5. **Format changed files** (silent step):
    - Run project linter/formatter on changed files
    - Do NOT announce "reading file again" or similar verbose messages
    - Just silently format and continue
    - Stage and commit any formatting changes: "Format code"
-7. Check if a PR already exists for this branch:
+6. Check if a PR already exists for this branch:
    ```sh
    gh pr list --head $(git branch --show-current) --json number,title,url
    ```
-8. **Read story file and prepare PR content**:
+7. **Read story file and prepare PR content**:
    - Read `.workaholic/stories/<branch-name>.md`
    - Strip YAML frontmatter (everything between `---` delimiters)
    - The remaining content IS the PR body
-9. **Derive PR title from Summary section**:
+8. **Derive PR title from Summary section**:
     - Parse the Summary section from the story
     - If single change: use that change as title (e.g., "Add dark mode toggle")
     - If multiple changes: use first change + "etc" (e.g., "Add dark mode toggle etc")

@@ -2,8 +2,8 @@
 title: Contributing
 description: How to add or modify plugins in Workaholic
 category: developer
-modified_at: 2026-01-27T01:21:14+09:00
-commit_hash: 5d468b0
+modified_at: 2026-01-27T01:51:01+09:00
+commit_hash: e303e17
 ---
 
 [English](contributing.md) | [日本語](contributing_ja.md)
@@ -32,12 +32,12 @@ Use the workaholic workflow to develop workaholic itself:
 
 ```mermaid
 flowchart LR
-    A[/ticket] --> B[/drive] --> C[/pull-request]
+    A[/ticket] --> B[/drive] --> C[/report]
 ```
 
 1. **Create a ticket**: `/ticket add new validation rule`
 2. **Implement**: `/drive` - follows the ticket, updates documentation, commits when approved
-3. **Create PR**: `/pull-request` - generates summary from CHANGELOG
+3. **Create PR**: `/report` - generates documentation and creates PR
 
 Every implementation includes documentation updates. This is mandatory and cannot be skipped.
 
@@ -91,7 +91,7 @@ plugins/<plugin>/skills/my-skill/
 
 ## Documentation Standards
 
-Documentation updates are mandatory for every change. The `/pull-request` command automatically runs four documentation subagents in parallel (changelog-writer, story-writer, spec-writer, terms-writer), so documentation is always updated before PR creation.
+Documentation updates are mandatory for every change. The `/report` command automatically runs four documentation subagents in parallel (changelog-writer, story-writer, spec-writer, terms-writer), so documentation is always updated before PR creation.
 
 Documentation standards enforced by the spec-writer and terms-writer subagents:
 
@@ -123,7 +123,7 @@ Follow the commit message rules:
 
 ## Pull Requests
 
-Create PRs with `/pull-request`. The summary is auto-generated from the story file, which synthesizes archived tickets into a coherent narrative. Ensure your PR:
+Create PRs with `/report`. The summary is auto-generated from the story file, which synthesizes archived tickets into a coherent narrative. Ensure your PR:
 
 - Has clear commit history (one ticket = one commit)
 - Includes documentation updates (handled automatically by subagents)

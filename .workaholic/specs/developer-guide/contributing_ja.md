@@ -2,8 +2,8 @@
 title: Contributing
 description: How to add or modify plugins in Workaholic
 category: developer
-modified_at: 2026-01-27T01:21:14+09:00
-commit_hash: 5d468b0
+modified_at: 2026-01-27T01:51:01+09:00
+commit_hash: e303e17
 ---
 
 [English](contributing.md) | [日本語](contributing_ja.md)
@@ -32,12 +32,12 @@ workaholic自体の開発にworkaholicワークフローを使用します：
 
 ```mermaid
 flowchart LR
-    A[/ticket] --> B[/drive] --> C[/pull-request]
+    A[/ticket] --> B[/drive] --> C[/report]
 ```
 
 1. **チケットを作成**: `/ticket add new validation rule`
 2. **実装**: `/drive` - チケットに従い、ドキュメントを更新し、承認時にコミット
-3. **PRを作成**: `/pull-request` - CHANGELOGからサマリーを生成
+3. **PRを作成**: `/report` - ドキュメントを生成しPRを作成
 
 すべての実装にはドキュメント更新が含まれます。これは必須であり、スキップできません。
 
@@ -91,7 +91,7 @@ plugins/<plugin>/skills/my-skill/
 
 ## ドキュメント基準
 
-ドキュメント更新はすべての変更に対して必須です。`/pull-request`コマンドは4つのドキュメントサブエージェント（changelog-writer、story-writer、spec-writer、terms-writer）を自動的に並列実行するため、PR作成前にドキュメントは常に更新されます。
+ドキュメント更新はすべての変更に対して必須です。`/report`コマンドは4つのドキュメントサブエージェント（changelog-writer、story-writer、spec-writer、terms-writer）を自動的に並列実行するため、PR作成前にドキュメントは常に更新されます。
 
 spec-writerとterms-writerサブエージェントが強制するドキュメント基準：
 
@@ -123,7 +123,7 @@ spec-writerとterms-writerサブエージェントが強制するドキュメン
 
 ## プルリクエスト
 
-`/pull-request`でPRを作成します。サマリーはストーリーファイルから自動生成され、アーカイブされたチケットを一貫したナラティブに統合します。PRが以下を満たしていることを確認してください：
+`/report`でPRを作成します。サマリーはストーリーファイルから自動生成され、アーカイブされたチケットを一貫したナラティブに統合します。PRが以下を満たしていることを確認してください：
 
 - クリーンなコミット履歴（1チケット = 1コミット）
 - ドキュメント更新を含む（サブエージェントによって自動的に処理）

@@ -3,7 +3,7 @@ title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
 last_updated: 2026-01-27
-commit_hash: 5d468b0
+commit_hash: e303e17
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -36,13 +36,13 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 
 ### 定義
 
-コマンドはプラグインの主要なユーザーインターフェースです。ユーザーはスラッシュプレフィックスで呼び出します（例：`/commit`、`/ticket`）。各コマンドはプラグインの`commands/`ディレクトリにマークダウンファイルを持ち、その動作と指示を定義します。
+コマンドはプラグインの主要なユーザーインターフェースです。ユーザーはスラッシュプレフィックスで呼び出します（例：`/ticket`、`/drive`）。各コマンドはプラグインの`commands/`ディレクトリにマークダウンファイルを持ち、その動作と指示を定義します。
 
 ### 使用パターン
 
 - **ディレクトリ名**: `plugins/<name>/commands/`
-- **ファイル名**: `commit.md`、`pull-request.md`、`sync-work.md`
-- **コード参照**: 「`/commit`を実行して...」、「`/ticket`コマンド...」
+- **ファイル名**: `ticket.md`、`drive.md`、`report.md`
+- **コード参照**: 「`/drive`を実行して...」、「`/ticket`コマンド...」
 
 ### 関連用語
 
@@ -116,7 +116,7 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 オーケストレーターは、インラインでタスクを実行する代わりに、専門化された作業を複数のエージェントに委譲するコマンドです。オーケストレーターは初期コンテキストを収集し、エージェントを（パフォーマンスのために並列で）呼び出し、その出力を統合します。このパターンは、複雑なマルチステップワークフローを可能にしながら、メイン会話のコンテキストウィンドウを保持します。
 
 例:
-- `/pull-request`はchangelog-writer、story-writer、spec-writer、terms-writerを同時に、その後pr-creatorを順次オーケストレート
+- `/report`はchangelog-writer、story-writer、spec-writer、terms-writerを同時に、その後pr-creatorを順次オーケストレート
 
 ### 使用パターン
 

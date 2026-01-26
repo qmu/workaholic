@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-27T01:21:14+09:00
-commit_hash: 5d468b0
+modified_at: 2026-01-27T01:51:01+09:00
+commit_hash: e303e17
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -49,12 +49,11 @@ plugins/
       pr-creator.md           # Creates/updates GitHub PRs
       spec-writer.md          # Updates .workaholic/specs/
       story-writer.md         # Generates branch stories for PRs
-      terms-writer.md   # Updates .workaholic/terms/
+      terms-writer.md         # Updates .workaholic/terms/
     commands/
       branch.md          # /branch command
-      commit.md          # /commit command
       drive.md           # /drive command
-      pull-request.md    # /pull-request command
+      report.md          # /report command
       ticket.md          # /ticket command
     rules/
       diagrams.md      # Mermaid diagram requirements
@@ -74,7 +73,7 @@ plugins/
 
 ### Commands
 
-Commands are user-invocable via slash syntax (`/commit`, `/ticket`). Each command is a markdown file with YAML frontmatter defining the name and description, followed by instructions that Claude follows when the command is invoked.
+Commands are user-invocable via slash syntax (`/ticket`, `/drive`, `/report`). Each command is a markdown file with YAML frontmatter defining the name and description, followed by instructions that Claude follows when the command is invoked.
 
 ### Rules
 
@@ -126,13 +125,13 @@ sequenceDiagram
 
 ## Documentation Enforcement
 
-Workaholic enforces comprehensive documentation through a parallel subagent architecture. The `/pull-request` command orchestrates four documentation agents that run concurrently, each handling a specific domain.
+Workaholic enforces comprehensive documentation through a parallel subagent architecture. The `/report` command orchestrates four documentation agents that run concurrently, each handling a specific domain.
 
 ### How It Works
 
 ```mermaid
 flowchart TD
-    A[/pull-request command] --> B[Move remaining tickets to icebox]
+    A[/report command] --> B[Move remaining tickets to icebox]
     B --> C[Invoke 4 subagents in parallel]
 
     subgraph Parallel Documentation
@@ -161,7 +160,7 @@ flowchart TD
     M --> N[Create/update PR]
 ```
 
-Documentation is updated automatically during the `/pull-request` workflow.
+Documentation is updated automatically during the `/report` workflow.
 
 The subagent architecture provides several benefits:
 

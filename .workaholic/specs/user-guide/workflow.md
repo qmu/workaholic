@@ -2,8 +2,8 @@
 title: Workflow Guide
 description: How to use ticket-driven development with Workaholic
 category: user
-modified_at: 2026-01-27T01:21:14+09:00
-commit_hash: 5d468b0
+modified_at: 2026-01-27T01:51:01+09:00
+commit_hash: e303e17
 ---
 
 [English](workflow.md) | [日本語](workflow_ja.md)
@@ -29,7 +29,7 @@ flowchart TD
     D -->|Revise| C
     E --> F{More tickets?}
     F -->|Yes| C
-    F -->|No| G[/pull-request]
+    F -->|No| G[/report]
     G --> H[Code review]
     H --> I[Merge]
 ```
@@ -70,15 +70,15 @@ Claude follows the spec, makes changes, and runs any type checks. After implemen
 
 For multi-ticket features, write additional tickets and run `/drive` again. Each ticket becomes one commit with a clear purpose.
 
-### 5. Create Pull Request
+### 5. Generate Report and Create Pull Request
 
 When ready for review:
 
 ```bash
-/pull-request
+/report
 ```
 
-The command automatically runs four documentation subagents in parallel: changelog-writer updates `CHANGELOG.md`, story-writer generates the PR narrative, spec-writer updates `.workaholic/specs/`, and terms-writer updates `.workaholic/terms/`. The PR summary is generated from the story file, which synthesizes all archived tickets into a coherent narrative including performance metrics.
+The command automatically runs four documentation subagents in parallel: changelog-writer updates `CHANGELOG.md`, story-writer generates the PR narrative, spec-writer updates `.workaholic/specs/`, and terms-writer updates `.workaholic/terms/`. After documentation is committed, the pr-creator subagent creates or updates the GitHub PR. The PR summary is generated from the story file, which synthesizes all archived tickets into a coherent narrative including performance metrics.
 
 ## Directory Structure
 

@@ -2,8 +2,8 @@
 title: Command Reference
 description: Complete documentation for all Workaholic commands
 category: user
-modified_at: 2026-01-27T01:21:14+09:00
-commit_hash: 5d468b0
+modified_at: 2026-01-27T01:51:01+09:00
+commit_hash: e303e17
 ---
 
 [English](commands.md) | [日本語](commands_ja.md)
@@ -24,23 +24,15 @@ Workaholicは統一された**core**プラグインを提供し、gitワーク�
 
 `feat-20260120-205418`のようなブランチを生成し、ユニークなブランチ名と時系列順序を保証します。接頭辞により、機能の作業がいつ開始されたかを識別できます。
 
-### /commit
+### /report
 
-論理的な単位で意味のあるコミットメッセージと共に変更をコミットします。
-
-```bash
-/commit
-```
-
-Claudeはステージングされた変更とステージングされていない変更を分析し、論理的にグループ化し、各変更の目的を説明するメッセージでコミットを作成します。コミットメッセージは従来のスタイルに従います：現在形の動詞で、「何を」ではなく「なぜ」に焦点を当てます。
-
-### /pull-request
-
-自動生成されたサマリーでプルリクエストを作成または更新します。
+包括的なドキュメントを生成し、プルリクエストを作成または更新します。
 
 ```bash
-/pull-request
+/report
 ```
+
+コマンドは5つのサブエージェントを調整してドキュメント成果物を生成します：changelog-writerが`CHANGELOG.md`を更新し、story-writerがPRナラティブを生成し、spec-writerが`.workaholic/specs/`を更新し、terms-writerが`.workaholic/terms/`を更新し、pr-creatorがGitHub PRの作成を処理します。最初の4つは並列実行され、その後pr-creatorが生成されたストーリーをボディとして使用してPRを作成します。
 
 PRの説明にはストーリードキュメントの内容が使用されます。ストーリーには以下のセクションが含まれます：
 
@@ -86,6 +78,6 @@ Claudeは`.workaholic/tickets/`からチケットを取り出し、一つずつ�
 1. `/branch` - 新しいフィーチャーブランチを開始
 2. `/ticket <description>` - 実装仕様を記述
 3. `/drive` - チケットを実装
-4. `/pull-request` - レビュー用のPRを作成（自動的にドキュメントを更新）
+4. `/report` - ドキュメントを生成し、レビュー用のPRを作成
 
 各チケットは独自のコミットを取得し、CHANGELOGがPRサマリーのためにすべての変更を追跡します。

@@ -2,8 +2,8 @@
 title: Getting Started
 description: Installation and first steps with Workaholic
 category: user
-modified_at: 2026-01-27T01:21:14+09:00
-commit_hash: 5d468b0
+modified_at: 2026-01-27T01:51:01+09:00
+commit_hash: e303e17
 ---
 
 [English](getting-started.md) | [日本語](getting-started_ja.md)
@@ -38,10 +38,9 @@ claude
 
 ```bash
 /branch         # タイムスタンプ付きトピックブランチを作成
-/commit         # 意味のあるメッセージでコミット
-/pull-request   # 自動生成されたサマリーでPRを作成
 /ticket         # 実装仕様を記述
 /drive          # チケットを一つずつ実装
+/report         # ドキュメントを生成しPRを作成
 ```
 
 ## 次のステップ

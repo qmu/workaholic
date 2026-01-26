@@ -1,19 +1,19 @@
 ---
 name: drive
-description: Implement tickets from .work/tickets/ one by one, commit each, and archive.
+description: Implement tickets from .workaholic/tickets/ one by one, commit each, and archive.
 ---
 
 # Drive
 
-Implement all tickets stored in `.work/tickets/` from top to bottom, committing and archiving each one before moving to the next.
+Implement all tickets stored in `.workaholic/tickets/` from top to bottom, committing and archiving each one before moving to the next.
 
 ## Icebox Mode
 
 If `$ARGUMENT` contains "icebox":
 
-1. List tickets in `.work/tickets/icebox/`
+1. List tickets in `.workaholic/tickets/icebox/`
 2. Ask user which ticket to retrieve
-3. Move selected ticket to `.work/tickets/`
+3. Move selected ticket to `.workaholic/tickets/`
 4. Implement that ticket (steps 2.1-2.5)
 5. **ALWAYS ask confirmation** before proceeding to next ticket
 
@@ -22,7 +22,7 @@ If `$ARGUMENT` contains "icebox":
 ### 1. List and Sort Tickets
 
 ```bash
-ls -1 .work/tickets/*.md 2>/dev/null | sort
+ls -1 .workaholic/tickets/*.md 2>/dev/null | sort
 ```
 
 - If no tickets found, inform the user and stop
@@ -121,7 +121,7 @@ Example:
 
 ```bash
 bash .claude/skills/archive-ticket/scripts/archive.sh \
-  .work/tickets/20260115-feature.md \
+  .workaholic/tickets/20260115-feature.md \
   "Add new feature for user authentication" \
   https://github.com/org/repo \
   "Enables users to log in with session-based authentication, addressing the need for secure access control." \
@@ -134,7 +134,7 @@ bash .claude/skills/archive-ticket/scripts/archive.sh \
 
 - All implementation changes
 - The archived ticket file
-- Any uncommitted ticket files in `.work/tickets/`
+- Any uncommitted ticket files in `.workaholic/tickets/`
 - CHANGELOG updates
 
 This means newly created tickets are automatically included in drive commits,
@@ -168,9 +168,9 @@ After committing:
 
 ```
 Claude: Found 3 tickets to implement:
-        1. .work/tickets/20260113-feature-a.md
-        2. .work/tickets/20260113-feature-b.md
-        3. .work/tickets/20260113-feature-c.md
+        1. .workaholic/tickets/20260113-feature-a.md
+        2. .workaholic/tickets/20260113-feature-b.md
+        3. .workaholic/tickets/20260113-feature-c.md
 
         Starting with 20260113-feature-a.md...
         [implements feature-a]
@@ -210,7 +210,7 @@ If a ticket cannot be implemented (out of scope, too complex, blocked, or any ot
 1. **Stop and ask the developer** using AskUserQuestion
 2. Explain why implementation cannot proceed
 3. Offer these options:
-   - "Move to icebox" - Move ticket to `.work/tickets/icebox/` and continue to next
+   - "Move to icebox" - Move ticket to `.workaholic/tickets/icebox/` and continue to next
    - "Skip for now" - Leave ticket in queue, move to next ticket
    - "Abort drive" - Stop the drive session entirely
 

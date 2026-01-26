@@ -17,13 +17,12 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 
 ## Commands
 
-| Command                 | Description                                                                |
-| ----------------------- | -------------------------------------------------------------------------- |
-| `/branch`               | Create a topic branch with timestamp (e.g., feat-20260120-205418)          |
-| `/commit`               | Commit all changes in logical units with meaningful messages               |
-| `/pull-request`         | Create or update a pull request with CHANGELOG-based summary               |
-| `/ticket <description>` | Explore codebase and write implementation ticket                           |
+| Command                 | Description                                                                      |
+| ----------------------- | -------------------------------------------------------------------------------- |
+| `/branch`               | Create a topic branch with timestamp (e.g., feat-20260120-205418)                |
+| `/ticket <description>` | Explore codebase and write implementation ticket                                 |
 | `/drive`                | Implement tickets from .workaholic/tickets/ one by one, commit each, and archive |
+| `/pull-request`         | Create or update a pull request with CHANGELOG-based summary                     |
 
 ## Agents
 

@@ -18,6 +18,9 @@
 - Standardize timestamp fields to _at convention with datetime ([5452b2d](https://github.com/qmu/workaholic/commit/5452b2d))
   All timestamp frontmatter fields now use _at suffix (e.g., modified_at instead of last_updated) with ISO 8601 datetime format.
 
+- Rename /sync-work command to /sync-workaholic ([616d931](https://github.com/qmu/workaholic/commit/616d931))
+  Aligns command name with directory name for consistency.
+
 ## [feat-20260124-200439](https://github.com/qmu/workaholic/tree/feat-20260124-200439)
 
 ### Added

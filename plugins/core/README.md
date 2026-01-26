@@ -22,7 +22,7 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 | `/branch`               | Create a topic branch with timestamp (e.g., feat-20260120-205418)                |
 | `/ticket <description>` | Explore codebase and write implementation ticket                                 |
 | `/drive`                | Implement tickets from .workaholic/tickets/ one by one, commit each, and archive |
-| `/pull-request`         | Create or update a pull request with CHANGELOG-based summary                     |
+| `/report`               | Generate documentation and create/update pull request                            |
 
 ## Agents
 
@@ -47,7 +47,7 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 
 1. **Create tickets**: Use `/ticket` to write implementation specs
 2. **Implement tickets**: Use `/drive` to implement and commit each ticket
-3. **Create PR**: Use `/pull-request` to create PR with auto-generated summary
+3. **Create PR**: Use `/report` to generate documentation and create PR
 
 ## Feedback Loop
 

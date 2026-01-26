@@ -24,7 +24,7 @@ plugins/                 # Plugin source directories
   core/                  # Core development plugin
     .claude-plugin/      # Plugin configuration
     agents/              # performance-analyst
-    commands/            # branch, ticket, drive, pull-request
+    commands/            # branch, ticket, drive, report
     rules/               # general, typescript
     skills/              # archive-ticket
 ```
@@ -35,14 +35,14 @@ plugins/                 # Plugin source directories
 | -------------------------------- | ------------------------------------------------ |
 | `/ticket <description>`          | Write implementation spec for a feature          |
 | `/drive`                         | Implement queued specs one by one                |
-| `/pull-request`                  | Create or update PR with CHANGELOG-based summary |
+| `/report`                        | Generate documentation and create/update PR      |
 | `/release [major\|minor\|patch]` | Release new marketplace version                  |
 
 ## Development Workflow
 
 1. **Create specs**: Use `/ticket` to write implementation specs
 2. **Implement specs**: Use `/drive` to implement and commit each spec
-3. **Create PR**: Use `/pull-request` to create PR with auto-generated summary
+3. **Create PR**: Use `/report` to generate documentation and create PR
 4. **Release**: Use `/release` to bump version and publish
 
 ## Type Checking

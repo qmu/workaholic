@@ -3,9 +3,9 @@ created_at: 2026-01-26T13:23:22+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 147575d
+category: Changed
 ---
 
 # Enforce Work Directory Structure
@@ -16,7 +16,7 @@ Add a rule to the core plugin that restricts the `.workaholic/` directory to onl
 
 ## Key Files
 
-- `plugins/core/rules/general.md` - Add the directory structure enforcement rule with path restriction
+- `plugins/core/rules/workaholic.md` - New rule file for work directory structure enforcement
 
 ## Implementation Steps
 
@@ -42,3 +42,10 @@ Add a rule to the core plugin that restricts the `.workaholic/` directory to onl
 - This is a preventive rule, not a cleanup rule - it doesn't remove existing non-standard directories
 - The rule applies to both `.work/` and `.workaholic/` to handle pre/post migration
 - Users can still override by explicitly asking, but Claude should explain the convention first
+
+## Final Report
+
+Implementation deviated from original plan:
+
+- **Change**: Created a new rule file `plugins/core/rules/workaholic.md` instead of adding to `general.md`
+  **Reason**: User requested a separate rule file to keep concerns cleanly separated

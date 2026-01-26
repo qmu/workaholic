@@ -28,13 +28,15 @@ This design makes stories the single source of truth for PR content, eliminating
      - Move each ticket to `.work/tickets/icebox/`
      - Stage and commit: "Move remaining tickets to icebox"
    - If no tickets, continue with normal PR flow
-4. **Consolidate branch CHANGELOG to root**:
-   - Read `.work/changelogs/<branch-name>.md` if it exists
-   - Read existing `CHANGELOG.md` (root)
-   - Merge branch entries into root CHANGELOG under branch section header
-   - Format: `## [<branch-name>](issue-url)`
-   - Reorganize: deduplicate, sort by category, combine related entries
-   - Write updated root `CHANGELOG.md`
+4. **Update root CHANGELOG from archived tickets**:
+   - Read all tickets from `.work/tickets/archive/<branch-name>/*.md`
+   - For each ticket, extract from frontmatter: `commit_hash`, `category`
+   - Extract title from `# <Title>` heading
+   - Extract first sentence from Overview section for description
+   - Get repo URL from git remote
+   - Generate entries in format: `- Title ([hash](url)) - [ticket](path)`
+   - Group entries by category (Added, Changed, Removed)
+   - Add branch section to root `CHANGELOG.md`: `## [<branch-name>](issue-url)`
    - Stage and commit: "Update CHANGELOG for PR"
 5. **Generate branch story** in `.work/stories/<branch-name>.md`:
 
@@ -48,14 +50,11 @@ This design makes stories the single source of truth for PR content, eliminating
    ls -1 .work/tickets/archive/<branch-name>/*.md 2>/dev/null
    ```
 
-   Read CHANGELOG entries for this branch:
+   For each ticket, extract from frontmatter:
+   - `commit_hash`: The short git hash for linking
+   - `category`: Added, Changed, or Removed for grouping
 
-   - Parse root `CHANGELOG.md` for the section matching the current branch
-   - Collect entries from all subsections (Added, Changed, Removed)
-   - Each entry has format: `- Title ([hash](url)) - [ticket](file.md)`
-   - Entries may include a description line explaining the WHY
-
-   For each ticket, extract:
+   For each ticket, extract from content:
 
    - **Overview section**: The "why" - motivation and problem description
    - **Final Report section**: The "how" - what actually happened, including deviations

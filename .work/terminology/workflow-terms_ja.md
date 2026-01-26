@@ -2,8 +2,8 @@
 title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
-last_updated: 2026-01-24
-commit_hash: 5275c02
+last_updated: 2026-01-25
+commit_hash: a87a013
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -54,13 +54,13 @@ driveオペレーションは`.work/tickets/`からチケットを順次処理�
 
 ### 定義
 
-sync操作は派生ドキュメント（specs、terminology）を現在のコードベースの状態を反映するように更新します。変更を記録するコミットとは異なり、syncはドキュメントの正確性を確保します。`/sync-doc-specs`と`/sync-terminology`コマンドは異なるsync操作を実行します。
+sync操作は派生ドキュメント（specs、terminology）を現在のコードベースの状態を反映するように更新します。変更を記録するコミットとは異なり、syncはドキュメントの正確性を確保します。`/sync-work`コマンドは`.work/`ディレクトリ（specsとterminology）を現在のコードベースと同期します。
 
 ### 使用パターン
 
 - **ディレクトリ名**: N/A（アクションであり、ストレージではない）
 - **ファイル名**: N/A
-- **コード参照**: 「specsをsyncする」、「`/sync-doc-specs`を実行」
+- **コード参照**: 「docsをsyncする」、「`/sync-work`を実行」
 
 ### 関連用語
 

@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-last_updated: 2026-01-24
-commit_hash: f293fb8
+last_updated: 2026-01-25
+commit_hash: a87a013
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -50,7 +50,7 @@ plugins/
       commit.md          # /commit command
       drive.md           # /drive command
       pull-request.md    # /pull-request command
-      sync-src-doc.md    # /sync-src-doc command
+      sync-work.md    # /sync-work command
       ticket.md          # /ticket command
     rules/
       diagrams.md      # Mermaid diagram requirements
@@ -80,7 +80,7 @@ Rules are always-on guidelines that Claude follows throughout the conversation. 
 
 Skills are complex capabilities that may include scripts or multiple files. They are invoked via the Skill tool and provide inline instructions. The core plugin includes:
 
-- **archive-ticket**: Shell script that handles the complete commit workflow (archive ticket, update CHANGELOG, commit)
+- **archive-ticket**: Shell script that handles the complete commit workflow (archive ticket, update ticket frontmatter with commit hash/category, commit)
 - **translate**: Translation policies for converting English markdown files to other languages (primarily Japanese)
 
 ### Agents
@@ -117,14 +117,14 @@ sequenceDiagram
 
 ## Documentation Enforcement
 
-Workaholic enforces comprehensive documentation through the `/sync-doc-specs` command, which provides explicit control over documentation synchronization with code changes.
+Workaholic enforces comprehensive documentation through the `/sync-work` command, which provides explicit control over documentation synchronization with code changes.
 
 ### How It Works
 
 ```mermaid
 flowchart TD
-    A[/pull-request command] --> B[Consolidate CHANGELOG]
-    B --> C[/sync-doc-specs]
+    A[/pull-request command] --> B[Update CHANGELOG from tickets]
+    B --> C[/sync-work]
     C --> D[Read archived tickets]
     D --> E[Audit .work/specs/]
     E --> F[Update documentation]
@@ -132,7 +132,7 @@ flowchart TD
     G --> H[Create/update PR]
 ```
 
-Documentation is updated automatically during the `/pull-request` workflow, which internally runs `/sync-doc-specs`. You can also run `/sync-doc-specs` directly at any time to update documentation. The command:
+Documentation is updated automatically during the `/pull-request` workflow, which internally runs `/sync-work`. You can also run `/sync-work` directly at any time to update documentation. The command:
 
 1. **Gathers context** - Reads archived tickets from `.work/tickets/archive/<branch-name>/` to understand what changed
 2. **Audits current docs** - Surveys existing documentation in `.work/specs/`
@@ -140,7 +140,7 @@ Documentation is updated automatically during the `/pull-request` workflow, whic
 
 ### Critical Requirements
 
-The `/sync-doc-specs` command enforces strict requirements:
+The `/sync-work` command enforces strict requirements:
 
 - **Document every change** - No exceptions, no judgment calls about what's "worth" documenting
 - **Never skip documentation** - "Internal implementation detail" is never a valid reason
@@ -151,12 +151,13 @@ The `/sync-doc-specs` command enforces strict requirements:
 
 Documentation is mandatory, not optional. This reflects Workaholic's core principle of **cognitive investment**: developer cognitive load is the primary bottleneck in software productivity, so we invest heavily in generating structured knowledge artifacts to reduce this load.
 
-The four primary artifact types are:
+The three primary artifact types are:
 
-- **Tickets** - Change requests describing future and past work
+- **Tickets** - Change requests with structured metadata (date, author, type, layer, effort, commit_hash, category)
 - **Specs** - Current state snapshots serving as reference documentation
 - **Stories** - Narrative accounts of the developer journey per branch
-- **Changelogs** - Historical records of what changed and why
+
+Tickets serve as the single source of truth for change metadata. The root `CHANGELOG.md` is generated from archived tickets during PR creation.
 
 ## Version Management
 

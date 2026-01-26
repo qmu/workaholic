@@ -24,7 +24,7 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 | `/pull-request`         | Create or update a pull request with CHANGELOG-based summary               |
 | `/ticket <description>` | Explore codebase and write implementation ticket                           |
 | `/drive`                | Implement tickets from .work/tickets/ one by one, commit each, and archive |
-| `/sync-src-doc`         | Sync source code to documentation (specs and terminology)                  |
+| `/sync-work`            | Sync source code changes to .work/ directory (specs and terminology)       |
 
 ## Agents
 

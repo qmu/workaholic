@@ -2,8 +2,8 @@
 title: Contributing
 description: How to add or modify plugins in Workaholic
 category: developer
-last_updated: 2026-01-24
-commit_hash: f293fb8
+last_updated: 2026-01-25
+commit_hash: a87a013
 ---
 
 [English](contributing.md) | [日本語](contributing_ja.md)
@@ -91,9 +91,9 @@ plugins/<plugin>/skills/my-skill/
 
 ## ドキュメント基準
 
-ドキュメント更新はすべての変更に対して必須です。プルリクエストを作成する前に`/sync-src-doc`コマンドを使用してドキュメントを更新するか、`/pull-request`に自動的に実行させます。
+ドキュメント更新はすべての変更に対して必須です。プルリクエストを作成する前に`/sync-work`コマンドを使用してドキュメントを更新するか、`/pull-request`に自動的に実行させます。
 
-`/sync-src-doc`コマンドはドキュメント基準を強制します：
+`/sync-work`コマンドはドキュメント基準を強制します：
 
 - すべてのマークダウンファイルにYAMLフロントマター（`commit_hash`フィールドを含む）
 - 図にはMermaidを使用（ASCII図は禁止）

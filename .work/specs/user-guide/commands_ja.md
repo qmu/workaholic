@@ -2,8 +2,8 @@
 title: Command Reference
 description: Complete documentation for all Workaholic commands
 category: user
-last_updated: 2026-01-24
-commit_hash: f293fb8
+last_updated: 2026-01-25
+commit_hash: a87a013
 ---
 
 [English](commands.md) | [日本語](commands_ja.md)
@@ -79,12 +79,12 @@ Claudeは既存のパターンとアーキテクチャを理解するために�
 
 Claudeは`.work/tickets/`からチケットを取り出し、一つずつ実装し、承認を求め、逸脱を文書化するFinal Reportを作成し、次に進む前にコミットとアーカイブを行います。`icebox`引数を使用すると、延期されたチケットから選択できます。
 
-### /sync-src-doc
+### /sync-work
 
 `.work/specs/`と`.work/terminology/`内のドキュメントを現在のコードベースの状態に合わせて更新します。
 
 ```bash
-/sync-src-doc
+/sync-work
 ```
 
 Claudeは現在のブランチのアーカイブされたチケットからコンテキストを収集し、既存のドキュメントを監査し、何を更新する必要があるかを特定し、ドキュメント基準に従って変更を適用します。このコマンドにより、プルリクエストを作成する前にドキュメントがコード変更と同期されることを保証します。
@@ -96,7 +96,7 @@ Claudeは現在のブランチのアーカイブされたチケットからコ�
 1. `/branch` - 新しいフィーチャーブランチを開始
 2. `/ticket <description>` - 実装仕様を記述
 3. `/drive` - チケットを実装
-4. `/sync-src-doc` - ドキュメントを更新（オプション、`/pull-request`中にも実行）
+4. `/sync-work` - ドキュメントを更新（オプション、`/pull-request`中にも実行）
 5. `/pull-request` - レビュー用のPRを作成
 
 各チケットは独自のコミットを取得し、CHANGELOGがPRサマリーのためにすべての変更を追跡します。

@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-last_updated: 2026-01-24
-commit_hash: f293fb8
+last_updated: 2026-01-25
+commit_hash: a87a013
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -50,7 +50,7 @@ plugins/
       commit.md          # /commit コマンド
       drive.md           # /drive コマンド
       pull-request.md    # /pull-request コマンド
-      sync-src-doc.md    # /sync-src-doc コマンド
+      sync-work.md    # /sync-work コマンド
       ticket.md          # /ticket コマンド
     rules/
       diagrams.md      # Mermaid図表要件
@@ -80,7 +80,7 @@ plugins/
 
 スキルはスクリプトや複数のファイルを含む可能性のある複雑な機能です。Skillツールで呼び出され、インライン指示を提供します。coreプラグインには以下が含まれます：
 
-- **archive-ticket**: 完全なコミットワークフロー（チケットのアーカイブ、CHANGELOG更新、コミット）を処理するシェルスクリプト
+- **archive-ticket**: 完全なコミットワークフロー（チケットのアーカイブ、チケットフロントマターにコミットハッシュ/カテゴリを更新、コミット）を処理するシェルスクリプト
 - **translate**: 英語のマークダウンファイルを他の言語（主に日本語）に変換するための翻訳ポリシー
 
 ### エージェント
@@ -117,14 +117,14 @@ sequenceDiagram
 
 ## ドキュメント強制
 
-Workaholicは`/sync-doc-specs`コマンドを通じて包括的なドキュメントを強制し、コード変更とのドキュメント同期を明示的に制御します。
+Workaholicは`/sync-work`コマンドを通じて包括的なドキュメントを強制し、コード変更とのドキュメント同期を明示的に制御します。
 
 ### 仕組み
 
 ```mermaid
 flowchart TD
-    A[/pull-request コマンド] --> B[CHANGELOG統合]
-    B --> C[/sync-doc-specs]
+    A[/pull-request コマンド] --> B[チケットからCHANGELOGを更新]
+    B --> C[/sync-work]
     C --> D[アーカイブされたチケットを読む]
     D --> E[.work/specs/を監査]
     E --> F[ドキュメントを更新]
@@ -132,7 +132,7 @@ flowchart TD
     G --> H[PRを作成/更新]
 ```
 
-ドキュメントは`/pull-request`ワークフロー中に自動的に更新され、内部的に`/sync-src-doc`を実行します。いつでも直接`/sync-src-doc`を実行してドキュメントを更新することもできます。コマンドは：
+ドキュメントは`/pull-request`ワークフロー中に自動的に更新され、内部的に`/sync-work`を実行します。いつでも直接`/sync-work`を実行してドキュメントを更新することもできます。コマンドは：
 
 1. **コンテキストを収集** - `.work/tickets/archive/<branch-name>/`からアーカイブされたチケットを読んで何が変更されたかを理解
 2. **現在のドキュメントを監査** - `.work/specs/`内の既存ドキュメントを調査
@@ -140,7 +140,7 @@ flowchart TD
 
 ### 重要な要件
 
-`/sync-src-doc`コマンドは厳格な要件を強制します：
+`/sync-work`コマンドは厳格な要件を強制します：
 
 - **すべての変更をドキュメント化** - 例外なし、何が「ドキュメント化する価値がある」かの判断なし
 - **ドキュメントをスキップしない** - 「内部実装の詳細」は決して有効な理由にならない
@@ -151,12 +151,13 @@ flowchart TD
 
 ドキュメントは任意ではなく必須です。これはWorkaholicのコア原則である**認知投資**を反映しています：開発者の認知負荷はソフトウェア生産性の主要なボトルネックであり、この負荷を軽減するために構造化された知識成果物の生成に積極的に投資します。
 
-4つの主要な成果物タイプは：
+3つの主要な成果物タイプは：
 
-- **Tickets** - 将来と過去の作業を記述する変更リクエスト
+- **Tickets** - 構造化メタデータ（date、author、type、layer、effort、commit_hash、category）を持つ変更リクエスト
 - **Specs** - リファレンスドキュメントとして機能する現状のスナップショット
 - **Stories** - ブランチごとの開発者の旅のナラティブ
-- **Changelogs** - 何が変更され、なぜ変更されたかの履歴記録
+
+チケットは変更メタデータの単一の真実の情報源として機能します。ルート`CHANGELOG.md`はPR作成時にアーカイブされたチケットから生成されます。
 
 ## バージョン管理
 

@@ -2,8 +2,8 @@
 title: Contributing
 description: How to add or modify plugins in Workaholic
 category: developer
-last_updated: 2026-01-24
-commit_hash: f293fb8
+last_updated: 2026-01-25
+commit_hash: a87a013
 ---
 
 [English](contributing.md) | [日本語](contributing_ja.md)
@@ -91,9 +91,9 @@ plugins/<plugin>/skills/my-skill/
 
 ## Documentation Standards
 
-Documentation updates are mandatory for every change. Use the `/sync-src-doc` command to update documentation before creating a pull request, or let `/pull-request` run it automatically.
+Documentation updates are mandatory for every change. Use the `/sync-work` command to update documentation before creating a pull request, or let `/pull-request` run it automatically.
 
-The `/sync-src-doc` command enforces documentation standards:
+The `/sync-work` command enforces documentation standards:
 
 - YAML frontmatter on every markdown file (including `commit_hash` field)
 - Use Mermaid for diagrams (ASCII art diagrams are prohibited)

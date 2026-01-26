@@ -1,9 +1,9 @@
 ---
-name: sync-work
+name: sync-workaholic
 description: Sync source code changes to .workaholic/ directory (specs and terminology)
 ---
 
-# Sync Work
+# Sync Workaholic
 
 Update `.workaholic/specs/` and `.workaholic/terminology/` to reflect the current codebase state.
 

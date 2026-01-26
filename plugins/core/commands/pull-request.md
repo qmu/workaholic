@@ -7,7 +7,7 @@ description: Create or update a pull request with a summary focused on why chang
 
 Create or update a pull request for the current branch.
 
-The story file in `.work/stories/<branch-name>.md` contains the complete PR description. Seven sections: 1. Summary, 2. Motivation, 3. Journey, 4. Changes, 5. Outcome, 6. Performance, 7. Notes.
+The story file in `.workaholic/stories/<branch-name>.md` contains the complete PR description. Seven sections: 1. Summary, 2. Motivation, 3. Journey, 4. Changes, 5. Outcome, 6. Performance, 7. Notes.
 
 This design makes stories the single source of truth for PR content, eliminating duplication between story generation and PR description assembly.
 
@@ -20,16 +20,16 @@ This design makes stories the single source of truth for PR content, eliminating
 1. Check the current branch name with `git branch --show-current`
 2. Get the base branch (usually `main`) with `git remote show origin | grep 'HEAD branch'`
 3. **Check for remaining tickets**:
-   - List files in `.work/tickets/*.md` (excluding README.md)
+   - List files in `.workaholic/tickets/*.md` (excluding README.md)
    - If any tickets exist:
      - Warn the user: "Found X unfinished ticket(s) that will be moved to icebox:"
      - List the ticket filenames
-     - Create `.work/tickets/icebox/` if it doesn't exist
-     - Move each ticket to `.work/tickets/icebox/`
+     - Create `.workaholic/tickets/icebox/` if it doesn't exist
+     - Move each ticket to `.workaholic/tickets/icebox/`
      - Stage and commit: "Move remaining tickets to icebox"
    - If no tickets, continue with normal PR flow
 4. **Update root CHANGELOG from archived tickets**:
-   - Read all tickets from `.work/tickets/archive/<branch-name>/*.md`
+   - Read all tickets from `.workaholic/tickets/archive/<branch-name>/*.md`
    - For each ticket, extract from frontmatter: `commit_hash`, `category`
    - Extract title from `# <Title>` heading
    - Extract first sentence from Overview section for description
@@ -38,7 +38,7 @@ This design makes stories the single source of truth for PR content, eliminating
    - Group entries by category (Added, Changed, Removed)
    - Add branch section to root `CHANGELOG.md`: `## [<branch-name>](issue-url)`
    - Stage and commit: "Update CHANGELOG for PR"
-5. **Generate branch story** in `.work/stories/<branch-name>.md`:
+5. **Generate branch story** in `.workaholic/stories/<branch-name>.md`:
 
    The story serves as the single source of truth for PR content. It contains the complete PR description that will be copied to GitHub.
 
@@ -47,7 +47,7 @@ This design makes stories the single source of truth for PR content, eliminating
    Read archived tickets for this branch:
 
    ```bash
-   ls -1 .work/tickets/archive/<branch-name>/*.md 2>/dev/null
+   ls -1 .workaholic/tickets/archive/<branch-name>/*.md 2>/dev/null
    ```
 
    For each ticket, extract from frontmatter:
@@ -172,7 +172,7 @@ This design makes stories the single source of truth for PR content, eliminating
    - Keep Motivation/Journey/Outcome concise (aim for 200-400 words total)
    - Changes section can be longer to explain each change fully
 
-   **Update .work/stories/README.md** to include the new story:
+   **Update .workaholic/stories/README.md** to include the new story:
 
    - Add entry: `- [<branch-name>.md](<branch-name>.md) - Brief description of the branch work`
 
@@ -188,7 +188,7 @@ This design makes stories the single source of truth for PR content, eliminating
    gh pr list --head $(git branch --show-current) --json number,title,url
    ```
 8. **Read story file and prepare PR content**:
-   - Read `.work/stories/<branch-name>.md`
+   - Read `.workaholic/stories/<branch-name>.md`
    - Strip YAML frontmatter (everything between `---` delimiters)
    - The remaining content IS the PR body
 9. **Derive PR title from Summary section**:
@@ -215,7 +215,7 @@ EOF
 Update the PR using `gh pr edit` with the story file:
 
 ```sh
-gh pr edit <number> --title "<derived-title>" --body-file .work/stories/<branch-name>.md
+gh pr edit <number> --title "<derived-title>" --body-file .workaholic/stories/<branch-name>.md
 ```
 
 Note: The `--body-file` flag reads the file directly, so strip the YAML frontmatter from the story file first, or use a temporary file without frontmatter.

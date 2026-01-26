@@ -23,8 +23,8 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 | `/commit`               | Commit all changes in logical units with meaningful messages               |
 | `/pull-request`         | Create or update a pull request with CHANGELOG-based summary               |
 | `/ticket <description>` | Explore codebase and write implementation ticket                           |
-| `/drive`                | Implement tickets from .work/tickets/ one by one, commit each, and archive |
-| `/sync-work`            | Sync source code changes to .work/ directory (specs and terminology)       |
+| `/drive`                | Implement tickets from .workaholic/tickets/ one by one, commit each, and archive |
+| `/sync-work`            | Sync source code changes to .workaholic/ directory (specs and terminology)       |
 
 ## Agents
 
@@ -70,9 +70,9 @@ Claude: [Asks for review again]
 
 ## Ticket Storage
 
-- Active tickets: `.work/tickets/`
-- Icebox (deferred): `.work/tickets/icebox/`
-- Archived: `.work/tickets/archive/<branch-name>/`
+- Active tickets: `.workaholic/tickets/`
+- Icebox (deferred): `.workaholic/tickets/icebox/`
+- Archived: `.workaholic/tickets/archive/<branch-name>/`
 
 ## Installation
 

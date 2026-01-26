@@ -13,7 +13,7 @@ FILES=("$@")
 
 if [ -z "$TICKET" ] || [ -z "$COMMIT_MSG" ]; then
     echo "Usage: archive.sh <ticket-path> <commit-message> <repo-url> [description] [files...]"
-    echo "Example: archive.sh .work/tickets/20260115-feature.md 'Add new feature' https://github.com/org/repo 'Enables authentication' src/foo.ts"
+    echo "Example: archive.sh .workaholic/tickets/20260115-feature.md 'Add new feature' https://github.com/org/repo 'Enables authentication' src/foo.ts"
     exit 1
 fi
 

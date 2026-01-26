@@ -56,7 +56,12 @@ This design makes stories the single source of truth for PR content, eliminating
    - Do NOT announce "reading file again" or similar verbose messages
    - Just silently format and continue
    - Stage and commit any formatting changes: "Format code"
-6. **Create or update PR** using the pr-creator subagent:
+6. **Push branch to remote**:
+   ```bash
+   git push -u origin <branch-name>
+   ```
+   This ensures the branch exists on remote before PR creation. The `-u` flag sets upstream tracking for new branches.
+7. **Create or update PR** using the pr-creator subagent:
 
    Invoke the pr-creator subagent via Task tool with `subagent_type: "core:pr-creator"`:
 

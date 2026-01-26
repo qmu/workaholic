@@ -3,9 +3,9 @@ created_at: 2026-01-27T01:36:09+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 13101ad
+category: Changed
 ---
 
 # Embed git guidelines directly in each subagent definition
@@ -55,3 +55,7 @@ Solution: Write the git rule duplicated in each subagent definition file. Yes, i
 - The `performance-analyst.md` doesn't use Bash tool, so it doesn't need this
 - Future agents that use Bash must include this section manually
 - The strong "CRITICAL" language and WRONG/RIGHT examples are essential to override default behavior
+
+## Final Report
+
+Development completed as planned.

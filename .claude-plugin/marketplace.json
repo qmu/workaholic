@@ -1,6 +1,6 @@
 {
   "name": "workaholic",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "description": "Standard Claude Code Configuration in qmu",
   "owner": {
     "name": "tamurayoshiya",
@@ -10,7 +10,7 @@
     {
       "name": "core",
       "description": "Core development workflow: branch, commit, pull-request, ticket-driven development",
-      "version": "1.0.18",
+      "version": "1.0.19",
       "author": {
         "name": "tamurayoshiya",
         "email": "a@qmu.jp"

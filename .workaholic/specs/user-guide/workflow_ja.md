@@ -2,8 +2,8 @@
 title: Workflow Guide
 description: How to use ticket-driven development with Workaholic
 category: user
-last_updated: 2026-01-25
-commit_hash: a87a013
+modified_at: 2026-01-26T21:44:25+09:00
+commit_hash: c4a627b
 ---
 
 [English](workflow.md) | [日本語](workflow_ja.md)
@@ -78,7 +78,7 @@ Claudeは仕様に従い、変更を行い、型チェックを実行します�
 /pull-request
 ```
 
-コマンドはPRを作成する前に自動的に`/sync-work`を実行してドキュメントを更新します。PRサマリーは、コミットハッシュ、カテゴリ、各変更が何を達成し、なぜそうしたかの説明を含むアーカイブされたチケットから生成されます。
+コマンドはPRを作成する前に自動的に`/sync-workaholic`を実行してドキュメントを更新します。PRサマリーは、コミットハッシュ、カテゴリ、各変更が何を達成し、なぜそうしたかの説明を含むアーカイブされたチケットから生成されます。
 
 ## ディレクトリ構造
 

@@ -2,8 +2,8 @@
 title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
-last_updated: 2026-01-24
-commit_hash: 6843f78
+last_updated: 2026-01-25
+commit_hash: a87a013
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -28,21 +28,21 @@ commit_hash: 6843f78
 
 実装作業リクエストには一貫して「ticket」を使用し、「spec」は現状ドキュメントにのみ使用します。「implementation spec」への残りの参照を「ticket」に更新してください。
 
-## レガシー「doc-specs」参照
+## レガシー「doc-specs」および「sync-src-doc」参照
 
 ### 問題
 
-過去のドキュメントは`/sync-src-doc`に改名された`/sync-doc-specs`を参照している可能性があります。
+過去のドキュメントは`/sync-work`に改名された`/sync-doc-specs`または`/sync-src-doc`を参照している可能性があります。
 
 ### 現在の使用状況
 
-- 現在のコマンド名：`sync-src-doc`
-- 過去の名前：`sync-doc-specs`
+- 現在のコマンド名：`sync-work`
+- 過去の名前：`sync-doc-specs`、`sync-src-doc`
 - ターゲット：`.work/specs/`と`.work/terminology/`
 
 ### 推奨される解決策
 
-残りの参照を`/sync-doc-specs`から`/sync-src-doc`に更新します。新しい名前はコマンドの目的をより良く反映しています：ソースコードをドキュメントに同期する。
+残りの参照を`/sync-doc-specs`または`/sync-src-doc`から`/sync-work`に更新します。新しい名前はコマンドの目的をより良く反映しています：`.work/`ディレクトリに同期する。
 
 ## 過去の`doc/`対`.work/`ディレクトリ参照
 
@@ -88,4 +88,4 @@ commit_hash: 6843f78
 
 ### 推奨される解決策
 
-TDDプラグインへの残りの参照をcoreプラグインへの参照に更新します。チケット駆動開発コマンド（`/ticket`、`/drive`、`/sync-src-doc`）は現在、統一されたcoreプラグインの一部です。
+TDDプラグインへの残りの参照をcoreプラグインへの参照に更新します。チケット駆動開発コマンド（`/ticket`、`/drive`、`/sync-work`）は現在、統一されたcoreプラグインの一部です。

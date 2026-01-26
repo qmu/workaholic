@@ -38,6 +38,16 @@ Explore the codebase to understand requirements and write an implementation tick
 5. **Ticket File Structure**
 
    ```markdown
+   ---
+   created_at: YYYY-MM-DDTHH:MM:SS+TZ
+   author: <git user.email>
+   type: enhancement | bugfix | refactoring | housekeeping
+   layer: [<layers affected>]
+   effort: <filled after implementation>
+   commit_hash: <filled when archived>
+   category: <filled when archived>
+   ---
+
    # <Title>
 
    ## Overview
@@ -59,14 +69,40 @@ Explore the codebase to understand requirements and write an implementation tick
    - <Any trade-offs, risks, or things to watch out for>
    ```
 
-6. **Present the Ticket**
-   - Show the user where the ticket was saved
+   **Frontmatter Fields:**
+
+   - `created_at`: Creation timestamp in ISO 8601 format. Use `date -Iseconds`
+   - `author`: Git email. Use `git config user.email`
+   - `type`: Infer from request context:
+     - `enhancement` - New features or capabilities (keywords: add, create, implement, new)
+     - `bugfix` - Fixing broken behavior (keywords: fix, bug, broken, error)
+     - `refactoring` - Restructuring without changing behavior (keywords: refactor, restructure, reorganize)
+     - `housekeeping` - Maintenance, cleanup, documentation (keywords: clean, update, remove, deprecate)
+   - `layer`: Architectural layers affected (YAML array, can specify multiple):
+     - `UX` - User interface, components, styling
+     - `Domain` - Business logic, models, services
+     - `Infrastructure` - External integrations, APIs, networking
+     - `DB` - Database, storage, migrations
+     - `Config` - Configuration, build, tooling
+   - `effort`: Time spent on implementation. Leave as placeholder when creating ticket; filled in after implementation (e.g., 0.1h, 0.25h, 0.5h, 1h, 2h)
+   - `commit_hash`: Short git commit hash. Set automatically by archive script after commit.
+   - `category`: Change category (Added, Changed, or Removed). Set automatically by archive script based on commit message verb.
+   - Only ask the user about type if truly ambiguous
+
+6. **Commit the Ticket**
+
+   - Stage only the newly created ticket file: `git add <ticket-path>`
+   - Commit with message: "Add ticket for <short-description>"
+   - Use the ticket's H1 title for the description
+   - Example: `git add .work/tickets/20260125-add-auth.md && git commit -m "Add ticket for user authentication"`
+
+7. **Present the Ticket**
+
+   - Show the user where the ticket was created and committed
    - Summarize the key points
    - If icebox: tell user to run `/drive icebox` later to retrieve it
    - If normal: count queued tickets in `.work/tickets/` (excluding archive/, icebox/)
    - Tell user to run `/drive` to implement queued tickets
-   - Note: The ticket file doesn't need to be committed separately. It will be included
-     in the next `/drive` commit automatically when implementation is approved.
    - **NEVER ask "Would you like me to proceed with implementation?" - that is NOT your job**
 
 ## Notes

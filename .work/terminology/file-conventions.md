@@ -2,8 +2,8 @@
 title: File Conventions
 description: Naming patterns and directory structures used in Workaholic
 category: developer
-last_updated: 2026-01-24
-commit_hash: f293fb8
+last_updated: 2026-01-25
+commit_hash: a87a013
 ---
 
 [English](file-conventions.md) | [日本語](file-conventions_ja.md)
@@ -18,12 +18,12 @@ Lowercase words separated by hyphens for file and directory naming.
 
 ### Definition
 
-Kebab-case is the standard naming convention for files and directories in Workaholic. It uses lowercase letters with hyphens separating words (e.g., `sync-doc-specs.md`, `pull-request.md`). This convention ensures consistency and avoids issues with case-sensitive filesystems.
+Kebab-case is the standard naming convention for files and directories in Workaholic. It uses lowercase letters with hyphens separating words (e.g., `sync-work.md`, `pull-request.md`). This convention ensures consistency and avoids issues with case-sensitive filesystems.
 
 ### Usage Patterns
 
 - **Directory names**: `core-concepts/`, `file-conventions/`
-- **File names**: `sync-doc-specs.md`, `archive-ticket.md`
+- **File names**: `sync-work.md`, `archive-ticket.md`
 - **Code references**: "Use kebab-case for file names"
 
 ### Exceptions

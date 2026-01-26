@@ -2,8 +2,8 @@
 title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
-last_updated: 2026-01-24
-commit_hash: 6843f78
+last_updated: 2026-01-25
+commit_hash: 18ac266
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -14,11 +14,23 @@ Documentation artifacts generated during development workflows.
 
 ## ticket
 
-An implementation work request that captures what should change.
+An implementation work request that captures what should change and records what happened.
 
 ### Definition
 
-A ticket defines a discrete unit of work to be implemented. It captures intent, context, and implementation steps before coding begins. Tickets are change-focused, describing what should be different after implementation. They live in `.work/tickets/` when active, `.work/tickets/icebox/` when deferred, and `.work/tickets/archive/<branch>/` when completed. Ticket files created by `/ticket` are automatically included in `/drive` commits via `git add -A`.
+A ticket defines a discrete unit of work to be implemented. It captures intent, context, and implementation steps before coding begins. Tickets are change-focused, describing what should be different after implementation. They live in `.work/tickets/` when active, `.work/tickets/icebox/` when deferred, and `.work/tickets/archive/<branch>/` when completed.
+
+Tickets include YAML frontmatter with structured metadata:
+
+- `created_at`: Creation timestamp (ISO 8601 datetime)
+- `author`: Git email of the creator
+- `type`: enhancement, bugfix, refactoring, or housekeeping
+- `layer`: Architectural layers affected (UX, Domain, Infrastructure, DB, Config)
+- `effort`: Time spent on implementation (filled after completion)
+- `commit_hash`: Short git hash (set by archive script after commit)
+- `category`: Added, Changed, or Removed (set by archive script based on commit message)
+
+Ticket files created by `/ticket` are automatically included in `/drive` commits via `git add -A`. When archived, the ticket becomes the single source of truth for change metadata, eliminating the need for separate changelog files.
 
 ### Usage Patterns
 
@@ -28,7 +40,7 @@ A ticket defines a discrete unit of work to be implemented. It captures intent, 
 
 ### Related Terms
 
-- spec, story, changelog
+- spec, story
 
 ## spec
 
@@ -36,7 +48,7 @@ Current state documentation that provides an authoritative reference snapshot.
 
 ### Definition
 
-Specs document the present reality of the codebase. Unlike tickets (which describe changes), specs describe what exists now. They are updated via `/sync-src-doc` to reflect the current state after changes are made. Specs reduce cognitive load by providing a single source of truth.
+Specs document the present reality of the codebase. Unlike tickets (which describe changes), specs describe what exists now. They are updated via `/sync-work` to reflect the current state after changes are made. Specs reduce cognitive load by providing a single source of truth.
 
 ### Usage Patterns
 
@@ -58,7 +70,9 @@ A comprehensive document that serves as the single source of truth for PR descri
 
 ### Definition
 
-A story synthesizes the motivation, progression, and outcome of development work across multiple tickets on a single branch. Stories are generated during the PR workflow and contain the complete PR description content: Summary (from CHANGELOG), Motivation, Journey, Changes (detailed explanations), Outcome, Performance (metrics and decision review), and Notes. The story content (minus YAML frontmatter) is copied directly to GitHub as the PR body.
+A story synthesizes the motivation, progression, and outcome of development work across multiple tickets on a single branch. Stories are generated during the PR workflow and contain the complete PR description content: Summary (from ticket titles), Motivation, Journey, Changes (detailed explanations), Outcome, Performance (metrics and decision review), and Notes. The story content (minus YAML frontmatter) is copied directly to GitHub as the PR body.
+
+Stories gather data directly from archived tickets, extracting frontmatter fields (`commit_hash`, `category`) and content sections (Overview, Final Report) to build the narrative.
 
 ### Usage Patterns
 
@@ -68,21 +82,20 @@ A story synthesizes the motivation, progression, and outcome of development work
 
 ### Related Terms
 
-- ticket, changelog
+- ticket
 
 ## changelog
 
-A commit-level record of changes explaining what changed and why.
+The root CHANGELOG.md file that aggregates all historical changes.
 
 ### Definition
 
-Changelogs maintain a historical record of changes per branch and aggregated at the root. Each entry includes a commit hash, brief description, and link to the originating ticket. Branch changelogs live in `.work/changelogs/<branch>.md` and are consolidated to `CHANGELOG.md` during PR creation.
+The root `CHANGELOG.md` maintains a historical record of all changes across all branches. Entries are generated from archived tickets during PR creation. Each entry includes a commit hash, brief description, and link to the originating ticket. Branch changelogs (`.work/changelogs/`) no longer exist; tickets serve as the single source of truth for change metadata.
 
 ### Usage Patterns
 
-- **Directory names**: `.work/changelogs/`
-- **File names**: `<branch-name>.md`, root `CHANGELOG.md`
-- **Code references**: "Add to changelog", "CHANGELOG entries"
+- **File names**: Root `CHANGELOG.md` only
+- **Code references**: "CHANGELOG entries", "Update root CHANGELOG"
 
 ### Related Terms
 

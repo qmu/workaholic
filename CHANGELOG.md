@@ -1,5 +1,37 @@
 # Changelog
 
+## [feat-20260124-200439](https://github.com/qmu/workaholic/tree/feat-20260124-200439)
+
+### Added
+
+- Add YAML frontmatter metadata to ticket files ([b7938ac](https://github.com/qmu/workaholic/commit/b7938ac)) - [ticket](.work/tickets/archive/feat-20260124-200439/20260124210721-ticket-yaml-frontmatter.md)
+  Enhances tickets with structured metadata (date, author, type, layer, effort) for better management and tracking.
+
+- Add "Approve and stop" option to drive command ([4b7b10e](https://github.com/qmu/workaholic/commit/4b7b10e)) - [ticket](.work/tickets/archive/feat-20260124-200439/20260125113309-drive-approve-and-stop-option.md)
+  Enables developers to approve and commit the current ticket without processing remaining tickets.
+
+- Auto-commit ticket file on creation ([455ed62](https://github.com/qmu/workaholic/commit/455ed62)) - [ticket](.work/tickets/archive/feat-20260124-200439/20260125113858-auto-commit-ticket-on-creation.md)
+  Tickets are immediately tracked in git history upon creation, separating planning from implementation commits.
+
+- Invoke /sync-work on release ([55dcc77](https://github.com/qmu/workaholic/commit/55dcc77)) - [ticket](.work/tickets/archive/feat-20260124-200439/20260125114146-invoke-sync-work-on-release.md)
+  Documentation is synced automatically before publishing new releases.
+
+### Changed
+
+- Rename /sync-src-doc to /sync-work ([a87a013](https://github.com/qmu/workaholic/commit/a87a013)) - [ticket](.work/tickets/archive/feat-20260124-200439/20260124225237-rename-sync-src-doc-to-sync-work.md)
+  The new name better reflects the target directory `.work/` rather than a generic "doc" folder.
+
+- Rename ticket date field to created_at with datetime ([c82b53e](https://github.com/qmu/workaholic/commit/c82b53e)) - [ticket](.work/tickets/archive/feat-20260124-200439/20260125113720-ticket-datetime-frontmatter.md)
+  Uses ISO 8601 datetime format consistent with story timestamps.
+
+- Require developer approval before moving tickets to icebox ([8935f8a](https://github.com/qmu/workaholic/commit/8935f8a)) - [ticket](.work/tickets/archive/feat-20260124-200439/20260125114643-require-approval-for-icebox-moves.md)
+  Prevents autonomous ticket moves; developers must approve all icebox operations.
+
+### Removed
+
+- Remove branch changelogs in favor of ticket frontmatter ([56855c7](https://github.com/qmu/workaholic/commit/56855c7)) - [ticket](.work/tickets/archive/feat-20260124-200439/20260124223106-eliminate-branch-changelogs.md)
+  Tickets are now the single source of truth for change metadata, eliminating the intermediate `.work/changelogs/` directory.
+
 ## [feat-20260124-105903](https://github.com/qmu/workaholic/tree/feat-20260124-105903)
 
 ### Added

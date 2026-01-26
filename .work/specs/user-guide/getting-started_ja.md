@@ -2,8 +2,8 @@
 title: Getting Started
 description: Installation and first steps with Workaholic
 category: user
-last_updated: 2026-01-23
-commit_hash: 928baa2
+last_updated: 2026-01-25
+commit_hash: a87a013
 ---
 
 [English](getting-started.md) | [日本語](getting-started_ja.md)
@@ -42,7 +42,7 @@ claude
 /pull-request   # 自動生成されたサマリーでPRを作成
 /ticket         # 実装仕様を記述
 /drive          # チケットを一つずつ実装
-/sync-doc-specs # ドキュメントをコードと同期
+/sync-work      # ドキュメントをコードと同期
 ```
 
 ## 次のステップ

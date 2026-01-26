@@ -2,8 +2,8 @@
 title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
-last_updated: 2026-01-24
-commit_hash: 6843f78
+last_updated: 2026-01-25
+commit_hash: a87a013
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -28,21 +28,21 @@ The `/ticket` command description uses "implementation spec" to describe tickets
 
 Consistently use "ticket" for implementation work requests and "spec" only for current state documentation. Update any remaining references to "implementation spec" to use "ticket" instead.
 
-## Legacy "doc-specs" References
+## Legacy "doc-specs" and "sync-src-doc" References
 
 ### Issue
 
-Historical documentation may reference `/sync-doc-specs` which was renamed to `/sync-src-doc`.
+Historical documentation may reference `/sync-doc-specs` or `/sync-src-doc` which have been renamed to `/sync-work`.
 
 ### Current Usage
 
-- Current command name: `sync-src-doc`
-- Historical name: `sync-doc-specs`
+- Current command name: `sync-work`
+- Historical names: `sync-doc-specs`, `sync-src-doc`
 - Targets: `.work/specs/` and `.work/terminology/`
 
 ### Recommended Resolution
 
-Update any remaining references from `/sync-doc-specs` to `/sync-src-doc`. The new name better reflects the command's purpose: syncing source code to documentation.
+Update any remaining references from `/sync-doc-specs` or `/sync-src-doc` to `/sync-work`. The new name better reflects the command's purpose: syncing to the `.work/` directory.
 
 ## Historical `doc/` vs `.work/` Directory References
 
@@ -88,4 +88,4 @@ Historical documentation may reference a separate "TDD plugin" (`plugins/tdd/`) 
 
 ### Recommended Resolution
 
-Update any remaining references to the TDD plugin to refer to the core plugin instead. The ticket-driven development commands (`/ticket`, `/drive`, `/sync-src-doc`) are now part of the unified core plugin.
+Update any remaining references to the TDD plugin to refer to the core plugin instead. The ticket-driven development commands (`/ticket`, `/drive`, `/sync-work`) are now part of the unified core plugin.

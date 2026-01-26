@@ -1,5 +1,5 @@
 #!/bin/bash
-# Complete commit workflow: format, archive, changelog, and commit
+# Complete commit workflow: archive ticket, commit, and update ticket frontmatter
 # Single script handles everything after user approves implementation
 
 set -e
@@ -13,7 +13,7 @@ FILES=("$@")
 
 if [ -z "$TICKET" ] || [ -z "$COMMIT_MSG" ]; then
     echo "Usage: archive.sh <ticket-path> <commit-message> <repo-url> [description] [files...]"
-    echo "Example: archive.sh .work/tickets/20260115-feature.md 'Add new feature' https://github.com/org/repo 'Enables users to authenticate with session-based login' src/foo.ts"
+    echo "Example: archive.sh .work/tickets/20260115-feature.md 'Add new feature' https://github.com/org/repo 'Enables authentication' src/foo.ts"
     exit 1
 fi
 
@@ -32,56 +32,27 @@ fi
 
 TICKET_DIR=$(dirname "$TICKET")
 ARCHIVE_DIR="${TICKET_DIR}/archive/${BRANCH}"
-CHANGELOG=".work/changelogs/${BRANCH}.md"
 TICKET_FILENAME=$(basename "$TICKET")
 
-# Step 1: Move ticket to archive
-echo "==> Archiving ticket..."
-mkdir -p "$ARCHIVE_DIR"
-mkdir -p ".work/changelogs"
-mv "$TICKET" "$ARCHIVE_DIR/"
-echo "    ${ARCHIVE_DIR}/${TICKET_FILENAME}"
-
-# Step 2: Initialize CHANGELOG if not exists
-if [ ! -f "$CHANGELOG" ]; then
-    cat > "$CHANGELOG" << 'HEADER'
-# Branch Changelog
-
-## Added
-
-## Changed
-
-## Removed
-HEADER
-fi
-
-# Step 3: Determine section based on commit message verb
-SECTION="Changed"
+# Step 1: Determine category based on commit message verb
+CATEGORY="Changed"
 case "$COMMIT_MSG" in
     Add*|Create*|Implement*|Introduce*)
-        SECTION="Added"
+        CATEGORY="Added"
         ;;
     Remove*|Delete*)
-        SECTION="Removed"
+        CATEGORY="Removed"
         ;;
 esac
 
-# Step 4: Create changelog entry with placeholder
-ENTRY="- ${COMMIT_MSG} - [ticket](${TICKET_FILENAME})"
+# Step 2: Move ticket to archive
+echo "==> Archiving ticket..."
+mkdir -p "$ARCHIVE_DIR"
+mv "$TICKET" "$ARCHIVE_DIR/"
+ARCHIVED_TICKET="${ARCHIVE_DIR}/${TICKET_FILENAME}"
+echo "    ${ARCHIVED_TICKET}"
 
-awk -v section="## $SECTION" -v entry="$ENTRY" -v desc="$DESCRIPTION" '
-    $0 == section {
-        print
-        getline
-        print entry
-        if (desc != "") print "  " desc
-        next
-    }
-    { print }
-' "$CHANGELOG" > "${CHANGELOG}.tmp" && mv "${CHANGELOG}.tmp" "$CHANGELOG"
-echo "==> Updated CHANGELOG"
-
-# Step 5: Stage all changes and commit
+# Step 3: Stage all changes and commit
 echo "==> Committing..."
 git add -A
 git commit -m "${COMMIT_MSG}
@@ -90,16 +61,34 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 COMMIT_HASH=$(git rev-parse --short HEAD)
 
-# Step 6: Update CHANGELOG with commit hash and amend
-if [ -n "$REPO_URL" ]; then
-    sed -i.bak "s|- ${COMMIT_MSG} - \[ticket\]|- ${COMMIT_MSG} ([${COMMIT_HASH}](${REPO_URL}/commit/${COMMIT_HASH})) - [ticket]|" "$CHANGELOG"
-    rm -f "${CHANGELOG}.bak"
-    git add "$CHANGELOG"
-    git commit --amend --no-edit
-    echo "==> Added commit hash to CHANGELOG"
+# Step 4: Update ticket frontmatter with commit_hash and category
+echo "==> Updating ticket frontmatter..."
+
+# Use sed to update frontmatter fields
+if grep -q "^commit_hash:" "$ARCHIVED_TICKET"; then
+    sed -i.bak "s/^commit_hash:.*/commit_hash: ${COMMIT_HASH}/" "$ARCHIVED_TICKET"
+else
+    # Insert after effort: line
+    sed -i.bak "/^effort:/a\\
+commit_hash: ${COMMIT_HASH}" "$ARCHIVED_TICKET"
 fi
+
+if grep -q "^category:" "$ARCHIVED_TICKET"; then
+    sed -i.bak "s/^category:.*/category: ${CATEGORY}/" "$ARCHIVED_TICKET"
+else
+    # Insert after commit_hash: line
+    sed -i.bak "/^commit_hash:/a\\
+category: ${CATEGORY}" "$ARCHIVED_TICKET"
+fi
+
+rm -f "${ARCHIVED_TICKET}.bak"
+
+# Step 5: Amend commit to include updated ticket
+git add "$ARCHIVED_TICKET"
+git commit --amend --no-edit
+echo "==> Updated ticket with commit hash and category"
 
 echo ""
 echo "Done!"
 echo "  Commit: ${COMMIT_HASH}"
-echo "  Ticket: ${ARCHIVE_DIR}/${TICKET_FILENAME}"
+echo "  Ticket: ${ARCHIVED_TICKET}"

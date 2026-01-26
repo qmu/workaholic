@@ -2,8 +2,8 @@
 title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
-last_updated: 2026-01-24
-commit_hash: f293fb8
+last_updated: 2026-01-25
+commit_hash: a87a013
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -41,7 +41,7 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 ### 使用パターン
 
 - **ディレクトリ名**: `plugins/<name>/commands/`
-- **ファイル名**: `commit.md`、`pull-request.md`、`sync-src-doc.md`
+- **ファイル名**: `commit.md`、`pull-request.md`、`sync-work.md`
 - **コード参照**: 「`/commit`を実行して...」、「`/ticket`コマンド...」
 
 ### 関連用語

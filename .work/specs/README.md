@@ -2,8 +2,8 @@
 title: Specifications
 description: Index for all Workaholic specifications
 category: developer
-last_updated: 2026-01-23
-commit_hash: 928baa2
+last_updated: 2026-01-25
+commit_hash: a87a013
 ---
 
 [English](README.md) | [日本語](README_ja.md)

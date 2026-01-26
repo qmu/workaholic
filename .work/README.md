@@ -2,7 +2,8 @@
 title: Work
 description: Working artifacts index for Workaholic plugin marketplace
 category: developer
-last_updated: 2026-01-24
+last_updated: 2026-01-25
+commit_hash: a87a013
 ---
 
 [English](README.md) | [日本語](README_ja.md)
@@ -11,7 +12,6 @@ last_updated: 2026-01-24
 
 This is the working artifacts hub for the Workaholic plugin marketplace.
 
-- [changelogs/](changelogs/README.md) - Historical record of changes per branch
 - [specs/](specs/README.md) - Current state reference documentation
 - [stories/](stories/README.md) - Development narratives and PR descriptions per branch
 - [terminology/](terminology/README.md) - Consistent term definitions across the project
@@ -19,7 +19,7 @@ This is the working artifacts hub for the Workaholic plugin marketplace.
 
 ## Plugins
 
-- [Core](../plugins/core/README.md) - Complete development workflow (`/branch`, `/commit`, `/pull-request`, `/ticket`, `/drive`, `/sync-src-doc`)
+- [Core](../plugins/core/README.md) - Complete development workflow (`/branch`, `/commit`, `/pull-request`, `/ticket`, `/drive`, `/sync-work`)
 
 ## Design Policy
 
@@ -34,4 +34,3 @@ Each artifact type serves a specific cognitive purpose:
 | Tickets    | Change requests (future and past) | Capturing intent before implementation |
 | Specs      | Current state snapshot            | Providing authoritative reference      |
 | Stories    | Development narrative             | Preserving decision context            |
-| Changelogs | Historical record                 | Explaining what changed and why        |

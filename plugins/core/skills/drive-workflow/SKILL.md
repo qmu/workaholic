@@ -111,7 +111,7 @@ bash .claude/skills/archive-ticket/sh/archive.sh \
 
 - All implementation changes
 - The archived ticket file
-- Any uncommitted ticket files in `.workaholic/tickets/`
+- Any uncommitted ticket files in `.workaholic/tickets/todo/`
 - CHANGELOG updates
 
 This means newly created tickets are automatically included in drive commits.

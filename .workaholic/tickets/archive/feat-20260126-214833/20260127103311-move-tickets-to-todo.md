@@ -3,9 +3,9 @@ created_at: 2026-01-27T10:33:11+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: a1d40f9
+category: Changed
 ---
 
 # Move active tickets from root to todo/ subdirectory
@@ -74,3 +74,7 @@ Reorganize ticket directory structure to use `.workaholic/tickets/todo/` for act
 - icebox path remains `.workaholic/tickets/icebox/` (unchanged)
 - Only active ticket location changes from root to `todo/`
 - This aligns with common task management conventions (todo/doing/done)
+
+## Final Report
+
+Development completed as planned.

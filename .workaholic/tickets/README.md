@@ -13,7 +13,8 @@ This directory manages implementation work through ticket files.
 
 ```
 tickets/
-├── <timestamp>-<description>.md  # Queued tickets (to implement)
+├── todo/                          # Queued tickets (to implement)
+│   └── <timestamp>-<description>.md
 ├── icebox/                        # Deferred tickets (for later)
 └── archive/
     └── <branch>/                  # Completed tickets per branch
@@ -27,7 +28,7 @@ tickets/
 
 ## Queued Tickets
 
-Tickets waiting to be implemented appear here with timestamp prefixes ensuring chronological order.
+Tickets waiting to be implemented appear in `todo/` with timestamp prefixes ensuring chronological order.
 
 ## Archive
 

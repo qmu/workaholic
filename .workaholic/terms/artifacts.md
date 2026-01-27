@@ -3,7 +3,7 @@ title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
 last_updated: 2026-01-27
-commit_hash: 921a9a3
+commit_hash: eda5a8b
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -70,7 +70,7 @@ A comprehensive document that serves as the single source of truth for PR descri
 
 ### Definition
 
-A story synthesizes the motivation, progression, and outcome of development work across multiple tickets on a single branch. Stories are generated during the PR workflow and contain the complete PR description content: Topic Tree (visual flowchart), Summary (from ticket titles), Motivation, Journey, Changes (detailed explanations), Outcome, Performance (metrics and decision review), and Notes. The story content (minus YAML frontmatter) is copied directly to GitHub as the PR body.
+A story synthesizes the motivation, progression, and outcome of development work across multiple tickets on a single branch. Stories are generated during the PR workflow and contain the complete PR description content across 7 sections: Summary, Motivation, Journey (with embedded Topic Tree flowchart), Changes (detailed explanations), Outcome, Performance (metrics and decision review), and Notes. The story content (minus YAML frontmatter) is copied directly to GitHub as the PR body.
 
 Stories gather data directly from archived tickets, extracting frontmatter fields (`commit_hash`, `category`) and content sections (Overview, Final Report) to build the narrative.
 
@@ -107,7 +107,7 @@ A narrative section in a story that summarizes the development progression and d
 
 ### Definition
 
-The journey is section 3 of a story document that provides a high-level narrative of how development progressed. It focuses on phases and pivots rather than individual ticket details, typically 100-200 words. The journey answers "how did we get here?" while the Changes section (section 4) provides the detailed "what changed?". The Topic Tree (section 0) provides the visual overview that complements this narrative.
+The journey is section 3 of a story document that provides a high-level narrative of how development progressed. It focuses on phases and pivots rather than individual ticket details, typically 100-200 words. The journey answers "how did we get here?" while the Changes section (section 4) provides the detailed "what changed?". The Topic Tree flowchart is embedded at the beginning of the Journey section, providing a visual overview that complements the narrative.
 
 ### Usage Patterns
 
@@ -125,7 +125,7 @@ A visual flowchart diagram showing the structure and progression of changes in a
 
 ### Definition
 
-The topic tree is a Mermaid flowchart placed at the top of a story (section 0) that provides a visual overview of how tickets relate to each other. It groups tickets by concern/purpose using subgraphs, shows decision-making progression with arrows, and helps PR reviewers quickly understand the scope and structure of changes before reading the narrative.
+The topic tree is a Mermaid flowchart embedded within the Journey section (section 3) of a story that provides a visual overview of how tickets relate to each other. It groups tickets by concern/purpose using subgraphs, shows decision-making progression with arrows, and helps PR reviewers quickly understand the scope and structure of changes before reading the narrative text.
 
 Format:
 ```mermaid

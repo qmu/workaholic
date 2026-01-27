@@ -38,6 +38,7 @@
 - Improve story Changes section granularity and Journey summary ([c63dd53](https://github.com/qmu/workaholic/commit/c63dd53dc0fcc36b8bda4ac27b2e6bc35838f8bf)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127182720-improve-story-changes-granularity.md)
 - Bundle Shell Scripts for Permission-Free Skills ([7ff6ae9](https://github.com/qmu/workaholic/commit/7ff6ae931e802d504281c64a62f32811d4671fa2)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127193706-bundle-shell-scripts-for-permission-free-skills.md)
 - Fix topic tree inconsistency between story-writer template and output ([921a9a3](https://github.com/qmu/workaholic/commit/921a9a3)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127200713-fix-topic-tree-inconsistency-in-story-writer.md)
+- Fix Topic Tree placement to be inside Journey section ([34f3c50](https://github.com/qmu/workaholic/commit/34f3c50)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127203050-fix-topic-tree-in-journey-section.md)
 
 ### Removed
 

@@ -3,7 +3,7 @@ title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
 last_updated: 2026-01-27
-commit_hash: 921a9a3
+commit_hash: eda5a8b
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -200,3 +200,18 @@ The shell script directory within skills has been renamed from `scripts/` to `sh
 ### Recommended Resolution
 
 Update any remaining references from `scripts/` to `sh/`. All shell scripts should be POSIX-compliant (use `#!/bin/sh`, avoid bash-specific features).
+
+## Legacy "Section 0 Topic Tree" References
+
+### Issue
+
+Historical documentation may reference "section 0" or "Topic Tree as a standalone section" for stories. The topic tree was initially added as section 0 at the top of stories, but was later moved to be embedded within the Journey section (section 3).
+
+### Current Usage
+
+- Current structure: Story has 7 sections (1-7), with Topic Tree flowchart embedded in Journey (section 3)
+- Historical references: Some docs may mention "section 0" or Topic Tree as a separate section
+
+### Recommended Resolution
+
+Update any references to "section 0 Topic Tree" to clarify that the Topic Tree flowchart is now embedded within the Journey section (section 3). Historical documents (archived tickets, stories) should remain unchanged as they reflect the structure at that time.

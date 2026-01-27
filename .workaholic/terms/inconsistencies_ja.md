@@ -3,7 +3,7 @@ title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
 last_updated: 2026-01-27
-commit_hash: 921a9a3
+commit_hash: eda5a8b
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -200,3 +200,18 @@ TDDプラグインへの残りの参照をcoreプラグインへの参照に更�
 ### 推奨される解決策
 
 `scripts/`から`sh/`への残りの参照を更新します。すべてのシェルスクリプトはPOSIX準拠である必要があります（`#!/bin/sh`を使用し、bash固有の機能を避ける）。
+
+## レガシー「セクション0 Topic Tree」参照
+
+### 問題
+
+過去のドキュメントはストーリーの「セクション0」や「Topic Treeを独立したセクションとして」参照している可能性があります。Topic treeは当初ストーリーの先頭にセクション0として追加されましたが、その後ジャーニーセクション（セクション3）内に埋め込まれるように移動されました。
+
+### 現在の使用状況
+
+- 現在の構造：ストーリーは7つのセクション（1-7）を持ち、Topic Treeフローチャートはジャーニー（セクション3）内に埋め込まれている
+- 過去の参照：一部のドキュメントは「セクション0」やTopic Treeを別セクションとして言及している可能性がある
+
+### 推奨される解決策
+
+「セクション0 Topic Tree」への参照を、Topic Treeフローチャートが現在ジャーニーセクション（セクション3）内に埋め込まれていることを明確にするように更新します。過去のドキュメント（アーカイブされたチケット、ストーリー）はその時点の構造を反映しているため、変更しないでください。

@@ -3,7 +3,7 @@ title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
 last_updated: 2026-01-27
-commit_hash: 00bdad7
+commit_hash: 4b6b135
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -101,13 +101,31 @@ The root `CHANGELOG.md` maintains a historical record of all changes across all 
 
 - ticket, story
 
+## journey
+
+A narrative section in a story that summarizes the development progression and decision-making.
+
+### Definition
+
+The journey is section 2 of a story document that provides a high-level narrative of how development progressed. It focuses on phases and pivots rather than individual ticket details, typically 100-200 words. The journey section includes an embedded topic tree (Mermaid flowchart) as a visual aid that complements the narrative text. The journey answers "how did we get here?" while the Changes section (section 3) provides the detailed "what changed?"
+
+### Usage Patterns
+
+- **Directory names**: N/A (section within story files)
+- **File names**: Appears in `.workaholic/stories/<branch-name>.md`
+- **Code references**: "The Journey section describes...", "Keep Journey summarized"
+
+### Related Terms
+
+- story, topic-tree, changes
+
 ## topic-tree
 
 A visual flowchart diagram showing the structure and progression of changes in a story.
 
 ### Definition
 
-The topic tree is a Mermaid flowchart placed at the beginning of a story (section 0) that provides a visual overview of how tickets relate to each other. It groups tickets by concern/purpose using subgraphs, shows decision-making progression with arrows, and helps PR reviewers quickly understand the scope and structure of changes before reading the detailed narrative.
+The topic tree is a Mermaid flowchart embedded within the Journey section of a story that provides a visual overview of how tickets relate to each other. It groups tickets by concern/purpose using subgraphs, shows decision-making progression with arrows, and helps PR reviewers quickly understand the scope and structure of changes alongside the narrative.
 
 Format:
 ```mermaid
@@ -121,6 +139,8 @@ flowchart LR
   ConcernA --> ConcernB
 ```
 
+The flowchart uses left-to-right layout (`flowchart LR`) with subgraphs representing concerns or themes. Arrows indicate decision progression (A led to B), while `&` syntax shows parallel/independent work.
+
 ### Usage Patterns
 
 - **Directory names**: N/A (content within story files)
@@ -129,4 +149,22 @@ flowchart LR
 
 ### Related Terms
 
-- story, ticket, Mermaid
+- story, ticket, Mermaid, journey
+
+## changes
+
+A detailed section in a story that lists every ticket/commit with its description.
+
+### Definition
+
+The changes section is section 3 of a story document that provides a comprehensive list of all changes made during the branch's development. Unlike the Journey section (which provides a summarized narrative), Changes lists one subsection per ticket/commit in the format: `### 3.N. <Ticket title> ([hash](commit-url))`. Each subsection contains a brief 1-2 sentence description from the ticket's Overview, serving as the detailed "what changed?" companion to Journey's "how did we get here?"
+
+### Usage Patterns
+
+- **Directory names**: N/A (section within story files)
+- **File names**: Appears in `.workaholic/stories/<branch-name>.md`
+- **Code references**: "The Changes section lists...", "One subsection per ticket in Changes"
+
+### Related Terms
+
+- story, journey, ticket, commit

@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-27T17:52:52+09:00
-commit_hash: 00bdad7
+modified_at: 2026-01-27T18:34:06+09:00
+commit_hash: 4b6b135
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -127,7 +127,7 @@ Agents are specialized subagents that can be spawned to handle complex tasks. Th
 - **performance-analyst**: Evaluates decision-making quality across five viewpoints (Consistency, Intuitivity, Describability, Agility, Density) for PR stories
 - **pr-creator**: Creates or updates GitHub pull requests using the story file as PR body, handling title derivation and `gh` CLI operations
 - **spec-writer**: Updates `.workaholic/specs/` documentation to reflect current codebase state
-- **story-writer**: Generates branch stories in `.workaholic/stories/` that serve as the single source of truth for PR content, including a Topic Tree flowchart visualization, performance metrics, and decision review
+- **story-writer**: Generates branch stories in `.workaholic/stories/` that serve as the single source of truth for PR content, including a Topic Flowchart in the Journey section, per-ticket Changes entries, performance metrics, and decision review
 - **terms-writer**: Updates `.workaholic/terms/` to maintain consistent term definitions
 
 ## Dependency Graph

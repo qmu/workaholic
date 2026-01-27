@@ -55,17 +55,17 @@ flowchart LR
 - Use descriptive node labels: `id[Description]` syntax
 - Maximum 3-5 subgraphs per diagram
 
-[High-level narrative of work progression in 100-200 words. Focus on phases and pivots, not individual ticket details. The flowchart above provides the visual overview.]
+[Brief summary (50-100 words). Let the flowchart carry detail; the prose provides high-level overview only.]
 
 ## 4. Changes
 
 One subsection per ticket, in chronological order:
 
-### 4.1. <Ticket title> ([hash](commit-url))
+### 4.1. <Ticket title> (hash)
 
 Brief 1-2 sentence description from ticket Overview.
 
-### 4.2. <Next ticket title> ([hash](commit-url))
+### 4.2. <Next ticket title> (hash)
 
 Brief 1-2 sentence description from ticket Overview.
 
@@ -73,7 +73,7 @@ Brief 1-2 sentence description from ticket Overview.
 
 **Changes Guidelines:**
 - One subsection per ticket (not grouped by theme)
-- Format: `### 4.N. <Title> ([hash](url))`
+- Format: `### 4.N. <Title> (hash)` - use plain hash, not a link
 - Content: 1-2 sentences from ticket Overview
 - Chronological order matches ticket creation time
 
@@ -81,15 +81,27 @@ Brief 1-2 sentence description from ticket Overview.
 
 [Summarize what was accomplished. Reference key tickets for details.]
 
-## 6. Performance
+## 6. Historical Analysis
+
+[Context from related past work. What similar problems were solved before? What patterns emerge from the Related History sections of tickets? If no related tickets exist, write "No related historical context."]
+
+## 7. Concerns
+
+[Risks, trade-offs, or issues discovered during implementation. Known limitations or edge cases. Things reviewers should pay attention to. Write "None" if nothing to report.]
+
+## 8. Ideas
+
+[Enhancement suggestions for future work. Improvements that were out of scope. "Nice to have" features identified during implementation. Write "None" if nothing to report.]
+
+## 9. Performance
 
 **Metrics**: <commits> commits over <duration> <unit> (<velocity> commits/<unit>)
 
-### 6.1. Pace Analysis
+### 9.1. Pace Analysis
 
 [Quantitative reflection on development pace - was velocity consistent or varied? Were commits small and focused or large? Any patterns in timing?]
 
-### 6.2. Decision Review
+### 9.2. Decision Review
 
 | Dimension      | Rating                            | Notes             |
 | -------------- | --------------------------------- | ----------------- |
@@ -112,10 +124,10 @@ Use the Task tool with `subagent_type: "core:performance-analyst"` and provide:
 - Git log (main..HEAD)
 - Performance metrics from frontmatter
 
-The subagent returns the table and analysis in the format shown above. Include its complete output in section 6.2.
+The subagent returns the table and analysis in the format shown above. Include its complete output in section 9.2.
 
 ```markdown
-## 7. Notes
+## 10. Notes
 
 Additional context for reviewers or future reference.
 ```
@@ -143,8 +155,9 @@ velocity_unit: <from metrics.velocity_unit>
 - Write in third person ("The developer discovered..." not "I discovered...")
 - Connect tickets into a narrative arc, not a list
 - Highlight decision points and trade-offs
-- Keep Motivation/Journey/Outcome concise (Journey: 100-200 words)
+- Keep Motivation/Journey/Outcome concise (Journey: 50-100 words)
 - Changes section: one entry per ticket, brief descriptions
+- Historical Analysis/Concerns/Ideas can be "None" if empty
 
 ## Updating Stories Index
 

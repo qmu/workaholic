@@ -3,9 +3,9 @@ created_at: 2026-01-27T20:50:54+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 2cbf499
+category: Changed
 ---
 
 # Enhance story format with analysis sections and fixes
@@ -77,3 +77,7 @@ Past tickets that touched similar areas:
   - Local markdown preview
 - Historical Analysis draws from ticket Related History - may be empty if no related tickets
 - Concerns/Ideas sections should be optional (can be "None" if nothing to report)
+
+## Final Report
+
+Development completed as planned.

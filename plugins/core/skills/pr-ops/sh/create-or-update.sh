@@ -20,15 +20,12 @@ if [ ! -f "$STORY_FILE" ]; then
     exit 1
 fi
 
-# Strip YAML frontmatter and Topic Tree section, write to temp file
+# Strip YAML frontmatter, write to temp file
 awk '
-  BEGIN { fm=0; fc=0; skip=0 }
+  BEGIN { fm=0; fc=0 }
   /^---$/ { fc++; if (fc <= 2) { fm=1; next } }
   fc == 2 && fm { fm=0; next }
   fm { next }
-  /^## 0\. Topic Tree/ { skip=1; next }
-  /^## [1-9]/ { skip=0 }
-  skip { next }
   { print }
 ' "$STORY_FILE" >| /tmp/pr-body.md
 

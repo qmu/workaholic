@@ -3,9 +3,9 @@ created_at: 2026-01-27T20:25:25+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 9eb29c8
+category: Added
 ---
 
 # Add summary paragraph to Related History section
@@ -51,3 +51,7 @@ The Related History feature was recently added to provide context about past wor
 - If only 1 related ticket is found, the summary can be very brief or omitted
 - The summary should add value beyond just listing tickets - it should synthesize insights
 - Avoid generic summaries; each should provide specific context relevant to the current ticket
+
+## Final Report
+
+Development completed as planned.

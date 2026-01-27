@@ -34,6 +34,11 @@ Explore the codebase to understand requirements and write an implementation tick
 
    List the top 3-5 most relevant tickets (most recent first if equal relevance). If no related tickets found, omit the Related History section entirely.
 
+   After finding related tickets, synthesize a brief summary (1-2 sentences):
+   - Focus on patterns: what aspects have been modified before, what challenges were encountered
+   - Keep it actionable: help the implementer understand what to watch out for
+   - If only 1 related ticket exists, keep the summary very brief
+
 4. **Ask Clarifying Questions**
 
    - Use AskUserQuestion tool if requirements are ambiguous
@@ -47,6 +52,8 @@ Explore the codebase to understand requirements and write an implementation tick
    - Include a "Related History" section after "Key Files" if related tickets were found:
      ```markdown
      ## Related History
+
+     <1-2 sentence summary synthesizing what historical tickets reveal about this area>
 
      Past tickets that touched similar areas:
 

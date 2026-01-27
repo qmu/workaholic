@@ -1,8 +1,9 @@
 ---
 title: Add GitHub links to commit hashes in story Changes section
-category: Enhance
+category: Added
 layer: Skill
----
+effort: 0.1h
+commit_hash: 12d80c9---
 
 ## Overview
 
@@ -65,3 +66,7 @@ This produces clickable links like `([e1dcf1f](https://github.com/qmu/workaholic
 - Use the short hash for display text but the full hash in the URL works with either
 - The repository URL `https://github.com/qmu/workaholic` is hardcoded since this is a single-repo project
 - This aligns with existing markdown linking conventions established in general rules
+
+## Final Report
+
+Development completed as planned.

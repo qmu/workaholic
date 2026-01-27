@@ -97,11 +97,11 @@ flowchart LR
 
 One subsection per ticket, in chronological order:
 
-### 4.1. <Ticket title> (hash)
+### 4.1. <Ticket title> ([hash](https://github.com/qmu/workaholic/commit/hash))
 
 Brief 1-2 sentence description from ticket Overview.
 
-### 4.2. <Next ticket title> (hash)
+### 4.2. <Next ticket title> ([hash](https://github.com/qmu/workaholic/commit/hash))
 
 Brief 1-2 sentence description from ticket Overview.
 
@@ -109,7 +109,7 @@ Brief 1-2 sentence description from ticket Overview.
 
 **Changes Guidelines:**
 - One subsection per ticket (not grouped by theme)
-- Format: `### 4.N. <Title> (hash)` - use plain hash, not a link
+- Format: `### 4.N. <Title> ([hash](https://github.com/qmu/workaholic/commit/hash))` - link to GitHub commit
 - Content: 1-2 sentences from ticket Overview
 - Chronological order matches ticket creation time
 

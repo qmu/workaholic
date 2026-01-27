@@ -23,26 +23,45 @@ Explore the codebase to understand requirements and write an implementation tick
    - Understand existing patterns, architecture, and conventions
    - Identify files that will need to be modified or created
 
-3. **Ask Clarifying Questions**
+3. **Find Related History**
+
+   Search archived tickets in `.workaholic/tickets/archive/` for related past work. Match by:
+
+   - **Key Files overlap** (strongest signal): Tickets that modified the same files
+   - **Layer match**: Tickets with the same layer (e.g., Config, UX)
+   - **Keyword similarity** (weakest signal): Tickets with similar terms in title/overview
+
+   List the top 3-5 most relevant tickets (most recent first if equal relevance). If no related tickets found, omit the Related History section entirely.
+
+4. **Ask Clarifying Questions**
 
    - Use AskUserQuestion tool if requirements are ambiguous
    - Clarify scope, approach preferences, or technical decisions
    - Don't ask obvious questions - use your judgment for reasonable defaults
 
-4. **Write the Ticket**
+5. **Write the Ticket**
 
    - Create a ticket file in `.workaholic/tickets/` (or `.workaholic/tickets/icebox/` for icebox)
    - Follow the preloaded ticket-format skill for structure and conventions
+   - Include a "Related History" section after "Key Files" if related tickets were found:
+     ```markdown
+     ## Related History
+
+     Past tickets that touched similar areas:
+
+     - `20260127010716-rename-terminology-to-terms.md` - Renamed terminology directory (same layer: Config)
+     - `20260125113858-auto-commit-ticket-on-creation.md` - Modified ticket.md (same file)
+     ```
    - Use the Write tool directly - it creates parent directories automatically
 
-5. **Commit the Ticket**
+6. **Commit the Ticket**
 
    **IMPORTANT**: Skip this step if invoked during `/drive`. The drive command's archive script includes uncommitted tickets via `git add -A`, so the ticket will be committed with the implementation.
 
    - Stage only the newly created ticket file: `git add <ticket-path>`
    - Commit with message: "Add ticket for <short-description>"
 
-6. **Present the Ticket**
+7. **Present the Ticket**
 
    - Show the user where the ticket was created
    - Summarize the key points

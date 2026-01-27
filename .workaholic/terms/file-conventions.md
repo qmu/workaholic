@@ -3,7 +3,7 @@ title: File Conventions
 description: Naming patterns and directory structures used in Workaholic
 category: developer
 last_updated: 2026-01-27
-commit_hash: f34db66
+commit_hash: 00bdad7
 ---
 
 [English](file-conventions.md) | [日本語](file-conventions_ja.md)
@@ -65,6 +65,24 @@ commit_hash: <short-hash>
 ### Related Terms
 
 - kebab-case
+
+## todo
+
+Storage for active work items waiting to be implemented.
+
+### Definition
+
+The todo directory holds tickets that are queued for implementation. When a ticket is created via `/ticket`, it is placed in `.workaholic/tickets/todo/`. During `/drive`, tickets are processed from this directory in sorted order (by timestamp prefix). After successful implementation and commit, tickets move from todo to archive.
+
+### Usage Patterns
+
+- **Directory names**: `.workaholic/tickets/todo/`
+- **File names**: Tickets retain original names with timestamp prefix
+- **Code references**: "Queue in todo", "Process tickets from todo"
+
+### Related Terms
+
+- icebox, archive, ticket
 
 ## icebox
 

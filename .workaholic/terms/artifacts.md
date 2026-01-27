@@ -3,7 +3,7 @@ title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
 last_updated: 2026-01-27
-commit_hash: f34db66
+commit_hash: 00bdad7
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -70,7 +70,7 @@ A comprehensive document that serves as the single source of truth for PR descri
 
 ### Definition
 
-A story synthesizes the motivation, progression, and outcome of development work across multiple tickets on a single branch. Stories are generated during the PR workflow and contain the complete PR description content: Summary (from ticket titles), Motivation, Journey, Changes (detailed explanations), Outcome, Performance (metrics and decision review), and Notes. The story content (minus YAML frontmatter) is copied directly to GitHub as the PR body.
+A story synthesizes the motivation, progression, and outcome of development work across multiple tickets on a single branch. Stories are generated during the PR workflow and contain the complete PR description content: Topic Tree (visual flowchart), Summary (from ticket titles), Motivation, Journey, Changes (detailed explanations), Outcome, Performance (metrics and decision review), and Notes. The story content (minus YAML frontmatter) is copied directly to GitHub as the PR body.
 
 Stories gather data directly from archived tickets, extracting frontmatter fields (`commit_hash`, `category`) and content sections (Overview, Final Report) to build the narrative.
 
@@ -100,3 +100,33 @@ The root `CHANGELOG.md` maintains a historical record of all changes across all 
 ### Related Terms
 
 - ticket, story
+
+## topic-tree
+
+A visual flowchart diagram showing the structure and progression of changes in a story.
+
+### Definition
+
+The topic tree is a Mermaid flowchart placed at the beginning of a story (section 0) that provides a visual overview of how tickets relate to each other. It groups tickets by concern/purpose using subgraphs, shows decision-making progression with arrows, and helps PR reviewers quickly understand the scope and structure of changes before reading the detailed narrative.
+
+Format:
+```mermaid
+flowchart LR
+  subgraph ConcernA[First Concern]
+    t1[Ticket 1] --> t2[Ticket 2]
+  end
+  subgraph ConcernB[Second Concern]
+    t3[Ticket 3] & t4[Ticket 4]
+  end
+  ConcernA --> ConcernB
+```
+
+### Usage Patterns
+
+- **Directory names**: N/A (content within story files)
+- **File names**: Appears in `.workaholic/stories/<branch-name>.md`
+- **Code references**: "Generate topic tree for the story", "The topic tree shows..."
+
+### Related Terms
+
+- story, ticket, Mermaid

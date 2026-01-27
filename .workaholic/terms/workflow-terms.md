@@ -3,7 +3,7 @@ title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
 last_updated: 2026-01-27
-commit_hash: f34db66
+commit_hash: 00bdad7
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -83,6 +83,24 @@ A release increments the marketplace version, updates version metadata, and publ
 ### Related Terms
 
 - changelog, plugin
+
+## report
+
+Generate comprehensive documentation and create or update a GitHub PR.
+
+### Definition
+
+The report operation orchestrates multiple documentation agents concurrently to generate all artifacts (changelog, story, specs, terms), then creates or updates a GitHub pull request. This is the primary command for completing a feature branch and preparing it for review. The command `/report` replaced the earlier `/pull-request` command to better reflect that documentation generation is its primary purpose, with PR creation as the final step.
+
+### Usage Patterns
+
+- **Directory names**: N/A (action, not storage)
+- **File names**: N/A
+- **Code references**: "Run `/report` to create PR", "Report generates documentation"
+
+### Related Terms
+
+- story, changelog, spec, terms, agent, orchestrator
 
 ## concurrent-execution
 

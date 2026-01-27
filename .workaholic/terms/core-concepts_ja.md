@@ -3,7 +3,7 @@ title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
 last_updated: 2026-01-27
-commit_hash: f34db66
+commit_hash: 00bdad7
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -161,3 +161,29 @@ denyルールは`.claude/settings.json`の`permissions.deny`で設定され、�
 ### 関連用語
 
 - rule、agent、settings
+
+## preload
+
+フロントマターを介してエージェントのコンテキストにスキルコンテンツをロード。
+
+### 定義
+
+preloadingは、エージェントが初期化時にスキルコンテンツにアクセスするためのメカニズムです。エージェントの`skills:`フロントマターフィールドでスキルを指定することにより、エージェントが生成されるときにスキルの`SKILL.md`コンテンツがエージェントのコンテキストに含まれます。これにより、エージェントは実行中に追加のファイルを読み取ることなく、再利用可能な指示、bashスクリプト、またはフォーマットルールにアクセスできます。
+
+フロントマターの例:
+```yaml
+---
+name: story-writer
+skills: [story-metrics, i18n]
+---
+```
+
+### 使用パターン
+
+- **ディレクトリ名**: N/A（メカニズムであり、ストレージではない）
+- **ファイル名**: N/A
+- **コード参照**: 「フロントマターでスキルをプリロード」、「エージェントはchangelogスキルをプリロード」
+
+### 関連用語
+
+- skill、agent、frontmatter

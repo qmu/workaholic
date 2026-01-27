@@ -3,7 +3,7 @@ title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
 last_updated: 2026-01-27
-commit_hash: f34db66
+commit_hash: 00bdad7
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -70,7 +70,7 @@ PR説明文の単一の真実の情報源として機能する包括的なドキ
 
 ### 定義
 
-ストーリーは、単一のブランチで複数のチケットにわたる開発作業の動機、進行、結果を統合します。ストーリーはPRワークフロー中に生成され、完全なPR説明文の内容を含みます：Summary（チケットタイトルから）、Motivation、Journey、Changes（詳細な説明）、Outcome、Performance（メトリクスと意思決定レビュー）、Notes。ストーリーの内容（YAMLフロントマターを除く）はPRボディとしてそのままGitHubにコピーされます。
+ストーリーは、単一のブランチで複数のチケットにわたる開発作業の動機、進行、結果を統合します。ストーリーはPRワークフロー中に生成され、完全なPR説明文の内容を含みます：Topic Tree（ビジュアルフローチャート）、Summary（チケットタイトルから）、Motivation、Journey、Changes（詳細な説明）、Outcome、Performance（メトリクスと意思決定レビュー）、Notes。ストーリーの内容（YAMLフロントマターを除く）はPRボディとしてそのままGitHubにコピーされます。
 
 ストーリーはアーカイブされたチケットから直接データを収集し、フロントマターフィールド（`commit_hash`、`category`）とコンテンツセクション（Overview、Final Report）を抽出してナラティブを構築します。
 
@@ -100,3 +100,33 @@ PR説明文の単一の真実の情報源として機能する包括的なドキ
 ### 関連用語
 
 - ticket、story
+
+## topic-tree
+
+ストーリー内の変更の構造と進行を示すビジュアルフローチャート図。
+
+### 定義
+
+topic treeはストーリーの冒頭（セクション0）に配置されるMermaidフローチャートで、チケット同士がどのように関連しているかの視覚的な概要を提供します。サブグラフを使用して関心事/目的別にチケットをグループ化し、矢印で意思決定の進行を示し、PRレビュアーが詳細なナラティブを読む前に変更の範囲と構造をすばやく理解できるようにします。
+
+形式:
+```mermaid
+flowchart LR
+  subgraph ConcernA[最初の関心事]
+    t1[チケット1] --> t2[チケット2]
+  end
+  subgraph ConcernB[2番目の関心事]
+    t3[チケット3] & t4[チケット4]
+  end
+  ConcernA --> ConcernB
+```
+
+### 使用パターン
+
+- **ディレクトリ名**: N/A（ストーリーファイル内のコンテンツ）
+- **ファイル名**: `.workaholic/stories/<branch-name>.md`内に表示
+- **コード参照**: 「ストーリーのtopic treeを生成」、「topic treeは...を示す」
+
+### 関連用語
+
+- story、ticket、Mermaid

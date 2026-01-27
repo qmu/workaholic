@@ -97,14 +97,17 @@ Refs #<issue-number>
 ```mermaid
 flowchart LR
   subgraph Subagents[Subagent Architecture]
+    direction TB
     s1[Extract spec-writer] --> s2[Extract story-writer] --> s3[Extract changelog-writer] --> s4[Extract pr-creator]
   end
 
   subgraph GitSafety[Git Command Safety]
+    direction TB
     g1[Add git guidelines] --> g2[Strengthen rules] --> g3[Embed in agents] --> g4[Use deny rule]
   end
 
   subgraph Commands[Command Simplification]
+    direction TB
     c1[Remove /sync] --> c2[Remove /commit] --> c3[Rename to /report]
   end
 
@@ -112,7 +115,8 @@ flowchart LR
 ```
 
 **Flowchart Guidelines:**
-- Use `flowchart LR` (left-to-right) for timeline visualization
+- Use `flowchart LR` for horizontal timeline (subgraphs arranged left-to-right)
+- Use `direction TB` inside each subgraph for vertical item flow
 - Group by theme: each subgraph represents one concern or decision area
 - Connect subgraphs in timeline order to show work progression
 - Use descriptive node labels: `id[Description]` syntax

@@ -3,7 +3,7 @@ title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
 last_updated: 2026-01-27
-commit_hash: a525e04
+commit_hash: f34db66
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -157,14 +157,46 @@ Update any references to `/commit` to explain that commits now happen through ti
 
 ### Issue
 
-Skills have evolved from single markdown files to directory-based structures with SKILL.md and scripts/ subdirectories. Some older documentation may reference the flat file pattern.
+Skills have evolved from single markdown files to directory-based structures with SKILL.md and sh/ subdirectories. Some older documentation may reference the flat file pattern or the `scripts/` directory name.
 
 ### Current Usage
 
-- Current structure: `plugins/<name>/skills/<skill-name>/SKILL.md` with optional `scripts/` directory
-- Current skills: archive-ticket, changelog, story-metrics, spec-context, pr-ops
+- Current structure: `plugins/<name>/skills/<skill-name>/SKILL.md` with optional `sh/` directory
+- Current skills: archive-ticket, changelog, story-metrics, spec-context, pr-ops, ticket-format, drive-workflow, command-prohibition, i18n
 - Historical pattern: Single markdown files like `archive-ticket.md`
+- Historical directory: `scripts/` (now renamed to `sh/` for POSIX shell compatibility)
 
 ### Recommended Resolution
 
-When referencing skills, use the directory-based pattern. The `SKILL.md` file contains the skill definition, while `scripts/` contains reusable bash scripts that agents can invoke.
+When referencing skills, use the directory-based pattern. The `SKILL.md` file contains the skill definition, while `sh/` contains reusable POSIX shell scripts that agents can invoke.
+
+## Legacy Ticket Root Directory References
+
+### Issue
+
+Active tickets have moved from `.workaholic/tickets/` (root) to `.workaholic/tickets/todo/` subdirectory. This creates a cleaner three-tier structure (todo/icebox/archive).
+
+### Current Usage
+
+- Current structure: `.workaholic/tickets/todo/` for active tickets
+- Historical location: `.workaholic/tickets/` (root directory)
+- Unchanged: `.workaholic/tickets/icebox/` and `.workaholic/tickets/archive/<branch>/`
+
+### Recommended Resolution
+
+Update any references to ticket storage from `.workaholic/tickets/` to `.workaholic/tickets/todo/`. Historical documents should remain unchanged as they reflect the structure at that time.
+
+## Legacy "scripts/" Directory References
+
+### Issue
+
+The shell script directory within skills has been renamed from `scripts/` to `sh/` for brevity and to clarify that these are POSIX shell scripts (not bash-specific).
+
+### Current Usage
+
+- Current directory: `sh/` (e.g., `plugins/core/skills/changelog/sh/generate.sh`)
+- Historical directory: `scripts/` (e.g., `plugins/core/skills/archive-ticket/scripts/archive.sh`)
+
+### Recommended Resolution
+
+Update any remaining references from `scripts/` to `sh/`. All shell scripts should be POSIX-compliant (use `#!/bin/sh`, avoid bash-specific features).

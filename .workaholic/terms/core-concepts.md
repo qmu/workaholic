@@ -3,7 +3,7 @@ title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
 last_updated: 2026-01-27
-commit_hash: a525e04
+commit_hash: f34db66
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -54,15 +54,27 @@ A helper sub-routine that is not directly user-invocable.
 
 ### Definition
 
-Skills are internal routines that support commands or other operations. Unlike commands, users cannot invoke skills directly with a slash prefix. They are typically called by commands or triggered automatically. Skills are defined in a plugin's `skills/` directory, each in its own subdirectory containing a `SKILL.md` definition and optional `scripts/` directory with helper scripts.
+Skills are internal routines that support commands or other operations. Unlike commands, users cannot invoke skills directly with a slash prefix. They are typically called by commands or triggered automatically. Skills are defined in a plugin's `skills/` directory, each in its own subdirectory containing a `SKILL.md` definition and optional `sh/` directory with POSIX shell scripts.
 
 Skills can be preloaded by agents via the `skills:` frontmatter field, providing reusable functionality (e.g., bash scripts for data gathering or formatting) that the agent can invoke during execution.
 
 ### Usage Patterns
 
 - **Directory names**: `plugins/<name>/skills/<skill-name>/`
-- **File names**: `SKILL.md`, `scripts/generate.sh`, `scripts/calculate.sh`
+- **File names**: `SKILL.md`, `sh/generate.sh`, `sh/calculate.sh`
 - **Code references**: "The archive-ticket skill handles...", "Preload the changelog skill"
+
+### Current Skills
+
+- **archive-ticket**: Moves completed tickets to branch archive
+- **changelog**: Generates changelog entries from archived tickets
+- **story-metrics**: Calculates commit counts, duration, velocity
+- **spec-context**: Gathers codebase context for spec updates
+- **pr-ops**: Creates or updates GitHub pull requests
+- **ticket-format**: Defines ticket file structure and frontmatter
+- **drive-workflow**: Implementation workflow for processing tickets
+- **command-prohibition**: Git command restrictions for subagents
+- **i18n**: Translation requirements for `.workaholic/` documentation
 
 ### Related Terms
 

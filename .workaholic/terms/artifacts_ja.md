@@ -3,7 +3,7 @@ title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
 last_updated: 2026-01-27
-commit_hash: a525e04
+commit_hash: f34db66
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -18,7 +18,7 @@ commit_hash: a525e04
 
 ### 定義
 
-チケットは実装される作業の離散的な単位を定義します。コーディング開始前に意図、コンテキスト、実装ステップを記録します。チケットは変更に焦点を当て、実装後に何が異なるべきかを記述します。アクティブな場合は`.workaholic/tickets/`、延期された場合は`.workaholic/tickets/icebox/`、完了した場合は`.workaholic/tickets/archive/<branch>/`に存在します。
+チケットは実装される作業の離散的な単位を定義します。コーディング開始前に意図、コンテキスト、実装ステップを記録します。チケットは変更に焦点を当て、実装後に何が異なるべきかを記述します。アクティブな場合は`.workaholic/tickets/todo/`、延期された場合は`.workaholic/tickets/icebox/`、完了した場合は`.workaholic/tickets/archive/<branch>/`に存在します。
 
 チケットには構造化メタデータを持つYAMLフロントマターが含まれます：
 
@@ -34,7 +34,7 @@ commit_hash: a525e04
 
 ### 使用パターン
 
-- **ディレクトリ名**: `.workaholic/tickets/`、`.workaholic/tickets/archive/`
+- **ディレクトリ名**: `.workaholic/tickets/todo/`、`.workaholic/tickets/icebox/`、`.workaholic/tickets/archive/`
 - **ファイル名**: `20260123-123456-feature-name.md`（タイムスタンプ接頭辞付き）
 - **コード参照**: 「`/ticket`でチケットを作成」、「チケットをアーカイブ」
 

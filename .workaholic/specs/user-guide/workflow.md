@@ -2,8 +2,8 @@
 title: Workflow Guide
 description: How to use ticket-driven development with Workaholic
 category: user
-modified_at: 2026-01-27T09:57:08+09:00
-commit_hash: a525e04
+modified_at: 2026-01-27T12:16:19+09:00
+commit_hash: f34db66
 ---
 
 [English](workflow.md) | [日本語](workflow_ja.md)
@@ -54,7 +54,7 @@ Describe what you want to implement:
 /ticket add dark mode toggle to settings
 ```
 
-Claude explores your codebase, understands the architecture, and generates a detailed implementation spec. Review the spec in `.workaholic/tickets/` and revise if needed.
+Claude explores your codebase, understands the architecture, and generates a detailed implementation spec. Review the spec in `.workaholic/tickets/todo/` and revise if needed.
 
 ### 3. Implement the Ticket
 
@@ -86,8 +86,9 @@ Tickets follow this structure:
 
 ```
 .workaholic/tickets/
-├── 20260123-add-dark-mode.md      # Queued ticket
-├── 20260123-fix-login-bug.md      # Another queued ticket
+├── todo/                           # Queued tickets
+│   ├── 20260123-add-dark-mode.md
+│   └── 20260123-fix-login-bug.md
 ├── icebox/                         # Deferred tickets
 │   └── 20260120-refactor-db.md
 └── archive/

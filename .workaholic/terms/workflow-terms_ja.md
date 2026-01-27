@@ -3,7 +3,7 @@ title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
 last_updated: 2026-01-27
-commit_hash: a525e04
+commit_hash: f34db66
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -18,7 +18,7 @@ commit_hash: a525e04
 
 ### 定義
 
-driveオペレーションは`.workaholic/tickets/`からチケットを順次処理します。各チケットについて、記述された変更を実装し、作業をコミットし、チケットをアーカイブします。これにより、作業が実装前に記録され、完了後にドキュメント化される構造化された開発フローが作成されます。
+driveオペレーションは`.workaholic/tickets/todo/`からチケットを順次処理します。各チケットについて、記述された変更を実装し、作業をコミットし、チケットをアーカイブします。これにより、作業が実装前に記録され、完了後にドキュメント化される構造化された開発フローが作成されます。
 
 ### 使用パターン
 
@@ -36,7 +36,7 @@ driveオペレーションは`.workaholic/tickets/`からチケットを順次�
 
 ### 定義
 
-アーカイブは完了したチケットをアクティブキュー（`.workaholic/tickets/`）からブランチ固有のアーカイブディレクトリ（`.workaholic/tickets/archive/<branch>/`）に移動します。これにより、アクティブキューをクリアしながら実装記録を保存します。archive-ticketスキルはコミット成功後にこれを自動的に処理します。
+アーカイブは完了したチケットをアクティブキュー（`.workaholic/tickets/todo/`）からブランチ固有のアーカイブディレクトリ（`.workaholic/tickets/archive/<branch>/`）に移動します。これにより、アクティブキューをクリアしながら実装記録を保存します。archive-ticketスキルはコミット成功後にこれを自動的に処理します。
 
 ### 使用パターン
 

@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-27T09:57:08+09:00
-commit_hash: a525e04
+modified_at: 2026-01-27T12:16:19+09:00
+commit_hash: f34db66
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -59,6 +59,7 @@ plugins/
       diagrams.md      # Mermaid diagram requirements
       general.md       # Git workflow rules
       i18n.md          # Multi-language documentation rules
+      shell.md         # POSIX shell script conventions
       typescript.md    # TypeScript coding standards
     skills/
       archive-ticket/
@@ -73,6 +74,8 @@ plugins/
         SKILL.md           # Documents settings.json deny rules
       drive-workflow/
         SKILL.md           # Implementation workflow for tickets
+      i18n/
+        SKILL.md           # i18n requirements for .workaholic/ docs
       pr-ops/
         SKILL.md
         sh/
@@ -108,9 +111,12 @@ Skills are complex capabilities that may include scripts or multiple files. They
 - **archive-ticket**: Handles the complete commit workflow (archive ticket, update frontmatter with commit hash/category, commit)
 - **changelog**: Generates changelog entries from archived tickets, grouping by category
 - **command-prohibition**: Documents how to use settings.json deny rules to block dangerous commands
+- **drive-workflow**: Implementation workflow steps for processing tickets
+- **i18n**: Enforces translation requirements for `.workaholic/` documentation (spec-writer and terms-writer preload this)
 - **pr-ops**: Creates or updates GitHub PRs using the gh CLI
 - **spec-context**: Gathers context (branch, tickets, specs, diff) for documentation updates
 - **story-metrics**: Calculates performance metrics (commits, duration, velocity) for branch stories
+- **ticket-format**: Ticket file structure and frontmatter conventions
 - **translate**: Translation policies for converting English markdown files to other languages (primarily Japanese)
 
 ### Agents
@@ -154,6 +160,7 @@ flowchart LR
         po[pr-ops]
         tf[ticket-format]
         dw[drive-workflow]
+        i18n[i18n]
     end
 
     report --> cw & sw & spw & tw & pc
@@ -164,6 +171,8 @@ flowchart LR
     sw --> sm
     sw --> pa
     spw --> sc
+    spw --> i18n
+    tw --> i18n
     pc --> po
 ```
 

@@ -14,7 +14,7 @@ Write specs with AI exploration, implement with AI assistance, ship with AI-gene
 
 - **AI-Powered Explanations** - AI generates commit messages, documentation, and PR descriptions via `/report`. Developer focuses on decisions, AI handles the writing.
 
-- **Cognitive Investment** - Commands map to natural development phases for intuitivity. Same structure everywhere for consistency. AI captures the "why" for describability. Small commits with clear intent for density.
+- **Cultivating Semantics** - Commands map to natural development phases for intuitivity. Same structure everywhere for consistency. AI captures the "why" for describability. Small commits with clear intent for density.
 
 ## Installation
 

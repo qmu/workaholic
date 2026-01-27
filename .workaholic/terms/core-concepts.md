@@ -2,8 +2,8 @@
 title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
-last_updated: 2026-01-27
-commit_hash: 82335e6
+last_updated: 2026-01-28
+commit_hash: 88b4b18
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -69,22 +69,18 @@ Skills can be preloaded by agents via the `skills:` frontmatter field, providing
 Utility skills (with bundled shell scripts):
 - **archive-ticket**: Moves completed tickets to branch archive
 - **generate-changelog**: Generates changelog entries from archived tickets
-- **calculate-story-metrics**: Calculates commit counts, duration, velocity
-- **gather-spec-context**: Gathers codebase context for spec updates
-- **gather-terms-context**: Gathers context for terminology updates
-- **manage-pr**: Creates or updates GitHub pull requests
+- **create-branch**: Creates timestamped topic branches (e.g., `feat-20260128-001720`)
+- **create-pr**: PR creation workflow, title derivation, and shell script for GitHub operations
 
 Content skills (instructions and templates):
-- **write-story**: Story content structure and formatting guidelines
-- **write-spec**: Spec file format and content guidelines
-- **write-terms**: Term entry format and documentation guidelines
+- **write-story**: Story content structure, formatting, metrics calculation, and translation requirements
+- **write-spec**: Spec file format, content guidelines, and context gathering for updates
+- **write-terms**: Term entry format, documentation guidelines, and context gathering for updates
 - **write-changelog**: Changelog formatting and entry guidelines
 - **analyze-performance**: Performance evaluation framework
-- **create-pr**: PR creation workflow and formatting
-- **define-ticket-format**: Defines ticket file structure and frontmatter
+- **create-ticket**: Ticket file structure, frontmatter, related history, and creation workflow
 - **drive-workflow**: Implementation workflow for processing tickets
-- **block-commands**: Git command restrictions for subagents
-- **enforce-i18n**: Translation requirements for `.workaholic/` documentation
+- **translate**: Translation policies and `.workaholic/` i18n enforcement
 
 ### Related Terms
 
@@ -197,3 +193,37 @@ skills: [story-metrics, i18n]
 ### Related Terms
 
 - skill, agent, frontmatter
+
+## nesting-policy
+
+Architectural rules governing which component types can invoke which others.
+
+### Definition
+
+The nesting policy defines allowed and prohibited invocation patterns between commands, subagents, and skills. This policy ensures a clean separation between orchestration (commands, subagents) and knowledge (skills).
+
+**Allowed invocations:**
+- Command -> Skill (preload via `skills:` frontmatter)
+- Command -> Subagent (via Task tool)
+- Subagent -> Skill (preload via `skills:` frontmatter)
+
+**Prohibited invocations:**
+- Skill -> Subagent (skills are passive knowledge, not orchestrators)
+- Skill -> Command (skills cannot invoke user-facing commands)
+- Subagent -> Subagent (prevents deep nesting and context explosion)
+- Subagent -> Command (subagents are invoked by commands, not the reverse)
+
+The guiding principle is "thin commands and subagents, comprehensive skills":
+- Commands: Orchestration only (~50-100 lines)
+- Subagents: Orchestration only (~20-40 lines)
+- Skills: Comprehensive knowledge (~50-150 lines)
+
+### Usage Patterns
+
+- **Directory names**: N/A (policy, not storage)
+- **File names**: Documented in root `CLAUDE.md` under Architecture Policy
+- **Code references**: "Follow the nesting policy", "This violates nesting policy"
+
+### Related Terms
+
+- command, agent, skill, orchestrator

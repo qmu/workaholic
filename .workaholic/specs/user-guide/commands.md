@@ -2,8 +2,8 @@
 title: Command Reference
 description: Complete documentation for all Workaholic commands
 category: user
-modified_at: 2026-01-27T21:13:30+09:00
-commit_hash: 82335e6
+modified_at: 2026-01-28T01:00:15+09:00
+commit_hash: 88b4b18
 ---
 
 [English](commands.md) | [日本語](commands_ja.md)
@@ -32,7 +32,7 @@ Generates comprehensive documentation and creates or updates a pull request.
 /report
 ```
 
-The command orchestrates five subagents to generate documentation artifacts: changelog-writer updates `CHANGELOG.md`, story-writer generates the PR narrative, spec-writer updates `.workaholic/specs/`, terms-writer updates `.workaholic/terms/`, and pr-creator handles GitHub PR creation. The first four run in parallel, then pr-creator runs after to create the PR using the generated story as the body.
+The command orchestrates documentation generation in two phases. In Phase 1, four subagents run in parallel: changelog-writer updates `CHANGELOG.md`, spec-writer updates `.workaholic/specs/`, terms-writer updates `.workaholic/terms/`, and release-readiness analyzes changes for release preparation. In Phase 2, story-writer generates the PR narrative using the release-readiness output. Finally, pr-creator handles GitHub PR creation using the generated story as the body.
 
 The PR description is generated from a story document that includes eleven sections: Overview, Motivation, Journey, Changes, Outcome, Historical Analysis, Concerns, Ideas, Performance, Release Preparation, and Notes. The Journey section includes a Mermaid flowchart (Topic Tree) showing relationships between changes grouped by theme or concern, giving reviewers visual context for the narrative. The Changes section lists each ticket as its own subsection in chronological order. The Release Preparation section includes a release-readiness verdict with concerns and pre/post-release instructions. The story serves as the single source of truth for PR content and is saved to `.workaholic/stories/<branch-name>.md`. Performance metrics use hours for single-session work (under 8 hours) and business days for multi-day work, providing meaningful velocity measurements.
 

@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-27T21:13:30+09:00
-commit_hash: 82335e6
+modified_at: 2026-01-28T01:00:15+09:00
+commit_hash: 88b4b18
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -58,7 +58,7 @@ plugins/
       ticket.md          # /ticket コマンド
     rules/
       diagrams.md      # Mermaid図表要件
-      general.md       # Gitワークフロールール
+      general.md       # Gitワークフロールール、マークダウンリンク
       i18n.md          # 多言語ドキュメントルール
       shell.md         # POSIX シェルスクリプト規約
       typescript.md    # TypeScriptコーディング規約
@@ -71,46 +71,38 @@ plugins/
           archive.sh       # コミットワークフロー用シェルスクリプト
       assess-release-readiness/
         SKILL.md           # リリース準備分析ガイドライン
-      block-commands/
-        SKILL.md           # settings.json denyルールのドキュメント
-      calculate-story-metrics/
+      create-branch/
         SKILL.md
         sh/
-          calculate.sh     # パフォーマンスメトリクス計算
+          create.sh        # タイムスタンプ付きトピックブランチを作成
       create-pr/
-        SKILL.md           # PR作成手順
-      define-ticket-format/
-        SKILL.md           # チケットファイル構造規約
+        SKILL.md
+        sh/
+          create-or-update.sh  # GitHub PRの作成/更新
+      create-ticket/
+        SKILL.md           # フォーマットとガイドラインを含むチケット作成
       drive-workflow/
         SKILL.md           # チケット実装ワークフロー
-      enforce-i18n/
-        SKILL.md           # .workaholic/ドキュメントのi18n要件
-      gather-spec-context/
-        SKILL.md
-        sh/
-          gather.sh        # スペック更新用のコンテキスト収集
-      gather-terms-context/
-        SKILL.md
-        sh/
-          gather.sh        # 用語更新用のコンテキスト収集
       generate-changelog/
         SKILL.md
         sh/
           generate.sh      # チケットからchangelogエントリを生成
-      manage-pr/
-        SKILL.md
-        sh/
-          create-or-update.sh  # GitHub PRの作成/更新
       translate/
-        SKILL.md           # i18n用翻訳ポリシー
+        SKILL.md           # 翻訳ポリシーと.workaholic/ i18n強制
       write-changelog/
         SKILL.md           # changelogライティングガイドライン
       write-spec/
-        SKILL.md           # specライティングガイドライン
+        SKILL.md
+        sh/
+          gather.sh        # コンテキスト収集とスペック作成
       write-story/
-        SKILL.md           # ストーリーテンプレートとガイドライン
+        SKILL.md
+        sh/
+          calculate.sh     # メトリクス計算とストーリー作成
       write-terms/
-        SKILL.md           # termsライティングガイドライン
+        SKILL.md
+        sh/
+          gather.sh        # コンテキスト収集と用語作成
 ```
 
 ## プラグインタイプ
@@ -130,21 +122,16 @@ plugins/
 - **analyze-performance**: 5つの次元にわたる意思決定品質の評価フレームワーク
 - **archive-ticket**: 完全なコミットワークフロー（チケットのアーカイブ、フロントマターにコミットハッシュ/カテゴリを更新、コミット）を処理
 - **assess-release-readiness**: 変更を分析しリリース準備状況を判定するガイドライン
-- **block-commands**: settings.json denyルールを使用して危険なコマンドをブロックする方法をドキュメント化
-- **calculate-story-metrics**: ブランチストーリー用のパフォーマンスメトリクス（コミット数、期間、速度）を計算
-- **create-pr**: 適切なフォーマットでPRを作成する手順
-- **define-ticket-format**: チケットファイル構造とフロントマター規約
+- **create-branch**: 設定可能なプレフィックス付きでタイムスタンプ付きトピックブランチを作成
+- **create-pr**: gh CLIを使用して適切なフォーマットでGitHub PRを作成/更新
+- **create-ticket**: フォーマット、調査、関連履歴を含む完全なチケット作成ワークフロー
 - **drive-workflow**: チケット処理の実装ワークフローステップ
-- **enforce-i18n**: `.workaholic/`ドキュメントの翻訳要件を強制（spec-writerとterms-writerがプリロード）
-- **gather-spec-context**: ドキュメント更新用のコンテキスト（ブランチ、チケット、スペック、差分）を収集
-- **gather-terms-context**: 用語更新用のコンテキスト（ブランチ、チケット、用語、差分）を収集
 - **generate-changelog**: アーカイブされたチケットからchangelogエントリを生成、カテゴリ別にグループ化
-- **manage-pr**: gh CLIを使用してGitHub PRを作成/更新
-- **translate**: 英語のマークダウンファイルを他の言語（主に日本語）に変換するための翻訳ポリシー
+- **translate**: 翻訳ポリシーと`.workaholic/` i18n強制（spec-writer、terms-writer、story-writerがプリロード）
 - **write-changelog**: changelogエントリのライティングガイドライン
-- **write-spec**: specドキュメントのライティングガイドライン
-- **write-story**: ストーリーのコンテンツ構造、テンプレート、ライティングガイドライン
-- **write-terms**: termsドキュメントのライティングガイドライン
+- **write-spec**: コンテキスト収集とspecドキュメントのライティングガイドライン
+- **write-story**: メトリクス計算、テンプレート、ブランチストーリーのガイドライン
+- **write-terms**: コンテキスト収集と用語ドキュメントのガイドライン
 
 ### エージェント
 
@@ -184,13 +171,10 @@ flowchart LR
     subgraph スキル
         at[archive-ticket]
         gc[generate-changelog]
-        csm[calculate-story-metrics]
-        gsc[gather-spec-context]
-        gtc[gather-terms-context]
-        mp[manage-pr]
-        dtf[define-ticket-format]
+        cb[create-branch]
+        ct[create-ticket]
         dw[drive-workflow]
-        ei[enforce-i18n]
+        tr[translate]
         ws[write-story]
         wsp[write-spec]
         wt[write-terms]
@@ -200,21 +184,24 @@ flowchart LR
         arr[assess-release-readiness]
     end
 
-    report --> cw & sw & spw & tw & pc
+    report --> cw & spw & tw & rr
+    report -.-> sw
+    report --> pc
     drive --> at & dw
-    ticket --> dtf
+    ticket --> ct
+    branch --> cb
 
     cw --> gc & wc
-    sw --> csm & ws
-    sw --> pa & rr
-    spw --> gsc & wsp
-    spw --> ei
-    tw --> gtc & wt
-    tw --> ei
-    pc --> mp & cp
+    sw --> ws & tr
+    sw --> pa
+    spw --> wsp & tr
+    tw --> wt & tr
+    pc --> cp
     pa --> ap
     rr --> arr
 ```
+
+注: `/report`コマンドは4つのエージェント（changelog-writer、spec-writer、terms-writer、release-readiness）を並列実行し、その後story-writerをrelease-readiness出力と共に実行し、最後にpr-creatorを実行します。
 
 ## Claude Codeがプラグインをロードする方法
 
@@ -244,36 +231,39 @@ sequenceDiagram
 
 ## ドキュメント強制
 
-Workaholicは並列サブエージェントアーキテクチャを通じて包括的なドキュメントを強制します。`/report`コマンドは4つのドキュメントエージェントを同時に実行し、それぞれが特定のドメインを担当します。
+Workaholicは並列サブエージェントアーキテクチャを通じて包括的なドキュメントを強制します。`/report`コマンドはドキュメントエージェントを2つのフェーズで調整します：最初に4つのエージェントが並列実行され、その後story-writerがrelease-readiness出力と共に実行されます。
 
 ### 仕組み
 
 ```mermaid
 flowchart TD
     A[/report コマンド] --> B[残りのチケットをiceboxに移動]
-    B --> C[4つのサブエージェントを並列で呼び出し]
+    B --> C[フェーズ1: 4つのサブエージェントを並列で呼び出し]
 
-    subgraph 並列ドキュメント生成
+    subgraph フェーズ1 - 並列
         D[changelog-writer]
-        E[story-writer]
         F[spec-writer]
         G[terms-writer]
+        RR[release-readiness]
     end
 
     C --> D
-    C --> E
     C --> F
     C --> G
+    C --> RR
 
     D --> H[CHANGELOG.md]
-    E --> I[.workaholic/stories/]
     F --> J[.workaholic/specs/]
     G --> K[.workaholic/terms/]
+    RR --> RL[リリースJSON]
 
-    H --> L[docsをコミット]
-    I --> L
-    J --> L
-    K --> L
+    H --> P2[フェーズ2: story-writer]
+    J --> P2
+    K --> P2
+    RL --> P2
+
+    P2 --> I[.workaholic/stories/]
+    I --> L[docsをコミット]
 
     L --> M[pr-creator サブエージェント]
     M --> N[PRを作成/更新]
@@ -283,10 +273,10 @@ flowchart TD
 
 サブエージェントアーキテクチャにはいくつかの利点があります：
 
-1. **並列実行** - 4つのエージェントが同時に実行され、待ち時間を短縮
+1. **並列実行** - フェーズ1で4つのエージェントが同時に実行され、待ち時間を短縮
 2. **コンテキスト分離** - 各エージェントが独自のコンテキストウィンドウで動作し、メイン会話を保持
 3. **単一責任** - 各エージェントが1つのドキュメントドメインを担当
-4. **障害耐性** - 1つのエージェントが失敗しても、他は完了可能
+4. **データ依存関係の処理** - story-writerはフェーズ2でrelease-readiness出力を受け取る
 
 ### 重要な要件
 
@@ -309,23 +299,17 @@ flowchart TD
 
 チケットは変更メタデータの単一の真実の情報源として機能します。ルート`CHANGELOG.md`はPR作成時にアーカイブされたチケットから生成されます。
 
-## コマンド禁止
+## アーキテクチャポリシー
 
-危険なコマンドは`.claude/settings.json`のdenyルールを使用してプロジェクト全体でブロックできます。これは個々のエージェント指示に禁止事項を埋め込むよりも望ましい方法です。コマンド実行前に適用される集中的な強制を提供するためです。
+Workaholicはオーケストレーションと知識の明確な分離を維持するため、コンポーネント呼び出しに厳格なネストルールを設けています。
 
-```json
-{
-  "permissions": {
-    "deny": [
-      "Bash(git -C:*)"
-    ]
-  }
-}
-```
+| 呼び出し元 | 呼び出し可能     | 呼び出し不可        |
+| ---------- | ---------------- | ------------------- |
+| コマンド   | スキル、サブエージェント | -            |
+| サブエージェント | スキル      | サブエージェント、コマンド |
+| スキル     | -                | サブエージェント、コマンド |
 
-パターン`Bash(git -C:*)`はプレフィックスマッチング（`:*`サフィックス）を使用して、`git -C`で始まるすべてのbashコマンドをブロックします。これにより、gitが期待される作業ディレクトリの外で操作する際に許可プロンプトを引き起こす`-C`フラグの使用を防止します。
-
-denyルールとエージェント指示のどちらを使用するか決める際は、絶対に許可すべきでないコマンドにはdenyルールを使用してください。警告で十分なコンテキスト固有のガイダンスにはエージェント指示を使用してください。
+コマンドとサブエージェントはオーケストレーション層であり、ワークフローステップを定義し他のコンポーネントを呼び出します。スキルは知識層であり、テンプレート、ガイドライン、ルール、bashスクリプトを含みます。この分離により、深いネストとコンテキスト爆発を防ぎながら、包括的な知識をスキルに集約します。
 
 ## バージョン管理
 

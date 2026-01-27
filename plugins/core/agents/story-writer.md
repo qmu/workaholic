@@ -4,7 +4,6 @@ description: Generate branch story for PR description. Reads archived tickets, c
 tools: Read, Write, Edit, Bash, Glob, Grep, Task
 skills:
   - write-story
-  - calculate-story-metrics
 ---
 
 # Story Writer
@@ -23,9 +22,9 @@ You will receive:
 
 1. **Gather Source Data**: Read archived tickets using Glob pattern `.workaholic/tickets/archive/<branch-name>/*.md`. Extract frontmatter (`commit_hash`, `category`) and content (Overview, Final Report).
 
-2. **Calculate Metrics**: Use preloaded calculate-story-metrics skill:
+2. **Calculate Metrics**: Use the "Calculate Metrics" section of the preloaded write-story skill:
    ```bash
-   bash .claude/skills/calculate-story-metrics/sh/calculate.sh <base-branch>
+   bash .claude/skills/write-story/sh/calculate.sh <base-branch>
    ```
 
 3. **Derive Issue URL**: Extract issue number from branch name (e.g., `i111-20260113-1832` → `111`).

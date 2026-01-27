@@ -1,12 +1,44 @@
 ---
 name: write-story
 description: Story content structure, templates, and writing guidelines for branch narratives.
+allowed-tools: Bash
 user-invocable: false
 ---
 
 # Write Story
 
 Generate a branch story that serves as the single source of truth for PR content.
+
+## Calculate Metrics
+
+Run the bundled script to calculate performance metrics:
+
+```bash
+bash .claude/skills/write-story/sh/calculate.sh [base-branch]
+```
+
+Default base branch is `main`.
+
+### Output Format (JSON)
+
+```json
+{
+  "commits": 15,
+  "started_at": "2026-01-15T10:30:00+09:00",
+  "ended_at": "2026-01-15T14:45:00+09:00",
+  "duration_hours": 4.25,
+  "duration_days": 1,
+  "velocity": 3.53,
+  "velocity_unit": "hour"
+}
+```
+
+### Velocity Unit Selection
+
+- `duration_hours < 8`: velocity is commits/hour, unit is "hour"
+- `duration_hours >= 8`: velocity is commits/day, unit is "day"
+
+Business days are more meaningful for multi-day work since developers have breaks between sessions.
 
 ## Story Content Structure
 

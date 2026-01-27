@@ -3,9 +3,9 @@ created_at: 2026-01-28T00:25:36+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: S
+commit_hash: f43fe43
+category: Added
 ---
 
 # Extract create-branch skill from branch command
@@ -75,3 +75,7 @@ Past tickets that touched similar areas:
 - The skill handles the git operation (creating the branch)
 - Script outputs the created branch name for confirmation
 - Follow the same pattern as other skills with bundled scripts
+
+## Final Report
+
+Created the create-branch skill with SKILL.md and sh/create.sh. The skill takes a prefix argument, generates a timestamp, creates and checks out the branch, then outputs the branch name. Updated the branch command to reference the skill script instead of inline bash commands. The command still handles user interaction (prefix selection) while the skill handles execution.

@@ -15,17 +15,17 @@ Create a new topic branch with a timestamp-based name.
    - **fix** - Bug fix
    - **refact** - Refactoring
 
-2. Generate timestamp in format `YYYYMMDD-HHMMSS` (e.g., `20260120-205418`)
-
-3. Create and checkout the branch:
+2. Run the bundled script with the selected prefix:
    ```bash
-   git checkout -b <prefix>-<timestamp>
+   bash .claude/skills/create-branch/sh/create.sh <prefix>
    ```
+
+3. Confirm the created branch name to the user.
 
 ## Example
 
 If user selects "feat" at 2026-01-20 20:54:18:
 
-```bash
-git checkout -b feat-20260120-205418
+```
+Created branch: feat-20260120-205418
 ```

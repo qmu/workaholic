@@ -1,12 +1,52 @@
 ---
 name: write-terms
 description: Term document structure, formatting rules, and guidelines for updating .workaholic/terms/.
+allowed-tools: Bash
 user-invocable: false
 ---
 
 # Write Terms
 
 Guidelines for writing and updating terminology documentation in `.workaholic/terms/`.
+
+## Gather Context
+
+Run the bundled script to collect information about what changed:
+
+```bash
+bash .claude/skills/write-terms/sh/gather.sh [base-branch]
+```
+
+Default base branch is `main`.
+
+### Output Sections
+
+The script outputs structured information:
+
+```
+=== BRANCH ===
+<current branch name>
+
+=== TICKETS ===
+<list of archived tickets for this branch, or "No archived tickets">
+
+=== TERMS ===
+<list of existing term files>
+
+=== DIFF ===
+<git diff stat against base branch>
+
+=== COMMIT ===
+<current short commit hash>
+```
+
+### Using the Output
+
+- **BRANCH**: Use to locate archived tickets
+- **TICKETS**: Read these to understand what changed and what new terms may exist
+- **TERMS**: Survey these to find documents needing updates
+- **DIFF**: Use when no tickets exist to understand changes
+- **COMMIT**: Use in frontmatter `commit_hash` field
 
 ## Term Categories
 

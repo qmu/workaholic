@@ -82,7 +82,17 @@ The story content structure (this IS the PR description):
 ```markdown
 Refs #<issue-number>
 
-## 0. Topic Tree
+## 1. Summary
+
+1. First meaningful change (from CHANGELOG entry titles)
+2. Second meaningful change (from CHANGELOG entry titles)
+3. ...
+
+## 2. Motivation
+
+[Synthesize the "why" from ticket Overviews. What problem or opportunity started this work? Write as a narrative, not a list.]
+
+## 3. Journey
 
 ```mermaid
 flowchart LR
@@ -108,19 +118,7 @@ flowchart LR
 - Use descriptive node labels: `id[Description]` syntax
 - Maximum 3-5 subgraphs per diagram
 
-## 1. Summary
-
-1. First meaningful change (from CHANGELOG entry titles)
-2. Second meaningful change (from CHANGELOG entry titles)
-3. ...
-
-## 2. Motivation
-
-[Synthesize the "why" from ticket Overviews. What problem or opportunity started this work? Write as a narrative, not a list.]
-
-## 3. Journey
-
-[High-level narrative of work progression in 100-200 words. Focus on phases and pivots, not individual ticket details. The Topic Tree above provides the visual overview.]
+[High-level narrative of work progression in 100-200 words. Focus on phases and pivots, not individual ticket details. The flowchart above provides the visual overview.]
 
 ## 4. Changes
 

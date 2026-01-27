@@ -3,9 +3,9 @@ created_at: 2026-01-27T20:58:57+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 69bfd33
+category: Added
 ---
 
 # Add Release Preparation section to story with release-readiness subagent
@@ -104,3 +104,7 @@ Past tickets that touched similar areas:
 - **False positives**: The AI verdict should err on the side of caution - flag concerns rather than miss them
 - **Optional sections**: If no concerns/instructions, display "None" rather than omitting
 - **Coordination with other ticket**: The enhance-story-format ticket (20260127205054) also adds sections. Coordinate numbering to avoid conflicts.
+
+## Final Report
+
+Development completed as planned. Section numbering coordinated with enhance-story-format ticket - Release Preparation is now section 10, Notes is section 11. Story now has 11 sections total. Story-writer invokes release-readiness subagent directly.

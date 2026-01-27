@@ -33,7 +33,9 @@ You will receive:
 
 5. **Get Performance Analysis**: Invoke performance-analyst subagent (Task tool with `subagent_type: "core:performance-analyst"`) to evaluate decision quality.
 
-6. **Update Index**: Add entry to `.workaholic/stories/README.md`.
+6. **Get Release Readiness**: Invoke release-readiness subagent (Task tool with `subagent_type: "core:release-readiness"`) to assess release preparation.
+
+7. **Update Index**: Add entry to `.workaholic/stories/README.md`.
 
 ## Output
 
@@ -42,3 +44,4 @@ Return confirmation that:
 - Story file was created at `.workaholic/stories/<branch-name>.md`
 - Stories index was updated
 - Performance-analyst evaluation was included
+- Release readiness assessment was included

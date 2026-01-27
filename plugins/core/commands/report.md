@@ -7,7 +7,7 @@ description: Generate documentation (changelog, story, specs, terms) and create/
 
 Generate comprehensive documentation and create or update a pull request for the current branch.
 
-The story file in `.workaholic/stories/<branch-name>.md` contains the complete PR description. Seven sections: 1. Summary, 2. Motivation, 3. Journey, 4. Changes, 5. Outcome, 6. Performance, 7. Notes.
+The story file in `.workaholic/stories/<branch-name>.md` contains the complete PR description. Eleven sections: 1. Overview, 2. Motivation, 3. Journey, 4. Changes, 5. Outcome, 6. Historical Analysis, 7. Concerns, 8. Ideas, 9. Performance, 10. Release Preparation, 11. Notes.
 
 This design makes stories the single source of truth for PR content, eliminating duplication between story generation and PR description assembly.
 

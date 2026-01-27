@@ -15,7 +15,7 @@ The story content (this IS the PR description):
 ```markdown
 Refs #<issue-number>
 
-## 1. Summary
+## 1. Overview
 
 [2-3 sentence overview capturing the essence of this branch. What was the main goal? What approach was taken? What was achieved? Write in past tense.]
 
@@ -131,7 +131,38 @@ Use the Task tool with `subagent_type: "core:performance-analyst"` and provide:
 The subagent returns the table and analysis in the format shown above. Include its complete output in section 9.2.
 
 ```markdown
-## 10. Notes
+## 10. Release Preparation
+
+**Verdict**: [Ready for release / Needs attention before release]
+
+### 10.1. Concerns
+
+- [List any concerns from release-readiness analysis]
+- Or "None - changes are safe for release"
+
+### 10.2. Pre-release Instructions
+
+- [Steps to take before running /release]
+- Or "None - standard release process applies"
+
+### 10.3. Post-release Instructions
+
+- [Steps to take after release]
+- Or "None - no special post-release actions needed"
+```
+
+**Invoking release-readiness:**
+
+Use the Task tool with `subagent_type: "core:release-readiness"` and provide:
+
+- Branch name
+- Base branch
+- List of archived tickets
+
+The subagent returns JSON with verdict, concerns, and instructions. Format the output into section 10.
+
+```markdown
+## 11. Notes
 
 Additional context for reviewers or future reference.
 ```

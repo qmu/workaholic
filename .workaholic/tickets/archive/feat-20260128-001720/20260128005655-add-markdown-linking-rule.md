@@ -3,9 +3,9 @@ created_at: 2026-01-28T00:56:55+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: XS
+commit_hash: 93a1127
+category: Added
 ---
 
 # Add rule for linking markdown files when mentioned
@@ -42,3 +42,7 @@ Past tickets that touched similar areas:
 - Stable locations (`.workaholic/specs/`, `.workaholic/terms/`) benefit most from linking
 - Tickets in `todo/` may move to `archive/` so links should be used when the location is known
 - Links should use repository-relative paths
+
+## Final Report
+
+Added markdown linking rule to general.md as the third rule in the General Rules list. The rule instructs Claude to use markdown links when mentioning .md files in documentation for better navigability.

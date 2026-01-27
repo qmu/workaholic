@@ -3,9 +3,9 @@ created_at: 2026-01-27T10:35:22+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config, Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 9ba1cf6
+category: Changed
 ---
 
 # Convert shell scripts to POSIX sh for Alpine Docker compatibility
@@ -82,3 +82,7 @@ Past tickets that touched similar areas:
 - `bc` is an external command and works on Alpine (may need to `apk add bc`)
 - The `-eu` flags provide similar safety to `set -eu` but in shebang form
 - Keep scripts simple - if a script becomes too complex for POSIX sh, consider rewriting in a different language
+
+## Final Report
+
+Development completed as planned.

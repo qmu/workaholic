@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Create or update GitHub PR from story file
 # Outputs "PR created: <URL>" or "PR updated: <URL>"
 
-set -e
+set -eu
 
 BRANCH="$1"
 TITLE="$2"

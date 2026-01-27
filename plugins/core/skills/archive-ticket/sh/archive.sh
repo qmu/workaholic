@@ -1,15 +1,15 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Complete commit workflow: archive ticket, commit, and update ticket frontmatter
 # Single script handles everything after user approves implementation
 
-set -e
+set -eu
 
 TICKET="$1"
 COMMIT_MSG="$2"
 REPO_URL="$3"
-DESCRIPTION="$4"
+DESCRIPTION="${4:-}"
 shift 4 2>/dev/null || true
-FILES=("$@")
+# Remaining args ($@) are files - currently unused but available
 
 if [ -z "$TICKET" ] || [ -z "$COMMIT_MSG" ]; then
     echo "Usage: archive.sh <ticket-path> <commit-message> <repo-url> [description] [files...]"

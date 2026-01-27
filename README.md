@@ -1,63 +1,44 @@
 # Workaholic
 
-Claude Code plugin marketplace for development workflow.
+AI-powered development workflow that turns Claude Code into your 10x pair programmer.
+
+## Why Workaholic?
+
+Write specs with AI exploration, implement with AI assistance, ship with AI-generated documentation. Four commands that unlock high-velocity development through ergonomic AI pair programming.
 
 ## Installation
 
 ```bash
 claude
-```
-
-```bash
 /plugin marketplace add qmu/workaholic
 ```
 
-Choose user scope, and better enable auto-updates.
+## Quick Start
 
-## Plugins
+| Command   | What it does                      |
+| --------- | --------------------------------- |
+| `/branch` | Create timestamped topic branch   |
+| `/ticket` | Write implementation spec with AI |
+| `/drive`  | Implement specs one by one        |
+| `/report` | Generate docs and create PR       |
 
-### core
+### Typical Session
 
-Essential development commands for everyday git workflow.
+```bash
+/branch                           # feat-20260127-210800
+/ticket add user authentication   # AI explores, writes spec
+/drive                            # implement, commit, repeat
+/report                           # changelog, story, PR
+```
 
-| Command       | Description                                                       |
-| ------------- | ----------------------------------------------------------------- |
-| /branch       | Create topic branch with timestamp (e.g., `feat-20260120-205418`) |
-| /commit       | Commit changes in logical units with meaningful messages          |
-| /pull-request | Create or update PR with auto-generated summary                   |
+## Documentation
 
-Also includes:
+Deep dives and working artifacts live in [.workaholic/](.workaholic/README.md):
 
-- **Rules**: General and TypeScript coding guidelines
-
-### tdd
-
-Ticket-driven development workflow for structured implementation.
-
-| Command                 | Description                                                     |
-| ----------------------- | --------------------------------------------------------------- |
-| /ticket `<description>` | Explore codebase and write implementation spec                  |
-| /drive                  | Implement tickets from `.workaholic/tickets/` one by one, commit each |
-
-Also includes:
-
-- **Skills**: `archive-ticket` - Complete commit workflow
-
-## Workflow
-
-1. **Create ticket**: `/ticket add user authentication` - writes ticket to `.workaholic/tickets/`
-2. **Implement**: `/drive` - picks up tickets, implements, commits, archives
-3. **Ship**: `/pull-request` - creates PR with summary from changelog
-
-## Development Routine
-
-Workaholic takes a local-first approach to development planning. Instead of creating GitHub issues and waiting for discussion, you write implementation tickets directly as markdown files in your repository. Claude Code explores your codebase, understands the context, and generates detailed implementation specs that you review and approve before any code is written.
-
-This workflow differs significantly from traditional issue-driven development. In conventional workflows, you create a GitHub issue, discuss requirements in comments, wait for assignment, create a branch, implement the feature, and finally open a pull request for review. With workaholic, you run `/ticket` to generate a spec, run `/drive` to implement it immediately after approval, and only touch GitHub when you run `/pull-request` at the end.
-
-The benefits become apparent in rapid prototyping and small team environments. There's no waiting for issue triage or assignment, no context switching between GitHub's web interface and your editor, and no long discussion threads to parse. Claude Code acts as an AI pair programmer that reads your entire codebase, writes thorough specs, and implements them in one continuous flow. You stay in your terminal, review specs when they're ready, and ship features faster.
-
-This approach works best when you have clear goals and don't need extensive stakeholder discussion before implementation. For solo developers and small teams who want to move quickly, keeping planning artifacts local as markdown files provides the same documentation benefits as GitHub issues without the coordination overhead. GitHub remains valuable for pull request review and collaboration, but planning and implementation happen locally with AI assistance.
+- **specs/** - Current state reference
+- **stories/** - Development narratives per branch
+- **terms/** - Consistent terminology
+- **tickets/** - Work queue and archives
 
 ## Author
 

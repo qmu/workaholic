@@ -22,14 +22,14 @@ Use this skill after user approves implementation. The script handles formatting
 Run the bundled script with ticket path, commit message, repo URL, and optional description:
 
 ```bash
-bash .claude/skills/archive-ticket/scripts/archive.sh <ticket-path> <commit-message> <repo-url> [description] [files...]
+bash .claude/skills/archive-ticket/sh/archive.sh <ticket-path> <commit-message> <repo-url> [description] [files...]
 ```
 
 Example:
 
 ```bash
-bash .claude/skills/archive-ticket/scripts/archive.sh \
-  .workaholic/tickets/20260115-feature.md \
+bash .claude/skills/archive-ticket/sh/archive.sh \
+  .workaholic/tickets/todo/20260115-feature.md \
   "Add new feature" \
   https://github.com/org/repo \
   "Enables users to authenticate with session-based login, addressing the need for secure access control." \
@@ -59,7 +59,7 @@ The optional description parameter captures the **WHY** behind the change:
 - 1-2 sentences explaining the motivation or problem being solved
 - Extract from the ticket's Overview section
 - Appears as a second line in CHANGELOG entries
-- Used by `/pull-request` to generate comprehensive PR descriptions
+- Used by `/report` to generate comprehensive PR descriptions
 
 ### Example
 

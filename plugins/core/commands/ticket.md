@@ -1,6 +1,8 @@
 ---
 name: ticket
 description: Explore codebase and write implementation ticket for `$ARGUMENT`
+skills:
+  - define-ticket-format
 ---
 
 # Ticket
@@ -14,6 +16,7 @@ Explore the codebase to understand requirements and write an implementation tick
    - Parse `$ARGUMENT` to understand what the user wants to implement
    - If `$ARGUMENT` is empty, ask the user what they want to ticket
    - If `$ARGUMENT` contains "icebox", store in `.workaholic/tickets/icebox/` instead
+   - Otherwise, store in `.workaholic/tickets/todo/`
 
 2. **Explore the Codebase**
 
@@ -21,92 +24,62 @@ Explore the codebase to understand requirements and write an implementation tick
    - Understand existing patterns, architecture, and conventions
    - Identify files that will need to be modified or created
 
-3. **Ask Clarifying Questions**
+3. **Find Related History**
+
+   Search archived tickets in `.workaholic/tickets/archive/` for related past work. Match by:
+
+   - **Key Files overlap** (strongest signal): Tickets that modified the same files
+   - **Layer match**: Tickets with the same layer (e.g., Config, UX)
+   - **Keyword similarity** (weakest signal): Tickets with similar terms in title/overview
+
+   List the top 3-5 most relevant tickets (most recent first if equal relevance). If no related tickets found, omit the Related History section entirely.
+
+   After finding related tickets, synthesize a brief summary (1-2 sentences):
+   - Focus on patterns: what aspects have been modified before, what challenges were encountered
+   - Keep it actionable: help the implementer understand what to watch out for
+   - If only 1 related ticket exists, keep the summary very brief
+
+4. **Ask Clarifying Questions**
 
    - Use AskUserQuestion tool if requirements are ambiguous
    - Clarify scope, approach preferences, or technical decisions
    - Don't ask obvious questions - use your judgment for reasonable defaults
 
-4. **Write the Ticket**
+5. **Write the Ticket**
 
-   - Create a ticket file in `.workaholic/tickets/` (or `.workaholic/tickets/icebox/` for icebox) with a descriptive filename
-   - Filename format: `YYYYMMDDHHmmss-<short-description>.md`
-   - Use current timestamp: `date +%Y%m%d%H%M%S`
-   - Example: `20260114153042-add-dark-mode.md`
-   - Use the Write tool directly - it creates parent directories automatically, no explicit `mkdir` needed
+   - Create a ticket file in `.workaholic/tickets/todo/` (or `.workaholic/tickets/icebox/` for icebox)
+   - Follow the preloaded ticket-format skill for structure and conventions
+   - Include a "Related History" section after "Key Files" if related tickets were found:
+     ```markdown
+     ## Related History
 
-5. **Ticket File Structure**
+     <1-2 sentence summary synthesizing what historical tickets reveal about this area>
 
-   ```markdown
-   ---
-   created_at: YYYY-MM-DDTHH:MM:SS+TZ
-   author: <git user.email>
-   type: enhancement | bugfix | refactoring | housekeeping
-   layer: [<layers affected>]
-   effort: <filled after implementation>
-   commit_hash: <filled when archived>
-   category: <filled when archived>
-   ---
+     Past tickets that touched similar areas:
 
-   # <Title>
-
-   ## Overview
-
-   <Brief description of what will be implemented>
-
-   ## Key Files
-
-   - `path/to/file.ts` - <why this file is relevant>
-
-   ## Implementation Steps
-
-   1. <Step 1>
-   2. <Step 2>
-      ...
-
-   ## Considerations
-
-   - <Any trade-offs, risks, or things to watch out for>
-   ```
-
-   **Frontmatter Fields:**
-
-   - `created_at`: Creation timestamp in ISO 8601 format. Use `date -Iseconds`
-   - `author`: Git email. Use `git config user.email`
-   - `type`: Infer from request context:
-     - `enhancement` - New features or capabilities (keywords: add, create, implement, new)
-     - `bugfix` - Fixing broken behavior (keywords: fix, bug, broken, error)
-     - `refactoring` - Restructuring without changing behavior (keywords: refactor, restructure, reorganize)
-     - `housekeeping` - Maintenance, cleanup, documentation (keywords: clean, update, remove, deprecate)
-   - `layer`: Architectural layers affected (YAML array, can specify multiple):
-     - `UX` - User interface, components, styling
-     - `Domain` - Business logic, models, services
-     - `Infrastructure` - External integrations, APIs, networking
-     - `DB` - Database, storage, migrations
-     - `Config` - Configuration, build, tooling
-   - `effort`: Time spent on implementation. Leave as placeholder when creating ticket; filled in after implementation (e.g., 0.1h, 0.25h, 0.5h, 1h, 2h)
-   - `commit_hash`: Short git commit hash. Set automatically by archive script after commit.
-   - `category`: Change category (Added, Changed, or Removed). Set automatically by archive script based on commit message verb.
-   - Only ask the user about type if truly ambiguous
+     - `20260127010716-rename-terminology-to-terms.md` - Renamed terminology directory (same layer: Config)
+     - `20260125113858-auto-commit-ticket-on-creation.md` - Modified ticket.md (same file)
+     ```
+   - Use the Write tool directly - it creates parent directories automatically
 
 6. **Commit the Ticket**
 
+   **IMPORTANT**: Skip this step if invoked during `/drive`. The drive command's archive script includes uncommitted tickets via `git add -A`, so the ticket will be committed with the implementation.
+
    - Stage only the newly created ticket file: `git add <ticket-path>`
    - Commit with message: "Add ticket for <short-description>"
-   - Use the ticket's H1 title for the description
-   - Example: `git add .workaholic/tickets/20260125-add-auth.md && git commit -m "Add ticket for user authentication"`
 
 7. **Present the Ticket**
 
-   - Show the user where the ticket was created and committed
+   - Show the user where the ticket was created
    - Summarize the key points
+   - If during `/drive`: say "Ticket created (will be committed with implementation)"
    - If icebox: tell user to run `/drive icebox` later to retrieve it
-   - If normal: count queued tickets in `.workaholic/tickets/` (excluding archive/, icebox/)
-   - Tell user to run `/drive` to implement queued tickets
+   - If normal (standalone): count queued tickets in `.workaholic/tickets/todo/` and tell user to run `/drive` to implement
    - **NEVER ask "Would you like me to proceed with implementation?" - that is NOT your job**
 
 ## Notes
 
 - Focus on the "why" and "what", not just "how"
-- Keep implementation steps actionable and ticketific
+- Keep implementation steps actionable and specific
 - Reference existing code patterns when applicable

@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: enhancement
 layer: [Config]
 effort:
-commit_hash:
-category:
+commit_hash: 29fe43b
+category: Added
 ---
 
 # Add dependency graph to developer guide

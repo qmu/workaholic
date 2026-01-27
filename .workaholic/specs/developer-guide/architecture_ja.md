@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-27T01:51:01+09:00
-commit_hash: e303e17
+modified_at: 2026-01-27T09:57:08+09:00
+commit_hash: a525e04
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -64,9 +64,27 @@ plugins/
       archive-ticket/
         SKILL.md
         scripts/
-          archive.sh   # コミットワークフロー用シェルスクリプト
+          archive.sh       # コミットワークフロー用シェルスクリプト
+      changelog/
+        SKILL.md
+        scripts/
+          generate.sh      # チケットからchangelogエントリを生成
+      command-prohibition/
+        SKILL.md           # settings.json denyルールのドキュメント
+      pr-ops/
+        SKILL.md
+        scripts/
+          create-or-update.sh  # GitHub PRの作成/更新
+      spec-context/
+        SKILL.md
+        scripts/
+          gather.sh        # スペック更新用のコンテキスト収集
+      story-metrics/
+        SKILL.md
+        scripts/
+          calculate.sh     # パフォーマンスメトリクス計算
       translate/
-        SKILL.md       # i18n用翻訳ポリシー
+        SKILL.md           # i18n用翻訳ポリシー
 ```
 
 ## プラグインタイプ
@@ -81,9 +99,14 @@ plugins/
 
 ### スキル
 
-スキルはスクリプトや複数のファイルを含む可能性のある複雑な機能です。Skillツールで呼び出され、インライン指示を提供します。coreプラグインには以下が含まれます：
+スキルはスクリプトや複数のファイルを含む可能性のある複雑な機能です。Skillツールで呼び出され、インライン指示を提供します。多くのスキルには機械的な操作を処理するbashスクリプトが含まれ、エージェントは意思決定を担当します。coreプラグインには以下が含まれます：
 
-- **archive-ticket**: 完全なコミットワークフロー（チケットのアーカイブ、チケットフロントマターにコミットハッシュ/カテゴリを更新、コミット）を処理するシェルスクリプト
+- **archive-ticket**: 完全なコミットワークフロー（チケットのアーカイブ、フロントマターにコミットハッシュ/カテゴリを更新、コミット）を処理
+- **changelog**: アーカイブされたチケットからchangelogエントリを生成、カテゴリ別にグループ化
+- **command-prohibition**: settings.json denyルールを使用して危険なコマンドをブロックする方法をドキュメント化
+- **pr-ops**: gh CLIを使用してGitHub PRを作成/更新
+- **spec-context**: ドキュメント更新用のコンテキスト（ブランチ、チケット、スペック、差分）を収集
+- **story-metrics**: ブランチストーリー用のパフォーマンスメトリクス（コミット数、期間、速度）を計算
 - **translate**: 英語のマークダウンファイルを他の言語（主に日本語）に変換するための翻訳ポリシー
 
 ### エージェント
@@ -189,6 +212,24 @@ flowchart TD
 - **Stories** - ブランチごとの開発者の旅のナラティブ
 
 チケットは変更メタデータの単一の真実の情報源として機能します。ルート`CHANGELOG.md`はPR作成時にアーカイブされたチケットから生成されます。
+
+## コマンド禁止
+
+危険なコマンドは`.claude/settings.json`のdenyルールを使用してプロジェクト全体でブロックできます。これは個々のエージェント指示に禁止事項を埋め込むよりも望ましい方法です。コマンド実行前に適用される集中的な強制を提供するためです。
+
+```json
+{
+  "permissions": {
+    "deny": [
+      "Bash(git -C:*)"
+    ]
+  }
+}
+```
+
+パターン`Bash(git -C:*)`はプレフィックスマッチング（`:*`サフィックス）を使用して、`git -C`で始まるすべてのbashコマンドをブロックします。これにより、gitが期待される作業ディレクトリの外で操作する際に許可プロンプトを引き起こす`-C`フラグの使用を防止します。
+
+denyルールとエージェント指示のどちらを使用するか決める際は、絶対に許可すべきでないコマンドにはdenyルールを使用してください。警告で十分なコンテキスト固有のガイダンスにはエージェント指示を使用してください。
 
 ## バージョン管理
 

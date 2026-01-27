@@ -3,7 +3,7 @@ title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
 last_updated: 2026-01-27
-commit_hash: e303e17
+commit_hash: a525e04
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -54,17 +54,19 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 
 ### 定義
 
-スキルはコマンドや他の操作をサポートする内部ルーチンです。コマンドとは異なり、ユーザーはスラッシュプレフィックスでスキルを直接呼び出すことはできません。通常、コマンドによって呼び出されるか、自動的にトリガーされます。スキルはプラグインの`skills/`ディレクトリで定義されます。
+スキルはコマンドや他の操作をサポートする内部ルーチンです。コマンドとは異なり、ユーザーはスラッシュプレフィックスでスキルを直接呼び出すことはできません。通常、コマンドによって呼び出されるか、自動的にトリガーされます。スキルはプラグインの`skills/`ディレクトリ内の独自のサブディレクトリに定義され、`SKILL.md`定義と、ヘルパースクリプトを含むオプションの`scripts/`ディレクトリを含みます。
+
+スキルは`skills:`フロントマターフィールドを介してエージェントからプリロードでき、エージェントが実行中に呼び出せる再利用可能な機能（例：データ収集やフォーマット用のbashスクリプト）を提供します。
 
 ### 使用パターン
 
-- **ディレクトリ名**: `plugins/<name>/skills/`
-- **ファイル名**: `archive-ticket.md`
-- **コード参照**: 「archive-ticketスキルは...を処理する」
+- **ディレクトリ名**: `plugins/<name>/skills/<skill-name>/`
+- **ファイル名**: `SKILL.md`、`scripts/generate.sh`、`scripts/calculate.sh`
+- **コード参照**: 「archive-ticketスキルは...を処理する」、「changelogスキルをプリロード」
 
 ### 関連用語
 
-- command、plugin
+- command、plugin、agent
 
 ## rule
 
@@ -127,3 +129,23 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 ### 関連用語
 
 - command、agent、concurrent execution
+
+## deny
+
+特定のコマンドパターンの実行をブロックするパーミッションルール。
+
+### 定義
+
+denyルールは`.claude/settings.json`の`permissions.deny`で設定され、サブエージェントを含むプロジェクト全体で特定のコマンドパターンを禁止します。個々のエージェント指示に禁止事項を埋め込む（サブエージェントは継承しない）のとは異なり、denyルールは実行前に一元的に適用されます。このパターンは、各エージェントファイルに指示を複製するよりも保守性が高くなります。
+
+例：`"Bash(git -C:*)"`は、パーミッションプロンプトをトリガーするすべての`git -C`コマンドバリエーションをブロックします。
+
+### 使用パターン
+
+- **ディレクトリ名**: N/A（設定であり、ストレージではない）
+- **ファイル名**: `.claude/settings.json`
+- **コード参照**: 「...のdenyルールを追加」、「settings.json denyでコマンドをブロック」
+
+### 関連用語
+
+- rule、agent、settings

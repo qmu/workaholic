@@ -3,7 +3,7 @@ title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
 last_updated: 2026-01-27
-commit_hash: e303e17
+commit_hash: a525e04
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -152,3 +152,19 @@ The `/commit` command has been removed. Running `/commit` during a `/drive` sess
 ### Recommended Resolution
 
 Update any references to `/commit` to explain that commits now happen through ticket-driven workflows (`/drive`, `/report`). All changes should flow through tickets for proper documentation.
+
+## Skill Directory Structure Evolution
+
+### Issue
+
+Skills have evolved from single markdown files to directory-based structures with SKILL.md and scripts/ subdirectories. Some older documentation may reference the flat file pattern.
+
+### Current Usage
+
+- Current structure: `plugins/<name>/skills/<skill-name>/SKILL.md` with optional `scripts/` directory
+- Current skills: archive-ticket, changelog, story-metrics, spec-context, pr-ops
+- Historical pattern: Single markdown files like `archive-ticket.md`
+
+### Recommended Resolution
+
+When referencing skills, use the directory-based pattern. The `SKILL.md` file contains the skill definition, while `scripts/` contains reusable bash scripts that agents can invoke.

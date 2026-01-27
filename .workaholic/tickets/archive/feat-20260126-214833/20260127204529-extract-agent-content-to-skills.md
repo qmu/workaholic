@@ -3,9 +3,9 @@ created_at: 2026-01-27T20:45:29+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 1653f73
+category: Changed
 ---
 
 # Extract agent content to preloaded skills
@@ -143,3 +143,7 @@ Ensure all agents preload their relevant skills:
 - The new "write-*" skills contain prose instructions and templates, no scripts
 - Agents become declarative configurations that wire skills together
 - This matches Claude Code's documented pattern for subagent skill preloading
+
+## Final Report
+
+Development completed as planned. Created 6 new skills (write-story, write-spec, write-terms, analyze-performance, write-changelog, create-pr) and thinned all 6 agents from ~700 total lines to 222 lines. Kept existing utility skills (calculate-story-metrics, gather-spec-context, gather-terms-context, generate-changelog, manage-pr) as-is since they contain shell scripts.

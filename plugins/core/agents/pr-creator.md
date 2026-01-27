@@ -3,6 +3,7 @@ name: pr-creator
 description: Create or update GitHub PR from story file. Handles PR existence check, title derivation, and gh CLI operations.
 tools: Read, Bash, Glob
 skills:
+  - create-pr
   - manage-pr
 ---
 
@@ -19,31 +20,8 @@ You will receive:
 
 ## Instructions
 
-### 1. Read Story File
-
-Read `.workaholic/stories/<branch-name>.md` to extract the PR title.
-
-### 2. Derive PR Title
-
-Extract the first item from the Summary section:
-
-```markdown
-## 1. Summary
-
-1. First meaningful change
-```
-
-Use that first item as the title. If multiple items exist, append "etc" (e.g., "Add dark mode toggle etc").
-
-### 3. Create or Update PR
-
-Use the preloaded pr-ops skill:
-
-```bash
-bash .claude/skills/manage-pr/sh/create-or-update.sh <branch-name> "<title>"
-```
-
-The script handles frontmatter stripping, PR existence check, and gh CLI operations.
+1. Read `.workaholic/stories/<branch-name>.md` to extract the PR title.
+2. Follow the preloaded create-pr skill for title derivation and PR creation.
 
 ## Output
 

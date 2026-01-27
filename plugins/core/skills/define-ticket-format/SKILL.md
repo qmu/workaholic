@@ -1,5 +1,5 @@
 ---
-name: ticket-format
+name: define-ticket-format
 description: Ticket file structure and frontmatter conventions.
 user-invocable: false
 ---

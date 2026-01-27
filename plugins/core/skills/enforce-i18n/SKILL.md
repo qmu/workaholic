@@ -1,5 +1,5 @@
 ---
-name: i18n
+name: enforce-i18n
 description: i18n requirements for .workaholic/ documentation.
 user-invocable: false
 ---

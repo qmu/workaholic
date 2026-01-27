@@ -3,8 +3,8 @@ name: spec-writer
 description: Update .workaholic/specs/ documentation to reflect current codebase state. Use after completing implementation work.
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
-  - spec-context
-  - i18n
+  - gather-spec-context
+  - enforce-i18n
 ---
 
 # Spec Writer
@@ -18,7 +18,7 @@ Update `.workaholic/specs/` to reflect the current codebase state.
 Use the preloaded spec-context skill:
 
 ```bash
-bash .claude/skills/spec-context/scripts/gather.sh <base-branch>
+bash .claude/skills/gather-spec-context/sh/gather.sh <base-branch>
 ```
 
 This outputs branch name, archived tickets, existing specs, diff summary, and current commit hash.

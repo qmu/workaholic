@@ -1,5 +1,5 @@
 ---
-name: spec-context
+name: gather-spec-context
 description: Gather context for spec updates (branch info, tickets, existing specs, diff).
 allowed-tools: Bash
 user-invocable: false
@@ -18,7 +18,7 @@ Use this skill to collect information about what changed in the branch and what 
 Run the bundled script to gather context:
 
 ```bash
-bash .claude/skills/spec-context/sh/gather.sh [base-branch]
+bash .claude/skills/gather-spec-context/sh/gather.sh [base-branch]
 ```
 
 Default base branch is `main`.

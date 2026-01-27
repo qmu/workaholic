@@ -1,5 +1,5 @@
 ---
-name: terms-context
+name: gather-terms-context
 description: Gather context for terms updates (branch info, tickets, existing terms, diff).
 allowed-tools: Bash
 user-invocable: false
@@ -18,7 +18,7 @@ Use this skill to collect information about what changed in the branch and what 
 Run the bundled script to gather context:
 
 ```bash
-bash .claude/skills/terms-context/sh/gather.sh [base-branch]
+bash .claude/skills/gather-terms-context/sh/gather.sh [base-branch]
 ```
 
 Default base branch is `main`.

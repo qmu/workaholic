@@ -2,6 +2,8 @@
 name: changelog-writer
 description: Update root CHANGELOG.md from archived tickets. Groups entries by category and links to commits and tickets.
 tools: Read, Write, Edit, Bash, Glob, Grep
+skills:
+  - changelog
 ---
 
 # Changelog Writer
@@ -26,84 +28,29 @@ You will receive:
 
 ## Instructions
 
-### 1. Read Archived Tickets
+### 1. Generate Entries
 
-Find all tickets archived for this branch:
+Use the preloaded changelog skill to generate formatted entries:
 
 ```bash
-ls -1 .workaholic/tickets/archive/<branch-name>/*.md 2>/dev/null
+bash .claude/skills/changelog/scripts/generate.sh <branch-name> <repo-url>
 ```
 
-For each ticket, extract:
+### 2. Derive Issue URL
 
-**From YAML frontmatter:**
-
-- `commit_hash`: Short git hash for linking
-- `category`: Added, Changed, or Removed
-
-**From content:**
-
-- Title from `# <Title>` heading
-- First sentence from Overview section for description
-
-### 2. Generate Changelog Entries
-
-Format each entry as:
-
-```markdown
-- Title ([hash](repo-url/commit/full-hash)) - [ticket](path)
-```
-
-Where:
-
-- `Title` is the ticket title (H1 heading)
-- `hash` is the short commit hash from frontmatter
-- `repo-url/commit/full-hash` links to the commit on GitHub
-- `path` is the relative path to the archived ticket
-
-### 3. Group by Category
-
-Organize entries under category headings:
-
-```markdown
-### Added
-
-- Entry 1
-- Entry 2
-
-### Changed
-
-- Entry 3
-
-### Removed
-
-- Entry 4
-```
-
-Only include category sections that have entries.
-
-### 4. Derive Issue URL
-
-From branch name and remote:
+From branch name:
 
 - Extract issue number from branch (e.g., `i111-20260113-1832` → `111`)
-- Convert remote URL to issue link
 - Branch format: `i<issue>-<date>-<time>` or `feat-<date>-<time>` (no issue)
 
-### 5. Update CHANGELOG.md
+### 3. Update CHANGELOG.md
 
-Add a new section at the top of the changelog (after any header):
+Add a new section at the top of the changelog (after the `# Changelog` header):
 
 ```markdown
 ## [branch-name](issue-url)
 
-### Added
-
-- Entry 1
-
-### Changed
-
-- Entry 2
+<entries from script>
 ```
 
 If no issue number exists in branch name, use just the branch name without link:
@@ -112,14 +59,13 @@ If no issue number exists in branch name, use just the branch name without link:
 ## branch-name
 ```
 
-### 6. Verify Structure
+### 4. Verify Structure
 
 Ensure the changelog maintains proper structure:
 
 - Title line at top: `# Changelog`
 - Newest section first
 - Blank lines between sections
-- Consistent formatting
 
 ## Output
 

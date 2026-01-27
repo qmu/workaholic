@@ -3,9 +3,9 @@ created_at: 2026-01-28T00:52:04+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: XS
+commit_hash: 6d03f2c
+category: Changed
 ---
 
 # Link archived tickets in Related History section
@@ -60,3 +60,7 @@ Past tickets that touched similar areas:
 - The branch directory name is needed in the path (e.g., `feat-20260126-214833`)
 - When searching for related tickets, the full path is already available from the search results
 - This makes tickets more navigable in GitHub's markdown preview
+
+## Final Report
+
+Updated create-ticket skill with linked format for Related History section. Changed File Structure template to show markdown link syntax with repository-relative paths. Added Link format subsection in Finding Related History with explicit format example and note about including branch directory from search results.

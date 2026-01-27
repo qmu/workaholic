@@ -45,8 +45,8 @@ category: <filled when archived>
 
 Past tickets that touched similar areas:
 
-- `20260127010716-rename-terminology-to-terms.md` - Renamed terminology directory (same layer: Config)
-- `20260125113858-auto-commit-ticket-on-creation.md` - Modified ticket.md (same file)
+- [20260127010716-rename-terminology-to-terms.md](.workaholic/tickets/archive/<branch>/20260127010716-rename-terminology-to-terms.md) - Renamed terminology directory (same layer: Config)
+- [20260125113858-auto-commit-ticket-on-creation.md](.workaholic/tickets/archive/<branch>/20260125113858-auto-commit-ticket-on-creation.md) - Modified ticket.md (same file)
 
 ## Implementation Steps
 
@@ -100,6 +100,13 @@ Search archived tickets in `.workaholic/tickets/archive/` for related past work.
 - **Keyword similarity** (weakest signal): Tickets with similar terms in title/overview
 
 List the top 3-5 most relevant tickets (most recent first if equal relevance). If no related tickets found, omit the Related History section entirely.
+
+**Link format**: Use markdown links with repository-relative paths:
+```markdown
+- [filename.md](.workaholic/tickets/archive/<branch>/filename.md) - Description (match reason)
+```
+
+The full path includes the branch directory from the search results (e.g., `feat-20260126-214833`).
 
 After finding related tickets, synthesize a brief summary (1-2 sentences):
 - Focus on patterns: what aspects have been modified before, what challenges were encountered

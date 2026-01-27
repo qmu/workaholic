@@ -83,74 +83,26 @@ Refs #<issue-number>
 ## 0. Topic Tree
 
 ```mermaid
-mindmap
-  root((feat-20260126-214833))
-    Subagent Architecture
-      Extraction Phase
-        sync-workaholic-subagent
-        story-writer-subagent
-        changelog-writer-subagent
-      Skill Extraction Phase
-        extract-changelog-skill
-        extract-story-skill
-    Git Command Safety
-      Initial Attempts
-        add-git-guidelines
-          )failed( Still used git -C
-        strengthen-git-guidelines
-      Final Solution
-        use-deny-for-git-prohibition
-          )pivot( settings.json deny
+flowchart TD
+  subgraph Subagents[Subagent Architecture]
+    sync --> story --> changelog --> pr-creator
+  end
+  subgraph GitSafety[Git Command Safety]
+    guidelines --> strengthen --> embed --> deny-rule
+  end
+  subgraph Skills[Skill Extraction]
+    changelog-skill & story-metrics & spec-context & pr-ops
+  end
 ```
 
-#### Chain Detection
+#### Flowchart Guidelines
 
-1. **Sort tickets by `created_at`** - Understand chronological flow
-2. **Detect prefix patterns** - Tickets with shared prefixes (`extract-*`, `rename-*`, `fix-*`) often form chains
-3. **Check Final Report for deviations** - Look for pivot language indicating evolution
-4. **Group temporal clusters** - Tickets created < 2 hours apart often represent one "session"
-
-#### Pivot Detection Phrases
-
-Scan Final Report sections for these signals:
-- "Implementation deviated from original plan"
-- "Changed approach" / "Pivoted to"
-- "Rule file approach failed" / "X approach didn't work"
-- "Replaced with" / "No longer needed"
-- Any mention of trying one thing, then doing another
-
-#### Theme Identification
-
-Group tickets into 3-5 themes based on:
-- **Shared focus area**: agents, commands, rules, skills, config
-- **Shared intent**: extraction, simplification, safety, performance
-- **Temporal clusters**: tickets from same working session
-
-#### Mindmap Syntax
-
-- **Root**: Branch name in double parentheses `(())`
-- **Themes**: Plain text (Level 1)
-- **Sub-phases or Tickets**: Plain text (Level 2-3)
-- **Annotations**: Cloud syntax `)text(` for special callouts:
-  - `)failed(` - Approach that didn't work
-  - `)pivot(` - Direction change or course correction
-  - `)reason(` - Why a decision was made
-
-#### Depth Guidelines
-
-| Level | Content | Required |
-|-------|---------|----------|
-| 1 | Themes (3-5 max) | Always |
-| 2 | Sub-phases or individual tickets | Always |
-| 3 | Tickets under sub-phases, or annotations | When Final Report shows deviation |
-| 4 | Annotations only | Rare, only for complex evolutions |
-
-**Constraints**:
-- Maximum 4 levels deep
-- Flatten if width > 6 items at any level
-- Theme labels: max 25 chars
-- Ticket labels: max 30 chars (truncate with "...")
-- Annotations: max 20 chars
+- Use `flowchart TD` (top-down) for clarity
+- **Group by concern/purpose**: Each subgraph represents one goal or decision area
+- Show decision-making flow with arrows (A tried, then B, then C)
+- Parallel work shown with `&` syntax (no arrows between independent items)
+- Maximum 3-5 subgraphs per diagram
+- Labels: max 20 characters, use abbreviated names
 
 ## 1. Summary
 

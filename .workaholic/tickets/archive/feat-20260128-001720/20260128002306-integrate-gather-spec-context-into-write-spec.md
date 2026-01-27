@@ -3,9 +3,9 @@ created_at: 2026-01-28T00:23:06+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: S
+commit_hash: 1d5c124
+category: Changed
 ---
 
 # Integrate gather-spec-context into write-spec
@@ -60,3 +60,7 @@ Past tickets that touched similar areas:
 - The parallel `gather-terms-context` and `write-terms` pair should be considered for the same treatment in a follow-up ticket
 - The bash script path in skill instructions uses `.claude/skills/` which is the installed location (via marketplace), not `plugins/core/skills/` which is the source location
 - Skill frontmatter needs `allowed-tools: Bash` since it contains bash script instructions
+
+## Final Report
+
+Successfully merged gather-spec-context into write-spec. The shell script was copied to `plugins/core/skills/write-spec/sh/gather.sh` and the SKILL.md was expanded with a "Gather Context" section containing script invocation instructions and output documentation. The spec-writer agent now only preloads write-spec and enforce-i18n (two skills instead of three). The gather-spec-context directory was deleted.

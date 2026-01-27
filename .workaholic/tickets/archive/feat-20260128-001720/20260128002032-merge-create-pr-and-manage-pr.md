@@ -3,9 +3,9 @@ created_at: 2026-01-28T00:20:32+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: S
+commit_hash: f5c6475
+category: Changed
 ---
 
 # Merge create-pr and manage-pr skills
@@ -53,3 +53,9 @@ Past tickets that touched similar areas:
 - The create-pr skill path in the shell script reference will change from `manage-pr` to `create-pr`
 - The pr-creator agent will only preload one skill instead of two, simplifying its configuration
 - Verify no other files reference `manage-pr` after deletion
+
+## Final Report
+
+Successfully merged manage-pr into create-pr. The shell script was copied to `plugins/core/skills/create-pr/sh/create-or-update.sh` and the SKILL.md was updated with the correct path and additional documentation from manage-pr. The pr-creator agent now only preloads create-pr (one skill instead of two). The manage-pr directory was deleted.
+
+Documentation files in `.workaholic/specs/` and `.workaholic/terms/` still reference manage-pr but will be updated automatically when `/report` runs the spec-writer and terms-writer agents.

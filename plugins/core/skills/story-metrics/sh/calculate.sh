@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Calculate performance metrics for a branch
 # Outputs JSON with commits, timestamps, duration, and velocity
 
-set -e
+set -eu
 
 BASE_BRANCH="${1:-main}"
 
@@ -35,7 +35,7 @@ DURATION_HOURS=$(echo "scale=2; $DURATION_SECS / 3600" | bc)
 DURATION_DAYS=$(git log "${BASE_BRANCH}..HEAD" --format=%cd --date=short | sort -u | wc -l | tr -d ' ')
 
 # Determine velocity unit and calculate velocity
-if (( $(echo "$DURATION_HOURS < 8" | bc -l) )); then
+if [ "$(echo "$DURATION_HOURS < 8" | bc -l)" -eq 1 ]; then
     VELOCITY_UNIT="hour"
     VELOCITY=$(echo "scale=1; $COMMITS / $DURATION_HOURS" | bc)
 else

@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Gather context for spec updates
 # Outputs branch info, tickets, existing specs, and diff
 
-set -e
+set -eu
 
 BASE_BRANCH="${1:-main}"
 

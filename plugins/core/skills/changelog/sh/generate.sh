@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Generate changelog entries from archived tickets
 # Outputs formatted markdown grouped by category
 
-set -e
+set -eu
 
 BRANCH="$1"
 REPO_URL="$2"
@@ -20,10 +20,10 @@ if [ ! -d "$ARCHIVE_DIR" ]; then
     exit 0
 fi
 
-# Arrays to hold entries by category
-declare -a ADDED=()
-declare -a CHANGED=()
-declare -a REMOVED=()
+# Strings to hold entries by category (newline-separated)
+ADDED=""
+CHANGED=""
+REMOVED=""
 
 # Process each ticket
 for ticket in "$ARCHIVE_DIR"/*.md; do
@@ -45,41 +45,38 @@ for ticket in "$ARCHIVE_DIR"/*.md; do
     # Add to appropriate category
     case "$category" in
         Added)
-            ADDED+=("$entry")
+            ADDED="${ADDED}${entry}
+"
             ;;
         Removed)
-            REMOVED+=("$entry")
+            REMOVED="${REMOVED}${entry}
+"
             ;;
         *)
-            CHANGED+=("$entry")
+            CHANGED="${CHANGED}${entry}
+"
             ;;
     esac
 done
 
 # Output formatted markdown
-if [ ${#ADDED[@]} -gt 0 ]; then
+if [ -n "$ADDED" ]; then
     echo "### Added"
     echo ""
-    for entry in "${ADDED[@]}"; do
-        echo "$entry"
-    done
+    printf "%s" "$ADDED"
     echo ""
 fi
 
-if [ ${#CHANGED[@]} -gt 0 ]; then
+if [ -n "$CHANGED" ]; then
     echo "### Changed"
     echo ""
-    for entry in "${CHANGED[@]}"; do
-        echo "$entry"
-    done
+    printf "%s" "$CHANGED"
     echo ""
 fi
 
-if [ ${#REMOVED[@]} -gt 0 ]; then
+if [ -n "$REMOVED" ]; then
     echo "### Removed"
     echo ""
-    for entry in "${REMOVED[@]}"; do
-        echo "$entry"
-    done
+    printf "%s" "$REMOVED"
     echo ""
 fi

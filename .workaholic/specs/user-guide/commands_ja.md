@@ -2,8 +2,8 @@
 title: Command Reference
 description: Complete documentation for all Workaholic commands
 category: user
-modified_at: 2026-01-27T12:16:19+09:00
-commit_hash: f34db66
+modified_at: 2026-01-27T17:52:52+09:00
+commit_hash: 00bdad7
 ---
 
 [English](commands.md) | [日本語](commands_ja.md)
@@ -36,14 +36,16 @@ Workaholicは統一された**core**プラグインを提供し、gitワーク�
 
 PRの説明にはストーリードキュメントの内容が使用されます。ストーリーには以下のセクションが含まれます：
 
+- **Topic Tree** - 変更間の関係を示すMermaidフローチャートによる視覚的概要
 - **Summary** - ブランチのCHANGELOGから生成された変更の番号付きリスト
 - **Motivation** - なぜこの作業が必要だったか
 - **Journey** - 開発中の意思決定と進行
 - **Changes** - 各変更の詳細な説明
 - **Outcome** - 達成されたこと
 - **Performance** - メトリクスと意思決定レビュー
+- **Notes** - レビュアー向けの追加コンテキスト
 
-ストーリードキュメントは`.workaholic/stories/<branch-name>.md`に保存され、PR説明文の単一の真実の情報源として機能します。パフォーマンスメトリクスは単一セッションの作業（8時間未満）には時間を、複数日にわたる作業にはbusiness dayを使用し、意味のある速度測定を提供します。
+Topic Treeセクションは変更をテーマや関心事ごとにグループ化したMermaidフローチャートを提供します。ストーリードキュメントは`.workaholic/stories/<branch-name>.md`に保存され、PR説明文の単一の真実の情報源として機能します。パフォーマンスメトリクスは単一セッションの作業（8時間未満）には時間を、複数日にわたる作業にはbusiness dayを使用し、意味のある速度測定を提供します。
 
 ## チケット駆動開発コマンド
 

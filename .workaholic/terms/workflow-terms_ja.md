@@ -3,7 +3,7 @@ title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
 last_updated: 2026-01-27
-commit_hash: f34db66
+commit_hash: 00bdad7
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -83,6 +83,24 @@ sync操作は派生ドキュメント（specs、terms）を現在のコードベ
 ### 関連用語
 
 - changelog、plugin
+
+## report
+
+包括的なドキュメントを生成し、GitHub PRを作成または更新。
+
+### 定義
+
+reportオペレーションは複数のドキュメントエージェントを同時にオーケストレートしてすべての成果物（changelog、story、specs、terms）を生成し、その後GitHub pull requestを作成または更新します。これはフィーチャーブランチを完了し、レビューのために準備するための主要なコマンドです。`/report`コマンドは以前の`/pull-request`コマンドを置き換え、ドキュメント生成が主要な目的であり、PR作成が最終ステップであることをより適切に反映しています。
+
+### 使用パターン
+
+- **ディレクトリ名**: N/A（アクションであり、ストレージではない）
+- **ファイル名**: N/A
+- **コード参照**: 「`/report`を実行してPRを作成」、「Reportはドキュメントを生成」
+
+### 関連用語
+
+- story、changelog、spec、terms、agent、orchestrator
 
 ## concurrent-execution
 

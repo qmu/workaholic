@@ -3,7 +3,7 @@ title: File Conventions
 description: Naming patterns and directory structures used in Workaholic
 category: developer
 last_updated: 2026-01-27
-commit_hash: f34db66
+commit_hash: 00bdad7
 ---
 
 [English](file-conventions.md) | [日本語](file-conventions_ja.md)
@@ -65,6 +65,24 @@ commit_hash: <short-hash>
 ### 関連用語
 
 - kebab-case
+
+## todo
+
+実装待ちのアクティブな作業項目の保管場所。
+
+### 定義
+
+todoディレクトリは実装のためにキューに入れられたチケットを保持します。`/ticket`でチケットが作成されると、`.workaholic/tickets/todo/`に配置されます。`/drive`中、チケットはこのディレクトリからソート順（タイムスタンプ接頭辞順）で処理されます。実装とコミットが成功した後、チケットはtodoからarchiveに移動します。
+
+### 使用パターン
+
+- **ディレクトリ名**: `.workaholic/tickets/todo/`
+- **ファイル名**: チケットはタイムスタンプ接頭辞付きの元の名前を保持
+- **コード参照**: 「todoにキュー」、「todoからチケットを処理」
+
+### 関連用語
+
+- icebox、archive、ticket
 
 ## icebox
 

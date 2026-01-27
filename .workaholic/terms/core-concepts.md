@@ -3,7 +3,7 @@ title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
 last_updated: 2026-01-27
-commit_hash: f34db66
+commit_hash: 00bdad7
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -161,3 +161,29 @@ Example: `"Bash(git -C:*)"` blocks all `git -C` command variations that would tr
 ### Related Terms
 
 - rule, agent, settings
+
+## preload
+
+Load skill content into an agent's context via frontmatter.
+
+### Definition
+
+Preloading is the mechanism by which agents gain access to skill content at initialization time. By specifying skills in the agent's `skills:` frontmatter field, the skill's `SKILL.md` content is included in the agent's context when spawned. This ensures the agent has access to reusable instructions, bash scripts, or formatting rules without needing to read additional files during execution.
+
+Example frontmatter:
+```yaml
+---
+name: story-writer
+skills: [story-metrics, i18n]
+---
+```
+
+### Usage Patterns
+
+- **Directory names**: N/A (mechanism, not storage)
+- **File names**: N/A
+- **Code references**: "Preload the skill via frontmatter", "The agent preloads changelog skill"
+
+### Related Terms
+
+- skill, agent, frontmatter

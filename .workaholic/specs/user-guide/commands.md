@@ -2,8 +2,8 @@
 title: Command Reference
 description: Complete documentation for all Workaholic commands
 category: user
-modified_at: 2026-01-27T12:16:19+09:00
-commit_hash: f34db66
+modified_at: 2026-01-27T17:52:52+09:00
+commit_hash: 00bdad7
 ---
 
 [English](commands.md) | [日本語](commands_ja.md)
@@ -34,7 +34,7 @@ Generates comprehensive documentation and creates or updates a pull request.
 
 The command orchestrates five subagents to generate documentation artifacts: changelog-writer updates `CHANGELOG.md`, story-writer generates the PR narrative, spec-writer updates `.workaholic/specs/`, terms-writer updates `.workaholic/terms/`, and pr-creator handles GitHub PR creation. The first four run in parallel, then pr-creator runs after to create the PR using the generated story as the body.
 
-The PR description is generated from a story document that includes seven sections: Summary, Motivation, Journey, Changes, Outcome, Performance, and Notes. The story serves as the single source of truth for PR content and is saved to `.workaholic/stories/<branch-name>.md`. Performance metrics use hours for single-session work (under 8 hours) and business days for multi-day work, providing meaningful velocity measurements.
+The PR description is generated from a story document that includes eight sections: Topic Tree (visual overview), Summary, Motivation, Journey, Changes, Outcome, Performance, and Notes. The Topic Tree section provides a Mermaid flowchart showing the relationships between changes, grouped by theme or concern. The story serves as the single source of truth for PR content and is saved to `.workaholic/stories/<branch-name>.md`. Performance metrics use hours for single-session work (under 8 hours) and business days for multi-day work, providing meaningful velocity measurements.
 
 Any remaining unfinished tickets are automatically moved to icebox before creating the PR.
 

@@ -3,9 +3,9 @@ created_at: 2026-01-28T00:23:46+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: S
+commit_hash: 07ab1f4
+category: Changed
 ---
 
 # Integrate calculate-story-metrics into write-story
@@ -55,3 +55,7 @@ Past tickets that touched similar areas:
 - The write-story skill already references metrics in its frontmatter section - the merged content should be positioned before that reference
 - The shell script path changes from `calculate-story-metrics` to `write-story`
 - This completes the pattern of consolidating 1:1 utility skills into their primary skills
+
+## Final Report
+
+Successfully merged calculate-story-metrics into write-story. The shell script was copied to `plugins/core/skills/write-story/sh/calculate.sh` and the SKILL.md was expanded with a "Calculate Metrics" section containing script invocation instructions, JSON output format, and velocity unit selection logic. The story-writer agent now only preloads write-story (one skill instead of two). The calculate-story-metrics directory was deleted. This completes the skill consolidation pattern established in this branch.

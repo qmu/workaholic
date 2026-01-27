@@ -92,7 +92,7 @@ Refs #<issue-number>
 
 ## 3. Journey
 
-[Describe the progression of work. What was planned? What unexpected challenges arose? How were decisions made? Draw from Final Reports to capture deviations and learnings.]
+[High-level narrative of work progression in 100-200 words. Focus on phases and pivots, not individual ticket details. Let the flowchart carry the visual detail.]
 
 #### Topic Flowchart
 
@@ -122,13 +122,23 @@ flowchart LR
 
 ## 4. Changes
 
-### 4.1. First meaningful change
+One subsection per ticket, in chronological order:
 
-Detailed explanation from CHANGELOG description. Why this was needed and what it solves.
+### 4.1. <Ticket title> ([hash](commit-url))
 
-### 4.2. Second meaningful change
+Brief 1-2 sentence description from ticket Overview.
 
-Detailed explanation from CHANGELOG description. Why this was needed and what it solves.
+### 4.2. <Next ticket title> ([hash](commit-url))
+
+Brief 1-2 sentence description from ticket Overview.
+
+### ...
+
+**Changes Guidelines:**
+- One subsection per ticket (not grouped by theme)
+- Format: `### 4.N. <Title> ([hash](url))`
+- Content: 1-2 sentences from ticket Overview
+- Chronological order matches ticket creation time
 
 ## 5. Outcome
 
@@ -178,8 +188,8 @@ Additional context for reviewers or future reference.
 - Write in third person ("The developer discovered..." not "I discovered...")
 - Connect tickets into a narrative arc, not a list
 - Highlight decision points and trade-offs
-- Keep Motivation/Journey/Outcome concise (aim for 200-400 words total)
-- Changes section can be longer to explain each change fully
+- Keep Motivation/Journey/Outcome concise (Journey: 100-200 words)
+- Changes section: one entry per ticket, brief descriptions
 
 ### 7. Update Stories Index
 

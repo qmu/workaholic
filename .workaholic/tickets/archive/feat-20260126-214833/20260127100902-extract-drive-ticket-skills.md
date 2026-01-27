@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: refactoring
 layer: [Config]
 effort:
-commit_hash:
-category:
+commit_hash: 2777671
+category: Changed
 ---
 
 # Extract /drive and /ticket instructions into skills

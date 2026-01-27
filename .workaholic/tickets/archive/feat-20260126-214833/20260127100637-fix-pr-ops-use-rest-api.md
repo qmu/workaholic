@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: bugfix
 layer: [Infrastructure]
 effort:
-commit_hash:
-category:
+commit_hash: 2b639b2
+category: Changed
 ---
 
 # Fix pr-ops script to use REST API instead of gh pr edit

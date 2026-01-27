@@ -31,9 +31,12 @@ if [ -z "$PR_INFO" ] || [ "$PR_INFO" = "null" ]; then
     URL=$(gh pr create --title "$TITLE" --body-file /tmp/pr-body.md)
     echo "PR created: $URL"
 else
-    # Update existing PR
+    # Update existing PR via REST API (avoids GraphQL Projects deprecation error)
     NUMBER=$(echo "$PR_INFO" | jq -r '.number')
     URL=$(echo "$PR_INFO" | jq -r '.url')
-    gh pr edit "$NUMBER" --title "$TITLE" --body-file /tmp/pr-body.md
+    REPO=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
+    gh api "repos/${REPO}/pulls/${NUMBER}" --method PATCH \
+        -f title="$TITLE" \
+        -f body="$(cat /tmp/pr-body.md)" > /dev/null
     echo "PR updated: $URL"
 fi

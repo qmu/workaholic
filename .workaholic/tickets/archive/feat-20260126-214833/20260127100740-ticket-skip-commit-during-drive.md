@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: bugfix
 layer: [Config]
 effort:
-commit_hash:
-category:
+commit_hash: 6cb68d0
+category: Changed
 ---
 
 # Fix /ticket to skip commit step when called during /drive

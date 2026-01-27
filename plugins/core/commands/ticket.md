@@ -91,6 +91,8 @@ Explore the codebase to understand requirements and write an implementation tick
 
 6. **Commit the Ticket**
 
+   **IMPORTANT**: Skip this step if invoked during `/drive`. The drive command's archive script includes uncommitted tickets via `git add -A`, so the ticket will be committed with the implementation.
+
    - Stage only the newly created ticket file: `git add <ticket-path>`
    - Commit with message: "Add ticket for <short-description>"
    - Use the ticket's H1 title for the description
@@ -98,11 +100,11 @@ Explore the codebase to understand requirements and write an implementation tick
 
 7. **Present the Ticket**
 
-   - Show the user where the ticket was created and committed
+   - Show the user where the ticket was created
    - Summarize the key points
+   - If during `/drive`: say "Ticket created (will be committed with implementation)"
    - If icebox: tell user to run `/drive icebox` later to retrieve it
-   - If normal: count queued tickets in `.workaholic/tickets/` (excluding archive/, icebox/)
-   - Tell user to run `/drive` to implement queued tickets
+   - If normal (standalone): count queued tickets in `.workaholic/tickets/` (excluding archive/, icebox/) and tell user to run `/drive` to implement
    - **NEVER ask "Would you like me to proceed with implementation?" - that is NOT your job**
 
 ## Notes

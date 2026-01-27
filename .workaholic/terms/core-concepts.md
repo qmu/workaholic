@@ -3,7 +3,7 @@ title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
 last_updated: 2026-01-27
-commit_hash: 4b6b135
+commit_hash: 4938294
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -70,6 +70,7 @@ Skills can be preloaded by agents via the `skills:` frontmatter field, providing
 - **changelog**: Generates changelog entries from archived tickets
 - **story-metrics**: Calculates commit counts, duration, velocity
 - **spec-context**: Gathers codebase context for spec updates
+- **terms-context**: Gathers context for terminology updates
 - **pr-ops**: Creates or updates GitHub pull requests
 - **ticket-format**: Defines ticket file structure and frontmatter
 - **drive-workflow**: Implementation workflow for processing tickets

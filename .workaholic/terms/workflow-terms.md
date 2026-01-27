@@ -3,7 +3,7 @@ title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
 last_updated: 2026-01-27
-commit_hash: a525e04
+commit_hash: f34db66
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -18,7 +18,7 @@ Implement queued tickets one by one, committing each.
 
 ### Definition
 
-The drive operation processes tickets from `.workaholic/tickets/` sequentially. For each ticket, it implements the described changes, commits the work, and archives the ticket. This creates a structured development flow where work is captured before implementation and documented after completion.
+The drive operation processes tickets from `.workaholic/tickets/todo/` sequentially. For each ticket, it implements the described changes, commits the work, and archives the ticket. This creates a structured development flow where work is captured before implementation and documented after completion.
 
 ### Usage Patterns
 
@@ -36,7 +36,7 @@ Move completed work to long-term storage.
 
 ### Definition
 
-Archiving moves completed tickets from the active queue (`.workaholic/tickets/`) to branch-specific archive directories (`.workaholic/tickets/archive/<branch>/`). This preserves the implementation record while clearing the active queue. The archive-ticket skill handles this automatically after successful commits.
+Archiving moves completed tickets from the active queue (`.workaholic/tickets/todo/`) to branch-specific archive directories (`.workaholic/tickets/archive/<branch>/`). This preserves the implementation record while clearing the active queue. The archive-ticket skill handles this automatically after successful commits.
 
 ### Usage Patterns
 

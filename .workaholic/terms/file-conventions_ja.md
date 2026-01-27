@@ -3,7 +3,7 @@ title: File Conventions
 description: Naming patterns and directory structures used in Workaholic
 category: developer
 last_updated: 2026-01-27
-commit_hash: a525e04
+commit_hash: f34db66
 ---
 
 [English](file-conventions.md) | [日本語](file-conventions_ja.md)
@@ -72,7 +72,7 @@ commit_hash: <short-hash>
 
 ### 定義
 
-iceboxは現在作業中ではないが、将来の検討のために保存すべきチケットを保持します。PRを作成する際、未完了のチケットは削除されるのではなく`.workaholic/tickets/icebox/`に移動されます。これにより、アクティブキューをクリアしながら計画された作業の損失を防ぎます。
+iceboxは現在作業中ではないが、将来の検討のために保存すべきチケットを保持します。PRを作成する際、未完了のチケットは`.workaholic/tickets/todo/`から`.workaholic/tickets/icebox/`に移動されます（削除ではありません）。これにより、アクティブキューをクリアしながら計画された作業の損失を防ぎます。
 
 ### 使用パターン
 

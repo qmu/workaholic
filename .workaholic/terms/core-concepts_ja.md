@@ -3,7 +3,7 @@ title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
 last_updated: 2026-01-27
-commit_hash: a525e04
+commit_hash: f34db66
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -54,15 +54,27 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 
 ### 定義
 
-スキルはコマンドや他の操作をサポートする内部ルーチンです。コマンドとは異なり、ユーザーはスラッシュプレフィックスでスキルを直接呼び出すことはできません。通常、コマンドによって呼び出されるか、自動的にトリガーされます。スキルはプラグインの`skills/`ディレクトリ内の独自のサブディレクトリに定義され、`SKILL.md`定義と、ヘルパースクリプトを含むオプションの`scripts/`ディレクトリを含みます。
+スキルはコマンドや他の操作をサポートする内部ルーチンです。コマンドとは異なり、ユーザーはスラッシュプレフィックスでスキルを直接呼び出すことはできません。通常、コマンドによって呼び出されるか、自動的にトリガーされます。スキルはプラグインの`skills/`ディレクトリ内の独自のサブディレクトリに定義され、`SKILL.md`定義と、POSIXシェルスクリプトを含むオプションの`sh/`ディレクトリを含みます。
 
 スキルは`skills:`フロントマターフィールドを介してエージェントからプリロードでき、エージェントが実行中に呼び出せる再利用可能な機能（例：データ収集やフォーマット用のbashスクリプト）を提供します。
 
 ### 使用パターン
 
 - **ディレクトリ名**: `plugins/<name>/skills/<skill-name>/`
-- **ファイル名**: `SKILL.md`、`scripts/generate.sh`、`scripts/calculate.sh`
+- **ファイル名**: `SKILL.md`、`sh/generate.sh`、`sh/calculate.sh`
 - **コード参照**: 「archive-ticketスキルは...を処理する」、「changelogスキルをプリロード」
+
+### 現在のスキル
+
+- **archive-ticket**: 完了したチケットをブランチアーカイブに移動
+- **changelog**: アーカイブされたチケットからchangelogエントリを生成
+- **story-metrics**: コミット数、期間、速度を計算
+- **spec-context**: spec更新のためのコードベースコンテキストを収集
+- **pr-ops**: GitHub pull requestを作成または更新
+- **ticket-format**: チケットファイル構造とフロントマターを定義
+- **drive-workflow**: チケット処理の実装ワークフロー
+- **command-prohibition**: サブエージェント用のgitコマンド制限
+- **i18n**: `.workaholic/`ドキュメントの翻訳要件
 
 ### 関連用語
 

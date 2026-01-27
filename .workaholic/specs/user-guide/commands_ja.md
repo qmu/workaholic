@@ -2,8 +2,8 @@
 title: Command Reference
 description: Complete documentation for all Workaholic commands
 category: user
-modified_at: 2026-01-27T09:57:08+09:00
-commit_hash: a525e04
+modified_at: 2026-01-27T12:16:19+09:00
+commit_hash: f34db66
 ---
 
 [English](commands.md) | [日本語](commands_ja.md)
@@ -58,7 +58,7 @@ PRの説明にはストーリードキュメントの内容が使用されます
 
 Claudeは既存のパターンとアーキテクチャを理解するためにコードベースを読み、詳細な実装チケットを生成します。チケットには概要、変更するキーファイル、ステップバイステップの実装計画、考慮事項が含まれます。
 
-チケットはタイムスタンプ付きで`.workaholic/tickets/`に保存されます。`icebox`を使用すると、後で実装するチケットを`.workaholic/tickets/icebox/`に保存できます。
+チケットはタイムスタンプ付きで`.workaholic/tickets/todo/`に保存されます。`icebox`を使用すると、後で実装するチケットを`.workaholic/tickets/icebox/`に保存できます。
 
 ### /drive
 
@@ -69,7 +69,7 @@ Claudeは既存のパターンとアーキテクチャを理解するために�
 /drive icebox
 ```
 
-Claudeは`.workaholic/tickets/`からチケットを取り出し、一つずつ実装し、承認を求め、逸脱を文書化するFinal Reportを作成し、次に進む前にコミットとアーカイブを行います。`icebox`引数を使用すると、延期されたチケットから選択できます。
+Claudeは`.workaholic/tickets/todo/`からチケットを取り出し、一つずつ実装し、承認を求め、逸脱を文書化するFinal Reportを作成し、次に進む前にコミットとアーカイブを行います。`icebox`引数を使用すると、延期されたチケットから選択できます。
 
 ## ワークフローサマリー
 

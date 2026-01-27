@@ -2,8 +2,8 @@
 title: Workflow Guide
 description: How to use ticket-driven development with Workaholic
 category: user
-modified_at: 2026-01-27T09:57:08+09:00
-commit_hash: a525e04
+modified_at: 2026-01-27T12:16:19+09:00
+commit_hash: f34db66
 ---
 
 [English](workflow.md) | [日本語](workflow_ja.md)
@@ -54,7 +54,7 @@ flowchart TD
 /ticket add dark mode toggle to settings
 ```
 
-Claudeはコードベースを調査し、アーキテクチャを理解し、詳細な実装仕様を生成します。`.workaholic/tickets/`の仕様を確認し、必要に応じて修正します。
+Claudeはコードベースを調査し、アーキテクチャを理解し、詳細な実装仕様を生成します。`.workaholic/tickets/todo/`の仕様を確認し、必要に応じて修正します。
 
 ### 3. チケットを実装
 
@@ -86,8 +86,9 @@ Claudeは仕様に従い、変更を行い、型チェックを実行します�
 
 ```
 .workaholic/tickets/
-├── 20260123-add-dark-mode.md      # キューに入ったチケット
-├── 20260123-fix-login-bug.md      # 別のキューに入ったチケット
+├── todo/                           # キューに入ったチケット
+│   ├── 20260123-add-dark-mode.md
+│   └── 20260123-fix-login-bug.md
 ├── icebox/                         # 延期されたチケット
 │   └── 20260120-refactor-db.md
 └── archive/

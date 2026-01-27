@@ -2,8 +2,8 @@
 title: Contributing
 description: How to add or modify plugins in Workaholic
 category: developer
-modified_at: 2026-01-27T09:57:08+09:00
-commit_hash: a525e04
+modified_at: 2026-01-27T12:16:19+09:00
+commit_hash: f34db66
 ---
 
 [English](contributing.md) | [日本語](contributing_ja.md)

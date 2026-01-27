@@ -3,7 +3,7 @@ title: File Conventions
 description: Naming patterns and directory structures used in Workaholic
 category: developer
 last_updated: 2026-01-27
-commit_hash: a525e04
+commit_hash: f34db66
 ---
 
 [English](file-conventions.md) | [日本語](file-conventions_ja.md)
@@ -72,7 +72,7 @@ Storage for deferred work items.
 
 ### Definition
 
-The icebox holds tickets that are not currently being worked on but should be preserved for future consideration. When creating a PR, unfinished tickets are moved to `.workaholic/tickets/icebox/` rather than being deleted. This prevents loss of planned work while clearing the active queue.
+The icebox holds tickets that are not currently being worked on but should be preserved for future consideration. When creating a PR, unfinished tickets are moved from `.workaholic/tickets/todo/` to `.workaholic/tickets/icebox/` rather than being deleted. This prevents loss of planned work while clearing the active queue.
 
 ### Usage Patterns
 

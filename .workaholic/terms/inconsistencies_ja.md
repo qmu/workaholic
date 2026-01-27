@@ -3,7 +3,7 @@ title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
 last_updated: 2026-01-27
-commit_hash: a525e04
+commit_hash: f34db66
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -157,14 +157,46 @@ TDDプラグインへの残りの参照をcoreプラグインへの参照に更�
 
 ### 問題
 
-スキルは単一のマークダウンファイルから、SKILL.mdとscripts/サブディレクトリを持つディレクトリベースの構造に進化しました。一部の古いドキュメントはフラットファイルパターンを参照している可能性があります。
+スキルは単一のマークダウンファイルから、SKILL.mdとsh/サブディレクトリを持つディレクトリベースの構造に進化しました。一部の古いドキュメントはフラットファイルパターンや`scripts/`ディレクトリ名を参照している可能性があります。
 
 ### 現在の使用状況
 
-- 現在の構造：`plugins/<name>/skills/<skill-name>/SKILL.md`とオプションの`scripts/`ディレクトリ
-- 現在のスキル：archive-ticket、changelog、story-metrics、spec-context、pr-ops
+- 現在の構造：`plugins/<name>/skills/<skill-name>/SKILL.md`とオプションの`sh/`ディレクトリ
+- 現在のスキル：archive-ticket、changelog、story-metrics、spec-context、pr-ops、ticket-format、drive-workflow、command-prohibition、i18n
 - 過去のパターン：`archive-ticket.md`のような単一マークダウンファイル
+- 過去のディレクトリ：`scripts/`（現在は`sh/`に改名、POSIXシェル互換性のため）
 
 ### 推奨される解決策
 
-スキルを参照する際は、ディレクトリベースのパターンを使用します。`SKILL.md`ファイルにはスキル定義が含まれ、`scripts/`にはエージェントが呼び出せる再利用可能なbashスクリプトが含まれます。
+スキルを参照する際は、ディレクトリベースのパターンを使用します。`SKILL.md`ファイルにはスキル定義が含まれ、`sh/`にはエージェントが呼び出せる再利用可能なPOSIXシェルスクリプトが含まれます。
+
+## レガシーチケットルートディレクトリ参照
+
+### 問題
+
+アクティブチケットは`.workaholic/tickets/`（ルート）から`.workaholic/tickets/todo/`サブディレクトリに移動しました。これにより、より整理された3層構造（todo/icebox/archive）が作成されます。
+
+### 現在の使用状況
+
+- 現在の構造：アクティブチケットは`.workaholic/tickets/todo/`
+- 過去の場所：`.workaholic/tickets/`（ルートディレクトリ）
+- 変更なし：`.workaholic/tickets/icebox/`と`.workaholic/tickets/archive/<branch>/`
+
+### 推奨される解決策
+
+チケット保存場所への参照を`.workaholic/tickets/`から`.workaholic/tickets/todo/`に更新します。過去のドキュメントはその時点の構造を反映しているため、変更しないでください。
+
+## レガシー「scripts/」ディレクトリ参照
+
+### 問題
+
+スキル内のシェルスクリプトディレクトリは、簡潔さとこれらがPOSIXシェルスクリプト（bash固有ではない）であることを明確にするため、`scripts/`から`sh/`に改名されました。
+
+### 現在の使用状況
+
+- 現在のディレクトリ：`sh/`（例：`plugins/core/skills/changelog/sh/generate.sh`）
+- 過去のディレクトリ：`scripts/`（例：`plugins/core/skills/archive-ticket/scripts/archive.sh`）
+
+### 推奨される解決策
+
+`scripts/`から`sh/`への残りの参照を更新します。すべてのシェルスクリプトはPOSIX準拠である必要があります（`#!/bin/sh`を使用し、bash固有の機能を避ける）。

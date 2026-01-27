@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-27T09:57:08+09:00
-commit_hash: a525e04
+modified_at: 2026-01-27T12:16:19+09:00
+commit_hash: f34db66
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -59,6 +59,7 @@ plugins/
       diagrams.md      # Mermaid図表要件
       general.md       # Gitワークフロールール
       i18n.md          # 多言語ドキュメントルール
+      shell.md         # POSIX シェルスクリプト規約
       typescript.md    # TypeScriptコーディング規約
     skills/
       archive-ticket/
@@ -73,6 +74,8 @@ plugins/
         SKILL.md           # settings.json denyルールのドキュメント
       drive-workflow/
         SKILL.md           # チケット実装ワークフロー
+      i18n/
+        SKILL.md           # .workaholic/ドキュメントのi18n要件
       pr-ops/
         SKILL.md
         sh/
@@ -108,9 +111,12 @@ plugins/
 - **archive-ticket**: 完全なコミットワークフロー（チケットのアーカイブ、フロントマターにコミットハッシュ/カテゴリを更新、コミット）を処理
 - **changelog**: アーカイブされたチケットからchangelogエントリを生成、カテゴリ別にグループ化
 - **command-prohibition**: settings.json denyルールを使用して危険なコマンドをブロックする方法をドキュメント化
+- **drive-workflow**: チケット処理の実装ワークフローステップ
+- **i18n**: `.workaholic/`ドキュメントの翻訳要件を強制（spec-writerとterms-writerがプリロード）
 - **pr-ops**: gh CLIを使用してGitHub PRを作成/更新
 - **spec-context**: ドキュメント更新用のコンテキスト（ブランチ、チケット、スペック、差分）を収集
 - **story-metrics**: ブランチストーリー用のパフォーマンスメトリクス（コミット数、期間、速度）を計算
+- **ticket-format**: チケットファイル構造とフロントマター規約
 - **translate**: 英語のマークダウンファイルを他の言語（主に日本語）に変換するための翻訳ポリシー
 
 ### エージェント
@@ -154,6 +160,7 @@ flowchart LR
         po[pr-ops]
         tf[ticket-format]
         dw[drive-workflow]
+        i18n[i18n]
     end
 
     report --> cw & sw & spw & tw & pc
@@ -164,6 +171,8 @@ flowchart LR
     sw --> sm
     sw --> pa
     spw --> sc
+    spw --> i18n
+    tw --> i18n
     pc --> po
 ```
 

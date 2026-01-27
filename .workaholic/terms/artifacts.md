@@ -3,7 +3,7 @@ title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
 last_updated: 2026-01-27
-commit_hash: a525e04
+commit_hash: f34db66
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -18,7 +18,7 @@ An implementation work request that captures what should change and records what
 
 ### Definition
 
-A ticket defines a discrete unit of work to be implemented. It captures intent, context, and implementation steps before coding begins. Tickets are change-focused, describing what should be different after implementation. They live in `.workaholic/tickets/` when active, `.workaholic/tickets/icebox/` when deferred, and `.workaholic/tickets/archive/<branch>/` when completed.
+A ticket defines a discrete unit of work to be implemented. It captures intent, context, and implementation steps before coding begins. Tickets are change-focused, describing what should be different after implementation. They live in `.workaholic/tickets/todo/` when active, `.workaholic/tickets/icebox/` when deferred, and `.workaholic/tickets/archive/<branch>/` when completed.
 
 Tickets include YAML frontmatter with structured metadata:
 
@@ -34,7 +34,7 @@ Ticket files created by `/ticket` are automatically included in `/drive` commits
 
 ### Usage Patterns
 
-- **Directory names**: `.workaholic/tickets/`, `.workaholic/tickets/archive/`
+- **Directory names**: `.workaholic/tickets/todo/`, `.workaholic/tickets/icebox/`, `.workaholic/tickets/archive/`
 - **File names**: `20260123-123456-feature-name.md` (timestamp-prefixed)
 - **Code references**: "Create a ticket with `/ticket`", "Archive the ticket"
 

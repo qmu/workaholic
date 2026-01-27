@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: refactoring
 layer: [Config]
 effort:
-commit_hash:
-category:
+commit_hash: 7ff6ae9
+category: Changed
 ---
 
 # Bundle Shell Scripts for Permission-Free Skills

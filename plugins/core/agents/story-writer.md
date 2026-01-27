@@ -21,11 +21,13 @@ You will receive:
 
 ### 1. Gather Source Data
 
-Read archived tickets for this branch:
+Read archived tickets for this branch using Glob:
 
-```bash
-ls -1 .workaholic/tickets/archive/<branch-name>/*.md 2>/dev/null
 ```
+Glob pattern: .workaholic/tickets/archive/<branch-name>/*.md
+```
+
+This returns a list of ticket file paths. If empty, no archived tickets exist.
 
 For each ticket, extract from frontmatter:
 

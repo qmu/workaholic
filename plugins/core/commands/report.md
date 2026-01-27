@@ -28,20 +28,27 @@ This design makes stories the single source of truth for PR content, eliminating
      - Move each ticket to `.workaholic/tickets/icebox/`
      - Stage and commit: "Move remaining tickets to icebox"
    - If no tickets, continue with normal PR flow
-4. **Generate documentation** using 4 subagents concurrently:
+4. **Generate documentation** using 5 subagents:
 
-   Invoke all 4 documentation agents in parallel via Task tool (single message with 4 tool calls):
+   **Phase 1**: Invoke 4 agents in parallel via Task tool (single message with 4 tool calls):
 
    - **changelog-writer** (`subagent_type: "core:changelog-writer"`): Updates `CHANGELOG.md` with entries from archived tickets
-   - **story-writer** (`subagent_type: "core:story-writer"`): Creates `.workaholic/stories/<branch-name>.md` with PR narrative
    - **spec-writer** (`subagent_type: "core:spec-writer"`): Updates `.workaholic/specs/` to reflect codebase changes
    - **terms-writer** (`subagent_type: "core:terms-writer"`): Updates `.workaholic/terms/` with new terms
+   - **release-readiness** (`subagent_type: "core:release-readiness"`): Analyzes branch for release readiness
 
    Pass to each agent:
    - Branch name and base branch as context
    - Repository URL (for changelog-writer)
+   - List of archived tickets (for release-readiness)
 
-   Wait for all 4 agents to complete. Each writes to different locations:
+   Wait for all 4 agents to complete.
+
+   **Phase 2**: Invoke **story-writer** (`subagent_type: "core:story-writer"`):
+   - Pass branch name and base branch
+   - Pass release-readiness JSON output (so it can write section 10 without nested invocation)
+
+   Output locations:
    - `CHANGELOG.md`
    - `.workaholic/stories/<branch-name>.md`
    - `.workaholic/specs/**/*.md`

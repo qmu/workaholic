@@ -17,6 +17,7 @@ You will receive:
 
 - Branch name to generate story for
 - Base branch (usually `main`)
+- Release-readiness JSON output (from parallel agent invoked by `/report`)
 
 ## Instructions
 
@@ -33,7 +34,7 @@ You will receive:
 
 5. **Get Performance Analysis**: Invoke performance-analyst subagent (Task tool with `subagent_type: "core:performance-analyst"`) to evaluate decision quality.
 
-6. **Get Release Readiness**: Invoke release-readiness subagent (Task tool with `subagent_type: "core:release-readiness"`) to assess release preparation.
+6. **Write Release Preparation**: Use the release-readiness JSON provided in the input to write section 10 (Release Preparation). Do not invoke release-readiness subagent - it runs in parallel at the orchestrator level.
 
 7. **Update Index**: Add entry to `.workaholic/stories/README.md`.
 
@@ -44,4 +45,4 @@ Return confirmation that:
 - Story file was created at `.workaholic/stories/<branch-name>.md`
 - Stories index was updated
 - Performance-analyst evaluation was included
-- Release readiness assessment was included
+- Release-readiness data was formatted into section 10

@@ -151,15 +151,23 @@ The subagent returns the table and analysis in the format shown above. Include i
 - Or "None - no special post-release actions needed"
 ```
 
-**Invoking release-readiness:**
+**Release-readiness input:**
 
-Use the Task tool with `subagent_type: "core:release-readiness"` and provide:
+The release-readiness JSON is provided by the orchestrator (`/report` command) which invokes release-readiness as a parallel agent. The JSON contains:
 
-- Branch name
-- Base branch
-- List of archived tickets
+```json
+{
+  "releasable": true/false,
+  "verdict": "Ready for release" / "Needs attention before release",
+  "concerns": [],
+  "instructions": {
+    "pre_release": [],
+    "post_release": []
+  }
+}
+```
 
-The subagent returns JSON with verdict, concerns, and instructions. Format the output into section 10.
+Format this JSON into section 10.
 
 ```markdown
 ## 11. Notes

@@ -4,6 +4,7 @@ description: Generate branch story for PR description. Reads archived tickets, c
 tools: Read, Write, Edit, Bash, Glob, Grep, Task
 skills:
   - write-story
+  - translate
 ---
 
 # Story Writer
@@ -35,13 +36,16 @@ You will receive:
 
 6. **Write Release Preparation**: Use the release-readiness JSON provided in the input to write section 10 (Release Preparation). Do not invoke release-readiness subagent - it runs in parallel at the orchestrator level.
 
-7. **Update Index**: Add entry to `.workaholic/stories/README.md`.
+7. **Translate Story**: Create `<branch-name>_ja.md` with Japanese translation following the preloaded translate skill.
+
+8. **Update Index**: Add entry to both `.workaholic/stories/README.md` and `README_ja.md`.
 
 ## Output
 
 Return confirmation that:
 
 - Story file was created at `.workaholic/stories/<branch-name>.md`
-- Stories index was updated
+- Japanese translation was created at `.workaholic/stories/<branch-name>_ja.md`
+- Stories index (both README.md and README_ja.md) was updated
 - Performance-analyst evaluation was included
 - Release-readiness data was formatted into section 10

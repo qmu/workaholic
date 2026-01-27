@@ -2,8 +2,8 @@
 title: Workflow Guide
 description: How to use ticket-driven development with Workaholic
 category: user
-modified_at: 2026-01-27T20:12:36+09:00
-commit_hash: 921a9a3
+modified_at: 2026-01-27T20:33:01+09:00
+commit_hash: eda5a8b
 ---
 
 [English](workflow.md) | [日本語](workflow_ja.md)
@@ -78,7 +78,7 @@ Claudeは仕様に従い、変更を行い、型チェックを実行します�
 /report
 ```
 
-コマンドは4つのドキュメントサブエージェントを並列で自動実行します：changelog-writerが`CHANGELOG.md`を更新し、story-writerが先頭にTopic Treeを配置したPRナラティブを生成し、spec-writerが`.workaholic/specs/`を更新し、terms-writerが`.workaholic/terms/`を更新します。ドキュメントがコミットされた後、pr-creatorサブエージェントがGitHub PRを作成または更新します。PRサマリーはストーリーファイルから生成され、すべてのアーカイブされたチケットを先頭の視覚的Topic Tree、チケット単位のChangesエントリ、パフォーマンスメトリクス、意思決定レビューを含む一貫したナラティブに統合します。
+コマンドは4つのドキュメントサブエージェントを並列で自動実行します：changelog-writerが`CHANGELOG.md`を更新し、story-writerがPRナラティブを生成し、spec-writerが`.workaholic/specs/`を更新し、terms-writerが`.workaholic/terms/`を更新します。ドキュメントがコミットされた後、pr-creatorサブエージェントがGitHub PRを作成または更新します。PRサマリーはストーリーファイルから生成され、すべてのアーカイブされたチケットを7つのセクション（Summary、Motivation、Journey（Topic Treeフローチャートを含む）、Changes、Outcome、Performance、Notes）を持つ一貫したナラティブに統合します。
 
 ## ディレクトリ構造
 

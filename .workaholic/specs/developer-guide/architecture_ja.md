@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-27T20:12:36+09:00
-commit_hash: 921a9a3
+modified_at: 2026-01-27T20:33:01+09:00
+commit_hash: eda5a8b
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -132,7 +132,7 @@ plugins/
 - **performance-analyst**: PRストーリーのために5つの観点（Consistency、Intuitivity、Describability、Agility、Density）で意思決定の質を評価
 - **pr-creator**: ストーリーファイルをPRボディとして使用してGitHub PRを作成または更新、タイトル導出と`gh` CLI操作を処理
 - **spec-writer**: 現在のコードベースの状態を反映するように`.workaholic/specs/`ドキュメントを更新
-- **story-writer**: PR内容の単一の真実の情報源として機能する`.workaholic/stories/`にブランチストーリーを生成、先頭にTopic Treeフローチャート（セクション0）、チケット単位のChangesエントリ、パフォーマンスメトリクス、意思決定レビューを含む
+- **story-writer**: PR内容の単一の真実の情報源として機能する`.workaholic/stories/`にブランチストーリーを生成、7つのセクション（Summary、Motivation、Journey（Topic Treeフローチャートを含む）、Changes、Outcome、Performance、Notes）で構成
 - **terms-writer**: 一貫した用語定義を維持するために`.workaholic/terms/`を更新
 
 ## 依存関係グラフ

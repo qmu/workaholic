@@ -3,7 +3,7 @@ name: story-writer
 description: Generate branch story for PR description. Reads archived tickets, calculates metrics, and produces narrative documentation.
 tools: Read, Write, Edit, Bash, Glob, Grep, Task
 skills:
-  - story-metrics
+  - calculate-story-metrics
 ---
 
 # Story Writer
@@ -44,7 +44,7 @@ For each ticket, extract from content:
 Use the preloaded story-metrics skill:
 
 ```bash
-bash .claude/skills/story-metrics/sh/calculate.sh <base-branch>
+bash .claude/skills/calculate-story-metrics/sh/calculate.sh <base-branch>
 ```
 
 This returns JSON with all metrics needed for frontmatter.

@@ -3,7 +3,7 @@ name: changelog-writer
 description: Update root CHANGELOG.md from archived tickets. Groups entries by category and links to commits and tickets.
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
-  - changelog
+  - generate-changelog
 ---
 
 # Changelog Writer
@@ -24,7 +24,7 @@ You will receive:
 Use the preloaded changelog skill to generate formatted entries:
 
 ```bash
-bash .claude/skills/changelog/scripts/generate.sh <branch-name> <repo-url>
+bash .claude/skills/generate-changelog/sh/generate.sh <branch-name> <repo-url>
 ```
 
 ### 2. Derive Issue URL

@@ -194,7 +194,7 @@ TDDプラグインへの残りの参照をcoreプラグインへの参照に更�
 
 ### 現在の使用状況
 
-- 現在のディレクトリ：`sh/`（例：`plugins/core/skills/changelog/sh/generate.sh`）
+- 現在のディレクトリ：`sh/`（例：`plugins/core/skills/generate-changelog/sh/generate.sh`）
 - 過去のディレクトリ：`scripts/`（例：`plugins/core/skills/archive-ticket/scripts/archive.sh`）
 
 ### 推奨される解決策

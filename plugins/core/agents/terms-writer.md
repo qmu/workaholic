@@ -3,8 +3,8 @@ name: terms-writer
 description: Update .workaholic/terms/ documentation to maintain consistent term definitions. Use after completing implementation work.
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
-  - i18n
-  - terms-context
+  - enforce-i18n
+  - gather-terms-context
 ---
 
 # Terms Writer
@@ -18,7 +18,7 @@ Update `.workaholic/terms/` to maintain consistent term definitions across the c
 Use the preloaded terms-context skill to understand what changed:
 
 ```bash
-bash .claude/skills/terms-context/sh/gather.sh [base-branch]
+bash .claude/skills/gather-terms-context/sh/gather.sh [base-branch]
 ```
 
 This outputs branch name, archived tickets, existing terms, diff summary, and current commit hash.

@@ -194,7 +194,7 @@ The shell script directory within skills has been renamed from `scripts/` to `sh
 
 ### Current Usage
 
-- Current directory: `sh/` (e.g., `plugins/core/skills/changelog/sh/generate.sh`)
+- Current directory: `sh/` (e.g., `plugins/core/skills/generate-changelog/sh/generate.sh`)
 - Historical directory: `scripts/` (e.g., `plugins/core/skills/archive-ticket/scripts/archive.sh`)
 
 ### Recommended Resolution

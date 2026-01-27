@@ -3,7 +3,7 @@ name: pr-creator
 description: Create or update GitHub PR from story file. Handles PR existence check, title derivation, and gh CLI operations.
 tools: Read, Bash, Glob
 skills:
-  - pr-ops
+  - manage-pr
 ---
 
 # PR Creator
@@ -40,7 +40,7 @@ Use that first item as the title. If multiple items exist, append "etc" (e.g., "
 Use the preloaded pr-ops skill:
 
 ```bash
-bash .claude/skills/pr-ops/scripts/create-or-update.sh <branch-name> "<title>"
+bash .claude/skills/manage-pr/sh/create-or-update.sh <branch-name> "<title>"
 ```
 
 The script handles frontmatter stripping, PR existence check, and gh CLI operations.

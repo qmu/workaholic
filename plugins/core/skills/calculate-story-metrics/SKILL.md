@@ -1,5 +1,5 @@
 ---
-name: story-metrics
+name: calculate-story-metrics
 description: Calculate performance metrics for a branch (commits, duration, velocity).
 allowed-tools: Bash
 user-invocable: false
@@ -18,7 +18,7 @@ Use this skill to calculate commit counts, timestamps, duration, and velocity fo
 Run the bundled script to calculate metrics:
 
 ```bash
-bash .claude/skills/story-metrics/sh/calculate.sh [base-branch]
+bash .claude/skills/calculate-story-metrics/sh/calculate.sh [base-branch]
 ```
 
 Default base branch is `main`.

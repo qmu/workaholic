@@ -1,5 +1,5 @@
 ---
-name: command-prohibition
+name: block-commands
 description: Documentation for blocking dangerous commands using settings.json deny rules.
 allowed-tools: none
 user-invocable: false

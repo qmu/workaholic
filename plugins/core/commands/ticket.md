@@ -2,7 +2,7 @@
 name: ticket
 description: Explore codebase and write implementation ticket for `$ARGUMENT`
 skills:
-  - ticket-format
+  - define-ticket-format
 ---
 
 # Ticket

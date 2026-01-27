@@ -3,9 +3,9 @@ created_at: 2026-01-27T20:23:25+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: fecbb5f
+category: Changed
 ---
 
 # Rename Skills to Verb-Noun Format
@@ -82,3 +82,7 @@ Past tickets that touched similar areas:
 - The `i18n` abbreviation is widely understood but `enforce-i18n` is more descriptive
 - Consider whether `command-prohibition` → `block-commands` loses nuance (it's documentation, not active blocking)
 - All internal `.claude/skills/<path>` references must be updated for bundled scripts
+
+## Final Report
+
+Development completed as planned.

@@ -3,9 +3,9 @@ created_at: 2026-01-27T21:17:37+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: S
+commit_hash: e1dcf1f
+category: Changed
 ---
 
 # Invoke release-readiness as 5th parallel agent in /report
@@ -70,3 +70,12 @@ Past tickets that touched similar areas:
 - Story-writer needs release-readiness output to write section 10
 - May need to adjust parallelism: run 4 agents first, then story-writer with release-readiness data
 - Alternative: release-readiness writes to a temp file, story-writer reads it after both complete
+
+## Final Report
+
+Implemented Option A: two-phase execution where 4 agents run in parallel first (changelog-writer, spec-writer, terms-writer, release-readiness), then story-writer runs with the release-readiness JSON output as input. This provides a good balance between parallelism and data dependency management.
+
+Files modified:
+- `plugins/core/commands/report.md`: Restructured into Phase 1 (4 parallel agents) and Phase 2 (story-writer with release-readiness data)
+- `plugins/core/skills/write-story/SKILL.md`: Replaced invocation instructions with input documentation showing expected JSON format
+- `plugins/core/agents/story-writer.md`: Added release-readiness JSON to Input section, changed step 6 from invocation to formatting

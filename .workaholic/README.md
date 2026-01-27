@@ -23,7 +23,7 @@ This is the working artifacts hub for the Workaholic plugin marketplace.
 
 ## Design Policy
 
-### Cognitive Investment
+### Cultivating Semantics
 
 Developer cognitive load is the primary bottleneck in software productivity. Workaholic invests heavily in generating structured knowledge artifacts to reduce this load. The trade-off is intentional: more upfront work creating documentation pays dividends in reduced context-switching, faster onboarding, and better decision-making.
 

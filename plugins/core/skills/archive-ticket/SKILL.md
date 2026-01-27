@@ -22,13 +22,13 @@ Use this skill after user approves implementation. The script handles formatting
 Run the bundled script with ticket path, commit message, repo URL, and optional description:
 
 ```bash
-bash .claude/skills/archive-ticket/scripts/archive.sh <ticket-path> <commit-message> <repo-url> [description] [files...]
+bash .claude/skills/archive-ticket/sh/archive.sh <ticket-path> <commit-message> <repo-url> [description] [files...]
 ```
 
 Example:
 
 ```bash
-bash .claude/skills/archive-ticket/scripts/archive.sh \
+bash .claude/skills/archive-ticket/sh/archive.sh \
   .workaholic/tickets/20260115-feature.md \
   "Add new feature" \
   https://github.com/org/repo \

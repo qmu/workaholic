@@ -42,7 +42,7 @@ For each ticket, extract from content:
 Use the preloaded story-metrics skill:
 
 ```bash
-bash .claude/skills/story-metrics/scripts/calculate.sh <base-branch>
+bash .claude/skills/story-metrics/sh/calculate.sh <base-branch>
 ```
 
 This returns JSON with all metrics needed for frontmatter.

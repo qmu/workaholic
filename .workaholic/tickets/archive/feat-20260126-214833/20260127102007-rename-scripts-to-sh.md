@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: refactoring
 layer: [Config]
 effort:
-commit_hash:
-category:
+commit_hash: 39afac2
+category: Changed
 ---
 
 # Rename scripts/ to sh/ in skills for brevity

@@ -63,26 +63,30 @@ plugins/
     skills/
       archive-ticket/
         SKILL.md
-        scripts/
+        sh/
           archive.sh       # コミットワークフロー用シェルスクリプト
       changelog/
         SKILL.md
-        scripts/
+        sh/
           generate.sh      # チケットからchangelogエントリを生成
       command-prohibition/
         SKILL.md           # settings.json denyルールのドキュメント
+      drive-workflow/
+        SKILL.md           # チケット実装ワークフロー
       pr-ops/
         SKILL.md
-        scripts/
+        sh/
           create-or-update.sh  # GitHub PRの作成/更新
       spec-context/
         SKILL.md
-        scripts/
+        sh/
           gather.sh        # スペック更新用のコンテキスト収集
       story-metrics/
         SKILL.md
-        scripts/
+        sh/
           calculate.sh     # パフォーマンスメトリクス計算
+      ticket-format/
+        SKILL.md           # チケットファイル構造規約
       translate/
         SKILL.md           # i18n用翻訳ポリシー
 ```

@@ -85,7 +85,7 @@ Skills are more complex and may include scripts. Create a directory:
 ```
 plugins/<plugin>/skills/my-skill/
   SKILL.md           # Skill documentation
-  scripts/
+  sh/
     run.sh           # Executable scripts
 ```
 

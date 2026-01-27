@@ -18,7 +18,7 @@ Use this skill to collect information about what changed in the branch and what 
 Run the bundled script to gather context:
 
 ```bash
-bash .claude/skills/spec-context/scripts/gather.sh [base-branch]
+bash .claude/skills/spec-context/sh/gather.sh [base-branch]
 ```
 
 Default base branch is `main`.

@@ -18,7 +18,7 @@ Use this skill after deriving a PR title to create or update the PR. The script 
 Run the bundled script:
 
 ```bash
-bash .claude/skills/pr-ops/scripts/create-or-update.sh <branch-name> "<title>"
+bash .claude/skills/pr-ops/sh/create-or-update.sh <branch-name> "<title>"
 ```
 
 ### What the Script Does

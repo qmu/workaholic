@@ -18,7 +18,7 @@ Use this skill to generate formatted changelog entries from archived tickets. Th
 Run the bundled script to generate changelog entries:
 
 ```bash
-bash .claude/skills/changelog/scripts/generate.sh <branch-name> <repo-url>
+bash .claude/skills/changelog/sh/generate.sh <branch-name> <repo-url>
 ```
 
 The script outputs formatted markdown that can be inserted into CHANGELOG.md.

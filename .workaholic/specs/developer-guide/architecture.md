@@ -63,26 +63,30 @@ plugins/
     skills/
       archive-ticket/
         SKILL.md
-        scripts/
+        sh/
           archive.sh       # Shell script for commit workflow
       changelog/
         SKILL.md
-        scripts/
+        sh/
           generate.sh      # Generates changelog entries from tickets
       command-prohibition/
         SKILL.md           # Documents settings.json deny rules
+      drive-workflow/
+        SKILL.md           # Implementation workflow for tickets
       pr-ops/
         SKILL.md
-        scripts/
+        sh/
           create-or-update.sh  # Creates or updates GitHub PRs
       spec-context/
         SKILL.md
-        scripts/
+        sh/
           gather.sh        # Gathers context for spec updates
       story-metrics/
         SKILL.md
-        scripts/
+        sh/
           calculate.sh     # Calculates performance metrics
+      ticket-format/
+        SKILL.md           # Ticket file structure conventions
       translate/
         SKILL.md           # Translation policies for i18n
 ```

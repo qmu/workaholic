@@ -4,6 +4,7 @@ description: Update .workaholic/terms/ documentation to maintain consistent term
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
   - i18n
+  - terms-context
 ---
 
 # Terms Writer
@@ -14,17 +15,15 @@ Update `.workaholic/terms/` to maintain consistent term definitions across the c
 
 ### 1. Gather Context
 
-Understand what changed in the current branch:
+Use the preloaded terms-context skill to understand what changed:
 
 ```bash
-# Get current branch
-git branch --show-current
-
-# List archived tickets for this branch
-ls -1 .workaholic/tickets/archive/<branch-name>/*.md 2>/dev/null
+bash .claude/skills/terms-context/sh/gather.sh [base-branch]
 ```
 
-**If archived tickets exist:**
+This outputs branch name, archived tickets, existing terms, diff summary, and current commit hash.
+
+**If archived tickets exist (TICKETS section has files):**
 
 - Read each ticket file
 - Extract what changed (from Implementation Steps)
@@ -33,17 +32,12 @@ ls -1 .workaholic/tickets/archive/<branch-name>/*.md 2>/dev/null
 
 **If no archived tickets:**
 
-- Compare against main branch: `git diff main...HEAD --stat`
-- Read changed files to understand modifications
-- Identify new terminology used
+- Use the DIFF section to understand modifications
+- Read changed files to identify new terminology used
 
 ### 2. Audit Current Terminology
 
-Survey what exists in `.workaholic/terms/`:
-
-```bash
-find .workaholic/terms -name "*.md" -type f | sort
-```
+From the TERMS section of the context output, survey what exists in `.workaholic/terms/`.
 
 For each document:
 
@@ -112,11 +106,7 @@ commit_hash: <short-hash>
 ---
 ```
 
-Get the current commit hash with:
-
-```bash
-git rev-parse --short HEAD
-```
+Use the commit hash from the COMMIT section of the context output.
 
 ### 5. Update Index Files
 
@@ -154,5 +144,5 @@ Summarize changes made:
 - **Every ticket may introduce terms** - Even small changes may use new terminology
 - **Only delete within `.workaholic/`** - Safety constraint for file deletions
 - **Update `last_updated`** - Set to current date when modifying any doc
-- **Update `commit_hash`** - Run `git rev-parse --short HEAD` and set this value
+- **Update `commit_hash`** - Use value from context COMMIT section
 - **Keep translations in sync** - If `_ja.md` exists, update both files

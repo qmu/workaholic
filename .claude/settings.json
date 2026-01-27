@@ -1,25 +1,5 @@
 {
   "permissions": {
-    "allow": [
-      "Bash(git status*)",
-      "Bash(git log*)",
-      "Bash(git diff*)",
-      "Bash(git branch*)",
-      "Bash(git rev-parse*)",
-      "Bash(git rev-list*)",
-      "Bash(git remote show*)",
-      "Bash(git remote get-url*)",
-      "Bash(git show*)",
-      "Bash(ls *)",
-      "Bash(head *)",
-      "Bash(tail *)",
-      "Bash(wc *)",
-      "Bash(date *)",
-      "Bash(gh pr list*)",
-      "Bash(gh pr view*)",
-      "Bash(gh repo view*)",
-      "Bash(gh api*)"
-    ],
     "deny": [
       "Bash(git -C:*)"
     ]

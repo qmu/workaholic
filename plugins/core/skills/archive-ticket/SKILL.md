@@ -29,7 +29,7 @@ Example:
 
 ```bash
 bash .claude/skills/archive-ticket/sh/archive.sh \
-  .workaholic/tickets/20260115-feature.md \
+  .workaholic/tickets/todo/20260115-feature.md \
   "Add new feature" \
   https://github.com/org/repo \
   "Enables users to authenticate with session-based login, addressing the need for secure access control." \

@@ -6,7 +6,7 @@ user-invocable: false
 
 # Ticket Format
 
-Standard format for implementation tickets in `.workaholic/tickets/`.
+Standard format for implementation tickets in `.workaholic/tickets/todo/`.
 
 ## Filename Convention
 

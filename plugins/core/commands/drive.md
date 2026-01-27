@@ -8,7 +8,7 @@ skills:
 
 # Drive
 
-Implement all tickets stored in `.workaholic/tickets/` from top to bottom, committing and archiving each one before moving to the next.
+Implement all tickets stored in `.workaholic/tickets/todo/` from top to bottom, committing and archiving each one before moving to the next.
 
 ## Icebox Mode
 
@@ -16,7 +16,7 @@ If `$ARGUMENT` contains "icebox":
 
 1. List tickets in `.workaholic/tickets/icebox/`
 2. Ask user which ticket to retrieve
-3. Move selected ticket to `.workaholic/tickets/`
+3. Move selected ticket to `.workaholic/tickets/todo/`
 4. Implement that ticket using the drive-workflow skill
 5. **ALWAYS ask confirmation** before proceeding to next ticket
 
@@ -25,7 +25,7 @@ If `$ARGUMENT` contains "icebox":
 ### 1. List and Sort Tickets
 
 ```bash
-ls -1 .workaholic/tickets/*.md 2>/dev/null | sort
+ls -1 .workaholic/tickets/todo/*.md 2>/dev/null | sort
 ```
 
 - If no tickets found, inform the user and stop
@@ -51,9 +51,9 @@ Follow the preloaded drive-workflow skill for each ticket:
 
 ```
 Claude: Found 3 tickets to implement:
-        1. .workaholic/tickets/20260113-feature-a.md
-        2. .workaholic/tickets/20260113-feature-b.md
-        3. .workaholic/tickets/20260113-feature-c.md
+        1. .workaholic/tickets/todo/20260113-feature-a.md
+        2. .workaholic/tickets/todo/20260113-feature-b.md
+        3. .workaholic/tickets/todo/20260113-feature-c.md
 
         Starting with 20260113-feature-a.md...
         [implements feature-a]

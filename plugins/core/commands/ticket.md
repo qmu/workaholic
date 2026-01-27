@@ -16,6 +16,7 @@ Explore the codebase to understand requirements and write an implementation tick
    - Parse `$ARGUMENT` to understand what the user wants to implement
    - If `$ARGUMENT` is empty, ask the user what they want to ticket
    - If `$ARGUMENT` contains "icebox", store in `.workaholic/tickets/icebox/` instead
+   - Otherwise, store in `.workaholic/tickets/todo/`
 
 2. **Explore the Codebase**
 
@@ -41,7 +42,7 @@ Explore the codebase to understand requirements and write an implementation tick
 
 5. **Write the Ticket**
 
-   - Create a ticket file in `.workaholic/tickets/` (or `.workaholic/tickets/icebox/` for icebox)
+   - Create a ticket file in `.workaholic/tickets/todo/` (or `.workaholic/tickets/icebox/` for icebox)
    - Follow the preloaded ticket-format skill for structure and conventions
    - Include a "Related History" section after "Key Files" if related tickets were found:
      ```markdown
@@ -67,7 +68,7 @@ Explore the codebase to understand requirements and write an implementation tick
    - Summarize the key points
    - If during `/drive`: say "Ticket created (will be committed with implementation)"
    - If icebox: tell user to run `/drive icebox` later to retrieve it
-   - If normal (standalone): count queued tickets in `.workaholic/tickets/` (excluding archive/, icebox/) and tell user to run `/drive` to implement
+   - If normal (standalone): count queued tickets in `.workaholic/tickets/todo/` and tell user to run `/drive` to implement
    - **NEVER ask "Would you like me to proceed with implementation?" - that is NOT your job**
 
 ## Notes

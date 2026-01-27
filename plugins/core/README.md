@@ -68,7 +68,7 @@ Claude: [Asks for review again]
 
 ## Ticket Storage
 
-- Active tickets: `.workaholic/tickets/`
+- Active tickets: `.workaholic/tickets/todo/`
 - Icebox (deferred): `.workaholic/tickets/icebox/`
 - Archived: `.workaholic/tickets/archive/<branch-name>/`
 

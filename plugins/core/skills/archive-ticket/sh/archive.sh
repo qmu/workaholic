@@ -13,7 +13,7 @@ FILES=("$@")
 
 if [ -z "$TICKET" ] || [ -z "$COMMIT_MSG" ]; then
     echo "Usage: archive.sh <ticket-path> <commit-message> <repo-url> [description] [files...]"
-    echo "Example: archive.sh .workaholic/tickets/20260115-feature.md 'Add new feature' https://github.com/org/repo 'Enables authentication' src/foo.ts"
+    echo "Example: archive.sh .workaholic/tickets/todo/20260115-feature.md 'Add new feature' https://github.com/org/repo 'Enables authentication' src/foo.ts"
     exit 1
 fi
 
@@ -30,8 +30,10 @@ if [ -z "$BRANCH" ]; then
     exit 1
 fi
 
+# Find tickets root (parent of todo/, icebox/, or archive/)
 TICKET_DIR=$(dirname "$TICKET")
-ARCHIVE_DIR="${TICKET_DIR}/archive/${BRANCH}"
+TICKETS_ROOT=$(echo "$TICKET_DIR" | sed 's|/todo$||; s|/icebox$||')
+ARCHIVE_DIR="${TICKETS_ROOT}/archive/${BRANCH}"
 TICKET_FILENAME=$(basename "$TICKET")
 
 # Step 1: Determine category based on commit message verb

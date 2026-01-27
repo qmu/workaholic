@@ -20,7 +20,7 @@ This design makes stories the single source of truth for PR content, eliminating
 1. Check the current branch name with `git branch --show-current`
 2. Get the base branch (usually `main`) with `git remote show origin | grep 'HEAD branch'`
 3. **Check for remaining tickets**:
-   - List files in `.workaholic/tickets/*.md` (excluding README.md)
+   - List files in `.workaholic/tickets/todo/*.md`
    - If any tickets exist:
      - Warn the user: "Found X unfinished ticket(s) that will be moved to icebox:"
      - List the ticket filenames

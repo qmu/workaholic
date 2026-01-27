@@ -3,9 +3,9 @@ created_at: 2026-01-27T16:37:20+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 15m
+commit_hash: f5667ee
+category: Changed
 ---
 
 # Simplify topic tree and move to Journey section
@@ -74,3 +74,16 @@ Past tickets that touched similar areas:
 - GitHub renders Mermaid flowcharts just like mindmaps
 - Existing stories with mindmap syntax will continue to render correctly (no need to update them)
 - The placement in Journey section emphasizes it as context for the narrative, not a separate deliverable
+
+## Final Report
+
+Implementation deviated from the original plan. Instead of moving the topic tree to the Journey section:
+
+1. **Kept Topic Tree as section 0** - The visual overview at the top is valuable for PR reviewers
+2. **Changed from mindmap to flowchart** with `flowchart LR` (left-to-right) layout
+3. **Timeline-connected subgraphs** - Subgraphs connect to each other showing work progression
+4. **Descriptive node labels** - Using `id[Description]` syntax for clarity (e.g., `s1[Extract spec-writer]`)
+5. **Removed complex mindmap instructions** - Chain Detection, Pivot Detection, Theme Identification, Mindmap Syntax, Depth Guidelines all removed
+6. **Added simpler flowchart guidelines** - 7 bullet points for the new style
+
+The new flowchart style provides better timeline visualization and is easier to read than the nested mindmap approach.

@@ -67,7 +67,7 @@ Do you approve this implementation?
 
 After user approves:
 
-1. **Update the `effort` field** in the ticket's YAML frontmatter with actual time spent (e.g., 0.1h, 0.25h, 0.5h, 1h, 2h). Estimate based on implementation complexity.
+1. **Update the `effort` field** in the ticket's YAML frontmatter with actual time spent in numeric hours. Valid values: `0.1h`, `0.25h`, `0.5h`, `1h`, `2h`, `4h`. Do NOT use t-shirt sizes (XS, S, M) or minutes (10m). Estimate based on implementation complexity.
 
 2. **Append a "## Final Report" section** to the ticket file.
 

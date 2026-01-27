@@ -2,8 +2,8 @@
 title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
-last_updated: 2026-01-27
-commit_hash: 82335e6
+last_updated: 2026-01-28
+commit_hash: 88b4b18
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -111,9 +111,11 @@ reportオペレーションは複数のドキュメントエージェントを�
 concurrent execution（並行実行）は、異なる場所に書き込み、互いに依存関係がない複数のエージェントを並列で呼び出すパターンです。オーケストレーションコマンドは単一のメッセージで複数のTaskツール呼び出しを送信し、エージェントが同時に作業できるようにします。これにより、順次処理と比較して合計実行時間が大幅に短縮されます。
 
 concurrent executionの例:
-- `/report`はchangelog-writer、story-writer、spec-writer、terms-writer、release-readinessを同時実行
+- `/report`は2フェーズ実行を使用:
+  - フェーズ1: changelog-writer、spec-writer、terms-writer、release-readinessを同時実行
+  - フェーズ2: story-writerがrelease-readinessの出力を入力として実行
 
-出力が先行する結果に依存する場合は、順次実行が依然として必要です（例：pr-creatorはstory-writerの後に実行される。ストーリーファイルを読み取るため）。
+出力が先行する結果に依存する場合は、順次実行が依然として必要です（例：story-writerはrelease-readinessの出力が必要、pr-creatorはstory-writerの後に実行される。ストーリーファイルを読み取るため）。
 
 ### 使用パターン
 

@@ -2,8 +2,8 @@
 title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
-last_updated: 2026-01-27
-commit_hash: 82335e6
+last_updated: 2026-01-28
+commit_hash: 88b4b18
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -69,22 +69,18 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 ユーティリティスキル（バンドルされたシェルスクリプト付き）:
 - **archive-ticket**: 完了したチケットをブランチアーカイブに移動
 - **generate-changelog**: アーカイブされたチケットからchangelogエントリを生成
-- **calculate-story-metrics**: コミット数、期間、速度を計算
-- **gather-spec-context**: spec更新のためのコードベースコンテキストを収集
-- **gather-terms-context**: 用語更新のためのコンテキストを収集
-- **manage-pr**: GitHub pull requestを作成または更新
+- **create-branch**: タイムスタンプ付きトピックブランチを作成（例：`feat-20260128-001720`）
+- **create-pr**: PR作成ワークフロー、タイトル導出、GitHub操作用シェルスクリプト
 
 コンテンツスキル（指示とテンプレート）:
-- **write-story**: ストーリーコンテンツ構造とフォーマットガイドライン
-- **write-spec**: スペックファイル形式とコンテンツガイドライン
-- **write-terms**: 用語エントリ形式とドキュメントガイドライン
+- **write-story**: ストーリーコンテンツ構造、フォーマット、メトリクス計算、翻訳要件
+- **write-spec**: スペックファイル形式、コンテンツガイドライン、更新のためのコンテキスト収集
+- **write-terms**: 用語エントリ形式、ドキュメントガイドライン、更新のためのコンテキスト収集
 - **write-changelog**: changelogフォーマットとエントリガイドライン
 - **analyze-performance**: パフォーマンス評価フレームワーク
-- **create-pr**: PR作成ワークフローとフォーマット
-- **define-ticket-format**: チケットファイル構造とフロントマターを定義
+- **create-ticket**: チケットファイル構造、フロントマター、関連履歴、作成ワークフロー
 - **drive-workflow**: チケット処理の実装ワークフロー
-- **block-commands**: サブエージェント用のgitコマンド制限
-- **enforce-i18n**: `.workaholic/`ドキュメントの翻訳要件
+- **translate**: 翻訳ポリシーと`.workaholic/`のi18n適用
 
 ### 関連用語
 
@@ -197,3 +193,37 @@ skills: [story-metrics, i18n]
 ### 関連用語
 
 - skill、agent、frontmatter
+
+## nesting-policy
+
+コンポーネントタイプ間でどれがどれを呼び出せるかを規定するアーキテクチャルール。
+
+### 定義
+
+nesting policyは、コマンド、サブエージェント、スキル間で許可される呼び出しパターンと禁止される呼び出しパターンを定義します。このポリシーにより、オーケストレーション（コマンド、サブエージェント）とナレッジ（スキル）の間の明確な分離が確保されます。
+
+**許可される呼び出し:**
+- コマンド -> スキル（`skills:`フロントマターでプリロード）
+- コマンド -> サブエージェント（Taskツール経由）
+- サブエージェント -> スキル（`skills:`フロントマターでプリロード）
+
+**禁止される呼び出し:**
+- スキル -> サブエージェント（スキルは受動的なナレッジであり、オーケストレーターではない）
+- スキル -> コマンド（スキルはユーザー向けコマンドを呼び出せない）
+- サブエージェント -> サブエージェント（深いネスティングとコンテキスト爆発を防止）
+- サブエージェント -> コマンド（サブエージェントはコマンドに呼び出される側であり、その逆ではない）
+
+指導原則は「薄いコマンドとサブエージェント、包括的なスキル」:
+- コマンド: オーケストレーションのみ（約50-100行）
+- サブエージェント: オーケストレーションのみ（約20-40行）
+- スキル: 包括的なナレッジ（約50-150行）
+
+### 使用パターン
+
+- **ディレクトリ名**: N/A（ポリシーであり、ストレージではない）
+- **ファイル名**: ルート`CLAUDE.md`のArchitecture Policyセクションにドキュメント化
+- **コード参照**: 「nesting policyに従う」、「これはnesting policyに違反する」
+
+### 関連用語
+
+- command、agent、skill、orchestrator

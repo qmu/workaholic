@@ -2,8 +2,8 @@
 title: Command Reference
 description: Complete documentation for all Workaholic commands
 category: user
-modified_at: 2026-01-27T21:13:30+09:00
-commit_hash: 82335e6
+modified_at: 2026-01-28T01:00:15+09:00
+commit_hash: 88b4b18
 ---
 
 [English](commands.md) | [日本語](commands_ja.md)
@@ -32,7 +32,7 @@ Workaholicは統一された**core**プラグインを提供し、gitワーク�
 /report
 ```
 
-コマンドは5つのサブエージェントを調整してドキュメント成果物を生成します：changelog-writerが`CHANGELOG.md`を更新し、story-writerがPRナラティブを生成し、spec-writerが`.workaholic/specs/`を更新し、terms-writerが`.workaholic/terms/`を更新し、pr-creatorがGitHub PRの作成を処理します。最初の4つは並列実行され、その後pr-creatorが生成されたストーリーをボディとして使用してPRを作成します。
+コマンドは2つのフェーズでドキュメント生成を調整します。フェーズ1では4つのサブエージェントが並列実行されます：changelog-writerが`CHANGELOG.md`を更新し、spec-writerが`.workaholic/specs/`を更新し、terms-writerが`.workaholic/terms/`を更新し、release-readinessがリリース準備のための変更を分析します。フェーズ2では、story-writerがrelease-readiness出力を使用してPRナラティブを生成します。最後に、pr-creatorが生成されたストーリーをボディとして使用してGitHub PRの作成を処理します。
 
 PRの説明にはストーリードキュメントの内容が使用されます。ストーリーには以下の11セクションが含まれます：Overview、Motivation、Journey、Changes、Outcome、Historical Analysis、Concerns、Ideas、Performance、Release Preparation、Notes。Journeyセクションには変更をテーマや関心事ごとにグループ化したMermaidフローチャート（Topic Tree）が含まれ、レビュアーにナラティブの視覚的コンテキストを提供します。Changesセクションは各チケットを時系列順に個別のサブセクションとして記載します。Release Preparationセクションにはリリース準備の判定と懸念事項、リリース前後の手順が含まれます。ストーリードキュメントは`.workaholic/stories/<branch-name>.md`に保存され、PR説明文の単一の真実の情報源として機能します。パフォーマンスメトリクスは単一セッションの作業（8時間未満）には時間を、複数日にわたる作業にはbusiness dayを使用し、意味のある速度測定を提供します。
 

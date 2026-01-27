@@ -3,9 +3,9 @@ created_at: 2026-01-28T00:22:11+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: S
+commit_hash: 3b2e0d7
+category: Changed
 ---
 
 # Integrate gather-terms-context into write-terms
@@ -55,3 +55,7 @@ Past tickets that touched similar areas:
 - The parallel `gather-spec-context`/`write-spec` pair should be merged in a separate ticket for consistency
 - The shell script path changes from `gather-terms-context` to `write-terms`
 - The agent still needs `enforce-i18n` as a separate skill since it's shared across multiple agents
+
+## Final Report
+
+Successfully merged gather-terms-context into write-terms. The shell script was copied to `plugins/core/skills/write-terms/sh/gather.sh` and the SKILL.md was expanded with a "Gather Context" section containing script invocation instructions and output documentation. The terms-writer agent now only preloads write-terms and enforce-i18n (two skills instead of three). The gather-terms-context directory was deleted.

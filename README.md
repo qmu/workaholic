@@ -2,11 +2,9 @@
 
 AI-powered development workflow that turns Claude Code into your 10x pair programmer.
 
-## Why Workaholic?
+## Motivation
 
 Write specs with AI exploration, implement with AI assistance, ship with AI-generated documentation. Four commands that unlock high-velocity development through ergonomic AI pair programming.
-
-## Motivation
 
 - **Backlog as Historical Assets** - Tickets live in the repository, not external tools. AI and developers access the same searchable history. Decisions and context are preserved as git-tracked artifacts.
 

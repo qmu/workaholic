@@ -1,8 +1,9 @@
 ---
 title: Add numbered headings rule to general rules
-category: Enhance
+category: Added
 layer: Rule
----
+effort: 0.1h
+commit_hash: a19b847---
 
 ## Overview
 
@@ -46,3 +47,7 @@ Add a new rule after the existing three:
 - This formalizes an existing convention rather than introducing a new one
 - Exceptions for READMEs preserve flexibility for top-level documentation
 - The h4 guidance ("only when helpful") avoids over-numbering nested content
+
+## Final Report
+
+Development completed as planned.

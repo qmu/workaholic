@@ -4,7 +4,7 @@ description: Generate branch story for PR description. Reads archived tickets, c
 tools: Read, Write, Edit, Bash, Glob, Grep, Task
 skills:
   - write-story
-  - calculate-story-metrics
+  - translate
 ---
 
 # Story Writer
@@ -17,14 +17,15 @@ You will receive:
 
 - Branch name to generate story for
 - Base branch (usually `main`)
+- Release-readiness JSON output (from parallel agent invoked by `/report`)
 
 ## Instructions
 
 1. **Gather Source Data**: Read archived tickets using Glob pattern `.workaholic/tickets/archive/<branch-name>/*.md`. Extract frontmatter (`commit_hash`, `category`) and content (Overview, Final Report).
 
-2. **Calculate Metrics**: Use preloaded calculate-story-metrics skill:
+2. **Calculate Metrics**: Use the "Calculate Metrics" section of the preloaded write-story skill:
    ```bash
-   bash .claude/skills/calculate-story-metrics/sh/calculate.sh <base-branch>
+   bash .claude/skills/write-story/sh/calculate.sh <base-branch>
    ```
 
 3. **Derive Issue URL**: Extract issue number from branch name (e.g., `i111-20260113-1832` → `111`).
@@ -33,15 +34,18 @@ You will receive:
 
 5. **Get Performance Analysis**: Invoke performance-analyst subagent (Task tool with `subagent_type: "core:performance-analyst"`) to evaluate decision quality.
 
-6. **Get Release Readiness**: Invoke release-readiness subagent (Task tool with `subagent_type: "core:release-readiness"`) to assess release preparation.
+6. **Write Release Preparation**: Use the release-readiness JSON provided in the input to write section 10 (Release Preparation). Do not invoke release-readiness subagent - it runs in parallel at the orchestrator level.
 
-7. **Update Index**: Add entry to `.workaholic/stories/README.md`.
+7. **Translate Story**: Create `<branch-name>_ja.md` with Japanese translation following the preloaded translate skill.
+
+8. **Update Index**: Add entry to both `.workaholic/stories/README.md` and `README_ja.md`.
 
 ## Output
 
 Return confirmation that:
 
 - Story file was created at `.workaholic/stories/<branch-name>.md`
-- Stories index was updated
+- Japanese translation was created at `.workaholic/stories/<branch-name>_ja.md`
+- Stories index (both README.md and README_ja.md) was updated
 - Performance-analyst evaluation was included
-- Release readiness assessment was included
+- Release-readiness data was formatted into section 10

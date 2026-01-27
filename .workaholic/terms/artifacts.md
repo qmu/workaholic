@@ -2,8 +2,8 @@
 title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
-last_updated: 2026-01-27
-commit_hash: 82335e6
+last_updated: 2026-01-28
+commit_hash: 88b4b18
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -170,3 +170,37 @@ The changes section is section 4 of a story document that provides a comprehensi
 ### Related Terms
 
 - story, journey, ticket, commit
+
+## related-history
+
+A ticket section that links to past tickets touching similar areas for context.
+
+### Definition
+
+The Related History section in a ticket provides links to previously archived tickets that touched similar files, layers, or concerns. This helps developers understand past decisions and patterns when implementing new work. Each entry uses markdown links with full repository-relative paths to make them navigable in GitHub's markdown preview.
+
+Format:
+```markdown
+## Related History
+
+<summary sentence>
+
+Past tickets that touched similar areas:
+
+- [filename.md](full/path/to/archived/ticket.md) - Description (match reason)
+```
+
+The `create-ticket` skill instructs how to find related history by searching for:
+- Tickets that touched the same files
+- Tickets in the same architectural layer
+- Tickets with similar concerns or terminology
+
+### Usage Patterns
+
+- **Directory names**: N/A (section within ticket files)
+- **File names**: Appears in `.workaholic/tickets/todo/<ticket>.md`
+- **Code references**: "Add Related History section", "Link archived tickets in Related History"
+
+### Related Terms
+
+- ticket, archive

@@ -2,8 +2,8 @@
 title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
-last_updated: 2026-01-27
-commit_hash: 82335e6
+last_updated: 2026-01-28
+commit_hash: 88b4b18
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -253,3 +253,41 @@ TDDプラグインへの残りの参照をcoreプラグインへの参照に更�
 ### 推奨される解決策
 
 スキル名参照を新しい動詞-名詞形式に更新してください。この命名規則により、スキルの目的がより明確になります（動詞がスキルが実行するアクションを示します）。
+
+## レガシースキル統合参照
+
+### 問題
+
+フラグメンテーションを減らしスキル階層を簡素化するために、いくつかのスキルがマージされました。過去のドキュメントは、もはや独立したエンティティとして存在しないスキルを参照している可能性があります。
+
+### 現在の使用状況
+
+| 削除されたスキル | 統合先 | 備考 |
+|-----------------|--------|------|
+| manage-pr | create-pr | シェルスクリプトとPR操作を統合 |
+| gather-terms-context | write-terms | コンテキスト収集をwriteスキルに統合 |
+| gather-spec-context | write-spec | コンテキスト収集をwriteスキルに統合 |
+| calculate-story-metrics | write-story | メトリクス計算をwriteスキルに統合 |
+| enforce-i18n | translate | 翻訳要件を統合 |
+| define-ticket-format | create-ticket | チケットフォーマットを作成ワークフローにマージ |
+| block-commands | (削除) | プラグイン配布では無効なため削除 |
+
+### 推奨される解決策
+
+削除されたスキルへの参照を、統合先の場所に更新してください。例えば、`gather-terms-context`への参照は、`write-terms`内の「Gather Context」セクションを参照するようにしてください。
+
+## レガシー「5エージェント同時実行」参照
+
+### 問題
+
+過去のドキュメントは`/report`が5つのエージェントを同時に実行すると記載している可能性があります。現在のアーキテクチャは2フェーズ実行を使用：最初に4つのエージェントが並列実行され、その後story-writerがrelease-readiness出力とともに実行されます。
+
+### 現在の使用状況
+
+- フェーズ1: changelog-writer、spec-writer、terms-writer、release-readiness（並列）
+- フェーズ2: story-writer（release-readiness出力が必要）
+- フェーズ3: pr-creator（ストーリーコンテンツが必要）
+
+### 推奨される解決策
+
+2フェーズ実行モデルを明確にするために参照を更新してください。過去のドキュメントはその時点のアーキテクチャを反映しているため、変更しないでください。

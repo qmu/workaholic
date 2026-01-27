@@ -2,8 +2,8 @@
 title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
-last_updated: 2026-01-27
-commit_hash: 82335e6
+last_updated: 2026-01-28
+commit_hash: 88b4b18
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -170,3 +170,37 @@ changesセクションはストーリードキュメントのセクション4で
 ### 関連用語
 
 - story、journey、ticket、commit
+
+## related-history
+
+コンテキストのために類似領域に触れた過去のチケットへリンクするチケットセクション。
+
+### 定義
+
+チケットのRelated Historyセクションは、同様のファイル、レイヤー、または関心事に触れた過去にアーカイブされたチケットへのリンクを提供します。これにより、開発者は新しい作業を実装する際に過去の決定とパターンを理解できます。各エントリはGitHubのマークダウンプレビューでナビゲート可能にするため、リポジトリ相対パスを持つマークダウンリンクを使用します。
+
+形式:
+```markdown
+## Related History
+
+<要約文>
+
+Past tickets that touched similar areas:
+
+- [filename.md](full/path/to/archived/ticket.md) - 説明（一致理由）
+```
+
+`create-ticket`スキルは以下を検索して関連履歴を見つける方法を指示します：
+- 同じファイルに触れたチケット
+- 同じアーキテクチャレイヤーのチケット
+- 類似の関心事や用語を持つチケット
+
+### 使用パターン
+
+- **ディレクトリ名**: N/A（チケットファイル内のセクション）
+- **ファイル名**: `.workaholic/tickets/todo/<ticket>.md`内に表示
+- **コード参照**: 「Related Historyセクションを追加」、「Related Historyでアーカイブされたチケットをリンク」
+
+### 関連用語
+
+- ticket、archive

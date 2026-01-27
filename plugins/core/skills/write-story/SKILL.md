@@ -1,12 +1,44 @@
 ---
 name: write-story
 description: Story content structure, templates, and writing guidelines for branch narratives.
+allowed-tools: Bash
 user-invocable: false
 ---
 
 # Write Story
 
 Generate a branch story that serves as the single source of truth for PR content.
+
+## Calculate Metrics
+
+Run the bundled script to calculate performance metrics:
+
+```bash
+bash .claude/skills/write-story/sh/calculate.sh [base-branch]
+```
+
+Default base branch is `main`.
+
+### Output Format (JSON)
+
+```json
+{
+  "commits": 15,
+  "started_at": "2026-01-15T10:30:00+09:00",
+  "ended_at": "2026-01-15T14:45:00+09:00",
+  "duration_hours": 4.25,
+  "duration_days": 1,
+  "velocity": 3.53,
+  "velocity_unit": "hour"
+}
+```
+
+### Velocity Unit Selection
+
+- `duration_hours < 8`: velocity is commits/hour, unit is "hour"
+- `duration_hours >= 8`: velocity is commits/day, unit is "day"
+
+Business days are more meaningful for multi-day work since developers have breaks between sessions.
 
 ## Story Content Structure
 
@@ -151,15 +183,23 @@ The subagent returns the table and analysis in the format shown above. Include i
 - Or "None - no special post-release actions needed"
 ```
 
-**Invoking release-readiness:**
+**Release-readiness input:**
 
-Use the Task tool with `subagent_type: "core:release-readiness"` and provide:
+The release-readiness JSON is provided by the orchestrator (`/report` command) which invokes release-readiness as a parallel agent. The JSON contains:
 
-- Branch name
-- Base branch
-- List of archived tickets
+```json
+{
+  "releasable": true/false,
+  "verdict": "Ready for release" / "Needs attention before release",
+  "concerns": [],
+  "instructions": {
+    "pre_release": [],
+    "post_release": []
+  }
+}
+```
 
-The subagent returns JSON with verdict, concerns, and instructions. Format the output into section 10.
+Format this JSON into section 10.
 
 ```markdown
 ## 11. Notes
@@ -196,6 +236,19 @@ velocity_unit: <from metrics.velocity_unit>
 
 ## Updating Stories Index
 
-Update `.workaholic/stories/README.md` to include the new story:
+Update both `.workaholic/stories/README.md` and `README_ja.md` to include the new story:
 
+**README.md**:
 - Add entry: `- [<branch-name>.md](<branch-name>.md) - Brief description of the branch work`
+
+**README_ja.md**:
+- Add entry: `- [<branch-name>_ja.md](<branch-name>_ja.md) - ブランチの作業内容の簡潔な説明`
+
+## Translation
+
+Per `.workaholic/` i18n requirements, create a Japanese translation alongside the English story:
+
+1. Create `<branch-name>_ja.md` with translated content
+2. Keep frontmatter in English (only translate prose content)
+3. Follow the preloaded `translate` skill for translation policies
+4. Technical terms (commit, branch, plugin, etc.) should remain in English

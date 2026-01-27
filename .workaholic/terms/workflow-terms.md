@@ -2,8 +2,8 @@
 title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
-last_updated: 2026-01-27
-commit_hash: 82335e6
+last_updated: 2026-01-28
+commit_hash: 88b4b18
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -111,9 +111,11 @@ Run multiple independent agents simultaneously for improved performance.
 Concurrent execution is a pattern where multiple agents are invoked in parallel when they write to different locations and have no dependencies on each other. The orchestrating command sends multiple Task tool invocations in a single message, allowing agents to work simultaneously. This significantly reduces total execution time compared to sequential processing.
 
 Examples of concurrent execution:
-- `/report` runs changelog-writer, story-writer, spec-writer, terms-writer, and release-readiness concurrently
+- `/report` uses two-phase execution:
+  - Phase 1: changelog-writer, spec-writer, terms-writer, and release-readiness run concurrently
+  - Phase 2: story-writer runs with release-readiness output as input
 
-Sequential execution is still required when outputs depend on prior results (e.g., pr-creator runs after story-writer because it reads the story file).
+Sequential execution is still required when outputs depend on prior results (e.g., story-writer needs release-readiness output, pr-creator runs after story-writer because it reads the story file).
 
 ### Usage Patterns
 

@@ -4,8 +4,7 @@ description: Update .workaholic/specs/ documentation to reflect current codebase
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
   - write-spec
-  - gather-spec-context
-  - enforce-i18n
+  - translate
 ---
 
 # Spec Writer
@@ -20,9 +19,9 @@ You will receive:
 
 ## Instructions
 
-1. **Gather Context**: Use preloaded gather-spec-context skill:
+1. **Gather Context**: Use the "Gather Context" section of the preloaded write-spec skill:
    ```bash
-   bash .claude/skills/gather-spec-context/sh/gather.sh <base-branch>
+   bash .claude/skills/write-spec/sh/gather.sh <base-branch>
    ```
    Read archived tickets if they exist, otherwise use diff output.
 
@@ -32,7 +31,7 @@ You will receive:
 
 4. **Execute Updates**: Follow the preloaded write-spec skill for formatting rules and guidelines.
 
-5. **Update Index Files**: Maintain README links following preloaded enforce-i18n skill.
+5. **Update Index Files**: Maintain README links following preloaded translate skill.
 
 6. **Summarize**: List specs updated/created/deleted, confirm all docs are linked.
 

@@ -2,8 +2,8 @@
 title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
-last_updated: 2026-01-27
-commit_hash: 82335e6
+last_updated: 2026-01-28
+commit_hash: 88b4b18
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -253,3 +253,41 @@ Skill names have been standardized to use verb-noun format. Older documentation 
 ### Recommended Resolution
 
 Update skill name references to use the new verb-noun format. This naming convention makes skill purposes clearer (the verb indicates what action the skill performs).
+
+## Legacy Skill Consolidation References
+
+### Issue
+
+Several skills have been merged to reduce fragmentation and simplify the skill hierarchy. Historical documentation may reference skills that no longer exist as standalone entities.
+
+### Current Usage
+
+| Removed Skill | Merged Into | Notes |
+|---------------|-------------|-------|
+| manage-pr | create-pr | Shell script and PR operations consolidated |
+| gather-terms-context | write-terms | Context gathering integrated into write skill |
+| gather-spec-context | write-spec | Context gathering integrated into write skill |
+| calculate-story-metrics | write-story | Metrics calculation integrated into write skill |
+| enforce-i18n | translate | Translation requirements consolidated |
+| define-ticket-format | create-ticket | Ticket format merged with creation workflow |
+| block-commands | (deleted) | Removed as ineffective for plugin distribution |
+
+### Recommended Resolution
+
+Update any references to removed skills to point to their consolidated locations. For example, references to `gather-terms-context` should now reference the "Gather Context" section within `write-terms`.
+
+## Legacy "5 Agents Concurrently" References
+
+### Issue
+
+Historical documentation may state that `/report` runs 5 agents concurrently. The current architecture uses two-phase execution: 4 agents run in parallel first, then story-writer runs with release-readiness output.
+
+### Current Usage
+
+- Phase 1: changelog-writer, spec-writer, terms-writer, release-readiness (parallel)
+- Phase 2: story-writer (needs release-readiness output)
+- Phase 3: pr-creator (needs story content)
+
+### Recommended Resolution
+
+Update references to clarify the two-phase execution model. Historical documents should remain unchanged as they reflect the architecture at that time.

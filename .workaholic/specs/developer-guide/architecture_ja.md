@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-27T20:33:01+09:00
-commit_hash: eda5a8b
+modified_at: 2026-01-27T21:13:30+09:00
+commit_hash: 82335e6
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -47,6 +47,7 @@ plugins/
       changelog-writer.md     # チケットからCHANGELOG.mdを更新
       performance-analyst.md  # PRストーリーの意思決定レビュー
       pr-creator.md           # GitHub PRの作成/更新
+      release-readiness.md    # リリース準備状況の分析
       spec-writer.md          # .workaholic/specs/を更新
       story-writer.md         # PR用のブランチストーリーを生成
       terms-writer.md         # .workaholic/terms/を更新
@@ -62,40 +63,54 @@ plugins/
       shell.md         # POSIX シェルスクリプト規約
       typescript.md    # TypeScriptコーディング規約
     skills/
+      analyze-performance/
+        SKILL.md           # パフォーマンス分析フレームワーク
       archive-ticket/
         SKILL.md
         sh/
           archive.sh       # コミットワークフロー用シェルスクリプト
-      changelog/
-        SKILL.md
-        sh/
-          generate.sh      # チケットからchangelogエントリを生成
-      command-prohibition/
+      assess-release-readiness/
+        SKILL.md           # リリース準備分析ガイドライン
+      block-commands/
         SKILL.md           # settings.json denyルールのドキュメント
-      drive-workflow/
-        SKILL.md           # チケット実装ワークフロー
-      i18n/
-        SKILL.md           # .workaholic/ドキュメントのi18n要件
-      pr-ops/
-        SKILL.md
-        sh/
-          create-or-update.sh  # GitHub PRの作成/更新
-      spec-context/
-        SKILL.md
-        sh/
-          gather.sh        # スペック更新用のコンテキスト収集
-      story-metrics/
+      calculate-story-metrics/
         SKILL.md
         sh/
           calculate.sh     # パフォーマンスメトリクス計算
-      terms-context/
+      create-pr/
+        SKILL.md           # PR作成手順
+      define-ticket-format/
+        SKILL.md           # チケットファイル構造規約
+      drive-workflow/
+        SKILL.md           # チケット実装ワークフロー
+      enforce-i18n/
+        SKILL.md           # .workaholic/ドキュメントのi18n要件
+      gather-spec-context/
+        SKILL.md
+        sh/
+          gather.sh        # スペック更新用のコンテキスト収集
+      gather-terms-context/
         SKILL.md
         sh/
           gather.sh        # 用語更新用のコンテキスト収集
-      ticket-format/
-        SKILL.md           # チケットファイル構造規約
+      generate-changelog/
+        SKILL.md
+        sh/
+          generate.sh      # チケットからchangelogエントリを生成
+      manage-pr/
+        SKILL.md
+        sh/
+          create-or-update.sh  # GitHub PRの作成/更新
       translate/
         SKILL.md           # i18n用翻訳ポリシー
+      write-changelog/
+        SKILL.md           # changelogライティングガイドライン
+      write-spec/
+        SKILL.md           # specライティングガイドライン
+      write-story/
+        SKILL.md           # ストーリーテンプレートとガイドライン
+      write-terms/
+        SKILL.md           # termsライティングガイドライン
 ```
 
 ## プラグインタイプ
@@ -112,17 +127,24 @@ plugins/
 
 スキルはスクリプトや複数のファイルを含む可能性のある複雑な機能です。Skillツールで呼び出され、インライン指示を提供します。多くのスキルには機械的な操作を処理するbashスクリプトが含まれ、エージェントは意思決定を担当します。coreプラグインには以下が含まれます：
 
+- **analyze-performance**: 5つの次元にわたる意思決定品質の評価フレームワーク
 - **archive-ticket**: 完全なコミットワークフロー（チケットのアーカイブ、フロントマターにコミットハッシュ/カテゴリを更新、コミット）を処理
-- **changelog**: アーカイブされたチケットからchangelogエントリを生成、カテゴリ別にグループ化
-- **command-prohibition**: settings.json denyルールを使用して危険なコマンドをブロックする方法をドキュメント化
+- **assess-release-readiness**: 変更を分析しリリース準備状況を判定するガイドライン
+- **block-commands**: settings.json denyルールを使用して危険なコマンドをブロックする方法をドキュメント化
+- **calculate-story-metrics**: ブランチストーリー用のパフォーマンスメトリクス（コミット数、期間、速度）を計算
+- **create-pr**: 適切なフォーマットでPRを作成する手順
+- **define-ticket-format**: チケットファイル構造とフロントマター規約
 - **drive-workflow**: チケット処理の実装ワークフローステップ
-- **i18n**: `.workaholic/`ドキュメントの翻訳要件を強制（spec-writerとterms-writerがプリロード）
-- **pr-ops**: gh CLIを使用してGitHub PRを作成/更新
-- **spec-context**: ドキュメント更新用のコンテキスト（ブランチ、チケット、スペック、差分）を収集
-- **story-metrics**: ブランチストーリー用のパフォーマンスメトリクス（コミット数、期間、速度）を計算
-- **terms-context**: 用語更新用のコンテキスト（ブランチ、チケット、用語、差分）を収集
-- **ticket-format**: チケットファイル構造とフロントマター規約
+- **enforce-i18n**: `.workaholic/`ドキュメントの翻訳要件を強制（spec-writerとterms-writerがプリロード）
+- **gather-spec-context**: ドキュメント更新用のコンテキスト（ブランチ、チケット、スペック、差分）を収集
+- **gather-terms-context**: 用語更新用のコンテキスト（ブランチ、チケット、用語、差分）を収集
+- **generate-changelog**: アーカイブされたチケットからchangelogエントリを生成、カテゴリ別にグループ化
+- **manage-pr**: gh CLIを使用してGitHub PRを作成/更新
 - **translate**: 英語のマークダウンファイルを他の言語（主に日本語）に変換するための翻訳ポリシー
+- **write-changelog**: changelogエントリのライティングガイドライン
+- **write-spec**: specドキュメントのライティングガイドライン
+- **write-story**: ストーリーのコンテンツ構造、テンプレート、ライティングガイドライン
+- **write-terms**: termsドキュメントのライティングガイドライン
 
 ### エージェント
 
@@ -131,8 +153,9 @@ plugins/
 - **changelog-writer**: アーカイブされたチケットからルート`CHANGELOG.md`をカテゴリ別（Added、Changed、Removed）に更新
 - **performance-analyst**: PRストーリーのために5つの観点（Consistency、Intuitivity、Describability、Agility、Density）で意思決定の質を評価
 - **pr-creator**: ストーリーファイルをPRボディとして使用してGitHub PRを作成または更新、タイトル導出と`gh` CLI操作を処理
+- **release-readiness**: 変更をリリース準備状況について分析、判定・懸念事項・リリース前後の手順を提供
 - **spec-writer**: 現在のコードベースの状態を反映するように`.workaholic/specs/`ドキュメントを更新
-- **story-writer**: PR内容の単一の真実の情報源として機能する`.workaholic/stories/`にブランチストーリーを生成、7つのセクション（Summary、Motivation、Journey（Topic Treeフローチャートを含む）、Changes、Outcome、Performance、Notes）で構成
+- **story-writer**: PR内容の単一の真実の情報源として機能する`.workaholic/stories/`にブランチストーリーを生成、11のセクション（Overview、Motivation、Journey（Topic Treeフローチャートを含む）、Changes、Outcome、Historical Analysis、Concerns、Ideas、Performance、Release Preparation、Notes）で構成
 - **terms-writer**: 一貫した用語定義を維持するために`.workaholic/terms/`を更新
 
 ## 依存関係グラフ
@@ -155,32 +178,42 @@ flowchart LR
         tw[terms-writer]
         pc[pr-creator]
         pa[performance-analyst]
+        rr[release-readiness]
     end
 
     subgraph スキル
         at[archive-ticket]
-        cl[changelog]
-        sm[story-metrics]
-        sc[spec-context]
-        tc[terms-context]
-        po[pr-ops]
-        tf[ticket-format]
+        gc[generate-changelog]
+        csm[calculate-story-metrics]
+        gsc[gather-spec-context]
+        gtc[gather-terms-context]
+        mp[manage-pr]
+        dtf[define-ticket-format]
         dw[drive-workflow]
-        i18n[i18n]
+        ei[enforce-i18n]
+        ws[write-story]
+        wsp[write-spec]
+        wt[write-terms]
+        wc[write-changelog]
+        cp[create-pr]
+        ap[analyze-performance]
+        arr[assess-release-readiness]
     end
 
     report --> cw & sw & spw & tw & pc
     drive --> at & dw
-    ticket --> tf
+    ticket --> dtf
 
-    cw --> cl
-    sw --> sm
-    sw --> pa
-    spw --> sc
-    spw --> i18n
-    tw --> tc
-    tw --> i18n
-    pc --> po
+    cw --> gc & wc
+    sw --> csm & ws
+    sw --> pa & rr
+    spw --> gsc & wsp
+    spw --> ei
+    tw --> gtc & wt
+    tw --> ei
+    pc --> mp & cp
+    pa --> ap
+    rr --> arr
 ```
 
 ## Claude Codeがプラグインをロードする方法

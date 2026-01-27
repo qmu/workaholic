@@ -3,7 +3,7 @@ title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
 last_updated: 2026-01-27
-commit_hash: eda5a8b
+commit_hash: 82335e6
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -66,16 +66,25 @@ Skills can be preloaded by agents via the `skills:` frontmatter field, providing
 
 ### Current Skills
 
+Utility skills (with bundled shell scripts):
 - **archive-ticket**: Moves completed tickets to branch archive
-- **changelog**: Generates changelog entries from archived tickets
-- **story-metrics**: Calculates commit counts, duration, velocity
-- **spec-context**: Gathers codebase context for spec updates
-- **terms-context**: Gathers context for terminology updates
-- **pr-ops**: Creates or updates GitHub pull requests
-- **ticket-format**: Defines ticket file structure and frontmatter
+- **generate-changelog**: Generates changelog entries from archived tickets
+- **calculate-story-metrics**: Calculates commit counts, duration, velocity
+- **gather-spec-context**: Gathers codebase context for spec updates
+- **gather-terms-context**: Gathers context for terminology updates
+- **manage-pr**: Creates or updates GitHub pull requests
+
+Content skills (instructions and templates):
+- **write-story**: Story content structure and formatting guidelines
+- **write-spec**: Spec file format and content guidelines
+- **write-terms**: Term entry format and documentation guidelines
+- **write-changelog**: Changelog formatting and entry guidelines
+- **analyze-performance**: Performance evaluation framework
+- **create-pr**: PR creation workflow and formatting
+- **define-ticket-format**: Defines ticket file structure and frontmatter
 - **drive-workflow**: Implementation workflow for processing tickets
-- **command-prohibition**: Git command restrictions for subagents
-- **i18n**: Translation requirements for `.workaholic/` documentation
+- **block-commands**: Git command restrictions for subagents
+- **enforce-i18n**: Translation requirements for `.workaholic/` documentation
 
 ### Related Terms
 
@@ -109,13 +118,13 @@ Agents (also called subagents) are AI subprocesses that run with specific prompt
 
 Common agent types:
 - **Writer agents**: Generate documentation (spec-writer, terms-writer, story-writer, changelog-writer)
-- **Analyst agents**: Evaluate and analyze (performance-analyst)
+- **Analyst agents**: Evaluate and analyze (performance-analyst, release-readiness)
 - **Creator agents**: Perform external operations (pr-creator)
 
 ### Usage Patterns
 
 - **Directory names**: `plugins/<name>/agents/`
-- **File names**: `performance-analyst.md`, `spec-writer.md`, `story-writer.md`, `changelog-writer.md`, `pr-creator.md`, `terms-writer.md`
+- **File names**: `performance-analyst.md`, `release-readiness.md`, `spec-writer.md`, `story-writer.md`, `changelog-writer.md`, `pr-creator.md`, `terms-writer.md`
 - **Code references**: "Invoke the story-writer agent", "The changelog-writer agent handles...", "Spawn the agent via Task tool"
 
 ### Related Terms
@@ -131,7 +140,7 @@ A command that coordinates multiple agents to complete a complex workflow.
 An orchestrator is a command that delegates specialized work to multiple agents rather than performing tasks inline. The orchestrator gathers initial context, invokes agents (potentially in parallel for performance), and consolidates their outputs. This pattern preserves the main conversation's context window while enabling complex multi-step workflows.
 
 Examples:
-- `/report` orchestrates changelog-writer, story-writer, spec-writer, terms-writer concurrently, then pr-creator sequentially
+- `/report` orchestrates changelog-writer, story-writer, spec-writer, terms-writer, and release-readiness concurrently, then pr-creator sequentially
 
 ### Usage Patterns
 

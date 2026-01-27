@@ -3,7 +3,7 @@ title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
 last_updated: 2026-01-27
-commit_hash: eda5a8b
+commit_hash: 82335e6
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -66,16 +66,25 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 
 ### 現在のスキル
 
+ユーティリティスキル（バンドルされたシェルスクリプト付き）:
 - **archive-ticket**: 完了したチケットをブランチアーカイブに移動
-- **changelog**: アーカイブされたチケットからchangelogエントリを生成
-- **story-metrics**: コミット数、期間、速度を計算
-- **spec-context**: spec更新のためのコードベースコンテキストを収集
-- **terms-context**: 用語更新のためのコンテキストを収集
-- **pr-ops**: GitHub pull requestを作成または更新
-- **ticket-format**: チケットファイル構造とフロントマターを定義
+- **generate-changelog**: アーカイブされたチケットからchangelogエントリを生成
+- **calculate-story-metrics**: コミット数、期間、速度を計算
+- **gather-spec-context**: spec更新のためのコードベースコンテキストを収集
+- **gather-terms-context**: 用語更新のためのコンテキストを収集
+- **manage-pr**: GitHub pull requestを作成または更新
+
+コンテンツスキル（指示とテンプレート）:
+- **write-story**: ストーリーコンテンツ構造とフォーマットガイドライン
+- **write-spec**: スペックファイル形式とコンテンツガイドライン
+- **write-terms**: 用語エントリ形式とドキュメントガイドライン
+- **write-changelog**: changelogフォーマットとエントリガイドライン
+- **analyze-performance**: パフォーマンス評価フレームワーク
+- **create-pr**: PR作成ワークフローとフォーマット
+- **define-ticket-format**: チケットファイル構造とフロントマターを定義
 - **drive-workflow**: チケット処理の実装ワークフロー
-- **command-prohibition**: サブエージェント用のgitコマンド制限
-- **i18n**: `.workaholic/`ドキュメントの翻訳要件
+- **block-commands**: サブエージェント用のgitコマンド制限
+- **enforce-i18n**: `.workaholic/`ドキュメントの翻訳要件
 
 ### 関連用語
 
@@ -109,13 +118,13 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 
 一般的なエージェントタイプ:
 - **ライターエージェント**: ドキュメントを生成（spec-writer、terms-writer、story-writer、changelog-writer）
-- **アナリストエージェント**: 評価と分析を実行（performance-analyst）
+- **アナリストエージェント**: 評価と分析を実行（performance-analyst、release-readiness）
 - **クリエイターエージェント**: 外部操作を実行（pr-creator）
 
 ### 使用パターン
 
 - **ディレクトリ名**: `plugins/<name>/agents/`
-- **ファイル名**: `performance-analyst.md`、`spec-writer.md`、`story-writer.md`、`changelog-writer.md`、`pr-creator.md`、`terms-writer.md`
+- **ファイル名**: `performance-analyst.md`、`release-readiness.md`、`spec-writer.md`、`story-writer.md`、`changelog-writer.md`、`pr-creator.md`、`terms-writer.md`
 - **コード参照**: 「story-writerエージェントを呼び出す」、「changelog-writerエージェントが処理する...」、「Taskツールでエージェントを起動」
 
 ### 関連用語
@@ -131,7 +140,7 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 オーケストレーターは、インラインでタスクを実行する代わりに、専門化された作業を複数のエージェントに委譲するコマンドです。オーケストレーターは初期コンテキストを収集し、エージェントを（パフォーマンスのために並列で）呼び出し、その出力を統合します。このパターンは、複雑なマルチステップワークフローを可能にしながら、メイン会話のコンテキストウィンドウを保持します。
 
 例:
-- `/report`はchangelog-writer、story-writer、spec-writer、terms-writerを同時に、その後pr-creatorを順次オーケストレート
+- `/report`はchangelog-writer、story-writer、spec-writer、terms-writer、release-readinessを同時に、その後pr-creatorを順次オーケストレート
 
 ### 使用パターン
 

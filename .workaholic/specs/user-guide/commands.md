@@ -2,8 +2,8 @@
 title: Command Reference
 description: Complete documentation for all Workaholic commands
 category: user
-modified_at: 2026-01-27T20:33:01+09:00
-commit_hash: eda5a8b
+modified_at: 2026-01-27T21:13:30+09:00
+commit_hash: 82335e6
 ---
 
 [English](commands.md) | [日本語](commands_ja.md)
@@ -34,7 +34,7 @@ Generates comprehensive documentation and creates or updates a pull request.
 
 The command orchestrates five subagents to generate documentation artifacts: changelog-writer updates `CHANGELOG.md`, story-writer generates the PR narrative, spec-writer updates `.workaholic/specs/`, terms-writer updates `.workaholic/terms/`, and pr-creator handles GitHub PR creation. The first four run in parallel, then pr-creator runs after to create the PR using the generated story as the body.
 
-The PR description is generated from a story document that includes seven sections: Summary, Motivation, Journey, Changes, Outcome, Performance, and Notes. The Journey section includes a Mermaid flowchart (Topic Tree) showing relationships between changes grouped by theme or concern, giving reviewers visual context for the narrative. The Changes section lists each ticket as its own subsection in chronological order. The story serves as the single source of truth for PR content and is saved to `.workaholic/stories/<branch-name>.md`. Performance metrics use hours for single-session work (under 8 hours) and business days for multi-day work, providing meaningful velocity measurements.
+The PR description is generated from a story document that includes eleven sections: Overview, Motivation, Journey, Changes, Outcome, Historical Analysis, Concerns, Ideas, Performance, Release Preparation, and Notes. The Journey section includes a Mermaid flowchart (Topic Tree) showing relationships between changes grouped by theme or concern, giving reviewers visual context for the narrative. The Changes section lists each ticket as its own subsection in chronological order. The Release Preparation section includes a release-readiness verdict with concerns and pre/post-release instructions. The story serves as the single source of truth for PR content and is saved to `.workaholic/stories/<branch-name>.md`. Performance metrics use hours for single-session work (under 8 hours) and business days for multi-day work, providing meaningful velocity measurements.
 
 Any remaining unfinished tickets are automatically moved to icebox before creating the PR.
 

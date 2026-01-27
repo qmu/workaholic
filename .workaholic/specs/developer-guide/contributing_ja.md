@@ -85,7 +85,7 @@ description: Coding standard this rule enforces
 ```
 plugins/<plugin>/skills/my-skill/
   SKILL.md           # スキルドキュメント
-  scripts/
+  sh/
     run.sh           # 実行可能スクリプト
 ```
 

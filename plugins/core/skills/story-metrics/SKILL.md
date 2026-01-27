@@ -18,7 +18,7 @@ Use this skill to calculate commit counts, timestamps, duration, and velocity fo
 Run the bundled script to calculate metrics:
 
 ```bash
-bash .claude/skills/story-metrics/scripts/calculate.sh [base-branch]
+bash .claude/skills/story-metrics/sh/calculate.sh [base-branch]
 ```
 
 Default base branch is `main`.

@@ -97,7 +97,7 @@ This creates a historical record of decisions made during implementation.
 After writing the final report, run the archive-ticket skill which handles everything:
 
 ```bash
-bash .claude/skills/archive-ticket/scripts/archive.sh \
+bash .claude/skills/archive-ticket/sh/archive.sh \
   <ticket-path> \
   "<commit-message>" \
   <repo-url> \

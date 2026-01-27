@@ -4,6 +4,7 @@ description: Update .workaholic/specs/ documentation to reflect current codebase
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
   - spec-context
+  - i18n
 ---
 
 # Spec Writer
@@ -121,7 +122,7 @@ commit_hash: <from context COMMIT section>
 **i18n README mirroring:**
 
 - Any document added to one README must have its translation linked in the other
-- See `plugins/core/rules/i18n.md` for `.workaholic/` i18n policy
+- Follow the preloaded `i18n` skill for translation requirements
 
 ### 7. Completion
 

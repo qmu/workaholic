@@ -2,6 +2,8 @@
 name: terms-writer
 description: Update .workaholic/terms/ documentation to maintain consistent term definitions. Use after completing implementation work.
 tools: Read, Write, Edit, Bash, Glob, Grep
+skills:
+  - i18n
 ---
 
 # Terms Writer
@@ -136,7 +138,7 @@ Ensure documentation hierarchy is maintained:
 When terminology files have translations (e.g., `artifacts.md` and `artifacts_ja.md`):
 
 - Any term added to one file must have its translation in the other
-- See `plugins/core/rules/i18n.md` for `.workaholic/` i18n policy
+- Follow the preloaded `i18n` skill for translation requirements
 
 ### 6. Completion
 

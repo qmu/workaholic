@@ -4,7 +4,6 @@ description: Create or update GitHub PR from story file. Handles PR existence ch
 tools: Read, Bash, Glob
 skills:
   - create-pr
-  - manage-pr
 ---
 
 # PR Creator

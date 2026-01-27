@@ -3,9 +3,9 @@ created_at: 2026-01-28T00:42:52+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: XS
+commit_hash: 2e696ff
+category: Changed
 ---
 
 # Thin ticket command by moving content to create-ticket skill
@@ -46,3 +46,7 @@ The command should only cover:
 - The skill is preloaded via `skills: [create-ticket]` in frontmatter
 - Preloaded skills inject their full content into the command context
 - Duplication wastes context tokens and can cause inconsistency
+
+## Final Report
+
+Simplified ticket.md from 47 to 41 lines by condensing steps 2 and 3 to single-line references to the preloaded skill. The command now focuses purely on workflow orchestration (argument parsing, commit decision, presentation) while all ticket creation knowledge resides in the create-ticket skill.

@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: bug
 layer: [Config]
 effort: 10m
----
-
+commit_hash: edea513---
+category: Changed
 # Fix topic tree inconsistency between story-writer template and output
 
 ## Overview

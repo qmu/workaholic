@@ -3,9 +3,9 @@ created_at: 2026-01-28T00:50:21+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: S
+commit_hash: 36d82f0
+category: Added
 ---
 
 # Add story translation requirement to write-story skill
@@ -53,3 +53,7 @@ Past tickets that touched similar areas:
 - Story content is prose-heavy, so translation will add significant work
 - The README_ja.md index also needs the new story entry
 - Story frontmatter stays in English (only content is translated)
+
+## Final Report
+
+Updated story-writer agent to preload translate skill and added step 7 for translation and step 8 for updating both README index files. Updated write-story skill with bilingual index documentation and new Translation section with instructions for creating Japanese translations.

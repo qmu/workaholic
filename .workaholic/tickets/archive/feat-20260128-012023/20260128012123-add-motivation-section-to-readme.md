@@ -3,9 +3,9 @@ created_at: 2026-01-28T01:21:23+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 999b21c
+category: Added
 ---
 
 # Add Motivation Section to Root README
@@ -46,9 +46,18 @@ Add a "Motivation" section to the root README.md that explains why Workaholic ex
 
 3. Keep it concise - one well-organized paragraph or 3-4 bullet points is ideal
 
+4. Add a fourth bullet point "Cognitive Investment" within Motivation that combines semantic aspects (intuitivity, consistency, describability, density) in the same style as the other bullets
+
 ## Content Guidelines
 
 - Write for developers evaluating the tool (not for contributors)
 - Avoid jargon; explain the "why" not just the "what"
 - Connect motivation to concrete commands (`/ticket`, `/drive`, `/report`)
 - Keep the existing installation and quick start sections prominent
+
+## Final Report
+
+Implementation deviated from original plan:
+
+- **Change**: Added fourth bullet "Cognitive Investment" combining semantic aspects into one item
+  **Reason**: User requested semantic aspects (intuitivity, consistency, describability, density) be added as a single bullet point in the same style as the other three, not as separate bullets or a separate section

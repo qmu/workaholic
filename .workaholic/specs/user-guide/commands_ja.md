@@ -2,8 +2,8 @@
 title: Command Reference
 description: Complete documentation for all Workaholic commands
 category: user
-modified_at: 2026-01-27T19:52:09+09:00
-commit_hash: 4938294
+modified_at: 2026-01-27T20:12:36+09:00
+commit_hash: 921a9a3
 ---
 
 [English](commands.md) | [日本語](commands_ja.md)
@@ -34,17 +34,18 @@ Workaholicは統一された**core**プラグインを提供し、gitワーク�
 
 コマンドは5つのサブエージェントを調整してドキュメント成果物を生成します：changelog-writerが`CHANGELOG.md`を更新し、story-writerがPRナラティブを生成し、spec-writerが`.workaholic/specs/`を更新し、terms-writerが`.workaholic/terms/`を更新し、pr-creatorがGitHub PRの作成を処理します。最初の4つは並列実行され、その後pr-creatorが生成されたストーリーをボディとして使用してPRを作成します。
 
-PRの説明にはストーリードキュメントの内容が使用されます。ストーリーには以下の7セクションが含まれます：
+PRの説明にはストーリードキュメントの内容が使用されます。ストーリーには以下の8セクションが含まれます：
 
+- **Topic Tree** - 変更をテーマや関心事ごとにグループ化したMermaidフローチャートで視覚的概要を提供
 - **Summary** - ブランチのCHANGELOGから生成された変更の番号付きリスト
 - **Motivation** - なぜこの作業が必要だったか
-- **Journey** - 開発中の意思決定と進行（Topic Flowchartを含む）
+- **Journey** - 開発中の意思決定と進行
 - **Changes** - 各チケットを時系列順にサブセクションとして記載
 - **Outcome** - 達成されたこと
 - **Performance** - メトリクスと意思決定レビュー
 - **Notes** - レビュアー向けの追加コンテキスト
 
-Journeyセクションには変更をテーマや関心事ごとにグループ化したMermaidフローチャートが埋め込まれています。Changesセクションは各チケットを時系列順に個別のサブセクションとして記載します。ストーリードキュメントは`.workaholic/stories/<branch-name>.md`に保存され、PR説明文の単一の真実の情報源として機能します。パフォーマンスメトリクスは単一セッションの作業（8時間未満）には時間を、複数日にわたる作業にはbusiness dayを使用し、意味のある速度測定を提供します。
+Topic Treeはストーリーの先頭に配置され、レビュアーに素早い視覚的概要を提供します。Changesセクションは各チケットを時系列順に個別のサブセクションとして記載します。ストーリードキュメントは`.workaholic/stories/<branch-name>.md`に保存され、PR説明文の単一の真実の情報源として機能します。パフォーマンスメトリクスは単一セッションの作業（8時間未満）には時間を、複数日にわたる作業にはbusiness dayを使用し、意味のある速度測定を提供します。
 
 ## チケット駆動開発コマンド
 

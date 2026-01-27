@@ -3,7 +3,7 @@ title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
 last_updated: 2026-01-27
-commit_hash: 4938294
+commit_hash: 921a9a3
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -107,7 +107,7 @@ A narrative section in a story that summarizes the development progression and d
 
 ### Definition
 
-The journey is section 2 of a story document that provides a high-level narrative of how development progressed. It focuses on phases and pivots rather than individual ticket details, typically 100-200 words. The journey section includes an embedded topic tree (Mermaid flowchart) as a visual aid that complements the narrative text. The journey answers "how did we get here?" while the Changes section (section 3) provides the detailed "what changed?"
+The journey is section 3 of a story document that provides a high-level narrative of how development progressed. It focuses on phases and pivots rather than individual ticket details, typically 100-200 words. The journey answers "how did we get here?" while the Changes section (section 4) provides the detailed "what changed?". The Topic Tree (section 0) provides the visual overview that complements this narrative.
 
 ### Usage Patterns
 
@@ -125,7 +125,7 @@ A visual flowchart diagram showing the structure and progression of changes in a
 
 ### Definition
 
-The topic tree is a Mermaid flowchart embedded within the Journey section of a story that provides a visual overview of how tickets relate to each other. It groups tickets by concern/purpose using subgraphs, shows decision-making progression with arrows, and helps PR reviewers quickly understand the scope and structure of changes alongside the narrative.
+The topic tree is a Mermaid flowchart placed at the top of a story (section 0) that provides a visual overview of how tickets relate to each other. It groups tickets by concern/purpose using subgraphs, shows decision-making progression with arrows, and helps PR reviewers quickly understand the scope and structure of changes before reading the narrative.
 
 Format:
 ```mermaid
@@ -149,7 +149,7 @@ The flowchart uses left-to-right layout (`flowchart LR`) with subgraphs represen
 
 ### Related Terms
 
-- story, ticket, Mermaid, journey
+- story, ticket, Mermaid
 
 ## changes
 
@@ -157,7 +157,7 @@ A detailed section in a story that lists every ticket/commit with its descriptio
 
 ### Definition
 
-The changes section is section 3 of a story document that provides a comprehensive list of all changes made during the branch's development. Unlike the Journey section (which provides a summarized narrative), Changes lists one subsection per ticket/commit in the format: `### 3.N. <Ticket title> ([hash](commit-url))`. Each subsection contains a brief 1-2 sentence description from the ticket's Overview, serving as the detailed "what changed?" companion to Journey's "how did we get here?"
+The changes section is section 4 of a story document that provides a comprehensive list of all changes made during the branch's development. Unlike the Journey section (which provides a summarized narrative), Changes lists one subsection per ticket/commit in the format: `### 4.N. <Ticket title> ([hash](commit-url))`. Each subsection contains a brief 1-2 sentence description from the ticket's Overview, serving as the detailed "what changed?" companion to Journey's "how did we get here?"
 
 ### Usage Patterns
 

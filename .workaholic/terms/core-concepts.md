@@ -3,7 +3,7 @@ title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
 last_updated: 2026-01-27
-commit_hash: 4938294
+commit_hash: 921a9a3
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)

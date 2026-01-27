@@ -20,15 +20,9 @@ Explore the codebase to understand requirements and write an implementation tick
 
 2. **Explore and Write Ticket**
 
-   Follow the preloaded create-ticket skill for:
-   - Exploring the codebase to find relevant files
-   - Finding related history in archived tickets
-   - Using the correct filename convention and file structure
-   - Writing proper frontmatter with required fields
+   Follow the preloaded create-ticket skill for exploration, related history, file format, and content guidelines.
 
-3. **Ask Clarifying Questions**
-
-   Use AskUserQuestion tool if requirements are ambiguous. Use judgment for reasonable defaults.
+3. **Ask Clarifying Questions** if requirements are ambiguous.
 
 4. **Commit the Ticket**
 

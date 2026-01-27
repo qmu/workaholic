@@ -83,26 +83,31 @@ Refs #<issue-number>
 ## 0. Topic Tree
 
 ```mermaid
-flowchart TD
+flowchart LR
   subgraph Subagents[Subagent Architecture]
-    sync --> story --> changelog --> pr-creator
+    s1[Extract spec-writer] --> s2[Extract story-writer] --> s3[Extract changelog-writer] --> s4[Extract pr-creator]
   end
+
   subgraph GitSafety[Git Command Safety]
-    guidelines --> strengthen --> embed --> deny-rule
+    g1[Add git guidelines] --> g2[Strengthen rules] --> g3[Embed in agents] --> g4[Use deny rule]
   end
-  subgraph Skills[Skill Extraction]
-    changelog-skill & story-metrics & spec-context & pr-ops
+
+  subgraph Commands[Command Simplification]
+    c1[Remove /sync] --> c2[Remove /commit] --> c3[Rename to /report]
   end
+
+  Subagents --> GitSafety --> Commands
 ```
 
 #### Flowchart Guidelines
 
-- Use `flowchart TD` (top-down) for clarity
-- **Group by concern/purpose**: Each subgraph represents one goal or decision area
-- Show decision-making flow with arrows (A tried, then B, then C)
-- Parallel work shown with `&` syntax (no arrows between independent items)
+- Use `flowchart LR` (left-to-right) for timeline visualization
+- **Group by theme**: Each subgraph represents one concern or decision area
+- **Connect subgraphs in timeline order**: Show progression of work phases
+- **Descriptive node labels**: Use `id[Description]` syntax (e.g., `s1[Extract spec-writer]`)
+- Show sequential flow with arrows within each subgraph
 - Maximum 3-5 subgraphs per diagram
-- Labels: max 20 characters, use abbreviated names
+- Connect subgraphs at the end: `Theme1 --> Theme2 --> Theme3`
 
 ## 1. Summary
 

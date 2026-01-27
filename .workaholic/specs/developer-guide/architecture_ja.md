@@ -120,6 +120,49 @@ plugins/
 - **story-writer**: PR内容の単一の真実の情報源として機能する`.workaholic/stories/`にブランチストーリーを生成、パフォーマンスメトリクスと意思決定レビューを含む
 - **terms-writer**: 一貫した用語定義を維持するために`.workaholic/terms/`を更新
 
+## 依存関係グラフ
+
+この図は、コマンド、エージェント、スキルが実行時にどのように相互呼び出しするかを示しています。
+
+```mermaid
+flowchart LR
+    subgraph コマンド
+        report[/report]
+        drive[/drive]
+        ticket[/ticket]
+        branch[/branch]
+    end
+
+    subgraph エージェント
+        cw[changelog-writer]
+        sw[story-writer]
+        spw[spec-writer]
+        tw[terms-writer]
+        pc[pr-creator]
+        pa[performance-analyst]
+    end
+
+    subgraph スキル
+        at[archive-ticket]
+        cl[changelog]
+        sm[story-metrics]
+        sc[spec-context]
+        po[pr-ops]
+        tf[ticket-format]
+        dw[drive-workflow]
+    end
+
+    report --> cw & sw & spw & tw & pc
+    drive --> at & dw
+    ticket --> tf
+
+    cw --> cl
+    sw --> sm
+    sw --> pa
+    spw --> sc
+    pc --> po
+```
+
 ## Claude Codeがプラグインをロードする方法
 
 ユーザーが`/plugin marketplace add qmu/workaholic`でマーケットプレイスをインストールすると、Claude Codeは：

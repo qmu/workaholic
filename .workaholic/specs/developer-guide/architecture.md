@@ -120,6 +120,49 @@ Agents are specialized subagents that can be spawned to handle complex tasks. Th
 - **story-writer**: Generates branch stories in `.workaholic/stories/` that serve as the single source of truth for PR content, including performance metrics and decision review
 - **terms-writer**: Updates `.workaholic/terms/` to maintain consistent term definitions
 
+## Dependency Graph
+
+This diagram shows how commands, agents, and skills invoke each other at runtime.
+
+```mermaid
+flowchart LR
+    subgraph Commands
+        report[/report]
+        drive[/drive]
+        ticket[/ticket]
+        branch[/branch]
+    end
+
+    subgraph Agents
+        cw[changelog-writer]
+        sw[story-writer]
+        spw[spec-writer]
+        tw[terms-writer]
+        pc[pr-creator]
+        pa[performance-analyst]
+    end
+
+    subgraph Skills
+        at[archive-ticket]
+        cl[changelog]
+        sm[story-metrics]
+        sc[spec-context]
+        po[pr-ops]
+        tf[ticket-format]
+        dw[drive-workflow]
+    end
+
+    report --> cw & sw & spw & tw & pc
+    drive --> at & dw
+    ticket --> tf
+
+    cw --> cl
+    sw --> sm
+    sw --> pa
+    spw --> sc
+    pc --> po
+```
+
 ## How Claude Code Loads Plugins
 
 When a user installs the marketplace with `/plugin marketplace add qmu/workaholic`, Claude Code:

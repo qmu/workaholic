@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-27T20:33:01+09:00
-commit_hash: eda5a8b
+modified_at: 2026-01-27T21:13:30+09:00
+commit_hash: 82335e6
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -47,6 +47,7 @@ plugins/
       changelog-writer.md     # Updates CHANGELOG.md from tickets
       performance-analyst.md  # Decision review for PR stories
       pr-creator.md           # Creates/updates GitHub PRs
+      release-readiness.md    # Analyzes changes for release readiness
       spec-writer.md          # Updates .workaholic/specs/
       story-writer.md         # Generates branch stories for PRs
       terms-writer.md         # Updates .workaholic/terms/
@@ -62,40 +63,54 @@ plugins/
       shell.md         # POSIX shell script conventions
       typescript.md    # TypeScript coding standards
     skills/
+      analyze-performance/
+        SKILL.md           # Performance analysis framework
       archive-ticket/
         SKILL.md
         sh/
           archive.sh       # Shell script for commit workflow
-      changelog/
-        SKILL.md
-        sh/
-          generate.sh      # Generates changelog entries from tickets
-      command-prohibition/
+      assess-release-readiness/
+        SKILL.md           # Release readiness analysis guidelines
+      block-commands/
         SKILL.md           # Documents settings.json deny rules
-      drive-workflow/
-        SKILL.md           # Implementation workflow for tickets
-      i18n/
-        SKILL.md           # i18n requirements for .workaholic/ docs
-      pr-ops/
-        SKILL.md
-        sh/
-          create-or-update.sh  # Creates or updates GitHub PRs
-      spec-context/
-        SKILL.md
-        sh/
-          gather.sh        # Gathers context for spec updates
-      story-metrics/
+      calculate-story-metrics/
         SKILL.md
         sh/
           calculate.sh     # Calculates performance metrics
-      terms-context/
+      create-pr/
+        SKILL.md           # PR creation instructions
+      define-ticket-format/
+        SKILL.md           # Ticket file structure conventions
+      drive-workflow/
+        SKILL.md           # Implementation workflow for tickets
+      enforce-i18n/
+        SKILL.md           # i18n requirements for .workaholic/ docs
+      gather-spec-context/
+        SKILL.md
+        sh/
+          gather.sh        # Gathers context for spec updates
+      gather-terms-context/
         SKILL.md
         sh/
           gather.sh        # Gathers context for terms updates
-      ticket-format/
-        SKILL.md           # Ticket file structure conventions
+      generate-changelog/
+        SKILL.md
+        sh/
+          generate.sh      # Generates changelog entries from tickets
+      manage-pr/
+        SKILL.md
+        sh/
+          create-or-update.sh  # Creates or updates GitHub PRs
       translate/
         SKILL.md           # Translation policies for i18n
+      write-changelog/
+        SKILL.md           # Changelog writing guidelines
+      write-spec/
+        SKILL.md           # Spec writing guidelines
+      write-story/
+        SKILL.md           # Story writing templates and guidelines
+      write-terms/
+        SKILL.md           # Terms writing guidelines
 ```
 
 ## Plugin Types
@@ -112,17 +127,24 @@ Rules are always-on guidelines that Claude follows throughout the conversation. 
 
 Skills are complex capabilities that may include scripts or multiple files. They are invoked via the Skill tool and provide inline instructions. Many skills include bash scripts that handle mechanical operations, while agents handle decision-making. The core plugin includes:
 
+- **analyze-performance**: Evaluation framework for decision-making quality across five dimensions
 - **archive-ticket**: Handles the complete commit workflow (archive ticket, update frontmatter with commit hash/category, commit)
-- **changelog**: Generates changelog entries from archived tickets, grouping by category
-- **command-prohibition**: Documents how to use settings.json deny rules to block dangerous commands
+- **assess-release-readiness**: Guidelines for analyzing changes and determining release readiness
+- **block-commands**: Documents how to use settings.json deny rules to block dangerous commands
+- **calculate-story-metrics**: Calculates performance metrics (commits, duration, velocity) for branch stories
+- **create-pr**: Instructions for creating pull requests with proper formatting
+- **define-ticket-format**: Ticket file structure and frontmatter conventions
 - **drive-workflow**: Implementation workflow steps for processing tickets
-- **i18n**: Enforces translation requirements for `.workaholic/` documentation (spec-writer and terms-writer preload this)
-- **pr-ops**: Creates or updates GitHub PRs using the gh CLI
-- **spec-context**: Gathers context (branch, tickets, specs, diff) for documentation updates
-- **story-metrics**: Calculates performance metrics (commits, duration, velocity) for branch stories
-- **terms-context**: Gathers context (branch, tickets, terms, diff) for terminology updates
-- **ticket-format**: Ticket file structure and frontmatter conventions
+- **enforce-i18n**: Enforces translation requirements for `.workaholic/` documentation (spec-writer and terms-writer preload this)
+- **gather-spec-context**: Gathers context (branch, tickets, specs, diff) for documentation updates
+- **gather-terms-context**: Gathers context (branch, tickets, terms, diff) for terminology updates
+- **generate-changelog**: Generates changelog entries from archived tickets, grouping by category
+- **manage-pr**: Creates or updates GitHub PRs using the gh CLI
 - **translate**: Translation policies for converting English markdown files to other languages (primarily Japanese)
+- **write-changelog**: Guidelines for writing changelog entries
+- **write-spec**: Guidelines for writing and updating specification documents
+- **write-story**: Story content structure, templates, and writing guidelines
+- **write-terms**: Guidelines for writing and updating terminology documents
 
 ### Agents
 
@@ -131,8 +153,9 @@ Agents are specialized subagents that can be spawned to handle complex tasks. Th
 - **changelog-writer**: Updates root `CHANGELOG.md` with entries from archived tickets, grouped by category (Added, Changed, Removed)
 - **performance-analyst**: Evaluates decision-making quality across five viewpoints (Consistency, Intuitivity, Describability, Agility, Density) for PR stories
 - **pr-creator**: Creates or updates GitHub pull requests using the story file as PR body, handling title derivation and `gh` CLI operations
+- **release-readiness**: Analyzes changes for release readiness, providing verdict, concerns, and pre/post-release instructions
 - **spec-writer**: Updates `.workaholic/specs/` documentation to reflect current codebase state
-- **story-writer**: Generates branch stories in `.workaholic/stories/` that serve as the single source of truth for PR content, with seven sections: Summary, Motivation, Journey (containing Topic Tree flowchart), Changes, Outcome, Performance, and Notes
+- **story-writer**: Generates branch stories in `.workaholic/stories/` that serve as the single source of truth for PR content, with eleven sections: Overview, Motivation, Journey (containing Topic Tree flowchart), Changes, Outcome, Historical Analysis, Concerns, Ideas, Performance, Release Preparation, and Notes
 - **terms-writer**: Updates `.workaholic/terms/` to maintain consistent term definitions
 
 ## Dependency Graph
@@ -155,32 +178,42 @@ flowchart LR
         tw[terms-writer]
         pc[pr-creator]
         pa[performance-analyst]
+        rr[release-readiness]
     end
 
     subgraph Skills
         at[archive-ticket]
-        cl[changelog]
-        sm[story-metrics]
-        sc[spec-context]
-        tc[terms-context]
-        po[pr-ops]
-        tf[ticket-format]
+        gc[generate-changelog]
+        csm[calculate-story-metrics]
+        gsc[gather-spec-context]
+        gtc[gather-terms-context]
+        mp[manage-pr]
+        dtf[define-ticket-format]
         dw[drive-workflow]
-        i18n[i18n]
+        ei[enforce-i18n]
+        ws[write-story]
+        wsp[write-spec]
+        wt[write-terms]
+        wc[write-changelog]
+        cp[create-pr]
+        ap[analyze-performance]
+        arr[assess-release-readiness]
     end
 
     report --> cw & sw & spw & tw & pc
     drive --> at & dw
-    ticket --> tf
+    ticket --> dtf
 
-    cw --> cl
-    sw --> sm
-    sw --> pa
-    spw --> sc
-    spw --> i18n
-    tw --> tc
-    tw --> i18n
-    pc --> po
+    cw --> gc & wc
+    sw --> csm & ws
+    sw --> pa & rr
+    spw --> gsc & wsp
+    spw --> ei
+    tw --> gtc & wt
+    tw --> ei
+    pc --> mp & cp
+    pa --> ap
+    rr --> arr
 ```
 
 ## How Claude Code Loads Plugins

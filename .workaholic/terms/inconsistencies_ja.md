@@ -3,7 +3,7 @@ title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
 last_updated: 2026-01-27
-commit_hash: eda5a8b
+commit_hash: 82335e6
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -162,7 +162,7 @@ TDDプラグインへの残りの参照をcoreプラグインへの参照に更�
 ### 現在の使用状況
 
 - 現在の構造：`plugins/<name>/skills/<skill-name>/SKILL.md`とオプションの`sh/`ディレクトリ
-- 現在のスキル：archive-ticket、changelog、story-metrics、spec-context、terms-context、pr-ops、ticket-format、drive-workflow、command-prohibition、i18n
+- 現在のスキル（動詞-名詞形式）：archive-ticket、generate-changelog、calculate-story-metrics、gather-spec-context、gather-terms-context、manage-pr、define-ticket-format、drive-workflow、block-commands、enforce-i18n、write-story、write-spec、write-terms、write-changelog、analyze-performance、create-pr、assess-release-readiness
 - 過去のパターン：`archive-ticket.md`のような単一マークダウンファイル
 - 過去のディレクトリ：`scripts/`（現在は`sh/`に改名、POSIXシェル互換性のため）
 
@@ -215,3 +215,41 @@ TDDプラグインへの残りの参照をcoreプラグインへの参照に更�
 ### 推奨される解決策
 
 「セクション0 Topic Tree」への参照を、Topic Treeフローチャートが現在ジャーニーセクション（セクション3）内に埋め込まれていることを明確にするように更新します。過去のドキュメント（アーカイブされたチケット、ストーリー）はその時点の構造を反映しているため、変更しないでください。
+
+## ストーリーセクション数の進化
+
+### 問題
+
+過去のドキュメントはストーリーが7つのセクションを持つと参照している可能性がありますが、現在のストーリーフォーマットは追加の分析セクションを含む11セクションに拡張されています。
+
+### 現在の使用状況
+
+- 現在のセクション数：11セクション（Summary、Motivation、Journey、Changes、Outcome、Performance、Decisions、Risks、Release Preparation、Notes）
+- 過去の参照：7セクション（Summary、Motivation、Journey、Changes、Outcome、Performance、Notes）
+
+### 推奨される解決策
+
+ストーリーセクションを参照する際は、現在のセクション番号を使用してください。過去のドキュメントは変更しないでください。追加セクション（Decisions、Risks、Release Preparation）は、より包括的なPRコンテキストを提供するために追加されました。
+
+## レガシースキル命名参照
+
+### 問題
+
+スキル名は動詞-名詞形式に標準化されました。古いドキュメントは以前の名前を参照している可能性があります。
+
+### 現在の使用状況
+
+| 旧名称 | 新名称 |
+|--------|--------|
+| changelog | generate-changelog |
+| story-metrics | calculate-story-metrics |
+| spec-context | gather-spec-context |
+| terms-context | gather-terms-context |
+| pr-ops | manage-pr |
+| ticket-format | define-ticket-format |
+| command-prohibition | block-commands |
+| i18n | enforce-i18n |
+
+### 推奨される解決策
+
+スキル名参照を新しい動詞-名詞形式に更新してください。この命名規則により、スキルの目的がより明確になります（動詞がスキルが実行するアクションを示します）。

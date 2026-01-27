@@ -3,7 +3,7 @@ title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
 last_updated: 2026-01-27
-commit_hash: eda5a8b
+commit_hash: 82335e6
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -70,7 +70,7 @@ PR説明文の単一の真実の情報源として機能する包括的なドキ
 
 ### 定義
 
-ストーリーは、単一のブランチで複数のチケットにわたる開発作業の動機、進行、結果を統合します。ストーリーはPRワークフロー中に生成され、7つのセクションにわたる完全なPR説明文の内容を含みます：Summary、Motivation、Journey（埋め込みTopic Treeフローチャート付き）、Changes（詳細な説明）、Outcome、Performance（メトリクスと意思決定レビュー）、Notes。ストーリーの内容（YAMLフロントマターを除く）はPRボディとしてそのままGitHubにコピーされます。
+ストーリーは、単一のブランチで複数のチケットにわたる開発作業の動機、進行、結果を統合します。ストーリーはPRワークフロー中に生成され、11のセクションにわたる完全なPR説明文の内容を含みます：Summary（概要段落付き）、Motivation、Journey（埋め込みTopic Treeフローチャート付き）、Changes（カテゴリ別サブセクション付き）、Outcome、Performance（埋め込みメトリクス付き）、Decisions（主要なアーキテクチャの選択）、Risks（トレードオフと軽減策）、Release Preparation（リリース可能性判定と指示）、Notes。ストーリーの内容（YAMLフロントマターを除く）はPRボディとしてそのままGitHubにコピーされます。
 
 ストーリーはアーカイブされたチケットから直接データを収集し、フロントマターフィールド（`commit_hash`、`category`）とコンテンツセクション（Overview、Final Report）を抽出してナラティブを構築します。
 
@@ -108,6 +108,8 @@ PR説明文の単一の真実の情報源として機能する包括的なドキ
 ### 定義
 
 journeyはストーリードキュメントのセクション3で、開発がどのように進行したかのハイレベルなナラティブを提供します。個々のチケットの詳細ではなく、フェーズと転換点に焦点を当て、通常100〜200語程度です。journeyは「どのようにしてここに至ったか？」に答え、Changesセクション（セクション4）は詳細な「何が変わったか？」を提供します。Topic Treeフローチャートはジャーニーセクションの冒頭に埋め込まれ、ナラティブを補完するビジュアルな概要を提供します。
+
+注：ストーリーは現在11のセクション（Summary、Motivation、Journey、Changes、Outcome、Performance、Decisions、Risks、Release Preparation、Notes）を持ちますが、Journeyセクションは位置3のままです。
 
 ### 使用パターン
 

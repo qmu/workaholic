@@ -3,7 +3,7 @@ title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
 last_updated: 2026-01-27
-commit_hash: eda5a8b
+commit_hash: 82335e6
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -162,7 +162,7 @@ Skills have evolved from single markdown files to directory-based structures wit
 ### Current Usage
 
 - Current structure: `plugins/<name>/skills/<skill-name>/SKILL.md` with optional `sh/` directory
-- Current skills: archive-ticket, changelog, story-metrics, spec-context, terms-context, pr-ops, ticket-format, drive-workflow, command-prohibition, i18n
+- Current skills (verb-noun format): archive-ticket, generate-changelog, calculate-story-metrics, gather-spec-context, gather-terms-context, manage-pr, define-ticket-format, drive-workflow, block-commands, enforce-i18n, write-story, write-spec, write-terms, write-changelog, analyze-performance, create-pr, assess-release-readiness
 - Historical pattern: Single markdown files like `archive-ticket.md`
 - Historical directory: `scripts/` (now renamed to `sh/` for POSIX shell compatibility)
 
@@ -215,3 +215,41 @@ Historical documentation may reference "section 0" or "Topic Tree as a standalon
 ### Recommended Resolution
 
 Update any references to "section 0 Topic Tree" to clarify that the Topic Tree flowchart is now embedded within the Journey section (section 3). Historical documents (archived tickets, stories) should remain unchanged as they reflect the structure at that time.
+
+## Story Section Count Evolution
+
+### Issue
+
+Historical documentation may reference stories having 7 sections, but the current story format has been expanded to 11 sections with additional analysis sections.
+
+### Current Usage
+
+- Current section count: 11 sections (Summary, Motivation, Journey, Changes, Outcome, Performance, Decisions, Risks, Release Preparation, Notes)
+- Historical reference: 7 sections (Summary, Motivation, Journey, Changes, Outcome, Performance, Notes)
+
+### Recommended Resolution
+
+When referencing story sections, use current section numbers. Historical documents should remain unchanged. The additional sections (Decisions, Risks, Release Preparation) were added to provide more comprehensive PR context.
+
+## Legacy Skill Naming References
+
+### Issue
+
+Skill names have been standardized to use verb-noun format. Older documentation may reference the previous names.
+
+### Current Usage
+
+| Old Name | New Name |
+|----------|----------|
+| changelog | generate-changelog |
+| story-metrics | calculate-story-metrics |
+| spec-context | gather-spec-context |
+| terms-context | gather-terms-context |
+| pr-ops | manage-pr |
+| ticket-format | define-ticket-format |
+| command-prohibition | block-commands |
+| i18n | enforce-i18n |
+
+### Recommended Resolution
+
+Update skill name references to use the new verb-noun format. This naming convention makes skill purposes clearer (the verb indicates what action the skill performs).

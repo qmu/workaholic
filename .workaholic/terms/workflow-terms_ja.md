@@ -3,7 +3,7 @@ title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
 last_updated: 2026-01-27
-commit_hash: eda5a8b
+commit_hash: 82335e6
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -111,7 +111,7 @@ reportオペレーションは複数のドキュメントエージェントを�
 concurrent execution（並行実行）は、異なる場所に書き込み、互いに依存関係がない複数のエージェントを並列で呼び出すパターンです。オーケストレーションコマンドは単一のメッセージで複数のTaskツール呼び出しを送信し、エージェントが同時に作業できるようにします。これにより、順次処理と比較して合計実行時間が大幅に短縮されます。
 
 concurrent executionの例:
-- `/report`はchangelog-writer、story-writer、spec-writer、terms-writerを同時実行
+- `/report`はchangelog-writer、story-writer、spec-writer、terms-writer、release-readinessを同時実行
 
 出力が先行する結果に依存する場合は、順次実行が依然として必要です（例：pr-creatorはstory-writerの後に実行される。ストーリーファイルを読み取るため）。
 
@@ -124,3 +124,27 @@ concurrent executionの例:
 ### 関連用語
 
 - agent、orchestrator、Task tool
+
+## release-readiness
+
+ブランチがリリース可能かどうかを評価。
+
+### 定義
+
+release readiness（リリース準備完了度）は、ブランチの変更が即時リリースに適しているかどうかを評価するリリース前分析です。release-readinessサブエージェントは`/report`中に他のドキュメントエージェントと並行して実行され、懸念事項と指示を含む判定（ready/needs attention）を生成します。これにより、メンテナーはリリース前またはリリース後に必要なステップを理解できます。
+
+分析は以下を考慮します：
+- 破壊的変更（APIまたは設定の変更）
+- 未完了の作業（TODO/FIXMEコメント）
+- テストステータス（テストが存在する場合）
+- セキュリティの懸念（シークレット、資格情報）
+
+### 使用パターン
+
+- **ディレクトリ名**: N/A（アクションであり、ストレージではない）
+- **ファイル名**: 出力はストーリーのRelease Preparationセクションに表示
+- **コード参照**: 「リリース準備完了度を確認」、「release-readinessエージェントが評価...」
+
+### 関連用語
+
+- release、story、agent

@@ -3,7 +3,7 @@ title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
 last_updated: 2026-01-27
-commit_hash: eda5a8b
+commit_hash: 82335e6
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -111,7 +111,7 @@ Run multiple independent agents simultaneously for improved performance.
 Concurrent execution is a pattern where multiple agents are invoked in parallel when they write to different locations and have no dependencies on each other. The orchestrating command sends multiple Task tool invocations in a single message, allowing agents to work simultaneously. This significantly reduces total execution time compared to sequential processing.
 
 Examples of concurrent execution:
-- `/report` runs changelog-writer, story-writer, spec-writer, terms-writer concurrently
+- `/report` runs changelog-writer, story-writer, spec-writer, terms-writer, and release-readiness concurrently
 
 Sequential execution is still required when outputs depend on prior results (e.g., pr-creator runs after story-writer because it reads the story file).
 
@@ -124,3 +124,27 @@ Sequential execution is still required when outputs depend on prior results (e.g
 ### Related Terms
 
 - agent, orchestrator, Task tool
+
+## release-readiness
+
+Assess whether a branch is ready for release.
+
+### Definition
+
+Release readiness is a pre-release analysis that evaluates whether changes in a branch are suitable for immediate release. The release-readiness subagent runs during `/report` alongside other documentation agents and produces a verdict (ready/needs attention) with concerns and instructions. This helps maintainers understand what pre-release or post-release steps may be needed.
+
+The analysis considers:
+- Breaking changes (API or configuration changes)
+- Incomplete work (TODO/FIXME comments)
+- Test status (if tests exist)
+- Security concerns (secrets, credentials)
+
+### Usage Patterns
+
+- **Directory names**: N/A (action, not storage)
+- **File names**: Output appears in story's Release Preparation section
+- **Code references**: "Check release readiness", "The release-readiness agent evaluates..."
+
+### Related Terms
+
+- release, story, agent

@@ -3,7 +3,7 @@ title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
 last_updated: 2026-01-27
-commit_hash: eda5a8b
+commit_hash: 82335e6
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -70,7 +70,7 @@ A comprehensive document that serves as the single source of truth for PR descri
 
 ### Definition
 
-A story synthesizes the motivation, progression, and outcome of development work across multiple tickets on a single branch. Stories are generated during the PR workflow and contain the complete PR description content across 7 sections: Summary, Motivation, Journey (with embedded Topic Tree flowchart), Changes (detailed explanations), Outcome, Performance (metrics and decision review), and Notes. The story content (minus YAML frontmatter) is copied directly to GitHub as the PR body.
+A story synthesizes the motivation, progression, and outcome of development work across multiple tickets on a single branch. Stories are generated during the PR workflow and contain the complete PR description content across 11 sections: Summary (with overview paragraph), Motivation, Journey (with embedded Topic Tree flowchart), Changes (with categorized subsections), Outcome, Performance (with embedded metrics), Decisions (key architectural choices), Risks (trade-offs and mitigations), Release Preparation (releasability verdict and instructions), and Notes. The story content (minus YAML frontmatter) is copied directly to GitHub as the PR body.
 
 Stories gather data directly from archived tickets, extracting frontmatter fields (`commit_hash`, `category`) and content sections (Overview, Final Report) to build the narrative.
 
@@ -108,6 +108,8 @@ A narrative section in a story that summarizes the development progression and d
 ### Definition
 
 The journey is section 3 of a story document that provides a high-level narrative of how development progressed. It focuses on phases and pivots rather than individual ticket details, typically 100-200 words. The journey answers "how did we get here?" while the Changes section (section 4) provides the detailed "what changed?". The Topic Tree flowchart is embedded at the beginning of the Journey section, providing a visual overview that complements the narrative.
+
+Note: Stories now have 11 sections total (Summary, Motivation, Journey, Changes, Outcome, Performance, Decisions, Risks, Release Preparation, Notes) but the Journey section remains at position 3.
 
 ### Usage Patterns
 

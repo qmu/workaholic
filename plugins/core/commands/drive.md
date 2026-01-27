@@ -1,11 +1,14 @@
 ---
 name: drive
 description: Implement tickets from .workaholic/tickets/ one by one, commit each, and archive.
+skills:
+  - drive-workflow
+  - archive-ticket
 ---
 
 # Drive
 
-Implement all tickets stored in `.workaholic/tickets/` from top to bottom, committing and archiving each one before moving to the next.
+Implement all tickets stored in `.workaholic/tickets/todo/` from top to bottom, committing and archiving each one before moving to the next.
 
 ## Icebox Mode
 
@@ -13,8 +16,8 @@ If `$ARGUMENT` contains "icebox":
 
 1. List tickets in `.workaholic/tickets/icebox/`
 2. Ask user which ticket to retrieve
-3. Move selected ticket to `.workaholic/tickets/`
-4. Implement that ticket (steps 2.1-2.5)
+3. Move selected ticket to `.workaholic/tickets/todo/`
+4. Implement that ticket using the drive-workflow skill
 5. **ALWAYS ask confirmation** before proceeding to next ticket
 
 ## Instructions
@@ -22,7 +25,7 @@ If `$ARGUMENT` contains "icebox":
 ### 1. List and Sort Tickets
 
 ```bash
-ls -1 .workaholic/tickets/*.md 2>/dev/null | sort
+ls -1 .workaholic/tickets/todo/*.md 2>/dev/null | sort
 ```
 
 - If no tickets found, inform the user and stop
@@ -30,133 +33,13 @@ ls -1 .workaholic/tickets/*.md 2>/dev/null | sort
 
 ### 2. For Each Ticket (Top to Bottom)
 
-#### 2.1 Read and Understand the Ticket
+Follow the preloaded drive-workflow skill for each ticket:
 
-- Read the ticket file to understand requirements
-- Identify key files mentioned in the ticket
-- Understand the implementation steps outlined
-
-#### 2.2 Implement the Ticket
-
-- Follow the implementation steps in the ticket
-- Use existing patterns and conventions in the codebase
-- Run type checks (per CLAUDE.md) to verify changes
-- Fix any type errors or test failures before proceeding
-
-#### 2.3 Ask User to Review Implementation
-
-- **STOP and ask the user to review the implementation before proceeding**
-- **Show ticket context** to help user understand what they're reviewing:
-  - Display the ticket title (H1 heading from ticket file)
-  - Include a brief summary (first 1-2 sentences from Overview section)
-- Show a summary of changes made
-- Use AskUserQuestion tool to confirm:
-  - "Approve" - implementation is correct, proceed to commit and continue to next ticket
-  - "Approve and stop" - implementation is correct, commit this ticket but stop driving
-  - "Needs changes" - user will provide feedback to fix
-- Do NOT proceed to commit until user explicitly approves
-- If user requests changes:
-  1. **Update the ticket file first** - add/modify steps based on feedback
-  2. Then implement the changes
-  3. Ask for review again
-- This ensures the ticket always reflects the final implementation
-
-**Approval prompt format:**
-
-```
-**Ticket: <Title from H1>**
-<Summary from Overview section - first 1-2 sentences>
-
-Implementation complete. Changes made:
-- <Change 1>
-- <Change 2>
-
-Do you approve this implementation?
-[Approve / Approve and stop / Needs changes]
-```
-
-#### 2.4 Update Effort and Write Final Report
-
-After user approves:
-
-1. **Update the `effort` field** in the ticket's YAML frontmatter with actual time spent (e.g., 0.1h, 0.25h, 0.5h, 1h, 2h). Estimate based on implementation complexity.
-
-2. **Append a "## Final Report" section** to the ticket file.
-
-**If no changes were requested:**
-
-```markdown
-## Final Report
-
-Development completed as planned.
-```
-
-**If user requested changes during review:**
-
-```markdown
-## Final Report
-
-Implementation deviated from original plan:
-
-- **Change**: <what was changed>
-  **Reason**: <why the user requested this change>
-```
-
-This creates a historical record of decisions made during implementation.
-
-#### 2.5 Commit and Archive Using Skill
-
-After writing the final report, run the archive-ticket skill which handles everything:
-
-```bash
-bash .claude/skills/archive-ticket/scripts/archive.sh \
-  <ticket-path> \
-  "<commit-message>" \
-  <repo-url> \
-  "<description>" \
-  [modified-files...]
-```
-
-Example:
-
-```bash
-bash .claude/skills/archive-ticket/scripts/archive.sh \
-  .workaholic/tickets/20260115-feature.md \
-  "Add new feature for user authentication" \
-  https://github.com/org/repo \
-  "Enables users to log in with session-based authentication, addressing the need for secure access control." \
-  src/auth.ts src/login.tsx
-```
-
-**IMPORTANT**: Always use the script. Never manually move tickets or create changelogs.
-
-**Note**: The archive script uses `git add -A`, which includes:
-
-- All implementation changes
-- The archived ticket file
-- Any uncommitted ticket files in `.workaholic/tickets/`
-- CHANGELOG updates
-
-This means newly created tickets are automatically included in drive commits,
-eliminating the need for separate "add tickets" commits.
-
-**Commit Message Rules**:
-
-- NO prefixes (no `[feat]`, `fix:`, etc.)
-- Start with present-tense verb (Add, Update, Fix, Remove, Refactor)
-- Focus on **WHY** the change was made
-- Keep title concise (50 chars or less)
-
-**Description Rules**:
-
-- 1-2 sentences explaining the motivation behind the change
-- Capture the "why" from the ticket's Overview section
-- This appears in CHANGELOG and helps generate meaningful PR descriptions
-
-After committing:
-
-- If user selected "Approve": automatically proceed to the next ticket without asking for confirmation
-- If user selected "Approve and stop": stop driving and report how many tickets remain (e.g., "Stopped. 2 tickets remaining in queue.")
+1. Read and understand the ticket
+2. Implement the ticket
+3. Ask user to review (mandatory approval step)
+4. Update effort and write final report
+5. Commit and archive using archive-ticket skill
 
 ### 3. Completion
 
@@ -168,9 +51,9 @@ After committing:
 
 ```
 Claude: Found 3 tickets to implement:
-        1. .workaholic/tickets/20260113-feature-a.md
-        2. .workaholic/tickets/20260113-feature-b.md
-        3. .workaholic/tickets/20260113-feature-c.md
+        1. .workaholic/tickets/todo/20260113-feature-a.md
+        2. .workaholic/tickets/todo/20260113-feature-b.md
+        3. .workaholic/tickets/todo/20260113-feature-c.md
 
         Starting with 20260113-feature-a.md...
         [implements feature-a]
@@ -196,8 +79,8 @@ Claude: [creates commit, archives ticket]
 
 - Each ticket gets its own commit - do not batch multiple tickets
 - If implementation fails, stop and report the error
-- **Implementation approval (step 2.3) is mandatory** - never skip this step
-- **Final report (step 2.4) is mandatory** - document what happened
+- **Implementation approval is mandatory** - never skip this step
+- **Final report is mandatory** - document what happened
 - Between-ticket continuation is automatic - no confirmation needed
 - User can stop cleanly by selecting "Approve and stop" at any approval prompt
 

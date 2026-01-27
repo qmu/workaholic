@@ -2,8 +2,8 @@
 title: Workflow Guide
 description: How to use ticket-driven development with Workaholic
 category: user
-modified_at: 2026-01-26T21:44:25+09:00
-commit_hash: c4a627b
+modified_at: 2026-01-27T21:13:30+09:00
+commit_hash: 82335e6
 ---
 
 [English](workflow.md) | [日本語](workflow_ja.md)
@@ -29,7 +29,7 @@ flowchart TD
     D -->|修正| C
     E --> F{チケット追加?}
     F -->|はい| C
-    F -->|いいえ| G[/pull-request]
+    F -->|いいえ| G[/report]
     G --> H[コードレビュー]
     H --> I[マージ]
 ```
@@ -54,7 +54,7 @@ flowchart TD
 /ticket add dark mode toggle to settings
 ```
 
-Claudeはコードベースを調査し、アーキテクチャを理解し、詳細な実装仕様を生成します。`.workaholic/tickets/`の仕様を確認し、必要に応じて修正します。
+Claudeはコードベースを調査し、アーキテクチャを理解し、詳細な実装仕様を生成します。`.workaholic/tickets/todo/`の仕様を確認し、必要に応じて修正します。
 
 ### 3. チケットを実装
 
@@ -70,15 +70,15 @@ Claudeは仕様に従い、変更を行い、型チェックを実行します�
 
 複数チケットの機能の場合、追加のチケットを記述し、再度`/drive`を実行します。各チケットは明確な目的を持つ1つのコミットになります。
 
-### 5. プルリクエストを作成
+### 5. レポートを生成してプルリクエストを作成
 
 レビューの準備ができたら：
 
 ```bash
-/pull-request
+/report
 ```
 
-コマンドはPRを作成する前に自動的に`/sync-workaholic`を実行してドキュメントを更新します。PRサマリーは、コミットハッシュ、カテゴリ、各変更が何を達成し、なぜそうしたかの説明を含むアーカイブされたチケットから生成されます。
+コマンドは4つのドキュメントサブエージェントを並列で自動実行します：changelog-writerが`CHANGELOG.md`を更新し、story-writerがPRナラティブを生成（内部でrelease-readinessを呼び出し）し、spec-writerが`.workaholic/specs/`を更新し、terms-writerが`.workaholic/terms/`を更新します。ドキュメントがコミットされた後、pr-creatorサブエージェントがGitHub PRを作成または更新します。PRサマリーはストーリーファイルから生成され、すべてのアーカイブされたチケットを11のセクション（Overview、Motivation、Journey（Topic Treeフローチャートを含む）、Changes、Outcome、Historical Analysis、Concerns、Ideas、Performance、Release Preparation、Notes）を持つ一貫したナラティブに統合します。
 
 ## ディレクトリ構造
 
@@ -86,8 +86,9 @@ Claudeは仕様に従い、変更を行い、型チェックを実行します�
 
 ```
 .workaholic/tickets/
-├── 20260123-add-dark-mode.md      # キューに入ったチケット
-├── 20260123-fix-login-bug.md      # 別のキューに入ったチケット
+├── todo/                           # キューに入ったチケット
+│   ├── 20260123-add-dark-mode.md
+│   └── 20260123-fix-login-bug.md
 ├── icebox/                         # 延期されたチケット
 │   └── 20260120-refactor-db.md
 └── archive/

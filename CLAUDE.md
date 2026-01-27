@@ -24,26 +24,25 @@ plugins/                 # Plugin source directories
   core/                  # Core development plugin
     .claude-plugin/      # Plugin configuration
     agents/              # performance-analyst
-    commands/            # branch, commit, pull-request, ticket, drive, sync-work
+    commands/            # branch, ticket, drive, report
     rules/               # general, typescript
     skills/              # archive-ticket
 ```
 
 ## Commands
 
-| Command                          | Description                                              |
-| -------------------------------- | -------------------------------------------------------- |
-| `/commit`                        | Commit changes in logical units with meaningful messages |
-| `/pull-request`                  | Create or update PR with CHANGELOG-based summary         |
-| `/release [major\|minor\|patch]` | Release new marketplace version                          |
-| `/ticket <description>`          | Write implementation spec for a feature                  |
-| `/drive`                         | Implement queued specs one by one                        |
+| Command                          | Description                                      |
+| -------------------------------- | ------------------------------------------------ |
+| `/ticket <description>`          | Write implementation spec for a feature          |
+| `/drive`                         | Implement queued specs one by one                |
+| `/report`                        | Generate documentation and create/update PR      |
+| `/release [major\|minor\|patch]` | Release new marketplace version                  |
 
 ## Development Workflow
 
 1. **Create specs**: Use `/ticket` to write implementation specs
 2. **Implement specs**: Use `/drive` to implement and commit each spec
-3. **Create PR**: Use `/pull-request` to create PR with auto-generated summary
+3. **Create PR**: Use `/report` to generate documentation and create PR
 4. **Release**: Use `/release` to bump version and publish
 
 ## Type Checking

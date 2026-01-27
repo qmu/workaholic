@@ -1,5 +1,58 @@
 # Changelog
 
+## feat-20260126-214833
+
+### Added
+
+- Add git guidelines to subagents to prevent confirmation prompts ([7933c67](https://github.com/anthropics/workaholic/commit/7933c67)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127010151-add-git-guidelines-to-subagents.md)
+- Consolidate git guidelines into a rule for all subagents ([b94045a](https://github.com/anthropics/workaholic/commit/b94045a)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127012323-strengthen-git-guidelines-in-subagents.md)
+- Push branch to remote during /report command ([03f7946](https://github.com/anthropics/workaholic/commit/03f7946)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127015902-push-branch-in-report.md)
+- Add topic tree diagram to story generation ([cdd87a5](https://github.com/anthropics/workaholic/commit/cdd87a5)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127100459-add-topic-tree-to-story.md)
+- Add dependency graph to developer guide ([29fe43b](https://github.com/anthropics/workaholic/commit/29fe43b)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127101756-add-dependency-graph.md)
+- Add related history section to ticket creation ([d8de667](https://github.com/anthropics/workaholic/commit/d8de667)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127101903-add-related-history-to-tickets.md)
+- Add summary paragraph to Related History section ([9eb29c8](https://github.com/anthropics/workaholic/commit/9eb29c8e7c5d26ec04b7b25f2005ab5b9aaa419b)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127202525-add-related-history-summary.md)
+- Add overview paragraph to story Summary section ([0128808](https://github.com/anthropics/workaholic/commit/01288085355a7a3933ad13ce32b25e1d3d6df214)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127205429-add-overview-to-story-summary.md)
+- Add Release Preparation section to story with release-readiness subagent ([69bfd33](https://github.com/anthropics/workaholic/commit/69bfd33d1426a0c23afacb7aad0649a9dc7d3d8f)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127205856-add-release-preparation-to-story.md)
+
+### Changed
+
+- Convert sync-workaholic command to subagent ([d4e6a07](https://github.com/anthropics/workaholic/commit/d4e6a07)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127003251-sync-workaholic-subagent.md)
+- Extract story-writer as subagent from pull-request command ([4c83014](https://github.com/anthropics/workaholic/commit/4c83014)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127004417-story-writer-subagent.md)
+- Extract changelog-writer subagent and run 4 agents concurrently in pull-request ([b65d371](https://github.com/anthropics/workaholic/commit/b65d371)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127005414-changelog-writer-subagent-and-concurrent-pr-agents.md)
+- Extract pr-creator subagent from pull-request command ([4ee763d](https://github.com/anthropics/workaholic/commit/4ee763d)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127005601-pr-creator-subagent.md)
+- Rename terminology to terms ([d213ea1](https://github.com/anthropics/workaholic/commit/d213ea1)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127010716-rename-terminology-to-terms.md)
+- Fix Decision Review format in story-writer to match performance-analyst output ([d32bc52](https://github.com/anthropics/workaholic/commit/d32bc52)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127011734-fix-story-decision-review-format.md)
+- Embed git guidelines directly in each subagent definition ([13101ad](https://github.com/anthropics/workaholic/commit/13101ad)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127013608-embed-git-guidelines-in-each-agent.md)
+- Rename /pull-request to /report ([3005144](https://github.com/anthropics/workaholic/commit/3005144)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127014257-rename-pull-request-to-report.md)
+- Make pr-creator always succeed on first attempt ([70982e1](https://github.com/anthropics/workaholic/commit/70982e1)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127015712-robust-pr-creator.md)
+- Extract changelog skill from changelog-writer agent ([396aa2f](https://github.com/anthropics/workaholic/commit/396aa2f)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127020640-extract-changelog-skill.md)
+- Extract story metrics skill from story-writer agent ([f1670e0](https://github.com/anthropics/workaholic/commit/f1670e0)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127021000-extract-story-skill.md)
+- Extract spec context skill from spec-writer agent ([298d0ea](https://github.com/anthropics/workaholic/commit/298d0ea)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127021013-extract-spec-skill.md)
+- Extract PR operations skill from pr-creator agent ([b10408b](https://github.com/anthropics/workaholic/commit/b10408b)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127021024-extract-pr-skill.md)
+- Move git -C prohibition from agents to settings.json deny ([08c9488](https://github.com/anthropics/workaholic/commit/08c9488)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127094857-use-deny-for-git-prohibition.md)
+- Fix pr-ops script to use REST API instead of gh pr edit ([2b639b2](https://github.com/anthropics/workaholic/commit/2b639b2)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127100637-fix-pr-ops-use-rest-api.md)
+- Fix /ticket to skip commit step when called during /drive ([6cb68d0](https://github.com/anthropics/workaholic/commit/6cb68d0)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127100740-ticket-skip-commit-during-drive.md)
+- Extract /drive and /ticket instructions into skills ([2777671](https://github.com/anthropics/workaholic/commit/2777671)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127100902-extract-drive-ticket-skills.md)
+- Rename scripts/ to sh/ in skills for brevity ([39afac2](https://github.com/anthropics/workaholic/commit/39afac2)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127102007-rename-scripts-to-sh.md)
+- Move active tickets from root to todo/ subdirectory ([a1d40f9](https://github.com/anthropics/workaholic/commit/a1d40f9)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127103311-move-tickets-to-todo.md)
+- Convert shell scripts to POSIX sh for Alpine Docker compatibility ([9ba1cf6](https://github.com/anthropics/workaholic/commit/9ba1cf6)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127103522-posix-shell-compatibility.md)
+- Convert i18n rule to skill and preload in documentation agents ([09da3c1](https://github.com/anthropics/workaholic/commit/09da3c1)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127103935-convert-i18n-rule-to-skill.md)
+- Simplify topic tree and move to Journey section ([f5667ee](https://github.com/anthropics/workaholic/commit/f5667ee7914ee07c5a0da6cdfdd213fde3732fb0)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127163720-simplify-topic-tree-as-journey-reference.md)
+- Improve story Changes section granularity and Journey summary ([c63dd53](https://github.com/anthropics/workaholic/commit/c63dd53dc0fcc36b8bda4ac27b2e6bc35838f8bf)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127182720-improve-story-changes-granularity.md)
+- Bundle Shell Scripts for Permission-Free Skills ([7ff6ae9](https://github.com/anthropics/workaholic/commit/7ff6ae931e802d504281c64a62f32811d4671fa2)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127193706-bundle-shell-scripts-for-permission-free-skills.md)
+- Fix topic tree inconsistency between story-writer template and output ([edea513](https://github.com/anthropics/workaholic/commit/edea513)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127200713-fix-topic-tree-inconsistency-in-story-writer.md)
+- Rename Skills to Verb-Noun Format ([fecbb5f](https://github.com/anthropics/workaholic/commit/fecbb5fc71cbec2c04fa4a4a1dba9dee064989fe)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127202325-rename-skills-to-verb-noun-format.md)
+- Fix Topic Tree placement to be inside Journey section ([34f3c50](https://github.com/anthropics/workaholic/commit/34f3c505c4e943bfa852b4e74f3ce9e0e7d6eef4)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127203050-fix-topic-tree-in-journey-section.md)
+- Use top-to-bottom direction inside flowchart subgraphs ([946180d](https://github.com/anthropics/workaholic/commit/946180d069c92f5bf64a924ddd493161d8677388)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127204140-flowchart-subgraph-top-down-direction.md)
+- Extract agent content to preloaded skills ([1653f73](https://github.com/anthropics/workaholic/commit/1653f73e39654240b6ce1d1f04a1510333126b18)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127204529-extract-agent-content-to-skills.md)
+- Enhance story format with analysis sections and fixes ([2cbf499](https://github.com/anthropics/workaholic/commit/2cbf4997ee858402229b0339caf98c31b0ee122d)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127205054-enhance-story-format.md)
+- Update root README.md for end users ([fc7257e](https://github.com/anthropics/workaholic/commit/fc7257e2b02bc69fabbb3c412b2327466d15b693)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127210804-update-readme-for-users.md)
+
+### Removed
+
+- Remove /sync-workaholic command ([d142373](https://github.com/anthropics/workaholic/commit/d142373)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127010400-remove-sync-workaholic-command.md)
+- Remove /commit command ([4e7658c](https://github.com/anthropics/workaholic/commit/4e7658c)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127013941-remove-commit-command.md)
+
 ## [feat-20260126-131531](https://github.com/qmu/workaholic/tree/feat-20260126-131531)
 
 ### Added

@@ -2,8 +2,8 @@
 title: Developer Documentation
 description: Documentation for developers contributing to Workaholic
 category: developer
-last_updated: 2026-01-25
-commit_hash: a87a013
+modified_at: 2026-01-27T21:13:30+09:00
+commit_hash: 82335e6
 ---
 
 [English](README.md) | [日本語](README_ja.md)

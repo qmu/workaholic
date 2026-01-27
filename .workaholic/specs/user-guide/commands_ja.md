@@ -2,8 +2,8 @@
 title: Command Reference
 description: Complete documentation for all Workaholic commands
 category: user
-modified_at: 2026-01-26T21:44:25+09:00
-commit_hash: c4a627b
+modified_at: 2026-01-27T21:13:30+09:00
+commit_hash: 82335e6
 ---
 
 [English](commands.md) | [日本語](commands_ja.md)
@@ -24,34 +24,17 @@ Workaholicは統一された**core**プラグインを提供し、gitワーク�
 
 `feat-20260120-205418`のようなブランチを生成し、ユニークなブランチ名と時系列順序を保証します。接頭辞により、機能の作業がいつ開始されたかを識別できます。
 
-### /commit
+### /report
 
-論理的な単位で意味のあるコミットメッセージと共に変更をコミットします。
-
-```bash
-/commit
-```
-
-Claudeはステージングされた変更とステージングされていない変更を分析し、論理的にグループ化し、各変更の目的を説明するメッセージでコミットを作成します。コミットメッセージは従来のスタイルに従います：現在形の動詞で、「何を」ではなく「なぜ」に焦点を当てます。
-
-### /pull-request
-
-自動生成されたサマリーでプルリクエストを作成または更新します。
+包括的なドキュメントを生成し、プルリクエストを作成または更新します。
 
 ```bash
-/pull-request
+/report
 ```
 
-PRの説明にはストーリードキュメントの内容が使用されます。ストーリーには以下のセクションが含まれます：
+コマンドは5つのサブエージェントを調整してドキュメント成果物を生成します：changelog-writerが`CHANGELOG.md`を更新し、story-writerがPRナラティブを生成し、spec-writerが`.workaholic/specs/`を更新し、terms-writerが`.workaholic/terms/`を更新し、pr-creatorがGitHub PRの作成を処理します。最初の4つは並列実行され、その後pr-creatorが生成されたストーリーをボディとして使用してPRを作成します。
 
-- **Summary** - ブランチのCHANGELOGから生成された変更の番号付きリスト
-- **Motivation** - なぜこの作業が必要だったか
-- **Journey** - 開発中の意思決定と進行
-- **Changes** - 各変更の詳細な説明
-- **Outcome** - 達成されたこと
-- **Performance** - メトリクスと意思決定レビュー
-
-ストーリードキュメントは`.workaholic/stories/<branch-name>.md`に保存され、PR説明文の単一の真実の情報源として機能します。パフォーマンスメトリクスは単一セッションの作業（8時間未満）には時間を、複数日にわたる作業にはbusiness dayを使用し、意味のある速度測定を提供します。
+PRの説明にはストーリードキュメントの内容が使用されます。ストーリーには以下の11セクションが含まれます：Overview、Motivation、Journey、Changes、Outcome、Historical Analysis、Concerns、Ideas、Performance、Release Preparation、Notes。Journeyセクションには変更をテーマや関心事ごとにグループ化したMermaidフローチャート（Topic Tree）が含まれ、レビュアーにナラティブの視覚的コンテキストを提供します。Changesセクションは各チケットを時系列順に個別のサブセクションとして記載します。Release Preparationセクションにはリリース準備の判定と懸念事項、リリース前後の手順が含まれます。ストーリードキュメントは`.workaholic/stories/<branch-name>.md`に保存され、PR説明文の単一の真実の情報源として機能します。パフォーマンスメトリクスは単一セッションの作業（8時間未満）には時間を、複数日にわたる作業にはbusiness dayを使用し、意味のある速度測定を提供します。
 
 ## チケット駆動開発コマンド
 
@@ -66,7 +49,7 @@ PRの説明にはストーリードキュメントの内容が使用されます
 
 Claudeは既存のパターンとアーキテクチャを理解するためにコードベースを読み、詳細な実装チケットを生成します。チケットには概要、変更するキーファイル、ステップバイステップの実装計画、考慮事項が含まれます。
 
-チケットはタイムスタンプ付きで`.workaholic/tickets/`に保存されます。`icebox`を使用すると、後で実装するチケットを`.workaholic/tickets/icebox/`に保存できます。
+チケットはタイムスタンプ付きで`.workaholic/tickets/todo/`に保存されます。`icebox`を使用すると、後で実装するチケットを`.workaholic/tickets/icebox/`に保存できます。
 
 ### /drive
 
@@ -77,17 +60,7 @@ Claudeは既存のパターンとアーキテクチャを理解するために�
 /drive icebox
 ```
 
-Claudeは`.workaholic/tickets/`からチケットを取り出し、一つずつ実装し、承認を求め、逸脱を文書化するFinal Reportを作成し、次に進む前にコミットとアーカイブを行います。`icebox`引数を使用すると、延期されたチケットから選択できます。
-
-### /sync-workaholic
-
-`.workaholic/specs/`と`.workaholic/terminology/`内のドキュメントを現在のコードベースの状態に合わせて更新します。
-
-```bash
-/sync-workaholic
-```
-
-Claudeは現在のブランチのアーカイブされたチケットからコンテキストを収集し、既存のドキュメントを監査し、何を更新する必要があるかを特定し、ドキュメント基準に従って変更を適用します。このコマンドにより、プルリクエストを作成する前にドキュメントがコード変更と同期されることを保証します。
+Claudeは`.workaholic/tickets/todo/`からチケットを取り出し、一つずつ実装し、承認を求め、逸脱を文書化するFinal Reportを作成し、次に進む前にコミットとアーカイブを行います。`icebox`引数を使用すると、延期されたチケットから選択できます。
 
 ## ワークフローサマリー
 
@@ -96,7 +69,6 @@ Claudeは現在のブランチのアーカイブされたチケットからコ�
 1. `/branch` - 新しいフィーチャーブランチを開始
 2. `/ticket <description>` - 実装仕様を記述
 3. `/drive` - チケットを実装
-4. `/sync-workaholic` - ドキュメントを更新（オプション、`/pull-request`中にも実行）
-5. `/pull-request` - レビュー用のPRを作成
+4. `/report` - ドキュメントを生成し、レビュー用のPRを作成
 
 各チケットは独自のコミットを取得し、CHANGELOGがPRサマリーのためにすべての変更を追跡します。

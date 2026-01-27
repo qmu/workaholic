@@ -26,15 +26,16 @@ Use that first item as the title. If multiple items exist, append "etc" (e.g., "
 Run the bundled script:
 
 ```bash
-bash .claude/skills/manage-pr/sh/create-or-update.sh <branch-name> "<title>"
+bash .claude/skills/create-pr/sh/create-or-update.sh <branch-name> "<title>"
 ```
 
-The script handles:
+### What the Script Does
 
 1. Strips YAML frontmatter from `.workaholic/stories/<branch-name>.md`
 2. Writes clean content to `/tmp/pr-body.md`
 3. Checks if PR exists for the branch
 4. Creates new PR or updates existing one
+5. Outputs the result in required format
 
 ## Output Format
 
@@ -49,3 +50,5 @@ or
 ```
 PR updated: <URL>
 ```
+
+This output format is required by the report command.

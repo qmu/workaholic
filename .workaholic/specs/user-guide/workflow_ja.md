@@ -2,8 +2,8 @@
 title: Workflow Guide
 description: How to use ticket-driven development with Workaholic
 category: user
-modified_at: 2026-01-27T21:13:30+09:00
-commit_hash: 82335e6
+modified_at: 2026-01-28T01:00:15+09:00
+commit_hash: 88b4b18
 ---
 
 [English](workflow.md) | [日本語](workflow_ja.md)
@@ -78,7 +78,7 @@ Claudeは仕様に従い、変更を行い、型チェックを実行します�
 /report
 ```
 
-コマンドは4つのドキュメントサブエージェントを並列で自動実行します：changelog-writerが`CHANGELOG.md`を更新し、story-writerがPRナラティブを生成（内部でrelease-readinessを呼び出し）し、spec-writerが`.workaholic/specs/`を更新し、terms-writerが`.workaholic/terms/`を更新します。ドキュメントがコミットされた後、pr-creatorサブエージェントがGitHub PRを作成または更新します。PRサマリーはストーリーファイルから生成され、すべてのアーカイブされたチケットを11のセクション（Overview、Motivation、Journey（Topic Treeフローチャートを含む）、Changes、Outcome、Historical Analysis、Concerns、Ideas、Performance、Release Preparation、Notes）を持つ一貫したナラティブに統合します。
+コマンドは2つのフェーズでドキュメント生成を実行します。フェーズ1では4つのサブエージェントが並列実行されます：changelog-writerが`CHANGELOG.md`を更新し、spec-writerが`.workaholic/specs/`を更新し、terms-writerが`.workaholic/terms/`を更新し、release-readinessが変更を分析します。フェーズ2では、story-writerがrelease-readiness出力を使用してPRナラティブを生成します。ドキュメントがコミットされた後、pr-creatorサブエージェントがGitHub PRを作成または更新します。PRサマリーはストーリーファイルから生成され、すべてのアーカイブされたチケットを11のセクション（Overview、Motivation、Journey（Topic Treeフローチャートを含む）、Changes、Outcome、Historical Analysis、Concerns、Ideas、Performance、Release Preparation、Notes）を持つ一貫したナラティブに統合します。
 
 ## ディレクトリ構造
 

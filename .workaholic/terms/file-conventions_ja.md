@@ -2,8 +2,8 @@
 title: File Conventions
 description: Naming patterns and directory structures used in Workaholic
 category: developer
-last_updated: 2026-01-27
-commit_hash: 82335e6
+last_updated: 2026-01-28
+commit_hash: 88b4b18
 ---
 
 [English](file-conventions.md) | [日本語](file-conventions_ja.md)

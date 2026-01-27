@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-27T21:13:30+09:00
-commit_hash: 82335e6
+modified_at: 2026-01-28T01:00:15+09:00
+commit_hash: 88b4b18
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -58,7 +58,7 @@ plugins/
       ticket.md          # /ticket command
     rules/
       diagrams.md      # Mermaid diagram requirements
-      general.md       # Git workflow rules
+      general.md       # Git workflow rules, markdown linking
       i18n.md          # Multi-language documentation rules
       shell.md         # POSIX shell script conventions
       typescript.md    # TypeScript coding standards
@@ -71,46 +71,38 @@ plugins/
           archive.sh       # Shell script for commit workflow
       assess-release-readiness/
         SKILL.md           # Release readiness analysis guidelines
-      block-commands/
-        SKILL.md           # Documents settings.json deny rules
-      calculate-story-metrics/
+      create-branch/
         SKILL.md
         sh/
-          calculate.sh     # Calculates performance metrics
+          create.sh        # Creates timestamped topic branches
       create-pr/
-        SKILL.md           # PR creation instructions
-      define-ticket-format/
-        SKILL.md           # Ticket file structure conventions
+        SKILL.md
+        sh/
+          create-or-update.sh  # Creates or updates GitHub PRs
+      create-ticket/
+        SKILL.md           # Ticket creation with format and guidelines
       drive-workflow/
         SKILL.md           # Implementation workflow for tickets
-      enforce-i18n/
-        SKILL.md           # i18n requirements for .workaholic/ docs
-      gather-spec-context/
-        SKILL.md
-        sh/
-          gather.sh        # Gathers context for spec updates
-      gather-terms-context/
-        SKILL.md
-        sh/
-          gather.sh        # Gathers context for terms updates
       generate-changelog/
         SKILL.md
         sh/
           generate.sh      # Generates changelog entries from tickets
-      manage-pr/
-        SKILL.md
-        sh/
-          create-or-update.sh  # Creates or updates GitHub PRs
       translate/
-        SKILL.md           # Translation policies for i18n
+        SKILL.md           # Translation policies and .workaholic/ i18n enforcement
       write-changelog/
         SKILL.md           # Changelog writing guidelines
       write-spec/
-        SKILL.md           # Spec writing guidelines
+        SKILL.md
+        sh/
+          gather.sh        # Gathers context and writes specs
       write-story/
-        SKILL.md           # Story writing templates and guidelines
+        SKILL.md
+        sh/
+          calculate.sh     # Calculates metrics and writes stories
       write-terms/
-        SKILL.md           # Terms writing guidelines
+        SKILL.md
+        sh/
+          gather.sh        # Gathers context and writes terms
 ```
 
 ## Plugin Types
@@ -130,21 +122,16 @@ Skills are complex capabilities that may include scripts or multiple files. They
 - **analyze-performance**: Evaluation framework for decision-making quality across five dimensions
 - **archive-ticket**: Handles the complete commit workflow (archive ticket, update frontmatter with commit hash/category, commit)
 - **assess-release-readiness**: Guidelines for analyzing changes and determining release readiness
-- **block-commands**: Documents how to use settings.json deny rules to block dangerous commands
-- **calculate-story-metrics**: Calculates performance metrics (commits, duration, velocity) for branch stories
-- **create-pr**: Instructions for creating pull requests with proper formatting
-- **define-ticket-format**: Ticket file structure and frontmatter conventions
+- **create-branch**: Creates timestamped topic branches with configurable prefix
+- **create-pr**: Creates or updates GitHub PRs using the gh CLI with proper formatting
+- **create-ticket**: Complete ticket creation workflow including format, exploration, and related history
 - **drive-workflow**: Implementation workflow steps for processing tickets
-- **enforce-i18n**: Enforces translation requirements for `.workaholic/` documentation (spec-writer and terms-writer preload this)
-- **gather-spec-context**: Gathers context (branch, tickets, specs, diff) for documentation updates
-- **gather-terms-context**: Gathers context (branch, tickets, terms, diff) for terminology updates
 - **generate-changelog**: Generates changelog entries from archived tickets, grouping by category
-- **manage-pr**: Creates or updates GitHub PRs using the gh CLI
-- **translate**: Translation policies for converting English markdown files to other languages (primarily Japanese)
+- **translate**: Translation policies and `.workaholic/` i18n enforcement (spec-writer, terms-writer, story-writer preload this)
 - **write-changelog**: Guidelines for writing changelog entries
-- **write-spec**: Guidelines for writing and updating specification documents
-- **write-story**: Story content structure, templates, and writing guidelines
-- **write-terms**: Guidelines for writing and updating terminology documents
+- **write-spec**: Context gathering and guidelines for writing specification documents
+- **write-story**: Metrics calculation, templates, and guidelines for branch stories
+- **write-terms**: Context gathering and guidelines for terminology documents
 
 ### Agents
 
@@ -184,13 +171,10 @@ flowchart LR
     subgraph Skills
         at[archive-ticket]
         gc[generate-changelog]
-        csm[calculate-story-metrics]
-        gsc[gather-spec-context]
-        gtc[gather-terms-context]
-        mp[manage-pr]
-        dtf[define-ticket-format]
+        cb[create-branch]
+        ct[create-ticket]
         dw[drive-workflow]
-        ei[enforce-i18n]
+        tr[translate]
         ws[write-story]
         wsp[write-spec]
         wt[write-terms]
@@ -200,21 +184,24 @@ flowchart LR
         arr[assess-release-readiness]
     end
 
-    report --> cw & sw & spw & tw & pc
+    report --> cw & spw & tw & rr
+    report -.-> sw
+    report --> pc
     drive --> at & dw
-    ticket --> dtf
+    ticket --> ct
+    branch --> cb
 
     cw --> gc & wc
-    sw --> csm & ws
-    sw --> pa & rr
-    spw --> gsc & wsp
-    spw --> ei
-    tw --> gtc & wt
-    tw --> ei
-    pc --> mp & cp
+    sw --> ws & tr
+    sw --> pa
+    spw --> wsp & tr
+    tw --> wt & tr
+    pc --> cp
     pa --> ap
     rr --> arr
 ```
+
+Note: The `/report` command runs four agents in parallel (changelog-writer, spec-writer, terms-writer, release-readiness), then runs story-writer with the release-readiness output, and finally runs pr-creator.
 
 ## How Claude Code Loads Plugins
 
@@ -244,36 +231,39 @@ sequenceDiagram
 
 ## Documentation Enforcement
 
-Workaholic enforces comprehensive documentation through a parallel subagent architecture. The `/report` command orchestrates four documentation agents that run concurrently, each handling a specific domain.
+Workaholic enforces comprehensive documentation through a parallel subagent architecture. The `/report` command orchestrates documentation agents in two phases: four agents run in parallel first, then story-writer runs with the release-readiness output.
 
 ### How It Works
 
 ```mermaid
 flowchart TD
     A[/report command] --> B[Move remaining tickets to icebox]
-    B --> C[Invoke 4 subagents in parallel]
+    B --> C[Phase 1: Invoke 4 subagents in parallel]
 
-    subgraph Parallel Documentation
+    subgraph Phase 1 - Parallel
         D[changelog-writer]
-        E[story-writer]
         F[spec-writer]
         G[terms-writer]
+        RR[release-readiness]
     end
 
     C --> D
-    C --> E
     C --> F
     C --> G
+    C --> RR
 
     D --> H[CHANGELOG.md]
-    E --> I[.workaholic/stories/]
     F --> J[.workaholic/specs/]
     G --> K[.workaholic/terms/]
+    RR --> RL[Release JSON]
 
-    H --> L[Commit docs]
-    I --> L
-    J --> L
-    K --> L
+    H --> P2[Phase 2: story-writer]
+    J --> P2
+    K --> P2
+    RL --> P2
+
+    P2 --> I[.workaholic/stories/]
+    I --> L[Commit docs]
 
     L --> M[pr-creator subagent]
     M --> N[Create/update PR]
@@ -283,10 +273,10 @@ Documentation is updated automatically during the `/report` workflow.
 
 The subagent architecture provides several benefits:
 
-1. **Parallel execution** - All four agents run simultaneously, reducing wait time
+1. **Parallel execution** - Four agents run simultaneously in Phase 1, reducing wait time
 2. **Context isolation** - Each agent works in its own context window, preserving the main conversation
 3. **Single responsibility** - Each agent handles one documentation domain
-4. **Resilient to failures** - If one agent fails, others can still complete
+4. **Data dependency handling** - Story-writer receives release-readiness output in Phase 2
 
 ### Critical Requirements
 
@@ -309,23 +299,17 @@ The three primary artifact types are:
 
 Tickets serve as the single source of truth for change metadata. The root `CHANGELOG.md` is generated from archived tickets during PR creation.
 
-## Command Prohibition
+## Architecture Policy
 
-Dangerous commands can be blocked project-wide using `.claude/settings.json` deny rules. This is preferable to embedding prohibitions in individual agent instructions because it provides centralized enforcement that applies before command execution.
+Workaholic follows strict nesting rules for component invocations to maintain a clean separation between orchestration and knowledge.
 
-```json
-{
-  "permissions": {
-    "deny": [
-      "Bash(git -C:*)"
-    ]
-  }
-}
-```
+| Caller   | Can invoke         | Cannot invoke       |
+| -------- | ------------------ | ------------------- |
+| Command  | Skill, Subagent    | -                   |
+| Subagent | Skill              | Subagent, Command   |
+| Skill    | -                  | Subagent, Command   |
 
-The pattern `Bash(git -C:*)` uses prefix matching (`:*` suffix) to block any bash command starting with `git -C`. This prevents the `-C` flag from being used, which causes permission prompts when git operates outside the expected working directory.
-
-When deciding between deny rules and agent instructions, use deny rules for commands that should never be allowed. Use agent instructions for context-specific guidance where warnings are sufficient.
+Commands and subagents are the orchestration layer, defining workflow steps and invoking other components. Skills are the knowledge layer, containing templates, guidelines, rules, and bash scripts. This separation prevents deep nesting and context explosion while keeping comprehensive knowledge centralized in skills.
 
 ## Version Management
 

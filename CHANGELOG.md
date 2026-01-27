@@ -1,5 +1,30 @@
 # Changelog
 
+## feat-20260128-001720
+
+### Added
+
+- Extract create-branch skill from branch command ([f43fe43](https://github.com/qmu/workaholic/commit/f43fe43a7eb854b21e8ff0aa8ee6a9b03707fdea)) - [ticket](.workaholic/tickets/archive/feat-20260128-001720/20260128002536-extract-create-branch-skill.md)
+- Extract create-ticket skill from ticket command and merge define-ticket-format ([51f7384](https://github.com/qmu/workaholic/commit/51f73844440f52e8b99cf40c92862cc29c94e6e5)) - [ticket](.workaholic/tickets/archive/feat-20260128-001720/20260128002853-extract-create-ticket-skill.md)
+- Document architectural nesting policy in CLAUDE.md ([070f23b](https://github.com/qmu/workaholic/commit/070f23b3d4951ffdc9bacd7828f494dbae69d3d3)) - [ticket](.workaholic/tickets/archive/feat-20260128-001720/20260128004700-document-nesting-policy.md)
+- Add story translation requirement to write-story skill ([36d82f0](https://github.com/qmu/workaholic/commit/36d82f0d73f5df9455fe15b6698885295811b2ea)) - [ticket](.workaholic/tickets/archive/feat-20260128-001720/20260128005021-add-story-translation-to-write-story.md)
+- Add rule for linking markdown files when mentioned ([93a1127](https://github.com/qmu/workaholic/commit/93a11275255b9082175d2d35e8347369e27d3748)) - [ticket](.workaholic/tickets/archive/feat-20260128-001720/20260128005655-add-markdown-linking-rule.md)
+
+### Changed
+
+- Invoke release-readiness as 5th parallel agent in /report ([e1dcf1f](https://github.com/qmu/workaholic/commit/e1dcf1f143dba9685b786f82e324b4a2e4e92c6e)) - [ticket](.workaholic/tickets/archive/feat-20260128-001720/20260127211737-invoke-release-readiness-in-parallel.md)
+- Merge create-pr and manage-pr skills ([f5c6475](https://github.com/qmu/workaholic/commit/f5c6475b398796f1f821e95c08406dece302e7eb)) - [ticket](.workaholic/tickets/archive/feat-20260128-001720/20260128002032-merge-create-pr-and-manage-pr.md)
+- Integrate gather-terms-context into write-terms ([3b2e0d7](https://github.com/qmu/workaholic/commit/3b2e0d753f0ae34bdbb2095afa6dc49bd407b2ff)) - [ticket](.workaholic/tickets/archive/feat-20260128-001720/20260128002211-integrate-gather-terms-context-into-write-terms.md)
+- Integrate gather-spec-context into write-spec ([1d5c124](https://github.com/qmu/workaholic/commit/1d5c12464e1e9ae5afbb61f5fc12fddeaa2916bd)) - [ticket](.workaholic/tickets/archive/feat-20260128-001720/20260128002306-integrate-gather-spec-context-into-write-spec.md)
+- Integrate calculate-story-metrics into write-story ([07ab1f4](https://github.com/qmu/workaholic/commit/07ab1f442dbe886c9330e186dfe2cb0bdae0f8e1)) - [ticket](.workaholic/tickets/archive/feat-20260128-001720/20260128002346-integrate-calculate-story-metrics-into-write-story.md)
+- Merge enforce-i18n skill into translate skill ([4f93df4](https://github.com/qmu/workaholic/commit/4f93df4f2bfed81cfb9ec3a6d3758f04b54db088)) - [ticket](.workaholic/tickets/archive/feat-20260128-001720/20260128002918-merge-enforce-i18n-into-translate.md)
+- Thin ticket command by moving content to create-ticket skill ([2e696ff](https://github.com/qmu/workaholic/commit/2e696ff4abff54f3c2142b0bbc6f41f110774c65)) - [ticket](.workaholic/tickets/archive/feat-20260128-001720/20260128004252-thin-ticket-command.md)
+- Link archived tickets in Related History section ([6d03f2c](https://github.com/qmu/workaholic/commit/6d03f2cb269bcafb7b66a04186ad8cc72bfd8517)) - [ticket](.workaholic/tickets/archive/feat-20260128-001720/20260128005204-link-archived-tickets-in-related-history.md)
+
+### Removed
+
+- Remove block-commands skill ([16b0e61](https://github.com/qmu/workaholic/commit/16b0e619912c5e7014066474334a8c6db3da1905)) - [ticket](.workaholic/tickets/archive/feat-20260128-001720/20260128003239-remove-block-commands-skill.md)
+
 ## feat-20260126-214833
 
 ### Added

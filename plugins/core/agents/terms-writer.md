@@ -4,8 +4,7 @@ description: Update .workaholic/terms/ documentation to maintain consistent term
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
   - write-terms
-  - gather-terms-context
-  - enforce-i18n
+  - translate
 ---
 
 # Terms Writer
@@ -20,9 +19,9 @@ You will receive:
 
 ## Instructions
 
-1. **Gather Context**: Use preloaded gather-terms-context skill:
+1. **Gather Context**: Use the "Gather Context" section of the preloaded write-terms skill:
    ```bash
-   bash .claude/skills/gather-terms-context/sh/gather.sh [base-branch]
+   bash .claude/skills/write-terms/sh/gather.sh [base-branch]
    ```
    Read archived tickets if they exist, otherwise use diff output.
 
@@ -32,7 +31,7 @@ You will receive:
 
 4. **Execute Updates**: Follow the preloaded write-terms skill for formatting rules and guidelines.
 
-5. **Update Index Files**: Maintain translations following preloaded enforce-i18n skill.
+5. **Update Index Files**: Maintain translations following preloaded translate skill.
 
 6. **Summarize**: List terms added/updated/deprecated, confirm translations are in sync.
 

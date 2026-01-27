@@ -35,6 +35,7 @@
 - Convert shell scripts to POSIX sh for Alpine Docker compatibility ([9ba1cf6](https://github.com/qmu/workaholic/commit/9ba1cf6)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127103522-posix-shell-compatibility.md)
 - Convert i18n rule to skill and preload in documentation agents ([09da3c1](https://github.com/qmu/workaholic/commit/09da3c1)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127103935-convert-i18n-rule-to-skill.md)
 - Simplify topic tree and move to Journey section ([f5667ee](https://github.com/qmu/workaholic/commit/f5667ee)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127163720-simplify-topic-tree-as-journey-reference.md)
+- Improve story Changes section granularity and Journey summary ([c63dd53](https://github.com/qmu/workaholic/commit/c63dd53)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127182720-improve-story-changes-granularity.md)
 
 ### Removed
 

@@ -80,7 +80,21 @@ The story content structure (this IS the PR description):
 ```markdown
 Refs #<issue-number>
 
-## 0. Topic Tree
+## 1. Summary
+
+1. First meaningful change (from CHANGELOG entry titles)
+2. Second meaningful change (from CHANGELOG entry titles)
+3. ...
+
+## 2. Motivation
+
+[Synthesize the "why" from ticket Overviews. What problem or opportunity started this work? Write as a narrative, not a list.]
+
+## 3. Journey
+
+[Describe the progression of work. What was planned? What unexpected challenges arose? How were decisions made? Draw from Final Reports to capture deviations and learnings.]
+
+#### Topic Flowchart
 
 ```mermaid
 flowchart LR
@@ -99,29 +113,12 @@ flowchart LR
   Subagents --> GitSafety --> Commands
 ```
 
-#### Flowchart Guidelines
-
+**Flowchart Guidelines:**
 - Use `flowchart LR` (left-to-right) for timeline visualization
-- **Group by theme**: Each subgraph represents one concern or decision area
-- **Connect subgraphs in timeline order**: Show progression of work phases
-- **Descriptive node labels**: Use `id[Description]` syntax (e.g., `s1[Extract spec-writer]`)
-- Show sequential flow with arrows within each subgraph
+- Group by theme: each subgraph represents one concern or decision area
+- Connect subgraphs in timeline order to show work progression
+- Use descriptive node labels: `id[Description]` syntax
 - Maximum 3-5 subgraphs per diagram
-- Connect subgraphs at the end: `Theme1 --> Theme2 --> Theme3`
-
-## 1. Summary
-
-1. First meaningful change (from CHANGELOG entry titles)
-2. Second meaningful change (from CHANGELOG entry titles)
-3. ...
-
-## 2. Motivation
-
-[Synthesize the "why" from ticket Overviews. What problem or opportunity started this work? Write as a narrative, not a list.]
-
-## 3. Journey
-
-[Describe the progression of work. What was planned? What unexpected challenges arose? How were decisions made? Draw from Final Reports to capture deviations and learnings.]
 
 ## 4. Changes
 

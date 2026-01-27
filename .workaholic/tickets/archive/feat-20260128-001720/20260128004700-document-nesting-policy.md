@@ -3,9 +3,9 @@ created_at: 2026-01-28T00:47:00+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: XS
+commit_hash: 070f23b
+category: Added
 ---
 
 # Document architectural nesting policy in CLAUDE.md
@@ -70,3 +70,7 @@ Past tickets that touched similar areas:
 
 - Currently `write-story/SKILL.md` line 157 and `story-writer.md` line 34 invoke performance-analyst subagent, violating this policy. A follow-up ticket should fix this by moving the invocation logic to the orchestrator level.
 - The policy is aspirational - some existing code may need refactoring to comply
+
+## Final Report
+
+Added the Architecture Policy section to CLAUDE.md after Project Structure. The section documents component nesting rules, allowed/prohibited invocations, and the design principle of "thin commands and subagents, comprehensive skills" with line count guidelines.

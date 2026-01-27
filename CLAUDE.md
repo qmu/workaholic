@@ -29,6 +29,37 @@ plugins/                 # Plugin source directories
     skills/              # archive-ticket
 ```
 
+## Architecture Policy
+
+### Component Nesting Rules
+
+| Caller   | Can invoke         | Cannot invoke       |
+| -------- | ------------------ | ------------------- |
+| Command  | Skill, Subagent    | —                   |
+| Subagent | Skill              | Subagent, Command   |
+| Skill    | —                  | Subagent, Command   |
+
+**Allowed**:
+- Command → Skill (preload via `skills:` frontmatter)
+- Command → Subagent (via Task tool)
+- Subagent → Skill (preload via `skills:` frontmatter)
+
+**Prohibited**:
+- Skill → Subagent (skills are passive knowledge, not orchestrators)
+- Skill → Command (skills cannot invoke user-facing commands)
+- Subagent → Subagent (prevents deep nesting and context explosion)
+- Subagent → Command (subagents are invoked by commands, not the reverse)
+
+### Design Principle
+
+**Thin commands and subagents, comprehensive skills.**
+
+- **Commands**: Orchestration only (~50-100 lines). Define workflow steps, invoke subagents, handle user interaction.
+- **Subagents**: Orchestration only (~20-40 lines). Define input/output, preload skills, minimal procedural logic.
+- **Skills**: Comprehensive knowledge (~50-150 lines). Contain templates, guidelines, rules, and bash scripts.
+
+Skills are the knowledge layer. Commands and subagents are the orchestration layer.
+
 ## Commands
 
 | Command                          | Description                                      |

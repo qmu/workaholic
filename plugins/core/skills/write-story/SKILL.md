@@ -17,6 +17,10 @@ Refs #<issue-number>
 
 ## 1. Summary
 
+[2-3 sentence overview capturing the essence of this branch. What was the main goal? What approach was taken? What was achieved? Write in past tense.]
+
+**Highlights:**
+
 1. First meaningful change (from CHANGELOG entry titles)
 2. Second meaningful change (from CHANGELOG entry titles)
 3. ...

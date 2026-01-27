@@ -3,9 +3,9 @@ created_at: 2026-01-27T20:54:29+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 0128808
+category: Added
 ---
 
 # Add overview paragraph to story Summary section
@@ -68,3 +68,7 @@ Past tickets that touched similar areas:
 - The Overview should be synthesized from Motivation and Outcome, not duplicate them
 - Keep the Overview brief - it's a hook, not a full summary
 - Existing stories don't need to be updated (backward compatible)
+
+## Final Report
+
+Development completed as planned.

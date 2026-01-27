@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: enhancement
 layer: [Config]
 effort:
-commit_hash:
-category:
+commit_hash: d8de667
+category: Added
 ---
 
 # Add related history section to ticket creation

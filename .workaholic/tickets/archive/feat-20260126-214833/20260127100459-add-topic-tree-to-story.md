@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: enhancement
 layer: [Config]
 effort:
-commit_hash:
-category:
+commit_hash: cdd87a5
+category: Added
 ---
 
 # Add topic tree diagram to story generation
@@ -38,8 +38,9 @@ Add a Mermaid mindmap diagram to generated stories that visualizes the hierarchy
 
 2. Add instructions for generating the mindmap:
    - Root node: branch name
-   - First level: ticket titles (from H1 heading of each archived ticket)
-   - Second level: key changes from each ticket (from Implementation Steps or Final Report)
+   - First level: **Concerns/themes** - group tickets by shared focus areas (e.g., "Config improvements", "API changes", "Documentation")
+   - Second level: Individual tickets that belong to each concern/theme
+   - Group tickets by timeline/chain of consideration when related (e.g., a feature ticket followed by a fix ticket for that feature)
    - Keep labels concise (max 30 chars, truncate with "..." if needed)
 
 ## Considerations

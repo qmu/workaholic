@@ -8,15 +8,6 @@ skills:
 
 # Story Writer
 
-## CRITICAL: Git Command Format
-
-**NEVER use `git -C <path>` flag.** Always run git commands directly:
-
-- WRONG: `git -C /path/to/repo rev-list --count main..HEAD`
-- RIGHT: `git rev-list --count main..HEAD`
-
-The `-C` flag causes permission prompts and must not be used.
-
 Generate a branch story in `.workaholic/stories/<branch-name>.md` that serves as the single source of truth for PR content.
 
 ## Input

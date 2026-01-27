@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: refactoring
 layer: [Config]
 effort:
-commit_hash:
-category:
+commit_hash: 08c9488
+category: Changed
 ---
 
 # Move git -C prohibition from agents to settings.json deny

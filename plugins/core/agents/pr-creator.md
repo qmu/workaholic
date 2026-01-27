@@ -8,15 +8,6 @@ skills:
 
 # PR Creator
 
-## CRITICAL: Git Command Format
-
-**NEVER use `git -C <path>` flag.** Always run git commands directly:
-
-- WRONG: `git -C /path/to/repo rev-list --count main..HEAD`
-- RIGHT: `git rev-list --count main..HEAD`
-
-The `-C` flag causes permission prompts and must not be used.
-
 Create or update a GitHub pull request using the story file as PR content.
 
 ## Input

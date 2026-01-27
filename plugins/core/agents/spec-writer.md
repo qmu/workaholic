@@ -8,15 +8,6 @@ skills:
 
 # Spec Writer
 
-## CRITICAL: Git Command Format
-
-**NEVER use `git -C <path>` flag.** Always run git commands directly:
-
-- WRONG: `git -C /path/to/repo rev-list --count main..HEAD`
-- RIGHT: `git rev-list --count main..HEAD`
-
-The `-C` flag causes permission prompts and must not be used.
-
 Update `.workaholic/specs/` to reflect the current codebase state.
 
 ## Instructions

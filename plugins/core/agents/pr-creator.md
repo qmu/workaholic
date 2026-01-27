@@ -2,6 +2,8 @@
 name: pr-creator
 description: Create or update GitHub PR from story file. Handles PR existence check, title derivation, and gh CLI operations.
 tools: Read, Bash, Glob
+skills:
+  - pr-ops
 ---
 
 # PR Creator
@@ -26,17 +28,13 @@ You will receive:
 
 ## Instructions
 
-### 1. Prepare PR Body File
+### 1. Read Story File
 
-Read `.workaholic/stories/<branch-name>.md` and write content without YAML frontmatter to `/tmp/pr-body.md`:
-
-```bash
-sed '1,/^---$/d;1,/^---$/d' .workaholic/stories/<branch-name>.md > /tmp/pr-body.md
-```
+Read `.workaholic/stories/<branch-name>.md` to extract the PR title.
 
 ### 2. Derive PR Title
 
-Extract the first item from the Summary section in the story file. Look for:
+Extract the first item from the Summary section:
 
 ```markdown
 ## 1. Summary
@@ -46,22 +44,19 @@ Extract the first item from the Summary section in the story file. Look for:
 
 Use that first item as the title. If multiple items exist, append "etc" (e.g., "Add dark mode toggle etc").
 
-### 3. Check PR and Create/Update
+### 3. Create or Update PR
 
-Check if PR exists and create or update in one flow:
+Use the preloaded pr-ops skill:
 
 ```bash
-gh pr list --head <branch-name> --json number,url --jq '.[0]'
+bash .claude/skills/pr-ops/scripts/create-or-update.sh <branch-name> "<title>"
 ```
 
-- **Empty result**: Create new PR with `gh pr create --title "<title>" --body-file /tmp/pr-body.md`
-- **Has result**: Update with `gh pr edit <number> --title "<title>" --body-file /tmp/pr-body.md`
-
-For create, the URL is printed. For edit, use the URL from the list result.
+The script handles frontmatter stripping, PR existence check, and gh CLI operations.
 
 ## Output
 
-Return exactly one line:
+Return the script output exactly as-is:
 
 ```
 PR created: <URL>

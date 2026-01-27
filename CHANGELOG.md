@@ -6,6 +6,7 @@
 
 - Add git guidelines to subagents to prevent confirmation prompts ([7933c67](https://github.com/qmu/workaholic/commit/7933c67958070b9132c948c6d17b8efa15629de8)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127010151-add-git-guidelines-to-subagents.md)
 - Consolidate git guidelines into a rule for all subagents ([b94045a](https://github.com/qmu/workaholic/commit/b94045af226b52921e9e59dd49e02436bed8cb30)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127012323-strengthen-git-guidelines-in-subagents.md)
+- Push branch to remote during /report command ([03f7946](https://github.com/qmu/workaholic/commit/03f7946ea975492527592e2f0d01b6d4177a3b7c)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127015902-push-branch-in-report.md)
 
 ### Changed
 
@@ -17,6 +18,12 @@
 - Fix Decision Review format in story-writer to match performance-analyst output ([d32bc52](https://github.com/qmu/workaholic/commit/d32bc52f912b2c07f28b070561e8978807995eb6)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127011734-fix-story-decision-review-format.md)
 - Embed git guidelines directly in each subagent definition ([13101ad](https://github.com/qmu/workaholic/commit/13101ade1fbe400e79854bacc8324ccfb9377f67)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127013608-embed-git-guidelines-in-each-agent.md)
 - Rename /pull-request to /report ([3005144](https://github.com/qmu/workaholic/commit/30051441da5c802398a053d9fdb760edd9cdb75d)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127014257-rename-pull-request-to-report.md)
+- Make pr-creator always succeed on first attempt ([70982e1](https://github.com/qmu/workaholic/commit/70982e19dfab8c9b8232091b0dba91eb56d7520e)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127015712-robust-pr-creator.md)
+- Extract changelog skill from changelog-writer agent ([396aa2f](https://github.com/qmu/workaholic/commit/396aa2f257d20f50936176dd34709b76e5a8a280)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127020640-extract-changelog-skill.md)
+- Extract story metrics skill from story-writer agent ([f1670e0](https://github.com/qmu/workaholic/commit/f1670e051d3826a0c5fd7b57e34e706651104b66)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127021000-extract-story-skill.md)
+- Extract spec context skill from spec-writer agent ([298d0ea](https://github.com/qmu/workaholic/commit/298d0eaae95b7c5382f731035426d61b51ddcf01)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127021013-extract-spec-skill.md)
+- Extract PR operations skill from pr-creator agent ([b10408b](https://github.com/qmu/workaholic/commit/b10408b945b21a25bb33ee5cfe2dff65acf2dc5c)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127021024-extract-pr-skill.md)
+- Move git -C prohibition from agents to settings.json deny ([08c9488](https://github.com/qmu/workaholic/commit/08c94886ee6ec303fdae70a1716a5b8c4d4f3537)) - [ticket](.workaholic/tickets/archive/feat-20260126-214833/20260127094857-use-deny-for-git-prohibition.md)
 
 ### Removed
 

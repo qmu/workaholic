@@ -70,7 +70,7 @@ Refs #<issue-number>
 
 ## Stories
 
-- [feat-20260126-214833.md](feat-20260126-214833.md) - Subagent architecture for /report command with parallel documentation generation
+- [feat-20260126-214833.md](feat-20260126-214833.md) - Subagent architecture, skill extraction, and command simplification for /report
 - [feat-20260126-131531.md](feat-20260126-131531.md) - Workaholic directory standardization and conventions
 - [feat-20260124-200439.md](feat-20260124-200439.md) - Ticket metadata and single source of truth consolidation
 - [feat-20260124-105903.md](feat-20260124-105903.md) - Rule modularization and PR workflow improvements

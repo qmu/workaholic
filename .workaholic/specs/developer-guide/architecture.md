@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-27T01:51:01+09:00
-commit_hash: e303e17
+modified_at: 2026-01-27T09:57:08+09:00
+commit_hash: a525e04
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -64,9 +64,27 @@ plugins/
       archive-ticket/
         SKILL.md
         scripts/
-          archive.sh   # Shell script for commit workflow
+          archive.sh       # Shell script for commit workflow
+      changelog/
+        SKILL.md
+        scripts/
+          generate.sh      # Generates changelog entries from tickets
+      command-prohibition/
+        SKILL.md           # Documents settings.json deny rules
+      pr-ops/
+        SKILL.md
+        scripts/
+          create-or-update.sh  # Creates or updates GitHub PRs
+      spec-context/
+        SKILL.md
+        scripts/
+          gather.sh        # Gathers context for spec updates
+      story-metrics/
+        SKILL.md
+        scripts/
+          calculate.sh     # Calculates performance metrics
       translate/
-        SKILL.md       # Translation policies for i18n
+        SKILL.md           # Translation policies for i18n
 ```
 
 ## Plugin Types
@@ -81,9 +99,14 @@ Rules are always-on guidelines that Claude follows throughout the conversation. 
 
 ### Skills
 
-Skills are complex capabilities that may include scripts or multiple files. They are invoked via the Skill tool and provide inline instructions. The core plugin includes:
+Skills are complex capabilities that may include scripts or multiple files. They are invoked via the Skill tool and provide inline instructions. Many skills include bash scripts that handle mechanical operations, while agents handle decision-making. The core plugin includes:
 
-- **archive-ticket**: Shell script that handles the complete commit workflow (archive ticket, update ticket frontmatter with commit hash/category, commit)
+- **archive-ticket**: Handles the complete commit workflow (archive ticket, update frontmatter with commit hash/category, commit)
+- **changelog**: Generates changelog entries from archived tickets, grouping by category
+- **command-prohibition**: Documents how to use settings.json deny rules to block dangerous commands
+- **pr-ops**: Creates or updates GitHub PRs using the gh CLI
+- **spec-context**: Gathers context (branch, tickets, specs, diff) for documentation updates
+- **story-metrics**: Calculates performance metrics (commits, duration, velocity) for branch stories
 - **translate**: Translation policies for converting English markdown files to other languages (primarily Japanese)
 
 ### Agents
@@ -189,6 +212,24 @@ The three primary artifact types are:
 - **Stories** - Narrative accounts of the developer journey per branch
 
 Tickets serve as the single source of truth for change metadata. The root `CHANGELOG.md` is generated from archived tickets during PR creation.
+
+## Command Prohibition
+
+Dangerous commands can be blocked project-wide using `.claude/settings.json` deny rules. This is preferable to embedding prohibitions in individual agent instructions because it provides centralized enforcement that applies before command execution.
+
+```json
+{
+  "permissions": {
+    "deny": [
+      "Bash(git -C:*)"
+    ]
+  }
+}
+```
+
+The pattern `Bash(git -C:*)` uses prefix matching (`:*` suffix) to block any bash command starting with `git -C`. This prevents the `-C` flag from being used, which causes permission prompts when git operates outside the expected working directory.
+
+When deciding between deny rules and agent instructions, use deny rules for commands that should never be allowed. Use agent instructions for context-specific guidance where warnings are sufficient.
 
 ## Version Management
 

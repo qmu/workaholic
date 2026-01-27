@@ -3,7 +3,7 @@ title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
 last_updated: 2026-01-27
-commit_hash: e303e17
+commit_hash: a525e04
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -152,3 +152,19 @@ TDDプラグインへの残りの参照をcoreプラグインへの参照に更�
 ### 推奨される解決策
 
 `/commit`への参照を、コミットがチケット駆動ワークフロー（`/drive`、`/report`）を通じて行われることを説明するように更新します。適切なドキュメント化のため、すべての変更はチケットを通じて流れるべきです。
+
+## スキルディレクトリ構造の進化
+
+### 問題
+
+スキルは単一のマークダウンファイルから、SKILL.mdとscripts/サブディレクトリを持つディレクトリベースの構造に進化しました。一部の古いドキュメントはフラットファイルパターンを参照している可能性があります。
+
+### 現在の使用状況
+
+- 現在の構造：`plugins/<name>/skills/<skill-name>/SKILL.md`とオプションの`scripts/`ディレクトリ
+- 現在のスキル：archive-ticket、changelog、story-metrics、spec-context、pr-ops
+- 過去のパターン：`archive-ticket.md`のような単一マークダウンファイル
+
+### 推奨される解決策
+
+スキルを参照する際は、ディレクトリベースのパターンを使用します。`SKILL.md`ファイルにはスキル定義が含まれ、`scripts/`にはエージェントが呼び出せる再利用可能なbashスクリプトが含まれます。

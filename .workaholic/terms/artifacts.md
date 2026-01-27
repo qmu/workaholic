@@ -3,7 +3,7 @@ title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
 last_updated: 2026-01-27
-commit_hash: e303e17
+commit_hash: a525e04
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)

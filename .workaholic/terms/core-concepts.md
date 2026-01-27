@@ -3,7 +3,7 @@ title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
 last_updated: 2026-01-27
-commit_hash: e303e17
+commit_hash: a525e04
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -54,17 +54,19 @@ A helper sub-routine that is not directly user-invocable.
 
 ### Definition
 
-Skills are internal routines that support commands or other operations. Unlike commands, users cannot invoke skills directly with a slash prefix. They are typically called by commands or triggered automatically. Skills are defined in a plugin's `skills/` directory.
+Skills are internal routines that support commands or other operations. Unlike commands, users cannot invoke skills directly with a slash prefix. They are typically called by commands or triggered automatically. Skills are defined in a plugin's `skills/` directory, each in its own subdirectory containing a `SKILL.md` definition and optional `scripts/` directory with helper scripts.
+
+Skills can be preloaded by agents via the `skills:` frontmatter field, providing reusable functionality (e.g., bash scripts for data gathering or formatting) that the agent can invoke during execution.
 
 ### Usage Patterns
 
-- **Directory names**: `plugins/<name>/skills/`
-- **File names**: `archive-ticket.md`
-- **Code references**: "The archive-ticket skill handles..."
+- **Directory names**: `plugins/<name>/skills/<skill-name>/`
+- **File names**: `SKILL.md`, `scripts/generate.sh`, `scripts/calculate.sh`
+- **Code references**: "The archive-ticket skill handles...", "Preload the changelog skill"
 
 ### Related Terms
 
-- command, plugin
+- command, plugin, agent
 
 ## rule
 
@@ -127,3 +129,23 @@ Examples:
 ### Related Terms
 
 - command, agent, concurrent execution
+
+## deny
+
+A permission rule that blocks specific command patterns from being executed.
+
+### Definition
+
+Deny rules are configured in `.claude/settings.json` under `permissions.deny` to prohibit certain command patterns across the entire project, including subagents. Unlike embedding prohibitions in individual agent instructions (which subagents do not inherit), deny rules are enforced centrally before any execution. This pattern is more maintainable than duplicating instructions in each agent file.
+
+Example: `"Bash(git -C:*)"` blocks all `git -C` command variations that would trigger permission prompts.
+
+### Usage Patterns
+
+- **Directory names**: N/A (configuration, not storage)
+- **File names**: `.claude/settings.json`
+- **Code references**: "Add a deny rule for...", "Block the command via settings.json deny"
+
+### Related Terms
+
+- rule, agent, settings

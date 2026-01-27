@@ -1,12 +1,12 @@
 ---
-name: define-ticket-format
-description: Ticket file structure and frontmatter conventions.
+name: create-ticket
+description: Create implementation tickets with proper format and conventions.
 user-invocable: false
 ---
 
-# Ticket Format
+# Create Ticket
 
-Standard format for implementation tickets in `.workaholic/tickets/todo/`.
+Guidelines for creating implementation tickets in `.workaholic/tickets/`.
 
 ## Filename Convention
 
@@ -38,6 +38,15 @@ category: <filled when archived>
 ## Key Files
 
 - `path/to/file.ts` - <why this file is relevant>
+
+## Related History
+
+<1-2 sentence summary synthesizing what historical tickets reveal about this area>
+
+Past tickets that touched similar areas:
+
+- `20260127010716-rename-terminology-to-terms.md` - Renamed terminology directory (same layer: Config)
+- `20260125113858-auto-commit-ticket-on-creation.md` - Modified ticket.md (same file)
 
 ## Implementation Steps
 
@@ -73,3 +82,33 @@ category: <filled when archived>
 - **effort**: Time spent on implementation (e.g., 0.1h, 0.25h, 0.5h, 1h, 2h). Leave empty when creating ticket.
 - **commit_hash**: Short git commit hash. Set automatically by archive script.
 - **category**: Change category (Added, Changed, or Removed). Set automatically by archive script based on commit message verb.
+
+## Exploring the Codebase
+
+Before writing a ticket:
+
+- Use Glob, Grep, and Read tools to find relevant files
+- Understand existing patterns, architecture, and conventions
+- Identify files that will need to be modified or created
+
+## Finding Related History
+
+Search archived tickets in `.workaholic/tickets/archive/` for related past work. Match by:
+
+- **Key Files overlap** (strongest signal): Tickets that modified the same files
+- **Layer match**: Tickets with the same layer (e.g., Config, UX)
+- **Keyword similarity** (weakest signal): Tickets with similar terms in title/overview
+
+List the top 3-5 most relevant tickets (most recent first if equal relevance). If no related tickets found, omit the Related History section entirely.
+
+After finding related tickets, synthesize a brief summary (1-2 sentences):
+- Focus on patterns: what aspects have been modified before, what challenges were encountered
+- Keep it actionable: help the implementer understand what to watch out for
+- If only 1 related ticket exists, keep the summary very brief
+
+## Writing Guidelines
+
+- Focus on the "why" and "what", not just "how"
+- Keep implementation steps actionable and specific
+- Reference existing code patterns when applicable
+- Use the Write tool directly - it creates parent directories automatically

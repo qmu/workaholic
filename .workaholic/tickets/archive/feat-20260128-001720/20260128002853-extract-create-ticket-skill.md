@@ -3,9 +3,9 @@ created_at: 2026-01-28T00:28:53+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: S
+commit_hash: 51f7384
+category: Added
 ---
 
 # Extract create-ticket skill from ticket command and merge define-ticket-format
@@ -92,3 +92,7 @@ Remove `plugins/core/skills/define-ticket-format/` directory since its content i
 - The new skill is not user-invocable (preloaded by ticket command only)
 - Keep the skill self-contained - it should have all info needed to create a ticket
 - Maintain the same behavior: filename format, frontmatter fields, related history
+
+## Final Report
+
+Created the create-ticket skill combining content from both define-ticket-format and ticket.md. The new skill includes filename convention, file structure, frontmatter fields, codebase exploration instructions, related history finding, and writing guidelines. Reduced ticket.md from 86 lines to 47 lines by extracting detailed instructions to the skill while keeping orchestration logic. Deleted the define-ticket-format skill directory.

@@ -4,7 +4,7 @@ description: Update .workaholic/specs/ documentation to reflect current codebase
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
   - write-spec
-  - enforce-i18n
+  - translate
 ---
 
 # Spec Writer
@@ -31,7 +31,7 @@ You will receive:
 
 4. **Execute Updates**: Follow the preloaded write-spec skill for formatting rules and guidelines.
 
-5. **Update Index Files**: Maintain README links following preloaded enforce-i18n skill.
+5. **Update Index Files**: Maintain README links following preloaded translate skill.
 
 6. **Summarize**: List specs updated/created/deleted, confirm all docs are linked.
 

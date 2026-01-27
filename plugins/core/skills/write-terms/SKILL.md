@@ -118,7 +118,7 @@ Use the commit hash from the COMMIT section of the context output.
 When terminology files have translations (e.g., `artifacts.md` and `artifacts_ja.md`):
 
 - Any term added to one file must have its translation in the other
-- Follow the preloaded `enforce-i18n` skill for translation requirements
+- Follow the preloaded `translate` skill for translation requirements
 
 ## Critical Rules
 

@@ -121,7 +121,7 @@ For each cross-cutting concern:
 **i18n README mirroring:**
 
 - Any document added to one README must have its translation linked in the other
-- Follow the preloaded `enforce-i18n` skill for translation requirements
+- Follow the preloaded `translate` skill for translation requirements
 
 ## Critical Rules
 

@@ -4,7 +4,7 @@ description: Update .workaholic/terms/ documentation to maintain consistent term
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
   - write-terms
-  - enforce-i18n
+  - translate
 ---
 
 # Terms Writer
@@ -31,7 +31,7 @@ You will receive:
 
 4. **Execute Updates**: Follow the preloaded write-terms skill for formatting rules and guidelines.
 
-5. **Update Index Files**: Maintain translations following preloaded enforce-i18n skill.
+5. **Update Index Files**: Maintain translations following preloaded translate skill.
 
 6. **Summarize**: List terms added/updated/deprecated, confirm translations are in sync.
 

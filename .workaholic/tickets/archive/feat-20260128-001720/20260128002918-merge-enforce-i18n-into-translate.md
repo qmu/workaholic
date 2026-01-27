@@ -3,9 +3,9 @@ created_at: 2026-01-28T00:29:18+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: S
+commit_hash: 4f93df4
+category: Changed
 ---
 
 # Merge enforce-i18n skill into translate skill
@@ -60,3 +60,7 @@ Past tickets that touched similar areas:
 - The enforcement rules are specific to `.workaholic/` but fit naturally within the broader translation skill
 - Agents will receive more context (full translation policies) but this is beneficial for quality
 - The merged skill should clearly separate general policies from `.workaholic/`-specific enforcement
+
+## Final Report
+
+Successfully merged enforce-i18n into translate. Added ".workaholic/ Translation Requirements" section to translate skill with file naming, README mirroring, and workflow documentation. Updated spec-writer and terms-writer agents to preload translate instead of enforce-i18n. Updated write-spec and write-terms skills to reference translate. Deleted the enforce-i18n skill directory.

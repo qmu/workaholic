@@ -2,6 +2,8 @@
 name: story-writer
 description: Generate branch story for PR description. Reads archived tickets, calculates metrics, and produces narrative documentation.
 tools: Read, Write, Edit, Bash, Glob, Grep, Task
+skills:
+  - story-metrics
 ---
 
 # Story Writer
@@ -46,27 +48,13 @@ For each ticket, extract from content:
 
 ### 2. Calculate Performance Metrics
 
+Use the preloaded story-metrics skill:
+
 ```bash
-# Get commit count for this branch
-git rev-list --count main..HEAD
-
-# Get first and last commit timestamps (ISO 8601 format)
-git log main..HEAD --reverse --format=%cI | head -1
-git log main..HEAD --format=%cI | head -1
-
-# Calculate duration in hours between first and last commit
-# velocity = commits / duration_hours (handle 0 duration as 1 hour minimum)
-
-# Count distinct calendar days with commits (for multi-day work)
-git log main..HEAD --format=%cd --date=short | sort -u | wc -l
+bash .claude/skills/story-metrics/scripts/calculate.sh <base-branch>
 ```
 
-**Duration unit selection:**
-
-- If `duration_hours < 8`: use hours as the unit (single work session)
-- If `duration_hours >= 8`: use business days (count of distinct calendar days with commits)
-
-Business days are more meaningful than raw hours for multi-day work because developers sleep, eat, and do other activities between sessions.
+This returns JSON with all metrics needed for frontmatter.
 
 ### 3. Derive Issue URL
 
@@ -78,19 +66,19 @@ From branch name and remote:
 
 ### 4. Create Story File
 
-Create `.workaholic/stories/<branch-name>.md` with YAML frontmatter:
+Create `.workaholic/stories/<branch-name>.md` with YAML frontmatter using the metrics JSON:
 
 ```yaml
 ---
 branch: <branch-name>
-started_at: YYYY-MM-DDTHH:MM:SS+TZ # from first commit timestamp
-ended_at: YYYY-MM-DDTHH:MM:SS+TZ # from last commit timestamp
-tickets_completed: <count>
-commits: <count>
-duration_hours: <number> # raw elapsed time (always included for data completeness)
-duration_days: <number> # only if duration_hours >= 8 (count of calendar days with commits)
-velocity: <number> # commits/hour if duration_hours < 8, commits/day if >= 8
-velocity_unit: hour | day # indicates which unit velocity uses
+started_at: <from metrics.started_at>
+ended_at: <from metrics.ended_at>
+tickets_completed: <count of tickets>
+commits: <from metrics.commits>
+duration_hours: <from metrics.duration_hours>
+duration_days: <from metrics.duration_days if velocity_unit is "day">
+velocity: <from metrics.velocity>
+velocity_unit: <from metrics.velocity_unit>
 ---
 ```
 
@@ -133,12 +121,9 @@ Detailed explanation from CHANGELOG description. Why this was needed and what it
 
 **Metrics**: <commits> commits over <duration> <unit> (<velocity> commits/<unit>)
 
-- If duration_hours < 8: `X commits over Y hours (Z commits/hour)`
-- If duration_hours >= 8: `X commits over Y business days (~Z commits/day)`
-
 ### 6.1. Pace Analysis
 
-[Quantitative reflection on development pace - was velocity consistent or varied? Were commits small and focused or large? Any patterns in timing? Reference the appropriate unit (hours for single-session work, days for multi-day work).]
+[Quantitative reflection on development pace - was velocity consistent or varied? Were commits small and focused or large? Any patterns in timing?]
 
 ### 6.2. Decision Review
 

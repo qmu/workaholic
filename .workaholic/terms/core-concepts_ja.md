@@ -3,7 +3,7 @@ title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
 last_updated: 2026-01-27
-commit_hash: 4b6b135
+commit_hash: 4938294
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -70,6 +70,7 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 - **changelog**: アーカイブされたチケットからchangelogエントリを生成
 - **story-metrics**: コミット数、期間、速度を計算
 - **spec-context**: spec更新のためのコードベースコンテキストを収集
+- **terms-context**: 用語更新のためのコンテキストを収集
 - **pr-ops**: GitHub pull requestを作成または更新
 - **ticket-format**: チケットファイル構造とフロントマターを定義
 - **drive-workflow**: チケット処理の実装ワークフロー

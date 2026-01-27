@@ -3,7 +3,7 @@ title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
 last_updated: 2026-01-27
-commit_hash: 4b6b135
+commit_hash: 4938294
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -162,7 +162,7 @@ Skills have evolved from single markdown files to directory-based structures wit
 ### Current Usage
 
 - Current structure: `plugins/<name>/skills/<skill-name>/SKILL.md` with optional `sh/` directory
-- Current skills: archive-ticket, changelog, story-metrics, spec-context, pr-ops, ticket-format, drive-workflow, command-prohibition, i18n
+- Current skills: archive-ticket, changelog, story-metrics, spec-context, terms-context, pr-ops, ticket-format, drive-workflow, command-prohibition, i18n
 - Historical pattern: Single markdown files like `archive-ticket.md`
 - Historical directory: `scripts/` (now renamed to `sh/` for POSIX shell compatibility)
 

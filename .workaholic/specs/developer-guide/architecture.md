@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-27T18:34:06+09:00
-commit_hash: 4b6b135
+modified_at: 2026-01-27T19:52:09+09:00
+commit_hash: 4938294
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -88,6 +88,10 @@ plugins/
         SKILL.md
         sh/
           calculate.sh     # Calculates performance metrics
+      terms-context/
+        SKILL.md
+        sh/
+          gather.sh        # Gathers context for terms updates
       ticket-format/
         SKILL.md           # Ticket file structure conventions
       translate/
@@ -116,6 +120,7 @@ Skills are complex capabilities that may include scripts or multiple files. They
 - **pr-ops**: Creates or updates GitHub PRs using the gh CLI
 - **spec-context**: Gathers context (branch, tickets, specs, diff) for documentation updates
 - **story-metrics**: Calculates performance metrics (commits, duration, velocity) for branch stories
+- **terms-context**: Gathers context (branch, tickets, terms, diff) for terminology updates
 - **ticket-format**: Ticket file structure and frontmatter conventions
 - **translate**: Translation policies for converting English markdown files to other languages (primarily Japanese)
 
@@ -157,6 +162,7 @@ flowchart LR
         cl[changelog]
         sm[story-metrics]
         sc[spec-context]
+        tc[terms-context]
         po[pr-ops]
         tf[ticket-format]
         dw[drive-workflow]
@@ -172,6 +178,7 @@ flowchart LR
     sw --> pa
     spw --> sc
     spw --> i18n
+    tw --> tc
     tw --> i18n
     pc --> po
 ```

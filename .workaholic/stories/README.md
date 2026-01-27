@@ -70,7 +70,7 @@ Refs #<issue-number>
 
 ## Stories
 
-- [feat-20260126-214833.md](feat-20260126-214833.md) - Subagent architecture with concurrent execution, git -C prohibition via settings.json deny, skill extraction, and infrastructure improvements (POSIX sh, topic tree flowchart, ticket directory reorganization)
+- [feat-20260126-214833.md](feat-20260126-214833.md) - Subagent architecture with concurrent execution, git -C prohibition via settings.json deny, skill extraction, bundled scripts for permission-free plugins, and infrastructure improvements (POSIX sh, topic tree flowchart, ticket directory reorganization)
 - [feat-20260126-131531.md](feat-20260126-131531.md) - Workaholic directory standardization and conventions
 - [feat-20260124-200439.md](feat-20260124-200439.md) - Ticket metadata and single source of truth consolidation
 - [feat-20260124-105903.md](feat-20260124-105903.md) - Rule modularization and PR workflow improvements

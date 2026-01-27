@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-27T18:34:06+09:00
-commit_hash: 4b6b135
+modified_at: 2026-01-27T19:52:09+09:00
+commit_hash: 4938294
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -88,6 +88,10 @@ plugins/
         SKILL.md
         sh/
           calculate.sh     # パフォーマンスメトリクス計算
+      terms-context/
+        SKILL.md
+        sh/
+          gather.sh        # 用語更新用のコンテキスト収集
       ticket-format/
         SKILL.md           # チケットファイル構造規約
       translate/
@@ -116,6 +120,7 @@ plugins/
 - **pr-ops**: gh CLIを使用してGitHub PRを作成/更新
 - **spec-context**: ドキュメント更新用のコンテキスト（ブランチ、チケット、スペック、差分）を収集
 - **story-metrics**: ブランチストーリー用のパフォーマンスメトリクス（コミット数、期間、速度）を計算
+- **terms-context**: 用語更新用のコンテキスト（ブランチ、チケット、用語、差分）を収集
 - **ticket-format**: チケットファイル構造とフロントマター規約
 - **translate**: 英語のマークダウンファイルを他の言語（主に日本語）に変換するための翻訳ポリシー
 
@@ -157,6 +162,7 @@ flowchart LR
         cl[changelog]
         sm[story-metrics]
         sc[spec-context]
+        tc[terms-context]
         po[pr-ops]
         tf[ticket-format]
         dw[drive-workflow]
@@ -172,6 +178,7 @@ flowchart LR
     sw --> pa
     spw --> sc
     spw --> i18n
+    tw --> tc
     tw --> i18n
     pc --> po
 ```

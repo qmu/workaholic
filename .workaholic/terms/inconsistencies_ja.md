@@ -3,7 +3,7 @@ title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
 last_updated: 2026-01-27
-commit_hash: 4b6b135
+commit_hash: 4938294
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -162,7 +162,7 @@ TDDプラグインへの残りの参照をcoreプラグインへの参照に更�
 ### 現在の使用状況
 
 - 現在の構造：`plugins/<name>/skills/<skill-name>/SKILL.md`とオプションの`sh/`ディレクトリ
-- 現在のスキル：archive-ticket、changelog、story-metrics、spec-context、pr-ops、ticket-format、drive-workflow、command-prohibition、i18n
+- 現在のスキル：archive-ticket、changelog、story-metrics、spec-context、terms-context、pr-ops、ticket-format、drive-workflow、command-prohibition、i18n
 - 過去のパターン：`archive-ticket.md`のような単一マークダウンファイル
 - 過去のディレクトリ：`scripts/`（現在は`sh/`に改名、POSIXシェル互換性のため）
 

@@ -2,8 +2,8 @@
 title: Contributing
 description: How to add or modify plugins in Workaholic
 category: developer
-modified_at: 2026-01-28T01:00:15+09:00
-commit_hash: 88b4b18
+modified_at: 2026-01-28T21:38:50+09:00
+commit_hash: fe3d558
 ---
 
 [English](contributing.md) | [日本語](contributing_ja.md)
@@ -101,6 +101,7 @@ Documentation standards enforced by the spec-writer and terms-writer subagents:
 - Maintain link hierarchy from root README
 - Update `modified_at` and `commit_hash` fields when modifying documents
 - Place docs in correct subdirectory: `user-guide/` for user-facing, `developer-guide/` for architecture
+- Use numbered headings for h2 and h3 levels: `## 1. Section`, `### 1.1. Subsection`. For h4, number only when helpful. Exceptions: READMEs and configuration docs.
 
 Documentation is not optional. Every code change affects documentation in some way, whether updating existing docs, creating new ones, removing outdated files, or reorganizing the structure.
 

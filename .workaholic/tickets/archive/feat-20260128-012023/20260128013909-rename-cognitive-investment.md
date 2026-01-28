@@ -4,8 +4,9 @@ author: a@qmu.jp
 type: housekeeping
 layer: [Config]
 effort: 0.1h
-commit_hash: 6836076
+commit_hash: 2ad26f8
 category: Changed
+---
 ---
 
 # Rename Cognitive Investment to Cultivating Semantics

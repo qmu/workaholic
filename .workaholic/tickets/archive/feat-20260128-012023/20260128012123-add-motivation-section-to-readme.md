@@ -4,7 +4,7 @@ author: a@qmu.jp
 type: enhancement
 layer: [Config]
 effort: 0.25h
-commit_hash: 999b21c
+commit_hash: c06aced
 category: Added
 ---
 

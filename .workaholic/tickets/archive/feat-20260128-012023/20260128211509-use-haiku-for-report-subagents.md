@@ -5,8 +5,9 @@ author: a@qmu.jp
 type: enhancement
 layer: [Config]
 effort: 0.1h
-commit_hash: 84399fc---
+commit_hash: fe3d558
 category: Changed
+---
 # Use Haiku model for /report subagents
 
 ## Context

@@ -70,5 +70,6 @@ Refs #<issue-number>
 
 ## ストーリー
 
+- [feat-20260128-012023_ja.md](feat-20260128-012023_ja.md) - ドキュメント明確化、ワークフロー強化、技術的最適化: README に Motivation セクション追加、Cultivating Semantics 用語、numbered headings 形式化、失敗分析付き Abandon ワークフロー、Haiku subagent 最適化 - 9チケット、20コミット
 - [feat-20260128-001720_ja.md](feat-20260128-001720_ja.md) - スキル統合: 8つのユーティリティスキルを主要スキルに統合、create-branchとcreate-ticketスキルを抽出、アーキテクチャネスティングポリシーを文書化、ストーリー翻訳とマークダウンリンクを追加 - 14チケット、27コミット
 - [feat-20260123-032323_ja.md](feat-20260123-032323_ja.md) - ドキュメント体験の改善と.workaholic/ディレクトリの再構成

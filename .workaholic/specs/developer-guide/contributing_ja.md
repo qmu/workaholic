@@ -2,8 +2,8 @@
 title: Contributing
 description: How to add or modify plugins in Workaholic
 category: developer
-modified_at: 2026-01-28T01:00:15+09:00
-commit_hash: 88b4b18
+modified_at: 2026-01-28T21:38:50+09:00
+commit_hash: fe3d558
 ---
 
 [English](contributing.md) | [日本語](contributing_ja.md)
@@ -101,6 +101,7 @@ spec-writerとterms-writerサブエージェントが強制するドキュメン
 - ルートREADMEからのリンク階層を維持
 - ドキュメント修正時に`modified_at`と`commit_hash`フィールドを更新
 - ドキュメントは適切なサブディレクトリに配置: `user-guide/`はユーザー向け、`developer-guide/`はアーキテクチャ向け
+- h2およびh3レベルの番号付き見出しを使用: `## 1. セクション`、`### 1.1. サブセクション`。h4の場合は、役に立つときにのみ番号を付けます。例外：READMEと設定ドキュメント。
 
 ドキュメントは任意ではありません。すべてのコード変更は何らかの形でドキュメントに影響します。既存のドキュメントの更新、新しいドキュメントの作成、古いファイルの削除、構造の再編成など。
 

@@ -3,7 +3,8 @@ title: Add "Fail" option to /drive approval prompt
 category: Added
 created_at: 2026-01-28T21:17:28+09:00
 effort: 0.25h
-commit_hash: 18b53b9---
+commit_hash: dc3ef61
+---
 
 # Add "Fail" option to /drive approval prompt
 

@@ -16,6 +16,7 @@ tickets/
 ├── todo/                          # Queued tickets (to implement)
 │   └── <timestamp>-<description>.md
 ├── icebox/                        # Deferred tickets (for later)
+├── fail/                          # Failed tickets (implementation didn't work)
 └── archive/
     └── <branch>/                  # Completed tickets per branch
 ```
@@ -29,6 +30,10 @@ tickets/
 ## Queued Tickets
 
 Tickets waiting to be implemented appear in `todo/` with timestamp prefixes ensuring chronological order.
+
+## Failed Tickets
+
+Tickets that couldn't be implemented successfully are moved to `fail/` when the user selects "Fail" during `/drive` review. This preserves the ticket for future reference or analysis without cluttering the queue.
 
 ## Archive
 

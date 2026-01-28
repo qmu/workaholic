@@ -22,16 +22,16 @@ Workaholicはチケット駆動開発アプローチを使用します。実装�
 
 ```mermaid
 flowchart TD
-    A[機能開始] --> B[/branch]
-    B --> C[/ticket description]
-    C --> D{仕様レビュー}
-    D -->|承認| E[/drive]
+    A["機能開始"] --> B["/branch"]
+    B --> C["/ticket description"]
+    C --> D{"仕様レビュー"}
+    D -->|承認| E["/drive"]
     D -->|修正| C
-    E --> F{チケット追加?}
+    E --> F{"チケット追加?"}
     F -->|はい| C
-    F -->|いいえ| G[/report]
-    G --> H[コードレビュー]
-    H --> I[マージ]
+    F -->|いいえ| G["/report"]
+    G --> H["コードレビュー"]
+    H --> I["マージ"]
 ```
 
 ## ステップバイステップ

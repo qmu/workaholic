@@ -14,16 +14,6 @@ Workaholic provides a unified **core** plugin with all development workflow comm
 
 ## Git Workflow Commands
 
-### /branch
-
-Creates a topic branch with a timestamp prefix for consistent naming.
-
-```bash
-/branch
-```
-
-This generates branches like `feat-20260120-205418`, ensuring unique branch names and chronological ordering. The prefix helps identify when work started on a feature.
-
 ### /story
 
 Generates comprehensive documentation and creates or updates a pull request.
@@ -42,7 +32,7 @@ Any remaining unfinished tickets are automatically moved to icebox before creati
 
 ### /ticket
 
-Explores the codebase and writes an implementation specification.
+Explores the codebase and writes an implementation specification. When invoked on `main` or `master`, automatically creates a topic branch first.
 
 ```bash
 /ticket add user authentication
@@ -50,6 +40,8 @@ Explores the codebase and writes an implementation specification.
 ```
 
 Claude reads your codebase to understand existing patterns and architecture, then generates a detailed implementation ticket. The ticket includes an overview, key files to modify, step-by-step implementation plan, and considerations.
+
+If you're on `main` or `master`, Claude will ask which branch type to create (feat/fix/refact) and create a timestamped branch like `feat-20260120-205418` before writing the ticket.
 
 Tickets are saved to `.workaholic/tickets/todo/` with timestamps. Use `icebox` to store tickets for later implementation in `.workaholic/tickets/icebox/`. Ticket files don't need to be committed separately - they're automatically included in the next `/drive` commit.
 
@@ -68,9 +60,8 @@ Claude picks up tickets from `.workaholic/tickets/todo/`, implements them one by
 
 The typical workflow combines these commands:
 
-1. `/branch` - Start a new feature branch
-2. `/ticket <description>` - Write implementation spec
-3. `/drive` - Implement the ticket
-4. `/story` - Generate documentation and create PR for review
+1. `/ticket <description>` - Write implementation spec (auto-creates branch on main)
+2. `/drive` - Implement the ticket
+3. `/story` - Generate documentation and create PR for review
 
 Each ticket gets its own commit, and the CHANGELOG tracks all changes for the PR summary.

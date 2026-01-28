@@ -13,6 +13,7 @@ commit_hash: fe3d558
 Technical specifications for developers contributing to Workaholic.
 
 - [Architecture](architecture.md) - Plugin structure and marketplace design
+- [Command Flows](command-flows.md) - How commands invoke agents and skills
 - [Contributing](contributing.md) - How to add or modify plugins
 
 For user documentation, see [../guides/](../guides/README.md).

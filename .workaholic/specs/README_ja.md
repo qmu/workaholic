@@ -13,6 +13,7 @@ commit_hash: fe3d558
 Workaholicに貢献する開発者向けの技術仕様。
 
 - [アーキテクチャ](architecture_ja.md) - プラグイン構造とマーケットプレイス設計
+- [コマンドフロー](command-flows_ja.md) - コマンドがエージェントとスキルを呼び出す方法
 - [コントリビュート](contributing_ja.md) - プラグインの追加・修正方法
 
 ユーザー向けドキュメントは [../guides/](../guides/README_ja.md) を参照。

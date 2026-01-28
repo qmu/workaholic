@@ -38,6 +38,7 @@ Use AskUserQuestion tool to confirm:
 - "Approve" - implementation is correct, proceed to commit and continue to next ticket
 - "Approve and stop" - implementation is correct, commit this ticket but stop driving
 - "Needs changes" - user will provide feedback to fix
+- "Abandon" - write failure analysis, discard changes, and continue to next ticket
 
 **Do NOT proceed to commit until user explicitly approves.**
 
@@ -60,18 +61,18 @@ Implementation complete. Changes made:
 - <Change 2>
 
 Do you approve this implementation?
-[Approve / Approve and stop / Needs changes]
+[Approve / Approve and stop / Needs changes / Abandon]
 ```
 
 ### 4. Update Effort and Write Final Report
 
 After user approves:
 
-1. **Update the `effort` field** in the ticket's YAML frontmatter with actual time spent (e.g., 0.1h, 0.25h, 0.5h, 1h, 2h). Estimate based on implementation complexity.
+1. **Update the `effort` field** in the ticket's YAML frontmatter with actual time spent in numeric hours. Valid values: `0.1h`, `0.25h`, `0.5h`, `1h`, `2h`, `4h`. Do NOT use t-shirt sizes (XS, S, M) or minutes (10m). Estimate based on implementation complexity.
 
 2. **Append a "## Final Report" section** to the ticket file.
 
-**If no changes were requested:**
+**If no changes were requested and no insights discovered:**
 
 ```markdown
 ## Final Report
@@ -90,7 +91,38 @@ Implementation deviated from original plan:
   **Reason**: <why the user requested this change>
 ```
 
-This creates a historical record of decisions made during implementation.
+**If meaningful insights were discovered during implementation:**
+
+Add a "### Discovered Insights" subsection capturing learnings that help future developers understand the codebase:
+
+```markdown
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: <what was discovered>
+  **Context**: <why this matters for understanding the codebase>
+```
+
+#### What Makes a Good Insight
+
+Include insights that fall into these categories:
+
+- **Architectural patterns**: Hidden design decisions or conventions not documented elsewhere
+- **Code relationships**: Non-obvious dependencies or coupling between components
+- **Historical context**: Why something exists in its current form (discovered via git blame or comments)
+- **Edge cases**: Gotchas or surprising behaviors that future developers should know
+
+#### Insight Guidelines
+
+- Keep insights actionable and specific, not vague observations
+- Insights should benefit someone reading the ticket months later
+- Don't duplicate information already in the ticket's Overview or Implementation Steps
+- If no meaningful insights were discovered, omit the subsection entirely
+
+This creates a historical record of decisions and discoveries made during implementation.
 
 ### 5. Commit and Archive Using Skill
 
@@ -120,6 +152,40 @@ This means newly created tickets are automatically included in drive commits.
 
 - If user selected "Approve": automatically proceed to the next ticket without asking for confirmation
 - If user selected "Approve and stop": stop driving and report how many tickets remain (e.g., "Stopped. 2 tickets remaining in queue.")
+
+### If User Selects "Abandon"
+
+When the user selects "Abandon", do NOT commit implementation changes. Instead:
+
+1. **Discard implementation changes**: Run `git restore .` to revert all uncommitted changes
+2. **Append Failure Analysis section** to the ticket file:
+
+   ```markdown
+   ## Failure Analysis
+
+   ### What Was Attempted
+   - <Brief description of the implementation approach>
+
+   ### Why It Failed
+   - <Reason the implementation didn't work or was abandoned>
+
+   ### Insights for Future Attempts
+   - <Learnings that could help if this is reattempted>
+   ```
+
+3. **Move ticket to fail directory**:
+   ```bash
+   mkdir -p .workaholic/tickets/fail
+   mv <ticket-path> .workaholic/tickets/fail/
+   ```
+4. **Commit the ticket move** to preserve the failure analysis in git history:
+   ```bash
+   git add .workaholic/tickets/
+   git commit -m "Abandon: <ticket-title>"
+   ```
+5. **Continue to next ticket** without asking for confirmation
+
+This allows users to abandon a failed implementation attempt while preserving insights from the attempt for future reference.
 
 ## Commit Message Rules
 

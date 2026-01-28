@@ -1,5 +1,22 @@
 # Changelog
 
+## feat-20260128-012023
+
+### Added
+
+- Add GitHub links to commit hashes in story Changes section ([2968e8a](https://github.com/qmu/workaholic/commit/2968e8a)) - [ticket](.workaholic/tickets/archive/feat-20260128-012023/20260128-commit-hash-links-in-story.md)
+- Add numbered headings rule to general rules ([f29bc83](https://github.com/qmu/workaholic/commit/f29bc83)) - [ticket](.workaholic/tickets/archive/feat-20260128-012023/20260128-numbered-headings-rule.md)
+- Add Motivation Section to Root README ([c06aced](https://github.com/qmu/workaholic/commit/c06aced)) - [ticket](.workaholic/tickets/archive/feat-20260128-012023/20260128012123-add-motivation-section-to-readme.md)
+- Add Discovered Insights to Final Report ([df6a781](https://github.com/qmu/workaholic/commit/df6a781)) - [ticket](.workaholic/tickets/archive/feat-20260128-012023/20260128210112-add-discovered-insights-to-final-report.md)
+- Add "Fail" option to /drive approval prompt ([dc3ef61](https://github.com/qmu/workaholic/commit/dc3ef61)) - [ticket](.workaholic/tickets/archive/feat-20260128-012023/20260128211728-add-fail-option-to-drive-approval.md)
+
+### Changed
+
+- Enforce Ticket Frontmatter Rules ([330c4e4](https://github.com/qmu/workaholic/commit/330c4e4)) - [ticket](.workaholic/tickets/archive/feat-20260128-012023/20260128012837-enforce-ticket-frontmatter.md)
+- Rename Cognitive Investment to Cultivating Semantics ([2ad26f8](https://github.com/qmu/workaholic/commit/2ad26f8)) - [ticket](.workaholic/tickets/archive/feat-20260128-012023/20260128013909-rename-cognitive-investment.md)
+- Use Haiku model for /report subagents ([fe3d558](https://github.com/qmu/workaholic/commit/fe3d558)) - [ticket](.workaholic/tickets/archive/feat-20260128-012023/20260128211509-use-haiku-for-report-subagents.md)
+- Rename "Fail" to "Abandon" with failure analysis report ([ca85887](https://github.com/qmu/workaholic/commit/ca85887)) - [ticket](.workaholic/tickets/archive/feat-20260128-012023/20260128213850-rename-fail-to-abandon-with-analysis.md)
+
 ## feat-20260128-001720
 
 ### Added

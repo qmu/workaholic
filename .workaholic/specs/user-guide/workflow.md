@@ -2,8 +2,8 @@
 title: Workflow Guide
 description: How to use ticket-driven development with Workaholic
 category: user
-modified_at: 2026-01-28T01:00:15+09:00
-commit_hash: 88b4b18
+modified_at: 2026-01-28T21:38:50+09:00
+commit_hash: fe3d558
 ---
 
 [English](workflow.md) | [日本語](workflow_ja.md)
@@ -64,7 +64,7 @@ Run drive to implement:
 /drive
 ```
 
-Claude follows the spec, makes changes, and runs any type checks. After implementation, Claude asks for your approval. If you approve, it writes a Final Report to the ticket documenting any deviations from the plan, then commits and archives the ticket. If not, provide feedback and it will adjust.
+Claude follows the spec, makes changes, and runs any type checks. After implementation, Claude asks for your approval. You have four options: approve to continue, approve and stop to finish, request changes for adjustments, or abandon if the approach isn't working. Approvals trigger a Final Report documenting deviations and discoveries. Abandoned attempts get a Failure Analysis documenting what was tried and insights for future attempts.
 
 ### 4. Repeat as Needed
 
@@ -91,6 +91,8 @@ Tickets follow this structure:
 │   └── 20260123-fix-login-bug.md
 ├── icebox/                         # Deferred tickets
 │   └── 20260120-refactor-db.md
+├── fail/                           # Failed attempts with analysis
+│   └── 20260123-abandoned-attempt.md
 └── archive/
     └── feat-20260123-143022/       # Branch-specific archive
         └── 20260122-add-auth.md    # Completed ticket with Final Report
@@ -98,11 +100,11 @@ Tickets follow this structure:
 
 Each ticket includes YAML frontmatter with metadata: `date`, `author`, `type`, `layer`, `effort`, plus `commit_hash` and `category` added when archived.
 
-Completed tickets include a "Final Report" section that documents whether implementation went as planned or any deviations that occurred during development. This creates a historical record of decisions made during implementation.
+Completed tickets include a "Final Report" section that documents whether implementation went as planned, any deviations that occurred, and discovered insights about the codebase. Abandoned attempts include a "Failure Analysis" section documenting what was tried, why it failed, and learnings for future attempts. This creates a historical record of decisions and discoveries made during implementation.
 
 ## Benefits
 
-The ticket-driven approach provides several advantages. Specs are reviewed before implementation, catching issues early. Each commit maps to one ticket, creating clean history. Tickets serve as the single source of truth for change metadata, and the root CHANGELOG is auto-generated from them during PR creation. All planning artifacts stay in the repository for future reference. Final Reports in archived tickets document what actually happened during implementation, preserving institutional knowledge. Branch stories synthesize the entire development journey into a narrative, giving reviewers quick context before diving into individual changes. Performance metrics in stories use hours for single-session work and business days for multi-day work, providing meaningful velocity measurements rather than misleading raw elapsed time.
+The ticket-driven approach provides several advantages. Specs are reviewed before implementation, catching issues early. Each commit maps to one ticket, creating clean history. Tickets serve as the single source of truth for change metadata, and the root CHANGELOG is auto-generated from them during PR creation. All planning artifacts stay in the repository for future reference. Final Reports in archived tickets document what actually happened during implementation and insights discovered, preserving institutional knowledge. Failure Analysis in abandoned tickets preserves learning from unsuccessful attempts. Branch stories synthesize the entire development journey into a narrative with embedded commit links, giving reviewers quick context before diving into individual changes. Performance metrics in stories use hours for single-session work and business days for multi-day work, providing meaningful velocity measurements rather than misleading raw elapsed time.
 
 ## When to Use Icebox
 

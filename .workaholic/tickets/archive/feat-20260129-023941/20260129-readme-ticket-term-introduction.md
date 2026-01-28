@@ -1,3 +1,13 @@
+---
+created_at: 2026-01-29T03:01:51+09:00
+author: a@qmu.jp
+type: enhancement
+layer: [Config]
+effort: 0.5h
+commit_hash: d47e05a
+category: Changed
+---
+
 # Add Ticket Term Introduction to README.md
 
 ## Overview
@@ -31,6 +41,15 @@ A **ticket** is a markdown file that describes a change you want to make—the c
 
 ## Verification
 
-- [ ] README still renders correctly
-- [ ] Flow from TiDD intro → ticket definition → benefits feels natural
-- [ ] No redundancy with existing paragraphs
+- [x] README still renders correctly
+- [x] Flow from TiDD intro → ticket definition → benefits feels natural
+- [x] No redundancy with existing paragraphs
+
+## Final Report
+
+Rewrote README introduction with three concept paragraphs:
+1. **ticket** - what it is, how to create with `/ticket`
+2. **drive** - serial implementation, parallel ticket creation
+3. **story** - automatic documentation from ticket history
+
+Also updated Typical Session example and Documentation section.

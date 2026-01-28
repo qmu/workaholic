@@ -4,8 +4,9 @@ created_at: 2026-01-28T21:38:50+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
----
-
+effort: 0.1h
+commit_hash: 2e0f848---
+category: Changed
 # Rename "Fail" to "Abandon" with failure analysis report
 
 ## Overview
@@ -48,3 +49,7 @@ Rename the "Fail" option in `/drive` approval prompt to "Abandon" for more natur
 - Using `git restore .` instead of `git checkout -- .` for modern git consistency
 - The Failure Analysis should be committed with the ticket move so insights are preserved in git history
 - Keep the analysis lightweight but useful for future reference
+
+## Final Report
+
+Development completed as planned.

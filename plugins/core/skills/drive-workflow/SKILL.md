@@ -38,7 +38,7 @@ Use AskUserQuestion tool to confirm:
 - "Approve" - implementation is correct, proceed to commit and continue to next ticket
 - "Approve and stop" - implementation is correct, commit this ticket but stop driving
 - "Needs changes" - user will provide feedback to fix
-- "Fail" - mark ticket as failed, discard changes, and continue to next ticket
+- "Abandon" - write failure analysis, discard changes, and continue to next ticket
 
 **Do NOT proceed to commit until user explicitly approves.**
 
@@ -61,7 +61,7 @@ Implementation complete. Changes made:
 - <Change 2>
 
 Do you approve this implementation?
-[Approve / Approve and stop / Needs changes / Fail]
+[Approve / Approve and stop / Needs changes / Abandon]
 ```
 
 ### 4. Update Effort and Write Final Report
@@ -153,19 +153,39 @@ This means newly created tickets are automatically included in drive commits.
 - If user selected "Approve": automatically proceed to the next ticket without asking for confirmation
 - If user selected "Approve and stop": stop driving and report how many tickets remain (e.g., "Stopped. 2 tickets remaining in queue.")
 
-### If User Selects "Fail"
+### If User Selects "Abandon"
 
-When the user selects "Fail", do NOT commit or archive. Instead:
+When the user selects "Abandon", do NOT commit implementation changes. Instead:
 
-1. **Discard implementation changes**: Run `git checkout -- .` to revert all uncommitted changes
-2. **Move ticket to fail directory**:
+1. **Discard implementation changes**: Run `git restore .` to revert all uncommitted changes
+2. **Append Failure Analysis section** to the ticket file:
+
+   ```markdown
+   ## Failure Analysis
+
+   ### What Was Attempted
+   - <Brief description of the implementation approach>
+
+   ### Why It Failed
+   - <Reason the implementation didn't work or was abandoned>
+
+   ### Insights for Future Attempts
+   - <Learnings that could help if this is reattempted>
+   ```
+
+3. **Move ticket to fail directory**:
    ```bash
    mkdir -p .workaholic/tickets/fail
    mv <ticket-path> .workaholic/tickets/fail/
    ```
-3. **Continue to next ticket** without asking for confirmation
+4. **Commit the ticket move** to preserve the failure analysis in git history:
+   ```bash
+   git add .workaholic/tickets/
+   git commit -m "Abandon: <ticket-title>"
+   ```
+5. **Continue to next ticket** without asking for confirmation
 
-This allows users to abandon a failed implementation attempt while preserving the ticket for future reference or analysis.
+This allows users to abandon a failed implementation attempt while preserving insights from the attempt for future reference.
 
 ## Commit Message Rules
 

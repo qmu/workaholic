@@ -8,6 +8,22 @@ user-invocable: false
 
 Guidelines for creating implementation tickets in `.workaholic/tickets/`.
 
+## Frontmatter Template (REQUIRED - DO NOT SKIP)
+
+```yaml
+---
+created_at: <run: date -Iseconds>
+author: <run: git config user.email>
+type: <enhancement | bugfix | refactoring | housekeeping>
+layer: [<UX | Domain | Infrastructure | DB | Config>]
+effort: <leave empty - filled after implementation>
+commit_hash: <leave empty - filled when archived>
+category: <leave empty - filled when archived>
+---
+```
+
+**All fields are mandatory.** Run the shell commands to fill `created_at` and `author`.
+
 ## Filename Convention
 
 Format: `YYYYMMDDHHmmss-<short-description>.md`
@@ -79,7 +95,7 @@ Past tickets that touched similar areas:
 
 ### Filled After Implementation
 
-- **effort**: Time spent on implementation (e.g., 0.1h, 0.25h, 0.5h, 1h, 2h). Leave empty when creating ticket.
+- **effort**: Time spent in numeric hours. Valid: `0.1h`, `0.25h`, `0.5h`, `1h`, `2h`, `4h`. Invalid: `XS`, `S`, `M`, `10m`. Leave empty when creating ticket.
 - **commit_hash**: Short git commit hash. Set automatically by archive script.
 - **category**: Change category (Added, Changed, or Removed). Set automatically by archive script based on commit message verb.
 

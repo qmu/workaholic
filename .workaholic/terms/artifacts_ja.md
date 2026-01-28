@@ -3,7 +3,7 @@ title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
 last_updated: 2026-01-28
-commit_hash: 88b4b18
+commit_hash: fe3d558
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -204,3 +204,91 @@ Past tickets that touched similar areas:
 ### 関連用語
 
 - ticket、archive
+
+## final-report
+
+計画された実装からの逸脱と発見された学習を記録するチケットセクション。
+
+### 定義
+
+Final Reportは、チケットファイルの末尾にあるセクション（オプション）で、計画された実装と実際の実装の違いを記録します。開発が概要と実装ステップで説明したとおりに進行した場合、Final Reportは「Development completed as planned」と簡潔に述べることができます。逸脱が発生した場合、このセクションは何が変更されたか、そしてなぜかを説明します（例：「Implementation deviated from original plan: Changed X because Y」）。Final Reportはまた、作業中に発見されたアーキテクチャの学習をキャプチャする、オプションの「Discovered Insights」サブセクションを含むことができます。Final Reportは、将来の読み手が意思決定と予期しない発見を理解するのに役立つ開発の旅の記録です。
+
+形式:
+```markdown
+## Final Report
+
+Development completed as planned.
+
+[オプション: Implementation deviated from original plan: Changed X because Y]
+
+[オプション: ### Discovered Insightsセクション、学習を含む]
+```
+
+### 使用パターン
+
+- **ディレクトリ名**: N/A（チケットファイル内のセクション）
+- **ファイル名**: `.workaholic/tickets/archive/<branch>/<ticket>.md`内に表示
+- **コード参照**: 「Final Reportセクションを追加」、「逸脱についてFinal Reportを確認」
+
+### 関連用語
+
+- ticket、discovered-insights、archive
+
+## failure-analysis
+
+実装が失敗した理由と何が試みられたかを記録するチケットセクション。
+
+### 定義
+
+Failure Analysisセクションは、開発者が`/drive`ワークフロー承認中にチケットを放棄することを選択した場合、チケットに追加されます。このセクションは失敗した試みから貴重な学習をキャプチャし、以下に答えます：何が試みられたのか、なぜそれが失敗したのか、そしてこれが将来の試みにどのような見方を提供するのか。分析はチケットを`.workaholic/tickets/fail/`に移動させるときにコミットされ、学習をgit履歴に保存します。これにより、失敗したチケットが将来の開発決定に情報を提供できる履歴レコードに変わります。
+
+形式:
+```markdown
+## Failure Analysis
+
+- **What was attempted**: <実装アプローチの説明>
+- **Why it failed**: <失敗の技術的またはアーキテクチャ上の理由>
+- **Insights for future**: <コードベースについて何を教えてくれるか>
+```
+
+### 使用パターン
+
+- **ディレクトリ名**: N/A（チケットファイル内のセクション）
+- **ファイル名**: `.workaholic/tickets/fail/<ticket>.md`内に表示
+- **コード参照**: 「Failure Analysisセクションを追加」、「放棄されたチケットでfailure-analysisを確認」
+
+### 関連用語
+
+- ticket、abandon、final-report
+
+## discovered-insights
+
+実装中に発見された意味のある学習をキャプチャするオプションのチケットセクション。
+
+### 定義
+
+Discovered Insightsはチケットの「Final Report」内のオプションのサブセクションで、実装作業中に発見されたアーキテクチャパターン、コード関係、歴史的コンテキスト、またはエッジケースを記録します。概要（計画された変更を説明する）や実装ステップ（手順を説明する）と異なり、Discovered Insightsは数ヶ月後にチケットを読む開発者に役立つ予期しない学習をキャプチャします。洞察は実行可能で具体的であり、曖昧な観察は避けるべきです。
+
+形式:
+```markdown
+### Discovered Insights
+
+- **Insight**: <発見されたもの>
+  **Context**: <コードベース理解にとって重要である理由>
+```
+
+意味のある洞察のカテゴリ：
+- **Architectural patterns**: ドキュメント化されていない隠された設計上の決定またはコンベンション
+- **Code relationships**: コンポーネント間の非明白な依存関係またはカップリング
+- **Historical context**: 現在の形式で何かが存在する理由（git blameまたはコメント経由で発見）
+- **Edge cases**: 将来の開発者が知るべきゴッチャまたは驚くべき動作
+
+### 使用パターン
+
+- **ディレクトリ名**: N/A（Final Report内のサブセクション）
+- **ファイル名**: `.workaholic/tickets/archive/<branch>/<ticket>.md`内に表示
+- **コード参照**: 「Final Reportに「Discovered Insights」を追加」、「関連するチケットから洞察をチェック」
+
+### 関連用語
+
+- ticket、final-report、archive

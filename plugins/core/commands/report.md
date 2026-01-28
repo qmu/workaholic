@@ -30,12 +30,12 @@ This design makes stories the single source of truth for PR content, eliminating
    - If no tickets, continue with normal PR flow
 4. **Generate documentation** using 5 subagents:
 
-   **Phase 1**: Invoke 4 agents in parallel via Task tool (single message with 4 tool calls):
+   **Phase 1**: Invoke 4 agents in parallel via Task tool (single message with 4 tool calls, each with `model: "haiku"`):
 
-   - **changelog-writer** (`subagent_type: "core:changelog-writer"`): Updates `CHANGELOG.md` with entries from archived tickets
-   - **spec-writer** (`subagent_type: "core:spec-writer"`): Updates `.workaholic/specs/` to reflect codebase changes
-   - **terms-writer** (`subagent_type: "core:terms-writer"`): Updates `.workaholic/terms/` with new terms
-   - **release-readiness** (`subagent_type: "core:release-readiness"`): Analyzes branch for release readiness
+   - **changelog-writer** (`subagent_type: "core:changelog-writer"`, `model: "haiku"`): Updates `CHANGELOG.md` with entries from archived tickets
+   - **spec-writer** (`subagent_type: "core:spec-writer"`, `model: "haiku"`): Updates `.workaholic/specs/` to reflect codebase changes
+   - **terms-writer** (`subagent_type: "core:terms-writer"`, `model: "haiku"`): Updates `.workaholic/terms/` with new terms
+   - **release-readiness** (`subagent_type: "core:release-readiness"`, `model: "haiku"`): Analyzes branch for release readiness
 
    Pass to each agent:
    - Branch name and base branch as context
@@ -44,7 +44,7 @@ This design makes stories the single source of truth for PR content, eliminating
 
    Wait for all 4 agents to complete.
 
-   **Phase 2**: Invoke **story-writer** (`subagent_type: "core:story-writer"`):
+   **Phase 2**: Invoke **story-writer** (`subagent_type: "core:story-writer"`, `model: "haiku"`):
    - Pass branch name and base branch
    - Pass release-readiness JSON output (so it can write section 10 without nested invocation)
 
@@ -70,7 +70,7 @@ This design makes stories the single source of truth for PR content, eliminating
    This ensures the branch exists on remote before PR creation. The `-u` flag sets upstream tracking for new branches.
 7. **Create or update PR** using the pr-creator subagent:
 
-   Invoke the pr-creator subagent via Task tool with `subagent_type: "core:pr-creator"`:
+   Invoke the pr-creator subagent via Task tool with `subagent_type: "core:pr-creator"`, `model: "haiku"`:
 
    - Pass the branch name and base branch as context
    - The subagent handles: checking if PR exists, reading story file, deriving title, `gh` CLI operations

@@ -3,7 +3,7 @@ title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
 last_updated: 2026-01-28
-commit_hash: 88b4b18
+commit_hash: fe3d558
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -204,3 +204,91 @@ The `create-ticket` skill instructs how to find related history by searching for
 ### Related Terms
 
 - ticket, archive
+
+## failure-analysis
+
+A ticket section documenting what was attempted and why an implementation failed.
+
+### Definition
+
+The Failure Analysis section is appended to a ticket when the developer chooses to abandon the ticket during `/drive` workflow approval. This section captures valuable learning from the failed attempt, answering: what was attempted, why it failed, and what insights this provides for future attempts. The analysis is committed with the ticket move to `.workaholic/tickets/fail/` to preserve the learning in git history. This transforms a failed ticket into a historical record that can inform future development decisions.
+
+Format:
+```markdown
+## Failure Analysis
+
+- **What was attempted**: <description of implementation approach>
+- **Why it failed**: <technical or architectural reason for failure>
+- **Insights for future**: <what this teaches us about the codebase>
+```
+
+### Usage Patterns
+
+- **Directory names**: N/A (section within ticket files)
+- **File names**: Appears in `.workaholic/tickets/fail/<ticket>.md`
+- **Code references**: "Add Failure Analysis section", "Check failure-analysis in abandoned tickets"
+
+### Related Terms
+
+- ticket, abandon, final-report
+
+## final-report
+
+A ticket section documenting deviations from planned implementation and discovered learnings.
+
+### Definition
+
+The Final Report is an optional section at the end of a ticket file that documents what differed between planned and actual implementation. When development proceeds exactly as described in the Overview and Implementation Steps, the Final Report can simply state "Development completed as planned." When deviations occur, this section explains what changed and why (e.g., "Implementation deviated from original plan: Changed X because Y"). The Final Report may also include an optional Discovered Insights subsection capturing architectural learnings discovered during work. The Final Report is a record of the development journey that helps future readers understand decision-making and unexpected discoveries.
+
+Format:
+```markdown
+## Final Report
+
+Development completed as planned.
+
+[Optional: Implementation deviated from original plan: Changed X because Y]
+
+[Optional: ### Discovered Insights section with learnings]
+```
+
+### Usage Patterns
+
+- **Directory names**: N/A (section within ticket files)
+- **File names**: Appears in `.workaholic/tickets/archive/<branch>/<ticket>.md`
+- **Code references**: "Add Final Report section", "Check the Final Report for deviations"
+
+### Related Terms
+
+- ticket, discovered-insights, archive
+
+## discovered-insights
+
+An optional ticket section capturing meaningful learnings discovered during implementation.
+
+### Definition
+
+Discovered Insights is an optional subsection within a ticket's Final Report that documents architectural patterns, code relationships, historical context, or edge cases discovered during implementation work. Unlike the Overview (which describes planned changes) or Implementation Steps (which describe procedures), Discovered Insights captures unexpected learnings that benefit future developers reading the ticket months later. Insights should be actionable and specific, avoiding vague observations.
+
+Format:
+```markdown
+### Discovered Insights
+
+- **Insight**: <what was discovered>
+  **Context**: <why this matters for understanding the codebase>
+```
+
+Categories of meaningful insights:
+- **Architectural patterns**: Hidden design decisions or conventions not documented elsewhere
+- **Code relationships**: Non-obvious dependencies or coupling between components
+- **Historical context**: Why something exists in its current form (discovered via git blame or comments)
+- **Edge cases**: Gotchas or surprising behaviors that future developers should know
+
+### Usage Patterns
+
+- **Directory names**: N/A (subsection within Final Report)
+- **File names**: Appears in `.workaholic/tickets/archive/<branch>/<ticket>.md`
+- **Code references**: "Add Discovered Insights to the Final Report", "Check insights from related tickets"
+
+### Related Terms
+
+- ticket, final-report, archive

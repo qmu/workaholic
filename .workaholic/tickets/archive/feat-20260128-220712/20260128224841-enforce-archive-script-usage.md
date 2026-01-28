@@ -3,9 +3,9 @@ created_at: 2026-01-28T22:48:41+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 4eb398b
+category: Added
 ---
 
 # Enforce Archive Script Usage in Drive Workflow
@@ -44,3 +44,7 @@ Past tickets that touched similar areas:
 - The language needs to be strong enough that Claude Code cannot rationalize bypassing it
 - Use explicit DENY patterns that match how Claude Code interprets prohibitions
 - Keep instructions concise—too much text can cause skimming
+
+## Final Report
+
+Development completed as planned.

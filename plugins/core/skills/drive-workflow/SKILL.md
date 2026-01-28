@@ -137,7 +137,18 @@ bash .claude/skills/archive-ticket/sh/archive.sh \
   [modified-files...]
 ```
 
-**IMPORTANT**: Always use the script. Never manually move tickets or create changelogs.
+**CRITICAL**: The archive script is the ONLY way to archive tickets. It handles everything automatically.
+
+#### Prohibited Actions
+
+NEVER do any of the following:
+
+- NEVER use `mv` or `git mv` to move ticket files
+- NEVER create directories like `done/`, `completed/`, `finished/`, or any custom archive location
+- NEVER manually update CHANGELOG files
+- NEVER manually set `commit_hash` or `category` frontmatter fields
+
+The ONLY valid archive location is `.workaholic/tickets/archive/<branch>/`. The script determines the branch name and creates the directory. Any manual file operations will result in incorrect archive structure.
 
 **Note**: The archive script uses `git add -A`, which includes:
 

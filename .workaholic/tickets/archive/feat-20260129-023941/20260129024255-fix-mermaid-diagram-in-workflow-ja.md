@@ -1,9 +1,11 @@
 ---
-date: 2026-01-29
-author: Claude
-type: fix
-layer: Config
-effort: XS
+created_at: 2026-01-29T02:42:55+09:00
+author: a@qmu.jp
+type: bugfix
+layer: [Config]
+effort: 0.25h
+commit_hash: 016f4c5
+category: Changed
 ---
 
 # Fix Mermaid Diagram in workflow_ja.md
@@ -69,3 +71,7 @@ Key references:
 - `enforce-mermaid-for-diagrams.md`: Foundational policy requiring Mermaid for all diagrams
 - `simplify-topic-tree-as-journey-reference.md`: Demonstrates Mermaid simplification practices
 - `flatten-specs-directory-structure.md`: Moved workflow guides to current location
+
+## Final Report
+
+Fixed both workflow.md and workflow_ja.md diagrams. Also added Node Labels section to diagrams rule documenting the quoting requirement.

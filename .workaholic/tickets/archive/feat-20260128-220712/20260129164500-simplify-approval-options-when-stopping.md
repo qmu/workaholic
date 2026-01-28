@@ -3,9 +3,9 @@ created_at: 2026-01-29T16:45:00+09:00
 author: a@qmu.jp
 type: improvement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 36ef853
+category: Removed
 ---
 
 # Remove "Needs changes" from Approval Options When Stopping Drive
@@ -40,3 +40,7 @@ The drive workflow's step 3 approval prompt shows 4 options: [Approve / Approve 
 - Simplifies the workflow from 4 options to 3
 - Removes the ticket-update-and-re-implement loop complexity
 - "Abandon" remains for cases where implementation should be discarded entirely
+
+## Final Report
+
+Development completed as planned. Also removed the "If user requested changes during review" Final Report template since that flow no longer exists.

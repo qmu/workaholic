@@ -2,8 +2,8 @@
 title: Command Execution Flows
 description: How commands invoke agents and skills
 category: developer
-modified_at: 2026-01-29T02:12:47+09:00
-commit_hash:
+modified_at: 2026-01-29T16:58:00+09:00
+commit_hash: 70fa15c
 ---
 
 [English](command-flows.md) | [日本語](command-flows_ja.md)

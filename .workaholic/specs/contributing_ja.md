@@ -2,8 +2,8 @@
 title: Contributing
 description: How to add or modify plugins in Workaholic
 category: developer
-modified_at: 2026-01-28T21:38:50+09:00
-commit_hash: fe3d558
+modified_at: 2026-01-29T16:58:00+09:00
+commit_hash: 70fa15c
 ---
 
 [English](contributing.md) | [日本語](contributing_ja.md)
@@ -32,12 +32,12 @@ workaholic自体の開発にworkaholicワークフローを使用します：
 
 ```mermaid
 flowchart LR
-    A[/ticket] --> B[/drive] --> C[/report]
+    A[/ticket] --> B[/drive] --> C[/story]
 ```
 
-1. **チケットを作成**: `/ticket add new validation rule`
+1. **チケットを作成**: `/ticket add new validation rule` - main上の場合は自動的にトピックブランチを作成
 2. **実装**: `/drive` - チケットに従い、ドキュメントを更新し、承認時にコミット
-3. **PRを作成**: `/report` - ドキュメントを生成しPRを作成
+3. **PRを作成**: `/story` - ドキュメントを生成しPRを作成
 
 すべての実装にはドキュメント更新が含まれます。これは必須であり、スキップできません。
 
@@ -91,7 +91,7 @@ plugins/<plugin>/skills/my-skill/
 
 ## ドキュメント基準
 
-ドキュメント更新はすべての変更に対して必須です。`/report`コマンドは4つのドキュメントサブエージェント（changelog-writer、story-writer、spec-writer、terms-writer）を自動的に並列実行するため、PR作成前にドキュメントは常に更新されます。
+ドキュメント更新はすべての変更に対して必須です。`/story`コマンドは4つのドキュメントサブエージェント（changelog-writer、story-writer、spec-writer、terms-writer）を自動的に並列実行するため、PR作成前にドキュメントは常に更新されます。
 
 spec-writerとterms-writerサブエージェントが強制するドキュメント基準：
 
@@ -100,7 +100,7 @@ spec-writerとterms-writerサブエージェントが強制するドキュメン
 - 箇条書きの断片ではなく、散文の段落を書く
 - ルートREADMEからのリンク階層を維持
 - ドキュメント修正時に`modified_at`と`commit_hash`フィールドを更新
-- ドキュメントは適切なサブディレクトリに配置: `user-guide/`はユーザー向け、`developer-guide/`はアーキテクチャ向け
+- ドキュメントは適切なディレクトリに配置: specs/は技術仕様向け、guides/はユーザー向けドキュメント向け
 - h2およびh3レベルの番号付き見出しを使用: `## 1. セクション`、`### 1.1. サブセクション`。h4の場合は、役に立つときにのみ番号を付けます。例外：READMEと設定ドキュメント。
 
 ドキュメントは任意ではありません。すべてのコード変更は何らかの形でドキュメントに影響します。既存のドキュメントの更新、新しいドキュメントの作成、古いファイルの削除、構造の再編成など。
@@ -124,7 +124,7 @@ spec-writerとterms-writerサブエージェントが強制するドキュメン
 
 ## プルリクエスト
 
-`/report`でPRを作成します。サマリーはストーリーファイルから自動生成され、アーカイブされたチケットを一貫したナラティブに統合します。PRが以下を満たしていることを確認してください：
+`/story`でPRを作成します。サマリーはストーリーファイルから自動生成され、アーカイブされたチケットを一貫したナラティブに統合します。PRが以下を満たしていることを確認してください：
 
 - クリーンなコミット履歴（1チケット = 1コミット）
 - ドキュメント更新を含む（サブエージェントによって自動的に処理）

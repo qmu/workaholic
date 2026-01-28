@@ -2,8 +2,8 @@
 title: File Conventions
 description: Naming patterns and directory structures used in Workaholic
 category: developer
-last_updated: 2026-01-28
-commit_hash: fe3d558
+last_updated: 2026-01-29
+commit_hash: 70fa15c
 ---
 
 [English](file-conventions.md) | [日本語](file-conventions_ja.md)
@@ -137,3 +137,21 @@ The fail directory holds tickets that were abandoned during `/drive` workflow be
 ### Related Terms
 
 - icebox, archive, ticket, abandon, failure-analysis
+
+## guides
+
+User-facing documentation for command usage and workflows.
+
+### Definition
+
+The guides directory (`.workaholic/guides/`) contains user-focused documentation explaining how to use Workaholic. It includes getting started guides, command references, and workflow examples. Guides are distinct from specs (which document technical implementation details) and are organized for accessibility to end users. This directory was introduced to clarify the separation between user documentation and technical specifications.
+
+### Usage Patterns
+
+- **Directory names**: `.workaholic/guides/`
+- **File names**: `getting-started.md`, `commands.md`, `workflow.md`
+- **Code references**: "Check the guides", "User guides in guides/ directory"
+
+### Related Terms
+
+- specs, kebab-case

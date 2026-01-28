@@ -2,8 +2,8 @@
 title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
-last_updated: 2026-01-28
-commit_hash: fe3d558
+last_updated: 2026-01-29
+commit_hash: 70fa15c
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -72,7 +72,7 @@ Update documentation to match the current state.
 
 ### Definition
 
-Sync operations update derived documentation (specs, terms) to reflect the current codebase state. Unlike commits that record changes, syncs ensure documentation accuracy. The `/report` command automatically synchronizes the `.workaholic/` directory (specs and terms) with the current codebase via spec-writer and terms-writer subagents.
+Sync operations update derived documentation (specs, terms) to reflect the current codebase state. Unlike commits that record changes, syncs ensure documentation accuracy. The `/story` command automatically synchronizes the `.workaholic/` directory (specs and terms) with the current codebase via spec-writer and terms-writer subagents.
 
 ### Usage Patterns
 
@@ -102,23 +102,35 @@ A release increments the marketplace version, updates version metadata, and publ
 
 - changelog, plugin
 
-## report
+## story
 
 Generate comprehensive documentation and create or update a GitHub PR.
 
 ### Definition
 
-The report operation orchestrates multiple documentation agents concurrently to generate all artifacts (changelog, story, specs, terms), then creates or updates a GitHub pull request. This is the primary command for completing a feature branch and preparing it for review. The command `/report` replaced the earlier `/pull-request` command to better reflect that documentation generation is its primary purpose, with PR creation as the final step.
+The story operation orchestrates multiple documentation agents concurrently to generate all artifacts (changelog, story, specs, terms), then creates or updates a GitHub pull request. This is the primary command for completing a feature branch and preparing it for review. The command `/story` replaced the earlier `/report` command to better reflect its primary output: a comprehensive story document that synthesizes the implementation narrative, decision-making process, and development journey.
 
 ### Usage Patterns
 
 - **Directory names**: N/A (action, not storage)
 - **File names**: N/A
-- **Code references**: "Run `/report` to create PR", "Report generates documentation"
+- **Code references**: "Run `/story` to create PR", "Story generates documentation"
 
 ### Related Terms
 
-- story, changelog, spec, terms, agent, orchestrator
+- changelog, spec, terms, agent, orchestrator
+
+## report (Deprecated)
+
+Previous name for the `/story` command. See `story` for current definition.
+
+### Definition
+
+`/report` was renamed to `/story` to better reflect its primary output. The functionality remains the same - orchestrating documentation generation and PR creation - but the name now emphasizes the story document as the central artifact.
+
+### Related Terms
+
+- story
 
 ## concurrent-execution
 
@@ -129,7 +141,7 @@ Run multiple independent agents simultaneously for improved performance.
 Concurrent execution is a pattern where multiple agents are invoked in parallel when they write to different locations and have no dependencies on each other. The orchestrating command sends multiple Task tool invocations in a single message, allowing agents to work simultaneously. This significantly reduces total execution time compared to sequential processing.
 
 Examples of concurrent execution:
-- `/report` uses two-phase execution:
+- `/story` uses two-phase execution:
   - Phase 1: changelog-writer, spec-writer, terms-writer, and release-readiness run concurrently
   - Phase 2: story-writer runs with release-readiness output as input
 

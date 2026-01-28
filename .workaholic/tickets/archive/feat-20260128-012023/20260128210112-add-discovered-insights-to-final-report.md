@@ -4,8 +4,9 @@ author: a@qmu.jp
 type: enhancement
 layer: [Config]
 effort: 0.1h
-commit_hash: ff5ff3a
+commit_hash: df6a781
 category: Added
+---
 ---
 
 # Add Discovered Insights to Final Report

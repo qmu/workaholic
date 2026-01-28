@@ -5,7 +5,8 @@ author: a@qmu.jp
 type: enhancement
 layer: [Config]
 effort: 0.1h
-commit_hash: 2e0f848---
+commit_hash: ca85887
+---
 category: Changed
 # Rename "Fail" to "Abandon" with failure analysis report
 

@@ -3,7 +3,7 @@ title: File Conventions
 description: Naming patterns and directory structures used in Workaholic
 category: developer
 last_updated: 2026-01-28
-commit_hash: 88b4b18
+commit_hash: fe3d558
 ---
 
 [English](file-conventions.md) | [日本語](file-conventions_ja.md)
@@ -119,3 +119,21 @@ In the context of file conventions, archive directories store completed tickets 
 ### Related Terms
 
 - icebox, ticket
+
+## fail
+
+Storage for abandoned work items with failure analysis.
+
+### Definition
+
+The fail directory holds tickets that were abandoned during `/drive` workflow because the implementation approach proved unworkable or the ticket was fundamentally flawed. Unlike the icebox (which defers unfinished tickets), the fail directory preserves attempted work with its Failure Analysis attached. Each abandoned ticket in `.workaholic/tickets/fail/` serves as a historical record explaining what was attempted, why it failed, and what insights this provides for future attempts. This prevents duplicate failed attempts and captures learnings in git history.
+
+### Usage Patterns
+
+- **Directory names**: `.workaholic/tickets/fail/`
+- **File names**: Abandoned tickets retain original names with Failure Analysis appended
+- **Code references**: "Move to fail", "Check abandoned tickets in fail"
+
+### Related Terms
+
+- icebox, archive, ticket, abandon, failure-analysis

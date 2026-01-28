@@ -2,8 +2,8 @@
 title: Command Reference
 description: Complete documentation for all Workaholic commands
 category: user
-modified_at: 2026-01-28T01:00:15+09:00
-commit_hash: 88b4b18
+modified_at: 2026-01-28T21:38:50+09:00
+commit_hash: fe3d558
 ---
 
 [English](commands.md) | [日本語](commands_ja.md)
@@ -62,7 +62,7 @@ Implements queued tickets from top to bottom.
 /drive icebox
 ```
 
-Claude picks up tickets from `.workaholic/tickets/todo/`, implements them one by one, asks for your approval, writes a Final Report documenting any deviations, then commits and archives each ticket before moving to the next. The `icebox` argument lets you select from deferred tickets.
+Claude picks up tickets from `.workaholic/tickets/todo/`, implements them one by one, asks for your approval, writes a Final Report documenting any deviations and discoveries, then commits and archives each ticket before moving to the next. The `icebox` argument lets you select from deferred tickets. If an implementation attempt fails, you can select "Abandon" to discard changes, document the failure analysis, and move the ticket to the fail directory before continuing.
 
 ## Workflow Summary
 

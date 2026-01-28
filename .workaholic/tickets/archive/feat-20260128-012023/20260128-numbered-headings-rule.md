@@ -3,7 +3,8 @@ title: Add numbered headings rule to general rules
 category: Added
 layer: Rule
 effort: 0.1h
-commit_hash: a19b847---
+commit_hash: f29bc83
+---
 
 ## Overview
 

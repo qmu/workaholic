@@ -3,7 +3,8 @@ title: Add GitHub links to commit hashes in story Changes section
 category: Added
 layer: Skill
 effort: 0.1h
-commit_hash: 12d80c9---
+commit_hash: 2968e8a
+---
 
 ## Overview
 

@@ -2,8 +2,8 @@
 title: Getting Started
 description: Installation and first steps with Workaholic
 category: user
-modified_at: 2026-01-28T01:00:15+09:00
-commit_hash: 88b4b18
+modified_at: 2026-01-28T21:38:50+09:00
+commit_hash: fe3d558
 ---
 
 [English](getting-started.md) | [日本語](getting-started_ja.md)

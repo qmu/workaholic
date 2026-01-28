@@ -3,7 +3,7 @@ title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
 last_updated: 2026-01-28
-commit_hash: 88b4b18
+commit_hash: fe3d558
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -29,6 +29,24 @@ The drive operation processes tickets from `.workaholic/tickets/todo/` sequentia
 ### Related Terms
 
 - ticket, archive, commit
+
+## abandon
+
+Mark a ticket as failed and move it to the fail directory without committing implementation changes.
+
+### Definition
+
+Abandon is one of four approval options presented during `/drive` workflow when a developer completes a ticket implementation. When selected, abandon discards any uncommitted implementation changes (via `git restore .`), requires a Failure Analysis section to be appended to the ticket documenting what was attempted and why it failed, moves the ticket to `.workaholic/tickets/fail/`, commits the ticket move to preserve the analysis, and continues to the next ticket. This provides a graceful way to handle tickets that were fundamentally flawed or whose implementation proved unworkable.
+
+### Usage Patterns
+
+- **Directory names**: `.workaholic/tickets/fail/`
+- **File names**: Abandoned tickets retain original names in fail directory
+- **Code references**: "Select Abandon during approval", "Ticket was abandoned in the fail directory"
+
+### Related Terms
+
+- ticket, failure-analysis, drive, approval
 
 ## archive
 
@@ -126,6 +144,30 @@ Sequential execution is still required when outputs depend on prior results (e.g
 ### Related Terms
 
 - agent, orchestrator, Task tool
+
+## approval
+
+A step in the drive workflow where the developer confirms or rejects implementation.
+
+### Definition
+
+Approval is a decision point in the `/drive` workflow that occurs after a ticket has been implemented and before it is committed. The workflow presents four options to the developer:
+- **Approve**: Commit the implementation and continue to next ticket
+- **Approve and stop**: Commit the implementation and stop driving
+- **Needs changes**: Request modifications (discards uncommitted changes, keeps ticket in todo, asks for feedback)
+- **Abandon**: Discard implementation changes, append Failure Analysis, move ticket to fail directory, continue to next ticket
+
+This gate ensures that only successfully implemented tickets are committed to history, while failed attempts are preserved in the fail directory with their analysis for future reference.
+
+### Usage Patterns
+
+- **Directory names**: N/A (workflow step, not storage)
+- **File names**: N/A
+- **Code references**: "Select Approve during approval", "The approval prompt offers...", "Approval options are..."
+
+### Related Terms
+
+- drive, ticket, abandon, commit
 
 ## release-readiness
 

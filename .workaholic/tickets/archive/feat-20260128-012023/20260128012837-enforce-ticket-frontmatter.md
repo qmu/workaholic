@@ -4,8 +4,9 @@ author: a@qmu.jp
 type: bugfix
 layer: [Config]
 effort: 0.1h
-commit_hash: e953636
+commit_hash: 330c4e4
 category: Changed
+---
 ---
 
 # Enforce Ticket Frontmatter Rules

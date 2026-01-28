@@ -31,20 +31,31 @@ Explore the codebase to understand requirements and write an implementation tick
    - If `$ARGUMENT` contains "icebox", store in `.workaholic/tickets/icebox/` instead
    - Otherwise, store in `.workaholic/tickets/todo/`
 
-2. **Explore and Write Ticket**
+2. **Discover Related History**
 
-   Follow the preloaded create-ticket skill for exploration, related history, file format, and content guidelines.
+   Use Task tool to invoke history-discoverer subagent with `model: "haiku"`:
+   - Extract 3-5 keywords: file basenames from Key Files + domain terms from request
+   - Pass keywords to subagent
+   - Receive JSON with summary and related tickets
+   - Use results to populate Related History section
 
-3. **Ask Clarifying Questions** if requirements are ambiguous.
+   Example prompt: "Find related tickets for keywords: ticket.md drive.md branch archive Config"
 
-4. **Commit the Ticket**
+3. **Explore and Write Ticket**
+
+   Follow the preloaded create-ticket skill for exploration, file format, and content guidelines.
+   Insert the Related History data from step 2.
+
+4. **Ask Clarifying Questions** if requirements are ambiguous.
+
+5. **Commit the Ticket**
 
    **IMPORTANT**: Skip this step if invoked during `/drive`. The drive command's archive script includes uncommitted tickets via `git add -A`, so the ticket will be committed with the implementation.
 
    - Stage only the newly created ticket file: `git add <ticket-path>`
    - Commit with message: "Add ticket for <short-description>"
 
-5. **Present the Ticket**
+6. **Present the Ticket**
 
    - Show the user where the ticket was created
    - Summarize the key points

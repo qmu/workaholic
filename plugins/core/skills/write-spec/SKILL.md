@@ -50,10 +50,10 @@ The script outputs structured information:
 
 ## Directory Structure
 
-| Audience   | Directory                            | Content                                  |
-| ---------- | ------------------------------------ | ---------------------------------------- |
-| Users      | `.workaholic/specs/user-guide/`      | How to use: commands, workflows, setup   |
-| Developers | `.workaholic/specs/developer-guide/` | How it works: architecture, contributing |
+| Audience   | Directory            | Content                                  |
+| ---------- | -------------------- | ---------------------------------------- |
+| Users      | `.workaholic/guides/` | How to use: commands, workflows, setup   |
+| Developers | `.workaholic/specs/`  | How it works: architecture, contributing |
 
 ## Frontmatter
 
@@ -129,6 +129,6 @@ For each cross-cutting concern:
 - **Every ticket affects docs somehow** - Even small changes have documentation implications
 - **Only delete within `.workaholic/`** - Safety constraint for file deletions
 - **No orphan documents** - Every doc must be linked from a parent README
-- **Category matches directory** - A doc with `category: user` must be in `user-guide/`, `category: developer` in `developer-guide/`
+- **Category matches directory** - A doc with `category: user` must be in `guides/`, `category: developer` in `specs/`
 - **Update `modified_at`** - Set to current datetime (use `date -Iseconds`) when modifying any doc
 - **Update `commit_hash`** - Use value from context COMMIT section

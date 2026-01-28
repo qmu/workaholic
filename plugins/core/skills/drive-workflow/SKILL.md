@@ -38,6 +38,7 @@ Use AskUserQuestion tool to confirm:
 - "Approve" - implementation is correct, proceed to commit and continue to next ticket
 - "Approve and stop" - implementation is correct, commit this ticket but stop driving
 - "Needs changes" - user will provide feedback to fix
+- "Fail" - mark ticket as failed, discard changes, and continue to next ticket
 
 **Do NOT proceed to commit until user explicitly approves.**
 
@@ -60,7 +61,7 @@ Implementation complete. Changes made:
 - <Change 2>
 
 Do you approve this implementation?
-[Approve / Approve and stop / Needs changes]
+[Approve / Approve and stop / Needs changes / Fail]
 ```
 
 ### 4. Update Effort and Write Final Report
@@ -151,6 +152,20 @@ This means newly created tickets are automatically included in drive commits.
 
 - If user selected "Approve": automatically proceed to the next ticket without asking for confirmation
 - If user selected "Approve and stop": stop driving and report how many tickets remain (e.g., "Stopped. 2 tickets remaining in queue.")
+
+### If User Selects "Fail"
+
+When the user selects "Fail", do NOT commit or archive. Instead:
+
+1. **Discard implementation changes**: Run `git checkout -- .` to revert all uncommitted changes
+2. **Move ticket to fail directory**:
+   ```bash
+   mkdir -p .workaholic/tickets/fail
+   mv <ticket-path> .workaholic/tickets/fail/
+   ```
+3. **Continue to next ticket** without asking for confirmation
+
+This allows users to abandon a failed implementation attempt while preserving the ticket for future reference or analysis.
 
 ## Commit Message Rules
 

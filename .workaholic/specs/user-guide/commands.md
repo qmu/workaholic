@@ -24,12 +24,12 @@ Creates a topic branch with a timestamp prefix for consistent naming.
 
 This generates branches like `feat-20260120-205418`, ensuring unique branch names and chronological ordering. The prefix helps identify when work started on a feature.
 
-### /report
+### /story
 
 Generates comprehensive documentation and creates or updates a pull request.
 
 ```bash
-/report
+/story
 ```
 
 The command orchestrates documentation generation in two phases. In Phase 1, four subagents run in parallel: changelog-writer updates `CHANGELOG.md`, spec-writer updates `.workaholic/specs/`, terms-writer updates `.workaholic/terms/`, and release-readiness analyzes changes for release preparation. In Phase 2, story-writer generates the PR narrative using the release-readiness output. Finally, pr-creator handles GitHub PR creation using the generated story as the body.
@@ -71,6 +71,6 @@ The typical workflow combines these commands:
 1. `/branch` - Start a new feature branch
 2. `/ticket <description>` - Write implementation spec
 3. `/drive` - Implement the ticket
-4. `/report` - Generate documentation and create PR for review
+4. `/story` - Generate documentation and create PR for review
 
 Each ticket gets its own commit, and the CHANGELOG tracks all changes for the PR summary.

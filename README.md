@@ -20,7 +20,7 @@ claude
 | `/branch` | Create timestamped topic branch      |
 | `/ticket` | Plan a change with context and steps |
 | `/drive`  | Implement queued tickets one by one  |
-| `/report` | Generate docs and create PR          |
+| `/story`  | Generate docs and create PR          |
 
 ### Typical Session
 
@@ -31,7 +31,7 @@ claude
 /drive                            # implement both, commit each
 /ticket fix logout redirect       # discover issue mid-development
 /drive                            # implement the fix
-/report                           # ready to deliver: docs + PR
+/story                            # ready to deliver: docs + PR
 ```
 
 ## Documentation

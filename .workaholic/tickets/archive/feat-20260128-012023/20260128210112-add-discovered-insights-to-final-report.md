@@ -3,9 +3,9 @@ created_at: 2026-01-28T21:01:12+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: ff5ff3a
+category: Added
 ---
 
 # Add Discovered Insights to Final Report
@@ -53,3 +53,7 @@ Past tickets that touched similar areas:
 - Insights should benefit someone reading the ticket months later
 - Don't duplicate information already in the ticket's Overview or Implementation Steps
 - If no meaningful insights were discovered, omit the section entirely (same pattern as "Development completed as planned")
+
+## Final Report
+
+Development completed as planned.

@@ -71,7 +71,7 @@ After user approves:
 
 2. **Append a "## Final Report" section** to the ticket file.
 
-**If no changes were requested:**
+**If no changes were requested and no insights discovered:**
 
 ```markdown
 ## Final Report
@@ -90,7 +90,38 @@ Implementation deviated from original plan:
   **Reason**: <why the user requested this change>
 ```
 
-This creates a historical record of decisions made during implementation.
+**If meaningful insights were discovered during implementation:**
+
+Add a "### Discovered Insights" subsection capturing learnings that help future developers understand the codebase:
+
+```markdown
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: <what was discovered>
+  **Context**: <why this matters for understanding the codebase>
+```
+
+#### What Makes a Good Insight
+
+Include insights that fall into these categories:
+
+- **Architectural patterns**: Hidden design decisions or conventions not documented elsewhere
+- **Code relationships**: Non-obvious dependencies or coupling between components
+- **Historical context**: Why something exists in its current form (discovered via git blame or comments)
+- **Edge cases**: Gotchas or surprising behaviors that future developers should know
+
+#### Insight Guidelines
+
+- Keep insights actionable and specific, not vague observations
+- Insights should benefit someone reading the ticket months later
+- Don't duplicate information already in the ticket's Overview or Implementation Steps
+- If no meaningful insights were discovered, omit the subsection entirely
+
+This creates a historical record of decisions and discoveries made during implementation.
 
 ### 5. Commit and Archive Using Skill
 

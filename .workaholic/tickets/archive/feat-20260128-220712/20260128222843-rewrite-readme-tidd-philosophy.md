@@ -3,9 +3,9 @@ created_at: 2026-01-28T22:28:43+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 09e00b0
+category: Changed
 ---
 
 # Rewrite README with TiDD Philosophy
@@ -43,3 +43,16 @@ No directly related tickets found for README content changes.
 - Since this is a Claude Code plugin, the context already implies Claude assistance
 - Focus on the methodology (TiDD) and the value of in-repository history
 - Keep the Quick Start and other sections intact - only change the opening sections
+
+## Final Report
+
+Implementation deviated from original plan:
+
+- **Change**: Split introduction into two paragraphs instead of one
+  **Reason**: User requested better readability and smoother logic flow between sentences
+
+- **Change**: Rewrote `/ticket` description from "Write implementation spec" to "Plan a change with context and steps"
+  **Reason**: User clarified tickets are not specs—they capture all information around planned and implemented changes
+
+- **Change**: Expanded Typical Session to show realistic development flow
+  **Reason**: User noted real development involves ticketing throughout (not just at start), driving multiple times, and reporting when ready to deliver

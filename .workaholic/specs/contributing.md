@@ -2,8 +2,8 @@
 title: Contributing
 description: How to add or modify plugins in Workaholic
 category: developer
-modified_at: 2026-01-28T21:38:50+09:00
-commit_hash: fe3d558
+modified_at: 2026-01-29T16:58:00+09:00
+commit_hash: 70fa15c
 ---
 
 [English](contributing.md) | [日本語](contributing_ja.md)
@@ -32,12 +32,12 @@ Use the workaholic workflow to develop workaholic itself:
 
 ```mermaid
 flowchart LR
-    A[/ticket] --> B[/drive] --> C[/report]
+    A[/ticket] --> B[/drive] --> C[/story]
 ```
 
-1. **Create a ticket**: `/ticket add new validation rule`
+1. **Create a ticket**: `/ticket add new validation rule` - automatically creates a topic branch if on main
 2. **Implement**: `/drive` - follows the ticket, updates documentation, commits when approved
-3. **Create PR**: `/report` - generates documentation and creates PR
+3. **Create PR**: `/story` - generates documentation and creates PR
 
 Every implementation includes documentation updates. This is mandatory and cannot be skipped.
 
@@ -100,7 +100,7 @@ Documentation standards enforced by the spec-writer and terms-writer subagents:
 - Write prose paragraphs, not bullet fragments
 - Maintain link hierarchy from root README
 - Update `modified_at` and `commit_hash` fields when modifying documents
-- Place docs in correct subdirectory: `user-guide/` for user-facing, `developer-guide/` for architecture
+- Place docs in correct directory: specs/ for technical specifications, guides/ for user documentation
 - Use numbered headings for h2 and h3 levels: `## 1. Section`, `### 1.1. Subsection`. For h4, number only when helpful. Exceptions: READMEs and configuration docs.
 
 Documentation is not optional. Every code change affects documentation in some way, whether updating existing docs, creating new ones, removing outdated files, or reorganizing the structure.
@@ -124,7 +124,7 @@ Follow the commit message rules:
 
 ## Pull Requests
 
-Create PRs with `/report`. The summary is auto-generated from the story file, which synthesizes archived tickets into a coherent narrative. Ensure your PR:
+Create PRs with `/story`. The summary is auto-generated from the story file, which synthesizes archived tickets into a coherent narrative. Ensure your PR:
 
 - Has clear commit history (one ticket = one commit)
 - Includes documentation updates (handled automatically by subagents)

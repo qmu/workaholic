@@ -2,8 +2,8 @@
 title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
-last_updated: 2026-01-28
-commit_hash: fe3d558
+last_updated: 2026-01-29
+commit_hash: 70fa15c
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -48,7 +48,7 @@ commit_hash: fe3d558
 
 ### 定義
 
-スペックはコードベースの現在の現実をドキュメント化します。（変更を記述する）チケットとは異なり、スペックは現在存在するものを記述します。変更が行われた後にspec-writerサブエージェント（`/report`で呼び出される）で更新され、現在の状態を反映します。スペックは単一の真実の情報源を提供することで認知負荷を軽減します。
+スペックはコードベースの現在の現実をドキュメント化します。（変更を記述する）チケットとは異なり、スペックは現在存在するものを記述します。変更が行われた後にspec-writerサブエージェント（`/story`で呼び出される）で更新され、現在の状態を反映します。スペックは単一の真実の情報源を提供することで認知負荷を軽減します。
 
 ### 使用パターン
 
@@ -62,7 +62,7 @@ commit_hash: fe3d558
 
 ### 不整合
 
-- `/ticket`コマンドの説明で「implementation spec」と言及しており、ticketとspecの用語が混同されている
+- `/ticket`コマンドの説明で「implementation spec」と言及しており、ticketとspecの用語が混同されている（「write a ticket」または「plan a change」であるべき）
 
 ## story
 

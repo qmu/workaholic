@@ -2,8 +2,8 @@
 title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
-last_updated: 2026-01-28
-commit_hash: fe3d558
+last_updated: 2026-01-29
+commit_hash: 70fa15c
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -71,6 +71,7 @@ Utility skills (with bundled shell scripts):
 - **generate-changelog**: Generates changelog entries from archived tickets
 - **create-branch**: Creates timestamped topic branches (e.g., `feat-20260128-001720`)
 - **create-pr**: PR creation workflow, title derivation, and shell script for GitHub operations
+- **discover-history**: Searches archived tickets by keywords to find related historical context
 
 Content skills (instructions and templates):
 - **write-story**: Story content structure, formatting, metrics calculation, and translation requirements
@@ -116,11 +117,12 @@ Common agent types:
 - **Writer agents**: Generate documentation (spec-writer, terms-writer, story-writer, changelog-writer)
 - **Analyst agents**: Evaluate and analyze (performance-analyst, release-readiness)
 - **Creator agents**: Perform external operations (pr-creator)
+- **Search agents**: Find and analyze related work (history-discoverer)
 
 ### Usage Patterns
 
 - **Directory names**: `plugins/<name>/agents/`
-- **File names**: `performance-analyst.md`, `release-readiness.md`, `spec-writer.md`, `story-writer.md`, `changelog-writer.md`, `pr-creator.md`, `terms-writer.md`
+- **File names**: `performance-analyst.md`, `release-readiness.md`, `spec-writer.md`, `story-writer.md`, `changelog-writer.md`, `pr-creator.md`, `terms-writer.md`, `history-discoverer.md`
 - **Code references**: "Invoke the story-writer agent", "The changelog-writer agent handles...", "Spawn the agent via Task tool"
 
 ### Related Terms
@@ -227,3 +229,21 @@ The guiding principle is "thin commands and subagents, comprehensive skills":
 ### Related Terms
 
 - command, agent, skill, orchestrator
+
+## TiDD
+
+Ticket-Driven Development: a methodology where tickets serve as the single source of truth for planned and completed work.
+
+### Definition
+
+TiDD (Ticket-Driven Development) is the core philosophy of Workaholic. It reframes development workflows around tickets as persistent, searchable records of intent and outcome. Rather than external issue trackers, tickets live in the repository alongside code, making full development history accessible and preserving semantic context. Each ticket captures what should change (Overview, Implementation Steps), what actually happened (Final Report, Discovered Insights), and what was learned (Discovered Insights). The workflow enforces a discipline: plan (create ticket), implement (drive), and document (story). This preserves the "why" behind decisions and transforms backlogs from transient task lists into historical assets.
+
+### Usage Patterns
+
+- **Directory names**: N/A (philosophy, not storage)
+- **File names**: Referenced in README.md and project documentation
+- **Code references**: "TiDD philosophy", "Ticket-Driven Development approach", "In-repository tickets"
+
+### Related Terms
+
+- ticket, drive, story, archive

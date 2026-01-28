@@ -3,6 +3,7 @@ name: ticket
 description: Explore codebase and write implementation ticket for `$ARGUMENT`
 skills:
   - create-ticket
+  - create-branch
 ---
 
 # Ticket
@@ -10,6 +11,18 @@ skills:
 Explore the codebase to understand requirements and write an implementation ticket.
 
 ## Instructions
+
+0. **Check Branch**
+
+   Check current branch: `git branch --show-current`
+
+   If on `main` or `master` (not a topic branch):
+   1. Ask user for branch prefix (feat/fix/refact) via AskUserQuestion
+   2. Run: `bash .claude/skills/create-branch/sh/create.sh <prefix>`
+   3. Confirm: "Created branch: <branch-name>"
+   4. Continue to step 1
+
+   Topic branch pattern: `feat-*`, `fix-*`, `refact-*`
 
 1. **Understand the Request**
 

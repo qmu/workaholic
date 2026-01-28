@@ -19,8 +19,7 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 
 | Command                 | Description                                                                      |
 | ----------------------- | -------------------------------------------------------------------------------- |
-| `/branch`               | Create a topic branch with timestamp (e.g., feat-20260120-205418)                |
-| `/ticket <description>` | Explore codebase and write implementation ticket                                 |
+| `/ticket <description>` | Explore codebase and write implementation ticket (auto-creates branch on main)   |
 | `/drive`                | Implement tickets from .workaholic/tickets/ one by one, commit each, and archive |
 | `/story`                | Generate documentation and create/update pull request                            |
 
@@ -45,7 +44,7 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 
 ## Workflow
 
-1. **Create tickets**: Use `/ticket` to write implementation specs
+1. **Plan work**: Use `/ticket` to write implementation specs (auto-creates branch on main)
 2. **Implement tickets**: Use `/drive` to implement and commit each ticket
 3. **Create PR**: Use `/story` to generate documentation and create PR
 

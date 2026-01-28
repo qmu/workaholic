@@ -24,7 +24,7 @@ plugins/                 # Plugin source directories
   core/                  # Core development plugin
     .claude-plugin/      # Plugin configuration
     agents/              # performance-analyst
-    commands/            # branch, ticket, drive, story
+    commands/            # ticket, drive, story
     rules/               # general, typescript
     skills/              # archive-ticket
 ```

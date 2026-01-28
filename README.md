@@ -17,7 +17,6 @@ claude
 
 | Command   | What it does                         |
 | --------- | ------------------------------------ |
-| `/branch` | Create timestamped topic branch      |
 | `/ticket` | Plan a change with context and steps |
 | `/drive`  | Implement queued tickets one by one  |
 | `/story`  | Generate docs and create PR          |
@@ -25,8 +24,7 @@ claude
 ### Typical Session
 
 ```bash
-/branch                           # create topic branch
-/ticket add login page            # plan first change
+/ticket add login page            # creates branch + plans first change
 /ticket add session management    # plan another change
 /drive                            # implement both, commit each
 /ticket fix logout redirect       # discover issue mid-development

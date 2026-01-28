@@ -51,4 +51,4 @@ or
 PR updated: <URL>
 ```
 
-This output format is required by the report command.
+This output format is required by the story command.

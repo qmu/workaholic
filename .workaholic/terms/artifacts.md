@@ -2,8 +2,8 @@
 title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
-last_updated: 2026-01-28
-commit_hash: fe3d558
+last_updated: 2026-01-29
+commit_hash: 70fa15c
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -48,7 +48,7 @@ Current state documentation that provides an authoritative reference snapshot.
 
 ### Definition
 
-Specs document the present reality of the codebase. Unlike tickets (which describe changes), specs describe what exists now. They are updated via the spec-writer subagent (invoked by `/report`) to reflect the current state after changes are made. Specs reduce cognitive load by providing a single source of truth.
+Specs document the present reality of the codebase. Unlike tickets (which describe changes), specs describe what exists now. They are updated via the spec-writer subagent (invoked by `/story`) to reflect the current state after changes are made. Specs reduce cognitive load by providing a single source of truth.
 
 ### Usage Patterns
 
@@ -62,7 +62,7 @@ Specs document the present reality of the codebase. Unlike tickets (which descri
 
 ### Inconsistencies
 
-- The `/ticket` command description mentions "implementation spec" which conflates ticket and spec terminology
+- The `/ticket` command description mentions "implementation spec" which conflates ticket and spec terminology (should be "write a ticket" or "plan a change")
 
 ## story
 

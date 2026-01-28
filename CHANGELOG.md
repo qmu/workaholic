@@ -1,5 +1,24 @@
 # Changelog
 
+## feat-20260128-220712
+
+### Added
+
+- Enforce Archive Script Usage in Drive Workflow ([4eb398b](https://github.com/qmu/workaholic/commit/4eb398b4eb398b)) - [ticket](.workaholic/tickets/archive/feat-20260128-220712/20260128224841-enforce-archive-script-usage.md)
+- Add discover-history Subagent for Finding Related Tickets ([cc9812e](https://github.com/qmu/workaholic/commit/cc9812e688b6ae52d10d3267c5031038baa78a3c)) - [ticket](.workaholic/tickets/archive/feat-20260128-220712/20260129015817-add-discover-history-subagent.md)
+- Add Command Flow Specification Document ([260e317](https://github.com/qmu/workaholic/commit/260e31799a8847bdd2259f0666dc9e52b81e7c8a)) - [ticket](.workaholic/tickets/archive/feat-20260128-220712/20260129020653-add-command-flow-spec.md)
+
+### Changed
+
+- Rewrite README with TiDD Philosophy ([09e00b0](https://github.com/qmu/workaholic/commit/09e00b009e00b0)) - [ticket](.workaholic/tickets/archive/feat-20260128-220712/20260128222843-rewrite-readme-tidd-philosophy.md)
+- Rename /report to /story (Breaking Change) ([ecb96bb](https://github.com/qmu/workaholic/commit/ecb96bbee95a4b979cc694a205819a600b4fd601)) - [ticket](.workaholic/tickets/archive/feat-20260128-220712/20260129003905-rename-report-to-story.md)
+- Flatten .workaholic/specs/ Directory Structure ([43df978](https://github.com/qmu/workaholic/commit/43df97803ffcd3fb6bd0b217c02a034c3f8b5212)) - [ticket](.workaholic/tickets/archive/feat-20260128-220712/20260129010825-flatten-specs-directory-structure.md)
+- Auto-create Branch When Running /ticket on Main ([b5f6e41](https://github.com/qmu/workaholic/commit/b5f6e41e456e2309596ec74b81d7d5df072dbe41)) - [ticket](.workaholic/tickets/archive/feat-20260128-220712/20260129012614-auto-branch-on-ticket.md)
+
+### Removed
+
+- Remove "Needs changes" from Approval Options When Stopping Drive ([36ef853](https://github.com/qmu/workaholic/commit/36ef853928987d22e09965549ebba75f1175a96d)) - [ticket](.workaholic/tickets/archive/feat-20260128-220712/20260129164500-simplify-approval-options-when-stopping.md)
+
 ## feat-20260128-012023
 
 ### Added

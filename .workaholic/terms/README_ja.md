@@ -2,8 +2,8 @@
 title: Terms
 description: Consistent term definitions across the Workaholic project
 category: developer
-last_updated: 2026-01-28
-commit_hash: fe3d558
+last_updated: 2026-01-29
+commit_hash: 70fa15c
 ---
 
 [English](README.md) | [日本語](README_ja.md)
@@ -12,10 +12,10 @@ commit_hash: fe3d558
 
 Workaholicプロジェクト全体で統一された用語定義。
 
-- [core-concepts_ja.md](core-concepts_ja.md) - Plugin、command、skill、rule、agent
-- [artifacts_ja.md](artifacts_ja.md) - Ticket、spec、story、changelog、final-report、discovered-insights、failure-analysis
-- [workflow-terms_ja.md](workflow-terms_ja.md) - Drive、abandon、approval、archive、sync、release、report、concurrent-execution、release-readiness
-- [file-conventions_ja.md](file-conventions_ja.md) - 命名パターン、ディレクトリ構造、todo、icebox、archive、fail
+- [core-concepts_ja.md](core-concepts_ja.md) - Plugin、command、skill、rule、agent、TiDD
+- [artifacts_ja.md](artifacts_ja.md) - Ticket、spec、story、changelog、final-report、discovered-insights、failure-analysis、related-history、journey、topic-tree、changes
+- [workflow-terms_ja.md](workflow-terms_ja.md) - Drive、abandon、approval、archive、sync、release、story（formerly report）、concurrent-execution、release-readiness
+- [file-conventions_ja.md](file-conventions_ja.md) - 命名パターン、ディレクトリ構造、todo、icebox、archive、fail、guides
 - [inconsistencies_ja.md](inconsistencies_ja.md) - 既知の用語問題
 
 ## 目的

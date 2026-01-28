@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-28T21:38:50+09:00
-commit_hash: fe3d558
+modified_at: 2026-01-29T16:58:00+09:00
+commit_hash: 70fa15c
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -52,9 +52,8 @@ plugins/
       story-writer.md         # Generates branch stories for PRs
       terms-writer.md         # Updates .workaholic/terms/
     commands/
-      branch.md          # /branch command
       drive.md           # /drive command
-      report.md          # /report command
+      story.md           # /story command
       ticket.md          # /ticket command
     rules/
       diagrams.md      # Mermaid diagram requirements
@@ -109,7 +108,7 @@ plugins/
 
 ### Commands
 
-Commands are user-invocable via slash syntax (`/ticket`, `/drive`, `/report`). Each command is a markdown file with YAML frontmatter defining the name and description, followed by instructions that Claude follows when the command is invoked.
+Commands are user-invocable via slash syntax (`/ticket`, `/drive`, `/story`). Each command is a markdown file with YAML frontmatter defining the name and description, followed by instructions that Claude follows when the command is invoked.
 
 ### Rules
 
@@ -152,10 +151,9 @@ This diagram shows how commands, agents, and skills invoke each other at runtime
 ```mermaid
 flowchart LR
     subgraph Commands
-        report[/report]
+        story[/story]
         drive[/drive]
         ticket[/ticket]
-        branch[/branch]
     end
 
     subgraph Agents
@@ -163,6 +161,7 @@ flowchart LR
         sw[story-writer]
         spw[spec-writer]
         tw[terms-writer]
+        hd[history-discoverer]
         pc[pr-creator]
         pa[performance-analyst]
         rr[release-readiness]
@@ -173,6 +172,7 @@ flowchart LR
         gc[generate-changelog]
         cb[create-branch]
         ct[create-ticket]
+        dh[discover-history]
         dw[drive-workflow]
         tr[translate]
         ws[write-story]
@@ -184,13 +184,14 @@ flowchart LR
         arr[assess-release-readiness]
     end
 
-    report --> cw & spw & tw & rr
-    report -.-> sw
-    report --> pc
+    story --> cw & spw & tw & rr
+    story -.-> sw
+    story --> pc
     drive --> at & dw
-    ticket --> ct
-    branch --> cb
+    ticket --> ct & hd
+    ticket --> cb
 
+    hd --> dh
     cw --> gc & wc
     sw --> ws & tr
     sw --> pa
@@ -201,7 +202,7 @@ flowchart LR
     rr --> arr
 ```
 
-Note: The `/report` command runs four agents in parallel (changelog-writer, spec-writer, terms-writer, release-readiness), then runs story-writer with the release-readiness output, and finally runs pr-creator.
+Note: The `/story` command runs four agents in parallel (changelog-writer, spec-writer, terms-writer, release-readiness), then runs story-writer with the release-readiness output, and finally runs pr-creator. The `/ticket` command now automatically creates a branch when invoked on main and uses the history-discoverer agent to find related tickets.
 
 ## How Claude Code Loads Plugins
 
@@ -231,13 +232,13 @@ sequenceDiagram
 
 ## Documentation Enforcement
 
-Workaholic enforces comprehensive documentation through a parallel subagent architecture. The `/report` command orchestrates documentation agents in two phases: four agents run in parallel first, then story-writer runs with the release-readiness output.
+Workaholic enforces comprehensive documentation through a parallel subagent architecture. The `/story` command orchestrates documentation agents in two phases: four agents run in parallel first, then story-writer runs with the release-readiness output.
 
 ### How It Works
 
 ```mermaid
 flowchart TD
-    A[/report command] --> B[Move remaining tickets to icebox]
+    A[/story command] --> B[Move remaining tickets to icebox]
     B --> C[Phase 1: Invoke 4 subagents in parallel]
 
     subgraph Phase 1 - Parallel
@@ -269,7 +270,7 @@ flowchart TD
     M --> N[Create/update PR]
 ```
 
-Documentation is updated automatically during the `/report` workflow.
+Documentation is updated automatically during the `/story` workflow.
 
 The subagent architecture provides several benefits:
 

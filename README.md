@@ -1,18 +1,10 @@
 # Workaholic
 
-AI-powered development workflow that turns Claude Code into your 10x pair programmer.
+In-repository Ticket-Driven Development (TiDD) for Claude Code.
 
-## Motivation
+Tickets live alongside code as git-tracked artifacts, not in external tools. Each ticket captures what was planned and what was implemented—the context, decisions, and rationale behind every change. This shared history becomes searchable documentation that future sessions can reference and build upon.
 
-Write specs with AI exploration, implement with AI assistance, ship with AI-generated documentation. Four commands that unlock high-velocity development through ergonomic AI pair programming.
-
-- **Backlog as Historical Assets** - Tickets live in the repository, not external tools. AI and developers access the same searchable history. Decisions and context are preserved as git-tracked artifacts.
-
-- **Parallel Generation, Serial Execution** - Single repository, single worktree (no git worktree complexity). Multiple Claude Code sessions can generate tickets with `/ticket` in parallel. One session runs `/drive` to implement, asking for confirmation.
-
-- **AI-Powered Explanations** - AI generates commit messages, documentation, and PR descriptions via `/report`. Developer focuses on decisions, AI handles the writing.
-
-- **Cultivating Semantics** - Commands map to natural development phases for intuitivity. Same structure everywhere for consistency. AI captures the "why" for describability. Small commits with clear intent for density.
+Multiple sessions can create tickets in parallel while one session implements them serially, with confirmation at each step. When ready to deliver, commit messages, changelogs, and PR descriptions are generated from the accumulated ticket history. Small commits with clear intent preserve semantics across the project's lifetime.
 
 ## Installation
 
@@ -23,20 +15,21 @@ claude
 
 ## Quick Start
 
-| Command   | What it does                      |
-| --------- | --------------------------------- |
-| `/branch` | Create timestamped topic branch   |
-| `/ticket` | Write implementation spec with AI |
-| `/drive`  | Implement specs one by one        |
-| `/report` | Generate docs and create PR       |
+| Command   | What it does                         |
+| --------- | ------------------------------------ |
+| `/ticket` | Plan a change with context and steps |
+| `/drive`  | Implement queued tickets one by one  |
+| `/story`  | Generate docs and create PR          |
 
 ### Typical Session
 
 ```bash
-/branch                           # feat-20260127-210800
-/ticket add user authentication   # AI explores, writes spec
-/drive                            # implement, commit, repeat
-/report                           # changelog, story, PR
+/ticket add login page            # creates branch + plans first change
+/ticket add session management    # plan another change
+/drive                            # implement both, commit each
+/ticket fix logout redirect       # discover issue mid-development
+/drive                            # implement the fix
+/story                            # ready to deliver: docs + PR
 ```
 
 ## Documentation

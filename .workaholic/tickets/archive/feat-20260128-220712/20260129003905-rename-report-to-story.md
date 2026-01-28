@@ -3,9 +3,9 @@ created_at: 2026-01-29T00:39:05+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: ecb96bb
+category: Changed
 ---
 
 # Rename /report to /story (Breaking Change)
@@ -72,3 +72,7 @@ Past tickets that touched similar areas:
 - Subagent names (`story-writer`, `pr-creator`, etc.) remain unchanged - they are internal implementation details
 - The `write-story` skill name aligns well with the new `/story` command name
 - Historical tickets and stories in archive should NOT be updated - they document past work accurately
+
+## Final Report
+
+Implementation completed as planned. Also updated the Japanese version of commands.md (commands_ja.md) which was discovered during implementation but not listed in the original ticket.

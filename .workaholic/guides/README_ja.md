@@ -15,3 +15,5 @@ Workaholicプラグインのインストールと使用に関するドキュメ�
 - [はじめに](getting-started_ja.md) - インストールと最初のステップ
 - [コマンド](commands_ja.md) - コマンドリファレンス
 - [ワークフロー](workflow_ja.md) - チケット駆動開発ガイド
+
+技術仕様は [../specs/](../specs/README_ja.md) を参照。

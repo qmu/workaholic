@@ -2,8 +2,8 @@
 title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
-last_updated: 2026-01-28
-commit_hash: fe3d558
+last_updated: 2026-01-29
+commit_hash: 70fa15c
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -71,6 +71,7 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 - **generate-changelog**: アーカイブされたチケットからchangelogエントリを生成
 - **create-branch**: タイムスタンプ付きトピックブランチを作成（例：`feat-20260128-001720`）
 - **create-pr**: PR作成ワークフロー、タイトル導出、GitHub操作用シェルスクリプト
+- **discover-history**: キーワードでアーカイブされたチケットを検索して関連する歴史的コンテキストを見つける
 
 コンテンツスキル（指示とテンプレート）:
 - **write-story**: ストーリーコンテンツ構造、フォーマット、メトリクス計算、翻訳要件
@@ -116,11 +117,12 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 - **ライターエージェント**: ドキュメントを生成（spec-writer、terms-writer、story-writer、changelog-writer）
 - **アナリストエージェント**: 評価と分析を実行（performance-analyst、release-readiness）
 - **クリエイターエージェント**: 外部操作を実行（pr-creator）
+- **検索エージェント**: 関連する作業を見つけて分析（history-discoverer）
 
 ### 使用パターン
 
 - **ディレクトリ名**: `plugins/<name>/agents/`
-- **ファイル名**: `performance-analyst.md`、`release-readiness.md`、`spec-writer.md`、`story-writer.md`、`changelog-writer.md`、`pr-creator.md`、`terms-writer.md`
+- **ファイル名**: `performance-analyst.md`、`release-readiness.md`、`spec-writer.md`、`story-writer.md`、`changelog-writer.md`、`pr-creator.md`、`terms-writer.md`、`history-discoverer.md`
 - **コード参照**: 「story-writerエージェントを呼び出す」、「changelog-writerエージェントが処理する...」、「Taskツールでエージェントを起動」
 
 ### 関連用語
@@ -136,7 +138,7 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 オーケストレーターは、インラインでタスクを実行する代わりに、専門化された作業を複数のエージェントに委譲するコマンドです。オーケストレーターは初期コンテキストを収集し、エージェントを（パフォーマンスのために並列で）呼び出し、その出力を統合します。このパターンは、複雑なマルチステップワークフローを可能にしながら、メイン会話のコンテキストウィンドウを保持します。
 
 例:
-- `/report`はchangelog-writer、story-writer、spec-writer、terms-writer、release-readinessを同時に、その後pr-creatorを順次オーケストレート
+- `/story`はchangelog-writer、story-writer、spec-writer、terms-writer、release-readinessを同時に、その後pr-creatorを順次オーケストレート
 
 ### 使用パターン
 
@@ -227,3 +229,21 @@ nesting policyは、コマンド、サブエージェント、スキル間で許
 ### 関連用語
 
 - command、agent、skill、orchestrator
+
+## TiDD
+
+Ticket-Driven Development（チケット駆動開発）: チケットが計画と完了した作業の唯一の情報源として機能する方法論。
+
+### 定義
+
+TiDD（Ticket-Driven Development）はWorkaholicのコア哲学です。チケットを計画と成果の永続的で検索可能なレコードとしてラウンドするワークフローを再構成します。外部issue trackerではなく、チケットはコードと共にリポジトリ内で存在し、完全な開発履歴をアクセス可能にし、セマンティックコンテキストを保存します。各チケットは何を変更すべきか（Overview、Implementation Steps）、実際に何が起こったか（Final Report、Discovered Insights）、何を学んだか（Discovered Insights）を記録します。ワークフローは規律を強制します：計画（チケット作成）、実装（drive）、ドキュメント化（story）。これは決定の「理由」を保存し、バックログを一時的なタスクリストから歴史的資産に変換します。
+
+### 使用パターン
+
+- **ディレクトリ名**: N/A（哲学であり、ストレージではない）
+- **ファイル名**: README.mdとプロジェクトドキュメントで参照
+- **コード参照**: 「TiDD哲学」、「チケット駆動開発アプローチ」、「リポジトリ内のチケット」
+
+### 関連用語
+
+- ticket、drive、story、archive

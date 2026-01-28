@@ -70,6 +70,7 @@ Refs #<issue-number>
 
 ## Stories
 
+- [feat-20260128-220712.md](feat-20260128-220712.md) - TiDD philosophy framework, command simplification, and discovery tooling: README rewritten with TiDD philosophy, /report renamed to /story, directory structure flattened, branch creation integrated into /ticket, history-discoverer subagent added, command-flows specification created, approval loop simplified - 8 tickets, 15 commits
 - [feat-20260128-012023.md](feat-20260128-012023.md) - Documentation clarity, workflow enhancement, and technical optimization: Motivation section added to README, Cultivating Semantics terminology, numbered headings formalized, Abandon workflow with failure analysis, Haiku subagent optimization - 9 tickets, 20 commits
 - [feat-20260128-001720.md](feat-20260128-001720.md) - Skill consolidation: merged 8 utility skills into primary counterparts, extracted create-branch and create-ticket skills, documented architecture nesting policy, added story translation and markdown linking - 14 tickets, 27 commits
 - [feat-20260126-214833.md](feat-20260126-214833.md) - Subagent architecture with concurrent execution, git -C prohibition via settings.json deny, skill extraction, bundled scripts for permission-free plugins, story format enhancements (11 sections with release readiness), and infrastructure improvements (POSIX sh, topic tree flowchart, ticket directory reorganization) - 42 tickets, 101 commits

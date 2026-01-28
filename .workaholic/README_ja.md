@@ -12,7 +12,8 @@ commit_hash: f034f63
 
 Workaholicプラグインマーケットプレイスの作業成果物ハブです。
 
-- [specs/](specs/README_ja.md) - 現状のリファレンスドキュメント
+- [guides/](guides/README_ja.md) - ユーザードキュメント
+- [specs/](specs/README_ja.md) - 技術仕様
 - [stories/](stories/README_ja.md) - ブランチごとの開発ナラティブとPRの説明文
 - [terms/](terms/README_ja.md) - プロジェクト全体で統一された用語定義
 - [tickets/](tickets/README_ja.md) - 実装作業キューとアーカイブ

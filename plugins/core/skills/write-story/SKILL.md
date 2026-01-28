@@ -185,7 +185,7 @@ The subagent returns the table and analysis in the format shown above. Include i
 
 **Release-readiness input:**
 
-The release-readiness JSON is provided by the orchestrator (`/report` command) which invokes release-readiness as a parallel agent. The JSON contains:
+The release-readiness JSON is provided by the orchestrator (`/story` command) which invokes release-readiness as a parallel agent. The JSON contains:
 
 ```json
 {

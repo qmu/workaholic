@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-28T21:38:50+09:00
-commit_hash: fe3d558
+modified_at: 2026-01-29T16:58:00+09:00
+commit_hash: 70fa15c
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -52,9 +52,8 @@ plugins/
       story-writer.md         # PR用のブランチストーリーを生成
       terms-writer.md         # .workaholic/terms/を更新
     commands/
-      branch.md          # /branch コマンド
       drive.md           # /drive コマンド
-      report.md          # /report コマンド
+      story.md           # /story コマンド
       ticket.md          # /ticket コマンド
     rules/
       diagrams.md      # Mermaid図表要件
@@ -109,7 +108,7 @@ plugins/
 
 ### コマンド
 
-コマンドはスラッシュ構文（`/ticket`、`/drive`、`/report`）でユーザーが呼び出せます。各コマンドは名前と説明を定義するYAMLフロントマター付きのマークダウンファイルで、その後にコマンドが呼び出されたときにClaudeが従う指示が続きます。
+コマンドはスラッシュ構文（`/ticket`、`/drive`、`/story`）でユーザーが呼び出せます。各コマンドは名前と説明を定義するYAMLフロントマター付きのマークダウンファイルで、その後にコマンドが呼び出されたときにClaudeが従う指示が続きます。
 
 ### ルール
 
@@ -152,10 +151,9 @@ plugins/
 ```mermaid
 flowchart LR
     subgraph コマンド
-        report[/report]
+        story[/story]
         drive[/drive]
         ticket[/ticket]
-        branch[/branch]
     end
 
     subgraph エージェント
@@ -163,6 +161,7 @@ flowchart LR
         sw[story-writer]
         spw[spec-writer]
         tw[terms-writer]
+        hd[history-discoverer]
         pc[pr-creator]
         pa[performance-analyst]
         rr[release-readiness]
@@ -173,6 +172,7 @@ flowchart LR
         gc[generate-changelog]
         cb[create-branch]
         ct[create-ticket]
+        dh[discover-history]
         dw[drive-workflow]
         tr[translate]
         ws[write-story]
@@ -184,13 +184,14 @@ flowchart LR
         arr[assess-release-readiness]
     end
 
-    report --> cw & spw & tw & rr
-    report -.-> sw
-    report --> pc
+    story --> cw & spw & tw & rr
+    story -.-> sw
+    story --> pc
     drive --> at & dw
-    ticket --> ct
-    branch --> cb
+    ticket --> ct & hd
+    ticket --> cb
 
+    hd --> dh
     cw --> gc & wc
     sw --> ws & tr
     sw --> pa
@@ -201,7 +202,7 @@ flowchart LR
     rr --> arr
 ```
 
-注: `/report`コマンドは4つのエージェント（changelog-writer、spec-writer、terms-writer、release-readiness）を並列実行し、その後story-writerをrelease-readiness出力と共に実行し、最後にpr-creatorを実行します。
+注: `/story`コマンドは4つのエージェント（changelog-writer、spec-writer、terms-writer、release-readiness）を並列実行し、その後story-writerをrelease-readiness出力と共に実行し、最後にpr-creatorを実行します。`/ticket`コマンドはmain上で呼び出されたときに自動的にブランチを作成し、history-discovererエージェントを使用して関連チケットを検索します。
 
 ## Claude Codeがプラグインをロードする方法
 
@@ -231,13 +232,13 @@ sequenceDiagram
 
 ## ドキュメント強制
 
-Workaholicは並列サブエージェントアーキテクチャを通じて包括的なドキュメントを強制します。`/report`コマンドはドキュメントエージェントを2つのフェーズで調整します：最初に4つのエージェントが並列実行され、その後story-writerがrelease-readiness出力と共に実行されます。
+Workaholicは並列サブエージェントアーキテクチャを通じて包括的なドキュメントを強制します。`/story`コマンドはドキュメントエージェントを2つのフェーズで調整します：最初に4つのエージェントが並列実行され、その後story-writerがrelease-readiness出力と共に実行されます。
 
 ### 仕組み
 
 ```mermaid
 flowchart TD
-    A[/report コマンド] --> B[残りのチケットをiceboxに移動]
+    A[/story コマンド] --> B[残りのチケットをiceboxに移動]
     B --> C[フェーズ1: 4つのサブエージェントを並列で呼び出し]
 
     subgraph フェーズ1 - 並列
@@ -269,7 +270,7 @@ flowchart TD
     M --> N[PRを作成/更新]
 ```
 
-ドキュメントは`/report`ワークフロー中に自動的に更新されます。
+ドキュメントは`/story`ワークフロー中に自動的に更新されます。
 
 サブエージェントアーキテクチャにはいくつかの利点があります：
 

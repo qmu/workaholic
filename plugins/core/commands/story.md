@@ -1,9 +1,9 @@
 ---
-name: report
+name: story
 description: Generate documentation (changelog, story, specs, terms) and create/update a pull request.
 ---
 
-# Report
+# Story
 
 Generate comprehensive documentation and create or update a pull request for the current branch.
 

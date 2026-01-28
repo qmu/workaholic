@@ -2,8 +2,8 @@
 title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
-last_updated: 2026-01-28
-commit_hash: fe3d558
+last_updated: 2026-01-29
+commit_hash: 70fa15c
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -72,13 +72,13 @@ abandonは`/drive`ワークフロー中に開発者がチケット実装を完�
 
 ### 定義
 
-sync操作は派生ドキュメント（specs、terms）を現在のコードベースの状態を反映するように更新します。変更を記録するコミットとは異なり、syncはドキュメントの正確性を確保します。`/report`コマンドはspec-writerとterms-writerサブエージェントを介して`.workaholic/`ディレクトリ（specsとterms）を現在のコードベースと自動的に同期します。
+sync操作は派生ドキュメント（specs、terms）を現在のコードベースの状態を反映するように更新します。変更を記録するコミットとは異なり、syncはドキュメントの正確性を確保します。`/story`コマンドはspec-writerとterms-writerサブエージェントを介して`.workaholic/`ディレクトリ（specsとterms）を現在のコードベースと自動的に同期します。
 
 ### 使用パターン
 
 - **ディレクトリ名**: N/A（アクションであり、ストレージではない）
 - **ファイル名**: N/A
-- **コード参照**: 「docsをsyncする」、「/report中にドキュメントが同期される」
+- **コード参照**: 「docsをsyncする」、「/story中にドキュメントが同期される」
 
 ### 関連用語
 
@@ -120,6 +120,36 @@ reportオペレーションは複数のドキュメントエージェントを�
 
 - story、changelog、spec、terms、agent、orchestrator
 
+## story
+
+包括的なドキュメントを生成し、GitHub PRを作成または更新。
+
+### 定義
+
+storyオペレーションは複数のドキュメントエージェントを同時にオーケストレートしてすべての成果物（changelog、story、specs、terms）を生成し、その後GitHub pull requestを作成または更新します。これはフィーチャーブランチを完了し、レビューのために準備するための主要なコマンドです。`/story`コマンドは以前の`/report`コマンドを置き換え、実装ナラティブ、意思決定プロセス、開発の旅を合成する包括的なストーリードキュメントである主要な出力をより適切に反映しています。
+
+### 使用パターン
+
+- **ディレクトリ名**: N/A（アクションであり、ストレージではない）
+- **ファイル名**: N/A
+- **コード参照**: 「`/story`を実行してPRを作成」、「Storyはドキュメントを生成」
+
+### 関連用語
+
+- changelog、spec、terms、agent、orchestrator
+
+## report（廃止）
+
+以前の`/story`コマンドの名前。現在の定義については`story`を参照してください。
+
+### 定義
+
+`/report`は`/story`に名前が変更されました。機能は同じままです。オーケストレーションするドキュメント生成とPR作成は同じですが、名前は中心的な成果物としてストーリードキュメントを強調しています。
+
+### 関連用語
+
+- story
+
 ## concurrent-execution
 
 パフォーマンス向上のために複数の独立したエージェントを同時に実行。
@@ -129,7 +159,7 @@ reportオペレーションは複数のドキュメントエージェントを�
 concurrent execution（並行実行）は、異なる場所に書き込み、互いに依存関係がない複数のエージェントを並列で呼び出すパターンです。オーケストレーションコマンドは単一のメッセージで複数のTaskツール呼び出しを送信し、エージェントが同時に作業できるようにします。これにより、順次処理と比較して合計実行時間が大幅に短縮されます。
 
 concurrent executionの例:
-- `/report`は2フェーズ実行を使用:
+- `/story`は2フェーズ実行を使用:
   - フェーズ1: changelog-writer、spec-writer、terms-writer、release-readinessを同時実行
   - フェーズ2: story-writerがrelease-readinessの出力を入力として実行
 

@@ -107,15 +107,9 @@ Before writing a ticket:
 - Understand existing patterns, architecture, and conventions
 - Identify files that will need to be modified or created
 
-## Finding Related History
+## Related History
 
-Search archived tickets in `.workaholic/tickets/archive/` for related past work. Match by:
-
-- **Key Files overlap** (strongest signal): Tickets that modified the same files
-- **Layer match**: Tickets with the same layer (e.g., Config, UX)
-- **Keyword similarity** (weakest signal): Tickets with similar terms in title/overview
-
-List the top 3-5 most relevant tickets (most recent first if equal relevance). If no related tickets found, omit the Related History section entirely.
+The Related History section is populated by the `history-discoverer` subagent (invoked by `/ticket` command).
 
 **Link format**: Use markdown links with repository-relative paths:
 ```markdown
@@ -124,10 +118,7 @@ List the top 3-5 most relevant tickets (most recent first if equal relevance). I
 
 The full path includes the branch directory from the search results (e.g., `feat-20260126-214833`).
 
-After finding related tickets, synthesize a brief summary (1-2 sentences):
-- Focus on patterns: what aspects have been modified before, what challenges were encountered
-- Keep it actionable: help the implementer understand what to watch out for
-- If only 1 related ticket exists, keep the summary very brief
+If the subagent returns no matches, omit the Related History section entirely.
 
 ## Writing Guidelines
 

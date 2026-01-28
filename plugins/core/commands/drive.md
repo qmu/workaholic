@@ -66,7 +66,7 @@ Claude: Found 3 tickets to implement:
         - Updated src/bar.ts (fixed Y)
 
         Do you approve this implementation?
-        [Approve / Approve and stop / Needs changes / Abandon]
+        [Approve / Approve and stop / Abandon]
 
 User:   Approve
 

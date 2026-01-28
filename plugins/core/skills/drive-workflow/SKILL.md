@@ -37,18 +37,9 @@ Use AskUserQuestion tool to confirm:
 
 - "Approve" - implementation is correct, proceed to commit and continue to next ticket
 - "Approve and stop" - implementation is correct, commit this ticket but stop driving
-- "Needs changes" - user will provide feedback to fix
 - "Abandon" - write failure analysis, discard changes, and continue to next ticket
 
 **Do NOT proceed to commit until user explicitly approves.**
-
-If user requests changes:
-
-1. **Update the ticket file first** - add/modify steps based on feedback
-2. Then implement the changes
-3. Ask for review again
-
-This ensures the ticket always reflects the final implementation.
 
 #### Approval Prompt Format
 
@@ -61,7 +52,7 @@ Implementation complete. Changes made:
 - <Change 2>
 
 Do you approve this implementation?
-[Approve / Approve and stop / Needs changes / Abandon]
+[Approve / Approve and stop / Abandon]
 ```
 
 ### 4. Update Effort and Write Final Report
@@ -72,23 +63,12 @@ After user approves:
 
 2. **Append a "## Final Report" section** to the ticket file.
 
-**If no changes were requested and no insights discovered:**
+**If no insights discovered:**
 
 ```markdown
 ## Final Report
 
 Development completed as planned.
-```
-
-**If user requested changes during review:**
-
-```markdown
-## Final Report
-
-Implementation deviated from original plan:
-
-- **Change**: <what was changed>
-  **Reason**: <why the user requested this change>
 ```
 
 **If meaningful insights were discovered during implementation:**

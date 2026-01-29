@@ -3,7 +3,7 @@ title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
 last_updated: 2026-01-29
-commit_hash: 70fa15c
+commit_hash: 693ef76
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -72,6 +72,7 @@ Utility skills (with bundled shell scripts):
 - **create-branch**: Creates timestamped topic branches (e.g., `feat-20260128-001720`)
 - **create-pr**: PR creation workflow, title derivation, and shell script for GitHub operations
 - **discover-history**: Searches archived tickets by keywords to find related historical context
+- **discover-source**: Guidelines for exploring source code to understand context
 
 Content skills (instructions and templates):
 - **write-story**: Story content structure, formatting, metrics calculation, and translation requirements
@@ -117,12 +118,12 @@ Common agent types:
 - **Writer agents**: Generate documentation (spec-writer, terms-writer, story-writer, changelog-writer)
 - **Analyst agents**: Evaluate and analyze (performance-analyst, release-readiness)
 - **Creator agents**: Perform external operations (pr-creator)
-- **Search agents**: Find and analyze related work (history-discoverer)
+- **Search agents**: Find and analyze related work (history-discoverer, source-discoverer)
 
 ### Usage Patterns
 
 - **Directory names**: `plugins/<name>/agents/`
-- **File names**: `performance-analyst.md`, `release-readiness.md`, `spec-writer.md`, `story-writer.md`, `changelog-writer.md`, `pr-creator.md`, `terms-writer.md`, `history-discoverer.md`
+- **File names**: `performance-analyst.md`, `release-readiness.md`, `spec-writer.md`, `story-writer.md`, `changelog-writer.md`, `pr-creator.md`, `terms-writer.md`, `history-discoverer.md`, `source-discoverer.md`
 - **Code references**: "Invoke the story-writer agent", "The changelog-writer agent handles...", "Spawn the agent via Task tool"
 
 ### Related Terms
@@ -229,6 +230,46 @@ The guiding principle is "thin commands and subagents, comprehensive skills":
 ### Related Terms
 
 - command, agent, skill, orchestrator
+
+## hook
+
+A callback mechanism that executes code at specific points in the Claude Code tool lifecycle.
+
+### Definition
+
+Hooks are triggered at defined points in tool execution workflows to enforce policies or perform automatic actions. Workaholic currently uses PostToolUse hooks to validate file operations (e.g., checking that ticket files meet format requirements before they are saved). Hooks are configured in a plugin's `hooks/hooks.json` file and can execute shell scripts or other commands based on matching criteria.
+
+### Usage Patterns
+
+- **Directory names**: `plugins/<name>/hooks/`
+- **File names**: `hooks.json` (configuration), `*.sh` (executable scripts)
+- **Code references**: "Add a PostToolUse hook", "Hook validates before saving", "Hook configuration in hooks.json"
+
+### Hook Types
+
+- **PostToolUse**: Executes after a tool has been invoked, useful for validation or automatic processing
+
+### Related Terms
+
+- rule, plugin, PostToolUse
+
+## PostToolUse
+
+A hook lifecycle event that triggers after Claude Code tool execution completes.
+
+### Definition
+
+PostToolUse is a hook trigger point that allows plugins to execute validation or side-effect code immediately after a tool (like Write or Edit) completes successfully. In Workaholic, PostToolUse hooks are used to validate ticket file operations, ensuring that newly created or modified ticket files meet format and location requirements before they are fully persisted.
+
+### Usage Patterns
+
+- **Directory names**: N/A (hook type, not storage)
+- **File names**: Referenced in `hooks/hooks.json` matcher configurations
+- **Code references**: "PostToolUse hook validates files", "PostToolUse configuration for Write|Edit"
+
+### Related Terms
+
+- hook, rule, plugin
 
 ## TiDD
 

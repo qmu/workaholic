@@ -1,0 +1,17 @@
+{
+  "description": "Ticket format and location validation",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/validate-ticket.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

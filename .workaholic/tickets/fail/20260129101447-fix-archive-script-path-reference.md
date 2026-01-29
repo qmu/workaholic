@@ -66,3 +66,21 @@ Past tickets that touched similar areas:
 - Inlining the script content via `@` import or as a code block would make it portable
 - The skill explicitly says "CRITICAL: The archive script is the ONLY way to archive tickets" - ironic given the broken path
 - Need to verify `archive-ticket` is preloaded by drive command for skill access
+
+## Failure Analysis
+
+### What Was Attempted
+
+- Embedded the archive.sh script content directly into the archive-ticket SKILL.md file
+- Updated drive-workflow to reference the preloaded skill instead of hardcoded path
+- Removed the standalone sh/archive.sh file
+
+### Why It Failed
+
+Implementation was abandoned by user - likely the approach of embedding a 100-line shell script inline in markdown was too verbose or not the preferred solution.
+
+### Insights for Future Attempts
+
+- Consider using `${CLAUDE_PLUGIN_ROOT}` environment variable approach instead, which works for hooks
+- Alternatively, the path issue may only affect development and work correctly when plugin is installed
+- May need a different mechanism for portable script references in skills

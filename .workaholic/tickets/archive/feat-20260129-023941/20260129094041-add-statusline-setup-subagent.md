@@ -1,7 +1,14 @@
-# Add statusline-setup Subagent
+---
+created_at: 2026-01-29T09:40:41+09:00
+author: a@qmu.jp
+type: enhancement
+layer: [Config]
+effort: 0.25h
+commit_hash: c2288a1
+category: Added
+---
 
-- **Layer**: Config
-- **Complexity**: Low
+# Add statusline-setup Subagent
 
 ## Overview
 
@@ -62,8 +69,19 @@ echo "[$MODEL] $REPO_NAME"
 
 ## Acceptance
 
-- [ ] Subagent file exists at `plugins/core/agents/statusline-setup.md`
-- [ ] Skill file exists at `plugins/core/skills/configure-statusline/SKILL.md`
-- [ ] Skill contains settings.json template
-- [ ] Skill contains statusline.sh script template
-- [ ] Instructions guide merging with existing settings (not overwriting)
+- [x] Subagent file exists at `plugins/core/agents/statusline-setup.md`
+- [x] Skill file exists at `plugins/core/skills/configure-statusline/SKILL.md`
+- [x] Skill contains settings.json template
+- [x] Skill contains statusline.sh script template
+- [x] Instructions guide merging with existing settings (not overwriting)
+
+## Final Report
+
+### Changes Made
+
+- Created `plugins/core/agents/statusline-setup.md` - Thin subagent with Read/Edit tools and configure-statusline skill
+- Created `plugins/core/skills/configure-statusline/SKILL.md` with:
+  - Step-by-step instructions for updating settings.json
+  - Statusline.sh script template showing model and repo name
+  - JSON input format documentation
+  - Notes on permissions and performance

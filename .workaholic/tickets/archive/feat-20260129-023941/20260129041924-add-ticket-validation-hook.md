@@ -3,9 +3,9 @@ created_at: 2026-01-29T04:19:24+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: d59c39f
+category: Added
 ---
 
 # Add Ticket Validation Hook
@@ -92,3 +92,30 @@ Past tickets that touched similar areas:
 - The `${CLAUDE_PLUGIN_ROOT}` variable provides absolute path to plugin directory
 - Script must handle both Write (new file) and Edit (modified file) operations
 - Consider edge case: ticket in `fail/` directory (used when implementation is abandoned)
+
+## Final Report
+
+### Changes Made
+
+- Created `plugins/core/hooks/hooks.json` with PostToolUse configuration for Write|Edit operations
+- Created `plugins/core/hooks/validate-ticket.sh` (160 lines) with comprehensive validation:
+  - Early exit for non-ticket files
+  - Location validation (todo/, icebox/, archive/<branch>/)
+  - Filename format validation (YYYYMMDDHHmmss-*.md)
+  - Frontmatter field validation with actionable error messages
+- Modified `plugins/core/.claude-plugin/plugin.json` to add hooks reference
+
+### Testing
+
+All validation tests passed:
+- Valid ticket: accepted (exit 0)
+- Non-ticket file: skipped (exit 0)
+- Invalid type: rejected with specific error (exit 2)
+- Invalid layer: rejected with specific error (exit 2)
+- Invalid filename: rejected with specific error (exit 2)
+- Invalid location: rejected with specific error (exit 2)
+
+### Notes
+
+- Used awk instead of `head -n -1` for macOS compatibility
+- Script exits early for non-ticket files to minimize performance impact

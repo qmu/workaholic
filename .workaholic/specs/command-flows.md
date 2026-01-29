@@ -2,8 +2,8 @@
 title: Command Execution Flows
 description: How commands invoke agents and skills
 category: developer
-modified_at: 2026-01-29T16:58:00+09:00
-commit_hash: 70fa15c
+modified_at: 2026-01-29T12:21:57+09:00
+commit_hash: 693ef76
 ---
 
 [English](command-flows.md) | [日本語](command-flows_ja.md)
@@ -35,14 +35,19 @@ flowchart TD
     D --> E[Create topic branch]
     B -->|No| F[Parse request]
     E --> F
-    F --> G[history-discoverer agent]
-    G --> H[discover-history skill]
-    H --> I[Search archived tickets]
-    I --> J[Return related tickets]
-    J --> K[create-ticket skill]
-    K --> L[Explore codebase]
-    L --> M[Write ticket file]
-    M --> N[Commit ticket]
+    F --> G1[history-discoverer agent]
+    F --> G2[source-discoverer agent]
+    G1 --> H[discover-history skill]
+    G2 --> I[discover-source skill]
+    H --> J[Search archived tickets]
+    I --> K[Find related source files]
+    J --> L[Return related tickets]
+    K --> M[Return file context]
+    L --> N[create-ticket skill]
+    M --> N
+    N --> O[Explore codebase]
+    O --> P[Write ticket file]
+    P --> Q[Commit ticket]
 ```
 
 ### Components
@@ -51,13 +56,16 @@ flowchart TD
 |-----------|------|---------|
 | create-branch | Skill | Creates timestamped branch from main |
 | history-discoverer | Agent (haiku) | Searches archived tickets for related context |
+| source-discoverer | Agent (haiku) | Finds related source files and analyzes code flow |
 | discover-history | Skill | Multi-keyword grep search script |
+| discover-source | Skill | Source code exploration guidelines |
 | create-ticket | Skill | Ticket format, frontmatter, and writing guidelines |
 
 ### Notes
 
 - Branch creation happens automatically when on `main` or `master`
-- History discovery uses haiku model for fast, cheap search
+- History and source discovery run in parallel using haiku model for fast, cheap search
+- Both discoveries complete before ticket creation
 - Ticket is committed immediately unless invoked during `/drive`
 
 ## /drive

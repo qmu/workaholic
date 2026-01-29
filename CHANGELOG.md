@@ -1,5 +1,26 @@
 # Changelog
 
+## feat-20260129-023941
+
+### Added
+
+- Parallel Discovery in /ticket Command ([68b1d51](https://github.com/qmu/workaholic/commit/68b1d516359067297414c24873bb1aa8c1c33143)) - [ticket](.workaholic/tickets/archive/feat-20260129-023941/20260129-parallel-discovery-ticket-command.md)
+- Add Ticket Validation Hook ([d59c39f](https://github.com/qmu/workaholic/commit/d59c39fa883218187a5b9b6591cfadb946377d85)) - [ticket](.workaholic/tickets/archive/feat-20260129-023941/20260129041924-add-ticket-validation-hook.md)
+- Add statusline-setup Subagent ([c2288a1](https://github.com/qmu/workaholic/commit/c2288a123fd5758b703466b48dd9b3fa1ba605b0)) - [ticket](.workaholic/tickets/archive/feat-20260129-023941/20260129094041-add-statusline-setup-subagent.md)
+- Add SDD Info Card to README ([2485379](https://github.com/qmu/workaholic/commit/24853798a2811ef21caa7ab8d4d246c473259fd5)) - [ticket](.workaholic/tickets/archive/feat-20260129-023941/20260129100732-add-sdd-info-card-to-readme.md)
+
+### Changed
+
+- Add Ticket Term Introduction to README.md ([d47e05a](https://github.com/qmu/workaholic/commit/d47e05a1d4f44296c0a11e702925136b3323e443)) - [ticket](.workaholic/tickets/archive/feat-20260129-023941/20260129-readme-ticket-term-introduction.md)
+- Focus Release Readiness on Practical Concerns ([f2e4e24](https://github.com/qmu/workaholic/commit/f2e4e24d98e74faf4e02f836d109fd4696b9c566)) - [ticket](.workaholic/tickets/archive/feat-20260129-023941/20260129023435-pragmatic-release-readiness.md)
+- Fix Mermaid Diagram in workflow_ja.md ([016f4c5](https://github.com/qmu/workaholic/commit/016f4c5fd492c943b67a6057ee468bc4546d1e88)) - [ticket](.workaholic/tickets/archive/feat-20260129-023941/20260129024255-fix-mermaid-diagram-in-workflow-ja.md)
+- Fix create-branch Script Path Reference ([7df217b](https://github.com/qmu/workaholic/commit/7df217b496c4330bb56df777d2845e08d06a7856)) - [ticket](.workaholic/tickets/archive/feat-20260129-023941/20260129094618-fix-create-branch-path-reference.md)
+
+### Removed
+
+- Remove statusline-setup Subagent ([ticket](.workaholic/tickets/archive/feat-20260129-023941/20260129121206-remove-statusline-setup-subagent.md))
+- Add GitHub Action for Automated Release ([ticket](.workaholic/tickets/archive/feat-20260129-023941/20260129140000-add-release-github-action.md))
+
 ## feat-20260128-220712
 
 ### Added

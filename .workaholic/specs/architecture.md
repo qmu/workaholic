@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-29T16:58:00+09:00
-commit_hash: 70fa15c
+modified_at: 2026-01-29T12:21:57+09:00
+commit_hash: 693ef76
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -45,9 +45,11 @@ plugins/
       plugin.json        # Plugin metadata
     agents/
       changelog-writer.md     # Updates CHANGELOG.md from tickets
+      history-discoverer.md   # Searches archived tickets for related context
       performance-analyst.md  # Decision review for PR stories
       pr-creator.md           # Creates/updates GitHub PRs
       release-readiness.md    # Analyzes changes for release readiness
+      source-discoverer.md    # Finds related source files and analyzes code flow
       spec-writer.md          # Updates .workaholic/specs/
       story-writer.md         # Generates branch stories for PRs
       terms-writer.md         # Updates .workaholic/terms/
@@ -71,15 +73,15 @@ plugins/
       assess-release-readiness/
         SKILL.md           # Release readiness analysis guidelines
       create-branch/
-        SKILL.md
-        sh/
-          create.sh        # Creates timestamped topic branches
+        SKILL.md           # Creates timestamped topic branches
       create-pr/
         SKILL.md
         sh/
           create-or-update.sh  # Creates or updates GitHub PRs
       create-ticket/
         SKILL.md           # Ticket creation with format and guidelines
+      discover-source/
+        SKILL.md           # Guidelines for exploring source code
       drive-workflow/
         SKILL.md           # Implementation workflow for tickets
       generate-changelog/
@@ -124,6 +126,7 @@ Skills are complex capabilities that may include scripts or multiple files. They
 - **create-branch**: Creates timestamped topic branches with configurable prefix
 - **create-pr**: Creates or updates GitHub PRs using the gh CLI with proper formatting
 - **create-ticket**: Complete ticket creation workflow including format, exploration, and related history
+- **discover-source**: Guidelines for exploring source code to understand codebase context and find related files
 - **drive-workflow**: Implementation workflow steps for processing tickets
 - **generate-changelog**: Generates changelog entries from archived tickets, grouping by category
 - **translate**: Translation policies and `.workaholic/` i18n enforcement (spec-writer, terms-writer, story-writer preload this)
@@ -137,9 +140,11 @@ Skills are complex capabilities that may include scripts or multiple files. They
 Agents are specialized subagents that can be spawned to handle complex tasks. They run in a subprocess with specific prompts and tools, preserving the main conversation's context window for interactive work. The core plugin includes:
 
 - **changelog-writer**: Updates root `CHANGELOG.md` with entries from archived tickets, grouped by category (Added, Changed, Removed)
+- **history-discoverer**: Searches archived tickets to find related context and prior decisions
 - **performance-analyst**: Evaluates decision-making quality across five viewpoints (Consistency, Intuitivity, Describability, Agility, Density) for PR stories
 - **pr-creator**: Creates or updates GitHub pull requests using the story file as PR body, handling title derivation and `gh` CLI operations
 - **release-readiness**: Analyzes changes for release readiness, providing verdict, concerns, and pre/post-release instructions
+- **source-discoverer**: Explores codebase to find related source files and analyzes code flow context
 - **spec-writer**: Updates `.workaholic/specs/` documentation to reflect current codebase state
 - **story-writer**: Generates branch stories in `.workaholic/stories/` that serve as the single source of truth for PR content, with eleven sections: Overview, Motivation, Journey (containing Topic Tree flowchart), Changes, Outcome, Historical Analysis, Concerns, Ideas, Performance, Release Preparation, and Notes
 - **terms-writer**: Updates `.workaholic/terms/` to maintain consistent term definitions
@@ -162,6 +167,7 @@ flowchart LR
         spw[spec-writer]
         tw[terms-writer]
         hd[history-discoverer]
+        sd[source-discoverer]
         pc[pr-creator]
         pa[performance-analyst]
         rr[release-readiness]
@@ -173,6 +179,7 @@ flowchart LR
         cb[create-branch]
         ct[create-ticket]
         dh[discover-history]
+        ds[discover-source]
         dw[drive-workflow]
         tr[translate]
         ws[write-story]
@@ -188,10 +195,11 @@ flowchart LR
     story -.-> sw
     story --> pc
     drive --> at & dw
-    ticket --> ct & hd
+    ticket --> ct & hd & sd
     ticket --> cb
 
     hd --> dh
+    sd --> ds
     cw --> gc & wc
     sw --> ws & tr
     sw --> pa
@@ -202,7 +210,7 @@ flowchart LR
     rr --> arr
 ```
 
-Note: The `/story` command runs four agents in parallel (changelog-writer, spec-writer, terms-writer, release-readiness), then runs story-writer with the release-readiness output, and finally runs pr-creator. The `/ticket` command now automatically creates a branch when invoked on main and uses the history-discoverer agent to find related tickets.
+Note: The `/story` command runs four agents in parallel (changelog-writer, spec-writer, terms-writer, release-readiness), then runs story-writer with the release-readiness output, and finally runs pr-creator. The `/ticket` command runs history-discoverer and source-discoverer in parallel to find related tickets and code context.
 
 ## How Claude Code Loads Plugins
 

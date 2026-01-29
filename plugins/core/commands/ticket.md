@@ -18,7 +18,7 @@ Explore the codebase to understand requirements and write an implementation tick
 
    If on `main` or `master` (not a topic branch):
    1. Ask user for branch prefix (feat/fix/refact) via AskUserQuestion
-   2. Run: `bash .claude/skills/create-branch/sh/create.sh <prefix>`
+   2. Create branch: `git checkout -b "<prefix>-$(date +%Y%m%d-%H%M%S)"`
    3. Confirm: "Created branch: <branch-name>"
    4. Continue to step 1
 

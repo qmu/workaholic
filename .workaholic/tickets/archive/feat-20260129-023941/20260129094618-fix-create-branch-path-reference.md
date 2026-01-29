@@ -3,9 +3,9 @@ created_at: 2026-01-29T09:46:18+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 7df217b
+category: Changed
 ---
 
 # Fix create-branch Script Path Reference
@@ -68,3 +68,16 @@ This path mismatch occurred as the plugin structure evolved. The `@` import synt
 - Inlining the script is simpler since it's only 2 meaningful commands
 - Alternative: use `${CLAUDE_PLUGIN_ROOT}` environment variable for hooks, but this doesn't apply to skills/commands
 - The ticket command preloads `create-branch` skill, so the skill content is available during execution
+
+## Final Report
+
+### Changes Made
+
+- Modified `plugins/core/skills/create-branch/SKILL.md` - Replaced script reference with inline git command
+- Modified `plugins/core/commands/ticket.md` - Replaced script reference with inline git command
+- Deleted `plugins/core/skills/create-branch/sh/create.sh` - Script no longer needed
+
+### Notes
+
+- Chose inline approach over `@` import since the command is a single line
+- Removes dependency on external script file, making the plugin more portable

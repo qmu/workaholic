@@ -3,9 +3,9 @@ created_at: 2026-01-29T12:46:56+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: daffd75
+category: Changed
 ---
 
 # Remove Redundant hooks Field from Plugin Manifest
@@ -50,3 +50,13 @@ The original ticket's implementation plan (step 3) incorrectly added the manifes
 - The `hooks` field in plugin.json is only needed for non-standard hook file locations
 - Standard location `hooks/hooks.json` requires no manifest declaration
 - This is a documentation gap in Claude Code that could benefit from clearer plugin development docs
+
+## Final Report
+
+### Changes Made
+
+- Removed `"hooks": "hooks/hooks.json"` from `plugins/core/.claude-plugin/plugin.json`
+
+### Result
+
+Plugin now loads correctly. The hooks in `hooks/hooks.json` are auto-loaded by Claude Code without needing explicit manifest declaration.

@@ -3,7 +3,7 @@ title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
 last_updated: 2026-01-29
-commit_hash: 693ef76
+commit_hash: 72f9d7a
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -239,6 +239,8 @@ A callback mechanism that executes code at specific points in the Claude Code to
 
 Hooks are triggered at defined points in tool execution workflows to enforce policies or perform automatic actions. Workaholic currently uses PostToolUse hooks to validate file operations (e.g., checking that ticket files meet format requirements before they are saved). Hooks are configured in a plugin's `hooks/hooks.json` file and can execute shell scripts or other commands based on matching criteria.
 
+Claude Code automatically loads `hooks/hooks.json` from the standard location (`plugins/<name>/hooks/hooks.json`) without requiring an explicit manifest entry. The `hooks` field in `plugin.json` is only needed for non-standard hook file locations. Do not declare standard-location hooks in the manifest, as this causes a "Duplicate hooks file detected" error.
+
 ### Usage Patterns
 
 - **Directory names**: `plugins/<name>/hooks/`
@@ -248,6 +250,12 @@ Hooks are triggered at defined points in tool execution workflows to enforce pol
 ### Hook Types
 
 - **PostToolUse**: Executes after a tool has been invoked, useful for validation or automatic processing
+
+### Auto-loading Behavior
+
+- Standard location `plugins/<name>/hooks/hooks.json` is automatically loaded by Claude Code
+- No manifest entry (`hooks` field in `plugin.json`) is needed for standard-location hooks
+- The `hooks` field is only required for non-standard hook file paths
 
 ### Related Terms
 

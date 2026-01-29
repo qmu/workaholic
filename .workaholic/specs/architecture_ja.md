@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-29T12:21:57+09:00
-commit_hash: 693ef76
+modified_at: 2026-01-29T13:30:00+09:00
+commit_hash: 72f9d7a
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -219,7 +219,26 @@ flowchart LR
 1. `.claude-plugin/marketplace.json`を読んで利用可能なプラグインを見つける
 2. 各プラグインについて`plugins/<name>/.claude-plugin/plugin.json`を読む
 3. プラグインディレクトリからコマンド、ルール、スキルをロードする
-4. コマンドを会話内のスラッシュコマンドとして利用可能にする
+4. プラグインディレクトリに存在する場合、標準的な場所（`hooks/hooks.json`）から`hooks/hooks.json`を自動的にロードする
+5. コマンドを会話内のスラッシュコマンドとして利用可能にする
+
+### プラグインマニフェストフィールド
+
+`plugin.json`ファイルにはプラグインに関するメタデータが含まれます：
+
+```json
+{
+  "name": "core",
+  "description": "プラグインの説明",
+  "version": "1.0.0",
+  "author": {
+    "name": "作成者名",
+    "email": "author@example.com"
+  }
+}
+```
+
+**重要**: hooksが標準的な場所（`hooks/hooks.json`）に存在する場合、`hooks`フィールドを`plugin.json`で宣言してはいけません。Claude Codeはこの場所からhooksを自動的に検出してロードします。manifestでhooksフィールドを宣言しており、それが標準的な場所にもある場合、「Duplicate hooks file detected」エラーが発生します。
 
 ## データフロー
 

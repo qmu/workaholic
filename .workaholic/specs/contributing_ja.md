@@ -2,8 +2,8 @@
 title: Contributing
 description: How to add or modify plugins in Workaholic
 category: developer
-modified_at: 2026-01-29T12:21:57+09:00
-commit_hash: 693ef76
+modified_at: 2026-01-29T13:30:00+09:00
+commit_hash: 72f9d7a
 ---
 
 [English](contributing.md) | [日本語](contributing_ja.md)
@@ -88,6 +88,10 @@ plugins/<plugin>/skills/my-skill/
   sh/
     run.sh           # 実行可能スクリプト
 ```
+
+## Hooksの追加
+
+Hooksは`plugins/<plugin>/hooks/hooks.json`に登録されます。Claude Codeは標準的な場所からhooksを自動的にロードするため、プラグインマニフェストで宣言は不要です。`plugin.json`に`hooks`フィールドを追加しないでください。これは「Duplicate hooks file detected」エラーを引き起こします。単に`hooks/hooks.json`にhooks定義を配置すれば、Claude Codeは自動的にロードします。
 
 ## ドキュメント基準
 

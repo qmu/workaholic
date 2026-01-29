@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-29T12:21:57+09:00
-commit_hash: 693ef76
+modified_at: 2026-01-29T13:30:00+09:00
+commit_hash: 72f9d7a
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -219,7 +219,26 @@ When a user installs the marketplace with `/plugin marketplace add qmu/workaholi
 1. Reads `.claude-plugin/marketplace.json` to find available plugins
 2. For each plugin, reads `plugins/<name>/.claude-plugin/plugin.json`
 3. Loads commands, rules, and skills from the plugin directories
-4. Makes commands available as slash commands in the conversation
+4. Auto-loads `hooks/hooks.json` from the plugin directory if it exists (standard location)
+5. Makes commands available as slash commands in the conversation
+
+### Plugin Manifest Fields
+
+The `plugin.json` file contains metadata about the plugin:
+
+```json
+{
+  "name": "core",
+  "description": "Plugin description",
+  "version": "1.0.0",
+  "author": {
+    "name": "author name",
+    "email": "author@example.com"
+  }
+}
+```
+
+**Important**: The `hooks` field should NOT be declared in `plugin.json` when hooks are in the standard location (`hooks/hooks.json`). Claude Code automatically detects and loads hooks from this location. Declaring the hooks field in the manifest when they're also at the standard location causes a "Duplicate hooks file detected" error.
 
 ## Data Flow
 

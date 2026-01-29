@@ -2,8 +2,8 @@
 title: Technical Specifications
 description: Technical specifications for developers contributing to Workaholic
 category: developer
-modified_at: 2026-01-29T12:21:57+09:00
-commit_hash: 693ef76
+modified_at: 2026-01-29T13:30:00+09:00
+commit_hash: 72f9d7a
 ---
 
 [English](README.md) | [日本語](README_ja.md)

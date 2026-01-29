@@ -1,5 +1,11 @@
 # Changelog
 
+## feat-20260129-123229
+
+### Changed
+
+- Remove Redundant hooks Field from Plugin Manifest ([daffd75](https://github.com/qmu/workaholic/commit/daffd7547f90359e992ed491d62882061ad9e313)) - [ticket](.workaholic/tickets/archive/feat-20260129-123229/20260129124656-remove-redundant-hooks-field-from-plugin-manifest.md)
+
 ## feat-20260129-023941
 
 ### Added

@@ -8,6 +8,16 @@ Once tickets are queued, `/drive` implements them one by one with confirmation a
 
 When ready to deliver, `/story` generates changelogs and PR descriptions from the accumulated ticket history. No manual summarization—the intent behind each change is already documented, so the narrative writes itself.
 
+> [!NOTE]
+> **A flavor of Spec-Driven Development**
+>
+> Workaholic follows [Spec-Driven Development](https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html) principles with distinct terminology:
+>
+> - **Ticket**: A change request describing what should be different (flowing, temporal)
+> - **Spec**: Current state documentation describing what exists now (snapshot, persistent)
+>
+> Tickets drive implementation; specs document the result. Both are markdown, both are versioned, but they serve complementary purposes.
+
 ## Quick Start
 
 ```bash

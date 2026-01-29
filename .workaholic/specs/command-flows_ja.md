@@ -2,8 +2,8 @@
 title: Command Execution Flows
 description: How commands invoke agents and skills
 category: developer
-modified_at: 2026-01-29T16:58:00+09:00
-commit_hash: 70fa15c
+modified_at: 2026-01-29T12:21:57+09:00
+commit_hash: 693ef76
 ---
 
 [English](command-flows.md) | [日本語](command-flows_ja.md)
@@ -35,14 +35,19 @@ flowchart TD
     D --> E[トピックブランチ作成]
     B -->|No| F[リクエスト解析]
     E --> F
-    F --> G[history-discoverer エージェント]
-    G --> H[discover-history スキル]
-    H --> I[アーカイブチケットを検索]
-    I --> J[関連チケットを返却]
-    J --> K[create-ticket スキル]
-    K --> L[コードベース探索]
-    L --> M[チケットファイル作成]
-    M --> N[チケットをコミット]
+    F --> G1[history-discoverer エージェント]
+    F --> G2[source-discoverer エージェント]
+    G1 --> H[discover-history スキル]
+    G2 --> I[discover-source スキル]
+    H --> J[アーカイブチケットを検索]
+    I --> K[関連ソースファイルを検索]
+    J --> L[関連チケットを返却]
+    K --> M[ファイルコンテキストを返却]
+    L --> N[create-ticket スキル]
+    M --> N
+    N --> O[コードベース探索]
+    O --> P[チケットファイル作成]
+    P --> Q[チケットをコミット]
 ```
 
 ### コンポーネント
@@ -51,13 +56,16 @@ flowchart TD
 |---------------|--------|------|
 | create-branch | スキル | mainからタイムスタンプ付きブランチを作成 |
 | history-discoverer | エージェント (haiku) | アーカイブチケットから関連コンテキストを検索 |
+| source-discoverer | エージェント (haiku) | 関連ソースファイルを見つけてコード流れを分析 |
 | discover-history | スキル | マルチキーワードgrep検索スクリプト |
+| discover-source | スキル | ソースコード探索ガイドライン |
 | create-ticket | スキル | チケットフォーマット、フロントマター、作成ガイドライン |
 
 ### 備考
 
 - `main`または`master`ブランチにいる場合、ブランチ作成は自動的に行われます
-- 履歴検索はhaikuモデルを使用して高速かつ低コストで実行
+- 履歴とソース検索はhaikuモデルを使用した並列実行で高速かつ低コストで実行
+- 両方の検索はチケット作成前に完了
 - `/drive`中に呼び出された場合を除き、チケットは即座にコミットされます
 
 ## /drive

@@ -3,7 +3,7 @@ title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
 last_updated: 2026-01-29
-commit_hash: 70fa15c
+commit_hash: 693ef76
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -149,6 +149,24 @@ storyオペレーションは複数のドキュメントエージェントを同
 ### 関連用語
 
 - story
+
+## workflow
+
+イベントまたは手動ディスパッチによってトリガーされる自動化されたステップのシーケンス。
+
+### 定義
+
+Workaholicのコンテキストでは、workflowはリリースプロセスおよび他のCI/CDタスクを自動化するGitHub Actions workflow（`.github/workflows/`のYAMLファイル）を指します。ワークフローは`workflow_dispatch`を介して手動でトリガーされるか、タグプッシュなどのイベント上で自動的にトリガーされます。releaseワークフローはバージョンバンプ、changelogの抽出、GitHub Releaseの作成を自動化し、手動の`/release`コマンド実行に代わります。
+
+### 使用パターン
+
+- **ディレクトリ名**: `.github/workflows/`
+- **ファイル名**: `release.yml`、`test.yml`
+- **コード参照**: 「releaseワークフローをトリガー」、「ワークフローがバージョンバンプを自動化」
+
+### 関連用語
+
+- release、GitHub Actions
 
 ## concurrent-execution
 

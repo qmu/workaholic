@@ -11,18 +11,26 @@ Analyze a branch to determine if it's ready for release.
 ## Analysis Tasks
 
 1. **Review code changes**: Check `git diff main..HEAD` for:
-   - Breaking changes (API changes, config format changes)
-   - Incomplete work (TODO, FIXME, XXX comments)
+   - Incomplete work (TODO, FIXME, XXX comments in new code)
    - Security concerns (hardcoded secrets, credentials)
+   - Runtime errors or obvious bugs
 
-2. **Check for common issues**:
-   - New dependencies that need documentation
-   - Configuration changes that affect users
-   - Migration requirements
+2. **Check for blocking issues**:
+   - Tests failing (if tests exist)
+   - Type errors (if type checking exists)
+   - Missing files referenced in code
 
-3. **Verify quality gates**:
-   - If tests exist, verify they pass
-   - If type checking exists, verify it passes
+3. **Identify actionable items** (not theoretical concerns):
+   - Documentation that needs updating
+   - Version numbers to bump
+   - Files to stage/commit before release
+
+## What NOT to Flag
+
+- "Breaking changes" for command renames - users adapt
+- API changes in a plugin - plugins are configuration, not APIs
+- Internal refactoring - doesn't affect users
+- Theoretical upgrade concerns - users pull fresh versions
 
 ## Output Format
 
@@ -48,18 +56,19 @@ Or if issues found:
   "verdict": "Needs attention before release",
   "concerns": [
     "Found TODO comment in src/foo.ts",
-    "API endpoint changed without migration"
+    "Tests failing in commands/drive.md"
   ],
   "instructions": {
-    "pre_release": ["Update changelog with breaking change notice"],
-    "post_release": ["Notify users of API change"]
+    "pre_release": ["Fix failing tests", "Remove TODO comments"],
+    "post_release": []
   }
 }
 ```
 
 ## Guidelines
 
-- Err on the side of caution - flag concerns rather than miss them
-- Provide actionable instructions, not vague warnings
-- Consider the impact on users upgrading from previous versions
-- Empty arrays are fine when there are no concerns/instructions
+- Focus on issues that actually block releases
+- Provide actionable instructions, not theoretical warnings
+- "Breaking change" is rarely a real concern for plugins
+- Empty concerns array is the happy path, not a failure
+- If it doesn't require action, don't flag it

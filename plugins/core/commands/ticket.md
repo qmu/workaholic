@@ -18,7 +18,7 @@ Explore the codebase to understand requirements and write an implementation tick
 
    If on `main` or `master` (not a topic branch):
    1. Ask user for branch prefix (feat/fix/refact) via AskUserQuestion
-   2. Run: `bash .claude/skills/create-branch/sh/create.sh <prefix>`
+   2. Create branch: `git checkout -b "<prefix>-$(date +%Y%m%d-%H%M%S)"`
    3. Confirm: "Created branch: <branch-name>"
    4. Continue to step 1
 
@@ -31,20 +31,30 @@ Explore the codebase to understand requirements and write an implementation tick
    - If `$ARGUMENT` contains "icebox", store in `.workaholic/tickets/icebox/` instead
    - Otherwise, store in `.workaholic/tickets/todo/`
 
-2. **Discover Related History**
+2. **Parallel Discovery**
 
-   Use Task tool to invoke history-discoverer subagent with `model: "haiku"`:
-   - Extract 3-5 keywords: file basenames from Key Files + domain terms from request
-   - Pass keywords to subagent
-   - Receive JSON with summary and related tickets
-   - Use results to populate Related History section
+   Invoke BOTH subagents concurrently using Task tool with `model: "haiku"`:
 
-   Example prompt: "Find related tickets for keywords: ticket.md drive.md branch archive Config"
+   **2-A. History Discovery** (history-discoverer):
+   - Extract 3-5 keywords from request
+   - Receive JSON: summary, tickets list, match reasons
+
+   **2-B. Source Discovery** (source-discoverer):
+   - Pass feature description and keywords
+   - Receive JSON: summary, files list, code flow
+
+   Example (single message with two Task tool calls):
+   - Task 1: "Find related tickets for keywords: ticket.md drive.md parallel"
+   - Task 2: "Find source files for: parallel discovery in ticket command"
+
+   Wait for both to complete, then proceed with both results.
 
 3. **Explore and Write Ticket**
 
    Follow the preloaded create-ticket skill for exploration, file format, and content guidelines.
-   Insert the Related History data from step 2.
+   - Use history discovery results for "Related History" section
+   - Use source discovery results to seed "Key Files" section (merge with manual exploration)
+   - Reference code flow in "Implementation" section when relevant
 
 4. **Ask Clarifying Questions** if requirements are ambiguous.
 

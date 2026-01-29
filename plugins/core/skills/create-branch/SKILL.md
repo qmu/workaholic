@@ -11,10 +11,10 @@ Create a new timestamped topic branch.
 
 ## Instructions
 
-Run the bundled script with a branch prefix:
+Create a timestamped branch with the given prefix:
 
 ```bash
-bash .claude/skills/create-branch/sh/create.sh <prefix>
+git checkout -b "<prefix>-$(date +%Y%m%d-%H%M%S)"
 ```
 
 ### Valid Prefixes

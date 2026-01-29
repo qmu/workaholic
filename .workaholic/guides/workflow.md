@@ -22,16 +22,16 @@ This works well for solo developers and small teams who want to move quickly wit
 
 ```mermaid
 flowchart TD
-    A[Start feature] --> B[/branch]
-    B --> C[/ticket description]
-    C --> D{Review spec}
-    D -->|Approve| E[/drive]
+    A["Start feature"] --> B["/branch"]
+    B --> C["/ticket description"]
+    C --> D{"Review spec"}
+    D -->|Approve| E["/drive"]
     D -->|Revise| C
-    E --> F{More tickets?}
+    E --> F{"More tickets?"}
     F -->|Yes| C
-    F -->|No| G[/report]
-    G --> H[Code review]
-    H --> I[Merge]
+    F -->|No| G["/report"]
+    G --> H["Code review"]
+    H --> I["Merge"]
 ```
 
 ## Step-by-Step

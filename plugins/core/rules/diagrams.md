@@ -31,13 +31,25 @@ flowchart LR
 ```
 ````
 
+## Node Labels
+
+Quote labels containing special characters (`/`, `{`, `}`, `[`, `]`):
+
+```mermaid
+flowchart TD
+    A["Start"] --> B["/command"]
+    B --> C{"Decision?"}
+```
+
+Without quotes, `/command` causes lexical errors on GitHub.
+
 ## Common Diagram Types
 
 **Flowchart** for process flows:
 
 ```mermaid
 flowchart TD
-    Start --> Decision{Condition?}
+    Start --> Decision{"Condition?"}
     Decision -->|Yes| Action1
     Decision -->|No| Action2
 ```

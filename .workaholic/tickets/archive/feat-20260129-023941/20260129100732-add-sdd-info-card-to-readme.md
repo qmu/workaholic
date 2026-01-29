@@ -3,9 +3,9 @@ created_at: 2026-01-29T10:07:32+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 2485379
+category: Added
 ---
 
 # Add SDD Info Card to README
@@ -52,3 +52,16 @@ Past tickets that touched similar areas:
 - Link to Martin Fowler's article for readers wanting deeper SDD context
 - Keep the distinction concise - detailed definitions exist in `.workaholic/terms/artifacts.md`
 - The "TiDD" (Ticket-Driven Development) term in the opening line aligns with this explanation
+
+## Final Report
+
+### Changes Made
+
+- Added SDD info card to `README.md` using GitHub's `> [!NOTE]` alert syntax
+- Card explains ticket vs spec terminology with link to Martin Fowler's article
+- Positioned after intro paragraphs, before Quick Start section
+
+### Notes
+
+- Used `[!NOTE]` alert type for informational styling (blue accent on GitHub)
+- Kept content concise as detailed definitions exist in `.workaholic/terms/artifacts.md`

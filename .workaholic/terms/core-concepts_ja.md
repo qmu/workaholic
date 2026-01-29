@@ -3,7 +3,7 @@ title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
 last_updated: 2026-01-29
-commit_hash: 693ef76
+commit_hash: 72f9d7a
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -239,6 +239,8 @@ Claude Code tool ライフサイクルの特定のポイントで実行される
 
 フックはtool実行ワークフローの定義されたポイントでトリガーされ、ポリシーを強制するか自動アクションを実行します。Workaholicは現在、PostToolUseフックを使用してファイル操作を検証します（例：チケットファイルが保存される前にフォーマット要件を満たしていることを確認）。フックはプラグインの`hooks/hooks.json`ファイルで設定され、マッチング条件に基づいてシェルスクリプトまたは他のコマンドを実行できます。
 
+Claude Codeは標準ロケーション（`plugins/<name>/hooks/hooks.json`）から`hooks/hooks.json`を明示的なマニフェストエントリなしで自動的にロードします。`plugin.json`の`hooks`フィールドは、標準外のhookファイル場所にのみ必要です。標準ロケーションのhookをマニフェストで宣言しないでください。これにより「Duplicate hooks file detected」エラーが発生します。
+
 ### 使用パターン
 
 - **ディレクトリ名**: `plugins/<name>/hooks/`
@@ -248,6 +250,12 @@ Claude Code tool ライフサイクルの特定のポイントで実行される
 ### フックタイプ
 
 - **PostToolUse**: toolが呼び出された後に実行、検証または自動処理に有用
+
+### オートロード動作
+
+- 標準ロケーション`plugins/<name>/hooks/hooks.json`はClaude Codeにより自動的にロードされます
+- 標準ロケーションのhookにはマニフェストエントリ（`plugin.json`の`hooks`フィールド）は不要です
+- `hooks`フィールドは標準外のhookファイルパスにのみ必要です
 
 ### 関連用語
 

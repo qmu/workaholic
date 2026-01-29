@@ -2,8 +2,8 @@
 title: Contributing
 description: How to add or modify plugins in Workaholic
 category: developer
-modified_at: 2026-01-29T12:21:57+09:00
-commit_hash: 693ef76
+modified_at: 2026-01-29T13:30:00+09:00
+commit_hash: 72f9d7a
 ---
 
 [English](contributing.md) | [日本語](contributing_ja.md)
@@ -88,6 +88,10 @@ plugins/<plugin>/skills/my-skill/
   sh/
     run.sh           # Executable scripts
 ```
+
+## Adding Hooks
+
+Hooks are registered in `plugins/<plugin>/hooks/hooks.json`. Claude Code automatically loads hooks from the standard location without any declaration needed in the plugin manifest. Do NOT add a `hooks` field to `plugin.json` - this causes a "Duplicate hooks file detected" error. Simply place your hooks definition in `hooks/hooks.json` and Claude Code will auto-load it.
 
 ## Documentation Standards
 

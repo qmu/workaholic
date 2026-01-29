@@ -3,7 +3,7 @@ title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
 last_updated: 2026-01-29
-commit_hash: 70fa15c
+commit_hash: 693ef76
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -131,6 +131,24 @@ Previous name for the `/story` command. See `story` for current definition.
 ### Related Terms
 
 - story
+
+## workflow
+
+An automated sequence of steps triggered by events or manual dispatch.
+
+### Definition
+
+In the context of Workaholic, workflow refers to GitHub Actions workflows (YAML files in `.github/workflows/`) that automate release processes and other CI/CD tasks. Workflows are triggered either manually via `workflow_dispatch` or automatically on events like tag pushes. The release workflow automates version bumping, changelog extraction, and GitHub Release creation, replacing manual `/release` command execution.
+
+### Usage Patterns
+
+- **Directory names**: `.github/workflows/`
+- **File names**: `release.yml`, `test.yml`
+- **Code references**: "Trigger the release workflow", "Workflow automates version bumping"
+
+### Related Terms
+
+- release, GitHub Actions
 
 ## concurrent-execution
 

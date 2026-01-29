@@ -3,7 +3,7 @@ title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
 last_updated: 2026-01-29
-commit_hash: 70fa15c
+commit_hash: 693ef76
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -72,6 +72,7 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 - **create-branch**: タイムスタンプ付きトピックブランチを作成（例：`feat-20260128-001720`）
 - **create-pr**: PR作成ワークフロー、タイトル導出、GitHub操作用シェルスクリプト
 - **discover-history**: キーワードでアーカイブされたチケットを検索して関連する歴史的コンテキストを見つける
+- **discover-source**: ソースコードを探索してコンテキストを理解するためのガイドライン
 
 コンテンツスキル（指示とテンプレート）:
 - **write-story**: ストーリーコンテンツ構造、フォーマット、メトリクス計算、翻訳要件
@@ -117,12 +118,12 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 - **ライターエージェント**: ドキュメントを生成（spec-writer、terms-writer、story-writer、changelog-writer）
 - **アナリストエージェント**: 評価と分析を実行（performance-analyst、release-readiness）
 - **クリエイターエージェント**: 外部操作を実行（pr-creator）
-- **検索エージェント**: 関連する作業を見つけて分析（history-discoverer）
+- **検索エージェント**: 関連する作業を見つけて分析（history-discoverer、source-discoverer）
 
 ### 使用パターン
 
 - **ディレクトリ名**: `plugins/<name>/agents/`
-- **ファイル名**: `performance-analyst.md`、`release-readiness.md`、`spec-writer.md`、`story-writer.md`、`changelog-writer.md`、`pr-creator.md`、`terms-writer.md`、`history-discoverer.md`
+- **ファイル名**: `performance-analyst.md`、`release-readiness.md`、`spec-writer.md`、`story-writer.md`、`changelog-writer.md`、`pr-creator.md`、`terms-writer.md`、`history-discoverer.md`、`source-discoverer.md`
 - **コード参照**: 「story-writerエージェントを呼び出す」、「changelog-writerエージェントが処理する...」、「Taskツールでエージェントを起動」
 
 ### 関連用語
@@ -229,6 +230,46 @@ nesting policyは、コマンド、サブエージェント、スキル間で許
 ### 関連用語
 
 - command、agent、skill、orchestrator
+
+## hook
+
+Claude Code tool ライフサイクルの特定のポイントで実行されるコールバックメカニズム。
+
+### 定義
+
+フックはtool実行ワークフローの定義されたポイントでトリガーされ、ポリシーを強制するか自動アクションを実行します。Workaholicは現在、PostToolUseフックを使用してファイル操作を検証します（例：チケットファイルが保存される前にフォーマット要件を満たしていることを確認）。フックはプラグインの`hooks/hooks.json`ファイルで設定され、マッチング条件に基づいてシェルスクリプトまたは他のコマンドを実行できます。
+
+### 使用パターン
+
+- **ディレクトリ名**: `plugins/<name>/hooks/`
+- **ファイル名**: `hooks.json`（設定）、`*.sh`（実行可能スクリプト）
+- **コード参照**: 「PostToolUseフックを追加」、「フックが保存前に検証」、「hooks.jsonのフック設定」
+
+### フックタイプ
+
+- **PostToolUse**: toolが呼び出された後に実行、検証または自動処理に有用
+
+### 関連用語
+
+- rule、plugin、PostToolUse
+
+## PostToolUse
+
+Claude Codeツール実行後にトリガーされるフックのライフサイクルイベント。
+
+### 定義
+
+PostToolUseはフックトリガーポイントであり、プラグインがWriteやEditなどのtoolが正常に完了した直後に検証またはサイドエフェクトコードを実行することを可能にします。Workaholicでは、PostToolUseフックはチケットファイル操作を検証するために使用され、新しく作成または修正されたチケットファイルが完全に永続化される前にフォーマットと場所の要件を満たしていることを確認します。
+
+### 使用パターン
+
+- **ディレクトリ名**: N/A（フックタイプであり、ストレージではない）
+- **ファイル名**: `hooks/hooks.json`マッチャー設定で参照
+- **コード参照**: 「PostToolUseフックがファイルを検証」、「Write|EditのPostToolUse設定」
+
+### 関連用語
+
+- hook、rule、plugin
 
 ## TiDD
 

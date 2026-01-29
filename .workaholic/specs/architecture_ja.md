@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-29T16:58:00+09:00
-commit_hash: 70fa15c
+modified_at: 2026-01-29T12:21:57+09:00
+commit_hash: 693ef76
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -45,9 +45,11 @@ plugins/
       plugin.json        # プラグインメタデータ
     agents/
       changelog-writer.md     # チケットからCHANGELOG.mdを更新
+      history-discoverer.md   # 関連チケットを検索してコンテキストを取得
       performance-analyst.md  # PRストーリーの意思決定レビュー
       pr-creator.md           # GitHub PRの作成/更新
       release-readiness.md    # リリース準備状況の分析
+      source-discoverer.md    # 関連ソースファイルを検索してコード流れを分析
       spec-writer.md          # .workaholic/specs/を更新
       story-writer.md         # PR用のブランチストーリーを生成
       terms-writer.md         # .workaholic/terms/を更新
@@ -71,15 +73,15 @@ plugins/
       assess-release-readiness/
         SKILL.md           # リリース準備分析ガイドライン
       create-branch/
-        SKILL.md
-        sh/
-          create.sh        # タイムスタンプ付きトピックブランチを作成
+        SKILL.md           # タイムスタンプ付きトピックブランチを作成
       create-pr/
         SKILL.md
         sh/
           create-or-update.sh  # GitHub PRの作成/更新
       create-ticket/
         SKILL.md           # フォーマットとガイドラインを含むチケット作成
+      discover-source/
+        SKILL.md           # ソースコード探索ガイドライン
       drive-workflow/
         SKILL.md           # チケット実装ワークフロー
       generate-changelog/
@@ -124,6 +126,7 @@ plugins/
 - **create-branch**: 設定可能なプレフィックス付きでタイムスタンプ付きトピックブランチを作成
 - **create-pr**: gh CLIを使用して適切なフォーマットでGitHub PRを作成/更新
 - **create-ticket**: フォーマット、調査、関連履歴を含む完全なチケット作成ワークフロー
+- **discover-source**: コードベースコンテキストを理解するためのソースコード探索ガイドライン
 - **drive-workflow**: チケット処理の実装ワークフローステップ
 - **generate-changelog**: アーカイブされたチケットからchangelogエントリを生成、カテゴリ別にグループ化
 - **translate**: 翻訳ポリシーと`.workaholic/` i18n強制（spec-writer、terms-writer、story-writerがプリロード）
@@ -137,9 +140,11 @@ plugins/
 エージェントは複雑なタスクを処理するために生成できる特殊なサブエージェントです。特定のプロンプトとツールを持つサブプロセスで実行され、メイン会話のコンテキストウィンドウをインタラクティブな作業用に保持します。coreプラグインには以下が含まれます：
 
 - **changelog-writer**: アーカイブされたチケットからルート`CHANGELOG.md`をカテゴリ別（Added、Changed、Removed）に更新
+- **history-discoverer**: アーカイブされたチケットを検索して関連コンテキストと過去の決定を見つける
 - **performance-analyst**: PRストーリーのために5つの観点（Consistency、Intuitivity、Describability、Agility、Density）で意思決定の質を評価
 - **pr-creator**: ストーリーファイルをPRボディとして使用してGitHub PRを作成または更新、タイトル導出と`gh` CLI操作を処理
 - **release-readiness**: 変更をリリース準備状況について分析、判定・懸念事項・リリース前後の手順を提供
+- **source-discoverer**: コードベースを探索して関連ソースファイルを見つけ、コード流れコンテキストを分析する
 - **spec-writer**: 現在のコードベースの状態を反映するように`.workaholic/specs/`ドキュメントを更新
 - **story-writer**: PR内容の単一の真実の情報源として機能する`.workaholic/stories/`にブランチストーリーを生成、11のセクション（Overview、Motivation、Journey（Topic Treeフローチャートを含む）、Changes、Outcome、Historical Analysis、Concerns、Ideas、Performance、Release Preparation、Notes）で構成
 - **terms-writer**: 一貫した用語定義を維持するために`.workaholic/terms/`を更新
@@ -162,6 +167,7 @@ flowchart LR
         spw[spec-writer]
         tw[terms-writer]
         hd[history-discoverer]
+        sd[source-discoverer]
         pc[pr-creator]
         pa[performance-analyst]
         rr[release-readiness]
@@ -173,6 +179,7 @@ flowchart LR
         cb[create-branch]
         ct[create-ticket]
         dh[discover-history]
+        ds[discover-source]
         dw[drive-workflow]
         tr[translate]
         ws[write-story]
@@ -188,10 +195,11 @@ flowchart LR
     story -.-> sw
     story --> pc
     drive --> at & dw
-    ticket --> ct & hd
+    ticket --> ct & hd & sd
     ticket --> cb
 
     hd --> dh
+    sd --> ds
     cw --> gc & wc
     sw --> ws & tr
     sw --> pa
@@ -202,7 +210,7 @@ flowchart LR
     rr --> arr
 ```
 
-注: `/story`コマンドは4つのエージェント（changelog-writer、spec-writer、terms-writer、release-readiness）を並列実行し、その後story-writerをrelease-readiness出力と共に実行し、最後にpr-creatorを実行します。`/ticket`コマンドはmain上で呼び出されたときに自動的にブランチを作成し、history-discovererエージェントを使用して関連チケットを検索します。
+注: `/story`コマンドは4つのエージェント（changelog-writer、spec-writer、terms-writer、release-readiness）を並列実行し、その後story-writerをrelease-readiness出力と共に実行し、最後にpr-creatorを実行します。`/ticket`コマンドはhistory-discovererとsource-discovererを並列実行して関連チケットとコードコンテキストを見つけます。
 
 ## Claude Codeがプラグインをロードする方法
 

@@ -3,9 +3,9 @@ created_at: 2026-01-31T20:35:00+09:00
 author: tamurayoshiya@gmail.com
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 16887e9
+category: Changed
 ---
 
 # Shorten Verbose Story Sections by Half

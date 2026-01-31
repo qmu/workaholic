@@ -8,23 +8,34 @@ user-invocable: false
 
 Guidelines for creating implementation tickets in `.workaholic/tickets/`.
 
-## Step 1: Capture Dynamic Values (REQUIRED)
+## Step 1: Capture Dynamic Values and Build Frontmatter
 
-**MUST run these commands FIRST** before writing the ticket file:
+**Run this script to get the values you need:**
 
 ```bash
-date -Iseconds        # → use output for created_at
-git config user.email # → use output for author
+# Capture values for frontmatter
+CREATED_AT=$(date -Iseconds)
+AUTHOR=$(git config user.email)
+
+echo "created_at: $CREATED_AT"
+echo "author: $AUTHOR"
 ```
 
-Use the actual command output in the frontmatter. Do NOT use placeholders or hardcoded values like `noreply@anthropic.com`.
+Copy the output lines directly into your frontmatter. Example output:
+
+```
+created_at: 2026-01-31T19:25:46+09:00
+author: developer@company.com
+```
 
 ## Frontmatter Template
 
+Use the captured values from Step 1:
+
 ```yaml
 ---
-created_at: 2026-01-31T14:30:00+09:00  # actual output from date -Iseconds
-author: user@example.com               # actual output from git config user.email
+created_at: $(date -Iseconds)      # REPLACE with actual output
+author: $(git config user.email)   # REPLACE with actual output
 type: <enhancement | bugfix | refactoring | housekeeping>
 layer: [<UX | Domain | Infrastructure | DB | Config>]
 effort:
@@ -33,7 +44,35 @@ category:
 ---
 ```
 
-**All fields are mandatory.** The `effort`, `commit_hash`, and `category` fields are filled after implementation.
+### Field Requirements
+
+- **Lines 1-4**: Fill with actual values (never placeholders)
+- **Lines 5-7**: Must be present but leave empty (filled after implementation)
+
+### Concrete Example
+
+```yaml
+---
+created_at: 2026-01-31T19:25:46+09:00
+author: developer@company.com
+type: enhancement
+layer: [UX, Domain]
+effort:
+commit_hash:
+category:
+---
+```
+
+## Common Mistakes
+
+These cause validation failures:
+
+| Mistake | Example | Fix |
+|---------|---------|-----|
+| Missing empty fields | Omitting `effort:` line | Include all 7 fields, even if empty |
+| Placeholder values | `author: user@example.com` | Run `git config user.email` and use actual output |
+| Wrong date format | `2026-01-31` or `2026/01/31T...` | Use `date -Iseconds` output (includes timezone) |
+| Scalar layer | `layer: Config` | Use array format: `layer: [Config]` |
 
 ## Filename Convention
 
@@ -47,10 +86,10 @@ Example: `20260114153042-add-dark-mode.md`
 
 ```markdown
 ---
-created_at: 2026-01-31T14:30:00+09:00
-author: user@example.com
-type: enhancement | bugfix | refactoring | housekeeping
-layer: [<layers affected>]
+created_at: 2026-01-31T19:25:46+09:00
+author: developer@company.com
+type: enhancement
+layer: [UX, Domain]
 effort:
 commit_hash:
 category:

@@ -2,8 +2,8 @@
 title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
-last_updated: 2026-01-29
-commit_hash: 70fa15c
+last_updated: 2026-01-31
+commit_hash: 06ebf65
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -251,6 +251,8 @@ Failure Analysisセクションは、開発者が`/drive`ワークフロー承�
 - **Insights for future**: <コードベースについて何を教えてくれるか>
 ```
 
+handle-abandonスキルは、将来の開発者がコードベースをレビューするときに役立つ包括的な失敗分析の構成化についてのガイダンスを提供します。
+
 ### 使用パターン
 
 - **ディレクトリ名**: N/A（チケットファイル内のセクション）
@@ -259,7 +261,7 @@ Failure Analysisセクションは、開発者が`/drive`ワークフロー承�
 
 ### 関連用語
 
-- ticket、abandon、final-report
+- ticket、abandon、final-report、handle-abandonスキル
 
 ## discovered-insights
 

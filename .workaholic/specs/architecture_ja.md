@@ -312,7 +312,7 @@ Workaholicは並列サブエージェントアーキテクチャを通じて包�
 
 ```mermaid
 flowchart TD
-    A[/story コマンド] --> B[残りのチケットをiceboxに移動]
+    A["/story コマンド"] --> B[残りのチケットをiceboxに移動]
     B --> C[フェーズ1: 5つのサブエージェントを並列で呼び出し]
 
     subgraph フェーズ1 - 並列

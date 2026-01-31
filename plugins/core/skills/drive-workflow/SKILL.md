@@ -33,11 +33,24 @@ Show ticket context to help user understand what they're reviewing:
 - Include a brief summary (first 1-2 sentences from Overview section)
 - Show a summary of changes made
 
-Use AskUserQuestion tool to confirm:
+**CRITICAL: ALWAYS use AskUserQuestion with selectable `options` parameter. NEVER ask open-ended text questions during approval.**
 
-- "Approve" - implementation is correct, proceed to commit and continue to next ticket
-- "Approve and stop" - implementation is correct, commit this ticket but stop driving
-- "Abandon" - write failure analysis, discard changes, and continue to next ticket
+Use `AskUserQuestion` with these exact options:
+
+```json
+{
+  "questions": [{
+    "question": "Do you approve this implementation?",
+    "header": "Approval",
+    "options": [
+      {"label": "Approve", "description": "Proceed to commit and continue to next ticket"},
+      {"label": "Approve and stop", "description": "Commit this ticket but stop driving"},
+      {"label": "Abandon", "description": "Write failure analysis, discard changes, continue to next"}
+    ],
+    "multiSelect": false
+  }]
+}
+```
 
 **Do NOT proceed to commit until user explicitly approves.**
 
@@ -51,8 +64,7 @@ Implementation complete. Changes made:
 - <Change 1>
 - <Change 2>
 
-Do you approve this implementation?
-[Approve / Approve and stop / Abandon]
+[AskUserQuestion with selectable options shown above]
 ```
 
 ### 4. Update Effort and Write Final Report

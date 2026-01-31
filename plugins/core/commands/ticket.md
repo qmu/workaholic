@@ -17,12 +17,11 @@ Explore the codebase to understand requirements and write an implementation tick
    Check current branch: `git branch --show-current`
 
    If on `main` or `master` (not a topic branch):
-   1. Ask user for branch prefix (feat/fix/refact) via AskUserQuestion
-   2. Create branch: `git checkout -b "<prefix>-$(date +%Y%m%d-%H%M%S)"`
-   3. Confirm: "Created branch: <branch-name>"
-   4. Continue to step 1
+   1. Create branch: `git checkout -b "drive-$(date +%Y%m%d-%H%M%S)"`
+   2. Confirm: "Created branch: <branch-name>"
+   3. Continue to step 1
 
-   Topic branch pattern: `feat-*`, `fix-*`, `refact-*`
+   Topic branch pattern: `drive-*`, `feat-*`, `fix-*`, `refact-*`
 
 1. **Understand the Request**
 

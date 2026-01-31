@@ -70,12 +70,20 @@ Based on user's selection:
 
 **"Approve"**:
 1. Follow **write-final-report** skill to update ticket effort
-2. Follow **archive-ticket** skill to commit and archive
+2. Archive and commit using the preloaded **archive-ticket** skill:
+   ```bash
+   bash plugins/core/skills/archive-ticket/sh/archive.sh \
+     "<ticket-path>" "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
+   ```
 3. Continue to next ticket
 
 **"Approve and stop"**:
 1. Follow **write-final-report** skill to update ticket effort
-2. Follow **archive-ticket** skill to commit and archive
+2. Archive and commit using the preloaded **archive-ticket** skill:
+   ```bash
+   bash plugins/core/skills/archive-ticket/sh/archive.sh \
+     "<ticket-path>" "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
+   ```
 3. Stop driving, report remaining tickets
 
 **"Abandon"**:

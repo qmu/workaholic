@@ -52,8 +52,18 @@ Implementation complete. Changes made:
 
 ## Post-Approval Behavior
 
-- **Approve**: Follow write-final-report skill, then archive-ticket skill, continue to next
-- **Approve and stop**: Follow write-final-report skill, then archive-ticket skill, stop driving
+- **Approve**: Follow write-final-report skill, then run:
+  ```bash
+  bash plugins/core/skills/archive-ticket/sh/archive.sh \
+    "<ticket-path>" "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
+  ```
+  Continue to next ticket.
+- **Approve and stop**: Follow write-final-report skill, then run:
+  ```bash
+  bash plugins/core/skills/archive-ticket/sh/archive.sh \
+    "<ticket-path>" "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
+  ```
+  Stop driving.
 - **Abandon**: Follow handle-abandon skill, continue to next
 
 **Do NOT proceed to commit until user explicitly approves.**

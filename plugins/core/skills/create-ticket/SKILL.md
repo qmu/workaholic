@@ -8,21 +8,32 @@ user-invocable: false
 
 Guidelines for creating implementation tickets in `.workaholic/tickets/`.
 
-## Frontmatter Template (REQUIRED - DO NOT SKIP)
+## Step 1: Capture Dynamic Values (REQUIRED)
+
+**MUST run these commands FIRST** before writing the ticket file:
+
+```bash
+date -Iseconds        # → use output for created_at
+git config user.email # → use output for author
+```
+
+Use the actual command output in the frontmatter. Do NOT use placeholders or hardcoded values like `noreply@anthropic.com`.
+
+## Frontmatter Template
 
 ```yaml
 ---
-created_at: <run: date -Iseconds>
-author: <run: git config user.email>
+created_at: 2026-01-31T14:30:00+09:00  # actual output from date -Iseconds
+author: user@example.com               # actual output from git config user.email
 type: <enhancement | bugfix | refactoring | housekeeping>
 layer: [<UX | Domain | Infrastructure | DB | Config>]
-effort: <leave empty - filled after implementation>
-commit_hash: <leave empty - filled when archived>
-category: <leave empty - filled when archived>
+effort:
+commit_hash:
+category:
 ---
 ```
 
-**All fields are mandatory.** Run the shell commands to fill `created_at` and `author`.
+**All fields are mandatory.** The `effort`, `commit_hash`, and `category` fields are filled after implementation.
 
 ## Filename Convention
 
@@ -36,13 +47,13 @@ Example: `20260114153042-add-dark-mode.md`
 
 ```markdown
 ---
-created_at: YYYY-MM-DDTHH:MM:SS+TZ
-author: <git user.email>
+created_at: 2026-01-31T14:30:00+09:00
+author: user@example.com
 type: enhancement | bugfix | refactoring | housekeeping
 layer: [<layers affected>]
-effort: <filled after implementation>
-commit_hash: <filled when archived>
-category: <filled when archived>
+effort:
+commit_hash:
+category:
 ---
 
 # <Title>
@@ -79,8 +90,8 @@ Past tickets that touched similar areas:
 
 ### Required at Creation
 
-- **created_at**: Creation timestamp in ISO 8601 format. Use `date -Iseconds`
-- **author**: Git email. Use `git config user.email`
+- **created_at**: Creation timestamp in ISO 8601 format. Run `date -Iseconds` and use the actual output.
+- **author**: Git email. Run `git config user.email` and use the actual output. Never use hardcoded values.
 - **type**: Infer from request context:
   - `enhancement` - New features or capabilities (keywords: add, create, implement, new)
   - `bugfix` - Fixing broken behavior (keywords: fix, bug, broken, error)

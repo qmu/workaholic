@@ -1,8 +1,10 @@
 ---
 type: refactoring
 effort: 0.2h
-commit_hash: 06f8791created_at: 2026-01-31T22:37:39+09:00
-category: Changedauthor: a@qmu.jp
+commit_hash: 06f8791
+created_at: 2026-01-31T22:37:39+09:00
+category: Changed
+author: a@qmu.jp
 ---
 
 # Rename fail/ Directory to abandoned/

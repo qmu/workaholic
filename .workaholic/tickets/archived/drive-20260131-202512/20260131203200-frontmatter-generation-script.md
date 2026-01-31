@@ -3,9 +3,9 @@ created_at: 2026-01-31T20:32:00+09:00
 author: tamurayoshiya@gmail.com
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 865201c
+category: Changed
 ---
 
 # Add Frontmatter Generation Script to Create-Ticket Skill

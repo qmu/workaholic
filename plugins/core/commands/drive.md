@@ -8,7 +8,7 @@ skills:
 
 # Drive
 
-Implement all tickets stored in `.workaholic/tickets/todo/` from top to bottom, committing and archiving each one before moving to the next.
+Implement tickets from `.workaholic/tickets/todo/` using intelligent prioritization, committing and archiving each one before moving to the next.
 
 ## Icebox Mode
 
@@ -22,16 +22,66 @@ If `$ARGUMENT` contains "icebox":
 
 ## Instructions
 
-### 1. List and Sort Tickets
+### 1. List and Analyze Tickets
+
+List all tickets in `.workaholic/tickets/todo/`:
 
 ```bash
-ls -1 .workaholic/tickets/todo/*.md 2>/dev/null | sort
+ls -1 .workaholic/tickets/todo/*.md 2>/dev/null
 ```
 
-- If no tickets found, inform the user and stop
-- Process tickets in alphabetical/chronological order (YYYYMMDD prefix ensures chronological)
+**If no tickets found:**
 
-### 2. For Each Ticket (Top to Bottom)
+1. Check if `.workaholic/tickets/icebox/` has tickets
+2. If icebox has tickets, ask: "No queued tickets. Would you like to work on icebox tickets?"
+3. If user agrees, enter icebox mode automatically
+4. If icebox is also empty, inform user: "No tickets in queue or icebox."
+
+**If tickets found:**
+
+For each ticket, extract YAML frontmatter to get:
+- `type`: bugfix > enhancement > refactoring > housekeeping (priority ranking)
+- `layer`: Group related layers for context efficiency
+- `effort`: Lower effort tickets may provide quick wins
+
+### 2. Determine Priority Order
+
+Consider these factors:
+- **Severity**: Bugfixes take precedence over enhancements
+- **Context grouping**: Process tickets affecting same layer/files together
+- **Quick wins**: Lower-effort tickets may be prioritized for momentum
+- **Dependencies**: If ticket A modifies files that ticket B reads, process A first
+
+Handle missing metadata gracefully - default to normal priority when fields are absent.
+
+### 3. Present Prioritized List
+
+Show tickets grouped by priority tier:
+
+```
+Found 4 tickets to implement:
+
+**High Priority (bugfix)**
+1. 20260131-fix-login-error.md
+
+**Normal Priority (enhancement)**
+2. 20260131-add-dark-mode.md [layer: UX]
+3. 20260131-add-api-endpoint.md [layer: Infrastructure]
+
+**Low Priority (housekeeping)**
+4. 20260131-cleanup-unused-imports.md
+
+Proposed order considers severity and context grouping.
+```
+
+### 4. Confirm Order with User
+
+Ask user to confirm or adjust:
+- **Proceed** - Execute in proposed order
+- **Pick one** - Let user select a specific ticket to start with
+- **Original order** - Use chronological/alphabetical order instead
+
+### 5. For Each Ticket (In Priority Order)
 
 Follow the preloaded drive-workflow skill for each ticket:
 
@@ -41,7 +91,7 @@ Follow the preloaded drive-workflow skill for each ticket:
 4. Update effort and write final report
 5. Commit and archive using archive-ticket skill
 
-### 3. Completion
+### 6. Completion
 
 - After all tickets are implemented, summarize what was done
 - List all commits created
@@ -51,19 +101,24 @@ Follow the preloaded drive-workflow skill for each ticket:
 
 ```
 Claude: Found 3 tickets to implement:
-        1. .workaholic/tickets/todo/20260113-feature-a.md
-        2. .workaholic/tickets/todo/20260113-feature-b.md
-        3. .workaholic/tickets/todo/20260113-feature-c.md
 
-        Starting with 20260113-feature-a.md...
-        [implements feature-a]
+        **High Priority (bugfix)**
+        1. 20260113-fix-auth-error.md [layer: Infrastructure]
 
-        **Ticket: Add User Authentication**
-        Implement user authentication with session-based login and logout.
+        **Normal Priority (enhancement)**
+        2. 20260113-add-dark-mode.md [layer: UX]
+        3. 20260113-feature-c.md [layer: Config]
+
+        Proposed order considers severity and context grouping.
+        [Proceed / Pick one / Original order]
+
+User:   Proceed
+
+Claude: Starting with 20260113-fix-auth-error.md...
+        [implements bugfix]
 
         Implementation complete. Changes made:
-        - Modified src/foo.ts (added function X)
-        - Updated src/bar.ts (fixed Y)
+        - Modified src/auth.ts (fixed token validation)
 
         Do you approve this implementation?
         [Approve / Approve and stop / Abandon]
@@ -72,7 +127,7 @@ User:   Approve
 
 Claude: [creates commit, archives ticket]
 
-        Starting with 20260113-feature-b.md...
+        Starting with 20260113-add-dark-mode.md...
 ```
 
 ## Notes

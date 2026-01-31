@@ -3,9 +3,9 @@ created_at: 2026-01-31T12:59:46+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: d29b3ed
+category: Changed
 ---
 
 # Intelligent Ticket Prioritization for /drive
@@ -115,3 +115,18 @@ Past tickets that touched similar areas:
 - **Prompt length**: The prioritization logic adds instructions to drive.md. Keep it concise to avoid excessive prompt bloat
 - **User trust**: Present the reasoning for prioritization order so users understand and can override if needed
 - **Icebox transition**: The fallback to icebox should be optional, not automatic, respecting the existing "icebox requires explicit intent" philosophy
+
+## Final Report
+
+**Status**: Completed
+
+**Changes Made**:
+- Modified `plugins/core/commands/drive.md` to replace simple alphabetical listing with intelligent prioritization
+- Added YAML frontmatter analysis for type, layer, and effort metadata
+- Implemented priority ranking: bugfix > enhancement > refactoring > housekeeping
+- Added icebox fallback when todo queue is empty
+- Added user confirmation options: Proceed / Pick one / Original order
+- Updated example workflow to demonstrate new prioritization flow
+
+**Files Changed**:
+- `plugins/core/commands/drive.md` - Restructured instructions from 3 sections to 6 sections with prioritization logic

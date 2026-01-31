@@ -31,9 +31,9 @@ flowchart LR
 ```
 ````
 
-## Node Labels
+## Node Labels (REQUIRED)
 
-Quote labels containing special characters (`/`, `{`, `}`, `[`, `]`):
+**MUST quote labels** containing special characters (`/`, `{`, `}`, `[`, `]`):
 
 ```mermaid
 flowchart TD
@@ -41,7 +41,11 @@ flowchart TD
     B --> C{"Decision?"}
 ```
 
-Without quotes, `/command` causes lexical errors on GitHub.
+**Why**: Unquoted `/` causes GitHub to fail with `Lexical error on line N. Unrecognized text.`
+
+Common violations:
+- `A[/story command]` ❌ → `A["/story command"]` ✓
+- `B[path/to/file]` ❌ → `B["path/to/file"]` ✓
 
 ## Common Diagram Types
 

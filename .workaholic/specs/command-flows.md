@@ -2,8 +2,8 @@
 title: Command Execution Flows
 description: How commands invoke agents and skills
 category: developer
-modified_at: 2026-01-29T12:21:57+09:00
-commit_hash: 693ef76
+modified_at: 2026-01-31T19:07:11+09:00
+commit_hash: 06ebf65
 ---
 
 [English](command-flows.md) | [日本語](command-flows_ja.md)
@@ -125,26 +125,25 @@ flowchart TD
         G[spec-writer]
         H[terms-writer]
         I[release-readiness]
+        PA[performance-analyst]
     end
 
-    E --> F & G & H & I
+    E --> F & G & H & I & PA
 
-    F --> F1[generate-changelog skill]
-    F --> F2[write-changelog skill]
+    F --> F1[write-changelog skill]
     G --> G1[write-spec skill]
     G --> G2[translate skill]
     H --> H1[write-terms skill]
     H --> H2[translate skill]
     I --> I1[assess-release-readiness skill]
+    PA --> PA1[analyze-performance skill]
 
-    F1 & F2 & G1 & G2 & H1 & H2 & I1 --> J[Phase 2: story-writer]
+    F1 & G1 & G2 & H1 & H2 & I1 & PA1 --> J[Phase 2: story-writer]
 
     J --> J1[write-story skill]
     J --> J2[translate skill]
-    J --> J3[performance-analyst agent]
-    J3 --> J4[analyze-performance skill]
 
-    J1 & J2 & J4 --> K[Commit docs]
+    J1 & J2 --> K[Commit docs]
     K --> L[Push branch]
     L --> M[pr-creator agent]
     M --> M1[create-pr skill]
@@ -163,8 +162,7 @@ flowchart TD
 | story-writer | Agent (haiku) | Generates PR narrative in 11 sections |
 | performance-analyst | Agent | Evaluates decision-making quality |
 | pr-creator | Agent (haiku) | Creates/updates GitHub PR |
-| generate-changelog | Skill | Changelog entry format and categorization |
-| write-changelog | Skill | CHANGELOG.md structure and updates |
+| write-changelog | Skill | Changelog entry generation, categorization, and CHANGELOG.md updates |
 | write-spec | Skill | Spec document format and guidelines |
 | write-terms | Skill | Term document format and guidelines |
 | write-story | Skill | Story document structure and templates |
@@ -175,7 +173,7 @@ flowchart TD
 
 ### Notes
 
-- Phase 1 runs 4 agents in parallel for efficiency
-- Phase 2 depends on release-readiness output (sequential)
+- Phase 1 runs 5 agents in parallel for efficiency
+- Phase 2 depends on release-readiness and performance-analyst outputs (sequential)
 - Story file becomes the PR description body
 - PR URL display is mandatory at completion

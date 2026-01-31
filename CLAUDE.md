@@ -37,12 +37,13 @@ plugins/                 # Plugin source directories
 | -------- | ------------------ | ------------------- |
 | Command  | Skill, Subagent    | —                   |
 | Subagent | Skill              | Subagent, Command   |
-| Skill    | —                  | Subagent, Command   |
+| Skill    | Skill              | Subagent, Command   |
 
 **Allowed**:
 - Command → Skill (preload via `skills:` frontmatter)
 - Command → Subagent (via Task tool)
 - Subagent → Skill (preload via `skills:` frontmatter)
+- Skill → Skill (preload via `skills:` frontmatter for composable knowledge)
 
 **Prohibited**:
 - Skill → Subagent (skills are passive knowledge, not orchestrators)

@@ -2,8 +2,8 @@
 title: Command Execution Flows
 description: How commands invoke agents and skills
 category: developer
-modified_at: 2026-01-29T12:21:57+09:00
-commit_hash: 693ef76
+modified_at: 2026-01-31T19:07:11+09:00
+commit_hash: 06ebf65
 ---
 
 [English](command-flows.md) | [日本語](command-flows_ja.md)
@@ -125,26 +125,25 @@ flowchart TD
         G[spec-writer]
         H[terms-writer]
         I[release-readiness]
+        PA[performance-analyst]
     end
 
-    E --> F & G & H & I
+    E --> F & G & H & I & PA
 
-    F --> F1[generate-changelog スキル]
-    F --> F2[write-changelog スキル]
+    F --> F1[write-changelog スキル]
     G --> G1[write-spec スキル]
     G --> G2[translate スキル]
     H --> H1[write-terms スキル]
     H --> H2[translate スキル]
     I --> I1[assess-release-readiness スキル]
+    PA --> PA1[analyze-performance スキル]
 
-    F1 & F2 & G1 & G2 & H1 & H2 & I1 --> J[Phase 2: story-writer]
+    F1 & G1 & G2 & H1 & H2 & I1 & PA1 --> J[Phase 2: story-writer]
 
     J --> J1[write-story スキル]
     J --> J2[translate スキル]
-    J --> J3[performance-analyst エージェント]
-    J3 --> J4[analyze-performance スキル]
 
-    J1 & J2 & J4 --> K[docsをコミット]
+    J1 & J2 --> K[docsをコミット]
     K --> L[ブランチをプッシュ]
     L --> M[pr-creator エージェント]
     M --> M1[create-pr スキル]
@@ -163,8 +162,7 @@ flowchart TD
 | story-writer | エージェント (haiku) | 11セクションでPRナラティブを生成 |
 | performance-analyst | エージェント | 意思決定の品質を評価 |
 | pr-creator | エージェント (haiku) | GitHub PRを作成/更新 |
-| generate-changelog | スキル | changelogエントリのフォーマットと分類 |
-| write-changelog | スキル | CHANGELOG.mdの構造と更新 |
+| write-changelog | スキル | changelogエントリの生成、分類、およびCHANGELOG.mdの更新 |
 | write-spec | スキル | specドキュメントのフォーマットとガイドライン |
 | write-terms | スキル | termドキュメントのフォーマットとガイドライン |
 | write-story | スキル | storyドキュメントの構造とテンプレート |
@@ -175,7 +173,7 @@ flowchart TD
 
 ### 備考
 
-- Phase 1は効率のために4つのエージェントを並列実行
-- Phase 2はrelease-readiness出力に依存（順次実行）
+- Phase 1は効率のために5つのエージェントを並列実行
+- Phase 2はrelease-readinessとperformance-analyst出力に依存（順次実行）
 - ストーリーファイルがPR説明文の本文になります
 - 完了時のPR URL表示は必須です

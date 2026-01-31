@@ -2,8 +2,8 @@
 title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
-last_updated: 2026-01-29
-commit_hash: 70fa15c
+last_updated: 2026-01-31
+commit_hash: 06ebf65
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -222,6 +222,8 @@ Format:
 - **Insights for future**: <what this teaches us about the codebase>
 ```
 
+The handle-abandon skill provides guidance on structuring comprehensive failure analysis that will be valuable to future developers reviewing the codebase.
+
 ### Usage Patterns
 
 - **Directory names**: N/A (section within ticket files)
@@ -230,7 +232,7 @@ Format:
 
 ### Related Terms
 
-- ticket, abandon, final-report
+- ticket, abandon, final-report, handle-abandon skill
 
 ## final-report
 

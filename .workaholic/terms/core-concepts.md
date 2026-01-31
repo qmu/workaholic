@@ -2,8 +2,8 @@
 title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
-last_updated: 2026-01-29
-commit_hash: 72f9d7a
+last_updated: 2026-01-31
+commit_hash: 06ebf65
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -67,12 +67,15 @@ Skills can be preloaded by agents via the `skills:` frontmatter field, providing
 ### Current Skills
 
 Utility skills (with bundled shell scripts):
-- **archive-ticket**: Moves completed tickets to branch archive
-- **generate-changelog**: Generates changelog entries from archived tickets
+- **archive-ticket**: Moves completed tickets to branch archive, formats commits
 - **create-branch**: Creates timestamped topic branches (e.g., `feat-20260128-001720`)
 - **create-pr**: PR creation workflow, title derivation, and shell script for GitHub operations
 - **discover-history**: Searches archived tickets by keywords to find related historical context
 - **discover-source**: Guidelines for exploring source code to understand context
+- **format-commit-message**: Structured commit message format with UX and Arch sections
+- **handle-abandon**: Handles abandoned implementations with failure analysis
+- **request-approval**: User approval flow with selectable options
+- **write-final-report**: Final report and discovered insights documentation
 
 Content skills (instructions and templates):
 - **write-story**: Story content structure, formatting, metrics calculation, and translation requirements
@@ -81,7 +84,7 @@ Content skills (instructions and templates):
 - **write-changelog**: Changelog formatting and entry guidelines
 - **analyze-performance**: Performance evaluation framework
 - **create-ticket**: Ticket file structure, frontmatter, related history, and creation workflow
-- **drive-workflow**: Implementation workflow for processing tickets
+- **drive-workflow**: Implementation workflow orchestration for processing tickets
 - **translate**: Translation policies and `.workaholic/` i18n enforcement
 
 ### Related Terms
@@ -209,6 +212,7 @@ The nesting policy defines allowed and prohibited invocation patterns between co
 - Command -> Skill (preload via `skills:` frontmatter)
 - Command -> Subagent (via Task tool)
 - Subagent -> Skill (preload via `skills:` frontmatter)
+- Skill -> Skill (preload via `skills:` frontmatter for composable knowledge)
 
 **Prohibited invocations:**
 - Skill -> Subagent (skills are passive knowledge, not orchestrators)
@@ -220,6 +224,8 @@ The guiding principle is "thin commands and subagents, comprehensive skills":
 - Commands: Orchestration only (~50-100 lines)
 - Subagents: Orchestration only (~20-40 lines)
 - Skills: Comprehensive knowledge (~50-150 lines)
+
+Skills can preload other skills for composable knowledge (e.g., write-spec preloads translate for i18n enforcement).
 
 ### Usage Patterns
 
@@ -296,3 +302,21 @@ TiDD (Ticket-Driven Development) is the core philosophy of Workaholic. It refram
 ### Related Terms
 
 - ticket, drive, story, archive
+
+## context-window
+
+The isolated conversation context in which a subagent executes.
+
+### Definition
+
+A context window is the conversation memory available to an agent when it executes. When agents run in isolated contexts, they preserve the main conversation's context window for orchestration while handling implementation details in their own dedicated spaces. This prevents context pollution from extensive file reads or complex analysis. The driver agent, for example, runs in its own context window to implement a single ticket without bloating the main /drive command's conversation space.
+
+### Usage Patterns
+
+- **Directory names**: N/A (concept, not storage)
+- **File names**: N/A
+- **Code references**: "Preserve context window", "Run in isolated context", "Context window pollution"
+
+### Related Terms
+
+- agent, driver, orchestrator

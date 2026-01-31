@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-29T13:30:00+09:00
-commit_hash: 72f9d7a
+modified_at: 2026-01-31T19:07:11+09:00
+commit_hash: 06ebf65
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -84,14 +84,12 @@ plugins/
         SKILL.md           # Guidelines for exploring source code
       drive-workflow/
         SKILL.md           # Implementation workflow for tickets
-      generate-changelog/
-        SKILL.md
-        sh/
-          generate.sh      # Generates changelog entries from tickets
       translate/
         SKILL.md           # Translation policies and .workaholic/ i18n enforcement
       write-changelog/
-        SKILL.md           # Changelog writing guidelines
+        SKILL.md           # Changelog generation and writing guidelines
+        sh/
+          generate.sh      # Generates changelog entries from tickets
       write-spec/
         SKILL.md
         sh/
@@ -128,9 +126,8 @@ Skills are complex capabilities that may include scripts or multiple files. They
 - **create-ticket**: Complete ticket creation workflow including format, exploration, and related history
 - **discover-source**: Guidelines for exploring source code to understand codebase context and find related files
 - **drive-workflow**: Implementation workflow steps for processing tickets
-- **generate-changelog**: Generates changelog entries from archived tickets, grouping by category
 - **translate**: Translation policies and `.workaholic/` i18n enforcement (spec-writer, terms-writer, story-writer preload this)
-- **write-changelog**: Guidelines for writing changelog entries
+- **write-changelog**: Generates changelog entries from archived tickets (grouping by category) and provides guidelines for updating CHANGELOG.md
 - **write-spec**: Context gathering and guidelines for writing specification documents
 - **write-story**: Metrics calculation, templates, and guidelines for branch stories
 - **write-terms**: Context gathering and guidelines for terminology documents
@@ -149,68 +146,118 @@ Agents are specialized subagents that can be spawned to handle complex tasks. Th
 - **story-writer**: Generates branch stories in `.workaholic/stories/` that serve as the single source of truth for PR content, with eleven sections: Overview, Motivation, Journey (containing Topic Tree flowchart), Changes, Outcome, Historical Analysis, Concerns, Ideas, Performance, Release Preparation, and Notes
 - **terms-writer**: Updates `.workaholic/terms/` to maintain consistent term definitions
 
-## Dependency Graph
+## Command Dependencies
 
-This diagram shows how commands, agents, and skills invoke each other at runtime.
+These diagrams show how each command invokes agents and skills at runtime. Commands are thin orchestrators that delegate work to specialized components.
+
+### /ticket Dependencies
 
 ```mermaid
 flowchart LR
-    subgraph Commands
-        story[/story]
-        drive[/drive]
-        ticket[/ticket]
+    subgraph Command
+        ticket["/ticket"]
     end
 
     subgraph Agents
-        cw[changelog-writer]
-        sw[story-writer]
-        spw[spec-writer]
-        tw[terms-writer]
         hd[history-discoverer]
         sd[source-discoverer]
-        pc[pr-creator]
-        pa[performance-analyst]
-        rr[release-readiness]
     end
 
     subgraph Skills
-        at[archive-ticket]
-        gc[generate-changelog]
         cb[create-branch]
         ct[create-ticket]
         dh[discover-history]
         ds[discover-source]
-        dw[drive-workflow]
-        tr[translate]
-        ws[write-story]
-        wsp[write-spec]
-        wt[write-terms]
-        wc[write-changelog]
-        cp[create-pr]
-        ap[analyze-performance]
-        arr[assess-release-readiness]
     end
 
-    story --> cw & spw & tw & rr
-    story -.-> sw
-    story --> pc
-    drive --> at & dw
-    ticket --> ct & hd & sd
     ticket --> cb
+    ticket --> hd & sd
+    ticket --> ct
 
     hd --> dh
     sd --> ds
-    cw --> gc & wc
-    sw --> ws & tr
-    sw --> pa
-    spw --> wsp & tr
-    tw --> wt & tr
-    pc --> cp
-    pa --> ap
-    rr --> arr
 ```
 
-Note: The `/story` command runs four agents in parallel (changelog-writer, spec-writer, terms-writer, release-readiness), then runs story-writer with the release-readiness output, and finally runs pr-creator. The `/ticket` command runs history-discoverer and source-discoverer in parallel to find related tickets and code context.
+### /drive Dependencies
+
+```mermaid
+flowchart LR
+    subgraph Command
+        drive["/drive"]
+    end
+
+    subgraph Agents
+        dn[drive-navigator]
+        dr[driver]
+    end
+
+    subgraph Skills
+        dw[drive-workflow]
+        at[archive-ticket]
+        ra[request-approval]
+        wfr[write-final-report]
+        ha[handle-abandon]
+        fcm[format-commit-message]
+        utf[update-ticket-frontmatter]
+    end
+
+    drive --> dn
+    drive --> dr
+
+    dr --> dw & at
+
+    %% Skill-to-skill
+    dw --> ra & wfr & ha & fcm
+    at --> fcm
+    wfr --> utf
+```
+
+### /story Dependencies
+
+```mermaid
+flowchart LR
+    subgraph Command
+        story["/story"]
+    end
+
+    subgraph Agents
+        cw[changelog-writer]
+        spw[spec-writer]
+        tw[terms-writer]
+        rr[release-readiness]
+        pa[performance-analyst]
+        sw[story-writer]
+        pc[pr-creator]
+    end
+
+    subgraph Skills
+        wc[write-changelog]
+        wsp[write-spec]
+        wt[write-terms]
+        arr[assess-release-readiness]
+        ap[analyze-performance]
+        ws[write-story]
+        tr[translate]
+        cp[create-pr]
+    end
+
+    story --> cw & spw & tw & rr & pa
+    story -.-> sw
+    story --> pc
+
+    cw --> wc
+    spw --> wsp
+    tw --> wt
+    rr --> arr
+    pa --> ap
+    sw --> ws
+    pc --> cp
+
+    %% Skill-to-skill
+    ws --> tr
+    wsp --> tr
+    wt --> tr
+```
 
 ## How Claude Code Loads Plugins
 
@@ -259,36 +306,40 @@ sequenceDiagram
 
 ## Documentation Enforcement
 
-Workaholic enforces comprehensive documentation through a parallel subagent architecture. The `/story` command orchestrates documentation agents in two phases: four agents run in parallel first, then story-writer runs with the release-readiness output.
+Workaholic enforces comprehensive documentation through a parallel subagent architecture. The `/story` command orchestrates documentation agents in two phases: five agents run in parallel first, then story-writer runs with the release-readiness and performance-analyst outputs.
 
 ### How It Works
 
 ```mermaid
 flowchart TD
-    A[/story command] --> B[Move remaining tickets to icebox]
-    B --> C[Phase 1: Invoke 4 subagents in parallel]
+    A["/story command"] --> B[Move remaining tickets to icebox]
+    B --> C[Phase 1: Invoke 5 subagents in parallel]
 
     subgraph Phase 1 - Parallel
         D[changelog-writer]
         F[spec-writer]
         G[terms-writer]
         RR[release-readiness]
+        PA[performance-analyst]
     end
 
     C --> D
     C --> F
     C --> G
     C --> RR
+    C --> PA
 
     D --> H[CHANGELOG.md]
     F --> J[.workaholic/specs/]
     G --> K[.workaholic/terms/]
     RR --> RL[Release JSON]
+    PA --> PM[Performance markdown]
 
     H --> P2[Phase 2: story-writer]
     J --> P2
     K --> P2
     RL --> P2
+    PM --> P2
 
     P2 --> I[.workaholic/stories/]
     I --> L[Commit docs]
@@ -301,10 +352,10 @@ Documentation is updated automatically during the `/story` workflow.
 
 The subagent architecture provides several benefits:
 
-1. **Parallel execution** - Four agents run simultaneously in Phase 1, reducing wait time
+1. **Parallel execution** - Five agents run simultaneously in Phase 1, reducing wait time
 2. **Context isolation** - Each agent works in its own context window, preserving the main conversation
 3. **Single responsibility** - Each agent handles one documentation domain
-4. **Data dependency handling** - Story-writer receives release-readiness output in Phase 2
+4. **Data dependency handling** - Story-writer receives release-readiness and performance-analyst outputs in Phase 2
 
 ### Critical Requirements
 
@@ -335,9 +386,9 @@ Workaholic follows strict nesting rules for component invocations to maintain a 
 | -------- | ------------------ | ------------------- |
 | Command  | Skill, Subagent    | -                   |
 | Subagent | Skill              | Subagent, Command   |
-| Skill    | -                  | Subagent, Command   |
+| Skill    | Skill              | Subagent, Command   |
 
-Commands and subagents are the orchestration layer, defining workflow steps and invoking other components. Skills are the knowledge layer, containing templates, guidelines, rules, and bash scripts. This separation prevents deep nesting and context explosion while keeping comprehensive knowledge centralized in skills.
+Commands and subagents are the orchestration layer, defining workflow steps and invoking other components. Skills are the knowledge layer, containing templates, guidelines, rules, and bash scripts. Skills can preload other skills for composable knowledge (e.g., write-spec preloads translate for i18n enforcement). This separation prevents deep nesting and context explosion while keeping comprehensive knowledge centralized in skills.
 
 ## Version Management
 

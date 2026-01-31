@@ -1,6 +1,8 @@
 ---
 name: archive-ticket
 description: Complete commit workflow - format, archive, update changelog, and commit in one operation.
+skills:
+  - format-commit-message
 allowed-tools: Bash
 user-invocable: false
 ---
@@ -16,35 +18,7 @@ bash .claude/skills/archive-ticket/sh/archive.sh \
   <ticket-path> "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
 ```
 
-## Commit Message Format
-
-```
-<title>
-
-Motivation: <why this change was needed>
-
-UX Change: <what changed for the user>
-
-Arch Change: <what changed for the developer>
-
-Co-Authored-By: Claude <noreply@anthropic.com>
-```
-
-### Title
-
-Present-tense verb, what changed (50 chars max). No prefixes like `feat:` or `[fix]`.
-
-### Motivation
-
-Why this change was needed. Extract from ticket Overview. More than a sentence, but not a paragraph.
-
-### UX Change
-
-What users will experience differently. New commands, options, output changes. Write "None" if internal only.
-
-### Arch Change
-
-What developers need to know. New files, modified interfaces, workflow changes. Write "None" if no structural changes.
+Follow the preloaded **format-commit-message** skill for message format.
 
 ## Example
 

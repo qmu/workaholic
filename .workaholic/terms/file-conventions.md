@@ -120,19 +120,19 @@ In the context of file conventions, archive directories store completed tickets 
 
 - icebox, ticket
 
-## fail
+## abandoned
 
 Storage for abandoned work items with failure analysis.
 
 ### Definition
 
-The fail directory holds tickets that were abandoned during `/drive` workflow because the implementation approach proved unworkable or the ticket was fundamentally flawed. Unlike the icebox (which defers unfinished tickets), the fail directory preserves attempted work with its Failure Analysis attached. Each abandoned ticket in `.workaholic/tickets/fail/` serves as a historical record explaining what was attempted, why it failed, and what insights this provides for future attempts. This prevents duplicate failed attempts and captures learnings in git history.
+The abandoned directory holds tickets that were abandoned during `/drive` workflow because the implementation approach proved unworkable or the ticket was fundamentally flawed. Unlike the icebox (which defers unfinished tickets), the abandoned directory preserves attempted work with its Failure Analysis attached. Each abandoned ticket in `.workaholic/tickets/abandoned/` serves as a historical record explaining what was attempted, why it failed, and what insights this provides for future attempts. This prevents duplicate failed attempts and captures learnings in git history.
 
 ### Usage Patterns
 
-- **Directory names**: `.workaholic/tickets/fail/`
+- **Directory names**: `.workaholic/tickets/abandoned/`
 - **File names**: Abandoned tickets retain original names with Failure Analysis appended
-- **Code references**: "Move to fail", "Check abandoned tickets in fail"
+- **Code references**: "Move to abandoned", "Check abandoned tickets"
 
 ### Related Terms
 

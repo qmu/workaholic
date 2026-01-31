@@ -67,21 +67,10 @@ ${COMMIT_BODY}"
 COMMIT_HASH=$(git rev-parse --short HEAD)
 
 echo "==> Updating ticket frontmatter..."
-if grep -q "^commit_hash:" "$ARCHIVED_TICKET"; then
-    sed -i.bak "s/^commit_hash:.*/commit_hash: ${COMMIT_HASH}/" "$ARCHIVED_TICKET"
-else
-    sed -i.bak "/^effort:/a\\
-commit_hash: ${COMMIT_HASH}" "$ARCHIVED_TICKET"
-fi
-
-if grep -q "^category:" "$ARCHIVED_TICKET"; then
-    sed -i.bak "s/^category:.*/category: ${CATEGORY}/" "$ARCHIVED_TICKET"
-else
-    sed -i.bak "/^commit_hash:/a\\
-category: ${CATEGORY}" "$ARCHIVED_TICKET"
-fi
-
-rm -f "${ARCHIVED_TICKET}.bak"
+SCRIPT_DIR=$(dirname "$0")
+UPDATE_SCRIPT="${SCRIPT_DIR}/../../update-ticket-frontmatter/sh/update.sh"
+bash "$UPDATE_SCRIPT" "$ARCHIVED_TICKET" "commit_hash" "$COMMIT_HASH"
+bash "$UPDATE_SCRIPT" "$ARCHIVED_TICKET" "category" "$CATEGORY"
 
 git add "$ARCHIVED_TICKET"
 git commit --amend --no-edit

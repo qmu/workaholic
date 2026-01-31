@@ -1,6 +1,8 @@
 ---
 name: write-final-report
 description: Write final report section with optional discovered insights.
+skills:
+  - update-ticket-frontmatter
 user-invocable: false
 ---
 
@@ -10,7 +12,7 @@ After user approves implementation, update the ticket with effort and final repo
 
 ## Update Effort Field
 
-Update the `effort` field in YAML frontmatter with actual time spent in numeric hours.
+Follow the preloaded **update-ticket-frontmatter** skill for valid effort values.
 
 Valid values: `0.1h`, `0.25h`, `0.5h`, `1h`, `2h`, `4h`
 

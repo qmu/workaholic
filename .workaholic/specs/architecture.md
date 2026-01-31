@@ -312,7 +312,7 @@ Workaholic enforces comprehensive documentation through a parallel subagent arch
 
 ```mermaid
 flowchart TD
-    A[/story command] --> B[Move remaining tickets to icebox]
+    A["/story command"] --> B[Move remaining tickets to icebox]
     B --> C[Phase 1: Invoke 5 subagents in parallel]
 
     subgraph Phase 1 - Parallel

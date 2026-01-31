@@ -2,8 +2,10 @@
 created_at: 2026-01-31T19:23:43+09:00
 author: a@qmu.jp
 type: housekeeping
-layer: Config
+layer: [Config]
 effort: 0.1h
+commit_hash: e6f8e98
+category:
 ---
 
 # Fix write-story Skill Performance-Analyst Invocation

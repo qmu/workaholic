@@ -4,7 +4,6 @@ description: Update .workaholic/specs/ documentation to reflect current codebase
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
   - write-spec
-  - translate
 ---
 
 # Spec Writer

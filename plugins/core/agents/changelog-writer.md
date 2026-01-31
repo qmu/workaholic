@@ -4,7 +4,6 @@ description: Update root CHANGELOG.md from archived tickets. Groups entries by c
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
   - write-changelog
-  - generate-changelog
 ---
 
 # Changelog Writer

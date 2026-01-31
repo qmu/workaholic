@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-29T13:30:00+09:00
-commit_hash: 72f9d7a
+modified_at: 2026-01-31T19:07:11+09:00
+commit_hash: 06ebf65
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -84,14 +84,12 @@ plugins/
         SKILL.md           # ソースコード探索ガイドライン
       drive-workflow/
         SKILL.md           # チケット実装ワークフロー
-      generate-changelog/
-        SKILL.md
-        sh/
-          generate.sh      # チケットからchangelogエントリを生成
       translate/
         SKILL.md           # 翻訳ポリシーと.workaholic/ i18n強制
       write-changelog/
-        SKILL.md           # changelogライティングガイドライン
+        SKILL.md           # changelog生成およびライティングガイドライン
+        sh/
+          generate.sh      # チケットからchangelogエントリを生成
       write-spec/
         SKILL.md
         sh/
@@ -128,9 +126,8 @@ plugins/
 - **create-ticket**: フォーマット、調査、関連履歴を含む完全なチケット作成ワークフロー
 - **discover-source**: コードベースコンテキストを理解するためのソースコード探索ガイドライン
 - **drive-workflow**: チケット処理の実装ワークフローステップ
-- **generate-changelog**: アーカイブされたチケットからchangelogエントリを生成、カテゴリ別にグループ化
 - **translate**: 翻訳ポリシーと`.workaholic/` i18n強制（spec-writer、terms-writer、story-writerがプリロード）
-- **write-changelog**: changelogエントリのライティングガイドライン
+- **write-changelog**: アーカイブされたチケットからchangelogエントリを生成（カテゴリ別にグループ化）し、CHANGELOG.md更新のガイドラインを提供
 - **write-spec**: コンテキスト収集とspecドキュメントのライティングガイドライン
 - **write-story**: メトリクス計算、テンプレート、ブランチストーリーのガイドライン
 - **write-terms**: コンテキスト収集と用語ドキュメントのガイドライン
@@ -149,68 +146,118 @@ plugins/
 - **story-writer**: PR内容の単一の真実の情報源として機能する`.workaholic/stories/`にブランチストーリーを生成、11のセクション（Overview、Motivation、Journey（Topic Treeフローチャートを含む）、Changes、Outcome、Historical Analysis、Concerns、Ideas、Performance、Release Preparation、Notes）で構成
 - **terms-writer**: 一貫した用語定義を維持するために`.workaholic/terms/`を更新
 
-## 依存関係グラフ
+## コマンド依存関係
 
-この図は、コマンド、エージェント、スキルが実行時にどのように相互呼び出しするかを示しています。
+これらの図は、各コマンドが実行時にエージェントとスキルをどのように呼び出すかを示しています。コマンドは薄いオーケストレーターであり、作業を専門化されたコンポーネントに委譲します。
+
+### /ticket 依存関係
 
 ```mermaid
 flowchart LR
     subgraph コマンド
-        story[/story]
-        drive[/drive]
-        ticket[/ticket]
+        ticket["/ticket"]
     end
 
     subgraph エージェント
-        cw[changelog-writer]
-        sw[story-writer]
-        spw[spec-writer]
-        tw[terms-writer]
         hd[history-discoverer]
         sd[source-discoverer]
-        pc[pr-creator]
-        pa[performance-analyst]
-        rr[release-readiness]
     end
 
     subgraph スキル
-        at[archive-ticket]
-        gc[generate-changelog]
         cb[create-branch]
         ct[create-ticket]
         dh[discover-history]
         ds[discover-source]
-        dw[drive-workflow]
-        tr[translate]
-        ws[write-story]
-        wsp[write-spec]
-        wt[write-terms]
-        wc[write-changelog]
-        cp[create-pr]
-        ap[analyze-performance]
-        arr[assess-release-readiness]
     end
 
-    story --> cw & spw & tw & rr
-    story -.-> sw
-    story --> pc
-    drive --> at & dw
-    ticket --> ct & hd & sd
     ticket --> cb
+    ticket --> hd & sd
+    ticket --> ct
 
     hd --> dh
     sd --> ds
-    cw --> gc & wc
-    sw --> ws & tr
-    sw --> pa
-    spw --> wsp & tr
-    tw --> wt & tr
-    pc --> cp
-    pa --> ap
-    rr --> arr
 ```
 
-注: `/story`コマンドは4つのエージェント（changelog-writer、spec-writer、terms-writer、release-readiness）を並列実行し、その後story-writerをrelease-readiness出力と共に実行し、最後にpr-creatorを実行します。`/ticket`コマンドはhistory-discovererとsource-discovererを並列実行して関連チケットとコードコンテキストを見つけます。
+### /drive 依存関係
+
+```mermaid
+flowchart LR
+    subgraph コマンド
+        drive["/drive"]
+    end
+
+    subgraph エージェント
+        dn[drive-navigator]
+        dr[driver]
+    end
+
+    subgraph スキル
+        dw[drive-workflow]
+        at[archive-ticket]
+        ra[request-approval]
+        wfr[write-final-report]
+        ha[handle-abandon]
+        fcm[format-commit-message]
+        utf[update-ticket-frontmatter]
+    end
+
+    drive --> dn
+    drive --> dr
+
+    dr --> dw & at
+
+    %% Skill-to-skill
+    dw --> ra & wfr & ha & fcm
+    at --> fcm
+    wfr --> utf
+```
+
+### /story 依存関係
+
+```mermaid
+flowchart LR
+    subgraph コマンド
+        story["/story"]
+    end
+
+    subgraph エージェント
+        cw[changelog-writer]
+        spw[spec-writer]
+        tw[terms-writer]
+        rr[release-readiness]
+        pa[performance-analyst]
+        sw[story-writer]
+        pc[pr-creator]
+    end
+
+    subgraph スキル
+        wc[write-changelog]
+        wsp[write-spec]
+        wt[write-terms]
+        arr[assess-release-readiness]
+        ap[analyze-performance]
+        ws[write-story]
+        tr[translate]
+        cp[create-pr]
+    end
+
+    story --> cw & spw & tw & rr & pa
+    story -.-> sw
+    story --> pc
+
+    cw --> wc
+    spw --> wsp
+    tw --> wt
+    rr --> arr
+    pa --> ap
+    sw --> ws
+    pc --> cp
+
+    %% Skill-to-skill
+    ws --> tr
+    wsp --> tr
+    wt --> tr
+```
 
 ## Claude Codeがプラグインをロードする方法
 
@@ -259,36 +306,40 @@ sequenceDiagram
 
 ## ドキュメント強制
 
-Workaholicは並列サブエージェントアーキテクチャを通じて包括的なドキュメントを強制します。`/story`コマンドはドキュメントエージェントを2つのフェーズで調整します：最初に4つのエージェントが並列実行され、その後story-writerがrelease-readiness出力と共に実行されます。
+Workaholicは並列サブエージェントアーキテクチャを通じて包括的なドキュメントを強制します。`/story`コマンドはドキュメントエージェントを2つのフェーズで調整します：最初に5つのエージェントが並列実行され、その後story-writerがrelease-readinessとperformance-analyst出力と共に実行されます。
 
 ### 仕組み
 
 ```mermaid
 flowchart TD
-    A[/story コマンド] --> B[残りのチケットをiceboxに移動]
-    B --> C[フェーズ1: 4つのサブエージェントを並列で呼び出し]
+    A["/story コマンド"] --> B[残りのチケットをiceboxに移動]
+    B --> C[フェーズ1: 5つのサブエージェントを並列で呼び出し]
 
     subgraph フェーズ1 - 並列
         D[changelog-writer]
         F[spec-writer]
         G[terms-writer]
         RR[release-readiness]
+        PA[performance-analyst]
     end
 
     C --> D
     C --> F
     C --> G
     C --> RR
+    C --> PA
 
     D --> H[CHANGELOG.md]
     F --> J[.workaholic/specs/]
     G --> K[.workaholic/terms/]
     RR --> RL[リリースJSON]
+    PA --> PM[パフォーマンスmarkdown]
 
     H --> P2[フェーズ2: story-writer]
     J --> P2
     K --> P2
     RL --> P2
+    PM --> P2
 
     P2 --> I[.workaholic/stories/]
     I --> L[docsをコミット]
@@ -301,10 +352,10 @@ flowchart TD
 
 サブエージェントアーキテクチャにはいくつかの利点があります：
 
-1. **並列実行** - フェーズ1で4つのエージェントが同時に実行され、待ち時間を短縮
+1. **並列実行** - フェーズ1で5つのエージェントが同時に実行され、待ち時間を短縮
 2. **コンテキスト分離** - 各エージェントが独自のコンテキストウィンドウで動作し、メイン会話を保持
 3. **単一責任** - 各エージェントが1つのドキュメントドメインを担当
-4. **データ依存関係の処理** - story-writerはフェーズ2でrelease-readiness出力を受け取る
+4. **データ依存関係の処理** - story-writerはフェーズ2でrelease-readinessとperformance-analyst出力を受け取る
 
 ### 重要な要件
 
@@ -335,9 +386,9 @@ Workaholicはオーケストレーションと知識の明確な分離を維持�
 | ---------- | ---------------- | ------------------- |
 | コマンド   | スキル、サブエージェント | -            |
 | サブエージェント | スキル      | サブエージェント、コマンド |
-| スキル     | -                | サブエージェント、コマンド |
+| スキル     | スキル           | サブエージェント、コマンド |
 
-コマンドとサブエージェントはオーケストレーション層であり、ワークフローステップを定義し他のコンポーネントを呼び出します。スキルは知識層であり、テンプレート、ガイドライン、ルール、bashスクリプトを含みます。この分離により、深いネストとコンテキスト爆発を防ぎながら、包括的な知識をスキルに集約します。
+コマンドとサブエージェントはオーケストレーション層であり、ワークフローステップを定義し他のコンポーネントを呼び出します。スキルは知識層であり、テンプレート、ガイドライン、ルール、bashスクリプトを含みます。スキルは合成可能な知識のために他のスキルをプリロードできます（例：write-specはi18n強制のためにtranslateをプリロード）。この分離により、深いネストとコンテキスト爆発を防ぎながら、包括的な知識をスキルに集約します。
 
 ## バージョン管理
 

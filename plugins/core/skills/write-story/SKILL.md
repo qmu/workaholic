@@ -2,6 +2,8 @@
 name: write-story
 description: Story content structure, templates, and writing guidelines for branch narratives.
 allowed-tools: Bash
+skills:
+  - translate
 user-invocable: false
 ---
 
@@ -45,8 +47,6 @@ Business days are more meaningful for multi-day work since developers have break
 The story content (this IS the PR description):
 
 ```markdown
-Refs #<issue-number>
-
 ## 1. Overview
 
 [2-3 sentence overview capturing the essence of this branch. What was the main goal? What approach was taken? What was achieved? Write in past tense.]
@@ -152,15 +152,9 @@ Brief 1-2 sentence description from ticket Overview.
 **Areas for Improvement**: [Constructive suggestions]
 ```
 
-**Invoking performance-analyst:**
+**Performance-analyst input:**
 
-Use the Task tool with `subagent_type: "core:performance-analyst"` and provide:
-
-- Archived tickets for this branch
-- Git log (main..HEAD)
-- Performance metrics from frontmatter
-
-The subagent returns the table and analysis in the format shown above. Include its complete output in section 9.2.
+The performance-analyst markdown is provided by the orchestrator (`/story` command) which invokes performance-analyst as a parallel agent. Include the complete output in section 9.2.
 
 ```markdown
 ## 10. Release Preparation

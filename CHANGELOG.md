@@ -1,5 +1,26 @@
 # Changelog
 
+## feat-20260131-125844
+
+### Added
+
+- Add Automatic Release Trigger on Story Branch Merge ([ad07ecd](https://github.com/qmu/workaholic/commit/ad07ecdfb8ed571d8c4ef230db9320b15601457d)) - [ticket](.workaholic/tickets/archive/feat-20260131-125844/20260129123400-auto-release-on-merge.md)
+- Add Driver Agent for Ticket Implementation ([cb21e2d](https://github.com/qmu/workaholic/commit/cb21e2d31f7fe0a49e9e6ed7c5f0efd51f18e7f3)) - [ticket](.workaholic/tickets/archive/feat-20260131-125844/20260131164315-add-driver-agent.md)
+
+### Changed
+
+- Intelligent Ticket Prioritization for /drive ([d29b3ed](https://github.com/qmu/workaholic/commit/d29b3ed7ecf1f3ebc6f8cca99bbf06e91d8c9f93)) - [ticket](.workaholic/tickets/archive/feat-20260131-125844/20260131125946-intelligent-drive-prioritization.md)
+- Enforce Selectable Options in Drive Approval Prompts ([140520e](https://github.com/qmu/workaholic/commit/140520e3f168a4ab0f578d21b51386acdf9c1708)) - [ticket](.workaholic/tickets/archive/feat-20260131-125844/20260131134135-enforce-selectable-options-in-drive.md)
+- Use Git User Email for Ticket Author Field ([2c5b214](https://github.com/qmu/workaholic/commit/2c5b214d9fe409c8bf215a86b307ba7adbd2f9e6)) - [ticket](.workaholic/tickets/archive/feat-20260131-125844/20260131142943-use-git-email-for-ticket-author.md)
+- Add Structured Commit Message Format ([19f2766](https://github.com/qmu/workaholic/commit/19f27663f5559fa1e6c4bb26c8ba7c0a4c0e02f0)) - [ticket](.workaholic/tickets/archive/feat-20260131-125844/20260131145539-structured-commit-messages.md)
+- Fix Mermaid Slash Character in Node Labels ([9ba2672](https://github.com/qmu/workaholic/commit/9ba26725e4be1e8fc33e9ec0906f8c27f6e67f93)) - [ticket](.workaholic/tickets/archive/feat-20260131-125844/20260131150915-fix-mermaid-slash-in-labels.md)
+- Allow Skill-to-Skill Nesting ([5dfcac6](https://github.com/qmu/workaholic/commit/5dfcac6509c0c49d9a9de3f6e8e24a6b893826c7)) - [ticket](.workaholic/tickets/archive/feat-20260131-125844/20260131153043-allow-skill-to-skill-nesting.md)
+- Split drive-workflow Skill into Composable Skills ([fd22f1e](https://github.com/qmu/workaholic/commit/fd22f1e02c06dd8c9ff07bc92c8ed4c5b5e2a3f5)) - [ticket](.workaholic/tickets/archive/feat-20260131-125844/20260131153736-split-drive-workflow-skill.md)
+- Split Dependency Graph by Command ([93541f3](https://github.com/qmu/workaholic/commit/93541f360e4c5de4d8c8f5e8b8a1a4f8b1d0e5c6)) - [ticket](.workaholic/tickets/archive/feat-20260131-125844/20260131154122-split-dependency-graph-by-command.md)
+- Extract update-ticket-frontmatter Skill ([f55635f](https://github.com/qmu/workaholic/commit/f55635f7d3c8a7e9f6b5c4d3e2f1a0b9c8d7e6f5)) - [ticket](.workaholic/tickets/archive/feat-20260131-125844/20260131162854-extract-update-ticket-frontmatter-skill.md)
+- Merge generate-changelog into write-changelog ([06ebf65](https://github.com/qmu/workaholic/commit/06ebf65c8e4c3f2e1d0c9b8a7f6e5d4c3b2a1f0e)) - [ticket](.workaholic/tickets/archive/feat-20260131-125844/20260131182330-merge-generate-changelog-into-write-changelog.md)
+- Move performance-analyst to Phase 1 Parallel Execution ([e4a85ca](https://github.com/qmu/workaholic/commit/e4a85cad8c7b6a5f4e3d2c1b0a9f8e7d6c5b4a3f)) - [ticket](.workaholic/tickets/archive/feat-20260131-125844/20260131182901-move-performance-analyst-to-phase1.md)
+
 ## feat-20260129-123229
 
 ### Changed

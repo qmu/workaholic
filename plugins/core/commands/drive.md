@@ -2,87 +2,92 @@
 name: drive
 description: Implement tickets from .workaholic/tickets/ one by one, commit each, and archive.
 skills:
-  - drive-workflow
+  - request-approval
+  - write-final-report
+  - handle-abandon
   - archive-ticket
 ---
 
 # Drive
 
-Implement all tickets stored in `.workaholic/tickets/todo/` from top to bottom, committing and archiving each one before moving to the next.
-
-## Icebox Mode
-
-If `$ARGUMENT` contains "icebox":
-
-1. List tickets in `.workaholic/tickets/icebox/`
-2. Ask user which ticket to retrieve
-3. Move selected ticket to `.workaholic/tickets/todo/`
-4. Implement that ticket using the drive-workflow skill
-5. **ALWAYS ask confirmation** before proceeding to next ticket
+Implement tickets from `.workaholic/tickets/todo/` using intelligent prioritization, committing and archiving each one before moving to the next.
 
 ## Instructions
 
-### 1. List and Sort Tickets
+### Phase 1: Navigate Tickets
 
-```bash
-ls -1 .workaholic/tickets/todo/*.md 2>/dev/null | sort
+Invoke the drive-navigator subagent via Task tool:
+
+```
+Task tool with subagent_type: "core:drive-navigator"
+prompt: "Navigate tickets. mode: <normal|icebox>"
 ```
 
-- If no tickets found, inform the user and stop
-- Process tickets in alphabetical/chronological order (YYYYMMDD prefix ensures chronological)
+Pass mode based on `$ARGUMENT`:
+- If `$ARGUMENT` contains "icebox": mode = "icebox"
+- Otherwise: mode = "normal"
 
-### 2. For Each Ticket (Top to Bottom)
+Handle the response:
+- `status: "empty"` - Inform user: "No tickets in queue or icebox."
+- `status: "stopped"` - End the drive session
+- `status: "icebox"` - Re-invoke with mode = "icebox"
+- `status: "ready"` - Proceed to Phase 2 with the ordered ticket list
 
-Follow the preloaded drive-workflow skill for each ticket:
+### Phase 2: Implement Tickets
 
-1. Read and understand the ticket
-2. Implement the ticket
-3. Ask user to review (mandatory approval step)
-4. Update effort and write final report
-5. Commit and archive using archive-ticket skill
+For each ticket in the ordered list:
 
-### 3. Completion
+#### Step 2.1: Invoke Driver
 
-- After all tickets are implemented, summarize what was done
+Invoke driver subagent via Task tool:
+```
+Task tool with subagent_type: "core:driver"
+prompt: "Implement ticket: <ticket-path>. repo_url: <repo-url>"
+```
+
+#### Step 2.2: Request User Approval
+
+When driver returns `status: "pending_approval"`, present approval dialog to user.
+
+Follow the preloaded **request-approval** skill format:
+
+```
+**Ticket: <title from driver response>**
+<overview from driver response>
+
+Implementation complete. Changes made:
+- <change 1>
+- <change 2>
+
+[AskUserQuestion with selectable options]
+```
+
+**CRITICAL**: Use `AskUserQuestion` with selectable `options`. NEVER proceed without explicit user approval.
+
+#### Step 2.3: Handle User Response
+
+Based on user's selection:
+
+**"Approve"**:
+1. Follow **write-final-report** skill to update ticket effort
+2. Follow **archive-ticket** skill to commit and archive
+3. Continue to next ticket
+
+**"Approve and stop"**:
+1. Follow **write-final-report** skill to update ticket effort
+2. Follow **archive-ticket** skill to commit and archive
+3. Stop driving, report remaining tickets
+
+**"Abandon"**:
+1. Follow **handle-abandon** skill (discard changes, write failure analysis)
+2. Continue to next ticket
+
+### Phase 3: Completion
+
+After all tickets are implemented:
+- Summarize what was done
 - List all commits created
 - Inform user that all tickets have been processed
-
-## Example Workflow
-
-```
-Claude: Found 3 tickets to implement:
-        1. .workaholic/tickets/todo/20260113-feature-a.md
-        2. .workaholic/tickets/todo/20260113-feature-b.md
-        3. .workaholic/tickets/todo/20260113-feature-c.md
-
-        Starting with 20260113-feature-a.md...
-        [implements feature-a]
-
-        **Ticket: Add User Authentication**
-        Implement user authentication with session-based login and logout.
-
-        Implementation complete. Changes made:
-        - Modified src/foo.ts (added function X)
-        - Updated src/bar.ts (fixed Y)
-
-        Do you approve this implementation?
-        [Approve / Approve and stop / Abandon]
-
-User:   Approve
-
-Claude: [creates commit, archives ticket]
-
-        Starting with 20260113-feature-b.md...
-```
-
-## Notes
-
-- Each ticket gets its own commit - do not batch multiple tickets
-- If implementation fails, stop and report the error
-- **Implementation approval is mandatory** - never skip this step
-- **Final report is mandatory** - document what happened
-- Between-ticket continuation is automatic - no confirmation needed
-- User can stop cleanly by selecting "Approve and stop" at any approval prompt
 
 ## Critical Rules
 
@@ -90,9 +95,9 @@ Claude: [creates commit, archives ticket]
 
 If a ticket cannot be implemented (out of scope, too complex, blocked, or any other reason):
 
-1. **Stop and ask the developer** using AskUserQuestion
+1. **Stop and ask the developer** using `AskUserQuestion` with selectable `options`
 2. Explain why implementation cannot proceed
-3. Offer these options:
+3. Use selectable options (NEVER open-ended text questions):
    - "Move to icebox" - Move ticket to `.workaholic/tickets/icebox/` and continue to next
    - "Skip for now" - Leave ticket in queue, move to next ticket
    - "Abort drive" - Stop the drive session entirely

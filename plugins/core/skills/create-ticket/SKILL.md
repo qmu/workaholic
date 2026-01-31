@@ -8,21 +8,71 @@ user-invocable: false
 
 Guidelines for creating implementation tickets in `.workaholic/tickets/`.
 
-## Frontmatter Template (REQUIRED - DO NOT SKIP)
+## Step 1: Capture Dynamic Values and Build Frontmatter
+
+**Run this script to get the values you need:**
+
+```bash
+# Capture values for frontmatter
+CREATED_AT=$(date -Iseconds)
+AUTHOR=$(git config user.email)
+
+echo "created_at: $CREATED_AT"
+echo "author: $AUTHOR"
+```
+
+Copy the output lines directly into your frontmatter. Example output:
+
+```
+created_at: 2026-01-31T19:25:46+09:00
+author: developer@company.com
+```
+
+## Frontmatter Template
+
+Use the captured values from Step 1:
 
 ```yaml
 ---
-created_at: <run: date -Iseconds>
-author: <run: git config user.email>
+created_at: $(date -Iseconds)      # REPLACE with actual output
+author: $(git config user.email)   # REPLACE with actual output
 type: <enhancement | bugfix | refactoring | housekeeping>
 layer: [<UX | Domain | Infrastructure | DB | Config>]
-effort: <leave empty - filled after implementation>
-commit_hash: <leave empty - filled when archived>
-category: <leave empty - filled when archived>
+effort:
+commit_hash:
+category:
 ---
 ```
 
-**All fields are mandatory.** Run the shell commands to fill `created_at` and `author`.
+### Field Requirements
+
+- **Lines 1-4**: Fill with actual values (never placeholders)
+- **Lines 5-7**: Must be present but leave empty (filled after implementation)
+
+### Concrete Example
+
+```yaml
+---
+created_at: 2026-01-31T19:25:46+09:00
+author: developer@company.com
+type: enhancement
+layer: [UX, Domain]
+effort:
+commit_hash:
+category:
+---
+```
+
+## Common Mistakes
+
+These cause validation failures:
+
+| Mistake | Example | Fix |
+|---------|---------|-----|
+| Missing empty fields | Omitting `effort:` line | Include all 7 fields, even if empty |
+| Placeholder values | `author: user@example.com` | Run `git config user.email` and use actual output |
+| Wrong date format | `2026-01-31` or `2026/01/31T...` | Use `date -Iseconds` output (includes timezone) |
+| Scalar layer | `layer: Config` | Use array format: `layer: [Config]` |
 
 ## Filename Convention
 
@@ -36,13 +86,13 @@ Example: `20260114153042-add-dark-mode.md`
 
 ```markdown
 ---
-created_at: YYYY-MM-DDTHH:MM:SS+TZ
-author: <git user.email>
-type: enhancement | bugfix | refactoring | housekeeping
-layer: [<layers affected>]
-effort: <filled after implementation>
-commit_hash: <filled when archived>
-category: <filled when archived>
+created_at: 2026-01-31T19:25:46+09:00
+author: developer@company.com
+type: enhancement
+layer: [UX, Domain]
+effort:
+commit_hash:
+category:
 ---
 
 # <Title>
@@ -79,8 +129,8 @@ Past tickets that touched similar areas:
 
 ### Required at Creation
 
-- **created_at**: Creation timestamp in ISO 8601 format. Use `date -Iseconds`
-- **author**: Git email. Use `git config user.email`
+- **created_at**: Creation timestamp in ISO 8601 format. Run `date -Iseconds` and use the actual output.
+- **author**: Git email. Run `git config user.email` and use the actual output. Never use hardcoded values.
 - **type**: Infer from request context:
   - `enhancement` - New features or capabilities (keywords: add, create, implement, new)
   - `bugfix` - Fixing broken behavior (keywords: fix, bug, broken, error)
@@ -95,9 +145,11 @@ Past tickets that touched similar areas:
 
 ### Filled After Implementation
 
-- **effort**: Time spent in numeric hours. Valid: `0.1h`, `0.25h`, `0.5h`, `1h`, `2h`, `4h`. Invalid: `XS`, `S`, `M`, `10m`. Leave empty when creating ticket.
-- **commit_hash**: Short git commit hash. Set automatically by archive script.
-- **category**: Change category (Added, Changed, or Removed). Set automatically by archive script based on commit message verb.
+These fields are updated by the `update-ticket-frontmatter` skill during archiving:
+
+- **effort**: Time spent in numeric hours (leave empty when creating)
+- **commit_hash**: Short git commit hash (set by archive script)
+- **category**: Added, Changed, or Removed (set by archive script)
 
 ## Exploring the Codebase
 

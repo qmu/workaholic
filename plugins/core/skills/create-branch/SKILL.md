@@ -27,7 +27,7 @@ git checkout -b "<prefix>-$(date +%Y%m%d-%H%M%S)"
 The script outputs the created branch name:
 
 ```
-feat-20260120-205418
+drive-20260120-205418
 ```
 
 The branch is automatically checked out after creation.

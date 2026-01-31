@@ -19,10 +19,8 @@ git checkout -b "<prefix>-$(date +%Y%m%d-%H%M%S)"
 
 ### Valid Prefixes
 
-- **drive** - Default for /ticket command
-- **feat** - New feature
-- **fix** - Bug fix
-- **refact** - Refactoring
+- **drive** - for TiDD style development
+- **trip** - for more AI oriented development
 
 ### Output
 

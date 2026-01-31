@@ -106,9 +106,11 @@ Past tickets that touched similar areas:
 
 ### Filled After Implementation
 
-- **effort**: Time spent in numeric hours. Valid: `0.1h`, `0.25h`, `0.5h`, `1h`, `2h`, `4h`. Invalid: `XS`, `S`, `M`, `10m`. Leave empty when creating ticket.
-- **commit_hash**: Short git commit hash. Set automatically by archive script.
-- **category**: Change category (Added, Changed, or Removed). Set automatically by archive script based on commit message verb.
+These fields are updated by the `update-ticket-frontmatter` skill during archiving:
+
+- **effort**: Time spent in numeric hours (leave empty when creating)
+- **commit_hash**: Short git commit hash (set by archive script)
+- **category**: Added, Changed, or Removed (set by archive script)
 
 ## Exploring the Codebase
 

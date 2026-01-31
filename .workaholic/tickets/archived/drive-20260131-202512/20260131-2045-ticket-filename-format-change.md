@@ -3,9 +3,9 @@ created_at: 2026-01-31T20:45:00+09:00
 author: tamurayoshiya@gmail.com
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 9f45c7c
+category: Changed
 ---
 
 # Change Ticket Filename Convention to YYYYMMDD-HHMM Format

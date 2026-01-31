@@ -1,6 +1,9 @@
 name: Release
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       version_type:
@@ -19,13 +22,46 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # Skip release commits to avoid infinite loop
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && !startsWith(github.event.head_commit.message, 'Release v'))
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Detect version type from merge
+        id: detect
+        if: github.event_name == 'push'
+        run: |
+          # Get the merge commit message to extract branch name
+          commit_msg=$(git log -1 --pretty=%s)
+          echo "Commit message: $commit_msg"
+
+          # Check if this is a merge commit from a story branch
+          if echo "$commit_msg" | grep -qE "Merge pull request.*from.*/feat-"; then
+            echo "Detected feature branch merge -> minor bump"
+            echo "version_type=minor" >> $GITHUB_OUTPUT
+            echo "skip=false" >> $GITHUB_OUTPUT
+          elif echo "$commit_msg" | grep -qE "Merge pull request.*from.*/(fix|refact)-"; then
+            echo "Detected fix/refactor branch merge -> patch bump"
+            echo "version_type=patch" >> $GITHUB_OUTPUT
+            echo "skip=false" >> $GITHUB_OUTPUT
+          else
+            echo "Not a story branch merge, skipping release"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Skip non-story merges
+        if: github.event_name == 'push' && steps.detect.outputs.skip == 'true'
+        run: |
+          echo "Skipping release: not a story branch merge"
+          exit 0
+
       - name: Calculate new version
         id: version
+        if: github.event_name == 'workflow_dispatch' || steps.detect.outputs.skip != 'true'
         run: |
           # Extract current version from marketplace.json
           current=$(grep -o '"version": "[^"]*"' .claude-plugin/marketplace.json | head -1 | cut -d'"' -f4)
@@ -36,8 +72,16 @@ jobs:
           minor=$(echo "$current" | cut -d. -f2)
           patch=$(echo "$current" | cut -d. -f3)
 
-          # Calculate new version based on input
-          case "${{ inputs.version_type }}" in
+          # Use detected version_type for push events, input for workflow_dispatch
+          if [ "${{ github.event_name }}" = "push" ]; then
+            version_type="${{ steps.detect.outputs.version_type }}"
+          else
+            version_type="${{ inputs.version_type }}"
+          fi
+          echo "Version type: $version_type"
+
+          # Calculate new version based on type
+          case "$version_type" in
             major)
               major=$((major + 1))
               minor=0
@@ -59,6 +103,7 @@ jobs:
           echo "new=$new" >> $GITHUB_OUTPUT
 
       - name: Update version files
+        if: github.event_name == 'workflow_dispatch' || steps.detect.outputs.skip != 'true'
         run: |
           new_version="${{ steps.version.outputs.new }}"
 
@@ -77,6 +122,7 @@ jobs:
 
       - name: Extract release notes
         id: notes
+        if: github.event_name == 'workflow_dispatch' || steps.detect.outputs.skip != 'true'
         run: |
           # Get the previous tag to extract changes since last release
           prev_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
@@ -108,6 +154,7 @@ jobs:
           cat /tmp/release_notes.txt
 
       - name: Commit version bump
+        if: github.event_name == 'workflow_dispatch' || steps.detect.outputs.skip != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -116,6 +163,7 @@ jobs:
           git push
 
       - name: Create GitHub Release
+        if: github.event_name == 'workflow_dispatch' || steps.detect.outputs.skip != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

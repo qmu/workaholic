@@ -130,8 +130,7 @@ flowchart TD
 
     E --> F & G & H & I & PA
 
-    F --> F1[generate-changelog skill]
-    F --> F2[write-changelog skill]
+    F --> F1[write-changelog skill]
     G --> G1[write-spec skill]
     G --> G2[translate skill]
     H --> H1[write-terms skill]
@@ -139,7 +138,7 @@ flowchart TD
     I --> I1[assess-release-readiness skill]
     PA --> PA1[analyze-performance skill]
 
-    F1 & F2 & G1 & G2 & H1 & H2 & I1 & PA1 --> J[Phase 2: story-writer]
+    F1 & G1 & G2 & H1 & H2 & I1 & PA1 --> J[Phase 2: story-writer]
 
     J --> J1[write-story skill]
     J --> J2[translate skill]
@@ -163,8 +162,7 @@ flowchart TD
 | story-writer | Agent (haiku) | Generates PR narrative in 11 sections |
 | performance-analyst | Agent | Evaluates decision-making quality |
 | pr-creator | Agent (haiku) | Creates/updates GitHub PR |
-| generate-changelog | Skill | Changelog entry format and categorization |
-| write-changelog | Skill | CHANGELOG.md structure and updates |
+| write-changelog | Skill | Changelog entry generation, categorization, and CHANGELOG.md updates |
 | write-spec | Skill | Spec document format and guidelines |
 | write-terms | Skill | Term document format and guidelines |
 | write-story | Skill | Story document structure and templates |

@@ -84,14 +84,12 @@ plugins/
         SKILL.md           # Guidelines for exploring source code
       drive-workflow/
         SKILL.md           # Implementation workflow for tickets
-      generate-changelog/
-        SKILL.md
-        sh/
-          generate.sh      # Generates changelog entries from tickets
       translate/
         SKILL.md           # Translation policies and .workaholic/ i18n enforcement
       write-changelog/
-        SKILL.md           # Changelog writing guidelines
+        SKILL.md           # Changelog generation and writing guidelines
+        sh/
+          generate.sh      # Generates changelog entries from tickets
       write-spec/
         SKILL.md
         sh/
@@ -128,9 +126,8 @@ Skills are complex capabilities that may include scripts or multiple files. They
 - **create-ticket**: Complete ticket creation workflow including format, exploration, and related history
 - **discover-source**: Guidelines for exploring source code to understand codebase context and find related files
 - **drive-workflow**: Implementation workflow steps for processing tickets
-- **generate-changelog**: Generates changelog entries from archived tickets, grouping by category
 - **translate**: Translation policies and `.workaholic/` i18n enforcement (spec-writer, terms-writer, story-writer preload this)
-- **write-changelog**: Guidelines for writing changelog entries
+- **write-changelog**: Generates changelog entries from archived tickets (grouping by category) and provides guidelines for updating CHANGELOG.md
 - **write-spec**: Context gathering and guidelines for writing specification documents
 - **write-story**: Metrics calculation, templates, and guidelines for branch stories
 - **write-terms**: Context gathering and guidelines for terminology documents
@@ -234,7 +231,6 @@ flowchart LR
     end
 
     subgraph Skills
-        gc[generate-changelog]
         wc[write-changelog]
         wsp[write-spec]
         wt[write-terms]
@@ -249,7 +245,7 @@ flowchart LR
     story -.-> sw
     story --> pc
 
-    cw --> gc & wc
+    cw --> wc
     spw --> wsp
     tw --> wt
     rr --> arr

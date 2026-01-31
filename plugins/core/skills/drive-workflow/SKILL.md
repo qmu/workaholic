@@ -118,18 +118,14 @@ This creates a historical record of decisions and discoveries made during implem
 
 ### 5. Commit and Archive Using Skill
 
-After writing the final report, run the archive-ticket skill which handles everything:
+After writing the final report, run the archive-ticket skill:
 
 ```bash
 bash .claude/skills/archive-ticket/sh/archive.sh \
-  <ticket-path> \
-  "<commit-message>" \
-  <repo-url> \
-  "<description>" \
-  [modified-files...]
+  <ticket-path> "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
 ```
 
-**CRITICAL**: The archive script is the ONLY way to archive tickets. It handles everything automatically.
+**CRITICAL**: The archive script is the ONLY way to archive tickets.
 
 #### Prohibited Actions
 
@@ -190,15 +186,21 @@ When the user selects "Abandon", do NOT commit implementation changes. Instead:
 
 This allows users to abandon a failed implementation attempt while preserving insights from the attempt for future reference.
 
-## Commit Message Rules
+## Commit Message Format
 
-- NO prefixes (no `[feat]`, `fix:`, etc.)
-- Start with present-tense verb (Add, Update, Fix, Remove, Refactor)
-- Focus on **WHAT** changed in the title
-- Keep title concise (50 chars or less)
+```
+<title>
 
-## Description Rules
+Motivation: <why this change was needed>
 
-- 1-2 sentences explaining the motivation behind the change
-- Capture the "why" from the ticket's Overview section
-- This appears in CHANGELOG and helps generate meaningful PR descriptions
+UX Change: <what changed for the user>
+
+Arch Change: <what changed for the developer>
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+- **Title**: Present-tense verb, what changed (50 chars max). No prefixes.
+- **Motivation**: Why this change was needed. More than a sentence, but not a paragraph.
+- **UX Change**: What users experience differently. "None" if internal only.
+- **Arch Change**: What developers need to know. "None" if no structural changes.

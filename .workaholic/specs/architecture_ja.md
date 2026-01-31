@@ -196,10 +196,20 @@ flowchart LR
     subgraph スキル
         dw[drive-workflow]
         at[archive-ticket]
+        ra[request-approval]
+        wfr[write-final-report]
+        ha[handle-abandon]
+        fcm[format-commit-message]
+        utf[update-ticket-frontmatter]
     end
 
     drive --> dn
     drive --> dw & at
+
+    %% Skill-to-skill
+    dw --> ra & wfr & ha & fcm
+    at --> fcm
+    wfr --> utf
 ```
 
 ### /story 依存関係

@@ -28,25 +28,28 @@ This design makes stories the single source of truth for PR content, eliminating
      - Move each ticket to `.workaholic/tickets/icebox/`
      - Stage and commit: "Move remaining tickets to icebox"
    - If no tickets, continue with normal PR flow
-4. **Generate documentation** using 5 subagents:
+4. **Generate documentation** using 6 subagents:
 
-   **Phase 1**: Invoke 4 agents in parallel via Task tool (single message with 4 tool calls, each with `model: "haiku"`):
+   **Phase 1**: Invoke 5 agents in parallel via Task tool (single message with 5 tool calls, each with `model: "haiku"`):
 
    - **changelog-writer** (`subagent_type: "core:changelog-writer"`, `model: "haiku"`): Updates `CHANGELOG.md` with entries from archived tickets
    - **spec-writer** (`subagent_type: "core:spec-writer"`, `model: "haiku"`): Updates `.workaholic/specs/` to reflect codebase changes
    - **terms-writer** (`subagent_type: "core:terms-writer"`, `model: "haiku"`): Updates `.workaholic/terms/` with new terms
    - **release-readiness** (`subagent_type: "core:release-readiness"`, `model: "haiku"`): Analyzes branch for release readiness
+   - **performance-analyst** (`subagent_type: "core:performance-analyst"`, `model: "haiku"`): Evaluates decision quality
 
    Pass to each agent:
    - Branch name and base branch as context
    - Repository URL (for changelog-writer)
-   - List of archived tickets (for release-readiness)
+   - List of archived tickets (for release-readiness and performance-analyst)
+   - Git log main..HEAD (for performance-analyst)
 
-   Wait for all 4 agents to complete.
+   Wait for all 5 agents to complete.
 
    **Phase 2**: Invoke **story-writer** (`subagent_type: "core:story-writer"`, `model: "haiku"`):
    - Pass branch name and base branch
-   - Pass release-readiness JSON output (so it can write section 10 without nested invocation)
+   - Pass release-readiness JSON output (for section 10)
+   - Pass performance-analyst output (for section 9.2)
 
    Output locations:
    - `CHANGELOG.md`

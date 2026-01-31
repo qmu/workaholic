@@ -125,9 +125,10 @@ flowchart TD
         G[spec-writer]
         H[terms-writer]
         I[release-readiness]
+        PA[performance-analyst]
     end
 
-    E --> F & G & H & I
+    E --> F & G & H & I & PA
 
     F --> F1[generate-changelog スキル]
     F --> F2[write-changelog スキル]
@@ -136,15 +137,14 @@ flowchart TD
     H --> H1[write-terms スキル]
     H --> H2[translate スキル]
     I --> I1[assess-release-readiness スキル]
+    PA --> PA1[analyze-performance スキル]
 
-    F1 & F2 & G1 & G2 & H1 & H2 & I1 --> J[Phase 2: story-writer]
+    F1 & F2 & G1 & G2 & H1 & H2 & I1 & PA1 --> J[Phase 2: story-writer]
 
     J --> J1[write-story スキル]
     J --> J2[translate スキル]
-    J --> J3[performance-analyst エージェント]
-    J3 --> J4[analyze-performance スキル]
 
-    J1 & J2 & J4 --> K[docsをコミット]
+    J1 & J2 --> K[docsをコミット]
     K --> L[ブランチをプッシュ]
     L --> M[pr-creator エージェント]
     M --> M1[create-pr スキル]
@@ -175,7 +175,7 @@ flowchart TD
 
 ### 備考
 
-- Phase 1は効率のために4つのエージェントを並列実行
-- Phase 2はrelease-readiness出力に依存（順次実行）
+- Phase 1は効率のために5つのエージェントを並列実行
+- Phase 2はrelease-readinessとperformance-analyst出力に依存（順次実行）
 - ストーリーファイルがPR説明文の本文になります
 - 完了時のPR URL表示は必須です

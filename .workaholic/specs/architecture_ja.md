@@ -228,9 +228,9 @@ flowchart LR
         spw[spec-writer]
         tw[terms-writer]
         rr[release-readiness]
+        pa[performance-analyst]
         sw[story-writer]
         pc[pr-creator]
-        pa[performance-analyst]
     end
 
     subgraph スキル
@@ -239,13 +239,13 @@ flowchart LR
         wsp[write-spec]
         wt[write-terms]
         arr[assess-release-readiness]
+        ap[analyze-performance]
         ws[write-story]
         tr[translate]
-        ap[analyze-performance]
         cp[create-pr]
     end
 
-    story --> cw & spw & tw & rr
+    story --> cw & spw & tw & rr & pa
     story -.-> sw
     story --> pc
 
@@ -253,9 +253,9 @@ flowchart LR
     spw --> wsp
     tw --> wt
     rr --> arr
-    sw --> ws & pa
-    pc --> cp
     pa --> ap
+    sw --> ws
+    pc --> cp
 
     %% Skill-to-skill
     ws --> tr
@@ -310,36 +310,40 @@ sequenceDiagram
 
 ## ドキュメント強制
 
-Workaholicは並列サブエージェントアーキテクチャを通じて包括的なドキュメントを強制します。`/story`コマンドはドキュメントエージェントを2つのフェーズで調整します：最初に4つのエージェントが並列実行され、その後story-writerがrelease-readiness出力と共に実行されます。
+Workaholicは並列サブエージェントアーキテクチャを通じて包括的なドキュメントを強制します。`/story`コマンドはドキュメントエージェントを2つのフェーズで調整します：最初に5つのエージェントが並列実行され、その後story-writerがrelease-readinessとperformance-analyst出力と共に実行されます。
 
 ### 仕組み
 
 ```mermaid
 flowchart TD
     A[/story コマンド] --> B[残りのチケットをiceboxに移動]
-    B --> C[フェーズ1: 4つのサブエージェントを並列で呼び出し]
+    B --> C[フェーズ1: 5つのサブエージェントを並列で呼び出し]
 
     subgraph フェーズ1 - 並列
         D[changelog-writer]
         F[spec-writer]
         G[terms-writer]
         RR[release-readiness]
+        PA[performance-analyst]
     end
 
     C --> D
     C --> F
     C --> G
     C --> RR
+    C --> PA
 
     D --> H[CHANGELOG.md]
     F --> J[.workaholic/specs/]
     G --> K[.workaholic/terms/]
     RR --> RL[リリースJSON]
+    PA --> PM[パフォーマンスmarkdown]
 
     H --> P2[フェーズ2: story-writer]
     J --> P2
     K --> P2
     RL --> P2
+    PM --> P2
 
     P2 --> I[.workaholic/stories/]
     I --> L[docsをコミット]
@@ -352,10 +356,10 @@ flowchart TD
 
 サブエージェントアーキテクチャにはいくつかの利点があります：
 
-1. **並列実行** - フェーズ1で4つのエージェントが同時に実行され、待ち時間を短縮
+1. **並列実行** - フェーズ1で5つのエージェントが同時に実行され、待ち時間を短縮
 2. **コンテキスト分離** - 各エージェントが独自のコンテキストウィンドウで動作し、メイン会話を保持
 3. **単一責任** - 各エージェントが1つのドキュメントドメインを担当
-4. **データ依存関係の処理** - story-writerはフェーズ2でrelease-readiness出力を受け取る
+4. **データ依存関係の処理** - story-writerはフェーズ2でrelease-readinessとperformance-analyst出力を受け取る
 
 ### 重要な要件
 

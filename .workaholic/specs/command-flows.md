@@ -125,9 +125,10 @@ flowchart TD
         G[spec-writer]
         H[terms-writer]
         I[release-readiness]
+        PA[performance-analyst]
     end
 
-    E --> F & G & H & I
+    E --> F & G & H & I & PA
 
     F --> F1[generate-changelog skill]
     F --> F2[write-changelog skill]
@@ -136,15 +137,14 @@ flowchart TD
     H --> H1[write-terms skill]
     H --> H2[translate skill]
     I --> I1[assess-release-readiness skill]
+    PA --> PA1[analyze-performance skill]
 
-    F1 & F2 & G1 & G2 & H1 & H2 & I1 --> J[Phase 2: story-writer]
+    F1 & F2 & G1 & G2 & H1 & H2 & I1 & PA1 --> J[Phase 2: story-writer]
 
     J --> J1[write-story skill]
     J --> J2[translate skill]
-    J --> J3[performance-analyst agent]
-    J3 --> J4[analyze-performance skill]
 
-    J1 & J2 & J4 --> K[Commit docs]
+    J1 & J2 --> K[Commit docs]
     K --> L[Push branch]
     L --> M[pr-creator agent]
     M --> M1[create-pr skill]
@@ -175,7 +175,7 @@ flowchart TD
 
 ### Notes
 
-- Phase 1 runs 4 agents in parallel for efficiency
-- Phase 2 depends on release-readiness output (sequential)
+- Phase 1 runs 5 agents in parallel for efficiency
+- Phase 2 depends on release-readiness and performance-analyst outputs (sequential)
 - Story file becomes the PR description body
 - PR URL display is mandatory at completion

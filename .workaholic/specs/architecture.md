@@ -156,9 +156,9 @@ This diagram shows how commands, agents, and skills invoke each other at runtime
 ```mermaid
 flowchart LR
     subgraph Commands
-        story[/story]
-        drive[/drive]
-        ticket[/ticket]
+        story["/story"]
+        drive["/drive"]
+        ticket["/ticket"]
     end
 
     subgraph Agents

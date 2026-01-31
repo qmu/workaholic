@@ -156,9 +156,9 @@ plugins/
 ```mermaid
 flowchart LR
     subgraph コマンド
-        story[/story]
-        drive[/drive]
-        ticket[/ticket]
+        story["/story"]
+        drive["/drive"]
+        ticket["/ticket"]
     end
 
     subgraph エージェント

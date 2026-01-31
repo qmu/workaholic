@@ -1,7 +1,11 @@
 ---
-effort: S
-category: bugfix
-layer: Config
+created_at: 2026-01-31T23:32:43+09:00
+author: a@qmu.jp
+type: bugfix
+layer: [Config]
+effort:
+commit_hash:
+category:
 ---
 
 # Fix Archive Script Invocation Hallucination

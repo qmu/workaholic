@@ -191,6 +191,7 @@ flowchart LR
 
     subgraph Agents
         dn[drive-navigator]
+        dr[driver]
     end
 
     subgraph Skills
@@ -204,7 +205,9 @@ flowchart LR
     end
 
     drive --> dn
-    drive --> dw & at
+    drive --> dr
+
+    dr --> dw & at
 
     %% Skill-to-skill
     dw --> ra & wfr & ha & fcm

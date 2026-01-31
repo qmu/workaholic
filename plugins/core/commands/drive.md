@@ -1,9 +1,6 @@
 ---
 name: drive
 description: Implement tickets from .workaholic/tickets/ one by one, commit each, and archive.
-skills:
-  - drive-workflow
-  - archive-ticket
 ---
 
 # Drive
@@ -35,11 +32,16 @@ Handle the response:
 
 For each ticket in the ordered list:
 
-1. Follow the preloaded drive-workflow skill
-2. Handle user response:
-   - **Approve**: Continue to next ticket automatically
-   - **Approve and stop**: Stop driving, report remaining tickets
-   - **Abandon**: Follow abandon workflow in skill, continue to next ticket
+1. Invoke driver subagent via Task tool:
+   ```
+   Task tool with subagent_type: "core:driver"
+   prompt: "Implement ticket: <ticket-path>. repo_url: <repo-url>"
+   ```
+
+2. Handle driver response:
+   - `status: "completed"` - Continue to next ticket automatically
+   - `status: "stopped"` - Stop driving, report remaining tickets
+   - `status: "abandoned"` - Continue to next ticket
 
 ### Phase 3: Completion
 

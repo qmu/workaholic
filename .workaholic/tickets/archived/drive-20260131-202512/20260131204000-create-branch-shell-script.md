@@ -3,9 +3,9 @@ created_at: 2026-01-31T20:40:00+09:00
 author: tamurayoshiya@gmail.com
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 4020ef5
+category: Added
 ---
 
 # Add Shell Script to Create-Branch Skill

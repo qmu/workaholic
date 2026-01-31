@@ -4,7 +4,6 @@ description: Generate branch story for PR description. Reads archived tickets, c
 tools: Read, Write, Edit, Bash, Glob, Grep, Task
 skills:
   - write-story
-  - translate
 ---
 
 # Story Writer

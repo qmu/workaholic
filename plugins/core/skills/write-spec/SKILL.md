@@ -2,6 +2,8 @@
 name: write-spec
 description: Spec document structure, formatting rules, and guidelines for updating .workaholic/specs/.
 allowed-tools: Bash
+skills:
+  - translate
 user-invocable: false
 ---
 

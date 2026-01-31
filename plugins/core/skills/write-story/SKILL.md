@@ -2,6 +2,8 @@
 name: write-story
 description: Story content structure, templates, and writing guidelines for branch narratives.
 allowed-tools: Bash
+skills:
+  - translate
 user-invocable: false
 ---
 

@@ -2,8 +2,8 @@
 title: Command Execution Flows
 description: How commands invoke agents and skills
 category: developer
-modified_at: 2026-01-31T19:07:11+09:00
-commit_hash: 06ebf65
+modified_at: 2026-01-31T23:38:00+09:00
+commit_hash: dbe00c7
 ---
 
 [English](command-flows.md) | [日本語](command-flows_ja.md)
@@ -85,7 +85,7 @@ flowchart TD
     I -->|Approve| J[effort更新 + Final Report]
     I -->|Abandon| K[変更を破棄]
     K --> L[Failure Analysisを作成]
-    L --> M[fail/に移動]
+    L --> M[abandoned/に移動]
     J --> N[archive-ticket スキル]
     N --> O[アーカイブ + コミット]
     O --> P{さらにチケット?}

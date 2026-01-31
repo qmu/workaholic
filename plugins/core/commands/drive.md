@@ -1,6 +1,11 @@
 ---
 name: drive
 description: Implement tickets from .workaholic/tickets/ one by one, commit each, and archive.
+skills:
+  - request-approval
+  - write-final-report
+  - handle-abandon
+  - archive-ticket
 ---
 
 # Drive
@@ -32,16 +37,50 @@ Handle the response:
 
 For each ticket in the ordered list:
 
-1. Invoke driver subagent via Task tool:
-   ```
-   Task tool with subagent_type: "core:driver"
-   prompt: "Implement ticket: <ticket-path>. repo_url: <repo-url>"
-   ```
+#### Step 2.1: Invoke Driver
 
-2. Handle driver response:
-   - `status: "completed"` - Continue to next ticket automatically
-   - `status: "stopped"` - Stop driving, report remaining tickets
-   - `status: "abandoned"` - Continue to next ticket
+Invoke driver subagent via Task tool:
+```
+Task tool with subagent_type: "core:driver"
+prompt: "Implement ticket: <ticket-path>. repo_url: <repo-url>"
+```
+
+#### Step 2.2: Request User Approval
+
+When driver returns `status: "pending_approval"`, present approval dialog to user.
+
+Follow the preloaded **request-approval** skill format:
+
+```
+**Ticket: <title from driver response>**
+<overview from driver response>
+
+Implementation complete. Changes made:
+- <change 1>
+- <change 2>
+
+[AskUserQuestion with selectable options]
+```
+
+**CRITICAL**: Use `AskUserQuestion` with selectable `options`. NEVER proceed without explicit user approval.
+
+#### Step 2.3: Handle User Response
+
+Based on user's selection:
+
+**"Approve"**:
+1. Follow **write-final-report** skill to update ticket effort
+2. Follow **archive-ticket** skill to commit and archive
+3. Continue to next ticket
+
+**"Approve and stop"**:
+1. Follow **write-final-report** skill to update ticket effort
+2. Follow **archive-ticket** skill to commit and archive
+3. Stop driving, report remaining tickets
+
+**"Abandon"**:
+1. Follow **handle-abandon** skill (discard changes, write failure analysis)
+2. Continue to next ticket
 
 ### Phase 3: Completion
 

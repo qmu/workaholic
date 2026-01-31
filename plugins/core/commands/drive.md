@@ -33,7 +33,9 @@ ls -1 .workaholic/tickets/todo/*.md 2>/dev/null
 **If no tickets found:**
 
 1. Check if `.workaholic/tickets/icebox/` has tickets
-2. If icebox has tickets, ask: "No queued tickets. Would you like to work on icebox tickets?"
+2. If icebox has tickets, use `AskUserQuestion` with selectable options:
+   - "Work on icebox" - Enter icebox mode
+   - "Stop" - End the drive session
 3. If user agrees, enter icebox mode automatically
 4. If icebox is also empty, inform user: "No tickets in queue or icebox."
 
@@ -76,7 +78,9 @@ Proposed order considers severity and context grouping.
 
 ### 4. Confirm Order with User
 
-Ask user to confirm or adjust:
+**ALWAYS use `AskUserQuestion` with selectable `options` parameter. NEVER ask open-ended text questions.**
+
+Use selectable options:
 - **Proceed** - Execute in proposed order
 - **Pick one** - Let user select a specific ticket to start with
 - **Original order** - Use chronological/alphabetical order instead
@@ -145,9 +149,9 @@ Claude: [creates commit, archives ticket]
 
 If a ticket cannot be implemented (out of scope, too complex, blocked, or any other reason):
 
-1. **Stop and ask the developer** using AskUserQuestion
+1. **Stop and ask the developer** using `AskUserQuestion` with selectable `options`
 2. Explain why implementation cannot proceed
-3. Offer these options:
+3. Use selectable options (NEVER open-ended text questions):
    - "Move to icebox" - Move ticket to `.workaholic/tickets/icebox/` and continue to next
    - "Skip for now" - Leave ticket in queue, move to next ticket
    - "Abort drive" - Stop the drive session entirely

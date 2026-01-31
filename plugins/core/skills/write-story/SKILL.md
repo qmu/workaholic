@@ -59,7 +59,7 @@ The story content (this IS the PR description):
 
 ## 2. Motivation
 
-[Synthesize the "why" from ticket Overviews. What problem or opportunity started this work? Write as a narrative, not a list.]
+[Why this work started. 40-60 words max. Synthesize ticket Overviews into a single paragraph.]
 
 ## 3. Journey
 
@@ -115,19 +115,19 @@ Brief 1-2 sentence description from ticket Overview.
 
 ## 5. Outcome
 
-[Summarize what was accomplished. Reference key tickets for details.]
+[What was achieved. 40-60 words max. Focus on key accomplishments, not exhaustive listing.]
 
 ## 6. Historical Analysis
 
-[Context from related past work. What similar problems were solved before? What patterns emerge from the Related History sections of tickets? If no related tickets exist, write "No related historical context."]
+[Related past work context. 30-50 words max. Or "No related historical context." if none.]
 
 ## 7. Concerns
 
-[Risks, trade-offs, or issues discovered during implementation. Known limitations or edge cases. Things reviewers should pay attention to. Write "None" if nothing to report.]
+[Risks or trade-offs. 30-50 words max per concern. Or "None" if nothing to report.]
 
 ## 8. Ideas
 
-[Enhancement suggestions for future work. Improvements that were out of scope. "Nice to have" features identified during implementation. Write "None" if nothing to report.]
+[Future enhancement suggestions. 30-50 words max. Bullet list preferred. Or "None" if nothing.]
 
 ## 9. Performance
 
@@ -135,7 +135,7 @@ Brief 1-2 sentence description from ticket Overview.
 
 ### 9.1. Pace Analysis
 
-[Quantitative reflection on development pace - was velocity consistent or varied? Were commits small and focused or large? Any patterns in timing?]
+[Quantitative reflection on velocity. 30-50 words max. State pattern (steady/varied), commit size observation, notable timing.]
 
 ### 9.2. Decision Review
 
@@ -198,7 +198,7 @@ Format this JSON into section 10.
 ```markdown
 ## 11. Notes
 
-Additional context for reviewers or future reference.
+[Additional context. 30-50 words max. Or omit section if nothing relevant.]
 ```
 
 ## Story Frontmatter
@@ -224,8 +224,11 @@ velocity_unit: <from metrics.velocity_unit>
 - Write in third person ("The developer discovered..." not "I discovered...")
 - Connect tickets into a narrative arc, not a list
 - Highlight decision points and trade-offs
-- Keep Motivation/Journey/Outcome concise (Journey: 50-100 words)
-- Changes section: one entry per ticket, brief descriptions
+- **Section length targets:**
+  - Motivation/Outcome: 40-60 words
+  - Journey prose: 50-100 words (let flowchart carry detail)
+  - Historical Analysis/Concerns/Ideas/Pace Analysis/Notes: 30-50 words each
+  - Changes section: detailed (no limit, one entry per ticket)
 - Historical Analysis/Concerns/Ideas can be "None" if empty
 
 ## Updating Stories Index

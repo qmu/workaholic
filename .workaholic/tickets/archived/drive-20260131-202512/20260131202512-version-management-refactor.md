@@ -4,6 +4,7 @@ category: changed
 type: enhancement
 author: tamurayoshiya@gmail.com
 created_at: 2026-01-31T20:25:12+09:00
+commit_hash: 90de0c5
 ---
 
 # Refactor Version Management to Story-Time with PR-Linked Release Notes

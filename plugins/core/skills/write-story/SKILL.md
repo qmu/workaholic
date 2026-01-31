@@ -47,8 +47,6 @@ Business days are more meaningful for multi-day work since developers have break
 The story content (this IS the PR description):
 
 ```markdown
-Refs #<issue-number>
-
 ## 1. Overview
 
 [2-3 sentence overview capturing the essence of this branch. What was the main goal? What approach was taken? What was achieved? Write in past tense.]

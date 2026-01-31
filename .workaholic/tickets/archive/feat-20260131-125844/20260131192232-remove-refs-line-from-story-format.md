@@ -2,8 +2,10 @@
 created_at: 2026-01-31T19:22:32+09:00
 author: a@qmu.jp
 type: housekeeping
-layer: Config
+layer: [Config]
 effort: 0.1h
+commit_hash: 2599657
+category:
 ---
 
 # Remove Refs Line from Story and PR Format

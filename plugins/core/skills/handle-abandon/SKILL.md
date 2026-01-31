@@ -33,11 +33,11 @@ Add to the ticket file:
 - <Learnings that could help if this is reattempted>
 ```
 
-## 3. Move Ticket to Fail Directory
+## 3. Move Ticket to Abandoned Directory
 
 ```bash
-mkdir -p .workaholic/tickets/fail
-mv <ticket-path> .workaholic/tickets/fail/
+mkdir -p .workaholic/tickets/abandoned
+mv <ticket-path> .workaholic/tickets/abandoned/
 ```
 
 ## 4. Commit the Abandonment

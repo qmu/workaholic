@@ -211,7 +211,7 @@ A ticket section documenting what was attempted and why an implementation failed
 
 ### Definition
 
-The Failure Analysis section is appended to a ticket when the developer chooses to abandon the ticket during `/drive` workflow approval. This section captures valuable learning from the failed attempt, answering: what was attempted, why it failed, and what insights this provides for future attempts. The analysis is committed with the ticket move to `.workaholic/tickets/fail/` to preserve the learning in git history. This transforms a failed ticket into a historical record that can inform future development decisions.
+The Failure Analysis section is appended to a ticket when the developer chooses to abandon the ticket during `/drive` workflow approval. This section captures valuable learning from the failed attempt, answering: what was attempted, why it failed, and what insights this provides for future attempts. The analysis is committed with the ticket move to `.workaholic/tickets/abandoned/` to preserve the learning in git history. This transforms a failed ticket into a historical record that can inform future development decisions.
 
 Format:
 ```markdown
@@ -227,7 +227,7 @@ The handle-abandon skill provides guidance on structuring comprehensive failure 
 ### Usage Patterns
 
 - **Directory names**: N/A (section within ticket files)
-- **File names**: Appears in `.workaholic/tickets/fail/<ticket>.md`
+- **File names**: Appears in `.workaholic/tickets/abandoned/<ticket>.md`
 - **Code references**: "Add Failure Analysis section", "Check failure-analysis in abandoned tickets"
 
 ### Related Terms

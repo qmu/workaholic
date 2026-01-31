@@ -2,8 +2,8 @@
 type: refactoring
 layer: Config
 effort: 0.5h
-created_at: 2026-01-31T18:23:34+09:00
-author: a@qmu.jp
+commit_hash: ca9c772created_at: 2026-01-31T18:23:34+09:00
+category: Changedauthor: a@qmu.jp
 ---
 
 # Merge generate-changelog into write-changelog

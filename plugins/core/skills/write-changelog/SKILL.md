@@ -1,6 +1,6 @@
 ---
 name: write-changelog
-description: Generate and format changelog entries for CHANGELOG.md from archived tickets.
+description: Generate changelog entries from archived tickets and update CHANGELOG.md.
 allowed-tools: Bash
 user-invocable: false
 ---
@@ -14,16 +14,42 @@ Generate and update CHANGELOG.md with entries from archived tickets.
 Run the bundled script to generate changelog entries:
 
 ```bash
-bash .claude/skills/generate-changelog/sh/generate.sh <branch-name> <repo-url>
+bash .claude/skills/write-changelog/sh/generate.sh <branch-name> <repo-url>
 ```
 
 The script outputs formatted markdown grouped by category (Added, Changed, Removed).
+
+### Output Format
+
+```markdown
+### Added
+
+- Title ([hash](commit-url)) - [ticket](ticket-path)
+
+### Changed
+
+- Title ([hash](commit-url)) - [ticket](ticket-path)
+
+### Removed
+
+- Title ([hash](commit-url)) - [ticket](ticket-path)
+```
+
+Only categories with entries are included.
+
+### Entry Format
+
+Each entry includes:
+
+- **Title**: H1 heading from ticket file
+- **hash**: Short commit hash linking to GitHub commit
+- **ticket**: Relative path to archived ticket file
 
 ## Derive Issue URL
 
 From branch name:
 
-- Extract issue number from branch (e.g., `i111-20260113-1832` → `111`)
+- Extract issue number from branch (e.g., `i111-20260113-1832` -> `111`)
 - Branch format: `i<issue>-<date>-<time>` or `feat-<date>-<time>` (no issue)
 
 ## Update CHANGELOG.md

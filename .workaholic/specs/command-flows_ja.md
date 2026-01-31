@@ -130,8 +130,7 @@ flowchart TD
 
     E --> F & G & H & I & PA
 
-    F --> F1[generate-changelog スキル]
-    F --> F2[write-changelog スキル]
+    F --> F1[write-changelog スキル]
     G --> G1[write-spec スキル]
     G --> G2[translate スキル]
     H --> H1[write-terms スキル]
@@ -139,7 +138,7 @@ flowchart TD
     I --> I1[assess-release-readiness スキル]
     PA --> PA1[analyze-performance スキル]
 
-    F1 & F2 & G1 & G2 & H1 & H2 & I1 & PA1 --> J[Phase 2: story-writer]
+    F1 & G1 & G2 & H1 & H2 & I1 & PA1 --> J[Phase 2: story-writer]
 
     J --> J1[write-story スキル]
     J --> J2[translate スキル]
@@ -163,8 +162,7 @@ flowchart TD
 | story-writer | エージェント (haiku) | 11セクションでPRナラティブを生成 |
 | performance-analyst | エージェント | 意思決定の品質を評価 |
 | pr-creator | エージェント (haiku) | GitHub PRを作成/更新 |
-| generate-changelog | スキル | changelogエントリのフォーマットと分類 |
-| write-changelog | スキル | CHANGELOG.mdの構造と更新 |
+| write-changelog | スキル | changelogエントリの生成、分類、およびCHANGELOG.mdの更新 |
 | write-spec | スキル | specドキュメントのフォーマットとガイドライン |
 | write-terms | スキル | termドキュメントのフォーマットとガイドライン |
 | write-story | スキル | storyドキュメントの構造とテンプレート |

@@ -84,14 +84,12 @@ plugins/
         SKILL.md           # ソースコード探索ガイドライン
       drive-workflow/
         SKILL.md           # チケット実装ワークフロー
-      generate-changelog/
-        SKILL.md
-        sh/
-          generate.sh      # チケットからchangelogエントリを生成
       translate/
         SKILL.md           # 翻訳ポリシーと.workaholic/ i18n強制
       write-changelog/
-        SKILL.md           # changelogライティングガイドライン
+        SKILL.md           # changelog生成およびライティングガイドライン
+        sh/
+          generate.sh      # チケットからchangelogエントリを生成
       write-spec/
         SKILL.md
         sh/
@@ -128,9 +126,8 @@ plugins/
 - **create-ticket**: フォーマット、調査、関連履歴を含む完全なチケット作成ワークフロー
 - **discover-source**: コードベースコンテキストを理解するためのソースコード探索ガイドライン
 - **drive-workflow**: チケット処理の実装ワークフローステップ
-- **generate-changelog**: アーカイブされたチケットからchangelogエントリを生成、カテゴリ別にグループ化
 - **translate**: 翻訳ポリシーと`.workaholic/` i18n強制（spec-writer、terms-writer、story-writerがプリロード）
-- **write-changelog**: changelogエントリのライティングガイドライン
+- **write-changelog**: アーカイブされたチケットからchangelogエントリを生成（カテゴリ別にグループ化）し、CHANGELOG.md更新のガイドラインを提供
 - **write-spec**: コンテキスト収集とspecドキュメントのライティングガイドライン
 - **write-story**: メトリクス計算、テンプレート、ブランチストーリーのガイドライン
 - **write-terms**: コンテキスト収集と用語ドキュメントのガイドライン
@@ -234,7 +231,6 @@ flowchart LR
     end
 
     subgraph スキル
-        gc[generate-changelog]
         wc[write-changelog]
         wsp[write-spec]
         wt[write-terms]
@@ -249,7 +245,7 @@ flowchart LR
     story -.-> sw
     story --> pc
 
-    cw --> gc & wc
+    cw --> wc
     spw --> wsp
     tw --> wt
     rr --> arr

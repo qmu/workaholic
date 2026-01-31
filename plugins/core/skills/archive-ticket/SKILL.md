@@ -14,7 +14,7 @@ Complete commit workflow after user approves implementation. Always use this scr
 ## Usage
 
 ```bash
-bash .claude/skills/archive-ticket/sh/archive.sh \
+bash plugins/core/skills/archive-ticket/sh/archive.sh \
   <ticket-path> "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
 ```
 

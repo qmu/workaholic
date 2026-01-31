@@ -6,17 +6,27 @@ user-invocable: false
 
 # Request Approval
 
-User approval flow for implementation review. **STOP** and ask the user before proceeding to commit.
+User approval flow for implementation review. Used by `/drive` command after driver subagent returns implementation summary.
+
+**CRITICAL**: This approval MUST happen at the `/drive` command level, NOT inside subagents. Subagents run in isolated contexts where `AskUserQuestion` does not surface to the user.
+
+## When to Use
+
+After receiving `status: "pending_approval"` from driver subagent with:
+- `title` - Ticket title
+- `overview` - Brief summary
+- `changes` - List of changes made
+- `ticket_path` - Path to ticket file
 
 ## Approval Prompt Format
 
 ```
-**Ticket: <Title from H1>**
-<Summary from Overview section - first 1-2 sentences>
+**Ticket: <title>**
+<overview>
 
 Implementation complete. Changes made:
-- <Change 1>
-- <Change 2>
+- <change 1>
+- <change 2>
 
 [AskUserQuestion with selectable options]
 ```
@@ -42,8 +52,8 @@ Implementation complete. Changes made:
 
 ## Post-Approval Behavior
 
-- **Approve**: Proceed to write final report, commit, and continue to next ticket
-- **Approve and stop**: Proceed to write final report, commit, then stop driving
-- **Abandon**: Follow handle-abandon skill
+- **Approve**: Follow write-final-report skill, then archive-ticket skill, continue to next
+- **Approve and stop**: Follow write-final-report skill, then archive-ticket skill, stop driving
+- **Abandon**: Follow handle-abandon skill, continue to next
 
 **Do NOT proceed to commit until user explicitly approves.**

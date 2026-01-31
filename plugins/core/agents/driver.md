@@ -1,10 +1,9 @@
 ---
 name: driver
 description: Implement a single ticket following drive-workflow skill. Runs in isolated context.
-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
   - drive-workflow
-  - archive-ticket
 ---
 
 # Driver
@@ -22,22 +21,26 @@ You will receive:
 
 1. Read the ticket file to understand requirements
 2. Follow the preloaded **drive-workflow** skill for implementation
-3. Handle user approval response and archive using **archive-ticket** skill
+3. **DO NOT commit** - return summary for parent command to handle approval
 4. Return result as JSON
 
 ## Output
 
-Return a JSON object:
+Return a JSON object with implementation summary:
 
 ```json
 {
-  "status": "completed",
-  "commit_hash": "abc1234",
-  "ticket": ".workaholic/tickets/archive/<branch>/filename.md"
+  "status": "pending_approval",
+  "ticket_path": ".workaholic/tickets/todo/filename.md",
+  "title": "Ticket Title from H1",
+  "overview": "Brief summary from Overview section",
+  "changes": ["Change 1", "Change 2", "..."],
+  "repo_url": "https://github.com/..."
 }
 ```
 
-Status values:
-- `"completed"` - User approved, commit created, continue to next
-- `"stopped"` - User selected "Approve and stop", stop driving
-- `"abandoned"` - User selected "Abandon", ticket moved to fail/
+The parent `/drive` command will:
+1. Present approval dialog to user
+2. Handle commit or abandon based on user response
+
+**CRITICAL**: Never commit. Never use AskUserQuestion. Return summary and let parent handle approval.

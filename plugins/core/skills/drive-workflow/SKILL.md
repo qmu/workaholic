@@ -2,9 +2,6 @@
 name: drive-workflow
 description: Implementation workflow for processing tickets.
 skills:
-  - request-approval
-  - write-final-report
-  - handle-abandon
   - format-commit-message
 user-invocable: false
 ---
@@ -12,6 +9,8 @@ user-invocable: false
 # Drive Workflow
 
 Step-by-step workflow for implementing a single ticket during `/drive`.
+
+**IMPORTANT**: This workflow implements changes only. Approval and commit are handled by the parent `/drive` command.
 
 ## Steps
 
@@ -28,37 +27,24 @@ Step-by-step workflow for implementing a single ticket during `/drive`.
 - Run type checks (per CLAUDE.md) to verify changes
 - Fix any type errors or test failures before proceeding
 
-### 3. Ask User to Review Implementation
+### 3. Return Summary (DO NOT COMMIT)
 
-Follow the preloaded **request-approval** skill.
+After implementation is complete, return a summary to the parent command:
 
-### 4. Update Effort and Write Final Report
-
-Follow the preloaded **write-final-report** skill.
-
-### 5. Commit and Archive Using Skill
-
-```bash
-bash .claude/skills/archive-ticket/sh/archive.sh \
-  <ticket-path> "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
+```json
+{
+  "status": "pending_approval",
+  "ticket_path": "<path to ticket>",
+  "title": "<Title from H1>",
+  "overview": "<Summary from Overview section>",
+  "changes": ["<Change 1>", "<Change 2>", "..."],
+  "repo_url": "<repository URL>"
+}
 ```
 
-Follow the preloaded **format-commit-message** skill for message format.
+## Critical Rules
 
-**CRITICAL**: The archive script is the ONLY way to archive tickets.
-
-#### Prohibited Actions
-
-- NEVER use `mv` or `git mv` to move ticket files
-- NEVER create directories like `done/`, `completed/`, `finished/`
-- NEVER manually update CHANGELOG files
-- NEVER manually set `commit_hash` or `category` frontmatter fields
-
-### After Committing
-
-- **Approve**: Proceed to next ticket automatically
-- **Approve and stop**: Stop driving, report tickets remaining
-
-### If User Selects "Abandon"
-
-Follow the preloaded **handle-abandon** skill.
+- **NEVER commit** - parent command handles commit after user approval
+- **NEVER use AskUserQuestion** - parent command handles approval dialog
+- **NEVER archive tickets** - parent command handles archiving
+- Return implementation summary and stop

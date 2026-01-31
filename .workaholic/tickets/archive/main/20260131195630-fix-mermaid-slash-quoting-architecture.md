@@ -3,6 +3,7 @@ type: bugfix
 effort: 0.1h
 created_at: 2026-01-31T19:56:33+09:00
 author: a@qmu.jp
+commit_hash: 6fda35a
 ---
 
 # Fix Mermaid Slash Character Quoting in Architecture Diagram

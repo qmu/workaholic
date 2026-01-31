@@ -32,7 +32,7 @@ Use the workaholic workflow to develop workaholic itself:
 
 ```mermaid
 flowchart LR
-    A[/ticket] --> B[/drive] --> C[/story]
+    A["/ticket"] --> B["/drive"] --> C["/story"]
 ```
 
 1. **Create a ticket**: `/ticket add new validation rule` - automatically creates a topic branch if on main

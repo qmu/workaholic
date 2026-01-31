@@ -2,19 +2,8 @@ name: Release
 
 on:
   push:
-    branches:
-      - main
-  workflow_dispatch:
-    inputs:
-      version_type:
-        description: 'Version bump type'
-        required: true
-        default: 'patch'
-        type: choice
-        options:
-          - major
-          - minor
-          - patch
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
@@ -22,130 +11,81 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    # Skip release commits to avoid infinite loop
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && !startsWith(github.event.head_commit.message, 'Release v'))
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Detect version type from merge
-        id: detect
-        if: github.event_name == 'push'
-        run: |
-          # Get the merge commit message to extract branch name
-          commit_msg=$(git log -1 --pretty=%s)
-          echo "Commit message: $commit_msg"
-
-          # Check if this is a merge commit from a story branch
-          if echo "$commit_msg" | grep -qE "Merge pull request.*from.*/feat-"; then
-            echo "Detected feature branch merge -> minor bump"
-            echo "version_type=minor" >> $GITHUB_OUTPUT
-            echo "skip=false" >> $GITHUB_OUTPUT
-          elif echo "$commit_msg" | grep -qE "Merge pull request.*from.*/(fix|refact)-"; then
-            echo "Detected fix/refactor branch merge -> patch bump"
-            echo "version_type=patch" >> $GITHUB_OUTPUT
-            echo "skip=false" >> $GITHUB_OUTPUT
-          else
-            echo "Not a story branch merge, skipping release"
-            echo "skip=true" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Skip non-story merges
-        if: github.event_name == 'push' && steps.detect.outputs.skip == 'true'
-        run: |
-          echo "Skipping release: not a story branch merge"
-          exit 0
-
-      - name: Calculate new version
+      - name: Extract version from tag
         id: version
-        if: github.event_name == 'workflow_dispatch' || steps.detect.outputs.skip != 'true'
         run: |
-          # Extract current version from marketplace.json
-          current=$(grep -o '"version": "[^"]*"' .claude-plugin/marketplace.json | head -1 | cut -d'"' -f4)
-          echo "Current version: $current"
+          # Extract version from tag (remove 'v' prefix)
+          version="${GITHUB_REF#refs/tags/v}"
+          echo "version=$version" >> $GITHUB_OUTPUT
+          echo "Version: $version"
 
-          # Parse version components
-          major=$(echo "$current" | cut -d. -f1)
-          minor=$(echo "$current" | cut -d. -f2)
-          patch=$(echo "$current" | cut -d. -f3)
+      - name: Find merged PR
+        id: pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get the commit that this tag points to
+          tag_commit=$(git rev-list -n 1 $GITHUB_REF)
+          echo "Tag commit: $tag_commit"
 
-          # Use detected version_type for push events, input for workflow_dispatch
-          if [ "${{ github.event_name }}" = "push" ]; then
-            version_type="${{ steps.detect.outputs.version_type }}"
-          else
-            version_type="${{ inputs.version_type }}"
+          # Find the PR that was merged with this commit
+          # Search for PRs merged around this commit
+          pr_number=$(gh pr list --state merged --limit 20 --json number,mergeCommit \
+            --jq ".[] | select(.mergeCommit.oid == \"$tag_commit\") | .number" || echo "")
+
+          if [ -z "$pr_number" ]; then
+            # Try to find PR from the previous commit (tag might be on merge commit)
+            parent_commit=$(git rev-parse $tag_commit^)
+            pr_number=$(gh pr list --state merged --limit 20 --json number,mergeCommit \
+              --jq ".[] | select(.mergeCommit.oid == \"$parent_commit\") | .number" || echo "")
           fi
-          echo "Version type: $version_type"
 
-          # Calculate new version based on type
-          case "$version_type" in
-            major)
-              major=$((major + 1))
-              minor=0
-              patch=0
-              ;;
-            minor)
-              minor=$((minor + 1))
-              patch=0
-              ;;
-            patch)
-              patch=$((patch + 1))
-              ;;
-          esac
+          if [ -n "$pr_number" ]; then
+            echo "Found PR: #$pr_number"
+            echo "pr_number=$pr_number" >> $GITHUB_OUTPUT
+            echo "pr_url=https://github.com/${{ github.repository }}/pull/$pr_number" >> $GITHUB_OUTPUT
+          else
+            echo "No PR found for this release"
+            echo "pr_number=" >> $GITHUB_OUTPUT
+            echo "pr_url=" >> $GITHUB_OUTPUT
+          fi
 
-          new="${major}.${minor}.${patch}"
-          echo "New version: $new"
-
-          echo "current=$current" >> $GITHUB_OUTPUT
-          echo "new=$new" >> $GITHUB_OUTPUT
-
-      - name: Update version files
-        if: github.event_name == 'workflow_dispatch' || steps.detect.outputs.skip != 'true'
-        run: |
-          new_version="${{ steps.version.outputs.new }}"
-
-          # Update root marketplace.json version
-          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$new_version\"/" .claude-plugin/marketplace.json
-
-          # Update plugin.json version
-          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$new_version\"/" plugins/core/.claude-plugin/plugin.json
-
-          # Verify updates
-          echo "==> Updated .claude-plugin/marketplace.json:"
-          grep '"version"' .claude-plugin/marketplace.json
-
-          echo "==> Updated plugins/core/.claude-plugin/plugin.json:"
-          grep '"version"' plugins/core/.claude-plugin/plugin.json
-
-      - name: Extract release notes
+      - name: Extract release notes from CHANGELOG
         id: notes
-        if: github.event_name == 'workflow_dispatch' || steps.detect.outputs.skip != 'true'
         run: |
-          # Get the previous tag to extract changes since last release
-          prev_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          version="${{ steps.version.outputs.version }}"
 
-          if [ -n "$prev_tag" ]; then
-            # Get commits since last tag
-            echo "Extracting changes since $prev_tag"
-            notes=$(git log --pretty=format:"- %s" "$prev_tag"..HEAD --no-merges | head -50)
-          else
-            # No previous tag, get recent commits
-            echo "No previous tag found, using recent commits"
-            notes=$(git log --pretty=format:"- %s" -20 --no-merges)
+          # Try to extract section for this version from CHANGELOG.md
+          if [ -f CHANGELOG.md ]; then
+            # Look for version header (## v1.0.26 or ## 1.0.26)
+            notes=$(sed -n "/^## .*${version}/,/^## /p" CHANGELOG.md | sed '1d;$d' | head -50)
+
+            if [ -z "$notes" ]; then
+              # Fallback: get the first unreleased section
+              notes=$(sed -n '/^## /,/^## /p' CHANGELOG.md | sed '1d;$d' | head -50)
+            fi
           fi
 
-          # If CHANGELOG.md has content for this branch, try to extract it
-          branch=$(git branch --show-current)
-          if [ -f CHANGELOG.md ] && grep -q "## $branch" CHANGELOG.md; then
-            echo "Found CHANGELOG section for branch: $branch"
-            # Extract section between this branch header and the next ## header
-            changelog_notes=$(sed -n "/^## $branch/,/^## /p" CHANGELOG.md | sed '1d;$d')
-            if [ -n "$changelog_notes" ]; then
-              notes="$changelog_notes"
+          # If no CHANGELOG content, use commit messages
+          if [ -z "$notes" ]; then
+            prev_tag=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+            if [ -n "$prev_tag" ]; then
+              notes=$(git log --pretty=format:"- %s" "$prev_tag"..HEAD --no-merges | head -30)
+            else
+              notes=$(git log --pretty=format:"- %s" -20 --no-merges)
             fi
+          fi
+
+          # Add PR link if available
+          if [ -n "${{ steps.pr.outputs.pr_url }}" ]; then
+            notes="PR: ${{ steps.pr.outputs.pr_url }}
+
+$notes"
           fi
 
           # Write to file for multi-line content
@@ -153,21 +93,11 @@ jobs:
           echo "Release notes:"
           cat /tmp/release_notes.txt
 
-      - name: Commit version bump
-        if: github.event_name == 'workflow_dispatch' || steps.detect.outputs.skip != 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .claude-plugin/marketplace.json plugins/core/.claude-plugin/plugin.json
-          git commit -m "Release v${{ steps.version.outputs.new }}"
-          git push
-
       - name: Create GitHub Release
-        if: github.event_name == 'workflow_dispatch' || steps.detect.outputs.skip != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "v${{ steps.version.outputs.new }}" \
-            --title "v${{ steps.version.outputs.new }}" \
+          gh release create "${{ github.ref_name }}" \
+            --title "${{ github.ref_name }}" \
             --notes-file /tmp/release_notes.txt \
             --latest

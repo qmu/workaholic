@@ -86,3 +86,16 @@ No build step required - this is a configuration/documentation project.
 - Marketplace version: `.claude-plugin/marketplace.json`
 - Plugin versions: `plugins/<name>/.claude-plugin/plugin.json`
 - Keep versions in sync when releasing
+
+## Version Increment Policy
+
+During `/story`, automatically increment version before PR creation.
+
+**Default**: patch bump (1.0.25 -> 1.0.26)
+
+AI analyzes changes to determine if minor/major is warranted:
+- **patch**: Bug fixes, small improvements, internal refactoring
+- **minor**: New features, significant enhancements (requires user confirmation)
+- **major**: Breaking changes (requires user confirmation)
+
+Invoke version-manager agent during Phase 1 of /story command.

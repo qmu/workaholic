@@ -30,7 +30,7 @@ This design makes stories the single source of truth for PR content, eliminating
    - If no tickets, continue with normal PR flow
 4. **Generate documentation** using 6 subagents:
 
-   **Phase 1**: Invoke 5 agents in parallel via Task tool (single message with 5 tool calls, each with `model: "haiku"`):
+   **Phase 1**: Invoke agents in parallel via Task tool (single message with tool calls, each with `model: "haiku"`):
 
    - **changelog-writer** (`subagent_type: "core:changelog-writer"`, `model: "haiku"`): Updates `CHANGELOG.md` with entries from archived tickets
    - **spec-writer** (`subagent_type: "core:spec-writer"`, `model: "haiku"`): Updates `.workaholic/specs/` to reflect codebase changes
@@ -38,13 +38,17 @@ This design makes stories the single source of truth for PR content, eliminating
    - **release-readiness** (`subagent_type: "core:release-readiness"`, `model: "haiku"`): Analyzes branch for release readiness
    - **performance-analyst** (`subagent_type: "core:performance-analyst"`, `model: "haiku"`): Evaluates decision quality
 
+   **Version management** (optional):
+   - Check if root `CLAUDE.md` contains a version increment policy section
+   - If present, follow the instructions in that section (invoke specified agents, run specified scripts, etc.)
+
    Pass to each agent:
    - Branch name and base branch as context
    - Repository URL (for changelog-writer)
    - List of archived tickets (for release-readiness and performance-analyst)
    - Git log main..HEAD (for performance-analyst)
 
-   Wait for all 5 agents to complete.
+   Wait for all agents to complete.
 
    **Phase 2**: Invoke **story-writer** (`subagent_type: "core:story-writer"`, `model: "haiku"`):
    - Pass branch name and base branch

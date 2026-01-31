@@ -1,7 +1,7 @@
 ---
 name: story-writer
 description: Generate branch story for PR description. Reads archived tickets, calculates metrics, and produces narrative documentation.
-tools: Read, Write, Edit, Bash, Glob, Grep, Task
+tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
   - write-story
 ---
@@ -16,7 +16,8 @@ You will receive:
 
 - Branch name to generate story for
 - Base branch (usually `main`)
-- Release-readiness JSON output (from parallel agent invoked by `/report`)
+- Release-readiness JSON output (from parallel agent invoked by `/story`)
+- Performance-analyst output (from parallel agent invoked by `/story`)
 
 ## Instructions
 
@@ -31,7 +32,7 @@ You will receive:
 
 4. **Write Story**: Follow the preloaded write-story skill for content structure, templates, and guidelines.
 
-5. **Get Performance Analysis**: Invoke performance-analyst subagent (Task tool with `subagent_type: "core:performance-analyst"`) to evaluate decision quality.
+5. **Write Performance Section**: Use the performance-analyst output provided in the input to write section 9.2 (Performance Analysis). Do not invoke performance-analyst subagent - it runs in parallel at the orchestrator level.
 
 6. **Write Release Preparation**: Use the release-readiness JSON provided in the input to write section 10 (Release Preparation). Do not invoke release-readiness subagent - it runs in parallel at the orchestrator level.
 
@@ -46,5 +47,5 @@ Return confirmation that:
 - Story file was created at `.workaholic/stories/<branch-name>.md`
 - Japanese translation was created at `.workaholic/stories/<branch-name>_ja.md`
 - Stories index (both README.md and README_ja.md) was updated
-- Performance-analyst evaluation was included
+- Performance-analyst output was formatted into section 9.2
 - Release-readiness data was formatted into section 10

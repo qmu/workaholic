@@ -228,9 +228,9 @@ flowchart LR
         spw[spec-writer]
         tw[terms-writer]
         rr[release-readiness]
+        pa[performance-analyst]
         sw[story-writer]
         pc[pr-creator]
-        pa[performance-analyst]
     end
 
     subgraph Skills
@@ -239,13 +239,13 @@ flowchart LR
         wsp[write-spec]
         wt[write-terms]
         arr[assess-release-readiness]
+        ap[analyze-performance]
         ws[write-story]
         tr[translate]
-        ap[analyze-performance]
         cp[create-pr]
     end
 
-    story --> cw & spw & tw & rr
+    story --> cw & spw & tw & rr & pa
     story -.-> sw
     story --> pc
 
@@ -253,9 +253,9 @@ flowchart LR
     spw --> wsp
     tw --> wt
     rr --> arr
-    sw --> ws & pa
-    pc --> cp
     pa --> ap
+    sw --> ws
+    pc --> cp
 
     %% Skill-to-skill
     ws --> tr
@@ -310,36 +310,40 @@ sequenceDiagram
 
 ## Documentation Enforcement
 
-Workaholic enforces comprehensive documentation through a parallel subagent architecture. The `/story` command orchestrates documentation agents in two phases: four agents run in parallel first, then story-writer runs with the release-readiness output.
+Workaholic enforces comprehensive documentation through a parallel subagent architecture. The `/story` command orchestrates documentation agents in two phases: five agents run in parallel first, then story-writer runs with the release-readiness and performance-analyst outputs.
 
 ### How It Works
 
 ```mermaid
 flowchart TD
     A[/story command] --> B[Move remaining tickets to icebox]
-    B --> C[Phase 1: Invoke 4 subagents in parallel]
+    B --> C[Phase 1: Invoke 5 subagents in parallel]
 
     subgraph Phase 1 - Parallel
         D[changelog-writer]
         F[spec-writer]
         G[terms-writer]
         RR[release-readiness]
+        PA[performance-analyst]
     end
 
     C --> D
     C --> F
     C --> G
     C --> RR
+    C --> PA
 
     D --> H[CHANGELOG.md]
     F --> J[.workaholic/specs/]
     G --> K[.workaholic/terms/]
     RR --> RL[Release JSON]
+    PA --> PM[Performance markdown]
 
     H --> P2[Phase 2: story-writer]
     J --> P2
     K --> P2
     RL --> P2
+    PM --> P2
 
     P2 --> I[.workaholic/stories/]
     I --> L[Commit docs]
@@ -352,10 +356,10 @@ Documentation is updated automatically during the `/story` workflow.
 
 The subagent architecture provides several benefits:
 
-1. **Parallel execution** - Four agents run simultaneously in Phase 1, reducing wait time
+1. **Parallel execution** - Five agents run simultaneously in Phase 1, reducing wait time
 2. **Context isolation** - Each agent works in its own context window, preserving the main conversation
 3. **Single responsibility** - Each agent handles one documentation domain
-4. **Data dependency handling** - Story-writer receives release-readiness output in Phase 2
+4. **Data dependency handling** - Story-writer receives release-readiness and performance-analyst outputs in Phase 2
 
 ### Critical Requirements
 

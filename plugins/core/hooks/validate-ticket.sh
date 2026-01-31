@@ -39,9 +39,9 @@ fi
 # Extract filename
 filename=$(basename "$file_path")
 
-# Validate filename format: YYYYMMDDHHmmss-*.md
-if [[ ! "$filename" =~ ^[0-9]{14}-.*\.md$ ]]; then
-  echo "Error: Ticket filename must match YYYYMMDDHHmmss-*.md pattern" >&2
+# Validate filename format: YYYYMMDD-HHMM-*.md
+if [[ ! "$filename" =~ ^[0-9]{8}-[0-9]{4}-.*\.md$ ]]; then
+  echo "Error: Ticket filename must match YYYYMMDD-HHMM-*.md pattern" >&2
   echo "Got: $filename" >&2
   exit 2
 fi

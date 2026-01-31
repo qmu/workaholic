@@ -53,11 +53,11 @@ These cause validation failures:
 
 ## Filename Convention
 
-Format: `YYYYMMDDHHmmss-<short-description>.md`
+Format: `YYYYMMDD-HHMM-<short-description>.md`
 
-Use current timestamp: `date +%Y%m%d%H%M%S`
+Use current timestamp: `date +%Y%m%d-%H%M`
 
-Example: `20260114153042-add-dark-mode.md`
+Example: `20260131-2045-add-dark-mode.md`
 
 ## File Structure
 
@@ -144,7 +144,7 @@ The Related History section is populated by the `history-discoverer` subagent (i
 
 **Link format**: Use markdown links with repository-relative paths:
 ```markdown
-- [filename.md](.workaholic/tickets/archive/<branch>/filename.md) - Description (match reason)
+- [YYYYMMDD-HHMM-filename.md](.workaholic/tickets/archive/<branch>/YYYYMMDD-HHMM-filename.md) - Description (match reason)
 ```
 
 The full path includes the branch directory from the search results (e.g., `feat-20260126-214833`).

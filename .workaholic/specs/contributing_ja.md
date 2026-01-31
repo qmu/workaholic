@@ -32,7 +32,7 @@ workaholic自体の開発にworkaholicワークフローを使用します：
 
 ```mermaid
 flowchart LR
-    A[/ticket] --> B[/drive] --> C[/story]
+    A["/ticket"] --> B["/drive"] --> C["/story"]
 ```
 
 1. **チケットを作成**: `/ticket add new validation rule` - main上の場合は自動的にトピックブランチを作成

@@ -1,5 +1,14 @@
 # Changelog
 
+## drive-20260131-223656
+
+### Changed
+
+- Rename fail/ Directory to abandoned/ ([06f8791](https://github.com/qmu/workaholic/commit/06f8791d6289d09a9e763f2b33d13ebb7e43a067)) - [ticket](.workaholic/tickets/archive/drive-20260131-223656/20260131223739-rename-fail-directory-to-abandoned.md)
+- Standardize Branch Naming to drive-/trip- Prefixes Only ([a69b473](https://github.com/qmu/workaholic/commit/a69b4733dc9f62c0b9aa63905b854de6780bbce2)) - [ticket](.workaholic/tickets/archive/drive-20260131-223656/20260131223900-standardize-branch-naming-prefixes.md)
+- Point Hook Errors to create-ticket Skill ([d5a432a](https://github.com/qmu/workaholic/commit/d5a432a6e9dbb85729c515a70131d4e7b20af4cd)) - [ticket](.workaholic/tickets/archive/drive-20260131-223656/20260131224411-add-frontmatter-example-to-hook-error.md)
+- Fix Archive Script Invocation Hallucination ([0adb230](https://github.com/qmu/workaholic/commit/0adb230444805dd4977a2cd95c9ef5c121100b0c)) - [ticket](.workaholic/tickets/archive/drive-20260131-223656/20260131225833-fix-archive-script-invocation-hallucination.md)
+
 ## feat-20260131-125844
 
 ### Added

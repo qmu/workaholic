@@ -201,13 +201,18 @@ flowchart LR
     hd --> dh
     sd --> ds
     cw --> gc & wc
-    sw --> ws & tr
+    sw --> ws
     sw --> pa
-    spw --> wsp & tr
-    tw --> wt & tr
+    spw --> wsp
+    tw --> wt
     pc --> cp
     pa --> ap
     rr --> arr
+
+    %% Skill-to-skill dependencies
+    ws --> tr
+    wsp --> tr
+    wt --> tr
 ```
 
 Note: The `/story` command runs four agents in parallel (changelog-writer, spec-writer, terms-writer, release-readiness), then runs story-writer with the release-readiness output, and finally runs pr-creator. The `/ticket` command runs history-discoverer and source-discoverer in parallel to find related tickets and code context.
@@ -335,9 +340,9 @@ Workaholic follows strict nesting rules for component invocations to maintain a 
 | -------- | ------------------ | ------------------- |
 | Command  | Skill, Subagent    | -                   |
 | Subagent | Skill              | Subagent, Command   |
-| Skill    | -                  | Subagent, Command   |
+| Skill    | Skill              | Subagent, Command   |
 
-Commands and subagents are the orchestration layer, defining workflow steps and invoking other components. Skills are the knowledge layer, containing templates, guidelines, rules, and bash scripts. This separation prevents deep nesting and context explosion while keeping comprehensive knowledge centralized in skills.
+Commands and subagents are the orchestration layer, defining workflow steps and invoking other components. Skills are the knowledge layer, containing templates, guidelines, rules, and bash scripts. Skills can preload other skills for composable knowledge (e.g., write-spec preloads translate for i18n enforcement). This separation prevents deep nesting and context explosion while keeping comprehensive knowledge centralized in skills.
 
 ## Version Management
 

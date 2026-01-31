@@ -44,7 +44,7 @@ Start with a clean branch for your work:
 /branch
 ```
 
-This creates a timestamped branch like `feat-20260123-143022`.
+This creates a timestamped branch like `drive-20260123-143022`.
 
 ### 2. Write a Ticket
 

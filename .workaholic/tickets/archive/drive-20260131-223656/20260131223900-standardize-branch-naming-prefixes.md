@@ -4,8 +4,8 @@ author: noreply@anthropic.com
 type: housekeeping
 layer: Config
 effort: 0.5h
----
-
+commit_hash: a69b473---
+category: Changed
 # Standardize Branch Naming to drive-/trip- Prefixes Only
 
 ## Overview

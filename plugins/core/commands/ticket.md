@@ -21,7 +21,7 @@ Explore the codebase to understand requirements and write an implementation tick
    2. Confirm: "Created branch: <branch-name>"
    3. Continue to step 1
 
-   Topic branch pattern: `drive-*`, `feat-*`, `fix-*`, `refact-*`
+   Topic branch pattern: `drive-*`, `trip-*`
 
 1. **Understand the Request**
 

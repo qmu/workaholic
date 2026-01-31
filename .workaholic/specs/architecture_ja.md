@@ -149,73 +149,106 @@ plugins/
 - **story-writer**: PR内容の単一の真実の情報源として機能する`.workaholic/stories/`にブランチストーリーを生成、11のセクション（Overview、Motivation、Journey（Topic Treeフローチャートを含む）、Changes、Outcome、Historical Analysis、Concerns、Ideas、Performance、Release Preparation、Notes）で構成
 - **terms-writer**: 一貫した用語定義を維持するために`.workaholic/terms/`を更新
 
-## 依存関係グラフ
+## コマンド依存関係
 
-この図は、コマンド、エージェント、スキルが実行時にどのように相互呼び出しするかを示しています。
+これらの図は、各コマンドが実行時にエージェントとスキルをどのように呼び出すかを示しています。コマンドは薄いオーケストレーターであり、作業を専門化されたコンポーネントに委譲します。
+
+### /ticket 依存関係
+
+```mermaid
+flowchart LR
+    subgraph コマンド
+        ticket["/ticket"]
+    end
+
+    subgraph エージェント
+        hd[history-discoverer]
+        sd[source-discoverer]
+    end
+
+    subgraph スキル
+        cb[create-branch]
+        ct[create-ticket]
+        dh[discover-history]
+        ds[discover-source]
+    end
+
+    ticket --> cb
+    ticket --> hd & sd
+    ticket --> ct
+
+    hd --> dh
+    sd --> ds
+```
+
+### /drive 依存関係
+
+```mermaid
+flowchart LR
+    subgraph コマンド
+        drive["/drive"]
+    end
+
+    subgraph エージェント
+        dn[drive-navigator]
+    end
+
+    subgraph スキル
+        dw[drive-workflow]
+        at[archive-ticket]
+    end
+
+    drive --> dn
+    drive --> dw & at
+```
+
+### /story 依存関係
 
 ```mermaid
 flowchart LR
     subgraph コマンド
         story["/story"]
-        drive["/drive"]
-        ticket["/ticket"]
     end
 
     subgraph エージェント
         cw[changelog-writer]
-        sw[story-writer]
         spw[spec-writer]
         tw[terms-writer]
-        hd[history-discoverer]
-        sd[source-discoverer]
+        rr[release-readiness]
+        sw[story-writer]
         pc[pr-creator]
         pa[performance-analyst]
-        rr[release-readiness]
     end
 
     subgraph スキル
-        at[archive-ticket]
         gc[generate-changelog]
-        cb[create-branch]
-        ct[create-ticket]
-        dh[discover-history]
-        ds[discover-source]
-        dw[drive-workflow]
-        tr[translate]
-        ws[write-story]
+        wc[write-changelog]
         wsp[write-spec]
         wt[write-terms]
-        wc[write-changelog]
-        cp[create-pr]
-        ap[analyze-performance]
         arr[assess-release-readiness]
+        ws[write-story]
+        tr[translate]
+        ap[analyze-performance]
+        cp[create-pr]
     end
 
     story --> cw & spw & tw & rr
     story -.-> sw
     story --> pc
-    drive --> at & dw
-    ticket --> ct & hd & sd
-    ticket --> cb
 
-    hd --> dh
-    sd --> ds
     cw --> gc & wc
-    sw --> ws
-    sw --> pa
     spw --> wsp
     tw --> wt
+    rr --> arr
+    sw --> ws & pa
     pc --> cp
     pa --> ap
-    rr --> arr
 
-    %% Skill-to-skill dependencies
+    %% Skill-to-skill
     ws --> tr
     wsp --> tr
     wt --> tr
 ```
-
-注: `/story`コマンドは4つのエージェント（changelog-writer、spec-writer、terms-writer、release-readiness）を並列実行し、その後story-writerをrelease-readiness出力と共に実行し、最後にpr-creatorを実行します。`/ticket`コマンドはhistory-discovererとsource-discovererを並列実行して関連チケットとコードコンテキストを見つけます。
 
 ## Claude Codeがプラグインをロードする方法
 

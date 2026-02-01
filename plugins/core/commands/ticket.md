@@ -8,7 +8,7 @@ skills:
 
 # Ticket
 
-Explore the codebase to understand requirements and write an implementation ticket.
+Explore the codebase to understand requirements and write implementation ticket(s). May split complex requests into multiple tickets when beneficial.
 
 ## Instructions
 
@@ -30,6 +30,12 @@ Explore the codebase to understand requirements and write an implementation tick
    - If `$ARGUMENT` contains "icebox", store in `.workaholic/tickets/icebox/` instead
    - Otherwise, store in `.workaholic/tickets/todo/`
 
+   **Evaluate Complexity**: Determine if the request should be split into multiple tickets:
+   - Split when: request contains multiple independent features, touches unrelated layers, or would require multiple commits to implement cleanly
+   - Keep single when: tasks are tightly coupled, share implementation context, or are small enough for one commit
+   - If splitting: identify 2-4 discrete tickets, each with clear scope and a single purpose
+   - Each split ticket must be independently implementable and testable
+
 2. **Parallel Discovery**
 
    Invoke BOTH subagents concurrently using Task tool with `model: "haiku"`:
@@ -48,27 +54,36 @@ Explore the codebase to understand requirements and write an implementation tick
 
    Wait for both to complete, then proceed with both results.
 
-3. **Explore and Write Ticket**
+3. **Explore and Write Ticket(s)**
 
    Follow the preloaded create-ticket skill for exploration, file format, and content guidelines.
    - Use history discovery results for "Related History" section
    - Use source discovery results to seed "Key Files" section (merge with manual exploration)
    - Reference code flow in "Implementation" section when relevant
 
+   **If splitting into multiple tickets**:
+   - Create each ticket with a unique timestamp (add 1 second between files to ensure ordering)
+   - First ticket should be the foundation that others may depend on
+   - Cross-reference related tickets in each ticket's "Considerations" section
+   - Each ticket must stand alone with complete context
+
 4. **Ask Clarifying Questions** if requirements are ambiguous.
 
-5. **Commit the Ticket**
+5. **Commit the Ticket(s)**
 
    **IMPORTANT**: Skip this step if invoked during `/drive`. The drive command's archive script includes uncommitted tickets via `git add -A`, so the ticket will be committed with the implementation.
 
-   - Stage only the newly created ticket file: `git add <ticket-path>`
-   - Commit with message: "Add ticket for <short-description>"
+   - Stage only the newly created ticket file(s): `git add <ticket-path>` (or multiple paths)
+   - Commit message:
+     - Single ticket: "Add ticket for <short-description>"
+     - Multiple tickets: "Add tickets for <overall-description>"
 
-6. **Present the Ticket**
+6. **Present the Ticket(s)**
 
-   - Show the user where the ticket was created
+   - Show the user where the ticket(s) were created
    - Summarize the key points
-   - If during `/drive`: say "Ticket created (will be committed with implementation)"
+   - **If multiple tickets**: list each ticket with a one-line summary and explain the implementation order
+   - If during `/drive`: say "Ticket(s) created (will be committed with implementation)"
    - If icebox: tell user to run `/drive icebox` later to retrieve it
    - If normal (standalone): count queued tickets and tell user to run `/drive` to implement
    - **NEVER ask "Would you like me to proceed with implementation?" - that is NOT your job**

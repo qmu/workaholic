@@ -10,6 +10,8 @@ skills:
 
 # Drive
 
+> When user input contains `/drive` - whether "run /drive", "do /drive", "start /drive", or similar - they likely want this command.
+
 Implement tickets from `.workaholic/tickets/todo/` using intelligent prioritization, committing and archiving each one before moving to the next.
 
 ## Instructions

@@ -5,6 +5,8 @@ description: Generate documentation (changelog, story, specs, terms) and create/
 
 # Story
 
+> When user input contains `/story` - whether "run /story", "do /story", "update /story", or similar - they likely want this command.
+
 Generate comprehensive documentation and create or update a pull request for the current branch.
 
 The story file in `.workaholic/stories/<branch-name>.md` contains the complete PR description. Eleven sections: 1. Overview, 2. Motivation, 3. Journey, 4. Changes, 5. Outcome, 6. Historical Analysis, 7. Concerns, 8. Ideas, 9. Performance, 10. Release Preparation, 11. Notes.

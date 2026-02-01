@@ -107,6 +107,13 @@ if [[ ! "$author" =~ ^[^@]+@[^@]+\.[^@]+$ ]]; then
   print_skill_reference
   exit 2
 fi
+# Reject anthropic.com emails - Claude must use actual user's git email
+if [[ "$author" =~ @anthropic\.com$ ]]; then
+  echo "Error: author must be your actual email from 'git config user.email'" >&2
+  echo "Rejected: $author (run 'git config user.email' and use that value)" >&2
+  print_skill_reference
+  exit 2
+fi
 
 # type: one of enhancement, bugfix, refactoring, housekeeping
 type=$(validate_field "type")

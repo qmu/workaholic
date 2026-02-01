@@ -3,9 +3,9 @@ created_at: 2026-02-01T10:07:37+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 2eab77f
+category: Changed
 ---
 
 # Reject Anthropic Email in Ticket Author Field

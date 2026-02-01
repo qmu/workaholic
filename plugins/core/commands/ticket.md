@@ -8,6 +8,8 @@ skills:
 
 # Ticket
 
+> When user input contains `/ticket` - whether "create /ticket", "write /ticket", "add /ticket for X", or similar - they likely want this command.
+
 Explore the codebase to understand requirements and write implementation ticket(s). May split complex requests into multiple tickets when beneficial.
 
 ## Instructions

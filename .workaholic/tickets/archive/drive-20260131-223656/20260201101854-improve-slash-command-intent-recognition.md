@@ -3,9 +3,9 @@ created_at: 2026-02-01T10:19:24+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [UX]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 8dd3d87
+category: Changed
 ---
 
 # Improve Slash Command Intent Recognition
@@ -45,11 +45,13 @@ The current guidance doesn't emphasize that ANY mention of a slash command in us
 
 ## Solution
 
-Add a general.md rule that reinforces slash command recognition patterns. This rule will be always-on and guide Claude Code to recognize natural language variations.
+Add a strong, concise invocation note to each command file. Commands should self-declare when to invoke them, rather than relying on a central rule.
 
 ## Key Files
 
-- `plugins/core/rules/general.md` - Add slash command intent recognition rule
+- `plugins/core/commands/story.md` - Add invocation note
+- `plugins/core/commands/drive.md` - Add invocation note
+- `plugins/core/commands/ticket.md` - Add invocation note
 
 ## Related History
 
@@ -58,21 +60,13 @@ Add a general.md rule that reinforces slash command recognition patterns. This r
 
 ## Implementation
 
-1. Add a new section to `plugins/core/rules/general.md`:
-   ```markdown
-   ## Slash Command Recognition
+Add an invocation note after the main header in each command file:
 
-   When user input contains a slash command reference (e.g., `/story`, `/drive`, `/ticket`):
-   - Invoke the command via the Skill tool immediately
-   - Do NOT ask clarifying questions about which command or what to do
-   - Natural language variations all mean "run this command":
-     - "update /story" → invoke /story
-     - "do /story" → invoke /story
-     - "run /story" → invoke /story
-     - "execute /story command" → invoke /story
-     - "can you /story" → invoke /story
-   - The slash prefix is the definitive signal - any surrounding words are just natural language
-   ```
+```markdown
+> **Invoke immediately** when user mentions `/<command>` in any form.
+```
+
+This keeps invocation guidance co-located with the command itself.
 
 ## Acceptance Criteria
 

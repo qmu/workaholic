@@ -71,22 +71,24 @@ Implementation complete. Changes made:
 Based on user's selection:
 
 **"Approve"**:
-1. Follow **write-final-report** skill to update ticket effort
-2. Archive and commit using the preloaded **archive-ticket** skill:
+1. Follow **write-final-report** skill to update ticket effort and append Final Report section
+2. **Verify update succeeded**: If Edit tool fails, halt and report the error to user. DO NOT proceed to archive.
+3. Archive and commit using the preloaded **archive-ticket** skill:
    ```bash
    bash plugins/core/skills/archive-ticket/sh/archive.sh \
      "<ticket-path>" "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
    ```
-3. Continue to next ticket
+4. Continue to next ticket
 
 **"Approve and stop"**:
-1. Follow **write-final-report** skill to update ticket effort
-2. Archive and commit using the preloaded **archive-ticket** skill:
+1. Follow **write-final-report** skill to update ticket effort and append Final Report section
+2. **Verify update succeeded**: If Edit tool fails, halt and report the error to user. DO NOT proceed to archive.
+3. Archive and commit using the preloaded **archive-ticket** skill:
    ```bash
    bash plugins/core/skills/archive-ticket/sh/archive.sh \
      "<ticket-path>" "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
    ```
-3. Stop driving, report remaining tickets
+4. Stop driving, report remaining tickets
 
 **"Abandon"**:
 1. Follow **handle-abandon** skill (discard changes, write failure analysis)

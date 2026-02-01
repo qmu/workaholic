@@ -1,11 +1,11 @@
 ---
 created_at: 2026-02-01T10:32:05+09:00
-author: noreply@anthropic.com
+author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 822e93c
+category: Changed
 ---
 
 # Stop /story from moving todo tickets to icebox

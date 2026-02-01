@@ -19,6 +19,18 @@ You will receive:
 - Release-readiness JSON output (from parallel agent invoked by `/story`)
 - Performance-analyst output (from parallel agent invoked by `/story`)
 
+## Critical Format Rules
+
+When writing section 4 (Changes), you MUST follow these rules:
+
+1. **Commit hash MUST be GitHub-linked**: `([hash](<repo-url>/commit/<hash>))`
+   - Wrong: `(abc1234)` or `(<hash>)`
+   - Correct: `([abc1234](<repo-url>/commit/abc1234))`
+
+2. **List ALL files changed as bullet points**, not prose paragraphs
+
+3. **Reference archived ticket's Implementation or Changes section** for the complete file list
+
 ## Instructions
 
 1. **Gather Source Data**: Read archived tickets using Glob pattern `.workaholic/tickets/archive/<branch-name>/*.md`. Extract frontmatter (`commit_hash`, `category`) and content (Overview, Final Report).

@@ -97,20 +97,28 @@ flowchart LR
 
 One subsection per ticket, in chronological order:
 
-### 4.1. <Ticket title> ([hash](https://github.com/qmu/workaholic/commit/hash))
+### 4.1. <Ticket title> ([hash](<repo-url>/commit/<hash>))
 
-Brief 1-2 sentence description from ticket Overview.
+- First file changed with description of modification
+- Second file changed with description of modification
+- ...
 
-### 4.2. <Next ticket title> ([hash](https://github.com/qmu/workaholic/commit/hash))
+### 4.2. <Next ticket title> ([hash](<repo-url>/commit/<hash>))
 
-Brief 1-2 sentence description from ticket Overview.
+- First file changed with description of modification
+- Second file changed with description of modification
+- ...
 
 ### ...
 
 **Changes Guidelines:**
 - One subsection per ticket (not grouped by theme)
-- Format: `### 4.N. <Title> ([hash](https://github.com/qmu/workaholic/commit/hash))` - link to GitHub commit
-- Content: 1-2 sentences from ticket Overview
+- **CRITICAL**: Commit hash MUST be a clickable GitHub link, not plain text
+  - Wrong: `(abc1234)` or `(<hash>)`
+  - Correct: `([abc1234](<repo-url>/commit/abc1234))`
+- Format: `### 4.N. <Title> ([hash](<repo-url>/commit/<hash>))`
+- **MUST list all files changed** as bullet points, not paragraph prose
+- Reference ticket Implementation section or Changes section for the complete file list
 - Chronological order matches ticket creation time
 
 ## 5. Outcome

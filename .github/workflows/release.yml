@@ -40,13 +40,9 @@ jobs:
           echo "Commit message: $commit_msg"
 
           # Check if this is a merge commit from a story branch
-          if echo "$commit_msg" | grep -qE "Merge pull request.*from.*/feat-"; then
-            echo "Detected feature branch merge -> minor bump"
+          if echo "$commit_msg" | grep -qE "Merge pull request.*from.*/(drive|trip)-"; then
+            echo "Detected drive/trip branch merge -> minor bump"
             echo "version_type=minor" >> $GITHUB_OUTPUT
-            echo "skip=false" >> $GITHUB_OUTPUT
-          elif echo "$commit_msg" | grep -qE "Merge pull request.*from.*/(fix|refact)-"; then
-            echo "Detected fix/refactor branch merge -> patch bump"
-            echo "version_type=patch" >> $GITHUB_OUTPUT
             echo "skip=false" >> $GITHUB_OUTPUT
           else
             echo "Not a story branch merge, skipping release"

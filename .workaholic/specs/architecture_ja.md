@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-31T19:07:11+09:00
-commit_hash: 06ebf65
+modified_at: 2026-02-01T11:00:00+09:00
+commit_hash: 277b63b
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -312,8 +312,7 @@ Workaholicは並列サブエージェントアーキテクチャを通じて包�
 
 ```mermaid
 flowchart TD
-    A["/story コマンド"] --> B[残りのチケットをiceboxに移動]
-    B --> C[フェーズ1: 5つのサブエージェントを並列で呼び出し]
+    A["/story コマンド"] --> C[フェーズ1: 5つのサブエージェントを並列で呼び出し]
 
     subgraph フェーズ1 - 並列
         D[changelog-writer]

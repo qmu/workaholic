@@ -2,8 +2,8 @@
 title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
-last_updated: 2026-01-31
-commit_hash: 06ebf65
+last_updated: 2026-02-01
+commit_hash: 277b63b
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -32,17 +32,17 @@ The drive operation processes tickets from `.workaholic/tickets/todo/` sequentia
 
 ## abandon
 
-Mark a ticket as failed and move it to the fail directory without committing implementation changes.
+Mark a ticket as abandoned and move it to the abandoned directory without committing implementation changes.
 
 ### Definition
 
-Abandon is one of four approval options presented during `/drive` workflow when a developer completes a ticket implementation. When selected, abandon discards any uncommitted implementation changes (via `git restore .`), requires a Failure Analysis section to be appended to the ticket documenting what was attempted and why it failed, moves the ticket to `.workaholic/tickets/fail/`, commits the ticket move to preserve the analysis, and continues to the next ticket. This provides a graceful way to handle tickets that were fundamentally flawed or whose implementation proved unworkable.
+Abandon is one of four approval options presented during `/drive` workflow when a developer completes a ticket implementation. When selected, abandon discards any uncommitted implementation changes (via `git restore .`), requires a Failure Analysis section to be appended to the ticket documenting what was attempted and why it failed, moves the ticket to `.workaholic/tickets/abandoned/`, commits the ticket move to preserve the analysis, and continues to the next ticket. This provides a graceful way to handle tickets that were fundamentally flawed or whose implementation proved unworkable.
 
 ### Usage Patterns
 
-- **Directory names**: `.workaholic/tickets/fail/`
-- **File names**: Abandoned tickets retain original names in fail directory
-- **Code references**: "Select Abandon during approval", "Ticket was abandoned in the fail directory"
+- **Directory names**: `.workaholic/tickets/abandoned/`
+- **File names**: Abandoned tickets retain original names in abandoned directory
+- **Code references**: "Select Abandon during approval", "Ticket was abandoned"
 
 ### Related Terms
 
@@ -185,9 +185,9 @@ Approval is a decision point in the `/drive` workflow that occurs after a ticket
 - **Approve**: Commit the implementation and continue to next ticket
 - **Approve and stop**: Commit the implementation and stop driving
 - **Needs changes**: Request modifications (discards uncommitted changes, keeps ticket in todo, asks for feedback)
-- **Abandon**: Discard implementation changes, append Failure Analysis, move ticket to fail directory, continue to next ticket
+- **Abandon**: Discard implementation changes, append Failure Analysis, move ticket to abandoned directory, continue to next ticket
 
-This gate ensures that only successfully implemented tickets are committed to history, while failed attempts are preserved in the fail directory with their analysis for future reference.
+This gate ensures that only successfully implemented tickets are committed to history, while failed attempts are preserved in the abandoned directory with their analysis for future reference.
 
 ### Usage Patterns
 

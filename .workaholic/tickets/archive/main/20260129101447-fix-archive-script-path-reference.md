@@ -3,8 +3,8 @@ created_at: 2026-01-29T10:14:47+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
+effort: 0.1h
+commit_hash: 22472c4
 category:
 ---
 

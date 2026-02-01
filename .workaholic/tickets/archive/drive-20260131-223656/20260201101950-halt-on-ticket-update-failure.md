@@ -1,11 +1,11 @@
 ---
 created_at: 2026-02-01T10:19:50+09:00
-author: noreply@anthropic.com
+author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 360f49e
+category: Changed
 ---
 
 # Halt workflow when ticket frontmatter update fails

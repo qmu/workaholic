@@ -3,9 +3,9 @@ created_at: 2026-01-31T23:45:35+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 0f24f91
+category: Changed
 ---
 
 # Enforce Changes Section Formatting Rules in write-story Skill

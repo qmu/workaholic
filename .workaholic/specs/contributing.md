@@ -2,8 +2,8 @@
 title: Contributing
 description: How to add or modify plugins in Workaholic
 category: developer
-modified_at: 2026-01-31T19:07:11+09:00
-commit_hash: 06ebf65
+modified_at: 2026-02-01T11:00:00+09:00
+commit_hash: 277b63b
 ---
 
 [English](contributing.md) | [日本語](contributing_ja.md)
@@ -32,7 +32,7 @@ Use the workaholic workflow to develop workaholic itself:
 
 ```mermaid
 flowchart LR
-    A[/ticket] --> B[/drive] --> C[/story]
+    A["/ticket"] --> B["/drive"] --> C["/story"]
 ```
 
 1. **Create a ticket**: `/ticket add new validation rule` - automatically creates a topic branch if on main

@@ -2,8 +2,8 @@
 title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
-last_updated: 2026-01-31
-commit_hash: 06ebf65
+last_updated: 2026-02-01
+commit_hash: 277b63b
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -32,17 +32,17 @@ driveオペレーションは`.workaholic/tickets/todo/`からチケットを順
 
 ## abandon
 
-実装の変更をコミットせずにチケットを失敗と判定し、failディレクトリに移動。
+実装の変更をコミットせずにチケットを放棄と判定し、abandonedディレクトリに移動。
 
 ### 定義
 
-abandonは`/drive`ワークフロー中に開発者がチケット実装を完了した際に提示される4つの承認オプションの1つです。選択された場合、abandonはコミットされていない実装変更を破棄し（`git restore .`経由）、Failure Analysisセクションをチケットに追加することを要求し、試みられたことと失敗した理由を記録します。チケットを`.workaholic/tickets/fail/`に移動し、分析を保存するためにチケット移動をコミットして、次のチケットに進みます。これは根本的に欠陥のあるか実装が実行不可能であることが判明したチケットを処理する上品な方法を提供します。
+abandonは`/drive`ワークフロー中に開発者がチケット実装を完了した際に提示される4つの承認オプションの1つです。選択された場合、abandonはコミットされていない実装変更を破棄し（`git restore .`経由）、Failure Analysisセクションをチケットに追加することを要求し、試みられたことと失敗した理由を記録します。チケットを`.workaholic/tickets/abandoned/`に移動し、分析を保存するためにチケット移動をコミットして、次のチケットに進みます。これは根本的に欠陥のあるか実装が実行不可能であることが判明したチケットを処理する上品な方法を提供します。
 
 ### 使用パターン
 
-- **ディレクトリ名**: `.workaholic/tickets/fail/`
-- **ファイル名**: 放棄されたチケットはfailディレクトリで元の名前を保持
-- **コード参照**: 「承認中に「Abandon」を選択」、「チケットはfailディレクトリで放棄された」
+- **ディレクトリ名**: `.workaholic/tickets/abandoned/`
+- **ファイル名**: 放棄されたチケットはabandonedディレクトリで元の名前を保持
+- **コード参照**: 「承認中に「Abandon」を選択」、「チケットは放棄された」
 
 ### 関連用語
 
@@ -203,9 +203,9 @@ approvalはチケットが実装されてからコミットされる前に発生
 - **Approve**: 実装をコミットして次のチケットに進む
 - **Approve and stop**: 実装をコミットしてdrivingを停止
 - **Needs changes**: 修正を要求（コミットされていない変更を破棄し、チケットをtodoに保持し、フィードバックを要求）
-- **Abandon**: 実装変更を破棄し、Failure Analysisを追加してチケットをfailディレクトリに移動し、次のチケットに進む
+- **Abandon**: 実装変更を破棄し、Failure Analysisを追加してチケットをabandonedディレクトリに移動し、次のチケットに進む
 
-このゲートは、正常に実装されたチケットのみがhistoryにコミットされることを保証しますが、失敗した試みは分析とともにfailディレクトリに保存されて将来参考にできます。
+このゲートは、正常に実装されたチケットのみがhistoryにコミットされることを保証しますが、失敗した試みは分析とともにabandonedディレクトリに保存されて将来参考にできます。
 
 ### 使用パターン
 

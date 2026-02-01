@@ -2,8 +2,8 @@
 title: File Conventions
 description: Naming patterns and directory structures used in Workaholic
 category: developer
-last_updated: 2026-01-29
-commit_hash: 70fa15c
+last_updated: 2026-02-01
+commit_hash: 277b63b
 ---
 
 [English](file-conventions.md) | [日本語](file-conventions_ja.md)
@@ -120,19 +120,19 @@ iceboxは現在作業中ではないが、将来の検討のために保存す�
 
 - icebox、ticket
 
-## fail
+## abandoned
 
 失敗分析を含む放棄された作業項目の保管場所。
 
 ### 定義
 
-failディレクトリは`/drive`ワークフロー中に放棄されたチケットを保持します。実装アプローチが実行不可能であることが判明したか、チケットが根本的に欠陥があったためです。icebox（未完了のチケットを延期する）とは異なり、failディレクトリはFailure Analysisが添付された試みられた作業を保存します。`.workaholic/tickets/fail/`内の各放棄されたチケットは、何が試みられたか、なぜそれが失敗したか、これが将来の試みに何の見方を提供するかを説明する履歴レコードです。これにより、重複した失敗した試みを防ぎ、学習をgit履歴に記録します。
+abandonedディレクトリは`/drive`ワークフロー中に放棄されたチケットを保持します。実装アプローチが実行不可能であることが判明したか、チケットが根本的に欠陥があったためです。icebox（未完了のチケットを延期する）とは異なり、abandonedディレクトリはFailure Analysisが添付された試みられた作業を保存します。`.workaholic/tickets/abandoned/`内の各放棄されたチケットは、何が試みられたか、なぜそれが失敗したか、これが将来の試みに何の見方を提供するかを説明する履歴レコードです。これにより、重複した失敗した試みを防ぎ、学習をgit履歴に記録します。
 
 ### 使用パターン
 
-- **ディレクトリ名**: `.workaholic/tickets/fail/`
+- **ディレクトリ名**: `.workaholic/tickets/abandoned/`
 - **ファイル名**: 放棄されたチケットはFailure Analysisが追加された元の名前を保持
-- **コード参照**: 「failに移動」、「failの放棄されたチケットを確認」
+- **コード参照**: 「abandonedに移動」、「放棄されたチケットを確認」
 
 ### 関連用語
 

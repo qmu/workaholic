@@ -70,7 +70,7 @@ Refs #<issue-number>
 
 ## ストーリー
 
-- [drive-20260131-223656_ja.md](drive-20260131-223656_ja.md) - 体系的な用語統一とドキュメント明確化: fail/ ディレクトリを abandoned/ にリネーム、branch 命名を drive-/trip- プレフィックスのみに標準化、hook エラーメッセージが create-ticket skill を指す、archive script 呼び出しガイダンス明確化 - 4チケット、8コミット
+- [drive-20260131-223656_ja.md](drive-20260131-223656_ja.md) - ワークフロー生活の質改善: fail/ ディレクトリを UI アライメント用に abandoned/ にリネーム、branch 命名を drive-/trip- のみに標準化、hook エラーメッセージが Claude を create-ticket skill へ導く、archive script 呼び出しを幻覚化防止のため明示的に - 4チケット、13コミット
 - [feat-20260131-125844_ja.md](feat-20260131-125844_ja.md) - Skill モジュール化と並列最適化による architectural 改善: skill-to-skill nesting、drive-workflow を 4 つの skill に分割、isolated context 用の driver agent、performance-analyst を Phase 1 並列実行に移動、generate-changelog を統合、intelligent ticket prioritization、structured commit message、selective option 強制、dependency graph 再構成 - 19チケット、36コミット
 - [feat-20260129-023941_ja.md](feat-20260129-023941_ja.md) - コアインフラストラクチャ改善とリリース自動化: 実用的なリリース準備評価、/ticket command への並列ソース検出、ticket 検証 hook、README での SDD 用語の明確化、GitHub Actions リリース workflow、パス参照の修正、Mermaid diagram レンダリング改善 - 10チケット、21コミット
 - [feat-20260128-220712_ja.md](feat-20260128-220712_ja.md) - TiDD 哲学フレームワーク、command 単純化、検出ツール：TiDD 哲学で README を書き直し、/report を /story にリネーム、ディレクトリ構造をフラット化、branch 作成を /ticket に統合、history-discoverer subagent を追加、command-flows specification を作成、approval loop を単純化 - 8チケット、15コミット

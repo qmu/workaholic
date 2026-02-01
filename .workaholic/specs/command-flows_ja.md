@@ -2,8 +2,8 @@
 title: Command Execution Flows
 description: How commands invoke agents and skills
 category: developer
-modified_at: 2026-01-31T23:38:00+09:00
-commit_hash: dbe00c7
+modified_at: 2026-02-01T11:00:00+09:00
+commit_hash: 277b63b
 ---
 
 [English](command-flows.md) | [日本語](command-flows_ja.md)
@@ -115,10 +115,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     A[ユーザー: /story] --> B[ブランチ確認]
-    B --> C{todo/にチケット?}
-    C -->|Yes| D[iceboxに移動 + コミット]
-    C -->|No| E[Phase 1: 並列エージェント]
-    D --> E
+    B --> E[Phase 1: 並列エージェント]
 
     subgraph Phase1[Phase 1 - 並列]
         F[changelog-writer]
@@ -177,3 +174,4 @@ flowchart TD
 - Phase 2はrelease-readinessとperformance-analyst出力に依存（順次実行）
 - ストーリーファイルがPR説明文の本文になります
 - 完了時のPR URL表示は必須です
+- 残りのチケットをiceboxに移動したい場合はユーザーが手動で行うことができます。/storyは自動移行しません

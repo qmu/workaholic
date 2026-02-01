@@ -2,8 +2,8 @@
 title: Command Execution Flows
 description: How commands invoke agents and skills
 category: developer
-modified_at: 2026-01-31T23:38:00+09:00
-commit_hash: dbe00c7
+modified_at: 2026-02-01T11:00:00+09:00
+commit_hash: 277b63b
 ---
 
 [English](command-flows.md) | [日本語](command-flows_ja.md)
@@ -115,10 +115,7 @@ Generates comprehensive documentation and creates/updates a pull request.
 ```mermaid
 flowchart TD
     A[User: /story] --> B[Check branch]
-    B --> C{Tickets in todo?}
-    C -->|Yes| D[Move to icebox + commit]
-    C -->|No| E[Phase 1: Parallel agents]
-    D --> E
+    B --> E[Phase 1: Parallel agents]
 
     subgraph Phase1[Phase 1 - Parallel]
         F[changelog-writer]
@@ -177,3 +174,4 @@ flowchart TD
 - Phase 2 depends on release-readiness and performance-analyst outputs (sequential)
 - Story file becomes the PR description body
 - PR URL display is mandatory at completion
+- Users can manually move remaining tickets to icebox if desired; /story does not auto-migrate

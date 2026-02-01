@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-01-31T19:07:11+09:00
-commit_hash: 06ebf65
+modified_at: 2026-02-01T11:00:00+09:00
+commit_hash: 277b63b
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -312,8 +312,7 @@ Workaholic enforces comprehensive documentation through a parallel subagent arch
 
 ```mermaid
 flowchart TD
-    A["/story command"] --> B[Move remaining tickets to icebox]
-    B --> C[Phase 1: Invoke 5 subagents in parallel]
+    A["/story command"] --> C[Phase 1: Invoke 5 subagents in parallel]
 
     subgraph Phase 1 - Parallel
         D[changelog-writer]

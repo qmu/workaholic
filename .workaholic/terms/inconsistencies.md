@@ -2,8 +2,8 @@
 title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
-last_updated: 2026-01-28
-commit_hash: fe3d558
+last_updated: 2026-02-01
+commit_hash: 277b63b
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)

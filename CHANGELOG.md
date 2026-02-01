@@ -4,6 +4,11 @@
 
 ### Changed
 
+- Stop /story from moving todo tickets to icebox ([277b63b](https://github.com/qmu/workaholic/commit/277b63b)) - [ticket](.workaholic/tickets/archive/drive-20260131-223656/20260201103205-stop-story-moving-tickets-to-icebox.md)
+- Halt workflow when ticket frontmatter update fails ([1b2de3a](https://github.com/qmu/workaholic/commit/1b2de3a)) - [ticket](.workaholic/tickets/archive/drive-20260131-223656/20260201101950-halt-on-ticket-update-failure.md)
+- Improve slash command intent recognition ([bfd361c](https://github.com/qmu/workaholic/commit/bfd361c)) - [ticket](.workaholic/tickets/archive/drive-20260131-223656/20260201101854-improve-slash-command-intent-recognition.md)
+- Reject Anthropic email in ticket author field ([d6fab82](https://github.com/qmu/workaholic/commit/d6fab82)) - [ticket](.workaholic/tickets/archive/drive-20260131-223656/20260201100737-reject-anthropic-email-in-ticket-author.md)
+- Enforce Changes section formatting rules ([d806b29](https://github.com/qmu/workaholic/commit/d806b29)) - [ticket](.workaholic/tickets/archive/drive-20260131-223656/20260131234535-enforce-changes-section-formatting-rules.md)
 - Rename fail/ Directory to abandoned/ ([06f8791](https://github.com/qmu/workaholic/commit/06f8791d6289d09a9e763f2b33d13ebb7e43a067)) - [ticket](.workaholic/tickets/archive/drive-20260131-223656/20260131223739-rename-fail-directory-to-abandoned.md)
 - Standardize Branch Naming to drive-/trip- Prefixes Only ([a69b473](https://github.com/qmu/workaholic/commit/a69b4733dc9f62c0b9aa63905b854de6780bbce2)) - [ticket](.workaholic/tickets/archive/drive-20260131-223656/20260131223900-standardize-branch-naming-prefixes.md)
 - Point Hook Errors to create-ticket Skill ([d5a432a](https://github.com/qmu/workaholic/commit/d5a432a6e9dbb85729c515a70131d4e7b20af4cd)) - [ticket](.workaholic/tickets/archive/drive-20260131-223656/20260131224411-add-frontmatter-example-to-hook-error.md)

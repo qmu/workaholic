@@ -92,7 +92,8 @@ Based on user's selection:
    bash plugins/core/skills/archive-ticket/sh/archive.sh \
      "<ticket-path>" "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
    ```
-4. Stop driving, report remaining tickets
+4. **Break out of the entire continuous loop** - skip Phase 3 re-check, go directly to Phase 4 completion
+5. Report session summary and any remaining tickets in queue
 
 **"Needs revision"**:
 1. Follow **drive-approval** skill (Section 3) (prompt for feedback, append Discussion section)
@@ -103,12 +104,37 @@ Based on user's selection:
 1. Follow **drive-approval** skill (Section 4) (discard changes, write failure analysis)
 2. Continue to next ticket
 
-### Phase 3: Completion
+### Phase 3: Re-check and Continue
 
-After all tickets are implemented:
-- Summarize what was done
-- List all commits created
+After all tickets from the navigator's list are processed:
+
+1. **Re-check todo directory**:
+   ```bash
+   ls -1 .workaholic/tickets/todo/*.md 2>/dev/null
+   ```
+
+2. **If new tickets found**:
+   - Inform user: "Found N new ticket(s) added during this session."
+   - Re-invoke drive-navigator with mode = "normal"
+   - Handle navigator response (same as Phase 1)
+   - Continue to Phase 2 with the new ticket list
+   - Repeat until todo is empty or user stops
+
+3. **If no new tickets**:
+   - Check icebox (existing behavior from navigator)
+   - If user declines icebox or icebox empty, proceed to Phase 4
+
+### Phase 4: Completion
+
+After todo is truly empty (and user declines icebox):
+- Summarize what was done across all batches
+- List all commits created during the session
 - Inform user that all tickets have been processed
+
+**Session-wide tracking**: Maintain counters across multiple navigator batches:
+- Total tickets implemented
+- Total commits created
+- List of all commit hashes
 
 ## Critical Rules
 

@@ -38,11 +38,12 @@ Implementation complete. Changes made:
 ```json
 {
   "questions": [{
-    "question": "Do you approve this implementation?",
+    "question": "How would you like to proceed with this ticket?",
     "header": "Approval",
     "options": [
-      {"label": "Approve", "description": "Proceed to commit and continue to next ticket"},
-      {"label": "Approve and stop", "description": "Commit this ticket but stop driving"},
+      {"label": "Approve", "description": "Commit and archive this ticket, continue to next"},
+      {"label": "Approve and stop", "description": "Commit and archive this ticket, then stop driving"},
+      {"label": "Needs revision", "description": "Provide feedback, update ticket, revise implementation"},
       {"label": "Abandon", "description": "Write failure analysis, discard changes, continue to next"}
     ],
     "multiSelect": false
@@ -64,6 +65,7 @@ Implementation complete. Changes made:
     "<ticket-path>" "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
   ```
   Stop driving.
+- **Needs revision**: Follow handle-revision skill, then re-implement and return to approval
 - **Abandon**: Follow handle-abandon skill, continue to next
 
 **Do NOT proceed to commit until user explicitly approves.**

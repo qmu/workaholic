@@ -3,9 +3,9 @@ created_at: 2026-02-02T14:06:45+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 5ff1566
+category: Added
 ---
 
 # Add Discussion Section to Ticket When Drive Is Not Approved
@@ -118,3 +118,7 @@ Add `handle-revision` to the skills list in `drive.md` frontmatter.
 - **Open-ended input**: Unlike other approval options that use selectable choices, revision feedback requires free-form text input
 - **Loop protection**: Consider adding a maximum revision count to prevent infinite revision loops (optional, could be future enhancement)
 - **Preserving context**: By recording the discussion in the ticket, future readers understand why implementation differs from original spec
+
+## Final Report
+
+Added "Needs revision" option to the drive approval flow. Created handle-revision skill that prompts for feedback and appends a Discussion section to the ticket before re-implementation. Updated drive.md to handle the new option and loop back to approval after revision.

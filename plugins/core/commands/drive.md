@@ -6,6 +6,7 @@ skills:
   - request-approval
   - write-final-report
   - handle-abandon
+  - handle-revision
   - archive-ticket
 ---
 
@@ -94,6 +95,11 @@ Based on user's selection:
      "<ticket-path>" "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
    ```
 4. Stop driving, report remaining tickets
+
+**"Needs revision"**:
+1. Follow **handle-revision** skill (prompt for feedback, append Discussion section)
+2. Re-implement changes based on feedback
+3. Return to Step 2.2 (request approval again)
 
 **"Abandon"**:
 1. Follow **handle-abandon** skill (discard changes, write failure analysis)

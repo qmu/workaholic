@@ -5,6 +5,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash
 skills:
   - create-ticket
   - gather-ticket-metadata
+  - create-branch
 ---
 
 # Ticket Organizer
@@ -19,6 +20,16 @@ You will receive:
 - Target directory (`todo` or `icebox`)
 
 ## Instructions
+
+### 0. Check Branch
+
+Check current branch: `git branch --show-current`
+
+If on `main` or `master` (not a topic branch):
+1. Create branch: `git checkout -b "drive-$(date +%Y%m%d-%H%M%S)"`
+2. Store branch name for output JSON
+
+Topic branch pattern: `drive-*`, `trip-*`
 
 ### 1. Parse Request
 
@@ -95,6 +106,7 @@ Return JSON:
 ```json
 {
   "status": "success",
+  "branch_created": "drive-20260202-181910",
   "tickets": [
     {
       "path": ".workaholic/tickets/todo/20260131-feature.md",
@@ -104,6 +116,8 @@ Return JSON:
   ]
 }
 ```
+
+Note: `branch_created` is optional - only included if a new branch was created in step 0.
 
 Or if duplicate:
 

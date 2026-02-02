@@ -187,7 +187,6 @@ flowchart LR
 
     subgraph エージェント
         dn[drive-navigator]
-        dr[driver]
     end
 
     subgraph スキル
@@ -201,9 +200,7 @@ flowchart LR
     end
 
     drive --> dn
-    drive --> dr
-
-    dr --> dw & at
+    drive --> dw & at
 
     %% Skill-to-skill
     dw --> ra & wfr & ha & fcm

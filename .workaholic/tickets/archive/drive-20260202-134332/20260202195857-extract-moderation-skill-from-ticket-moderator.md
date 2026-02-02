@@ -3,9 +3,9 @@ created_at: 2026-02-02T19:58:57+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: dc23546
+category: Changed
 ---
 
 # Extract moderation skill from ticket-moderator subagent
@@ -112,3 +112,11 @@ Ensure the skill is properly loaded by the agent by checking:
 - **Skill content expansion**: The current agent has minimal moderation logic. The skill should expand on overlap percentage calculation, provide examples of duplicate vs. merge vs. related categorizations, and include edge cases.
 - **No shell script needed**: Unlike discover-history which has a search script, moderation is pure analysis using Read/Glob/Grep tools.
 - **Consistency with siblings**: After this change, all three parallel discovery agents (history-discoverer, source-discoverer, ticket-moderator) will follow the same pattern: thin agent + comprehensive skill.
+
+## Final Report
+
+Extracted moderation logic from ticket-moderator agent into a new moderate-ticket skill:
+
+- Created `plugins/core/skills/moderate-ticket/SKILL.md` (122 lines) with comprehensive guidelines for overlap analysis, category definitions (duplicate/merge/split/related), overlap percentage calculation methodology, and output schema with examples
+- Thinned `plugins/core/agents/ticket-moderator.md` from 51 to 47 lines by adding `skills: [moderate-ticket]` and delegating detailed evaluation criteria to the skill
+- Achieved consistency with sibling agents: all three (history-discoverer, source-discoverer, ticket-moderator) now follow the thin-agent + comprehensive-skill pattern

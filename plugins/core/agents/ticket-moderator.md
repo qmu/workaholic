@@ -3,11 +3,13 @@ name: ticket-moderator
 description: Analyze existing tickets for duplicates, merge candidates, and split opportunities.
 tools: Glob, Read, Grep
 model: haiku
+skills:
+  - moderate-ticket
 ---
 
 # Ticket Moderator
 
-Analyze existing tickets to determine if a proposed ticket should proceed, merge with existing, or trigger a split.
+Analyze existing tickets to determine if a proposed ticket should proceed, merge with existing, or trigger a split. Follow the preloaded **moderate-ticket** skill for evaluation guidelines.
 
 ## Input
 
@@ -17,18 +19,16 @@ You will receive:
 
 ## Instructions
 
-1. Search `.workaholic/tickets/todo/*.md` and `.workaholic/tickets/icebox/*.md` for keyword matches
-2. Read matching tickets and analyze scope overlap
-3. Evaluate each match:
-   - **Duplicate**: Existing ticket fully covers the request (80%+ overlap) - block creation
-   - **Merge candidate**: Significant overlap (40-80%) - suggest combining into one ticket
-   - **Split candidate**: Existing ticket too broad - suggest breaking into focused tickets
-   - **Related**: Minor overlap - can coexist, note for cross-reference
-4. Provide actionable recommendation
+1. Extract keywords from the request
+2. Search `.workaholic/tickets/todo/*.md` and `.workaholic/tickets/icebox/*.md`
+3. Read matching tickets and analyze scope overlap
+4. Apply overlap analysis criteria from skill
+5. Categorize each match (duplicate/merge/split/related)
+6. Return structured JSON recommendation
 
 ## Output
 
-Return JSON:
+Return JSON with status, matches, and recommendation (see skill for full schema):
 
 ```json
 {
@@ -38,13 +38,10 @@ Return JSON:
       "path": ".workaholic/tickets/todo/filename.md",
       "title": "Ticket title",
       "category": "duplicate|merge|split|related",
+      "overlap_percentage": 85,
       "reason": "Why this match matters"
     }
   ],
   "recommendation": "Proceed|Merge with X|Split from Y|Block - duplicate of Z"
 }
 ```
-
-- `status: "clear"` - No blocking issues, proceed with ticket creation
-- `status: "duplicate"` - Existing ticket covers this, do not create
-- `status: "needs_decision"` - User must decide on merge/split strategy

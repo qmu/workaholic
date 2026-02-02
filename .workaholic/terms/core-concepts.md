@@ -2,8 +2,8 @@
 title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
-last_updated: 2026-02-01
-commit_hash: 277b63b
+last_updated: 2026-02-02
+commit_hash: 3c87e62
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -76,6 +76,7 @@ Utility skills (with bundled shell scripts):
 - **handle-abandon**: Handles abandoned implementations with failure analysis
 - **request-approval**: User approval flow with selectable options
 - **write-final-report**: Final report and discovered insights documentation
+- **drive-workflow**: Implementation workflow orchestration for processing tickets
 
 Content skills (instructions and templates):
 - **write-story**: Story content structure, formatting, metrics calculation, and translation requirements
@@ -84,7 +85,6 @@ Content skills (instructions and templates):
 - **write-changelog**: Changelog formatting and entry guidelines
 - **analyze-performance**: Performance evaluation framework
 - **create-ticket**: Ticket file structure, frontmatter, related history, and creation workflow
-- **drive-workflow**: Implementation workflow orchestration for processing tickets
 - **translate**: Translation policies and `.workaholic/` i18n enforcement
 
 ### Related Terms
@@ -120,18 +120,36 @@ Agents (also called subagents) are AI subprocesses that run with specific prompt
 Common agent types:
 - **Writer agents**: Generate documentation (spec-writer, terms-writer, story-writer, changelog-writer)
 - **Analyst agents**: Evaluate and analyze (performance-analyst, release-readiness)
-- **Creator agents**: Perform external operations (pr-creator)
+- **Creator agents**: Perform external operations (pr-creator, ticket-organizer)
 - **Search agents**: Find and analyze related work (history-discoverer, source-discoverer)
 
 ### Usage Patterns
 
 - **Directory names**: `plugins/<name>/agents/`
-- **File names**: `performance-analyst.md`, `release-readiness.md`, `spec-writer.md`, `story-writer.md`, `changelog-writer.md`, `pr-creator.md`, `terms-writer.md`, `history-discoverer.md`, `source-discoverer.md`
+- **File names**: `performance-analyst.md`, `release-readiness.md`, `spec-writer.md`, `story-writer.md`, `changelog-writer.md`, `pr-creator.md`, `ticket-organizer.md`, `history-discoverer.md`, `source-discoverer.md`
 - **Code references**: "Invoke the story-writer agent", "The changelog-writer agent handles...", "Spawn the agent via Task tool"
 
 ### Related Terms
 
 - plugin, command, skill, orchestrator
+
+## ticket-organizer
+
+A subagent that discovers context and writes implementation tickets during the `/ticket` command workflow.
+
+### Definition
+
+The ticket-organizer subagent handles the complete ticket creation workflow. It receives a feature description and target directory, then performs three discovery tasks in parallel: searching archived tickets for related history and patterns, exploring source code for context, and checking for duplicate tickets. Based on these findings, it writes a new ticket file with proper structure, related history links, and frontmatter. The subagent preloads create-ticket, discover-history, and discover-source skills to access comprehensive guidelines for each discovery phase.
+
+### Usage Patterns
+
+- **Directory names**: `plugins/<name>/agents/`
+- **File names**: `ticket-organizer.md`
+- **Code references**: "Invoke the ticket-organizer agent", "The ticket-organizer discovers context and writes tickets"
+
+### Related Terms
+
+- command, skill, ticket, create-ticket, discover-history, discover-source
 
 ## orchestrator
 
@@ -309,7 +327,7 @@ The isolated conversation context in which a subagent executes.
 
 ### Definition
 
-A context window is the conversation memory available to an agent when it executes. When agents run in isolated contexts, they preserve the main conversation's context window for orchestration while handling implementation details in their own dedicated spaces. This prevents context pollution from extensive file reads or complex analysis. The driver agent, for example, runs in its own context window to implement a single ticket without bloating the main /drive command's conversation space.
+A context window is the conversation memory available to an agent when it executes. When agents run in isolated contexts, they preserve the main conversation's context window for orchestration while handling implementation details in their own dedicated spaces. This prevents context pollution from extensive file reads or complex analysis.
 
 ### Usage Patterns
 
@@ -319,4 +337,16 @@ A context window is the conversation memory available to an agent when it execut
 
 ### Related Terms
 
-- agent, driver, orchestrator
+- agent, orchestrator
+
+## driver (Deprecated)
+
+Previous intermediate agent for implementing individual tickets during `/drive` workflow. See `drive-workflow` skill for current implementation pattern.
+
+### Definition
+
+The driver subagent was previously invoked by the `/drive` command to implement individual tickets in an isolated context. This pattern was removed to improve visibility and preserve modification history in the main conversation context. The `/drive` command now directly invokes the drive-workflow skill inline, eliminating context isolation issues and improving debugging capabilities.
+
+### Related Terms
+
+- drive, drive-workflow, agent

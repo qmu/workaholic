@@ -2,8 +2,8 @@
 title: Command Execution Flows
 description: How commands invoke agents and skills
 category: developer
-modified_at: 2026-02-01T11:00:00+09:00
-commit_hash: 277b63b
+modified_at: 2026-02-02T13:32:50+09:00
+commit_hash: 3c87e62
 ---
 
 [English](command-flows.md) | [日本語](command-flows_ja.md)
@@ -70,39 +70,44 @@ flowchart TD
 
 ## /drive
 
-Implements queued tickets one by one with user approval at each step.
+Implements queued tickets one by one with user approval at each step. The command directly executes the drive-workflow skill, preserving implementation context in the main conversation.
 
 ```mermaid
 flowchart TD
-    A[User: /drive] --> B[List tickets in todo/]
-    B --> C{Tickets found?}
-    C -->|No| D[Report: no tickets]
-    C -->|Yes| E[For each ticket]
-    E --> F[drive-workflow skill]
-    F --> G[Read ticket]
-    G --> H[Implement changes]
-    H --> I[Ask for approval]
-    I -->|Approve| J[Update effort + Final Report]
-    I -->|Abandon| K[Discard changes]
-    K --> L[Write Failure Analysis]
-    L --> M[Move to abandoned/]
-    J --> N[archive-ticket skill]
-    N --> O[Archive + Commit]
-    O --> P{More tickets?}
-    M --> P
-    P -->|Yes| E
-    P -->|No| Q[Report summary]
+    A[User: /drive] --> B[Check branch]
+    B --> C[drive-navigator agent]
+    C --> D[List tickets in todo/]
+    D --> E{Tickets found?}
+    E -->|No| F[Report: no tickets]
+    E -->|Yes| G[For each ticket]
+    G --> H[drive-workflow skill]
+    H --> I[Read ticket]
+    I --> J[Implement changes]
+    J --> K[Ask for approval]
+    K -->|Approve| L[Update effort + Final Report]
+    K -->|Abandon| M[Discard changes]
+    M --> N[Write Failure Analysis]
+    N --> O[Move to abandoned/]
+    L --> P[archive-ticket skill]
+    P --> Q[Archive + Commit]
+    Q --> R{More tickets?}
+    O --> R
+    R -->|Yes| G
+    R -->|No| S[Report summary]
 ```
 
 ### Components
 
 | Component | Type | Purpose |
 |-----------|------|---------|
+| drive-navigator | Agent (haiku) | Lists tickets in todo/ directory |
 | drive-workflow | Skill | Step-by-step implementation workflow |
 | archive-ticket | Skill | Moves ticket to archive, updates changelog, commits |
 
 ### Notes
 
+- The drive command directly implements using the drive-workflow skill (no driver subagent)
+- Implementation context is preserved in the main conversation for better visibility and debugging
 - Each ticket gets its own commit
 - User must approve each implementation before commit
 - "Abandon" preserves failure analysis for future reference

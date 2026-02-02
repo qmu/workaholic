@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-02-01T11:00:00+09:00
-commit_hash: 277b63b
+modified_at: 2026-02-02T13:32:50+09:00
+commit_hash: 3c87e62
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -53,6 +53,7 @@ plugins/
       spec-writer.md          # .workaholic/specs/を更新
       story-writer.md         # PR用のブランチストーリーを生成
       terms-writer.md         # .workaholic/terms/を更新
+      ticket-organizer.md     # チケット作成の完全ワークフロー：発見・重複チェック・作成
     commands/
       drive.md           # /drive コマンド
       story.md           # /story コマンド
@@ -145,6 +146,7 @@ plugins/
 - **spec-writer**: 現在のコードベースの状態を反映するように`.workaholic/specs/`ドキュメントを更新
 - **story-writer**: PR内容の単一の真実の情報源として機能する`.workaholic/stories/`にブランチストーリーを生成、11のセクション（Overview、Motivation、Journey（Topic Treeフローチャートを含む）、Changes、Outcome、Historical Analysis、Concerns、Ideas、Performance、Release Preparation、Notes）で構成
 - **terms-writer**: 一貫した用語定義を維持するために`.workaholic/terms/`を更新
+- **ticket-organizer**: チケット作成の完全ワークフロー：履歴とソースコンテキストを発見、重複・重なりをチェック、実装チケットを作成
 
 ## コマンド依存関係
 
@@ -159,8 +161,7 @@ flowchart LR
     end
 
     subgraph エージェント
-        hd[history-discoverer]
-        sd[source-discoverer]
+        to[ticket-organizer]
     end
 
     subgraph スキル
@@ -171,11 +172,9 @@ flowchart LR
     end
 
     ticket --> cb
-    ticket --> hd & sd
-    ticket --> ct
+    ticket --> to
 
-    hd --> dh
-    sd --> ds
+    to --> ct & dh & ds
 ```
 
 ### /drive 依存関係
@@ -188,7 +187,6 @@ flowchart LR
 
     subgraph エージェント
         dn[drive-navigator]
-        dr[driver]
     end
 
     subgraph スキル
@@ -202,12 +200,10 @@ flowchart LR
     end
 
     drive --> dn
-    drive --> dr
-
-    dr --> dw & at
+    drive --> dw & at & ra & wfr & ha
 
     %% Skill-to-skill
-    dw --> ra & wfr & ha & fcm
+    dw --> fcm
     at --> fcm
     wfr --> utf
 ```

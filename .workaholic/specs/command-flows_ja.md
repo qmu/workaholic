@@ -2,8 +2,8 @@
 title: Command Execution Flows
 description: How commands invoke agents and skills
 category: developer
-modified_at: 2026-02-01T11:00:00+09:00
-commit_hash: 277b63b
+modified_at: 2026-02-02T13:32:50+09:00
+commit_hash: 3c87e62
 ---
 
 [English](command-flows.md) | [日本語](command-flows_ja.md)
@@ -70,39 +70,44 @@ flowchart TD
 
 ## /drive
 
-キューに入っているチケットを一つずつ実装し、各ステップでユーザー承認を得ます。
+キューに入っているチケットを一つずつ実装し、各ステップでユーザー承認を得ます。コマンドはdrive-workflowスキルを直接実行し、実装コンテキストをメイン会話に保存します。
 
 ```mermaid
 flowchart TD
-    A[ユーザー: /drive] --> B[todo/のチケットをリスト]
-    B --> C{チケットあり?}
-    C -->|No| D[レポート: チケットなし]
-    C -->|Yes| E[各チケットに対して]
-    E --> F[drive-workflow スキル]
-    F --> G[チケットを読む]
-    G --> H[変更を実装]
-    H --> I[承認を確認]
-    I -->|Approve| J[effort更新 + Final Report]
-    I -->|Abandon| K[変更を破棄]
-    K --> L[Failure Analysisを作成]
-    L --> M[abandoned/に移動]
-    J --> N[archive-ticket スキル]
-    N --> O[アーカイブ + コミット]
-    O --> P{さらにチケット?}
-    M --> P
-    P -->|Yes| E
-    P -->|No| Q[サマリーをレポート]
+    A[ユーザー: /drive] --> B[ブランチ確認]
+    B --> C[drive-navigator エージェント]
+    C --> D[todo/のチケットをリスト]
+    D --> E{チケットあり?}
+    E -->|No| F[レポート: チケットなし]
+    E -->|Yes| G[各チケットに対して]
+    G --> H[drive-workflow スキル]
+    H --> I[チケットを読む]
+    I --> J[変更を実装]
+    J --> K[承認を確認]
+    K -->|Approve| L[effort更新 + Final Report]
+    K -->|Abandon| M[変更を破棄]
+    M --> N[Failure Analysisを作成]
+    N --> O[abandoned/に移動]
+    L --> P[archive-ticket スキル]
+    P --> Q[アーカイブ + コミット]
+    Q --> R{さらにチケット?}
+    O --> R
+    R -->|Yes| G
+    R -->|No| S[サマリーをレポート]
 ```
 
 ### コンポーネント
 
 | コンポーネント | タイプ | 目的 |
 |---------------|--------|------|
+| drive-navigator | エージェント (haiku) | todo/ディレクトリのチケットをリスト |
 | drive-workflow | スキル | ステップバイステップの実装ワークフロー |
 | archive-ticket | スキル | チケットをアーカイブに移動、changelog更新、コミット |
 
 ### 備考
 
+- driveコマンドはdrive-workflowスキルを直接使用して実装（driverサブエージェントなし）
+- 実装コンテキストはメイン会話に保存されるため、可視性とデバッグ性が向上
 - 各チケットは独自のコミットを取得
 - ユーザーはコミット前に各実装を承認する必要があります
 - 「Abandon」は将来の参照のために失敗分析を保存します

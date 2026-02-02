@@ -1,5 +1,16 @@
 # Changelog
 
+## drive-20260201-112920
+
+### Changed
+
+- Fix release to default to patch version bump ([74e865f](https://github.com/qmu/workaholic/commit/74e865f)) - [ticket](.workaholic/tickets/archive/drive-20260201-112920/20260201112308-fix-release-default-to-patch.md)
+- Refactor /ticket command to thin alias for ticket-organizer ([7df462c](https://github.com/qmu/workaholic/commit/7df462c)) - [ticket](.workaholic/tickets/archive/drive-20260201-112920/20260202125814-ticket-command-alias-refactor.md)
+
+### Removed
+
+- Remove driver subagent from drive command ([3c87e62](https://github.com/qmu/workaholic/commit/3c87e62)) - [ticket](.workaholic/tickets/archive/drive-20260201-112920/20260202125850-remove-driver-subagent.md)
+
 ## drive-20260131-223656
 
 ### Changed

@@ -6,16 +6,16 @@ user-invocable: false
 
 # Request Approval
 
-User approval flow for implementation review. Used by `/drive` command after driver subagent returns implementation summary.
+User approval flow for implementation review. Used by `/drive` command after completing ticket implementation.
 
-**CRITICAL**: This approval MUST happen at the `/drive` command level, NOT inside subagents. Subagents run in isolated contexts where `AskUserQuestion` does not surface to the user.
+**CRITICAL**: This approval MUST happen at the `/drive` command level to ensure proper user interaction.
 
 ## When to Use
 
-After receiving `status: "pending_approval"` from driver subagent with:
-- `title` - Ticket title
-- `overview` - Brief summary
-- `changes` - List of changes made
+After implementing a ticket, present approval dialog with:
+- `title` - Ticket title from H1
+- `overview` - Brief summary from Overview section
+- `changes` - List of changes made during implementation
 - `ticket_path` - Path to ticket file
 
 ## Approval Prompt Format

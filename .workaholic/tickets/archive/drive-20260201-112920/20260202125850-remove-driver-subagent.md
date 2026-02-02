@@ -3,9 +3,9 @@ created_at: 2026-02-02T12:59:50+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 05480a4
+category: Removed
 ---
 
 # Remove Driver Subagent from Drive Command
@@ -106,3 +106,17 @@ Consider updating drive-workflow/SKILL.md to clarify it's now used directly by t
 3. Verify approval flow still works correctly
 4. Verify archive-ticket script runs successfully
 5. Confirm no references to driver subagent remain in codebase
+
+## Final Report
+
+Implementation followed the ticket plan:
+
+1. Added `drive-workflow` to drive.md skills frontmatter
+2. Replaced Step 2.1 "Invoke Driver" with inline implementation following drive-workflow skill
+3. Updated Step 2.2 to reference ticket H1/Overview directly instead of driver response
+4. Deleted `plugins/core/agents/driver.md`
+5. Updated `drive-workflow/SKILL.md` to clarify direct usage by drive command
+6. Updated `request-approval/SKILL.md` to remove driver subagent references
+7. Updated architecture specs (both EN/JA) to remove driver from /drive diagram
+
+The main conversation now preserves all implementation context, improving visibility and debugging.

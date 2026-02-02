@@ -1,5 +1,30 @@
 # Changelog
 
+## drive-20260202-134332
+
+### Added
+
+- Add section-reviewer subagent for story sections 5-8 ([e98021a](https://github.com/qmu/workaholic/commit/e98021a)) - [ticket](.workaholic/tickets/archive/drive-20260202-134332/20260202201519-add-section-reviewer-subagent.md)
+- Add Task tool to ticket-organizer agent ([39a7176](https://github.com/qmu/workaholic/commit/39a7176)) - [ticket](.workaholic/tickets/archive/drive-20260202-134332/20260202201502-add-task-tool-to-ticket-organizer.md)
+- Implement Continuous Drive Loop ([4b2528b](https://github.com/qmu/workaholic/commit/4b2528b)) - [ticket](.workaholic/tickets/archive/drive-20260202-134332/20260202192408-continuous-drive-loop.md)
+- Add overview-writer Subagent for Parallel Story Preparation ([4e010e1](https://github.com/qmu/workaholic/commit/4e010e1)) - [ticket](.workaholic/tickets/archive/drive-20260202-134332/20260202181348-add-overview-writer-subagent.md)
+- Add Discussion section on drive rejection ([a401083](https://github.com/qmu/workaholic/commit/a401083)) - [ticket](.workaholic/tickets/archive/drive-20260202-134332/20260202140645-add-discussion-section-on-drive-rejection.md)
+- Add parallel subagent discovery in ticket-organizer ([c812df2](https://github.com/qmu/workaholic/commit/c812df2)) - [ticket](.workaholic/tickets/archive/drive-20260202-134332/20260202135507-parallel-subagent-discovery-in-ticket-organizer.md)
+
+### Changed
+
+- Reorganize story agent hierarchy ([7189d03](https://github.com/qmu/workaholic/commit/7189d03)) - [ticket](.workaholic/tickets/archive/drive-20260202-134332/20260202200553-reorganize-story-agent-hierarchy.md)
+- Extract moderation skill from ticket-moderator subagent ([9583e2c](https://github.com/qmu/workaholic/commit/9583e2c)) - [ticket](.workaholic/tickets/archive/drive-20260202-134332/20260202195857-extract-moderation-skill-from-ticket-moderator.md)
+- Merge approval flow skills into unified drive-approval ([81a4d53](https://github.com/qmu/workaholic/commit/81a4d53)) - [ticket](.workaholic/tickets/archive/drive-20260202-134332/20260202184602-merge-approval-flow-skills.md)
+- Enhance source-discoverer for deeper codebase exploration ([058ea16](https://github.com/qmu/workaholic/commit/058ea16)) - [ticket](.workaholic/tickets/archive/drive-20260202-134332/20260202183250-enhance-source-discoverer-depth.md)
+- Configure model for ticket-organizer and child subagents ([10923af](https://github.com/qmu/workaholic/commit/10923af)) - [ticket](.workaholic/tickets/archive/drive-20260202-134332/20260202182240-configure-opus-model-for-ticket-organizer.md)
+- Gather Ticket Metadata Skill ([2fc59af](https://github.com/qmu/workaholic/commit/2fc59af)) - [ticket](.workaholic/tickets/archive/drive-20260202-134332/20260202182054-gather-ticket-metadata-skill.md)
+- Move create-branch Skill to ticket-organizer ([a1b7e93](https://github.com/qmu/workaholic/commit/a1b7e93)) - [ticket](.workaholic/tickets/archive/drive-20260202-134332/20260202181910-move-create-branch-to-ticket-organizer.md)
+
+### Removed
+
+- Remove version bump from GitHub Action ([6fe19d4](https://github.com/qmu/workaholic/commit/6fe19d4)) - [ticket](.workaholic/tickets/archive/drive-20260202-134332/20260202134528-remove-version-bump-from-story.md)
+
 ## drive-20260201-112920
 
 ### Changed

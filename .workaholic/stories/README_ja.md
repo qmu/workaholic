@@ -70,6 +70,7 @@ Refs #<issue-number>
 
 ## ストーリー
 
+- [drive-20260202-134332_ja.md](drive-20260202-134332_ja.md) - Parallel subagent orchestration と workflow 改善：subagent-to-subagent parallel invocation を有効化、3 つの parallel discovery agent を持つ ticket-organizer、7 つの documentation agent を orchestrate する story-writer、continuous drive loop、Discussion section による revision tracking、approval skill 統合 - 14チケット、31コミット
 - [drive-20260201-112920_ja.md](drive-20260201-112920_ja.md) - アーキテクチャの改善と release ワークフロー修正：/ticket command を ticket-organizer subagent を持つ thin orchestrator に簡略化、実装コンテキストを保持するために /drive から driver subagent を削除、release バージョン管理を patch バンプにデフォルト設定するように修正 - 3チケット、35コミット
 - [drive-20260131-223656_ja.md](drive-20260131-223656_ja.md) - Developer experience のための体系的な強化：command 実行と設定管理を強化する 9 つの焦点を絞った改善、defensive programming layer が Claude を正しい behavior へ導く、用語の alignment（fail-to-abandoned、drive-/trip- 標準化）、validation guard が一般的なエラーを防止 - 9チケット、22コミット
 - [feat-20260131-125844_ja.md](feat-20260131-125844_ja.md) - Skill モジュール化と並列最適化による architectural 改善: skill-to-skill nesting、drive-workflow を 4 つの skill に分割、isolated context 用の driver agent、performance-analyst を Phase 1 並列実行に移動、generate-changelog を統合、intelligent ticket prioritization、structured commit message、selective option 強制、dependency graph 再構成 - 19チケット、36コミット

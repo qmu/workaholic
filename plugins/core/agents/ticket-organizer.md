@@ -1,11 +1,12 @@
 ---
 name: ticket-organizer
 description: Discover context, check duplicates, and write implementation tickets. Runs in isolated context.
-tools: Read, Write, Edit, Glob, Grep, Bash
+tools: Read, Write, Edit, Glob, Grep, Bash, Task
+model: opus
 skills:
   - create-ticket
-  - discover-history
-  - discover-source
+  - gather-ticket-metadata
+  - create-branch
 ---
 
 # Ticket Organizer
@@ -21,6 +22,16 @@ You will receive:
 
 ## Instructions
 
+### 0. Check Branch
+
+Check current branch: `git branch --show-current`
+
+If on `main` or `master` (not a topic branch):
+1. Create branch: `git checkout -b "drive-$(date +%Y%m%d-%H%M%S)"`
+2. Store branch name for output JSON
+
+Topic branch pattern: `drive-*`, `trip-*`
+
 ### 1. Parse Request
 
 - Extract 3-5 keywords from the request
@@ -28,34 +39,37 @@ You will receive:
 
 ### 2. Parallel Discovery
 
-Run all three discovery tasks in parallel:
+Invoke ALL THREE subagents concurrently using Task tool (single message with three parallel Task calls):
 
-**2-A. History Discovery**
+**2-A. History Discovery** (via Task tool):
+```
+subagent_type: "core:history-discoverer"
+prompt: "Find related tickets for keywords: <keyword1> <keyword2> ..."
+```
+- Receives JSON: summary, tickets list, match reasons
 
-Follow preloaded **discover-history** skill:
-- Search `.workaholic/tickets/archive/` for related tickets
-- Extract patterns, decisions, and lessons learned
+**2-B. Source Discovery** (via Task tool):
+```
+subagent_type: "core:source-discoverer"
+prompt: "Find source files for: <description>"
+```
+- Receives JSON: summary, files list, code flow
 
-**2-B. Source Discovery**
+**2-C. Ticket Moderation** (via Task tool):
+```
+subagent_type: "core:ticket-moderator"
+prompt: "Analyze for duplicates/merge/split. Keywords: <keywords>. Description: <description>"
+```
+- Receives JSON: status, matches list, recommendation
 
-Follow preloaded **discover-source** skill:
-- Find related source files using keywords
-- Analyze code flow and dependencies
+Wait for all three to complete, then proceed with all JSON results.
 
-**2-C. Ticket Duplicate Check**
+### 3. Handle Moderation Result
 
-Search existing tickets for duplicates and overlaps:
-- Search `.workaholic/tickets/todo/*.md` and `.workaholic/tickets/icebox/*.md`
-- Check for:
-  - **Duplicates**: Existing ticket fully covers the request (80%+ overlap)
-  - **Merge candidates**: Significant overlap (40-80%), could combine
-  - **Split candidates**: Existing ticket too broad, should break up
-
-### 3. Handle Duplicates/Overlaps
-
-If duplicate or overlap issues found:
-- Return `status: "duplicate"` with existing ticket path
-- Return `status: "needs_decision"` with merge/split options
+Based on ticket-moderator JSON result:
+- If `status: "duplicate"`: Return `status: "duplicate"` with existing ticket path
+- If `status: "needs_decision"`: Return `status: "needs_decision"` with merge/split options
+- If `status: "clear"`: Proceed to step 4
 
 ### 4. Evaluate Complexity
 
@@ -69,9 +83,12 @@ Determine if request should be split:
 Follow preloaded **create-ticket** skill for format and content.
 
 For each ticket:
-- Use history context for "Related History" section
-- Use source context for "Key Files" section
-- Reference code flow in "Implementation" section
+- Use history discovery JSON for "Related History" section:
+  - `summary` field provides the synthesis sentence
+  - `tickets` array provides the bullet list with paths and match reasons
+- Use source discovery JSON for "Key Files" section:
+  - `files` array provides paths and relevance descriptions
+- Reference `code_flow` from source discovery in "Implementation" section
 
 **If splitting**:
 - Unique timestamp per ticket (add 1 second between)
@@ -90,6 +107,7 @@ Return JSON:
 ```json
 {
   "status": "success",
+  "branch_created": "drive-20260202-181910",
   "tickets": [
     {
       "path": ".workaholic/tickets/todo/20260131-feature.md",
@@ -99,6 +117,8 @@ Return JSON:
   ]
 }
 ```
+
+Note: `branch_created` is optional - only included if a new branch was created in step 0.
 
 Or if duplicate:
 

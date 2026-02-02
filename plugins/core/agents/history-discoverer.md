@@ -2,6 +2,7 @@
 name: history-discoverer
 description: Find related historical tickets using keyword search.
 tools: Bash, Read, Glob
+model: haiku
 skills:
   - discover-history
 ---

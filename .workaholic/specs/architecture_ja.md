@@ -2,8 +2,7 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-02-02T13:32:50+09:00
-commit_hash: 3c87e62
+modified_at: 2026-02-02T20:11:14+09:00
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -53,6 +52,7 @@ plugins/
       spec-writer.md          # .workaholic/specs/を更新
       story-writer.md         # PR用のブランチストーリーを生成
       terms-writer.md         # .workaholic/terms/を更新
+      ticket-moderator.md     # チケットの重複・マージ・分割を分析
       ticket-organizer.md     # チケット作成の完全ワークフロー：発見・重複チェック・作成
     commands/
       drive.md           # /drive コマンド
@@ -83,14 +83,24 @@ plugins/
         SKILL.md           # フォーマットとガイドラインを含むチケット作成
       discover-source/
         SKILL.md           # ソースコード探索ガイドライン
+      discover-history/
+        SKILL.md           # アーカイブされたチケットの検索ガイドライン
+      drive-approval/
+        SKILL.md           # 完全な承認フロー：リクエスト、リビジョン、放棄
       drive-workflow/
         SKILL.md           # チケット実装ワークフロー
+      format-commit-message/
+        SKILL.md           # 構造化コミットメッセージ形式
       translate/
         SKILL.md           # 翻訳ポリシーと.workaholic/ i18n強制
+      update-ticket-frontmatter/
+        SKILL.md           # チケットYAMLフロントマターフィールドを更新
       write-changelog/
         SKILL.md           # changelog生成およびライティングガイドライン
         sh/
           generate.sh      # チケットからchangelogエントリを生成
+      write-final-report/
+        SKILL.md           # チケットの最終レポートセクション
       write-spec/
         SKILL.md
         sh/
@@ -125,10 +135,15 @@ plugins/
 - **create-branch**: 設定可能なプレフィックス付きでタイムスタンプ付きトピックブランチを作成
 - **create-pr**: gh CLIを使用して適切なフォーマットでGitHub PRを作成/更新
 - **create-ticket**: フォーマット、調査、関連履歴を含む完全なチケット作成ワークフロー
+- **discover-history**: 関連コンテキストを見つけるためのアーカイブされたチケット検索ガイドライン
 - **discover-source**: コードベースコンテキストを理解するためのソースコード探索ガイドライン
+- **drive-approval**: リクエスト、リビジョン処理、放棄を含む実装の完全な承認フロー
 - **drive-workflow**: チケット処理の実装ワークフローステップ
+- **format-commit-message**: タイトル、動機、UX、アーキテクチャセクションを含む構造化コミットメッセージ形式
 - **translate**: 翻訳ポリシーと`.workaholic/` i18n強制（spec-writer、terms-writer、story-writerがプリロード）
+- **update-ticket-frontmatter**: チケットYAMLフロントマターフィールド（effort、commit_hash、category）を更新
 - **write-changelog**: アーカイブされたチケットからchangelogエントリを生成（カテゴリ別にグループ化）し、CHANGELOG.md更新のガイドラインを提供
+- **write-final-report**: オプションの発見インサイトを含むチケットの最終レポートセクションを作成
 - **write-spec**: コンテキスト収集とspecドキュメントのライティングガイドライン
 - **write-story**: メトリクス計算、テンプレート、ブランチストーリーのガイドライン
 - **write-terms**: コンテキスト収集と用語ドキュメントのガイドライン
@@ -139,13 +154,16 @@ plugins/
 
 - **changelog-writer**: アーカイブされたチケットからルート`CHANGELOG.md`をカテゴリ別（Added、Changed、Removed）に更新
 - **history-discoverer**: アーカイブされたチケットを検索して関連コンテキストと過去の決定を見つける
+- **overview-writer**: コミット履歴を分析してストーリーファイル用の構造化概要コンテンツ（overview、highlights、motivation、journey）を生成
 - **performance-analyst**: PRストーリーのために5つの観点（Consistency、Intuitivity、Describability、Agility、Density）で意思決定の質を評価
 - **pr-creator**: ストーリーファイルをPRボディとして使用してGitHub PRを作成または更新、タイトル導出と`gh` CLI操作を処理
 - **release-readiness**: 変更をリリース準備状況について分析、判定・懸念事項・リリース前後の手順を提供
+- **section-reviewer**: アーカイブされたチケットを分析してストーリーセクション5-8（Outcome、Historical Analysis、Concerns、Ideas）を生成
 - **source-discoverer**: コードベースを探索して関連ソースファイルを見つけ、コード流れコンテキストを分析する
 - **spec-writer**: 現在のコードベースの状態を反映するように`.workaholic/specs/`ドキュメントを更新
-- **story-writer**: PR内容の単一の真実の情報源として機能する`.workaholic/stories/`にブランチストーリーを生成、11のセクション（Overview、Motivation、Journey（Topic Treeフローチャートを含む）、Changes、Outcome、Historical Analysis、Concerns、Ideas、Performance、Release Preparation、Notes）で構成
+- **story-writer**: ドキュメント生成の中央オーケストレーター。7つのサブエージェント（changelog-writer、spec-writer、terms-writer、release-readiness、performance-analyst、overview-writer、section-reviewer）を並列で呼び出し、それらの出力をブランチストーリーに統合。11のセクション（Overview、Motivation、Journey（Topic Treeフローチャートを含む）、Changes、Outcome、Historical Analysis、Concerns、Ideas、Performance、Release Preparation、Notes）で構成
 - **terms-writer**: 一貫した用語定義を維持するために`.workaholic/terms/`を更新
+- **ticket-moderator**: 新規チケット作成前に既存チケットの重複、マージ候補、分割機会を分析
 - **ticket-organizer**: チケット作成の完全ワークフロー：履歴とソースコンテキストを発見、重複・重なりをチェック、実装チケットを作成
 
 ## コマンド依存関係
@@ -162,6 +180,9 @@ flowchart LR
 
     subgraph エージェント
         to[ticket-organizer]
+        hd[history-discoverer]
+        sd[source-discoverer]
+        tm[ticket-moderator]
     end
 
     subgraph スキル
@@ -171,10 +192,13 @@ flowchart LR
         ds[discover-source]
     end
 
-    ticket --> cb
     ticket --> to
 
-    to --> ct & dh & ds
+    to --> hd & sd & tm
+    to --> ct & cb
+
+    hd --> dh
+    sd --> ds
 ```
 
 ### /drive 依存関係
@@ -192,15 +216,14 @@ flowchart LR
     subgraph スキル
         dw[drive-workflow]
         at[archive-ticket]
-        ra[request-approval]
+        da[drive-approval]
         wfr[write-final-report]
-        ha[handle-abandon]
         fcm[format-commit-message]
         utf[update-ticket-frontmatter]
     end
 
     drive --> dn
-    drive --> dw & at & ra & wfr & ha
+    drive --> dw & at & da & wfr
 
     %% Skill-to-skill
     dw --> fcm
@@ -217,35 +240,42 @@ flowchart LR
     end
 
     subgraph エージェント
+        sw[story-writer]
         cw[changelog-writer]
         spw[spec-writer]
         tw[terms-writer]
         rr[release-readiness]
         pa[performance-analyst]
-        sw[story-writer]
+        ow[overview-writer]
+        sr[section-reviewer]
         pc[pr-creator]
     end
 
     subgraph スキル
+        ws[write-story]
         wc[write-changelog]
         wsp[write-spec]
         wt[write-terms]
         arr[assess-release-readiness]
         ap[analyze-performance]
-        ws[write-story]
+        wo[write-overview]
+        rs[review-sections]
         tr[translate]
         cp[create-pr]
     end
 
-    story --> cw & spw & tw & rr & pa
-    story -.-> sw
+    story --> sw
     story --> pc
+
+    sw --> cw & spw & tw & rr & pa & ow & sr
 
     cw --> wc
     spw --> wsp
     tw --> wt
     rr --> arr
     pa --> ap
+    ow --> wo
+    sr --> rs
     sw --> ws
     pc --> cp
 
@@ -302,13 +332,15 @@ sequenceDiagram
 
 ## ドキュメント強制
 
-Workaholicは並列サブエージェントアーキテクチャを通じて包括的なドキュメントを強制します。`/story`コマンドはドキュメントエージェントを2つのフェーズで調整します：最初に5つのエージェントが並列実行され、その後story-writerがrelease-readinessとperformance-analyst出力と共に実行されます。
+Workaholicは並列サブエージェントアーキテクチャを通じて包括的なドキュメントを強制します。`/story`コマンドはstory-writerに委譲し、story-writerが6つのドキュメントエージェントを並列で調整した後、それらの出力を統合します。
 
 ### 仕組み
 
 ```mermaid
 flowchart TD
-    A["/story コマンド"] --> C[フェーズ1: 5つのサブエージェントを並列で呼び出し]
+    A["/story コマンド"] --> SW[story-writer]
+
+    SW --> P1[フェーズ1: 6つのサブエージェントを並列で呼び出し]
 
     subgraph フェーズ1 - 並列
         D[changelog-writer]
@@ -316,28 +348,32 @@ flowchart TD
         G[terms-writer]
         RR[release-readiness]
         PA[performance-analyst]
+        OW[overview-writer]
     end
 
-    C --> D
-    C --> F
-    C --> G
-    C --> RR
-    C --> PA
+    P1 --> D
+    P1 --> F
+    P1 --> G
+    P1 --> RR
+    P1 --> PA
+    P1 --> OW
 
     D --> H[CHANGELOG.md]
     F --> J[.workaholic/specs/]
     G --> K[.workaholic/terms/]
     RR --> RL[リリースJSON]
     PA --> PM[パフォーマンスmarkdown]
+    OW --> OJ[概要JSON]
 
-    H --> P2[フェーズ2: story-writer]
+    H --> P2[フェーズ2: 統合してストーリー作成]
     J --> P2
     K --> P2
     RL --> P2
     PM --> P2
+    OJ --> P2
 
     P2 --> I[.workaholic/stories/]
-    I --> L[docsをコミット]
+    I --> L[/storyに返す]
 
     L --> M[pr-creator サブエージェント]
     M --> N[PRを作成/更新]
@@ -347,10 +383,10 @@ flowchart TD
 
 サブエージェントアーキテクチャにはいくつかの利点があります：
 
-1. **並列実行** - フェーズ1で5つのエージェントが同時に実行され、待ち時間を短縮
+1. **並列実行** - フェーズ1で6つのエージェントが同時に実行され、待ち時間を短縮
 2. **コンテキスト分離** - 各エージェントが独自のコンテキストウィンドウで動作し、メイン会話を保持
 3. **単一責任** - 各エージェントが1つのドキュメントドメインを担当
-4. **データ依存関係の処理** - story-writerはフェーズ2でrelease-readinessとperformance-analyst出力を受け取る
+4. **中央オーケストレーション** - story-writerがすべてのドキュメントエージェントを調整し出力を統合するハブとして機能
 
 ### 重要な要件
 
@@ -380,10 +416,10 @@ Workaholicはオーケストレーションと知識の明確な分離を維持�
 | 呼び出し元 | 呼び出し可能     | 呼び出し不可        |
 | ---------- | ---------------- | ------------------- |
 | コマンド   | スキル、サブエージェント | -            |
-| サブエージェント | スキル      | サブエージェント、コマンド |
+| サブエージェント | スキル、サブエージェント | コマンド |
 | スキル     | スキル           | サブエージェント、コマンド |
 
-コマンドとサブエージェントはオーケストレーション層であり、ワークフローステップを定義し他のコンポーネントを呼び出します。スキルは知識層であり、テンプレート、ガイドライン、ルール、bashスクリプトを含みます。スキルは合成可能な知識のために他のスキルをプリロードできます（例：write-specはi18n強制のためにtranslateをプリロード）。この分離により、深いネストとコンテキスト爆発を防ぎながら、包括的な知識をスキルに集約します。
+サブエージェント → サブエージェントは並列のみで最大深度1（ネストチェーンなし）の場合のみ許可されます。コマンドとサブエージェントはオーケストレーション層であり、ワークフローステップを定義し他のコンポーネントを呼び出します。スキルは知識層であり、テンプレート、ガイドライン、ルール、bashスクリプトを含みます。スキルは合成可能な知識のために他のスキルをプリロードできます（例：write-specはi18n強制のためにtranslateをプリロード）。この分離により、深いネストとコンテキスト爆発を防ぎながら、包括的な知識をスキルに集約します。
 
 ## バージョン管理
 

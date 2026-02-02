@@ -1,9 +1,5 @@
 {
   "permissions": {
     "deny": ["Bash(git -C:*)"]
-  },
-  "statusLine": {
-    "type": "command",
-    "command": "input=$(cat); current_dir=$(echo \"$input\" | jq -r '.workspace.current_dir'); model=$(echo \"$input\" | jq -r '.model.display_name'); short_dir=$(basename \"$current_dir\"); git_branch=\"\"; if git -C \"$current_dir\" rev-parse --git-dir >/dev/null 2>&1; then branch=$(git -C \"$current_dir\" --no-optional-locks symbolic-ref --short HEAD 2>/dev/null || git -C \"$current_dir\" --no-optional-locks rev-parse --short HEAD 2>/dev/null); [ -n \"$branch\" ] && git_branch=\" ($branch)\"; fi; remaining=$(echo \"$input\" | jq -r '.context_window.remaining_percentage // empty'); context_info=\"\"; [ -n \"$remaining\" ] && context_info=\" [ctx: ${remaining}%]\"; lines_added=$(echo \"$input\" | jq -r '.context_window.total_lines_added // empty'); lines_removed=$(echo \"$input\" | jq -r '.context_window.total_lines_removed // empty'); lines_info=\"\"; [ -n \"$lines_added\" ] && [ -n \"$lines_removed\" ] && lines_info=$(printf \" [+%s/-%s]\" \"$lines_added\" \"$lines_removed\"); printf \"\\033[34m%s\\033[0m%s \\033[35m[%s]\\033[0m%s%s\\n\" \"$short_dir\" \"$git_branch\" \"$model\" \"$context_info\" \"$lines_info\""
   }
 }

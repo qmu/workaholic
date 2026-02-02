@@ -36,19 +36,20 @@ plugins/                 # Plugin source directories
 | Caller   | Can invoke         | Cannot invoke       |
 | -------- | ------------------ | ------------------- |
 | Command  | Skill, Subagent    | —                   |
-| Subagent | Skill              | Subagent, Command   |
+| Subagent | Skill, Subagent    | Command             |
 | Skill    | Skill              | Subagent, Command   |
 
 **Allowed**:
 - Command → Skill (preload via `skills:` frontmatter)
 - Command → Subagent (via Task tool)
 - Subagent → Skill (preload via `skills:` frontmatter)
+- Subagent → Subagent (via Task tool, parallel only, max depth 1)
 - Skill → Skill (preload via `skills:` frontmatter for composable knowledge)
 
 **Prohibited**:
 - Skill → Subagent (skills are passive knowledge, not orchestrators)
 - Skill → Command (skills cannot invoke user-facing commands)
-- Subagent → Subagent (prevents deep nesting and context explosion)
+- Subagent → Subagent (nested/sequential chains prevent deep nesting and context explosion)
 - Subagent → Command (subagents are invoked by commands, not the reverse)
 
 ### Design Principle

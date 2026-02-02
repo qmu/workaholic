@@ -46,20 +46,22 @@ Business days are more meaningful for multi-day work since developers have break
 
 The story content (this IS the PR description):
 
+**Note:** Sections 1-3 content comes from the overview-writer subagent output. Story-writer formats and integrates this content.
+
 ```markdown
 ## 1. Overview
 
-[2-3 sentence overview capturing the essence of this branch. What was the main goal? What approach was taken? What was achieved? Write in past tense.]
+[Content from overview-writer `overview` field: 2-3 sentence summary capturing the branch essence.]
 
 **Highlights:**
 
-1. First meaningful change (from CHANGELOG entry titles)
-2. Second meaningful change (from CHANGELOG entry titles)
-3. ...
+1. [From overview-writer `highlights[0]}]
+2. [From overview-writer `highlights[1]`]
+3. [From overview-writer `highlights[2]`]
 
 ## 2. Motivation
 
-[Synthesize the "why" from ticket Overviews. What problem or opportunity started this work? Write as a narrative, not a list.]
+[Content from overview-writer `motivation` field: paragraph synthesizing the "why" from commit context.]
 
 ## 3. Journey
 
@@ -91,7 +93,7 @@ flowchart LR
 - Use descriptive node labels: `id[Description]` syntax
 - Maximum 3-5 subgraphs per diagram
 
-[Brief summary (50-100 words). Let the flowchart carry detail; the prose provides high-level overview only.]
+[Content from overview-writer `journey.mermaid` for the flowchart and `journey.summary` for this prose section.]
 
 ## 4. Changes
 

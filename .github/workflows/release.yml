@@ -5,16 +5,6 @@ on:
     branches:
       - main
   workflow_dispatch:
-    inputs:
-      version_type:
-        description: 'Version bump type'
-        required: true
-        default: 'patch'
-        type: choice
-        options:
-          - major
-          - minor
-          - patch
 
 permissions:
   contents: write
@@ -22,103 +12,38 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    # Skip release commits to avoid infinite loop
+    # Only run on version bump commits (from /story command)
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && !startsWith(github.event.head_commit.message, 'Release v'))
+      (github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Bump version to v'))
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Detect version type from merge
-        id: detect
-        if: github.event_name == 'push'
-        run: |
-          # Get the merge commit message to extract branch name
-          commit_msg=$(git log -1 --pretty=%s)
-          echo "Commit message: $commit_msg"
-
-          # Check if this is a merge commit from a story branch
-          if echo "$commit_msg" | grep -qE "Merge pull request.*from.*/(drive|trip)-"; then
-            echo "Detected drive/trip branch merge -> patch bump"
-            echo "version_type=patch" >> $GITHUB_OUTPUT
-            echo "skip=false" >> $GITHUB_OUTPUT
-          else
-            echo "Not a story branch merge, skipping release"
-            echo "skip=true" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Skip non-story merges
-        if: github.event_name == 'push' && steps.detect.outputs.skip == 'true'
-        run: |
-          echo "Skipping release: not a story branch merge"
-          exit 0
-
-      - name: Calculate new version
+      - name: Get current version
         id: version
-        if: github.event_name == 'workflow_dispatch' || steps.detect.outputs.skip != 'true'
         run: |
-          # Extract current version from marketplace.json
-          current=$(grep -o '"version": "[^"]*"' .claude-plugin/marketplace.json | head -1 | cut -d'"' -f4)
-          echo "Current version: $current"
+          # Extract current version from marketplace.json (already bumped by /story)
+          version=$(grep -o '"version": "[^"]*"' .claude-plugin/marketplace.json | head -1 | cut -d'"' -f4)
+          echo "Version: $version"
+          echo "version=$version" >> $GITHUB_OUTPUT
 
-          # Parse version components
-          major=$(echo "$current" | cut -d. -f1)
-          minor=$(echo "$current" | cut -d. -f2)
-          patch=$(echo "$current" | cut -d. -f3)
-
-          # Use detected version_type for push events, input for workflow_dispatch
-          if [ "${{ github.event_name }}" = "push" ]; then
-            version_type="${{ steps.detect.outputs.version_type }}"
+      - name: Check if release exists
+        id: check
+        run: |
+          if gh release view "v${{ steps.version.outputs.version }}" &>/dev/null; then
+            echo "Release v${{ steps.version.outputs.version }} already exists"
+            echo "exists=true" >> $GITHUB_OUTPUT
           else
-            version_type="${{ inputs.version_type }}"
+            echo "exists=false" >> $GITHUB_OUTPUT
           fi
-          echo "Version type: $version_type"
-
-          # Calculate new version based on type
-          case "$version_type" in
-            major)
-              major=$((major + 1))
-              minor=0
-              patch=0
-              ;;
-            minor)
-              minor=$((minor + 1))
-              patch=0
-              ;;
-            patch)
-              patch=$((patch + 1))
-              ;;
-          esac
-
-          new="${major}.${minor}.${patch}"
-          echo "New version: $new"
-
-          echo "current=$current" >> $GITHUB_OUTPUT
-          echo "new=$new" >> $GITHUB_OUTPUT
-
-      - name: Update version files
-        if: github.event_name == 'workflow_dispatch' || steps.detect.outputs.skip != 'true'
-        run: |
-          new_version="${{ steps.version.outputs.new }}"
-
-          # Update root marketplace.json version
-          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$new_version\"/" .claude-plugin/marketplace.json
-
-          # Update plugin.json version
-          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$new_version\"/" plugins/core/.claude-plugin/plugin.json
-
-          # Verify updates
-          echo "==> Updated .claude-plugin/marketplace.json:"
-          grep '"version"' .claude-plugin/marketplace.json
-
-          echo "==> Updated plugins/core/.claude-plugin/plugin.json:"
-          grep '"version"' plugins/core/.claude-plugin/plugin.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract release notes
         id: notes
-        if: github.event_name == 'workflow_dispatch' || steps.detect.outputs.skip != 'true'
+        if: steps.check.outputs.exists != 'true'
         run: |
           # Get the previous tag to extract changes since last release
           prev_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
@@ -133,37 +58,17 @@ jobs:
             notes=$(git log --pretty=format:"- %s" -20 --no-merges)
           fi
 
-          # If CHANGELOG.md has content for this branch, try to extract it
-          branch=$(git branch --show-current)
-          if [ -f CHANGELOG.md ] && grep -q "## $branch" CHANGELOG.md; then
-            echo "Found CHANGELOG section for branch: $branch"
-            # Extract section between this branch header and the next ## header
-            changelog_notes=$(sed -n "/^## $branch/,/^## /p" CHANGELOG.md | sed '1d;$d')
-            if [ -n "$changelog_notes" ]; then
-              notes="$changelog_notes"
-            fi
-          fi
-
           # Write to file for multi-line content
           echo "$notes" > /tmp/release_notes.txt
           echo "Release notes:"
           cat /tmp/release_notes.txt
 
-      - name: Commit version bump
-        if: github.event_name == 'workflow_dispatch' || steps.detect.outputs.skip != 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .claude-plugin/marketplace.json plugins/core/.claude-plugin/plugin.json
-          git commit -m "Release v${{ steps.version.outputs.new }}"
-          git push
-
       - name: Create GitHub Release
-        if: github.event_name == 'workflow_dispatch' || steps.detect.outputs.skip != 'true'
+        if: steps.check.outputs.exists != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "v${{ steps.version.outputs.new }}" \
-            --title "v${{ steps.version.outputs.new }}" \
+          gh release create "v${{ steps.version.outputs.version }}" \
+            --title "v${{ steps.version.outputs.version }}" \
             --notes-file /tmp/release_notes.txt \
             --latest

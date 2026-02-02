@@ -4,6 +4,7 @@ description: Discover context, check duplicates, and write implementation ticket
 tools: Read, Write, Edit, Glob, Grep, Bash
 skills:
   - create-ticket
+  - gather-ticket-metadata
 ---
 
 # Ticket Organizer

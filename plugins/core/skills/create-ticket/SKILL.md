@@ -1,6 +1,8 @@
 ---
 name: create-ticket
 description: Create implementation tickets with proper format and conventions.
+skills:
+  - gather-ticket-metadata
 user-invocable: false
 ---
 
@@ -8,25 +10,25 @@ user-invocable: false
 
 Guidelines for creating implementation tickets in `.workaholic/tickets/`.
 
-## Step 1: Capture Dynamic Values and Build Frontmatter
+## Step 1: Capture Dynamic Values
 
-**Run this script to get the values you need:**
+**Run the gather-ticket-metadata script:**
 
 ```bash
-# Capture values for frontmatter
-CREATED_AT=$(date -Iseconds)
-AUTHOR=$(git config user.email)
-
-echo "created_at: $CREATED_AT"
-echo "author: $AUTHOR"
+bash .claude/skills/gather-ticket-metadata/sh/gather.sh
 ```
 
-Copy the output lines directly into your frontmatter. Example output:
+Parse the JSON output:
 
+```json
+{
+  "created_at": "2026-01-31T19:25:46+09:00",
+  "author": "developer@company.com",
+  "filename_timestamp": "20260131192546"
+}
 ```
-created_at: 2026-01-31T19:25:46+09:00
-author: developer@company.com
-```
+
+Use these values for frontmatter fields and filename.
 
 ## Frontmatter Template
 

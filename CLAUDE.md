@@ -83,6 +83,12 @@ No build step required - this is a configuration/documentation project.
 
 ## Version Management
 
-- Marketplace version: `.claude-plugin/marketplace.json`
-- Plugin versions: `plugins/<name>/.claude-plugin/plugin.json`
-- Keep versions in sync when releasing
+Version files:
+- `.claude-plugin/marketplace.json` - root `version` field
+- `plugins/core/.claude-plugin/plugin.json` - plugin `version` field
+
+Keep all versions in sync. When bumping version:
+1. Read current version from `.claude-plugin/marketplace.json`
+2. Increment PATCH by default (e.g., 1.0.0 → 1.0.1)
+3. Update both version files with the new version
+4. Stage and commit: `Bump version to v{new_version}`

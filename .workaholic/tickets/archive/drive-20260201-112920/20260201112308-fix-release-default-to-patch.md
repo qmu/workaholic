@@ -1,3 +1,13 @@
+---
+created_at: 2026-02-01T11:23:08+09:00
+author: a@qmu.jp
+type: bugfix
+layer: [Infrastructure, Config]
+effort: 0.25h
+commit_hash: 9bdf8d2
+category: Changed
+---
+
 # Fix Release to Default to Patch Version Bump
 
 ## Overview
@@ -64,3 +74,18 @@ Renumber subsequent steps (push becomes 6, PR creation becomes 7).
 
 - `20260129140000-add-release-github-action.md` - Original workflow
 - `20260129123400-auto-release-on-merge.md` - Auto-detection logic (source of bug)
+
+---
+
+## Final Report
+
+**Effort**: 0.25h
+
+### Summary
+
+Fixed release workflow default and consolidated version management instructions:
+
+1. **CLAUDE.md** - Expanded Version Management section with detailed procedure (files to update, increment logic, commit message format)
+2. **story.md** - Simplified step 5 to reference CLAUDE.md instead of hardcoding details
+
+The GitHub Actions workflow already had correct patch default (lines 44-45). The key change was ensuring version bump instructions live in CLAUDE.md as the single source of truth.

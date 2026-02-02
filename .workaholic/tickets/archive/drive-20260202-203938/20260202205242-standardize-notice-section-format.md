@@ -3,9 +3,9 @@ created_at: 2026-02-02T20:52:42+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: da4734f
+category: Changed
 ---
 
 # Standardize Notice Section Format Across Commands
@@ -44,3 +44,7 @@ No past tickets have directly addressed command file formatting conventions.
 - The "Notice:" label makes the purpose of the hint more explicit than a plain blockquote
 - This is a cosmetic/consistency change with no functional impact on command behavior
 - All three commands should be updated in the same commit for consistency
+
+## Final Report
+
+Updated all three command files (ticket.md, drive.md, story.md) to use the `**Notice:**` format instead of blockquotes for command recognition hints.

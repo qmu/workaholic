@@ -5,7 +5,7 @@ description: Generate documentation (changelog, story, specs, terms) and create/
 
 # Story
 
-> When user input contains `/story` - whether "run /story", "do /story", "update /story", or similar - they likely want this command.
+**Notice:** When user input contains `/story` - whether "run /story", "do /story", "update /story", or similar - they likely want this command.
 
 Generate comprehensive documentation and create or update a pull request for the current branch.
 

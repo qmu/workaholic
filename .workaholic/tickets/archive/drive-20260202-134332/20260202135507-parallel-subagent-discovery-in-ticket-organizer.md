@@ -3,23 +3,24 @@ created_at: 2026-02-02T13:55:07+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 492bcb9
+category: Added
 ---
 
 # Parallel Subagent Discovery in ticket-organizer
 
 ## Overview
 
-Update the architecture policy to allow subagent-to-subagent invocation, then refactor ticket-organizer to launch history-discoverer and source-discoverer subagents in parallel via the Task tool. This replaces the current skill-based discovery with dedicated subagents that can perform richer analysis.
+Update the architecture policy to allow subagent-to-subagent invocation, then refactor ticket-organizer to launch three subagents in parallel via the Task tool: history-discoverer, source-discoverer, and ticket-moderator. This replaces skill-based discovery with dedicated subagents that can perform richer analysis.
 
 ## Key Files
 
-- `CLAUDE.md` - Architecture policy with nesting rules (lines 32-52)
+- `CLAUDE.md` - Architecture policy with nesting rules
 - `plugins/core/agents/ticket-organizer.md` - Current implementation using skills
-- `plugins/core/agents/history-discoverer.md` - Subagent that returns JSON with historical context
-- `plugins/core/agents/source-discoverer.md` - Subagent that returns JSON with source context
+- `plugins/core/agents/history-discoverer.md` - Subagent for historical context
+- `plugins/core/agents/source-discoverer.md` - Subagent for source context
+- `plugins/core/agents/ticket-moderator.md` - Subagent for duplicate/merge/split analysis (new)
 
 ## Related History
 
@@ -155,3 +156,7 @@ For each ticket:
 - **Backward compatibility**: Existing commands that invoke ticket-organizer continue to work; they just get richer context.
 - **Performance**: Parallel Task calls should complete faster than sequential skill execution since both agents work simultaneously.
 - **Error handling**: If either discovery agent fails, ticket-organizer should proceed with partial results rather than failing entirely.
+
+## Final Report
+
+Updated architecture policy to allow subagent-to-subagent invocation (parallel only, max depth 1). Created ticket-moderator subagent for duplicate/merge/split analysis. Refactored ticket-organizer to invoke 3 subagents in parallel: history-discoverer, source-discoverer, and ticket-moderator.

@@ -70,6 +70,7 @@ Refs #<issue-number>
 
 ## Stories
 
+- [drive-20260202-203938.md](drive-20260202-203938.md) - Reliability and consistency improvements: fixed release action trigger to use version comparison, standardized notice section format across commands, added code implementation prohibition to /ticket, configured Opus model for all Task tool invocations - 6 tickets, 12 commits
 - [drive-20260202-134332.md](drive-20260202-134332.md) - Parallel subagent orchestration and workflow improvements: enabled subagent-to-subagent parallel invocation, ticket-organizer with 3 parallel discovery agents, story-writer orchestrating 7 documentation agents, continuous drive loop, revision tracking with Discussion section, approval skills consolidation - 14 tickets, 31 commits
 - [drive-20260201-112920.md](drive-20260201-112920.md) - Architecture refinement and release workflow fixes: simplified /ticket command to thin orchestrator with ticket-organizer subagent, removed driver subagent from /drive to preserve implementation context, fixed release versioning to default to patch bumps - 3 tickets, 35 commits
 - [drive-20260131-223656.md](drive-20260131-223656.md) - Systematic hardening for developer experience: nine focused improvements strengthening command execution and configuration management, defensive programming layers guide Claude toward correct behavior, terminology alignment (fail-to-abandoned, drive-/trip- standardization), validation guards prevent common errors - 9 tickets, 22 commits

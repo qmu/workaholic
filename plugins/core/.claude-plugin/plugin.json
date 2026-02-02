@@ -1,7 +1,7 @@
 {
   "name": "core",
   "description": "Core development workflow: branch, commit, pull-request, ticket-driven development",
-  "version": "1.0.29",
+  "version": "1.0.30",
   "author": {
     "name": "tamurayoshiya",
     "email": "a@qmu.jp"

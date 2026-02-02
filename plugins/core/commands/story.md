@@ -5,7 +5,7 @@ description: Generate documentation (changelog, story, specs, terms) and create/
 
 # Story
 
-> When user input contains `/story` - whether "run /story", "do /story", "update /story", or similar - they likely want this command.
+**Notice:** When user input contains `/story` - whether "run /story", "do /story", "update /story", or similar - they likely want this command.
 
 Generate comprehensive documentation and create or update a pull request for the current branch.
 
@@ -23,7 +23,7 @@ This design makes stories the single source of truth for PR content, eliminating
 2. Get the base branch (usually `main`) with `git remote show origin | grep 'HEAD branch'`
 3. **Generate documentation** using story-writer subagent:
 
-   Invoke **story-writer** (`subagent_type: "core:story-writer"`):
+   Invoke **story-writer** (`subagent_type: "core:story-writer"`, `model: "opus"`):
    - Pass branch name and base branch
    - Pass repository URL (for changelog-writer)
    - Pass list of archived tickets for the branch
@@ -57,7 +57,7 @@ This design makes stories the single source of truth for PR content, eliminating
    This ensures the branch exists on remote before PR creation. The `-u` flag sets upstream tracking for new branches.
 7. **Create or update PR** using the pr-creator subagent:
 
-   Invoke the pr-creator subagent via Task tool with `subagent_type: "core:pr-creator"`, `model: "haiku"`:
+   Invoke the pr-creator subagent via Task tool with `subagent_type: "core:pr-creator"`, `model: "opus"`:
 
    - Pass the branch name and base branch as context
    - The subagent handles: checking if PR exists, reading story file, deriving title, `gh` CLI operations

@@ -12,10 +12,6 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    # Only run on version bump commits (from /story command)
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Bump version to v'))
     steps:
       - uses: actions/checkout@v4
         with:
@@ -24,26 +20,48 @@ jobs:
       - name: Get current version
         id: version
         run: |
-          # Extract current version from marketplace.json (already bumped by /story)
+          # Extract current version from marketplace.json
           version=$(grep -o '"version": "[^"]*"' .claude-plugin/marketplace.json | head -1 | cut -d'"' -f4)
           echo "Version: $version"
           echo "version=$version" >> $GITHUB_OUTPUT
 
-      - name: Check if release exists
-        id: check
+      - name: Get latest release version
+        id: latest
         run: |
-          if gh release view "v${{ steps.version.outputs.version }}" &>/dev/null; then
-            echo "Release v${{ steps.version.outputs.version }} already exists"
-            echo "exists=true" >> $GITHUB_OUTPUT
+          # Get the latest release tag from GitHub
+          latest=$(gh release view --json tagName -q '.tagName' 2>/dev/null || echo "")
+          if [ -n "$latest" ]; then
+            # Remove 'v' prefix if present
+            latest_version="${latest#v}"
+            echo "Latest release: $latest_version"
+            echo "version=$latest_version" >> $GITHUB_OUTPUT
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "No existing release found"
+            echo "version=" >> $GITHUB_OUTPUT
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Check if release needed
+        id: check
+        run: |
+          current="${{ steps.version.outputs.version }}"
+          latest="${{ steps.latest.outputs.version }}"
+
+          if [ -z "$latest" ]; then
+            echo "No existing release, will create first release"
+            echo "needed=true" >> $GITHUB_OUTPUT
+          elif [ "$current" = "$latest" ]; then
+            echo "Version $current already released, skipping"
+            echo "needed=false" >> $GITHUB_OUTPUT
+          else
+            echo "New version detected: $current (latest: $latest)"
+            echo "needed=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Extract release notes
         id: notes
-        if: steps.check.outputs.exists != 'true'
+        if: steps.check.outputs.needed == 'true'
         run: |
           # Get the previous tag to extract changes since last release
           prev_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
@@ -64,7 +82,7 @@ jobs:
           cat /tmp/release_notes.txt
 
       - name: Create GitHub Release
-        if: steps.check.outputs.exists != 'true'
+        if: steps.check.outputs.needed == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

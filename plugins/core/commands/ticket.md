@@ -5,7 +5,7 @@ description: Explore codebase and write implementation ticket for `$ARGUMENT`
 
 # Ticket
 
-> When user input contains `/ticket` - whether "create /ticket", "write /ticket", "add /ticket for X", or similar - they likely want this command.
+**Notice:** When user input contains `/ticket` - whether "create /ticket", "write /ticket", "add /ticket for X", or similar - they likely want this command.
 
 Thin alias for ticket-organizer subagent.
 

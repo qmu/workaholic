@@ -21,15 +21,16 @@ This design makes stories the single source of truth for PR content, eliminating
 
 1. Check the current branch name with `git branch --show-current`
 2. Get the base branch (usually `main`) with `git remote show origin | grep 'HEAD branch'`
-3. **Generate documentation** using 6 subagents:
+3. **Generate documentation** using 7 subagents:
 
-   **Phase 1**: Invoke 5 agents in parallel via Task tool (single message with 5 tool calls, each with `model: "haiku"`):
+   **Phase 1**: Invoke 6 agents in parallel via Task tool (single message with 6 tool calls):
 
-   - **changelog-writer** (`subagent_type: "core:changelog-writer"`, `model: "haiku"`): Updates `CHANGELOG.md` with entries from archived tickets
-   - **spec-writer** (`subagent_type: "core:spec-writer"`, `model: "haiku"`): Updates `.workaholic/specs/` to reflect codebase changes
-   - **terms-writer** (`subagent_type: "core:terms-writer"`, `model: "haiku"`): Updates `.workaholic/terms/` with new terms
-   - **release-readiness** (`subagent_type: "core:release-readiness"`, `model: "haiku"`): Analyzes branch for release readiness
-   - **performance-analyst** (`subagent_type: "core:performance-analyst"`, `model: "haiku"`): Evaluates decision quality
+   - **changelog-writer** (`subagent_type: "core:changelog-writer"`): Updates `CHANGELOG.md` with entries from archived tickets
+   - **spec-writer** (`subagent_type: "core:spec-writer"`): Updates `.workaholic/specs/` to reflect codebase changes
+   - **terms-writer** (`subagent_type: "core:terms-writer"`): Updates `.workaholic/terms/` with new terms
+   - **release-readiness** (`subagent_type: "core:release-readiness"`): Analyzes branch for release readiness
+   - **performance-analyst** (`subagent_type: "core:performance-analyst"`): Evaluates decision quality
+   - **overview-writer** (`subagent_type: "core:overview-writer"`): Generates overview, highlights, motivation, and journey
 
    Pass to each agent:
    - Branch name and base branch as context
@@ -37,10 +38,11 @@ This design makes stories the single source of truth for PR content, eliminating
    - List of archived tickets (for release-readiness and performance-analyst)
    - Git log main..HEAD (for performance-analyst)
 
-   Wait for all 5 agents to complete.
+   Wait for all 6 agents to complete.
 
-   **Phase 2**: Invoke **story-writer** (`subagent_type: "core:story-writer"`, `model: "haiku"`):
+   **Phase 2**: Invoke **story-writer** (`subagent_type: "core:story-writer"`):
    - Pass branch name and base branch
+   - Pass overview-writer JSON output (for sections 1.1, 1.2, 1.3)
    - Pass release-readiness JSON output (for section 10)
    - Pass performance-analyst output (for section 9.2)
 

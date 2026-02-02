@@ -16,6 +16,7 @@ You will receive:
 
 - Branch name to generate story for
 - Base branch (usually `main`)
+- Overview-writer JSON output (from parallel agent invoked by `/story`)
 - Release-readiness JSON output (from parallel agent invoked by `/story`)
 - Performance-analyst output (from parallel agent invoked by `/story`)
 
@@ -44,13 +45,21 @@ When writing section 4 (Changes), you MUST follow these rules:
 
 4. **Write Story**: Follow the preloaded write-story skill for content structure, templates, and guidelines.
 
-5. **Write Performance Section**: Use the performance-analyst output provided in the input to write section 9.2 (Performance Analysis). Do not invoke performance-analyst subagent - it runs in parallel at the orchestrator level.
+5. **Write Overview Sections**: Use the overview-writer JSON output to write:
+   - Section 1 (Overview): Use `overview` field for the summary paragraph
+   - Section 1.1 (Highlights): Format `highlights` array as numbered list
+   - Section 2 (Motivation): Use `motivation` field as the narrative paragraph
+   - Section 3 (Journey): Use `journey.mermaid` for the flowchart and `journey.summary` for the prose
 
-6. **Write Release Preparation**: Use the release-readiness JSON provided in the input to write section 10 (Release Preparation). Do not invoke release-readiness subagent - it runs in parallel at the orchestrator level.
+   Do not invoke overview-writer subagent - it runs in parallel at the orchestrator level.
 
-7. **Translate Story**: Create `<branch-name>_ja.md` with Japanese translation following the preloaded translate skill.
+6. **Write Performance Section**: Use the performance-analyst output provided in the input to write section 9.2 (Performance Analysis). Do not invoke performance-analyst subagent - it runs in parallel at the orchestrator level.
 
-8. **Update Index**: Add entry to both `.workaholic/stories/README.md` and `README_ja.md`.
+7. **Write Release Preparation**: Use the release-readiness JSON provided in the input to write section 10 (Release Preparation). Do not invoke release-readiness subagent - it runs in parallel at the orchestrator level.
+
+8. **Translate Story**: Create `<branch-name>_ja.md` with Japanese translation following the preloaded translate skill.
+
+9. **Update Index**: Add entry to both `.workaholic/stories/README.md` and `README_ja.md`.
 
 ## Output
 
@@ -59,5 +68,6 @@ Return confirmation that:
 - Story file was created at `.workaholic/stories/<branch-name>.md`
 - Japanese translation was created at `.workaholic/stories/<branch-name>_ja.md`
 - Stories index (both README.md and README_ja.md) was updated
+- Overview-writer output was formatted into sections 1-3
 - Performance-analyst output was formatted into section 9.2
 - Release-readiness data was formatted into section 10

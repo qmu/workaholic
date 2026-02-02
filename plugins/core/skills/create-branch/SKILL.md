@@ -9,25 +9,26 @@ user-invocable: false
 
 Create a new timestamped topic branch.
 
-## Instructions
-
-Create a timestamped branch with the given prefix:
+## Usage
 
 ```bash
-git checkout -b "<prefix>-$(date +%Y%m%d-%H%M%S)"
+bash .claude/skills/create-branch/sh/create.sh [prefix]
 ```
 
-### Valid Prefixes
+### Arguments
 
-- **drive** - for TiDD style development
-- **trip** - for more AI oriented development
+- `prefix` (optional): Branch prefix. Defaults to "drive".
+  - **drive** - for TiDD style development
+  - **trip** - for more AI oriented development
 
-### Output
+## Output
 
-The script outputs the created branch name:
+JSON with the created branch name:
 
-```
-drive-20260120-205418
+```json
+{
+  "branch": "drive-20260202-204753"
+}
 ```
 
 The branch is automatically checked out after creation.

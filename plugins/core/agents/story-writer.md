@@ -40,13 +40,13 @@ When writing section 4 (Changes), you MUST follow these rules:
 
 Invoke 7 agents in parallel via Task tool (single message with 7 tool calls):
 
-- **changelog-writer** (`subagent_type: "core:changelog-writer"`): Updates `CHANGELOG.md` with entries from archived tickets. Pass repository URL.
-- **spec-writer** (`subagent_type: "core:spec-writer"`): Updates `.workaholic/specs/` to reflect codebase changes. Pass branch name.
-- **terms-writer** (`subagent_type: "core:terms-writer"`): Updates `.workaholic/terms/` with new terms. Pass branch name.
-- **release-readiness** (`subagent_type: "core:release-readiness"`): Analyzes branch for release readiness. Pass archived tickets list and branch name.
-- **performance-analyst** (`subagent_type: "core:performance-analyst"`): Evaluates decision quality. Pass archived tickets list and git log.
-- **overview-writer** (`subagent_type: "core:overview-writer"`): Generates overview, highlights, motivation, and journey. Pass branch name and base branch.
-- **section-reviewer** (`subagent_type: "core:section-reviewer"`): Generates sections 5-8 (Outcome, Historical Analysis, Concerns, Ideas). Pass branch name and archived tickets list.
+- **changelog-writer** (`subagent_type: "core:changelog-writer"`, `model: "opus"`): Updates `CHANGELOG.md` with entries from archived tickets. Pass repository URL.
+- **spec-writer** (`subagent_type: "core:spec-writer"`, `model: "opus"`): Updates `.workaholic/specs/` to reflect codebase changes. Pass branch name.
+- **terms-writer** (`subagent_type: "core:terms-writer"`, `model: "opus"`): Updates `.workaholic/terms/` with new terms. Pass branch name.
+- **release-readiness** (`subagent_type: "core:release-readiness"`, `model: "opus"`): Analyzes branch for release readiness. Pass archived tickets list and branch name.
+- **performance-analyst** (`subagent_type: "core:performance-analyst"`, `model: "opus"`): Evaluates decision quality. Pass archived tickets list and git log.
+- **overview-writer** (`subagent_type: "core:overview-writer"`, `model: "opus"`): Generates overview, highlights, motivation, and journey. Pass branch name and base branch.
+- **section-reviewer** (`subagent_type: "core:section-reviewer"`, `model: "opus"`): Generates sections 5-8 (Outcome, Historical Analysis, Concerns, Ideas). Pass branch name and archived tickets list.
 
 Wait for all 7 agents to complete. Track which succeeded and which failed.
 

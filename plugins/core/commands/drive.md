@@ -10,7 +10,7 @@ skills:
 
 # Drive
 
-> When user input contains `/drive` - whether "run /drive", "do /drive", "start /drive", or similar - they likely want this command.
+**Notice:** When user input contains `/drive` - whether "run /drive", "do /drive", "start /drive", or similar - they likely want this command.
 
 Implement tickets from `.workaholic/tickets/todo/` using intelligent prioritization, committing and archiving each one before moving to the next.
 
@@ -21,7 +21,7 @@ Implement tickets from `.workaholic/tickets/todo/` using intelligent prioritizat
 Invoke the drive-navigator subagent via Task tool:
 
 ```
-Task tool with subagent_type: "core:drive-navigator"
+Task tool with subagent_type: "core:drive-navigator", model: "opus"
 prompt: "Navigate tickets. mode: <normal|icebox>"
 ```
 

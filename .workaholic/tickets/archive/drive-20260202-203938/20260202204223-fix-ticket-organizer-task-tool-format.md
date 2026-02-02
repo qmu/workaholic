@@ -3,9 +3,9 @@ created_at: 2026-02-02T20:42:23+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: a965057
+category: Changed
 ---
 
 # Fix ticket-organizer Subagent Invocation Format
@@ -67,3 +67,7 @@ Past tickets that touched similar areas:
 - **Reference implementation**: story-writer.md uses prose format with inline backticks for `subagent_type` (lines 43-49), which works correctly
 - **Root cause**: Code blocks look like pseudo-code or CLI flag documentation, causing model confusion about whether to use Task tool natively or invoke claude CLI
 - **Simple format change**: Content remains the same; only presentation format changes from code blocks to prose bullet points
+
+## Final Report
+
+Converted the "Parallel Discovery" section from code block format to prose bullet point format. Each subagent is now documented with inline backticks for `subagent_type`, matching the working pattern in story-writer.md.

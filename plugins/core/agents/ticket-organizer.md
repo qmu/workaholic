@@ -41,26 +41,9 @@ Topic branch pattern: `drive-*`, `trip-*`
 
 Invoke ALL THREE subagents concurrently using Task tool (single message with three parallel Task calls):
 
-**2-A. History Discovery** (via Task tool):
-```
-subagent_type: "core:history-discoverer"
-prompt: "Find related tickets for keywords: <keyword1> <keyword2> ..."
-```
-- Receives JSON: summary, tickets list, match reasons
-
-**2-B. Source Discovery** (via Task tool):
-```
-subagent_type: "core:source-discoverer"
-prompt: "Find source files for: <description>"
-```
-- Receives JSON: summary, files list, code flow
-
-**2-C. Ticket Moderation** (via Task tool):
-```
-subagent_type: "core:ticket-moderator"
-prompt: "Analyze for duplicates/merge/split. Keywords: <keywords>. Description: <description>"
-```
-- Receives JSON: status, matches list, recommendation
+- **history-discoverer** (`subagent_type: "core:history-discoverer"`): Find related tickets. Pass keywords extracted from request. Receives JSON with summary, tickets list, match reasons.
+- **source-discoverer** (`subagent_type: "core:source-discoverer"`): Find relevant source files. Pass full description. Receives JSON with summary, files list, code flow.
+- **ticket-moderator** (`subagent_type: "core:ticket-moderator"`): Analyze for duplicates/merge/split. Pass keywords and description. Receives JSON with status, matches list, recommendation.
 
 Wait for all three to complete, then proceed with all JSON results.
 

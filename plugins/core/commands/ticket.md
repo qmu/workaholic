@@ -18,7 +18,7 @@ Thin alias for ticket-organizer subagent.
 Invoke ticket-organizer subagent via Task tool:
 
 ```
-Task tool with subagent_type: "core:ticket-organizer"
+Task tool with subagent_type: "core:ticket-organizer", model: "opus"
 prompt: "Create ticket for: <$ARGUMENT>. Target: <todo|icebox based on argument>"
 ```
 

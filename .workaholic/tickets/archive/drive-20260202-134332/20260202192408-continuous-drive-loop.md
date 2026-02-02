@@ -3,9 +3,9 @@ created_at: 2026-02-02T19:24:08+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 94a6108
+category: Added
 ---
 
 # Implement Continuous Drive Loop
@@ -104,3 +104,12 @@ Example flow:
 - **Infinite loop risk**: The only way to stop is "Approve and stop" or natural completion. This is intentional - users who want to pause should use the stop option.
 - **Navigator mode**: Re-invocations should use mode = "normal" (not icebox), since we're checking for new todo tickets.
 - **Icebox check timing**: Only check icebox after todo is confirmed empty on re-check, not after each batch.
+
+## Final Report
+
+Implemented the continuous drive loop by updating `plugins/core/commands/drive.md`:
+
+- Replaced Phase 3 "Completion" with "Re-check and Continue" that checks for new tickets via `ls` and re-invokes the navigator if found
+- Added Phase 4 "Completion" for final session summary after todo is truly empty
+- Added session-wide tracking guidance for maintaining counters across navigator batches
+- Updated "Approve and stop" to explicitly break out of the entire continuous loop

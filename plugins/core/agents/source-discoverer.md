@@ -2,6 +2,7 @@
 name: source-discoverer
 description: Find related source files and analyze code flow.
 tools: Glob, Grep, Read
+model: haiku
 skills:
   - discover-source
 ---

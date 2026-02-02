@@ -2,6 +2,7 @@
 name: ticket-moderator
 description: Analyze existing tickets for duplicates, merge candidates, and split opportunities.
 tools: Glob, Read, Grep
+model: haiku
 ---
 
 # Ticket Moderator

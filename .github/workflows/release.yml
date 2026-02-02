@@ -41,8 +41,8 @@ jobs:
 
           # Check if this is a merge commit from a story branch
           if echo "$commit_msg" | grep -qE "Merge pull request.*from.*/(drive|trip)-"; then
-            echo "Detected drive/trip branch merge -> minor bump"
-            echo "version_type=minor" >> $GITHUB_OUTPUT
+            echo "Detected drive/trip branch merge -> patch bump"
+            echo "version_type=patch" >> $GITHUB_OUTPUT
             echo "skip=false" >> $GITHUB_OUTPUT
           else
             echo "Not a story branch merge, skipping release"

@@ -158,9 +158,10 @@ Agents are specialized subagents that can be spawned to handle complex tasks. Th
 - **performance-analyst**: Evaluates decision-making quality across five viewpoints (Consistency, Intuitivity, Describability, Agility, Density) for PR stories
 - **pr-creator**: Creates or updates GitHub pull requests using the story file as PR body, handling title derivation and `gh` CLI operations
 - **release-readiness**: Analyzes changes for release readiness, providing verdict, concerns, and pre/post-release instructions
+- **section-reviewer**: Generates story sections 5-8 (Outcome, Historical Analysis, Concerns, Ideas) by analyzing archived tickets
 - **source-discoverer**: Explores codebase to find related source files and analyzes code flow context
 - **spec-writer**: Updates `.workaholic/specs/` documentation to reflect current codebase state
-- **story-writer**: Central orchestrator for documentation generation. Invokes 6 subagents in parallel (changelog-writer, spec-writer, terms-writer, release-readiness, performance-analyst, overview-writer), then integrates their outputs into branch stories in `.workaholic/stories/` with eleven sections: Overview, Motivation, Journey (containing Topic Tree flowchart), Changes, Outcome, Historical Analysis, Concerns, Ideas, Performance, Release Preparation, and Notes
+- **story-writer**: Central orchestrator for documentation generation. Invokes 7 subagents in parallel (changelog-writer, spec-writer, terms-writer, release-readiness, performance-analyst, overview-writer, section-reviewer), then integrates their outputs into branch stories in `.workaholic/stories/` with eleven sections: Overview, Motivation, Journey (containing Topic Tree flowchart), Changes, Outcome, Historical Analysis, Concerns, Ideas, Performance, Release Preparation, and Notes
 - **terms-writer**: Updates `.workaholic/terms/` to maintain consistent term definitions
 - **ticket-moderator**: Analyzes existing tickets for duplicates, merge candidates, and split opportunities before creating new tickets
 - **ticket-organizer**: Complete ticket creation workflow: discovers history and source context, checks for duplicates/overlaps, and writes implementation tickets
@@ -246,6 +247,7 @@ flowchart LR
         rr[release-readiness]
         pa[performance-analyst]
         ow[overview-writer]
+        sr[section-reviewer]
         pc[pr-creator]
     end
 
@@ -257,6 +259,7 @@ flowchart LR
         arr[assess-release-readiness]
         ap[analyze-performance]
         wo[write-overview]
+        rs[review-sections]
         tr[translate]
         cp[create-pr]
     end
@@ -264,7 +267,7 @@ flowchart LR
     story --> sw
     story --> pc
 
-    sw --> cw & spw & tw & rr & pa & ow
+    sw --> cw & spw & tw & rr & pa & ow & sr
 
     cw --> wc
     spw --> wsp
@@ -272,6 +275,7 @@ flowchart LR
     rr --> arr
     pa --> ap
     ow --> wo
+    sr --> rs
     sw --> ws
     pc --> cp
 

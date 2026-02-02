@@ -158,9 +158,10 @@ plugins/
 - **performance-analyst**: PRストーリーのために5つの観点（Consistency、Intuitivity、Describability、Agility、Density）で意思決定の質を評価
 - **pr-creator**: ストーリーファイルをPRボディとして使用してGitHub PRを作成または更新、タイトル導出と`gh` CLI操作を処理
 - **release-readiness**: 変更をリリース準備状況について分析、判定・懸念事項・リリース前後の手順を提供
+- **section-reviewer**: アーカイブされたチケットを分析してストーリーセクション5-8（Outcome、Historical Analysis、Concerns、Ideas）を生成
 - **source-discoverer**: コードベースを探索して関連ソースファイルを見つけ、コード流れコンテキストを分析する
 - **spec-writer**: 現在のコードベースの状態を反映するように`.workaholic/specs/`ドキュメントを更新
-- **story-writer**: ドキュメント生成の中央オーケストレーター。6つのサブエージェント（changelog-writer、spec-writer、terms-writer、release-readiness、performance-analyst、overview-writer）を並列で呼び出し、それらの出力をブランチストーリーに統合。11のセクション（Overview、Motivation、Journey（Topic Treeフローチャートを含む）、Changes、Outcome、Historical Analysis、Concerns、Ideas、Performance、Release Preparation、Notes）で構成
+- **story-writer**: ドキュメント生成の中央オーケストレーター。7つのサブエージェント（changelog-writer、spec-writer、terms-writer、release-readiness、performance-analyst、overview-writer、section-reviewer）を並列で呼び出し、それらの出力をブランチストーリーに統合。11のセクション（Overview、Motivation、Journey（Topic Treeフローチャートを含む）、Changes、Outcome、Historical Analysis、Concerns、Ideas、Performance、Release Preparation、Notes）で構成
 - **terms-writer**: 一貫した用語定義を維持するために`.workaholic/terms/`を更新
 - **ticket-moderator**: 新規チケット作成前に既存チケットの重複、マージ候補、分割機会を分析
 - **ticket-organizer**: チケット作成の完全ワークフロー：履歴とソースコンテキストを発見、重複・重なりをチェック、実装チケットを作成
@@ -246,6 +247,7 @@ flowchart LR
         rr[release-readiness]
         pa[performance-analyst]
         ow[overview-writer]
+        sr[section-reviewer]
         pc[pr-creator]
     end
 
@@ -257,6 +259,7 @@ flowchart LR
         arr[assess-release-readiness]
         ap[analyze-performance]
         wo[write-overview]
+        rs[review-sections]
         tr[translate]
         cp[create-pr]
     end
@@ -264,7 +267,7 @@ flowchart LR
     story --> sw
     story --> pc
 
-    sw --> cw & spw & tw & rr & pa & ow
+    sw --> cw & spw & tw & rr & pa & ow & sr
 
     cw --> wc
     spw --> wsp
@@ -272,6 +275,7 @@ flowchart LR
     rr --> arr
     pa --> ap
     ow --> wo
+    sr --> rs
     sw --> ws
     pc --> cp
 

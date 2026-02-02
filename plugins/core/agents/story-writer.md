@@ -10,7 +10,7 @@ skills:
 
 Generate a branch story in `.workaholic/stories/<branch-name>.md` that serves as the single source of truth for PR content.
 
-This agent is the central orchestrator for documentation generation. It invokes 6 subagents in parallel, then integrates their outputs into the story file.
+This agent is the central orchestrator for documentation generation. It invokes 7 subagents in parallel, then integrates their outputs into the story file.
 
 ## Input
 
@@ -38,7 +38,7 @@ When writing section 4 (Changes), you MUST follow these rules:
 
 ### Phase 1: Invoke Documentation Agents
 
-Invoke 6 agents in parallel via Task tool (single message with 6 tool calls):
+Invoke 7 agents in parallel via Task tool (single message with 7 tool calls):
 
 - **changelog-writer** (`subagent_type: "core:changelog-writer"`): Updates `CHANGELOG.md` with entries from archived tickets. Pass repository URL.
 - **spec-writer** (`subagent_type: "core:spec-writer"`): Updates `.workaholic/specs/` to reflect codebase changes. Pass branch name.
@@ -46,8 +46,9 @@ Invoke 6 agents in parallel via Task tool (single message with 6 tool calls):
 - **release-readiness** (`subagent_type: "core:release-readiness"`): Analyzes branch for release readiness. Pass archived tickets list and branch name.
 - **performance-analyst** (`subagent_type: "core:performance-analyst"`): Evaluates decision quality. Pass archived tickets list and git log.
 - **overview-writer** (`subagent_type: "core:overview-writer"`): Generates overview, highlights, motivation, and journey. Pass branch name and base branch.
+- **section-reviewer** (`subagent_type: "core:section-reviewer"`): Generates sections 5-8 (Outcome, Historical Analysis, Concerns, Ideas). Pass branch name and archived tickets list.
 
-Wait for all 6 agents to complete. Track which succeeded and which failed.
+Wait for all 7 agents to complete. Track which succeeded and which failed.
 
 ### Phase 2: Gather Source Data and Write Story
 
@@ -68,13 +69,19 @@ Wait for all 6 agents to complete. Track which succeeded and which failed.
    - Section 2 (Motivation): Use `motivation` field as the narrative paragraph
    - Section 3 (Journey): Use `journey.mermaid` for the flowchart and `journey.summary` for the prose
 
-6. **Write Performance Section**: Use the performance-analyst output to write section 9.2 (Performance Analysis).
+6. **Write Review Sections**: Use the section-reviewer JSON output to write:
+   - Section 5 (Outcome): Use `outcome` field
+   - Section 6 (Historical Analysis): Use `historical_analysis` field
+   - Section 7 (Concerns): Use `concerns` field
+   - Section 8 (Ideas): Use `ideas` field
 
-7. **Write Release Preparation**: Use the release-readiness JSON to write section 10 (Release Preparation).
+7. **Write Performance Section**: Use the performance-analyst output to write section 9.2 (Performance Analysis).
 
-8. **Translate Story**: Create `<branch-name>_ja.md` with Japanese translation following the preloaded translate skill.
+8. **Write Release Preparation**: Use the release-readiness JSON to write section 10 (Release Preparation).
 
-9. **Update Index**: Add entry to both `.workaholic/stories/README.md` and `README_ja.md`.
+9. **Translate Story**: Create `<branch-name>_ja.md` with Japanese translation following the preloaded translate skill.
+
+10. **Update Index**: Add entry to both `.workaholic/stories/README.md` and `README_ja.md`.
 
 ## Output
 
@@ -83,6 +90,6 @@ Return confirmation that includes:
 - Story file was created at `.workaholic/stories/<branch-name>.md`
 - Japanese translation was created at `.workaholic/stories/<branch-name>_ja.md`
 - Stories index (both README.md and README_ja.md) was updated
-- **Agent status report**: List which of the 6 agents succeeded/failed
-  - If all succeeded: "All 6 documentation agents completed successfully"
+- **Agent status report**: List which of the 7 agents succeeded/failed
+  - If all succeeded: "All 7 documentation agents completed successfully"
   - If some failed: "Agents succeeded: [list]. Agents failed: [list with error reason]"

@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-02-01T11:00:00+09:00
-commit_hash: 277b63b
+modified_at: 2026-02-02T13:32:50+09:00
+commit_hash: 3c87e62
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -53,6 +53,7 @@ plugins/
       spec-writer.md          # Updates .workaholic/specs/
       story-writer.md         # Generates branch stories for PRs
       terms-writer.md         # Updates .workaholic/terms/
+      ticket-organizer.md     # Complete ticket workflow: discover, check duplicates, write
     commands/
       drive.md           # /drive command
       story.md           # /story command
@@ -145,6 +146,7 @@ Agents are specialized subagents that can be spawned to handle complex tasks. Th
 - **spec-writer**: Updates `.workaholic/specs/` documentation to reflect current codebase state
 - **story-writer**: Generates branch stories in `.workaholic/stories/` that serve as the single source of truth for PR content, with eleven sections: Overview, Motivation, Journey (containing Topic Tree flowchart), Changes, Outcome, Historical Analysis, Concerns, Ideas, Performance, Release Preparation, and Notes
 - **terms-writer**: Updates `.workaholic/terms/` to maintain consistent term definitions
+- **ticket-organizer**: Complete ticket creation workflow: discovers history and source context, checks for duplicates/overlaps, and writes implementation tickets
 
 ## Command Dependencies
 
@@ -159,8 +161,7 @@ flowchart LR
     end
 
     subgraph Agents
-        hd[history-discoverer]
-        sd[source-discoverer]
+        to[ticket-organizer]
     end
 
     subgraph Skills
@@ -171,11 +172,9 @@ flowchart LR
     end
 
     ticket --> cb
-    ticket --> hd & sd
-    ticket --> ct
+    ticket --> to
 
-    hd --> dh
-    sd --> ds
+    to --> ct & dh & ds
 ```
 
 ### /drive Dependencies
@@ -188,7 +187,6 @@ flowchart LR
 
     subgraph Agents
         dn[drive-navigator]
-        dr[driver]
     end
 
     subgraph Skills
@@ -202,12 +200,10 @@ flowchart LR
     end
 
     drive --> dn
-    drive --> dr
-
-    dr --> dw & at
+    drive --> dw & at & ra & wfr & ha
 
     %% Skill-to-skill
-    dw --> ra & wfr & ha & fcm
+    dw --> fcm
     at --> fcm
     wfr --> utf
 ```

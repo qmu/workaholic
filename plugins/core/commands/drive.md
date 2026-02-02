@@ -2,6 +2,7 @@
 name: drive
 description: Implement tickets from .workaholic/tickets/ one by one, commit each, and archive.
 skills:
+  - drive-workflow
   - request-approval
   - write-final-report
   - handle-abandon
@@ -39,23 +40,27 @@ Handle the response:
 
 For each ticket in the ordered list:
 
-#### Step 2.1: Invoke Driver
+#### Step 2.1: Implement Ticket
 
-Invoke driver subagent via Task tool:
-```
-Task tool with subagent_type: "core:driver"
-prompt: "Implement ticket: <ticket-path>. repo_url: <repo-url>"
-```
+Follow the preloaded **drive-workflow** skill directly in this command:
+
+1. **Read the ticket file** to understand requirements
+2. **Identify key files** mentioned in the ticket
+3. **Implement changes** following the ticket's implementation steps
+4. **Run type checks** per CLAUDE.md to verify changes
+5. Fix any type errors or test failures before proceeding
+
+Implementation context is preserved in the main conversation, providing full visibility of changes made.
 
 #### Step 2.2: Request User Approval
 
-When driver returns `status: "pending_approval"`, present approval dialog to user.
+After implementation is complete, present approval dialog to user.
 
 Follow the preloaded **request-approval** skill format:
 
 ```
-**Ticket: <title from driver response>**
-<overview from driver response>
+**Ticket: <title from ticket H1>**
+<overview from ticket Overview section>
 
 Implementation complete. Changes made:
 - <change 1>

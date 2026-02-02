@@ -8,9 +8,9 @@ user-invocable: false
 
 # Drive Workflow
 
-Step-by-step workflow for implementing a single ticket during `/drive`.
+Step-by-step workflow for implementing a single ticket during `/drive`. This skill is preloaded directly by the drive command.
 
-**IMPORTANT**: This workflow implements changes only. Approval and commit are handled by the parent `/drive` command.
+**IMPORTANT**: This workflow implements changes only. Approval and commit are handled by the `/drive` command after implementation.
 
 ## Steps
 
@@ -44,7 +44,7 @@ After implementation is complete, return a summary to the parent command:
 
 ## Critical Rules
 
-- **NEVER commit** - parent command handles commit after user approval
-- **NEVER use AskUserQuestion** - parent command handles approval dialog
-- **NEVER archive tickets** - parent command handles archiving
-- Return implementation summary and stop
+- **NEVER commit** - drive command handles commit after user approval
+- **NEVER use AskUserQuestion** - drive command handles approval dialog
+- **NEVER archive tickets** - drive command handles archiving
+- After implementation, proceed to approval flow

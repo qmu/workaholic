@@ -3,9 +3,9 @@ created_at: 2026-02-02T20:41:11+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 9b11be4
+category: Changed
 ---
 
 # Fix Release Action Trigger on PR Merge
@@ -56,3 +56,14 @@ Previous tickets established the current release workflow architecture:
 - Release notes should be updated from commit history since the last tag
 - If release already exists for the current version, the workflow will skip creation (existing logic handles this)
 - The workflow reads version from marketplace.json, so it will create/update release for whatever version is current
+
+## Final Report
+
+Implemented a version-comparison approach instead of commit message filtering:
+
+1. Removed job-level `if` condition that filtered by commit message
+2. Added "Get latest release version" step that fetches current release tag from GitHub
+3. Added "Check if release needed" step that compares repo version vs latest release
+4. Release is created only when versions differ, regardless of commit message
+
+This approach is more robust than commit message parsing and correctly handles PR merges.

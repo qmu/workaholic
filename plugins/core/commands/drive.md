@@ -3,10 +3,8 @@ name: drive
 description: Implement tickets from .workaholic/tickets/ one by one, commit each, and archive.
 skills:
   - drive-workflow
-  - request-approval
+  - drive-approval
   - write-final-report
-  - handle-abandon
-  - handle-revision
   - archive-ticket
 ---
 
@@ -57,7 +55,7 @@ Implementation context is preserved in the main conversation, providing full vis
 
 After implementation is complete, present approval dialog to user.
 
-Follow the preloaded **request-approval** skill format:
+Follow the preloaded **drive-approval** skill (Section 1) format:
 
 ```
 **Ticket: <title from ticket H1>**
@@ -97,12 +95,12 @@ Based on user's selection:
 4. Stop driving, report remaining tickets
 
 **"Needs revision"**:
-1. Follow **handle-revision** skill (prompt for feedback, append Discussion section)
+1. Follow **drive-approval** skill (Section 3) (prompt for feedback, append Discussion section)
 2. Re-implement changes based on feedback
 3. Return to Step 2.2 (request approval again)
 
 **"Abandon"**:
-1. Follow **handle-abandon** skill (discard changes, write failure analysis)
+1. Follow **drive-approval** skill (Section 4) (discard changes, write failure analysis)
 2. Continue to next ticket
 
 ### Phase 3: Completion

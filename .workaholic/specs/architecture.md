@@ -85,16 +85,12 @@ plugins/
         SKILL.md           # Guidelines for exploring source code
       discover-history/
         SKILL.md           # Guidelines for searching archived tickets
+      drive-approval/
+        SKILL.md           # Complete approval flow: request, revision, abandonment
       drive-workflow/
         SKILL.md           # Implementation workflow for tickets
       format-commit-message/
         SKILL.md           # Structured commit message format
-      handle-abandon/
-        SKILL.md           # Handles abandoned implementations
-      handle-revision/
-        SKILL.md           # Handles revision requests with discussion tracking
-      request-approval/
-        SKILL.md           # User approval flow for implementations
       translate/
         SKILL.md           # Translation policies and .workaholic/ i18n enforcement
       update-ticket-frontmatter/
@@ -141,11 +137,9 @@ Skills are complex capabilities that may include scripts or multiple files. They
 - **create-ticket**: Complete ticket creation workflow including format, exploration, and related history
 - **discover-history**: Guidelines for searching archived tickets to find related context
 - **discover-source**: Guidelines for exploring source code to understand codebase context and find related files
+- **drive-approval**: Complete approval flow for implementations including request, revision handling, and abandonment
 - **drive-workflow**: Implementation workflow steps for processing tickets
 - **format-commit-message**: Structured commit message format with title, motivation, UX, and architecture sections
-- **handle-abandon**: Handles abandoned implementations by discarding changes, recording failure analysis, and moving ticket to abandoned directory
-- **handle-revision**: Handles revision requests by recording user feedback in a Discussion section and re-implementing
-- **request-approval**: User approval flow with selectable options (Approve, Needs revision, Abandon) for implementation review
 - **translate**: Translation policies and `.workaholic/` i18n enforcement (spec-writer, terms-writer, story-writer preload this)
 - **update-ticket-frontmatter**: Updates ticket YAML frontmatter fields (effort, commit_hash, category)
 - **write-changelog**: Generates changelog entries from archived tickets (grouping by category) and provides guidelines for updating CHANGELOG.md
@@ -221,16 +215,14 @@ flowchart LR
     subgraph Skills
         dw[drive-workflow]
         at[archive-ticket]
-        ra[request-approval]
+        da[drive-approval]
         wfr[write-final-report]
-        ha[handle-abandon]
-        hr[handle-revision]
         fcm[format-commit-message]
         utf[update-ticket-frontmatter]
     end
 
     drive --> dn
-    drive --> dw & at & ra & wfr & ha & hr
+    drive --> dw & at & da & wfr
 
     %% Skill-to-skill
     dw --> fcm

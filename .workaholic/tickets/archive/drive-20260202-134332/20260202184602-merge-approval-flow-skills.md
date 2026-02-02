@@ -3,9 +3,9 @@ created_at: 2026-02-02T18:46:01+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 1c7c047
+category: Changed
 ---
 
 # Merge Approval Flow Skills into Unified drive-approval Skill
@@ -179,3 +179,12 @@ Apply the same changes to `.workaholic/specs/architecture_ja.md`.
 - **No shell scripts**: Unlike archive-ticket, these skills are pure documentation with no bundled scripts, so merging is straightforward.
 - **Skill size**: The merged skill will be ~100-120 lines, within the recommended 50-150 line range for comprehensive skills.
 - **drive-workflow unchanged**: The drive-workflow skill remains separate as it covers implementation steps, not approval flow.
+
+## Final Report
+
+Merged three approval flow skills into unified drive-approval skill:
+
+- Created `plugins/core/skills/drive-approval/SKILL.md` with 4 sections covering the complete approval cycle
+- Deleted request-approval, handle-revision, and handle-abandon skills
+- Updated drive.md skills list and inline references to use section-based references
+- Updated architecture specs (EN/JA) with new directory layout, skill list, and dependency diagrams

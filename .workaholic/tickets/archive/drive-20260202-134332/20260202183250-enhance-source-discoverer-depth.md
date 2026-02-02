@@ -3,9 +3,9 @@ created_at: 2026-02-02T18:32:50+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 2976884
+category: Changed
 ---
 
 # Enhance source-discoverer for Deeper and Wider Codebase Exploration
@@ -151,3 +151,12 @@ Document heuristics for smart exploration:
 - **Skill vs agent responsibility**: Per architecture policy, comprehensive guidelines belong in the skill (discover-source), while the agent (source-discoverer) provides orchestration only.
 - **Backward compatibility**: The output JSON adds new optional fields (`import_graph`, `patterns`, `test_coverage`) but maintains existing fields for compatibility.
 - **Tool limitations**: The subagent has access to Glob, Grep, Read - it cannot execute code or follow dynamic imports. The skill should acknowledge these constraints.
+
+## Final Report
+
+Enhanced source-discoverer from minimal implementation to comprehensive exploration system:
+
+- **discover-source skill**: Expanded from 30 to 122 lines with 5 exploration phases, depth controls, language-specific heuristics, skip patterns, and richer output format
+- **source-discoverer agent**: Updated instructions with phased execution steps and enhanced output JSON
+
+All ticket requirements implemented as specified.

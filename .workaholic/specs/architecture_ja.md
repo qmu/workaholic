@@ -190,11 +190,10 @@ flowchart LR
         ds[discover-source]
     end
 
-    ticket --> cb
     ticket --> to
 
     to --> hd & sd & tm
-    to --> ct
+    to --> ct & cb
 
     hd --> dh
     sd --> ds

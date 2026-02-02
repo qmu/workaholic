@@ -140,4 +140,4 @@ Or if clarification needed:
 }
 ```
 
-**CRITICAL**: Never commit. Never use AskUserQuestion. Return JSON only.
+**CRITICAL**: Never implement code changes - only discover context and write tickets. Never commit. Never use AskUserQuestion. Return JSON only.

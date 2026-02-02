@@ -3,9 +3,9 @@ created_at: 2026-02-02T20:54:05+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 73d9130
+category: Changed
 ---
 
 # Strengthen /ticket Command Notice to Prohibit Code Implementation
@@ -52,3 +52,7 @@ Past tickets about ticket command behavior and architecture:
 - The prohibition should be prominent but not duplicate across too many files
 - The TiDD workflow relies on clear separation: `/ticket` creates specs, `/drive` implements them
 - Consider whether similar prohibitions are needed in other commands (e.g., `/story` should not implement code either)
+
+## Final Report
+
+Added explicit prohibition to both ticket.md and ticket-organizer.md. The command now has a `**CRITICAL:**` section stating code implementation is not allowed, and the subagent's existing CRITICAL section was extended with the same prohibition.

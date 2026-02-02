@@ -1,7 +1,7 @@
 ---
 name: ticket-organizer
 description: Discover context, check duplicates, and write implementation tickets. Runs in isolated context.
-tools: Read, Write, Edit, Glob, Grep, Bash
+tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: opus
 skills:
   - create-ticket

@@ -3,9 +3,9 @@ created_at: 2026-02-02T20:15:02+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: dd1764c
+category: Added
 ---
 
 # Add Task Tool to ticket-organizer Agent

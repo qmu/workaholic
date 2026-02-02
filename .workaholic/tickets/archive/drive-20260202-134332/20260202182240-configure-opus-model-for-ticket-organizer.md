@@ -3,9 +3,9 @@ created_at: 2026-02-02T18:22:39+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 3197a5a
+category: Changed
 ---
 
 # Configure Opus Model for ticket-organizer and Child Subagents
@@ -89,3 +89,7 @@ Past tickets that touched similar areas:
 - **Cost vs quality tradeoff**: Using Opus for ticket creation prioritizes quality over cost, which is appropriate since tickets guide implementation work
 - **Consistency**: All four agents in the ticket workflow (ticket-organizer + 3 child subagents) use the same model
 - **Pattern alignment**: Follows the same pattern as `/story` command, which specifies model for each subagent invocation
+
+## Final Report
+
+Implemented using frontmatter `model` field (not Task tool parameters). Added `model: opus` to ticket-organizer for quality ticket writing. Added `model: haiku` to history-discoverer, source-discoverer, and ticket-moderator for cost-efficient discovery tasks.

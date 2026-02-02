@@ -2,8 +2,8 @@
 title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
-last_updated: 2026-02-01
-commit_hash: 277b63b
+last_updated: 2026-02-02
+commit_hash: 3c87e62
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -76,6 +76,7 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 - **handle-abandon**: 失敗分析を伴う放棄された実装を処理
 - **request-approval**: 選択可能なオプション付きのユーザー承認フロー
 - **write-final-report**: 最終レポートと発見されたインサイトのドキュメンテーション
+- **drive-workflow**: チケット処理の実装ワークフロー調整
 
 コンテンツスキル（指示とテンプレート）:
 - **write-story**: ストーリーコンテンツ構造、フォーマット、メトリクス計算、翻訳要件
@@ -84,7 +85,6 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 - **write-changelog**: changelogフォーマットとエントリガイドライン
 - **analyze-performance**: パフォーマンス評価フレームワーク
 - **create-ticket**: チケットファイル構造、フロントマター、関連履歴、作成ワークフロー
-- **drive-workflow**: チケット処理の実装ワークフロー調整
 - **translate**: 翻訳ポリシーと`.workaholic/`のi18n適用
 
 ### 関連用語
@@ -120,18 +120,36 @@ Claude Code機能を拡張するコマンド、スキル、ルール、エージ
 一般的なエージェントタイプ:
 - **ライターエージェント**: ドキュメントを生成（spec-writer、terms-writer、story-writer、changelog-writer）
 - **アナリストエージェント**: 評価と分析を実行（performance-analyst、release-readiness）
-- **クリエイターエージェント**: 外部操作を実行（pr-creator）
+- **クリエイターエージェント**: 外部操作を実行（pr-creator、ticket-organizer）
 - **検索エージェント**: 関連する作業を見つけて分析（history-discoverer、source-discoverer）
 
 ### 使用パターン
 
 - **ディレクトリ名**: `plugins/<name>/agents/`
-- **ファイル名**: `performance-analyst.md`、`release-readiness.md`、`spec-writer.md`、`story-writer.md`、`changelog-writer.md`、`pr-creator.md`、`terms-writer.md`、`history-discoverer.md`、`source-discoverer.md`
+- **ファイル名**: `performance-analyst.md`、`release-readiness.md`、`spec-writer.md`、`story-writer.md`、`changelog-writer.md`、`pr-creator.md`、`ticket-organizer.md`、`history-discoverer.md`、`source-discoverer.md`
 - **コード参照**: 「story-writerエージェントを呼び出す」、「changelog-writerエージェントが処理する...」、「Taskツールでエージェントを起動」
 
 ### 関連用語
 
 - plugin、command、skill、orchestrator
+
+## ticket-organizer
+
+`/ticket`コマンドワークフロー中にコンテキストを発見し、実装チケットを作成するサブエージェント。
+
+### 定義
+
+ticket-organizerサブエージェントは完全なチケット作成ワークフローを処理します。機能説明とターゲットディレクトリを受け取ると、3つの発見タスクを並列で実行します：関連履歴とパターンについてアーカイブされたチケットを検索、コンテキストのためにソースコードを探索、重複チケットをチェック。これらの発見に基づいて、適切な構造、関連履歴リンク、フロントマター付きの新しいチケットファイルを作成します。サブエージェントはcreate-ticket、discover-history、discover-sourceスキルをプリロードして、各発見フェーズの包括的なガイドラインにアクセスします。
+
+### 使用パターン
+
+- **ディレクトリ名**: `plugins/<name>/agents/`
+- **ファイル名**: `ticket-organizer.md`
+- **コード参照**: 「ticket-organizerエージェントを呼び出す」、「ticket-organizerはコンテキストを発見してチケットを作成」
+
+### 関連用語
+
+- command、skill、ticket、create-ticket、discover-history、discover-source
 
 ## orchestrator
 
@@ -243,7 +261,7 @@ nesting policyは、コマンド、サブエージェント、スキル間で許
 
 ### 定義
 
-context windowは、エージェントが実行するときに利用可能な会話メモリです。エージェントが隔離されたコンテキストで実行するとき、メイン会話のコンテキストウィンドウをオーケストレーション用に保持しながら、実装の詳細を独自の専用スペースで処理します。これは、大量のファイル読み取りや複雑な分析からのコンテキスト汚染を防ぎます。driverエージェントは、たとえば、メイン/driveコマンドの会話スペースを膨張させることなく、単一のチケットを実装するために独自のコンテキストウィンドウで実行されます。
+context windowは、エージェントが実行するときに利用可能な会話メモリです。エージェントが隔離されたコンテキストで実行するとき、メイン会話のコンテキストウィンドウをオーケストレーション用に保持しながら、実装の詳細を独自の専用スペースで処理します。これは、大量のファイル読み取りや複雑な分析からのコンテキスト汚染を防ぎます。
 
 ### 使用パターン
 
@@ -253,7 +271,19 @@ context windowは、エージェントが実行するときに利用可能な会
 
 ### 関連用語
 
-- agent、driver、orchestrator
+- agent、orchestrator
+
+## driver（廃止）
+
+`/drive`ワークフロー中に個別のチケットを実装するための以前の中間エージェント。現在の実装パターンについては`drive-workflow`スキルを参照してください。
+
+### 定義
+
+driverサブエージェントは以前、`/drive`コマンドから呼び出され、隔離されたコンテキストで個別のチケットを実装していました。このパターンは可視性を向上させ、メイン会話コンテキストで修正履歴を保持するために削除されました。`/drive`コマンドはdrive-workflowスキルをインラインで直接呼び出すようになり、コンテキスト隔離の問題を排除し、デバッグ機能を向上させます。
+
+### 関連用語
+
+- drive、drive-workflow、agent
 
 ## hook
 

@@ -2,8 +2,8 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-02-01T11:00:00+09:00
-commit_hash: 277b63b
+modified_at: 2026-02-02T13:32:50+09:00
+commit_hash: 3c87e62
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -200,10 +200,10 @@ flowchart LR
     end
 
     drive --> dn
-    drive --> dw & at
+    drive --> dw & at & ra & wfr & ha
 
     %% Skill-to-skill
-    dw --> ra & wfr & ha & fcm
+    dw --> fcm
     at --> fcm
     wfr --> utf
 ```

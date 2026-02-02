@@ -3,9 +3,9 @@ created_at: 2026-02-02T20:59:54+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: fd3a09b
+category: Changed
 ---
 
 # Configure Opus Model for All Task Tool Invocations
@@ -67,3 +67,11 @@ Past tickets that touched similar areas:
 - **Frontmatter vs Task parameter**: Some agents have frontmatter `model:` fields (e.g., ticket-organizer has `model: opus`). This ticket focuses on Task tool `model:` parameters, which override frontmatter settings when invoking subagents
 - **Cost implications**: Opus model is more expensive than haiku. This change will increase API costs for all subagent invocations
 - **Existing haiku configurations**: Some agents (history-discoverer, source-discoverer, ticket-moderator, overview-writer, section-reviewer) have `model: haiku` in their frontmatter. The Task tool `model:` parameter overrides this
+
+## Final Report
+
+Updated 5 files with `model: "opus"` parameter for all Task tool invocations:
+- 3 command files (ticket.md, drive.md, story.md)
+- 2 subagent files (ticket-organizer.md, story-writer.md)
+
+Total of 13 Task invocations now explicitly use opus model.

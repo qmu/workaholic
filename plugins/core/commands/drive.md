@@ -21,7 +21,7 @@ Implement tickets from `.workaholic/tickets/todo/` using intelligent prioritizat
 Invoke the drive-navigator subagent via Task tool:
 
 ```
-Task tool with subagent_type: "core:drive-navigator"
+Task tool with subagent_type: "core:drive-navigator", model: "opus"
 prompt: "Navigate tickets. mode: <normal|icebox>"
 ```
 

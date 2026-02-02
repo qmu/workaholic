@@ -27,8 +27,12 @@ You will receive:
 Check current branch: `git branch --show-current`
 
 If on `main` or `master` (not a topic branch):
-1. Create branch: `git checkout -b "drive-$(date +%Y%m%d-%H%M%S)"`
-2. Store branch name for output JSON
+1. Create branch using skill script:
+   ```bash
+   bash .claude/skills/create-branch/sh/create.sh drive
+   ```
+2. Parse JSON output to get branch name
+3. Store branch name for output JSON
 
 Topic branch pattern: `drive-*`, `trip-*`
 

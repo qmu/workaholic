@@ -2,8 +2,7 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-02-02T13:32:50+09:00
-commit_hash: 3c87e62
+modified_at: 2026-02-02T17:44:53+09:00
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -53,6 +52,7 @@ plugins/
       spec-writer.md          # .workaholic/specs/を更新
       story-writer.md         # PR用のブランチストーリーを生成
       terms-writer.md         # .workaholic/terms/を更新
+      ticket-moderator.md     # チケットの重複・マージ・分割を分析
       ticket-organizer.md     # チケット作成の完全ワークフロー：発見・重複チェック・作成
     commands/
       drive.md           # /drive コマンド
@@ -83,14 +83,28 @@ plugins/
         SKILL.md           # フォーマットとガイドラインを含むチケット作成
       discover-source/
         SKILL.md           # ソースコード探索ガイドライン
+      discover-history/
+        SKILL.md           # アーカイブされたチケットの検索ガイドライン
       drive-workflow/
         SKILL.md           # チケット実装ワークフロー
+      format-commit-message/
+        SKILL.md           # 構造化コミットメッセージ形式
+      handle-abandon/
+        SKILL.md           # 放棄された実装を処理
+      handle-revision/
+        SKILL.md           # ディスカッション追跡付きリビジョンリクエストを処理
+      request-approval/
+        SKILL.md           # 実装レビューのためのユーザー承認フロー
       translate/
         SKILL.md           # 翻訳ポリシーと.workaholic/ i18n強制
+      update-ticket-frontmatter/
+        SKILL.md           # チケットYAMLフロントマターフィールドを更新
       write-changelog/
         SKILL.md           # changelog生成およびライティングガイドライン
         sh/
           generate.sh      # チケットからchangelogエントリを生成
+      write-final-report/
+        SKILL.md           # チケットの最終レポートセクション
       write-spec/
         SKILL.md
         sh/
@@ -125,10 +139,17 @@ plugins/
 - **create-branch**: 設定可能なプレフィックス付きでタイムスタンプ付きトピックブランチを作成
 - **create-pr**: gh CLIを使用して適切なフォーマットでGitHub PRを作成/更新
 - **create-ticket**: フォーマット、調査、関連履歴を含む完全なチケット作成ワークフロー
+- **discover-history**: 関連コンテキストを見つけるためのアーカイブされたチケット検索ガイドライン
 - **discover-source**: コードベースコンテキストを理解するためのソースコード探索ガイドライン
 - **drive-workflow**: チケット処理の実装ワークフローステップ
+- **format-commit-message**: タイトル、動機、UX、アーキテクチャセクションを含む構造化コミットメッセージ形式
+- **handle-abandon**: 変更を破棄し、失敗分析を記録し、チケットをabandonedディレクトリに移動して放棄された実装を処理
+- **handle-revision**: ユーザーフィードバックをDiscussionセクションに記録し、再実装してリビジョンリクエストを処理
+- **request-approval**: 実装レビューのための選択可能オプション（Approve、Needs revision、Abandon）を持つユーザー承認フロー
 - **translate**: 翻訳ポリシーと`.workaholic/` i18n強制（spec-writer、terms-writer、story-writerがプリロード）
+- **update-ticket-frontmatter**: チケットYAMLフロントマターフィールド（effort、commit_hash、category）を更新
 - **write-changelog**: アーカイブされたチケットからchangelogエントリを生成（カテゴリ別にグループ化）し、CHANGELOG.md更新のガイドラインを提供
+- **write-final-report**: オプションの発見インサイトを含むチケットの最終レポートセクションを作成
 - **write-spec**: コンテキスト収集とspecドキュメントのライティングガイドライン
 - **write-story**: メトリクス計算、テンプレート、ブランチストーリーのガイドライン
 - **write-terms**: コンテキスト収集と用語ドキュメントのガイドライン
@@ -146,6 +167,7 @@ plugins/
 - **spec-writer**: 現在のコードベースの状態を反映するように`.workaholic/specs/`ドキュメントを更新
 - **story-writer**: PR内容の単一の真実の情報源として機能する`.workaholic/stories/`にブランチストーリーを生成、11のセクション（Overview、Motivation、Journey（Topic Treeフローチャートを含む）、Changes、Outcome、Historical Analysis、Concerns、Ideas、Performance、Release Preparation、Notes）で構成
 - **terms-writer**: 一貫した用語定義を維持するために`.workaholic/terms/`を更新
+- **ticket-moderator**: 新規チケット作成前に既存チケットの重複、マージ候補、分割機会を分析
 - **ticket-organizer**: チケット作成の完全ワークフロー：履歴とソースコンテキストを発見、重複・重なりをチェック、実装チケットを作成
 
 ## コマンド依存関係
@@ -162,6 +184,9 @@ flowchart LR
 
     subgraph エージェント
         to[ticket-organizer]
+        hd[history-discoverer]
+        sd[source-discoverer]
+        tm[ticket-moderator]
     end
 
     subgraph スキル
@@ -174,7 +199,11 @@ flowchart LR
     ticket --> cb
     ticket --> to
 
-    to --> ct & dh & ds
+    to --> hd & sd & tm
+    to --> ct
+
+    hd --> dh
+    sd --> ds
 ```
 
 ### /drive 依存関係
@@ -195,12 +224,13 @@ flowchart LR
         ra[request-approval]
         wfr[write-final-report]
         ha[handle-abandon]
+        hr[handle-revision]
         fcm[format-commit-message]
         utf[update-ticket-frontmatter]
     end
 
     drive --> dn
-    drive --> dw & at & ra & wfr & ha
+    drive --> dw & at & ra & wfr & ha & hr
 
     %% Skill-to-skill
     dw --> fcm
@@ -380,10 +410,10 @@ Workaholicはオーケストレーションと知識の明確な分離を維持�
 | 呼び出し元 | 呼び出し可能     | 呼び出し不可        |
 | ---------- | ---------------- | ------------------- |
 | コマンド   | スキル、サブエージェント | -            |
-| サブエージェント | スキル      | サブエージェント、コマンド |
+| サブエージェント | スキル、サブエージェント | コマンド |
 | スキル     | スキル           | サブエージェント、コマンド |
 
-コマンドとサブエージェントはオーケストレーション層であり、ワークフローステップを定義し他のコンポーネントを呼び出します。スキルは知識層であり、テンプレート、ガイドライン、ルール、bashスクリプトを含みます。スキルは合成可能な知識のために他のスキルをプリロードできます（例：write-specはi18n強制のためにtranslateをプリロード）。この分離により、深いネストとコンテキスト爆発を防ぎながら、包括的な知識をスキルに集約します。
+サブエージェント → サブエージェントは並列のみで最大深度1（ネストチェーンなし）の場合のみ許可されます。コマンドとサブエージェントはオーケストレーション層であり、ワークフローステップを定義し他のコンポーネントを呼び出します。スキルは知識層であり、テンプレート、ガイドライン、ルール、bashスクリプトを含みます。スキルは合成可能な知識のために他のスキルをプリロードできます（例：write-specはi18n強制のためにtranslateをプリロード）。この分離により、深いネストとコンテキスト爆発を防ぎながら、包括的な知識をスキルに集約します。
 
 ## バージョン管理
 

@@ -2,8 +2,7 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-02-02T13:32:50+09:00
-commit_hash: 3c87e62
+modified_at: 2026-02-02T17:44:53+09:00
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -53,6 +52,7 @@ plugins/
       spec-writer.md          # Updates .workaholic/specs/
       story-writer.md         # Generates branch stories for PRs
       terms-writer.md         # Updates .workaholic/terms/
+      ticket-moderator.md     # Analyzes tickets for duplicates, merges, and splits
       ticket-organizer.md     # Complete ticket workflow: discover, check duplicates, write
     commands/
       drive.md           # /drive command
@@ -83,14 +83,28 @@ plugins/
         SKILL.md           # Ticket creation with format and guidelines
       discover-source/
         SKILL.md           # Guidelines for exploring source code
+      discover-history/
+        SKILL.md           # Guidelines for searching archived tickets
       drive-workflow/
         SKILL.md           # Implementation workflow for tickets
+      format-commit-message/
+        SKILL.md           # Structured commit message format
+      handle-abandon/
+        SKILL.md           # Handles abandoned implementations
+      handle-revision/
+        SKILL.md           # Handles revision requests with discussion tracking
+      request-approval/
+        SKILL.md           # User approval flow for implementations
       translate/
         SKILL.md           # Translation policies and .workaholic/ i18n enforcement
+      update-ticket-frontmatter/
+        SKILL.md           # Updates ticket YAML frontmatter fields
       write-changelog/
         SKILL.md           # Changelog generation and writing guidelines
         sh/
           generate.sh      # Generates changelog entries from tickets
+      write-final-report/
+        SKILL.md           # Final report section for tickets
       write-spec/
         SKILL.md
         sh/
@@ -125,10 +139,17 @@ Skills are complex capabilities that may include scripts or multiple files. They
 - **create-branch**: Creates timestamped topic branches with configurable prefix
 - **create-pr**: Creates or updates GitHub PRs using the gh CLI with proper formatting
 - **create-ticket**: Complete ticket creation workflow including format, exploration, and related history
+- **discover-history**: Guidelines for searching archived tickets to find related context
 - **discover-source**: Guidelines for exploring source code to understand codebase context and find related files
 - **drive-workflow**: Implementation workflow steps for processing tickets
+- **format-commit-message**: Structured commit message format with title, motivation, UX, and architecture sections
+- **handle-abandon**: Handles abandoned implementations by discarding changes, recording failure analysis, and moving ticket to abandoned directory
+- **handle-revision**: Handles revision requests by recording user feedback in a Discussion section and re-implementing
+- **request-approval**: User approval flow with selectable options (Approve, Needs revision, Abandon) for implementation review
 - **translate**: Translation policies and `.workaholic/` i18n enforcement (spec-writer, terms-writer, story-writer preload this)
+- **update-ticket-frontmatter**: Updates ticket YAML frontmatter fields (effort, commit_hash, category)
 - **write-changelog**: Generates changelog entries from archived tickets (grouping by category) and provides guidelines for updating CHANGELOG.md
+- **write-final-report**: Writes final report section for tickets with optional discovered insights
 - **write-spec**: Context gathering and guidelines for writing specification documents
 - **write-story**: Metrics calculation, templates, and guidelines for branch stories
 - **write-terms**: Context gathering and guidelines for terminology documents
@@ -146,6 +167,7 @@ Agents are specialized subagents that can be spawned to handle complex tasks. Th
 - **spec-writer**: Updates `.workaholic/specs/` documentation to reflect current codebase state
 - **story-writer**: Generates branch stories in `.workaholic/stories/` that serve as the single source of truth for PR content, with eleven sections: Overview, Motivation, Journey (containing Topic Tree flowchart), Changes, Outcome, Historical Analysis, Concerns, Ideas, Performance, Release Preparation, and Notes
 - **terms-writer**: Updates `.workaholic/terms/` to maintain consistent term definitions
+- **ticket-moderator**: Analyzes existing tickets for duplicates, merge candidates, and split opportunities before creating new tickets
 - **ticket-organizer**: Complete ticket creation workflow: discovers history and source context, checks for duplicates/overlaps, and writes implementation tickets
 
 ## Command Dependencies
@@ -162,6 +184,9 @@ flowchart LR
 
     subgraph Agents
         to[ticket-organizer]
+        hd[history-discoverer]
+        sd[source-discoverer]
+        tm[ticket-moderator]
     end
 
     subgraph Skills
@@ -174,7 +199,11 @@ flowchart LR
     ticket --> cb
     ticket --> to
 
-    to --> ct & dh & ds
+    to --> hd & sd & tm
+    to --> ct
+
+    hd --> dh
+    sd --> ds
 ```
 
 ### /drive Dependencies
@@ -195,12 +224,13 @@ flowchart LR
         ra[request-approval]
         wfr[write-final-report]
         ha[handle-abandon]
+        hr[handle-revision]
         fcm[format-commit-message]
         utf[update-ticket-frontmatter]
     end
 
     drive --> dn
-    drive --> dw & at & ra & wfr & ha
+    drive --> dw & at & ra & wfr & ha & hr
 
     %% Skill-to-skill
     dw --> fcm
@@ -380,10 +410,10 @@ Workaholic follows strict nesting rules for component invocations to maintain a 
 | Caller   | Can invoke         | Cannot invoke       |
 | -------- | ------------------ | ------------------- |
 | Command  | Skill, Subagent    | -                   |
-| Subagent | Skill              | Subagent, Command   |
+| Subagent | Skill, Subagent    | Command             |
 | Skill    | Skill              | Subagent, Command   |
 
-Commands and subagents are the orchestration layer, defining workflow steps and invoking other components. Skills are the knowledge layer, containing templates, guidelines, rules, and bash scripts. Skills can preload other skills for composable knowledge (e.g., write-spec preloads translate for i18n enforcement). This separation prevents deep nesting and context explosion while keeping comprehensive knowledge centralized in skills.
+Subagent → Subagent is allowed only in parallel with max depth 1 (no nested chains). Commands and subagents are the orchestration layer, defining workflow steps and invoking other components. Skills are the knowledge layer, containing templates, guidelines, rules, and bash scripts. Skills can preload other skills for composable knowledge (e.g., write-spec preloads translate for i18n enforcement). This separation prevents deep nesting and context explosion while keeping comprehensive knowledge centralized in skills.
 
 ## Version Management
 

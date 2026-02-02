@@ -3,9 +3,9 @@ created_at: 2026-02-02T20:05:53+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: e1db47a
+category: Changed
 ---
 
 # Reorganize Story Agent Hierarchy

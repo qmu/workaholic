@@ -2,7 +2,7 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-02-02T17:44:53+09:00
+modified_at: 2026-02-02T20:11:14+09:00
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -154,12 +154,13 @@ plugins/
 
 - **changelog-writer**: アーカイブされたチケットからルート`CHANGELOG.md`をカテゴリ別（Added、Changed、Removed）に更新
 - **history-discoverer**: アーカイブされたチケットを検索して関連コンテキストと過去の決定を見つける
+- **overview-writer**: コミット履歴を分析してストーリーファイル用の構造化概要コンテンツ（overview、highlights、motivation、journey）を生成
 - **performance-analyst**: PRストーリーのために5つの観点（Consistency、Intuitivity、Describability、Agility、Density）で意思決定の質を評価
 - **pr-creator**: ストーリーファイルをPRボディとして使用してGitHub PRを作成または更新、タイトル導出と`gh` CLI操作を処理
 - **release-readiness**: 変更をリリース準備状況について分析、判定・懸念事項・リリース前後の手順を提供
 - **source-discoverer**: コードベースを探索して関連ソースファイルを見つけ、コード流れコンテキストを分析する
 - **spec-writer**: 現在のコードベースの状態を反映するように`.workaholic/specs/`ドキュメントを更新
-- **story-writer**: PR内容の単一の真実の情報源として機能する`.workaholic/stories/`にブランチストーリーを生成、11のセクション（Overview、Motivation、Journey（Topic Treeフローチャートを含む）、Changes、Outcome、Historical Analysis、Concerns、Ideas、Performance、Release Preparation、Notes）で構成
+- **story-writer**: ドキュメント生成の中央オーケストレーター。6つのサブエージェント（changelog-writer、spec-writer、terms-writer、release-readiness、performance-analyst、overview-writer）を並列で呼び出し、それらの出力をブランチストーリーに統合。11のセクション（Overview、Motivation、Journey（Topic Treeフローチャートを含む）、Changes、Outcome、Historical Analysis、Concerns、Ideas、Performance、Release Preparation、Notes）で構成
 - **terms-writer**: 一貫した用語定義を維持するために`.workaholic/terms/`を更新
 - **ticket-moderator**: 新規チケット作成前に既存チケットの重複、マージ候補、分割機会を分析
 - **ticket-organizer**: チケット作成の完全ワークフロー：履歴とソースコンテキストを発見、重複・重なりをチェック、実装チケットを作成
@@ -238,35 +239,39 @@ flowchart LR
     end
 
     subgraph エージェント
+        sw[story-writer]
         cw[changelog-writer]
         spw[spec-writer]
         tw[terms-writer]
         rr[release-readiness]
         pa[performance-analyst]
-        sw[story-writer]
+        ow[overview-writer]
         pc[pr-creator]
     end
 
     subgraph スキル
+        ws[write-story]
         wc[write-changelog]
         wsp[write-spec]
         wt[write-terms]
         arr[assess-release-readiness]
         ap[analyze-performance]
-        ws[write-story]
+        wo[write-overview]
         tr[translate]
         cp[create-pr]
     end
 
-    story --> cw & spw & tw & rr & pa
-    story -.-> sw
+    story --> sw
     story --> pc
+
+    sw --> cw & spw & tw & rr & pa & ow
 
     cw --> wc
     spw --> wsp
     tw --> wt
     rr --> arr
     pa --> ap
+    ow --> wo
     sw --> ws
     pc --> cp
 
@@ -323,13 +328,15 @@ sequenceDiagram
 
 ## ドキュメント強制
 
-Workaholicは並列サブエージェントアーキテクチャを通じて包括的なドキュメントを強制します。`/story`コマンドはドキュメントエージェントを2つのフェーズで調整します：最初に5つのエージェントが並列実行され、その後story-writerがrelease-readinessとperformance-analyst出力と共に実行されます。
+Workaholicは並列サブエージェントアーキテクチャを通じて包括的なドキュメントを強制します。`/story`コマンドはstory-writerに委譲し、story-writerが6つのドキュメントエージェントを並列で調整した後、それらの出力を統合します。
 
 ### 仕組み
 
 ```mermaid
 flowchart TD
-    A["/story コマンド"] --> C[フェーズ1: 5つのサブエージェントを並列で呼び出し]
+    A["/story コマンド"] --> SW[story-writer]
+
+    SW --> P1[フェーズ1: 6つのサブエージェントを並列で呼び出し]
 
     subgraph フェーズ1 - 並列
         D[changelog-writer]
@@ -337,28 +344,32 @@ flowchart TD
         G[terms-writer]
         RR[release-readiness]
         PA[performance-analyst]
+        OW[overview-writer]
     end
 
-    C --> D
-    C --> F
-    C --> G
-    C --> RR
-    C --> PA
+    P1 --> D
+    P1 --> F
+    P1 --> G
+    P1 --> RR
+    P1 --> PA
+    P1 --> OW
 
     D --> H[CHANGELOG.md]
     F --> J[.workaholic/specs/]
     G --> K[.workaholic/terms/]
     RR --> RL[リリースJSON]
     PA --> PM[パフォーマンスmarkdown]
+    OW --> OJ[概要JSON]
 
-    H --> P2[フェーズ2: story-writer]
+    H --> P2[フェーズ2: 統合してストーリー作成]
     J --> P2
     K --> P2
     RL --> P2
     PM --> P2
+    OJ --> P2
 
     P2 --> I[.workaholic/stories/]
-    I --> L[docsをコミット]
+    I --> L[/storyに返す]
 
     L --> M[pr-creator サブエージェント]
     M --> N[PRを作成/更新]
@@ -368,10 +379,10 @@ flowchart TD
 
 サブエージェントアーキテクチャにはいくつかの利点があります：
 
-1. **並列実行** - フェーズ1で5つのエージェントが同時に実行され、待ち時間を短縮
+1. **並列実行** - フェーズ1で6つのエージェントが同時に実行され、待ち時間を短縮
 2. **コンテキスト分離** - 各エージェントが独自のコンテキストウィンドウで動作し、メイン会話を保持
 3. **単一責任** - 各エージェントが1つのドキュメントドメインを担当
-4. **データ依存関係の処理** - story-writerはフェーズ2でrelease-readinessとperformance-analyst出力を受け取る
+4. **中央オーケストレーション** - story-writerがすべてのドキュメントエージェントを調整し出力を統合するハブとして機能
 
 ### 重要な要件
 

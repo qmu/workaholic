@@ -3,9 +3,9 @@ created_at: 2026-02-02T20:15:19+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 7cbf1a0
+category: Added
 ---
 
 # Add Section Reviewer Subagent for Sections 5-8

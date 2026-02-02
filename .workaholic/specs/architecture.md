@@ -2,7 +2,7 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-02-02T17:44:53+09:00
+modified_at: 2026-02-02T20:11:14+09:00
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -154,12 +154,13 @@ Agents are specialized subagents that can be spawned to handle complex tasks. Th
 
 - **changelog-writer**: Updates root `CHANGELOG.md` with entries from archived tickets, grouped by category (Added, Changed, Removed)
 - **history-discoverer**: Searches archived tickets to find related context and prior decisions
+- **overview-writer**: Analyzes commit history to generate structured overview content (overview, highlights, motivation, journey) for story files
 - **performance-analyst**: Evaluates decision-making quality across five viewpoints (Consistency, Intuitivity, Describability, Agility, Density) for PR stories
 - **pr-creator**: Creates or updates GitHub pull requests using the story file as PR body, handling title derivation and `gh` CLI operations
 - **release-readiness**: Analyzes changes for release readiness, providing verdict, concerns, and pre/post-release instructions
 - **source-discoverer**: Explores codebase to find related source files and analyzes code flow context
 - **spec-writer**: Updates `.workaholic/specs/` documentation to reflect current codebase state
-- **story-writer**: Generates branch stories in `.workaholic/stories/` that serve as the single source of truth for PR content, with eleven sections: Overview, Motivation, Journey (containing Topic Tree flowchart), Changes, Outcome, Historical Analysis, Concerns, Ideas, Performance, Release Preparation, and Notes
+- **story-writer**: Central orchestrator for documentation generation. Invokes 6 subagents in parallel (changelog-writer, spec-writer, terms-writer, release-readiness, performance-analyst, overview-writer), then integrates their outputs into branch stories in `.workaholic/stories/` with eleven sections: Overview, Motivation, Journey (containing Topic Tree flowchart), Changes, Outcome, Historical Analysis, Concerns, Ideas, Performance, Release Preparation, and Notes
 - **terms-writer**: Updates `.workaholic/terms/` to maintain consistent term definitions
 - **ticket-moderator**: Analyzes existing tickets for duplicates, merge candidates, and split opportunities before creating new tickets
 - **ticket-organizer**: Complete ticket creation workflow: discovers history and source context, checks for duplicates/overlaps, and writes implementation tickets
@@ -238,35 +239,39 @@ flowchart LR
     end
 
     subgraph Agents
+        sw[story-writer]
         cw[changelog-writer]
         spw[spec-writer]
         tw[terms-writer]
         rr[release-readiness]
         pa[performance-analyst]
-        sw[story-writer]
+        ow[overview-writer]
         pc[pr-creator]
     end
 
     subgraph Skills
+        ws[write-story]
         wc[write-changelog]
         wsp[write-spec]
         wt[write-terms]
         arr[assess-release-readiness]
         ap[analyze-performance]
-        ws[write-story]
+        wo[write-overview]
         tr[translate]
         cp[create-pr]
     end
 
-    story --> cw & spw & tw & rr & pa
-    story -.-> sw
+    story --> sw
     story --> pc
+
+    sw --> cw & spw & tw & rr & pa & ow
 
     cw --> wc
     spw --> wsp
     tw --> wt
     rr --> arr
     pa --> ap
+    ow --> wo
     sw --> ws
     pc --> cp
 
@@ -323,13 +328,15 @@ sequenceDiagram
 
 ## Documentation Enforcement
 
-Workaholic enforces comprehensive documentation through a parallel subagent architecture. The `/story` command orchestrates documentation agents in two phases: five agents run in parallel first, then story-writer runs with the release-readiness and performance-analyst outputs.
+Workaholic enforces comprehensive documentation through a parallel subagent architecture. The `/story` command delegates to story-writer, which orchestrates 6 documentation agents in parallel, then integrates their outputs.
 
 ### How It Works
 
 ```mermaid
 flowchart TD
-    A["/story command"] --> C[Phase 1: Invoke 5 subagents in parallel]
+    A["/story command"] --> SW[story-writer]
+
+    SW --> P1[Phase 1: Invoke 6 subagents in parallel]
 
     subgraph Phase 1 - Parallel
         D[changelog-writer]
@@ -337,28 +344,32 @@ flowchart TD
         G[terms-writer]
         RR[release-readiness]
         PA[performance-analyst]
+        OW[overview-writer]
     end
 
-    C --> D
-    C --> F
-    C --> G
-    C --> RR
-    C --> PA
+    P1 --> D
+    P1 --> F
+    P1 --> G
+    P1 --> RR
+    P1 --> PA
+    P1 --> OW
 
     D --> H[CHANGELOG.md]
     F --> J[.workaholic/specs/]
     G --> K[.workaholic/terms/]
     RR --> RL[Release JSON]
     PA --> PM[Performance markdown]
+    OW --> OJ[Overview JSON]
 
-    H --> P2[Phase 2: story-writer]
+    H --> P2[Phase 2: Integrate & Write Story]
     J --> P2
     K --> P2
     RL --> P2
     PM --> P2
+    OJ --> P2
 
     P2 --> I[.workaholic/stories/]
-    I --> L[Commit docs]
+    I --> L[Return to /story]
 
     L --> M[pr-creator subagent]
     M --> N[Create/update PR]
@@ -368,10 +379,10 @@ Documentation is updated automatically during the `/story` workflow.
 
 The subagent architecture provides several benefits:
 
-1. **Parallel execution** - Five agents run simultaneously in Phase 1, reducing wait time
+1. **Parallel execution** - Six agents run simultaneously in Phase 1, reducing wait time
 2. **Context isolation** - Each agent works in its own context window, preserving the main conversation
 3. **Single responsibility** - Each agent handles one documentation domain
-4. **Data dependency handling** - Story-writer receives release-readiness and performance-analyst outputs in Phase 2
+4. **Central orchestration** - Story-writer is the hub that coordinates all documentation agents and integrates outputs
 
 ### Critical Requirements
 

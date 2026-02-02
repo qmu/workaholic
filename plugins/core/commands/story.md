@@ -21,30 +21,18 @@ This design makes stories the single source of truth for PR content, eliminating
 
 1. Check the current branch name with `git branch --show-current`
 2. Get the base branch (usually `main`) with `git remote show origin | grep 'HEAD branch'`
-3. **Generate documentation** using 7 subagents:
+3. **Generate documentation** using story-writer subagent:
 
-   **Phase 1**: Invoke 6 agents in parallel via Task tool (single message with 6 tool calls):
-
-   - **changelog-writer** (`subagent_type: "core:changelog-writer"`): Updates `CHANGELOG.md` with entries from archived tickets
-   - **spec-writer** (`subagent_type: "core:spec-writer"`): Updates `.workaholic/specs/` to reflect codebase changes
-   - **terms-writer** (`subagent_type: "core:terms-writer"`): Updates `.workaholic/terms/` with new terms
-   - **release-readiness** (`subagent_type: "core:release-readiness"`): Analyzes branch for release readiness
-   - **performance-analyst** (`subagent_type: "core:performance-analyst"`): Evaluates decision quality
-   - **overview-writer** (`subagent_type: "core:overview-writer"`): Generates overview, highlights, motivation, and journey
-
-   Pass to each agent:
-   - Branch name and base branch as context
-   - Repository URL (for changelog-writer)
-   - List of archived tickets (for release-readiness and performance-analyst)
-   - Git log main..HEAD (for performance-analyst)
-
-   Wait for all 6 agents to complete.
-
-   **Phase 2**: Invoke **story-writer** (`subagent_type: "core:story-writer"`):
+   Invoke **story-writer** (`subagent_type: "core:story-writer"`):
    - Pass branch name and base branch
-   - Pass overview-writer JSON output (for sections 1.1, 1.2, 1.3)
-   - Pass release-readiness JSON output (for section 10)
-   - Pass performance-analyst output (for section 9.2)
+   - Pass repository URL (for changelog-writer)
+   - Pass list of archived tickets for the branch
+   - Pass git log main..HEAD
+
+   The story-writer orchestrates all documentation agents internally:
+   - Invokes 6 agents in parallel (changelog, spec, terms, release-readiness, performance, overview)
+   - Integrates their outputs into the story file
+   - Returns confirmation with success/failure status
 
    Output locations:
    - `CHANGELOG.md`
@@ -52,9 +40,9 @@ This design makes stories the single source of truth for PR content, eliminating
    - `.workaholic/specs/**/*.md`
    - `.workaholic/terms/**/*.md`
 
-   After all complete, stage all changes and commit: "Update documentation for PR"
+   After story-writer completes, stage all changes and commit: "Update documentation for PR"
 
-   **Failure handling**: If any agent fails, report which succeeded and which failed. Continue with PR creation if story-writer succeeded (it's required for PR body).
+   **Failure handling**: If story-writer reports agent failures, report which succeeded and which failed. Continue with PR creation if story file was created (required for PR body).
 
 4. **Format changed files** (silent step):
    - Run project linter/formatter on changed files

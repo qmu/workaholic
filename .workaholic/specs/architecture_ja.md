@@ -85,16 +85,12 @@ plugins/
         SKILL.md           # ソースコード探索ガイドライン
       discover-history/
         SKILL.md           # アーカイブされたチケットの検索ガイドライン
+      drive-approval/
+        SKILL.md           # 完全な承認フロー：リクエスト、リビジョン、放棄
       drive-workflow/
         SKILL.md           # チケット実装ワークフロー
       format-commit-message/
         SKILL.md           # 構造化コミットメッセージ形式
-      handle-abandon/
-        SKILL.md           # 放棄された実装を処理
-      handle-revision/
-        SKILL.md           # ディスカッション追跡付きリビジョンリクエストを処理
-      request-approval/
-        SKILL.md           # 実装レビューのためのユーザー承認フロー
       translate/
         SKILL.md           # 翻訳ポリシーと.workaholic/ i18n強制
       update-ticket-frontmatter/
@@ -141,11 +137,9 @@ plugins/
 - **create-ticket**: フォーマット、調査、関連履歴を含む完全なチケット作成ワークフロー
 - **discover-history**: 関連コンテキストを見つけるためのアーカイブされたチケット検索ガイドライン
 - **discover-source**: コードベースコンテキストを理解するためのソースコード探索ガイドライン
+- **drive-approval**: リクエスト、リビジョン処理、放棄を含む実装の完全な承認フロー
 - **drive-workflow**: チケット処理の実装ワークフローステップ
 - **format-commit-message**: タイトル、動機、UX、アーキテクチャセクションを含む構造化コミットメッセージ形式
-- **handle-abandon**: 変更を破棄し、失敗分析を記録し、チケットをabandonedディレクトリに移動して放棄された実装を処理
-- **handle-revision**: ユーザーフィードバックをDiscussionセクションに記録し、再実装してリビジョンリクエストを処理
-- **request-approval**: 実装レビューのための選択可能オプション（Approve、Needs revision、Abandon）を持つユーザー承認フロー
 - **translate**: 翻訳ポリシーと`.workaholic/` i18n強制（spec-writer、terms-writer、story-writerがプリロード）
 - **update-ticket-frontmatter**: チケットYAMLフロントマターフィールド（effort、commit_hash、category）を更新
 - **write-changelog**: アーカイブされたチケットからchangelogエントリを生成（カテゴリ別にグループ化）し、CHANGELOG.md更新のガイドラインを提供
@@ -221,16 +215,14 @@ flowchart LR
     subgraph スキル
         dw[drive-workflow]
         at[archive-ticket]
-        ra[request-approval]
+        da[drive-approval]
         wfr[write-final-report]
-        ha[handle-abandon]
-        hr[handle-revision]
         fcm[format-commit-message]
         utf[update-ticket-frontmatter]
     end
 
     drive --> dn
-    drive --> dw & at & ra & wfr & ha & hr
+    drive --> dw & at & da & wfr
 
     %% Skill-to-skill
     dw --> fcm

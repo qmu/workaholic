@@ -14,9 +14,24 @@ After user approves implementation, update the ticket with effort and final repo
 
 Follow the preloaded **update-ticket-frontmatter** skill for valid effort values.
 
-Valid values: `0.1h`, `0.25h`, `0.5h`, `1h`, `2h`, `4h`
+> **⚠️ COMMON MISTAKE**: DO NOT use t-shirt sizes or minute values!
+>
+> **INVALID**: `XS`, `S`, `M`, `L`, `XL`, `10m`, `30m`
+>
+> The validation hook will reject these and cause workflow failure.
 
-Do NOT use t-shirt sizes (XS, S, M) or minutes (10m). Estimate based on implementation complexity.
+**Valid values (hour-based only):**
+
+| Value | Use For |
+|-------|---------|
+| `0.1h` | Trivial changes (typo fix, config tweak) |
+| `0.25h` | Simple changes (add field, update text) |
+| `0.5h` | Small feature or fix (new function, bug fix) |
+| `1h` | Medium feature (new component, refactor) |
+| `2h` | Large feature (new workflow, significant refactor) |
+| `4h` | Very large feature (new system, major rewrite) |
+
+ALWAYS use one of these exact values: `0.1h`, `0.25h`, `0.5h`, `1h`, `2h`, `4h`
 
 ## Final Report Section
 

@@ -1,7 +1,6 @@
 ---
 name: write-story
 description: Story content structure, templates, and writing guidelines for branch narratives.
-allowed-tools: Bash
 skills:
   - translate
 user-invocable: false
@@ -11,42 +10,22 @@ user-invocable: false
 
 Generate a branch story that serves as the single source of truth for PR content.
 
-## Calculate Metrics
+## Agent Output Mapping
 
-Run the bundled script to calculate performance metrics:
+Story sections are populated from parallel agent outputs:
 
-```bash
-bash .claude/skills/write-story/sh/calculate.sh [base-branch]
-```
+| Agent | Sections | Fields |
+| ----- | -------- | ------ |
+| overview-writer | 1, 2, 3 | `overview`, `highlights[]`, `motivation`, `journey.mermaid`, `journey.summary` |
+| section-reviewer | 5, 6, 7, 8 | `outcome`, `historical_analysis`, `concerns`, `ideas` |
+| performance-analyst | 9 | metrics JSON + decision review markdown |
+| release-readiness | 10 | `verdict`, `concerns[]`, `instructions.pre_release[]`, `instructions.post_release[]` |
 
-Default base branch is `main`.
-
-### Output Format (JSON)
-
-```json
-{
-  "commits": 15,
-  "started_at": "2026-01-15T10:30:00+09:00",
-  "ended_at": "2026-01-15T14:45:00+09:00",
-  "duration_hours": 4.25,
-  "duration_days": 1,
-  "velocity": 3.53,
-  "velocity_unit": "hour"
-}
-```
-
-### Velocity Unit Selection
-
-- `duration_hours < 8`: velocity is commits/hour, unit is "hour"
-- `duration_hours >= 8`: velocity is commits/day, unit is "day"
-
-Business days are more meaningful for multi-day work since developers have breaks between sessions.
+Section 4 (Changes) comes from archived tickets. Section 11 (Notes) is optional context.
 
 ## Story Content Structure
 
 The story content (this IS the PR description):
-
-**Note:** Sections 1-3 content comes from the overview-writer subagent output. Story-writer formats and integrates this content.
 
 ```markdown
 ## 1. Overview
@@ -164,7 +143,7 @@ One subsection per ticket, in chronological order:
 
 **Performance-analyst input:**
 
-The performance-analyst markdown is provided by the orchestrator (`/story` command) which invokes performance-analyst as a parallel agent. Include the complete output in section 9.2.
+The performance-analyst output (metrics JSON and decision review markdown) is provided by story-writer which invokes performance-analyst as a parallel agent. Include the complete output in section 9.
 
 ```markdown
 ## 10. Release Preparation
@@ -189,7 +168,7 @@ The performance-analyst markdown is provided by the orchestrator (`/story` comma
 
 **Release-readiness input:**
 
-The release-readiness JSON is provided by the orchestrator (`/story` command) which invokes release-readiness as a parallel agent. The JSON contains:
+The release-readiness JSON is provided by story-writer which invokes release-readiness as a parallel agent. The JSON contains:
 
 ```json
 {
@@ -213,19 +192,19 @@ Additional context for reviewers or future reference.
 
 ## Story Frontmatter
 
-Create `.workaholic/stories/<branch-name>.md` with YAML frontmatter:
+Create `.workaholic/stories/<branch-name>.md` with YAML frontmatter. Metrics values come from performance-analyst output:
 
 ```yaml
 ---
 branch: <branch-name>
-started_at: <from metrics.started_at>
-ended_at: <from metrics.ended_at>
+started_at: <from performance-analyst metrics>
+ended_at: <from performance-analyst metrics>
 tickets_completed: <count of tickets>
-commits: <from metrics.commits>
-duration_hours: <from metrics.duration_hours>
-duration_days: <from metrics.duration_days if velocity_unit is "day">
-velocity: <from metrics.velocity>
-velocity_unit: <from metrics.velocity_unit>
+commits: <from performance-analyst metrics>
+duration_hours: <from performance-analyst metrics>
+duration_days: <from performance-analyst metrics if velocity_unit is "day">
+velocity: <from performance-analyst metrics>
+velocity_unit: <from performance-analyst metrics>
 ---
 ```
 

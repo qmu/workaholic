@@ -54,14 +54,14 @@ plugins/
       section-reviewer.md     # アーカイブされたチケットからストーリーセクション5-8を生成
       source-discoverer.md    # 関連ソースファイルを検索してコード流れを分析
       spec-writer.md          # .workaholic/specs/を更新
-      story-moderator.md      # scannerとstory-writerを並列でオーケストレーション
       story-writer.md         # overview-writer、section-reviewer、release-readiness、performance-analystを並列実行
       terms-writer.md         # .workaholic/terms/を更新
       ticket-moderator.md     # チケットの重複・マージ・分割を分析
       ticket-organizer.md     # チケット作成の完全ワークフロー：発見・重複チェック・作成
     commands/
       drive.md           # /drive コマンド
-      story.md           # /story コマンド
+      report.md          # /report コマンド
+      scan.md            # /scan コマンド
       ticket.md          # /ticket コマンド
     rules/
       diagrams.md        # Mermaid図表要件
@@ -73,6 +73,8 @@ plugins/
     skills/
       analyze-performance/
         SKILL.md           # パフォーマンス分析フレームワーク
+        sh/
+          calculate.sh     # パフォーマンスメトリクスを計算
       archive-ticket/
         SKILL.md
         sh/
@@ -101,6 +103,10 @@ plugins/
         SKILL.md           # チケット実装ワークフロー
       format-commit-message/
         SKILL.md           # 構造化コミットメッセージ形式
+      gather-git-context/
+        SKILL.md           # ドキュメントサブエージェント用の全コンテキストを一括収集
+        sh/
+          gather.sh        # コンテキスト収集用シェルスクリプト
       gather-ticket-metadata/
         SKILL.md           # チケットメタデータを一括収集
         sh/
@@ -130,9 +136,7 @@ plugins/
         sh/
           gather.sh        # コンテキスト収集とスペック作成
       write-story/
-        SKILL.md
-        sh/
-          calculate.sh     # メトリクス計算とストーリー作成
+        SKILL.md           # ストーリーコンテンツ構造とガイドライン
       write-terms/
         SKILL.md
         sh/
@@ -143,7 +147,7 @@ plugins/
 
 ### コマンド
 
-コマンドはスラッシュ構文（`/ticket`、`/drive`、`/story`）でユーザーが呼び出せます。各コマンドは名前と説明を定義するYAMLフロントマター付きのマークダウンファイルで、その後にコマンドが呼び出されたときにClaudeが従う指示が続きます。
+コマンドはスラッシュ構文（`/ticket`、`/drive`、`/scan`、`/report`）でユーザーが呼び出せます。各コマンドは名前と説明を定義するYAMLフロントマター付きのマークダウンファイルで、その後にコマンドが呼び出されたときにClaudeが従う指示が続きます。
 
 ### ルール
 
@@ -164,6 +168,7 @@ plugins/
 - **drive-approval**: リクエスト、リビジョン処理、放棄を含む実装の完全な承認フロー
 - **drive-workflow**: チケット処理の実装ワークフローステップ
 - **format-commit-message**: タイトル、動機、UX、アーキテクチャセクションを含む構造化コミットメッセージ形式
+- **gather-git-context**: ドキュメントサブエージェント用の全コンテキスト（ブランチ、ベースブランチ、URL、アーカイブチケット、gitログ）を一括収集
 - **gather-ticket-metadata**: チケットメタデータ（日付、コミット、カテゴリ）を一括収集
 - **moderate-ticket**: 既存チケットの重複、マージ候補、分割機会を検出するガイドライン
 - **review-sections**: ストーリーセクション5-8（Outcome、Historical Analysis、Concerns、Ideas）の生成ガイドライン
@@ -173,7 +178,7 @@ plugins/
 - **write-final-report**: オプションの発見インサイトを含むチケットの最終レポートセクションを作成
 - **write-overview**: ストーリー用の概要、ハイライト、動機、旅程セクションの生成ガイドライン
 - **write-spec**: コンテキスト収集とspecドキュメントのライティングガイドライン
-- **write-story**: メトリクス計算、テンプレート、ブランチストーリーのガイドライン
+- **write-story**: ストーリーコンテンツ構造、テンプレート、ブランチストーリーのガイドライン
 - **write-terms**: コンテキスト収集と用語ドキュメントのガイドライン
 
 ### エージェント
@@ -191,8 +196,7 @@ plugins/
 - **section-reviewer**: アーカイブされたチケットを分析してストーリーセクション5-8（Outcome、Historical Analysis、Concerns、Ideas）を生成
 - **source-discoverer**: コードベースを探索して関連ソースファイルを見つけ、コード流れコンテキストを分析する
 - **spec-writer**: 現在のコードベースの状態を反映するように`.workaholic/specs/`ドキュメントを更新
-- **story-moderator**: ドキュメント生成のトップレベルオーケストレーター。scannerとstory-writerを並列で呼び出し（二層アーキテクチャ）、それらの出力を11セクションのブランチストーリーに統合
-- **story-writer**: ストーリー生成エージェント（overview-writer、section-reviewer、release-readiness、performance-analyst）を並列で呼び出し、統合用に出力を返す
+- **story-writer**: ストーリー生成をオーケストレーション。overview-writer、section-reviewer、release-readiness、performance-analystを並列で呼び出し、ストーリーファイルを作成してpr-creatorを呼び出す
 - **terms-writer**: 一貫した用語定義を維持するために`.workaholic/terms/`を更新
 - **ticket-moderator**: 新規チケット作成前に既存チケットの重複、マージ候補、分割機会を分析
 - **ticket-organizer**: チケット作成の完全ワークフロー：履歴とソースコンテキストを発見、重複・重なりをチェック、実装チケットを作成
@@ -262,21 +266,51 @@ flowchart LR
     wfr --> utf
 ```
 
-### /story 依存関係
+### /scan 依存関係
 
 ```mermaid
 flowchart LR
     subgraph コマンド
-        story["/story"]
+        scan["/scan"]
     end
 
     subgraph エージェント
-        sm[story-moderator]
         sc[scanner]
-        sw[story-writer]
         cw[changelog-writer]
         spw[spec-writer]
         tw[terms-writer]
+    end
+
+    subgraph スキル
+        wc[write-changelog]
+        wsp[write-spec]
+        wt[write-terms]
+        tr[translate]
+    end
+
+    scan --> sc
+
+    sc --> cw & spw & tw
+
+    cw --> wc
+    spw --> wsp
+    tw --> wt
+
+    %% Skill-to-skill
+    wsp --> tr
+    wt --> tr
+```
+
+### /report 依存関係
+
+```mermaid
+flowchart LR
+    subgraph コマンド
+        report["/report"]
+    end
+
+    subgraph エージェント
+        sw[story-writer]
         rr[release-readiness]
         pa[performance-analyst]
         ow[overview-writer]
@@ -286,9 +320,6 @@ flowchart LR
 
     subgraph スキル
         ws[write-story]
-        wc[write-changelog]
-        wsp[write-spec]
-        wt[write-terms]
         arr[assess-release-readiness]
         ap[analyze-performance]
         wo[write-overview]
@@ -297,16 +328,10 @@ flowchart LR
         cp[create-pr]
     end
 
-    story --> sm
+    report --> sw
 
-    sm --> sc & sw
-
-    sc --> cw & spw & tw
     sw --> rr & pa & ow & sr & pc
 
-    cw --> wc
-    spw --> wsp
-    tw --> wt
     rr --> arr
     pa --> ap
     ow --> wo
@@ -316,8 +341,6 @@ flowchart LR
 
     %% Skill-to-skill
     ws --> tr
-    wsp --> tr
-    wt --> tr
 ```
 
 ## Claude Codeがプラグインをロードする方法
@@ -367,72 +390,59 @@ sequenceDiagram
 
 ## ドキュメント強制
 
-Workaholicは二層並列サブエージェントアーキテクチャを通じて包括的なドキュメントを強制します。`/story`コマンドはstory-moderatorに委譲し、story-moderatorがscanner（ドキュメントスキャン）とstory-writer（ストーリー生成）の2つのグループを並列で調整した後、それらの出力を統合します。
+Workaholicは2つの独立したコマンドを通じて包括的なドキュメントを強制します：ドキュメント保守用の`/scan`とストーリー生成およびPR作成用の`/report`。この分離されたアーキテクチャにより、PRを必要とせずに独立したドキュメント更新が可能になります。
 
 ### 仕組み
 
 ```mermaid
 flowchart TD
-    A["/story コマンド"] --> SM[story-moderator]
-
-    SM --> P1[フェーズ1: 2グループを並列で呼び出し]
-
-    subgraph Scannerグループ
+    subgraph scan["/scan コマンド"]
         SC[scanner]
         D[changelog-writer]
         F[spec-writer]
         G[terms-writer]
+
+        SC --> D & F & G
+
+        D --> H[CHANGELOG.md]
+        F --> J[.workaholic/specs/]
+        G --> K[.workaholic/terms/]
     end
 
-    subgraph Storyグループ
+    subgraph report["/report コマンド"]
         SW[story-writer]
         RR[release-readiness]
         PA[performance-analyst]
         OW[overview-writer]
         SR[section-reviewer]
         PC[pr-creator]
+
+        SW --> RR & PA & OW & SR
+
+        RR --> RL[リリースJSON]
+        PA --> PM[パフォーマンスmarkdown]
+        OW --> OJ[概要JSON]
+        SR --> SJ[セクションJSON]
+
+        RL --> P3[ストーリーファイル作成]
+        PM --> P3
+        OJ --> P3
+        SJ --> P3
+
+        P3 --> I[.workaholic/stories/]
+        I --> PC
+        PC --> N[PRを作成/更新]
     end
-
-    P1 --> SC
-    P1 --> SW
-
-    SC --> D & F & G
-    SW --> RR & PA & OW & SR
-
-    D --> H[CHANGELOG.md]
-    F --> J[.workaholic/specs/]
-    G --> K[.workaholic/terms/]
-    RR --> RL[リリースJSON]
-    PA --> PM[パフォーマンスmarkdown]
-    OW --> OJ[概要JSON]
-    SR --> SJ[セクションJSON]
-
-    H --> P2[Scanner完了]
-    J --> P2
-    K --> P2
-    RL --> P3[ストーリーファイル作成]
-    PM --> P3
-    OJ --> P3
-    SJ --> P3
-
-    P3 --> I[.workaholic/stories/]
-    I --> PC
-    PC --> N[PRを作成/更新]
-
-    P2 --> SM2[story-moderator完了]
-    N --> SM2
-    SM2 --> L[/storyに返す]
 ```
 
-ドキュメントは`/story`ワークフロー中に自動的に更新されます。
+`/scan`コマンドはドキュメント（changelog、specs、terms）を独立して更新します。`/report`コマンドはストーリーを生成してPRを作成します。PR作成なしでドキュメント更新が必要なユーザーは`/scan`を単独で実行できます。
 
-二層サブエージェントアーキテクチャにはいくつかの利点があります：
+この分離されたアーキテクチャにはいくつかの利点があります：
 
-1. **並列実行** - 2つのグループが同時に実行され、各グループ内のエージェントも並列実行
-2. **コンテキスト分離** - scannerエージェントはストーリーコンテキストが不要、story-writerエージェントはchangelog/spec/termsコンテキストが不要
-3. **障害分離** - scannerが失敗してもstory-writerの出力は有効、その逆も同様
-4. **単一責任** - 各エージェントが1つのドキュメントドメインを担当
-5. **中央オーケストレーション** - story-moderatorが両グループを調整し出力を統合するハブとして機能
+1. **独立実行** - PRを作成せずにドキュメントを更新可能
+2. **シンプルなアーキテクチャ** - 各コマンドが単一の責任を持つ
+3. **並列エージェント** - scannerは3エージェントを並列実行、story-writerは4エージェントを並列実行
+4. **明確なワークフロー** - 典型的なフロー：`/ticket` → `/drive` → `/scan` → `/report`
 
 ### 重要な要件
 

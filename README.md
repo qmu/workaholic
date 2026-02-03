@@ -31,7 +31,8 @@ Enable the plugin after installation. Auto update is recommended.
 | --------- | ------------------------------------ |
 | `/ticket` | Plan a change with context and steps |
 | `/drive`  | Implement queued tickets one by one  |
-| `/report` | Generate docs and create PR          |
+| `/scan`   | Update changelog, specs, and terms   |
+| `/report` | Generate story and create PR         |
 
 ### Typical Session
 

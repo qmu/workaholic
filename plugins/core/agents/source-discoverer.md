@@ -31,6 +31,7 @@ For each phase:
 - Use appropriate tools (Glob, Grep, Read)
 - Score relevance and skip tangential files
 - Collect code snippets that illustrate patterns
+- **Capture snippets** from sections likely to need modification (include start/end line numbers)
 - Stay within total budget of 20-30 files
 
 ## Output
@@ -46,6 +47,14 @@ Return JSON with categorized discoveries:
       "purpose": "What this file does",
       "relevance": "Why it matters for the ticket",
       "category": "direct|import|usage|test|config"
+    }
+  ],
+  "snippets": [
+    {
+      "path": "path/to/file.ts",
+      "start_line": 10,
+      "end_line": 25,
+      "content": "actual code content that may need modification"
     }
   ],
   "import_graph": "Brief description of dependency relationships",

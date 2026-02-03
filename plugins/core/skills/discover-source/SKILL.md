@@ -17,6 +17,7 @@ Start with files directly matching the request keywords.
 - Glob for files matching keywords from request
 - Grep for function/class names mentioned
 - Read directly relevant files (5-10 files)
+- **Capture code snippets** from sections likely to be modified (store start/end lines and content)
 
 ### Phase 2: Import Chain Exploration
 
@@ -93,6 +94,14 @@ Return structured JSON with categorized discoveries:
       "category": "direct|import|usage|test|config"
     }
   ],
+  "snippets": [
+    {
+      "path": "path/to/file.ts",
+      "start_line": 10,
+      "end_line": 25,
+      "content": "actual code content that may need modification"
+    }
+  ],
   "import_graph": "Brief description of dependency relationships",
   "code_flow": "How components interact end-to-end",
   "patterns": ["Existing patterns discovered that should be followed"],
@@ -106,6 +115,7 @@ Return structured JSON with categorized discoveries:
 |-------|----------|-------------|
 | `summary` | Yes | High-level synthesis of findings |
 | `files` | Yes | List of relevant files with metadata |
+| `snippets` | Optional | Code snippets likely to need modification (for patch generation) |
 | `import_graph` | Optional | Dependency relationships discovered |
 | `code_flow` | Yes | Component interaction description |
 | `patterns` | Optional | Patterns to follow in implementation |

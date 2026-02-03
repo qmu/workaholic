@@ -76,6 +76,11 @@ For each ticket:
 - Use source discovery JSON for "Key Files" section:
   - `files` array provides paths and relevance descriptions
 - Reference `code_flow` from source discovery in "Implementation" section
+- **Generate Patches section** (if source discovery includes `snippets`):
+  - Use snippets to generate unified diff patches for proposed changes
+  - Follow patch guidelines from create-ticket skill
+  - Mark patches as speculative if based on interpretation rather than explicit requirements
+  - Omit Patches section if changes cannot be expressed as concrete diffs
 
 **If splitting**:
 - Unique timestamp per ticket (add 1 second between)

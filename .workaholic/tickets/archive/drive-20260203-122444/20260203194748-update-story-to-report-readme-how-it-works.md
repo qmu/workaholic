@@ -3,9 +3,9 @@ created_at: 2026-02-03T19:47:48+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: f33c1ae
+category: Changed
 ---
 
 # Update /story Reference to /report in README.md How It Works Section
@@ -54,3 +54,7 @@ Past tickets that touched similar areas:
 
 - This is a simple one-line text change
 - No behavior changes, only documentation consistency
+
+## Final Report
+
+Implemented exactly as specified. Changed `/story` to `/report` on line 38 of README.md.

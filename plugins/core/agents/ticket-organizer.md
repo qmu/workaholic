@@ -4,9 +4,9 @@ description: Discover context, check duplicates, and write implementation ticket
 tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: opus
 skills:
+  - manage-branch
   - create-ticket
   - gather-ticket-metadata
-  - create-branch
 ---
 
 # Ticket Organizer
@@ -22,40 +22,23 @@ You will receive:
 
 ## Instructions
 
-### 0. Check Branch
+### 1. Check Branch
 
-Check current branch: `git branch --show-current`
-
-If on `main` or `master` (not a topic branch):
-1. Create branch using skill script:
-   ```bash
-   bash .claude/skills/create-branch/sh/create.sh drive
-   ```
-2. Parse JSON output to get branch name
-3. Store branch name for output JSON
-
-Topic branch pattern: `drive-*`, `trip-*`
-
-### 1. Parse Request
-
-- Extract 3-5 keywords from the request
-- Determine target directory from input
+Follow preloaded **manage-branch** skill to check current branch and create a new topic branch if on main/master.
 
 ### 2. Parallel Discovery
 
 Invoke ALL THREE subagents concurrently using Task tool (single message with three parallel Task calls):
 
-- **history-discoverer** (`subagent_type: "core:history-discoverer"`, `model: "opus"`): Find related tickets. Pass keywords extracted from request. Receives JSON with summary, tickets list, match reasons.
+- **history-discoverer** (`subagent_type: "core:history-discoverer"`, `model: "opus"`): Find related tickets. Pass full description. Receives JSON with summary, tickets list, match reasons.
 - **source-discoverer** (`subagent_type: "core:source-discoverer"`, `model: "opus"`): Find relevant source files. Pass full description. Receives JSON with summary, files list, code flow.
-- **ticket-moderator** (`subagent_type: "core:ticket-moderator"`, `model: "opus"`): Analyze for duplicates/merge/split. Pass keywords and description. Receives JSON with status, matches list, recommendation.
+- **ticket-discoverer** (`subagent_type: "core:ticket-discoverer"`, `model: "opus"`): Analyze for duplicates/merge/split. Pass full description. Receives JSON with status, matches list, recommendation.
 
 Wait for all three to complete, then proceed with all JSON results.
 
-**Note**: Subagents return summarized JSON (under 200 lines each), not full file contents. The ticket-organizer synthesizes these summaries rather than re-reading source files.
-
 ### 3. Handle Moderation Result
 
-Based on ticket-moderator JSON result:
+Based on ticket-discoverer JSON result:
 - If `status: "duplicate"`: Return `status: "duplicate"` with existing ticket path
 - If `status: "needs_decision"`: Return `status: "needs_decision"` with merge/split options
 - If `status: "clear"`: Proceed to step 4
@@ -91,8 +74,7 @@ For each ticket:
 
 ### 6. Handle Ambiguity
 
-If requirements are ambiguous:
-- Return `status: "needs_clarification"` with questions array
+If ambiguous, return `status: needs_clarification` with questions array.
 
 ## Output
 
@@ -112,7 +94,7 @@ Return JSON:
 }
 ```
 
-Note: `branch_created` is optional - only included if a new branch was created in step 0.
+Note: `branch_created` is optional - only included if a new branch was created in step 1.
 
 Or if duplicate:
 

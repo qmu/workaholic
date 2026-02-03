@@ -3,9 +3,9 @@ created_at: 2026-02-03T17:40:22+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 78f7b90
+category: Changed
 ---
 
 # Fix Effort Field Format Guidance
@@ -54,3 +54,7 @@ Past tickets that touched similar areas:
 - The skill already preloads `update-ticket-frontmatter` which has correct documentation, but Claude Code may not always consult it when writing effort values
 - Making the guidance more prominent in `write-final-report` itself should reduce errors
 - The validation hook provides the safety net, but better guidance prevents workflow interruptions
+
+## Final Report
+
+Development completed as planned.

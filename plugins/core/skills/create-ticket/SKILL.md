@@ -122,6 +122,22 @@ Past tickets that touched similar areas:
 2. <Step 2>
    ...
 
+## Patches
+
+<Optional unified diff patches for key changes - omit if no concrete code changes can be specified>
+
+### `path/to/file.ext`
+
+```diff
+--- a/path/to/file.ext
++++ b/path/to/file.ext
+@@ -10,6 +10,8 @@ existing context line
+ unchanged line
+-removed line
++added line
+ more context
+```
+
 ## Considerations
 
 - <Any trade-offs, risks, or things to watch out for>
@@ -173,6 +189,32 @@ The Related History section is populated by the `history-discoverer` subagent (i
 The full path includes the branch directory from the search results (e.g., `feat-20260126-214833`).
 
 If the subagent returns no matches, omit the Related History section entirely.
+
+## Patch Guidelines
+
+Patches are optional but valuable for concrete, well-understood changes.
+
+**When to include patches:**
+- Clear code changes that can be expressed precisely
+- Modifications to existing files (not new files)
+- Changes where exact placement matters
+
+**When to omit patches:**
+- New file creation (no existing code to diff against)
+- Complex refactoring where exploration is needed
+- Changes that depend on runtime behavior
+
+**Patch format rules:**
+- Use standard unified diff format compatible with `git apply`
+- Include 3 lines of context before/after each hunk
+- Keep patches small and focused (max 50 lines per file)
+- Use repository-relative paths (not absolute)
+- One `### path/to/file` subsection per file
+
+**Mark uncertain patches:**
+```markdown
+> **Note**: This patch is speculative - verify before applying.
+```
 
 ## Writing Guidelines
 

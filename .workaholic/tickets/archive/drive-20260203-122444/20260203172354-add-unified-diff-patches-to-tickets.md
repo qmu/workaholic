@@ -3,9 +3,9 @@ created_at: 2026-02-03T17:23:54+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config, Domain]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 618fd5b
+category: Added
 ---
 
 # Add unified diff patches to ticket format
@@ -106,3 +106,7 @@ Past tickets that touched similar areas:
 - **Diff format compatibility**: Use standard unified diff format for compatibility with `git apply`. Avoid non-standard extensions.
 
 - **Separation of concerns**: Patch generation could be extracted to a separate skill (e.g., `generate-patches`) if the logic becomes complex. For now, inline in ticket-organizer is acceptable.
+
+## Final Report
+
+Development completed as planned.

@@ -2,7 +2,7 @@
 title: Command Execution Flows
 description: How commands invoke agents and skills
 category: developer
-modified_at: 2026-02-02T13:32:50+09:00
+modified_at: 2026-02-03T16:00:00+09:00
 commit_hash: 3c87e62
 ---
 
@@ -128,6 +128,11 @@ flowchart TD
         F[changelog-writer]
         G[spec-writer]
         H[terms-writer]
+        F --> F1[write-changelog スキル]
+        G --> G1[write-spec スキル]
+        G --> G2[translate スキル]
+        H --> H1[write-terms スキル]
+        H --> H2[translate スキル]
     end
 
     subgraph StoryWriter[story-writer]
@@ -135,35 +140,24 @@ flowchart TD
         SR[section-reviewer]
         I[release-readiness]
         PA[performance-analyst]
+        OW --> OW1[write-overview スキル]
+        SR --> SR1[review-sections スキル]
+        I --> I1[assess-release-readiness スキル]
+        PA --> PA1[analyze-performance スキル]
+        OW1 & SR1 & I1 & PA1 --> SW[write-story スキル]
+        SW --> SW2[translate スキル]
+        SW & SW2 --> PR[pr-creator エージェント]
+        PR --> PR1[create-pr スキル]
     end
 
     P1 --> Scanner
     P1 --> StoryWriter
 
-    F --> F1[write-changelog スキル]
-    G --> G1[write-spec スキル]
-    G --> G2[translate スキル]
-    H --> H1[write-terms スキル]
-    H --> H2[translate スキル]
-    OW --> OW1[write-overview スキル]
-    SR --> SR1[review-sections スキル]
-    I --> I1[assess-release-readiness スキル]
-    PA --> PA1[analyze-performance スキル]
-
     F1 & G1 & G2 & H1 & H2 --> SC[Scanner完了]
-    OW1 & SR1 & I1 & PA1 --> SW[ストーリー作成]
-
-    SW --> J1[write-story スキル]
-    SW --> J2[translate スキル]
-
-    J1 & J2 --> K[docsをコミット]
-    K --> L[ブランチをプッシュ]
-    L --> M[pr-creator エージェント]
-    M --> M1[create-pr スキル]
-    M1 --> N[PRを作成/更新]
+    PR1 --> SWC[story-writer完了]
 
     SC --> SM2[story-moderator完了]
-    N --> SM2
+    SWC --> SM2
     SM2 --> O[PR URLを表示]
 ```
 

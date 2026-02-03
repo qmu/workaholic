@@ -61,7 +61,7 @@ plugins/
       ticket-organizer.md     # Complete ticket workflow: discover, check duplicates, write
     commands/
       drive.md           # /drive command
-      story.md           # /story command
+      report.md          # /report command
       ticket.md          # /ticket command
     rules/
       diagrams.md        # Mermaid diagram requirements
@@ -143,7 +143,7 @@ plugins/
 
 ### Commands
 
-Commands are user-invocable via slash syntax (`/ticket`, `/drive`, `/story`). Each command is a markdown file with YAML frontmatter defining the name and description, followed by instructions that Claude follows when the command is invoked.
+Commands are user-invocable via slash syntax (`/ticket`, `/drive`, `/report`). Each command is a markdown file with YAML frontmatter defining the name and description, followed by instructions that Claude follows when the command is invoked.
 
 ### Rules
 
@@ -262,12 +262,12 @@ flowchart LR
     wfr --> utf
 ```
 
-### /story Dependencies
+### /report Dependencies
 
 ```mermaid
 flowchart LR
     subgraph Command
-        story["/story"]
+        report["/report"]
     end
 
     subgraph Agents
@@ -297,7 +297,7 @@ flowchart LR
         cp[create-pr]
     end
 
-    story --> sm
+    report --> sm
 
     sm --> sc & sw
 
@@ -367,13 +367,13 @@ sequenceDiagram
 
 ## Documentation Enforcement
 
-Workaholic enforces comprehensive documentation through a two-tier parallel subagent architecture. The `/story` command delegates to story-moderator, which orchestrates two groups in parallel: scanner (documentation scanning) and story-writer (story generation), then integrates their outputs.
+Workaholic enforces comprehensive documentation through a two-tier parallel subagent architecture. The `/report` command delegates to story-moderator, which orchestrates two groups in parallel: scanner (documentation scanning) and story-writer (story generation), then integrates their outputs.
 
 ### How It Works
 
 ```mermaid
 flowchart TD
-    A["/story command"] --> SM[story-moderator]
+    A["/report command"] --> SM[story-moderator]
 
     SM --> P1[Phase 1: Invoke 2 groups in parallel]
 
@@ -421,10 +421,10 @@ flowchart TD
 
     P2 --> SM2[story-moderator complete]
     N --> SM2
-    SM2 --> L[Return to /story]
+    SM2 --> L[Return to /report]
 ```
 
-Documentation is updated automatically during the `/story` workflow.
+Documentation is updated automatically during the `/report` workflow.
 
 The two-tier subagent architecture provides several benefits:
 

@@ -3,9 +3,9 @@ created_at: 2026-02-03T19:05:11+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 4306539
+category: Changed
 ---
 
 # Fix Memory Leak in /ticket Command
@@ -170,3 +170,7 @@ Past tickets that touched similar areas:
 - **Tuning**: The specific numbers (10 files, 100 lines, 20 files, 30 lines) may need adjustment based on real-world usage
 - **Monitoring**: Consider adding logging to track when limits are hit, to inform future tuning
 - **Architectural alternative**: A more robust solution would implement streaming/pagination, but hard limits are simpler to implement and maintain
+
+## Final Report
+
+Applied all patches as specified. Added `-m 10` to grep commands in search.sh and reduced output to top 10 files. Updated history-discoverer with 100-line read limits and 200-line JSON output limit. Converted discover-source soft budget to hard limits (20 files total, per-phase limits). Added snippet constraints (max 30 lines, max 5 snippets) to source-discoverer. Documented subagent JSON size expectations in ticket-organizer.

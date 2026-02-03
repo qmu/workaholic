@@ -20,9 +20,11 @@ You will receive:
 ## Instructions
 
 1. Run the discover-history search script with provided keywords
-2. Read the top 5 matching tickets
+2. Read the top 5 matching tickets (use Read tool with `limit: 100` to read only first 100 lines each)
 3. For each, extract: title, overview summary, key files, layer
 4. Return a structured list sorted by relevance
+
+**Memory limit**: Total output JSON should be under 200 lines. Return summaries, not full ticket contents.
 
 ## Output
 

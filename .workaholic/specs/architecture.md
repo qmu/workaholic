@@ -2,7 +2,7 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-02-02T20:11:14+09:00
+modified_at: 2026-02-03T13:00:00+09:00
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -44,11 +44,14 @@ plugins/
       plugin.json        # Plugin metadata
     agents/
       changelog-writer.md     # Updates CHANGELOG.md from tickets
+      drive-navigator.md      # Navigates and prioritizes tickets for /drive
       history-discoverer.md   # Searches archived tickets for related context
+      overview-writer.md      # Generates overview content for stories
       performance-analyst.md  # Decision review for PR stories
       pr-creator.md           # Creates/updates GitHub PRs
       release-readiness.md    # Analyzes changes for release readiness
       scanner.md              # Invokes changelog-writer, spec-writer, terms-writer in parallel
+      section-reviewer.md     # Generates story sections 5-8 from archived tickets
       source-discoverer.md    # Finds related source files and analyzes code flow
       spec-writer.md          # Updates .workaholic/specs/
       story-moderator.md      # Orchestrates scanner and story-writer in parallel
@@ -61,11 +64,12 @@ plugins/
       story.md           # /story command
       ticket.md          # /ticket command
     rules/
-      diagrams.md      # Mermaid diagram requirements
-      general.md       # Git workflow rules, markdown linking
-      i18n.md          # Multi-language documentation rules
-      shell.md         # POSIX shell script conventions
-      typescript.md    # TypeScript coding standards
+      diagrams.md        # Mermaid diagram requirements
+      general.md         # Git workflow rules, markdown linking
+      i18n.md            # Multi-language documentation rules
+      shell.md           # POSIX shell script conventions
+      typescript.md      # TypeScript coding standards
+      workaholic.md      # Workaholic-specific conventions
     skills/
       analyze-performance/
         SKILL.md           # Performance analysis framework
@@ -77,32 +81,50 @@ plugins/
         SKILL.md           # Release readiness analysis guidelines
       create-branch/
         SKILL.md           # Creates timestamped topic branches
+        sh/
+          create.sh        # Shell script for branch creation
       create-pr/
         SKILL.md
         sh/
           create-or-update.sh  # Creates or updates GitHub PRs
       create-ticket/
         SKILL.md           # Ticket creation with format and guidelines
-      discover-source/
-        SKILL.md           # Guidelines for exploring source code
       discover-history/
         SKILL.md           # Guidelines for searching archived tickets
+        sh/
+          search.sh        # Searches archived tickets by keywords
+      discover-source/
+        SKILL.md           # Guidelines for exploring source code
       drive-approval/
         SKILL.md           # Complete approval flow: request, revision, abandonment
       drive-workflow/
         SKILL.md           # Implementation workflow for tickets
       format-commit-message/
         SKILL.md           # Structured commit message format
+      gather-ticket-metadata/
+        SKILL.md           # Gathers ticket metadata in one call
+        sh/
+          gather.sh        # Shell script for metadata collection
+      moderate-ticket/
+        SKILL.md           # Guidelines for analyzing tickets for duplicates/merges/splits
+      review-sections/
+        SKILL.md           # Guidelines for generating story sections 5-8
       translate/
         SKILL.md           # Translation policies and .workaholic/ i18n enforcement
       update-ticket-frontmatter/
         SKILL.md           # Updates ticket YAML frontmatter fields
+        sh/
+          update.sh        # Shell script for frontmatter updates
       write-changelog/
         SKILL.md           # Changelog generation and writing guidelines
         sh/
           generate.sh      # Generates changelog entries from tickets
       write-final-report/
         SKILL.md           # Final report section for tickets
+      write-overview/
+        SKILL.md           # Guidelines for generating overview content
+        sh/
+          collect-commits.sh  # Collects commit data for overview
       write-spec/
         SKILL.md
         sh/
@@ -142,10 +164,14 @@ Skills are complex capabilities that may include scripts or multiple files. They
 - **drive-approval**: Complete approval flow for implementations including request, revision handling, and abandonment
 - **drive-workflow**: Implementation workflow steps for processing tickets
 - **format-commit-message**: Structured commit message format with title, motivation, UX, and architecture sections
+- **gather-ticket-metadata**: Gathers ticket metadata (dates, commits, categories) in a single call
+- **moderate-ticket**: Guidelines for analyzing existing tickets to detect duplicates, merge candidates, and split opportunities
+- **review-sections**: Guidelines for generating story sections 5-8 (Outcome, Historical Analysis, Concerns, Ideas)
 - **translate**: Translation policies and `.workaholic/` i18n enforcement (spec-writer, terms-writer, story-writer preload this)
 - **update-ticket-frontmatter**: Updates ticket YAML frontmatter fields (effort, commit_hash, category)
 - **write-changelog**: Generates changelog entries from archived tickets (grouping by category) and provides guidelines for updating CHANGELOG.md
 - **write-final-report**: Writes final report section for tickets with optional discovered insights
+- **write-overview**: Guidelines for generating overview, highlights, motivation, and journey sections for stories
 - **write-spec**: Context gathering and guidelines for writing specification documents
 - **write-story**: Metrics calculation, templates, and guidelines for branch stories
 - **write-terms**: Context gathering and guidelines for terminology documents
@@ -155,6 +181,7 @@ Skills are complex capabilities that may include scripts or multiple files. They
 Agents are specialized subagents that can be spawned to handle complex tasks. They run in a subprocess with specific prompts and tools, preserving the main conversation's context window for interactive work. The core plugin includes:
 
 - **changelog-writer**: Updates root `CHANGELOG.md` with entries from archived tickets, grouped by category (Added, Changed, Removed)
+- **drive-navigator**: Navigates and prioritizes tickets for the `/drive` command, handling listing, analysis, and user confirmation for ticket ordering
 - **history-discoverer**: Searches archived tickets to find related context and prior decisions
 - **overview-writer**: Analyzes commit history to generate structured overview content (overview, highlights, motivation, journey) for story files
 - **performance-analyst**: Evaluates decision-making quality across five viewpoints (Consistency, Intuitivity, Describability, Agility, Density) for PR stories

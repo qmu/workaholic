@@ -31,10 +31,12 @@ For each phase:
 - Use appropriate tools (Glob, Grep, Read)
 - Score relevance and skip tangential files
 - Collect code snippets that illustrate patterns
-- **Capture snippets** from sections likely to need modification (include start/end line numbers)
-- Stay within total budget of 20-30 files
+- **Capture snippets** from sections likely to need modification (max 30 lines each, max 5 snippets total)
+- **Hard limit**: Stop at 20 files total regardless of which phase
 
 ## Output
+
+**Memory limit**: Total output JSON should be under 200 lines.
 
 Return JSON with categorized discoveries:
 
@@ -52,7 +54,7 @@ Return JSON with categorized discoveries:
   "snippets": [
     {
       "path": "path/to/file.ts",
-      "start_line": 10,
+      "start_line": 10,  // max 30 lines per snippet
       "end_line": 25,
       "content": "actual code content that may need modification"
     }

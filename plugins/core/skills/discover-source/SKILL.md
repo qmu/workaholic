@@ -54,11 +54,13 @@ Find related configuration and type definitions.
 
 ## Depth Controls
 
-- **Max files per phase**: Limit each phase to recommended file counts above
+- **Hard limits per phase**: Phase 1 (8 files), Phase 2 (6), Phase 3 (3), Phase 4 (2), Phase 5 (1)
 - **Relevance scoring**: Prioritize files with higher keyword density
 - **Stop conditions**: Stop following chains when files become tangential
-- **Total budget**: Target 20-30 files total across all phases
+- **Total budget**: Hard limit of 20 files total - stop exploration immediately upon reaching limit
 - **Time budget**: Complete exploration within 30 seconds
+
+**Important**: These are hard limits, not guidelines. Stop adding files once limits are reached.
 
 ## Exploration Heuristics
 

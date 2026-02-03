@@ -16,7 +16,7 @@ ARCHIVE_DIR=".workaholic/tickets/archive"
 PATTERN=$(echo "$@" | tr ' ' '|')
 
 # Search and count matches per file, sort by count descending
-grep -rilE "$PATTERN" "$ARCHIVE_DIR" 2>/dev/null | while read -r file; do
-    count=$(grep -ciE "$PATTERN" "$file" 2>/dev/null || echo 0)
+grep -rilE -m 10 "$PATTERN" "$ARCHIVE_DIR" 2>/dev/null | while read -r file; do
+    count=$(grep -ciE -m 10 "$PATTERN" "$file" 2>/dev/null || echo 0)
     echo "$count $file"
-done | sort -rn | head -20
+done | sort -rn | head -10

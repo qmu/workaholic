@@ -51,6 +51,8 @@ Invoke ALL THREE subagents concurrently using Task tool (single message with thr
 
 Wait for all three to complete, then proceed with all JSON results.
 
+**Note**: Subagents return summarized JSON (under 200 lines each), not full file contents. The ticket-organizer synthesizes these summaries rather than re-reading source files.
+
 ### 3. Handle Moderation Result
 
 Based on ticket-moderator JSON result:

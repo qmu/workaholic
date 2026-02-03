@@ -2,7 +2,7 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-02-02T20:11:14+09:00
+modified_at: 2026-02-03T13:00:00+09:00
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -44,11 +44,14 @@ plugins/
       plugin.json        # プラグインメタデータ
     agents/
       changelog-writer.md     # チケットからCHANGELOG.mdを更新
+      drive-navigator.md      # /driveのチケットナビゲーションと優先順位付け
       history-discoverer.md   # 関連チケットを検索してコンテキストを取得
+      overview-writer.md      # ストーリー用の概要コンテンツを生成
       performance-analyst.md  # PRストーリーの意思決定レビュー
       pr-creator.md           # GitHub PRの作成/更新
       release-readiness.md    # リリース準備状況の分析
       scanner.md              # changelog-writer、spec-writer、terms-writerを並列実行
+      section-reviewer.md     # アーカイブされたチケットからストーリーセクション5-8を生成
       source-discoverer.md    # 関連ソースファイルを検索してコード流れを分析
       spec-writer.md          # .workaholic/specs/を更新
       story-moderator.md      # scannerとstory-writerを並列でオーケストレーション
@@ -61,11 +64,12 @@ plugins/
       story.md           # /story コマンド
       ticket.md          # /ticket コマンド
     rules/
-      diagrams.md      # Mermaid図表要件
-      general.md       # Gitワークフロールール、マークダウンリンク
-      i18n.md          # 多言語ドキュメントルール
-      shell.md         # POSIX シェルスクリプト規約
-      typescript.md    # TypeScriptコーディング規約
+      diagrams.md        # Mermaid図表要件
+      general.md         # Gitワークフロールール、マークダウンリンク
+      i18n.md            # 多言語ドキュメントルール
+      shell.md           # POSIX シェルスクリプト規約
+      typescript.md      # TypeScriptコーディング規約
+      workaholic.md      # Workaholic固有の規約
     skills/
       analyze-performance/
         SKILL.md           # パフォーマンス分析フレームワーク
@@ -77,32 +81,50 @@ plugins/
         SKILL.md           # リリース準備分析ガイドライン
       create-branch/
         SKILL.md           # タイムスタンプ付きトピックブランチを作成
+        sh/
+          create.sh        # ブランチ作成用シェルスクリプト
       create-pr/
         SKILL.md
         sh/
           create-or-update.sh  # GitHub PRの作成/更新
       create-ticket/
         SKILL.md           # フォーマットとガイドラインを含むチケット作成
-      discover-source/
-        SKILL.md           # ソースコード探索ガイドライン
       discover-history/
         SKILL.md           # アーカイブされたチケットの検索ガイドライン
+        sh/
+          search.sh        # キーワードでアーカイブされたチケットを検索
+      discover-source/
+        SKILL.md           # ソースコード探索ガイドライン
       drive-approval/
         SKILL.md           # 完全な承認フロー：リクエスト、リビジョン、放棄
       drive-workflow/
         SKILL.md           # チケット実装ワークフロー
       format-commit-message/
         SKILL.md           # 構造化コミットメッセージ形式
+      gather-ticket-metadata/
+        SKILL.md           # チケットメタデータを一括収集
+        sh/
+          gather.sh        # メタデータ収集用シェルスクリプト
+      moderate-ticket/
+        SKILL.md           # チケットの重複・マージ・分割分析ガイドライン
+      review-sections/
+        SKILL.md           # ストーリーセクション5-8生成ガイドライン
       translate/
         SKILL.md           # 翻訳ポリシーと.workaholic/ i18n強制
       update-ticket-frontmatter/
         SKILL.md           # チケットYAMLフロントマターフィールドを更新
+        sh/
+          update.sh        # フロントマター更新用シェルスクリプト
       write-changelog/
         SKILL.md           # changelog生成およびライティングガイドライン
         sh/
           generate.sh      # チケットからchangelogエントリを生成
       write-final-report/
         SKILL.md           # チケットの最終レポートセクション
+      write-overview/
+        SKILL.md           # 概要コンテンツ生成ガイドライン
+        sh/
+          collect-commits.sh  # 概要用のコミットデータを収集
       write-spec/
         SKILL.md
         sh/
@@ -142,10 +164,14 @@ plugins/
 - **drive-approval**: リクエスト、リビジョン処理、放棄を含む実装の完全な承認フロー
 - **drive-workflow**: チケット処理の実装ワークフローステップ
 - **format-commit-message**: タイトル、動機、UX、アーキテクチャセクションを含む構造化コミットメッセージ形式
+- **gather-ticket-metadata**: チケットメタデータ（日付、コミット、カテゴリ）を一括収集
+- **moderate-ticket**: 既存チケットの重複、マージ候補、分割機会を検出するガイドライン
+- **review-sections**: ストーリーセクション5-8（Outcome、Historical Analysis、Concerns、Ideas）の生成ガイドライン
 - **translate**: 翻訳ポリシーと`.workaholic/` i18n強制（spec-writer、terms-writer、story-writerがプリロード）
 - **update-ticket-frontmatter**: チケットYAMLフロントマターフィールド（effort、commit_hash、category）を更新
 - **write-changelog**: アーカイブされたチケットからchangelogエントリを生成（カテゴリ別にグループ化）し、CHANGELOG.md更新のガイドラインを提供
 - **write-final-report**: オプションの発見インサイトを含むチケットの最終レポートセクションを作成
+- **write-overview**: ストーリー用の概要、ハイライト、動機、旅程セクションの生成ガイドライン
 - **write-spec**: コンテキスト収集とspecドキュメントのライティングガイドライン
 - **write-story**: メトリクス計算、テンプレート、ブランチストーリーのガイドライン
 - **write-terms**: コンテキスト収集と用語ドキュメントのガイドライン
@@ -155,6 +181,7 @@ plugins/
 エージェントは複雑なタスクを処理するために生成できる特殊なサブエージェントです。特定のプロンプトとツールを持つサブプロセスで実行され、メイン会話のコンテキストウィンドウをインタラクティブな作業用に保持します。coreプラグインには以下が含まれます：
 
 - **changelog-writer**: アーカイブされたチケットからルート`CHANGELOG.md`をカテゴリ別（Added、Changed、Removed）に更新
+- **drive-navigator**: `/drive`コマンドのチケットナビゲーションと優先順位付け、リスト表示・分析・ユーザー確認を処理
 - **history-discoverer**: アーカイブされたチケットを検索して関連コンテキストと過去の決定を見つける
 - **overview-writer**: コミット履歴を分析してストーリーファイル用の構造化概要コンテンツ（overview、highlights、motivation、journey）を生成
 - **performance-analyst**: PRストーリーのために5つの観点（Consistency、Intuitivity、Describability、Agility、Density）で意思決定の質を評価

@@ -54,7 +54,6 @@ plugins/
       section-reviewer.md     # Generates story sections 5-8 from archived tickets
       source-discoverer.md    # Finds related source files and analyzes code flow
       spec-writer.md          # Updates .workaholic/specs/
-      story-moderator.md      # Orchestrates scanner and story-writer in parallel
       story-writer.md         # Invokes overview-writer, section-reviewer, release-readiness, performance-analyst in parallel
       terms-writer.md         # Updates .workaholic/terms/
       ticket-moderator.md     # Analyzes tickets for duplicates, merges, and splits
@@ -62,6 +61,7 @@ plugins/
     commands/
       drive.md           # /drive command
       report.md          # /report command
+      scan.md            # /scan command
       ticket.md          # /ticket command
     rules/
       diagrams.md        # Mermaid diagram requirements
@@ -73,6 +73,8 @@ plugins/
     skills/
       analyze-performance/
         SKILL.md           # Performance analysis framework
+        sh/
+          calculate.sh     # Calculates performance metrics
       archive-ticket/
         SKILL.md
         sh/
@@ -101,6 +103,10 @@ plugins/
         SKILL.md           # Implementation workflow for tickets
       format-commit-message/
         SKILL.md           # Structured commit message format
+      gather-git-context/
+        SKILL.md           # Gathers all context for documentation subagents
+        sh/
+          gather.sh        # Shell script for context collection
       gather-ticket-metadata/
         SKILL.md           # Gathers ticket metadata in one call
         sh/
@@ -130,9 +136,7 @@ plugins/
         sh/
           gather.sh        # Gathers context and writes specs
       write-story/
-        SKILL.md
-        sh/
-          calculate.sh     # Calculates metrics and writes stories
+        SKILL.md           # Story content structure and guidelines
       write-terms/
         SKILL.md
         sh/
@@ -164,6 +168,7 @@ Skills are complex capabilities that may include scripts or multiple files. They
 - **drive-approval**: Complete approval flow for implementations including request, revision handling, and abandonment
 - **drive-workflow**: Implementation workflow steps for processing tickets
 - **format-commit-message**: Structured commit message format with title, motivation, UX, and architecture sections
+- **gather-git-context**: Gathers all context for documentation subagents (branch, base branch, URL, archived tickets, git log) in a single call
 - **gather-ticket-metadata**: Gathers ticket metadata (dates, commits, categories) in a single call
 - **moderate-ticket**: Guidelines for analyzing existing tickets to detect duplicates, merge candidates, and split opportunities
 - **review-sections**: Guidelines for generating story sections 5-8 (Outcome, Historical Analysis, Concerns, Ideas)
@@ -173,7 +178,7 @@ Skills are complex capabilities that may include scripts or multiple files. They
 - **write-final-report**: Writes final report section for tickets with optional discovered insights
 - **write-overview**: Guidelines for generating overview, highlights, motivation, and journey sections for stories
 - **write-spec**: Context gathering and guidelines for writing specification documents
-- **write-story**: Metrics calculation, templates, and guidelines for branch stories
+- **write-story**: Story content structure, templates, and guidelines for branch stories
 - **write-terms**: Context gathering and guidelines for terminology documents
 
 ### Agents
@@ -191,8 +196,7 @@ Agents are specialized subagents that can be spawned to handle complex tasks. Th
 - **section-reviewer**: Generates story sections 5-8 (Outcome, Historical Analysis, Concerns, Ideas) by analyzing archived tickets
 - **source-discoverer**: Explores codebase to find related source files and analyzes code flow context
 - **spec-writer**: Updates `.workaholic/specs/` documentation to reflect current codebase state
-- **story-moderator**: Top-level orchestrator for documentation generation. Invokes scanner and story-writer in parallel (two-tier architecture), then integrates their outputs into branch stories in `.workaholic/stories/` with eleven sections
-- **story-writer**: Invokes story generation agents (overview-writer, section-reviewer, release-readiness, performance-analyst) in parallel and returns their combined outputs for integration
+- **story-writer**: Orchestrates story generation by invoking overview-writer, section-reviewer, release-readiness, performance-analyst in parallel, then writes story file and invokes pr-creator
 - **terms-writer**: Updates `.workaholic/terms/` to maintain consistent term definitions
 - **ticket-moderator**: Analyzes existing tickets for duplicates, merge candidates, and split opportunities before creating new tickets
 - **ticket-organizer**: Complete ticket creation workflow: discovers history and source context, checks for duplicates/overlaps, and writes implementation tickets
@@ -262,6 +266,41 @@ flowchart LR
     wfr --> utf
 ```
 
+### /scan Dependencies
+
+```mermaid
+flowchart LR
+    subgraph Command
+        scan["/scan"]
+    end
+
+    subgraph Agents
+        sc[scanner]
+        cw[changelog-writer]
+        spw[spec-writer]
+        tw[terms-writer]
+    end
+
+    subgraph Skills
+        wc[write-changelog]
+        wsp[write-spec]
+        wt[write-terms]
+        tr[translate]
+    end
+
+    scan --> sc
+
+    sc --> cw & spw & tw
+
+    cw --> wc
+    spw --> wsp
+    tw --> wt
+
+    %% Skill-to-skill
+    wsp --> tr
+    wt --> tr
+```
+
 ### /report Dependencies
 
 ```mermaid
@@ -271,12 +310,7 @@ flowchart LR
     end
 
     subgraph Agents
-        sm[story-moderator]
-        sc[scanner]
         sw[story-writer]
-        cw[changelog-writer]
-        spw[spec-writer]
-        tw[terms-writer]
         rr[release-readiness]
         pa[performance-analyst]
         ow[overview-writer]
@@ -286,9 +320,6 @@ flowchart LR
 
     subgraph Skills
         ws[write-story]
-        wc[write-changelog]
-        wsp[write-spec]
-        wt[write-terms]
         arr[assess-release-readiness]
         ap[analyze-performance]
         wo[write-overview]
@@ -297,16 +328,10 @@ flowchart LR
         cp[create-pr]
     end
 
-    report --> sm
+    report --> sw
 
-    sm --> sc & sw
-
-    sc --> cw & spw & tw
     sw --> rr & pa & ow & sr & pc
 
-    cw --> wc
-    spw --> wsp
-    tw --> wt
     rr --> arr
     pa --> ap
     ow --> wo
@@ -316,8 +341,6 @@ flowchart LR
 
     %% Skill-to-skill
     ws --> tr
-    wsp --> tr
-    wt --> tr
 ```
 
 ## How Claude Code Loads Plugins
@@ -367,72 +390,59 @@ sequenceDiagram
 
 ## Documentation Enforcement
 
-Workaholic enforces comprehensive documentation through a two-tier parallel subagent architecture. The `/report` command delegates to story-moderator, which orchestrates two groups in parallel: scanner (documentation scanning) and story-writer (story generation), then integrates their outputs.
+Workaholic enforces comprehensive documentation through two separate commands: `/scan` for documentation maintenance and `/report` for story generation and PR creation. This decoupled architecture allows independent documentation updates without requiring a PR.
 
 ### How It Works
 
 ```mermaid
 flowchart TD
-    A["/report command"] --> SM[story-moderator]
-
-    SM --> P1[Phase 1: Invoke 2 groups in parallel]
-
-    subgraph Scanner Group
+    subgraph scan["/scan command"]
         SC[scanner]
         D[changelog-writer]
         F[spec-writer]
         G[terms-writer]
+
+        SC --> D & F & G
+
+        D --> H[CHANGELOG.md]
+        F --> J[.workaholic/specs/]
+        G --> K[.workaholic/terms/]
     end
 
-    subgraph Story Group
+    subgraph report["/report command"]
         SW[story-writer]
         RR[release-readiness]
         PA[performance-analyst]
         OW[overview-writer]
         SR[section-reviewer]
         PC[pr-creator]
+
+        SW --> RR & PA & OW & SR
+
+        RR --> RL[Release JSON]
+        PA --> PM[Performance markdown]
+        OW --> OJ[Overview JSON]
+        SR --> SJ[Sections JSON]
+
+        RL --> P3[Write story file]
+        PM --> P3
+        OJ --> P3
+        SJ --> P3
+
+        P3 --> I[.workaholic/stories/]
+        I --> PC
+        PC --> N[Create/update PR]
     end
-
-    P1 --> SC
-    P1 --> SW
-
-    SC --> D & F & G
-    SW --> RR & PA & OW & SR
-
-    D --> H[CHANGELOG.md]
-    F --> J[.workaholic/specs/]
-    G --> K[.workaholic/terms/]
-    RR --> RL[Release JSON]
-    PA --> PM[Performance markdown]
-    OW --> OJ[Overview JSON]
-    SR --> SJ[Sections JSON]
-
-    H --> P2[Scanner complete]
-    J --> P2
-    K --> P2
-    RL --> P3[Write story file]
-    PM --> P3
-    OJ --> P3
-    SJ --> P3
-
-    P3 --> I[.workaholic/stories/]
-    I --> PC
-    PC --> N[Create/update PR]
-
-    P2 --> SM2[story-moderator complete]
-    N --> SM2
-    SM2 --> L[Return to /report]
 ```
 
-Documentation is updated automatically during the `/report` workflow.
+The `/scan` command updates documentation (changelog, specs, terms) independently. The `/report` command generates stories and creates PRs. Users who want documentation updates without PR creation can run `/scan` independently.
 
-The two-tier subagent architecture provides several benefits:
+This decoupled architecture provides several benefits:
 
-1. **Parallel execution** - Two groups run simultaneously, with each group running its agents in parallel
-2. **Context isolation** - Scanner agents don't need story context; story-writer agents don't need changelog/spec/terms context
-3. **Failure isolation** - If scanner fails, story-writer output is still valid, and vice versa
-4. **Single responsibility** - Each agent handles one documentation domain
-5. **Central orchestration** - Story-moderator is the hub that coordinates both groups and integrates outputs
+1. **Independent execution** - Documentation can be updated without creating a PR
+2. **Simpler architecture** - Each command has a single responsibility
+3. **Parallel agents** - Scanner runs 3 agents in parallel; story-writer runs 4 agents in parallel
+4. **Clear workflow** - Typical flow: `/ticket` → `/drive` → `/scan` → `/report`
 
 ### Critical Requirements
 

@@ -62,12 +62,24 @@ plugins/                 # Plugin source directories
 
 Skills are the knowledge layer. Commands and subagents are the orchestration layer.
 
+### Common Operations
+
+Subagents must use skills for common operations instead of inline shell commands:
+
+| Operation | Skill | Usage |
+| --------- | ----- | ----- |
+| Git context (branch, base, URL) | gather-git-context | `bash .claude/skills/gather-git-context/sh/gather.sh` |
+| Ticket metadata (date, author) | gather-ticket-metadata | `bash .claude/skills/gather-ticket-metadata/sh/gather.sh` |
+
+Never write inline git commands like `git branch --show-current` or `git remote show origin` in subagent markdown files. Subagents preload the skill and gather context themselves.
+
 ## Commands
 
 | Command                          | Description                                      |
 | -------------------------------- | ------------------------------------------------ |
 | `/ticket <description>`          | Write implementation spec for a feature          |
 | `/drive`                         | Implement queued specs one by one                |
+| `/scan`                          | Update .workaholic/ documentation                |
 | `/report`                        | Generate documentation and create/update PR      |
 | `/release [major\|minor\|patch]` | Release new marketplace version                  |
 

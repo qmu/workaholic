@@ -21,7 +21,7 @@ This design makes stories the single source of truth for PR content, eliminating
 
 1. Check the current branch name with `git branch --show-current`
 2. Get the base branch (usually `main`) with `git remote show origin | grep 'HEAD branch'`
-3. **Generate documentation** using story-moderator subagent:
+3. **Generate documentation and create PR** using story-moderator subagent:
 
    Invoke **story-moderator** (`subagent_type: "core:story-moderator"`, `model: "opus"`):
    - Pass branch name and base branch
@@ -31,9 +31,9 @@ This design makes stories the single source of truth for PR content, eliminating
 
    The story-moderator orchestrates documentation generation in two parallel groups:
    - Scanner group: changelog-writer, spec-writer, terms-writer
-   - Story group: overview-writer, section-reviewer, release-readiness, performance-analyst
-   - Integrates their outputs into the story file
-   - Returns confirmation with success/failure status
+   - Story group (via story-writer): overview-writer, section-reviewer, release-readiness, performance-analyst
+   - Story-writer writes the story file and invokes pr-creator
+   - Returns confirmation with success/failure status and PR URL
 
    Output locations:
    - `CHANGELOG.md`
@@ -43,7 +43,7 @@ This design makes stories the single source of truth for PR content, eliminating
 
    After story-moderator completes, stage all changes and commit: "Update documentation for PR"
 
-   **Failure handling**: If story-moderator reports agent failures, report which succeeded and which failed. Continue with PR creation if story file was created (required for PR body).
+   **Failure handling**: If story-moderator reports agent failures, report which succeeded and which failed.
 
 4. **Format changed files** (silent step):
    - Run project linter/formatter on changed files
@@ -56,17 +56,10 @@ This design makes stories the single source of truth for PR content, eliminating
    git push -u origin <branch-name>
    ```
    This ensures the branch exists on remote before PR creation. The `-u` flag sets upstream tracking for new branches.
-7. **Create or update PR** using the pr-creator subagent:
-
-   Invoke the pr-creator subagent via Task tool with `subagent_type: "core:pr-creator"`, `model: "opus"`:
-
-   - Pass the branch name and base branch as context
-   - The subagent handles: checking if PR exists, reading story file, deriving title, `gh` CLI operations
-   - The subagent returns the PR URL (required for completion output)
 
 ## Completion Output (MANDATORY)
 
-After creating or updating the PR, you **MUST** display the result:
+After story-moderator completes, you **MUST** display the PR URL from its result:
 
 - **New PR**: `PR created: <PR-URL>`
 - **Updated PR**: `PR updated: <PR-URL>`

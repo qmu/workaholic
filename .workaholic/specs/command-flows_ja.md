@@ -115,59 +115,77 @@ flowchart TD
 
 ## /story
 
-包括的なドキュメントを生成し、プルリクエストを作成/更新します。
+二層並列アーキテクチャを使用して包括的なドキュメントを生成し、プルリクエストを作成/更新します。
 
 ```mermaid
 flowchart TD
     A[ユーザー: /story] --> B[ブランチ確認]
-    B --> E[Phase 1: 並列エージェント]
+    B --> SM[story-moderator]
 
-    subgraph Phase1[Phase 1 - 並列]
+    SM --> P1[並列: scanner + story-writer]
+
+    subgraph Scanner[scanner]
         F[changelog-writer]
         G[spec-writer]
         H[terms-writer]
+    end
+
+    subgraph StoryWriter[story-writer]
+        OW[overview-writer]
+        SR[section-reviewer]
         I[release-readiness]
         PA[performance-analyst]
     end
 
-    E --> F & G & H & I & PA
+    P1 --> Scanner
+    P1 --> StoryWriter
 
     F --> F1[write-changelog スキル]
     G --> G1[write-spec スキル]
     G --> G2[translate スキル]
     H --> H1[write-terms スキル]
     H --> H2[translate スキル]
+    OW --> OW1[write-overview スキル]
+    SR --> SR1[review-sections スキル]
     I --> I1[assess-release-readiness スキル]
     PA --> PA1[analyze-performance スキル]
 
-    F1 & G1 & G2 & H1 & H2 & I1 & PA1 --> J[Phase 2: story-writer]
+    F1 & G1 & G2 & H1 & H2 --> SC[Scanner完了]
+    OW1 & SR1 & I1 & PA1 --> SW[ストーリー作成]
 
-    J --> J1[write-story スキル]
-    J --> J2[translate スキル]
+    SW --> J1[write-story スキル]
+    SW --> J2[translate スキル]
 
     J1 & J2 --> K[docsをコミット]
     K --> L[ブランチをプッシュ]
     L --> M[pr-creator エージェント]
     M --> M1[create-pr スキル]
     M1 --> N[PRを作成/更新]
-    N --> O[PR URLを表示]
+
+    SC --> SM2[story-moderator完了]
+    N --> SM2
+    SM2 --> O[PR URLを表示]
 ```
 
 ### コンポーネント
 
 | コンポーネント | タイプ | 目的 |
 |---------------|--------|------|
+| story-moderator | エージェント | scannerとstory-writerを並列で調整 |
+| scanner | エージェント | changelog-writer、spec-writer、terms-writerを並列で呼び出し |
+| story-writer | エージェント | ストーリーファイルを生成し、pr-creatorを呼び出し |
 | changelog-writer | エージェント (haiku) | アーカイブチケットからCHANGELOG.mdを更新 |
 | spec-writer | エージェント (haiku) | .workaholic/specs/ドキュメントを更新 |
 | terms-writer | エージェント (haiku) | .workaholic/terms/定義を更新 |
+| overview-writer | エージェント | overview、highlights、motivation、journeyを生成 |
+| section-reviewer | エージェント | セクション5-8（Outcome、Historical Analysis、Concerns、Ideas）を生成 |
 | release-readiness | エージェント (haiku) | リリースに関する懸念事項を分析 |
-| story-writer | エージェント (haiku) | 11セクションでPRナラティブを生成 |
 | performance-analyst | エージェント | 意思決定の品質を評価 |
 | pr-creator | エージェント (haiku) | GitHub PRを作成/更新 |
 | write-changelog | スキル | changelogエントリの生成、分類、およびCHANGELOG.mdの更新 |
 | write-spec | スキル | specドキュメントのフォーマットとガイドライン |
 | write-terms | スキル | termドキュメントのフォーマットとガイドライン |
-| write-story | スキル | storyドキュメントの構造とテンプレート |
+| write-story | スキル | storyドキュメントの構造とテンプレート（story-writerによりプリロード） |
 | assess-release-readiness | スキル | リリース準備の基準 |
 | analyze-performance | スキル | パフォーマンス評価フレームワーク |
 | create-pr | スキル | gh CLI経由でPR作成 |
@@ -175,8 +193,9 @@ flowchart TD
 
 ### 備考
 
-- Phase 1は効率のために5つのエージェントを並列実行
-- Phase 2はrelease-readinessとperformance-analyst出力に依存（順次実行）
+- 二層並列アーキテクチャ：story-moderatorがscannerとstory-writerを並列で呼び出し
+- Scannerグループ：changelog-writer、spec-writer、terms-writer（3エージェント）
+- Storyグループ：overview-writer、section-reviewer、release-readiness、performance-analyst（4エージェント）
+- story-writerがwrite-storyスキルを所有し、ストーリー生成後にpr-creatorを呼び出す
 - ストーリーファイルがPR説明文の本文になります
 - 完了時のPR URL表示は必須です
-- 残りのチケットをiceboxに移動したい場合はユーザーが手動で行うことができます。/storyは自動移行しません

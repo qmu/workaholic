@@ -115,59 +115,77 @@ flowchart TD
 
 ## /story
 
-Generates comprehensive documentation and creates/updates a pull request.
+Generates comprehensive documentation and creates/updates a pull request using a two-tier parallel architecture.
 
 ```mermaid
 flowchart TD
     A[User: /story] --> B[Check branch]
-    B --> E[Phase 1: Parallel agents]
+    B --> SM[story-moderator]
 
-    subgraph Phase1[Phase 1 - Parallel]
+    SM --> P1[Parallel: scanner + story-writer]
+
+    subgraph Scanner[scanner]
         F[changelog-writer]
         G[spec-writer]
         H[terms-writer]
+    end
+
+    subgraph StoryWriter[story-writer]
+        OW[overview-writer]
+        SR[section-reviewer]
         I[release-readiness]
         PA[performance-analyst]
     end
 
-    E --> F & G & H & I & PA
+    P1 --> Scanner
+    P1 --> StoryWriter
 
     F --> F1[write-changelog skill]
     G --> G1[write-spec skill]
     G --> G2[translate skill]
     H --> H1[write-terms skill]
     H --> H2[translate skill]
+    OW --> OW1[write-overview skill]
+    SR --> SR1[review-sections skill]
     I --> I1[assess-release-readiness skill]
     PA --> PA1[analyze-performance skill]
 
-    F1 & G1 & G2 & H1 & H2 & I1 & PA1 --> J[Phase 2: story-writer]
+    F1 & G1 & G2 & H1 & H2 --> SC[Scanner complete]
+    OW1 & SR1 & I1 & PA1 --> SW[Write story]
 
-    J --> J1[write-story skill]
-    J --> J2[translate skill]
+    SW --> J1[write-story skill]
+    SW --> J2[translate skill]
 
     J1 & J2 --> K[Commit docs]
     K --> L[Push branch]
     L --> M[pr-creator agent]
     M --> M1[create-pr skill]
     M1 --> N[Create/Update PR]
-    N --> O[Display PR URL]
+
+    SC --> SM2[story-moderator complete]
+    N --> SM2
+    SM2 --> O[Display PR URL]
 ```
 
 ### Components
 
 | Component | Type | Purpose |
 |-----------|------|---------|
+| story-moderator | Agent | Orchestrates scanner and story-writer in parallel |
+| scanner | Agent | Invokes changelog-writer, spec-writer, terms-writer in parallel |
+| story-writer | Agent | Generates story file and invokes pr-creator |
 | changelog-writer | Agent (haiku) | Updates CHANGELOG.md from archived tickets |
 | spec-writer | Agent (haiku) | Updates .workaholic/specs/ documentation |
 | terms-writer | Agent (haiku) | Updates .workaholic/terms/ definitions |
+| overview-writer | Agent | Generates overview, highlights, motivation, journey |
+| section-reviewer | Agent | Generates sections 5-8 (Outcome, Historical Analysis, Concerns, Ideas) |
 | release-readiness | Agent (haiku) | Analyzes changes for release concerns |
-| story-writer | Agent (haiku) | Generates PR narrative in 11 sections |
 | performance-analyst | Agent | Evaluates decision-making quality |
 | pr-creator | Agent (haiku) | Creates/updates GitHub PR |
 | write-changelog | Skill | Changelog entry generation, categorization, and CHANGELOG.md updates |
 | write-spec | Skill | Spec document format and guidelines |
 | write-terms | Skill | Term document format and guidelines |
-| write-story | Skill | Story document structure and templates |
+| write-story | Skill | Story document structure and templates (preloaded by story-writer) |
 | assess-release-readiness | Skill | Release readiness criteria |
 | analyze-performance | Skill | Performance evaluation framework |
 | create-pr | Skill | PR creation via gh CLI |
@@ -175,8 +193,9 @@ flowchart TD
 
 ### Notes
 
-- Phase 1 runs 5 agents in parallel for efficiency
-- Phase 2 depends on release-readiness and performance-analyst outputs (sequential)
+- Two-tier parallel architecture: story-moderator invokes scanner and story-writer in parallel
+- Scanner group: changelog-writer, spec-writer, terms-writer (3 agents)
+- Story group: overview-writer, section-reviewer, release-readiness, performance-analyst (4 agents)
+- story-writer owns the write-story skill and invokes pr-creator after story generation
 - Story file becomes the PR description body
 - PR URL display is mandatory at completion
-- Users can manually move remaining tickets to icebox if desired; /story does not auto-migrate

@@ -3,9 +3,9 @@ created_at: 2026-02-03T14:47:36+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 3d14793
+category: Changed
 ---
 
 # Correct Skill and Subagent Mappings in Story Workflow
@@ -59,3 +59,7 @@ Past tickets that touched similar areas:
 - **Sequential dependency**: pr-creator must run after story file is written, so story-writer (which writes the story) is the correct invoker
 - **Single responsibility**: story-moderator orchestrates, story-writer generates content and hands off to pr-creator
 - **Backward compatibility**: No user-facing changes; the /story command behavior remains identical
+
+## Final Report
+
+Corrected skill and subagent mappings in the story workflow. Moved write-story skill from story-moderator to story-writer, and moved pr-creator invocation from /story command to story-writer. Story-moderator is now a pure orchestrator that invokes scanner and story-writer in parallel. Story-writer owns the write-story skill and invokes pr-creator after story generation. Updated command-flows.md spec with corrected diagrams for both English and Japanese versions.

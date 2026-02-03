@@ -48,9 +48,11 @@ plugins/
       performance-analyst.md  # Decision review for PR stories
       pr-creator.md           # Creates/updates GitHub PRs
       release-readiness.md    # Analyzes changes for release readiness
+      scanner.md              # Invokes changelog-writer, spec-writer, terms-writer in parallel
       source-discoverer.md    # Finds related source files and analyzes code flow
       spec-writer.md          # Updates .workaholic/specs/
-      story-writer.md         # Generates branch stories for PRs
+      story-moderator.md      # Orchestrates scanner and story-writer in parallel
+      story-writer.md         # Invokes overview-writer, section-reviewer, release-readiness, performance-analyst in parallel
       terms-writer.md         # Updates .workaholic/terms/
       ticket-moderator.md     # Analyzes tickets for duplicates, merges, and splits
       ticket-organizer.md     # Complete ticket workflow: discover, check duplicates, write
@@ -158,10 +160,12 @@ Agents are specialized subagents that can be spawned to handle complex tasks. Th
 - **performance-analyst**: Evaluates decision-making quality across five viewpoints (Consistency, Intuitivity, Describability, Agility, Density) for PR stories
 - **pr-creator**: Creates or updates GitHub pull requests using the story file as PR body, handling title derivation and `gh` CLI operations
 - **release-readiness**: Analyzes changes for release readiness, providing verdict, concerns, and pre/post-release instructions
+- **scanner**: Invokes documentation scanning agents (changelog-writer, spec-writer, terms-writer) in parallel and returns their combined status
 - **section-reviewer**: Generates story sections 5-8 (Outcome, Historical Analysis, Concerns, Ideas) by analyzing archived tickets
 - **source-discoverer**: Explores codebase to find related source files and analyzes code flow context
 - **spec-writer**: Updates `.workaholic/specs/` documentation to reflect current codebase state
-- **story-writer**: Central orchestrator for documentation generation. Invokes 7 subagents in parallel (changelog-writer, spec-writer, terms-writer, release-readiness, performance-analyst, overview-writer, section-reviewer), then integrates their outputs into branch stories in `.workaholic/stories/` with eleven sections: Overview, Motivation, Journey (containing Topic Tree flowchart), Changes, Outcome, Historical Analysis, Concerns, Ideas, Performance, Release Preparation, and Notes
+- **story-moderator**: Top-level orchestrator for documentation generation. Invokes scanner and story-writer in parallel (two-tier architecture), then integrates their outputs into branch stories in `.workaholic/stories/` with eleven sections
+- **story-writer**: Invokes story generation agents (overview-writer, section-reviewer, release-readiness, performance-analyst) in parallel and returns their combined outputs for integration
 - **terms-writer**: Updates `.workaholic/terms/` to maintain consistent term definitions
 - **ticket-moderator**: Analyzes existing tickets for duplicates, merge candidates, and split opportunities before creating new tickets
 - **ticket-organizer**: Complete ticket creation workflow: discovers history and source context, checks for duplicates/overlaps, and writes implementation tickets
@@ -240,6 +244,8 @@ flowchart LR
     end
 
     subgraph Agents
+        sm[story-moderator]
+        sc[scanner]
         sw[story-writer]
         cw[changelog-writer]
         spw[spec-writer]
@@ -264,10 +270,13 @@ flowchart LR
         cp[create-pr]
     end
 
-    story --> sw
+    story --> sm
     story --> pc
 
-    sw --> cw & spw & tw & rr & pa & ow & sr
+    sm --> sc & sw
+
+    sc --> cw & spw & tw
+    sw --> rr & pa & ow & sr
 
     cw --> wc
     spw --> wsp
@@ -276,7 +285,7 @@ flowchart LR
     pa --> ap
     ow --> wo
     sr --> rs
-    sw --> ws
+    sm --> ws
     pc --> cp
 
     %% Skill-to-skill
@@ -332,31 +341,36 @@ sequenceDiagram
 
 ## Documentation Enforcement
 
-Workaholic enforces comprehensive documentation through a parallel subagent architecture. The `/story` command delegates to story-writer, which orchestrates 6 documentation agents in parallel, then integrates their outputs.
+Workaholic enforces comprehensive documentation through a two-tier parallel subagent architecture. The `/story` command delegates to story-moderator, which orchestrates two groups in parallel: scanner (documentation scanning) and story-writer (story generation), then integrates their outputs.
 
 ### How It Works
 
 ```mermaid
 flowchart TD
-    A["/story command"] --> SW[story-writer]
+    A["/story command"] --> SM[story-moderator]
 
-    SW --> P1[Phase 1: Invoke 6 subagents in parallel]
+    SM --> P1[Phase 1: Invoke 2 groups in parallel]
 
-    subgraph Phase 1 - Parallel
+    subgraph Scanner Group
+        SC[scanner]
         D[changelog-writer]
         F[spec-writer]
         G[terms-writer]
+    end
+
+    subgraph Story Group
+        SW[story-writer]
         RR[release-readiness]
         PA[performance-analyst]
         OW[overview-writer]
+        SR[section-reviewer]
     end
 
-    P1 --> D
-    P1 --> F
-    P1 --> G
-    P1 --> RR
-    P1 --> PA
-    P1 --> OW
+    P1 --> SC
+    P1 --> SW
+
+    SC --> D & F & G
+    SW --> RR & PA & OW & SR
 
     D --> H[CHANGELOG.md]
     F --> J[.workaholic/specs/]
@@ -364,6 +378,7 @@ flowchart TD
     RR --> RL[Release JSON]
     PA --> PM[Performance markdown]
     OW --> OJ[Overview JSON]
+    SR --> SJ[Sections JSON]
 
     H --> P2[Phase 2: Integrate & Write Story]
     J --> P2
@@ -371,6 +386,7 @@ flowchart TD
     RL --> P2
     PM --> P2
     OJ --> P2
+    SJ --> P2
 
     P2 --> I[.workaholic/stories/]
     I --> L[Return to /story]
@@ -381,12 +397,13 @@ flowchart TD
 
 Documentation is updated automatically during the `/story` workflow.
 
-The subagent architecture provides several benefits:
+The two-tier subagent architecture provides several benefits:
 
-1. **Parallel execution** - Six agents run simultaneously in Phase 1, reducing wait time
-2. **Context isolation** - Each agent works in its own context window, preserving the main conversation
-3. **Single responsibility** - Each agent handles one documentation domain
-4. **Central orchestration** - Story-writer is the hub that coordinates all documentation agents and integrates outputs
+1. **Parallel execution** - Two groups run simultaneously, with each group running its agents in parallel
+2. **Context isolation** - Scanner agents don't need story context; story-writer agents don't need changelog/spec/terms context
+3. **Failure isolation** - If scanner fails, story-writer output is still valid, and vice versa
+4. **Single responsibility** - Each agent handles one documentation domain
+5. **Central orchestration** - Story-moderator is the hub that coordinates both groups and integrates outputs
 
 ### Critical Requirements
 
@@ -419,7 +436,7 @@ Workaholic follows strict nesting rules for component invocations to maintain a 
 | Subagent | Skill, Subagent    | Command             |
 | Skill    | Skill              | Subagent, Command   |
 
-Subagent → Subagent is allowed only in parallel with max depth 1 (no nested chains). Commands and subagents are the orchestration layer, defining workflow steps and invoking other components. Skills are the knowledge layer, containing templates, guidelines, rules, and bash scripts. Skills can preload other skills for composable knowledge (e.g., write-spec preloads translate for i18n enforcement). This separation prevents deep nesting and context explosion while keeping comprehensive knowledge centralized in skills.
+Subagent → Subagent is allowed only in parallel (no sequential chains). Commands and subagents are the orchestration layer, defining workflow steps and invoking other components. Skills are the knowledge layer, containing templates, guidelines, rules, and bash scripts. Skills can preload other skills for composable knowledge (e.g., write-spec preloads translate for i18n enforcement). This separation prevents sequential nesting and context explosion while keeping comprehensive knowledge centralized in skills.
 
 ## Version Management
 

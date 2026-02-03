@@ -21,16 +21,17 @@ This design makes stories the single source of truth for PR content, eliminating
 
 1. Check the current branch name with `git branch --show-current`
 2. Get the base branch (usually `main`) with `git remote show origin | grep 'HEAD branch'`
-3. **Generate documentation** using story-writer subagent:
+3. **Generate documentation** using story-moderator subagent:
 
-   Invoke **story-writer** (`subagent_type: "core:story-writer"`, `model: "opus"`):
+   Invoke **story-moderator** (`subagent_type: "core:story-moderator"`, `model: "opus"`):
    - Pass branch name and base branch
    - Pass repository URL (for changelog-writer)
    - Pass list of archived tickets for the branch
    - Pass git log main..HEAD
 
-   The story-writer orchestrates all documentation agents internally:
-   - Invokes 6 agents in parallel (changelog, spec, terms, release-readiness, performance, overview)
+   The story-moderator orchestrates documentation generation in two parallel groups:
+   - Scanner group: changelog-writer, spec-writer, terms-writer
+   - Story group: overview-writer, section-reviewer, release-readiness, performance-analyst
    - Integrates their outputs into the story file
    - Returns confirmation with success/failure status
 
@@ -40,9 +41,9 @@ This design makes stories the single source of truth for PR content, eliminating
    - `.workaholic/specs/**/*.md`
    - `.workaholic/terms/**/*.md`
 
-   After story-writer completes, stage all changes and commit: "Update documentation for PR"
+   After story-moderator completes, stage all changes and commit: "Update documentation for PR"
 
-   **Failure handling**: If story-writer reports agent failures, report which succeeded and which failed. Continue with PR creation if story file was created (required for PR body).
+   **Failure handling**: If story-moderator reports agent failures, report which succeeded and which failed. Continue with PR creation if story file was created (required for PR body).
 
 4. **Format changed files** (silent step):
    - Run project linter/formatter on changed files

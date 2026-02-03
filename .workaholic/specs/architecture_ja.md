@@ -48,9 +48,11 @@ plugins/
       performance-analyst.md  # PRストーリーの意思決定レビュー
       pr-creator.md           # GitHub PRの作成/更新
       release-readiness.md    # リリース準備状況の分析
+      scanner.md              # changelog-writer、spec-writer、terms-writerを並列実行
       source-discoverer.md    # 関連ソースファイルを検索してコード流れを分析
       spec-writer.md          # .workaholic/specs/を更新
-      story-writer.md         # PR用のブランチストーリーを生成
+      story-moderator.md      # scannerとstory-writerを並列でオーケストレーション
+      story-writer.md         # overview-writer、section-reviewer、release-readiness、performance-analystを並列実行
       terms-writer.md         # .workaholic/terms/を更新
       ticket-moderator.md     # チケットの重複・マージ・分割を分析
       ticket-organizer.md     # チケット作成の完全ワークフロー：発見・重複チェック・作成
@@ -158,10 +160,12 @@ plugins/
 - **performance-analyst**: PRストーリーのために5つの観点（Consistency、Intuitivity、Describability、Agility、Density）で意思決定の質を評価
 - **pr-creator**: ストーリーファイルをPRボディとして使用してGitHub PRを作成または更新、タイトル導出と`gh` CLI操作を処理
 - **release-readiness**: 変更をリリース準備状況について分析、判定・懸念事項・リリース前後の手順を提供
+- **scanner**: ドキュメントスキャンエージェント（changelog-writer、spec-writer、terms-writer）を並列で呼び出し、統合されたステータスを返す
 - **section-reviewer**: アーカイブされたチケットを分析してストーリーセクション5-8（Outcome、Historical Analysis、Concerns、Ideas）を生成
 - **source-discoverer**: コードベースを探索して関連ソースファイルを見つけ、コード流れコンテキストを分析する
 - **spec-writer**: 現在のコードベースの状態を反映するように`.workaholic/specs/`ドキュメントを更新
-- **story-writer**: ドキュメント生成の中央オーケストレーター。7つのサブエージェント（changelog-writer、spec-writer、terms-writer、release-readiness、performance-analyst、overview-writer、section-reviewer）を並列で呼び出し、それらの出力をブランチストーリーに統合。11のセクション（Overview、Motivation、Journey（Topic Treeフローチャートを含む）、Changes、Outcome、Historical Analysis、Concerns、Ideas、Performance、Release Preparation、Notes）で構成
+- **story-moderator**: ドキュメント生成のトップレベルオーケストレーター。scannerとstory-writerを並列で呼び出し（二層アーキテクチャ）、それらの出力を11セクションのブランチストーリーに統合
+- **story-writer**: ストーリー生成エージェント（overview-writer、section-reviewer、release-readiness、performance-analyst）を並列で呼び出し、統合用に出力を返す
 - **terms-writer**: 一貫した用語定義を維持するために`.workaholic/terms/`を更新
 - **ticket-moderator**: 新規チケット作成前に既存チケットの重複、マージ候補、分割機会を分析
 - **ticket-organizer**: チケット作成の完全ワークフロー：履歴とソースコンテキストを発見、重複・重なりをチェック、実装チケットを作成
@@ -240,6 +244,8 @@ flowchart LR
     end
 
     subgraph エージェント
+        sm[story-moderator]
+        sc[scanner]
         sw[story-writer]
         cw[changelog-writer]
         spw[spec-writer]
@@ -264,10 +270,13 @@ flowchart LR
         cp[create-pr]
     end
 
-    story --> sw
+    story --> sm
     story --> pc
 
-    sw --> cw & spw & tw & rr & pa & ow & sr
+    sm --> sc & sw
+
+    sc --> cw & spw & tw
+    sw --> rr & pa & ow & sr
 
     cw --> wc
     spw --> wsp
@@ -276,7 +285,7 @@ flowchart LR
     pa --> ap
     ow --> wo
     sr --> rs
-    sw --> ws
+    sm --> ws
     pc --> cp
 
     %% Skill-to-skill
@@ -332,31 +341,36 @@ sequenceDiagram
 
 ## ドキュメント強制
 
-Workaholicは並列サブエージェントアーキテクチャを通じて包括的なドキュメントを強制します。`/story`コマンドはstory-writerに委譲し、story-writerが6つのドキュメントエージェントを並列で調整した後、それらの出力を統合します。
+Workaholicは二層並列サブエージェントアーキテクチャを通じて包括的なドキュメントを強制します。`/story`コマンドはstory-moderatorに委譲し、story-moderatorがscanner（ドキュメントスキャン）とstory-writer（ストーリー生成）の2つのグループを並列で調整した後、それらの出力を統合します。
 
 ### 仕組み
 
 ```mermaid
 flowchart TD
-    A["/story コマンド"] --> SW[story-writer]
+    A["/story コマンド"] --> SM[story-moderator]
 
-    SW --> P1[フェーズ1: 6つのサブエージェントを並列で呼び出し]
+    SM --> P1[フェーズ1: 2グループを並列で呼び出し]
 
-    subgraph フェーズ1 - 並列
+    subgraph Scannerグループ
+        SC[scanner]
         D[changelog-writer]
         F[spec-writer]
         G[terms-writer]
+    end
+
+    subgraph Storyグループ
+        SW[story-writer]
         RR[release-readiness]
         PA[performance-analyst]
         OW[overview-writer]
+        SR[section-reviewer]
     end
 
-    P1 --> D
-    P1 --> F
-    P1 --> G
-    P1 --> RR
-    P1 --> PA
-    P1 --> OW
+    P1 --> SC
+    P1 --> SW
+
+    SC --> D & F & G
+    SW --> RR & PA & OW & SR
 
     D --> H[CHANGELOG.md]
     F --> J[.workaholic/specs/]
@@ -364,6 +378,7 @@ flowchart TD
     RR --> RL[リリースJSON]
     PA --> PM[パフォーマンスmarkdown]
     OW --> OJ[概要JSON]
+    SR --> SJ[セクションJSON]
 
     H --> P2[フェーズ2: 統合してストーリー作成]
     J --> P2
@@ -371,6 +386,7 @@ flowchart TD
     RL --> P2
     PM --> P2
     OJ --> P2
+    SJ --> P2
 
     P2 --> I[.workaholic/stories/]
     I --> L[/storyに返す]
@@ -381,12 +397,13 @@ flowchart TD
 
 ドキュメントは`/story`ワークフロー中に自動的に更新されます。
 
-サブエージェントアーキテクチャにはいくつかの利点があります：
+二層サブエージェントアーキテクチャにはいくつかの利点があります：
 
-1. **並列実行** - フェーズ1で6つのエージェントが同時に実行され、待ち時間を短縮
-2. **コンテキスト分離** - 各エージェントが独自のコンテキストウィンドウで動作し、メイン会話を保持
-3. **単一責任** - 各エージェントが1つのドキュメントドメインを担当
-4. **中央オーケストレーション** - story-writerがすべてのドキュメントエージェントを調整し出力を統合するハブとして機能
+1. **並列実行** - 2つのグループが同時に実行され、各グループ内のエージェントも並列実行
+2. **コンテキスト分離** - scannerエージェントはストーリーコンテキストが不要、story-writerエージェントはchangelog/spec/termsコンテキストが不要
+3. **障害分離** - scannerが失敗してもstory-writerの出力は有効、その逆も同様
+4. **単一責任** - 各エージェントが1つのドキュメントドメインを担当
+5. **中央オーケストレーション** - story-moderatorが両グループを調整し出力を統合するハブとして機能
 
 ### 重要な要件
 
@@ -419,7 +436,7 @@ Workaholicはオーケストレーションと知識の明確な分離を維持�
 | サブエージェント | スキル、サブエージェント | コマンド |
 | スキル     | スキル           | サブエージェント、コマンド |
 
-サブエージェント → サブエージェントは並列のみで最大深度1（ネストチェーンなし）の場合のみ許可されます。コマンドとサブエージェントはオーケストレーション層であり、ワークフローステップを定義し他のコンポーネントを呼び出します。スキルは知識層であり、テンプレート、ガイドライン、ルール、bashスクリプトを含みます。スキルは合成可能な知識のために他のスキルをプリロードできます（例：write-specはi18n強制のためにtranslateをプリロード）。この分離により、深いネストとコンテキスト爆発を防ぎながら、包括的な知識をスキルに集約します。
+サブエージェント → サブエージェントは並列のみ（順次チェーンなし）の場合許可されます。コマンドとサブエージェントはオーケストレーション層であり、ワークフローステップを定義し他のコンポーネントを呼び出します。スキルは知識層であり、テンプレート、ガイドライン、ルール、bashスクリプトを含みます。スキルは合成可能な知識のために他のスキルをプリロードできます（例：write-specはi18n強制のためにtranslateをプリロード）。この分離により、順次ネストとコンテキスト爆発を防ぎながら、包括的な知識をスキルに集約します。
 
 ## バージョン管理
 

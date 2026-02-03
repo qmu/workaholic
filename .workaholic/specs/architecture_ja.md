@@ -111,8 +111,12 @@ plugins/
         SKILL.md           # チケットメタデータを一括収集
         sh/
           gather.sh        # メタデータ収集用シェルスクリプト
-      moderate-ticket/
+      discover-ticket/
         SKILL.md           # チケットの重複・マージ・分割分析ガイドライン
+      manage-branch/
+        SKILL.md           # トピックブランチの確認と作成
+        sh/
+          create.sh        # ブランチ作成用シェルスクリプト
       review-sections/
         SKILL.md           # ストーリーセクション5-8生成ガイドライン
       translate/
@@ -160,7 +164,7 @@ plugins/
 - **analyze-performance**: 5つの次元にわたる意思決定品質の評価フレームワーク
 - **archive-ticket**: 完全なコミットワークフロー（チケットのアーカイブ、フロントマターにコミットハッシュ/カテゴリを更新、コミット）を処理
 - **assess-release-readiness**: 変更を分析しリリース準備状況を判定するガイドライン
-- **create-branch**: 設定可能なプレフィックス付きでタイムスタンプ付きトピックブランチを作成
+- **manage-branch**: 設定可能なプレフィックス付きでタイムスタンプ付きトピックブランチの確認と作成
 - **create-pr**: gh CLIを使用して適切なフォーマットでGitHub PRを作成/更新
 - **create-ticket**: フォーマット、調査、関連履歴を含む完全なチケット作成ワークフロー
 - **discover-history**: 関連コンテキストを見つけるためのアーカイブされたチケット検索ガイドライン
@@ -170,7 +174,7 @@ plugins/
 - **format-commit-message**: タイトル、動機、UX、アーキテクチャセクションを含む構造化コミットメッセージ形式
 - **gather-git-context**: ドキュメントサブエージェント用の全コンテキスト（ブランチ、ベースブランチ、URL、アーカイブチケット、gitログ）を一括収集
 - **gather-ticket-metadata**: チケットメタデータ（日付、コミット、カテゴリ）を一括収集
-- **moderate-ticket**: 既存チケットの重複、マージ候補、分割機会を検出するガイドライン
+- **discover-ticket**: 既存チケットの重複、マージ候補、分割機会を検出するガイドライン
 - **review-sections**: ストーリーセクション5-8（Outcome、Historical Analysis、Concerns、Ideas）の生成ガイドライン
 - **translate**: 翻訳ポリシーと`.workaholic/` i18n強制（spec-writer、terms-writer、story-writerがプリロード）
 - **update-ticket-frontmatter**: チケットYAMLフロントマターフィールド（effort、commit_hash、category）を更新
@@ -198,7 +202,7 @@ plugins/
 - **spec-writer**: 現在のコードベースの状態を反映するように`.workaholic/specs/`ドキュメントを更新
 - **story-writer**: ストーリー生成をオーケストレーション。overview-writer、section-reviewer、release-readiness、performance-analystを並列で呼び出し、ストーリーファイルを作成してpr-creatorを呼び出す
 - **terms-writer**: 一貫した用語定義を維持するために`.workaholic/terms/`を更新
-- **ticket-moderator**: 新規チケット作成前に既存チケットの重複、マージ候補、分割機会を分析
+- **ticket-discoverer**: 新規チケット作成前に既存チケットの重複、マージ候補、分割機会を分析
 - **ticket-organizer**: チケット作成の完全ワークフロー：履歴とソースコンテキストを発見、重複・重なりをチェック、実装チケットを作成
 
 ## コマンド依存関係
@@ -217,23 +221,25 @@ flowchart LR
         to[ticket-organizer]
         hd[history-discoverer]
         sd[source-discoverer]
-        tm[ticket-moderator]
+        td[ticket-discoverer]
     end
 
     subgraph スキル
-        cb[create-branch]
+        mb[manage-branch]
         ct[create-ticket]
         dh[discover-history]
         ds[discover-source]
+        dt[discover-ticket]
     end
 
     ticket --> to
 
-    to --> hd & sd & tm
-    to --> ct & cb
+    to --> hd & sd & td
+    to --> ct & mb
 
     hd --> dh
     sd --> ds
+    td --> dt
 ```
 
 ### /drive 依存関係

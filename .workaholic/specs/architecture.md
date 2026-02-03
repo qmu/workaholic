@@ -111,8 +111,12 @@ plugins/
         SKILL.md           # Gathers ticket metadata in one call
         sh/
           gather.sh        # Shell script for metadata collection
-      moderate-ticket/
+      discover-ticket/
         SKILL.md           # Guidelines for analyzing tickets for duplicates/merges/splits
+      manage-branch/
+        SKILL.md           # Check and create timestamped topic branches
+        sh/
+          create.sh        # Shell script for branch creation
       review-sections/
         SKILL.md           # Guidelines for generating story sections 5-8
       translate/
@@ -160,7 +164,7 @@ Skills are complex capabilities that may include scripts or multiple files. They
 - **analyze-performance**: Evaluation framework for decision-making quality across five dimensions
 - **archive-ticket**: Handles the complete commit workflow (archive ticket, update frontmatter with commit hash/category, commit)
 - **assess-release-readiness**: Guidelines for analyzing changes and determining release readiness
-- **create-branch**: Creates timestamped topic branches with configurable prefix
+- **manage-branch**: Check and create timestamped topic branches with configurable prefix
 - **create-pr**: Creates or updates GitHub PRs using the gh CLI with proper formatting
 - **create-ticket**: Complete ticket creation workflow including format, exploration, and related history
 - **discover-history**: Guidelines for searching archived tickets to find related context
@@ -170,7 +174,7 @@ Skills are complex capabilities that may include scripts or multiple files. They
 - **format-commit-message**: Structured commit message format with title, motivation, UX, and architecture sections
 - **gather-git-context**: Gathers all context for documentation subagents (branch, base branch, URL, archived tickets, git log) in a single call
 - **gather-ticket-metadata**: Gathers ticket metadata (dates, commits, categories) in a single call
-- **moderate-ticket**: Guidelines for analyzing existing tickets to detect duplicates, merge candidates, and split opportunities
+- **discover-ticket**: Guidelines for analyzing existing tickets to detect duplicates, merge candidates, and split opportunities
 - **review-sections**: Guidelines for generating story sections 5-8 (Outcome, Historical Analysis, Concerns, Ideas)
 - **translate**: Translation policies and `.workaholic/` i18n enforcement (spec-writer, terms-writer, story-writer preload this)
 - **update-ticket-frontmatter**: Updates ticket YAML frontmatter fields (effort, commit_hash, category)
@@ -198,7 +202,7 @@ Agents are specialized subagents that can be spawned to handle complex tasks. Th
 - **spec-writer**: Updates `.workaholic/specs/` documentation to reflect current codebase state
 - **story-writer**: Orchestrates story generation by invoking overview-writer, section-reviewer, release-readiness, performance-analyst in parallel, then writes story file and invokes pr-creator
 - **terms-writer**: Updates `.workaholic/terms/` to maintain consistent term definitions
-- **ticket-moderator**: Analyzes existing tickets for duplicates, merge candidates, and split opportunities before creating new tickets
+- **ticket-discoverer**: Analyzes existing tickets for duplicates, merge candidates, and split opportunities before creating new tickets
 - **ticket-organizer**: Complete ticket creation workflow: discovers history and source context, checks for duplicates/overlaps, and writes implementation tickets
 
 ## Command Dependencies
@@ -217,23 +221,25 @@ flowchart LR
         to[ticket-organizer]
         hd[history-discoverer]
         sd[source-discoverer]
-        tm[ticket-moderator]
+        td[ticket-discoverer]
     end
 
     subgraph Skills
-        cb[create-branch]
+        mb[manage-branch]
         ct[create-ticket]
         dh[discover-history]
         ds[discover-source]
+        dt[discover-ticket]
     end
 
     ticket --> to
 
-    to --> hd & sd & tm
-    to --> ct & cb
+    to --> hd & sd & td
+    to --> ct & mb
 
     hd --> dh
     sd --> ds
+    td --> dt
 ```
 
 ### /drive Dependencies

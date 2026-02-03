@@ -3,9 +3,9 @@ created_at: 2026-02-03T18:02:35+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 6265bac
+category: Changed
 ---
 
 # Rename /story to /report
@@ -174,3 +174,7 @@ Past tickets that touched similar areas:
 - Skill names (`write-story`) remain unchanged - they describe what they do, not the command that invokes them
 - The `stories/` directory remains unchanged - it describes the content type (branch narratives), not the command
 - Historical tickets and stories in archive should NOT be updated - they document past work accurately
+
+## Final Report
+
+Implemented as specified. All 7 files updated per the implementation steps. The ticket-organizer.md file mentioned in Key Files did not require changes as it references story-moderator as an internal subagent name, which remains unchanged per the Considerations section.

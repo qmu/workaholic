@@ -24,7 +24,7 @@ plugins/                 # Plugin source directories
   core/                  # Core development plugin
     .claude-plugin/      # Plugin configuration
     agents/              # performance-analyst
-    commands/            # ticket, drive, story
+    commands/            # ticket, drive, report
     rules/               # general, typescript
     skills/              # archive-ticket
 ```
@@ -68,14 +68,14 @@ Skills are the knowledge layer. Commands and subagents are the orchestration lay
 | -------------------------------- | ------------------------------------------------ |
 | `/ticket <description>`          | Write implementation spec for a feature          |
 | `/drive`                         | Implement queued specs one by one                |
-| `/story`                         | Generate documentation and create/update PR      |
+| `/report`                        | Generate documentation and create/update PR      |
 | `/release [major\|minor\|patch]` | Release new marketplace version                  |
 
 ## Development Workflow
 
 1. **Create specs**: Use `/ticket` to write implementation specs
 2. **Implement specs**: Use `/drive` to implement and commit each spec
-3. **Create PR**: Use `/story` to generate documentation and create PR
+3. **Create PR**: Use `/report` to generate documentation and create PR
 4. **Release**: Use `/release` to bump version and publish
 
 ## Type Checking

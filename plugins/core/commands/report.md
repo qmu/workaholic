@@ -1,11 +1,11 @@
 ---
-name: story
+name: report
 description: Generate documentation (changelog, story, specs, terms) and create/update a pull request.
 ---
 
-# Story
+# Report
 
-**Notice:** When user input contains `/story` - whether "run /story", "do /story", "update /story", or similar - they likely want this command.
+**Notice:** When user input contains `/report` - whether "run /report", "do /report", "update /report", or similar - they likely want this command.
 
 Generate comprehensive documentation and create or update a pull request for the current branch.
 

@@ -14,12 +14,12 @@ Workaholicは統一された**core**プラグインを提供し、gitワーク�
 
 ## Gitワークフローコマンド
 
-### /story
+### /report
 
 包括的なドキュメントを生成し、プルリクエストを作成または更新します。
 
 ```bash
-/story
+/report
 ```
 
 コマンドは2つのフェーズでドキュメント生成を調整します。フェーズ1では4つのサブエージェントが並列実行されます：changelog-writerが`CHANGELOG.md`を更新し、spec-writerが`.workaholic/specs/`を更新し、terms-writerが`.workaholic/terms/`を更新し、release-readinessがリリース準備のための変更を分析します。フェーズ2では、story-writerがrelease-readiness出力を使用してPRナラティブを生成します。最後に、pr-creatorが生成されたストーリーをボディとして使用してGitHub PRの作成を処理します。
@@ -60,6 +60,6 @@ Claudeは`.workaholic/tickets/todo/`からチケットを取り出し、一つ�
 
 1. `/ticket <description>` - 実装仕様を記述（mainブランチでは自動的にブランチを作成）
 2. `/drive` - チケットを実装
-3. `/story` - ドキュメントを生成し、レビュー用のPRを作成
+3. `/report` - ドキュメントを生成し、レビュー用のPRを作成
 
 各チケットは独自のコミットを取得し、CHANGELOGがPRサマリーのためにすべての変更を追跡します。

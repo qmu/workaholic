@@ -31,7 +31,7 @@ Enable the plugin after installation. Auto update is recommended.
 | --------- | ------------------------------------ |
 | `/ticket` | Plan a change with context and steps |
 | `/drive`  | Implement queued tickets one by one  |
-| `/story`  | Generate docs and create PR          |
+| `/report` | Generate docs and create PR          |
 
 ### Typical Session
 
@@ -41,7 +41,7 @@ Enable the plugin after installation. Auto update is recommended.
 /drive                            # implement both, confirm each
 /ticket fix flash of light theme on page load
 /drive                            # fix discovered issue
-/story                            # PR with feature + fix documented
+/report                           # PR with feature + fix documented
 ```
 
 ## Documentation

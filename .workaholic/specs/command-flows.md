@@ -2,7 +2,7 @@
 title: Command Execution Flows
 description: How commands invoke agents and skills
 category: developer
-modified_at: 2026-02-02T13:32:50+09:00
+modified_at: 2026-02-03T16:00:00+09:00
 commit_hash: 3c87e62
 ---
 
@@ -128,6 +128,11 @@ flowchart TD
         F[changelog-writer]
         G[spec-writer]
         H[terms-writer]
+        F --> F1[write-changelog skill]
+        G --> G1[write-spec skill]
+        G --> G2[translate skill]
+        H --> H1[write-terms skill]
+        H --> H2[translate skill]
     end
 
     subgraph StoryWriter[story-writer]
@@ -135,35 +140,24 @@ flowchart TD
         SR[section-reviewer]
         I[release-readiness]
         PA[performance-analyst]
+        OW --> OW1[write-overview skill]
+        SR --> SR1[review-sections skill]
+        I --> I1[assess-release-readiness skill]
+        PA --> PA1[analyze-performance skill]
+        OW1 & SR1 & I1 & PA1 --> SW[write-story skill]
+        SW --> SW2[translate skill]
+        SW & SW2 --> PR[pr-creator agent]
+        PR --> PR1[create-pr skill]
     end
 
     P1 --> Scanner
     P1 --> StoryWriter
 
-    F --> F1[write-changelog skill]
-    G --> G1[write-spec skill]
-    G --> G2[translate skill]
-    H --> H1[write-terms skill]
-    H --> H2[translate skill]
-    OW --> OW1[write-overview skill]
-    SR --> SR1[review-sections skill]
-    I --> I1[assess-release-readiness skill]
-    PA --> PA1[analyze-performance skill]
-
     F1 & G1 & G2 & H1 & H2 --> SC[Scanner complete]
-    OW1 & SR1 & I1 & PA1 --> SW[Write story]
-
-    SW --> J1[write-story skill]
-    SW --> J2[translate skill]
-
-    J1 & J2 --> K[Commit docs]
-    K --> L[Push branch]
-    L --> M[pr-creator agent]
-    M --> M1[create-pr skill]
-    M1 --> N[Create/Update PR]
+    PR1 --> SWC[story-writer complete]
 
     SC --> SM2[story-moderator complete]
-    N --> SM2
+    SWC --> SM2
     SM2 --> O[Display PR URL]
 ```
 

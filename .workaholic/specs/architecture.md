@@ -2,7 +2,7 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-02-03T13:00:00+09:00
+modified_at: 2026-02-03T16:10:00+09:00
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)
@@ -298,12 +298,11 @@ flowchart LR
     end
 
     story --> sm
-    story --> pc
 
     sm --> sc & sw
 
     sc --> cw & spw & tw
-    sw --> rr & pa & ow & sr
+    sw --> rr & pa & ow & sr & pc
 
     cw --> wc
     spw --> wsp
@@ -312,7 +311,7 @@ flowchart LR
     pa --> ap
     ow --> wo
     sr --> rs
-    sm --> ws
+    sw --> ws
     pc --> cp
 
     %% Skill-to-skill
@@ -391,6 +390,7 @@ flowchart TD
         PA[performance-analyst]
         OW[overview-writer]
         SR[section-reviewer]
+        PC[pr-creator]
     end
 
     P1 --> SC
@@ -407,19 +407,21 @@ flowchart TD
     OW --> OJ[Overview JSON]
     SR --> SJ[Sections JSON]
 
-    H --> P2[Phase 2: Integrate & Write Story]
+    H --> P2[Scanner complete]
     J --> P2
     K --> P2
-    RL --> P2
-    PM --> P2
-    OJ --> P2
-    SJ --> P2
+    RL --> P3[Write story file]
+    PM --> P3
+    OJ --> P3
+    SJ --> P3
 
-    P2 --> I[.workaholic/stories/]
-    I --> L[Return to /story]
+    P3 --> I[.workaholic/stories/]
+    I --> PC
+    PC --> N[Create/update PR]
 
-    L --> M[pr-creator subagent]
-    M --> N[Create/update PR]
+    P2 --> SM2[story-moderator complete]
+    N --> SM2
+    SM2 --> L[Return to /story]
 ```
 
 Documentation is updated automatically during the `/story` workflow.

@@ -1,8 +1,8 @@
 ---
 name: archive-ticket
-description: Complete commit workflow - format, archive, update changelog, and commit in one operation.
+description: Archive ticket workflow - move ticket, delegate commit to commit skill, update frontmatter.
 skills:
-  - format-commit-message
+  - commit
 allowed-tools: Bash
 user-invocable: false
 ---

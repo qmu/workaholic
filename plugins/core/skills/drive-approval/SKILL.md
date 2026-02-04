@@ -163,9 +163,26 @@ mv <ticket-path> .workaholic/tickets/abandoned/
 
 ### Commit the Abandonment
 
+Use the commit skill for consistent commit formatting:
+
+```bash
+bash plugins/core/skills/commit/sh/commit.sh \
+  "Abandon: <ticket-title>" \
+  "Implementation proved unworkable" \
+  "None" \
+  "Ticket moved to abandoned with failure analysis" \
+  .workaholic/tickets/
+```
+
+Or if already staged:
+
 ```bash
 git add .workaholic/tickets/
-git commit -m "Abandon: <ticket-title>"
+bash plugins/core/skills/commit/sh/commit.sh --skip-staging \
+  "Abandon: <ticket-title>" \
+  "Implementation proved unworkable" \
+  "None" \
+  "Ticket moved to abandoned with failure analysis"
 ```
 
 This preserves the failure analysis in git history.

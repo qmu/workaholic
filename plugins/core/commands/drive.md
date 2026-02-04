@@ -155,6 +155,11 @@ If a ticket cannot be implemented (out of scope, too complex, blocked, or any ot
 
 **Context**: You are not the only one working in this repository. Multiple developers and agents may have uncommitted changes in the working directory.
 
+**All commits must use the commit skill** (`plugins/core/skills/commit/`) for:
+- Consistent message formatting (title, motivation, UX/Arch changes)
+- Pre-commit safety checks
+- Multi-contributor awareness
+
 **NEVER execute destructive git operations** without careful consideration:
 
 - `git clean` - Deletes untracked files that may belong to other contributors

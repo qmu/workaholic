@@ -150,3 +150,19 @@ If a ticket cannot be implemented (out of scope, too complex, blocked, or any ot
    - "Abort drive" - Stop the drive session entirely
 
 **Never commit ticket moves without explicit developer approval.**
+
+## Git Safety
+
+**Context**: You are not the only one working in this repository. Multiple developers and agents may have uncommitted changes in the working directory.
+
+**NEVER execute destructive git operations** without careful consideration:
+
+- `git clean` - Deletes untracked files that may belong to other contributors
+- `git checkout .` / `git restore .` - Discards all uncommitted changes including others' work
+- `git reset --hard` - Discards all changes (never use)
+
+Before any operation that discards changes:
+1. Run `git status` to understand what uncommitted changes exist
+2. Identify which changes are yours vs. potentially from other contributors
+3. Use targeted commands affecting only files you modified
+4. When in doubt, ask the user before discarding anything

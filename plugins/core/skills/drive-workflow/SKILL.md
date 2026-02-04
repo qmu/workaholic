@@ -20,14 +20,29 @@ Step-by-step workflow for implementing a single ticket during `/drive`. This ski
 - Identify key files mentioned in the ticket
 - Understand the implementation steps outlined
 
-### 2. Implement the Ticket
+### 2. Apply Patches (if present)
+
+If the ticket has a "## Patches" section:
+
+1. For each patch in the section:
+   - Write patch content to a temporary file
+   - Validate with `git apply --check <patch-file>`
+   - If valid, apply with `git apply <patch-file>`
+   - Clean up temporary file
+2. Report which patches applied successfully
+3. For failed patches, note them and proceed with manual implementation
+
+If no Patches section exists, skip to step 3.
+
+### 3. Implement the Ticket
 
 - Follow the implementation steps in the ticket
 - Use existing patterns and conventions in the codebase
+- For areas where patches applied, verify and adjust as needed
 - Run type checks (per CLAUDE.md) to verify changes
 - Fix any type errors or test failures before proceeding
 
-### 3. Return Summary (DO NOT COMMIT)
+### 4. Return Summary (DO NOT COMMIT)
 
 After implementation is complete, return a summary to the parent command:
 

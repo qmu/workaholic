@@ -1,10 +1,10 @@
 ---
-name: moderate-ticket
+name: discover-ticket
 description: Guidelines for analyzing existing tickets to detect duplicates, merge candidates, and split opportunities.
 user-invocable: false
 ---
 
-# Moderate Ticket
+# Discover Ticket
 
 Guidelines for analyzing existing tickets to determine if a proposed ticket should proceed, merge with existing, or trigger a split.
 

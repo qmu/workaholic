@@ -24,7 +24,7 @@ plugins/                 # Plugin source directories
   core/                  # Core development plugin
     .claude-plugin/      # Plugin configuration
     agents/              # performance-analyst
-    commands/            # ticket, drive, story
+    commands/            # ticket, drive, report
     rules/               # general, typescript
     skills/              # archive-ticket
 ```
@@ -43,13 +43,13 @@ plugins/                 # Plugin source directories
 - Command → Skill (preload via `skills:` frontmatter)
 - Command → Subagent (via Task tool)
 - Subagent → Skill (preload via `skills:` frontmatter)
-- Subagent → Subagent (via Task tool, parallel only, max depth 1)
+- Subagent → Subagent (via Task tool, parallel only)
 - Skill → Skill (preload via `skills:` frontmatter for composable knowledge)
 
 **Prohibited**:
 - Skill → Subagent (skills are passive knowledge, not orchestrators)
 - Skill → Command (skills cannot invoke user-facing commands)
-- Subagent → Subagent (nested/sequential chains prevent deep nesting and context explosion)
+- Subagent → Subagent (sequential chains cause deep nesting and context explosion)
 - Subagent → Command (subagents are invoked by commands, not the reverse)
 
 ### Design Principle
@@ -62,20 +62,32 @@ plugins/                 # Plugin source directories
 
 Skills are the knowledge layer. Commands and subagents are the orchestration layer.
 
+### Common Operations
+
+Subagents must use skills for common operations instead of inline shell commands:
+
+| Operation | Skill | Usage |
+| --------- | ----- | ----- |
+| Git context (branch, base, URL) | gather-git-context | `bash .claude/skills/gather-git-context/sh/gather.sh` |
+| Ticket metadata (date, author) | gather-ticket-metadata | `bash .claude/skills/gather-ticket-metadata/sh/gather.sh` |
+
+Never write inline git commands like `git branch --show-current` or `git remote show origin` in subagent markdown files. Subagents preload the skill and gather context themselves.
+
 ## Commands
 
 | Command                          | Description                                      |
 | -------------------------------- | ------------------------------------------------ |
 | `/ticket <description>`          | Write implementation spec for a feature          |
 | `/drive`                         | Implement queued specs one by one                |
-| `/story`                         | Generate documentation and create/update PR      |
+| `/scan`                          | Update .workaholic/ documentation                |
+| `/report`                        | Generate documentation and create/update PR      |
 | `/release [major\|minor\|patch]` | Release new marketplace version                  |
 
 ## Development Workflow
 
 1. **Create specs**: Use `/ticket` to write implementation specs
 2. **Implement specs**: Use `/drive` to implement and commit each spec
-3. **Create PR**: Use `/story` to generate documentation and create PR
+3. **Create PR**: Use `/report` to generate documentation and create PR
 4. **Release**: Use `/release` to bump version and publish
 
 ## Type Checking

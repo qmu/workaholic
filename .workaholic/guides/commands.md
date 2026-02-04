@@ -14,12 +14,12 @@ Workaholic provides a unified **core** plugin with all development workflow comm
 
 ## Git Workflow Commands
 
-### /story
+### /report
 
 Generates comprehensive documentation and creates or updates a pull request.
 
 ```bash
-/story
+/report
 ```
 
 The command orchestrates documentation generation in two phases. In Phase 1, four subagents run in parallel: changelog-writer updates `CHANGELOG.md`, spec-writer updates `.workaholic/specs/`, terms-writer updates `.workaholic/terms/`, and release-readiness analyzes changes for release preparation. In Phase 2, story-writer generates the PR narrative using the release-readiness output. Finally, pr-creator handles GitHub PR creation using the generated story as the body.
@@ -62,6 +62,6 @@ The typical workflow combines these commands:
 
 1. `/ticket <description>` - Write implementation spec (auto-creates branch on main)
 2. `/drive` - Implement the ticket
-3. `/story` - Generate documentation and create PR for review
+3. `/report` - Generate documentation and create PR for review
 
 Each ticket gets its own commit, and the CHANGELOG tracks all changes for the PR summary.

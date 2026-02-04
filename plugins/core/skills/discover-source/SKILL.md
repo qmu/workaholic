@@ -17,6 +17,7 @@ Start with files directly matching the request keywords.
 - Glob for files matching keywords from request
 - Grep for function/class names mentioned
 - Read directly relevant files (5-10 files)
+- **Capture code snippets** from sections likely to be modified (store start/end lines and content)
 
 ### Phase 2: Import Chain Exploration
 
@@ -53,11 +54,13 @@ Find related configuration and type definitions.
 
 ## Depth Controls
 
-- **Max files per phase**: Limit each phase to recommended file counts above
+- **Hard limits per phase**: Phase 1 (8 files), Phase 2 (6), Phase 3 (3), Phase 4 (2), Phase 5 (1)
 - **Relevance scoring**: Prioritize files with higher keyword density
 - **Stop conditions**: Stop following chains when files become tangential
-- **Total budget**: Target 20-30 files total across all phases
+- **Total budget**: Hard limit of 20 files total - stop exploration immediately upon reaching limit
 - **Time budget**: Complete exploration within 30 seconds
+
+**Important**: These are hard limits, not guidelines. Stop adding files once limits are reached.
 
 ## Exploration Heuristics
 
@@ -93,6 +96,14 @@ Return structured JSON with categorized discoveries:
       "category": "direct|import|usage|test|config"
     }
   ],
+  "snippets": [
+    {
+      "path": "path/to/file.ts",
+      "start_line": 10,
+      "end_line": 25,
+      "content": "actual code content that may need modification"
+    }
+  ],
   "import_graph": "Brief description of dependency relationships",
   "code_flow": "How components interact end-to-end",
   "patterns": ["Existing patterns discovered that should be followed"],
@@ -106,6 +117,7 @@ Return structured JSON with categorized discoveries:
 |-------|----------|-------------|
 | `summary` | Yes | High-level synthesis of findings |
 | `files` | Yes | List of relevant files with metadata |
+| `snippets` | Optional | Code snippets likely to need modification (for patch generation) |
 | `import_graph` | Optional | Dependency relationships discovered |
 | `code_flow` | Yes | Component interaction description |
 | `patterns` | Optional | Patterns to follow in implementation |

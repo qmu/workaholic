@@ -70,6 +70,7 @@ Refs #<issue-number>
 
 ## ストーリー
 
+- [drive-20260203-122444_ja.md](drive-20260203-122444_ja.md) - ドキュメントワークフローの改善: /report から /scan コマンドを抽出、/ticket のメモリリークを修正、チケットに unified diff パッチを追加、/story を /report にリネーム、より明確な命名で ticket-organizer をリファクタリング - 9チケット、24コミット
 - [drive-20260202-203938_ja.md](drive-20260202-203938_ja.md) - Reliability と consistency の改善：version comparison を使用するよう release action trigger を fix、command 全体で notice section format を standardize、/ticket に code implementation prohibition を追加、全ての Task tool invocation に Opus model を configure - 6チケット、12コミット
 - [drive-20260202-134332_ja.md](drive-20260202-134332_ja.md) - Parallel subagent orchestration と workflow 改善：subagent-to-subagent parallel invocation を有効化、3 つの parallel discovery agent を持つ ticket-organizer、7 つの documentation agent を orchestrate する story-writer、continuous drive loop、Discussion section による revision tracking、approval skill 統合 - 14チケット、31コミット
 - [drive-20260201-112920_ja.md](drive-20260201-112920_ja.md) - アーキテクチャの改善と release ワークフロー修正：/ticket command を ticket-organizer subagent を持つ thin orchestrator に簡略化、実装コンテキストを保持するために /drive から driver subagent を削除、release バージョン管理を patch バンプにデフォルト設定するように修正 - 3チケット、35コミット

@@ -8,6 +8,25 @@ user-invocable: false
 
 Evaluate a development branch's decision-making quality.
 
+## Calculate Metrics
+
+```bash
+bash .claude/skills/analyze-performance/sh/calculate.sh <base-branch>
+```
+
+Returns JSON with performance metrics:
+
+```json
+{
+  "commits": 5,
+  "started_at": "2026-01-15T10:00:00+09:00",
+  "ended_at": "2026-01-15T14:30:00+09:00",
+  "duration_hours": 4.5,
+  "duration_days": 1,
+  "velocity": 1.1,
+  "velocity_unit": "hour"
+}
+
 ## Evaluation Framework
 
 Evaluate the developer's decision-making across five dimensions. For each, provide:

@@ -2,6 +2,7 @@
 name: performance-analyst
 description: Evaluate decision-making quality across five viewpoints
 skills:
+  - gather-git-context
   - analyze-performance
 ---
 
@@ -9,18 +10,14 @@ skills:
 
 Analyze a development branch's decision-making quality.
 
-## Input
-
-You will receive:
-
-- Branch story with motivation and journey
-- List of archived tickets with overviews and final reports
-- Git log showing commit history
-- Performance metrics (commits, duration, velocity, velocity_unit)
-
 ## Instructions
 
-Follow the preloaded analyze-performance skill for evaluation framework, output format, and guidelines.
+1. **Gather context** using the preloaded gather-git-context skill
+2. **Calculate metrics** using the preloaded analyze-performance skill:
+   ```bash
+   bash .claude/skills/analyze-performance/sh/calculate.sh <base_branch>
+   ```
+3. **Analyze performance** following the preloaded analyze-performance skill for evaluation framework, output format, and guidelines
 
 ## Output
 

@@ -132,3 +132,12 @@ Past tickets that touched similar areas:
 - **Existing translations**: Existing `*_ja.md` story files will remain unchanged. Only new stories will follow the new workflow.
 - **README_ja.md maintenance**: The Japanese story index will need updating during scan, not during story creation. Consider whether scanner should also update this index when translating stories.
 - **Single responsibility**: story-writer focuses solely on English story generation; translation becomes a separate concern handled by scan workflow.
+
+## Final Report
+
+Development completed as planned. Removed translation responsibility from story-writer:
+- Removed "Translate Story" step and `story_file_ja` output field from agent
+- Removed `translate` skill preload and Translation section from write-story skill
+- Simplified index updates to only modify README.md (not README_ja.md)
+
+Story translation is now out of scope for story-writer, following single-responsibility principle.

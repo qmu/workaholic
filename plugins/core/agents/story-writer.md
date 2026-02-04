@@ -34,9 +34,7 @@ Wait for all 4 agents to complete. Track which succeeded and which failed.
 
 2. **Write Story**: Follow the preloaded write-story skill for content structure, agent output mapping, templates, and guidelines.
 
-3. **Translate Story**: Create `<branch-name>_ja.md` with Japanese translation.
-
-4. **Update Index**: Add entry to both `.workaholic/stories/README.md` and `README_ja.md`.
+3. **Update Index**: Add entry to `.workaholic/stories/README.md`.
 
 ### Phase 3: Create Pull Request
 
@@ -52,7 +50,6 @@ Return JSON with story and PR status:
 ```json
 {
   "story_file": ".workaholic/stories/<branch-name>.md",
-  "story_file_ja": ".workaholic/stories/<branch-name>_ja.md",
   "pr_url": "<PR-URL>",
   "agents": {
     "overview_writer": { "status": "success" | "failed", "error": "..." },

@@ -121,3 +121,25 @@ Past tickets that touched similar areas:
 - Translations in `*_ja.md` files must preserve semantic equivalence, not be literal translations
 - Consider future tooling: a script could compare short_descriptions using semantic similarity to detect potential synonyms or homonyms
 - The inconsistencies.md file may need updates if analysis reveals terminology issues
+
+## Discussion
+
+### Revision 1 - 2026-02-04T18:30:00+09:00
+
+**User feedback**: short_description is too short, can be paragraph. The paragraph should also include Definition, Usage Patterns, Related Terms, and Inconsistencies - so one term = one paragraph.
+
+**Direction change**: Instead of adding a short_description field while keeping existing multi-section structure, collapse each term entry into a single comprehensive paragraph that incorporates all the information (definition, usage patterns, related terms, inconsistencies) into one coherent description.
+
+**Action taken**: Restructuring term files to use single-paragraph format per term, removing the multi-section structure (Definition, Usage Patterns, Related Terms, Inconsistencies subsections).
+
+## Final Report
+
+Development deviated significantly from original plan based on user feedback. Instead of adding a `short_description` YAML field to existing multi-section entries, restructured all term documents to use a single comprehensive paragraph per term.
+
+**Changes made:**
+- Rewrote 8 term files (4 English + 4 Japanese) from multi-section format to single-paragraph format
+- Each term now has one paragraph incorporating definition, usage context, file references, and related terms
+- Updated `write-terms` skill with new term entry format guidelines
+- Total 52 terms reformatted across all files
+
+The new format is more readable and maintainable than the previous multi-section structure.

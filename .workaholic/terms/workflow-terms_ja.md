@@ -2,8 +2,8 @@
 title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
-last_updated: 2026-02-01
-commit_hash: 277b63b
+last_updated: 2026-02-04
+commit_hash:
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -14,349 +14,68 @@ commit_hash: 277b63b
 
 ## drive
 
-キューに入ったチケットを一つずつ実装し、それぞれをコミット。
-
-### 定義
-
-driveオペレーションは`.workaholic/tickets/todo/`からチケットを順次処理します。各チケットについて、記述された変更を実装し、作業をコミットし、チケットをアーカイブします。これにより、作業が実装前に記録され、完了後にドキュメント化される構造化された開発フローが作成されます。
-
-### 使用パターン
-
-- **ディレクトリ名**: N/A（アクションであり、ストレージではない）
-- **ファイル名**: N/A
-- **コード参照**: 「`/drive`を実行して実装」、「チケットをdriveする」
-
-### 関連用語
-
-- ticket、archive、commit
+driveは`.workaholic/tickets/todo/`からチケットを順次処理するオペレーションです。各チケットについて、記述された変更を実装し、ユーザー承認を要求し、作業をコミットし、チケットをアーカイブします。これにより、作業が実装前に記録され、完了後にドキュメント化される構造化された開発フローが作成されます。`/drive`コマンドで呼び出されます。関連用語：ticket、archive、commit。
 
 ## abandon
 
-実装の変更をコミットせずにチケットを放棄と判定し、abandonedディレクトリに移動。
-
-### 定義
-
-abandonは`/drive`ワークフロー中に開発者がチケット実装を完了した際に提示される4つの承認オプションの1つです。選択された場合、abandonはコミットされていない実装変更を破棄し（`git restore .`経由）、Failure Analysisセクションをチケットに追加することを要求し、試みられたことと失敗した理由を記録します。チケットを`.workaholic/tickets/abandoned/`に移動し、分析を保存するためにチケット移動をコミットして、次のチケットに進みます。これは根本的に欠陥のあるか実装が実行不可能であることが判明したチケットを処理する上品な方法を提供します。
-
-### 使用パターン
-
-- **ディレクトリ名**: `.workaholic/tickets/abandoned/`
-- **ファイル名**: 放棄されたチケットはabandonedディレクトリで元の名前を保持
-- **コード参照**: 「承認中に「Abandon」を選択」、「チケットは放棄された」
-
-### 関連用語
-
-- ticket、failure-analysis、drive、approval
+abandonは実装が実行不可能であることが判明した場合の`/drive`ワークフロー中の4つの承認オプションの1つです。選択された場合、コミットされていない実装変更を（`git restore`経由で）破棄し、何が試みられ何が失敗したかを記録するFailure Analysisセクションを要求し、チケットを`.workaholic/tickets/abandoned/`に移動し、分析を保存するためにコミットし、次のチケットに進みます。関連用語：ticket、failure-analysis、drive、approval。
 
 ## archive
 
-完了した作業を長期保存に移動。
-
-### 定義
-
-アーカイブは完了したチケットをアクティブキュー（`.workaholic/tickets/todo/`）からブランチ固有のアーカイブディレクトリ（`.workaholic/tickets/archive/<branch>/`）に移動します。これにより、アクティブキューをクリアしながら実装記録を保存します。archive-ticketスキルはコミット成功後にこれを自動的に処理します。
-
-### 使用パターン
-
-- **ディレクトリ名**: `.workaholic/tickets/archive/`、`.workaholic/tickets/archive/<branch>/`
-- **ファイル名**: アーカイブされたチケットは元の名前を保持
-- **コード参照**: 「チケットをアーカイブ」、「アーカイブされたチケットを確認」
-
-### 関連用語
-
-- ticket、drive、icebox
+archiveは完了したチケットをアクティブキュー（`.workaholic/tickets/todo/`）からブランチ固有のディレクトリ（`.workaholic/tickets/archive/<branch>/`）に移動します。これによりアクティブキューをクリアしながら実装記録を保存します。archive-ticketスキルはコミット成功後にこれを自動的に処理します。関連用語：ticket、drive、icebox。
 
 ## sync
 
-ドキュメントを現在の状態に合わせて更新。
-
-### 定義
-
-sync操作は派生ドキュメント（specs、terms）を現在のコードベースの状態を反映するように更新します。変更を記録するコミットとは異なり、syncはドキュメントの正確性を確保します。`/story`コマンドはspec-writerとterms-writerサブエージェントを介して`.workaholic/`ディレクトリ（specsとterms）を現在のコードベースと自動的に同期します。
-
-### 使用パターン
-
-- **ディレクトリ名**: N/A（アクションであり、ストレージではない）
-- **ファイル名**: N/A
-- **コード参照**: 「docsをsyncする」、「/story中にドキュメントが同期される」
-
-### 関連用語
-
-- spec、terms
+sync操作は派生ドキュメント（specs、terms）を現在のコードベースの状態を反映するように更新します。変更を記録するコミットとは異なり、syncはドキュメントの正確性を確保します。`/report`コマンドはspec-writerとterms-writerサブエージェントを介して`.workaholic/`ディレクトリを自動的に同期します。関連用語：spec、terms。
 
 ## release
 
-新しいマーケットプレイスバージョンを公開。
-
-### 定義
-
-リリースはマーケットプレイスバージョンをインクリメントし、バージョンメタデータを更新し、変更を公開します。`/release`コマンドはセマンティックバージョニングに従ってmajor、minor、patchのバージョンインクリメントをサポートします。リリースは`.claude-plugin/marketplace.json`を更新し、適切なgitタグを作成します。
-
-### 使用パターン
-
-- **ディレクトリ名**: N/A（アクションであり、ストレージではない）
-- **ファイル名**: `.claude-plugin/marketplace.json`、`CHANGELOG.md`
-- **コード参照**: 「リリースを作成」、「`/release patch`を実行」
-
-### 関連用語
-
-- changelog、plugin
-
-## report
-
-包括的なドキュメントを生成し、GitHub PRを作成または更新。
-
-### 定義
-
-reportオペレーションは複数のドキュメントエージェントを同時にオーケストレートしてすべての成果物（changelog、story、specs、terms）を生成し、その後GitHub pull requestを作成または更新します。これはフィーチャーブランチを完了し、レビューのために準備するための主要なコマンドです。`/report`コマンドは以前の`/pull-request`コマンドを置き換え、ドキュメント生成が主要な目的であり、PR作成が最終ステップであることをより適切に反映しています。
-
-### 使用パターン
-
-- **ディレクトリ名**: N/A（アクションであり、ストレージではない）
-- **ファイル名**: N/A
-- **コード参照**: 「`/report`を実行してPRを作成」、「Reportはドキュメントを生成」
-
-### 関連用語
-
-- story、changelog、spec、terms、agent、orchestrator
+releaseはマーケットプレイスバージョンをインクリメントし、`.claude-plugin/marketplace.json`のバージョンメタデータを更新し、変更を公開します。`/release`コマンドはセマンティックバージョニングに従ってmajor、minor、patchのバージョンインクリメントをサポートし、適切なgitタグを作成します。関連用語：changelog、plugin。
 
 ## story
 
-包括的なドキュメントを生成し、GitHub PRを作成または更新。
-
-### 定義
-
-storyオペレーションは複数のドキュメントエージェントを同時にオーケストレートしてすべての成果物（changelog、story、specs、terms）を生成し、その後GitHub pull requestを作成または更新します。これはフィーチャーブランチを完了し、レビューのために準備するための主要なコマンドです。`/story`コマンドは以前の`/report`コマンドを置き換え、実装ナラティブ、意思決定プロセス、開発の旅を合成する包括的なストーリードキュメントである主要な出力をより適切に反映しています。
-
-### 使用パターン
-
-- **ディレクトリ名**: N/A（アクションであり、ストレージではない）
-- **ファイル名**: N/A
-- **コード参照**: 「`/story`を実行してPRを作成」、「Storyはドキュメントを生成」
-
-### 関連用語
-
-- changelog、spec、terms、agent、orchestrator
+storyは複数のドキュメントエージェントを同時にオーケストレートしてすべての成果物（changelog、story、specs、terms）を生成し、その後GitHub pull requestを作成または更新するオペレーションです。これはフィーチャーブランチを完了し、レビューのために準備するための主要なコマンドです。`/story`コマンドは以前の`/report`コマンドを置き換え、ストーリードキュメントが中心的な成果物であることをより適切に反映しています。関連用語：changelog、spec、terms、agent、orchestrator。
 
 ## report（廃止）
 
-以前の`/story`コマンドの名前。現在の定義については`story`を参照してください。
-
-### 定義
-
-`/report`は`/story`に名前が変更されました。機能は同じままです。オーケストレーションするドキュメント生成とPR作成は同じですが、名前は中心的な成果物としてストーリードキュメントを強調しています。
-
-### 関連用語
-
-- story
+reportは`/story`コマンドの以前の名前でした。機能は同じまま—ドキュメント生成とPR作成のオーケストレーション—ですが、名前は中心的な成果物としてストーリードキュメントを強調するようになりました。関連用語：story。
 
 ## workflow
 
-イベントまたは手動ディスパッチによってトリガーされる自動化されたステップのシーケンス。
-
-### 定義
-
-Workaholicのコンテキストでは、workflowはリリースプロセスおよび他のCI/CDタスクを自動化するGitHub Actions workflow（`.github/workflows/`のYAMLファイル）を指します。ワークフローは`workflow_dispatch`を介して手動でトリガーされるか、タグプッシュなどのイベント上で自動的にトリガーされます。releaseワークフローはバージョンバンプ、changelogの抽出、GitHub Releaseの作成を自動化し、手動の`/release`コマンド実行に代わります。
-
-### 使用パターン
-
-- **ディレクトリ名**: `.github/workflows/`
-- **ファイル名**: `release.yml`、`test.yml`
-- **コード参照**: 「releaseワークフローをトリガー」、「ワークフローがバージョンバンプを自動化」
-
-### 関連用語
-
-- release、GitHub Actions
+Workaholicのコンテキストでは、workflowはリリースプロセスとCI/CDタスクを自動化するGitHub Actionsワークフロー（`.github/workflows/`のYAMLファイル）を指します。ワークフローは`workflow_dispatch`を介して手動で、またはタグプッシュなどのイベント上で自動的にトリガーされます。releaseワークフローはバージョンバンプ、changelogの抽出、GitHub Releaseの作成を自動化します。関連用語：release、GitHub Actions。
 
 ## concurrent-execution
 
-パフォーマンス向上のために複数の独立したエージェントを同時に実行。
-
-### 定義
-
-concurrent execution（並行実行）は、異なる場所に書き込み、互いに依存関係がない複数のエージェントを並列で呼び出すパターンです。オーケストレーションコマンドは単一のメッセージで複数のTaskツール呼び出しを送信し、エージェントが同時に作業できるようにします。これにより、順次処理と比較して合計実行時間が大幅に短縮されます。
-
-concurrent executionの例:
-- `/story`は2フェーズ実行を使用:
-  - フェーズ1: changelog-writer、spec-writer、terms-writer、release-readinessを同時実行
-  - フェーズ2: story-writerがrelease-readinessの出力を入力として実行
-
-出力が先行する結果に依存する場合は、順次実行が依然として必要です（例：story-writerはrelease-readinessの出力が必要、pr-creatorはstory-writerの後に実行される。ストーリーファイルを読み取るため）。
-
-### 使用パターン
-
-- **ディレクトリ名**: N/A（パターンであり、ストレージではない）
-- **ファイル名**: N/A
-- **コード参照**: 「エージェントを同時実行」、「並列で呼び出す」、「同時に実行」
-
-### 関連用語
-
-- agent、orchestrator、Task tool
+concurrent executionは複数の独立したエージェントが異なる場所に書き込み、依存関係がないときに並列で呼び出されるパターンです。オーケストレーションコマンドは単一のメッセージで複数のTaskツール呼び出しを送信し、同時作業を可能にします。例：`/story`はフェーズ1でchangelog-writer、spec-writer、terms-writer、release-readinessを同時に、フェーズ2でstory-writerを順次実行します。関連用語：agent、orchestrator、Task tool。
 
 ## approval
 
-開発者が実装を確認または却下するdriveワークフローのステップ。
-
-### 定義
-
-approvalはチケットが実装されてからコミットされる前に発生する`/drive`ワークフロー内の決定ポイントです。ワークフローは開発者に4つのオプションを提示します：
-- **Approve**: 実装をコミットして次のチケットに進む
-- **Approve and stop**: 実装をコミットしてdrivingを停止
-- **Needs changes**: 修正を要求（コミットされていない変更を破棄し、チケットをtodoに保持し、フィードバックを要求）
-- **Abandon**: 実装変更を破棄し、Failure Analysisを追加してチケットをabandonedディレクトリに移動し、次のチケットに進む
-
-このゲートは、正常に実装されたチケットのみがhistoryにコミットされることを保証しますが、失敗した試みは分析とともにabandonedディレクトリに保存されて将来参考にできます。
-
-### 使用パターン
-
-- **ディレクトリ名**: N/A（ワークフローステップであり、ストレージではない）
-- **ファイル名**: N/A
-- **コード参照**: 「承認中に「Approve」を選択」、「承認プロンプトが提供...」、「承認オプションは...」
-
-### 関連用語
-
-- drive、ticket、abandon、commit
+approvalは実装後、コミット前に発生する`/drive`ワークフローの決定ポイントです。4つのオプションが提示されます：Approve（コミットして続行）、Approve and stop（コミットしてセッション終了）、Needs changes（修正を要求）、Abandon（変更を破棄、failure analysisを書き、abandonedに移動）。このゲートは正常に実装されたチケットのみがhistoryにコミットされることを確保します。関連用語：drive、ticket、abandon、commit。
 
 ## release-readiness
 
-ブランチがリリース可能かどうかを評価。
-
-### 定義
-
-release readiness（リリース準備完了度）は、ブランチの変更が即時リリースに適しているかどうかを評価するリリース前分析です。release-readinessサブエージェントは`/story`中に他のドキュメントエージェントと並行して実行され、懸念事項と指示を含む判定（ready/needs attention）を生成します。これにより、メンテナーはリリース前またはリリース後に必要なステップを理解できます。
-
-分析は以下を考慮します：
-- 破壊的変更（APIまたは設定の変更）
-- 未完了の作業（TODO/FIXMEコメント）
-- テストステータス（テストが存在する場合）
-- セキュリティの懸念（シークレット、資格情報）
-
-### 使用パターン
-
-- **ディレクトリ名**: N/A（アクションであり、ストレージではない）
-- **ファイル名**: 出力はストーリーのRelease Preparationセクションに表示
-- **コード参照**: 「リリース準備完了度を確認」、「release-readinessエージェントが評価...」
-
-### 関連用語
-
-- release、story、agent
+release readinessはブランチの変更が即時リリースに適しているかどうかを評価するリリース前分析です。release-readinessサブエージェントは`/story`中に他のドキュメントエージェントと並行して実行され、懸念事項と指示を含む判定（ready/needs attention）を生成します。分析は破壊的変更、未完了の作業、テストステータス、セキュリティの懸念を考慮します。出力はストーリーのRelease Preparationセクションに表示されます。関連用語：release、story、agent。
 
 ## prioritization
 
-重大度、コンテキスト、労力に基づいてチケットをインテリジェントに順序付け。
-
-### 定義
-
-prioritization（優先順位付け）は、チケットメタデータ（type、layer、effort）を分析し、最適な実行順序でチケットを順序付けするプロセスです。`/drive`中、Claude Codeはtodoキューのチケットを分析し、重大度（bugfix > enhancement > refactoring > housekeeping）、コンテキストグループ化（同じレイヤーに影響するチケットを一緒に処理）、労力推定に基づいて推奨実行順序を決定します。ユーザーは開始前に提案された順序を表示して、受け入れるか、オーバーライドするか、個別のチケットを選択できます。これにより、単純なアルファベット順の列挙がインテリジェントな処理に置き換わり、コンテキスト切り替えが削減され、効率が最大化されます。
-
-### 使用パターン
-
-- **ディレクトリ名**: N/A（操作であり、ストレージではない）
-- **ファイル名**: `plugins/core/commands/drive.md`内のロジック
-- **コード参照**: 「チケットを優先順位付け」、「提案された優先度順」、「優先順位付けのコンテキストグループ化」
-
-### 関連用語
-
-- drive、ticket、context-grouping、severity
+prioritizationはチケットメタデータ（type、layer、effort）を分析し、`/drive`中の最適な実行のためにチケットを順序付けするプロセスです。Claude Codeは重大度（bugfix > enhancement > refactoring > housekeeping）、コンテキストグループ化（同じレイヤーのチケットを一緒に）、労力推定に基づいて推奨順序を決定します。ユーザーは提案された順序を表示して、受け入れるか、オーバーライドするか、個別のチケットを選択できます。関連用語：drive、ticket、context-grouping、severity。
 
 ## context-grouping
 
-コンテキスト切り替えを最小化するために同じアーキテクチャレイヤーに影響するチケットを一緒に処理。
-
-### 定義
-
-context grouping（コンテキストグループ化）はチケット優先順位付け中に使用される最適化戦略です。同じアーキテクチャレイヤー（例：Config、Infrastructure、Domain）のファイルを変更するチケットはグループ化され、順次処理されて認知負荷とコンテキスト切り替えのオーバーヘッドが削減されます。これにより、開発者は関連のないレイヤー間でジャンプするのではなく、コードベースの特定の領域に焦点を維持することで効率が向上します。
-
-### 使用パターン
-
-- **ディレクトリ名**: N/A（戦略であり、ストレージではない）
-- **ファイル名**: チケットlayerメタデータで参照
-- **コード参照**: 「チケットをコンテキストでグループ化」、「同じレイヤーのチケット」、「コンテキスト切り替えを最小化」
-
-### 関連用語
-
-- prioritization、ticket、layer
+context groupingはチケット優先順位付け中の最適化戦略で、同じアーキテクチャレイヤー（Config、Infrastructure、Domain）のファイルを変更するチケットをグループ化して順次処理します。これにより認知負荷とコンテキスト切り替えのオーバーヘッドが削減され、開発者は特定のコードベース領域に焦点を維持できます。関連用語：prioritization、ticket、layer。
 
 ## severity
 
-チケットタイプの順序付けシステム：bugfix > enhancement > refactoring > housekeeping。
-
-### 定義
-
-severity（重大度）はチケットのtypeフィールドに基づく優先順位付けの基準です。bugfix（破損した機能に対処）は最優先度、その後enhancement（新機能）、refactoring（コード改善）、housekeeping（保守タスク）が続きます。これにより、新機能の作業に進む前に重大な問題が最初に解決されることを確保し、本番の安定性を維持します。
-
-### 使用パターン
-
-- **ディレクトリ名**: N/A（順序付け、ストレージではない）
-- **ファイル名**: フロントマター内のチケットtype
-- **コード参照**: 「重大度の順位付け」、「bugfixが優先」、「重大度で順序付け」
-
-### 関連用語
-
-- prioritization、ticket、type
+severityはチケットタイプに基づく優先順位付けの基準です：bugfix（破損した機能に対処）が最優先度、その後enhancement（新機能）、refactoring（コード改善）、housekeeping（保守）が続きます。これにより新機能の作業に進む前に重大な問題が解決されることを確保し、本番の安定性を維持します。関連用語：prioritization、ticket、type。
 
 ## structured-commit-message
 
-title、detail、カテゴリ化された変更セクションを含む拡張されたコミットメッセージ形式。
-
-### 定義
-
-structured commit message（構造化コミットメッセージ）は単純なtitleを超えて、変更の「理由」と範囲を記録する詳細なセクションを含みます。形式は以下を含みます：title（現在形動詞、何が変わったか）、detail（理由を説明する1-2文）、UX changes（ユーザー向けの影響）、Arch changes（アーキテクチャ/開発者向けの影響）。この構造により、より良いドキュメント生成と変更影響についての明確な通信が可能になります。空のセクションは省略されるのではなく「None」を使用して、一貫性を確保します。
-
-形式：
-```
-<title>
-
-<detail>
-
-UX: <ux-changes>
-Arch: <arch-changes>
-
-Co-Authored-By: Claude <noreply@anthropic.com>
-```
-
-### 使用パターン
-
-- **ディレクトリ名**: N/A（形式仕様）
-- **ファイル名**: `/drive`ワークフロー中に作成されるコミット
-- **コード参照**: 「構造化コミットメッセージを使用」、「UXおよびArchセクション」、「コミット形式は4つの部分を含む」
-
-### 関連用語
-
-- commit、archive-ticket、format-commit-message skill
+structured commit messageは単純なtitleを超えて、変更の「理由」と範囲を記録する詳細セクションを含みます。形式：title（現在形動詞）、detail（理由を説明する1-2文）、UX changes（ユーザー向け影響）、Arch changes（アーキテクチャ影響）、Co-Authored-Byトレーラー。空のセクションは「None」を使用します。`/drive`ワークフロー中に作成されるコミット。関連用語：commit、archive-ticket、format-commit-message skill。
 
 ## ux-changes
 
-コミットメッセージに記録されたユーザー向け影響と変更。
-
-### 定義
-
-ux changes（UX変更）は実装のユーザー表示またはユーザーエクスペリエンス影響で、構造化コミットメッセージの「UX:」セクションに記録されます。これはユーザーが異なる表示またはエクスペリエンスを受け取る内容を記述します。新しいコマンド、オプション、動作、出力形式の変更、またはエラーメッセージを含みます。コミットにユーザー向けの変更がない場合、フィールドは「None」を含みます。このセクションにより、ユーザーガイド更新を生成するのに役立ちます。
-
-### 使用パターン
-
-- **ディレクトリ名**: N/A（コミットメッセージセクション）
-- **ファイル名**: `/drive`中のコミット
-- **コード参照**: 「UX変更を記録」、「ユーザー向け影響」、「コミットメッセージのUXセクション」
-
-### 関連用語
-
-- structured-commit-message、commit、arch-changes
+ux changesは構造化コミットメッセージの「UX:」セクションに記録されたユーザー表示影響です。これはユーザーが異なる表示またはエクスペリエンスを受け取る内容を記述します：新しいコマンド、オプション、動作、出力形式の変更、またはエラーメッセージ。ユーザー向けの変更がない場合、フィールドは「None」を含みます。ユーザーガイド更新の生成に役立ちます。関連用語：structured-commit-message、commit、arch-changes。
 
 ## arch-changes
 
-コミットメッセージに記録された開発者向けおよびアーキテクチャ影響。
-
-### 定義
-
-arch changes（アーキテクチャ変更）は実装の開発者向けおよび構造的影響で、構造化コミットメッセージの「Arch:」セクションに記録されます。これは新しいファイル、コンポーネント、抽象化、修正されたインターフェース、データ構造、またはワークフロー関係を記述します。コミットにアーキテクチャ変更がない場合、フィールドは「None」を含みます。このセクションは仕様更新を生成するのに役立ちます。
-
-### 使用パターン
-
-- **ディレクトリ名**: N/A（コミットメッセージセクション）
-- **ファイル名**: `/drive`中のコミット
-- **コード参照**: 「アーキテクチャ変更を記録」、「Archセクション影響」、「開発者向け変更」
-
-### 関連用語
-
-- structured-commit-message、commit、ux-changes
+arch changesは構造化コミットメッセージの「Arch:」セクションに記録された開発者向けおよび構造的影響です。これは新しいファイル、コンポーネント、抽象化、修正されたインターフェース、データ構造、またはワークフロー関係を記述します。アーキテクチャ変更がない場合、フィールドは「None」を含みます。仕様更新の生成に役立ちます。関連用語：structured-commit-message、commit、ux-changes。

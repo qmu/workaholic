@@ -60,29 +60,15 @@ The script outputs structured information:
 
 ## Term Entry Format
 
+Each term is a single comprehensive paragraph that incorporates definition, usage context, examples, and related concepts:
+
 ```markdown
 ## term-name
 
-Brief one-sentence definition.
-
-### Definition
-
-Full explanation of what this term means in the Workaholic context.
-
-### Usage Patterns
-
-- **Directory names**: examples
-- **File names**: examples
-- **Code references**: examples
-
-### Related Terms
-
-- Related term 1, related term 2
-
-### Inconsistencies (if any)
-
-- Description of inconsistency and potential resolution
+A comprehensive paragraph describing what this term means in the Workaholic context, how it's used (directory names, file names, code references), its relationship to other terms, and any known inconsistencies. The paragraph should be self-contained and readable, providing all necessary context for understanding the term.
 ```
+
+Keep paragraphs focused but complete - typically 3-8 sentences covering the essential information.
 
 ## Frontmatter
 

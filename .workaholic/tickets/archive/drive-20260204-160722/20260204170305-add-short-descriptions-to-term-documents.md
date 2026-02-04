@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: enhancement
 layer: [Config]
 effort:
-commit_hash:
-category:
+commit_hash: 0a50639
+category: Changed
 ---
 
 # Add short descriptions to term documents

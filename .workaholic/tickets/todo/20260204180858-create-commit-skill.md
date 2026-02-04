@@ -51,3 +51,17 @@ Create a new `commit` skill that integrates the `format-commit-message` skill wi
 - Pre-commit checks should verify only intended files are staged
 - Multi-contributor awareness means checking for unexpected staged changes
 - Keep format-commit-message as a dependency skill for the templates
+
+## Final Report
+
+Development completed as planned. Created commit skill with:
+
+**New files:**
+- `plugins/core/skills/commit/SKILL.md` - Skill documentation with multi-contributor awareness guidelines
+- `plugins/core/skills/commit/sh/commit.sh` - Bash script with `--skip-staging` flag support
+
+**Updated files:**
+- `plugins/core/skills/archive-ticket/sh/archive.sh` - Delegates commit to commit.sh
+- `plugins/core/skills/archive-ticket/SKILL.md` - Updated to reference commit skill
+- `plugins/core/skills/drive-approval/SKILL.md` - Abandonment commits now use commit skill
+- `plugins/core/commands/drive.md` - Added reference to commit skill in Git Safety section

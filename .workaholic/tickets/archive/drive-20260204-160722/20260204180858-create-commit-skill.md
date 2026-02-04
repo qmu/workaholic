@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: enhancement
 layer: [Config]
 effort:
-commit_hash:
-category:
+commit_hash: 9e71077
+category: Added
 ---
 
 # Create commit skill integrating format-commit-message and Git Safety

@@ -1,8 +1,6 @@
 ---
 name: write-story
 description: Story content structure, templates, and writing guidelines for branch narratives.
-skills:
-  - translate
 user-invocable: false
 ---
 
@@ -219,19 +217,6 @@ velocity_unit: <from performance-analyst metrics>
 
 ## Updating Stories Index
 
-Update both `.workaholic/stories/README.md` and `README_ja.md` to include the new story:
+Update `.workaholic/stories/README.md` to include the new story:
 
-**README.md**:
 - Add entry: `- [<branch-name>.md](<branch-name>.md) - Brief description of the branch work`
-
-**README_ja.md**:
-- Add entry: `- [<branch-name>_ja.md](<branch-name>_ja.md) - ブランチの作業内容の簡潔な説明`
-
-## Translation
-
-Per `.workaholic/` i18n requirements, create a Japanese translation alongside the English story:
-
-1. Create `<branch-name>_ja.md` with translated content
-2. Keep frontmatter in English (only translate prose content)
-3. Follow the preloaded `translate` skill for translation policies
-4. Technical terms (commit, branch, plugin, etc.) should remain in English

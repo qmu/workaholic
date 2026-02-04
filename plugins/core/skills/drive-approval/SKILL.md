@@ -111,11 +111,31 @@ When user selects "Abandon", do NOT commit implementation changes.
 
 ### Discard Implementation Changes
 
+**Pre-flight check**: This repository may have multiple contributors (developers, agents) working concurrently. Before discarding changes, verify no unrelated work will be lost:
+
 ```bash
-git restore .
+git status --porcelain
 ```
 
-Reverts all uncommitted changes to the working directory.
+Review the output and identify:
+1. Changes you made during this implementation (safe to discard)
+2. Changes that may belong to other contributors (must preserve)
+
+If you cannot distinguish your changes from others', inform the user and ask which files to restore.
+
+**Discard only implementation changes** (preserves ticket files and unrelated work):
+
+```bash
+git restore . ':!.workaholic/tickets/'
+```
+
+Or for more targeted restoration, restore specific files you modified:
+
+```bash
+git restore <file1> <file2> ...
+```
+
+Reverts implementation changes while preserving any uncommitted work from other contributors.
 
 ### Append Failure Analysis Section
 

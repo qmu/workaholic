@@ -3,9 +3,9 @@ created_at: 2026-02-04T17:39:59+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: e67bd6d
+category: Changed
 ---
 
 # Strengthen safeguards against destructive git operations in /drive workflow
@@ -155,3 +155,22 @@ Past tickets that touched similar areas:
 - The prohibition patterns follow established conventions from 20260128224841 (DENY/NEVER language)
 - Pre-flight checks add overhead but prevent data loss - this trade-off is appropriate for destructive operations
 - Future enhancement: could add a `safe-restore.sh` script to the skills directory that handles the pre-flight check and exclusion automatically
+
+## Discussion
+
+### Revision 1 - 2026-02-04T17:55:00+09:00
+
+**User feedback**: Not only one agent is working for this repository. Sometimes changes are made elsewhere, so by considering such a situation, don't git clean or those commands inconsiderately. That's the balance.
+
+**Direction change**: Broaden the framing from "protecting ticket files" to "respecting multi-contributor environments". The safeguards should acknowledge that:
+1. Multiple developers/agents may work on the same repository
+2. Uncommitted changes anywhere in the repo could belong to someone else
+3. The approach should be cautious and considerate, not just technically targeted
+
+**Action taken**: Revising documentation to emphasize awareness of shared repository context, checking for *any* uncommitted work before destructive operations, and framing as collaboration-aware rather than just ticket-protective.
+
+## Final Report
+
+Implementation completed with revision based on user feedback. The key insight was reframing from "protecting ticket files" to "respecting multi-contributor environments". All three documentation files now emphasize that agents are not the only ones working in the repository, and destructive operations must be approached with consideration for others' uncommitted work.
+
+A follow-up ticket was created (20260204180858-create-commit-skill.md) to centralize commit operations in a dedicated skill that integrates format-commit-message with these safety guidelines.

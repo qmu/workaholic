@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: refactoring
 layer: [Config]
 effort:
-commit_hash:
-category:
+commit_hash: 03bf311
+category: Changed
 ---
 
 # Remove translator from story-writer subagent

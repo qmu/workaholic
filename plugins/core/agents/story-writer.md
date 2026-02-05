@@ -36,12 +36,26 @@ Wait for all 4 agents to complete. Track which succeeded and which failed.
 
 3. **Update Index**: Add entry to `.workaholic/stories/README.md`.
 
-### Phase 3: Create Pull Request
+### Phase 3: Commit and Push Story
 
-Invoke **pr-creator** (`subagent_type: "core:pr-creator"`, `model: "opus"`):
-- Pass branch name and base branch
-- The subagent handles: checking if PR exists, reading story file, deriving title, `gh` CLI operations
-- Capture the PR URL from the response
+1. **Stage story**: `git add .workaholic/stories/`
+2. **Commit**: `git commit -m "Add branch story for <branch-name>"`
+3. **Push branch**: `git push -u origin <branch-name>`
+
+### Phase 4: Generate Release Note and Create PR
+
+Invoke 2 agents in parallel via Task tool (single message with 2 tool calls):
+
+- **release-note-writer** (`subagent_type: "core:release-note-writer"`, `model: "haiku"`): Reads story file, generates concise release notes, writes to `.workaholic/release-notes/<branch-name>.md`.
+- **pr-creator** (`subagent_type: "core:pr-creator"`, `model: "opus"`): Reads story file, derives title, runs `gh` CLI operations.
+
+Wait for both agents to complete. Capture PR URL from pr-creator response.
+
+### Phase 5: Commit and Push Release Notes
+
+1. **Stage release notes**: `git add .workaholic/release-notes/`
+2. **Commit**: `git commit -m "Add release notes for <branch-name>"`
+3. **Push**: `git push`
 
 ## Output
 
@@ -50,12 +64,14 @@ Return JSON with story and PR status:
 ```json
 {
   "story_file": ".workaholic/stories/<branch-name>.md",
+  "release_note_file": ".workaholic/release-notes/<branch-name>.md",
   "pr_url": "<PR-URL>",
   "agents": {
     "overview_writer": { "status": "success" | "failed", "error": "..." },
     "section_reviewer": { "status": "success" | "failed", "error": "..." },
     "release_readiness": { "status": "success" | "failed", "error": "..." },
     "performance_analyst": { "status": "success" | "failed", "error": "..." },
+    "release_note_writer": { "status": "success" | "failed", "error": "..." },
     "pr_creator": { "status": "success" | "failed", "error": "..." }
   }
 }

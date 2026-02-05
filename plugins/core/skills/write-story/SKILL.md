@@ -18,6 +18,7 @@ Story sections are populated from parallel agent outputs:
 | section-reviewer | 5, 6, 7, 8 | `outcome`, `historical_analysis`, `concerns`, `ideas` |
 | performance-analyst | 9 | metrics JSON + decision review markdown |
 | release-readiness | 10 | `verdict`, `concerns[]`, `instructions.pre_release[]`, `instructions.post_release[]` |
+| release-note-writer | (separate file) | Writes to `.workaholic/release-notes/<branch>.md` |
 
 Section 4 (Changes) comes from archived tickets. Section 11 (Notes) is optional context.
 

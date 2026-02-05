@@ -4,4 +4,4 @@ Concise release notes generated from branch stories for GitHub Releases.
 
 ## Notes
 
-<!-- Release notes are added here as branches are completed -->
+- [drive-20260204-160722.md](drive-20260204-160722.md) - Documentation hygiene, workflow safety, and infrastructure improvements

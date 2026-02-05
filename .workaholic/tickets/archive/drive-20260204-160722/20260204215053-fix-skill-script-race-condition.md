@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: bugfix
 layer: [Config]
 effort:
-commit_hash:
-category:
+commit_hash: bebb0a5
+category: Changed
 ---
 
 # Fix Skill Shell Script Path References

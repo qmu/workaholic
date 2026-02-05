@@ -1,8 +1,6 @@
 ---
 name: write-story
 description: Story content structure, templates, and writing guidelines for branch narratives.
-skills:
-  - translate
 user-invocable: false
 ---
 
@@ -20,6 +18,7 @@ Story sections are populated from parallel agent outputs:
 | section-reviewer | 5, 6, 7, 8 | `outcome`, `historical_analysis`, `concerns`, `ideas` |
 | performance-analyst | 9 | metrics JSON + decision review markdown |
 | release-readiness | 10 | `verdict`, `concerns[]`, `instructions.pre_release[]`, `instructions.post_release[]` |
+| release-note-writer | (separate file) | Writes to `.workaholic/release-notes/<branch>.md` |
 
 Section 4 (Changes) comes from archived tickets. Section 11 (Notes) is optional context.
 
@@ -219,19 +218,6 @@ velocity_unit: <from performance-analyst metrics>
 
 ## Updating Stories Index
 
-Update both `.workaholic/stories/README.md` and `README_ja.md` to include the new story:
+Update `.workaholic/stories/README.md` to include the new story:
 
-**README.md**:
 - Add entry: `- [<branch-name>.md](<branch-name>.md) - Brief description of the branch work`
-
-**README_ja.md**:
-- Add entry: `- [<branch-name>_ja.md](<branch-name>_ja.md) - ブランチの作業内容の簡潔な説明`
-
-## Translation
-
-Per `.workaholic/` i18n requirements, create a Japanese translation alongside the English story:
-
-1. Create `<branch-name>_ja.md` with translated content
-2. Keep frontmatter in English (only translate prose content)
-3. Follow the preloaded `translate` skill for translation policies
-4. Technical terms (commit, branch, plugin, etc.) should remain in English

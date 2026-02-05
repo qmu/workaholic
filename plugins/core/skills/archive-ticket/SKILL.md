@@ -1,8 +1,8 @@
 ---
 name: archive-ticket
-description: Complete commit workflow - format, archive, update changelog, and commit in one operation.
+description: Archive ticket workflow - move ticket, delegate commit to commit skill, update frontmatter.
 skills:
-  - format-commit-message
+  - commit
 allowed-tools: Bash
 user-invocable: false
 ---
@@ -24,7 +24,7 @@ Complete commit workflow after user approves implementation. Always use this scr
 ## Usage
 
 ```bash
-bash plugins/core/skills/archive-ticket/sh/archive.sh \
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/archive-ticket/sh/archive.sh \
   <ticket-path> "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
 ```
 

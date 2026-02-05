@@ -79,7 +79,7 @@ Based on user's selection:
 2. **Verify update succeeded**: If Edit tool fails, halt and report the error to user. DO NOT proceed to archive.
 3. Archive and commit using the preloaded **archive-ticket** skill:
    ```bash
-   bash plugins/core/skills/archive-ticket/sh/archive.sh \
+   bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/archive-ticket/sh/archive.sh \
      "<ticket-path>" "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
    ```
 4. Continue to next ticket
@@ -89,7 +89,7 @@ Based on user's selection:
 2. **Verify update succeeded**: If Edit tool fails, halt and report the error to user. DO NOT proceed to archive.
 3. Archive and commit using the preloaded **archive-ticket** skill:
    ```bash
-   bash plugins/core/skills/archive-ticket/sh/archive.sh \
+   bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/archive-ticket/sh/archive.sh \
      "<ticket-path>" "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
    ```
 4. **Break out of the entire continuous loop** - skip Phase 3 re-check, go directly to Phase 4 completion
@@ -150,3 +150,24 @@ If a ticket cannot be implemented (out of scope, too complex, blocked, or any ot
    - "Abort drive" - Stop the drive session entirely
 
 **Never commit ticket moves without explicit developer approval.**
+
+## Git Safety
+
+**Context**: You are not the only one working in this repository. Multiple developers and agents may have uncommitted changes in the working directory.
+
+**All commits must use the commit skill** (`plugins/core/skills/commit/`) for:
+- Consistent message formatting (title, motivation, UX/Arch changes)
+- Pre-commit safety checks
+- Multi-contributor awareness
+
+**NEVER execute destructive git operations** without careful consideration:
+
+- `git clean` - Deletes untracked files that may belong to other contributors
+- `git checkout .` / `git restore .` - Discards all uncommitted changes including others' work
+- `git reset --hard` - Discards all changes (never use)
+
+Before any operation that discards changes:
+1. Run `git status` to understand what uncommitted changes exist
+2. Identify which changes are yours vs. potentially from other contributors
+3. Use targeted commands affecting only files you modified
+4. When in doubt, ask the user before discarding anything

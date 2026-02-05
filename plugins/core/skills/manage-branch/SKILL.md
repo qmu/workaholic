@@ -11,16 +11,23 @@ Check current branch state and create new topic branches when needed.
 
 ## Check Branch
 
-Check if currently on a topic branch:
-
 ```bash
-current=$(git branch --show-current)
-if [ "$current" = "main" ] || [ "$current" = "master" ]; then
-  echo "on_main"
-else
-  echo "on_topic:$current"
-fi
+bash .claude/skills/manage-branch/sh/check.sh
 ```
+
+### Output
+
+JSON with branch state:
+
+```json
+{
+  "on_main": true,
+  "branch": "main"
+}
+```
+
+- `on_main`: Boolean indicating if on main/master branch
+- `branch`: Current branch name
 
 Topic branch patterns: `drive-*`, `trip-*`
 
@@ -47,3 +54,19 @@ JSON with the created branch name:
 ```
 
 The branch is automatically checked out after creation.
+
+## Auto-Approval Configuration
+
+To avoid permission prompts for bundled skill scripts, users can add the following to their `.claude/settings.local.json`:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash:*)"
+    ]
+  }
+}
+```
+
+This auto-approves all `bash` script invocations. The `.settings.local.json` file is user-local and should not be committed to the repository.

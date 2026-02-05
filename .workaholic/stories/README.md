@@ -70,7 +70,7 @@ Refs #<issue-number>
 
 ## Stories
 
-- [drive-20260204-160722.md](drive-20260204-160722.md) - Documentation hygiene and workflow safety: term document restructuring, translation removal from story-writer, git safeguards with multi-contributor awareness, centralized commit skill - 5 tickets, 13 commits
+- [drive-20260204-160722.md](drive-20260204-160722.md) - Documentation hygiene, workflow safety, and infrastructure: term document restructuring, translation removal from story-writer, git safeguards, centralized commit skill, release-note-writer subagent, GitHub URL transformation, script path fixes - 8 tickets, 24 commits
 - [drive-20260203-122444.md](drive-20260203-122444.md) - Documentation workflow refinement: extracted /scan command from /report, fixed memory leaks in /ticket, added unified diff patches to tickets, renamed /story to /report, refactored ticket-organizer with cleaner naming - 9 tickets, 24 commits
 - [drive-20260202-203938.md](drive-20260202-203938.md) - Reliability and consistency improvements: fixed release action trigger to use version comparison, standardized notice section format across commands, added code implementation prohibition to /ticket, configured Opus model for all Task tool invocations - 6 tickets, 12 commits
 - [drive-20260202-134332.md](drive-20260202-134332.md) - Parallel subagent orchestration and workflow improvements: enabled subagent-to-subagent parallel invocation, ticket-organizer with 3 parallel discovery agents, story-writer orchestrating 7 documentation agents, continuous drive loop, revision tracking with Discussion section, approval skills consolidation - 14 tickets, 31 commits

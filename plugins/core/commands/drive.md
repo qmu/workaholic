@@ -95,10 +95,15 @@ Based on user's selection:
 4. **Break out of the entire continuous loop** - skip Phase 3 re-check, go directly to Phase 4 completion
 5. Report session summary and any remaining tickets in queue
 
-**"Needs revision"**:
-1. Follow **drive-approval** skill (Section 3) (prompt for feedback, append Discussion section)
-2. Re-implement changes based on feedback
-3. Return to Step 2.2 (request approval again)
+**Free-form feedback** (user selects "Other" and provides text):
+1. Follow **drive-approval** skill (Section 3: Handle Feedback)
+2. **FIRST**: Update the ticket's Implementation Steps section with new/modified steps
+3. Append Discussion section to record the feedback exchange
+4. **THEN**: Re-implement changes based on updated ticket
+5. Return to Step 2.2 (request approval again)
+
+> **Rule**: The ticket file must always reflect the full implementation plan. Update it BEFORE coding.
+> See "Feedback Loop" section in plugins/core/README.md.
 
 **"Abandon"**:
 1. Follow **drive-approval** skill (Section 4) (discard changes, write failure analysis)

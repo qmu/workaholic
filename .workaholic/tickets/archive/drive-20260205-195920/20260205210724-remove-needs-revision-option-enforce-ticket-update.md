@@ -3,9 +3,9 @@ created_at: 2026-02-05T21:07:24+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: ebe38a7
+category: Removed
 ---
 
 # Remove "Needs revision" Option and Enforce Ticket-Update-First Rule
@@ -159,3 +159,19 @@ Past tickets that touched similar areas:
 - The "ticket-update-first" rule already exists in README.md but was not enforced in the skill - this change makes the skill match the documented pattern (`plugins/core/README.md` lines 52-67)
 - The Discussion section now includes "Ticket updates" field to make the ticket modification visible and auditable (`plugins/core/skills/drive-approval/SKILL.md`)
 - Users accustomed to clicking "Needs revision" will need to use "Other" and type feedback, which provides more specific guidance anyway
+
+## Final Report
+
+Implementation completed with additional refactoring of drive-approval skill:
+
+1. `plugins/core/skills/drive-approval/SKILL.md` - Comprehensive refactor:
+   - Removed "Needs revision" option from approval dialog
+   - Renamed Section 3 from "Handle Revision" to "Handle Feedback"
+   - Added explicit "Update Ticket Implementation Steps" guidance with ticket-update-first rule
+   - Added "Ticket updates" field to Discussion section format
+   - Refactored entire file for clarity: reduced from 200 to 138 lines, removed redundancy, consolidated sections
+
+2. `plugins/core/commands/drive.md` - Updated flow:
+   - Changed "Needs revision" handling to free-form feedback via "Other" option
+   - Added explicit FIRST/THEN ordering for ticket update before code changes
+   - Added Rule reminder referencing README.md Feedback Loop section

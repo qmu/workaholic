@@ -26,13 +26,15 @@ You will receive:
 
 2. **Audit Current Specs**: Read documents from SPECS section to understand scope and identify outdated content.
 
-3. **Plan Updates**: Determine which docs need updates, creation, or deletion. Identify cross-cutting concerns.
+3. **Validate Structure**: Compare ACTUAL STRUCTURE output against file listings in architecture.md. Flag discrepancies (files documented but missing, files present but undocumented). If discrepancies exist, architecture.md must be updated.
 
-4. **Execute Updates**: Follow the preloaded write-spec skill for formatting rules and guidelines.
+4. **Plan Updates**: Determine which docs need updates, creation, or deletion. Identify cross-cutting concerns.
 
-5. **Update Index Files**: Maintain README links following preloaded translate skill.
+5. **Execute Updates**: Follow the preloaded write-spec skill for formatting rules and guidelines.
 
-6. **Summarize**: List specs updated/created/deleted, confirm all docs are linked.
+6. **Update Index Files**: Maintain README links following preloaded translate skill.
+
+7. **Summarize**: List specs updated/created/deleted, confirm all docs are linked. Report any structure discrepancies found and fixed.
 
 ## Output
 

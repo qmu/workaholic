@@ -114,3 +114,7 @@ Past tickets that touched similar areas:
 - **Backward compatibility**: The HTTPS format is already expected by consumers (write-changelog, write-story). This change makes the contract explicit.
 - **Non-GitHub remotes**: The transformation only handles GitHub SSH URLs. Other formats (HTTPS, GitLab, etc.) pass through unchanged. This is acceptable since the codebase is GitHub-hosted.
 - **Shell complexity**: The sed commands in the patch are simple single-purpose transformations. The principle discourages complex multi-pipe inline commands, not all shell usage.
+
+## Final Report
+
+Development completed as planned. Updated gather-git-context to transform SSH URLs to HTTPS format and added shell script principle to CLAUDE.md.

@@ -60,6 +60,8 @@ Subagents must use skills for common operations instead of inline shell commands
 
 Never write inline git commands like `git branch --show-current` or `git remote show origin` in subagent markdown files. Subagents preload the skill and gather context themselves.
 
+**Shell Script Principle**: Never use complex inline shell commands (pipes, sed, awk) in subagent or command markdown files. Extract multi-step shell operations to bundled scripts in skills (`skills/<name>/sh/<script>.sh`). This ensures consistency, testability, and permission-free execution.
+
 ## Commands
 
 | Command                          | Description                                      |

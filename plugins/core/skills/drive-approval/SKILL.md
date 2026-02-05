@@ -65,7 +65,7 @@ When user selects "Approve" or "Approve and stop":
 2. **Verify update succeeded**: If Edit tool fails, halt and report the error to user. DO NOT proceed to archive.
 3. Archive and commit using the **archive-ticket** skill:
    ```bash
-   bash plugins/core/skills/archive-ticket/sh/archive.sh \
+   bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/archive-ticket/sh/archive.sh \
      "<ticket-path>" "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
    ```
 4. For "Approve": Continue to next ticket
@@ -166,7 +166,7 @@ mv <ticket-path> .workaholic/tickets/abandoned/
 Use the commit skill for consistent commit formatting:
 
 ```bash
-bash plugins/core/skills/commit/sh/commit.sh \
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/commit/sh/commit.sh \
   "Abandon: <ticket-title>" \
   "Implementation proved unworkable" \
   "None" \
@@ -178,7 +178,7 @@ Or if already staged:
 
 ```bash
 git add .workaholic/tickets/
-bash plugins/core/skills/commit/sh/commit.sh --skip-staging \
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/commit/sh/commit.sh --skip-staging \
   "Abandon: <ticket-title>" \
   "Implementation proved unworkable" \
   "None" \

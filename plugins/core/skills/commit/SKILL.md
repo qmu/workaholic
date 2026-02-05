@@ -24,7 +24,7 @@ Before committing:
 ## Usage
 
 ```bash
-bash plugins/core/skills/commit/sh/commit.sh \
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/commit/sh/commit.sh \
   "<title>" "<motivation>" "<ux-change>" "<arch-change>" [files...]
 ```
 
@@ -71,7 +71,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 ### Implementation commit (with specific files)
 
 ```bash
-bash plugins/core/skills/commit/sh/commit.sh \
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/commit/sh/commit.sh \
   "Add session-based authentication" \
   "Users needed persistent login state across browser sessions" \
   "New 'Remember me' checkbox on login form" \
@@ -82,7 +82,7 @@ bash plugins/core/skills/commit/sh/commit.sh \
 ### Archive commit (stage all changes)
 
 ```bash
-bash plugins/core/skills/commit/sh/commit.sh \
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/commit/sh/commit.sh \
   "Archive ticket: add-authentication" \
   "" \
   "None" \
@@ -92,7 +92,7 @@ bash plugins/core/skills/commit/sh/commit.sh \
 ### Abandonment commit
 
 ```bash
-bash plugins/core/skills/commit/sh/commit.sh \
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/commit/sh/commit.sh \
   "Abandon: add-authentication" \
   "Implementation proved unworkable due to API limitations" \
   "None" \

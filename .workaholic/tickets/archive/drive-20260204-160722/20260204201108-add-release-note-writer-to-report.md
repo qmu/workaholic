@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: enhancement
 layer: [Domain, Config]
 effort:
-commit_hash:
-category:
+commit_hash: 9d6bf20
+category: Added
 ---
 
 # Add release-note-writer Subagent to /report Command

@@ -63,21 +63,28 @@ jobs:
         id: notes
         if: steps.check.outputs.needed == 'true'
         run: |
-          # Get the previous tag to extract changes since last release
-          prev_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          # Check for generated release notes file (most recent by modification time)
+          release_note=$(ls -t .workaholic/release-notes/*.md 2>/dev/null | grep -v README.md | head -1)
 
-          if [ -n "$prev_tag" ]; then
-            # Get commits since last tag
-            echo "Extracting changes since $prev_tag"
-            notes=$(git log --pretty=format:"- %s" "$prev_tag"..HEAD --no-merges | head -50)
+          if [ -n "$release_note" ] && [ -f "$release_note" ]; then
+            echo "Using generated release notes from: $release_note"
+            cp "$release_note" /tmp/release_notes.txt
           else
-            # No previous tag, get recent commits
-            echo "No previous tag found, using recent commits"
-            notes=$(git log --pretty=format:"- %s" -20 --no-merges)
+            # Fallback: extract from git log
+            echo "No generated release notes found, using git log"
+            prev_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+            if [ -n "$prev_tag" ]; then
+              echo "Extracting changes since $prev_tag"
+              notes=$(git log --pretty=format:"- %s" "$prev_tag"..HEAD --no-merges | head -50)
+            else
+              echo "No previous tag found, using recent commits"
+              notes=$(git log --pretty=format:"- %s" -20 --no-merges)
+            fi
+
+            echo "$notes" > /tmp/release_notes.txt
           fi
 
-          # Write to file for multi-line content
-          echo "$notes" > /tmp/release_notes.txt
           echo "Release notes:"
           cat /tmp/release_notes.txt
 

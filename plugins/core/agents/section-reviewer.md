@@ -27,6 +27,8 @@ You will receive:
    - Related History section (for historical analysis)
    - Considerations section (for concerns and ideas)
    - Final Report section if present (for outcome)
+   - commit_hash from frontmatter (for linking concerns to commits)
+   - File paths mentioned in Considerations (for identifiable references)
 
 3. **Generate section content** following the preloaded review-sections skill guidelines
 

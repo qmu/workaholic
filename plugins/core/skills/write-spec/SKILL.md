@@ -40,6 +40,9 @@ The script outputs structured information:
 
 === COMMIT ===
 <current short commit hash>
+
+=== ACTUAL STRUCTURE ===
+<actual files in plugins/core/ directories>
 ```
 
 ### Using the Output
@@ -49,6 +52,7 @@ The script outputs structured information:
 - **SPECS**: Survey these to find documents needing updates
 - **DIFF**: Use when no tickets exist to understand changes
 - **COMMIT**: Use in frontmatter `commit_hash` field
+- **ACTUAL STRUCTURE**: Compare against file listings in architecture.md to detect stale documentation
 
 ## Directory Structure
 

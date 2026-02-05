@@ -3,9 +3,9 @@ created_at: 2026-02-05T20:34:49+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: e1058bb
+category: Added
 ---
 
 # Add Filesystem Validation to Spec-Writer
@@ -134,3 +134,13 @@ Past tickets that touched similar areas:
 - The ACTUAL STRUCTURE output format should closely match architecture.md's "Directory Layout" section for easy visual comparison (`plugins/core/skills/write-spec/sh/gather.sh`)
 - This validation only covers the core plugin structure; if future plugins are added, the script may need extension (`plugins/core/skills/write-spec/sh/gather.sh`)
 - The spec-writer step renumbering changes existing behavior documentation - ensure no other files reference steps by number (`plugins/core/agents/spec-writer.md`)
+
+## Final Report
+
+Implementation followed the patches exactly as specified. All three key files were updated:
+
+1. `plugins/core/skills/write-spec/sh/gather.sh` - Added ACTUAL STRUCTURE section that lists files in agents/, commands/, rules/, and skills/ directories with shell scripts
+2. `plugins/core/skills/write-spec/SKILL.md` - Documented the new output section and added usage guidance for detecting stale documentation
+3. `plugins/core/agents/spec-writer.md` - Added step 3 "Validate Structure" with instructions to compare actual vs documented structure, and renumbered subsequent steps
+
+The shell script was tested and correctly outputs the current file structure for comparison against architecture.md.

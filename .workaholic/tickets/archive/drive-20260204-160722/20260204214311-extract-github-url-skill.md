@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: refactoring
 layer: [Config, Domain]
 effort:
-commit_hash:
-category:
+commit_hash: 628b826
+category: Changed
 ---
 
 # Extract GitHub URL Transformation into gather-git-context Skill

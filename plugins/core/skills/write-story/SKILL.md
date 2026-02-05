@@ -111,7 +111,18 @@ One subsection per ticket, in chronological order:
 
 ## 7. Concerns
 
-[Risks, trade-offs, or issues discovered during implementation. Known limitations or edge cases. Things reviewers should pay attention to. Write "None" if nothing to report.]
+[Risks, trade-offs, or issues discovered during implementation. Each concern should include identifiable references.]
+
+**Format**: `- <description> (see [hash](<repo-url>/commit/<hash>) in path/to/file.ext)`
+
+**Example**:
+- The pathspec exclusion syntax requires modern git versions (see [7eab801](<repo-url>/commit/7eab801) in `plugins/core/skills/drive-approval/SKILL.md`)
+- Auto-approval configuration may be broader than intended (`~/.claude/settings.local.json`)
+
+**Guidelines**:
+- Reference the commit hash from section 4 where the concern was introduced
+- Include the file path where readers should investigate
+- Write "None" if nothing to report
 
 ## 8. Ideas
 

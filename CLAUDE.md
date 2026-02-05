@@ -60,7 +60,29 @@ Subagents must use skills for common operations instead of inline shell commands
 
 Never write inline git commands like `git branch --show-current` or `git remote show origin` in subagent markdown files. Subagents preload the skill and gather context themselves.
 
-**Shell Script Principle**: Never use complex inline shell commands (pipes, sed, awk) in subagent or command markdown files. Extract multi-step shell operations to bundled scripts in skills (`skills/<name>/sh/<script>.sh`). This ensures consistency, testability, and permission-free execution.
+### Shell Script Principle
+
+> **CRITICAL: Never use complex inline shell commands in subagent or command markdown files.**
+
+This includes:
+- **Conditionals**: `if`, `case`, `test`, `[ ]`, `[[ ]]`
+- **Pipes and chains**: `|`, `&&`, `||`
+- **Text processing**: `sed`, `awk`, `grep`, `cut`
+- **Loops**: `for`, `while`
+- **Variable expansion with logic**: `${var:-default}`, `${var:+alt}`
+
+Extract ALL multi-step or conditional shell operations to bundled scripts in skills (`skills/<name>/sh/<script>.sh`). This ensures consistency, testability, and permission-free execution.
+
+**Wrong** (inline conditional):
+```bash
+current=$(git branch --show-current)
+if [ "$current" = "main" ]; then echo "on_main"; fi
+```
+
+**Correct** (skill script):
+```bash
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/manage-branch/sh/check.sh
+```
 
 ## Commands
 

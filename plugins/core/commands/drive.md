@@ -79,7 +79,7 @@ Based on user's selection:
 2. **Verify update succeeded**: If Edit tool fails, halt and report the error to user. DO NOT proceed to archive.
 3. Archive and commit using the preloaded **archive-ticket** skill:
    ```bash
-   bash plugins/core/skills/archive-ticket/sh/archive.sh \
+   bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/archive-ticket/sh/archive.sh \
      "<ticket-path>" "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
    ```
 4. Continue to next ticket
@@ -89,7 +89,7 @@ Based on user's selection:
 2. **Verify update succeeded**: If Edit tool fails, halt and report the error to user. DO NOT proceed to archive.
 3. Archive and commit using the preloaded **archive-ticket** skill:
    ```bash
-   bash plugins/core/skills/archive-ticket/sh/archive.sh \
+   bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/archive-ticket/sh/archive.sh \
      "<ticket-path>" "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
    ```
 4. **Break out of the entire continuous loop** - skip Phase 3 re-check, go directly to Phase 4 completion

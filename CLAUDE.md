@@ -39,19 +39,6 @@ plugins/                 # Plugin source directories
 | Subagent | Skill, Subagent    | Command             |
 | Skill    | Skill              | Subagent, Command   |
 
-**Allowed**:
-- Command → Skill (preload via `skills:` frontmatter)
-- Command → Subagent (via Task tool)
-- Subagent → Skill (preload via `skills:` frontmatter)
-- Subagent → Subagent (via Task tool, parallel only)
-- Skill → Skill (preload via `skills:` frontmatter for composable knowledge)
-
-**Prohibited**:
-- Skill → Subagent (skills are passive knowledge, not orchestrators)
-- Skill → Command (skills cannot invoke user-facing commands)
-- Subagent → Subagent (sequential chains cause deep nesting and context explosion)
-- Subagent → Command (subagents are invoked by commands, not the reverse)
-
 ### Design Principle
 
 **Thin commands and subagents, comprehensive skills.**
@@ -72,6 +59,8 @@ Subagents must use skills for common operations instead of inline shell commands
 | Ticket metadata (date, author) | gather-ticket-metadata | `bash .claude/skills/gather-ticket-metadata/sh/gather.sh` |
 
 Never write inline git commands like `git branch --show-current` or `git remote show origin` in subagent markdown files. Subagents preload the skill and gather context themselves.
+
+**Shell Script Principle**: Never use complex inline shell commands (pipes, sed, awk) in subagent or command markdown files. Extract multi-step shell operations to bundled scripts in skills (`skills/<name>/sh/<script>.sh`). This ensures consistency, testability, and permission-free execution.
 
 ## Commands
 

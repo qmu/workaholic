@@ -23,7 +23,7 @@ JSON with all context values:
 {
   "branch": "feature-branch-name",
   "base_branch": "main",
-  "repo_url": "git@github.com:owner/repo.git",
+  "repo_url": "https://github.com/owner/repo",
   "archived_tickets": [".workaholic/tickets/archive/branch/ticket1.md", "..."],
   "git_log": "abc1234 First commit\\ndef5678 Second commit"
 }
@@ -33,6 +33,6 @@ JSON with all context values:
 
 - **branch**: Current branch name
 - **base_branch**: Default branch of the remote (usually `main`)
-- **repo_url**: Remote origin URL
+- **repo_url**: Remote origin URL in HTTPS format (SSH URLs are automatically converted)
 - **archived_tickets**: Array of archived ticket paths for current branch
 - **git_log**: Git log from base branch to HEAD (oneline format)

@@ -7,7 +7,13 @@ set -eu
 
 BRANCH=$(git branch --show-current)
 BASE_BRANCH=$(git remote show origin 2>/dev/null | grep 'HEAD branch' | sed 's/.*: //')
-REPO_URL=$(git remote get-url origin)
+REPO_URL_RAW=$(git remote get-url origin)
+
+# Transform SSH URL to HTTPS format
+# git@github.com:owner/repo.git -> https://github.com/owner/repo
+REPO_URL=$(echo "$REPO_URL_RAW" | \
+  sed 's|^git@github\.com:|https://github.com/|' | \
+  sed 's|\.git$||')
 
 # List archived tickets for the branch (empty array if none)
 ARCHIVE_DIR=".workaholic/tickets/archive/${BRANCH}"

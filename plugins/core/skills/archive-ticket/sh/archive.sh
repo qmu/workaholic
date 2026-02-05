@@ -1,5 +1,5 @@
 #!/bin/sh -eu
-# Complete commit workflow: archive ticket, commit, and update ticket frontmatter
+# Complete archive workflow: move ticket, commit via commit skill, update frontmatter
 
 set -eu
 
@@ -45,29 +45,19 @@ mv "$TICKET" "$ARCHIVE_DIR/"
 ARCHIVED_TICKET="${ARCHIVE_DIR}/${TICKET_FILENAME}"
 echo "    ${ARCHIVED_TICKET}"
 
-# Build structured commit message
-COMMIT_BODY=""
-if [ -n "$MOTIVATION" ]; then
-    COMMIT_BODY="Motivation: ${MOTIVATION}
-
-"
-fi
-COMMIT_BODY="${COMMIT_BODY}UX Change: ${UX_CHANGE}
-
-Arch Change: ${ARCH_CHANGE}
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
-
-echo "==> Committing..."
+# Stage all changes including the archived ticket
+echo "==> Staging changes..."
 git add -A
-git commit -m "${COMMIT_MSG}
 
-${COMMIT_BODY}"
+# Delegate to commit skill (with --skip-staging since we already staged)
+SCRIPT_DIR=$(dirname "$0")
+COMMIT_SCRIPT="${SCRIPT_DIR}/../../commit/sh/commit.sh"
+
+bash "$COMMIT_SCRIPT" --skip-staging "$COMMIT_MSG" "$MOTIVATION" "$UX_CHANGE" "$ARCH_CHANGE"
 
 COMMIT_HASH=$(git rev-parse --short HEAD)
 
 echo "==> Updating ticket frontmatter..."
-SCRIPT_DIR=$(dirname "$0")
 UPDATE_SCRIPT="${SCRIPT_DIR}/../../update-ticket-frontmatter/sh/update.sh"
 bash "$UPDATE_SCRIPT" "$ARCHIVED_TICKET" "commit_hash" "$COMMIT_HASH"
 bash "$UPDATE_SCRIPT" "$ARCHIVED_TICKET" "category" "$CATEGORY"
@@ -77,6 +67,6 @@ git commit --amend --no-edit
 echo "==> Updated ticket with commit hash and category"
 
 echo ""
-echo "Done!"
+echo "Archive complete!"
 echo "  Commit: ${COMMIT_HASH}"
 echo "  Ticket: ${ARCHIVED_TICKET}"

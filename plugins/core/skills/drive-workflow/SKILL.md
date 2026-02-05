@@ -63,3 +63,21 @@ After implementation is complete, return a summary to the parent command:
 - **NEVER use AskUserQuestion** - drive command handles approval dialog
 - **NEVER archive tickets** - drive command handles archiving
 - After implementation, proceed to approval flow
+
+## Prohibited Operations
+
+**Context**: This repository may have multiple contributors (developers, other agents) working concurrently. Uncommitted changes in the working directory may not belong to you.
+
+The following destructive git commands are **NEVER** allowed during implementation:
+
+| Command | Risk | Alternative |
+|---------|------|-------------|
+| `git clean` | Deletes untracked files that may belong to other contributors | Do not use |
+| `git checkout .` | Discards all uncommitted changes including others' work | Use targeted checkout for specific files |
+| `git restore .` | Discards all uncommitted changes including others' work | Reserved for abandonment flow only |
+| `git reset --hard` | Discards all uncommitted changes and resets HEAD | Do not use |
+| `git stash drop` | Permanently deletes stashed changes | Only with explicit user request |
+
+**Rationale**: You are not the only one working in this repository. Destructive operations affect everyone's uncommitted work, not just your own implementation. Always check `git status` before any operation that discards changes, and be considerate of work that may not be yours.
+
+If an implementation requires discarding changes, use targeted commands that affect only specific files you modified, or request user approval first.

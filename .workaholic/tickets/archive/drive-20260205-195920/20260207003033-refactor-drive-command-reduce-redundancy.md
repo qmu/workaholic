@@ -3,9 +3,9 @@ created_at: 2026-02-07T00:30:33+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 26060c9
+category: Changed
 ---
 
 # Refactor drive.md to Reduce Redundancy Against Preloaded Skills
@@ -76,3 +76,12 @@ Past tickets that touched similar areas:
 - The "Session-wide tracking" note (lines 139-143) is drive-specific state management, not skill knowledge, so it stays (`plugins/core/commands/drive.md`)
 - The `> **Rule**: The ticket file must always reflect...` block (lines 105-106) adds emphasis to a drive-approval skill concept. After removing the redundant inline steps, this rule reminder can be kept as a one-line note referencing the skill, rather than expanding on the steps (`plugins/core/commands/drive.md`)
 - The "Approve and stop" path's instruction to "break out of the entire continuous loop" (line 95) is orchestration logic specific to the drive command's Phase 3/4 structure, so it must remain even after consolidation with "Approve" (`plugins/core/commands/drive.md` lines 87-96)
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The drive command had accumulated content over 6+ iterations of feature additions, each adding inline detail that overlapped with extracted skills. The "Approve" and "Approve and stop" paths were nearly identical (differing only in a loop-break instruction), making consolidation straightforward.
+  **Context**: Future skill extractions from commands should include a cleanup pass on the source command to remove restated content, preventing this gradual accumulation pattern.

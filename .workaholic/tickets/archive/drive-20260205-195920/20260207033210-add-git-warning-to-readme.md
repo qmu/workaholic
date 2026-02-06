@@ -3,9 +3,9 @@ created_at: 2026-02-07T03:32:10+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: a52e0a8
+category: Added
 ---
 
 # Add Git Manipulation Warning to Root README
@@ -67,3 +67,7 @@ Past tickets that touched similar areas:
 - Position the warning before the SDD `[!NOTE]` block so users see it first when scanning the README (`README.md` lines 39-48)
 - The existing SDD info card uses `[!NOTE]` -- using `[!WARNING]` here creates clear visual hierarchy between informational and cautionary content
 - Keep wording neutral and factual rather than alarming -- this is a feature disclosure, not a danger warning (`README.md`)
+
+## Final Report
+
+Added a `[!WARNING]` alert block to `README.md` between the opening description and `## Quick Start`. The wording was refined during review to be more natural: "This plugin drives git on your behalf" with a concise list of autonomous operations and a pointer to the command table below.

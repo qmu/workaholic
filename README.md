@@ -2,6 +2,9 @@
 
 Claude Code plugin aiming at in-repository ticket-driven development (TiDD). It stores project context in `.workaholic/` for better AI decisions, enabling fast serial development without worktree or multi-repo overhead.
 
+> [!WARNING]
+> **This plugin drives git on your behalf.** Workaholic lets Claude Code autonomously create branches, commit, amend, push, and open pull requests. Review the command list below before installing so you know what to expect.
+
 ## Quick Start
 
 ```bash

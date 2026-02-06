@@ -3,9 +3,9 @@ created_at: 2026-02-07T01:20:31+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 845b914
+category: Changed
 ---
 
 # Change H3 Heading Numbering from Dot to Hyphen Notation
@@ -128,3 +128,16 @@ Past tickets that touched similar areas:
 - The `create-pr` skill references `## 1. Summary` which uses h2 numbering (unchanged), but verify no h3 references use dot notation (`plugins/core/skills/create-pr/SKILL.md`)
 - Skills like `drive-approval` and `analyze-performance` contain numbered h3 headings in their own SKILL.md documentation structure, not just in templates for generated files. Decide whether the change applies only to output templates or also to the skill files themselves (`plugins/core/skills/drive-approval/SKILL.md`, `plugins/core/skills/analyze-performance/SKILL.md`)
 - The existing archived ticket `20260128-numbered-headings-rule.md` documents the original dot notation decision; this change supersedes that convention (`.workaholic/tickets/archive/feat-20260128-012023/20260128-numbered-headings-rule.md`)
+
+## Final Report
+
+### Changes
+
+- `plugins/core/rules/general.md` - Updated h3 example from `### 1.1. Subsection` to `### 1-1. Subsection`
+- `plugins/core/skills/write-story/SKILL.md` - Updated 8 h3 heading patterns from dot notation to hyphen notation (sections 4, 9, 10) and the format guideline
+
+### Verification
+
+- Searched all 24 SKILL.md files under `plugins/core/skills/` for h3 dot notation; only `write-story/SKILL.md` had matches
+- `create-pr/SKILL.md` confirmed to use only h2 numbering (`## 1. Summary`), no changes needed
+- `drive-approval`, `drive-workflow`, `analyze-performance`, `write-overview` skills verified clean

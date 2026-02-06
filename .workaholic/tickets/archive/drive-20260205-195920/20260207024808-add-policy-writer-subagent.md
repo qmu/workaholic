@@ -3,9 +3,9 @@ created_at: 2026-02-07T02:48:08+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: c0a73bd
+category: Added
 ---
 
 # Add Policy-Writer Subagent for Concurrent Policy Generation
@@ -188,3 +188,22 @@ Past tickets that touched similar areas:
 - **Index file management**: The policy-writer must create and maintain `README.md` and `README_ja.md` under `.workaholic/policies/`. These must also be linked from the parent `.workaholic/README.md` and `README_ja.md` (`plugins/core/agents/policy-writer.md`)
 - **Skill scope boundary**: The `analyze-policy` skill defines policy domain knowledge. It should not duplicate write-spec formatting rules. Policy documents follow the same frontmatter and content style as specs, so policy-analyst should reference write-spec conventions where applicable (`plugins/core/skills/analyze-policy/SKILL.md`)
 - **Scanner description update**: The scanner's description string in its frontmatter must be updated to include policy-writer, and the scan command's description must also reflect the new output directory (`plugins/core/agents/scanner.md`, `plugins/core/commands/scan.md`)
+
+## Final Report
+
+### Files Created
+- `plugins/core/skills/analyze-policy/SKILL.md` — Thin generic framework: output template, inference guidelines, comprehensiveness policy, file naming
+- `plugins/core/skills/analyze-policy/sh/gather.sh` — Context gathering with policy-domain-specific file scanning per slug
+- `plugins/core/agents/policy-analyst.md` — Thin subagent receiving policy definition from caller
+- `plugins/core/agents/policy-writer.md` — Orchestrator with 7 policy domain definitions (test, security, quality, accessibility, observability, delivery, recovery), dispatches parallel analysts
+- `.workaholic/policies/README.md` — English index listing 7 policy documents
+- `.workaholic/policies/README_ja.md` — Japanese index listing 7 policy documents
+
+### Files Modified
+- `plugins/core/agents/scanner.md` — 3 parallel agents to 4 (added policy-writer invocation and output field)
+- `plugins/core/commands/scan.md` — Added `.workaholic/policies/` to git add, updated description
+- `.workaholic/README.md` — Added policies link to artifact index
+- `.workaholic/README_ja.md` — Added policies link to artifact index
+
+### Design Decision
+Mirrors the viewpoint-based spec architecture pattern: policy domain definitions (descriptions, analysis prompts, output sections) live in policy-writer (the caller), while analyze-policy skill provides the generic framework (templates, inference guidelines, scripts).

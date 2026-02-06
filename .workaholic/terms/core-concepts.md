@@ -3,7 +3,7 @@ title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
 last_updated: 2026-02-07
-commit_hash: 82ffc1b
+commit_hash: d5001a0
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -83,6 +83,10 @@ TiDD (Ticket-Driven Development) is Workaholic's core philosophy where tickets s
 ## context-window
 
 A context window is the isolated conversation memory available to an agent during execution. When agents run in isolated contexts, they preserve the main conversation's context window for orchestration while handling implementation details in dedicated spaces, preventing context pollution from extensive file reads or complex analysis. Related terms: agent, orchestrator.
+
+## validate-writer-output
+
+The validate-writer-output skill provides a validation gate between analyst subagent invocation and README index updates in writer orchestrators. It accepts a directory path and a list of expected filenames, checks that each file exists and is non-empty, and outputs JSON with per-file status and an overall pass/fail result. Both spec-writer and policy-writer use this skill to prevent updating README files with links to non-existent documents. Defined in `plugins/core/skills/validate-writer-output/`. Related terms: spec-writer, policy-writer, architecture-analyst, policy-analyst.
 
 ## driver (Deprecated)
 

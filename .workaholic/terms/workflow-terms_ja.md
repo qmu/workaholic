@@ -2,8 +2,8 @@
 title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
-last_updated: 2026-02-04
-commit_hash:
+last_updated: 2026-02-07
+commit_hash: 82ffc1b
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -48,9 +48,17 @@ Workaholicのコンテキストでは、workflowはリリースプロセスとCI
 
 concurrent executionは複数の独立したエージェントが異なる場所に書き込み、依存関係がないときに並列で呼び出されるパターンです。オーケストレーションコマンドは単一のメッセージで複数のTaskツール呼び出しを送信し、同時作業を可能にします。例：`/story`はフェーズ1でchangelog-writer、spec-writer、terms-writer、release-readinessを同時に、フェーズ2でstory-writerを順次実行します。関連用語：agent、orchestrator、Task tool。
 
+## scan
+
+scanは`.workaholic/`ドキュメントをすべてのドキュメントスキャナーを並列で実行して更新するオペレーションです。`/scan`コマンドはscannerサブエージェントを呼び出し、4つのライターを同時にオーケストレートします：changelog-writer（CHANGELOG.mdを更新）、spec-writer（8つのviewpointベースのスペックを生成）、terms-writer（用語定義を維持）、policy-writer（7つのポリシードキュメントを生成）。すべてのライターが完了した後、変更はステージングされコミットされます。`/scan`コマンドで呼び出されます。関連用語：spec、terms、policy、changelog、scanner、concurrent-execution。
+
 ## approval
 
-approvalは実装後、コミット前に発生する`/drive`ワークフローの決定ポイントです。4つのオプションが提示されます：Approve（コミットして続行）、Approve and stop（コミットしてセッション終了）、Needs changes（修正を要求）、Abandon（変更を破棄、failure analysisを書き、abandonedに移動）。このゲートは正常に実装されたチケットのみがhistoryにコミットされることを確保します。関連用語：drive、ticket、abandon、commit。
+approvalは実装後、コミット前に発生する`/drive`ワークフローの決定ポイントです。3つの選択可能なオプションが提示されます：Approve（コミットして続行）、Approve and stop（コミットしてセッション終了）、Abandon（変更を破棄、failure analysisを書き、abandonedに移動）。ユーザーは「Other」オプションを介して自由形式のフィードバックも提供でき、これによりticket-update-firstルールがトリガーされます：コード変更の前にチケットのImplementation Stepsを更新する必要があります。以前の「Needs revision」選択可能オプションはこの自由形式フィードバックアプローチに置き換えられました。関連用語：drive、ticket、abandon、commit、feedback。
+
+## feedback
+
+feedbackは`/drive`承認中にユーザーが実装の変更を望むときに提供する自由形式テキストです。定義済みオプションを選択する代わりに、ユーザーは「Other」を選択してフィードバックを入力します。drive-approvalスキルはticket-update-firstルールを強制します：コード変更の前にチケットのImplementation Stepsセクションを新しいまたは修正されたステップで更新する必要があります。トレーサビリティのためにDiscussionセクションがチケットに追加され、ユーザーフィードバック、チケット更新、方向変更、実行されたアクションを記録します。関連用語：approval、drive、ticket。
 
 ## release-readiness
 

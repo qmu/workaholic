@@ -2,8 +2,8 @@
 title: File Conventions
 description: Naming patterns and directory structures used in Workaholic
 category: developer
-last_updated: 2026-02-04
-commit_hash:
+last_updated: 2026-02-07
+commit_hash: 82ffc1b
 ---
 
 [English](file-conventions.md) | [日本語](file-conventions_ja.md)
@@ -39,3 +39,7 @@ abandonedディレクトリ（`.workaholic/tickets/abandoned/`）は実装アプ
 ## guides
 
 guidesディレクトリ（`.workaholic/guides/`）はWorkaholicの使用方法を説明するユーザー向けドキュメントを含み、入門ガイド、コマンドリファレンス、ワークフロー例が含まれます。guidesは（技術的な実装詳細を記録する）specsとは異なり、エンドユーザーにアクセスしやすいように整理されています。関連用語：specs、kebab-case。
+
+## policies
+
+policiesディレクトリ（`.workaholic/policies/`）は7つの運用ドメインにわたるリポジトリのプラクティスを記述するポリシードキュメントを含みます：test、security、quality、accessibility、observability、delivery、recovery。各ドメインは2つのファイルを生成します：`<slug>.md`（英語）と`<slug>_ja.md`（日本語）。ポリシードキュメントは`/scan`中にpolicy-writerサブエージェントによって生成され、各ドメインは並列のpolicy-analystによって分析されます。ディレクトリには`README.md`と`README_ja.md`インデックスファイルが含まれます。関連用語：specs、terms、scan、policy。

@@ -2,8 +2,8 @@
 title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
-last_updated: 2026-02-04
-commit_hash:
+last_updated: 2026-02-07
+commit_hash: 82ffc1b
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -48,9 +48,17 @@ In Workaholic's context, workflow refers to GitHub Actions workflows (YAML files
 
 Concurrent execution is a pattern where multiple independent agents are invoked in parallel when they write to different locations and have no dependencies. The orchestrating command sends multiple Task tool invocations in a single message, allowing simultaneous work. Example: `/story` runs changelog-writer, spec-writer, terms-writer, and release-readiness concurrently in phase 1, then story-writer sequentially in phase 2. Related terms: agent, orchestrator, Task tool.
 
+## scan
+
+Scan is the operation that updates `.workaholic/` documentation by running all documentation scanners in parallel. The `/scan` command invokes the scanner subagent, which orchestrates 4 writers concurrently: changelog-writer (updates CHANGELOG.md), spec-writer (generates 8 viewpoint-based specs), terms-writer (maintains term definitions), and policy-writer (generates 7 policy documents). After all writers complete, changes are staged and committed. Invoked with `/scan` command. Related terms: spec, terms, policy, changelog, scanner, concurrent-execution.
+
 ## approval
 
-Approval is a decision point in `/drive` workflow that occurs after implementation and before commit. Four options are presented: Approve (commit and continue), Approve and stop (commit and end session), Needs changes (request modifications), and Abandon (discard changes, write failure analysis, move to abandoned). This gate ensures only successfully implemented tickets are committed to history. Related terms: drive, ticket, abandon, commit.
+Approval is a decision point in `/drive` workflow that occurs after implementation and before commit. Three selectable options are presented: Approve (commit and continue), Approve and stop (commit and end session), and Abandon (discard changes, write failure analysis, move to abandoned). Users can also provide free-form feedback via the "Other" option, which triggers the ticket-update-first rule: the ticket's Implementation Steps must be updated before any code changes are made. The previous "Needs revision" selectable option has been removed in favor of this free-form feedback approach. Related terms: drive, ticket, abandon, commit, feedback.
+
+## feedback
+
+Feedback is the free-form text a user provides during `/drive` approval when they want changes to the implementation. Rather than selecting a predefined option, users select "Other" and type their feedback. The drive-approval skill enforces the ticket-update-first rule: the ticket's Implementation Steps section must be updated with new or modified steps BEFORE any code changes are made. A Discussion section is appended to the ticket for traceability, recording the user feedback, ticket updates, direction change, and action taken. Related terms: approval, drive, ticket.
 
 ## release-readiness
 

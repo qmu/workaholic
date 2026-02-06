@@ -1,19 +1,31 @@
 ---
 title: Technical Specifications
-description: Technical specifications for developers contributing to Workaholic
+description: Viewpoint-based architecture specifications for the Workaholic plugin system
 category: developer
-modified_at: 2026-02-01T11:00:00+09:00
-commit_hash: 277b63b
+modified_at: 2026-02-07T03:08:37+09:00
+commit_hash: 82ffc1b
 ---
 
 [English](README.md) | [日本語](README_ja.md)
 
 # Technical Specifications
 
-Technical specifications for developers contributing to Workaholic.
+Viewpoint-based architecture specifications for the Workaholic plugin system. Each viewpoint analyzes the codebase from a different perspective.
 
-- [Architecture](architecture.md) - Plugin structure and marketplace design
-- [Command Flows](command-flows.md) - How commands invoke agents and skills
-- [Contributing](contributing.md) - How to add or modify plugins
+- [Stakeholder](stakeholder.md) - Who uses the system, their goals, interaction patterns
+- [Model](model.md) - Domain concepts, relationships, core abstractions
+- [Use Case](usecase.md) - User workflows, command sequences, input/output contracts
+- [Infrastructure](infrastructure.md) - External dependencies, file system layout, installation
+- [Application](application.md) - Runtime behavior, agent orchestration, data flow
+- [Component](component.md) - Internal structure, module boundaries, decomposition
+- [Data](data.md) - Data formats, frontmatter schemas, naming conventions
+- [Feature](feature.md) - Feature inventory, capability matrix, configuration
+
+### Legacy Documents
+
+- [Architecture](architecture.md) - Plugin structure and marketplace design (superseded by Component and Infrastructure viewpoints)
+- [Command Flows](command-flows.md) - How commands invoke agents and skills (superseded by Application and Use Case viewpoints)
+- [Contributing](contributing.md) - How to add or modify plugins (superseded by Stakeholder viewpoint)
 
 For user documentation, see [../guides/](../guides/README.md).
+For policy documentation, see [../policies/](../policies/README.md).

@@ -2,8 +2,8 @@
 title: Policies
 description: Policy documentation covering testing, security, quality, and operational practices
 category: developer
-modified_at: 2026-02-07T03:26:29+09:00
-commit_hash: d5001a0
+modified_at: 2026-02-07T03:08:37+09:00
+commit_hash: 82ffc1b
 ---
 
 [English](README.md) | [日本語](README_ja.md)

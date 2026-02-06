@@ -2,8 +2,7 @@
 title: Architecture
 description: Plugin structure and marketplace design
 category: developer
-modified_at: 2026-02-07T03:26:29+09:00
-commit_hash: d5001a0
+modified_at: 2026-02-03T16:10:00+09:00
 ---
 
 [English](architecture.md) | [日本語](architecture_ja.md)

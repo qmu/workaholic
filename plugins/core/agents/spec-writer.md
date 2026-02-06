@@ -5,6 +5,7 @@ tools: Read, Write, Edit, Bash, Glob, Grep, Task
 skills:
   - analyze-viewpoint
   - write-spec
+  - validate-writer-output
 ---
 
 # Spec Writer
@@ -88,9 +89,15 @@ You will receive:
 
    All 8 invocations must be in a single message to run concurrently.
 
-3. **Update Index Files**: After all analysts complete, update `.workaholic/specs/README.md` and `README_ja.md` to list all 8 viewpoint documents. Follow the preloaded write-spec skill for index file rules.
+3. **Validate Output**: After all analysts complete, verify that each expected output file exists and is non-empty:
+   ```bash
+   bash .claude/skills/validate-writer-output/sh/validate.sh .workaholic/specs stakeholder.md model.md usecase.md infrastructure.md application.md component.md data.md feature.md
+   ```
+   Parse the JSON result. If `pass` is `false`, do NOT proceed to step 4. Instead, report failure status with the list of missing/empty files.
 
-4. **Report Status**: Collect results from all 8 analysts and report per-viewpoint status.
+4. **Update Index Files**: Only after validation passes, update `.workaholic/specs/README.md` and `README_ja.md` to list all 8 viewpoint documents. Follow the preloaded write-spec skill for index file rules.
+
+5. **Report Status**: Collect results from all 8 analysts and report per-viewpoint status. Include validation results.
 
 ## Output
 
@@ -98,6 +105,7 @@ Return JSON with per-viewpoint status:
 
 ```json
 {
+  "validation": { "pass": true },
   "viewpoints": {
     "stakeholder": { "status": "success" },
     "model": { "status": "success" },

@@ -34,19 +34,21 @@ The user-facing capabilities the system exposes, their boundaries, and how they 
 ----------------
 
 
-## 4.Reliability
+# Policies
 
-### 4-1.Assurance
+## 1.Test
 The verification and validation strategy — testing levels, coverage targets, and processes that ensure correctness.
-### 4-2.Security
+## 2.Security
 The assets worth protecting, threat model, authentication/authorization boundaries, and safeguards in place.
-### 4-3.Quality
+## 3.Quality
 Code quality standards, linting rules, review processes, and metrics (e.g., complexity, duplication) used to maintain maintainability.
-### 4-4.Accessibility
+## 4.Accessibility
 Compliance targets (WCAG levels, i18n support), assistive technology considerations, and inclusive design practices.
-### 4-5.Delivery
+## 5.Observability
+The observability strategy: metrics collected, logging practices, tracing implementation, and alerting thresholds.
+## 6.Delivery
 The CI/CD pipeline stages, deployment strategies (blue-green, canary, etc.), and artifact promotion flow from source to production.
-### 4-6.Backup
+## 7.Recovery
 Data backup schedules, retention policies, disaster recovery procedures, and RTO/RPO targets.
 
 

@@ -3,9 +3,9 @@ created_at: 2026-02-07T02:39:21+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: aadea40
+category: Added
 ---
 
 # Implement Viewpoint-Based Spec Architecture for /scan Command
@@ -112,3 +112,18 @@ Past tickets that touched similar areas:
 - **write-spec skill backward compatibility**: Other consumers of write-spec skill (if any beyond spec-writer) should not break from the directory structure changes (`plugins/core/skills/write-spec/SKILL.md`)
 - **Spec README updates**: Both `.workaholic/specs/README.md` and `README_ja.md` must be updated to list 8 viewpoint files instead of 3 ad-hoc files (`.workaholic/specs/README.md`)
 - **Architecture spec self-reference**: The architecture.md spec currently documents the full plugin structure including itself. Under the new system, this self-referential content splits across component and infrastructure viewpoints - ensure no coverage gaps (`plugins/core/agents/architecture-analyst.md`)
+
+## Final Report
+
+### Files Created
+- `plugins/core/skills/analyze-viewpoint/SKILL.md` — Generic framework: output template, assumption rules, comprehensiveness policy, inference guidelines, cross-viewpoint references
+- `plugins/core/skills/analyze-viewpoint/sh/gather.sh` — Context gathering script with viewpoint-specific file listings per slug
+- `plugins/core/skills/analyze-viewpoint/sh/read-overrides.sh` — Reads CLAUDE.md for viewpoint override directives
+- `plugins/core/agents/architecture-analyst.md` — Thin subagent receiving viewpoint definition from caller, using skill framework to analyze and write specs
+
+### Files Modified
+- `plugins/core/agents/spec-writer.md` — Rewritten from 7-step sequential process to orchestrator with 8 viewpoint definitions and parallel architecture-analyst dispatch
+- `plugins/core/skills/write-spec/SKILL.md` — Updated directory structure, file naming, and index file sections for 8-viewpoint convention
+
+### Design Decision
+Viewpoint definitions (descriptions, analysis prompts, diagram types, output sections) live in spec-writer (the caller), not in the analyze-viewpoint skill. The skill provides the generic analysis framework (templates, rules, scripts). This ensures the caller controls what gets dispatched while the skill remains a reusable thin utility.

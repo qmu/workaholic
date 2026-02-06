@@ -3,7 +3,7 @@ title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
 last_updated: 2026-02-07
-commit_hash: 82ffc1b
+commit_hash: d5001a0
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)

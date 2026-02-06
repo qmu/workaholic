@@ -7,6 +7,7 @@
 - Add Filesystem Validation to Spec-Writer ([e1058bb](https://github.com/qmu/workaholic/commit/e1058bb)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260205203449-add-filesystem-validation-to-spec-writer.md)
 - Implement Viewpoint-Based Spec Architecture for /scan Command ([aadea40](https://github.com/qmu/workaholic/commit/aadea4076e5435b890edc3504dedb5ed877f5dcf)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260207023921-viewpoint-based-spec-architecture.md)
 - Add Policy-Writer Subagent for Concurrent Policy Generation ([c0a73bd](https://github.com/qmu/workaholic/commit/c0a73bd99eaaf0fe058b7786477690c72b1c649c)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260207024808-add-policy-writer-subagent.md)
+- Add validate-writer-output Skill and Fix Broken README Links ([d5001a0](https://github.com/qmu/workaholic/commit/d5001a0)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260207031812-validate-analyst-output-before-readme-update.md)
 
 ### Changed
 

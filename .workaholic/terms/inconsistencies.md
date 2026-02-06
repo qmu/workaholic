@@ -3,7 +3,7 @@ title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
 last_updated: 2026-02-07
-commit_hash: 82ffc1b
+commit_hash: d5001a0
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)

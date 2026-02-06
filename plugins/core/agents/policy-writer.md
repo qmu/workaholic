@@ -5,6 +5,7 @@ tools: Read, Write, Edit, Bash, Glob, Grep, Task
 skills:
   - gather-git-context
   - analyze-policy
+  - validate-writer-output
 ---
 
 # Policy Writer
@@ -71,9 +72,15 @@ You will receive:
 
    All 7 invocations must be in a single message to run concurrently.
 
-3. **Update Index Files**: After all analysts complete, update `.workaholic/policies/README.md` and `README_ja.md` to list all 7 policy documents.
+3. **Validate Output**: After all analysts complete, verify that each expected output file exists and is non-empty:
+   ```bash
+   bash .claude/skills/validate-writer-output/sh/validate.sh .workaholic/policies test.md security.md quality.md accessibility.md observability.md delivery.md recovery.md
+   ```
+   Parse the JSON result. If `pass` is `false`, do NOT proceed to step 4. Instead, report failure status with the list of missing/empty files.
 
-4. **Report Status**: Collect results from all 7 analysts and report per-domain status.
+4. **Update Index Files**: Only after validation passes, update `.workaholic/policies/README.md` and `README_ja.md` to list all 7 policy documents.
+
+5. **Report Status**: Collect results from all 7 analysts and report per-domain status. Include validation results.
 
 ## Output
 
@@ -81,6 +88,7 @@ Return JSON with per-policy status:
 
 ```json
 {
+  "validation": { "pass": true },
   "policies": {
     "test": { "status": "success" },
     "security": { "status": "success" },

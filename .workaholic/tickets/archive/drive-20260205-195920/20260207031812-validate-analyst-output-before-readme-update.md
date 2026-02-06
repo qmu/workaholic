@@ -3,8 +3,8 @@ created_at: 2026-02-07T03:18:12+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
+effort: 0.5h
+commit_hash: 39f63ee
 category:
 ---
 
@@ -136,3 +136,12 @@ Past tickets that touched similar areas:
 - Consider whether partial success should be allowed (e.g., 6 of 8 analysts succeed and README links only the 6 that exist), or if all-or-nothing is preferred. The initial implementation should require all files to exist, with partial success as a future enhancement (`plugins/core/agents/spec-writer.md`)
 - The existing `write-spec` skill's "No orphan documents" critical rule already implies this validation should happen, but it was not enforced procedurally (`plugins/core/skills/write-spec/SKILL.md` line 173)
 - A similar skipped-invocation bug was fixed previously in story-writer (`20260131192343`), suggesting this is a recurring pattern that the validation skill can address generically across all writer subagents (`plugins/core/agents/scanner.md`)
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The `write-spec` skill's "No orphan documents" rule (line 172) already implied validation should happen, but the rule was a post-hoc constraint on README content rather than a procedural gate on the workflow. Converting documentation constraints into executable validation steps is more robust than relying on instruction-following.
+  **Context**: This pattern applies to any subagent workflow where step N depends on output from step N-1 — adding a validation gate script is more reliable than adding stronger wording to instructions.

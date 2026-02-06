@@ -78,26 +78,45 @@ You will receive:
 
 ## Instructions
 
-1. **Gather Base Context**: Get the current commit hash for frontmatter:
-   ```bash
-   git rev-parse --short HEAD
-   ```
+### Phase 1: Gather Base Context
 
-2. **Invoke 8 Architecture Analysts in Parallel**: Use a single message with 8 Task tool calls.
+Get the current commit hash for frontmatter:
+```bash
+git rev-parse --short HEAD
+```
 
-   For each viewpoint above, invoke with `subagent_type: "core:architecture-analyst"`, `model: "sonnet"` and pass the viewpoint's full definition (description, analysis prompts, Mermaid diagram type, output sections) in the prompt along with the base branch.
+### Phase 2: Invoke Architecture Analysts
 
-   All 8 invocations must be in a single message to run concurrently.
+Invoke all 8 architecture analysts in parallel. Use a single message with 8 Task tool calls.
 
-3. **Validate Output**: After all analysts complete, verify that each expected output file exists and is non-empty:
-   ```bash
-   bash .claude/skills/validate-writer-output/sh/validate.sh .workaholic/specs stakeholder.md model.md usecase.md infrastructure.md application.md component.md data.md feature.md
-   ```
-   Parse the JSON result. If `pass` is `false`, do NOT proceed to step 4. Instead, report failure status with the list of missing/empty files.
+For each viewpoint defined in the Viewpoints section above, invoke with `subagent_type: "core:architecture-analyst"`, `model: "sonnet"`. Pass the viewpoint slug, its full definition (description, analysis prompts, Mermaid diagram type, output sections), and the base branch.
 
-4. **Update Index Files**: Only after validation passes, update `.workaholic/specs/README.md` and `README_ja.md` to list all 8 viewpoint documents. Follow the preloaded write-spec skill for index file rules.
+- **stakeholder** (`subagent_type: "core:architecture-analyst"`, `model: "sonnet"`): Pass slug "stakeholder", definition from Viewpoints section, base branch.
+- **model** (`subagent_type: "core:architecture-analyst"`, `model: "sonnet"`): Pass slug "model", definition from Viewpoints section, base branch.
+- **usecase** (`subagent_type: "core:architecture-analyst"`, `model: "sonnet"`): Pass slug "usecase", definition from Viewpoints section, base branch.
+- **infrastructure** (`subagent_type: "core:architecture-analyst"`, `model: "sonnet"`): Pass slug "infrastructure", definition from Viewpoints section, base branch.
+- **application** (`subagent_type: "core:architecture-analyst"`, `model: "sonnet"`): Pass slug "application", definition from Viewpoints section, base branch.
+- **component** (`subagent_type: "core:architecture-analyst"`, `model: "sonnet"`): Pass slug "component", definition from Viewpoints section, base branch.
+- **data** (`subagent_type: "core:architecture-analyst"`, `model: "sonnet"`): Pass slug "data", definition from Viewpoints section, base branch.
+- **feature** (`subagent_type: "core:architecture-analyst"`, `model: "sonnet"`): Pass slug "feature", definition from Viewpoints section, base branch.
 
-5. **Report Status**: Collect results from all 8 analysts and report per-viewpoint status. Include validation results.
+All 8 invocations MUST be in a single message to run concurrently. Wait for all 8 analysts to complete before proceeding.
+
+### Phase 3: Validate Output
+
+After all analysts complete, verify that each expected output file exists and is non-empty:
+```bash
+bash .claude/skills/validate-writer-output/sh/validate.sh .workaholic/specs stakeholder.md model.md usecase.md infrastructure.md application.md component.md data.md feature.md
+```
+Parse the JSON result. If `pass` is `false`, do NOT proceed to Phase 4. Instead, report failure status with the list of missing/empty files.
+
+### Phase 4: Update Index Files
+
+Only after validation passes, update `.workaholic/specs/README.md` and `README_ja.md` to list all 8 viewpoint documents. Follow the preloaded write-spec skill for index file rules.
+
+### Phase 5: Report Status
+
+Collect results from all 8 analysts and report per-viewpoint status. Include validation results.
 
 ## Output
 

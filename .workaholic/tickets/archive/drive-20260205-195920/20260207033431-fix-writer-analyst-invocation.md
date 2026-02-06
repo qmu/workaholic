@@ -3,9 +3,9 @@ created_at: 2026-02-07T03:34:31+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 6d3f267
+category: Changed
 ---
 
 # Fix spec-writer and policy-writer to Actually Invoke Analyst Subagents
@@ -197,3 +197,7 @@ Past tickets that touched similar areas:
 - **Model parameter**: Both writers specify `model: "sonnet"` for analysts. If sonnet-level models have trouble with the analysis depth required, consider upgrading to `model: "opus"` after initial testing (`plugins/core/agents/spec-writer.md` line 88, `plugins/core/agents/policy-writer.md` line 71)
 - **Token budget**: Invoking 8+7 = 15 parallel subagents from a single scan operation generates substantial token usage. The Phase-based structure should not increase token costs beyond the existing (non-working) instructions since the content is the same, just restructured (`plugins/core/agents/scanner.md`)
 - **Recurring pattern**: This is the second skipped-invocation bug (after story-writer fix in 20260131192343). Consider whether a generic "invocation checklist" pattern should be documented as a design guideline for all orchestrator subagents (`plugins/core/agents/story-writer.md`)
+
+## Final Report
+
+Restructured both `spec-writer.md` and `policy-writer.md` Instructions sections from flat numbered steps to Phase-based headings (`### Phase 1` through `### Phase 5`), matching the working `story-writer.md` pattern. Each analyst invocation is now an explicit bullet point with `subagent_type` and `model` spelled out, replacing the generic "for each viewpoint/domain above" instruction. Added explicit "Wait for all N analysts to complete before proceeding" gating. Verification via `/scan` was deferred to avoid the cost of 15 parallel subagent invocations during this drive session.

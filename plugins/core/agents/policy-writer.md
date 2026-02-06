@@ -64,23 +64,41 @@ You will receive:
 
 ## Instructions
 
-1. **Gather Context**: Use the preloaded gather-git-context skill to get branch and base branch info.
+### Phase 1: Gather Context
 
-2. **Invoke 7 Policy Analysts in Parallel**: Use a single message with 7 Task tool calls.
+Use the preloaded gather-git-context skill to get branch and base branch info.
 
-   For each policy domain above, invoke with `subagent_type: "core:policy-analyst"`, `model: "sonnet"` and pass the domain's full definition (description, analysis prompts, output sections) in the prompt along with the base branch.
+### Phase 2: Invoke Policy Analysts
 
-   All 7 invocations must be in a single message to run concurrently.
+Invoke all 7 policy analysts in parallel. Use a single message with 7 Task tool calls.
 
-3. **Validate Output**: After all analysts complete, verify that each expected output file exists and is non-empty:
-   ```bash
-   bash .claude/skills/validate-writer-output/sh/validate.sh .workaholic/policies test.md security.md quality.md accessibility.md observability.md delivery.md recovery.md
-   ```
-   Parse the JSON result. If `pass` is `false`, do NOT proceed to step 4. Instead, report failure status with the list of missing/empty files.
+For each policy domain defined in the Policy Domains section above, invoke with `subagent_type: "core:policy-analyst"`, `model: "sonnet"`. Pass the policy slug, its full definition (description, analysis prompts, output sections), and the base branch.
 
-4. **Update Index Files**: Only after validation passes, update `.workaholic/policies/README.md` and `README_ja.md` to list all 7 policy documents.
+- **test** (`subagent_type: "core:policy-analyst"`, `model: "sonnet"`): Pass slug "test", definition from Policy Domains section, base branch.
+- **security** (`subagent_type: "core:policy-analyst"`, `model: "sonnet"`): Pass slug "security", definition from Policy Domains section, base branch.
+- **quality** (`subagent_type: "core:policy-analyst"`, `model: "sonnet"`): Pass slug "quality", definition from Policy Domains section, base branch.
+- **accessibility** (`subagent_type: "core:policy-analyst"`, `model: "sonnet"`): Pass slug "accessibility", definition from Policy Domains section, base branch.
+- **observability** (`subagent_type: "core:policy-analyst"`, `model: "sonnet"`): Pass slug "observability", definition from Policy Domains section, base branch.
+- **delivery** (`subagent_type: "core:policy-analyst"`, `model: "sonnet"`): Pass slug "delivery", definition from Policy Domains section, base branch.
+- **recovery** (`subagent_type: "core:policy-analyst"`, `model: "sonnet"`): Pass slug "recovery", definition from Policy Domains section, base branch.
 
-5. **Report Status**: Collect results from all 7 analysts and report per-domain status. Include validation results.
+All 7 invocations MUST be in a single message to run concurrently. Wait for all 7 analysts to complete before proceeding.
+
+### Phase 3: Validate Output
+
+After all analysts complete, verify that each expected output file exists and is non-empty:
+```bash
+bash .claude/skills/validate-writer-output/sh/validate.sh .workaholic/policies test.md security.md quality.md accessibility.md observability.md delivery.md recovery.md
+```
+Parse the JSON result. If `pass` is `false`, do NOT proceed to Phase 4. Instead, report failure status with the list of missing/empty files.
+
+### Phase 4: Update Index Files
+
+Only after validation passes, update `.workaholic/policies/README.md` and `README_ja.md` to list all 7 policy documents.
+
+### Phase 5: Report Status
+
+Collect results from all 7 analysts and report per-domain status. Include validation results.
 
 ## Output
 

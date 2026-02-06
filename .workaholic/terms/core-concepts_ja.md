@@ -3,7 +3,7 @@ title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
 last_updated: 2026-02-07
-commit_hash: d5001a0
+commit_hash: 82ffc1b
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -83,10 +83,6 @@ TiDD（Ticket-Driven Development）はチケットが計画と完了した作業
 ## context-window
 
 context windowはエージェントが実行中に利用可能な隔離された会話メモリです。エージェントが隔離されたコンテキストで実行されるとき、メイン会話のコンテキストウィンドウをオーケストレーション用に保持しながら、実装の詳細を専用スペースで処理し、大量のファイル読み取りや複雑な分析からのコンテキスト汚染を防ぎます。関連用語：agent、orchestrator。
-
-## validate-writer-output
-
-validate-writer-outputスキルは、ライターオーケストレーターにおいてアナリストサブエージェント呼び出しとREADMEインデックス更新の間にバリデーションゲートを提供します。ディレクトリパスと期待されるファイル名のリストを受け取り、各ファイルが存在し空でないことをチェックし、ファイルごとのステータスと全体の合格/不合格結果を含むJSONを出力します。spec-writerとpolicy-writerの両方がこのスキルを使用して、存在しないドキュメントへのリンクでREADMEファイルを更新することを防ぎます。`plugins/core/skills/validate-writer-output/`で定義されています。関連用語：spec-writer、policy-writer、architecture-analyst、policy-analyst。
 
 ## driver（廃止）
 

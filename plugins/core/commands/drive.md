@@ -41,72 +41,32 @@ For each ticket in the ordered list:
 
 #### Step 2.1: Implement Ticket
 
-Follow the preloaded **drive-workflow** skill directly in this command:
+Follow the preloaded **drive-workflow** skill. Implementation context is preserved in the main conversation, providing full visibility of changes made.
 
-1. **Read the ticket file** to understand requirements
-2. **Identify key files** mentioned in the ticket
-3. **Implement changes** following the ticket's implementation steps
-4. **Run type checks** per CLAUDE.md to verify changes
-5. Fix any type errors or test failures before proceeding
+#### Step 2.2: Request Approval
 
-Implementation context is preserved in the main conversation, providing full visibility of changes made.
-
-#### Step 2.2: Request User Approval
-
-After implementation is complete, present approval dialog to user.
-
-Follow the preloaded **drive-approval** skill (Section 1) format:
-
-```
-**Ticket: <title from ticket H1>**
-<overview from ticket Overview section>
-
-Implementation complete. Changes made:
-- <change 1>
-- <change 2>
-
-[AskUserQuestion with selectable options]
-```
+Follow the preloaded **drive-approval** skill (Section 1) to present approval dialog.
 
 **CRITICAL**: Use `AskUserQuestion` with selectable `options`. NEVER proceed without explicit user approval.
 
 #### Step 2.3: Handle User Response
 
-Based on user's selection:
-
-**"Approve"**:
+**"Approve" or "Approve and stop"**:
 1. Follow **write-final-report** skill to update ticket effort and append Final Report section
 2. **Verify update succeeded**: If Edit tool fails, halt and report the error to user. DO NOT proceed to archive.
-3. Archive and commit using the preloaded **archive-ticket** skill:
-   ```bash
-   bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/archive-ticket/sh/archive.sh \
-     "<ticket-path>" "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
-   ```
-4. Continue to next ticket
-
-**"Approve and stop"**:
-1. Follow **write-final-report** skill to update ticket effort and append Final Report section
-2. **Verify update succeeded**: If Edit tool fails, halt and report the error to user. DO NOT proceed to archive.
-3. Archive and commit using the preloaded **archive-ticket** skill:
-   ```bash
-   bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/archive-ticket/sh/archive.sh \
-     "<ticket-path>" "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
-   ```
-4. **Break out of the entire continuous loop** - skip Phase 3 re-check, go directly to Phase 4 completion
-5. Report session summary and any remaining tickets in queue
+3. Archive and commit using the preloaded **archive-ticket** skill
+4. If "Approve and stop": break loop, skip Phase 3, go directly to Phase 4
+5. Otherwise: continue to next ticket
 
 **Free-form feedback** (user selects "Other" and provides text):
 1. Follow **drive-approval** skill (Section 3: Handle Feedback)
-2. **FIRST**: Update the ticket's Implementation Steps section with new/modified steps
-3. Append Discussion section to record the feedback exchange
-4. **THEN**: Re-implement changes based on updated ticket
-5. Return to Step 2.2 (request approval again)
+2. Re-implement changes based on updated ticket
+3. Return to Step 2.2
 
 > **Rule**: The ticket file must always reflect the full implementation plan. Update it BEFORE coding.
-> See "Feedback Loop" section in plugins/core/README.md.
 
 **"Abandon"**:
-1. Follow **drive-approval** skill (Section 4) (discard changes, write failure analysis)
+1. Follow **drive-approval** skill (Section 4)
 2. Continue to next ticket
 
 ### Phase 3: Re-check and Continue
@@ -121,9 +81,7 @@ After all tickets from the navigator's list are processed:
 2. **If new tickets found**:
    - Inform user: "Found N new ticket(s) added during this session."
    - Re-invoke drive-navigator with mode = "normal"
-   - Handle navigator response (same as Phase 1)
    - Continue to Phase 2 with the new ticket list
-   - Repeat until todo is empty or user stops
 
 3. **If no new tickets**:
    - Check icebox (existing behavior from navigator)
@@ -134,7 +92,6 @@ After all tickets from the navigator's list are processed:
 After todo is truly empty (and user declines icebox):
 - Summarize what was done across all batches
 - List all commits created during the session
-- Inform user that all tickets have been processed
 
 **Session-wide tracking**: Maintain counters across multiple navigator batches:
 - Total tickets implemented
@@ -155,24 +112,3 @@ If a ticket cannot be implemented (out of scope, too complex, blocked, or any ot
    - "Abort drive" - Stop the drive session entirely
 
 **Never commit ticket moves without explicit developer approval.**
-
-## Git Safety
-
-**Context**: You are not the only one working in this repository. Multiple developers and agents may have uncommitted changes in the working directory.
-
-**All commits must use the commit skill** (`plugins/core/skills/commit/`) for:
-- Consistent message formatting (title, motivation, UX/Arch changes)
-- Pre-commit safety checks
-- Multi-contributor awareness
-
-**NEVER execute destructive git operations** without careful consideration:
-
-- `git clean` - Deletes untracked files that may belong to other contributors
-- `git checkout .` / `git restore .` - Discards all uncommitted changes including others' work
-- `git reset --hard` - Discards all changes (never use)
-
-Before any operation that discards changes:
-1. Run `git status` to understand what uncommitted changes exist
-2. Identify which changes are yours vs. potentially from other contributors
-3. Use targeted commands affecting only files you modified
-4. When in doubt, ask the user before discarding anything

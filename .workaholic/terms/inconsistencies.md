@@ -2,8 +2,8 @@
 title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
-last_updated: 2026-02-01
-commit_hash: 277b63b
+last_updated: 2026-02-07
+commit_hash: 82ffc1b
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -291,3 +291,51 @@ Historical documentation may state that `/report` runs 5 agents concurrently. Th
 ### Recommended Resolution
 
 Update references to clarify the two-phase execution model. Historical documents should remain unchanged as they reflect the architecture at that time.
+
+## Legacy "Needs revision" Approval Option References
+
+### Issue
+
+The "Needs revision" selectable option was removed from the `/drive` approval dialog. User feedback is now provided through the "Other" free-form input option, which enforces the ticket-update-first rule.
+
+### Current Usage
+
+- Current: Three selectable options (Approve, Approve and stop, Abandon) plus free-form "Other"
+- Historical: Four options including "Needs revision"
+- The feedback functionality remains but is now accessed via "Other" with explicit ticket-update-first enforcement
+
+### Recommended Resolution
+
+Update any references to "Needs revision" as a selectable option. The feedback mechanism now uses "Other" and requires updating the ticket's Implementation Steps before making code changes. Historical documents should remain unchanged.
+
+## Legacy Ad-Hoc Spec File References
+
+### Issue
+
+The spec directory previously contained 3 ad-hoc files (`architecture.md`, `command-flows.md`, `contributing.md`). These have been superseded by 8 viewpoint-based architecture documents (`stakeholder.md`, `model.md`, `usecase.md`, `infrastructure.md`, `application.md`, `component.md`, `data.md`, `feature.md`).
+
+### Current Usage
+
+- Current: 8 viewpoint-based specs in `.workaholic/specs/` with `_ja.md` translations
+- Historical: `architecture.md`, `command-flows.md`, `contributing.md`
+- Legacy files may still exist until fully replaced by viewpoint outputs
+
+### Recommended Resolution
+
+Update any references to the old spec filenames to use the viewpoint-based filenames. The content from `architecture.md` is now split across `component.md` and `infrastructure.md` viewpoints.
+
+## H3 Heading Numbering Convention Change
+
+### Issue
+
+H3 heading numbering changed from dot notation (`### 1.1. Subsection`) to hyphen notation (`### 1-1. Subsection`). Historical documents use the old dot notation.
+
+### Current Usage
+
+- Current: `### 1-1. Subsection` (hyphen notation)
+- Historical: `### 1.1. Subsection` (dot notation)
+- H2 format unchanged: `## 1. Section`
+
+### Recommended Resolution
+
+New documents should use hyphen notation. Historical documents (archived stories, tickets) should remain unchanged as they reflect the convention at the time of creation.

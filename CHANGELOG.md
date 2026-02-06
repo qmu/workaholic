@@ -1,5 +1,23 @@
 # Changelog
 
+## drive-20260205-195920
+
+### Added
+
+- Add Filesystem Validation to Spec-Writer ([e1058bb](https://github.com/qmu/workaholic/commit/e1058bb)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260205203449-add-filesystem-validation-to-spec-writer.md)
+- Implement Viewpoint-Based Spec Architecture for /scan Command ([aadea40](https://github.com/qmu/workaholic/commit/aadea4076e5435b890edc3504dedb5ed877f5dcf)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260207023921-viewpoint-based-spec-architecture.md)
+- Add Policy-Writer Subagent for Concurrent Policy Generation ([c0a73bd](https://github.com/qmu/workaholic/commit/c0a73bd99eaaf0fe058b7786477690c72b1c649c)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260207024808-add-policy-writer-subagent.md)
+
+### Changed
+
+- Improve Concerns Section with Identifiable References ([eb43fa7](https://github.com/qmu/workaholic/commit/eb43fa7)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260205195247-improve-concerns-section-traceability.md)
+- Refactor drive.md to Reduce Redundancy Against Preloaded Skills ([26060c9](https://github.com/qmu/workaholic/commit/26060c9dacc4e8ed623d58f0a87d285f67f4b2df)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260207003033-refactor-drive-command-reduce-redundancy.md)
+- Change H3 Heading Numbering from Dot to Hyphen Notation ([845b914](https://github.com/qmu/workaholic/commit/845b91441a2553dec552832895429d73184f7bbb)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260207012031-hyphen-notation-for-h3-headings.md)
+
+### Removed
+
+- Remove "Needs revision" Option and Enforce Ticket-Update-First Rule ([ebe38a7](https://github.com/qmu/workaholic/commit/ebe38a7)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260205210724-remove-needs-revision-option-enforce-ticket-update.md)
+
 ## drive-20260202-134332
 
 ### Added

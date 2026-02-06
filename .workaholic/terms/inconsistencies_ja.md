@@ -2,8 +2,8 @@
 title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
-last_updated: 2026-02-01
-commit_hash: 277b63b
+last_updated: 2026-02-07
+commit_hash: 82ffc1b
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -291,3 +291,51 @@ TDDプラグインへの残りの参照をcoreプラグインへの参照に更�
 ### 推奨される解決策
 
 2フェーズ実行モデルを明確にするために参照を更新してください。過去のドキュメントはその時点のアーキテクチャを反映しているため、変更しないでください。
+
+## レガシー「Needs revision」承認オプション参照
+
+### 問題
+
+「Needs revision」選択可能オプションは`/drive`承認ダイアログから削除されました。ユーザーフィードバックは現在「Other」自由形式入力オプションを通じて提供され、ticket-update-firstルールが強制されます。
+
+### 現在の使用状況
+
+- 現在：3つの選択可能オプション（Approve、Approve and stop、Abandon）と自由形式の「Other」
+- 過去：「Needs revision」を含む4つのオプション
+- フィードバック機能は残っていますが、現在は明示的なticket-update-first強制付きの「Other」を介してアクセス
+
+### 推奨される解決策
+
+選択可能オプションとしての「Needs revision」への参照を更新してください。フィードバックメカニズムは現在「Other」を使用し、コード変更の前にチケットのImplementation Stepsの更新を要求します。過去のドキュメントは変更しないでください。
+
+## レガシーアドホックスペックファイル参照
+
+### 問題
+
+スペックディレクトリには以前3つのアドホックファイル（`architecture.md`、`command-flows.md`、`contributing.md`）が含まれていました。これらは8つのviewpointベースのアーキテクチャドキュメント（`stakeholder.md`、`model.md`、`usecase.md`、`infrastructure.md`、`application.md`、`component.md`、`data.md`、`feature.md`）に置き換えられました。
+
+### 現在の使用状況
+
+- 現在：`.workaholic/specs/`に8つのviewpointベースのスペックと`_ja.md`翻訳
+- 過去：`architecture.md`、`command-flows.md`、`contributing.md`
+- レガシーファイルはviewpoint出力に完全に置き換えられるまで存在する可能性があります
+
+### 推奨される解決策
+
+旧スペックファイル名への参照をviewpointベースのファイル名に更新してください。`architecture.md`の内容は現在`component.md`と`infrastructure.md`viewpointに分割されています。
+
+## H3見出し番号付け規約変更
+
+### 問題
+
+H3見出しの番号付けがドット記法（`### 1.1. Subsection`）からハイフン記法（`### 1-1. Subsection`）に変更されました。過去のドキュメントは旧ドット記法を使用しています。
+
+### 現在の使用状況
+
+- 現在：`### 1-1. Subsection`（ハイフン記法）
+- 過去：`### 1.1. Subsection`（ドット記法）
+- H2形式は変更なし：`## 1. Section`
+
+### 推奨される解決策
+
+新しいドキュメントはハイフン記法を使用してください。過去のドキュメント（アーカイブされたストーリー、チケット）は作成時の規約を反映しているため、変更しないでください。

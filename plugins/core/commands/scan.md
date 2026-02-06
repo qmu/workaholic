@@ -1,6 +1,6 @@
 ---
 name: scan
-description: Update .workaholic/ documentation (changelog, specs, terms).
+description: Update .workaholic/ documentation (changelog, specs, terms, policies).
 ---
 
 # Scan
@@ -12,5 +12,5 @@ Update `.workaholic/` documentation by invoking the scanner subagent.
 ## Instructions
 
 1. **Invoke scanner** (`subagent_type: "core:scanner"`, `model: "opus"`)
-2. **Stage and commit**: `git add CHANGELOG.md .workaholic/specs/ .workaholic/terms/ && git commit -m "Update documentation"`
+2. **Stage and commit**: `git add CHANGELOG.md .workaholic/specs/ .workaholic/terms/ .workaholic/policies/ && git commit -m "Update documentation"`
 3. **Report results** from scanner output

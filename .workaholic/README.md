@@ -13,6 +13,7 @@ commit_hash: f034f63
 This is the working artifacts hub for the Workaholic plugin marketplace.
 
 - [guides/](guides/README.md) - User documentation
+- [policies/](policies/README.md) - Policy documentation (testing, security, quality, operations)
 - [specs/](specs/README.md) - Technical specifications
 - [stories/](stories/README.md) - Development narratives and PR descriptions per branch
 - [terms/](terms/README.md) - Consistent term definitions across the project

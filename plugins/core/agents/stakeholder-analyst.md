@@ -17,7 +17,7 @@ Analyze the repository from the stakeholder viewpoint and produce a specificatio
 - **Slug**: stakeholder
 - **Description**: Who uses the system, their goals, and interaction patterns
 - **Analysis prompts**: Who are the primary users? What goals does each user type have? How do stakeholders interact with the system? What are the onboarding paths?
-- **Mermaid diagram**: `flowchart` showing stakeholder relationships and interaction flows
+- **Mermaid diagrams**: Embed within content sections. Suggested: `flowchart` for stakeholder relationships, `sequenceDiagram` for command interaction patterns
 - **Output sections**: Stakeholder Map, User Goals, Interaction Patterns, Onboarding Paths
 
 ## Instructions
@@ -35,7 +35,7 @@ Analyze the repository from the stakeholder viewpoint and produce a specificatio
 
 3. **Analyze Codebase**: Use the analysis prompts above. Read relevant source files to understand the system deeply.
 
-4. **Write English Spec**: Write `.workaholic/specs/stakeholder.md` following the preloaded analyze-viewpoint and write-spec skills. Include a Mermaid `flowchart` diagram and an Assumptions section with `[Explicit]`/`[Inferred]` prefixes.
+4. **Write English Spec**: Write `.workaholic/specs/stakeholder.md` following the preloaded analyze-viewpoint and write-spec skills. Include multiple Mermaid diagrams within content sections and an Assumptions section with `[Explicit]`/`[Inferred]` prefixes.
 
 5. **Write Japanese Translation**: Write `.workaholic/specs/stakeholder_ja.md` following the preloaded translate skill.
 

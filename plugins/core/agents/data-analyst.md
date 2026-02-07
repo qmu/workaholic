@@ -17,7 +17,7 @@ Analyze the repository from the data viewpoint and produce a specification docum
 - **Slug**: data
 - **Description**: Data formats, frontmatter schemas, and file naming conventions
 - **Analysis prompts**: What data formats are used? What frontmatter schemas exist? What file naming conventions are enforced? How is data validated?
-- **Mermaid diagram**: `erDiagram` showing data schemas and relationships
+- **Mermaid diagrams**: Embed within content sections. Suggested: `erDiagram` for frontmatter schemas, `flowchart` for data lifecycle, `flowchart` for naming convention relationships
 - **Output sections**: Data Formats, Frontmatter Schemas, Naming Conventions, Validation Rules
 
 ## Instructions
@@ -35,7 +35,7 @@ Analyze the repository from the data viewpoint and produce a specification docum
 
 3. **Analyze Codebase**: Use the analysis prompts above. Read relevant source files to understand the system deeply.
 
-4. **Write English Spec**: Write `.workaholic/specs/data.md` following the preloaded analyze-viewpoint and write-spec skills. Include a Mermaid `erDiagram` diagram and an Assumptions section with `[Explicit]`/`[Inferred]` prefixes.
+4. **Write English Spec**: Write `.workaholic/specs/data.md` following the preloaded analyze-viewpoint and write-spec skills. Include multiple Mermaid diagrams within content sections and an Assumptions section with `[Explicit]`/`[Inferred]` prefixes.
 
 5. **Write Japanese Translation**: Write `.workaholic/specs/data_ja.md` following the preloaded translate skill.
 

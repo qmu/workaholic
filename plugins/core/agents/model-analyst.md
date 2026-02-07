@@ -17,7 +17,7 @@ Analyze the repository from the model viewpoint and produce a specification docu
 - **Slug**: model
 - **Description**: Domain concepts, relationships, and core abstractions
 - **Analysis prompts**: What are the core domain entities? How do entities relate? What invariants must be maintained? What naming conventions encode domain knowledge?
-- **Mermaid diagram**: `classDiagram` showing domain entities and relationships
+- **Mermaid diagrams**: Embed within content sections. Suggested: `classDiagram` for domain entities, `flowchart` for entity relationships, `stateDiagram-v2` for ticket lifecycle
 - **Output sections**: Domain Entities, Relationships, Invariants, Naming Conventions
 
 ## Instructions
@@ -35,7 +35,7 @@ Analyze the repository from the model viewpoint and produce a specification docu
 
 3. **Analyze Codebase**: Use the analysis prompts above. Read relevant source files to understand the system deeply.
 
-4. **Write English Spec**: Write `.workaholic/specs/model.md` following the preloaded analyze-viewpoint and write-spec skills. Include a Mermaid `classDiagram` diagram and an Assumptions section with `[Explicit]`/`[Inferred]` prefixes.
+4. **Write English Spec**: Write `.workaholic/specs/model.md` following the preloaded analyze-viewpoint and write-spec skills. Include multiple Mermaid diagrams within content sections and an Assumptions section with `[Explicit]`/`[Inferred]` prefixes.
 
 5. **Write Japanese Translation**: Write `.workaholic/specs/model_ja.md` following the preloaded translate skill.
 

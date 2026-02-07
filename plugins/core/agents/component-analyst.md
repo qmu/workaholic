@@ -17,7 +17,7 @@ Analyze the repository from the component viewpoint and produce a specification 
 - **Slug**: component
 - **Description**: Internal structure, module boundaries, and skill/agent/command decomposition
 - **Analysis prompts**: What are the module boundaries? How are responsibilities distributed? What are the dependency directions? What design patterns are used?
-- **Mermaid diagram**: `flowchart` showing component hierarchy and dependency directions
+- **Mermaid diagrams**: Embed within content sections. Suggested: `flowchart` for component hierarchy, `classDiagram` for nesting policy, `flowchart` for agent groupings
 - **Output sections**: Module Boundaries, Responsibility Distribution, Dependency Graph, Design Patterns
 
 ## Instructions
@@ -35,7 +35,7 @@ Analyze the repository from the component viewpoint and produce a specification 
 
 3. **Analyze Codebase**: Use the analysis prompts above. Read relevant source files to understand the system deeply.
 
-4. **Write English Spec**: Write `.workaholic/specs/component.md` following the preloaded analyze-viewpoint and write-spec skills. Include a Mermaid `flowchart` diagram and an Assumptions section with `[Explicit]`/`[Inferred]` prefixes.
+4. **Write English Spec**: Write `.workaholic/specs/component.md` following the preloaded analyze-viewpoint and write-spec skills. Include multiple Mermaid diagrams within content sections and an Assumptions section with `[Explicit]`/`[Inferred]` prefixes.
 
 5. **Write Japanese Translation**: Write `.workaholic/specs/component_ja.md` following the preloaded translate skill.
 

@@ -61,14 +61,22 @@ commit_hash: <from context>
 
 ...
 
-## Diagram
-
-<Mermaid diagram of the appropriate type>
+<!-- Diagrams go inline within content sections above, not in a separate section -->
 
 ## Assumptions
 
 <clearly mark inferred vs explicit knowledge>
 ```
+
+## Diagram Placement Policy
+
+Diagrams are **inline within content sections**, not in a separate "Diagram" section:
+
+- Place each diagram immediately after the prose it illustrates
+- Give each diagram a descriptive subsection heading (e.g., "### Ticket Lifecycle Flow")
+- Never title a diagram section simply "Diagram"
+- Use at least 2 diagrams per spec, with different Mermaid types where appropriate
+- The viewpoint definition suggests diagram types; use them as starting points
 
 ## Mermaid Node Label Quoting (REQUIRED)
 

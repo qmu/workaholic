@@ -77,13 +77,13 @@ flowchart LR
 
 One subsection per ticket, in chronological order:
 
-### 4.1. <Ticket title> ([hash](<repo-url>/commit/<hash>))
+### 4-1. <Ticket title> ([hash](<repo-url>/commit/<hash>))
 
 - First file changed with description of modification
 - Second file changed with description of modification
 - ...
 
-### 4.2. <Next ticket title> ([hash](<repo-url>/commit/<hash>))
+### 4-2. <Next ticket title> ([hash](<repo-url>/commit/<hash>))
 
 - First file changed with description of modification
 - Second file changed with description of modification
@@ -96,7 +96,7 @@ One subsection per ticket, in chronological order:
 - **CRITICAL**: Commit hash MUST be a clickable GitHub link, not plain text
   - Wrong: `(abc1234)` or `(<hash>)`
   - Correct: `([abc1234](<repo-url>/commit/abc1234))`
-- Format: `### 4.N. <Title> ([hash](<repo-url>/commit/<hash>))`
+- Format: `### 4-N. <Title> ([hash](<repo-url>/commit/<hash>))`
 - **MUST list all files changed** as bullet points, not paragraph prose
 - Reference ticket Implementation section or Changes section for the complete file list
 - Chronological order matches ticket creation time
@@ -111,7 +111,18 @@ One subsection per ticket, in chronological order:
 
 ## 7. Concerns
 
-[Risks, trade-offs, or issues discovered during implementation. Known limitations or edge cases. Things reviewers should pay attention to. Write "None" if nothing to report.]
+[Risks, trade-offs, or issues discovered during implementation. Each concern should include identifiable references.]
+
+**Format**: `- <description> (see [hash](<repo-url>/commit/<hash>) in path/to/file.ext)`
+
+**Example**:
+- The pathspec exclusion syntax requires modern git versions (see [7eab801](<repo-url>/commit/7eab801) in `plugins/core/skills/drive-approval/SKILL.md`)
+- Auto-approval configuration may be broader than intended (`~/.claude/settings.local.json`)
+
+**Guidelines**:
+- Reference the commit hash from section 4 where the concern was introduced
+- Include the file path where readers should investigate
+- Write "None" if nothing to report
 
 ## 8. Ideas
 
@@ -121,11 +132,11 @@ One subsection per ticket, in chronological order:
 
 **Metrics**: <commits> commits over <duration> <unit> (<velocity> commits/<unit>)
 
-### 9.1. Pace Analysis
+### 9-1. Pace Analysis
 
 [Quantitative reflection on development pace - was velocity consistent or varied? Were commits small and focused or large? Any patterns in timing?]
 
-### 9.2. Decision Review
+### 9-2. Decision Review
 
 | Dimension      | Rating                            | Notes             |
 | -------------- | --------------------------------- | ----------------- |
@@ -149,17 +160,17 @@ The performance-analyst output (metrics JSON and decision review markdown) is pr
 
 **Verdict**: [Ready for release / Needs attention before release]
 
-### 10.1. Concerns
+### 10-1. Concerns
 
 - [List any concerns from release-readiness analysis]
 - Or "None - changes are safe for release"
 
-### 10.2. Pre-release Instructions
+### 10-2. Pre-release Instructions
 
 - [Steps to take before running /release]
 - Or "None - standard release process applies"
 
-### 10.3. Post-release Instructions
+### 10-3. Post-release Instructions
 
 - [Steps to take after release]
 - Or "None - no special post-release actions needed"

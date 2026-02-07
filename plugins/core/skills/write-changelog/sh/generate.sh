@@ -4,8 +4,8 @@
 
 set -eu
 
-BRANCH="$1"
-REPO_URL="$2"
+BRANCH="${1:-}"
+REPO_URL="${2:-}"
 
 if [ -z "$BRANCH" ] || [ -z "$REPO_URL" ]; then
     echo "Usage: generate.sh <branch-name> <repo-url>"

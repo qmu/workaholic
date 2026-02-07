@@ -4,8 +4,8 @@
 
 set -eu
 
-BRANCH="$1"
-TITLE="$2"
+BRANCH="${1:-}"
+TITLE="${2:-}"
 
 if [ -z "$BRANCH" ] || [ -z "$TITLE" ]; then
     echo "Usage: create-or-update.sh <branch-name> \"<title>\""

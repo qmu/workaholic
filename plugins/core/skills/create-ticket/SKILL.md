@@ -140,8 +140,16 @@ Past tickets that touched similar areas:
 
 ## Considerations
 
-- <Any trade-offs, risks, or things to watch out for>
+- <Concern description> (`path/to/relevant-file.ext`)
+- <Concern about behavior change> (`path/to/file.ext` lines 45-60)
+- <Future technical debt> (affects `path/to/module/`)
 ```
+
+**Considerations Guidelines:**
+- Each concern SHOULD reference a specific file path
+- Use parentheses to indicate the relevant location: `(path/to/file.ext)`
+- For line-specific concerns, include line ranges: `(path/to/file.ext lines 10-25)`
+- If a concern is conceptual without a specific file, omit the reference
 
 ## Frontmatter Fields
 

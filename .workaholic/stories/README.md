@@ -70,6 +70,7 @@ Refs #<issue-number>
 
 ## Stories
 
+- [drive-20260205-195920.md](drive-20260205-195920.md) - Documentation traceability, drive workflow enforcement, scan architecture overhaul from 3-level to 2-level nesting with 17 parallel analysts, legacy spec migration, dual-mode scanning, effort validation, shell script hardening, and Mermaid rendering fixes - 17 tickets, 40 commits
 - [drive-20260204-160722.md](drive-20260204-160722.md) - Documentation hygiene, workflow safety, and infrastructure: term document restructuring, translation removal from story-writer, git safeguards, centralized commit skill, release-note-writer subagent, GitHub URL transformation, script path fixes - 8 tickets, 24 commits
 - [drive-20260203-122444.md](drive-20260203-122444.md) - Documentation workflow refinement: extracted /scan command from /report, fixed memory leaks in /ticket, added unified diff patches to tickets, renamed /story to /report, refactored ticket-organizer with cleaner naming - 9 tickets, 24 commits
 - [drive-20260202-203938.md](drive-20260202-203938.md) - Reliability and consistency improvements: fixed release action trigger to use version comparison, standardized notice section format across commands, added code implementation prohibition to /ticket, configured Opus model for all Task tool invocations - 6 tickets, 12 commits

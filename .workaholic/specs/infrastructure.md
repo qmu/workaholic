@@ -43,7 +43,7 @@ workaholic/
     guides/                   # User documentation (commands, workflow, getting started)
     policies/                 # Policy documents (7 domains)
     release-notes/            # Generated release notes
-    specs/                    # Architecture specs (8 viewpoints + legacy)
+    specs/                    # Architecture specs (8 viewpoints)
     stories/                  # Development narratives per branch
     terms/                    # Term definitions (5 category files)
     tickets/

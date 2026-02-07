@@ -3,7 +3,7 @@ created_at: 2026-02-07T11:18:48+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
+effort: 1h
 commit_hash:
 category:
 ---
@@ -73,3 +73,32 @@ Past tickets that touched similar areas:
 - The legacy `command-flows.md` references `/story` as the report command name, which was renamed to `/report` in ticket 20260127014257. This staleness confirms the documents are not being maintained by the viewpoint analysts. (`.workaholic/specs/command-flows.md`)
 - The `architecture_ja.md` references `spec-writer.md` as an agent file, but this agent was removed when the viewpoint-based architecture was implemented. The scanner now invokes individual `*-analyst` agents directly. (`.workaholic/specs/architecture_ja.md`)
 - The `write-spec/SKILL.md` line 55 explicitly references `architecture.md` for comparing file listings. This reference must be updated to point to the appropriate viewpoint document or removed entirely. (`plugins/core/skills/write-spec/SKILL.md` line 55)
+
+## Final Report
+
+All 7 implementation steps completed.
+
+### Audit Result
+No unique content required merging into viewpoint documents. All substantive information was already covered at appropriate abstraction levels. The detailed per-file directory listing from `architecture.md` was accepted as sufficiently covered by `component.md` counts/groupings and `infrastructure.md` file system layout.
+
+### Diagram Migration
+Mermaid dependency diagrams from `architecture.md` and `command-flows.md` were migrated to `application.md` and `application_ja.md`, replacing ASCII text-based flows with proper Mermaid flowcharts. All diagrams updated to reflect current architecture (including new `/story` command and `select-scan-agents` skill from the previous ticket).
+
+### Files Deleted
+- `.workaholic/specs/architecture.md` + `architecture_ja.md`
+- `.workaholic/specs/command-flows.md` + `command-flows_ja.md`
+- `.workaholic/specs/contributing.md` + `contributing_ja.md`
+
+### Files Modified
+- `.workaholic/specs/application.md` + `_ja.md` -- Replaced text flows with Mermaid diagrams for 5 commands
+- `.workaholic/specs/component.md` + `_ja.md` -- Added `/story` to hierarchy diagram
+- `.workaholic/specs/usecase.md` + `_ja.md` -- Added `/story` use case, updated workflow and I/O table
+- `.workaholic/specs/infrastructure.md` -- Removed "(+ legacy)" annotation
+- `.workaholic/specs/README.md` + `README_ja.md` -- Removed "Legacy Documents" section
+- `plugins/core/skills/write-spec/SKILL.md` -- Updated architecture.md reference
+
+### Considerations Resolved
+- Directory listing: Accepted viewpoint-level summaries as sufficient (concern 1)
+- Mermaid diagrams: Migrated to `application.md` (concern 2)
+- Contributing guide: Not migrated to guides/; onboarding covered by `stakeholder.md` (concern 3)
+- Historical references in stories/tickets/terms left intact as historical records

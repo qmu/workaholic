@@ -38,15 +38,23 @@ Use Case Viewpoint は、developer が4つの主要 command と1つの release c
 **出力:** 更新された spec ファイル、policy ファイル、changelog、terms、インデックス README。
 **決定ポイント:** なし（完全自動化）。
 
-### 2-4. レポート生成（/report）
+### 2-4. パーシャルスキャンとレポート（/story）
 
-`/report` command は開発 story を生成し、pull request を作成または更新します。`story-writer` subagent（model: opus）を呼び出し、`.workaholic/stories/` にナラティブドキュメントを生成して GitHub PR を作成します。
+`/story` command はパーシャルドキュメントスキャン（ブランチに関連するエージェントのみ）を実行し、開発 story を生成して pull request を作成または更新します。まず `scanner` subagent を partial mode で呼び出し、`select-scan-agents` を使用して `git diff --stat` に基づいて実行するエージェントを決定します。ドキュメント変更をステージングした後、`story-writer` subagent（model: opus）を呼び出してナラティブと PR を生成します。
+
+**入力:** なし。
+**出力:** 更新された `.workaholic/` ドキュメント（パーシャル）、`.workaholic/stories/` の story ファイル、GitHub pull request。
+**決定ポイント:** なし（完全自動化）。
+
+### 2-5. レポート生成（/report）
+
+`/report` command はスキャンなしで開発 story を生成し、pull request を作成または更新します。`story-writer` subagent（model: opus）を呼び出し、`.workaholic/stories/` にナラティブドキュメントを生成して GitHub PR を作成します。
 
 **入力:** なし。
 **出力:** `.workaholic/stories/` の story ファイル、GitHub pull request。
 **決定ポイント:** なし（完全自動化）。
 
-### 2-5. リリース（/release）
+### 2-6. リリース（/release）
 
 `/release` command は `marketplace.json` と `plugin.json` のバージョンを更新してコミットします。デフォルトは patch バージョン増加です。
 
@@ -75,11 +83,8 @@ sequenceDiagram
         CC->>FS: Archive ticket, commit
     end
 
-    Dev->>CC: /scan
-    CC->>FS: Update specs, policies, terms, changelog
-    CC->>FS: Commit documentation
-
-    Dev->>CC: /report
+    Dev->>CC: /story
+    CC->>FS: Partial scan (branch-relevant docs)
     CC->>FS: Generate story
     CC->>GH: Create/update PR
     CC->>Dev: Display PR URL
@@ -91,7 +96,8 @@ sequenceDiagram
 | --- | --- | --- | --- |
 | `/ticket <desc>` | 自然言語 | `.workaholic/tickets/todo/*.md` | Git commit |
 | `/drive` | なしまたは "icebox" | 実装されたコード + アーカイブされた ticket | 複数の git commit |
-| `/scan` | なし | 更新された `.workaholic/` ドキュメント | Git commit |
+| `/scan` | なし | 更新された `.workaholic/` ドキュメント（フル） | Git commit |
+| `/story` | なし | 更新されたドキュメント（パーシャル）+ story + PR | Git commit、push、PR |
 | `/report` | なし | `.workaholic/stories/*.md` + PR | Git push、PR 作成 |
 | `/release [type]` | オプションのバンプタイプ | 更新されたバージョンファイル | Git commit |
 

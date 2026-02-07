@@ -38,15 +38,23 @@ The `/scan` command updates `.workaholic/` documentation by invoking the `scanne
 **Output:** Updated spec files, policy files, changelog, terms, and index READMEs.
 **Decision Points:** None (fully automated).
 
-### 2-4. Generate Report (/report)
+### 2-4. Partial Scan and Report (/story)
 
-The `/report` command generates a development story and creates or updates a pull request. It invokes the `story-writer` subagent (model: opus), which produces a narrative document in `.workaholic/stories/` and creates a GitHub PR. The PR description is derived from the story content. The command outputs the PR URL.
+The `/story` command performs a partial documentation scan (only branch-relevant agents), then generates a development story and creates or updates a pull request. It first invokes the `scanner` subagent with partial mode, which uses `select-scan-agents` to determine which agents to run based on `git diff --stat`. After staging documentation changes, it invokes the `story-writer` subagent (model: opus) to produce a narrative and PR.
+
+**Input:** None.
+**Output:** Updated `.workaholic/` docs (partial), story file in `.workaholic/stories/`, GitHub pull request.
+**Decision Points:** None (fully automated).
+
+### 2-5. Generate Report (/report)
+
+The `/report` command generates a development story and creates or updates a pull request without any scanning. It invokes the `story-writer` subagent (model: opus), which produces a narrative document in `.workaholic/stories/` and creates a GitHub PR. The PR description is derived from the story content. The command outputs the PR URL.
 
 **Input:** None.
 **Output:** Story file in `.workaholic/stories/`, GitHub pull request.
 **Decision Points:** None (fully automated).
 
-### 2-5. Release (/release)
+### 2-6. Release (/release)
 
 The `/release` command bumps the version in `marketplace.json` and `plugin.json`, then commits the change. It defaults to patch version increments. The GitHub Action (`release.yml`) then creates a release when the change reaches `main`.
 
@@ -75,11 +83,8 @@ sequenceDiagram
         CC->>FS: Archive ticket, commit
     end
 
-    Dev->>CC: /scan
-    CC->>FS: Update specs, policies, terms, changelog
-    CC->>FS: Commit documentation
-
-    Dev->>CC: /report
+    Dev->>CC: /story
+    CC->>FS: Partial scan (branch-relevant docs)
     CC->>FS: Generate story
     CC->>GH: Create/update PR
     CC->>Dev: Display PR URL
@@ -91,7 +96,8 @@ sequenceDiagram
 | --- | --- | --- | --- |
 | `/ticket <desc>` | Natural language | `.workaholic/tickets/todo/*.md` | Git commit |
 | `/drive` | None or "icebox" | Implemented code + archived tickets | Multiple git commits |
-| `/scan` | None | Updated `.workaholic/` docs | Git commit |
+| `/scan` | None | Updated `.workaholic/` docs (full) | Git commit |
+| `/story` | None | Updated docs (partial) + story + PR | Git commit, push, PR |
 | `/report` | None | `.workaholic/stories/*.md` + PR | Git push, PR creation |
 | `/release [type]` | Optional bump type | Updated version files | Git commit |
 

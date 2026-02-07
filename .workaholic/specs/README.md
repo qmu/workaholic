@@ -21,11 +21,5 @@ Viewpoint-based architecture specifications for the Workaholic plugin system. Ea
 - [Data](data.md) - Data formats, frontmatter schemas, naming conventions
 - [Feature](feature.md) - Feature inventory, capability matrix, configuration
 
-## Legacy Documents
-
-- [Architecture](architecture.md) - Plugin structure and marketplace design
-- [Command Flows](command-flows.md) - How commands invoke agents and skills
-- [Contributing](contributing.md) - How to add or modify plugins
-
 For user documentation, see [../guides/](../guides/README.md).
 For policy documentation, see [../policies/](../policies/README.md).

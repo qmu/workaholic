@@ -18,6 +18,16 @@ if [ ! -f "$TICKET" ]; then
     exit 1
 fi
 
+# Validate effort values
+if [ "$FIELD" = "effort" ]; then
+    case "$VALUE" in
+        0.1h|0.25h|0.5h|1h|2h|4h) ;; # valid
+        *) echo "Error: effort must be one of: 0.1h, 0.25h, 0.5h, 1h, 2h, 4h"
+           echo "Got: $VALUE"
+           exit 1 ;;
+    esac
+fi
+
 if grep -q "^${FIELD}:" "$TICKET"; then
     sed -i.bak "s/^${FIELD}:.*/${FIELD}: ${VALUE}/" "$TICKET"
 else

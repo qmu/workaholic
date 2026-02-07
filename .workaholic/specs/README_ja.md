@@ -21,11 +21,5 @@ Workaholic plugin システムの viewpoint ベースのアーキテクチャ仕
 - [Data](data_ja.md) - データ形式、frontmatter スキーマ、命名規則
 - [Feature](feature_ja.md) - 機能インベントリ、機能マトリクス、設定
 
-## レガシードキュメント
-
-- [アーキテクチャ](architecture_ja.md) - plugin 構造とマーケットプレイス設計
-- [コマンドフロー](command-flows_ja.md) - command がエージェントと skill を呼び出す方法
-- [コントリビュート](contributing_ja.md) - plugin の追加・修正方法
-
 ユーザー向けドキュメントは [../guides/](../guides/README_ja.md) を参照。
 ポリシードキュメントは [../policies/](../policies/README_ja.md) を参照。

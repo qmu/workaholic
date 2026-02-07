@@ -22,58 +22,177 @@ All file operations (reading, writing, editing) and shell command execution happ
 
 ### 3-1. Ticket Command Flow
 
-```
-/ticket --> ticket-organizer (opus)
-              |-- ticket-discoverer (parallel)
-              |-- source-discoverer (parallel)
-              |-- history-discoverer (parallel)
-              --> Creates ticket file
+```mermaid
+flowchart LR
+    subgraph Command
+        ticket["/ticket"]
+    end
+
+    subgraph Agents
+        to[ticket-organizer]
+        hd[history-discoverer]
+        sd[source-discoverer]
+        td[ticket-discoverer]
+    end
+
+    subgraph Skills
+        mb[manage-branch]
+        ct[create-ticket]
+        dh[discover-history]
+        ds[discover-source]
+        dt[discover-ticket]
+    end
+
+    ticket --> to
+
+    to --> hd & sd & td
+    to --> ct & mb
+
+    hd --> dh
+    sd --> ds
+    td --> dt
 ```
 
 The `/ticket` command delegates entirely to the `ticket-organizer` subagent, which runs three discovery agents in parallel to gather context, then writes the ticket.
 
 ### 3-2. Drive Command Flow
 
-```
-/drive --> drive-navigator (opus)
-             --> Returns prioritized ticket list
-           For each ticket:
-             Main context: implement (drive-workflow skill)
-             Main context: approval dialog (drive-approval skill)
-             Main context: final report (write-final-report skill)
-             Main context: archive (archive-ticket skill)
+```mermaid
+flowchart LR
+    subgraph Command
+        drive["/drive"]
+    end
+
+    subgraph Agents
+        dn[drive-navigator]
+    end
+
+    subgraph Skills
+        dw[drive-workflow]
+        at[archive-ticket]
+        da[drive-approval]
+        wfr[write-final-report]
+        fcm[format-commit-message]
+        utf[update-ticket-frontmatter]
+    end
+
+    drive --> dn
+    drive --> dw & at & da & wfr
+
+    dw --> fcm
+    at --> fcm
+    wfr --> utf
 ```
 
 The `/drive` command invokes the navigator once, then processes tickets in the main conversation context using preloaded skills. This keeps implementation context visible and preserves state across the approval loop.
 
 ### 3-3. Scan Command Flow
 
-```
-/scan --> scanner (opus)
-            |-- 8 viewpoint analysts (sonnet, parallel)
-            |-- 7 policy analysts (sonnet, parallel)
-            |-- changelog-writer (sonnet, parallel)
-            |-- terms-writer (sonnet, parallel)
-            --> Validate output
-            --> Update index files
+```mermaid
+flowchart LR
+    subgraph Command
+        scan["/scan"]
+    end
+
+    subgraph Agents
+        sc[scanner]
+        VA[8 viewpoint analysts]
+        PA[7 policy analysts]
+        cw[changelog-writer]
+        tw[terms-writer]
+    end
+
+    subgraph Skills
+        ssa[select-scan-agents]
+        wc[write-changelog]
+        wt[write-terms]
+        av[analyze-viewpoint]
+        ap[analyze-policy]
+        vw[validate-writer-output]
+    end
+
+    scan --> sc
+    sc --> ssa
+    sc --> VA & PA & cw & tw
+    VA --> av
+    PA --> ap
+    cw --> wc
+    tw --> wt
+    sc --> vw
 ```
 
-The `/scan` command invokes the scanner, which spawns all 17 agents in a single parallel batch. After all agents complete, the scanner validates output files exist and are non-empty before updating README index files.
+The `/scan` command invokes the scanner with full mode, which uses the `select-scan-agents` skill to determine agents, then spawns all 17 in a single parallel batch. After all agents complete, the scanner validates output files exist and are non-empty before updating README index files.
 
-### 3-4. Report Command Flow
+### 3-4. Story Command Flow
 
+```mermaid
+flowchart LR
+    subgraph Command
+        story["/story"]
+    end
+
+    subgraph Agents
+        sc[scanner]
+        sw[story-writer]
+        VA[selected analysts]
+        cw[changelog-writer]
+    end
+
+    subgraph Skills
+        ssa[select-scan-agents]
+        ws[write-story]
+        cp[create-pr]
+    end
+
+    story --> sc
+    sc --> ssa
+    sc --> VA & cw
+    story --> sw
+    sw --> ws
+    sw --> cp
 ```
-/report --> story-writer (opus)
-              |-- overview-writer (parallel)
-              |-- performance-analyst (parallel)
-              |-- section-reviewer (parallel)
-              |-- changelog-writer (parallel)
-              |-- terms-writer (parallel)
-              |-- pr-creator (parallel)
-              --> Generates story and PR
+
+The `/story` command invokes the scanner with partial mode (only branch-relevant agents), stages documentation changes, then invokes the story-writer to generate a story and create a pull request.
+
+### 3-5. Report Command Flow
+
+```mermaid
+flowchart LR
+    subgraph Command
+        report["/report"]
+    end
+
+    subgraph Agents
+        sw[story-writer]
+        rr[release-readiness]
+        pa[performance-analyst]
+        ow[overview-writer]
+        sr[section-reviewer]
+        pc[pr-creator]
+    end
+
+    subgraph Skills
+        ws[write-story]
+        arr[assess-release-readiness]
+        aap[analyze-performance]
+        wo[write-overview]
+        rs[review-sections]
+        cp[create-pr]
+    end
+
+    report --> sw
+
+    sw --> rr & pa & ow & sr & pc
+
+    rr --> arr
+    pa --> aap
+    ow --> wo
+    sr --> rs
+    sw --> ws
+    pc --> cp
 ```
 
-The `/report` command delegates to the story-writer, which orchestrates multiple parallel agents to prepare content, then creates the pull request.
+The `/report` command delegates to the story-writer without any scanning. It orchestrates multiple parallel agents to prepare content, then creates the pull request.
 
 ## 4. Data Flow
 

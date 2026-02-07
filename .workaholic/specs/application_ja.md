@@ -20,19 +20,177 @@ Workaholic command は Claude Code の会話コンテキスト内で実行され
 
 ### 3-1. Ticket Command Flow
 
+```mermaid
+flowchart LR
+    subgraph Command
+        ticket["/ticket"]
+    end
+
+    subgraph Agents
+        to[ticket-organizer]
+        hd[history-discoverer]
+        sd[source-discoverer]
+        td[ticket-discoverer]
+    end
+
+    subgraph Skills
+        mb[manage-branch]
+        ct[create-ticket]
+        dh[discover-history]
+        ds[discover-source]
+        dt[discover-ticket]
+    end
+
+    ticket --> to
+
+    to --> hd & sd & td
+    to --> ct & mb
+
+    hd --> dh
+    sd --> ds
+    td --> dt
+```
+
 `/ticket` command は `ticket-organizer` subagent に完全に委任し、3つのディスカバリーエージェントを並列実行してコンテキストを収集し、ticket を作成します。
 
 ### 3-2. Drive Command Flow
+
+```mermaid
+flowchart LR
+    subgraph Command
+        drive["/drive"]
+    end
+
+    subgraph Agents
+        dn[drive-navigator]
+    end
+
+    subgraph Skills
+        dw[drive-workflow]
+        at[archive-ticket]
+        da[drive-approval]
+        wfr[write-final-report]
+        fcm[format-commit-message]
+        utf[update-ticket-frontmatter]
+    end
+
+    drive --> dn
+    drive --> dw & at & da & wfr
+
+    dw --> fcm
+    at --> fcm
+    wfr --> utf
+```
 
 `/drive` command はナビゲーターを一度呼び出し、メインの会話コンテキストでプリロードされた skill を使用して ticket を処理します。実装コンテキストが可視化され、承認ループ全体で状態が保持されます。
 
 ### 3-3. Scan Command Flow
 
-`/scan` command は scanner を呼び出し、17のエージェントすべてを単一の並列バッチで生成します。すべてのエージェント完了後、scanner は README インデックスファイルを更新する前に出力ファイルの存在と非空を検証します。
+```mermaid
+flowchart LR
+    subgraph Command
+        scan["/scan"]
+    end
 
-### 3-4. Report Command Flow
+    subgraph Agents
+        sc[scanner]
+        VA[8 viewpoint analysts]
+        PA[7 policy analysts]
+        cw[changelog-writer]
+        tw[terms-writer]
+    end
 
-`/report` command は story-writer に委任し、複数の並列エージェントをオーケストレーションしてコンテンツを準備し、pull request を作成します。
+    subgraph Skills
+        ssa[select-scan-agents]
+        wc[write-changelog]
+        wt[write-terms]
+        av[analyze-viewpoint]
+        ap[analyze-policy]
+        vw[validate-writer-output]
+    end
+
+    scan --> sc
+    sc --> ssa
+    sc --> VA & PA & cw & tw
+    VA --> av
+    PA --> ap
+    cw --> wc
+    tw --> wt
+    sc --> vw
+```
+
+`/scan` command は scanner を full mode で呼び出し、`select-scan-agents` skill でエージェントを決定後、17のエージェントすべてを単一の並列バッチで生成します。すべてのエージェント完了後、scanner は README インデックスファイルを更新する前に出力ファイルの存在と非空を検証します。
+
+### 3-4. Story Command Flow
+
+```mermaid
+flowchart LR
+    subgraph Command
+        story["/story"]
+    end
+
+    subgraph Agents
+        sc[scanner]
+        sw[story-writer]
+        VA[selected analysts]
+        cw[changelog-writer]
+    end
+
+    subgraph Skills
+        ssa[select-scan-agents]
+        ws[write-story]
+        cp[create-pr]
+    end
+
+    story --> sc
+    sc --> ssa
+    sc --> VA & cw
+    story --> sw
+    sw --> ws
+    sw --> cp
+```
+
+`/story` command は scanner を partial mode で呼び出し（ブランチに関連するエージェントのみ）、ドキュメント変更をステージングした後、story-writer を呼び出して story を生成し pull request を作成します。
+
+### 3-5. Report Command Flow
+
+```mermaid
+flowchart LR
+    subgraph Command
+        report["/report"]
+    end
+
+    subgraph Agents
+        sw[story-writer]
+        rr[release-readiness]
+        pa[performance-analyst]
+        ow[overview-writer]
+        sr[section-reviewer]
+        pc[pr-creator]
+    end
+
+    subgraph Skills
+        ws[write-story]
+        arr[assess-release-readiness]
+        aap[analyze-performance]
+        wo[write-overview]
+        rs[review-sections]
+        cp[create-pr]
+    end
+
+    report --> sw
+
+    sw --> rr & pa & ow & sr & pc
+
+    rr --> arr
+    pa --> aap
+    ow --> wo
+    sr --> rs
+    sw --> ws
+    pc --> cp
+```
+
+`/report` command はスキャンなしで story-writer に委任し、複数の並列エージェントをオーケストレーションしてコンテンツを準備し、pull request を作成します。
 
 ## 4. Data Flow
 

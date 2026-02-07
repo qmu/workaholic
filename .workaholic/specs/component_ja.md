@@ -71,6 +71,7 @@ flowchart TD
         ticket["/ticket"]
         drive["/drive"]
         scan["/scan"]
+        story["/story"]
         report["/report"]
     end
 
@@ -99,6 +100,8 @@ flowchart TD
     ticket --> TO
     drive --> DN
     scan --> SC
+    story --> SC
+    story --> SW
     report --> SW
     SC --> VA
     SC --> PA

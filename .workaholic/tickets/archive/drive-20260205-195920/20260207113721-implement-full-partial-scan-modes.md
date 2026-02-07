@@ -3,9 +3,9 @@ created_at: 2026-02-07T11:37:21+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config, Domain]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: a481369
+category: Added
 ---
 
 # Implement Full-Scan and Partial-Scan Modes in Scanner
@@ -107,3 +107,22 @@ Past tickets that touched similar areas:
 - **Shell script principle**: The agent selection logic involves conditionals and text processing (analyzing diff stat output, matching paths to agent categories). Per CLAUDE.md policy, this must be a skill script, not inline shell in scanner.md. (`plugins/core/skills/select-scan-agents/sh/select.sh`)
 - **Changelog writer always needed**: Regardless of scan mode, `changelog-writer` should always run in partial scan because it reflects the actual commits on the branch, which always change. Terms-writer may also need to always run since new terminology can appear in any change. (`plugins/core/agents/scanner.md`)
 - **Workflow change**: The standard development workflow shifts from `/ticket` -> `/drive` -> `/scan` -> `/report` to `/ticket` -> `/drive` -> `/story` (with optional `/scan` for comprehensive updates). This is a user-facing workflow change that should be communicated clearly. (`CLAUDE.md` Development Workflow section)
+
+## Final Report
+
+All 7 implementation steps completed as specified.
+
+### Files Created
+- `plugins/core/skills/select-scan-agents/SKILL.md` - Skill documentation with partial-scan mapping table
+- `plugins/core/skills/select-scan-agents/sh/select.sh` - Shell script analyzing `git diff --stat` to select relevant agents; uses marker files in tmpdir for POSIX-compatible set tracking
+- `plugins/core/commands/story.md` - New `/story` command: partial scan -> commit docs -> story-writer -> PR
+
+### Files Modified
+- `plugins/core/agents/scanner.md` - Added `select-scan-agents` skill, 6-phase flow with mode-aware agent selection, partial-mode skips index updates, output includes "skipped" status
+- `plugins/core/commands/scan.md` - Passes `mode: full` to scanner, updated description
+- `CLAUDE.md` - Added `/story` to commands table, updated workflow step 3, updated project structure comment
+- `plugins/core/README.md` - Added `/story` to commands table, updated workflow
+- `README.md` - Added `/story` to commands table, updated example session
+
+### Decision: Option B for report.md
+Kept `/report` unchanged as a scan-less alias (story + PR only). This preserves backward compatibility for users who already ran `/scan` manually.

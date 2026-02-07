@@ -21,8 +21,9 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 | ----------------------- | -------------------------------------------------------------------------------- |
 | `/ticket <description>` | Explore codebase and write implementation ticket (auto-creates branch on main)   |
 | `/drive`                | Implement tickets from .workaholic/tickets/ one by one, commit each, and archive |
-| `/scan`                 | Update .workaholic/ documentation (changelog, specs, terms)                      |
-| `/report`               | Generate documentation and create/update pull request                            |
+| `/scan`                 | Full documentation scan (all 17 agents)                                          |
+| `/story`                | Partial scan, generate story, and create/update pull request                     |
+| `/report`               | Generate story and create/update pull request (no scan)                          |
 
 ## Agents
 
@@ -47,7 +48,7 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 
 1. **Plan work**: Use `/ticket` to write implementation specs (auto-creates branch on main)
 2. **Implement tickets**: Use `/drive` to implement and commit each ticket
-3. **Create PR**: Use `/report` to generate documentation and create PR
+3. **Create PR**: Use `/story` to partial-scan, generate story, and create PR
 
 ## Feedback Loop
 

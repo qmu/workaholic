@@ -24,7 +24,7 @@ plugins/                 # Plugin source directories
   core/                  # Core development plugin
     .claude-plugin/      # Plugin configuration
     agents/              # performance-analyst
-    commands/            # ticket, drive, report
+    commands/            # ticket, drive, story, report
     rules/               # general, typescript
     skills/              # archive-ticket
 ```
@@ -90,15 +90,16 @@ bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/manage-branch
 | -------------------------------- | ------------------------------------------------ |
 | `/ticket <description>`          | Write implementation spec for a feature          |
 | `/drive`                         | Implement queued specs one by one                |
-| `/scan`                          | Update .workaholic/ documentation                |
-| `/report`                        | Generate documentation and create/update PR      |
+| `/scan`                          | Full documentation scan (all 17 agents)          |
+| `/story`                         | Partial scan, generate story, and create/update PR |
+| `/report`                        | Generate story and create/update PR (no scan)    |
 | `/release [major\|minor\|patch]` | Release new marketplace version                  |
 
 ## Development Workflow
 
 1. **Create specs**: Use `/ticket` to write implementation specs
 2. **Implement specs**: Use `/drive` to implement and commit each spec
-3. **Create PR**: Use `/report` to generate documentation and create PR
+3. **Create PR**: Use `/story` to partial-scan, generate story, and create PR
 4. **Release**: Use `/release` to bump version and publish
 
 ## Type Checking

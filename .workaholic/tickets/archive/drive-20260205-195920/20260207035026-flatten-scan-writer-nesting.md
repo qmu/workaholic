@@ -3,9 +3,9 @@ created_at: 2026-02-07T03:50:26+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: b4a5d8d
+category: Changed
 ---
 
 # Flatten Scan Command Writer Nesting to Eliminate 3-Level Task Chain
@@ -45,64 +45,35 @@ Past tickets that touched similar areas:
 
 ## Implementation Steps
 
-1. **Rewrite `plugins/core/agents/scanner.md`** to directly orchestrate all analysts:
+1. **Create 8 per-viewpoint agent files** in `plugins/core/agents/`:
+   - `stakeholder-analyst.md`, `model-analyst.md`, `usecase-analyst.md`, `infrastructure-analyst.md`, `application-analyst.md`, `component-analyst.md`, `data-analyst.md`, `feature-analyst.md`
+   - Each bakes in its viewpoint definition (description, analysis prompts, Mermaid diagram type, output sections)
+   - Each preloads skills: analyze-viewpoint, write-spec, translate
+   - Each has hardcoded gather.sh invocation with its own slug
+   - Tools: Read, Write, Edit, Bash, Glob, Grep (no Task needed)
 
-   The scanner becomes the single orchestrator for all documentation generation. Its new structure:
+2. **Create 7 per-policy agent files** in `plugins/core/agents/`:
+   - `test-policy-analyst.md`, `security-policy-analyst.md`, `quality-policy-analyst.md`, `accessibility-policy-analyst.md`, `observability-policy-analyst.md`, `delivery-policy-analyst.md`, `recovery-policy-analyst.md`
+   - Each bakes in its policy domain definition (description, analysis prompts, output sections)
+   - Each preloads skills: analyze-policy, translate
+   - Each has hardcoded gather.sh invocation with its own slug
+   - Tools: Read, Write, Edit, Bash, Glob, Grep (no Task needed)
 
-   - **Frontmatter**: Add skills `analyze-viewpoint`, `analyze-policy`, `write-spec`, `validate-writer-output` to existing `gather-git-context`
-   - **Viewpoints section**: Move the 8 viewpoint definitions (stakeholder, model, usecase, infrastructure, application, component, data, feature) from spec-writer.md into scanner.md. Each definition includes description, analysis prompts, Mermaid diagram type, and output sections.
-   - **Policy Domains section**: Move the 7 policy domain definitions (test, security, quality, accessibility, observability, delivery, recovery) from policy-writer.md into scanner.md. Each definition includes description, analysis prompts, and output sections.
-   - **Phase 1: Gather Context**: Use gather-git-context skill. Get commit hash via `git rev-parse --short HEAD`.
-   - **Phase 2: Invoke All Agents in Parallel**: Single message with 17 Task tool calls:
-     - 8x `architecture-analyst` (one per viewpoint, `model: "sonnet"`) -- pass viewpoint slug, full definition from Viewpoints section, base branch
-     - 7x `policy-analyst` (one per policy domain, `model: "sonnet"`) -- pass policy slug, full definition from Policy Domains section, base branch
-     - 1x `changelog-writer` (`model: "opus"`) -- pass repository URL
-     - 1x `terms-writer` (`model: "opus"`) -- pass branch name
-   - **Phase 3: Validate Spec Output**: Run `validate.sh .workaholic/specs stakeholder.md model.md usecase.md infrastructure.md application.md component.md data.md feature.md`
-   - **Phase 4: Validate Policy Output**: Run `validate.sh .workaholic/policies test.md security.md quality.md accessibility.md observability.md delivery.md recovery.md`
-   - **Phase 5: Update Index Files**: Only if both validations pass, update README.md and README_ja.md for both `.workaholic/specs/` and `.workaholic/policies/`. Follow write-spec skill for index file rules.
-   - **Phase 6: Report Status**: Return JSON with per-agent status, validation results.
+3. **Rewrite `plugins/core/agents/scanner.md`** as pure orchestration:
+   - No viewpoint/policy definitions (those live in per-analyst agents)
+   - Phase 1: Gather context (git context, commit hash)
+   - Phase 2: Invoke 17 named agents in parallel (8 viewpoint + 7 policy + changelog-writer + terms-writer)
+   - Phase 3-4: Validate spec/policy output
+   - Phase 5: Update index files
+   - Phase 6: Report status
 
-2. **Delete `plugins/core/agents/spec-writer.md`**: All its content (viewpoint definitions, validation, index updates) has been absorbed into scanner.md.
+4. **Delete `plugins/core/agents/spec-writer.md`**: Replaced by 8 per-viewpoint agents + scanner orchestration.
 
-3. **Delete `plugins/core/agents/policy-writer.md`**: All its content (policy domain definitions, validation, index updates) has been absorbed into scanner.md.
+5. **Delete `plugins/core/agents/policy-writer.md`**: Replaced by 7 per-policy agents + scanner orchestration.
 
-4. **Update scanner.md output JSON schema** to reflect the new flat structure:
+6. **Delete `plugins/core/agents/architecture-analyst.md`**: Replaced by 8 per-viewpoint agents.
 
-   ```json
-   {
-     "changelog_writer": { "status": "success" | "failed" },
-     "terms_writer": { "status": "success" | "failed" },
-     "spec_validation": { "pass": true },
-     "policy_validation": { "pass": true },
-     "viewpoints": {
-       "stakeholder": { "status": "success" | "failed" },
-       "model": { "status": "success" | "failed" },
-       "usecase": { "status": "success" | "failed" },
-       "infrastructure": { "status": "success" | "failed" },
-       "application": { "status": "success" | "failed" },
-       "component": { "status": "success" | "failed" },
-       "data": { "status": "success" | "failed" },
-       "feature": { "status": "success" | "failed" }
-     },
-     "policies": {
-       "test": { "status": "success" | "failed" },
-       "security": { "status": "success" | "failed" },
-       "quality": { "status": "success" | "failed" },
-       "accessibility": { "status": "success" | "failed" },
-       "observability": { "status": "success" | "failed" },
-       "delivery": { "status": "success" | "failed" },
-       "recovery": { "status": "success" | "failed" }
-     }
-   }
-   ```
-
-5. **Update scanner.md description** in frontmatter to reflect the new role: "Invoke documentation generators (changelog-writer, terms-writer, 8 architecture-analysts, 7 policy-analysts) in parallel and update index files."
-
-6. **Verify no other files reference spec-writer or policy-writer** by name. Check:
-   - `plugins/core/commands/scan.md` -- references scanner only (no change needed)
-   - `.workaholic/specs/` documentation -- may mention spec-writer in generated content
-   - Any skill files that list spec-writer or policy-writer as consumers
+7. **Delete `plugins/core/agents/policy-analyst.md`**: Replaced by 7 per-policy agents.
 
 ## Considerations
 
@@ -113,3 +84,13 @@ Past tickets that touched similar areas:
 - **Architecture documentation**: The `.workaholic/specs/architecture.md` and `command-flows.md` (if they exist as viewpoint-generated files) will describe the scan command flow. After this refactoring, these documents will be regenerated by the next `/scan` run and should automatically reflect the new 2-level architecture. (`plugins/core/agents/architecture-analyst.md`)
 - **Backward compatibility**: No external interface changes. The `/scan` command still invokes scanner, scanner still produces the same output files. Only the internal orchestration depth changes. (`plugins/core/commands/scan.md`)
 - **Precedent**: The story-writer successfully invokes 4 subagents in Phase 1 and 2 subagents in Phase 4 (2-level nesting from `/report` command). This confirms 2-level nesting works reliably while 3-level does not. (`plugins/core/agents/story-writer.md`)
+
+## Final Report
+
+Implemented per-analyst agent architecture instead of the originally planned inline-definitions approach. Created 15 dedicated self-contained agent files (8 viewpoint analysts + 7 policy analysts), each baking in its own viewpoint/policy definition and preloading the appropriate skills. This keeps the scanner as pure orchestration (~110 lines) while each analyst is self-contained (~45 lines).
+
+Files created: stakeholder-analyst.md, model-analyst.md, usecase-analyst.md, infrastructure-analyst.md, application-analyst.md, component-analyst.md, data-analyst.md, feature-analyst.md, test-policy-analyst.md, security-policy-analyst.md, quality-policy-analyst.md, accessibility-policy-analyst.md, observability-policy-analyst.md, delivery-policy-analyst.md, recovery-policy-analyst.md.
+
+Files deleted: spec-writer.md, policy-writer.md, architecture-analyst.md, policy-analyst.md.
+
+Files rewritten: scanner.md (from 4-agent orchestrator to 17-agent orchestrator with validation and index update phases).

@@ -104,7 +104,8 @@ commit_hash: <from context COMMIT section>
 - Write full paragraphs, not bullet-point fragments
 - Code blocks must specify language
 - Links use relative paths within `.workaholic/`
-- Use Mermaid charts for diagrams
+- Embed Mermaid diagrams inline within the sections they illustrate, not in a separate "Diagram" section
+- Use at least 2 diagrams per spec with descriptive subsection headings
 
 ## Design Policy
 

@@ -17,7 +17,7 @@ Analyze the repository from the infrastructure viewpoint and produce a specifica
 - **Slug**: infrastructure
 - **Description**: External dependencies, file system layout, and installation
 - **Analysis prompts**: What external tools and services are depended on? What is the file system layout? How is the system installed and configured? What environment requirements exist?
-- **Mermaid diagram**: `flowchart` showing infrastructure dependencies and deployment layout
+- **Mermaid diagrams**: Embed within content sections. Suggested: `flowchart` for file system layout, `flowchart` for CI/CD pipeline, `flowchart` for dependency relationships
 - **Output sections**: External Dependencies, File System Layout, Installation, Environment Requirements
 
 ## Instructions
@@ -35,7 +35,7 @@ Analyze the repository from the infrastructure viewpoint and produce a specifica
 
 3. **Analyze Codebase**: Use the analysis prompts above. Read relevant source files to understand the system deeply.
 
-4. **Write English Spec**: Write `.workaholic/specs/infrastructure.md` following the preloaded analyze-viewpoint and write-spec skills. Include a Mermaid `flowchart` diagram and an Assumptions section with `[Explicit]`/`[Inferred]` prefixes.
+4. **Write English Spec**: Write `.workaholic/specs/infrastructure.md` following the preloaded analyze-viewpoint and write-spec skills. Include multiple Mermaid diagrams within content sections and an Assumptions section with `[Explicit]`/`[Inferred]` prefixes.
 
 5. **Write Japanese Translation**: Write `.workaholic/specs/infrastructure_ja.md` following the preloaded translate skill.
 

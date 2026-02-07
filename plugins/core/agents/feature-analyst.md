@@ -17,7 +17,7 @@ Analyze the repository from the feature viewpoint and produce a specification do
 - **Slug**: feature
 - **Description**: Feature inventory, capability matrix, and configuration options
 - **Analysis prompts**: What features does the system provide? What is the capability matrix? What configuration options are available? What is the feature status?
-- **Mermaid diagram**: `flowchart` showing feature groupings and dependencies
+- **Mermaid diagrams**: Embed within content sections. Suggested: `flowchart` for capability matrix, `flowchart` for feature dependencies, `flowchart` for cross-cutting concerns
 - **Output sections**: Feature Inventory, Capability Matrix, Configuration Options, Feature Status
 
 ## Instructions
@@ -35,7 +35,7 @@ Analyze the repository from the feature viewpoint and produce a specification do
 
 3. **Analyze Codebase**: Use the analysis prompts above. Read relevant source files to understand the system deeply.
 
-4. **Write English Spec**: Write `.workaholic/specs/feature.md` following the preloaded analyze-viewpoint and write-spec skills. Include a Mermaid `flowchart` diagram and an Assumptions section with `[Explicit]`/`[Inferred]` prefixes.
+4. **Write English Spec**: Write `.workaholic/specs/feature.md` following the preloaded analyze-viewpoint and write-spec skills. Include multiple Mermaid diagrams within content sections and an Assumptions section with `[Explicit]`/`[Inferred]` prefixes.
 
 5. **Write Japanese Translation**: Write `.workaholic/specs/feature_ja.md` following the preloaded translate skill.
 

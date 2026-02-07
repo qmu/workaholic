@@ -3,9 +3,9 @@ created_at: 2026-02-07T17:12:28+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 21496ca
+category: Changed
 ---
 
 # Replace Single Generic "Diagram" Section with Multiple Contextual Diagrams in Specs
@@ -143,3 +143,7 @@ Past tickets that touched similar areas:
 - Increasing the number of diagrams per spec increases output token count per analyst agent. Since all 8 analysts run in parallel on sonnet, this should not meaningfully impact total scan time, but may increase cost per scan. (`plugins/core/agents/scanner.md`)
 - The `diagrams.md` rule (line 8: "Use Mermaid, not ASCII art") already applies to all markdown files and does not constrain diagram quantity or placement, so no changes are needed there. (`plugins/core/rules/diagrams.md`)
 - The `feature.md` and `data.md` specs already embed their diagrams with contextual section titles ("## 4. Capability Matrix" and "## 6. Data Lifecycle" respectively), further confirming that the inline approach is natural and several analysts already gravitate toward it when the content warrants it. (`.workaholic/specs/feature.md` line 92, `.workaholic/specs/data.md` line 120)
+
+## Final Report
+
+Development completed as planned.

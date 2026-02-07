@@ -17,7 +17,7 @@ Analyze the repository from the application viewpoint and produce a specificatio
 - **Slug**: application
 - **Description**: Runtime behavior, agent orchestration, and data flow
 - **Analysis prompts**: How do agents orchestrate at runtime? What is the data flow? What are the execution lifecycles? How do parallel and sequential operations interact?
-- **Mermaid diagram**: `sequenceDiagram` showing runtime orchestration and data flow
+- **Mermaid diagrams**: Embed within content sections. Suggested: `sequenceDiagram` for per-command orchestration, `flowchart` for data flow paths, `flowchart` for concurrency patterns
 - **Output sections**: Orchestration Model, Data Flow, Execution Lifecycle, Concurrency Patterns
 
 ## Instructions
@@ -35,7 +35,7 @@ Analyze the repository from the application viewpoint and produce a specificatio
 
 3. **Analyze Codebase**: Use the analysis prompts above. Read relevant source files to understand the system deeply.
 
-4. **Write English Spec**: Write `.workaholic/specs/application.md` following the preloaded analyze-viewpoint and write-spec skills. Include a Mermaid `sequenceDiagram` diagram and an Assumptions section with `[Explicit]`/`[Inferred]` prefixes.
+4. **Write English Spec**: Write `.workaholic/specs/application.md` following the preloaded analyze-viewpoint and write-spec skills. Include multiple Mermaid diagrams within content sections and an Assumptions section with `[Explicit]`/`[Inferred]` prefixes.
 
 5. **Write Japanese Translation**: Write `.workaholic/specs/application_ja.md` following the preloaded translate skill.
 

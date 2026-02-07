@@ -17,7 +17,7 @@ Analyze the repository from the use case viewpoint and produce a specification d
 - **Slug**: usecase
 - **Description**: User workflows, command sequences, and input/output contracts
 - **Analysis prompts**: What are the primary user workflows? What is the input/output contract for each command? What are the step-by-step sequences? What error paths exist?
-- **Mermaid diagram**: `sequenceDiagram` showing command execution flows
+- **Mermaid diagrams**: Embed within content sections. Suggested: `sequenceDiagram` for per-command flows, `flowchart` for workflow overview
 - **Output sections**: Primary Workflows, Command Contracts, Step-by-Step Sequences, Error Handling
 
 ## Instructions
@@ -35,7 +35,7 @@ Analyze the repository from the use case viewpoint and produce a specification d
 
 3. **Analyze Codebase**: Use the analysis prompts above. Read relevant source files to understand the system deeply.
 
-4. **Write English Spec**: Write `.workaholic/specs/usecase.md` following the preloaded analyze-viewpoint and write-spec skills. Include a Mermaid `sequenceDiagram` diagram and an Assumptions section with `[Explicit]`/`[Inferred]` prefixes.
+4. **Write English Spec**: Write `.workaholic/specs/usecase.md` following the preloaded analyze-viewpoint and write-spec skills. Include multiple Mermaid diagrams within content sections and an Assumptions section with `[Explicit]`/`[Inferred]` prefixes.
 
 5. **Write Japanese Translation**: Write `.workaholic/specs/usecase_ja.md` following the preloaded translate skill.
 

@@ -4,7 +4,7 @@
 # Usage: bash validate.sh <directory> <file1> <file2> ...
 # Output: JSON with per-file status and overall pass/fail
 
-dir="$1"
+dir="${1:-}"
 shift
 
 if [ -z "$dir" ] || [ $# -eq 0 ]; then

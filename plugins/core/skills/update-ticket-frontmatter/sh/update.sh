@@ -4,9 +4,9 @@
 
 set -eu
 
-TICKET="$1"
-FIELD="$2"
-VALUE="$3"
+TICKET="${1:-}"
+FIELD="${2:-}"
+VALUE="${3:-}"
 
 if [ -z "$TICKET" ] || [ -z "$FIELD" ] || [ -z "$VALUE" ]; then
     echo "Usage: update.sh <ticket-path> <field> <value>"

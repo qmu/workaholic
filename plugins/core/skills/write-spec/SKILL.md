@@ -40,6 +40,9 @@ The script outputs structured information:
 
 === COMMIT ===
 <current short commit hash>
+
+=== ACTUAL STRUCTURE ===
+<actual files in plugins/core/ directories>
 ```
 
 ### Using the Output
@@ -49,13 +52,31 @@ The script outputs structured information:
 - **SPECS**: Survey these to find documents needing updates
 - **DIFF**: Use when no tickets exist to understand changes
 - **COMMIT**: Use in frontmatter `commit_hash` field
+- **ACTUAL STRUCTURE**: Compare against component.md and infrastructure.md to detect stale documentation
 
 ## Directory Structure
 
 | Audience   | Directory            | Content                                  |
 | ---------- | -------------------- | ---------------------------------------- |
 | Users      | `.workaholic/guides/` | How to use: commands, workflows, setup   |
-| Developers | `.workaholic/specs/`  | How it works: architecture, contributing |
+| Developers | `.workaholic/specs/`  | How it works: viewpoint-based architecture specs |
+
+### Viewpoint Files
+
+The specs directory contains 8 viewpoint-based architecture documents (plus their Japanese translations):
+
+| Viewpoint      | File                 | Description                                              |
+| -------------- | -------------------- | -------------------------------------------------------- |
+| stakeholder    | `stakeholder.md`     | Who uses the system, their goals, interaction patterns   |
+| model          | `model.md`           | Domain concepts, relationships, core abstractions        |
+| usecase        | `usecase.md`         | User workflows, command sequences, input/output contracts|
+| infrastructure | `infrastructure.md`  | External dependencies, file system layout, installation  |
+| application    | `application.md`     | Runtime behavior, agent orchestration, data flow         |
+| component      | `component.md`       | Internal structure, module boundaries, decomposition     |
+| data           | `data.md`            | Data formats, frontmatter schemas, naming conventions    |
+| feature        | `feature.md`         | Feature inventory, capability matrix, configuration      |
+
+Each viewpoint file has a corresponding `_ja.md` translation (e.g., `stakeholder_ja.md`).
 
 ## Frontmatter
 
@@ -73,15 +94,18 @@ commit_hash: <from context COMMIT section>
 
 ## File Naming
 
-- Use kebab-case: `getting-started.md`, `command-reference.md`
-- Exception: `README.md` uses uppercase
+- Viewpoint specs use their slug as filename: `stakeholder.md`, `component.md`
+- Translations use `_ja` suffix: `stakeholder_ja.md`, `component_ja.md`
+- Other files use kebab-case: `getting-started.md`, `command-reference.md`
+- Exception: `README.md` and `README_ja.md` use uppercase
 
 ## Content Style
 
 - Write full paragraphs, not bullet-point fragments
 - Code blocks must specify language
 - Links use relative paths within `.workaholic/`
-- Use Mermaid charts for diagrams
+- Embed Mermaid diagrams inline within the sections they illustrate, not in a separate "Diagram" section
+- Use at least 2 diagrams per spec with descriptive subsection headings
 
 ## Design Policy
 
@@ -109,6 +133,22 @@ For each cross-cutting concern:
 - Document the "why" behind design decisions, not just implementation details
 
 ## Index File Updates
+
+**Viewpoint spec index entries:**
+
+The README files should list all 8 viewpoint specs:
+
+```markdown
+# README.md
+- [Stakeholder](stakeholder.md) - Who uses the system, their goals, interaction patterns
+- [Model](model.md) - Domain concepts, relationships, core abstractions
+- [Use Case](usecase.md) - User workflows, command sequences, input/output contracts
+- [Infrastructure](infrastructure.md) - External dependencies, file system layout, installation
+- [Application](application.md) - Runtime behavior, agent orchestration, data flow
+- [Component](component.md) - Internal structure, module boundaries, decomposition
+- [Data](data.md) - Data formats, frontmatter schemas, naming conventions
+- [Feature](feature.md) - Feature inventory, capability matrix, configuration
+```
 
 **When adding a document:**
 

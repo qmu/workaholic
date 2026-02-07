@@ -24,7 +24,7 @@ plugins/                 # Plugin source directories
   core/                  # Core development plugin
     .claude-plugin/      # Plugin configuration
     agents/              # performance-analyst
-    commands/            # ticket, drive, report
+    commands/            # ticket, drive, story, report
     rules/               # general, typescript
     skills/              # archive-ticket
 ```
@@ -60,7 +60,29 @@ Subagents must use skills for common operations instead of inline shell commands
 
 Never write inline git commands like `git branch --show-current` or `git remote show origin` in subagent markdown files. Subagents preload the skill and gather context themselves.
 
-**Shell Script Principle**: Never use complex inline shell commands (pipes, sed, awk) in subagent or command markdown files. Extract multi-step shell operations to bundled scripts in skills (`skills/<name>/sh/<script>.sh`). This ensures consistency, testability, and permission-free execution.
+### Shell Script Principle
+
+> **CRITICAL: Never use complex inline shell commands in subagent or command markdown files.**
+
+This includes:
+- **Conditionals**: `if`, `case`, `test`, `[ ]`, `[[ ]]`
+- **Pipes and chains**: `|`, `&&`, `||`
+- **Text processing**: `sed`, `awk`, `grep`, `cut`
+- **Loops**: `for`, `while`
+- **Variable expansion with logic**: `${var:-default}`, `${var:+alt}`
+
+Extract ALL multi-step or conditional shell operations to bundled scripts in skills (`skills/<name>/sh/<script>.sh`). This ensures consistency, testability, and permission-free execution.
+
+**Wrong** (inline conditional):
+```bash
+current=$(git branch --show-current)
+if [ "$current" = "main" ]; then echo "on_main"; fi
+```
+
+**Correct** (skill script):
+```bash
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/manage-branch/sh/check.sh
+```
 
 ## Commands
 
@@ -68,15 +90,16 @@ Never write inline git commands like `git branch --show-current` or `git remote 
 | -------------------------------- | ------------------------------------------------ |
 | `/ticket <description>`          | Write implementation spec for a feature          |
 | `/drive`                         | Implement queued specs one by one                |
-| `/scan`                          | Update .workaholic/ documentation                |
-| `/report`                        | Generate documentation and create/update PR      |
+| `/scan`                          | Full documentation scan (all 17 agents)          |
+| `/story`                         | Partial scan, generate story, and create/update PR |
+| `/report`                        | Generate story and create/update PR (no scan)    |
 | `/release [major\|minor\|patch]` | Release new marketplace version                  |
 
 ## Development Workflow
 
 1. **Create specs**: Use `/ticket` to write implementation specs
 2. **Implement specs**: Use `/drive` to implement and commit each spec
-3. **Create PR**: Use `/report` to generate documentation and create PR
+3. **Create PR**: Use `/story` to partial-scan, generate story, and create PR
 4. **Release**: Use `/release` to bump version and publish
 
 ## Type Checking

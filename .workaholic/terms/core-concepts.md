@@ -2,8 +2,8 @@
 title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
-last_updated: 2026-02-04
-commit_hash:
+last_updated: 2026-02-07
+commit_hash: 12d9509
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -50,7 +50,23 @@ Preloading is the mechanism by which agents gain access to skill content at init
 
 ## nesting-policy
 
-The nesting policy defines allowed and prohibited invocation patterns between commands, subagents, and skills, ensuring clean separation between orchestration and knowledge. Allowed: Command→Skill (preload), Command→Subagent (Task tool), Subagent→Skill (preload), Skill→Skill (preload). Prohibited: Skill→Subagent, Skill→Command, Subagent→Subagent, Subagent→Command. The guiding principle is "thin commands and subagents (~20-100 lines), comprehensive skills (~50-150 lines)". Documented in root CLAUDE.md under Architecture Policy. Related terms: command, agent, skill, orchestrator.
+The nesting policy defines allowed and prohibited invocation patterns between commands, subagents, and skills, ensuring clean separation between orchestration and knowledge. Allowed: Command→Skill (preload), Command→Subagent (Task tool), Subagent→Skill (preload), Subagent→Subagent (Task tool), Skill→Skill (preload). Prohibited: Skill→Subagent, Skill→Command, Subagent→Command. The guiding principle is "thin commands and subagents (~20-100 lines), comprehensive skills (~50-150 lines)". Multi-level nesting (e.g., scanner→spec-writer→architecture-analyst) is acceptable when child invocations are parallel. Documented in root CLAUDE.md under Architecture Policy. Related terms: command, agent, skill, orchestrator.
+
+## viewpoint
+
+A viewpoint is a predefined architectural lens for analyzing a repository from a specific perspective. Workaholic defines 8 viewpoints: stakeholder, model, usecase, infrastructure, application, component, data, and feature. Each viewpoint has analysis prompts, a Mermaid diagram type, and output sections. During `/scan`, the spec-writer orchestrates 8 parallel architecture-analyst subagents, one per viewpoint, producing `.workaholic/specs/<slug>.md` and `<slug>_ja.md`. Viewpoint definitions live in the spec-writer agent (the caller), while the analyze-viewpoint skill provides the generic analysis framework. Related terms: spec, architecture-analyst, analyze-viewpoint, scan.
+
+## viewpoint-analyst
+
+A viewpoint-analyst (e.g., stakeholder-analyst, model-analyst) is a thin subagent that analyzes the repository from a specific viewpoint perspective. It uses the analyze-viewpoint skill to gather context, read overrides from the user's CLAUDE.md, and write a viewpoint spec document with Mermaid diagrams and an Assumptions section distinguishing `[Explicit]` from `[Inferred]` knowledge. Each of the 8 viewpoints has its own dedicated analyst agent defined in `plugins/core/agents/<slug>-analyst.md`. Invoked directly by the scanner rather than through an intermediate writer. Related terms: viewpoint, scanner, analyze-viewpoint.
+
+## policy-analyst
+
+A policy-analyst (e.g., test-policy-analyst, security-policy-analyst) is a thin subagent that analyzes the repository from a specific policy domain perspective. It uses the analyze-policy skill to gather context, document observable practices, and write a policy document with `[Explicit]` and `[Inferred]` annotations. Gaps where no evidence is found are marked as "Not observed" rather than omitted. Each of the 7 policy domains has its own dedicated analyst agent defined in `plugins/core/agents/<slug>-policy-analyst.md`. Invoked directly by the scanner rather than through an intermediate writer. Related terms: policy, scanner, analyze-policy.
+
+## scanner
+
+The scanner is a subagent that orchestrates 17 documentation agents in parallel: 8 viewpoint analysts (stakeholder, model, usecase, infrastructure, application, component, data, feature), 7 policy analysts (test, security, quality, accessibility, observability, delivery, recovery), a changelog-writer, and a terms-writer. It gathers git context, dispatches all 17 agents concurrently, validates output files, and updates index READMEs. Invoked by the `/scan` command. Defined in `plugins/core/agents/scanner.md`. Related terms: orchestrator, concurrent-execution, scan, viewpoint, policy-analyst.
 
 ## hook
 

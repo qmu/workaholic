@@ -2,8 +2,8 @@
 title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
-last_updated: 2026-02-04
-commit_hash:
+last_updated: 2026-02-07
+commit_hash: 12d9509
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -50,7 +50,23 @@ denyルールは`.claude/settings.json`の`permissions.deny`で設定され、�
 
 ## nesting-policy
 
-nesting policyはコマンド、サブエージェント、スキル間で許可される呼び出しパターンと禁止される呼び出しパターンを定義し、オーケストレーションとナレッジの明確な分離を確保します。許可：コマンド→スキル（プリロード）、コマンド→サブエージェント（Taskツール）、サブエージェント→スキル（プリロード）、スキル→スキル（プリロード）。禁止：スキル→サブエージェント、スキル→コマンド、サブエージェント→サブエージェント、サブエージェント→コマンド。指導原則は「薄いコマンドとサブエージェント（約20-100行）、包括的なスキル（約50-150行）」です。ルートCLAUDE.mdのArchitecture Policyセクションにドキュメント化されています。関連用語：command、agent、skill、orchestrator。
+nesting policyはコマンド、サブエージェント、スキル間で許可される呼び出しパターンと禁止される呼び出しパターンを定義し、オーケストレーションとナレッジの明確な分離を確保します。許可：コマンド→スキル（プリロード）、コマンド→サブエージェント（Taskツール）、サブエージェント→スキル（プリロード）、サブエージェント→サブエージェント（Taskツール）、スキル→スキル（プリロード）。禁止：スキル→サブエージェント、スキル→コマンド、サブエージェント→コマンド。指導原則は「薄いコマンドとサブエージェント（約20-100行）、包括的なスキル（約50-150行）」です。多段ネスト（例：scanner→spec-writer→architecture-analyst）は子の呼び出しが並列である場合に許容されます。ルートCLAUDE.mdのArchitecture Policyセクションにドキュメント化されています。関連用語：command、agent、skill、orchestrator。
+
+## viewpoint
+
+viewpointはリポジトリを特定の視点から分析するための定義済みアーキテクチャレンズです。Workaholicは8つのviewpointを定義しています：stakeholder、model、usecase、infrastructure、application、component、data、feature。各viewpointには分析プロンプト、Mermaidダイアグラムタイプ、出力セクションがあります。`/scan`中にspec-writerが8つの並列architecture-analystサブエージェントをオーケストレートし、viewpointごとに`.workaholic/specs/<slug>.md`と`<slug>_ja.md`を生成します。viewpoint定義はspec-writerエージェント（呼び出し側）に存在し、analyze-viewpointスキルが汎用分析フレームワークを提供します。関連用語：spec、architecture-analyst、analyze-viewpoint、scan。
+
+## viewpoint-analyst
+
+viewpoint-analyst（例：stakeholder-analyst、model-analyst）は特定のviewpoint視点からリポジトリを分析する薄いサブエージェントです。analyze-viewpointスキルを使用してコンテキストを収集し、ユーザーのCLAUDE.mdからオーバーライドを読み取り、Mermaidダイアグラムと`[Explicit]`および`[Inferred]`の知識を区別するAssumptionsセクションを含むviewpointスペックドキュメントを書き込みます。8つのviewpointそれぞれに`plugins/core/agents/<slug>-analyst.md`で定義された専用のanalystエージェントがあります。中間のwriterを介さずscannerから直接呼び出されます。関連用語：viewpoint、scanner、analyze-viewpoint。
+
+## policy-analyst
+
+policy-analyst（例：test-policy-analyst、security-policy-analyst）は特定のポリシードメイン視点からリポジトリを分析する薄いサブエージェントです。analyze-policyスキルを使用してコンテキストを収集し、観察可能なプラクティスを記録し、`[Explicit]`と`[Inferred]`のアノテーション付きでポリシードキュメントを書き込みます。証拠が見つからないギャップは省略せず「Not observed」としてマークされます。7つのポリシードメインそれぞれに`plugins/core/agents/<slug>-policy-analyst.md`で定義された専用のanalystエージェントがあります。中間のwriterを介さずscannerから直接呼び出されます。関連用語：policy、scanner、analyze-policy。
+
+## scanner
+
+scannerは17のドキュメントエージェントを並列でオーケストレートするサブエージェントです：8つのviewpoint analyst（stakeholder、model、usecase、infrastructure、application、component、data、feature）、7つのpolicy analyst（test、security、quality、accessibility、observability、delivery、recovery）、changelog-writer、terms-writer。gitコンテキストを収集し、17のエージェントすべてを同時にディスパッチし、出力ファイルを検証し、インデックスREADMEを更新します。`/scan`コマンドによって呼び出されます。`plugins/core/agents/scanner.md`で定義されています。関連用語：orchestrator、concurrent-execution、scan、viewpoint、policy-analyst。
 
 ## hook
 

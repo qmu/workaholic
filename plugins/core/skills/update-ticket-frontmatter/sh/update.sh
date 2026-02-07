@@ -4,9 +4,9 @@
 
 set -eu
 
-TICKET="$1"
-FIELD="$2"
-VALUE="$3"
+TICKET="${1:-}"
+FIELD="${2:-}"
+VALUE="${3:-}"
 
 if [ -z "$TICKET" ] || [ -z "$FIELD" ] || [ -z "$VALUE" ]; then
     echo "Usage: update.sh <ticket-path> <field> <value>"
@@ -16,6 +16,16 @@ fi
 if [ ! -f "$TICKET" ]; then
     echo "Error: Ticket not found: $TICKET"
     exit 1
+fi
+
+# Validate effort values
+if [ "$FIELD" = "effort" ]; then
+    case "$VALUE" in
+        0.1h|0.25h|0.5h|1h|2h|4h) ;; # valid
+        *) echo "Error: effort must be one of: 0.1h, 0.25h, 0.5h, 1h, 2h, 4h"
+           echo "Got: $VALUE"
+           exit 1 ;;
+    esac
 fi
 
 if grep -q "^${FIELD}:" "$TICKET"; then

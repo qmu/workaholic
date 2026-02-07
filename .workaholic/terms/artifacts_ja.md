@@ -2,8 +2,8 @@
 title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
-last_updated: 2026-02-04
-commit_hash:
+last_updated: 2026-02-07
+commit_hash: 82ffc1b
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -18,7 +18,11 @@ commit_hash:
 
 ## spec
 
-スペックはコードベースの権威あるリファレンススナップショットを提供する現状ドキュメントです。（変更を記述する）チケットとは異なり、スペックは現在存在するものを記述し、`/report`中にspec-writerサブエージェントを介して変更後の現在の状態を反映するように更新されます。スペックは`.workaholic/specs/`に`architecture.md`や`api-reference.md`などのファイルとして存在します。関連用語：ticket、story。注：`/ticket`コマンドの説明で「implementation spec」と言及しており、ticketとspecの用語が混同されています。
+スペックはコードベースの権威あるリファレンススナップショットを提供する現状ドキュメントです。（変更を記述する）チケットとは異なり、スペックは現在存在するものを記述し、`/scan`または`/report`中にspec-writerサブエージェントを介して変更後の現在の状態を反映するように更新されます。スペックは`.workaholic/specs/`にviewpointベースのアーキテクチャドキュメントとして存在します：`stakeholder.md`、`model.md`、`usecase.md`、`infrastructure.md`、`application.md`、`component.md`、`data.md`、`feature.md`（それぞれ`_ja.md`翻訳付き）。以前のアドホック構造（`architecture.md`、`command-flows.md`、`contributing.md`）はこの体系的な8-viewpointアプローチに置き換えられました。関連用語：ticket、story、viewpoint。注：`/ticket`コマンドの説明で「implementation spec」と言及しており、ticketとspecの用語が混同されています。
+
+## policy
+
+policyは特定の運用ドメインにおけるリポジトリのプラクティスと基準を記述するドキュメントです。Workaholicは7つのポリシードメインを定義しています：test、security、quality、accessibility、observability、delivery、recovery。ポリシードキュメントは`.workaholic/policies/`に`<slug>.md`と`<slug>_ja.md`ファイルとして存在します。各ポリシーは`[Explicit]`と`[Inferred]`のアノテーション付きで観察可能なプラクティスを記録し、証拠のないエリアは「Not observed」としてマークします。`/scan`中にpolicy-writerサブエージェントによって生成されます。関連用語：spec、scan、policy-analyst。
 
 ## story
 
@@ -38,7 +42,7 @@ topic treeはストーリーのジャーニーセクション内に埋め込ま�
 
 ## changes
 
-changesセクションはストーリードキュメントのセクション4で、`### 4.N. <チケットタイトル> ([hash](commit-url))`の形式でサブセクションとしてすべての変更の包括的なリストを提供します。各サブセクションにはチケットのOverviewからの1〜2文の説明が含まれ、Journeyの「どのようにしてここに至ったか？」に対する詳細な「何が変わったか？」の補完として機能します。`.workaholic/stories/<branch-name>.md`内に表示されます。関連用語：story、journey、ticket。
+changesセクションはストーリードキュメントのセクション4で、`### 4-N. <チケットタイトル> ([hash](commit-url))`の形式でサブセクションとしてすべての変更の包括的なリストを提供します。各サブセクションにはチケットのOverviewからの1〜2文の説明が含まれ、Journeyの「どのようにしてここに至ったか？」に対する詳細な「何が変わったか？」の補完として機能します。注：H3見出しの番号付けは以前のドット記法（`4.1.`）ではなくハイフン記法（`4-1.`）を使用します。`.workaholic/stories/<branch-name>.md`内に表示されます。関連用語：story、journey、ticket。
 
 ## related-history
 

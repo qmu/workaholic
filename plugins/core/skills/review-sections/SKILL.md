@@ -38,12 +38,15 @@ Extract patterns and learnings from Related History sections.
 
 ### Section 7: Concerns
 
-Identify risks, trade-offs, and limitations.
+Identify risks, trade-offs, and limitations with identifiable references.
 
 - Extract from Considerations sections of tickets
+- Include commit_hash from ticket frontmatter (if present) for each concern
+- Include file paths mentioned in the Considerations section
 - Include technical debt introduced
 - Note any known limitations or edge cases
 - Highlight security or performance concerns if applicable
+- Format: `<description> (see [hash](url) in path/to/file.ext)`
 - If nothing noteworthy, write "None"
 
 ### Section 8: Ideas

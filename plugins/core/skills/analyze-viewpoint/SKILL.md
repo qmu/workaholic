@@ -70,6 +70,17 @@ commit_hash: <from context>
 <clearly mark inferred vs explicit knowledge>
 ```
 
+## Mermaid Node Label Quoting (REQUIRED)
+
+When generating Mermaid diagrams, **MUST quote labels** containing special characters (`/`, `{`, `}`, `[`, `]`):
+
+- `A[/command]` -- WRONG, causes GitHub lexical error
+- `A["/command"]` -- CORRECT
+- `B{Decision?}` -- acceptable (no special chars inside braces)
+- `C["path/to/file"]` -- CORRECT for paths with slashes
+
+This is especially common for slash-command labels like `/ticket`, `/drive`, `/scan`, `/report`.
+
 ## Assumption Section Rules
 
 Every viewpoint spec must include an Assumptions section at the end:

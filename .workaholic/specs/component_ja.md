@@ -68,10 +68,10 @@ Skill は知識層で、ドメイン別に組織化されています。各 skil
 ```mermaid
 flowchart TD
     subgraph Commands
-        ticket[/ticket]
-        drive[/drive]
-        scan[/scan]
-        report[/report]
+        ticket["/ticket"]
+        drive["/drive"]
+        scan["/scan"]
+        report["/report"]
     end
 
     subgraph Agents

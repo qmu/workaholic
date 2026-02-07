@@ -3,9 +3,9 @@ created_at: 2026-02-07T11:20:21+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: e7efc31
+category: Changed
 ---
 
 # Fix Mermaid Unquoted Node Labels in Spec Files
@@ -181,3 +181,7 @@ Past tickets that touched similar areas:
 - **data.md English counterpart**: Check if `.workaholic/specs/data.md` has the same diagram pattern and whether it also needs quoting (`.workaholic/specs/data.md`)
 - **Other spec files**: A full audit of all `.workaholic/specs/*.md` files for additional unquoted labels would be prudent during implementation (`plugins/core/rules/diagrams.md` lines 46-48)
 - **Rule file already correct**: The `diagrams.md` rule (lines 35-48) is already well-documented; the gap is in skill propagation, not rule definition (`plugins/core/rules/diagrams.md`)
+
+## Final Report
+
+All 12 unquoted Mermaid node labels across 5 spec files were quoted. Additionally, quoting was applied to adjacent labels with special characters in `data_ja.md` (`Create["todo/ で作成"]`, `Approve{"承認?"}`) for consistency. The `data.md` English counterpart was checked and has no Mermaid diagram requiring fixes. A "Mermaid Node Label Quoting (REQUIRED)" section was added to `plugins/core/skills/analyze-viewpoint/SKILL.md` to prevent recurrence by analyst subagents.

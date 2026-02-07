@@ -73,8 +73,8 @@ Terms ファイルは `modified_at`（datetime 形式）ではなく `last_updat
 
 ```mermaid
 flowchart LR
-    Create[todo/ で作成] --> Implement[/drive で実装]
-    Implement --> Approve{承認?}
+    Create["todo/ で作成"] --> Implement["/drive で実装"]
+    Implement --> Approve{"承認?"}
     Approve -->|はい| Archive[archive/branch/ にアーカイブ]
     Approve -->|Abandon| Abandoned[abandoned/ に移動]
     Approve -->|Feedback| Implement

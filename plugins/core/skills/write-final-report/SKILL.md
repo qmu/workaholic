@@ -12,13 +12,11 @@ After user approves implementation, update the ticket with effort and final repo
 
 ## Update Effort Field
 
-Follow the preloaded **update-ticket-frontmatter** skill for valid effort values.
+Estimate the actual time this implementation took, then round to the nearest valid value.
 
-> **⚠️ COMMON MISTAKE**: DO NOT use t-shirt sizes or minute values!
->
-> **INVALID**: `XS`, `S`, `M`, `L`, `XL`, `10m`, `30m`
->
-> The validation hook will reject these and cause workflow failure.
+**The ONLY valid values are:** `0.1h`, `0.25h`, `0.5h`, `1h`, `2h`, `4h`
+
+Do NOT use t-shirt sizes (S/M/L/XS/XL), minutes (10m/30m), or any other format. The `update.sh` script will reject invalid values.
 
 **Valid values (hour-based only):**
 

@@ -56,14 +56,12 @@ ls -1 .workaholic/tickets/todo/*.md 2>/dev/null
 For each ticket, read and extract YAML frontmatter to get:
 - `type`: bugfix > enhancement > refactoring > housekeeping (priority ranking)
 - `layer`: Group related layers for context efficiency
-- `effort`: Lower effort tickets may provide quick wins
 
 #### 2. Determine Priority Order
 
 Consider these factors:
 - **Severity**: Bugfixes take precedence over enhancements
 - **Context grouping**: Process tickets affecting same layer/files together
-- **Quick wins**: Lower-effort tickets may be prioritized for momentum
 - **Dependencies**: If ticket A modifies files that ticket B reads, process A first
 
 Handle missing metadata gracefully - default to normal priority when fields are absent.

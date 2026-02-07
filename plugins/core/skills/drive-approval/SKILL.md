@@ -48,7 +48,7 @@ Users can also select "Other" to provide free-form feedback.
 
 When user selects "Approve" or "Approve and stop":
 
-1. Update ticket with effort and Final Report (use **write-final-report** skill)
+1. Update ticket with effort (one of: `0.1h`, `0.25h`, `0.5h`, `1h`, `2h`, `4h`) and Final Report (use **write-final-report** skill)
 2. Archive and commit (use **archive-ticket** skill)
 3. For "Approve": continue to next ticket
 4. For "Approve and stop": end drive session

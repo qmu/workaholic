@@ -3,7 +3,7 @@ created_at: 2026-02-07T17:08:06+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config, Domain]
-effort:
+effort: 0.5h
 commit_hash:
 category:
 ---
@@ -119,3 +119,17 @@ Past tickets that touched similar areas:
 - The `validate-ticket.sh` hook only runs on Write/Edit tool operations. When `update.sh` modifies the file via `sed`, the hook is not triggered, creating a validation gap. Adding validation to `update.sh` itself closes this gap. (`plugins/core/hooks/validate-ticket.sh`)
 - The `drive-navigator.md` references effort for prioritization (line 59), but since tickets in todo always have empty effort fields, this reference is misleading and may prime Claude to think in terms of effort sizing rather than hour-based tracking. (`plugins/core/agents/drive-navigator.md` line 59)
 - Claude's tendency to use t-shirt sizes may also be reinforced by the user providing `effort: M` as a parameter to `/ticket`. Consider whether the ticket command should explicitly ignore or strip effort hints from the user's input to avoid priming. (`plugins/core/commands/ticket.md`)
+
+## Final Report
+
+All 5 implementation steps completed.
+
+### Files Modified
+- `plugins/core/skills/update-ticket-frontmatter/sh/update.sh` -- Added effort validation gate with case statement; rejects non-standard values with error message and exit 1
+- `plugins/core/skills/write-final-report/SKILL.md` -- Replaced indirect skill reference with inline valid values and "estimate then map" instruction
+- `plugins/core/agents/drive-navigator.md` -- Removed misleading effort field reference and "quick wins" prioritization factor
+- `plugins/core/skills/drive-approval/SKILL.md` -- Added explicit valid values at the approval decision point
+
+### Discovered Insights
+- **Insight**: The validation gap between `validate-ticket.sh` (hook) and `update.sh` (script) was the true root cause. The hook only fires on Write/Edit tool operations, while `update.sh` uses `sed` directly, bypassing the hook entirely.
+  **Context**: This pattern — validation at the tool boundary but not at the script boundary — is a systemic weakness. Any future shell scripts that modify ticket files should include their own validation.

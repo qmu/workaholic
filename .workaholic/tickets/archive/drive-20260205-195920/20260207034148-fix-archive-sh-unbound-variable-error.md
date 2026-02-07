@@ -3,9 +3,9 @@ created_at: 2026-02-07T03:41:48+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: f4135fe
+category: Changed
 ---
 
 # Fix archive.sh unbound variable error on missing arguments
@@ -49,7 +49,9 @@ Past tickets that touched similar areas:
    - `TICKET="${1:-}"`, `FIELD="${2:-}"`, `VALUE="${3:-}"`
    - The existing check on line 11 already validates all three, so just the assignment lines need changing
 
-4. Verify no other shell scripts in `plugins/core/skills/*/sh/*.sh` have the same bare-assignment pattern under `set -eu`
+4. Fix `create-or-update.sh` lines 7-8: `BRANCH="${1:-}"`, `TITLE="${2:-}"`
+5. Fix `generate.sh` lines 7-8: `BRANCH="${1:-}"`, `REPO_URL="${2:-}"`
+6. Fix `validate.sh` line 7: `dir="${1:-}"`
 
 ## Patches
 
@@ -103,3 +105,15 @@ Past tickets that touched similar areas:
 - The `#!/bin/sh -eu` shebang on line 1 of `archive.sh` and `update.sh` redundantly sets `-eu` before the explicit `set -eu` on line 4; this is harmless but worth noting (`plugins/core/skills/archive-ticket/sh/archive.sh` line 1)
 - `commit.sh` already handles this correctly via `${1:-}` pattern, confirming this is the established codebase convention (`plugins/core/skills/commit/sh/commit.sh` lines 20-23)
 - Other scripts like `check.sh` and `gather.sh` do not take user-supplied positional args so are not affected by this class of bug (`plugins/core/skills/manage-branch/sh/check.sh`)
+
+## Final Report
+
+Applied `${N:-}` default syntax to all 5 shell scripts that had bare positional parameter assignments under `set -eu`:
+
+1. `archive.sh` - Fixed `$1`/`$2`/`$3` → `${1:-}`/`${2:-}`/`${3:-}`, added `REPO_URL` to usage guard
+2. `update.sh` - Fixed `$1`/`$2`/`$3` → `${1:-}`/`${2:-}`/`${3:-}`
+3. `create-or-update.sh` - Fixed `$1`/`$2` → `${1:-}`/`${2:-}`
+4. `generate.sh` - Fixed `$1`/`$2` → `${1:-}`/`${2:-}`
+5. `validate.sh` - Fixed `$1` → `${1:-}`
+
+The ticket originally identified 2 scripts; audit found 3 additional scripts with the same vulnerability. All now follow the `${N:-}` convention established by `commit.sh`.

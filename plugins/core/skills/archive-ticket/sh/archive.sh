@@ -3,15 +3,15 @@
 
 set -eu
 
-TICKET="$1"
-COMMIT_MSG="$2"
-REPO_URL="$3"
+TICKET="${1:-}"
+COMMIT_MSG="${2:-}"
+REPO_URL="${3:-}"
 MOTIVATION="${4:-}"
 UX_CHANGE="${5:-None}"
 ARCH_CHANGE="${6:-None}"
 shift 6 2>/dev/null || true
 
-if [ -z "$TICKET" ] || [ -z "$COMMIT_MSG" ]; then
+if [ -z "$TICKET" ] || [ -z "$COMMIT_MSG" ] || [ -z "$REPO_URL" ]; then
     echo "Usage: archive.sh <ticket-path> <commit-message> <repo-url> [motivation] [ux-change] [arch-change] [files...]"
     exit 1
 fi

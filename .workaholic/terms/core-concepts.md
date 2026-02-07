@@ -3,7 +3,7 @@ title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
 last_updated: 2026-02-07
-commit_hash: 82ffc1b
+commit_hash: 12d9509
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -56,17 +56,17 @@ The nesting policy defines allowed and prohibited invocation patterns between co
 
 A viewpoint is a predefined architectural lens for analyzing a repository from a specific perspective. Workaholic defines 8 viewpoints: stakeholder, model, usecase, infrastructure, application, component, data, and feature. Each viewpoint has analysis prompts, a Mermaid diagram type, and output sections. During `/scan`, the spec-writer orchestrates 8 parallel architecture-analyst subagents, one per viewpoint, producing `.workaholic/specs/<slug>.md` and `<slug>_ja.md`. Viewpoint definitions live in the spec-writer agent (the caller), while the analyze-viewpoint skill provides the generic analysis framework. Related terms: spec, architecture-analyst, analyze-viewpoint, scan.
 
-## architecture-analyst
+## viewpoint-analyst
 
-An architecture-analyst is a thin subagent that receives a viewpoint definition from the spec-writer and analyzes the repository from that perspective. It uses the analyze-viewpoint skill to gather context, read overrides from the user's CLAUDE.md, and write a viewpoint spec document with Mermaid diagrams and an Assumptions section distinguishing `[Explicit]` from `[Inferred]` knowledge. Defined in `plugins/core/agents/architecture-analyst.md`. Related terms: viewpoint, spec-writer, analyze-viewpoint.
+A viewpoint-analyst (e.g., stakeholder-analyst, model-analyst) is a thin subagent that analyzes the repository from a specific viewpoint perspective. It uses the analyze-viewpoint skill to gather context, read overrides from the user's CLAUDE.md, and write a viewpoint spec document with Mermaid diagrams and an Assumptions section distinguishing `[Explicit]` from `[Inferred]` knowledge. Each of the 8 viewpoints has its own dedicated analyst agent defined in `plugins/core/agents/<slug>-analyst.md`. Invoked directly by the scanner rather than through an intermediate writer. Related terms: viewpoint, scanner, analyze-viewpoint.
 
 ## policy-analyst
 
-A policy-analyst is a thin subagent that receives a policy domain definition from the policy-writer and analyzes the repository from that policy perspective. It uses the analyze-policy skill to gather context, document observable practices, and write a policy document with `[Explicit]` and `[Inferred]` annotations. Gaps where no evidence is found are marked as "Not observed" rather than omitted. Defined in `plugins/core/agents/policy-analyst.md`. Related terms: policy, policy-writer, analyze-policy.
+A policy-analyst (e.g., test-policy-analyst, security-policy-analyst) is a thin subagent that analyzes the repository from a specific policy domain perspective. It uses the analyze-policy skill to gather context, document observable practices, and write a policy document with `[Explicit]` and `[Inferred]` annotations. Gaps where no evidence is found are marked as "Not observed" rather than omitted. Each of the 7 policy domains has its own dedicated analyst agent defined in `plugins/core/agents/<slug>-policy-analyst.md`. Invoked directly by the scanner rather than through an intermediate writer. Related terms: policy, scanner, analyze-policy.
 
 ## scanner
 
-The scanner is a subagent that orchestrates 4 documentation writers in parallel: changelog-writer, spec-writer, terms-writer, and policy-writer. It gathers git context (branch, base branch, repository URL, archived tickets) and dispatches all 4 writers concurrently, then reports per-writer success/failure status. Invoked by the `/scan` command. Defined in `plugins/core/agents/scanner.md`. Related terms: orchestrator, concurrent-execution, scan.
+The scanner is a subagent that orchestrates 17 documentation agents in parallel: 8 viewpoint analysts (stakeholder, model, usecase, infrastructure, application, component, data, feature), 7 policy analysts (test, security, quality, accessibility, observability, delivery, recovery), a changelog-writer, and a terms-writer. It gathers git context, dispatches all 17 agents concurrently, validates output files, and updates index READMEs. Invoked by the `/scan` command. Defined in `plugins/core/agents/scanner.md`. Related terms: orchestrator, concurrent-execution, scan, viewpoint, policy-analyst.
 
 ## hook
 

@@ -7,12 +7,17 @@
 - Add Filesystem Validation to Spec-Writer ([e1058bb](https://github.com/qmu/workaholic/commit/e1058bb)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260205203449-add-filesystem-validation-to-spec-writer.md)
 - Implement Viewpoint-Based Spec Architecture for /scan Command ([aadea40](https://github.com/qmu/workaholic/commit/aadea4076e5435b890edc3504dedb5ed877f5dcf)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260207023921-viewpoint-based-spec-architecture.md)
 - Add Policy-Writer Subagent for Concurrent Policy Generation ([c0a73bd](https://github.com/qmu/workaholic/commit/c0a73bd99eaaf0fe058b7786477690c72b1c649c)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260207024808-add-policy-writer-subagent.md)
+- Add Git Manipulation Warning to Root README ([a52e0a8](https://github.com/qmu/workaholic/commit/a52e0a8c08fc31d7020a47461c902a52dfb3484f)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260207033210-add-git-warning-to-readme.md)
 
 ### Changed
 
 - Improve Concerns Section with Identifiable References ([eb43fa7](https://github.com/qmu/workaholic/commit/eb43fa7)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260205195247-improve-concerns-section-traceability.md)
 - Refactor drive.md to Reduce Redundancy Against Preloaded Skills ([26060c9](https://github.com/qmu/workaholic/commit/26060c9dacc4e8ed623d58f0a87d285f67f4b2df)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260207003033-refactor-drive-command-reduce-redundancy.md)
 - Change H3 Heading Numbering from Dot to Hyphen Notation ([845b914](https://github.com/qmu/workaholic/commit/845b91441a2553dec552832895429d73184f7bbb)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260207012031-hyphen-notation-for-h3-headings.md)
+- Validate Analyst Output Before README Index Update ([39f63ee](https://github.com/qmu/workaholic/commit/39f63ee390525c71f535da30b964a1957b63fbd0)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260207031812-validate-analyst-output-before-readme-update.md)
+- Fix spec-writer and policy-writer to Actually Invoke Analyst Subagents ([6d3f267](https://github.com/qmu/workaholic/commit/6d3f26722547dd581a9ca094ab68f87e9044ec98)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260207033431-fix-writer-analyst-invocation.md)
+- Fix archive.sh unbound variable error on missing arguments ([f4135fe](https://github.com/qmu/workaholic/commit/f4135feff447aff035d08c250666322b91dcc784)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260207034148-fix-archive-sh-unbound-variable-error.md)
+- Flatten Scan Command Writer Nesting to Eliminate 3-Level Task Chain ([b4a5d8d](https://github.com/qmu/workaholic/commit/b4a5d8dccb5969b38a38a5dfa2d3bea86128da6e)) - [ticket](.workaholic/tickets/archive/drive-20260205-195920/20260207035026-flatten-scan-writer-nesting.md)
 
 ### Removed
 

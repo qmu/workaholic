@@ -106,6 +106,39 @@ Use this checklist to verify a lead definition is complete and well-formed:
 - [ ] `### Execution` contains concrete execution rules
 - [ ] Every rule is actionable and verifiable, not aspirational
 
+## Agent Template
+
+Every lead has a corresponding thin agent file at `plugins/core/agents/<speciality>-lead.md`. The agent is a multi-purpose orchestrator — it is not tied to a single task type. Callers invoke it with a prompt describing what to do, and the agent applies the corresponding Default Policy from the lead skill.
+
+```markdown
+---
+name: <speciality>-lead
+description: <same as the lead skill description>
+tools: Read, Write, Edit, Bash, Glob, Grep
+skills:
+  - lead-<speciality>
+  - <other skills needed for execution>
+---
+
+# <Speciality> Lead
+
+<One-sentence description of the lead's domain.>
+Follow the preloaded lead-<speciality> skill for role, responsibility, and default policies.
+
+## Instructions
+
+1. Read the caller's prompt to determine the task type.
+2. Apply the corresponding Default Policy from the lead skill:
+   - Writing or modifying code → Implementation policy
+   - Reviewing artifacts → Review policy
+   - Writing or updating documentation → Documentation policy
+   - Running commands or actions → Execution policy
+3. Execute the task within the lead's Role and Responsibility.
+4. Return a JSON result describing what was done.
+```
+
+The agent file should remain thin (~20-40 lines). All domain knowledge, rules, and criteria live in the lead skill, not in the agent.
+
 ## Example
 
 A minimal but complete lead definition:

@@ -27,7 +27,7 @@ Analyze the repository from the quality policy domain and produce a policy docum
 
 2. **Analyze Codebase**: Use the analysis prompts above. Read relevant source files to understand the repository's quality practices.
 
-3. **Write English Policy**: Write `.workaholic/policies/quality.md` following the preloaded analyze-policy skill. Include Observations and Gaps sections. Mark findings with `[Explicit]`/`[Inferred]` prefixes.
+3. **Write English Policy**: Write `.workaholic/policies/quality.md` following the preloaded analyze-policy skill. Include Observations and Gaps sections. Only document implemented and executable policies. Cite the enforcement mechanism for each statement.
 
 4. **Write Japanese Translation**: Write `.workaholic/policies/quality_ja.md` following the preloaded translate skill.
 

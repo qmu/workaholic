@@ -3,8 +3,8 @@ created_at: 2026-02-08T14:15:17+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
+effort: 0.25h
+commit_hash: f2e651a
 category:
 ---
 
@@ -37,22 +37,9 @@ Past tickets that touched similar areas:
 
 ## Implementation Steps
 
-1. **Rewrite the Inference Guidelines section in `plugins/core/skills/analyze-policy/SKILL.md`** to define badge semantics precisely:
-   - `[Explicit]`: The policy statement has verifiable enforcement in the codebase. Enforcement means one or more of: CI check (GitHub Actions workflow step), git hook (pre-commit, PostToolUse), linter rule (ESLint, shellcheck, etc.), automated script that validates or rejects, test that asserts the behavior. The analyst must cite the enforcement mechanism in parentheses after the statement (e.g., `[Explicit] All shell scripts use set -eu (validated by: PostToolUse hook validate-ticket.sh)`).
-   - `[Inferred]`: The policy statement describes an observed practice or convention that has no automated enforcement. It may be documented in CLAUDE.md, README, or skill files, but no code path checks or rejects violations. These are aspirational -- they describe what the team does, not what the system enforces.
-   - Add a third category consideration: statements in "Observations" and "Gaps" sections also use badges. Observations should follow the same enforcement-based criteria. Gaps remain unmarked (they describe absences, not policies).
+1. **Remove the badge system entirely from `plugins/core/skills/analyze-policy/SKILL.md`**: Replace the `[Explicit]`/`[Inferred]` badge guidelines with a clear rule: only document what is actually implemented and executable in the codebase. Conventions, aspirations, and documentation-only practices do not belong in policies. Each statement must cite its enforcement mechanism.
 
-2. **Add a "Badge Reference" subsection** to the analyze-policy skill after the Inference Guidelines, providing concrete examples of each badge category to guide analysts:
-   - `[Explicit]` example: CI validation step in validate-plugins.yml, PostToolUse hook validation, set -eu in shell scripts
-   - `[Inferred]` example: Conventions documented only in CLAUDE.md or skill files, patterns observed in code without automated checks
-
-3. **Update the instruction text in all 7 policy-analyst subagent files** to reference the strengthened badge definitions. Change the current instruction from "Mark findings with `[Explicit]`/`[Inferred]` prefixes" to "Mark findings with `[Explicit]`/`[Inferred]` badges following the badge definitions in the analyze-policy skill. Cite enforcement mechanisms for `[Explicit]` badges."
-
-4. **Add enforcement citation format** to the analyze-policy skill output template. Update the template to show that `[Explicit]` statements must include a parenthetical enforcement citation:
-   ```
-   [Explicit] Policy statement here (enforced by: <mechanism>, <file path>).
-   [Inferred] Policy statement here.
-   ```
+2. **Update all 7 policy-analyst subagent files** to remove badge references and instead instruct: "Only document implemented and executable policies. Cite the enforcement mechanism for each statement."
 
 ## Patches
 
@@ -120,3 +107,7 @@ Past tickets that touched similar areas:
 - The analyze-policy skill is shared by all 7 policy-analyst subagents, so updating the skill alone would be sufficient for behavior change. However, updating the subagent instruction text reinforces the requirement at the point of invocation, reducing the chance of badge misuse (`plugins/core/agents/*-policy-analyst.md`)
 - This change does not affect the spec-analyst subagents or any other documentation agents -- only the 7 policy-analyst subagents that use the analyze-policy skill (`plugins/core/agents/`)
 - The pending ticket for migrating scanner into the scan command (`.workaholic/tickets/todo/20260208131751-migrate-scanner-into-scan-command.md`) changes how policy analysts are invoked but does not affect their internal behavior or the analyze-policy skill. These tickets are independent.
+
+## Final Report
+
+Removed the `[Explicit]`/`[Inferred]` badge system entirely. Policies now only document what is actually implemented and executable in the codebase. The analyze-policy skill's Inference Guidelines were rewritten to enforce this rule, and all 7 policy-analyst agents were updated to instruct analysts to only document implemented policies with enforcement citations. The next `/scan` run will regenerate all policy documents under the new guidelines.

@@ -1,58 +1,48 @@
-# Update standard document architecture of specs 
+# Schema Definition for Leading Agents
 
-* when "/scan" command is triggered, I want you to generate or update standard document architecture of specs for the user of this plugin.
-* spec = aspect, optics and viewpoint that describes the repository
-* 100 specs to see a repository
-* each viewpoint should be described by a "architecture-analyst" sub agent concurrently
-* each viewpoint should be described in a single markdown file in .workaholic/specs/
-* viewpoint needs to be injectable via user-repository's root CLAUDE.md
-* when there is nesting spec, create directory and make README.md there
-* as standard specs of this plugin, include below if there is not modification in the user's root CLAUDE.md
-* each viewpoint is strongly encouraged to visualize idea by mermaid diagram
-  * e.g. system architecture diagram, user flow diagram, infrastructure diagram, dependency graph, etc.
-* when AI generate something not obvious, be honest and add "assumption" section to explain the reason why AI generate such content
-* comprehensiveness and correctness are the priority than brevity
-* even if there is no explicit information in the repository, try to infer and propose reasonable baseline by analyzing the repository structure, code, document, commit history, etc.
+Leading Agents (lead) - that is, agents that take primary responsibility for specific aspects of the project - must adhere to the following schema when being defined in the Workaholic plugin system.
 
-### 1.Stakeholder
-The people and teams involved with the software — their roles, responsibilities, and interests in the project's outcome. The concrete problems they face today and the value they expect the software to deliver.
-### 2.Model
-The primary real-world concepts, objects, or processes the software models — their attributes, behaviors, and relationships. The domain knowledge and business rules that govern how these entities interact.
-### 3.Usecase
-The prioritized user scenarios the software supports, selected from the broader space of possible interactions.
-### 4.Infrastructure
-The deployment targets (cloud, on-prem, edge, etc.), runtime environments, and how infrastructure is provisioned and managed.
-### 5.Application
-The compilable or publishable units (packages, services, executables) this repository produces, and how they compose into running applications.
-### 6.Component
-The internal building blocks within each package — modules, classes, layers — and their interaction patterns and dependency graph.
-### 7.Data
-The data lifecycle: schemas, sources, transformations, storage mechanisms, and output formats the system handles.
-### 8.Feature
-The user-facing capabilities the system exposes, their boundaries, and how they depend on or interact with each other.
+Every agent must include the following declarations. These fields are required and cannot be omitted.
 
-----------------
+## 1. Frontmatter
 
+### 1-1. Name
 
-# Policies
+A name of the lead should be short, unique, and consistent with other lead names that is named like "<speciality>-lead".
 
-## 1.Test
-The verification and validation strategy — testing levels, coverage targets, and processes that ensure correctness.
-## 2.Security
-The assets worth protecting, threat model, authentication/authorization boundaries, and safeguards in place.
-## 3.Quality
-Code quality standards, linting rules, review processes, and metrics (e.g., complexity, duplication) used to maintain maintainability.
-## 4.Accessibility
-Compliance targets (WCAG levels, i18n support), assistive technology considerations, and inclusive design practices.
-## 5.Observability
-The observability strategy: metrics collected, logging practices, tracing implementation, and alerting thresholds.
-## 6.Delivery
-The CI/CD pipeline stages, deployment strategies (blue-green, canary, etc.), and artifact promotion flow from source to production.
-## 7.Recovery
-Data backup schedules, retention policies, disaster recovery procedures, and RTO/RPO targets.
+### 1-2. Description
 
+A structured summary of what the agent is, what it does, and identity/purpose.
 
+## 2. Role
 
-### 1-3.Project
-The current objectives of this repository, their success criteria, milestones, timelines, and how progress is measured over time. The people, budgets, tools, and external dependencies required, and how they are allocated across the project.
+A description of the agent's function within the system. Defines what the agent *is*.
+
+## 3. Responsibility and Goal
+
+**Responsibility** is the necessary condition. It defines the minimum set of duties the agent must fulfill. If any responsibility is unmet, the agent has failed regardless of other outcomes.
+
+**Goal** is the sufficient condition. It defines the measurable objective that, when achieved, means the agent has fully succeeded. Meeting the goal implies all responsibilities have been satisfied.
+
+In other words: Responsibility answers "what must not be neglected?" while Goal answers "what constitutes completion?" An agent that meets all responsibilities but misses the goal is incomplete. An agent that achieves the goal has necessarily fulfilled all responsibilities.
+
+## 4. Default Policies
+
+The default criteria that the agent must follow when implement/review/documentate/execute something. Below
+
+### 4-1. Implementation
+
+Rules the agent follows when writing or modifying code. Covers coding standards, patterns, and constraints specific to this agent's domain.
+
+### 4-2. Review
+
+Rules the agent follows when reviewing code or artifacts produced by others. Defines what to check, what to flag, and acceptance criteria.
+
+### 4-3. Documentation
+
+Rules the agent follows when writing or updating documentation. Covers format, tone, level of detail, and required sections.
+
+### 4-4. Execution
+
+Rules the agent follows when running commands or performing actions. Covers sequencing, error handling, and safety constraints.
 

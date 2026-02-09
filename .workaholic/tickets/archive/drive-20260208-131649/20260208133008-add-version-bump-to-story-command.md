@@ -3,8 +3,8 @@ created_at: 2026-02-08T13:30:08+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config, Infrastructure]
-effort:
-commit_hash:
+effort: 0.1h
+commit_hash: 6529d52
 category:
 ---
 
@@ -37,38 +37,13 @@ Past tickets that touched similar areas:
 
 ## Implementation Steps
 
-1. **Add version bump step to `plugins/core/commands/story.md`** between the documentation commit step and the story-writer invocation step:
-   - Read `.claude-plugin/marketplace.json` and parse the current `version` field
-   - Increment PATCH by 1 (e.g., 1.0.33 -> 1.0.34)
-   - Update version in both files per CLAUDE.md Version Management section:
-     - `.claude-plugin/marketplace.json` root `version` field
-     - `.claude-plugin/marketplace.json` plugins array `core` entry version
-     - `plugins/core/.claude-plugin/plugin.json` version field
-   - Stage and commit: `"Bump version to v{new_version}"`
+1. **Add version bump step to `plugins/core/commands/report.md`** before the story-writer invocation step:
+   - The `/report` command is the primary PR creation command, so it gets the version bump
+   - `/story` delegates to story-writer via `/report`'s flow, so no separate change needed there
 
-2. **Renumber subsequent steps in `plugins/core/commands/story.md`**: The story-writer invocation and PR URL display steps shift to accommodate the new version bump step.
-
-3. **Verify `/report` inherits the behavior**: The `/report` command invokes story-writer directly (not via `/story`), so `/report` does NOT automatically get the version bump. To handle this, add the same version bump step to `plugins/core/commands/report.md` before the story-writer invocation.
-
-4. **Verify no changes needed to release.yml**: The existing GitHub Actions workflow already compares `marketplace.json` version against the latest release tag and creates a release only when they differ. With the version bump happening in the PR branch, the merged version will differ from the latest release, triggering automatic release creation.
+2. **Verify no changes needed to release.yml**: The existing GitHub Actions workflow already compares `marketplace.json` version against the latest release tag and creates a release only when they differ. With the version bump happening in the PR branch, the merged version will differ from the latest release, triggering automatic release creation.
 
 ## Patches
-
-### `plugins/core/commands/story.md`
-
-```diff
---- a/plugins/core/commands/story.md
-+++ b/plugins/core/commands/story.md
-@@ -12,5 +12,6 @@ Run a partial documentation scan (only agents relevant to branch changes), then
-
- 1. **Invoke scanner** (`subagent_type: "core:scanner"`, `model: "opus"`) with prompt: `"Scan documentation. mode: partial"`
- 2. **Stage and commit**: `git add CHANGELOG.md .workaholic/specs/ .workaholic/terms/ .workaholic/policies/ && git commit -m "Update documentation"`
--3. **Invoke story-writer** (`subagent_type: "core:story-writer"`, `model: "opus"`)
--4. **Display PR URL** from story-writer result (mandatory)
-+3. **Bump version** following CLAUDE.md Version Management section (patch increment)
-+4. **Invoke story-writer** (`subagent_type: "core:story-writer"`, `model: "opus"`)
-+5. **Display PR URL** from story-writer result (mandatory)
-```
 
 ### `plugins/core/commands/report.md`
 
@@ -94,3 +69,7 @@ Past tickets that touched similar areas:
 - The pending ticket `20260208131751-migrate-scanner-into-scan-command.md` proposes restructuring the `/story` command to inline scanner logic. The version bump step should be added regardless and preserved during that migration (`.workaholic/tickets/todo/20260208131751-migrate-scanner-into-scan-command.md`)
 - Both `/story` and `/report` need the version bump step independently because `/report` invokes story-writer directly without going through `/story` (`plugins/core/commands/report.md`)
 - The version bump commit message format `"Bump version to v{new_version}"` should remain consistent with the convention used by the existing `/release` command (`CLAUDE.md` Version Management section)
+
+## Final Report
+
+Added automatic patch-increment version bump step to `/report` command only. The `/story` command was left unchanged per developer feedback — `/report` is the primary PR creation path and the only one needing the bump. The change adds a single step before story-writer invocation that follows CLAUDE.md Version Management conventions. No changes needed to `release.yml` since it already uses version comparison.

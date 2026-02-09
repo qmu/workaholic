@@ -3,8 +3,8 @@ created_at: 2026-02-09T16:45:10+08:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
+effort: 0.25h
+commit_hash: 252c789
 category:
 ---
 
@@ -121,3 +121,12 @@ The define-lead skill and a11y-lead conversion established the pattern that this
 - The partial scan mapping in `select.sh` references `delivery-policy-analyst` in two places: line 107 for `.claude-plugin/*` changes and line 122 for `.github/*` changes; both must be updated to `delivery-lead` (`plugins/core/skills/select-scan-agents/sh/select.sh` lines 105-110, 119-124)
 - The validation script in scan Phase 4 references `delivery.md` as a policy output file, which does not change since the policy slug remains "delivery" (`plugins/core/commands/scan.md` line 72)
 - Follow the exact structure of `plugins/core/skills/lead-a11y/SKILL.md` and `plugins/core/agents/a11y-lead.md` as reference implementations
+
+## Final Report
+
+All four implementation steps completed as specified:
+
+1. Created `plugins/core/skills/lead-delivery/SKILL.md` with Role, Responsibility, Goal, and Default Policies (Implementation, Review, Documentation, Execution) following the define-lead schema and mirroring the lead-a11y reference.
+2. Deleted `plugins/core/agents/delivery-policy-analyst.md` and created `plugins/core/agents/delivery-lead.md` as a thin orchestrator preloading lead-delivery, analyze-policy, and translate skills.
+3. Updated `plugins/core/commands/scan.md` table row from `delivery-policy-analyst`/`core:delivery-policy-analyst` to `delivery-lead`/`core:delivery-lead`.
+4. Updated `plugins/core/skills/select-scan-agents/sh/select.sh` ALL_AGENTS variable and two partial scan mappings (`.claude-plugin/*` and `.github/*` triggers), replacing `delivery-policy-analyst` with `delivery-lead`.

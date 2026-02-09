@@ -12,7 +12,7 @@ skills:
 
 **Notice:** When user input contains `/scan` - whether "run /scan", "do /scan", "update /scan", or similar - they likely want this command.
 
-Run a full documentation scan by invoking all 17 documentation agents directly, providing real-time progress visibility for each agent.
+Run a full documentation scan by invoking all 14 documentation agents directly, providing real-time progress visibility for each agent.
 
 ## Instructions
 
@@ -29,22 +29,19 @@ Run the preloaded select-scan-agents skill:
 bash .claude/skills/select-scan-agents/sh/select.sh full
 ```
 
-Parse the JSON output to get the list of all 17 agents.
+Parse the JSON output to get the list of all 14 agents.
 
 ### Phase 3: Invoke All Agents in Parallel
 
-Invoke all 17 agents in a single message with parallel Task tool calls (each `model: "sonnet"`):
+Invoke all 14 agents in a single message with parallel Task tool calls (each `model: "sonnet"`):
 
 | Agent slug | `subagent_type` | Prompt context |
 | --- | --- | --- |
 | `communication-lead` | `core:communication-lead` | Pass base branch |
 | `model-analyst` | `core:model-analyst` | Pass base branch |
-| `usecase-analyst` | `core:usecase-analyst` | Pass base branch |
 | `infra-lead` | `core:infra-lead` | Pass base branch |
-| `application-analyst` | `core:application-analyst` | Pass base branch |
-| `component-analyst` | `core:component-analyst` | Pass base branch |
+| `architecture-lead` | `core:architecture-lead` | Pass base branch |
 | `db-lead` | `core:db-lead` | Pass base branch |
-| `feature-analyst` | `core:feature-analyst` | Pass base branch |
 | `test-lead` | `core:test-lead` | Pass base branch |
 | `security-lead` | `core:security-lead` | Pass base branch |
 | `quality-lead` | `core:quality-lead` | Pass base branch |

@@ -51,7 +51,7 @@ Invoke all 17 agents in a single message with parallel Task tool calls (each `mo
 | `a11y-lead` | `core:a11y-lead` | Pass base branch |
 | `observability-lead` | `core:observability-lead` | Pass base branch |
 | `delivery-lead` | `core:delivery-lead` | Pass base branch |
-| `recovery-policy-analyst` | `core:recovery-policy-analyst` | Pass base branch |
+| `recovery-lead` | `core:recovery-lead` | Pass base branch |
 | `changelog-writer` | `core:changelog-writer` | Pass repository URL |
 | `terms-writer` | `core:terms-writer` | Pass branch name |
 

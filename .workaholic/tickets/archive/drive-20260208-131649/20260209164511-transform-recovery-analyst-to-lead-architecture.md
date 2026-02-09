@@ -3,8 +3,8 @@ created_at: 2026-02-09T16:45:11+08:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
+effort: 0.25h
+commit_hash: 2d298bf
 category:
 ---
 
@@ -96,3 +96,14 @@ The define-lead skill and a11y-lead conversion established the pattern that this
 - No partial scan mapping references `recovery-policy-analyst` in the current `select.sh`, so only the ALL_AGENTS line needs updating (`plugins/core/skills/select-scan-agents/sh/select.sh` line 16)
 - This is the last of the 6 policy analyst conversions; after all 6 are complete plus the already-done a11y-lead, all 7 policy agents will use the lead architecture
 - Follow the exact structure of `plugins/core/skills/lead-a11y/SKILL.md` and `plugins/core/agents/a11y-lead.md` as reference implementations
+
+## Final Report
+
+All four implementation steps completed as specified:
+
+1. Created `plugins/core/skills/lead-recovery/SKILL.md` with Role, Responsibility, Goal, and Default Policies (Implementation, Review, Documentation, Execution) following the define-lead schema and mirroring the lead-a11y reference.
+2. Deleted `plugins/core/agents/recovery-policy-analyst.md` and created `plugins/core/agents/recovery-lead.md` as a thin orchestrator preloading lead-recovery, analyze-policy, and translate skills.
+3. Updated `plugins/core/commands/scan.md` table row from `recovery-policy-analyst`/`core:recovery-policy-analyst` to `recovery-lead`/`core:recovery-lead`.
+4. Updated `plugins/core/skills/select-scan-agents/sh/select.sh` ALL_AGENTS variable, replacing `recovery-policy-analyst` with `recovery-lead`.
+
+This completes the migration of all 7 policy agents (a11y, test, security, quality, observability, delivery, recovery) to the lead-based architecture.

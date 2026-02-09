@@ -13,7 +13,7 @@ set -eu
 MODE="${1:-}"
 BASE_BRANCH="${2:-}"
 
-ALL_AGENTS="communication-lead model-analyst usecase-analyst infra-lead application-analyst component-analyst data-analyst feature-analyst test-lead security-lead quality-lead a11y-lead observability-lead delivery-lead recovery-lead changelog-writer terms-writer"
+ALL_AGENTS="communication-lead model-analyst usecase-analyst infra-lead application-analyst component-analyst db-lead feature-analyst test-lead security-lead quality-lead a11y-lead observability-lead delivery-lead recovery-lead changelog-writer terms-writer"
 
 if [ -z "$MODE" ]; then
   echo '{"error":"Usage: select.sh <mode> [base_branch]"}'
@@ -91,7 +91,7 @@ echo "$DIFF_STAT" | while IFS= read -r line; do
 
   case "$path" in
     .workaholic/tickets/*)
-      touch "$TMPDIR_SEL/data-analyst"
+      touch "$TMPDIR_SEL/db-lead"
       touch "$TMPDIR_SEL/model-analyst"
       ;;
   esac

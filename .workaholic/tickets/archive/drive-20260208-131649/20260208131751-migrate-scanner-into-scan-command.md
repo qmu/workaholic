@@ -3,8 +3,8 @@ created_at: 2026-02-08T13:17:51+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [UX, Domain]
-effort:
-commit_hash:
+effort: 0.25h
+commit_hash: 30c1ef8
 category:
 ---
 
@@ -272,3 +272,7 @@ Past tickets that touched similar areas:
 - The `select-scan-agents` skill and its shell script remain unchanged -- they are used the same way whether called from scanner or directly from the command (`plugins/core/skills/select-scan-agents/sh/select.sh`)
 - Removing scanner.md means one fewer subagent nesting level -- agents are invoked directly by the command instead of through an intermediary, which simplifies the architecture (`plugins/core/agents/scanner.md`)
 - Partial mode in the story command skips index file updates per existing scanner logic -- this behavior must be preserved when inlining (`plugins/core/commands/story.md` lines 14-15)
+
+## Final Report
+
+Migrated scanner subagent orchestration into the `/scan` command with full 7-phase workflow and direct parallel agent invocation. Removed the `/story` command entirely (deprecated) and deleted `scanner.md`. Updated CLAUDE.md, plugins/core/README.md, and README.md to remove `/story` references and point workflow to `/scan` + `/report`.

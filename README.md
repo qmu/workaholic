@@ -19,8 +19,7 @@ Enable the plugin after installation. Auto update is recommended.
 | `/ticket` | Plan a change with context and steps          |
 | `/drive`  | Implement queued tickets one by one           |
 | `/scan`   | Full documentation scan (all 17 agents)       |
-| `/story`  | Partial scan, generate story, and create PR   |
-| `/report` | Generate story and create PR (no scan)        |
+| `/report` | Generate story and create PR                  |
 
 ### Typical Session
 
@@ -30,7 +29,7 @@ Enable the plugin after installation. Auto update is recommended.
 /drive                            # implement both, confirm each
 /ticket fix flash of light theme on page load
 /drive                            # fix discovered issue
-/story                            # partial scan + PR with docs
+/report                           # generate story + create PR
 ```
 
 ## How It Works

@@ -1,16 +1,87 @@
 ---
 name: scan
 description: Full documentation scan - update all .workaholic/ documentation (changelog, specs, terms, policies).
+skills:
+  - gather-git-context
+  - select-scan-agents
+  - write-spec
+  - validate-writer-output
 ---
 
 # Scan
 
 **Notice:** When user input contains `/scan` - whether "run /scan", "do /scan", "update /scan", or similar - they likely want this command.
 
-Run a full documentation scan by invoking the scanner subagent with all 17 agents.
+Run a full documentation scan by invoking all 17 documentation agents directly, providing real-time progress visibility for each agent.
 
 ## Instructions
 
-1. **Invoke scanner** (`subagent_type: "core:scanner"`, `model: "opus"`) with prompt: `"Scan documentation. mode: full"`
-2. **Stage and commit**: `git add CHANGELOG.md .workaholic/specs/ .workaholic/terms/ .workaholic/policies/ && git commit -m "Update documentation"`
-3. **Report results** from scanner output
+### Phase 1: Gather Context
+
+1. Use the preloaded gather-git-context skill to get branch, base_branch, and repo_url.
+2. Get commit hash: `git rev-parse --short HEAD`
+
+### Phase 2: Select Agents
+
+Run the preloaded select-scan-agents skill:
+
+```bash
+bash .claude/skills/select-scan-agents/sh/select.sh full
+```
+
+Parse the JSON output to get the list of all 17 agents.
+
+### Phase 3: Invoke All Agents in Parallel
+
+Invoke all 17 agents in a single message with parallel Task tool calls (each `model: "sonnet"`):
+
+| Agent slug | `subagent_type` | Prompt context |
+| --- | --- | --- |
+| `stakeholder-analyst` | `core:stakeholder-analyst` | Pass base branch |
+| `model-analyst` | `core:model-analyst` | Pass base branch |
+| `usecase-analyst` | `core:usecase-analyst` | Pass base branch |
+| `infrastructure-analyst` | `core:infrastructure-analyst` | Pass base branch |
+| `application-analyst` | `core:application-analyst` | Pass base branch |
+| `component-analyst` | `core:component-analyst` | Pass base branch |
+| `data-analyst` | `core:data-analyst` | Pass base branch |
+| `feature-analyst` | `core:feature-analyst` | Pass base branch |
+| `test-policy-analyst` | `core:test-policy-analyst` | Pass base branch |
+| `security-policy-analyst` | `core:security-policy-analyst` | Pass base branch |
+| `quality-policy-analyst` | `core:quality-policy-analyst` | Pass base branch |
+| `accessibility-policy-analyst` | `core:accessibility-policy-analyst` | Pass base branch |
+| `observability-policy-analyst` | `core:observability-policy-analyst` | Pass base branch |
+| `delivery-policy-analyst` | `core:delivery-policy-analyst` | Pass base branch |
+| `recovery-policy-analyst` | `core:recovery-policy-analyst` | Pass base branch |
+| `changelog-writer` | `core:changelog-writer` | Pass repository URL |
+| `terms-writer` | `core:terms-writer` | Pass branch name |
+
+All invocations MUST be in a single message to run concurrently.
+
+### Phase 4: Validate Output
+
+Validate viewpoint analyst output:
+
+```bash
+bash .claude/skills/validate-writer-output/sh/validate.sh .workaholic/specs stakeholder.md model.md usecase.md infrastructure.md application.md component.md data.md feature.md
+```
+
+Validate policy analyst output:
+
+```bash
+bash .claude/skills/validate-writer-output/sh/validate.sh .workaholic/policies test.md security.md quality.md accessibility.md observability.md delivery.md recovery.md
+```
+
+### Phase 5: Update Index Files
+
+- If spec validation passed: Update `.workaholic/specs/README.md` and `README_ja.md` to list all 8 viewpoint documents. Follow the preloaded write-spec skill for index file rules.
+- If policy validation passed: Update `.workaholic/policies/README.md` and `README_ja.md` to list all 7 policy documents.
+
+### Phase 6: Stage and Commit
+
+```bash
+git add CHANGELOG.md .workaholic/specs/ .workaholic/terms/ .workaholic/policies/ && git commit -m "Update documentation"
+```
+
+### Phase 7: Report Results
+
+Report per-agent status showing which agents succeeded, failed, or were skipped, along with validation results.

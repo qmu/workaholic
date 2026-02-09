@@ -3,9 +3,9 @@ created_at: 2026-02-09T16:22:49+08:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 5a6b50a
+category: Changed
 ---
 
 # Transform Accessibility Policy Analyst to Lead-Based Architecture
@@ -38,24 +38,27 @@ The define-lead skill was recently created to standardize lead agent definitions
    - Frontmatter with `name: a11y-lead`, `description`, and `skills: [define-lead]`
    - `## Role` - Define the agent as the accessibility authority: owns compliance targets, i18n support, assistive technology considerations, and inclusive design practices for the project
    - `## Responsibility` - Minimum duties: ensure every policy scan produces accurate accessibility documentation; ensure i18n/l10n support is analyzed; ensure accessibility testing is documented; ensure gaps are clearly identified
-   - `## Goal` - Measurable completion: the `.workaholic/policies/accessibility.md` and `accessibility_ja.md` files accurately reflect all implemented accessibility practices, with no fabricated policies and all gaps marked as "not observed"
+   - `## Goal` - Measurable completion: the `.workaholic/policies/accessibility.md` accurately reflects all implemented accessibility practices, with no fabricated policies and all gaps marked as "not observed". Translations are produced only when the user's root CLAUDE.md declares translation requirements.
    - `## Default Policies` with all four subsections:
-     - `### Implementation` - Rules for writing accessibility policy documents: only document implemented practices, cite enforcement mechanisms, use analyze-policy output template, produce both English and Japanese
+     - `### Implementation` - Rules for writing accessibility policy documents: only document implemented practices, cite enforcement mechanisms, use analyze-policy output template. Translation follows user policy (declared in root CLAUDE.md), not hardcoded.
      - `### Review` - Rules for reviewing accessibility artifacts: verify every statement has a codebase citation, flag aspirational claims, check all output sections are present (Internationalization, Supported Languages, Translation Workflow, Accessibility Testing)
      - `### Documentation` - Rules for documentation output: follow analyze-policy template structure, include Observations and Gaps sections, use the policy slug "accessibility"
-     - `### Execution` - Rules for execution: gather context via `bash .claude/skills/analyze-policy/sh/gather.sh accessibility main`, analyze codebase using the defined analysis prompts, write English policy then Japanese translation
+     - `### Execution` - Rules for execution: gather context via `bash .claude/skills/analyze-policy/sh/gather.sh accessibility main`, analyze codebase using the defined analysis prompts, write English policy then produce translations per user's translation policy
 
 2. **Replace `accessibility-policy-analyst.md` with `a11y-lead.md`**
 
-   Delete `plugins/core/agents/accessibility-policy-analyst.md` and create `plugins/core/agents/a11y-lead.md` as a thin orchestrator (~20-40 lines). The new subagent should:
+   Delete `plugins/core/agents/accessibility-policy-analyst.md` and create `plugins/core/agents/a11y-lead.md` as a thin, multi-purpose orchestrator. The agent is not limited to policy analysis — it can be invoked for any task within its domain (implementation, review, documentation, execution). It reads the task from the caller's prompt and applies the corresponding Default Policy from the lead-a11y skill.
 
    - Use frontmatter: `name: a11y-lead`, `description`, `tools: Read, Write, Edit, Bash, Glob, Grep`, `skills: [lead-a11y, analyze-policy, translate]`
-   - Preload the `lead-a11y` skill for domain knowledge
-   - Still preload `analyze-policy` and `translate` skills since they are needed for execution
-   - Keep the same Instructions flow (gather context, analyze, write English, write Japanese) but reference the lead skill for domain-specific guidance
-   - Produce the same JSON output format: `{"policy": "accessibility", "status": "success", "files": ["accessibility.md", "accessibility_ja.md"]}`
+   - Preload the `lead-a11y` skill for domain knowledge and policies
+   - Determine which Default Policy applies based on the caller's prompt
+   - Execute the task following the lead's Role, Responsibility, and applicable policy
 
-3. **Update scan command agent reference**
+3. **Update define-lead skill with Agent Template section**
+
+   Add an Agent Template section to `plugins/core/skills/define-lead/SKILL.md` that provides the thin, multi-purpose agent pattern for leads. The agent template should show how to create a generic orchestrator that routes to the correct Default Policy based on the caller's prompt.
+
+4. **Update scan command agent reference**
 
    In `plugins/core/commands/scan.md`, update the table row from `accessibility-policy-analyst` / `core:accessibility-policy-analyst` to `a11y-lead` / `core:a11y-lead`.
 
@@ -98,3 +101,7 @@ The define-lead skill was recently created to standardize lead agent definitions
 - Several `.workaholic/specs/` files reference `accessibility-policy-analyst` in their documentation; these will be regenerated by the next `/scan` run and do not need manual updating (`.workaholic/specs/component.md`, `.workaholic/specs/feature.md`, `.workaholic/specs/model.md`)
 - This is the first lead migration for a policy analyst; the pattern established here should be followed when migrating other policy analysts (e.g., `quality-policy-analyst`, `security-policy-analyst`) to lead architecture in the future
 - The `lead-a11y` skill name follows the `lead-<speciality>` naming for skills, while the agent file uses `<speciality>-lead` naming per the define-lead schema; this distinguishes the skill directory from the agent file (`plugins/core/skills/lead-a11y/` vs `plugins/core/agents/a11y-lead.md`)
+
+## Final Report
+
+Transformed the accessibility-policy-analyst into a lead-based architecture across 4 files. Created `plugins/core/skills/lead-a11y/SKILL.md` following the define-lead schema with Role, Responsibility, Goal, and Default Policies (Implementation, Review, Documentation, Execution). Translation is not hardcoded — defers to the user's root CLAUDE.md. Replaced `accessibility-policy-analyst.md` with `a11y-lead.md` as a thin multi-purpose orchestrator (25 lines) that routes to the correct Default Policy based on the caller's prompt. Updated `define-lead/SKILL.md` with an Agent Template section documenting this multi-purpose thin agent pattern. Updated scan.md and select.sh references from `accessibility-policy-analyst` to `a11y-lead`.

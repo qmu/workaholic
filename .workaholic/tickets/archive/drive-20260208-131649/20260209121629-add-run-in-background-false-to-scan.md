@@ -3,9 +3,9 @@ created_at: 2026-02-09T12:16:29+08:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 0e426ea
+category: Added
 ---
 
 # Add Explicit run_in_background: false to Scan Command Agent Invocations
@@ -63,3 +63,7 @@ Past tickets that touched similar areas:
 - All 17 scan agents declare `tools: Read, Write, Edit, Bash, Glob, Grep` in their frontmatter -- they all require Write/Edit to function correctly (`plugins/core/agents/stakeholder-analyst.md` and all sibling agents)
 - The same constraint may need to apply to any future command that invokes scan agents in parallel, establishing a convention that write-capable agents must never run in background mode (`plugins/core/commands/scan.md`)
 - This is a documentation-level fix in the command markdown, not a code change -- the behavior depends on how Claude Code interprets the Task tool invocation parameters at runtime
+
+## Final Report
+
+The scan command already had a CRITICAL warning block about `run_in_background: true` (added during the migrate-scanner-into-scan-command work). The remaining gap was the explicit `run_in_background: false` mention on the invocation instruction line. Added `Each Task call MUST use run_in_background: false (the default).` to line 58 of `plugins/core/commands/scan.md`. All 17 scan agents verified to declare Write and Edit in their tools frontmatter.

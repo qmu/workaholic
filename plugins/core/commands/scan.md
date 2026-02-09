@@ -55,7 +55,9 @@ Invoke all 17 agents in a single message with parallel Task tool calls (each `mo
 | `changelog-writer` | `core:changelog-writer` | Pass repository URL |
 | `terms-writer` | `core:terms-writer` | Pass branch name |
 
-All invocations MUST be in a single message to run concurrently.
+All invocations MUST be in a single message to run concurrently. Each Task call MUST use `run_in_background: false` (the default).
+
+**CRITICAL: Do NOT use `run_in_background: true`.** Agents need Write/Edit permissions which require interactive prompt access. Background agents cannot receive prompts, causing all file writes to be auto-denied. Normal parallel Task calls in a single message already run concurrently.
 
 ### Phase 4: Validate Output
 

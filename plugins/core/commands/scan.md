@@ -46,7 +46,7 @@ Invoke all 17 agents in a single message with parallel Task tool calls (each `mo
 | `data-analyst` | `core:data-analyst` | Pass base branch |
 | `feature-analyst` | `core:feature-analyst` | Pass base branch |
 | `test-lead` | `core:test-lead` | Pass base branch |
-| `security-policy-analyst` | `core:security-policy-analyst` | Pass base branch |
+| `security-lead` | `core:security-lead` | Pass base branch |
 | `quality-policy-analyst` | `core:quality-policy-analyst` | Pass base branch |
 | `a11y-lead` | `core:a11y-lead` | Pass base branch |
 | `observability-policy-analyst` | `core:observability-policy-analyst` | Pass base branch |

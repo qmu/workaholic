@@ -3,8 +3,8 @@ created_at: 2026-02-09T16:45:07+08:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
+effort: 0.25h
+commit_hash: ff55028
 category:
 ---
 
@@ -108,3 +108,12 @@ The define-lead skill and a11y-lead conversion established the pattern that this
 - The partial scan mapping in `select.sh` on line 122 also references `security-policy-analyst` for `.github/*` changes; this must be updated to `security-lead` (`plugins/core/skills/select-scan-agents/sh/select.sh` lines 119-124)
 - The validation script in scan Phase 4 references `security.md` as a policy output file, which does not change since the policy slug remains "security" (`plugins/core/commands/scan.md` line 72)
 - Follow the exact structure of `plugins/core/skills/lead-a11y/SKILL.md` and `plugins/core/agents/a11y-lead.md` as reference implementations
+
+## Final Report
+
+All four implementation steps completed as specified:
+
+1. Created `plugins/core/skills/lead-security/SKILL.md` with Role, Responsibility, Goal, and Default Policies (Implementation, Review, Documentation, Execution) following the define-lead schema and mirroring the lead-a11y reference.
+2. Deleted `plugins/core/agents/security-policy-analyst.md` and created `plugins/core/agents/security-lead.md` as a thin orchestrator preloading lead-security, analyze-policy, and translate skills.
+3. Updated `plugins/core/commands/scan.md` table row from `security-policy-analyst`/`core:security-policy-analyst` to `security-lead`/`core:security-lead`.
+4. Updated `plugins/core/skills/select-scan-agents/sh/select.sh` ALL_AGENTS variable and partial scan mapping (`.github/*` trigger), replacing `security-policy-analyst` with `security-lead`.

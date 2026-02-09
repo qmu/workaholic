@@ -2,136 +2,450 @@
 title: Data Viewpoint
 description: Data formats, frontmatter schemas, and naming conventions
 category: developer
-modified_at: 2026-02-07T10:56:08+09:00
-commit_hash: 12d9509
+modified_at: 2026-02-09T12:52:01+08:00
+commit_hash: d627919
 ---
 
 [English](data.md) | [Japanese](data_ja.md)
 
-# 1. Data Viewpoint
+# Data Viewpoint
 
-The Data Viewpoint documents the data formats, frontmatter schemas, file naming conventions, and structural patterns used throughout the Workaholic system. All persistent data is stored as markdown files with YAML frontmatter or JSON configuration files, versioned in git.
+The Data Viewpoint documents the data formats, frontmatter schemas, file naming conventions, and validation rules used throughout the Workaholic system. All persistent data is stored as markdown files with YAML frontmatter or JSON configuration files, versioned in git. The system enforces data integrity through three validation mechanisms: PostToolUse hooks for runtime validation, shell script validation gates, and CI structural validation.
 
-## 2. Frontmatter Schemas
+## Frontmatter Schemas
 
-### 2-1. Ticket Frontmatter
+Frontmatter schemas define the metadata structure for each document type. All schemas use YAML format delimited by triple dashes (`---`) at the beginning of markdown files. Field validation occurs at both runtime (through hooks) and script execution time (through shell script validation gates).
+
+### Ticket Frontmatter Schema
 
 ```yaml
 ---
-created_at: 2026-02-07T10:56:08+09:00    # ISO 8601 datetime
-author: user@example.com                   # Git user email (never Anthropic email)
-type: feature | fix | refactor | chore     # Change type
-layer: command | agent | skill | rule | config | docs
-effort: S | M | L                          # Estimated effort
-category: Added | Changed | Removed        # Changelog category
-commit_hash: abc1234                        # Short hash after implementation
+created_at: 2026-02-08T13:17:51+09:00    # ISO 8601 datetime with timezone
+author: user@example.com                   # Git user email (rejects @anthropic.com)
+type: enhancement | bugfix | refactoring | housekeeping
+layer: [UX, Domain, Infrastructure, DB, Config]  # YAML array, one or more values
+effort: 0.1h | 0.25h | 0.5h | 1h | 2h | 4h       # Empty at creation, filled at archival
+commit_hash: abc1234                              # Empty at creation, filled at archival
+category: Added | Changed | Removed               # Empty at creation, filled at archival
 ---
 ```
 
-Ticket frontmatter is validated by the PostToolUse hook (`validate-ticket.sh`) on every Write and Edit operation. The `author` field uses the git user email and explicitly rejects Anthropic email addresses.
+Ticket frontmatter is validated by the PostToolUse hook (`validate-ticket.sh`) on every Write and Edit operation. The hook enforces:
 
-### 2-2. Spec/Policy Frontmatter
+- ISO 8601 datetime format with timezone for `created_at`
+- Email format for `author` (explicit rejection of `@anthropic.com` addresses)
+- Enumerated type values for `type`
+- YAML array format for `layer` with enumerated valid values
+- Optional fields (`effort`, `commit_hash`, `category`) that may be empty but must be present
+
+The `update-ticket-frontmatter` skill provides a secondary validation gate when updating `effort` values, using a hardcoded allowlist to reject invalid values like t-shirt sizes (S, M, L).
+
+### Frontmatter Schema Evolution
+
+```mermaid
+erDiagram
+    TICKET {
+        datetime created_at "ISO 8601 with timezone"
+        string author "Email, not @anthropic.com"
+        enum type "enhancement|bugfix|refactoring|housekeeping"
+        array layer "UX|Domain|Infrastructure|DB|Config"
+        enum effort "0.1h|0.25h|0.5h|1h|2h|4h"
+        string commit_hash "7-40 hex chars"
+        enum category "Added|Changed|Removed"
+    }
+    SPEC {
+        string title
+        string description
+        enum category "user|developer"
+        datetime modified_at "ISO 8601 with timezone"
+        string commit_hash "7-40 hex chars"
+    }
+    POLICY {
+        string title
+        string description
+        enum category "developer"
+        datetime modified_at "ISO 8601 with timezone"
+        string commit_hash "7-40 hex chars"
+    }
+    TERMS {
+        string title
+        string description
+        enum category "developer"
+        date last_updated "YYYY-MM-DD (not datetime)"
+        string commit_hash "7-40 hex chars"
+    }
+    STORY {
+        string branch
+        datetime started_at "ISO 8601 with timezone"
+        datetime ended_at "ISO 8601 with timezone"
+        int tickets_completed
+        int commits
+        int duration_hours
+        int duration_days
+        float velocity
+        string velocity_unit "hour|day"
+    }
+```
+
+### Spec/Policy Frontmatter Schema
 
 ```yaml
 ---
 title: Document Title
 description: Brief description
 category: user | developer               # user = guides/, developer = specs/
-modified_at: 2026-02-07T10:56:08+09:00   # ISO 8601 datetime
-commit_hash: abc1234                       # Short commit hash
+modified_at: 2026-02-08T13:17:51+09:00   # ISO 8601 datetime with timezone
+commit_hash: abc1234                      # Short commit hash (7 chars)
 ---
 ```
 
-Specs and policies share the same frontmatter schema. The `category` field determines which directory the document belongs to: `user` maps to `guides/`, `developer` maps to `specs/` or `policies/`.
+Specs and policies share the same frontmatter schema. The `category` field determines directory placement: `user` maps to `guides/`, `developer` maps to `specs/` or `policies/`. Both use `modified_at` with full datetime format (ISO 8601 with timezone).
 
-### 2-3. Terms Frontmatter
+### Terms Frontmatter Schema
 
 ```yaml
 ---
 title: Document Title
 description: Brief description
 category: developer
-last_updated: 2026-02-07                  # Date only (not datetime)
+last_updated: 2026-02-07                  # Date only (YYYY-MM-DD), not datetime
 commit_hash: abc1234
 ---
 ```
 
-Terms files use `last_updated` (date format) rather than `modified_at` (datetime format). This is a known inconsistency documented in `.workaholic/terms/inconsistencies.md`.
+Terms files use `last_updated` with date-only format (YYYY-MM-DD) rather than `modified_at` with datetime format. This is a known inconsistency documented in `.workaholic/terms/inconsistencies.md`.
 
-### 2-4. Story Frontmatter
+### Story Frontmatter Schema
 
-Stories include `started_at` and `ended_at` datetime fields to track the branch's development timeline, along with performance metrics.
+```yaml
+---
+branch: drive-20260205-195920
+started_at: 2026-02-05T19:59:45+09:00
+ended_at: 2026-02-07T17:59:34+09:00
+tickets_completed: 17
+commits: 40
+duration_hours: 46
+duration_days: 3
+velocity: 0.87
+velocity_unit: hour
+---
+```
 
-### 2-5. Agent/Command Frontmatter
+Story frontmatter includes temporal tracking (`started_at`, `ended_at`) and performance metrics (ticket count, commit count, duration, velocity). The `velocity_unit` field allows for future extension to daily velocity calculation.
+
+### Command/Agent Frontmatter Schema
 
 ```yaml
 ---
 name: agent-name
-description: What this agent does
-tools: Read, Write, Edit, Bash, Glob, Grep    # Available tools
+description: What this component does
+tools: Read, Write, Edit, Bash, Glob, Grep    # Available tools (agents only)
 skills:
   - skill-name-1
   - skill-name-2
 ---
 ```
 
-Agent and command frontmatter declares the name, description, available tools, and preloaded skills.
+Commands and agents declare their name, description, available tools (agents only), and preloaded skills. The `skills` field uses YAML array format with skill directory names (e.g., `gather-git-context`).
 
-## 3. JSON Configuration Files
+## JSON Configuration Schemas
 
-### 3-1. Marketplace Manifest
+JSON configuration files use flat structures without nested objects (except for the owner and author objects). All JSON files are validated for syntactic correctness by the CI pipeline.
 
-`marketplace.json` at `.claude-plugin/marketplace.json` declares the marketplace name, version, owner, and list of plugins with their source directories.
+### Marketplace Manifest Schema
 
-### 3-2. Plugin Manifest
+Located at `.claude-plugin/marketplace.json`:
 
-`plugin.json` at `plugins/core/.claude-plugin/plugin.json` declares the plugin name, version, description, and author.
+```json
+{
+  "name": "workaholic",
+  "version": "1.0.33",
+  "description": "Standard Claude Code Configuration in qmu",
+  "owner": {
+    "name": "tamurayoshiya",
+    "email": "a@qmu.jp"
+  },
+  "plugins": [
+    {
+      "name": "core",
+      "description": "Core development workflow: branch, commit, pull-request, ticket-driven development",
+      "version": "1.0.33",
+      "author": {
+        "name": "tamurayoshiya",
+        "email": "a@qmu.jp"
+      },
+      "source": "./plugins/core",
+      "category": "development"
+    }
+  ]
+}
+```
 
-### 3-3. Hooks Configuration
+The marketplace manifest declares metadata, owner information, and the list of plugins. The `version` field must be kept in sync with the plugin manifest versions during releases.
 
-`hooks.json` at `plugins/core/hooks/hooks.json` defines PostToolUse hooks that run after Write or Edit operations.
+### Plugin Manifest Schema
 
-### 3-4. Settings
+Located at `plugins/core/.claude-plugin/plugin.json`:
 
-`.claude/settings.json` and `.claude/settings.local.json` configure Claude Code behavior (the local settings file is git-ignored).
+```json
+{
+  "name": "core",
+  "description": "Core development workflow: branch, commit, pull-request, ticket-driven development",
+  "version": "1.0.33",
+  "author": {
+    "name": "tamurayoshiya",
+    "email": "a@qmu.jp"
+  }
+}
+```
 
-## 4. File Naming Conventions
+Each plugin has its own manifest declaring name, description, version, and author. The version field here must match the corresponding entry in `marketplace.json`.
 
-| Context | Convention | Examples |
-| --- | --- | --- |
-| Tickets | `<timestamp>-<slug>.md` | `20260207035026-flatten-scan-writer-nesting.md` |
-| Specs (viewpoints) | `<slug>.md` | `stakeholder.md`, `component.md` |
-| Policies | `<slug>.md` | `test.md`, `security.md` |
-| Terms | `<kebab-case>.md` | `core-concepts.md`, `workflow-terms.md` |
-| Stories | `<branch-name>.md` | `drive-20260205-195920.md` |
-| Translations | `<name>_ja.md` | `stakeholder_ja.md`, `README_ja.md` |
-| Commands | `<name>.md` | `drive.md`, `ticket.md` |
-| Agents | `<kebab-case>.md` | `drive-navigator.md`, `story-writer.md` |
-| Skills | `SKILL.md` in `<kebab-case>/` | `write-spec/SKILL.md` |
-| Shell scripts | `<name>.sh` in `sh/` | `gather.sh`, `validate.sh` |
-| READMEs | `README.md` / `README_ja.md` | Uppercase exception |
+### Hooks Configuration Schema
 
-## 5. Directory Naming Conventions
+Located at `plugins/core/hooks/hooks.json`:
 
-Ticket archive directories use the branch name: `.workaholic/tickets/archive/<branch-name>/`. Branch names follow the pattern `drive-<YYYYMMDD>-<HHMMSS>` or `trip-<YYYYMMDD>-<HHMMSS>`.
+```json
+{
+  "description": "Ticket format and location validation",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/validate-ticket.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
+```
 
-## 6. Data Lifecycle
+Hooks configuration defines PostToolUse validation that runs after Write or Edit operations. The `matcher` field uses regex syntax to specify which tools trigger the hook. The `timeout` field specifies maximum execution time in seconds.
+
+### Settings Schema
+
+Located at `.claude/settings.json` (versioned) and `.claude/settings.local.json` (git-ignored):
+
+Settings files configure Claude Code behavior but have no explicit schema enforcement in this repository.
+
+## File Naming Conventions
+
+File naming follows context-specific conventions designed to enable chronological sorting, semantic clarity, and i18n support.
+
+### Naming Convention Table
+
+| Context | Convention | Pattern | Examples |
+| --- | --- | --- | --- |
+| Tickets | Timestamp-prefixed slug | `YYYYMMDDHHmmss-<slug>.md` | `20260208131751-migrate-scanner-into-scan-command.md` |
+| Specs (viewpoints) | Slug only | `<slug>.md` | `stakeholder.md`, `component.md`, `data.md` |
+| Policies | Slug only | `<slug>.md` | `test.md`, `security.md`, `quality.md` |
+| Terms | Kebab-case descriptive | `<kebab-case>.md` | `core-concepts.md`, `file-conventions.md` |
+| Stories | Branch name | `<branch-name>.md` | `drive-20260205-195920.md` |
+| Translations | Base name + `_ja` suffix | `<name>_ja.md` | `stakeholder_ja.md`, `README_ja.md` |
+| Commands | Name only | `<name>.md` | `drive.md`, `ticket.md`, `scan.md` |
+| Agents | Kebab-case descriptive | `<kebab-case>.md` | `stakeholder-analyst.md`, `story-writer.md` |
+| Skills | `SKILL.md` in kebab-case directory | `<kebab-case>/SKILL.md` | `write-spec/SKILL.md`, `create-ticket/SKILL.md` |
+| Shell scripts | Name + `.sh` in `sh/` subdirectory | `sh/<name>.sh` | `gather.sh`, `validate.sh`, `update.sh` |
+| READMEs | Uppercase (exception) | `README.md` / `README_ja.md` | Root and directory indexes |
+
+### Timestamp Format for Tickets
+
+Ticket filenames use a 14-digit timestamp prefix (`YYYYMMDDHHmmss`) that ensures chronological sorting when listed alphabetically. This format is generated by `date +%Y%m%d%H%M%S` and must match the filename component extracted from the ISO 8601 `created_at` field.
+
+### Translation Suffix Convention
+
+Translation files use the `_ja` suffix before the file extension for Japanese translations. This pattern applies consistently across all documentation types: specs, policies, terms, stories, and README files. Other language codes (`_zh`, `_ko`, `_de`, `_fr`, `_es`) are defined in the translate skill but not currently used.
+
+### Directory Naming Conventions
+
+Directory names use kebab-case for skills and hyphenated timestamps for branch-based archives:
+
+- Skill directories: `gather-git-context/`, `write-spec/`, `create-ticket/`
+- Archive directories: `.workaholic/tickets/archive/<branch-name>/`
+- Branch name pattern: `drive-<YYYYMMDD>-<HHMMSS>` or `trip-<YYYYMMDD>-<HHMMSS>`
+
+## Data Validation Rules
+
+Data validation occurs at three layers: runtime hooks, shell script gates, and CI structural checks.
+
+### Runtime Hook Validation
+
+The PostToolUse hook (`validate-ticket.sh`) runs on every Write or Edit operation with a 10-second timeout. It validates:
+
+1. **Location**: Tickets must be in `todo/`, `icebox/`, or `archive/<branch>/`
+2. **Filename format**: Must match `YYYYMMDDHHmmss-*.md` pattern
+3. **Frontmatter presence**: File must start with `---`
+4. **Required fields**: All 7 fields must be present (even if empty)
+5. **Field formats**: Regex validation for `created_at`, `author`, `type`, `layer`, `effort`, `commit_hash`, `category`
+6. **Email rejection**: Explicit rejection of `@anthropic.com` addresses in `author` field
+
+Validation failures exit with code 2, blocking the Write or Edit operation.
+
+### Shell Script Validation Gates
+
+The `update-ticket-frontmatter` skill provides a second validation layer when modifying ticket fields:
+
+```bash
+# Validate effort values
+if [ "$FIELD" = "effort" ]; then
+    case "$VALUE" in
+        0.1h|0.25h|0.5h|1h|2h|4h) ;; # valid
+        *) echo "Error: effort must be one of: 0.1h, 0.25h, 0.5h, 1h, 2h, 4h"
+           echo "Got: $VALUE"
+           exit 1 ;;
+    esac
+fi
+```
+
+This gate catches invalid values (like t-shirt sizes S, M, L) that might bypass the hook through direct `sed` operations.
+
+### Validation Execution Flow
+
+```mermaid
+flowchart TD
+    Write[Write/Edit Tool Call] --> Hook{PostToolUse Hook}
+    Hook -->|Ticket File| ValidateTicket[validate-ticket.sh]
+    ValidateTicket -->|Pass| Execute[Execute Write/Edit]
+    ValidateTicket -->|Fail| Block[Block Operation]
+    Execute --> Success[File Written]
+
+    Update[Update Ticket Frontmatter] --> ScriptGate{Field = effort?}
+    ScriptGate -->|Yes| ValidateEffort[Case Statement Validation]
+    ScriptGate -->|No| DirectSed[Direct sed Update]
+    ValidateEffort -->|Valid| DirectSed
+    ValidateEffort -->|Invalid| Error[Exit with Error]
+
+    Scan[Scan Command Phase 4] --> ValidateOutput[validate-writer-output.sh]
+    ValidateOutput -->|All Files Exist + Non-Empty| UpdateIndex[Update README Indexes]
+    ValidateOutput -->|Missing/Empty Files| SkipIndex[Skip Index Update]
+```
+
+### CI Structural Validation
+
+The `validate-plugins.yml` GitHub Action runs on every push and pull request to `main`:
+
+1. Validates `marketplace.json` is valid JSON
+2. Validates each `plugin.json` contains required fields (`name`, `version`)
+3. Validates that skill files referenced by plugins exist
+4. Validates that every plugin in `marketplace.json` has a corresponding directory
+
+This provides structural integrity guarantees before code reaches production.
+
+### Output Validation
+
+The `validate-writer-output` skill (`validate.sh`) verifies that analyst subagent output exists and is non-empty before README index updates:
+
+```bash
+for file in "$@"; do
+  path="$dir/$file"
+  if [ ! -f "$path" ]; then
+    status="missing"
+    pass=false
+  elif [ ! -s "$path" ]; then
+    status="empty"
+    pass=false
+  else
+    status="ok"
+  fi
+done
+```
+
+The scan command uses this validation gate in Phase 4 to prevent broken links in documentation indexes.
+
+## Data Lifecycle
+
+Data artifacts move through defined lifecycle stages based on their type and development workflow state.
+
+### Ticket Lifecycle
 
 ```mermaid
 flowchart LR
-    Create[Created in todo/] --> Implement[Implemented by /drive]
-    Implement --> Approve{Approved?}
-    Approve -->|Yes| Archive[Archived to archive/branch/]
-    Approve -->|Abandon| Abandoned[Moved to abandoned/]
-    Approve -->|Feedback| Implement
-    Create --> Icebox[Deferred to icebox/]
-    Icebox --> Implement
+    Create["Created in todo/"] --> Drive["Implemented by /drive"]
+    Drive --> Approve{Approved?}
+    Approve -->|Yes| Archive["Archived to archive/&lt;branch&gt;/"]
+    Approve -->|Abandon| Abandoned["Moved to abandoned/"]
+    Approve -->|Feedback| Update["Update Ticket"]
+    Update --> Drive
+    Create --> Icebox["Deferred to icebox/"]
+    Icebox --> Drive
 ```
 
-## 7. Assumptions
+Tickets begin in `todo/`, move to `archive/<branch>/` after successful implementation, or move to `icebox/` for deferral. Abandoned tickets move to `abandoned/` with Failure Analysis appended.
 
-- [Explicit] Ticket frontmatter fields and validation are documented in `create-ticket` skill and enforced by the hook.
-- [Explicit] The `_at` suffix convention for datetime fields and `_ja` suffix for translations are documented in `CLAUDE.md` and the `translate` skill.
-- [Explicit] Branch naming uses `drive-` or `trip-` prefixes, as documented in the standardize-branch-naming ticket.
+### Documentation Lifecycle
+
+```mermaid
+flowchart LR
+    Scan["/scan Command"] --> Agents["17 Parallel Analysts"]
+    Agents --> Specs["Write specs/*.md"]
+    Agents --> Policies["Write policies/*.md"]
+    Agents --> Changelog["Write CHANGELOG.md"]
+    Agents --> Terms["Write terms/*.md"]
+    Specs --> ValidateSpecs["Validate Output"]
+    Policies --> ValidatePolicies["Validate Output"]
+    ValidateSpecs -->|Pass| UpdateSpecsIndex["Update specs/README"]
+    ValidatePolicies -->|Pass| UpdatePoliciesIndex["Update policies/README"]
+    UpdateSpecsIndex --> Commit["Git Commit"]
+    UpdatePoliciesIndex --> Commit
+    Changelog --> Commit
+    Terms --> Commit
+```
+
+Documentation is regenerated by the `/scan` command through 17 parallel analyst subagents, validated for existence and non-emptiness, and committed with updated index files.
+
+### Version Lifecycle
+
+```mermaid
+flowchart LR
+    Release["/release Command"] --> Read["Read Current Version"]
+    Read --> Increment["Increment PATCH"]
+    Increment --> UpdateMarketplace["Update marketplace.json"]
+    Increment --> UpdatePlugin["Update plugin.json"]
+    UpdateMarketplace --> Commit["Git Commit"]
+    UpdatePlugin --> Commit
+    Commit --> Tag["Git Tag"]
+```
+
+Version numbers are synchronized across `marketplace.json` and `plugin.json` during release. The `/release` command increments the patch version by default, updates both files, commits, and creates a git tag.
+
+## Naming Convention Relationships
+
+```mermaid
+flowchart TD
+    KebabCase["kebab-case"] --> Skills["Skills: create-ticket/"]
+    KebabCase --> Agents["Agents: stakeholder-analyst.md"]
+    KebabCase --> Terms["Terms: core-concepts.md"]
+
+    Timestamp["YYYYMMDDHHmmss"] --> TicketFilename["Ticket Filename"]
+    TicketFilename --> SortOrder["Chronological Sorting"]
+
+    Slug["Slug-only"] --> Specs["Specs: stakeholder.md"]
+    Slug --> Policies["Policies: test.md"]
+
+    Branch["Branch Name"] --> Archive["Archive Directory"]
+    Archive --> TicketArchive["archive/drive-20260208-131649/"]
+    Branch --> Story["Story File"]
+    Story --> StoryFile["stories/drive-20260208-131649.md"]
+
+    Translation["_ja Suffix"] --> SpecTranslation["stakeholder_ja.md"]
+    Translation --> PolicyTranslation["test_ja.md"]
+    Translation --> READMETranslation["README_ja.md"]
+```
+
+## Assumptions
+
+- [Explicit] Ticket frontmatter fields and validation are documented in `create-ticket` skill and enforced by `validate-ticket.sh` hook.
+- [Explicit] The `_at` suffix convention for datetime fields (ISO 8601 with timezone) and `_ja` suffix for Japanese translations are documented in `CLAUDE.md` and the `translate` skill.
+- [Explicit] Branch naming uses `drive-` or `trip-` prefixes with timestamp suffixes, as observed in archived ticket directories.
+- [Explicit] The PostToolUse hook runs with a 10-second timeout on every Write and Edit operation, as configured in `hooks.json`.
+- [Explicit] The `update-ticket-frontmatter` skill validates `effort` values using a hardcoded allowlist, as documented in the shell script validation fix (ticket `20260207170806-fix-effort-invalid-value-root-cause.md`).
+- [Explicit] Version synchronization across `marketplace.json` and `plugin.json` is required during releases, as documented in `CLAUDE.md` version management section.
 - [Inferred] The inconsistency between `modified_at` (datetime) in specs and `last_updated` (date) in terms represents a historical artifact that has been noted but not resolved, based on the `inconsistencies.md` document.
-- [Inferred] The timestamp-prefixed ticket naming convention ensures chronological ordering when listed alphabetically, which is important for the drive-navigator's prioritization.
+- [Inferred] The timestamp-prefixed ticket naming convention ensures chronological ordering when listed alphabetically, which is important for the drive-navigator's prioritization logic.
+- [Inferred] The dual validation approach (runtime hook + shell script gate) for effort values exists to catch invalid input both during interactive editing and during automated script updates.
+- [Inferred] The `validate-writer-output` skill was introduced to prevent broken links in README indexes after discovering that analyst subagents could fail silently, based on the pattern observed in the scan architecture tickets.

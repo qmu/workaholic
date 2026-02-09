@@ -2,8 +2,8 @@
 title: Inconsistencies
 description: Known terminology issues and potential resolutions
 category: developer
-last_updated: 2026-02-07
-commit_hash: 82ffc1b
+last_updated: 2026-02-09
+commit_hash: d627919
 ---
 
 [English](inconsistencies.md) | [日本語](inconsistencies_ja.md)
@@ -339,3 +339,36 @@ H3 heading numbering changed from dot notation (`### 1.1. Subsection`) to hyphen
 ### Recommended Resolution
 
 New documents should use hyphen notation. Historical documents (archived stories, tickets) should remain unchanged as they reflect the convention at the time of creation.
+
+## Legacy Policy Badge System References
+
+### Issue
+
+Historical policy documents may reference `[Explicit]` and `[Inferred]` badges that were used to distinguish between enforced and aspirational policies. This badge system has been removed entirely. Current policy documents only document policies that are actually implemented and executable in the codebase.
+
+### Current Usage
+
+- Current: No badges. Each statement cites its enforcement mechanism (CI check, git hook, linter, script, test)
+- Historical: `[Explicit]` prefix for enforced policies, `[Inferred]` for aspirational practices
+- Documented-only conventions without code enforcement are now excluded from policies
+
+### Recommended Resolution
+
+Update references to explain that policies now only document verifiable, code-enforced practices. Historical documents (archived policy files) should remain unchanged as they reflect the convention at the time of creation.
+
+## Legacy "/story" Command and Scanner Subagent References
+
+### Issue
+
+The `/story` command has been removed and the scanner subagent has been deleted. The `/story` command's functionality (full documentation scan + PR creation) has been split into `/scan` (documentation updates) and `/report` (PR creation). The scanner subagent's orchestration logic has been migrated directly into the `/scan` command.
+
+### Current Usage
+
+- Current commands: `/scan` for documentation updates, `/report` for PR creation
+- Current architecture: `/scan` invokes 17 agents directly (no scanner subagent)
+- Historical command: `/story` performed both scan and PR creation
+- Historical architecture: scanner subagent orchestrated 17 agents
+
+### Recommended Resolution
+
+Update references to explain the command split and architecture flattening. The `/scan` command now provides real-time per-agent progress visibility by invoking agents directly rather than delegating to a scanner subagent. Historical documents should remain unchanged.

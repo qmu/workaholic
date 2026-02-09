@@ -2,8 +2,8 @@
 title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
-last_updated: 2026-02-07
-commit_hash: 12d9509
+last_updated: 2026-02-09
+commit_hash: d627919
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -62,11 +62,15 @@ A viewpoint-analyst (e.g., stakeholder-analyst, model-analyst) is a thin subagen
 
 ## policy-analyst
 
-A policy-analyst (e.g., test-policy-analyst, security-policy-analyst) is a thin subagent that analyzes the repository from a specific policy domain perspective. It uses the analyze-policy skill to gather context, document observable practices, and write a policy document with `[Explicit]` and `[Inferred]` annotations. Gaps where no evidence is found are marked as "Not observed" rather than omitted. Each of the 7 policy domains has its own dedicated analyst agent defined in `plugins/core/agents/<slug>-policy-analyst.md`. Invoked directly by the scanner rather than through an intermediate writer. Related terms: policy, scanner, analyze-policy.
+A policy-analyst (e.g., test-policy-analyst, security-policy-analyst) is a thin subagent that analyzes the repository from a specific policy domain perspective. It uses the analyze-policy skill to gather context and document only policies that are actually implemented and executable in the codebase. Each policy statement must cite its enforcement mechanism (CI check, git hook, linter rule, automated script, or test). Aspirational practices documented only in README or CLAUDE.md without code enforcement are excluded. Gaps where no evidence is found are marked as "Not observed" rather than omitted. Each of the 7 policy domains has its own dedicated analyst agent defined in `plugins/core/agents/<slug>-policy-analyst.md`. Invoked directly by the `/scan` command rather than through an intermediate subagent. Related terms: policy, scan, analyze-policy.
 
-## scanner
+## scanner (Deprecated)
 
-The scanner is a subagent that orchestrates 17 documentation agents in parallel: 8 viewpoint analysts (stakeholder, model, usecase, infrastructure, application, component, data, feature), 7 policy analysts (test, security, quality, accessibility, observability, delivery, recovery), a changelog-writer, and a terms-writer. It gathers git context, dispatches all 17 agents concurrently, validates output files, and updates index READMEs. Invoked by the `/scan` command. Defined in `plugins/core/agents/scanner.md`. Related terms: orchestrator, concurrent-execution, scan, viewpoint, policy-analyst.
+The scanner was a subagent that orchestrated 17 documentation agents in parallel. This orchestration has been migrated directly into the `/scan` command to provide real-time per-agent progress visibility. The scanner agent file (`plugins/core/agents/scanner.md`) has been removed, and the `/scan` command now invokes all 17 agents (8 viewpoint analysts, 7 policy analysts, changelog-writer, terms-writer) directly using parallel Task tool calls. This flattening from 2-level to 1-level nesting improves user transparency while maintaining the same parallel execution pattern. Related terms: scan, orchestrator, concurrent-execution.
+
+## run_in_background
+
+The run_in_background parameter is a Bash tool option that controls whether commands execute in the background. When set to `true`, the command runs asynchronously and the user is notified upon completion. However, background execution has a critical constraint: agents running in background mode automatically have Write and Edit tool permissions denied, preventing file operations. For scan agents and other documentation writers that require Write/Edit permissions, `run_in_background` must be explicitly set to `false` (the default). The `/scan` command includes explicit constraints that all 17 agent Task calls must use `run_in_background: false` to preserve Write/Edit permissions. Related terms: agent, Task tool, scan.
 
 ## hook
 

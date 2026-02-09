@@ -2,8 +2,8 @@
 title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
-last_updated: 2026-02-07
-commit_hash: 12d9509
+last_updated: 2026-02-09
+commit_hash: d627919
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -62,11 +62,15 @@ viewpoint-analyst（例：stakeholder-analyst、model-analyst）は特定のview
 
 ## policy-analyst
 
-policy-analyst（例：test-policy-analyst、security-policy-analyst）は特定のポリシードメイン視点からリポジトリを分析する薄いサブエージェントです。analyze-policyスキルを使用してコンテキストを収集し、観察可能なプラクティスを記録し、`[Explicit]`と`[Inferred]`のアノテーション付きでポリシードキュメントを書き込みます。証拠が見つからないギャップは省略せず「Not observed」としてマークされます。7つのポリシードメインそれぞれに`plugins/core/agents/<slug>-policy-analyst.md`で定義された専用のanalystエージェントがあります。中間のwriterを介さずscannerから直接呼び出されます。関連用語：policy、scanner、analyze-policy。
+policy-analyst（例：test-policy-analyst、security-policy-analyst）は特定のポリシードメイン視点からリポジトリを分析する薄いサブエージェントです。analyze-policyスキルを使用してコンテキストを収集し、コードベースに実際に実装され実行可能なポリシーのみを文書化します。各ポリシーステートメントは強制メカニズム（CI check、git hook、linter rule、自動化されたscript、またはtest）を引用する必要があります。README や CLAUDE.md にのみ文書化されコード強制のない願望的なプラクティスは除外されます。証拠が見つからないギャップは省略せず「Not observed」としてマークされます。7つのポリシードメインそれぞれに`plugins/core/agents/<slug>-policy-analyst.md`で定義された専用のanalystエージェントがあります。中間のサブエージェントを介さず`/scan` commandから直接呼び出されます。関連用語：policy、scan、analyze-policy。
 
-## scanner
+## scanner（廃止）
 
-scannerは17のドキュメントエージェントを並列でオーケストレートするサブエージェントです：8つのviewpoint analyst（stakeholder、model、usecase、infrastructure、application、component、data、feature）、7つのpolicy analyst（test、security、quality、accessibility、observability、delivery、recovery）、changelog-writer、terms-writer。gitコンテキストを収集し、17のエージェントすべてを同時にディスパッチし、出力ファイルを検証し、インデックスREADMEを更新します。`/scan`コマンドによって呼び出されます。`plugins/core/agents/scanner.md`で定義されています。関連用語：orchestrator、concurrent-execution、scan、viewpoint、policy-analyst。
+scannerは17のドキュメントエージェントを並列でオーケストレートしていたサブエージェントです。このオーケストレーションはリアルタイムのエージェント毎の進捗可視性を提供するために`/scan` commandに直接移行されました。scanner エージェントファイル（`plugins/core/agents/scanner.md`）は削除され、`/scan` commandが17すべてのエージェント（8つのviewpoint analyst、7つのpolicy analyst、changelog-writer、terms-writer）を並列Task tool呼び出しを使って直接呼び出すようになりました。この2レベルから1レベルへのネスティングの平坦化により、同じ並列実行パターンを維持しながらユーザーの透明性が向上します。関連用語：scan、orchestrator、concurrent-execution。
+
+## run_in_background
+
+run_in_background パラメータはコマンドをバックグラウンドで実行するかどうかを制御するBash toolのオプションです。`true`に設定すると、コマンドは非同期で実行され、完了時にユーザーに通知されます。しかし、バックグラウンド実行には重要な制約があります：バックグラウンドモードで実行されるエージェントはWriteとEdit toolのパーミッションが自動的に拒否され、ファイル操作ができなくなります。Write/Editパーミッションを必要とするscan agentや他のドキュメントwriterの場合、`run_in_background`は明示的に`false`（デフォルト）に設定する必要があります。`/scan` commandは17すべてのエージェントのTask呼び出しで`run_in_background: false`を使用しなければならないという明示的な制約を含んでいます。関連用語：agent、Task tool、scan。
 
 ## hook
 

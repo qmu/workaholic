@@ -37,7 +37,7 @@ Invoke all 17 agents in a single message with parallel Task tool calls (each `mo
 
 | Agent slug | `subagent_type` | Prompt context |
 | --- | --- | --- |
-| `stakeholder-analyst` | `core:stakeholder-analyst` | Pass base branch |
+| `communication-lead` | `core:communication-lead` | Pass base branch |
 | `model-analyst` | `core:model-analyst` | Pass base branch |
 | `usecase-analyst` | `core:usecase-analyst` | Pass base branch |
 | `infra-lead` | `core:infra-lead` | Pass base branch |

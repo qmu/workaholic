@@ -3,8 +3,8 @@ created_at: 2026-02-09T17:30:44+08:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
+effort: 0.25h
+commit_hash: 82866dc
 category:
 ---
 
@@ -112,3 +112,12 @@ The define-lead skill and a11y-lead conversion established the lead pattern for 
 - The viewpoint slug remains "stakeholder" even though the lead name is "communication-lead"; the output file stays `.workaholic/specs/stakeholder.md` to maintain backward compatibility with the validation script (`plugins/core/commands/scan.md` line 67)
 - The partial scan mapping in `select.sh` references `stakeholder-analyst` on line 114 for `README.md|CLAUDE.md` changes; this must be updated to `communication-lead` (`plugins/core/skills/select-scan-agents/sh/select.sh` lines 112-117)
 - Cross-reference: the infra-lead and db-lead tickets also transform viewpoint analysts in this same batch
+
+## Final Report
+
+All four implementation steps completed as specified:
+
+1. Created `plugins/core/skills/lead-communication/SKILL.md` with Role, Responsibility, Goal, and Default Policies (Implementation, Review, Documentation, Execution) following the define-lead schema, adapted for viewpoint analysis with analyze-viewpoint/write-spec references.
+2. Deleted `plugins/core/agents/stakeholder-analyst.md` and created `plugins/core/agents/communication-lead.md` as a thin orchestrator preloading lead-communication, analyze-viewpoint, write-spec, and translate skills.
+3. Updated `plugins/core/commands/scan.md` table row from `stakeholder-analyst`/`core:stakeholder-analyst` to `communication-lead`/`core:communication-lead`.
+4. Updated `plugins/core/skills/select-scan-agents/sh/select.sh` ALL_AGENTS variable and partial scan mapping (`README.md|CLAUDE.md` trigger), replacing `stakeholder-analyst` with `communication-lead`.

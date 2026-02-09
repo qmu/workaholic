@@ -3,8 +3,8 @@ created_at: 2026-02-09T17:30:45+08:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
+effort: 0.25h
+commit_hash: aa6dc53
 category:
 ---
 
@@ -112,3 +112,12 @@ The define-lead skill and a11y-lead conversion established the lead pattern for 
 - The partial scan mapping in `select.sh` references `data-analyst` on line 94 for `.workaholic/tickets/*` changes; this must be updated to `db-lead` (`plugins/core/skills/select-scan-agents/sh/select.sh` lines 92-97)
 - The db-lead name reflects this agent's ownership of persistency/data storage concerns, which is a broader framing than the original "data-analyst" name
 - Cross-reference: the infra-lead and communication-lead tickets also transform viewpoint analysts in this same batch
+
+## Final Report
+
+All four implementation steps completed as specified:
+
+1. Created `plugins/core/skills/lead-db/SKILL.md` with Role, Responsibility, Goal, and Default Policies (Implementation, Review, Documentation, Execution) following the define-lead schema, adapted for viewpoint analysis with analyze-viewpoint/write-spec references. Focused on persistency and data storage concerns.
+2. Deleted `plugins/core/agents/data-analyst.md` and created `plugins/core/agents/db-lead.md` as a thin orchestrator preloading lead-db, analyze-viewpoint, write-spec, and translate skills.
+3. Updated `plugins/core/commands/scan.md` table row from `data-analyst`/`core:data-analyst` to `db-lead`/`core:db-lead`.
+4. Updated `plugins/core/skills/select-scan-agents/sh/select.sh` ALL_AGENTS variable and partial scan mapping (`.workaholic/tickets/*` trigger), replacing `data-analyst` with `db-lead`.

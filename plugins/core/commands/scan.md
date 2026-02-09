@@ -43,7 +43,7 @@ Invoke all 17 agents in a single message with parallel Task tool calls (each `mo
 | `infra-lead` | `core:infra-lead` | Pass base branch |
 | `application-analyst` | `core:application-analyst` | Pass base branch |
 | `component-analyst` | `core:component-analyst` | Pass base branch |
-| `data-analyst` | `core:data-analyst` | Pass base branch |
+| `db-lead` | `core:db-lead` | Pass base branch |
 | `feature-analyst` | `core:feature-analyst` | Pass base branch |
 | `test-lead` | `core:test-lead` | Pass base branch |
 | `security-lead` | `core:security-lead` | Pass base branch |

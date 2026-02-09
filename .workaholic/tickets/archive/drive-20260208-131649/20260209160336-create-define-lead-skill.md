@@ -3,9 +3,9 @@ created_at: 2026-02-09T16:03:36+08:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 01b44bd
+category: Added
 ---
 
 # Create define-lead Skill
@@ -90,3 +90,7 @@ Past tickets established the skill extraction pattern and skill-to-skill composi
 - The skill has no shell scripts or `allowed-tools` since it is purely a knowledge/template skill, similar to `create-ticket` and `discover-ticket` (`plugins/core/skills/create-ticket/SKILL.md`)
 - Future agents or commands that create lead definitions should preload this skill, following the "thin orchestrators, comprehensive skills" principle (`CLAUDE.md`)
 - Consider whether the skill should also cover validation shell scripts in the future, but keep the initial scope focused on the schema template and guidelines only (`plugins/core/skills/define-lead/`)
+
+## Final Report
+
+Created `plugins/core/skills/define-lead/SKILL.md` as a pure knowledge skill (no shell scripts, no allowed-tools) following the same pattern as `create-ticket` and `discover-ticket`. The skill contains five sections: Schema Template (full markdown structure with fenced code block), Guidelines (naming conventions, description writing, responsibility vs goal semantics, default policy authoring, override behavior), Validation Checklist (11-item checklist), and Example (a complete `testing-lead` definition demonstrating all required sections with realistic content). All five implementation steps from the ticket are addressed in the single SKILL.md file.

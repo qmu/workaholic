@@ -13,7 +13,7 @@ set -eu
 MODE="${1:-}"
 BASE_BRANCH="${2:-}"
 
-ALL_AGENTS="stakeholder-analyst model-analyst usecase-analyst infra-lead application-analyst component-analyst data-analyst feature-analyst test-lead security-lead quality-lead a11y-lead observability-lead delivery-lead recovery-lead changelog-writer terms-writer"
+ALL_AGENTS="communication-lead model-analyst usecase-analyst infra-lead application-analyst component-analyst data-analyst feature-analyst test-lead security-lead quality-lead a11y-lead observability-lead delivery-lead recovery-lead changelog-writer terms-writer"
 
 if [ -z "$MODE" ]; then
   echo '{"error":"Usage: select.sh <mode> [base_branch]"}'
@@ -111,7 +111,7 @@ echo "$DIFF_STAT" | while IFS= read -r line; do
 
   case "$path" in
     README.md|CLAUDE.md)
-      touch "$TMPDIR_SEL/stakeholder-analyst"
+      touch "$TMPDIR_SEL/communication-lead"
       touch "$TMPDIR_SEL/feature-analyst"
       ;;
   esac

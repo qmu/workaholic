@@ -3,9 +3,9 @@ created_at: 2026-02-09T17:59:34+08:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: ca27130
+category: Changed
 ---
 
 # Consolidate Four Viewpoint Analysts into Architecture Lead
@@ -241,3 +241,7 @@ The define-lead skill and prior lead conversions established the pattern for tra
 - The partial scan mapping in `select.sh` currently triggers different subsets of the 4 analysts for different path changes. After consolidation, all these trigger `architecture-lead`, which means `architecture-lead` gets triggered more broadly -- this is acceptable because it owns all four viewpoints (`plugins/core/skills/select-scan-agents/sh/select.sh` lines 70-118)
 - The `select-scan-agents/SKILL.md` documentation table still references old agent names (`quality-policy-analyst`, `data-analyst`, `stakeholder-analyst`, `infrastructure-analyst`, `delivery-policy-analyst`, `security-policy-analyst`); these should also be updated to their current lead names for consistency (`plugins/core/skills/select-scan-agents/SKILL.md` lines 29-39)
 - The `architecture-lead` agent will need to invoke `analyze-viewpoint/sh/gather.sh` four times (once per viewpoint slug) during a documentation scan. This is different from other leads that gather context once (`plugins/core/skills/analyze-viewpoint/sh/gather.sh`)
+
+## Final Report
+
+Consolidated four viewpoint analysts (application, component, feature, usecase) into a single `architecture-lead` agent with a `lead-architecture` skill. Created the skill with all four viewpoint definitions embedded (slugs, analysis prompts, Mermaid suggestions, output sections) and Default Policies following the define-lead schema. Deleted the four analyst agent files, created the thin architecture-lead orchestrator. Updated scan.md agent count from 17 to 14 and collapsed four table rows into one. Updated select-scan-agents shell script (ALL_AGENTS list and all partial scan case mappings) and SKILL.md (agent counts, category labels, mapping table, output example). Also fixed stale agent names in SKILL.md documentation that predated earlier lead migrations.

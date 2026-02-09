@@ -40,7 +40,7 @@ Invoke all 17 agents in a single message with parallel Task tool calls (each `mo
 | `stakeholder-analyst` | `core:stakeholder-analyst` | Pass base branch |
 | `model-analyst` | `core:model-analyst` | Pass base branch |
 | `usecase-analyst` | `core:usecase-analyst` | Pass base branch |
-| `infrastructure-analyst` | `core:infrastructure-analyst` | Pass base branch |
+| `infra-lead` | `core:infra-lead` | Pass base branch |
 | `application-analyst` | `core:application-analyst` | Pass base branch |
 | `component-analyst` | `core:component-analyst` | Pass base branch |
 | `data-analyst` | `core:data-analyst` | Pass base branch |

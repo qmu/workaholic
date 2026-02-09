@@ -3,8 +3,8 @@ created_at: 2026-02-09T17:30:43+08:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
+effort: 0.25h
+commit_hash: d3896b8
 category:
 ---
 
@@ -111,3 +111,12 @@ The define-lead skill and a11y-lead conversion established the lead pattern for 
 - The validation script in scan Phase 4 references `infrastructure.md` as a viewpoint spec output file, which does not change since the viewpoint slug remains "infrastructure" (`plugins/core/commands/scan.md` line 67)
 - The partial scan mapping in `select.sh` references `infrastructure-analyst` on line 107 for `.claude-plugin/*` changes; this must be updated to `infra-lead` (`plugins/core/skills/select-scan-agents/sh/select.sh` lines 105-110)
 - Cross-reference: the communication-lead and db-lead tickets also transform viewpoint analysts in this same batch
+
+## Final Report
+
+All four implementation steps completed as specified:
+
+1. Created `plugins/core/skills/lead-infra/SKILL.md` with Role, Responsibility, Goal, and Default Policies (Implementation, Review, Documentation, Execution) following the define-lead schema, adapted for viewpoint analysis with analyze-viewpoint/write-spec references instead of analyze-policy.
+2. Deleted `plugins/core/agents/infrastructure-analyst.md` and created `plugins/core/agents/infra-lead.md` as a thin orchestrator preloading lead-infra, analyze-viewpoint, write-spec, and translate skills.
+3. Updated `plugins/core/commands/scan.md` table row from `infrastructure-analyst`/`core:infrastructure-analyst` to `infra-lead`/`core:infra-lead`.
+4. Updated `plugins/core/skills/select-scan-agents/sh/select.sh` ALL_AGENTS variable and partial scan mapping (`.claude-plugin/*` trigger), replacing `infrastructure-analyst` with `infra-lead`.

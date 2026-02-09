@@ -1,5 +1,17 @@
 # Changelog
 
+## drive-20260208-131649
+
+### Added
+
+- Add Explicit run_in_background: false to Scan Command Agent Invocations ([0e426ea](https://github.com/qmu/workaholic/commit/0e426ead02924ccf1c471b1425201684f58958d4)) - [ticket](.workaholic/tickets/archive/drive-20260208-131649/20260209121629-add-run-in-background-false-to-scan.md)
+
+### Changed
+
+- Migrate Scanner Subagent into the Scan Command ([30c1ef8](https://github.com/qmu/workaholic/commit/30c1ef8178f631a3f1a37c330c030dd055b8531a)) - [ticket](.workaholic/tickets/archive/drive-20260208-131649/20260208131751-migrate-scanner-into-scan-command.md)
+- Add Automatic Version Bump to /story Command ([6529d52](https://github.com/qmu/workaholic/commit/6529d525e849f71cebd0bab023bc9aff68afe3de)) - [ticket](.workaholic/tickets/archive/drive-20260208-131649/20260208133008-add-version-bump-to-story-command.md)
+- Enforce Explicit/Inferred Badge Definitions Based on Code Enforcement ([f2e651a](https://github.com/qmu/workaholic/commit/f2e651a2820aca1e9a0c538f3acf36304f707c46)) - [ticket](.workaholic/tickets/archive/drive-20260208-131649/20260208141517-enforce-explicit-inferred-badge-definitions.md)
+
 ## drive-20260205-195920
 
 ### Added

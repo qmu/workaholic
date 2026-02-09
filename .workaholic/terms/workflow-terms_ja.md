@@ -2,8 +2,8 @@
 title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
-last_updated: 2026-02-07
-commit_hash: 82ffc1b
+last_updated: 2026-02-09
+commit_hash: d627919
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -32,13 +32,13 @@ sync操作は派生ドキュメント（specs、terms）を現在のコードベ
 
 releaseはマーケットプレイスバージョンをインクリメントし、`.claude-plugin/marketplace.json`のバージョンメタデータを更新し、変更を公開します。`/release`コマンドはセマンティックバージョニングに従ってmajor、minor、patchのバージョンインクリメントをサポートし、適切なgitタグを作成します。関連用語：changelog、plugin。
 
-## story
+## report
 
-storyは複数のドキュメントエージェントを同時にオーケストレートしてすべての成果物（changelog、story、specs、terms）を生成し、その後GitHub pull requestを作成または更新するオペレーションです。これはフィーチャーブランチを完了し、レビューのために準備するための主要なコマンドです。`/story`コマンドは以前の`/report`コマンドを置き換え、ストーリードキュメントが中心的な成果物であることをより適切に反映しています。関連用語：changelog、spec、terms、agent、orchestrator。
+reportは現在のブランチに対してstory documentを生成し、GitHub pull requestを作成または更新するオペレーションです。`/report` commandはstory-writer subagentを呼び出してブランチの作業を包括的なPR説明に統合します。story生成の前に、`/report`はCLAUDE.md Version Management規約に従って自動的にpatchバージョンのバンプを実行し、マージされるすべてのPRがGitHub releaseをトリガーすることを確保します。このコマンドは完全なドキュメントscanをトリガーせずPR作成に焦点を当てているため、`/scan`よりも高速です。関連用語：story、changelog、release、story-writer、agent。
 
-## report（廃止）
+## story（廃止）
 
-reportは`/story`コマンドの以前の名前でした。機能は同じまま—ドキュメント生成とPR作成のオーケストレーション—ですが、名前は中心的な成果物としてストーリードキュメントを強調するようになりました。関連用語：story。
+`/story` commandは削除されました。元の目的—完全なドキュメントscanとPR作成のオーケストレーション—は2つのコマンドに分割されました：ドキュメント更新用の`/scan`とPR作成用の`/report`。この分離により明確なコマンドセマンティクスが提供され、開発者は完全なscanまたは集中的なPR準備を選択できます。関連用語：report、scan。
 
 ## workflow
 
@@ -50,7 +50,7 @@ concurrent executionは複数の独立したエージェントが異なる場所
 
 ## scan
 
-scanは`.workaholic/`ドキュメントをすべてのドキュメントスキャナーを並列で実行して更新するオペレーションです。`/scan`コマンドはscannerサブエージェントを呼び出し、4つのライターを同時にオーケストレートします：changelog-writer（CHANGELOG.mdを更新）、spec-writer（8つのviewpointベースのスペックを生成）、terms-writer（用語定義を維持）、policy-writer（7つのポリシードキュメントを生成）。すべてのライターが完了した後、変更はステージングされコミットされます。`/scan`コマンドで呼び出されます。関連用語：spec、terms、policy、changelog、scanner、concurrent-execution。
+scanは`.workaholic/`ドキュメントをすべての17のドキュメントエージェントを並列で直接呼び出して更新するオペレーションです。`/scan` commandは8つのviewpoint analyst（stakeholder、model、usecase、infrastructure、application、component、data、feature）、7つのpolicy analyst（test、security、quality、accessibility、observability、delivery、recovery）、changelog-writer、terms-writerをcommand自体の中で同時Task呼び出しとしてオーケストレートします。この直接呼び出しパターン（以前のscannerサブエージェントに置き換わる）は、ユーザーにリアルタイムのエージェント毎の進捗可視性を提供します。各エージェントはWriteとEditパーミッションを保持するために`run_in_background: false`を使用する必要があります。すべてのエージェントが完了した後、出力は検証され、インデックスファイルが更新され、変更がステージングされコミットされます。関連用語：spec、terms、policy、changelog、concurrent-execution、viewpoint-analyst、policy-analyst、run_in_background。
 
 ## approval
 

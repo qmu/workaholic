@@ -49,7 +49,7 @@ Invoke all 17 agents in a single message with parallel Task tool calls (each `mo
 | `security-lead` | `core:security-lead` | Pass base branch |
 | `quality-lead` | `core:quality-lead` | Pass base branch |
 | `a11y-lead` | `core:a11y-lead` | Pass base branch |
-| `observability-policy-analyst` | `core:observability-policy-analyst` | Pass base branch |
+| `observability-lead` | `core:observability-lead` | Pass base branch |
 | `delivery-policy-analyst` | `core:delivery-policy-analyst` | Pass base branch |
 | `recovery-policy-analyst` | `core:recovery-policy-analyst` | Pass base branch |
 | `changelog-writer` | `core:changelog-writer` | Pass repository URL |

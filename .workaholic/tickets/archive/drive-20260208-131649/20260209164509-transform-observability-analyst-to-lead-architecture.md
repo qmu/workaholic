@@ -3,8 +3,8 @@ created_at: 2026-02-09T16:45:09+08:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
+effort: 0.25h
+commit_hash: eede80c
 category:
 ---
 
@@ -95,3 +95,12 @@ The define-lead skill and a11y-lead conversion established the pattern that this
 - The validation script in scan Phase 4 references `observability.md` as a policy output file, which does not change since the policy slug remains "observability" (`plugins/core/commands/scan.md` line 72)
 - No partial scan mapping references `observability-policy-analyst` in the current `select.sh`, so only the ALL_AGENTS line needs updating (`plugins/core/skills/select-scan-agents/sh/select.sh` line 16)
 - Follow the exact structure of `plugins/core/skills/lead-a11y/SKILL.md` and `plugins/core/agents/a11y-lead.md` as reference implementations
+
+## Final Report
+
+All four implementation steps completed as specified:
+
+1. Created `plugins/core/skills/lead-observability/SKILL.md` with Role, Responsibility, Goal, and Default Policies (Implementation, Review, Documentation, Execution) following the define-lead schema and mirroring the lead-a11y reference.
+2. Deleted `plugins/core/agents/observability-policy-analyst.md` and created `plugins/core/agents/observability-lead.md` as a thin orchestrator preloading lead-observability, analyze-policy, and translate skills.
+3. Updated `plugins/core/commands/scan.md` table row from `observability-policy-analyst`/`core:observability-policy-analyst` to `observability-lead`/`core:observability-lead`.
+4. Updated `plugins/core/skills/select-scan-agents/sh/select.sh` ALL_AGENTS variable, replacing `observability-policy-analyst` with `observability-lead`.

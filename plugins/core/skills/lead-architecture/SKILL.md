@@ -1,8 +1,6 @@
 ---
 name: architecture-lead
 description: Owns application, component, feature, and usecase viewpoints for the project.
-skills:
-  - define-lead
 user-invocable: false
 ---
 

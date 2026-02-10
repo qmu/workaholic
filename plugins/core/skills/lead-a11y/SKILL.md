@@ -1,8 +1,6 @@
 ---
 name: a11y-lead
 description: Owns accessibility compliance, i18n support, assistive technology considerations, and inclusive design policy for the project.
-skills:
-  - define-lead
 user-invocable: false
 ---
 

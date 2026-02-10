@@ -1,8 +1,6 @@
 ---
 name: infra-lead
 description: Owns external dependencies, file system layout, installation procedures, and environment requirements for the project.
-skills:
-  - define-lead
 user-invocable: false
 ---
 

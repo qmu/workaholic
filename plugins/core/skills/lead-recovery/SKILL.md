@@ -1,8 +1,6 @@
 ---
 name: recovery-lead
 description: Owns data backup schedules, retention policies, disaster recovery procedures, and RTO/RPO targets for the project.
-skills:
-  - define-lead
 user-invocable: false
 ---
 

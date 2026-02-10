@@ -1,8 +1,6 @@
 ---
 name: security-lead
 description: Owns the assets worth protecting, threat model, authentication/authorization boundaries, and safeguards for the project.
-skills:
-  - define-lead
 user-invocable: false
 ---
 

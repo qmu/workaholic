@@ -2,8 +2,8 @@
 title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
-last_updated: 2026-02-07
-commit_hash: 82ffc1b
+last_updated: 2026-02-09
+commit_hash: d627919
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -32,13 +32,13 @@ Sync operations update derived documentation (specs, terms) to reflect the curre
 
 A release increments the marketplace version, updates version metadata in `.claude-plugin/marketplace.json`, and publishes changes. The `/release` command supports major, minor, and patch version increments following semantic versioning and creates appropriate git tags. Related terms: changelog, plugin.
 
-## story
+## report
 
-Story is the operation that orchestrates multiple documentation agents concurrently to generate all artifacts (changelog, story, specs, terms), then creates or updates a GitHub pull request. This is the primary command for completing a feature branch and preparing it for review. The `/story` command replaced the earlier `/report` command to better reflect the story document as the central artifact. Related terms: changelog, spec, terms, agent, orchestrator.
+Report is the operation that generates a story document and creates or updates a GitHub pull request for the current branch. The `/report` command invokes the story-writer subagent to synthesize branch work into a comprehensive PR description. Before story generation, `/report` automatically performs a patch version bump following CLAUDE.md Version Management conventions, ensuring every merged PR triggers a GitHub release. The command focuses on PR creation without triggering full documentation scans, making it faster than `/scan`. Related terms: story, changelog, release, story-writer, agent.
 
-## report (Deprecated)
+## story (Deprecated)
 
-Report was the previous name for the `/story` command. The functionality remains the same—orchestrating documentation generation and PR creation—but the name now emphasizes the story document as the central artifact. Related terms: story.
+The `/story` command has been removed. Its original purpose—orchestrating full documentation scans and PR creation—has been split into two commands: `/scan` for full documentation updates and `/report` for PR creation with story generation. This separation provides clearer command semantics and allows developers to choose between full scans or focused PR preparation. Related terms: report, scan.
 
 ## workflow
 
@@ -50,7 +50,7 @@ Concurrent execution is a pattern where multiple independent agents are invoked 
 
 ## scan
 
-Scan is the operation that updates `.workaholic/` documentation by running all documentation scanners in parallel. The `/scan` command invokes the scanner subagent, which orchestrates 4 writers concurrently: changelog-writer (updates CHANGELOG.md), spec-writer (generates 8 viewpoint-based specs), terms-writer (maintains term definitions), and policy-writer (generates 7 policy documents). After all writers complete, changes are staged and committed. Invoked with `/scan` command. Related terms: spec, terms, policy, changelog, scanner, concurrent-execution.
+Scan is the operation that updates `.workaholic/` documentation by invoking all 17 documentation agents directly in parallel. The `/scan` command orchestrates 8 viewpoint analysts (stakeholder, model, usecase, infrastructure, application, component, data, feature), 7 policy analysts (test, security, quality, accessibility, observability, delivery, recovery), changelog-writer, and terms-writer as concurrent Task calls within the command itself. This direct invocation pattern (replacing the previous scanner subagent) provides real-time per-agent progress visibility to the user. Each agent must use `run_in_background: false` to preserve Write/Edit permissions. After all agents complete, output is validated, index files are updated, and changes are staged and committed. Related terms: spec, terms, policy, changelog, concurrent-execution, viewpoint-analyst, policy-analyst, run_in_background.
 
 ## approval
 

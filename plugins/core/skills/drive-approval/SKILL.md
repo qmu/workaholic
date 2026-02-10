@@ -131,6 +131,7 @@ bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/commit/sh/com
   "Abandon: <ticket-title>" \
   "Implementation proved unworkable" \
   "None" \
+  "None" \
   "Ticket moved to abandoned with failure analysis" \
   .workaholic/tickets/
 ```

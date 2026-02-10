@@ -18,23 +18,25 @@ while [ $# -gt 0 ]; do
 done
 
 TITLE="${1:-}"
-MOTIVATION="${2:-}"
-UX_CHANGE="${3:-None}"
-ARCH_CHANGE="${4:-None}"
-shift 4 2>/dev/null || true
+DESCRIPTION="${2:-}"
+CHANGES="${3:-None}"
+TEST_PLAN="${4:-None}"
+RELEASE_PREP="${5:-None}"
+shift 5 2>/dev/null || true
 
 if [ -z "$TITLE" ]; then
-    echo "Usage: commit.sh [--skip-staging] <title> <motivation> <ux-change> <arch-change> [files...]"
+    echo "Usage: commit.sh [--skip-staging] <title> <description> <changes> <test-plan> <release-prep> [files...]"
     echo ""
     echo "Options:"
     echo "  --skip-staging  Skip staging step (use when files are already staged)"
     echo ""
     echo "Parameters:"
-    echo "  title      - Commit title (present-tense verb, 50 chars max)"
-    echo "  motivation - Why this change was needed (can be empty)"
-    echo "  ux-change  - User-visible changes (or 'None')"
-    echo "  arch-change - Architecture changes (or 'None')"
-    echo "  files...   - Optional: specific files to stage (ignored with --skip-staging)"
+    echo "  title        - Commit title (present-tense verb, 50 chars max)"
+    echo "  description  - Why this change was needed, with motivation and rationale (can be empty)"
+    echo "  changes      - User-visible changes (or 'None')"
+    echo "  test-plan    - Verification done or needed (or 'None')"
+    echo "  release-prep - Ship and support requirements (or 'None')"
+    echo "  files...     - Optional: specific files to stage (ignored with --skip-staging)"
     exit 1
 fi
 
@@ -81,14 +83,16 @@ echo ""
 
 # Build commit message
 COMMIT_BODY=""
-if [ -n "$MOTIVATION" ]; then
-    COMMIT_BODY="Motivation: ${MOTIVATION}
+if [ -n "$DESCRIPTION" ]; then
+    COMMIT_BODY="Description: ${DESCRIPTION}
 
 "
 fi
-COMMIT_BODY="${COMMIT_BODY}UX Change: ${UX_CHANGE}
+COMMIT_BODY="${COMMIT_BODY}Changes: ${CHANGES}
 
-Arch Change: ${ARCH_CHANGE}
+Test Planning: ${TEST_PLAN}
+
+Release Preparation: ${RELEASE_PREP}
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
 

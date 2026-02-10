@@ -25,15 +25,18 @@ Before committing:
 
 ```bash
 bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/commit/sh/commit.sh \
-  "<title>" "<motivation>" "<ux-change>" "<arch-change>" [files...]
+  "<title>" "<description>" "<changes>" "<test-plan>" "<release-prep>" [files...]
 ```
 
 ### Parameters
 
+Each section (except title) should be a short paragraph of 3-5 sentences. See **format-commit-message** skill for detailed guidance on what to cover in each section.
+
 - `title` - Commit title (present-tense verb, 50 chars max)
-- `motivation` - Why this change was needed (from ticket Overview)
-- `ux-change` - What users will experience differently (or "None")
-- `arch-change` - What developers need to know (or "None")
+- `description` - Why this change was needed: the problem, what triggered it, the chosen approach and rationale (from ticket Overview)
+- `changes` - What users will experience differently: concrete before-and-after differences, or "None" with brief explanation
+- `test-plan` - What verification was done or should be done: manual checks, automated tests, edge cases considered
+- `release-prep` - What is needed to ship and support: migration steps, config changes, documentation updates, or "None" with brief explanation
 - `files...` - Optional: specific files to stage (if omitted, stages all tracked changes)
 
 ### Staging Behavior
@@ -57,11 +60,13 @@ Follow the preloaded **format-commit-message** skill:
 ```
 <title>
 
-Motivation: <why this change was needed>
+Description: <why this change was needed, including motivation and rationale>
 
-UX Change: <what changed for the user>
+Changes: <what users will experience differently>
 
-Arch Change: <what changed for the developer>
+Test Planning: <what verification was done or should be done>
+
+Release Preparation: <what is needed to ship and support afterward>
 
 Co-Authored-By: Claude <noreply@anthropic.com>
 ```
@@ -73,9 +78,10 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 ```bash
 bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/commit/sh/commit.sh \
   "Add session-based authentication" \
-  "Users needed persistent login state across browser sessions" \
-  "New 'Remember me' checkbox on login form" \
-  "Added SessionManager class and session middleware" \
+  "Users needed persistent login state across browser sessions. Previously, every page refresh required re-authentication, causing friction for returning users. Added cookie-based session management with configurable TTL, chosen over JWT tokens for simplicity and server-side revocation support." \
+  "New 'Remember me' checkbox on the login form that persists sessions for 30 days. When unchecked, sessions expire when the browser closes. Session expiry now shows a friendly redirect to login instead of a raw 401 error." \
+  "Manual login/logout flow tested across Chrome and Firefox. Verified session persistence across page refreshes and browser restarts. Tested session expiry by setting TTL to 5 seconds and confirming redirect behavior. Cookie security flags (HttpOnly, Secure, SameSite) verified in browser dev tools." \
+  "None -- backward-compatible addition. No existing auth flows are affected since session support is opt-in via the checkbox." \
   src/auth/session.ts src/middleware/auth.ts
 ```
 
@@ -86,6 +92,7 @@ bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/commit/sh/com
   "Archive ticket: add-authentication" \
   "" \
   "None" \
+  "None" \
   "None"
 ```
 
@@ -95,6 +102,7 @@ bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/commit/sh/com
 bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/commit/sh/commit.sh \
   "Abandon: add-authentication" \
   "Implementation proved unworkable due to API limitations" \
+  "None" \
   "None" \
   "Ticket moved to abandoned with failure analysis"
 ```

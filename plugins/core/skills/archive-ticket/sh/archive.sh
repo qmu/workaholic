@@ -6,13 +6,14 @@ set -eu
 TICKET="${1:-}"
 COMMIT_MSG="${2:-}"
 REPO_URL="${3:-}"
-MOTIVATION="${4:-}"
-UX_CHANGE="${5:-None}"
-ARCH_CHANGE="${6:-None}"
-shift 6 2>/dev/null || true
+DESCRIPTION="${4:-}"
+CHANGES="${5:-None}"
+TEST_PLAN="${6:-None}"
+RELEASE_PREP="${7:-None}"
+shift 7 2>/dev/null || true
 
 if [ -z "$TICKET" ] || [ -z "$COMMIT_MSG" ] || [ -z "$REPO_URL" ]; then
-    echo "Usage: archive.sh <ticket-path> <commit-message> <repo-url> [motivation] [ux-change] [arch-change] [files...]"
+    echo "Usage: archive.sh <ticket-path> <commit-message> <repo-url> [description] [changes] [test-plan] [release-prep] [files...]"
     exit 1
 fi
 
@@ -53,7 +54,7 @@ git add -A
 SCRIPT_DIR=$(dirname "$0")
 COMMIT_SCRIPT="${SCRIPT_DIR}/../../commit/sh/commit.sh"
 
-bash "$COMMIT_SCRIPT" --skip-staging "$COMMIT_MSG" "$MOTIVATION" "$UX_CHANGE" "$ARCH_CHANGE"
+bash "$COMMIT_SCRIPT" --skip-staging "$COMMIT_MSG" "$DESCRIPTION" "$CHANGES" "$TEST_PLAN" "$RELEASE_PREP"
 
 COMMIT_HASH=$(git rev-parse --short HEAD)
 

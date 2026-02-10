@@ -3,9 +3,9 @@ created_at: 2026-02-10T15:49:17+08:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: df4ec19
+category: Changed
 ---
 
 # Expand commit message sections for lead agent consumption
@@ -187,6 +187,20 @@ Past tickets that touched similar areas:
 ```
 
 > **Note**: This patch is speculative - verify line numbers before applying.
+
+## Discussion
+
+### Revision 1 - 2026-02-10T16:00:00+08:00
+
+**User feedback**: Each section's content is too short - they all produce just a sentence. Need more detail per section.
+
+**Ticket updates**: Updated Implementation Step 1 to require richer, multi-sentence guidance for each section. Each section should produce 3-5 sentences covering multiple aspects, not just a single summary line.
+
+**Direction change**: The format-commit-message SKILL.md section guidelines must explicitly instruct agents to write detailed, multi-faceted content for each section. The guidance bullets should show what kinds of detail to include, and the target length should be a short paragraph (3-5 sentences) rather than "two to three sentences."
+
+## Final Report
+
+All six files updated as specified. The commit message format now has five sections (Title, Description, Changes, Test Planning, Release Preparation) instead of four (Title, Motivation, UX Change, Arch Change). Each section in format-commit-message/SKILL.md now has rich multi-sentence guidance (3-5 sentences target) explaining exactly what to cover, rather than terse bullet lists. The archive.sh script shifted from 6 to 7 positional arguments to accommodate the extra section. All examples across commit, archive-ticket, and drive-approval skills were updated to show realistic multi-sentence content per section.
 
 ## Considerations
 

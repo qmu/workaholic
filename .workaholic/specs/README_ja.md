@@ -2,15 +2,15 @@
 title: Technical Specifications
 description: Viewpoint-based architecture specifications for the Workaholic plugin system
 category: developer
-modified_at: 2026-02-07T10:56:08+09:00
-commit_hash: 12d9509
+modified_at: 2026-02-09
+commit_hash: d627919
 ---
 
 [English](README.md) | [日本語](README_ja.md)
 
 # 技術仕様
 
-Workaholic plugin システムの viewpoint ベースのアーキテクチャ仕様です。各 viewpoint はコードベースを異なる視点から分析します。Viewpoint ドキュメントは scanner subagent によって生成されます。
+Workaholic plugin システムの viewpoint ベースのアーキテクチャ仕様です。各 viewpoint はコードベースを異なる視点から分析します。Viewpoint ドキュメントは `/scan` command によって生成されます。
 
 - [Stakeholder](stakeholder_ja.md) - システムの利用者、目標、インタラクションパターン
 - [Model](model_ja.md) - ドメイン概念、関係性、コア抽象化

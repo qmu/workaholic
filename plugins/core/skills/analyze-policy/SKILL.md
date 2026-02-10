@@ -61,11 +61,11 @@ commit_hash: <from context>
 
 ## Inference Guidelines
 
-- **Document what exists**: Describe observable practices, configurations, and patterns
+- **Only document what is implemented**: Every policy statement must describe something that is actually implemented and executable in the codebase -- a CI check, hook, script, linter rule, or test. Do not document conventions, aspirations, or practices that exist only in documentation.
+- **Cite the implementation**: After each statement, cite the mechanism that implements it (e.g., workflow file, hook script, linter config).
 - **Mark gaps clearly**: Use "Not observed" for policy areas with no codebase evidence
-- **Explicit vs Inferred**: Prefix findings with `[Explicit]` or `[Inferred]`
 - **No invention**: Never fabricate policies that do not exist in the codebase
-- **Recommendations are separate**: If suggesting improvements, place them in a distinct "Recommendations" section
+- **No badges**: Do not use `[Explicit]`/`[Inferred]` or any other badge prefixes. If something is documented here, it is implemented. If it is not implemented, it does not belong here.
 
 ## Comprehensiveness Policy
 

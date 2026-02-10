@@ -6,14 +6,14 @@
 #   base_branch: required for partial mode (e.g., "main")
 #
 # Output: JSON with mode and agent list
-#   {"mode":"full","agents":["stakeholder-analyst","model-analyst",...]}
+#   {"mode":"full","agents":["communication-lead","model-analyst",...]}
 
 set -eu
 
 MODE="${1:-}"
 BASE_BRANCH="${2:-}"
 
-ALL_AGENTS="stakeholder-analyst model-analyst usecase-analyst infrastructure-analyst application-analyst component-analyst data-analyst feature-analyst test-policy-analyst security-policy-analyst quality-policy-analyst accessibility-policy-analyst observability-policy-analyst delivery-policy-analyst recovery-policy-analyst changelog-writer terms-writer"
+ALL_AGENTS="communication-lead model-analyst infra-lead architecture-lead db-lead test-lead security-lead quality-lead a11y-lead observability-lead delivery-lead recovery-lead changelog-writer terms-writer"
 
 if [ -z "$MODE" ]; then
   echo '{"error":"Usage: select.sh <mode> [base_branch]"}'
@@ -69,29 +69,26 @@ echo "$DIFF_STAT" | while IFS= read -r line; do
 
   case "$path" in
     plugins/core/commands/*|plugins/core/agents/*)
-      touch "$TMPDIR_SEL/application-analyst"
-      touch "$TMPDIR_SEL/usecase-analyst"
-      touch "$TMPDIR_SEL/component-analyst"
+      touch "$TMPDIR_SEL/architecture-lead"
       ;;
   esac
 
   case "$path" in
     plugins/core/skills/*)
-      touch "$TMPDIR_SEL/component-analyst"
-      touch "$TMPDIR_SEL/feature-analyst"
+      touch "$TMPDIR_SEL/architecture-lead"
       ;;
   esac
 
   case "$path" in
     plugins/core/rules/*)
-      touch "$TMPDIR_SEL/quality-policy-analyst"
-      touch "$TMPDIR_SEL/component-analyst"
+      touch "$TMPDIR_SEL/quality-lead"
+      touch "$TMPDIR_SEL/architecture-lead"
       ;;
   esac
 
   case "$path" in
     .workaholic/tickets/*)
-      touch "$TMPDIR_SEL/data-analyst"
+      touch "$TMPDIR_SEL/db-lead"
       touch "$TMPDIR_SEL/model-analyst"
       ;;
   esac
@@ -104,22 +101,22 @@ echo "$DIFF_STAT" | while IFS= read -r line; do
 
   case "$path" in
     .claude-plugin/*|plugins/*/.claude-plugin/*)
-      touch "$TMPDIR_SEL/infrastructure-analyst"
-      touch "$TMPDIR_SEL/delivery-policy-analyst"
+      touch "$TMPDIR_SEL/infra-lead"
+      touch "$TMPDIR_SEL/delivery-lead"
       ;;
   esac
 
   case "$path" in
     README.md|CLAUDE.md)
-      touch "$TMPDIR_SEL/stakeholder-analyst"
-      touch "$TMPDIR_SEL/feature-analyst"
+      touch "$TMPDIR_SEL/communication-lead"
+      touch "$TMPDIR_SEL/architecture-lead"
       ;;
   esac
 
   case "$path" in
     .github/*)
-      touch "$TMPDIR_SEL/delivery-policy-analyst"
-      touch "$TMPDIR_SEL/security-policy-analyst"
+      touch "$TMPDIR_SEL/delivery-lead"
+      touch "$TMPDIR_SEL/security-lead"
       ;;
   esac
 done

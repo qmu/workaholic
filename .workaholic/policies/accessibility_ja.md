@@ -2,59 +2,170 @@
 title: Accessibility Policy
 description: Internationalization, localization, and content accessibility practices
 category: developer
-modified_at: 2026-02-07T10:56:08+09:00
-commit_hash: 12d9509
+modified_at: 2026-02-09T12:52:21+08:00
+commit_hash: d627919
 ---
 
 [English](accessibility.md) | [Japanese](accessibility_ja.md)
 
-# 1. Accessibility Policy
+# Accessibility Policy
 
-このドキュメントは Workaholic リポジトリで観測されるアクセシビリティと国際化の実践を記述します。CLI ベースの開発者ツールとして、アクセシビリティは UI アクセシビリティ標準よりも言語サポートとドキュメントの明確さに関するものです。
+このドキュメントは Workaholic リポジトリに実装されているアクセシビリティと国際化の実践を記述します。CLI ベースの開発者ツールとして、アクセシビリティは主に言語サポート、ドキュメントの明確さ、コンテンツ構造に関するもので、UI アクセシビリティ標準とは異なります。
 
-## 2. Internationalization（i18n）
+## Internationalization
 
-### 2-1. バイリンガルドキュメント
+### バイリンガルドキュメント要件
 
-[Explicit] `.workaholic/` 内のすべてのドキュメントは対応する `_ja.md` 日本語翻訳を持つ必要があります。`translate` skill で critical rule として強制されています。
+`.workaholic/` 内のすべてのドキュメントは対応する `_ja.md` 日本語翻訳を持つ必要があります（`.claude/skills/translate/SKILL.md`、119-121行目：「CRITICAL RULE: `.workaholic/` 内の `.md` ファイルを作成または編集する際は、対応する `_ja.md` 翻訳も作成または更新する必要があります」）。この要件はすべてのドキュメント writer subagent にプリロードされる `translate` skill を通じて強制されます。
 
-### 2-2. 翻訳ポリシー
+### 翻訳ガイドライン
 
-[Explicit] `translate` skill が日本語翻訳の包括的なポリシーを提供します：コードブロック、frontmatter キー、ファイルパス、URL は保持し、散文コンテンツ、frontmatter 値、テーブルセルは翻訳します。技術用語は開発者ドキュメントでは英語を保持します。
+`translate` skill（`.claude/skills/translate/SKILL.md`）は日本語翻訳の包括的なポリシーを提供します：
 
-### 2-3. README ミラーリング
+- 変更せず保持：code block、frontmatter キー、ファイルパス、URL、markdown 構造、HTML タグ
+- 翻訳：散文コンテンツ、frontmatter 値（title、description）、テーブルセル、画像の alt テキスト
+- 開発者ドキュメントでは技術用語を英語で保持（plugin、command、skill、rule、ticket、workflow など）
+- 丁寧な文体を使用（日本語では desu/masu スタイル）
+- 逐語訳よりも元の意味を保持
 
-[Explicit] 各言語の README は同じ言語のドキュメントにリンクし、並列ナビゲーション構造を維持します。
+### 言語境界
 
-### 2-4. 言語境界
+コンテンツの言語は場所によって決定されます（`CLAUDE.md`、9-16行目）：
 
-[Explicit] `.workaholic/` ディレクトリのコンテンツのみが日本語を含むことができます。
+- `.workaholic/` ディレクトリ：英語または日本語（i18n 強制）
+- その他すべてのコンテンツ：英語のみ（code、comment、commit message、pull request、`.workaholic/` 外のドキュメント）
 
-## 3. Content Accessibility
+この境界は project レベルのポリシーとして文書化され、ドキュメントレビュープロセスを通じて強制されます。
 
-### 3-1. ドキュメント構造
+### README Link ミラーリング
 
-[Explicit] 番号付き見出しが明確なドキュメント階層を提供します。Mermaid ダイアグラムがプラットフォーム間の表示改善のため ASCII アートを置き換えます。
+各言語の README は同じ言語のドキュメントにリンクする必要があります（`.claude/skills/translate/SKILL.md`、135-143行目）。`README.md` は英語ドキュメントにリンクし、`README_ja.md` は `_ja.md` 翻訳にリンクし、並列ナビゲーション構造を維持します。これによりユーザーはドキュメントをナビゲートする際に言語コンテキスト内にとどまることができます。
 
-### 3-2. 自己完結的定義
+## Supported Languages
 
-[Explicit] `.workaholic/terms/` の用語定義は定義、使用コンテキスト、例、関連概念を組み込んだ自己完結的な段落として記述されます。
+| Code | 言語 | カバレッジ | 実装 |
+| --- | --- | --- | --- |
+| en | 英語 | すべてのコンテンツの主要言語 | 完全 |
+| ja | 日本語 | `.workaholic/` ドキュメントの完全翻訳 | 完全 |
+| zh | 中国語 | translate skill にリスト | 未実装 |
+| ko | 韓国語 | translate skill にリスト | 未実装 |
+| de | ドイツ語 | translate skill にリスト | 未実装 |
+| fr | フランス語 | translate skill にリスト | 未実装 |
+| es | スペイン語 | translate skill にリスト | 未実装 |
 
-## 4. Supported Languages
+日本語翻訳は包括的で、guide、spec、terms、story、policy をカバーしています（`.workaholic/` ディレクトリ内に42の `_ja.md` ファイルが観測されます）。
 
-| コード | 言語 | カバレッジ |
-| --- | --- | --- |
-| en | 英語 | すべてのコンテンツの主要言語 |
-| ja | 日本語 | `.workaholic/` ドキュメントの完全翻訳 |
+## Translation Workflow
 
-## 5. Observations
+### ファイル命名規則
 
-- [Explicit] バイリンガルドキュメントは guide、spec、terms、story、policy を網羅しています。
-- [Explicit] 技術用語は精度を維持するため日本語翻訳でも意図的に英語のまま保持されます。
-- [Inferred] 広範な i18n インフラストラクチャは、主要な developer 対象に日本語話者が含まれることを示唆しています。
+翻訳は元のファイルと同じディレクトリに suffix ベースの命名を使用します（`.claude/rules/i18n.md`、14-21行目、38-39行目）：
 
-## 6. Gaps
+```
+.workaholic/specs/
+  feature.md           # 英語
+  feature_ja.md        # 日本語翻訳
+  README.md            # 英語 index
+  README_ja.md         # 日本語 index
+```
 
-- 観測されません：右から左への（RTL）言語サポート。
-- 観測されません：英語版と日本語版間の自動翻訳品質チェックや一貫性検証。
-- 観測されません：translate skill に記載された追加4言語（zh、ko、de、fr、es）の翻訳。
+ISO 639-1 言語コード（2文字コード）が suffix として使用されます。
+
+### 手動翻訳プロセス
+
+翻訳は `translate` skill ガイドラインに従って手動で実行されます。自動翻訳ツールやサービスは統合されていません。workflow は次のとおりです：
+
+1. 英語ドキュメントを作成または更新
+2. 日本語翻訳（`_ja.md`）を作成または更新
+3. 並列リンク構造を維持するため `README.md` と `README_ja.md` の両方を更新
+
+この workflow は `.claude/skills/translate/SKILL.md`（145-149行目）に文書化されています。
+
+### 技術用語の保持
+
+技術用語は日本語翻訳でも英語のまま保持されます（`.claude/skills/translate/SKILL.md`、78-83行目）。core concept（plugin、command、skill、rule、ticket、workflow）、git 用語（repository、branch、commit）、プログラミング概念（function、class、module、component）は技術的精度を維持し曖昧さを避けるため英語で保持されます。
+
+## Accessibility Testing
+
+### 設定検証
+
+GitHub Actions workflow（`.github/workflows/validate-plugins.yml`）は以下を検証します：
+
+- marketplace と plugin 設定ファイルの JSON 構文（23-29行目、32-59行目）
+- plugin manifest の必須フィールド（name、version）
+- skill ファイルの存在（61-79行目）
+- marketplace-directory の整合性（81-102行目）
+
+これは main branch へのすべての push と pull request で実行されます。
+
+### Ticket フォーマット検証
+
+検証 hook（`.claude/hooks/validate-ticket.sh`）は ticket ファイル標準を強制します：
+
+- ファイル名フォーマット：`YYYYMMDDHHmmss-*.md`（49-54行目）
+- YAML frontmatter の存在（65-69行目）
+- フォーマット検証付き必須フィールド：`created_at`（ISO 8601）、`author`（email）、`type`、`layer`、`effort`、`commit_hash`、`category`（83-186行目）
+- ディレクトリ位置制約（todo/、icebox/、archive/）（32-43行目）
+
+この hook は `.workaholic/tickets/` ファイルを対象とする Write/Edit 操作によって呼び出されます。
+
+### Writer 出力検証
+
+`validate-writer-output` skill（`.claude/skills/validate-writer-output/SKILL.md`）は、README index 更新の前に analyst subagent が期待される出力ファイルを生成することを検証します：
+
+- ファイルの存在と非空ステータスをチェック（9-10行目）
+- ファイルごとのステータスと全体の pass/fail を含む JSON を返す（26-35行目）
+- README 更新をゲートすることで壊れたドキュメントリンクを防ぐ（48-50行目）
+
+これは複数の writer subagent を調整する command（例：`/scan`）によって呼び出されます。
+
+## Content Accessibility
+
+### 構造化見出し
+
+番号付き見出しは明確なドキュメント階層を提供します（`.workaholic/policies/` ドキュメントは `## 1. Section`、`### 1-1. Subsection` フォーマットを使用）。この規則はドキュメント構造を明示的にし、目次ツールを通じたナビゲーションを改善します。
+
+### ビジュアルダイアグラムフォーマット
+
+Mermaid ダイアグラムはクロスプラットフォームレンダリングの改善のため ASCII アートを置き換えます（`.claude/rules/diagrams.md`、8-21行目）：
+
+- GitHub、VS Code、ほとんどのドキュメントシステムでネイティブにレンダリング
+- version 管理可能で差分可能
+- プラットフォーム間で一貫したレンダリング
+- インタラクティブ（ズーム可能、クリック可能）
+
+ボックス描画文字を使用した ASCII アート ダイアグラムは禁止されています（`.claude/rules/diagrams.md`、18-22行目）。
+
+### 自己完結的定義
+
+`.workaholic/terms/` の用語定義は、定義、使用コンテキスト、例、関連概念を組み込んだ包括的な単一段落として記述されます（`.claude/skills/write-terms/SKILL.md`、62-72行目）。これにより各エントリは相互参照を必要とせずに読みやすくなり、認知負荷が軽減され読者のアクセシビリティが向上します。
+
+### オンボーディングドキュメント
+
+`.workaholic/guides/` のユーザーガイドは以下をカバーします：
+
+- はじめに
+- command リファレンス
+- 開発 workflow
+
+root の `README.md` は具体的な例を含むクイックスタートを提供します。これらの資料は新規ユーザーのエントリーポイントとして機能します。
+
+## Observations
+
+- バイリンガルドキュメントは包括的で、すべての `.workaholic/` サブディレクトリ（guide、spec、terms、story、policy）をカバーしています
+- 技術用語は技術的精度を維持するため日本語翻訳でも意図的に英語で保持されます
+- i18n rule は関連ファイルパスに適用されるコンテキスト認識 rule ファイル（`i18n.md`）として読み込まれます
+- 検証メカニズムはコンテンツ品質ではなく構造的整合性（JSON 構文、frontmatter フォーマット、ファイル存在）に焦点を当てています
+- 翻訳 workflow は手動で人間主導であり、自動整合性チェックはありません
+- 広範な i18n インフラストラクチャ（専用 translate skill、i18n rule、_ja suffix 規則、必須翻訳要件）は、主要な developer 対象に日本語話者が含まれることを示しています
+
+## Gaps
+
+- 観測されません：英語版と日本語版間の自動翻訳品質チェックまたは整合性検証
+- 観測されません：右から左への（RTL）言語サポートまたは双方向テキスト処理
+- 観測されません：screen reader 最適化または ARIA 属性（CLI ツールには適用されません）
+- 観測されません：translate skill にリストされた追加言語の翻訳（zh、ko、de、fr、es）
+- 観測されません：自動アクセシビリティテストツール（axe、Pa11y など、CLI ツールには適用されません）
+- 観測されません：カラーコントラスト検証または terminal カラースキーム考慮
+- 観測されません：フォントレンダリングまたは文字エンコーディング検証
+- 観測されません：ドキュメント間の整合性のための翻訳メモリまたは用語データベース

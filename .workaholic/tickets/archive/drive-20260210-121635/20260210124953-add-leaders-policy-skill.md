@@ -3,8 +3,8 @@ created_at: 2026-02-10T12:49:53+08:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
+effort: 0.25h
+commit_hash: 0d8cdc0
 category:
 ---
 
@@ -313,3 +313,10 @@ Historical tickets show a pattern of term renaming and consolidation for concise
 - Future policies can be added to this skill as new `## PolicyName` sections without changing any agent wiring. The skill acts as a growing policy registry (`plugins/core/skills/leaders-policy/SKILL.md`)
 - The Prior Term Consistency policy aligns with the project's history of term consolidation (terminology to terms, philosophy to design policy). Leads should now proactively flag term drift rather than waiting for a dedicated refactoring ticket (`.workaholic/terms/`)
 - The Vendor Neutrality policy is particularly relevant for leads that evaluate external tools: infra-lead (CI/CD tools), delivery-lead (deployment platforms), security-lead (security scanning tools), test-lead (test frameworks). Each lead should apply this policy within their domain-specific context (`plugins/core/agents/infra-lead.md`, `plugins/core/agents/delivery-lead.md`)
+
+## Final Report
+
+All 13 files updated plus 1 new file created as specified. Two deviations from the ticket patches based on user feedback:
+
+1. **Removed `.workaholic/terms/` reference** from Prior Term Consistency rules -- this is a repo-specific path, not appropriate for a general plugin policy.
+2. **Replaced strict DI rule** in Vendor Neutrality with adaptive isolation strategies (vendor directory, confined imports, primitive-only signatures) to reflect the project's actual dependency management philosophy.

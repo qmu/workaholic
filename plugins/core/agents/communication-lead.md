@@ -3,6 +3,7 @@ name: communication-lead
 description: Owns stakeholder mapping, user goals, interaction patterns, and onboarding paths for the project.
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
+  - leaders-policy
   - lead-communication
   - analyze-viewpoint
   - write-spec

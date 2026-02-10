@@ -3,6 +3,7 @@ name: architecture-lead
 description: Owns application, component, feature, and usecase viewpoints for the project.
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
+  - leaders-policy
   - lead-architecture
   - analyze-viewpoint
   - write-spec

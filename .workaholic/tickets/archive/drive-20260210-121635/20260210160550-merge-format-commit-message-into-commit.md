@@ -3,9 +3,9 @@ created_at: 2026-02-10T16:05:49+08:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: b26ca39
+category: Changed
 ---
 
 # Merge format-commit-message skill into commit skill
@@ -115,6 +115,10 @@ Past tickets that touched similar areas:
 
  ## Example
 ```
+
+## Final Report
+
+Merged format-commit-message skill into the commit skill and deleted the standalone directory. The commit skill now contains the full per-section writing guidelines (Title, Description, Changes, Test Planning, Release Preparation) with detailed 3-5 sentence guidance paragraphs, making it the single authoritative source for commit message formatting. Updated 8 files total: removed the skill from frontmatter in commit and drive-workflow, updated prose references in archive-ticket and delivery policies, updated skill counts and Mermaid diagrams in component specs (both English and Japanese), and deleted the format-commit-message directory. Historical references in .workaholic/terms, stories, and archived tickets were intentionally left unchanged as they are historical records.
 
 ## Considerations
 

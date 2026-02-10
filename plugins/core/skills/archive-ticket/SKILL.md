@@ -28,7 +28,7 @@ bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/archive-ticke
   <ticket-path> "<title>" <repo-url> "<description>" "<changes>" "<test-plan>" "<release-prep>"
 ```
 
-Follow the preloaded **format-commit-message** skill for message format.
+Follow the **commit** skill's Message Format section for message format.
 
 ## Example
 

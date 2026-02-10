@@ -145,7 +145,7 @@ The `/drive` command implements tickets from `.workaholic/tickets/todo/` sequent
 2. Request user approval with selectable options
 3. Update ticket frontmatter with effort and Final Report
 4. Archive ticket to `.workaholic/tickets/archive/<branch>/` using `archive-ticket` skill
-5. Commit using structured message format (from `format-commit-message` skill referenced in `archive-ticket/SKILL.md`)
+5. Commit using structured message format (from `commit` skill referenced in `archive-ticket/SKILL.md`)
 
 The `/drive` command commits each ticket individually, creating a commit per implemented ticket.
 

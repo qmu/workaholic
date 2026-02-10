@@ -10,7 +10,7 @@ commit_hash: d627919
 
 # 1. Component Viewpoint
 
-The Component Viewpoint describes the internal structure of the Workaholic plugin, its module boundaries, and how the system decomposes into commands, agents, skills, and rules. The core plugin contains 4 commands, 29 agents, 28 skills, and 6 rules, organized in a strict hierarchical architecture that enforces separation of concerns through a nesting policy.
+The Component Viewpoint describes the internal structure of the Workaholic plugin, its module boundaries, and how the system decomposes into commands, agents, skills, and rules. The core plugin contains 4 commands, 29 agents, 27 skills, and 6 rules, organized in a strict hierarchical architecture that enforces separation of concerns through a nesting policy.
 
 ## 2. Module Boundaries
 
@@ -188,7 +188,7 @@ flowchart TD
     SW -.parallel.-> PERF
 ```
 
-### 3-5. Skills Layer (28)
+### 3-5. Skills Layer (27)
 
 Skills are the knowledge layer, organized by domain. Each skill directory contains a `SKILL.md` file and optionally an `sh/` directory with bundled shell scripts.
 
@@ -224,11 +224,10 @@ Skills are the knowledge layer, organized by domain. Each skill directory contai
 - `write-story` -- Guidelines for writing branch story documents
 - `write-terms` -- Generates term definitions from codebase
 
-#### Workflow Skills (4)
+#### Workflow Skills (3)
 
 - `drive-approval` -- Handles user approval dialog for ticket implementation
 - `drive-workflow` -- Step-by-step workflow for implementing a single ticket
-- `format-commit-message` -- Formats git commit messages with Co-Authored-By
 - `gather-ticket-metadata` -- Extracts date and author from ticket filenames
 
 #### Quality Skills (2)
@@ -255,7 +254,6 @@ flowchart LR
     subgraph "Foundational Skills"
         GGC[gather-git-context]
         GTM[gather-ticket-metadata]
-        FCM[format-commit-message]
         T[translate]
     end
 
@@ -266,7 +264,6 @@ flowchart LR
         WC[write-changelog]
     end
 
-    DW --> FCM
     WS --> GGC
     WS --> T
     WStory --> GGC
@@ -589,7 +586,7 @@ The `/scan` command explicitly documents that all Task calls must use `run_in_ba
 
 ## 8. Assumptions
 
-- [Explicit] The component counts (4 commands, 29 agents, 28 skills, 6 rules) are derived from the filesystem listing in the context output.
+- [Explicit] The component counts (4 commands, 29 agents, 27 skills, 6 rules) are derived from the filesystem listing in the context output.
 - [Explicit] The nesting policy table is defined in `CLAUDE.md` under "Architecture Policy > Component Nesting Rules".
 - [Explicit] Shell scripts must be bundled in skills, never inline, as stated in `CLAUDE.md`'s "Shell Script Principle".
 - [Explicit] The scanner agent was removed in recent commits as documented in archived ticket `20260208131751-migrate-scanner-into-scan-command.md`.

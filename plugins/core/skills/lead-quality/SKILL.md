@@ -1,8 +1,6 @@
 ---
 name: quality-lead
 description: Owns code quality standards, linting rules, review processes, and metrics used to maintain maintainability for the project.
-skills:
-  - define-lead
 user-invocable: false
 ---
 

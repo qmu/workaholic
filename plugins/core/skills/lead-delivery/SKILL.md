@@ -1,8 +1,6 @@
 ---
 name: delivery-lead
 description: Owns the CI/CD pipeline stages, deployment strategies, and artifact promotion flow from source to production for the project.
-skills:
-  - define-lead
 user-invocable: false
 ---
 

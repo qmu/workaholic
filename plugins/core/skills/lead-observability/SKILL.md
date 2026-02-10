@@ -1,8 +1,6 @@
 ---
 name: observability-lead
 description: Owns the observability strategy including metrics collection, logging practices, tracing implementation, and alerting thresholds for the project.
-skills:
-  - define-lead
 user-invocable: false
 ---
 

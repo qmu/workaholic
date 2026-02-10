@@ -1,8 +1,6 @@
 ---
 name: test-lead
 description: Owns verification and validation strategy, testing levels, coverage targets, and processes that ensure correctness for the project.
-skills:
-  - define-lead
 user-invocable: false
 ---
 

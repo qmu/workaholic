@@ -1,8 +1,6 @@
 ---
 name: db-lead
 description: Owns data formats, frontmatter schemas, file naming conventions, and data validation for the project's persistency layer.
-skills:
-  - define-lead
 user-invocable: false
 ---
 

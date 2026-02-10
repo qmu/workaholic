@@ -3,9 +3,9 @@ created_at: 2026-02-09T18:18:13+08:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: c854891
+category: Changed
 ---
 
 # Move define-lead Skill to .claude/ Rules for Local Enforcement
@@ -85,3 +85,7 @@ The define-lead skill was recently created as part of the lead architecture migr
 - The `paths:` glob in the rule frontmatter must be carefully scoped. Using `plugins/core/skills/lead-*/SKILL.md` ensures it only fires when editing lead skill files, not unrelated files. Also include `plugins/core/agents/*-lead.md` to enforce the agent template when creating new leads (`plugins/core/rules/define-lead.md`)
 - After this change, `define-lead` will no longer appear in the installed plugin skills directory (`~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/`). This is intentional -- it becomes a repo-level rule instead of a plugin skill
 - The queued ticket for consolidating viewpoint analysts into `architecture-lead` (`20260209175934-consolidate-viewpoint-analysts-into-architecture-lead.md`) references `define-lead` as a skill dependency. If that ticket is implemented after this one, it should not add `skills: [define-lead]` to the new `lead-architecture` skill since enforcement will be automatic via the rule
+
+## Final Report
+
+Moved define-lead skill content to `.claude/rules/define-lead.md` as a path-scoped rule targeting `plugins/core/skills/lead-*/SKILL.md` and `plugins/core/agents/*-lead.md`. Removed `skills: [define-lead]` from all 11 lead skill frontmatters (a11y, architecture, communication, db, delivery, infra, observability, quality, recovery, security, test). Deleted `plugins/core/skills/define-lead/` directory. Updated CLAUDE.md to add `.claude/rules/` to the project structure diagram and corrected scan agent count from 17 to 14.

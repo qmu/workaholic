@@ -1,16 +1,16 @@
 ---
-name: define-lead
-description: Schema template and guidelines for defining Leading Agents (leads) in the Workaholic plugin system.
-user-invocable: false
+paths:
+  - 'plugins/core/skills/lead-*/SKILL.md'
+  - 'plugins/core/agents/*-lead.md'
 ---
 
-# Define Lead
+# Lead Agent Schema Enforcement
 
 Schema template and authoring guidelines for defining Leading Agents (leads). A lead is an agent that takes primary responsibility for a specific aspect of the project.
 
 ## Schema Template
 
-Every lead agent markdown file must contain the following sections in order. All sections are required and cannot be omitted.
+Every lead skill file MUST contain the following sections in order. All sections are required and cannot be omitted.
 
 ```markdown
 ---

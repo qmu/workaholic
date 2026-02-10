@@ -1,8 +1,6 @@
 ---
 name: communication-lead
 description: Owns stakeholder mapping, user goals, interaction patterns, and onboarding paths for the project.
-skills:
-  - define-lead
 user-invocable: false
 ---
 

@@ -145,7 +145,7 @@ Script は GraphQL Projects deprecation error を避けるため、更新に RES
 2. 選択可能な option でユーザー承認を要求
 3. Ticket frontmatter を effort と Final Report で更新
 4. `archive-ticket` skill を使用して `.workaholic/tickets/archive/<branch>/` に ticket を archive
-5. 構造化された message format を使用して commit（`archive-ticket/SKILL.md` で参照される `format-commit-message` skill から）
+5. 構造化された message format を使用して commit（`archive-ticket/SKILL.md` で参照される `commit` skill から）
 
 `/drive` command は各 ticket を個別に commit し、実装された ticket ごとに commit を作成します。
 

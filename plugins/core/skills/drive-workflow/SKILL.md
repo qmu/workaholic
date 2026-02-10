@@ -1,8 +1,6 @@
 ---
 name: drive-workflow
 description: Implementation workflow for processing tickets.
-skills:
-  - format-commit-message
 user-invocable: false
 ---
 

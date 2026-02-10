@@ -116,6 +116,7 @@ name: <speciality>-lead
 description: <same as the lead skill description>
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
+  - leaders-policy
   - lead-<speciality>
   - <other skills needed for execution>
 ---

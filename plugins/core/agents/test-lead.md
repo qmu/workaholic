@@ -3,6 +3,7 @@ name: test-lead
 description: Owns verification and validation strategy, testing levels, coverage targets, and processes that ensure correctness for the project.
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
+  - leaders-policy
   - lead-test
   - analyze-policy
   - translate

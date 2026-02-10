@@ -3,8 +3,8 @@ created_at: 2026-02-10T12:55:06+08:00
 author: a@qmu.jp
 type: bugfix
 layer: [Domain, Config]
-effort:
-commit_hash:
+effort: 0.1h
+commit_hash: 02f6c18
 category:
 ---
 
@@ -137,3 +137,12 @@ Past tickets that touched similar areas:
 - The `duration_days` field is only present in story frontmatter when `velocity_unit` is `"day"` (`plugins/core/skills/write-story/SKILL.md` line 211), so the duration formatting rule must handle its absence gracefully.
 - The output JSON example in `release-note-writer.md` uses concrete numbers that serve as implicit defaults for the model. Replacing them with string placeholders changes the JSON schema from numeric to string, which is acceptable since this is documentation for the model, not a parsed contract.
 - Existing release notes in `.workaholic/release-notes/` will not be retroactively fixed -- this only affects future invocations.
+
+## Final Report
+
+All patches applied exactly as specified. Two files modified:
+
+- **write-release-note SKILL.md**: Replaced bracket and `N` placeholders with explicit `<field from frontmatter>` markers. Added `duration_days` field and formatting rule for graceful fallback.
+- **release-note-writer.md**: Added `duration_days` to extraction list, added explicit warning against placeholder values, replaced hardcoded numeric example values (6, 12, 1.0) with descriptive string placeholders.
+
+No deviations from the ticket plan.

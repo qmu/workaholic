@@ -3,8 +3,8 @@ created_at: 2026-02-10T12:16:28+08:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
+effort: 0.1h
+commit_hash: 0942d51
 category:
 ---
 
@@ -88,3 +88,7 @@ Past tickets that touched similar areas:
 - The change only affects the write-story skill's guidelines; the story-writer subagent and overview-writer subagent require no modification since Section 4 is generated directly from archived ticket data by the story-writer (`plugins/core/skills/write-story/SKILL.md` lines 76-102)
 - Existing stories already written with the file-listing format will not be retroactively changed, creating a style inconsistency in the stories archive (`.workaholic/stories/`)
 - The summarized format may reduce traceability for reviewers who want to see exactly which files were touched -- the clickable commit hash provides a fallback for this need (`plugins/core/skills/write-story/SKILL.md` line 96-98)
+
+## Final Report
+
+Applied both patches exactly as specified. Updated the Section 4 template to use 1-3 sentence summaries instead of per-file bullet lists, and updated the Changes Guidelines to match. No other files required changes.

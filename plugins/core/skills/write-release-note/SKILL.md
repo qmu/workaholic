@@ -13,19 +13,19 @@ Generate concise release notes from a branch story for GitHub Releases.
 ```markdown
 ## Summary
 
-[2-3 sentence overview extracted from story section 1]
+<2-3 sentence overview extracted from story section 1>
 
 ## Key Changes
 
-- [Highlight 1 from story]
-- [Highlight 2 from story]
-- [Highlight 3 from story]
+- <Highlight 1 from story>
+- <Highlight 2 from story>
+- <Highlight 3 from story>
 
 ## Metrics
 
-- **Tickets Completed**: N
-- **Commits**: N
-- **Duration**: N hours
+- **Tickets Completed**: <tickets_completed from frontmatter>
+- **Commits**: <commits from frontmatter>
+- **Duration**: <duration_days from frontmatter> days (<duration_hours from frontmatter> hours)
 
 ## Links
 
@@ -42,7 +42,9 @@ Generate concise release notes from a branch story for GitHub Releases.
 3. **Metrics**: Extract from story frontmatter:
    - `tickets_completed` field
    - `commits` field
-   - `duration_hours` field (round to 1 decimal)
+   - `duration_hours` field (round to 1 decimal place)
+   - `duration_days` field (use when available)
+   - Format duration as: "N days (N hours)" when both fields exist, "N hours" when only hours exist
 
 4. **Links**: Include absolute GitHub URLs when available.
 

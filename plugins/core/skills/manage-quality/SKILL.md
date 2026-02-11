@@ -63,3 +63,8 @@ A structured analysis containing:
 - Analyze gathered context against the Outputs structure.
 - Produce the quality context output document.
 - Cross-reference quality dimensions against assurance processes to identify gaps.
+- Follow the Constraint Setting workflow from managers-policy:
+  - Identify missing or implicit quality constraints (test coverage thresholds, documentation completeness standards, performance budgets, lint strictness levels).
+  - Ask the user targeted questions about quality priorities, acceptable trade-offs, and enforcement preferences.
+  - Propose quality constraints grounded in gathered evidence and user answers.
+  - Produce directional materials (quality standards document, assurance process definitions, improvement roadmap) to `.workaholic/`.

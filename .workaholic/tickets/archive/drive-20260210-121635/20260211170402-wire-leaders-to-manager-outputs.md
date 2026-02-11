@@ -3,9 +3,9 @@ created_at: 2026-02-11T17:04:02+08:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: 24632f3
+category: Changed
 ---
 
 # Wire Leaders to Depend on Manager Outputs
@@ -108,3 +108,36 @@ The project recently added the `leaders-policy` cross-cutting skill and complete
 - Renaming `lead-communication` to `lead-ux` changes the viewpoint slug from "stakeholder" to something UX-focused. This affects the spec filename in `.workaholic/specs/`. Existing `stakeholder.md` would need to be renamed or the slug kept for backward compatibility. (`plugins/core/skills/lead-communication/SKILL.md`)
 - The `leaders-policy` skill reference in define-lead Agent Template should be verified to still be correct after the manager tier is added. Managers use `managers-policy`; leaders use `leaders-policy`. These are distinct and should not be cross-wired. (`.claude/rules/define-lead.md`, `.claude/rules/define-manager.md`)
 - Cross-reference: This ticket depends on [20260211170401-define-manager-tier-and-skills.md](.workaholic/tickets/todo/20260211170401-define-manager-tier-and-skills.md) which creates the manager tier foundation.
+
+## Final Report
+
+### Changes Made
+
+| File | Action |
+| ---- | ------ |
+| `plugins/core/skills/lead-ux/SKILL.md` | Created -- renamed from lead-communication, slug changed from "stakeholder" to "ux" |
+| `plugins/core/agents/ux-lead.md` | Created -- renamed from communication-lead |
+| `plugins/core/skills/lead-communication/SKILL.md` | Deleted -- replaced by lead-ux |
+| `plugins/core/agents/communication-lead.md` | Deleted -- replaced by ux-lead |
+| `plugins/core/skills/lead-architecture/SKILL.md` | Deleted -- absorbed by manage-architecture |
+| `plugins/core/agents/architecture-lead.md` | Deleted -- absorbed by architecture-manager |
+| `plugins/core/skills/manage-architecture/SKILL.md` | Updated -- added viewpoint spec production (4 specs), updated consuming leaders list |
+| `plugins/core/agents/architecture-manager.md` | Updated -- added analyze-viewpoint skill |
+| `plugins/core/commands/scan.md` | Updated -- two-phase execution (Phase 3a: managers, Phase 3b: leaders/writers), updated agent table and validation |
+| `plugins/core/skills/select-scan-agents/SKILL.md` | Updated -- documented manager tier, updated agent lists and partial scan mapping |
+| `plugins/core/skills/select-scan-agents/sh/select.sh` | Updated -- added managers JSON output, updated agent list, updated partial scan triggers |
+| `plugins/core/skills/lead-delivery/SKILL.md` | Updated -- Execution reads manage-project output |
+| `plugins/core/skills/lead-infra/SKILL.md` | Updated -- Execution reads manage-architecture output |
+| `plugins/core/skills/lead-db/SKILL.md` | Updated -- Execution reads manage-architecture output |
+| `plugins/core/skills/lead-security/SKILL.md` | Updated -- Execution reads manage-architecture output |
+| `plugins/core/skills/lead-test/SKILL.md` | Updated -- Execution reads manage-quality output |
+| `plugins/core/skills/lead-quality/SKILL.md` | Updated -- Execution reads manage-quality output |
+| `plugins/core/skills/lead-a11y/SKILL.md` | Updated -- Execution reads manage-quality output |
+| `plugins/core/skills/lead-observability/SKILL.md` | Updated -- Execution reads manage-architecture output |
+| `plugins/core/skills/lead-recovery/SKILL.md` | Updated -- Execution reads manage-architecture output |
+
+### Deviations
+
+- **Spec slug rename**: Changed viewpoint slug from "stakeholder" to "ux" to match the new lead-ux identity. The scan validation command was updated accordingly (stakeholder.md -> ux.md).
+- **Architecture-lead removed**: The 4 viewpoint specs (application.md, component.md, feature.md, usecase.md) are now produced by architecture-manager, which has analyze-viewpoint skill added.
+- **Manager output convention**: Leaders read manager outputs from `.workaholic/specs/` and `.workaholic/policies/` (the spec/policy documents managers produce) rather than a separate `.workaholic/manager-outputs/` directory.

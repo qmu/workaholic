@@ -5,15 +5,16 @@
 #   mode: "full" or "partial"
 #   base_branch: required for partial mode (e.g., "main")
 #
-# Output: JSON with mode and agent list
-#   {"mode":"full","agents":["communication-lead","model-analyst",...]}
+# Output: JSON with mode, managers, and agent list
+#   {"mode":"full","managers":["project-manager",...],"agents":["ux-lead",...]}
 
 set -eu
 
 MODE="${1:-}"
 BASE_BRANCH="${2:-}"
 
-ALL_AGENTS="communication-lead model-analyst infra-lead architecture-lead db-lead test-lead security-lead quality-lead a11y-lead observability-lead delivery-lead recovery-lead changelog-writer terms-writer"
+ALL_MANAGERS="project-manager architecture-manager quality-manager"
+ALL_AGENTS="ux-lead model-analyst infra-lead db-lead test-lead security-lead quality-lead a11y-lead observability-lead delivery-lead recovery-lead changelog-writer terms-writer"
 
 if [ -z "$MODE" ]; then
   echo '{"error":"Usage: select.sh <mode> [base_branch]"}'
@@ -21,13 +22,19 @@ if [ -z "$MODE" ]; then
 fi
 
 if [ "$MODE" = "full" ]; then
+  managers_json=""
+  sep=""
+  for mgr in $ALL_MANAGERS; do
+    managers_json="${managers_json}${sep}\"${mgr}\""
+    sep=","
+  done
   agents_json=""
   sep=""
   for agent in $ALL_AGENTS; do
     agents_json="${agents_json}${sep}\"${agent}\""
     sep=","
   done
-  echo "{\"mode\":\"full\",\"agents\":[${agents_json}]}"
+  echo "{\"mode\":\"full\",\"managers\":[${managers_json}],\"agents\":[${agents_json}]}"
   exit 0
 fi
 
@@ -46,7 +53,7 @@ DIFF_STAT=$(git diff --stat "${BASE_BRANCH}...HEAD" 2>/dev/null || echo "")
 
 if [ -z "$DIFF_STAT" ]; then
   # No changes detected, return changelog-writer only
-  echo '{"mode":"partial","agents":["changelog-writer"]}'
+  echo '{"mode":"partial","managers":[],"agents":["changelog-writer"]}'
   exit 0
 fi
 
@@ -69,20 +76,20 @@ echo "$DIFF_STAT" | while IFS= read -r line; do
 
   case "$path" in
     plugins/core/commands/*|plugins/core/agents/*)
-      touch "$TMPDIR_SEL/architecture-lead"
+      touch "$TMPDIR_SEL/mgr-architecture-manager"
       ;;
   esac
 
   case "$path" in
     plugins/core/skills/*)
-      touch "$TMPDIR_SEL/architecture-lead"
+      touch "$TMPDIR_SEL/mgr-architecture-manager"
       ;;
   esac
 
   case "$path" in
     plugins/core/rules/*)
+      touch "$TMPDIR_SEL/mgr-quality-manager"
       touch "$TMPDIR_SEL/quality-lead"
-      touch "$TMPDIR_SEL/architecture-lead"
       ;;
   esac
 
@@ -108,8 +115,8 @@ echo "$DIFF_STAT" | while IFS= read -r line; do
 
   case "$path" in
     README.md|CLAUDE.md)
-      touch "$TMPDIR_SEL/communication-lead"
-      touch "$TMPDIR_SEL/architecture-lead"
+      touch "$TMPDIR_SEL/ux-lead"
+      touch "$TMPDIR_SEL/mgr-project-manager"
       ;;
   esac
 
@@ -122,6 +129,15 @@ echo "$DIFF_STAT" | while IFS= read -r line; do
 done
 
 # Build JSON from marker files
+managers_json=""
+sep=""
+for mgr in $ALL_MANAGERS; do
+  if [ -f "$TMPDIR_SEL/mgr-$mgr" ]; then
+    managers_json="${managers_json}${sep}\"${mgr}\""
+    sep=","
+  fi
+done
+
 agents_json=""
 sep=""
 for agent in $ALL_AGENTS; do
@@ -131,4 +147,4 @@ for agent in $ALL_AGENTS; do
   fi
 done
 
-echo "{\"mode\":\"partial\",\"agents\":[${agents_json}]}"
+echo "{\"mode\":\"partial\",\"managers\":[${managers_json}],\"agents\":[${agents_json}]}"

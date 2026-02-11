@@ -49,6 +49,7 @@ The `.workaholic/specs/data.md` accurately reflects all implemented data storage
 
 ### Execution
 
+- Read the manage-architecture output from `.workaholic/specs/` for component inventory and data layer context before performing data analysis.
 - Gather context by running `bash .claude/skills/analyze-viewpoint/sh/gather.sh data main`.
 - Check overrides by running `bash .claude/skills/analyze-viewpoint/sh/read-overrides.sh`.
 - Use the analysis prompts: What data formats are used? What frontmatter schemas exist? What file naming conventions are enforced? How is data validated?

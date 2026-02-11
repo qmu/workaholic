@@ -48,6 +48,7 @@ The `.workaholic/policies/observability.md` accurately reflects all implemented 
 
 ### Execution
 
+- Read the manage-architecture output from `.workaholic/specs/` for cross-cutting concern and structural context before performing observability analysis.
 - Gather context by running `bash .claude/skills/analyze-policy/sh/gather.sh observability main`.
 - Use the analysis prompts: What logging frameworks and practices exist? What metrics are collected? What tracing and monitoring tools are used? What alerting thresholds are configured?
 - Read relevant source files to understand the repository's observability practices before writing.

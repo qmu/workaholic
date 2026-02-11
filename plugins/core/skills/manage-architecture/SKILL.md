@@ -20,7 +20,7 @@ The architecture manager owns the system's structural definition. It maps compon
 
 ## Goal
 
-Leaders (especially infra-lead, db-lead, security-lead, architecture-lead) receive a consistent structural context for their domain-specific work. No leader needs to independently rediscover system boundaries, layer definitions, or component relationships.
+Leaders (especially infra-lead, db-lead, security-lead) receive a consistent structural context for their domain-specific work. No leader needs to independently rediscover system boundaries, layer definitions, or component relationships. All four viewpoint spec documents in `.workaholic/specs/` accurately reflect the repository's architecture.
 
 ## Outputs
 
@@ -34,7 +34,18 @@ A structured analysis containing:
 - **Cross-Cutting Concerns**: Concerns that span multiple layers (e.g., error handling, logging, configuration). Derived from patterns observed across components.
 - **Structural Patterns**: Conventions and patterns actually used (e.g., skill/agent/command hierarchy, naming conventions, file organization). Derived from codebase observation.
 
-**Consuming leaders**: infra-lead (layer taxonomy, system boundaries), db-lead (component inventory, data layer), security-lead (system boundaries, cross-cutting concerns), architecture-lead (all sections).
+**Consuming leaders**: infra-lead (layer taxonomy, system boundaries), db-lead (component inventory, data layer), security-lead (system boundaries, cross-cutting concerns), observability-lead (cross-cutting concerns), recovery-lead (system boundaries).
+
+### Viewpoint Specs
+
+The architecture manager also produces four viewpoint spec documents (absorbed from the former architecture-lead):
+
+- **application.md**: Runtime behavior, agent orchestration, and data flow.
+- **component.md**: Internal structure, module boundaries, and skill/agent/command decomposition.
+- **feature.md**: Feature inventory, capability matrix, and configuration options.
+- **usecase.md**: User workflows, command sequences, and input/output contracts.
+
+These specs are written to `.workaholic/specs/` and follow the analyze-viewpoint output template.
 
 ## Default Policies
 
@@ -60,7 +71,9 @@ A structured analysis containing:
 
 ### Execution
 
-- Gather context from: directory tree, CLAUDE.md (project structure), plugin configuration files, agent/skill/command file listings, and import patterns.
-- Analyze gathered context against the Outputs structure.
-- Produce the architectural context output document.
-- Cross-reference component inventory against directory structure to verify completeness.
+- For each viewpoint (application, component, feature, usecase), gather context by running `bash .claude/skills/analyze-viewpoint/sh/gather.sh <slug> main`.
+- Check overrides by running `bash .claude/skills/analyze-viewpoint/sh/read-overrides.sh`.
+- Analyze gathered context against both the Outputs structure and viewpoint spec requirements.
+- Produce the architectural context output covering system boundaries, layer taxonomy, component inventory, cross-cutting concerns, and structural patterns.
+- Write all four viewpoint specs (application.md, component.md, feature.md, usecase.md) to `.workaholic/specs/`.
+- Write the English specs first, then produce translations per the user's translation policy declared in their root CLAUDE.md.

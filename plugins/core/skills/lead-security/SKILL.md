@@ -48,6 +48,7 @@ The `.workaholic/policies/security.md` accurately reflects all implemented secur
 
 ### Execution
 
+- Read the manage-architecture output from `.workaholic/specs/` for system boundary and cross-cutting concern context before performing security analysis.
 - Gather context by running `bash .claude/skills/analyze-policy/sh/gather.sh security main`.
 - Use the analysis prompts: What authentication mechanisms exist? What authorization boundaries are enforced? What secrets management practices are used? What input validation is performed?
 - Read relevant source files to understand the repository's security practices before writing.

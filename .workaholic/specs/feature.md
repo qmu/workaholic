@@ -2,19 +2,19 @@
 title: Feature Viewpoint
 description: Feature inventory, capability matrix, and configuration
 category: developer
-modified_at: 2026-02-09T12:52:19+08:00
-commit_hash: d627919
+modified_at: 2026-02-11T23:20:09+08:00
+commit_hash: f7f779f
 ---
 
 [English](feature.md) | [Japanese](feature_ja.md)
 
-# 1. Feature Viewpoint
+# Feature Viewpoint
 
-The Feature Viewpoint provides a comprehensive inventory of capabilities offered by the Workaholic plugin, documenting what the system can do, how features are configured, and what options are available to users. This specification focuses on functional features, their status, and configuration mechanisms rather than implementation details.
+The Feature Viewpoint provides a comprehensive inventory of capabilities offered by the Workaholic plugin, documenting what the system can do, how features are configured, and what options are available to users. This specification focuses on functional features, their status, and configuration mechanisms rather than implementation details. The recent addition of a manager tier introduces strategic context establishment and constraint-setting capabilities alongside the existing ticket-driven development workflow.
 
-## 2. Command Features
+## Command Features
 
-### 2-1. Ticket Creation (`/ticket`)
+### Ticket Creation (`/ticket`)
 
 The ticket command transforms natural language feature requests into structured implementation specifications.
 
@@ -55,7 +55,7 @@ flowchart TD
     M --> N[Commit]
 ```
 
-### 2-2. Ticket Implementation (`/drive`)
+### Ticket Implementation (`/drive`)
 
 The drive command implements queued tickets through an approval-gated loop with intelligent prioritization.
 
@@ -72,6 +72,7 @@ The drive command implements queued tickets through an approval-gated loop with 
 | Icebox processing | Optionally processes deferred tickets | `drive-navigator` agent |
 | Effort tracking | Records actual implementation time in hours | `update-ticket-frontmatter` skill |
 | Session-wide tracking | Maintains counters across multiple batches | `drive.md` Phase 4 |
+| Expanded commit messages | Motivation, UX changes, and architecture changes | `commit` skill |
 
 #### Drive Workflow State Machine
 
@@ -98,88 +99,82 @@ flowchart TD
     N -->|No| B
 ```
 
-### 2-3. Documentation Update (`/scan`)
+### Documentation Update (`/scan`)
 
-The scan command runs 17 parallel documentation agents to generate comprehensive codebase documentation.
+The scan command runs a two-phase agent orchestration to generate comprehensive codebase documentation. Phase 3a invokes 3 manager agents to establish strategic context. Phase 3b invokes 12 leader and writer agents that consume manager outputs.
 
 | Feature | Description | Implementation |
 | --- | --- | --- |
-| 8 viewpoint specs | Architecture analysis from 8 perspectives | 8 `*-analyst` agents |
-| 7 policy documents | Repository practice analysis across 7 domains | 7 `*-policy-analyst` agents |
-| Changelog generation | Entries from archived tickets by category | `changelog-writer` agent |
-| Terms update | Consistent terminology maintenance | `terms-writer` agent |
-| Real-time visibility | All 17 agents visible as Task calls | `scan.md` Phase 3 |
+| Two-phase execution | Managers first, then leaders/writers | `scan.md` Phases 3a/3b |
+| 3 manager agents | Establish project, architecture, quality context | Manager tier agents |
+| 10 leader agents | Domain-specific policy analysis | Leader tier agents |
+| 2 writer agents | Changelog and terms generation | Writer agents |
+| Real-time visibility | All 15 agents visible as Task calls | `scan.md` Phase 3 |
 | Output validation | Verifies files exist before index update | `validate-writer-output` skill |
 | Index synchronization | Updates README files for specs and policies | `scan.md` Phase 5 |
 | i18n mirroring | Japanese translations for all documents | `translate` skill |
 | Permission control | Explicit `run_in_background: false` for Write/Edit access | `scan.md` Phase 3 |
 | Full/partial modes | Adaptive agent selection based on changes | `select-scan-agents` skill |
+| 4 viewpoint specs | Application, component, feature, usecase | `architecture-manager` agent |
+| 7 policy docs | Test, security, quality, a11y, observability, delivery, recovery | 7 leader agents |
+| Constraint setting | Managers produce directional materials | `managers-policy` skill |
 
 #### Documentation Agent Matrix
 
-The scan command orchestrates 17 parallel agents organized into 4 categories:
+The scan command orchestrates 15 agents organized into 3 tiers:
 
-**Viewpoint Analysts (8 agents)**: Generate architectural specifications
-- `stakeholder-analyst` - Who uses the system, their goals, interaction patterns
-- `model-analyst` - Domain concepts, relationships, core abstractions
-- `usecase-analyst` - User workflows, command sequences, input/output contracts
-- `infrastructure-analyst` - External dependencies, file system layout, installation
-- `application-analyst` - Runtime behavior, agent orchestration, data flow
-- `component-analyst` - Internal structure, module boundaries, decomposition
-- `data-analyst` - Data formats, frontmatter schemas, naming conventions
-- `feature-analyst` - Feature inventory, capability matrix, configuration
+**Manager Tier (3 agents)**: Establish strategic context
+- `project-manager` - Business domain, stakeholders, timeline, issues, solutions
+- `architecture-manager` - System boundaries, layers, components, cross-cutting concerns, 4 viewpoint specs
+- `quality-manager` - Quality dimensions, standards, assurance processes, metrics, feedback loops
 
-**Policy Analysts (7 agents)**: Generate practice documentation
-- `test-policy-analyst` - Testing standards and practices
-- `security-policy-analyst` - Security requirements and constraints
-- `quality-policy-analyst` - Code quality and review processes
-- `accessibility-policy-analyst` - Accessibility guidelines
-- `observability-policy-analyst` - Monitoring and logging practices
-- `delivery-policy-analyst` - Deployment and release processes
-- `recovery-policy-analyst` - Backup and disaster recovery
+**Leader Tier (10 agents)**: Generate policy documentation
+- `ux-lead` - User experience, interaction patterns, user journeys, onboarding
+- `infra-lead` - External dependencies, deployment, runtime environment
+- `db-lead` - Data formats, storage mechanisms, persistence patterns
+- `security-lead` - Security requirements, threat model, mitigation strategies
+- `test-lead` - Testing strategy, test types, coverage requirements
+- `quality-lead` - Code quality standards, review processes, quality gates
+- `a11y-lead` - Accessibility standards, WCAG conformance, inclusive design
+- `observability-lead` - Logging, monitoring, tracing practices
+- `delivery-lead` - Release processes, deployment strategies, rollback procedures
+- `recovery-lead` - Backup strategies, disaster recovery, business continuity
 
-**Documentation Writers (2 agents)**:
+**Writer Tier (2 agents)**:
 - `changelog-writer` - Generates CHANGELOG.md from archived tickets
 - `terms-writer` - Maintains consistent terminology definitions
 
+#### Two-Phase Scan Execution
+
 ```mermaid
 flowchart LR
-    subgraph Scan Command
+    subgraph Phase 3a: Strategic Context
         S[Scan Entry Point]
+        PM[project-manager]
+        AM[architecture-manager]
+        QM[quality-manager]
     end
 
-    subgraph Viewpoint Specs
-        V1[stakeholder]
-        V2[model]
-        V3[usecase]
-        V4[infrastructure]
-        V5[application]
-        V6[component]
-        V7[data]
-        V8[feature]
+    subgraph Phase 3b: Tactical Analysis
+        UX[ux-lead]
+        IN[infra-lead]
+        DB[db-lead]
+        SEC[security-lead]
+        TST[test-lead]
+        QL[quality-lead]
+        A11Y[a11y-lead]
+        OBS[observability-lead]
+        DEL[delivery-lead]
+        REC[recovery-lead]
+        CL[changelog-writer]
+        TR[terms-writer]
     end
 
-    subgraph Policy Docs
-        P1[test]
-        P2[security]
-        P3[quality]
-        P4[accessibility]
-        P5[observability]
-        P6[delivery]
-        P7[recovery]
-    end
-
-    subgraph Other Docs
-        C[changelog]
-        T[terms]
-    end
-
-    S --> V1 & V2 & V3 & V4 & V5 & V6 & V7 & V8
-    S --> P1 & P2 & P3 & P4 & P5 & P6 & P7
-    S --> C & T
+    S --> PM & AM & QM
+    PM & AM & QM --> UX & IN & DB & SEC & TST & QL & A11Y & OBS & DEL & REC & CL & TR
 ```
 
-### 2-4. Report Generation (`/report`)
+### Report Generation (`/report`)
 
 The report command generates a branch story and creates or updates a pull request.
 
@@ -193,6 +188,7 @@ The report command generates a branch story and creates or updates a pull reques
 | Automatic version bump | Increments patch version before story | `report.md` instruction |
 | Overview generation | High-level summary and highlights | `overview-writer` agent |
 | Section review | Outcome, concerns, ideas, historical analysis | `section-reviewer` agent |
+| Change summarization | Concise summary of implementation changes | `write-story` skill |
 
 #### Story Generation Workflow
 
@@ -218,7 +214,7 @@ flowchart TD
     N --> P[Display PR URL]
 ```
 
-### 2-5. Release (`/release`)
+### Release (`/release`)
 
 The release command manages semantic versioning and triggers GitHub release workflows.
 
@@ -230,9 +226,48 @@ The release command manages semantic versioning and triggers GitHub release work
 | Documentation sync | Triggers full scan before release | `release.md` step 9 |
 | Multi-plugin support | Updates all plugin versions in marketplace | `release.md` steps 5-8 |
 
-## 3. Cross-Cutting Features
+## Strategic Features
 
-### 3-1. Internationalization (i18n)
+### Manager Tier Capabilities
+
+The manager tier introduces strategic context establishment and constraint-setting capabilities:
+
+| Feature | Description | Manager Agent |
+| --- | --- | --- |
+| Project context analysis | Business domain, stakeholders, timeline, issues | `project-manager` |
+| Architectural structure | System boundaries, layers, components, patterns | `architecture-manager` |
+| Quality standards | Dimensions, assurance processes, metrics, feedback loops | `quality-manager` |
+| Constraint setting | Analyze, Ask, Propose, Produce directional materials | All managers via `managers-policy` |
+| Viewpoint spec production | 4 architectural viewpoint documents | `architecture-manager` |
+| Strategic focus | Observable facts, not aspirational recommendations | `managers-policy` |
+| Prior term consistency | Respect existing terminology, cultivate ubiquitous language | `managers-policy` |
+
+#### Constraint Setting Workflow
+
+Managers follow a four-phase constraint-setting workflow:
+
+1. **Analyze** - Identify unbounded areas, implicit constraints, outdated constraints
+2. **Ask** - Present targeted questions with concrete options grounded in analysis
+3. **Propose** - State constraints with bounds, rationale, affected leaders, falsifiability
+4. **Produce** - Write directional materials (policies, guidelines, roadmaps, decision records)
+
+### Leader Tier Capabilities
+
+Leaders consume manager outputs and produce domain-specific policy documents:
+
+| Feature | Description | Leader Agent |
+| --- | --- | --- |
+| Manager context consumption | Read strategic outputs before analysis | All leaders |
+| Domain-specific policies | Test, security, quality, a11y, observability, delivery, recovery | 7 policy leaders |
+| UX analysis | User experience, interaction patterns, user journeys | `ux-lead` |
+| Data analysis | Data formats, storage, persistence | `db-lead` |
+| Infrastructure analysis | Dependencies, deployment, runtime environment | `infra-lead` |
+| Prior term consistency | Respect existing terminology | `leaders-policy` |
+| Vendor neutrality | Minimize dependencies, manage coupling | `leaders-policy` |
+
+## Cross-Cutting Features
+
+### Internationalization (i18n)
 
 Every document in `.workaholic/` must have a corresponding `_ja.md` Japanese translation. The system enforces parallel structure in both languages.
 
@@ -244,7 +279,7 @@ Every document in `.workaholic/` must have a corresponding `_ja.md` Japanese tra
 
 **Coverage**: All viewpoint specs, policy documents, stories, release notes, changelog, and terms require translations. READMEs must maintain parallel link structures in both languages.
 
-### 3-2. Shell Script Bundling
+### Shell Script Bundling
 
 All multi-step or conditional shell operations are extracted to bundled scripts in `skills/<name>/sh/<script>.sh`. This ensures consistency, testability, and permission-free execution.
 
@@ -261,7 +296,7 @@ All multi-step or conditional shell operations are extracted to bundled scripts 
 - `validate-writer-output/sh/validate.sh` - Output file existence validation
 - `gather-ticket-metadata/sh/gather.sh` - Ticket frontmatter metadata generation
 
-### 3-3. Validation
+### Validation
 
 The system includes multiple validation layers to ensure data integrity:
 
@@ -273,7 +308,7 @@ The system includes multiple validation layers to ensure data integrity:
 
 **Agent Output Validation**: Story-writer tracks which of its 6 parallel agents succeed or fail, including this status in the final JSON output.
 
-### 3-4. Git Integration
+### Git Integration
 
 Workaholic manages git operations autonomously during commands:
 - Creating topic branches (when running `/ticket` on main)
@@ -283,7 +318,7 @@ Workaholic manages git operations autonomously during commands:
 
 The root README includes an explicit warning about this autonomous behavior.
 
-### 3-5. Configuration Mechanisms
+### Configuration Mechanisms
 
 ```mermaid
 flowchart TD
@@ -293,7 +328,7 @@ flowchart TD
         C[plugin.json]
         D[hooks.json]
         E[settings.json]
-        F[rules/*.md]
+        F["rules/*.md"]
     end
 
     subgraph Configuration Scope
@@ -317,15 +352,16 @@ flowchart TD
     end
 ```
 
-## 4. Capability Matrix
+## Capability Matrix
 
-The system provides a complete ticket-driven development workflow:
+The system provides a complete ticket-driven development workflow with strategic oversight:
 
 | Phase | Capabilities | Status |
 | --- | --- | --- |
 | **Planning** | Ticket creation, duplicate detection, history discovery, source discovery, automatic splitting | ✓ Active |
+| **Strategic** | Project context, architectural structure, quality standards, constraint setting | ✓ Active |
 | **Implementation** | Sequential drive, approval loop, feedback iteration, automatic archival, effort tracking | ✓ Active |
-| **Documentation** | 8 viewpoint specs, 7 policy docs, changelog, terms, i18n mirroring | ✓ Active |
+| **Documentation** | 2-phase scan (managers then leaders), 4 viewpoint specs, 7 policy docs, changelog, terms, i18n | ✓ Active |
 | **Delivery** | Story generation, release notes, PR management, version bumping, release automation | ✓ Active |
 
 ### Feature Dependencies
@@ -337,23 +373,24 @@ flowchart TD
     C --> D["/drive"]
     D --> E[Implementation Commits]
     E --> F[Archived Tickets]
-    F --> G["/report"]
-    G --> H[Version Bump]
-    H --> I[Story File]
-    I --> J[Release Notes]
-    J --> K[Pull Request]
-    K --> L[GitHub Merge]
-    L --> M["/release" or Auto-Release]
-    M --> N[GitHub Release]
-
-    F --> O["/scan"]
-    O --> P[Documentation]
-    P --> G
+    F --> G["/scan Phase 3a"]
+    G --> H[Manager Outputs]
+    H --> I["/scan Phase 3b"]
+    I --> J[Leader Outputs]
+    J --> K[Documentation]
+    K --> L["/report"]
+    L --> M[Version Bump]
+    M --> N[Story File]
+    N --> O[Release Notes]
+    O --> P[Pull Request]
+    P --> Q[GitHub Merge]
+    Q --> R["/release" or Auto-Release]
+    R --> S[GitHub Release]
 ```
 
-## 5. Configuration Options
+## Configuration Options
 
-### 5-1. System Configuration
+### System Configuration
 
 | Mechanism | Location | Purpose | Scope |
 | --- | --- | --- | --- |
@@ -363,8 +400,10 @@ flowchart TD
 | `hooks.json` | `plugins/core/hooks/` | PostToolUse hook configuration | Tool validation |
 | `settings.json` | `.claude/` | Claude Code runtime settings | IDE integration |
 | Rule files | `plugins/core/rules/` | Path-specific behavioral constraints | File-scoped operations |
+| `define-manager.md` | `.claude/rules/` | Manager schema enforcement | Manager skills and agents |
+| `define-lead.md` | `.claude/rules/` | Leader schema enforcement | Leader skills and agents |
 
-### 5-2. Command Configuration
+### Command Configuration
 
 Commands accept limited runtime arguments:
 
@@ -376,7 +415,7 @@ Commands accept limited runtime arguments:
 | `/report` | None | N/A | N/A |
 | `/release` | Bump type | `major\|minor\|patch` | `patch` |
 
-### 5-3. Ticket Metadata Configuration
+### Ticket Metadata Configuration
 
 Ticket frontmatter provides rich metadata for prioritization and tracking:
 
@@ -398,7 +437,7 @@ category: <Added|Changed|Removed>   # Filled during archival
 
 **Layer grouping**: Drive-navigator groups tickets by layer to maximize context efficiency.
 
-### 5-4. Skill Configuration
+### Skill Configuration
 
 Skills bundle knowledge and shell scripts. Each skill directory contains:
 - `SKILL.md` - Guidelines, templates, and instructions
@@ -408,52 +447,68 @@ Skills are preloaded by commands and agents via frontmatter:
 
 ```yaml
 skills:
-  - gather-git-context
-  - select-scan-agents
-  - validate-writer-output
+  - managers-policy
+  - manage-project
+  - leaders-policy
+  - lead-ux
 ```
 
-### 5-5. Rule Configuration
+### Rule Configuration
 
 Rules define behavioral constraints scoped by file path patterns:
 
 | Rule | Path Pattern | Constraints |
 | --- | --- | --- |
 | `general.md` | `**/*` | Never commit without request, never use `git -C`, link markdown files, number headings |
+| `define-manager.md` | Manager paths | Manager schema (Role, Responsibility, Goal, Outputs, Default Policies) |
+| `define-lead.md` | Leader paths | Leader schema (Role, Responsibility, Goal, Default Policies) |
 | `diagrams.md` | Documentation files | Mermaid node label quoting, diagram placement policy |
 | `i18n.md` | `.workaholic/` | Parallel translation requirement, suffix naming |
 | `shell.md` | Commands/agents | Shell script bundling requirement |
-| `typescript.md` | `*.ts` files | TypeScript-specific conventions |
-| `workaholic.md` | `.workaholic/` | Ticket structure, viewpoint format, story format |
 
-## 6. Feature Status
+## Feature Status
 
-All documented features are actively implemented and maintained. The system has no deprecated features or planned removals as of commit `d627919`.
+All documented features are actively implemented and maintained. The system has no deprecated features as of commit `f7f779f`.
 
 ### Recent Feature Changes
 
-Based on archived tickets from branch `drive-20260208-131649`:
+Based on archived tickets from branch `drive-20260210-121635`:
 
 **Added**:
-- Scanner subagent logic migrated into `/scan` command for real-time visibility
-- Explicit `run_in_background: false` constraint for scan agent Task calls
-- Automatic version bump in `/report` command before story generation
+- Manager tier with 3 manager agents and 3 manager skills
+- Constraint-setting workflow for managers (Analyze, Ask, Propose, Produce)
+- Two-phase scan execution (managers in phase 3a, leaders in phase 3b)
+- Leaders-policy and managers-policy cross-cutting skills
+- Expanded commit message sections (Motivation, UX Change, Arch Change)
+- 10 leader skills (lead-ux, lead-infra, lead-db, lead-security, lead-test, lead-quality, lead-a11y, lead-observability, lead-delivery, lead-recovery)
 
 **Removed**:
-- `/story` command (replaced by `/scan` + `/report` workflow)
-- `scanner` subagent (logic inlined into `/scan` command)
+- `architecture-lead` agent (absorbed by architecture-manager)
+- `lead-architecture` skill (absorbed by manage-architecture)
+- `communication-lead` agent (renamed to ux-lead)
+- `lead-communication` skill (renamed to lead-ux)
+- `format-commit-message` skill (merged into commit skill)
 
 **Changed**:
-- Scan command grew from ~17 lines to ~90 lines (Phase 1-7 workflow)
-- Policy analyst files no longer use badge system for status indicators
+- Scan command agent count: 17 → 15 (3 managers + 10 leaders + 2 writers)
+- Viewpoint spec production: moved from architecture-lead to architecture-manager
+- UX viewpoint slug: "stakeholder" → "ux"
+- Commit skill: merged format-commit-message guidelines, expanded sections
+- Archive-ticket skill: enhanced with "update ticket first" enforcement
 
-## 7. Assumptions
+## Assumptions
 
-- [Explicit] The 5 commands, 29 agents, 29 skills, and 6 rules are counted from the structure output provided by the gather-context script.
-- [Explicit] The `/release` command exists as `.claude/commands/release.md` rather than in the core plugin, indicating it may be handled at the marketplace level.
+- [Explicit] The 4 commands, 28 agents, 45 skills, and 6 rules are counted from the structure output provided by the gather-context script and recent tickets.
+- [Explicit] The manager tier introduces 3 managers (project, architecture, quality) and adds strategic context establishment capabilities.
+- [Explicit] The two-phase scan execution (managers then leaders) is documented in scan.md Phase 3a and 3b.
+- [Explicit] The constraint-setting workflow (Analyze, Ask, Propose, Produce) is defined in managers-policy skill.
+- [Explicit] The architecture-manager absorbed viewpoint spec production from the removed architecture-lead, as documented in ticket 20260211170402.
+- [Explicit] The communication-lead was renamed to ux-lead with viewpoint slug change from "stakeholder" to "ux", as documented in ticket 20260211170402.
+- [Explicit] The format-commit-message skill was merged into commit skill, as documented in ticket 20260210160550.
 - [Explicit] The ticket metadata schema (7 frontmatter fields) is defined in `create-ticket` skill and validated by the PostToolUse hook.
-- [Explicit] The scan command orchestrates exactly 17 agents (8 viewpoint + 7 policy + 2 writers) as documented in `scan.md` Phase 3.
-- [Explicit] Recent tickets confirm the scanner subagent was removed and its logic migrated into the scan command for user-visible progress.
-- [Inferred] The feature set has evolved through iterative development, with the current architecture favoring thin commands/agents and comprehensive skills.
+- [Explicit] The scan command orchestrates exactly 15 agents (3 managers + 10 leaders + 2 writers) as documented in `scan.md` Phase 3.
+- [Inferred] The feature set has evolved through iterative development, with the current architecture favoring hierarchical strategic/tactical separation over flat analysis.
 - [Inferred] Configuration options are intentionally minimal at runtime, with most customization happening through markdown skill files and CLAUDE.md project instructions.
-- [Inferred] The automatic version bump in `/report` (added in ticket `20260208133008`) ensures every PR triggers a release via GitHub Actions, reducing manual release command usage.
+- [Inferred] The automatic version bump in `/report` ensures every PR triggers a release via GitHub Actions, reducing manual release command usage.
+- [Inferred] The manager tier was introduced to eliminate strategic context duplication and establish authoritative single sources of truth for project, architecture, and quality concerns.
+- [Inferred] The constraint-setting workflow is designed to produce actionable constraints (falsifiable boundaries) rather than aspirational recommendations.

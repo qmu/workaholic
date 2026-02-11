@@ -2,8 +2,8 @@
 title: Data Viewpoint
 description: Data formats, frontmatter schemas, and naming conventions
 category: developer
-modified_at: 2026-02-09T12:52:01+08:00
-commit_hash: d627919
+modified_at: 2026-02-11T23:20:06+08:00
+commit_hash: f7f779f
 ---
 
 [English](data.md) | [Japanese](data_ja.md)
@@ -85,6 +85,17 @@ erDiagram
         float velocity
         string velocity_unit "hour|day"
     }
+    AGENT {
+        string name
+        string description
+        array tools "Read|Write|Edit|Bash|Glob|Grep"
+        array skills "skill-directory-names"
+    }
+    SKILL {
+        string name
+        string description
+        boolean user-invocable "true|false"
+    }
 ```
 
 ### Spec/Policy Frontmatter Schema
@@ -133,7 +144,7 @@ velocity_unit: hour
 
 Story frontmatter includes temporal tracking (`started_at`, `ended_at`) and performance metrics (ticket count, commit count, duration, velocity). The `velocity_unit` field allows for future extension to daily velocity calculation.
 
-### Command/Agent Frontmatter Schema
+### Agent Frontmatter Schema
 
 ```yaml
 ---
@@ -146,7 +157,21 @@ skills:
 ---
 ```
 
-Commands and agents declare their name, description, available tools (agents only), and preloaded skills. The `skills` field uses YAML array format with skill directory names (e.g., `gather-git-context`).
+Agent frontmatter declares name, description, available tools, and preloaded skills. The `skills` field uses YAML array format with skill directory names (e.g., `gather-git-context`). All agents include all six standard tools. The `tools` field is present in agent files but absent from command and skill files.
+
+### Skill Frontmatter Schema
+
+```yaml
+---
+name: skill-name
+description: What this skill provides
+user-invocable: false                     # true only for user-facing commands
+---
+```
+
+Skill frontmatter includes a `user-invocable` boolean field that distinguishes between internal skills (false) and user-facing command skills (true). The field was introduced with the manager tier to mark manager skills and lead skills as non-invocable, ensuring only commands can be invoked directly by users.
+
+Manager skills (manage-project, manage-architecture, manage-quality) and lead skills (lead-db, lead-security, etc.) all set `user-invocable: false`. Cross-cutting policy skills (managers-policy, leaders-policy) also set `user-invocable: false`.
 
 ## JSON Configuration Schemas
 
@@ -252,6 +277,7 @@ File naming follows context-specific conventions designed to enable chronologica
 | Skills | `SKILL.md` in kebab-case directory | `<kebab-case>/SKILL.md` | `write-spec/SKILL.md`, `create-ticket/SKILL.md` |
 | Shell scripts | Name + `.sh` in `sh/` subdirectory | `sh/<name>.sh` | `gather.sh`, `validate.sh`, `update.sh` |
 | READMEs | Uppercase (exception) | `README.md` / `README_ja.md` | Root and directory indexes |
+| Schema rules | `define-<tier>.md` | `define-lead.md`, `define-manager.md` | Schema enforcement rules in `.claude/rules/` |
 
 ### Timestamp Format for Tickets
 
@@ -308,21 +334,21 @@ This gate catches invalid values (like t-shirt sizes S, M, L) that might bypass 
 
 ```mermaid
 flowchart TD
-    Write[Write/Edit Tool Call] --> Hook{PostToolUse Hook}
-    Hook -->|Ticket File| ValidateTicket[validate-ticket.sh]
-    ValidateTicket -->|Pass| Execute[Execute Write/Edit]
-    ValidateTicket -->|Fail| Block[Block Operation]
-    Execute --> Success[File Written]
+    Write["Write/Edit Tool Call"] --> Hook{PostToolUse Hook}
+    Hook -->|Ticket File| ValidateTicket["validate-ticket.sh"]
+    ValidateTicket -->|Pass| Execute["Execute Write/Edit"]
+    ValidateTicket -->|Fail| Block["Block Operation"]
+    Execute --> Success["File Written"]
 
-    Update[Update Ticket Frontmatter] --> ScriptGate{Field = effort?}
-    ScriptGate -->|Yes| ValidateEffort[Case Statement Validation]
-    ScriptGate -->|No| DirectSed[Direct sed Update]
+    Update["Update Ticket Frontmatter"] --> ScriptGate{Field = effort?}
+    ScriptGate -->|Yes| ValidateEffort["Case Statement Validation"]
+    ScriptGate -->|No| DirectSed["Direct sed Update"]
     ValidateEffort -->|Valid| DirectSed
-    ValidateEffort -->|Invalid| Error[Exit with Error]
+    ValidateEffort -->|Invalid| Error["Exit with Error"]
 
-    Scan[Scan Command Phase 4] --> ValidateOutput[validate-writer-output.sh]
-    ValidateOutput -->|All Files Exist + Non-Empty| UpdateIndex[Update README Indexes]
-    ValidateOutput -->|Missing/Empty Files| SkipIndex[Skip Index Update]
+    Scan["/scan Command Phase 4"] --> ValidateOutput["validate-writer-output.sh"]
+    ValidateOutput -->|All Files Exist + Non-Empty| UpdateIndex["Update README Indexes"]
+    ValidateOutput -->|Missing/Empty Files| SkipIndex["Skip Index Update"]
 ```
 
 ### CI Structural Validation
@@ -381,22 +407,24 @@ Tickets begin in `todo/`, move to `archive/<branch>/` after successful implement
 
 ```mermaid
 flowchart LR
-    Scan["/scan Command"] --> Agents["17 Parallel Analysts"]
-    Agents --> Specs["Write specs/*.md"]
-    Agents --> Policies["Write policies/*.md"]
-    Agents --> Changelog["Write CHANGELOG.md"]
-    Agents --> Terms["Write terms/*.md"]
-    Specs --> ValidateSpecs["Validate Output"]
-    Policies --> ValidatePolicies["Validate Output"]
-    ValidateSpecs -->|Pass| UpdateSpecsIndex["Update specs/README"]
-    ValidatePolicies -->|Pass| UpdatePoliciesIndex["Update policies/README"]
-    UpdateSpecsIndex --> Commit["Git Commit"]
-    UpdatePoliciesIndex --> Commit
-    Changelog --> Commit
-    Terms --> Commit
+    Scan["/scan Command"] --> Phase1["Phase 1: Manager Outputs"]
+    Phase1 --> Managers["3 Manager Subagents"]
+    Managers --> ManagerOutputs["Write manager outputs"]
+    ManagerOutputs --> Phase2["Phase 2: Leader Outputs"]
+    Phase2 --> Leaders["11 Leader Subagents"]
+    Leaders --> LeaderOutputs["Write leader outputs"]
+    LeaderOutputs --> Phase3["Phase 3: Terms + Changelog"]
+    Phase3 --> Writers["terms-writer + changelog-writer"]
+    Writers --> WriterOutputs["Write terms + changelog"]
+    WriterOutputs --> Phase4["Phase 4: Validation"]
+    Phase4 --> Validate["validate-writer-output"]
+    Validate -->|Pass| UpdateIndexes["Update README indexes"]
+    Validate -->|Fail| SkipIndexes["Skip index update"]
+    UpdateIndexes --> Commit["Git Commit"]
+    SkipIndexes --> Commit
 ```
 
-Documentation is regenerated by the `/scan` command through 17 parallel analyst subagents, validated for existence and non-emptiness, and committed with updated index files.
+Documentation is regenerated by the `/scan` command through a two-phase execution model. Phase 1 invokes 3 manager subagents (project-manager, architecture-manager, quality-manager) to produce strategic context outputs that leaders consume. Phase 2 invokes 11 leader subagents in parallel, each reading manager outputs before producing their viewpoint specs and policy documents. Phase 3 produces terms and changelog. Phase 4 validates all outputs and updates README indexes.
 
 ### Version Lifecycle
 
@@ -435,7 +463,41 @@ flowchart TD
     Translation["_ja Suffix"] --> SpecTranslation["stakeholder_ja.md"]
     Translation --> PolicyTranslation["test_ja.md"]
     Translation --> READMETranslation["README_ja.md"]
+
+    DefinePattern["define-<tier>.md"] --> DefineRules["Schema rules in .claude/rules/"]
+    DefinePattern --> DefineLead["define-lead.md"]
+    DefinePattern --> DefineManager["define-manager.md"]
 ```
+
+## Agent Tier Schema Differences
+
+The system defines two agent tiers (manager and leader), each with distinct frontmatter schemas and directory conventions.
+
+### Manager vs Leader Schemas
+
+| Field | Manager Skills | Lead Skills | Manager Agents | Lead Agents |
+| --- | --- | --- | --- | --- |
+| `name` | `manage-<domain>` | `<speciality>-lead` | `<domain>-manager` | `<speciality>-lead` |
+| `description` | Strategic outputs + consuming leaders | Domain responsibility | Same as skill | Same as skill |
+| `user-invocable` | `false` (required) | `false` (required) | N/A (agents don't have this) | N/A |
+| `tools` | N/A (skills don't have this) | N/A | All 6 standard tools | All 6 standard tools |
+| `skills` | N/A | N/A | Preloads `managers-policy` + domain skill | Preloads `leaders-policy` + domain skill |
+| Schema file | `.claude/rules/define-manager.md` | `.claude/rules/define-lead.md` | Same schema as manager skill | Same schema as lead skill |
+
+Manager skills require an `## Outputs` section that leader skills lack. The Outputs section names consuming leaders for each output artifact, establishing the manager-to-leader dependency relationship.
+
+### Constraint Setting Workflow Data
+
+The constraint-setting workflow introduced in managers-policy produces four artifact types, each with potential frontmatter requirements:
+
+| Artifact Type | Path | Frontmatter Schema | Purpose |
+| --- | --- | --- | --- |
+| Policy | `.workaholic/policies/<name>.md` | Same as existing policy schema | Rule that must be followed |
+| Guideline | `.workaholic/policies/<name>.md` or new path | Same as policy schema | Recommended practice with rationale |
+| Roadmap | `.workaholic/<name>.md` or new directory | Not yet defined | Sequenced plan with milestones |
+| Decision Record | `.workaholic/<name>.md` or new directory | Not yet defined | Captured decision with context |
+
+Policy and Guideline artifacts reuse the existing policy frontmatter schema. Roadmap and Decision Record artifacts have no defined schema yet and may warrant new frontmatter conventions in future tickets.
 
 ## Assumptions
 
@@ -445,7 +507,14 @@ flowchart TD
 - [Explicit] The PostToolUse hook runs with a 10-second timeout on every Write and Edit operation, as configured in `hooks.json`.
 - [Explicit] The `update-ticket-frontmatter` skill validates `effort` values using a hardcoded allowlist, as documented in the shell script validation fix (ticket `20260207170806-fix-effort-invalid-value-root-cause.md`).
 - [Explicit] Version synchronization across `marketplace.json` and `plugin.json` is required during releases, as documented in `CLAUDE.md` version management section.
+- [Explicit] The `user-invocable: false` field was introduced to distinguish internal skills from user-facing commands. All manager skills and lead skills set this field to false.
+- [Explicit] The manager tier introduced three new agent types (project-manager, architecture-manager, quality-manager) with corresponding skills (manage-project, manage-architecture, manage-quality), as documented in ticket `20260211170401-define-manager-tier-and-skills.md`.
+- [Explicit] Managers produce strategic outputs that leaders consume. The two-phase scan execution (Phase 1: managers, Phase 2: leaders) enforces this dependency, as documented in ticket `20260211170402-wire-leaders-to-manager-outputs.md`.
+- [Explicit] The constraint-setting workflow (Analyze, Ask, Propose, Produce) is defined in `managers-policy/SKILL.md` and referenced in all three manager skill Execution sections.
+- [Explicit] Schema enforcement rules for managers and leads are defined in `.claude/rules/define-manager.md` and `.claude/rules/define-lead.md` respectively.
 - [Inferred] The inconsistency between `modified_at` (datetime) in specs and `last_updated` (date) in terms represents a historical artifact that has been noted but not resolved, based on the `inconsistencies.md` document.
 - [Inferred] The timestamp-prefixed ticket naming convention ensures chronological ordering when listed alphabetically, which is important for the drive-navigator's prioritization logic.
 - [Inferred] The dual validation approach (runtime hook + shell script gate) for effort values exists to catch invalid input both during interactive editing and during automated script updates.
 - [Inferred] The `validate-writer-output` skill was introduced to prevent broken links in README indexes after discovering that analyst subagents could fail silently, based on the pattern observed in the scan architecture tickets.
+- [Inferred] The `define-<tier>.md` naming pattern for schema rules in `.claude/rules/` follows the convention that schema enforcement rules are named after the tier they enforce (lead, manager).
+- [Inferred] Roadmap and Decision Record artifact types currently have no defined frontmatter schema because the constraint-setting workflow is newly introduced and these artifact types have not yet been produced in practice.

@@ -2,8 +2,8 @@
 title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
-last_updated: 2026-02-09
-commit_hash: d627919
+last_updated: 2026-02-11
+commit_hash: f7f779f
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -30,7 +30,7 @@ Workaholicプラグインシステムの基本的な構成要素。
 
 ## agent
 
-エージェント（またはサブエージェント）は、特定のプロンプトとツールを持ち独自のコンテキストウィンドウで実行される特殊なAIサブプロセスで、親の会話のコンテキストを保持しながら集中タスクを処理します。エージェントは`plugins/<name>/agents/`に`spec-writer.md`、`story-writer.md`、`ticket-organizer.md`などのファイルで定義されます。コマンドはTaskツールを介してエージェントを呼び出します。一般的なタイプにはライターエージェント（ドキュメント生成）、アナリストエージェント（評価）、クリエイターエージェント（外部操作）、検索エージェント（関連作業の発見）があります。関連用語：plugin、command、skill、orchestrator。
+エージェント（またはサブエージェント）は、特定のプロンプトとツールを持ち独自のコンテキストウィンドウで実行される特殊なAIサブプロセスで、親の会話のコンテキストを保持しながら集中タスクを処理します。エージェントは`plugins/<name>/agents/`に`spec-writer.md`、`story-writer.md`、`ticket-organizer.md`、または`architecture-manager.md`や`quality-lead.md`のような階層的エージェントなどのファイルで定義されます。コマンドはTaskツールを介してエージェントを呼び出します。一般的なタイプにはライターエージェント（ドキュメント生成）、アナリストエージェント（評価）、クリエイターエージェント（外部操作）、検索エージェント（関連作業の発見）、階層的エージェント（managerとlead）があります。エージェント階層にはmanager（戦略的出力）、lead（ドメイン固有の実装）、汎用エージェントが含まれます。関連用語：plugin、command、skill、orchestrator、manager、lead。
 
 ## ticket-organizer
 
@@ -87,6 +87,30 @@ TiDD（Ticket-Driven Development）はチケットが計画と完了した作業
 ## context-window
 
 context windowはエージェントが実行中に利用可能な隔離された会話メモリです。エージェントが隔離されたコンテキストで実行されるとき、メイン会話のコンテキストウィンドウをオーケストレーション用に保持しながら、実装の詳細を専用スペースで処理し、大量のファイル読み取りや複雑な分析からのコンテキスト汚染を防ぎます。関連用語：agent、orchestrator。
+
+## manager
+
+managerはleadの上位に位置する戦略的エージェントで、leaderが依存する高レベルの出力を生成します。managerは`.claude/rules/define-manager.md`のdefine-managerスキーマによって定義され、Role、Responsibility、Goal、Outputs、Default Policiesのセクションが必要です。3つのmanagerが存在します：project-manager（ビジネスコンテキスト、ステークホルダー、タイムライン）、architecture-manager（システム構造、コンポーネント、レイヤー）、quality-manager（品質基準、保証プロセス）。各managerは`plugins/core/skills/`に対応する`manage-<domain>`スキルと、`plugins/core/agents/*-manager.md`に薄いエージェントファイルを持ちます。managerは横断的な行動ポリシーのためにmanagers-policyスキルをプリロードします。関連用語：lead、define-manager、managers-policy、agent、skill。
+
+## lead
+
+leadはプロジェクトの特定の側面に責任を持つドメイン固有のエージェントで、managerの出力を消費して情報に基づいたドメイン決定を行います。leadは`.claude/rules/define-lead.md`のdefine-leadスキーマによって定義され、Role、Responsibility、Goal、Default Policiesのセクションが必要です。現在のleadにはarchitecture-lead、security-lead、quality-lead、test-lead、a11y-lead、ux-lead、db-lead、delivery-lead、infra-lead、observability-lead、recovery-leadが含まれます。各leadは`plugins/core/skills/`に対応する`lead-<speciality>`スキルと、`plugins/core/agents/*-lead.md`に薄いエージェントファイルを持ちます。leadはPrior Term Consistencyを含む横断的な行動ポリシーのためにleaders-policyスキルをプリロードします。関連用語：manager、define-lead、leaders-policy、agent、skill。
+
+## define-manager
+
+define-managerは`.claude/rules/define-manager.md`にあるスキーマ強制ルールで、managerスキルとエージェントファイルの構造を検証します。フロントマターを介したpath-scopedにより`plugins/core/skills/manage-*/SKILL.md`と`plugins/core/agents/*-manager.md`に適用されます。スキーマは5つのセクション（Role、Responsibility、Goal、Outputs、Default Policies）と4つのポリシーサブセクション（Implementation、Review、Documentation、Execution）を要求します。Outputsセクションはmanagerに固有で、leaderが消費する構造化された成果物を定義します。関連用語：manager、define-lead、schema、rule。
+
+## define-lead
+
+define-leadは`.claude/rules/define-lead.md`にあるスキーマ強制ルールで、leadスキルとエージェントファイルの構造を検証します。フロントマターを介したpath-scopedにより`plugins/core/skills/lead-*/SKILL.md`と`plugins/core/agents/*-lead.md`に適用されます。スキーマは4つのセクション（Role、Responsibility、Goal、Default Policies）と4つのポリシーサブセクション（Implementation、Review、Documentation、Execution）を要求します。define-managerと異なり、leadはドメイン固有のドキュメントを生成するため戦略的成果物ではなくOutputsセクションを持ちません。関連用語：lead、define-manager、schema、rule。
+
+## managers-policy
+
+managers-policyはすべてのmanagerエージェントがプリロードする横断的な行動ポリシースキルで、leaders-policyと並行しています。`plugins/core/skills/managers-policy/SKILL.md`で定義され、2つのポリシーセクションを含みます：Prior Term Consistency（既存の用語を尊重し、簡潔な命名を好む）とStrategic Focus（managerはleaderが消費可能な実行可能な出力を生成し、願望的なステートメントではない）。各managerエージェントはフロントマターで最初にプリロードするスキルとしてmanagers-policyをリストします。関連用語：manager、leaders-policy、skill、policy。
+
+## leaders-policy
+
+leaders-policyはすべてのleadエージェントがプリロードする横断的な行動ポリシースキルで、managers-policyと並行しています。`plugins/core/skills/leaders-policy/SKILL.md`で定義され、元々Prior Term ConsistencyとVendor Neutralityポリシーを含んでいましたが、Vendor Neutralityは後に削除されました。Prior Term Consistencyはleadが既存の用語を尊重し、複数語の表現よりも1語を好み、成果物全体で普遍的な言語を維持することを要求します。各leadエージェントはフロントマターで最初にプリロードするスキルとしてleaders-policyをリストします。関連用語：lead、managers-policy、skill、policy。
 
 ## driver（廃止）
 

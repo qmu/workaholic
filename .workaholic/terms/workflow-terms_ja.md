@@ -2,8 +2,8 @@
 title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
-last_updated: 2026-02-09
-commit_hash: d627919
+last_updated: 2026-02-11
+commit_hash: f7f779f
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -78,12 +78,8 @@ severityはチケットタイプに基づく優先順位付けの基準です：
 
 ## structured-commit-message
 
-structured commit messageは単純なtitleを超えて、変更の「理由」と範囲を記録する詳細セクションを含みます。形式：title（現在形動詞）、detail（理由を説明する1-2文）、UX changes（ユーザー向け影響）、Arch changes（アーキテクチャ影響）、Co-Authored-Byトレーラー。空のセクションは「None」を使用します。`/drive`ワークフロー中に作成されるコミット。関連用語：commit、archive-ticket、format-commit-message skill。
+structured commit messageは単純なtitleを超えて、下流のleadエージェントにコンテキストを提供する5つの詳細セクションを含みます。形式：Title（現在形動詞、50文字以内）、Description（動機と根拠、2-3文）、Changes（ユーザーが見える違いまたは「None」）、Test Planning（実行または必要な検証）、Release Preparation（配信とサポート要件）、Co-Authored-Byトレーラー。この拡張形式は以前の4セクション形式（Motivation、UX Change、Arch Change）を置き換え、test-lead、delivery-lead、security-lead、その他のドメインleadにより良いシグナルを提供します。commitスキルは`commit.sh`を介してメッセージの構築を処理し、format-commit-messageスキルのコンテンツはcommitスキルにマージされました。関連用語：commit、archive-ticket、commit skill。
 
-## ux-changes
+## format-commit-message（廃止）
 
-ux changesは構造化コミットメッセージの「UX:」セクションに記録されたユーザー表示影響です。これはユーザーが異なる表示またはエクスペリエンスを受け取る内容を記述します：新しいコマンド、オプション、動作、出力形式の変更、またはエラーメッセージ。ユーザー向けの変更がない場合、フィールドは「None」を含みます。ユーザーガイド更新の生成に役立ちます。関連用語：structured-commit-message、commit、arch-changes。
-
-## arch-changes
-
-arch changesは構造化コミットメッセージの「Arch:」セクションに記録された開発者向けおよび構造的影響です。これは新しいファイル、コンポーネント、抽象化、修正されたインターフェース、データ構造、またはワークフロー関係を記述します。アーキテクチャ変更がない場合、フィールドは「None」を含みます。仕様更新の生成に役立ちます。関連用語：structured-commit-message、commit、ux-changes。
+format-commit-messageスキルはコミットメッセージのフォーマットを定義する別個のスキルで、以前は`plugins/core/skills/format-commit-message/SKILL.md`にありました。二重メンテナンス負担を排除しプリロードリストを簡素化するため、commitスキルにマージされました。commitスキルは現在、コミットメッセージフォーマットの単一の権威ある情報源として、完全なセクション毎の記述ガイドライン（Title、Description、Changes、Test Planning、Release Preparation）を含んでいます。アーカイブされたチケットとストーリーにおける履歴参照は、履歴記録であるためそのまま残されています。関連用語：commit、structured-commit-message、skill。

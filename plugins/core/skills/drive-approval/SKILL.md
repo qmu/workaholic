@@ -57,7 +57,7 @@ When user selects "Approve" or "Approve and stop":
 
 When user selects "Other" and provides feedback:
 
-**Rule**: Update the ticket BEFORE making code changes.
+**CRITICAL: Update the ticket file BEFORE making ANY code changes. Do NOT skip this step. Do NOT write code until steps 1-2 are verified complete.**
 
 1. **Update Implementation Steps** in the ticket file:
    - Add new steps for requested functionality
@@ -79,8 +79,10 @@ When user selects "Other" and provides feedback:
 
 For subsequent revisions, append as "### Revision 2", etc.
 
-3. **Re-implement** following the updated ticket
-4. Return to approval flow (Section 1)
+3. **Verify ticket update**: Re-read the ticket file to confirm both Implementation Steps and Discussion section were written successfully. If the update failed, retry before proceeding.
+
+4. **Re-implement** following the updated ticket's Implementation Steps
+5. Return to approval flow (Section 1)
 
 ## 4. Handle Abandonment
 
@@ -130,6 +132,7 @@ Commit using **commit** skill:
 bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/commit/sh/commit.sh \
   "Abandon: <ticket-title>" \
   "Implementation proved unworkable" \
+  "None" \
   "None" \
   "Ticket moved to abandoned with failure analysis" \
   .workaholic/tickets/

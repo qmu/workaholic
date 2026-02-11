@@ -25,21 +25,23 @@ Complete commit workflow after user approves implementation. Always use this scr
 
 ```bash
 bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/archive-ticket/sh/archive.sh \
-  <ticket-path> "<title>" <repo-url> "<motivation>" "<ux-change>" "<arch-change>"
+  <ticket-path> "<title>" <repo-url> "<description>" "<changes>" "<test-plan>" "<release-prep>"
 ```
 
-Follow the preloaded **format-commit-message** skill for message format.
+Follow the **commit** skill's Message Format section for message format.
 
 ## Example
 
 ```
 Add structured commit message format
 
-Motivation: Commit messages lacked structured sections for UX and architecture changes, making it harder to generate documentation and understand impact at a glance.
+Description: Commit messages lacked structured sections for downstream lead agents, making it harder to generate documentation and understand impact at a glance. Lead agents (test-lead, delivery-lead, security-lead) need to judge what is required to ship each change without reading the full diff. Restructured the format from three sections (Motivation, UX Change, Arch Change) to five well-scoped sections that give each lead enough signal to act.
 
-UX Change: None
+Changes: None -- this is an internal change to commit message format templates. The CLI behavior, command interfaces, and user-facing output remain identical.
 
-Arch Change: Extended archive.sh to accept motivation, ux-change, and arch-change parameters. Commit messages now include labeled sections.
+Test Planning: Verified commit.sh produces correctly labeled sections with all five parameters by running the script with sample inputs. Confirmed empty description fields are handled gracefully (Description section omitted when empty). Checked that archive.sh passes all seven positional arguments correctly to commit.sh.
+
+Release Preparation: None -- backward-compatible change to message format. Existing lead agents consume commit messages as free text and will parse the new section labels automatically.
 
 Co-Authored-By: Claude <noreply@anthropic.com>
 ```

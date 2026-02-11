@@ -3,6 +3,7 @@ name: security-lead
 description: Owns the assets worth protecting, threat model, authentication/authorization boundaries, and safeguards for the project.
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
+  - leaders-policy
   - lead-security
   - analyze-policy
   - translate

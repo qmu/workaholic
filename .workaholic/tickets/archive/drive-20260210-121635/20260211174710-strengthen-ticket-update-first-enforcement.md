@@ -3,9 +3,9 @@ created_at: 2026-02-11T17:47:10+08:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 694001b
+category: Changed
 ---
 
 # Strengthen Ticket-Update-First Enforcement in Drive Feedback Flow
@@ -104,3 +104,16 @@ Past tickets that touched similar areas:
 - The verification gate (re-reading the ticket file) adds a concrete checkpoint. Without it, the LLM can acknowledge the rule and still skip the update due to how token generation works -- adding an explicit "re-read to confirm" step forces a tool call between the update and re-implementation. (`plugins/core/skills/drive-approval/SKILL.md` Section 3)
 - This is a targeted fix to two specific files. The drive-workflow skill does not need changes because it handles initial implementation, not the feedback loop. (`plugins/core/skills/drive-workflow/SKILL.md`)
 - The historical pattern shows this rule has been attempted multiple times (at least 3 prior tickets). If this strengthened enforcement still proves insufficient, a more structural approach (such as a shell script gate that checks ticket modification time) may be needed as a follow-up.
+
+## Final Report
+
+### Changes Made
+
+| File | Action |
+| ---- | ------ |
+| `plugins/core/commands/drive.md` | Updated -- moved Rule into feedback path, upgraded to CRITICAL, added verification step |
+| `plugins/core/skills/drive-approval/SKILL.md` | Updated -- upgraded Rule to CRITICAL with explicit warning, added verification gate (step 3), renumbered to 5 steps |
+
+### Deviations
+
+None -- patches applied as specified.

@@ -59,11 +59,13 @@ Follow the preloaded **drive-approval** skill (Section 1) to present approval di
 5. Otherwise: continue to next ticket
 
 **Free-form feedback** (user selects "Other" and provides text):
-1. Follow **drive-approval** skill (Section 3: Handle Feedback)
-2. Re-implement changes based on updated ticket
-3. Return to Step 2.2
 
-> **Rule**: The ticket file must always reflect the full implementation plan. Update it BEFORE coding.
+> **CRITICAL**: Update the ticket file FIRST. Do NOT re-implement until the ticket reflects the user's feedback.
+
+1. Follow **drive-approval** skill (Section 3: Handle Feedback) — this updates the ticket
+2. **Verify** the ticket file was updated (re-read it)
+3. Re-implement changes based on the updated ticket
+4. Return to Step 2.2
 
 **"Abandon"**:
 1. Follow **drive-approval** skill (Section 4)

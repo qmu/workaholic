@@ -2,17 +2,17 @@
 title: Component Viewpoint
 description: Internal structure, module boundaries, and decomposition
 category: developer
-modified_at: 2026-02-09T12:52:02+08:00
-commit_hash: d627919
+modified_at: 2026-02-11T23:20:09+08:00
+commit_hash: f7f779f
 ---
 
 [English](component.md) | [Japanese](component_ja.md)
 
-# 1. Component Viewpoint
+# Component Viewpoint
 
-The Component Viewpoint describes the internal structure of the Workaholic plugin, its module boundaries, and how the system decomposes into commands, agents, skills, and rules. The core plugin contains 4 commands, 29 agents, 27 skills, and 6 rules, organized in a strict hierarchical architecture that enforces separation of concerns through a nesting policy.
+The Component Viewpoint describes the internal structure of the Workaholic plugin, its module boundaries, and how the system decomposes into commands, agents, skills, and rules. The core plugin contains 4 commands, 28 agents (3 managers, 25 specialized agents), 45 skills, and 6 rules, organized in a strict hierarchical architecture that enforces separation of concerns through a nesting policy. The recent addition of a manager tier introduces a strategic layer above the existing leader and worker agents, fundamentally changing the component responsibilities and information flow.
 
-## 2. Module Boundaries
+## Module Boundaries
 
 The architecture enforces strict boundaries through the component nesting policy defined in CLAUDE.md:
 
@@ -24,7 +24,7 @@ The architecture enforces strict boundaries through the component nesting policy
 
 This creates a layered dependency graph where knowledge flows upward (skills are loaded by agents and commands) while control flows downward (commands invoke agents which invoke skills). The policy prevents circular dependencies and ensures that the knowledge layer (skills) remains independent of the orchestration layer (commands and agents).
 
-### 2-1. Shell Script Boundary
+### Shell Script Boundary
 
 Shell scripts are always bundled within skills and never written inline in agent or command markdown files. The Shell Script Principle in CLAUDE.md prohibits complex inline shell commands including:
 
@@ -36,7 +36,7 @@ Shell scripts are always bundled within skills and never written inline in agent
 
 All such operations must be extracted to bundled scripts in `skills/<name>/sh/<script>.sh`. This ensures consistency, testability, and permission-free execution.
 
-### 2-2. Design Principle: Thin Orchestration, Comprehensive Knowledge
+### Design Principle: Thin Orchestration, Comprehensive Knowledge
 
 The architecture follows a strict size and responsibility guideline:
 
@@ -44,11 +44,11 @@ The architecture follows a strict size and responsibility guideline:
 - **Subagents**: Orchestration only (~20-40 lines). Define input/output, preload skills, minimal procedural logic.
 - **Skills**: Comprehensive knowledge (~50-150 lines). Contain templates, guidelines, rules, and bash scripts.
 
-The `/scan` command is an exception at ~90 lines, justified because moving its orchestration logic to a subagent would hide the 17 parallel agent invocations from the user, defeating the transparency benefit.
+The `/scan` command is an exception at ~90 lines, justified because moving its orchestration logic to a subagent would hide the 15 parallel agent invocations from the user, defeating the transparency benefit.
 
-## 3. Component Hierarchy
+## Component Hierarchy
 
-### 3-1. Commands Layer (4)
+### Commands Layer (4)
 
 Commands are the user-facing entry points. Each command is a thin orchestration layer that delegates to agents and skills.
 
@@ -56,10 +56,10 @@ Commands are the user-facing entry points. Each command is a thin orchestration 
 | --- | --- | --- | --- |
 | `/ticket` | `ticket.md` | Explore codebase and write implementation ticket | ticket-organizer |
 | `/drive` | `drive.md` | Implement tickets from todo queue one by one | drive-navigator |
-| `/scan` | `scan.md` | Full documentation scan (all 17 agents) | 8 viewpoint analysts, 7 policy analysts, changelog-writer, terms-writer |
+| `/scan` | `scan.md` | Full documentation scan (3 managers + 12 agents) | 3 managers, 10 leaders, 2 writers |
 | `/report` | `report.md` | Generate story and create/update PR | story-writer |
 
-### 3-2. Command Orchestration Flow
+### Command Orchestration Flow
 
 ```mermaid
 flowchart TD
@@ -76,10 +76,11 @@ flowchart TD
     drive --> DN[drive-navigator]
     drive --> Impl["Implementation Loop"]
 
-    scan --> VA[8 viewpoint analysts]
-    scan --> PA[7 policy analysts]
-    scan --> CW[changelog-writer]
-    scan --> TW[terms-writer]
+    scan --> Managers[3 Managers]
+    Managers --> Leaders[10 Leaders]
+    Leaders --> CW[changelog-writer]
+    Leaders --> TW[terms-writer]
+    Leaders --> MA[model-analyst]
 
     report --> SW[story-writer]
     SW --> OW[overview-writer]
@@ -90,59 +91,62 @@ flowchart TD
     SW --> PC[pr-creator]
 ```
 
-### 3-3. Agents Layer (29)
+### Agents Layer (28)
 
-Agents are grouped by their primary purpose. Each agent is responsible for a focused, single-purpose task.
+Agents are grouped by their tier and primary purpose. The architecture now includes three tiers: managers (strategic), leaders (tactical), and workers (specialized tasks).
 
-#### Ticket Management (3)
+#### Manager Tier (3)
+
+Managers establish strategic context that leaders consume. Each produces structured outputs covering a domain of project concerns.
+
+- `project-manager` -- Produces project context (business, stakeholders, timeline, issues, solutions)
+- `architecture-manager` -- Produces architectural context and four viewpoint specs (application, component, feature, usecase)
+- `quality-manager` -- Produces quality context (standards, assurance, metrics, feedback loops)
+
+#### Leader Tier (10)
+
+Leaders produce domain-specific policy documents by consuming manager outputs and analyzing the codebase through their specialized lenses.
+
+- `ux-lead` -- Produces ux.md (user experience, interaction patterns, user journeys)
+- `infra-lead` -- Produces infrastructure.md (dependencies, deployment, runtime environment)
+- `db-lead` -- Produces data.md (data formats, storage, persistence)
+- `security-lead` -- Produces security.md (requirements, threat model, mitigation)
+- `test-lead` -- Produces test.md (strategy, test types, coverage)
+- `quality-lead` -- Produces quality.md (standards, review processes, gates)
+- `a11y-lead` -- Produces accessibility.md (standards, WCAG, inclusive design)
+- `observability-lead` -- Produces observability.md (logging, monitoring, tracing)
+- `delivery-lead` -- Produces delivery.md (release processes, deployment, rollback)
+- `recovery-lead` -- Produces recovery.md (backup, disaster recovery, business continuity)
+
+#### Worker Tier: Ticket Management (3)
 
 - `ticket-organizer` -- Orchestrates ticket creation with parallel discovery
 - `ticket-discoverer` -- Finds existing tickets to detect duplicates
 - `drive-navigator` -- Prioritizes and orders tickets for implementation
 
-#### Documentation Generation: Viewpoint Analysts (8)
-
-- `stakeholder-analyst` -- Analyzes stakeholder viewpoint (who uses the system)
-- `model-analyst` -- Analyzes model viewpoint (domain concepts)
-- `usecase-analyst` -- Analyzes use case viewpoint (workflows)
-- `infrastructure-analyst` -- Analyzes infrastructure viewpoint (dependencies)
-- `application-analyst` -- Analyzes application viewpoint (runtime behavior)
-- `component-analyst` -- Analyzes component viewpoint (module boundaries)
-- `data-analyst` -- Analyzes data viewpoint (data formats)
-- `feature-analyst` -- Analyzes feature viewpoint (capability matrix)
-
-#### Documentation Generation: Policy Analysts (7)
-
-- `test-policy-analyst` -- Analyzes test policy
-- `security-policy-analyst` -- Analyzes security policy
-- `quality-policy-analyst` -- Analyzes quality policy
-- `accessibility-policy-analyst` -- Analyzes accessibility policy
-- `observability-policy-analyst` -- Analyzes observability policy
-- `delivery-policy-analyst` -- Analyzes delivery policy
-- `recovery-policy-analyst` -- Analyzes recovery policy
-
-#### Documentation Generation: Other Writers (2)
-
-- `changelog-writer` -- Updates CHANGELOG.md from archived tickets
-- `terms-writer` -- Updates term definitions
-
-#### Report Generation (6)
+#### Worker Tier: Report Generation (6)
 
 - `story-writer` -- Orchestrates story generation and PR creation
-- `overview-writer` -- Prepares story overview, highlights, motivation, and journey sections
-- `performance-analyst` -- Evaluates decision-making quality (tickets vs actual implementation)
-- `section-reviewer` -- Reviews and generates story sections 5-8 (Outcome, Historical Analysis, Concerns, Ideas)
+- `overview-writer` -- Prepares story overview, highlights, motivation, journey
+- `performance-analyst` -- Evaluates decision-making quality (tickets vs implementation)
+- `section-reviewer` -- Reviews and generates story sections 5-8
 - `pr-creator` -- Creates or updates GitHub pull request using `gh` CLI
 - `release-note-writer` -- Generates concise release notes from story file
 - `release-readiness` -- Assesses release preparedness
 
-#### Discovery (3)
+#### Worker Tier: Discovery (3)
 
 - `source-discoverer` -- Explores codebase structure to find relevant files for tickets
 - `history-discoverer` -- Finds related historical tickets for context
 - `ticket-discoverer` -- Analyzes for duplicate/merge/split decisions
 
-### 3-4. Agent Nesting Pattern
+#### Worker Tier: Documentation Writers (3)
+
+- `changelog-writer` -- Updates CHANGELOG.md from archived tickets
+- `terms-writer` -- Updates term definitions
+- `model-analyst` -- Analyzes model viewpoint (domain concepts and relationships)
+
+### Agent Nesting Pattern
 
 ```mermaid
 flowchart TD
@@ -153,22 +157,32 @@ flowchart TD
         report["/report"]
     end
 
-    subgraph "Orchestrator Agents"
-        TO[ticket-organizer]
-        DN[drive-navigator]
-        SW[story-writer]
+    subgraph "Manager Agents (Strategic)"
+        PM[project-manager]
+        AM[architecture-manager]
+        QM[quality-manager]
+    end
+
+    subgraph "Leader Agents (Tactical)"
+        UXL[ux-lead]
+        IL[infra-lead]
+        DL[db-lead]
+        SL[security-lead]
+        TL[test-lead]
+        QL[quality-lead]
+        AL[a11y-lead]
+        OL[observability-lead]
+        DEL[delivery-lead]
+        RL[recovery-lead]
     end
 
     subgraph "Worker Agents"
+        TO[ticket-organizer]
         TD[ticket-discoverer]
         SD[source-discoverer]
         HD[history-discoverer]
-        VA[Viewpoint Analysts]
-        PA[Policy Analysts]
-        OW[overview-writer]
-        SR[section-reviewer]
-        RR[release-readiness]
-        PERF[performance-analyst]
+        SW[story-writer]
+        Writers[Other Writers]
     end
 
     ticket --> TO
@@ -176,21 +190,47 @@ flowchart TD
     TO -.parallel.-> SD
     TO -.parallel.-> HD
 
-    drive --> DN
+    drive --> drive-navigator
 
-    scan -.parallel.-> VA
-    scan -.parallel.-> PA
+    scan -.phase 3a.-> PM
+    scan -.phase 3a.-> AM
+    scan -.phase 3a.-> QM
+    scan -.phase 3b.-> UXL
+    scan -.phase 3b.-> IL
+    scan -.phase 3b.-> Writers
 
     report --> SW
-    SW -.parallel.-> OW
-    SW -.parallel.-> SR
-    SW -.parallel.-> RR
-    SW -.parallel.-> PERF
+    SW -.parallel.-> overview-writer
+    SW -.parallel.-> section-reviewer
 ```
 
-### 3-5. Skills Layer (27)
+### Skills Layer (45)
 
 Skills are the knowledge layer, organized by domain. Each skill directory contains a `SKILL.md` file and optionally an `sh/` directory with bundled shell scripts.
+
+#### Manager Skills (3)
+
+- `manage-project` -- Project manager knowledge (business, stakeholders, timeline)
+- `manage-architecture` -- Architecture manager knowledge (system structure, layers, components)
+- `manage-quality` -- Quality manager knowledge (standards, assurance, metrics)
+
+#### Leader Skills (10)
+
+- `lead-ux` -- UX lead knowledge (user experience, interaction patterns)
+- `lead-infra` -- Infrastructure lead knowledge (dependencies, deployment)
+- `lead-db` -- Database lead knowledge (data formats, storage)
+- `lead-security` -- Security lead knowledge (threat model, mitigation)
+- `lead-test` -- Test lead knowledge (strategy, test types)
+- `lead-quality` -- Quality lead knowledge (standards, review processes)
+- `lead-a11y` -- Accessibility lead knowledge (WCAG, inclusive design)
+- `lead-observability` -- Observability lead knowledge (logging, monitoring)
+- `lead-delivery` -- Delivery lead knowledge (release processes, deployment)
+- `lead-recovery` -- Recovery lead knowledge (backup, disaster recovery)
+
+#### Policy Skills (2)
+
+- `managers-policy` -- Cross-cutting policy for all managers (Prior Term Consistency, Strategic Focus, Constraint Setting)
+- `leaders-policy` -- Cross-cutting policy for all leaders (Prior Term Consistency, Vendor Neutrality)
 
 #### Analysis Skills (3)
 
@@ -209,20 +249,21 @@ Skills are the knowledge layer, organized by domain. Each skill directory contai
 
 #### Git Operations (4)
 
-- `commit` -- Guidelines for git commit operations
+- `commit` -- Guidelines for git commit operations with expanded sections
 - `create-pr` -- Creates or updates GitHub pull requests using `gh` CLI
-- `gather-git-context` -- Gathers branch, base_branch, repo_url, archived_tickets, git_log in one call
+- `gather-git-context` -- Gathers branch, base_branch, repo_url, archived_tickets, git_log
 - `manage-branch` -- Checks current branch and creates topic branches when needed
 
-#### Documentation Writing (7)
+#### Documentation Writing (8)
 
 - `write-changelog` -- Generates CHANGELOG.md from archived tickets
 - `write-final-report` -- Appends Final Report section to tickets after implementation
-- `write-overview` -- Generates story overview, highlights, motivation, and journey sections
+- `write-overview` -- Generates story overview, highlights, motivation, journey
 - `write-release-note` -- Generates concise release notes from story files
 - `write-spec` -- Guidelines for writing and updating specification documents
-- `write-story` -- Guidelines for writing branch story documents
+- `write-story` -- Guidelines for writing branch story documents with summarization workflow
 - `write-terms` -- Generates term definitions from codebase
+- `translate` -- Guidelines for translating markdown files to other languages
 
 #### Workflow Skills (3)
 
@@ -230,20 +271,37 @@ Skills are the knowledge layer, organized by domain. Each skill directory contai
 - `drive-workflow` -- Step-by-step workflow for implementing a single ticket
 - `gather-ticket-metadata` -- Extracts date and author from ticket filenames
 
-#### Quality Skills (2)
+#### Quality Skills (3)
 
+- `assess-release-readiness` -- Evaluates branch readiness for release
 - `review-sections` -- Reviews story sections 5-8 for quality
 - `validate-writer-output` -- Validates that documentation agents produced expected files
 
-#### Other Skills (2)
+#### Other Skills (3)
 
-- `translate` -- Guidelines for translating markdown files to other languages
 - `select-scan-agents` -- Selects which documentation agents to invoke (full vs partial mode)
 
-### 3-6. Skill Dependency Graph
+### Skill Dependency Graph
 
 ```mermaid
 flowchart LR
+    subgraph "Manager Skills"
+        MP[manage-project]
+        MA[manage-architecture]
+        MQ[manage-quality]
+    end
+
+    subgraph "Policy Skills"
+        MgrP[managers-policy]
+        LeadP[leaders-policy]
+    end
+
+    subgraph "Leader Skills"
+        LUX[lead-ux]
+        LInfra[lead-infra]
+        LOther[... 8 more]
+    end
+
     subgraph "High-Level Skills"
         DW[drive-workflow]
         DA[drive-approval]
@@ -257,64 +315,90 @@ flowchart LR
         T[translate]
     end
 
-    subgraph "Domain Skills"
-        AV[analyze-viewpoint]
-        AP[analyze-policy]
-        WT[write-terms]
-        WC[write-changelog]
-    end
+    MP --> MgrP
+    MA --> MgrP
+    MQ --> MgrP
+
+    LUX --> LeadP
+    LUX --> MP
+    LInfra --> LeadP
+    LInfra --> MA
 
     WS --> GGC
     WS --> T
     WStory --> GGC
-    AV --> WS
-    AP --> WS
+    MA --> analyze-viewpoint
+    analyze-viewpoint --> WS
 ```
 
-### 3-7. Rules Layer (6)
+### Rules Layer (6)
 
 Rules are global constraints that apply to specific file patterns.
 
 | Rule | Path Pattern | Purpose |
 | --- | --- | --- |
 | `general.md` | `**/*` | Commit policy, git rules, heading numbering |
+| `define-lead.md` | `plugins/core/skills/lead-*/SKILL.md`, `plugins/core/agents/*-lead.md` | Lead agent schema enforcement |
+| `define-manager.md` | Manager skills and agents | Manager agent schema enforcement |
 | `diagrams.md` | Path-specific | Mermaid diagram requirements |
 | `i18n.md` | Path-specific | Internationalization policy |
 | `shell.md` | `**/*.sh` | Shell scripting standards (POSIX sh, strict mode) |
-| `typescript.md` | Path-specific | TypeScript conventions |
-| `workaholic.md` | Path-specific | `.workaholic/` directory conventions |
 
-### 3-8. Hooks Layer (1)
+### Hooks Layer (1)
 
 A single PostToolUse hook validates ticket frontmatter on every Write or Edit operation, running `validate-ticket.sh` with a 10-second timeout.
 
-## 4. Responsibility Distribution
+## Responsibility Distribution
 
-### 4-1. Command Responsibilities
+### Command Responsibilities
 
 Commands are responsible for:
 
 - Parsing user input and routing to appropriate agents
 - Handling user interaction via `AskUserQuestion`
-- Orchestrating multi-agent workflows
+- Orchestrating multi-agent workflows with phase sequencing
 - Staging and committing changes
 - Presenting final results to the user
 
 Commands delegate all knowledge operations to skills and all focused work to agents.
 
-### 4-2. Agent Responsibilities
+### Manager Responsibilities
 
-Agents are responsible for:
+Managers are responsible for:
 
-- Executing a single focused task (e.g., "write stakeholder spec")
+- Establishing strategic context that leaders consume
+- Producing structured outputs covering project, architecture, or quality domains
+- Following constraint-setting workflow (Analyze, Ask, Propose, Produce)
+- Writing directional materials (policies, guidelines, roadmaps, decision records)
+- Observing managers-policy (Prior Term Consistency, Strategic Focus, Constraint Setting)
+
+Managers delegate all shell script operations to skills and preload managers-policy for cross-cutting behavioral policies.
+
+### Leader Responsibilities
+
+Leaders are responsible for:
+
+- Reading manager outputs as strategic input before analysis
+- Producing domain-specific policy documents
+- Analyzing codebase through specialized lenses (security, quality, delivery, etc.)
+- Observing leaders-policy (Prior Term Consistency, Vendor Neutrality)
+- Documenting observable practices rather than aspirational recommendations
+
+Leaders delegate all shell script operations to skills and preload leaders-policy for cross-cutting behavioral policies.
+
+### Worker Agent Responsibilities
+
+Worker agents are responsible for:
+
+- Executing single focused tasks (e.g., "discover relevant source files")
 - Invoking other agents in parallel when needed
 - Preloading skills that contain domain knowledge
 - Returning structured JSON output to parent commands/agents
 - Avoiding user interaction (with exceptions for navigators and organizers)
 
-Agents delegate all shell script operations to skills and all knowledge templates to skills.
+Workers delegate all shell script operations to skills and all knowledge templates to skills.
 
-### 4-3. Skill Responsibilities
+### Skill Responsibilities
 
 Skills are responsible for:
 
@@ -326,7 +410,7 @@ Skills are responsible for:
 
 Skills never invoke agents or commands. They may reference other skills for composition.
 
-### 4-4. Rule Responsibilities
+### Rule Responsibilities
 
 Rules are responsible for:
 
@@ -334,18 +418,21 @@ Rules are responsible for:
 - Defining coding standards and conventions
 - Establishing architectural policies
 - Applying automatically based on file path patterns
+- Defining schemas for managers and leaders
 
-## 5. Dependency Directions
+## Dependency Directions
 
-### 5-1. Layered Architecture
+### Layered Architecture
 
-The system follows a strict layered architecture:
+The system follows a strict layered architecture with four tiers:
 
 ```
 ┌─────────────────────────────────────┐
 │          Commands Layer             │  User-facing entry points
 ├─────────────────────────────────────┤
-│           Agents Layer              │  Task execution
+│        Manager Agents Layer         │  Strategic context
+├─────────────────────────────────────┤
+│      Leader/Worker Agents Layer     │  Tactical execution
 ├─────────────────────────────────────┤
 │           Skills Layer              │  Knowledge and operations
 ├─────────────────────────────────────┤
@@ -354,16 +441,44 @@ The system follows a strict layered architecture:
 ```
 
 Dependencies flow downward only:
-- Commands depend on Agents and Skills
-- Agents depend on other Agents and Skills
+- Commands depend on all Agent tiers and Skills
+- Manager Agents depend on Skills and managers-policy
+- Leader Agents depend on Manager outputs, Skills, and leaders-policy
+- Worker Agents depend on Skills only
 - Skills depend on other Skills only
 - Rules have no dependencies (applied by platform)
 
-### 5-2. Parallel Invocation Pattern
+### Information Flow: Managers to Leaders
+
+The manager tier introduces a horizontal information flow where manager outputs serve as input to leaders:
+
+```
+project-manager → [specs/policies] → delivery-lead, ux-lead
+architecture-manager → [specs] → infra-lead, db-lead, security-lead, observability-lead, recovery-lead
+quality-manager → [policies] → quality-lead, test-lead, a11y-lead
+```
+
+This flow is file-based: managers write markdown documents to `.workaholic/`, leaders read those documents before performing domain-specific analysis. The file-based pattern ensures all intermediate context is inspectable and version-controlled.
+
+### Parallel Invocation Pattern
 
 The architecture uses parallel agent invocation extensively to improve performance:
 
-**ticket-organizer pattern (3 parallel agents):**
+**scan command two-phase pattern:**
+```
+Phase 3a (managers):
+  /scan
+  ├─ (parallel) → project-manager
+  ├─ (parallel) → architecture-manager
+  └─ (parallel) → quality-manager
+
+Phase 3b (leaders/writers):
+  /scan
+  ├─ (parallel) → 10 leader agents
+  └─ (parallel) → 2 writer agents
+```
+
+**ticket-organizer pattern (3 parallel workers):**
 ```
 ticket-organizer
 ├─ (parallel) → ticket-discoverer
@@ -371,33 +486,23 @@ ticket-organizer
 └─ (parallel) → history-discoverer
 ```
 
-**scan command pattern (17 parallel agents):**
-```
-/scan
-├─ (parallel) → 8 viewpoint analysts
-├─ (parallel) → 7 policy analysts
-├─ (parallel) → changelog-writer
-└─ (parallel) → terms-writer
-```
-
-**story-writer pattern (4 + 2 parallel agents):**
+**story-writer pattern (4 + 2 parallel workers):**
 ```
 story-writer
 ├─ Phase 1 (4 parallel) → overview-writer, section-reviewer, release-readiness, performance-analyst
-└─ Phase 4 (2 parallel) → release-note-writer, pr-creator
+└─ Phase 2 (2 parallel) → release-note-writer, pr-creator
 ```
 
 This pattern minimizes latency by executing independent tasks concurrently. All parallel invocations use the Task tool with `run_in_background: false` (the default) to ensure agents have Write/Edit permissions.
 
-### 5-3. Skill Preloading Pattern
+### Skill Preloading Pattern
 
 Agents and commands declare skill dependencies in their frontmatter:
 
 ```yaml
 skills:
-  - gather-git-context
-  - write-spec
-  - translate
+  - managers-policy
+  - manage-project
 ```
 
 The platform preloads these skills, making their content available to the agent without explicit reads. Bundled shell scripts within skills are always invoked via absolute paths:
@@ -408,9 +513,36 @@ bash .claude/skills/gather-git-context/sh/gather.sh
 
 This pattern ensures skills remain self-contained and portable.
 
-## 6. Design Patterns
+## Design Patterns
 
-### 6-1. Command-Agent-Skill Delegation
+### Pattern 1: Manager-Leader Delegation
+
+The manager tier establishes a strategic-tactical delegation pattern:
+
+1. **Manager** analyzes codebase to produce strategic context
+2. **Manager** writes structured outputs to `.workaholic/`
+3. **Leader** reads manager outputs as input
+4. **Leader** performs domain-specific analysis using strategic context
+5. **Leader** produces policy document
+
+**Example: security-lead depends on architecture-manager**
+
+```
+architecture-manager
+  ↓
+manage-architecture skill
+  ↓
+Analyze system boundaries, cross-cutting concerns
+  ↓
+Write architecture specs to .workaholic/specs/
+  ↓
+security-lead
+  ├─ Read .workaholic/specs/ for system boundaries
+  ├─ Analyze threat model using architectural context
+  └─ Write .workaholic/policies/security.md
+```
+
+### Pattern 2: Command-Agent-Skill Delegation
 
 Every command follows the delegation pattern:
 
@@ -439,7 +571,7 @@ ticket-organizer.md (agent)
   └─ Return JSON (status, branch_created, tickets)
 ```
 
-### 6-2. Parallel Discovery Pattern
+### Pattern 3: Parallel Discovery
 
 The ticket-organizer agent uses parallel discovery to minimize latency:
 
@@ -458,25 +590,34 @@ Use all 3 JSON results to write ticket
 
 This pattern reduces discovery time from 3 sequential calls to 1 parallel batch.
 
-### 6-3. Viewpoint Analysis Pattern
+### Pattern 4: Two-Phase Scan Execution
 
-All 8 viewpoint analysts follow the same pattern:
+The scan command uses a two-phase execution pattern to support the manager tier:
 
 ```
-<viewpoint>-analyst.md
+/scan
   ↓
-1. Preload skills: analyze-viewpoint, write-spec, translate
-2. Gather context: bash .claude/skills/analyze-viewpoint/sh/gather.sh <viewpoint> main
-3. Check overrides: bash .claude/skills/analyze-viewpoint/sh/read-overrides.sh
-4. Analyze codebase (read source files, apply analysis prompts)
-5. Write English spec: .workaholic/specs/<viewpoint>.md
-6. Write Japanese translation: .workaholic/specs/<viewpoint>_ja.md
-7. Return JSON: {"viewpoint": "<slug>", "status": "success", "files": ["<viewpoint>.md", "<viewpoint>_ja.md"]}
+Phase 3a: Invoke managers in parallel
+  ├─ project-manager
+  ├─ architecture-manager
+  └─ quality-manager
+  ↓
+Wait for all managers to complete
+  ↓
+Manager outputs written to .workaholic/
+  ↓
+Phase 3b: Invoke leaders/writers in parallel
+  ├─ 10 leader agents (read manager outputs)
+  └─ 2 writer agents
+  ↓
+Wait for all leaders/writers to complete
+  ↓
+Validate outputs, update indices, commit
 ```
 
-This pattern ensures consistency across all viewpoint documentation.
+This pattern ensures leaders have consistent strategic context without duplicating analysis.
 
-### 6-4. Approval Loop Pattern
+### Pattern 5: Approval Loop
 
 The drive command uses an approval loop with skill-defined guidelines:
 
@@ -492,7 +633,7 @@ For each ticket:
 
 The `drive-approval` skill defines the approval dialog structure, while the command handles the actual `AskUserQuestion` invocation.
 
-### 6-5. Bundled Script Pattern
+### Pattern 6: Bundled Script
 
 All shell scripts are bundled within skills, never inline in commands or agents:
 
@@ -515,7 +656,7 @@ This pattern ensures:
 - Scripts are reusable across agents
 - Complex logic stays out of markdown files
 
-### 6-6. JSON Communication Pattern
+### Pattern 7: JSON Communication
 
 Agents return structured JSON to their callers:
 
@@ -553,48 +694,62 @@ This pattern enables:
 - Programmatic response parsing
 - Clear agent contracts
 
-## 7. Recent Architectural Changes
+## Architectural Evolution
 
-### 7-1. Scanner Agent Removal
+### Addition of Manager Tier
 
-The scanner subagent was removed in commit `30c1ef8` and its orchestration logic was migrated directly into the `/scan` command. This change improves transparency by making all 17 parallel agent invocations visible to the user in the main session.
+The introduction of the manager tier adds a strategic layer above the existing agent structure. This fundamentally changes responsibility distribution:
 
 **Before:**
-```
-/scan → scanner agent (hides 17 parallel agents) → 17 agents
-```
+- 17 analysts independently analyze the codebase
+- Each analyst infers project priorities, architectural structure, and quality expectations independently
+- Duplication of strategic analysis across 17 agents
 
 **After:**
-```
-/scan → 17 agents (all visible in main session)
-```
+- 3 managers establish strategic context (project, architecture, quality)
+- 10 leaders consume manager outputs and perform domain-specific analysis
+- Elimination of strategic context duplication
 
-The `/scan` command now contains ~90 lines of orchestration logic (exceeding the typical 50-100 line guideline), but this is justified because delegating to a subagent would hide the progress visibility benefit.
+The architecture-manager absorbed the responsibilities of the removed architecture-lead agent, consolidating viewpoint spec production at the managerial level. This reflects the insight that "what is the system structure?" is a strategic concern, while "how should we implement within this structure?" is a tactical concern.
 
-### 7-2. Story Command Removal
+### Rename of Communication Lead to UX Lead
 
-The `/story` command was removed as part of the scanner migration. Its functionality (partial documentation scan + story generation) was split:
+The communication-lead agent and lead-communication skill were renamed to ux-lead and lead-ux to better reflect their responsibility: user experience analysis including interaction patterns, user journeys, and onboarding paths. The viewpoint slug changed from "stakeholder" to "ux".
 
-- Partial documentation scans are now handled by selective re-runs of `/scan`
-- Story generation remains in `/report` command
+This rename eliminates terminological confusion and aligns naming with actual responsibility. The ux-lead now explicitly consumes project-manager outputs for stakeholder context, separating business analysis (manager concern) from UX analysis (leader concern).
 
-This simplifies the command surface and aligns with the workflow: `/drive` → `/scan` → `/report`.
+### Skill Consolidation
 
-### 7-3. run_in_background Constraint
+The format-commit-message skill was merged into the commit skill, eliminating a separate formatting concern and consolidating all commit-related knowledge in one place. The commit skill now includes expanded sections covering motivation, UX changes, and architecture changes following the format-commit-message guidelines.
 
-The `/scan` command explicitly documents that all Task calls must use `run_in_background: false` (the default). Background agents cannot receive permission prompts, causing all file writes to be auto-denied. The architecture relies on normal parallel Task calls (multiple calls in a single message) which already run concurrently without the background flag.
+### Component Count Evolution
 
-## 8. Assumptions
+The component counts have evolved as follows:
 
-- [Explicit] The component counts (4 commands, 29 agents, 27 skills, 6 rules) are derived from the filesystem listing in the context output.
+- Commands: 4 (unchanged)
+- Agents: 17 → 28 (added 3 managers, added 3 specialized workers, removed 1 architecture-lead, renamed 1 communication-lead)
+- Skills: 27 → 45 (added 3 manager skills, added 10 leader skills, added 2 policy skills, merged format-commit-message into commit, added constraint-setting support)
+- Rules: 6 → 6 (added define-manager rule)
+
+The agent count increase reflects the shift from flat analysis to hierarchical strategic/tactical organization. The skill count increase reflects the need for domain knowledge at both manager and leader tiers.
+
+## Assumptions
+
+- [Explicit] The component counts (4 commands, 28 agents, 45 skills, 6 rules) are derived from the filesystem listing in the context output and recent ticket changes.
 - [Explicit] The nesting policy table is defined in `CLAUDE.md` under "Architecture Policy > Component Nesting Rules".
 - [Explicit] Shell scripts must be bundled in skills, never inline, as stated in `CLAUDE.md`'s "Shell Script Principle".
-- [Explicit] The scanner agent was removed in recent commits as documented in archived ticket `20260208131751-migrate-scanner-into-scan-command.md`.
-- [Explicit] The `/story` command was removed as documented in the Final Report of the same archived ticket.
+- [Explicit] The architecture-lead agent was removed and its responsibilities absorbed by architecture-manager, as documented in ticket 20260211170402.
+- [Explicit] The communication-lead was renamed to ux-lead, as documented in ticket 20260211170402.
 - [Explicit] The design principle ("Thin commands and subagents, comprehensive skills") is defined in `CLAUDE.md` under "Architecture Policy > Design Principle".
 - [Explicit] The `/scan` command's ~90 line size is justified in the command file itself: "This is justified because the orchestration logic cannot be delegated to a subagent without losing the user-visible progress benefit."
-- [Explicit] The parallel invocation patterns are documented in agent files: ticket-organizer preloads are defined in its frontmatter, scan command lists all 17 agents in a table, story-writer documents two phases of parallel invocation.
-- [Inferred] The large number of specialized agents (29) compared to commands (4) reflects a design philosophy prioritizing separation of concerns and focused single-purpose components over minimizing agent count.
+- [Explicit] Manager agents follow the define-manager schema defined in `.claude/rules/define-manager.md`.
+- [Explicit] Leader agents follow the define-lead schema defined in `.claude/rules/define-lead.md`.
+- [Explicit] The manager tier introduces three agents (project-manager, architecture-manager, quality-manager) and three skills (manage-project, manage-architecture, manage-quality).
+- [Explicit] The managers-policy skill defines cross-cutting policies for all managers: Prior Term Consistency, Strategic Focus, and Constraint Setting.
+- [Explicit] The leaders-policy skill defines cross-cutting policies for all leaders: Prior Term Consistency and Vendor Neutrality.
+- [Inferred] The large number of specialized agents (28) compared to commands (4) reflects a design philosophy prioritizing separation of concerns and focused single-purpose components over minimizing agent count.
 - [Inferred] The single-plugin architecture (only `core`) suggests the marketplace infrastructure is designed for future multi-plugin expansion that has not yet occurred.
-- [Inferred] The heavy use of parallel invocation (3 agents in ticket-organizer, 17 in scan, 4+2 in story-writer) indicates performance optimization is a key architectural concern, particularly for operations that would otherwise be sequential and slow.
+- [Inferred] The heavy use of parallel invocation (3 agents in ticket-organizer, 3+12 in scan two-phase, 4+2 in story-writer) indicates performance optimization is a key architectural concern, particularly for operations that would otherwise be sequential and slow.
 - [Inferred] The strict prohibition on inline shell commands (documented in CLAUDE.md and shell.md rule) suggests past problems with inconsistent behavior, permission issues, or testing difficulties that led to this architectural constraint.
+- [Inferred] The manager tier was introduced to eliminate strategic context duplication and establish a single source of truth for project priorities, architectural structure, and quality standards.
+- [Inferred] The architecture-manager's absorption of viewpoint spec production consolidates "what is the system structure?" at the managerial level, leaving leaders to address "how should we work within this structure?"

@@ -2,8 +2,8 @@
 title: Infrastructure Viewpoint
 description: External dependencies, file system layout, installation, and environment requirements
 category: developer
-modified_at: 2026-02-09T12:52:40+08:00
-commit_hash: d627919
+modified_at: 2026-02-11T23:19:58+08:00
+commit_hash: f7f779f
 ---
 
 [English](infrastructure.md) | [Japanese](infrastructure_ja.md)
@@ -42,16 +42,19 @@ GitHub Actions provides the CI/CD infrastructure with two workflows:
 
 2. **release.yml** runs on push to main branch and workflow dispatch events. It compares the version in `marketplace.json` against the latest GitHub release, extracts release notes from `.workaholic/release-notes/`, and creates a new GitHub release with version tag if needed.
 
-### File System Layout
+## File System Layout
 
 The repository follows a dual-directory structure that separates plugin source code from working artifacts.
 
-#### Root Directory Structure
+### Root Directory Structure
 
 ```
 /
 ├── .claude/                 # Claude Code configuration (symlink target)
 │   ├── commands/            # Symlinked from plugins/core/commands/
+│   ├── rules/               # Repository-scoped enforcement rules
+│   │   ├── define-lead.md   # Lead agent schema enforcement
+│   │   └── define-manager.md # Manager agent schema enforcement
 │   ├── settings.json        # Claude Code permissions (denies git -C)
 │   └── settings.local.json  # Local environment overrides
 ├── .claude-plugin/          # Marketplace configuration
@@ -104,6 +107,31 @@ The file system layout separates concerns into three categories:
 
 **Source directories** (`plugins/core/`) contain the plugin implementation including commands, subagents, skills, rules, and hooks. These are the authoritative source for plugin behavior.
 
+### Schema Enforcement Rules
+
+The `.claude/rules/` directory contains path-scoped schema enforcement rules that validate agent and skill structure. These rules are loaded by Claude Code and apply automatically to matching file paths.
+
+#### Lead Agent Schema
+
+The `define-lead.md` rule enforces the structure of lead agent skills and agent files:
+
+- **Skill path scope**: `plugins/core/skills/lead-*/SKILL.md`
+- **Agent path scope**: `plugins/core/agents/*-lead.md`
+- **Required sections**: Role, Responsibility, Default Policies (Implementation, Review, Documentation, Execution)
+
+Examples following this schema include `lead-infra`, `lead-security`, `lead-quality`, `lead-test`, `lead-a11y`, `lead-db`, `lead-delivery`, `lead-recovery`, `lead-observability`, `lead-ux`.
+
+#### Manager Agent Schema
+
+The `define-manager.md` rule enforces the structure of manager agent skills and agent files:
+
+- **Skill path scope**: Explicit paths for `manage-project`, `manage-architecture`, `manage-quality` (avoids matching utility skills like `manage-branch`)
+- **Agent path scope**: `plugins/core/agents/*-manager.md`
+- **Required sections**: Role, Responsibility, Goal, Outputs, Default Policies (Implementation, Review, Documentation, Execution)
+- **Key difference**: The `Outputs` section defines structured artifacts that managers produce for leaders to consume
+
+Current managers include `project-manager`, `architecture-manager`, and `quality-manager`. These sit above leads in the agent hierarchy and provide strategic context.
+
 ### Skill Directory Structure Pattern
 
 Skills follow a standardized layout that bundles documentation with executable shell scripts:
@@ -118,11 +146,17 @@ skills/<skill-name>/
 
 Each skill's `SKILL.md` includes frontmatter specifying the skill name, description, allowed tools, and user-invocability. The bundled shell scripts in `sh/` directories provide permission-free execution of complex multi-step operations that would violate the shell script principle if written inline in command or subagent markdown files.
 
-Examples of this pattern:
+#### Skill Categories by Purpose
 
-- `gather-git-context/sh/gather.sh` outputs JSON with branch, base_branch, repo_url, archived_tickets, and git_log
-- `archive-ticket/sh/archive.sh` orchestrates ticket movement, commit creation, and frontmatter updates
-- `select-scan-agents/sh/select.sh` determines which documentation agents to invoke based on mode and git diff
+Skills serve four distinct purposes in the architecture:
+
+**Lead and manager domain skills** define role-specific responsibilities and policies. These skills are preloaded by agents and never invoked by users directly. Examples include `lead-infra` (infrastructure concerns), `manage-architecture` (system structure), and `manage-quality` (quality standards).
+
+**Cross-cutting policy skills** define behavioral policies that apply across multiple agents. The `leaders-policy` skill provides Prior Term Consistency and Vendor Neutrality rules for all lead agents. The `managers-policy` skill adds Strategic Focus rules for manager agents.
+
+**Workflow operation skills** orchestrate multi-step processes with bundled shell scripts. Examples include `gather-git-context` (outputs JSON with branch, base_branch, repo_url), `archive-ticket` (moves tickets, creates commits, updates frontmatter), and `select-scan-agents` (determines which agents to invoke based on diff analysis).
+
+**Documentation generation skills** provide templates and guidelines for writing structured documents. Examples include `write-spec` (viewpoint-based architecture specs), `analyze-viewpoint` (generic viewpoint analysis framework), and `translate` (i18n policies for markdown files).
 
 ### Symlink Architecture
 
@@ -172,7 +206,7 @@ When enabled, Claude Code:
 
 The plugin installs a PostToolUse hook that validates ticket file format and location after Write or Edit operations. The hook configuration in `plugins/core/hooks/hooks.json` specifies a matcher for Write and Edit tools and executes the `validate-ticket.sh` script with a 10-second timeout.
 
-This hook enforces ticket naming conventions (YYYYMMDDHHmmss-*.md pattern) and location constraints (must be in `todo/`, `icebox/`, or `archive/<branch>/` directories).
+This hook enforces ticket naming conventions (YYYYMMDDHHmmss-*.md pattern) and location constraints (must be in `todo/`, `icebox/`, or `archive/<branch>/` directories). The validation script checks frontmatter fields including `created_at` (ISO 8601 format), `author` (email format, rejecting anthropic.com domains), `type` (enhancement/bugfix/refactoring/housekeeping), `layer` (UX/Domain/Infrastructure/DB/Config), `effort` (0.1h/0.25h/0.5h/1h/2h/4h), `commit_hash` (7-40 hex characters), and `category` (Added/Changed/Removed).
 
 ### Configuration Files
 
@@ -189,7 +223,7 @@ The installation validates that versions are synchronized across:
 - `.claude-plugin/marketplace.json` root `version` field
 - `plugins/core/.claude-plugin/plugin.json` plugin `version` field
 
-Both files must specify the same version number (currently `1.0.33`). Version bumps update both files simultaneously to maintain consistency.
+Both files must specify the same version number (currently `1.0.34`). Version bumps update both files simultaneously to maintain consistency.
 
 ## Environment Requirements
 
@@ -206,13 +240,13 @@ The system has been tested on macOS (Darwin 24.6.0) but should work on Linux dis
 Scripts depend on standard Unix utilities being available in the PATH:
 
 - `git` for version control operations
-- `jq` for JSON parsing in validation workflows
-- `sed`, `grep`, `cut`, `tr` for text processing
+- `jq` for JSON parsing in validation workflows and hook scripts
+- `sed`, `grep`, `cut`, `tr`, `awk` for text processing
 - `date` for timestamp generation
 - `mkdir`, `mv`, `ls` for file system operations
 - `cat`, `echo` for output generation
 
-The shell scripts assume these utilities follow standard behavior and exit codes.
+The shell scripts assume these utilities follow standard behavior and exit codes. The `gather-git-context` script uses POSIX-compliant sed syntax for URL transformation and JSON escaping. The `validate-ticket.sh` hook uses bash-specific features like `[[ ]]` conditionals and regex matching.
 
 ### Git Repository Requirements
 
@@ -223,7 +257,7 @@ The system must operate within a Git repository with:
 - Write access to create branches, commit changes, and push to remote
 - The repository must not be in a detached HEAD state during ticket operations
 
-The archive-ticket skill validates that a named branch exists before archiving tickets, preventing data loss from detached HEAD scenarios.
+The archive-ticket skill validates that a named branch exists before archiving tickets, preventing data loss from detached HEAD scenarios. The gather-git-context script extracts the base branch from `git remote show origin` and transforms SSH URLs to HTTPS format for display purposes.
 
 ### File System Permissions
 
@@ -234,7 +268,7 @@ The system requires read/write access to:
 - `CLAUDE.md`, `README.md`, and `plugins/core/README.md` for documentation updates
 - `.claude-plugin/marketplace.json` and `plugins/core/.claude-plugin/plugin.json` for version management
 
-The PostToolUse hook requires execute permission on `plugins/core/hooks/validate-ticket.sh` to validate ticket writes.
+The PostToolUse hook requires execute permission on `plugins/core/hooks/validate-ticket.sh` to validate ticket writes. All bundled shell scripts in `plugins/core/skills/*/sh/` directories require execute permissions.
 
 ### GitHub Authentication
 
@@ -259,17 +293,31 @@ Shell scripts use standard environment variables:
 
 No custom environment variables are required for basic operation.
 
+### Agent Orchestration
+
+The system now employs a two-tier agent hierarchy with managers providing strategic context to leads:
+
+**Manager tier** agents (`project-manager`, `architecture-manager`, `quality-manager`) execute first during `/scan` operations. They analyze the codebase and produce structured outputs defining business context, system architecture, and quality standards.
+
+**Lead tier** agents (11 domain-specific leads including `infra-lead`, `security-lead`, `quality-lead`, etc.) consume manager outputs to produce domain-specific documentation. They preload both their domain skill (`lead-<specialty>`) and the cross-cutting `leaders-policy` skill.
+
+This orchestration pattern ensures leads receive consistent strategic context rather than deriving it independently. The `/scan` command coordinates the execution order, invoking managers before leads.
+
 ## Assumptions
 
-[Explicit] The `.claude-plugin/marketplace.json` file specifies version 1.0.33 and owner email a@qmu.jp, indicating the current marketplace version and ownership.
+[Explicit] The `.claude-plugin/marketplace.json` file specifies version 1.0.34 and owner email a@qmu.jp, indicating the current marketplace version and ownership.
 
 [Explicit] GitHub Actions workflows in `.github/workflows/` require Node.js 20 and use `jq` for JSON validation, as specified in the workflow YAML files.
 
-[Explicit] Shell scripts use `/bin/sh -eu` shebang and POSIX-compliant syntax, as observed in `gather-git-context/sh/gather.sh` and `archive-ticket/sh/archive.sh`.
+[Explicit] Shell scripts use `/bin/sh -eu` shebang and POSIX-compliant syntax, as observed in `gather-git-context/sh/gather.sh`. The ticket validation hook uses `/bin/bash` for bash-specific regex features.
 
 [Explicit] The PostToolUse hook configuration in `plugins/core/hooks/hooks.json` validates Write and Edit operations with a 10-second timeout.
 
 [Explicit] The `.claude/settings.json` file explicitly denies the Bash command pattern `git -C:*`.
+
+[Explicit] The `define-manager.md` schema enforcement rule uses explicit skill paths instead of glob patterns to avoid matching utility skills like `manage-branch`.
+
+[Explicit] Manager agents (`project-manager`, `architecture-manager`, `quality-manager`) preload the `managers-policy` skill, while lead agents preload the `leaders-policy` skill.
 
 [Inferred] The symlink architecture from `.claude/` to `plugins/core/` is inferred from the project structure rule "Edit `plugins/` not `.claude/`" and the marketplace installation pattern, though no explicit symlink creation code was observed.
 
@@ -280,3 +328,5 @@ No custom environment variables are required for basic operation.
 [Inferred] The permission model prioritizes shell script extraction over inline conditionals based on the architecture policy in `CLAUDE.md` prohibiting complex inline commands, enforced through the `git -C` denial pattern.
 
 [Inferred] The ticket validation hook prevents accidental ticket writes to arbitrary locations by enforcing path constraints, ensuring tickets remain organized in the designated directories.
+
+[Inferred] The manager tier was introduced to reduce duplication of strategic analysis across lead agents. Before this change, each lead independently derived business and architectural context.

@@ -21,6 +21,7 @@ Owns the project's quality framework, assurance processes, and improvement pract
    - Reviewing artifacts -> Review policy
    - Writing or updating documentation -> Documentation policy
    - Running commands or actions -> Execution policy
+   - Setting constraints or defining direction -> Constraint Setting workflow (managers-policy) + Execution policy
 3. Execute the task within the manager's Role and Responsibility.
 4. Produce the Outputs defined in the manage-quality skill.
 5. Return a JSON result describing what was done and what outputs were produced.

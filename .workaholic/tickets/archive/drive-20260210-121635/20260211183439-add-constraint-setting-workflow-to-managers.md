@@ -3,9 +3,9 @@ created_at: 2026-02-11T18:34:39+08:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 61477ce
+category: Added
 ---
 
 # Add Constraint-Setting Workflow to Manager Skills
@@ -246,3 +246,21 @@ Past tickets that touched similar areas:
 - The `define-manager.md` schema currently defines Execution as "Rules when running commands or performing actions." The constraint-setting workflow is broader than this -- it includes user interaction. Consider whether to update the schema's Execution description or to document constraint-setting as a separate workflow that supplements Execution. (`.claude/rules/define-manager.md` lines 64-66)
 - Leaders currently consume manager outputs as read-only context. Constraints add a new semantic: outputs that leaders must comply with, not just reference. The leaders-policy or individual leader Execution sections may eventually need a "Check constraints" step, but that is out of scope for this ticket. (`plugins/core/skills/leaders-policy/SKILL.md`)
 - The four artifact types (Policy, Guideline, Roadmap, Decision Record) overlap with existing concepts. Policies already exist in `.workaholic/policies/`. Guidelines and decision records are new artifact types that may warrant their own write skills or templates in a follow-up ticket. (`plugins/core/skills/analyze-policy/SKILL.md`)
+
+## Final Report
+
+### Changes Made
+
+| File | Action |
+| ---- | ------ |
+| `plugins/core/skills/managers-policy/SKILL.md` | Updated -- added Constraint Setting section with 4-phase workflow (Analyze, Ask, Propose, Produce), artifact types, and rules |
+| `plugins/core/skills/manage-project/SKILL.md` | Updated -- Execution section extended with project constraint-setting steps |
+| `plugins/core/skills/manage-architecture/SKILL.md` | Updated -- Execution section extended with architectural constraint-setting steps |
+| `plugins/core/skills/manage-quality/SKILL.md` | Updated -- Execution section extended with quality constraint-setting steps |
+| `plugins/core/agents/project-manager.md` | Updated -- added constraint-setting task type to Instructions |
+| `plugins/core/agents/architecture-manager.md` | Updated -- added constraint-setting task type to Instructions |
+| `plugins/core/agents/quality-manager.md` | Updated -- added constraint-setting task type to Instructions |
+
+### Deviations
+
+None -- patches applied as specified.

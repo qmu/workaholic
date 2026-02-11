@@ -70,6 +70,7 @@ Refs #<issue-number>
 
 ## Stories
 
+- [drive-20260210-121635.md](drive-20260210-121635.md) - Manager tier introduction, commit message restructuring, cross-cutting policies, and workflow enforcement: created 3 managers (project, architecture, quality) with constraint-setting workflow, expanded commit format to 5 sections for lead consumption, added leaders-policy and managers-policy skills - 9 tickets, 20 commits
 - [drive-20260208-131649.md](drive-20260208-131649.md) - Lead architecture migration: created define-lead schema, transformed all 10 analyst subagents to domain-specific leads, consolidated 4 viewpoint analysts into architecture-lead, migrated scanner into /scan command, added automatic version bumping, reformed badge system - 17 tickets, 29 commits
 - [drive-20260205-195920.md](drive-20260205-195920.md) - Documentation traceability, drive workflow enforcement, scan architecture overhaul from 3-level to 2-level nesting with 17 parallel analysts, legacy spec migration, dual-mode scanning, effort validation, shell script hardening, and Mermaid rendering fixes - 17 tickets, 40 commits
 - [drive-20260204-160722.md](drive-20260204-160722.md) - Documentation hygiene, workflow safety, and infrastructure: term document restructuring, translation removal from story-writer, git safeguards, centralized commit skill, release-note-writer subagent, GitHub URL transformation, script path fixes - 8 tickets, 24 commits

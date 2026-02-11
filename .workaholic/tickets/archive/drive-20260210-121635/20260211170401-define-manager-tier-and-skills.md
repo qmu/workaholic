@@ -3,9 +3,9 @@ created_at: 2026-02-11T17:04:01+08:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 8dc1ce4
+category: Changed
 ---
 
 # Define Manager Tier and Create Three Manager Skills
@@ -100,3 +100,23 @@ The project recently completed a migration from flat analysts to a lead-based ag
 - The memo lists `lead-ux` in the leaders list, but no `lead-ux` skill or UX lead agent currently exists. The `lead-communication` skill covers some UX-adjacent concerns (stakeholder mapping, user goals, interaction patterns). The second ticket (wiring leaders to managers) should address whether `lead-communication` should be renamed to `lead-ux` or if a separate `lead-ux` is needed. (`plugins/core/skills/lead-communication/SKILL.md`)
 - Manager agents will need to be invoked before leaders in the scan command, since leaders depend on manager outputs. This ordering change belongs in the second ticket. (`plugins/core/commands/scan.md`)
 - Cross-reference: The second ticket [20260211170402-wire-leaders-to-manager-outputs.md](.workaholic/tickets/todo/20260211170402-wire-leaders-to-manager-outputs.md) handles wiring leaders to consume manager outputs and updating the scan command invocation order.
+
+## Final Report
+
+### Changes Made
+
+| File | Action |
+| ---- | ------ |
+| `.claude/rules/define-manager.md` | Created -- manager schema enforcement rule with explicit path scoping to avoid matching `manage-branch` |
+| `plugins/core/skills/managers-policy/SKILL.md` | Created -- cross-cutting policy with Prior Term Consistency and Strategic Focus (Vendor Neutrality omitted per feedback) |
+| `plugins/core/skills/manage-project/SKILL.md` | Created -- project manager skill (business, stakeholders, timeline, issues, solutions) |
+| `plugins/core/skills/manage-architecture/SKILL.md` | Created -- architecture manager skill (system structure, layers, components, cross-cutting concerns) |
+| `plugins/core/skills/manage-quality/SKILL.md` | Created -- quality manager skill (standards, assurance processes, metrics, gaps, feedback loops) |
+| `plugins/core/agents/project-manager.md` | Created -- thin agent orchestrator |
+| `plugins/core/agents/architecture-manager.md` | Created -- thin agent orchestrator |
+| `plugins/core/agents/quality-manager.md` | Created -- thin agent orchestrator |
+
+### Deviations
+
+- **Path scoping**: Used explicit paths in `define-manager.md` instead of `manage-*/SKILL.md` glob to avoid matching the pre-existing `manage-branch` utility skill.
+- **Vendor Neutrality omitted**: Removed from `managers-policy` per user feedback. Only Prior Term Consistency and Strategic Focus remain.

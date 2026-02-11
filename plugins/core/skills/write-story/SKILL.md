@@ -79,15 +79,11 @@ One subsection per ticket, in chronological order:
 
 ### 4-1. <Ticket title> ([hash](<repo-url>/commit/<hash>))
 
-- First file changed with description of modification
-- Second file changed with description of modification
-- ...
+<1-3 sentence summary of what this ticket changed and why. Focus on the intent and scope of the change rather than enumerating individual files.>
 
 ### 4-2. <Next ticket title> ([hash](<repo-url>/commit/<hash>))
 
-- First file changed with description of modification
-- Second file changed with description of modification
-- ...
+<1-3 sentence summary of what this ticket changed and why.>
 
 ### ...
 
@@ -97,8 +93,8 @@ One subsection per ticket, in chronological order:
   - Wrong: `(abc1234)` or `(<hash>)`
   - Correct: `([abc1234](<repo-url>/commit/abc1234))`
 - Format: `### 4-N. <Title> ([hash](<repo-url>/commit/<hash>))`
-- **MUST list all files changed** as bullet points, not paragraph prose
-- Reference ticket Implementation section or Changes section for the complete file list
+- **Summarize the change** in 1-3 sentences per ticket -- describe what was done and why, not individual files
+- Focus on intent, scope, and impact rather than enumerating every modified file
 - Chronological order matches ticket creation time
 
 ## 5. Outcome

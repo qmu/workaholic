@@ -3,6 +3,7 @@ name: delivery-lead
 description: Owns the CI/CD pipeline stages, deployment strategies, and artifact promotion flow from source to production for the project.
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
+  - leaders-policy
   - lead-delivery
   - analyze-policy
   - translate

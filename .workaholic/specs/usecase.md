@@ -2,19 +2,19 @@
 title: Use Case Viewpoint
 description: User workflows, command sequences, and input/output contracts
 category: developer
-modified_at: 2026-02-09T15:30:00+09:00
-commit_hash: d627919
+modified_at: 2026-02-11T23:20:09+08:00
+commit_hash: f7f779f
 ---
 
 [English](usecase.md) | [Japanese](usecase_ja.md)
 
 # Use Case Viewpoint
 
-The Use Case Viewpoint documents how developers interact with Workaholic through its five primary commands, describing the workflows, input/output contracts, error paths, and decision points in each use case. Every interaction follows a ticket-driven pattern where markdown files serve as both input and output, enabling version control and human review at every stage.
+The Use Case Viewpoint documents how developers interact with Workaholic through its four primary commands, describing the workflows, input/output contracts, error paths, and decision points in each use case. Every interaction follows a ticket-driven pattern where markdown files serve as both input and output, enabling version control and human review at every stage. The recent addition of a manager tier introduces strategic context establishment as a new use case that runs automatically during documentation scans.
 
 ## Primary Workflows
 
-Workaholic implements a ticket-driven development workflow consisting of four sequential phases: specification, implementation, documentation, and release. Each phase is supported by dedicated commands that orchestrate subagents and skills to automate repetitive tasks while maintaining developer control through explicit approval gates.
+Workaholic implements a ticket-driven development workflow consisting of four sequential phases: specification, implementation, documentation, and release. Each phase is supported by dedicated commands that orchestrate subagents and skills to automate repetitive tasks while maintaining developer control through explicit approval gates. The documentation phase now includes a two-phase execution model where managers establish strategic context before leaders produce domain-specific policies.
 
 ### Ticket Creation Workflow
 
@@ -30,17 +30,55 @@ The `/drive` command implements tickets from `.workaholic/tickets/todo/` in an i
 
 For each ticket in the navigator's list, the drive command follows the `drive-workflow` skill: read the ticket to understand requirements, apply patches if a Patches section exists (using `git apply --check` for validation before `git apply`), implement changes according to Implementation Steps, run type checks per CLAUDE.md, and return a summary JSON with status "pending_approval". The command then invokes the `drive-approval` skill to present an approval dialog via `AskUserQuestion` with four selectable options: Approve (archive and continue), Approve and stop (archive and end session), provide free-form feedback (update ticket and re-implement), or Abandon (move to icebox without implementation).
 
-When the developer approves a ticket, the command follows the `write-final-report` skill to add effort estimation and a Final Report section to the ticket file using the Edit tool. After verifying the frontmatter update succeeded, it invokes the `archive-ticket` skill which moves the ticket from todo to `.workaholic/tickets/archive/<branch>/` and commits with a structured message following `format-commit-message` guidelines: title line, blank line, Motivation section, UX Change section, Arch Change section, blank line, and co-authorship attribution. The archive operation fails immediately if frontmatter validation fails, preventing incomplete tickets from entering the archive. After processing all tickets from the navigator's list, the drive command re-checks the todo directory for tickets added mid-session and re-invokes the navigator if new tickets are found.
+When the developer approves a ticket, the command follows the `write-final-report` skill to add effort estimation and a Final Report section to the ticket file using the Edit tool. After verifying the frontmatter update succeeded, it invokes the `archive-ticket` skill which moves the ticket from todo to `.workaholic/tickets/archive/<branch>/` and commits with a structured message following the expanded `commit` skill guidelines: title line, blank line, Motivation section, UX Change section, Arch Change section, blank line, and co-authorship attribution. The archive operation fails immediately if frontmatter validation fails, preventing incomplete tickets from entering the archive. After processing all tickets from the navigator's list, the drive command re-checks the todo directory for tickets added mid-session and re-invokes the navigator if new tickets are found.
 
 If the todo queue is empty, the navigator checks `.workaholic/tickets/icebox/` and asks the developer via `AskUserQuestion` whether to work on icebox tickets. The developer can select "Work on icebox" (triggering icebox mode) or "Stop" (ending the session). In icebox mode, the navigator lists icebox tickets and presents them as selectable options, moves the selected ticket to todo, and returns it for implementation. The drive command maintains session-wide counters tracking total tickets implemented, total commits created, and the list of all commit hashes across multiple navigator batches.
 
 ### Documentation Workflow
 
-The `/scan` command updates `.workaholic/` documentation by invoking 17 documentation agents directly in parallel, providing real-time progress visibility for each agent. The command begins by gathering git context (branch, base_branch, repo_url) using the `gather-git-context` skill and retrieving the current commit hash via `git rev-parse --short HEAD`. It then runs the `select-scan-agents` skill with mode "full" to get the complete list of 17 agents: 8 viewpoint analysts (stakeholder, model, usecase, infrastructure, application, component, data, feature), 7 policy analysts (test, security, quality, accessibility, observability, delivery, recovery), a changelog writer, and a terms writer.
+The `/scan` command updates `.workaholic/` documentation by invoking agents in a two-phase execution model. Phase 3a establishes strategic context through three manager agents. Phase 3b produces tactical documentation through twelve leader and writer agents that consume manager outputs. The command begins by gathering git context (branch, base_branch, repo_url) using the `gather-git-context` skill and retrieving the current commit hash via `git rev-parse --short HEAD`. It then runs the `select-scan-agents` skill with mode "full" to get the complete list of 15 agents organized by tier.
 
-The scan command invokes all 17 agents in a single message using parallel Task tool calls, with each agent using model "sonnet" and receiving appropriate prompt context (base branch for analysts, repository URL for changelog writer, branch name for terms writer). All invocations must use the default `run_in_background: false` parameter because agents need Write/Edit permissions which require interactive prompt access; background agents cannot receive prompts and would have all file writes auto-denied. After all agents complete, the command validates output using the `validate-writer-output` skill for both `.workaholic/specs/` (8 viewpoint files) and `.workaholic/policies/` (7 policy files).
+#### Phase 3a: Strategic Context Establishment
 
-If validation passes, the scan command updates index files (README.md and README_ja.md) in both specs and policies directories following the `write-spec` skill's index file rules. It then stages all documentation changes with `git add CHANGELOG.md .workaholic/specs/ .workaholic/terms/ .workaholic/policies/` and commits with message "Update documentation". The command reports per-agent status showing which agents succeeded, failed, or were skipped, along with validation results.
+The scan command invokes three manager agents in parallel using the Task tool, each with model "sonnet" and base branch parameter. All invocations must use the default `run_in_background: false` parameter because agents need Write/Edit permissions which require interactive prompt access.
+
+**project-manager**: Analyzes business context by reading README, CLAUDE.md, package metadata, CHANGELOG, git tags, git log, and ticket queues. Produces project context covering business domain, stakeholder map, timeline status, active issues, and proposed solutions. Writes output to `.workaholic/specs/` or `.workaholic/policies/` as appropriate. Follows constraint-setting workflow (Analyze, Ask, Propose, Produce) to establish project constraints like release cadence, stakeholder priorities, and scope boundaries.
+
+**architecture-manager**: Analyzes system structure by examining directory organization, configuration files, and code patterns. Gathers context for four viewpoints (application, component, feature, usecase) using `analyze-viewpoint` skill. Produces architectural context including system boundaries, layer taxonomy, component inventory, cross-cutting concerns, and structural patterns. Writes four viewpoint spec documents (application.md, component.md, feature.md, usecase.md) to `.workaholic/specs/`. Follows constraint-setting workflow to establish architectural constraints like layer boundary rules, component naming conventions, and dependency direction policies.
+
+**quality-manager**: Analyzes quality practices by examining test files, CI configuration, linting rules, and code review patterns. Produces quality context covering quality dimensions and standards, assurance process definitions, improvement metrics, identified gaps, and feedback loop specifications. Writes output to `.workaholic/policies/`. Follows constraint-setting workflow to establish quality constraints like test coverage thresholds, documentation completeness standards, and lint strictness levels.
+
+The scan command waits for all three managers to complete before proceeding to phase 3b. Manager outputs are persisted as markdown files that serve as input for leader agents.
+
+#### Phase 3b: Tactical Policy Production
+
+After manager completion, the scan command invokes twelve leader and writer agents in parallel. Each leader agent reads relevant manager outputs as strategic input before performing domain-specific analysis.
+
+**ux-lead**: Reads `manage-project` output for stakeholder context, then analyzes user experience aspects including interaction patterns, user journeys, and onboarding paths. Produces ux.md in `.workaholic/specs/`.
+
+**infra-lead**: Reads `manage-architecture` output for system boundaries, then analyzes external dependencies, deployment configuration, and runtime environment. Produces infrastructure.md in `.workaholic/policies/`.
+
+**db-lead**: Reads `manage-architecture` output for component inventory, then analyzes data formats, storage mechanisms, and persistence patterns. Produces data.md in `.workaholic/policies/`.
+
+**security-lead**: Reads `manage-architecture` output for system boundaries and cross-cutting concerns, then analyzes security requirements, threat model, and mitigation strategies. Produces security.md in `.workaholic/policies/`.
+
+**test-lead**: Reads `manage-quality` output for quality standards, then analyzes testing strategy, test types, and coverage requirements. Produces test.md in `.workaholic/policies/`.
+
+**quality-lead**: Reads `manage-quality` output for assurance processes, then analyzes code quality standards, review processes, and quality gates. Produces quality.md in `.workaholic/policies/`.
+
+**a11y-lead**: Reads `manage-quality` output for quality standards, then analyzes accessibility standards, WCAG conformance, and inclusive design practices. Produces accessibility.md in `.workaholic/policies/`.
+
+**observability-lead**: Reads `manage-architecture` output for cross-cutting concerns, then analyzes logging, monitoring, and tracing practices. Produces observability.md in `.workaholic/policies/`.
+
+**delivery-lead**: Reads `manage-project` output for timeline and stakeholder context, then analyzes release processes, deployment strategies, and rollback procedures. Produces delivery.md in `.workaholic/policies/`.
+
+**recovery-lead**: Reads `manage-architecture` output for system boundaries and `manage-project` output for active issues, then analyzes backup strategies, disaster recovery procedures, and business continuity plans. Produces recovery.md in `.workaholic/policies/`.
+
+**changelog-writer**: Reads archived tickets from `.workaholic/tickets/archive/<branch>/` and generates CHANGELOG.md entries organized by category (Added, Changed, Removed). Does not consume manager outputs.
+
+**terms-writer**: Analyzes codebase terminology and generates consistent term definitions in `.workaholic/terms/`. Does not consume manager outputs.
+
+After all twelve agents complete, the command validates output using the `validate-writer-output` skill for both `.workaholic/specs/` (5 files: ux, application, component, feature, usecase) and `.workaholic/policies/` (7 files: infra, db, security, test, quality, accessibility, observability, delivery, recovery). If validation passes, the scan command updates index files (README.md and README_ja.md) in both specs and policies directories following the `write-spec` skill's index file rules. It then stages all documentation changes with `git add CHANGELOG.md .workaholic/specs/ .workaholic/terms/ .workaholic/policies/` and commits with message "Update documentation". The command reports per-agent status showing which managers and leaders succeeded, failed, or were skipped, along with validation results.
 
 ### Report Generation Workflow
 
@@ -88,7 +126,7 @@ The `/release` command (not yet implemented but documented in CLAUDE.md) bumps t
 ```mermaid
 sequenceDiagram
     participant Dev as Developer
-    participant Cmd as /ticket Command
+    participant Cmd as "/ticket Command"
     participant TO as ticket-organizer
     participant HD as history-discoverer
     participant SD as source-discoverer
@@ -164,7 +202,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant Dev as Developer
-    participant Cmd as /drive Command
+    participant Cmd as "/drive Command"
     participant Nav as drive-navigator
     participant Wf as drive-workflow
     participant FS as File System
@@ -197,21 +235,21 @@ sequenceDiagram
         alt Approve
             Cmd->>FS: Edit ticket (add effort + Final Report)
             Cmd->>FS: Move to archive/<branch>/
-            Cmd->>Git: Commit with structured message
+            Cmd->>Git: Commit with structured message (Motivation, UX Change, Arch Change)
         else Feedback
-            Dev-->>Cmd: Feedback text
             Cmd->>FS: Update ticket with feedback
-            Cmd->>Wf: Re-implement
+            Note over Cmd,Wf: Re-implement (loop back)
         else Abandon
             Cmd->>FS: Move to icebox/
+            Note over Cmd: Continue to next ticket
         end
     end
 
-    Cmd->>FS: ls .workaholic/tickets/todo/*.md
+    Cmd->>FS: Check for new tickets
     alt New tickets found
-        Cmd->>Nav: Re-invoke navigator
+        Note over Cmd,Nav: Re-invoke navigator
     else No new tickets
-        Cmd-->>Dev: Session complete, summary
+        Cmd->>Dev: Session summary
     end
 ```
 
@@ -222,73 +260,78 @@ sequenceDiagram
 **Input Contract:**
 - Required: None
 - Optional: None
-- Environment: Must be in git repository with `.workaholic/` directory
+- Environment: Must be in a git repository with `.workaholic/` directory
 
 **Output Contract:**
-- Success: Single commit with message "Update documentation"
-- Modified files: CHANGELOG.md, `.workaholic/specs/*.md`, `.workaholic/policies/*.md`, `.workaholic/terms/*.md`, README files
-- Response: Per-agent status report with validation results
+- Success: Updated documentation in `.workaholic/specs/`, `.workaholic/policies/`, `CHANGELOG.md`, `.workaholic/terms/`
+- Commit: "Update documentation"
+- Response: Per-agent status for all 15 agents (3 managers + 12 leaders/writers)
+- Side effects: Updates README indices in specs and policies directories
 
 **Error Paths:**
-- Agent failure: Continues with remaining agents, reports failure in status
-- Validation failure: Reports which files failed validation, does not commit
-- Git failure: Aborts without committing documentation changes
+- Validation failure: Reports missing files but still commits partial success
+- Agent failure: Reports failed agents but proceeds with successful outputs
+- Git operation failure: Aborts without committing
 
-**Decision Points:** None (fully automated)
+**Decision Points:**
+- Agent selection (full vs partial mode based on git diff analysis)
 
-### Scan Execution Sequence
+### Scan Two-Phase Execution Sequence
 
 ```mermaid
 sequenceDiagram
     participant Dev as Developer
-    participant Cmd as /scan Command
-    participant SA as select-agents
-    participant V1 as stakeholder-analyst
-    participant V2 as model-analyst
-    participant V8 as feature-analyst
-    participant P1 as test-policy
-    participant P7 as recovery-policy
-    participant CW as changelog-writer
-    participant TW as terms-writer
-    participant Val as validate-output
+    participant Cmd as "/scan Command"
+    participant PM as project-manager
+    participant AM as architecture-manager
+    participant QM as quality-manager
+    participant Leaders as "12 Leaders/Writers"
+    participant FS as File System
     participant Git as Git
 
     Dev->>Cmd: /scan
-    Cmd->>Git: Get branch, base_branch, commit_hash
-    Cmd->>SA: bash select-agents.sh full
-    SA-->>Cmd: JSON with 17 agent slugs
+    Cmd->>Cmd: gather-git-context skill
+    Cmd->>Cmd: select-scan-agents skill (full mode)
 
-    par Invoke 17 Agents in Parallel
-        Cmd->>V1: Task(model: sonnet, run_in_background: false)
-        Cmd->>V2: Task(model: sonnet, run_in_background: false)
-        Note over Cmd,V8: ... 6 more viewpoint analysts ...
-        Cmd->>V8: Task(model: sonnet, run_in_background: false)
-        Cmd->>P1: Task(model: sonnet, run_in_background: false)
-        Note over Cmd,P7: ... 6 more policy analysts ...
-        Cmd->>P7: Task(model: sonnet, run_in_background: false)
-        Cmd->>CW: Task(model: sonnet, run_in_background: false)
-        Cmd->>TW: Task(model: sonnet, run_in_background: false)
+    Note over Cmd,QM: Phase 3a: Strategic Context
+
+    par Invoke 3 Managers
+        Cmd->>PM: Task(model: sonnet, prompt: base_branch)
+        Cmd->>AM: Task(model: sonnet, prompt: base_branch)
+        Cmd->>QM: Task(model: sonnet, prompt: base_branch)
     end
 
-    V1-->>Cmd: Write .workaholic/specs/stakeholder.md + _ja.md
-    V2-->>Cmd: Write .workaholic/specs/model.md + _ja.md
-    V8-->>Cmd: Write .workaholic/specs/feature.md + _ja.md
-    P1-->>Cmd: Write .workaholic/policies/test.md + _ja.md
-    P7-->>Cmd: Write .workaholic/policies/recovery.md + _ja.md
-    CW-->>Cmd: Write CHANGELOG.md
-    TW-->>Cmd: Write .workaholic/terms/*.md
+    PM->>FS: Write project context to .workaholic/
+    AM->>FS: Write 4 viewpoint specs + arch context to .workaholic/specs/
+    QM->>FS: Write quality context to .workaholic/policies/
 
-    Cmd->>Val: validate specs (8 files)
-    Val-->>Cmd: Validation result
-    Cmd->>Val: validate policies (7 files)
-    Val-->>Cmd: Validation result
+    PM-->>Cmd: {status: "success", outputs: [...]}
+    AM-->>Cmd: {status: "success", outputs: [application.md, component.md, feature.md, usecase.md]}
+    QM-->>Cmd: {status: "success", outputs: [...]}
 
+    Note over Cmd,Leaders: Wait for all managers to complete
+
+    Note over Cmd,Leaders: Phase 3b: Tactical Policies
+
+    par Invoke 12 Leaders/Writers
+        Cmd->>Leaders: Task(model: sonnet) x12
+    end
+
+    Leaders->>FS: Read manager outputs
+    Leaders->>FS: Write policy docs to .workaholic/policies/
+    Leaders->>FS: Write changelog to CHANGELOG.md
+    Leaders->>FS: Write terms to .workaholic/terms/
+
+    Leaders-->>Cmd: {status: "success"|"failed"} x12
+
+    Cmd->>Cmd: validate-writer-output skill
     alt Validation passed
-        Cmd->>Cmd: Update README.md + README_ja.md (both dirs)
+        Cmd->>FS: Update README indices
         Cmd->>Git: git add + commit "Update documentation"
-        Cmd-->>Dev: Report per-agent status
+        Cmd-->>Dev: All agents succeeded
     else Validation failed
-        Cmd-->>Dev: Report failures, do not commit
+        Cmd->>Dev: Report missing files
+        Cmd->>Git: git add + commit partial outputs
     end
 ```
 
@@ -299,170 +342,176 @@ sequenceDiagram
 **Input Contract:**
 - Required: None
 - Optional: None
-- Environment: Must be in git repository with archived tickets
+- Environment: Must be on a feature branch with archived tickets
 
 **Output Contract:**
-- Success: Two commits ("Bump version to v{version}", "Add branch story for {branch}", "Add release notes for {branch}")
-- Files created: `.workaholic/stories/<branch>.md`, `.workaholic/release-notes/<branch>.md`
-- GitHub: Created or updated pull request
-- Response: PR URL (mandatory)
+- Success: Story file in `.workaholic/stories/<branch>.md`, release notes in `.workaholic/release-notes/<branch>.md`, GitHub PR created/updated
+- Commits: "Bump version to v{version}", "Add story", "Add release notes"
+- Response: PR URL
+- Side effects: Increments patch version, pushes branch to remote
 
 **Error Paths:**
-- Version read failure: Aborts before story generation
-- Story-writer agent failure: Reports which agents failed, may still create PR
-- PR creation failure: Reports error, story file still exists
-- Git push failure: Aborts PR creation
+- No archived tickets: Story generation may produce minimal content
+- PR creation failure: Reports error but story/notes are still committed
+- Git push failure: Aborts before PR creation
 
-**Decision Points:** None (fully automated)
+**Decision Points:**
+- None (fully automated after invocation)
 
 ### Report Generation Sequence
 
 ```mermaid
 sequenceDiagram
     participant Dev as Developer
-    participant Cmd as /report Command
-    participant FS as File System
+    participant Cmd as "/report Command"
     participant SW as story-writer
     participant RR as release-readiness
     participant PA as performance-analyst
     participant OW as overview-writer
     participant SR as section-reviewer
     participant RNW as release-note-writer
-    participant PRC as pr-creator
+    participant PC as pr-creator
+    participant FS as File System
     participant Git as Git
-    participant GH as GitHub
 
     Dev->>Cmd: /report
-    Cmd->>FS: Read .claude-plugin/marketplace.json
-    Cmd->>FS: Write new version (PATCH++)
+    Cmd->>FS: Read marketplace.json
+    Cmd->>FS: Bump version (patch)
     Cmd->>Git: Commit "Bump version to v{version}"
 
     Cmd->>SW: Task(model: opus)
-    SW->>Git: Gather context via gather-git-context
+    SW->>SW: gather-git-context skill
 
-    par Phase 1: Story Content Agents
-        SW->>RR: Task(model: opus, prompt: branch + tickets)
-        SW->>PA: Task(model: opus, prompt: tickets + log)
-        SW->>OW: Task(model: opus, prompt: branch + base)
-        SW->>SR: Task(model: opus, prompt: branch + tickets)
+    par Phase 1: Content Generation
+        SW->>RR: Task(model: opus)
+        SW->>PA: Task(model: opus)
+        SW->>OW: Task(model: opus)
+        SW->>SR: Task(model: opus)
     end
 
-    RR-->>SW: Release readiness analysis
-    PA-->>SW: Decision quality metrics
-    OW-->>SW: Overview + highlights + motivation
-    SR-->>SW: Outcome + concerns + ideas
+    RR-->>SW: {releasable: true, concerns: [...]}
+    PA-->>SW: {decision_quality: {...}}
+    OW-->>SW: Section text
+    SR-->>SW: Section text
 
-    SW->>FS: Read archived tickets
-    SW->>FS: Write .workaholic/stories/<branch>.md
-    SW->>Git: Commit + push branch
+    SW->>FS: Write story to .workaholic/stories/<branch>.md
+    SW->>Git: Commit "Add story" + push
 
-    par Phase 2: Release Note and PR
-        SW->>RNW: Task(model: haiku, prompt: story path)
-        SW->>PRC: Task(model: opus, prompt: story path)
+    par Phase 2: Delivery Artifacts
+        SW->>RNW: Task(model: haiku)
+        SW->>PC: Task(model: opus)
     end
 
-    RNW->>FS: Write .workaholic/release-notes/<branch>.md
-    RNW-->>SW: {status: "success"}
+    RNW->>FS: Write release notes
+    RNW-->>SW: {status: "success", file: "..."}
 
-    PRC->>FS: Read story file
-    PRC->>GH: gh pr create/edit
-    PRC-->>SW: {pr_url: "..."}
+    PC->>FS: Read story file
+    PC->>PC: Run gh CLI to create/update PR
+    PC-->>SW: {pr_url: "https://..."}
 
-    SW->>Git: Commit + push release notes
-    SW-->>Cmd: {story_file, release_note_file, pr_url, agents: {...}}
+    SW->>Git: Commit "Add release notes" + push
+    SW-->>Cmd: {story_file: "...", pr_url: "...", agents: {...}}
+
     Cmd-->>Dev: Display PR URL
 ```
 
-### /release Command
+## Use Case Dependencies
 
-**Invocation Format:** `/release` or `/release [major|minor|patch]`
+### Workflow Sequence
 
-**Input Contract:**
-- Required: None
-- Optional: Version bump type (major, minor, patch)
-- Environment: Must be on main branch
+The typical development session follows this sequence:
 
-**Output Contract:**
-- Success: Single commit with message "Bump version to v{new_version}"
-- Modified files: `.claude-plugin/marketplace.json`, `plugins/core/.claude-plugin/plugin.json`
-- GitHub Action: Triggers release.yml on push to main
+1. **Specification**: `/ticket` creates tickets based on natural language descriptions
+2. **Implementation**: `/drive` implements and archives tickets one by one with approval
+3. **Strategic Documentation**: `/scan` phase 3a establishes project, architecture, and quality context via managers
+4. **Tactical Documentation**: `/scan` phase 3b produces policy documents via leaders that consume manager outputs
+5. **Delivery**: `/report` generates story, creates PR, and bumps version
+6. **Release**: Auto-release or manual `/release` publishes to marketplace
 
-**Error Paths:**
-- Not on main branch: Aborts with error message
-- Version read failure: Aborts without modifying files
-- Version file write failure: May leave files in inconsistent state
-- Commit failure: Version files modified but not committed
+### Cross-Command Data Flow
 
-**Decision Points:**
-- Version bump type (defaults to patch)
+```mermaid
+flowchart LR
+    T["/ticket"] --> TD[Ticket Files]
+    TD --> D["/drive"]
+    D --> AT[Archived Tickets]
+    AT --> SP3a["/scan Phase 3a"]
+    SP3a --> MO[Manager Outputs]
+    MO --> SP3b["/scan Phase 3b"]
+    SP3b --> LO[Leader Outputs]
+    LO --> R["/report"]
+    R --> PR[Pull Request]
+    PR --> M[Merge to main]
+    M --> REL[Auto-release]
+```
 
-## Step-by-Step Sequences
+## Constraint-Setting Use Case
 
-### Complete Development Cycle
+The manager tier introduces a new interactive use case for establishing project constraints. This use case runs automatically during `/scan` phase 3a when managers detect unbounded or implicit constraints.
 
-The typical development cycle progresses through four commands in sequence: `/ticket` to create specifications, `/drive` to implement and commit changes, `/scan` to update comprehensive documentation, and `/report` to generate the development story and create a pull request.
+### Constraint Setting Workflow
 
-**Step 1: Feature Request → Ticket**
+1. **Analyze**: Manager examines codebase to identify areas needing constraints
+   - Unbounded areas where no constraint exists
+   - Implicit constraints that are practiced but undocumented
+   - Existing constraints that may be outdated or conflicting
 
-Developer invokes `/ticket add OAuth2 integration for Google login`. The command creates a new branch `drive-20260209-153000`, invokes `ticket-organizer` which runs three discovery subagents in parallel, synthesizes results into a ticket with frontmatter, Key Files section, Related History section, Implementation Steps, Patches, and Considerations. The ticket is written to `.workaholic/tickets/todo/20260209153000-add-oauth2-google-login.md` and committed.
+2. **Ask**: Manager presents targeted questions via command output
+   - Each question offers concrete options grounded in analysis
+   - Questions are decision-oriented, not open-ended
+   - Developer reviews questions and provides selections
 
-**Step 2: Ticket → Implementation**
+3. **Propose**: Manager formulates constraints based on analysis and developer answers
+   - Each constraint states what it bounds, why it matters, and which leaders it affects
+   - Constraints are falsifiable (leaders can determine compliance)
 
-Developer invokes `/drive`. The `drive-navigator` lists the OAuth2 ticket, determines it is an enhancement affecting Infrastructure layer, presents priority order to developer who selects Proceed. The drive command reads the ticket, applies patches from the Patches section using `git apply --check` then `git apply`, implements the remaining steps, runs type checks, and presents approval dialog. Developer selects Approve. The command adds Final Report section with effort "1.5h", moves ticket to `.workaholic/tickets/archive/drive-20260209-153000/`, and commits with structured message including Motivation, UX Change, and Arch Change sections.
+4. **Produce**: Manager writes directional materials encoding constraints
+   - Policies (rules that must be followed)
+   - Guidelines (recommended practices with rationale)
+   - Roadmaps (sequenced plans with milestones)
+   - Decision Records (captured decisions with context and consequences)
 
-**Step 3: Implementation → Documentation**
+### Example: Architecture Manager Constraint Setting
 
-Developer invokes `/scan`. The command gathers git context, invokes 17 agents in parallel (stakeholder-analyst, model-analyst, usecase-analyst, infrastructure-analyst, application-analyst, component-analyst, data-analyst, feature-analyst, test-policy-analyst, security-policy-analyst, quality-policy-analyst, accessibility-policy-analyst, observability-policy-analyst, delivery-policy-analyst, recovery-policy-analyst, changelog-writer, terms-writer), validates output, updates README index files in specs and policies directories, stages all changes, and commits with message "Update documentation".
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant Scan as "/scan Phase 3a"
+    participant AM as architecture-manager
+    participant FS as File System
 
-**Step 4: Documentation → Pull Request**
+    Scan->>AM: Invoke with base_branch
+    AM->>FS: Analyze directory structure
+    AM->>AM: Identify implicit constraint: "Skills cannot import agents"
+    AM->>AM: Generate question: "Should we enforce skill/agent boundary?"
 
-Developer invokes `/report`. The command bumps version from 1.0.5 to 1.0.6, commits the version change, invokes `story-writer` which runs four content agents in parallel (release-readiness, performance-analyst, overview-writer, section-reviewer), synthesizes results into `.workaholic/stories/drive-20260209-153000.md` following `write-story` skill templates, commits and pushes the story file, invokes `release-note-writer` and `pr-creator` in parallel, commits release notes, and displays PR URL. Developer reviews the PR on GitHub and merges when ready.
+    AM->>Scan: Present findings and questions
+    Scan->>Dev: Display questions with options
+    Dev-->>Scan: Select "Yes, enforce boundary"
+    Scan->>AM: Pass developer selection
 
-### Error Recovery Patterns
+    AM->>AM: Propose constraint: "Skills must not import from agents/ directory"
+    AM->>FS: Write to .workaholic/policies/architecture-boundaries.md
 
-**Abandoned Ticket Recovery**
+    Note over AM,FS: Leaders will read this policy during Phase 3b
 
-If a developer selects Abandon during `/drive` approval, the command moves the ticket from `.workaholic/tickets/todo/` to `.workaholic/tickets/icebox/` without archiving or committing. The ticket remains available for future implementation. When the developer later runs `/drive`, the navigator detects an empty todo queue, checks icebox, and asks "Work on icebox or Stop?" via AskUserQuestion. If the developer selects "Work on icebox", the navigator lists icebox tickets and allows selection. The selected ticket is moved back to todo and implementation proceeds normally.
-
-**Feedback Loop Recovery**
-
-If a developer provides feedback via the "Other" option during `/drive` approval, the command follows `drive-approval` skill Section 3: updates the ticket's Implementation Steps section with the feedback prefixed by timestamp and "User feedback:", re-implements changes based on the updated ticket, and re-presents the approval dialog. This loop continues until the developer selects Approve, Approve and stop, or Abandon. The ticket file serves as the source of truth and always reflects the full implementation plan.
-
-**Frontmatter Update Failure**
-
-If the Edit tool fails when adding effort and Final Report to a ticket during `/drive` approval, the command halts immediately and reports the error to the developer. The archive operation does not proceed, preventing incomplete tickets from entering the archive. The developer must manually fix the ticket file or re-run `/drive` after resolving the issue.
-
-**Agent Failure Recovery**
-
-When an agent fails during `/scan` or `/report`, the system continues with remaining agents and reports the failure in the per-agent status. For `/scan`, failed agents result in missing documentation files but do not prevent other agents from succeeding. Validation catches missing files and aborts the commit. For `/report`, failed content agents (release-readiness, performance-analyst, overview-writer, section-reviewer) result in incomplete story sections but the story file is still created and PR creation proceeds. The developer can manually update the story file and re-run `/report` to update the PR.
-
-## Error Handling
-
-### Command-Level Error Handling
-
-All commands follow consistent error handling patterns: validate input before invoking subagents, check git state before file operations, use explicit approval gates via AskUserQuestion for destructive operations, report errors to the developer with actionable messages, and abort without side effects when critical failures occur. Commands never use open-ended text questions; all developer interactions use selectable options via the AskUserQuestion `options` parameter.
-
-### Subagent Error Handling
-
-Subagents communicate errors through JSON status fields in their output. The `ticket-organizer` returns status "duplicate", "needs_decision", or "needs_clarification" with context for the parent command to handle. The `drive-navigator` returns status "empty", "stopped", or "icebox" to signal queue states. The `story-writer` includes per-agent status in its output JSON with "success" or "failed" for each of the six agents it invokes. Parent commands interpret these status codes and present appropriate prompts or abort operations.
-
-### Git Operation Failures
-
-Commands using git operations (add, commit, push, apply) check exit codes and abort on failure. The `drive-workflow` skill prohibits destructive git commands (`git clean`, `git checkout .`, `git restore .`, `git reset --hard`, `git stash drop`) to prevent data loss in multi-contributor environments. Patches are validated with `git apply --check` before applying. Branch creation during `/ticket` uses the `manage-branch` skill which checks for uncommitted changes and existing branch names before creating topic branches.
-
-### File System Failures
-
-Write operations use the Write tool which creates parent directories automatically. The Edit tool validates that old_string exists and is unique before replacement, failing if the target content is not found or ambiguous. The Read tool handles missing files by returning empty content, which subagents interpret as "file does not exist". Validation scripts in the `validate-writer-output` skill check for file existence, non-empty content, and valid frontmatter before approving documentation commits.
+    AM-->>Scan: {status: "success", outputs: [..., "architecture-boundaries.md"]}
+```
 
 ## Assumptions
 
-- [Explicit] The five primary commands and their input/output contracts are documented in `CLAUDE.md` and individual command markdown files in `plugins/core/commands/`.
-- [Explicit] `/drive` requires explicit approval at each ticket via `AskUserQuestion` with selectable options, as stated in drive.md critical rules.
-- [Explicit] `/scan` invokes 17 agents in parallel as defined in scan.md Phase 3, with each agent using `run_in_background: false` (default) to maintain Write/Edit permissions.
-- [Explicit] `/report` bumps the version before generating the story, as documented in report.md instructions step 1.
-- [Explicit] All commands use the Task tool to invoke subagents, with model parameter specified in subagent frontmatter or command instructions.
-- [Inferred] The workflow assumes linear, single-branch development where one developer works through tickets sequentially, based on the serial execution model in `/drive` and single-branch PR creation in `/report`.
-- [Inferred] The absence of conflict resolution mechanisms in `drive-workflow` suggests the system assumes a single active developer per branch at any given time.
-- [Inferred] The requirement for developer approval at each ticket in `/drive` implies that automated end-to-end implementation is intentionally avoided to maintain human oversight.
-- [Inferred] The use of markdown files for tickets, stories, and documentation suggests a preference for human-readable, version-controlled artifacts over binary or database storage.
-- [Inferred] The separation of `/scan` (full documentation) and partial scan in `/report` (branch-relevant documentation) implies that full scans are expensive operations to be run selectively, while partial scans are cheap enough for routine PR creation.
+- [Explicit] The `/ticket` command delegates entirely to ticket-organizer, which invokes 3 discovery agents in parallel, as documented in ticket command instructions.
+- [Explicit] The `/drive` command processes tickets sequentially with human approval between each, as documented in drive command instructions.
+- [Explicit] The `/scan` command uses two-phase execution (managers in phase 3a, leaders in phase 3b) as documented in scan.md Phases 3a and 3b.
+- [Explicit] The `/report` command delegates to story-writer, which orchestrates 4 agents in phase 1 and 2 agents in phase 2, as documented in report command instructions.
+- [Explicit] Manager agents follow a constraint-setting workflow (Analyze, Ask, Propose, Produce) as defined in managers-policy skill.
+- [Explicit] Leader agents read manager outputs before performing domain-specific analysis, as defined in their Execution policies.
+- [Explicit] The architecture-manager produces four viewpoint specs (application, component, feature, usecase) during phase 3a, as documented in manage-architecture skill.
+- [Explicit] Commands use `AskUserQuestion` with selectable options to prevent ambiguous user input, as demonstrated in drive-navigator and drive-approval.
+- [Explicit] All scan agents must use `run_in_background: false` to retain Write/Edit permissions, as documented in scan command Phase 3.
+- [Explicit] Commit messages follow an expanded format (Motivation, UX Change, Arch Change) as defined in the commit skill.
+- [Inferred] The two-phase scan execution was introduced to eliminate strategic context duplication where each of 17 analysts independently inferred project priorities, architecture, and quality expectations.
+- [Inferred] The constraint-setting workflow is designed to produce actionable, falsifiable constraints rather than aspirational recommendations that leaders cannot enforce.
+- [Inferred] The manager-to-leader information flow is file-based (via `.workaholic/` documents) rather than in-memory to ensure all intermediate context is inspectable and version-controlled.
+- [Inferred] The drive command's sequential processing (one ticket at a time) prioritizes human oversight and context preservation over throughput.
+- [Inferred] The report command's automatic version bump ensures every branch triggers a releasable state, reducing friction in the release process.

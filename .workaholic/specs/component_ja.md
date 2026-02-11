@@ -10,7 +10,7 @@ commit_hash: d627919
 
 # 1. Component Viewpoint
 
-Component Viewpoint は、Workaholic plugin の内部構造、module 境界、および command、agent、skill、rule への分解方法を説明します。core plugin は 4 つの command、29 個の agent、28 個の skill、6 つの rule で構成され、nesting policy による厳格な階層アーキテクチャで関心の分離を実現しています。
+Component Viewpoint は、Workaholic plugin の内部構造、module 境界、および command、agent、skill、rule への分解方法を説明します。core plugin は 4 つの command、29 個の agent、27 個の skill、6 つの rule で構成され、nesting policy による厳格な階層アーキテクチャで関心の分離を実現しています。
 
 ## 2. Module Boundaries
 
@@ -188,7 +188,7 @@ flowchart TD
     SW -.parallel.-> PERF
 ```
 
-### 3-5. Skills Layer（28）
+### 3-5. Skills Layer（27）
 
 Skill は知識層であり、domain ごとに整理されています。各 skill directory には `SKILL.md` ファイルがあり、オプションで bundled shell script 用の `sh/` directory があります。
 
@@ -224,11 +224,10 @@ Skill は知識層であり、domain ごとに整理されています。各 ski
 - `write-story` -- branch story document を書くためのガイドライン
 - `write-terms` -- codebase から用語定義を生成
 
-#### Workflow Skills（4）
+#### Workflow Skills（3）
 
 - `drive-approval` -- ticket 実装のためのユーザー承認ダイアログの処理
 - `drive-workflow` -- 単一 ticket を実装するためのステップバイステップの workflow
-- `format-commit-message` -- Co-Authored-By を含む git commit message のフォーマット
 - `gather-ticket-metadata` -- ticket ファイル名から日付と作成者を抽出
 
 #### Quality Skills（2）
@@ -255,7 +254,6 @@ flowchart LR
     subgraph "Foundational Skills"
         GGC[gather-git-context]
         GTM[gather-ticket-metadata]
-        FCM[format-commit-message]
         T[translate]
     end
 
@@ -266,7 +264,6 @@ flowchart LR
         WC[write-changelog]
     end
 
-    DW --> FCM
     WS --> GGC
     WS --> T
     WStory --> GGC
@@ -589,7 +586,7 @@ scanner subagent は commit `30c1ef8` で削除され、そのオーケストレ
 
 ## 8. Assumptions
 
-- [Explicit] component 数（4 command、29 agent、28 skill、6 rule）は context 出力のファイルシステムリストから導出されました。
+- [Explicit] component 数（4 command、29 agent、27 skill、6 rule）は context 出力のファイルシステムリストから導出されました。
 - [Explicit] nesting policy テーブルは `CLAUDE.md` の「Architecture Policy > Component Nesting Rules」で定義されています。
 - [Explicit] Shell script は skill にバンドルする必要があり、インラインでは記述できないことが `CLAUDE.md` の「Shell Script Principle」で述べられています。
 - [Explicit] scanner agent は archived ticket `20260208131751-migrate-scanner-into-scan-command.md` に文書化されているように、最近の commit で削除されました。

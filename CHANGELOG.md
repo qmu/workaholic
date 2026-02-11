@@ -1,5 +1,22 @@
 # Changelog
 
+## drive-20260210-121635
+
+### Added
+
+- Add Constraint-Setting Workflow to Manager Skills ([61477ce](https://github.com/qmu/workaholic/commit/61477ce2d649b227cdd7c4a24efb9657dd621f1e)) - [ticket](.workaholic/tickets/archive/drive-20260210-121635/20260211183439-add-constraint-setting-workflow-to-managers.md)
+
+### Changed
+
+- Summarize Changes in /report Instead of Listing Every File ([0942d51](https://github.com/qmu/workaholic/commit/0942d513f391f10126053bb1599aec45ff39903d)) - [ticket](.workaholic/tickets/archive/drive-20260210-121635/20260210121628-summarize-changes-in-report.md)
+- Add leaders-policy Skill for Cross-Cutting Lead Policies ([0d8cdc0](https://github.com/qmu/workaholic/commit/0d8cdc092932d9be0ffc2c310a7590d59cb33276)) - [ticket](.workaholic/tickets/archive/drive-20260210-121635/20260210124953-add-leaders-policy-skill.md)
+- Fix Release Note Hardcoded Metrics ([02f6c18](https://github.com/qmu/workaholic/commit/02f6c18b2094982dddb773f0ecf608b306d43463)) - [ticket](.workaholic/tickets/archive/drive-20260210-121635/20260210125506-fix-release-note-hardcoded-metrics.md)
+- Expand commit message sections for lead agent consumption ([df4ec19](https://github.com/qmu/workaholic/commit/df4ec19c9ff8dba7b950bb48f3d7e729e92c214f)) - [ticket](.workaholic/tickets/archive/drive-20260210-121635/20260210154917-expand-commit-message-sections.md)
+- Merge format-commit-message skill into commit skill ([b26ca39](https://github.com/qmu/workaholic/commit/b26ca3982f9ccdbf93f0493a41653d8eae57517e)) - [ticket](.workaholic/tickets/archive/drive-20260210-121635/20260210160550-merge-format-commit-message-into-commit.md)
+- Define Manager Tier and Create Three Manager Skills ([8dc1ce4](https://github.com/qmu/workaholic/commit/8dc1ce45babb8fdec4364c291ba52af919a54803)) - [ticket](.workaholic/tickets/archive/drive-20260210-121635/20260211170401-define-manager-tier-and-skills.md)
+- Wire Leaders to Depend on Manager Outputs ([24632f3](https://github.com/qmu/workaholic/commit/24632f3a3a19f2cdccfae5f9bb3f7dc97daf6776)) - [ticket](.workaholic/tickets/archive/drive-20260210-121635/20260211170402-wire-leaders-to-manager-outputs.md)
+- Strengthen Ticket-Update-First Enforcement in Drive Feedback Flow ([694001b](https://github.com/qmu/workaholic/commit/694001baebdf2931e2ee4b52b2426f4f4ff7b41c)) - [ticket](.workaholic/tickets/archive/drive-20260210-121635/20260211174710-strengthen-ticket-update-first-enforcement.md)
+
 ## drive-20260208-131649
 
 ### Added

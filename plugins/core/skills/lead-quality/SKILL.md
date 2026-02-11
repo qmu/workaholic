@@ -48,6 +48,7 @@ The `.workaholic/policies/quality.md` accurately reflects all implemented qualit
 
 ### Execution
 
+- Read the manage-quality output from `.workaholic/policies/` for quality dimensions and assurance context before performing quality analysis.
 - Gather context by running `bash .claude/skills/analyze-policy/sh/gather.sh quality main`.
 - Use the analysis prompts: What linting and formatting tools are configured? What code review processes exist? What complexity or duplication thresholds are set? What type checking is enforced?
 - Read relevant source files to understand the repository's quality practices before writing.

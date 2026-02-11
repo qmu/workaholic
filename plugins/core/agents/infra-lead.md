@@ -3,6 +3,7 @@ name: infra-lead
 description: Owns external dependencies, file system layout, installation procedures, and environment requirements for the project.
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
+  - leaders-policy
   - lead-infra
   - analyze-viewpoint
   - write-spec

@@ -2,8 +2,8 @@
 title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
-last_updated: 2026-02-09
-commit_hash: d627919
+last_updated: 2026-02-11
+commit_hash: f7f779f
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -30,7 +30,7 @@ A rule provides persistent guidelines and constraints that shape Claude's behavi
 
 ## agent
 
-An agent (or subagent) is a specialized AI subprocess that runs with specific prompts and tools in its own context window, preserving the parent conversation's context while handling focused tasks. Agents are defined in `plugins/<name>/agents/` with files like `spec-writer.md`, `story-writer.md`, or `ticket-organizer.md`. Commands invoke agents via the Task tool. Common types include writer agents (documentation generation), analyst agents (evaluation), creator agents (external operations), and search agents (finding related work). Related terms: plugin, command, skill, orchestrator.
+An agent (or subagent) is a specialized AI subprocess that runs with specific prompts and tools in its own context window, preserving the parent conversation's context while handling focused tasks. Agents are defined in `plugins/<name>/agents/` with files like `spec-writer.md`, `story-writer.md`, `ticket-organizer.md`, or hierarchical agents like `architecture-manager.md` and `quality-lead.md`. Commands invoke agents via the Task tool. Common types include writer agents (documentation generation), analyst agents (evaluation), creator agents (external operations), search agents (finding related work), and hierarchical agents (managers and leads). The agent hierarchy includes managers (strategic outputs), leads (domain-specific implementation), and general-purpose agents. Related terms: plugin, command, skill, orchestrator, manager, lead.
 
 ## ticket-organizer
 
@@ -87,6 +87,30 @@ TiDD (Ticket-Driven Development) is Workaholic's core philosophy where tickets s
 ## context-window
 
 A context window is the isolated conversation memory available to an agent during execution. When agents run in isolated contexts, they preserve the main conversation's context window for orchestration while handling implementation details in dedicated spaces, preventing context pollution from extensive file reads or complex analysis. Related terms: agent, orchestrator.
+
+## manager
+
+A manager is a strategic agent that sits above leads in the agent hierarchy, producing high-level outputs that leaders depend on for context. Managers are defined by the define-manager schema in `.claude/rules/define-manager.md`, which requires Role, Responsibility, Goal, Outputs, and Default Policies sections. Three managers exist: project-manager (business context, stakeholders, timeline), architecture-manager (system structure, components, layers), and quality-manager (quality standards, assurance processes). Each manager has a corresponding `manage-<domain>` skill in `plugins/core/skills/` and a thin agent file in `plugins/core/agents/*-manager.md`. Managers preload the managers-policy skill for cross-cutting behavioral policies. Related terms: lead, define-manager, managers-policy, agent, skill.
+
+## lead
+
+A lead is a domain-specific agent responsible for a particular aspect of the project, consuming manager outputs to make informed domain decisions. Leads are defined by the define-lead schema in `.claude/rules/define-lead.md`, which requires Role, Responsibility, Goal, and Default Policies sections. Current leads include architecture-lead, security-lead, quality-lead, test-lead, a11y-lead, ux-lead, db-lead, delivery-lead, infra-lead, observability-lead, and recovery-lead. Each lead has a corresponding `lead-<speciality>` skill in `plugins/core/skills/` and a thin agent file in `plugins/core/agents/*-lead.md`. Leads preload the leaders-policy skill for cross-cutting behavioral policies including Prior Term Consistency. Related terms: manager, define-lead, leaders-policy, agent, skill.
+
+## define-manager
+
+Define-manager is a schema enforcement rule at `.claude/rules/define-manager.md` that validates manager skill and agent file structure. It applies to `plugins/core/skills/manage-*/SKILL.md` and `plugins/core/agents/*-manager.md` via path-scoped frontmatter. The schema requires five sections (Role, Responsibility, Goal, Outputs, Default Policies) and four policy subsections (Implementation, Review, Documentation, Execution). The Outputs section is unique to managers, defining structured artifacts that leaders consume. Related terms: manager, define-lead, schema, rule.
+
+## define-lead
+
+Define-lead is a schema enforcement rule at `.claude/rules/define-lead.md` that validates lead skill and agent file structure. It applies to `plugins/core/skills/lead-*/SKILL.md` and `plugins/core/agents/*-lead.md` via path-scoped frontmatter. The schema requires four sections (Role, Responsibility, Goal, Default Policies) and four policy subsections (Implementation, Review, Documentation, Execution). Unlike define-manager, leads do not have an Outputs section as they produce domain-specific documentation rather than strategic artifacts. Related terms: lead, define-manager, schema, rule.
+
+## managers-policy
+
+The managers-policy is a cross-cutting behavioral policy skill that all manager agents preload, parallel to leaders-policy. Defined in `plugins/core/skills/managers-policy/SKILL.md`, it contains two policy sections: Prior Term Consistency (respect existing terms, prefer concise naming) and Strategic Focus (managers produce actionable outputs consumable by leaders, not aspirational statements). Each manager agent lists managers-policy as its first preloaded skill in frontmatter. Related terms: manager, leaders-policy, skill, policy.
+
+## leaders-policy
+
+The leaders-policy is a cross-cutting behavioral policy skill that all lead agents preload, parallel to managers-policy. Defined in `plugins/core/skills/leaders-policy/SKILL.md`, it originally contained Prior Term Consistency and Vendor Neutrality policies, though Vendor Neutrality was later removed. Prior Term Consistency requires leads to respect existing terms, prefer 1-word over multi-word expressions, and maintain ubiquitous language across artifacts. Each lead agent lists leaders-policy as its first preloaded skill in frontmatter. Related terms: lead, managers-policy, skill, policy.
 
 ## driver (Deprecated)
 

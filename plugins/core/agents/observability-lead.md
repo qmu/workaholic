@@ -3,6 +3,7 @@ name: observability-lead
 description: Owns the observability strategy including metrics collection, logging practices, tracing implementation, and alerting thresholds for the project.
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
+  - leaders-policy
   - lead-observability
   - analyze-policy
   - translate

@@ -12,7 +12,7 @@ skills:
 
 **Notice:** When user input contains `/scan` - whether "run /scan", "do /scan", "update /scan", or similar - they likely want this command.
 
-Run a full documentation scan by invoking all 14 documentation agents directly, providing real-time progress visibility for each agent.
+Run a full documentation scan by invoking 3 manager agents then 12 leader/writer agents, providing real-time progress visibility for each agent.
 
 ## Instructions
 
@@ -29,18 +29,29 @@ Run the preloaded select-scan-agents skill:
 bash .claude/skills/select-scan-agents/sh/select.sh full
 ```
 
-Parse the JSON output to get the list of all 14 agents.
+Parse the JSON output to get the lists of manager and leader agents.
 
-### Phase 3: Invoke All Agents in Parallel
+### Phase 3a: Invoke Manager Agents in Parallel
 
-Invoke all 14 agents in a single message with parallel Task tool calls (each `model: "sonnet"`):
+Invoke all 3 manager agents in a single message with parallel Task tool calls (each `model: "sonnet"`):
 
 | Agent slug | `subagent_type` | Prompt context |
 | --- | --- | --- |
-| `communication-lead` | `core:communication-lead` | Pass base branch |
+| `project-manager` | `core:project-manager` | Pass base branch |
+| `architecture-manager` | `core:architecture-manager` | Pass base branch |
+| `quality-manager` | `core:quality-manager` | Pass base branch |
+
+Wait for all managers to complete before proceeding. Manager outputs must be available for leaders.
+
+### Phase 3b: Invoke Leader and Writer Agents in Parallel
+
+Invoke all 12 leader/writer agents in a single message with parallel Task tool calls (each `model: "sonnet"`):
+
+| Agent slug | `subagent_type` | Prompt context |
+| --- | --- | --- |
+| `ux-lead` | `core:ux-lead` | Pass base branch |
 | `model-analyst` | `core:model-analyst` | Pass base branch |
 | `infra-lead` | `core:infra-lead` | Pass base branch |
-| `architecture-lead` | `core:architecture-lead` | Pass base branch |
 | `db-lead` | `core:db-lead` | Pass base branch |
 | `test-lead` | `core:test-lead` | Pass base branch |
 | `security-lead` | `core:security-lead` | Pass base branch |
@@ -58,13 +69,13 @@ All invocations MUST be in a single message to run concurrently. Each Task call 
 
 ### Phase 4: Validate Output
 
-Validate viewpoint analyst output:
+Validate viewpoint spec output:
 
 ```bash
-bash .claude/skills/validate-writer-output/sh/validate.sh .workaholic/specs stakeholder.md model.md usecase.md infrastructure.md application.md component.md data.md feature.md
+bash .claude/skills/validate-writer-output/sh/validate.sh .workaholic/specs ux.md model.md usecase.md infrastructure.md application.md component.md data.md feature.md
 ```
 
-Validate policy analyst output:
+Validate policy output:
 
 ```bash
 bash .claude/skills/validate-writer-output/sh/validate.sh .workaholic/policies test.md security.md quality.md accessibility.md observability.md delivery.md recovery.md
@@ -83,4 +94,4 @@ git add CHANGELOG.md .workaholic/specs/ .workaholic/terms/ .workaholic/policies/
 
 ### Phase 7: Report Results
 
-Report per-agent status showing which agents succeeded, failed, or were skipped, along with validation results.
+Report per-agent status showing which agents succeeded, failed, or were skipped, along with validation results. Include both manager phase and leader phase results.

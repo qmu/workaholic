@@ -19,7 +19,7 @@ Read the story file at `.workaholic/stories/<branch-name>.md`.
 Extract:
 - Overview from section 1
 - Highlights from section 1
-- Frontmatter metrics (tickets_completed, commits, duration_hours)
+- Frontmatter metrics (tickets_completed, commits, duration_hours, duration_days)
 
 ### Step 2: Generate Release Note
 
@@ -29,6 +29,8 @@ Create the release note with:
 - Summary (2-3 sentences from Overview)
 - Key Changes (highlights as bullet points)
 - Metrics (from frontmatter)
+  - **Important**: Always use the actual numeric values from the story frontmatter. Never use example or placeholder values.
+  - Format duration using both `duration_days` and `duration_hours` when available.
 - Links (PR URL if available, story file path)
 
 ### Step 3: Write Release Note File
@@ -58,9 +60,9 @@ Return JSON with release note details:
   "release_note_file": ".workaholic/release-notes/<branch-name>.md",
   "summary": "Brief one-line summary",
   "metrics": {
-    "tickets_completed": 6,
-    "commits": 12,
-    "duration_hours": 1.0
+    "tickets_completed": "<actual value from story frontmatter>",
+    "commits": "<actual value from story frontmatter>",
+    "duration_hours": "<actual value from story frontmatter>"
   }
 }
 ```

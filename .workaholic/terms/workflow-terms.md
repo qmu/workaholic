@@ -2,8 +2,8 @@
 title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
-last_updated: 2026-02-09
-commit_hash: d627919
+last_updated: 2026-02-11
+commit_hash: f7f779f
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -78,12 +78,8 @@ Severity is a prioritization criterion based on ticket type: bugfixes (addressin
 
 ## structured-commit-message
 
-A structured commit message extends beyond a simple title to include detailed sections capturing the "why" and scope of changes. Format: title (present-tense verb), detail (1-2 sentences explaining why), UX changes (user-facing impacts), Arch changes (architecture impacts), and Co-Authored-By trailer. Empty sections use "None". Commits created during `/drive` workflow. Related terms: commit, archive-ticket, format-commit-message skill.
+A structured commit message extends beyond a simple title to include five detailed sections capturing context for downstream lead agents. Format: Title (present-tense verb, 50 chars max), Description (motivation and rationale, 2-3 sentences), Changes (user-visible differences or "None"), Test Planning (verification done or needed), Release Preparation (ship and support requirements), and Co-Authored-By trailer. This expanded format replaced the previous 4-section format (Motivation, UX Change, Arch Change) to provide better signal for test-lead, delivery-lead, security-lead, and other domain leads. The commit skill handles message construction via `commit.sh`, and format-commit-message skill content was merged into the commit skill. Related terms: commit, archive-ticket, commit skill.
 
-## ux-changes
+## format-commit-message (Deprecated)
 
-UX changes are user-visible impacts documented in the "UX:" section of structured commit messages. These describe what users will see or experience differently: new commands, options, behaviors, output format changes, or error messages. If no user-facing changes, the field contains "None". Helps generate user guide updates. Related terms: structured-commit-message, commit, arch-changes.
-
-## arch-changes
-
-Arch changes are developer-facing and structural impacts documented in the "Arch:" section of structured commit messages. These describe new files, components, abstractions, modified interfaces, data structures, or workflow relationships. If no architectural changes, the field contains "None". Helps generate specification updates. Related terms: structured-commit-message, commit, ux-changes.
+The format-commit-message skill was a separate skill defining commit message formatting, previously located in `plugins/core/skills/format-commit-message/SKILL.md`. It has been merged into the commit skill to eliminate dual-maintenance burden and simplify preload lists. The commit skill now contains the full per-section writing guidelines (Title, Description, Changes, Test Planning, Release Preparation) as the single authoritative source for commit message formatting. Historical references in archived tickets and stories remain unchanged as they are historical records. Related terms: commit, structured-commit-message, skill.

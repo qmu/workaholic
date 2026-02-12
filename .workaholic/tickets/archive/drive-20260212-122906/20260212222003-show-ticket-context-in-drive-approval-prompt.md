@@ -3,9 +3,9 @@ created_at: 2026-02-12T22:20:03+08:00
 author: a@qmu.jp
 type: bugfix
 layer: [UX]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 6cf2504
+category: Changed
 ---
 
 # Show ticket title and summary in drive approval prompt
@@ -73,3 +73,7 @@ Past tickets that touched similar areas:
 - The freeform Format section (lines 16-26) should be kept as-is because it also instructs the agent to list specific changes made. The AskUserQuestion improvement is additive -- it ensures the title and overview appear even if the agent skips the freeform text.
 - The drive-workflow already returns `title` and `overview` in its JSON output (`plugins/core/skills/drive-workflow/SKILL.md` lines 51-52). The drive command at step 2.2 (`plugins/core/commands/drive.md` line 48) invokes drive-approval after drive-workflow completes, so these values are available in the conversation context. No new data passing mechanism is needed.
 - This is the second attempt to fix this UX issue. The first attempt (20260123002028) added the Format section but did not update the AskUserQuestion JSON. This fix addresses the structural gap by embedding context in the AskUserQuestion fields themselves, which the agent cannot skip.
+
+## Final Report
+
+Development completed as planned.

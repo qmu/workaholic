@@ -27,11 +27,13 @@ Implementation complete. Changes made:
 
 ### Options
 
+**IMPORTANT**: The `header` and `question` fields below are templates. Replace `<title from ticket H1>` and `<overview from ticket Overview section>` with actual values from the drive-workflow result JSON (`title` and `overview` fields). Never present these as literal angle-bracket placeholders.
+
 ```json
 {
   "questions": [{
-    "question": "Approve this implementation?",
-    "header": "Approval",
+    "question": "<overview from ticket Overview section>\n\nApprove this implementation?",
+    "header": "<title from ticket H1>",
     "options": [
       {"label": "Approve", "description": "Commit and archive this ticket, continue to next"},
       {"label": "Approve and stop", "description": "Commit and archive this ticket, then stop driving"},

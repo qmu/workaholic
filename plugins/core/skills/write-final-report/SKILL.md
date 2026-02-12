@@ -3,6 +3,7 @@ name: write-final-report
 description: Write final report section with optional discovered insights.
 skills:
   - update-ticket-frontmatter
+allowed-tools: Bash
 user-invocable: false
 ---
 
@@ -30,6 +31,19 @@ Do NOT use t-shirt sizes (S/M/L/XS/XL), minutes (10m/30m), or any other format. 
 | `4h` | Very large feature (new system, major rewrite) |
 
 ALWAYS use one of these exact values: `0.1h`, `0.25h`, `0.5h`, `1h`, `2h`, `4h`
+
+### How to Update
+
+**MUST use update.sh** -- NEVER use the Edit tool to modify the effort field directly.
+
+```bash
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/update-ticket-frontmatter/sh/update.sh <ticket-path> effort <value>
+```
+
+Example:
+```bash
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/update-ticket-frontmatter/sh/update.sh .workaholic/tickets/todo/20260212-example.md effort 0.5h
+```
 
 ## Final Report Section
 

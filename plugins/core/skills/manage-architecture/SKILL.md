@@ -81,4 +81,5 @@ These specs are written to `.workaholic/specs/` and follow the analyze-viewpoint
   - Identify missing or implicit architectural constraints (layer boundary rules, component naming conventions, dependency direction policies, technology choices).
   - Ask the user targeted questions about architectural preferences, structural boundaries, and technology decisions.
   - Propose architectural constraints grounded in gathered evidence and user answers.
-  - Produce directional materials (architecture decision records, structural guidelines, layer boundary policies) to `.workaholic/`.
+  - Produce constraints to `.workaholic/constraints/architecture.md` following the constraint file template from managers-policy.
+  - Produce other directional materials (decision records, structural guidelines) to `.workaholic/` as appropriate.

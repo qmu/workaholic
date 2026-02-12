@@ -12,6 +12,7 @@ commit_hash: f034f63
 
 Workaholicプラグインマーケットプレイスの作業成果物ハブです。
 
+- [constraints/](constraints/) - マネージャーが生成する規範的な制約
 - [guides/](guides/README_ja.md) - ユーザードキュメント
 - [policies/](policies/README_ja.md) - ポリシードキュメント（テスト、セキュリティ、品質、運用）
 - [specs/](specs/README_ja.md) - 技術仕様

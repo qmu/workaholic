@@ -2,8 +2,8 @@
 title: Delivery Policy
 description: CI/CD pipeline、release process、deployment 実践
 category: developer
-modified_at: 2026-02-11T15:20:22+0000
-commit_hash: f7f779f
+modified_at: 2026-02-12T10:20:09+0000
+commit_hash: f385117
 ---
 
 [English](delivery.md) | [Japanese](delivery_ja.md)
@@ -111,20 +111,22 @@ Version bump は自動ではなく手動です（開発者が `/release` command
 
 開発 branch は以下のパターンに従います：
 
-- `drive-<YYYYMMDD>-<HHMMSS>` - ticket 駆動開発 branch
-- `trip-<YYYYMMDD>-<HHMMSS>` - 代替 branch タイプ（明示的に文書化されていない）
+- `drive-<YYYYMMDD>-<HHMMSS>` - ticket 駆動開発 branch（`branching` skill で作成：`create.sh drive`）
+- `trip-<YYYYMMDD>-<HHMMSS>` - より AI 指向の開発向けの代替 branch タイプ（`branching` skill で作成：`create.sh trip`）
 
-Base branch は `main` です。全ての pull request は `main` を target とします。
+Base branch は `main` です。全ての pull request は `main` を target とします。Branch の作成と状態確認は `branching` skill（`plugins/core/skills/branching/SKILL.md`）と bundled shell script で処理されます。
 
 ### PR Creation Workflow
 
 `/report` command（`plugins/core/commands/report.md`）が PR 作成を orchestrate します：
 
-1. CLAUDE.md の Version Management に従って version を bump（patch increment）
+1. `branching` skill を使用して version が既に bump されているかを確認（`bash .claude/skills/branching/sh/check-version-bump.sh`）。`already_bumped` が `true` の場合（main から分岐後の現在の branch に「Bump version」commit が存在する場合）、bump をスキップ。そうでない場合、CLAUDE.md の Version Management に従って version を bump（patch increment）。
 2. `story-writer` subagent を invoke（`subagent_type: "core:story-writer"`, `model: "opus"`）
 3. story-writer の結果から PR URL を表示
 
 `story-writer` subagent（`plugins/core/agents/story-writer.md`）は branch story を生成し、commit し、`pr-creator` と `release-note-writer` を並行して invoke し、PR URL を出力します。
+
+Version bump の冪等性 check により、同じ branch で `/report` が複数回呼び出された際の二重 bump を防ぎます（`plugins/core/skills/branching/sh/check-version-bump.sh` で実装され、`git log main..HEAD --oneline --grep="Bump version"` を使用）。
 
 ### PR Creation Script
 
@@ -147,7 +149,7 @@ Script は GraphQL Projects deprecation error を避けるため、更新に RES
 4. `archive-ticket` skill を使用して `.workaholic/tickets/archive/<branch>/` に ticket を archive
 5. 構造化された message format を使用して commit（`commit` skill から）
 
-`/drive` command は各 ticket を個別に commit し、実装された ticket ごとに commit を作成します。
+`/drive` command は各 ticket を個別に commit し、実装された ticket ごとに commit を作成します。`/drive` の開始時の branch 作成は `branching` skill（`plugins/core/skills/branching/sh/check.sh` と `create.sh`）を使用します。
 
 ## Commit Message Structure
 
@@ -310,7 +312,7 @@ Story file は PR description として機能します（YAML frontmatter は `c
 - Policy validation が pass した場合、`.workaholic/policies/README.md` と `README_ja.md` を更新
 
 **Phase 6: Stage and Commit**
-- 全ての documentation を commit：`git add CHANGELOG.md .workaholic/specs/ .workaholic/terms/ .workaholic/policies/ && git commit -m "Update documentation"`
+- 全ての documentation を commit：`git add CHANGELOG.md .workaholic/specs/ .workaholic/terms/ .workaholic/policies/ .workaholic/constraints/ && git commit -m "Update documentation"`
 
 **Phase 7: Report Results**
 - どの agent が成功、失敗、またはスキップされたかを示す per-agent status を report
@@ -351,6 +353,9 @@ Version increment が promotion gate として機能します。Increment され
 - Git hook は active でない（`.git/hooks/` には sample hook のみ存在）
 - Commit script は他の contributor の uncommitted file を誤って stage しないよう `git add -A` を使用しない
 - Commit workflow に multi-contributor 認識が組み込まれている：他の人の uncommitted work を含めないよう、commit 前に staged 変更を review
+- Version bump の冪等性 check により、同じ branch で `/report` が複数回実行された際の二重 bump を防ぐ（`branching` skill 経由で `git log main..HEAD --oneline --grep="Bump version"` を使用）
+- Branch 操作（check、create、version bump detection）は markdown file 内の inline command ではなく、`branching` skill の shell script に抽出される
+- `/scan` command は manager constraint file を capture するため、commit step に `.workaholic/constraints/` を含むようになった
 
 ## Gaps
 

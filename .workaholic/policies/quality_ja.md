@@ -2,8 +2,8 @@
 title: Quality Policy
 description: Code quality standards, linting rules, review processes, and metrics used to maintain maintainability
 category: developer
-modified_at: 2026-02-11T15:29:37+00:00
-commit_hash: f7f779f
+modified_at: 2026-02-12T10:15:46+00:00
+commit_hash: f385117
 ---
 
 [English](quality.md) | [Japanese](quality_ja.md)
@@ -24,7 +24,7 @@ commit_hash: f7f779f
 
 **インライン複雑性の禁止**: Command と agent は複雑なインライン shell command を含むことができません。禁止される構文には条件文（`if`、`case`、`test`、`[ ]`、`[[ ]]`）、pipe とチェーン（`|`、`&&`、`||`）、テキスト処理（`sed`、`awk`、`grep`、`cut`）、ループ（`for`、`while`）、論理を含む変数展開（`${var:-default}`、`${var:+alt}`）が含まれます。すべてのマルチステップまたは条件付き操作は skill のバンドル script（`skills/<name>/sh/<script>.sh`）に抽出する必要があります。（`CLAUDE.md` Shell Script Principle により強制され、code review を通じて検証。）
 
-**検証**: codebase 内の19個の shell script がこれらの標準に従っています。ほとんどは `#!/bin/sh -eu` を使用していますが、1つの hook は `#!/bin/bash` を使用し、2つのヘルパー script には `-eu` flags がありません。（`grep "^#!/" **/*.sh` により検証。）
+**検証**: codebase 内の21個の shell script がこれらの標準に従っています。ほとんどは `#!/bin/sh -eu` を使用していますが、1つの hook は `#!/bin/bash` を使用し、2つのヘルパー script には `-eu` flags がありません。（`find . -name "*.sh" -type f | wc -l` により検証。）
 
 ### TypeScript Conventions
 
@@ -50,7 +50,7 @@ commit_hash: f7f779f
 
 ### Multi-Language Documentation
 
-**i18n 強制**: `.workaholic/` 内のすべてのファイルは対応する日本語翻訳（`_ja.md` suffix）を持つ必要があります。各言語の README は同じ言語のドキュメントにリンクし、並列 link 構造を作成する必要があります。（`plugins/core/rules/i18n.md` により強制され、`translate` skill を通じて検証。）
+**i18n 強制**: `.workaholic/` 内のすべてのファイルは対応する日本語翻訳（`_ja.md` suffix）を持つ必要があります。各言語の README は同じ言語のドキュメントにリンクし、並列 link 構造を作成する必要があります。プロジェクトは CLAUDE.md 言語設定を尊重します - 主要言語が日本語の場合、`_ja.md` 翻訳は生成されません（主要コンテンツと重複するため）。（`plugins/core/rules/i18n.md` により強制され、`translate` skill を通じて検証。）
 
 **言語分離**: Code と code comment、commit message、pull request、`.workaholic/` 外のドキュメントは英語のみを使用します。`.workaholic/` ディレクトリは英語と日本語の両方をサポートします。（`CLAUDE.md` Written Language セクションにより強制。）
 

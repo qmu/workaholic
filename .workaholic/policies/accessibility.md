@@ -2,8 +2,8 @@
 title: Accessibility Policy
 description: Internationalization, localization, and content accessibility practices
 category: developer
-modified_at: 2026-02-11T15:20:19+00:00
-commit_hash: f7f779f
+modified_at: 2026-02-12T10:15:00+00:00
+commit_hash: f385117
 ---
 
 [English](accessibility.md) | [Japanese](accessibility_ja.md)
@@ -16,7 +16,17 @@ This document describes the accessibility and internationalization practices imp
 
 ### Bilingual Documentation Requirement
 
-Every document in `.workaholic/` must have a corresponding `_ja.md` Japanese translation (`plugins/core/skills/translate/SKILL.md`, lines 119-121: "CRITICAL RULE: When creating or editing any `.md` file in `.workaholic/`, you MUST also create or update the corresponding `_ja.md` translation"). This requirement is enforced through the `translate` skill preloaded by all documentation writer subagents.
+Every document in `.workaholic/` must have a corresponding `_ja.md` Japanese translation when English is the primary language (`plugins/core/skills/translate/SKILL.md`, lines 121-127: "CRITICAL RULE: When creating or editing any `.md` file in `.workaholic/`, you MUST check the consumer project's root CLAUDE.md to determine the primary written language"). This requirement is enforced through the `translate` skill preloaded by all documentation writer subagents.
+
+### Primary Language Detection Logic
+
+The translation system determines which translations to produce based on the consumer project's primary language (`plugins/core/skills/translate/SKILL.md`, lines 123-127):
+
+- If primary is English or bilingual English/Japanese: produce `_ja.md` translations
+- If primary is Japanese only: do NOT produce `_ja.md` files (would duplicate primary content); produce `_en.md` if secondary language declared
+- If primary is another language: produce translations for declared secondary languages with appropriate suffix
+
+This logic prevents duplicate content when the primary language matches a potential translation target (`plugins/core/rules/i18n.md`, lines 58-59: "Never duplicate the primary language as a translation").
 
 ### Translation Guidelines
 
@@ -39,7 +49,7 @@ This boundary is documented as a project-level policy and enforced through docum
 
 ### README Link Mirroring
 
-Each language's README must link to documents in the same language (`plugins/core/skills/translate/SKILL.md`, lines 135-143). `README.md` links to English documents while `README_ja.md` links to `_ja.md` translations, maintaining parallel navigation structures. This ensures users stay within their language context when navigating documentation.
+Each language's README must link to documents in the same language (`plugins/core/skills/translate/SKILL.md`, lines 143-149). `README.md` links to English documents while `README_ja.md` links to `_ja.md` translations, maintaining parallel navigation structures. This ensures users stay within their language context when navigating documentation.
 
 ## Supported Languages
 
@@ -53,7 +63,7 @@ Each language's README must link to documents in the same language (`plugins/cor
 | fr | French | Listed in translate skill | Not implemented |
 | es | Spanish | Listed in translate skill | Not implemented |
 
-Japanese translations are comprehensive, covering guides, specs, terms, stories, and policies (42 `_ja.md` files observed in `.workaholic/` directory out of 366 total markdown files, representing 11.5% coverage for bilingual content).
+Japanese translations are comprehensive, covering guides, specs, terms, stories, and policies (43 `_ja.md` files observed in `.workaholic/` directory out of 375 total markdown files, representing 11.5% coverage for bilingual content).
 
 ## Translation Workflow
 
@@ -73,17 +83,15 @@ ISO 639-1 language codes (two-letter codes) are used as suffixes.
 
 ### Manual Translation Process
 
-Translation is performed manually following the `translate` skill guidelines. No automated translation tools or services are integrated. The workflow is:
+Translation is performed manually following the `translate` skill guidelines. No automated translation tools or services are integrated. The workflow is (`plugins/core/skills/translate/SKILL.md`, lines 152-156):
 
-1. Create or update English document
-2. Create or update Japanese translation (`_ja.md`)
-3. Update both `README.md` and `README_ja.md` to maintain parallel link structure
-
-This workflow is documented in `plugins/core/skills/translate/SKILL.md` (lines 145-149).
+1. Create or update primary language document first
+2. Create or update translation counterpart (if applicable per decision logic)
+3. Update all README files to maintain parallel link structure
 
 ### Technical Term Preservation
 
-Technical terms remain in English even in Japanese translations (`plugins/core/skills/translate/SKILL.md`, lines 78-83). Core concepts (plugin, command, skill, rule, ticket, workflow), git terms (repository, branch, commit), and programming concepts (function, class, module, component) are kept in English to maintain technical precision and avoid ambiguity.
+Technical terms remain in English even in Japanese translations (`plugins/core/skills/translate/SKILL.md`, lines 79-83). Core concepts (plugin, command, skill, rule, ticket, workflow), git terms (repository, branch, commit), and programming concepts (function, class, module, component) are kept in English to maintain technical precision and avoid ambiguity.
 
 ## Accessibility Testing
 
@@ -186,6 +194,8 @@ Each term is documented with definition, usage context, and relationships to oth
 - The extensive i18n infrastructure (dedicated translate skill, i18n rule, _ja suffix convention, mandatory translation requirements) indicates primary developer audience includes Japanese speakers
 - Context-aware rules prevent i18n requirements from applying to code or configuration files
 - Diagram validation prevents rendering errors by enforcing proper Mermaid syntax
+- Primary language detection logic (added in current branch) prevents creating duplicate translation files when primary language matches translation target
+- Recent skill renames (`leaders-policy` → `leaders-principle`, `manage-branch` → `branching`) demonstrate consistent application of term refinement practices
 
 ## Gaps
 

@@ -2,8 +2,8 @@
 title: Test Policy
 description: 検証と妥当性確認の戦略 -- テストレベル、カバレッジ目標、正確性を保証するプロセス
 category: developer
-modified_at: 2026-02-11T00:00:00+09:00
-commit_hash: f7f779f
+modified_at: 2026-02-12T10:15:11+00:00
+commit_hash: f385117
 ---
 
 [English](test.md) | [Japanese](test_ja.md)
@@ -16,9 +16,9 @@ commit_hash: f7f779f
 
 従来の testing framework は設定されていません。test 設定ファイル (jest.config, vitest.config, playwright.config, cypress.config, pytest.ini) は repository に存在しません。これは設定と文書の artifact のみから構成される Claude Code plugin marketplace としての project の性質に合致しています。
 
-Shell script testing framework (bats, shunit2) や linting tool (shellcheck) は設定されていません。`plugins/core/skills/*/sh/*.sh` の 19 個の shell script は、自動化された test や linting ではなく rule ファイルに文書化された POSIX sh 準拠標準に依存しています (`.claude/rules/shell.md`)。
+Shell script testing framework (bats, shunit2) や linting tool (shellcheck) は設定されていません。`plugins/core/skills/*/sh/*.sh` と `plugins/core/hooks/*.sh` の 21 個の shell script は、自動化された test や linting ではなく rule ファイルに文書化された POSIX sh 準拠標準に依存しています (`.claude/rules/shell.md`)。
 
-Markdown linting tool (markdownlint-cli, remark-lint) は `.workaholic/` の 366 個の markdown ファイルに対して設定されていません。Markdown 品質は、自動化された検証ではなく、文書化された標準 (Mermaid 構文、見出し番号付け、link 形式) と code review によって実施されています (`plugins/core/rules/diagrams.md`, `plugins/core/rules/general.md`)。
+Markdown linting tool (markdownlint-cli, remark-lint) は `.workaholic/` の 375 個の markdown ファイルに対して設定されていません。Markdown 品質は、自動化された検証ではなく、文書化された標準 (Mermaid 構文、見出し番号付け、link 形式) と code review によって実施されています (`plugins/core/rules/diagrams.md`, `plugins/core/rules/general.md`)。
 
 ## Testing Levels
 
@@ -70,9 +70,9 @@ Project の検証戦略は、動作 test coverage ではなく構造の正確性
 
 観測されていません。Repository には test ディレクトリ (`__tests__/`、`test/`、`tests/`、`spec/`) や命名パターンに従う test ファイル (`*.test.js`、`*.spec.ts`、`*_test.py`) が含まれていません。
 
-`plugins/core/skills/*/sh/*.sh` の 19 個の shell script には、付随する test ファイルがありません。Shell script は skill ドメインごとに整理されていますが、自動化された test coverage はありません。Script の正確性は、`plugins/core/rules/shell.md` に文書化された POSIX sh 準拠標準 (shebang `#!/bin/sh -eu`、禁止された bash 機能、inline 複雑性の禁止) と code review によって実施されています。
+`plugins/core/skills/*/sh/*.sh` と `plugins/core/hooks/*.sh` の 21 個の shell script には、付随する test ファイルがありません。Shell script は skill ドメインごとに整理されていますが、自動化された test coverage はありません。Script の正確性は、`plugins/core/rules/shell.md` に文書化された POSIX sh 準拠標準 (shebang `#!/bin/sh -eu`、禁止された bash 機能、inline 複雑性の禁止) と code review によって実施されています。
 
-`.workaholic/` の 366 個の markdown ファイルは、コンテンツタイプ (specs、policies、tickets、terms) ごとに整理されていますが、構造チェック以外の自動化された検証はありません。Markdown 品質は、code review によって実施される文書化された標準 (Mermaid 構文、見出し番号付け、link 形式) に依存しています (`plugins/core/rules/diagrams.md`、`plugins/core/rules/general.md`)。
+`.workaholic/` の 375 個の markdown ファイルは、コンテンツタイプ (specs、policies、tickets、terms) ごとに整理されていますが、構造チェック以外の自動化された検証はありません。Markdown 品質は、code review によって実施される文書化された標準 (Mermaid 構文、見出し番号付け、link 形式) に依存しています (`plugins/core/rules/diagrams.md`、`plugins/core/rules/general.md`)。
 
 ## Observations
 
@@ -85,19 +85,19 @@ Project の検証戦略は、動作 test coverage ではなく構造の正確性
 
 検証戦略は設定 repository としての project の性質に合致しています。設定と文書の artifact に対しては、動作の正確性よりも構造の正確性 (有効な JSON、必須フィールド、ファイルの存在) がより重要です。
 
-Shell script testing の欠如は、19 個のバンドルされた script のロジック regression が runtime まで検出されないことを意味します。ただし、script は複雑なビジネスロジックではなく、主にデータ変換 (git context 収集、ticket metadata 抽出、branch 作成) であるため、regression リスクは低減されています。
+Shell script testing の欠如は、21 個のバンドルされた script のロジック regression が runtime まで検出されないことを意味します。ただし、script は複雑なビジネスロジックではなく、主にデータ変換 (git context 収集、ticket metadata 抽出、branch 作成) であるため、regression リスクは低減されています。
 
 ## Gaps
 
-**Shell script linting**: 19 個のバンドルされた shell script に対して shellcheck または shell test framework (bats、shunit2) は設定されていません。Script の正確性は、自動化された linting ではなく、文書化された POSIX sh 準拠標準と code review に依存しています。
+**Shell script linting**: 21 個のバンドルされた shell script に対して shellcheck または shell test framework (bats、shunit2) は設定されていません。Script の正確性は、自動化された linting ではなく、文書化された POSIX sh 準拠標準と code review に依存しています。
 
-**Markdown linting**: 366 個の markdown ファイルに対して markdownlint-cli または remark-lint は設定されていません。Markdown 品質は、自動化された検証ではなく、文書化された標準 (Mermaid 構文、見出し番号付け、link 形式) と code review に依存しています。
+**Markdown linting**: 375 個の markdown ファイルに対して markdownlint-cli または remark-lint は設定されていません。Markdown 品質は、自動化された検証ではなく、文書化された標準 (Mermaid 構文、見出し番号付け、link 形式) と code review に依存しています。
 
 **Integration testing**: End-to-end command workflow testing は存在しません。`/ticket` → `/drive` → `/report` workflow は、自動化された integration test ではなく手動使用によって検証されています。
 
 **JSON schema validation**: JSON 検証は基本的な構文チェック (`jq empty`) のみを使用します。必須フィールドの存在を超える構造の JSON schema 検証は存在しません。より複雑な schema 制約 (フィールド型、許可された値、相互依存関係) は実施されていません。
 
-**Shell script unit tests**: 19 個の shell script には付随する unit test がありません。Script 内の関数 (検証、解析、変換) は独立して test されていません。Script の正確性は、開発と review 中の手動 test に依存しています。
+**Shell script unit tests**: 21 個の shell script には付随する unit test がありません。Script 内の関数 (検証、解析、変換) は独立して test されていません。Script の正確性は、開発と review 中の手動 test に依存しています。
 
 **Regression test suite**: Bug 修正が修正されたままであることを検証する regression test suite は存在しません。唯一の regression 防止メカニズムは CI 構造検証であり、設定/構造 regression を検出しますが、script の動作 regression は検出しません。
 

@@ -2,8 +2,8 @@
 title: Application Viewpoint
 description: Runtime behavior, agent orchestration, and data flow
 category: developer
-modified_at: 2026-02-11T23:20:09+08:00
-commit_hash: f7f779f
+modified_at: 2026-02-12T18:14:33+08:00
+commit_hash: f385117
 ---
 
 [English](application.md) | [Japanese](application_ja.md)
@@ -20,7 +20,7 @@ The orchestration model enforces strict nesting rules. Commands can invoke skill
 
 ### Two-Phase Execution Model
 
-The scan command implements a two-phase agent orchestration model introduced to support the manager tier. Phase 3a invokes three manager agents in parallel: project-manager, architecture-manager, and quality-manager. These managers gather context, analyze the codebase, and produce strategic outputs under `.workaholic/specs/` and `.workaholic/policies/`. Phase 3b waits for all managers to complete, then invokes twelve leader and writer agents in parallel. Leaders read manager outputs as strategic input before performing their domain-specific analysis.
+The scan command implements a two-phase agent orchestration model introduced to support the manager tier. Phase 3a invokes three manager agents in parallel: project-manager, architecture-manager, and quality-manager. These managers gather context, analyze the codebase, and produce strategic outputs under `.workaholic/specs/`, `.workaholic/policies/`, and `.workaholic/constraints/`. Phase 3b waits for all managers to complete, then invokes twelve leader and writer agents in parallel. Leaders read manager outputs as strategic input before performing their domain-specific analysis.
 
 This two-phase pattern ensures leaders have consistent strategic context without duplicating business, architectural, or quality analysis. The manager tier establishes project constraints, structural boundaries, and quality standards that leaders reference in their domain-specific documentation.
 
@@ -149,7 +149,10 @@ sequenceDiagram
     participant pc as pr-creator
 
     User->>report: /report
-    report->>report: Bump version
+    report->>report: Check existing version bump
+    alt No prior bump
+        report->>report: Bump version
+    end
     report->>sw: Task (opus)
     sw->>sw: gather-git-context skill
 
@@ -181,19 +184,21 @@ sequenceDiagram
     report->>User: Display PR URL
 ```
 
-The `/report` command delegates to the story-writer subagent, which orchestrates two phases of parallel agent invocation. Phase 1 generates story content sections using four parallel agents. Phase 2 generates release notes and creates the pull request using two more parallel agents. The story-writer handles all git operations and returns the PR URL to the report command for display.
+The `/report` command implements idempotent version bumping by checking for existing "Bump version" commits in the current branch before incrementing the version. This prevents double version increments when `/report` is called multiple times on the same branch (e.g., to update the PR after additional commits). The check uses the branching skill's `check-version-bump.sh` script, which runs `git log main..HEAD --oneline --grep="Bump version"` and returns JSON with `already_bumped` status. If a bump commit exists, the version bump step is skipped entirely. If no bump commit exists, the report command proceeds with the standard version increment logic.
+
+After version bumping (or skipping if already bumped), the command delegates to the story-writer subagent, which orchestrates two phases of parallel agent invocation. Phase 1 generates story content sections using four parallel agents. Phase 2 generates release notes and creates the pull request using two more parallel agents. The story-writer handles all git operations and returns the PR URL to the report command for display.
 
 ### Manager Tier Responsibilities
 
 The three manager agents establish the strategic backbone of the project through constraint-setting and context production:
 
-**project-manager**: Produces project context covering business domain, stakeholder map, timeline status, active issues, and proposed solutions. Consumed primarily by delivery-lead and ux-lead, though all leaders benefit from project context.
+**project-manager**: Produces project context covering business domain, stakeholder map, timeline status, active issues, and proposed solutions. Consumed primarily by delivery-lead and ux-lead, though all leaders benefit from project context. Produces constraints to `.workaholic/constraints/project.md` following the constraint file template.
 
-**architecture-manager**: Produces architectural context including system boundaries, layer taxonomy, component inventory, cross-cutting concerns, and structural patterns. Also produces four viewpoint specs (application.md, component.md, feature.md, usecase.md) that were formerly produced by the removed architecture-lead. Consumed by infra-lead, db-lead, security-lead, observability-lead, and recovery-lead.
+**architecture-manager**: Produces architectural context including system boundaries, layer taxonomy, component inventory, cross-cutting concerns, and structural patterns. Also produces four viewpoint specs (application.md, component.md, feature.md, usecase.md) that were formerly produced by the removed architecture-lead. Consumed by infra-lead, db-lead, security-lead, observability-lead, and recovery-lead. Produces constraints to `.workaholic/constraints/architecture.md`.
 
-**quality-manager**: Produces quality context covering quality dimensions and standards, assurance process definitions, improvement metrics, and feedback loop specifications. Consumed by quality-lead, test-lead, and a11y-lead.
+**quality-manager**: Produces quality context covering quality dimensions and standards, assurance process definitions, improvement metrics, and feedback loop specifications. Consumed by quality-lead, test-lead, and a11y-lead. Produces constraints to `.workaholic/constraints/quality.md`.
 
-Managers follow a constraint-setting workflow defined in managers-policy: analyze the current state to identify unbounded or implicit constraints, ask targeted questions to understand user intent, propose falsifiable constraints grounded in evidence, and produce directional materials (policies, guidelines, roadmaps, decision records) that encode constraints as consumable artifacts.
+Managers follow a constraint-setting workflow defined in managers-principle: analyze the current state to identify unbounded or implicit constraints, ask targeted questions to understand user intent, propose falsifiable constraints grounded in evidence, and produce structured constraint files to `.workaholic/constraints/` plus additional directional materials (guidelines, roadmaps, decision records) to `.workaholic/` as appropriate.
 
 ### Leader Tier Responsibilities
 
@@ -252,9 +257,9 @@ flowchart TD
     Managers --> AM[Architecture Specs]
     Managers --> QM[Quality Standards]
 
-    PM --> Specs1[.workaholic/specs/ or policies/]
-    AM --> Specs2[.workaholic/specs/]
-    QM --> Specs3[.workaholic/policies/]
+    PM --> Specs1[.workaholic/constraints/project.md]
+    AM --> Specs2[.workaholic/specs/ + constraints/architecture.md]
+    QM --> Specs3[.workaholic/constraints/quality.md]
 
     Specs1 --> Leaders[10 Leader Agents]
     Specs2 --> Leaders
@@ -264,7 +269,7 @@ flowchart TD
     Leaders --> ViewpointRef[References to Viewpoint Specs]
 ```
 
-Manager outputs are persisted as markdown documents under `.workaholic/specs/` and `.workaholic/policies/`. Leaders read these documents as input before performing their domain-specific analysis. This file-based communication pattern ensures all intermediate context is inspectable and version-controlled.
+Manager outputs are persisted as markdown documents under `.workaholic/specs/`, `.workaholic/policies/`, and `.workaholic/constraints/`. Leaders read these documents as input before performing their domain-specific analysis. This file-based communication pattern ensures all intermediate context is inspectable and version-controlled.
 
 ### Ticket Creation Flow
 
@@ -325,6 +330,7 @@ flowchart TD
 
     Phase3b --> Specs[.workaholic/specs/*.md]
     Phase3b --> Policies[.workaholic/policies/*.md]
+    Phase3b --> Constraints[.workaholic/constraints/*.md]
     Phase3b --> Changelog[CHANGELOG.md]
     Phase3b --> Terms[.workaholic/terms/*.md]
 
@@ -338,7 +344,7 @@ flowchart TD
     Report --> DocCommit
 ```
 
-The documentation scan flow uses git branch context to determine which agents to invoke. In full mode, all 3 managers and all 12 agents run. In partial mode, only agents relevant to changed files run. Managers run first in phase 3a, producing strategic outputs. Leaders and writers run second in phase 3b, consuming manager outputs. Agents write their outputs to respective directories. The validate-writer-output skill checks that expected files exist and are non-empty. If validation passes, README index files are updated. Finally, all documentation changes are committed together.
+The documentation scan flow uses git branch context to determine which agents to invoke. In full mode, all 3 managers and all 12 agents run. In partial mode, only agents relevant to changed files run. Managers run first in phase 3a, producing strategic outputs to specs, policies, and constraints directories. Leaders and writers run second in phase 3b, consuming manager outputs. Agents write their outputs to respective directories. The validate-writer-output skill checks that expected files exist and are non-empty. If validation passes, README index files are updated. Finally, all documentation changes are committed together.
 
 ### Story Generation Flow
 
@@ -392,7 +398,7 @@ Before the command executes, Claude Code preloads any skills listed in the front
 
 ### Manager Tier Execution
 
-Manager agents follow the three-tier define-manager schema: Role, Responsibility, Goal, Outputs, and Default Policies. Each manager preloads the managers-policy skill, which defines cross-cutting policies including Prior Term Consistency, Strategic Focus, and Constraint Setting. Manager execution produces structured artifacts that leaders consume, creating an information hierarchy where strategic context is established before tactical analysis begins.
+Manager agents follow the three-tier define-manager schema: Role, Responsibility, Goal, Outputs, and Default Policies. Each manager preloads the managers-principle skill, which defines cross-cutting principles including Prior Term Consistency, Strategic Focus, and Constraint Setting. Manager execution produces structured artifacts that leaders consume, creating an information hierarchy where strategic context is established before tactical analysis begins.
 
 ### Subagent Spawning
 
@@ -456,7 +462,7 @@ The drive-navigator presents a prioritized ticket list and waits for user confir
 
 When one task's output is required as input to the next task, execution proceeds sequentially. This pattern maintains data dependencies.
 
-The report command follows a strict sequence: bump version, invoke story-writer, display PR URL. Version bump must complete before story-writer reads the updated version files. Story-writer must complete and return the PR URL before the command can display it to the user.
+The report command follows a strict sequence: check for existing version bump, bump version if needed, invoke story-writer, display PR URL. Version bump must complete before story-writer reads the updated version files. Story-writer must complete and return the PR URL before the command can display it to the user. The version bump idempotency check prevents duplicate version increments when `/report` is called multiple times on the same branch.
 
 The archive-ticket skill follows a sequence: verify frontmatter update succeeded, move ticket file to archive directory, create structured commit message, execute git add and commit. Each step depends on the previous step's success. If frontmatter verification fails, the entire archival is aborted.
 
@@ -464,7 +470,7 @@ The archive-ticket skill follows a sequence: verify frontmatter update succeeded
 
 When multiple independent operations produce artifacts, the system batches their git commits into a single commit. This pattern reduces commit noise and groups related changes.
 
-The scan command runs 3 managers and 12 agents, validates their outputs, updates README indices, then stages and commits everything in one commit: `git add CHANGELOG.md .workaholic/specs/ .workaholic/terms/ .workaholic/policies/ && git commit -m "Update documentation"`. This single commit captures the entire documentation update, even though 15 agents contributed to it.
+The scan command runs 3 managers and 12 agents, validates their outputs, updates README indices, then stages and commits everything in one commit: `git add CHANGELOG.md .workaholic/specs/ .workaholic/terms/ .workaholic/policies/ .workaholic/constraints/ && git commit -m "Update documentation"`. This single commit captures the entire documentation update, even though 15 agents contributed to it.
 
 The archive-ticket skill commits both the archived ticket and the source code changes together with a structured commit message that includes motivation, UX changes, and architecture changes. This links the ticket's documentation to the code it produced in git history.
 
@@ -486,7 +492,7 @@ The discovery agents (history, source, ticket) use opus because they must search
 
 The recent introduction of the manager tier fundamentally changed the scan command's execution model from flat parallel invocation to hierarchical two-phase execution. This change addresses strategic context duplication: previously, each of 17 analysts independently inferred project priorities, architectural structure, and quality expectations. Now, three managers establish authoritative strategic context that leaders consume.
 
-The manager tier follows the define-manager schema, which differs from define-lead in two ways: managers produce structured Outputs consumed by leaders, and managers follow a constraint-setting workflow that produces directional materials (policies, guidelines, roadmaps, decision records) alongside documentation.
+The manager tier follows the define-manager schema, which differs from define-lead in two ways: managers produce structured Outputs consumed by leaders, and managers follow a constraint-setting workflow that produces directional materials (policies, guidelines, roadmaps, decision records) alongside documentation. Managers write constraints to `.workaholic/constraints/<scope>.md` following the constraint file template defined in managers-principle.
 
 The architecture-manager absorbed the responsibilities of the removed architecture-lead, inheriting production of four viewpoint specs (application.md, component.md, feature.md, usecase.md). This consolidation reflects the insight that system structure is a managerial concern (what is the architecture?) rather than a leadership concern (how should we implement within this architecture?).
 
@@ -502,6 +508,24 @@ The scanner subagent was removed in an earlier migration, with its orchestration
 
 The two-phase manager/leader model builds on this direct orchestration pattern, adding hierarchical phasing to what was previously a single flat parallel invocation.
 
+### Skill Renames for Semantic Clarity
+
+Recent tickets renamed several skills to resolve naming collisions and improve semantic clarity:
+
+**branching (formerly manage-branch)**: Renamed to avoid collision with the manager tier's `manage-` prefix convention. The `manage-` prefix is now reserved for manager-tier skills (manage-project, manage-architecture, manage-quality), while `branching` clearly describes the skill's branch creation and validation behavior.
+
+**managers-principle (formerly managers-policy)**: Renamed to eliminate semantic collision with `.workaholic/policies/` output directory. "Principle" accurately describes the cross-cutting behavioral principles (Prior Term Consistency, Strategic Focus, Constraint Setting) rather than generated policy documents.
+
+**leaders-principle (formerly leaders-policy)**: Renamed for consistency with managers-principle. Describes cross-cutting behavioral principles (Prior Term Consistency, Vendor Neutrality) that apply to all leader agents.
+
+### Version Bump Idempotency
+
+The report command was enhanced to check for existing version bump commits before incrementing the version. This makes the `/report` command idempotent: calling it multiple times on the same branch no longer produces multiple version increments. The `branching` skill includes a `check-version-bump.sh` script that detects "Bump version" commits in the current branch since diverging from main.
+
+### Translation Logic Enhancement
+
+The translate skill was updated to support Japanese-primary projects. Previously, the skill unconditionally generated `_ja.md` translations for all `.workaholic/` documents. Now it checks the consumer project's root CLAUDE.md to determine the primary written language and produces translations only when the primary language differs from the translation target. This eliminates duplicate Japanese specs when the primary language is Japanese.
+
 ## Assumptions
 
 - [Explicit] The two-phase execution model (managers then leaders) is documented in scan.md Phase 3a and 3b, with explicit wait between phases.
@@ -514,8 +538,14 @@ The two-phase manager/leader model builds on this direct orchestration pattern, 
 - [Explicit] All scan agents must use `run_in_background: false` to retain Write/Edit permissions, as documented in scan command Phase 3.
 - [Explicit] Drive processes tickets sequentially with user approval between each, as defined in drive command instructions.
 - [Explicit] Skills are preloaded before command execution by listing them in command frontmatter.
+- [Explicit] The managers-principle skill defines constraint-setting workflow and constraint file template with frontmatter and structured sections.
+- [Explicit] Managers write constraints to `.workaholic/constraints/<scope>.md` (project.md, architecture.md, quality.md) following the template.
+- [Explicit] The branching skill (formerly manage-branch) provides `check-version-bump.sh` script to detect existing version bump commits.
+- [Explicit] The report command uses the version bump check to skip bumping if "Bump version" commit already exists in the current branch.
+- [Explicit] The translate skill checks the consumer project's CLAUDE.md primary language before producing translations, preventing duplicates when primary language matches translation target.
 - [Inferred] The manager tier was introduced to eliminate strategic context duplication across the 17 independent analysts in the previous flat execution model.
-- [Inferred] The constraint-setting workflow in managers-policy (Analyze, Ask, Propose, Produce) is designed to produce actionable constraints rather than aspirational recommendations.
+- [Inferred] The constraint-setting workflow in managers-principle (Analyze, Ask, Propose, Produce) is designed to produce actionable constraints rather than aspirational recommendations.
 - [Inferred] The choice of sonnet for managers and leaders reflects a cost-performance optimization, as their analysis is deep but bounded to a single domain.
 - [Inferred] The two-phase pattern trades some concurrency (cannot run all 15 agents fully parallel) for architectural coherence (leaders have consistent strategic context).
 - [Inferred] The architecture-manager's absorption of viewpoint spec production consolidates "what is the system structure?" at the managerial level, leaving leaders to address "how should we work within this structure?"
+- [Inferred] The skill renames (manage-branch → branching, managers-policy → managers-principle, leaders-policy → leaders-principle) reflect iterative refinement of naming conventions as the architecture evolved.

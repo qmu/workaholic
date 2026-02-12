@@ -62,8 +62,9 @@ A structured analysis containing:
 - Analyze gathered context against the Outputs structure.
 - Produce the project context output document.
 - Report confidence level (high/medium/low) for each section based on evidence quality.
-- Follow the Constraint Setting workflow from managers-policy:
+- Follow the Constraint Setting workflow from managers-principle:
   - Identify missing or implicit project constraints (release cadence, stakeholder priorities, scope boundaries, timeline commitments).
   - Ask the user targeted questions about business priorities, stakeholder rankings, and scope decisions.
   - Propose project constraints grounded in gathered evidence and user answers.
-  - Produce directional materials (roadmap, stakeholder priority matrix, scope boundary document) to `.workaholic/`.
+  - Produce constraints to `.workaholic/constraints/project.md` following the constraint file template from managers-principle.
+  - Produce other directional materials (roadmap, stakeholder priority matrix) to `.workaholic/` as appropriate.

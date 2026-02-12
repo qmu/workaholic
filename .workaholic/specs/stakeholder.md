@@ -2,8 +2,8 @@
 title: Stakeholder Viewpoint
 description: Who uses the system, their goals, and interaction patterns
 category: developer
-modified_at: 2026-02-09T12:52:00+08:00
-commit_hash: d627919
+modified_at: 2026-02-12T18:14:33+08:00
+commit_hash: f385117
 ---
 
 [English](stakeholder.md) | [Japanese](stakeholder_ja.md)

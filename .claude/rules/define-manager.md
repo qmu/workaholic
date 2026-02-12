@@ -133,7 +133,7 @@ name: <domain>-manager
 description: <same as the manager skill description>
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
-  - managers-policy
+  - managers-principle
   - manage-<domain>
   - <other skills needed for execution>
 ---

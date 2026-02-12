@@ -77,9 +77,9 @@ These specs are written to `.workaholic/specs/` and follow the analyze-viewpoint
 - Produce the architectural context output covering system boundaries, layer taxonomy, component inventory, cross-cutting concerns, and structural patterns.
 - Write all four viewpoint specs (application.md, component.md, feature.md, usecase.md) to `.workaholic/specs/`.
 - Write the English specs first, then produce translations per the user's translation policy declared in their root CLAUDE.md.
-- Follow the Constraint Setting workflow from managers-policy:
+- Follow the Constraint Setting workflow from managers-principle:
   - Identify missing or implicit architectural constraints (layer boundary rules, component naming conventions, dependency direction policies, technology choices).
   - Ask the user targeted questions about architectural preferences, structural boundaries, and technology decisions.
   - Propose architectural constraints grounded in gathered evidence and user answers.
-  - Produce constraints to `.workaholic/constraints/architecture.md` following the constraint file template from managers-policy.
+  - Produce constraints to `.workaholic/constraints/architecture.md` following the constraint file template from managers-principle.
   - Produce other directional materials (decision records, structural guidelines) to `.workaholic/` as appropriate.

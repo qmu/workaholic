@@ -1,13 +1,13 @@
 ---
-name: leaders-policy
-description: Cross-cutting policies that apply to all lead sub-agents.
+name: leaders-principle
+description: Cross-cutting principles that apply to all lead sub-agents.
 user-invocable: false
 ---
 
-# Leaders Policy
+# Leaders Principle
 
-Policies in this document apply to every lead sub-agent. Each lead MUST observe these
-policies in addition to its own domain-specific Default Policies.
+Principles in this document apply to every lead sub-agent. Each lead MUST observe these
+principles in addition to its own domain-specific Default Policies.
 
 ## Prior Term Consistency
 

@@ -118,18 +118,24 @@ npm install my-plugin
 
 ## .workaholic/ Translation Requirements
 
-**CRITICAL RULE**: When creating or editing any `.md` file in `.workaholic/`, you MUST also create or update the corresponding `_ja.md` translation.
+**CRITICAL RULE**: When creating or editing any `.md` file in `.workaholic/`, you MUST check the consumer project's root CLAUDE.md to determine the primary written language for `.workaholic/`, then produce translations accordingly.
 
-### File Naming for .workaholic/
+**Decision logic:**
+
+- If the primary language is English (or bilingual English/Japanese): produce `_ja.md` translations as counterparts
+- If the primary language is Japanese only: do NOT produce `_ja.md` files (this would duplicate the primary content). Instead, produce `_en.md` translations if a secondary language is declared, or skip translations entirely
+- If the primary language is another language: produce translations for declared secondary languages using the appropriate suffix
+
+### File Naming for .workaholic/ (default: English primary)
 
 Use suffix-based naming for translations:
 
 ```
 .workaholic/specs/user-guide/
-  commands.md           # English
-  commands_ja.md        # Japanese translation
-  README.md             # English index
-  README_ja.md          # Japanese index
+  commands.md           # Primary language
+  commands_ja.md        # Japanese translation (when primary is English)
+  README.md             # Primary language index
+  README_ja.md          # Japanese index (when primary is English)
 ```
 
 ### Mirror README Link Structure
@@ -144,10 +150,10 @@ README.md:                              README_ja.md:
 
 ### Workflow for .workaholic/
 
-1. Create or update the English document first
-2. Create or update the Japanese translation (`_ja.md`)
-3. Update BOTH README.md and README_ja.md to maintain parallel link structure
+1. Create or update the primary language document first
+2. Create or update the translation counterpart (if applicable per decision logic above)
+3. Update all README files to maintain parallel link structure
 
 ### Enforcement
 
-This is not optional. Every document change in `.workaholic/` requires its translation counterpart.
+This is not optional. Every document change in `.workaholic/` requires its translation counterpart — when a translation target exists per the decision logic above.

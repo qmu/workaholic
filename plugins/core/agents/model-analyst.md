@@ -37,10 +37,10 @@ Analyze the repository from the model viewpoint and produce a specification docu
 
 4. **Write English Spec**: Write `.workaholic/specs/model.md` following the preloaded analyze-viewpoint and write-spec skills. Include multiple Mermaid diagrams within content sections and an Assumptions section with `[Explicit]`/`[Inferred]` prefixes.
 
-5. **Write Japanese Translation**: Write `.workaholic/specs/model_ja.md` following the preloaded translate skill.
+5. **Write Translations**: Produce translations per the user's translation policy declared in their root CLAUDE.md, following the preloaded translate skill.
 
 ## Output
 
 ```json
-{"viewpoint": "model", "status": "success", "files": ["model.md", "model_ja.md"]}
+{"viewpoint": "model", "status": "success", "files": ["model.md", "<translation files if produced>"]}
 ```

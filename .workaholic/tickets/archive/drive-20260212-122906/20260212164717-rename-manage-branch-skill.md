@@ -3,8 +3,8 @@ created_at: 2026-02-12T16:47:17+08:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
+effort: 0.25h
+commit_hash: 904ed75
 category:
 ---
 
@@ -36,19 +36,20 @@ Past tickets that touched similar areas:
 
 ## Implementation Steps
 
-1. **Choose the new name**. The skill checks branch state and creates topic branches. A name like `branch-ops` or `branch-control` avoids the `manage-` prefix while remaining descriptive. Use `branch-ops` as the canonical choice (short, parallel to the verb-noun pattern of other utility skills like `gather-git-context`, `gather-ticket-metadata`).
+1. **Choose the new name**. Use `branching` as the canonical choice — descriptive, avoids the `manage-` prefix, and reads naturally as a gerund ("the branching skill").
 
 2. **Rename the skill directory**:
-   - Move `plugins/core/skills/manage-branch/` to `plugins/core/skills/branch-ops/`
-   - Update `SKILL.md` frontmatter `name:` field from `manage-branch` to `branch-ops`
-   - Update all internal path references in `SKILL.md` (`.claude/skills/manage-branch/` to `.claude/skills/branch-ops/`)
+   - Move `plugins/core/skills/manage-branch/` to `plugins/core/skills/branch/`
+   - Update `SKILL.md` frontmatter `name:` field from `manage-branch` to `branch`
+   - Update all internal path references in `SKILL.md` (`.claude/skills/manage-branch/` to `.claude/skills/branch/`)
+   - Remove the Auto-Approval Configuration section (unnecessary)
 
 3. **Update `plugins/core/agents/ticket-organizer.md`**:
-   - Change skills frontmatter entry from `manage-branch` to `branch-ops`
+   - Change skills frontmatter entry from `manage-branch` to `branch`
    - Update instruction text referencing "manage-branch" skill
 
 4. **Update `plugins/core/commands/report.md`**:
-   - Change script path from `bash .claude/skills/manage-branch/sh/check-version-bump.sh` to `bash .claude/skills/branch-ops/sh/check-version-bump.sh`
+   - Change script path from `bash .claude/skills/manage-branch/sh/check-version-bump.sh` to `bash .claude/skills/branch/sh/check-version-bump.sh`
 
 5. **Simplify `.claude/rules/define-manager.md`**:
    - Replace the explicit path list with a `manage-*/SKILL.md` glob pattern now that the naming collision is resolved
@@ -153,3 +154,13 @@ Past tickets that touched similar areas:
 - The `CLAUDE.md` example at line 87 references the old path `~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/manage-branch/sh/check.sh` and must be updated. (`CLAUDE.md` line 87)
 - Spec documents under `.workaholic/specs/` and `.workaholic/policies/` contain references to `manage-branch` that should be updated on the next `/scan` run rather than manually, since those are generated documentation. (`.workaholic/specs/component.md`, `.workaholic/specs/infrastructure.md`, `.workaholic/policies/recovery.md`)
 - Story files and archived tickets reference `manage-branch` historically. These should NOT be updated since they document what happened at the time. (`.workaholic/stories/`, `.workaholic/tickets/archive/`)
+
+## Final Report
+
+Renamed `manage-branch` skill to `branching` per developer feedback (original ticket proposed `branch-ops`, then `branch`, settled on `branching`). Also removed the unnecessary Auto-Approval Configuration section from SKILL.md.
+
+1. Renamed `plugins/core/skills/manage-branch/` to `plugins/core/skills/branching/` — updated SKILL.md name, heading, and all script path references
+2. Updated `plugins/core/agents/ticket-organizer.md` — skills frontmatter and instruction text
+3. Updated `plugins/core/commands/report.md` — check-version-bump.sh script path
+4. Simplified `.claude/rules/define-manager.md` — replaced explicit 3-path list with `manage-*/SKILL.md` glob
+5. Updated `CLAUDE.md` — example path in Shell Script Principle section

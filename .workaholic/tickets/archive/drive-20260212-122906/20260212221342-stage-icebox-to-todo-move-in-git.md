@@ -3,9 +3,9 @@ created_at: 2026-02-12T22:13:42+08:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: c28027e
+category: Changed
 ---
 
 # Stage icebox-to-todo ticket move in git immediately after filesystem move
@@ -54,3 +54,7 @@ Past tickets that touched similar areas:
 - The `git add` stages a deletion (the icebox path) and an addition (the todo path), which git recognizes as a rename when the content is identical. This is the correct git behavior for file moves and produces clean `git status` output
 - The drive-approval abandonment flow (`plugins/core/skills/drive-approval/SKILL.md` lines 87-141) uses `git restore` to discard changes and then commits the ticket to abandoned/. If the icebox deletion was never staged, the restore step would not touch it, leaving it as a persistent unstaged change even after abandonment
 - This is a single-line addition to a markdown instruction file. The change does not affect any shell scripts, so no script-level testing is needed -- the agent simply follows the updated instruction to run both commands in sequence
+
+## Final Report
+
+Development completed as planned.

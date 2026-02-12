@@ -1,8 +1,6 @@
 ---
 paths:
-  - 'plugins/core/skills/manage-project/SKILL.md'
-  - 'plugins/core/skills/manage-architecture/SKILL.md'
-  - 'plugins/core/skills/manage-quality/SKILL.md'
+  - 'plugins/core/skills/manage-*/SKILL.md'
   - 'plugins/core/agents/*-manager.md'
 ---
 

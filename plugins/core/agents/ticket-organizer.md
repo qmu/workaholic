@@ -4,7 +4,7 @@ description: Discover context, check duplicates, and write implementation ticket
 tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: opus
 skills:
-  - manage-branch
+  - branching
   - create-ticket
   - gather-ticket-metadata
 ---
@@ -24,7 +24,7 @@ You will receive:
 
 ### 1. Check Branch
 
-Follow preloaded **manage-branch** skill to check current branch and create a new topic branch if on main/master.
+Follow preloaded **branching** skill to check current branch and create a new topic branch if on main/master.
 
 ### 2. Parallel Discovery
 

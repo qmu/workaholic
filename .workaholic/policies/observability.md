@@ -2,8 +2,8 @@
 title: Observability Policy
 description: Logging, monitoring, metrics, and tracing practices
 category: developer
-modified_at: 2026-02-12T00:20:11+09:00
-commit_hash: f7f779f
+modified_at: 2026-02-12T10:15:03+00:00
+commit_hash: f385117
 ---
 
 [English](observability.md) | [Japanese](observability_ja.md)

@@ -27,6 +27,7 @@ You will receive:
 4. Move selected ticket to `.workaholic/tickets/todo/`:
    ```bash
    mv .workaholic/tickets/icebox/<selected>.md .workaholic/tickets/todo/
+   git add .workaholic/tickets/icebox/<selected>.md .workaholic/tickets/todo/<selected>.md
    ```
 5. Return the moved ticket for implementation
 

@@ -2,8 +2,8 @@
 title: Component Viewpoint
 description: Internal structure, module boundaries, and decomposition
 category: developer
-modified_at: 2026-02-11T23:20:09+08:00
-commit_hash: f7f779f
+modified_at: 2026-02-12T18:14:33+08:00
+commit_hash: f385117
 ---
 
 [English](component.md) | [Japanese](component_ja.md)
@@ -227,10 +227,10 @@ Skills are the knowledge layer, organized by domain. Each skill directory contai
 - `lead-delivery` -- Delivery lead knowledge (release processes, deployment)
 - `lead-recovery` -- Recovery lead knowledge (backup, disaster recovery)
 
-#### Policy Skills (2)
+#### Principle Skills (2)
 
-- `managers-policy` -- Cross-cutting policy for all managers (Prior Term Consistency, Strategic Focus, Constraint Setting)
-- `leaders-policy` -- Cross-cutting policy for all leaders (Prior Term Consistency, Vendor Neutrality)
+- `managers-principle` -- Cross-cutting principles for all managers (Prior Term Consistency, Strategic Focus, Constraint Setting)
+- `leaders-principle` -- Cross-cutting principles for all leaders (Prior Term Consistency, Vendor Neutrality)
 
 #### Analysis Skills (3)
 
@@ -249,10 +249,10 @@ Skills are the knowledge layer, organized by domain. Each skill directory contai
 
 #### Git Operations (4)
 
+- `branching` -- Checks current branch and creates topic branches when needed
 - `commit` -- Guidelines for git commit operations with expanded sections
 - `create-pr` -- Creates or updates GitHub pull requests using `gh` CLI
 - `gather-git-context` -- Gathers branch, base_branch, repo_url, archived_tickets, git_log
-- `manage-branch` -- Checks current branch and creates topic branches when needed
 
 #### Documentation Writing (8)
 
@@ -291,9 +291,9 @@ flowchart LR
         MQ[manage-quality]
     end
 
-    subgraph "Policy Skills"
-        MgrP[managers-policy]
-        LeadP[leaders-policy]
+    subgraph "Principle Skills"
+        MgrP[managers-principle]
+        LeadP[leaders-principle]
     end
 
     subgraph "Leader Skills"
@@ -370,9 +370,9 @@ Managers are responsible for:
 - Producing structured outputs covering project, architecture, or quality domains
 - Following constraint-setting workflow (Analyze, Ask, Propose, Produce)
 - Writing directional materials (policies, guidelines, roadmaps, decision records)
-- Observing managers-policy (Prior Term Consistency, Strategic Focus, Constraint Setting)
+- Observing managers-principle (Prior Term Consistency, Strategic Focus, Constraint Setting)
 
-Managers delegate all shell script operations to skills and preload managers-policy for cross-cutting behavioral policies.
+Managers delegate all shell script operations to skills and preload managers-principle for cross-cutting behavioral principles.
 
 ### Leader Responsibilities
 
@@ -381,10 +381,10 @@ Leaders are responsible for:
 - Reading manager outputs as strategic input before analysis
 - Producing domain-specific policy documents
 - Analyzing codebase through specialized lenses (security, quality, delivery, etc.)
-- Observing leaders-policy (Prior Term Consistency, Vendor Neutrality)
+- Observing leaders-principle (Prior Term Consistency, Vendor Neutrality)
 - Documenting observable practices rather than aspirational recommendations
 
-Leaders delegate all shell script operations to skills and preload leaders-policy for cross-cutting behavioral policies.
+Leaders delegate all shell script operations to skills and preload leaders-principle for cross-cutting behavioral principles.
 
 ### Worker Agent Responsibilities
 
@@ -442,8 +442,8 @@ The system follows a strict layered architecture with four tiers:
 
 Dependencies flow downward only:
 - Commands depend on all Agent tiers and Skills
-- Manager Agents depend on Skills and managers-policy
-- Leader Agents depend on Manager outputs, Skills, and leaders-policy
+- Manager Agents depend on Skills and managers-principle
+- Leader Agents depend on Manager outputs, Skills, and leaders-principle
 - Worker Agents depend on Skills only
 - Skills depend on other Skills only
 - Rules have no dependencies (applied by platform)
@@ -564,8 +564,8 @@ ticket.md (command)
   └─ Handle response (commit, present to user)
       ↓
 ticket-organizer.md (agent)
-  ├─ Preload skills: manage-branch, create-ticket, gather-ticket-metadata
-  ├─ Check branch (manage-branch skill)
+  ├─ Preload skills: branching, create-ticket, gather-ticket-metadata
+  ├─ Check branch (branching skill)
   ├─ Parallel discovery (3 agents: ticket-discoverer, source-discoverer, history-discoverer)
   ├─ Write ticket (create-ticket skill)
   └─ Return JSON (status, branch_created, tickets)
@@ -745,8 +745,8 @@ The agent count increase reflects the shift from flat analysis to hierarchical s
 - [Explicit] Manager agents follow the define-manager schema defined in `.claude/rules/define-manager.md`.
 - [Explicit] Leader agents follow the define-lead schema defined in `.claude/rules/define-lead.md`.
 - [Explicit] The manager tier introduces three agents (project-manager, architecture-manager, quality-manager) and three skills (manage-project, manage-architecture, manage-quality).
-- [Explicit] The managers-policy skill defines cross-cutting policies for all managers: Prior Term Consistency, Strategic Focus, and Constraint Setting.
-- [Explicit] The leaders-policy skill defines cross-cutting policies for all leaders: Prior Term Consistency and Vendor Neutrality.
+- [Explicit] The managers-principle skill defines cross-cutting principles for all managers: Prior Term Consistency, Strategic Focus, and Constraint Setting.
+- [Explicit] The leaders-principle skill defines cross-cutting principles for all leaders: Prior Term Consistency and Vendor Neutrality.
 - [Inferred] The large number of specialized agents (28) compared to commands (4) reflects a design philosophy prioritizing separation of concerns and focused single-purpose components over minimizing agent count.
 - [Inferred] The single-plugin architecture (only `core`) suggests the marketplace infrastructure is designed for future multi-plugin expansion that has not yet occurred.
 - [Inferred] The heavy use of parallel invocation (3 agents in ticket-organizer, 3+12 in scan two-phase, 4+2 in story-writer) indicates performance optimization is a key architectural concern, particularly for operations that would otherwise be sequential and slow.

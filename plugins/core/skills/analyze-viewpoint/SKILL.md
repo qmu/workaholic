@@ -45,7 +45,7 @@ modified_at: <ISO 8601 datetime>
 commit_hash: <from context>
 ---
 
-[English](<slug>.md) | [Japanese](<slug>_ja.md)
+[Primary language](<slug>.md) | [Translation](<slug>_<lang>.md)  <!-- language pair based on consumer CLAUDE.md -->
 
 # <Viewpoint Name> Viewpoint
 

@@ -2,8 +2,8 @@
 title: UX Viewpoint
 description: User experience design, interaction patterns, user journeys, and onboarding paths
 category: developer
-modified_at: 2026-02-11T23:20:01+08:00
-commit_hash: f7f779f
+modified_at: 2026-02-12T18:15:12+08:00
+commit_hash: f385117
 ---
 
 [English](ux.md) | [Japanese](ux_ja.md)
@@ -80,9 +80,11 @@ The documentation journey is transparent and parallelized. All agents run concur
 
 #### Phase 4: Delivery
 
-The developer invokes `/report` to generate a story and create a PR. The report command first bumps the version in both version files, then invokes the story-writer subagent. The story-writer runs 4 agents in parallel (release-readiness for release analysis, performance-analyst for decision quality, overview-writer for narrative sections, section-reviewer for outcome/concerns/ideas), composes a story file in `.workaholic/stories/<branch>.md`, commits and pushes it, then invokes 2 more agents in parallel (release-note-writer for release notes, pr-creator for GitHub PR creation).
+The developer invokes `/report` to generate a story and create a PR. The report command first checks whether a version bump commit already exists in the current branch using the `branching` skill's `check-version-bump.sh` script. If `already_bumped` is `false`, it bumps the version in both version files. If `true`, it skips the bump to prevent double incrementing when `/report` runs multiple times in the same branch. After ensuring the version is correctly bumped exactly once, the command invokes the story-writer subagent.
 
-The delivery journey transforms accumulated ticket history into a cohesive narrative. Section 4 of the story (Changes) now presents a concise summary per ticket instead of listing every changed file, making the story readable as a development narrative rather than an exhaustive file changelog. The generated story becomes the PR description, providing reviewers with context about motivation, journey, and decision quality.
+The story-writer runs 4 agents in parallel (release-readiness for release analysis, performance-analyst for decision quality, overview-writer for narrative sections, section-reviewer for outcome/concerns/ideas), composes a story file in `.workaholic/stories/<branch>.md`, commits and pushes it, then invokes 2 more agents in parallel (release-note-writer for release notes, pr-creator for GitHub PR creation).
+
+The delivery journey transforms accumulated ticket history into a cohesive narrative. Section 4 of the story (Changes) now presents a concise summary per ticket instead of listing every changed file, making the story readable as a development narrative rather than an exhaustive file changelog. The generated story becomes the PR description, providing reviewers with context about motivation, journey, and decision quality. The idempotent version bump ensures that re-running `/report` to update the PR after additional commits does not cause unintended version increments.
 
 ### Developer Journey: Icebox Management
 
@@ -105,14 +107,17 @@ The author uses archived tickets as a searchable history of architectural decisi
 
 ### Plugin Author Journey: Defining Constraints
 
-The recent addition of manager skills introduced a constraint-setting workflow for plugin authors. When managers lack explicit project constraints (release cadence, stakeholder priorities, scope boundaries), they follow the Constraint Setting workflow from `managers-policy`:
+The manager skills include a constraint-setting workflow that produces structured constraint files. When managers lack explicit project constraints (release cadence, stakeholder priorities, scope boundaries), they follow the Constraint Setting workflow from `managers-principle`:
 
-1. Identify missing or implicit project constraints by analyzing gathered evidence
+1. Identify missing or implicit constraints by analyzing gathered evidence
 2. Ask the user targeted questions about business priorities, stakeholder rankings, and scope decisions
-3. Propose project constraints grounded in gathered evidence and user answers
-4. Produce directional materials (roadmap, stakeholder priority matrix, scope boundary document) to `.workaholic/`
+3. Propose constraints grounded in gathered evidence and user answers
+4. Produce constraints to `.workaholic/constraints/<scope>.md` following the constraint file template from `managers-principle`
+5. Produce other directional materials (roadmap, stakeholder priority matrix) to `.workaholic/` as appropriate
 
-This journey transforms implicit assumptions into explicit constraints that guide future development. For example, the project-manager might ask "What is the target release cadence for this project?" and use the answer to populate timeline context that delivery-lead consumes when assessing release readiness.
+Each manager writes a structured constraint file to its dedicated path: `project.md` for project-manager, `architecture.md` for architecture-manager, and `quality.md` for quality-manager. The constraint file template uses frontmatter (manager name, last_updated timestamp), a summary section, and individual constraint entries. Each constraint entry states what it bounds, why it matters, which leaders it affects, the falsifiability criterion, and review trigger.
+
+This journey transforms implicit assumptions into explicit, structured boundaries that guide future development. The separation of `.workaholic/constraints/` (manager-generated prescriptive boundaries) from `.workaholic/policies/` (leader-generated observational documentation) clarifies which artifacts constrain decisions versus document current practices.
 
 ### AI Agent Journey: Command Execution
 
@@ -308,8 +313,12 @@ The scan flow is linear with one critical dependency: managers must complete bef
 
 ```mermaid
 flowchart TD
-    Start["Developer types /report"] --> Bump["Bump version"]
+    Start["Developer types /report"] --> Check["Check for existing version bump"]
+    Check --> Bumped{Already bumped?}
+    Bumped -->|No| Bump["Bump version"]
+    Bumped -->|Yes| Skip["Skip bump"]
     Bump --> Story["Invoke story-writer"]
+    Skip --> Story
     Story --> Agents["Run 4 agents in parallel"]
     Agents --> Write["Write story file"]
     Write --> CommitStory["Commit + push story"]
@@ -363,13 +372,13 @@ The AI agent (Claude Code) receives instructions through command markdown files 
 
 The agent learns architectural constraints from `CLAUDE.md`, which it receives as project instructions in the Claude Code environment. The nesting hierarchy (commands → subagents/skills, subagents → subagents/skills, skills → skills) prevents circular dependencies and ensures skills remain reusable knowledge components.
 
-The agent receives workflow-specific knowledge through skills in `plugins/core/skills/`. For example, the gather-git-context skill provides git context gathering via bundled shell script, eliminating inline git commands in agent markdown. The create-ticket skill defines ticket format and content requirements, ensuring consistent ticket structure across all ticket-organizer invocations.
+The agent receives workflow-specific knowledge through skills in `plugins/core/skills/`. For example, the gather-git-context skill provides git context gathering via bundled shell script, eliminating inline git commands in agent markdown. The branching skill handles branch state checking and creation, including version bump detection to prevent double increments during `/report`. The create-ticket skill defines ticket format and content requirements, ensuring consistent ticket structure across all ticket-organizer invocations.
 
 The agent's onboarding is instruction-based rather than exploratory. Each command file contains explicit phases with numbered steps, making execution deterministic. The agent doesn't need to "figure out" how to execute a command—it follows the instructions verbatim.
 
 ## UX Evolution
 
-Recent architectural changes reflect evolving UX priorities around transparency, structure, and downstream consumption.
+Recent architectural changes reflect evolving UX priorities around transparency, structure, consistency, and downstream consumption.
 
 ### From Flat Analysts to Manager-Leader Hierarchy
 
@@ -442,6 +451,74 @@ Developer sees all 15 Task calls in their session, can observe each agent's prog
 
 This evolution reflects the design philosophy that transparency is more valuable than abstraction. The developer wants to know which agents are running, which have failed, and which are taking longer than expected. Hiding this behind a scanner subagent defeated that transparency benefit.
 
+### From Generic Naming to Domain-Specific Naming
+
+The project evolved through several skill renames to resolve naming collisions and improve semantic clarity. The `manage-branch` skill was renamed to `branching` (ticket `20260212164717-rename-manage-branch-skill.md`) to avoid collision with the manager tier's `manage-` prefix convention. The `managers-policy` and `leaders-policy` skills were renamed to `managers-principle` and `leaders-principle` (ticket `20260212173856-rename-policy-skills-to-principle.md`) to distinguish behavioral principles from policy output artifacts.
+
+**Old pattern**:
+- `manage-branch` used the `manage-` prefix reserved for manager-tier skills
+- `managers-policy` and `leaders-policy` created semantic ambiguity with `.workaholic/policies/` output directory
+- The `define-manager.md` rule required explicit path enumeration to avoid matching non-manager skills
+
+**New pattern**:
+- `branching` uses a gerund name that avoids reserved prefixes and reads naturally
+- `managers-principle` and `leaders-principle` clarify that these are fundamental behavioral principles, not domain-specific policy outputs
+- The `define-manager.md` rule can now use a `manage-*/SKILL.md` glob pattern without false matches
+
+This evolution improves UX for plugin authors by eliminating naming confusion and establishing clear conventions: `manage-*` for managers, `lead-*` for leaders, `*-principle` for cross-cutting behavioral rules, and descriptive names for utility skills.
+
+### From Unconditional Translation to Dynamic Language Logic
+
+The translation system evolved from hardcoded Japanese translation requirements to dynamic language detection based on the consumer project's CLAUDE.md configuration (ticket `20260212123836-fix-duplicate-japanese-specs-in-workaholic.md`). This change fixed a bug where Japanese-primary projects ended up with duplicate spec files (both `application.md` and `application_ja.md` containing Japanese).
+
+**Old pattern**:
+- The `translate` skill unconditionally mandated `_ja.md` translations for all `.workaholic/` files
+- The `model-analyst` agent hardcoded "Write Japanese Translation" as step 5
+- No logic to check if Japanese was already the primary language
+
+**New pattern**:
+- The `translate` skill reads the consumer CLAUDE.md to determine primary language
+- If primary is English: produce `_ja.md` translations
+- If primary is Japanese: produce `_en.md` translations or skip translations entirely
+- If primary is another language: produce translations for declared secondary languages
+- All agents use dynamic "produce translations per the user's CLAUDE.md" instruction instead of hardcoding a specific language
+
+This evolution improves UX for international projects by making translation behavior adapt to the project's language configuration, eliminating duplicate content and supporting non-English primary languages.
+
+### From Unconditional Version Bump to Idempotent Bump
+
+The version bump logic in `/report` evolved from unconditional incrementing to idempotent checking (ticket `20260212123209-prevent-double-version-bump-in-report.md`). This change fixed a bug where running `/report` multiple times in the same branch (for example, to update the PR after additional commits) caused the version to increment multiple times.
+
+**Old pattern**:
+- `/report` unconditionally bumps version as first step
+- Re-running `/report` in the same branch increments version again
+- A branch intended for one version increment produces multiple increments
+
+**New pattern**:
+- `/report` checks for existing "Bump version" commits in current branch using `bash .claude/skills/branching/sh/check-version-bump.sh`
+- If `already_bumped` is `true`, skip the bump step
+- If `already_bumped` is `false`, proceed with bump as usual
+- Re-running `/report` correctly skips the bump since the original bump commit exists in branch history
+
+This evolution improves UX for developers by making `/report` safe to re-run. Developers can run `/report` early to create the PR, make more commits, and run `/report` again to update the PR description without causing unintended version increments.
+
+### From Vague Output Paths to Structured Constraint Files
+
+The manager constraint-setting workflow evolved from producing "directional materials to `.workaholic/`" to producing structured constraint files at specific paths (ticket `20260212165728-manager-constraint-files.md`). This change introduced `.workaholic/constraints/` directory with three files (`project.md`, `architecture.md`, `quality.md`) and a standard constraint file template.
+
+**Old pattern**:
+- Managers produce directional materials (policies, guidelines, roadmaps) to loosely-specified paths
+- No convention for where constraints live versus other directional artifacts
+- Semantic collision between manager-generated and leader-generated materials in `.workaholic/policies/`
+
+**New pattern**:
+- Managers write constraints to `.workaholic/constraints/<scope>.md` following a standard template
+- Each constraint entry includes: Bounds, Rationale, Affects (which leaders), Criterion (falsifiable verification), Review trigger
+- Other directional materials (roadmaps, guidelines, decision records) go to appropriate subdirectories under `.workaholic/`
+- Clear separation: `.workaholic/constraints/` contains prescriptive boundaries, `.workaholic/policies/` contains observational documentation
+
+This evolution improves UX for plugin authors and leaders by providing a stable, predictable location for constraints that leaders can reference programmatically. The structured template makes constraints falsifiable and explicitly names which leaders they affect, improving transparency and accountability.
+
 ## Assumptions
 
 - [Explicit] The developer installs from the marketplace using `/plugin marketplace add qmu/workaholic` as shown in `README.md`.
@@ -456,6 +533,11 @@ This evolution reflects the design philosophy that transparency is more valuable
 - [Explicit] The viewpoint slug changed from "stakeholder" to "ux" as part of renaming `lead-communication` to `lead-ux` (ticket `20260211170402-wire-leaders-to-manager-outputs.md`).
 - [Explicit] Commit message format expanded from 4 to 5 sections to provide richer context for downstream leads (ticket `20260210154917-expand-commit-message-sections.md`).
 - [Explicit] Story Section 4 changed from file listings to concise summaries to improve readability (ticket `20260210121628-summarize-changes-in-report.md`).
+- [Explicit] The `manage-branch` skill was renamed to `branching` to resolve naming collision with the manager tier's `manage-` prefix (ticket `20260212164717-rename-manage-branch-skill.md`).
+- [Explicit] The `managers-policy` and `leaders-policy` skills were renamed to `managers-principle` and `leaders-principle` to distinguish behavioral principles from policy output artifacts (ticket `20260212173856-rename-policy-skills-to-principle.md`).
+- [Explicit] The translation system was updated to check the consumer CLAUDE.md for primary language and produce translations dynamically, fixing duplicate Japanese specs in Japanese-primary projects (ticket `20260212123836-fix-duplicate-japanese-specs-in-workaholic.md`).
+- [Explicit] The `/report` command gained idempotent version bump logic to prevent double increments when re-run in the same branch (ticket `20260212123209-prevent-double-version-bump-in-report.md`).
+- [Explicit] Managers now produce structured constraint files to `.workaholic/constraints/<scope>.md` following a standard template defined in `managers-principle` (ticket `20260212165728-manager-constraint-files.md`).
 - [Inferred] The primary audience is solo developers or small teams who use Claude Code as their main development environment, based on the serial execution model, single-branch workflow design, and explicit approval requirement at each ticket.
 - [Inferred] Onboarding is self-service through documentation rather than guided setup, as no interactive onboarding flow exists beyond the plugin installation command.
 - [Inferred] The system prioritizes transparency over abstraction, evidenced by the migration of scanner orchestration into the scan command to make individual agent progress visible.

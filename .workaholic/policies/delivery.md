@@ -2,8 +2,8 @@
 title: Delivery Policy
 description: CI/CD pipeline, release process, and deployment practices
 category: developer
-modified_at: 2026-02-11T15:20:22+0000
-commit_hash: f7f779f
+modified_at: 2026-02-12T10:20:09+0000
+commit_hash: f385117
 ---
 
 [English](delivery.md) | [Japanese](delivery_ja.md)
@@ -111,20 +111,22 @@ Version bumping is manual (developer runs `/release` command) rather than automa
 
 Development branches follow these patterns:
 
-- `drive-<YYYYMMDD>-<HHMMSS>` - ticket-driven development branches
-- `trip-<YYYYMMDD>-<HHMMSS>` - alternative branch type (not explicitly documented)
+- `drive-<YYYYMMDD>-<HHMMSS>` - ticket-driven development branches (created by `branching` skill: `create.sh drive`)
+- `trip-<YYYYMMDD>-<HHMMSS>` - alternative branch type for more AI-oriented development (created by `branching` skill: `create.sh trip`)
 
-The base branch is `main`. All pull requests target `main`.
+The base branch is `main`. All pull requests target `main`. Branch creation and state checking is handled by the `branching` skill (`plugins/core/skills/branching/SKILL.md`) with bundled shell scripts.
 
 ### PR Creation Workflow
 
 The `/report` command (`plugins/core/commands/report.md`) orchestrates PR creation:
 
-1. Bump version following CLAUDE.md Version Management (patch increment)
+1. Check if version already bumped using `branching` skill (`bash .claude/skills/branching/sh/check-version-bump.sh`). If `already_bumped` is `true` (a "Bump version" commit exists in current branch since diverging from main), skip the bump. Otherwise, bump version following CLAUDE.md Version Management (patch increment).
 2. Invoke `story-writer` subagent (`subagent_type: "core:story-writer"`, `model: "opus"`)
 3. Display PR URL from story-writer result
 
 The `story-writer` subagent (`plugins/core/agents/story-writer.md`) generates branch story, commits it, invokes `pr-creator` and `release-note-writer` in parallel, and outputs the PR URL.
+
+The version bump idempotency check prevents double-bumping when `/report` is called multiple times in the same branch (implemented via `plugins/core/skills/branching/sh/check-version-bump.sh` which uses `git log main..HEAD --oneline --grep="Bump version"`).
 
 ### PR Creation Script
 
@@ -147,7 +149,7 @@ The `/drive` command (`plugins/core/commands/drive.md`) implements tickets from 
 4. Archive ticket to `.workaholic/tickets/archive/<branch>/` using `archive-ticket` skill
 5. Commit using structured message format (from `commit` skill)
 
-The `/drive` command commits each ticket individually, creating a commit per implemented ticket.
+The `/drive` command commits each ticket individually, creating a commit per implemented ticket. Branch creation at the start of `/drive` uses the `branching` skill (`plugins/core/skills/branching/sh/check.sh` and `create.sh`).
 
 ## Commit Message Structure
 
@@ -310,7 +312,7 @@ The `/scan` command (`plugins/core/commands/scan.md`) updates all `.workaholic/`
 - Updates `.workaholic/policies/README.md` and `README_ja.md` if policy validation passed
 
 **Phase 6: Stage and Commit**
-- Commits all documentation: `git add CHANGELOG.md .workaholic/specs/ .workaholic/terms/ .workaholic/policies/ && git commit -m "Update documentation"`
+- Commits all documentation: `git add CHANGELOG.md .workaholic/specs/ .workaholic/terms/ .workaholic/policies/ .workaholic/constraints/ && git commit -m "Update documentation"`
 
 **Phase 7: Report Results**
 - Reports per-agent status showing which agents succeeded, failed, or were skipped
@@ -351,6 +353,9 @@ Version increment serves as the promotion gate. Merging to `main` with an increm
 - No git hooks are active (only sample hooks exist in `.git/hooks/`)
 - Commit script never uses `git add -A` to avoid accidentally staging untracked files from other contributors
 - Multi-contributor awareness built into commit workflow: review staged changes before committing to avoid including others' uncommitted work
+- Version bump idempotency check prevents double-bumping when `/report` runs multiple times in same branch (uses `git log main..HEAD --oneline --grep="Bump version"` via `branching` skill)
+- Branch operations (check, create, version bump detection) are extracted to shell scripts in the `branching` skill rather than inline commands in markdown files
+- The `/scan` command now includes `.workaholic/constraints/` in the commit step to capture manager constraint files
 
 ## Gaps
 

@@ -84,7 +84,7 @@ if [ "$current" = "main" ]; then echo "on_main"; fi
 
 **Correct** (skill script):
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/manage-branch/sh/check.sh
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/branching/sh/check.sh
 ```
 
 ## Commands

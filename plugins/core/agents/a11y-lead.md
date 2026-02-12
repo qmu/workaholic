@@ -3,7 +3,7 @@ name: a11y-lead
 description: Owns accessibility compliance, i18n support, assistive technology considerations, and inclusive design policy for the project.
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
-  - leaders-policy
+  - leaders-principle
   - lead-a11y
   - analyze-policy
   - translate

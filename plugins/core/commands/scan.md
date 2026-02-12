@@ -89,7 +89,7 @@ bash .claude/skills/validate-writer-output/sh/validate.sh .workaholic/policies t
 ### Phase 6: Stage and Commit
 
 ```bash
-git add CHANGELOG.md .workaholic/specs/ .workaholic/terms/ .workaholic/policies/ && git commit -m "Update documentation"
+git add CHANGELOG.md .workaholic/specs/ .workaholic/terms/ .workaholic/policies/ .workaholic/constraints/ && git commit -m "Update documentation"
 ```
 
 ### Phase 7: Report Results

@@ -2,8 +2,8 @@
 title: Test Policy
 description: The verification and validation strategy -- testing levels, coverage targets, and processes that ensure correctness
 category: developer
-modified_at: 2026-02-11T00:00:00+09:00
-commit_hash: f7f779f
+modified_at: 2026-02-12T10:15:11+00:00
+commit_hash: f385117
 ---
 
 [English](test.md) | [Japanese](test_ja.md)
@@ -16,9 +16,9 @@ This document describes the testing and verification practices in the Workaholic
 
 No traditional testing frameworks are configured. No test configuration files (jest.config, vitest.config, playwright.config, cypress.config, pytest.ini) exist in the repository. This aligns with the project's nature as a Claude Code plugin marketplace composed entirely of configuration and documentation artifacts.
 
-No shell script testing frameworks (bats, shunit2) or linting tools (shellcheck) are configured. The 19 shell scripts in `plugins/core/skills/*/sh/*.sh` rely on POSIX sh compliance standards documented in rule files rather than automated testing or linting (`.claude/rules/shell.md`).
+No shell script testing frameworks (bats, shunit2) or linting tools (shellcheck) are configured. The 21 shell scripts in `plugins/core/skills/*/sh/*.sh` and `plugins/core/hooks/*.sh` rely on POSIX sh compliance standards documented in rule files rather than automated testing or linting (`.claude/rules/shell.md`).
 
-No markdown linting tools (markdownlint-cli, remark-lint) are configured for the 366 markdown files in `.workaholic/`. Markdown quality relies on documented standards (Mermaid syntax, heading numbering, link format) enforced through code review (`plugins/core/rules/diagrams.md`, `plugins/core/rules/general.md`).
+No markdown linting tools (markdownlint-cli, remark-lint) are configured for the 375 markdown files in `.workaholic/`. Markdown quality relies on documented standards (Mermaid syntax, heading numbering, link format) enforced through code review (`plugins/core/rules/diagrams.md`, `plugins/core/rules/general.md`).
 
 ## Testing Levels
 
@@ -70,9 +70,9 @@ The project's verification strategy focuses on structural correctness (valid JSO
 
 Not observed. The repository does not contain test directories (`__tests__/`, `test/`, `tests/`, `spec/`) or test files following naming patterns (`*.test.js`, `*.spec.ts`, `*_test.py`).
 
-The 19 shell scripts in `plugins/core/skills/*/sh/*.sh` do not have accompanying test files. Shell scripts are organized by skill domain but have no automated test coverage. Script correctness relies on POSIX sh compliance standards documented in `plugins/core/rules/shell.md` (shebang `#!/bin/sh -eu`, forbidden bash features, inline complexity prohibition) and enforced through code review.
+The 21 shell scripts in `plugins/core/skills/*/sh/*.sh` and `plugins/core/hooks/*.sh` do not have accompanying test files. Shell scripts are organized by skill domain but have no automated test coverage. Script correctness relies on POSIX sh compliance standards documented in `plugins/core/rules/shell.md` (shebang `#!/bin/sh -eu`, forbidden bash features, inline complexity prohibition) and enforced through code review.
 
-The 366 markdown files in `.workaholic/` are organized by content type (specs, policies, tickets, terms) but have no automated validation beyond structural checks. Markdown quality relies on documented standards (Mermaid syntax, heading numbering, link format) enforced through code review (`plugins/core/rules/diagrams.md`, `plugins/core/rules/general.md`).
+The 375 markdown files in `.workaholic/` are organized by content type (specs, policies, tickets, terms) but have no automated validation beyond structural checks. Markdown quality relies on documented standards (Mermaid syntax, heading numbering, link format) enforced through code review (`plugins/core/rules/diagrams.md`, `plugins/core/rules/general.md`).
 
 ## Observations
 
@@ -85,19 +85,19 @@ The verification strategy prioritizes correctness at key integration points rath
 
 The validation strategy matches the project's nature as a configuration repository. Structural correctness (valid JSON, required fields, file existence) is more critical than behavioral correctness for configuration and documentation artifacts.
 
-The absence of shell script testing means that logic regressions in the 19 bundled scripts would not be caught until runtime. However, the scripts are primarily data transformation (git context gathering, ticket metadata extraction, branch creation) rather than complex business logic, reducing regression risk.
+The absence of shell script testing means that logic regressions in the 21 bundled scripts would not be caught until runtime. However, the scripts are primarily data transformation (git context gathering, ticket metadata extraction, branch creation) rather than complex business logic, reducing regression risk.
 
 ## Gaps
 
-**Shell script linting**: No shellcheck or shell test frameworks (bats, shunit2) are configured for the 19 bundled shell scripts. Script correctness relies on documented POSIX sh compliance standards and code review rather than automated linting.
+**Shell script linting**: No shellcheck or shell test frameworks (bats, shunit2) are configured for the 21 bundled shell scripts. Script correctness relies on documented POSIX sh compliance standards and code review rather than automated linting.
 
-**Markdown linting**: No markdownlint-cli or remark-lint is configured for the 366 markdown files. Markdown quality relies on documented standards (Mermaid syntax, heading numbering, link format) and code review rather than automated validation.
+**Markdown linting**: No markdownlint-cli or remark-lint is configured for the 375 markdown files. Markdown quality relies on documented standards (Mermaid syntax, heading numbering, link format) and code review rather than automated validation.
 
 **Integration testing**: No end-to-end command workflow testing exists. The `/ticket` → `/drive` → `/report` workflow is verified through manual use rather than automated integration tests.
 
 **JSON schema validation**: JSON validation uses only basic syntax checking (`jq empty`). No JSON schema validation exists for structure beyond required field presence (name, version). More complex schema constraints (field types, allowed values, interdependencies) are not enforced.
 
-**Shell script unit tests**: The 19 shell scripts have no accompanying unit tests. Functions within scripts (validation, parsing, transformation) are not tested in isolation. Script correctness relies on manual testing during development and review.
+**Shell script unit tests**: The 21 shell scripts have no accompanying unit tests. Functions within scripts (validation, parsing, transformation) are not tested in isolation. Script correctness relies on manual testing during development and review.
 
 **Regression test suite**: No regression test suite exists to verify that bug fixes remain fixed. The only regression prevention mechanism is the CI structural validation, which catches configuration/structure regressions but not behavioral regressions in scripts.
 

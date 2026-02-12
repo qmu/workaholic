@@ -2,8 +2,8 @@
 title: Feature Viewpoint
 description: Feature inventory, capability matrix, and configuration
 category: developer
-modified_at: 2026-02-11T23:20:09+08:00
-commit_hash: f7f779f
+modified_at: 2026-02-12T18:14:33+08:00
+commit_hash: f385117
 ---
 
 [English](feature.md) | [Japanese](feature_ja.md)
@@ -27,7 +27,7 @@ The ticket command transforms natural language feature requests into structured 
 | Source discovery | Identifies relevant files and code flows | `source-discoverer` agent |
 | Automatic ticket splitting | Decomposes complex requests into 2-4 discrete tickets | `ticket-organizer` agent |
 | Frontmatter validation | Validates ticket structure on every write | `hooks.json` PostToolUse hook |
-| Auto-branch creation | Creates branch when running on main | `manage-branch` skill |
+| Auto-branch creation | Creates branch when running on main | `branching` skill |
 | Author verification | Uses git email, rejects Anthropic addresses | `create-ticket` skill |
 | Patch generation | Generates unified diff patches from source snippets | `ticket-organizer` agent |
 | Todo/icebox targeting | Routes tickets to todo or icebox directories | `ticket-organizer` agent |
@@ -185,7 +185,7 @@ The report command generates a branch story and creates or updates a pull reques
 | Performance analysis | Decision quality evaluation | `performance-analyst` agent |
 | Release readiness | Assesses readiness for release | `release-readiness` agent |
 | PR creation/update | GitHub pull request management | `pr-creator` agent |
-| Automatic version bump | Increments patch version before story | `report.md` instruction |
+| Idempotent version bump | Increments patch version before story, skips if already bumped | `report.md` + `branching/sh/check-version-bump.sh` |
 | Overview generation | High-level summary and highlights | `overview-writer` agent |
 | Section review | Outcome, concerns, ideas, historical analysis | `section-reviewer` agent |
 | Change summarization | Concise summary of implementation changes | `write-story` skill |
@@ -269,15 +269,18 @@ Leaders consume manager outputs and produce domain-specific policy documents:
 
 ### Internationalization (i18n)
 
-Every document in `.workaholic/` must have a corresponding `_ja.md` Japanese translation. The system enforces parallel structure in both languages.
+Documents in `.workaholic/` must have translations based on the consumer project's primary written language declared in root CLAUDE.md. The system enforces parallel structure across all declared languages.
 
-**Implementation**: The `translate` skill provides policies for:
-- Preserving code blocks, frontmatter keys, file paths, and URLs
-- Translating prose content with formal/polite tone
-- Maintaining consistent technical terminology
-- Mirroring index README link structures
+**Implementation**: The `translate` skill provides dynamic translation logic:
+- Checks consumer CLAUDE.md to determine primary language
+- For English-primary projects: produces `_ja.md` Japanese translations
+- For Japanese-primary projects: skips `_ja.md` (would duplicate primary content)
+- Preserves code blocks, frontmatter keys, file paths, and URLs unchanged
+- Translates prose content with formal/polite tone
+- Maintains consistent technical terminology
+- Mirrors index README link structures
 
-**Coverage**: All viewpoint specs, policy documents, stories, release notes, changelog, and terms require translations. READMEs must maintain parallel link structures in both languages.
+**Coverage**: All viewpoint specs, policy documents, stories, release notes, changelog, and terms require translations per the project's language policy. READMEs must maintain parallel link structures in all applicable languages.
 
 ### Shell Script Bundling
 

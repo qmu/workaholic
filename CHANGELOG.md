@@ -1,5 +1,15 @@
 # Changelog
 
+## drive-20260212-122906
+
+### Changed
+
+- Prevent Double Version Bump When /report Runs Twice in Same Branch ([](https://github.com/qmu/workaholic/commit/)) - [ticket](.workaholic/tickets/archive/drive-20260212-122906/20260212123209-prevent-double-version-bump-in-report.md)
+- Fix Duplicate Japanese Specs When CLAUDE.md Declares Japanese-Only Written Language ([](https://github.com/qmu/workaholic/commit/)) - [ticket](.workaholic/tickets/archive/drive-20260212-122906/20260212123836-fix-duplicate-japanese-specs-in-workaholic.md)
+- Rename manage-branch Skill to Resolve Naming Conflict with Manager Tier ([904ed75](https://github.com/qmu/workaholic/commit/904ed754ab84d8f9a9a8d70aa2368ebeb78529c7)) - [ticket](.workaholic/tickets/archive/drive-20260212-122906/20260212164717-rename-manage-branch-skill.md)
+- Let Managers Generate Structured Constraint Files ([5fc8981](https://github.com/qmu/workaholic/commit/5fc898136df3219da6576f2f6d50cc1c7f222499)) - [ticket](.workaholic/tickets/archive/drive-20260212-122906/20260212165728-manager-constraint-files.md)
+- Rename managers-policy and leaders-policy Skills to managers-principle and leaders-principle ([b056b1b](https://github.com/qmu/workaholic/commit/b056b1be285739962d2d259468ab3becf0512ced)) - [ticket](.workaholic/tickets/archive/drive-20260212-122906/20260212173856-rename-policy-skills-to-principle.md)
+
 ## drive-20260210-121635
 
 ### Added

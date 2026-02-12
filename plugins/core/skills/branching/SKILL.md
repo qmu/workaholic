@@ -1,18 +1,18 @@
 ---
-name: manage-branch
+name: branching
 description: Check and create timestamped topic branches.
 allowed-tools: Bash
 user-invocable: false
 ---
 
-# Manage Branch
+# Branching
 
 Check current branch state and create new topic branches when needed.
 
 ## Check Branch
 
 ```bash
-bash .claude/skills/manage-branch/sh/check.sh
+bash .claude/skills/branching/sh/check.sh
 ```
 
 ### Output
@@ -34,7 +34,7 @@ Topic branch patterns: `drive-*`, `trip-*`
 ## Create Branch
 
 ```bash
-bash .claude/skills/manage-branch/sh/create.sh [prefix]
+bash .claude/skills/branching/sh/create.sh [prefix]
 ```
 
 ### Arguments
@@ -52,21 +52,3 @@ JSON with the created branch name:
   "branch": "drive-20260202-204753"
 }
 ```
-
-The branch is automatically checked out after creation.
-
-## Auto-Approval Configuration
-
-To avoid permission prompts for bundled skill scripts, users can add the following to their `.claude/settings.local.json`:
-
-```json
-{
-  "permissions": {
-    "allow": [
-      "Bash(bash:*)"
-    ]
-  }
-}
-```
-
-This auto-approves all `bash` script invocations. The `.settings.local.json` file is user-local and should not be committed to the repository.

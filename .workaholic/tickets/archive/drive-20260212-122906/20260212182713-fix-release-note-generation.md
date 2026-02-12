@@ -3,9 +3,9 @@ created_at: 2026-02-12T18:27:13+08:00
 author: a@qmu.jp
 type: bugfix
 layer: [Domain, Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: d05573e
+category: Changed
 ---
 
 # Fix Release Note Generation
@@ -186,3 +186,7 @@ Past tickets that touched similar areas:
 - The `velocity` and `velocity_unit` frontmatter fields are only present when the performance-analyst successfully runs (`plugins/core/skills/write-story/SKILL.md` line 211). The Velocity metric line should be omitted gracefully when these fields are absent.
 - The H1 title derivation logic must match the PR title derivation in `plugins/core/skills/create-pr/SKILL.md` lines 14-22 (first highlight, append "etc" if multiple). Keeping these in sync across two skills creates a DRY concern; consider extracting the title derivation rule into a shared guideline if divergence becomes a problem.
 - The GitHub Actions release workflow (`/.github/workflows/release.yml` line 67) uses `ls -t` to find the most recent release note file by modification time, which may pick the wrong file if multiple release notes exist. This is a separate issue from the three being fixed here, but worth noting.
+
+## Final Report
+
+Development completed as planned.

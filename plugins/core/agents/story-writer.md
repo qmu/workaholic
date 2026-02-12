@@ -42,14 +42,15 @@ Wait for all 4 agents to complete. Track which succeeded and which failed.
 2. **Commit**: `git commit -m "Add branch story for <branch-name>"`
 3. **Push branch**: `git push -u origin <branch-name>`
 
-### Phase 4: Generate Release Note and Create PR
+### Phase 4: Create PR and Generate Release Note
 
-Invoke 2 agents in parallel via Task tool (single message with 2 tool calls):
+Run sequentially:
 
-- **release-note-writer** (`subagent_type: "core:release-note-writer"`, `model: "haiku"`): Reads story file, generates concise release notes, writes to `.workaholic/release-notes/<branch-name>.md`.
-- **pr-creator** (`subagent_type: "core:pr-creator"`, `model: "opus"`): Reads story file, derives title, runs `gh` CLI operations.
+1. **Create PR** first: Invoke **pr-creator** (`subagent_type: "core:pr-creator"`, `model: "opus"`). Reads story file, derives title, runs `gh` CLI operations. Capture PR URL from response.
 
-Wait for both agents to complete. Capture PR URL from pr-creator response.
+2. **Generate release note** with PR URL: Invoke **release-note-writer** (`subagent_type: "core:release-note-writer"`, `model: "haiku"`). Pass the PR URL obtained from pr-creator in the prompt. Reads story file, generates concise release notes, writes to `.workaholic/release-notes/<branch-name>.md`.
+
+Capture PR URL from pr-creator response for final output.
 
 ### Phase 5: Commit and Push Release Notes
 

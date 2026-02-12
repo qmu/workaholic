@@ -3,9 +3,9 @@ created_at: 2026-02-12T18:33:30+08:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: b9ff019
+category: Added
 ---
 
 # Add Explicit Effort Enum and Update Command to write-final-report Skill
@@ -83,3 +83,12 @@ Past tickets that touched similar areas:
 - This is the third fix for the same recurring issue. The previous two fixes (20260203, 20260207) focused on making the valid values more prominent in documentation. This fix takes a different approach by explicitly directing the agent to use the script path, which has structural enforcement rather than relying on the agent reading and following documentation
 - The `archive-ticket/sh/archive.sh` already uses `update.sh` for `commit_hash` and `category` fields (lines 62-64), establishing the pattern that frontmatter updates go through the script. The write-final-report skill should follow the same pattern for `effort`
 - Adding `allowed-tools: Bash` to write-final-report may be slightly misleading since the skill also needs the Edit tool to append the Final Report section to the ticket. However, the Edit tool is available by default; `allowed-tools` adds additional tools beyond the default set. Verify that the skill frontmatter `allowed-tools` field adds to rather than replaces the default tool set (`plugins/core/skills/write-final-report/SKILL.md` lines 1-7)
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The relative `.claude/skills/` path used in skill documentation does not resolve at runtime
+  **Context**: Skills reference shell scripts with `.claude/skills/<name>/sh/<script>.sh` but the actual installed path is `~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/<name>/sh/<script>.sh`. The archive-ticket skill already uses the full absolute path pattern, which should be the standard for all skill script references.

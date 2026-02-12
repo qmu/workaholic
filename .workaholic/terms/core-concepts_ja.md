@@ -90,11 +90,11 @@ context windowはエージェントが実行中に利用可能な隔離された
 
 ## manager
 
-managerはleadの上位に位置する戦略的エージェントで、leaderが依存する高レベルの出力を生成します。managerは`.claude/rules/define-manager.md`のdefine-managerスキーマによって定義され、Role、Responsibility、Goal、Outputs、Default Policiesのセクションが必要です。3つのmanagerが存在します：project-manager（ビジネスコンテキスト、ステークホルダー、タイムライン）、architecture-manager（システム構造、コンポーネント、レイヤー）、quality-manager（品質基準、保証プロセス）。各managerは`plugins/core/skills/`に対応する`manage-<domain>`スキルと、`plugins/core/agents/*-manager.md`に薄いエージェントファイルを持ちます。managerは横断的な行動ポリシーのためにmanagers-policyスキルをプリロードします。関連用語：lead、define-manager、managers-policy、agent、skill。
+managerはleadの上位に位置する戦略的エージェントで、leaderが依存する高レベルの出力を生成します。managerは`.claude/rules/define-manager.md`のdefine-managerスキーマによって定義され、Role、Responsibility、Goal、Outputs、Default Policiesのセクションが必要です。3つのmanagerが存在します：project-manager（ビジネスコンテキスト、ステークホルダー、タイムライン）、architecture-manager（システム構造、コンポーネント、レイヤー）、quality-manager（品質基準、保証プロセス）。各managerは`plugins/core/skills/`に対応する`manage-<domain>`スキルと、`plugins/core/agents/*-manager.md`に薄いエージェントファイルを持ちます。managerは横断的な行動原則のためにmanagers-principleスキルをプリロードします。関連用語：lead、define-manager、managers-principle、agent、skill。
 
 ## lead
 
-leadはプロジェクトの特定の側面に責任を持つドメイン固有のエージェントで、managerの出力を消費して情報に基づいたドメイン決定を行います。leadは`.claude/rules/define-lead.md`のdefine-leadスキーマによって定義され、Role、Responsibility、Goal、Default Policiesのセクションが必要です。現在のleadにはarchitecture-lead、security-lead、quality-lead、test-lead、a11y-lead、ux-lead、db-lead、delivery-lead、infra-lead、observability-lead、recovery-leadが含まれます。各leadは`plugins/core/skills/`に対応する`lead-<speciality>`スキルと、`plugins/core/agents/*-lead.md`に薄いエージェントファイルを持ちます。leadはPrior Term Consistencyを含む横断的な行動ポリシーのためにleaders-policyスキルをプリロードします。関連用語：manager、define-lead、leaders-policy、agent、skill。
+leadはプロジェクトの特定の側面に責任を持つドメイン固有のエージェントで、managerの出力を消費して情報に基づいたドメイン決定を行います。leadは`.claude/rules/define-lead.md`のdefine-leadスキーマによって定義され、Role、Responsibility、Goal、Default Policiesのセクションが必要です。現在のleadにはarchitecture-lead、security-lead、quality-lead、test-lead、a11y-lead、ux-lead、db-lead、delivery-lead、infra-lead、observability-lead、recovery-leadが含まれます。各leadは`plugins/core/skills/`に対応する`lead-<speciality>`スキルと、`plugins/core/agents/*-lead.md`に薄いエージェントファイルを持ちます。leadはPrior Term Consistencyを含む横断的な行動原則のためにleaders-principleスキルをプリロードします。関連用語：manager、define-lead、leaders-principle、agent、skill。
 
 ## define-manager
 
@@ -104,13 +104,13 @@ define-managerは`.claude/rules/define-manager.md`にあるスキーマ強制ル
 
 define-leadは`.claude/rules/define-lead.md`にあるスキーマ強制ルールで、leadスキルとエージェントファイルの構造を検証します。フロントマターを介したpath-scopedにより`plugins/core/skills/lead-*/SKILL.md`と`plugins/core/agents/*-lead.md`に適用されます。スキーマは4つのセクション（Role、Responsibility、Goal、Default Policies）と4つのポリシーサブセクション（Implementation、Review、Documentation、Execution）を要求します。define-managerと異なり、leadはドメイン固有のドキュメントを生成するため戦略的成果物ではなくOutputsセクションを持ちません。関連用語：lead、define-manager、schema、rule。
 
-## managers-policy
+## managers-principle
 
-managers-policyはすべてのmanagerエージェントがプリロードする横断的な行動ポリシースキルで、leaders-policyと並行しています。`plugins/core/skills/managers-policy/SKILL.md`で定義され、2つのポリシーセクションを含みます：Prior Term Consistency（既存の用語を尊重し、簡潔な命名を好む）とStrategic Focus（managerはleaderが消費可能な実行可能な出力を生成し、願望的なステートメントではない）。各managerエージェントはフロントマターで最初にプリロードするスキルとしてmanagers-policyをリストします。関連用語：manager、leaders-policy、skill、policy。
+managers-principleはすべてのmanagerエージェントがプリロードする横断的な行動原則スキルで、leaders-principleと並行しています。`plugins/core/skills/managers-principle/SKILL.md`で定義され、2つの原則セクションを含みます：Constraint Setting（制約の特定、提案、生成のためのワークフロー）とStrategic Focus（managerはleaderが消費可能な実行可能な出力を生成し、願望的なステートメントではない）。各managerエージェントはフロントマターで最初にプリロードするスキルとしてmanagers-principleをリストします。関連用語：manager、leaders-principle、skill、principle。
 
-## leaders-policy
+## leaders-principle
 
-leaders-policyはすべてのleadエージェントがプリロードする横断的な行動ポリシースキルで、managers-policyと並行しています。`plugins/core/skills/leaders-policy/SKILL.md`で定義され、元々Prior Term ConsistencyとVendor Neutralityポリシーを含んでいましたが、Vendor Neutralityは後に削除されました。Prior Term Consistencyはleadが既存の用語を尊重し、複数語の表現よりも1語を好み、成果物全体で普遍的な言語を維持することを要求します。各leadエージェントはフロントマターで最初にプリロードするスキルとしてleaders-policyをリストします。関連用語：lead、managers-policy、skill、policy。
+leaders-principleはすべてのleadエージェントがプリロードする横断的な行動原則スキルで、managers-principleと並行しています。`plugins/core/skills/leaders-principle/SKILL.md`で定義され、Prior Term ConsistencyとVendor Neutralityの原則を含みます。Prior Term Consistencyはleadが既存の用語を尊重し、複数語の表現よりも1語を好み、成果物全体で普遍的な言語を維持することを要求します。各leadエージェントはフロントマターで最初にプリロードするスキルとしてleaders-principleをリストします。関連用語：lead、managers-principle、skill、principle。
 
 ## driver（廃止）
 

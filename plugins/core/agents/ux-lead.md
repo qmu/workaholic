@@ -3,7 +3,7 @@ name: ux-lead
 description: Owns user experience design, interaction patterns, user journeys, and onboarding paths for the project.
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
-  - leaders-policy
+  - leaders-principle
   - lead-ux
   - analyze-viewpoint
   - write-spec

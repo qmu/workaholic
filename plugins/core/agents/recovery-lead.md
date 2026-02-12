@@ -3,7 +3,7 @@ name: recovery-lead
 description: Owns data backup schedules, retention policies, disaster recovery procedures, and RTO/RPO targets for the project.
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
-  - leaders-policy
+  - leaders-principle
   - lead-recovery
   - analyze-policy
   - translate

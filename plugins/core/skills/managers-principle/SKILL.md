@@ -1,13 +1,13 @@
 ---
-name: managers-policy
-description: Cross-cutting policies that apply to all manager sub-agents.
+name: managers-principle
+description: Cross-cutting principles that apply to all manager sub-agents.
 user-invocable: false
 ---
 
-# Managers Policy
+# Managers Principle
 
-Policies in this document apply to every manager sub-agent. Each manager MUST observe these
-policies in addition to its own domain-specific Default Policies.
+Principles in this document apply to every manager sub-agent. Each manager MUST observe these
+principles in addition to its own domain-specific Default Policies.
 
 ## Constraint Setting
 

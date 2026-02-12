@@ -3,9 +3,9 @@ created_at: 2026-02-12T17:38:56+08:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: b056b1b
+category: Changed
 ---
 
 # Rename managers-policy and leaders-policy Skills to managers-principle and leaders-principle
@@ -298,3 +298,7 @@ Past tickets that touched similar areas:
 - The CHANGELOG.md reference to `leaders-policy` is historical and should not be updated. (`CHANGELOG.md` line 12)
 - The `scan.md` command file references `.workaholic/policies/` for validation output paths -- these are unrelated to this rename and must not be changed. (`plugins/core/commands/scan.md`)
 - The 10 lead agent files that need updating are: quality-lead, security-lead, test-lead, ux-lead, db-lead, infra-lead, delivery-lead, a11y-lead, observability-lead, recovery-lead. Each has `leaders-policy` as the first entry in its skills list. (`plugins/core/agents/*-lead.md`)
+
+## Final Report
+
+All 9 implementation steps completed. Renamed both skill directories via `git mv`, updated SKILL.md frontmatter/headings/body text in both skills, updated all 3 manager agent files (frontmatter + instruction text), all 10 lead agent files (frontmatter), both rule template files, all 3 manage-* skill files, and all 4 term files (English + Japanese definitions and indexes). Verified zero remaining references to old names in active files. Historical references in archives, stories, specs, and changelog left untouched as specified.

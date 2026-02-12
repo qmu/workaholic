@@ -2,8 +2,8 @@
 title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
-last_updated: 2026-02-11
-commit_hash: f7f779f
+last_updated: 2026-02-12
+commit_hash: f385117
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -22,7 +22,7 @@ A command is a user-invocable slash action that performs a specific task, servin
 
 ## skill
 
-A skill is a helper sub-routine that is not directly user-invocable, supporting commands or other operations internally. Skills are defined in `plugins/<name>/skills/<skill-name>/` directories, each containing a `SKILL.md` definition and optional `sh/` directory with shell scripts. Skills can be preloaded by agents via the `skills:` frontmatter field. Current utility skills include archive-ticket, create-branch, create-pr, discover-history, format-commit-message, and drive-workflow. Content skills include write-story, write-spec, write-terms, write-changelog, and create-ticket. Related terms: command, plugin, agent.
+A skill is a helper sub-routine that is not directly user-invocable, supporting commands or other operations internally. Skills are defined in `plugins/<name>/skills/<skill-name>/` directories, each containing a `SKILL.md` definition and optional `sh/` directory with shell scripts. Skills can be preloaded by agents via the `skills:` frontmatter field. Current utility skills include archive-ticket, branching, create-pr, discover-history, and drive-workflow. Content skills include write-story, write-spec, write-terms, write-changelog, and create-ticket. Cross-cutting principle skills include managers-principle and leaders-principle. Related terms: command, plugin, agent, principle.
 
 ## rule
 
@@ -34,7 +34,7 @@ An agent (or subagent) is a specialized AI subprocess that runs with specific pr
 
 ## ticket-organizer
 
-The ticket-organizer is a subagent that handles the complete ticket creation workflow during `/ticket`. It receives a feature description, performs parallel discovery tasks (searching archived tickets, exploring source code, checking for duplicates), and writes a new ticket file with proper structure and related history links. Defined in `plugins/<name>/agents/ticket-organizer.md`, it preloads create-ticket, discover-history, and discover-source skills. Related terms: command, skill, ticket.
+The ticket-organizer is a subagent that handles the complete ticket creation workflow during `/ticket`. It receives a feature description, performs parallel discovery tasks (searching archived tickets, exploring source code, checking for duplicates), and writes a new ticket file with proper structure and related history links. Defined in `plugins/<name>/agents/ticket-organizer.md`, it preloads branching, create-ticket, discover-history, and discover-source skills. Related terms: command, skill, ticket.
 
 ## orchestrator
 
@@ -47,6 +47,18 @@ A deny rule is a permission configuration in `.claude/settings.json` under `perm
 ## preload
 
 Preloading is the mechanism by which agents gain access to skill content at initialization time. By specifying skills in the agent's `skills:` frontmatter field (e.g., `skills: [story-metrics, i18n]`), the skill's SKILL.md content is included in the agent's context when spawned, providing access to reusable instructions, scripts, or formatting rules. Related terms: skill, agent, frontmatter.
+
+## branching
+
+The branching skill provides utility operations for checking current git branch state and creating timestamped topic branches when needed. Defined in `plugins/core/skills/branching/` with bundled shell scripts (`sh/check.sh`, `sh/create.sh`, `sh/check-version-bump.sh`), it replaced the previous manage-branch skill to avoid naming collision with the manager tier's manage- prefix convention. The skill is preloaded by ticket-organizer and referenced in report command for version bump detection. Related terms: skill, ticket-organizer, manager.
+
+## constraint
+
+A constraint is a prescriptive boundary that narrows decision space for lead agents, produced by manager agents following the Constraint Setting workflow defined in managers-principle. Constraints are stored in `.workaholic/constraints/<domain>.md` where domain matches the manager's territory (project, architecture, quality). Each constraint file follows a structured template with frontmatter, summary, and constraint entries that specify what is bounded, rationale, which leaders are affected, falsifiable criteria, and review triggers. Constraints differ semantically from policies: constraints are manager-generated strategic boundaries, while policies are leader-generated observational documentation of implemented practices stored in `.workaholic/policies/`. Related terms: manager, lead, managers-principle, policy.
+
+## principle
+
+A principle is a cross-cutting behavioral rule that applies to all agents in a tier (managers or leads), encoded in principle skills rather than generated as output documents. Two principle skills exist: managers-principle (Constraint Setting workflow, Strategic Focus) and leaders-principle (Prior Term Consistency, Vendor Neutrality). The term "principle" distinguishes these fundamental behavioral rules from "policy" which refers to leader-generated output artifacts documenting implemented practices in `.workaholic/policies/`. This terminology shift resolved semantic ambiguity when the managers-policy and leaders-policy skills were renamed to managers-principle and leaders-principle. Related terms: managers-principle, leaders-principle, policy, skill.
 
 ## nesting-policy
 
@@ -90,7 +102,7 @@ A context window is the isolated conversation memory available to an agent durin
 
 ## manager
 
-A manager is a strategic agent that sits above leads in the agent hierarchy, producing high-level outputs that leaders depend on for context. Managers are defined by the define-manager schema in `.claude/rules/define-manager.md`, which requires Role, Responsibility, Goal, Outputs, and Default Policies sections. Three managers exist: project-manager (business context, stakeholders, timeline), architecture-manager (system structure, components, layers), and quality-manager (quality standards, assurance processes). Each manager has a corresponding `manage-<domain>` skill in `plugins/core/skills/` and a thin agent file in `plugins/core/agents/*-manager.md`. Managers preload the managers-principle skill for cross-cutting behavioral principles. Related terms: lead, define-manager, managers-principle, agent, skill.
+A manager is a strategic agent that sits above leads in the agent hierarchy, producing high-level outputs that leaders depend on for context. Managers are defined by the define-manager schema in `.claude/rules/define-manager.md`, which requires Role, Responsibility, Goal, Outputs, and Default Policies sections. Three managers exist: project-manager (business context, stakeholders, timeline), architecture-manager (system structure, components, layers), and quality-manager (quality standards, assurance processes). Each manager has a corresponding `manage-<domain>` skill in `plugins/core/skills/` and a thin agent file in `plugins/core/agents/*-manager.md`. Managers preload the managers-principle skill for cross-cutting behavioral principles and follow a Constraint Setting workflow to produce structured constraint files at `.workaholic/constraints/<domain>.md`. Related terms: lead, define-manager, managers-principle, constraint, agent, skill.
 
 ## lead
 

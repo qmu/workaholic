@@ -66,4 +66,5 @@ A structured analysis containing:
   - Identify missing or implicit project constraints (release cadence, stakeholder priorities, scope boundaries, timeline commitments).
   - Ask the user targeted questions about business priorities, stakeholder rankings, and scope decisions.
   - Propose project constraints grounded in gathered evidence and user answers.
-  - Produce directional materials (roadmap, stakeholder priority matrix, scope boundary document) to `.workaholic/`.
+  - Produce constraints to `.workaholic/constraints/project.md` following the constraint file template from managers-policy.
+  - Produce other directional materials (roadmap, stakeholder priority matrix) to `.workaholic/` as appropriate.

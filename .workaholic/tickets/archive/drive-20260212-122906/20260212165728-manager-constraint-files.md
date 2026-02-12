@@ -3,8 +3,8 @@ created_at: 2026-02-12T16:57:28+08:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
+effort: 0.25h
+commit_hash: 5fc8981
 category:
 ---
 
@@ -46,27 +46,25 @@ Past tickets that touched similar areas:
    - Each constraint file uses a standard structure with frontmatter and sections for each constraint.
    - The template includes: frontmatter (manager name, last_updated timestamp), a summary section, and individual constraint entries. Each constraint entry states what it bounds, why it matters, which leaders it affects, the falsifiability criterion, and any review trigger.
 
-   The template:
+   The template uses the manager's scope as the heading (not "Constraints" — the directory already conveys that). Each section heading names the bounded area directly (e.g., "Release Cadence", "Layer Boundaries"), not "Constraint Name":
 
    ```markdown
    ---
-   manager: <domain>-manager
+   manager: <scope>-manager
    last_updated: <ISO 8601 timestamp>
    ---
 
-   # <Domain> Constraints
+   # <Scope>
 
-   <1-2 sentence summary of the constraint landscape for this domain.>
+   <1-2 sentence summary of the manager's strategic territory.>
 
-   ## <Constraint Name>
+   ## <Bounded Area>
 
-   **Bounds**: <What this constraint limits>
-   **Rationale**: <Why this constraint exists>
+   **Bounds**: <What this limits>
+   **Rationale**: <Why this exists>
    **Affects**: <Leader agents this narrows>
    **Criterion**: <How to verify compliance -- must be falsifiable>
-   **Review trigger**: <When to revisit this constraint>
-
-   ---
+   **Review trigger**: <When to revisit>
    ```
 
 2. **Update the Constraint Setting rules in `plugins/core/skills/managers-policy/SKILL.md`**
@@ -236,3 +234,14 @@ Past tickets that touched similar areas:
 - The constraint file template uses a `---` horizontal rule between constraint entries. This is a convention choice for readability. If the project later needs machine-parseable constraint files (e.g., for automated compliance checking), the format may need to evolve to structured YAML or JSON. The current markdown format prioritizes human readability. (`plugins/core/skills/managers-policy/SKILL.md`)
 - The `select-scan-agents` skill references output directories at `plugins/core/skills/select-scan-agents/SKILL.md` line 45. If it has an exclusion list for output directories, `.workaholic/constraints/` should be added. Verify during implementation. (`plugins/core/skills/select-scan-agents/SKILL.md`)
 - Translation of constraint files (e.g., `project_ja.md`) follows the same pattern as specs and policies -- produce English first, then translate per the user's CLAUDE.md translation policy. This is already handled by the managers-policy and does not need special treatment, but the constraint file template should be English-only in the skill definition. (`.workaholic/constraints/`)
+
+## Final Report
+
+Introduced `.workaholic/constraints/` directory with structured constraint file template. Updated managers-policy with output convention and template (using scope-based headings, not "Constraints" labels). Updated all three manager Execution sections to produce to specific constraint file paths. Added `constraints/` to README indexes and scan commit step.
+
+1. `plugins/core/skills/managers-policy/SKILL.md` — Added constraint file template and updated Rules to specify `.workaholic/constraints/<scope>.md` output path
+2. `plugins/core/skills/manage-project/SKILL.md` — Execution produces to `.workaholic/constraints/project.md`
+3. `plugins/core/skills/manage-architecture/SKILL.md` — Execution produces to `.workaholic/constraints/architecture.md`
+4. `plugins/core/skills/manage-quality/SKILL.md` — Execution produces to `.workaholic/constraints/quality.md`
+5. `.workaholic/README.md` / `README_ja.md` — Listed `constraints/` directory
+6. `plugins/core/commands/scan.md` — Added `.workaholic/constraints/` to git add in Phase 6

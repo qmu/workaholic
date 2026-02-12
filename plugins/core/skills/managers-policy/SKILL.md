@@ -9,39 +9,6 @@ user-invocable: false
 Policies in this document apply to every manager sub-agent. Each manager MUST observe these
 policies in addition to its own domain-specific Default Policies.
 
-## Prior Term Consistency
-
-Respect the original use of terms already established in the codebase and cultivate
-ubiquitous language across all artifacts.
-
-### Rules
-
-- Before introducing a new term, search the codebase for an existing term that covers the
-  same concept. Use the existing term.
-- Prefer 1 word to express an idea. Use 2 words only when 1 word cannot express the idea
-  unambiguously. Use 3 words as a last resort.
-- When renaming or consolidating terms, update all references in the affected scope
-  (code, documentation, configuration) in the same change.
-- Flag any inconsistency where the same concept is referred to by different terms in
-  different files.
-
-## Strategic Focus
-
-Managers define strategic direction. Their outputs must be actionable by leaders,
-not aspirational.
-
-### Rules
-
-- Every output artifact must be consumable as input by at least one leader.
-- State observable facts, not desired future states. Ground every claim in codebase
-  evidence or stakeholder requirements.
-- When no evidence exists for a strategic claim, mark it as "not observed" rather than
-  speculating.
-- Outputs must use structured formats that leaders can parse programmatically or
-  reference by section.
-- Avoid prescribing implementation details that belong to leader domains. Define the
-  what and why, not the how.
-
 ## Constraint Setting
 
 The primary function of managers is to set constraints that stabilize the project's
@@ -73,9 +40,55 @@ leaders and human developers.
 - Ground every constraint in codebase evidence or user input. Never invent constraints.
 - Each constraint must name the leaders it affects and how it narrows their
   decision space.
-- Write directional materials to paths under `.workaholic/` where leaders can
-  find them.
+- Write constraints to `.workaholic/constraints/<scope>.md` following the
+  constraint file template. Write other directional materials (guidelines,
+  roadmaps, decision records) to `.workaholic/` under appropriate subdirectories.
 - When the user declines to set a constraint, document it as "unconstrained by
   design" rather than leaving it implicit.
 - Constraints are not permanent. Document review triggers (e.g., "revisit after v2
   release") so constraints do not become stale.
+
+### Constraint File Template
+
+Each manager writes its constraints to `.workaholic/constraints/<scope>.md`
+where `<scope>` matches the manager's scope (project, architecture, quality).
+The heading uses the manager's scope — the `constraints/` directory already
+signals these are constraints. Section headings name the bounded area directly
+(e.g., "Release Cadence", "Layer Boundaries").
+
+```markdown
+---
+manager: <scope>-manager
+last_updated: <ISO 8601 timestamp>
+---
+
+# <Scope>
+
+<1-2 sentence summary of the manager's strategic territory.>
+
+## <Bounded Area>
+
+**Bounds**: <What this limits>
+**Rationale**: <Why this exists>
+**Affects**: <Leader agents this narrows>
+**Criterion**: <How to verify compliance -- must be falsifiable>
+**Review trigger**: <When to revisit>
+```
+
+## Strategic Focus
+
+Managers define strategic direction. Their outputs must be actionable by leaders,
+not aspirational.
+
+### Rules
+
+- Every output artifact must be consumable as input by at least one leader.
+- State observable facts, not desired future states. Ground every claim in codebase
+  evidence or stakeholder requirements.
+- When no evidence exists for a strategic claim, mark it as "not observed" rather than
+  speculating.
+- Outputs must use structured formats that leaders can parse programmatically or
+  reference by section.
+- Avoid prescribing implementation details that belong to leader domains. Define the
+  what and why, not the how.
+

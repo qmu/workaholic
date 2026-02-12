@@ -12,6 +12,7 @@ commit_hash: f034f63
 
 This is the working artifacts hub for the Workaholic plugin marketplace.
 
+- [constraints/](constraints/) - Manager-generated prescriptive boundaries
 - [guides/](guides/README.md) - User documentation
 - [policies/](policies/README.md) - Policy documentation (testing, security, quality, operations)
 - [specs/](specs/README.md) - Technical specifications

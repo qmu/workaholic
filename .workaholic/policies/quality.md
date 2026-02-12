@@ -2,8 +2,8 @@
 title: Quality Policy
 description: Code quality standards, linting rules, review processes, and metrics used to maintain maintainability
 category: developer
-modified_at: 2026-02-11T15:29:37+00:00
-commit_hash: f7f779f
+modified_at: 2026-02-12T10:15:46+00:00
+commit_hash: f385117
 ---
 
 [English](quality.md) | [Japanese](quality_ja.md)
@@ -24,7 +24,7 @@ All shell scripts must follow POSIX sh compatibility standards enforced through 
 
 **Inline complexity prohibition**: Commands and agents cannot contain complex inline shell commands. Prohibited constructs include conditionals (`if`, `case`, `test`, `[ ]`, `[[ ]]`), pipes and chains (`|`, `&&`, `||`), text processing (`sed`, `awk`, `grep`, `cut`), loops (`for`, `while`), and variable expansion with logic (`${var:-default}`, `${var:+alt}`). All multi-step or conditional operations must be extracted to bundled scripts in skills (`skills/<name>/sh/<script>.sh`). (Enforced by `CLAUDE.md` Shell Script Principle and verified through code review.)
 
-**Validation**: 19 shell scripts in the codebase follow these standards. Most use `#!/bin/sh -eu`, while one hook uses `#!/bin/bash` and two helper scripts lack the `-eu` flags. (Verified via `grep "^#!/" **/*.sh`.)
+**Validation**: 21 shell scripts in the codebase follow these standards. Most use `#!/bin/sh -eu`, while one hook uses `#!/bin/bash` and two helper scripts lack the `-eu` flags. (Verified via `find . -name "*.sh" -type f | wc -l`.)
 
 ### TypeScript Conventions
 
@@ -50,7 +50,7 @@ The `typescript.md` rule defines coding standards enforced through code review:
 
 ### Multi-Language Documentation
 
-**i18n enforcement**: All files in `.workaholic/` must have corresponding Japanese translations (`_ja.md` suffix). Each language's README must link to documents in the same language, creating parallel link structures. (Enforced by `plugins/core/rules/i18n.md` and verified through the `translate` skill.)
+**i18n enforcement**: All files in `.workaholic/` must have corresponding Japanese translations (`_ja.md` suffix). Each language's README must link to documents in the same language, creating parallel link structures. The project respects the CLAUDE.md language setting - if the primary language is Japanese, `_ja.md` translations are not produced (they would duplicate the primary content). (Enforced by `plugins/core/rules/i18n.md` and verified through the `translate` skill.)
 
 **Language separation**: Code and code comments, commit messages, pull requests, and documentation outside `.workaholic/` use English only. The `.workaholic/` directory supports both English and Japanese. (Enforced by `CLAUDE.md` Written Language section.)
 

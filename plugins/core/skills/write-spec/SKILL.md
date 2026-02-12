@@ -76,7 +76,7 @@ The specs directory contains 8 viewpoint-based architecture documents (plus thei
 | data           | `data.md`            | Data formats, frontmatter schemas, naming conventions    |
 | feature        | `feature.md`         | Feature inventory, capability matrix, configuration      |
 
-Each viewpoint file has a corresponding `_ja.md` translation (e.g., `stakeholder_ja.md`).
+Each viewpoint file may have a corresponding translation file (e.g., `stakeholder_ja.md` when the primary language is English). The translation suffix depends on the consumer project's CLAUDE.md language configuration.
 
 ## Frontmatter
 

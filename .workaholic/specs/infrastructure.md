@@ -165,7 +165,7 @@ Skills serve four distinct purposes in the architecture:
 
 **Lead and manager domain skills** define role-specific responsibilities and policies. These skills are preloaded by agents and never invoked by users directly. Examples include `lead-infra` (infrastructure concerns), `manage-architecture` (system structure), and `manage-quality` (quality standards).
 
-**Cross-cutting policy skills** define behavioral policies that apply across multiple agents. The `leaders-policy` skill provides Prior Term Consistency and Vendor Neutrality rules for all lead agents. The `managers-policy` skill adds Strategic Focus rules for manager agents.
+**Cross-cutting policy skills** define behavioral policies that apply across multiple agents. The `leaders-principle` skill provides Prior Term Consistency and Vendor Neutrality rules for all lead agents. The `managers-principle` skill adds Strategic Focus rules for manager agents.
 
 **Workflow operation skills** orchestrate multi-step processes with bundled shell scripts. Examples include `gather-git-context` (outputs JSON with branch, base_branch, repo_url), `archive-ticket` (moves tickets, creates commits, updates frontmatter), and `select-scan-agents` (determines which agents to invoke based on diff analysis).
 
@@ -312,7 +312,7 @@ The system now employs a two-tier agent hierarchy with managers providing strate
 
 **Manager tier** agents (`project-manager`, `architecture-manager`, `quality-manager`) execute first during `/scan` operations. They analyze the codebase and produce structured outputs defining business context, system architecture, and quality standards.
 
-**Lead tier** agents (11 domain-specific leads including `infra-lead`, `security-lead`, `quality-lead`, etc.) consume manager outputs to produce domain-specific documentation. They preload both their domain skill (`lead-<specialty>`) and the cross-cutting `leaders-policy` skill.
+**Lead tier** agents (11 domain-specific leads including `infra-lead`, `security-lead`, `quality-lead`, etc.) consume manager outputs to produce domain-specific documentation. They preload both their domain skill (`lead-<specialty>`) and the cross-cutting `leaders-principle` skill.
 
 This orchestration pattern ensures leads receive consistent strategic context rather than deriving it independently. The `/scan` command coordinates the execution order, invoking managers before leads.
 
@@ -328,9 +328,9 @@ This orchestration pattern ensures leads receive consistent strategic context ra
 
 [Explicit] The `.claude/settings.json` file explicitly denies the Bash command pattern `git -C:*`.
 
-[Explicit] The `define-manager.md` schema enforcement rule uses explicit skill paths instead of glob patterns to avoid matching utility skills like `manage-branch`.
+[Explicit] The `define-manager.md` schema enforcement rule uses explicit skill paths instead of glob patterns to avoid matching utility skills like `branching`.
 
-[Explicit] Manager agents (`project-manager`, `architecture-manager`, `quality-manager`) preload the `managers-policy` skill, while lead agents preload the `leaders-policy` skill.
+[Explicit] Manager agents (`project-manager`, `architecture-manager`, `quality-manager`) preload the `managers-principle` skill, while lead agents preload the `leaders-principle` skill.
 
 [Inferred] The symlink architecture from `.claude/` to `plugins/core/` is inferred from the project structure rule "Edit `plugins/` not `.claude/`" and the marketplace installation pattern, though no explicit symlink creation code was observed.
 

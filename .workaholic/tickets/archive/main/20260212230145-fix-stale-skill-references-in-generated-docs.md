@@ -3,9 +3,9 @@ created_at: 2026-02-12T23:01:45+08:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 2f9f7cb
+category: Changed
 ---
 
 # Fix Stale References to Renamed Skills in Generated Documentation
@@ -53,3 +53,12 @@ Past tickets that touched similar areas:
 - Some spec files (e.g., `ux.md`, `application.md`, `model.md`) already contain contextual "formerly known as" references that document the rename itself -- these are correct and should be preserved by the scan agents (`.workaholic/specs/ux.md`, `.workaholic/specs/application.md`, `.workaholic/specs/model.md`)
 - The `/scan` run may take significant time as it invokes all 14 documentation agents; this is expected and does not block other work
 - This ticket does not block release, as noted in the branch story (`drive-20260212-122906`)
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: Targeted find-and-replace is more efficient than running /scan for simple rename propagation
+  **Context**: The ticket suggested running /scan (14 agents, significant time), but since the change was purely mechanical string replacement across known files, direct replace_all on the 14 affected files was faster and equally correct. Historical/contextual references in ux.md, application.md, model.md, and accessibility.md were correctly preserved.

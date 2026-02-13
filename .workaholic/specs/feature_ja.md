@@ -27,7 +27,7 @@ ticket command は自然言語の feature request を構造化された実装 sp
 | Source discovery | 関連する file と code flow を識別 | `source-discoverer` agent |
 | Automatic ticket splitting | 複雑な request を2-4個の独立した ticket に分解 | `ticket-organizer` agent |
 | Frontmatter validation | 書き込みごとに ticket 構造を検証 | `hooks.json` PostToolUse hook |
-| Auto-branch creation | main で実行時に branch を作成 | `manage-branch` skill |
+| Auto-branch creation | main で実行時に branch を作成 | `branching` skill |
 | Author verification | git email を使用、Anthropic address を拒否 | `create-ticket` skill |
 | Patch generation | source snippet から unified diff patch を生成 | `ticket-organizer` agent |
 | Todo/icebox targeting | ticket を todo または icebox directory にルーティング | `ticket-organizer` agent |

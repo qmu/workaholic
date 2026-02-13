@@ -32,7 +32,7 @@ Tickets that cannot be implemented are moved to `.workaholic/tickets/abandoned/`
 
 ### Branch-Based State Snapshots
 
-The repository uses timestamped topic branches following the pattern `<prefix>-YYYYMMdd-HHmmss` for all feature work. Each branch represents a recoverable snapshot of work in progress. Multiple branches exist simultaneously providing redundancy and the ability to recover from branch-specific issues. The manage-branch skill creates these timestamped branches automatically. (`plugins/core/skills/manage-branch/sh/create.sh`)
+The repository uses timestamped topic branches following the pattern `<prefix>-YYYYMMdd-HHmmss` for all feature work. Each branch represents a recoverable snapshot of work in progress. Multiple branches exist simultaneously providing redundancy and the ability to recover from branch-specific issues. The branching skill creates these timestamped branches automatically. (`plugins/core/skills/branching/sh/create.sh`)
 
 ## Backup Strategy
 

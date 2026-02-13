@@ -117,7 +117,7 @@ The scan command runs a two-phase agent orchestration to generate comprehensive 
 | Full/partial modes | Adaptive agent selection based on changes | `select-scan-agents` skill |
 | 4 viewpoint specs | Application, component, feature, usecase | `architecture-manager` agent |
 | 7 policy docs | Test, security, quality, a11y, observability, delivery, recovery | 7 leader agents |
-| Constraint setting | Managers produce directional materials | `managers-policy` skill |
+| Constraint setting | Managers produce directional materials | `managers-principle` skill |
 
 #### Documentation Agent Matrix
 
@@ -237,10 +237,10 @@ The manager tier introduces strategic context establishment and constraint-setti
 | Project context analysis | Business domain, stakeholders, timeline, issues | `project-manager` |
 | Architectural structure | System boundaries, layers, components, patterns | `architecture-manager` |
 | Quality standards | Dimensions, assurance processes, metrics, feedback loops | `quality-manager` |
-| Constraint setting | Analyze, Ask, Propose, Produce directional materials | All managers via `managers-policy` |
+| Constraint setting | Analyze, Ask, Propose, Produce directional materials | All managers via `managers-principle` |
 | Viewpoint spec production | 4 architectural viewpoint documents | `architecture-manager` |
-| Strategic focus | Observable facts, not aspirational recommendations | `managers-policy` |
-| Prior term consistency | Respect existing terminology, cultivate ubiquitous language | `managers-policy` |
+| Strategic focus | Observable facts, not aspirational recommendations | `managers-principle` |
+| Prior term consistency | Respect existing terminology, cultivate ubiquitous language | `managers-principle` |
 
 #### Constraint Setting Workflow
 
@@ -262,8 +262,8 @@ Leaders consume manager outputs and produce domain-specific policy documents:
 | UX analysis | User experience, interaction patterns, user journeys | `ux-lead` |
 | Data analysis | Data formats, storage, persistence | `db-lead` |
 | Infrastructure analysis | Dependencies, deployment, runtime environment | `infra-lead` |
-| Prior term consistency | Respect existing terminology | `leaders-policy` |
-| Vendor neutrality | Minimize dependencies, manage coupling | `leaders-policy` |
+| Prior term consistency | Respect existing terminology | `leaders-principle` |
+| Vendor neutrality | Minimize dependencies, manage coupling | `leaders-principle` |
 
 ## Cross-Cutting Features
 
@@ -450,9 +450,9 @@ Skills are preloaded by commands and agents via frontmatter:
 
 ```yaml
 skills:
-  - managers-policy
+  - managers-principle
   - manage-project
-  - leaders-policy
+  - leaders-principle
   - lead-ux
 ```
 
@@ -481,7 +481,7 @@ Based on archived tickets from branch `drive-20260210-121635`:
 - Manager tier with 3 manager agents and 3 manager skills
 - Constraint-setting workflow for managers (Analyze, Ask, Propose, Produce)
 - Two-phase scan execution (managers in phase 3a, leaders in phase 3b)
-- Leaders-policy and managers-policy cross-cutting skills
+- Leaders-policy and managers-principle cross-cutting skills
 - Expanded commit message sections (Motivation, UX Change, Arch Change)
 - 10 leader skills (lead-ux, lead-infra, lead-db, lead-security, lead-test, lead-quality, lead-a11y, lead-observability, lead-delivery, lead-recovery)
 
@@ -504,7 +504,7 @@ Based on archived tickets from branch `drive-20260210-121635`:
 - [Explicit] The 4 commands, 28 agents, 45 skills, and 6 rules are counted from the structure output provided by the gather-context script and recent tickets.
 - [Explicit] The manager tier introduces 3 managers (project, architecture, quality) and adds strategic context establishment capabilities.
 - [Explicit] The two-phase scan execution (managers then leaders) is documented in scan.md Phase 3a and 3b.
-- [Explicit] The constraint-setting workflow (Analyze, Ask, Propose, Produce) is defined in managers-policy skill.
+- [Explicit] The constraint-setting workflow (Analyze, Ask, Propose, Produce) is defined in managers-principle skill.
 - [Explicit] The architecture-manager absorbed viewpoint spec production from the removed architecture-lead, as documented in ticket 20260211170402.
 - [Explicit] The communication-lead was renamed to ux-lead with viewpoint slug change from "stakeholder" to "ux", as documented in ticket 20260211170402.
 - [Explicit] The format-commit-message skill was merged into commit skill, as documented in ticket 20260210160550.

@@ -50,7 +50,7 @@ Preloading is the mechanism by which agents gain access to skill content at init
 
 ## branching
 
-The branching skill provides utility operations for checking current git branch state and creating timestamped topic branches when needed. Defined in `plugins/core/skills/branching/` with bundled shell scripts (`sh/check.sh`, `sh/create.sh`, `sh/check-version-bump.sh`), it replaced the previous manage-branch skill to avoid naming collision with the manager tier's manage- prefix convention. The skill is preloaded by ticket-organizer and referenced in report command for version bump detection. Related terms: skill, ticket-organizer, manager.
+The branching skill provides utility operations for checking current git branch state and creating timestamped topic branches when needed. Defined in `plugins/core/skills/branching/` with bundled shell scripts (`sh/check.sh`, `sh/create.sh`, `sh/check-version-bump.sh`), it replaced the previous branching skill to avoid naming collision with the manager tier's manage- prefix convention. The skill is preloaded by ticket-organizer and referenced in report command for version bump detection. Related terms: skill, ticket-organizer, manager.
 
 ## constraint
 
@@ -58,7 +58,7 @@ A constraint is a prescriptive boundary that narrows decision space for lead age
 
 ## principle
 
-A principle is a cross-cutting behavioral rule that applies to all agents in a tier (managers or leads), encoded in principle skills rather than generated as output documents. Two principle skills exist: managers-principle (Constraint Setting workflow, Strategic Focus) and leaders-principle (Prior Term Consistency, Vendor Neutrality). The term "principle" distinguishes these fundamental behavioral rules from "policy" which refers to leader-generated output artifacts documenting implemented practices in `.workaholic/policies/`. This terminology shift resolved semantic ambiguity when the managers-policy and leaders-policy skills were renamed to managers-principle and leaders-principle. Related terms: managers-principle, leaders-principle, policy, skill.
+A principle is a cross-cutting behavioral rule that applies to all agents in a tier (managers or leads), encoded in principle skills rather than generated as output documents. Two principle skills exist: managers-principle (Constraint Setting workflow, Strategic Focus) and leaders-principle (Prior Term Consistency, Vendor Neutrality). The term "principle" distinguishes these fundamental behavioral rules from "policy" which refers to leader-generated output artifacts documenting implemented practices in `.workaholic/policies/`. This terminology shift resolved semantic ambiguity when the managers-principle and leaders-principle skills were renamed to managers-principle and leaders-principle. Related terms: managers-principle, leaders-principle, policy, skill.
 
 ## nesting-policy
 

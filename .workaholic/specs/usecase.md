@@ -136,7 +136,7 @@ sequenceDiagram
 
     Dev->>Cmd: /ticket add dark mode
     Cmd->>TO: Task(model: opus, prompt: description + target)
-    TO->>Git: Check branch via manage-branch skill
+    TO->>Git: Check branch via branching skill
     alt On main/master
         Git-->>TO: main
         TO->>Git: Create drive-YYYYMMDDHHmmss branch
@@ -504,7 +504,7 @@ sequenceDiagram
 - [Explicit] The `/drive` command processes tickets sequentially with human approval between each, as documented in drive command instructions.
 - [Explicit] The `/scan` command uses two-phase execution (managers in phase 3a, leaders in phase 3b) as documented in scan.md Phases 3a and 3b.
 - [Explicit] The `/report` command delegates to story-writer, which orchestrates 4 agents in phase 1 and 2 agents in phase 2, as documented in report command instructions.
-- [Explicit] Manager agents follow a constraint-setting workflow (Analyze, Ask, Propose, Produce) as defined in managers-policy skill.
+- [Explicit] Manager agents follow a constraint-setting workflow (Analyze, Ask, Propose, Produce) as defined in managers-principle skill.
 - [Explicit] Leader agents read manager outputs before performing domain-specific analysis, as defined in their Execution policies.
 - [Explicit] The architecture-manager produces four viewpoint specs (application, component, feature, usecase) during phase 3a, as documented in manage-architecture skill.
 - [Explicit] Commands use `AskUserQuestion` with selectable options to prevent ambiguous user input, as demonstrated in drive-navigator and drive-approval.

@@ -212,7 +212,7 @@ Skill は知識層であり、domain ごとに整理されています。各 ski
 - `commit` -- git commit 操作のガイドライン
 - `create-pr` -- `gh` CLI を使用した GitHub pull request の作成または更新
 - `gather-git-context` -- branch、base_branch、repo_url、archived_tickets、git_log を 1 回の呼び出しで収集
-- `manage-branch` -- 現在の branch を確認し、必要に応じて topic branch を作成
+- `branching` -- 現在の branch を確認し、必要に応じて topic branch を作成
 
 #### Documentation Writing（7）
 
@@ -432,8 +432,8 @@ ticket.md（command）
   └─ レスポンスの処理（commit、ユーザーへの提示）
       ↓
 ticket-organizer.md（agent）
-  ├─ Skill の preload：manage-branch、create-ticket、gather-ticket-metadata
-  ├─ Branch の確認（manage-branch skill）
+  ├─ Skill の preload：branching、create-ticket、gather-ticket-metadata
+  ├─ Branch の確認（branching skill）
   ├─ 並列 discovery（3 agent：ticket-discoverer、source-discoverer、history-discoverer）
   ├─ Ticket の作成（create-ticket skill）
   └─ JSON の返却（status、branch_created、tickets）

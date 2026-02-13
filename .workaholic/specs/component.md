@@ -501,7 +501,7 @@ Agents and commands declare skill dependencies in their frontmatter:
 
 ```yaml
 skills:
-  - managers-policy
+  - managers-principle
   - manage-project
 ```
 

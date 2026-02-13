@@ -186,7 +186,7 @@ user-invocable: false                     # true only for user-facing commands
 
 Skill frontmatter includes a `user-invocable` boolean field that distinguishes between internal skills (false) and user-facing command skills (true). The field was introduced with the manager tier to mark manager skills and lead skills as non-invocable, ensuring only commands can be invoked directly by users.
 
-Manager skills (manage-project, manage-architecture, manage-quality) and lead skills (lead-db, lead-security, etc.) all set `user-invocable: false`. Cross-cutting policy skills (managers-policy, leaders-policy) also set `user-invocable: false`.
+Manager skills (manage-project, manage-architecture, manage-quality) and lead skills (lead-db, lead-security, etc.) all set `user-invocable: false`. Cross-cutting policy skills (managers-principle, leaders-principle) also set `user-invocable: false`.
 
 ## JSON Configuration Schemas
 
@@ -496,14 +496,14 @@ The system defines two agent tiers (manager and leader), each with distinct fron
 | `description` | Strategic outputs + consuming leaders | Domain responsibility | Same as skill | Same as skill |
 | `user-invocable` | `false` (required) | `false` (required) | N/A (agents don't have this) | N/A |
 | `tools` | N/A (skills don't have this) | N/A | All 6 standard tools | All 6 standard tools |
-| `skills` | N/A | N/A | Preloads `managers-policy` + domain skill | Preloads `leaders-policy` + domain skill |
+| `skills` | N/A | N/A | Preloads `managers-principle` + domain skill | Preloads `leaders-principle` + domain skill |
 | Schema file | `.claude/rules/define-manager.md` | `.claude/rules/define-lead.md` | Same schema as manager skill | Same schema as lead skill |
 
 Manager skills require an `## Outputs` section that leader skills lack. The Outputs section names consuming leaders for each output artifact, establishing the manager-to-leader dependency relationship.
 
 ### Constraint Setting Workflow Data
 
-The constraint-setting workflow introduced in managers-policy produces four artifact types, each with potential frontmatter requirements:
+The constraint-setting workflow introduced in managers-principle produces four artifact types, each with potential frontmatter requirements:
 
 | Artifact Type | Path | Frontmatter Schema | Purpose |
 | --- | --- | --- | --- |
@@ -525,7 +525,7 @@ Policy and Guideline artifacts reuse the existing policy frontmatter schema. Roa
 - [Explicit] The `user-invocable: false` field was introduced to distinguish internal skills from user-facing commands. All manager skills and lead skills set this field to false.
 - [Explicit] The manager tier introduced three new agent types (project-manager, architecture-manager, quality-manager) with corresponding skills (manage-project, manage-architecture, manage-quality), as documented in ticket `20260211170401-define-manager-tier-and-skills.md`.
 - [Explicit] Managers produce strategic outputs that leaders consume. The two-phase scan execution (Phase 1: managers, Phase 2: leaders) enforces this dependency, as documented in ticket `20260211170402-wire-leaders-to-manager-outputs.md`.
-- [Explicit] The constraint-setting workflow (Analyze, Ask, Propose, Produce) is defined in `managers-policy/SKILL.md` and referenced in all three manager skill Execution sections.
+- [Explicit] The constraint-setting workflow (Analyze, Ask, Propose, Produce) is defined in `managers-principle/SKILL.md` and referenced in all three manager skill Execution sections.
 - [Explicit] Schema enforcement rules for managers and leads are defined in `.claude/rules/define-manager.md` and `.claude/rules/define-lead.md` respectively.
 - [Inferred] The inconsistency between `modified_at` (datetime) in specs and `last_updated` (date) in terms represents a historical artifact that has been noted but not resolved, based on the `inconsistencies.md` document.
 - [Inferred] The timestamp-prefixed ticket naming convention ensures chronological ordering when listed alphabetically, which is important for the drive-navigator's prioritization logic.

@@ -16,7 +16,7 @@ Generic framework for analyzing a repository from a specific policy domain. Poli
 Run the bundled script to collect policy-specific information:
 
 ```bash
-bash .claude/skills/analyze-policy/sh/gather.sh <policy-slug> [base-branch]
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-policy/sh/gather.sh <policy-slug> [base-branch]
 ```
 
 Default base branch is `main`.

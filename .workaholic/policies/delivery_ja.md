@@ -120,7 +120,7 @@ Base branch は `main` です。全ての pull request は `main` を target と
 
 `/report` command（`plugins/core/commands/report.md`）が PR 作成を orchestrate します：
 
-1. `branching` skill を使用して version が既に bump されているかを確認（`bash .claude/skills/branching/sh/check-version-bump.sh`）。`already_bumped` が `true` の場合（main から分岐後の現在の branch に「Bump version」commit が存在する場合）、bump をスキップ。そうでない場合、CLAUDE.md の Version Management に従って version を bump（patch increment）。
+1. `branching` skill を使用して version が既に bump されているかを確認（`bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/branching/sh/check-version-bump.sh`）。`already_bumped` が `true` の場合（main から分岐後の現在の branch に「Bump version」commit が存在する場合）、bump をスキップ。そうでない場合、CLAUDE.md の Version Management に従って version を bump（patch increment）。
 2. `story-writer` subagent を invoke（`subagent_type: "core:story-writer"`, `model: "opus"`）
 3. story-writer の結果から PR URL を表示
 
@@ -286,7 +286,7 @@ Story file は PR description として機能します（YAML frontmatter は `c
 - Commit hash を取得（`git rev-parse --short HEAD`）
 
 **Phase 2: Select Agents**
-- `select-scan-agents` skill を実行：`bash .claude/skills/select-scan-agents/sh/select.sh full`
+- `select-scan-agents` skill を実行：`bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/select-scan-agents/sh/select.sh full`
 - JSON 出力を parse して manager と leader agent のリストを取得
 
 **Phase 3a: Invoke Manager Agents in Parallel**
@@ -322,7 +322,7 @@ Story file は PR description として機能します（YAML frontmatter は `c
 `analyze-policy` skill（`plugins/core/skills/analyze-policy/SKILL.md`）は特定の policy domain から repository を分析するための汎用 framework を提供します。Bundled script を使用して context を収集します：
 
 ```bash
-bash .claude/skills/analyze-policy/sh/gather.sh <policy-slug> [base-branch]
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-policy/sh/gather.sh <policy-slug> [base-branch]
 ```
 
 Policy document は厳格な推論ルールに従います：**実装されているもののみを文書化**。全ての policy statement は実際に実装され実行可能な codebase 内の何か - CI check、hook、script、linter rule、または test - を記述する必要があります。各 statement の後に、それを実装するメカニズムを引用します。Gap は省略するのではなく「Not observed」で明確にマークします。

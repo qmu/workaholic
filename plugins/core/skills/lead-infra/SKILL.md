@@ -50,8 +50,8 @@ The `.workaholic/specs/infrastructure.md` accurately reflects all implemented in
 ### Execution
 
 - Read the manage-architecture output from `.workaholic/specs/` for layer taxonomy and system boundary context before performing infrastructure analysis.
-- Gather context by running `bash .claude/skills/analyze-viewpoint/sh/gather.sh infrastructure main`.
-- Check overrides by running `bash .claude/skills/analyze-viewpoint/sh/read-overrides.sh`.
+- Gather context by running `bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-viewpoint/sh/gather.sh infrastructure main`.
+- Check overrides by running `bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-viewpoint/sh/read-overrides.sh`.
 - Use the analysis prompts: What external tools and services are depended on? What is the file system layout? How is the system installed and configured? What environment requirements exist?
 - Read relevant source files to understand the repository's infrastructure before writing.
 - Write the English spec first, then produce translations per the user's translation policy declared in their root CLAUDE.md.

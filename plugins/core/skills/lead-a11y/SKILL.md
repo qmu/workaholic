@@ -47,7 +47,7 @@ The `.workaholic/policies/accessibility.md` accurately reflects all implemented 
 ### Execution
 
 - Read the manage-quality output from `.workaholic/policies/` for quality dimensions and accessibility gap context before performing accessibility analysis.
-- Gather context by running `bash .claude/skills/analyze-policy/sh/gather.sh accessibility main`.
+- Gather context by running `bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-policy/sh/gather.sh accessibility main`.
 - Use the analysis prompts: What i18n/l10n support exists? What languages are supported? How is content translated? What accessibility testing is performed?
 - Read relevant source files to understand the repository's accessibility practices before writing.
 - Write the English policy first, then produce translations per the user's translation policy declared in their root CLAUDE.md.

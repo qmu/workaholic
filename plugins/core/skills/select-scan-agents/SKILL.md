@@ -21,7 +21,7 @@ Determine which documentation agents to invoke based on scan mode.
 ## Usage
 
 ```bash
-bash .claude/skills/select-scan-agents/sh/select.sh <mode> [base_branch]
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/select-scan-agents/sh/select.sh <mode> [base_branch]
 ```
 
 ## Output

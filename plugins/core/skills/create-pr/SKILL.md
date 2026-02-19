@@ -26,7 +26,7 @@ Use that first item as the title. If multiple items exist, append "etc" (e.g., "
 Run the bundled script:
 
 ```bash
-bash .claude/skills/create-pr/sh/create-or-update.sh <branch-name> "<title>"
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/create-pr/sh/create-or-update.sh <branch-name> "<title>"
 ```
 
 ### What the Script Does

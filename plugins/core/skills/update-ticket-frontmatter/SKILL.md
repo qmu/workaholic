@@ -12,7 +12,7 @@ Update ticket YAML frontmatter fields after implementation.
 ## Usage
 
 ```bash
-bash .claude/skills/update-ticket-frontmatter/sh/update.sh <ticket-path> <field> <value>
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/update-ticket-frontmatter/sh/update.sh <ticket-path> <field> <value>
 ```
 
 ## Fields

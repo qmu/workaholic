@@ -14,7 +14,7 @@ Generate structured overview content by analyzing commit history for a branch.
 Run the bundled script to collect commit information:
 
 ```bash
-bash .claude/skills/write-overview/sh/collect-commits.sh [base-branch]
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/write-overview/sh/collect-commits.sh [base-branch]
 ```
 
 Default base branch is `main`.

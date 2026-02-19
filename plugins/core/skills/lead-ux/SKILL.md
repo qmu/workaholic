@@ -50,8 +50,8 @@ The `.workaholic/specs/ux.md` accurately reflects all user experience aspects, i
 ### Execution
 
 - Read the manage-project output from `.workaholic/specs/` for stakeholder context and user goals before performing UX analysis.
-- Gather context by running `bash .claude/skills/analyze-viewpoint/sh/gather.sh ux main`.
-- Check overrides by running `bash .claude/skills/analyze-viewpoint/sh/read-overrides.sh`.
+- Gather context by running `bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-viewpoint/sh/gather.sh ux main`.
+- Check overrides by running `bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-viewpoint/sh/read-overrides.sh`.
 - Use the analysis prompts: What user types exist? What journeys does each user type follow? How do users interact with the system? What are the onboarding paths?
 - Read relevant source files to understand the repository's user experience before writing.
 - Write the English spec first, then produce translations per the user's translation policy declared in their root CLAUDE.md.

@@ -12,7 +12,7 @@ Gathers all dynamic metadata values needed for ticket frontmatter in a single sh
 ## Usage
 
 ```bash
-bash .claude/skills/gather-ticket-metadata/sh/gather.sh
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/gather-ticket-metadata/sh/gather.sh
 ```
 
 ## Output

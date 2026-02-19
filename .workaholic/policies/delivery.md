@@ -120,7 +120,7 @@ The base branch is `main`. All pull requests target `main`. Branch creation and 
 
 The `/report` command (`plugins/core/commands/report.md`) orchestrates PR creation:
 
-1. Check if version already bumped using `branching` skill (`bash .claude/skills/branching/sh/check-version-bump.sh`). If `already_bumped` is `true` (a "Bump version" commit exists in current branch since diverging from main), skip the bump. Otherwise, bump version following CLAUDE.md Version Management (patch increment).
+1. Check if version already bumped using `branching` skill (`bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/branching/sh/check-version-bump.sh`). If `already_bumped` is `true` (a "Bump version" commit exists in current branch since diverging from main), skip the bump. Otherwise, bump version following CLAUDE.md Version Management (patch increment).
 2. Invoke `story-writer` subagent (`subagent_type: "core:story-writer"`, `model: "opus"`)
 3. Display PR URL from story-writer result
 
@@ -286,7 +286,7 @@ The `/scan` command (`plugins/core/commands/scan.md`) updates all `.workaholic/`
 - Gets commit hash (`git rev-parse --short HEAD`)
 
 **Phase 2: Select Agents**
-- Runs `select-scan-agents` skill: `bash .claude/skills/select-scan-agents/sh/select.sh full`
+- Runs `select-scan-agents` skill: `bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/select-scan-agents/sh/select.sh full`
 - Parses JSON output to get lists of manager and leader agents
 
 **Phase 3a: Invoke Manager Agents in Parallel**
@@ -322,7 +322,7 @@ The `/scan` command (`plugins/core/commands/scan.md`) updates all `.workaholic/`
 The `analyze-policy` skill (`plugins/core/skills/analyze-policy/SKILL.md`) provides a generic framework for analyzing a repository from a specific policy domain. It gathers context using bundled script:
 
 ```bash
-bash .claude/skills/analyze-policy/sh/gather.sh <policy-slug> [base-branch]
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-policy/sh/gather.sh <policy-slug> [base-branch]
 ```
 
 Policy documents follow a strict inference rule: **Only document what is implemented**. Every policy statement must describe something that is actually implemented and executable in the codebase -- a CI check, hook, script, linter rule, or test. After each statement, cite the mechanism that implements it. Mark gaps clearly with "Not observed" rather than omitting them.

@@ -10,17 +10,19 @@ user-invocable: false
 
 The architecture manager owns the system's structural definition. It maps components across all layers (infrastructure, middleware, application), defines architectural boundaries, and maintains structural coherence. It provides the structural context that leaders need to make domain-specific decisions about their layer or concern.
 
-## Responsibility
+### Goal
+
+- Leaders (especially infra-lead, db-lead, security-lead) receive a consistent structural context for their domain-specific work.
+- No leader needs to independently rediscover system boundaries, layer definitions, or component relationships.
+- All four viewpoint spec documents in `.workaholic/specs/` accurately reflect the repository's architecture.
+
+### Responsibility
 
 - Define the system's architectural boundaries derived from observable directory structure, configuration, and code organization.
 - Map components across all layers from infrastructure to application, identifying their roles and relationships.
 - Maintain a component taxonomy that classifies each component by layer, type, and responsibility.
 - Identify cross-cutting concerns that span multiple layers or components.
 - Document structural patterns and conventions actually used in the codebase.
-
-## Goal
-
-Leaders (especially infra-lead, db-lead, security-lead) receive a consistent structural context for their domain-specific work. No leader needs to independently rediscover system boundaries, layer definitions, or component relationships. All four viewpoint spec documents in `.workaholic/specs/` accurately reflect the repository's architecture.
 
 ## Outputs
 
@@ -71,8 +73,8 @@ These specs are written to `.workaholic/specs/` and follow the analyze-viewpoint
 
 ### Execution
 
-- For each viewpoint (application, component, feature, usecase), gather context by running `bash .claude/skills/analyze-viewpoint/sh/gather.sh <slug> main`.
-- Check overrides by running `bash .claude/skills/analyze-viewpoint/sh/read-overrides.sh`.
+- For each viewpoint (application, component, feature, usecase), gather context by running `bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-viewpoint/sh/gather.sh <slug> main`.
+- Check overrides by running `bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-viewpoint/sh/read-overrides.sh`.
 - Analyze gathered context against both the Outputs structure and viewpoint spec requirements.
 - Produce the architectural context output covering system boundaries, layer taxonomy, component inventory, cross-cutting concerns, and structural patterns.
 - Write all four viewpoint specs (application.md, component.md, feature.md, usecase.md) to `.workaholic/specs/`.

@@ -495,7 +495,7 @@ The version bump logic in `/report` evolved from unconditional incrementing to i
 - A branch intended for one version increment produces multiple increments
 
 **New pattern**:
-- `/report` checks for existing "Bump version" commits in current branch using `bash .claude/skills/branching/sh/check-version-bump.sh`
+- `/report` checks for existing "Bump version" commits in current branch using `bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/branching/sh/check-version-bump.sh`
 - If `already_bumped` is `true`, skip the bump step
 - If `already_bumped` is `false`, proceed with bump as usual
 - Re-running `/report` correctly skips the bump since the original bump commit exists in branch history

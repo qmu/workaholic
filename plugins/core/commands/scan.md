@@ -26,7 +26,7 @@ Run a full documentation scan by invoking 3 manager agents then 12 leader/writer
 Run the preloaded select-scan-agents skill:
 
 ```bash
-bash .claude/skills/select-scan-agents/sh/select.sh full
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/select-scan-agents/sh/select.sh full
 ```
 
 Parse the JSON output to get the lists of manager and leader agents.
@@ -72,13 +72,13 @@ All invocations MUST be in a single message to run concurrently. Each Task call 
 Validate viewpoint spec output:
 
 ```bash
-bash .claude/skills/validate-writer-output/sh/validate.sh .workaholic/specs ux.md model.md usecase.md infrastructure.md application.md component.md data.md feature.md
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/validate-writer-output/sh/validate.sh .workaholic/specs ux.md model.md usecase.md infrastructure.md application.md component.md data.md feature.md
 ```
 
 Validate policy output:
 
 ```bash
-bash .claude/skills/validate-writer-output/sh/validate.sh .workaholic/policies test.md security.md quality.md accessibility.md observability.md delivery.md recovery.md
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/validate-writer-output/sh/validate.sh .workaholic/policies test.md security.md quality.md accessibility.md observability.md delivery.md recovery.md
 ```
 
 ### Phase 5: Update Index Files

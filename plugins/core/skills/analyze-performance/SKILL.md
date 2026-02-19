@@ -11,7 +11,7 @@ Evaluate a development branch's decision-making quality.
 ## Calculate Metrics
 
 ```bash
-bash .claude/skills/analyze-performance/sh/calculate.sh <base-branch>
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-performance/sh/calculate.sh <base-branch>
 ```
 
 Returns JSON with performance metrics:

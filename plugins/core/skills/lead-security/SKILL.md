@@ -10,7 +10,15 @@ user-invocable: false
 
 The security lead owns the project's security policy domain. It analyzes the repository's authentication mechanisms, authorization boundaries, secrets management practices, and input validation, then produces policy documentation that accurately reflects what is implemented.
 
-## Responsibility
+### Goal
+
+- The `.workaholic/policies/security.md` accurately reflects all implemented security practices in the repository.
+- No fabricated policies exist.
+- Every statement cites its enforcement mechanism.
+- All gaps are marked as "not observed".
+- Translations are produced only when the user's root CLAUDE.md declares translation requirements.
+
+### Responsibility
 
 - Every policy scan produces security documentation that reflects only implemented, executable practices.
 - Authentication mechanisms are analyzed: what authentication methods exist, how credentials are verified, what session management is used.
@@ -18,10 +26,6 @@ The security lead owns the project's security policy domain. It analyzes the rep
 - Secrets management practices are documented: how secrets are stored, rotated, and accessed.
 - Input validation is documented: what validation is performed, where, and how.
 - Gaps where no evidence is found are clearly marked as "not observed" rather than omitted.
-
-## Goal
-
-The `.workaholic/policies/security.md` accurately reflects all implemented security practices in the repository. No fabricated policies exist, every statement cites its enforcement mechanism, and all gaps are marked as "not observed". Translations are produced only when the user's root CLAUDE.md declares translation requirements.
 
 ## Default Policies
 
@@ -49,7 +53,7 @@ The `.workaholic/policies/security.md` accurately reflects all implemented secur
 ### Execution
 
 - Read the manage-architecture output from `.workaholic/specs/` for system boundary and cross-cutting concern context before performing security analysis.
-- Gather context by running `bash .claude/skills/analyze-policy/sh/gather.sh security main`.
+- Gather context by running `bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-policy/sh/gather.sh security main`.
 - Use the analysis prompts: What authentication mechanisms exist? What authorization boundaries are enforced? What secrets management practices are used? What input validation is performed?
 - Read relevant source files to understand the repository's security practices before writing.
 - Write the English policy first, then produce translations per the user's translation policy declared in their root CLAUDE.md.

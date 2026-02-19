@@ -11,6 +11,10 @@ user-invocable: false
 
 Complete commit workflow after user approves implementation. Always use this script - never manually move tickets.
 
+> **CRITICAL: NEVER manually archive tickets.** Do not use `mv` + `git add` + `git commit` to move
+> tickets from `todo/` to `archive/`. The `archive.sh` script is the ONLY authorized method.
+> Manual moves cause unstaged deletions because agents forget to stage the old path.
+
 ## Prerequisites
 
 **CRITICAL**: Before calling the archive script, verify that all required frontmatter fields have been successfully updated:

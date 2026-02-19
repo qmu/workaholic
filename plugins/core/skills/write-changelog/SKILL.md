@@ -14,7 +14,7 @@ Generate and update CHANGELOG.md with entries from archived tickets.
 Run the bundled script to generate changelog entries:
 
 ```bash
-bash .claude/skills/write-changelog/sh/generate.sh <branch-name> <repo-url>
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/write-changelog/sh/generate.sh <branch-name> <repo-url>
 ```
 
 The script outputs formatted markdown grouped by category (Added, Changed, Removed).

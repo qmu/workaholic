@@ -10,7 +10,15 @@ user-invocable: false
 
 The recovery lead owns the project's recovery policy domain. It analyzes the repository's data persistence mechanisms, backup strategies, migration procedures, and recovery plans, then produces policy documentation that accurately reflects what is implemented.
 
-## Responsibility
+### Goal
+
+- The `.workaholic/policies/recovery.md` accurately reflects all implemented recovery practices in the repository.
+- No fabricated policies exist.
+- Every statement cites its enforcement mechanism.
+- All gaps are marked as "not observed".
+- Translations are produced only when the user's root CLAUDE.md declares translation requirements.
+
+### Responsibility
 
 - Every policy scan produces recovery documentation that reflects only implemented, executable practices.
 - Data persistence mechanisms are analyzed: what data stores exist, how data is persisted, what retention policies are in place.
@@ -18,10 +26,6 @@ The recovery lead owns the project's recovery policy domain. It analyzes the rep
 - Migration strategies are documented: what migration tools exist, how schema or data migrations are managed.
 - Recovery procedures are documented: what disaster recovery plans exist, what RTO/RPO targets are defined.
 - Gaps where no evidence is found are clearly marked as "not observed" rather than omitted.
-
-## Goal
-
-The `.workaholic/policies/recovery.md` accurately reflects all implemented recovery practices in the repository. No fabricated policies exist, every statement cites its enforcement mechanism, and all gaps are marked as "not observed". Translations are produced only when the user's root CLAUDE.md declares translation requirements.
 
 ## Default Policies
 
@@ -49,7 +53,7 @@ The `.workaholic/policies/recovery.md` accurately reflects all implemented recov
 ### Execution
 
 - Read the manage-architecture output from `.workaholic/specs/` for system boundary and data persistence context before performing recovery analysis.
-- Gather context by running `bash .claude/skills/analyze-policy/sh/gather.sh recovery main`.
+- Gather context by running `bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-policy/sh/gather.sh recovery main`.
 - Use the analysis prompts: What data persistence mechanisms exist? What backup and snapshot capabilities are available? What migration strategies are used? What recovery procedures are documented?
 - Read relevant source files to understand the repository's recovery practices before writing.
 - Write the English policy first, then produce translations per the user's translation policy declared in their root CLAUDE.md.

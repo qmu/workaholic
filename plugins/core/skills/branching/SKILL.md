@@ -12,7 +12,7 @@ Check current branch state and create new topic branches when needed.
 ## Check Branch
 
 ```bash
-bash .claude/skills/branching/sh/check.sh
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/branching/sh/check.sh
 ```
 
 ### Output
@@ -34,7 +34,7 @@ Topic branch patterns: `drive-*`, `trip-*`
 ## Create Branch
 
 ```bash
-bash .claude/skills/branching/sh/create.sh [prefix]
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/branching/sh/create.sh [prefix]
 ```
 
 ### Arguments

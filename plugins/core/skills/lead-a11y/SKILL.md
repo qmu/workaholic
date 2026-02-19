@@ -10,16 +10,20 @@ user-invocable: false
 
 The a11y lead owns the project's accessibility policy domain. It analyzes the repository's internationalization support, language coverage, translation workflows, and accessibility testing practices, then produces policy documentation that accurately reflects what is implemented.
 
-## Responsibility
+### Goal
+
+- The `.workaholic/policies/accessibility.md` accurately reflects all implemented accessibility practices in the repository.
+- No fabricated policies exist.
+- Every statement cites its enforcement mechanism.
+- All gaps are marked as "not observed".
+- Translations are produced only when the user's root CLAUDE.md declares translation requirements.
+
+### Responsibility
 
 - Every policy scan produces accessibility documentation that reflects only implemented, executable practices.
 - Internationalization and localization support is analyzed: what i18n/l10n mechanisms exist, what languages are supported, how content is translated.
 - Accessibility testing practices are documented with citations to the enforcement mechanisms.
 - Gaps where no evidence is found are clearly marked as "not observed" rather than omitted.
-
-## Goal
-
-The `.workaholic/policies/accessibility.md` accurately reflects all implemented accessibility practices in the repository. No fabricated policies exist, every statement cites its enforcement mechanism, and all gaps are marked as "not observed". Translations are produced only when the user's root CLAUDE.md declares translation requirements.
 
 ## Default Policies
 
@@ -47,7 +51,7 @@ The `.workaholic/policies/accessibility.md` accurately reflects all implemented 
 ### Execution
 
 - Read the manage-quality output from `.workaholic/policies/` for quality dimensions and accessibility gap context before performing accessibility analysis.
-- Gather context by running `bash .claude/skills/analyze-policy/sh/gather.sh accessibility main`.
+- Gather context by running `bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-policy/sh/gather.sh accessibility main`.
 - Use the analysis prompts: What i18n/l10n support exists? What languages are supported? How is content translated? What accessibility testing is performed?
 - Read relevant source files to understand the repository's accessibility practices before writing.
 - Write the English policy first, then produce translations per the user's translation policy declared in their root CLAUDE.md.

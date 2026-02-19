@@ -58,8 +58,8 @@ Subagents must use skills for common operations instead of inline shell commands
 
 | Operation | Skill | Usage |
 | --------- | ----- | ----- |
-| Git context (branch, base, URL) | gather-git-context | `bash .claude/skills/gather-git-context/sh/gather.sh` |
-| Ticket metadata (date, author) | gather-ticket-metadata | `bash .claude/skills/gather-ticket-metadata/sh/gather.sh` |
+| Git context (branch, base, URL) | gather-git-context | `bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/gather-git-context/sh/gather.sh` |
+| Ticket metadata (date, author) | gather-ticket-metadata | `bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/gather-ticket-metadata/sh/gather.sh` |
 
 Never write inline git commands like `git branch --show-current` or `git remote show origin` in subagent markdown files. Subagents preload the skill and gather context themselves.
 
@@ -85,6 +85,22 @@ if [ "$current" = "main" ]; then echo "on_main"; fi
 **Correct** (skill script):
 ```bash
 bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/branching/sh/check.sh
+```
+
+### Skill Script Path Rule
+
+> **CRITICAL: All skill shell script references must use the absolute path from home directory.**
+
+The installed plugin path is `~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/`. Relative paths like `.claude/skills/` do NOT resolve at runtime and cause exit code 127 failures.
+
+**Wrong** (relative path):
+```bash
+bash .claude/skills/gather-ticket-metadata/sh/gather.sh
+```
+
+**Correct** (absolute path):
+```bash
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/gather-ticket-metadata/sh/gather.sh
 ```
 
 ## Commands

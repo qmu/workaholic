@@ -15,7 +15,7 @@ Guidelines for creating implementation tickets in `.workaholic/tickets/`.
 **Run the gather-ticket-metadata script:**
 
 ```bash
-bash .claude/skills/gather-ticket-metadata/sh/gather.sh
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/gather-ticket-metadata/sh/gather.sh
 ```
 
 Parse the JSON output:

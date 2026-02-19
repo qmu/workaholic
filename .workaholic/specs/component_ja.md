@@ -403,7 +403,7 @@ skills:
 Platform はこれらの skill を preload し、明示的な読み取りなしに agent がそのコンテンツを利用できるようにします。skill 内の bundled shell script は常に絶対パスで呼び出されます：
 
 ```bash
-bash .claude/skills/gather-git-context/sh/gather.sh
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/gather-git-context/sh/gather.sh
 ```
 
 このパターンにより、skill が自己完結的で移植可能であることが保証されます。
@@ -466,8 +466,8 @@ ticket-organizer
 <viewpoint>-analyst.md
   ↓
 1. Skill の preload：analyze-viewpoint、write-spec、translate
-2. Context の収集：bash .claude/skills/analyze-viewpoint/sh/gather.sh <viewpoint> main
-3. Override の確認：bash .claude/skills/analyze-viewpoint/sh/read-overrides.sh
+2. Context の収集：bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-viewpoint/sh/gather.sh <viewpoint> main
+3. Override の確認：bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-viewpoint/sh/read-overrides.sh
 4. Codebase の分析（source file の読み取り、analysis prompt の適用）
 5. 英語 spec の作成：.workaholic/specs/<viewpoint>.md
 6. 日本語翻訳の作成：.workaholic/specs/<viewpoint>_ja.md
@@ -506,7 +506,7 @@ skills/gather-git-context/
 
 **Agent からの呼び出し：**
 ```bash
-bash .claude/skills/gather-git-context/sh/gather.sh
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/gather-git-context/sh/gather.sh
 ```
 
 このパターンにより以下が保証されます：

@@ -23,18 +23,19 @@ user-invocable: false
 
 ## Role
 
-<What the agent *is* and its function within the system.>
+<What the agent *is* and its function within the system.
+Role is the overarching concept that contains both Goal and Responsibility.>
 
-## Responsibility
+### Goal
 
-<The necessary condition. The minimum set of duties the agent must fulfill.
+<The sufficient condition as a bullet list. Each item is a measurable objective
+that, when achieved, means the agent has fully succeeded. Meeting all goals
+implies all responsibilities have been satisfied.>
+
+### Responsibility
+
+<The necessary condition as a bullet list. Each item is a duty the agent must fulfill.
 If any responsibility is unmet, the agent has failed regardless of other outcomes.>
-
-## Goal
-
-<The sufficient condition. The measurable objective that, when achieved,
-means the agent has fully succeeded. Meeting the goal implies all
-responsibilities have been satisfied.>
 
 ## Outputs
 
@@ -75,12 +76,12 @@ Manager names follow the `manage-<domain>` format. The domain should be a single
 
 The description field is a single sentence that captures three things: what the agent is, what it does, and why it exists. Write it as a structured summary, not a tagline.
 
-### Responsibility vs Goal
+### Role: Goal and Responsibility
 
-Responsibility and Goal are deliberately separated because they serve different logical functions:
+Role is the overarching concept that contains both Goal (positive obligation) and Responsibility (negative obligation):
 
-- **Responsibility** answers "what must not be neglected?" It is the necessary condition. Define the minimum set of duties as concrete, verifiable obligations. If any single responsibility is unmet, the agent has failed.
-- **Goal** answers "what constitutes completion?" It is the sufficient condition. Define a measurable objective that, when achieved, implies all responsibilities have been satisfied.
+- **Goal** answers "what must be achieved?" It is the sufficient condition. Define a measurable objective that, when achieved, implies all responsibilities have been satisfied. Goal represents what the agent owes to achieve.
+- **Responsibility** answers "what must not be neglected?" It is the necessary condition. Define the minimum set of duties as concrete, verifiable obligations. If any single responsibility is unmet, the agent has failed. Responsibility represents what the agent owes to avoid.
 
 An agent that meets all responsibilities but misses the goal is incomplete. An agent that achieves the goal has necessarily fulfilled all responsibilities.
 
@@ -111,9 +112,9 @@ Use this checklist to verify a manager definition is complete and well-formed:
 
 - [ ] Frontmatter contains `name`, `description`, and `user-invocable: false`
 - [ ] Name follows `manage-<domain>` format
-- [ ] `## Role` section is present and defines the agent's function
-- [ ] `## Responsibility` section defines minimum duties (necessary condition)
-- [ ] `## Goal` section defines measurable completion (sufficient condition)
+- [ ] `## Role` section is present and defines the agent's function, containing Goal and Responsibility subsections
+- [ ] `### Goal` subsection under Role defines measurable completion (sufficient condition, positive obligation)
+- [ ] `### Responsibility` subsection under Role defines minimum duties (necessary condition, negative obligation)
 - [ ] `## Outputs` section defines structured artifacts with consuming leaders
 - [ ] Every output names at least one consuming leader
 - [ ] `## Default Policies` section is present with all four subsections
@@ -151,7 +152,7 @@ Follow the preloaded manage-<domain> skill for role, responsibility, and default
    - Reviewing artifacts -> Review policy
    - Writing or updating documentation -> Documentation policy
    - Running commands or actions -> Execution policy
-3. Execute the task within the manager's Role and Responsibility.
+3. Execute the task within the manager's Role (Goal and Responsibility).
 4. Produce the Outputs defined in the manager skill.
 5. Return a JSON result describing what was done and what outputs were produced.
 ```

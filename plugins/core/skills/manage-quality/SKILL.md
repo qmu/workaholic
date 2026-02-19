@@ -10,17 +10,18 @@ user-invocable: false
 
 The quality manager owns the project's quality framework. It defines quality standards across all dimensions, establishes assurance processes, and drives continuous improvement through metrics and feedback loops. It provides the quality context that leaders need to enforce domain-specific standards.
 
-## Responsibility
+### Goal
+
+- Leaders (especially quality-lead, test-lead, a11y-lead) receive quality standards and assurance context for their domain-specific enforcement.
+- No leader needs to independently rediscover what quality standards exist, how they are enforced, or where gaps lie.
+
+### Responsibility
 
 - Define quality dimensions and their standards derived from observable project configuration (linters, formatters, CI checks, review requirements).
 - Document assurance processes actually in place (pre-commit hooks, CI pipelines, review workflows, automated checks).
 - Identify quality metrics tracked or trackable from project artifacts (test coverage, lint pass rates, build success rates).
 - Surface quality gaps where standards exist but enforcement is missing, or where enforcement exists but standards are undocumented.
 - Define feedback loops that connect quality observations back to improvement actions.
-
-## Goal
-
-Leaders (especially quality-lead, test-lead, a11y-lead) receive quality standards and assurance context for their domain-specific enforcement. No leader needs to independently rediscover what quality standards exist, how they are enforced, or where gaps lie.
 
 ## Outputs
 

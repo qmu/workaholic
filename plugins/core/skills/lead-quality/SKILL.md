@@ -10,7 +10,15 @@ user-invocable: false
 
 The quality lead owns the project's quality policy domain. It analyzes the repository's linting and formatting tools, code review processes, quality metrics, and type safety enforcement, then produces policy documentation that accurately reflects what is implemented.
 
-## Responsibility
+### Goal
+
+- The `.workaholic/policies/quality.md` accurately reflects all implemented quality practices in the repository.
+- No fabricated policies exist.
+- Every statement cites its enforcement mechanism.
+- All gaps are marked as "not observed".
+- Translations are produced only when the user's root CLAUDE.md declares translation requirements.
+
+### Responsibility
 
 - Every policy scan produces quality documentation that reflects only implemented, executable practices.
 - Linting and formatting tools are analyzed: what tools exist, how they are configured, what rules are enforced.
@@ -18,10 +26,6 @@ The quality lead owns the project's quality policy domain. It analyzes the repos
 - Quality metrics and thresholds are documented: what complexity or duplication limits are set, how they are measured.
 - Type safety enforcement is documented: what type checking is configured, how it is run.
 - Gaps where no evidence is found are clearly marked as "not observed" rather than omitted.
-
-## Goal
-
-The `.workaholic/policies/quality.md` accurately reflects all implemented quality practices in the repository. No fabricated policies exist, every statement cites its enforcement mechanism, and all gaps are marked as "not observed". Translations are produced only when the user's root CLAUDE.md declares translation requirements.
 
 ## Default Policies
 
@@ -49,7 +53,7 @@ The `.workaholic/policies/quality.md` accurately reflects all implemented qualit
 ### Execution
 
 - Read the manage-quality output from `.workaholic/policies/` for quality dimensions and assurance context before performing quality analysis.
-- Gather context by running `bash .claude/skills/analyze-policy/sh/gather.sh quality main`.
+- Gather context by running `bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-policy/sh/gather.sh quality main`.
 - Use the analysis prompts: What linting and formatting tools are configured? What code review processes exist? What complexity or duplication thresholds are set? What type checking is enforced?
 - Read relevant source files to understand the repository's quality practices before writing.
 - Write the English policy first, then produce translations per the user's translation policy declared in their root CLAUDE.md.

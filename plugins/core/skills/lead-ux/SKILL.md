@@ -10,7 +10,15 @@ user-invocable: false
 
 The UX lead owns the project's user experience viewpoint. It analyzes the repository to understand how users interact with the system, what journeys they follow, what interaction patterns exist, and what onboarding paths are available, then produces spec documentation that accurately reflects these relationships.
 
-## Responsibility
+### Goal
+
+- The `.workaholic/specs/ux.md` accurately reflects all user experience aspects, interaction patterns, and onboarding paths in the repository.
+- No fabricated claims exist.
+- Every statement is grounded in codebase evidence.
+- All gaps are marked as "not observed".
+- Translations are produced only when the user's root CLAUDE.md declares translation requirements.
+
+### Responsibility
 
 - Every scan produces UX documentation that reflects only observable, implemented aspects of the codebase.
 - User types are identified with citations to codebase evidence.
@@ -18,10 +26,6 @@ The UX lead owns the project's user experience viewpoint. It analyzes the reposi
 - Interaction patterns are documented: how users interact with the system, what commands and interfaces exist.
 - Onboarding paths are documented: how new users get started with the system.
 - Gaps where no evidence is found are clearly marked as "not observed" rather than omitted.
-
-## Goal
-
-The `.workaholic/specs/ux.md` accurately reflects all user experience aspects, interaction patterns, and onboarding paths in the repository. No fabricated claims exist, every statement is grounded in codebase evidence, and all gaps are marked as "not observed". Translations are produced only when the user's root CLAUDE.md declares translation requirements.
 
 ## Default Policies
 

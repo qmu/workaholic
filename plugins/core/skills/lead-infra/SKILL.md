@@ -10,7 +10,15 @@ user-invocable: false
 
 The infra lead owns the project's infrastructure viewpoint. It analyzes the repository's external dependencies, file system layout, installation procedures, and environment requirements, then produces spec documentation that accurately reflects what is implemented.
 
-## Responsibility
+### Goal
+
+- The `.workaholic/specs/infrastructure.md` accurately reflects all implemented infrastructure concerns in the repository.
+- No fabricated claims exist.
+- Every statement is grounded in codebase evidence.
+- All gaps are marked as "not observed".
+- Translations are produced only when the user's root CLAUDE.md declares translation requirements.
+
+### Responsibility
 
 - Every scan produces infrastructure documentation that reflects only observable, implemented aspects of the codebase.
 - External dependencies are analyzed: what tools, services, and libraries are depended on, how they are managed.
@@ -18,10 +26,6 @@ The infra lead owns the project's infrastructure viewpoint. It analyzes the repo
 - Installation and configuration procedures are documented: how the system is set up, what steps are required.
 - Environment requirements are documented: what runtime, platform, or configuration prerequisites exist.
 - Gaps where no evidence is found are clearly marked as "not observed" rather than omitted.
-
-## Goal
-
-The `.workaholic/specs/infrastructure.md` accurately reflects all implemented infrastructure concerns in the repository. No fabricated claims exist, every statement is grounded in codebase evidence, and all gaps are marked as "not observed". Translations are produced only when the user's root CLAUDE.md declares translation requirements.
 
 ## Default Policies
 

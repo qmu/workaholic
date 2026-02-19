@@ -10,7 +10,15 @@ user-invocable: false
 
 The db lead owns the project's data viewpoint and persistency concerns. It analyzes the repository's data formats, frontmatter schemas, file naming conventions, and data validation rules, then produces spec documentation that accurately reflects how data is stored, structured, and validated.
 
-## Responsibility
+### Goal
+
+- The `.workaholic/specs/data.md` accurately reflects all implemented data storage and persistence concerns in the repository.
+- No fabricated claims exist.
+- Every statement is grounded in codebase evidence.
+- All gaps are marked as "not observed".
+- Translations are produced only when the user's root CLAUDE.md declares translation requirements.
+
+### Responsibility
 
 - Every scan produces data documentation that reflects only observable, implemented aspects of the codebase.
 - Data formats are analyzed: what file formats are used, how data is serialized, what structure conventions exist.
@@ -18,10 +26,6 @@ The db lead owns the project's data viewpoint and persistency concerns. It analy
 - File naming conventions are documented: what patterns are enforced, how files are organized.
 - Data validation rules are documented: what validation exists, how it is enforced, what constraints are checked.
 - Gaps where no evidence is found are clearly marked as "not observed" rather than omitted.
-
-## Goal
-
-The `.workaholic/specs/data.md` accurately reflects all implemented data storage and persistence concerns in the repository. No fabricated claims exist, every statement is grounded in codebase evidence, and all gaps are marked as "not observed". Translations are produced only when the user's root CLAUDE.md declares translation requirements.
 
 ## Default Policies
 

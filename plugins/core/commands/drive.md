@@ -54,7 +54,14 @@ Follow the preloaded **drive-approval** skill (Section 1) to present approval di
 **"Approve" or "Approve and stop"**:
 1. Follow **write-final-report** skill to update ticket effort and append Final Report section
 2. **Verify update succeeded**: If Edit tool fails, halt and report the error to user. DO NOT proceed to archive.
-3. Archive and commit using the preloaded **archive-ticket** skill
+3. Archive and commit by calling the archive script directly:
+   ```bash
+   bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/archive-ticket/sh/archive.sh \
+     <ticket-path> "<title>" <repo-url> "<description>" "<changes>" "<test-plan>" "<release-prep>"
+   ```
+   Where `<ticket-path>` is the current ticket file path in `todo/`, `<title>` is the commit title,
+   and `<repo-url>` comes from the gather-git-context output.
+   **NEVER manually move tickets** with `mv` + `git add` -- always use the archive script.
 4. If "Approve and stop": break loop, skip Phase 3, go directly to Phase 4
 5. Otherwise: continue to next ticket
 

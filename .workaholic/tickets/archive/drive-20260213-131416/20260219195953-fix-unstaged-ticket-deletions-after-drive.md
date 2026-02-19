@@ -3,9 +3,9 @@ created_at: 2026-02-19T19:59:53+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: a22c101
+category: Changed
 ---
 
 # Fix unstaged ticket deletions after drive
@@ -78,3 +78,10 @@ A previous fix (ticket `20260212221342-stage-icebox-to-todo-move-in-git`) addres
 - The `archive.sh` script uses `git add -A` (line 51) which stages everything. While the commit skill prohibits `git add -A`, the archive script needs it to catch both the deletion (old path) and addition (new path). This is an intentional exception for the archive workflow.
 - The previous fix (20260212221342) added `git add` after `mv` in the drive-navigator for icebox-to-todo moves. This ticket applies the same principle to todo-to-archive moves, but enforces it by mandating the archive script rather than adding inline git commands.
 - Agent files that reference "Archive and commit using the preloaded archive-ticket skill" in their prompts should also be checked, though the drive command is the primary caller.
+
+## Final Report
+
+Both implementation steps completed:
+
+1. **drive.md updated** — Step 2.3 now includes explicit `archive.sh` command template with all 7 parameters and a NEVER-manual-move prohibition
+2. **archive-ticket SKILL.md updated** — Added CRITICAL blockquote at the top prohibiting manual `mv` + `git add` + `git commit`, explaining the unstaged deletion root cause

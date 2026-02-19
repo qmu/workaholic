@@ -49,7 +49,7 @@ The `.workaholic/policies/recovery.md` accurately reflects all implemented recov
 ### Execution
 
 - Read the manage-architecture output from `.workaholic/specs/` for system boundary and data persistence context before performing recovery analysis.
-- Gather context by running `bash .claude/skills/analyze-policy/sh/gather.sh recovery main`.
+- Gather context by running `bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-policy/sh/gather.sh recovery main`.
 - Use the analysis prompts: What data persistence mechanisms exist? What backup and snapshot capabilities are available? What migration strategies are used? What recovery procedures are documented?
 - Read relevant source files to understand the repository's recovery practices before writing.
 - Write the English policy first, then produce translations per the user's translation policy declared in their root CLAUDE.md.

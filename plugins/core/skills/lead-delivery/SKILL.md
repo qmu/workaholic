@@ -49,7 +49,7 @@ The `.workaholic/policies/delivery.md` accurately reflects all implemented deliv
 ### Execution
 
 - Read the manage-project output from `.workaholic/specs/` for timeline, milestone, and stakeholder context before performing delivery analysis.
-- Gather context by running `bash .claude/skills/analyze-policy/sh/gather.sh delivery main`.
+- Gather context by running `bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-policy/sh/gather.sh delivery main`.
 - Use the analysis prompts: What CI/CD pipelines are configured? What build steps exist? What deployment strategies are used? What release processes are defined?
 - Read relevant source files to understand the repository's delivery practices before writing.
 - Write the English policy first, then produce translations per the user's translation policy declared in their root CLAUDE.md.

@@ -24,12 +24,12 @@ Analyze the repository from the model viewpoint and produce a specification docu
 
 1. **Gather Context**: Run:
    ```bash
-   bash .claude/skills/analyze-viewpoint/sh/gather.sh model main
+   bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-viewpoint/sh/gather.sh model main
    ```
 
 2. **Check Overrides**: Run:
    ```bash
-   bash .claude/skills/analyze-viewpoint/sh/read-overrides.sh
+   bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-viewpoint/sh/read-overrides.sh
    ```
    If overrides exist for this viewpoint, incorporate them into your analysis.
 

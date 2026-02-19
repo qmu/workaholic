@@ -508,7 +508,7 @@ skills:
 The platform preloads these skills, making their content available to the agent without explicit reads. Bundled shell scripts within skills are always invoked via absolute paths:
 
 ```bash
-bash .claude/skills/gather-git-context/sh/gather.sh
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/gather-git-context/sh/gather.sh
 ```
 
 This pattern ensures skills remain self-contained and portable.
@@ -647,7 +647,7 @@ skills/gather-git-context/
 
 **Invocation from agent:**
 ```bash
-bash .claude/skills/gather-git-context/sh/gather.sh
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/gather-git-context/sh/gather.sh
 ```
 
 This pattern ensures:

@@ -10,7 +10,15 @@ user-invocable: false
 
 The observability lead owns the project's observability policy domain. It analyzes the repository's logging practices, metrics collection, tracing and monitoring tools, and alerting thresholds, then produces policy documentation that accurately reflects what is implemented.
 
-## Responsibility
+### Goal
+
+- The `.workaholic/policies/observability.md` accurately reflects all implemented observability practices in the repository.
+- No fabricated policies exist.
+- Every statement cites its enforcement mechanism.
+- All gaps are marked as "not observed".
+- Translations are produced only when the user's root CLAUDE.md declares translation requirements.
+
+### Responsibility
 
 - Every policy scan produces observability documentation that reflects only implemented, executable practices.
 - Logging practices are analyzed: what logging frameworks exist, what log levels are used, how logs are structured.
@@ -18,10 +26,6 @@ The observability lead owns the project's observability policy domain. It analyz
 - Tracing and monitoring tools are documented: what tracing is implemented, what monitoring dashboards or tools exist.
 - Alerting thresholds are documented: what alerts are configured, what thresholds trigger them.
 - Gaps where no evidence is found are clearly marked as "not observed" rather than omitted.
-
-## Goal
-
-The `.workaholic/policies/observability.md` accurately reflects all implemented observability practices in the repository. No fabricated policies exist, every statement cites its enforcement mechanism, and all gaps are marked as "not observed". Translations are produced only when the user's root CLAUDE.md declares translation requirements.
 
 ## Default Policies
 

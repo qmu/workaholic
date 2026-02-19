@@ -3,8 +3,8 @@ created_at: 2026-02-19T16:54:13+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
+effort: 0.5h
+commit_hash: aebed4e
 category:
 ---
 
@@ -315,3 +315,15 @@ The define-manager and define-lead schemas were established in recent branches, 
 - Agent files use the phrase "role, responsibility, and default policies" in their one-line descriptions and "Role and Responsibility" in step 3 of instructions. These are natural language, not heading references. Since Role now structurally contains Responsibility, the phrase "Role and Responsibility" is slightly redundant but not incorrect. Consider simplifying to "Role" in step 3, but this is a stylistic choice. (`plugins/core/agents/*.md`)
 - This change touches 2 schema files + 13 skill files = 15 files minimum. The changes are mechanical (heading level changes) so the risk of semantic errors is low, but verify each file compiles against the updated validation checklist after changes. (All files listed in Key Files)
 - The `managers-principle` and `leaders-principle` skills do not reference these heading levels and need no changes. (`plugins/core/skills/managers-principle/SKILL.md`, `plugins/core/skills/leaders-principle/SKILL.md`)
+
+## Final Report
+
+Restructured 15 files (2 schema rules + 13 skill files):
+
+1. **Schema rules** (`define-manager.md`, `define-lead.md`): Restructured template so `### Goal` and `### Responsibility` are subsections under `## Role`. Renamed guideline to "Role: Goal and Responsibility". Updated validation checklist. Updated agent template phrasing. Updated template descriptions to specify bullet list format.
+2. **Manager skills** (3 files): Changed heading levels, reordered Goal before Responsibility, converted Goal paragraphs to bullet lists.
+3. **Lead skills** (10 files): Same changes as manager skills. Goal paragraphs decomposed into individual bullet items.
+4. **Example** in `define-lead.md`: Updated testing-lead example to match new structure with list-format Goal.
+5. **Agent files** (13 files): Left unchanged -- natural language "Role and Responsibility" remains valid.
+
+User feedback incorporated: Goal and Responsibility content uses bullet list format (one sentence per item) rather than paragraphs.

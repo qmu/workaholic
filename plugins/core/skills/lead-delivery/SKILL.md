@@ -10,7 +10,15 @@ user-invocable: false
 
 The delivery lead owns the project's delivery policy domain. It analyzes the repository's CI/CD pipelines, build processes, deployment strategies, and release processes, then produces policy documentation that accurately reflects what is implemented.
 
-## Responsibility
+### Goal
+
+- The `.workaholic/policies/delivery.md` accurately reflects all implemented delivery practices in the repository.
+- No fabricated policies exist.
+- Every statement cites its enforcement mechanism.
+- All gaps are marked as "not observed".
+- Translations are produced only when the user's root CLAUDE.md declares translation requirements.
+
+### Responsibility
 
 - Every policy scan produces delivery documentation that reflects only implemented, executable practices.
 - CI/CD pipelines are analyzed: what pipeline tools exist, what stages are defined, how they are triggered.
@@ -18,10 +26,6 @@ The delivery lead owns the project's delivery policy domain. It analyzes the rep
 - Deployment strategies are documented: what deployment methods are used, what environments exist, how artifacts are promoted.
 - Release processes are documented: how versions are managed, what release workflows exist.
 - Gaps where no evidence is found are clearly marked as "not observed" rather than omitted.
-
-## Goal
-
-The `.workaholic/policies/delivery.md` accurately reflects all implemented delivery practices in the repository. No fabricated policies exist, every statement cites its enforcement mechanism, and all gaps are marked as "not observed". Translations are produced only when the user's root CLAUDE.md declares translation requirements.
 
 ## Default Policies
 

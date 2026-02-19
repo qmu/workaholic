@@ -10,17 +10,18 @@ user-invocable: false
 
 The project manager owns the business context surrounding the project. It identifies stakeholders and their concerns, tracks timeline and milestones, surfaces issues, and proposes solutions. It provides the strategic context that leaders need to make domain-specific decisions.
 
-## Responsibility
+### Goal
+
+- Leaders have the strategic context they need to make domain-specific decisions without duplicating business analysis.
+- Every leader can reference the project context output to understand stakeholder expectations, timeline pressure, and active issues relevant to their domain.
+
+### Responsibility
 
 - Maintain an accurate map of business context derived from observable project artifacts (README, CLAUDE.md, package metadata, issue trackers, PR history).
 - Identify all stakeholders and document their concerns and priorities.
 - Track timeline indicators (release cadence, version history, milestone markers) and report current status.
 - Surface active issues (open bugs, blocked work, dependency risks) with supporting evidence.
 - Propose solutions grounded in project constraints, not aspirational recommendations.
-
-## Goal
-
-Leaders have the strategic context they need to make domain-specific decisions without duplicating business analysis. Every leader can reference the project context output to understand stakeholder expectations, timeline pressure, and active issues relevant to their domain.
 
 ## Outputs
 

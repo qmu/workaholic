@@ -8,14 +8,14 @@
   },
   "plugins": [
     {
-      "name": "core",
+      "name": "drivin",
       "description": "Core development workflow: branch, commit, pull-request, ticket-driven development",
       "version": "1.0.37",
       "author": {
         "name": "tamurayoshiya",
         "email": "a@qmu.jp"
       },
-      "source": "./plugins/core",
+      "source": "./plugins/drivin",
       "category": "development"
     }
   ]

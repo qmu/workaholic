@@ -17,6 +17,17 @@
       },
       "source": "./plugins/drivin",
       "category": "development"
+    },
+    {
+      "name": "trippin",
+      "description": "AI-oriented exploration and creative development workflow",
+      "version": "1.0.37",
+      "author": {
+        "name": "tamurayoshiya",
+        "email": "a@qmu.jp"
+      },
+      "source": "./plugins/trippin",
+      "category": "development"
     }
   ]
 }

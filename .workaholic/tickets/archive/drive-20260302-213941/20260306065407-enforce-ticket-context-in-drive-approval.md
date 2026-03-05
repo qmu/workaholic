@@ -3,9 +3,9 @@ created_at: 2026-03-06T06:54:07+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [UX]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 0338d08
+category: Changed
 ---
 
 # Enforce ticket title and summary in drive approval prompt
@@ -94,3 +94,7 @@ Past tickets that touched similar areas:
 - The feedback re-approval loop in Section 3 step 5 is a likely source of context loss because after re-implementation, the original workflow result JSON may no longer be in the agent's immediate context window. The fallback instruction to re-read the ticket file addresses this. (`plugins/drivin/skills/drive-approval/SKILL.md` lines 84-87)
 - The drive-workflow already returns `title` and `overview` in its JSON output. No changes to that skill are needed. (`plugins/drivin/skills/drive-workflow/SKILL.md` lines 47-56)
 - Using "CRITICAL" and "failure condition" language is consistent with other enforcement patterns in this codebase, such as the ticket-update-first enforcement in drive-approval Section 3. (`plugins/drivin/skills/drive-approval/SKILL.md` line 62)
+
+## Final Report
+
+Applied all four implementation steps as specified in the patches. The drive command Step 2.2 now has a CRITICAL rule requiring title/overview handoff from workflow result. The drive-approval skill upgraded its IMPORTANT note to CRITICAL with failure condition language and added a fallback re-read instruction. The feedback loop (Section 3, step 5) now explicitly requires re-reading ticket context before re-presenting the approval prompt.

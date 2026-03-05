@@ -45,7 +45,7 @@ Follow the preloaded **drive-workflow** skill. Implementation context is preserv
 
 #### Step 2.2: Request Approval
 
-Follow the preloaded **drive-approval** skill (Section 1) to present approval dialog.
+Follow the preloaded **drive-approval** skill (Section 1) to present approval dialog. **CRITICAL**: You MUST use the `title` and `overview` fields from the Step 2.1 workflow result to populate the approval prompt header and question. If these fields are unavailable, re-read the ticket file to obtain them. Never present an approval prompt without the ticket title and summary.
 
 **CRITICAL**: Use `AskUserQuestion` with selectable `options`. NEVER proceed without explicit user approval.
 

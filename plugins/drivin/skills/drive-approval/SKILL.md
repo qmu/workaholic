@@ -27,7 +27,7 @@ Implementation complete. Changes made:
 
 ### Options
 
-**IMPORTANT**: The `header` and `question` fields below are templates. Replace `<title from ticket H1>` and `<overview from ticket Overview section>` with actual values from the drive-workflow result JSON (`title` and `overview` fields). Never present these as literal angle-bracket placeholders.
+**CRITICAL**: The `header` and `question` fields below are templates that MUST be replaced with actual values before presenting to the user. Use `title` and `overview` from the drive-workflow result JSON. If those values are not available in context, re-read the ticket file to obtain the H1 title and Overview section. Presenting an approval prompt with missing, empty, or literal angle-bracket placeholder values is a failure condition -- the user cannot make an informed decision without knowing what ticket was implemented.
 
 ```json
 {
@@ -84,7 +84,7 @@ For subsequent revisions, append as "### Revision 2", etc.
 3. **Verify ticket update**: Re-read the ticket file to confirm both Implementation Steps and Discussion section were written successfully. If the update failed, retry before proceeding.
 
 4. **Re-implement** following the updated ticket's Implementation Steps
-5. Return to approval flow (Section 1)
+5. Return to approval flow (Section 1). **CRITICAL**: Before presenting the approval prompt again, ensure you have the ticket title (H1 heading) and overview available. Re-read the ticket file if needed -- the feedback loop must not lose ticket context.
 
 ## 4. Handle Abandonment
 

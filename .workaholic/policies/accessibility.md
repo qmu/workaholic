@@ -2,8 +2,8 @@
 title: Accessibility Policy
 description: Internationalization, localization, and content accessibility practices
 category: developer
-modified_at: 2026-02-12T10:15:00+00:00
-commit_hash: f385117
+modified_at: 2026-03-10T12:00:00+00:00
+commit_hash: f76bde2
 ---
 
 [English](accessibility.md) | [Japanese](accessibility_ja.md)
@@ -16,21 +16,21 @@ This document describes the accessibility and internationalization practices imp
 
 ### Bilingual Documentation Requirement
 
-Every document in `.workaholic/` must have a corresponding `_ja.md` Japanese translation when English is the primary language (`plugins/core/skills/translate/SKILL.md`, lines 121-127: "CRITICAL RULE: When creating or editing any `.md` file in `.workaholic/`, you MUST check the consumer project's root CLAUDE.md to determine the primary written language"). This requirement is enforced through the `translate` skill preloaded by all documentation writer subagents.
+Every document in `.workaholic/` must have a corresponding `_ja.md` Japanese translation when English is the primary language (`plugins/drivin/skills/translate/SKILL.md`, lines 121-127: "CRITICAL RULE: When creating or editing any `.md` file in `.workaholic/`, you MUST check the consumer project's root CLAUDE.md to determine the primary written language"). This requirement is enforced through the `translate` skill preloaded by all documentation writer subagents.
 
 ### Primary Language Detection Logic
 
-The translation system determines which translations to produce based on the consumer project's primary language (`plugins/core/skills/translate/SKILL.md`, lines 123-127):
+The translation system determines which translations to produce based on the consumer project's primary language (`plugins/drivin/skills/translate/SKILL.md`, lines 123-127):
 
 - If primary is English or bilingual English/Japanese: produce `_ja.md` translations
 - If primary is Japanese only: do NOT produce `_ja.md` files (would duplicate primary content); produce `_en.md` if secondary language declared
 - If primary is another language: produce translations for declared secondary languages with appropriate suffix
 
-This logic prevents duplicate content when the primary language matches a potential translation target (`plugins/core/rules/i18n.md`, lines 58-59: "Never duplicate the primary language as a translation").
+This logic prevents duplicate content when the primary language matches a potential translation target (`plugins/drivin/rules/i18n.md`, lines 58-59: "Never duplicate the primary language as a translation").
 
 ### Translation Guidelines
 
-The `translate` skill (`plugins/core/skills/translate/SKILL.md`) provides comprehensive policies for Japanese translation:
+The `translate` skill (`plugins/drivin/skills/translate/SKILL.md`) provides comprehensive policies for Japanese translation:
 
 - Preserve unchanged: code blocks, frontmatter keys, file paths, URLs, markdown structure, HTML tags
 - Translate: prose content, frontmatter values (title, description), table cells, image alt text
@@ -49,7 +49,7 @@ This boundary is documented as a project-level policy and enforced through docum
 
 ### README Link Mirroring
 
-Each language's README must link to documents in the same language (`plugins/core/skills/translate/SKILL.md`, lines 143-149). `README.md` links to English documents while `README_ja.md` links to `_ja.md` translations, maintaining parallel navigation structures. This ensures users stay within their language context when navigating documentation.
+Each language's README must link to documents in the same language (`plugins/drivin/skills/translate/SKILL.md`, lines 143-149). `README.md` links to English documents while `README_ja.md` links to `_ja.md` translations, maintaining parallel navigation structures. This ensures users stay within their language context when navigating documentation.
 
 ## Supported Languages
 
@@ -63,13 +63,13 @@ Each language's README must link to documents in the same language (`plugins/cor
 | fr | French | Listed in translate skill | Not implemented |
 | es | Spanish | Listed in translate skill | Not implemented |
 
-Japanese translations are comprehensive, covering guides, specs, terms, stories, and policies (43 `_ja.md` files observed in `.workaholic/` directory out of 375 total markdown files, representing 11.5% coverage for bilingual content).
+Japanese translations are comprehensive, covering guides, specs, terms, stories, and policies (43 `_ja.md` files observed in `.workaholic/` directory out of 395 total markdown files, representing 10.9% coverage for bilingual content).
 
 ## Translation Workflow
 
 ### File Naming Convention
 
-Translations use suffix-based naming in the same directory as the original (`plugins/core/rules/i18n.md`, lines 14-21, 38-39):
+Translations use suffix-based naming in the same directory as the original (`plugins/drivin/rules/i18n.md`, lines 14-21, 38-39):
 
 ```
 .workaholic/specs/
@@ -83,7 +83,7 @@ ISO 639-1 language codes (two-letter codes) are used as suffixes.
 
 ### Manual Translation Process
 
-Translation is performed manually following the `translate` skill guidelines. No automated translation tools or services are integrated. The workflow is (`plugins/core/skills/translate/SKILL.md`, lines 152-156):
+Translation is performed manually following the `translate` skill guidelines. No automated translation tools or services are integrated. The workflow is (`plugins/drivin/skills/translate/SKILL.md`, lines 152-156):
 
 1. Create or update primary language document first
 2. Create or update translation counterpart (if applicable per decision logic)
@@ -91,7 +91,7 @@ Translation is performed manually following the `translate` skill guidelines. No
 
 ### Technical Term Preservation
 
-Technical terms remain in English even in Japanese translations (`plugins/core/skills/translate/SKILL.md`, lines 79-83). Core concepts (plugin, command, skill, rule, ticket, workflow), git terms (repository, branch, commit), and programming concepts (function, class, module, component) are kept in English to maintain technical precision and avoid ambiguity.
+Technical terms remain in English even in Japanese translations (`plugins/drivin/skills/translate/SKILL.md`, lines 79-83). Core concepts (plugin, command, skill, rule, ticket, workflow), git terms (repository, branch, commit), and programming concepts (function, class, module, component) are kept in English to maintain technical precision and avoid ambiguity.
 
 ## Accessibility Testing
 
@@ -108,7 +108,7 @@ This runs on every push and pull request to the main branch.
 
 ### Ticket Format Validation
 
-A validation hook (`plugins/core/hooks/validate-ticket.sh`) enforces ticket file standards:
+A validation hook (`plugins/drivin/hooks/validate-ticket.sh`) enforces ticket file standards:
 
 - Filename format: `YYYYMMDDHHmmss-*.md` (lines 49-54)
 - YAML frontmatter presence (lines 65-69)
@@ -120,7 +120,7 @@ This hook is invoked by Write/Edit operations targeting `.workaholic/tickets/` f
 
 ### Context-Aware Rule Loading
 
-The i18n rule (`plugins/core/rules/i18n.md`) uses path-based activation:
+The i18n rule (`plugins/drivin/rules/i18n.md`) uses path-based activation:
 
 ```yaml
 ---
@@ -135,7 +135,7 @@ This ensures i18n policies apply only to relevant documentation files, not to co
 
 ### Diagram Syntax Validation
 
-The diagrams rule (`plugins/core/rules/diagrams.md`) enforces Mermaid diagram syntax:
+The diagrams rule (`plugins/drivin/rules/diagrams.md`) enforces Mermaid diagram syntax:
 
 - Prohibits ASCII art diagrams with box-drawing characters (lines 18-22)
 - Requires quoted labels containing special characters (`/`, `{`, `}`, `[`, `]`) to prevent GitHub rendering errors (lines 34-48)
@@ -149,18 +149,18 @@ Numbered headings provide clear document hierarchy. Policy documents use `## 1. 
 
 ### Visual Diagram Format
 
-Mermaid diagrams replace ASCII art for better cross-platform rendering (`plugins/core/rules/diagrams.md`, lines 8-21):
+Mermaid diagrams replace ASCII art for better cross-platform rendering (`plugins/drivin/rules/diagrams.md`, lines 8-21):
 
 - Renders natively in GitHub, VS Code, and most documentation systems
 - Version-controllable and diffable
 - Consistent rendering across platforms
 - Interactive (zoomable, clickable)
 
-ASCII art diagrams using box-drawing characters are prohibited (`plugins/core/rules/diagrams.md`, lines 18-22).
+ASCII art diagrams using box-drawing characters are prohibited (`plugins/drivin/rules/diagrams.md`, lines 18-22).
 
 ### Self-Contained Definitions
 
-Term definitions in `.workaholic/terms/` are written as comprehensive single paragraphs incorporating definition, usage context, examples, and related concepts (`plugins/core/skills/write-terms/SKILL.md`, lines 62-72). This makes each entry readable without requiring cross-references, reducing cognitive load and improving accessibility for readers.
+Term definitions in `.workaholic/terms/` are written as comprehensive single paragraphs incorporating definition, usage context, examples, and related concepts (`plugins/drivin/skills/write-terms/SKILL.md`, lines 62-72). This makes each entry readable without requiring cross-references, reducing cognitive load and improving accessibility for readers.
 
 ### Onboarding Documentation
 
@@ -182,7 +182,11 @@ The `.workaholic/terms/` directory maintains consistent term definitions across 
 - `file-conventions.md` - kebab-case, frontmatter, icebox, archive
 - `inconsistencies.md` - Known terminology issues
 
-Each term is documented with definition, usage context, and relationships to other terms (`plugins/core/skills/write-terms/SKILL.md`, lines 61-71).
+Each term is documented with definition, usage context, and relationships to other terms (`plugins/drivin/skills/write-terms/SKILL.md`, lines 61-71).
+
+### Multi-Plugin Accessibility Roles
+
+The trippin plugin introduces an explicit accessibility responsibility within its three-agent collaborative workflow. The Architect agent is assigned "Accessibility & Accommodability" as a core responsibility (`plugins/trippin/skills/trip-protocol/SKILL.md`, line 17), ensuring that accessibility considerations are structurally embedded in specification review during the trip workflow.
 
 ## Observations
 
@@ -194,8 +198,9 @@ Each term is documented with definition, usage context, and relationships to oth
 - The extensive i18n infrastructure (dedicated translate skill, i18n rule, _ja suffix convention, mandatory translation requirements) indicates primary developer audience includes Japanese speakers
 - Context-aware rules prevent i18n requirements from applying to code or configuration files
 - Diagram validation prevents rendering errors by enforcing proper Mermaid syntax
-- Primary language detection logic (added in current branch) prevents creating duplicate translation files when primary language matches translation target
-- Recent skill renames (`leaders-policy` → `leaders-principle`, `manage-branch` → `branching`) demonstrate consistent application of term refinement practices
+- Primary language detection logic prevents creating duplicate translation files when primary language matches translation target
+- The rename from `plugins/core/` to `plugins/drivin/` consolidates the development plugin under a distinct identity while preserving all i18n and accessibility infrastructure unchanged
+- The trippin plugin assigns accessibility review as a structural responsibility to the Architect agent, embedding accessibility into the collaborative specification workflow
 
 ## Gaps
 
@@ -207,3 +212,4 @@ Each term is documented with definition, usage context, and relationships to oth
 - Not observed: Color contrast validation or terminal color scheme considerations
 - Not observed: Font rendering or character encoding validation
 - Not observed: Translation memory or terminology database for consistency across documents
+- Not observed: Trippin plugin i18n support (no `_ja.md` translations exist for trippin plugin documentation)

@@ -2,8 +2,8 @@
 title: Getting Started
 description: Installation and first steps with Workaholic
 category: user
-modified_at: 2026-01-28T21:38:50+09:00
-commit_hash: fe3d558
+modified_at: 2026-03-10T01:13:03+09:00
+commit_hash: f76bde2
 ---
 
 [English](getting-started.md) | [日本語](getting-started_ja.md)
@@ -34,13 +34,19 @@ claude
 
 ## 確認
 
-インストール後、以下のコマンドが利用可能になります：
+インストール後、以下のcommandが利用可能になります：
 
+**Drivin plugin**（チケット駆動開発）：
 ```bash
-/branch         # タイムスタンプ付きトピックブランチを作成
 /ticket         # 実装仕様を記述
 /drive          # チケットを一つずつ実装
+/scan           # フルドキュメントスキャン
 /report         # ドキュメントを生成しPRを作成
+```
+
+**Trippin plugin**（探索的・創造的開発）：
+```bash
+/trip           # Agent Teamsセッションを起動
 ```
 
 ## 次のステップ

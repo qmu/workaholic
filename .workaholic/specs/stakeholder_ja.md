@@ -2,15 +2,15 @@
 title: Stakeholder Viewpoint
 description: Who uses the system, their goals, and interaction patterns
 category: developer
-modified_at: 2026-02-09T12:52:00+08:00
-commit_hash: d627919
+modified_at: 2026-03-10T01:07:37+09:00
+commit_hash: f76bde2
 ---
 
 [English](stakeholder.md) | [Japanese](stakeholder_ja.md)
 
 # Stakeholder Viewpoint
 
-Stakeholder Viewpoint は、Workaholic plugin システムとやり取りする人物、各 stakeholder が追求する目標、そして command interface および開発 workflow を通じてどのように system と関わるかを明確にします。Workaholic は ticket-driven development (TiDD) ツールを提供する Claude Code plugin marketplace であり、作業を依頼する developer、作業を実行する Claude Code agent、そして system を維持する plugin author という三角関係を形成しています。
+Stakeholder Viewpoint は、Workaholic plugin システムとやり取りする人物、各 stakeholder が追求する目標、そして command interface および開発 workflow を通じてどのように system と関わるかを明確にします。Workaholic は ticket-driven development (TiDD) と AI 指向の探索 workflow を提供する Claude Code plugin marketplace であり、2つの plugin（drivin と trippin）を含みます。作業を依頼する developer、作業を実行する Claude Code agent、そして system を維持する plugin author という三角関係を形成しています。
 
 ## Stakeholder Map
 
@@ -18,7 +18,7 @@ Workaholic は、開発 ecosystem を形成する 3 つの異なる stakeholder 
 
 ### Primary Stakeholder: Developer (End User)
 
-Developer は Workaholic の主要な消費者です。彼らは `/plugin marketplace add qmu/workaholic` を使用して marketplace から plugin をインストールし、slash command のみを通じて対話します。Developer の workflow は、完全な開発 cycle を形成する 4 つの core command を中心に展開されます：変更を計画する `/ticket`、実装する `/drive`、documentation を更新する `/scan`、そして PR を作成する `/report`。
+Developer は Workaholic の主要な消費者です。彼らは `/plugin marketplace add qmu/workaholic` を使用して marketplace から plugin をインストールし、slash command のみを通じて対話します。Developer の workflow は、2つの plugin にまたがる5つの command を中心に展開されます：drivin から変更を計画する `/ticket`、実装する `/drive`、documentation を更新する `/scan`、PR を作成する `/report`、trippin から Agent Teams を使用した探索的開発の `/trip`。
 
 Developer は明示的な human-in-the-loop 制御の下で動作します。`/drive` 実行中、system は `AskUserQuestion` を使用して選択可能な option を含む承認 dialog を表示し、各 ticket を commit する前に明示的な確認を要求します。Developer は ticket を手動で記述しません—ticket-organizer subagent が codebase を探索し、実装仕様を代わりに記述します。同様に、developer は changelog や PR description を手動で記述しません—これらは蓄積された ticket history から自動生成されます。
 
@@ -26,9 +26,9 @@ Developer の基本的な目標は、git worktree overhead なしでの高速な
 
 ### Secondary Stakeholder: Plugin Author (Maintainer)
 
-Plugin author (現在は `tamurayoshiya <a@qmu.jp>`) は plugin を開発およびリリースします。彼らは `plugins/` directory 構造内でのみ作業し、`plugins/core/commands/` に command を追加し、`plugins/core/agents/` に agent を追加し、`plugins/core/skills/` に skill を追加し、`plugins/core/rules/` に rule を追加します。Author は `CLAUDE.md` で定義された architecture policy に従い、thin な command と subagent (orchestration のみ) および comprehensive な skill (knowledge layer) を強制します。
+Plugin author (現在は `tamurayoshiya <a@qmu.jp>`) は plugin を開発およびリリースします。彼らは `plugins/` directory 構造内で2つの plugin にわたって作業します：drivin（`plugins/drivin/`）は ticket 駆動開発、trippin（`plugins/trippin/`）は AI 指向の探索。各 plugin には独自の command、agent、skill、rule directory があります。Author は `CLAUDE.md` で定義された architecture policy に従い、thin な command と subagent (orchestration のみ) および comprehensive な skill (knowledge layer) を強制します。
 
-Author は `.claude-plugin/marketplace.json` (marketplace version) と `plugins/core/.claude-plugin/plugin.json` (plugin version) の間で version 同期を維持します。Version 管理は semantic versioning に従い、デフォルトで PATCH increment を行います。`/release` command は両方のファイルで version bump を自動化し、"Bump version to v{new_version}" という message で stage および commit します。
+Author は `.claude-plugin/marketplace.json`（marketplace version）、`plugins/drivin/.claude-plugin/plugin.json`（drivin version）、`plugins/trippin/.claude-plugin/plugin.json`（trippin version）の3つのファイル間で version 同期を維持します。Version 管理は semantic versioning に従い、デフォルトで PATCH increment を行います。`/release` command は3つのファイルすべてで version bump を自動化します。
 
 Author の workflow は developer の workflow を反映していますが、meta-level で動作します。彼らは plugin feature を開発するために同じ `/ticket` および `/drive` command を使用します。`.workaholic/tickets/archive/` の archived ticket は plugin 自体の進化を文書化し、architectural decision と実装 rationale の検索可能な履歴を作成します。
 
@@ -42,7 +42,7 @@ Claude Code は、slash command を受け取り、Task tool を介して subagen
 
 Agent は明示的な git safety protocol に従います：user request なしに commit しない、Write/Edit permission を必要とする agent に対して `run_in_background: true` を使用しない、hook をスキップしない、そして main/master に force push しない。複雑な shell operation は、markdown file に inline で記述するのではなく、bundled skill script に抽出する必要があります。
 
-Agent は real-time progress reporting を通じて透明性を提供します。`/scan` command は、単一 message 内で個別の Task call を使用して、すべての 17 documentation agent を並列に呼び出し、各 agent の進行状況を developer に見えるようにします。最近の refactoring (ticket `20260208131751-migrate-scanner-into-scan-command.md`) より前は、scan command は scanner subagent に委譲し、個々の agent 進行状況を単一の Task call の背後に隠していました。
+Agent は real-time progress reporting を通じて透明性を提供します。`/scan` command は、単一 message 内で個別の Task call を使用して、すべての 15 documentation agent を並列に呼び出し、各 agent の進行状況を developer に見えるようにします。最近の refactoring (ticket `20260208131751-migrate-scanner-into-scan-command.md`) より前は、scan command は scanner subagent に委譲し、個々の agent 進行状況を単一の Task call の背後に隠していました。
 
 ## User Goals
 
@@ -84,7 +84,7 @@ Workaholic との stakeholder interaction は、context を保存し、human 承
 
 **Phase 2: Implementation**。Developer は `/drive` を呼び出し、ticket をリストして優先順位付けするために drive-navigator subagent に委譲します。各 ticket について、system は ticket file を読み取り、変更を実装し、`AskUserQuestion` を介して選択可能な option (Approve、Approve and stop、Other、Abandon) で承認を要求し、承認されると、逸脱を文書化する Final Report section とともに ticket を `.workaholic/tickets/archive/<branch>/` にアーカイブします。
 
-**Phase 3: Documentation**。Developer はオプションで `/scan` を呼び出してすべての documentation を更新します。Scan command は 17 個の agent を並列で呼び出します：8 個の viewpoint analyst (stakeholder、model、usecase、infrastructure、application、component、data、feature)、7 個の policy analyst (test、security、quality、accessibility、observability、delivery、recovery)、1 個の changelog writer、1 個の terms writer。各 agent は `.workaholic/specs/` の spec、`.workaholic/policies/` の policy、`.workaholic/terms/` の terms、`CHANGELOG.md` の changelog entry を生成します。
+**Phase 3: Documentation**。Developer はオプションで `/scan` を呼び出してすべての documentation を更新します。Scan command は 15 個の agent を2つのフェーズで呼び出します：8 個の viewpoint analyst (stakeholder、model、usecase、infrastructure、application、component、data、feature)、7 個の policy analyst (test、security、quality、accessibility、observability、delivery、recovery)、1 個の changelog writer、1 個の terms writer。各 agent は `.workaholic/specs/` の spec、`.workaholic/policies/` の policy、`.workaholic/terms/` の terms、`CHANGELOG.md` の changelog entry を生成します。
 
 **Phase 4: Delivery**。Developer は `/report` を呼び出して story を生成し PR を作成します。Report command はまず両方の version file で version を bump し、次に story-writer subagent を呼び出します。Story-writer は 4 個の agent を並列実行し (release 分析のための release-readiness、decision quality のための performance-analyst、narrative section のための overview-writer、outcome/concerns/ideas のための section-reviewer)、`.workaholic/stories/<branch>.md` に story file を構成し、commit して push し、次に 2 個の agent を並列実行します (release note のための release-note-writer、GitHub PR 作成のための pr-creator)。
 
@@ -140,7 +140,7 @@ Mode が icebox の場合、navigator は icebox ticket をリストし、`AskUs
 
 ### Agent Transparency Pattern
 
-最近の architectural 変更 (ticket `20260208131751-migrate-scanner-into-scan-command.md`) は、real-time progress visibility を提供するために scanner subagent の orchestration logic を `/scan` command に直接移行しました。以前は、`/scan` は単一の scanner subagent に 1 つの Task call を介して委譲し、すべての 17 個の並列 agent 呼び出しを隠していました。現在、scan command はすべての 17 個の agent を単一 message 内の並列 Task call を使用して直接呼び出し、各 agent の進行状況を developer の session で見えるようにします。
+最近の architectural 変更 (ticket `20260208131751-migrate-scanner-into-scan-command.md`) は、real-time progress visibility を提供するために scanner subagent の orchestration logic を `/scan` command に直接移行しました。以前は、`/scan` は単一の scanner subagent に 1 つの Task call を介して委譲し、すべての 15 個の並列 agent 呼び出しを隠していました。現在、scan command はすべての 17 個の agent を単一 message 内の並列 Task call を使用して直接呼び出し、各 agent の進行状況を developer の session で見えるようにします。
 
 この pattern は、より広範な設計哲学を反映しています：abstraction よりも transparency。Developer は、不透明な operation が完了するのを待つのではなく、system が何をしているかを見るべきです。
 
@@ -177,15 +177,15 @@ Plugin author (plugin 自体を拡張する developer) は、より深い archit
 
 Repository root の `CLAUDE.md` file は architecture policy の権威あるソースとして機能し、component nesting rule、design principle、common operation、shell script principle、command list、development workflow、version management を定義します。
 
-Plugin author は plugin feature を開発するために同じ `/ticket` および `/drive` command を使用しますが、application code ではなく `plugins/core/` 内の file を編集します。`.workaholic/tickets/archive/` の archived ticket は plugin architecture の進化を文書化し、design decision を理解するための検索可能な context を提供します。
+Plugin author は plugin feature を開発するために同じ `/ticket` および `/drive` command を使用しますが、application code ではなく `plugins/drivin/` 内の file を編集します。`.workaholic/tickets/archive/` の archived ticket は plugin architecture の進化を文書化し、design decision を理解するための検索可能な context を提供します。
 
 ### AI Agent Onboarding
 
-AI agent (Claude Code) は、`plugins/core/commands/` の command markdown file と `plugins/core/agents/` の agent markdown file を通じて instruction を受け取ります。各 command は preload された skill を使用して phase を定義し、呼び出す subagent を指定し、実行のための critical rule を含みます。
+AI agent (Claude Code) は、`plugins/drivin/commands/` の command markdown file と `plugins/drivin/agents/` の agent markdown file を通じて instruction を受け取ります。各 command は preload された skill を使用して phase を定義し、呼び出す subagent を指定し、実行のための critical rule を含みます。
 
 Agent は Claude Code 環境で project instruction として受け取る `CLAUDE.md` から architectural constraint を学習します。Nesting hierarchy (command → subagent/skill、subagent → subagent/skill、skill → skill) は循環 dependency を防ぎ、skill が再利用可能な knowledge component であることを保証します。
 
-Agent は `plugins/core/skills/` の skill を通じて workflow 固有の knowledge を受け取ります。たとえば、gather-git-context skill は bundled shell script を介して git context gathering を提供し、agent markdown 内の inline git command を排除します。Create-ticket skill は ticket format と content 要件を定義し、すべての ticket-organizer 呼び出しで一貫した ticket 構造を保証します。
+Agent は `plugins/drivin/skills/` の skill を通じて workflow 固有の knowledge を受け取ります。たとえば、gather-git-context skill は bundled shell script を介して git context gathering を提供し、agent markdown 内の inline git command を排除します。Create-ticket skill は ticket format と content 要件を定義し、すべての ticket-organizer 呼び出しで一貫した ticket 構造を保証します。
 
 ## Command Interaction Flow
 
@@ -243,9 +243,11 @@ flowchart TD
 ```mermaid
 flowchart TD
     Start[Developer types /scan] --> Context[Gather git context]
-    Context --> Select[Select all 17 agents]
-    Select --> Invoke[Invoke all agents in parallel]
-    Invoke --> Validate[Validate output]
+    Context --> Select[Select all 15 agents]
+    Select --> InvokeM[Invoke 3 managers in parallel]
+    InvokeM --> WaitM[Wait for managers]
+    WaitM --> InvokeL[Invoke 12 leaders/writers in parallel]
+    InvokeL --> Validate[Validate output]
     Validate --> Index[Update index files]
     Index --> Commit[Stage and commit]
     Commit --> Report[Report per-agent status]
@@ -271,8 +273,8 @@ flowchart TD
 - [Explicit] 4 つの slash command (`/ticket`、`/drive`、`/scan`、`/report`) が主要な user interface を構成します。`CLAUDE.md` 87-95 行目で定義されています。
 - [Explicit] Plugin author は `tamurayoshiya <a@qmu.jp>` です。`marketplace.json` 7 行目と `plugin.json` 5 行目で宣言されています。
 - [Explicit] `/drive` 中の human-in-the-loop 承認は必須であり、`drive.md` 50 行目の `AskUserQuestion` 要件によって強制されます。
-- [Explicit] Scan command は `scan.md` 36-57 行目で定義されているように、17 個の agent を並列で呼び出します：8 個の viewpoint analyst、7 個の policy analyst、1 個の changelog writer、1 個の terms writer。
-- [Explicit] Version 管理は `marketplace.json` と `plugin.json` の間の同期を必要とします。`CLAUDE.md` 107-119 行目で文書化されています。
+- [Explicit] Scan command は `scan.md` 36-57 行目で定義されているように、15 個の agent を2つのフェーズで呼び出します：8 個の viewpoint analyst、7 個の policy analyst、1 個の changelog writer、1 個の terms writer。
+- [Explicit] Version 管理は `marketplace.json` と両方の plugin `plugin.json` ファイル（drivin と trippin）間の同期を必要とします。`CLAUDE.md` で文書化されています。
 - [Explicit] Scanner subagent は ticket `20260208131751-migrate-scanner-into-scan-command.md` で削除され、agent transparency を提供するために orchestration logic を scan command に直接移行しました。
 - [Explicit] `/story` command は削除され (同じ ticket)、documentation には `/scan` を、PR 作成には `/report` を使用するように workflow が統合されました。
 - [Inferred] 主要な audience は、serial 実行 model、single-branch workflow 設計、各 ticket での明示的承認要件に基づいて、Claude Code を主要な開発環境として使用する solo developer または小規模 team です。

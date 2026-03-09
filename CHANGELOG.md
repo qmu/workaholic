@@ -1,5 +1,17 @@
 # Changelog
 
+## drive-20260302-213941
+
+### Added
+
+- Create "trippin" Plugin with Skeleton Minimum Structure ([995b7e5](https://github.com/qmu/workaholic/commit/995b7e52a4deedf461b8466509bb0f566b90ee9e)) - [ticket](.workaholic/tickets/archive/drive-20260302-213941/20260302215036-create-trippin-plugin-skeleton.md)
+- Implement `/trip` Command for Trippin Plugin ([35340d7](https://github.com/qmu/workaholic/commit/35340d751aff83c0f78d12e4f9a723d360cbb1f7)) - [ticket](.workaholic/tickets/archive/drive-20260302-213941/20260309214650-implement-trip-command.md)
+
+### Changed
+
+- Rename "core" Plugin Directory to "drivin" ([f50695e](https://github.com/qmu/workaholic/commit/f50695e3fb6e0693c5c372c0373ffb81edac26d7)) - [ticket](.workaholic/tickets/archive/drive-20260302-213941/20260302215035-rename-core-to-drivin.md)
+- Enforce ticket title and summary in drive approval prompt ([0338d08](https://github.com/qmu/workaholic/commit/0338d083effca3cacc354236e70dddd4dfdd4443)) - [ticket](.workaholic/tickets/archive/drive-20260302-213941/20260306065407-enforce-ticket-context-in-drive-approval.md)
+
 ## drive-20260212-122906
 
 ### Changed

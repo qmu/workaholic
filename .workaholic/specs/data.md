@@ -2,8 +2,8 @@
 title: Data Viewpoint
 description: Data formats, frontmatter schemas, and naming conventions
 category: developer
-modified_at: 2026-02-12T18:14:33+08:00
-commit_hash: f385117
+modified_at: 2026-03-10T01:31:08+09:00
+commit_hash: f76bde2
 ---
 
 [English](data.md) | [Japanese](data_ja.md)
@@ -199,7 +199,7 @@ Located at `.claude-plugin/marketplace.json`:
 ```json
 {
   "name": "workaholic",
-  "version": "1.0.33",
+  "version": "1.0.38",
   "description": "Standard Claude Code Configuration in qmu",
   "owner": {
     "name": "tamurayoshiya",
@@ -207,31 +207,44 @@ Located at `.claude-plugin/marketplace.json`:
   },
   "plugins": [
     {
-      "name": "core",
+      "name": "drivin",
       "description": "Core development workflow: branch, commit, pull-request, ticket-driven development",
-      "version": "1.0.33",
+      "version": "1.0.38",
       "author": {
         "name": "tamurayoshiya",
         "email": "a@qmu.jp"
       },
-      "source": "./plugins/core",
+      "source": "./plugins/drivin",
+      "category": "development"
+    },
+    {
+      "name": "trippin",
+      "description": "AI-oriented exploration and creative development workflow",
+      "version": "1.0.38",
+      "author": {
+        "name": "tamurayoshiya",
+        "email": "a@qmu.jp"
+      },
+      "source": "./plugins/trippin",
       "category": "development"
     }
   ]
 }
 ```
 
-The marketplace manifest declares metadata, owner information, and the list of plugins. The `version` field must be kept in sync with the plugin manifest versions during releases.
+The marketplace manifest declares metadata, owner information, and the list of plugins. The marketplace currently contains two plugins: drivin (ticket-driven development) and trippin (AI-oriented exploration). The root `version` field must be kept in sync with all plugin manifest versions during releases.
 
 ### Plugin Manifest Schema
 
-Located at `plugins/core/.claude-plugin/plugin.json`:
+Each plugin has its own manifest at `plugins/<name>/.claude-plugin/plugin.json`. The version field must match the corresponding entry in `marketplace.json`.
+
+**Drivin plugin** (`plugins/drivin/.claude-plugin/plugin.json`):
 
 ```json
 {
-  "name": "core",
+  "name": "drivin",
   "description": "Core development workflow: branch, commit, pull-request, ticket-driven development",
-  "version": "1.0.33",
+  "version": "1.0.38",
   "author": {
     "name": "tamurayoshiya",
     "email": "a@qmu.jp"
@@ -239,11 +252,25 @@ Located at `plugins/core/.claude-plugin/plugin.json`:
 }
 ```
 
-Each plugin has its own manifest declaring name, description, version, and author. The version field here must match the corresponding entry in `marketplace.json`.
+**Trippin plugin** (`plugins/trippin/.claude-plugin/plugin.json`):
+
+```json
+{
+  "name": "trippin",
+  "description": "AI-oriented exploration and creative development workflow",
+  "version": "1.0.38",
+  "author": {
+    "name": "tamurayoshiya",
+    "email": "a@qmu.jp"
+  }
+}
+```
+
+Version synchronization requires updating three files simultaneously: `marketplace.json` root version, `plugins/drivin/.claude-plugin/plugin.json` version, and `plugins/trippin/.claude-plugin/plugin.json` version.
 
 ### Hooks Configuration Schema
 
-Located at `plugins/core/hooks/hooks.json`:
+Located at `plugins/drivin/hooks/hooks.json`:
 
 ```json
 {
@@ -273,6 +300,38 @@ Located at `.claude/settings.json` (versioned) and `.claude/settings.local.json`
 
 Settings files configure Claude Code behavior but have no explicit schema enforcement in this repository.
 
+### Trip Artifact Schema
+
+Trip artifacts are produced by the trippin plugin's Implosive Structure workflow. Artifacts are stored in `.workaholic/.trips/<trip-name>/` with versioned filenames.
+
+```markdown
+# <Artifact Type> v<N>
+
+**Author**: <Agent Name>
+**Status**: draft | under-review | approved
+**Reviewed-by**: <comma-separated agent names>
+
+## Content
+
+<artifact content here>
+
+## Review Notes
+
+<feedback from reviewing agents, added during review>
+```
+
+Artifact types and storage locations:
+
+| Artifact | Directory | Filename Pattern | Author |
+| --- | --- | --- | --- |
+| Direction | `directions/` | `direction-v1.md`, `direction-v2.md` | Planner |
+| Model | `models/` | `model-v1.md`, `model-v2.md` | Architect |
+| Design | `designs/` | `design-v1.md`, `design-v2.md` | Constructor |
+
+Each revision creates a new file (e.g., `direction-v1.md`, `direction-v2.md`) rather than overwriting, preserving the full review history. The `Status` field transitions from `draft` to `under-review` to `approved` as the consensus gate progresses.
+
+Trip commit messages follow the format `trip(<agent>): <step>` with the phase number in the commit body.
+
 ## File Naming Conventions
 
 File naming follows context-specific conventions designed to enable chronological sorting, semantic clarity, and i18n support.
@@ -287,7 +346,8 @@ File naming follows context-specific conventions designed to enable chronologica
 | Terms | Kebab-case descriptive | `<kebab-case>.md` | `core-concepts.md`, `file-conventions.md` |
 | Stories | Branch name | `<branch-name>.md` | `drive-20260205-195920.md` |
 | Translations | Base name + `_ja` suffix | `<name>_ja.md` | `stakeholder_ja.md`, `README_ja.md` |
-| Commands | Name only | `<name>.md` | `drive.md`, `ticket.md`, `scan.md` |
+| Trip artifacts | Type + version | `<type>-v<N>.md` | `direction-v1.md`, `model-v2.md`, `design-v1.md` |
+| Commands | Name only | `<name>.md` | `drive.md`, `ticket.md`, `scan.md`, `trip.md` |
 | Agents | Kebab-case descriptive | `<kebab-case>.md` | `stakeholder-analyst.md`, `story-writer.md` |
 | Skills | `SKILL.md` in kebab-case directory | `<kebab-case>/SKILL.md` | `write-spec/SKILL.md`, `create-ticket/SKILL.md` |
 | Shell scripts | Name + `.sh` in `sh/` subdirectory | `sh/<name>.sh` | `gather.sh`, `validate.sh`, `update.sh` |
@@ -306,9 +366,11 @@ Translation files use the `_ja` suffix before the file extension for Japanese tr
 
 Directory names use kebab-case for skills and hyphenated timestamps for branch-based archives:
 
-- Skill directories: `gather-git-context/`, `write-spec/`, `create-ticket/`
+- Skill directories: `gather-git-context/`, `write-spec/`, `create-ticket/`, `trip-protocol/`
 - Archive directories: `.workaholic/tickets/archive/<branch-name>/`
-- Branch name pattern: `drive-<YYYYMMDD>-<HHMMSS>` or `trip-<YYYYMMDD>-<HHMMSS>`
+- Trip artifact directories: `.workaholic/.trips/<trip-name>/directions/`, `models/`, `designs/`
+- Worktree directories: `.worktrees/<trip-name>/`
+- Branch name patterns: `drive-<YYYYMMDD>-<HHMMSS>` for drivin, `trip/<trip-name>` for trippin
 
 ## Data Validation Rules
 
@@ -448,13 +510,35 @@ flowchart LR
     Release["/release Command"] --> Read["Read Current Version"]
     Read --> Increment["Increment PATCH"]
     Increment --> UpdateMarketplace["Update marketplace.json"]
-    Increment --> UpdatePlugin["Update plugin.json"]
+    Increment --> UpdateDrivin["Update drivin plugin.json"]
+    Increment --> UpdateTrippin["Update trippin plugin.json"]
     UpdateMarketplace --> Commit["Git Commit"]
-    UpdatePlugin --> Commit
+    UpdateDrivin --> Commit
+    UpdateTrippin --> Commit
     Commit --> Tag["Git Tag"]
 ```
 
-Version numbers are synchronized across `marketplace.json` and `plugin.json` during release. The `/release` command increments the patch version by default, updates both files, commits, and creates a git tag.
+Version numbers are synchronized across three files during release: `marketplace.json` (root version), `plugins/drivin/.claude-plugin/plugin.json`, and `plugins/trippin/.claude-plugin/plugin.json`. The `/release` command increments the patch version by default, updates all three files, commits, and creates a git tag.
+
+### Trip Artifact Lifecycle
+
+```mermaid
+flowchart LR
+    Init["Init Trip"] --> Worktree["Create git worktree"]
+    Worktree --> Direction["Planner writes direction-v1"]
+    Direction --> ReviewD["Architect + Constructor review"]
+    ReviewD --> Revise{Consensus?}
+    Revise -->|No| ReviseD["Revise direction-vN"]
+    ReviseD --> ReviewD
+    Revise -->|Yes| ModelDesign["Architect writes model / Constructor writes design"]
+    ModelDesign --> CrossReview["Cross-review artifacts"]
+    CrossReview --> Consensus{Full consensus?}
+    Consensus -->|No| ReviseArt["Revise artifacts"]
+    ReviseArt --> CrossReview
+    Consensus -->|Yes| Implement["Phase 2: Implementation"]
+```
+
+Trip artifacts follow a versioned append-only pattern within `.workaholic/.trips/<trip-name>/`. Each revision creates a new numbered file rather than overwriting, ensuring the full collaborative review history is preserved as a sequence of committed versions. The git worktree isolates all trip work on a dedicated branch (`trip/<trip-name>`), keeping the main working tree clean.
 
 ## Naming Convention Relationships
 
@@ -474,6 +558,11 @@ flowchart TD
     Archive --> TicketArchive["archive/drive-20260208-131649/"]
     Branch --> Story["Story File"]
     Story --> StoryFile["stories/drive-20260208-131649.md"]
+
+    Versioned["Type + Version"] --> TripArtifacts["Trip Artifacts"]
+    TripArtifacts --> DirectionFile["direction-v1.md"]
+    TripArtifacts --> ModelFile["model-v1.md"]
+    TripArtifacts --> DesignFile["design-v1.md"]
 
     Translation["_ja Suffix"] --> SpecTranslation["stakeholder_ja.md"]
     Translation --> PolicyTranslation["test_ja.md"]
@@ -521,7 +610,7 @@ Policy and Guideline artifacts reuse the existing policy frontmatter schema. Roa
 - [Explicit] Branch naming uses `drive-` or `trip-` prefixes with timestamp suffixes, as observed in archived ticket directories.
 - [Explicit] The PostToolUse hook runs with a 10-second timeout on every Write and Edit operation, as configured in `hooks.json`.
 - [Explicit] The `update-ticket-frontmatter` skill validates `effort` values using a hardcoded allowlist, as documented in the shell script validation fix (ticket `20260207170806-fix-effort-invalid-value-root-cause.md`).
-- [Explicit] Version synchronization across `marketplace.json` and `plugin.json` is required during releases, as documented in `CLAUDE.md` version management section.
+- [Explicit] Version synchronization across `marketplace.json` and both plugin `plugin.json` files (drivin and trippin) is required during releases, as documented in `CLAUDE.md` version management section.
 - [Explicit] The `user-invocable: false` field was introduced to distinguish internal skills from user-facing commands. All manager skills and lead skills set this field to false.
 - [Explicit] The manager tier introduced three new agent types (project-manager, architecture-manager, quality-manager) with corresponding skills (manage-project, manage-architecture, manage-quality), as documented in ticket `20260211170401-define-manager-tier-and-skills.md`.
 - [Explicit] Managers produce strategic outputs that leaders consume. The two-phase scan execution (Phase 1: managers, Phase 2: leaders) enforces this dependency, as documented in ticket `20260211170402-wire-leaders-to-manager-outputs.md`.

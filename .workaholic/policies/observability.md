@@ -2,29 +2,29 @@
 title: Observability Policy
 description: Logging, monitoring, metrics, and tracing practices
 category: developer
-modified_at: 2026-02-12T10:15:03+00:00
-commit_hash: f385117
+modified_at: 2026-03-10T12:00:00+00:00
+commit_hash: f76bde2
 ---
 
 [English](observability.md) | [Japanese](observability_ja.md)
 
 # Observability Policy
 
-This document describes the observability practices in the Workaholic repository. Workaholic implements observability through development narrative generation, performance metrics, and audit trails rather than traditional application monitoring.
+This document describes the observability practices in the Workaholic repository. Workaholic implements observability through development narrative generation, performance metrics, and audit trails rather than traditional application monitoring. The system now spans two plugins -- drivin (ticket-driven development) and trippin (exploration workflow) -- each contributing distinct observability patterns.
 
 ## Logging Practices
 
 ### Error Handling
 
-All shell scripts use `set -eu` for strict error handling, causing immediate exit on undefined variables or command failures (implementation: all 19 shell scripts in `plugins/core/skills/*/sh/*.sh` and `plugins/core/hooks/validate-ticket.sh`).
+All shell scripts enforce strict error handling through shell options that cause immediate exit on undefined variables or command failures. The drivin plugin uses two patterns: `/bin/sh -eu` for POSIX-compliant scripts (17 of 20 skill scripts in `plugins/drivin/skills/*/sh/*.sh`) and `#!/usr/bin/env bash` for scripts requiring bash-specific features (`plugins/drivin/skills/select-scan-agents/sh/select.sh` and `plugins/drivin/skills/validate-writer-output/sh/validate.sh`). The ticket validation hook uses `#!/bin/bash` with `set -e` (implementation: `plugins/drivin/hooks/validate-ticket.sh`). The trippin plugin uses `#!/bin/bash` with `set -euo pipefail` across all three scripts (`plugins/trippin/skills/trip-protocol/sh/ensure-worktree.sh`, `init-trip.sh`, `trip-commit.sh`), adding the `pipefail` option for pipeline error propagation.
 
-Shell scripts output validation errors to stderr with descriptive messages and exit code 2 to block operations (implementation: `plugins/core/hooks/validate-ticket.sh` lines 39-42, 50-53, 66-68, 86-94).
+Shell scripts output validation errors to stderr with descriptive messages and exit code 2 to block operations in the drivin plugin (implementation: `plugins/drivin/hooks/validate-ticket.sh` lines 39-42, 50-53, 66-68, 86-94). The trippin plugin outputs structured JSON error messages to stderr with exit code 1 (implementation: `plugins/trippin/skills/trip-protocol/sh/ensure-worktree.sh` lines 11-12, 16-17, 25-26, 30-31).
 
 ### Validation Logging
 
-The ticket validation hook logs structured error messages with field names, invalid values, and references to authoritative documentation (implementation: `plugins/core/hooks/validate-ticket.sh` function `print_skill_reference()` and validation blocks for `created_at`, `author`, `type`, `layer`, `effort`, `commit_hash`, and `category`).
+The ticket validation hook logs structured error messages with field names, invalid values, and references to authoritative documentation (implementation: `plugins/drivin/hooks/validate-ticket.sh` function `print_skill_reference()` and validation blocks for `created_at`, `author`, `type`, `layer`, `effort`, `commit_hash`, and `category`).
 
-CI validation workflows log JSON validation results and required field checks to GitHub Actions output (implementation: `.github/workflows/validate-plugins.yml` steps "Validate marketplace.json", "Validate plugin.json files", "Check skill files exist").
+CI validation workflows log JSON validation results and required field checks to GitHub Actions output (implementation: `.github/workflows/validate-plugins.yml` steps "Validate marketplace.json", "Validate plugin.json files", "Check skill files exist", "Validate marketplace plugins match directories").
 
 ### Session Context
 
@@ -34,7 +34,7 @@ Claude Code conversation context serves as the implicit log of operations during
 
 ### Performance Metrics
 
-The `analyze-performance` skill calculates development velocity metrics from git history (implementation: `plugins/core/skills/analyze-performance/sh/calculate.sh`):
+The `analyze-performance` skill calculates development velocity metrics from git history (implementation: `plugins/drivin/skills/analyze-performance/sh/calculate.sh`):
 
 - Commit count between base branch and HEAD
 - Start and end timestamps (ISO 8601)
@@ -42,11 +42,11 @@ The `analyze-performance` skill calculates development velocity metrics from git
 - Velocity in commits per hour or commits per day
 - Business day calculations for multi-day work
 
-These metrics are included in story frontmatter (implementation: `plugins/core/skills/write-story/SKILL.md` lines 206-219).
+These metrics are included in story frontmatter (implementation: `plugins/drivin/skills/write-story/SKILL.md`).
 
 ### Story Metrics
 
-Story documents include structured frontmatter with observable metadata (implementation: `plugins/core/skills/write-story/SKILL.md`):
+Story documents include structured frontmatter with observable metadata (implementation: `plugins/drivin/skills/write-story/SKILL.md`):
 
 - `branch`: Branch name
 - `started_at`: First commit timestamp
@@ -60,7 +60,7 @@ Story documents include structured frontmatter with observable metadata (impleme
 
 ### Ticket Metrics
 
-Ticket frontmatter tracks effort estimation (implementation: `plugins/core/skills/create-ticket/SKILL.md` lines 174-178):
+Ticket frontmatter tracks effort estimation (implementation: `plugins/drivin/skills/create-ticket/SKILL.md`):
 
 - `effort`: Time spent in hours (0.1h, 0.25h, 0.5h, 1h, 2h, 4h)
 - `commit_hash`: Git commit implementing the ticket
@@ -70,7 +70,7 @@ Ticket frontmatter tracks effort estimation (implementation: `plugins/core/skill
 
 ### Ticket Traceability
 
-Every implementation is traceable through the ticket lifecycle (implementation: `plugins/core/skills/archive-ticket/SKILL.md`):
+Every implementation is traceable through the ticket lifecycle (implementation: `plugins/drivin/skills/archive-ticket/SKILL.md`):
 
 1. Creation in `.workaholic/tickets/todo/` with `created_at` and `author` metadata
 2. Implementation during `/drive` command execution
@@ -78,19 +78,23 @@ Every implementation is traceable through the ticket lifecycle (implementation: 
 4. Archival to `.workaholic/tickets/archive/<branch>/`
 5. Changelog entry linking ticket path to commit URL
 
+### Trip Commit Tracing
+
+The trippin plugin implements structured commit tracing for exploration sessions (implementation: `plugins/trippin/skills/trip-protocol/sh/trip-commit.sh`). Each commit follows the format `trip(<agent>): <step>` with a body containing `Phase: <phase>` and an optional description. The commit output returns JSON with the commit hash, agent name, and step description, enabling programmatic tracking of exploration progress.
+
 ### Concerns Traceability
 
-Ticket concerns sections use commit hash and file path references (implementation: `plugins/core/skills/create-ticket/SKILL.md` Considerations format):
+Ticket concerns sections use commit hash and file path references (implementation: `plugins/drivin/skills/create-ticket/SKILL.md` Considerations format):
 
 ```
 - <description> (see [hash](<repo-url>/commit/<hash>) in path/to/file.ext)
 ```
 
-Story concerns sections extract these references from tickets (implementation: `plugins/core/skills/review-sections/SKILL.md` line 44, `plugins/core/skills/write-story/SKILL.md` lines 113-125).
+Story concerns sections extract these references from tickets (implementation: `plugins/drivin/skills/review-sections/SKILL.md`, `plugins/drivin/skills/write-story/SKILL.md`).
 
 ### Changelog Audit Trail
 
-The changelog provides a categorized audit trail of all changes (implementation: `plugins/core/skills/write-changelog/sh/generate.sh`):
+The changelog provides a categorized audit trail of all changes (implementation: `plugins/drivin/skills/write-changelog/sh/generate.sh`):
 
 - Groups entries by category: Added, Changed, Removed
 - Links each entry to GitHub commit URL
@@ -99,11 +103,11 @@ The changelog provides a categorized audit trail of all changes (implementation:
 
 ### Historical Context Tracing
 
-The `discover-history` skill searches previous tickets for related work (implementation: `plugins/core/skills/discover-history/SKILL.md`), enabling stories to include historical analysis sections that reference past decisions and patterns.
+The `discover-history` skill searches previous tickets for related work (implementation: `plugins/drivin/skills/discover-history/SKILL.md`), enabling stories to include historical analysis sections that reference past decisions and patterns.
 
 ### Frontmatter-Based Tracking
 
-All documentation files in `.workaholic/` include YAML frontmatter with `commit_hash` fields linking content to specific git revisions (implementation: `plugins/core/skills/write-spec/SKILL.md` lines 84-91, `plugins/core/skills/write-terms/SKILL.md` lines 80-85, `plugins/core/skills/analyze-policy/SKILL.md` lines 77-89).
+All documentation files in `.workaholic/` include YAML frontmatter with `commit_hash` fields linking content to specific git revisions (implementation: `plugins/drivin/skills/write-spec/SKILL.md`, `plugins/drivin/skills/write-terms/SKILL.md`, `plugins/drivin/skills/analyze-policy/SKILL.md`).
 
 ## Alerting
 
@@ -118,7 +122,7 @@ GitHub Actions workflows fail and notify on validation errors (implementation: `
 
 ### Git Hook Alerts
 
-The ticket validation hook blocks Write and Edit operations with exit code 2 and descriptive error messages for (implementation: `plugins/core/hooks/validate-ticket.sh`):
+The ticket validation hook blocks Write and Edit operations with exit code 2 and descriptive error messages for (implementation: `plugins/drivin/hooks/validate-ticket.sh`):
 
 - Invalid file locations (not in todo/, icebox/, or archive/)
 - Invalid filename format (not YYYYMMDDHHmmss-*.md)
@@ -128,17 +132,23 @@ The ticket validation hook blocks Write and Edit operations with exit code 2 and
 
 ### Validation Script Alerts
 
-The `update-ticket-frontmatter` script validates effort values at write time, preventing bypass of the validation hook (implementation: ticket `20260207170806-fix-effort-invalid-value-root-cause.md` and referenced update script).
+The `update-ticket-frontmatter` script validates effort values at write time, preventing bypass of the validation hook (implementation: `plugins/drivin/skills/update-ticket-frontmatter/sh/update.sh`).
+
+### Worktree Validation Alerts
+
+The trippin plugin validates worktree and branch state before creating exploration sessions (implementation: `plugins/trippin/skills/trip-protocol/sh/ensure-worktree.sh`). Structured JSON error messages are emitted to stderr when a worktree already exists, a branch name conflicts, or the command runs outside a git repository.
 
 ## Observations
 
-Development observability is achieved through story documents that capture the full narrative of each branch (implementation: `plugins/core/skills/write-story/SKILL.md`).
+Development observability is achieved through story documents that capture the full narrative of each branch (implementation: `plugins/drivin/skills/write-story/SKILL.md`).
 
-Changelog entries create a categorized audit trail with commit and ticket links (implementation: `plugins/core/skills/write-changelog/SKILL.md`).
+Changelog entries create a categorized audit trail with commit and ticket links (implementation: `plugins/drivin/skills/write-changelog/SKILL.md`).
 
-The performance-analyst provides automated development quality feedback across five dimensions: Consistency, Intuitivity, Describability, Agility, and Density (implementation: `plugins/core/skills/analyze-performance/SKILL.md` lines 30-56).
+The performance-analyst provides automated development quality feedback across five dimensions: Consistency, Intuitivity, Describability, Agility, and Density (implementation: `plugins/drivin/skills/analyze-performance/SKILL.md` lines 30-56).
 
-Release notes provide high-level summaries extracted from stories (implementation: `plugins/core/skills/write-release-note/SKILL.md`).
+Release notes provide high-level summaries extracted from stories (implementation: `plugins/drivin/skills/write-release-note/SKILL.md`).
+
+The trippin plugin introduces structured commit messages as an observability mechanism for exploration workflows, using the `trip(<agent>): <step>` format with phase metadata to enable post-hoc reconstruction of exploration sessions from git history.
 
 The observability model is retrospective rather than real-time, focusing on post-hoc analysis through stories, changelogs, and release notes rather than live monitoring.
 
@@ -155,3 +165,5 @@ No alerting mechanisms for CI/CD failures beyond GitHub's built-in notifications
 No runtime monitoring. This is appropriate for a development tool that runs within Claude Code sessions rather than as a persistent service.
 
 No distributed tracing. All operations execute within a single Claude Code session context.
+
+No observability instrumentation in the trippin plugin beyond commit-level tracing. Exploration sessions lack the story and changelog mechanisms available in the drivin plugin.

@@ -2,8 +2,8 @@
 title: File Conventions
 description: Naming patterns and directory structures used in Workaholic
 category: developer
-last_updated: 2026-02-12
-commit_hash: f385117
+last_updated: 2026-03-10
+commit_hash: f76bde2
 ---
 
 [English](file-conventions.md) | [日本語](file-conventions_ja.md)
@@ -47,3 +47,7 @@ The policies directory (`.workaholic/policies/`) contains policy documents descr
 ## constraints
 
 The constraints directory (`.workaholic/constraints/`) contains manager-generated prescriptive boundaries that narrow decision space for lead agents. Three files exist: `project.md`, `architecture.md`, and `quality.md`, corresponding to the three manager domains. Each constraint file follows a structured template defined in managers-principle with frontmatter (manager name, last_updated), a summary, and constraint entries specifying what is bounded, rationale, affected leaders, falsifiable criteria, and review triggers. Constraints differ semantically from policies: constraints are strategic boundaries set by managers, while policies are observational documentation of implemented practices produced by leads. Related terms: manager, lead, managers-principle, policies.
+
+## trips
+
+The trips directory (`.workaholic/.trips/`) stores artifacts produced during `/trip` sessions from the trippin plugin. Each trip session creates a subdirectory named after the trip (e.g., `.workaholic/.trips/trip-20260309-214650/`) containing three artifact subdirectories: `directions/` (Planner output), `models/` (Architect output), and `designs/` (Constructor output). Artifacts are versioned with numeric suffixes (`direction-v1.md`, `direction-v2.md`). The directory is created by `init-trip.sh` and is not git-tracked in the main working tree since trip sessions operate in isolated git worktrees. Related terms: trip, direction, model, design, worktree.

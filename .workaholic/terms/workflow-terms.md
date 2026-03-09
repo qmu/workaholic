@@ -2,8 +2,8 @@
 title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
-last_updated: 2026-02-12
-commit_hash: f385117
+last_updated: 2026-03-10
+commit_hash: f76bde2
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -15,6 +15,10 @@ Actions and operations in the development workflow.
 ## drive
 
 Drive is the operation that processes tickets from `.workaholic/tickets/todo/` sequentially. For each ticket, it implements the described changes, requests user approval, commits the work, and archives the ticket. This creates a structured development flow where work is captured before implementation and documented after completion. Invoked with `/drive` command. Related terms: ticket, archive, commit.
+
+## trip
+
+Trip is the operation that launches a collaborative Agent Teams session with three specialized agents (Planner, Architect, Constructor) to explore and implement a creative direction. The `/trip` command accepts an instruction, creates an isolated git worktree on a `trip/<trip-name>` branch, initializes artifact directories under `.workaholic/.trips/<trip-name>/`, and orchestrates a two-phase workflow: Phase 1 (Specification) where agents produce Direction, Model, and Design artifacts through mutual review and moderation, and Phase 2 (Implementation) where they test, build, and review code. Every workflow step produces a git commit in the worktree branch using the `trip(<agent>): <step>` message format. Invoked with `/trip` command from the trippin plugin. Related terms: trippin, agent-teams, worktree, direction, model, design.
 
 ## abandon
 

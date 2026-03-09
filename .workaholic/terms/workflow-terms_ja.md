@@ -2,8 +2,8 @@
 title: Workflow Terms
 description: Actions and operations in the development workflow
 category: developer
-last_updated: 2026-02-12
-commit_hash: f385117
+last_updated: 2026-03-10
+commit_hash: f76bde2
 ---
 
 [English](workflow-terms.md) | [日本語](workflow-terms_ja.md)
@@ -15,6 +15,10 @@ commit_hash: f385117
 ## drive
 
 driveは`.workaholic/tickets/todo/`からチケットを順次処理するオペレーションです。各チケットについて、記述された変更を実装し、ユーザー承認を要求し、作業をコミットし、チケットをアーカイブします。これにより、作業が実装前に記録され、完了後にドキュメント化される構造化された開発フローが作成されます。`/drive`コマンドで呼び出されます。関連用語：ticket、archive、commit。
+
+## trip
+
+tripは3つの専門agent（Planner、Architect、Constructor）による協調的なAgent Teamsセッションを起動して、創造的な方向性を探索し実装するオペレーションです。`/trip` commandは指示を受け取り、`trip/<trip-name>`ブランチ上に隔離されたgit worktreeを作成し、`.workaholic/.trips/<trip-name>/`下にアーティファクトディレクトリを初期化し、2フェーズのワークフローをオーケストレートします：フェーズ1（Specification）ではagentが相互レビューとモデレーションを通じてDirection、Model、Designアーティファクトを生成し、フェーズ2（Implementation）ではテスト、ビルド、レビューを行います。すべてのワークフローステップは`trip(<agent>): <step>`メッセージ形式を使用してworktreeブランチにgitコミットを生成します。trippinプラグインの`/trip` commandで呼び出されます。関連用語：trippin、agent-teams、worktree、direction、model、design。
 
 ## abandon
 

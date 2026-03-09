@@ -2,15 +2,15 @@
 title: Command Reference
 description: Complete documentation for all Workaholic commands
 category: user
-modified_at: 2026-01-28T21:38:50+09:00
-commit_hash: fe3d558
+modified_at: 2026-03-10T01:13:03+09:00
+commit_hash: f76bde2
 ---
 
 [English](commands.md) | [日本語](commands_ja.md)
 
 # Command Reference
 
-Workaholic provides a unified **core** plugin with all development workflow commands.
+Workaholic provides two plugins: **drivin** for ticket-driven development workflows and **trippin** for AI-oriented exploration and creative development.
 
 ## Git Workflow Commands
 
@@ -56,12 +56,41 @@ Implements queued tickets from top to bottom.
 
 Claude picks up tickets from `.workaholic/tickets/todo/`, implements them one by one, asks for your approval, writes a Final Report documenting any deviations and discoveries, then commits and archives each ticket before moving to the next. The `icebox` argument lets you select from deferred tickets. If an implementation attempt fails, you can select "Abandon" to discard changes, document the failure analysis, and move the ticket to the fail directory before continuing.
 
+## Documentation Commands
+
+### /scan
+
+Runs a full documentation scan, updating all `.workaholic/` documentation including specs, policies, terms, and changelog.
+
+```bash
+/scan
+```
+
+The scan command invokes 15 documentation agents in two phases. Phase 1 runs three manager agents (project-manager, architecture-manager, quality-manager) in parallel to establish strategic context. Phase 2 runs twelve leader and writer agents in parallel to produce domain-specific documentation. All agents run concurrently within their phase for real-time progress visibility.
+
+## Exploration Commands (Trippin Plugin)
+
+### /trip
+
+Launches an Agent Teams session with three collaborative agents (Planner, Architect, Constructor) to explore and develop a concept through the Implosive Structure workflow.
+
+```bash
+/trip design a caching layer for the API
+```
+
+The command creates an isolated git worktree, initializes artifact directories under `.workaholic/.trips/<trip-name>/`, and launches a three-agent team. In Phase 1 (Specification), agents produce Direction, Model, and Design artifacts through mutual review and consensus. In Phase 2 (Implementation), agents create test plans, build, review, and validate. Every discrete step produces a git commit on the trip branch.
+
+**Prerequisites**: Agent Teams must be enabled via `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`.
+
 ## Workflow Summary
 
-The typical workflow combines these commands:
+The typical drivin workflow combines these commands:
 
 1. `/ticket <description>` - Write implementation spec (auto-creates branch on main)
 2. `/drive` - Implement the ticket
-3. `/report` - Generate documentation and create PR for review
+3. `/scan` - Update documentation
+4. `/report` - Generate documentation and create PR for review
+
+The trippin workflow uses `/trip <instruction>` for exploratory development with collaborative agents.
 
 Each ticket gets its own commit, and the CHANGELOG tracks all changes for the PR summary.

@@ -2,8 +2,8 @@
 title: Infrastructure Viewpoint
 description: External dependencies, file system layout, installation, and environment requirements
 category: developer
-modified_at: 2026-02-12T18:14:33+08:00
-commit_hash: f385117
+modified_at: 2026-03-10T01:31:10+09:00
+commit_hash: f76bde2
 ---
 
 [English](infrastructure.md) | [Japanese](infrastructure_ja.md)
@@ -34,6 +34,36 @@ Node.js version 20 is required for the GitHub Actions validation workflow. The v
 
 The system has no build step requirement for the plugins themselves, as they consist entirely of markdown configuration files and shell scripts. There are no compilation or transpilation steps.
 
+### External Dependency Graph
+
+```mermaid
+graph TD
+    CC["Claude Code Runtime"]
+    MP["Marketplace (marketplace.json)"]
+    DR["Drivin Plugin"]
+    TR["Trippin Plugin"]
+    GIT["Git"]
+    GH["GitHub CLI (gh)"]
+    GA["GitHub Actions"]
+    NODE["Node.js 20"]
+    JQ["jq"]
+    AT["Agent Teams (experimental)"]
+
+    MP --> CC
+    DR --> CC
+    TR --> CC
+    TR --> AT
+    AT --> CC
+    DR --> GIT
+    TR --> GIT
+    DR --> GH
+    GA --> NODE
+    GA --> JQ
+    GA --> GH
+```
+
+This diagram shows the runtime and build-time dependency relationships. The drivin and trippin plugins both depend on Claude Code and Git. The trippin plugin additionally requires the experimental Agent Teams feature. GitHub Actions CI depends on Node.js 20, jq, and gh for validation and release workflows.
+
 ### Continuous Integration Platform
 
 GitHub Actions provides the CI/CD infrastructure with two workflows:
@@ -51,7 +81,7 @@ The repository follows a dual-directory structure that separates plugin source c
 ```
 /
 ├── .claude/                 # Claude Code configuration (symlink target)
-│   ├── commands/            # Symlinked from plugins/core/commands/
+│   ├── commands/            # Symlinked from plugins/drivin/commands/
 │   ├── rules/               # Repository-scoped enforcement rules
 │   │   ├── define-lead.md   # Lead agent schema enforcement
 │   │   └── define-manager.md # Manager agent schema enforcement
@@ -80,20 +110,30 @@ The repository follows a dual-directory structure that separates plugin source c
 │       ├── archive/         # Completed tickets by branch
 │       └── abandoned/       # Cancelled tickets
 ├── plugins/                 # Plugin source directories
-│   └── core/                # Core development plugin
+│   ├── drivin/              # Drivin development plugin
+│   │   ├── .claude-plugin/  # Plugin metadata
+│   │   │   └── plugin.json  # Plugin configuration
+│   │   ├── agents/          # Subagent definitions (markdown)
+│   │   ├── commands/        # Command definitions (markdown)
+│   │   ├── hooks/           # PostToolUse hooks
+│   │   │   ├── hooks.json   # Hook configuration
+│   │   │   └── validate-ticket.sh  # Ticket validation hook
+│   │   ├── rules/           # Global rules (markdown)
+│   │   └── skills/          # Reusable knowledge modules
+│   │       └── <skill-name>/
+│   │           ├── SKILL.md  # Skill documentation
+│   │           └── sh/       # Bundled shell scripts
+│   │               └── *.sh  # Executable scripts
+│   └── trippin/             # Trippin exploration plugin
 │       ├── .claude-plugin/  # Plugin metadata
 │       │   └── plugin.json  # Plugin configuration
-│       ├── agents/          # Subagent definitions (markdown)
-│       ├── commands/        # Command definitions (markdown)
-│       ├── hooks/           # PostToolUse hooks
-│       │   ├── hooks.json   # Hook configuration
-│       │   └── validate-ticket.sh  # Ticket validation hook
-│       ├── rules/           # Global rules (markdown)
-│       └── skills/          # Reusable knowledge modules
-│           └── <skill-name>/
-│               ├── SKILL.md  # Skill documentation
+│       ├── agents/          # Agent Teams agent definitions
+│       ├── commands/        # Command definitions (trip.md)
+│       ├── rules/           # (empty, .gitkeep only)
+│       └── skills/          # Knowledge modules
+│           └── trip-protocol/
+│               ├── SKILL.md  # Protocol documentation
 │               └── sh/       # Bundled shell scripts
-│                   └── *.sh  # Executable scripts
 ├── CHANGELOG.md             # Auto-generated changelog
 ├── CLAUDE.md                # Project instructions for Claude Code
 └── README.md                # User-facing documentation
@@ -118,7 +158,7 @@ The file system layout separates concerns into three categories:
 - `release-notes/` — Concise release notes for GitHub releases
 - `guides/` — User-facing documentation
 
-**Source directories** (`plugins/core/`) contain the plugin implementation including commands, subagents, skills, rules, and hooks. These are the authoritative source for plugin behavior.
+**Source directories** (`plugins/drivin/` and `plugins/trippin/`) contain the plugin implementations including commands, subagents, skills, rules, and hooks. These are the authoritative source for plugin behavior. The drivin plugin provides the ticket-driven development workflow, while the trippin plugin provides an AI-oriented exploration workflow using Agent Teams.
 
 ### Schema Enforcement Rules
 
@@ -128,8 +168,8 @@ The `.claude/rules/` directory contains path-scoped schema enforcement rules tha
 
 The `define-lead.md` rule enforces the structure of lead agent skills and agent files:
 
-- **Skill path scope**: `plugins/core/skills/lead-*/SKILL.md`
-- **Agent path scope**: `plugins/core/agents/*-lead.md`
+- **Skill path scope**: `plugins/drivin/skills/lead-*/SKILL.md`
+- **Agent path scope**: `plugins/drivin/agents/*-lead.md`
 - **Required sections**: Role, Responsibility, Default Policies (Implementation, Review, Documentation, Execution)
 
 Examples following this schema include `lead-infra`, `lead-security`, `lead-quality`, `lead-test`, `lead-a11y`, `lead-db`, `lead-delivery`, `lead-recovery`, `lead-observability`, `lead-ux`.
@@ -138,8 +178,8 @@ Examples following this schema include `lead-infra`, `lead-security`, `lead-qual
 
 The `define-manager.md` rule enforces the structure of manager agent skills and agent files:
 
-- **Skill path scope**: Glob pattern `plugins/core/skills/manage-*/SKILL.md` (matches manage-project, manage-architecture, manage-quality)
-- **Agent path scope**: `plugins/core/agents/*-manager.md`
+- **Skill path scope**: Glob pattern `plugins/drivin/skills/manage-*/SKILL.md` (matches manage-project, manage-architecture, manage-quality)
+- **Agent path scope**: `plugins/drivin/agents/*-manager.md`
 - **Required sections**: Role, Responsibility, Goal, Outputs, Default Policies (Implementation, Review, Documentation, Execution)
 - **Key difference**: The `Outputs` section defines structured artifacts that managers produce for leaders to consume
 
@@ -173,18 +213,49 @@ Skills serve four distinct purposes in the architecture:
 
 ### Symlink Architecture
 
-The `.claude/` directory serves as the Claude Code plugin installation target. When the marketplace plugin is installed, Claude Code creates symlinks from `.claude/` to the actual plugin source in `plugins/core/`. This allows the repository to maintain plugin source separately from the Claude Code configuration directory while enabling Claude Code to load the plugins correctly.
+The `.claude/` directory serves as the Claude Code plugin installation target. When the marketplace plugins are installed, Claude Code creates symlinks from `.claude/` to the actual plugin source directories. This allows the repository to maintain plugin source separately from the Claude Code configuration directory while enabling Claude Code to load the plugins correctly.
 
-The symlink structure is:
+For each plugin, Claude Code establishes symlinks:
 
 ```
-.claude/commands -> plugins/core/commands
-.claude/agents -> plugins/core/agents
-.claude/skills -> plugins/core/skills
-.claude/rules -> plugins/core/rules
+# Drivin plugin
+~/.claude/plugins/marketplaces/workaholic/plugins/drivin/commands/
+~/.claude/plugins/marketplaces/workaholic/plugins/drivin/agents/
+~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/
+~/.claude/plugins/marketplaces/workaholic/plugins/drivin/rules/
+
+# Trippin plugin
+~/.claude/plugins/marketplaces/workaholic/plugins/trippin/commands/
+~/.claude/plugins/marketplaces/workaholic/plugins/trippin/agents/
+~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/
 ```
 
-This architecture enables development to happen in `plugins/` while Claude Code operates on `.claude/`, following the critical rule stated in `CLAUDE.md`: "Edit `plugins/` not `.claude/`."
+This architecture enables development to happen in `plugins/` while Claude Code operates on its installed plugin paths, following the critical rule stated in `CLAUDE.md`: "Edit `plugins/` not `.claude/`."
+
+### Plugin Installation and Runtime Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant CC as Claude Code
+    participant MJ as marketplace.json
+    participant PD as plugins/drivin/
+    participant PT as plugins/trippin/
+    participant IP as ~/.claude/plugins/marketplaces/workaholic/
+
+    U->>CC: /plugin marketplace add qmu/workaholic
+    CC->>MJ: Read marketplace config
+    MJ-->>CC: Plugin list (drivin, trippin)
+    CC->>PD: Read plugin.json
+    CC->>PT: Read plugin.json
+    CC->>IP: Install (symlink to plugin dirs)
+    Note over CC,IP: Commands, agents, skills, rules loaded
+    U->>CC: /drive or /trip
+    CC->>IP: Resolve command from installed path
+    IP-->>CC: Execute command markdown
+```
+
+This sequence diagram illustrates how plugins flow from marketplace registration through installation to runtime command resolution. The installed path (`~/.claude/plugins/marketplaces/workaholic/`) serves as the runtime reference while development edits happen in `plugins/`.
 
 ## Installation
 
@@ -208,7 +279,7 @@ After marketplace installation, users must enable the plugin through the Claude 
 When enabled, Claude Code:
 
 1. Creates the `.claude/` directory if it doesn't exist
-2. Establishes symlinks from `.claude/` to `plugins/core/` subdirectories
+2. Establishes symlinks from `.claude/` to `plugins/drivin/` subdirectories
 3. Loads command definitions from `commands/*.md` files
 4. Registers subagents from `agents/*.md` files
 5. Makes skills available at runtime from `skills/*/SKILL.md` files
@@ -217,7 +288,7 @@ When enabled, Claude Code:
 
 ### Hook Installation
 
-The plugin installs a PostToolUse hook that validates ticket file format and location after Write or Edit operations. The hook configuration in `plugins/core/hooks/hooks.json` specifies a matcher for Write and Edit tools and executes the `validate-ticket.sh` script with a 10-second timeout.
+The plugin installs a PostToolUse hook that validates ticket file format and location after Write or Edit operations. The hook configuration in `plugins/drivin/hooks/hooks.json` specifies a matcher for Write and Edit tools and executes the `validate-ticket.sh` script with a 10-second timeout.
 
 This hook enforces ticket naming conventions (YYYYMMDDHHmmss-*.md pattern) and location constraints (must be in `todo/`, `icebox/`, or `archive/<branch>/` directories). The validation script checks frontmatter fields including `created_at` (ISO 8601 format), `author` (email format, rejecting anthropic.com domains), `type` (enhancement/bugfix/refactoring/housekeeping), `layer` (UX/Domain/Infrastructure/DB/Config), `effort` (0.1h/0.25h/0.5h/1h/2h/4h), `commit_hash` (7-40 hex characters), and `category` (Added/Changed/Removed).
 
@@ -234,9 +305,10 @@ The installation process creates or updates several configuration files:
 The installation validates that versions are synchronized across:
 
 - `.claude-plugin/marketplace.json` root `version` field
-- `plugins/core/.claude-plugin/plugin.json` plugin `version` field
+- `plugins/drivin/.claude-plugin/plugin.json` drivin plugin `version` field
+- `plugins/trippin/.claude-plugin/plugin.json` trippin plugin `version` field
 
-Both files must specify the same version number (currently `1.0.34`). Version bumps update both files simultaneously to maintain consistency.
+All three files must specify the same version number (currently `1.0.38`). Version bumps update all files simultaneously to maintain consistency.
 
 ## Environment Requirements
 
@@ -278,10 +350,10 @@ The system requires read/write access to:
 
 - `.workaholic/` directory and all subdirectories for storing tickets, specs, guides, policies, terms, stories, and release notes
 - `CHANGELOG.md` for automated changelog updates
-- `CLAUDE.md`, `README.md`, and `plugins/core/README.md` for documentation updates
-- `.claude-plugin/marketplace.json` and `plugins/core/.claude-plugin/plugin.json` for version management
+- `CLAUDE.md`, `README.md`, `plugins/drivin/README.md`, and `plugins/trippin/README.md` for documentation updates
+- `.claude-plugin/marketplace.json`, `plugins/drivin/.claude-plugin/plugin.json`, and `plugins/trippin/.claude-plugin/plugin.json` for version management
 
-The PostToolUse hook requires execute permission on `plugins/core/hooks/validate-ticket.sh` to validate ticket writes. All bundled shell scripts in `plugins/core/skills/*/sh/` directories require execute permissions.
+The PostToolUse hook requires execute permission on `plugins/drivin/hooks/validate-ticket.sh` to validate ticket writes. All bundled shell scripts in `plugins/drivin/skills/*/sh/` directories require execute permissions.
 
 ### GitHub Authentication
 
@@ -304,7 +376,7 @@ Shell scripts use standard environment variables:
 - `CLAUDE_PLUGIN_ROOT` is set by Claude Code to point to the plugin directory, used by hooks to locate the validation script
 - Standard git environment variables (GIT_AUTHOR_NAME, GIT_AUTHOR_EMAIL, etc.) are respected for commit operations
 
-No custom environment variables are required for basic operation.
+No custom environment variables are required for basic drivin operation. The trippin plugin's `/trip` command requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` to enable the Agent Teams feature.
 
 ### Agent Orchestration
 
@@ -318,13 +390,13 @@ This orchestration pattern ensures leads receive consistent strategic context ra
 
 ## Assumptions
 
-[Explicit] The `.claude-plugin/marketplace.json` file specifies version 1.0.34 and owner email a@qmu.jp, indicating the current marketplace version and ownership.
+[Explicit] The `.claude-plugin/marketplace.json` file specifies version 1.0.38 with two plugins (drivin, trippin) and owner email a@qmu.jp.
 
 [Explicit] GitHub Actions workflows in `.github/workflows/` require Node.js 20 and use `jq` for JSON validation, as specified in the workflow YAML files.
 
 [Explicit] Shell scripts use `/bin/sh -eu` shebang and POSIX-compliant syntax, as observed in `gather-git-context/sh/gather.sh`. The ticket validation hook uses `/bin/bash` for bash-specific regex features.
 
-[Explicit] The PostToolUse hook configuration in `plugins/core/hooks/hooks.json` validates Write and Edit operations with a 10-second timeout.
+[Explicit] The PostToolUse hook configuration in `plugins/drivin/hooks/hooks.json` validates Write and Edit operations with a 10-second timeout.
 
 [Explicit] The `.claude/settings.json` file explicitly denies the Bash command pattern `git -C:*`.
 
@@ -332,7 +404,7 @@ This orchestration pattern ensures leads receive consistent strategic context ra
 
 [Explicit] Manager agents (`project-manager`, `architecture-manager`, `quality-manager`) preload the `managers-principle` skill, while lead agents preload the `leaders-principle` skill.
 
-[Inferred] The symlink architecture from `.claude/` to `plugins/core/` is inferred from the project structure rule "Edit `plugins/` not `.claude/`" and the marketplace installation pattern, though no explicit symlink creation code was observed.
+[Inferred] The symlink architecture from `.claude/` to `plugins/drivin/` is inferred from the project structure rule "Edit `plugins/` not `.claude/`" and the marketplace installation pattern, though no explicit symlink creation code was observed.
 
 [Inferred] The GitHub CLI tool (`gh`) is required for PR creation based on the create-pr skill referencing `gh pr create` commands, though no explicit installation documentation exists.
 
@@ -343,3 +415,11 @@ This orchestration pattern ensures leads receive consistent strategic context ra
 [Inferred] The ticket validation hook prevents accidental ticket writes to arbitrary locations by enforcing path constraints, ensuring tickets remain organized in the designated directories.
 
 [Inferred] The manager tier was introduced to reduce duplication of strategic analysis across lead agents. Before this change, each lead independently derived business and architectural context.
+
+[Explicit] The trippin plugin requires the experimental Agent Teams feature flag `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, as documented in trip.md.
+
+[Explicit] The trippin plugin uses git worktrees for session isolation, creating `.worktrees/<trip-name>/` directories with `trip/<trip-name>` branches.
+
+[Explicit] The marketplace now contains two plugins (drivin and trippin) with synchronized versions, as shown in marketplace.json.
+
+[Inferred] The expansion from a single-plugin to a multi-plugin marketplace validates the CI infrastructure's use of glob patterns (`plugins/*/.claude-plugin/plugin.json`) for validation.

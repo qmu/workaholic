@@ -2,15 +2,15 @@
 title: Stakeholder Viewpoint
 description: Who uses the system, their goals, and interaction patterns
 category: developer
-modified_at: 2026-02-12T18:14:33+08:00
-commit_hash: f385117
+modified_at: 2026-03-10T01:07:37+09:00
+commit_hash: f76bde2
 ---
 
 [English](stakeholder.md) | [Japanese](stakeholder_ja.md)
 
 # Stakeholder Viewpoint
 
-The Stakeholder Viewpoint identifies who interacts with the Workaholic plugin system, what goals each stakeholder pursues, and how they engage with the system through its command interface and development workflow. Workaholic is a Claude Code plugin marketplace providing ticket-driven development (TiDD) tooling, creating a triangular relationship between developers who request work, Claude Code agents that execute work, and the plugin author who maintains the system.
+The Stakeholder Viewpoint identifies who interacts with the Workaholic plugin system, what goals each stakeholder pursues, and how they engage with the system through its command interface and development workflow. Workaholic is a Claude Code plugin marketplace containing two plugins: drivin (ticket-driven development workflow) and trippin (AI-oriented exploration workflow). The system creates a triangular relationship between developers who request work, Claude Code agents that execute work, and the plugin author who maintains the system.
 
 ## Stakeholder Map
 
@@ -18,7 +18,7 @@ Workaholic serves three distinct stakeholder groups whose interactions form a de
 
 ### Primary Stakeholder: Developer (End User)
 
-The developer represents the primary consumer of Workaholic. They install the plugin from the marketplace using `/plugin marketplace add qmu/workaholic` and interact exclusively through slash commands. The developer's workflow revolves around four core commands that form a complete development cycle: `/ticket` for planning changes, `/drive` for implementation, `/scan` for documentation updates, and `/report` for PR creation.
+The developer represents the primary consumer of Workaholic. They install the marketplace using `/plugin marketplace add qmu/workaholic` and interact through slash commands. The drivin plugin provides four core commands forming a complete development cycle: `/ticket` for planning changes, `/drive` for implementation, `/scan` for documentation updates, and `/report` for PR creation. The trippin plugin provides the `/trip` command for collaborative exploration using three-agent teams.
 
 The developer operates under explicit human-in-the-loop control. During `/drive` execution, the system presents approval dialogs using `AskUserQuestion` with selectable options, requiring explicit confirmation before committing each ticket. The developer never writes tickets manually—the ticket-organizer subagent explores the codebase and writes implementation specifications on their behalf. Similarly, the developer never manually writes changelogs or PR descriptions—these generate automatically from accumulated ticket history.
 
@@ -26,9 +26,9 @@ The developer's fundamental goal is fast serial development without git worktree
 
 ### Secondary Stakeholder: Plugin Author (Maintainer)
 
-The plugin author (currently `tamurayoshiya <a@qmu.jp>`) develops and releases the plugin. They work exclusively within the `plugins/` directory structure, adding commands to `plugins/core/commands/`, agents to `plugins/core/agents/`, skills to `plugins/core/skills/`, and rules to `plugins/core/rules/`. The author follows the architecture policy defined in `CLAUDE.md`, which enforces thin commands and subagents (orchestration only) with comprehensive skills (knowledge layer).
+The plugin author (currently `tamurayoshiya <a@qmu.jp>`) develops and releases both plugins. They work exclusively within the `plugins/` directory structure, adding components to `plugins/drivin/` for the development workflow and `plugins/trippin/` for the exploration workflow. The author follows the architecture policy defined in `CLAUDE.md`, which enforces thin commands and subagents (orchestration only) with comprehensive skills (knowledge layer).
 
-The author maintains version synchronization between `.claude-plugin/marketplace.json` (marketplace version) and `plugins/core/.claude-plugin/plugin.json` (plugin version). Version management follows semantic versioning with PATCH increment by default. The `/release` command automates version bumping across both files, then stages and commits with the message "Bump version to v{new_version}".
+The author maintains version synchronization across three files: `.claude-plugin/marketplace.json` (marketplace version), `plugins/drivin/.claude-plugin/plugin.json` (drivin version), and `plugins/trippin/.claude-plugin/plugin.json` (trippin version). Version management follows semantic versioning with PATCH increment by default. The `/release` command automates version bumping across all three files, then stages and commits with the message "Bump version to v{new_version}".
 
 The author's workflow mirrors the developer's workflow but operates at the meta-level. They use the same `/ticket` and `/drive` commands to develop plugin features. Archived tickets in `.workaholic/tickets/archive/` document the evolution of the plugin itself, creating a searchable history of architectural decisions and implementation rationale.
 
@@ -177,15 +177,15 @@ Plugin authors (developers extending the plugin itself) require deeper architect
 
 The `CLAUDE.md` file in the repository root serves as the authoritative source for architecture policy, defining component nesting rules, design principles, common operations, shell script principles, commands list, development workflow, and version management.
 
-Plugin authors use the same `/ticket` and `/drive` commands to develop plugin features, but they edit files in `plugins/core/` rather than application code. The archived tickets in `.workaholic/tickets/archive/` document the evolution of the plugin architecture, providing searchable context for understanding design decisions.
+Plugin authors use the same `/ticket` and `/drive` commands to develop plugin features, but they edit files in `plugins/drivin/` rather than application code. The archived tickets in `.workaholic/tickets/archive/` document the evolution of the plugin architecture, providing searchable context for understanding design decisions.
 
 ### AI Agent Onboarding
 
-The AI agent (Claude Code) receives instructions through command markdown files in `plugins/core/commands/` and agent markdown files in `plugins/core/agents/`. Each command defines phases using preloaded skills, specifies which subagents to invoke, and includes critical rules for execution.
+The AI agent (Claude Code) receives instructions through command markdown files in `plugins/drivin/commands/` and agent markdown files in `plugins/drivin/agents/`. Each command defines phases using preloaded skills, specifies which subagents to invoke, and includes critical rules for execution.
 
 The agent learns architectural constraints from `CLAUDE.md`, which it receives as project instructions in the Claude Code environment. The nesting hierarchy (commands → subagents/skills, subagents → subagents/skills, skills → skills) prevents circular dependencies and ensures skills remain reusable knowledge components.
 
-The agent receives workflow-specific knowledge through skills in `plugins/core/skills/`. For example, the gather-git-context skill provides git context gathering via bundled shell script, eliminating inline git commands in agent markdown. The create-ticket skill defines ticket format and content requirements, ensuring consistent ticket structure across all ticket-organizer invocations.
+The agent receives workflow-specific knowledge through skills in `plugins/drivin/skills/`. For example, the gather-git-context skill provides git context gathering via bundled shell script, eliminating inline git commands in agent markdown. The create-ticket skill defines ticket format and content requirements, ensuring consistent ticket structure across all ticket-organizer invocations.
 
 ## Command Interaction Flow
 
@@ -271,8 +271,8 @@ flowchart TD
 - [Explicit] Four slash commands (`/ticket`, `/drive`, `/scan`, `/report`) constitute the primary user interface, as defined in `CLAUDE.md` lines 87-95.
 - [Explicit] The plugin author is `tamurayoshiya <a@qmu.jp>`, as declared in `marketplace.json` line 7 and `plugin.json` line 5.
 - [Explicit] Human-in-the-loop approval is mandatory during `/drive`, enforced by the `AskUserQuestion` requirement in `drive.md` line 50.
-- [Explicit] The scan command invokes 17 agents in parallel as defined in `scan.md` lines 36-57: 8 viewpoint analysts, 7 policy analysts, 1 changelog writer, 1 terms writer.
-- [Explicit] Version management requires synchronization between `marketplace.json` and `plugin.json`, as documented in `CLAUDE.md` lines 107-119.
+- [Explicit] The scan command invokes 15 agents in two phases (3 managers, then 12 leaders/writers) as defined in `scan.md`.
+- [Explicit] Version management requires synchronization across `marketplace.json`, `plugins/drivin/.claude-plugin/plugin.json`, and `plugins/trippin/.claude-plugin/plugin.json`, as documented in `CLAUDE.md`.
 - [Explicit] The scanner subagent was removed in ticket `20260208131751-migrate-scanner-into-scan-command.md` to provide agent transparency, migrating orchestration logic directly into the scan command.
 - [Explicit] The `/story` command was removed (same ticket), consolidating workflow to use `/scan` for documentation and `/report` for PR creation.
 - [Inferred] The primary audience is solo developers or small teams who use Claude Code as their main development environment, based on the serial execution model, single-branch workflow design, and explicit approval requirement at each ticket.

@@ -2,8 +2,8 @@
 title: File Conventions
 description: Naming patterns and directory structures used in Workaholic
 category: developer
-last_updated: 2026-02-12
-commit_hash: f385117
+last_updated: 2026-03-10
+commit_hash: f76bde2
 ---
 
 [English](file-conventions.md) | [日本語](file-conventions_ja.md)
@@ -47,3 +47,7 @@ policiesディレクトリ（`.workaholic/policies/`）は7つの運用ドメイ
 ## constraints
 
 constraintsディレクトリ（`.workaholic/constraints/`）はleadエージェントの決定空間を狭めるmanagerによって生成された規範的な境界を含みます。3つのファイルが存在します：`project.md`、`architecture.md`、`quality.md`で、3つのmanagerドメインに対応します。各constraintファイルはmanagers-principleで定義された構造化されたテンプレートに従い、frontmatter（manager名、last_updated）、要約、および何が制限されるか、根拠、影響を受けるleader、反証可能な基準、レビュートリガーを指定するconstraintエントリを含みます。constraintはpolicyと意味的に異なります：constraintはmanagerによって設定された戦略的な境界で、policyはleadによって生成された実装されたプラクティスの観察的ドキュメントです。関連用語：manager、lead、managers-principle、policies。
+
+## trips
+
+tripsディレクトリ（`.workaholic/.trips/`）はtrippinプラグインの`/trip`セッション中に生成されたアーティファクトを保存します。各tripセッションはtrip名のサブディレクトリ（例：`.workaholic/.trips/trip-20260309-214650/`）を作成し、3つのアーティファクトサブディレクトリを含みます：`directions/`（Planner出力）、`models/`（Architect出力）、`designs/`（Constructor出力）。アーティファクトは数値サフィックスでバージョン管理されます（`direction-v1.md`、`direction-v2.md`）。このディレクトリは`init-trip.sh`によって作成され、tripセッションは隔離されたgit worktreeで動作するため、メインの作業ツリーではgit追跡されません。関連用語：trip、direction、model、design、worktree。

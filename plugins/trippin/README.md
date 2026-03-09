@@ -4,11 +4,15 @@ AI-oriented exploration and creative development workflow for Claude Code projec
 
 ## Commands
 
-*No commands yet.*
+| Command | Description |
+| ------- | ----------- |
+| `/trip <instruction>` | Launch Agent Teams session with Planner, Architect, and Constructor |
 
 ## Skills
 
-*No skills yet.*
+| Skill | Description |
+| ----- | ----------- |
+| trip-protocol | Two-phase collaborative workflow protocol and artifact conventions |
 
 ## Rules
 

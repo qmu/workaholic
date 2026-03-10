@@ -2,8 +2,8 @@
 title: Artifacts
 description: Documentation artifacts generated during development workflows
 category: developer
-last_updated: 2026-02-07
-commit_hash: 82ffc1b
+last_updated: 2026-03-10
+commit_hash: f76bde2
 ---
 
 [English](artifacts.md) | [日本語](artifacts_ja.md)
@@ -59,3 +59,15 @@ The Final Report is an optional section at the end of a ticket documenting what 
 ## discovered-insights
 
 Discovered Insights is an optional subsection within Final Report that documents architectural patterns, code relationships, historical context, or edge cases discovered during implementation. Insights should be actionable and specific, capturing learnings valuable to future developers. Categories include hidden design decisions, non-obvious dependencies, and surprising behaviors. Appears in `.workaholic/tickets/archive/<branch>/<ticket>.md`. Related terms: ticket, final-report, archive.
+
+## direction
+
+A direction is a trip artifact produced by the Planner agent during Phase 1 (Specification) of the `/trip` workflow. It captures the creative direction, stakeholder profiling, and explanatory accountability for the trip objective. Direction artifacts are versioned as `direction-v1.md`, `direction-v2.md`, etc. in `.workaholic/.trips/<trip-name>/directions/` and undergo review by the Architect and Constructor agents before consensus. Related terms: trip, model, design.
+
+## model
+
+A model is a trip artifact produced by the Architect agent during Phase 1 (Specification) of the `/trip` workflow. It captures semantical consistency, static verification, and accessibility considerations for the trip objective. Model artifacts are versioned as `model-v1.md`, `model-v2.md`, etc. in `.workaholic/.trips/<trip-name>/models/` and undergo review by the Planner and Constructor agents before consensus. Related terms: trip, direction, design.
+
+## design
+
+A design is a trip artifact produced by the Constructor agent during Phase 1 (Specification) of the `/trip` workflow. It captures sustainable implementation plans, infrastructure reliability considerations, and delivery coordination for the trip objective. Design artifacts are versioned as `design-v1.md`, `design-v2.md`, etc. in `.workaholic/.trips/<trip-name>/designs/` and undergo review by the Planner and Architect agents before consensus. Related terms: trip, direction, model.

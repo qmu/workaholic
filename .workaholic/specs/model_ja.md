@@ -2,15 +2,15 @@
 title: Model Viewpoint
 description: Domain concepts, relationships, and core abstractions
 category: developer
-modified_at: 2026-02-12T18:14:44+08:00
-commit_hash: f385117
+modified_at: 2026-03-10T01:31:10+09:00
+commit_hash: f76bde2
 ---
 
 [English](model.md) | [Japanese](model_ja.md)
 
 # Model Viewpoint
 
-Model Viewpoint は、Workaholic のコアドメイン概念、その関係性、およびシステムが作業を組織化する方法を支配する抽象化を記述します。Workaholic は、ticket が実装を駆動し、spec と policy がシステムのアーキテクチャと実践を文書化し、story が PR のナラティブを提供し、階層的な agent アーキテクチャが動作を支配する、正確に定義されたドメインモデル上で動作します。ドメインは orchestration（command と subagent）と knowledge（skill）の間に厳格な境界を強制し、version 管理は marketplace と plugin 構成ファイル間の同期を維持します。3層の agent 階層が manager（戦略的方向性）、lead（domain 固有の実行）、汎用 subagent（workflow 自動化）を区別します。
+Model Viewpoint は、Workaholic のコアドメイン概念、その関係性、およびシステムが作業を組織化する方法を支配する抽象化を記述します。Workaholic は、ticket が実装を駆動し、spec と policy がシステムのアーキテクチャと実践を文書化し、story が PR のナラティブを提供し、階層的な agent アーキテクチャが動作を支配する、正確に定義されたドメインモデル上で動作します。ドメインは orchestration（command と subagent）と knowledge（skill）の間に厳格な境界を強制し、version 管理は marketplace と plugin 構成ファイル間の同期を維持します。3層の agent 階層が manager（戦略的方向性）、lead（domain 固有の実行）、汎用 subagent（workflow 自動化）を区別します。Marketplace は根本的に異なる orchestration モデルを持つ2つの plugin を配布します：drivin は単一 agent の ticket 駆動 workflow を使用し、trippin は git worktree 分離による Implosive Structure protocol に基づく3 agent 協調 workflow を使用します。
 
 ## Domain Entities
 
@@ -54,15 +54,19 @@ Story は `.workaholic/stories/` にある、branch の作業を PR 準備完了
 
 ### Plugin
 
-Plugin は marketplace 内の distributable な単位です。Workaholic marketplace（`marketplace.json`）は現在1つの plugin を含みます：`core`。Plugin は command、agent（subagent）、skill、rule から構成され、`.claude-plugin/plugin.json` manifest で組織化されます。Plugin は `claude /plugin marketplace add qmu/workaholic` を介してインストールされます。Core plugin は ticket 駆動開発（`/ticket`、`/drive`）、documentation 生成（`/scan`）、PR 作成（`/report`）を含む完全な開発 workflow を提供します。各 plugin は marketplace version と同期された version フィールドを宣言します。
+Plugin は marketplace 内の distributable な単位です。Workaholic marketplace（`marketplace.json`）は現在2つの plugin を含みます：`drivin`（開発 workflow）と `trippin`（探索 workflow）。Plugin は command、agent（subagent）、skill、rule から構成され、`.claude-plugin/plugin.json` manifest で組織化されます。Plugin は `claude /plugin marketplace add qmu/workaholic` を介してインストールされます。Drivin plugin は ticket 駆動開発（`/ticket`、`/drive`）、documentation 生成（`/scan`）、PR 作成（`/report`）を含む完全な開発 workflow を提供します。Trippin plugin は Agent Teams を介した `/trip` command による3 agent 協調の AI 指向探索を提供します。各 plugin は marketplace version と同期された version フィールドを宣言し、3つの構成ファイル間で version 同期が必要です。
 
 ### Command
 
-Command は slash で呼び出せるエントリーポイントです（例：`/ticket`、`/drive`、`/scan`、`/report`）。Command は subagent と skill を呼び出す薄い orchestration layer（約50-100行）です。Command は `plugins/core/commands/` に配置され、システムの最上位 orchestration 単位です。Command は skill と subagent を呼び出せますが、他のコンポーネントから呼び出されることはできません。Command は workflow ステップを定義し、AskUserQuestion を介してユーザーインタラクションを処理し、multi-phase プロセスを調整します。`/scan` command は15個の agent の並列 orchestration（3つの manager + 12個の leader/writer）をインライン化して real-time の進捗可視性をユーザーに提供するため、約100行というアーキテクチャ上の outlier です。
+Command は slash で呼び出せるエントリーポイントです（例：`/ticket`、`/drive`、`/scan`、`/report`、`/trip`）。Command は subagent と skill を呼び出す薄い orchestration layer（約50-100行）です。Command は `plugins/<plugin-name>/commands/` に配置され、システムの最上位 orchestration 単位です。Command は skill と subagent を呼び出せますが、他のコンポーネントから呼び出されることはできません。Command は workflow ステップを定義し、AskUserQuestion を介してユーザーインタラクションを処理し、multi-phase プロセスを調整します。`/scan` command は15個の agent の並列 orchestration（3つの manager + 12個の leader/writer）をインライン化して real-time の進捗可視性をユーザーに提供するため、約100行というアーキテクチャ上の outlier です。`/trip` command は個別の subagent を順次呼び出すのではなく Agent Teams session を launch するという点でユニークです。
 
 ### Subagent
 
-Subagent は command または他の subagent によって Task tool を介して呼び出される focused な AI agent です。Subagent は `plugins/core/agents/` で定義される薄い orchestration layer（約20-40行）です。Domain knowledge のために skill を preload し、他の subagent や skill を呼び出せます。Subagent は command を呼び出せません。現在の subagent には ticket-organizer（ticket 作成）、story-writer（PR ナラティブ合成）、pr-creator（GitHub PR 操作）、changelog-writer（CHANGELOG.md 更新）、terms-writer（terminology 維持）、model-analyst（model viewpoint spec）、release-readiness（release 検証）、release-note-writer（release note 生成）、overview-writer（ticket overview 生成）、performance-analyst（performance metrics）、section-reviewer（documentation section review）、drive-navigator（ticket queue navigation）、history-discoverer（related ticket search）、source-discoverer（relevant code search）、ticket-discoverer（duplicate detection）、3つの manager（project-manager, architecture-manager, quality-manager）、10個の lead（ux-lead, infra-lead, db-lead, test-lead, security-lead, quality-lead, a11y-lead, observability-lead, delivery-lead, recovery-lead）が含まれます。Subagent は frontmatter で必要な tool を宣言し、prompt を介して入力を受け取り、contract に準拠した構造化された出力を返します。
+Subagent は command または他の subagent によって Task tool を介して呼び出される focused な AI agent です。Subagent は `plugins/<plugin-name>/agents/` で定義される薄い orchestration layer（約20-40行）です。Domain knowledge のために skill を preload し、他の subagent や skill を呼び出せます。Subagent は command を呼び出せません。Drivin plugin には ticket-organizer（ticket 作成）、story-writer（PR ナラティブ合成）、pr-creator（GitHub PR 操作）、changelog-writer（CHANGELOG.md 更新）、terms-writer（terminology 維持）、model-analyst（model viewpoint spec）、release-readiness（release 検証）、release-note-writer（release note 生成）、overview-writer（ticket overview 生成）、performance-analyst（performance metrics）、section-reviewer（documentation section review）、drive-navigator（ticket queue navigation）、history-discoverer（related ticket search）、source-discoverer（relevant code search）、ticket-discoverer（duplicate detection）、3つの manager（project-manager, architecture-manager, quality-manager）、10個の lead（ux-lead, infra-lead, db-lead, test-lead, security-lead, quality-lead, a11y-lead, observability-lead, delivery-lead, recovery-lead）が含まれます。Subagent は frontmatter で必要な tool を宣言し、prompt を介して入力を受け取り、contract に準拠した構造化された出力を返します。
+
+### Trip Agent
+
+Trip agent は trippin plugin 内の特殊な agent で、Implosive Structure protocol を使用した3 agent 協調 session に参加します。Task tool で個別に呼び出される drivin subagent とは異なり、trip agent は Agent Teams session 内の teammate として動作し、直接的な呼び出しではなく共有 markdown artifact を通じてコミュニケーションします。正確に3つの trip agent があり、それぞれ distinct な哲学的 stance を持ちます：Planner（Progressive、Extrinsic Idealism）、Architect（Neutral、Structural Idealism）、Constructor（Conservative、Intrinsic Idealism）。各 agent は frontmatter で `model: opus` と固有の `color`（green、blue、yellow）を宣言し、trip-protocol skill を preload します。Trip agent は commit-per-step の規律に従い、すべての discrete action（writing、reviewing、moderating、implementing）が trip-commit script を介して git commit を生成します。
 
 ### Manager
 
@@ -149,17 +153,71 @@ flowchart TB
 
 このパターンは user experience と戦略的依存関係管理のために command サイズをトレードオフします。`/scan` command は3つの manager の後に12個の leader/writer を orchestrate するために約100行に成長し、すべての agent の real-time 進捗を表示する代わりに単一の scanner subagent 呼び出しの裏に隠すことを避けます。`run_in_background: false` constraint は critical です：background agent は Write と Edit tool の permission が denied され、出力ファイル生成時に silent failure を引き起こします。
 
+### Trip Collaboration Pattern
+
+`/trip` command は drivin plugin の sequential な agent 呼び出しとは根本的に異なる orchestration モデルを確立します。個別の subagent を Task tool で呼び出すのではなく、3つの agent（Planner、Architect、Constructor）が分離された git worktree 内の共有 artifact を通じて協調する Agent Teams session を launch します。Agent は直接的な prompt ではなく version 管理された markdown ファイルの読み書きを通じてコミュニケーションします：
+
+```mermaid
+flowchart TB
+    User["User invokes /trip"]
+    Trip["/trip command"]
+    WT["Create Worktree"]
+    Init["Initialize Trip Artifacts"]
+    Teams["Agent Teams Session"]
+
+    subgraph "Implosive Structure"
+        direction TB
+        P["Planner (Progressive)"]
+        A["Architect (Neutral)"]
+        C["Constructor (Conservative)"]
+
+        subgraph "Shared Artifacts"
+            D["directions/"]
+            Mo["models/"]
+            De["designs/"]
+        end
+
+        P -->|"writes"| D
+        A -->|"writes"| Mo
+        C -->|"writes"| De
+        P -.->|"reviews"| Mo
+        P -.->|"reviews"| De
+        A -.->|"reviews"| D
+        A -.->|"reviews"| De
+        C -.->|"reviews"| D
+        C -.->|"reviews"| Mo
+    end
+
+    User --> Trip
+    Trip --> WT
+    WT --> Init
+    Init --> Teams
+    Teams --> P
+    Teams --> A
+    Teams --> C
+```
+
+Trip session は2つのフェーズを経て進行します：Phase 1（Specification）は agent が iterative に Direction、Model、Design artifact を生成しレビューして consensus に到達する inner loop です。Phase 2（Implementation）は Constructor がビルドし、Architect が構造をレビューし、Planner がテストを通じて検証する outer loop です。すべての discrete step が git commit を生成し、trip branch の commit history を協調プロセスの complete なトレースにします。
+
 ### Skill
 
-Skill は template、guideline、rule、bundled された shell script を含むシステムの knowledge layer です。Skill は comprehensive（約50-150行）で、`plugins/core/skills/` に配置され、POSIX shell script を含む `sh/` ディレクトリを持つことがあります。Skill は他の skill を呼び出せますが、subagent や command を呼び出せません。Skill 内の shell script は permission-free で、`~/.claude/skills/<skill-name>/sh/<script>.sh` からの相対パスを使用します。Skill は規約を確立し、command と subagent に再利用可能な domain knowledge を提供します。例：gather-git-context（branch、base、URL 抽出）、gather-ticket-metadata（datetime、author）、archive-ticket（lifecycle 状態遷移）、write-changelog（CHANGELOG.md フォーマット）、write-spec（spec document guideline）、write-terms（terminology 管理）、translate（i18n 規約）、validate-writer-output（post-generation 検証）、managers-principle（横断的な manager behavioral principle）、leaders-principle（横断的な leader behavioral principle）、manage-project（project manager skill）、manage-architecture（architecture manager skill）、manage-quality（quality manager skill）、lead-ux（UX lead skill）、および10個の lead それぞれの domain 固有の lead skill。
+Skill は template、guideline、rule、bundled された shell script を含むシステムの knowledge layer です。Skill は comprehensive（約50-150行）で、`plugins/<plugin-name>/skills/` に配置され、POSIX shell script を含む `sh/` ディレクトリを持つことがあります。Skill は他の skill を呼び出せますが、subagent や command を呼び出せません。Skill 内の shell script は permission-free で、`~/.claude/plugins/marketplaces/workaholic/plugins/<plugin-name>/skills/<skill-name>/sh/<script>.sh` の絶対パスを使用します。Skill は規約を確立し、command と subagent に再利用可能な domain knowledge を提供します。Drivin plugin には gather-git-context（branch、base、URL 抽出）、gather-ticket-metadata（datetime、author）、archive-ticket（lifecycle 状態遷移）、write-changelog（CHANGELOG.md フォーマット）、write-spec（spec document guideline）、write-terms（terminology 管理）、translate（i18n 規約）、validate-writer-output（post-generation 検証）、managers-principle（横断的な manager behavioral principle）、leaders-principle（横断的な leader behavioral principle）、manage-project（project manager skill）、manage-architecture（architecture manager skill）、manage-quality（quality manager skill）、lead-ux（UX lead skill）、10個の lead それぞれの domain 固有の lead skill、drive-approval（ticket context 強制を含むユーザー承認フロー）、drive-workflow（実装 workflow）を含む skill があります。Trippin plugin には trip-protocol（Implosive Structure workflow、artifact 規約、worktree 分離、commit-per-step 規律）が含まれます。
 
 ### Rule
 
-Rule は path pattern を介して適用されるシステム全体の behavioral constraint です。Rule は `plugins/core/rules/` に配置され、general guideline（architecture nesting policy、thin orchestration principle）、diagram policy（Mermaid 要件、label quoting）、i18n 要件（`.workaholic/` に対する mandatory な `_ja.md` 翻訳）、shell scripting 標準（POSIX compliance、skill 内の bundled script）、TypeScript 規約、workaholic directory 規約（file 構造、frontmatter 要件）、define-lead schema 強制（`*-lead.md` agent と `lead-*/SKILL.md` skill 用）、define-manager schema 強制（`*-manager.md` agent と `manage-*/SKILL.md` skill 用）を含みます。Rule は path matching に基づいて Claude Code によってロードされ、明示的な呼び出しなしに globally 動作に影響を与えます。
+Rule は path pattern を介して適用されるシステム全体の behavioral constraint です。Rule は `plugins/drivin/rules/` に配置され、general guideline（architecture nesting policy、thin orchestration principle）、diagram policy（Mermaid 要件、label quoting）、i18n 要件（`.workaholic/` に対する mandatory な `_ja.md` 翻訳）、shell scripting 標準（POSIX compliance、skill 内の bundled script）、TypeScript 規約、workaholic directory 規約（file 構造、frontmatter 要件）、define-lead schema 強制（`*-lead.md` agent と `lead-*/SKILL.md` skill 用）、define-manager schema 強制（`*-manager.md` agent と `manage-*/SKILL.md` skill 用）を含みます。Rule は path matching に基づいて Claude Code によってロードされ、明示的な呼び出しなしに globally 動作に影響を与えます。Trippin plugin には現在 custom rule がなく（`.gitkeep` placeholder のみ）、drivin plugin の rule から継承されます。
 
 ### Version
 
-Version は2つの構成ファイル間で同期される semantic versioning 文字列（MAJOR.MINOR.PATCH）です：`.claude-plugin/marketplace.json`（root `version` フィールド）と `plugins/core/.claude-plugin/plugin.json`（plugin `version` フィールド）。Version 管理は CLAUDE.md 規約に従います：marketplace.json から現在の version を読み取り、デフォルトで PATCH を increment（例：1.0.0 → 1.0.1）し、両方のファイルを更新し、`Bump version to v{new_version}` というメッセージで commit します。`/report` command は story-writer を呼び出す前に自動的に patch increment を実行し、すべての PR merge が GitHub Actions release workflow（`.github/workflows/release.yml`）を介して新しい release をトリガーすることを保証します。これは marketplace.json version を最新の release tag と比較します。Branching skill は `check-version-bump.sh` script を提供し、現在の branch に既存の "Bump version" commit を検出して `/report` が複数回実行されたときの double-bumping を防ぎます。
+Version は3つの構成ファイル間で同期される semantic versioning 文字列（MAJOR.MINOR.PATCH）です：`.claude-plugin/marketplace.json`（root `version` フィールド）、`plugins/drivin/.claude-plugin/plugin.json`（drivin version）、`plugins/trippin/.claude-plugin/plugin.json`（trippin version）。Version 管理は CLAUDE.md 規約に従います：marketplace.json から現在の version を読み取り、デフォルトで PATCH を increment（例：1.0.0 → 1.0.1）し、3つのファイルすべてを更新し、`Bump version to v{new_version}` というメッセージで commit します。`/report` command は story-writer を呼び出す前に自動的に patch increment を実行し、すべての PR merge が GitHub Actions release workflow（`.github/workflows/release.yml`）を介して新しい release をトリガーすることを保証します。これは marketplace.json version を最新の release tag と比較します。Branching skill は `check-version-bump.sh` script を提供し、現在の branch に既存の "Bump version" commit を検出して `/report` が複数回実行されたときの double-bumping を防ぎます。
+
+### Trip
+
+Trip は trippin plugin によって管理される協調探索 session です。各 trip は `.worktrees/<trip-name>/` 配下の分離された git worktree で `trip/<trip-name>` という名前の branch 上で実行されます。Trip 名は `trip-YYYYMMDD-HHMMSS` パターンに従います。Trip は `.workaholic/.trips/<trip-name>/` に格納される3つのカテゴリの version 管理された artifact を生成します：direction（Planner からの creative vision）、model（Architect からの structural design）、design（Constructor からの implementation plan）。Artifact は in-place 編集ではなく version suffix（`direction-v1.md`、`direction-v2.md`）を使用し、完全な revision history を保持します。Trip は2つのフェーズを経て進行します：Specification（すべての artifact に対する consensus に到達する inner loop）と Implementation（ソリューションのビルドと検証を行う outer loop）。Trip の git commit history は complete な audit trail として機能し、各 commit は `trip(<agent>): <step>` フォーマットに従います。
+
+### Trip Artifact
+
+Trip artifact は trip session 中に trip agent によって生成される version 管理された markdown ファイルです。Artifact は生成 agent によってカテゴライズされます：direction（Planner）、model（Architect）、design（Constructor）。各 artifact は metadata フィールドを持つ構造化されたフォーマットに従います：version 番号付きタイトル、Author（agent 名）、Status（draft、under-review、または approved）、Reviewed-by（カンマ区切りの agent 名）。Artifact body は Content セクションと、reviewing agent がフィードバックを追加する Review Notes セクションを含みます。Artifact は in-place 編集ではなく version increment を通じて進化するため、`direction-v1.md` と `direction-v2.md` は同じディレクトリに共存し、agent がレビュー中に以前の version を参照できるようにします。
 
 ### Changelog Entry
 
@@ -171,7 +229,7 @@ Terms document は `.workaholic/terms/` にある、domain 固有の terminology
 
 ## Domain Relationships
 
-Domain model は entity 間の厳格な関係を強制し、component nesting 階層と lifecycle state machine によって支配されます。Manager の導入は lead の上に戦略的層を追加し、3レベルの階層を作成します：manager は戦略的 context を定義し、lead はその context を消費して domain 固有の documentation を生成し、両方が domain knowledge のために skill を消費します。
+Domain model は entity 間の厳格な関係を強制し、component nesting 階層と lifecycle state machine によって支配されます。Manager の導入は lead の上に戦略的層を追加し、3レベルの階層を作成します：manager は戦略的 context を定義し、lead はその context を消費して domain 固有の documentation を生成し、両方が domain knowledge のために skill を消費します。Trippin plugin は3つの対等な standing を持つ agent が階層的な呼び出しチェーンではなく共有 artifact を通じて協調する並列的な関係モデルを導入します。
 
 ### Component Nesting Hierarchy
 
@@ -206,6 +264,17 @@ classDiagram
         +Array skills
     }
 
+    class TripAgent {
+        +String name
+        +String description
+        +Array tools
+        +Array skills
+        +String stance
+        +String philosophy
+        +String model
+        +String color
+    }
+
     class Skill {
         +String name
         +Array scripts
@@ -227,11 +296,14 @@ classDiagram
     Command --> Manager : invokes
     Command --> Lead : invokes
     Command --> Subagent : invokes
+    Command --> TripAgent : launches via Agent Teams
     Command --> Skill : preloads
     Manager --> Skill : preloads
     Lead --> Skill : preloads
     Subagent --> Subagent : invokes
     Subagent --> Skill : preloads
+    TripAgent --> Skill : preloads
+    TripAgent --> TripAgent : collaborates with
     Skill --> Skill : references
 
     Manager --> Lead : produces outputs for
@@ -241,11 +313,12 @@ classDiagram
     Plugin --> Manager : contains
     Plugin --> Lead : contains
     Plugin --> Subagent : contains
+    Plugin --> TripAgent : contains
     Plugin --> Skill : contains
     Plugin --> Version : declares
 ```
 
-Nesting 階層は厳格に強制されます：command が最上位、manager と lead が中間層、汎用 subagent がその下、skill が最下位。Command は skill、subagent、manager、lead を呼び出せます。Manager と lead は skill を preload し、他の subagent を呼び出せます。Subagent は skill を preload し、他の subagent を呼び出せます。Skill は他の skill のみを参照できます。この階層は orchestration が薄く保たれ、knowledge が再利用可能な skill に centralize されることを保証します。
+Nesting 階層は drivin plugin に対して厳格に強制されます：command が最上位、manager と lead が中間層、汎用 subagent がその下、skill が最下位。Command は skill、subagent、manager、lead を呼び出せます。Manager と lead は skill を preload し、他の subagent を呼び出せます。Subagent は skill を preload し、他の subagent を呼び出せます。Skill は他の skill のみを参照できます。Trippin plugin は trip agent が Task tool 階層を通じて個別に呼び出されるのではなく、Agent Teams を介して collectively に launch される lateral な関係モデルを導入します。
 
 ### Work Artifact Relationships
 
@@ -298,8 +371,16 @@ classDiagram
         +Float velocity
     }
 
+    class TripArtifact {
+        +String author
+        +String status
+        +String reviewed_by
+        +Int version
+    }
+
     Command --> Ticket : produces
     Command --> Story : produces
+    Command --> TripArtifact : produces (via Agent Teams)
     Manager --> Spec : produces (4 viewpoints)
     Manager --> Constraint : produces
     Lead --> Spec : produces (1 viewpoint)
@@ -312,7 +393,7 @@ classDiagram
     Constraint --> Lead : narrows decision space for
 ```
 
-関係は workflow を反映します：command は ticket と story を作成し、manager は戦略的出力（spec、constraint）を生成し、lead は domain 固有の documentation（spec、policy）を生成し、ticket は spec と policy 両方への更新をトリガーします。Manager は戦略的 context が利用可能であることを保証するために lead の前に実行されます。
+関係は2つの distinct な workflow パラダイムを反映します。Drivin workflow では、command は ticket と story を作成し、manager は戦略的出力（spec、constraint）を生成し、lead は domain 固有の documentation（spec、policy）を生成し、ticket は spec と policy 両方への更新をトリガーします。Manager は戦略的 context が利用可能であることを保証するために lead の前に実行されます。Trippin workflow では、`/trip` command は協調的な Agent Teams session を通じて trip artifact を生成し、artifact は階層的な delegation ではなく versioned consensus を通じて進化します。
 
 ## Domain Invariants
 
@@ -332,7 +413,7 @@ Domain は概念がどのように関連するかを制約するいくつかの 
 
 **Language segregation**：`.workaholic/` のファイルは日本語コンテンツを含むことができる唯一のファイルです。他のすべてのコンテンツ（code、code comment、commit message、pull request、`.workaholic/` 外の documentation）は英語でなければなりません。この invariant は codebase を bilingual なユーザー向け layer と English-only の実装 layer に partition します。
 
-**Version synchronization**：Marketplace version（`.claude-plugin/marketplace.json`）と plugin version（`plugins/core/.claude-plugin/plugin.json`）は同期を維持しなければなりません。Version bump は両方のファイルを atomically に更新します。この invariant は marketplace catalog と plugin manifest が distributed version について一致することを保証します。
+**Version synchronization**：Marketplace version（`.claude-plugin/marketplace.json`）と両方の plugin version（`plugins/drivin/.claude-plugin/plugin.json` と `plugins/trippin/.claude-plugin/plugin.json`）は同期を維持しなければなりません。Version bump は3つのファイルすべてを atomically に更新します。この invariant は marketplace catalog と plugin manifest が distributed version について一致することを保証します。
 
 **Shell script encapsulation**：Command と subagent は complex な inline shell command（conditional、pipe、loop、text processing）を含めません。すべての multi-step または conditional shell 操作は skill（`skills/<name>/sh/<script>.sh`）の bundled script に抽出されなければなりません。この invariant は consistency、testability、permission-free execution を保証します。
 
@@ -344,11 +425,27 @@ Domain は概念がどのように関連するかを制約するいくつかの 
 
 **Principle skill preloading**：すべての manager agent は最初の skill として managers-principle を preload しなければなりません。すべての lead agent は最初の skill として leaders-principle を preload しなければなりません。この invariant は横断的な behavioral principle（Constraint Setting、Strategic Focus、Prior Term Consistency、Vendor Neutrality）が階層全体で一貫して適用されることを保証します。
 
+**Ticket context in approval prompts**：Drive-approval skill は承認 prompt に ticket の title（H1 heading から）と overview（Overview section から）を含むことを強制します。Missing、empty、または literal placeholder value を含む承認 prompt の提示は明示的に failure condition として定義されます。現在の会話状態で ticket context が利用不可能な場合、agent は prompt を提示する前に ticket ファイルを再読み取りしなければなりません。この invariant はユーザーが informed な承認判断を下せることを保証します。
+
+**Trip worktree isolation**：各 trip session は `.worktrees/<trip-name>/` 配下の専用 git worktree で `trip/<trip-name>` という名前の branch 上で実行されなければなりません。Ensure-worktree script は作成前に duplicate worktree または branch が存在しないことを強制します。この invariant は trip の探索作業が main working tree および他の concurrent trip から分離されることを保証します。
+
+**Trip commit-per-step discipline**：Trip session におけるすべての discrete workflow step は trip-commit script を介して git commit を生成しなければなりません。Commit message は `trip(<agent>): <step>` フォーマットに従い、body に phase 情報を含みます。この invariant は trip branch の commit history が協調プロセスの complete で traceable な record であることを保証し、すべての決定と revision の事後レビューを可能にします。
+
+**Trip consensus gate**：Implosive Structure の Phase 1（Specification）は、3つすべての trip agent が Direction、Model、Design artifact が internally consistent であること、unresolved な disagreement が残っていないこと、artifact が implementation を開始するのに sufficient であることを確認するまで、Phase 2（Implementation）に遷移できません。この invariant は incomplete または contested な specification に基づく premature implementation を防ぎます。
+
+**Trip artifact versioning**：Trip artifact は in-place 編集ではなく version suffix 付きの filename（`direction-v1.md`、`direction-v2.md`）を使用しなければなりません。各 revision は新しいファイルを作成し、artifact directory 内の完全な revision history を保持します。この invariant は agent が以前の version を参照できるようにすることで review と moderation protocol をサポートします。
+
+**Trip moderation protocol**：2つの trip agent が disagree した場合、3番目の agent が moderator として機能します。Moderator の割り当ては deterministic rule に従います：Planner と Architect の disagreement は Constructor が moderate し、Architect と Constructor は Planner が、Planner と Constructor は Architect が moderate します。この invariant はすべての disagreement に定義された resolution path があることを保証します。
+
+**Trip name validation**：Trip 名はパターン `^[a-z0-9][a-z0-9-]*[a-z0-9]$`（小文字英数字とハイフン、先頭と末尾のハイフンなし）に一致しなければなりません。これは init-trip script によって強制され、trip 名が git branch suffix およびディレクトリ名として有効であることを保証します。
+
 ## Naming Conventions
 
 Domain model は entity type、関係、role を即座に認識可能にする systematic な naming convention を通じて knowledge を encode します：
 
-**Command naming**：Command は user intent を直接記述する imperative verb または短い noun を使用します：`/ticket`（work item 作成）、`/drive`（work item 実装）、`/scan`（documentation 更新）、`/report`（PR 生成）。名前はユーザーリクエストの自然言語パターンに一致するように選ばれます。
+**Command naming**：Command は user intent を直接記述する imperative verb または短い noun を使用します：`/ticket`（work item 作成）、`/drive`（work item 実装）、`/scan`（documentation 更新）、`/report`（PR 生成）、`/trip`（協調的な探索）。Drivin plugin の command は ticket 駆動開発の vocabulary を反映し、trippin plugin の `/trip` command は plugin の探索指向のアイデンティティに一致する journey メタファーを使用します。
+
+**Plugin naming**：Plugin は運用的な特徴を伝える口語的な現在分詞形を使用します：`drivin`（ticket を通じて開発を forward に drive する）と `trippin`（アイデアを explore するために trip する）。Informal な naming は agent と skill に使用される formal な domain vocabulary と plugin を区別します。
 
 **Manager naming**：Manager は agent ファイルに `<domain>-manager`、skill ファイルに `manage-<domain>` を使用する role-based naming を使用します。パターンは一貫しています：`project-manager` agent は `manage-project` skill を使用、`architecture-manager` agent は `manage-architecture` skill を使用、`quality-manager` agent は `manage-quality` skill を使用。Suffix は戦略的層を示します。
 
@@ -356,15 +453,19 @@ Domain model は entity type、関係、role を即座に認識可能にする s
 
 **Subagent naming**：Manager でも lead でもない subagent は `-writer`、`-analyst`、`-organizer`、`-discoverer`、または `-navigator` suffix を使用する role-based naming を使用します。パターンは `<domain>-<role>` です：`ticket-organizer`（ticket 作成を organize）、`story-writer`（story を write）、`changelog-writer`（changelog を write）、`model-analyst`（model viewpoint を analyze）、`terms-writer`（terms を write）、`history-discoverer`（related ticket を find）、`source-discoverer`（relevant code を find）、`ticket-discoverer`（duplicate を detect）、`drive-navigator`（ticket queue を navigate）。Suffix は subagent の function を示します：analyst は spec/policy を生成、writer は changelog/terms/story を生成、organizer は workflow を coordinate、discoverer は search を実行、navigator は sequence を manage。
 
-**Skill naming**：Skill は目的を記述する verb-noun phrase を使用します：`gather-git-context`、`archive-ticket`、`write-spec`、`validate-writer-output`、`translate`、`managers-principle`、`leaders-principle`、`branching`。Naming は skill を self-documenting にし、適切な usage context を示唆します。Principle skill は `-principle` suffix を使用して全層に適用される横断的な behavioral rule を示します。
+**Trip agent naming**：Trip agent は Implosive Structure における機能を記述する simple な role noun を使用します：`planner`（creative direction）、`architect`（structural design）、`constructor`（implementation）。Compound な `<domain>-<role>` 名を使用する drivin subagent とは異なり、trip agent は single word を使用します。これは、そのアイデンティティが特定の domain-role combination ではなく philosophical stance によって定義されるためです。
 
-**File naming**：File は entity type に基づく consistent なパターンに従います。Ticket は chronological ordering のために timestamp prefix を持つ `YYYYMMDDHHMMSS-kebab-case-description.md` を使用します。Spec は viewpoint slug を使用：`stakeholder.md`、`model.md`、`ux.md`、`usecase.md`。Policy は domain slug を使用：`test.md`、`security.md`、`quality.md`。Constraint は manager scope を使用：`project.md`、`architecture.md`、`quality.md`。Story は branch 名を使用：`drive-20260208-131649.md`。翻訳は `_ja` suffix を追加：`model_ja.md`、`test_ja.md`。パターンは filename だけから entity type を識別可能にします。
+**Skill naming**：Skill は目的を記述する verb-noun phrase を使用します：`gather-git-context`、`archive-ticket`、`write-spec`、`validate-writer-output`、`translate`、`managers-principle`、`leaders-principle`、`branching`。Naming は skill を self-documenting にし、適切な usage context を示唆します。Principle skill は `-principle` suffix を使用して全層に適用される横断的な behavioral rule を示します。Trippin plugin の `trip-protocol` skill は、実行するアクションではなく定義する protocol を記述する `<noun>-<noun>` パターンを使用します。
 
-**Directory naming**：Directory は lifecycle 状態と categorization を encode します。`.workaholic/tickets/todo/` は実装準備完了の作業を含みます。`.workaholic/tickets/archive/<branch-name>/` は branch ごとに組織化された完了した作業を保持します。`.workaholic/specs/` は viewpoint ベースの architecture documentation を含みます。`.workaholic/policies/` は practice ベースの repository documentation を含みます。`.workaholic/constraints/` は manager が生成した decision boundary を含みます。`.workaholic/stories/` は PR narrative を含みます。`.workaholic/terms/` は terminology 定義を含みます。構造は domain の mental model を反映します。
+**File naming**：File は entity type に基づく consistent なパターンに従います。Ticket は chronological ordering のために timestamp prefix を持つ `YYYYMMDDHHMMSS-kebab-case-description.md` を使用します。Spec は viewpoint slug を使用：`stakeholder.md`、`model.md`、`ux.md`、`usecase.md`。Policy は domain slug を使用：`test.md`、`security.md`、`quality.md`。Constraint は manager scope を使用：`project.md`、`architecture.md`、`quality.md`。Story は branch 名を使用：`drive-20260208-131649.md`。Trip artifact は type-version を使用：`direction-v1.md`、`model-v2.md`、`design-v1.md`。翻訳は `_ja` suffix を追加：`model_ja.md`、`test_ja.md`。パターンは filename だけから entity type を識別可能にします。
 
-**Frontmatter field naming**：Frontmatter field は timestamp に `_at` suffix を持つ snake_case（`created_at`、`started_at`、`ended_at`、`modified_at`、`last_updated`）と他のフィールドに descriptive noun（`commit_hash`、`tickets_completed`、`duration_hours`、`velocity`）を使用します。Suffix convention は temporal field を即座に認識可能にし、他の metadata と区別します。
+**Directory naming**：Directory は lifecycle 状態と categorization を encode します。`.workaholic/tickets/todo/` は実装準備完了の作業を含みます。`.workaholic/tickets/archive/<branch-name>/` は branch ごとに組織化された完了した作業を保持します。`.workaholic/specs/` は viewpoint ベースの architecture documentation を含みます。`.workaholic/policies/` は practice ベースの repository documentation を含みます。`.workaholic/constraints/` は manager が生成した decision boundary を含みます。`.workaholic/stories/` は PR narrative を含みます。`.workaholic/terms/` は terminology 定義を含みます。`.workaholic/.trips/<trip-name>/` は agent role（direction、model、design）で組織化された trip session artifact を含みます。構造は domain の mental model を反映し、`.trips` の先頭ドットは trip artifact が persistent な documentation ではなく transient な exploration data であることを示します。
 
-**Branch naming**：Branch は prefix-timestamp format を使用します：`/drive` session には `drive-YYYYMMDD-HHMMSS`、feature 作業には `feat-YYYYMMDD-HHMMSS`。Timestamp は chronological ordering と collision-free naming を可能にします。Prefix は branch の目的を示します。
+**Frontmatter field naming**：Frontmatter field は timestamp に `_at` suffix を持つ snake_case（`created_at`、`started_at`、`ended_at`、`modified_at`、`last_updated`）と他のフィールドに descriptive noun（`commit_hash`、`tickets_completed`、`duration_hours`、`velocity`）を使用します。Suffix convention は temporal field を即座に認識可能にし、他の metadata と区別します。Trip agent frontmatter は追加フィールドを導入します：`model`（使用する LLM モデル）、`color`（Agent Teams での visual identification）。Stance は frontmatter ではなく prose で encode されます。
+
+**Branch naming**：Branch は prefix-timestamp format を使用します：`/drive` session には `drive-YYYYMMDD-HHMMSS`、feature 作業には `feat-YYYYMMDD-HHMMSS`、trip session には `trip/<trip-name>`。Timestamp は chronological ordering と collision-free naming を可能にします。Prefix は branch の目的を示し、trip branch の slash separator は git の ref hierarchy ですべての trip branch をグループ化する namespace を作成します。
+
+**Commit message naming**：Drivin commit は context によって決定される conventional format に従います（implementation commit、archive commit、bump commit）。Trip commit は厳格なフォーマットに従います：`trip(<agent>): <step>`、body に `Phase: <phase>`。この convention により、git log だけから完全な collaboration timeline を再構築でき、どの agent がどのアクションをどの phase で実行したかを識別できます。
 
 ## Assumptions
 
@@ -373,12 +474,12 @@ Domain model は entity type、関係、role を即座に認識可能にする s
 - [Explicit] `/scan` command は manager 出力が leader 消費のために利用可能であることを保証するために、2つの distinct な並列フェーズで leader の前に manager を呼び出します。
 - [Explicit] Communication-lead から ux-lead への rename は、lead の user experience に対する responsibility をより良く capture するための domain terminology の refinement を反映します。
 - [Explicit] Ticket frontmatter field は `hooks/hooks.json` で定義された PostToolUse hook によって検証され、すべての ticket が schema に準拠することを保証します。
-- [Explicit] Marketplace は現在正確に1つの plugin（`core`）を含み、`.claude-plugin/marketplace.json` で見られます。
-- [Explicit] Marketplace.json と plugin.json 間の version synchronization は `CLAUDE.md` Version Management section で文書化されています。
+- [Explicit] Marketplace は現在2つの plugin（`drivin` と `trippin`）を含み、`.claude-plugin/marketplace.json` で見られます。
+- [Explicit] Marketplace.json と両方の plugin.json ファイル間の version synchronization は `CLAUDE.md` Version Management section で文書化されています。
 - [Explicit] `/report` command は story-writer を呼び出す前に自動的に version を bump し、`/report` が同じ branch で複数回実行されたときの double-bumping を防ぐための `check-version-bump.sh` script による idempotency protection を持ちます。
 - [Explicit] Scan agent のための `run_in_background: false` constraint は file 生成のために Write と Edit permission が利用可能であることを保証します。
-- [Explicit] Define-manager schema は `plugins/core/skills/manage-*/SKILL.md` と `plugins/core/agents/*-manager.md` のための path pattern で `.claude/rules/define-manager.md` を介して強制されます。
-- [Explicit] Define-lead schema は `plugins/core/skills/lead-*/SKILL.md` と `plugins/core/agents/*-lead.md` のための path pattern で `.claude/rules/define-lead.md` を介して強制されます。
+- [Explicit] Define-manager schema は `plugins/drivin/skills/manage-*/SKILL.md` と `plugins/drivin/agents/*-manager.md` のための path pattern で `.claude/rules/define-manager.md` を介して強制されます。
+- [Explicit] Define-lead schema は `plugins/drivin/skills/lead-*/SKILL.md` と `plugins/drivin/agents/*-lead.md` のための path pattern で `.claude/rules/define-lead.md` を介して強制されます。
 - [Explicit] Managers-principle skill はすべての manager のための横断的 principle を定義します：Constraint Setting と Strategic Focus。
 - [Explicit] Leaders-principle skill はすべての lead のための横断的 principle を定義します：Prior Term Consistency と Vendor Neutrality。
 - [Explicit] Manager 出力は consuming leader の明示的な naming とともに manage-* skill ファイルで定義されます。
@@ -386,10 +487,24 @@ Domain model は entity type、関係、role を即座に認識可能にする s
 - [Explicit] Constraint file template は必須フィールドとともに managers-principle skill で定義されます：Bounds、Rationale、Affects、Criterion、Review trigger。
 - [Explicit] Skill は lead が生成する `.workaholic/policies/` 出力 artifact との semantic collision を避けるために managers-policy/leaders-policy から managers-principle/leaders-principle に rename されました。
 - [Explicit] Manage-branch skill は manager tier naming pattern との naming collision を避けるために branching に rename されました。
+- [Explicit] Drive-approval skill は承認 prompt に ticket title と overview を含むことを強制し、context が失われた場合の再読み取り fallback を持ちます。Missing context を含む prompt の提示は failure condition として定義されます。
+- [Explicit] Trippin plugin は3 agent 協調のために Agent Teams（`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`）を使用し、experimental feature の有効化が必要です。
+- [Explicit] Trip agent は frontmatter で `model: opus` と個別の `color` value（green、blue、yellow）を宣言し、`model: sonnet` を使用する drivin subagent と区別されます。
+- [Explicit] Implosive Structure protocol は3つの philosophical stance を定義します：Planner の Progressive（Extrinsic Idealism）、Architect の Neutral（Structural Idealism）、Constructor の Conservative（Intrinsic Idealism）。
+- [Explicit] Trip session は ensure-worktree script によって強制される `.worktrees/<trip-name>/` 配下の分離された git worktree で `trip/<trip-name>` という名前の branch 上で実行されます。
+- [Explicit] Trip artifact versioning は trip-protocol skill で定義されているように、revision history を保持するために suffix 付き filename（`direction-v1.md`、`direction-v2.md`）を使用します。
+- [Explicit] Trip moderation protocol は2つの agent が disagree した場合に3番目の agent を moderator として割り当て、deterministic な assignment table を持ちます。
+- [Explicit] Trip name validation は init-trip script を介して `^[a-z0-9][a-z0-9-]*[a-z0-9]$` を強制します。
+- [Explicit] Trip commit message は trip-commit script で実装されているように `trip(<agent>): <step>` フォーマットに従い、body に phase を含みます。
 - [Inferred] Domain model は意図的にシンプルで flat であり、git versioning と Claude Code の file-based tooling との互換性を維持するために database 構造よりも markdown ファイルを favoring します。
 - [Inferred] "Thin orchestration, comprehensive knowledge" pattern は agent の behavior を deterministic に保つために domain knowledge を agent 全体に distribute するのではなく skill に centralize する design decision を反映します。
 - [Inferred] Lead の上への manager の導入は戦略的 context setting が domain 固有の実行から分離されるべきという principle を示唆し、manager が "what and why" を定義し、lead が "how" を処理します。
+- [Inferred] 単一の plugin（`core`）から2つの plugin（`drivin`、`trippin`）への拡大は、modular で independently evolving な workflow plugin の design philosophy を signal します -- 一方は hierarchical で ticket 駆動、もう一方は lateral で consensus 駆動。
 - [Inferred] Managers-principle の Constraint Setting workflow は manager が deliberate boundary（policy、guideline、roadmap、decision record）を通じて decision space を狭めることに primarily responsible であり、直接作業を実行するのではないことを示唆します。
 - [Inferred] Mandatory な bilingual documentation 要件は英語と日本語の両方の話者を含む stakeholder base を反映し、両言語に equal importance が割り当てられています。
 - [Inferred] Ticket lifecycle の一方向状態遷移（archive から todo への reverse なし）はシステムが workflow flexibility よりも historical integrity と change tracking を value することを示唆します。
 - [Inferred] Constraint のための falsifiability 要件は aspirational goal や vague guideline よりも concrete で verifiable な boundary を preference することを反映します。
+- [Inferred] Trippin plugin がすべての3つの agent に `model: opus` を使用すること（drivin の scan subagent の `model: sonnet` と比較して）は、collaborative exploration がより高い capability の推論を必要とし、documentation 生成はより efficient なモデルで処理できることを示唆します。
+- [Inferred] `.trips` ディレクトリが他の `.workaholic/` subdirectory（specs、policies、stories）とは異なり先頭ドット prefix を使用していることは、trip artifact が persistent な project documentation ではなく transient な exploration data と見なされることを示唆します。
+- [Inferred] Trippin plugin に custom rule がないこと（`.gitkeep` のみ）は、drivin plugin の rule から sufficient な behavioral constraint を inherit しているか、trippin domain のための rule 開発が planned だがまだ実装されていないことを示唆します。
+- [Inferred] Trip-protocol skill の dual objectives framework（Goal: optimization problem、Responsibility: constraint satisfaction）は、manager-leader 関係にも見られる creative output と structural constraint のバランスという Workaholic の広範なパターンを mirror します。

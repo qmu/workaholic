@@ -1,6 +1,6 @@
 {
   "name": "workaholic",
-  "version": "1.0.37",
+  "version": "1.0.38",
   "description": "Standard Claude Code Configuration in qmu",
   "owner": {
     "name": "tamurayoshiya",
@@ -8,14 +8,25 @@
   },
   "plugins": [
     {
-      "name": "core",
+      "name": "drivin",
       "description": "Core development workflow: branch, commit, pull-request, ticket-driven development",
-      "version": "1.0.37",
+      "version": "1.0.38",
       "author": {
         "name": "tamurayoshiya",
         "email": "a@qmu.jp"
       },
-      "source": "./plugins/core",
+      "source": "./plugins/drivin",
+      "category": "development"
+    },
+    {
+      "name": "trippin",
+      "description": "AI-oriented exploration and creative development workflow",
+      "version": "1.0.38",
+      "author": {
+        "name": "tamurayoshiya",
+        "email": "a@qmu.jp"
+      },
+      "source": "./plugins/trippin",
       "category": "development"
     }
   ]

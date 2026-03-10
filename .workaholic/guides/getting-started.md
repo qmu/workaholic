@@ -2,8 +2,8 @@
 title: Getting Started
 description: Installation and first steps with Workaholic
 category: user
-modified_at: 2026-01-28T21:38:50+09:00
-commit_hash: fe3d558
+modified_at: 2026-03-10T01:13:03+09:00
+commit_hash: f76bde2
 ---
 
 [English](getting-started.md) | [日本語](getting-started_ja.md)
@@ -36,11 +36,17 @@ When prompted, choose user scope for personal use. Enabling auto-updates is reco
 
 After installation, the following commands become available:
 
+**Drivin plugin** (ticket-driven development):
 ```bash
-/branch         # Create timestamped topic branches
 /ticket         # Write implementation specs
 /drive          # Implement tickets one by one
+/scan           # Full documentation scan
 /report         # Generate docs and create PRs
+```
+
+**Trippin plugin** (exploration and creative development):
+```bash
+/trip           # Launch Agent Teams session
 ```
 
 ## Next Steps

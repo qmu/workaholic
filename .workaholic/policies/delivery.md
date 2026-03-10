@@ -2,15 +2,15 @@
 title: Delivery Policy
 description: CI/CD pipeline, release process, and deployment practices
 category: developer
-modified_at: 2026-02-12T10:20:09+0000
-commit_hash: f385117
+modified_at: 2026-03-10T00:00:00+0000
+commit_hash: f76bde2
 ---
 
 [English](delivery.md) | [Japanese](delivery_ja.md)
 
 # Delivery Policy
 
-This document describes the continuous integration, delivery, and release practices observed in the Workaholic repository. Delivery is automated through GitHub Actions workflows and plugin commands. The repository follows a ticket-driven development workflow where implementation work flows through structured stages from specification to release.
+This document describes the continuous integration, delivery, and release practices observed in the Workaholic repository. Delivery is automated through GitHub Actions workflows and plugin commands. The repository follows a ticket-driven development workflow where implementation work flows through structured stages from specification to release. Two plugins provide distinct delivery workflows: Drivin for ticket-driven development and Trippin for collaborative exploration.
 
 ## CI/CD Pipeline
 
@@ -19,7 +19,7 @@ This document describes the continuous integration, delivery, and release practi
 The `validate-plugins.yml` workflow (`on: push/pull_request: branches: [main]`) runs on every push and pull request to `main`, executing four validation steps on `ubuntu-latest` with Node.js 20:
 
 1. **Marketplace JSON validation**: Validates `.claude-plugin/marketplace.json` is syntactically correct JSON using `jq empty` (step: "Validate marketplace.json")
-2. **Plugin metadata validation**: Validates each `plugin.json` contains required fields (`name`, `version`) using `jq -r` extraction and null checks (step: "Validate plugin.json files")
+2. **Plugin metadata validation**: Validates each `plugin.json` under `plugins/*/.claude-plugin/` contains required fields (`name`, `version`) using `jq -r` extraction and null checks (step: "Validate plugin.json files")
 3. **Skill file existence check**: Verifies that all skill files referenced in `plugin.json` exist on disk using `jq -r '.skills[]?.path'` and file existence tests (step: "Check skill files exist")
 4. **Plugin directory consistency**: Ensures every plugin listed in `marketplace.json` has a corresponding directory in `plugins/` (step: "Validate marketplace plugins match directories")
 
@@ -41,7 +41,7 @@ Not observed. As a Claude Code plugin marketplace, Workaholic does not produce c
 
 ### Dependency Management
 
-Not observed. No `package.json`, `requirements.txt`, or dependency manifests exist. The plugin depends only on GitHub CLI (`gh`) and standard Unix tools available in the CI environment.
+Not observed. No `package.json`, `requirements.txt`, or dependency manifests exist. The plugins depend only on GitHub CLI (`gh`) and standard Unix tools available in the CI environment.
 
 ## Deployment Strategy
 
@@ -73,12 +73,13 @@ Not observed. No staging, preview, or pre-production environment exists. All cha
 
 ### Version Management
 
-Two version files must remain synchronized:
+Three version files must remain synchronized:
 
 - `.claude-plugin/marketplace.json` - root `version` field and `plugins[].version` entries
-- `plugins/core/.claude-plugin/plugin.json` - plugin `version` field
+- `plugins/drivin/.claude-plugin/plugin.json` - Drivin plugin `version` field
+- `plugins/trippin/.claude-plugin/plugin.json` - Trippin plugin `version` field
 
-The `/release` command (`.claude/commands/release.md`) handles version synchronization. It accepts `major`, `minor`, or `patch` (default) as argument, increments the version semantically, and updates all version fields.
+The `/release` command handles version synchronization. It accepts `major`, `minor`, or `patch` (default) as argument, increments the version semantically, and updates all version fields. The CLAUDE.md Version Management section documents the authoritative list of version files and the bump procedure.
 
 ### Release Command Workflow
 
@@ -87,17 +88,17 @@ The `/release` command follows this sequence:
 1. Read current version from `.claude-plugin/marketplace.json`
 2. Increment version based on argument (default: `patch`)
 3. Update `version` field in `.claude-plugin/marketplace.json`
-4. Update `version` field in `plugins/core/.claude-plugin/plugin.json`
-5. Update plugin version entries in the `plugins` array within `marketplace.json`
-6. Sync documentation by reading `plugins/core/commands/sync-work.md` and following its instructions
-7. Commit with message `Release v{new_version}`
+4. Update `version` field in `plugins/drivin/.claude-plugin/plugin.json`
+5. Update `version` field in `plugins/trippin/.claude-plugin/plugin.json`
+6. Update plugin version entries in the `plugins` array within `marketplace.json`
+7. Commit with message `Bump version to v{new_version}`
 8. Push to remote
 
-The release command uses semantic versioning (e.g., `1.0.34`).
+The release command uses semantic versioning (e.g., `1.0.38`).
 
 ### Automated Release Notes
 
-The release workflow prefers generated release notes from `.workaholic/release-notes/<branch-name>.md` over git log extraction. The `release-note-writer` subagent (`plugins/core/agents/release-note-writer.md`) generates release notes during PR creation via the `/report` command.
+The release workflow prefers generated release notes from `.workaholic/release-notes/<branch-name>.md` over git log extraction. The `release-note-writer` subagent (`plugins/drivin/agents/release-note-writer.md`) generates release notes during PR creation via the `/report` command.
 
 Release note generation happens at PR creation time, not at release time. The workflow consumes pre-generated notes if available.
 
@@ -112,25 +113,26 @@ Version bumping is manual (developer runs `/release` command) rather than automa
 Development branches follow these patterns:
 
 - `drive-<YYYYMMDD>-<HHMMSS>` - ticket-driven development branches (created by `branching` skill: `create.sh drive`)
-- `trip-<YYYYMMDD>-<HHMMSS>` - alternative branch type for more AI-oriented development (created by `branching` skill: `create.sh trip`)
+- `trip-<YYYYMMDD>-<HHMMSS>` - exploration branches created directly from the main branch (created by `branching` skill: `create.sh trip`)
+- `trip/<trip-name>` - worktree-isolated trip branches created by the Trippin plugin's `ensure-worktree.sh` script for Agent Teams sessions
 
-The base branch is `main`. All pull requests target `main`. Branch creation and state checking is handled by the `branching` skill (`plugins/core/skills/branching/SKILL.md`) with bundled shell scripts.
+The base branch is `main`. All pull requests target `main`. Branch creation and state checking is handled by the `branching` skill (`plugins/drivin/skills/branching/SKILL.md`) with bundled shell scripts for drive branches. The Trippin plugin manages its own branch creation via the `trip-protocol` skill (`plugins/trippin/skills/trip-protocol/SKILL.md`).
 
 ### PR Creation Workflow
 
-The `/report` command (`plugins/core/commands/report.md`) orchestrates PR creation:
+The `/report` command (`plugins/drivin/commands/report.md`) orchestrates PR creation:
 
-1. Check if version already bumped using `branching` skill (`bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/branching/sh/check-version-bump.sh`). If `already_bumped` is `true` (a "Bump version" commit exists in current branch since diverging from main), skip the bump. Otherwise, bump version following CLAUDE.md Version Management (patch increment).
-2. Invoke `story-writer` subagent (`subagent_type: "core:story-writer"`, `model: "opus"`)
+1. Check if version already bumped using `branching` skill (`bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/branching/sh/check-version-bump.sh`). If `already_bumped` is `true` (a "Bump version" commit exists in current branch since diverging from main), skip the bump. Otherwise, bump version following CLAUDE.md Version Management (patch increment).
+2. Invoke `story-writer` subagent (`subagent_type: "drivin:story-writer"`, `model: "opus"`)
 3. Display PR URL from story-writer result
 
-The `story-writer` subagent (`plugins/core/agents/story-writer.md`) generates branch story, commits it, invokes `pr-creator` and `release-note-writer` in parallel, and outputs the PR URL.
+The `story-writer` subagent (`plugins/drivin/agents/story-writer.md`) generates branch story, commits it, invokes `pr-creator` and `release-note-writer` sequentially, and outputs the PR URL.
 
-The version bump idempotency check prevents double-bumping when `/report` is called multiple times in the same branch (implemented via `plugins/core/skills/branching/sh/check-version-bump.sh` which uses `git log main..HEAD --oneline --grep="Bump version"`).
+The version bump idempotency check prevents double-bumping when `/report` is called multiple times in the same branch (implemented via `plugins/drivin/skills/branching/sh/check-version-bump.sh` which uses `git log main..HEAD --oneline --grep="Bump version"`).
 
 ### PR Creation Script
 
-The `plugins/core/skills/create-pr/sh/create-or-update.sh` script handles PR operations:
+The `plugins/drivin/skills/create-pr/sh/create-or-update.sh` script handles PR operations:
 
 1. Strip YAML frontmatter from `.workaholic/stories/<branch-name>.md` using `awk`
 2. Check if PR exists using `gh pr list --head "$BRANCH"`
@@ -141,21 +143,32 @@ The script uses REST API for updates to avoid GraphQL Projects deprecation error
 
 ### Ticket-Driven Workflow
 
-The `/drive` command (`plugins/core/commands/drive.md`) implements tickets from `.workaholic/tickets/todo/` sequentially. For each ticket:
+The `/drive` command (`plugins/drivin/commands/drive.md`) implements tickets from `.workaholic/tickets/todo/` sequentially. For each ticket:
 
 1. Implement changes according to ticket specification
-2. Request user approval with selectable options
+2. Request user approval with selectable options showing the ticket title and overview
 3. Update ticket frontmatter with effort and Final Report
 4. Archive ticket to `.workaholic/tickets/archive/<branch>/` using `archive-ticket` skill
 5. Commit using structured message format (from `commit` skill)
 
-The `/drive` command commits each ticket individually, creating a commit per implemented ticket. Branch creation at the start of `/drive` uses the `branching` skill (`plugins/core/skills/branching/sh/check.sh` and `create.sh`).
+The `/drive` command commits each ticket individually, creating a commit per implemented ticket. Branch creation at the start of `/drive` uses the `branching` skill (`plugins/drivin/skills/branching/sh/check.sh` and `create.sh`).
+
+### Trippin Exploration Workflow
+
+The `/trip` command (`plugins/trippin/commands/trip.md`) launches an Agent Teams session for collaborative exploration. It follows a worktree-isolated workflow:
+
+1. **Create worktree**: Runs `ensure-worktree.sh` to create an isolated git worktree at `.worktrees/<trip-name>/` on branch `trip/<trip-name>`
+2. **Initialize artifacts**: Runs `init-trip.sh` to create the artifact directory structure at `.workaholic/.trips/<trip-name>/` with subdirectories for directions, models, and designs
+3. **Launch Agent Teams**: Creates a three-member team (Planner, Architect, Constructor) that follows the Implosive Structure protocol through two phases: Specification (inner loop) and Implementation (outer loop)
+4. **Commit-per-step**: Every discrete workflow step produces a git commit via `trip-commit.sh` with message format `trip(<agent>): <step>`
+
+The Trippin plugin requires Agent Teams to be enabled (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`). All work is isolated in the worktree branch, which the user can merge or inspect after completion.
 
 ## Commit Message Structure
 
-### Structured Format
+### Structured Format (Drivin)
 
-All commits use a structured message format enforced by the `commit` skill (`plugins/core/skills/commit/SKILL.md` and `commit/sh/commit.sh`). The format includes five sections:
+All Drivin commits use a structured message format enforced by the `commit` skill (`plugins/drivin/skills/commit/SKILL.md` and `commit/sh/commit.sh`). The format includes five sections:
 
 ```
 <title>
@@ -183,7 +196,7 @@ Each section (except title) should be a short paragraph (3-5 sentences) that giv
 
 ### Commit Script
 
-The `plugins/core/skills/commit/sh/commit.sh` script implements the commit workflow:
+The `plugins/drivin/skills/commit/sh/commit.sh` script implements the commit workflow:
 
 1. **Pre-flight check**: Verify on a branch (not detached HEAD)
 2. **Staging**: If files specified, stage only those files. If no files specified, stage all tracked changes (`git add -u`). Never uses `git add -A`.
@@ -192,9 +205,13 @@ The `plugins/core/skills/commit/sh/commit.sh` script implements the commit workf
 
 The script accepts an optional `--skip-staging` flag for when files are already staged.
 
+### Trip Commit Format (Trippin)
+
+The Trippin plugin uses a distinct commit format via `plugins/trippin/skills/trip-protocol/sh/trip-commit.sh`. The message format is `trip(<agent>): <step>` with phase information in the body. This produces a linear commit history that traces the collaborative process between the three agents.
+
 ### Archive Workflow
 
-The `plugins/core/skills/archive-ticket/sh/archive.sh` script handles ticket archival:
+The `plugins/drivin/skills/archive-ticket/sh/archive.sh` script handles ticket archival:
 
 1. Move ticket from `todo/` or `icebox/` to `archive/<branch>/`
 2. Stage all changes including the archived ticket (`git add -A`)
@@ -202,13 +219,13 @@ The `plugins/core/skills/archive-ticket/sh/archive.sh` script handles ticket arc
 4. Update ticket frontmatter with commit hash and category
 5. Amend commit to include frontmatter updates
 
-The script infers category from commit title (Add/Create/Implement → "Added", Remove/Delete → "Removed", default → "Changed").
+The script infers category from commit title (Add/Create/Implement -> "Added", Remove/Delete -> "Removed", default -> "Changed").
 
 ## Story Generation and PR Description
 
 ### Story Writer Agent
 
-The `story-writer` subagent (`plugins/core/agents/story-writer.md`) orchestrates story generation in five phases:
+The `story-writer` subagent (`plugins/drivin/agents/story-writer.md`) orchestrates story generation in five phases:
 
 **Phase 0: Gather Context**
 - Uses `gather-git-context` skill to get branch, base_branch, repo_url, archived_tickets, git_log
@@ -230,10 +247,9 @@ The `story-writer` subagent (`plugins/core/agents/story-writer.md`) orchestrates
 - Commits with message `Add branch story for <branch-name>`
 - Pushes branch (`git push -u origin <branch-name>`)
 
-**Phase 4: Generate Release Note and Create PR**
-- Invokes 2 agents in parallel via Task tool (single message with 2 tool calls):
-  - `release-note-writer` (model: haiku) - writes `.workaholic/release-notes/<branch-name>.md`
-  - `pr-creator` (model: opus) - derives title, runs `gh` CLI operations
+**Phase 4: Create PR and Generate Release Note (Sequential)**
+- First invokes `pr-creator` (`subagent_type: "drivin:pr-creator"`, `model: "opus"`): reads story file, derives title, runs `gh` CLI operations, returns PR URL
+- Then invokes `release-note-writer` (`subagent_type: "drivin:release-note-writer"`, `model: "haiku"`): receives PR URL from pr-creator, reads story file, generates concise release notes, writes to `.workaholic/release-notes/<branch-name>.md`
 - Captures PR URL from pr-creator response
 
 **Phase 5: Commit and Push Release Notes**
@@ -279,14 +295,14 @@ The story file serves as the PR description (YAML frontmatter is stripped by `cr
 
 ### Scan Command
 
-The `/scan` command (`plugins/core/commands/scan.md`) updates all `.workaholic/` documentation (changelog, specs, terms, policies). It invokes 3 manager agents then 12 leader/writer agents in parallel:
+The `/scan` command (`plugins/drivin/commands/scan.md`) updates all `.workaholic/` documentation (changelog, specs, terms, policies). It invokes 3 manager agents then 13 leader/writer agents in parallel:
 
 **Phase 1: Gather Context**
 - Uses `gather-git-context` skill to get branch, base_branch, repo_url
 - Gets commit hash (`git rev-parse --short HEAD`)
 
 **Phase 2: Select Agents**
-- Runs `select-scan-agents` skill: `bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/select-scan-agents/sh/select.sh full`
+- Runs `select-scan-agents` skill: `bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/select-scan-agents/sh/select.sh full`
 - Parses JSON output to get lists of manager and leader agents
 
 **Phase 3a: Invoke Manager Agents in Parallel**
@@ -297,7 +313,7 @@ The `/scan` command (`plugins/core/commands/scan.md`) updates all `.workaholic/`
 - Waits for all managers to complete before proceeding
 
 **Phase 3b: Invoke Leader and Writer Agents in Parallel**
-- Invokes 12 leaders/writers in single message with parallel Task tool calls (each model: sonnet):
+- Invokes 13 leaders/writers in single message with parallel Task tool calls (each model: sonnet):
   - `ux-lead`, `model-analyst`, `infra-lead`, `db-lead` (viewpoint leads)
   - `test-lead`, `security-lead`, `quality-lead`, `a11y-lead`, `observability-lead`, `delivery-lead`, `recovery-lead` (policy leads)
   - `changelog-writer`, `terms-writer` (content writers)
@@ -319,10 +335,10 @@ The `/scan` command (`plugins/core/commands/scan.md`) updates all `.workaholic/`
 
 ### Policy Analysis
 
-The `analyze-policy` skill (`plugins/core/skills/analyze-policy/SKILL.md`) provides a generic framework for analyzing a repository from a specific policy domain. It gathers context using bundled script:
+The `analyze-policy` skill (`plugins/drivin/skills/analyze-policy/SKILL.md`) provides a generic framework for analyzing a repository from a specific policy domain. It gathers context using bundled script:
 
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/analyze-policy/sh/gather.sh <policy-slug> [base-branch]
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/analyze-policy/sh/gather.sh <policy-slug> [base-branch]
 ```
 
 Policy documents follow a strict inference rule: **Only document what is implemented**. Every policy statement must describe something that is actually implemented and executable in the codebase -- a CI check, hook, script, linter rule, or test. After each statement, cite the mechanism that implements it. Mark gaps clearly with "Not observed" rather than omitting them.
@@ -331,7 +347,7 @@ Policy documents follow a strict inference rule: **Only document what is impleme
 
 ### No Multi-Environment Promotion
 
-Not observed. No artifact promotion across environments (dev → staging → production) exists. Source files in `main` branch are the canonical version.
+Not observed. No artifact promotion across environments (dev -> staging -> production) exists. Source files in `main` branch are the canonical version.
 
 ### Version as Promotion Gate
 
@@ -341,12 +357,12 @@ Version increment serves as the promotion gate. Merging to `main` with an increm
 
 - CI validation focuses on structural integrity (valid JSON, required fields, file existence) rather than behavioral testing or type checking
 - Release process is semi-automated: developer bumps version via `/release`, GitHub workflow creates release on merge
-- Version files require manual synchronization via command rather than deriving from single source of truth
+- Three version files require manual synchronization via command rather than deriving from single source of truth: marketplace.json root, drivin plugin.json, and trippin plugin.json
 - Release notes are generated at PR creation time (via `/report`) and consumed at release time by GitHub workflow
 - PR creation and update use different mechanisms (CLI vs REST API) to avoid deprecated GraphQL endpoints
 - Each ticket implementation creates a separate commit during `/drive`, enabling granular change tracking
-- Story generation invokes 6 subagents in parallel (4 for story content, 2 for PR operations) using Task tool
-- The `/scan` command invokes 15 documentation agents in parallel (3 managers first, then 12 leaders/writers) to update `.workaholic/` documentation
+- Story generation invokes 6 subagents: 4 in parallel for story content, then pr-creator and release-note-writer sequentially (pr-creator first to obtain PR URL for release notes)
+- The `/scan` command invokes 16 documentation agents (3 managers first, then 13 leaders/writers) to update `.workaholic/` documentation
 - Documentation generation is decoupled from code changes and triggered explicitly via `/scan`
 - Commit message structure provides structured sections (Description, Changes, Test Planning, Release Preparation) for lead agents to parse without reading diffs
 - Archive workflow uses `git add -A` only after moving ticket to archive directory, then stages specific files for frontmatter update
@@ -355,7 +371,11 @@ Version increment serves as the promotion gate. Merging to `main` with an increm
 - Multi-contributor awareness built into commit workflow: review staged changes before committing to avoid including others' uncommitted work
 - Version bump idempotency check prevents double-bumping when `/report` runs multiple times in same branch (uses `git log main..HEAD --oneline --grep="Bump version"` via `branching` skill)
 - Branch operations (check, create, version bump detection) are extracted to shell scripts in the `branching` skill rather than inline commands in markdown files
-- The `/scan` command now includes `.workaholic/constraints/` in the commit step to capture manager constraint files
+- The `/scan` command includes `.workaholic/constraints/` in the commit step to capture manager constraint files
+- The Trippin plugin introduces a second delivery workflow using git worktrees for isolation, with a commit-per-step discipline that produces a complete process trace
+- Trippin's Agent Teams session requires the experimental flag `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`
+- Plugin directory was renamed from `core` to `drivin`, with all subagent_type references updated from `core:` prefix to `drivin:` prefix
+- The `select-scan-agents` partial mode uses path-based heuristics to determine which agents to invoke based on changed files, referencing `plugins/drivin/` paths
 
 ## Gaps
 
@@ -368,3 +388,5 @@ Version increment serves as the promotion gate. Merging to `main` with an increm
 - Not observed: No automated smoke tests or integration tests after release deployment
 - Not observed: No git hooks for pre-commit or pre-push validation (only sample hooks exist)
 - Not observed: No automated enforcement of commit message format (structure is enforced by convention via commit skill, not git hook)
+- Not observed: No PR creation or story generation workflow for Trippin trip branches (only Drivin branches use `/report`)
+- Not observed: No automated cleanup of worktree directories after trip completion

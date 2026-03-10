@@ -2,8 +2,8 @@
 title: Core Concepts
 description: Fundamental building blocks of the Workaholic plugin system
 category: developer
-last_updated: 2026-02-12
-commit_hash: f385117
+last_updated: 2026-03-10
+commit_hash: f76bde2
 ---
 
 [English](core-concepts.md) | [日本語](core-concepts_ja.md)
@@ -14,7 +14,23 @@ Fundamental building blocks of the Workaholic plugin system.
 
 ## plugin
 
-A plugin packages related Claude Code extensions into a single distributable unit containing commands, skills, rules, and agents. Each plugin has its own directory under `plugins/` (e.g., `plugins/core/`) with a `.claude-plugin/plugin.json` metadata file. Plugins are referenced as "Install the core plugin" or "Core plugin commands" in documentation. Related terms: command, skill, rule, agent.
+A plugin packages related Claude Code extensions into a single distributable unit containing commands, skills, rules, and agents. Each plugin has its own directory under `plugins/` (e.g., `plugins/drivin/`, `plugins/trippin/`) with a `.claude-plugin/plugin.json` metadata file. The marketplace currently contains two plugins: drivin (ticket-driven development workflow) and trippin (AI-oriented exploration and creative development). Plugin names must match their directory names for CI validation. Related terms: command, skill, rule, agent, drivin, trippin.
+
+## drivin
+
+Drivin is the primary development plugin (formerly named "core") providing ticket-driven development workflows including `/ticket`, `/drive`, `/report`, `/scan`, and `/release` commands. Located at `plugins/drivin/` with its configuration in `plugins/drivin/.claude-plugin/plugin.json`, it contains all agents, skills, and rules for structured development. The rename from "core" to "drivin" updated all `subagent_type: "core:*"` references to `"drivin:*"` and all installed plugin paths from `~/.claude/plugins/marketplaces/workaholic/plugins/core/` to `~/.claude/plugins/marketplaces/workaholic/plugins/drivin/`. Historical references in archived tickets and stories retain the "core" name. Related terms: plugin, trippin, TiDD.
+
+## trippin
+
+Trippin is the exploration and creative development plugin providing the `/trip` command for launching collaborative Agent Teams sessions. Located at `plugins/trippin/` with its configuration in `plugins/trippin/.claude-plugin/plugin.json`, it uses three specialized agents (Planner, Architect, Constructor) that collaborate through filesystem-based artifact exchange in `.workaholic/.trips/`. The plugin operates in isolated git worktrees to prevent interference with the main working tree. The `trip-*` branch prefix convention aligns with the plugin name, parallel to `drive-*` branches for drivin. Related terms: plugin, drivin, trip, worktree, agent-teams.
+
+## agent-teams
+
+Agent Teams is an experimental Claude Code feature (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) that enables multiple AI agents to work collaboratively in independent context windows. In Workaholic, the trippin plugin's `/trip` command uses Agent Teams to launch three agents (Planner, Architect, Constructor) that communicate through filesystem artifacts rather than direct context sharing. Each agent operates independently and reads other agents' outputs from `.workaholic/.trips/<trip-name>/`. Related terms: trippin, trip, context-window.
+
+## worktree
+
+A worktree is a git feature used by the trippin plugin to isolate trip sessions from the main working tree. The `ensure-worktree.sh` script creates a dedicated worktree at `.worktrees/trip-<trip-name>/` on a `trip/<trip-name>` branch from current HEAD. This isolation ensures trip exploration does not affect uncommitted work in the main checkout. Every discrete workflow step within a trip produces a git commit in the worktree branch, creating a complete trace of the collaborative process. Related terms: trippin, trip.
 
 ## command
 
@@ -50,7 +66,7 @@ Preloading is the mechanism by which agents gain access to skill content at init
 
 ## branching
 
-The branching skill provides utility operations for checking current git branch state and creating timestamped topic branches when needed. Defined in `plugins/core/skills/branching/` with bundled shell scripts (`sh/check.sh`, `sh/create.sh`, `sh/check-version-bump.sh`), it replaced the previous branching skill to avoid naming collision with the manager tier's manage- prefix convention. The skill is preloaded by ticket-organizer and referenced in report command for version bump detection. Related terms: skill, ticket-organizer, manager.
+The branching skill provides utility operations for checking current git branch state and creating timestamped topic branches when needed. Defined in `plugins/drivin/skills/branching/` with bundled shell scripts (`sh/check.sh`, `sh/create.sh`, `sh/check-version-bump.sh`), it replaced the previous branching skill to avoid naming collision with the manager tier's manage- prefix convention. The skill is preloaded by ticket-organizer and referenced in report command for version bump detection. Related terms: skill, ticket-organizer, manager.
 
 ## constraint
 
@@ -70,15 +86,15 @@ A viewpoint is a predefined architectural lens for analyzing a repository from a
 
 ## viewpoint-analyst
 
-A viewpoint-analyst (e.g., stakeholder-analyst, model-analyst) is a thin subagent that analyzes the repository from a specific viewpoint perspective. It uses the analyze-viewpoint skill to gather context, read overrides from the user's CLAUDE.md, and write a viewpoint spec document with Mermaid diagrams and an Assumptions section distinguishing `[Explicit]` from `[Inferred]` knowledge. Each of the 8 viewpoints has its own dedicated analyst agent defined in `plugins/core/agents/<slug>-analyst.md`. Invoked directly by the scanner rather than through an intermediate writer. Related terms: viewpoint, scanner, analyze-viewpoint.
+A viewpoint-analyst (e.g., stakeholder-analyst, model-analyst) is a thin subagent that analyzes the repository from a specific viewpoint perspective. It uses the analyze-viewpoint skill to gather context, read overrides from the user's CLAUDE.md, and write a viewpoint spec document with Mermaid diagrams and an Assumptions section distinguishing `[Explicit]` from `[Inferred]` knowledge. Each of the 8 viewpoints has its own dedicated analyst agent defined in `plugins/drivin/agents/<slug>-analyst.md`. Invoked directly by the scanner rather than through an intermediate writer. Related terms: viewpoint, scanner, analyze-viewpoint.
 
 ## policy-analyst
 
-A policy-analyst (e.g., test-policy-analyst, security-policy-analyst) is a thin subagent that analyzes the repository from a specific policy domain perspective. It uses the analyze-policy skill to gather context and document only policies that are actually implemented and executable in the codebase. Each policy statement must cite its enforcement mechanism (CI check, git hook, linter rule, automated script, or test). Aspirational practices documented only in README or CLAUDE.md without code enforcement are excluded. Gaps where no evidence is found are marked as "Not observed" rather than omitted. Each of the 7 policy domains has its own dedicated analyst agent defined in `plugins/core/agents/<slug>-policy-analyst.md`. Invoked directly by the `/scan` command rather than through an intermediate subagent. Related terms: policy, scan, analyze-policy.
+A policy-analyst (e.g., test-policy-analyst, security-policy-analyst) is a thin subagent that analyzes the repository from a specific policy domain perspective. It uses the analyze-policy skill to gather context and document only policies that are actually implemented and executable in the codebase. Each policy statement must cite its enforcement mechanism (CI check, git hook, linter rule, automated script, or test). Aspirational practices documented only in README or CLAUDE.md without code enforcement are excluded. Gaps where no evidence is found are marked as "Not observed" rather than omitted. Each of the 7 policy domains has its own dedicated analyst agent defined in `plugins/drivin/agents/<slug>-policy-analyst.md`. Invoked directly by the `/scan` command rather than through an intermediate subagent. Related terms: policy, scan, analyze-policy.
 
 ## scanner (Deprecated)
 
-The scanner was a subagent that orchestrated 17 documentation agents in parallel. This orchestration has been migrated directly into the `/scan` command to provide real-time per-agent progress visibility. The scanner agent file (`plugins/core/agents/scanner.md`) has been removed, and the `/scan` command now invokes all 17 agents (8 viewpoint analysts, 7 policy analysts, changelog-writer, terms-writer) directly using parallel Task tool calls. This flattening from 2-level to 1-level nesting improves user transparency while maintaining the same parallel execution pattern. Related terms: scan, orchestrator, concurrent-execution.
+The scanner was a subagent that orchestrated 17 documentation agents in parallel. This orchestration has been migrated directly into the `/scan` command to provide real-time per-agent progress visibility. The scanner agent file (`plugins/drivin/agents/scanner.md`) has been removed, and the `/scan` command now invokes all 17 agents (8 viewpoint analysts, 7 policy analysts, changelog-writer, terms-writer) directly using parallel Task tool calls. This flattening from 2-level to 1-level nesting improves user transparency while maintaining the same parallel execution pattern. Related terms: scan, orchestrator, concurrent-execution.
 
 ## run_in_background
 
@@ -102,27 +118,27 @@ A context window is the isolated conversation memory available to an agent durin
 
 ## manager
 
-A manager is a strategic agent that sits above leads in the agent hierarchy, producing high-level outputs that leaders depend on for context. Managers are defined by the define-manager schema in `.claude/rules/define-manager.md`, which requires Role, Responsibility, Goal, Outputs, and Default Policies sections. Three managers exist: project-manager (business context, stakeholders, timeline), architecture-manager (system structure, components, layers), and quality-manager (quality standards, assurance processes). Each manager has a corresponding `manage-<domain>` skill in `plugins/core/skills/` and a thin agent file in `plugins/core/agents/*-manager.md`. Managers preload the managers-principle skill for cross-cutting behavioral principles and follow a Constraint Setting workflow to produce structured constraint files at `.workaholic/constraints/<domain>.md`. Related terms: lead, define-manager, managers-principle, constraint, agent, skill.
+A manager is a strategic agent that sits above leads in the agent hierarchy, producing high-level outputs that leaders depend on for context. Managers are defined by the define-manager schema in `.claude/rules/define-manager.md`, which requires Role, Responsibility, Goal, Outputs, and Default Policies sections. Three managers exist: project-manager (business context, stakeholders, timeline), architecture-manager (system structure, components, layers), and quality-manager (quality standards, assurance processes). Each manager has a corresponding `manage-<domain>` skill in `plugins/drivin/skills/` and a thin agent file in `plugins/drivin/agents/*-manager.md`. Managers preload the managers-principle skill for cross-cutting behavioral principles and follow a Constraint Setting workflow to produce structured constraint files at `.workaholic/constraints/<domain>.md`. Related terms: lead, define-manager, managers-principle, constraint, agent, skill.
 
 ## lead
 
-A lead is a domain-specific agent responsible for a particular aspect of the project, consuming manager outputs to make informed domain decisions. Leads are defined by the define-lead schema in `.claude/rules/define-lead.md`, which requires Role, Responsibility, Goal, and Default Policies sections. Current leads include architecture-lead, security-lead, quality-lead, test-lead, a11y-lead, ux-lead, db-lead, delivery-lead, infra-lead, observability-lead, and recovery-lead. Each lead has a corresponding `lead-<speciality>` skill in `plugins/core/skills/` and a thin agent file in `plugins/core/agents/*-lead.md`. Leads preload the leaders-principle skill for cross-cutting behavioral principles including Prior Term Consistency. Related terms: manager, define-lead, leaders-principle, agent, skill.
+A lead is a domain-specific agent responsible for a particular aspect of the project, consuming manager outputs to make informed domain decisions. Leads are defined by the define-lead schema in `.claude/rules/define-lead.md`, which requires Role, Responsibility, Goal, and Default Policies sections. Current leads include architecture-lead, security-lead, quality-lead, test-lead, a11y-lead, ux-lead, db-lead, delivery-lead, infra-lead, observability-lead, and recovery-lead. Each lead has a corresponding `lead-<speciality>` skill in `plugins/drivin/skills/` and a thin agent file in `plugins/drivin/agents/*-lead.md`. Leads preload the leaders-principle skill for cross-cutting behavioral principles including Prior Term Consistency. Related terms: manager, define-lead, leaders-principle, agent, skill.
 
 ## define-manager
 
-Define-manager is a schema enforcement rule at `.claude/rules/define-manager.md` that validates manager skill and agent file structure. It applies to `plugins/core/skills/manage-*/SKILL.md` and `plugins/core/agents/*-manager.md` via path-scoped frontmatter. The schema requires five sections (Role, Responsibility, Goal, Outputs, Default Policies) and four policy subsections (Implementation, Review, Documentation, Execution). The Outputs section is unique to managers, defining structured artifacts that leaders consume. Related terms: manager, define-lead, schema, rule.
+Define-manager is a schema enforcement rule at `.claude/rules/define-manager.md` that validates manager skill and agent file structure. It applies to `plugins/drivin/skills/manage-*/SKILL.md` and `plugins/drivin/agents/*-manager.md` via path-scoped frontmatter. The schema requires five sections (Role, Responsibility, Goal, Outputs, Default Policies) and four policy subsections (Implementation, Review, Documentation, Execution). The Outputs section is unique to managers, defining structured artifacts that leaders consume. Related terms: manager, define-lead, schema, rule.
 
 ## define-lead
 
-Define-lead is a schema enforcement rule at `.claude/rules/define-lead.md` that validates lead skill and agent file structure. It applies to `plugins/core/skills/lead-*/SKILL.md` and `plugins/core/agents/*-lead.md` via path-scoped frontmatter. The schema requires four sections (Role, Responsibility, Goal, Default Policies) and four policy subsections (Implementation, Review, Documentation, Execution). Unlike define-manager, leads do not have an Outputs section as they produce domain-specific documentation rather than strategic artifacts. Related terms: lead, define-manager, schema, rule.
+Define-lead is a schema enforcement rule at `.claude/rules/define-lead.md` that validates lead skill and agent file structure. It applies to `plugins/drivin/skills/lead-*/SKILL.md` and `plugins/drivin/agents/*-lead.md` via path-scoped frontmatter. The schema requires four sections (Role, Responsibility, Goal, Default Policies) and four policy subsections (Implementation, Review, Documentation, Execution). Unlike define-manager, leads do not have an Outputs section as they produce domain-specific documentation rather than strategic artifacts. Related terms: lead, define-manager, schema, rule.
 
 ## managers-principle
 
-The managers-principle is a cross-cutting behavioral principle skill that all manager agents preload, parallel to leaders-principle. Defined in `plugins/core/skills/managers-principle/SKILL.md`, it contains two principle sections: Constraint Setting (workflow for identifying, proposing, and producing constraints) and Strategic Focus (managers produce actionable outputs consumable by leaders, not aspirational statements). Each manager agent lists managers-principle as its first preloaded skill in frontmatter. Related terms: manager, leaders-principle, skill, principle.
+The managers-principle is a cross-cutting behavioral principle skill that all manager agents preload, parallel to leaders-principle. Defined in `plugins/drivin/skills/managers-principle/SKILL.md`, it contains two principle sections: Constraint Setting (workflow for identifying, proposing, and producing constraints) and Strategic Focus (managers produce actionable outputs consumable by leaders, not aspirational statements). Each manager agent lists managers-principle as its first preloaded skill in frontmatter. Related terms: manager, leaders-principle, skill, principle.
 
 ## leaders-principle
 
-The leaders-principle is a cross-cutting behavioral principle skill that all lead agents preload, parallel to managers-principle. Defined in `plugins/core/skills/leaders-principle/SKILL.md`, it contains Prior Term Consistency and Vendor Neutrality principles. Prior Term Consistency requires leads to respect existing terms, prefer 1-word over multi-word expressions, and maintain ubiquitous language across artifacts. Each lead agent lists leaders-principle as its first preloaded skill in frontmatter. Related terms: lead, managers-principle, skill, principle.
+The leaders-principle is a cross-cutting behavioral principle skill that all lead agents preload, parallel to managers-principle. Defined in `plugins/drivin/skills/leaders-principle/SKILL.md`, it contains Prior Term Consistency and Vendor Neutrality principles. Prior Term Consistency requires leads to respect existing terms, prefer 1-word over multi-word expressions, and maintain ubiquitous language across artifacts. Each lead agent lists leaders-principle as its first preloaded skill in frontmatter. Related terms: lead, managers-principle, skill, principle.
 
 ## driver (Deprecated)
 

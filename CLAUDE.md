@@ -24,12 +24,18 @@ Edit `plugins/` not `.claude/`. This repo develops plugins - changes go to `plug
 .claude-plugin/          # Marketplace configuration
   marketplace.json       # Marketplace metadata and plugin list
 plugins/                 # Plugin source directories
-  core/                  # Core development plugin
+  drivin/                # Drivin development plugin
     .claude-plugin/      # Plugin configuration
     agents/              # performance-analyst
     commands/            # ticket, drive, story, report
     rules/               # general, typescript
     skills/              # archive-ticket
+  trippin/               # Trippin exploration plugin
+    .claude-plugin/      # Plugin configuration
+    commands/            # (empty)
+    agents/              # (empty)
+    skills/              # (empty)
+    rules/               # (empty)
 ```
 
 ## Architecture Policy
@@ -58,8 +64,8 @@ Subagents must use skills for common operations instead of inline shell commands
 
 | Operation | Skill | Usage |
 | --------- | ----- | ----- |
-| Git context (branch, base, URL) | gather-git-context | `bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/gather-git-context/sh/gather.sh` |
-| Ticket metadata (date, author) | gather-ticket-metadata | `bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/gather-ticket-metadata/sh/gather.sh` |
+| Git context (branch, base, URL) | gather-git-context | `bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/gather-git-context/sh/gather.sh` |
+| Ticket metadata (date, author) | gather-ticket-metadata | `bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/gather-ticket-metadata/sh/gather.sh` |
 
 Never write inline git commands like `git branch --show-current` or `git remote show origin` in subagent markdown files. Subagents preload the skill and gather context themselves.
 
@@ -84,14 +90,14 @@ if [ "$current" = "main" ]; then echo "on_main"; fi
 
 **Correct** (skill script):
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/branching/sh/check.sh
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/branching/sh/check.sh
 ```
 
 ### Skill Script Path Rule
 
 > **CRITICAL: All skill shell script references must use the absolute path from home directory.**
 
-The installed plugin path is `~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/`. Relative paths like `.claude/skills/` do NOT resolve at runtime and cause exit code 127 failures.
+The installed plugin path is `~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/`. Relative paths like `.claude/skills/` do NOT resolve at runtime and cause exit code 127 failures.
 
 **Wrong** (relative path):
 ```bash
@@ -100,7 +106,7 @@ bash .claude/skills/gather-ticket-metadata/sh/gather.sh
 
 **Correct** (absolute path):
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/gather-ticket-metadata/sh/gather.sh
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/gather-ticket-metadata/sh/gather.sh
 ```
 
 ## Commands
@@ -128,10 +134,11 @@ No build step required - this is a configuration/documentation project.
 
 Version files:
 - `.claude-plugin/marketplace.json` - root `version` field
-- `plugins/core/.claude-plugin/plugin.json` - plugin `version` field
+- `plugins/drivin/.claude-plugin/plugin.json` - plugin `version` field
+- `plugins/trippin/.claude-plugin/plugin.json` - plugin `version` field
 
 Keep all versions in sync. When bumping version:
 1. Read current version from `.claude-plugin/marketplace.json`
 2. Increment PATCH by default (e.g., 1.0.0 → 1.0.1)
-3. Update both version files with the new version
+3. Update all version files with the new version
 4. Stage and commit: `Bump version to v{new_version}`

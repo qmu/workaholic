@@ -68,8 +68,31 @@ All agent work happens inside the worktree directory. After completion, the user
 **Every discrete workflow step produces a git commit.** The trip branch's commit history is the complete trace of the collaborative process.
 
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/trip-commit.sh <agent> <phase> <step> [description]
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/trip-commit.sh <agent> <phase> <step> <description>
 ```
+
+### Commit Message Format
+
+```
+[Agent] Descriptive summary of what was done
+
+Phase: <phase>
+Step: <step>
+```
+
+- **Agent prefix**: Capitalized name in square brackets: `[Planner]`, `[Architect]`, `[Constructor]`
+- **Description**: A clear, intuitive English sentence summarizing what was accomplished. Must describe *what was done*, not just name a file or use a symbol.
+- **Language**: All commit messages must be written in English.
+
+### Good and Bad Examples
+
+| Good | Bad |
+| ---- | --- |
+| `[Planner] Define user authentication flow and stakeholder priorities` | `[Planner] direction-v1.md` |
+| `[Architect] Review direction for semantic consistency and identify type safety gaps` | `[Architect] review` |
+| `[Constructor] Design database schema with migration strategy for user accounts` | `[Constructor] design` |
+| `[Planner] Create integration test plan covering authentication edge cases` | `[Planner] test plan` |
+| `[Constructor] Implement login endpoint with JWT token generation` | `[Constructor] impl` |
 
 Commit points in Phase 1 (Specification):
 - Planner writes direction → commit
@@ -89,8 +112,6 @@ Commit points in Phase 2 (Implementation):
 - Structural review → commit
 - Test validation → commit
 - Each iteration fix → commit
-
-Message format: `trip(<agent>): <step>` with phase in the body.
 
 ## Artifact Storage
 

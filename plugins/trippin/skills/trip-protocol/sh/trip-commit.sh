@@ -1,9 +1,9 @@
 #!/bin/bash
 # Commit a trip workflow step with standardized message format.
-# Usage: bash trip-commit.sh <agent> <phase> <step> [description]
-# Example: bash trip-commit.sh planner specification "write direction v1" "Initial creative direction"
-# Commit message format: trip(<agent>): <step>
-# Body: Phase: <phase>\n<description>
+# Usage: bash trip-commit.sh <agent> <phase> <step> <description>
+# Example: bash trip-commit.sh planner specification "write-direction-v1" "Define initial creative direction based on user requirements"
+# Commit message format: [Agent] <description>
+# Body: Phase: <phase>\nStep: <step>
 
 set -euo pipefail
 
@@ -12,22 +12,22 @@ phase="${2:-}"
 step="${3:-}"
 description="${4:-}"
 
-if [ -z "$agent" ] || [ -z "$phase" ] || [ -z "$step" ]; then
-  echo '{"error": "usage: trip-commit.sh <agent> <phase> <step> [description]"}' >&2
+if [ -z "$agent" ] || [ -z "$phase" ] || [ -z "$step" ] || [ -z "$description" ]; then
+  echo '{"error": "usage: trip-commit.sh <agent> <phase> <step> <description>"}' >&2
   exit 1
 fi
 
 if ! git diff --quiet HEAD 2>/dev/null || ! git diff --cached --quiet HEAD 2>/dev/null || [ -n "$(git ls-files --others --exclude-standard)" ]; then
   git add -A
 
-  body="Phase: ${phase}"
-  if [ -n "$description" ]; then
-    body="${body}
-${description}"
-  fi
+  # Capitalize agent name for bracket prefix
+  agent_cap="$(echo "${agent:0:1}" | tr '[:lower:]' '[:upper:]')${agent:1}"
+
+  body="Phase: ${phase}
+Step: ${step}"
 
   git commit -m "$(cat <<EOF
-trip(${agent}): ${step}
+[${agent_cap}] ${description}
 
 ${body}
 EOF

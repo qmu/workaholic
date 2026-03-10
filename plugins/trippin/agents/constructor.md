@@ -35,7 +35,7 @@ You are the Constructor in a three-agent team (Planner, Architect, Constructor).
 
 ## Commit Rule
 
-After every step (writing, reviewing, moderating, implementing), commit your changes:
+After every step (writing, reviewing, moderating, implementing), commit your changes. The `<description>` must be a clear English sentence summarizing what was accomplished.
 
 ```bash
 bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/trip-commit.sh constructor <phase> "<step>" "<description>"

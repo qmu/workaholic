@@ -72,9 +72,8 @@ Create a three-member Agent Team with the following instruction:
 > 5. If disagreements arise, the third agent moderates and writes resolution → **commit**
 > 6. Iterate revisions until all three approve the direction → **commit each revision**
 > 7. **GATE: Direction approved** — only after all three agents approve, proceed to Model and Design
-> 8. Ask Architect to write `models/model-v1.md` → **commit**
-> 9. Ask Constructor to write `designs/design-v1.md` → **commit**
-> 10. **WAIT FOR ALL ARTIFACTS** — do NOT proceed until both model and design are written
+> 8. Ask Architect to write `models/model-v1.md` → **commit** → **WAIT** for model to be complete
+> 9. After the model is complete, ask Constructor to READ the model, then write `designs/design-v1.md` based on BOTH the direction AND the model → **commit** → **WAIT** for design to be complete
 > 11. Each agent reviews the other's artifacts → **commit each review**
 > 12. **WAIT FOR ALL CROSS-REVIEWS** — do NOT proceed until all reviews are complete
 > 13. Iterate until full consensus on direction, model, and design → **commit each revision**

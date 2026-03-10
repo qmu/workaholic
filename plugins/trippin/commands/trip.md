@@ -66,15 +66,15 @@ Create a three-member Agent Team with the following instruction:
 >
 > **Phase 1 - Specification (Inner Loop)**:
 > 1. Ask Planner to write `directions/direction-v1.md` based on the user instruction → **commit**
-> 2. Ask Architect to review the direction and add review notes → **commit**
-> 3. Ask Constructor to review the direction and add review notes → **commit**
+> 2. Ask Architect to review the direction and write `directions/reviews/direction-v1-architect.md` → **commit**
+> 3. Ask Constructor to review the direction and write `directions/reviews/direction-v1-constructor.md` → **commit**
 > 4. **WAIT FOR ALL REVIEWS** — do NOT proceed until both Architect and Constructor have completed their reviews
 > 5. If disagreements arise, the third agent moderates and writes resolution → **commit**
 > 6. Iterate revisions until all three approve the direction → **commit each revision**
 > 7. **GATE: Direction approved** — only after all three agents approve, proceed to Model and Design
 > 8. Ask Architect to write `models/model-v1.md` → **commit** → **WAIT** for model to be complete
 > 9. After the model is complete, ask Constructor to READ the model, then write `designs/design-v1.md` based on BOTH the direction AND the model → **commit** → **WAIT** for design to be complete
-> 11. Each agent reviews the other's artifacts → **commit each review**
+> 10. Each agent reviews the other's artifact by writing to `reviews/` subdirectories (e.g., `designs/reviews/design-v1-architect.md`) → **commit each review**
 > 12. **WAIT FOR ALL CROSS-REVIEWS** — do NOT proceed until all reviews are complete
 > 13. Iterate until full consensus on direction, model, and design → **commit each revision**
 >

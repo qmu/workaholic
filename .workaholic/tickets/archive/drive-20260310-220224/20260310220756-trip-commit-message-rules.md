@@ -3,9 +3,9 @@ created_at: 2026-03-10T22:07:56+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 709c8a7
+category: Changed
 ---
 
 # Establish Consistent Commit Message Rules for Trip Command
@@ -166,3 +166,18 @@ Past tickets that touched similar areas:
 - The existing `trip(<agent>): <step>` format embeds the step identifier in the subject line. The new format moves the step to the body and puts the description in the subject. This changes how `git log --oneline` output reads -- it will show `[Planner] Define user authentication flow...` instead of `trip(planner): write direction v1`. This is intentionally more readable. (`plugins/trippin/skills/trip-protocol/SKILL.md` lines 66)
 - The sibling ticket for deterministic artifact review convention may also need updates to commit message examples if it assumes the old format. Coordinate both tickets during implementation. (`.workaholic/tickets/todo/20260310220221-deterministic-artifact-review-convention.md`)
 - Agent Teams agents operate in separate context windows and may not consistently follow commit message guidelines despite documentation. The enforcement via the shell script (requiring non-empty description, formatting the bracket prefix automatically) provides a mechanical guarantee that the format is correct even if the agent passes poor content. (`plugins/trippin/skills/trip-protocol/sh/trip-commit.sh`)
+
+## Final Report
+
+### Changes Made
+
+- **`plugins/trippin/skills/trip-protocol/sh/trip-commit.sh`**: Changed format from `trip(<agent>): <step>` to `[Agent] <description>`. Made description mandatory. Moved step to body. Added agent name capitalization.
+- **`plugins/trippin/skills/trip-protocol/SKILL.md`**: Added Commit Message Format section with format spec, good/bad examples table, and English language policy. Removed old format line.
+- **`plugins/trippin/commands/trip.md`**: Added mandatory description guidance and format note to commit rule.
+- **`plugins/trippin/agents/architect.md`**: Added description quality guidance.
+- **`plugins/trippin/agents/constructor.md`**: Added description quality guidance.
+- **`plugins/trippin/agents/planner.md`**: Added description quality guidance.
+
+### Approach
+
+Mechanical enforcement via the script (required description, auto-capitalized prefix) provides format guarantees. Documentation and examples guide agents toward descriptive summaries.

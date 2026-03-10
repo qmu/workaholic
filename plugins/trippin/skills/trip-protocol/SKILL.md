@@ -63,6 +63,32 @@ This creates:
 
 All agent work happens inside the worktree directory. After completion, the user can merge the trip branch or inspect changes independently.
 
+**Note**: Worktree creation is only the first part of preparation. The development environment inside the worktree must also be validated and configured before planning begins (see Dev Environment Readiness below).
+
+## Dev Environment Readiness
+
+After creating the worktree and initializing trip artifacts, the development environment inside the worktree must be validated and prepared **before** the Planner begins writing any direction artifacts.
+
+```bash
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/validate-dev-env.sh <worktree_path>
+```
+
+### Concurrent Isolation
+
+Multiple trip sessions may run simultaneously in separate worktrees. Each worktree must be fully independent:
+- **No shared network ports**: If the project uses specific ports (dev server, database), each worktree must use unique ports
+- **No shared lock files**: Build tools, package managers, and databases may use lock files that conflict across worktrees
+- **No shared state directories**: Caches, temp files, and runtime state must be worktree-local
+
+### Validation-Feedback-Action Loop
+
+The validation script outputs structured JSON indicating what is missing or misconfigured. The leader agent reads this feedback and takes corrective action:
+1. Run validation script
+2. Parse results: if `ready` is true, proceed to planning
+3. If `ready` is false, address each failing check (copy env files, install dependencies, configure ports)
+4. Re-run validation
+5. Repeat until ready or report unresolvable issues to the user
+
 ## Commit-per-Step Rule
 
 **Every discrete workflow step produces a git commit.** The trip branch's commit history is the complete trace of the collaborative process.

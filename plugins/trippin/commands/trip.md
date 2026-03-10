@@ -40,7 +40,24 @@ cd <worktree_path> && bash ~/.claude/plugins/marketplaces/workaholic/plugins/tri
 
 Parse the JSON output for `trip_path`. If an error is returned, inform the user and stop.
 
-### Step 3: Launch Agent Teams
+### Step 3: Validate and Prepare Dev Environment
+
+Validate the development environment inside the worktree:
+
+```bash
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/validate-dev-env.sh "<worktree_path>"
+```
+
+Parse the JSON output. If `ready` is false, take corrective action for each failing check:
+- `env_files` missing: Copy `.env` files from the repository root to the worktree
+- `dependencies` missing: Run the appropriate install command inside the worktree (e.g., `cd <worktree_path> && npm install`)
+- `ports` conflict: Modify port values in the worktree's environment files to avoid conflicts with other running worktrees
+
+After corrections, re-run validation. Repeat until `ready` is true.
+
+If validation cannot be resolved (e.g., no `.env` file exists anywhere to copy), warn the user and proceed with the caveat that Phase 2 implementation may encounter environment issues.
+
+### Step 4: Launch Agent Teams
 
 Create a three-member Agent Team with the following instruction:
 
@@ -90,7 +107,7 @@ Create a three-member Agent Team with the following instruction:
 >
 > **Communication**: Agents communicate by reading and writing markdown files in the trip path. After writing an artifact, commit it, then notify the relevant agent(s) to review it.
 
-### Step 4: Present Results
+### Step 5: Present Results
 
 After the team completes:
 1. List all artifacts created in `<trip_path>/`

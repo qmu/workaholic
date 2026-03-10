@@ -2,8 +2,8 @@
 title: Work
 description: Working artifacts index for Workaholic plugin marketplace
 category: developer
-modified_at: 2026-01-27T01:12:47+09:00
-commit_hash: f034f63
+modified_at: 2026-03-10T01:13:03+09:00
+commit_hash: f76bde2
 ---
 
 [English](README.md) | [日本語](README_ja.md)
@@ -22,7 +22,8 @@ This is the working artifacts hub for the Workaholic plugin marketplace.
 
 ## Plugins
 
-- [Core](../plugins/core/README.md) - Complete development workflow (`/branch`, `/commit`, `/pull-request`, `/ticket`, `/drive`)
+- [Drivin](../plugins/drivin/README.md) - Core development workflow: branch, commit, pull-request, ticket-driven development
+- [Trippin](../plugins/trippin/README.md) - AI-oriented exploration and creative development workflow
 
 ## Design Policy
 

@@ -70,6 +70,7 @@ Refs #<issue-number>
 
 ## Stories
 
+- [drive-20260302-213941.md](drive-20260302-213941.md) - Multi-plugin marketplace architecture: renamed core to drivin, created trippin plugin skeleton, implemented /trip command with Agent Teams, enforced ticket context in drive approval prompts - 4 tickets, 8 commits
 - [drive-20260213-131416.md](drive-20260213-131416.md) - Absolute path enforcement, schema restructuring, and archive reliability: codified path rule in CLAUDE.md, replaced relative paths across 39 files, nested Goal and Responsibility under Role in agent schemas, fixed unstaged ticket deletions by mandating archive.sh usage - 4 tickets, 10 commits
 - [drive-20260212-122906.md](drive-20260212-122906.md) - Naming hygiene, workflow reliability, and developer experience: renamed manage-branch to branching and policy skills to principle, fixed duplicate Japanese specs and double version bumps, added constraint file convention, improved effort validation enforcement and drive approval UX - 9 tickets, 22 commits
 - [drive-20260210-121635.md](drive-20260210-121635.md) - Manager tier introduction, commit message restructuring, cross-cutting policies, and workflow enforcement: created 3 managers (project, architecture, quality) with constraint-setting workflow, expanded commit format to 5 sections for lead consumption, added leaders-policy and managers-policy skills - 9 tickets, 20 commits

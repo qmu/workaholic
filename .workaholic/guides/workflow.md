@@ -2,8 +2,8 @@
 title: Workflow Guide
 description: How to use ticket-driven development with Workaholic
 category: user
-modified_at: 2026-01-28T21:38:50+09:00
-commit_hash: fe3d558
+modified_at: 2026-03-10T01:13:03+09:00
+commit_hash: f76bde2
 ---
 
 [English](workflow.md) | [日本語](workflow_ja.md)
@@ -22,31 +22,21 @@ This works well for solo developers and small teams who want to move quickly wit
 
 ```mermaid
 flowchart TD
-    A["Start feature"] --> B["/branch"]
-    B --> C["/ticket description"]
+    A["Start feature"] --> C["/ticket description"]
     C --> D{"Review spec"}
     D -->|Approve| E["/drive"]
     D -->|Revise| C
     E --> F{"More tickets?"}
     F -->|Yes| C
-    F -->|No| G["/report"]
+    F -->|No| S["/scan"]
+    S --> G["/report"]
     G --> H["Code review"]
     H --> I["Merge"]
 ```
 
 ## Step-by-Step
 
-### 1. Create a Branch
-
-Start with a clean branch for your work:
-
-```bash
-/branch
-```
-
-This creates a timestamped branch like `drive-20260123-143022`.
-
-### 2. Write a Ticket
+### 1. Write a Ticket
 
 Describe what you want to implement:
 
@@ -54,9 +44,9 @@ Describe what you want to implement:
 /ticket add dark mode toggle to settings
 ```
 
-Claude explores your codebase, understands the architecture, and generates a detailed implementation spec. Review the spec in `.workaholic/tickets/todo/` and revise if needed.
+Claude explores your codebase, understands the architecture, and generates a detailed implementation spec. Review the spec in `.workaholic/tickets/todo/` and revise if needed. When invoked on `main` or `master`, the command automatically creates a timestamped topic branch first.
 
-### 3. Implement the Ticket
+### 2. Implement the Ticket
 
 Run drive to implement:
 
@@ -66,9 +56,19 @@ Run drive to implement:
 
 Claude follows the spec, makes changes, and runs any type checks. After implementation, Claude asks for your approval. You have four options: approve to continue, approve and stop to finish, request changes for adjustments, or abandon if the approach isn't working. Approvals trigger a Final Report documenting deviations and discoveries. Abandoned attempts get a Failure Analysis documenting what was tried and insights for future attempts.
 
-### 4. Repeat as Needed
+### 3. Repeat as Needed
 
 For multi-ticket features, write additional tickets and run `/drive` again. Each ticket becomes one commit with a clear purpose.
+
+### 4. Update Documentation
+
+Run a full documentation scan to update all specs, policies, terms, and changelog:
+
+```bash
+/scan
+```
+
+The scan command invokes 15 documentation agents in two phases: three managers establish strategic context, then twelve leaders and writers produce domain-specific documentation.
 
 ### 5. Generate Report and Create Pull Request
 
@@ -121,3 +121,13 @@ Later, retrieve from icebox:
 ```
 
 This lets you capture ideas without committing to immediate implementation.
+
+## Exploration Workflow (Trippin Plugin)
+
+For exploratory or creative development, use the `/trip` command:
+
+```bash
+/trip design a notification system for real-time updates
+```
+
+This launches a three-agent collaborative session (Planner, Architect, Constructor) in an isolated git worktree. The agents work through a two-phase Implosive Structure protocol: first agreeing on specification artifacts (Direction, Model, Design), then implementing and testing. Every step produces a git commit for full traceability. After completion, the trip branch can be merged or inspected independently.

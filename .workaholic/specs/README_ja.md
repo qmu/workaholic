@@ -2,8 +2,8 @@
 title: Technical Specifications
 description: Viewpoint-based architecture specifications for the Workaholic plugin system
 category: developer
-modified_at: 2026-02-12
-commit_hash: f385117
+modified_at: 2026-03-10T00:58:20+09:00
+commit_hash: f76bde2
 ---
 
 [English](README.md) | [日本語](README_ja.md)

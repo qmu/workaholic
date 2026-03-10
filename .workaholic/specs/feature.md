@@ -2,17 +2,17 @@
 title: Feature Viewpoint
 description: Feature inventory, capability matrix, and configuration
 category: developer
-modified_at: 2026-02-12T18:14:33+08:00
-commit_hash: f385117
+modified_at: 2026-03-10T00:58:20+09:00
+commit_hash: f76bde2
 ---
 
 [English](feature.md) | [Japanese](feature_ja.md)
 
 # Feature Viewpoint
 
-The Feature Viewpoint provides a comprehensive inventory of capabilities offered by the Workaholic plugin, documenting what the system can do, how features are configured, and what options are available to users. This specification focuses on functional features, their status, and configuration mechanisms rather than implementation details. The recent addition of a manager tier introduces strategic context establishment and constraint-setting capabilities alongside the existing ticket-driven development workflow.
+The Feature Viewpoint provides a comprehensive inventory of capabilities offered by the Workaholic marketplace, documenting what the system can do, how features are configured, and what options are available to users. The marketplace now contains two plugins: drivin provides a ticket-driven development workflow with strategic documentation scanning, while trippin provides an AI-oriented exploration workflow based on three-agent collaboration. This specification focuses on functional features, their status, and configuration mechanisms rather than implementation details.
 
-## Command Features
+## Drivin Plugin Features
 
 ### Ticket Creation (`/ticket`)
 
@@ -50,7 +50,7 @@ flowchart TD
     H -->|No| J{Complex?}
     J -->|Yes| K[Split Tickets]
     J -->|No| L[Single Ticket]
-    K --> M[Write & Validate]
+    K --> M[Write and Validate]
     L --> M
     M --> N[Commit]
 ```
@@ -64,7 +64,9 @@ The drive command implements queued tickets through an approval-gated loop with 
 | Intelligent prioritization | Orders tickets by type, layer, and dependencies | `drive-navigator` agent |
 | Sequential implementation | Processes tickets one at a time | `drive-workflow` skill |
 | Human-in-the-loop approval | Requires explicit approval per ticket | `drive-approval` skill |
+| Context-rich approval prompts | Requires ticket title and overview in every approval dialog | `drive-approval` skill (CRITICAL enforcement) |
 | Feedback loop | Accepts free-form feedback for re-implementation | `drive-approval` skill |
+| Context preservation in feedback | Re-reads ticket file when context lost during feedback loops | `drive-approval` skill |
 | Abandon with analysis | Generates failure analysis on abandon | `drive-approval` skill |
 | Final report | Appends implementation summary to ticket | `write-final-report` skill |
 | Automatic archival | Archives approved tickets with commit | `archive-ticket` skill |
@@ -87,7 +89,7 @@ flowchart TD
     C -->|No| G
     G --> H[Present for Approval]
     H --> I{User Choice}
-    I -->|Approve| J[Archive & Commit]
+    I -->|Approve| J[Archive and Commit]
     I -->|Feedback| K[Update Ticket]
     I -->|Abandon| L[Skip]
     K --> G
@@ -101,15 +103,15 @@ flowchart TD
 
 ### Documentation Update (`/scan`)
 
-The scan command runs a two-phase agent orchestration to generate comprehensive codebase documentation. Phase 3a invokes 3 manager agents to establish strategic context. Phase 3b invokes 12 leader and writer agents that consume manager outputs.
+The scan command runs a two-phase agent orchestration to generate comprehensive codebase documentation. Phase 3a invokes 3 manager agents to establish strategic context. Phase 3b invokes 13 leader and writer agents that consume manager outputs.
 
 | Feature | Description | Implementation |
 | --- | --- | --- |
 | Two-phase execution | Managers first, then leaders/writers | `scan.md` Phases 3a/3b |
 | 3 manager agents | Establish project, architecture, quality context | Manager tier agents |
-| 10 leader agents | Domain-specific policy analysis | Leader tier agents |
+| 11 leader agents | Domain-specific policy analysis | Leader tier agents |
 | 2 writer agents | Changelog and terms generation | Writer agents |
-| Real-time visibility | All 15 agents visible as Task calls | `scan.md` Phase 3 |
+| Real-time visibility | All agents visible as Task calls | `scan.md` Phase 3 |
 | Output validation | Verifies files exist before index update | `validate-writer-output` skill |
 | Index synchronization | Updates README files for specs and policies | `scan.md` Phase 5 |
 | i18n mirroring | Japanese translations for all documents | `translate` skill |
@@ -121,15 +123,16 @@ The scan command runs a two-phase agent orchestration to generate comprehensive 
 
 #### Documentation Agent Matrix
 
-The scan command orchestrates 15 agents organized into 3 tiers:
+The scan command orchestrates agents organized into 3 tiers:
 
 **Manager Tier (3 agents)**: Establish strategic context
 - `project-manager` - Business domain, stakeholders, timeline, issues, solutions
 - `architecture-manager` - System boundaries, layers, components, cross-cutting concerns, 4 viewpoint specs
 - `quality-manager` - Quality dimensions, standards, assurance processes, metrics, feedback loops
 
-**Leader Tier (10 agents)**: Generate policy documentation
+**Leader Tier (11 agents)**: Generate documentation
 - `ux-lead` - User experience, interaction patterns, user journeys, onboarding
+- `model-analyst` - Domain concepts, relationships, core abstractions
 - `infra-lead` - External dependencies, deployment, runtime environment
 - `db-lead` - Data formats, storage mechanisms, persistence patterns
 - `security-lead` - Security requirements, threat model, mitigation strategies
@@ -148,14 +151,14 @@ The scan command orchestrates 15 agents organized into 3 tiers:
 
 ```mermaid
 flowchart LR
-    subgraph Phase 3a: Strategic Context
+    subgraph "Phase 3a: Strategic Context"
         S[Scan Entry Point]
         PM[project-manager]
         AM[architecture-manager]
         QM[quality-manager]
     end
 
-    subgraph Phase 3b: Tactical Analysis
+    subgraph "Phase 3b: Tactical Analysis"
         UX[ux-lead]
         IN[infra-lead]
         DB[db-lead]
@@ -189,29 +192,33 @@ The report command generates a branch story and creates or updates a pull reques
 | Overview generation | High-level summary and highlights | `overview-writer` agent |
 | Section review | Outcome, concerns, ideas, historical analysis | `section-reviewer` agent |
 | Change summarization | Concise summary of implementation changes | `write-story` skill |
+| Multi-plugin version sync | Updates all plugin versions together | `report.md` version bump logic |
 
 #### Story Generation Workflow
 
 ```mermaid
 flowchart TD
-    A["Report Command"] --> B[Bump Version]
-    B --> C[Invoke Story Writer]
-    C --> D[Parallel Agent Invocation]
-    D --> E[release-readiness]
-    D --> F[performance-analyst]
-    D --> G[overview-writer]
-    D --> H[section-reviewer]
-    E --> I[Collect Results]
-    F --> I
-    G --> I
-    H --> I
-    I --> J[Write Story File]
-    J --> K[Commit & Push Story]
-    K --> L[Parallel Generation]
-    L --> M[release-note-writer]
-    L --> N[pr-creator]
-    M --> O[Commit Release Notes]
-    N --> P[Display PR URL]
+    A["Report Command"] --> B{Already bumped?}
+    B -->|No| C[Bump Version]
+    B -->|Yes| D[Skip Bump]
+    C --> E[Invoke Story Writer]
+    D --> E
+    E --> F[Parallel Agent Invocation]
+    F --> G[release-readiness]
+    F --> H[performance-analyst]
+    F --> I[overview-writer]
+    F --> J[section-reviewer]
+    G --> K[Collect Results]
+    H --> K
+    I --> K
+    J --> K
+    K --> L[Write Story File]
+    L --> M[Commit and Push Story]
+    M --> N[Parallel Generation]
+    N --> O[release-note-writer]
+    N --> P[pr-creator]
+    O --> Q[Commit Release Notes]
+    P --> R[Display PR URL]
 ```
 
 ### Release (`/release`)
@@ -221,10 +228,82 @@ The release command manages semantic versioning and triggers GitHub release work
 | Feature | Description | Implementation |
 | --- | --- | --- |
 | Version bump | Increments patch/minor/major | `.claude/commands/release.md` |
-| Dual file sync | Updates both manifest files | `marketplace.json` + `plugin.json` |
+| Triple file sync | Updates marketplace.json and both plugin.json files | Version management |
 | Auto-release | GitHub Action creates release on main | `release.yml` workflow |
 | Documentation sync | Triggers full scan before release | `release.md` step 9 |
-| Multi-plugin support | Updates all plugin versions in marketplace | `release.md` steps 5-8 |
+| Multi-plugin support | Updates all plugin versions in marketplace | Version management |
+
+## Trippin Plugin Features
+
+### Exploration Session (`/trip`)
+
+The trip command launches a collaborative Agent Teams session for creative exploration and development.
+
+| Feature | Description | Implementation |
+| --- | --- | --- |
+| Agent Teams integration | Creates 3-member collaborative team | `trip.md` command |
+| Worktree isolation | Runs in dedicated git worktree for safety | `ensure-worktree.sh` script |
+| Three-agent collaboration | Planner, Architect, Constructor with distinct stances | 3 agent definitions |
+| Two-phase workflow | Specification (inner loop) then implementation (outer loop) | `trip-protocol` skill |
+| Versioned artifacts | Direction, Model, Design with v1, v2, etc. | `trip-protocol` skill |
+| Commit-per-step | Every discrete step produces a git commit | `trip-commit.sh` script |
+| Moderation protocol | Third agent arbitrates disagreements | `trip-protocol` skill |
+| Consensus gates | All agents must approve before phase transitions | `trip-protocol` skill |
+| Artifact format | Structured markdown with author, status, reviewed-by | `trip-protocol` skill |
+| Branch isolation | Trip sessions on `trip/<trip-name>` branches | `ensure-worktree.sh` script |
+
+#### Trip Workflow
+
+```mermaid
+flowchart TD
+    A[User Instruction] --> B[Create Worktree]
+    B --> C[Initialize Trip Artifacts]
+    C --> D[Launch Agent Team]
+
+    D --> E["Phase 1: Specification"]
+    E --> F[Planner writes Direction]
+    F --> G[Architect reviews]
+    G --> H[Constructor reviews]
+    H --> I{Disagreement?}
+    I -->|Yes| J[Third agent moderates]
+    J --> K[Revision]
+    I -->|No| L{Consensus?}
+    K --> L
+    L -->|No| F
+    L -->|Yes| M[Architect writes Model]
+    M --> N[Constructor writes Design]
+    N --> O[Cross-review all artifacts]
+    O --> P{Full consensus?}
+    P -->|No| Q[Revise]
+    Q --> O
+    P -->|Yes| R["Phase 2: Implementation"]
+
+    R --> S[Planner: test plan]
+    S --> T[Constructor: implement]
+    T --> U[Architect: review]
+    U --> V[Planner: test]
+    V --> W{All pass?}
+    W -->|No| T
+    W -->|Yes| X[Present Results]
+```
+
+#### Agent Philosophy Matrix
+
+| Agent | Stance | Artifact | Phase 1 Role | Phase 2 Role |
+| --- | --- | --- | --- | --- |
+| Planner | Progressive | Direction | Lead creative vision | Test planning and validation |
+| Architect | Neutral | Model | Structural consistency | Code review |
+| Constructor | Conservative | Design | Feasibility review | Implementation |
+
+#### Moderation Protocol
+
+When two agents disagree, the third agent serves as moderator:
+
+| Disagreement | Moderator |
+| --- | --- |
+| Planner vs Architect | Constructor |
+| Architect vs Constructor | Planner |
+| Planner vs Constructor | Architect |
 
 ## Strategic Features
 
@@ -241,15 +320,6 @@ The manager tier introduces strategic context establishment and constraint-setti
 | Viewpoint spec production | 4 architectural viewpoint documents | `architecture-manager` |
 | Strategic focus | Observable facts, not aspirational recommendations | `managers-principle` |
 | Prior term consistency | Respect existing terminology, cultivate ubiquitous language | `managers-principle` |
-
-#### Constraint Setting Workflow
-
-Managers follow a four-phase constraint-setting workflow:
-
-1. **Analyze** - Identify unbounded areas, implicit constraints, outdated constraints
-2. **Ask** - Present targeted questions with concrete options grounded in analysis
-3. **Propose** - State constraints with bounds, rationale, affected leaders, falsifiability
-4. **Produce** - Write directional materials (policies, guidelines, roadmaps, decision records)
 
 ### Leader Tier Capabilities
 
@@ -280,36 +350,33 @@ Documents in `.workaholic/` must have translations based on the consumer project
 - Maintains consistent technical terminology
 - Mirrors index README link structures
 
-**Coverage**: All viewpoint specs, policy documents, stories, release notes, changelog, and terms require translations per the project's language policy. READMEs must maintain parallel link structures in all applicable languages.
-
 ### Shell Script Bundling
 
-All multi-step or conditional shell operations are extracted to bundled scripts in `skills/<name>/sh/<script>.sh`. This ensures consistency, testability, and permission-free execution.
+All multi-step or conditional shell operations are extracted to bundled scripts in `skills/<name>/sh/<script>.sh`. Both plugins follow this pattern:
 
-**Prohibited in commands/agents**:
-- Conditionals (`if`, `case`, `test`, `[ ]`, `[[ ]]`)
-- Pipes and chains (`|`, `&&`, `||`)
-- Text processing (`sed`, `awk`, `grep`, `cut`)
-- Loops (`for`, `while`)
-- Variable expansion with logic (`${var:-default}`, `${var:+alt}`)
-
-**Examples of bundled scripts**:
+**Drivin examples**:
 - `gather-git-context/sh/gather.sh` - Git repository context collection
 - `select-scan-agents/sh/select.sh` - Agent selection based on changes
 - `validate-writer-output/sh/validate.sh` - Output file existence validation
-- `gather-ticket-metadata/sh/gather.sh` - Ticket frontmatter metadata generation
+
+**Trippin examples**:
+- `trip-protocol/sh/ensure-worktree.sh` - Worktree creation and validation
+- `trip-protocol/sh/init-trip.sh` - Trip directory initialization
+- `trip-protocol/sh/trip-commit.sh` - Standardized commit with agent context
 
 ### Validation
 
 The system includes multiple validation layers to ensure data integrity:
 
-**PostToolUse Hook**: Validates ticket frontmatter structure on every Write/Edit tool invocation. Defined in `plugins/core/hooks/hooks.json`.
+**PostToolUse Hook**: Validates ticket frontmatter structure on every Write/Edit tool invocation. Defined in `plugins/drivin/hooks/hooks.json`.
 
 **CI Workflow**: GitHub Actions validates JSON manifests and plugin structure on push.
 
 **Output Validation**: The `validate-writer-output` skill verifies documentation files exist before updating index READMEs during scan operations.
 
-**Agent Output Validation**: Story-writer tracks which of its 6 parallel agents succeed or fail, including this status in the final JSON output.
+**Agent Output Validation**: Story-writer tracks which of its parallel agents succeed or fail, including this status in the final JSON output.
+
+**Approval Prompt Validation**: The drive-approval skill treats missing ticket title or overview in the approval prompt as a failure condition, requiring re-read from the ticket file.
 
 ### Git Integration
 
@@ -318,37 +385,54 @@ Workaholic manages git operations autonomously during commands:
 - Committing changes (after ticket implementation, story generation)
 - Pushing to remote (during PR creation)
 - Creating pull requests (via `gh` CLI in pr-creator agent)
+- Creating git worktrees (during `/trip` sessions)
+- Commit-per-step in worktree branches (during trip workflows)
 
-The root README includes an explicit warning about this autonomous behavior.
+### Multi-Plugin Architecture
+
+The marketplace supports multiple plugins with synchronized versioning:
+
+| Plugin | Commands | Purpose |
+| --- | --- | --- |
+| drivin | `/ticket`, `/drive`, `/scan`, `/report` | Development workflow |
+| trippin | `/trip` | Exploration workflow |
+
+Version files to keep in sync:
+- `.claude-plugin/marketplace.json` - root version
+- `plugins/drivin/.claude-plugin/plugin.json` - drivin version
+- `plugins/trippin/.claude-plugin/plugin.json` - trippin version
 
 ### Configuration Mechanisms
 
 ```mermaid
 flowchart TD
-    subgraph Configuration Sources
+    subgraph "Configuration Sources"
         A[CLAUDE.md]
         B[marketplace.json]
-        C[plugin.json]
+        C1["drivin/plugin.json"]
+        C2["trippin/plugin.json"]
         D[hooks.json]
         E[settings.json]
         F["rules/*.md"]
     end
 
-    subgraph Configuration Scope
+    subgraph "Configuration Scope"
         A --> G[Architecture Policy]
         A --> H[Workflow Instructions]
         B --> I[Marketplace Metadata]
-        C --> J[Plugin Metadata]
+        C1 --> J1[Drivin Plugin Metadata]
+        C2 --> J2[Trippin Plugin Metadata]
         D --> K[Tool Validation]
         E --> L[Runtime Settings]
         F --> M[Path-Specific Rules]
     end
 
-    subgraph Applied To
-        G --> N[Commands & Agents]
+    subgraph "Applied To"
+        G --> N[All Commands and Agents]
         H --> N
         I --> O[Release Process]
-        J --> O
+        J1 --> O
+        J2 --> O
         K --> P[Tool Invocations]
         L --> Q[Claude Code Runtime]
         M --> R[File Operations]
@@ -357,15 +441,22 @@ flowchart TD
 
 ## Capability Matrix
 
-The system provides a complete ticket-driven development workflow with strategic oversight:
+The system provides two complementary workflows:
 
-| Phase | Capabilities | Status |
+| Phase | Drivin Capabilities | Status |
 | --- | --- | --- |
-| **Planning** | Ticket creation, duplicate detection, history discovery, source discovery, automatic splitting | ✓ Active |
-| **Strategic** | Project context, architectural structure, quality standards, constraint setting | ✓ Active |
-| **Implementation** | Sequential drive, approval loop, feedback iteration, automatic archival, effort tracking | ✓ Active |
-| **Documentation** | 2-phase scan (managers then leaders), 4 viewpoint specs, 7 policy docs, changelog, terms, i18n | ✓ Active |
-| **Delivery** | Story generation, release notes, PR management, version bumping, release automation | ✓ Active |
+| **Planning** | Ticket creation, duplicate detection, history discovery, source discovery, automatic splitting | Active |
+| **Strategic** | Project context, architectural structure, quality standards, constraint setting | Active |
+| **Implementation** | Sequential drive, approval loop, feedback iteration, automatic archival, effort tracking | Active |
+| **Documentation** | 2-phase scan (managers then leaders), 4 viewpoint specs, 7 policy docs, changelog, terms, i18n | Active |
+| **Delivery** | Story generation, release notes, PR management, version bumping, release automation | Active |
+
+| Phase | Trippin Capabilities | Status |
+| --- | --- | --- |
+| **Exploration** | Agent Teams session, worktree isolation, three-agent collaboration | Active |
+| **Specification** | Direction, Model, Design artifacts with consensus gates, moderation protocol | Active |
+| **Implementation** | Test planning, construction, structural review, test validation | Active |
+| **Traceability** | Commit-per-step, versioned artifacts, branch isolation | Active |
 
 ### Feature Dependencies
 
@@ -387,8 +478,17 @@ flowchart TD
     N --> O[Release Notes]
     O --> P[Pull Request]
     P --> Q[GitHub Merge]
-    Q --> R["/release" or Auto-Release]
-    R --> S[GitHub Release]
+    Q --> R["Auto-Release"]
+```
+
+```mermaid
+flowchart TD
+    T["/trip"] --> W[Git Worktree]
+    W --> I[Initialize Trip]
+    I --> AT[Agent Team]
+    AT --> S[Specification Artifacts]
+    S --> Impl[Implementation]
+    Impl --> Branch["Trip Branch for Review"]
 ```
 
 ## Configuration Options
@@ -399,10 +499,11 @@ flowchart TD
 | --- | --- | --- | --- |
 | `CLAUDE.md` | Repository root | Project-wide instructions and architecture policy | All commands, agents, skills |
 | `marketplace.json` | `.claude-plugin/` | Marketplace metadata and version | Release process |
-| `plugin.json` | `plugins/core/.claude-plugin/` | Plugin metadata and version | Release process |
-| `hooks.json` | `plugins/core/hooks/` | PostToolUse hook configuration | Tool validation |
+| `drivin/plugin.json` | `plugins/drivin/.claude-plugin/` | Drivin plugin metadata and version | Release process |
+| `trippin/plugin.json` | `plugins/trippin/.claude-plugin/` | Trippin plugin metadata and version | Release process |
+| `hooks.json` | `plugins/drivin/hooks/` | PostToolUse hook configuration | Tool validation |
 | `settings.json` | `.claude/` | Claude Code runtime settings | IDE integration |
-| Rule files | `plugins/core/rules/` | Path-specific behavioral constraints | File-scoped operations |
+| Rule files | `plugins/drivin/rules/` | Path-specific behavioral constraints | File-scoped operations |
 | `define-manager.md` | `.claude/rules/` | Manager schema enforcement | Manager skills and agents |
 | `define-lead.md` | `.claude/rules/` | Leader schema enforcement | Leader skills and agents |
 
@@ -410,108 +511,60 @@ flowchart TD
 
 Commands accept limited runtime arguments:
 
-| Command | Arguments | Options | Default |
-| --- | --- | --- | --- |
-| `/ticket` | Description | `Target: todo\|icebox` | `todo` |
-| `/drive` | Mode | `normal\|icebox` | `normal` |
-| `/scan` | None | N/A | Full mode |
-| `/report` | None | N/A | N/A |
-| `/release` | Bump type | `major\|minor\|patch` | `patch` |
+| Command | Plugin | Arguments | Options | Default |
+| --- | --- | --- | --- | --- |
+| `/ticket` | drivin | Description | `Target: todo\|icebox` | `todo` |
+| `/drive` | drivin | Mode | `normal\|icebox` | `normal` |
+| `/scan` | drivin | None | N/A | Full mode |
+| `/report` | drivin | None | N/A | N/A |
+| `/release` | drivin | Bump type | `major\|minor\|patch` | `patch` |
+| `/trip` | trippin | Instruction | N/A | N/A |
 
-### Ticket Metadata Configuration
+### Trip Session Configuration
 
-Ticket frontmatter provides rich metadata for prioritization and tracking:
+The trip command uses environment-based configuration:
 
-```yaml
-created_at: <ISO 8601 timestamp>    # Automatic from date -Iseconds
-author: <git user.email>            # Automatic from git config
-type: <enhancement|bugfix|refactoring|housekeeping>  # Manual
-layer: [<UX|Domain|Infrastructure|DB|Config>]        # Manual (array)
-effort: <numeric hours>             # Filled after implementation
-commit_hash: <short hash>           # Filled during archival
-category: <Added|Changed|Removed>   # Filled during archival
-```
-
-**Type priority ranking** (used by drive-navigator):
-1. `bugfix` - High priority
-2. `enhancement` - Normal priority
-3. `refactoring` - Normal priority
-4. `housekeeping` - Low priority
-
-**Layer grouping**: Drive-navigator groups tickets by layer to maximize context efficiency.
-
-### Skill Configuration
-
-Skills bundle knowledge and shell scripts. Each skill directory contains:
-- `SKILL.md` - Guidelines, templates, and instructions
-- `sh/*.sh` - Executable shell scripts for complex operations
-
-Skills are preloaded by commands and agents via frontmatter:
-
-```yaml
-skills:
-  - managers-principle
-  - manage-project
-  - leaders-principle
-  - lead-ux
-```
-
-### Rule Configuration
-
-Rules define behavioral constraints scoped by file path patterns:
-
-| Rule | Path Pattern | Constraints |
-| --- | --- | --- |
-| `general.md` | `**/*` | Never commit without request, never use `git -C`, link markdown files, number headings |
-| `define-manager.md` | Manager paths | Manager schema (Role, Responsibility, Goal, Outputs, Default Policies) |
-| `define-lead.md` | Leader paths | Leader schema (Role, Responsibility, Goal, Default Policies) |
-| `diagrams.md` | Documentation files | Mermaid node label quoting, diagram placement policy |
-| `i18n.md` | `.workaholic/` | Parallel translation requirement, suffix naming |
-| `shell.md` | Commands/agents | Shell script bundling requirement |
+| Mechanism | Purpose |
+| --- | --- |
+| `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` | Required to enable Agent Teams feature |
+| Trip name (auto-generated) | Timestamp-based unique identifier |
+| Worktree path | `.worktrees/<trip-name>/` |
+| Trip artifact path | `.workaholic/.trips/<trip-name>/` |
+| Branch name | `trip/<trip-name>` |
 
 ## Feature Status
 
-All documented features are actively implemented and maintained. The system has no deprecated features as of commit `f7f779f`.
+All documented features are actively implemented and maintained. The system has no deprecated features as of commit `f76bde2`.
 
 ### Recent Feature Changes
 
-Based on archived tickets from branch `drive-20260210-121635`:
+Based on archived tickets from branch `drive-20260302-213941`:
 
 **Added**:
-- Manager tier with 3 manager agents and 3 manager skills
-- Constraint-setting workflow for managers (Analyze, Ask, Propose, Produce)
-- Two-phase scan execution (managers in phase 3a, leaders in phase 3b)
-- Leaders-policy and managers-principle cross-cutting skills
-- Expanded commit message sections (Motivation, UX Change, Arch Change)
-- 10 leader skills (lead-ux, lead-infra, lead-db, lead-security, lead-test, lead-quality, lead-a11y, lead-observability, lead-delivery, lead-recovery)
-
-**Removed**:
-- `architecture-lead` agent (absorbed by architecture-manager)
-- `lead-architecture` skill (absorbed by manage-architecture)
-- `communication-lead` agent (renamed to ux-lead)
-- `lead-communication` skill (renamed to lead-ux)
-- `format-commit-message` skill (merged into commit skill)
+- Trippin plugin with `/trip` command, 3 agents, trip-protocol skill, 3 shell scripts
+- Agent Teams integration for three-agent collaborative exploration
+- Worktree isolation for trip sessions
+- Commit-per-step traceability in trip workflows
+- Moderation protocol for resolving agent disagreements
+- Consensus gates for phase transitions
 
 **Changed**:
-- Scan command agent count: 17 → 15 (3 managers + 10 leaders + 2 writers)
-- Viewpoint spec production: moved from architecture-lead to architecture-manager
-- UX viewpoint slug: "stakeholder" → "ux"
-- Commit skill: merged format-commit-message guidelines, expanded sections
-- Archive-ticket skill: enhanced with "update ticket first" enforcement
+- Core plugin renamed to drivin (directory, all references, subagent_type prefixes)
+- Marketplace expanded from 1 plugin to 2 plugins
+- Drive approval enforcement upgraded from IMPORTANT to CRITICAL with failure condition language
+- Version management expanded to track three version files (marketplace + drivin + trippin)
+- CLAUDE.md project structure updated to reflect two-plugin architecture
 
 ## Assumptions
 
-- [Explicit] The 4 commands, 28 agents, 45 skills, and 6 rules are counted from the structure output provided by the gather-context script and recent tickets.
-- [Explicit] The manager tier introduces 3 managers (project, architecture, quality) and adds strategic context establishment capabilities.
-- [Explicit] The two-phase scan execution (managers then leaders) is documented in scan.md Phase 3a and 3b.
-- [Explicit] The constraint-setting workflow (Analyze, Ask, Propose, Produce) is defined in managers-principle skill.
-- [Explicit] The architecture-manager absorbed viewpoint spec production from the removed architecture-lead, as documented in ticket 20260211170402.
-- [Explicit] The communication-lead was renamed to ux-lead with viewpoint slug change from "stakeholder" to "ux", as documented in ticket 20260211170402.
-- [Explicit] The format-commit-message skill was merged into commit skill, as documented in ticket 20260210160550.
-- [Explicit] The ticket metadata schema (7 frontmatter fields) is defined in `create-ticket` skill and validated by the PostToolUse hook.
-- [Explicit] The scan command orchestrates exactly 15 agents (3 managers + 10 leaders + 2 writers) as documented in `scan.md` Phase 3.
-- [Inferred] The feature set has evolved through iterative development, with the current architecture favoring hierarchical strategic/tactical separation over flat analysis.
-- [Inferred] Configuration options are intentionally minimal at runtime, with most customization happening through markdown skill files and CLAUDE.md project instructions.
-- [Inferred] The automatic version bump in `/report` ensures every PR triggers a release via GitHub Actions, reducing manual release command usage.
-- [Inferred] The manager tier was introduced to eliminate strategic context duplication and establish authoritative single sources of truth for project, architecture, and quality concerns.
-- [Inferred] The constraint-setting workflow is designed to produce actionable constraints (falsifiable boundaries) rather than aspirational recommendations.
+- [Explicit] The drivin plugin has 4 commands, 28 agents, 45 skills, and 6 rules, counted from filesystem listing.
+- [Explicit] The trippin plugin has 1 command, 3 agents, 1 skill, and 0 rules, counted from filesystem listing.
+- [Explicit] The marketplace registers both plugins with synchronized version 1.0.38, as shown in marketplace.json.
+- [Explicit] The trip command requires Agent Teams experimental feature flag, as documented in trip.md.
+- [Explicit] Trip sessions run in isolated git worktrees, as documented in trip-protocol SKILL.md.
+- [Explicit] The drive-approval skill enforces ticket context with CRITICAL language, as documented in drive-approval SKILL.md.
+- [Explicit] The core plugin was renamed to drivin, as documented in ticket 20260302215035.
+- [Explicit] The trippin plugin was created with skeleton then populated with trip command, as documented in tickets 20260302215036 and 20260309214650.
+- [Inferred] The trippin plugin represents a new category of workflow (exploration vs development) that complements rather than replaces drivin.
+- [Inferred] The worktree isolation in trippin protects the main working tree from experimental changes during trip sessions.
+- [Inferred] The Agent Teams model was chosen for trippin because peer collaboration better suits creative exploration than the hierarchical Task tool model used by drivin.

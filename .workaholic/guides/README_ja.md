@@ -2,8 +2,8 @@
 title: User Documentation
 description: Documentation for users of the Workaholic plugin marketplace
 category: user
-modified_at: 2026-01-28T21:38:50+09:00
-commit_hash: fe3d558
+modified_at: 2026-03-10T01:13:03+09:00
+commit_hash: f76bde2
 ---
 
 [English](README.md) | [日本語](README_ja.md)

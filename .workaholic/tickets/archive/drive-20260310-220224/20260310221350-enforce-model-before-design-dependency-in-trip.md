@@ -3,9 +3,9 @@ created_at: 2026-03-10T22:13:50+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config, Domain]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 3a9a202
+category: Changed
 ---
 
 # Enforce Model-before-Design Dependency in Trip Workflow
@@ -127,3 +127,16 @@ Past tickets that touched similar areas:
 - After direction revisions (regeneration), the same sequential ordering must apply: if a direction is revised and re-approved, the Architect must regenerate the model first, and only then does the Constructor regenerate the design. The protocol must state this explicitly for revision cycles, not just initial generation. (`plugins/trippin/skills/trip-protocol/SKILL.md` lines 85-106)
 - Agent Teams agents operate in separate context windows. Even with explicit ordering instructions, an agent may not see the model if it was written after the agent's context was initialized. The leader must explicitly tell the Constructor the path to the completed model file so it can read it. (`plugins/trippin/commands/trip.md`)
 - Phase 2 has a similar implicit dependency: the Constructor implements based on both Model and Design. Since it authored the Design, this is less risky, but the test plan (Planner) should also reference the Model. Consider whether Phase 2 needs similar explicit dependency documentation. (`plugins/trippin/skills/trip-protocol/SKILL.md` lines 114-140)
+
+## Final Report
+
+### Changes Made
+
+- **`plugins/trippin/skills/trip-protocol/SKILL.md`**: Added Artifact Dependencies section documenting strict Direction → Model → Design data flow. Rewrote Step 2 into sub-steps: 2a (Model), 2b (Design after reading Model), 2c (Cross-Review), each with GATE markers. Added revision cycle note.
+- **`plugins/trippin/commands/trip.md`**: Updated Phase 1 steps 8-9 to enforce sequential model-then-design with explicit WAIT and READ instructions.
+- **`plugins/trippin/agents/constructor.md`**: Updated Phase 1 to state model is prerequisite, design derived from both Direction and Model.
+- **`plugins/trippin/agents/architect.md`**: Noted model is blocking prerequisite for Constructor's design.
+
+### Approach
+
+Superseded the concurrent model/design generation from ticket 1's Step 2 with strict sequential ordering. The phase-gate synchronization from ticket 1 remains intact for all other steps.

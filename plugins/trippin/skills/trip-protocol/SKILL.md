@@ -34,6 +34,21 @@ Rules:
 
 Every transition between sub-steps requires the leader to explicitly request the next action. This prevents race conditions where one agent's early completion causes it to skip ahead while other agents are still working.
 
+## Artifact Dependencies
+
+Artifacts have strict data flow dependencies that determine generation order:
+
+```
+Direction (Planner) ──→ Model (Architect) ──→ Design (Constructor)
+```
+
+- **Direction** feeds into both Model and Design
+- **Model** feeds into Design (the Constructor must read the completed Model before writing Design)
+- This creates strict ordering: Direction → Model → Design (never concurrent)
+- Cross-reviews happen only after both Model and Design exist
+
+On revision cycles: if a Direction is revised and re-approved, the Architect must regenerate the Model first, and only then does the Constructor regenerate the Design.
+
 ## Worktree Isolation
 
 Each trip session runs in a dedicated git worktree for isolation. The worktree is created before any artifacts.
@@ -111,13 +126,20 @@ Agents produce and mutually review artifacts until full consensus.
 ### Step 2: Model and Design
 
 Once Direction is approved and the leader has confirmed consensus:
+
+**Step 2a: Model**
 1. **Architect** writes `models/model-v1.md` derived from the approved Direction
-2. **Constructor** writes `designs/design-v1.md` derived from the approved Direction
-3. **GATE**: Leader waits for BOTH model and design to be written
-4. Each agent reviews the other's artifact
-5. **Planner** reviews both for alignment with the Direction
-6. **GATE**: Leader waits for ALL cross-reviews to complete
-7. Revisions continue until all three artifacts are mutually consistent
+2. **GATE**: Leader confirms model is committed and complete
+
+**Step 2b: Design**
+3. **Constructor** reads the completed Model, then writes `designs/design-v1.md` derived from BOTH the approved Direction AND the completed Model
+4. **GATE**: Leader confirms design is committed and complete
+
+**Step 2c: Cross-Review**
+5. Each agent reviews the other's artifact (Architect reviews design, Constructor reviews model)
+6. **Planner** reviews both for alignment with the Direction
+7. **GATE**: Leader waits for ALL cross-reviews to complete
+8. Revisions continue until all three artifacts are mutually consistent
 
 ### Consensus Gate
 

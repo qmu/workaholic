@@ -3,9 +3,9 @@ created_at: 2026-03-10T22:02:21+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: bfbb625
+category: Added
 ---
 
 # Deterministic Artifact Review Convention for Concurrent Agents
@@ -117,3 +117,18 @@ Past tickets that touched similar areas:
 - The existing "Review Notes" section in the Artifact Format template becomes redundant if reviews are separate files; consider removing it or repurposing it as a summary of incorporated feedback (`plugins/trippin/skills/trip-protocol/SKILL.md` lines 159-176)
 - The `init-trip.sh` script currently creates only three directories; it needs to also create `reviews/` subdirectories to prevent agents from needing to `mkdir -p` during reviews (`plugins/trippin/skills/trip-protocol/sh/init-trip.sh`)
 - Agent Teams agents may execute concurrently within the same phase step; the convention must account for truly parallel writes, not just sequential reviews with different approaches (`plugins/trippin/commands/trip.md` lines 65-74)
+
+## Final Report
+
+### Changes Made
+
+- **`plugins/trippin/skills/trip-protocol/SKILL.md`**: Updated Artifact Storage tree with `reviews/` subdirectories. Updated Phase 1 Step 1 and Step 2c with explicit review file paths. Added Review Convention section with naming convention, examples, and ownership rule.
+- **`plugins/trippin/commands/trip.md`**: Replaced "add review notes" with explicit review file paths in Phase 1 instructions.
+- **`plugins/trippin/agents/architect.md`**: Added Review Output section.
+- **`plugins/trippin/agents/constructor.md`**: Added Review Output section.
+- **`plugins/trippin/agents/planner.md`**: Added Review Output section.
+- **`plugins/trippin/skills/trip-protocol/sh/init-trip.sh`**: Updated to create `reviews/` subdirectories during initialization.
+
+### Approach
+
+Separate review files per agent eliminate concurrent write conflicts. Each agent writes to a unique path, and only the artifact author may modify the original file.

@@ -41,6 +41,10 @@ After every step (writing, reviewing, moderating, testing), commit your changes:
 bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/trip-commit.sh planner <phase> "<step>" "<description>"
 ```
 
+## Review Output
+
+Write all review feedback to `<artifact-dir>/reviews/<artifact-basename>-planner.md`. Never modify another agent's original artifact file.
+
 ## Protocol
 
 Follow the preloaded **trip-protocol** skill for artifact format, versioning, consensus gates, and moderation rules.

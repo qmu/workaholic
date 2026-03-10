@@ -96,9 +96,12 @@ Message format: `trip(<agent>): <step>` with phase in the body.
 
 ```
 .workaholic/.trips/<trip-name>/
-  directions/    # Planner's artifacts
-  models/        # Architect's artifacts
-  designs/       # Constructor's artifacts
+  directions/           # Planner's artifacts
+    reviews/            # Review feedback on directions
+  models/               # Architect's artifacts
+    reviews/            # Review feedback on models
+  designs/              # Constructor's artifacts
+    reviews/            # Review feedback on designs
 ```
 
 Versioning: `direction-v1.md`, `direction-v2.md`, etc. Each revision is a new file, preserving history for review.
@@ -116,8 +119,8 @@ Agents produce and mutually review artifacts until full consensus.
 ### Step 1: Direction
 
 1. **Planner** writes `directions/direction-v1.md` based on the user instruction
-2. **Architect** reviews for semantical consistency and static verification
-3. **Constructor** reviews for sustainable implementation and infrastructure reliability
+2. **Architect** reviews and writes `directions/reviews/direction-v1-architect.md`
+3. **Constructor** reviews and writes `directions/reviews/direction-v1-constructor.md`
 4. **GATE**: Leader waits for BOTH Architect AND Constructor reviews to complete
 5. If disagreements arise, the third party moderates (see Moderation Protocol)
 6. Revisions produce `direction-v2.md`, `direction-v3.md`, etc.
@@ -136,8 +139,8 @@ Once Direction is approved and the leader has confirmed consensus:
 4. **GATE**: Leader confirms design is committed and complete
 
 **Step 2c: Cross-Review**
-5. Each agent reviews the other's artifact (Architect reviews design, Constructor reviews model)
-6. **Planner** reviews both for alignment with the Direction
+5. **Architect** reviews design and writes `designs/reviews/design-v1-architect.md`; **Constructor** reviews model and writes `models/reviews/model-v1-constructor.md`
+6. **Planner** reviews both and writes `models/reviews/model-v1-planner.md` and `designs/reviews/design-v1-planner.md`
 7. **GATE**: Leader waits for ALL cross-reviews to complete
 8. Revisions continue until all three artifacts are mutually consistent
 
@@ -215,3 +218,27 @@ Each artifact markdown file follows this structure:
 
 <feedback from reviewing agents, added during review>
 ```
+
+## Review Convention
+
+**Rule**: Only the artifact's author may modify the original artifact file. All other agents express feedback through separate review files.
+
+### Review File Convention
+
+When reviewing an artifact, write feedback to a dedicated file in the `reviews/` subdirectory:
+
+```
+<artifact-dir>/reviews/<artifact-basename>-<reviewer-agent>.md
+```
+
+Examples:
+- Architect reviewing direction-v1: `directions/reviews/direction-v1-architect.md`
+- Constructor reviewing direction-v1: `directions/reviews/direction-v1-constructor.md`
+- Planner reviewing model-v1: `models/reviews/model-v1-planner.md`
+
+This ensures:
+- No concurrent write conflicts (each agent writes to a unique path)
+- Clear attribution of feedback
+- Original artifacts remain clean for the author to revise
+
+After reviews are committed, the artifact author reads all review files and incorporates feedback into the next version (e.g., `direction-v2.md`).

@@ -44,3 +44,7 @@ bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-proto
 ## Protocol
 
 Follow the preloaded **trip-protocol** skill for artifact format, versioning, consensus gates, and moderation rules.
+
+## Synchronization Rule
+
+After completing any task (review, artifact creation, moderation), **STOP and wait** for the next instruction from the team lead. Do NOT proceed to your next responsibility autonomously. The team lead coordinates all workflow transitions.

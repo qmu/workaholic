@@ -22,6 +22,18 @@ Defines the Implosive Structure workflow for three-agent collaboration: Planner,
 - **Goal**: Maximize benefit / Minimize loss (Optimization Problem)
 - **Responsibility**: Prevent what shouldn't happen (Constraint Satisfaction)
 
+## Phase Gate Policy
+
+**CRITICAL: The leader agent is the sole workflow coordinator. No sub-agent may autonomously advance to the next step.**
+
+Rules:
+1. When a sub-agent finishes a task (review, artifact creation, moderation), it STOPS and reports completion
+2. The leader waits for ALL concurrent tasks to complete before issuing the next round of work
+3. Review approval by all reviewers is a prerequisite before any agent begins artifact generation
+4. No agent may interpret its own approval as permission to proceed to its next responsibility
+
+Every transition between sub-steps requires the leader to explicitly request the next action. This prevents race conditions where one agent's early completion causes it to skip ahead while other agents are still working.
+
 ## Worktree Isolation
 
 Each trip session runs in a dedicated git worktree for isolation. The worktree is created before any artifacts.
@@ -91,18 +103,21 @@ Agents produce and mutually review artifacts until full consensus.
 1. **Planner** writes `directions/direction-v1.md` based on the user instruction
 2. **Architect** reviews for semantical consistency and static verification
 3. **Constructor** reviews for sustainable implementation and infrastructure reliability
-4. If disagreements arise, the third party moderates (see Moderation Protocol)
-5. Revisions produce `direction-v2.md`, `direction-v3.md`, etc.
-6. Consensus required from all three agents before proceeding
+4. **GATE**: Leader waits for BOTH Architect AND Constructor reviews to complete
+5. If disagreements arise, the third party moderates (see Moderation Protocol)
+6. Revisions produce `direction-v2.md`, `direction-v3.md`, etc.
+7. **GATE**: All three agents approve the direction before proceeding
 
 ### Step 2: Model and Design
 
-Once Direction is agreed:
+Once Direction is approved and the leader has confirmed consensus:
 1. **Architect** writes `models/model-v1.md` derived from the approved Direction
 2. **Constructor** writes `designs/design-v1.md` derived from the approved Direction
-3. Each agent reviews the other's artifact
-4. **Planner** reviews both for alignment with the Direction
-5. Revisions continue until all three artifacts are mutually consistent
+3. **GATE**: Leader waits for BOTH model and design to be written
+4. Each agent reviews the other's artifact
+5. **Planner** reviews both for alignment with the Direction
+6. **GATE**: Leader waits for ALL cross-reviews to complete
+7. Revisions continue until all three artifacts are mutually consistent
 
 ### Consensus Gate
 
@@ -118,25 +133,29 @@ With approved specification artifacts, agents transition to building.
 ### Step 1: Test Planning
 
 **Planner** creates a test plan aligned with the approved Direction, Model, and Design.
+- **GATE**: Leader confirms test plan is written before proceeding
 
 ### Step 2: Programming
 
 **Constructor** implements the program based on the approved Design and Model.
+- **GATE**: Leader confirms implementation is complete before proceeding
 
 ### Step 3: Reviewing
 
 **Architect** reviews the implementation for structural integrity against the Model.
+- **GATE**: Leader confirms review is complete before proceeding
 
 ### Step 4: Testing
 
 **Planner** validates the implementation against the test plan.
+- **GATE**: Leader confirms testing is complete before proceeding
 
 ### Iteration
 
 If review or testing reveals issues, the team iterates:
-- Constructor revises implementation
-- Architect re-reviews
-- Planner re-tests
+- Constructor revises implementation → **GATE**: Leader confirms revision complete
+- Architect re-reviews → **GATE**: Leader confirms re-review complete
+- Planner re-tests → **GATE**: Leader confirms re-test complete
 - Continue until all pass
 
 ## Moderation Protocol

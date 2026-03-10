@@ -3,9 +3,9 @@ created_at: 2026-03-10T22:11:31+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config, Domain]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: daf86e8
+category: Changed
 ---
 
 # Enforce Phase Gate Synchronization in Trip Command
@@ -187,3 +187,17 @@ Past tickets that touched similar areas:
 - The current trip command instruction block in `trip.md` uses a numbered list (lines 65-82) that implies sequential execution, but Agent Teams agents may interpret these as a full roadmap and work ahead. The rewrite must use language that makes the leader's gating role impossible to misinterpret -- consider using ALL CAPS markers like "WAIT" and "GATE" in the instruction text. (`plugins/trippin/commands/trip.md` lines 65-82)
 - The Phase 2 workflow also needs synchronization gates (between implementation, review, and testing), though the problem was observed in Phase 1. The Phase Gate Policy should apply universally to both phases. (`plugins/trippin/skills/trip-protocol/SKILL.md` lines 114-140)
 - Agent Teams communication model limitations: agents communicate by reading filesystem artifacts, not through a message queue. The leader agent must poll or be notified when an agent's task is complete. The current design assumes the leader can observe commits; if this is unreliable, consider adding a completion signal mechanism (e.g., a status file the agent writes when done). (`plugins/trippin/commands/trip.md`)
+
+## Final Report
+
+### Changes Made
+
+- **`plugins/trippin/skills/trip-protocol/SKILL.md`**: Added Phase Gate Policy section before Worktree Isolation defining the universal synchronization rule. Added intra-phase GATE markers to Phase 1 Steps 1 and 2. Added per-step GATE markers to Phase 2 steps and iteration loop.
+- **`plugins/trippin/commands/trip.md`**: Added CRITICAL coordinator policy to Agent Teams instruction block. Rewrote Phase 1 steps with explicit WAIT FOR ALL REVIEWS, GATE, and WAIT FOR ALL ARTIFACTS/CROSS-REVIEWS markers.
+- **`plugins/trippin/agents/architect.md`**: Added Synchronization Rule section.
+- **`plugins/trippin/agents/constructor.md`**: Added Synchronization Rule section.
+- **`plugins/trippin/agents/planner.md`**: Added Synchronization Rule section.
+
+### Approach
+
+Defense-in-depth: the synchronization rule is enforced at three layers (protocol skill, command instruction, agent definition) so that even if one layer is lost from an agent's context, the others reinforce it.

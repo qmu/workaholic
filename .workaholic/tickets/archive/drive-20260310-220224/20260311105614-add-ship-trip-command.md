@@ -3,9 +3,9 @@ created_at: 2026-03-11T10:56:14+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX, Config, Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: b69c0db
+category: Added
 ---
 
 # Add /ship-trip Command to Trippin Plugin
@@ -112,3 +112,19 @@ Past tickets that touched similar areas:
 - If the user runs `/ship-trip` from inside the worktree directory, the worktree removal will fail because the current working directory would be deleted. The command should detect this and either `cd` to the repo root first or instruct the user to run from the main repo. (`plugins/trippin/skills/trip-protocol/sh/cleanup-worktree.sh`)
 - The cloud.md search should look in the main repository root, not the worktree, since the worktree may already be removed by the time deploy runs. (`plugins/trippin/commands/ship-trip.md`)
 - Cross-reference: This ticket depends on the `/ship-drive` ticket which establishes the `ship` skill and cloud.md convention. Implement ship-drive first. (`.workaholic/tickets/todo/20260311105613-add-ship-drive-command.md`)
+
+## Final Report
+
+### Changes Made
+
+- Created `plugins/trippin/skills/trip-protocol/sh/cleanup-worktree.sh` to remove worktree and delete local branch after merge
+- Created `plugins/trippin/commands/ship-trip.md` with 7-step orchestration (identify trip, pre-check, merge, cleanup worktree, deploy, verify, complete)
+- Updated `plugins/trippin/README.md` with `/ship-trip` command entry
+- Updated `README.md` with `/ship-trip` in Trippin command table
+- Updated `CLAUDE.md` Trippin project structure to list commands and skills
+
+### Test Plan
+
+- Verify `cleanup-worktree.sh` handles edge cases (already removed worktree, already deleted branch)
+- Verify command file references correct absolute paths for both Drivin ship scripts and Trippin cleanup script
+- Verify command follows architecture policy (thin orchestration, no inline conditionals)

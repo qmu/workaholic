@@ -150,7 +150,7 @@ Step: <step>
 | `[Planner] Create integration test plan covering authentication edge cases` | `[Planner] test plan` |
 | `[Constructor] Implement login endpoint with JWT token generation` | `[Constructor] impl` |
 
-Commit points in Phase 1 (Specification):
+Commit points in Planning Phase (Specification):
 - Planner writes direction → commit
 - Architect reviews direction → commit
 - Constructor reviews direction → commit
@@ -162,7 +162,7 @@ Commit points in Phase 1 (Specification):
 - Each revision → commit
 - Consensus confirmation → commit
 
-Commit points in Phase 2 (Implementation):
+Commit points in Coding Phase (Implementation):
 - Test plan created → commit
 - Code implemented → commit
 - Structural review → commit
@@ -189,7 +189,7 @@ Versioning: `direction-v1.md`, `direction-v2.md`, etc. Each revision is a new fi
 bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/init-trip.sh <trip-name>
 ```
 
-## Phase 1: Specification (Inner Loop)
+## Planning Phase: Specification (Inner Loop)
 
 Agents produce and mutually review artifacts until full consensus.
 
@@ -223,12 +223,12 @@ Once Direction is approved and the leader has confirmed consensus:
 
 ### Consensus Gate
 
-Phase 1 completes when all agents confirm:
+Planning Phase completes when all agents confirm:
 - Direction, Model, and Design are internally consistent
 - No unresolved disagreements remain
 - Artifacts are sufficient to begin implementation
 
-## Phase 2: Implementation (Outer Loop)
+## Coding Phase: Implementation (Outer Loop)
 
 With approved specification artifacts, agents transition to building.
 
@@ -289,7 +289,7 @@ E2E tests validate user-visible workflows end-to-end: navigation, form submissio
 
 ## System Safety
 
-Agents must not modify system-wide configuration (shell profiles, global packages, system services, `/etc/` files, `sudo` commands) unless the repository is a provisioning repository. The Constructor is the primary agent executing commands during Phase 2, so this constraint is especially critical for implementation work.
+Agents must not modify system-wide configuration (shell profiles, global packages, system services, `/etc/` files, `sudo` commands) unless the repository is a provisioning repository. The Constructor is the primary agent executing commands during Coding Phase, so this constraint is especially critical for implementation work.
 
 Before any implementation that may touch system configuration, the Constructor must run the detection script from the **system-safety** skill:
 

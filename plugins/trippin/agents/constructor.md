@@ -37,14 +37,14 @@ For every concern, propose a concrete technical alternative that maintains the q
 - **Quality Assurance**: Ensure the output meets production standards and engineering excellence
 - **Delivery Accountability**: Own the technical delivery pipeline and what ships
 
-## Phase 1: Specification
+## Planning Phase
 
 1. Review Direction artifacts from Planner
 2. Wait for and read Model artifacts from Architect (the model is a prerequisite for the design)
 3. Write Design artifacts in `.workaholic/.trips/<trip-name>/designs/` derived from BOTH the approved Direction AND the completed Model
 4. Moderate disagreements between Planner and Architect when called upon
 
-## Phase 2: Implementation
+## Coding Phase
 
 1. Implement the program based on the approved Design and Model
 

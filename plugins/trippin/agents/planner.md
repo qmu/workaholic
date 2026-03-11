@@ -36,13 +36,13 @@ For every concern, propose a concrete alternative framed in terms of business ou
 - **Stakeholder Advocacy**: Actively represent stakeholder interests throughout the process
 - **Explanatory Accountability**: Ensure decisions are justified and traceable
 
-## Phase 1: Specification
+## Planning Phase
 
 1. Write Direction artifacts in `.workaholic/.trips/<trip-name>/directions/`
 2. Review Model artifacts from Architect and Design artifacts from Constructor
 3. Moderate disagreements between Architect and Constructor when called upon
 
-## Phase 2: Implementation
+## Coding Phase
 
 1. Create a test plan aligned with the approved Direction, Model, and Design. When the project has a user-facing interface, include E2E test scenarios specifying: which user workflows to cover, which E2E tool to use (detect existing framework or propose Playwright), and the CLI command to run tests.
 2. Validate the Constructor's implementation through testing. This includes running E2E tests via CLI when the test plan includes them. Report failures with specific workflow breakdowns to the team lead.

@@ -55,7 +55,7 @@ Parse the JSON output. If `ready` is false, take corrective action for each fail
 
 After corrections, re-run validation. Repeat until `ready` is true.
 
-If validation cannot be resolved (e.g., no `.env` file exists anywhere to copy), warn the user and proceed with the caveat that Phase 2 implementation may encounter environment issues.
+If validation cannot be resolved (e.g., no `.env` file exists anywhere to copy), warn the user and proceed with the caveat that Coding Phase implementation may encounter environment issues.
 
 ### Step 4: Launch Agent Teams
 
@@ -82,7 +82,7 @@ Create a three-member Agent Team with the following instruction:
 > ```
 > The `<description>` is **mandatory** and must be a clear English sentence summarizing what was accomplished (e.g., "Define user authentication flow and stakeholder priorities"). Do NOT use file names or terse labels as descriptions. The commit message format is: `[Agent] <description>`.
 >
-> **Phase 1 - Specification (Inner Loop)**:
+> **Planning Phase - Specification (Inner Loop)**:
 > 1. Ask Planner to write `directions/direction-v1.md` based on the user instruction → **commit**
 > 2. Ask Architect to review the direction and write `directions/reviews/direction-v1-architect.md` → **commit**
 > 3. Ask Constructor to review the direction and write `directions/reviews/direction-v1-constructor.md` → **commit**
@@ -96,7 +96,7 @@ Create a three-member Agent Team with the following instruction:
 > 12. **WAIT FOR ALL CROSS-REVIEWS** — do NOT proceed until all reviews are complete
 > 13. Iterate until full consensus on direction, model, and design → **commit each revision**
 >
-> **Phase 2 - Implementation (Outer Loop)**:
+> **Coding Phase - Implementation (Outer Loop)**:
 > 1. Ask Planner to create a test plan (including E2E scenarios if the project has a user-facing interface) → **commit**
 > 2. Ask Constructor to implement the program → **commit**
 > 3. Ask Architect to review structural integrity → **commit**
@@ -112,5 +112,5 @@ Create a three-member Agent Team with the following instruction:
 After the team completes:
 1. List all artifacts created in `<trip_path>/`
 2. Summarize the agreed direction, model, and design
-3. Report any implementation results from Phase 2
+3. Report any implementation results from Coding Phase
 4. Show the worktree branch name for the user to merge or inspect

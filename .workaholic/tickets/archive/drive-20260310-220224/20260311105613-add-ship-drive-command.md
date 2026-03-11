@@ -3,9 +3,9 @@ created_at: 2026-03-11T10:56:13+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX, Config, Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 8d70f8e
+category: Added
 ---
 
 # Add /ship-drive Command to Drivin Plugin
@@ -89,3 +89,24 @@ Past tickets that touched similar areas:
 - If cloud.md is not found, the command should still complete the merge step successfully. Deploy and verify are optional steps that enhance the workflow but are not required. (`plugins/drivin/skills/ship/SKILL.md`)
 - Per CLAUDE.md shell script principle, all conditional logic (PR existence check, cloud.md search, merge status handling) must be in shell scripts, not inline in the command markdown. (`plugins/drivin/skills/ship/sh/`)
 - Cross-reference: The companion `/ship-trip` ticket in the Trippin plugin builds on the cloud.md convention established here and adds worktree cleanup. (`.workaholic/tickets/todo/20260311105614-add-ship-trip-command.md`)
+
+## Final Report
+
+### Changes Made
+
+- Created `plugins/drivin/skills/ship/SKILL.md` documenting the cloud.md convention (search order, expected sections, fallback behavior)
+- Created `plugins/drivin/skills/ship/sh/pre-check.sh` to verify PR existence via `gh pr list`
+- Created `plugins/drivin/skills/ship/sh/merge-pr.sh` to merge PR and sync local main
+- Created `plugins/drivin/skills/ship/sh/find-cloud-md.sh` to search for cloud.md in standard locations
+- Created `plugins/drivin/commands/ship-drive.md` with 5-step orchestration (pre-check, merge, deploy, verify, complete)
+- Updated `plugins/drivin/rules/general.md` to include `/ship-drive` in commit-allowed commands
+- Updated `plugins/drivin/README.md` with new command, skill, and workflow step
+- Updated `CLAUDE.md` with new command, workflow step, and project structure
+- Updated `README.md` with new command in Drivin table, typical session, and How It Works
+
+### Test Plan
+
+- Verify shell scripts execute without syntax errors (`bash -n <script>`)
+- Verify `pre-check.sh` outputs valid JSON for both found and not-found cases
+- Verify `find-cloud-md.sh` correctly searches both locations and returns valid JSON
+- Verify command file follows architecture policy (thin orchestration, skill script paths)

@@ -27,9 +27,9 @@ plugins/                 # Plugin source directories
   drivin/                # Drivin development plugin
     .claude-plugin/      # Plugin configuration
     agents/              # performance-analyst
-    commands/            # ticket, drive, report-drive
+    commands/            # ticket, drive, report-drive, ship-drive
     rules/               # general, typescript
-    skills/              # archive-ticket
+    skills/              # archive-ticket, ship
   trippin/               # Trippin exploration plugin
     .claude-plugin/      # Plugin configuration
     commands/            # (empty)
@@ -117,6 +117,7 @@ bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/gather-tick
 | `/drive`                         | Implement queued specs one by one                |
 | `/scan`                          | Full documentation scan (all 14 agents)          |
 | `/report-drive`                  | Generate story and create/update PR              |
+| `/ship-drive`                    | Merge PR, deploy, and verify                     |
 | `/release [major\|minor\|patch]` | Release new marketplace version                  |
 
 ## Development Workflow
@@ -124,7 +125,8 @@ bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/gather-tick
 1. **Create specs**: Use `/ticket` to write implementation specs
 2. **Implement specs**: Use `/drive` to implement and commit each spec
 3. **Create PR**: Use `/report-drive` to generate story and create PR
-4. **Release**: Use `/release` to bump version and publish
+4. **Ship**: Use `/ship-drive` to merge PR, deploy, and verify
+5. **Release**: Use `/release` to bump version and publish
 
 ## Type Checking
 

@@ -20,8 +20,8 @@ fi
 if ! git diff --quiet HEAD 2>/dev/null || ! git diff --cached --quiet HEAD 2>/dev/null || [ -n "$(git ls-files --others --exclude-standard)" ]; then
   git add -A
 
-  # Capitalize agent name for bracket prefix
-  agent_cap="$(echo "${agent:0:1}" | tr '[:lower:]' '[:upper:]')${agent:1}"
+  # Capitalize first character of agent name for bracket prefix
+  agent_cap="$(echo "$agent" | sed 's/./\U&/')"
 
   body="Phase: ${phase}
 Step: ${step}"

@@ -3,6 +3,9 @@ created_at: 2026-03-11T12:15:00+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX, Config]
+effort: 0.1h
+commit_hash: dab6727
+category: Added
 ---
 
 # Add Deployment Confirmation to Ship Commands
@@ -72,3 +75,17 @@ Add an explicit confirmation step between the merge and deploy phases. After clo
 - The confirmation uses `AskUserQuestion` which is a tool available to commands. This provides a structured yes/no prompt rather than relying on the user to manually approve each Bash execution. (`plugins/drivin/commands/ship-drive.md`, `plugins/trippin/commands/ship-trip.md`)
 - Users who always want to deploy can still approve quickly -- the confirmation adds one interaction, not a complex gate. (`plugins/drivin/commands/ship-drive.md`)
 - The Verify step does not need a separate confirmation since it follows directly from an approved deployment and is read-only (health checks, smoke tests). (`plugins/drivin/commands/ship-drive.md`)
+
+## Final Report
+
+### Changes Made
+
+- Updated `plugins/drivin/commands/ship-drive.md` Step 3 to display deploy instructions and confirm via AskUserQuestion before executing
+- Updated `plugins/trippin/commands/ship-trip.md` Step 5 with the same confirmation pattern
+- Updated `plugins/drivin/skills/ship/SKILL.md` with Confirmation section (1-3)
+- Updated `plugins/trippin/skills/ship/SKILL.md` with Confirmation section (1-3)
+
+### Test Plan
+
+- Verified both command files contain the confirmation instruction text
+- Verified both SKILL.md files contain the new Confirmation section

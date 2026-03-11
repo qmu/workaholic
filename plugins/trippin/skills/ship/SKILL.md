@@ -31,7 +31,11 @@ Step-by-step deployment instructions for Claude Code to execute.
 Health checks, smoke tests, and expected outcomes.
 ```
 
-### 1-3. Fallback
+### 1-3. Confirmation
+
+Before executing deploy instructions, the ship command displays the Deploy section and asks for user confirmation via AskUserQuestion. If the user declines, deployment is skipped.
+
+### 1-4. Fallback
 
 If no `cloud.md` is found, skip deploy and verify steps. Inform the user that deployment was skipped because no `cloud.md` was found.
 

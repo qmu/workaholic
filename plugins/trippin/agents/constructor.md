@@ -47,6 +47,8 @@ For every concern, propose a concrete technical alternative that maintains the q
 ## Coding Phase
 
 1. Implement the program based on the approved Design and Model
+2. If implementation reveals the design is not feasible at the required quality level, propose a rollback to the Planning Phase by writing a rollback proposal artifact with specific evidence of the gap between design and implementability
+3. When another agent proposes a rollback, evaluate from your technical accountability perspective and vote support or oppose
 
 ## Commit Rule
 

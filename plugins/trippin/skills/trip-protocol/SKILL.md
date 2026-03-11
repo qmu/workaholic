@@ -179,6 +179,8 @@ Commit points in Coding Phase (Implementation):
     reviews/            # Review feedback on models
   designs/              # Constructor's artifacts
     reviews/            # Review feedback on designs
+  rollbacks/            # Rollback proposals
+    reviews/            # Votes on rollback proposals
 ```
 
 Versioning: `direction-v1.md`, `direction-v2.md`, etc. Each revision is a new file, preserving history for review.
@@ -259,6 +261,60 @@ If review or testing reveals issues, the team iterates:
 - Architect re-reviews → **GATE**: Leader confirms re-review complete
 - Planner re-tests → **GATE**: Leader confirms re-test complete
 - Continue until all pass
+
+### Rollback
+
+At any point during the Coding Phase, an agent may propose returning to the Planning Phase instead of continuing iteration. See the Rollback Protocol section below for the full mechanism.
+
+## Rollback Protocol
+
+During the Coding Phase, any agent may propose returning to the Planning Phase when they determine the specification artifacts are fundamentally insufficient for successful implementation.
+
+### Trigger Scenarios
+
+- **Constructor**: Implementation is not feasible at the required quality level given the current design
+- **Architect**: Structural review reveals the model cannot support the implementation being built
+- **Planner**: Testing reveals missing requirements or business scenarios not covered by the direction
+
+### Consensus Requirement
+
+Rollback requires a **two-out-of-three majority**. The proposing agent counts as one supporter.
+
+1. Proposing agent writes `rollbacks/rollback-v<N>.md` with reason, target step, and evidence → **commit**
+2. **GATE**: Leader requests votes from the other two agents
+3. Each voting agent writes `rollbacks/reviews/rollback-v<N>-<agent>.md` with "support" or "oppose" and reasoning → **commit each**
+4. **GATE**: Leader waits for both votes
+5. Leader tallies: if 2+ agents support → rollback proceeds; if only 1 → Coding Phase continues
+
+### On Rollback Approval
+
+- The workflow returns to the Planning Phase at the step specified in the proposal (Direction, Model, or Design revision)
+- Revised artifacts use incremented version numbers (e.g., if `direction-v2.md` was the last approved version, the revision is `direction-v3.md`)
+- All Planning Phase consensus gates apply again — the team must re-achieve full consensus before returning to the Coding Phase
+- The rollback and its resolution are preserved in the `rollbacks/` directory as part of the process trace
+
+### Rollback Proposal Artifact Format
+
+```markdown
+# Rollback Proposal v<N>
+
+**Author**: <Agent Name>
+**Status**: proposed | approved | rejected
+**Target**: <Direction | Model | Design>
+
+## Reason
+
+<Why the current specification is insufficient>
+
+## Evidence
+
+<Specific implementation issues encountered during Coding Phase>
+
+## Votes
+
+- <Agent 1>: <support | oppose> — <reasoning>
+- <Agent 2>: <support | oppose> — <reasoning>
+```
 
 ## E2E Assurance Policy
 

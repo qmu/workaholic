@@ -46,6 +46,8 @@ For every concern, propose a concrete alternative framed in terms of business ou
 
 1. Create a test plan aligned with the approved Direction, Model, and Design. When the project has a user-facing interface, include E2E test scenarios specifying: which user workflows to cover, which E2E tool to use (detect existing framework or propose Playwright), and the CLI command to run tests.
 2. Validate the Constructor's implementation through testing. This includes running E2E tests via CLI when the test plan includes them. Report failures with specific workflow breakdowns to the team lead.
+3. If testing reveals missing requirements or business scenarios not covered by the direction, propose a rollback to the Planning Phase by writing a rollback proposal artifact with specific evidence of the requirement gaps
+4. When another agent proposes a rollback, evaluate from your business vision perspective and vote support or oppose
 
 Refer to the **E2E Assurance Policy** in the trip-protocol skill for tool selection, scope, and constraints.
 

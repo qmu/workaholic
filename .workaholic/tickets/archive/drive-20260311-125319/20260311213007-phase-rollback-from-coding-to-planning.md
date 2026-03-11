@@ -3,9 +3,9 @@ created_at: 2026-03-11T21:30:07+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config, Domain]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 5b4feda
+category: Added
 ---
 
 # Phase Rollback from Coding Phase to Planning Phase
@@ -245,3 +245,21 @@ Past tickets that touched similar areas:
 - The Coding Phase may have already produced partial implementation commits on the trip branch before a rollback occurs. These commits remain in the git history as part of the process trace. After rollback, the revised Planning Phase may produce different specification artifacts, and the subsequent Coding Phase will build on top of the existing commits (not revert them). This means the Constructor will need to reconcile any prior implementation work with the revised specification. (`plugins/trippin/skills/trip-protocol/sh/trip-commit.sh`)
 - The commit message for rollback-related steps uses the existing `trip-commit.sh` with phase set to `rollback`. This introduces a third phase value alongside `planning` and `coding`. Consumers of commit history (such as `write-trip-report`) should be aware of this new phase value. (`plugins/trippin/skills/trip-protocol/sh/trip-commit.sh` lines 26-27)
 - Agent Teams context window limitations may cause agents to lose track of the rollback protocol details during long sessions. The defense-in-depth approach (protocol skill + command instruction + agent definition) used for Phase Gate Policy should be replicated for rollback rules. (`plugins/trippin/commands/trip.md`, `plugins/trippin/skills/trip-protocol/SKILL.md`, `plugins/trippin/agents/planner.md`, `plugins/trippin/agents/architect.md`, `plugins/trippin/agents/constructor.md`)
+
+## Final Report
+
+### Changes Made
+
+- Updated `plugins/trippin/skills/trip-protocol/SKILL.md` — added Rollback Protocol section (trigger scenarios, 2/3 consensus requirement, approval workflow, artifact format), Rollback subsection under Coding Phase, and `rollbacks/` to Artifact Storage
+- Updated `plugins/trippin/commands/trip.md` — added Rollback Rule to Agent Teams instruction block
+- Updated `plugins/trippin/agents/constructor.md` — added rollback proposal and voting to Coding Phase
+- Updated `plugins/trippin/agents/architect.md` — added rollback proposal and voting to Coding Phase
+- Updated `plugins/trippin/agents/planner.md` — added rollback proposal and voting to Coding Phase
+- Updated `plugins/trippin/skills/trip-protocol/sh/init-trip.sh` — added `rollbacks/reviews` to directory creation
+
+### Test Plan
+
+- Verify trip-protocol SKILL.md has Rollback Protocol section between Iteration and E2E Assurance Policy
+- Verify all 3 agent files have rollback capability in Coding Phase
+- Verify trip.md Agent Teams instruction includes Rollback Rule
+- Verify init-trip.sh creates rollbacks/reviews directory

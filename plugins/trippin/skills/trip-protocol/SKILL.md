@@ -197,7 +197,7 @@ Agents produce and mutually review artifacts until full consensus.
 
 ### Step 1: Direction
 
-1. **Planner** writes `directions/direction-v1.md` based on the user instruction
+1. **Planner** writes `directions/direction-v1.md` based on the user instruction. The Direction is a business vision document: it defines the value proposition, risk landscape, user personas, and system positioning from a non-technical perspective. The Planner does NOT explore the codebase -- the technical decomposition happens when the Architect translates the Direction into the Model.
 2. **Architect** reviews and writes `directions/reviews/direction-v1-architect.md`
 3. **Constructor** reviews and writes `directions/reviews/direction-v1-constructor.md`
 4. **GATE**: Leader waits for BOTH Architect AND Constructor reviews to complete

@@ -3,9 +3,9 @@ created_at: 2026-03-11T21:55:05+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config, Domain]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: acee2a2
+category: Changed
 ---
 
 # Enforce Planner Business Focus in Planning Phase
@@ -134,3 +134,16 @@ Past tickets that touched similar areas:
 - The concurrent coding phase ticket (`20260311215034`) proposes having the Architect perform codebase discovery during the Coding Phase. If both tickets are implemented, the Architect becomes the sole agent responsible for codebase understanding in both phases, while the Planner remains focused on business analysis (Planning Phase) and testing (Coding Phase). This creates a clean separation. (`.workaholic/tickets/todo/20260311215034-concurrent-coding-phase-agents.md`)
 - The "Direction artifacts must NOT contain file paths" rule may feel overly strict for cases where the user instruction explicitly references specific files. A softer version would be "Direction artifacts should not contain file paths discovered through codebase exploration" -- allowing the Planner to mention files that the user explicitly named. The implementation should use language that prohibits exploration-derived references, not user-provided references. (`plugins/trippin/agents/planner.md`)
 - The Critical Review Policy requires reviewers to "identify at least one concern or trade-off per review." When the Architect reviews a Direction that contains no technical content, the Architect's review naturally becomes the point where technical reality enters the conversation -- the Architect translates business vision into structural implications and identifies where the vision may conflict with codebase reality. This is the intended workflow. (`plugins/trippin/skills/trip-protocol/SKILL.md` lines 39-55)
+
+## Final Report
+
+### Changes
+- Added "Planning Phase Focus" section to `plugins/trippin/agents/planner.md` with MUST/must-NOT guardrails for Direction artifacts
+- Updated Planning Phase item 1 in `plugins/trippin/agents/planner.md` to emphasize business analysis without codebase exploration
+- Updated Direction step description in `plugins/trippin/skills/trip-protocol/SKILL.md` to clarify it is a business vision document
+- Added "Does NOT explore the codebase" to the Planner description in `plugins/trippin/commands/trip.md`
+
+### Test Plan
+- Verify planner.md contains the new "Planning Phase Focus" section between Responsibilities and Planning Phase
+- Verify trip-protocol SKILL.md Step 1 Direction description includes business vision language
+- Verify trip.md Planner description includes codebase exploration prohibition

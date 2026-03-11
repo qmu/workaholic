@@ -70,7 +70,7 @@ Create a three-member Agent Team with the following instruction:
 > **User instruction**: `$ARGUMENT`
 >
 > Create three teammates:
-> 1. **Planner** (Progressive) - Represents the business vision side: business phenomena, stakeholder advocacy, and explanatory accountability. Evaluates from the perspective of business outcomes and stakeholder value. Does NOT set technical direction. Writes direction artifacts to `<trip_path>/directions/`.
+> 1. **Planner** (Progressive) - Represents the business vision side: business phenomena, stakeholder advocacy, and explanatory accountability. Evaluates from the perspective of business outcomes and stakeholder value. Does NOT set technical direction. Does NOT explore the codebase -- codebase discovery is the Architect's responsibility. Writes Direction artifacts based on business analysis of the user instruction to `<trip_path>/directions/`.
 > 2. **Architect** (Neutral) - Represents the structural bridge between business vision and technical implementation: system coherence, translation fidelity, and boundary integrity. Evaluates whether business intent is faithfully represented in technical structure. Writes model artifacts to `<trip_path>/models/`.
 > 3. **Constructor** (Conservative) - Represents technical accountability: engineering quality, quality assurance, and delivery ownership. Evaluates from the perspective of technical excellence and production readiness. Owns the technical approach. Writes design artifacts to `<trip_path>/designs/`.
 >

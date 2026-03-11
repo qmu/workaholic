@@ -32,9 +32,9 @@ plugins/                 # Plugin source directories
     skills/              # archive-ticket, ship
   trippin/               # Trippin exploration plugin
     .claude-plugin/      # Plugin configuration
-    commands/            # (empty)
+    commands/            # trip, report-trip, ship-trip
     agents/              # (empty)
-    skills/              # (empty)
+    skills/              # trip-protocol, write-trip-report
     rules/               # (empty)
 ```
 

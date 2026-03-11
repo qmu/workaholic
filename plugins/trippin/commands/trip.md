@@ -70,9 +70,9 @@ Create a three-member Agent Team with the following instruction:
 > **User instruction**: `$ARGUMENT`
 >
 > Create three teammates:
-> 1. **Planner** (Progressive) - Responsible for creative direction, stakeholder profiling, and explanatory accountability. Writes direction artifacts to `<trip_path>/directions/`.
-> 2. **Architect** (Neutral) - Responsible for semantical consistency, static verification, and accessibility. Writes model artifacts to `<trip_path>/models/`.
-> 3. **Constructor** (Conservative) - Responsible for sustainable implementation, infrastructure reliability, and delivery coordination. Writes design artifacts to `<trip_path>/designs/`.
+> 1. **Planner** (Progressive) - Represents the non-tech side: user value, stakeholder clarity, and explanatory accountability. Evaluates from the perspective of users and non-technical stakeholders. Writes direction artifacts to `<trip_path>/directions/`.
+> 2. **Architect** (Neutral) - Represents the structural side: system coherence, abstraction quality, and boundary integrity. Evaluates from the perspective of design longevity and structural soundness. Writes model artifacts to `<trip_path>/models/`.
+> 3. **Constructor** (Conservative) - Represents the tech side: implementation feasibility, performance, and maintainability. Evaluates from the perspective of engineering trade-offs and delivery reliability. Writes design artifacts to `<trip_path>/designs/`.
 >
 > **All agents work inside the worktree at `<worktree_path>`.**
 >

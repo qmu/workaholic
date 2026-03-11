@@ -3,6 +3,7 @@ name: ship-trip
 description: Merge PR, clean up worktree, deploy to production, and verify deployment.
 skills:
   - trip-protocol
+  - ship
 ---
 
 # Ship Trip
@@ -31,7 +32,7 @@ If the branch does not start with `trip/` and no argument was provided, inform t
 Run the pre-check script to verify a PR exists for the trip branch:
 
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/ship/sh/pre-check.sh "trip/<trip-name>"
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/ship/sh/pre-check.sh "trip/<trip-name>"
 ```
 
 Parse the JSON output:
@@ -44,7 +45,7 @@ Parse the JSON output:
 Run the merge script:
 
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/ship/sh/merge-pr.sh "<pr-number>"
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/ship/sh/merge-pr.sh "<pr-number>"
 ```
 
 If merge fails, inform the user about the failure and stop. The worktree is preserved so the user can fix issues and retry.
@@ -66,7 +67,7 @@ Report what was cleaned up (worktree path, branch name).
 Run the cloud.md finder from the repository root:
 
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/ship/sh/find-cloud-md.sh
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/ship/sh/find-cloud-md.sh
 ```
 
 - If `found` is `false`: inform user "No cloud.md found. Deployment skipped." and skip to completion.

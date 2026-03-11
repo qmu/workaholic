@@ -3,6 +3,9 @@ created_at: 2026-03-11T12:13:00+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Infrastructure, Config]
+effort: 0.25h
+commit_hash: 4e2f001
+category: Changed
 ---
 
 # Extract Shared Ship Scripts from Drivin to Shared Plugin Infrastructure
@@ -95,3 +98,20 @@ Create a `ship` skill within the Trippin plugin that owns its own copies of thes
 - The scripts are identical copies, not shared references. This trades minimal duplication (77 total lines across 3 files) for complete plugin independence. Each plugin can evolve its ship scripts independently if needed. (`plugins/trippin/skills/ship/sh/`)
 - The Trippin ship SKILL.md should reference Trippin paths, not Drivin paths. Copy the structure but update all path references. (`plugins/trippin/skills/ship/SKILL.md`)
 - Do not modify Drivin's ship skill or ship-drive command. They remain unchanged. (`plugins/drivin/skills/ship/`)
+
+## Final Report
+
+### Changes Made
+
+- Created `plugins/trippin/skills/ship/SKILL.md` with Trippin-local path references
+- Created `plugins/trippin/skills/ship/sh/pre-check.sh` (identical copy from Drivin)
+- Created `plugins/trippin/skills/ship/sh/merge-pr.sh` (identical copy from Drivin)
+- Created `plugins/trippin/skills/ship/sh/find-cloud-md.sh` (identical copy from Drivin)
+- Updated `plugins/trippin/commands/ship-trip.md` to preload `ship` skill and reference Trippin-local paths
+- Updated `plugins/trippin/README.md` to include `ship` in Skills table
+- Skipped `plugins/trippin/.claude-plugin/plugin.json` update (skills are auto-discovered, not registered)
+
+### Test Plan
+
+- Verified no remaining references to `drivin` in `ship-trip.md` via grep
+- Verified shell scripts are identical copies of Drivin originals

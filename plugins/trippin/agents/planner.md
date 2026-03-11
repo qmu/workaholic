@@ -3,7 +3,7 @@ name: planner
 description: Progressive agent for creative direction, stakeholder profiling, and explanatory accountability.
 tools: Read, Write, Edit, Glob, Grep, Bash
 model: opus
-color: green
+color: red
 skills:
   - trip-protocol
 ---

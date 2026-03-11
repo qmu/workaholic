@@ -45,6 +45,7 @@ AI-collaborative exploration workflow using Agent Teams. Three agents with disti
 | Command    | What it does                                          |
 | ---------- | ----------------------------------------------------- |
 | `/trip`    | Launch Agent Teams session for collaborative design   |
+| `/report-trip` | Generate trip journey report and create PR        |
 
 > [!NOTE]
 > Trippin requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` to be set in your environment.

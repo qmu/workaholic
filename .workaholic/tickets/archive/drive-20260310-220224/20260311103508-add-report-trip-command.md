@@ -3,9 +3,9 @@ created_at: 2026-03-11T10:35:08+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX, Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: ad89870
+category: Added
 ---
 
 # Add /report-trip Command to Trippin Plugin
@@ -98,3 +98,17 @@ Past tickets that touched similar areas:
 - Cross-reference: The companion ticket to rename `/report` to `/report-drive` should be implemented first to avoid command name confusion. (`.workaholic/tickets/todo/20260311103507-rename-report-to-report-drive.md`)
 - Unlike the Drivin report which invokes multiple parallel subagents (overview-writer, section-reviewer, performance-analyst, release-readiness), the trip report reads static artifacts directly. This keeps the command simpler. (`plugins/drivin/agents/story-writer.md`)
 - The worktree isolation means the trip artifacts are only available inside the worktree directory, not the main repository. The report command must either run inside the worktree or know the worktree path to find artifacts. (`plugins/trippin/skills/trip-protocol/SKILL.md` lines 76-84)
+
+## Final Report
+
+### Changes Made
+
+- **`plugins/trippin/commands/report-trip.md`** (new): Command with 6-step workflow — identify trip from branch, gather artifacts, generate report, commit/push, create PR, return URL.
+- **`plugins/trippin/skills/write-trip-report/SKILL.md`** (new): Report template with agent-based sections (Planner: direction/test plan/results, Architect: model/review, Constructor: design/implementation, Journey: history.md or git log).
+- **`plugins/trippin/skills/write-trip-report/sh/gather-artifacts.sh`** (new): Gathers latest artifact versions and review files, checks for history.md, outputs structured JSON.
+- **`README.md`**: Added `/report-trip` to Trippin command table.
+- **`plugins/trippin/README.md`**: Added `/report-trip` to Commands table and `write-trip-report` to Skills table.
+
+### Approach
+
+Thin command delegating to skill and shell script per architecture policy. Report reads static artifacts directly (no subagents needed unlike Drivin's multi-agent story generation). Fallback to git commit log when history.md is unavailable.

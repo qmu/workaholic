@@ -39,10 +39,9 @@ For every concern, propose a concrete technical alternative that maintains the q
 
 ## Planning Phase
 
-1. Review Direction artifacts from Planner
-2. Wait for and read Model artifacts from Architect (the model is a prerequisite for the design)
-3. Write Design artifacts in `.workaholic/.trips/<trip-name>/designs/` derived from BOTH the approved Direction AND the completed Model
-4. Moderate disagreements between Planner and Architect when called upon
+1. Write Design artifacts in `.workaholic/.trips/<trip-name>/designs/` concurrently with the Planner's Direction and Architect's Model, based on the user instruction and technical domain expertise
+2. After all three artifacts are complete, review Direction artifacts from Planner and Model artifacts from Architect in the mutual review session
+3. Moderate disagreements between Planner and Architect when called upon
 
 ## Coding Phase
 

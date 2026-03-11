@@ -56,18 +56,18 @@ The goal is not conflict for its own sake but **productive tension** that streng
 
 ## Artifact Dependencies
 
-Artifacts have strict data flow dependencies that determine generation order:
+Artifacts are generated concurrently, then aligned through mutual review:
 
 ```
-Direction (Planner) ──→ Model (Architect) ──→ Design (Constructor)
+Direction (Planner) ──┐
+Model (Architect)   ──┼──→ Mutual Review ──→ Convergence
+Design (Constructor) ─┘
 ```
 
-- **Direction** feeds into both Model and Design
-- **Model** feeds into Design (the Constructor must read the completed Model before writing Design)
-- This creates strict ordering: Direction → Model → Design (never concurrent)
-- Cross-reviews happen only after both Model and Design exist
-
-On revision cycles: if a Direction is revised and re-approved, the Architect must regenerate the Model first, and only then does the Constructor regenerate the Design.
+- All three artifacts are generated concurrently from the user instruction
+- Each agent writes from their own domain perspective without reading the other agents' artifacts
+- **Mutual Review** aligns the three artifacts: each agent reviews the other two agents' work
+- On revision cycles: the artifact author incorporates review feedback and writes the next version; another mutual review round follows until consensus
 
 ## Worktree Isolation
 
@@ -152,13 +152,10 @@ Step: <step>
 
 Commit points in Planning Phase (Specification):
 - Planner writes direction → commit
-- Architect reviews direction → commit
-- Constructor reviews direction → commit
-- Moderation resolution → commit
-- Direction revision → commit
 - Architect writes model → commit
 - Constructor writes design → commit
-- Each cross-review → commit
+- Each mutual review → commit
+- Moderation resolution → commit
 - Each revision → commit
 - Consensus confirmation → commit
 
@@ -195,33 +192,32 @@ bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-proto
 
 Agents produce and mutually review artifacts until full consensus.
 
-### Step 1: Direction
+### Step 1: Concurrent Artifact Generation
 
-1. **Planner** writes `directions/direction-v1.md` based on the user instruction. The Direction is a business vision document: it defines the value proposition, risk landscape, user personas, and system positioning from a non-technical perspective. The Planner does NOT explore the codebase -- the technical decomposition happens when the Architect translates the Direction into the Model.
-2. **Architect** reviews and writes `directions/reviews/direction-v1-architect.md`
-3. **Constructor** reviews and writes `directions/reviews/direction-v1-constructor.md`
-4. **GATE**: Leader waits for BOTH Architect AND Constructor reviews to complete
-5. If disagreements arise, the third party moderates (see Moderation Protocol)
-6. Revisions produce `direction-v2.md`, `direction-v3.md`, etc.
-7. **GATE**: All three agents approve the direction before proceeding
+All three agents begin writing their artifacts simultaneously from the user instruction:
 
-### Step 2: Model and Design
+1. **Planner** writes `directions/direction-v1.md` — a business vision document defining the value proposition, risk landscape, user personas, and system positioning from a non-technical perspective. The Planner does NOT explore the codebase.
+2. **Architect** writes `models/model-v1.md` — structural translation defining system coherence, boundary integrity, and the bridge between business vision and technical implementation.
+3. **Constructor** writes `designs/design-v1.md` — technical implementation plan defining the engineering approach, quality strategy, and delivery plan.
 
-Once Direction is approved and the leader has confirmed consensus:
+- **GATE**: Leader waits for ALL THREE artifacts to be committed and complete
 
-**Step 2a: Model**
-1. **Architect** writes `models/model-v1.md` derived from the approved Direction
-2. **GATE**: Leader confirms model is committed and complete
+### Step 2: Mutual Review Session
 
-**Step 2b: Design**
-3. **Constructor** reads the completed Model, then writes `designs/design-v1.md` derived from BOTH the approved Direction AND the completed Model
-4. **GATE**: Leader confirms design is committed and complete
+Each agent reviews the other two agents' artifacts:
 
-**Step 2c: Cross-Review**
-5. **Architect** reviews design and writes `designs/reviews/design-v1-architect.md`; **Constructor** reviews model and writes `models/reviews/model-v1-constructor.md`
-6. **Planner** reviews both and writes `models/reviews/model-v1-planner.md` and `designs/reviews/design-v1-planner.md`
-7. **GATE**: Leader waits for ALL cross-reviews to complete
-8. Revisions continue until all three artifacts are mutually consistent
+1. **Planner** reviews Model and Design: writes `models/reviews/model-v1-planner.md` and `designs/reviews/design-v1-planner.md`
+2. **Architect** reviews Direction and Design: writes `directions/reviews/direction-v1-architect.md` and `designs/reviews/design-v1-architect.md`
+3. **Constructor** reviews Direction and Model: writes `directions/reviews/direction-v1-constructor.md` and `models/reviews/model-v1-constructor.md`
+
+- **GATE**: Leader waits for ALL SIX reviews to complete
+
+### Step 3: Convergence
+
+1. If disagreements arise, the relevant agents revise their artifacts incorporating review feedback (e.g., `direction-v2.md`, `model-v2.md`, `design-v2.md`)
+2. After revisions, another mutual review round occurs (return to Step 2)
+3. If disagreements between two agents persist, the third agent moderates (see Moderation Protocol)
+4. **GATE**: All three agents approve all three artifacts before proceeding to Coding Phase
 
 ### Consensus Gate
 

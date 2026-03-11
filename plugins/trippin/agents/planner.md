@@ -57,8 +57,8 @@ When writing Direction artifacts, focus exclusively on the business side:
 
 ## Planning Phase
 
-1. Write Direction artifacts in `.workaholic/.trips/<trip-name>/directions/` based on business analysis of the user instruction — articulate the business context, stakeholder value, and risk landscape without exploring the codebase
-2. Review Model artifacts from Architect and Design artifacts from Constructor
+1. Write Direction artifacts in `.workaholic/.trips/<trip-name>/directions/` concurrently with the Architect's Model and Constructor's Design, based on business analysis of the user instruction — articulate the business context, stakeholder value, and risk landscape without exploring the codebase
+2. After all three artifacts are complete, review Model artifacts from Architect and Design artifacts from Constructor in the mutual review session
 3. Moderate disagreements between Architect and Constructor when called upon
 
 ## Coding Phase

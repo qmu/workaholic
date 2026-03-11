@@ -3,9 +3,9 @@ created_at: 2026-03-11T21:20:22+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [UX, Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: f0cd3f4
+category: Changed
 ---
 
 # Unify Report Command Across Drivin and Trippin Plugins
@@ -104,3 +104,28 @@ Past tickets that touched similar areas:
 - After removing `/report-drive` from Drivin, users who have muscle memory for the old command name will get an "unknown command" error. The Notice section in the unified `/report` should mention both old names for discoverability. (`plugins/trippin/commands/report.md`)
 - The trip report workflow has worktree-aware path resolution (operating from a worktree path vs current directory). This logic from the existing `report-trip.md` must be preserved verbatim in the unified command's trip branch. (`plugins/trippin/commands/report-trip.md` lines 40-42)
 - Cross-reference: The companion ticket `20260311212023-unify-ship-command-across-plugins.md` performs the same unification for `/ship`. Implement this ticket first since `/report` is the prerequisite step in both workflows. (`.workaholic/tickets/todo/20260311212023-unify-ship-command-across-plugins.md`)
+
+## Final Report
+
+### Changes Made
+
+- Created `plugins/trippin/skills/branching/sh/detect-context.sh` — context detection from branch patterns (drive-*, trip/*, main, or worktree fallback)
+- Created `plugins/trippin/skills/branching/SKILL.md` — documents detect-context.sh and output format
+- Created `plugins/trippin/commands/report.md` — unified /report command with drive/trip/trip_worktree/unknown context routing
+- Removed `plugins/drivin/commands/report-drive.md` — absorbed into unified /report
+- Removed `plugins/trippin/commands/report-trip.md` — absorbed into unified /report
+- Updated `plugins/drivin/rules/general.md` — /report-drive → /report in commit-allowed commands
+- Updated `CLAUDE.md` — commands table, project structure, workflow references
+- Updated `README.md` — both plugin command tables, typical session, How It Works section
+- Updated `plugins/drivin/README.md` — removed /report-drive from commands table and workflow
+- Updated `plugins/trippin/README.md` — /report-trip → /report, added branching to skills table
+- Updated `plugins/drivin/skills/write-story/SKILL.md` — flowchart label
+- Updated `plugins/drivin/skills/analyze-viewpoint/SKILL.md` — slash-command example
+- Updated `plugins/drivin/commands/ship-drive.md` — error message references /report
+
+### Test Plan
+
+- Run `/report` from a drive-* branch → should route to drive workflow (version bump + story-writer)
+- Run `/report` from a trip/* branch → should route to trip workflow (artifact gathering + journey report)
+- Run `/report` from main → should ask user for context
+- Grep for /report-drive in active plugin files → should only appear in Notice section of report.md

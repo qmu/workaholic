@@ -18,7 +18,7 @@ Context-aware report command that auto-detects whether you are in a drive or tri
 ### Step 1: Detect Context
 
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/branching/sh/detect-context.sh
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/branching/sh/detect-context.sh
 ```
 
 Parse the JSON output. Route to the appropriate workflow based on `context`.

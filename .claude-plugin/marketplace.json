@@ -8,6 +8,17 @@
   },
   "plugins": [
     {
+      "name": "core",
+      "description": "Shared commands and skills for cross-workflow operations",
+      "version": "1.0.39",
+      "author": {
+        "name": "tamurayoshiya",
+        "email": "a@qmu.jp"
+      },
+      "source": "./plugins/core",
+      "category": "development"
+    },
+    {
       "name": "drivin",
       "description": "Core development workflow: branch, commit, pull-request, ticket-driven development",
       "version": "1.0.39",

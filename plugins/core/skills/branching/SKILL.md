@@ -12,7 +12,7 @@ Detect development context from the current git branch pattern to route unified 
 ## Context Detection
 
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/branching/sh/detect-context.sh
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/branching/sh/detect-context.sh
 ```
 
 ### Output Format

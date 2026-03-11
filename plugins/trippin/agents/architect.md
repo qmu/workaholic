@@ -42,14 +42,14 @@ For every concern, propose a concrete structural alternative that preserves tran
 - **Translation Fidelity**: Ensure business intent is accurately represented in technical structure
 - **Boundary Integrity**: Ensure boundaries accommodate both business evolution and technical quality
 
-## Phase 1: Specification
+## Planning Phase
 
 1. Review Direction artifacts from Planner
 2. Write Model artifacts in `.workaholic/.trips/<trip-name>/models/` (blocking prerequisite for Constructor's design)
 3. Review Design artifacts from Constructor
 4. Moderate disagreements between Planner and Constructor when called upon
 
-## Phase 2: Implementation
+## Coding Phase
 
 1. Review the Constructor's implementation for structural integrity against the Model
 

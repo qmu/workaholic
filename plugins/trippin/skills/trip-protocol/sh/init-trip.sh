@@ -24,6 +24,6 @@ if [ -d "$trip_path" ]; then
   exit 1
 fi
 
-mkdir -p "${trip_path}/directions" "${trip_path}/models" "${trip_path}/designs"
+mkdir -p "${trip_path}/directions/reviews" "${trip_path}/models/reviews" "${trip_path}/designs/reviews"
 
 echo '{"trip_path": "'"$trip_path"'"}'

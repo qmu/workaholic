@@ -26,6 +26,7 @@ Ticket-driven development (TiDD) workflow. Write implementation tickets, impleme
 | `/drive`   | Implement queued tickets one by one           |
 | `/scan`    | Full documentation scan                       |
 | `/report-drive` | Generate story and create PR             |
+| `/ship-drive`  | Merge PR, deploy, and verify             |
 
 **Typical session:**
 
@@ -36,6 +37,7 @@ Ticket-driven development (TiDD) workflow. Write implementation tickets, impleme
 /ticket fix flash of light theme on page load
 /drive                            # fix discovered issue
 /report-drive                     # generate story + create PR
+/ship-drive                       # merge, deploy, verify
 ```
 
 ### Trippin
@@ -69,7 +71,7 @@ A ticket is a markdown file describing a change you want to make — the context
 
 Once tickets are queued, `/drive` implements them one by one with confirmation at each step. While one agent drives, others can keep creating tickets — no worktree overhead, just serial execution with clear commits.
 
-When ready to deliver, `/report-drive` generates changelogs and PR descriptions from the accumulated ticket history.
+When ready to deliver, `/report-drive` generates changelogs and PR descriptions from the accumulated ticket history. Then `/ship-drive` merges the PR, deploys following your project's `cloud.md` instructions, and verifies the deployment.
 
 > [!NOTE]
 > **A flavor of Spec-Driven Development**

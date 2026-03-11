@@ -3,9 +3,9 @@ created_at: 2026-03-11T10:35:07+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 4fb48fc
+category: Changed
 ---
 
 # Rename /report to /report-drive in Drivin Plugin
@@ -187,3 +187,19 @@ Past tickets that touched similar areas:
 - The `stories/` directory and story file format remain unchanged. (`plugins/drivin/skills/write-story/SKILL.md`)
 - Historical references in archived tickets and stories should NOT be updated since they document past work accurately. (`.workaholic/tickets/archive/`, `.workaholic/stories/`)
 - The companion ticket for `/report-trip` in the Trippin plugin should be implemented after this rename to avoid confusion about which command is `/report`. (`.workaholic/tickets/todo/20260311103508-add-report-trip-command.md`)
+
+## Final Report
+
+### Changes Made
+
+- **`plugins/drivin/commands/report.md`** → **`report-drive.md`**: Renamed file, updated frontmatter name and Notice section.
+- **`CLAUDE.md`**: Updated Commands table, Project Structure comment, and Development Workflow step 3.
+- **`README.md`**: Updated Drivin command table, typical session example, and How It Works section.
+- **`plugins/drivin/README.md`**: Updated Commands table and Workflow section.
+- **`plugins/drivin/rules/general.md`**: Updated commit rule parenthetical.
+- **`plugins/drivin/skills/write-story/SKILL.md`**: Updated flowchart node label.
+- **`plugins/drivin/skills/analyze-viewpoint/SKILL.md`**: Updated slash-command example list.
+
+### Approach
+
+Straight file rename plus cascading reference sweep. Internal names (story-writer, write-story, etc.) left unchanged. Historical archives untouched.

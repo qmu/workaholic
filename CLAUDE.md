@@ -24,17 +24,21 @@ Edit `plugins/` not `.claude/`. This repo develops plugins - changes go to `plug
 .claude-plugin/          # Marketplace configuration
   marketplace.json       # Marketplace metadata and plugin list
 plugins/                 # Plugin source directories
+  core/                  # Core shared plugin
+    .claude-plugin/      # Plugin configuration
+    commands/            # report, ship
+    skills/              # branching
   drivin/                # Drivin development plugin
     .claude-plugin/      # Plugin configuration
     agents/              # performance-analyst
-    commands/            # ticket, drive, ship-drive
+    commands/            # ticket, drive
     rules/               # general, typescript
-    skills/              # archive-ticket, ship
+    skills/              # archive-ticket
   trippin/               # Trippin exploration plugin
     .claude-plugin/      # Plugin configuration
-    commands/            # trip, report, ship-trip
-    agents/              # (empty)
-    skills/              # trip-protocol, write-trip-report, branching
+    commands/            # trip
+    agents/              # planner, architect, constructor
+    skills/              # trip-protocol, write-trip-report, ship
     rules/               # (empty)
 ```
 
@@ -117,7 +121,7 @@ bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/gather-tick
 | `/drive`                         | Implement queued specs one by one                |
 | `/scan`                          | Full documentation scan (all 14 agents)          |
 | `/report`                        | Context-aware: generate story or journey report and create PR |
-| `/ship-drive`                    | Merge PR, deploy, and verify                     |
+| `/ship`                          | Context-aware: merge PR, deploy, and verify      |
 | `/release [major\|minor\|patch]` | Release new marketplace version                  |
 
 ## Development Workflow
@@ -125,7 +129,7 @@ bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/gather-tick
 1. **Create specs**: Use `/ticket` to write implementation specs
 2. **Implement specs**: Use `/drive` to implement and commit each spec
 3. **Create PR**: Use `/report` to generate story and create PR
-4. **Ship**: Use `/ship-drive` to merge PR, deploy, and verify
+4. **Ship**: Use `/ship` to merge PR, deploy, and verify
 5. **Release**: Use `/release` to bump version and publish
 
 ## Type Checking
@@ -136,6 +140,7 @@ No build step required - this is a configuration/documentation project.
 
 Version files:
 - `.claude-plugin/marketplace.json` - root `version` field
+- `plugins/core/.claude-plugin/plugin.json` - plugin `version` field
 - `plugins/drivin/.claude-plugin/plugin.json` - plugin `version` field
 - `plugins/trippin/.claude-plugin/plugin.json` - plugin `version` field
 

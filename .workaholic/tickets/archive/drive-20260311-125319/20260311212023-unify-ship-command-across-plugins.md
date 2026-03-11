@@ -3,16 +3,20 @@ created_at: 2026-03-11T21:20:23+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [UX, Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 437cadc
+category: Added
 ---
 
-# Unify Ship Command Across Drivin and Trippin Plugins
+# Unify Ship Command and Create Core Plugin
+
+## User Feedback
+
+> Don't store the report or ship commands in the Trippin plugin. Create a core plugin instead. Both /report and /ship should live in the core plugin as shared commands.
 
 ## Overview
 
-Merge the separate `/ship-drive` (Drivin) and `/ship-trip` (Trippin) commands into a single context-aware `/ship` command in the Trippin plugin. The unified command uses the same context detection mechanism established by the `/report` unification (companion ticket) to auto-detect whether the user is in a drive or trip workflow, then delegates to the appropriate shipping logic. For drive context, it merges the PR, deploys, and verifies. For trip context, it additionally cleans up the worktree after merge.
+Create a new **core plugin** (`plugins/core/`) to house shared commands that span both Drivin and Trippin workflows. Move the already-created `/report` command from Trippin to core, and create the unified `/ship` command in core. Also move the branching skill (detect-context.sh) to core since it serves both workflows. Remove `/ship-drive` from Drivin, `/ship-trip` from Trippin, and Drivin's duplicate ship skill.
 
 ## Key Files
 
@@ -120,3 +124,28 @@ Past tickets that touched similar areas:
 - The drive ship workflow references the drive context for error messages (e.g., "Run `/report-drive` first"). These must be updated to reference `/report` instead since report-drive will no longer exist. (`plugins/trippin/commands/ship.md`)
 - The ship command's trip worktree fallback filters for `has_pr: true` (ready to ship), while the report command's fallback filters for `has_pr: false` (unreported). This filtering logic is correct and must be preserved in the unified command. (`plugins/trippin/skills/trip-protocol/sh/list-trip-worktrees.sh`)
 - The `detect-context.sh` script does not differentiate between "on a drive branch" and "on a drive branch with a PR". The pre-check step handles PR existence separately. Context detection is purely about workflow routing, not readiness. (`plugins/trippin/skills/branching/sh/detect-context.sh`)
+
+## Final Report
+
+### Changes Made
+
+- Created `plugins/core/` plugin with `.claude-plugin/plugin.json`, `README.md`
+- Created `plugins/core/commands/ship.md` — unified /ship with drive/trip/trip_worktree/unknown context routing
+- Moved `plugins/trippin/commands/report.md` → `plugins/core/commands/report.md` (updated detect-context.sh path)
+- Moved `plugins/trippin/skills/branching/` → `plugins/core/skills/branching/` (updated paths)
+- Removed `plugins/drivin/commands/ship-drive.md`
+- Removed `plugins/trippin/commands/ship-trip.md`
+- Removed `plugins/drivin/skills/ship/` (duplicate; Trippin's copies are canonical)
+- Updated `.claude-plugin/marketplace.json` — added core plugin entry
+- Updated `CLAUDE.md` — project structure (core plugin), commands table (/ship), workflow, version management
+- Updated `README.md` — added Core plugin section, updated Drivin/Trippin tables, typical session, How It Works
+- Updated `plugins/drivin/README.md` — removed /ship-drive and ship skill
+- Updated `plugins/trippin/README.md` — removed /report, /ship-trip, branching skill
+
+### Test Plan
+
+- Run `/report` from a drive-* branch → routes to drive workflow
+- Run `/ship` from a drive-* branch → routes to drive shipping
+- Run `/ship` from a trip/* branch → routes to trip shipping with worktree cleanup
+- Run `/ship` from main with trip worktrees → lists shippable worktrees
+- Grep for /ship-drive and /ship-trip → only in core ship.md Notice section

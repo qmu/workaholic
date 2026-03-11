@@ -1,0 +1,9 @@
+{
+  "name": "core",
+  "description": "Shared commands and skills for cross-workflow operations",
+  "version": "1.0.39",
+  "author": {
+    "name": "tamurayoshiya",
+    "email": "a@qmu.jp"
+  }
+}

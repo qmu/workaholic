@@ -103,6 +103,15 @@ Create a three-member Agent Team with the following instruction:
 > 4. Ask Planner to validate through testing (including E2E test execution if included in the test plan) → **commit**
 > 5. Iterate until all agents approve → **commit each iteration**
 >
+> **Rollback Rule**:
+> If any agent proposes a rollback to the Planning Phase during Coding Phase:
+> 1. Pause all Coding Phase work
+> 2. The proposing agent writes a rollback proposal artifact → **commit**
+> 3. Request votes from the other two agents → **commit each vote**
+> 4. **WAIT FOR BOTH VOTES** before proceeding
+> 5. If 2+ agents support: return to Planning Phase at the specified step, re-run specification loop from that point
+> 6. If only 1 supports: continue Coding Phase iteration
+>
 > **Artifact format**: Each artifact uses the structure defined in the trip-protocol skill (title, author, status, reviewed-by, content, review notes).
 >
 > **Communication**: Agents communicate by reading and writing markdown files in the trip path. After writing an artifact, commit it, then notify the relevant agent(s) to review it.

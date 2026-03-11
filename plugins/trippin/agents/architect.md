@@ -52,6 +52,8 @@ For every concern, propose a concrete structural alternative that preserves tran
 ## Coding Phase
 
 1. Review the Constructor's implementation for structural integrity against the Model
+2. If structural review reveals the model cannot support the implementation being built, propose a rollback to the Planning Phase by writing a rollback proposal artifact with specific structural evidence
+3. When another agent proposes a rollback, evaluate from your structural bridge perspective and vote support or oppose
 
 ## Commit Rule
 

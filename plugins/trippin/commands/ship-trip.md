@@ -25,7 +25,17 @@ Determine the trip name from the current branch or argument:
 git branch --show-current
 ```
 
-If the branch does not start with `trip/` and no argument was provided, inform the user and stop. The ship-trip command requires a trip name.
+If the branch does not start with `trip/` and no argument was provided, check for available trip worktrees:
+
+```bash
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/list-trip-worktrees.sh
+```
+
+Parse the JSON output and filter to worktrees where `has_pr` is `true` (trips with PRs ready to ship):
+
+- If no shippable trip worktrees found: inform the user "No trip worktrees with open PRs found. Run `/report-trip` first to create a PR." and stop.
+- If exactly one shippable trip worktree found: ask the user "Found trip '<trip_name>' with PR #<number>. Ship this trip?" using AskUserQuestion. If confirmed, use its `trip_name`.
+- If multiple shippable trip worktrees found: list them with PR numbers and ask the user which one to ship using AskUserQuestion.
 
 ### Step 2: Pre-check
 

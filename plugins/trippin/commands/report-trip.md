@@ -25,9 +25,21 @@ Determine the trip name from the current branch or argument:
 branch=$(git branch --show-current)
 ```
 
-If the branch does not start with `trip/`, inform the user and stop. The report-trip command must run from a trip branch.
+If the branch does not start with `trip/` and no argument was provided, check for available trip worktrees:
 
-Locate the trip directory at `.workaholic/.trips/<trip-name>/`. If it does not exist, inform the user and stop.
+```bash
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/list-trip-worktrees.sh
+```
+
+Parse the JSON output and filter to worktrees where `has_pr` is `false` (unreported trips):
+
+- If no trip worktrees found: inform the user "No active trip worktrees found. Run `/trip` to start a new trip session." and stop.
+- If exactly one unreported trip worktree found: ask the user "Found trip '<trip_name>'. Generate report for this trip?" using AskUserQuestion. If confirmed, use its `trip_name` and `branch`.
+- If multiple unreported trip worktrees found: list them and ask the user which one to report on using AskUserQuestion.
+
+When operating on a worktree trip (not the current branch), locate the trip directory at `<worktree_path>/.workaholic/.trips/<trip-name>/` rather than the current working directory. All subsequent git operations (add, commit, push) must run from within the worktree directory.
+
+Locate the trip directory at `.workaholic/.trips/<trip-name>/` (or `<worktree_path>/.workaholic/.trips/<trip-name>/` for worktree trips). If it does not exist, inform the user and stop.
 
 ### Step 2: Gather Trip Artifacts
 

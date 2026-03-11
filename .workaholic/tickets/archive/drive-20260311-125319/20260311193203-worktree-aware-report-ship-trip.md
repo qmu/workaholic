@@ -3,9 +3,9 @@ created_at: 2026-03-11T19:32:03+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX, Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 3271994
+category: Added
 ---
 
 # Worktree-Aware Branch Detection for report-trip and ship-trip
@@ -149,3 +149,19 @@ Past tickets that touched similar areas:
 - The report-trip command needs to generate the report file and commit it on the trip branch, not the current branch. When operating from a non-trip branch, git operations (add, commit, push) should target the trip worktree. This may require `cd <worktree_path>` before running git commands. (`plugins/trippin/commands/report-trip.md` lines 55-59)
 - The ship-trip command's worktree cleanup step already handles the worktree path correctly via `cleanup-worktree.sh`, so operating from a non-trip branch should not affect Steps 3-7. (`plugins/trippin/skills/trip-protocol/sh/cleanup-worktree.sh`)
 - Both commands already accept `$ARGUMENT` as an explicit trip name. The worktree discovery is only the fallback when no argument is provided and the current branch is not a trip branch. This preserves backward compatibility. (`plugins/trippin/commands/report-trip.md` line 19, `plugins/trippin/commands/ship-trip.md` line 20)
+
+## Final Report
+
+### Changes Made
+
+- Created `plugins/trippin/skills/trip-protocol/sh/list-trip-worktrees.sh` — shell script that parses `git worktree list --porcelain`, filters for trip branches, checks PR status via `gh pr list`, and outputs structured JSON
+- Updated `plugins/trippin/commands/report-trip.md` Step 1 — added worktree fallback with filtering for unreported trips (`has_pr: false`) and worktree-aware path resolution
+- Updated `plugins/trippin/commands/ship-trip.md` Step 1 — added worktree fallback with filtering for shippable trips (`has_pr: true`)
+- Updated `plugins/trippin/skills/trip-protocol/SKILL.md` — documented `list-trip-worktrees.sh` under Worktree Isolation section
+
+### Test Plan
+
+- Run `/report-trip` from a non-trip branch with no trip worktrees → should show "No active trip worktrees found"
+- Run `/report-trip` from a non-trip branch with one unreported trip worktree → should offer to use it
+- Run `/ship-trip` from a non-trip branch with one shippable trip worktree → should offer to ship it
+- Run `/report-trip` from a trip branch → existing behavior preserved (no fallback triggered)

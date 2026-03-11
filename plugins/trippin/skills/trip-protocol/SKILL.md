@@ -83,6 +83,16 @@ This creates:
 
 All agent work happens inside the worktree directory. After completion, the user can merge the trip branch or inspect changes independently.
 
+### Listing Trip Worktrees
+
+To discover active trip worktrees with their metadata (branch, path, PR status):
+
+```bash
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/list-trip-worktrees.sh
+```
+
+Output: JSON with `count` and `worktrees` array. Each entry contains `trip_name`, `branch`, `worktree_path`, `has_pr`, and optionally `pr_number` and `pr_url`. Used by `report-trip` and `ship-trip` as a fallback when not on a trip branch.
+
 **Note**: Worktree creation is only the first part of preparation. The development environment inside the worktree must also be validated and configured before planning begins (see Dev Environment Readiness below).
 
 ## Dev Environment Readiness

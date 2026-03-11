@@ -57,7 +57,7 @@ flowchart LR
 
   subgraph Commands[Command Simplification]
     direction TB
-    c1[Remove /sync] --> c2[Remove /commit] --> c3[Rename to /report]
+    c1[Remove /sync] --> c2[Remove /commit] --> c3[Rename to /report-drive]
   end
 
   Subagents --> GitSafety --> Commands

@@ -22,7 +22,8 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 | `/ticket <description>` | Explore codebase and write implementation ticket (auto-creates branch on main)   |
 | `/drive`                | Implement tickets from .workaholic/tickets/ one by one, commit each, and archive |
 | `/scan`                 | Full documentation scan (all 17 agents)                                          |
-| `/report`               | Generate story and create/update pull request                                    |
+| `/report-drive`         | Generate story and create/update pull request                                    |
+| `/ship-drive`           | Merge PR, deploy to production, and verify deployment                            |
 
 ## Agents
 
@@ -35,6 +36,7 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 | Skill            | Description                                                              |
 | ---------------- | ------------------------------------------------------------------------ |
 | `archive-ticket` | Complete commit workflow - format, archive, update changelog, and commit |
+| `ship`           | Ship workflow - merge PR, deploy via cloud.md, and verify production    |
 
 ## Rules
 
@@ -47,7 +49,8 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 
 1. **Plan work**: Use `/ticket` to write implementation specs (auto-creates branch on main)
 2. **Implement tickets**: Use `/drive` to implement and commit each ticket
-3. **Create PR**: Use `/report` to generate story and create PR
+3. **Create PR**: Use `/report-drive` to generate story and create PR
+4. **Ship**: Use `/ship-drive` to merge PR, deploy, and verify
 
 ## Feedback Loop
 

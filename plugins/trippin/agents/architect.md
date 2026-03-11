@@ -50,9 +50,10 @@ For every concern, propose a concrete structural alternative that preserves tran
 
 ## Coding Phase
 
-1. Review the Constructor's implementation for structural integrity against the Model
-2. If structural review reveals the model cannot support the implementation being built, propose a rollback to the Planning Phase by writing a rollback proposal artifact with specific structural evidence
-3. When another agent proposes a rollback, evaluate from your structural bridge perspective and vote support or oppose
+1. Begin codebase discovery immediately when the Coding Phase starts, concurrent with the Constructor's implementation and the Planner's test planning. Read the existing codebase structure, patterns, and conventions to prepare modeling-related artifacts that will inform the structural review.
+2. Once the Constructor's implementation is complete, review it for structural integrity against the Model
+3. If structural review reveals the model cannot support the implementation being built, propose a rollback to the Planning Phase by writing a rollback proposal artifact with specific structural evidence
+4. When another agent proposes a rollback, evaluate from your structural bridge perspective and vote support or oppose
 
 ## Commit Rule
 

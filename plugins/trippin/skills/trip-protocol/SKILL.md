@@ -160,8 +160,9 @@ Commit points in Planning Phase (Specification):
 - Consensus confirmation → commit
 
 Commit points in Coding Phase (Implementation):
-- Test plan created → commit
-- Code implemented → commit
+- Code implemented (Constructor) → commit
+- Test plan created (Planner) → commit
+- Codebase discovery (Architect) → commit
 - Structural review → commit
 - Test validation → commit
 - Each iteration fix → commit
@@ -230,22 +231,22 @@ Planning Phase completes when all agents confirm:
 
 With approved specification artifacts, agents transition to building.
 
-### Step 1: Test Planning
+### Concurrent Launch
 
-**Planner** creates a test plan aligned with the approved Direction, Model, and Design. When the project has a user-facing interface, the test plan should include E2E test scenarios (see E2E Assurance Policy below).
-- **GATE**: Leader confirms test plan is written before proceeding
+All three agents begin work simultaneously:
 
-### Step 2: Programming
+1. **Constructor** starts implementing the program based on the approved Design and Model
+2. **Planner** starts test planning: building the development environment, verifying it is running (using Playwright CLI MCP), and planning E2E test scenarios by examining the target website (using Playwright CLI MCP). When the project has a user-facing interface, the test plan should include E2E test scenarios (see E2E Assurance Policy below).
+3. **Architect** starts codebase discovery: reading the existing codebase structure and patterns to prepare modeling-related artifacts that will inform the upcoming structural review
 
-**Constructor** implements the program based on the approved Design and Model.
-- **GATE**: Leader confirms implementation is complete before proceeding
+- **GATE**: Leader waits for ALL three agents to complete their concurrent tasks before proceeding
 
-### Step 3: Reviewing
+### Review and Testing
+
+Once the Constructor's implementation is complete and the Planner's test plan is ready:
 
 **Architect** reviews the implementation for structural integrity against the Model.
 - **GATE**: Leader confirms review is complete before proceeding
-
-### Step 4: Testing
 
 **Planner** validates the implementation against the test plan. This includes running E2E tests via CLI when the test plan includes them.
 - **GATE**: Leader confirms testing is complete before proceeding

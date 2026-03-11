@@ -13,9 +13,9 @@ Defines the Implosive Structure workflow for three-agent collaboration: Planner,
 
 | Agent | Stance | Philosophy | Responsibilities |
 | ----- | ------ | ---------- | ---------------- |
-| Planner | Progressive | Extrinsic Idealism | Non-Tech Opinion: User Value, Stakeholder Clarity, Explanatory Accountability |
-| Architect | Neutral | Structural Idealism | Structural Opinion: System Coherence, Abstraction Quality, Boundary Integrity |
-| Constructor | Conservative | Intrinsic Idealism | Tech Opinion: Implementation Feasibility, Performance, Maintainability |
+| Planner | Progressive | Extrinsic Idealism | Business Vision: Business Phenomena, Stakeholder Advocacy, Explanatory Accountability |
+| Architect | Neutral | Structural Idealism | Structural Bridge: System Coherence, Translation Fidelity, Boundary Integrity |
+| Constructor | Conservative | Intrinsic Idealism | Technical Accountability: Engineering Quality, Quality Assurance, Delivery Ownership |
 
 ## Dual Objectives
 
@@ -43,9 +43,9 @@ Reviews are the mechanism through which the three perspectives create dialectica
 1. **Identify at least one concern or trade-off** per review, even when approving. Artifacts are never perfect -- each perspective will see something the author's perspective missed. A "no concerns" review indicates insufficient analysis.
 2. **Provide a constructive proposal** for every concern raised. Never state "this is problematic" without offering "consider this alternative because..." with a concrete suggestion. Criticism without a counter-proposal is not constructive.
 3. **Evaluate from your domain perspective**, not general impressions:
-   - Planner reviews ask: Does this serve user needs? Can stakeholders understand the reasoning?
-   - Architect reviews ask: Does the structure hold together? Are boundaries well-defined?
-   - Constructor reviews ask: Can we build and maintain this? What are the engineering trade-offs?
+   - Planner reviews ask: Does this deliver the business outcome? Can stakeholders trace the reasoning?
+   - Architect reviews ask: Does the structure faithfully bridge business intent and technical implementation?
+   - Constructor reviews ask: Does this meet the quality bar I am accountable for? What engineering risks exist?
 4. **Use structured approval decisions**:
    - "Approve with observations" -- approved, with noted trade-offs for the record
    - "Approve with minor suggestions" -- approved, with optional improvements the author may incorporate
@@ -304,7 +304,7 @@ When two agents disagree, the third agent serves as moderator:
 
 The moderator:
 1. Reads both positions from the artifact files
-2. Acknowledges both domain perspectives -- understand why each side holds its position from its opinion domain (non-tech, tech, or structural)
+2. Acknowledges both domain perspectives -- understand why each side holds its position from its opinion domain (business vision, technical accountability, or structural bridge)
 3. Evaluates against the dual objectives (optimization + constraint satisfaction)
 4. Proposes a resolution that synthesizes both perspectives rather than simply picking a side
 5. The resolution is written as the next version of the contested artifact

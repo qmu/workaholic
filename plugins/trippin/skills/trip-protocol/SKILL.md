@@ -204,7 +204,7 @@ With approved specification artifacts, agents transition to building.
 
 ### Step 1: Test Planning
 
-**Planner** creates a test plan aligned with the approved Direction, Model, and Design.
+**Planner** creates a test plan aligned with the approved Direction, Model, and Design. When the project has a user-facing interface, the test plan should include E2E test scenarios (see E2E Assurance Policy below).
 - **GATE**: Leader confirms test plan is written before proceeding
 
 ### Step 2: Programming
@@ -219,7 +219,7 @@ With approved specification artifacts, agents transition to building.
 
 ### Step 4: Testing
 
-**Planner** validates the implementation against the test plan.
+**Planner** validates the implementation against the test plan. This includes running E2E tests via CLI when the test plan includes them.
 - **GATE**: Leader confirms testing is complete before proceeding
 
 ### Iteration
@@ -229,6 +229,33 @@ If review or testing reveals issues, the team iterates:
 - Architect re-reviews → **GATE**: Leader confirms re-review complete
 - Planner re-tests → **GATE**: Leader confirms re-test complete
 - Continue until all pass
+
+## E2E Assurance Policy
+
+The Planner's testing responsibility extends beyond unit and integration checks to include **end-to-end (E2E) validation** of the full user experience. This is the mechanism through which the Planner fulfills Explanatory Accountability: demonstrating that the delivered system satisfies the stakeholder-facing direction, not just the technical model and design.
+
+### When to Apply
+
+E2E testing applies when the project has a user-facing interface:
+- Web applications (browser-based UI)
+- CLI tools (terminal-based interaction)
+- API services with consumer-facing workflows
+
+Projects that are purely library or configuration may skip E2E testing. The Planner assesses applicability during test planning.
+
+### Tool Selection
+
+The Planner should detect the project's existing E2E framework by checking for configuration files (e.g., `playwright.config.*`, `cypress.config.*`, `wdio.conf.*`). If no framework exists, the Planner may propose one in the test plan. **Playwright** is the recommended default for web projects due to its headless CLI interface.
+
+### Constraints
+
+- E2E tests must be runnable from the command line (`npx playwright test`, `npx cypress run`, etc.) without requiring a GUI
+- The Planner operates in a terminal environment and cannot interact with browser windows manually
+- E2E test results must be interpretable from CLI output (exit codes, test report summaries)
+
+### Scope
+
+E2E tests validate user-visible workflows end-to-end: navigation, form submission, data persistence, authentication flows, error states. They complement the Architect's structural review (which checks code integrity) with experiential validation (which checks user outcomes). The Planner defines which workflows to cover in the test plan and runs them during the testing step.
 
 ## Moderation Protocol
 

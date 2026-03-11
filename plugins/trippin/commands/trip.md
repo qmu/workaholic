@@ -97,10 +97,10 @@ Create a three-member Agent Team with the following instruction:
 > 13. Iterate until full consensus on direction, model, and design → **commit each revision**
 >
 > **Phase 2 - Implementation (Outer Loop)**:
-> 1. Ask Planner to create a test plan → **commit**
+> 1. Ask Planner to create a test plan (including E2E scenarios if the project has a user-facing interface) → **commit**
 > 2. Ask Constructor to implement the program → **commit**
 > 3. Ask Architect to review structural integrity → **commit**
-> 4. Ask Planner to validate through testing → **commit**
+> 4. Ask Planner to validate through testing (including E2E test execution if included in the test plan) → **commit**
 > 5. Iterate until all agents approve → **commit each iteration**
 >
 > **Artifact format**: Each artifact uses the structure defined in the trip-protocol skill (title, author, status, reviewed-by, content, review notes).

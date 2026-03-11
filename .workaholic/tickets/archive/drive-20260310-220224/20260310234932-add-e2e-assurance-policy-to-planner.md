@@ -3,9 +3,9 @@ created_at: 2026-03-10T23:49:32+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config, Domain]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 4e60e6e
+category: Added
 ---
 
 # Add E2E Assurance Policy to Planner's Testing Step
@@ -138,3 +138,15 @@ Past tickets that touched similar areas:
 - The scope of E2E testing overlaps with the Architect's Phase 2 review (structural integrity). The boundary should be clear: the Architect reviews code structure and type safety, while the Planner validates user-visible behavior. There should be no expectation that the Architect runs E2E tests. (`plugins/trippin/agents/architect.md`, `plugins/trippin/agents/planner.md`)
 - For projects that are purely configuration or plugin development (like this workaholic repository itself), E2E testing does not apply. The "When to Apply" clause handles this, but the Planner should not feel obligated to force E2E testing into every trip session. (`plugins/trippin/skills/trip-protocol/SKILL.md`)
 - Phase 2 currently does not specify where the test plan artifact is stored. It should likely go in the directions area (since the Planner authors it) or a new `tests/` directory under the trip path. This is a pre-existing gap not specific to this ticket but worth noting. (`plugins/trippin/skills/trip-protocol/SKILL.md` lines 175-205)
+
+## Final Report
+
+### Changes Made
+
+- **`plugins/trippin/skills/trip-protocol/SKILL.md`**: Added E2E Assurance Policy section with When to Apply, Tool Selection, Constraints, and Scope subsections. Updated Phase 2 Step 1 (Test Planning) and Step 4 (Testing) with E2E references.
+- **`plugins/trippin/agents/planner.md`**: Expanded Phase 2 items with E2E test planning and CLI execution guidance. Added reference to E2E Assurance Policy.
+- **`plugins/trippin/commands/trip.md`**: Updated Phase 2 steps 1 and 4 in Agent Teams instruction block to mention E2E scenarios and execution.
+
+### Approach
+
+Tool-agnostic policy with Playwright as recommended default. The Planner assesses project type during test planning and includes E2E only when applicable (user-facing interfaces). All E2E execution is CLI-based per terminal environment constraints.

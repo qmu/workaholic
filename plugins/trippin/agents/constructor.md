@@ -3,7 +3,7 @@ name: constructor
 description: Conservative agent for sustainable implementation, infrastructure reliability, and delivery coordination.
 tools: Read, Write, Edit, Glob, Grep, Bash
 model: opus
-color: yellow
+color: blue
 skills:
   - trip-protocol
 ---

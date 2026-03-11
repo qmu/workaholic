@@ -4,7 +4,7 @@ author: a@qmu.jp
 type: enhancement
 layer: [UX, Config]
 effort: 0.5h
-commit_hash:
+commit_hash: 0b207a2
 category: Changed
 ---
 
@@ -77,3 +77,14 @@ No prior tickets have addressed agent color configuration.
 - No other files reference agent colors; these are self-contained frontmatter changes with no downstream dependencies.
 
 ## Final Report
+
+### Changes Made
+
+- Updated `plugins/trippin/agents/planner.md`: color `green` → `red`
+- Updated `plugins/trippin/agents/architect.md`: color `blue` → `green`
+- Updated `plugins/trippin/agents/constructor.md`: color `yellow` → `blue`
+
+### Test Plan
+
+- Verify all three agent files have distinct colors (red, green, blue)
+- Verify frontmatter syntax is valid YAML

@@ -3,7 +3,7 @@ name: architect
 description: Neutral agent for semantical consistency, static verification, and accessibility.
 tools: Read, Write, Edit, Glob, Grep, Bash
 model: opus
-color: blue
+color: green
 skills:
   - trip-protocol
 ---

@@ -3,9 +3,9 @@ created_at: 2026-03-11T12:54:25+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: b09703f
+category: Added
 ---
 
 # Add safety harness to prevent system-wide configuration changes
@@ -77,3 +77,19 @@ Past tickets that touched similar areas:
 - The `system-safety` skill belongs in `plugins/drivin/skills/` because it serves the drive workflow, but it is also preloaded by the trippin Constructor agent. This cross-plugin skill reference is consistent with how the trippin agents already reference drivin skills via absolute paths. (`plugins/trippin/agents/constructor.md`)
 - The shell script path rule in CLAUDE.md requires absolute paths from home directory. The detect script must be invoked as `bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/system-safety/sh/detect.sh`. (`CLAUDE.md` Shell Script Path Rule)
 - Consider whether the Planner and Architect agents also need the harness. They have Bash tool access and could theoretically run system commands, but their roles (direction writing, model writing, review) do not involve implementation. The Constructor is the primary risk vector. (`plugins/trippin/agents/planner.md`, `plugins/trippin/agents/architect.md`)
+
+## Final Report
+
+### Changes Made
+
+- Created `plugins/drivin/skills/system-safety/SKILL.md` with authorization model, provisioning detection, prohibited operations blocklist, safe alternatives table, and enforcement rules
+- Created `plugins/drivin/skills/system-safety/sh/detect.sh` with 9 provisioning signal checks outputting structured JSON
+- Updated `plugins/drivin/skills/drive-workflow/SKILL.md` with System Safety section referencing the new skill
+- Updated `plugins/trippin/skills/trip-protocol/SKILL.md` with System Safety section and detection script reference
+- Updated `plugins/trippin/agents/constructor.md` to preload `drivin:system-safety` skill
+- Updated `plugins/drivin/commands/drive.md` to preload `system-safety` skill
+
+### Test Plan
+
+- Verified `detect.sh` correctly identifies this repo as a regular project (`system_changes_authorized: false`)
+- Verified all six files were updated consistently

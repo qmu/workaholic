@@ -277,6 +277,21 @@ The Planner should detect the project's existing E2E framework by checking for c
 
 E2E tests validate user-visible workflows end-to-end: navigation, form submission, data persistence, authentication flows, error states. They complement the Architect's structural review (which checks code integrity) with experiential validation (which checks user outcomes). The Planner defines which workflows to cover in the test plan and runs them during the testing step.
 
+## System Safety
+
+Agents must not modify system-wide configuration (shell profiles, global packages, system services, `/etc/` files, `sudo` commands) unless the repository is a provisioning repository. The Constructor is the primary agent executing commands during Phase 2, so this constraint is especially critical for implementation work.
+
+Before any implementation that may touch system configuration, the Constructor must run the detection script from the **system-safety** skill:
+
+```bash
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/system-safety/sh/detect.sh
+```
+
+- If `system_changes_authorized` is `false`: all prohibited operations in the system-safety skill are blocked. Use project-local alternatives instead.
+- If `system_changes_authorized` is `true`: system-wide changes are permitted.
+
+If an implementation step requires a prohibited operation and no safe alternative exists, report the blocker to the team lead rather than proceeding.
+
 ## Moderation Protocol
 
 When two agents disagree, the third agent serves as moderator:

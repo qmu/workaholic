@@ -53,7 +53,7 @@ bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/ship/sh/fin
 ```
 
 - If `found` is `false`: inform user "No cloud.md found. Deployment skipped." and skip to completion.
-- If `found` is `true`: read the file, find the `## Deploy` section, and execute the instructions using Bash.
+- If `found` is `true`: read the file and find the `## Deploy` section. Display the deploy instructions to the user, then ask for confirmation with AskUserQuestion: "Proceed with deployment?". If the user declines, report "Deployment skipped by user." and skip to completion. If confirmed, execute the instructions using Bash.
 
 ### Step 4: Verify
 

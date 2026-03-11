@@ -3,9 +3,9 @@ created_at: 2026-03-11T01:51:42+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config, Domain]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: aa71bda
+category: Changed
 ---
 
 # Enhance Trip Agent Critical Thinking and Role-Based Opinion Framing
@@ -238,3 +238,17 @@ Past tickets that touched similar areas:
 - The Moderation Protocol update (step 7) adds nuance to conflict resolution but may increase the complexity of moderation artifacts. The moderator must understand all three domains well enough to synthesize, not just arbitrate. This is inherently difficult and may result in mediocre resolutions. (`plugins/trippin/skills/trip-protocol/SKILL.md` lines 209-222)
 - Agent Teams agents operate in separate context windows with limited token budgets. Adding opinion domain, review approach, and critical review policy sections increases the preloaded skill and agent definition sizes. Ensure the total preloaded content per agent remains within practical limits. (`plugins/trippin/agents/planner.md`, `plugins/trippin/agents/architect.md`, `plugins/trippin/agents/constructor.md`)
 - The existing E2E Assurance Policy ticket adds testing-specific content to the Planner. When both tickets are implemented, the Planner's definition will be the largest of the three agents. Monitor whether the combined content exceeds the design principle of ~20-40 lines for agents. (`.workaholic/tickets/todo/20260310234932-add-e2e-assurance-policy-to-planner.md`, `plugins/trippin/agents/planner.md`)
+
+## Final Report
+
+### Changes Made
+
+- **`plugins/trippin/skills/trip-protocol/SKILL.md`**: Updated Agents table with opinion-framed responsibilities. Added Critical Review Policy section with requirements for substantive reviews, constructive proposals, domain-perspective evaluation, and structured approval decisions. Updated Moderation Protocol to require perspective synthesis.
+- **`plugins/trippin/agents/planner.md`**: Added Opinion Domain (non-tech side) and Review Approach sections with critical thinking prompts.
+- **`plugins/trippin/agents/architect.md`**: Added Opinion Domain (structural side) and Review Approach sections with critical thinking prompts.
+- **`plugins/trippin/agents/constructor.md`**: Added Opinion Domain (tech side) and Review Approach sections with critical thinking prompts.
+- **`plugins/trippin/commands/trip.md`**: Updated Agent Teams teammate descriptions with opinion framing.
+
+### Approach
+
+Layered opinion domains on top of existing philosophical stances. The stances (Progressive/Neutral/Conservative) remain as identity anchors; the opinion domains (non-tech/structural/tech) provide actionable review lenses. Critical Review Policy establishes a minimum quality bar for all reviews.

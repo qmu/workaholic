@@ -13,9 +13,9 @@ Defines the Implosive Structure workflow for three-agent collaboration: Planner,
 
 | Agent | Stance | Philosophy | Responsibilities |
 | ----- | ------ | ---------- | ---------------- |
-| Planner | Progressive | Extrinsic Idealism | Creative Direction, Stakeholder Profiling, Explanatory Accountability |
-| Architect | Neutral | Structural Idealism | Semantical Consistency, Static Verification, Accessibility & Accommodability |
-| Constructor | Conservative | Intrinsic Idealism | Sustainable Implementation, Infrastructure Reliability, Delivery Coordination |
+| Planner | Progressive | Extrinsic Idealism | Non-Tech Opinion: User Value, Stakeholder Clarity, Explanatory Accountability |
+| Architect | Neutral | Structural Idealism | Structural Opinion: System Coherence, Abstraction Quality, Boundary Integrity |
+| Constructor | Conservative | Intrinsic Idealism | Tech Opinion: Implementation Feasibility, Performance, Maintainability |
 
 ## Dual Objectives
 
@@ -33,6 +33,26 @@ Rules:
 4. No agent may interpret its own approval as permission to proceed to its next responsibility
 
 Every transition between sub-steps requires the leader to explicitly request the next action. This prevents race conditions where one agent's early completion causes it to skip ahead while other agents are still working.
+
+## Critical Review Policy
+
+Reviews are the mechanism through which the three perspectives create dialectical tension. A review that simply approves without substantive analysis fails to serve the collaborative process.
+
+### Requirements
+
+1. **Identify at least one concern or trade-off** per review, even when approving. Artifacts are never perfect -- each perspective will see something the author's perspective missed. A "no concerns" review indicates insufficient analysis.
+2. **Provide a constructive proposal** for every concern raised. Never state "this is problematic" without offering "consider this alternative because..." with a concrete suggestion. Criticism without a counter-proposal is not constructive.
+3. **Evaluate from your domain perspective**, not general impressions:
+   - Planner reviews ask: Does this serve user needs? Can stakeholders understand the reasoning?
+   - Architect reviews ask: Does the structure hold together? Are boundaries well-defined?
+   - Constructor reviews ask: Can we build and maintain this? What are the engineering trade-offs?
+4. **Use structured approval decisions**:
+   - "Approve with observations" -- approved, with noted trade-offs for the record
+   - "Approve with minor suggestions" -- approved, with optional improvements the author may incorporate
+   - "Request revision" -- not approved, with specific proposals for what to change and why
+   - Never use bare "approve" or "looks good" without substantive analysis
+
+The goal is not conflict for its own sake but **productive tension** that strengthens the specification through complementary viewpoints.
 
 ## Artifact Dependencies
 
@@ -269,9 +289,10 @@ When two agents disagree, the third agent serves as moderator:
 
 The moderator:
 1. Reads both positions from the artifact files
-2. Evaluates against the dual objectives (optimization + constraint satisfaction)
-3. Proposes a resolution or requests specific revisions from one or both parties
-4. The resolution is written as the next version of the contested artifact
+2. Acknowledges both domain perspectives -- understand why each side holds its position from its opinion domain (non-tech, tech, or structural)
+3. Evaluates against the dual objectives (optimization + constraint satisfaction)
+4. Proposes a resolution that synthesizes both perspectives rather than simply picking a side
+5. The resolution is written as the next version of the contested artifact
 
 ## Artifact Format
 

@@ -70,7 +70,7 @@ Refs #<issue-number>
 
 ## Stories
 
-- [drive-20260310-220224.md](drive-20260310-220224.md) - Trip workflow hardening: deterministic review conventions, phase gate synchronization, commit message rules, and model-before-design dependency enforcement - 4 tickets, 9 commits
+- [drive-20260310-220224.md](drive-20260310-220224.md) - Trip workflow hardening, agent quality enhancements, multi-plugin README rewrite, and complete delivery lifecycle commands (/report-drive, /report-trip, /ship-drive, /ship-trip) with cloud.md convention - 13 tickets, 26 commits
 - [drive-20260302-213941.md](drive-20260302-213941.md) - Multi-plugin marketplace architecture: renamed core to drivin, created trippin plugin skeleton, implemented /trip command with Agent Teams, enforced ticket context in drive approval prompts - 4 tickets, 8 commits
 - [drive-20260213-131416.md](drive-20260213-131416.md) - Absolute path enforcement, schema restructuring, and archive reliability: codified path rule in CLAUDE.md, replaced relative paths across 39 files, nested Goal and Responsibility under Role in agent schemas, fixed unstaged ticket deletions by mandating archive.sh usage - 4 tickets, 10 commits
 - [drive-20260212-122906.md](drive-20260212-122906.md) - Naming hygiene, workflow reliability, and developer experience: renamed manage-branch to branching and policy skills to principle, fixed duplicate Japanese specs and double version bumps, added constraint file convention, improved effort validation enforcement and drive approval UX - 9 tickets, 22 commits

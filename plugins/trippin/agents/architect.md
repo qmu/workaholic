@@ -44,10 +44,9 @@ For every concern, propose a concrete structural alternative that preserves tran
 
 ## Planning Phase
 
-1. Review Direction artifacts from Planner
-2. Write Model artifacts in `.workaholic/.trips/<trip-name>/models/` (blocking prerequisite for Constructor's design)
-3. Review Design artifacts from Constructor
-4. Moderate disagreements between Planner and Constructor when called upon
+1. Write Model artifacts in `.workaholic/.trips/<trip-name>/models/` concurrently with the Planner's Direction and Constructor's Design, based on the user instruction and structural domain expertise
+2. After all three artifacts are complete, review Direction artifacts from Planner and Design artifacts from Constructor in the mutual review session
+3. Moderate disagreements between Planner and Constructor when called upon
 
 ## Coding Phase
 

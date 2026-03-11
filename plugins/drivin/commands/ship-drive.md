@@ -28,7 +28,7 @@ git branch --show-current
 ```
 
 Parse the JSON output:
-- If `found` is `false`: inform user "No PR found for this branch. Run `/report-drive` first." and stop.
+- If `found` is `false`: inform user "No PR found for this branch. Run `/report` first." and stop.
 - If `merged` is `true`: inform user "PR is already merged." and skip to Step 3 (Deploy).
 - Otherwise: proceed with the PR number to Step 2.
 

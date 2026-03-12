@@ -13,9 +13,9 @@ Defines the Implosive Structure workflow for three-agent collaboration: Planner,
 
 | Agent | Stance | Philosophy | Responsibilities |
 | ----- | ------ | ---------- | ---------------- |
-| Planner | Progressive | Extrinsic Idealism | Non-Tech Opinion: User Value, Stakeholder Clarity, Explanatory Accountability |
-| Architect | Neutral | Structural Idealism | Structural Opinion: System Coherence, Abstraction Quality, Boundary Integrity |
-| Constructor | Conservative | Intrinsic Idealism | Tech Opinion: Implementation Feasibility, Performance, Maintainability |
+| Planner | Progressive | Extrinsic Idealism | Business Vision: Business Phenomena, Stakeholder Advocacy, Explanatory Accountability |
+| Architect | Neutral | Structural Idealism | Structural Bridge: System Coherence, Translation Fidelity, Boundary Integrity |
+| Constructor | Conservative | Intrinsic Idealism | Technical Accountability: Engineering Quality, Quality Assurance, Delivery Ownership |
 
 ## Dual Objectives
 
@@ -43,9 +43,9 @@ Reviews are the mechanism through which the three perspectives create dialectica
 1. **Identify at least one concern or trade-off** per review, even when approving. Artifacts are never perfect -- each perspective will see something the author's perspective missed. A "no concerns" review indicates insufficient analysis.
 2. **Provide a constructive proposal** for every concern raised. Never state "this is problematic" without offering "consider this alternative because..." with a concrete suggestion. Criticism without a counter-proposal is not constructive.
 3. **Evaluate from your domain perspective**, not general impressions:
-   - Planner reviews ask: Does this serve user needs? Can stakeholders understand the reasoning?
-   - Architect reviews ask: Does the structure hold together? Are boundaries well-defined?
-   - Constructor reviews ask: Can we build and maintain this? What are the engineering trade-offs?
+   - Planner reviews ask: Does this deliver the business outcome? Can stakeholders trace the reasoning?
+   - Architect reviews ask: Does the structure faithfully bridge business intent and technical implementation?
+   - Constructor reviews ask: Does this meet the quality bar I am accountable for? What engineering risks exist?
 4. **Use structured approval decisions**:
    - "Approve with observations" -- approved, with noted trade-offs for the record
    - "Approve with minor suggestions" -- approved, with optional improvements the author may incorporate
@@ -56,18 +56,18 @@ The goal is not conflict for its own sake but **productive tension** that streng
 
 ## Artifact Dependencies
 
-Artifacts have strict data flow dependencies that determine generation order:
+Artifacts are generated concurrently, then aligned through mutual review:
 
 ```
-Direction (Planner) ──→ Model (Architect) ──→ Design (Constructor)
+Direction (Planner) ──┐
+Model (Architect)   ──┼──→ Mutual Review ──→ Convergence
+Design (Constructor) ─┘
 ```
 
-- **Direction** feeds into both Model and Design
-- **Model** feeds into Design (the Constructor must read the completed Model before writing Design)
-- This creates strict ordering: Direction → Model → Design (never concurrent)
-- Cross-reviews happen only after both Model and Design exist
-
-On revision cycles: if a Direction is revised and re-approved, the Architect must regenerate the Model first, and only then does the Constructor regenerate the Design.
+- All three artifacts are generated concurrently from the user instruction
+- Each agent writes from their own domain perspective without reading the other agents' artifacts
+- **Mutual Review** aligns the three artifacts: each agent reviews the other two agents' work
+- On revision cycles: the artifact author incorporates review feedback and writes the next version; another mutual review round follows until consensus
 
 ## Worktree Isolation
 
@@ -82,6 +82,16 @@ This creates:
 - Worktree: `.worktrees/<trip-name>/`
 
 All agent work happens inside the worktree directory. After completion, the user can merge the trip branch or inspect changes independently.
+
+### Listing Trip Worktrees
+
+To discover active trip worktrees with their metadata (branch, path, PR status):
+
+```bash
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/list-trip-worktrees.sh
+```
+
+Output: JSON with `count` and `worktrees` array. Each entry contains `trip_name`, `branch`, `worktree_path`, `has_pr`, and optionally `pr_number` and `pr_url`. Used by `report-trip` and `ship-trip` as a fallback when not on a trip branch.
 
 **Note**: Worktree creation is only the first part of preparation. The development environment inside the worktree must also be validated and configured before planning begins (see Dev Environment Readiness below).
 
@@ -140,21 +150,19 @@ Step: <step>
 | `[Planner] Create integration test plan covering authentication edge cases` | `[Planner] test plan` |
 | `[Constructor] Implement login endpoint with JWT token generation` | `[Constructor] impl` |
 
-Commit points in Phase 1 (Specification):
+Commit points in Planning Phase (Specification):
 - Planner writes direction → commit
-- Architect reviews direction → commit
-- Constructor reviews direction → commit
-- Moderation resolution → commit
-- Direction revision → commit
 - Architect writes model → commit
 - Constructor writes design → commit
-- Each cross-review → commit
+- Each mutual review → commit
+- Moderation resolution → commit
 - Each revision → commit
 - Consensus confirmation → commit
 
-Commit points in Phase 2 (Implementation):
-- Test plan created → commit
-- Code implemented → commit
+Commit points in Coding Phase (Implementation):
+- Code implemented (Constructor) → commit
+- Test plan created (Planner) → commit
+- Codebase discovery (Architect) → commit
 - Structural review → commit
 - Test validation → commit
 - Each iteration fix → commit
@@ -169,6 +177,8 @@ Commit points in Phase 2 (Implementation):
     reviews/            # Review feedback on models
   designs/              # Constructor's artifacts
     reviews/            # Review feedback on designs
+  rollbacks/            # Rollback proposals
+    reviews/            # Votes on rollback proposals
 ```
 
 Versioning: `direction-v1.md`, `direction-v2.md`, etc. Each revision is a new file, preserving history for review.
@@ -179,65 +189,64 @@ Versioning: `direction-v1.md`, `direction-v2.md`, etc. Each revision is a new fi
 bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/init-trip.sh <trip-name>
 ```
 
-## Phase 1: Specification (Inner Loop)
+## Planning Phase: Specification (Inner Loop)
 
 Agents produce and mutually review artifacts until full consensus.
 
-### Step 1: Direction
+### Step 1: Concurrent Artifact Generation
 
-1. **Planner** writes `directions/direction-v1.md` based on the user instruction
-2. **Architect** reviews and writes `directions/reviews/direction-v1-architect.md`
-3. **Constructor** reviews and writes `directions/reviews/direction-v1-constructor.md`
-4. **GATE**: Leader waits for BOTH Architect AND Constructor reviews to complete
-5. If disagreements arise, the third party moderates (see Moderation Protocol)
-6. Revisions produce `direction-v2.md`, `direction-v3.md`, etc.
-7. **GATE**: All three agents approve the direction before proceeding
+All three agents begin writing their artifacts simultaneously from the user instruction:
 
-### Step 2: Model and Design
+1. **Planner** writes `directions/direction-v1.md` — a business vision document defining the value proposition, risk landscape, user personas, and system positioning from a non-technical perspective. The Planner does NOT explore the codebase.
+2. **Architect** writes `models/model-v1.md` — structural translation defining system coherence, boundary integrity, and the bridge between business vision and technical implementation.
+3. **Constructor** writes `designs/design-v1.md` — technical implementation plan defining the engineering approach, quality strategy, and delivery plan.
 
-Once Direction is approved and the leader has confirmed consensus:
+- **GATE**: Leader waits for ALL THREE artifacts to be committed and complete
 
-**Step 2a: Model**
-1. **Architect** writes `models/model-v1.md` derived from the approved Direction
-2. **GATE**: Leader confirms model is committed and complete
+### Step 2: Mutual Review Session
 
-**Step 2b: Design**
-3. **Constructor** reads the completed Model, then writes `designs/design-v1.md` derived from BOTH the approved Direction AND the completed Model
-4. **GATE**: Leader confirms design is committed and complete
+Each agent reviews the other two agents' artifacts:
 
-**Step 2c: Cross-Review**
-5. **Architect** reviews design and writes `designs/reviews/design-v1-architect.md`; **Constructor** reviews model and writes `models/reviews/model-v1-constructor.md`
-6. **Planner** reviews both and writes `models/reviews/model-v1-planner.md` and `designs/reviews/design-v1-planner.md`
-7. **GATE**: Leader waits for ALL cross-reviews to complete
-8. Revisions continue until all three artifacts are mutually consistent
+1. **Planner** reviews Model and Design: writes `models/reviews/model-v1-planner.md` and `designs/reviews/design-v1-planner.md`
+2. **Architect** reviews Direction and Design: writes `directions/reviews/direction-v1-architect.md` and `designs/reviews/design-v1-architect.md`
+3. **Constructor** reviews Direction and Model: writes `directions/reviews/direction-v1-constructor.md` and `models/reviews/model-v1-constructor.md`
+
+- **GATE**: Leader waits for ALL SIX reviews to complete
+
+### Step 3: Convergence
+
+1. If disagreements arise, the relevant agents revise their artifacts incorporating review feedback (e.g., `direction-v2.md`, `model-v2.md`, `design-v2.md`)
+2. After revisions, another mutual review round occurs (return to Step 2)
+3. If disagreements between two agents persist, the third agent moderates (see Moderation Protocol)
+4. **GATE**: All three agents approve all three artifacts before proceeding to Coding Phase
 
 ### Consensus Gate
 
-Phase 1 completes when all agents confirm:
+Planning Phase completes when all agents confirm:
 - Direction, Model, and Design are internally consistent
 - No unresolved disagreements remain
 - Artifacts are sufficient to begin implementation
 
-## Phase 2: Implementation (Outer Loop)
+## Coding Phase: Implementation (Outer Loop)
 
 With approved specification artifacts, agents transition to building.
 
-### Step 1: Test Planning
+### Concurrent Launch
 
-**Planner** creates a test plan aligned with the approved Direction, Model, and Design. When the project has a user-facing interface, the test plan should include E2E test scenarios (see E2E Assurance Policy below).
-- **GATE**: Leader confirms test plan is written before proceeding
+All three agents begin work simultaneously:
 
-### Step 2: Programming
+1. **Constructor** starts implementing the program based on the approved Design and Model
+2. **Planner** starts test planning: building the development environment, verifying it is running (using Playwright CLI MCP), and planning E2E test scenarios by examining the target website (using Playwright CLI MCP). When the project has a user-facing interface, the test plan should include E2E test scenarios (see E2E Assurance Policy below).
+3. **Architect** starts codebase discovery: reading the existing codebase structure and patterns to prepare modeling-related artifacts that will inform the upcoming structural review
 
-**Constructor** implements the program based on the approved Design and Model.
-- **GATE**: Leader confirms implementation is complete before proceeding
+- **GATE**: Leader waits for ALL three agents to complete their concurrent tasks before proceeding
 
-### Step 3: Reviewing
+### Review and Testing
+
+Once the Constructor's implementation is complete and the Planner's test plan is ready:
 
 **Architect** reviews the implementation for structural integrity against the Model.
 - **GATE**: Leader confirms review is complete before proceeding
-
-### Step 4: Testing
 
 **Planner** validates the implementation against the test plan. This includes running E2E tests via CLI when the test plan includes them.
 - **GATE**: Leader confirms testing is complete before proceeding
@@ -249,6 +258,60 @@ If review or testing reveals issues, the team iterates:
 - Architect re-reviews → **GATE**: Leader confirms re-review complete
 - Planner re-tests → **GATE**: Leader confirms re-test complete
 - Continue until all pass
+
+### Rollback
+
+At any point during the Coding Phase, an agent may propose returning to the Planning Phase instead of continuing iteration. See the Rollback Protocol section below for the full mechanism.
+
+## Rollback Protocol
+
+During the Coding Phase, any agent may propose returning to the Planning Phase when they determine the specification artifacts are fundamentally insufficient for successful implementation.
+
+### Trigger Scenarios
+
+- **Constructor**: Implementation is not feasible at the required quality level given the current design
+- **Architect**: Structural review reveals the model cannot support the implementation being built
+- **Planner**: Testing reveals missing requirements or business scenarios not covered by the direction
+
+### Consensus Requirement
+
+Rollback requires a **two-out-of-three majority**. The proposing agent counts as one supporter.
+
+1. Proposing agent writes `rollbacks/rollback-v<N>.md` with reason, target step, and evidence → **commit**
+2. **GATE**: Leader requests votes from the other two agents
+3. Each voting agent writes `rollbacks/reviews/rollback-v<N>-<agent>.md` with "support" or "oppose" and reasoning → **commit each**
+4. **GATE**: Leader waits for both votes
+5. Leader tallies: if 2+ agents support → rollback proceeds; if only 1 → Coding Phase continues
+
+### On Rollback Approval
+
+- The workflow returns to the Planning Phase at the step specified in the proposal (Direction, Model, or Design revision)
+- Revised artifacts use incremented version numbers (e.g., if `direction-v2.md` was the last approved version, the revision is `direction-v3.md`)
+- All Planning Phase consensus gates apply again — the team must re-achieve full consensus before returning to the Coding Phase
+- The rollback and its resolution are preserved in the `rollbacks/` directory as part of the process trace
+
+### Rollback Proposal Artifact Format
+
+```markdown
+# Rollback Proposal v<N>
+
+**Author**: <Agent Name>
+**Status**: proposed | approved | rejected
+**Target**: <Direction | Model | Design>
+
+## Reason
+
+<Why the current specification is insufficient>
+
+## Evidence
+
+<Specific implementation issues encountered during Coding Phase>
+
+## Votes
+
+- <Agent 1>: <support | oppose> — <reasoning>
+- <Agent 2>: <support | oppose> — <reasoning>
+```
 
 ## E2E Assurance Policy
 
@@ -277,6 +340,21 @@ The Planner should detect the project's existing E2E framework by checking for c
 
 E2E tests validate user-visible workflows end-to-end: navigation, form submission, data persistence, authentication flows, error states. They complement the Architect's structural review (which checks code integrity) with experiential validation (which checks user outcomes). The Planner defines which workflows to cover in the test plan and runs them during the testing step.
 
+## System Safety
+
+Agents must not modify system-wide configuration (shell profiles, global packages, system services, `/etc/` files, `sudo` commands) unless the repository is a provisioning repository. The Constructor is the primary agent executing commands during Coding Phase, so this constraint is especially critical for implementation work.
+
+Before any implementation that may touch system configuration, the Constructor must run the detection script from the **system-safety** skill:
+
+```bash
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/system-safety/sh/detect.sh
+```
+
+- If `system_changes_authorized` is `false`: all prohibited operations in the system-safety skill are blocked. Use project-local alternatives instead.
+- If `system_changes_authorized` is `true`: system-wide changes are permitted.
+
+If an implementation step requires a prohibited operation and no safe alternative exists, report the blocker to the team lead rather than proceeding.
+
 ## Moderation Protocol
 
 When two agents disagree, the third agent serves as moderator:
@@ -289,7 +367,7 @@ When two agents disagree, the third agent serves as moderator:
 
 The moderator:
 1. Reads both positions from the artifact files
-2. Acknowledges both domain perspectives -- understand why each side holds its position from its opinion domain (non-tech, tech, or structural)
+2. Acknowledges both domain perspectives -- understand why each side holds its position from its opinion domain (business vision, technical accountability, or structural bridge)
 3. Evaluates against the dual objectives (optimization + constraint satisfaction)
 4. Proposes a resolution that synthesizes both perspectives rather than simply picking a side
 5. The resolution is written as the next version of the contested artifact

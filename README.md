@@ -16,6 +16,15 @@ Enable the plugins you want after installation. Auto update is recommended.
 
 ## Plugins
 
+### Core
+
+Shared commands that work across both Drivin and Trippin workflows. Auto-detects your development context from the current branch pattern.
+
+| Command    | What it does                                          |
+| ---------- | ----------------------------------------------------- |
+| `/report`  | Context-aware: generate story or journey report and create PR |
+| `/ship`    | Context-aware: merge PR, deploy, and verify           |
+
 ### Drivin
 
 Ticket-driven development (TiDD) workflow. Write implementation tickets, implement them serially with confirmation at each step, then generate PR stories automatically. All context is stored in `.workaholic/` for better AI decisions.
@@ -25,8 +34,6 @@ Ticket-driven development (TiDD) workflow. Write implementation tickets, impleme
 | `/ticket`  | Plan a change with context and steps          |
 | `/drive`   | Implement queued tickets one by one           |
 | `/scan`    | Full documentation scan                       |
-| `/report-drive` | Generate story and create PR             |
-| `/ship-drive`  | Merge PR, deploy, and verify             |
 
 **Typical session:**
 
@@ -36,8 +43,8 @@ Ticket-driven development (TiDD) workflow. Write implementation tickets, impleme
 /drive                            # implement both, confirm each
 /ticket fix flash of light theme on page load
 /drive                            # fix discovered issue
-/report-drive                     # generate story + create PR
-/ship-drive                       # merge, deploy, verify
+/report                           # generate story + create PR
+/ship                             # merge, deploy, verify
 ```
 
 ### Trippin
@@ -47,8 +54,6 @@ AI-collaborative exploration workflow using Agent Teams. Three agents with disti
 | Command    | What it does                                          |
 | ---------- | ----------------------------------------------------- |
 | `/trip`    | Launch Agent Teams session for collaborative design   |
-| `/report-trip` | Generate trip journey report and create PR        |
-| `/ship-trip`   | Merge PR, clean up worktree, deploy, and verify   |
 
 > [!NOTE]
 > Trippin requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` to be set in your environment.
@@ -72,7 +77,7 @@ A ticket is a markdown file describing a change you want to make — the context
 
 Once tickets are queued, `/drive` implements them one by one with confirmation at each step. While one agent drives, others can keep creating tickets — no worktree overhead, just serial execution with clear commits.
 
-When ready to deliver, `/report-drive` generates changelogs and PR descriptions from the accumulated ticket history. Then `/ship-drive` merges the PR, deploys following your project's `cloud.md` instructions, and verifies the deployment.
+When ready to deliver, `/report` generates changelogs and PR descriptions from the accumulated ticket history. Then `/ship` merges the PR, deploys following your project's `cloud.md` instructions, and verifies the deployment.
 
 > [!NOTE]
 > **A flavor of Spec-Driven Development**

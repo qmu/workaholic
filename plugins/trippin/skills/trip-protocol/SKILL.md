@@ -83,6 +83,12 @@ This creates:
 
 All agent work happens inside the worktree directory. After completion, the user can merge the trip branch or inspect changes independently.
 
+### Resume or Create
+
+Before creating a new worktree, the trip command checks for existing trip worktrees using `list-trip-worktrees.sh`. If active worktrees are found, the user is prompted to either resume an existing trip or create a new one. This prevents worktree proliferation and allows returning to interrupted sessions.
+
+When resuming, the existing worktree path and branch are reused. Trip artifact initialization is skipped if the artifacts directory already exists inside the worktree.
+
 ### Listing Trip Worktrees
 
 To discover active trip worktrees with their metadata (branch, path, PR status):

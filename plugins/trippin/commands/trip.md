@@ -17,7 +17,28 @@ Launch an Agent Teams session to collaboratively explore and develop a concept t
 
 ## Instructions
 
-### Step 1: Create Worktree
+### Step 1: Create or Resume Worktree
+
+First, check for existing trip worktrees:
+
+```bash
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/list-trip-worktrees.sh
+```
+
+Parse the JSON output. If `count` is greater than 0, present the user with a choice using AskUserQuestion:
+
+- List each existing worktree: "Active trips: `<trip_name>` (branch: `<branch>`)" for each entry
+- Include an option to create a new trip session
+- Ask: "Would you like to resume an existing trip or start a new one?"
+
+**If the user chooses to resume an existing worktree:**
+- Use the selected worktree's `worktree_path`, `branch`, and `trip_name`
+- Skip the `ensure-worktree.sh` call
+- Check if `.workaholic/.trips/<trip_name>/` exists inside the worktree:
+  - If it exists: skip Step 2 and proceed to Step 3 (Validate and Prepare Dev Environment)
+  - If it does not exist: proceed to Step 2 to initialize artifacts
+
+**If the user chooses to create a new trip (or no worktrees exist):**
 
 Generate a trip name and create an isolated worktree:
 

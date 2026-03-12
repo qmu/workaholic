@@ -7,8 +7,6 @@ AI-oriented exploration and creative development workflow for Claude Code projec
 | Command | Description |
 | ------- | ----------- |
 | `/trip <instruction>` | Launch Agent Teams session with Planner, Architect, and Constructor |
-| `/report-trip` | Generate trip journey report and create/update PR |
-| `/ship-trip` | Merge PR, clean up worktree, deploy, and verify |
 
 ## Skills
 

@@ -79,3 +79,12 @@ The following destructive git commands are **NEVER** allowed during implementati
 **Rationale**: You are not the only one working in this repository. Destructive operations affect everyone's uncommitted work, not just your own implementation. Always check `git status` before any operation that discards changes, and be considerate of work that may not be yours.
 
 If an implementation requires discarding changes, use targeted commands that affect only specific files you modified, or request user approval first.
+
+## System Safety
+
+Before implementation, check whether the repository authorizes system-wide configuration changes by following the preloaded **system-safety** skill. Run the detection script and respect the result:
+
+- If `system_changes_authorized` is `false`: the prohibited operations list in the system-safety skill applies unconditionally. Do not install global packages, edit shell profiles, modify `/etc/` files, manage system services, or use `sudo`.
+- If `system_changes_authorized` is `true`: system-wide changes are permitted because the repository is a provisioning repository.
+
+When an implementation step requires a prohibited operation, propose a safe project-local alternative (see the system-safety skill's Safe Alternatives table). If no alternative exists, report the blocker to the user.

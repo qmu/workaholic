@@ -98,13 +98,14 @@ Create a three-member Agent Team with the following instruction:
 > 7. If disagreements between two agents persist, the third agent moderates and writes resolution → **commit**
 >
 > **Coding Phase - Implementation (Outer Loop)**:
+> Quality assurance is split into three orthogonal roles: Constructor owns internal testing (unit tests, compiler checks), Planner owns E2E/external testing (execute CLI, browser via Playwright, API calls), Architect owns analytical review (code review, architectural review, model checking — no test execution).
 > 1. **Concurrent launch** — ask all three agents to begin work simultaneously:
->    - Ask Constructor to implement the program → **commit**
+>    - Ask Constructor to implement the program and run internal quality checks (compiler/type checks, unit tests, linters) → **commit**
 >    - Ask Planner to create a test plan: build the dev environment, verify it is running (Playwright CLI MCP), plan E2E scenarios by examining the target website (Playwright CLI MCP) → **commit**
 >    - Ask Architect to discover the codebase and prepare modeling-related artifacts for structural review → **commit**
 > 2. **WAIT FOR ALL THREE** — do NOT proceed until Constructor, Planner, and Architect have all completed their concurrent tasks
-> 3. Ask Architect to review the Constructor's implementation for structural integrity → **commit**
-> 4. Ask Planner to validate the implementation through testing (including E2E test execution if included in the test plan) → **commit**
+> 3. Ask Architect to discover the Constructor's changes and perform analytical review: code review, architectural review, and model checking (no test execution) → **commit**
+> 4. Ask Planner to validate the implementation through E2E and external interface testing: execute the program as a user would (CLI commands, browser via Playwright, API calls) → **commit**
 > 5. Iterate until all agents approve → **commit each iteration**
 >
 > **Rollback Rule**:

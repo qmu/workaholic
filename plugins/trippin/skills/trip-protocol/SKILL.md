@@ -160,11 +160,11 @@ Commit points in Planning Phase (Specification):
 - Consensus confirmation → commit
 
 Commit points in Coding Phase (Implementation):
-- Code implemented (Constructor) → commit
+- Code implemented and internal tests passed (Constructor) → commit
 - Test plan created (Planner) → commit
 - Codebase discovery (Architect) → commit
-- Structural review → commit
-- Test validation → commit
+- Analytical review: code review, architectural review, model checking (Architect) → commit
+- E2E / external interface test validation (Planner) → commit
 - Each iteration fix → commit
 
 ## Artifact Storage
@@ -231,32 +231,47 @@ Planning Phase completes when all agents confirm:
 
 With approved specification artifacts, agents transition to building.
 
+### Quality Assurance Differentiation
+
+The three agents ensure quality through three orthogonal approaches:
+
+| Agent | QA Role | Method | Scope |
+| ----- | ------- | ------ | ----- |
+| Planner | E2E / External Testing | Execute the program as a user would (CLI execution, browser via Playwright, API calls) | External interfaces and user-visible behavior |
+| Constructor | Internal Testing | Run compiler/type checks, unit tests, linters | Code correctness and internal soundness |
+| Architect | Analytical Review | Discover codebase changes, perform code review, architectural review, model checking | Structural integrity and specification fidelity |
+
+These roles do not overlap:
+- The Planner does NOT run unit tests or compiler checks
+- The Constructor does NOT run E2E tests or validate external interfaces
+- The Architect does NOT execute any tests — review is purely analytical
+
 ### Concurrent Launch
 
 All three agents begin work simultaneously:
 
-1. **Constructor** starts implementing the program based on the approved Design and Model
-2. **Planner** starts test planning: building the development environment, verifying it is running (using Playwright CLI MCP), and planning E2E test scenarios by examining the target website (using Playwright CLI MCP). When the project has a user-facing interface, the test plan should include E2E test scenarios (see E2E Assurance Policy below).
+1. **Constructor** starts implementing the program based on the approved Design and Model. After implementation, runs internal quality checks (compiler/type checks, unit tests, linters) and fixes any failures before reporting completion.
+2. **Planner** starts test planning: building the development environment, verifying it is running (using Playwright CLI MCP), and planning E2E test scenarios by examining the target website (using Playwright CLI MCP). When the project has a user-facing interface, the test plan should include E2E test scenarios (see E2E Assurance Policy below). For CLI programs, plans execution-based tests that verify outputs and behavior from the command line.
 3. **Architect** starts codebase discovery: reading the existing codebase structure and patterns to prepare modeling-related artifacts that will inform the upcoming structural review
 
 - **GATE**: Leader waits for ALL three agents to complete their concurrent tasks before proceeding
 
 ### Review and Testing
 
-Once the Constructor's implementation is complete and the Planner's test plan is ready:
+Once the Constructor's implementation is complete (with internal tests passing) and the Planner's test plan is ready:
 
-**Architect** reviews the implementation for structural integrity against the Model.
+**Architect** discovers the Constructor's changes and performs analytical review: code review for quality and consistency, architectural review for structural integrity against the Model, and model checking to verify specification fidelity. The Architect writes review findings as artifacts — does not run tests or compilers.
 - **GATE**: Leader confirms review is complete before proceeding
 
-**Planner** validates the implementation against the test plan. This includes running E2E tests via CLI when the test plan includes them.
+**Planner** validates the implementation through E2E and external interface testing: executes the program as a user would (CLI commands, browser interactions via Playwright, API calls) and reports any failures with specific workflow breakdowns.
 - **GATE**: Leader confirms testing is complete before proceeding
 
 ### Iteration
 
 If review or testing reveals issues, the team iterates:
-- Constructor revises implementation → **GATE**: Leader confirms revision complete
-- Architect re-reviews → **GATE**: Leader confirms re-review complete
-- Planner re-tests → **GATE**: Leader confirms re-test complete
+- Constructor revises implementation and re-runs internal tests → **GATE**: Leader confirms revision complete
+- Architect re-reviews analytically → **GATE**: Leader confirms re-review complete
+- Planner re-tests E2E / external interfaces → **GATE**: Leader confirms re-test complete
 - Continue until all pass
 
 ### Rollback
@@ -315,7 +330,7 @@ Rollback requires a **two-out-of-three majority**. The proposing agent counts as
 
 ## E2E Assurance Policy
 
-The Planner's testing responsibility extends beyond unit and integration checks to include **end-to-end (E2E) validation** of the full user experience. This is the mechanism through which the Planner fulfills Explanatory Accountability: demonstrating that the delivered system satisfies the stakeholder-facing direction, not just the technical model and design.
+E2E testing is the Planner's exclusive quality assurance domain. Through **end-to-end validation** of the full user experience, the Planner fulfills Explanatory Accountability: demonstrating that the delivered system satisfies the stakeholder-facing direction. Internal testing (unit tests, compiler checks) belongs exclusively to the Constructor.
 
 ### When to Apply
 

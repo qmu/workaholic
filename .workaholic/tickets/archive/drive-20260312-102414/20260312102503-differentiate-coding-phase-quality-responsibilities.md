@@ -3,9 +3,9 @@ created_at: 2026-03-12T10:25:03+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config, Domain]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 31377ed
+category: Changed
 ---
 
 # Differentiate Coding Phase Quality Assurance Responsibilities
@@ -194,6 +194,20 @@ Past tickets that touched similar areas:
 +- **Architect**: Discovery-based analytical review (code review, architectural review, model checking). Does not run any tests or execute the program.
 ```
 
+## Feedback
+
+### Refactor for Conciseness and Symmetry (2026-03-12)
+
+The agent markdown files are too large. Refactor with:
+
+1. **Symmetric Syntax**: Use the same headings and schema across all three agent files. Every agent file should have identical section structure.
+
+2. **Symmetric Semantics**: Each role should have contrasting viewpoints that protect specific values. The Planner and Constructor should have different but parallel concerns representing their roles.
+
+3. **Conciseness**: Remove redundant, recurring, or duplicated expressions. Make text more concise and well-organized.
+
+4. **Review Policy**: Each agent reviews based on the values they are responsible for protecting. If a point is not their domain, they can ignore it. However, careless mistakes should always be pointed out. Ultimately, each agent must represent their assigned role.
+
 ## Considerations
 
 - The Constructor currently has no explicit testing responsibility in its Coding Phase section -- it only says "Implement the program." Adding internal testing as part of implementation is natural (good developers write and run tests while coding), but it changes the Constructor's scope from pure implementation to implementation-plus-verification. The Constructor's "Technical Accountability" philosophy supports this: owning what ships means owning the internal quality proof. (`plugins/trippin/agents/constructor.md` lines 48-51)
@@ -203,3 +217,18 @@ Past tickets that touched similar areas:
 - The iteration loop (Constructor revises, Architect re-reviews, Planner re-tests) needs updating to include the Constructor re-running internal tests after revision. Currently the iteration only mentions Constructor revising implementation, which implicitly includes re-running tests. Making this explicit strengthens the separation. (`plugins/trippin/skills/trip-protocol/SKILL.md` Iteration subsection)
 - For projects that have no user-facing interface (libraries, configuration), the Planner's E2E testing does not apply (per the existing E2E Assurance Policy "When to Apply" clause). In these cases, the Planner may need an alternative quality assurance approach, such as reviewing documentation, verifying API contracts, or checking configuration validity. The ticket does not address this edge case -- the E2E Assurance Policy's existing "skip E2E for library/configuration projects" clause still applies. (`plugins/trippin/skills/trip-protocol/SKILL.md` lines 326-332)
 - The Architect's "model checking" responsibility (verifying Direction -> Model -> Implementation translation fidelity) is a new explicit capability. Previously the Architect only reviewed "structural integrity against the Model." Model checking adds a richer verification dimension: the Architect traces the business intent from the Planner's Direction through the Model and into the implementation, checking for translation losses at each step. (`plugins/trippin/agents/architect.md` Coding Phase section)
+
+## Final Report
+
+### Changes
+
+- `plugins/trippin/agents/planner.md` — Refactored to symmetric structure (67 lines). Added QA role: E2E/external testing only. Added Review Policy based on business value protection. Merged Protocol/Review Output/Synchronization into unified Rules section.
+- `plugins/trippin/agents/constructor.md` — Refactored to symmetric structure (62 lines). Added QA role: internal testing (unit tests, compiler checks, linters). Added Review Policy based on engineering quality protection. Added step 2 for internal quality checks after implementation.
+- `plugins/trippin/agents/architect.md` — Refactored to symmetric structure (61 lines). Added QA role: analytical review only (no test execution). Added Review Policy based on structural integrity protection. Clarified step 2 as code review + architectural review + model checking.
+- `plugins/trippin/skills/trip-protocol/SKILL.md` — Added Quality Assurance Differentiation table with non-overlap rules. Updated Concurrent Launch, Review and Testing, Iteration sections. Fixed E2E Assurance Policy preamble to reflect exclusive Planner domain. Updated commit points.
+- `plugins/trippin/commands/trip.md` — Updated Coding Phase instructions with QA role summary and differentiated agent responsibilities.
+
+### Insights
+
+- Symmetric syntax (identical headings) across agent files makes it easy to compare roles side-by-side and ensures no agent gets special treatment in structure.
+- The "careless mistake" clause in Review Policy prevents agents from completely ignoring issues outside their domain while maintaining role focus.

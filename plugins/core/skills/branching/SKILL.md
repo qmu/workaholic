@@ -30,3 +30,25 @@ bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/branching/sh/
 - **trip**: Route to Trippin workflows (artifact gathering, journey report, worktree cleanup)
 - **trip_worktree**: Not on a trip branch, but trip worktrees exist. List worktrees and let the user choose.
 - **unknown**: Cannot determine context. Ask the user which workflow to use.
+
+## Worktree Guard
+
+Lightweight check for the existence of trip worktrees. Used by commands that should warn the user before proceeding when worktrees are available.
+
+```bash
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/branching/sh/check-worktrees.sh
+```
+
+### Output Format
+
+```json
+{
+  "has_worktrees": true,
+  "count": 2
+}
+```
+
+- `has_worktrees`: Boolean indicating if any trip worktrees exist
+- `count`: Number of trip worktrees found
+
+Unlike `list-trip-worktrees.sh`, this script does not query GitHub API for PR status. It is designed for fast, non-blocking guard checks.

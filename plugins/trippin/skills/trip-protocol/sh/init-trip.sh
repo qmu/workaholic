@@ -1,11 +1,13 @@
 #!/bin/bash
 # Initialize a trip directory structure under .workaholic/.trips/
-# Usage: bash init-trip.sh <trip-name>
-# Output: JSON with trip_path
+# Usage: bash init-trip.sh <trip-name> [instruction]
+# The optional instruction argument is the user's original trip description.
+# Output: JSON with trip_path and plan_path
 
 set -euo pipefail
 
 trip_name="${1:-}"
+instruction="${2:-}"
 
 if [ -z "$trip_name" ]; then
   echo '{"error": "trip name is required"}' >&2
@@ -26,4 +28,32 @@ fi
 
 mkdir -p "${trip_path}/directions/reviews" "${trip_path}/models/reviews" "${trip_path}/designs/reviews" "${trip_path}/rollbacks/reviews"
 
-echo '{"trip_path": "'"$trip_path"'"}'
+# Create plan.md with initial state
+updated_at="$(date -Iseconds)"
+# Use a temp file to safely handle special characters in instruction
+plan_file="${trip_path}/plan.md"
+{
+  echo '---'
+  printf 'instruction: "%s"\n' "$instruction"
+  echo 'phase: planning'
+  echo 'step: not-started'
+  echo 'iteration: 0'
+  printf 'updated_at: %s\n' "$updated_at"
+  echo '---'
+  echo ''
+  echo '# Trip Plan'
+  echo ''
+  echo '## Initial Idea'
+  echo ''
+  if [ -n "$instruction" ]; then
+    echo "$instruction"
+  else
+    echo '_(No instruction provided)_'
+  fi
+  echo ''
+  echo '## Plan Amendments'
+  echo ''
+  echo '## Progress'
+} > "$plan_file"
+
+echo '{"trip_path": "'"$trip_path"'", "plan_path": "'"${plan_file}"'"}'

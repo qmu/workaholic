@@ -3,9 +3,9 @@ created_at: 2026-03-16T23:11:22+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX, Domain, Config]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: 57b2e34
+category: Added
 ---
 
 # Generate Trip Plan Markdown Document for State Persistence and Resume
@@ -185,3 +185,21 @@ Past tickets that touched similar areas:
 - Existing trips created before this feature will not have a plan.md file. The `read-plan.sh` script handles this by returning `{"phase": "unknown"}`, and the resume logic should fall back to the current behavior (check for artifact directory existence only) when no plan.md is found. This ensures backward compatibility. (`plugins/trippin/commands/trip.md` Step 1)
 - The plan.md Progress section uses an append-only pattern. Over long trips with many iterations, this section could grow large. This is acceptable because trips are bounded (they eventually complete or are abandoned), and the full progress log is valuable for the trip report's Journey section. (`plugins/trippin/skills/trip-protocol/SKILL.md`)
 - The relationship between plan.md and the existing optional `history.md` (used by `write-trip-report`) should be clarified. Plan.md is structured and machine-readable for resume; history.md is a free-form narrative written by agents. They serve different purposes and both can coexist. The trip report skill should prefer plan.md's Progress section over git log when available, and history.md over plan.md when both exist (since history.md is a deliberate narrative choice). (`plugins/trippin/skills/write-trip-report/SKILL.md` lines 75-82)
+
+## Final Report
+
+### Changes
+
+- Added Trip Plan Document section to `plugins/trippin/skills/trip-protocol/SKILL.md` defining plan.md format, step identifiers, and update rules
+- Updated `plugins/trippin/skills/trip-protocol/sh/init-trip.sh` to accept optional instruction argument and create plan.md with initial state
+- Created `plugins/trippin/skills/trip-protocol/sh/read-plan.sh` to parse plan.md frontmatter and output JSON state
+- Updated `plugins/trippin/commands/trip.md` resume logic to read plan state and skip completed steps; passes instruction and plan context to Agent Teams
+- Updated `plugins/trippin/agents/planner.md`, `architect.md`, `constructor.md` with progress tracking rule for plan.md
+- Updated `plugins/trippin/skills/write-trip-report/sh/gather-artifacts.sh` to detect and output plan.md availability
+- Updated `plugins/trippin/skills/write-trip-report/SKILL.md` Journey section with priority order: history.md > plan.md Progress > git log
+
+### Test Plan
+
+- Verified init-trip.sh creates plan.md with correct frontmatter and body (with and without instruction argument)
+- Verified read-plan.sh correctly parses plan state from plan.md
+- Verified read-plan.sh returns backward-compatible `{"phase": "unknown"}` when plan.md does not exist

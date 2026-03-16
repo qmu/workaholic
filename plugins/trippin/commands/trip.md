@@ -35,8 +35,17 @@ Parse the JSON output. If `count` is greater than 0, present the user with a cho
 - Use the selected worktree's `worktree_path`, `branch`, and `trip_name`
 - Skip the `ensure-worktree.sh` call
 - Check if `.workaholic/.trips/<trip_name>/` exists inside the worktree:
-  - If it exists: skip Step 2 and proceed to Step 3 (Validate and Prepare Dev Environment)
   - If it does not exist: proceed to Step 2 to initialize artifacts
+  - If it exists: read the plan state to determine where to resume:
+    ```bash
+    cd <worktree_path> && bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/read-plan.sh ".workaholic/.trips/<trip_name>"
+    ```
+    Based on the plan state:
+    - `phase: "unknown"` — no plan.md (legacy trip), fall back to Step 3
+    - `phase: "planning"`, `step: "not-started"` — skip Step 2, proceed to Step 3
+    - `phase: "planning"`, any other step — skip Steps 2-3, proceed to Step 4 with resume context
+    - `phase: "coding"`, any step — skip Steps 2-3, proceed to Step 4 with resume context
+    - `phase: "complete"` — inform user the trip is complete; suggest `/report` or `/drive` for refinements
 
 **If the user chooses to create a new trip (or no worktrees exist):**
 
@@ -53,13 +62,13 @@ Parse the JSON output for `worktree_path` and `branch`. If an error is returned,
 
 ### Step 2: Initialize Trip Artifacts
 
-Inside the worktree, create the artifact directory structure:
+Inside the worktree, create the artifact directory structure and plan document:
 
 ```bash
-cd <worktree_path> && bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/init-trip.sh "<trip-name>"
+cd <worktree_path> && bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/init-trip.sh "<trip-name>" "$ARGUMENT"
 ```
 
-Parse the JSON output for `trip_path`. If an error is returned, inform the user and stop.
+Parse the JSON output for `trip_path` and `plan_path`. If an error is returned, inform the user and stop.
 
 ### Step 3: Validate and Prepare Dev Environment
 
@@ -88,7 +97,9 @@ Create a three-member Agent Team with the following instruction:
 >
 > **Working directory**: `<worktree_path>`
 > **Trip path**: `<trip_path from step 2>`
+> **Plan file**: `<trip_path>/plan.md`
 > **User instruction**: `$ARGUMENT`
+> **Resume state**: `<phase>/<step>` from read-plan.sh (or `planning/not-started` for new trips)
 >
 > Create three teammates:
 > 1. **Planner** (Progressive) - Represents the business vision side: business phenomena, stakeholder advocacy, and explanatory accountability. Evaluates from the perspective of business outcomes and stakeholder value. Does NOT set technical direction. Does NOT explore the codebase -- codebase discovery is the Architect's responsibility. Writes Direction artifacts based on business analysis of the user instruction to `<trip_path>/directions/`.
@@ -137,6 +148,13 @@ Create a three-member Agent Team with the following instruction:
 > 4. **WAIT FOR BOTH VOTES** before proceeding
 > 5. If 2+ agents support: return to Planning Phase at the specified step, re-run specification loop from that point
 > 6. If only 1 supports: continue Coding Phase iteration
+>
+> **Plan tracking**: Update `<trip_path>/plan.md` at every phase transition:
+> 1. Update the YAML frontmatter fields (`phase`, `step`, `iteration`, `updated_at`)
+> 2. Append a progress entry to the Progress section: `- [x] <phase>/<step> (<agent>) - <brief description> (<timestamp>)`
+> 3. Commit the plan update as part of the next artifact commit (not a separate commit)
+>
+> **Resume behavior**: If resume state is not `planning/not-started`, skip completed steps. Check both plan.md and actual artifact files to determine which agents need to resume work. Agents that already completed their artifacts in a prior session do not need to redo them.
 >
 > **Artifact format**: Each artifact uses the structure defined in the trip-protocol skill (title, author, status, reviewed-by, content, review notes).
 >

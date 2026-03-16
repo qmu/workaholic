@@ -41,6 +41,13 @@ if [ -f "$history_path" ]; then
   has_history=true
 fi
 
+# Check for plan.md
+has_plan=false
+plan_path="${trip_path}/plan.md"
+if [ -f "$plan_path" ]; then
+  has_plan=true
+fi
+
 # Build JSON arrays for reviews
 build_array() {
   local items="$1"
@@ -78,6 +85,8 @@ cat <<EOF
   "model_reviews": ${mod_rev_json},
   "design_reviews": ${des_rev_json},
   "has_history": ${has_history},
-  "history_path": "${history_path}"
+  "history_path": "${history_path}",
+  "has_plan": ${has_plan},
+  "plan_path": "${plan_path}"
 }
 EOF

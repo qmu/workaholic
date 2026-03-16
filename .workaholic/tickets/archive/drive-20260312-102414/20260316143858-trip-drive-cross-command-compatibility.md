@@ -3,9 +3,9 @@ created_at: 2026-03-16T14:38:58+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX, Domain, Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 84977c2
+category: Added
 ---
 
 # Design Trip-Drive Cross-Command Compatibility
@@ -91,3 +91,24 @@ Past tickets that touched similar areas:
 - The trip report workflow gathers agent artifacts from `.workaholic/.trips/<name>/`. The drive story-writer generates stories from ticket archives. A `trip_drive` hybrid report might want to include both: the trip's planning artifacts AND the drive's ticket implementation history. This is a UX design decision that warrants user input. (`plugins/core/commands/report.md`)
 - The todo ticket `20260316143754-add-worktree-detection-guard.md` adds a guard to `/drive` and `/ticket` that warns when worktrees exist. This guard complements the cross-command compatibility: the guard asks "are you sure you want to work here?", while this ticket ensures "working here actually works correctly". Both tickets can be implemented independently. (`.workaholic/tickets/todo/20260316143754-add-worktree-detection-guard.md`)
 - The `/trip` command's Coding Phase produces commits via `trip-commit.sh` with `[Agent]` prefixed messages. After transitioning to `/drive`, commits use the standard `commit.sh` format. This mix of commit styles on the same branch is acceptable -- the story-writer already reads commit messages generically, and the trip artifacts provide their own narrative. (`plugins/drivin/skills/commit/sh/commit.sh`, `plugins/trippin/skills/trip-protocol/sh/trip-commit.sh`)
+
+## Final Report
+
+### Changes
+
+- Extended `detect-context.sh` with `trip_drive` hybrid context detection (trip branch + tickets in todo)
+- Added `trip_drive` route to `report.md` offering user choice between drive story and trip journey report
+- Added `trip_drive` route to `ship.md` combining drive shipping with trip worktree cleanup
+- Added trip branch compatibility notes to `drive.md` and `ticket.md`
+- Sanitized archive directory naming in `archive.sh` (replace `/` with `-` for flat paths)
+- Added drive transition guidance to trip command Step 5
+- Documented `trip_drive` context type in branching SKILL.md
+
+### Test Plan
+
+- [x] `detect-context.sh` returns `drive` context on current `drive-*` branch (unchanged behavior)
+- [ ] `detect-context.sh` returns `trip_drive` when on `trip/*` branch with tickets in `todo/`
+- [ ] `detect-context.sh` returns `trip` when on `trip/*` branch with no tickets
+- [ ] Archive script creates `trip-name` directory (not `trip/name` nested) for trip branches
+- [ ] `/report` on `trip_drive` branch prompts for drive story vs trip journey report
+- [ ] `/ship` on `trip_drive` branch runs drive shipping then cleans up worktree

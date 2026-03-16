@@ -29,6 +29,8 @@ If `has_worktrees` is `false`, proceed silently to Step 1.
 
 **Rationale**: Prevents creating tickets on a drive branch when the user may intend to work within a trip worktree.
 
+**Trip branch compatibility**: Ticket creation works on `trip/*` branches. The ticket-organizer detects these as non-main branches and skips branch creation. Tickets go to `.workaholic/tickets/todo/` regardless of branch type. When running inside a trip worktree, tickets are created in the worktree's ticket directory.
+
 ### Step 1: Invoke Ticket Organizer
 
 Invoke ticket-organizer subagent via Task tool:

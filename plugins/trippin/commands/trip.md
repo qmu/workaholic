@@ -149,3 +149,4 @@ After the team completes:
 2. Summarize the agreed direction, model, and design
 3. Report any implementation results from Coding Phase
 4. Show the worktree branch name for the user to merge or inspect
+5. Show transition guidance: "To continue developing this branch with drive-style tickets, create tickets with `/ticket` and implement them with `/drive` from this worktree. When ready, use `/report` and `/ship` to merge."

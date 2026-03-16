@@ -44,6 +44,13 @@ Use the `trip_name` from the detection result, or `$ARGUMENT` if provided.
 5. **Verify**: Same as Drive Context step 4.
 6. **Summarize**: PR merge status, worktree cleanup status, deployment status, verification results.
 
+#### Trip-Drive Hybrid Context (`context: "trip_drive"`)
+
+This branch started as a trip and has drive-style tickets. Follow the Drive Context shipping workflow (steps 1-5), then additionally clean up the trip worktree:
+
+1. Follow Drive Context steps 1-5 (pre-check, merge, deploy, verify, summarize)
+2. **Clean up worktree**: After successful merge, run `bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/cleanup-worktree.sh "<trip_name>"` using `trip_name` from detection result. Report what was cleaned up.
+
 #### Trip Worktree Context (`context: "trip_worktree"`)
 
 Not on a trip branch, but trip worktrees exist.

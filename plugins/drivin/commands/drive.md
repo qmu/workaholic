@@ -33,6 +33,8 @@ If `has_worktrees` is `false`, proceed silently to Phase 1.
 
 **Rationale**: Prevents accidental development on a drive branch when trip worktrees with in-progress work may be the intended target.
 
+**Trip branch compatibility**: The drive workflow operates on any non-main topic branch, including `trip/*` branches. When running on a trip branch after a trip session completes, tickets are read from `.workaholic/tickets/todo/` and archived normally. Use `/ticket` to add refinement tickets, then `/drive` to implement them.
+
 ### Phase 1: Navigate Tickets
 
 Invoke the drive-navigator subagent via Task tool:

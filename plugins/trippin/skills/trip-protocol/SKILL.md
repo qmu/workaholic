@@ -192,8 +192,72 @@ Versioning: `direction-v1.md`, `direction-v2.md`, etc. Each revision is a new fi
 ## Initialize Trip
 
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/init-trip.sh <trip-name>
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/init-trip.sh <trip-name> [instruction]
 ```
+
+## Trip Plan Document
+
+Each trip maintains a `plan.md` file in the trip directory that serves as the persistent state record for the trip lifecycle. It captures the original instruction, tracks workflow progress, and enables automated resume after shutdown.
+
+### Location
+
+```
+.workaholic/.trips/<trip-name>/plan.md
+```
+
+### Format
+
+```markdown
+---
+instruction: "<user's original trip instruction>"
+phase: planning | coding | complete
+step: <current step identifier>
+iteration: <revision cycle count>
+updated_at: <ISO 8601 timestamp>
+---
+
+# Trip Plan
+
+## Initial Idea
+
+<user's original instruction, preserved verbatim>
+
+## Plan Amendments
+
+<append-only log of changes with timestamps>
+
+## Progress
+
+<checklist of completed steps with agent attribution>
+```
+
+### Step Identifiers
+
+| Phase | Step | Description |
+| ----- | ---- | ----------- |
+| planning | not-started | Trip initialized, no work begun |
+| planning | artifact-generation | Agents creating initial artifacts |
+| planning | mutual-review-N | Mutual review round N |
+| planning | convergence | Revisions and consensus |
+| coding | concurrent-launch | Constructor implementing, Planner test planning, Architect discovering |
+| coding | review-and-testing | Architect reviewing, Planner E2E testing |
+| coding | iteration-N | Fix iteration N |
+| complete | done | Trip finished |
+
+### Update Rules
+
+- The **team lead** (trip command) updates plan.md frontmatter at phase transitions and commits via `trip-commit.sh`
+- **Agents** append progress entries to the Progress section after completing major steps
+- Progress entry format: `- [x] <phase>/<step> (<agent>) - <brief description> (<timestamp>)`
+- Plan updates are bundled with the agent's artifact commit (not separate commits)
+
+### Reading Plan State
+
+```bash
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/read-plan.sh <trip-path>
+```
+
+Output: JSON with `phase`, `step`, `iteration`, `instruction`, and `updated_at`. Returns `{"phase": "unknown", "step": "unknown"}` if plan.md does not exist (backward compatible).
 
 ## Planning Phase: Specification (Inner Loop)
 

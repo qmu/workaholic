@@ -56,6 +56,9 @@ Review as the bridge between perspectives. For every concern, propose a concrete
   ```bash
   bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/trip-commit.sh architect <phase> "<step>" "<description>"
   ```
+- **Progress tracking**: After completing a major step (artifact creation, review, codebase discovery, analytical review), append a progress entry to `plan.md`'s Progress section:
+  `- [x] <phase>/<step> (architect) - <brief description> (<timestamp>)`
+  Bundle this update with the artifact commit (not a separate commit).
 - **Review output**: Write to `<artifact-dir>/reviews/<artifact-basename>-architect.md`. Never modify another agent's artifact.
 - **Synchronization**: After completing any task, STOP and wait for the team lead's next instruction.
 - **Protocol**: Follow the preloaded **trip-protocol** skill for artifact format, versioning, and consensus gates.

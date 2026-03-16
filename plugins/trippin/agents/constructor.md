@@ -57,6 +57,9 @@ Review with technical ownership. For every concern, propose a concrete technical
   ```bash
   bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/trip-commit.sh constructor <phase> "<step>" "<description>"
   ```
+- **Progress tracking**: After completing a major step (artifact creation, review, implementation, internal testing), append a progress entry to `plan.md`'s Progress section:
+  `- [x] <phase>/<step> (constructor) - <brief description> (<timestamp>)`
+  Bundle this update with the artifact commit (not a separate commit).
 - **Review output**: Write to `<artifact-dir>/reviews/<artifact-basename>-constructor.md`. Never modify another agent's artifact.
 - **Synchronization**: After completing any task, STOP and wait for the team lead's next instruction.
 - **Protocol**: Follow the preloaded **trip-protocol** skill for artifact format, versioning, and consensus gates.

@@ -3,9 +3,9 @@ created_at: 2026-03-16T14:37:54+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX, Domain]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 5d0700a
+category: Added
 ---
 
 # Add Worktree Detection Guard to /trip and /drive Commands
@@ -162,3 +162,19 @@ Past tickets that touched similar areas:
 - The `/ticket` command's ticket-organizer subagent also has its own branching check (Step 1 in `ticket-organizer.md`), but that check is about creating a new branch when on main/master. The worktree guard is a separate concern that runs before the subagent is invoked, at the command level. (`plugins/drivin/agents/ticket-organizer.md` lines 25-27)
 - Following the Shell Script Principle from CLAUDE.md, the worktree detection logic (parsing `git worktree list --porcelain`, filtering for trip branches) must live in the shell script, not inline in the command markdown files. The commands only call the script and parse JSON. (`CLAUDE.md` Architecture Policy)
 - The `/trip` command already has its own worktree detection as part of its resume-or-create flow in Step 1, so it does not need this guard. The user request mentions `/trip`, but the trip command's existing behavior already covers this scenario more comprehensively. (`plugins/trippin/commands/trip.md` lines 22-43)
+
+## Final Report
+
+### Changes
+
+- Created `plugins/core/skills/branching/sh/check-worktrees.sh` - lightweight script parsing `git worktree list --porcelain` for trip branches, outputs `{has_worktrees, count}` JSON without GitHub API calls
+- Added Phase 0: Worktree Guard to `plugins/drivin/commands/drive.md` before Phase 1
+- Added Step 0: Worktree Guard to `plugins/drivin/commands/ticket.md` before Step 1
+- Added Worktree Guard documentation section to `plugins/core/skills/branching/SKILL.md`
+
+### Test Plan
+
+- [x] `check-worktrees.sh` returns `{"has_worktrees": false, "count": 0}` when no trip worktrees exist
+- [ ] With active trip worktrees, script returns `{"has_worktrees": true, "count": N}` with correct count
+- [ ] `/drive` shows worktree prompt when trip worktrees exist, proceeds silently when none exist
+- [ ] `/ticket` shows worktree prompt when trip worktrees exist, proceeds silently when none exist

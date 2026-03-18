@@ -47,6 +47,14 @@ Use the `trip_name` from the detection result, or `$ARGUMENT` if provided.
 5. **Create or update PR**: Derive title from direction summary. Use `gh pr create` or `gh pr edit` if PR already exists.
 6. **Display PR URL** (mandatory)
 
+#### Trip-Drive Hybrid Context (`context: "trip_drive"`)
+
+This branch started as a trip and now has drive-style tickets. Ask the user which report to generate using AskUserQuestion:
+- **"Drive story"** - Follow the Drive Context workflow (version bump + story-writer). The story will capture the full narrative including the trip origin.
+- **"Trip journey report"** - Follow the Trip Context workflow (artifact gathering + journey report). Use `trip_name` from detection result.
+
+Route to the selected workflow above.
+
 #### Trip Worktree Context (`context: "trip_worktree"`)
 
 Not on a trip branch, but trip worktrees exist.

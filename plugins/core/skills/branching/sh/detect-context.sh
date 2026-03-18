@@ -21,6 +21,12 @@ fi
 # Trip context: branch matches trip/*
 if [[ "$branch" == trip/* ]]; then
   trip_name="${branch#trip/}"
+  # Check if drive-style tickets exist (trip_drive hybrid)
+  ticket_count=$(find .workaholic/tickets/todo -name '*.md' 2>/dev/null | wc -l)
+  if [ "$ticket_count" -gt 0 ]; then
+    echo "{\"context\": \"trip_drive\", \"branch\": \"${branch}\", \"trip_name\": \"${trip_name}\"}"
+    exit 0
+  fi
   echo "{\"context\": \"trip\", \"branch\": \"${branch}\", \"trip_name\": \"${trip_name}\"}"
   exit 0
 fi

@@ -72,9 +72,11 @@ For reviews:
 
 ### Journey Section
 
-If `history.md` exists in the trip directory, include its contents directly.
+Priority order for the Journey section:
 
-If `history.md` does not exist, generate a journey summary from the git commit log:
+1. If `history.md` exists, include its contents directly (deliberate narrative takes priority)
+2. If `plan.md` exists (check `has_plan` from gather output), use the Progress section as a structured journey timeline
+3. Otherwise, generate a journey summary from the git commit log:
 
 ```bash
 git log --oneline --reverse <base-branch>..<trip-branch>

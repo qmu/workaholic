@@ -3,9 +3,9 @@ created_at: 2026-03-12T01:02:57+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX, Domain]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 41f08f7
+category: Added
 ---
 
 # Prompt to Resume or Create Worktree When Starting Trip
@@ -119,3 +119,10 @@ Past tickets that touched similar areas:
 - The `ensure-worktree.sh` script currently errors if a worktree already exists, which is the correct behavior since the resume path bypasses this script entirely. No changes are needed to `ensure-worktree.sh`. (`plugins/trippin/skills/trip-protocol/sh/ensure-worktree.sh` line 24)
 - The worktree detection must follow the Shell Script Principle: the conditional logic (checking count, filtering worktrees) is handled by the already-existing `list-trip-worktrees.sh` script, while the trip command only parses JSON output and presents the choice. No new shell script is needed. (`CLAUDE.md` Architecture Policy)
 - Step 3 (Validate and Prepare Dev Environment) should still run when resuming a worktree, as the environment may have changed since the last session (e.g., ports now in use by another worktree, dependencies updated). (`plugins/trippin/commands/trip.md` Step 3)
+
+## Final Report
+
+### Changes
+
+- `plugins/trippin/commands/trip.md` — Step 1 renamed to "Create or Resume Worktree". Added detection of existing trip worktrees via `list-trip-worktrees.sh`, AskUserQuestion prompt listing active trips with resume/create options, conditional skip logic for artifact initialization when resuming.
+- `plugins/trippin/skills/trip-protocol/SKILL.md` — Added "Resume or Create" subsection under Worktree Isolation documenting the detection and prompt flow.

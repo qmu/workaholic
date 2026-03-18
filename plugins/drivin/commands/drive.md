@@ -17,6 +17,24 @@ Implement tickets from `.workaholic/tickets/todo/` using intelligent prioritizat
 
 ## Instructions
 
+### Phase 0: Worktree Guard
+
+Check if trip worktrees exist before proceeding:
+
+```bash
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/branching/sh/check-worktrees.sh
+```
+
+If `has_worktrees` is `true`, present the user with a choice using `AskUserQuestion` with selectable options:
+- **"Continue here"** - Proceed with drive on the current branch
+- **"Switch to worktree"** - Run `bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/list-trip-worktrees.sh`, display the worktree list, and inform the user to navigate to the selected worktree to run `/drive` there
+
+If `has_worktrees` is `false`, proceed silently to Phase 1.
+
+**Rationale**: Prevents accidental development on a drive branch when trip worktrees with in-progress work may be the intended target.
+
+**Trip branch compatibility**: The drive workflow operates on any non-main topic branch, including `trip/*` branches. When running on a trip branch after a trip session completes, tickets are read from `.workaholic/tickets/todo/` and archived normally. Use `/ticket` to add refinement tickets, then `/drive` to implement them.
+
 ### Phase 1: Navigate Tickets
 
 Invoke the drive-navigator subagent via Task tool:

@@ -13,6 +13,24 @@ Thin alias for ticket-organizer subagent.
 
 ## Instructions
 
+### Step 0: Worktree Guard
+
+Check if trip worktrees exist before proceeding:
+
+```bash
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/branching/sh/check-worktrees.sh
+```
+
+If `has_worktrees` is `true`, present the user with a choice using `AskUserQuestion` with selectable options:
+- **"Continue here"** - Proceed with ticket creation on the current branch
+- **"Switch to worktree"** - Run `bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/list-trip-worktrees.sh`, display the worktree list, and inform the user to navigate to the selected worktree to run `/ticket` there
+
+If `has_worktrees` is `false`, proceed silently to Step 1.
+
+**Rationale**: Prevents creating tickets on a drive branch when the user may intend to work within a trip worktree.
+
+**Trip branch compatibility**: Ticket creation works on `trip/*` branches. The ticket-organizer detects these as non-main branches and skips branch creation. Tickets go to `.workaholic/tickets/todo/` regardless of branch type. When running inside a trip worktree, tickets are created in the worktree's ticket directory.
+
 ### Step 1: Invoke Ticket Organizer
 
 Invoke ticket-organizer subagent via Task tool:

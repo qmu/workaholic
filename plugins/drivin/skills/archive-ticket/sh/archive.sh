@@ -31,7 +31,10 @@ fi
 
 TICKET_DIR=$(dirname "$TICKET")
 TICKETS_ROOT=$(echo "$TICKET_DIR" | sed 's|/todo$||; s|/icebox$||')
-ARCHIVE_DIR="${TICKETS_ROOT}/archive/${BRANCH}"
+# Sanitize branch name: replace / with - for flat archive directory naming
+# e.g. trip/my-feature -> trip-my-feature (consistent with drive-* convention)
+SAFE_BRANCH=$(echo "$BRANCH" | tr '/' '-')
+ARCHIVE_DIR="${TICKETS_ROOT}/archive/${SAFE_BRANCH}"
 TICKET_FILENAME=$(basename "$TICKET")
 
 CATEGORY="Changed"

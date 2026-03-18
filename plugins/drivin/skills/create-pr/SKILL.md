@@ -31,11 +31,21 @@ bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/create-pr/s
 
 ### What the Script Does
 
-1. Strips YAML frontmatter from `.workaholic/stories/<branch-name>.md`
+1. Strips YAML frontmatter via `strip-frontmatter.sh` from `.workaholic/stories/<branch-name>.md`
 2. Writes clean content to `/tmp/pr-body.md`
 3. Checks if PR exists for the branch
 4. Creates new PR or updates existing one
 5. Outputs the result in required format
+
+## Strip Frontmatter Script
+
+A reusable script for removing YAML frontmatter from any markdown file:
+
+```bash
+bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/create-pr/sh/strip-frontmatter.sh <file>
+```
+
+Outputs clean markdown body to stdout. Handles files with frontmatter, without frontmatter (pass-through), and empty files. Only strips frontmatter starting on line 1 — content `---` separators elsewhere are preserved.
 
 ## Output Format
 

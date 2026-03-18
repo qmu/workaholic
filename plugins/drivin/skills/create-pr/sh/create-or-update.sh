@@ -20,14 +20,9 @@ if [ ! -f "$STORY_FILE" ]; then
     exit 1
 fi
 
-# Strip YAML frontmatter, write to temp file
-awk '
-  BEGIN { fm=0; fc=0 }
-  /^---$/ { fc++; if (fc <= 2) { fm=1; next } }
-  fc == 2 && fm { fm=0; next }
-  fm { next }
-  { print }
-' "$STORY_FILE" >| /tmp/pr-body.md
+# Strip YAML frontmatter using bundled script, write to temp file
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+"${SCRIPT_DIR}/strip-frontmatter.sh" "$STORY_FILE" >| /tmp/pr-body.md
 
 # Check if PR exists
 PR_INFO=$(gh pr list --head "$BRANCH" --json number,url --jq '.[0]' 2>/dev/null || echo "")

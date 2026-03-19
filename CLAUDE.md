@@ -68,8 +68,8 @@ Subagents must use skills for common operations instead of inline shell commands
 
 | Operation | Skill | Usage |
 | --------- | ----- | ----- |
-| Git context (branch, base, URL) | gather-git-context | `bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/gather-git-context/sh/gather.sh` |
-| Ticket metadata (date, author) | gather-ticket-metadata | `bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/gather-ticket-metadata/sh/gather.sh` |
+| Git context (branch, base, URL) | gather-git-context | `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-git-context/sh/gather.sh` |
+| Ticket metadata (date, author) | gather-ticket-metadata | `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-ticket-metadata/sh/gather.sh` |
 
 Never write inline git commands like `git branch --show-current` or `git remote show origin` in subagent markdown files. Subagents preload the skill and gather context themselves.
 
@@ -94,23 +94,28 @@ if [ "$current" = "main" ]; then echo "on_main"; fi
 
 **Correct** (skill script):
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/branching/sh/check.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/check.sh
 ```
 
 ### Skill Script Path Rule
 
-> **CRITICAL: All skill shell script references must use the absolute path from home directory.**
+> **CRITICAL: All skill shell script references must use `${CLAUDE_PLUGIN_ROOT}`.**
 
-The installed plugin path is `~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/`. Relative paths like `.claude/skills/` do NOT resolve at runtime and cause exit code 127 failures.
+Claude Code expands `${CLAUDE_PLUGIN_ROOT}` inline in all plugin content (skills, agents, commands) at load time. This resolves to the plugin's installed directory. Relative paths like `.claude/skills/` do NOT resolve at runtime and cause exit code 127 failures.
 
 **Wrong** (relative path):
 ```bash
 bash .claude/skills/gather-ticket-metadata/sh/gather.sh
 ```
 
-**Correct** (absolute path):
+**Correct** (same-plugin reference):
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/gather-ticket-metadata/sh/gather.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-ticket-metadata/sh/gather.sh
+```
+
+**Correct** (cross-plugin reference — sibling plugin):
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/../trippin/skills/trip-protocol/sh/list-trip-worktrees.sh
 ```
 
 ## Commands

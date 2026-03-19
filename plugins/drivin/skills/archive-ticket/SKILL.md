@@ -28,7 +28,7 @@ Complete commit workflow after user approves implementation. Always use this scr
 ## Usage
 
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/archive-ticket/sh/archive.sh \
+bash ${CLAUDE_PLUGIN_ROOT}/skills/archive-ticket/sh/archive.sh \
   <ticket-path> "<title>" <repo-url> "<description>" "<changes>" "<test-plan>" "<release-prep>"
 ```
 

@@ -8,12 +8,13 @@ BASE_BRANCH="${1:-main}"
 
 # Get current branch
 BRANCH=$(git branch --show-current)
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 echo "=== BRANCH ==="
 echo "$BRANCH"
 echo ""
 
 # List archived tickets
-ARCHIVE_DIR=".workaholic/tickets/archive/${BRANCH}"
+ARCHIVE_DIR="${ROOT}/.workaholic/tickets/archive/${BRANCH}"
 echo "=== TICKETS ==="
 if [ -d "$ARCHIVE_DIR" ]; then
     ls -1 "$ARCHIVE_DIR"/*.md 2>/dev/null || echo "No archived tickets"
@@ -24,7 +25,7 @@ echo ""
 
 # List existing terms
 echo "=== TERMS ==="
-find .workaholic/terms -name "*.md" -type f 2>/dev/null | sort || echo "No terms found"
+find "${ROOT}/.workaholic/terms" -name "*.md" -type f 2>/dev/null | sort || echo "No terms found"
 echo ""
 
 # Get diff against base

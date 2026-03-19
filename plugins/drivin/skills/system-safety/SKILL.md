@@ -23,7 +23,7 @@ If uncertain, treat as a regular project. False negatives (failing to detect a p
 Run the detection script at the start of implementation:
 
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/system-safety/sh/detect.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/system-safety/sh/detect.sh
 ```
 
 The script checks for provisioning indicators and outputs JSON:

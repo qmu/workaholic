@@ -19,22 +19,37 @@ if ! echo "$trip_name" | grep -qE '^[a-z0-9][a-z0-9-]*[a-z0-9]$'; then
   exit 1
 fi
 
-trip_path=".workaholic/.trips/${trip_name}"
+root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+trip_path="${root}/.workaholic/.trips/${trip_name}"
 
 if [ -d "$trip_path" ]; then
   echo '{"error": "trip directory already exists", "trip_path": "'"$trip_path"'"}' >&2
   exit 1
 fi
 
-mkdir -p "${trip_path}/directions/reviews" "${trip_path}/models/reviews" "${trip_path}/designs/reviews" "${trip_path}/rollbacks/reviews"
+mkdir -p "${trip_path}/directions" "${trip_path}/models" "${trip_path}/designs" "${trip_path}/reviews" "${trip_path}/rollbacks/reviews"
+
+# Create event log with header
+{
+  echo '# Trip Event Log'
+  echo ''
+  echo '| Timestamp | Agent | Event | Target | Impact |'
+  echo '| --------- | ----- | ----- | ------ | ------ |'
+} > "${trip_path}/event-log.md"
 
 # Create plan.md with initial state
 updated_at="$(date -Iseconds)"
-# Use a temp file to safely handle special characters in instruction
 plan_file="${trip_path}/plan.md"
+
+# Sanitize instruction for YAML: escape backslashes first, then double quotes
+safe_instruction="${instruction//\\/\\\\}"
+safe_instruction="${safe_instruction//\"/\\\"}"
+
+# Write plan.md — use printf %s to avoid interpreting escape sequences in content
 {
   echo '---'
-  printf 'instruction: "%s"\n' "$instruction"
+  printf 'instruction: "%s"\n' "$safe_instruction"
   echo 'phase: planning'
   echo 'step: not-started'
   echo 'iteration: 0'
@@ -46,7 +61,7 @@ plan_file="${trip_path}/plan.md"
   echo '## Initial Idea'
   echo ''
   if [ -n "$instruction" ]; then
-    echo "$instruction"
+    printf '%s\n' "$instruction"
   else
     echo '_(No instruction provided)_'
   fi

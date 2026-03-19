@@ -10,6 +10,7 @@ BASE_BRANCH="${2:-main}"
 
 # Get current branch
 BRANCH=$(git branch --show-current)
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 echo "=== BRANCH ==="
 echo "$BRANCH"
 echo ""
@@ -21,7 +22,7 @@ echo ""
 
 # List existing policy files
 echo "=== POLICIES ==="
-find .workaholic/policies -name "*.md" -type f 2>/dev/null | sort || echo "No policies found"
+find "${ROOT}/.workaholic/policies" -name "*.md" -type f 2>/dev/null | sort || echo "No policies found"
 echo ""
 
 # Get diff against base

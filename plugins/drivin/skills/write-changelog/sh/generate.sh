@@ -13,7 +13,9 @@ if [ -z "$BRANCH" ] || [ -z "$REPO_URL" ]; then
     exit 1
 fi
 
-ARCHIVE_DIR=".workaholic/tickets/archive/${BRANCH}"
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+ARCHIVE_DIR="${ROOT}/.workaholic/tickets/archive/${BRANCH}"
 
 if [ ! -d "$ARCHIVE_DIR" ]; then
     echo "No archived tickets found for branch: $BRANCH"

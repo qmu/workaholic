@@ -6,6 +6,7 @@
 set -eu
 
 BRANCH=$(git branch --show-current)
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 BASE_BRANCH=$(git remote show origin 2>/dev/null | grep 'HEAD branch' | sed 's/.*: //')
 REPO_URL_RAW=$(git remote get-url origin)
 
@@ -16,7 +17,7 @@ REPO_URL=$(echo "$REPO_URL_RAW" | \
   sed 's|\.git$||')
 
 # List archived tickets for the branch (empty array if none)
-ARCHIVE_DIR=".workaholic/tickets/archive/${BRANCH}"
+ARCHIVE_DIR="${ROOT}/.workaholic/tickets/archive/${BRANCH}"
 if [ -d "$ARCHIVE_DIR" ]; then
     TICKETS=$(ls -1 "$ARCHIVE_DIR"/*.md 2>/dev/null | sed 's/.*/"&"/' | tr '\n' ',' | sed 's/,$//')
 else

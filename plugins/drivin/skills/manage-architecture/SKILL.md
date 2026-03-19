@@ -73,8 +73,8 @@ These specs are written to `.workaholic/specs/` and follow the analyze-viewpoint
 
 ### Execution
 
-- For each viewpoint (application, component, feature, usecase), gather context by running `bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/analyze-viewpoint/sh/gather.sh <slug> main`.
-- Check overrides by running `bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/analyze-viewpoint/sh/read-overrides.sh`.
+- For each viewpoint (application, component, feature, usecase), gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-viewpoint/sh/gather.sh <slug> main`.
+- Check overrides by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-viewpoint/sh/read-overrides.sh`.
 - Analyze gathered context against both the Outputs structure and viewpoint spec requirements.
 - Produce the architectural context output covering system boundaries, layer taxonomy, component inventory, cross-cutting concerns, and structural patterns.
 - Write all four viewpoint specs (application.md, component.md, feature.md, usecase.md) to `.workaholic/specs/`.

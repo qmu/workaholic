@@ -10,6 +10,7 @@ BASE_BRANCH="${2:-main}"
 
 # Get current branch
 BRANCH=$(git branch --show-current)
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 echo "=== BRANCH ==="
 echo "$BRANCH"
 echo ""
@@ -20,7 +21,7 @@ git rev-parse --short HEAD
 echo ""
 
 # List archived tickets
-ARCHIVE_DIR=".workaholic/tickets/archive/${BRANCH}"
+ARCHIVE_DIR="${ROOT}/.workaholic/tickets/archive/${BRANCH}"
 echo "=== TICKETS ==="
 if [ -d "$ARCHIVE_DIR" ]; then
     ls -1 "$ARCHIVE_DIR"/*.md 2>/dev/null || echo "No archived tickets"
@@ -36,7 +37,7 @@ echo ""
 
 # List existing specs
 echo "=== SPECS ==="
-find .workaholic/specs -name "*.md" -type f 2>/dev/null | sort || echo "No specs found"
+find "${ROOT}/.workaholic/specs" -name "*.md" -type f 2>/dev/null | sort || echo "No specs found"
 echo ""
 
 # Viewpoint-specific context gathering
@@ -55,17 +56,17 @@ case "$VIEWPOINT" in
         ;;
     model)
         echo "--- Frontmatter schemas (tickets) ---"
-        find .workaholic/tickets -name "*.md" -type f 2>/dev/null | head -3 | while read -r f; do
+        find "${ROOT}/.workaholic/tickets" -name "*.md" -type f 2>/dev/null | head -3 | while read -r f; do
             echo "  $f"
         done
         echo ""
         echo "--- Frontmatter schemas (specs) ---"
-        find .workaholic/specs -name "*.md" -not -name "README*" -type f 2>/dev/null | head -3 | while read -r f; do
+        find "${ROOT}/.workaholic/specs" -name "*.md" -not -name "README*" -type f 2>/dev/null | head -3 | while read -r f; do
             echo "  $f"
         done
         echo ""
         echo "--- Frontmatter schemas (terms) ---"
-        find .workaholic/terms -name "*.md" -not -name "README*" -type f 2>/dev/null | head -3 | while read -r f; do
+        find "${ROOT}/.workaholic/terms" -name "*.md" -not -name "README*" -type f 2>/dev/null | head -3 | while read -r f; do
             echo "  $f"
         done
         ;;
@@ -118,13 +119,13 @@ case "$VIEWPOINT" in
         ;;
     data)
         echo "--- Ticket examples ---"
-        find .workaholic/tickets -name "*.md" -type f 2>/dev/null | head -5 || echo "  (none)"
+        find "${ROOT}/.workaholic/tickets" -name "*.md" -type f 2>/dev/null | head -5 || echo "  (none)"
         echo ""
         echo "--- Spec files ---"
-        find .workaholic/specs -name "*.md" -type f 2>/dev/null | sort || echo "  (none)"
+        find "${ROOT}/.workaholic/specs" -name "*.md" -type f 2>/dev/null | sort || echo "  (none)"
         echo ""
         echo "--- Term files ---"
-        find .workaholic/terms -name "*.md" -type f 2>/dev/null | sort || echo "  (none)"
+        find "${ROOT}/.workaholic/terms" -name "*.md" -type f 2>/dev/null | sort || echo "  (none)"
         echo ""
         echo "--- JSON configs ---"
         find . -name "*.json" -not -path "./.git/*" -not -path "./node_modules/*" -type f 2>/dev/null | sort || echo "  (none)"

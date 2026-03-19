@@ -12,7 +12,7 @@ Gathers all context needed for documentation subagents in a single shell script 
 ## Usage
 
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/gather-git-context/sh/gather.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-git-context/sh/gather.sh
 ```
 
 ## Output

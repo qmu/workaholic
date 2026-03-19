@@ -12,7 +12,7 @@ Detect development context from the current git branch pattern to route unified 
 ## Context Detection
 
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/branching/sh/detect-context.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/detect-context.sh
 ```
 
 ### Output Format
@@ -38,7 +38,7 @@ bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/branching/sh/
 Lightweight check for the existence of trip worktrees. Used by commands that should warn the user before proceeding when worktrees are available.
 
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/core/skills/branching/sh/check-worktrees.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/check-worktrees.sh
 ```
 
 ### Output Format

@@ -15,7 +15,7 @@ Analyze a development branch's decision-making quality.
 1. **Gather context** using the preloaded gather-git-context skill
 2. **Calculate metrics** using the preloaded analyze-performance skill:
    ```bash
-   bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/analyze-performance/sh/calculate.sh <base_branch>
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-performance/sh/calculate.sh <base_branch>
    ```
 3. **Analyze performance** following the preloaded analyze-performance skill for evaluation framework, output format, and guidelines
 

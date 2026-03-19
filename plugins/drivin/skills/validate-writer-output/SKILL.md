@@ -12,7 +12,7 @@ Validates that expected output files from analyst subagents exist and are non-em
 ## Usage
 
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/validate-writer-output/sh/validate.sh <directory> <file1> <file2> ...
+bash ${CLAUDE_PLUGIN_ROOT}/skills/validate-writer-output/sh/validate.sh <directory> <file1> <file2> ...
 ```
 
 ### Arguments

@@ -37,12 +37,12 @@ ALWAYS use one of these exact values: `0.1h`, `0.25h`, `0.5h`, `1h`, `2h`, `4h`
 **MUST use update.sh** -- NEVER use the Edit tool to modify the effort field directly.
 
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/update-ticket-frontmatter/sh/update.sh <ticket-path> effort <value>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/update-ticket-frontmatter/sh/update.sh <ticket-path> effort <value>
 ```
 
 Example:
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/update-ticket-frontmatter/sh/update.sh .workaholic/tickets/todo/20260212-example.md effort 0.5h
+bash ${CLAUDE_PLUGIN_ROOT}/skills/update-ticket-frontmatter/sh/update.sh .workaholic/tickets/todo/20260212-example.md effort 0.5h
 ```
 
 ## Final Report Section

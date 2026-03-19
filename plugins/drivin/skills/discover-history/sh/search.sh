@@ -10,7 +10,9 @@ if [ $# -eq 0 ]; then
     exit 1
 fi
 
-ARCHIVE_DIR=".workaholic/tickets/archive"
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+ARCHIVE_DIR="${ROOT}/.workaholic/tickets/archive"
 
 # Build grep pattern: keyword1|keyword2|keyword3
 PATTERN=$(echo "$@" | tr ' ' '|')

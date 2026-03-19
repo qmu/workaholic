@@ -17,7 +17,7 @@ Generic framework for analyzing a repository from a specific architectural viewp
 Run the bundled script to collect viewpoint-specific information:
 
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/analyze-viewpoint/sh/gather.sh <viewpoint-slug> [base-branch]
+bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-viewpoint/sh/gather.sh <viewpoint-slug> [base-branch]
 ```
 
 Default base branch is `main`.
@@ -27,7 +27,7 @@ Default base branch is `main`.
 Run the override reader to check for user-defined viewpoint customizations:
 
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/analyze-viewpoint/sh/read-overrides.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-viewpoint/sh/read-overrides.sh
 ```
 
 If overrides exist, merge them with the viewpoint definition received from the caller.

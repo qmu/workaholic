@@ -12,7 +12,7 @@ Generate a development journey report from a trip session's artifacts and create
 ## Gather Artifacts
 
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/write-trip-report/sh/gather-artifacts.sh <trip-name>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/write-trip-report/sh/gather-artifacts.sh <trip-name>
 ```
 
 Parse JSON output for artifact paths. Read each artifact to extract summaries.
@@ -56,33 +56,27 @@ The report file is written to `.workaholic/stories/<branch-name>.md` with the fo
 ## Journey
 
 <Contents of history.md if available, otherwise a journey summary generated from the git commit log>
+
+## Trip Activity Log
+
+<Contents of event-log.md if available. For logs exceeding 30 rows, show only
+phase-transition events in the main table and include the full log in a
+collapsed <details> block.>
 ```
 
 ### Extracting Summaries
 
-For each artifact (direction, model, design):
-1. Read the latest approved version
-2. Extract the Content section
-3. Summarize in 3-5 sentences focusing on key decisions and outcomes
+For each artifact (direction, model, design): read the latest approved version, extract the Content section, summarize in 3-5 sentences focusing on key decisions and outcomes.
 
-For reviews:
-1. Read all review files for each artifact type
-2. Identify the key concerns raised and how they were resolved
-3. Summarize in 2-3 sentences
+For reviews: read all files in `reviews/` (both `round-<N>-<agent>.md` and `response-<author>-to-<reviewer>.md`), identify key concerns and resolutions, summarize in 2-3 sentences.
 
 ### Journey Section
 
-Priority order for the Journey section:
+Priority order: (1) `history.md` contents if available, (2) `plan.md` Progress section if `has_plan` is true, (3) git log summary via `git log --oneline --reverse <base-branch>..<trip-branch>`. Commit messages follow `[Agent] description` format, providing a natural collaboration narrative.
 
-1. If `history.md` exists, include its contents directly (deliberate narrative takes priority)
-2. If `plan.md` exists (check `has_plan` from gather output), use the Progress section as a structured journey timeline
-3. Otherwise, generate a journey summary from the git commit log:
+### Trip Activity Log Section
 
-```bash
-git log --oneline --reverse <base-branch>..<trip-branch>
-```
-
-The commit messages follow `[Agent] description` format, providing a natural narrative of how the collaboration proceeded.
+If `has_event_log` is true, read `event_log_path`. For logs with 30 or fewer data rows, include the full table directly. For larger logs, show only `phase-transition`, `consensus-reached`, `gate-passed`, and `moderation-resolved` events in the main table and wrap the full log in a `<details><summary>Full event log (N events)</summary>` collapsed block.
 
 ## Create PR
 

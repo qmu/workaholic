@@ -16,7 +16,7 @@ Guidelines for writing and updating specification documents in `.workaholic/spec
 Run the bundled script to collect information about what changed:
 
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/write-spec/sh/gather.sh [base-branch]
+bash ${CLAUDE_PLUGIN_ROOT}/skills/write-spec/sh/gather.sh [base-branch]
 ```
 
 Default base branch is `main`.

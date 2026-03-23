@@ -14,7 +14,7 @@ Search archived tickets to find related past work.
 Run the bundled script with keywords extracted from the ticket request:
 
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/discover-history/sh/search.sh <keyword1> [keyword2] ...
+bash ${CLAUDE_PLUGIN_ROOT}/skills/discover-history/sh/search.sh <keyword1> [keyword2] ...
 ```
 
 ### Keyword Extraction

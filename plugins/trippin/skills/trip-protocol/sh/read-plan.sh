@@ -26,6 +26,7 @@ step=""
 iteration=""
 instruction=""
 updated_at=""
+blocked=""
 in_frontmatter=false
 
 while IFS= read -r line; do
@@ -48,13 +49,15 @@ while IFS= read -r line; do
       iteration) iteration="$val" ;;
       instruction) instruction="$val" ;;
       updated_at) updated_at="$val" ;;
+      blocked) blocked="$val" ;;
     esac
   fi
 done < "$plan_file"
 
-# Output JSON - escape quotes in instruction for safe JSON
+# Output JSON - escape quotes in instruction and blocked for safe JSON
 instruction_escaped=$(printf '%s' "$instruction" | sed 's/\\/\\\\/g; s/"/\\"/g')
+blocked_escaped=$(printf '%s' "$blocked" | sed 's/\\/\\\\/g; s/"/\\"/g')
 
 cat <<EOF
-{"phase": "${phase:-unknown}", "step": "${step:-unknown}", "iteration": ${iteration:-0}, "instruction": "${instruction_escaped}", "updated_at": "${updated_at}"}
+{"phase": "${phase:-unknown}", "step": "${step:-unknown}", "iteration": ${iteration:-0}, "instruction": "${instruction_escaped}", "updated_at": "${updated_at}", "blocked": "${blocked_escaped}"}
 EOF

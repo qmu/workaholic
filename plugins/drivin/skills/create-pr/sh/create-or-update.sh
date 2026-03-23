@@ -13,7 +13,9 @@ if [ -z "$BRANCH" ] || [ -z "$TITLE" ]; then
     exit 1
 fi
 
-STORY_FILE=".workaholic/stories/${BRANCH}.md"
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+STORY_FILE="${ROOT}/.workaholic/stories/${BRANCH}.md"
 
 if [ ! -f "$STORY_FILE" ]; then
     echo "Error: Story file not found: $STORY_FILE"

@@ -3,9 +3,9 @@ created_at: 2026-03-28T15:57:52+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX, Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: a233799
+category: Added
 ---
 
 # Add clean workspace guard to /report and /ship commands
@@ -171,3 +171,7 @@ Past tickets that touched similar areas:
 - The /drive command already has a Worktree Guard (Phase 0) but not a workspace cleanliness guard. Adding one to /drive is out of scope for this ticket since /drive actively creates and commits changes, making a pre-flight workspace check less meaningful there (`plugins/drivin/commands/drive.md` lines 20-36)
 - The ship command's merge-pr script checks out main and pulls after merge, which could conflict with untracked files in the working directory. The workspace guard gives the user a chance to handle this before it becomes a git error (`plugins/trippin/skills/ship/sh/merge-pr.sh`)
 - The AskUserQuestion approach follows the established pattern from the worktree guard in /drive (Phase 0) and the trip worktree routing in /report and /ship (`plugins/core/commands/report.md` lines 64-70, `plugins/drivin/commands/drive.md` lines 28-31)
+
+## Final Report
+
+Development completed as planned.

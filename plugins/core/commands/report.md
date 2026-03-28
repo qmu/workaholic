@@ -15,6 +15,20 @@ Context-aware report command that auto-detects whether you are in a drive or tri
 
 ## Instructions
 
+### Step 0: Workspace Guard
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/check-workspace.sh
+```
+
+Parse the JSON output. If `clean` is `true`, proceed silently to Step 1.
+
+If `clean` is `false`, display the `summary` to the user and ask via AskUserQuestion with selectable options:
+- **"Ignore and proceed"** - Continue with the report workflow. The unrelated changes will remain in the workspace after the command completes.
+- **"Stop"** - Halt the command so you can handle the changes first.
+
+If the user selects "Stop", end the command immediately.
+
 ### Step 1: Detect Context
 
 ```bash

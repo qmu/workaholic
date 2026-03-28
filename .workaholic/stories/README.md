@@ -70,7 +70,7 @@ Refs #<issue-number>
 
 ## Stories
 
-- [drive-20260326-183949.md](drive-20260326-183949.md) - Agent discipline enforcement, standards plugin extraction, worktree lifecycle management, and developer experience improvements - 6 tickets, 11 commits
+- [drive-20260326-183949.md](drive-20260326-183949.md) - Agent discipline enforcement, standards plugin extraction, worktree lifecycle management, workspace safety guards, and developer experience improvements - 7 tickets, 14 commits
 - [drive-20260312-102414.md](drive-20260312-102414.md) - Trip-drive workflow integration: quality differentiation, worktree detection guards, cross-command compatibility, trip plan state persistence, and strip-frontmatter extraction - 6 tickets, 11 commits
 - [drive-20260311-125319.md](drive-20260311-125319.md) - System-wide configuration safety harness, agent personality spectrum rewrite, core plugin creation with unified /report and /ship commands, phase rollback mechanism, concurrent Planning Phase and Coding Phase execution - 10 tickets, 21 commits
 - [drive-20260310-220224.md](drive-20260310-220224.md) - Trip workflow hardening, agent quality enhancements, multi-plugin README rewrite, complete delivery lifecycle commands (/report-drive, /report-trip, /ship-drive, /ship-trip) with cloud.md convention, shared ship script extraction, capitalization bugfix, and deployment confirmation - 16 tickets, 31 commits

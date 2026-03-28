@@ -59,6 +59,34 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/check-worktrees.sh
 
 Unlike `list-trip-worktrees.sh`, this script does not query GitHub API for PR status. It is designed for fast, non-blocking guard checks.
 
+## Workspace Guard
+
+Check whether the working directory has unstaged, untracked, or staged changes. Used by commands that should warn the user before proceeding when the workspace is not clean.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/check-workspace.sh
+```
+
+### Output Format
+
+```json
+{
+  "clean": false,
+  "untracked_count": 2,
+  "unstaged_count": 3,
+  "staged_count": 0,
+  "summary": "3 unstaged, 2 untracked"
+}
+```
+
+- `clean`: Boolean indicating if the workspace has no changes
+- `untracked_count`: Number of untracked files
+- `unstaged_count`: Number of unstaged modifications or deletions
+- `staged_count`: Number of staged changes
+- `summary`: Human-readable description of changes (empty string when clean)
+
+Unlike context detection, this script does not inspect branch patterns. It only reports workspace cleanliness.
+
 ## Worktree Management
 
 ### Adopt

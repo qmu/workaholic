@@ -38,7 +38,7 @@ Use the `trip_name` from the detection result, or `$ARGUMENT` if provided.
 
 1. Locate the trip directory at `.workaholic/.trips/<trip-name>/`. If it does not exist, inform the user and stop.
 2. **Gather artifacts**: `bash ${CLAUDE_PLUGIN_ROOT}/../trippin/skills/write-trip-report/sh/gather-artifacts.sh "<trip-name>"`
-3. **Generate journey report** following the preloaded **write-trip-report** skill. Write to `.workaholic/stories/<branch-name>.md`.
+3. **Generate journey report**: Follow the preloaded **write-trip-report** skill **strictly**. The report **must** use the exact template structure defined in the skill — no sections added, removed, renamed, or reordered. Follow the skill's extraction guidelines precisely. Write to `.workaholic/stories/<branch-name>.md`.
 4. **Commit and push**:
    ```bash
    git add .workaholic/stories/<branch-name>.md
@@ -67,7 +67,7 @@ Not on a trip branch, but trip worktrees exist.
 4. If exactly one unreported trip: ask the user "Found trip '<trip_name>'. Generate report for this trip?" using AskUserQuestion. If confirmed, use it.
 5. If multiple unreported trips: list them and ask the user which one to report on using AskUserQuestion.
 6. Once selected, locate the trip directory at `<worktree_path>/.workaholic/.trips/<trip-name>/`. All subsequent git operations must run from within the worktree directory.
-7. Follow Trip Context steps 2-6 from within the worktree.
+7. Follow Trip Context steps 2-7 from within the worktree. The write-trip-report skill template is mandatory — follow it exactly.
 
 #### Unknown Context (`context: "unknown"`)
 

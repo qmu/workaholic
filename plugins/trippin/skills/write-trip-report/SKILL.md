@@ -19,6 +19,8 @@ Parse JSON output for artifact paths. Read each artifact to extract summaries.
 
 ## Report Structure
 
+**MANDATORY**: The template below is the exact structure for every trip report. Do not add, remove, rename, or reorder sections. Do not use creative reinterpretation. If an artifact is missing, write "No data available" in the corresponding section rather than omitting it.
+
 The report file is written to `.workaholic/stories/<branch-name>.md` with the following sections:
 
 ### Template

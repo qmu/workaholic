@@ -2,7 +2,7 @@
 name: performance-analyst
 description: Evaluate decision-making quality across five viewpoints
 skills:
-  - gather-git-context
+  - drivin:gather-git-context
   - analyze-performance
 ---
 

@@ -25,6 +25,10 @@ Shared commands that work across both Drivin and Trippin workflows. Auto-detects
 | `/report`  | Context-aware: generate story or journey report and create PR |
 | `/ship`    | Context-aware: merge PR, deploy, and verify           |
 
+### Standards
+
+Repository structuring policy, qualitative agents, and documentation standards. This plugin has no commands — it provides agents and skills referenced by other plugins. Includes lead agents (a11y, db, delivery, infra, observability, quality, recovery, security, test, ux), manager agents (architecture, project, quality), and documentation writers (changelog, terms, specs, release notes).
+
 ### Drivin
 
 Ticket-driven development (TiDD) workflow. Write implementation tickets, implement them serially with confirmation at each step, then generate PR stories automatically. All context is stored in `.workaholic/` for better AI decisions.

@@ -3,9 +3,9 @@ created_at: 2026-03-28T15:20:57+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: 3edea8a
+category: Added
 ---
 
 # Create Standards Plugin and Extract Qualitative Components from Drivin
@@ -108,3 +108,14 @@ Past tickets that touched similar areas:
 - The version must be synced to 1.0.41 across all four plugin.json files and marketplace.json. The Version Management section in CLAUDE.md must list the new file.
 - Agents that are moved will have their skill references resolved via `${CLAUDE_PLUGIN_ROOT}` which will point to `plugins/standards/` after the move. Since skills move alongside their agents, internal skill references within moved agents continue to work without modification.
 - The drivin scan command preloads skills via frontmatter (`plugins/drivin/commands/scan.md` lines 5-8). Skills that move to standards (select-scan-agents, write-spec, validate-writer-output) will need cross-plugin skill references in the scan command frontmatter, using the `standards:skill-name` pattern.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The scan command's Phase 2 and Phase 4 used `${CLAUDE_PLUGIN_ROOT}/skills/` paths for select-scan-agents and validate-writer-output scripts. After moving these skills to standards, the bash paths needed cross-plugin updates (`${CLAUDE_PLUGIN_ROOT}/../standards/skills/...`) in addition to the frontmatter skill preloads. The ticket anticipated the frontmatter changes but not the inline bash path changes.
+  **Context**: When moving skills between plugins, both skill preload references (frontmatter) AND inline bash script paths must be updated. The frontmatter uses `standards:skill-name` syntax while bash paths use the `/../sibling/` directory traversal pattern.
+- **Insight**: The performance-analyst agent preloads `gather-git-context`, which remains in drivin. After moving to standards, this needed a cross-plugin reference (`drivin:gather-git-context`). Other moved agents only reference skills that also moved, so no additional cross-plugin fixups were needed.
+  **Context**: When extracting agents, check each agent's skill preload list for skills that stay behind in the original plugin.

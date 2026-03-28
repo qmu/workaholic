@@ -3,9 +3,9 @@ name: scan
 description: Full documentation scan - update all .workaholic/ documentation (changelog, specs, terms, policies).
 skills:
   - gather-git-context
-  - select-scan-agents
-  - write-spec
-  - validate-writer-output
+  - standards:select-scan-agents
+  - standards:write-spec
+  - standards:validate-writer-output
 ---
 
 # Scan
@@ -26,7 +26,7 @@ Run a full documentation scan by invoking 3 manager agents then 12 leader/writer
 Run the preloaded select-scan-agents skill:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/select-scan-agents/sh/select.sh full
+bash ${CLAUDE_PLUGIN_ROOT}/../standards/skills/select-scan-agents/sh/select.sh full
 ```
 
 Parse the JSON output to get the lists of manager and leader agents.
@@ -37,9 +37,9 @@ Invoke all 3 manager agents in a single message with parallel Task tool calls (e
 
 | Agent slug | `subagent_type` | Prompt context |
 | --- | --- | --- |
-| `project-manager` | `drivin:project-manager` | Pass base branch |
-| `architecture-manager` | `drivin:architecture-manager` | Pass base branch |
-| `quality-manager` | `drivin:quality-manager` | Pass base branch |
+| `project-manager` | `standards:project-manager` | Pass base branch |
+| `architecture-manager` | `standards:architecture-manager` | Pass base branch |
+| `quality-manager` | `standards:quality-manager` | Pass base branch |
 
 Wait for all managers to complete before proceeding. Manager outputs must be available for leaders.
 
@@ -49,19 +49,19 @@ Invoke all 12 leader/writer agents in a single message with parallel Task tool c
 
 | Agent slug | `subagent_type` | Prompt context |
 | --- | --- | --- |
-| `ux-lead` | `drivin:ux-lead` | Pass base branch |
-| `model-analyst` | `drivin:model-analyst` | Pass base branch |
-| `infra-lead` | `drivin:infra-lead` | Pass base branch |
-| `db-lead` | `drivin:db-lead` | Pass base branch |
-| `test-lead` | `drivin:test-lead` | Pass base branch |
-| `security-lead` | `drivin:security-lead` | Pass base branch |
-| `quality-lead` | `drivin:quality-lead` | Pass base branch |
-| `a11y-lead` | `drivin:a11y-lead` | Pass base branch |
-| `observability-lead` | `drivin:observability-lead` | Pass base branch |
-| `delivery-lead` | `drivin:delivery-lead` | Pass base branch |
-| `recovery-lead` | `drivin:recovery-lead` | Pass base branch |
-| `changelog-writer` | `drivin:changelog-writer` | Pass repository URL |
-| `terms-writer` | `drivin:terms-writer` | Pass branch name |
+| `ux-lead` | `standards:ux-lead` | Pass base branch |
+| `model-analyst` | `standards:model-analyst` | Pass base branch |
+| `infra-lead` | `standards:infra-lead` | Pass base branch |
+| `db-lead` | `standards:db-lead` | Pass base branch |
+| `test-lead` | `standards:test-lead` | Pass base branch |
+| `security-lead` | `standards:security-lead` | Pass base branch |
+| `quality-lead` | `standards:quality-lead` | Pass base branch |
+| `a11y-lead` | `standards:a11y-lead` | Pass base branch |
+| `observability-lead` | `standards:observability-lead` | Pass base branch |
+| `delivery-lead` | `standards:delivery-lead` | Pass base branch |
+| `recovery-lead` | `standards:recovery-lead` | Pass base branch |
+| `changelog-writer` | `standards:changelog-writer` | Pass repository URL |
+| `terms-writer` | `standards:terms-writer` | Pass branch name |
 
 All invocations MUST be in a single message to run concurrently. Each Task call MUST use `run_in_background: false` (the default).
 
@@ -72,13 +72,13 @@ All invocations MUST be in a single message to run concurrently. Each Task call 
 Validate viewpoint spec output:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/validate-writer-output/sh/validate.sh .workaholic/specs ux.md model.md usecase.md infrastructure.md application.md component.md data.md feature.md
+bash ${CLAUDE_PLUGIN_ROOT}/../standards/skills/validate-writer-output/sh/validate.sh .workaholic/specs ux.md model.md usecase.md infrastructure.md application.md component.md data.md feature.md
 ```
 
 Validate policy output:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/validate-writer-output/sh/validate.sh .workaholic/policies test.md security.md quality.md accessibility.md observability.md delivery.md recovery.md
+bash ${CLAUDE_PLUGIN_ROOT}/../standards/skills/validate-writer-output/sh/validate.sh .workaholic/policies test.md security.md quality.md accessibility.md observability.md delivery.md recovery.md
 ```
 
 ### Phase 5: Update Index Files

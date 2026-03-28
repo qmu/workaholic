@@ -35,7 +35,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/detect-context.sh
 
 ## Worktree Guard
 
-Lightweight check for the existence of trip worktrees. Used by commands that should warn the user before proceeding when worktrees are available.
+Lightweight check for the existence of worktrees. Used by commands that should warn the user before proceeding when worktrees are available.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/check-worktrees.sh
@@ -46,11 +46,88 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/check-worktrees.sh
 ```json
 {
   "has_worktrees": true,
-  "count": 2
+  "count": 2,
+  "trip_count": 1,
+  "drive_count": 1
 }
 ```
 
-- `has_worktrees`: Boolean indicating if any trip worktrees exist
-- `count`: Number of trip worktrees found
+- `has_worktrees`: Boolean indicating if any worktrees exist
+- `count`: Total number of worktrees found
+- `trip_count`: Number of `trip/*` branch worktrees
+- `drive_count`: Number of `drive-*` branch worktrees
 
 Unlike `list-trip-worktrees.sh`, this script does not query GitHub API for PR status. It is designed for fast, non-blocking guard checks.
+
+## Workspace Guard
+
+Check whether the working directory has unstaged, untracked, or staged changes. Used by commands that should warn the user before proceeding when the workspace is not clean.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/check-workspace.sh
+```
+
+### Output Format
+
+```json
+{
+  "clean": false,
+  "untracked_count": 2,
+  "unstaged_count": 3,
+  "staged_count": 0,
+  "summary": "3 unstaged, 2 untracked"
+}
+```
+
+- `clean`: Boolean indicating if the workspace has no changes
+- `untracked_count`: Number of untracked files
+- `unstaged_count`: Number of unstaged modifications or deletions
+- `staged_count`: Number of staged changes
+- `summary`: Human-readable description of changes (empty string when clean)
+
+Unlike context detection, this script does not inspect branch patterns. It only reports workspace cleanliness.
+
+## Worktree Management
+
+### Adopt
+
+Take an existing branch and create a worktree for it at `.worktrees/<branch-name>/`. Handles the case where the user is currently on that branch by switching to `main` first.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/adopt-worktree.sh <branch-name>
+```
+
+Output: `{"worktree_path": "<path>", "branch": "<branch>", "switched_from": true|false}`
+
+Error cases: branch not found, worktree already exists, uncommitted changes.
+
+### Eject
+
+Collapse a worktree back to a regular branch in the main working tree. Preserves the branch (unlike `cleanup-worktree.sh` which deletes it).
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/eject-worktree.sh <worktree-path>
+```
+
+Output: `{"ejected": true, "branch": "<branch>", "main_repo": "<path>"}`
+
+Error cases: not a valid worktree, main tree has uncommitted changes.
+
+### List All Worktrees
+
+List all active worktrees with type detection (`trip`, `drive`, `other`). No GitHub API calls.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/list-all-worktrees.sh
+```
+
+Output:
+```json
+{
+  "count": 2,
+  "worktrees": [
+    {"name": "drive-20260320-123456", "branch": "drive-20260320-123456", "worktree_path": "/path/.worktrees/drive-20260320-123456", "type": "drive"},
+    {"name": "trip-20260319-040153", "branch": "trip/trip-20260319-040153", "worktree_path": "/path/.worktrees/trip-20260319-040153", "type": "trip"}
+  ]
+}
+```

@@ -62,7 +62,7 @@ Each revision is a new file (e.g., `direction-v2.md`), preserving history. Only 
 
 `plan.md` tracks trip lifecycle state with YAML frontmatter (`instruction`, `phase`, `step`, `iteration`, `updated_at`) and three sections: Initial Idea, Plan Amendments (leader decision log), and Progress (checklist with agent attribution). Update frontmatter at phase transitions; agents append progress entries bundled with artifact commits.
 
-Step identifiers: `planning/not-started`, `planning/artifact-generation`, `planning/one-turn-review`, `planning/respond-to-feedback`, `planning/moderation`, `coding/concurrent-launch`, `coding/review-and-testing`, `coding/iteration-N`, `complete/done`.
+Step identifiers: `planning/not-started`, `planning/artifact-generation`, `planning/one-turn-review`, `planning/respond-to-feedback`, `planning/moderation`, `coding/concurrent-launch`, `coding/review-and-testing`, `coding/iteration-N`, `complete/done`, `complete/followup`.
 
 ## Event Log
 
@@ -107,6 +107,20 @@ If issues found: Constructor fixes → Architect re-reviews → Planner re-tests
 ### Rollback
 Any agent may propose returning to Planning Phase. Requires 2/3 majority. Proposer writes `rollbacks/rollback-v<N>.md`; others vote in `rollbacks/reviews/rollback-v<N>-<agent>.md`. On approval, return to Planning with incremented artifact versions.
 
+## Post-Completion Protocol
+
+After the trip reaches `complete/done`, the team lead may receive follow-up requests from the user. The team composition rule applies strictly:
+
+**Never create new agent team members.** The only agents permitted in the worktree are the three designated teammates: Planner, Architect, and Constructor. This applies regardless of the nature of the follow-up request.
+
+**Lead handles directly** when the task is: answering a question, reading files, making a single-file edit, running a command, or any task that does not require the specialized perspective of a designated agent.
+
+**Lead re-invokes designated agents** when the task involves: multi-file changes, implementation work (Constructor), structural review (Architect), E2E validation (Planner), or any work that falls within a designated agent's domain. Re-invoked agents retain their original role boundaries, QA domains, and behavioral constraints from the trip session.
+
+Update `plan.md` frontmatter: set step to `complete/followup` when follow-up work begins, return to `complete/done` when it finishes. Log follow-up events to `event-log.md`.
+
+Step identifier: `complete/followup`
+
 ## E2E Assurance
 
 Applies to projects with user-facing interfaces (web, CLI, API). Planner detects existing E2E frameworks; Playwright is the recommended default. Tests must be CLI-runnable. Projects that are purely library/configuration may skip E2E.
@@ -114,6 +128,10 @@ Applies to projects with user-facing interfaces (web, CLI, API). Planner detects
 ## System Safety
 
 Before implementation, Constructor runs: `bash ${CLAUDE_PLUGIN_ROOT}/../drivin/skills/system-safety/sh/detect.sh`. If `system_changes_authorized` is false, use project-local alternatives only.
+
+## Written Language Policy
+
+All trip output must be written in English. This applies to: artifact content (directions, models, designs), review files, event log entries, plan.md content, commit messages, PR titles and bodies, code and code comments, and any agent-generated documentation. The only exception is content written inside the `.workaholic/` directory, which follows the consumer project's CLAUDE.md language setting (English or Japanese). When the consumer's CLAUDE.md specifies Japanese for `.workaholic/`, trip artifacts stored in `.workaholic/.trips/` may use Japanese.
 
 ## Commit Convention
 

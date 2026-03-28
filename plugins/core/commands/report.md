@@ -15,6 +15,20 @@ Context-aware report command that auto-detects whether you are in a drive or tri
 
 ## Instructions
 
+### Step 0: Workspace Guard
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/check-workspace.sh
+```
+
+Parse the JSON output. If `clean` is `true`, proceed silently to Step 1.
+
+If `clean` is `false`, display the `summary` to the user and ask via AskUserQuestion with selectable options:
+- **"Ignore and proceed"** - Continue with the report workflow. The unrelated changes will remain in the workspace after the command completes.
+- **"Stop"** - Halt the command so you can handle the changes first.
+
+If the user selects "Stop", end the command immediately.
+
 ### Step 1: Detect Context
 
 ```bash
@@ -29,7 +43,8 @@ Parse the JSON output. Route to the appropriate workflow based on `context`.
 
 1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash ${CLAUDE_PLUGIN_ROOT}/../drivin/skills/branching/sh/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
 2. **Invoke story-writer** (`subagent_type: "drivin:story-writer"`, `model: "opus"`)
-3. **Display PR URL** from story-writer result (mandatory)
+3. **Display story content**: Read the story file from the `story_file` path in the story-writer result and output the entire Markdown content so the developer can review inline
+4. **Display PR URL** from story-writer result (mandatory)
 
 #### Trip Context (`context: "trip"`)
 
@@ -37,7 +52,7 @@ Use the `trip_name` from the detection result, or `$ARGUMENT` if provided.
 
 1. Locate the trip directory at `.workaholic/.trips/<trip-name>/`. If it does not exist, inform the user and stop.
 2. **Gather artifacts**: `bash ${CLAUDE_PLUGIN_ROOT}/../trippin/skills/write-trip-report/sh/gather-artifacts.sh "<trip-name>"`
-3. **Generate journey report** following the preloaded **write-trip-report** skill. Write to `.workaholic/stories/<branch-name>.md`.
+3. **Generate journey report**: Follow the preloaded **write-trip-report** skill **strictly**. The report **must** use the exact template structure defined in the skill — no sections added, removed, renamed, or reordered. Follow the skill's extraction guidelines precisely. Write to `.workaholic/stories/<branch-name>.md`.
 4. **Commit and push**:
    ```bash
    git add .workaholic/stories/<branch-name>.md
@@ -45,7 +60,8 @@ Use the `trip_name` from the detection result, or `$ARGUMENT` if provided.
    git push -u origin <branch-name>
    ```
 5. **Create or update PR**: Derive title from direction summary. Use `gh pr create` or `gh pr edit` if PR already exists.
-6. **Display PR URL** (mandatory)
+6. **Display story content**: Read `.workaholic/stories/<branch-name>.md` and output the entire Markdown content so the developer can review inline
+7. **Display PR URL** (mandatory)
 
 #### Trip-Drive Hybrid Context (`context: "trip_drive"`)
 
@@ -65,7 +81,7 @@ Not on a trip branch, but trip worktrees exist.
 4. If exactly one unreported trip: ask the user "Found trip '<trip_name>'. Generate report for this trip?" using AskUserQuestion. If confirmed, use it.
 5. If multiple unreported trips: list them and ask the user which one to report on using AskUserQuestion.
 6. Once selected, locate the trip directory at `<worktree_path>/.workaholic/.trips/<trip-name>/`. All subsequent git operations must run from within the worktree directory.
-7. Follow Trip Context steps 2-6 from within the worktree.
+7. Follow Trip Context steps 2-7 from within the worktree. The write-trip-report skill template is mandatory — follow it exactly.
 
 #### Unknown Context (`context: "unknown"`)
 

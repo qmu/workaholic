@@ -3,9 +3,9 @@ created_at: 2026-03-26T18:39:45+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: fa9a627
+category: Changed
 ---
 
 # Enforce Written Language Policy in Trippin Plugin
@@ -134,3 +134,12 @@ Past tickets that touched similar areas:
 - The existing commit convention in trip-protocol SKILL.md (line 120) already states "Description must be a clear English sentence." The new Written Language Policy section provides broader coverage but should not contradict this existing rule. The commit convention can reference the new section for consistency. (`plugins/trippin/skills/trip-protocol/SKILL.md` lines 119-120)
 - The drivin plugin's `i18n.md` rule file is scoped with `paths` to documentation patterns (`**/*README*.md`, `.workaholic/**/*.md`, `docs/**/*.md`). The trippin rule should use `**/*` since the language policy applies to all content types, not just documentation files. (`plugins/drivin/rules/i18n.md`, `plugins/trippin/rules/i18n.md`)
 - The write-trip-report skill generates PR descriptions from trip artifacts. If the source artifacts are in the wrong language, the report will also be in the wrong language. Fixing the language at the artifact generation level (agents) prevents downstream propagation. The report skill guidance is a safety net. (`plugins/trippin/skills/write-trip-report/SKILL.md`)
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The trippin plugin's `rules/` directory was completely empty — unlike drivin which has both `general.md` and `i18n.md` rules. Agent Teams agents operate in isolated context windows and do not reliably inherit plugin rules, making redundant enforcement across rule files, agent definitions, and team lead instructions necessary.
+  **Context**: Any future trippin rule additions should follow the same three-layer pattern (rule file + agent definitions + team lead instructions) to ensure compliance across isolated agent contexts.

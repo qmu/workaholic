@@ -65,6 +65,8 @@ Create a three-member Agent Team. The team lead instruction:
 > 3. **Constructor** (`trippin:constructor`) - Technical implementation, internal testing
 >
 > All agents work inside `<worktree_path>`. Follow trip-protocol for the Planning Phase (concurrent artifacts, one-turn review, respond/escalate, moderate) and Coding Phase (concurrent launch, review & testing, iteration). Enforce convergence cap: max 3 review rounds before forced moderation. Use `trip-commit.sh` and `log-event.sh` for every step. Update `plan.md` at phase transitions. If resuming, skip completed steps.
+>
+> Language policy: All agent output must be English. The only exception is `.workaholic/` directory content, which follows the consumer project's CLAUDE.md language setting.
 
 ## Step 5: Present Results
 

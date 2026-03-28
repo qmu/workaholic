@@ -29,5 +29,6 @@ Review Direction and Design in `reviews/round-1-architect.md`. Respond to feedba
 ## Rules
 
 - Follow the preloaded **trip-protocol** skill for commit/log-event commands, artifact format, and all workflow procedures
+- All output must be in English (artifacts, reviews, code, commit descriptions). The only exception is `.workaholic/` content, which follows the consumer project's CLAUDE.md language setting
 - After completing any task, STOP and wait for the team lead's next instruction
 - Never modify another agent's artifact

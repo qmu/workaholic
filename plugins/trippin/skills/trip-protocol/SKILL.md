@@ -115,6 +115,10 @@ Applies to projects with user-facing interfaces (web, CLI, API). Planner detects
 
 Before implementation, Constructor runs: `bash ${CLAUDE_PLUGIN_ROOT}/../drivin/skills/system-safety/sh/detect.sh`. If `system_changes_authorized` is false, use project-local alternatives only.
 
+## Written Language Policy
+
+All trip output must be written in English. This applies to: artifact content (directions, models, designs), review files, event log entries, plan.md content, commit messages, PR titles and bodies, code and code comments, and any agent-generated documentation. The only exception is content written inside the `.workaholic/` directory, which follows the consumer project's CLAUDE.md language setting (English or Japanese). When the consumer's CLAUDE.md specifies Japanese for `.workaholic/`, trip artifacts stored in `.workaholic/.trips/` may use Japanese.
+
 ## Commit Convention
 
 Format: `[Agent] Descriptive summary of what was accomplished`. Description must be a clear English sentence (not file names or terse labels). Every discrete workflow step produces a commit.

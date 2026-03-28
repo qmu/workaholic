@@ -87,3 +87,5 @@ After writing the report:
 3. Create or update PR using `gh pr create` with the report as body
 
 The PR title should be derived from the direction summary (first sentence or key phrase).
+
+The report, PR title, and PR body must be written in English.

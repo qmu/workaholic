@@ -29,7 +29,8 @@ Parse the JSON output. Route to the appropriate workflow based on `context`.
 
 1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash ${CLAUDE_PLUGIN_ROOT}/../drivin/skills/branching/sh/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
 2. **Invoke story-writer** (`subagent_type: "drivin:story-writer"`, `model: "opus"`)
-3. **Display PR URL** from story-writer result (mandatory)
+3. **Display story content**: Read the story file from the `story_file` path in the story-writer result and output the entire Markdown content so the developer can review inline
+4. **Display PR URL** from story-writer result (mandatory)
 
 #### Trip Context (`context: "trip"`)
 
@@ -45,7 +46,8 @@ Use the `trip_name` from the detection result, or `$ARGUMENT` if provided.
    git push -u origin <branch-name>
    ```
 5. **Create or update PR**: Derive title from direction summary. Use `gh pr create` or `gh pr edit` if PR already exists.
-6. **Display PR URL** (mandatory)
+6. **Display story content**: Read `.workaholic/stories/<branch-name>.md` and output the entire Markdown content so the developer can review inline
+7. **Display PR URL** (mandatory)
 
 #### Trip-Drive Hybrid Context (`context: "trip_drive"`)
 

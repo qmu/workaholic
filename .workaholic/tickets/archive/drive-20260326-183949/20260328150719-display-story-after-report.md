@@ -3,9 +3,9 @@ created_at: 2026-03-28T15:07:19+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 0dfbbcd
+category: Changed
 ---
 
 # Display Story Content After /report Completes
@@ -61,3 +61,7 @@ Past tickets that touched similar areas:
 - The story file contains YAML frontmatter (branch, dates, metrics). Including frontmatter in the output is acceptable since it provides useful context about the branch. (`plugins/drivin/skills/write-story/SKILL.md` lines 199-215)
 - The Trip Context flow writes the story file directly (not via story-writer subagent), so the display step for trips should read from `.workaholic/stories/<branch-name>.md` directly rather than from a subagent result field. (`plugins/core/commands/report.md` lines 38-48)
 - No approval dialog or user interaction is needed -- this is a read-only display step that does not gate the workflow. The developer decides their next action independently.
+
+## Final Report
+
+Development completed as planned.

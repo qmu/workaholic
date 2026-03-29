@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: refactoring
 layer: [Config]
 effort:
-commit_hash:
-category:
+commit_hash: 1811c2f
+category: Changed
 ---
 
 # Restructure Story Template: Remove Performance and Merge Journey into Changes

@@ -14,13 +14,12 @@ Story sections are populated from parallel agent outputs:
 
 | Agent | Sections | Fields |
 | ----- | -------- | ------ |
-| overview-writer | 1, 2, 3 | `overview`, `highlights[]`, `motivation`, `journey.mermaid`, `journey.summary` |
-| section-reviewer | 5, 6, 7, 8 | `outcome`, `historical_analysis`, `concerns`, `ideas` |
-| performance-analyst | 9 | metrics JSON + decision review markdown |
-| release-readiness | 10 | `verdict`, `concerns[]`, `instructions.pre_release[]`, `instructions.post_release[]` |
+| overview-writer | 1, 2, 3 (journey preamble) | `overview`, `highlights[]`, `motivation`, `journey.mermaid`, `journey.summary` |
+| section-reviewer | 4, 5, 6, 7 | `outcome`, `historical_analysis`, `concerns`, `ideas` |
+| release-readiness | 8 | `verdict`, `concerns[]`, `instructions.pre_release[]`, `instructions.post_release[]` |
 | release-note-writer | (separate file) | Writes to `.workaholic/release-notes/<branch>.md` |
 
-Section 4 (Changes) comes from archived tickets. Section 11 (Notes) is optional context.
+Section 3 (Changes) comes from archived tickets, prefaced by journey content from overview-writer. Section 9 (Notes) is optional context.
 
 ## Story Content Structure
 
@@ -41,27 +40,15 @@ The story content (this IS the PR description):
 
 [Content from overview-writer `motivation` field: paragraph synthesizing the "why" from commit context.]
 
-## 3. Journey
+## 3. Changes
+
+[Content from overview-writer `journey.mermaid` for the flowchart and `journey.summary` for the prose below it.]
 
 ```mermaid
-flowchart LR
-  subgraph Subagents[Subagent Architecture]
-    direction TB
-    s1[Extract spec-writer] --> s2[Extract story-writer] --> s3[Extract changelog-writer] --> s4[Extract pr-creator]
-  end
-
-  subgraph GitSafety[Git Command Safety]
-    direction TB
-    g1[Add git guidelines] --> g2[Strengthen rules] --> g3[Embed in agents] --> g4[Use deny rule]
-  end
-
-  subgraph Commands[Command Simplification]
-    direction TB
-    c1[Remove /sync] --> c2[Remove /commit] --> c3[Unify to /report]
-  end
-
-  Subagents --> GitSafety --> Commands
+[Content from overview-writer `journey.mermaid`]
 ```
+
+[Content from overview-writer `journey.summary`]
 
 **Flowchart Guidelines:**
 - Use `flowchart LR` for horizontal timeline (subgraphs arranged left-to-right)
@@ -71,17 +58,13 @@ flowchart LR
 - Use descriptive node labels: `id[Description]` syntax
 - Maximum 3-5 subgraphs per diagram
 
-[Content from overview-writer `journey.mermaid` for the flowchart and `journey.summary` for this prose section.]
-
-## 4. Changes
-
 One subsection per ticket, in chronological order:
 
-### 4-1. <Ticket title> ([hash](<repo-url>/commit/<hash>))
+### 3-1. <Ticket title> ([hash](<repo-url>/commit/<hash>))
 
 <1-3 sentence summary of what this ticket changed and why. Focus on the intent and scope of the change rather than enumerating individual files.>
 
-### 4-2. <Next ticket title> ([hash](<repo-url>/commit/<hash>))
+### 3-2. <Next ticket title> ([hash](<repo-url>/commit/<hash>))
 
 <1-3 sentence summary of what this ticket changed and why.>
 
@@ -92,20 +75,20 @@ One subsection per ticket, in chronological order:
 - **CRITICAL**: Commit hash MUST be a clickable GitHub link, not plain text
   - Wrong: `(abc1234)` or `(<hash>)`
   - Correct: `([abc1234](<repo-url>/commit/abc1234))`
-- Format: `### 4-N. <Title> ([hash](<repo-url>/commit/<hash>))`
+- Format: `### 3-N. <Title> ([hash](<repo-url>/commit/<hash>))`
 - **Summarize the change** in 1-3 sentences per ticket -- describe what was done and why, not individual files
 - Focus on intent, scope, and impact rather than enumerating every modified file
 - Chronological order matches ticket creation time
 
-## 5. Outcome
+## 4. Outcome
 
 [Summarize what was accomplished. Reference key tickets for details.]
 
-## 6. Historical Analysis
+## 5. Historical Analysis
 
 [Context from related past work. What similar problems were solved before? What patterns emerge from the Related History sections of tickets? If no related tickets exist, write "No related historical context."]
 
-## 7. Concerns
+## 6. Concerns
 
 [Risks, trade-offs, or issues discovered during implementation. Each concern should include identifiable references.]
 
@@ -116,57 +99,29 @@ One subsection per ticket, in chronological order:
 - Auto-approval configuration may be broader than intended (`~/.claude/settings.local.json`)
 
 **Guidelines**:
-- Reference the commit hash from section 4 where the concern was introduced
+- Reference the commit hash from section 3 where the concern was introduced
 - Include the file path where readers should investigate
 - Write "None" if nothing to report
 
-## 8. Ideas
+## 7. Ideas
 
 [Enhancement suggestions for future work. Improvements that were out of scope. "Nice to have" features identified during implementation. Write "None" if nothing to report.]
 
-## 9. Performance
-
-**Metrics**: <commits> commits over <duration> <unit> (<velocity> commits/<unit>)
-
-### 9-1. Pace Analysis
-
-[Quantitative reflection on development pace - was velocity consistent or varied? Were commits small and focused or large? Any patterns in timing?]
-
-### 9-2. Decision Review
-
-| Dimension      | Rating                            | Notes             |
-| -------------- | --------------------------------- | ----------------- |
-| Consistency    | Strong/Adequate/Needs Improvement | Brief observation |
-| Intuitivity    | ...                               | ...               |
-| Describability | ...                               | ...               |
-| Agility        | ...                               | ...               |
-| Density        | ...                               | ...               |
-
-**Strengths**: [Key positive patterns observed]
-
-**Areas for Improvement**: [Constructive suggestions]
-```
-
-**Performance-analyst input:**
-
-The performance-analyst output (metrics JSON and decision review markdown) is provided by story-writer which invokes performance-analyst as a parallel agent. Include the complete output in section 9.
-
-```markdown
-## 10. Release Preparation
+## 8. Release Preparation
 
 **Verdict**: [Ready for release / Needs attention before release]
 
-### 10-1. Concerns
+### 8-1. Concerns
 
 - [List any concerns from release-readiness analysis]
 - Or "None - changes are safe for release"
 
-### 10-2. Pre-release Instructions
+### 8-2. Pre-release Instructions
 
 - [Steps to take before running /release]
 - Or "None - standard release process applies"
 
-### 10-3. Post-release Instructions
+### 8-3. Post-release Instructions
 
 - [Steps to take after release]
 - Or "None - no special post-release actions needed"
@@ -188,29 +143,22 @@ The release-readiness JSON is provided by story-writer which invokes release-rea
 }
 ```
 
-Format this JSON into section 10.
+Format this JSON into section 8.
 
 ```markdown
-## 11. Notes
+## 9. Notes
 
 Additional context for reviewers or future reference.
 ```
 
 ## Story Frontmatter
 
-Create `.workaholic/stories/<branch-name>.md` with YAML frontmatter. Metrics values come from performance-analyst output:
+Create `.workaholic/stories/<branch-name>.md` with YAML frontmatter:
 
 ```yaml
 ---
 branch: <branch-name>
-started_at: <from performance-analyst metrics>
-ended_at: <from performance-analyst metrics>
 tickets_completed: <count of tickets>
-commits: <from performance-analyst metrics>
-duration_hours: <from performance-analyst metrics>
-duration_days: <from performance-analyst metrics if velocity_unit is "day">
-velocity: <from performance-analyst metrics>
-velocity_unit: <from performance-analyst metrics>
 ---
 ```
 

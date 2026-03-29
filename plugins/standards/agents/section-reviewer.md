@@ -1,6 +1,6 @@
 ---
 name: section-reviewer
-description: Generate story sections 5-8 (Outcome, Historical Analysis, Concerns, Ideas) by analyzing archived tickets.
+description: Generate story sections 4-7 (Outcome, Historical Analysis, Concerns, Ideas) by analyzing archived tickets.
 tools: Read, Glob, Grep
 model: haiku
 skills:
@@ -9,7 +9,7 @@ skills:
 
 # Section Reviewer
 
-Generate content for story sections 5-8 by analyzing archived tickets for the branch.
+Generate content for story sections 4-7 by analyzing archived tickets for the branch.
 
 ## Input
 
@@ -32,7 +32,7 @@ You will receive:
 
 3. **Generate section content** following the preloaded review-sections skill guidelines
 
-4. **Return JSON output** with sections 5-8 content
+4. **Return JSON output** with sections 4-7 content
 
 ## Output
 

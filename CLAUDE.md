@@ -26,20 +26,24 @@ Edit `plugins/` not `.claude/`. This repo develops plugins - changes go to `plug
 plugins/                 # Plugin source directories
   core/                  # Core shared plugin
     .claude-plugin/      # Plugin configuration
-    commands/            # report, ship
+    commands/            # report, ship, worktree
     skills/              # branching
-  drivin/                # Drivin development plugin
+  standards/             # Standards policy plugin (no commands)
     .claude-plugin/      # Plugin configuration
-    agents/              # performance-analyst
-    commands/            # ticket, drive
+    agents/              # leads, managers, writers, analysts
+    skills/              # lead-*, manage-*, analyze-*, write-*
+  drivin/                # Drivin ticket-driving plugin
+    .claude-plugin/      # Plugin configuration
+    agents/              # ticket-organizer, drive-navigator, story-writer
+    commands/            # ticket, drive, scan
     rules/               # general, typescript
-    skills/              # archive-ticket
+    skills/              # archive-ticket, drive-workflow
   trippin/               # Trippin exploration plugin
     .claude-plugin/      # Plugin configuration
     commands/            # trip
     agents/              # planner, architect, constructor
     skills/              # trip-protocol, write-trip-report, ship
-    rules/               # (empty)
+    rules/               # i18n
 ```
 
 ## Architecture Policy
@@ -146,6 +150,7 @@ No build step required - this is a configuration/documentation project.
 Version files:
 - `.claude-plugin/marketplace.json` - root `version` field
 - `plugins/core/.claude-plugin/plugin.json` - plugin `version` field
+- `plugins/standards/.claude-plugin/plugin.json` - plugin `version` field
 - `plugins/drivin/.claude-plugin/plugin.json` - plugin `version` field
 - `plugins/trippin/.claude-plugin/plugin.json` - plugin `version` field
 

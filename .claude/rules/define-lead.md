@@ -1,7 +1,7 @@
 ---
 paths:
-  - 'plugins/core/skills/lead-*/SKILL.md'
-  - 'plugins/core/agents/*-lead.md'
+  - 'plugins/standards/skills/lead-*/SKILL.md'
+  - 'plugins/standards/agents/*-lead.md'
 ---
 
 # Lead Agent Schema Enforcement
@@ -109,7 +109,7 @@ Use this checklist to verify a lead definition is complete and well-formed:
 
 ## Agent Template
 
-Every lead has a corresponding thin agent file at `plugins/core/agents/<speciality>-lead.md`. The agent is a multi-purpose orchestrator — it is not tied to a single task type. Callers invoke it with a prompt describing what to do, and the agent applies the corresponding Default Policy from the lead skill.
+Every lead has a corresponding thin agent file at `plugins/standards/agents/<speciality>-lead.md`. The agent is a multi-purpose orchestrator — it is not tied to a single task type. Callers invoke it with a prompt describing what to do, and the agent applies the corresponding Default Policy from the lead skill.
 
 ```markdown
 ---

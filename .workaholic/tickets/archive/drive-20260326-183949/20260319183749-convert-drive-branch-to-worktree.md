@@ -3,9 +3,9 @@ created_at: 2026-03-19T18:37:49+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX, Domain, Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 19f98e8
+category: Added
 ---
 
 # Convert Drive Branch to Worktree and Back
@@ -110,3 +110,7 @@ Past tickets that touched similar areas:
 - The `detect-context.sh` script does not currently account for being run from inside a worktree where the branch is `drive-*`. This already works correctly because it checks `git branch --show-current` which returns the worktree's branch regardless of whether it is a worktree or the main tree. No change needed to detect-context for basic operation. (`plugins/core/skills/branching/sh/detect-context.sh`)
 - The reverse direction (eject) is primarily useful when a user no longer needs isolation and wants to return to working in the main repository directory. This is a convenience operation -- the user could also just `cd` to the main repo and checkout the branch manually after removing the worktree. Providing a script makes it safe and atomic. (`plugins/core/skills/branching/sh/eject-worktree.sh`)
 - Dev environment validation (`validate-dev-env.sh`) should be recommended after adopting a branch into a worktree, similar to how it runs during trip worktree creation. The adopt script itself should not run validation (separation of concerns), but the calling command or skill should document this as a follow-up step. (`plugins/trippin/skills/trip-protocol/sh/validate-dev-env.sh`)
+
+## Final Report
+
+Development completed as planned.

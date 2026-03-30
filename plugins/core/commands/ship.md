@@ -53,7 +53,7 @@ Use the `trip_name` from the detection result, or `$ARGUMENT` if provided.
 
 1. **Pre-check**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/sh/pre-check.sh "trip/<trip-name>"`. If `found` is `false`: inform user "No PR found for this trip. Run `/report` first." and stop. If `merged` is `true`: skip to Clean up worktree.
 2. **Merge PR**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/sh/merge-pr.sh "<pr-number>"`. On failure, inform user and stop (worktree preserved).
-3. **Clean up worktree**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/cleanup-worktree.sh "<trip-name>"`. Report what was cleaned up.
+3. **Clean up worktree** (if applicable): Check if `.worktrees/<trip-name>/` exists. If yes, run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/cleanup-worktree.sh "<trip-name>"` and report what was cleaned up. If no worktree exists, skip this step.
 4. **Deploy**: Same as Drive Context step 3 (from repo root after merge).
 5. **Verify**: Same as Drive Context step 4.
 6. **Summarize**: PR merge status, worktree cleanup status, deployment status, verification results.
@@ -63,7 +63,7 @@ Use the `trip_name` from the detection result, or `$ARGUMENT` if provided.
 This branch started as a trip and has drive-style tickets. Follow the Drive Context shipping workflow (steps 1-5), then additionally clean up the trip worktree:
 
 1. Follow Drive Context steps 1-5 (pre-check, merge, deploy, verify, summarize)
-2. **Clean up worktree**: After successful merge, run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/cleanup-worktree.sh "<trip_name>"` using `trip_name` from detection result. Report what was cleaned up.
+2. **Clean up worktree** (if applicable): After successful merge, check if `.worktrees/<trip_name>/` exists. If yes, run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/cleanup-worktree.sh "<trip_name>"` using `trip_name` from detection result. Report what was cleaned up. If no worktree exists, skip this step.
 
 #### Trip Worktree Context (`context: "trip_worktree"`)
 

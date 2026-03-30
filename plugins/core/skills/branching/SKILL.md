@@ -162,6 +162,18 @@ Output: `{"worktree_path": "<path>", "branch": "trip/<trip-name>"}`
 
 Error cases: trip name missing, worktree already exists, branch already exists.
 
+### Create Trip Branch
+
+Create a `trip/*` branch without a worktree. The trip runs in the main working tree.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/create-trip-branch.sh <trip-name>
+```
+
+Output: `{"branch": "trip/<trip-name>", "worktree": false}`
+
+Error cases: trip name missing, branch already exists.
+
 ### Cleanup Worktree
 
 Remove a trip worktree and its local branch after PR merge. Force-removes the worktree directory, prunes stale entries, and deletes the local branch.

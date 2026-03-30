@@ -9,13 +9,13 @@ skills:
 
 **Notice:** When user input contains `/trip` -- whether "run /trip", "start /trip", "take a /trip", or similar -- they likely want this command.
 
-Launch an Agent Teams session to collaboratively explore and develop a concept through the Implosive Structure workflow. The session runs in an isolated git worktree.
+Launch an Agent Teams session to collaboratively explore and develop a concept through the Implosive Structure workflow. The session runs either in an isolated git worktree or on a trip branch in the main working tree.
 
 **Prerequisites**: Agent Teams enabled (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), clean git state.
 
-## Step 1: Create or Resume Worktree
+## Step 1: Create or Resume Trip
 
-Check for existing trip worktrees:
+Check for existing trip worktrees and trip branches:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/sh/list-trip-worktrees.sh
@@ -23,16 +23,23 @@ bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/sh/list-trip-worktrees.sh
 
 If `count > 0`, present choices via AskUserQuestion: list each existing trip, plus option to create new.
 
-**Resume**: Use selected worktree's path/branch. Read plan state:
+**Resume (worktree)**: Use selected worktree's path/branch. Read plan state:
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/sh/read-plan.sh "<trip-path>"
 ```
 Route by state: `planning/not-started` -> Step 3, any other planning/coding step -> Step 4 with resume context, `complete/done` -> inform user and suggest `/report`.
 
-**New**: Generate worktree:
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/sh/ensure-worktree.sh "trip-$(date +%Y%m%d-%H%M%S)"
-```
+**New**: Present a choice via AskUserQuestion:
+- **"Create worktree"** - Isolated environment. Run:
+  ```bash
+  bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/sh/ensure-worktree.sh "trip-$(date +%Y%m%d-%H%M%S)"
+  ```
+  Set `<working_dir>` to the worktree path from the output.
+- **"Branch only"** - Lightweight, no worktree. Run:
+  ```bash
+  bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/sh/create-trip-branch.sh "trip-$(date +%Y%m%d-%H%M%S)"
+  ```
+  Set `<working_dir>` to the repository root.
 
 ## Step 2: Initialize Trip Artifacts
 
@@ -43,7 +50,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/sh/init-trip.sh "<trip-name>" "$
 ## Step 3: Validate Dev Environment
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/sh/validate-dev-env.sh "<worktree_path>"
+bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/sh/validate-dev-env.sh "<working_dir>"
 ```
 
 If `ready` is false, fix each failing check (copy env files, install dependencies, configure ports) and re-run.
@@ -54,7 +61,7 @@ Create a three-member Agent Team. The team lead instruction:
 
 > You are the team lead coordinating a trip session. Follow the preloaded **trip-protocol** skill for the complete workflow.
 >
-> **Working directory**: `<worktree_path>`
+> **Working directory**: `<working_dir>`
 > **Trip path**: `<trip_path>`
 > **User instruction**: `$ARGUMENT`
 > **Resume state**: `<phase>/<step>` from read-plan.sh
@@ -64,7 +71,7 @@ Create a three-member Agent Team. The team lead instruction:
 > 2. **Architect** (`trippin:architect`) - Structural bridge, analytical review
 > 3. **Constructor** (`trippin:constructor`) - Technical implementation, internal testing
 >
-> All agents work inside `<worktree_path>`. Follow trip-protocol for the Planning Phase (concurrent artifacts, one-turn review, respond/escalate, moderate) and Coding Phase (concurrent launch, review & testing, iteration). Enforce convergence cap: max 3 review rounds before forced moderation. Use `trip-commit.sh` and `log-event.sh` for every step. Update `plan.md` at phase transitions. If resuming, skip completed steps.
+> All agents work inside `<working_dir>`. Follow trip-protocol for the Planning Phase (concurrent artifacts, one-turn review, respond/escalate, moderate) and Coding Phase (concurrent launch, review & testing, iteration). Enforce convergence cap: max 3 review rounds before forced moderation. Use `trip-commit.sh` and `log-event.sh` for every step. Update `plan.md` at phase transitions. If resuming, skip completed steps.
 >
 > Language policy: All agent output must be English. The only exception is `.workaholic/` directory content, which follows the consumer project's CLAUDE.md language setting.
 >
@@ -76,6 +83,6 @@ After the team completes:
 1. List all artifacts in the trip path
 2. Summarize the agreed direction, model, and design
 3. Report implementation results
-4. Show the worktree branch name
+4. Show the trip branch name
 5. Transition guidance: "Use `/report` and `/ship` when ready to merge."
-6. Continuation guidance: "For follow-up modifications in this worktree, request changes directly -- the lead will handle simple tasks or re-invoke the designated agents (Planner, Architect, Constructor). No new agents are created."
+6. Continuation guidance: "For follow-up modifications, request changes directly -- the lead will handle simple tasks or re-invoke the designated agents (Planner, Architect, Constructor). No new agents are created."

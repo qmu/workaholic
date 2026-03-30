@@ -6,7 +6,7 @@ model: opus
 color: blue
 skills:
   - trip-protocol
-  - drivin:system-safety
+  - core:system-safety
 ---
 
 # Constructor

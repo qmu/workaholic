@@ -55,7 +55,7 @@ git add -A
 
 # Delegate to commit skill (with --skip-staging since we already staged)
 SCRIPT_DIR=$(dirname "$0")
-COMMIT_SCRIPT="${SCRIPT_DIR}/../../commit/sh/commit.sh"
+COMMIT_SCRIPT="${SCRIPT_DIR}/../../../../core/skills/commit/sh/commit.sh"
 
 bash "$COMMIT_SCRIPT" --skip-staging "$COMMIT_MSG" "$DESCRIPTION" "$CHANGES" "$TEST_PLAN" "$RELEASE_PREP"
 

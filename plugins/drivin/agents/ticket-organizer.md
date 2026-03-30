@@ -4,9 +4,9 @@ description: Discover context, check duplicates, and write implementation ticket
 tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: opus
 skills:
-  - branching
+  - core:branching
   - create-ticket
-  - gather-ticket-metadata
+  - core:gather-ticket-metadata
 ---
 
 # Ticket Organizer

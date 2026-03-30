@@ -2,7 +2,7 @@
 name: create-ticket
 description: Create implementation tickets with proper format and conventions.
 skills:
-  - gather-ticket-metadata
+  - core:gather-ticket-metadata
 user-invocable: false
 ---
 
@@ -15,7 +15,7 @@ Guidelines for creating implementation tickets in `.workaholic/tickets/`.
 **Run the gather-ticket-metadata script:**
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-ticket-metadata/sh/gather.sh
+bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/gather-ticket-metadata/sh/gather.sh
 ```
 
 Parse the JSON output:

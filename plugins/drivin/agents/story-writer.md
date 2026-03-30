@@ -3,7 +3,7 @@ name: story-writer
 description: Generate branch story for PR description and create/update the pull request.
 tools: Read, Write, Edit, Bash, Glob, Grep, Task
 skills:
-  - gather-git-context
+  - core:gather-git-context
   - write-story
 ---
 

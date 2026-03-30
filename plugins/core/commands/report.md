@@ -41,7 +41,7 @@ Parse the JSON output. Route to the appropriate workflow based on `context`.
 
 #### Drive Context (`context: "drive"`)
 
-1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash ${CLAUDE_PLUGIN_ROOT}/../drivin/skills/branching/sh/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
+1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
 2. **Invoke story-writer** (`subagent_type: "drivin:story-writer"`, `model: "opus"`)
 3. **Display story content**: Read the story file from the `story_file` path in the story-writer result and output the entire Markdown content so the developer can review inline
 4. **Display PR URL** from story-writer result (mandatory)

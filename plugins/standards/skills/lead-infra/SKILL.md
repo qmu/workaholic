@@ -16,7 +16,6 @@ The infra lead owns the project's infrastructure viewpoint. It analyzes the repo
 - No fabricated claims exist.
 - Every statement is grounded in codebase evidence.
 - All gaps are marked as "not observed".
-- Translations are produced only when the user's root CLAUDE.md declares translation requirements.
 
 ### Responsibility
 
@@ -34,7 +33,6 @@ The infra lead owns the project's infrastructure viewpoint. It analyzes the repo
 - Only document infrastructure aspects that are observable in the codebase (configuration files, scripts, dependency manifests, or directory structures).
 - Cite evidence for each statement (e.g., package.json, Dockerfile, config file).
 - Follow the analyze-viewpoint output template for document structure.
-- Produce translations only when the user's root CLAUDE.md declares translation requirements. Do not hardcode specific languages.
 
 ### Review
 
@@ -58,4 +56,3 @@ The infra lead owns the project's infrastructure viewpoint. It analyzes the repo
 - Check overrides by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-viewpoint/sh/read-overrides.sh`.
 - Use the analysis prompts: What external tools and services are depended on? What is the file system layout? How is the system installed and configured? What environment requirements exist?
 - Read relevant source files to understand the repository's infrastructure before writing.
-- Write the English spec first, then produce translations per the user's translation policy declared in their root CLAUDE.md.

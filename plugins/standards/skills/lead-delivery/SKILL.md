@@ -16,7 +16,6 @@ The delivery lead owns the project's delivery policy domain. It analyzes the rep
 - No fabricated policies exist.
 - Every statement cites its enforcement mechanism.
 - All gaps are marked as "not observed".
-- Translations are produced only when the user's root CLAUDE.md declares translation requirements.
 
 ### Responsibility
 
@@ -34,7 +33,6 @@ The delivery lead owns the project's delivery policy domain. It analyzes the rep
 - Only document delivery practices that are implemented and executable in the codebase (CI checks, workflows, scripts, deployment configurations, or release processes).
 - Cite the enforcement mechanism after each statement (e.g., workflow file, deploy script, release config).
 - Follow the analyze-policy output template for document structure.
-- Produce translations only when the user's root CLAUDE.md declares translation requirements. Do not hardcode specific languages.
 
 ### Review
 
@@ -56,4 +54,3 @@ The delivery lead owns the project's delivery policy domain. It analyzes the rep
 - Gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-policy/sh/gather.sh delivery main`.
 - Use the analysis prompts: What CI/CD pipelines are configured? What build steps exist? What deployment strategies are used? What release processes are defined?
 - Read relevant source files to understand the repository's delivery practices before writing.
-- Write the English policy first, then produce translations per the user's translation policy declared in their root CLAUDE.md.

@@ -6,7 +6,6 @@ skills:
   - managers-principle
   - manage-quality
   - write-spec
-  - translate
 ---
 
 # Quality Manager

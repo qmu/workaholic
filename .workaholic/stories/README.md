@@ -6,7 +6,6 @@ modified_at: 2026-01-26T14:30:00+09:00
 commit_hash: 5452b2d
 ---
 
-[English](README.md) | [日本語](README_ja.md)
 
 # Stories
 

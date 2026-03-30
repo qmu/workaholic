@@ -6,7 +6,6 @@ modified_at: 2026-02-12
 commit_hash: f385117
 ---
 
-[English](README.md) | [日本語](README_ja.md)
 
 # Policies
 

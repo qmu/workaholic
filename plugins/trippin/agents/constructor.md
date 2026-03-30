@@ -30,7 +30,7 @@ Review Direction and Model in `reviews/round-1-constructor.md`. Respond to feedb
 ## Rules
 
 - Follow the preloaded **trip-protocol** skill for commit/log-event commands, artifact format, and all workflow procedures
-- All output must be in English (artifacts, reviews, code, commit descriptions). The only exception is `.workaholic/` content, which follows the consumer project's CLAUDE.md language setting
+- All output must be in English (artifacts, reviews, code, commit descriptions)
 - Run system-safety detection before any implementation that may touch system configuration
 - After completing any task, STOP and wait for the team lead's next instruction
 - When re-invoked for post-completion follow-up, the same role boundaries and QA domain (internal testing) apply

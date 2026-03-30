@@ -134,7 +134,7 @@ Before implementation, Constructor runs: `bash ${CLAUDE_PLUGIN_ROOT}/../core/ski
 
 ## Written Language Policy
 
-All trip output must be written in English. This applies to: artifact content (directions, models, designs), review files, event log entries, plan.md content, commit messages, PR titles and bodies, code and code comments, and any agent-generated documentation. The only exception is content written inside the `.workaholic/` directory, which follows the consumer project's CLAUDE.md language setting (English or Japanese). When the consumer's CLAUDE.md specifies Japanese for `.workaholic/`, trip artifacts stored in `.workaholic/.trips/` may use Japanese.
+All trip output must be written in English. This applies to: artifact content, review files, event log entries, plan.md content, commit messages, PR titles and bodies, code and code comments, and any agent-generated documentation.
 
 ## Commit Convention
 

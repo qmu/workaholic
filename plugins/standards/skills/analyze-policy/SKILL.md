@@ -2,8 +2,7 @@
 name: analyze-policy
 description: Generic framework for policy-based repository analysis. Provides output templates, inference guidelines, and context gathering scripts.
 allowed-tools: Bash
-skills:
-  - translate
+skills: []
 user-invocable: false
 ---
 
@@ -33,8 +32,6 @@ category: developer
 modified_at: <ISO 8601 datetime>
 commit_hash: <from context>
 ---
-
-[English](<slug>.md) | [Japanese](<slug>_ja.md)
 
 # <Policy Name> Policy
 
@@ -91,5 +88,4 @@ commit_hash: <from context COMMIT section>
 ## File Naming
 
 - Policy documents use their slug as filename: `test.md`, `security.md`
-- Translations use `_ja` suffix: `test_ja.md`, `security_ja.md`
 - All files reside in `.workaholic/policies/`

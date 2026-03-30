@@ -16,7 +16,6 @@ The observability lead owns the project's observability policy domain. It analyz
 - No fabricated policies exist.
 - Every statement cites its enforcement mechanism.
 - All gaps are marked as "not observed".
-- Translations are produced only when the user's root CLAUDE.md declares translation requirements.
 
 ### Responsibility
 
@@ -34,7 +33,6 @@ The observability lead owns the project's observability policy domain. It analyz
 - Only document observability practices that are implemented and executable in the codebase (CI checks, hooks, scripts, monitoring configurations, or logging frameworks).
 - Cite the enforcement mechanism after each statement (e.g., workflow file, logging config, monitoring setup).
 - Follow the analyze-policy output template for document structure.
-- Produce translations only when the user's root CLAUDE.md declares translation requirements. Do not hardcode specific languages.
 
 ### Review
 
@@ -56,4 +54,3 @@ The observability lead owns the project's observability policy domain. It analyz
 - Gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-policy/sh/gather.sh observability main`.
 - Use the analysis prompts: What logging frameworks and practices exist? What metrics are collected? What tracing and monitoring tools are used? What alerting thresholds are configured?
 - Read relevant source files to understand the repository's observability practices before writing.
-- Write the English policy first, then produce translations per the user's translation policy declared in their root CLAUDE.md.

@@ -3,9 +3,9 @@ created_at: 2026-03-30T20:49:55+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 724b15b
+category: Changed
 ---
 
 # Deprecate I18n-Related Configuration
@@ -114,3 +114,7 @@ Past tickets that touched similar areas:
 - Deleting 43 `_ja.md` files is a large operation. The `git add` for this commit should be done carefully -- `git add -u .workaholic/` after deletion captures all removals, or `git rm` each file explicitly (`plugins/standards/skills/validate-writer-output/sh/validate.sh` is not affected since it only checks English filenames)
 - The `plugins/drivin/rules/workaholic.md` also mentions `README_ja.md` in the allowed root-level files line. This should be simplified to just `README.md` (`plugins/drivin/rules/workaholic.md` line 17)
 - Existing `.workaholic/` README.md files likely contain language navigation links like `[English](README.md) | [Japanese](README_ja.md)` that need to be removed from the top of each file (`.workaholic/README.md`, `.workaholic/specs/README.md`, `.workaholic/terms/README.md`, `.workaholic/guides/README.md`, `.workaholic/policies/README.md`, `.workaholic/stories/README.md`)
+
+## Final Report
+
+Removed all i18n infrastructure: deleted 2 i18n rule files, 1 translate skill directory, 43 _ja.md documentation files, and the Written Language section from CLAUDE.md. Removed translate skill references from 15 agent frontmatter files, 4 analysis/writing skills, 10 lead skills, and 1 management skill. Simplified a11y lead to focus on accessibility without i18n analysis scope. Simplified trippin language policy across 3 agents, trip-protocol skill, and trip command (kept "write in English" instruction, removed .workaholic/ Japanese exception). Removed language navigation from 6 README.md files. Removed i18n file search from analyze-policy gather script. Updated CLAUDE.md project structure to reflect removed rules.

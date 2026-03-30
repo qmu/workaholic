@@ -6,7 +6,6 @@ skills:
   - leaders-principle
   - lead-delivery
   - analyze-policy
-  - translate
 ---
 
 # Delivery Lead

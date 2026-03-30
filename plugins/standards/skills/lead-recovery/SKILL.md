@@ -16,7 +16,6 @@ The recovery lead owns the project's recovery policy domain. It analyzes the rep
 - No fabricated policies exist.
 - Every statement cites its enforcement mechanism.
 - All gaps are marked as "not observed".
-- Translations are produced only when the user's root CLAUDE.md declares translation requirements.
 
 ### Responsibility
 
@@ -34,7 +33,6 @@ The recovery lead owns the project's recovery policy domain. It analyzes the rep
 - Only document recovery practices that are implemented and executable in the codebase (backup scripts, migration tools, retention configurations, or recovery procedures).
 - Cite the enforcement mechanism after each statement (e.g., backup script, migration config, recovery runbook).
 - Follow the analyze-policy output template for document structure.
-- Produce translations only when the user's root CLAUDE.md declares translation requirements. Do not hardcode specific languages.
 
 ### Review
 
@@ -56,4 +54,3 @@ The recovery lead owns the project's recovery policy domain. It analyzes the rep
 - Gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-policy/sh/gather.sh recovery main`.
 - Use the analysis prompts: What data persistence mechanisms exist? What backup and snapshot capabilities are available? What migration strategies are used? What recovery procedures are documented?
 - Read relevant source files to understand the repository's recovery practices before writing.
-- Write the English policy first, then produce translations per the user's translation policy declared in their root CLAUDE.md.

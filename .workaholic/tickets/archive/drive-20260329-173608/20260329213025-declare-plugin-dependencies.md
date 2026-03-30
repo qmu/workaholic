@@ -3,9 +3,9 @@ created_at: 2026-03-29T21:30:25+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 9f71674
+category: Changed
 ---
 
 # Declare Plugin Dependencies and Clean Up Cross-Plugin References

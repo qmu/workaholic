@@ -40,7 +40,7 @@ fi
 
 # Other branch: check for trip worktrees
 script_dir="$(cd "$(dirname "$0")" && pwd)"
-list_script="${script_dir}/../../trip-protocol/sh/list-trip-worktrees.sh"
+list_script="${script_dir}/list-trip-worktrees.sh"
 
 if [ -f "$list_script" ]; then
   worktree_output=$(bash "$list_script" 2>/dev/null || echo '{"count": 0}')

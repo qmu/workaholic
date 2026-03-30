@@ -18,7 +18,7 @@ Launch an Agent Teams session to collaboratively explore and develop a concept t
 Check for existing trip worktrees:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/sh/list-trip-worktrees.sh
+bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/sh/list-trip-worktrees.sh
 ```
 
 If `count > 0`, present choices via AskUserQuestion: list each existing trip, plus option to create new.
@@ -31,7 +31,7 @@ Route by state: `planning/not-started` -> Step 3, any other planning/coding step
 
 **New**: Generate worktree:
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/sh/ensure-worktree.sh "trip-$(date +%Y%m%d-%H%M%S)"
+bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/sh/ensure-worktree.sh "trip-$(date +%Y%m%d-%H%M%S)"
 ```
 
 ## Step 2: Initialize Trip Artifacts

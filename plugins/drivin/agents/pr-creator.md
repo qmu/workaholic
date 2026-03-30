@@ -3,7 +3,7 @@ name: pr-creator
 description: Create or update GitHub PR from story file. Handles PR existence check, title derivation, and gh CLI operations.
 tools: Read, Bash, Glob
 skills:
-  - create-pr
+  - report
 ---
 
 # PR Creator
@@ -20,7 +20,7 @@ You will receive:
 ## Instructions
 
 1. Read `.workaholic/stories/<branch-name>.md` to extract the PR title.
-2. Follow the preloaded create-pr skill for title derivation and PR creation.
+2. Follow the preloaded report skill (Create PR section) for title derivation and PR creation.
 
 ## Output
 

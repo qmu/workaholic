@@ -4,7 +4,7 @@ description: Generate branch story for PR description and create/update the pull
 tools: Read, Write, Edit, Bash, Glob, Grep, Task
 skills:
   - core:gather-git-context
-  - write-story
+  - report
 ---
 
 # Story Writer
@@ -31,7 +31,7 @@ Wait for all 3 agents to complete. Track which succeeded and which failed.
 
 1. **Gather Source Data**: Read archived tickets using Glob pattern `.workaholic/tickets/archive/<branch-name>/*.md`. Extract frontmatter (`commit_hash`, `category`) and content (Overview, Final Report).
 
-2. **Write Story**: Follow the preloaded write-story skill for content structure, agent output mapping, templates, and guidelines.
+2. **Write Story**: Follow the preloaded report skill (Write Story section) for content structure, agent output mapping, templates, and guidelines.
 
 3. **Update Index**: Add entry to `.workaholic/stories/README.md`.
 

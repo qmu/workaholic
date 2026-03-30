@@ -12,7 +12,7 @@ Detect development context from the current git branch pattern to route unified 
 ## Context Detection
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/detect-context.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/detect-context.sh
 ```
 
 ### Output Format
@@ -38,7 +38,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/detect-context.sh
 Lightweight check for the existence of worktrees. Used by commands that should warn the user before proceeding when worktrees are available.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/check-worktrees.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-worktrees.sh
 ```
 
 ### Output Format
@@ -64,7 +64,7 @@ Unlike `list-trip-worktrees.sh`, this script does not query GitHub API for PR st
 Check whether the working directory has unstaged, untracked, or staged changes. Used by commands that should warn the user before proceeding when the workspace is not clean.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/check-workspace.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-workspace.sh
 ```
 
 ### Output Format
@@ -94,7 +94,7 @@ Unlike context detection, this script does not inspect branch patterns. It only 
 Take an existing branch and create a worktree for it at `.worktrees/<branch-name>/`. Handles the case where the user is currently on that branch by switching to `main` first.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/adopt-worktree.sh <branch-name>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/adopt-worktree.sh <branch-name>
 ```
 
 Output: `{"worktree_path": "<path>", "branch": "<branch>", "switched_from": true|false}`
@@ -106,7 +106,7 @@ Error cases: branch not found, worktree already exists, uncommitted changes.
 Collapse a worktree back to a regular branch in the main working tree. Preserves the branch (unlike `cleanup-worktree.sh` which deletes it).
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/eject-worktree.sh <worktree-path>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/eject-worktree.sh <worktree-path>
 ```
 
 Output: `{"ejected": true, "branch": "<branch>", "main_repo": "<path>"}`
@@ -118,7 +118,7 @@ Error cases: not a valid worktree, main tree has uncommitted changes.
 List all active worktrees with type detection (`trip`, `drive`, `other`). No GitHub API calls.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/list-all-worktrees.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/list-all-worktrees.sh
 ```
 
 Output:
@@ -137,7 +137,7 @@ Output:
 List active trip worktrees with PR status. Queries GitHub API for each worktree, so slower than `list-all-worktrees.sh`.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/list-trip-worktrees.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/list-trip-worktrees.sh
 ```
 
 Output:
@@ -155,7 +155,7 @@ Output:
 Create an isolated worktree and branch for a trip session. Creates `.worktrees/<trip-name>/` directory and a `trip/<trip-name>` branch.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/ensure-worktree.sh <trip-name>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/ensure-worktree.sh <trip-name>
 ```
 
 Output: `{"worktree_path": "<path>", "branch": "trip/<trip-name>"}`
@@ -167,7 +167,7 @@ Error cases: trip name missing, worktree already exists, branch already exists.
 Create a `trip/*` branch without a worktree. The trip runs in the main working tree.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/create-trip-branch.sh <trip-name>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create-trip-branch.sh <trip-name>
 ```
 
 Output: `{"branch": "trip/<trip-name>", "worktree": false}`
@@ -179,7 +179,7 @@ Error cases: trip name missing, branch already exists.
 Remove a trip worktree and its local branch after PR merge. Force-removes the worktree directory, prunes stale entries, and deletes the local branch.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/cleanup-worktree.sh <trip-name>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-worktree.sh <trip-name>
 ```
 
 Output: `{"cleaned": true, "worktree_path": "<path>", "branch": "trip/<trip-name>", "worktree_removed": true, "branch_removed": true}`
@@ -189,7 +189,7 @@ Output: `{"cleaned": true, "worktree_path": "<path>", "branch": "trip/<trip-name
 Check if the current branch is main/master or a topic branch.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/check.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check.sh
 ```
 
 ### Output Format
@@ -211,7 +211,7 @@ Topic branch patterns: `drive-*`, `trip-*`
 Create a new timestamped topic branch from the current branch.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/create.sh [prefix]
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh [prefix]
 ```
 
 ### Arguments
@@ -233,7 +233,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/create.sh [prefix]
 Check if a "Bump version" commit already exists in the current branch.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/check-version-bump.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-version-bump.sh
 ```
 
 ### Output Format

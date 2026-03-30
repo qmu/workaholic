@@ -22,7 +22,7 @@ You will receive:
 
 1. **Collect Commits**: Run the write-overview skill script:
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/write-overview/sh/collect-commits.sh <base-branch>
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/write-overview/scripts/collect-commits.sh <base-branch>
    ```
 
 2. **Analyze Commit Patterns**: Group commits by theme, identify phases, extract key changes.

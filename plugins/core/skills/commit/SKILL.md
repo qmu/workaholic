@@ -22,7 +22,7 @@ Before committing:
 ## Usage
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/sh/commit.sh \
+bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh \
   "<title>" "<description>" "<changes>" "<test-plan>" "<release-prep>" [files...]
 ```
 
@@ -99,7 +99,7 @@ What is needed to ship this change and support it afterward. Cover migration ste
 ### Implementation commit (with specific files)
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/sh/commit.sh \
+bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh \
   "Add session-based authentication" \
   "Users needed persistent login state across browser sessions. Previously, every page refresh required re-authentication, causing friction for returning users. Added cookie-based session management with configurable TTL, chosen over JWT tokens for simplicity and server-side revocation support." \
   "New 'Remember me' checkbox on the login form that persists sessions for 30 days. When unchecked, sessions expire when the browser closes. Session expiry now shows a friendly redirect to login instead of a raw 401 error." \
@@ -111,7 +111,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/sh/commit.sh \
 ### Archive commit (stage all changes)
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/sh/commit.sh \
+bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh \
   "Archive ticket: add-authentication" \
   "" \
   "None" \
@@ -122,7 +122,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/sh/commit.sh \
 ### Abandonment commit
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/sh/commit.sh \
+bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh \
   "Abandon: add-authentication" \
   "Implementation proved unworkable due to API limitations" \
   "None" \

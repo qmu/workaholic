@@ -50,6 +50,6 @@ The test lead owns the project's test policy domain. It analyzes the repository'
 ### Execution
 
 - Read the manage-quality output from `.workaholic/policies/` for quality standards and assurance process context before performing test analysis.
-- Gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-policy/sh/gather.sh test main`.
+- Gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-policy/scripts/gather.sh test main`.
 - Use the analysis prompts: What testing frameworks are used? What testing levels exist (unit, integration, e2e)? What coverage targets are defined? How are tests organized and run?
 - Read relevant source files to understand the repository's testing practices before writing.

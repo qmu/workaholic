@@ -51,6 +51,6 @@ The security lead owns the project's security policy domain. It analyzes the rep
 ### Execution
 
 - Read the manage-architecture output from `.workaholic/specs/` for system boundary and cross-cutting concern context before performing security analysis.
-- Gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-policy/sh/gather.sh security main`.
+- Gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-policy/scripts/gather.sh security main`.
 - Use the analysis prompts: What authentication mechanisms exist? What authorization boundaries are enforced? What secrets management practices are used? What input validation is performed?
 - Read relevant source files to understand the repository's security practices before writing.

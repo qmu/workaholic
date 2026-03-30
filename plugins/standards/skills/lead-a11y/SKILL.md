@@ -48,6 +48,6 @@ The a11y lead owns the project's accessibility policy domain. It analyzes the re
 ### Execution
 
 - Read the manage-quality output from `.workaholic/policies/` for quality dimensions and accessibility gap context before performing accessibility analysis.
-- Gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-policy/sh/gather.sh accessibility main`.
+- Gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-policy/scripts/gather.sh accessibility main`.
 - Use the analysis prompts: What accessibility testing is performed? What accessibility standards are followed?
 - Read relevant source files to understand the repository's accessibility practices before writing.

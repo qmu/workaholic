@@ -23,12 +23,12 @@ Analyze the repository from the model viewpoint and produce a specification docu
 
 1. **Gather Context**: Run:
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-viewpoint/sh/gather.sh model main
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-viewpoint/scripts/gather.sh model main
    ```
 
 2. **Check Overrides**: Run:
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-viewpoint/sh/read-overrides.sh
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-viewpoint/scripts/read-overrides.sh
    ```
    If overrides exist for this viewpoint, incorporate them into your analysis.
 

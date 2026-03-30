@@ -14,7 +14,7 @@ Guidelines for writing and updating terminology documentation in `.workaholic/te
 Run the bundled script to collect information about what changed:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/write-terms/sh/gather.sh [base-branch]
+bash ${CLAUDE_PLUGIN_ROOT}/skills/write-terms/scripts/gather.sh [base-branch]
 ```
 
 Default base branch is `main`.

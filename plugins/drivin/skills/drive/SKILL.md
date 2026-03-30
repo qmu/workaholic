@@ -223,7 +223,7 @@ mv <ticket-path> .workaholic/tickets/abandoned/
 Commit using **commit** skill:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/commit/sh/commit.sh \
+bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/commit/scripts/commit.sh \
   "Abandon: <ticket-title>" \
   "Implementation proved unworkable" \
   "None" \
@@ -264,12 +264,12 @@ ALWAYS use one of these exact values: `0.1h`, `0.25h`, `0.5h`, `1h`, `2h`, `4h`
 **MUST use update.sh** -- NEVER use the Edit tool to modify the effort field directly.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/sh/update.sh <ticket-path> effort <value>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/update.sh <ticket-path> effort <value>
 ```
 
 Example:
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/sh/update.sh .workaholic/tickets/todo/20260212-example.md effort 0.5h
+bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/update.sh .workaholic/tickets/todo/20260212-example.md effort 0.5h
 ```
 
 ### Final Report Section
@@ -334,7 +334,7 @@ Complete commit workflow after user approves implementation. Always use this scr
 ### Usage
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/sh/archive.sh \
+bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/archive.sh \
   <ticket-path> "<title>" <repo-url> "<description>" "<changes>" "<test-plan>" "<release-prep>"
 ```
 
@@ -363,7 +363,7 @@ Update ticket YAML frontmatter fields after implementation.
 ### Usage
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/sh/update.sh <ticket-path> <field> <value>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/update.sh <ticket-path> <field> <value>
 ```
 
 ### Fields

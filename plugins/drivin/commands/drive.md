@@ -19,12 +19,12 @@ Implement tickets from `.workaholic/tickets/todo/` using intelligent prioritizat
 Check if trip worktrees exist before proceeding:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/sh/check-worktrees.sh
+bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/check-worktrees.sh
 ```
 
 If `has_worktrees` is `true`, present the user with a choice using `AskUserQuestion` with selectable options:
 - **"Continue here"** - Proceed with drive on the current branch
-- **"Switch to worktree"** - Run `bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/sh/list-all-worktrees.sh`, display the worktree list, and inform the user to navigate to the selected worktree to run `/drive` there
+- **"Switch to worktree"** - Run `bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/list-all-worktrees.sh`, display the worktree list, and inform the user to navigate to the selected worktree to run `/drive` there
 
 If `has_worktrees` is `false`, proceed silently to Phase 1.
 
@@ -72,7 +72,7 @@ Follow the preloaded **drive** skill (Approval section) to present approval dial
 2. **Verify update succeeded**: If Edit tool fails, halt and report the error to user. DO NOT proceed to archive.
 3. Archive and commit by calling the archive script directly:
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/sh/archive.sh \
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/archive.sh \
      <ticket-path> "<title>" <repo-url> "<description>" "<changes>" "<test-plan>" "<release-prep>"
    ```
    Where `<ticket-path>` is the current ticket file path in `todo/`, `<title>` is the commit title,

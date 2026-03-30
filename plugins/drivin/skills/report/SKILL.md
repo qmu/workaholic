@@ -203,7 +203,7 @@ Use that first item as the title. If multiple items exist, append "etc" (e.g., "
 Run the bundled script:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/report/sh/create-or-update.sh <branch-name> "<title>"
+bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/create-or-update.sh <branch-name> "<title>"
 ```
 
 #### What the Script Does
@@ -219,7 +219,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/report/sh/create-or-update.sh <branch-name> "<
 A reusable script for removing YAML frontmatter from any markdown file:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/report/sh/strip-frontmatter.sh <file>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/strip-frontmatter.sh <file>
 ```
 
 Outputs clean markdown body to stdout. Handles files with frontmatter, without frontmatter (pass-through), and empty files. Only strips frontmatter starting on line 1 -- content `---` separators elsewhere are preserved.

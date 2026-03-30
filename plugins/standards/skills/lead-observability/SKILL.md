@@ -51,6 +51,6 @@ The observability lead owns the project's observability policy domain. It analyz
 ### Execution
 
 - Read the manage-architecture output from `.workaholic/specs/` for cross-cutting concern and structural context before performing observability analysis.
-- Gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-policy/sh/gather.sh observability main`.
+- Gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-policy/scripts/gather.sh observability main`.
 - Use the analysis prompts: What logging frameworks and practices exist? What metrics are collected? What tracing and monitoring tools are used? What alerting thresholds are configured?
 - Read relevant source files to understand the repository's observability practices before writing.

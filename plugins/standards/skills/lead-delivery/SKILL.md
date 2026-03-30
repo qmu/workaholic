@@ -51,6 +51,6 @@ The delivery lead owns the project's delivery policy domain. It analyzes the rep
 ### Execution
 
 - Read the manage-project output from `.workaholic/specs/` for timeline, milestone, and stakeholder context before performing delivery analysis.
-- Gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-policy/sh/gather.sh delivery main`.
+- Gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-policy/scripts/gather.sh delivery main`.
 - Use the analysis prompts: What CI/CD pipelines are configured? What build steps exist? What deployment strategies are used? What release processes are defined?
 - Read relevant source files to understand the repository's delivery practices before writing.

@@ -16,7 +16,7 @@ Merge a pull request, deploy to production, and verify the deployment. Claude Co
 ### 1-1. Search Order
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/sh/find-cloud-md.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/find-cloud-md.sh
 ```
 
 Searches: `./cloud.md`, `./.workaholic/cloud.md`
@@ -44,7 +44,7 @@ If no `cloud.md` is found, skip deploy and verify steps. Inform the user that de
 ### 2-1. Pre-check
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/sh/pre-check.sh "<branch>"
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/pre-check.sh "<branch>"
 ```
 
 Verifies a PR exists for the branch. Returns JSON with PR number, URL, and merge status.
@@ -52,7 +52,7 @@ Verifies a PR exists for the branch. Returns JSON with PR number, URL, and merge
 ### 2-2. Merge PR
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/sh/merge-pr.sh "<pr-number>"
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/merge-pr.sh "<pr-number>"
 ```
 
 Merges the PR, checks out main, and pulls to sync. Returns JSON with merge status and commit hash.
@@ -60,7 +60,7 @@ Merges the PR, checks out main, and pulls to sync. Returns JSON with merge statu
 ### 2-3. Find cloud.md
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/sh/find-cloud-md.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/find-cloud-md.sh
 ```
 
 Searches for cloud.md in standard locations. Returns JSON with path or `{"found": false}`.

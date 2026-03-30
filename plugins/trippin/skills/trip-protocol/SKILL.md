@@ -130,7 +130,7 @@ Applies to projects with user-facing interfaces (web, CLI, API). Planner detects
 
 ## System Safety
 
-Before implementation, Constructor runs: `bash ${CLAUDE_PLUGIN_ROOT}/../drivin/skills/system-safety/sh/detect.sh`. If `system_changes_authorized` is false, use project-local alternatives only.
+Before implementation, Constructor runs: `bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/system-safety/sh/detect.sh`. If `system_changes_authorized` is false, use project-local alternatives only.
 
 ## Written Language Policy
 

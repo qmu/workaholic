@@ -3,9 +3,9 @@ created_at: 2026-03-29T21:30:23+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 4cb1503
+category: Changed
 ---
 
 # Move System-Safety Skill from Drivin to Core

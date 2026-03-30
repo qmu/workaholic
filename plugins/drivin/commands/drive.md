@@ -6,7 +6,7 @@ skills:
   - drive-approval
   - write-final-report
   - archive-ticket
-  - system-safety
+  - core:system-safety
 ---
 
 # Drive

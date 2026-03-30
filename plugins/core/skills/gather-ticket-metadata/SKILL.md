@@ -12,7 +12,7 @@ Gathers all dynamic metadata values needed for ticket frontmatter in a single sh
 ## Usage
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-ticket-metadata/sh/gather.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-ticket-metadata/scripts/gather.sh
 ```
 
 ## Output

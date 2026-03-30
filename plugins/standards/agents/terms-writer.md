@@ -20,7 +20,7 @@ You will receive:
 
 1. **Gather Context**: Use the "Gather Context" section of the preloaded write-terms skill:
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/write-terms/sh/gather.sh [base-branch]
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/write-terms/scripts/gather.sh [base-branch]
    ```
    Read archived tickets if they exist, otherwise use diff output.
 

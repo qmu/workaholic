@@ -51,6 +51,6 @@ The recovery lead owns the project's recovery policy domain. It analyzes the rep
 ### Execution
 
 - Read the manage-architecture output from `.workaholic/specs/` for system boundary and data persistence context before performing recovery analysis.
-- Gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-policy/sh/gather.sh recovery main`.
+- Gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-policy/scripts/gather.sh recovery main`.
 - Use the analysis prompts: What data persistence mechanisms exist? What backup and snapshot capabilities are available? What migration strategies are used? What recovery procedures are documented?
 - Read relevant source files to understand the repository's recovery practices before writing.

@@ -18,39 +18,39 @@ Launch an Agent Teams session to collaboratively explore and develop a concept t
 Check for existing trip worktrees and trip branches:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/sh/list-trip-worktrees.sh
+bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/list-trip-worktrees.sh
 ```
 
 If `count > 0`, present choices via AskUserQuestion: list each existing trip, plus option to create new.
 
 **Resume (worktree)**: Use selected worktree's path/branch. Read plan state:
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/sh/read-plan.sh "<trip-path>"
+bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/read-plan.sh "<trip-path>"
 ```
 Route by state: `planning/not-started` -> Step 3, any other planning/coding step -> Step 4 with resume context, `complete/done` -> inform user and suggest `/report`.
 
 **New**: Present a choice via AskUserQuestion:
 - **"Create worktree"** - Isolated environment. Run:
   ```bash
-  bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/sh/ensure-worktree.sh "trip-$(date +%Y%m%d-%H%M%S)"
+  bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/ensure-worktree.sh "trip-$(date +%Y%m%d-%H%M%S)"
   ```
   Set `<working_dir>` to the worktree path from the output.
 - **"Branch only"** - Lightweight, no worktree. Run:
   ```bash
-  bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/sh/create-trip-branch.sh "trip-$(date +%Y%m%d-%H%M%S)"
+  bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/create-trip-branch.sh "trip-$(date +%Y%m%d-%H%M%S)"
   ```
   Set `<working_dir>` to the repository root.
 
 ## Step 2: Initialize Trip Artifacts
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/sh/init-trip.sh "<trip-name>" "$ARGUMENT"
+bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/init-trip.sh "<trip-name>" "$ARGUMENT"
 ```
 
 ## Step 3: Validate Dev Environment
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/sh/validate-dev-env.sh "<working_dir>"
+bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/validate-dev-env.sh "<working_dir>"
 ```
 
 If `ready` is false, fix each failing check (copy env files, install dependencies, configure ports) and re-run.

@@ -75,8 +75,8 @@ Subagents must use skills for common operations instead of inline shell commands
 
 | Operation | Skill | Usage |
 | --------- | ----- | ----- |
-| Git context (branch, base, URL) | gather-git-context | `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-git-context/sh/gather.sh` |
-| Ticket metadata (date, author) | gather-ticket-metadata | `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-ticket-metadata/sh/gather.sh` |
+| Git context (branch, base, URL) | gather-git-context | `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-git-context/scripts/gather.sh` |
+| Ticket metadata (date, author) | gather-ticket-metadata | `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-ticket-metadata/scripts/gather.sh` |
 
 Never write inline git commands like `git branch --show-current` or `git remote show origin` in subagent markdown files. Subagents preload the skill and gather context themselves.
 
@@ -91,7 +91,7 @@ This includes:
 - **Loops**: `for`, `while`
 - **Variable expansion with logic**: `${var:-default}`, `${var:+alt}`
 
-Extract ALL multi-step or conditional shell operations to bundled scripts in skills (`skills/<name>/sh/<script>.sh`). This ensures consistency, testability, and permission-free execution.
+Extract ALL multi-step or conditional shell operations to bundled scripts in skills (`skills/<name>/scripts/<script>.sh`). This ensures consistency, testability, and permission-free execution.
 
 **Wrong** (inline conditional):
 ```bash
@@ -101,7 +101,7 @@ if [ "$current" = "main" ]; then echo "on_main"; fi
 
 **Correct** (skill script):
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/check.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check.sh
 ```
 
 ### Skill Script Path Rule
@@ -112,17 +112,17 @@ Claude Code expands `${CLAUDE_PLUGIN_ROOT}` inline in all plugin content (skills
 
 **Wrong** (relative path):
 ```bash
-bash .claude/skills/gather-ticket-metadata/sh/gather.sh
+bash .claude/skills/gather-ticket-metadata/scripts/gather.sh
 ```
 
 **Correct** (same-plugin reference):
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-ticket-metadata/sh/gather.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-ticket-metadata/scripts/gather.sh
 ```
 
 **Correct** (cross-plugin reference — declared dependency):
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/sh/check-worktrees.sh
+bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/check-worktrees.sh
 ```
 
 ## Commands

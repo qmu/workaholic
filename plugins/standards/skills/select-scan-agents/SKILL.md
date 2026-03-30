@@ -21,7 +21,7 @@ Determine which documentation agents to invoke based on scan mode.
 ## Usage
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/select-scan-agents/sh/select.sh <mode> [base_branch]
+bash ${CLAUDE_PLUGIN_ROOT}/skills/select-scan-agents/scripts/select.sh <mode> [base_branch]
 ```
 
 ## Output

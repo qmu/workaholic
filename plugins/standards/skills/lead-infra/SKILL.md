@@ -52,7 +52,7 @@ The infra lead owns the project's infrastructure viewpoint. It analyzes the repo
 ### Execution
 
 - Read the manage-architecture output from `.workaholic/specs/` for layer taxonomy and system boundary context before performing infrastructure analysis.
-- Gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-viewpoint/sh/gather.sh infrastructure main`.
-- Check overrides by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-viewpoint/sh/read-overrides.sh`.
+- Gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-viewpoint/scripts/gather.sh infrastructure main`.
+- Check overrides by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-viewpoint/scripts/read-overrides.sh`.
 - Use the analysis prompts: What external tools and services are depended on? What is the file system layout? How is the system installed and configured? What environment requirements exist?
 - Read relevant source files to understand the repository's infrastructure before writing.

@@ -29,7 +29,7 @@ Review Model and Design in `reviews/round-1-planner.md`. Respond to feedback in 
 ## Rules
 
 - Follow the preloaded **trip-protocol** skill for commit/log-event commands, artifact format, and all workflow procedures
-- All output must be in English (artifacts, reviews, code, commit descriptions). The only exception is `.workaholic/` content, which follows the consumer project's CLAUDE.md language setting
+- All output must be in English (artifacts, reviews, code, commit descriptions)
 - After completing any task, STOP and wait for the team lead's next instruction
 - When re-invoked for post-completion follow-up, the same role boundaries and QA domain (E2E/external testing) apply
 - Never modify another agent's artifact

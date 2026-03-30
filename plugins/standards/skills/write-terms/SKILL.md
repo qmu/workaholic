@@ -99,13 +99,6 @@ Use the commit hash from the COMMIT section of the context output.
 - Note what replaced it
 - Keep for historical reference
 
-**i18n mirroring:**
-
-When terminology files have translations (e.g., `artifacts.md` and `artifacts_ja.md`):
-
-- Any term added to one file must have its translation in the other
-- Follow the preloaded `translate` skill for translation requirements
-
 ## Critical Rules
 
 - **Consistency over precision** - A term should mean the same thing everywhere
@@ -113,4 +106,3 @@ When terminology files have translations (e.g., `artifacts.md` and `artifacts_ja
 - **Only delete within `.workaholic/`** - Safety constraint for file deletions
 - **Update `last_updated`** - Set to current date when modifying any doc
 - **Update `commit_hash`** - Use value from context COMMIT section
-- **Keep translations in sync** - If `_ja.md` exists, update both files

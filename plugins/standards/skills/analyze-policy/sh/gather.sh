@@ -65,10 +65,6 @@ case "$POLICY" in
             -not -path "./.git/*" 2>/dev/null | sort || echo "  (none)"
         ;;
     accessibility)
-        echo "--- i18n files ---"
-        find . -type f \( -name "*i18n*" -o -name "*locale*" -o -name "*translation*" -o -name "*_ja*" -o -name "*.ja.*" \) \
-            -not -path "./.git/*" -not -path "./node_modules/*" 2>/dev/null | sort | head -20 || echo "  (none)"
-        echo ""
         echo "--- Accessibility configs ---"
         find . -maxdepth 2 -type f \( -name ".axe*" -o -name "*.a11y*" \) \
             -not -path "./.git/*" 2>/dev/null | sort || echo "  (none)"

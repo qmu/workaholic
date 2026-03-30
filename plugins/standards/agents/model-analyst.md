@@ -5,7 +5,6 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
   - analyze-viewpoint
   - write-spec
-  - translate
 ---
 
 # Model Analyst
@@ -35,12 +34,10 @@ Analyze the repository from the model viewpoint and produce a specification docu
 
 3. **Analyze Codebase**: Use the analysis prompts above. Read relevant source files to understand the system deeply.
 
-4. **Write English Spec**: Write `.workaholic/specs/model.md` following the preloaded analyze-viewpoint and write-spec skills. Include multiple Mermaid diagrams within content sections and an Assumptions section with `[Explicit]`/`[Inferred]` prefixes.
-
-5. **Write Translations**: Produce translations per the user's translation policy declared in their root CLAUDE.md, following the preloaded translate skill.
+4. **Write Spec**: Write `.workaholic/specs/model.md` following the preloaded analyze-viewpoint and write-spec skills. Include multiple Mermaid diagrams within content sections and an Assumptions section with `[Explicit]`/`[Inferred]` prefixes.
 
 ## Output
 
 ```json
-{"viewpoint": "model", "status": "success", "files": ["model.md", "<translation files if produced>"]}
+{"viewpoint": "model", "status": "success", "files": ["model.md"]}
 ```

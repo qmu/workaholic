@@ -6,15 +6,6 @@ Private marketplace for Claude Code plugins.
 
 Edit `plugins/` not `.claude/`. This repo develops plugins - changes go to `plugins/`, never `.claude/` unless explicitly requested.
 
-## Written Language
-
-- **`.workaholic/` directory**: English or Japanese (i18n)
-- **All other content**: English only
-  - Code and code comments
-  - Commit messages
-  - Pull requests
-  - Documentation outside `.workaholic/`
-
 ## Project Structure
 
 ```
@@ -36,14 +27,13 @@ plugins/                 # Plugin source directories
     .claude-plugin/      # Plugin configuration
     agents/              # ticket-organizer, drive-navigator, story-writer
     commands/            # ticket, drive, scan
-    rules/               # general, typescript
+    rules/               # general, workaholic
     skills/              # create-ticket, discover, drive, report
   trippin/               # Trippin exploration plugin (depends on: core, drivin)
     .claude-plugin/      # Plugin configuration
     commands/            # trip
     agents/              # planner, architect, constructor
     skills/              # trip-protocol, write-trip-report
-    rules/               # i18n
 ```
 
 ## Architecture Policy

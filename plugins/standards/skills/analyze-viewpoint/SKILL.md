@@ -4,7 +4,6 @@ description: Generic framework for viewpoint-based architecture analysis. Provid
 allowed-tools: Bash
 skills:
   - write-spec
-  - translate
 user-invocable: false
 ---
 
@@ -44,8 +43,6 @@ category: developer
 modified_at: <ISO 8601 datetime>
 commit_hash: <from context>
 ---
-
-[Primary language](<slug>.md) | [Translation](<slug>_<lang>.md)  <!-- language pair based on consumer CLAUDE.md -->
 
 # <Viewpoint Name> Viewpoint
 

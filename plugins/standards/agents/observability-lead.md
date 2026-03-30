@@ -6,7 +6,6 @@ skills:
   - leaders-principle
   - lead-observability
   - analyze-policy
-  - translate
 ---
 
 # Observability Lead

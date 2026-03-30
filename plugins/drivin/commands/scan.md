@@ -83,8 +83,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/../standards/skills/validate-writer-output/sh/validat
 
 ### Phase 5: Update Index Files
 
-- If spec validation passed: Update `.workaholic/specs/README.md` and `README_ja.md` to list all 8 viewpoint documents. Follow the preloaded write-spec skill for index file rules.
-- If policy validation passed: Update `.workaholic/policies/README.md` and `README_ja.md` to list all 7 policy documents.
+- If spec validation passed: Update `.workaholic/specs/README.md` to list all 8 viewpoint documents. Follow the preloaded write-spec skill for index file rules.
+- If policy validation passed: Update `.workaholic/policies/README.md` to list all 7 policy documents.
 
 ### Phase 6: Stage and Commit
 

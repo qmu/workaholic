@@ -6,7 +6,6 @@ last_updated: 2026-03-10
 commit_hash: f76bde2
 ---
 
-[English](README.md) | [日本語](README_ja.md)
 
 # Terms
 

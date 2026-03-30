@@ -7,7 +7,6 @@ skills:
   - lead-ux
   - analyze-viewpoint
   - write-spec
-  - translate
 ---
 
 # UX Lead

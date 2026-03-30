@@ -16,7 +16,6 @@ The quality lead owns the project's quality policy domain. It analyzes the repos
 - No fabricated policies exist.
 - Every statement cites its enforcement mechanism.
 - All gaps are marked as "not observed".
-- Translations are produced only when the user's root CLAUDE.md declares translation requirements.
 
 ### Responsibility
 
@@ -34,7 +33,6 @@ The quality lead owns the project's quality policy domain. It analyzes the repos
 - Only document quality practices that are implemented and executable in the codebase (CI checks, hooks, scripts, linter rules, or quality configurations).
 - Cite the enforcement mechanism after each statement (e.g., workflow file, hook script, linter config).
 - Follow the analyze-policy output template for document structure.
-- Produce translations only when the user's root CLAUDE.md declares translation requirements. Do not hardcode specific languages.
 
 ### Review
 
@@ -56,4 +54,3 @@ The quality lead owns the project's quality policy domain. It analyzes the repos
 - Gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-policy/sh/gather.sh quality main`.
 - Use the analysis prompts: What linting and formatting tools are configured? What code review processes exist? What complexity or duplication thresholds are set? What type checking is enforced?
 - Read relevant source files to understand the repository's quality practices before writing.
-- Write the English policy first, then produce translations per the user's translation policy declared in their root CLAUDE.md.

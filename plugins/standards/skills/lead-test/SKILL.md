@@ -16,7 +16,6 @@ The test lead owns the project's test policy domain. It analyzes the repository'
 - No fabricated policies exist.
 - Every statement cites its enforcement mechanism.
 - All gaps are marked as "not observed".
-- Translations are produced only when the user's root CLAUDE.md declares translation requirements.
 
 ### Responsibility
 
@@ -33,7 +32,6 @@ The test lead owns the project's test policy domain. It analyzes the repository'
 - Only document testing practices that are implemented and executable in the codebase (CI checks, hooks, scripts, linter rules, or test configurations).
 - Cite the enforcement mechanism after each statement (e.g., workflow file, hook script, test config).
 - Follow the analyze-policy output template for document structure.
-- Produce translations only when the user's root CLAUDE.md declares translation requirements. Do not hardcode specific languages.
 
 ### Review
 
@@ -55,4 +53,3 @@ The test lead owns the project's test policy domain. It analyzes the repository'
 - Gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-policy/sh/gather.sh test main`.
 - Use the analysis prompts: What testing frameworks are used? What testing levels exist (unit, integration, e2e)? What coverage targets are defined? How are tests organized and run?
 - Read relevant source files to understand the repository's testing practices before writing.
-- Write the English policy first, then produce translations per the user's translation policy declared in their root CLAUDE.md.

@@ -16,7 +16,6 @@ The UX lead owns the project's user experience viewpoint. It analyzes the reposi
 - No fabricated claims exist.
 - Every statement is grounded in codebase evidence.
 - All gaps are marked as "not observed".
-- Translations are produced only when the user's root CLAUDE.md declares translation requirements.
 
 ### Responsibility
 
@@ -34,7 +33,6 @@ The UX lead owns the project's user experience viewpoint. It analyzes the reposi
 - Only document UX aspects that are observable in the codebase (commands, configuration, documentation, or workflow definitions).
 - Cite evidence for each statement (e.g., command file, README section, config file).
 - Follow the analyze-viewpoint output template for document structure.
-- Produce translations only when the user's root CLAUDE.md declares translation requirements. Do not hardcode specific languages.
 
 ### Review
 
@@ -58,4 +56,3 @@ The UX lead owns the project's user experience viewpoint. It analyzes the reposi
 - Check overrides by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-viewpoint/sh/read-overrides.sh`.
 - Use the analysis prompts: What user types exist? What journeys does each user type follow? How do users interact with the system? What are the onboarding paths?
 - Read relevant source files to understand the repository's user experience before writing.
-- Write the English spec first, then produce translations per the user's translation policy declared in their root CLAUDE.md.

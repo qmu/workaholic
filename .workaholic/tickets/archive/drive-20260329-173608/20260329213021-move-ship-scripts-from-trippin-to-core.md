@@ -3,9 +3,9 @@ created_at: 2026-03-29T21:30:21+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 5d54c3b
+category: Changed
 ---
 
 # Move Ship Scripts from Trippin to Core

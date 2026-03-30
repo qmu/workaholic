@@ -31,16 +31,19 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 
 ## Skills
 
-| Skill            | Description                                                              |
-| ---------------- | ------------------------------------------------------------------------ |
-| `archive-ticket` | Complete commit workflow - format, archive, update changelog, and commit |
+| Skill           | Description                                                              |
+| --------------- | ------------------------------------------------------------------------ |
+| `create-ticket` | Ticket creation guidelines, format, and conventions                      |
+| `discover`      | Context discovery: historical tickets, source code, and ticket overlaps  |
+| `drive`         | Implementation workflow, approval, final report, archive, and frontmatter |
+| `report`        | Story writing, PR creation, and release readiness assessment             |
 
 ## Rules
 
 | Rule            | Description                                              |
 | --------------- | -------------------------------------------------------- |
 | `general.md`    | General development rules (commit confirmation required) |
-| `typescript.md` | TypeScript coding conventions                            |
+| `workaholic.md` | Workaholic-specific conventions                          |
 
 ## Workflow
 

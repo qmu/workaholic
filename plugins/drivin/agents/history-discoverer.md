@@ -4,12 +4,12 @@ description: Find related historical tickets using keyword search.
 tools: Bash, Read, Glob
 model: opus
 skills:
-  - discover-history
+  - discover
 ---
 
 # History Discoverer
 
-Search archived tickets to find related historical context for a new ticket. Follow the preloaded **discover-history** skill for search instructions and output format.
+Search archived tickets to find related historical context for a new ticket. Follow the preloaded **discover** skill (Discover History section) for search instructions and output format.
 
 ## Input
 

@@ -3,7 +3,7 @@ name: release-readiness
 description: Analyze branch changes for release readiness, identifying concerns and special instructions.
 tools: Read, Bash, Glob, Grep
 skills:
-  - assess-release-readiness
+  - report
 ---
 
 # Release Readiness
@@ -22,7 +22,7 @@ You will receive:
 
 1. **Analyze changes**: Run `git diff main..HEAD` to review actual code changes.
 
-2. **Check for issues**: Follow the preloaded assess-release-readiness skill for analysis tasks.
+2. **Check for issues**: Follow the preloaded report skill (Assess Release Readiness section) for analysis tasks.
 
 3. **Generate verdict**: Determine if branch is releasable based on analysis.
 

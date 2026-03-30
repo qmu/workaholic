@@ -62,7 +62,7 @@ bash "$COMMIT_SCRIPT" --skip-staging "$COMMIT_MSG" "$DESCRIPTION" "$CHANGES" "$T
 COMMIT_HASH=$(git rev-parse --short HEAD)
 
 echo "==> Updating ticket frontmatter..."
-UPDATE_SCRIPT="${SCRIPT_DIR}/../../update-ticket-frontmatter/sh/update.sh"
+UPDATE_SCRIPT="${SCRIPT_DIR}/update.sh"
 bash "$UPDATE_SCRIPT" "$ARCHIVED_TICKET" "commit_hash" "$COMMIT_HASH"
 bash "$UPDATE_SCRIPT" "$ARCHIVED_TICKET" "category" "$CATEGORY"
 

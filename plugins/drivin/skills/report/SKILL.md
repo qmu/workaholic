@@ -1,14 +1,19 @@
 ---
-name: write-story
-description: Story content structure, templates, and writing guidelines for branch narratives.
+name: report
+description: Story writing, PR creation, and release readiness assessment for branch reporting.
+allowed-tools: Bash
 user-invocable: false
 ---
 
-# Write Story
+# Report
+
+Guidelines for generating branch stories, creating pull requests, and assessing release readiness.
+
+## Write Story
 
 Generate a branch story that serves as the single source of truth for PR content.
 
-## Agent Output Mapping
+### Agent Output Mapping
 
 Story sections are populated from parallel agent outputs:
 
@@ -21,7 +26,7 @@ Story sections are populated from parallel agent outputs:
 
 Section 3 (Changes) comes from archived tickets, prefaced by journey content from overview-writer. Section 9 (Notes) is optional context.
 
-## Story Content Structure
+### Story Content Structure
 
 The story content (this IS the PR description):
 
@@ -95,7 +100,7 @@ One subsection per ticket, in chronological order:
 **Format**: `- <description> (see [hash](<repo-url>/commit/<hash>) in path/to/file.ext)`
 
 **Example**:
-- The pathspec exclusion syntax requires modern git versions (see [7eab801](<repo-url>/commit/7eab801) in `plugins/drivin/skills/drive-approval/SKILL.md`)
+- The pathspec exclusion syntax requires modern git versions (see [7eab801](<repo-url>/commit/7eab801) in `plugins/drivin/skills/drive/SKILL.md`)
 - Auto-approval configuration may be broader than intended (`~/.claude/settings.local.json`)
 
 **Guidelines**:
@@ -151,7 +156,7 @@ Format this JSON into section 8.
 Additional context for reviewers or future reference.
 ```
 
-## Story Frontmatter
+### Story Frontmatter
 
 Create `.workaholic/stories/<branch-name>.md` with YAML frontmatter:
 
@@ -162,7 +167,7 @@ tickets_completed: <count of tickets>
 ---
 ```
 
-## Writing Guidelines
+### Writing Guidelines
 
 - Write in third person ("The developer discovered..." not "I discovered...")
 - Connect tickets into a narrative arc, not a list
@@ -171,8 +176,135 @@ tickets_completed: <count of tickets>
 - Changes section: one entry per ticket, brief descriptions
 - Historical Analysis/Concerns/Ideas can be "None" if empty
 
-## Updating Stories Index
+### Updating Stories Index
 
 Update `.workaholic/stories/README.md` to include the new story:
 
 - Add entry: `- [<branch-name>.md](<branch-name>.md) - Brief description of the branch work`
+
+## Create PR
+
+Create or update a GitHub pull request using the story file as PR content.
+
+### Derive PR Title
+
+Extract the first item from the Summary section of the story file:
+
+```markdown
+## 1. Summary
+
+1. First meaningful change
+```
+
+Use that first item as the title. If multiple items exist, append "etc" (e.g., "Add dark mode toggle etc").
+
+### Create or Update PR
+
+Run the bundled script:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/report/sh/create-or-update.sh <branch-name> "<title>"
+```
+
+#### What the Script Does
+
+1. Strips YAML frontmatter via `strip-frontmatter.sh` from `.workaholic/stories/<branch-name>.md`
+2. Writes clean content to `/tmp/pr-body.md`
+3. Checks if PR exists for the branch
+4. Creates new PR or updates existing one
+5. Outputs the result in required format
+
+### Strip Frontmatter Script
+
+A reusable script for removing YAML frontmatter from any markdown file:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/report/sh/strip-frontmatter.sh <file>
+```
+
+Outputs clean markdown body to stdout. Handles files with frontmatter, without frontmatter (pass-through), and empty files. Only strips frontmatter starting on line 1 -- content `---` separators elsewhere are preserved.
+
+### PR Output Format
+
+Exactly one line:
+
+```
+PR created: <URL>
+```
+
+or
+
+```
+PR updated: <URL>
+```
+
+This output format is required by the story command.
+
+## Assess Release Readiness
+
+Analyze a branch to determine if it's ready for release.
+
+### Analysis Tasks
+
+1. **Review code changes**: Check `git diff main..HEAD` for:
+   - Incomplete work (TODO, FIXME, XXX comments in new code)
+   - Security concerns (hardcoded secrets, credentials)
+   - Runtime errors or obvious bugs
+
+2. **Check for blocking issues**:
+   - Tests failing (if tests exist)
+   - Type errors (if type checking exists)
+   - Missing files referenced in code
+
+3. **Identify actionable items** (not theoretical concerns):
+   - Documentation that needs updating
+   - Version numbers to bump
+   - Files to stage/commit before release
+
+### What NOT to Flag
+
+- "Breaking changes" for command renames - users adapt
+- API changes in a plugin - plugins are configuration, not APIs
+- Internal refactoring - doesn't affect users
+- Theoretical upgrade concerns - users pull fresh versions
+
+### Release Readiness Output Format
+
+Return JSON:
+
+```json
+{
+  "releasable": true,
+  "verdict": "Ready for release",
+  "concerns": [],
+  "instructions": {
+    "pre_release": [],
+    "post_release": []
+  }
+}
+```
+
+Or if issues found:
+
+```json
+{
+  "releasable": false,
+  "verdict": "Needs attention before release",
+  "concerns": [
+    "Found TODO comment in src/foo.ts",
+    "Tests failing in commands/drive.md"
+  ],
+  "instructions": {
+    "pre_release": ["Fix failing tests", "Remove TODO comments"],
+    "post_release": []
+  }
+}
+```
+
+### Release Readiness Guidelines
+
+- Focus on issues that actually block releases
+- Provide actionable instructions, not theoretical warnings
+- "Breaking change" is rarely a real concern for plugins
+- Empty concerns array is the happy path, not a failure
+- If it doesn't require action, don't flag it

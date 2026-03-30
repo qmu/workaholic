@@ -37,7 +37,7 @@ plugins/                 # Plugin source directories
     agents/              # ticket-organizer, drive-navigator, story-writer
     commands/            # ticket, drive, scan
     rules/               # general, typescript
-    skills/              # archive-ticket, drive-workflow
+    skills/              # create-ticket, discover, drive, report
   trippin/               # Trippin exploration plugin (depends on: core, drivin)
     .claude-plugin/      # Plugin configuration
     commands/            # trip

@@ -3,9 +3,9 @@ created_at: 2026-03-30T21:01:38+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 8dd587f
+category: Changed
 ---
 
 # Consolidate Drivin Plugin Skills into Cohesive Units
@@ -131,3 +131,7 @@ Past tickets that touched similar areas:
 - The `create-or-update.sh` script internally calls `strip-frontmatter.sh` using a relative path from `SCRIPT_DIR` (line 27). Since both scripts move together to `report/sh/`, this relative path continues to work with no changes. (`plugins/drivin/skills/create-pr/sh/create-or-update.sh` line 27)
 - The `create-ticket` skill is kept separate rather than merged into `discover` because it serves a different consumer (ticket-organizer agent) and represents a distinct concern (writing tickets vs. discovering context). Merging it would violate single-responsibility. (`plugins/drivin/skills/create-ticket/SKILL.md`)
 - The consolidated skill names (`discover`, `drive`, `report`) match the drivin command names (`/ticket` uses discover, `/drive` uses drive, `/report` uses report), creating intuitive alignment between the command layer and skill layer.
+
+## Final Report
+
+Consolidated 12 drivin skills into 4 (create-ticket unchanged, discover, drive, report). Created 3 new SKILL.md files combining content under H2 sections. Relocated 5 shell scripts (search.sh, archive.sh, update.sh, create-or-update.sh, strip-frontmatter.sh). Deleted 11 old skill directories. Updated drive command frontmatter (5 skill refs -> 1) and all inline skill name references. Updated 6 agent files with new skill names and section-specific directives. Fixed archive.sh internal path to update.sh (now same directory). Updated README.md skill table and CLAUDE.md project structure. All shell script relative paths verified to resolve correctly from new locations.

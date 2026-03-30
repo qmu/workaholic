@@ -171,7 +171,7 @@ Past tickets that touched similar areas:
 
 ### Filled After Implementation
 
-These fields are updated by the `update-ticket-frontmatter` skill during archiving:
+These fields are updated by the `drive` skill (Update Frontmatter section) during archiving:
 
 - **effort**: Time spent in numeric hours (leave empty when creating)
 - **commit_hash**: Short git commit hash (set by archive script)

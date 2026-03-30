@@ -2,10 +2,7 @@
 name: drive
 description: Implement tickets from .workaholic/tickets/ one by one, commit each, and archive.
 skills:
-  - drive-workflow
-  - drive-approval
-  - write-final-report
-  - archive-ticket
+  - drive
   - core:system-safety
 ---
 
@@ -60,22 +57,22 @@ For each ticket in the ordered list:
 
 #### Step 2.1: Implement Ticket
 
-Follow the preloaded **drive-workflow** skill. Implementation context is preserved in the main conversation, providing full visibility of changes made.
+Follow the preloaded **drive** skill (Workflow section). Implementation context is preserved in the main conversation, providing full visibility of changes made.
 
 #### Step 2.2: Request Approval
 
-Follow the preloaded **drive-approval** skill (Section 1) to present approval dialog. **CRITICAL**: You MUST use the `title` and `overview` fields from the Step 2.1 workflow result to populate the approval prompt header and question. If these fields are unavailable, re-read the ticket file to obtain them. Never present an approval prompt without the ticket title and summary.
+Follow the preloaded **drive** skill (Approval section) to present approval dialog. **CRITICAL**: You MUST use the `title` and `overview` fields from the Step 2.1 workflow result to populate the approval prompt header and question. If these fields are unavailable, re-read the ticket file to obtain them. Never present an approval prompt without the ticket title and summary.
 
 **CRITICAL**: Use `AskUserQuestion` with selectable `options`. NEVER proceed without explicit user approval.
 
 #### Step 2.3: Handle User Response
 
 **"Approve" or "Approve and stop"**:
-1. Follow **write-final-report** skill to update ticket effort and append Final Report section
+1. Follow **drive** skill (Final Report section) to update ticket effort and append Final Report section
 2. **Verify update succeeded**: If Edit tool fails, halt and report the error to user. DO NOT proceed to archive.
 3. Archive and commit by calling the archive script directly:
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/archive-ticket/sh/archive.sh \
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/sh/archive.sh \
      <ticket-path> "<title>" <repo-url> "<description>" "<changes>" "<test-plan>" "<release-prep>"
    ```
    Where `<ticket-path>` is the current ticket file path in `todo/`, `<title>` is the commit title,
@@ -88,13 +85,13 @@ Follow the preloaded **drive-approval** skill (Section 1) to present approval di
 
 > **CRITICAL**: Update the ticket file FIRST. Do NOT re-implement until the ticket reflects the user's feedback.
 
-1. Follow **drive-approval** skill (Section 3: Handle Feedback) — this updates the ticket
+1. Follow **drive** skill (Approval section, Handle Feedback) — this updates the ticket
 2. **Verify** the ticket file was updated (re-read it)
 3. Re-implement changes based on the updated ticket
 4. Return to Step 2.2
 
 **"Abandon"**:
-1. Follow **drive-approval** skill (Section 4)
+1. Follow **drive** skill (Approval section, Handle Abandonment)
 2. Continue to next ticket
 
 ### Phase 3: Re-check and Continue

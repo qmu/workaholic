@@ -3,9 +3,9 @@ created_at: 2026-03-29T21:30:24+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX, Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: e898684
+category: Changed
 ---
 
 # Make Worktree Optional for /trip Command

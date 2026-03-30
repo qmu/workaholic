@@ -3,9 +3,9 @@ created_at: 2026-03-30T20:07:56+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 5481401
+category: Removed
 ---
 
 # Remove /worktree Command from Core Plugin
@@ -62,3 +62,7 @@ The worktree management functionality was built incrementally: first as trip-spe
 - The `plugins/core/README.md` Commands table already only lists `/report` and `/ship` -- it does not mention `/worktree`, so no update is needed there. (`plugins/core/README.md`)
 - The branching skill's SKILL.md documents all worktree management scripts (Adopt, Eject, List All, List Trip, Ensure, Create Trip Branch, Cleanup). This documentation remains the canonical reference for worktree operations after the command is removed. (`plugins/core/skills/branching/SKILL.md`)
 - If a user explicitly asks to "adopt a worktree" or "eject a worktree" after removal, Claude Code will no longer have a dedicated command entry point. The user would need to use `/trip` or `/ship` for automated worktree lifecycle, or invoke git worktree commands manually. This is intentional -- the design philosophy is that worktree operations are implementation details of higher-level workflows, not user-facing operations.
+
+## Final Report
+
+Deleted `plugins/core/commands/worktree.md` and removed the `worktree` entry from CLAUDE.md project structure. No other files referenced the command. Worktree management scripts remain in core branching skill, invoked automatically by /trip, /ship, /drive, and /ticket workflows.

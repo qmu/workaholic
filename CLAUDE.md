@@ -24,25 +24,25 @@ Edit `plugins/` not `.claude/`. This repo develops plugins - changes go to `plug
 .claude-plugin/          # Marketplace configuration
   marketplace.json       # Marketplace metadata and plugin list
 plugins/                 # Plugin source directories
-  core/                  # Core shared plugin
+  core/                  # Core shared plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
     commands/            # report, ship, worktree
-    skills/              # branching
-  standards/             # Standards policy plugin (no commands)
+    skills/              # branching, ship, system-safety
+  standards/             # Standards policy plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
     agents/              # leads, managers, writers, analysts
     skills/              # lead-*, manage-*, analyze-*, write-*
-  drivin/                # Drivin ticket-driving plugin
+  drivin/                # Drivin ticket-driving plugin (depends on: core)
     .claude-plugin/      # Plugin configuration
     agents/              # ticket-organizer, drive-navigator, story-writer
     commands/            # ticket, drive, scan
     rules/               # general, typescript
     skills/              # archive-ticket, drive-workflow
-  trippin/               # Trippin exploration plugin
+  trippin/               # Trippin exploration plugin (depends on: core, drivin)
     .claude-plugin/      # Plugin configuration
     commands/            # trip
     agents/              # planner, architect, constructor
-    skills/              # trip-protocol, write-trip-report, ship
+    skills/              # trip-protocol, write-trip-report
     rules/               # i18n
 ```
 
@@ -55,6 +55,19 @@ plugins/                 # Plugin source directories
 | Command  | Skill, Subagent    | —                   |
 | Subagent | Skill, Subagent    | Command             |
 | Skill    | Skill              | Subagent, Command   |
+
+### Plugin Dependencies
+
+```
+core (base)       standards (base)
+  ^       ^
+  |       |
+drivin  trippin
+  ^       |
+  |_______|
+```
+
+Each plugin declares `dependencies` in its `plugin.json`. Cross-plugin `${CLAUDE_PLUGIN_ROOT}/../<name>/` references must only target declared dependencies. Core commands have soft references to drivin and trippin for context-aware routing (report, ship).
 
 ### Design Principle
 
@@ -117,9 +130,9 @@ bash .claude/skills/gather-ticket-metadata/sh/gather.sh
 bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-ticket-metadata/sh/gather.sh
 ```
 
-**Correct** (cross-plugin reference — sibling plugin):
+**Correct** (cross-plugin reference — declared dependency):
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/../trippin/skills/trip-protocol/sh/list-trip-worktrees.sh
+bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/sh/check-worktrees.sh
 ```
 
 ## Commands

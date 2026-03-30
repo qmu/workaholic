@@ -2,6 +2,7 @@
   "name": "standards",
   "description": "Repository structuring policy, qualitative agents, and documentation standards",
   "version": "1.0.42",
+  "dependencies": [],
   "author": {
     "name": "tamurayoshiya",
     "email": "a@qmu.jp"

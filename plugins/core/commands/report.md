@@ -75,7 +75,7 @@ Route to the selected workflow above.
 
 Not on a trip branch, but trip worktrees exist.
 
-1. Run `bash ${CLAUDE_PLUGIN_ROOT}/../trippin/skills/trip-protocol/sh/list-trip-worktrees.sh`
+1. Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/list-trip-worktrees.sh`
 2. Filter to worktrees where `has_pr` is `false` (unreported trips)
 3. If no unreported trips found: inform the user "No unreported trip worktrees found." and stop.
 4. If exactly one unreported trip: ask the user "Found trip '<trip_name>'. Generate report for this trip?" using AskUserQuestion. If confirmed, use it.

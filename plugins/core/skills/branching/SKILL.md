@@ -131,3 +131,43 @@ Output:
   ]
 }
 ```
+
+### List Trip Worktrees
+
+List active trip worktrees with PR status. Queries GitHub API for each worktree, so slower than `list-all-worktrees.sh`.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/list-trip-worktrees.sh
+```
+
+Output:
+```json
+{
+  "count": 1,
+  "worktrees": [
+    {"trip_name": "trip-20260319-040153", "branch": "trip/trip-20260319-040153", "worktree_path": "/path/.worktrees/trip-20260319-040153", "has_pr": true, "pr_number": 42, "pr_url": "https://github.com/..."}
+  ]
+}
+```
+
+### Ensure Worktree
+
+Create an isolated worktree and branch for a trip session. Creates `.worktrees/<trip-name>/` directory and a `trip/<trip-name>` branch.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/ensure-worktree.sh <trip-name>
+```
+
+Output: `{"worktree_path": "<path>", "branch": "trip/<trip-name>"}`
+
+Error cases: trip name missing, worktree already exists, branch already exists.
+
+### Cleanup Worktree
+
+Remove a trip worktree and its local branch after PR merge. Force-removes the worktree directory, prunes stale entries, and deletes the local branch.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/cleanup-worktree.sh <trip-name>
+```
+
+Output: `{"cleaned": true, "worktree_path": "<path>", "branch": "trip/<trip-name>", "worktree_removed": true, "branch_removed": true}`

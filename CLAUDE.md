@@ -26,7 +26,7 @@ Edit `plugins/` not `.claude/`. This repo develops plugins - changes go to `plug
 plugins/                 # Plugin source directories
   core/                  # Core shared plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
-    commands/            # report, ship, worktree
+    commands/            # report, ship
     skills/              # branching, commit, gather-git-context, gather-ticket-metadata, ship, system-safety
   standards/             # Standards policy plugin (no dependencies)
     .claude-plugin/      # Plugin configuration

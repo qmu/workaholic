@@ -3,7 +3,7 @@ name: ship
 description: Context-aware ship workflow - merge PR, deploy, and verify (with worktree cleanup for trips).
 skills:
   - trippin:trip-protocol
-  - trippin:ship
+  - ship
   - branching
 ---
 
@@ -41,9 +41,9 @@ Parse the JSON output. Route to the appropriate workflow based on `context`.
 
 #### Drive Context (`context: "drive"`)
 
-1. **Pre-check**: Run `bash ${CLAUDE_PLUGIN_ROOT}/../trippin/skills/ship/sh/pre-check.sh "<branch>"`. If `found` is `false`: inform user "No PR found for this branch. Run `/report` first." and stop. If `merged` is `true`: skip to Deploy.
-2. **Merge PR**: Run `bash ${CLAUDE_PLUGIN_ROOT}/../trippin/skills/ship/sh/merge-pr.sh "<pr-number>"`. On failure, inform user and stop.
-3. **Deploy**: Run `bash ${CLAUDE_PLUGIN_ROOT}/../trippin/skills/ship/sh/find-cloud-md.sh`. If `found` is `false`: inform user "No cloud.md found. Deployment skipped." and skip to summary. If `found` is `true`: read the file, find `## Deploy` section, ask confirmation via AskUserQuestion, execute if confirmed.
+1. **Pre-check**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/sh/pre-check.sh "<branch>"`. If `found` is `false`: inform user "No PR found for this branch. Run `/report` first." and stop. If `merged` is `true`: skip to Deploy.
+2. **Merge PR**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/sh/merge-pr.sh "<pr-number>"`. On failure, inform user and stop.
+3. **Deploy**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/sh/find-cloud-md.sh`. If `found` is `false`: inform user "No cloud.md found. Deployment skipped." and skip to summary. If `found` is `true`: read the file, find `## Deploy` section, ask confirmation via AskUserQuestion, execute if confirmed.
 4. **Verify**: If cloud.md found, read `## Verify` section and execute. Report results.
 5. **Summarize**: PR merge status (number, URL), deployment status, verification results.
 
@@ -51,8 +51,8 @@ Parse the JSON output. Route to the appropriate workflow based on `context`.
 
 Use the `trip_name` from the detection result, or `$ARGUMENT` if provided.
 
-1. **Pre-check**: Run `bash ${CLAUDE_PLUGIN_ROOT}/../trippin/skills/ship/sh/pre-check.sh "trip/<trip-name>"`. If `found` is `false`: inform user "No PR found for this trip. Run `/report` first." and stop. If `merged` is `true`: skip to Clean up worktree.
-2. **Merge PR**: Run `bash ${CLAUDE_PLUGIN_ROOT}/../trippin/skills/ship/sh/merge-pr.sh "<pr-number>"`. On failure, inform user and stop (worktree preserved).
+1. **Pre-check**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/sh/pre-check.sh "trip/<trip-name>"`. If `found` is `false`: inform user "No PR found for this trip. Run `/report` first." and stop. If `merged` is `true`: skip to Clean up worktree.
+2. **Merge PR**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/sh/merge-pr.sh "<pr-number>"`. On failure, inform user and stop (worktree preserved).
 3. **Clean up worktree**: Run `bash ${CLAUDE_PLUGIN_ROOT}/../trippin/skills/trip-protocol/sh/cleanup-worktree.sh "<trip-name>"`. Report what was cleaned up.
 4. **Deploy**: Same as Drive Context step 3 (from repo root after merge).
 5. **Verify**: Same as Drive Context step 4.

@@ -2,7 +2,7 @@
 name: scan
 description: Full documentation scan - update all .workaholic/ documentation (changelog, specs, terms, policies).
 skills:
-  - gather-git-context
+  - core:gather-git-context
   - standards:select-scan-agents
   - standards:write-spec
   - standards:validate-writer-output

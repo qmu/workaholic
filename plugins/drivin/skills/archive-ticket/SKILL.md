@@ -2,7 +2,7 @@
 name: archive-ticket
 description: Archive ticket workflow - move ticket, delegate commit to commit skill, update frontmatter.
 skills:
-  - commit
+  - core:commit
 allowed-tools: Bash
 user-invocable: false
 ---

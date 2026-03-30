@@ -183,3 +183,65 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/cleanup-worktree.sh <trip-name>
 ```
 
 Output: `{"cleaned": true, "worktree_path": "<path>", "branch": "trip/<trip-name>", "worktree_removed": true, "branch_removed": true}`
+
+## Branch State Check
+
+Check if the current branch is main/master or a topic branch.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/check.sh
+```
+
+### Output Format
+
+```json
+{
+  "on_main": true,
+  "branch": "main"
+}
+```
+
+- `on_main`: Boolean indicating if on main/master branch
+- `branch`: Current branch name
+
+Topic branch patterns: `drive-*`, `trip-*`
+
+## Create Topic Branch
+
+Create a new timestamped topic branch from the current branch.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/create.sh [prefix]
+```
+
+### Arguments
+
+- `prefix` (optional): Branch prefix. Defaults to "drive".
+  - **drive** - for TiDD style development
+  - **trip** - for more AI oriented development
+
+### Output Format
+
+```json
+{
+  "branch": "drive-20260202-204753"
+}
+```
+
+## Check Version Bump
+
+Check if a "Bump version" commit already exists in the current branch.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/check-version-bump.sh
+```
+
+### Output Format
+
+```json
+{
+  "already_bumped": true
+}
+```
+
+- `already_bumped`: Boolean indicating if a version bump commit exists in the branch

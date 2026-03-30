@@ -131,7 +131,7 @@ mv <ticket-path> .workaholic/tickets/abandoned/
 Commit using **commit** skill:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/sh/commit.sh \
+bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/commit/sh/commit.sh \
   "Abandon: <ticket-title>" \
   "Implementation proved unworkable" \
   "None" \

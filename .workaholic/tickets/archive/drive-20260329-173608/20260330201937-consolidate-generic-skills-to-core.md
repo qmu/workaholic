@@ -3,9 +3,9 @@ created_at: 2026-03-30T20:19:37+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 4a7903e
+category: Changed
 ---
 
 # Consolidate Generic-Purpose Skills from Drivin to Core Plugin
@@ -104,3 +104,7 @@ This continues the pattern established by the previous drive session of consolid
 - The `check-version-bump.sh` script hardcodes `main` as the base branch (line 8: `git log main..HEAD`). This works for the current workflow but may need to be parameterized if the default branch varies. Keep as-is for this ticket since it matches existing behavior. (`plugins/drivin/skills/branching/sh/check-version-bump.sh` line 8)
 - After this migration, the standards plugin will no longer have any cross-plugin dependency on drivin. The only external skill reference (`drivin:gather-git-context`) becomes `core:gather-git-context`, and standards already has no declared dependencies. This is a clean improvement. (`plugins/standards/agents/performance-analyst.md`)
 - The `.workaholic/policies/recovery.md` and `.workaholic/policies/delivery.md` files reference `plugins/drivin/skills/commit/sh/commit.sh` by path in their documentation. These are generated documentation files and will be updated on the next `/scan` run. No manual update needed in this ticket. (`.workaholic/policies/recovery.md`, `.workaholic/policies/delivery.md`)
+
+## Final Report
+
+Moved 3 skills (commit, gather-git-context, gather-ticket-metadata) from drivin to core and merged 3 branching scripts (check.sh, create.sh, check-version-bump.sh) into core's existing branching skill. Removed all 4 drivin skill directories. Updated 6 frontmatter skill references across drivin and standards plugins to use `core:` prefix. Updated 3 `${CLAUDE_PLUGIN_ROOT}` path references and 1 relative shell script path in archive.sh. Documented the 3 new scripts in core branching SKILL.md. Updated CLAUDE.md project structure to reflect core's expanded skill set. The standards plugin no longer has any cross-plugin dependency on drivin. Generated documentation in `.workaholic/` still references old paths and will auto-update on next `/scan`.

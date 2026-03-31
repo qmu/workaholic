@@ -1,7 +1,7 @@
 {
   "name": "trippin",
   "description": "AI-oriented exploration and creative development workflow",
-  "version": "1.0.42",
+  "version": "1.0.43",
   "dependencies": ["core", "drivin"],
   "author": {
     "name": "tamurayoshiya",

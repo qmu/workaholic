@@ -14,9 +14,7 @@ The `.workaholic/` directory has a fixed structure. Only these subdirectories ar
 | `terms/`  | Term definitions                           |
 | `tickets/`      | Implementation work queue and archives     |
 
-README files at the root level are allowed (`README.md`, `README_ja.md`, etc.).
-
-**i18n**: Translation is enforced. See the `i18n` skill for requirements.
+README files at the root level are allowed (`README.md`).
 
 **Guidelines:**
 - Never create directories outside the allowed list

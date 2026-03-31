@@ -7,7 +7,6 @@ skills:
   - lead-infra
   - analyze-viewpoint
   - write-spec
-  - translate
 ---
 
 # Infra Lead

@@ -6,7 +6,6 @@ skills:
   - leaders-principle
   - lead-recovery
   - analyze-policy
-  - translate
 ---
 
 # Recovery Lead

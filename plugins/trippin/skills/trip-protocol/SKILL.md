@@ -30,17 +30,20 @@ Coding: Concurrent launch, review and testing, iteration, done (or rollback to p
 
 All scripts use absolute paths from home directory.
 
-| Script | Usage |
-| ------ | ----- |
-| `ensure-worktree.sh <trip-name>` | Create isolated worktree and branch |
-| `list-trip-worktrees.sh` | List existing trip worktrees (JSON) |
-| `init-trip.sh <trip-name> [instruction]` | Create artifact directories and plan.md |
-| `validate-dev-env.sh <worktree_path>` | Check env files, dependencies, ports |
-| `read-plan.sh <trip-path>` | Read plan state as JSON |
-| `trip-commit.sh <agent> <phase> <step> <description>` | Commit with `[Agent] description` format |
-| `log-event.sh <trip-path> <agent> <event-type> <target> <impact>` | Append to event-log.md |
+| Script | Location | Usage |
+| ------ | -------- | ----- |
+| `ensure-worktree.sh <trip-name>` | core | Create isolated worktree and branch |
+| `cleanup-worktree.sh <trip-name>` | core | Remove worktree and branch after PR merge |
+| `list-trip-worktrees.sh` | core | List existing trip worktrees with PR status (JSON) |
+| `init-trip.sh <trip-name> [instruction]` | trippin | Create artifact directories and plan.md |
+| `validate-dev-env.sh <worktree_path>` | trippin | Check env files, dependencies, ports |
+| `read-plan.sh <trip-path>` | trippin | Read plan state as JSON |
+| `trip-commit.sh <agent> <phase> <step> <description>` | trippin | Commit with `[Agent] description` format |
+| `log-event.sh <trip-path> <agent> <event-type> <target> <impact>` | trippin | Append to event-log.md |
 
-Script base path: `${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/sh/`
+Script base paths:
+- **core scripts**: `${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/`
+- **trippin scripts**: `${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/`
 
 ## Artifact Storage
 
@@ -127,11 +130,11 @@ Applies to projects with user-facing interfaces (web, CLI, API). Planner detects
 
 ## System Safety
 
-Before implementation, Constructor runs: `bash ${CLAUDE_PLUGIN_ROOT}/../drivin/skills/system-safety/sh/detect.sh`. If `system_changes_authorized` is false, use project-local alternatives only.
+Before implementation, Constructor runs: `bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/system-safety/scripts/detect.sh`. If `system_changes_authorized` is false, use project-local alternatives only.
 
 ## Written Language Policy
 
-All trip output must be written in English. This applies to: artifact content (directions, models, designs), review files, event log entries, plan.md content, commit messages, PR titles and bodies, code and code comments, and any agent-generated documentation. The only exception is content written inside the `.workaholic/` directory, which follows the consumer project's CLAUDE.md language setting (English or Japanese). When the consumer's CLAUDE.md specifies Japanese for `.workaholic/`, trip artifacts stored in `.workaholic/.trips/` may use Japanese.
+All trip output must be written in English. This applies to: artifact content, review files, event log entries, plan.md content, commit messages, PR titles and bodies, code and code comments, and any agent-generated documentation.
 
 ## Commit Convention
 

@@ -6,7 +6,6 @@ skills:
   - leaders-principle
   - lead-security
   - analyze-policy
-  - translate
 ---
 
 # Security Lead

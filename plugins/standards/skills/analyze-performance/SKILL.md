@@ -11,7 +11,7 @@ Evaluate a development branch's decision-making quality.
 ## Calculate Metrics
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-performance/sh/calculate.sh <base-branch>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-performance/scripts/calculate.sh <base-branch>
 ```
 
 Returns JSON with performance metrics:

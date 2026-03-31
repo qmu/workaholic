@@ -12,7 +12,7 @@ Generate a development journey report from a trip session's artifacts and create
 ## Gather Artifacts
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/write-trip-report/sh/gather-artifacts.sh <trip-name>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/write-trip-report/scripts/gather-artifacts.sh <trip-name>
 ```
 
 Parse JSON output for artifact paths. Read each artifact to extract summaries.

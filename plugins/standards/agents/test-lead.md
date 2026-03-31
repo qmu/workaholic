@@ -6,7 +6,6 @@ skills:
   - leaders-principle
   - lead-test
   - analyze-policy
-  - translate
 ---
 
 # Test Lead

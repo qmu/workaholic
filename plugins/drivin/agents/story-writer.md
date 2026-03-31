@@ -3,8 +3,8 @@ name: story-writer
 description: Generate branch story for PR description and create/update the pull request.
 tools: Read, Write, Edit, Bash, Glob, Grep, Task
 skills:
-  - gather-git-context
-  - write-story
+  - core:gather-git-context
+  - report
 ---
 
 # Story Writer
@@ -19,20 +19,19 @@ Generate a branch story in `.workaholic/stories/<branch-name>.md` and create/upd
 
 ### Phase 1: Invoke Story Generation Agents
 
-Invoke 4 agents in parallel via Task tool (single message with 4 tool calls):
+Invoke 3 agents in parallel via Task tool (single message with 3 tool calls):
 
 - **release-readiness** (`subagent_type: "drivin:release-readiness"`, `model: "opus"`): Analyzes branch for release readiness. Pass archived tickets list and branch name.
-- **performance-analyst** (`subagent_type: "standards:performance-analyst"`, `model: "opus"`): Evaluates decision quality. Pass archived tickets list and git log.
 - **overview-writer** (`subagent_type: "standards:overview-writer"`, `model: "opus"`): Generates overview, highlights, motivation, and journey. Pass branch name and base branch.
-- **section-reviewer** (`subagent_type: "standards:section-reviewer"`, `model: "opus"`): Generates sections 5-8 (Outcome, Historical Analysis, Concerns, Ideas). Pass branch name and archived tickets list.
+- **section-reviewer** (`subagent_type: "standards:section-reviewer"`, `model: "opus"`): Generates sections 4-7 (Outcome, Historical Analysis, Concerns, Ideas). Pass branch name and archived tickets list.
 
-Wait for all 4 agents to complete. Track which succeeded and which failed.
+Wait for all 3 agents to complete. Track which succeeded and which failed.
 
 ### Phase 2: Write Story File
 
 1. **Gather Source Data**: Read archived tickets using Glob pattern `.workaholic/tickets/archive/<branch-name>/*.md`. Extract frontmatter (`commit_hash`, `category`) and content (Overview, Final Report).
 
-2. **Write Story**: Follow the preloaded write-story skill for content structure, agent output mapping, templates, and guidelines.
+2. **Write Story**: Follow the preloaded report skill (Write Story section) for content structure, agent output mapping, templates, and guidelines.
 
 3. **Update Index**: Add entry to `.workaholic/stories/README.md`.
 
@@ -71,7 +70,6 @@ Return JSON with story and PR status:
     "overview_writer": { "status": "success" | "failed", "error": "..." },
     "section_reviewer": { "status": "success" | "failed", "error": "..." },
     "release_readiness": { "status": "success" | "failed", "error": "..." },
-    "performance_analyst": { "status": "success" | "failed", "error": "..." },
     "release_note_writer": { "status": "success" | "failed", "error": "..." },
     "pr_creator": { "status": "success" | "failed", "error": "..." }
   }

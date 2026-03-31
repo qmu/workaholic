@@ -2,7 +2,7 @@
 name: scan
 description: Full documentation scan - update all .workaholic/ documentation (changelog, specs, terms, policies).
 skills:
-  - gather-git-context
+  - core:gather-git-context
   - standards:select-scan-agents
   - standards:write-spec
   - standards:validate-writer-output
@@ -26,7 +26,7 @@ Run a full documentation scan by invoking 3 manager agents then 12 leader/writer
 Run the preloaded select-scan-agents skill:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/../standards/skills/select-scan-agents/sh/select.sh full
+bash ${CLAUDE_PLUGIN_ROOT}/../standards/skills/select-scan-agents/scripts/select.sh full
 ```
 
 Parse the JSON output to get the lists of manager and leader agents.
@@ -72,19 +72,19 @@ All invocations MUST be in a single message to run concurrently. Each Task call 
 Validate viewpoint spec output:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/../standards/skills/validate-writer-output/sh/validate.sh .workaholic/specs ux.md model.md usecase.md infrastructure.md application.md component.md data.md feature.md
+bash ${CLAUDE_PLUGIN_ROOT}/../standards/skills/validate-writer-output/scripts/validate.sh .workaholic/specs ux.md model.md usecase.md infrastructure.md application.md component.md data.md feature.md
 ```
 
 Validate policy output:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/../standards/skills/validate-writer-output/sh/validate.sh .workaholic/policies test.md security.md quality.md accessibility.md observability.md delivery.md recovery.md
+bash ${CLAUDE_PLUGIN_ROOT}/../standards/skills/validate-writer-output/scripts/validate.sh .workaholic/policies test.md security.md quality.md accessibility.md observability.md delivery.md recovery.md
 ```
 
 ### Phase 5: Update Index Files
 
-- If spec validation passed: Update `.workaholic/specs/README.md` and `README_ja.md` to list all 8 viewpoint documents. Follow the preloaded write-spec skill for index file rules.
-- If policy validation passed: Update `.workaholic/policies/README.md` and `README_ja.md` to list all 7 policy documents.
+- If spec validation passed: Update `.workaholic/specs/README.md` to list all 8 viewpoint documents. Follow the preloaded write-spec skill for index file rules.
+- If policy validation passed: Update `.workaholic/policies/README.md` to list all 7 policy documents.
 
 ### Phase 6: Stage and Commit
 

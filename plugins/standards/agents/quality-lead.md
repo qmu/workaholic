@@ -6,7 +6,6 @@ skills:
   - leaders-principle
   - lead-quality
   - analyze-policy
-  - translate
 ---
 
 # Quality Lead

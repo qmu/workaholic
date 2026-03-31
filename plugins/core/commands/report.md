@@ -18,7 +18,7 @@ Context-aware report command that auto-detects whether you are in a drive or tri
 ### Step 0: Workspace Guard
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/check-workspace.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-workspace.sh
 ```
 
 Parse the JSON output. If `clean` is `true`, proceed silently to Step 1.
@@ -32,7 +32,7 @@ If the user selects "Stop", end the command immediately.
 ### Step 1: Detect Context
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/detect-context.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/detect-context.sh
 ```
 
 Parse the JSON output. Route to the appropriate workflow based on `context`.
@@ -41,7 +41,7 @@ Parse the JSON output. Route to the appropriate workflow based on `context`.
 
 #### Drive Context (`context: "drive"`)
 
-1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash ${CLAUDE_PLUGIN_ROOT}/../drivin/skills/branching/sh/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
+1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
 2. **Invoke story-writer** (`subagent_type: "drivin:story-writer"`, `model: "opus"`)
 3. **Display story content**: Read the story file from the `story_file` path in the story-writer result and output the entire Markdown content so the developer can review inline
 4. **Display PR URL** from story-writer result (mandatory)
@@ -51,7 +51,7 @@ Parse the JSON output. Route to the appropriate workflow based on `context`.
 Use the `trip_name` from the detection result, or `$ARGUMENT` if provided.
 
 1. Locate the trip directory at `.workaholic/.trips/<trip-name>/`. If it does not exist, inform the user and stop.
-2. **Gather artifacts**: `bash ${CLAUDE_PLUGIN_ROOT}/../trippin/skills/write-trip-report/sh/gather-artifacts.sh "<trip-name>"`
+2. **Gather artifacts**: `bash ${CLAUDE_PLUGIN_ROOT}/../trippin/skills/write-trip-report/scripts/gather-artifacts.sh "<trip-name>"`
 3. **Generate journey report**: Follow the preloaded **write-trip-report** skill **strictly**. The report **must** use the exact template structure defined in the skill — no sections added, removed, renamed, or reordered. Follow the skill's extraction guidelines precisely. Write to `.workaholic/stories/<branch-name>.md`.
 4. **Commit and push**:
    ```bash
@@ -75,7 +75,7 @@ Route to the selected workflow above.
 
 Not on a trip branch, but trip worktrees exist.
 
-1. Run `bash ${CLAUDE_PLUGIN_ROOT}/../trippin/skills/trip-protocol/sh/list-trip-worktrees.sh`
+1. Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/list-trip-worktrees.sh`
 2. Filter to worktrees where `has_pr` is `false` (unreported trips)
 3. If no unreported trips found: inform the user "No unreported trip worktrees found." and stop.
 4. If exactly one unreported trip: ask the user "Found trip '<trip_name>'. Generate report for this trip?" using AskUserQuestion. If confirmed, use it.

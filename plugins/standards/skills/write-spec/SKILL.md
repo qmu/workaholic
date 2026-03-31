@@ -2,8 +2,7 @@
 name: write-spec
 description: Spec document structure, formatting rules, and guidelines for updating .workaholic/specs/.
 allowed-tools: Bash
-skills:
-  - translate
+skills: []
 user-invocable: false
 ---
 
@@ -16,7 +15,7 @@ Guidelines for writing and updating specification documents in `.workaholic/spec
 Run the bundled script to collect information about what changed:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/write-spec/sh/gather.sh [base-branch]
+bash ${CLAUDE_PLUGIN_ROOT}/skills/write-spec/scripts/gather.sh [base-branch]
 ```
 
 Default base branch is `main`.
@@ -63,7 +62,7 @@ The script outputs structured information:
 
 ### Viewpoint Files
 
-The specs directory contains 8 viewpoint-based architecture documents (plus their Japanese translations):
+The specs directory contains 8 viewpoint-based architecture documents:
 
 | Viewpoint      | File                 | Description                                              |
 | -------------- | -------------------- | -------------------------------------------------------- |
@@ -75,8 +74,6 @@ The specs directory contains 8 viewpoint-based architecture documents (plus thei
 | component      | `component.md`       | Internal structure, module boundaries, decomposition     |
 | data           | `data.md`            | Data formats, frontmatter schemas, naming conventions    |
 | feature        | `feature.md`         | Feature inventory, capability matrix, configuration      |
-
-Each viewpoint file may have a corresponding translation file (e.g., `stakeholder_ja.md` when the primary language is English). The translation suffix depends on the consumer project's CLAUDE.md language configuration.
 
 ## Frontmatter
 
@@ -95,9 +92,8 @@ commit_hash: <from context COMMIT section>
 ## File Naming
 
 - Viewpoint specs use their slug as filename: `stakeholder.md`, `component.md`
-- Translations use `_ja` suffix: `stakeholder_ja.md`, `component_ja.md`
 - Other files use kebab-case: `getting-started.md`, `command-reference.md`
-- Exception: `README.md` and `README_ja.md` use uppercase
+- Exception: `README.md` uses uppercase
 
 ## Content Style
 
@@ -159,11 +155,6 @@ The README files should list all 8 viewpoint specs:
 
 - Remove link from parent README
 - Verify no other docs link to it
-
-**i18n README mirroring:**
-
-- Any document added to one README must have its translation linked in the other
-- Follow the preloaded `translate` skill for translation requirements
 
 ## Critical Rules
 

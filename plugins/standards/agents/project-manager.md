@@ -6,7 +6,6 @@ skills:
   - managers-principle
   - manage-project
   - write-spec
-  - translate
 ---
 
 # Project Manager

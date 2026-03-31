@@ -6,7 +6,6 @@ modified_at: 2026-01-26T14:30:00+09:00
 commit_hash: 5452b2d
 ---
 
-[English](README.md) | [日本語](README_ja.md)
 
 # Stories
 
@@ -70,6 +69,7 @@ Refs #<issue-number>
 
 ## Stories
 
+- [drive-20260329-173608.md](drive-20260329-173608.md) - Plugin architecture reorganization: core consolidation, dependency declarations, i18n deprecation, skill consolidation, story template simplification - 10 tickets, 21 commits
 - [drive-20260326-183949.md](drive-20260326-183949.md) - Agent discipline enforcement, standards plugin extraction, worktree lifecycle management, workspace safety guards, and developer experience improvements - 7 tickets, 14 commits
 - [drive-20260312-102414.md](drive-20260312-102414.md) - Trip-drive workflow integration: quality differentiation, worktree detection guards, cross-command compatibility, trip plan state persistence, and strip-frontmatter extraction - 6 tickets, 11 commits
 - [drive-20260311-125319.md](drive-20260311-125319.md) - System-wide configuration safety harness, agent personality spectrum rewrite, core plugin creation with unified /report and /ship commands, phase rollback mechanism, concurrent Planning Phase and Coding Phase execution - 10 tickets, 21 commits

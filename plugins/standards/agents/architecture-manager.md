@@ -7,7 +7,6 @@ skills:
   - manage-architecture
   - analyze-viewpoint
   - write-spec
-  - translate
 ---
 
 # Architecture Manager

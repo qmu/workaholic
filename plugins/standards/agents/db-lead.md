@@ -7,7 +7,6 @@ skills:
   - lead-db
   - analyze-viewpoint
   - write-spec
-  - translate
 ---
 
 # DB Lead

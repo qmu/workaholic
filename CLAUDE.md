@@ -6,15 +6,6 @@ Private marketplace for Claude Code plugins.
 
 Edit `plugins/` not `.claude/`. This repo develops plugins - changes go to `plugins/`, never `.claude/` unless explicitly requested.
 
-## Written Language
-
-- **`.workaholic/` directory**: English or Japanese (i18n)
-- **All other content**: English only
-  - Code and code comments
-  - Commit messages
-  - Pull requests
-  - Documentation outside `.workaholic/`
-
 ## Project Structure
 
 ```
@@ -24,26 +15,25 @@ Edit `plugins/` not `.claude/`. This repo develops plugins - changes go to `plug
 .claude-plugin/          # Marketplace configuration
   marketplace.json       # Marketplace metadata and plugin list
 plugins/                 # Plugin source directories
-  core/                  # Core shared plugin
+  core/                  # Core shared plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
-    commands/            # report, ship, worktree
-    skills/              # branching
-  standards/             # Standards policy plugin (no commands)
+    commands/            # report, ship
+    skills/              # branching, commit, gather-git-context, gather-ticket-metadata, ship, system-safety
+  standards/             # Standards policy plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
     agents/              # leads, managers, writers, analysts
     skills/              # lead-*, manage-*, analyze-*, write-*
-  drivin/                # Drivin ticket-driving plugin
+  drivin/                # Drivin ticket-driving plugin (depends on: core)
     .claude-plugin/      # Plugin configuration
     agents/              # ticket-organizer, drive-navigator, story-writer
     commands/            # ticket, drive, scan
-    rules/               # general, typescript
-    skills/              # archive-ticket, drive-workflow
-  trippin/               # Trippin exploration plugin
+    rules/               # general, workaholic
+    skills/              # create-ticket, discover, drive, report
+  trippin/               # Trippin exploration plugin (depends on: core, drivin)
     .claude-plugin/      # Plugin configuration
     commands/            # trip
     agents/              # planner, architect, constructor
-    skills/              # trip-protocol, write-trip-report, ship
-    rules/               # i18n
+    skills/              # trip-protocol, write-trip-report
 ```
 
 ## Architecture Policy
@@ -55,6 +45,19 @@ plugins/                 # Plugin source directories
 | Command  | Skill, Subagent    | —                   |
 | Subagent | Skill, Subagent    | Command             |
 | Skill    | Skill              | Subagent, Command   |
+
+### Plugin Dependencies
+
+```
+core (base)       standards (base)
+  ^       ^
+  |       |
+drivin  trippin
+  ^       |
+  |_______|
+```
+
+Each plugin declares `dependencies` in its `plugin.json`. Cross-plugin `${CLAUDE_PLUGIN_ROOT}/../<name>/` references must only target declared dependencies. Core commands have soft references to drivin and trippin for context-aware routing (report, ship).
 
 ### Design Principle
 
@@ -72,8 +75,8 @@ Subagents must use skills for common operations instead of inline shell commands
 
 | Operation | Skill | Usage |
 | --------- | ----- | ----- |
-| Git context (branch, base, URL) | gather-git-context | `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-git-context/sh/gather.sh` |
-| Ticket metadata (date, author) | gather-ticket-metadata | `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-ticket-metadata/sh/gather.sh` |
+| Git context (branch, base, URL) | gather-git-context | `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-git-context/scripts/gather.sh` |
+| Ticket metadata (date, author) | gather-ticket-metadata | `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-ticket-metadata/scripts/gather.sh` |
 
 Never write inline git commands like `git branch --show-current` or `git remote show origin` in subagent markdown files. Subagents preload the skill and gather context themselves.
 
@@ -88,7 +91,7 @@ This includes:
 - **Loops**: `for`, `while`
 - **Variable expansion with logic**: `${var:-default}`, `${var:+alt}`
 
-Extract ALL multi-step or conditional shell operations to bundled scripts in skills (`skills/<name>/sh/<script>.sh`). This ensures consistency, testability, and permission-free execution.
+Extract ALL multi-step or conditional shell operations to bundled scripts in skills (`skills/<name>/scripts/<script>.sh`). This ensures consistency, testability, and permission-free execution.
 
 **Wrong** (inline conditional):
 ```bash
@@ -98,7 +101,7 @@ if [ "$current" = "main" ]; then echo "on_main"; fi
 
 **Correct** (skill script):
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/sh/check.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check.sh
 ```
 
 ### Skill Script Path Rule
@@ -109,17 +112,17 @@ Claude Code expands `${CLAUDE_PLUGIN_ROOT}` inline in all plugin content (skills
 
 **Wrong** (relative path):
 ```bash
-bash .claude/skills/gather-ticket-metadata/sh/gather.sh
+bash .claude/skills/gather-ticket-metadata/scripts/gather.sh
 ```
 
 **Correct** (same-plugin reference):
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-ticket-metadata/sh/gather.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-ticket-metadata/scripts/gather.sh
 ```
 
-**Correct** (cross-plugin reference — sibling plugin):
+**Correct** (cross-plugin reference — declared dependency):
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/../trippin/skills/trip-protocol/sh/list-trip-worktrees.sh
+bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/check-worktrees.sh
 ```
 
 ## Commands

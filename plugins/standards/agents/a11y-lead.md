@@ -6,7 +6,6 @@ skills:
   - leaders-principle
   - lead-a11y
   - analyze-policy
-  - translate
 ---
 
 # A11y Lead

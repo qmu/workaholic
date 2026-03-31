@@ -18,12 +18,12 @@ Thin alias for ticket-organizer subagent.
 Check if trip worktrees exist before proceeding:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/sh/check-worktrees.sh
+bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/check-worktrees.sh
 ```
 
 If `has_worktrees` is `true`, present the user with a choice using `AskUserQuestion` with selectable options:
 - **"Continue here"** - Proceed with ticket creation on the current branch
-- **"Switch to worktree"** - Run `bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/sh/list-all-worktrees.sh`, display the worktree list, and inform the user to navigate to the selected worktree to run `/ticket` there
+- **"Switch to worktree"** - Run `bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/list-all-worktrees.sh`, display the worktree list, and inform the user to navigate to the selected worktree to run `/ticket` there
 
 If `has_worktrees` is `false`, proceed silently to Step 1.
 

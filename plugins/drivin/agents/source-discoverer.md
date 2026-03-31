@@ -4,12 +4,12 @@ description: Find related source files and analyze code flow.
 tools: Glob, Grep, Read
 model: opus
 skills:
-  - discover-source
+  - discover
 ---
 
 # Source Discoverer
 
-Explore codebase to find files related to a ticket request. Follow the preloaded **discover-source** skill for exploration phases, depth controls, and output format.
+Explore codebase to find files related to a ticket request. Follow the preloaded **discover** skill (Discover Source section) for exploration phases, depth controls, and output format.
 
 ## Input
 

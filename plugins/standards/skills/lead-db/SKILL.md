@@ -16,7 +16,6 @@ The db lead owns the project's data viewpoint and persistency concerns. It analy
 - No fabricated claims exist.
 - Every statement is grounded in codebase evidence.
 - All gaps are marked as "not observed".
-- Translations are produced only when the user's root CLAUDE.md declares translation requirements.
 
 ### Responsibility
 
@@ -34,7 +33,6 @@ The db lead owns the project's data viewpoint and persistency concerns. It analy
 - Only document data aspects that are observable in the codebase (schema files, validation scripts, naming conventions, or format definitions).
 - Cite evidence for each statement (e.g., validation script, schema definition, hook configuration).
 - Follow the analyze-viewpoint output template for document structure.
-- Produce translations only when the user's root CLAUDE.md declares translation requirements. Do not hardcode specific languages.
 
 ### Review
 
@@ -54,8 +52,7 @@ The db lead owns the project's data viewpoint and persistency concerns. It analy
 ### Execution
 
 - Read the manage-architecture output from `.workaholic/specs/` for component inventory and data layer context before performing data analysis.
-- Gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-viewpoint/sh/gather.sh data main`.
-- Check overrides by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-viewpoint/sh/read-overrides.sh`.
+- Gather context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-viewpoint/scripts/gather.sh data main`.
+- Check overrides by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-viewpoint/scripts/read-overrides.sh`.
 - Use the analysis prompts: What data formats are used? What frontmatter schemas exist? What file naming conventions are enforced? How is data validated?
 - Read relevant source files to understand the repository's data storage and persistence practices before writing.
-- Write the English spec first, then produce translations per the user's translation policy declared in their root CLAUDE.md.

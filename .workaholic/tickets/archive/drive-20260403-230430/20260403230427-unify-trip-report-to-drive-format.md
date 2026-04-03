@@ -3,9 +3,9 @@ created_at: 2026-04-03T23:04:27+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: c57270e
+category: Changed
 ---
 
 # Unify Trip Report Format to Match Drive Report Structure
@@ -73,3 +73,17 @@ Past tickets that touched similar areas:
 - The Trip Activity Log is a trip-specific artifact with no drive equivalent. Placing it in the Notes section (section 9) as a collapsed details block preserves the information without adding a non-standard section. If the event log is large, the collapsed block prevents the PR description from becoming unwieldy. (`plugins/trippin/skills/write-trip-report/SKILL.md` lines 79-81)
 - This ticket is part 2 of 2 in a pair. The companion ticket handles adding development patterns to the story format. This ticket focuses solely on format unification and does not add new sections or content types beyond what already exists in the drive format.
 - The drive report invokes 3 parallel subagents (release-readiness, overview-writer, section-reviewer) to populate sections. The trip report generates content inline from artifacts. This ticket does not change the generation mechanism -- only the output format. Trip reports will still be generated inline from artifacts, just structured to match the drive template. (`plugins/drivin/agents/story-writer.md`, `plugins/trippin/skills/write-trip-report/SKILL.md`)
+
+## Final Report
+
+### Changes Made
+- Rewrote `plugins/trippin/skills/write-trip-report/SKILL.md` to produce the 9-section drive report structure with YAML frontmatter, artifact-to-section mapping table, and unified template
+- Updated `plugins/core/commands/report.md` Trip Context to route PR creation through `create-or-update.sh` instead of raw `gh pr create`, simplified format enforcement language, and aligned PR title derivation to use Overview highlights
+- Updated Trip Worktree Context to remove redundant enforcement language
+
+### What Went Well
+- The artifact-to-section mapping was straightforward since trip artifacts (direction, reviews, design) map naturally to drive sections (Overview/Motivation, Concerns/Ideas, Changes)
+- Routing through `create-or-update.sh` automatically handles frontmatter stripping, eliminating the need for separate trip-specific PR creation logic
+
+### What Could Be Improved
+- The Trip Activity Log placement in Notes (section 9) as a collapsed details block is a reasonable compromise but means trip-specific information is less prominent than in the old format

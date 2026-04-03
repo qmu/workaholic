@@ -7,7 +7,7 @@ user-invocable: false
 # Leaders Principle
 
 Principles in this document apply to every lead sub-agent. Each lead MUST observe these
-principles in addition to its own domain-specific Default Policies.
+principles in addition to its own domain-specific Policies.
 
 ## Prior Term Consistency
 

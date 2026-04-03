@@ -20,11 +20,11 @@ Story sections are populated from parallel agent outputs:
 | Agent | Sections | Fields |
 | ----- | -------- | ------ |
 | overview-writer | 1, 2, 3 (journey preamble) | `overview`, `highlights[]`, `motivation`, `journey.mermaid`, `journey.summary` |
-| section-reviewer | 4, 5, 6, 7 | `outcome`, `historical_analysis`, `concerns`, `ideas` |
-| release-readiness | 8 | `verdict`, `concerns[]`, `instructions.pre_release[]`, `instructions.post_release[]` |
+| section-reviewer | 4, 5, 6, 7, 8 | `outcome`, `historical_analysis`, `concerns`, `ideas`, `development_patterns` |
+| release-readiness | 9 | `verdict`, `concerns[]`, `instructions.pre_release[]`, `instructions.post_release[]` |
 | release-note-writer | (separate file) | Writes to `.workaholic/release-notes/<branch>.md` |
 
-Section 3 (Changes) comes from archived tickets, prefaced by journey content from overview-writer. Section 9 (Notes) is optional context.
+Section 3 (Changes) comes from archived tickets, prefaced by journey content from overview-writer. Section 10 (Notes) is optional context.
 
 ### Story Content Structure
 
@@ -112,21 +112,40 @@ One subsection per ticket, in chronological order:
 
 [Enhancement suggestions for future work. Improvements that were out of scope. "Nice to have" features identified during implementation. Write "None" if nothing to report.]
 
-## 8. Release Preparation
+## 8. Successful Development Patterns
+
+[Effective patterns discovered during this branch's development that are worth preserving as institutional knowledge.]
+
+**Format**: Bullet list with pattern description and context.
+
+**Example**:
+- Consolidating 12 skill directories into 4 cohesive units improved navigability without losing behavioral content -- naming skills after their consuming commands creates a discoverable one-to-one mapping
+- Running three discovery agents in parallel (history, source, ticket) before writing specs ensures comprehensive context without sequential bottlenecks
+- Extracting shell logic into skill scripts rather than inline conditionals prevented exit code 127 failures from path resolution issues
+
+**Guidelines**:
+- Focus on patterns that worked well, not problems encountered (those belong in Concerns)
+- Each pattern should be specific enough to be actionable in future branches
+- Include the reasoning ("why it worked") not just the action ("what was done")
+- Extract from ticket Considerations (positive observations), Final Reports (what went well), and Implementation Steps (approaches that proved effective)
+- Categories to consider: architectural decisions, testing strategies, refactoring approaches, collaboration patterns, tooling choices
+- Write "None" if no noteworthy patterns emerged
+
+## 9. Release Preparation
 
 **Verdict**: [Ready for release / Needs attention before release]
 
-### 8-1. Concerns
+### 9-1. Concerns
 
 - [List any concerns from release-readiness analysis]
 - Or "None - changes are safe for release"
 
-### 8-2. Pre-release Instructions
+### 9-2. Pre-release Instructions
 
 - [Steps to take before running /release]
 - Or "None - standard release process applies"
 
-### 8-3. Post-release Instructions
+### 9-3. Post-release Instructions
 
 - [Steps to take after release]
 - Or "None - no special post-release actions needed"
@@ -148,10 +167,10 @@ The release-readiness JSON is provided by story-writer which invokes release-rea
 }
 ```
 
-Format this JSON into section 8.
+Format this JSON into section 9.
 
 ```markdown
-## 9. Notes
+## 10. Notes
 
 Additional context for reviewers or future reference.
 ```

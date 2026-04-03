@@ -23,7 +23,7 @@ Invoke 3 agents in parallel via Task tool (single message with 3 tool calls):
 
 - **release-readiness** (`subagent_type: "drivin:release-readiness"`, `model: "opus"`): Analyzes branch for release readiness. Pass archived tickets list and branch name.
 - **overview-writer** (`subagent_type: "standards:overview-writer"`, `model: "opus"`): Generates overview, highlights, motivation, and journey. Pass branch name and base branch.
-- **section-reviewer** (`subagent_type: "standards:section-reviewer"`, `model: "opus"`): Generates sections 4-7 (Outcome, Historical Analysis, Concerns, Ideas). Pass branch name and archived tickets list.
+- **section-reviewer** (`subagent_type: "standards:section-reviewer"`, `model: "opus"`): Generates sections 4-8 (Outcome, Historical Analysis, Concerns, Ideas, Successful Development Patterns). Pass branch name and archived tickets list.
 
 Wait for all 3 agents to complete. Track which succeeded and which failed.
 

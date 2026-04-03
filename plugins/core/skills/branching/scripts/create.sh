@@ -1,14 +1,15 @@
 #!/bin/sh
 # Create timestamped topic branch
-# Usage: create.sh [prefix]
-# Default prefix: drive
+# Usage: create.sh [feature-name]
+# Default feature: work
 # Output: JSON with branch name
+# Format: work-YYYYMMDD-HHMMSS-<feature>
 
 set -eu
 
-PREFIX="${1:-drive}"
+FEATURE="${1:-work}"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-BRANCH="${PREFIX}-${TIMESTAMP}"
+BRANCH="work-${TIMESTAMP}-${FEATURE}"
 
 git checkout -b "$BRANCH"
 

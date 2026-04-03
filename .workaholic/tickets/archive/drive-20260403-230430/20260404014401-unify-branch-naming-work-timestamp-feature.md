@@ -3,9 +3,9 @@ created_at: 2026-04-04T01:44:01+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 19dcfc3
+category: Changed
 ---
 
 # Unify branch naming to work-timestamp-feature format

@@ -34,7 +34,7 @@ All scripts use absolute paths from home directory.
 | ------ | -------- | ----- |
 | `ensure-worktree.sh <trip-name>` | core | Create isolated worktree and branch |
 | `cleanup-worktree.sh <trip-name>` | core | Remove worktree and branch after PR merge |
-| `list-trip-worktrees.sh` | core | List existing trip worktrees with PR status (JSON) |
+| `list-worktrees.sh` | core | List existing worktrees with PR status (JSON) |
 | `init-trip.sh <trip-name> [instruction]` | work | Create artifact directories and plan.md |
 | `validate-dev-env.sh <worktree_path>` | work | Check env files, dependencies, ports |
 | `read-plan.sh <trip-path>` | work | Read plan state as JSON |

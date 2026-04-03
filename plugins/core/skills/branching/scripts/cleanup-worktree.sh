@@ -1,20 +1,19 @@
 #!/bin/bash
-# Clean up a trip worktree and its local branch after PR merge.
-# Usage: bash cleanup-worktree.sh <trip-name>
+# Clean up a worktree and its local branch after PR merge.
+# Usage: bash cleanup-worktree.sh <branch-name>
 # Output: JSON with cleanup status
 
 set -euo pipefail
 
-trip_name="${1:-}"
+branch_name="${1:-}"
 
-if [ -z "$trip_name" ]; then
-  echo '{"error": "trip name is required"}' >&2
+if [ -z "$branch_name" ]; then
+  echo '{"error": "branch name is required"}' >&2
   exit 1
 fi
 
 repo_root="$(git rev-parse --show-toplevel)"
-branch="trip/${trip_name}"
-worktree_path="${repo_root}/.worktrees/${trip_name}"
+worktree_path="${repo_root}/.worktrees/${branch_name}"
 
 worktree_removed=false
 branch_removed=false
@@ -29,11 +28,11 @@ fi
 git worktree prune
 
 # Delete local branch if it exists (safe delete)
-if git show-ref --verify --quiet "refs/heads/${branch}"; then
-  git branch -d "$branch" 2>/dev/null || git branch -D "$branch"
+if git show-ref --verify --quiet "refs/heads/${branch_name}"; then
+  git branch -d "$branch_name" 2>/dev/null || git branch -D "$branch_name"
   branch_removed=true
 fi
 
 cat <<EOF
-{"cleaned": true, "worktree_path": "$worktree_path", "branch": "$branch", "worktree_removed": $worktree_removed, "branch_removed": $branch_removed}
+{"cleaned": true, "worktree_path": "$worktree_path", "branch": "$branch_name", "worktree_removed": $worktree_removed, "branch_removed": $branch_removed}
 EOF

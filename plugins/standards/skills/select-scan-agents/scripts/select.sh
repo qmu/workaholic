@@ -75,19 +75,19 @@ echo "$DIFF_STAT" | while IFS= read -r line; do
   path=$(echo "$line" | sed 's/|.*//' | sed 's/^ *//' | sed 's/ *$//')
 
   case "$path" in
-    plugins/drivin/commands/*|plugins/drivin/agents/*)
+    plugins/work/commands/*|plugins/work/agents/*)
       touch "$TMPDIR_SEL/mgr-architecture-manager"
       ;;
   esac
 
   case "$path" in
-    plugins/drivin/skills/*)
+    plugins/work/skills/*)
       touch "$TMPDIR_SEL/mgr-architecture-manager"
       ;;
   esac
 
   case "$path" in
-    plugins/drivin/rules/*)
+    plugins/work/rules/*)
       touch "$TMPDIR_SEL/mgr-quality-manager"
       touch "$TMPDIR_SEL/quality-lead"
       ;;

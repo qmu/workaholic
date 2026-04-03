@@ -27,11 +27,8 @@ while IFS= read -r line; do
     fi
 
     # Detect type from branch pattern
-    if [[ "$current_branch" == trip/* ]]; then
-      wt_type="trip"
-      wt_name="${current_branch#trip/}"
-    elif [[ "$current_branch" == drive-* ]]; then
-      wt_type="drive"
+    if [[ "$current_branch" == work-* ]] || [[ "$current_branch" == drive-* ]] || [[ "$current_branch" == trip/* ]]; then
+      wt_type="work"
       wt_name="${current_branch}"
     else
       wt_type="other"

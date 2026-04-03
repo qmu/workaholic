@@ -1,6 +1,6 @@
 # Review Sections
 
-Guidelines for generating story sections 5-8 (Outcome, Historical Analysis, Concerns, Ideas) from archived tickets.
+Guidelines for generating story sections 4-8 (Outcome, Historical Analysis, Concerns, Ideas, Successful Development Patterns) from archived tickets.
 
 ## Input
 
@@ -58,6 +58,23 @@ Collect future enhancement suggestions.
 - Note potential optimizations or extensions
 - If nothing noteworthy, write "None"
 
+### Section 8: Successful Development Patterns
+
+Capture effective patterns discovered during this branch's development.
+
+- Extract positive observations from ticket Considerations sections
+- Extract "what went well" insights from Final Report sections
+- Identify effective approaches from Implementation Steps that proved successful
+- Look for recurring successful strategies across multiple tickets
+- Categories to consider:
+  - Architectural decisions that worked well
+  - Testing strategies that caught issues
+  - Refactoring approaches that improved code quality
+  - Collaboration or workflow patterns that were effective
+  - Tooling or automation choices that saved effort
+- Each pattern should include reasoning for why it worked
+- If no noteworthy patterns, write "None"
+
 ## Output Format
 
 Return JSON with the following structure:
@@ -67,7 +84,8 @@ Return JSON with the following structure:
   "outcome": "Bullet list of accomplishments...",
   "historical_analysis": "Patterns and learnings...",
   "concerns": "Risks and limitations or 'None'",
-  "ideas": "Future suggestions or 'None'"
+  "ideas": "Future suggestions or 'None'",
+  "development_patterns": "Effective patterns or 'None'"
 }
 ```
 

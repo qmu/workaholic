@@ -19,19 +19,29 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/detect-context.sh
 
 | Context | Branch Pattern | JSON |
 | ------- | -------------- | ---- |
-| `drive` | `drive-*` | `{"context": "drive", "branch": "<branch>"}` |
-| `trip` | `trip/*` (no tickets in todo) | `{"context": "trip", "branch": "<branch>", "trip_name": "<name>"}` |
-| `trip_drive` | `trip/*` (with tickets in todo) | `{"context": "trip_drive", "branch": "<branch>", "trip_name": "<name>"}` |
-| `trip_worktree` | Other (with trip worktrees) | `{"context": "trip_worktree", "branch": "<branch>"}` |
+| `work` | `work-*`, `drive-*`, `trip/*` | `{"context": "work", "branch": "<branch>", "mode": "<mode>"}` |
+| `worktree` | Other (with worktrees) | `{"context": "worktree", "branch": "<branch>"}` |
 | `unknown` | `main`, `master`, or other | `{"context": "unknown", "branch": "<branch>"}` |
+
+### Mode Detection
+
+The `mode` field distinguishes workflow style within the `work` context:
+
+| Mode | Condition | Routing |
+| ---- | --------- | ------- |
+| `drive` | No trip artifacts, or tickets in todo | Story generation, version bump, drive-style PR |
+| `trip` | Trip artifacts exist, no tickets in todo | Artifact gathering, journey report, worktree cleanup |
+| `hybrid` | Both trip artifacts and tickets exist | Offer choice between drive and trip workflows |
 
 ### Context Routing
 
-- **drive**: Route to Drivin workflows (story generation, version bump, drive-style PR)
-- **trip**: Route to Trippin workflows (artifact gathering, journey report, worktree cleanup)
-- **trip_drive**: Trip branch that has transitioned to drive-style development (tickets exist in todo). Commands offer a choice between drive and trip workflows.
-- **trip_worktree**: Not on a trip branch, but trip worktrees exist. List worktrees and let the user choose.
+- **work**: Route to the appropriate workflow based on `mode` (drive, trip, or hybrid)
+- **worktree**: Not on a work branch, but worktrees exist. List worktrees and let the user choose.
 - **unknown**: Cannot determine context. Ask the user which workflow to use.
+
+### Backward Compatibility
+
+Legacy `drive-*` and `trip/*` branches are detected as `work` context with appropriate mode.
 
 ## Worktree Guard
 
@@ -47,17 +57,15 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-worktrees.sh
 {
   "has_worktrees": true,
   "count": 2,
-  "trip_count": 1,
-  "drive_count": 1
+  "work_count": 2
 }
 ```
 
 - `has_worktrees`: Boolean indicating if any worktrees exist
 - `count`: Total number of worktrees found
-- `trip_count`: Number of `trip/*` branch worktrees
-- `drive_count`: Number of `drive-*` branch worktrees
+- `work_count`: Number of work branch worktrees (`work-*`, `drive-*`, `trip/*`)
 
-Unlike `list-trip-worktrees.sh`, this script does not query GitHub API for PR status. It is designed for fast, non-blocking guard checks.
+Unlike `list-worktrees.sh`, this script does not query GitHub API for PR status. It is designed for fast, non-blocking guard checks.
 
 ## Workspace Guard
 
@@ -115,7 +123,7 @@ Error cases: not a valid worktree, main tree has uncommitted changes.
 
 ### List All Worktrees
 
-List all active worktrees with type detection (`trip`, `drive`, `other`). No GitHub API calls.
+List all active worktrees with type detection (`work`, `other`). No GitHub API calls.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/list-all-worktrees.sh
@@ -126,18 +134,18 @@ Output:
 {
   "count": 2,
   "worktrees": [
-    {"name": "drive-20260320-123456", "branch": "drive-20260320-123456", "worktree_path": "/path/.worktrees/drive-20260320-123456", "type": "drive"},
-    {"name": "trip-20260319-040153", "branch": "trip/trip-20260319-040153", "worktree_path": "/path/.worktrees/trip-20260319-040153", "type": "trip"}
+    {"name": "work-20260404-014400-dark-mode", "branch": "work-20260404-014400-dark-mode", "worktree_path": "/path/.worktrees/work-20260404-014400-dark-mode", "type": "work"},
+    {"name": "work-20260403-230430-notifications", "branch": "work-20260403-230430-notifications", "worktree_path": "/path/.worktrees/work-20260403-230430-notifications", "type": "work"}
   ]
 }
 ```
 
-### List Trip Worktrees
+### List Worktrees with PR Status
 
-List active trip worktrees with PR status. Queries GitHub API for each worktree, so slower than `list-all-worktrees.sh`.
+List active work worktrees with PR status. Queries GitHub API for each worktree, so slower than `list-all-worktrees.sh`.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/list-trip-worktrees.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/list-worktrees.sh
 ```
 
 Output:
@@ -145,44 +153,32 @@ Output:
 {
   "count": 1,
   "worktrees": [
-    {"trip_name": "trip-20260319-040153", "branch": "trip/trip-20260319-040153", "worktree_path": "/path/.worktrees/trip-20260319-040153", "has_pr": true, "pr_number": 42, "pr_url": "https://github.com/..."}
+    {"name": "work-20260404-014400-dark-mode", "branch": "work-20260404-014400-dark-mode", "worktree_path": "/path/.worktrees/work-20260404-014400-dark-mode", "has_pr": true, "pr_number": 42, "pr_url": "https://github.com/..."}
   ]
 }
 ```
 
 ### Ensure Worktree
 
-Create an isolated worktree and branch for a trip session. Creates `.worktrees/<trip-name>/` directory and a `trip/<trip-name>` branch.
+Create an isolated worktree and branch. Creates `.worktrees/<branch-name>/` directory and a new branch.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/ensure-worktree.sh <trip-name>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/ensure-worktree.sh <branch-name>
 ```
 
-Output: `{"worktree_path": "<path>", "branch": "trip/<trip-name>"}`
+Output: `{"worktree_path": "<path>", "branch": "<branch-name>"}`
 
-Error cases: trip name missing, worktree already exists, branch already exists.
-
-### Create Trip Branch
-
-Create a `trip/*` branch without a worktree. The trip runs in the main working tree.
-
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create-trip-branch.sh <trip-name>
-```
-
-Output: `{"branch": "trip/<trip-name>", "worktree": false}`
-
-Error cases: trip name missing, branch already exists.
+Error cases: branch name missing, worktree already exists, branch already exists.
 
 ### Cleanup Worktree
 
-Remove a trip worktree and its local branch after PR merge. Force-removes the worktree directory, prunes stale entries, and deletes the local branch.
+Remove a worktree and its local branch after PR merge. Force-removes the worktree directory, prunes stale entries, and deletes the local branch.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-worktree.sh <trip-name>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-worktree.sh <branch-name>
 ```
 
-Output: `{"cleaned": true, "worktree_path": "<path>", "branch": "trip/<trip-name>", "worktree_removed": true, "branch_removed": true}`
+Output: `{"cleaned": true, "worktree_path": "<path>", "branch": "<branch-name>", "worktree_removed": true, "branch_removed": true}`
 
 ## Branch State Check
 
@@ -204,27 +200,25 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check.sh
 - `on_main`: Boolean indicating if on main/master branch
 - `branch`: Current branch name
 
-Topic branch patterns: `drive-*`, `trip-*`
+Topic branch patterns: `work-*`
 
 ## Create Topic Branch
 
 Create a new timestamped topic branch from the current branch.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh [prefix]
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh [feature-name]
 ```
 
 ### Arguments
 
-- `prefix` (optional): Branch prefix. Defaults to "drive".
-  - **drive** - for TiDD style development
-  - **trip** - for more AI oriented development
+- `feature-name` (optional): Concise feature description (lowercase, hyphens). Defaults to "work".
 
 ### Output Format
 
 ```json
 {
-  "branch": "drive-20260202-204753"
+  "branch": "work-20260404-014400-dark-mode-toggle"
 }
 ```
 

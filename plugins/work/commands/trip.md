@@ -15,13 +15,13 @@ Launch an Agent Teams session to collaboratively explore and develop a concept t
 
 ## Step 1: Create or Resume Trip
 
-Check for existing trip worktrees and trip branches:
+Check for existing worktrees:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/list-trip-worktrees.sh
+bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/list-worktrees.sh
 ```
 
-If `count > 0`, present choices via AskUserQuestion: list each existing trip, plus option to create new.
+If `count > 0`, present choices via AskUserQuestion: list each existing worktree, plus option to create new.
 
 **Resume (worktree)**: Use selected worktree's path/branch. Read plan state:
 ```bash
@@ -29,15 +29,19 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/read-plan.sh "<trip-path
 ```
 Route by state: `planning/not-started` -> Step 3, any other planning/coding step -> Step 4 with resume context, `complete/done` -> inform user and suggest `/report`.
 
-**New**: Present a choice via AskUserQuestion:
+**New**: Derive a concise feature name from `$ARGUMENT` (lowercase, hyphens, max 30 chars). Present a choice via AskUserQuestion:
 - **"Create worktree"** - Isolated environment. Run:
   ```bash
-  bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/ensure-worktree.sh "trip-$(date +%Y%m%d-%H%M%S)"
+  bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/create.sh "<feature-name>"
   ```
-  Set `<working_dir>` to the worktree path from the output.
+  Parse JSON to get `branch`. Then create worktree from it:
+  ```bash
+  bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/adopt-worktree.sh "<branch>"
+  ```
+  Set `<working_dir>` to the `worktree_path` from the output.
 - **"Branch only"** - Lightweight, no worktree. Run:
   ```bash
-  bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/create-trip-branch.sh "trip-$(date +%Y%m%d-%H%M%S)"
+  bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/create.sh "<feature-name>"
   ```
   Set `<working_dir>` to the repository root.
 

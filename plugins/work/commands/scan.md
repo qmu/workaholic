@@ -16,6 +16,14 @@ Run a full documentation scan by invoking 3 manager agents then 12 leader/writer
 
 ## Instructions
 
+### Pre-check: Dependencies
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/check-deps/scripts/check.sh
+```
+
+If `ok` is `false`, display the `message` to the user and stop.
+
 ### Phase 1: Gather Context
 
 1. Use the preloaded gather-git-context skill to get branch, base_branch, and repo_url.

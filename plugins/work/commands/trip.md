@@ -13,6 +13,14 @@ Launch an Agent Teams session to collaboratively explore and develop a concept t
 
 **Prerequisites**: Agent Teams enabled (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), clean git state.
 
+## Pre-check: Dependencies
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/check-deps/scripts/check.sh
+```
+
+If `ok` is `false`, display the `message` to the user and stop.
+
 ## Step 1: Create or Resume Trip
 
 Check for existing worktrees:

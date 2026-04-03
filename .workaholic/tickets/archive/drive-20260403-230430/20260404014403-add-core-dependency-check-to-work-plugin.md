@@ -3,9 +3,9 @@ created_at: 2026-04-04T01:44:03+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: e160408
+category: Added
 ---
 
 # Add core dependency check to work plugin

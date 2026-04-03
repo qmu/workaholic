@@ -3,9 +3,9 @@ created_at: 2026-04-04T01:44:04+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 95b3cd6
+category: Changed
 ---
 
 # Update documentation, marketplace, and remove old plugins

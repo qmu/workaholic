@@ -23,17 +23,13 @@ plugins/                 # Plugin source directories
     .claude-plugin/      # Plugin configuration
     agents/              # leads, managers, writers, analysts
     skills/              # lead-*, manage-*, analyze-*, write-*
-  drivin/                # Drivin ticket-driving plugin (depends on: core)
+  work/                  # Work plugin: drive + trip workflows (depends on: core)
     .claude-plugin/      # Plugin configuration
-    agents/              # ticket-organizer, drive-navigator, story-writer
-    commands/            # ticket, drive, scan
+    agents/              # drive-navigator, story-writer, planner, architect, constructor, etc.
+    commands/            # ticket, drive, scan, trip
+    hooks/               # ticket validation
     rules/               # general, workaholic
-    skills/              # create-ticket, discover, drive, report
-  trippin/               # Trippin exploration plugin (depends on: core, drivin)
-    .claude-plugin/      # Plugin configuration
-    commands/            # trip
-    agents/              # planner, architect, constructor
-    skills/              # trip-protocol, write-trip-report
+    skills/              # create-ticket, discover, drive, report, trip-protocol, write-trip-report
 ```
 
 ## Architecture Policy
@@ -50,14 +46,12 @@ plugins/                 # Plugin source directories
 
 ```
 core (base)       standards (base)
-  ^       ^
-  |       |
-drivin  trippin
-  ^       |
-  |_______|
+  ^
+  |
+work
 ```
 
-Each plugin declares `dependencies` in its `plugin.json`. Cross-plugin `${CLAUDE_PLUGIN_ROOT}/../<name>/` references must only target declared dependencies. Core commands have soft references to drivin and trippin for context-aware routing (report, ship).
+Each plugin declares `dependencies` in its `plugin.json`. Cross-plugin `${CLAUDE_PLUGIN_ROOT}/../<name>/` references must only target declared dependencies. Core commands have soft references to work for context-aware routing (report, ship).
 
 ### Design Principle
 
@@ -154,8 +148,7 @@ Version files:
 - `.claude-plugin/marketplace.json` - root `version` field
 - `plugins/core/.claude-plugin/plugin.json` - plugin `version` field
 - `plugins/standards/.claude-plugin/plugin.json` - plugin `version` field
-- `plugins/drivin/.claude-plugin/plugin.json` - plugin `version` field
-- `plugins/trippin/.claude-plugin/plugin.json` - plugin `version` field
+- `plugins/work/.claude-plugin/plugin.json` - plugin `version` field
 
 Keep all versions in sync. When bumping version:
 1. Read current version from `.claude-plugin/marketplace.json`

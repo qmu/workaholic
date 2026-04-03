@@ -64,3 +64,11 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/find-cloud-md.sh
 ```
 
 Searches for cloud.md in standard locations. Returns JSON with path or `{"found": false}`.
+
+### 2-4. Check Todo
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/check-todo.sh
+```
+
+Checks if `.workaholic/tickets/todo/` has remaining tickets. Returns JSON with cleanliness status, count, and ticket list. Used as a pre-merge guard to prevent shipping with unfinished work.

@@ -29,6 +29,20 @@ If `clean` is `false`, display the `summary` to the user and ask via AskUserQues
 
 If the user selects "Stop", end the command immediately.
 
+### Step 0.5: Ticket Guard
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/check-todo.sh
+```
+
+Parse the JSON output. If `clean` is `true`, proceed silently to Step 1.
+
+If `clean` is `false`, display the ticket list to the user: "Cannot ship: N ticket(s) remaining in `.workaholic/tickets/todo/`:" followed by the ticket filenames. Then ask via AskUserQuestion with selectable options:
+- **"Move all to icebox"** - Move all remaining tickets to `.workaholic/tickets/icebox/`, stage and commit "Move remaining tickets to icebox", then proceed to Step 1.
+- **"Stop"** - Halt the command so you can handle tickets first (run `/drive`, manually reorganize, etc.)
+
+If the user selects "Stop", end the command immediately.
+
 ### Step 1: Detect Context
 
 ```bash

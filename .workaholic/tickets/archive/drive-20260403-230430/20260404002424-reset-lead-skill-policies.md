@@ -3,9 +3,9 @@ created_at: 2026-04-04T00:24:24+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 52e04b0
+category: Changed
 ---
 
 # Reset All Lead Skill Policies
@@ -100,3 +100,21 @@ The lead architecture was established in a dedicated drive branch that created t
 - The `define-manager.md` rule at `.claude/rules/define-manager.md` also references "Default Policies" but is out of scope since only leads are being reset (`.claude/rules/define-manager.md`)
 - After this reset, the policy subsection headers will be empty placeholders; the user plans to manually repopulate them with new content
 - The `.workaholic/specs/` and `.workaholic/terms/` files that mention "Default Policies" are generated documentation and will be refreshed on the next `/scan` run -- no manual update needed
+
+## Final Report
+
+### Changes
+
+- Renamed `## Default Policies` to `## Policies` and erased all policy content and subsection headers in 10 lead SKILL.md files (lead-a11y, lead-db, lead-delivery, lead-infra, lead-observability, lead-quality, lead-recovery, lead-security, lead-test, lead-ux) — each now ends with just `## Policies`
+- Updated `.claude/rules/define-lead.md` schema rule: renamed all "Default Policies" references to "Policies" across template, guidelines, validation checklist, agent template, and example sections
+- Updated 10 lead agent files to reference "policies" instead of "default policies" in descriptions and instructions
+- Updated `plugins/standards/skills/leaders-principle/SKILL.md` to reference "domain-specific Policies"
+
+### Test Plan
+
+- [x] Verified no remaining "Default Polic" references in `plugins/standards/` or `.claude/rules/define-lead.md` (only manager-tier files remain, which are out of scope)
+- [x] Verified sample file (lead-security) has correct structure: Role preserved, Policies section with empty subsection headers
+
+### Release Prep
+
+- None — configuration-only change, no runtime impact

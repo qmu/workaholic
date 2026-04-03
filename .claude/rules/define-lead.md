@@ -36,7 +36,7 @@ implies all responsibilities have been satisfied.>
 <The necessary condition as a bullet list. Each item is a duty the agent must fulfill.
 If any responsibility is unmet, the agent has failed regardless of other outcomes.>
 
-## Default Policies
+## Policies
 
 ### Implementation
 
@@ -78,7 +78,7 @@ Role is the overarching concept that contains both Goal (positive obligation) an
 
 An agent that meets all responsibilities but misses the goal is incomplete. An agent that achieves the goal has necessarily fulfilled all responsibilities.
 
-### Default Policies
+### Policies
 
 Each policy subsection must contain specific, actionable rules -- not aspirational statements. Every rule should be something that can be checked in a review.
 
@@ -89,7 +89,7 @@ Each policy subsection must contain specific, actionable rules -- not aspiration
 | Documentation    | Writing or updating docs         | Format, tone, detail level, required parts  |
 | Execution        | Running commands or actions      | Sequencing, error handling, safety          |
 
-Default Policies apply unless a specific task provides overrides. When a task specifies policy overrides, they replace the corresponding default subsection for that task only.
+Policies apply unless a specific task provides overrides. When a task specifies policy overrides, they replace the corresponding subsection for that task only.
 
 ## Validation Checklist
 
@@ -100,7 +100,7 @@ Use this checklist to verify a lead definition is complete and well-formed:
 - [ ] `## Role` section is present and defines the agent's function, containing Goal and Responsibility subsections
 - [ ] `### Goal` subsection under Role defines measurable completion (sufficient condition, positive obligation)
 - [ ] `### Responsibility` subsection under Role defines minimum duties (necessary condition, negative obligation)
-- [ ] `## Default Policies` section is present with all four subsections
+- [ ] `## Policies` section is present with all four subsections
 - [ ] `### Implementation` contains concrete coding rules
 - [ ] `### Review` contains concrete review criteria
 - [ ] `### Documentation` contains concrete documentation rules
@@ -109,7 +109,7 @@ Use this checklist to verify a lead definition is complete and well-formed:
 
 ## Agent Template
 
-Every lead has a corresponding thin agent file at `plugins/standards/agents/<speciality>-lead.md`. The agent is a multi-purpose orchestrator — it is not tied to a single task type. Callers invoke it with a prompt describing what to do, and the agent applies the corresponding Default Policy from the lead skill.
+Every lead has a corresponding thin agent file at `plugins/standards/agents/<speciality>-lead.md`. The agent is a multi-purpose orchestrator — it is not tied to a single task type. Callers invoke it with a prompt describing what to do, and the agent applies the corresponding Policy from the lead skill.
 
 ```markdown
 ---
@@ -125,12 +125,12 @@ skills:
 # <Speciality> Lead
 
 <One-sentence description of the lead's domain.>
-Follow the preloaded lead-<speciality> skill for role, responsibility, and default policies.
+Follow the preloaded lead-<speciality> skill for role, responsibility, and policies.
 
 ## Instructions
 
 1. Read the caller's prompt to determine the task type.
-2. Apply the corresponding Default Policy from the lead skill:
+2. Apply the corresponding Policy from the lead skill:
    - Writing or modifying code → Implementation policy
    - Reviewing artifacts → Review policy
    - Writing or updating documentation → Documentation policy
@@ -170,7 +170,7 @@ The testing lead owns the project's test strategy. It decides what gets tested, 
 - Flaky tests are identified and either fixed or quarantined within one cycle.
 - Test infrastructure (runners, fixtures, helpers) remains functional and documented.
 
-## Default Policies
+## Policies
 
 ### Implementation
 

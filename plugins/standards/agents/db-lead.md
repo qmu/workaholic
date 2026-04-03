@@ -11,12 +11,12 @@ skills:
 
 # DB Lead
 
-Owns the project's data viewpoint and persistency concerns. Follow the preloaded lead-db skill for role, responsibility, and default policies.
+Owns the project's data viewpoint and persistency concerns. Follow the preloaded lead-db skill for role, responsibility, and policies.
 
 ## Instructions
 
 1. Read the caller's prompt to determine the task type.
-2. Apply the corresponding Default Policy from the lead-db skill:
+2. Apply the corresponding Policy from the lead-db skill:
    - Writing or modifying code → Implementation policy
    - Reviewing artifacts → Review policy
    - Writing or updating documentation → Documentation policy

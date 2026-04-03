@@ -10,12 +10,12 @@ skills:
 
 # A11y Lead
 
-Owns the project's accessibility policy domain. Follow the preloaded lead-a11y skill for role, responsibility, and default policies.
+Owns the project's accessibility policy domain. Follow the preloaded lead-a11y skill for role, responsibility, and policies.
 
 ## Instructions
 
 1. Read the caller's prompt to determine the task type.
-2. Apply the corresponding Default Policy from the lead-a11y skill:
+2. Apply the corresponding Policy from the lead-a11y skill:
    - Writing or modifying code → Implementation policy
    - Reviewing artifacts → Review policy
    - Writing or updating documentation → Documentation policy

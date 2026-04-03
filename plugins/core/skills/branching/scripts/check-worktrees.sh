@@ -1,15 +1,14 @@
 #!/bin/bash
-# Lightweight check for existence of worktrees (trip and non-trip).
+# Lightweight check for existence of worktrees.
 # Usage: bash check-worktrees.sh
-# Output: JSON with has_worktrees (boolean), count, trip_count, drive_count
-# Unlike list-trip-worktrees.sh, this script does not query GitHub API.
+# Output: JSON with has_worktrees (boolean), count, work_count
+# Unlike list-worktrees.sh, this script does not query GitHub API.
 
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
 count=0
-trip_count=0
-drive_count=0
+work_count=0
 current_path=""
 current_branch=""
 
@@ -23,10 +22,9 @@ while IFS= read -r line; do
     # Skip main working tree
     if [ "$current_path" != "$repo_root" ]; then
       count=$((count + 1))
-      if [[ "$current_branch" == trip/* ]]; then
-        trip_count=$((trip_count + 1))
-      elif [[ "$current_branch" == drive-* ]]; then
-        drive_count=$((drive_count + 1))
+      # Match work-*, drive-* (legacy), trip/* (legacy)
+      if [[ "$current_branch" == work-* ]] || [[ "$current_branch" == drive-* ]] || [[ "$current_branch" == trip/* ]]; then
+        work_count=$((work_count + 1))
       fi
     fi
     current_path=""
@@ -38,7 +36,7 @@ while IFS= read -r line; do
 done < <(git worktree list --porcelain && echo "")
 
 if [ "$count" -gt 0 ]; then
-  echo "{\"has_worktrees\": true, \"count\": ${count}, \"trip_count\": ${trip_count}, \"drive_count\": ${drive_count}}"
+  echo "{\"has_worktrees\": true, \"count\": ${count}, \"work_count\": ${work_count}}"
 else
-  echo "{\"has_worktrees\": false, \"count\": 0, \"trip_count\": 0, \"drive_count\": 0}"
+  echo "{\"has_worktrees\": false, \"count\": 0, \"work_count\": 0}"
 fi

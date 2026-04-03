@@ -49,7 +49,7 @@ echo "=== STRUCTURE ==="
 case "$VIEWPOINT" in
     stakeholder)
         echo "--- Commands (user entry points) ---"
-        ls -1 plugins/drivin/commands/*.md 2>/dev/null || echo "  (none)"
+        ls -1 plugins/work/commands/*.md 2>/dev/null || echo "  (none)"
         echo ""
         echo "--- README files ---"
         find . -name "README.md" -maxdepth 3 -not -path "./.git/*" 2>/dev/null | sort || echo "  (none)"
@@ -72,10 +72,10 @@ case "$VIEWPOINT" in
         ;;
     usecase)
         echo "--- Commands ---"
-        ls -1 plugins/drivin/commands/*.md 2>/dev/null || echo "  (none)"
+        ls -1 plugins/work/commands/*.md 2>/dev/null || echo "  (none)"
         echo ""
         echo "--- Skills ---"
-        ls -1d plugins/drivin/skills/*/ 2>/dev/null | while read -r d; do
+        ls -1d plugins/work/skills/*/ 2>/dev/null | while read -r d; do
             basename "$d"
         done
         ;;
@@ -91,23 +91,23 @@ case "$VIEWPOINT" in
         ;;
     application)
         echo "--- Agents ---"
-        ls -1 plugins/drivin/agents/*.md 2>/dev/null || echo "  (none)"
+        ls -1 plugins/work/agents/*.md 2>/dev/null || echo "  (none)"
         echo ""
         echo "--- Commands ---"
-        ls -1 plugins/drivin/commands/*.md 2>/dev/null || echo "  (none)"
+        ls -1 plugins/work/commands/*.md 2>/dev/null || echo "  (none)"
         ;;
     component)
         echo "--- Agents ---"
-        ls -1 plugins/drivin/agents/*.md 2>/dev/null || echo "  (none)"
+        ls -1 plugins/work/agents/*.md 2>/dev/null || echo "  (none)"
         echo ""
         echo "--- Commands ---"
-        ls -1 plugins/drivin/commands/*.md 2>/dev/null || echo "  (none)"
+        ls -1 plugins/work/commands/*.md 2>/dev/null || echo "  (none)"
         echo ""
         echo "--- Rules ---"
-        ls -1 plugins/drivin/rules/*.md 2>/dev/null || echo "  (none)"
+        ls -1 plugins/work/rules/*.md 2>/dev/null || echo "  (none)"
         echo ""
         echo "--- Skills ---"
-        for skill_dir in plugins/drivin/skills/*/; do
+        for skill_dir in plugins/work/skills/*/; do
             skill_name=$(basename "$skill_dir")
             echo "  ${skill_name}/"
             if [ -d "${skill_dir}sh" ]; then
@@ -132,20 +132,20 @@ case "$VIEWPOINT" in
         ;;
     feature)
         echo "--- Commands ---"
-        ls -1 plugins/drivin/commands/*.md 2>/dev/null || echo "  (none)"
+        ls -1 plugins/work/commands/*.md 2>/dev/null || echo "  (none)"
         echo ""
         echo "--- Skills ---"
-        ls -1d plugins/drivin/skills/*/ 2>/dev/null | while read -r d; do
+        ls -1d plugins/work/skills/*/ 2>/dev/null | while read -r d; do
             basename "$d"
         done
         echo ""
         echo "--- Agents ---"
-        ls -1 plugins/drivin/agents/*.md 2>/dev/null || echo "  (none)"
+        ls -1 plugins/work/agents/*.md 2>/dev/null || echo "  (none)"
         ;;
     *)
         echo "Unknown viewpoint: $VIEWPOINT"
         echo "Gathering generic structure..."
         echo "--- All plugin files ---"
-        find plugins/drivin -name "*.md" -type f 2>/dev/null | sort || echo "  (none)"
+        find plugins/work -name "*.md" -type f 2>/dev/null | sort || echo "  (none)"
         ;;
 esac

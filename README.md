@@ -18,7 +18,7 @@ Enable the plugins you want after installation. Auto update is recommended.
 
 ### Core
 
-Shared commands that work across both Drivin and Trippin workflows. Auto-detects your development context from the current branch pattern.
+Shared commands that work across all workflows. Auto-detects your development context from the current branch pattern.
 
 | Command    | What it does                                          |
 | ---------- | ----------------------------------------------------- |
@@ -29,17 +29,21 @@ Shared commands that work across both Drivin and Trippin workflows. Auto-detects
 
 Repository structuring policy, qualitative agents, and documentation standards. This plugin has no commands — it provides agents and skills referenced by other plugins. Includes lead agents (a11y, db, delivery, infra, observability, quality, recovery, security, test, ux), manager agents (architecture, project, quality), and documentation writers (changelog, terms, specs, release notes).
 
-### Drivin
+### Work
 
-Ticket-driven development (TiDD) workflow. Write implementation tickets, implement them serially with confirmation at each step, then generate PR stories automatically. All context is stored in `.workaholic/` for better AI decisions.
+Unified development workflow combining ticket-driven development (TiDD) and AI-collaborative exploration. Write implementation tickets, implement them serially with confirmation, generate PR stories, or launch Agent Teams for collaborative design.
 
-| Command    | What it does                                  |
-| ---------- | --------------------------------------------- |
-| `/ticket`  | Plan a change with context and steps          |
-| `/drive`   | Implement queued tickets one by one           |
-| `/scan`    | Full documentation scan                       |
+| Command    | What it does                                          |
+| ---------- | ----------------------------------------------------- |
+| `/ticket`  | Plan a change with context and steps                  |
+| `/drive`   | Implement queued tickets one by one                   |
+| `/scan`    | Full documentation scan                               |
+| `/trip`    | Launch Agent Teams session for collaborative design   |
 
-**Typical session:**
+> [!NOTE]
+> `/trip` requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` to be set in your environment.
+
+**Typical drive session:**
 
 ```bash
 /ticket add dark mode toggle to settings page
@@ -51,18 +55,7 @@ Ticket-driven development (TiDD) workflow. Write implementation tickets, impleme
 /ship                             # merge, deploy, verify
 ```
 
-### Trippin
-
-AI-collaborative exploration workflow using Agent Teams. Three agents with distinct perspectives (Planner, Architect, Constructor) collaborate in an isolated worktree to produce specifications and implementations through structured dialectic.
-
-| Command    | What it does                                          |
-| ---------- | ----------------------------------------------------- |
-| `/trip`    | Launch Agent Teams session for collaborative design   |
-
-> [!NOTE]
-> Trippin requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` to be set in your environment.
-
-**Example session:**
+**Typical trip session:**
 
 ```bash
 /trip design a real-time notification system for our web app
@@ -71,11 +64,13 @@ AI-collaborative exploration workflow using Agent Teams. Three agents with disti
 #   Architect — models system structure and boundaries
 #   Constructor — designs implementation with engineering trade-offs
 # All work happens in an isolated worktree branch
+/report                           # generate journey report + create PR
+/ship                             # merge, clean up worktree, verify
 ```
 
 ## How It Works
 
-### Drivin: Ticket-Driven Development
+### Ticket-Driven Development
 
 A ticket is a markdown file describing a change you want to make — the context, plan, and rationale. Run `/ticket your change request` and a coding agent explores both codebase and history, then writes the ticket for you. Committed alongside the code, tickets become searchable history for future coding agents.
 
@@ -86,14 +81,14 @@ When ready to deliver, `/report` generates changelogs and PR descriptions from t
 > [!NOTE]
 > **A flavor of Spec-Driven Development**
 >
-> Drivin follows [Spec-Driven Development](https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html) principles with distinct terminology:
+> This follows [Spec-Driven Development](https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html) principles with distinct terminology:
 >
 > - **Ticket**: A change request describing what should be different (flowing, temporal)
 > - **Spec**: Current state documentation describing what exists now (snapshot, persistent)
 >
 > Tickets drive implementation; specs document the result. Both are markdown, both are versioned, but they serve complementary purposes.
 
-### Trippin: AI-Collaborative Exploration
+### AI-Collaborative Exploration
 
 The `/trip` command launches an Agent Teams session where three agents with different perspectives collaborate to explore and develop a concept:
 

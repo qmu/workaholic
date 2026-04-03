@@ -34,9 +34,9 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/select-scan-agents/scripts/select.sh <mode> [b
 
 | Changed path | Agents triggered |
 | --- | --- |
-| `plugins/drivin/commands/`, `plugins/drivin/agents/` | architecture-manager |
-| `plugins/drivin/skills/` | architecture-manager |
-| `plugins/drivin/rules/` | quality-manager, quality-lead |
+| `plugins/work/commands/`, `plugins/work/agents/` | architecture-manager |
+| `plugins/work/skills/` | architecture-manager |
+| `plugins/work/rules/` | quality-manager, quality-lead |
 | `.workaholic/tickets/` | db-lead, model-analyst |
 | `.workaholic/terms/` | terms-writer |
 | `.claude-plugin/`, plugin config files | infra-lead, delivery-lead |

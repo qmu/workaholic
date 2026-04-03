@@ -3,9 +3,9 @@ created_at: 2026-04-04T01:44:02+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: b279f99
+category: Changed
 ---
 
 # Update core plugin cross-references for work plugin

@@ -2,7 +2,7 @@
 name: ship
 description: Context-aware ship workflow - merge PR, deploy, and verify (with worktree cleanup for trips).
 skills:
-  - trippin:trip-protocol
+  - work:trip-protocol
   - ship
   - branching
 ---
@@ -39,42 +39,25 @@ Parse the JSON output. Route to the appropriate workflow based on `context`.
 
 ### Step 2: Route by Context
 
-#### Drive Context (`context: "drive"`)
+#### Work Context (`context: "work"`)
 
-1. **Pre-check**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/pre-check.sh "<branch>"`. If `found` is `false`: inform user "No PR found for this branch. Run `/report` first." and stop. If `merged` is `true`: skip to Deploy.
+1. **Pre-check**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/pre-check.sh "<branch>"`. If `found` is `false`: inform user "No PR found for this branch. Run `/report` first." and stop. If `merged` is `true`: skip to Clean up worktree.
 2. **Merge PR**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/merge-pr.sh "<pr-number>"`. On failure, inform user and stop.
-3. **Deploy**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/find-cloud-md.sh`. If `found` is `false`: inform user "No cloud.md found. Deployment skipped." and skip to summary. If `found` is `true`: read the file, find `## Deploy` section, ask confirmation via AskUserQuestion, execute if confirmed.
-4. **Verify**: If cloud.md found, read `## Verify` section and execute. Report results.
-5. **Summarize**: PR merge status (number, URL), deployment status, verification results.
+3. **Clean up worktree** (if applicable): Check if `.worktrees/<branch>/` exists. If yes, run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-worktree.sh "<branch>"` and report what was cleaned up. If no worktree exists, skip this step.
+4. **Deploy**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/find-cloud-md.sh`. If `found` is `false`: inform user "No cloud.md found. Deployment skipped." and skip to summary. If `found` is `true`: read the file, find `## Deploy` section, ask confirmation via AskUserQuestion, execute if confirmed.
+5. **Verify**: If cloud.md found, read `## Verify` section and execute. Report results.
+6. **Summarize**: PR merge status (number, URL), worktree cleanup status, deployment status, verification results.
 
-#### Trip Context (`context: "trip"`)
+#### Worktree Context (`context: "worktree"`)
 
-Use the `trip_name` from the detection result, or `$ARGUMENT` if provided.
+Not on a work branch, but worktrees exist.
 
-1. **Pre-check**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/pre-check.sh "trip/<trip-name>"`. If `found` is `false`: inform user "No PR found for this trip. Run `/report` first." and stop. If `merged` is `true`: skip to Clean up worktree.
-2. **Merge PR**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/merge-pr.sh "<pr-number>"`. On failure, inform user and stop (worktree preserved).
-3. **Clean up worktree** (if applicable): Check if `.worktrees/<trip-name>/` exists. If yes, run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-worktree.sh "<trip-name>"` and report what was cleaned up. If no worktree exists, skip this step.
-4. **Deploy**: Same as Drive Context step 3 (from repo root after merge).
-5. **Verify**: Same as Drive Context step 4.
-6. **Summarize**: PR merge status, worktree cleanup status, deployment status, verification results.
-
-#### Trip-Drive Hybrid Context (`context: "trip_drive"`)
-
-This branch started as a trip and has drive-style tickets. Follow the Drive Context shipping workflow (steps 1-5), then additionally clean up the trip worktree:
-
-1. Follow Drive Context steps 1-5 (pre-check, merge, deploy, verify, summarize)
-2. **Clean up worktree** (if applicable): After successful merge, check if `.worktrees/<trip_name>/` exists. If yes, run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-worktree.sh "<trip_name>"` using `trip_name` from detection result. Report what was cleaned up. If no worktree exists, skip this step.
-
-#### Trip Worktree Context (`context: "trip_worktree"`)
-
-Not on a trip branch, but trip worktrees exist.
-
-1. Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/list-trip-worktrees.sh`
-2. Filter to worktrees where `has_pr` is `true` (trips with PRs ready to ship)
-3. If no shippable trips found: inform the user "No trip worktrees with open PRs found. Run `/report` first." and stop.
-4. If exactly one shippable trip: ask the user "Found trip '<trip_name>' with PR #<number>. Ship this trip?" using AskUserQuestion. If confirmed, use it.
-5. If multiple shippable trips: list them with PR numbers and ask the user which one to ship using AskUserQuestion.
-6. Once selected, follow Trip Context steps 1-6.
+1. Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/list-worktrees.sh`
+2. Filter to worktrees where `has_pr` is `true` (branches with PRs ready to ship)
+3. If no shippable worktrees found: inform the user "No worktrees with open PRs found. Run `/report` first." and stop.
+4. If exactly one shippable worktree: ask the user "Found '<name>' with PR #<number>. Ship?" using AskUserQuestion. If confirmed, use it.
+5. If multiple shippable worktrees: list them with PR numbers and ask the user which one to ship using AskUserQuestion.
+6. Once selected, follow Work Context steps 1-6.
 
 #### Unknown Context (`context: "unknown"`)
 

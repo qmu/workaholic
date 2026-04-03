@@ -100,7 +100,7 @@ One subsection per ticket, in chronological order:
 **Format**: `- <description> (see [hash](<repo-url>/commit/<hash>) in path/to/file.ext)`
 
 **Example**:
-- The pathspec exclusion syntax requires modern git versions (see [7eab801](<repo-url>/commit/7eab801) in `plugins/drivin/skills/drive/SKILL.md`)
+- The pathspec exclusion syntax requires modern git versions (see [7eab801](<repo-url>/commit/7eab801) in `plugins/work/skills/drive/SKILL.md`)
 - Auto-approval configuration may be broader than intended (`~/.claude/settings.local.json`)
 
 **Guidelines**:

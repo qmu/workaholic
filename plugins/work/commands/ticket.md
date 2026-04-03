@@ -36,7 +36,7 @@ If `has_worktrees` is `false`, proceed silently to Step 1.
 Invoke ticket-organizer subagent via Task tool:
 
 ```
-Task tool with subagent_type: "drivin:ticket-organizer", model: "opus"
+Task tool with subagent_type: "work:ticket-organizer", model: "opus"
 prompt: "Create ticket for: <$ARGUMENT>. Target: <todo|icebox based on argument>"
 ```
 

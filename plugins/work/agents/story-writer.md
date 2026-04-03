@@ -21,7 +21,7 @@ Generate a branch story in `.workaholic/stories/<branch-name>.md` and create/upd
 
 Invoke 3 agents in parallel via Task tool (single message with 3 tool calls):
 
-- **release-readiness** (`subagent_type: "drivin:release-readiness"`, `model: "opus"`): Analyzes branch for release readiness. Pass archived tickets list and branch name.
+- **release-readiness** (`subagent_type: "work:release-readiness"`, `model: "opus"`): Analyzes branch for release readiness. Pass archived tickets list and branch name.
 - **overview-writer** (`subagent_type: "standards:overview-writer"`, `model: "opus"`): Generates overview, highlights, motivation, and journey. Pass branch name and base branch.
 - **section-reviewer** (`subagent_type: "standards:section-reviewer"`, `model: "opus"`): Generates sections 4-8 (Outcome, Historical Analysis, Concerns, Ideas, Successful Development Patterns). Pass branch name and archived tickets list.
 
@@ -45,7 +45,7 @@ Wait for all 3 agents to complete. Track which succeeded and which failed.
 
 Run sequentially:
 
-1. **Create PR** first: Invoke **pr-creator** (`subagent_type: "drivin:pr-creator"`, `model: "opus"`). Reads story file, derives title, runs `gh` CLI operations. Capture PR URL from response.
+1. **Create PR** first: Invoke **pr-creator** (`subagent_type: "work:pr-creator"`, `model: "opus"`). Reads story file, derives title, runs `gh` CLI operations. Capture PR URL from response.
 
 2. **Generate release note** with PR URL: Invoke **release-note-writer** (`subagent_type: "standards:release-note-writer"`, `model: "haiku"`). Pass the PR URL obtained from pr-creator in the prompt. Reads story file, generates concise release notes, writes to `.workaholic/release-notes/<branch-name>.md`.
 

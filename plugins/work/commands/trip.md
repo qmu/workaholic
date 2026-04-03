@@ -67,9 +67,9 @@ Create a three-member Agent Team. The team lead instruction:
 > **Resume state**: `<phase>/<step>` from read-plan.sh
 >
 > Create three teammates:
-> 1. **Planner** (`trippin:planner`) - Business vision, E2E testing
-> 2. **Architect** (`trippin:architect`) - Structural bridge, analytical review
-> 3. **Constructor** (`trippin:constructor`) - Technical implementation, internal testing
+> 1. **Planner** (`work:planner`) - Business vision, E2E testing
+> 2. **Architect** (`work:architect`) - Structural bridge, analytical review
+> 3. **Constructor** (`work:constructor`) - Technical implementation, internal testing
 >
 > All agents work inside `<working_dir>`. Follow trip-protocol for the Planning Phase (concurrent artifacts, one-turn review, respond/escalate, moderate) and Coding Phase (concurrent launch, review & testing, iteration). Enforce convergence cap: max 3 review rounds before forced moderation. Use `trip-commit.sh` and `log-event.sh` for every step. Update `plan.md` at phase transitions. If resuming, skip completed steps.
 >

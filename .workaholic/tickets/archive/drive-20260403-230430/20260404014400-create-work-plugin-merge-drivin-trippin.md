@@ -3,9 +3,9 @@ created_at: 2026-04-04T01:44:00+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 8cde019
+category: Added
 ---
 
 # Create work plugin by merging drivin and trippin

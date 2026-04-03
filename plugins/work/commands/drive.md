@@ -37,7 +37,7 @@ If `has_worktrees` is `false`, proceed silently to Phase 1.
 Invoke the drive-navigator subagent via Task tool:
 
 ```
-Task tool with subagent_type: "drivin:drive-navigator", model: "opus"
+Task tool with subagent_type: "work:drive-navigator", model: "opus"
 prompt: "Navigate tickets. mode: <normal|icebox>"
 ```
 

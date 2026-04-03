@@ -41,8 +41,9 @@ tickets_completed: 0
 | 5. Historical Analysis | history.md | Related past work or "No related historical context." |
 | 6. Concerns | reviews | Reviewer concerns, trade-offs identified |
 | 7. Ideas | reviews | Enhancement suggestions, out-of-scope improvements |
-| 8. Release Preparation | (default) | "Ready for release" unless artifacts indicate otherwise |
-| 9. Notes | event-log.md | Trip Activity Log as collapsed details block |
+| 8. Successful Development Patterns | reviews, artifacts | Effective patterns discovered during the trip |
+| 9. Release Preparation | (default) | "Ready for release" unless artifacts indicate otherwise |
+| 10. Notes | event-log.md | Trip Activity Log as collapsed details block |
 
 ### Template
 
@@ -115,23 +116,29 @@ Write "None" if nothing to report.
 
 Write "None" if nothing to report.
 
-## 8. Release Preparation
+## 8. Successful Development Patterns
+
+[Effective patterns discovered during the trip that are worth preserving. Extract from review artifacts (approaches that worked well), design decisions that proved effective, and collaboration patterns between agents.]
+
+Write "None" if no noteworthy patterns emerged.
+
+## 9. Release Preparation
 
 **Verdict**: Ready for release
 
-### 8-1. Concerns
+### 9-1. Concerns
 
 - None - changes are safe for release
 
-### 8-2. Pre-release Instructions
+### 9-2. Pre-release Instructions
 
 - None - standard release process applies
 
-### 8-3. Post-release Instructions
+### 9-3. Post-release Instructions
 
 - None - no special post-release actions needed
 
-## 9. Notes
+## 10. Notes
 
 [If event log is available, include Trip Activity Log here as a collapsed details block. Otherwise, additional context for reviewers.]
 ```

@@ -3,9 +3,9 @@ created_at: 2026-04-03T23:05:38+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: c57a127
+category: Added
 ---
 
 # Add "Successful Development Patterns" Section to Story Format
@@ -257,3 +257,19 @@ Past tickets that touched similar areas:
 - The development patterns section draws from the same source material as Concerns and Ideas (ticket Considerations and Final Reports). The section-reviewer needs clear differentiation guidelines to avoid content duplication between sections 6 (Concerns), 7 (Ideas), and the new section 8 (Successful Development Patterns). (`plugins/standards/skills/review-sections/SKILL.md`)
 - If a companion ticket unifies trip/drive report formats, the section numbering introduced here will need to be carried forward into the unified format. Cross-reference that ticket when implementing to ensure alignment. (`plugins/drivin/skills/report/SKILL.md`)
 - The `Section 3 (Changes) comes from archived tickets, prefaced by journey content from overview-writer. Section 9 (Notes) is optional context.` note in the Agent Output Mapping area needs updating from "Section 9" to "Section 10". (`plugins/drivin/skills/report/SKILL.md` line 27)
+
+## Final Report
+
+### Changes Made
+- Added section 8 (Successful Development Patterns) to `plugins/drivin/skills/report/SKILL.md` with format, examples, and guidelines; renumbered Release Preparation to 9, Notes to 10
+- Added Section 8 extraction guidelines to `plugins/standards/skills/review-sections/SKILL.md` with `development_patterns` output field
+- Updated `plugins/standards/agents/section-reviewer.md` description and output from 4-7 to 4-8, added development patterns extraction target
+- Updated `plugins/drivin/agents/story-writer.md` section-reviewer description to reflect 4-8 range
+- Updated `plugins/trippin/skills/write-trip-report/SKILL.md` to include section 8 and renumbered sections 9/10 (maintaining format alignment from companion ticket)
+
+### What Went Well
+- The companion ticket (format unification) was processed first, so adding the new section to the trip report template was straightforward — just one more section in the already-unified structure
+- All section number references (Agent Output Mapping, prose references, subsection prefixes) were updated consistently across all files
+
+### What Could Be Improved
+- The section-reviewer uses haiku model which may need monitoring for quality of development pattern extraction compared to the more straightforward concerns/ideas extraction

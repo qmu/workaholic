@@ -35,15 +35,15 @@ All scripts use absolute paths from home directory.
 | `ensure-worktree.sh <trip-name>` | core | Create isolated worktree and branch |
 | `cleanup-worktree.sh <trip-name>` | core | Remove worktree and branch after PR merge |
 | `list-trip-worktrees.sh` | core | List existing trip worktrees with PR status (JSON) |
-| `init-trip.sh <trip-name> [instruction]` | trippin | Create artifact directories and plan.md |
-| `validate-dev-env.sh <worktree_path>` | trippin | Check env files, dependencies, ports |
-| `read-plan.sh <trip-path>` | trippin | Read plan state as JSON |
-| `trip-commit.sh <agent> <phase> <step> <description>` | trippin | Commit with `[Agent] description` format |
-| `log-event.sh <trip-path> <agent> <event-type> <target> <impact>` | trippin | Append to event-log.md |
+| `init-trip.sh <trip-name> [instruction]` | work | Create artifact directories and plan.md |
+| `validate-dev-env.sh <worktree_path>` | work | Check env files, dependencies, ports |
+| `read-plan.sh <trip-path>` | work | Read plan state as JSON |
+| `trip-commit.sh <agent> <phase> <step> <description>` | work | Commit with `[Agent] description` format |
+| `log-event.sh <trip-path> <agent> <event-type> <target> <impact>` | work | Append to event-log.md |
 
 Script base paths:
 - **core scripts**: `${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/`
-- **trippin scripts**: `${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/`
+- **work scripts**: `${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/`
 
 ## Artifact Storage
 

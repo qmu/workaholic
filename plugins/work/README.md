@@ -23,6 +23,7 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 | `/drive`                | Implement tickets from .workaholic/tickets/ one by one, commit each, and archive |
 | `/scan`                 | Full documentation scan (all agents)                                             |
 | `/trip <instruction>`   | Launch Agent Teams session with Planner, Architect, and Constructor              |
+| `/ship`                 | Context-aware: merge PR, deploy, and verify (with worktree cleanup)              |
 
 ## Agents
 
@@ -55,6 +56,7 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 | `discover`         | Context discovery: historical tickets, source code, and ticket overlaps  |
 | `drive`            | Implementation workflow, approval, final report, archive, and frontmatter |
 | `report`           | Story writing, PR creation, and release readiness assessment             |
+| `ship`             | Ship workflow: PR merge, cloud.md deploy, and production verify          |
 | `trip-protocol`    | Two-phase collaborative workflow protocol and artifact conventions       |
 | `write-trip-report`| Generate trip journey report from agent artifacts                        |
 

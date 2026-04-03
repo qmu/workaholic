@@ -1,13 +1,13 @@
 ---
 name: write-trip-report
-description: Generate trip journey report from agent artifacts and create PR.
+description: Generate trip journey report in the unified drive report format from agent artifacts.
 allowed-tools: Bash, Read, Write, Glob, Grep
 user-invocable: false
 ---
 
 # Write Trip Report
 
-Generate a development journey report from a trip session's artifacts and create a pull request.
+Generate a development journey report from a trip session's artifacts using the unified report format.
 
 ## Gather Artifacts
 
@@ -19,75 +19,162 @@ Parse JSON output for artifact paths. Read each artifact to extract summaries.
 
 ## Report Structure
 
-**MANDATORY**: The template below is the exact structure for every trip report. Do not add, remove, rename, or reorder sections. Do not use creative reinterpretation. If an artifact is missing, write "No data available" in the corresponding section rather than omitting it.
+The report uses the same 9-section structure as drive reports. Trip artifacts are mapped to sections as described below. The report file is written to `.workaholic/stories/<branch-name>.md` with YAML frontmatter.
 
-The report file is written to `.workaholic/stories/<branch-name>.md` with the following sections:
+### Story Frontmatter
+
+```yaml
+---
+branch: <branch-name>
+tickets_completed: 0
+---
+```
+
+### Artifact-to-Section Mapping
+
+| Section | Source Artifact | Extraction |
+| ------- | -------------- | ---------- |
+| 1. Overview | direction | Goals, scope, key decisions → 2-3 sentence summary with highlights |
+| 2. Motivation | direction | Stakeholder needs, the "why" behind the trip |
+| 3. Changes | design, git log | Mermaid flowchart of trip phases + implementation changes |
+| 4. Outcome | reviews, test results | What was accomplished, key findings |
+| 5. Historical Analysis | history.md | Related past work or "No related historical context." |
+| 6. Concerns | reviews | Reviewer concerns, trade-offs identified |
+| 7. Ideas | reviews | Enhancement suggestions, out-of-scope improvements |
+| 8. Release Preparation | (default) | "Ready for release" unless artifacts indicate otherwise |
+| 9. Notes | event-log.md | Trip Activity Log as collapsed details block |
 
 ### Template
 
 ```markdown
-# Trip Report: <trip-name>
+## 1. Overview
 
-## Planner
+[Synthesize from direction artifact: 2-3 sentence summary capturing the trip's goals and scope.]
 
-### Direction
-<Summary of the approved direction — goals, stakeholder needs, key decisions>
+**Highlights:**
 
-### Test Plan
-<Summary of the test plan — coverage scope, E2E scenarios if applicable>
+1. [Primary accomplishment or goal]
+2. [Secondary accomplishment or goal]
+3. [Third accomplishment or goal]
 
-### Test Results
-<Summary of test outcomes — pass/fail, key findings>
+## 2. Motivation
 
-## Architect
+[Derive from direction artifact: paragraph synthesizing the stakeholder needs and the "why" behind the trip.]
 
-### Model
-<Summary of the approved model — system structure, boundaries, abstractions>
+## 3. Changes
 
-### Review Summary
-<Key structural observations from the Architect's reviews — concerns raised, resolutions>
+```mermaid
+flowchart LR
+    subgraph Planning ["Planning"]
+        direction TB
+        P1[Direction approved]
+        P2[Model approved]
+    end
+    subgraph Review ["Review"]
+        direction TB
+        R1[Architect review]
+        R2[Planner review]
+    end
+    subgraph Implementation ["Implementation"]
+        direction TB
+        I1[Design approved]
+        I2[Code implemented]
+    end
+    Planning --> Review --> Implementation
+```
 
-## Constructor
+[Summary of the overall development journey from planning through implementation.]
 
-### Design
-<Summary of the approved design — implementation approach, technical decisions>
+### 3-1. <Phase or change description> ([hash](<repo-url>/commit/<hash>))
 
-### Implementation
-<Summary of what was built — components, patterns used, notable trade-offs>
+<1-3 sentence summary of what changed and why.>
 
-## Journey
+### 3-2. <Next phase or change description> ([hash](<repo-url>/commit/<hash>))
 
-<Contents of history.md if available, otherwise a journey summary generated from the git commit log>
+<1-3 sentence summary of what changed and why.>
 
-## Trip Activity Log
+## 4. Outcome
 
-<Contents of event-log.md if available. For logs exceeding 30 rows, show only
-phase-transition events in the main table and include the full log in a
-collapsed <details> block.>
+[Summarize from reviews and test results: what was accomplished, key findings, pass/fail outcomes.]
+
+## 5. Historical Analysis
+
+[From history.md if available. If no related historical context exists, write "No related historical context."]
+
+## 6. Concerns
+
+[From review artifacts: risks, trade-offs, or issues raised during reviews.]
+
+- <description> (from <reviewer> review)
+
+Write "None" if nothing to report.
+
+## 7. Ideas
+
+[From review artifacts: enhancement suggestions, out-of-scope improvements identified.]
+
+Write "None" if nothing to report.
+
+## 8. Release Preparation
+
+**Verdict**: Ready for release
+
+### 8-1. Concerns
+
+- None - changes are safe for release
+
+### 8-2. Pre-release Instructions
+
+- None - standard release process applies
+
+### 8-3. Post-release Instructions
+
+- None - no special post-release actions needed
+
+## 9. Notes
+
+[If event log is available, include Trip Activity Log here as a collapsed details block. Otherwise, additional context for reviewers.]
 ```
 
 ### Extracting Summaries
 
 For each artifact (direction, model, design): read the latest approved version, extract the Content section, summarize in 3-5 sentences focusing on key decisions and outcomes.
 
-For reviews: read all files in `reviews/` (both `round-<N>-<agent>.md` and `response-<author>-to-<reviewer>.md`), identify key concerns and resolutions, summarize in 2-3 sentences.
+For reviews: read all files in `reviews/` (both `round-<N>-<agent>.md` and `response-<author>-to-<reviewer>.md`), identify key concerns and resolutions. Map positive outcomes to section 4 (Outcome), concerns to section 6 (Concerns), and enhancement ideas to section 7 (Ideas).
 
-### Journey Section
+### Changes Section
 
-Priority order: (1) `history.md` contents if available, (2) `plan.md` Progress section if `has_plan` is true, (3) git log summary via `git log --oneline --reverse <base-branch>..<trip-branch>`. Commit messages follow `[Agent] description` format, providing a natural collaboration narrative.
+The Changes section uses subsections keyed to significant commits or implementation phases (not tickets, since trips do not use tickets):
 
-### Trip Activity Log Section
+- Use `git log --oneline --reverse <base-branch>..<trip-branch>` to identify significant commits
+- Group related commits into phases (e.g., "Planning", "Model definition", "Implementation")
+- Each subsection: `### 3-N. <Description> ([hash](<repo-url>/commit/<hash>))`
+- Commit hash MUST be a clickable GitHub link
+- Maximum 3-5 subgraphs in the Mermaid flowchart showing trip phases
 
-If `has_event_log` is true, read `event_log_path`. For logs with 30 or fewer data rows, include the full table directly. For larger logs, show only `phase-transition`, `consensus-reached`, `gate-passed`, and `moderation-resolved` events in the main table and wrap the full log in a `<details><summary>Full event log (N events)</summary>` collapsed block.
+### Historical Analysis Section
+
+Priority order: (1) `history.md` contents summarized, (2) `plan.md` Progress section if `has_plan` is true, (3) "No related historical context."
+
+### Notes Section (Trip Activity Log)
+
+If `has_event_log` is true, read `event_log_path`. Include the Trip Activity Log as a collapsed details block:
+
+```markdown
+<details>
+<summary>Trip Activity Log (N events)</summary>
+
+[Full event log table]
+
+</details>
+```
+
+For logs with 30 or fewer data rows, the table may be shown directly without collapsing. For larger logs, always use the collapsed block.
+
+### Release Preparation Section
+
+For trips, default to "Ready for release" with no concerns. If review artifacts contain explicit blocking concerns (security issues, failing tests, incomplete implementations), reflect those in the verdict and concerns list.
 
 ## Create PR
 
-After writing the report:
-
-1. Stage and commit the report file
-2. Push the branch
-3. Create or update PR using `gh pr create` with the report as body
-
-The PR title should be derived from the direction summary (first sentence or key phrase).
-
-The report, PR title, and PR body must be written in English.
+After writing the report, the PR is created by the report command using the `create-or-update.sh` script from the report skill. The PR title is derived from the first highlight in the Overview section.

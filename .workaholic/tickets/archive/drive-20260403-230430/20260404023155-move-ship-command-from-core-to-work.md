@@ -3,9 +3,9 @@ created_at: 2026-04-04T02:31:55+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 00882ca
+category: Changed
 ---
 
 # Move Ship Command from Core Plugin to Work Plugin

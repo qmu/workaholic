@@ -17,8 +17,8 @@ Edit `plugins/` not `.claude/`. This repo develops plugins - changes go to `plug
 plugins/                 # Plugin source directories
   core/                  # Core shared plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
-    commands/            # report, ship
-    skills/              # branching, commit, gather-git-context, gather-ticket-metadata, ship, system-safety
+    commands/            # report
+    skills/              # branching, commit, gather-git-context, gather-ticket-metadata, system-safety
   standards/             # Standards policy plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
     agents/              # leads, managers, writers, analysts
@@ -26,10 +26,10 @@ plugins/                 # Plugin source directories
   work/                  # Work plugin: drive + trip workflows (depends on: core)
     .claude-plugin/      # Plugin configuration
     agents/              # drive-navigator, story-writer, planner, architect, constructor, etc.
-    commands/            # ticket, drive, scan, trip
+    commands/            # ticket, drive, scan, trip, ship
     hooks/               # ticket validation
     rules/               # general, workaholic
-    skills/              # create-ticket, discover, drive, report, trip-protocol, write-trip-report
+    skills/              # create-ticket, discover, drive, report, ship, trip-protocol, write-trip-report, check-deps
 ```
 
 ## Architecture Policy

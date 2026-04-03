@@ -41,7 +41,7 @@ The script outputs structured information:
 <current short commit hash>
 
 === ACTUAL STRUCTURE ===
-<actual files in plugins/drivin/ directories>
+<actual files in plugins/work/ directories>
 ```
 
 ### Using the Output

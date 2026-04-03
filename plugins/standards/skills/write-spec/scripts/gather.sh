@@ -41,16 +41,16 @@ echo ""
 # List actual file structure for validation
 echo "=== ACTUAL STRUCTURE ==="
 echo "agents/"
-ls -1 plugins/drivin/agents/*.md 2>/dev/null | xargs -I{} basename {} | sed 's/^/  /' || echo "  (none)"
+ls -1 plugins/work/agents/*.md 2>/dev/null | xargs -I{} basename {} | sed 's/^/  /' || echo "  (none)"
 echo ""
 echo "commands/"
-ls -1 plugins/drivin/commands/*.md 2>/dev/null | xargs -I{} basename {} | sed 's/^/  /' || echo "  (none)"
+ls -1 plugins/work/commands/*.md 2>/dev/null | xargs -I{} basename {} | sed 's/^/  /' || echo "  (none)"
 echo ""
 echo "rules/"
-ls -1 plugins/drivin/rules/*.md 2>/dev/null | xargs -I{} basename {} | sed 's/^/  /' || echo "  (none)"
+ls -1 plugins/work/rules/*.md 2>/dev/null | xargs -I{} basename {} | sed 's/^/  /' || echo "  (none)"
 echo ""
 echo "skills/"
-for skill_dir in plugins/drivin/skills/*/; do
+for skill_dir in plugins/work/skills/*/; do
   skill_name=$(basename "$skill_dir")
   echo "  ${skill_name}/"
   if [ -d "${skill_dir}sh" ]; then

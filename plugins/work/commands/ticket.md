@@ -13,6 +13,14 @@ Thin alias for ticket-organizer subagent.
 
 ## Instructions
 
+### Pre-check: Dependencies
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/check-deps/scripts/check.sh
+```
+
+If `ok` is `false`, display the `message` to the user and stop.
+
 ### Step 0: Worktree Guard
 
 Check if trip worktrees exist before proceeding:

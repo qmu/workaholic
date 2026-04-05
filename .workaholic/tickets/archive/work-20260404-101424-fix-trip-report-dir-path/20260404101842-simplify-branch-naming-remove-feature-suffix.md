@@ -3,9 +3,9 @@ created_at: 2026-04-04T10:18:42+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 9535bbd
+category: Changed
 ---
 
 # Simplify branch naming to work-TIMESTAMP only
@@ -112,3 +112,21 @@ Past tickets that touched similar areas:
 - Existing branches with the old suffixed format (e.g., `work-20260404-101424-fix-trip-report-dir-path`) remain valid since detection uses prefix matching (`work-*`). No migration is needed. (`plugins/core/skills/branching/scripts/detect-context.sh`)
 - The `list-all-worktrees.sh` and `list-worktrees.sh` scripts match `work-*` prefix and do not parse the feature suffix, so they require no code changes. (`plugins/core/skills/branching/scripts/list-all-worktrees.sh` line 30)
 - The archived ticket `20260404014401-unify-branch-naming-work-timestamp-feature.md` documents the rationale for adding the suffix. This ticket effectively reverses part of that decision. The archive is a historical record and should not be modified.
+
+## Final Report
+
+### Changes Made
+
+- `plugins/core/skills/branching/scripts/create.sh` — Removed `FEATURE` variable and `-${FEATURE}` suffix; branch is now `work-${TIMESTAMP}` only
+- `plugins/core/skills/branching/SKILL.md` — Removed `[feature-name]` argument docs, updated 4 example branch names to timestamp-only format
+- `plugins/work/commands/trip.md` — Removed feature name derivation instruction, changed both `create.sh` calls to use no argument
+- `plugins/work/agents/ticket-organizer.md` — Updated `branch_created` example from `drive-` to `work-` prefix
+
+### Test Plan
+
+- Verify `create.sh` produces `work-YYYYMMDD-HHMMSS` format without suffix
+- Verify existing `work-*` branch detection still works (prefix matching)
+
+### Release Preparation
+
+None required. Branch naming is internal convention.

@@ -37,10 +37,10 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/read-plan.sh "<trip-path
 ```
 Route by state: `planning/not-started` -> Step 3, any other planning/coding step -> Step 4 with resume context, `complete/done` -> inform user and suggest `/report`.
 
-**New**: Derive a concise feature name from `$ARGUMENT` (lowercase, hyphens, max 30 chars). Present a choice via AskUserQuestion:
+**New**: Present a choice via AskUserQuestion:
 - **"Create worktree"** - Isolated environment. Run:
   ```bash
-  bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/create.sh "<feature-name>"
+  bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/create.sh
   ```
   Parse JSON to get `branch`. Then create worktree from it:
   ```bash
@@ -49,7 +49,7 @@ Route by state: `planning/not-started` -> Step 3, any other planning/coding step
   Set `<working_dir>` to the `worktree_path` from the output.
 - **"Branch only"** - Lightweight, no worktree. Run:
   ```bash
-  bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/create.sh "<feature-name>"
+  bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/create.sh
   ```
   Set `<working_dir>` to the repository root.
 

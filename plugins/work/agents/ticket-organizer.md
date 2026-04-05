@@ -83,7 +83,7 @@ Return JSON:
 ```json
 {
   "status": "success",
-  "branch_created": "drive-20260202-181910",
+  "branch_created": "work-20260202-181910",
   "tickets": [
     {
       "path": ".workaholic/tickets/todo/20260131-feature.md",

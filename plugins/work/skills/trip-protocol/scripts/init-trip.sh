@@ -1,5 +1,5 @@
 #!/bin/bash
-# Initialize a trip directory structure under .workaholic/.trips/
+# Initialize a trip directory structure under .workaholic/trips/
 # Usage: bash init-trip.sh <trip-name> [instruction]
 # The optional instruction argument is the user's original trip description.
 # Output: JSON with trip_path and plan_path
@@ -21,7 +21,7 @@ fi
 
 root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
-trip_path="${root}/.workaholic/.trips/${trip_name}"
+trip_path="${root}/.workaholic/trips/${trip_name}"
 
 if [ -d "$trip_path" ]; then
   echo '{"error": "trip directory already exists", "trip_path": "'"$trip_path"'"}' >&2

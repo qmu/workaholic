@@ -21,7 +21,7 @@ if ! git diff --quiet HEAD 2>/dev/null || ! git diff --cached --quiet HEAD 2>/de
   git add -A
 
   # Soft guardrail: warn if event-log.md exists but was not modified in this commit
-  event_log=$(find . -path '*/.trips/*/event-log.md' -print -quit 2>/dev/null || true)
+  event_log=$(find . -path '*/trips/*/event-log.md' -print -quit 2>/dev/null || true)
   if [ -n "$event_log" ] && [ -f "$event_log" ]; then
     if ! git diff --cached --name-only | grep -q 'event-log.md'; then
       echo "[trip-commit] Warning: event-log.md exists but was not modified in this commit. Did you forget to call log-event.sh?" >&2

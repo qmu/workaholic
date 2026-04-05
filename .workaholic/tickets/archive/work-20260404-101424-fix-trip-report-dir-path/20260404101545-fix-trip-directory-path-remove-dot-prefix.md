@@ -3,9 +3,9 @@ created_at: 2026-04-04T10:15:45+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config, Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 26c8902
+category: Changed
 ---
 
 # Fix trip directory path: rename `.trips` to `trips`
@@ -150,3 +150,25 @@ Past tickets that touched similar areas:
 - Numerous documentation files under `.workaholic/specs/`, `.workaholic/terms/`, `.workaholic/guides/`, and `.workaholic/policies/` reference `.workaholic/.trips/`. These are descriptive documentation rather than executable code, so they will not cause runtime failures, but they should ideally be updated for consistency. The scope of documentation updates is large (30+ files) and could be handled as a separate housekeeping ticket. (`.workaholic/specs/`, `.workaholic/terms/`, `.workaholic/guides/`, `.workaholic/policies/`)
 - Archived ticket files also reference `.workaholic/.trips/` but archived tickets are historical records and should not be modified. (`.workaholic/tickets/archive/`)
 - The `trip-commit.sh` find pattern `*/trips/*/event-log.md` (after fix) is slightly broader than the original `*/.trips/*/event-log.md` since `trips` without a dot is a more common directory name. In practice this is not a concern because the find is scoped to the git working directory. (`plugins/work/skills/trip-protocol/scripts/trip-commit.sh` line 24)
+
+## Final Report
+
+### Changes Made
+
+- `plugins/work/skills/trip-protocol/scripts/init-trip.sh` — Changed trip path from `.workaholic/.trips/` to `.workaholic/trips/` (line 2 comment + line 24 path)
+- `plugins/work/skills/trip-protocol/SKILL.md` — Updated Artifact Storage section path (line 51)
+- `plugins/work/skills/write-trip-report/scripts/gather-artifacts.sh` — Changed trip path (line 19)
+- `plugins/work/skills/trip-protocol/scripts/trip-commit.sh` — Updated find pattern from `*/.trips/*/event-log.md` to `*/trips/*/event-log.md` (line 24)
+- `plugins/core/skills/branching/scripts/detect-context.sh` — Changed trips_dir path (line 18)
+- `plugins/core/commands/report.md` — Updated trip directory reference (line 55)
+- `git mv .workaholic/.trips .workaholic/trips` — Renamed existing directory on disk
+
+### Test Plan
+
+- Verify `detect-context.sh` correctly detects trip mode with new path
+- Verify `init-trip.sh` creates directories under `.workaholic/trips/`
+- Verify `gather-artifacts.sh` finds artifacts at new path
+
+### Release Preparation
+
+None required. Path change is internal to plugin scripts.

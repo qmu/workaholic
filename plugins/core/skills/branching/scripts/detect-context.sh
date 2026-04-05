@@ -15,7 +15,7 @@ fi
 
 # Detect mode from workspace artifacts
 detect_mode() {
-  local trips_dir="${root}/.workaholic/.trips"
+  local trips_dir="${root}/.workaholic/trips"
   local todo_dir="${root}/.workaholic/tickets/todo"
   local has_trips=false
   local has_tickets=false

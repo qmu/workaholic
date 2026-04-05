@@ -16,7 +16,7 @@ fi
 
 root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
-trip_path="${root}/.workaholic/.trips/${trip_name}"
+trip_path="${root}/.workaholic/trips/${trip_name}"
 
 if [ ! -d "$trip_path" ]; then
   echo '{"error": "trip directory not found", "path": "'"$trip_path"'"}' >&2

@@ -52,7 +52,7 @@ Route by `mode` from detect-context output:
 
 ##### Trip Mode (`mode: "trip"`)
 
-1. Locate the trip directory at `.workaholic/.trips/`. Find the most recent trip directory. If none exists, inform the user and stop.
+1. Locate the trip directory at `.workaholic/trips/`. Find the most recent trip directory. If none exists, inform the user and stop.
 2. **Gather artifacts**: `bash ${CLAUDE_PLUGIN_ROOT}/../work/skills/write-trip-report/scripts/gather-artifacts.sh "<trip-name>"`
 3. **Generate report**: Follow the preloaded **write-trip-report** skill. Write to `.workaholic/stories/<branch-name>.md`.
 4. **Commit and push**:

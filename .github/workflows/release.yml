@@ -63,8 +63,22 @@ jobs:
         id: notes
         if: steps.check.outputs.needed == 'true'
         run: |
-          # Check for generated release notes file (most recent by modification time)
-          release_note=$(ls -t .workaholic/release-notes/*.md 2>/dev/null | grep -v README.md | head -1)
+          # Determine release note file from the most recent merge commit's branch name
+          merge_msg=$(git log --merges -1 --format=%s 2>/dev/null || echo "")
+          branch_name=$(echo "$merge_msg" | sed -n 's|.*from [^/]*/\(.*\)|\1|p')
+
+          release_note=""
+          if [ -n "$branch_name" ]; then
+            candidate=".workaholic/release-notes/${branch_name}.md"
+            if [ -f "$candidate" ]; then
+              release_note="$candidate"
+            fi
+          fi
+
+          # Fallback: most recent release note by name (lexicographic = chronological for our naming)
+          if [ -z "$release_note" ]; then
+            release_note=$(ls -1 .workaholic/release-notes/*.md 2>/dev/null | grep -v README.md | sort -r | head -1)
+          fi
 
           if [ -n "$release_note" ] && [ -f "$release_note" ]; then
             echo "Using generated release notes from: $release_note"

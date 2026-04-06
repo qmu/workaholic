@@ -134,8 +134,8 @@ Output:
 {
   "count": 2,
   "worktrees": [
-    {"name": "work-20260404-014400-dark-mode", "branch": "work-20260404-014400-dark-mode", "worktree_path": "/path/.worktrees/work-20260404-014400-dark-mode", "type": "work"},
-    {"name": "work-20260403-230430-notifications", "branch": "work-20260403-230430-notifications", "worktree_path": "/path/.worktrees/work-20260403-230430-notifications", "type": "work"}
+    {"name": "work-20260404-014400", "branch": "work-20260404-014400", "worktree_path": "/path/.worktrees/work-20260404-014400", "type": "work"},
+    {"name": "work-20260403-230430", "branch": "work-20260403-230430", "worktree_path": "/path/.worktrees/work-20260403-230430", "type": "work"}
   ]
 }
 ```
@@ -153,7 +153,7 @@ Output:
 {
   "count": 1,
   "worktrees": [
-    {"name": "work-20260404-014400-dark-mode", "branch": "work-20260404-014400-dark-mode", "worktree_path": "/path/.worktrees/work-20260404-014400-dark-mode", "has_pr": true, "pr_number": 42, "pr_url": "https://github.com/..."}
+    {"name": "work-20260404-014400", "branch": "work-20260404-014400", "worktree_path": "/path/.worktrees/work-20260404-014400", "has_pr": true, "pr_number": 42, "pr_url": "https://github.com/..."}
   ]
 }
 ```
@@ -207,18 +207,14 @@ Topic branch patterns: `work-*`
 Create a new timestamped topic branch from the current branch.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh [feature-name]
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh
 ```
-
-### Arguments
-
-- `feature-name` (optional): Concise feature description (lowercase, hyphens). Defaults to "work".
 
 ### Output Format
 
 ```json
 {
-  "branch": "work-20260404-014400-dark-mode-toggle"
+  "branch": "work-20260404-014400"
 }
 ```
 

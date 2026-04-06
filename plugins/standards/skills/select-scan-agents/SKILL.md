@@ -10,12 +10,12 @@ Determine which documentation agents to invoke based on scan mode.
 ## Agent Tiers
 
 - **Managers** (3): project-manager, architecture-manager, quality-manager -- run first, produce strategic context
-- **Leaders** (10): ux-lead, infra-lead, db-lead, security-lead, test-lead, quality-lead, a11y-lead, observability-lead, delivery-lead, recovery-lead -- run second, consume manager outputs
-- **Writers** (2): model-analyst, changelog-writer, terms-writer -- run alongside leaders
+- **Leads** (10): single `lead` agent invoked with domain parameter (ux, infra, db, security, test, quality, a11y, observability, delivery, recovery) -- run second, consume manager outputs
+- **Writers** (3): model-analyst, changelog-writer, terms-writer -- run alongside leads
 
 ## Modes
 
-- **full**: Returns all 15 agents (3 managers, 10 leaders, 2 documentation writers)
+- **full**: Returns all agents (3 managers, 10 leads with domain, 3 writers)
 - **partial**: Analyzes `git diff --stat` against the base branch to select only relevant agents
 
 ## Usage
@@ -27,7 +27,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/select-scan-agents/scripts/select.sh <mode> [b
 ## Output
 
 ```json
-{"mode": "full|partial", "managers": ["project-manager", ...], "agents": ["ux-lead", "changelog-writer", ...]}
+{"mode": "full|partial", "managers": ["project-manager", ...], "leads": [{"agent": "lead", "domain": "ux"}, ...], "writers": ["model-analyst", ...]}
 ```
 
 ## Partial Scan Mapping
@@ -44,4 +44,4 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/select-scan-agents/scripts/select.sh <mode> [b
 | `.github/` | delivery-lead, security-lead |
 | `.workaholic/specs/`, `.workaholic/policies/` | (skipped - outputs) |
 
-`changelog-writer` is always included in partial scan. When any leader is triggered, its corresponding manager is also triggered.
+`changelog-writer` is always included in partial scan. When any lead domain is triggered, its corresponding manager is also triggered.

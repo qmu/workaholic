@@ -5,8 +5,8 @@
 #   mode: "full" or "partial"
 #   base_branch: required for partial mode (e.g., "main")
 #
-# Output: JSON with mode, managers, and agent list
-#   {"mode":"full","managers":["project-manager",...],"agents":["ux-lead",...]}
+# Output: JSON with mode, managers, leads (with domain), and writers
+#   {"mode":"full","managers":[...],"leads":[{"agent":"lead","domain":"ux"},...],"writers":["model-analyst",...]}
 
 set -eu
 
@@ -14,7 +14,8 @@ MODE="${1:-}"
 BASE_BRANCH="${2:-}"
 
 ALL_MANAGERS="project-manager architecture-manager quality-manager"
-ALL_AGENTS="ux-lead model-analyst infra-lead db-lead test-lead security-lead quality-lead a11y-lead observability-lead delivery-lead recovery-lead changelog-writer terms-writer"
+ALL_LEAD_DOMAINS="ux infra db test security quality a11y observability delivery recovery"
+ALL_WRITERS="model-analyst changelog-writer terms-writer"
 
 if [ -z "$MODE" ]; then
   echo '{"error":"Usage: select.sh <mode> [base_branch]"}'
@@ -28,13 +29,19 @@ if [ "$MODE" = "full" ]; then
     managers_json="${managers_json}${sep}\"${mgr}\""
     sep=","
   done
-  agents_json=""
+  leads_json=""
   sep=""
-  for agent in $ALL_AGENTS; do
-    agents_json="${agents_json}${sep}\"${agent}\""
+  for domain in $ALL_LEAD_DOMAINS; do
+    leads_json="${leads_json}${sep}{\"agent\":\"lead\",\"domain\":\"${domain}\"}"
     sep=","
   done
-  echo "{\"mode\":\"full\",\"managers\":[${managers_json}],\"agents\":[${agents_json}]}"
+  writers_json=""
+  sep=""
+  for writer in $ALL_WRITERS; do
+    writers_json="${writers_json}${sep}\"${writer}\""
+    sep=","
+  done
+  echo "{\"mode\":\"full\",\"managers\":[${managers_json}],\"leads\":[${leads_json}],\"writers\":[${writers_json}]}"
   exit 0
 fi
 
@@ -53,7 +60,7 @@ DIFF_STAT=$(git diff --stat "${BASE_BRANCH}...HEAD" 2>/dev/null || echo "")
 
 if [ -z "$DIFF_STAT" ]; then
   # No changes detected, return changelog-writer only
-  echo '{"mode":"partial","managers":[],"agents":["changelog-writer"]}'
+  echo '{"mode":"partial","managers":[],"leads":[],"writers":["changelog-writer"]}'
   exit 0
 fi
 
@@ -62,7 +69,7 @@ TMPDIR_SEL=$(mktemp -d)
 trap 'rm -rf "$TMPDIR_SEL"' EXIT
 
 # Always include changelog-writer for partial scan
-touch "$TMPDIR_SEL/changelog-writer"
+touch "$TMPDIR_SEL/writer-changelog-writer"
 
 # Analyze each changed path
 echo "$DIFF_STAT" | while IFS= read -r line; do
@@ -89,41 +96,41 @@ echo "$DIFF_STAT" | while IFS= read -r line; do
   case "$path" in
     plugins/work/rules/*)
       touch "$TMPDIR_SEL/mgr-quality-manager"
-      touch "$TMPDIR_SEL/quality-lead"
+      touch "$TMPDIR_SEL/lead-quality"
       ;;
   esac
 
   case "$path" in
     .workaholic/tickets/*)
-      touch "$TMPDIR_SEL/db-lead"
-      touch "$TMPDIR_SEL/model-analyst"
+      touch "$TMPDIR_SEL/lead-db"
+      touch "$TMPDIR_SEL/writer-model-analyst"
       ;;
   esac
 
   case "$path" in
     .workaholic/terms/*)
-      touch "$TMPDIR_SEL/terms-writer"
+      touch "$TMPDIR_SEL/writer-terms-writer"
       ;;
   esac
 
   case "$path" in
     .claude-plugin/*|plugins/*/.claude-plugin/*)
-      touch "$TMPDIR_SEL/infra-lead"
-      touch "$TMPDIR_SEL/delivery-lead"
+      touch "$TMPDIR_SEL/lead-infra"
+      touch "$TMPDIR_SEL/lead-delivery"
       ;;
   esac
 
   case "$path" in
     README.md|CLAUDE.md)
-      touch "$TMPDIR_SEL/ux-lead"
+      touch "$TMPDIR_SEL/lead-ux"
       touch "$TMPDIR_SEL/mgr-project-manager"
       ;;
   esac
 
   case "$path" in
     .github/*)
-      touch "$TMPDIR_SEL/delivery-lead"
-      touch "$TMPDIR_SEL/security-lead"
+      touch "$TMPDIR_SEL/lead-delivery"
+      touch "$TMPDIR_SEL/lead-security"
       ;;
   esac
 done
@@ -138,13 +145,22 @@ for mgr in $ALL_MANAGERS; do
   fi
 done
 
-agents_json=""
+leads_json=""
 sep=""
-for agent in $ALL_AGENTS; do
-  if [ -f "$TMPDIR_SEL/$agent" ]; then
-    agents_json="${agents_json}${sep}\"${agent}\""
+for domain in $ALL_LEAD_DOMAINS; do
+  if [ -f "$TMPDIR_SEL/lead-$domain" ]; then
+    leads_json="${leads_json}${sep}{\"agent\":\"lead\",\"domain\":\"${domain}\"}"
     sep=","
   fi
 done
 
-echo "{\"mode\":\"partial\",\"managers\":[${managers_json}],\"agents\":[${agents_json}]}"
+writers_json=""
+sep=""
+for writer in $ALL_WRITERS; do
+  if [ -f "$TMPDIR_SEL/writer-$writer" ]; then
+    writers_json="${writers_json}${sep}\"${writer}\""
+    sep=","
+  fi
+done
+
+echo "{\"mode\":\"partial\",\"managers\":[${managers_json}],\"leads\":[${leads_json}],\"writers\":[${writers_json}]}"

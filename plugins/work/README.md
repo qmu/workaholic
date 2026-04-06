@@ -30,9 +30,7 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 | Agent                 | Description                                             |
 | --------------------- | ------------------------------------------------------- |
 | `drive-navigator`     | Route and prioritize tickets for /drive                 |
-| `history-discoverer`  | Find related historical tickets                         |
-| `source-discoverer`   | Find related source files and analyze code flow         |
-| `ticket-discoverer`   | Analyze tickets for duplicates, merge, and split        |
+| `discoverer`          | Context discovery (history, source, ticket modes)       |
 | `ticket-organizer`    | Discover context, check duplicates, and write tickets   |
 | `story-writer`        | Generate branch story for PR description                |
 | `pr-creator`          | Create or update GitHub PR from story file              |

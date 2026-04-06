@@ -29,7 +29,7 @@ plugins/                 # Plugin source directories
     commands/            # ticket, drive, trip
     hooks/               # ticket validation
     rules/               # general, workaholic
-    skills/              # create-ticket, discover, drive, report, trip-protocol, write-trip-report, check-deps
+    skills/              # create-ticket, discover, drive, report, trip-protocol, check-deps
 ```
 
 ## Architecture Policy

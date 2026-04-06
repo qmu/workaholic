@@ -3,9 +3,9 @@ created_at: 2026-04-06T20:40:12+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config, Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 937d06b
+category: Changed
 ---
 
 # Fix Missing Release Notes from Recent Releases
@@ -89,3 +89,17 @@ Past tickets that touched similar areas:
 - The trip mode release note generation should reuse the existing release-note-writer agent rather than duplicating logic. The PR URL must be available before invoking the writer, so the invocation must happen after PR creation. (`plugins/core/commands/report.md` lines 51-69)
 - The `release-notes/README.md` index is currently maintained manually by the release-note-writer agent (Step 4 in `plugins/standards/agents/release-note-writer.md`). The backfill step should update it comprehensively rather than appending 18 individual entries.
 - After fixing `release.yml`, consider re-publishing the most recent GitHub Release (v1.0.44) with the correct release notes so the public-facing release page is accurate.
+
+## Final Report
+
+### Changes
+
+- Fixed `release.yml` file selection: replaced non-deterministic `ls -t` with merge-commit branch name extraction, with lexicographic sort fallback
+- Backfilled 18 missing release notes from story files (11 feat-*, 5 drive-*, 1 trip, 1 work branch)
+- Regenerated `release-notes/README.md` index with all 31 entries in reverse chronological order
+- Step 4 (trip mode release notes) already covered by prior ticket that unified trip mode to use story-writer, which generates release notes in Phase 4-5
+
+### Test Plan
+
+- Verified 31 release note files exist (13 existing + 18 backfilled)
+- Verified release.yml parses merge commit message for branch name with fallback to lexicographic sort

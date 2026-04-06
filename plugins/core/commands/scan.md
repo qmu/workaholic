@@ -29,7 +29,7 @@ Run the preloaded select-scan-agents skill:
 bash ${CLAUDE_PLUGIN_ROOT}/../standards/skills/select-scan-agents/scripts/select.sh full
 ```
 
-Parse the JSON output to get the lists of manager and leader agents.
+Parse the JSON output to get the lists of managers, leads (with domain), and writers.
 
 ### Phase 3a: Invoke Manager Agents in Parallel
 
@@ -43,23 +43,18 @@ Invoke all 3 manager agents in a single message with parallel Task tool calls (e
 
 Wait for all managers to complete before proceeding. Manager outputs must be available for leaders.
 
-### Phase 3b: Invoke Leader and Writer Agents in Parallel
+### Phase 3b: Invoke Lead and Writer Agents in Parallel
 
-Invoke all 12 leader/writer agents in a single message with parallel Task tool calls (each `model: "sonnet"`):
+Invoke all lead and writer agents from the select output in a single message with parallel Task tool calls (each `model: "sonnet"`):
 
-| Agent slug | `subagent_type` | Prompt context |
+**For each entry in the `leads` array**, invoke `standards:lead` with the domain in the prompt:
+- `subagent_type: "standards:lead"`, prompt includes `"Domain: <domain>."` and the base branch
+
+**For each entry in the `writers` array**, invoke the writer by its slug:
+
+| Writer slug | `subagent_type` | Prompt context |
 | --- | --- | --- |
-| `ux-lead` | `standards:ux-lead` | Pass base branch |
 | `model-analyst` | `standards:model-analyst` | Pass base branch |
-| `infra-lead` | `standards:infra-lead` | Pass base branch |
-| `db-lead` | `standards:db-lead` | Pass base branch |
-| `test-lead` | `standards:test-lead` | Pass base branch |
-| `security-lead` | `standards:security-lead` | Pass base branch |
-| `quality-lead` | `standards:quality-lead` | Pass base branch |
-| `a11y-lead` | `standards:a11y-lead` | Pass base branch |
-| `observability-lead` | `standards:observability-lead` | Pass base branch |
-| `delivery-lead` | `standards:delivery-lead` | Pass base branch |
-| `recovery-lead` | `standards:recovery-lead` | Pass base branch |
 | `changelog-writer` | `standards:changelog-writer` | Pass repository URL |
 | `terms-writer` | `standards:terms-writer` | Pass branch name |
 

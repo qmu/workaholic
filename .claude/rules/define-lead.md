@@ -1,7 +1,7 @@
 ---
 paths:
   - 'plugins/standards/skills/lead-*/SKILL.md'
-  - 'plugins/standards/agents/*-lead.md'
+  - 'plugins/standards/agents/lead.md'
 ---
 
 # Lead Agent Schema Enforcement
@@ -107,39 +107,11 @@ Use this checklist to verify a lead definition is complete and well-formed:
 - [ ] `### Execution` contains concrete execution rules
 - [ ] Every rule is actionable and verifiable, not aspirational
 
-## Agent Template
+## Agent
 
-Every lead has a corresponding thin agent file at `plugins/standards/agents/<speciality>-lead.md`. The agent is a multi-purpose orchestrator — it is not tied to a single task type. Callers invoke it with a prompt describing what to do, and the agent applies the corresponding Policy from the lead skill.
+All 10 lead domains share a single parameterized agent at `plugins/standards/agents/lead.md`. The agent preloads all domain skills and both analysis frameworks. Callers pass the domain as a prompt parameter (e.g., `"Domain: security."`), and the agent applies the matching `lead-<domain>` skill.
 
-```markdown
----
-name: <speciality>-lead
-description: <same as the lead skill description>
-tools: Read, Write, Edit, Bash, Glob, Grep
-skills:
-  - leaders-principle
-  - lead-<speciality>
-  - <other skills needed for execution>
----
-
-# <Speciality> Lead
-
-<One-sentence description of the lead's domain.>
-Follow the preloaded lead-<speciality> skill for role, responsibility, and policies.
-
-## Instructions
-
-1. Read the caller's prompt to determine the task type.
-2. Apply the corresponding Policy from the lead skill:
-   - Writing or modifying code → Implementation policy
-   - Reviewing artifacts → Review policy
-   - Writing or updating documentation → Documentation policy
-   - Running commands or actions → Execution policy
-3. Execute the task within the lead's Role (Goal and Responsibility).
-4. Return a JSON result describing what was done.
-```
-
-The agent file should remain thin (~20-40 lines). All domain knowledge, rules, and criteria live in the lead skill, not in the agent.
+There are no per-domain agent files. All domain knowledge lives in the lead skills, not in the agent.
 
 ## Example
 

@@ -3,9 +3,9 @@ created_at: 2026-04-06T00:21:24+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX, Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 0376197
+category: Added
 ---
 
 # Prompt to sync gitignored file changes before worktree erase
@@ -90,3 +90,24 @@ Past tickets that touched similar areas:
 - The sync step must happen before `cleanup-worktree.sh` runs, since the force removal destroys the worktree directory entirely. The ordering is critical and the ship command must not proceed to cleanup until sync is confirmed or skipped. (`plugins/work/commands/ship.md` step 3 and 4)
 - This feature only applies when a worktree exists (trip workflow or adopted drive branches). For non-worktree drive branches, there is no separate directory to sync from, so the step is naturally skipped. (`plugins/work/commands/ship.md`)
 - The `validate-dev-env.sh` script already inspects `.env` files in worktrees during trip setup; the new `find-gitignored-files.sh` serves a complementary role at the opposite end of the lifecycle. Pattern and naming should stay consistent. (`plugins/work/skills/trip-protocol/scripts/validate-dev-env.sh`)
+
+## Final Report
+
+### Changes Made
+
+- Created `plugins/work/skills/ship/scripts/find-gitignored-files.sh` — discovers gitignored files in a worktree that differ from the main repo root, excludes reinstallable directories and files over 1MB, outputs JSON with file list and status
+- Created `plugins/work/skills/ship/scripts/sync-gitignored-files.sh` — copies selected gitignored files from worktree to main repo root, creating parent directories as needed
+- Updated `plugins/work/commands/ship.md` — added step 3 "Sync gitignored files" between merge and cleanup, renumbered subsequent steps (4-7)
+- Updated `plugins/work/skills/ship/SKILL.md` — added sections 2-5 (Find Gitignored Files) and 2-6 (Sync Gitignored Files) documenting the new scripts
+
+### Test Plan
+
+- Verify `find-gitignored-files.sh` correctly identifies new and modified gitignored files in a worktree
+- Verify reinstallable directories (node_modules, .venv) are excluded from results
+- Verify `sync-gitignored-files.sh` copies files and creates parent directories
+- Verify ship command presents the sync prompt only when worktree exists and has gitignored changes
+- Verify cleanup proceeds after sync is completed or skipped
+
+### Release Prep
+
+None — no version bump, migration, or deployment action required.

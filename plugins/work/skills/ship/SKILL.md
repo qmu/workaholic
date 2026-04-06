@@ -72,3 +72,29 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/check-todo.sh
 ```
 
 Checks if `.workaholic/tickets/todo/` has remaining tickets. Returns JSON with cleanliness status, count, and ticket list. Used as a pre-merge guard to prevent shipping with unfinished work.
+
+### 2-5. Find Gitignored Files
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/find-gitignored-files.sh "<worktree-path>"
+```
+
+Discovers gitignored files in a worktree that differ from the main repo root. Excludes reinstallable directories (`node_modules/`, `.venv/`, `vendor/bundle/`, `.cache/`, `__pycache__/`) and files over 1MB. Returns JSON:
+
+```json
+{"has_changes": true, "files": [{"path": ".env", "status": "modified", "size": "1KB"}]}
+```
+
+Status is `new` (exists only in worktree) or `modified` (differs from main copy).
+
+### 2-6. Sync Gitignored Files
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/sync-gitignored-files.sh "<worktree-path>" "<main-repo-root>" '<files-json>'
+```
+
+Copies selected gitignored files from the worktree to the main repo root, creating parent directories as needed. `<files-json>` is a JSON array of relative paths. Returns JSON:
+
+```json
+{"synced": true, "count": 2, "files": [".env", ".local.md"]}
+```

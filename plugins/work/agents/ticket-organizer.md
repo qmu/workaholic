@@ -30,15 +30,15 @@ Follow preloaded **branching** skill to check current branch and create a new to
 
 Invoke ALL THREE subagents concurrently using Task tool (single message with three parallel Task calls):
 
-- **history-discoverer** (`subagent_type: "work:history-discoverer"`, `model: "opus"`): Find related tickets. Pass full description. Receives JSON with summary, tickets list, match reasons.
-- **source-discoverer** (`subagent_type: "work:source-discoverer"`, `model: "opus"`): Find relevant source files. Pass full description. Receives JSON with summary, files list, code flow.
-- **ticket-discoverer** (`subagent_type: "work:ticket-discoverer"`, `model: "opus"`): Analyze for duplicates/merge/split. Pass full description. Receives JSON with status, matches list, recommendation.
+- **discoverer (history)** (`subagent_type: "work:discoverer"`, `model: "opus"`): Pass "mode: history" + full description. Receives JSON with summary, tickets list, match reasons.
+- **discoverer (source)** (`subagent_type: "work:discoverer"`, `model: "opus"`): Pass "mode: source" + full description. Receives JSON with summary, files list, code flow.
+- **discoverer (ticket)** (`subagent_type: "work:discoverer"`, `model: "opus"`): Pass "mode: ticket" + full description. Receives JSON with status, matches list, recommendation.
 
 Wait for all three to complete, then proceed with all JSON results.
 
 ### 3. Handle Moderation Result
 
-Based on ticket-discoverer JSON result:
+Based on discoverer (ticket) JSON result:
 - If `status: "duplicate"`: Return `status: "duplicate"` with existing ticket path
 - If `status: "needs_decision"`: Return `status: "needs_decision"` with merge/split options
 - If `status: "clear"`: Proceed to step 4
@@ -83,7 +83,7 @@ Return JSON:
 ```json
 {
   "status": "success",
-  "branch_created": "drive-20260202-181910",
+  "branch_created": "work-20260202-181910",
   "tickets": [
     {
       "path": ".workaholic/tickets/todo/20260131-feature.md",

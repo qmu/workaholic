@@ -187,7 +187,7 @@ Before writing a ticket:
 
 ## Related History
 
-The Related History section is populated by the `history-discoverer` subagent (invoked by `/ticket` command).
+The Related History section is populated by the `discoverer` agent in history mode (invoked by `/ticket` command).
 
 **Link format**: Use markdown links with repository-relative paths:
 ```markdown

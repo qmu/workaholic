@@ -21,9 +21,7 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 | ----------------------- | -------------------------------------------------------------------------------- |
 | `/ticket <description>` | Explore codebase and write implementation ticket (auto-creates branch on main)   |
 | `/drive`                | Implement tickets from .workaholic/tickets/ one by one, commit each, and archive |
-| `/scan`                 | Full documentation scan (all agents)                                             |
 | `/trip <instruction>`   | Launch Agent Teams session with Planner, Architect, and Constructor              |
-| `/ship`                 | Context-aware: merge PR, deploy, and verify (with worktree cleanup)              |
 
 ## Agents
 
@@ -32,9 +30,7 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 | Agent                 | Description                                             |
 | --------------------- | ------------------------------------------------------- |
 | `drive-navigator`     | Route and prioritize tickets for /drive                 |
-| `history-discoverer`  | Find related historical tickets                         |
-| `source-discoverer`   | Find related source files and analyze code flow         |
-| `ticket-discoverer`   | Analyze tickets for duplicates, merge, and split        |
+| `discoverer`          | Context discovery (history, source, ticket modes)       |
 | `ticket-organizer`    | Discover context, check duplicates, and write tickets   |
 | `story-writer`        | Generate branch story for PR description                |
 | `pr-creator`          | Create or update GitHub PR from story file              |
@@ -56,7 +52,6 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 | `discover`         | Context discovery: historical tickets, source code, and ticket overlaps  |
 | `drive`            | Implementation workflow, approval, final report, archive, and frontmatter |
 | `report`           | Story writing, PR creation, and release readiness assessment             |
-| `ship`             | Ship workflow: PR merge, cloud.md deploy, and production verify          |
 | `trip-protocol`    | Two-phase collaborative workflow protocol and artifact conventions       |
 | `write-trip-report`| Generate trip journey report from agent artifacts                        |
 

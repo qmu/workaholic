@@ -3,9 +3,9 @@ created_at: 2026-04-06T18:59:51+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 4546122
+category: Changed
 ---
 
 # Consolidate 3 Discoverer Subagent Files into a Single Parameterized Agent
@@ -232,3 +232,19 @@ Return JSON in the format specified by the corresponding skill section's output 
 - The discover skill already structures its content by mode section (Discover History, Discover Source, Discover Ticket), so no skill restructuring is needed. The mode routing in the agent body simply directs to the appropriate section. (`plugins/work/skills/discover/SKILL.md`)
 - Archived tickets and story files reference the old agent names (`history-discoverer`, `source-discoverer`, `ticket-discoverer`) in their text. These are historical records and should not be updated. Only live plugin files need changes. (`.workaholic/tickets/archive/`, `.workaholic/stories/`)
 - The `CLAUDE.md` project structure comment lists individual agents in the work plugin directory. This comment may become stale but is not a functional reference -- updating it is optional housekeeping. (`CLAUDE.md` line referencing `agents/`)
+
+## Final Report
+
+### Changes
+
+- Created `plugins/work/agents/discoverer.md` — single parameterized agent preloading the discover skill with mode routing table (history, source, ticket)
+- Deleted 3 individual discoverer agent files (`history-discoverer.md`, `source-discoverer.md`, `ticket-discoverer.md`)
+- Updated `plugins/work/agents/ticket-organizer.md` section 2 to invoke `work:discoverer` with mode parameter, and section 3 reference
+- Updated `plugins/work/skills/create-ticket/SKILL.md` Related History reference
+- Updated `plugins/work/skills/discover/SKILL.md` Tool Constraints reference
+- Updated `plugins/work/README.md` Drive Agents table (3 rows → 1 row)
+
+### Test Plan
+
+- Verified all file references updated (no remaining mentions of individual discoverer slugs in live plugin files)
+- Agent file follows same parameterized pattern as consolidated lead.md

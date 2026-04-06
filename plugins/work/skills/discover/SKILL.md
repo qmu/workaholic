@@ -164,7 +164,7 @@ Return structured JSON with categorized discoveries:
 
 ### Tool Constraints
 
-The source-discoverer has access to Glob, Grep, Read tools only:
+In source mode, the discoverer has access to Glob, Grep, Read, and Bash tools but should primarily use Glob, Grep, Read:
 
 - Cannot execute code or follow dynamic imports
 - Cannot analyze runtime behavior

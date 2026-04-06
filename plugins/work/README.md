@@ -53,7 +53,6 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 | `drive`            | Implementation workflow, approval, final report, archive, and frontmatter |
 | `report`           | Story writing, PR creation, and release readiness assessment             |
 | `trip-protocol`    | Two-phase collaborative workflow protocol and artifact conventions       |
-| `write-trip-report`| Generate trip journey report from agent artifacts                        |
 
 ## Rules
 

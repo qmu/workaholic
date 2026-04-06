@@ -3,9 +3,9 @@ created_at: 2026-04-06T19:37:00+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: d942b4f
+category: Removed
 ---
 
 # Remove write-trip-report Skill
@@ -52,3 +52,19 @@ Past tickets that touched similar areas:
 - Archived tickets and trip artifacts in `.workaholic/` contain many historical references to `write-trip-report`. These are read-only historical records and do not need updating. (`.workaholic/tickets/archive/`, `.workaholic/trips/`)
 - The `work:trip-protocol` skill preload in `report.md` (line 5) is independent of write-trip-report and may still be needed for trip context detection. Do not remove it in this ticket. (`plugins/core/commands/report.md` line 5)
 - Story files in `.workaholic/stories/` that mention write-trip-report are historical narratives and should not be modified. (`.workaholic/stories/`)
+
+## Final Report
+
+### Changes
+
+- Removed `work:write-trip-report` from `report.md` frontmatter skills list
+- Replaced Trip Mode workflow (7 steps: manual gather-artifacts + write-trip-report) with story-writer invocation (4 steps, same as Drive Mode)
+- Simplified Hybrid Mode to always use Drive Mode (since both modes now use story-writer)
+- Deleted `plugins/work/skills/write-trip-report/SKILL.md` (89 lines) and `scripts/gather-artifacts.sh` (127 lines)
+- Removed `write-trip-report` from work plugin README skills table
+- Removed `write-trip-report` from CLAUDE.md project structure listing
+
+### Test Plan
+
+- Verified no remaining references to `write-trip-report` in live plugin files (only in archived tickets/stories)
+- The `work:trip-protocol` skill preload is preserved in report.md for trip context detection

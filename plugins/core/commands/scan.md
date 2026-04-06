@@ -2,7 +2,7 @@
 name: scan
 description: Full documentation scan - update all .workaholic/ documentation (changelog, specs, terms, policies).
 skills:
-  - core:gather-git-context
+  - gather-git-context
   - standards:select-scan-agents
   - standards:write-spec
   - standards:validate-writer-output
@@ -15,14 +15,6 @@ skills:
 Run a full documentation scan by invoking 3 manager agents then 12 leader/writer agents, providing real-time progress visibility for each agent.
 
 ## Instructions
-
-### Pre-check: Dependencies
-
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/check-deps/scripts/check.sh
-```
-
-If `ok` is `false`, display the `message` to the user and stop.
 
 ### Phase 1: Gather Context
 

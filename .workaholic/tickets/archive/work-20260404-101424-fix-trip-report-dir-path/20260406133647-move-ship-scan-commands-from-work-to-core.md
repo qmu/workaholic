@@ -3,9 +3,9 @@ created_at: 2026-04-06T13:36:47+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config, Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: be42a3c
+category: Changed
 ---
 
 # Move Ship and Scan Commands from Work Plugin to Core Plugin
@@ -240,3 +240,27 @@ Past tickets that touched similar areas:
 - **check-deps skill stays in work**: The `check-deps` skill checks for core plugin availability. It is used by trip.md, drive.md, ticket.md, and currently scan.md in work. After moving scan to core, the check-deps reference is removed from scan (scan IS in core now). The check-deps skill itself stays in work since the remaining consumers (trip, drive, ticket) are all work commands. (`plugins/work/skills/check-deps/scripts/check.sh`)
 - **No circular dependency**: Core does not declare work as a dependency. The cross-plugin skill reference `work:trip-protocol` is a soft reference that gracefully degrades if work is not installed. The dependency graph remains `work -> core` (one-way). (`plugins/core/.claude-plugin/plugin.json`, `plugins/work/.claude-plugin/plugin.json`)
 - **Guide documents use outdated plugin names**: `.workaholic/guides/commands.md` still references "drivin" and "trippin" plugin names. This ticket does not address that -- it only updates command locations. A separate housekeeping ticket could update guide terminology. (`.workaholic/guides/commands.md` lines 2, 71, 87)
+
+## Final Report
+
+### Changes
+
+- Moved `plugins/work/commands/ship.md` to `plugins/core/commands/ship.md` with frontmatter updates: `trip-protocol` → `work:trip-protocol`, `core:branching` → `branching`, all `/../core/skills/branching/` paths → `/skills/branching/`
+- Moved `plugins/work/commands/scan.md` to `plugins/core/commands/scan.md` with frontmatter updates: `core:gather-git-context` → `gather-git-context`, removed check-deps pre-check guard
+- Moved `plugins/work/skills/ship/` directory (SKILL.md + 6 scripts) to `plugins/core/skills/ship/` with no content changes
+- Updated `plugins/core/README.md`: added `/ship`, `/scan` to commands table and `ship` to skills table
+- Updated `plugins/work/README.md`: removed `/ship`, `/scan` from commands table and `ship` from skills table
+- Updated `CLAUDE.md`: moved ship/scan to core in project structure, added standards soft reference note
+- Updated `README.md`: moved `/scan` from Work table to Core table
+
+### Test Plan
+
+- [ ] Verify `/ship` command loads correctly from core plugin
+- [ ] Verify `/scan` command loads correctly from core plugin
+- [ ] Verify `work:trip-protocol` cross-plugin skill resolves in ship.md
+- [ ] Verify `standards:select-scan-agents` cross-plugin skill resolves in scan.md
+- [ ] Verify `/report` still works (already in core, no changes)
+
+### Release Prep
+
+No version bump needed — this is a structural refactor within the same marketplace.

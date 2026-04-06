@@ -24,6 +24,7 @@ Shared commands that work across all workflows. Auto-detects your development co
 | ---------- | ----------------------------------------------------- |
 | `/report`  | Context-aware: generate story or journey report and create PR |
 | `/ship`    | Context-aware: merge PR, deploy, and verify           |
+| `/scan`    | Full documentation scan                               |
 
 ### Standards
 
@@ -37,7 +38,6 @@ Unified development workflow combining ticket-driven development (TiDD) and AI-c
 | ---------- | ----------------------------------------------------- |
 | `/ticket`  | Plan a change with context and steps                  |
 | `/drive`   | Implement queued tickets one by one                   |
-| `/scan`    | Full documentation scan                               |
 | `/trip`    | Launch Agent Teams session for collaborative design   |
 
 > [!NOTE]

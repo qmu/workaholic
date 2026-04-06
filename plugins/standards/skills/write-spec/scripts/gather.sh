@@ -53,7 +53,7 @@ echo "skills/"
 for skill_dir in plugins/work/skills/*/; do
   skill_name=$(basename "$skill_dir")
   echo "  ${skill_name}/"
-  if [ -d "${skill_dir}sh" ]; then
-    ls -1 "${skill_dir}sh/"*.sh 2>/dev/null | xargs -I{} basename {} | sed 's/^/    /' || true
+  if [ -d "${skill_dir}scripts" ]; then
+    ls -1 "${skill_dir}scripts/"*.sh 2>/dev/null | xargs -I{} basename {} | sed 's/^/    /' || true
   fi
 done

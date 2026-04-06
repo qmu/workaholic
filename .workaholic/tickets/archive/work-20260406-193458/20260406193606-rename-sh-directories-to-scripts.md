@@ -3,9 +3,9 @@ created_at: 2026-04-06T19:36:06+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 5af795a
+category: Changed
 ---
 
 # Rename sh/ directories to scripts/ across the repository
@@ -101,3 +101,17 @@ Past tickets that touched similar areas:
 - The root `sh/` directory contains only `claude.sh` -- a self-development launcher that references stale plugin paths (`drivin`, `trippin`) which no longer exist; those are out of scope for this ticket but worth noting (`scripts/claude.sh` lines 10-12)
 - No `sh/` directories exist under `plugins/` -- all 21 skill script directories already use `scripts/`, so the plugin directory renames are not needed
 - Historical trip artifacts in `.workaholic/trips/` contain many `sh/` path references in their documentation, but those are archival records and should not be modified
+
+## Final Report
+
+### Changes
+
+- Renamed root `sh/` directory to `scripts/` via `git mv`
+- Updated usage comment in `scripts/claude.sh` from `bash sh/claude.sh` to `bash scripts/claude.sh`
+- Fixed stale `${skill_dir}sh` references in `plugins/standards/skills/write-spec/scripts/gather.sh`
+- Fixed stale `${skill_dir}sh` references in `plugins/standards/skills/analyze-viewpoint/scripts/gather.sh`
+
+### Test Plan
+
+- Verified no remaining `"sh/"` path references in plugin or scripts files via grep
+- All changes match the patches specified in the ticket

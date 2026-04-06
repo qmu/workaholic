@@ -3,9 +3,9 @@ created_at: 2026-04-06T18:28:46+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 9ea275a
+category: Changed
 ---
 
 # Consolidate 10 Lead Subagent Files into a Single Parameterized Lead Agent
@@ -135,3 +135,20 @@ The lead architecture was created through a series of analyst-to-lead transforma
 - The `select.sh` script's partial scan logic touches individual domain names for selective triggering (e.g., `quality-lead`, `security-lead`). After consolidation, partial scan must still track which domains to activate, emitting `lead` with the appropriate domain parameter rather than separate agent slugs. (`plugins/standards/skills/select-scan-agents/scripts/select.sh` lines 90-128)
 - The `define-lead.md` rule's Agent Template section describes the thin per-domain agent file pattern. This section needs rewriting to describe the parameterized pattern, or removal if the consolidated agent is self-explanatory. (`.claude/rules/define-lead.md` lines 99-134)
 - The viewpoint leads (ux, infra, db) need `analyze-viewpoint` + `write-spec` while policy leads need `analyze-policy`. The consolidated agent must preload all three analysis skills and the instructions must guide which analysis framework to use based on the domain. This is a new branching concern that did not exist when each agent had its own static skills list. (`plugins/standards/agents/lead.md`)
+
+## Final Report
+
+### Changes
+
+- Created `plugins/standards/agents/lead.md` — single parameterized agent preloading all 14 skills (10 domain + leaders-principle + analyze-policy + analyze-viewpoint + write-spec), with instructions routing to viewpoint or policy analysis framework based on domain
+- Deleted 10 individual lead agent files (`a11y-lead.md`, `db-lead.md`, `delivery-lead.md`, `infra-lead.md`, `observability-lead.md`, `quality-lead.md`, `recovery-lead.md`, `security-lead.md`, `test-lead.md`, `ux-lead.md`)
+- Updated `plugins/core/commands/scan.md` Phase 3b to invoke `standards:lead` with domain parameter instead of 10 separate subagent_types
+- Refactored `select.sh` output schema (Option B): separated `agents` array into `leads` (objects with agent+domain) and `writers` (strings), with matching marker file prefix changes (`lead-`, `writer-`)
+- Updated `select-scan-agents/SKILL.md` agent tiers, mode descriptions, output format, and terminology
+- Simplified `define-lead.md` Agent Template section to document the consolidated parameterized pattern
+
+### Test Plan
+
+- Verified `select.sh full` produces valid JSON with managers, leads (10 domain objects), and writers arrays
+- Verified `select.sh partial main` correctly selects relevant leads by domain and writers based on branch diff
+- Confirmed no external references to individual lead slugs exist outside scan.md (grep verified)

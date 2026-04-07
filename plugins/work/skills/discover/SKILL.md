@@ -1,6 +1,6 @@
 ---
 name: discover
-description: Guidelines for discovering historical context, source code, and ticket overlaps.
+description: Guidelines for discovering historical context, source code, and repository standards.
 allowed-tools: Bash
 user-invocable: false
 ---
@@ -11,7 +11,7 @@ Context discovery guidelines for ticket creation. Three discovery phases run in 
 
 ## Discover History
 
-Search archived tickets to find related past work.
+Search all tickets (archive, todo, icebox) to find related past work and check for duplicates or overlaps.
 
 ### Instructions
 
@@ -30,11 +30,12 @@ Extract 3-5 keywords from:
 
 ### Output Format
 
-The script returns matches sorted by relevance (match count):
+The script searches archive, todo, and icebox directories. Results are sorted by relevance (match count):
 
 ```
 5 .workaholic/tickets/archive/feat-xxx/ticket-a.md
-3 .workaholic/tickets/archive/feat-yyy/ticket-b.md
+3 .workaholic/tickets/todo/ticket-b.md
+2 .workaholic/tickets/icebox/ticket-c.md
 ```
 
 ### Interpreting Results
@@ -42,6 +43,101 @@ The script returns matches sorted by relevance (match count):
 - Higher count = more keyword matches = more relevant
 - Read top 5 tickets to understand context
 - Extract: title, overview, key files, layer
+
+### Overlap Analysis
+
+For tickets found in todo/ and icebox/, perform overlap analysis against the proposed ticket:
+
+#### Category Definitions
+
+| Category | Overlap | Action |
+|----------|---------|--------|
+| **Duplicate** | 80%+ | Block creation - existing ticket covers request |
+| **Merge candidate** | 40-80% | Suggest combining into single ticket |
+| **Split candidate** | N/A | Existing ticket too broad - suggest decomposition |
+| **Related** | <40% | Can coexist - note for cross-reference |
+
+#### Calculating Overlap Percentage
+
+Evaluate overlap based on:
+
+1. **Key files overlap**: Do tickets modify the same files?
+   - Same primary file = +40%
+   - Overlapping key files = +20% per file
+2. **Scope overlap**: Do tickets solve the same problem?
+   - Identical goal = +40%
+   - Subset/superset relationship = +20%
+3. **Implementation overlap**: Would work be duplicated?
+   - Same code changes = +20%
+
+#### Duplicate Detection (80%+)
+
+A ticket is a duplicate when:
+- Same key files AND same implementation goal
+- Existing ticket fully addresses the request
+- Creating new ticket would duplicate completed work
+
+#### Merge Candidates (40-80%)
+
+Tickets are merge candidates when:
+- Significant key file overlap (2+ shared files)
+- Related but distinct goals that benefit from unified approach
+- Sequential dependencies that should be one atomic change
+
+#### Split Candidates
+
+An existing ticket needs splitting when:
+- Covers multiple distinct features/concerns
+- Key files span unrelated areas
+- Implementation steps lack cohesion
+- Estimated effort exceeds 4h
+
+#### Related Tickets (<40%)
+
+Tickets are related (not blocking) when:
+- Minor file overlap (1 shared file)
+- Same domain area but different goals
+- Useful context but independent implementation
+
+### History Output Schema
+
+Return structured JSON combining historical context and ticket moderation:
+
+```json
+{
+  "summary": "2-3 sentence synthesis of related historical work",
+  "tickets": [
+    {
+      "path": ".workaholic/tickets/archive/branch/ticket.md",
+      "title": "Ticket title",
+      "match_reason": "Why this ticket is relevant"
+    }
+  ],
+  "moderation": {
+    "status": "clear|duplicate|needs_decision",
+    "matches": [
+      {
+        "path": ".workaholic/tickets/todo/filename.md",
+        "title": "Ticket title from H1",
+        "category": "duplicate|merge|split|related",
+        "overlap_percentage": 85,
+        "reason": "Specific explanation of overlap"
+      }
+    ],
+    "recommendation": "Action to take"
+  }
+}
+```
+
+#### Moderation Status Values
+
+| Status | Meaning | Next Action |
+|--------|---------|-------------|
+| `clear` | No blocking issues | Proceed with ticket creation |
+| `duplicate` | Existing ticket covers request | Do not create new ticket |
+| `needs_decision` | Merge/split opportunity found | User must decide strategy |
+
+If no todo/icebox tickets match, set `moderation.status` to `"clear"` with empty `matches` array.
 
 ## Discover Source
 
@@ -171,119 +267,91 @@ In source mode, the discoverer has access to Glob, Grep, Read, and Bash tools bu
 - Static analysis of source files only
 - Large files may need partial reads (use Read with offset/limit)
 
-## Discover Ticket
+## Discover Policy
 
-Guidelines for analyzing existing tickets to determine if a proposed ticket should proceed, merge with existing, or trigger a split.
+Guidelines for identifying repository standards, coding conventions, design decisions, and architecture patterns.
 
 ### Search Locations
 
-Search these directories for existing tickets:
+Examine these locations for standards evidence:
 
-- `.workaholic/tickets/todo/*.md` - Pending tickets
-- `.workaholic/tickets/icebox/*.md` - Deferred tickets
+- `CLAUDE.md` - Project-level instructions and architecture policy
+- `.claude/rules/` - Repository-scoped rules
+- Plugin rules directories (e.g., `plugins/*/rules/`)
+- `README.md` files at root and plugin level
+- Configuration files (`tsconfig.json`, `.eslintrc`, `.prettierrc`, `package.json`, etc.)
+- Standards plugin content (`plugins/standards/`) if present
 
-### Overlap Analysis Criteria
+### Discovery Categories
 
-#### Category Definitions
+#### Coding Conventions
 
-| Category | Overlap | Action |
-|----------|---------|--------|
-| **Duplicate** | 80%+ | Block creation - existing ticket covers request |
-| **Merge candidate** | 40-80% | Suggest combining into single ticket |
-| **Split candidate** | N/A | Existing ticket too broad - suggest decomposition |
-| **Related** | <40% | Can coexist - note for cross-reference |
+Identify patterns for:
+- Naming conventions (files, variables, functions)
+- Formatting rules (indentation, line length, quotes)
+- Import/export patterns
+- Error handling patterns
+- Comment and documentation style
 
-#### Calculating Overlap Percentage
+#### Architecture Decisions
 
-Evaluate overlap based on:
+Identify structural patterns for:
+- Component nesting rules (what can invoke what)
+- Plugin/module dependency rules
+- Design principles (e.g., "thin commands, comprehensive skills")
+- Layering conventions (UX, Domain, Infrastructure, DB, Config)
+- File organization patterns
 
-1. **Key files overlap**: Do tickets modify the same files?
-   - Same primary file = +40%
-   - Overlapping key files = +20% per file
-2. **Scope overlap**: Do tickets solve the same problem?
-   - Identical goal = +40%
-   - Subset/superset relationship = +20%
-3. **Implementation overlap**: Would work be duplicated?
-   - Same code changes = +20%
+#### Shell Script Policies
 
-#### Duplicate Detection (80%+)
+Identify rules for:
+- Script extraction requirements (no inline conditionals)
+- Path resolution rules (`${CLAUDE_PLUGIN_ROOT}`)
+- Script location conventions
 
-A ticket is a duplicate when:
-- Same key files AND same implementation goal
-- Existing ticket fully addresses the request
-- Creating new ticket would duplicate completed work
+#### Documentation Standards
 
-Example: Request for "add validation to login form" when ticket exists for "implement form validation across auth pages"
-
-#### Merge Candidates (40-80%)
-
-Tickets are merge candidates when:
-- Significant key file overlap (2+ shared files)
-- Related but distinct goals that benefit from unified approach
-- Sequential dependencies that should be one atomic change
-
-Example: "Add error handling to API client" and "Improve API timeout behavior" - both touch the same module
-
-#### Split Candidates
-
-An existing ticket needs splitting when:
-- Covers multiple distinct features/concerns
-- Key files span unrelated areas
-- Implementation steps lack cohesion
-- Estimated effort exceeds 4h
-
-Example: "Refactor user module and update dashboard" - these are unrelated concerns
-
-#### Related Tickets (<40%)
-
-Tickets are related (not blocking) when:
-- Minor file overlap (1 shared file)
-- Same domain area but different goals
-- Useful context but independent implementation
+Identify conventions for:
+- File structure templates (frontmatter, sections)
+- Naming conventions for documentation files
+- Required sections and field formats
 
 ### Evaluation Process
 
-1. **Extract keywords** from proposed ticket description
-2. **Glob search** for tickets in todo/ and icebox/
-3. **Read matching tickets** and compare:
-   - Key Files sections
-   - Implementation Steps
-   - Overview goals
-4. **Calculate overlap** per criteria above
-5. **Categorize each match** and determine status
+1. **Read `CLAUDE.md`** at repository root - primary source of explicit standards
+2. **Glob for rule files** in `.claude/rules/` and plugin rule directories
+3. **Read README files** at root and plugin directories for conventions
+4. **Scan configuration files** for tool-enforced standards
+5. **Examine standards plugin** (if present) for formalized policies
+6. **Synthesize findings** into categorized evidence
 
-### Ticket Output Schema
+### Policy Output Schema
 
-Return structured JSON recommendation:
+Return structured JSON with discovered standards:
 
 ```json
 {
-  "status": "clear|duplicate|needs_decision",
-  "matches": [
+  "summary": "2-3 sentence synthesis of repository standards approach",
+  "policies": [
     {
-      "path": ".workaholic/tickets/todo/filename.md",
-      "title": "Ticket title from H1",
-      "category": "duplicate|merge|split|related",
-      "overlap_percentage": 85,
-      "reason": "Specific explanation of overlap"
+      "category": "coding|architecture|shell|documentation",
+      "source_file": "path/to/source",
+      "description": "What the policy requires",
+      "evidence": "Quoted or paraphrased text from source"
     }
   ],
-  "recommendation": "Action to take"
+  "architecture": {
+    "structure": "Brief description of repository structure",
+    "principles": ["List of stated design principles"],
+    "dependency_rules": "How components relate and what can invoke what"
+  }
 }
 ```
 
-#### Status Values
+#### Field Descriptions
 
-| Status | Meaning | Next Action |
-|--------|---------|-------------|
-| `clear` | No blocking issues | Proceed with ticket creation |
-| `duplicate` | Existing ticket covers request | Do not create new ticket |
-| `needs_decision` | Merge/split opportunity found | User must decide strategy |
-
-#### Recommendation Examples
-
-- `"Proceed"` - No conflicts found
-- `"Block - duplicate of 20260101-feature.md"` - Exact duplicate exists
-- `"Merge with 20260101-feature.md - both modify API client"` - Merge candidate
-- `"Split 20260101-large-ticket.md before creating"` - Split candidate
-- `"Proceed - related to 20260101-feature.md (cross-reference)"` - Related only
+| Field | Required | Description |
+|-------|----------|-------------|
+| `summary` | Yes | High-level synthesis of standards approach |
+| `policies` | Yes | List of discovered policies with evidence |
+| `architecture` | Yes | Structural patterns and principles |

@@ -3,9 +3,9 @@ created_at: 2026-04-07T15:48:35+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 5d6438f
+category: Changed
 ---
 
 # Refactor Discoverer: Merge History+Ticket Modes, Add Policy Mode
@@ -183,3 +183,27 @@ The discoverer architecture was recently consolidated from three separate agent 
 - The ticket-organizer currently expects the ticket moderation result from a separate discoverer (ticket) call. After the merge, section 3 (Handle Moderation Result) must read moderation status from the history discoverer's output. This is a subtle but critical routing change. (`plugins/work/agents/ticket-organizer.md` lines 39-44)
 - Policy discovery results should inform ticket creation but the create-ticket skill does not currently have a section for policy/standards context. Consider whether to add a "Standards Context" section to tickets or fold policy findings into the existing "Considerations" section. (`plugins/work/skills/create-ticket/SKILL.md`)
 - The standards plugin itself (`plugins/standards/`) contains policy definitions (lead skills, analysis skills) that the Policy Discoverer would examine. This creates a useful feedback loop where ticket creation is informed by the repository's own quality standards. (`plugins/standards/skills/lead-*/SKILL.md`)
+
+## Final Report
+
+### Changes Made
+
+1. **`plugins/work/skills/discover/scripts/search.sh`** - Expanded search scope from archive-only to archive + todo + icebox directories using a simple loop to collect existing directories
+2. **`plugins/work/skills/discover/SKILL.md`** - Merged Discover Ticket section into Discover History (added overlap analysis criteria and combined output schema with `moderation` field); removed Discover Ticket section entirely; added new Discover Policy section with search locations, discovery categories, evaluation process, and output schema
+3. **`plugins/work/agents/discoverer.md`** - Updated description, mode list, and routing table from history/source/ticket to history/source/policy
+4. **`plugins/work/agents/ticket-organizer.md`** - Changed parallel discovery from ticket mode to policy mode; updated moderation result handling to read from history discoverer's `moderation` field; added policy discovery usage for informing Considerations section
+5. **`plugins/work/README.md`** - Updated discoverer and discover skill descriptions to reflect new modes
+
+### Test Plan
+
+- [ ] Run `search.sh` with keywords and verify results include todo/icebox tickets alongside archive
+- [ ] Invoke discoverer in history mode and verify combined output with `moderation` field
+- [ ] Invoke discoverer in policy mode and verify standards/conventions JSON output
+- [ ] Run `/ticket` end-to-end and verify three parallel discoverers (history, source, policy) complete successfully
+- [ ] Verify duplicate detection still works via history mode's moderation result
+
+### Release Prep
+
+- No version bump needed (internal plugin refactoring)
+- No new dependencies introduced
+- No breaking changes to external interfaces

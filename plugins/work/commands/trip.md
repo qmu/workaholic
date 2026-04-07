@@ -56,7 +56,7 @@ Route by state: `planning/not-started` -> Step 3, any other planning/coding step
 ## Step 2: Initialize Trip Artifacts
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/init-trip.sh "<trip-name>" "$ARGUMENT"
+bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/init-trip.sh "<trip-name>" "$ARGUMENT" "<working_dir>"
 ```
 
 ## Step 3: Validate Dev Environment

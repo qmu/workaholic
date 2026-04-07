@@ -3,9 +3,9 @@ created_at: 2026-04-07T21:28:07+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: 7ffa8c0
+category: Changed
 ---
 
 # Generate trip artifacts in the trip worktree, not the main worktree
@@ -88,3 +88,24 @@ The trip worktree system was designed to isolate code changes, but artifact gene
 - The `<trip_path>` passed to the team lead (trip.md line 77) is derived from `init-trip.sh` output. Once the script uses the worktree root, the trip_path will automatically point inside the worktree, and all downstream artifact writes (directions, models, designs, reviews, event-log, plan) will land in the correct location. (`plugins/work/commands/trip.md` lines 76-77)
 - When `/ship` cleans up the worktree, the gitignored file sync step already copies files from the worktree back to the main repo. Trip artifacts in `.workaholic/trips/` are tracked (not gitignored), so they will be part of the branch and merged via the PR naturally. (`plugins/core/commands/ship.md`)
 - **Separate bug**: `trip-commit.sh` line 32 uses `sed 's/./\U&/'` to capitalize the agent name, but `\U` is a GNU sed extension. On macOS (BSD sed), this produces literal `UConstructor` instead of `Constructor`. This should be fixed with a portable alternative like `$(echo "$agent" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')`. (`plugins/work/skills/trip-protocol/scripts/trip-commit.sh` line 32)
+
+## Final Report
+
+### Changes Made
+
+1. **`plugins/work/skills/trip-protocol/scripts/init-trip.sh`** - Added optional third argument `working-dir`; when provided, uses it as root instead of `git rev-parse --show-toplevel`, so trip artifacts are created in the worktree
+2. **`plugins/work/commands/trip.md`** - Updated Step 2 to pass `<working_dir>` to `init-trip.sh`
+3. **`plugins/work/skills/trip-protocol/scripts/trip-commit.sh`** - Replaced GNU-only `sed 's/./\U&/'` with portable `awk '{print toupper(substr($0,1,1)) substr($0,2)}'` to fix `[UConstructor]` on macOS
+
+### Test Plan
+
+- [ ] Run `init-trip.sh` with a working-dir argument and verify artifacts are created in that directory
+- [ ] Run `init-trip.sh` without working-dir and verify fallback to git root still works
+- [ ] Run `trip-commit.sh` on macOS and verify commit messages show `[Constructor]` not `[UConstructor]`
+- [ ] Run a full `/trip` session with worktree and verify all artifacts land in the worktree
+
+### Release Prep
+
+- No version bump needed (bugfix to existing scripts)
+- No new dependencies
+- Backward-compatible: omitting the third argument preserves existing behavior

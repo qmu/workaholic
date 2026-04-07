@@ -28,8 +28,8 @@ if ! git diff --quiet HEAD 2>/dev/null || ! git diff --cached --quiet HEAD 2>/de
     fi
   fi
 
-  # Capitalize first character of agent name for bracket prefix
-  agent_cap="$(echo "$agent" | sed 's/./\U&/')"
+  # Capitalize first character of agent name for bracket prefix (portable, no GNU sed)
+  agent_cap="$(echo "$agent" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')"
 
   body="Phase: ${phase}
 Step: ${step}"

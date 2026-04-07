@@ -1,7 +1,7 @@
 {
   "name": "work",
   "description": "Unified development workflow: ticket-driven development and AI-collaborative exploration",
-  "version": "1.0.44",
+  "version": "1.0.45",
   "dependencies": ["core"],
   "author": {
     "name": "tamurayoshiya",

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Launch Claude Code with local workaholic plugins for self-development.
-# Usage: bash sh/claude.sh [additional claude args...]
+# Usage: bash scripts/claude.sh [additional claude args...]
 
 set -euo pipefail
 

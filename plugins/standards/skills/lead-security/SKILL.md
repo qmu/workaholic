@@ -27,3 +27,7 @@ The security lead owns the project's security policy domain. It analyzes the rep
 - Gaps where no evidence is found are clearly marked as "not observed" rather than omitted.
 
 ## Policies
+
+## Secure by Design
+
+Security is not a feature added after the fact — it is a structural property of the system. Every component assumes hostile input, every boundary enforces its own access control, and every default is the most restrictive option that still permits intended use. When a trade-off arises between convenience and safety, safety wins unless an explicit, documented exception is granted.

@@ -38,25 +38,8 @@ If any responsibility is unmet, the agent has failed regardless of other outcome
 
 ## Policies
 
-### Implementation
-
-<Rules when writing or modifying code. Coding standards, patterns,
-and constraints specific to this agent's domain.>
-
-### Review
-
-<Rules when reviewing code or artifacts produced by others.
-What to check, what to flag, and acceptance criteria.>
-
-### Documentation
-
-<Rules when writing or updating documentation.
-Format, tone, level of detail, and required sections.>
-
-### Execution
-
-<Rules when running commands or performing actions.
-Sequencing, error handling, and safety constraints.>
+<Freeform policy content. Rules, constraints, and guidelines
+specific to this agent's domain. No fixed subsection structure required.>
 ```
 
 ## Guidelines
@@ -80,16 +63,7 @@ An agent that meets all responsibilities but misses the goal is incomplete. An a
 
 ### Policies
 
-Each policy subsection must contain specific, actionable rules -- not aspirational statements. Every rule should be something that can be checked in a review.
-
-| Subsection       | Governs                          | Focus                                       |
-| ---------------- | -------------------------------- | ------------------------------------------- |
-| Implementation   | Writing or modifying code        | Coding standards, patterns, constraints     |
-| Review           | Reviewing artifacts from others  | What to check, what to flag, acceptance     |
-| Documentation    | Writing or updating docs         | Format, tone, detail level, required parts  |
-| Execution        | Running commands or actions      | Sequencing, error handling, safety          |
-
-Policies apply unless a specific task provides overrides. When a task specifies policy overrides, they replace the corresponding subsection for that task only.
+Policies are freeform. They should contain specific, actionable rules — not aspirational statements. Every rule should be something that can be checked in a review. No fixed subsection structure is required.
 
 ## Validation Checklist
 
@@ -100,11 +74,7 @@ Use this checklist to verify a lead definition is complete and well-formed:
 - [ ] `## Role` section is present and defines the agent's function, containing Goal and Responsibility subsections
 - [ ] `### Goal` subsection under Role defines measurable completion (sufficient condition, positive obligation)
 - [ ] `### Responsibility` subsection under Role defines minimum duties (necessary condition, negative obligation)
-- [ ] `## Policies` section is present with all four subsections
-- [ ] `### Implementation` contains concrete coding rules
-- [ ] `### Review` contains concrete review criteria
-- [ ] `### Documentation` contains concrete documentation rules
-- [ ] `### Execution` contains concrete execution rules
+- [ ] `## Policies` section is present with freeform, actionable rules
 - [ ] Every rule is actionable and verifiable, not aspirational
 
 ## Agent
@@ -144,26 +114,9 @@ The testing lead owns the project's test strategy. It decides what gets tested, 
 
 ## Policies
 
-### Implementation
-
 - Tests live next to the code they test in `__tests__/` directories.
 - Use descriptive test names that state the expected behavior: `rejects expired tokens`.
 - No test may depend on another test's side effects. Each test sets up and tears down its own state.
-
-### Review
-
 - Flag any PR that reduces coverage of a critical path.
-- Verify new tests actually assert meaningful behavior, not just that code runs without throwing.
-- Reject tests that use sleep or fixed timeouts for synchronization.
-
-### Documentation
-
-- Every test helper includes a JSDoc comment explaining when to use it.
-- Test plans for complex features are written as markdown in the PR description.
-
-### Execution
-
 - Run the full test suite before marking a task complete.
-- If a test fails, investigate root cause before re-running. Do not retry flaky tests silently.
-- Report test results with pass/fail counts and duration.
 ```

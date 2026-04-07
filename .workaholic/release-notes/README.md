@@ -4,6 +4,7 @@ Concise release notes generated from branch stories for GitHub Releases.
 
 ## Notes
 
+- [work-20260406-193458.md](work-20260406-193458.md) - Release note fix, discoverer refactor, trip worktree fix, skill removal
 - [work-20260404-101424-fix-trip-report-dir-path.md](work-20260404-101424-fix-trip-report-dir-path.md) - Trip directory fix, agent consolidation, and command migration
 - [drive-20260403-230430.md](drive-20260403-230430.md) - Unified drivin and trippin into work plugin, branch naming, lead policies
 - [trip-trip-20260319-squashed.md](trip-trip-20260319-squashed.md) - Trip plugin polish: one-turn review and event logging

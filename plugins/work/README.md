@@ -30,7 +30,7 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 | Agent                 | Description                                             |
 | --------------------- | ------------------------------------------------------- |
 | `drive-navigator`     | Route and prioritize tickets for /drive                 |
-| `discoverer`          | Context discovery (history, source, ticket modes)       |
+| `discoverer`          | Context discovery (history, source, policy modes)       |
 | `ticket-organizer`    | Discover context, check duplicates, and write tickets   |
 | `story-writer`        | Generate branch story for PR description                |
 | `pr-creator`          | Create or update GitHub PR from story file              |
@@ -49,11 +49,10 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 | Skill              | Description                                                              |
 | ------------------ | ------------------------------------------------------------------------ |
 | `create-ticket`    | Ticket creation guidelines, format, and conventions                      |
-| `discover`         | Context discovery: historical tickets, source code, and ticket overlaps  |
+| `discover`         | Context discovery: historical tickets, source code, and repository standards  |
 | `drive`            | Implementation workflow, approval, final report, archive, and frontmatter |
 | `report`           | Story writing, PR creation, and release readiness assessment             |
 | `trip-protocol`    | Two-phase collaborative workflow protocol and artifact conventions       |
-| `write-trip-report`| Generate trip journey report from agent artifacts                        |
 
 ## Rules
 

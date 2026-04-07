@@ -3,7 +3,6 @@ name: report
 description: Context-aware report generation and PR creation for drive and trip workflows.
 skills:
   - work:trip-protocol
-  - work:write-trip-report
   - branching
 ---
 
@@ -52,29 +51,14 @@ Route by `mode` from detect-context output:
 
 ##### Trip Mode (`mode: "trip"`)
 
-1. Locate the trip directory at `.workaholic/trips/`. Find the most recent trip directory. If none exists, inform the user and stop.
-2. **Gather artifacts**: `bash ${CLAUDE_PLUGIN_ROOT}/../work/skills/write-trip-report/scripts/gather-artifacts.sh "<trip-name>"`
-3. **Generate report**: Follow the preloaded **write-trip-report** skill. Write to `.workaholic/stories/<branch-name>.md`.
-4. **Commit and push**:
-   ```bash
-   git add .workaholic/stories/<branch-name>.md
-   git commit -m "Add trip journey report"
-   git push -u origin <branch-name>
-   ```
-5. **Create or update PR**: Extract the first highlight from the Overview section as the PR title.
-   ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/../work/skills/report/scripts/create-or-update.sh <branch-name> "<title>"
-   ```
-6. **Display story content**: Read `.workaholic/stories/<branch-name>.md` and output the entire Markdown content so the developer can review inline
-7. **Display PR URL** from `create-or-update.sh` output (mandatory)
+1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
+2. **Invoke story-writer** (`subagent_type: "work:story-writer"`, `model: "opus"`)
+3. **Display story content**: Read the story file from the `story_file` path in the story-writer result and output the entire Markdown content so the developer can review inline
+4. **Display PR URL** from story-writer result (mandatory)
 
 ##### Hybrid Mode (`mode: "hybrid"`)
 
-This branch has both trip artifacts and drive-style tickets. Ask the user which report to generate using AskUserQuestion:
-- **"Drive story"** - Follow the Drive Mode workflow (version bump + story-writer). The story will capture the full narrative including the trip origin.
-- **"Trip journey report"** - Follow the Trip Mode workflow (artifact gathering + journey report).
-
-Route to the selected workflow above.
+Both trip artifacts and drive-style tickets exist on this branch. Both Drive Mode and Trip Mode now use the same story-writer workflow, so follow Drive Mode (version bump + story-writer). The story-writer captures the full narrative including any trip origin.
 
 #### Worktree Context (`context: "worktree"`)
 

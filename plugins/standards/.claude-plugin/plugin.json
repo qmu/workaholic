@@ -1,7 +1,7 @@
 {
   "name": "standards",
   "description": "Repository structuring policy, qualitative agents, and documentation standards",
-  "version": "1.0.44",
+  "version": "1.0.45",
   "dependencies": [],
   "author": {
     "name": "tamurayoshiya",

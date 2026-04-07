@@ -30,18 +30,18 @@ Follow preloaded **branching** skill to check current branch and create a new to
 
 Invoke ALL THREE subagents concurrently using Task tool (single message with three parallel Task calls):
 
-- **discoverer (history)** (`subagent_type: "work:discoverer"`, `model: "opus"`): Pass "mode: history" + full description. Receives JSON with summary, tickets list, match reasons.
+- **discoverer (history)** (`subagent_type: "work:discoverer"`, `model: "opus"`): Pass "mode: history" + full description. Receives JSON with summary, tickets list, match reasons, and moderation result (status/matches/recommendation).
 - **discoverer (source)** (`subagent_type: "work:discoverer"`, `model: "opus"`): Pass "mode: source" + full description. Receives JSON with summary, files list, code flow.
-- **discoverer (ticket)** (`subagent_type: "work:discoverer"`, `model: "opus"`): Pass "mode: ticket" + full description. Receives JSON with status, matches list, recommendation.
+- **discoverer (policy)** (`subagent_type: "work:discoverer"`, `model: "opus"`): Pass "mode: policy" + full description. Receives JSON with summary, policies list, architecture patterns.
 
 Wait for all three to complete, then proceed with all JSON results.
 
 ### 3. Handle Moderation Result
 
-Based on discoverer (ticket) JSON result:
-- If `status: "duplicate"`: Return `status: "duplicate"` with existing ticket path
-- If `status: "needs_decision"`: Return `status: "needs_decision"` with merge/split options
-- If `status: "clear"`: Proceed to step 4
+Based on discoverer (history) JSON `moderation` field:
+- If `moderation.status: "duplicate"`: Return `status: "duplicate"` with existing ticket path
+- If `moderation.status: "needs_decision"`: Return `status: "needs_decision"` with merge/split options
+- If `moderation.status: "clear"`: Proceed to step 4
 
 ### 4. Evaluate Complexity
 
@@ -61,6 +61,9 @@ For each ticket:
 - Use source discovery JSON for "Key Files" section:
   - `files` array provides paths and relevance descriptions
 - Reference `code_flow` from source discovery in "Implementation" section
+- Use policy discovery JSON to inform "Considerations" section:
+  - Reference relevant `policies` that the implementation must follow
+  - Note `architecture.principles` and `architecture.dependency_rules` that constrain the design
 - **Generate Patches section** (if source discovery includes `snippets`):
   - Use snippets to generate unified diff patches for proposed changes
   - Follow patch guidelines from create-ticket skill

@@ -8,87 +8,82 @@ commit_hash:
 category:
 ---
 
-# Commit uncommitted .workaholic/ artifacts before PR creation in trip/report workflow
+# Generate trip artifacts in the trip worktree, not the main worktree
 
 ## Overview
 
-When a trip session finishes and the developer runs `/report`, the story-writer agent commits only `.workaholic/stories/` and `.workaholic/release-notes/`, leaving other `.workaholic/` artifacts (trips directory with directions, models, designs, reviews, plan.md, event-log.md, and potentially tickets in archive/) uncommitted. These uncommitted files are excluded from the PR diff, making the branch history incomplete. The report command or story-writer should stage and commit all uncommitted `.workaholic/` artifacts before creating the story and PR.
+When a trip session runs, Claude Code generates trip-related artifacts (plan.md, event-log.md, directions/, models/, designs/, reviews/) in `.workaholic/trips/` of the main worktree instead of the trip worktree. Since the trip worktree is where commits happen, these artifacts are left uncommitted in the main worktree and never make it into the trip branch history or PR. The fix is to ensure trip artifact generation happens inside the trip worktree so they are committed alongside the code changes.
 
 ## Key Files
 
-- `plugins/work/agents/story-writer.md` - Story-writer agent that commits stories and release notes in Phases 3 and 5, but does not commit other `.workaholic/` artifacts
-- `plugins/core/commands/report.md` - Report command that orchestrates the version bump and story-writer invocation; the most natural place to add a pre-flight commit step
-- `plugins/core/commands/ship.md` - Ship command with existing workspace guard (Step 0) and ticket guard (Step 0.5); could also serve as a fallback location for the commit step
-- `plugins/core/skills/branching/scripts/check-workspace.sh` - Existing script that detects uncommitted changes; already used by report and ship as a guard
-- `plugins/work/skills/trip-protocol/scripts/trip-commit.sh` - Trip commit script that uses `git add -A` to stage all changes; each trip workflow step produces a commit, but the final state may still have uncommitted artifacts if the trip completes without a final commit
-- `plugins/work/skills/drive/scripts/archive.sh` - Drive archive script that uses `git add -A` before committing, which naturally catches all `.workaholic/` artifacts (drive workflow does not have this problem)
+- `plugins/work/skills/trip-protocol/scripts/init-trip.sh` - Uses `git rev-parse --show-toplevel` (line 22) to determine root, which always resolves to the main worktree even when the trip runs in a separate worktree. This is the root cause.
+- `plugins/work/commands/trip.md` - Step 2 (line 58-60) calls `init-trip.sh` without passing `<working_dir>`, so the script has no way to know the trip worktree path
+- `plugins/work/skills/trip-protocol/scripts/log-event.sh` - Takes `<trip-path>` as argument; will work correctly once trip_path points to the worktree
+- `plugins/work/skills/trip-protocol/scripts/trip-commit.sh` - Commits from the working directory; already operates in the worktree correctly
 
 ## Related History
 
-The report and ship workflows have been progressively unified and hardened with pre-flight guards (workspace guard, ticket guard, gitignored file sync). This ticket adds the missing guard for uncommitted `.workaholic/` artifacts that fall through the cracks when trip sessions complete without a comprehensive final commit.
+The trip worktree system was designed to isolate code changes, but artifact generation was not updated to respect the worktree boundary. The `init-trip.sh` script uses the standard git root detection pattern that predates worktree support.
 
-Past tickets that touched similar areas:
-
-- [20260404014405-block-ship-when-todo-tickets-remain.md](.workaholic/tickets/archive/drive-20260403-230430/20260404014405-block-ship-when-todo-tickets-remain.md) - Added ticket guard to /ship preventing merge with unfinished tickets (same pattern: pre-flight guard in ship workflow)
-- [20260406002124-prompt-gitignored-file-sync-before-worktree-erase.md](.workaholic/tickets/archive/work-20260404-101424-fix-trip-report-dir-path/20260406002124-prompt-gitignored-file-sync-before-worktree-erase.md) - Added gitignored file sync before worktree cleanup in /ship (same pattern: preventing data loss at workflow boundaries)
-- [20260403230427-unify-trip-report-to-drive-format.md](.workaholic/tickets/archive/drive-20260403-230430/20260403230427-unify-trip-report-to-drive-format.md) - Unified trip report format to match drive structure (same area: trip/report workflow unification)
-- [20260406193700-remove-write-trip-report-skill.md](.workaholic/tickets/archive/work-20260406-193458/20260406193700-remove-write-trip-report-skill.md) - Removed redundant write-trip-report skill after report unification (same flow: trip reporting)
+- [20260406002124-prompt-gitignored-file-sync-before-worktree-erase.md](.workaholic/tickets/archive/work-20260404-101424-fix-trip-report-dir-path/20260406002124-prompt-gitignored-file-sync-before-worktree-erase.md) - Added gitignored file sync before worktree cleanup (same boundary: main worktree vs trip worktree)
+- [20260403230427-unify-trip-report-to-drive-format.md](.workaholic/tickets/archive/drive-20260403-230430/20260403230427-unify-trip-report-to-drive-format.md) - Unified trip report format (same area: trip workflow)
 
 ## Implementation Steps
 
-1. **Create a new script `plugins/core/skills/branching/scripts/check-workaholic-artifacts.sh`** that:
-   - Detects uncommitted `.workaholic/` files (untracked and modified) using `git status --porcelain`
-   - Filters to only `.workaholic/` paths (trips/, tickets/, and other subdirectories)
-   - Excludes `.workaholic/stories/` and `.workaholic/release-notes/` since the story-writer handles those
-   - Returns JSON: `{"has_uncommitted": true/false, "count": N, "files": ["path1", "path2"]}`
+1. **Update `init-trip.sh` to accept an optional working directory argument**
 
-2. **Add a new step in `plugins/core/commands/report.md`** between the Workspace Guard (Step 0) and Context Detection (Step 1):
-   - **Step 0.5: Artifact Guard** - Run the new check script
-   - If `has_uncommitted` is `true`: display the file list to the user, then stage all `.workaholic/` files (excluding stories/ and release-notes/) and commit with message "Commit trip session artifacts"
-   - If `has_uncommitted` is `false`: proceed silently
-   - This runs before the version bump and story-writer, ensuring all artifacts are in the branch history before the PR is created
+   Add an optional third argument for the working directory. When provided, use it as root instead of `git rev-parse --show-toplevel`. This lets the trip command pass the worktree path so artifacts are created inside the worktree.
 
-3. **Update `plugins/core/skills/branching/SKILL.md`** to document the new `check-workaholic-artifacts.sh` script with usage and output format, following the same pattern as the existing `check-workspace.sh` documentation
+2. **Update `trip.md` Step 2 to pass `<working_dir>` to `init-trip.sh`**
+
+   After Step 1 determines `<working_dir>` (either worktree path or repo root), pass it to init-trip.sh so trip artifacts are generated in the correct location.
 
 ## Patches
 
-### `plugins/core/commands/report.md`
+### `plugins/work/skills/trip-protocol/scripts/init-trip.sh`
 
-> **Note**: This patch is speculative - verify before applying.
+> **Note**: This patch is speculative - verify line numbers before applying.
 
 ```diff
---- a/plugins/core/commands/report.md
-+++ b/plugins/core/commands/report.md
-@@ -28,6 +28,22 @@
+--- a/plugins/work/skills/trip-protocol/scripts/init-trip.sh
++++ b/plugins/work/skills/trip-protocol/scripts/init-trip.sh
+@@ -1,6 +1,7 @@
+ #!/bin/bash
+ # Initialize a trip directory structure under .workaholic/trips/
+-# Usage: bash init-trip.sh <trip-name> [instruction]
++# Usage: bash init-trip.sh <trip-name> [instruction] [working-dir]
++# When working-dir is provided, artifacts are created there instead of the git root.
+ # The optional instruction argument is the user's original trip description.
+ # Output: JSON with trip_path and plan_path
  
- If the user selects "Stop", end the command immediately.
+@@ -19,7 +20,7 @@
+   exit 1
+ fi
  
-+### Step 0.5: Artifact Guard
-+
-+```bash
-+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-workaholic-artifacts.sh
-+```
-+
-+Parse the JSON output. If `has_uncommitted` is `false`, proceed silently to Step 1.
-+
-+If `has_uncommitted` is `true`, display the file count and list to the user: "Found N uncommitted .workaholic/ artifact(s) from the current session:" followed by the file paths. Then stage and commit them:
-+
-+```bash
-+git add <listed .workaholic/ files>
-+git commit -m "Commit session artifacts"
-+```
-+
-+Proceed to Step 1 after committing.
-+
- ### Step 1: Detect Context
+-root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
++root="${3:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+ 
+ trip_path="${root}/.workaholic/trips/${trip_name}"
+```
+
+### `plugins/work/commands/trip.md`
+
+> **Note**: This patch is speculative - verify line numbers before applying.
+
+```diff
+--- a/plugins/work/commands/trip.md
++++ b/plugins/work/commands/trip.md
+@@ -56,7 +56,7 @@
+ ## Step 2: Initialize Trip Artifacts
  
  ```bash
+-bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/init-trip.sh "<trip-name>" "$ARGUMENT"
++bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/init-trip.sh "<trip-name>" "$ARGUMENT" "<working_dir>"
+ ```
 ```
 
 ## Considerations
 
-- The report command's existing Workspace Guard (Step 0) already detects uncommitted changes but treats them as a generic warning with options to "Ignore and proceed" or "Stop". The new Artifact Guard is more targeted: it specifically addresses `.workaholic/` artifacts that should always be committed before reporting, rather than leaving the decision to the user. The two guards are complementary, not redundant. (`plugins/core/commands/report.md` lines 19-29)
-- The story-writer's Phase 3 commits `.workaholic/stories/` and Phase 5 commits `.workaholic/release-notes/`. The new artifact guard must exclude these paths to avoid committing empty directories or conflicting with the story-writer's own staging. (`plugins/work/agents/story-writer.md` lines 38-59)
-- In the drive workflow, `archive.sh` uses `git add -A` which catches everything including `.workaholic/` artifacts. The trip workflow's `trip-commit.sh` also uses `git add -A`, but only when there are changes at each step. If the trip completes and the final commit captures all artifacts, this guard becomes a no-op (correctly). The guard serves as a safety net for the gap between trip completion and report generation. (`plugins/work/skills/drive/scripts/archive.sh` line 54, `plugins/work/skills/trip-protocol/scripts/trip-commit.sh` line 21)
-- Placing the artifact commit in the report command rather than the ship command ensures the artifacts appear in the PR diff, making the branch history reviewable before merge. If placed only in ship, the artifacts would be committed after the PR is already created, requiring an additional push and PR update. (`plugins/core/commands/report.md`)
-- The script should live in `plugins/core/skills/branching/scripts/` rather than `plugins/work/` because uncommitted `.workaholic/` artifacts are a concern for any workflow context, not just trips. The core plugin's branching skill already has `check-workspace.sh` as a precedent for workspace state checks. (`plugins/core/skills/branching/scripts/check-workspace.sh`)
+- The `init-trip.sh` change is backward-compatible: when no third argument is provided, it falls back to `git rev-parse --show-toplevel`, preserving behavior for branch-only mode and any other callers. (`plugins/work/skills/trip-protocol/scripts/init-trip.sh` line 22)
+- The `<trip_path>` passed to the team lead (trip.md line 77) is derived from `init-trip.sh` output. Once the script uses the worktree root, the trip_path will automatically point inside the worktree, and all downstream artifact writes (directions, models, designs, reviews, event-log, plan) will land in the correct location. (`plugins/work/commands/trip.md` lines 76-77)
+- When `/ship` cleans up the worktree, the gitignored file sync step already copies files from the worktree back to the main repo. Trip artifacts in `.workaholic/trips/` are tracked (not gitignored), so they will be part of the branch and merged via the PR naturally. (`plugins/core/commands/ship.md`)

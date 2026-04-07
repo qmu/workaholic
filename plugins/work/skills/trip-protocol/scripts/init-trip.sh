@@ -1,6 +1,7 @@
 #!/bin/bash
 # Initialize a trip directory structure under .workaholic/trips/
-# Usage: bash init-trip.sh <trip-name> [instruction]
+# Usage: bash init-trip.sh <trip-name> [instruction] [working-dir]
+# When working-dir is provided, artifacts are created there instead of the git root.
 # The optional instruction argument is the user's original trip description.
 # Output: JSON with trip_path and plan_path
 
@@ -19,7 +20,7 @@ if ! echo "$trip_name" | grep -qE '^[a-z0-9][a-z0-9-]*[a-z0-9]$'; then
   exit 1
 fi
 
-root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+root="${3:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 
 trip_path="${root}/.workaholic/trips/${trip_name}"
 

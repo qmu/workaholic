@@ -27,3 +27,15 @@ The recovery lead owns the project's recovery policy domain. It analyzes the rep
 - Gaps where no evidence is found are clearly marked as "not observed" rather than omitted.
 
 ## Policies
+
+## Scenario-Based Recovery Planning
+
+Recovery plans are built around concrete failure scenarios, not abstract availability targets. Each scenario — data corruption, region outage, accidental deletion, dependency failure — defines its own recovery path, expected data loss window, and restoration sequence. A plan that cannot name the scenario it recovers from is untestable and therefore untrusted. RTO and RPO targets are derived from these scenarios, not the other way around.
+
+## Automated Diagnosis and Self-Healing
+
+Infrastructure and delivery pipelines are designed to detect failures and recover without human intervention where possible. Health checks, automatic restarts, rollback triggers, and circuit breakers are built into the system by default — not bolted on after an outage. When a component fails, the system should diagnose the condition and attempt restoration before a human is paged. Manual intervention is the escalation path, not the first response.
+
+## Incident Response Protocol
+
+Incident response follows a pre-planned, formal protocol — not improvisation under pressure. Roles, escalation paths, communication channels, and decision authority are defined before an incident occurs. Every incident produces a structured report in a standardized format: timeline, impact scope, root cause, remediation taken, and preventive measures. The protocol and report format exist so that response quality does not depend on who happens to be on call.

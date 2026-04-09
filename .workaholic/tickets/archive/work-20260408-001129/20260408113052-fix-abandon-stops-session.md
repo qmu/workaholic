@@ -3,9 +3,9 @@ created_at: 2026-04-08T11:30:52+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [UX]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: eb2f7a4
+category: Changed
 ---
 
 # Fix drive "Abandon" behavior to stop session instead of silently continuing
@@ -87,3 +87,19 @@ Past tickets that touched similar areas:
 - The Critical Rules section at the bottom of drive.md already establishes the principle that ticket lifecycle decisions require developer approval. This fix extends that principle to post-abandonment session continuation. (`plugins/work/commands/drive.md` lines 136-148)
 - If a user abandons the first ticket and wants to continue driving the remaining tickets, they can simply run `/drive` again. The abandoned ticket will no longer be in todo, so the remaining tickets will be presented. This is a minor friction trade-off in exchange for never surprising the user with autonomous continuation. (`plugins/work/commands/drive.md`)
 - The Phase 4 completion summary should naturally handle the abandonment case since it already tracks "Total tickets implemented" and "List of all commit hashes" -- the abandonment commit will appear in that list. (`plugins/work/commands/drive.md` lines 125-133)
+
+## Final Report
+
+### Changes Made
+
+1. **`plugins/work/skills/drive/SKILL.md`** — Changed Abandon option description from "continue to next" to "stop session"; changed Handle Abandonment ending from "Continue to next ticket automatically" to "Stop the drive session"
+2. **`plugins/work/commands/drive.md`** — Changed Abandon handler from "Continue to next ticket" to "Break loop, skip Phase 3, go directly to Phase 4"
+
+### Test Plan
+
+- [ ] Select "Abandon" during drive approval and verify session stops
+- [ ] Run `/drive` again after abandonment and verify remaining tickets are presented
+
+### Release Prep
+
+- No version bump needed (behavior fix in plugin instructions)

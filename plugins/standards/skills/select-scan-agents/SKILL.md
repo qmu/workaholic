@@ -10,12 +10,12 @@ Determine which documentation agents to invoke based on scan mode.
 ## Agent Tiers
 
 - **Managers** (3): project-manager, architecture-manager, quality-manager -- run first, produce strategic context
-- **Leads** (8): single `lead` agent invoked with domain parameter (ux, db, security, test, quality, observability, delivery, reliability) -- run second, consume manager outputs
+- **Leads** (7): single `lead` agent invoked with domain parameter (ux, db, security, quality, observability, delivery, reliability) -- run second, consume manager outputs
 - **Writers** (3): model-analyst, changelog-writer, terms-writer -- run alongside leads
 
 ## Modes
 
-- **full**: Returns all agents (3 managers, 8 leads with domain, 3 writers)
+- **full**: Returns all agents (3 managers, 7 leads with domain, 3 writers)
 - **partial**: Analyzes `git diff --stat` against the base branch to select only relevant agents
 
 ## Usage

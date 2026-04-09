@@ -100,7 +100,7 @@ Follow the preloaded **drive** skill (Approval section) to present approval dial
 
 **"Abandon"**:
 1. Follow **drive** skill (Approval section, Handle Abandonment)
-2. Continue to next ticket
+2. Break loop, skip Phase 3, go directly to Phase 4 (same as "Approve and stop")
 
 ### Phase 3: Re-check and Continue
 

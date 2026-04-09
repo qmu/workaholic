@@ -14,7 +14,7 @@ MODE="${1:-}"
 BASE_BRANCH="${2:-}"
 
 ALL_MANAGERS="project-manager architecture-manager quality-manager"
-ALL_LEAD_DOMAINS="ux db test security quality observability delivery reliability"
+ALL_LEAD_DOMAINS="ux db security quality observability delivery reliability"
 ALL_WRITERS="model-analyst changelog-writer terms-writer"
 
 if [ -z "$MODE" ]; then

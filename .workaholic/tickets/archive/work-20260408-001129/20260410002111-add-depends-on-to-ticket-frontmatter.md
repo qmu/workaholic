@@ -3,9 +3,9 @@ created_at: 2026-04-10T00:21:11+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config, Domain]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: c8d5ad6
+category: Added
 ---
 
 # Add dependency tracking to split tickets via YAML frontmatter
@@ -189,3 +189,20 @@ Past tickets that touched similar areas:
 - The `depends_on` field should be ignored when a ticket is used standalone (not part of a split) -- the empty value is the default and signals no dependencies (`plugins/work/skills/create-ticket/SKILL.md`)
 - Circular dependency detection should produce a clear warning rather than silently breaking the drive loop (`plugins/work/agents/drive-navigator.md` lines 56-68)
 - The File Structure template in create-ticket SKILL.md also needs updating to include `depends_on` in the full example (`plugins/work/skills/create-ticket/SKILL.md` lines 89-98)
+
+## Final Report
+
+### Changes Made
+
+- **plugins/work/skills/create-ticket/SKILL.md**: Added `depends_on:` to frontmatter template, concrete example, file structure template; added field documentation under new "Optional" subsection; updated field count from 7 to 8 in common mistakes table
+- **plugins/work/agents/ticket-organizer.md**: Added `depends_on` population instructions in the "If splitting" subsection of step 5
+- **plugins/work/agents/drive-navigator.md**: Added `depends_on` extraction in step 1; rewrote step 2 to prioritize dependency ordering (topological sort) before type-based severity; updated example output to show dependency annotation
+- **plugins/work/hooks/validate-ticket.sh**: Added optional `depends_on` validation — parses YAML list entries and validates each matches `YYYYMMDDHHmmss-*.md` pattern; uses `|| true` to handle absent field gracefully under `set -e`
+- **plugins/work/skills/drive/scripts/update.sh**: Added `depends_on` case to field insertion order (inserted after `category:`)
+
+### Test Plan
+
+- Validated existing ticket (no `depends_on`) passes hook: exit 0
+- Validated ticket with valid `depends_on: [20260410002111-foundation.md]` passes hook: exit 0
+- Validated ticket with invalid `depends_on: [bad-filename.md]` fails hook: exit 2 with pattern error
+- Verified `update.sh` correctly inserts `depends_on` field after `category` in frontmatter

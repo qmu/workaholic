@@ -73,6 +73,11 @@ For each ticket:
 **If splitting**:
 - Unique timestamp per ticket (add 1 second between)
 - First ticket is foundation
+- Populate `depends_on` in dependent tickets:
+  - Determine dependency order among the split tickets
+  - The first ticket (foundation) has no `depends_on` (leave empty)
+  - Subsequent tickets that depend on earlier ones list the prerequisite filenames in `depends_on` (e.g., `depends_on: [20260410002111-foundation.md]`)
+  - Only add dependencies where there is a genuine implementation ordering requirement (shared files, API contracts, schema changes needed first)
 - Cross-reference in "Considerations" section
 
 ### 6. Handle Ambiguity

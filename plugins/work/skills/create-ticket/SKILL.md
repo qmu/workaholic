@@ -43,13 +43,14 @@ layer: [<UX | Domain | Infrastructure | DB | Config>]
 effort:
 commit_hash:
 category:
+depends_on:
 ---
 ```
 
 ### Field Requirements
 
 - **Lines 1-4**: Fill with actual values (never placeholders)
-- **Lines 5-7**: Must be present but leave empty (filled after implementation)
+- **Lines 5-8**: Must be present but leave empty (filled after implementation or by ticket-organizer)
 
 ### Concrete Example
 
@@ -62,6 +63,7 @@ layer: [UX, Domain]
 effort:
 commit_hash:
 category:
+depends_on:
 ---
 ```
 
@@ -71,10 +73,11 @@ These cause validation failures:
 
 | Mistake | Example | Fix |
 |---------|---------|-----|
-| Missing empty fields | Omitting `effort:` line | Include all 7 fields, even if empty |
+| Missing empty fields | Omitting `effort:` line | Include all 8 fields, even if empty |
 | Placeholder values | `author: user@example.com` | Run `git config user.email` and use actual output |
 | Wrong date format | `2026-01-31` or `2026/01/31T...` | Use `date -Iseconds` output (includes timezone) |
 | Scalar layer | `layer: Config` | Use array format: `layer: [Config]` |
+| Scalar depends_on | `depends_on: file.md` | Use array format: `depends_on: [file.md]` |
 
 ## Filename Convention
 
@@ -95,6 +98,7 @@ layer: [UX, Domain]
 effort:
 commit_hash:
 category:
+depends_on:
 ---
 
 # <Title>
@@ -176,6 +180,10 @@ These fields are updated by the `drive` skill (Update Frontmatter section) durin
 - **effort**: Time spent in numeric hours (leave empty when creating)
 - **commit_hash**: Short git commit hash (set by archive script)
 - **category**: Added, Changed, or Removed (set by archive script)
+
+### Optional
+
+- **depends_on**: List of ticket filenames that must be implemented before this ticket. Populated automatically when the ticket-organizer splits a request. Format: YAML list of filenames (e.g., `[20260410002111-foundation.md]`). Leave empty for standalone tickets.
 
 ## Exploring the Codebase
 

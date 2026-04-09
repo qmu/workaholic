@@ -33,4 +33,12 @@ The quality lead owns the project's quality and testing policy domains. It analy
 
 ## Practices
 
+### Real Components Over Mocks
+
+Test against real software components, not mocks. When testing the database layer, run queries against an actual database instance — fabricate records through the test itself, clean up after each test. Fixtures and mocks hide integration failures that only surface in production.
+
+### Tests as Usage Documentation
+
+Every public function gets a minimal test that documents its contract: what arguments go in, what values come out. The test itself is the documentation — not comments, not coverage metrics. A developer or LLM reading the test should immediately understand how the function is consumed. Keep each test concise enough to serve as a cognitive snapshot. Internal functions do not require this treatment. Comprehensiveness comes from breadth across the public API, not depth within each test.
+
 ## Standards

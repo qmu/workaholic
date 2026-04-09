@@ -43,13 +43,17 @@ specific to this agent's domain. No fixed subsection structure required.>
 
 ## Practices
 
-<Optional. Concrete, actionable practices that implement the abstract policies.
-Each practice should be directly executable and traceable to one or more policies.>
+### <Practice Title>
+
+<Optional. Each practice has an H3 title and a paragraph describing a concrete,
+actionable practice that implements one or more policies.>
 
 ## Standards
 
-<Optional. Specific, measurable standards that codify the practices.
-Each standard should define a pass/fail criterion verifiable in a review.>
+### <Standard Title>
+
+<Optional. Each standard has an H3 title and a paragraph or short list defining
+a specific, measurable pass/fail criterion verifiable in a review.>
 ```
 
 ## Guidelines
@@ -75,15 +79,18 @@ An agent that meets all responsibilities but misses the goal is incomplete. An a
 
 Policies are freeform. They should contain specific, actionable rules — not aspirational statements. Every rule should be something that can be checked in a review. No fixed subsection structure is required.
 
-### Practices and Standards
+### Four-Tier Structure
 
-Practices and Standards are optional sections that extend Policies into a three-tier structure, ordered from abstract to concrete:
+Lead skills follow a four-tier structure from abstract to concrete, with sentences growing shorter as specificity increases:
 
-- **Policies** (required) state *what* matters and *why*. Abstract principles and constraints.
-- **Practices** (optional) state *how* to implement the policies. Concrete, executable actions traceable to one or more policies.
-- **Standards** (optional) state *what specifically* must be true. Measurable pass/fail criteria traceable to practices.
+| Tier | Section | Describes | Sentence Length |
+| ---- | ------- | --------- | --------------- |
+| 1 | **Role** | *Who* the agent is and *what* it owns | Longest — narrative paragraphs |
+| 2 | **Policies** | *What* matters and *why* | Long — titled paragraphs stating principles |
+| 3 | **Practices** | *How* to implement the policies | Medium — actionable bullet points |
+| 4 | **Standards** | *What specifically* must be true | Shortest — measurable pass/fail criteria |
 
-Not all leads will have Practices or Standards immediately. A lead may start with only Policies and add the other tiers as the domain matures. When present, every Practice should trace to a Policy, and every Standard should trace to a Practice.
+Each tier traces to the one above it: Standards implement Practices, Practices implement Policies, Policies serve the Role. Not all leads will have Practices or Standards immediately — a lead may start with only Role and Policies, adding the lower tiers as the domain matures.
 
 ## Validation Checklist
 
@@ -144,15 +151,23 @@ The testing lead owns the project's test strategy. It decides what gets tested, 
 
 ## Practices
 
-- Write tests before or alongside the code they verify, not after.
-- Run the full test suite locally before pushing to CI.
-- Quarantine flaky tests into a dedicated suite within 24 hours of detection.
-- Review test coverage diff on every PR — reject if critical paths lose coverage.
+### Test-First Development
+
+Write tests before or alongside the code they verify, not after. Run the full test suite locally before pushing to CI.
+
+### Flaky Test Quarantine
+
+Quarantine flaky tests into a dedicated suite within 24 hours of detection. Review test coverage diff on every PR — reject if critical paths lose coverage.
 
 ## Standards
 
-- Every PR touching business logic includes at least one new or updated test.
+### Coverage Gate
+
 - Critical path coverage never drops below 90%.
+- Every PR touching business logic includes at least one new or updated test.
+
+### Suite Health
+
 - No flaky test remains in the main suite for more than one development cycle.
 - Full test suite completes in under 5 minutes on CI.
 - Every quarantined test has a linked tracking issue.

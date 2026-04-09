@@ -40,6 +40,16 @@ If any responsibility is unmet, the agent has failed regardless of other outcome
 
 <Freeform policy content. Rules, constraints, and guidelines
 specific to this agent's domain. No fixed subsection structure required.>
+
+## Practices
+
+<Optional. Concrete, actionable practices that implement the abstract policies.
+Each practice should be directly executable and traceable to one or more policies.>
+
+## Standards
+
+<Optional. Specific, measurable standards that codify the practices.
+Each standard should define a pass/fail criterion verifiable in a review.>
 ```
 
 ## Guidelines
@@ -65,6 +75,16 @@ An agent that meets all responsibilities but misses the goal is incomplete. An a
 
 Policies are freeform. They should contain specific, actionable rules — not aspirational statements. Every rule should be something that can be checked in a review. No fixed subsection structure is required.
 
+### Practices and Standards
+
+Practices and Standards are optional sections that extend Policies into a three-tier structure, ordered from abstract to concrete:
+
+- **Policies** (required) state *what* matters and *why*. Abstract principles and constraints.
+- **Practices** (optional) state *how* to implement the policies. Concrete, executable actions traceable to one or more policies.
+- **Standards** (optional) state *what specifically* must be true. Measurable pass/fail criteria traceable to practices.
+
+Not all leads will have Practices or Standards immediately. A lead may start with only Policies and add the other tiers as the domain matures. When present, every Practice should trace to a Policy, and every Standard should trace to a Practice.
+
 ## Validation Checklist
 
 Use this checklist to verify a lead definition is complete and well-formed:
@@ -76,10 +96,12 @@ Use this checklist to verify a lead definition is complete and well-formed:
 - [ ] `### Responsibility` subsection under Role defines minimum duties (necessary condition, negative obligation)
 - [ ] `## Policies` section is present with freeform, actionable rules
 - [ ] Every rule is actionable and verifiable, not aspirational
+- [ ] `## Practices` section, if present, contains concrete actionable items traceable to policies
+- [ ] `## Standards` section, if present, contains measurable pass/fail criteria traceable to practices
 
 ## Agent
 
-All 10 lead domains share a single parameterized agent at `plugins/standards/agents/lead.md`. The agent preloads all domain skills and both analysis frameworks. Callers pass the domain as a prompt parameter (e.g., `"Domain: security."`), and the agent applies the matching `lead-<domain>` skill.
+All 7 lead domains share a single parameterized agent at `plugins/standards/agents/lead.md`. The agent preloads all domain skills and both analysis frameworks. Callers pass the domain as a prompt parameter (e.g., `"Domain: security."`), and the agent applies the matching `lead-<domain>` skill.
 
 There are no per-domain agent files. All domain knowledge lives in the lead skills, not in the agent.
 
@@ -119,4 +141,19 @@ The testing lead owns the project's test strategy. It decides what gets tested, 
 - No test may depend on another test's side effects. Each test sets up and tears down its own state.
 - Flag any PR that reduces coverage of a critical path.
 - Run the full test suite before marking a task complete.
+
+## Practices
+
+- Write tests before or alongside the code they verify, not after.
+- Run the full test suite locally before pushing to CI.
+- Quarantine flaky tests into a dedicated suite within 24 hours of detection.
+- Review test coverage diff on every PR — reject if critical paths lose coverage.
+
+## Standards
+
+- Every PR touching business logic includes at least one new or updated test.
+- Critical path coverage never drops below 90%.
+- No flaky test remains in the main suite for more than one development cycle.
+- Full test suite completes in under 5 minutes on CI.
+- Every quarantined test has a linked tracking issue.
 ```

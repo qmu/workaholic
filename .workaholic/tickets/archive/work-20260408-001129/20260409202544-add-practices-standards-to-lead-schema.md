@@ -3,9 +3,9 @@ created_at: 2026-04-09T20:25:44+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.1h
+commit_hash: d24cf64
+category: Added
 ---
 
 # Add Practices and Standards Sections to Lead Schema
@@ -172,3 +172,18 @@ The define-lead schema has undergone several structural evolutions: creation as 
 - Future tickets may populate Practices and Standards in individual lead skills, following the same incremental pattern used when Policies were initially empty after the reset. (`plugins/standards/skills/lead-*/SKILL.md`)
 - The `define-manager.md` schema is out of scope for this ticket. If the three-tier structure proves useful for leads, a separate ticket should extend it to managers. (`.claude/rules/define-manager.md`)
 - The `paths:` frontmatter in `define-lead.md` targets `plugins/standards/skills/lead-*/SKILL.md` and `plugins/standards/agents/lead.md`, so the updated schema will automatically apply when editing any lead skill file. (`.claude/rules/define-lead.md` lines 2-4)
+
+## Final Report
+
+### Changes Made
+
+1. **`.claude/rules/define-lead.md`** — Added Practices and Standards sections to schema template, guidelines, validation checklist, and example. Updated lead count from 10 to 7.
+
+### Test Plan
+
+- [ ] Verify define-lead.md schema template shows three-tier structure
+- [ ] Verify existing lead skills with only Policies remain valid under the schema
+
+### Release Prep
+
+- No version bump needed (schema documentation update)

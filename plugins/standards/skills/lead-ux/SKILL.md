@@ -37,3 +37,7 @@ Accessible design is not a compliance checkbox — it is a core dimension of use
 ## Modeless Design First
 
 Interfaces default to a composable, modeless state where every action is available without entering a special mode. Users should be able to combine operations freely without being funneled into single-purpose contexts. Modal focus is introduced only when a task genuinely demands undivided attention — confirmation of destructive actions, complex multi-step input, or security-sensitive flows. The baseline is freedom to compose; focused modes are the exception, not the starting point.
+
+## Practices
+
+## Standards

@@ -39,3 +39,7 @@ All security decisions follow a risk-based approach compliant with ISMS (ISO/IEC
 ## Defense in Depth
 
 Protection is layered across every level of the organization, not confined to application code. Before any software is built, the organizational layer establishes security policies, continuously assesses threats, refines the protection system, and maintains intelligence for zero-day response. Within application development, independent barriers — network boundaries, runtime controls, input validation, access enforcement, and monitoring — ensure that no single failure compromises client value.
+
+## Practices
+
+## Standards

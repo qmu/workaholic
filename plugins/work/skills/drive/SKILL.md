@@ -129,7 +129,7 @@ Implementation complete. Changes made:
     "options": [
       {"label": "Approve", "description": "Commit and archive this ticket, continue to next"},
       {"label": "Approve and stop", "description": "Commit and archive this ticket, then stop driving"},
-      {"label": "Abandon", "description": "Write failure analysis, discard changes, continue to next"}
+      {"label": "Abandon", "description": "Write failure analysis, discard changes, stop session"}
     ],
     "multiSelect": false
   }]
@@ -232,7 +232,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/commit/scripts/commit.sh \
   .workaholic/tickets/
 ```
 
-Continue to next ticket automatically.
+Stop the drive session. Return control to the drive command to present the completion summary.
 
 ## Final Report
 

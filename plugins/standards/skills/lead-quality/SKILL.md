@@ -37,8 +37,16 @@ The quality lead owns the project's quality and testing policy domains. It analy
 
 Test against real software components, not mocks. When testing the database layer, run queries against an actual database instance — fabricate records through the test itself, clean up after each test. Fixtures and mocks hide integration failures that only surface in production.
 
-### Tests as Usage Documentation
+### Minimum Test Harness
 
-Every public function gets a minimal test that documents its contract: what arguments go in, what values come out. The test itself is the documentation — not comments, not coverage metrics. A developer or LLM reading the test should immediately understand how the function is consumed. Keep each test concise enough to serve as a cognitive snapshot. Internal functions do not require this treatment. Comprehensiveness comes from breadth across the public API, not depth within each test.
+Every public function gets a concise unit test that snapshots its expected behavior — arguments in, values out. These snapshots form the minimum harness for quality: not coverage targets, but a readable contract that any developer or LLM can consume at a glance. Breadth across the public API, not depth per function.
+
+### Browser-Verified UI Changes
+
+When a ticket touches user interface, verify the result in a real browser — render the page, interact with it, and confirm the visual outcome. Use Playwright or equivalent browser automation to let the LLM see and manipulate what the user sees. Screenshots and assertions against rendered state replace guesswork about markup correctness.
+
+### Type-Level Quality Assurance
+
+Push as many correctness checks as possible into the type system rather than runtime tests. Invalid states that can be made unrepresentable through types do not need spec files — the compiler catches them faster and with stronger consistency guarantees. Reserve runtime tests for behavior that types cannot express.
 
 ## Standards

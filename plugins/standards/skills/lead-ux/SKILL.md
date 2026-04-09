@@ -40,4 +40,16 @@ Interfaces default to a composable, modeless state where every action is availab
 
 ## Practices
 
+### WCAG 2.2 Level AA by Default
+
+All user-facing interfaces conform to WCAG 2.2 Level AA. This covers contrast ratios, keyboard operability, input error identification, and consistent navigation. Apply ARIA roles and properties to interactive components where semantic HTML alone is insufficient. AAA criteria are adopted selectively where practical.
+
+### Emergent Design System
+
+The design system is not defined upfront — it emerges through development. Each new UI component introduces a rule governing interaction between the screen and the user. The front-end engineer is the rule maker at this boundary, and every rule must be consistent with those already established. Consistency is enforced incrementally, not prescribed in advance.
+
+### Tool-First Interaction Design
+
+Define every page interaction as a structured tool — typed arguments, return values — before building any visual interface. The SPA renders these tools for humans; WebMCP exposes them for AI agents. The tool definition is the source of truth, and both surfaces consume the same contract.
+
 ## Standards

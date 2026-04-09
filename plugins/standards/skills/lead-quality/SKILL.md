@@ -30,3 +30,7 @@ The quality lead owns the project's quality and testing policy domains. It analy
 - Gaps where no evidence is found are clearly marked as "not observed" rather than omitted.
 
 ## Policies
+
+## Practices
+
+## Standards

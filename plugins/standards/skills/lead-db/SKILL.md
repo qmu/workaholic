@@ -39,3 +39,7 @@ Domain models are shaped by the business domain, not the database schema. Persis
 ## Event Sourcing as a Ready Option
 
 State snapshots alone cannot reconstruct how data arrived at its current form. Event sourcing preserves the full sequence of state transitions, enabling replay, audit, and model evolution that snapshot-only storage forecloses. Where complexity permits, we favor a split model: an event-sourced command store that records every transition, paired with a state-projected query store that materializes the latest snapshot for reads. This is not mandated universally — but the capability should be within reach so that when a domain demands temporal reasoning or structural replay, the architecture is already positioned to support it.
+
+## Practices
+
+## Standards

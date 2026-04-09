@@ -52,3 +52,7 @@ Recovery plans are built around concrete failure scenarios, not abstract availab
 ## Automated Diagnosis and Self-Healing
 
 Infrastructure and delivery pipelines are designed to detect failures and recover without human intervention where possible. Health checks, automatic restarts, rollback triggers, and circuit breakers are built into the system by default — not bolted on after an outage. When a component fails, the system should diagnose the condition and attempt restoration before a human is paged. Manual intervention is the escalation path, not the first response.
+
+## Practices
+
+## Standards

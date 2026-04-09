@@ -27,3 +27,13 @@ The UX lead owns the project's user experience viewpoint. It analyzes the reposi
 - Gaps where no evidence is found are clearly marked as "not observed" rather than omitted.
 
 ## Policies
+
+## Accessibility as a UX Priority
+
+> "The power of the Web is in its universality. Access by everyone regardless of disability is an essential aspect." — Tim Berners-Lee
+
+Accessible design is not a compliance checkbox — it is a core dimension of user experience. When information is structured for accessibility, it becomes reachable through multiple paths: assistive technologies, programmatic interfaces, and AI-driven agents alike. Designing for machine-readable access and human-readable access are the same discipline — both demand semantic clarity, consistent structure, and multiple entry points to the same content. The more ways data can be reached, the more options every user has.
+
+## Modeless Design First
+
+Interfaces default to a composable, modeless state where every action is available without entering a special mode. Users should be able to combine operations freely without being funneled into single-purpose contexts. Modal focus is introduced only when a task genuinely demands undivided attention — confirmation of destructive actions, complex multi-step input, or security-sensitive flows. The baseline is freedom to compose; focused modes are the exception, not the starting point.

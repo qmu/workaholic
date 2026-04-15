@@ -27,3 +27,7 @@ The observability lead owns the project's observability policy domain. It analyz
 - Gaps where no evidence is found are clearly marked as "not observed" rather than omitted.
 
 ## Policies
+
+## Practices
+
+## Standards

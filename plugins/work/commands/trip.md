@@ -83,7 +83,7 @@ Create a three-member Agent Team. The team lead instruction:
 > 2. **Architect** (`work:architect`) - Structural bridge, analytical review
 > 3. **Constructor** (`work:constructor`) - Technical implementation, internal testing
 >
-> All agents work inside `<working_dir>`. Follow trip-protocol for the Planning Phase (concurrent artifacts, one-turn review, respond/escalate, moderate) and Coding Phase (concurrent launch, review & testing, iteration). Enforce convergence cap: max 3 review rounds before forced moderation. Use `trip-commit.sh` and `log-event.sh` for every step. Update `plan.md` at phase transitions. If resuming, skip completed steps.
+> All agents work inside `<working_dir>`. Follow trip-protocol for the Planning Phase (concurrent artifacts, one-turn review, respond/escalate, moderate) and Coding Phase (concurrent launch, review & testing, iteration). All agents have the team's **lead standards** preloaded — ensure all planning, design, implementation, and testing respects the policies, practices, and standards defined by the leads. Enforce convergence cap: max 3 review rounds before forced moderation. Use `trip-commit.sh` and `log-event.sh` for every step. Update `plan.md` at phase transitions. If resuming, skip completed steps.
 >
 > Language policy: All agent output must be English.
 >

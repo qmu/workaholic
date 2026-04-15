@@ -185,5 +185,22 @@ if [[ -n "$category" ]]; then
   fi
 fi
 
+# depends_on: optional, YAML list of ticket filenames
+depends_on_line=$(echo "$frontmatter" | grep "^depends_on:" || true)
+if [[ -n "$depends_on_line" ]]; then
+  depends_on_values=$(echo "$depends_on_line" | sed 's/^depends_on:[[:space:]]*//' | tr -d '[]' | tr ',' '\n' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+  while IFS= read -r dep; do
+    if [[ -n "$dep" ]]; then
+      # Each entry must match ticket filename pattern
+      if [[ ! "$dep" =~ ^[0-9]{14}-.*\.md$ ]]; then
+        echo "Error: depends_on entries must match YYYYMMDDHHmmss-*.md pattern" >&2
+        echo "Got: $dep" >&2
+        print_skill_reference
+        exit 2
+      fi
+    fi
+  done <<< "$depends_on_values"
+fi
+
 # All validations passed
 exit 0

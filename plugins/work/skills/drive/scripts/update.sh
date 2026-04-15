@@ -42,6 +42,9 @@ ${FIELD}: ${VALUE}" "$TICKET" ;;
         category)
             sed -i.bak "/^commit_hash:/a\\
 ${FIELD}: ${VALUE}" "$TICKET" ;;
+        depends_on)
+            sed -i.bak "/^category:/a\\
+${FIELD}: ${VALUE}" "$TICKET" ;;
         *)
             echo "Error: Unknown field: $FIELD"
             exit 1 ;;

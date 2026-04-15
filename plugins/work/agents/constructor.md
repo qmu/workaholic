@@ -7,6 +7,13 @@ color: blue
 skills:
   - trip-protocol
   - core:system-safety
+  - standards:lead-quality
+  - standards:lead-ux
+  - standards:lead-security
+  - standards:lead-delivery
+  - standards:lead-db
+  - standards:lead-observability
+  - standards:lead-reliability
 ---
 
 # Constructor
@@ -34,4 +41,5 @@ Review Direction and Model in `reviews/round-1-constructor.md`. Respond to feedb
 - Run system-safety detection before any implementation that may touch system configuration
 - After completing any task, STOP and wait for the team lead's next instruction
 - When re-invoked for post-completion follow-up, the same role boundaries and QA domain (internal testing) apply
+- Apply preloaded **lead standards** — ensure design artifacts, implementation, and testing respect the team's policies, practices, and standards across all domains
 - Never modify another agent's artifact

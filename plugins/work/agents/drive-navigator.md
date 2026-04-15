@@ -57,17 +57,20 @@ ls -1 .workaholic/tickets/todo/*.md 2>/dev/null
 For each ticket, read and extract YAML frontmatter to get:
 - `type`: bugfix > enhancement > refactoring > housekeeping (priority ranking)
 - `layer`: Group related layers for context efficiency
+- `depends_on`: List of ticket filenames this ticket depends on (optional)
 
 #### 2. Determine Priority Order
 
-Consider these factors:
-- **Severity**: Bugfixes take precedence over enhancements
-- **Context grouping**: Process tickets affecting same layer/files together
-- **Dependencies**: If ticket A modifies files that ticket B reads, process A first
+Consider these factors (in order of precedence):
 
-Handle missing metadata gracefully - default to normal priority when fields are absent.
+1. **Dependency ordering**: Build a dependency graph from `depends_on` fields and perform topological sort. Tickets with no dependencies come first, then tickets whose dependencies are satisfied. If a cycle is detected, warn in the output and fall back to type-based priority for the cycled tickets.
+2. **Severity**: Within the same dependency tier, bugfixes take precedence over enhancements
+3. **Context grouping**: Process tickets affecting same layer/files together
+4. **Implicit dependencies**: If ticket A modifies files that ticket B reads, process A first
 
-Priority ranking by type:
+Handle missing metadata gracefully - default to normal priority when fields are absent. Treat empty or missing `depends_on` as no dependencies.
+
+Priority ranking by type (used within same dependency tier):
 1. `bugfix` - High priority
 2. `enhancement` - Normal priority
 3. `refactoring` - Normal priority
@@ -88,9 +91,9 @@ Found 4 tickets to implement:
 3. 20260131-add-api-endpoint.md [layer: Infrastructure]
 
 **Low Priority (housekeeping)**
-4. 20260131-cleanup-unused-imports.md
+4. 20260131-cleanup-unused-imports.md [depends on: 20260131-add-api-endpoint.md]
 
-Proposed order considers severity and context grouping.
+Proposed order considers dependencies, severity, and context grouping.
 ```
 
 #### 4. Confirm Order with User

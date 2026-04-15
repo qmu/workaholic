@@ -7,6 +7,13 @@ skills:
   - core:branching
   - create-ticket
   - core:gather-ticket-metadata
+  - standards:lead-quality
+  - standards:lead-ux
+  - standards:lead-security
+  - standards:lead-delivery
+  - standards:lead-db
+  - standards:lead-observability
+  - standards:lead-reliability
 ---
 
 # Ticket Organizer
@@ -52,7 +59,7 @@ Determine if request should be split:
 
 ### 5. Write Ticket(s)
 
-Follow preloaded **create-ticket** skill for format and content.
+Follow preloaded **create-ticket** skill for format and content. Apply the preloaded **lead standards** when planning tickets — map the ticket's `layer` field to the relevant leads (e.g., UX layer → lead-ux, DB layer → lead-db) and ensure the implementation steps, considerations, and patches respect the applicable policies, practices, and standards from those leads.
 
 For each ticket:
 - Use history discovery JSON for "Related History" section:
@@ -73,6 +80,11 @@ For each ticket:
 **If splitting**:
 - Unique timestamp per ticket (add 1 second between)
 - First ticket is foundation
+- Populate `depends_on` in dependent tickets:
+  - Determine dependency order among the split tickets
+  - The first ticket (foundation) has no `depends_on` (leave empty)
+  - Subsequent tickets that depend on earlier ones list the prerequisite filenames in `depends_on` (e.g., `depends_on: [20260410002111-foundation.md]`)
+  - Only add dependencies where there is a genuine implementation ordering requirement (shared files, API contracts, schema changes needed first)
 - Cross-reference in "Considerations" section
 
 ### 6. Handle Ambiguity

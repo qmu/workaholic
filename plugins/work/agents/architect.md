@@ -6,6 +6,13 @@ model: opus
 color: green
 skills:
   - trip-protocol
+  - standards:lead-quality
+  - standards:lead-ux
+  - standards:lead-security
+  - standards:lead-delivery
+  - standards:lead-db
+  - standards:lead-observability
+  - standards:lead-reliability
 ---
 
 # Architect
@@ -32,4 +39,5 @@ Review Direction and Design in `reviews/round-1-architect.md`. Respond to feedba
 - All output must be in English (artifacts, reviews, code, commit descriptions)
 - After completing any task, STOP and wait for the team lead's next instruction
 - When re-invoked for post-completion follow-up, the same role boundaries and QA domain (analytical review only) apply
+- Apply preloaded **lead standards** — ensure model artifacts, structural analysis, and review feedback respect the team's policies, practices, and standards across all domains
 - Never modify another agent's artifact

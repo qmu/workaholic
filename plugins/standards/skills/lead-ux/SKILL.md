@@ -53,3 +53,7 @@ The design system is not defined upfront — it emerges through development. Eac
 Define every page interaction as a structured tool — typed arguments, return values — before building any visual interface. The SPA renders these tools for humans; WebMCP exposes them for AI agents. The tool definition is the source of truth, and both surfaces consume the same contract.
 
 ## Standards
+
+### Preact as Default UI Runtime
+
+Use Preact as the default UI runtime. React-compatible API with a fraction of the bundle size — aligns with lean infrastructure and portability principles. Full React is adopted only when a dependency explicitly requires it.

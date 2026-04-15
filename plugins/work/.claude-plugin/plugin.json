@@ -2,7 +2,7 @@
   "name": "work",
   "description": "Unified development workflow: ticket-driven development and AI-collaborative exploration",
   "version": "1.0.45",
-  "dependencies": ["core"],
+  "dependencies": ["core", "standards"],
   "author": {
     "name": "tamurayoshiya",
     "email": "a@qmu.jp"

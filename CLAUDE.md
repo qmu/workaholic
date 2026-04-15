@@ -46,9 +46,9 @@ plugins/                 # Plugin source directories
 
 ```
 core (base)       standards (base)
-  ^
-  |
-work
+  ^                    ^
+  |                    |
+  +-------work--------+
 ```
 
 Each plugin declares `dependencies` in its `plugin.json`. Cross-plugin `${CLAUDE_PLUGIN_ROOT}/../<name>/` references must only target declared dependencies. Core commands have soft references to work for context-aware routing (report, ship) and to standards for documentation scanning (scan).

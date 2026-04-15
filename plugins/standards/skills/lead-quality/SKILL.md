@@ -31,6 +31,10 @@ The quality lead owns the project's quality and testing policy domains. It analy
 
 ## Policies
 
+## AI End-to-End Testability
+
+The development environment must be prepared so that an AI agent can independently verify user-facing behavior through a real browser. Two capabilities are always in place: browser automation tooling (Playwright MCP or DevTools MCP) that gives the AI hands to click, type, and navigate, and a dedicated test account that gives it permission to sign in, exercise screens, and capture screenshots. These are the AI's eyes — without them, quality assurance of appearance and expression falls back to guesswork about markup correctness. Preparing the eyes comes before writing the first UI test.
+
 ## Practices
 
 ### Real Components Over Mocks
@@ -40,6 +44,14 @@ Test against real software components, not mocks. When testing the database laye
 ### Minimum Test Harness
 
 Every public function gets a concise unit test that snapshots its expected behavior — arguments in, values out. These snapshots form the minimum harness for quality: not coverage targets, but a readable contract that any developer or LLM can consume at a glance. Breadth across the public API, not depth per function.
+
+### Browser Automation Tooling
+
+Configure Playwright MCP or DevTools MCP in every environment where UI work happens. The AI agent must be able to launch a browser, navigate to any page, interact with elements, and take screenshots without manual setup steps. Verify the tooling works before starting UI development — a broken automation path means no AI-driven quality assurance.
+
+### Dedicated AI Test Account
+
+Maintain a dedicated test account with credentials accessible to the AI agent. The account has sufficient permissions to exercise all user-facing flows — sign-in, navigation, data manipulation, and settings. Credentials live in environment variables or secure configuration, never hardcoded in source. The account is provisioned as part of environment setup, not as an afterthought.
 
 ### Browser-Verified UI Changes
 

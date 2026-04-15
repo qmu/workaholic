@@ -46,12 +46,12 @@ plugins/                 # Plugin source directories
 
 ```
 core (base)       standards (base)
-  ^                    ^
-  |                    |
-  +-------work--------+
+  ^               ⤴ soft
+  |            ⤴
+work ─ ─ ─ ─ ─
 ```
 
-Each plugin declares `dependencies` in its `plugin.json`. Cross-plugin `${CLAUDE_PLUGIN_ROOT}/../<name>/` references must only target declared dependencies. Core commands have soft references to work for context-aware routing (report, ship) and to standards for documentation scanning (scan).
+Each plugin declares `dependencies` in its `plugin.json`. Cross-plugin `${CLAUDE_PLUGIN_ROOT}/../<name>/` references must only target declared dependencies. Soft references (skill preloads, subagent invocations) do not require a declared dependency — they are used when the referenced plugin is installed but do not prevent the caller from functioning without it. Core has soft references to work (context-aware routing) and standards (scan). Work has soft references to standards (lead skill preloads, writer subagent invocations).
 
 ### Design Principle
 

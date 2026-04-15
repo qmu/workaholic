@@ -69,6 +69,7 @@ Refs #<issue-number>
 
 ## Stories
 
+- [work-20260408-001129.md](work-20260408-001129.md) - Lead skill architecture maturation: four-tier structure, domain consolidation, drive abandon fix, dependency tracking - 3 tickets, 15 commits
 - [work-20260406-193458.md](work-20260406-193458.md) - Housekeeping and structural improvements: directory rename, skill removal, release note fix, discoverer refactor, trip worktree fix - 5 tickets, 13 commits
 - [drive-20260403-230430.md](drive-20260403-230430.md) - Unified drivin and trippin into work plugin, unified branch naming, reset lead policies, added development patterns to story format - 10 tickets, 15 commits
 - [drive-20260329-173608.md](drive-20260329-173608.md) - Plugin architecture reorganization: core consolidation, dependency declarations, i18n deprecation, skill consolidation, story template simplification - 10 tickets, 21 commits

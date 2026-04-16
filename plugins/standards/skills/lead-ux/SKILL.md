@@ -12,19 +12,15 @@ The UX lead owns the project's user experience viewpoint. It analyzes the reposi
 
 ### Goal
 
-- The `.workaholic/specs/ux.md` accurately reflects all user experience aspects, interaction patterns, and onboarding paths in the repository.
-- No fabricated claims exist.
-- Every statement is grounded in codebase evidence.
-- All gaps are marked as "not observed".
+- Every user-facing interface meets WCAG 2.2 Level AA.
+- Every page interaction is reachable through the same typed tool by both human UI and AI agents.
+- The interface baseline stays composable and modeless unless a task genuinely demands focus.
 
 ### Responsibility
 
-- Every scan produces UX documentation that reflects only observable, implemented aspects of the codebase.
-- User types are identified with citations to codebase evidence.
-- User journeys are analyzed and documented: what workflows each user type follows to accomplish their goals.
-- Interaction patterns are documented: how users interact with the system, what commands and interfaces exist.
-- Onboarding paths are documented: how new users get started with the system.
-- Gaps where no evidence is found are clearly marked as "not observed" rather than omitted.
+- Every new UI rule is checked for consistency with the rules already established.
+- Every modal flow is justified against a composable alternative before being added.
+- Every interaction is defined as a typed tool before any visual implementation.
 
 ## Policies
 

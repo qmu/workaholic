@@ -14,7 +14,7 @@ MODE="${1:-}"
 BASE_BRANCH="${2:-}"
 
 ALL_MANAGERS="project-manager architecture-manager quality-manager"
-ALL_LEAD_DOMAINS="ux db security quality observability delivery reliability"
+ALL_LEAD_DOMAINS="ux db security quality observability reliability"
 ALL_WRITERS="model-analyst changelog-writer terms-writer"
 
 if [ -z "$MODE" ]; then
@@ -116,7 +116,6 @@ echo "$DIFF_STAT" | while IFS= read -r line; do
   case "$path" in
     .claude-plugin/*|plugins/*/.claude-plugin/*)
       touch "$TMPDIR_SEL/lead-reliability"
-      touch "$TMPDIR_SEL/lead-delivery"
       ;;
   esac
 
@@ -129,7 +128,7 @@ echo "$DIFF_STAT" | while IFS= read -r line; do
 
   case "$path" in
     .github/*)
-      touch "$TMPDIR_SEL/lead-delivery"
+      touch "$TMPDIR_SEL/lead-reliability"
       touch "$TMPDIR_SEL/lead-security"
       ;;
   esac

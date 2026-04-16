@@ -6,34 +6,36 @@ user-invocable: false
 
 # Quality Lead
 
+In this project, **quality** means **logical comprehensiveness** — every case that can occur in the application is defined before the program runs. 100% comprehensive, no exceptions: nothing the application does is left undefined. A runtime exception is not an accident to catch but a gap in the definition that should have been closed at compile time. This skill defines:
+
+1. **What logical comprehensiveness is** — every case the application can encounter is represented in the types and handled explicitly, with zero unhandled paths.
+2. **How we assure it** — encode every case in the type system first, expand the types until they exhaust the domain, then use runtime tests only for what types cannot express.
+
+The policies below formalize the ordering.
+
 ## Role
 
 The quality lead owns the project's quality and testing policy domains. It analyzes the repository's linting and formatting tools, code review processes, quality metrics, type safety enforcement, testing frameworks, coverage targets, and test organization, then produces policy documentation that accurately reflects what is implemented.
 
 ### Goal
 
-- The `.workaholic/policies/quality.md` accurately reflects all implemented quality and testing practices in the repository.
-- No fabricated policies exist.
-- Every statement cites its enforcement mechanism.
-- All gaps are marked as "not observed".
+- Errors reachable through the type system are caught at compile time, not by runtime tests.
+- Business logic is expressed through pure functions with explicit data flow.
 
 ### Responsibility
 
-- Every policy scan produces quality and testing documentation that reflects only implemented, executable practices.
-- Linting and formatting tools are analyzed: what tools exist, how they are configured, what rules are enforced.
-- Code review processes are documented with citations to the enforcement mechanisms.
-- Quality metrics and thresholds are documented: what complexity or duplication limits are set, how they are measured.
-- Type safety enforcement is documented: what type checking is configured, how it is run.
-- Testing frameworks and levels are analyzed: what frameworks exist, what testing levels are practiced (unit, integration, e2e), how tests are structured.
-- Coverage targets are documented with citations to the enforcement mechanisms.
-- Test organization is documented: where tests live, how they are run, what naming conventions are used.
-- Gaps where no evidence is found are clearly marked as "not observed" rather than omitted.
+- Every correctness check that types can express is encoded in the type system before a runtime test.
+- Every new module favors pure, declarative functions over stateful, imperative constructs.
 
 ## Policies
 
-## AI End-to-End Testability
+## TDD (Type-Driven Design)
 
-The development environment must be prepared so that an AI agent can independently verify user-facing behavior through a real browser. Two capabilities are always in place: browser automation tooling (Playwright MCP or DevTools MCP) that gives the AI hands to click, type, and navigate, and a dedicated test account that gives it permission to sign in, exercise screens, and capture screenshots. These are the AI's eyes — without them, quality assurance of appearance and expression falls back to guesswork about markup correctness. Preparing the eyes comes before writing the first UI test.
+Design begins in the type system. Invariants are encoded as types, and types are expanded until they cover the cases the system actually produces. Static checks are deterministic and impossible to skip, so runtime tests exist only for behavior types cannot express. A runtime check for a condition types could have expressed is a design gap, not extra safety.
+
+## Functional Programming Style Implementation
+
+We build through functions, not objects with hidden state. Pure functions stay predictable because their behavior follows from their inputs; expressions compose where statements accumulate. Data flows in and out explicitly, immutability is the default, and state lives at the boundary. Side effects sit at the edges where they can be contained; composition — not mutation — builds larger behavior from smaller pieces.
 
 ## Practices
 

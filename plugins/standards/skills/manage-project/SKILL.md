@@ -35,7 +35,7 @@ A structured analysis containing:
 - **Active Issues**: Open problems, blocked work items, and dependency risks with severity assessment. Derived from issue trackers, TODO comments, and ticket queues.
 - **Proposed Solutions**: Actionable recommendations for each active issue, constrained by project resources and priorities.
 
-**Consuming leaders**: All leaders benefit from project context. Primary consumers: delivery-lead (timeline, milestones), reliability-lead (issues, risks).
+**Consuming leaders**: All leaders benefit from project context. Primary consumers: reliability-lead (timeline, milestones, issues, risks).
 
 ## Default Policies
 

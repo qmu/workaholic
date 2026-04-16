@@ -9,7 +9,6 @@ skills:
   - standards:lead-quality
   - standards:lead-ux
   - standards:lead-security
-  - standards:lead-delivery
   - standards:lead-db
   - standards:lead-observability
   - standards:lead-reliability

@@ -5,7 +5,6 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
   - leaders-principle
   - lead-db
-  - lead-delivery
   - lead-observability
   - lead-quality
   - lead-reliability
@@ -31,6 +30,6 @@ Parameterized lead agent. The caller specifies which domain to activate via the 
    - Running commands or actions -> Execution policy
 4. Determine the analysis framework based on the domain:
    - **Viewpoint domains** (ux, db): Follow the analyze-viewpoint and write-spec skills.
-   - **Policy domains** (delivery, observability, quality, reliability, security): Follow the analyze-policy skill.
+   - **Policy domains** (observability, quality, reliability, security): Follow the analyze-policy skill.
 5. Execute the task within the lead's Role and Responsibility.
 6. Return a JSON result describing what was done.

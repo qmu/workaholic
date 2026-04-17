@@ -7,12 +7,10 @@ skills:
   - core:branching
   - create-ticket
   - core:gather-ticket-metadata
-  - standards:lead-quality
-  - standards:lead-ux
+  - standards:lead-validity
+  - standards:lead-accessibility
   - standards:lead-security
-  - standards:lead-db
-  - standards:lead-observability
-  - standards:lead-reliability
+  - standards:lead-availability
 ---
 
 # Ticket Organizer
@@ -58,7 +56,7 @@ Determine if request should be split:
 
 ### 5. Write Ticket(s)
 
-Follow preloaded **create-ticket** skill for format and content. Apply the preloaded **lead standards** when planning tickets — map the ticket's `layer` field to the relevant leads (e.g., UX layer → lead-ux, DB layer → lead-db) and ensure the implementation steps, considerations, and patches respect the applicable policies, practices, and standards from those leads.
+Follow preloaded **create-ticket** skill for format and content. Apply the preloaded **lead standards** when planning tickets — map the ticket's `layer` field to the relevant leads (e.g., UX layer → lead-accessibility, DB layer → lead-validity) and ensure the implementation steps, considerations, and patches respect the applicable policies, practices, and standards from those leads.
 
 For each ticket:
 - Use history discovery JSON for "Related History" section:

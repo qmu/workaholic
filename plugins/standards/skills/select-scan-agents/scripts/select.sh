@@ -14,7 +14,7 @@ MODE="${1:-}"
 BASE_BRANCH="${2:-}"
 
 ALL_MANAGERS="project-manager architecture-manager quality-manager"
-ALL_LEAD_DOMAINS="ux db security quality observability reliability"
+ALL_LEAD_DOMAINS="accessibility security validity availability"
 ALL_WRITERS="model-analyst changelog-writer terms-writer"
 
 if [ -z "$MODE" ]; then
@@ -96,13 +96,13 @@ echo "$DIFF_STAT" | while IFS= read -r line; do
   case "$path" in
     plugins/work/rules/*)
       touch "$TMPDIR_SEL/mgr-quality-manager"
-      touch "$TMPDIR_SEL/lead-quality"
+      touch "$TMPDIR_SEL/lead-validity"
       ;;
   esac
 
   case "$path" in
     .workaholic/tickets/*)
-      touch "$TMPDIR_SEL/lead-db"
+      touch "$TMPDIR_SEL/lead-validity"
       touch "$TMPDIR_SEL/writer-model-analyst"
       ;;
   esac
@@ -115,20 +115,20 @@ echo "$DIFF_STAT" | while IFS= read -r line; do
 
   case "$path" in
     .claude-plugin/*|plugins/*/.claude-plugin/*)
-      touch "$TMPDIR_SEL/lead-reliability"
+      touch "$TMPDIR_SEL/lead-availability"
       ;;
   esac
 
   case "$path" in
     README.md|CLAUDE.md)
-      touch "$TMPDIR_SEL/lead-ux"
+      touch "$TMPDIR_SEL/lead-accessibility"
       touch "$TMPDIR_SEL/mgr-project-manager"
       ;;
   esac
 
   case "$path" in
     .github/*)
-      touch "$TMPDIR_SEL/lead-reliability"
+      touch "$TMPDIR_SEL/lead-availability"
       touch "$TMPDIR_SEL/lead-security"
       ;;
   esac

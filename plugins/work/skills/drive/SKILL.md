@@ -345,7 +345,7 @@ Follow the **commit** skill's Message Format section for message format.
 ```
 Add structured commit message format
 
-Description: Commit messages lacked structured sections for downstream lead agents, making it harder to generate documentation and understand impact at a glance. Lead agents (quality-lead, reliability-lead, security-lead) need to judge what is required to ship each change without reading the full diff. Restructured the format from three sections (Motivation, UX Change, Arch Change) to five well-scoped sections that give each lead enough signal to act.
+Description: Commit messages lacked structured sections for downstream lead agents, making it harder to generate documentation and understand impact at a glance. Lead agents (validity-lead, availability-lead, security-lead) need to judge what is required to ship each change without reading the full diff. Restructured the format from three sections (Motivation, UX Change, Arch Change) to five well-scoped sections that give each lead enough signal to act.
 
 Changes: None -- this is an internal change to commit message format templates. The CLI behavior, command interfaces, and user-facing output remain identical.
 

@@ -7,12 +7,10 @@ color: blue
 skills:
   - trip-protocol
   - core:system-safety
-  - standards:lead-quality
-  - standards:lead-ux
+  - standards:lead-validity
+  - standards:lead-accessibility
   - standards:lead-security
-  - standards:lead-db
-  - standards:lead-observability
-  - standards:lead-reliability
+  - standards:lead-availability
 ---
 
 # Constructor

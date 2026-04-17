@@ -26,15 +26,15 @@ The security lead owns the project's security policy domain. It analyzes the rep
 
 ### Secure by Design
 
-Security is not a feature added after the fact — it is a structural property of the system. Every component assumes hostile input, every boundary enforces its own access control, and every default is the most restrictive option that still permits intended use. When a trade-off arises between convenience and safety, safety wins unless an explicit, documented exception is granted.
+Security is treated as a structural property of the system rather than a feature added later, prioritizing safe-by-default behavior over convenience. Components assume hostile input, boundaries enforce their own access control, and defaults land on the most restrictive option that still permits intended use. When convenience and safety conflict, safety is preferred unless there is a documented, time-bounded exception. The trade-off is more upfront design work and occasional friction for trusted operations, accepted in exchange for a smaller blast radius when things go wrong.
 
 ### Risk Management Under ISMS
 
-All security decisions follow a risk-based approach compliant with ISMS (ISO/IEC 27001). Assets are identified and classified, threats and vulnerabilities are assessed against their likelihood and impact, and controls are selected proportionally. Residual risk is explicitly accepted, documented, and reviewed — never ignored. The risk register is the single source of truth for what has been evaluated, what controls are in place, and what remains open.
+Security decisions follow a risk-based approach compliant with ISMS (ISO/IEC 27001), prioritizing proportional controls over blanket restrictions. Assets are identified and classified, threats and vulnerabilities are assessed against likelihood and impact, and controls are chosen in proportion. Residual risk is explicitly accepted, documented, and reviewed rather than left implicit. The trade-off is the overhead of maintaining a risk register, accepted because it provides a single place to see what has been evaluated and what remains open.
 
 ### Defense in Depth
 
-Protection is layered across every level of the organization, not confined to application code. Before any software is built, the organizational layer establishes security policies, continuously assesses threats, refines the protection system, and maintains intelligence for zero-day response. Within application development, independent barriers — network boundaries, runtime controls, input validation, access enforcement, and monitoring — ensure that no single failure compromises client value.
+Protection is layered across organizational and technical levels rather than relying on any single control, prioritizing survivability over minimal infrastructure. Organizational policies, network boundaries, runtime controls, input validation, access enforcement, and monitoring act as independent barriers. The trade-off is duplicated effort and coordination across layers, accepted so that a failure in one control does not compromise client value.
 
 ## Practices
 

@@ -96,13 +96,13 @@ echo "$DIFF_STAT" | while IFS= read -r line; do
   case "$path" in
     plugins/work/rules/*)
       touch "$TMPDIR_SEL/mgr-quality-manager"
-      touch "$TMPDIR_SEL/lead-validity"
+      touch "$TMPDIR_SEL/leading-validity"
       ;;
   esac
 
   case "$path" in
     .workaholic/tickets/*)
-      touch "$TMPDIR_SEL/lead-validity"
+      touch "$TMPDIR_SEL/leading-validity"
       touch "$TMPDIR_SEL/writer-model-analyst"
       ;;
   esac
@@ -115,21 +115,21 @@ echo "$DIFF_STAT" | while IFS= read -r line; do
 
   case "$path" in
     .claude-plugin/*|plugins/*/.claude-plugin/*)
-      touch "$TMPDIR_SEL/lead-availability"
+      touch "$TMPDIR_SEL/leading-availability"
       ;;
   esac
 
   case "$path" in
     README.md|CLAUDE.md)
-      touch "$TMPDIR_SEL/lead-accessibility"
+      touch "$TMPDIR_SEL/leading-accessibility"
       touch "$TMPDIR_SEL/mgr-project-manager"
       ;;
   esac
 
   case "$path" in
     .github/*)
-      touch "$TMPDIR_SEL/lead-availability"
-      touch "$TMPDIR_SEL/lead-security"
+      touch "$TMPDIR_SEL/leading-availability"
+      touch "$TMPDIR_SEL/leading-security"
       ;;
   esac
 done
@@ -147,7 +147,7 @@ done
 leads_json=""
 sep=""
 for domain in $ALL_LEAD_DOMAINS; do
-  if [ -f "$TMPDIR_SEL/lead-$domain" ]; then
+  if [ -f "$TMPDIR_SEL/leading-$domain" ]; then
     leads_json="${leads_json}${sep}{\"agent\":\"lead\",\"domain\":\"${domain}\"}"
     sep=","
   fi

@@ -4,10 +4,10 @@ description: Parameterized lead agent that owns a specific policy or viewpoint d
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
   - leaders-principle
-  - lead-validity
-  - lead-availability
-  - lead-security
-  - lead-accessibility
+  - leading-validity
+  - leading-availability
+  - leading-security
+  - leading-accessibility
   - analyze-policy
   - analyze-viewpoint
   - write-spec
@@ -20,7 +20,7 @@ Parameterized lead agent. The caller specifies which domain to activate via the 
 ## Instructions
 
 1. Read the caller's prompt to extract the **domain** (e.g., `security`, `ux`, `db`) and the task description.
-2. Apply the corresponding `lead-<domain>` skill for role, responsibility, and policies.
+2. Apply the corresponding `leading-<domain>` skill for role, responsibility, and policies.
 3. Determine the task type and apply the matching Policy:
    - Writing or modifying code -> Implementation policy
    - Reviewing artifacts -> Review policy

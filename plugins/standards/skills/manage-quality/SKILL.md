@@ -12,7 +12,7 @@ The quality manager owns the project's quality framework. It defines quality sta
 
 ### Goal
 
-- Leaders (especially validity-lead, accessibility-lead) receive quality standards and assurance context for their domain-specific enforcement.
+- Leaders (especially leading-validity, leading-accessibility) receive quality standards and assurance context for their domain-specific enforcement.
 - No leader needs to independently rediscover what quality standards exist, how they are enforced, or where gaps lie.
 
 ### Responsibility
@@ -35,7 +35,7 @@ A structured analysis containing:
 - **Quality Gaps**: Areas where standards exist without enforcement, or enforcement exists without documented standards. Derived from cross-referencing dimensions against processes.
 - **Feedback Loops**: Mechanisms that connect quality observations to improvement actions (e.g., failing CI blocks merge, coverage drop triggers review). Derived from workflow configuration and branch protection rules.
 
-**Consuming leaders**: validity-lead (all sections), accessibility-lead (quality dimensions, quality gaps).
+**Consuming leaders**: leading-validity (all sections), leading-accessibility (quality dimensions, quality gaps).
 
 ## Default Policies
 

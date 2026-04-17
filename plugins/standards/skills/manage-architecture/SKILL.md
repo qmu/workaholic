@@ -12,7 +12,7 @@ The architecture manager owns the system's structural definition. It maps compon
 
 ### Goal
 
-- Leaders (especially availability-lead, validity-lead, security-lead) receive a consistent structural context for their domain-specific work.
+- Leaders (especially leading-availability, leading-validity, leading-security) receive a consistent structural context for their domain-specific work.
 - No leader needs to independently rediscover system boundaries, layer definitions, or component relationships.
 - All four viewpoint spec documents in `.workaholic/specs/` accurately reflect the repository's architecture.
 
@@ -36,7 +36,7 @@ A structured analysis containing:
 - **Cross-Cutting Concerns**: Concerns that span multiple layers (e.g., error handling, logging, configuration). Derived from patterns observed across components.
 - **Structural Patterns**: Conventions and patterns actually used (e.g., skill/agent/command hierarchy, naming conventions, file organization). Derived from codebase observation.
 
-**Consuming leaders**: availability-lead (layer taxonomy, system boundaries, cross-cutting concerns), validity-lead (component inventory, data layer), security-lead (system boundaries, cross-cutting concerns).
+**Consuming leaders**: leading-availability (layer taxonomy, system boundaries, cross-cutting concerns), leading-validity (component inventory, data layer), leading-security (system boundaries, cross-cutting concerns).
 
 ### Viewpoint Specs
 

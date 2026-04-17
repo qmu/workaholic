@@ -1,6 +1,6 @@
 ---
 paths:
-  - 'plugins/standards/skills/lead-*/SKILL.md'
+  - 'plugins/standards/skills/leading-*/SKILL.md'
   - 'plugins/standards/agents/lead.md'
 ---
 
@@ -14,7 +14,7 @@ Every lead skill file MUST contain the following sections in order. All sections
 
 ```markdown
 ---
-name: <speciality>-lead
+name: leading-<speciality>
 description: <structured summary of identity and purpose>
 ---
 
@@ -60,7 +60,7 @@ a specific, measurable pass/fail criterion verifiable in a review.>
 
 ### Naming
 
-Lead names follow the `<speciality>-lead` format. The speciality should be a single word or hyphenated compound that clearly identifies the agent's domain (e.g., `validity-lead`, `security-lead`, `availability-lead`).
+Lead names follow the `leading-<speciality>` format. The speciality should be a single word or hyphenated compound that clearly identifies the agent's domain (e.g., `leading-validity`, `leading-security`, `leading-availability`).
 
 ### Description
 
@@ -108,7 +108,7 @@ Use this checklist to verify a lead definition is complete and well-formed:
 
 ## Agent
 
-All 4 lead domains share a single parameterized agent at `plugins/standards/agents/lead.md`. The agent preloads all domain skills and both analysis frameworks. Callers pass the domain as a prompt parameter (e.g., `"Domain: security."`), and the agent applies the matching `lead-<domain>` skill.
+All 4 lead domains share a single parameterized agent at `plugins/standards/agents/lead.md`. The agent preloads all domain skills and both analysis frameworks. Callers pass the domain as a prompt parameter (e.g., `"Domain: security."`), and the agent applies the matching `leading-<domain>` skill.
 
 There are no per-domain agent files. All domain knowledge lives in the lead skills, not in the agent.
 

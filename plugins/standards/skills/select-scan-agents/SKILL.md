@@ -36,12 +36,12 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/select-scan-agents/scripts/select.sh <mode> [b
 | --- | --- |
 | `plugins/work/commands/`, `plugins/work/agents/` | architecture-manager |
 | `plugins/work/skills/` | architecture-manager |
-| `plugins/work/rules/` | quality-manager, validity-lead |
-| `.workaholic/tickets/` | validity-lead, model-analyst |
+| `plugins/work/rules/` | quality-manager, leading-validity |
+| `.workaholic/tickets/` | leading-validity, model-analyst |
 | `.workaholic/terms/` | terms-writer |
-| `.claude-plugin/`, plugin config files | availability-lead |
-| `README.md`, `CLAUDE.md` | accessibility-lead, project-manager |
-| `.github/` | availability-lead, security-lead |
+| `.claude-plugin/`, plugin config files | leading-availability |
+| `README.md`, `CLAUDE.md` | leading-accessibility, project-manager |
+| `.github/` | leading-availability, leading-security |
 | `.workaholic/specs/`, `.workaholic/policies/` | (skipped - outputs) |
 
 `changelog-writer` is always included in partial scan. When any lead domain is triggered, its corresponding manager is also triggered.

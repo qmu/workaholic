@@ -6,10 +6,10 @@ model: opus
 color: red
 skills:
   - trip-protocol
-  - standards:lead-validity
-  - standards:lead-accessibility
-  - standards:lead-security
-  - standards:lead-availability
+  - standards:leading-validity
+  - standards:leading-accessibility
+  - standards:leading-security
+  - standards:leading-availability
 ---
 
 # Planner

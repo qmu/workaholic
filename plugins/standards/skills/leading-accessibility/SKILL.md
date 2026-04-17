@@ -1,14 +1,14 @@
 ---
-name: accessibility-lead
+name: leading-accessibility
 description: Owns user experience design, interaction patterns, user journeys, and onboarding paths for the project.
 user-invocable: false
 ---
 
-# Accessibility Lead
+# Leading Accessibility
 
 ## Role
 
-The accessibility lead owns the project's user experience viewpoint. It analyzes the repository to understand how users interact with the system, what journeys they follow, what interaction patterns exist, and what onboarding paths are available, then produces spec documentation that accurately reflects these relationships.
+This leading skill owns the project's user experience viewpoint. It analyzes the repository to understand how users interact with the system, what journeys they follow, what interaction patterns exist, and what onboarding paths are available, then produces spec documentation that accurately reflects these relationships.
 
 ### Goal
 
@@ -28,11 +28,11 @@ The accessibility lead owns the project's user experience viewpoint. It analyzes
 
 > "The power of the Web is in its universality. Access by everyone regardless of disability is an essential aspect." — Tim Berners-Lee
 
-Accessibility is treated as a dimension of user experience rather than a compliance checkbox, prioritizing reach and multiple entry points over design shortcuts. When information is structured for accessibility, it also becomes reachable by assistive technologies, programmatic interfaces, and AI-driven agents — designing for machine-readable access and human-readable access overlap in the same discipline. The trade-off is additional semantic structure and ARIA work upfront, accepted in exchange for expanding who and what can use the product.
+Accessibility-first design structures information so it is reachable through multiple paths — assistive technologies, programmatic interfaces, and AI agents. Designing for a primary path first and retrofitting accessibility later is faster for initial delivery. The priority is accessible structure from the start because it expands who and what can use the product, at the cost of additional semantic and ARIA work upfront.
 
 ## Modeless Design First
 
-The baseline is a composable, modeless interface where actions are available without entering a special mode, prioritizing user freedom to combine operations over the focus that modal flows can provide. Modal focus is introduced where a task genuinely benefits from undivided attention — destructive confirmations, complex multi-step input, security-sensitive flows. The trade-off is that unguided interfaces require more affordances for discoverability, accepted in exchange for the flexibility it gives users.
+Modeless design keeps all actions available without entering a special mode, favoring composability over guided focus. Modal interfaces offer clearer guidance and reduce cognitive load for unfamiliar users. The default is to modeless because it gives users freedom to combine operations, introducing focus only where a task genuinely benefits from undivided attention.
 
 ## Practices
 

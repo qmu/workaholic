@@ -60,7 +60,7 @@ a specific, measurable pass/fail criterion verifiable in a review.>
 
 ### Naming
 
-Lead names follow the `<speciality>-lead` format. The speciality should be a single word or hyphenated compound that clearly identifies the agent's domain (e.g., `quality-lead`, `security-lead`, `delivery-lead`).
+Lead names follow the `<speciality>-lead` format. The speciality should be a single word or hyphenated compound that clearly identifies the agent's domain (e.g., `validity-lead`, `security-lead`, `availability-lead`).
 
 ### Description
 
@@ -108,7 +108,7 @@ Use this checklist to verify a lead definition is complete and well-formed:
 
 ## Agent
 
-All 7 lead domains share a single parameterized agent at `plugins/standards/agents/lead.md`. The agent preloads all domain skills and both analysis frameworks. Callers pass the domain as a prompt parameter (e.g., `"Domain: security."`), and the agent applies the matching `lead-<domain>` skill.
+All 4 lead domains share a single parameterized agent at `plugins/standards/agents/lead.md`. The agent preloads all domain skills and both analysis frameworks. Callers pass the domain as a prompt parameter (e.g., `"Domain: security."`), and the agent applies the matching `lead-<domain>` skill.
 
 There are no per-domain agent files. All domain knowledge lives in the lead skills, not in the agent.
 

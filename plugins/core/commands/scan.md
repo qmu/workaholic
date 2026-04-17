@@ -73,7 +73,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/../standards/skills/validate-writer-output/scripts/va
 Validate policy output:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/../standards/skills/validate-writer-output/scripts/validate.sh .workaholic/policies test.md security.md quality.md accessibility.md observability.md delivery.md recovery.md
+bash ${CLAUDE_PLUGIN_ROOT}/../standards/skills/validate-writer-output/scripts/validate.sh .workaholic/policies test.md security.md quality.md accessibility.md recovery.md
 ```
 
 ### Phase 5: Update Index Files

@@ -50,6 +50,7 @@ Define every page interaction as a structured tool — typed arguments, return v
 
 ## Standards
 
-### Preact as Default UI Runtime
-
-Use Preact as the default UI runtime. React-compatible API with a fraction of the bundle size — aligns with lean infrastructure and portability principles. Full React is adopted only when a dependency explicitly requires it.
+| Standard | Comment |
+| -------- | ------- |
+| Preact | Primary UI runtime for new projects. React-compatible API with a smaller bundle. |
+| React | Fallback when a dependency explicitly requires full React. |

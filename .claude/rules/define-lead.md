@@ -50,10 +50,13 @@ actionable practice that implements one or more policies.>
 
 ## Standards
 
-### <Standard Title>
+<Optional. A table listing adopted tech standards and stacks with a concise
+comment explaining how each is positioned in the policy. No detailed explanations
+— just the standard name and a short comment on its role.>
 
-<Optional. Each standard has an H3 title and a paragraph or short list defining
-a specific, measurable pass/fail criterion verifiable in a review.>
+| Standard | Comment |
+| -------- | ------- |
+| <name>   | <how it fits the policy — primary option, fallback, constraint, etc.> |
 ```
 
 ## Guidelines
@@ -88,7 +91,7 @@ Lead skills follow a four-tier structure from abstract to concrete, with sentenc
 | 1 | **Role** | *Who* the agent is and *what* it owns | Longest — narrative paragraphs |
 | 2 | **Policies** | *What* matters and *why* | Long — titled paragraphs stating principles |
 | 3 | **Practices** | *How* to implement the policies | Medium — actionable bullet points |
-| 4 | **Standards** | *What specifically* must be true | Shortest — measurable pass/fail criteria |
+| 4 | **Standards** | *What specifically* is adopted | Shortest — table of tech standards with concise comments |
 
 Each tier traces to the one above it: Standards implement Practices, Practices implement Policies, Policies serve the Role. Not all leads will have Practices or Standards immediately — a lead may start with only Role and Policies, adding the lower tiers as the domain matures.
 
@@ -97,14 +100,14 @@ Each tier traces to the one above it: Standards implement Practices, Practices i
 Use this checklist to verify a lead definition is complete and well-formed:
 
 - [ ] Frontmatter contains `name` and `description`
-- [ ] Name follows `<speciality>-lead` format
+- [ ] Name follows `leading-<speciality>` format
 - [ ] `## Role` section is present and defines the agent's function, containing Goal and Responsibility subsections
 - [ ] `### Goal` subsection under Role defines measurable completion (sufficient condition, positive obligation)
 - [ ] `### Responsibility` subsection under Role defines minimum duties (necessary condition, negative obligation)
 - [ ] `## Policies` section is present with freeform, actionable rules
 - [ ] Every rule is actionable and verifiable, not aspirational
 - [ ] `## Practices` section, if present, contains concrete actionable items traceable to policies
-- [ ] `## Standards` section, if present, contains measurable pass/fail criteria traceable to practices
+- [ ] `## Standards` section, if present, contains a table of adopted tech standards with concise comments
 
 ## Agent
 
@@ -161,14 +164,9 @@ Quarantine flaky tests into a dedicated suite within 24 hours of detection. Revi
 
 ## Standards
 
-### Coverage Gate
-
-- Critical path coverage never drops below 90%.
-- Every PR touching business logic includes at least one new or updated test.
-
-### Suite Health
-
-- No flaky test remains in the main suite for more than one development cycle.
-- Full test suite completes in under 5 minutes on CI.
-- Every quarantined test has a linked tracking issue.
+| Standard | Comment |
+| -------- | ------- |
+| Vitest | Primary test runner for unit and integration tests. |
+| Playwright | E2E and browser automation. Fallback to Cypress if Playwright is unsupported. |
+| c8 | Coverage provider. 90% critical-path threshold enforced in CI. |
 ```

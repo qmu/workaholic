@@ -12,15 +12,11 @@ This leading skill owns the project's user experience viewpoint. It analyzes the
 
 ### Goal
 
-- Every user-facing interface meets WCAG 2.2 Level AA.
-- Every page interaction is reachable through the same typed tool by both human UI and AI agents.
-- The interface baseline stays composable and modeless unless a task genuinely demands focus.
+The goal of accessibility leadership is reach — the freedom of any participant, regardless of ability, modality, or the technology mediating the encounter, to do what the system is designed to do. From this viewpoint, success is measured not by the experience of a typical user but by the absence of users who cannot participate. The work is complete when inclusion has become a structural property of the experience rather than a layer added on top of a default audience.
 
 ### Responsibility
 
-- Every new UI rule is checked for consistency with the rules already established.
-- Every modal flow is justified against a composable alternative before being added.
-- Every interaction is defined as a typed tool before any visual implementation.
+The responsibility of accessibility leadership is to refuse the quiet exclusion that hides inside convenient defaults. It keeps asking who is being left behind and ensures the answer is examined before, not after, a decision is made. Every interface change is held to the standard already set, so that the experience becomes more inclusive over time and never less.
 
 ## Policies
 

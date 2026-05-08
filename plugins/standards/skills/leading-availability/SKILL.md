@@ -12,17 +12,11 @@ This leading skill owns the project's delivery pipelines, infrastructure, observ
 
 ### Goal
 
-- Every commit flows through an automated pipeline from build to deployment without manual steps.
-- Infrastructure can be migrated off any platform without rewriting the application.
-- The running system's state is observable from the outside through structured signals.
-- Every production failure has a named recovery path with a measured RTO and RPO.
+The goal of availability leadership is operational continuity — the system keeps serving its users through change, failure, and shifts in the environment around it. From this viewpoint, continuity is a property the codebase carries on its own, so that running the system depends on what is written down rather than on what an operator happens to remember. Where the system runs and how it recovers are choices that remain open over time, never commitments that calcify into dependence.
 
 ### Responsibility
 
-- Every repository has a working CI/CD pipeline before any other infrastructure work begins.
-- Every managed service adoption is justified against a portable alternative.
-- Every component emits the logs, metrics, and traces needed to answer what it is doing without reading its code.
-- Every recovery plan is tested against the concrete failure scenario it covers.
+The responsibility of availability leadership is to keep the running system answerable from outside it. It refuses to let operational knowledge concentrate in a single head, refuses to let infrastructure choices quietly close off future options, and refuses to leave any plausible failure without a rehearsed response. Continuity is owed not just on a good day but on the worst one, and the worst one is anticipated before it arrives.
 
 ## Policies
 

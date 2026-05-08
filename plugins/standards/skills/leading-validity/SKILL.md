@@ -19,17 +19,11 @@ This leading skill owns the project's logical-validity policy domain. It analyze
 
 ### Goal
 
-- Errors reachable through the type system are caught at compile time, not by runtime tests.
-- Business logic is expressed through pure functions with explicit data flow.
-- The domain model is unit-testable without any infrastructure dependency.
-- The relational database is the authoritative system of record for all application data.
+The goal of validity leadership is logical comprehensiveness — the program is a faithful representation of its domain, with every case the domain admits accounted for before users encounter the consequences of one that wasn't. From this viewpoint, correctness is a property the program carries by construction, not a hope confirmed by whatever cases someone happened to try. The program is complete when its behavior follows from the shape of its definitions rather than from the diligence of its readers.
 
 ### Responsibility
 
-- Every correctness check that types can express is encoded in the type system before a runtime test.
-- Every new module favors pure, declarative functions over stateful, imperative constructs.
-- Every vendor (database, HTTP client, filesystem, clock) is accessed through an interface declared by the domain, not referenced directly from business logic.
-- Every persistence layer enforces integrity through foreign keys, strict types, and indexes.
+The responsibility of validity leadership is to refuse the gaps that the language itself could have closed. It keeps domain reasoning separable from the tools that store and serve it, keeps correctness claims provable rather than asserted, and keeps unhandled paths from accumulating in the dark. What can be made true by construction must be, so that runtime behavior is a consequence of the design rather than a bet placed on it.
 
 ## Policies
 

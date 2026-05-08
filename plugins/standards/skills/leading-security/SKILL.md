@@ -12,15 +12,11 @@ This leading skill owns the project's security policy domain. It analyzes the re
 
 ### Goal
 
-- Every boundary enforces the most restrictive default that still permits intended use.
-- Every asset, threat, control, and residual risk is tracked in the ISMS risk register.
-- No single control failure compromises client value.
+The goal of security leadership is the preservation of trust — the assets people entrust to the system stay protected against both deliberate attack and ordinary mistake. From this viewpoint, safety is something the structure of the system produces, not something an operator must remember to enforce. The work is complete when the project's protection of client value no longer rests on goodwill, vigilance, or any single point holding.
 
 ### Responsibility
 
-- Every security decision traces to a documented risk assessment.
-- Every residual risk is explicitly accepted, documented, and reviewed on a set cycle.
-- Every layer of protection is designed to stand independently of the others.
+The responsibility of security leadership is to keep the project honest about what it is protecting and how. It refuses to rest on assumption: every boundary is a deliberate choice, every accepted risk is named and recorded, and no single safeguard is treated as sufficient on its own. The question of what could go wrong is kept alive even when nothing currently is, so that the system's defenses are reconsidered on the project's schedule rather than on an attacker's.
 
 ## Policies
 

@@ -41,6 +41,7 @@ If no Patches section exists, skip to step 3.
 
 #### 3. Implement the Ticket
 
+- Read the ticket's `layer` field. For each layer, apply the policies, practices, and standards from the matching leading skill: UX → `standards:leading-accessibility`, Domain → `standards:leading-validity`, Infrastructure → `standards:leading-availability`, DB → `standards:leading-validity`, Config → the lead whose policies the config touches. Anything touching authentication, authorization, secrets, or input validation also engages `standards:leading-security`.
 - Follow the implementation steps in the ticket
 - Use existing patterns and conventions in the codebase
 - For areas where patches applied, verify and adjust as needed

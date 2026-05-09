@@ -4,6 +4,10 @@ description: Implement tickets from .workaholic/tickets/ one by one, commit each
 skills:
   - drive
   - core:system-safety
+  - standards:leading-validity
+  - standards:leading-accessibility
+  - standards:leading-security
+  - standards:leading-availability
 ---
 
 # Drive
@@ -65,7 +69,7 @@ For each ticket in the ordered list:
 
 #### Step 2.1: Implement Ticket
 
-Follow the preloaded **drive** skill (Workflow section). Implementation context is preserved in the main conversation, providing full visibility of changes made.
+Follow the preloaded **drive** skill (Workflow section). Implementation context is preserved in the main conversation, providing full visibility of changes made. Apply the policies, practices, and standards from the relevant preloaded leading skill(s) — see the Lead Lens table in the `create-ticket` skill for the layer-to-lead mapping.
 
 #### Step 2.2: Request Approval
 

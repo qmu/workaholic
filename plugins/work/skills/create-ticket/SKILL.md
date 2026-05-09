@@ -185,6 +185,22 @@ These fields are updated by the `drive` skill (Update Frontmatter section) durin
 
 - **depends_on**: List of ticket filenames that must be implemented before this ticket. Populated automatically when the ticket-organizer splits a request. Format: YAML list of filenames (e.g., `[20260410002111-foundation.md]`). Leave empty for standalone tickets.
 
+## Lead Lens
+
+Each ticket should respect the relevant leading skills based on its `layer` field. Map layer to lead:
+
+| Layer | Leading skill | Lens |
+| ----- | ------------- | ---- |
+| UX | `standards:leading-accessibility` | Reach, modeless design, WCAG conformance |
+| Domain | `standards:leading-validity` | Type-driven design, layer segregation, functional style |
+| Infrastructure | `standards:leading-availability` | CI/CD, vendor neutrality, IaC, observability |
+| DB | `standards:leading-validity` | Relational-first persistence, domain–persistence segregation |
+| Config | (whichever lead governs the affected behavior) | Apply the lead whose policies the config touches |
+
+Anything touching authentication, authorization, secrets management, or input validation also engages `standards:leading-security` regardless of layer.
+
+When writing Implementation Steps, Considerations, and Patches, ensure they respect the policies, practices, and standards of every applicable lead. The `ticket-organizer` agent has these skills preloaded and applies them automatically; this section documents the mapping for human readers and future agents.
+
 ## Exploring the Codebase
 
 Before writing a ticket:

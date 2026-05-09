@@ -9,6 +9,8 @@ description: Explore codebase and write implementation ticket for `$ARGUMENT`
 
 **CRITICAL:** NEVER implement code changes when this command is invoked - only create tickets. The actual implementation happens later via `/drive`.
 
+**Lead Lens**: Ticket scoping uses the `standards:leading-*` skills as policy lenses, mapped to the ticket's `layer` field. The `ticket-organizer` agent has these skills preloaded; the Lead Lens table in `create-ticket` documents the mapping for human readers.
+
 Thin alias for ticket-organizer subagent.
 
 ## Instructions

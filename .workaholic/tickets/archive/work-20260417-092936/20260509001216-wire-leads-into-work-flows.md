@@ -3,9 +3,9 @@ created_at: 2026-05-09T00:12:16+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: f1eff71
+category: Changed
 depends_on: [20260509001215-eliminate-manager-tier.md]
 ---
 
@@ -212,3 +212,14 @@ Past tickets that touched similar areas:
 - **No `manage-*` references should remain**: After the foundation ticket lands, the grep in step 11 should find no `manage-*`, `managers-principle`, or `*-manager` references anywhere in `plugins/work/`. If any are found, treat as a regression and remove. (`plugins/work/`)
 - **Layer-to-lead mapping is opinionated**: The mapping (UX → accessibility, Domain → validity, etc.) is a starting heuristic, not a strict rule. Tickets often touch multiple layers and engage multiple leads. The Lead Lens table notes this explicitly and tells authors to apply every relevant lead. (`plugins/work/skills/create-ticket/SKILL.md` Lead Lens section)
 - **Cross-reference**: This ticket depends on `20260509001215-eliminate-manager-tier.md` and is followed by `20260509001217-update-stale-manager-documentation.md`. The doc-sweep ticket cannot start until the work-plugin wiring is final, because the spec docs describe the work-plugin agent topology.
+
+## Final Report
+
+Development completed as planned. Drive command and drive skill now preload the four leading skills and reference them in implementation guidance; create-ticket gained the Lead Lens table; discover's Policy section calls out leading skills explicitly; ticket-organizer's "lead standards" wording was tightened to "leading skills"; and the /ticket command grew a one-line Lead Lens note. Trip stack required no changes — planner/architect/constructor already preload all four leads. Work plugin's `dependencies` array remains `["core"]` per the soft cross-plugin reference pattern.
+
+### Discovered Insights
+
+- **Insight**: All four leading skills are now preloaded in five places: ticket-organizer, planner, architect, constructor, and the /drive command — the canonical "policy carriers" of the work plugin.
+  **Context**: When adding a new orchestration surface (a new command or agent that performs work), the standard pattern is to preload all four leads via `standards:leading-*` slugs. drive-navigator is deliberately excluded because it only orders tickets.
+- **Insight**: The drive *skill* cannot preload the leads on its own — only the parent command's preload list actually injects skill content into the implementer's context.
+  **Context**: This is why drive.md (the command) carries the preload list while drive/SKILL.md (the skill) only references the leads by name. Future skill authors should expect the same constraint.

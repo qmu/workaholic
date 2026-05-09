@@ -56,7 +56,7 @@ Determine if request should be split:
 
 ### 5. Write Ticket(s)
 
-Follow preloaded **create-ticket** skill for format and content. Apply the preloaded **lead standards** when planning tickets — map the ticket's `layer` field to the relevant leads (e.g., UX layer → leading-accessibility, DB layer → leading-validity) and ensure the implementation steps, considerations, and patches respect the applicable policies, practices, and standards from those leads.
+Follow preloaded **create-ticket** skill for format and content. Apply the preloaded **leading skills** when planning tickets — map the ticket's `layer` field to the relevant leads (e.g., UX layer → leading-accessibility, DB layer → leading-validity) and ensure the implementation steps, considerations, and patches respect the applicable policies, practices, and standards from those leads. See the Lead Lens table in the create-ticket skill for the full mapping.
 
 For each ticket:
 - Use history discovery JSON for "Related History" section:

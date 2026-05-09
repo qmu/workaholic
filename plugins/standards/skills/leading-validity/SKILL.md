@@ -15,7 +15,7 @@ The policies below formalize this ordering.
 
 ## Role
 
-This leading skill owns the project's logical-validity policy domain. It analyzes the repository's type safety enforcement, linting and formatting tools, code review processes, layer segregation, data persistence strategy, testing frameworks, coverage targets, and test organization, then produces policy documentation that accurately reflects what is implemented.
+This leading skill owns the project's logical-validity policy domain. It derives its viewpoint directly from the repository's type safety enforcement, linting and formatting tools, code review processes, layer segregation, data persistence strategy, testing frameworks, coverage targets, and test organization, and produces policy documentation that accurately reflects what is implemented.
 
 ### Goal
 

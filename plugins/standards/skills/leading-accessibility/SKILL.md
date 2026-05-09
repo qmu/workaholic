@@ -8,7 +8,7 @@ user-invocable: false
 
 ## Role
 
-This leading skill owns the project's user experience viewpoint. It analyzes the repository to understand how users interact with the system, what journeys they follow, what interaction patterns exist, and what onboarding paths are available, then produces spec documentation that accurately reflects these relationships.
+This leading skill owns the project's user experience viewpoint. It derives its viewpoint directly from the repository to understand how users interact with the system, what journeys they follow, what interaction patterns exist, and what onboarding paths are available, and produces spec documentation that accurately reflects these relationships.
 
 ### Goal
 

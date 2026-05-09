@@ -84,7 +84,7 @@ When generating Mermaid diagrams, **MUST quote labels** containing special chara
 - `B{Decision?}` -- acceptable (no special chars inside braces)
 - `C["path/to/file"]` -- CORRECT for paths with slashes
 
-This is especially common for slash-command labels like `/ticket`, `/drive`, `/scan`, `/report`.
+This is especially common for slash-command labels like `/ticket`, `/drive`, `/report`.
 
 ## Assumption Section Rules
 

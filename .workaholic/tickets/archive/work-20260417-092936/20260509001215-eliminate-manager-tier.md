@@ -3,9 +3,9 @@ created_at: 2026-05-09T00:12:15+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 8faaefe
+category: Changed
 depends_on:
 ---
 
@@ -204,3 +204,14 @@ Past tickets that touched similar areas:
 - **Plugin version bump deferred**: Per scope, version bumps and `/release` happen after `/drive` finishes implementing the queued tickets. Do not modify any `plugin.json` `version` fields in this ticket. (`plugins/standards/.claude-plugin/plugin.json`, `plugins/core/.claude-plugin/plugin.json`)
 - **Leaders-principle stays**: The `leaders-principle` skill (Prior Term Consistency, Vendor Neutrality) is not affected. Only `managers-principle` is removed. (`plugins/standards/skills/leaders-principle/SKILL.md`)
 - **Single commit, narrow blast radius**: This ticket is a deletion-heavy refactor. Use the `Removed` commit category. The dependent tickets handle wiring and documentation separately to keep each commit focused.
+
+## Final Report
+
+Development completed as planned. All eleven targeted files/directories deleted (manager skills, agents, scan command, select-scan-agents, define-manager rule), four leading skills had their Role wording tightened from "analyzes" to "derives its viewpoint directly from", `.workaholic/constraints/` removed (residue from the dropped workflow), and one stray `/scan` mention in `analyze-viewpoint/SKILL.md` removed. Audit grep confirms only the expected CLAUDE.md mention remains (handled by ticket #3).
+
+### Discovered Insights
+
+- **Insight**: `.workaholic/constraints/` contained only `project.md` — never broadly adopted by the workflow even before this ticket.
+  **Context**: Confirms the motivation for removing the manager tier; the constraint-file artifact format had little practical uptake, so deleting it carries low ongoing cost.
+- **Insight**: `analyze-viewpoint/SKILL.md` contained `/scan` as an example slash-command label inside a Mermaid quoting tip.
+  **Context**: That skill is the only writer-side reference to the deleted command. Future doc-format examples should be sourced from active commands, not enumerate every command name.

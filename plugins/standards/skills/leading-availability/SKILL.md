@@ -8,7 +8,7 @@ user-invocable: false
 
 ## Role
 
-This leading skill owns the project's delivery pipelines, infrastructure, observability, and recovery domains. It analyzes the repository's CI/CD automation, external dependencies, environment requirements, provisioning practices, logging and metrics instrumentation, backup strategies, and recovery procedures, then produces documentation that accurately reflects what is implemented.
+This leading skill owns the project's delivery pipelines, infrastructure, observability, and recovery domains. It derives its viewpoint directly from the repository's CI/CD automation, external dependencies, environment requirements, provisioning practices, logging and metrics instrumentation, backup strategies, and recovery procedures, and produces documentation that accurately reflects what is implemented.
 
 ### Goal
 

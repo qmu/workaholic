@@ -8,7 +8,7 @@ user-invocable: false
 
 ## Role
 
-This leading skill owns the project's security policy domain. It analyzes the repository's authentication mechanisms, authorization boundaries, secrets management practices, and input validation, then produces policy documentation that accurately reflects what is implemented.
+This leading skill owns the project's security policy domain. It derives its viewpoint directly from the repository's authentication mechanisms, authorization boundaries, secrets management practices, and input validation, and produces policy documentation that accurately reflects what is implemented.
 
 ### Goal
 

@@ -10,7 +10,7 @@ commit_hash: f76bde2
 
 # Component Viewpoint
 
-The Component Viewpoint describes the internal structure of the Workaholic marketplace, its module boundaries, and how the system decomposes into plugins, commands, agents, skills, and rules. The marketplace now contains two plugins: drivin (development workflow) with 4 commands, 28 agents, 45 skills, and 6 rules; and trippin (exploration workflow) with 1 command, 3 agents, 1 skill, and 0 rules. Both plugins are organized in strict hierarchical architectures that enforce separation of concerns through nesting policies.
+The Component Viewpoint describes the internal structure of the Workaholic marketplace, its module boundaries, and how the system decomposes into plugins, commands, agents, skills, and rules. The marketplace contains three plugins: core (shared utilities and context-aware commands), standards (the four leading skills, leaders-principle, analyze-* skills, write-* skills, and the writer/analyst agents that produce documentation), and work (the `/ticket`, `/drive`, and `/trip` commands plus their orchestrators). All three plugins are organized in strict hierarchical architectures that enforce separation of concerns through nesting policies.
 
 ## Module Boundaries
 
@@ -44,8 +44,6 @@ The architecture follows a strict size and responsibility guideline:
 - **Subagents**: Orchestration only (~20-40 lines). Define input/output, preload skills, minimal procedural logic.
 - **Skills**: Comprehensive knowledge (~50-150 lines). Contain templates, guidelines, rules, and bash scripts.
 
-The `/scan` command is an exception at ~90 lines, justified because moving its orchestration logic to a subagent would hide the 15 parallel agent invocations from the user, defeating the transparency benefit.
-
 ### Plugin Isolation
 
 The two plugins (drivin and trippin) maintain strict isolation:
@@ -77,7 +75,6 @@ Commands are the user-facing entry points. Each command is a thin orchestration 
 | --- | --- | --- | --- |
 | `/ticket` | `commands/ticket.md` | Explore codebase and write implementation ticket | ticket-organizer |
 | `/drive` | `commands/drive.md` | Implement tickets from todo queue one by one | drive-navigator |
-| `/scan` | `commands/scan.md` | Full documentation scan (3 managers + 13 agents) | 3 managers, 11 leaders, 2 writers |
 | `/report` | `commands/report.md` | Generate story and create/update PR | story-writer |
 
 #### Command Orchestration Flow
@@ -86,7 +83,6 @@ Commands are the user-facing entry points. Each command is a thin orchestration 
 flowchart TD
     User["User Input"] --> ticket["/ticket"]
     User --> drive["/drive"]
-    User --> scan["/scan"]
     User --> report["/report"]
 
     ticket --> TO[ticket-organizer]
@@ -97,11 +93,6 @@ flowchart TD
     drive --> DN[drive-navigator]
     drive --> Impl["Implementation Loop"]
 
-    scan --> Managers[3 Managers]
-    Managers --> Leaders[11 Leaders]
-    Leaders --> CW[changelog-writer]
-    Leaders --> TW[terms-writer]
-
     report --> SW[story-writer]
     SW --> OW[overview-writer]
     SW --> SR[section-reviewer]
@@ -111,32 +102,13 @@ flowchart TD
     SW --> PC[pr-creator]
 ```
 
-#### Agents Layer (28)
+#### Agents Layer
 
-Agents are grouped by their tier and primary purpose. The architecture includes three tiers: managers (strategic), leaders (tactical), and workers (specialized tasks).
+Agents are grouped by primary purpose. The standards plugin provides one parameterized lead agent and a small set of writer/analyst agents; the work plugin provides orchestrators for ticket creation, drive, trip, and reporting.
 
-##### Manager Tier (3)
+##### Lead (1, parameterized)
 
-Managers establish strategic context that leaders consume. Each produces structured outputs covering a domain of project concerns.
-
-- `project-manager` -- Produces project context (business, stakeholders, timeline, issues, solutions)
-- `architecture-manager` -- Produces architectural context and four viewpoint specs (application, component, feature, usecase)
-- `quality-manager` -- Produces quality context (standards, assurance, metrics, feedback loops)
-
-##### Leader Tier (10)
-
-Leaders produce domain-specific policy documents by consuming manager outputs and analyzing the codebase through their specialized lenses.
-
-- `ux-lead` -- Produces ux.md (user experience, interaction patterns, user journeys)
-- `infra-lead` -- Produces infrastructure.md (dependencies, deployment, runtime environment)
-- `db-lead` -- Produces data.md (data formats, storage, persistence)
-- `security-lead` -- Produces security.md (requirements, threat model, mitigation)
-- `test-lead` -- Produces test.md (strategy, test types, coverage)
-- `quality-lead` -- Produces quality.md (standards, review processes, gates)
-- `a11y-lead` -- Produces accessibility.md (standards, WCAG, inclusive design)
-- `observability-lead` -- Produces observability.md (logging, monitoring, tracing)
-- `delivery-lead` -- Produces delivery.md (release processes, deployment, rollback)
-- `recovery-lead` -- Produces recovery.md (backup, disaster recovery, business continuity)
+- `lead` -- Single agent in the standards plugin that takes a domain prompt parameter (`accessibility`, `availability`, `security`, `validity`) and applies the matching `leading-<domain>` skill. Replaced the per-domain lead agents that existed during the manager era.
 
 ##### Worker Tier: Ticket Management (3)
 
@@ -160,40 +132,30 @@ Leaders produce domain-specific policy documents by consuming manager outputs an
 - `history-discoverer` -- Finds related historical tickets for context
 - `ticket-discoverer` -- Analyzes for duplicate/merge/split decisions
 
-##### Worker Tier: Documentation Writers (2)
+##### Worker Tier: Documentation Writers and Analysts
 
 - `changelog-writer` -- Updates CHANGELOG.md from archived tickets
 - `terms-writer` -- Updates term definitions
+- `overview-writer` -- Generates story overview, highlights, motivation, journey
+- `release-note-writer` -- Generates concise release notes from story files
+- `model-analyst` -- Standalone analysis agent producing `.workaholic/specs/model.md`
+- `performance-analyst` -- Evaluates decision-making quality across viewpoints
+- `section-reviewer` -- Reviews and generates story sections 5-8
 
-Note: `model-analyst` is invoked as part of the leader/writer phase in scan but operates as a standalone analysis agent producing model.md.
+#### Skills Layer
 
-#### Skills Layer (45)
+Skills are the knowledge layer, organized by domain. Each skill directory contains a `SKILL.md` file and optionally a `scripts/` directory with bundled shell scripts.
 
-Skills are the knowledge layer, organized by domain. Each skill directory contains a `SKILL.md` file and optionally an `sh/` directory with bundled shell scripts.
+##### Leading Skills (4)
 
-##### Manager Skills (3)
+- `leading-validity` -- Logical comprehensiveness, type-driven design, layer segregation
+- `leading-availability` -- CI/CD, vendor neutrality, IaC, observability, recovery
+- `leading-security` -- Secure-by-design defaults, ISMS-style risk management, defense in depth
+- `leading-accessibility` -- Universal reach, modeless design, tool-first interaction
 
-- `manage-project` -- Project manager knowledge (business, stakeholders, timeline)
-- `manage-architecture` -- Architecture manager knowledge (system structure, layers, components)
-- `manage-quality` -- Quality manager knowledge (standards, assurance, metrics)
+##### Principle Skills (1)
 
-##### Leader Skills (10)
-
-- `lead-ux` -- UX lead knowledge (user experience, interaction patterns)
-- `lead-infra` -- Infrastructure lead knowledge (dependencies, deployment)
-- `lead-db` -- Database lead knowledge (data formats, storage)
-- `lead-security` -- Security lead knowledge (threat model, mitigation)
-- `lead-test` -- Test lead knowledge (strategy, test types)
-- `lead-quality` -- Quality lead knowledge (standards, review processes)
-- `lead-a11y` -- Accessibility lead knowledge (WCAG, inclusive design)
-- `lead-observability` -- Observability lead knowledge (logging, monitoring)
-- `lead-delivery` -- Delivery lead knowledge (release processes, deployment)
-- `lead-recovery` -- Recovery lead knowledge (backup, disaster recovery)
-
-##### Principle Skills (2)
-
-- `managers-principle` -- Cross-cutting principles for all managers (Prior Term Consistency, Strategic Focus, Constraint Setting)
-- `leaders-principle` -- Cross-cutting principles for all leaders (Prior Term Consistency, Vendor Neutrality)
+- `leaders-principle` -- Cross-cutting principles for all leads (Prior Term Consistency, Vendor Neutrality)
 
 ##### Analysis Skills (3)
 
@@ -240,10 +202,6 @@ Skills are the knowledge layer, organized by domain. Each skill directory contai
 - `review-sections` -- Reviews story sections 5-8 for quality
 - `validate-writer-output` -- Validates that documentation agents produced expected files
 
-##### Other Skills (3)
-
-- `select-scan-agents` -- Selects which documentation agents to invoke (full vs partial mode)
-
 #### Rules Layer (6)
 
 Rules are global constraints that apply to specific file patterns.
@@ -257,7 +215,7 @@ Rules are global constraints that apply to specific file patterns.
 | `typescript.md` | Path-specific | TypeScript conventions |
 | `workaholic.md` | Path-specific | Workaholic-specific rules |
 
-Note: `define-lead.md` and `define-manager.md` rules reside in `.claude/rules/` (repository-scoped rules), not within the plugin's rules directory.
+Note: `define-lead.md` resides in `.claude/rules/` (repository-scoped rule), not within any plugin's rules directory.
 
 #### Hooks Layer (1)
 
@@ -298,46 +256,37 @@ No rules defined yet for the trippin plugin. The `rules/` directory contains onl
 
 ```mermaid
 flowchart TD
-    subgraph "Drivin Commands"
+    subgraph "Work Commands"
         ticket["/ticket"]
         drive["/drive"]
-        scan["/scan"]
         report["/report"]
-    end
-
-    subgraph "Trippin Commands"
         trip["/trip"]
     end
 
-    subgraph "Manager Agents (Strategic)"
-        PM[project-manager]
-        AM[architecture-manager]
-        QM[quality-manager]
+    subgraph "Standards Lead (parameterized)"
+        L[lead]
     end
 
-    subgraph "Leader Agents (Tactical)"
-        UXL[ux-lead]
-        IL[infra-lead]
-        DL[db-lead]
-        SL[security-lead]
-        TL[test-lead]
-        QL[quality-lead]
-        AL[a11y-lead]
-        OL[observability-lead]
-        DEL[delivery-lead]
-        RL[recovery-lead]
+    subgraph "Standards Writers and Analysts"
+        CW[changelog-writer]
+        TW[terms-writer]
+        OW[overview-writer]
+        RNW[release-note-writer]
+        MA[model-analyst]
+        PA[performance-analyst]
+        SR[section-reviewer]
     end
 
-    subgraph "Drivin Worker Agents"
+    subgraph "Work Orchestrators"
         TO[ticket-organizer]
         TD[ticket-discoverer]
         SD[source-discoverer]
         HD[history-discoverer]
+        DN[drive-navigator]
         SW[story-writer]
-        Writers[Other Writers]
     end
 
-    subgraph "Trippin Agent Team"
+    subgraph "Trip Agent Team"
         PL[planner]
         AR[architect]
         CO[constructor]
@@ -348,18 +297,13 @@ flowchart TD
     TO -.parallel.-> SD
     TO -.parallel.-> HD
 
-    drive --> drive-navigator
-
-    scan -.phase 3a.-> PM
-    scan -.phase 3a.-> AM
-    scan -.phase 3a.-> QM
-    scan -.phase 3b.-> UXL
-    scan -.phase 3b.-> IL
-    scan -.phase 3b.-> Writers
+    drive --> DN
 
     report --> SW
-    SW -.parallel.-> overview-writer
-    SW -.parallel.-> section-reviewer
+    SW -.parallel.-> OW
+    SW -.parallel.-> SR
+    SW -.parallel.-> PA
+    SW -.parallel.-> RNW
 
     trip -.Agent Teams.-> PL
     trip -.Agent Teams.-> AR
@@ -370,54 +314,43 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    subgraph "Manager Skills"
-        MP[manage-project]
-        MA[manage-architecture]
-        MQ[manage-quality]
+    subgraph "Leading Skills"
+        LV[leading-validity]
+        LAv[leading-availability]
+        LSec[leading-security]
+        LAc[leading-accessibility]
     end
 
-    subgraph "Principle Skills"
-        MgrP[managers-principle]
+    subgraph "Principle Skill"
         LeadP[leaders-principle]
     end
 
-    subgraph "Leader Skills"
-        LUX[lead-ux]
-        LInfra[lead-infra]
-        LOther[... 8 more]
-    end
-
-    subgraph "Trippin Skills"
+    subgraph "Trip Skills"
         TP[trip-protocol]
     end
 
-    subgraph "High-Level Skills"
-        DW[drive-workflow]
-        DA[drive-approval]
-        WS[write-spec]
-        WStory[write-story]
+    subgraph "Work Skills"
+        D[drive]
+        CT[create-ticket]
+        Disc[discover]
     end
 
     subgraph "Foundational Skills"
         GGC[gather-git-context]
         GTM[gather-ticket-metadata]
-        T[translate]
+        Br[branching]
+        Co[commit]
     end
 
-    MP --> MgrP
-    MA --> MgrP
-    MQ --> MgrP
+    D --> Co
+    CT --> GTM
+    Disc --> GGC
 
-    LUX --> LeadP
-    LUX --> MP
-    LInfra --> LeadP
-    LInfra --> MA
-
-    WS --> GGC
-    WS --> T
-    WStory --> GGC
-    MA --> analyze-viewpoint
-    analyze-viewpoint --> WS
+    LV -.preloaded by.-> CT
+    LV -.preloaded by.-> D
+    LAv -.preloaded by.-> CT
+    LSec -.preloaded by.-> CT
+    LAc -.preloaded by.-> CT
 
     TP -.- |self-contained| TP
 ```
@@ -436,27 +369,19 @@ Commands are responsible for:
 
 Commands delegate all knowledge operations to skills and all focused work to agents.
 
-### Manager Responsibilities
+### Lead Responsibilities
 
-Managers are responsible for:
+The parameterized `lead` agent is responsible for:
 
-- Establishing strategic context that leaders consume
-- Producing structured outputs covering project, architecture, or quality domains
-- Following constraint-setting workflow (Analyze, Ask, Propose, Produce)
-- Writing directional materials (policies, guidelines, roadmaps, decision records)
-- Observing managers-principle (Prior Term Consistency, Strategic Focus, Constraint Setting)
-
-### Leader Responsibilities
-
-Leaders are responsible for:
-
-- Reading manager outputs as strategic input before analysis
-- Producing domain-specific policy documents
-- Analyzing codebase through specialized lenses
-- Observing leaders-principle (Prior Term Consistency, Vendor Neutrality)
+- Loading the matching `leading-<domain>` skill based on its prompt parameter
+- Deriving its viewpoint directly from the codebase (no upstream context source)
+- Producing domain-specific policy documents when invoked for documentation generation
+- Observing `leaders-principle` (Prior Term Consistency, Vendor Neutrality)
 - Documenting observable practices rather than aspirational recommendations
 
-### Drivin Worker Agent Responsibilities
+The four leading skills (`leading-validity`, `leading-availability`, `leading-security`, `leading-accessibility`) are also preloaded directly into work-plugin commands and agents (`/drive`, `ticket-organizer`, `planner`, `architect`, `constructor`) where they act as policy lenses rather than producers.
+
+### Work Worker Agent Responsibilities
 
 Worker agents are responsible for:
 
@@ -501,15 +426,13 @@ Rules are responsible for:
 
 ### Layered Architecture
 
-The drivin plugin follows a strict layered architecture with four tiers:
+The work plugin follows a strict layered architecture:
 
 ```
 +-----------------------------------------+
 |          Commands Layer                  |  User-facing entry points
 +-----------------------------------------+
-|        Manager Agents Layer              |  Strategic context
-+-----------------------------------------+
-|      Leader/Worker Agents Layer          |  Tactical execution
+|         Agents Layer                     |  Orchestration and discovery
 +-----------------------------------------+
 |           Skills Layer                   |  Knowledge and operations
 +-----------------------------------------+
@@ -518,10 +441,8 @@ The drivin plugin follows a strict layered architecture with four tiers:
 ```
 
 Dependencies flow downward only:
-- Commands depend on all Agent tiers and Skills
-- Manager Agents depend on Skills and managers-principle
-- Leader Agents depend on Manager outputs, Skills, and leaders-principle
-- Worker Agents depend on Skills only
+- Commands depend on Agents and Skills (including preloaded `standards:leading-*` skills via soft cross-plugin references)
+- Agents depend on Skills only (and may invoke other agents)
 - Skills depend on other Skills only
 - Rules have no dependencies (applied by platform)
 
@@ -537,33 +458,22 @@ The trippin plugin follows a flatter architecture:
 +-----------------------------------------+
 ```
 
-### Information Flow: Managers to Leaders
+### Information Flow: Leading Skills as Policy Lenses
 
-The manager tier introduces a horizontal information flow where manager outputs serve as input to leaders:
+Leading skills do not produce intermediate artifacts that other agents consume. Instead, they are preloaded into the work plugin's commands and orchestrators:
 
 ```
-project-manager -> [specs/policies] -> delivery-lead, ux-lead
-architecture-manager -> [specs] -> infra-lead, db-lead, security-lead, observability-lead, recovery-lead
-quality-manager -> [policies] -> quality-lead, test-lead, a11y-lead
+standards:leading-validity      -.preloaded by.-> /drive, ticket-organizer, planner, architect, constructor
+standards:leading-availability  -.preloaded by.-> /drive, ticket-organizer, planner, architect, constructor
+standards:leading-security      -.preloaded by.-> /drive, ticket-organizer, planner, architect, constructor
+standards:leading-accessibility -.preloaded by.-> /drive, ticket-organizer, planner, architect, constructor
 ```
+
+The work plugin's `dependencies` field declares only `["core"]`; the leading-skill references are soft (the work plugin tolerates the standards plugin being absent).
 
 ### Parallel Invocation Pattern
 
 The architecture uses parallel agent invocation extensively to improve performance:
-
-**scan command two-phase pattern:**
-```
-Phase 3a (managers):
-  /scan
-  +-- (parallel) -> project-manager
-  +-- (parallel) -> architecture-manager
-  +-- (parallel) -> quality-manager
-
-Phase 3b (leaders/writers):
-  /scan
-  +-- (parallel) -> 11 leader agents
-  +-- (parallel) -> 2 writer agents
-```
 
 **ticket-organizer pattern (3 parallel workers):**
 ```
@@ -586,39 +496,34 @@ Agents and commands declare skill dependencies in their frontmatter:
 
 ```yaml
 skills:
-  - managers-principle
-  - manage-project
+  - drive
+  - core:system-safety
+  - standards:leading-validity
+  - standards:leading-accessibility
+  - standards:leading-security
+  - standards:leading-availability
 ```
 
-The platform preloads these skills, making their content available to the agent without explicit reads. Bundled shell scripts within skills are always invoked via absolute paths:
+The platform preloads these skills, making their content available to the agent without explicit reads. Cross-plugin references use either the `<plugin>:<skill>` slug for soft references or `${CLAUDE_PLUGIN_ROOT}/../<plugin>/` paths for declared dependencies. Bundled shell scripts within skills are always invoked via `${CLAUDE_PLUGIN_ROOT}` paths:
 
 ```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/gather-git-context/sh/gather.sh
-```
-
-Trippin skills use the trippin plugin path:
-
-```bash
-bash ~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/trip-protocol/sh/ensure-worktree.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-git-context/scripts/gather.sh
+bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/check-worktrees.sh
 ```
 
 ## Design Patterns
 
-### Pattern 1: Manager-Leader Delegation
+### Pattern 1: Lead-as-Lens Preloading
 
-The manager tier establishes a strategic-tactical delegation pattern specific to the drivin plugin's scan command.
+The four leading skills are preloaded directly into work-plugin commands and orchestrators via the soft cross-plugin reference pattern (`standards:leading-*`). Each preload site treats the leads as policy lenses applied to whichever layers the ticket touches, rather than as upstream producers of intermediate context.
 
 ### Pattern 2: Command-Agent-Skill Delegation
 
-Every drivin command follows the delegation pattern: command parses user input, invokes primary agents via Task tool, agents preload relevant skills, execute focused tasks, and return structured JSON. The command handles commit, user interaction, and final presentation.
+Every work-plugin command follows the delegation pattern: command parses user input, invokes primary agents via Task tool, agents preload relevant skills, execute focused tasks, and return structured JSON. The command handles commit, user interaction, and final presentation.
 
 ### Pattern 3: Parallel Discovery
 
 The ticket-organizer agent uses parallel discovery to minimize latency by invoking 3 discovery agents concurrently.
-
-### Pattern 4: Two-Phase Scan Execution
-
-The scan command uses a two-phase execution pattern to support the manager tier, with managers in phase 3a and leaders/writers in phase 3b.
 
 ### Pattern 5: Approval Loop
 
@@ -664,9 +569,9 @@ A second plugin was added with the `/trip` command and three Agent Teams agents,
 
 The drive approval flow was strengthened with CRITICAL enforcement requiring ticket title and overview in every approval prompt, addressing a recurring UX issue through three iterations of improvements.
 
-### Addition of Manager Tier
+### Removal of the Strategic-Context Tier
 
-The manager tier was introduced to eliminate strategic context duplication. Three managers establish authoritative strategic context that ten leaders consume. The architecture-manager absorbed the former architecture-lead's viewpoint spec production.
+A three-agent strategic-context tier was introduced in February 2026 to provide leads with a separate upstream layer of project, architectural, and quality context. It comprised three agents and their paired domain skills, a cross-cutting principles skill, a schema enforcement rule, a full-codebase documentation command, an agent-selection helper skill, and a directory of explicit constraint files. None of those artifacts were consulted by the active ticket, drive, or trip flows, which derived context directly from the codebase. The tier was removed in May 2026 in favor of preloading the four leading skills directly into work-plugin commands and orchestrators. The viewpoint specs that the architecture-side agent had produced (application.md, component.md, feature.md, usecase.md) are now hand-maintained reference documents without an automated owner.
 
 ## Assumptions
 

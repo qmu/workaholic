@@ -83,8 +83,7 @@ The repository follows a dual-directory structure that separates plugin source c
 ├── .claude/                 # Claude Code configuration (symlink target)
 │   ├── commands/            # Symlinked from plugins/drivin/commands/
 │   ├── rules/               # Repository-scoped enforcement rules
-│   │   ├── define-lead.md   # Lead agent schema enforcement
-│   │   └── define-manager.md # Manager agent schema enforcement
+│   │   └── define-lead.md   # Lead agent schema enforcement
 │   ├── settings.json        # Claude Code permissions (denies git -C)
 │   └── settings.local.json  # Local environment overrides
 ├── .claude-plugin/          # Marketplace configuration
@@ -94,10 +93,6 @@ The repository follows a dual-directory structure that separates plugin source c
 │       ├── release.yml      # Automated release creation
 │       └── validate-plugins.yml  # Plugin validation on PR
 ├── .workaholic/             # Working artifacts (user/developer docs)
-│   ├── constraints/         # Manager-generated constraint files
-│   │   ├── architecture.md  # Architectural constraints
-│   │   ├── project.md       # Project constraints
-│   │   └── quality.md       # Quality constraints
 │   ├── guides/              # User-facing documentation
 │   ├── policies/            # Policy analysis documents
 │   ├── release-notes/       # Generated release notes
@@ -174,17 +169,6 @@ The `define-lead.md` rule enforces the structure of lead agent skills and agent 
 
 Examples following this schema include `lead-infra`, `lead-security`, `lead-quality`, `lead-test`, `lead-a11y`, `lead-db`, `lead-delivery`, `lead-recovery`, `lead-observability`, `lead-ux`.
 
-#### Manager Agent Schema
-
-The `define-manager.md` rule enforces the structure of manager agent skills and agent files:
-
-- **Skill path scope**: Glob pattern `plugins/drivin/skills/manage-*/SKILL.md` (matches manage-project, manage-architecture, manage-quality)
-- **Agent path scope**: `plugins/drivin/agents/*-manager.md`
-- **Required sections**: Role, Responsibility, Goal, Outputs, Default Policies (Implementation, Review, Documentation, Execution)
-- **Key difference**: The `Outputs` section defines structured artifacts that managers produce for leaders to consume
-
-Current managers include `project-manager`, `architecture-manager`, and `quality-manager`. These sit above leads in the agent hierarchy and provide strategic context. Each manager writes its constraints to `.workaholic/constraints/<domain>.md` following the constraint file template defined in managers-principle.
-
 ### Skill Directory Structure Pattern
 
 Skills follow a standardized layout that bundles documentation with executable shell scripts:
@@ -203,11 +187,11 @@ Each skill's `SKILL.md` includes frontmatter specifying the skill name, descript
 
 Skills serve four distinct purposes in the architecture:
 
-**Lead and manager domain skills** define role-specific responsibilities and policies. These skills are preloaded by agents and never invoked by users directly. Examples include `lead-infra` (infrastructure concerns), `manage-architecture` (system structure), and `manage-quality` (quality standards).
+**Lead domain skills** define role-specific responsibilities and policies. These skills are preloaded by agents and never invoked by users directly. The four leading skills (`leading-validity`, `leading-availability`, `leading-security`, `leading-accessibility`) cover logical comprehensiveness, operational continuity, preservation of trust, and universal reach respectively.
 
-**Cross-cutting policy skills** define behavioral policies that apply across multiple agents. The `leaders-principle` skill provides Prior Term Consistency and Vendor Neutrality rules for all lead agents. The `managers-principle` skill adds Strategic Focus rules for manager agents.
+**Cross-cutting policy skills** define behavioral policies that apply across multiple agents. The `leaders-principle` skill provides Prior Term Consistency and Vendor Neutrality rules for all lead agents.
 
-**Workflow operation skills** orchestrate multi-step processes with bundled shell scripts. Examples include `gather-git-context` (outputs JSON with branch, base_branch, repo_url), `archive-ticket` (moves tickets, creates commits, updates frontmatter), and `select-scan-agents` (determines which agents to invoke based on diff analysis).
+**Workflow operation skills** orchestrate multi-step processes with bundled shell scripts. Examples include `gather-git-context` (outputs JSON with branch, base_branch, repo_url) and `gather-ticket-metadata` (outputs JSON with date, author, filename timestamp).
 
 **Documentation generation skills** provide templates and guidelines for writing structured documents. Examples include `write-spec` (viewpoint-based architecture specs), `analyze-viewpoint` (generic viewpoint analysis framework), and `translate` (i18n policies for markdown files).
 
@@ -380,13 +364,7 @@ No custom environment variables are required for basic drivin operation. The tri
 
 ### Agent Orchestration
 
-The system now employs a two-tier agent hierarchy with managers providing strategic context to leads:
-
-**Manager tier** agents (`project-manager`, `architecture-manager`, `quality-manager`) execute first during `/scan` operations. They analyze the codebase and produce structured outputs defining business context, system architecture, and quality standards.
-
-**Lead tier** agents (11 domain-specific leads including `infra-lead`, `security-lead`, `quality-lead`, etc.) consume manager outputs to produce domain-specific documentation. They preload both their domain skill (`lead-<specialty>`) and the cross-cutting `leaders-principle` skill.
-
-This orchestration pattern ensures leads receive consistent strategic context rather than deriving it independently. The `/scan` command coordinates the execution order, invoking managers before leads.
+The standards plugin exposes a single parameterized `lead` agent that loads the matching `leading-<domain>` skill based on its prompt parameter. The four leading skills (`leading-validity`, `leading-availability`, `leading-security`, `leading-accessibility`) are also preloaded directly into work-plugin commands and orchestrators (`/drive`, `ticket-organizer`, `planner`, `architect`, `constructor`) via the soft cross-plugin reference pattern, so policy lenses are available wherever scoping or implementation happens. Leads derive their viewpoint directly from the codebase rather than from any upstream context source.
 
 ## Assumptions
 
@@ -400,9 +378,7 @@ This orchestration pattern ensures leads receive consistent strategic context ra
 
 [Explicit] The `.claude/settings.json` file explicitly denies the Bash command pattern `git -C:*`.
 
-[Explicit] The `define-manager.md` schema enforcement rule uses explicit skill paths instead of glob patterns to avoid matching utility skills like `branching`.
-
-[Explicit] Manager agents (`project-manager`, `architecture-manager`, `quality-manager`) preload the `managers-principle` skill, while lead agents preload the `leaders-principle` skill.
+[Explicit] The parameterized `lead` agent preloads `leaders-principle` together with all four `leading-*` skills.
 
 [Inferred] The symlink architecture from `.claude/` to `plugins/drivin/` is inferred from the project structure rule "Edit `plugins/` not `.claude/`" and the marketplace installation pattern, though no explicit symlink creation code was observed.
 
@@ -414,7 +390,7 @@ This orchestration pattern ensures leads receive consistent strategic context ra
 
 [Inferred] The ticket validation hook prevents accidental ticket writes to arbitrary locations by enforcing path constraints, ensuring tickets remain organized in the designated directories.
 
-[Inferred] The manager tier was introduced to reduce duplication of strategic analysis across lead agents. Before this change, each lead independently derived business and architectural context.
+[Inferred] An earlier strategic-context tier was retired in favor of preloading leading skills directly into the work plugin's commands and orchestrators, reflecting that intermediate context artifacts had limited practical uptake compared to the simpler direct-preload model.
 
 [Explicit] The trippin plugin requires the experimental Agent Teams feature flag `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, as documented in trip.md.
 

@@ -10,7 +10,7 @@ commit_hash: f76bde2
 
 # UX Viewpoint
 
-The UX Viewpoint examines how users experience and interact with the Workaholic plugin system, documenting the journeys they follow, the patterns they encounter, and the paths available for onboarding. Workaholic creates a triangular relationship between developers who request work, Claude Code agents that execute work, and the plugin author who maintains the system. The marketplace contains two plugins: drivin (ticket-driven development with hierarchical agent orchestration) and trippin (AI-oriented exploration with peer-based Agent Teams). The drivin plugin uses a two-tier agent hierarchy (managers then leaders) for documentation generation, while the trippin plugin uses a collaborative three-agent workflow called the Implosive Structure for exploratory development in isolated git worktrees.
+The UX Viewpoint examines how users experience and interact with the Workaholic plugin system, documenting the journeys they follow, the patterns they encounter, and the paths available for onboarding. Workaholic creates a triangular relationship between developers who request work, Claude Code agents that execute work, and the plugin author who maintains the system. The marketplace contains three plugins: core (shared utilities and context-aware commands), standards (the four leading skills, principle skills, and writer/analyst agents), and work (ticket-driven development plus collaborative trip-style exploration). Drive-style work uses serial implementation with per-ticket approval; trip-style work uses a collaborative three-agent workflow called the Implosive Structure inside an isolated git worktree.
 
 ## User Types and Their Goals
 
@@ -18,13 +18,13 @@ Workaholic serves three distinct user types whose interactions form a developmen
 
 ### Primary User: Developer (End User)
 
-The developer represents the primary consumer of Workaholic. They install the plugin from the marketplace using `/plugin marketplace add qmu/workaholic` and interact exclusively through slash commands. The developer's workflow revolves around five commands spanning two plugins: from drivin, `/ticket` for planning changes, `/drive` for implementation, `/scan` for documentation updates, and `/report` for PR creation; from trippin, `/trip` for collaborative exploration using Agent Teams.
+The developer represents the primary consumer of Workaholic. They install the plugin from the marketplace using `/plugin marketplace add qmu/workaholic` and interact exclusively through slash commands. The developer's workflow revolves around five commands: `/ticket` for planning changes, `/drive` for implementation, `/trip` for collaborative exploration using Agent Teams, `/report` for story/PR creation, and `/ship` for merging and verifying.
 
 The developer operates under explicit human-in-the-loop control during drivin workflows. During `/drive` execution, the system presents approval dialogs using `AskUserQuestion` with selectable options, requiring explicit confirmation before committing each ticket. The developer never writes tickets manually -- the ticket-organizer subagent explores the codebase and writes implementation specifications on their behalf. Similarly, the developer never manually writes changelogs or PR descriptions -- these generate automatically from accumulated ticket history.
 
 The developer's fundamental goal is fast serial development without git worktree overhead for drivin workflows. Tickets queue in `.workaholic/tickets/todo/`, implementation proceeds one ticket at a time with clear commits, and when ready to deliver, `/report` generates all documentation from the ticket archive. The bottleneck is deliberately placed on human cognition (approval decisions) rather than implementation speed (agent execution).
 
-The developer values transparency over automation. They prefer seeing individual agent progress during `/scan` rather than waiting for a single scanner subagent to complete. They prefer explicit approval dialogs with selectable options over autonomous decisions about ticket moves or implementation deviations.
+The developer values transparency over automation. They prefer seeing individual agent progress during multi-agent commands (such as `/report`) rather than waiting for a single subagent to complete. They prefer explicit approval dialogs with selectable options over autonomous decisions about ticket moves or implementation deviations.
 
 For exploratory tasks, the developer uses `/trip` from the trippin plugin, which launches three peer agents (Planner, Architect, Constructor) in a dedicated git worktree. The trip workflow is autonomous once launched -- unlike `/drive`, it does not require per-step human approval. The developer provides an initial instruction and receives completed artifacts when the team finishes.
 
@@ -36,7 +36,7 @@ The author maintains version synchronization across three files: `.claude-plugin
 
 The author's workflow mirrors the developer's workflow but operates at the meta-level. They use the same `/ticket` and `/drive` commands to develop plugin features. Archived tickets in `.workaholic/tickets/archive/` document the evolution of the plugin itself, creating a searchable history of architectural decisions and implementation rationale.
 
-The author balances feature development with documentation maintenance. Every plugin change requires updates to multiple viewpoint specs in `.workaholic/specs/`. The `/scan` command automates this documentation update by invoking 3 manager agents and then 13 leader/writer agents in parallel, providing strategic context before domain-specific analysis.
+The author balances feature development with documentation maintenance. Every plugin change requires updates to multiple viewpoint specs in `.workaholic/specs/`. These specs are hand-maintained reference documents updated alongside structural changes through the `/ticket` workflow.
 
 ### Tertiary User: AI Agent (Claude Code)
 
@@ -48,7 +48,7 @@ Claude Code acts as the execution engine that receives slash commands, invokes s
 
 The agent follows explicit git safety protocols: never commit without user request, never use `run_in_background: true` for agents requiring Write/Edit permissions, never skip hooks, and never force push to main/master. Complex shell operations must be extracted to bundled skill scripts rather than written inline in markdown files.
 
-The agent provides transparency through real-time progress reporting. The `/scan` command invokes all documentation agents using separate Task calls within a single message (3 managers in Phase 3a, then 13 leader/writers in Phase 3b), making each agent's progress visible to the developer. The two-phase execution ensures strategic context from managers is available before leaders begin domain-specific analysis.
+The agent provides transparency through real-time progress reporting. Multi-agent commands (such as `/report`) invoke their subagents using separate Task calls within a single message, making each agent's progress visible to the developer.
 
 ## User Journeys
 
@@ -72,17 +72,7 @@ The implementation journey is serial and approval-gated. Each ticket is implemen
 
 All approval prompts include the ticket title and overview summary, enabling the developer to make informed decisions without re-reading the full ticket file. This context enforcement is structurally required in both the drive command and the drive-approval skill, preventing the agent from presenting blank or placeholder approval prompts.
 
-#### Phase 3: Documentation Update
-
-The developer optionally invokes `/scan` to update all documentation. The scan command executes in two phases:
-
-**Phase 3a (Manager Phase)**: Runs 3 manager agents in parallel (project-manager, architecture-manager, quality-manager). Each manager analyzes the repository from a strategic perspective, generating context documents that leaders consume.
-
-**Phase 3b (Leader Phase)**: Runs 13 leader/writer agents in parallel (ux-lead, model-analyst, infra-lead, db-lead, test-lead, security-lead, quality-lead, a11y-lead, observability-lead, delivery-lead, recovery-lead, changelog-writer, terms-writer). Each leader reads relevant manager output before performing domain-specific analysis, ensuring documentation is grounded in strategic context.
-
-The documentation journey is transparent and parallelized. All agents execute concurrently within each phase, with progress visible in the main session. The developer can see which agents succeeded, which failed, and inspect output immediately.
-
-#### Phase 4: Delivery
+#### Phase 3: Delivery
 
 The developer invokes `/report` to generate a story and create a PR. The report command first checks whether a version bump commit already exists on the current branch using the branching skill's `check-version-bump.sh` script. If `already_bumped` is `false`, it bumps the version in all three version files. If `true`, it skips the bump to prevent double increments when `/report` is run multiple times on the same branch. After ensuring the version is bumped exactly once, the command invokes the story-writer subagent.
 
@@ -160,36 +150,20 @@ Critically, tickets never move to icebox autonomously. If a ticket cannot be imp
 
 Plugin authors follow the same four-phase journey (ticket creation, implementation, documentation, delivery) but work within the `plugins/` directory structure across both plugins (drivin and trippin). They add new commands, agents, skills, and rules while adhering to the architecture policy.
 
-The author's journey differs in the documentation update target. When the author runs `/scan`, viewpoint specs document the plugin's own architecture rather than application code. The ux-lead analyzes how developers interact with commands, the component analyst documents the agent hierarchy, and policy leads document cross-cutting concerns like commit message format and vendor neutrality.
+The author's journey differs in the documentation update target. Viewpoint specs document the plugin's own architecture rather than application code. The leading skills act as policy lenses on each ticket — accessibility for command UX, validity for the agent hierarchy and skill structure, availability for shared infrastructure, security for any boundary that touches secrets or authorization.
 
 The author uses archived tickets as a searchable history of architectural decisions. When making changes to the agent hierarchy or skill structure, the author reads related tickets to understand past rationale and avoid repeating the same mistakes. This creates a feedback loop where the plugin documents its own evolution through the same mechanisms it provides to developers.
 
-### Plugin Author Journey: Constraint Definition
-
-The manager skills include a constraint-setting workflow that generates structured constraint files. When a manager lacks explicit project constraints (release cadence, stakeholder priorities, scope boundaries), it follows the Constraint Setting workflow from `managers-principle`:
-
-1. Analyze collected evidence to identify missing or implicit constraints
-2. Ask the user targeted questions about business priorities, stakeholder rankings, and scope decisions
-3. Propose constraints based on collected evidence and user answers
-4. Generate constraints to `.workaholic/constraints/<scope>.md` following the constraint file template from `managers-principle`
-5. Generate other directional materials (roadmaps, stakeholder priority matrices) to appropriate `.workaholic/` subdirectories as needed
-
-Each manager writes structured constraint files to dedicated paths: project-manager writes `project.md`, architecture-manager writes `architecture.md`, quality-manager writes `quality.md`. The constraint file template uses frontmatter (manager name, last_updated timestamp), a summary section, and individual constraint entries. Each constraint entry describes what it constrains, why it matters, which leaders it affects, a falsifiability criterion, and a review trigger.
-
-This journey transforms implicit assumptions into explicit, structured boundaries that guide future development. The separation between `.workaholic/constraints/` (manager-generated prescriptive boundaries) and `.workaholic/policies/` (leader-generated observational documentation) clarifies which artifacts constrain decisions and which document current practices.
-
 ### AI Agent Journey: Command Execution
 
-The AI agent (Claude Code) receives slash commands and follows deterministic workflows defined in command markdown files. For `/scan`, the journey is:
+The AI agent (Claude Code) receives slash commands and follows deterministic workflows defined in command markdown files. For example, the `/report` journey is:
 
 1. Gather git context (branch, base branch, commit hash)
-2. Select agents using the select-scan-agents skill
-3. Run 3 manager agents in parallel, wait for completion
-4. Run 13 leader/writer agents in parallel, wait for completion
-5. Validate output files (viewpoint specs, policy documents)
-6. Update index files (README.md and README_ja.md)
-7. Stage and commit all documentation changes
-8. Report per-agent status to the developer
+2. Check whether a version bump commit already exists; bump if not, skip if yes
+3. Invoke the `story-writer` orchestrator
+4. The story-writer runs four content agents in parallel (release-readiness, performance-analyst, overview-writer, section-reviewer), composes the story, and commits/pushes it
+5. The story-writer runs two delivery agents in parallel (release-note-writer, pr-creator), commits the release note, and returns the PR URL
+6. Display PR URL to the developer
 
 The agent's journey is structured by phases defined in command files. Each phase has explicit success criteria and failure handling. The agent cannot deviate from the workflow without asking the developer for clarification.
 
@@ -208,37 +182,32 @@ The approval pattern enforces human-in-the-loop control during `/drive` executio
 
 The drive-approval skill (preloaded by the drive command) defines the exact dialog format and handling logic. All approval prompts must include the ticket title and overview, ensuring the developer can make informed approval decisions without re-reading the full ticket file. This requirement is enforced at CRITICAL severity in both the drive command (Step 2.2 explicitly requires passing `title` and `overview` from the workflow result) and the drive-approval skill (Section 1 states that presenting a prompt with missing context is a failure condition). When the user provides feedback (selects "Other"), the system must update the ticket file before re-implementing to ensure the ticket always reflects the full implementation plan. This pattern creates a tight feedback loop where the ticket file is the source of truth and the developer always has the final say.
 
-### Two-Phase Execution Pattern
+### Two-Stage Story Generation Pattern
 
-The `/scan` command uses a two-phase execution pattern. Managers run first in parallel to generate strategic context. Leaders run second in parallel, consuming manager outputs for domain-specific analysis.
+The `/report` command uses a two-stage parallel pattern via the `story-writer` orchestrator. Stage 1 produces the story file from four content agents; stage 2 produces the release note and PR from the committed story.
 
-**Phase 1 (Manager Phase)**:
+**Stage 1 (Content)**:
 ```
-/scan -> [project-manager, architecture-manager, quality-manager] in parallel
-       |
-       Wait for all managers to complete
-       |
-       Manager outputs written to .workaholic/specs/ and .workaholic/policies/
-```
-
-**Phase 2 (Leader Phase)**:
-```
-       -> [ux-lead, model-analyst, infra-lead, db-lead, test-lead,
-          security-lead, quality-lead, a11y-lead, observability-lead,
-          delivery-lead, recovery-lead, changelog-writer, terms-writer] in parallel
-       |
-       Each leader reads relevant manager output before analysis
-       |
-       Leader outputs written to .workaholic/specs/, .workaholic/policies/, .workaholic/terms/
+story-writer -> [release-readiness, performance-analyst,
+                 overview-writer, section-reviewer] in parallel
+              |
+              Compose .workaholic/stories/<branch>.md
+              |
+              Commit and push the story file
 ```
 
-This pattern ensures strategic context is available before tactical execution begins. The architecture-manager defines system structure and layers, then infra-lead, db-lead, and security-lead use that structure when analyzing their domains. The quality-manager defines quality standards, then quality-lead, test-lead, and a11y-lead enforce those standards in policies.
+**Stage 2 (Delivery)**:
+```
+story-writer -> [release-note-writer, pr-creator] in parallel
+              |
+              Commit release note; PR created on GitHub
+```
 
-The pattern improves UX for both the developer (clearer documentation grounded in strategic context) and the plugin author (easier to maintain consistency across multiple domain-specific leads). The two-phase execution is visible in the developer's session, making the hierarchy transparent.
+This pattern ensures the story file exists and is committed before the delivery agents run, since both consume it. Stage transitions are visible in the developer's session.
 
 ### Agent Transparency Pattern
 
-The scanner subagent's orchestration logic was migrated directly into the `/scan` command (ticket `20260208131751-migrate-scanner-into-scan-command.md`) to provide real-time progress visibility. Previously, `/scan` delegated to a single scanner subagent via one Task call, hiding all parallel agent invocations. Now, the scan command invokes all agents directly using parallel Task calls within a single message, making each agent's progress visible in the developer's session.
+Multi-agent commands invoke their subagents using parallel Task calls within a single message rather than delegating to a single orchestrator subagent. This makes each agent's progress visible in the developer's session in real time.
 
 This pattern reflects a broader design philosophy: transparency over abstraction. Developers should see what the system is doing rather than waiting for opaque operations to complete.
 
@@ -275,7 +244,7 @@ Key characteristics of this pattern:
 
 ### Commit Message Enrichment Pattern
 
-Commit messages follow a five-section structure designed for consumption by both human reviewers and downstream lead agents during `/scan`:
+Commit messages follow a five-section structure designed for consumption by both human reviewers and downstream lead-driven analysis:
 
 - **Title**: Concise summary
 - **Description**: Why the change was needed (motivation and rationale)
@@ -283,7 +252,7 @@ Commit messages follow a five-section structure designed for consumption by both
 - **Test Planning**: What verification was performed or should be
 - **Release Preparation**: What is needed to ship and support
 
-Each section requires 3-5 sentences with rich detail. This pattern gives downstream leads (test-lead reads Test Planning, delivery-lead reads Release Preparation) sufficient signal to determine what is needed to ship each change without reading the full diff. Leaders consume commit messages via `git log` during `/scan`, using structured sections to inform domain-specific analysis.
+Each section requires 3-5 sentences with rich detail. This pattern gives downstream readers (human reviewers and the leading skills applied during ticket scoping and review) sufficient signal to determine what is needed to ship each change without reading the full diff.
 
 ### Story Summary Pattern
 
@@ -346,23 +315,6 @@ flowchart TD
 
 The drive flow is approval-centric with multiple decision points. The developer confirms the prioritization order, approves or rejects each implementation, and decides whether to continue or stop after each ticket. This creates a tight feedback loop where the developer maintains control throughout the implementation journey.
 
-### Scan Command Flow
-
-```mermaid
-flowchart TD
-    Start["Developer types /scan"] --> Context["Gather git context"]
-    Context --> Select["Select all 16 agents"]
-    Select --> InvokeM["Run 3 managers in parallel"]
-    InvokeM --> WaitM["Wait for managers"]
-    WaitM --> InvokeL["Run 13 leader/writers in parallel"]
-    InvokeL --> Validate["Validate output"]
-    Validate --> Index["Update index files"]
-    Index --> Commit["Stage and commit"]
-    Commit --> Report["Report per-agent status"]
-```
-
-The scan flow is linear with one key dependency: managers must complete before leaders begin. Within each phase, all agents run in parallel. The developer sees real-time progress for each agent, with failures and delays immediately visible.
-
 ### Report Command Flow
 
 ```mermaid
@@ -403,7 +355,7 @@ Workaholic provides multiple onboarding paths depending on user type and entry p
 
 ### Developer Onboarding Path
 
-New developers follow a self-service onboarding path. The root `README.md` provides a Quick Start section with installation command and typical session example. After installing via `/plugin marketplace add qmu/workaholic`, developers can immediately start using the commands from both plugins: `/ticket`, `/drive`, `/scan`, and `/report` from drivin, plus `/trip` from trippin.
+New developers follow a self-service onboarding path. The root `README.md` provides a Quick Start section with installation command and typical session example. After installing via `/plugin marketplace add qmu/workaholic`, developers can immediately start using the five commands: `/ticket`, `/drive`, `/trip`, `/report`, and `/ship`.
 
 The first command is typically `/ticket <description>`. The ticket-organizer subagent explores the codebase automatically, so the developer does not need to understand the project structure beforehand. The resulting ticket includes Key Files and Implementation Steps sections that educate the developer about the codebase while planning the change.
 
@@ -413,7 +365,7 @@ User documentation lives in `.workaholic/guides/` with three documents:
 - `commands.md`: Complete command reference with usage examples
 - `workflow.md`: Ticket-driven development approach
 
-The developer progresses from `/ticket` (the familiar task of describing what they want) to `/drive` (observing how Claude implements it) to `/scan` and `/report` (understanding how documentation generates automatically). Each command builds on the previous one, creating a natural learning progression.
+The developer progresses from `/ticket` (the familiar task of describing what they want) to `/drive` (observing how Claude implements it) to `/report` and `/ship` (understanding how stories, PRs, and deployment fit together). Each command builds on the previous one, creating a natural learning progression.
 
 ### Plugin Author Onboarding Path
 
@@ -485,21 +437,7 @@ The dual model gives developers choice based on task nature: drivin for well-def
 
 ### Flat Analysts to Manager-Leader Hierarchy
 
-The system evolved from a flat set of documentation agents to a two-tier hierarchy with 3 managers and 13 leader/writers. This change restructured the `/scan` command to execute in two phases:
-
-**Old pattern** (flat analysts):
-- All agents ran in parallel
-- Each analyst independently analyzed the codebase
-- No shared strategic context across agents
-- Some analysis duplication (e.g., stakeholder concerns analyzed independently by multiple agents)
-
-**New pattern** (manager-leader hierarchy):
-- Phase 1: 3 managers generate strategic context (project, architecture, quality)
-- Phase 2: 13 leaders consume manager outputs for domain-specific analysis
-- Shared context reduces duplication and ensures consistency
-- Leaders make informed decisions grounded in strategic constraints
-
-This evolution improves UX for both the developer (clearer documentation grounded in strategic context) and the plugin author (easier to maintain consistency across multiple domain-specific leads). The two-phase execution is visible in the developer's session, making the hierarchy transparent.
+The system originally used a flat set of documentation agents that all ran in parallel during a documentation command. A strategic-context tier was introduced in February 2026 to provide leads with separate project, architectural, and quality context, restructuring the documentation command into a sequential model where the upstream tier ran first and leads consumed its output. That tier (and the documentation command driving it) was removed in May 2026 in favor of preloading the four leading skills directly into work-plugin commands and orchestrators. Viewpoint specs are now hand-maintained reference documents updated through `/ticket` rather than regenerated automatically.
 
 ### File Listings to Narrative Summaries
 
@@ -520,7 +458,7 @@ This evolution shifts stories from "change log" to "change narrative," making th
 
 ### Flat Commit Sections to Lead-Targeted Structure
 
-The commit message format evolved from 4 sections to 5 sections with richer guidance (ticket `20260210154917-expand-commit-message-sections.md`). This change recognized that commit messages are consumed by downstream leads during `/scan`, targeting AI agents as an audience alongside human reviewers.
+The commit message format evolved from 4 sections to 5 sections with richer guidance (ticket `20260210154917-expand-commit-message-sections.md`). This change recognized that commit messages are consumed by downstream lead-driven analysis, targeting AI agents as an audience alongside human reviewers.
 
 **Old pattern** (4 sections):
 - Title, Motivation, UX Change, Arch Change
@@ -530,9 +468,9 @@ The commit message format evolved from 4 sections to 5 sections with richer guid
 **New pattern** (5 sections):
 - Title, Description, Changes, Test Planning, Release Preparation
 - 3-5 sentences per section with rich detail
-- Each section targets specific lead concerns (test-lead reads Test Planning, delivery-lead reads Release Preparation, etc.)
+- Each section targets specific lead concerns: leading-validity reads Test Planning, leading-availability reads Release Preparation, etc.
 
-This evolution improves UX for AI agents (downstream leads) by providing structured, detailed context that informs their analysis. Commit messages become structured input for documentation generation rather than merely human-readable summaries.
+This evolution improves UX for AI agents by providing structured, detailed context that informs their analysis. Commit messages become structured input for documentation generation rather than merely human-readable summaries.
 
 ### Unconditional Translation to Dynamic Language Logic
 
@@ -567,25 +505,9 @@ This evolution improves developer UX by making `/report` safely re-runnable. Dev
 
 ### Generic Naming to Domain-Specific Naming
 
-The project evolved through several skill renames to resolve naming collisions and improve semantic clarity. The `manage-branch` skill was renamed to `branching` to avoid collision with the manager tier's `manage-` prefix convention (ticket `20260212164717-rename-manage-branch-skill.md`). The `managers-policy` and `leaders-policy` skills were renamed to `managers-principle` and `leaders-principle` to distinguish behavioral principles from policy output artifacts (ticket `20260212173856-rename-policy-skills-to-principle.md`).
+The project evolved through several skill renames to resolve naming collisions and improve semantic clarity. The branching utility skill was renamed from a prefix that collided with the strategic-context tier's namespace; subsequent renames distinguished cross-cutting behavioral principle skills from output-artifact skills. Lead skills were later renamed from a `<domain>-lead` form to `leading-<domain>` to make the "leading" function explicit at the namespace level.
 
-This evolution improves plugin author UX by eliminating naming confusion and establishing clear conventions: `manage-*` for managers, `lead-*` for leaders, `*-principle` for cross-cutting behavioral rules, descriptive names for utility skills.
-
-### Ambiguous Output Paths to Structured Constraint Files
-
-The manager constraint-setting workflow evolved from generating loosely-specified directional materials to producing structured constraint files at specific paths (ticket `20260212165728-manager-constraint-files.md`). This change introduced the `.workaholic/constraints/` directory with three files (`project.md`, `architecture.md`, `quality.md`) and a standard constraint file template.
-
-**Old pattern**:
-- Managers generated directional materials at loosely-specified paths
-- No convention for where constraints lived versus other directional artifacts
-- Semantic collision between manager-generated and leader-generated materials in `.workaholic/policies/`
-
-**New pattern**:
-- Managers write constraints to `.workaholic/constraints/<scope>.md` following a standard template
-- Each constraint entry includes: Bounds, Rationale, Affects (which leaders), Criterion (falsifiable verification), Review trigger
-- Clear separation: `.workaholic/constraints/` contains prescriptive boundaries, `.workaholic/policies/` contains observational documentation
-
-This evolution improves UX for both plugin authors and leaders by providing a stable, predictable location for constraints that leaders can programmatically reference. The structured template makes constraints falsifiable, explicitly names affected leaders, and improves transparency and accountability.
+This evolution improves plugin author UX by establishing clear conventions: `leading-*` for the four leading-skill domains, `*-principle` for cross-cutting behavioral rules, descriptive names for utility skills.
 
 ### Weak Approval Context to Enforced Ticket Context
 
@@ -606,21 +528,17 @@ This evolution improves developer UX by ensuring every approval prompt contains 
 ## Assumptions
 
 - [Explicit] The developer installs from the marketplace using `/plugin marketplace add qmu/workaholic` as shown in `README.md`.
-- [Explicit] Five slash commands (`/ticket`, `/drive`, `/scan`, `/report` from drivin, `/trip` from trippin) constitute the primary user interface, as defined in `CLAUDE.md`.
+- [Explicit] Five slash commands (`/ticket`, `/drive`, `/trip`, `/report`, `/ship`) constitute the primary user interface, as defined in `CLAUDE.md`.
 - [Explicit] The plugin author is `tamurayoshiya <a@qmu.jp>`, as declared in `marketplace.json` and both `plugin.json` files.
 - [Explicit] Human-in-the-loop approval is mandatory during `/drive`, enforced by the `AskUserQuestion` requirement in `drive.md`.
-- [Explicit] The scan command invokes 16 agents in two phases (3 managers, then 13 leader/writers) as defined in `scan.md` and `select.sh`.
-- [Explicit] Version management requires synchronization across `marketplace.json` and both plugin `plugin.json` files (drivin and trippin), as documented in `CLAUDE.md`.
-- [Explicit] The scanner subagent was removed in ticket `20260208131751-migrate-scanner-into-scan-command.md` to provide agent transparency, migrating orchestration logic directly into the scan command.
-- [Explicit] The `/story` command was removed (same ticket), consolidating workflow to use `/scan` for documentation and `/report` for PR creation.
-- [Explicit] The manager-leader hierarchy was introduced in tickets `20260211170401-define-manager-tier-and-skills.md` and `20260211170402-wire-leaders-to-manager-outputs.md`.
+- [Explicit] Version management requires synchronization across `marketplace.json` and the three plugin `plugin.json` files (core, standards, work), as documented in `CLAUDE.md`.
+- [Explicit] The four leading skills (`leading-validity`, `leading-availability`, `leading-security`, `leading-accessibility`) are preloaded into work-plugin commands and orchestrators via the soft cross-plugin reference pattern.
 - [Explicit] Commit message format was expanded from 4 to 5 sections to provide richer context for downstream leads (ticket `20260210154917-expand-commit-message-sections.md`).
 - [Explicit] Story Section 4 was changed from file listings to concise summaries for improved readability (ticket `20260210121628-summarize-changes-in-report.md`).
-- [Explicit] The `manage-branch` skill was renamed to `branching` to resolve naming collision with the manager tier's `manage-` prefix (ticket `20260212164717-rename-manage-branch-skill.md`).
-- [Explicit] The `managers-policy` and `leaders-policy` skills were renamed to `managers-principle` and `leaders-principle` to distinguish behavioral principles from policy output artifacts (ticket `20260212173856-rename-policy-skills-to-principle.md`).
+- [Explicit] The branching utility skill was renamed in February 2026 to resolve a naming collision with the strategic-context tier's namespace.
+- [Explicit] Cross-cutting policy skills were renamed from a `*-policy` form to `*-principle` to distinguish behavioral principles from policy output artifacts.
 - [Explicit] The translation system was updated to check consumer CLAUDE.md for primary language and generate translations dynamically, fixing duplicate Japanese specs in Japanese-primary projects (ticket `20260212123836-fix-duplicate-japanese-specs-in-workaholic.md`).
 - [Explicit] The `/report` command acquired idempotent version bump logic to prevent double increments when re-run on the same branch (ticket `20260212123209-prevent-double-version-bump-in-report.md`).
-- [Explicit] Managers now generate structured constraint files to `.workaholic/constraints/<scope>.md` following a standard template defined in `managers-principle` (ticket `20260212165728-manager-constraint-files.md`).
 - [Explicit] The core plugin was renamed to drivin and the trippin plugin was created as a new exploration-focused plugin (tickets `20260302215035-rename-core-to-drivin.md` and `20260302215036-create-trippin-plugin-skeleton.md`).
 - [Explicit] The `/trip` command requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` to be enabled, as documented in `plugins/trippin/commands/trip.md`.
 - [Explicit] The drive approval prompt context enforcement was strengthened from soft guidance to structural requirement at CRITICAL severity (ticket `20260306065407-enforce-ticket-context-in-drive-approval.md`).
@@ -630,4 +548,4 @@ This evolution improves developer UX by ensuring every approval prompt contains 
 - [Inferred] The system prioritizes transparency over abstraction, evidenced by the migration of scanner orchestration into the scan command to make individual agent progress visible.
 - [Inferred] The plugin author uses Workaholic to develop Workaholic itself (dogfooding), based on the presence of archived tickets documenting plugin feature development in `.workaholic/tickets/archive/`.
 - [Inferred] The dual plugin architecture (drivin for structured development, trippin for exploration) reflects a recognition that different task types benefit from fundamentally different agent coordination models.
-- [Inferred] The constraint-setting workflow added to managers reflects a shift toward making implicit assumptions explicit, addressing past issues where strategic context was assumed rather than documented.
+- [Inferred] The May 2026 removal of the strategic-context tier reflects a shift back toward leads deriving viewpoint directly from the codebase, after the intermediate context artifacts proved to have limited practical uptake.

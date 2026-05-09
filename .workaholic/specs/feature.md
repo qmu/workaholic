@@ -101,81 +101,21 @@ flowchart TD
     N -->|No| B
 ```
 
-### Documentation Update (`/scan`)
+### Documentation Generation
 
-The scan command runs a two-phase agent orchestration to generate comprehensive codebase documentation. Phase 3a invokes 3 manager agents to establish strategic context. Phase 3b invokes 13 leader and writer agents that consume manager outputs.
+The standards plugin's writer and analyst agents generate documentation when invoked from `/report` and `/release` workflows. Earlier in the project, an automated full-codebase documentation command bundled them into a single batch run; that command and its supporting agent-selection helper have been retired. The viewpoint specs under `.workaholic/specs/` are now hand-maintained reference documents.
 
 | Feature | Description | Implementation |
 | --- | --- | --- |
-| Two-phase execution | Managers first, then leaders/writers | `scan.md` Phases 3a/3b |
-| 3 manager agents | Establish project, architecture, quality context | Manager tier agents |
-| 11 leader agents | Domain-specific policy analysis | Leader tier agents |
-| 2 writer agents | Changelog and terms generation | Writer agents |
-| Real-time visibility | All agents visible as Task calls | `scan.md` Phase 3 |
+| Changelog generation | Generates CHANGELOG.md from archived tickets | `changelog-writer` agent |
+| Terms generation | Maintains consistent terminology definitions | `terms-writer` agent |
+| Story generation | Narrative development history per branch | `story-writer` orchestrator |
+| Overview generation | Highlights, motivation, journey sections | `overview-writer` agent |
+| Section review | Outcome, concerns, ideas, historical analysis | `section-reviewer` agent |
+| Performance analysis | Decision-making quality across viewpoints | `performance-analyst` agent |
+| Release-readiness assessment | Identifies concerns and special instructions | `release-readiness` agent |
+| Release-note generation | Concise user-facing notes from story file | `release-note-writer` agent |
 | Output validation | Verifies files exist before index update | `validate-writer-output` skill |
-| Index synchronization | Updates README files for specs and policies | `scan.md` Phase 5 |
-| i18n mirroring | Japanese translations for all documents | `translate` skill |
-| Permission control | Explicit `run_in_background: false` for Write/Edit access | `scan.md` Phase 3 |
-| Full/partial modes | Adaptive agent selection based on changes | `select-scan-agents` skill |
-| 4 viewpoint specs | Application, component, feature, usecase | `architecture-manager` agent |
-| 7 policy docs | Test, security, quality, a11y, observability, delivery, recovery | 7 leader agents |
-| Constraint setting | Managers produce directional materials | `managers-principle` skill |
-
-#### Documentation Agent Matrix
-
-The scan command orchestrates agents organized into 3 tiers:
-
-**Manager Tier (3 agents)**: Establish strategic context
-- `project-manager` - Business domain, stakeholders, timeline, issues, solutions
-- `architecture-manager` - System boundaries, layers, components, cross-cutting concerns, 4 viewpoint specs
-- `quality-manager` - Quality dimensions, standards, assurance processes, metrics, feedback loops
-
-**Leader Tier (11 agents)**: Generate documentation
-- `ux-lead` - User experience, interaction patterns, user journeys, onboarding
-- `model-analyst` - Domain concepts, relationships, core abstractions
-- `infra-lead` - External dependencies, deployment, runtime environment
-- `db-lead` - Data formats, storage mechanisms, persistence patterns
-- `security-lead` - Security requirements, threat model, mitigation strategies
-- `test-lead` - Testing strategy, test types, coverage requirements
-- `quality-lead` - Code quality standards, review processes, quality gates
-- `a11y-lead` - Accessibility standards, WCAG conformance, inclusive design
-- `observability-lead` - Logging, monitoring, tracing practices
-- `delivery-lead` - Release processes, deployment strategies, rollback procedures
-- `recovery-lead` - Backup strategies, disaster recovery, business continuity
-
-**Writer Tier (2 agents)**:
-- `changelog-writer` - Generates CHANGELOG.md from archived tickets
-- `terms-writer` - Maintains consistent terminology definitions
-
-#### Two-Phase Scan Execution
-
-```mermaid
-flowchart LR
-    subgraph "Phase 3a: Strategic Context"
-        S[Scan Entry Point]
-        PM[project-manager]
-        AM[architecture-manager]
-        QM[quality-manager]
-    end
-
-    subgraph "Phase 3b: Tactical Analysis"
-        UX[ux-lead]
-        IN[infra-lead]
-        DB[db-lead]
-        SEC[security-lead]
-        TST[test-lead]
-        QL[quality-lead]
-        A11Y[a11y-lead]
-        OBS[observability-lead]
-        DEL[delivery-lead]
-        REC[recovery-lead]
-        CL[changelog-writer]
-        TR[terms-writer]
-    end
-
-    S --> PM & AM & QM
-    PM & AM & QM --> UX & IN & DB & SEC & TST & QL & A11Y & OBS & DEL & REC & CL & TR
-```
 
 ### Report Generation (`/report`)
 
@@ -230,7 +170,6 @@ The release command manages semantic versioning and triggers GitHub release work
 | Version bump | Increments patch/minor/major | `.claude/commands/release.md` |
 | Triple file sync | Updates marketplace.json and both plugin.json files | Version management |
 | Auto-release | GitHub Action creates release on main | `release.yml` workflow |
-| Documentation sync | Triggers full scan before release | `release.md` step 9 |
 | Multi-plugin support | Updates all plugin versions in marketplace | Version management |
 
 ## Trippin Plugin Features
@@ -244,7 +183,7 @@ The trip command launches a collaborative Agent Teams session for creative explo
 | Agent Teams integration | Creates 3-member collaborative team | `trip.md` command |
 | Worktree isolation | Runs in dedicated git worktree for safety | `ensure-worktree.sh` script |
 | Three-agent collaboration | Planner, Architect, Constructor with distinct stances | 3 agent definitions |
-| Two-phase workflow | Specification (inner loop) then implementation (outer loop) | `trip-protocol` skill |
+| Two-stage workflow | Specification (inner loop) then implementation (outer loop) | `trip-protocol` skill |
 | Versioned artifacts | Direction, Model, Design with v1, v2, etc. | `trip-protocol` skill |
 | Commit-per-step | Every discrete step produces a git commit | `trip-commit.sh` script |
 | Moderation protocol | Third agent arbitrates disagreements | `trip-protocol` skill |
@@ -305,35 +244,32 @@ When two agents disagree, the third agent serves as moderator:
 | Architect vs Constructor | Planner |
 | Planner vs Constructor | Architect |
 
-## Strategic Features
+## Policy Lens Features
 
-### Manager Tier Capabilities
+### Leading Skill Capabilities
 
-The manager tier introduces strategic context establishment and constraint-setting capabilities:
+The four leading skills function as policy lenses, preloaded into work-plugin commands and orchestrators:
 
-| Feature | Description | Manager Agent |
+| Feature | Description | Leading Skill |
 | --- | --- | --- |
-| Project context analysis | Business domain, stakeholders, timeline, issues | `project-manager` |
-| Architectural structure | System boundaries, layers, components, patterns | `architecture-manager` |
-| Quality standards | Dimensions, assurance processes, metrics, feedback loops | `quality-manager` |
-| Constraint setting | Analyze, Ask, Propose, Produce directional materials | All managers via `managers-principle` |
-| Viewpoint spec production | 4 architectural viewpoint documents | `architecture-manager` |
-| Strategic focus | Observable facts, not aspirational recommendations | `managers-principle` |
-| Prior term consistency | Respect existing terminology, cultivate ubiquitous language | `managers-principle` |
-
-### Leader Tier Capabilities
-
-Leaders consume manager outputs and produce domain-specific policy documents:
-
-| Feature | Description | Leader Agent |
-| --- | --- | --- |
-| Manager context consumption | Read strategic outputs before analysis | All leaders |
-| Domain-specific policies | Test, security, quality, a11y, observability, delivery, recovery | 7 policy leaders |
-| UX analysis | User experience, interaction patterns, user journeys | `ux-lead` |
-| Data analysis | Data formats, storage, persistence | `db-lead` |
-| Infrastructure analysis | Dependencies, deployment, runtime environment | `infra-lead` |
+| Logical comprehensiveness | Type-driven design, layer segregation, functional style, relational-first persistence | `leading-validity` |
+| Operational continuity | CI/CD automation, vendor neutrality, IaC, observability, scenario-based recovery | `leading-availability` |
+| Preservation of trust | Secure-by-design defaults, ISMS-style risk management, defense in depth | `leading-security` |
+| Universal reach | Accessibility-first structure, modeless design, tool-first interaction | `leading-accessibility` |
 | Prior term consistency | Respect existing terminology | `leaders-principle` |
 | Vendor neutrality | Minimize dependencies, manage coupling | `leaders-principle` |
+
+### Lead Lens Mapping
+
+Tickets map their `layer` field to leading skills as a default; multi-layer tickets engage multiple leads.
+
+| Layer | Leading skill | Lens |
+| ----- | ------------- | ---- |
+| UX | `leading-accessibility` | Reach, modeless design, WCAG conformance |
+| Domain | `leading-validity` | Type-driven design, layer segregation, functional style |
+| Infrastructure | `leading-availability` | CI/CD, vendor neutrality, IaC, observability |
+| DB | `leading-validity` | Relational-first persistence, domain–persistence segregation |
+| Auth/secrets (any layer) | `leading-security` | Secure defaults, defense in depth |
 
 ## Cross-Cutting Features
 
@@ -356,7 +292,6 @@ All multi-step or conditional shell operations are extracted to bundled scripts 
 
 **Drivin examples**:
 - `gather-git-context/sh/gather.sh` - Git repository context collection
-- `select-scan-agents/sh/select.sh` - Agent selection based on changes
 - `validate-writer-output/sh/validate.sh` - Output file existence validation
 
 **Trippin examples**:
@@ -394,7 +329,7 @@ The marketplace supports multiple plugins with synchronized versioning:
 
 | Plugin | Commands | Purpose |
 | --- | --- | --- |
-| drivin | `/ticket`, `/drive`, `/scan`, `/report` | Development workflow |
+| drivin | `/ticket`, `/drive`, `/report` | Development workflow |
 | trippin | `/trip` | Exploration workflow |
 
 Version files to keep in sync:
@@ -446,9 +381,8 @@ The system provides two complementary workflows:
 | Phase | Drivin Capabilities | Status |
 | --- | --- | --- |
 | **Planning** | Ticket creation, duplicate detection, history discovery, source discovery, automatic splitting | Active |
-| **Strategic** | Project context, architectural structure, quality standards, constraint setting | Active |
 | **Implementation** | Sequential drive, approval loop, feedback iteration, automatic archival, effort tracking | Active |
-| **Documentation** | 2-phase scan (managers then leaders), 4 viewpoint specs, 7 policy docs, changelog, terms, i18n | Active |
+| **Documentation** | Hand-maintained viewpoint specs, lead-driven policy docs, automated changelog/terms generation, i18n | Active |
 | **Delivery** | Story generation, release notes, PR management, version bumping, release automation | Active |
 
 | Phase | Trippin Capabilities | Status |
@@ -467,12 +401,7 @@ flowchart TD
     C --> D["/drive"]
     D --> E[Implementation Commits]
     E --> F[Archived Tickets]
-    F --> G["/scan Phase 3a"]
-    G --> H[Manager Outputs]
-    H --> I["/scan Phase 3b"]
-    I --> J[Leader Outputs]
-    J --> K[Documentation]
-    K --> L["/report"]
+    F --> L["/report"]
     L --> M[Version Bump]
     M --> N[Story File]
     N --> O[Release Notes]
@@ -504,7 +433,6 @@ flowchart TD
 | `hooks.json` | `plugins/drivin/hooks/` | PostToolUse hook configuration | Tool validation |
 | `settings.json` | `.claude/` | Claude Code runtime settings | IDE integration |
 | Rule files | `plugins/drivin/rules/` | Path-specific behavioral constraints | File-scoped operations |
-| `define-manager.md` | `.claude/rules/` | Manager schema enforcement | Manager skills and agents |
 | `define-lead.md` | `.claude/rules/` | Leader schema enforcement | Leader skills and agents |
 
 ### Command Configuration
@@ -515,7 +443,6 @@ Commands accept limited runtime arguments:
 | --- | --- | --- | --- | --- |
 | `/ticket` | drivin | Description | `Target: todo\|icebox` | `todo` |
 | `/drive` | drivin | Mode | `normal\|icebox` | `normal` |
-| `/scan` | drivin | None | N/A | Full mode |
 | `/report` | drivin | None | N/A | N/A |
 | `/release` | drivin | Bump type | `major\|minor\|patch` | `patch` |
 | `/trip` | trippin | Instruction | N/A | N/A |

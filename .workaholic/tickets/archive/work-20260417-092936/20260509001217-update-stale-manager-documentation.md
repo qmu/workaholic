@@ -3,9 +3,9 @@ created_at: 2026-05-09T00:12:17+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: f901031
+category: Changed
 depends_on: [20260509001215-eliminate-manager-tier.md, 20260509001216-wire-leads-into-work-flows.md]
 ---
 
@@ -198,3 +198,16 @@ Past tickets that touched similar areas:
 - **`stakeholder.md` orphan**: The current specs index lists a `stakeholder.md` file. The `analyze-viewpoint` skill produces it. Verify that file still has an owner (`analyze-viewpoint` plus an analyst agent or writer); if not, add it to the README footnote about hand-maintained specs. (`.workaholic/specs/stakeholder.md`, `plugins/standards/skills/analyze-viewpoint/SKILL.md`)
 - **Cross-reference**: This ticket depends on both `20260509001215-eliminate-manager-tier.md` and `20260509001216-wire-leads-into-work-flows.md`. It is the last ticket in the series and produces no further dependents.
 - **No version bump**: Per the foundation ticket's Considerations, plugin version bumps and `/release` happen after `/drive` finishes implementing all three tickets. Do not modify any `plugin.json` `version` fields here.
+
+## Final Report
+
+Development completed as planned. CLAUDE.md and plugins/core/README.md cleaned of /scan references and stale skills/agents listings. All 10 spec files in .workaholic/specs/ swept (delegated to a fork agent for volume; ~89 edits applied across the spec set). Final verification grep produces zero stale references across CLAUDE.md, plugins/core/README.md, and .workaholic/specs/. Net change trims roughly 636 lines.
+
+### Discovered Insights
+
+- **Insight**: No bilingual `*_ja.md` partner files exist under `.workaholic/specs/` — the bilingual concern in the ticket was moot.
+  **Context**: The translation policy mentioned in Related History applies to other directories (`.workaholic/guides/` perhaps), not specs. Future spec edits do not need a Japanese translation step.
+- **Insight**: Several spec files still reference legacy plugin names ("drivin", "trippin", "scanner subagent") in places that were not part of this ticket's prohibited-term grep.
+  **Context**: A separate naming-modernization sweep would be needed to replace legacy plugin names with the current `core`/`standards`/`work` taxonomy. Out of scope here, but worth a follow-up ticket if the references prove confusing.
+- **Insight**: `.workaholic/specs/stakeholder.md` is owned by `analyze-viewpoint` (which is still in the standards plugin) but lacks any agent that calls it. With `/scan` retired it has no automated trigger; treat it as hand-maintained per the README's new note.
+  **Context**: All viewpoint specs share this property now — the README sweep made the orphan status explicit project-wide.

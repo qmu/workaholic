@@ -16,7 +16,7 @@ The Use Case Viewpoint documents how developers interact with Workaholic through
 
 ### Drivin Workflows
 
-Drivin implements a ticket-driven development workflow consisting of four sequential phases: specification, implementation, documentation, and release. Each phase is supported by dedicated commands that orchestrate subagents and skills to automate repetitive tasks while maintaining developer control through explicit approval gates. The documentation phase includes a two-phase execution model where managers establish strategic context before leaders produce domain-specific policies.
+Drivin implements a ticket-driven development workflow consisting of three sequential phases: specification, implementation, and release. Each phase is supported by dedicated commands that orchestrate subagents and skills to automate repetitive tasks while maintaining developer control through explicit approval gates. Documentation generation is handled by writer agents invoked from the release-prep workflow rather than a separate documentation phase.
 
 #### Ticket Creation Workflow
 
@@ -42,23 +42,7 @@ After processing all tickets from the navigator's list, the drive command re-che
 
 #### Documentation Workflow
 
-The `/scan` command updates `.workaholic/` documentation by invoking agents in a two-phase execution model. Phase 3a establishes strategic context through three manager agents. Phase 3b produces tactical documentation through thirteen leader and writer agents that consume manager outputs. The command begins by gathering git context using the `gather-git-context` skill and running the `select-scan-agents` skill with mode "full" to get the complete list of agents organized by tier.
-
-##### Phase 3a: Strategic Context Establishment
-
-The scan command invokes three manager agents in parallel using the Task tool, each with model "sonnet" and base branch parameter. All invocations must use the default `run_in_background: false` parameter because agents need Write/Edit permissions.
-
-**project-manager**: Analyzes business context by reading README, CLAUDE.md, package metadata, CHANGELOG, git tags, git log, and ticket queues. Produces project context covering business domain, stakeholder map, timeline status, active issues, and proposed solutions. Follows constraint-setting workflow to establish project constraints.
-
-**architecture-manager**: Analyzes system structure by examining directory organization, configuration files, and code patterns. Gathers context for four viewpoints (application, component, feature, usecase) using `analyze-viewpoint` skill. Produces architectural context and writes four viewpoint spec documents to `.workaholic/specs/`. Follows constraint-setting workflow to establish architectural constraints.
-
-**quality-manager**: Analyzes quality practices by examining test files, CI configuration, linting rules, and code review patterns. Produces quality context covering quality dimensions, standards, assurance processes, metrics, and feedback loops. Follows constraint-setting workflow to establish quality constraints.
-
-##### Phase 3b: Tactical Policy Production
-
-After manager completion, the scan command invokes thirteen leader and writer agents in parallel. Each leader agent reads relevant manager outputs as strategic input before performing domain-specific analysis. The agents include: ux-lead, model-analyst, infra-lead, db-lead, test-lead, security-lead, quality-lead, a11y-lead, observability-lead, delivery-lead, recovery-lead, changelog-writer, and terms-writer.
-
-After all agents complete, the command validates output using the `validate-writer-output` skill for both `.workaholic/specs/` and `.workaholic/policies/`. If validation passes, README index files are updated. All documentation changes are staged and committed with message "Update documentation".
+`.workaholic/specs/` documents are hand-maintained reference docs updated alongside structural changes through `/ticket`. Earlier in the project, an automated full-codebase documentation command bundled an upstream context tier and downstream lead/writer agents into a single batch run. That command and tier were retired; documentation generation now happens piecemeal through writer agents invoked from `/report` and `/release` workflows (changelog, terms, story, release notes).
 
 #### Report Generation Workflow
 
@@ -76,7 +60,7 @@ The `/trip` command launches a collaborative Agent Teams session for creative ex
 
 **Step 2: Initialize Trip Artifacts**. Inside the worktree, the command runs `init-trip.sh` to create the artifact directory structure at `.workaholic/.trips/<trip-name>/` with `directions/`, `models/`, and `designs/` subdirectories.
 
-**Step 3: Launch Agent Teams**. The command creates a three-member Agent Team with the Planner, Architect, and Constructor agents. The team lead provides workflow instructions specifying the two-phase Implosive Structure protocol, artifact locations, and commit rules. The team members work independently in their own context windows, communicating through filesystem artifacts.
+**Step 3: Launch Agent Teams**. The command creates a three-member Agent Team with the Planner, Architect, and Constructor agents. The team lead provides workflow instructions specifying the two-stage Implosive Structure protocol, artifact locations, and commit rules. The team members work independently in their own context windows, communicating through filesystem artifacts.
 
 **Phase 1 (Specification)**: The Planner writes `directions/direction-v1.md` based on the user instruction. The Architect and Constructor each review the direction and add review notes. If disagreements arise, the uninvolved third agent moderates. Revisions produce `direction-v2.md`, `direction-v3.md`, etc. Once the direction reaches consensus, the Architect writes `models/model-v1.md` and the Constructor writes `designs/design-v1.md`. Each agent reviews the other two artifacts. Iteration continues until all three artifacts are mutually consistent and all agents confirm consensus.
 
@@ -187,27 +171,6 @@ sequenceDiagram
 - Patch apply failure: Notes failure, proceeds with manual implementation
 - Type check failure: Halts before approval dialog, requires fix
 - Missing approval context: Re-reads ticket file (failure condition if context cannot be obtained)
-
-### /scan Command
-
-**Plugin:** drivin
-**Invocation Format:** `/scan`
-
-**Input Contract:**
-- Required: None
-- Optional: None
-- Environment: Must be in a git repository with `.workaholic/` directory
-
-**Output Contract:**
-- Success: Updated documentation in `.workaholic/specs/`, `.workaholic/policies/`, `CHANGELOG.md`, `.workaholic/terms/`
-- Commit: "Update documentation"
-- Response: Per-agent status for all agents (3 managers + 13 leaders/writers)
-- Side effects: Updates README indices in specs and policies directories
-
-**Error Paths:**
-- Validation failure: Reports missing files but still commits partial success
-- Agent failure: Reports failed agents but proceeds with successful outputs
-- Git operation failure: Aborts without committing
 
 ### /report Command
 
@@ -363,10 +326,9 @@ The typical development session follows this sequence:
 
 1. **Specification**: `/ticket` creates tickets based on natural language descriptions
 2. **Implementation**: `/drive` implements and archives tickets one by one with approval
-3. **Strategic Documentation**: `/scan` phase 3a establishes project, architecture, and quality context via managers
-4. **Tactical Documentation**: `/scan` phase 3b produces policy documents via leaders that consume manager outputs
-5. **Delivery**: `/report` generates story, creates PR, and bumps version
-6. **Release**: Auto-release or manual `/release` publishes to marketplace
+3. **Delivery**: `/report` generates story, creates PR, and bumps version
+4. **Ship**: `/ship` merges the PR and verifies production
+5. **Release**: Auto-release or manual `/release` publishes to marketplace
 
 ### Trippin Workflow Sequence
 
@@ -385,11 +347,7 @@ flowchart LR
         T["/ticket"] --> TD[Ticket Files]
         TD --> D["/drive"]
         D --> AT[Archived Tickets]
-        AT --> SP3a["/scan Phase 3a"]
-        SP3a --> MO[Manager Outputs]
-        MO --> SP3b["/scan Phase 3b"]
-        SP3b --> LO[Leader Outputs]
-        LO --> R["/report"]
+        AT --> R["/report"]
         R --> PR[Pull Request]
         PR --> M[Merge to main]
         M --> REL[Auto-release]
@@ -403,23 +361,20 @@ flowchart LR
     end
 ```
 
-## Constraint-Setting Use Case
+## Lead Lens Application
 
-The manager tier introduces a constraint-setting workflow that runs during `/scan` phase 3a. Managers follow a four-phase process: Analyze (identify unbounded areas, implicit constraints, outdated constraints), Ask (present targeted questions with concrete options), Propose (formulate falsifiable constraints), and Produce (write directional materials encoding the constraints).
+The four leading skills (`leading-validity`, `leading-availability`, `leading-security`, `leading-accessibility`) are preloaded into work-plugin commands and orchestrators. When ticket-organizer scopes a ticket or `/drive` implements one, the relevant leading skills apply as policy lenses based on the ticket's `layer` field. There is no separate strategic-context workflow; leads derive their viewpoint directly from the codebase.
 
 ## Assumptions
 
 - [Explicit] The `/ticket` command delegates entirely to ticket-organizer, which invokes 3 discovery agents in parallel, as documented in ticket command instructions.
 - [Explicit] The `/drive` command processes tickets sequentially with human approval between each, as documented in drive command instructions.
-- [Explicit] The `/scan` command uses two-phase execution (managers in phase 3a, leaders in phase 3b) as documented in scan.md.
-- [Explicit] The `/report` command delegates to story-writer, which orchestrates 4 agents in phase 1 and 2 agents in phase 2.
+- [Explicit] The `/report` command delegates to story-writer, which orchestrates 4 agents in stage 1 and 2 agents in stage 2.
 - [Explicit] The `/trip` command creates a worktree, initializes trip artifacts, and launches a 3-member Agent Team, as documented in trip.md.
-- [Explicit] The drive-approval skill requires ticket title and overview with CRITICAL enforcement, as documented in drive-approval SKILL.md and drive.md Step 2.2.
+- [Explicit] The drive approval flow requires ticket title and overview with CRITICAL enforcement, as documented in `plugins/work/skills/drive/SKILL.md` Approval section and `plugins/work/commands/drive.md` Step 2.2.
 - [Explicit] Trip sessions require the Agent Teams experimental feature flag, as documented in trip.md prerequisites.
 - [Explicit] Every trip workflow step produces a git commit via trip-commit.sh, as documented in trip-protocol SKILL.md.
-- [Explicit] The core plugin was renamed to drivin with all subagent_type prefixes changed from "core:" to "drivin:", as documented in ticket 20260302215035.
-- [Explicit] Version bumping now updates three files (marketplace.json, drivin plugin.json, trippin plugin.json), as documented in CLAUDE.md Version Management.
-- [Inferred] The two-phase scan execution eliminates strategic context duplication where each analyst independently inferred project priorities.
+- [Explicit] Version bumping updates four files (marketplace.json plus the three plugin.json files for core, standards, work), as documented in CLAUDE.md Version Management.
 - [Inferred] The trippin workflow is independent of drivin and can run concurrently on separate worktree branches.
 - [Inferred] The worktree isolation ensures trip sessions do not interfere with the main working tree or ongoing drivin development.
 - [Inferred] The three philosophical stances in trippin agents create productive dialectical tension for thorough specification.

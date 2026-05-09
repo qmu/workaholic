@@ -17,12 +17,12 @@ Edit `plugins/` not `.claude/`. This repo develops plugins - changes go to `plug
 plugins/                 # Plugin source directories
   core/                  # Core shared plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
-    commands/            # report, ship, scan
+    commands/            # report, ship
     skills/              # branching, commit, gather-git-context, gather-ticket-metadata, ship, system-safety
   standards/             # Standards policy plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
-    agents/              # leads, managers, writers, analysts
-    skills/              # lead-*, manage-*, analyze-*, write-*
+    agents/              # lead, writers, analysts
+    skills/              # leading-*, leaders-principle, analyze-*, write-*
   work/                  # Work plugin: drive + trip workflows (depends on: core)
     .claude-plugin/      # Plugin configuration
     agents/              # drive-navigator, story-writer, planner, architect, constructor, etc.
@@ -51,7 +51,7 @@ core (base)       standards (base)
 work ─ ─ ─ ─ ─
 ```
 
-Each plugin declares `dependencies` in its `plugin.json`. Cross-plugin `${CLAUDE_PLUGIN_ROOT}/../<name>/` references must only target declared dependencies. Soft references (skill preloads, subagent invocations) do not require a declared dependency — they are used when the referenced plugin is installed but do not prevent the caller from functioning without it. Core has soft references to work (context-aware routing) and standards (scan). Work has soft references to standards (lead skill preloads, writer subagent invocations).
+Each plugin declares `dependencies` in its `plugin.json`. Cross-plugin `${CLAUDE_PLUGIN_ROOT}/../<name>/` references must only target declared dependencies. Soft references (skill preloads, subagent invocations) do not require a declared dependency — they are used when the referenced plugin is installed but do not prevent the caller from functioning without it. Core has a soft reference to work (context-aware routing in `/report` and `/ship`). Work has soft references to standards (leading skill preloads, writer subagent invocations).
 
 ### Design Principle
 
@@ -125,7 +125,6 @@ bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/check-worktrees.sh
 | -------------------------------- | ------------------------------------------------ |
 | `/ticket <description>`          | Write implementation spec for a feature          |
 | `/drive`                         | Implement queued specs one by one                |
-| `/scan`                          | Full documentation scan (all 14 agents)          |
 | `/report`                        | Context-aware: generate story or journey report and create PR |
 | `/ship`                          | Context-aware: merge PR, deploy, and verify      |
 | `/release [major\|minor\|patch]` | Release new marketplace version                  |

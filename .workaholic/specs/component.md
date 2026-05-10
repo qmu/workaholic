@@ -10,7 +10,7 @@ commit_hash: f76bde2
 
 # Component Viewpoint
 
-The Component Viewpoint describes the internal structure of the Workaholic marketplace, its module boundaries, and how the system decomposes into plugins, commands, agents, skills, and rules. The marketplace contains three plugins: core (shared utilities and context-aware commands), standards (the four leading skills, leaders-principle, analyze-* skills, write-* skills, and the writer/analyst agents that produce documentation), and work (the `/ticket`, `/drive`, and `/trip` commands plus their orchestrators). All three plugins are organized in strict hierarchical architectures that enforce separation of concerns through nesting policies.
+The Component Viewpoint describes the internal structure of the Workaholic marketplace, its module boundaries, and how the system decomposes into plugins, commands, agents, skills, and rules. The marketplace contains three plugins: core (shared utilities and context-aware commands), standards (the four leading skills, analyze-* skills, write-* skills, and the writer/analyst agents that produce documentation), and work (the `/ticket`, `/drive`, and `/trip` commands plus their orchestrators). All three plugins are organized in strict hierarchical architectures that enforce separation of concerns through nesting policies.
 
 ## Module Boundaries
 
@@ -152,10 +152,6 @@ Skills are the knowledge layer, organized by domain. Each skill directory contai
 - `leading-availability` -- CI/CD, vendor neutrality, IaC, observability, recovery
 - `leading-security` -- Secure-by-design defaults, ISMS-style risk management, defense in depth
 - `leading-accessibility` -- Universal reach, modeless design, tool-first interaction
-
-##### Principle Skills (1)
-
-- `leaders-principle` -- Cross-cutting principles for all leads (Prior Term Consistency, Vendor Neutrality)
 
 ##### Analysis Skills (3)
 
@@ -321,10 +317,6 @@ flowchart LR
         LAc[leading-accessibility]
     end
 
-    subgraph "Principle Skill"
-        LeadP[leaders-principle]
-    end
-
     subgraph "Trip Skills"
         TP[trip-protocol]
     end
@@ -376,7 +368,6 @@ The parameterized `lead` agent is responsible for:
 - Loading the matching `leading-<domain>` skill based on its prompt parameter
 - Deriving its viewpoint directly from the codebase (no upstream context source)
 - Producing domain-specific policy documents when invoked for documentation generation
-- Observing `leaders-principle` (Prior Term Consistency, Vendor Neutrality)
 - Documenting observable practices rather than aspirational recommendations
 
 The four leading skills (`leading-validity`, `leading-availability`, `leading-security`, `leading-accessibility`) are also preloaded directly into work-plugin commands and agents (`/drive`, `ticket-organizer`, `planner`, `architect`, `constructor`) where they act as policy lenses rather than producers.

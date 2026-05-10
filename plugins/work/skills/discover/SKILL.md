@@ -280,7 +280,7 @@ Examine these locations for standards evidence:
 - Plugin rules directories (e.g., `plugins/*/rules/`)
 - `README.md` files at root and plugin level
 - Configuration files (`tsconfig.json`, `.eslintrc`, `.prettierrc`, `package.json`, etc.)
-- Standards plugin content (`plugins/standards/`) — leading skills (`leading-*/SKILL.md`) are the canonical policy source; `leaders-principle/SKILL.md` carries cross-cutting principles
+- Standards plugin content (`plugins/standards/`) — leading skills (`leading-*/SKILL.md`) are the canonical policy source
 
 ### Discovery Categories
 

@@ -22,7 +22,7 @@ plugins/                 # Plugin source directories
   standards/             # Standards policy plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
     agents/              # lead, writers, analysts
-    skills/              # leading-*, leaders-principle, analyze-*, write-*
+    skills/              # leading-*, analyze-*, write-*
   work/                  # Work plugin: drive + trip workflows (depends on: core)
     .claude-plugin/      # Plugin configuration
     agents/              # drive-navigator, story-writer, planner, architect, constructor, etc.

@@ -252,12 +252,10 @@ The four leading skills function as policy lenses, preloaded into work-plugin co
 
 | Feature | Description | Leading Skill |
 | --- | --- | --- |
-| Logical comprehensiveness | Type-driven design, layer segregation, functional style, relational-first persistence | `leading-validity` |
-| Operational continuity | CI/CD automation, vendor neutrality, IaC, observability, scenario-based recovery | `leading-availability` |
+| Logical comprehensiveness | Type-driven design, layer segregation, functional style, relational-first persistence, ubiquitous language | `leading-validity` |
+| Operational continuity | CI/CD automation, vendor neutrality, IaC, observability, scenario-based recovery, deliberate dependency coupling | `leading-availability` |
 | Preservation of trust | Secure-by-design defaults, ISMS-style risk management, defense in depth | `leading-security` |
 | Universal reach | Accessibility-first structure, modeless design, tool-first interaction | `leading-accessibility` |
-| Prior term consistency | Respect existing terminology | `leaders-principle` |
-| Vendor neutrality | Minimize dependencies, manage coupling | `leaders-principle` |
 
 ### Lead Lens Mapping
 

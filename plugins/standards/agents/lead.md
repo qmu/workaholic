@@ -3,7 +3,6 @@ name: lead
 description: Parameterized lead agent that owns a specific policy or viewpoint domain. Receives the domain as a prompt parameter and applies the corresponding lead skill.
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
-  - leaders-principle
   - leading-validity
   - leading-availability
   - leading-security

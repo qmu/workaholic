@@ -24,9 +24,9 @@ The responsibility of availability leadership is to keep the running system answ
 
 CI/CD automation establishes a pipeline from commit to deployment before other infrastructure work. Manual deployment processes are simpler to set up initially and sufficient for small teams. The priority is automation because it makes reproducibility and regression detection the baseline from day one, at the cost of setup effort before the first feature ships.
 
-## Vendor Neutrality and Portability
+## Vendor Neutrality
 
-Vendor neutrality weighs infrastructure choices by how easily they could be replaced. Deeply integrated managed services offer convenience, faster delivery, and less operational burden. The preference is for portable abstractions because they preserve the option to migrate, at the cost of more in-house integration work.
+Vendor neutrality weighs every dependency — across application, middleware, infrastructure, and development tooling — by how easily it could be replaced. External libraries and managed services offer convenience, faster delivery, and less in-house effort. The preference is for in-house implementation and portable abstractions because they preserve the option to migrate and reduce surface area exposed to upstream change, at the cost of more integration work and reinvention. An external dependency is adopted only when in-house implementation is demonstrably unreasonable — significant effort saved, the dependency well-maintained, and no viable simple alternative.
 
 ## Infrastructure as Code
 
@@ -49,5 +49,9 @@ Recovery plans are built around concrete failure scenarios, not abstract availab
 ### Automated Diagnosis and Self-Healing
 
 Infrastructure and delivery pipelines are designed to detect failures and recover without human intervention where possible. Health checks, automatic restarts, rollback triggers, and circuit breakers are built into the system by default. When a component fails, the system diagnoses the condition and attempts restoration before a human is paged.
+
+### Deliberate Dependency Coupling
+
+When an external dependency is adopted, manage how it touches the codebase. Confine imports to a vendor-specific module or single boundary, or ensure the dependency only takes and returns language or domain primitives so the integration surface stays small. Track the dependency for known vulnerabilities and license compatibility. Evaluate maintenance activity, bus factor, and funding model before adopting, and document an exit strategy — what would replacing the dependency require? Flag any new dependency introduction during review and require justification for why an in-house implementation is unreasonable. Prefer standard library or platform-native solutions over third-party alternatives where the gap is small.
 
 ## Standards

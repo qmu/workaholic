@@ -51,6 +51,10 @@ Domain-persistence segregation shapes domain models around the business, not aro
 
 Event sourcing records every state transition rather than only the latest snapshot. Snapshot-only storage is simpler, cheaper to operate, and sufficient for most domains. It is kept within reach so that domains demanding temporal reasoning or replay can adopt it without restructuring.
 
+## Ubiquitous Language
+
+A single concept is referred to by a single term across code, documentation, and configuration. Allowing each module to coin its own vocabulary is faster in the moment and lets local naming optimize for local context. The priority is consistency because divergent names for the same concept undermine comprehensibility as surely as a type error — readers cannot reason about something they cannot name confidently. Before introducing a new term, search the codebase for an existing term that covers the same concept and use it. Prefer one word; use two when one is ambiguous, three only as a last resort. When renaming or consolidating terms, update all references in the affected scope in the same change.
+
 ## Practices
 
 ### Real Components Over Mocks

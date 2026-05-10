@@ -171,7 +171,7 @@ user-invocable: false                     # true only for user-facing commands
 
 Skill frontmatter includes a `user-invocable` boolean field that distinguishes between internal skills (false) and user-facing command skills (true). The field marks domain skills and cross-cutting principle skills as non-invocable, ensuring only commands can be invoked directly by users.
 
-The four leading skills (`leading-validity`, `leading-availability`, `leading-security`, `leading-accessibility`) and the cross-cutting `leaders-principle` skill all set `user-invocable: false`. They are preloaded by commands and agents rather than triggered by users.
+The four leading skills (`leading-validity`, `leading-availability`, `leading-security`, `leading-accessibility`) all set `user-invocable: false`. They are preloaded by commands and agents rather than triggered by users.
 
 ## JSON Configuration Schemas
 
@@ -549,7 +549,7 @@ The standards plugin's leading skills follow the schema defined in `.claude/rule
 | `description` | Domain responsibility | Same |
 | `user-invocable` | `false` (required) | N/A (agents don't have this) |
 | `tools` | N/A (skills don't have this) | All 6 standard tools |
-| `skills` | N/A | Preloads `leaders-principle` and all four `leading-*` skills, plus `analyze-viewpoint` and `analyze-policy` |
+| `skills` | N/A | Preloads all four `leading-*` skills, plus `analyze-viewpoint` and `analyze-policy` |
 | Schema file | `.claude/rules/define-lead.md` | Same schema as lead skill |
 
 Lead skills follow a four-tier structure: Role (with Goal and Responsibility), Policies, Practices, and Standards.
@@ -562,7 +562,7 @@ Lead skills follow a four-tier structure: Role (with Goal and Responsibility), P
 - [Explicit] The PostToolUse hook runs with a 10-second timeout on every Write and Edit operation, as configured in `hooks.json`.
 - [Explicit] The `update-ticket-frontmatter` skill validates `effort` values using a hardcoded allowlist, as documented in the shell script validation fix (ticket `20260207170806-fix-effort-invalid-value-root-cause.md`).
 - [Explicit] Version synchronization across `marketplace.json` and the three plugin `plugin.json` files (core, standards, work) is required during releases, as documented in `CLAUDE.md` version management section.
-- [Explicit] The `user-invocable: false` field distinguishes internal skills from user-facing commands. All four leading skills and the cross-cutting `leaders-principle` skill set this field to false.
+- [Explicit] The `user-invocable: false` field distinguishes internal skills from user-facing commands. All four leading skills set this field to false.
 - [Explicit] The four leading skills (`leading-validity`, `leading-availability`, `leading-security`, `leading-accessibility`) are preloaded by work-plugin commands and orchestrators via the soft cross-plugin reference pattern.
 - [Explicit] Schema enforcement for leads is defined in `.claude/rules/define-lead.md`.
 - [Inferred] The inconsistency between `modified_at` (datetime) in specs and `last_updated` (date) in terms represents a historical artifact that has been noted but not resolved, based on the `inconsistencies.md` document.

@@ -189,8 +189,6 @@ Skills serve four distinct purposes in the architecture:
 
 **Lead domain skills** define role-specific responsibilities and policies. These skills are preloaded by agents and never invoked by users directly. The four leading skills (`leading-validity`, `leading-availability`, `leading-security`, `leading-accessibility`) cover logical comprehensiveness, operational continuity, preservation of trust, and universal reach respectively.
 
-**Cross-cutting policy skills** define behavioral policies that apply across multiple agents. The `leaders-principle` skill provides Prior Term Consistency and Vendor Neutrality rules for all lead agents.
-
 **Workflow operation skills** orchestrate multi-step processes with bundled shell scripts. Examples include `gather-git-context` (outputs JSON with branch, base_branch, repo_url) and `gather-ticket-metadata` (outputs JSON with date, author, filename timestamp).
 
 **Documentation generation skills** provide templates and guidelines for writing structured documents. Examples include `write-spec` (viewpoint-based architecture specs), `analyze-viewpoint` (generic viewpoint analysis framework), and `translate` (i18n policies for markdown files).
@@ -378,7 +376,7 @@ The standards plugin exposes a single parameterized `lead` agent that loads the 
 
 [Explicit] The `.claude/settings.json` file explicitly denies the Bash command pattern `git -C:*`.
 
-[Explicit] The parameterized `lead` agent preloads `leaders-principle` together with all four `leading-*` skills.
+[Explicit] The parameterized `lead` agent preloads all four `leading-*` skills.
 
 [Inferred] The symlink architecture from `.claude/` to `plugins/drivin/` is inferred from the project structure rule "Edit `plugins/` not `.claude/`" and the marketplace installation pattern, though no explicit symlink creation code was observed.
 

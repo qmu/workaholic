@@ -3,9 +3,9 @@ created_at: 2026-05-14T15:47:37+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: d542603
+category: Changed
 depends_on:
 ---
 
@@ -374,3 +374,14 @@ Past tickets that touched similar areas:
   - Each agent: ~10-15 lines total (frontmatter included). Current sizes are 40-42 lines; target reduction ~70%.
   - `/trip` command: ~10-15 lines total. Current size 100 lines; target reduction ~85%.
   - `core:trip-protocol/SKILL.md` will grow from 145 to ~280-320 lines as it absorbs the migrated content.
+
+## Final Report
+
+Development completed as planned. Final line counts hit the targets: planner 40->20, architect 40->20, constructor 42->21, /trip 100->16, trip-protocol/SKILL.md 145->288 (within projected range).
+
+### Discovered Insights
+
+- **Insight**: The `${CLAUDE_PLUGIN_ROOT}` placeholder resolves to the *owning* plugin, not the caller. When content moves between plugin boundaries, every script path inside must be rewritten in lockstep (cross-plugin `../<plugin>/skills/...` <-> same-plugin `skills/...`).
+  **Context**: This is the load-bearing semantic for every future content migration. The ship and trip migrations both confirmed it.
+- **Insight**: The three role agents ended up byte-for-byte parallel after thinning (frontmatter + 6-line body referring to skill sections + I/O contract). Near-perfect parallelism is a candidate for further consolidation if the Codex-spec format supports role parameterization.
+  **Context**: For future spec migrations, three near-identical agent files could become one parameterized agent declaration that the skill instantiates per role.

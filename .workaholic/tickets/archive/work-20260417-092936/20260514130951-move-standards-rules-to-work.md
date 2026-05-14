@@ -3,9 +3,9 @@ created_at: 2026-05-14T13:09:51+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 5454bc2
+category: Changed
 depends_on:
 ---
 
@@ -115,3 +115,12 @@ Past tickets that touched similar areas:
 
  ## Architecture Policy
 ```
+
+## Final Report
+
+Development completed as planned. The move was purely mechanical (three `git mv` operations plus a one-line CLAUDE.md update). After the move, the empty `plugins/standards/rules/` and `plugins/standards/agents/` directories were removed with `rmdir`, leaving `plugins/standards/` with exactly the target shape: `.claude-plugin/plugin.json` plus four `skills/leading-*/SKILL.md` files.
+
+### Discovered Insights
+
+- **Insight**: Path-scope rules (`paths:` glob in frontmatter, auto-loaded when matching files are edited) are the easiest plugin asset to relocate -- they have zero callers and zero name-based references. The whole ticket compiled to three file moves and one documentation line. Compare with skills (which carry frontmatter `skills:` preload entries and inline `${CLAUDE_PLUGIN_ROOT}` paths) or agents (which carry both preloads and `Task` invocation call sites).
+  **Context**: When choosing where new project-wide conventions should live (style rules, formatting guidelines, document templates), express them as path-scope rule files rather than skill preloads when possible. The relocation cost is dramatically lower if the plugin boundary ever shifts.

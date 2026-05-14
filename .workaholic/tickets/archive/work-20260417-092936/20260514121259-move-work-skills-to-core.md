@@ -3,9 +3,9 @@ created_at: 2026-05-14T12:12:59+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: e7be431
+category: Changed
 depends_on:
 ---
 
@@ -379,3 +379,14 @@ Past tickets that touched similar areas:
    - branching
  ---
 ```
+
+## Final Report
+
+Development completed as planned. Both verification grep checks (work refs into moved skills, core same-plugin paths) returned zero stale references after the rewrite pass.
+
+### Discovered Insights
+
+- **Insight**: The `trip-protocol` SKILL.md "Script base paths" table previously labeled the two base paths as "core scripts" and "work scripts", which described *plugin ownership* rather than *script purpose*. After the move both paths sit in core, so the table now distinguishes them by script family ("branching scripts" vs "trip-protocol scripts").
+  **Context**: When skills relocate between plugins, descriptive prose that pivots on plugin names (rather than functional roles) becomes stale. Future similar moves should audit not just `${CLAUDE_PLUGIN_ROOT}` paths but also documentation phrasing that implicitly names a plugin.
+- **Insight**: The interim patch to `plugins/core/commands/{report,ship}.md` (changing `work:trip-protocol` to `trip-protocol`) is only correct between this ticket and the companion ticket landing. Once the companion ticket relocates these command files into work, the entry must become `core:trip-protocol`. The patch is therefore correct *for the current intermediate state* but will be rewritten by the companion ticket.
+  **Context**: Two-step refactors that share artifacts need explicit reconciliation notes; this ticket's commit leaves the system internally consistent without requiring the companion ticket to land first.

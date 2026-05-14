@@ -2,7 +2,7 @@
 name: ship
 description: Context-aware ship workflow - merge PR, deploy, and verify (with worktree cleanup for trips).
 skills:
-  - work:trip-protocol
+  - trip-protocol
   - ship
   - branching
 ---

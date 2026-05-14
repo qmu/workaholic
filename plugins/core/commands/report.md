@@ -2,7 +2,7 @@
 name: report
 description: Context-aware report generation and PR creation for drive and trip workflows.
 skills:
-  - work:trip-protocol
+  - trip-protocol
   - branching
 ---
 

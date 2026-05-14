@@ -5,7 +5,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash
 model: opus
 color: red
 skills:
-  - trip-protocol
+  - core:trip-protocol
   - standards:leading-validity
   - standards:leading-accessibility
   - standards:leading-security

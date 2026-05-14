@@ -2,7 +2,7 @@
 name: trip
 description: Launch Agent Teams session with Planner, Architect, and Constructor
 skills:
-  - trip-protocol
+  - core:trip-protocol
 ---
 
 # Trip
@@ -16,7 +16,7 @@ Launch an Agent Teams session to collaboratively explore and develop a concept t
 ## Pre-check: Dependencies
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/check-deps/scripts/check.sh
+bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/check-deps/scripts/check.sh
 ```
 
 If `ok` is `false`, display the `message` to the user and stop.
@@ -33,7 +33,7 @@ If `count > 0`, present choices via AskUserQuestion: list each existing worktree
 
 **Resume (worktree)**: Use selected worktree's path/branch. Read plan state:
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/read-plan.sh "<trip-path>"
+bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/trip-protocol/scripts/read-plan.sh "<trip-path>"
 ```
 Route by state: `planning/not-started` -> Step 3, any other planning/coding step -> Step 4 with resume context, `complete/done` -> inform user and suggest `/report`.
 
@@ -56,13 +56,13 @@ Route by state: `planning/not-started` -> Step 3, any other planning/coding step
 ## Step 2: Initialize Trip Artifacts
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/init-trip.sh "<trip-name>" "$ARGUMENT" "<working_dir>"
+bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/trip-protocol/scripts/init-trip.sh "<trip-name>" "$ARGUMENT" "<working_dir>"
 ```
 
 ## Step 3: Validate Dev Environment
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/validate-dev-env.sh "<working_dir>"
+bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/trip-protocol/scripts/validate-dev-env.sh "<working_dir>"
 ```
 
 If `ready` is false, fix each failing check (copy env files, install dependencies, configure ports) and re-run.

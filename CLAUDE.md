@@ -18,7 +18,7 @@ plugins/                 # Plugin source directories
   core/                  # Core shared plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
     commands/            # report, ship
-    skills/              # branching, commit, gather-git-context, gather-ticket-metadata, ship, system-safety
+    skills/              # branching, check-deps, commit, create-ticket, discover, drive, gather-git-context, gather-ticket-metadata, report, ship, system-safety, trip-protocol
   standards/             # Standards policy plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
     agents/              # lead, writers, analysts
@@ -29,7 +29,6 @@ plugins/                 # Plugin source directories
     commands/            # ticket, drive, trip
     hooks/               # ticket validation
     rules/               # general, workaholic
-    skills/              # create-ticket, discover, drive, report, trip-protocol, check-deps
 ```
 
 ## Architecture Policy

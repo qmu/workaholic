@@ -42,8 +42,8 @@ All scripts use absolute paths from home directory.
 | `log-event.sh <trip-path> <agent> <event-type> <target> <impact>` | work | Append to event-log.md |
 
 Script base paths:
-- **core scripts**: `${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/`
-- **work scripts**: `${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/`
+- **branching scripts**: `${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/`
+- **trip-protocol scripts**: `${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/`
 
 ## Artifact Storage
 
@@ -130,7 +130,7 @@ Applies to projects with user-facing interfaces (web, CLI, API). Planner detects
 
 ## System Safety
 
-Before implementation, Constructor runs: `bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/system-safety/scripts/detect.sh`. If `system_changes_authorized` is false, use project-local alternatives only.
+Before implementation, Constructor runs: `bash ${CLAUDE_PLUGIN_ROOT}/skills/system-safety/scripts/detect.sh`. If `system_changes_authorized` is false, use project-local alternatives only.
 
 ## Written Language Policy
 

@@ -2,7 +2,7 @@
 title: Use Case Viewpoint
 description: User workflows, command sequences, and input/output contracts
 category: developer
-modified_at: 2026-03-10T00:58:20+09:00
+modified_at: 2026-05-14T12:44:05+09:00
 commit_hash: f76bde2
 ---
 
@@ -371,7 +371,7 @@ The four leading skills (`leading-validity`, `leading-availability`, `leading-se
 - [Explicit] The `/drive` command processes tickets sequentially with human approval between each, as documented in drive command instructions.
 - [Explicit] The `/report` command delegates to story-writer, which orchestrates 4 agents in stage 1 and 2 agents in stage 2.
 - [Explicit] The `/trip` command creates a worktree, initializes trip artifacts, and launches a 3-member Agent Team, as documented in trip.md.
-- [Explicit] The drive approval flow requires ticket title and overview with CRITICAL enforcement, as documented in `plugins/work/skills/drive/SKILL.md` Approval section and `plugins/work/commands/drive.md` Step 2.2.
+- [Explicit] The drive approval flow requires ticket title and overview with CRITICAL enforcement, as documented in `plugins/core/skills/drive/SKILL.md` Approval section and `plugins/work/commands/drive.md` Step 2.2.
 - [Explicit] Trip sessions require the Agent Teams experimental feature flag, as documented in trip.md prerequisites.
 - [Explicit] Every trip workflow step produces a git commit via trip-commit.sh, as documented in trip-protocol SKILL.md.
 - [Explicit] Version bumping updates four files (marketplace.json plus the three plugin.json files for core, standards, work), as documented in CLAUDE.md Version Management.

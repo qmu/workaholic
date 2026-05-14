@@ -6,7 +6,7 @@ set -e
 
 # Print reference to authoritative skill documentation
 print_skill_reference() {
-  echo "See: plugins/work/skills/create-ticket/SKILL.md" >&2
+  echo "See: plugins/core/skills/create-ticket/SKILL.md" >&2
 }
 
 # Read JSON from stdin

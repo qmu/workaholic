@@ -3,6 +3,10 @@ name: create-ticket
 description: Create implementation tickets with proper format and conventions.
 skills:
   - gather
+  - standards:leading-validity
+  - standards:leading-accessibility
+  - standards:leading-security
+  - standards:leading-availability
 user-invocable: false
 ---
 
@@ -86,6 +90,119 @@ Format: `YYYYMMDDHHmmss-<short-description>.md`
 Use current timestamp: `date +%Y%m%d%H%M%S`
 
 Example: `20260114153042-add-dark-mode.md`
+
+## Workflow
+
+Followed by `work:ticket-organizer`. Skills cannot invoke subagents or AskUserQuestion directly; the steps below describe what the loading agent must do.
+
+### 1. Check Branch
+
+Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check.sh`. If `on_main` is true, create a topic branch via `${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh` and record the returned branch name as `branch_created` for the output JSON. Trip branches (`trip/*`) return `on_main: false` and skip branch creation; tickets go to `.workaholic/tickets/todo/` regardless of branch type.
+
+### 2. Parallel Discovery
+
+Invoke `work:discoverer` three times in parallel via the Task tool (single message with three Task calls), `model: "opus"`, one per mode:
+
+- **history** (`subagent_type: "work:discoverer"`, mode: `history`): Returns JSON with summary, tickets list, match reasons, and `moderation` field (status/matches/recommendation).
+- **source** (`subagent_type: "work:discoverer"`, mode: `source`): Returns JSON with summary, files list, code_flow, and optional snippets.
+- **policy** (`subagent_type: "work:discoverer"`, mode: `policy`): Returns JSON with summary, policies list, and architecture (principles, dependency_rules).
+
+Wait for all three to complete before proceeding.
+
+### 3. Handle Moderation Result
+
+Based on the history discoverer's `moderation` field:
+
+- `moderation.status: "duplicate"` — Return `status: "duplicate"` with existing ticket path.
+- `moderation.status: "needs_decision"` — Return `status: "needs_decision"` with merge/split options.
+- `moderation.status: "clear"` — Proceed to step 4.
+
+### 4. Evaluate Complexity
+
+- **Split when**: multiple independent features, unrelated layers, multiple commits needed.
+- **Keep single when**: tightly coupled, shared context, small enough for one commit.
+- If splitting: 2-4 discrete tickets, each independently implementable.
+
+### 5. Write Ticket(s)
+
+Follow the rest of this skill for format and content. Apply the Lead Lens table (below) to map the ticket's `layer` field to the relevant `standards:leading-*` skill — its policies, practices, and standards govern the ticket's Implementation Steps, Considerations, and Patches.
+
+Populate sections from the three discovery JSONs:
+
+- **history → Related History**: `summary` field provides the synthesis sentence; `tickets` array provides the bullet list with paths and match reasons.
+- **source → Key Files**: `files` array provides paths and relevance descriptions.
+- **source → Implementation Steps**: reference `code_flow`.
+- **source.snippets → Patches**: generate unified diffs from snippets. Follow the patch guidelines in this skill. Mark patches as speculative if based on interpretation rather than explicit requirements. Omit the Patches section if changes cannot be expressed as concrete diffs.
+- **policy → Considerations**: reference relevant `policies` that the implementation must follow; note `architecture.principles` and `architecture.dependency_rules` that constrain the design.
+
+**If splitting**:
+- Unique timestamp per ticket (add 1 second between).
+- First ticket is foundation.
+- Populate `depends_on` in dependent tickets:
+  - Determine dependency order among the split tickets.
+  - The first ticket (foundation) has no `depends_on` (leave empty).
+  - Subsequent tickets that depend on earlier ones list the prerequisite filenames in `depends_on` (e.g., `depends_on: [20260410002111-foundation.md]`).
+  - Only add dependencies where there is a genuine implementation ordering requirement (shared files, API contracts, schema changes needed first).
+- Cross-reference in the Considerations section.
+
+### 6. Handle Ambiguity
+
+If the request is ambiguous, return `status: "needs_clarification"` with a `questions` array.
+
+## Output Contract
+
+Return one of:
+
+```json
+{
+  "status": "success",
+  "branch_created": "work-20260202-181910",
+  "tickets": [
+    {
+      "path": ".workaholic/tickets/todo/20260131-feature.md",
+      "title": "Ticket Title",
+      "summary": "Brief one-line summary"
+    }
+  ]
+}
+```
+
+Note: `branch_created` is optional — only included if a new branch was created in step 1.
+
+Or if duplicate:
+
+```json
+{
+  "status": "duplicate",
+  "existing_ticket": ".workaholic/tickets/todo/20260130-existing.md",
+  "reason": "Existing ticket already covers this functionality"
+}
+```
+
+Or if decision needed:
+
+```json
+{
+  "status": "needs_decision",
+  "decision_type": "merge|split",
+  "details": "Description of the situation",
+  "options": [
+    {"label": "Option 1", "description": "What this does"},
+    {"label": "Option 2", "description": "What this does"}
+  ]
+}
+```
+
+Or if clarification needed:
+
+```json
+{
+  "status": "needs_clarification",
+  "questions": ["Question 1?", "Question 2?"]
+}
+```
+
+**CRITICAL**: Never implement code changes — only discover context and write tickets. Never commit. Never use AskUserQuestion (the command relays decisions/clarifications). Return JSON only.
 
 ## File Structure
 

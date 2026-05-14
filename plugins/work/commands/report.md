@@ -2,8 +2,8 @@
 name: report
 description: Context-aware report generation and PR creation for drive and trip workflows.
 skills:
-  - trip-protocol
-  - branching
+  - core:trip-protocol
+  - core:branching
 ---
 
 # Report
@@ -17,7 +17,7 @@ Context-aware report command that auto-detects whether you are in a drive or tri
 ### Step 0: Workspace Guard
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-workspace.sh
+bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/check-workspace.sh
 ```
 
 Parse the JSON output. If `clean` is `true`, proceed silently to Step 1.
@@ -31,7 +31,7 @@ If the user selects "Stop", end the command immediately.
 ### Step 1: Detect Context
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/detect-context.sh
+bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/detect-context.sh
 ```
 
 Parse the JSON output. Route to the appropriate workflow based on `context`.
@@ -44,14 +44,14 @@ Route by `mode` from detect-context output:
 
 ##### Drive Mode (`mode: "drive"`)
 
-1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
+1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
 2. **Invoke story-writer** (`subagent_type: "work:story-writer"`, `model: "opus"`)
 3. **Display story content**: Read the story file from the `story_file` path in the story-writer result and output the entire Markdown content so the developer can review inline
 4. **Display PR URL** from story-writer result (mandatory)
 
 ##### Trip Mode (`mode: "trip"`)
 
-1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
+1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
 2. **Invoke story-writer** (`subagent_type: "work:story-writer"`, `model: "opus"`)
 3. **Display story content**: Read the story file from the `story_file` path in the story-writer result and output the entire Markdown content so the developer can review inline
 4. **Display PR URL** from story-writer result (mandatory)
@@ -64,7 +64,7 @@ Both trip artifacts and drive-style tickets exist on this branch. Both Drive Mod
 
 Not on a work branch, but worktrees exist.
 
-1. Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/list-worktrees.sh`
+1. Run `bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/list-worktrees.sh`
 2. Filter to worktrees where `has_pr` is `false` (unreported work)
 3. If no unreported worktrees found: inform the user "No unreported worktrees found." and stop.
 4. If exactly one unreported worktree: ask the user "Found worktree '<name>'. Generate report?" using AskUserQuestion. If confirmed, use it.

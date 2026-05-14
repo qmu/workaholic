@@ -3,9 +3,9 @@ created_at: 2026-05-14T15:47:49+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: d850a9a
+category: Changed
 depends_on:
 ---
 
@@ -277,3 +277,12 @@ No patch. Audit only (see step 1).
 - **Availability lens (CI/CD Automation First, Observable by Design).** No CI/CD or telemetry change. The refactor is structural; runtime behavior is unchanged. Use a single `git mv`-free commit because no file is renamed — content is rewritten in place across two files. The commit message should be something like "Thin /ship command into core:ship; verify discoverer already thin" so the changelog clearly attributes the size delta. (`plugins/standards/skills/leading-availability/SKILL.md`)
 - **Cross-reference the four sibling tickets.** This is the smallest of five. Each sibling thins a different umbrella using the same pattern (work-side body absorbed into core skill; `standards:leading-*` preloads — if any — migrated per rule #2). The siblings can land in any order; their content scopes are disjoint. This ticket establishes the pattern and the verification recipe; the others reuse both. (Cross-references to be added when the four sibling tickets are created.)
 - **No security or accessibility lens applies.** No auth, secrets, input validation, or user-facing UX surface is touched. `leading-security` and `leading-accessibility` policies are inactive for this ticket. (`plugins/standards/skills/leading-security/SKILL.md`, `plugins/standards/skills/leading-accessibility/SKILL.md`)
+
+## Final Report
+
+Development completed as planned. `/ship` reduced from 79 -> 14 lines. Four workflow sections absorbed into `core:ship` as new sections 3-6. All 10 unique script paths rewritten to same-plugin form. All 7 user-facing AskUserQuestion option strings preserved verbatim. `discoverer.md` audited and confirmed already thin at 30 lines.
+
+### Discovered Insights
+
+- **Insight**: The path-direction flip (cross-plugin `${CLAUDE_PLUGIN_ROOT}/../core/skills/...` -> same-plugin `${CLAUDE_PLUGIN_ROOT}/skills/...`) is the only mechanical hazard in the entire thinning playbook. A single grep catches every miss.
+  **Context**: Future sibling tickets should run this grep against the target skill file after every content move: "after moving content into `plugins/core/skills/X/SKILL.md`, grep for `../core/` in that file and expect zero hits."

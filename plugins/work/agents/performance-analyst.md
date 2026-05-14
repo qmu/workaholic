@@ -3,7 +3,7 @@ name: performance-analyst
 description: Evaluate decision-making quality across five viewpoints
 skills:
   - core:gather-git-context
-  - standards:analyze-performance
+  - core:analyze-performance
 ---
 
 # Performance Analyst
@@ -15,7 +15,7 @@ Analyze a development branch's decision-making quality.
 1. **Gather context** using the preloaded gather-git-context skill
 2. **Calculate metrics** using the preloaded analyze-performance skill:
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/../standards/skills/analyze-performance/scripts/calculate.sh <base_branch>
+   bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/analyze-performance/scripts/calculate.sh <base_branch>
    ```
 3. **Analyze performance** following the preloaded analyze-performance skill for evaluation framework, output format, and guidelines
 

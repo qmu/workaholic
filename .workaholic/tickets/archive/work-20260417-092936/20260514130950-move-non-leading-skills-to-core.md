@@ -3,9 +3,9 @@ created_at: 2026-05-14T13:09:50+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: a0302fa
+category: Changed
 depends_on:
 ---
 
@@ -338,3 +338,14 @@ Past tickets that touched similar areas:
 ```
 
 > **Note**: The `agents/` line removal is owned by the companion `20260514130949-move-standards-agents-to-work.md` ticket. This patch shows the post-both-tickets final state for clarity; whichever ticket lands second reconciles to the same line set.
+
+## Final Report
+
+Development completed as planned. The companion agents-move ticket landed first, so the rewrites applied to `plugins/work/agents/` (not `plugins/standards/agents/`), flipping `standards:<skill>` -> `core:<skill>` in frontmatter and `${CLAUDE_PLUGIN_ROOT}/../standards/skills/...` -> `${CLAUDE_PLUGIN_ROOT}/../core/skills/...` in inline paths. All four verification greps returned zero stale references.
+
+### Discovered Insights
+
+- **Insight**: After this ticket, `plugins/standards/` contains *only* `.claude-plugin/plugin.json` and `skills/leading-{accessibility,availability,security,validity}/`. It has zero outgoing dependencies (declared or soft) and serves purely as a passive policy library. This is the most minimal possible identity for a Claude Code plugin that still has substance -- manifest plus four self-contained skills.
+  **Context**: When designing new policy/standards plugins, aim for this same identity. If a plugin needs `scripts/` for analysis or `agents/` for orchestration, it has crossed into the workflow tier and should be split.
+- **Insight**: The `core` plugin's `skills/` directory now holds 22 skills across multiple families (workflow, analysis, writing, review/validation). The boundary between core (reusable) and standards (policy) is now sharply enforced. If core grew further, the next natural split would be by skill family (workflow vs analysis vs writing), not by reusability.
+  **Context**: Track core skill count; if it crosses ~30-40 the family-based split should be revisited.

@@ -4,7 +4,7 @@ description: Generate overview content for story by analyzing commit history.
 tools: Read, Bash, Glob, Grep
 model: haiku
 skills:
-  - standards:write-overview
+  - core:write-overview
 ---
 
 # Overview Writer
@@ -22,7 +22,7 @@ You will receive:
 
 1. **Collect Commits**: Run the write-overview skill script:
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/../standards/skills/write-overview/scripts/collect-commits.sh <base-branch>
+   bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/write-overview/scripts/collect-commits.sh <base-branch>
    ```
 
 2. **Analyze Commit Patterns**: Group commits by theme, identify phases, extract key changes.

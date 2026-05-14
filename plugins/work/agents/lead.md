@@ -7,9 +7,9 @@ skills:
   - standards:leading-availability
   - standards:leading-security
   - standards:leading-accessibility
-  - standards:analyze-policy
-  - standards:analyze-viewpoint
-  - standards:write-spec
+  - core:analyze-policy
+  - core:analyze-viewpoint
+  - core:write-spec
 ---
 
 # Lead

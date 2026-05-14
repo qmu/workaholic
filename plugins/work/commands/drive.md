@@ -2,7 +2,7 @@
 name: drive
 description: Implement tickets from .workaholic/tickets/ one by one, commit each, and archive.
 skills:
-  - drive
+  - core:drive
   - core:system-safety
   - standards:leading-validity
   - standards:leading-accessibility
@@ -21,7 +21,7 @@ Implement tickets from `.workaholic/tickets/todo/` using intelligent prioritizat
 ### Pre-check: Dependencies
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/check-deps/scripts/check.sh
+bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/check-deps/scripts/check.sh
 ```
 
 If `ok` is `false`, display the `message` to the user and stop.
@@ -84,7 +84,7 @@ Follow the preloaded **drive** skill (Approval section) to present approval dial
 2. **Verify update succeeded**: If Edit tool fails, halt and report the error to user. DO NOT proceed to archive.
 3. Archive and commit by calling the archive script directly:
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/archive.sh \
+   bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/drive/scripts/archive.sh \
      <ticket-path> "<title>" <repo-url> "<description>" "<changes>" "<test-plan>" "<release-prep>"
    ```
    Where `<ticket-path>` is the current ticket file path in `todo/`, `<title>` is the commit title,

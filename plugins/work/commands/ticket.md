@@ -18,7 +18,7 @@ Thin alias for ticket-organizer subagent.
 ### Pre-check: Dependencies
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/check-deps/scripts/check.sh
+bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/check-deps/scripts/check.sh
 ```
 
 If `ok` is `false`, display the `message` to the user and stop.

@@ -4,7 +4,7 @@ description: Context discovery agent supporting history, source, and policy anal
 tools: Bash, Read, Glob, Grep
 model: opus
 skills:
-  - discover
+  - core:discover
 ---
 
 # Discoverer

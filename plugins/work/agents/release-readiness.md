@@ -3,7 +3,7 @@ name: release-readiness
 description: Analyze branch changes for release readiness, identifying concerns and special instructions.
 tools: Read, Bash, Glob, Grep
 skills:
-  - report
+  - core:report
 ---
 
 # Release Readiness

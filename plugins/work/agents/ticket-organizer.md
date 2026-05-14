@@ -5,7 +5,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: opus
 skills:
   - core:branching
-  - create-ticket
+  - core:create-ticket
   - core:gather-ticket-metadata
   - standards:leading-validity
   - standards:leading-accessibility

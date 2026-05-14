@@ -4,7 +4,7 @@ description: Generate branch story for PR description and create/update the pull
 tools: Read, Write, Edit, Bash, Glob, Grep, Task
 skills:
   - core:gather-git-context
-  - report
+  - core:report
 ---
 
 # Story Writer

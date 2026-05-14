@@ -2,7 +2,7 @@
 title: Application Viewpoint
 description: Runtime behavior, agent orchestration, and data flow
 category: developer
-modified_at: 2026-03-10T00:58:20+09:00
+modified_at: 2026-05-14T12:44:05+09:00
 commit_hash: f76bde2
 ---
 
@@ -496,7 +496,7 @@ The report command was enhanced to check for existing version bump commits befor
 - [Explicit] The trip command requires the Agent Teams experimental feature flag (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) as stated in trip.md.
 - [Explicit] Trip sessions run in isolated git worktrees created by ensure-worktree.sh, as documented in trip-protocol SKILL.md.
 - [Explicit] Every trip workflow step produces a git commit via trip-commit.sh with format `trip(<agent>): <step>`, as documented in trip-protocol SKILL.md.
-- [Explicit] The drive approval flow requires ticket title and overview in the approval prompt with CRITICAL enforcement and failure condition language, as documented in `plugins/work/skills/drive/SKILL.md` Approval section and `plugins/work/commands/drive.md` Step 2.2.
+- [Explicit] The drive approval flow requires ticket title and overview in the approval prompt with CRITICAL enforcement and failure condition language, as documented in `plugins/core/skills/drive/SKILL.md` Approval section and `plugins/work/commands/drive.md` Step 2.2.
 - [Explicit] Commands invoke subagents through the Task tool with `subagent_type`, `model`, and `prompt` parameters, using `work:` prefix for work agents and `standards:` prefix for standards agents.
 - [Inferred] The trip plugin's Agent Teams model represents a deliberate architectural choice to explore peer-based collaboration versus the hierarchical Task tool pattern used by drive.
 - [Inferred] The worktree isolation in trip ensures trip sessions do not interfere with the main working tree or ongoing drive workflows.

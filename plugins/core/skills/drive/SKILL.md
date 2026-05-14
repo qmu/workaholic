@@ -2,7 +2,7 @@
 name: drive
 description: Implementation workflow, approval flow, final report, archive, and frontmatter update for drive sessions.
 skills:
-  - core:commit
+  - commit
 allowed-tools: Bash
 user-invocable: false
 ---
@@ -224,7 +224,7 @@ mv <ticket-path> .workaholic/tickets/abandoned/
 Commit using **commit** skill:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/commit/scripts/commit.sh \
+bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh \
   "Abandon: <ticket-title>" \
   "Implementation proved unworkable" \
   "None" \

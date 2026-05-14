@@ -3,9 +3,9 @@ created_at: 2026-05-14T15:04:29+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 46781a2
+category: Removed
 depends_on:
 ---
 
@@ -154,4 +154,15 @@ git rm -r plugins/core/skills/analyze-viewpoint/
 - **`define-lead.md` rule still serves a purpose** after the edit: it documents the schema for new lead skill files under `plugins/standards/skills/leading-*/SKILL.md`. The frontmatter `paths` field tells Claude Code's rule-loader which files trigger the rule; after this edit, only the four existing lead skill files (plus any future leading-* skill) will activate it.
 - **Verification grep MUST be run before committing.** If any live file outside the deleted set still references one of the six skills or five agents by name, the deletion will produce a broken plugin load. Treat `.workaholic/` matches as historical (acceptable); treat any match under `plugins/`, `CLAUDE.md`, or `.claude/` as a blocker requiring a fix in the same commit (`.claude/rules/define-lead.md` lines 4 and 114 are the only known cases, both addressed by the patches above).
 - **No version bump implications**: this is a behavioral no-op for any consumer because the deleted code paths have no callers. The release workflow handles version bumps independently.
-- **Lead lens applicability**: this is a `Config` layer change touching plugin manifests, skill inventories, and rule files. No security-, validity-, accessibility-, or availability-sensitive behavior is altered — the dead code never ran. The applicable lead is whichever governs plugin-architecture hygiene, which in practice is captured by the workaholic.md rule and the project's architecture policy in `CLAUDE.md` (Component Nesting, Plugin Dependencies, Design Principle). Those are preserved.
+- **Lead lens applicability**: this is a `Config` layer change touching plugin manifests, skill inventories, and rule files. No security-, validity-, accessibility-, or availability-sensitive behavior is altered -- the dead code never ran. The applicable lead is whichever governs plugin-architecture hygiene, which in practice is captured by the workaholic.md rule and the project's architecture policy in `CLAUDE.md` (Component Nesting, Plugin Dependencies, Design Principle). Those are preserved.
+
+## Final Report
+
+Development completed as planned. The verification grep returned zero matches for any of the 11 deleted names in live files. End-state counts: `plugins/core/skills/` 22 -> 14; `plugins/work/agents/` 17 -> 12.
+
+### Discovered Insights
+
+- **Insight**: The 5 deleted agents formed a complete subgraph -- their entire shared set of skill preloads (`analyze-*`, `write-{changelog,spec,terms}`) had no other consumers in the live codebase. When zero-caller agents share their preload set, the cleanup is mechanical; when they share preloads with live agents, the deletion would require preserving the skill (e.g., `performance-analyst` preloaded both `core:gather` and `core:analyze-performance`; only `analyze-performance` was orphaned because `gather` has many live consumers).
+  **Context**: Safe rule for future dead-agent cleanup: never delete a skill solely because its obvious caller is going away. Compute the full preload graph and only remove the difference between dead-agent preloads and live-agent preloads.
+- **Insight**: `.claude/rules/define-lead.md` carried two stale references (`paths:` frontmatter entry + `## Agent` section body) to a `plugins/standards/agents/lead.md` file that was already absent from the repo at the time this ticket was authored. An earlier restructuring removed the agent but didn't propagate the change into the rule's frontmatter or body. Path-scope rules that enumerate specific files are fragile under restructuring.
+  **Context**: When writing future path-scope rules in `.claude/rules/`, prefer globbing over enumerating specific files in `paths:`, and avoid naming specific agent/command files in rule prose unless the rule's purpose is enforcing that exact file's existence.

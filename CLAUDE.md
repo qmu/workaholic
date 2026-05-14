@@ -20,7 +20,6 @@ plugins/                 # Plugin source directories
     skills/              # branching, check-deps, commit, create-ticket, discover, drive, gather-git-context, gather-ticket-metadata, report, ship, system-safety, trip-protocol
   standards/             # Standards policy plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
-    agents/              # lead, writers, analysts
     skills/              # leading-*, analyze-*, write-*
   work/                  # Work plugin: drive + trip workflows (depends on: core)
     .claude-plugin/      # Plugin configuration

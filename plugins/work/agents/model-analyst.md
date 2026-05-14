@@ -3,8 +3,8 @@ name: model-analyst
 description: Analyze repository from model viewpoint and generate spec documentation.
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
-  - analyze-viewpoint
-  - write-spec
+  - standards:analyze-viewpoint
+  - standards:write-spec
 ---
 
 # Model Analyst
@@ -23,12 +23,12 @@ Analyze the repository from the model viewpoint and produce a specification docu
 
 1. **Gather Context**: Run:
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-viewpoint/scripts/gather.sh model main
+   bash ${CLAUDE_PLUGIN_ROOT}/../standards/skills/analyze-viewpoint/scripts/gather.sh model main
    ```
 
 2. **Check Overrides**: Run:
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/analyze-viewpoint/scripts/read-overrides.sh
+   bash ${CLAUDE_PLUGIN_ROOT}/../standards/skills/analyze-viewpoint/scripts/read-overrides.sh
    ```
    If overrides exist for this viewpoint, incorporate them into your analysis.
 

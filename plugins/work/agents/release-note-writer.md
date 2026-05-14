@@ -3,7 +3,7 @@ name: release-note-writer
 description: Generate release notes from branch story for GitHub Releases.
 tools: Read, Write, Glob, Grep
 skills:
-  - write-release-note
+  - standards:write-release-note
 ---
 
 # Release Note Writer

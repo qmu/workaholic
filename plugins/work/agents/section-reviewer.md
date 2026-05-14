@@ -4,7 +4,7 @@ description: Generate story sections 4-8 (Outcome, Historical Analysis, Concerns
 tools: Read, Glob, Grep
 model: haiku
 skills:
-  - review-sections
+  - standards:review-sections
 ---
 
 # Section Reviewer

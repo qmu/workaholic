@@ -1,7 +1,6 @@
 ---
 paths:
   - 'plugins/standards/skills/leading-*/SKILL.md'
-  - 'plugins/standards/agents/lead.md'
 ---
 
 # Lead Agent Schema Enforcement
@@ -109,11 +108,9 @@ Use this checklist to verify a lead definition is complete and well-formed:
 - [ ] `## Practices` section, if present, contains concrete actionable items traceable to policies
 - [ ] `## Standards` section, if present, contains a table of adopted tech standards with concise comments
 
-## Agent
+## Agents
 
-All 4 lead domains share a single parameterized agent at `plugins/standards/agents/lead.md`. The agent preloads all domain skills and both analysis frameworks. Callers pass the domain as a prompt parameter (e.g., `"Domain: security."`), and the agent applies the matching `leading-<domain>` skill.
-
-There are no per-domain agent files. All domain knowledge lives in the lead skills, not in the agent.
+Lead domains have no per-domain agent files and no parameterized lead agent. All domain knowledge lives in the `leading-<domain>` skills under `plugins/standards/skills/`. Callers that need to apply a lead's policies preload the relevant `leading-*` skill directly.
 
 ## Example
 

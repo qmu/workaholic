@@ -17,7 +17,7 @@ Edit `plugins/` not `.claude/`. This repo develops plugins - changes go to `plug
 plugins/                 # Plugin source directories
   core/                  # Core shared plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
-    skills/              # analyze-performance, analyze-policy, analyze-viewpoint, branching, check-deps, commit, create-ticket, discover, drive, gather, report, review-sections, ship, system-safety, trip-protocol, validate-writer-output, write-changelog, write-release-note, write-spec, write-terms
+    skills/              # branching, check-deps, commit, create-ticket, discover, drive, gather, report, review-sections, ship, system-safety, trip-protocol, validate-writer-output, write-release-note
   standards/             # Standards policy plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
     skills/              # leading-*

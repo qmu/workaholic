@@ -17,7 +17,7 @@ Edit `plugins/` not `.claude/`. This repo develops plugins - changes go to `plug
 plugins/                 # Plugin source directories
   core/                  # Core shared plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
-    skills/              # analyze-performance, analyze-policy, analyze-viewpoint, branching, check-deps, commit, create-ticket, discover, drive, gather-git-context, gather-ticket-metadata, report, review-sections, ship, system-safety, trip-protocol, validate-writer-output, write-changelog, write-overview, write-release-note, write-spec, write-terms
+    skills/              # analyze-performance, analyze-policy, analyze-viewpoint, branching, check-deps, commit, create-ticket, discover, drive, gather, report, review-sections, ship, system-safety, trip-protocol, validate-writer-output, write-changelog, write-overview, write-release-note, write-spec, write-terms
   standards/             # Standards policy plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
     skills/              # leading-*
@@ -66,8 +66,8 @@ Subagents must use skills for common operations instead of inline shell commands
 
 | Operation | Skill | Usage |
 | --------- | ----- | ----- |
-| Git context (branch, base, URL) | gather-git-context | `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-git-context/scripts/gather.sh` |
-| Ticket metadata (date, author) | gather-ticket-metadata | `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-ticket-metadata/scripts/gather.sh` |
+| Git context (branch, base, URL) | gather | `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/git-context.sh` |
+| Ticket metadata (date, author) | gather | `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/ticket-metadata.sh` |
 
 Never write inline git commands like `git branch --show-current` or `git remote show origin` in subagent markdown files. Subagents preload the skill and gather context themselves.
 
@@ -103,12 +103,12 @@ Claude Code expands `${CLAUDE_PLUGIN_ROOT}` inline in all plugin content (skills
 
 **Wrong** (relative path):
 ```bash
-bash .claude/skills/gather-ticket-metadata/scripts/gather.sh
+bash .claude/skills/gather/scripts/ticket-metadata.sh
 ```
 
 **Correct** (same-plugin reference):
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-ticket-metadata/scripts/gather.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/ticket-metadata.sh
 ```
 
 **Correct** (cross-plugin reference — declared dependency):

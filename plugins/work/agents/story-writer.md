@@ -3,7 +3,7 @@ name: story-writer
 description: Generate branch story for PR description and create/update the pull request.
 tools: Read, Write, Edit, Bash, Glob, Grep, Task
 skills:
-  - core:gather-git-context
+  - core:gather
   - core:report
 ---
 
@@ -15,7 +15,7 @@ Generate a branch story in `.workaholic/stories/<branch-name>.md` and create/upd
 
 ### Phase 0: Gather Context
 
-**Gather all context** using the preloaded gather-git-context skill. Returns: branch, base_branch, repo_url, archived_tickets, git_log.
+**Gather all context** using the preloaded gather skill -- run `git-context.sh`. Returns: branch, base_branch, repo_url, archived_tickets, git_log.
 
 ### Phase 1: Invoke Story Generation Agents
 

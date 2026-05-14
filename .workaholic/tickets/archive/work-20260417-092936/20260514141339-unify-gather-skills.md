@@ -3,9 +3,9 @@ created_at: 2026-05-14T14:13:39+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: d8ae799
+category: Changed
 depends_on:
 ---
 
@@ -326,3 +326,14 @@ Two recent precedents establish the exhaustive-inventory-with-patches style for 
 - **Skill Script Path Rule** continues to hold: every updated script-path reference still uses `${CLAUDE_PLUGIN_ROOT}` and either `skills/gather/scripts/…` (same-plugin from inside core) or `${CLAUDE_PLUGIN_ROOT}/../core/skills/gather/scripts/…` (cross-plugin from work, though no work file currently calls the scripts directly -- they all preload the skill and call inside their own bodies through the preload). (`CLAUDE.md` Skill Script Path Rule section)
 - **Design Principle**: the new `gather/SKILL.md` is ~50 lines, comfortably inside the "comprehensive skills" envelope. The two predecessors were under-spec at ~35 lines each. Consolidation moves them closer to the documented norm, not further. (`CLAUDE.md` Design Principle section)
 - **Out of scope**: the `write-*` and `analyze-*` families are explicitly excluded -- they share a name prefix but no shared content, and each is preloaded by exactly one consumer, so consolidating them would inflate preload sites with unrelated guidance. The user scoped this ticket to "just the gather pair."
+
+## Final Report
+
+Development completed as planned. Both scripts run from the new location and emit identical JSON to their pre-move output (verified at runtime). All four verification points passed: zero stale `gather-git-context`/`gather-ticket-metadata` references in `plugins/` or `CLAUDE.md`; exactly three `core:gather` preload entries across the work agents; both renamed scripts execute successfully and produce the expected JSON shapes.
+
+### Discovered Insights
+
+- **Insight**: Inside the new `gather/` skill, the two operations live as peer scripts named after their domain (`git-context.sh`, `ticket-metadata.sh`) rather than after the verb (`gather.sh`). The verb is the *skill identity*; the noun is the *script identity*. This reads better both at the preload site (`core:gather` is one term) and at the call site (`gather/scripts/git-context.sh` describes what it returns).
+  **Context**: When future ticket authors add a third probe, the existing pair sets the precedent: name the script after what it returns, not what it does. A `repo-stats.sh` or `pr-history.sh` would slot naturally.
+- **Insight**: This consolidation moves the boundary between "skill identity" and "script identity" in the same direction `branching/` already set: one skill, many scripts named for the operation. The pattern is now repeated in `branching/`, `ship/`, `gather/`, `trip-protocol/`, `drive/`, `report/`. The unifying convention is emergent rather than declared.
+  **Context**: A future CLAUDE.md edit could lift this into an explicit Architecture-Policy bullet ("skill = noun phrase for the concept; scripts = verb-or-noun phrase for individual operations"). Not done in this ticket -- scope was deliberately kept to the gather pair per the user's "not deeper level yet" instruction.

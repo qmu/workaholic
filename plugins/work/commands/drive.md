@@ -88,7 +88,7 @@ Follow the preloaded **drive** skill (Approval section) to present approval dial
      <ticket-path> "<title>" <repo-url> "<description>" "<changes>" "<test-plan>" "<release-prep>"
    ```
    Where `<ticket-path>` is the current ticket file path in `todo/`, `<title>` is the commit title,
-   and `<repo-url>` comes from the gather-git-context output.
+   and `<repo-url>` comes from the gather skill's `git-context.sh` output.
    **NEVER manually move tickets** with `mv` + `git add` -- always use the archive script.
 4. If "Approve and stop": break loop, skip Phase 3, go directly to Phase 4
 5. Otherwise: continue to next ticket

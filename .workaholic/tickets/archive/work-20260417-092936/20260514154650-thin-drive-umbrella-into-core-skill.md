@@ -3,9 +3,9 @@ created_at: 2026-05-14T15:46:50+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: d4f2c9d
+category: Changed
 depends_on:
 ---
 
@@ -355,3 +355,14 @@ After the refactor, run one end-to-end `/drive` session against a real test tick
 ### Reviewer note
 
 The skill insertion patch will be large (~280 lines of moved content). Reviewers should diff `commands/drive.md` BEFORE against the new "Command Workflow" section in the skill, and `agents/drive-navigator.md` BEFORE against the new "Navigator" section, line by line. The only intentional textual changes are the four script path prefixes listed in Step 2 — everything else copies verbatim (`plugins/core/skills/drive/SKILL.md`).
+
+## Final Report
+
+Development completed as planned. Final line counts: drive-navigator 21, /drive 12, drive/SKILL.md 666. All verification grep checks passed.
+
+### Discovered Insights
+
+- **Insight**: This was the largest single-umbrella thin in the batch (~280 lines of work-side content migrated into the skill). The umbrella-skill pattern scales to 600+ lines as long as the structure has clear top-level sections.
+  **Context**: Size limit is reader navigation, not file length. As long as each top-level section is independently meaningful and reachable via `Follow ## <Section>`, growth is sustainable.
+- **Insight**: Intra-skill section references ("Follow the **Workflow** section below") replace cross-file references ("Follow the preloaded **drive** skill (Approval section)") and are clearer because they're scoped to a single document.
+  **Context**: When a thin caller references a single skill, prefer "Follow the **<Section>** section" — self-contained — over "Follow the preloaded **<skill>** skill (<Section>)" which assumes preload context.

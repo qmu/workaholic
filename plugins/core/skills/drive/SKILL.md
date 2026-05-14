@@ -3,13 +3,275 @@ name: drive
 description: Implementation workflow, approval flow, final report, archive, and frontmatter update for drive sessions.
 skills:
   - commit
+  - system-safety
+  - standards:leading-validity
+  - standards:leading-accessibility
+  - standards:leading-security
+  - standards:leading-availability
 allowed-tools: Bash
 user-invocable: false
 ---
 
 # Drive
 
-Complete drive session skill covering implementation, approval, reporting, archiving, and frontmatter updates.
+Complete drive session skill covering the `/drive` command workflow, the drive-navigator subagent, per-ticket implementation, approval, reporting, archiving, and frontmatter updates.
+
+## Command Workflow
+
+End-to-end orchestration for `/drive`. The thin `/drive` command preloads this skill and follows this section.
+
+### Pre-check: Dependencies
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/check-deps/scripts/check.sh
+```
+
+If `ok` is `false`, display the `message` to the user and stop.
+
+### Phase 0: Worktree Guard
+
+Check if trip worktrees exist before proceeding:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-worktrees.sh
+```
+
+If `has_worktrees` is `true`, present the user with a choice using `AskUserQuestion` with selectable options:
+- **"Continue here"** - Proceed with drive on the current branch
+- **"Switch to worktree"** - Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/list-all-worktrees.sh`, display the worktree list, and inform the user to navigate to the selected worktree to run `/drive` there
+
+If `has_worktrees` is `false`, proceed silently to Phase 1.
+
+**Rationale**: Prevents accidental development on a drive branch when trip worktrees with in-progress work may be the intended target.
+
+**Trip branch compatibility**: The drive workflow operates on any non-main topic branch, including `trip/*` branches. When running on a trip branch after a trip session completes, tickets are read from `.workaholic/tickets/todo/` and archived normally. Use `/ticket` to add refinement tickets, then `/drive` to implement them.
+
+### Phase 1: Navigate Tickets
+
+Invoke the drive-navigator subagent via Task tool:
+
+```
+Task tool with subagent_type: "work:drive-navigator", model: "opus"
+prompt: "Navigate tickets. mode: <normal|icebox>"
+```
+
+Pass mode based on `$ARGUMENT`:
+- If `$ARGUMENT` contains "icebox": mode = "icebox"
+- Otherwise: mode = "normal"
+
+Handle the response:
+- `status: "empty"` - Inform user: "No tickets in queue or icebox."
+- `status: "stopped"` - End the drive session
+- `status: "icebox"` - Re-invoke with mode = "icebox"
+- `status: "ready"` - Proceed to Phase 2 with the ordered ticket list
+
+### Phase 2: Implement Tickets
+
+For each ticket in the ordered list:
+
+#### Step 2.1: Implement Ticket
+
+Follow the **Workflow** section below. Implementation context is preserved in the main conversation, providing full visibility of changes made. Apply the policies, practices, and standards from the relevant preloaded leading skill(s) — see the Lead Lens table in the `create-ticket` skill for the layer-to-lead mapping.
+
+#### Step 2.2: Request Approval
+
+Follow the **Approval** section below to present the approval dialog. **CRITICAL**: You MUST use the `title` and `overview` fields from the Step 2.1 workflow result to populate the approval prompt header and question. If these fields are unavailable, re-read the ticket file to obtain them. Never present an approval prompt without the ticket title and summary.
+
+**CRITICAL**: Use `AskUserQuestion` with selectable `options`. NEVER proceed without explicit user approval.
+
+#### Step 2.3: Handle User Response
+
+**"Approve" or "Approve and stop"**:
+1. Follow the **Final Report** section below to update ticket effort and append the Final Report section
+2. **Verify update succeeded**: If Edit tool fails, halt and report the error to user. DO NOT proceed to archive.
+3. Archive and commit by calling the archive script directly:
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/archive.sh \
+     <ticket-path> "<title>" <repo-url> "<description>" "<changes>" "<test-plan>" "<release-prep>"
+   ```
+   Where `<ticket-path>` is the current ticket file path in `todo/`, `<title>` is the commit title,
+   and `<repo-url>` comes from the gather skill's `git-context.sh` output.
+   **NEVER manually move tickets** with `mv` + `git add` -- always use the archive script.
+4. If "Approve and stop": break loop, skip Phase 3, go directly to Phase 4
+5. Otherwise: continue to next ticket
+
+**Free-form feedback** (user selects "Other" and provides text):
+
+> **CRITICAL**: Update the ticket file FIRST. Do NOT re-implement until the ticket reflects the user's feedback.
+
+1. Follow the **Approval** section below (Handle Feedback) — this updates the ticket
+2. **Verify** the ticket file was updated (re-read it)
+3. Re-implement changes based on the updated ticket
+4. Return to Step 2.2
+
+**"Abandon"**:
+1. Follow the **Approval** section below (Handle Abandonment)
+2. Break loop, skip Phase 3, go directly to Phase 4 (same as "Approve and stop")
+
+### Phase 3: Re-check and Continue
+
+After all tickets from the navigator's list are processed:
+
+1. **Re-check todo directory**:
+   ```bash
+   ls -1 .workaholic/tickets/todo/*.md 2>/dev/null
+   ```
+
+2. **If new tickets found**:
+   - Inform user: "Found N new ticket(s) added during this session."
+   - Re-invoke drive-navigator with mode = "normal"
+   - Continue to Phase 2 with the new ticket list
+
+3. **If no new tickets**:
+   - Check icebox (existing behavior from navigator)
+   - If user declines icebox or icebox empty, proceed to Phase 4
+
+### Phase 4: Completion
+
+After todo is truly empty (and user declines icebox):
+- Summarize what was done across all batches
+- List all commits created during the session
+
+**Session-wide tracking**: Maintain counters across multiple navigator batches:
+- Total tickets implemented
+- Total commits created
+- List of all commit hashes
+
+### Critical Rules
+
+**NEVER autonomously move tickets to icebox.** Moving tickets is a developer decision, not an AI decision.
+
+If a ticket cannot be implemented (out of scope, too complex, blocked, or any other reason):
+
+1. **Stop and ask the developer** using `AskUserQuestion` with selectable `options`
+2. Explain why implementation cannot proceed
+3. Use selectable options (NEVER open-ended text questions):
+   - "Move to icebox" - Move ticket to `.workaholic/tickets/icebox/` and continue to next
+   - "Skip for now" - Leave ticket in queue, move to next ticket
+   - "Abort drive" - Stop the drive session entirely
+
+**Never commit ticket moves without explicit developer approval.**
+
+## Navigator
+
+Navigate tickets for the `/drive` command. The `work:drive-navigator` subagent runs this section. Lists, analyzes, prioritizes, and confirms execution order with user.
+
+### Input
+
+You will receive:
+
+- `mode`: Either "normal" or "icebox"
+
+### Icebox Mode (mode = "icebox")
+
+1. List tickets in `.workaholic/tickets/icebox/`:
+   ```bash
+   ls -1 .workaholic/tickets/icebox/*.md 2>/dev/null
+   ```
+2. If no tickets, return: `{"status": "empty", "tickets": []}`
+3. If tickets found, use `AskUserQuestion` with selectable options listing each ticket
+4. Move selected ticket to `.workaholic/tickets/todo/`:
+   ```bash
+   mv .workaholic/tickets/icebox/<selected>.md .workaholic/tickets/todo/
+   git add .workaholic/tickets/icebox/<selected>.md .workaholic/tickets/todo/<selected>.md
+   ```
+5. Return the moved ticket for implementation
+
+### Normal Mode (mode = "normal")
+
+#### 1. List and Analyze Tickets
+
+List all tickets in `.workaholic/tickets/todo/`:
+
+```bash
+ls -1 .workaholic/tickets/todo/*.md 2>/dev/null
+```
+
+**If no tickets found:**
+
+1. Check if `.workaholic/tickets/icebox/` has tickets:
+   ```bash
+   ls -1 .workaholic/tickets/icebox/*.md 2>/dev/null
+   ```
+2. If icebox has tickets, use `AskUserQuestion` with selectable options:
+   - "Work on icebox" - Return with icebox mode request
+   - "Stop" - Return empty result
+3. If icebox is also empty, return: `{"status": "empty", "tickets": []}`
+
+**If tickets found:**
+
+For each ticket, read and extract YAML frontmatter to get:
+- `type`: bugfix > enhancement > refactoring > housekeeping (priority ranking)
+- `layer`: Group related layers for context efficiency
+- `depends_on`: List of ticket filenames this ticket depends on (optional)
+
+#### 2. Determine Priority Order
+
+Consider these factors (in order of precedence):
+
+1. **Dependency ordering**: Build a dependency graph from `depends_on` fields and perform topological sort. Tickets with no dependencies come first, then tickets whose dependencies are satisfied. If a cycle is detected, warn in the output and fall back to type-based priority for the cycled tickets.
+2. **Severity**: Within the same dependency tier, bugfixes take precedence over enhancements
+3. **Context grouping**: Process tickets affecting same layer/files together
+4. **Implicit dependencies**: If ticket A modifies files that ticket B reads, process A first
+
+Handle missing metadata gracefully - default to normal priority when fields are absent. Treat empty or missing `depends_on` as no dependencies.
+
+Priority ranking by type (used within same dependency tier):
+1. `bugfix` - High priority
+2. `enhancement` - Normal priority
+3. `refactoring` - Normal priority
+4. `housekeeping` - Low priority
+
+#### 3. Present Prioritized List
+
+Show tickets grouped by priority tier:
+
+```
+Found 4 tickets to implement:
+
+**High Priority (bugfix)**
+1. 20260131-fix-login-error.md
+
+**Normal Priority (enhancement)**
+2. 20260131-add-dark-mode.md [layer: UX]
+3. 20260131-add-api-endpoint.md [layer: Infrastructure]
+
+**Low Priority (housekeeping)**
+4. 20260131-cleanup-unused-imports.md [depends on: 20260131-add-api-endpoint.md]
+
+Proposed order considers dependencies, severity, and context grouping.
+```
+
+#### 4. Confirm Order with User
+
+**ALWAYS use `AskUserQuestion` with selectable `options` parameter. NEVER ask open-ended text questions.**
+
+Use selectable options:
+- **Proceed** - Execute in proposed order
+- **Pick one** - Let user select a specific ticket to start with
+- **Original order** - Use chronological/alphabetical order instead
+
+If user selects "Pick one", present a follow-up question with each ticket as an option.
+
+### Navigator Output
+
+Return a JSON object:
+
+```json
+{
+  "status": "ready",
+  "tickets": [
+    ".workaholic/tickets/todo/20260131-fix-login-error.md",
+    ".workaholic/tickets/todo/20260131-add-dark-mode.md"
+  ]
+}
+```
+
+Possible status values:
+- `"ready"` - Tickets are ready for implementation in the returned order
+- `"empty"` - No tickets to process
+- `"stopped"` - User chose to stop
+- `"icebox"` - User wants to switch to icebox mode (re-invoke with mode="icebox")
 
 ## Workflow
 

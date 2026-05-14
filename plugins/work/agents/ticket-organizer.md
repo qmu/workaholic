@@ -6,7 +6,7 @@ model: opus
 skills:
   - core:branching
   - core:create-ticket
-  - core:gather-ticket-metadata
+  - core:gather
   - standards:leading-validity
   - standards:leading-accessibility
   - standards:leading-security

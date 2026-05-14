@@ -26,7 +26,7 @@ plugins/                 # Plugin source directories
     agents/              # drive-navigator, story-writer, planner, architect, constructor, etc.
     commands/            # ticket, drive, trip, report, ship
     hooks/               # ticket validation
-    rules/               # general, workaholic
+    rules/               # diagrams, general, shell, typescript, workaholic
 ```
 
 ## Architecture Policy

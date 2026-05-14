@@ -3,9 +3,9 @@ created_at: 2026-05-14T15:47:17+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: e079cdf
+category: Changed
 depends_on:
 ---
 
@@ -699,3 +699,14 @@ Past tickets that touched similar areas:
 - **CLAUDE.md may need an edit** (`/home/ec2-user/projects/workaholic/CLAUDE.md` Project Structure block). If the work plugin's listed agents change in count or naming, the comment line that enumerates work-side agents should reflect that. Current listing reads "drive-navigator, story-writer, planner, architect, constructor, etc." — no rename, so likely no edit needed; verify before closing.
 - **Codex-spec compatibility (user's stated goal)** (`plugins/work/agents/*.md`, `plugins/work/commands/report.md`). The thinned files satisfy the "agents/commands as thin aliases of skills" pattern, which matches the Codex-spec model where the skill is the unit of capability and the agent/command is a typed entry point. Verify the post-migration line counts hold: agents ≤20 lines, command ≤15 lines.
 - **Effort estimate ~1.5h** — the heaviest of the current batch of five tickets because six agents plus one command must each be touched verbatim and the skill must absorb two non-trivial sections (Run Workflow + Orchestration) without losing fidelity.
+
+## Final Report
+
+Development completed as planned. Final line counts: story-writer 22, pr-creator 22, release-readiness 32, overview-writer 25, section-reviewer 23, release-note-writer 22, /report 12, report/SKILL.md 563. All verification grep checks passed.
+
+### Discovered Insights
+
+- **Insight**: When multiple work-side agents/commands preload the same set of dependencies (`core:trip-protocol`, `core:branching`, `core:gather`), promoting those preloads onto the umbrella skill (`core:report`) eliminates duplication entirely. Thinned consumers preload only `core:report` and inherit the rest transitively.
+  **Context**: For any future umbrella skill, check whether common preloads can be lifted onto it. Saves N*K preload entries for N agents * K shared preloads.
+- **Insight**: `section-reviewer` and `release-note-writer` already preloaded sibling skills (`core:review-sections`, `core:write-release-note`) rather than `core:report`. They stay that way after thinning -- absorbing those into `core:report` would re-bloat it.
+  **Context**: When a consumer has a dedicated sibling skill, point the thinned consumer at that sibling, not the umbrella. Umbrella's job is orchestration; sibling's job is the content.

@@ -8,30 +8,15 @@ skills:
 
 # PR Creator
 
-Create or update a GitHub pull request using the story file as PR content.
-
 ## Input
-
-You will receive:
 
 - Branch name
 - Base branch (usually `main`)
 
 ## Instructions
 
-1. Read `.workaholic/stories/<branch-name>.md` to extract the PR title.
-2. Follow the preloaded report skill (Create PR section) for title derivation and PR creation.
+Follow the preloaded `core:report` skill — `## Create PR` section.
 
 ## Output
 
-Return the script output exactly as-is:
-
-```
-PR created: <URL>
-```
-
-or
-
-```
-PR updated: <URL>
-```
+Return the script output exactly as printed (`PR created: <URL>` or `PR updated: <URL>`).

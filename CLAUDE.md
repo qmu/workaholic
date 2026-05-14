@@ -17,10 +17,10 @@ Edit `plugins/` not `.claude/`. This repo develops plugins - changes go to `plug
 plugins/                 # Plugin source directories
   core/                  # Core shared plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
-    skills/              # branching, check-deps, commit, create-ticket, discover, drive, gather-git-context, gather-ticket-metadata, report, ship, system-safety, trip-protocol
+    skills/              # analyze-performance, analyze-policy, analyze-viewpoint, branching, check-deps, commit, create-ticket, discover, drive, gather-git-context, gather-ticket-metadata, report, review-sections, ship, system-safety, trip-protocol, validate-writer-output, write-changelog, write-overview, write-release-note, write-spec, write-terms
   standards/             # Standards policy plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
-    skills/              # leading-*, analyze-*, write-*
+    skills/              # leading-*
   work/                  # Work plugin: drive + trip workflows (depends on: core)
     .claude-plugin/      # Plugin configuration
     agents/              # drive-navigator, story-writer, planner, architect, constructor, etc.

@@ -3,7 +3,7 @@ name: terms-writer
 description: Update .workaholic/terms/ documentation to maintain consistent term definitions. Use after completing implementation work.
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills:
-  - standards:write-terms
+  - core:write-terms
 ---
 
 # Terms Writer
@@ -20,7 +20,7 @@ You will receive:
 
 1. **Gather Context**: Use the "Gather Context" section of the preloaded write-terms skill:
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/../standards/skills/write-terms/scripts/gather.sh [base-branch]
+   bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/write-terms/scripts/gather.sh [base-branch]
    ```
    Read archived tickets if they exist, otherwise use diff output.
 

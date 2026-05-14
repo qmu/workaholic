@@ -3,9 +3,9 @@ created_at: 2026-05-14T15:04:14+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 001a99f
+category: Changed
 depends_on:
 ---
 
@@ -250,3 +250,12 @@ rmdir plugins/core/skills/write-overview 2>/dev/null || true
 - **Smoke test cost**: the verification in step 8 is cheap — `collect-commits.sh` is read-only, exits in milliseconds, and prints JSON to stdout. Worth running on this very branch to confirm the script produces output before declaring the move correct.
 - **Section depth in the merge**: `write-overview/SKILL.md` uses `##` and `###` headings. When inserted under `report/SKILL.md`'s `## Write Story` as `### Overview Generation`, the inner headings should be demoted by one level (`##` → `###`, `###` → `####`, `####` → `#####`) to maintain a coherent outline. The patch above already reflects this demotion. (`plugins/core/skills/report/SKILL.md`)
 - **Re-read CLAUDE.md before editing**: the patch on CLAUDE.md is speculative because the line shown in repo-memory context may differ from the live file. The implementer should read line 20 directly and remove only `write-overview, ` from the comma-separated list. (`CLAUDE.md` line 20)
+
+## Final Report
+
+Development completed as planned. The smoke test confirmed `bash plugins/core/skills/report/scripts/collect-commits.sh main` emits the expected JSON shape from the new location. All verification grep checks passed: zero `write-overview` references in `plugins/` or `CLAUDE.md`; three `collect-commits` references all point at the new `report/scripts/` path.
+
+### Discovered Insights
+
+- **Insight**: The `report/SKILL.md` Agent Output Mapping table already listed `overview-writer`'s four fields by name. Slotting the Overview Generation section immediately after the table created a natural "consumption-then-generation" reading order -- the table answers "what does this agent emit?", the new section answers "how does it emit it?".
+  **Context**: This crystallizes the structural rule for `report/SKILL.md`: it is the umbrella skill for everything the `/report` flow produces. Per-agent generation guidance belongs as `### <Output> Generation` sections under "Write Story", in the same order the table lists them.

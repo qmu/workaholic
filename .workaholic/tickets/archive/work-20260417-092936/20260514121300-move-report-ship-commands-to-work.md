@@ -3,9 +3,9 @@ created_at: 2026-05-14T12:13:00+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 91868cb
+category: Changed
 depends_on:
 ---
 
@@ -270,3 +270,14 @@ Past tickets that touched similar areas:
 ```
 
 > **Note**: The `skills:` line under `work/` in the Project Structure block is also touched by the companion ticket (which removes all skill names because every skill moves to core). Whichever ticket lands second must reconcile that line. This patch leaves it alone.
+
+## Final Report
+
+Development completed as planned. The companion ticket landed first, so the trip-protocol entry was finalized to `core:trip-protocol` (rather than the original `work:trip-protocol`) and the inline `${CLAUDE_PLUGIN_ROOT}/skills/{branching,ship}/...` paths were rewritten to the `../core/` cross-plugin form. CLAUDE.md reconciliation worked cleanly: this ticket owned the `commands/` listings and the soft-reference sentence; the companion owned the `skills/` listings, so the edits did not collide.
+
+### Discovered Insights
+
+- **Insight**: After both tickets land, `plugins/core/commands/` is empty (no files, no git tracking) and `core` has zero command components. Core's role is purely "skill library + agent runtime"; only `work` (and `standards`) expose user-facing commands.
+  **Context**: This sharpens the architectural invariant: any future command added to core would violate the new "code-agnostic library" identity. A lint or doc rule could enforce this if desired.
+- **Insight**: The dependency diagram block in CLAUDE.md (lines 47-52) still shows a soft-reference arrow shape (`⤴ soft`, `⤴`), but it refers to work soft-referencing standards — not the now-removed core→work soft reference. The diagram needed no edit because the prior soft-reference prose was the only place that described the (now-defunct) core→work link.
+  **Context**: When deleting a relationship, check both the ASCII diagram and the descriptive prose; conventions can drift apart. Here they were already aligned, but it's not a given.

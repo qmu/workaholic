@@ -17,7 +17,6 @@ Edit `plugins/` not `.claude/`. This repo develops plugins - changes go to `plug
 plugins/                 # Plugin source directories
   core/                  # Core shared plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
-    commands/            # report, ship
     skills/              # branching, check-deps, commit, create-ticket, discover, drive, gather-git-context, gather-ticket-metadata, report, ship, system-safety, trip-protocol
   standards/             # Standards policy plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
@@ -26,7 +25,7 @@ plugins/                 # Plugin source directories
   work/                  # Work plugin: drive + trip workflows (depends on: core)
     .claude-plugin/      # Plugin configuration
     agents/              # drive-navigator, story-writer, planner, architect, constructor, etc.
-    commands/            # ticket, drive, trip
+    commands/            # ticket, drive, trip, report, ship
     hooks/               # ticket validation
     rules/               # general, workaholic
 ```
@@ -50,7 +49,7 @@ core (base)       standards (base)
 work ─ ─ ─ ─ ─
 ```
 
-Each plugin declares `dependencies` in its `plugin.json`. Cross-plugin `${CLAUDE_PLUGIN_ROOT}/../<name>/` references must only target declared dependencies. Soft references (skill preloads, subagent invocations) do not require a declared dependency — they are used when the referenced plugin is installed but do not prevent the caller from functioning without it. Core has a soft reference to work (context-aware routing in `/report` and `/ship`). Work has soft references to standards (leading skill preloads, writer subagent invocations).
+Each plugin declares `dependencies` in its `plugin.json`. Cross-plugin `${CLAUDE_PLUGIN_ROOT}/../<name>/` references must only target declared dependencies. Soft references (skill preloads, subagent invocations) do not require a declared dependency — they are used when the referenced plugin is installed but do not prevent the caller from functioning without it. Work has soft references to standards (leading skill preloads, writer subagent invocations).
 
 ### Design Principle
 

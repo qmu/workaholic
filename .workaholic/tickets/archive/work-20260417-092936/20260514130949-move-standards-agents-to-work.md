@@ -3,9 +3,9 @@ created_at: 2026-05-14T13:09:49+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: b1cc36b
+category: Changed
 depends_on:
 ---
 
@@ -353,3 +353,14 @@ Past tickets that touched similar areas:
 ```
 
 > **Note**: The `skills/` listing under `standards/` ("`leading-*, analyze-*, write-*`") becomes "`leading-*`" after the companion skills-move ticket lands. This patch leaves that line alone; the companion ticket reconciles it.
+
+## Final Report
+
+Development completed as planned. All four verification greps returned zero stale references (no `standards:` Task calls in work, no same-plugin paths into moved skills, no unprefixed leading/analyze/write/review entries in work agents, standards/agents/ empty).
+
+### Discovered Insights
+
+- **Insight**: The `performance-analyst` agent already carried a correctly prefixed `core:gather-git-context` entry alongside its standards-resident `analyze-performance` entry. This mixed-prefix layout (some preloads cross-plugin to core, others same-plugin or cross-plugin to standards) is the natural steady state for an agent that consumes both reusable workflow skills (core) and policy/analytical frameworks (standards). The companion skills-move ticket will collapse the standards entries to core, leaving the agent with only `core:` preloads.
+  **Context**: A useful checkpoint when migrating agents: an agent that ends up preloading only `core:` skills is "code-agnostic enough" that it could be moved to core; one that still preloads `standards:` policy skills must stay in work. After the companion ticket, this property gives a clear rule for any future agent placement decision.
+- **Insight**: Three `Task` invocations in `story-writer.md` used the explicit `standards:<agent>` prefix even though the agents were previously cross-plugin from work. The convention "always use the plugin prefix in `Task` calls" made the migration mechanically simple — a single grep found every call site, and the rewrite was character-for-character. Convention has refactor cost; this is a payoff.
+  **Context**: When designing cross-plugin invocation patterns, prefer "always prefix" over "prefix only when crossing a boundary." The former is robust under reorganization; the latter requires updates whenever a boundary moves.

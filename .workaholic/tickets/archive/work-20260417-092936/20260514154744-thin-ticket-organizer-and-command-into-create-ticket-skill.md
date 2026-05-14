@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: refactoring
 layer: [Config]
 effort: 1h
-commit_hash:
-category:
+commit_hash: 6710175
+category: Changed
 depends_on:
 ---
 
@@ -411,4 +411,11 @@ Past tickets that touched similar areas:
 
 ## Final Report
 
-(Filled by `/drive` after implementation.)
+Development completed as planned. `ticket-organizer.md` 144 -> 29 lines; `/ticket` 68 -> 48 lines; `create-ticket/SKILL.md` gained `## Workflow` (six numbered steps) and `## Output Contract` (four JSON shapes) sections. The four `standards:leading-*` soft preloads relocated from agent frontmatter to skill frontmatter; behavior preserved because the agent loads the skill which carries them in scope.
+
+### Discovered Insights
+
+- **Insight**: When migrating an agent body into its preloaded skill, the agent's negative constraints ("Never use AskUserQuestion. Return JSON only.") can stay on the agent verbatim. They're not orchestration content — they're invariants the agent enforces against itself at every turn. Keeping them on the agent means they remain in the agent's first-class context every turn, not buried in skill body prose.
+  **Context**: Future thinning tickets should distinguish three content categories: (a) orchestration steps -> move to skill, (b) I/O contract -> stay on agent, (c) negative invariants ("never do X") -> stay on agent. Skill receives only (a); agent retains (b) and (c).
+- **Insight**: Same-plugin script path rewrites (`${CLAUDE_PLUGIN_ROOT}/../core/skills/...` -> `${CLAUDE_PLUGIN_ROOT}/skills/...`) only apply to content that *moves into* a core skill. The command keeps cross-plugin paths because it stays in work. After migration, both forms coexist correctly: command uses `../core/`, skill uses bare `skills/`.
+  **Context**: The verification grep should check both directions: (a) zero `../core/` inside the target skill, (b) cross-plugin paths still in the command for pre-checks and worktree guards that are command-level concerns, not skill workflow.

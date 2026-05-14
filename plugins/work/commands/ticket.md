@@ -9,9 +9,9 @@ description: Explore codebase and write implementation ticket for `$ARGUMENT`
 
 **CRITICAL:** NEVER implement code changes when this command is invoked - only create tickets. The actual implementation happens later via `/drive`.
 
-**Lead Lens**: Ticket scoping uses the `standards:leading-*` skills as policy lenses, mapped to the ticket's `layer` field. The `ticket-organizer` agent has these skills preloaded; the Lead Lens table in `create-ticket` documents the mapping for human readers.
+**Lead Lens**: Ticket scoping uses the `standards:leading-*` skills as policy lenses, mapped to the ticket's `layer` field. The `core:create-ticket` skill preloads them; the Lead Lens table in the skill documents the mapping.
 
-Thin alias for ticket-organizer subagent.
+Thin alias for `work:ticket-organizer` subagent.
 
 ## Instructions
 
@@ -25,44 +25,24 @@ If `ok` is `false`, display the `message` to the user and stop.
 
 ### Step 0: Worktree Guard
 
-Check if trip worktrees exist before proceeding:
+Run `bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/check-worktrees.sh`. If `has_worktrees` is `true`, present an `AskUserQuestion` with selectable options:
+- **"Continue here"** — Proceed with ticket creation on the current branch.
+- **"Switch to worktree"** — Run `bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/list-all-worktrees.sh`, display the worktree list, and inform the user to navigate to the selected worktree to run `/ticket` there.
 
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/check-worktrees.sh
-```
-
-If `has_worktrees` is `true`, present the user with a choice using `AskUserQuestion` with selectable options:
-- **"Continue here"** - Proceed with ticket creation on the current branch
-- **"Switch to worktree"** - Run `bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/list-all-worktrees.sh`, display the worktree list, and inform the user to navigate to the selected worktree to run `/ticket` there
-
-If `has_worktrees` is `false`, proceed silently to Step 1.
-
-**Rationale**: Prevents creating tickets on a drive branch when the user may intend to work within a trip worktree.
-
-**Trip branch compatibility**: Ticket creation works on `trip/*` branches. The ticket-organizer detects these as non-main branches and skips branch creation. Tickets go to `.workaholic/tickets/todo/` regardless of branch type. When running inside a trip worktree, tickets are created in the worktree's ticket directory.
+Rationale: prevents creating tickets on a drive branch when the user may intend to work within a trip worktree.
 
 ### Step 1: Invoke Ticket Organizer
 
-Invoke ticket-organizer subagent via Task tool:
-
-```
-Task tool with subagent_type: "work:ticket-organizer", model: "opus"
-prompt: "Create ticket for: <$ARGUMENT>. Target: <todo|icebox based on argument>"
-```
+Invoke `work:ticket-organizer` via Task tool (`model: "opus"`, prompt: `"Create ticket for: <$ARGUMENT>. Target: <todo|icebox based on argument>"`).
 
 Handle the response:
-
-- `status: "success"` - If `branch_created` is present, confirm branch creation. Proceed to step 2.
-- `status: "duplicate"` - Inform user, show existing ticket path, done
-- `status: "needs_decision"` - Present options using `AskUserQuestion`, re-invoke with decision
-- `status: "needs_clarification"` - Present questions using `AskUserQuestion`, re-invoke with answers
+- `status: "success"` — If `branch_created` is present, confirm branch creation. Proceed to step 2.
+- `status: "duplicate"` — Inform user, show existing ticket path, done.
+- `status: "needs_decision"` — Present options using `AskUserQuestion`, re-invoke with decision.
+- `status: "needs_clarification"` — Present questions using `AskUserQuestion`, re-invoke with answers.
 
 ### Step 2: Commit and Present
 
-**Skip commit if invoked during `/drive`** - archive script handles it.
+**Skip commit if invoked during `/drive`** — the archive script handles it.
 
-Otherwise:
-- Stage ticket(s): `git add <paths>`
-- Commit: "Add ticket for <short-description>"
-- Present ticket location and summary
-- Tell user to run `/drive` to implement
+Otherwise: stage ticket(s) with `git add <paths>`, commit `"Add ticket for <short-description>"`, present the ticket location and summary, and tell the user to run `/drive` to implement.

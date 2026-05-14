@@ -26,6 +26,102 @@ Story sections are populated from parallel agent outputs:
 
 Section 3 (Changes) comes from archived tickets, prefaced by journey content from overview-writer. Section 10 (Notes) is optional context.
 
+### Overview Generation
+
+Generate the four fields consumed by sections 1, 2, and 3 (`overview`, `highlights`, `motivation`, `journey`) by analyzing commit history for the branch. The `overview-writer` agent runs this generation in parallel with `release-readiness` and `section-reviewer`.
+
+#### Collect Commits
+
+Run the bundled script to collect commit information:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/collect-commits.sh [base-branch]
+```
+
+Default base branch is `main`.
+
+##### Output Format (JSON)
+
+```json
+{
+  "commits": [
+    {
+      "hash": "abc1234",
+      "subject": "Add feature X",
+      "body": "Detailed description of the change...",
+      "timestamp": "2026-01-15T10:30:00+09:00"
+    }
+  ],
+  "count": 15,
+  "base_branch": "main"
+}
+```
+
+#### Content Structure
+
+Generate JSON with four components:
+
+##### 1. Overview
+
+A 2-3 sentence summary capturing the branch essence: main goal, approach taken, what was achieved. Past tense; synthesize from commit subjects.
+
+##### 2. Highlights
+
+Array of 3-5 meaningful changes: extracted from commit subjects, related commits grouped into single highlights, focused on user-visible or architecturally significant changes, ordered by importance not chronology.
+
+##### 3. Motivation
+
+A paragraph synthesizing the "why": what problem or opportunity started this work, why this approach was chosen, what constraints shaped it. Narrative prose, not a list.
+
+##### 4. Journey
+
+Two parts:
+- **mermaid**: A flowchart showing work progression
+- **summary**: 50-100 word summary of development journey
+
+##### Flowchart Guidelines
+
+```mermaid
+flowchart LR
+  subgraph Phase1[Initial Setup]
+    direction TB
+    a1[First step] --> a2[Second step]
+  end
+
+  subgraph Phase2[Core Work]
+    direction TB
+    b1[Third step] --> b2[Fourth step]
+  end
+
+  Phase1 --> Phase2
+```
+
+- Use `flowchart LR` for horizontal timeline
+- Use `direction TB` inside each subgraph for vertical flow
+- Group by theme: each subgraph is one concern area
+- Connect subgraphs in timeline order
+- Maximum 3-5 subgraphs per diagram
+
+#### Overview Output Format
+
+Return JSON:
+
+```json
+{
+  "overview": "2-3 sentence summary capturing the branch essence",
+  "highlights": [
+    "First meaningful change",
+    "Second meaningful change",
+    "Third meaningful change"
+  ],
+  "motivation": "Paragraph synthesizing the 'why' from commit context",
+  "journey": {
+    "mermaid": "flowchart LR\n  subgraph Phase1[Initial Work]\n    direction TB\n    a1[Step 1] --> a2[Step 2]\n  end\n  ...",
+    "summary": "50-100 word summary of the development journey"
+  }
+}
+```
+
 ### Story Content Structure
 
 The story content (this IS the PR description):

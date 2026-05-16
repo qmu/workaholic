@@ -69,6 +69,7 @@ Refs #<issue-number>
 
 ## Stories
 
+- [work-20260417-092936.md](work-20260417-092936.md) - Eliminate manager tier, redraw core/work plugin boundary, thin six work-side umbrellas (drive, report, trip, ticket, ship, discover) into core-skill aliases, rewrite leading skills in viewpoint prose - 16 tickets, 27 commits
 - [work-20260415-163724.md](work-20260415-163724.md) - Consolidate 7 lead domains to 4 (validity, availability, security, accessibility), rewrite policies in priority-based tone, soft dependency fix - 0 tickets, 4 commits
 - [work-20260408-001129.md](work-20260408-001129.md) - Lead skill architecture maturation: four-tier structure, domain consolidation, drive abandon fix, dependency tracking - 3 tickets, 15 commits
 - [work-20260406-193458.md](work-20260406-193458.md) - Housekeeping and structural improvements: directory rename, skill removal, release note fix, discoverer refactor, trip worktree fix - 5 tickets, 13 commits

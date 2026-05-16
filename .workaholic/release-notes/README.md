@@ -4,6 +4,7 @@ Concise release notes generated from branch stories for GitHub Releases.
 
 ## Notes
 
+- [work-20260417-092936.md](work-20260417-092936.md) - Manager tier eliminated, core/work plugin boundary redrawn, six work-side umbrellas thinned into core-skill aliases, leading skills rewritten in viewpoint prose
 - [work-20260408-001129.md](work-20260408-001129.md) - Four-tier lead structure, domain consolidation, drive abandon fix, dependency tracking
 - [work-20260406-193458.md](work-20260406-193458.md) - Release note fix, discoverer refactor, trip worktree fix, skill removal
 - [work-20260404-101424-fix-trip-report-dir-path.md](work-20260404-101424-fix-trip-report-dir-path.md) - Trip directory fix, agent consolidation, and command migration

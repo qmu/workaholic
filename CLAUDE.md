@@ -17,19 +17,16 @@ Edit `plugins/` not `.claude/`. This repo develops plugins - changes go to `plug
 plugins/                 # Plugin source directories
   core/                  # Core shared plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
-    commands/            # report, ship, scan
-    skills/              # branching, commit, gather-git-context, gather-ticket-metadata, ship, system-safety
+    skills/              # branching, check-deps, commit, create-ticket, discover, drive, gather, report, review-sections, ship, system-safety, trip-protocol, validate-writer-output, write-release-note
   standards/             # Standards policy plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
-    agents/              # leads, managers, writers, analysts
-    skills/              # lead-*, manage-*, analyze-*, write-*
+    skills/              # leading-*
   work/                  # Work plugin: drive + trip workflows (depends on: core)
     .claude-plugin/      # Plugin configuration
     agents/              # drive-navigator, story-writer, planner, architect, constructor, etc.
-    commands/            # ticket, drive, trip
+    commands/            # ticket, drive, trip, report, ship
     hooks/               # ticket validation
-    rules/               # general, workaholic
-    skills/              # create-ticket, discover, drive, report, trip-protocol, check-deps
+    rules/               # diagrams, general, shell, typescript, workaholic
 ```
 
 ## Architecture Policy
@@ -51,7 +48,7 @@ core (base)       standards (base)
 work ─ ─ ─ ─ ─
 ```
 
-Each plugin declares `dependencies` in its `plugin.json`. Cross-plugin `${CLAUDE_PLUGIN_ROOT}/../<name>/` references must only target declared dependencies. Soft references (skill preloads, subagent invocations) do not require a declared dependency — they are used when the referenced plugin is installed but do not prevent the caller from functioning without it. Core has soft references to work (context-aware routing) and standards (scan). Work has soft references to standards (lead skill preloads, writer subagent invocations).
+Each plugin declares `dependencies` in its `plugin.json`. Cross-plugin `${CLAUDE_PLUGIN_ROOT}/../<name>/` references must only target declared dependencies. Soft references (skill preloads, subagent invocations) do not require a declared dependency — they are used when the referenced plugin is installed but do not prevent the caller from functioning without it. Work has soft references to standards (leading skill preloads, writer subagent invocations).
 
 ### Design Principle
 
@@ -69,8 +66,8 @@ Subagents must use skills for common operations instead of inline shell commands
 
 | Operation | Skill | Usage |
 | --------- | ----- | ----- |
-| Git context (branch, base, URL) | gather-git-context | `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-git-context/scripts/gather.sh` |
-| Ticket metadata (date, author) | gather-ticket-metadata | `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-ticket-metadata/scripts/gather.sh` |
+| Git context (branch, base, URL) | gather | `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/git-context.sh` |
+| Ticket metadata (date, author) | gather | `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/ticket-metadata.sh` |
 
 Never write inline git commands like `git branch --show-current` or `git remote show origin` in subagent markdown files. Subagents preload the skill and gather context themselves.
 
@@ -106,12 +103,12 @@ Claude Code expands `${CLAUDE_PLUGIN_ROOT}` inline in all plugin content (skills
 
 **Wrong** (relative path):
 ```bash
-bash .claude/skills/gather-ticket-metadata/scripts/gather.sh
+bash .claude/skills/gather/scripts/ticket-metadata.sh
 ```
 
 **Correct** (same-plugin reference):
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/gather-ticket-metadata/scripts/gather.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/ticket-metadata.sh
 ```
 
 **Correct** (cross-plugin reference — declared dependency):
@@ -125,7 +122,6 @@ bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/check-worktrees.sh
 | -------------------------------- | ------------------------------------------------ |
 | `/ticket <description>`          | Write implementation spec for a feature          |
 | `/drive`                         | Implement queued specs one by one                |
-| `/scan`                          | Full documentation scan (all 14 agents)          |
 | `/report`                        | Context-aware: generate story or journey report and create PR |
 | `/ship`                          | Context-aware: merge PR, deploy, and verify      |
 | `/release [major\|minor\|patch]` | Release new marketplace version                  |

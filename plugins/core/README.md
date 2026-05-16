@@ -8,7 +8,6 @@ Shared commands and skills for cross-workflow operations. Provides context-aware
 | ------- | ----------- |
 | `/report` | Context-aware report generation and PR creation |
 | `/ship` | Context-aware: merge PR, deploy, and verify |
-| `/scan` | Full documentation scan (all agents) |
 
 ## Skills
 

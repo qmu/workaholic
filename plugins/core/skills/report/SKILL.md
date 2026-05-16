@@ -1,0 +1,563 @@
+---
+name: report
+description: Story writing, PR creation, and release readiness assessment for branch reporting.
+allowed-tools: Bash
+user-invocable: false
+skills:
+  - core:trip-protocol
+  - core:branching
+  - core:gather
+  - standards:leading-accessibility
+  - standards:leading-validity
+  - standards:leading-security
+  - standards:leading-availability
+---
+
+# Report
+
+Guidelines for generating branch stories, creating pull requests, and assessing release readiness.
+
+## Run Workflow
+
+Context-aware report orchestration. Auto-detects whether the caller is in a drive or trip workflow and routes accordingly.
+
+### Step 0: Workspace Guard
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-workspace.sh
+```
+
+Parse the JSON output. If `clean` is `true`, proceed silently to Step 1.
+
+If `clean` is `false`, display the `summary` to the user and ask via AskUserQuestion with selectable options:
+- **"Ignore and proceed"** - Continue with the report workflow. The unrelated changes will remain in the workspace after the command completes.
+- **"Stop"** - Halt the command so you can handle the changes first.
+
+If the user selects "Stop", end the command immediately.
+
+### Step 1: Detect Context
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/detect-context.sh
+```
+
+Parse the JSON output. Route to the appropriate workflow based on `context`.
+
+### Step 2: Route by Context
+
+#### Work Context (`context: "work"`)
+
+Route by `mode` from detect-context output:
+
+##### Drive Mode (`mode: "drive"`)
+
+1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
+2. **Invoke story-writer** (`subagent_type: "work:story-writer"`, `model: "opus"`)
+3. **Display story content**: Read the story file from the `story_file` path in the story-writer result and output the entire Markdown content so the developer can review inline
+4. **Display PR URL** from story-writer result (mandatory)
+
+##### Trip Mode (`mode: "trip"`)
+
+1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
+2. **Invoke story-writer** (`subagent_type: "work:story-writer"`, `model: "opus"`)
+3. **Display story content**: Read the story file from the `story_file` path in the story-writer result and output the entire Markdown content so the developer can review inline
+4. **Display PR URL** from story-writer result (mandatory)
+
+##### Hybrid Mode (`mode: "hybrid"`)
+
+Both trip artifacts and drive-style tickets exist on this branch. Both Drive Mode and Trip Mode now use the same story-writer workflow, so follow Drive Mode (version bump + story-writer). The story-writer captures the full narrative including any trip origin.
+
+#### Worktree Context (`context: "worktree"`)
+
+Not on a work branch, but worktrees exist.
+
+1. Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/list-worktrees.sh`
+2. Filter to worktrees where `has_pr` is `false` (unreported work)
+3. If no unreported worktrees found: inform the user "No unreported worktrees found." and stop.
+4. If exactly one unreported worktree: ask the user "Found worktree '<name>'. Generate report?" using AskUserQuestion. If confirmed, use it.
+5. If multiple unreported worktrees: list them and ask the user which one to report on using AskUserQuestion.
+6. Once selected, all subsequent git operations must run from within the worktree directory.
+7. Re-run context detection from within the worktree and follow the appropriate mode workflow.
+
+#### Unknown Context (`context: "unknown"`)
+
+Ask the user: "Could not determine development context from branch '<branch>'. Are you working on a drive or trip?" using AskUserQuestion with options "Drive" and "Trip". Route accordingly.
+
+## Write Story
+
+Generate a branch story that serves as the single source of truth for PR content.
+
+### Orchestration
+
+Generate the story file, then create the PR and release note. The `work:story-writer` agent runs this orchestration.
+
+#### Phase 0: Gather Context
+
+Gather all context using the preloaded gather skill — run `git-context.sh`. Returns: branch, base_branch, repo_url, archived_tickets, git_log.
+
+#### Phase 1: Invoke Story Generation Agents
+
+Invoke 3 agents in parallel via Task tool (single message with 3 tool calls):
+
+- **release-readiness** (`subagent_type: "work:release-readiness"`, `model: "opus"`): Analyzes branch for release readiness. Pass archived tickets list and branch name.
+- **overview-writer** (`subagent_type: "work:overview-writer"`, `model: "opus"`): Generates overview, highlights, motivation, and journey. Pass branch name and base branch.
+- **section-reviewer** (`subagent_type: "work:section-reviewer"`, `model: "opus"`): Generates sections 4-8 (Outcome, Historical Analysis, Concerns, Ideas, Successful Development Patterns). Pass branch name and archived tickets list.
+
+Wait for all 3 agents to complete. Track which succeeded and which failed.
+
+#### Phase 2: Write Story File
+
+1. **Gather Source Data**: Read archived tickets using Glob pattern `.workaholic/tickets/archive/<branch-name>/*.md`. Extract frontmatter (`commit_hash`, `category`) and content (Overview, Final Report).
+2. **Write Story**: Follow the Story Content Structure section below.
+3. **Update Index**: Add entry to `.workaholic/stories/README.md`.
+
+#### Phase 3: Commit and Push Story
+
+1. **Stage story**: `git add .workaholic/stories/`
+2. **Commit**: `git commit -m "Add branch story for <branch-name>"`
+3. **Push branch**: `git push -u origin <branch-name>`
+
+#### Phase 4: Create PR and Generate Release Note
+
+Run sequentially:
+
+1. **Create PR** first: Invoke **pr-creator** (`subagent_type: "work:pr-creator"`, `model: "opus"`). Reads story file, derives title, runs `gh` CLI operations. Capture PR URL from response.
+2. **Generate release note** with PR URL: Invoke **release-note-writer** (`subagent_type: "work:release-note-writer"`, `model: "haiku"`). Pass the PR URL obtained from pr-creator in the prompt. Reads story file, generates concise release notes, writes to `.workaholic/release-notes/<branch-name>.md`.
+
+Capture PR URL from pr-creator response for final output.
+
+#### Phase 5: Commit and Push Release Notes
+
+1. **Stage release notes**: `git add .workaholic/release-notes/`
+2. **Commit**: `git commit -m "Add release notes for <branch-name>"`
+3. **Push**: `git push`
+
+#### Story-Writer Output Schema
+
+Return JSON with story and PR status:
+
+```json
+{
+  "story_file": ".workaholic/stories/<branch-name>.md",
+  "release_note_file": ".workaholic/release-notes/<branch-name>.md",
+  "pr_url": "<PR-URL>",
+  "agents": {
+    "overview_writer": { "status": "success" | "failed", "error": "..." },
+    "section_reviewer": { "status": "success" | "failed", "error": "..." },
+    "release_readiness": { "status": "success" | "failed", "error": "..." },
+    "release_note_writer": { "status": "success" | "failed", "error": "..." },
+    "pr_creator": { "status": "success" | "failed", "error": "..." }
+  }
+}
+```
+
+### Agent Output Mapping
+
+Story sections are populated from parallel agent outputs:
+
+| Agent | Sections | Fields |
+| ----- | -------- | ------ |
+| overview-writer | 1, 2, 3 (journey preamble) | `overview`, `highlights[]`, `motivation`, `journey.mermaid`, `journey.summary` |
+| section-reviewer | 4, 5, 6, 7, 8 | `outcome`, `historical_analysis`, `concerns`, `ideas`, `development_patterns` |
+| release-readiness | 9 | `verdict`, `concerns[]`, `instructions.pre_release[]`, `instructions.post_release[]` |
+| release-note-writer | (separate file) | Writes to `.workaholic/release-notes/<branch>.md` |
+
+Section 3 (Changes) comes from archived tickets, prefaced by journey content from overview-writer. Section 10 (Notes) is optional context.
+
+### Overview Generation
+
+Generate the four fields consumed by sections 1, 2, and 3 (`overview`, `highlights`, `motivation`, `journey`) by analyzing commit history for the branch. The `overview-writer` agent runs this generation in parallel with `release-readiness` and `section-reviewer`.
+
+#### Collect Commits
+
+Run the bundled script to collect commit information:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/collect-commits.sh [base-branch]
+```
+
+Default base branch is `main`.
+
+##### Output Format (JSON)
+
+```json
+{
+  "commits": [
+    {
+      "hash": "abc1234",
+      "subject": "Add feature X",
+      "body": "Detailed description of the change...",
+      "timestamp": "2026-01-15T10:30:00+09:00"
+    }
+  ],
+  "count": 15,
+  "base_branch": "main"
+}
+```
+
+#### Content Structure
+
+Generate JSON with four components:
+
+##### 1. Overview
+
+A 2-3 sentence summary capturing the branch essence: main goal, approach taken, what was achieved. Past tense; synthesize from commit subjects.
+
+##### 2. Highlights
+
+Array of 3-5 meaningful changes: extracted from commit subjects, related commits grouped into single highlights, focused on user-visible or architecturally significant changes, ordered by importance not chronology.
+
+##### 3. Motivation
+
+A paragraph synthesizing the "why": what problem or opportunity started this work, why this approach was chosen, what constraints shaped it. Narrative prose, not a list.
+
+##### 4. Journey
+
+Two parts:
+- **mermaid**: A flowchart showing work progression
+- **summary**: 50-100 word summary of development journey
+
+##### Flowchart Guidelines
+
+```mermaid
+flowchart LR
+  subgraph Phase1[Initial Setup]
+    direction TB
+    a1[First step] --> a2[Second step]
+  end
+
+  subgraph Phase2[Core Work]
+    direction TB
+    b1[Third step] --> b2[Fourth step]
+  end
+
+  Phase1 --> Phase2
+```
+
+- Use `flowchart LR` for horizontal timeline
+- Use `direction TB` inside each subgraph for vertical flow
+- Group by theme: each subgraph is one concern area
+- Connect subgraphs in timeline order
+- Maximum 3-5 subgraphs per diagram
+
+#### Overview Output Format
+
+Return JSON:
+
+```json
+{
+  "overview": "2-3 sentence summary capturing the branch essence",
+  "highlights": [
+    "First meaningful change",
+    "Second meaningful change",
+    "Third meaningful change"
+  ],
+  "motivation": "Paragraph synthesizing the 'why' from commit context",
+  "journey": {
+    "mermaid": "flowchart LR\n  subgraph Phase1[Initial Work]\n    direction TB\n    a1[Step 1] --> a2[Step 2]\n  end\n  ...",
+    "summary": "50-100 word summary of the development journey"
+  }
+}
+```
+
+### Story Content Structure
+
+The story content (this IS the PR description):
+
+```markdown
+## 1. Overview
+
+[Content from overview-writer `overview` field: 2-3 sentence summary capturing the branch essence.]
+
+**Highlights:**
+
+1. [From overview-writer `highlights[0]}]
+2. [From overview-writer `highlights[1]`]
+3. [From overview-writer `highlights[2]`]
+
+## 2. Motivation
+
+[Content from overview-writer `motivation` field: paragraph synthesizing the "why" from commit context.]
+
+## 3. Changes
+
+[Content from overview-writer `journey.mermaid` for the flowchart and `journey.summary` for the prose below it.]
+
+```mermaid
+[Content from overview-writer `journey.mermaid`]
+```
+
+[Content from overview-writer `journey.summary`]
+
+**Flowchart Guidelines:**
+- Use `flowchart LR` for horizontal timeline (subgraphs arranged left-to-right)
+- Use `direction TB` inside each subgraph for vertical item flow
+- Group by theme: each subgraph represents one concern or decision area
+- Connect subgraphs in timeline order to show work progression
+- Use descriptive node labels: `id[Description]` syntax
+- Maximum 3-5 subgraphs per diagram
+
+One subsection per ticket, in chronological order:
+
+### 3-1. <Ticket title> ([hash](<repo-url>/commit/<hash>))
+
+<1-3 sentence summary of what this ticket changed and why. Focus on the intent and scope of the change rather than enumerating individual files.>
+
+### 3-2. <Next ticket title> ([hash](<repo-url>/commit/<hash>))
+
+<1-3 sentence summary of what this ticket changed and why.>
+
+### ...
+
+**Changes Guidelines:**
+- One subsection per ticket (not grouped by theme)
+- **CRITICAL**: Commit hash MUST be a clickable GitHub link, not plain text
+  - Wrong: `(abc1234)` or `(<hash>)`
+  - Correct: `([abc1234](<repo-url>/commit/abc1234))`
+- Format: `### 3-N. <Title> ([hash](<repo-url>/commit/<hash>))`
+- **Summarize the change** in 1-3 sentences per ticket -- describe what was done and why, not individual files
+- Focus on intent, scope, and impact rather than enumerating every modified file
+- Chronological order matches ticket creation time
+
+## 4. Outcome
+
+[Summarize what was accomplished. Reference key tickets for details.]
+
+## 5. Historical Analysis
+
+[Context from related past work. What similar problems were solved before? What patterns emerge from the Related History sections of tickets? If no related tickets exist, write "No related historical context."]
+
+## 6. Concerns
+
+[Risks, trade-offs, or issues discovered during implementation. Each concern should include identifiable references.]
+
+**Format**: `- <description> (see [hash](<repo-url>/commit/<hash>) in path/to/file.ext)`
+
+**Example**:
+- The pathspec exclusion syntax requires modern git versions (see [7eab801](<repo-url>/commit/7eab801) in `plugins/work/skills/drive/SKILL.md`)
+- Auto-approval configuration may be broader than intended (`~/.claude/settings.local.json`)
+
+**Guidelines**:
+- Reference the commit hash from section 3 where the concern was introduced
+- Include the file path where readers should investigate
+- Write "None" if nothing to report
+
+## 7. Ideas
+
+[Enhancement suggestions for future work. Improvements that were out of scope. "Nice to have" features identified during implementation. Write "None" if nothing to report.]
+
+## 8. Successful Development Patterns
+
+[Effective patterns discovered during this branch's development that are worth preserving as institutional knowledge.]
+
+**Format**: Bullet list with pattern description and context.
+
+**Example**:
+- Consolidating 12 skill directories into 4 cohesive units improved navigability without losing behavioral content -- naming skills after their consuming commands creates a discoverable one-to-one mapping
+- Running three discovery agents in parallel (history, source, ticket) before writing specs ensures comprehensive context without sequential bottlenecks
+- Extracting shell logic into skill scripts rather than inline conditionals prevented exit code 127 failures from path resolution issues
+
+**Guidelines**:
+- Focus on patterns that worked well, not problems encountered (those belong in Concerns)
+- Each pattern should be specific enough to be actionable in future branches
+- Include the reasoning ("why it worked") not just the action ("what was done")
+- Extract from ticket Considerations (positive observations), Final Reports (what went well), and Implementation Steps (approaches that proved effective)
+- Categories to consider: architectural decisions, testing strategies, refactoring approaches, collaboration patterns, tooling choices
+- Write "None" if no noteworthy patterns emerged
+
+## 9. Release Preparation
+
+**Verdict**: [Ready for release / Needs attention before release]
+
+### 9-1. Concerns
+
+- [List any concerns from release-readiness analysis]
+- Or "None - changes are safe for release"
+
+### 9-2. Pre-release Instructions
+
+- [Steps to take before running /release]
+- Or "None - standard release process applies"
+
+### 9-3. Post-release Instructions
+
+- [Steps to take after release]
+- Or "None - no special post-release actions needed"
+```
+
+**Release-readiness input:**
+
+The release-readiness JSON is provided by story-writer which invokes release-readiness as a parallel agent. The JSON contains:
+
+```json
+{
+  "releasable": true/false,
+  "verdict": "Ready for release" / "Needs attention before release",
+  "concerns": [],
+  "instructions": {
+    "pre_release": [],
+    "post_release": []
+  }
+}
+```
+
+Format this JSON into section 9.
+
+```markdown
+## 10. Notes
+
+Additional context for reviewers or future reference.
+```
+
+### Story Frontmatter
+
+Create `.workaholic/stories/<branch-name>.md` with YAML frontmatter:
+
+```yaml
+---
+branch: <branch-name>
+tickets_completed: <count of tickets>
+---
+```
+
+### Writing Guidelines
+
+- Write in third person ("The developer discovered..." not "I discovered...")
+- Connect tickets into a narrative arc, not a list
+- Highlight decision points and trade-offs
+- Keep Motivation/Journey/Outcome concise (Journey: 50-100 words)
+- Changes section: one entry per ticket, brief descriptions
+- Historical Analysis/Concerns/Ideas can be "None" if empty
+
+### Updating Stories Index
+
+Update `.workaholic/stories/README.md` to include the new story:
+
+- Add entry: `- [<branch-name>.md](<branch-name>.md) - Brief description of the branch work`
+
+## Create PR
+
+Create or update a GitHub pull request using the story file as PR content.
+
+### Derive PR Title
+
+Extract the first item from the Summary section of the story file:
+
+```markdown
+## 1. Summary
+
+1. First meaningful change
+```
+
+Use that first item as the title. If multiple items exist, append "etc" (e.g., "Add dark mode toggle etc").
+
+### Create or Update PR
+
+Run the bundled script:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/create-or-update.sh <branch-name> "<title>"
+```
+
+#### What the Script Does
+
+1. Strips YAML frontmatter via `strip-frontmatter.sh` from `.workaholic/stories/<branch-name>.md`
+2. Writes clean content to `/tmp/pr-body.md`
+3. Checks if PR exists for the branch
+4. Creates new PR or updates existing one
+5. Outputs the result in required format
+
+### Strip Frontmatter Script
+
+A reusable script for removing YAML frontmatter from any markdown file:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/strip-frontmatter.sh <file>
+```
+
+Outputs clean markdown body to stdout. Handles files with frontmatter, without frontmatter (pass-through), and empty files. Only strips frontmatter starting on line 1 -- content `---` separators elsewhere are preserved.
+
+### PR Output Format
+
+Exactly one line:
+
+```
+PR created: <URL>
+```
+
+or
+
+```
+PR updated: <URL>
+```
+
+This output format is required by the story command.
+
+## Assess Release Readiness
+
+Analyze a branch to determine if it's ready for release.
+
+### Analysis Tasks
+
+1. **Review code changes**: Check `git diff main..HEAD` for:
+   - Incomplete work (TODO, FIXME, XXX comments in new code)
+   - Security concerns (hardcoded secrets, credentials)
+   - Runtime errors or obvious bugs
+
+2. **Check for blocking issues**:
+   - Tests failing (if tests exist)
+   - Type errors (if type checking exists)
+   - Missing files referenced in code
+
+3. **Identify actionable items** (not theoretical concerns):
+   - Documentation that needs updating
+   - Version numbers to bump
+   - Files to stage/commit before release
+
+### What NOT to Flag
+
+- "Breaking changes" for command renames - users adapt
+- API changes in a plugin - plugins are configuration, not APIs
+- Internal refactoring - doesn't affect users
+- Theoretical upgrade concerns - users pull fresh versions
+
+### Release Readiness Output Format
+
+Return JSON:
+
+```json
+{
+  "releasable": true,
+  "verdict": "Ready for release",
+  "concerns": [],
+  "instructions": {
+    "pre_release": [],
+    "post_release": []
+  }
+}
+```
+
+Or if issues found:
+
+```json
+{
+  "releasable": false,
+  "verdict": "Needs attention before release",
+  "concerns": [
+    "Found TODO comment in src/foo.ts",
+    "Tests failing in commands/drive.md"
+  ],
+  "instructions": {
+    "pre_release": ["Fix failing tests", "Remove TODO comments"],
+    "post_release": []
+  }
+}
+```
+
+### Release Readiness Guidelines
+
+- Focus on issues that actually block releases
+- Provide actionable instructions, not theoretical warnings
+- "Breaking change" is rarely a real concern for plugins
+- Empty concerns array is the happy path, not a failure
+- If it doesn't require action, don't flag it

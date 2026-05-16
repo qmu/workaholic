@@ -18,7 +18,7 @@ Workaholic serves three distinct stakeholder groups whose interactions form a de
 
 ### Primary Stakeholder: Developer (End User)
 
-The developer represents the primary consumer of Workaholic. They install the marketplace using `/plugin marketplace add qmu/workaholic` and interact through slash commands. The drivin plugin provides four core commands forming a complete development cycle: `/ticket` for planning changes, `/drive` for implementation, `/scan` for documentation updates, and `/report` for PR creation. The trippin plugin provides the `/trip` command for collaborative exploration using three-agent teams.
+The developer represents the primary consumer of Workaholic. They install the marketplace using `/plugin marketplace add qmu/workaholic` and interact through slash commands. The work plugin provides five core commands forming a complete development cycle: `/ticket` for planning changes, `/drive` for implementation, `/trip` for collaborative exploration using three-agent teams, `/report` for story/PR creation, and `/ship` for merging and verification.
 
 The developer operates under explicit human-in-the-loop control. During `/drive` execution, the system presents approval dialogs using `AskUserQuestion` with selectable options, requiring explicit confirmation before committing each ticket. The developer never writes tickets manually—the ticket-organizer subagent explores the codebase and writes implementation specifications on their behalf. Similarly, the developer never manually writes changelogs or PR descriptions—these generate automatically from accumulated ticket history.
 
@@ -42,7 +42,7 @@ Claude Code acts as the execution engine that receives slash commands, invokes s
 
 The agent follows explicit git safety protocols: never commit without user request, never use `run_in_background: true` for agents requiring Write/Edit permissions, never skip hooks, and never force push to main/master. Complex shell operations must be extracted to bundled skill scripts rather than written inline in markdown files.
 
-The agent provides transparency through real-time progress reporting. The `/scan` command invokes all 17 documentation agents in parallel using separate Task calls within a single message, making each agent's progress visible to the developer. Prior to recent refactoring (ticket `20260208131751-migrate-scanner-into-scan-command.md`), the scan command delegated to a scanner subagent, hiding individual agent progress behind a single Task call.
+The agent provides transparency through real-time progress reporting. Multi-agent commands such as `/report` invoke their subagents using separate Task calls within a single message, making each agent's progress visible to the developer.
 
 ## User Goals
 
@@ -52,7 +52,7 @@ Each stakeholder group pursues distinct but complementary goals within the Worka
 
 The developer's primary goal is fast serial ticket implementation. They want to queue multiple change requests, then implement them one by one with explicit approval at each step. Secondary goals include automatic documentation generation from ticket history, PR creation without manual summarization, and searchable project history for future coding agents.
 
-The developer values transparency over automation. They prefer seeing individual agent progress during `/scan` rather than waiting for a single scanner subagent to complete. They prefer explicit approval dialogs with selectable options over autonomous decisions about ticket moves or implementation deviations.
+The developer values transparency over automation. They prefer seeing individual agent progress during multi-agent commands rather than waiting for a single orchestrator subagent to complete. They prefer explicit approval dialogs with selectable options over autonomous decisions about ticket moves or implementation deviations.
 
 The developer expects the system to preserve context across sessions. Tickets in `.workaholic/tickets/todo/` persist between sessions. Archived tickets in `.workaholic/tickets/archive/<branch>/` document completed work. Stories in `.workaholic/stories/` provide development narratives. All artifacts are markdown files committed alongside code, making them git-searchable and branch-aware.
 
@@ -62,7 +62,7 @@ The plugin author's primary goal is extending and maintaining the plugin while p
 
 Secondary goals include version management (keeping marketplace and plugin versions synchronized), CI validation (ensuring no structural violations), and marketplace publishing (releasing new versions with proper semantic versioning).
 
-The plugin author balances feature development with documentation maintenance. Every plugin change requires updates to multiple viewpoint specs in `.workaholic/specs/` (stakeholder, model, usecase, infrastructure, application, component, data, feature). The `/scan` command automates this documentation update by invoking 8 viewpoint analyst agents and 7 policy analyst agents in parallel.
+The plugin author balances feature development with documentation maintenance. Every plugin change requires updates to multiple viewpoint specs in `.workaholic/specs/` (stakeholder, model, usecase, infrastructure, application, component, data, feature). These specs are hand-maintained reference documents updated alongside structural changes through the `/ticket` workflow.
 
 ### AI Agent Goals
 
@@ -78,15 +78,13 @@ Stakeholder interactions with Workaholic follow well-defined workflow patterns t
 
 ### Development Cycle Pattern
 
-The primary interaction pattern is the development cycle, which consists of four sequential phases.
+The primary interaction pattern is the development cycle, which consists of three sequential phases.
 
 **Phase 1: Ticket Creation**. The developer invokes `/ticket <description>`, which delegates to the ticket-organizer subagent. The ticket-organizer runs three discovery agents in parallel (history-discoverer for related tickets, source-discoverer for relevant files, ticket-discoverer for duplicate detection), then writes a ticket to `.workaholic/tickets/todo/` with sections: Overview, Key Files, Related History, Implementation Steps, Patches (if applicable), Considerations. If on main/master, the system creates a new topic branch first.
 
-**Phase 2: Implementation**. The developer invokes `/drive`, which delegates to the drive-navigator subagent to list and prioritize tickets. For each ticket, the system reads the ticket file, implements the changes, requests approval via `AskUserQuestion` with selectable options (Approve, Approve and stop, Other, Abandon), and upon approval, archives the ticket to `.workaholic/tickets/archive/<branch>/` with a Final Report section documenting deviations.
+**Phase 2: Implementation**. The developer invokes `/drive`, which delegates to the drive-navigator subagent to list and prioritize tickets. For each ticket, the system reads the ticket file, implements the changes, requests approval via `AskUserQuestion` with selectable options (Approve, Approve and stop, Other, Abandon), and upon approval, archives the ticket to `.workaholic/tickets/archive/<branch>/` with a Final Report section documenting deviations. The four leading skills are preloaded into the drive command so policy lenses (validity, availability, security, accessibility) apply during implementation.
 
-**Phase 3: Documentation**. The developer optionally invokes `/scan` to update all documentation. The scan command invokes 17 agents in parallel: 8 viewpoint analysts (stakeholder, model, usecase, infrastructure, application, component, data, feature), 7 policy analysts (test, security, quality, accessibility, observability, delivery, recovery), 1 changelog writer, and 1 terms writer. Each agent produces specs in `.workaholic/specs/`, policies in `.workaholic/policies/`, terms in `.workaholic/terms/`, and changelog entries in `CHANGELOG.md`.
-
-**Phase 4: Delivery**. The developer invokes `/report` to generate a story and create a PR. The report command first bumps the version in both version files, then invokes the story-writer subagent. The story-writer runs 4 agents in parallel (release-readiness for release analysis, performance-analyst for decision quality, overview-writer for narrative sections, section-reviewer for outcome/concerns/ideas), composes a story file in `.workaholic/stories/<branch>.md`, commits and pushes it, then invokes 2 more agents in parallel (release-note-writer for release notes, pr-creator for GitHub PR creation).
+**Phase 3: Delivery**. The developer invokes `/report` to generate a story and create a PR. The report command first bumps the version in the version files, then invokes the story-writer subagent. The story-writer runs 4 agents in parallel (release-readiness for release analysis, performance-analyst for decision quality, overview-writer for narrative sections, section-reviewer for outcome/concerns/ideas), composes a story file in `.workaholic/stories/<branch>.md`, commits and pushes it, then invokes 2 more agents in parallel (release-note-writer for release notes, pr-creator for GitHub PR creation). After the PR is merged, the developer invokes `/ship` to verify production.
 
 ### Workflow Sequence Diagram
 
@@ -140,7 +138,7 @@ Critically, tickets never move to icebox autonomously. If a ticket cannot be imp
 
 ### Agent Transparency Pattern
 
-Recent architectural changes (ticket `20260208131751-migrate-scanner-into-scan-command.md`) migrated the scanner subagent's orchestration logic directly into the `/scan` command to provide real-time progress visibility. Previously, `/scan` delegated to a single scanner subagent via one Task call, hiding all 17 parallel agent invocations. Now, the scan command invokes all 17 agents directly using parallel Task calls within a single message, making each agent's progress visible in the developer's session.
+Multi-agent commands invoke their subagents using parallel Task calls within a single message rather than delegating to a single orchestrator subagent. This makes each agent's progress visible in the developer's session in real time.
 
 This pattern reflects a broader design philosophy: transparency over abstraction. Developers should see what the system is doing rather than waiting for opaque operations to complete.
 
@@ -150,7 +148,7 @@ Workaholic provides multiple onboarding paths depending on stakeholder role and 
 
 ### Developer Onboarding
 
-New developers follow a self-service onboarding path. The root `README.md` provides a Quick Start section with installation command and typical session example. After installing via `/plugin marketplace add qmu/workaholic`, developers can immediately start using the four core commands.
+New developers follow a self-service onboarding path. The root `README.md` provides a Quick Start section with installation command and typical session example. After installing via `/plugin marketplace add qmu/workaholic`, developers can immediately start using the five core commands.
 
 The first command is typically `/ticket <description>`. The ticket-organizer subagent explores the codebase automatically, so the developer does not need to understand the project structure beforehand. The resulting ticket includes Key Files and Implementation Steps sections that educate the developer about the codebase while planning the change.
 
@@ -160,7 +158,7 @@ User documentation lives in `.workaholic/guides/` with three documents:
 - `commands.md`: Complete command reference with usage examples
 - `workflow.md`: Ticket-driven development approach
 
-The developer progresses from `/ticket` (familiar task of describing what they want) to `/drive` (observing how Claude implements it) to `/scan` and `/report` (understanding how documentation generates automatically).
+The developer progresses from `/ticket` (familiar task of describing what they want) to `/drive` (observing how Claude implements it) to `/report` and `/ship` (understanding how stories, PRs, and deployment fit together).
 
 ### Plugin Author Onboarding
 
@@ -177,15 +175,15 @@ Plugin authors (developers extending the plugin itself) require deeper architect
 
 The `CLAUDE.md` file in the repository root serves as the authoritative source for architecture policy, defining component nesting rules, design principles, common operations, shell script principles, commands list, development workflow, and version management.
 
-Plugin authors use the same `/ticket` and `/drive` commands to develop plugin features, but they edit files in `plugins/drivin/` rather than application code. The archived tickets in `.workaholic/tickets/archive/` document the evolution of the plugin architecture, providing searchable context for understanding design decisions.
+Plugin authors use the same `/ticket` and `/drive` commands to develop plugin features, but they edit files under `plugins/` rather than application code. The archived tickets in `.workaholic/tickets/archive/` document the evolution of the plugin architecture, providing searchable context for understanding design decisions.
 
 ### AI Agent Onboarding
 
-The AI agent (Claude Code) receives instructions through command markdown files in `plugins/drivin/commands/` and agent markdown files in `plugins/drivin/agents/`. Each command defines phases using preloaded skills, specifies which subagents to invoke, and includes critical rules for execution.
+The AI agent (Claude Code) receives instructions through command and agent markdown files in each plugin's `commands/` and `agents/` directories. Each command defines phases using preloaded skills, specifies which subagents to invoke, and includes critical rules for execution.
 
 The agent learns architectural constraints from `CLAUDE.md`, which it receives as project instructions in the Claude Code environment. The nesting hierarchy (commands → subagents/skills, subagents → subagents/skills, skills → skills) prevents circular dependencies and ensures skills remain reusable knowledge components.
 
-The agent receives workflow-specific knowledge through skills in `plugins/drivin/skills/`. For example, the gather-git-context skill provides git context gathering via bundled shell script, eliminating inline git commands in agent markdown. The create-ticket skill defines ticket format and content requirements, ensuring consistent ticket structure across all ticket-organizer invocations.
+The agent receives workflow-specific knowledge through skills in each plugin's `skills/` directory. For example, the gather-git-context skill in the core plugin provides git context gathering via bundled shell script, eliminating inline git commands in agent markdown. The create-ticket skill in the work plugin defines ticket format and content requirements, ensuring consistent ticket structure across all ticket-organizer invocations.
 
 ## Command Interaction Flow
 
@@ -238,19 +236,6 @@ flowchart TD
     Recheck --> CheckTodo
 ```
 
-### Scan Command Flow
-
-```mermaid
-flowchart TD
-    Start[Developer types /scan] --> Context[Gather git context]
-    Context --> Select[Select all 17 agents]
-    Select --> Invoke[Invoke all agents in parallel]
-    Invoke --> Validate[Validate output]
-    Validate --> Index[Update index files]
-    Index --> Commit[Stage and commit]
-    Commit --> Report[Report per-agent status]
-```
-
 ### Report Command Flow
 
 ```mermaid
@@ -268,14 +253,12 @@ flowchart TD
 ## Assumptions
 
 - [Explicit] The developer installs from the marketplace using `/plugin marketplace add qmu/workaholic` as shown in `README.md` line 12.
-- [Explicit] Four slash commands (`/ticket`, `/drive`, `/scan`, `/report`) constitute the primary user interface, as defined in `CLAUDE.md` lines 87-95.
+- [Explicit] Five slash commands (`/ticket`, `/drive`, `/trip`, `/report`, `/ship`) constitute the primary user interface, as defined in `CLAUDE.md`.
 - [Explicit] The plugin author is `tamurayoshiya <a@qmu.jp>`, as declared in `marketplace.json` line 7 and `plugin.json` line 5.
 - [Explicit] Human-in-the-loop approval is mandatory during `/drive`, enforced by the `AskUserQuestion` requirement in `drive.md` line 50.
-- [Explicit] The scan command invokes 15 agents in two phases (3 managers, then 12 leaders/writers) as defined in `scan.md`.
-- [Explicit] Version management requires synchronization across `marketplace.json`, `plugins/drivin/.claude-plugin/plugin.json`, and `plugins/trippin/.claude-plugin/plugin.json`, as documented in `CLAUDE.md`.
-- [Explicit] The scanner subagent was removed in ticket `20260208131751-migrate-scanner-into-scan-command.md` to provide agent transparency, migrating orchestration logic directly into the scan command.
-- [Explicit] The `/story` command was removed (same ticket), consolidating workflow to use `/scan` for documentation and `/report` for PR creation.
+- [Explicit] Version management requires synchronization across `marketplace.json` and the three plugin `plugin.json` files (core, standards, work), as documented in `CLAUDE.md`.
+- [Explicit] The four leading skills (`leading-validity`, `leading-availability`, `leading-security`, `leading-accessibility`) are preloaded into work-plugin commands and orchestrators via the soft cross-plugin reference pattern.
 - [Inferred] The primary audience is solo developers or small teams who use Claude Code as their main development environment, based on the serial execution model, single-branch workflow design, and explicit approval requirement at each ticket.
 - [Inferred] Onboarding is self-service through documentation rather than guided setup, as no interactive onboarding flow exists beyond the plugin installation command.
-- [Inferred] The system prioritizes transparency over abstraction, evidenced by the migration of scanner orchestration into the scan command to make individual agent progress visible.
+- [Inferred] The system prioritizes transparency over abstraction, evidenced by multi-agent commands invoking subagents directly through parallel Task calls so individual agent progress remains visible.
 - [Inferred] The plugin author uses Workaholic to develop Workaholic itself (dogfooding), based on the presence of archived tickets documenting plugin feature development in `.workaholic/tickets/archive/`.

@@ -2,7 +2,7 @@
 title: Application Viewpoint
 description: Runtime behavior, agent orchestration, and data flow
 category: developer
-modified_at: 2026-03-10T00:58:20+09:00
+modified_at: 2026-05-14T12:44:05+09:00
 commit_hash: f76bde2
 ---
 
@@ -10,27 +10,21 @@ commit_hash: f76bde2
 
 # Application Viewpoint
 
-The Application Viewpoint describes how Workaholic behaves at runtime, focusing on agent orchestration patterns, data flow between components, and the execution model that governs how commands produce artifacts. The system now comprises two plugins -- drivin (development workflow) and trippin (exploration workflow) -- each with distinct orchestration models. Drivin operates as a directed acyclic graph of agent invocations where slash commands trigger cascades of manager, leader, and writer agent executions. Trippin operates as an Agent Teams session where three philosophical agents collaborate through filesystem-based artifact exchange in an isolated git worktree.
+The Application Viewpoint describes how Workaholic behaves at runtime, focusing on agent orchestration patterns, data flow between components, and the execution model that governs how commands produce artifacts. The system comprises three plugins -- core (shared utilities and context-aware commands), standards (policy lenses and documentation writers), and work (development and exploration workflows) -- each with distinct orchestration models. Drive-style work operates as a directed acyclic graph of agent invocations where slash commands trigger cascades of orchestrator and writer agent executions, with the four leading skills preloaded directly as the project's policy lens. Trip-style work operates as an Agent Teams session where three philosophical agents collaborate through filesystem-based artifact exchange in an isolated git worktree.
 
 ## Orchestration Model
 
-### Drivin Plugin Orchestration
+### Work Plugin Orchestration
 
-Drivin follows a four-layer orchestration architecture: commands at the top, manager agents in the second layer, leader/writer agents in the third layer, and skills at the bottom. Commands orchestrate workflows by invoking agents through Claude Code's Task tool. Manager agents produce strategic outputs (project context, architectural structure, quality standards) that leader agents consume. Leader agents perform domain-specific analysis using manager outputs as context. Skills contain domain knowledge, templates, and shell scripts that implement the actual operations.
+The work plugin follows a three-layer orchestration architecture: commands at the top, orchestrator agents in the middle, and skills at the bottom. Commands orchestrate workflows by invoking agents through Claude Code's Task tool. The four leading skills (`standards:leading-validity`, `leading-availability`, `leading-security`, `leading-accessibility`) are preloaded directly into the orchestration surfaces — `/drive`, `/ticket`, `/trip`, and the agents they invoke — so policy lenses are available wherever scoping or implementation happens. Skills contain domain knowledge, templates, and shell scripts that implement the actual operations.
 
 The orchestration model enforces strict nesting rules. Commands can invoke skills and agents. Agents can invoke skills and other agents. Skills can invoke other skills but never agents or commands. This hierarchy prevents circular dependencies and maintains clear separation of concerns between workflow orchestration (commands and agents) and operational knowledge (skills).
-
-#### Two-Phase Execution Model
-
-The scan command implements a two-phase agent orchestration model to support the manager tier. Phase 3a invokes three manager agents in parallel: project-manager, architecture-manager, and quality-manager. These managers gather context, analyze the codebase, and produce strategic outputs under `.workaholic/specs/`, `.workaholic/policies/`, and `.workaholic/constraints/`. Phase 3b waits for all managers to complete, then invokes thirteen leader and writer agents in parallel. Leaders read manager outputs as strategic input before performing their domain-specific analysis.
-
-This two-phase pattern ensures leaders have consistent strategic context without duplicating business, architectural, or quality analysis. The manager tier establishes project constraints, structural boundaries, and quality standards that leaders reference in their domain-specific documentation.
 
 ### Trippin Plugin Orchestration
 
 Trippin follows a fundamentally different orchestration model based on Claude Code's experimental Agent Teams feature. The `/trip` command creates an isolated git worktree, initializes artifact directories, and launches a three-member Agent Team. The team members (Planner, Architect, Constructor) collaborate through a filesystem-based protocol where agents read and write versioned markdown artifacts in `.workaholic/.trips/<trip-name>/`.
 
-The trippin orchestration model uses a two-phase workflow called the Implosive Structure:
+The trippin orchestration model uses a two-stage workflow called the Implosive Structure:
 
 **Phase 1 (Specification -- Inner Loop)**: Agents produce and mutually review specification artifacts until achieving full consensus. The Planner writes Direction artifacts, the Architect writes Model artifacts, and the Constructor writes Design artifacts. Each artifact undergoes cross-review by the other two agents. Disagreements are resolved through a moderation protocol where the uninvolved third agent arbitrates.
 
@@ -107,48 +101,6 @@ sequenceDiagram
 The `/drive` command uses the drive-navigator subagent once to prioritize tickets, then processes each ticket sequentially in the main command context. This keeps implementation context visible to the user and preserves state across the approval loop. The command uses preloaded skills (drive-workflow, write-final-report, archive-ticket) rather than delegating to subagents, maintaining full control over the interactive approval flow.
 
 The drive command enforces that every approval prompt must include the ticket title and overview from the drive-workflow result. If these values are unavailable in the agent's context (particularly after feedback re-implementation loops), the command requires re-reading the ticket file before presenting the approval dialog. This enforcement addresses a recurring UX issue where approval prompts lacked context for informed decision-making.
-
-#### Scan Command Two-Phase Orchestration
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant scan as "/scan Command"
-    participant PM as project-manager
-    participant AM as architecture-manager
-    participant QM as quality-manager
-    participant Leaders as Leaders (11)
-    participant Writers as Writers (2)
-
-    User->>scan: /scan
-    scan->>scan: gather-git-context skill
-    scan->>scan: select-scan-agents skill
-
-    par Phase 3a: Manager Invocation
-        scan->>PM: Task (sonnet)
-        scan->>AM: Task (sonnet)
-        scan->>QM: Task (sonnet)
-    end
-
-    PM-->>scan: Project context
-    AM-->>scan: Architecture specs (4 viewpoints)
-    QM-->>scan: Quality standards
-
-    par Phase 3b: Leader/Writer Invocation
-        scan->>Leaders: Task (sonnet) x11
-        scan->>Writers: Task (sonnet) x2
-    end
-
-    Leaders-->>scan: Policy documents
-    Writers-->>scan: Changelog, terms
-
-    scan->>scan: validate-writer-output skill
-    scan->>scan: Update README indices
-    scan->>scan: git add + commit
-    scan->>User: Report per-agent status
-```
-
-The `/scan` command implements direct two-phase parallel orchestration. Phase 3a invokes three managers to establish strategic context. Phase 3b invokes all leaders and writers, which read manager outputs before producing their domain-specific documentation. This pattern replaced the previous flat analyst execution with a hierarchical model that enforces dependency between strategic and tactical analysis.
 
 #### Report Command Orchestration
 
@@ -253,49 +205,25 @@ sequenceDiagram
 
 The `/trip` command follows a different orchestration model from drivin commands. Instead of the Task tool pattern, it uses Claude Code's experimental Agent Teams feature to create a three-member team that collaborates through filesystem artifacts. The command orchestrates worktree creation and initialization, then delegates the entire specification and implementation workflow to the Agent Team. Each step produces a git commit through the `trip-commit.sh` script, creating a traceable history on the worktree branch.
 
-### Manager Tier Responsibilities
+### Leading Skill Application
 
-The three manager agents establish the strategic backbone of the project through constraint-setting and context production:
+The standards plugin exposes four leading skills that act as the project's policy lenses. Each skill owns one viewpoint and provides Role, Policies, Practices, and Standards content that any consumer can preload:
 
-**project-manager**: Produces project context covering business domain, stakeholder map, timeline status, active issues, and proposed solutions. Consumed primarily by delivery-lead and ux-lead, though all leaders benefit from project context. Produces constraints to `.workaholic/constraints/project.md` following the constraint file template.
+**leading-validity**: Logical comprehensiveness — type-driven design, layer segregation, functional style, relational-first persistence, domain–persistence separation.
 
-**architecture-manager**: Produces architectural context including system boundaries, layer taxonomy, component inventory, cross-cutting concerns, and structural patterns. Also produces four viewpoint specs (application.md, component.md, feature.md, usecase.md). Consumed by infra-lead, db-lead, security-lead, observability-lead, and recovery-lead. Produces constraints to `.workaholic/constraints/architecture.md`.
+**leading-availability**: Operational continuity — CI/CD automation, vendor neutrality, infrastructure as code, observable-by-design, scenario-based recovery.
 
-**quality-manager**: Produces quality context covering quality dimensions and standards, assurance process definitions, improvement metrics, and feedback loop specifications. Consumed by quality-lead, test-lead, and a11y-lead. Produces constraints to `.workaholic/constraints/quality.md`.
+**leading-security**: Preservation of trust — secure-by-design defaults, ISMS-style risk management, defense in depth.
 
-Managers follow a constraint-setting workflow defined in managers-principle: analyze the current state to identify unbounded or implicit constraints, ask targeted questions to understand user intent, propose falsifiable constraints grounded in evidence, and produce structured constraint files to `.workaholic/constraints/` plus additional directional materials as appropriate.
+**leading-accessibility**: Universal reach — accessibility-first structure, modeless interaction, tool-first design that works for human UI and AI agents alike.
 
-### Leader Tier Responsibilities
-
-The ten leader agents produce domain-specific policy documents by consuming manager outputs as strategic context and analyzing the codebase through their specialized lenses:
-
-**ux-lead**: Produces ux.md documenting user experience, interaction patterns, user journeys, and onboarding paths. Reads manage-project output for stakeholder context before analysis.
-
-**infra-lead**: Produces infrastructure.md documenting external dependencies, deployment configuration, and runtime environment. Reads manage-architecture output for system boundaries before analysis.
-
-**db-lead**: Produces data.md documenting data formats, storage mechanisms, and persistence patterns. Reads manage-architecture output for component inventory before analysis.
-
-**security-lead**: Produces security.md documenting security requirements, threat model, and mitigation strategies. Reads manage-architecture output for system boundaries and cross-cutting concerns before analysis.
-
-**test-lead**: Produces test.md documenting testing strategy, test types, and coverage requirements. Reads manage-quality output for quality standards before analysis.
-
-**quality-lead**: Produces quality.md documenting code quality standards, review processes, and quality gates. Reads manage-quality output for assurance processes before analysis.
-
-**a11y-lead**: Produces accessibility.md documenting accessibility standards, WCAG conformance, and inclusive design practices. Reads manage-quality output for quality standards before analysis.
-
-**observability-lead**: Produces observability.md documenting logging, monitoring, and tracing practices. Reads manage-architecture output for cross-cutting concerns before analysis.
-
-**delivery-lead**: Produces delivery.md documenting release processes, deployment strategies, and rollback procedures. Reads manage-project output for timeline and stakeholder context before analysis.
-
-**recovery-lead**: Produces recovery.md documenting backup strategies, disaster recovery procedures, and business continuity plans. Reads manage-architecture output for system boundaries and manage-project output for active issues before analysis.
+These skills are preloaded directly into the work plugin's orchestration surfaces — `/drive` and `/ticket` commands, plus the `ticket-organizer`, `planner`, `architect`, and `constructor` agents. The leads no longer have a producing or consuming relationship with anything else in the system; they are read whenever an agent needs to scope or implement work, and they apply to whichever layers the ticket touches (UX → leading-accessibility, Domain/DB → leading-validity, Infrastructure → leading-availability, anything touching authentication/secrets → leading-security).
 
 ### Parallel vs Sequential Execution
 
 The system uses two distinct concurrency patterns based on the nature of the work. Parallel execution is used when multiple independent tasks can proceed simultaneously without interdependencies. Sequential execution is used when tasks depend on previous results or require human interaction between steps.
 
-Commands that invoke multiple agents for data gathering or analysis use parallel Task tool calls in a single message. The `/scan` command invokes 3 managers in phase 3a and 13 agents in phase 3b. The story-writer invokes 4 agents in phase 1 and 2 agents in phase 2. The ticket-organizer invokes 3 discovery agents concurrently. This parallel pattern maximizes throughput for independent analysis tasks.
-
-However, phase 3a must complete before phase 3b begins because leaders depend on manager outputs. This inter-phase dependency prevents fully parallel execution across all agents, but intra-phase parallelism (3 managers in parallel, 13 agents in parallel) still provides significant performance benefits.
+Commands that invoke multiple agents for data gathering or analysis use parallel Task tool calls in a single message. The story-writer invokes 4 agents in phase 1 and 2 agents in phase 2. The ticket-organizer invokes 3 discovery agents concurrently. This parallel pattern maximizes throughput for independent analysis tasks.
 
 Commands that implement user workflows use sequential execution with approval gates. The `/drive` command processes tickets one at a time, waiting for user approval after each implementation. This sequential pattern ensures human oversight and maintains clear audit trails of what was approved versus what was rejected or modified.
 
@@ -307,36 +235,9 @@ The drivin plugin enforces a maximum depth of two agent layers. Commands invoke 
 
 The trippin plugin uses a flat model: the trip command creates a team, and team members do not invoke further subagents. Communication happens through artifact files rather than nested agent invocations.
 
-### Background Execution Constraint
-
-All scan agents must execute with `run_in_background: false` (the default) because background agents automatically have Write and Edit tool permissions denied. Since all scan agents need to write their output files, background execution causes silent failures. The scan command explicitly documents this constraint to prevent Claude Code from interpreting parallel Task calls as background operations.
-
 ## Data Flow
 
-Data flows through the system as markdown files, git operations, and JSON-structured messages between agents. The primary flow follows a pipeline from user input to git history, with manager outputs serving as intermediate strategic context.
-
-### Manager Output Flow
-
-```mermaid
-flowchart TD
-    Context[Git branch context] --> Managers[3 Manager Agents]
-    Managers --> PM[Project Context]
-    Managers --> AM[Architecture Specs]
-    Managers --> QM[Quality Standards]
-
-    PM --> Specs1[.workaholic/constraints/project.md]
-    AM --> Specs2[.workaholic/specs/ + constraints/architecture.md]
-    QM --> Specs3[.workaholic/constraints/quality.md]
-
-    Specs1 --> Leaders[10 Leader Agents]
-    Specs2 --> Leaders
-    Specs3 --> Leaders
-
-    Leaders --> Policies[7 Policy Documents]
-    Leaders --> ViewpointRef[References to Viewpoint Specs]
-```
-
-Manager outputs are persisted as markdown documents under `.workaholic/specs/`, `.workaholic/policies/`, and `.workaholic/constraints/`. Leaders read these documents as input before performing their domain-specific analysis. This file-based communication pattern ensures all intermediate context is inspectable and version-controlled.
+Data flows through the system as markdown files, git operations, and JSON-structured messages between agents. The primary flow follows a pipeline from user input to git history.
 
 ### Ticket Creation Flow
 
@@ -417,39 +318,6 @@ flowchart TD
 
 The trip artifact flow operates entirely within a git worktree. Agents communicate by reading and writing versioned markdown files in the trip path. Each artifact follows a structured format with title, author, status, reviewed-by fields, content, and review notes. Versioning uses numeric suffixes (direction-v1.md, direction-v2.md) with each revision preserved as a new file. Every write operation produces a git commit via `trip-commit.sh`, creating a complete audit trail on the trip branch.
 
-### Documentation Scan Flow
-
-```mermaid
-flowchart TD
-    Branch[Git branch] --> Context[gather-git-context skill]
-    Context --> Select[select-scan-agents skill]
-
-    Select -->|full mode| Phase3a[Phase 3a: 3 Managers]
-    Select -->|partial mode| Phase3aPartial[Phase 3a: Relevant Managers]
-
-    Phase3a --> ManagerOutputs[Manager Outputs]
-    Phase3aPartial --> ManagerOutputs
-
-    ManagerOutputs --> Phase3b[Phase 3b: 13 Leaders/Writers]
-
-    Phase3b --> Specs[.workaholic/specs/*.md]
-    Phase3b --> Policies[.workaholic/policies/*.md]
-    Phase3b --> Constraints[.workaholic/constraints/*.md]
-    Phase3b --> Changelog[CHANGELOG.md]
-    Phase3b --> Terms[.workaholic/terms/*.md]
-
-    Specs --> Validate[validate-writer-output]
-    Policies --> Validate
-
-    Validate -->|pass| Index[Update README indices]
-    Validate -->|fail| Report[Report missing files]
-
-    Index --> DocCommit[Git commit documentation]
-    Report --> DocCommit
-```
-
-The documentation scan flow uses git branch context to determine which agents to invoke. In full mode, all 3 managers and all 13 agents run. In partial mode, only agents relevant to changed files run. Managers run first in phase 3a, producing strategic outputs to specs, policies, and constraints directories. Leaders and writers run second in phase 3b, consuming manager outputs. The validate-writer-output skill checks that expected files exist and are non-empty. If validation passes, README index files are updated. Finally, all documentation changes are committed together.
-
 ### Story Generation Flow
 
 ```mermaid
@@ -484,7 +352,7 @@ flowchart TD
 
 ### Data Format Transitions
 
-Data transforms between formats as it flows through the system. User input begins as natural language text. Discovery agents convert this into JSON objects with structured fields (summary, tickets array, files array). The ticket-organizer converts JSON into ticket markdown files with YAML frontmatter. Implementation modifies source code files. Manager agents read source code and produce structured markdown context files. Leader agents read manager outputs and source code to produce markdown policy files. Documentation agents read source code and produce markdown specification files. Story agents read ticket markdown and produce story markdown. The pr-creator reads story markdown and generates GitHub pull request descriptions.
+Data transforms between formats as it flows through the system. User input begins as natural language text. Discovery agents convert this into JSON objects with structured fields (summary, tickets array, files array). The ticket-organizer converts JSON into ticket markdown files with YAML frontmatter. Implementation modifies source code files. Story agents read ticket markdown and produce story markdown. The pr-creator reads story markdown and generates GitHub pull request descriptions.
 
 In the trippin plugin, the data format is consistently versioned markdown artifacts with structured frontmatter (author, status, reviewed-by). Agents communicate exclusively through these files, with git commits serving as the coordination mechanism.
 
@@ -496,17 +364,13 @@ All intermediate results are persisted as files in `.workaholic/`, making the en
 
 When a user types a slash command in Claude Code, the system looks up the command name in the plugin's command registry. Claude Code reads the command markdown file, which contains a YAML frontmatter block with metadata (name, description, preloaded skills) and a markdown body with instructions. The command's instructions are injected into Claude's prompt context, and Claude Code begins executing the orchestration logic defined in the instructions.
 
-With two plugins registered in the marketplace (drivin and trippin), commands are namespaced by plugin. The `/ticket`, `/drive`, `/scan`, and `/report` commands belong to drivin, while `/trip` belongs to trippin.
+Commands are namespaced by plugin. The `/ticket`, `/drive`, and `/trip` commands belong to the work plugin; `/report` and `/ship` belong to the core plugin (context-aware routing handles drive vs trip variants).
 
 ### Skill Preloading
 
 Before the command executes, Claude Code preloads any skills listed in the frontmatter. Skill preloading means reading the skill's SKILL.md file and injecting its content into the prompt context. This makes the skill's knowledge and script paths available to the command without requiring explicit references in the instruction text. Commands reference skills by relative path when invoking bundled shell scripts.
 
-Skill paths are plugin-specific. Drivin skills resolve to `~/.claude/plugins/marketplaces/workaholic/plugins/drivin/skills/`, while trippin skills resolve to `~/.claude/plugins/marketplaces/workaholic/plugins/trippin/skills/`. The trippin plugin's trip-protocol skill is self-contained and does not reference any drivin-specific skills.
-
-### Manager Tier Execution
-
-Manager agents follow the define-manager schema: Role, Responsibility, Goal, Outputs, and Default Policies. Each manager preloads the managers-principle skill, which defines cross-cutting principles including Prior Term Consistency, Strategic Focus, and Constraint Setting. Manager execution produces structured artifacts that leaders consume, creating an information hierarchy where strategic context is established before tactical analysis begins.
+Skill paths are plugin-specific. Each plugin's skills resolve to `~/.claude/plugins/marketplaces/workaholic/plugins/<plugin>/skills/`. Cross-plugin references use the `<plugin>:<skill>` slug for soft references (e.g., the work plugin preloads `standards:leading-validity`) or the `${CLAUDE_PLUGIN_ROOT}/../<plugin>/` path for declared dependencies (e.g., the work plugin's `${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/...`).
 
 ### Subagent Spawning
 
@@ -522,11 +386,11 @@ Each team member is defined by an agent markdown file with frontmatter specifyin
 
 ### Parallel Task Execution
 
-When multiple Task tool calls appear in a single message, Claude Code executes them concurrently. This is used extensively for parallel agent invocation patterns like scan phase 3a (3 managers), scan phase 3b (13 agents), story-writer phase 1 (4 agents), and ticket-organizer discovery (3 agents). Parallel execution reduces total wall-clock time but does not guarantee completion order. Commands must wait for all parallel tasks to complete before proceeding to the next phase.
+When multiple Task tool calls appear in a single message, Claude Code executes them concurrently. This is used extensively for parallel agent invocation patterns like story-writer phase 1 (4 agents), story-writer phase 2 (2 agents), and ticket-organizer discovery (3 agents). Parallel execution reduces total wall-clock time but does not guarantee completion order. Commands must wait for all parallel tasks to complete before proceeding to the next phase.
 
 ### Sequential Task Execution
 
-When a command needs to process results from one task before starting another, tasks execute sequentially. The drive command's approval loop is sequential: implement, wait for approval, update ticket, archive, then proceed to next ticket. Each step depends on the previous step's output or user response. The scan command's two-phase model is sequential at the phase boundary: phase 3a must complete before phase 3b begins because leaders depend on manager outputs.
+When a command needs to process results from one task before starting another, tasks execute sequentially. The drive command's approval loop is sequential: implement, wait for approval, update ticket, archive, then proceed to next ticket. Each step depends on the previous step's output or user response. The story-writer's two-stage model is sequential at the stage boundary: stage 1 (content generation) must complete before stage 2 (delivery artifacts) begins because the release-note-writer and pr-creator both consume the story file.
 
 ### User Interaction Gates
 
@@ -552,17 +416,15 @@ The trip command handles worktree creation errors (unclean git state, existing w
 
 ## Concurrency Patterns
 
-### Pattern 1: Two-Phase Parallel Execution
+### Pattern 1: Two-Stage Parallel Execution
 
-When tasks have a hierarchical dependency (strategic before tactical), commands use two-phase parallel execution. Phase 1 invokes managers in parallel to establish strategic context. Phase 2 waits for phase 1 completion, then invokes leaders and writers in parallel with manager outputs available.
+When tasks have a sequential dependency between stages (intermediate artifact required), commands use two-stage parallel execution. Stage 1 invokes a set of agents in parallel to produce the intermediate artifact. Stage 2 waits for stage 1 completion, then invokes the next set in parallel with the artifact available.
 
-The scan command's two-phase pattern ensures leaders receive consistent strategic context without duplicating analysis. Managers produce project context, architectural structure, and quality standards. Leaders consume these as read-only input while performing domain-specific analysis.
+The story-writer uses this pattern: Phase 1 produces the story markdown by combining outputs from release-readiness, performance-analyst, overview-writer, and section-reviewer; Phase 2 then produces the release note and the GitHub PR, both of which consume the committed story file.
 
 ### Pattern 2: Parallel Independent Tasks
 
 When multiple tasks have no dependencies and can run simultaneously, commands invoke them in a single message with multiple Task tool calls. This pattern maximizes throughput for independent analysis tasks.
-
-Within phase 3a, the three manager agents run in parallel. Within phase 3b, leaders and writers run in parallel because each produces a distinct output without requiring other agents' results.
 
 The ticket-organizer invokes 3 discovery agents in parallel. The story-writer uses two phases of parallel invocation: Phase 1 invokes 4 content generation agents concurrently, Phase 2 invokes 2 delivery agents concurrently.
 
@@ -582,7 +444,7 @@ The report command follows a strict sequence: check for existing version bump, b
 
 When multiple independent operations produce artifacts, the system batches their git commits into a single commit. This pattern reduces commit noise and groups related changes.
 
-The scan command runs 3 managers and 13 agents, validates their outputs, updates README indices, then stages and commits everything in one commit: `git add CHANGELOG.md .workaholic/specs/ .workaholic/terms/ .workaholic/policies/ .workaholic/constraints/ && git commit -m "Update documentation"`.
+The story-writer follows this pattern at each phase boundary: Phase 1 outputs (the story file) are committed and pushed once all four content agents return; Phase 2 outputs (the release note) and the PR creation result are committed together when both return.
 
 ### Pattern 6: Agent Teams Collaboration
 
@@ -596,7 +458,7 @@ Commands specify which Claude model each subagent should use based on the comple
 
 Top-level orchestrators use opus because they make complex decisions, coordinate multiple agents, and handle multi-step workflows. The ticket-organizer (opus) evaluates whether to split or merge tickets, synthesizes results from three discovery agents, and determines ticket structure. The drive-navigator (opus) prioritizes tickets based on type, layer, and dependencies. The story-writer (opus) coordinates two phases of agent invocation and compiles diverse outputs into a coherent story.
 
-Manager and leader agents use sonnet because they perform focused analysis on a single domain with well-defined inputs and outputs. All 3 managers and 13 leaders/writers use sonnet. They read source code and documentation, apply their specialized lens, and produce structured markdown outputs.
+Writer and analyst agents use sonnet because they perform focused analysis on a single domain with well-defined inputs and outputs. The changelog-writer, release-note-writer, terms-writer, overview-writer, model-analyst, performance-analyst, section-reviewer, and the parameterized lead agent all use sonnet. They read source code and documentation, apply their specialized lens, and produce structured markdown outputs.
 
 Release note generation uses haiku because it performs a simple transformation task: read the story file and extract key points into a concise format.
 
@@ -618,11 +480,9 @@ A second plugin, trippin, was added to the marketplace alongside drivin. Trippin
 
 The drive approval flow was strengthened to enforce that every approval prompt includes the ticket title and overview. The drive command Step 2.2 now has a CRITICAL rule requiring title/overview handoff from the drive-workflow result. The drive-approval skill upgraded its guidance from IMPORTANT to CRITICAL with failure condition language and added a fallback re-read instruction for the feedback loop. This addresses a recurring UX issue where approval prompts lacked context.
 
-### Addition of Manager Tier
+### Removal of the Strategic-Context Tier
 
-The introduction of the manager tier fundamentally changed the scan command's execution model from flat parallel invocation to hierarchical two-phase execution. This change addresses strategic context duplication: previously, each analyst independently inferred project priorities, architectural structure, and quality expectations. Now, three managers establish authoritative strategic context that leaders consume.
-
-The architecture-manager absorbed the responsibilities of the removed architecture-lead, inheriting production of four viewpoint specs (application.md, component.md, feature.md, usecase.md). This consolidation reflects the insight that system structure is a managerial concern rather than a leadership concern.
+A three-agent strategic-context tier was introduced in February 2026 to provide leads with separate project, architectural, and quality context, consumed through a full-codebase documentation command that ran the upstream agents first and the leads second. In practice, the intermediate context artifacts were not consulted by the active ticket, drive, or trip flows, which derived context directly from the codebase. The tier — comprising the three upstream agents and their paired domain skills, a cross-cutting principles skill, a schema enforcement rule, the documentation command, an agent-selection helper skill, and a directory of explicit constraint files — was removed in May 2026 in favor of preloading the four leading skills directly into the work plugin's commands and agents. The four viewpoint specs (application.md, component.md, feature.md, usecase.md) that the upstream architecture agent produced are now hand-maintained reference documents without an automated owner.
 
 ### Version Bump Idempotency
 
@@ -630,19 +490,15 @@ The report command was enhanced to check for existing version bump commits befor
 
 ## Assumptions
 
-- [Explicit] The two-phase execution model (managers then leaders) is documented in scan.md Phase 3a and 3b, with explicit wait between phases.
-- [Explicit] The three manager agents (project-manager, architecture-manager, quality-manager) are listed in scan.md Phase 3a table.
-- [Explicit] The thirteen leader and writer agents are listed in scan.md Phase 3b table: ux-lead, model-analyst, infra-lead, db-lead, test-lead, security-lead, quality-lead, a11y-lead, observability-lead, delivery-lead, recovery-lead, changelog-writer, terms-writer.
-- [Explicit] The core plugin was renamed to drivin with all subagent_type prefixes changed from "core:" to "drivin:" as documented in the rename ticket.
-- [Explicit] The trippin plugin exists with 1 command (trip), 3 agents (planner, architect, constructor), 1 skill (trip-protocol), and 3 shell scripts as documented in its plugin.json and README.md.
+- [Explicit] The four leading skills (`standards:leading-validity`, `leading-availability`, `leading-security`, `leading-accessibility`) are preloaded into `plugins/work/commands/drive.md`, `plugins/work/agents/ticket-organizer.md`, `plugins/work/agents/planner.md`, `plugins/work/agents/architect.md`, and `plugins/work/agents/constructor.md`.
+- [Explicit] The work plugin's `dependencies` field declares only `["core"]`; references to standards use the soft cross-plugin slug pattern (`standards:leading-*`) so the work plugin tolerates the standards plugin being absent.
+- [Explicit] The marketplace registers three plugins (core, standards, work) as shown in `.claude-plugin/marketplace.json`.
 - [Explicit] The trip command requires the Agent Teams experimental feature flag (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) as stated in trip.md.
 - [Explicit] Trip sessions run in isolated git worktrees created by ensure-worktree.sh, as documented in trip-protocol SKILL.md.
 - [Explicit] Every trip workflow step produces a git commit via trip-commit.sh with format `trip(<agent>): <step>`, as documented in trip-protocol SKILL.md.
-- [Explicit] The drive-approval skill requires ticket title and overview in the approval prompt with CRITICAL enforcement and failure condition language, as documented in drive-approval SKILL.md and drive.md Step 2.2.
-- [Explicit] Commands invoke subagents through the Task tool with `subagent_type`, `model`, and `prompt` parameters, using `drivin:` prefix for drivin agents and `trippin:` prefix for trippin agents.
-- [Explicit] All scan agents must use `run_in_background: false` to retain Write/Edit permissions, as documented in scan command Phase 3.
-- [Explicit] The marketplace registers two plugins (drivin and trippin) with synchronized versions, as shown in marketplace.json.
-- [Inferred] The trippin plugin's Agent Teams model represents a deliberate architectural choice to explore peer-based collaboration versus the hierarchical Task tool pattern used by drivin.
-- [Inferred] The worktree isolation in trippin ensures trip sessions do not interfere with the main working tree or ongoing drivin workflows.
-- [Inferred] The three philosophical stances (Progressive, Neutral, Conservative) in the trippin agents are designed to create productive tension that drives thorough specification through dialectical review.
-- [Inferred] The choice of opus for all three trippin agents reflects the creative and evaluative nature of the work, unlike drivin's leader agents which perform bounded analysis suitable for sonnet.
+- [Explicit] The drive approval flow requires ticket title and overview in the approval prompt with CRITICAL enforcement and failure condition language, as documented in `plugins/core/skills/drive/SKILL.md` Approval section and `plugins/work/commands/drive.md` Step 2.2.
+- [Explicit] Commands invoke subagents through the Task tool with `subagent_type`, `model`, and `prompt` parameters, using `work:` prefix for work agents and `standards:` prefix for standards agents.
+- [Inferred] The trip plugin's Agent Teams model represents a deliberate architectural choice to explore peer-based collaboration versus the hierarchical Task tool pattern used by drive.
+- [Inferred] The worktree isolation in trip ensures trip sessions do not interfere with the main working tree or ongoing drive workflows.
+- [Inferred] The three philosophical stances (Progressive, Neutral, Conservative) in the trip agents are designed to create productive tension that drives thorough specification through dialectical review.
+- [Inferred] The choice of opus for all three trip agents reflects the creative and evaluative nature of the work, unlike the writer/analyst agents which perform bounded analysis suitable for sonnet.

@@ -3,9 +3,9 @@ created_at: 2026-05-18T23:53:27+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 6c61281
+category: Added
 depends_on:
 ---
 
@@ -111,3 +111,15 @@ No prior tickets target ticket-location validation. The closest prior work is th
 - The skill change is the primary behavioral fix; the hook is the safety net. The agent will usually follow the skill, but when it doesn't, the hook ensures the misbehavior cannot land silently. Keep both layers in sync. (`plugins/core/skills/create-ticket/SKILL.md`, `plugins/work/hooks/validate-ticket.sh`)
 - The "Config" layer engages whichever lead governs the affected behavior. Here the behavior is workflow correctness and developer ergonomics: enforcement via hook + clear agent-facing error message respects the leading-validity lens (fail fast at the boundary, explicit allowlist) without engaging security or accessibility leads.
 - No version bump is required; this is a bugfix to existing plugin content, not a new feature. Drive/archive scripts continue to scan `.workaholic/tickets/` only and are unaffected.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The validate-ticket.sh hook's early-exit pattern (`exit 0` when path is not under `.workaholic/tickets/`) meant any misplaced ticket-shaped file silently bypassed validation. The fix preserves the existing exit-0 semantics for genuinely unrelated paths (e.g., source files, `stories/<branch>.md`) by combining two predicates: under `.workaholic/` AND filename matches the ticket timestamp pattern. Anything else still short-circuits to exit 0.
+  **Context**: When extending PostToolUse hooks, distinguish "not my concern" (silent exit 0) from "actively wrong" (exit 2). Misplaced artifacts that look like tickets fall into the latter category and need explicit detection, not a default-deny.
+
+- **Insight**: The hook fires PostToolUse, meaning the file already exists on disk when the hook errors. Deliberately do not delete the offending file — exit 2 surfaces the message to the agent and the developer can decide whether to clean up or move. Destructive side effects inside hooks are unsafe in a multi-contributor working tree.
+  **Context**: Same reasoning that prohibits `git clean` / `git restore .` during drive applies to hook scripts. The hook's job is to gatekeep, not to clean up.

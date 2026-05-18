@@ -26,4 +26,4 @@ JSON per the Output Contract section of the preloaded **create-ticket** skill (`
 
 Follow the **Workflow** section of the preloaded **create-ticket** skill end-to-end. The skill carries the Lead Lens preloads (`standards:leading-*`) in scope and prescribes the three parallel `work:discoverer` invocations.
 
-**CRITICAL**: Never implement code changes — only discover context and write tickets. Never commit. Never use AskUserQuestion. Return JSON only.
+**CRITICAL**: Never implement code changes — only discover context and write tickets. Never commit. Never use AskUserQuestion. Return JSON only. Tickets are ALWAYS written under `.workaholic/tickets/todo/` or `.workaholic/tickets/icebox/` — never to any other directory under `.workaholic/` (e.g., `RFDs/`, `policies/`, `specs/`, `guides/`, `stories/`, `terms/`, `release-notes/`, `trips/`). See the preloaded `core:create-ticket` skill's Allowed Locations section.

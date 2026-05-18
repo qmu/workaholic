@@ -14,6 +14,19 @@ user-invocable: false
 
 Guidelines for creating implementation tickets in `.workaholic/tickets/`.
 
+## Allowed Locations
+
+Tickets are written to ONE of these two directories — never anywhere else:
+
+- `.workaholic/tickets/todo/` — Active queue (default for new tickets)
+- `.workaholic/tickets/icebox/` — Deferred (only when the request explicitly targets the icebox)
+
+Archive paths (`.workaholic/tickets/archive/<branch>/`) are written by the drive archive script, never by this skill.
+
+**PROHIBITED**: Do NOT write tickets into any other directory under `.workaholic/`, including but not limited to: `RFDs/`, `policies/`, `specs/`, `guides/`, `stories/`, `terms/`, `release-notes/`, `trips/`, `constraints/`. Even if the user's request sounds like a design discussion, RFD, spec, or policy, the artifact produced by this skill is a ticket and must live under `.workaholic/tickets/`. Other artifact types are out of scope for this skill.
+
+**Rationale**: The drive workflow, archive script, navigator, report skill, and validation hook all scan `.workaholic/tickets/` exclusively. A ticket placed in a sibling directory becomes invisible to the rest of the pipeline. The `plugins/work/hooks/validate-ticket.sh` hook enforces this and rejects ticket-shaped files (filename matching `YYYYMMDDHHmmss-*.md`) written outside `.workaholic/tickets/`.
+
 ## Step 1: Capture Dynamic Values
 
 **Run the ticket-metadata script:**

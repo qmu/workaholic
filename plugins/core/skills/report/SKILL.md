@@ -95,29 +95,52 @@ Generate the story file, then create the PR and release note. The `work:story-wr
 
 Gather all context using the preloaded gather skill — run `git-context.sh`. Returns: branch, base_branch, repo_url, archived_tickets, git_log.
 
-#### Phase 1: Invoke Story Generation Agents
+#### Phase 1: Judge Active Carry-Overs
+
+Run before the parallel agent batch so the verdicts flow into section-reviewer's input. Skip silently if `.workaholic/concerns/` is empty or absent.
+
+1. **Invoke carryover-judge** (`subagent_type: "work:carryover-judge"`, `model: "opus"`): Reads `.workaholic/concerns/` via `list-active-carryovers.sh`, judges each active item against current-branch work, and returns `{verdicts: [...]}`. Pass branch name and base branch.
+2. **Apply verdicts**: Write the returned `verdicts` array to `/tmp/carryover-verdicts.json`, then run:
+
+   ```bash
+   cat /tmp/carryover-verdicts.json | bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/apply-carryover-verdicts.sh
+   ```
+
+   Files marked `resolved` are rewritten in place; `status:` flips to `resolved` and `resolved_by_pr` / `resolved_by_commit` are recorded.
+
+#### Phase 2: Invoke Story Generation Agents
 
 Invoke 3 agents in parallel via Task tool (single message with 3 tool calls):
 
 - **release-readiness** (`subagent_type: "work:release-readiness"`, `model: "opus"`): Analyzes branch for release readiness. Pass archived tickets list and branch name.
 - **overview-writer** (`subagent_type: "work:overview-writer"`, `model: "opus"`): Generates overview, highlights, motivation, and journey. Pass branch name and base branch.
-- **section-reviewer** (`subagent_type: "work:section-reviewer"`, `model: "opus"`): Generates sections 4-8 (Outcome, Historical Analysis, Concerns, Ideas, Successful Development Patterns). Pass branch name and archived tickets list.
+- **section-reviewer** (`subagent_type: "work:section-reviewer"`, `model: "opus"`): Generates sections 4-8 (Outcome, Historical Analysis, Concerns, Ideas, Successful Development Patterns). Pass branch name, archived tickets list, and the carryover verdicts file path `/tmp/carryover-verdicts.json`. Section-reviewer prepends `still_active` verdicts to sections 6 and 7 (filtered by `kind`).
 
 Wait for all 3 agents to complete. Track which succeeded and which failed.
 
-#### Phase 2: Write Story File
+#### Phase 3: Write Story File
 
 1. **Gather Source Data**: Read archived tickets using Glob pattern `.workaholic/tickets/archive/<branch-name>/*.md`. Extract frontmatter (`commit_hash`, `category`) and content (Overview, Final Report).
 2. **Write Story**: Follow the Story Content Structure section below.
 3. **Update Index**: Add entry to `.workaholic/stories/README.md`.
 
-#### Phase 3: Commit and Push Story
+#### Phase 4: Commit and Push Story
 
-1. **Stage story**: `git add .workaholic/stories/`
-2. **Commit**: `git commit -m "Add branch story for <branch-name>"`
+1. **Stage story and resolved carry-overs**: `git add .workaholic/stories/ .workaholic/concerns/`
+2. **Commit**: `git commit -m "Add branch story for <branch-name>"` (the same commit captures any carry-over `status: resolved` flips from Phase 1, keeping audit history coherent)
 3. **Push branch**: `git push -u origin <branch-name>`
 
-#### Phase 4: Create PR and Generate Release Note
+#### Phase 5: Emit Housekeeping Tickets
+
+For each still-active carry-over whose `housekeeping_ticket_emitted: false`, create a housekeeping ticket so accumulated debt enters the work queue. Skip silently if no carry-overs are active.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/emit-housekeeping-tickets.sh
+```
+
+Coalesces paired concern+idea items into a single ticket, deduplicates by slug against `.workaholic/tickets/todo/`, and flips `housekeeping_ticket_emitted: true` on the source carry-over files so they don't re-emit on the next run. Returns JSON with the list of created ticket paths. Stages and commits the new tickets and the flag updates in one commit `Emit housekeeping tickets from active carry-overs`.
+
+#### Phase 6: Create PR and Generate Release Note
 
 Run sequentially:
 
@@ -126,7 +149,7 @@ Run sequentially:
 
 Capture PR URL from pr-creator response for final output.
 
-#### Phase 5: Commit and Push Release Notes
+#### Phase 7: Commit and Push Release Notes
 
 1. **Stage release notes**: `git add .workaholic/release-notes/`
 2. **Commit**: `git commit -m "Add release notes for <branch-name>"`

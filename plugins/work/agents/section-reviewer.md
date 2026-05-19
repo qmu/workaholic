@@ -13,10 +13,11 @@ skills:
 
 - Branch name
 - List of archived ticket paths (or Glob pattern `.workaholic/tickets/archive/<branch-name>/*.md`)
+- Carry-over verdicts file path (optional, default `/tmp/carryover-verdicts.json`)
 
 ## Instructions
 
-Follow the preloaded `core:review-sections` skill.
+Follow the preloaded `core:review-sections` skill. Read the carry-over verdicts file when present; filter entries by `verdict: still_active` and `kind` to prepend carried items to sections 6 and 7.
 
 ## Output
 

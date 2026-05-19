@@ -3,9 +3,9 @@ created_at: 2026-05-19T11:06:56+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config, Domain]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: d6b110f
+category: Changed
 depends_on:
 ---
 
@@ -164,3 +164,20 @@ Past tickets that touched similar areas:
 - All multi-step extraction and judgement logic must live in bundled scripts under `plugins/core/skills/ship/scripts/` and `plugins/core/skills/report/scripts/` per the Shell Script Principle in `CLAUDE.md`; do not inline parsing logic in skill or agent markdown.
 - Lead Lens (Domain → `standards:leading-validity`): the carry-over schema is a small persistence layer; keep its frontmatter type-driven (explicit `kind` and `status` enums, ISO 8601 timestamps) and segregate the parser (script) from the orchestrator (skill) so each layer can be tested in isolation.
 - Lead Lens (Config → governing lead for the affected behaviour, here `standards:leading-validity` again because the artefacts encode workflow state): treat `.workaholic/concerns/` as the source of truth for "outstanding non-blocking debt" — both risks (concerns) and constructive proposals (ideas). Downstream consumers (release-readiness, housekeeping-ticket emitter) must read this directory rather than re-parsing stories.
+
+## Final Report
+
+Development completed as planned. The pipeline writes on `/ship`, judges on `/report`, and promotes lingering items to housekeeping tickets — all three phases verified end-to-end against the existing `work-20260417-092936` story (4 concerns + 6 ideas extracted, judge-feed listed with full metadata, apply-verdicts flipped status in place, emit-housekeeping produced 9 valid tickets passing the `validate-ticket.sh` hook).
+
+In addition to the ticket scope, the root `README.md` gained an "Artifacts under `.workaholic/`" section with a lifecycle table and a mermaid diagram covering all `.workaholic/` subdirectories — who writes them, when, whether they're diffed/carried/eliminated through ship, and the order in which the four-command pipeline (`/ticket` → `/drive` → `/report` → `/ship`) touches them. This was an explicit user ask alongside the carry-over implementation.
+
+### Discovered Insights
+
+- **Insight**: Bash arrays bear the brunt of carry-over scripting. The first emit-housekeeping pass had a half-broken array entry (`units+=("$base|;$file")` immediately overwritten by `units[-1]=...`) that worked only because every test run hit the paired-slug path first. Treating units as `key|concern_path|idea_path` triples and writing the unpaired-idea case as `units+=("$base||$file")` made the script self-documenting and removed the dependency on Bash 4.3+ negative indexing.
+  **Context**: Future shell-script work in this corpus should prefer flat tab/pipe-delimited records over sparsely populated arrays; the savings in readability outweigh the slight verbosity at write sites.
+
+- **Insight**: `plugins/work/hooks/validate-ticket.sh` rejects 14-digit-prefixed filenames anywhere under `.workaholic/` except `.workaholic/tickets/`. The carry-over filename convention `<pr-number>-<slug>-<kind>.md` was deliberately chosen to start with 1-4 digits (the PR number) so it passes the regex check at line 30 without modification.
+  **Context**: Any future artefact directory under `.workaholic/` should pick a filename pattern that does NOT match `^[0-9]{14}-.*\.md$` to avoid tripping the hook. A short numeric or non-numeric prefix is the simplest workaround.
+
+- **Insight**: The story-writer orchestration grew from 5 phases to 7 phases (Phase 0 gather, Phase 1 judge, Phase 2 generate, Phase 3 write, Phase 4 commit, Phase 5 emit housekeeping, Phase 6 PR, Phase 7 release notes) but the section-reviewer's input contract only needed one new field (the verdicts file path). Keeping the judge as a *pre-phase* (rather than a 4th parallel agent) avoids the data-dependency hazard where section-reviewer would need to await another agent's output mid-parallel batch.
+  **Context**: When adding new agents to parallel batches, check whether any sibling agent needs the new agent's output. If so, lift the new agent into a serial pre-phase rather than reshaping the parallel batch into a producer/consumer pair.

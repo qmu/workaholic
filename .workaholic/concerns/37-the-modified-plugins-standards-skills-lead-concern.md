@@ -1,0 +1,15 @@
+---
+kind: concern
+origin_pr: 37
+origin_pr_url: https://github.com/qmu/workaholic/pull/37
+origin_branch: work-20260408-001129
+origin_commit: cc5de17
+created_at: 2026-05-19T11:48:42+09:00
+status: active
+resolved_by_pr:
+resolved_by_commit:
+paired_slug: 37-the-modified-plugins-standards-skills-lead
+housekeeping_ticket_emitted: false
+---
+
+- The modified `plugins/standards/skills/lead-ux/SKILL.md` shows as modified in working tree at branch snapshot time, though it appears committed in the final state

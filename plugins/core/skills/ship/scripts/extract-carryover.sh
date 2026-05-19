@@ -172,8 +172,10 @@ for idx in "${!written[@]}"; do
 done
 files_json+="]"
 
-# Stage and commit the new files.
-git add .workaholic/concerns/ >/dev/null
-git commit -m "Carry over concerns from PR #${pr_number}" >/dev/null
+# Stage and commit the new files unless NO_COMMIT is set (used by backfill).
+if [[ -z "${NO_COMMIT:-}" ]]; then
+  git add .workaholic/concerns/ >/dev/null
+  git commit -m "Carry over concerns from PR #${pr_number}" >/dev/null
+fi
 
 echo "{\"status\":\"ok\",\"extracted\":${total},\"concerns\":${concern_count},\"ideas\":${idea_count},\"paired\":${paired},\"files\":${files_json}}"

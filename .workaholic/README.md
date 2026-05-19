@@ -11,6 +11,7 @@ commit_hash: f76bde2
 
 This is the working artifacts hub for the Workaholic plugin marketplace.
 
+- [concerns/](concerns/README.md) - Carry-over corpus of unresolved concerns and ideas surfaced in past PR stories (living corpus)
 - [constraints/](constraints/) - Manager-generated prescriptive boundaries
 - [guides/](guides/README.md) - User documentation
 - [policies/](policies/README.md) - Policy documentation (testing, security, quality, operations)
@@ -18,6 +19,8 @@ This is the working artifacts hub for the Workaholic plugin marketplace.
 - [stories/](stories/README.md) - Development narratives and PR descriptions per branch
 - [terms/](terms/README.md) - Consistent term definitions across the project
 - [tickets/](tickets/README.md) - Implementation work queue and archives
+
+For the full per-artifact lifecycle (who writes it, when, and how it survives or is eliminated through the ship process), see the **Artifacts under `.workaholic/`** section of the [root README](../README.md).
 
 ## Plugins
 

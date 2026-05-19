@@ -15,7 +15,7 @@ skills:
 
 ## Instructions
 
-Follow the preloaded `core:report` skill — `## Write Story → ### Orchestration` subsection end-to-end (Phases 0–5).
+Follow the preloaded `core:report` skill — `## Write Story → ### Orchestration` subsection end-to-end (Phases 0–7).
 
 ## Output
 

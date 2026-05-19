@@ -31,7 +31,7 @@ skills:
    - `git log --oneline <origin_commit>..HEAD` to see commits that landed after the carry-over was filed
    - `git diff <origin_commit>..HEAD -- <file mentioned in body>` to inspect changes to referenced files
    - Reading files mentioned in the carry-over body (paths in backticks, paths after `in`)
-   - Searching commit subjects for keywords from the carry-over body
+   - Searching commit subjects for keywords from the carry-over body (`git log --oneline --grep='<keyword>' <origin_commit>..HEAD`)
 
    Heuristics for **resolved**:
 
@@ -46,6 +46,16 @@ skills:
    - The file still exists and still contains the pattern flagged.
 
    When in doubt, prefer `still_active` — false positives (marking resolved when it isn't) lose institutional memory; false negatives (keeping active when it's done) merely re-surface in the next story.
+
+### Efficiency: Handling Large Corpora
+
+The corpus can grow large (a backfill from N historical stories produces O(N × items-per-story) items). To stay within reasonable tool-use budgets:
+
+1. **Group items by `origin_branch` first.** Items from the same branch tend to reference the same files — cluster them so you can inspect each file once per cluster, not once per item.
+2. **Within a cluster, deduplicate by referenced file path.** Many bullets reference the same file from different angles; one `cat` plus one `git log -- <path>` is enough evidence for every bullet that points at that path.
+3. **Use `git log --oneline <origin_commit>..HEAD` once per cluster**, not per item — the commit list is the same for every bullet that shares an origin commit.
+4. **Batch the verdicts.** Emit verdicts incrementally if helpful, but the final response must be one combined `{verdicts: [...]}` JSON object.
+5. **First-run backfill caveat.** When the corpus is populated all at once by `backfill-carryover.sh`, expect a high proportion of `resolved` verdicts — the items predate the codebase's current structure significantly. This is normal; the dedup-by-slug guard in `emit-housekeeping-tickets.sh` prevents the still-active remainder from flooding the work queue.
 
 3. Return a JSON object with the verdicts array:
 

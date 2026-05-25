@@ -1,6 +1,6 @@
 ---
 name: carryover-judge
-description: Judge whether each active carry-over concern/idea has been resolved by current-branch work or remains active.
+description: Judge whether each active carry-over concern has been resolved by current-branch work or remains active.
 tools: Read, Bash, Glob, Grep
 model: opus
 skills:
@@ -55,7 +55,7 @@ The corpus can grow large (a backfill from N historical stories produces O(N × 
 2. **Within a cluster, deduplicate by referenced file path.** Many bullets reference the same file from different angles; one `cat` plus one `git log -- <path>` is enough evidence for every bullet that points at that path.
 3. **Use `git log --oneline <origin_commit>..HEAD` once per cluster**, not per item — the commit list is the same for every bullet that shares an origin commit.
 4. **Batch the verdicts.** Emit verdicts incrementally if helpful, but the final response must be one combined `{verdicts: [...]}` JSON object.
-5. **First-run backfill caveat.** When the corpus is populated all at once by `backfill-carryover.sh`, expect a high proportion of `resolved` verdicts — the items predate the codebase's current structure significantly. This is normal; the dedup-by-slug guard in `emit-housekeeping-tickets.sh` prevents the still-active remainder from flooding the work queue.
+5. **First-run backfill caveat.** When the corpus is populated all at once by `backfill-carryover.sh`, expect a high proportion of `resolved` verdicts — the items predate the codebase's current structure significantly. This is normal; still-active items remain in `.workaholic/concerns/` as passive notes for future judging.
 
 3. Return a JSON object with the verdicts array:
 
@@ -63,18 +63,16 @@ The corpus can grow large (a backfill from N historical stories produces O(N × 
    {
      "verdicts": [
        {
-         "path": ".workaholic/concerns/42-foo-concern.md",
-         "kind": "concern",
+         "path": ".workaholic/concerns/42-foo.md",
          "verdict": "resolved",
          "resolved_by_pr": 47,
          "resolved_by_commit": "abc1234",
          "rationale": "Commit abc1234 removed the inline shell logic this concern flagged."
        },
        {
-         "path": ".workaholic/concerns/42-bar-idea.md",
-         "kind": "idea",
+         "path": ".workaholic/concerns/42-bar.md",
          "verdict": "still_active",
-         "rationale": "No commits modified the area this idea targets."
+         "rationale": "No commits modified the area this carry-over targets."
        }
      ]
    }

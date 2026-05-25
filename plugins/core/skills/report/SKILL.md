@@ -106,7 +106,7 @@ Run before the parallel agent batch so the verdicts flow into section-reviewer's
    cat /tmp/carryover-verdicts.json | bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/apply-carryover-verdicts.sh
    ```
 
-   Files marked `resolved` are rewritten in place; `status:` flips to `resolved` and `resolved_by_pr` / `resolved_by_commit` are recorded.
+   Files marked `resolved` have `status:` flipped to `resolved`, `resolved_by_pr` / `resolved_by_commit` recorded, and are then moved to `.workaholic/concerns/archive/`. Files marked `still_active` stay in `.workaholic/concerns/`.
 
 #### Phase 2: Invoke Story Generation Agents
 
@@ -114,7 +114,7 @@ Invoke 3 agents in parallel via Task tool (single message with 3 tool calls):
 
 - **release-readiness** (`subagent_type: "work:release-readiness"`, `model: "opus"`): Analyzes branch for release readiness. Pass archived tickets list and branch name.
 - **overview-writer** (`subagent_type: "work:overview-writer"`, `model: "opus"`): Generates overview, highlights, motivation, and journey. Pass branch name and base branch.
-- **section-reviewer** (`subagent_type: "work:section-reviewer"`, `model: "opus"`): Generates sections 4-8 (Outcome, Historical Analysis, Concerns, Ideas, Successful Development Patterns). Pass branch name, archived tickets list, and the carryover verdicts file path `/tmp/carryover-verdicts.json`. Section-reviewer prepends `still_active` verdicts to sections 6 and 7 (filtered by `kind`).
+- **section-reviewer** (`subagent_type: "work:section-reviewer"`, `model: "opus"`): Generates sections 4-7 (Outcome, Historical Analysis, Concerns, Successful Development Patterns). Pass branch name, archived tickets list, and the carryover verdicts file path `/tmp/carryover-verdicts.json`. Section-reviewer prepends `still_active` verdicts to section 6.
 
 Wait for all 3 agents to complete. Track which succeeded and which failed.
 
@@ -127,20 +127,10 @@ Wait for all 3 agents to complete. Track which succeeded and which failed.
 #### Phase 4: Commit and Push Story
 
 1. **Stage story and resolved carry-overs**: `git add .workaholic/stories/ .workaholic/concerns/`
-2. **Commit**: `git commit -m "Add branch story for <branch-name>"` (the same commit captures any carry-over `status: resolved` flips from Phase 1, keeping audit history coherent)
+2. **Commit**: `git commit -m "Add branch story for <branch-name>"` (the same commit captures any carry-over archive moves from Phase 1, keeping audit history coherent)
 3. **Push branch**: `git push -u origin <branch-name>`
 
-#### Phase 5: Emit Housekeeping Tickets
-
-For each still-active carry-over whose `housekeeping_ticket_emitted: false`, create a housekeeping ticket so accumulated debt enters the work queue. Skip silently if no carry-overs are active.
-
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/emit-housekeeping-tickets.sh
-```
-
-Coalesces paired concern+idea items into a single ticket, deduplicates by slug against `.workaholic/tickets/todo/`, and flips `housekeeping_ticket_emitted: true` on the source carry-over files so they don't re-emit on the next run. Returns JSON with the list of created ticket paths. Stages and commits the new tickets and the flag updates in one commit `Emit housekeeping tickets from active carry-overs`.
-
-#### Phase 6: Create PR and Generate Release Note
+#### Phase 5: Create PR and Generate Release Note
 
 Run sequentially:
 
@@ -149,7 +139,7 @@ Run sequentially:
 
 Capture PR URL from pr-creator response for final output.
 
-#### Phase 7: Commit and Push Release Notes
+#### Phase 6: Commit and Push Release Notes
 
 1. **Stage release notes**: `git add .workaholic/release-notes/`
 2. **Commit**: `git commit -m "Add release notes for <branch-name>"`
@@ -181,11 +171,11 @@ Story sections are populated from parallel agent outputs:
 | Agent | Sections | Fields |
 | ----- | -------- | ------ |
 | overview-writer | 1, 2, 3 (journey preamble) | `overview`, `highlights[]`, `motivation`, `journey.mermaid`, `journey.summary` |
-| section-reviewer | 4, 5, 6, 7, 8 | `outcome`, `historical_analysis`, `concerns`, `ideas`, `development_patterns` |
-| release-readiness | 9 | `verdict`, `concerns[]`, `instructions.pre_release[]`, `instructions.post_release[]` |
+| section-reviewer | 4, 5, 6, 7 | `outcome`, `historical_analysis`, `concerns`, `development_patterns` |
+| release-readiness | 8 | `verdict`, `concerns[]`, `instructions.pre_release[]`, `instructions.post_release[]` |
 | release-note-writer | (separate file) | Writes to `.workaholic/release-notes/<branch>.md` |
 
-Section 3 (Changes) comes from archived tickets, prefaced by journey content from overview-writer. Section 10 (Notes) is optional context.
+Section 3 (Changes) comes from archived tickets, prefaced by journey content from overview-writer. Section 9 (Notes) is optional context.
 
 ### Overview Generation
 
@@ -352,24 +342,36 @@ One subsection per ticket, in chronological order:
 
 ## 6. Concerns
 
-[Risks, trade-offs, or issues discovered during implementation. Each concern should include identifiable references.]
+[Risks, trade-offs, limitations, and forward-looking suggestions discovered during implementation. Each concern is one insight framed as a title, a description of the problem, and how to fix it. This structure is parsed verbatim by `extract-carryover.sh` on `/ship`, so follow it exactly.]
 
-**Format**: `- <description> (see [hash](<repo-url>/commit/<hash>) in path/to/file.ext)`
+**Format** (one `###` block per concern, or "None"):
+
+```markdown
+### <Concise title>
+
+- **Severity:** moderate
+- **Description:** <what the problem/risk is> (see [hash](<repo-url>/commit/<hash>) in path/to/file.ext)
+- **How to Fix:** <the concrete fix or improvement>
+```
 
 **Example**:
-- The pathspec exclusion syntax requires modern git versions (see [7eab801](<repo-url>/commit/7eab801) in `plugins/work/skills/drive/SKILL.md`)
-- Auto-approval configuration may be broader than intended (`~/.claude/settings.local.json`)
+
+```markdown
+### Inline shell invocations in core:drive
+
+- **Severity:** moderate
+- **Description:** `core:drive` still calls `ls -1` inline, violating the Shell Script Principle (see [7eab801](<repo-url>/commit/7eab801) in `plugins/core/skills/drive/SKILL.md`)
+- **How to Fix:** Extract the inline invocations into dedicated navigator scripts under the drive skill's `scripts/` directory
+```
 
 **Guidelines**:
-- Reference the commit hash from section 3 where the concern was introduced
-- Include the file path where readers should investigate
-- Write "None" if nothing to report
+- **Severity** is a label, not a number: `urgent` (act now), `moderate` (should fix), or `low` (nice-to-have). Default `moderate`.
+- Reference the commit hash from section 3 and the file path where readers should investigate, inside the Description.
+- Keep Description and How to Fix to one paragraph each.
+- Carried-over concerns (from `still_active` verdicts) are prepended here as `###` blocks, with their title prefixed `(carried from PR #N)` and their original severity preserved.
+- Write "None" if nothing to report.
 
-## 7. Ideas
-
-[Enhancement suggestions for future work. Improvements that were out of scope. "Nice to have" features identified during implementation. Write "None" if nothing to report.]
-
-## 8. Successful Development Patterns
+## 7. Successful Development Patterns
 
 [Effective patterns discovered during this branch's development that are worth preserving as institutional knowledge.]
 
@@ -388,21 +390,21 @@ One subsection per ticket, in chronological order:
 - Categories to consider: architectural decisions, testing strategies, refactoring approaches, collaboration patterns, tooling choices
 - Write "None" if no noteworthy patterns emerged
 
-## 9. Release Preparation
+## 8. Release Preparation
 
 **Verdict**: [Ready for release / Needs attention before release]
 
-### 9-1. Concerns
+### 8-1. Concerns
 
 - [List any concerns from release-readiness analysis]
 - Or "None - changes are safe for release"
 
-### 9-2. Pre-release Instructions
+### 8-2. Pre-release Instructions
 
 - [Steps to take before running /release]
 - Or "None - standard release process applies"
 
-### 9-3. Post-release Instructions
+### 8-3. Post-release Instructions
 
 - [Steps to take after release]
 - Or "None - no special post-release actions needed"
@@ -424,10 +426,10 @@ The release-readiness JSON is provided by story-writer which invokes release-rea
 }
 ```
 
-Format this JSON into section 9.
+Format this JSON into section 8.
 
 ```markdown
-## 10. Notes
+## 9. Notes
 
 Additional context for reviewers or future reference.
 ```
@@ -450,7 +452,7 @@ tickets_completed: <count of tickets>
 - Highlight decision points and trade-offs
 - Keep Motivation/Journey/Outcome concise (Journey: 50-100 words)
 - Changes section: one entry per ticket, brief descriptions
-- Historical Analysis/Concerns/Ideas can be "None" if empty
+- Historical Analysis/Concerns can be "None" if empty
 
 ### Updating Stories Index
 

@@ -1,8 +1,7 @@
 #!/bin/bash
 # List all carry-over files under .workaholic/concerns/ with status: active.
-# Output: JSON array of {path, kind, status, origin_pr, origin_pr_url,
-#                       origin_branch, origin_commit, paired_slug,
-#                       housekeeping_ticket_emitted, body}
+# Output: JSON array of {path, status, severity, origin_pr, origin_pr_url,
+#                       origin_branch, origin_commit, body}
 #
 # Used by /report to feed the work:carryover-judge subagent.
 
@@ -30,16 +29,13 @@ read_field() {
   ' "$file"
 }
 
-# Read the body (everything after the second ---), trimming leading dash.
+# Read the body (everything after the second ---) verbatim.
 read_body() {
   local file="$1"
   awk '
     /^---$/ { c++; next }
-    c>=2 {
-      sub(/^- /, "")
-      print
-    }
-  ' "$file" | sed '/^$/d' | head -c 4000
+    c>=2 { print }
+  ' "$file" | head -c 4000
 }
 
 # JSON-escape a string.
@@ -58,22 +54,19 @@ for file in "$dir"/*.md; do
   status=$(read_field "$file" "status")
   [[ "$status" != "active" ]] && continue
 
-  kind=$(read_field "$file" "kind")
+  severity=$(read_field "$file" "severity")
   origin_pr=$(read_field "$file" "origin_pr")
   origin_pr_url=$(read_field "$file" "origin_pr_url")
   origin_branch=$(read_field "$file" "origin_branch")
   origin_commit=$(read_field "$file" "origin_commit")
-  paired_slug=$(read_field "$file" "paired_slug")
-  housekeeping=$(read_field "$file" "housekeeping_ticket_emitted")
   body=$(read_body "$file")
 
   body_json=$(printf '%s' "$body" | escape_json)
   path_json=$(printf '%s' "$file" | escape_json)
-  kind_json=$(printf '%s' "$kind" | escape_json)
+  severity_json=$(printf '%s' "${severity:-moderate}" | escape_json)
   url_json=$(printf '%s' "$origin_pr_url" | escape_json)
   branch_json=$(printf '%s' "$origin_branch" | escape_json)
   commit_json=$(printf '%s' "$origin_commit" | escape_json)
-  paired_json=$(printf '%s' "$paired_slug" | escape_json)
 
   if [[ $first -eq 0 ]]; then
     echo -n ","
@@ -81,14 +74,12 @@ for file in "$dir"/*.md; do
   first=0
   echo -n "{"
   echo -n "\"path\":$path_json,"
-  echo -n "\"kind\":$kind_json,"
   echo -n "\"status\":\"active\","
+  echo -n "\"severity\":$severity_json,"
   echo -n "\"origin_pr\":${origin_pr:-0},"
   echo -n "\"origin_pr_url\":$url_json,"
   echo -n "\"origin_branch\":$branch_json,"
   echo -n "\"origin_commit\":$commit_json,"
-  echo -n "\"paired_slug\":$paired_json,"
-  echo -n "\"housekeeping_ticket_emitted\":${housekeeping:-false},"
   echo -n "\"body\":$body_json"
   echo -n "}"
 done

@@ -3,9 +3,9 @@ created_at: 2026-05-25T20:55:29+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config, Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: c6b4200
+category: Changed
 depends_on:
 ---
 
@@ -89,3 +89,18 @@ Past tickets that touched similar areas:
 +  }
 +}
 ```
+
+## Final Report
+
+Implemented at standards-only scope (developer decision: defer the core subset until ticket 530 fixes the in-body Claude-specific references). The packaging mechanism turned out simpler than the ticket imagined — no per-agent manifest directories or separate `npx skills` config are needed; the `vercel-labs/skills` CLI reads `.claude-plugin/marketplace.json` directly. Steps 3-5 collapsed into a single manifest change plus a per-skill exclusion flag. The `.cursor-plugin/plugin.json` and `.mdc` wrappers (steps 3-4) were intentionally not added: the `skills` CLI already installs the shared SKILL.md bodies to Cursor/Codex/OpenCode/Pi, so those would be a redundant, drift-prone channel.
+
+### Discovered Insights
+
+- **Insight**: The `skills` CLI (`vercel-labs/skills`) ALWAYS scans every `marketplace.json` plugin's `<source>/skills/` directory; a plugin entry's `skills` array only adds extra search dirs and labels the discovery group — it cannot restrict scanning. The only per-skill exclusion is `metadata.internal: true` in SKILL.md frontmatter (gated behind `INSTALL_INTERNAL_SKILLS=1`).
+  **Context**: This is why excluding `core` from cross-agent install required touching all 13 discovered core skills rather than a single manifest edit. Any future `core` skill must carry `metadata.internal: true` or it will leak into cross-agent discovery in a broken (script-failing) state.
+- **Insight**: `metadata.internal: true` is invisible to Claude Code — it loads the skills normally — so the flag cleanly separates "Claude-Code-internal" from "cross-agent-public" without forking content.
+  **Context**: Verified empirically: `npx skills add . --list` shows 4 skills by default and 17 with `INSTALL_INTERNAL_SKILLS=1`, while Claude Code's own loading is unaffected (it ignores unknown frontmatter keys).
+- **Insight**: The `work` plugin has no `skills/` directory at all (only `agents/`, `commands/`, `hooks/`, `rules/`), so it is excluded from the `skills` CLI for free.
+  **Context**: Confirms the architectural split — `work`'s capabilities are entirely Claude-Code-mechanism-bound (subagents/commands/hooks), with no skill-shaped knowledge to share.
+- **Insight**: `review-sections` (core) has no YAML frontmatter, so the CLI never discovered it even before the internal flag.
+  **Context**: A latent inconsistency — it is a skill without `name`/`description`. Not in scope here, but worth a future fix if core is ever made portable.

@@ -3,6 +3,8 @@ name: ship
 description: Ship workflow - merge PR, deploy via cloud.md, and verify production.
 allowed-tools: Bash, Read, Glob, Grep
 user-invocable: false
+metadata:
+  internal: true
 ---
 
 # Ship

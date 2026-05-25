@@ -14,6 +14,18 @@ claude
 
 Enable the plugins you want after installation. Auto update is recommended.
 
+## Use with other coding agents
+
+The **standards** skills (the `leading-*` policy lenses) follow the cross-agent [Agent Skills standard](https://skills.sh) and work in Cursor, OpenCode, OpenAI Codex, Pi, and 50+ other agents. Install them with the `skills` CLI:
+
+```bash
+npx skills add qmu/workaholic
+```
+
+This exposes only the four `standards` skills. The **core** and **work** plugins are Claude-Code-only — core skills are marked `metadata.internal: true` (Claude Code ignores this; the `skills` CLI hides them from cross-agent discovery), and `work` has no portable skills because it depends on subagents, slash commands, hooks, and Agent Teams. They install normally via the Claude Code marketplace above.
+
+> Core skills are intentionally withheld from cross-agent install until their Claude-Code-specific script references are made portable. To preview the full set during development, run `INSTALL_INTERNAL_SKILLS=1 npx skills add . --list`.
+
 ## Plugins
 
 ### Core

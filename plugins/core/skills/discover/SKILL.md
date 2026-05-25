@@ -3,6 +3,8 @@ name: discover
 description: Guidelines for discovering historical context, source code, and repository standards.
 allowed-tools: Bash
 user-invocable: false
+metadata:
+  internal: true
 ---
 
 # Discover

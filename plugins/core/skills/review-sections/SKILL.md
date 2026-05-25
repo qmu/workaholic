@@ -1,6 +1,6 @@
 # Review Sections
 
-Guidelines for generating story sections 4-8 (Outcome, Historical Analysis, Concerns, Ideas, Successful Development Patterns) from archived tickets.
+Guidelines for generating story sections 4-7 (Outcome, Historical Analysis, Concerns, Successful Development Patterns) from archived tickets.
 
 ## Input
 
@@ -14,13 +14,13 @@ Guidelines for generating story sections 4-8 (Outcome, Historical Analysis, Conc
 2. **Extract relevant content** from each ticket:
    - Overview section for accomplishments
    - Related History section for patterns
-   - Considerations section for concerns and ideas
+   - Considerations section for concerns
    - Final Report section (if present) for outcomes
-3. **Read carry-over verdicts** from the verdicts file path. Filter to entries with `verdict: still_active`. These carry-overs were judged active by `work:carryover-judge` and must be re-surfaced in this story's sections 6 and 7.
+3. **Read carry-over verdicts** from the verdicts file path. Filter to entries with `verdict: still_active`. These carry-overs were judged active by `work:carryover-judge` and must be re-surfaced in this story's section 6 (Concerns).
 
 ## Section Guidelines
 
-### Section 5: Outcome
+### Section 4: Outcome
 
 Summarize what was accomplished across all tickets.
 
@@ -29,7 +29,7 @@ Summarize what was accomplished across all tickets.
 - Use bullet points for clarity
 - Include metrics if available (files changed, tests added, etc.)
 
-### Section 6: Historical Analysis
+### Section 5: Historical Analysis
 
 Extract patterns and learnings from Related History sections.
 
@@ -38,41 +38,33 @@ Extract patterns and learnings from Related History sections.
 - Highlight any patterns that should inform future work
 - If no historical context found, write "No significant historical patterns identified."
 
-### Section 7: Concerns
+### Section 6: Concerns
 
-Identify risks, trade-offs, and limitations with identifiable references. Compose the section from two sources, in this order:
+Risks, trade-offs, limitations, and forward-looking suggestions discovered during implementation. Each concern is one insight expressed as a title, a description, and how to fix it — with a severity label. Emit one `###` block per concern using this exact structure (it is parsed by `extract-carryover.sh` on `/ship`):
 
-1. **Carried-over concerns** — entries in the verdicts file where `verdict: still_active` and `kind: concern`. Prefix each with `(carried from PR #N)` using `origin_pr` from the carry-over.
+```markdown
+### <Concise title>
+
+- **Severity:** moderate
+- **Description:** <what the problem/risk is> (see [hash](url) in path/to/file.ext)
+- **How to Fix:** <the concrete fix or improvement>
+```
+
+Compose the section from two sources, in this order:
+
+1. **Carried-over concerns** — entries in the verdicts file where `verdict: still_active`. Render each as a block above; prefix the title with `(carried from PR #N)` using `origin_pr`, and preserve the carry-over's existing `severity`.
 2. **New concerns** — extracted from Considerations sections of this branch's tickets.
 
 For new concerns:
 
-- Extract from Considerations sections of tickets
-- Include commit_hash from ticket frontmatter (if present) for each concern
-- Include file paths mentioned in the Considerations section
-- Include technical debt introduced
-- Note any known limitations or edge cases
-- Highlight security or performance concerns if applicable
-- Format: `<description> (see [hash](url) in path/to/file.ext)`
+- **Severity** is a label, not a number: `urgent` (act now), `moderate` (should fix), `low` (nice-to-have). Choose based on impact and urgency; default `moderate`.
+- Frame the risk and the constructive suggestion together (risk in Description, suggestion in How to Fix) — they are two angles on the same insight.
+- Put the commit_hash from ticket frontmatter (if present) and the file path inside the Description.
+- Keep Description and How to Fix to one paragraph each.
 
 If both sources are empty, write "None".
 
-### Section 8: Ideas
-
-Collect future enhancement suggestions. Compose the section from two sources, in this order:
-
-1. **Carried-over ideas** — entries in the verdicts file where `verdict: still_active` and `kind: idea`. Prefix each with `(carried from PR #N)` using `origin_pr` from the carry-over.
-2. **New ideas** — extracted from Considerations sections (future work mentions).
-
-For new ideas:
-
-- Extract from Considerations sections (future work mentions)
-- Include follow-up tickets mentioned but not implemented
-- Note potential optimizations or extensions
-
-If both sources are empty, write "None".
-
-### Section 8: Successful Development Patterns
+### Section 7: Successful Development Patterns
 
 Capture effective patterns discovered during this branch's development.
 
@@ -97,8 +89,7 @@ Return JSON with the following structure:
 {
   "outcome": "Bullet list of accomplishments...",
   "historical_analysis": "Patterns and learnings...",
-  "concerns": "Risks and limitations or 'None'",
-  "ideas": "Future suggestions or 'None'",
+  "concerns": "Risks, trade-offs, and forward-looking suggestions, or 'None'",
   "development_patterns": "Effective patterns or 'None'"
 }
 ```

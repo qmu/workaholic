@@ -1,10 +1,21 @@
 #!/bin/bash
-# Extract concerns and ideas from a shipped story and persist them under
-# .workaholic/concerns/. One file per bullet. Paired concern/idea items share
-# a <pr-number>-<slug> prefix when section 6 and section 7 have equal counts.
+# Extract concerns from a shipped story's section 6 and persist them under
+# .workaholic/concerns/, one file per concern.
+#
+# Section 6 is expected to use this structure (or "None"):
+#
+#   ## 6. Concerns
+#
+#   ### <Title>
+#
+#   - **Severity:** urgent | moderate | low
+#   - **Description:** <text> (see [hash](url) in `path`)
+#   - **How to Fix:** <text>
+#
+#   ### <Next Title>
+#   ...
 #
 # Usage: extract-carryover.sh <branch> <pr-number> <pr-url>
-#
 # Output: single JSON line summarizing what was extracted.
 
 set -e
@@ -30,152 +41,94 @@ mkdir -p .workaholic/concerns
 origin_commit=$(git rev-parse --short HEAD)
 created_at=$(date -Iseconds)
 
-# Extract bullets from a numbered section. Each bullet must start with "- "
-# at column 0; blank lines and other text are ignored. Multi-paragraph
-# bullets are not supported (consistent with how stories are written).
-extract_bullets() {
-  local section_num="$1"
-  awk -v num="$section_num" '
-    $0 ~ "^## "num"\\. " { capture=1; next }
-    capture && /^## [0-9]+\. / { exit }
-    capture && /^- / { print substr($0, 3) }
-  ' "$story_file"
-}
+written=$(python3 - "$story_file" "$pr_number" "$pr_url" "$branch" "$origin_commit" "$created_at" <<'PY'
+import sys, re, os, json
 
-# Derive a kebab-case slug from a bullet body. Strips backticks, links,
-# punctuation; takes the first ~6 meaningful words; caps length at 60.
-slugify() {
-  echo "$1" \
-    | sed -E 's/\[([^]]+)\]\([^)]+\)/\1/g' \
-    | sed -E 's/`([^`]+)`/\1/g' \
-    | sed -E 's/\(see [^)]+\)//g' \
-    | tr '[:upper:]' '[:lower:]' \
-    | sed 's/[^a-z0-9 ]/ /g' \
-    | awk '{for(i=1;i<=6 && i<=NF;i++) printf "%s%s",$i,(i<6 && i<NF?"-":"")}' \
-    | sed 's/-\+/-/g' \
-    | sed 's/^-//; s/-$//' \
-    | cut -c1-60
-}
+story_file, pr_number, pr_url, branch, origin_commit, created_at = sys.argv[1:7]
 
-write_file() {
-  local kind="$1"
-  local slug_base="$2"   # e.g. 42-pathspec-modern-git
-  local paired_slug="$3" # empty or same as slug_base
-  local body="$4"
+with open(story_file) as h:
+    text = h.read()
 
-  local path=".workaholic/concerns/${slug_base}-${kind}.md"
+# Isolate section 6 (## 6. ...) up to the next top-level "## " heading.
+m = re.search(r'^##\s+6\.\s.*?$(.*?)(?=^##\s+\d+\.\s|\Z)', text, re.MULTILINE | re.DOTALL)
+section = m.group(1) if m else ""
 
-  if [[ -e "$path" ]]; then
-    return 0
-  fi
+# Split into concern blocks on "### " headings.
+blocks = re.split(r'^###\s+', section, flags=re.MULTILINE)[1:]
 
-  {
-    echo "---"
-    echo "kind: ${kind}"
-    echo "origin_pr: ${pr_number}"
-    echo "origin_pr_url: ${pr_url}"
-    echo "origin_branch: ${branch}"
-    echo "origin_commit: ${origin_commit}"
-    echo "created_at: ${created_at}"
-    echo "status: active"
-    echo "resolved_by_pr:"
-    echo "resolved_by_commit:"
-    if [[ -n "$paired_slug" ]]; then
-      echo "paired_slug: ${paired_slug}"
-    else
-      echo "paired_slug:"
-    fi
-    echo "housekeeping_ticket_emitted: false"
-    echo "---"
-    echo
-    echo "- ${body}"
-  } > "$path"
+def field(block, label):
+    # Matches "- **Label:** value" or "**Label:** value", value runs to EOL.
+    pat = re.compile(r'^\s*-?\s*\*\*' + re.escape(label) + r':\*\*\s*(.*)$', re.MULTILINE)
+    mm = pat.search(block)
+    return mm.group(1).strip() if mm else ""
 
-  echo "$path"
-}
+def slugify(s):
+    s = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', s)
+    s = re.sub(r'`([^`]+)`', r'\1', s)
+    s = s.lower()
+    s = re.sub(r'[^a-z0-9 ]', ' ', s)
+    words = [w for w in s.split() if w][:6]
+    return '-'.join(words)[:60].strip('-')
 
-# Read both sections into arrays.
-mapfile -t concerns < <(extract_bullets 6 | grep -v -i '^none$' || true)
-mapfile -t ideas    < <(extract_bullets 7 | grep -v -i '^none$' || true)
+written = []
+for block in blocks:
+    lines = block.split('\n')
+    title = re.sub(r'^\d+(-\d+)?\.\s*', '', lines[0].strip())
+    if not title or title.lower() == 'none':
+        continue
+    severity = field(block, 'Severity').lower() or 'moderate'
+    if severity not in ('urgent', 'moderate', 'low'):
+        severity = 'moderate'
+    description = field(block, 'Description')
+    fix = field(block, 'How to Fix') or field(block, 'How To Fix') or field(block, 'Fix')
 
-concern_count=${#concerns[@]}
-idea_count=${#ideas[@]}
+    slug = slugify(title) or f'concern'
+    slug_base = f'{pr_number}-{slug}'
+    path = f'.workaholic/concerns/{slug_base}.md'
+    if os.path.exists(path):
+        continue
 
-# Determine whether we can pair items by position.
-paired=0
-if [[ "$concern_count" -gt 0 && "$concern_count" -eq "$idea_count" ]]; then
-  paired=1
-fi
+    body = []
+    body.append('---')
+    body.append(f'origin_pr: {pr_number}')
+    body.append(f'origin_pr_url: {pr_url}')
+    body.append(f'origin_branch: {branch}')
+    body.append(f'origin_commit: {origin_commit}')
+    body.append(f'created_at: {created_at}')
+    body.append(f'severity: {severity}')
+    body.append('status: active')
+    body.append('resolved_by_pr:')
+    body.append('resolved_by_commit:')
+    body.append('---')
+    body.append('')
+    body.append(f'# {title}')
+    body.append('')
+    body.append('## Description')
+    body.append('')
+    body.append(description)
+    body.append('')
+    body.append('## How to Fix')
+    body.append('')
+    body.append(fix)
+    body.append('')
+    with open(path, 'w') as h:
+        h.write('\n'.join(body))
+    written.append(path)
 
-written=()
+print(json.dumps(written))
+PY
+)
 
-i=0
-while [[ $i -lt $concern_count ]]; do
-  body="${concerns[$i]}"
-  slug=$(slugify "$body")
-  if [[ -z "$slug" ]]; then
-    slug="item-$((i+1))"
-  fi
-  slug_base="${pr_number}-${slug}"
-  pair=""
-  if [[ $paired -eq 1 ]]; then
-    pair="$slug_base"
-  fi
-  out=$(write_file "concern" "$slug_base" "$pair" "$body")
-  if [[ -n "$out" ]]; then
-    written+=("$out")
-  fi
-  i=$((i+1))
-done
+count=$(echo "$written" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))")
 
-i=0
-while [[ $i -lt $idea_count ]]; do
-  body="${ideas[$i]}"
-  if [[ $paired -eq 1 ]]; then
-    # Reuse the slug from the paired concern.
-    concern_body="${concerns[$i]}"
-    slug=$(slugify "$concern_body")
-    if [[ -z "$slug" ]]; then
-      slug="item-$((i+1))"
-    fi
-    slug_base="${pr_number}-${slug}"
-    pair="$slug_base"
-  else
-    slug=$(slugify "$body")
-    if [[ -z "$slug" ]]; then
-      slug="idea-$((i+1))"
-    fi
-    slug_base="${pr_number}-${slug}"
-    pair=""
-  fi
-  out=$(write_file "idea" "$slug_base" "$pair" "$body")
-  if [[ -n "$out" ]]; then
-    written+=("$out")
-  fi
-  i=$((i+1))
-done
-
-total=${#written[@]}
-
-if [[ $total -eq 0 ]]; then
-  echo "{\"status\":\"ok\",\"extracted\":0,\"concerns\":${concern_count},\"ideas\":${idea_count},\"paired\":${paired},\"files\":[]}"
+if [[ "$count" -eq 0 ]]; then
+  echo "{\"status\":\"ok\",\"extracted\":0,\"files\":[]}"
   exit 0
 fi
 
-# Build JSON list of paths.
-files_json="["
-for idx in "${!written[@]}"; do
-  if [[ $idx -gt 0 ]]; then
-    files_json+=","
-  fi
-  files_json+="\"${written[$idx]}\""
-done
-files_json+="]"
-
-# Stage and commit the new files unless NO_COMMIT is set (used by backfill).
 if [[ -z "${NO_COMMIT:-}" ]]; then
   git add .workaholic/concerns/ >/dev/null
   git commit -m "Carry over concerns from PR #${pr_number}" >/dev/null
 fi
 
-echo "{\"status\":\"ok\",\"extracted\":${total},\"concerns\":${concern_count},\"ideas\":${idea_count},\"paired\":${paired},\"files\":${files_json}}"
+echo "{\"status\":\"ok\",\"extracted\":${count},\"files\":${written}}"

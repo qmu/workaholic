@@ -27,7 +27,13 @@
         "email": "a@qmu.jp"
       },
       "source": "./plugins/standards",
-      "category": "development"
+      "category": "development",
+      "skills": [
+        "./skills/leading-accessibility",
+        "./skills/leading-availability",
+        "./skills/leading-security",
+        "./skills/leading-validity"
+      ]
     },
     {
       "name": "work",

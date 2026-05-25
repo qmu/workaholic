@@ -8,6 +8,8 @@ skills:
   - standards:leading-security
   - standards:leading-availability
 user-invocable: false
+metadata:
+  internal: true
 ---
 
 # Create Ticket

@@ -3,6 +3,8 @@ name: branching
 description: Context detection and branch pattern matching for unified commands.
 allowed-tools: Bash, Read
 user-invocable: false
+metadata:
+  internal: true
 ---
 
 # Branching

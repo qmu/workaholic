@@ -18,7 +18,7 @@ plugins/                 # Plugin source directories
   core/                  # Core shared plugin (no dependencies)
     .claude-plugin/      # Plugin configuration
     skills/              # branching, check-deps, commit, create-ticket, discover, drive, gather, report, review-sections, ship, system-safety, trip-protocol, validate-writer-output, write-release-note
-  standards/             # Standards policy plugin (no dependencies)
+  standards/             # Standards policy plugin (no dependencies; cross-agent exposed)
     .claude-plugin/      # Plugin configuration
     skills/              # leading-*
   work/                  # Work plugin: drive + trip workflows (depends on: core)
@@ -49,6 +49,15 @@ work ─ ─ ─ ─ ─
 ```
 
 Each plugin declares `dependencies` in its `plugin.json`. Cross-plugin `${CLAUDE_PLUGIN_ROOT}/../<name>/` references must only target declared dependencies. Soft references (skill preloads, subagent invocations) do not require a declared dependency — they are used when the referenced plugin is installed but do not prevent the caller from functioning without it. Work has soft references to standards (leading skill preloads, writer subagent invocations).
+
+### Cross-Agent Skill Exposure
+
+The `standards` skills are installable by non-Claude agents (Cursor, OpenCode, Codex, Pi, 50+) via `npx skills add qmu/workaholic`. The `skills` CLI (`vercel-labs/skills`) reads `.claude-plugin/marketplace.json`: the `skills` array on the `standards` plugin entry labels its discovery group. Two rules keep the exposed set honest:
+
+- **`core` skills carry `metadata.internal: true`** in their SKILL.md frontmatter. Claude Code ignores this field (the skills still load normally); the `skills` CLI hides them from cross-agent discovery. This is required because the CLI always scans every marketplace plugin's `skills/` dir — `metadata.internal` is the only per-skill exclusion. Any new `core` skill MUST include it until core is made portable.
+- **`work` needs nothing** — it has no `skills/` directory, so the CLI finds nothing to expose.
+
+To preview what the CLI would install, run `npx skills add . --list` (add `INSTALL_INTERNAL_SKILLS=1` to include internal core skills).
 
 ### Design Principle
 

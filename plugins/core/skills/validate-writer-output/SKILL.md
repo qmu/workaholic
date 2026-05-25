@@ -3,6 +3,8 @@ name: validate-writer-output
 description: Validate that writer subagent output files exist and are non-empty before proceeding to index updates.
 allowed-tools: Bash
 user-invocable: false
+metadata:
+  internal: true
 ---
 
 # Validate Writer Output

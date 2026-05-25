@@ -11,6 +11,8 @@ skills:
   - standards:leading-validity
   - standards:leading-security
   - standards:leading-availability
+metadata:
+  internal: true
 ---
 
 # Report

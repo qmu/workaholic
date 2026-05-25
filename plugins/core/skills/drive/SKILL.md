@@ -10,6 +10,8 @@ skills:
   - standards:leading-availability
 allowed-tools: Bash
 user-invocable: false
+metadata:
+  internal: true
 ---
 
 # Drive

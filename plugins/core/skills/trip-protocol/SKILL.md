@@ -3,6 +3,8 @@ name: trip-protocol
 description: Two-phase collaborative workflow protocol and artifact conventions.
 allowed-tools: Bash, Read, Write, Glob
 user-invocable: false
+metadata:
+  internal: true
 ---
 
 # Trip Protocol

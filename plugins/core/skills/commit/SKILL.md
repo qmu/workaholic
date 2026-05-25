@@ -2,6 +2,8 @@
 name: commit
 description: Safe commit workflow with multi-contributor awareness and structured message format.
 user-invocable: false
+metadata:
+  internal: true
 ---
 
 # Commit

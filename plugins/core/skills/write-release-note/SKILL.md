@@ -2,6 +2,8 @@
 name: write-release-note
 description: Release note content structure and guidelines for GitHub Releases.
 user-invocable: false
+metadata:
+  internal: true
 ---
 
 # Write Release Note

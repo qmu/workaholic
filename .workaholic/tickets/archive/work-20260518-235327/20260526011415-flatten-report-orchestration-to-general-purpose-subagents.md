@@ -3,9 +3,9 @@ created_at: 2026-05-26T01:14:15+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: b5c4c01
+category: Changed
 depends_on:
 ---
 
@@ -69,6 +69,17 @@ Past tickets that touched similar areas:
    grep -n 'work:story-writer\|work:carryover-judge\|work:section-reviewer\|work:overview-writer\|work:release-readiness\|work:pr-creator\|work:release-note-writer' plugins/core/skills/report/SKILL.md plugins/work/commands/report.md
    ```
    Expected: no output.
+
+## Final Report
+
+Development completed as planned. The `/report` flow is now flat: the `/report` command (main agent) runs the Write Story orchestration directly and spawns every former subagent as a leaf `subagent_type: "general-purpose"` Task — no subagent spawns subagents. Carry-over judging heuristics moved verbatim into a new `### Judge Carry-Overs` section of `core:report`. Model profiles preserved per call (opus: carry-over judge, release-readiness, PR writer; haiku: overview-writer, section-reviewer, release-note writer). Agent `.md` files left on disk for the dependent cleanup ticket (011417). Step-9 verification grep returns no `work:` report-agent references.
+
+### Discovered Insights
+
+- **Insight**: The fan-out lives at command (main-agent) context, not in the skill. `core:report` carries `allowed-tools: Bash` and CLAUDE.md still forbids Skill→Subagent, so the skill prose describes orchestration as instructions to its *loading agent* — mirroring how `core:create-ticket` already phrases it ("Skills cannot invoke subagents... the steps below describe what the loading agent must do").
+  **Context**: Anyone editing report orchestration must keep Task fan-out expressed as command-level steps; moving them into a subagent prompt reintroduces the broken nested-Task pattern this ticket removed.
+- **Insight**: General-purpose leaf subagents reach `core:review-sections` and `core:write-release-note` by naming the skill in their prompt and preloading it via the Skill tool — those skills resolve because `core` is a declared dependency of `work`, not because the command preloads them.
+  **Context**: Future leaf-subagent prompts can reference any `core` skill by name without the command needing to preload it first.
 
 ## Considerations
 

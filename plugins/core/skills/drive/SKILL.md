@@ -16,7 +16,7 @@ metadata:
 
 # Drive
 
-Complete drive session skill covering the `/drive` command workflow, the drive-navigator subagent, per-ticket implementation, approval, reporting, archiving, and frontmatter updates.
+Complete drive session skill covering the `/drive` command workflow, ticket navigation and prioritization, per-ticket implementation, approval, reporting, archiving, and frontmatter updates.
 
 ## Command Workflow
 
@@ -50,22 +50,25 @@ If `has_worktrees` is `false`, proceed silently to Phase 1.
 
 ### Phase 1: Navigate Tickets
 
-Invoke the drive-navigator subagent via Task tool:
+The command (main agent) runs the **Navigator** section below. Navigation splits into non-interactive prioritization (delegated to a leaf subagent) and user confirmation (issued by the command), because subagents cannot call AskUserQuestion.
 
-```
-Task tool with subagent_type: "work:drive-navigator", model: "opus"
-prompt: "Navigate tickets. mode: <normal|icebox>"
-```
-
-Pass mode based on `$ARGUMENT`:
+Determine mode from `$ARGUMENT`:
 - If `$ARGUMENT` contains "icebox": mode = "icebox"
 - Otherwise: mode = "normal"
 
-Handle the response:
-- `status: "empty"` - Inform user: "No tickets in queue or icebox."
-- `status: "stopped"` - End the drive session
-- `status: "icebox"` - Re-invoke with mode = "icebox"
-- `status: "ready"` - Proceed to Phase 2 with the ordered ticket list
+**Normal mode:**
+
+1. Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-todo.sh`. If it prints nothing, follow the Navigator section's empty-queue handling (offer icebox/stop via `AskUserQuestion`).
+2. If todo tickets exist, spawn a `subagent_type: "general-purpose"` subagent (`model: "opus"`) whose prompt instructs it to preload `core:drive`, run the Navigator section's **list / analyze / prioritize** logic (read frontmatter, dependency topo-sort, severity ranking, context grouping), and return the proposed ordered ticket list with tier grouping as JSON. This subagent does NOT call AskUserQuestion.
+3. The command presents the prioritized list and confirms the order with the user via `AskUserQuestion` (Navigator section, "Confirm Order with User"), then proceeds to Phase 2 with the resolved order.
+
+**Icebox mode:** the command runs the Navigator section's Icebox Mode steps directly (list via script, select via `AskUserQuestion`, promote via script).
+
+Outcomes:
+- No tickets in todo or icebox - Inform user: "No tickets in queue or icebox."
+- User chooses to stop - End the drive session
+- User chooses icebox - Run icebox mode
+- Order confirmed - Proceed to Phase 2 with the ordered ticket list
 
 ### Phase 2: Implement Tickets
 
@@ -116,12 +119,12 @@ After all tickets from the navigator's list are processed:
 
 1. **Re-check todo directory**:
    ```bash
-   ls -1 .workaholic/tickets/todo/*.md 2>/dev/null
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-todo.sh
    ```
 
 2. **If new tickets found**:
    - Inform user: "Found N new ticket(s) added during this session."
-   - Re-invoke drive-navigator with mode = "normal"
+   - Re-run Phase 1 navigation (mode = "normal")
    - Continue to Phase 2 with the new ticket list
 
 3. **If no new tickets**:
@@ -156,51 +159,57 @@ If a ticket cannot be implemented (out of scope, too complex, blocked, or any ot
 
 ## Navigator
 
-Navigate tickets for the `/drive` command. The `work:drive-navigator` subagent runs this section. Lists, analyzes, prioritizes, and confirms execution order with user.
+Navigate tickets for the `/drive` command: list, analyze, prioritize, and confirm execution order. Responsibilities split across two contexts because subagents cannot call AskUserQuestion:
+
+- **Prioritization (leaf `general-purpose` subagent, or inline at command level)** — the non-interactive logic: list todo tickets, read frontmatter, build the dependency graph and topologically sort it, apply severity ranking and context grouping, and return the proposed ordered ticket list with tier grouping as JSON. This runs with `core:drive` preloaded and issues NO AskUserQuestion.
+- **User interaction (command / main agent only)** — every `AskUserQuestion`: the order-confirmation dialog, the empty-queue "work on icebox / stop" choice, and the icebox ticket selection. The command spawns the prioritizer subagent, then presents its result for confirmation.
+
+The recommended flow is: command spawns the prioritizer subagent → subagent returns the ordered list JSON → command presents it and confirms via AskUserQuestion → command resolves the final order.
 
 ### Input
 
-You will receive:
+The prioritizer receives:
 
 - `mode`: Either "normal" or "icebox"
 
 ### Icebox Mode (mode = "icebox")
 
-1. List tickets in `.workaholic/tickets/icebox/`:
+Run by the command (main agent), since steps 3–4 need AskUserQuestion:
+
+1. List icebox tickets:
    ```bash
-   ls -1 .workaholic/tickets/icebox/*.md 2>/dev/null
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-icebox.sh
    ```
-2. If no tickets, return: `{"status": "empty", "tickets": []}`
-3. If tickets found, use `AskUserQuestion` with selectable options listing each ticket
-4. Move selected ticket to `.workaholic/tickets/todo/`:
+2. If no tickets, inform the user the icebox is empty and stop.
+3. If tickets found, use `AskUserQuestion` with selectable options listing each ticket.
+4. Promote the selected ticket to todo (moves the file and stages both paths):
    ```bash
-   mv .workaholic/tickets/icebox/<selected>.md .workaholic/tickets/todo/
-   git add .workaholic/tickets/icebox/<selected>.md .workaholic/tickets/todo/<selected>.md
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/promote-icebox.sh <selected-icebox-path>
    ```
-5. Return the moved ticket for implementation
+5. Proceed to Phase 2 with the promoted ticket.
 
 ### Normal Mode (mode = "normal")
 
 #### 1. List and Analyze Tickets
 
-List all tickets in `.workaholic/tickets/todo/`:
+List all tickets in the todo queue:
 
 ```bash
-ls -1 .workaholic/tickets/todo/*.md 2>/dev/null
+bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-todo.sh
 ```
 
-**If no tickets found:**
+**If no tickets found** (handled by the command, since it needs AskUserQuestion):
 
-1. Check if `.workaholic/tickets/icebox/` has tickets:
+1. Check whether the icebox has tickets:
    ```bash
-   ls -1 .workaholic/tickets/icebox/*.md 2>/dev/null
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-icebox.sh
    ```
-2. If icebox has tickets, use `AskUserQuestion` with selectable options:
-   - "Work on icebox" - Return with icebox mode request
-   - "Stop" - Return empty result
-3. If icebox is also empty, return: `{"status": "empty", "tickets": []}`
+2. If the icebox has tickets, the command uses `AskUserQuestion` with selectable options:
+   - "Work on icebox" - Run icebox mode
+   - "Stop" - End the drive session
+3. If the icebox is also empty, inform the user: "No tickets in queue or icebox."
 
-**If tickets found:**
+**If tickets found** (prioritizer logic — no AskUserQuestion):
 
 For each ticket, read and extract YAML frontmatter to get:
 - `type`: bugfix > enhancement > refactoring > housekeeping (priority ranking)
@@ -246,7 +255,7 @@ Proposed order considers dependencies, severity, and context grouping.
 
 #### 4. Confirm Order with User
 
-**ALWAYS use `AskUserQuestion` with selectable `options` parameter. NEVER ask open-ended text questions.**
+**Runs at command level** (the prioritizer subagent returns the proposed order; the command presents it). **ALWAYS use `AskUserQuestion` with selectable `options` parameter. NEVER ask open-ended text questions.**
 
 Use selectable options:
 - **Proceed** - Execute in proposed order
@@ -255,25 +264,26 @@ Use selectable options:
 
 If user selects "Pick one", present a follow-up question with each ticket as an option.
 
-### Navigator Output
+### Prioritizer Output
 
-Return a JSON object:
+The prioritizer subagent returns a JSON object with the proposed order (steps 1–3); the command then runs the step-4 confirmation:
 
 ```json
 {
-  "status": "ready",
   "tickets": [
     ".workaholic/tickets/todo/20260131-fix-login-error.md",
     ".workaholic/tickets/todo/20260131-add-dark-mode.md"
-  ]
+  ],
+  "tiers": {
+    "high": [".workaholic/tickets/todo/20260131-fix-login-error.md"],
+    "normal": [".workaholic/tickets/todo/20260131-add-dark-mode.md"],
+    "low": []
+  },
+  "cycle_warning": null
 }
 ```
 
-Possible status values:
-- `"ready"` - Tickets are ready for implementation in the returned order
-- `"empty"` - No tickets to process
-- `"stopped"` - User chose to stop
-- `"icebox"` - User wants to switch to icebox mode (re-invoke with mode="icebox")
+`tickets` is the proposed ordered list; `tiers` groups them for the display; `cycle_warning` is a message string if a dependency cycle was detected, otherwise null. The command resolves the final order after the step-4 confirmation and proceeds to Phase 2.
 
 ## Workflow
 

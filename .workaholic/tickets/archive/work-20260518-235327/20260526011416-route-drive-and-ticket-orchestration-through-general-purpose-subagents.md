@@ -3,9 +3,9 @@ created_at: 2026-05-26T01:14:16+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: 11b784a
+category: Changed
 depends_on:
 ---
 
@@ -66,6 +66,17 @@ Past tickets that touched similar areas:
    grep -n 'work:drive-navigator\|work:ticket-organizer\|work:discoverer' plugins/core/skills/drive/SKILL.md plugins/core/skills/create-ticket/SKILL.md plugins/work/commands/drive.md plugins/work/commands/ticket.md
    ```
    Expected: no output.
+
+## Final Report
+
+Development completed as planned. Both `/drive` and `/ticket` now fan out at command (main-agent) level: `/ticket` spawns three `general-purpose` discovery subagents directly (no `ticket-organizer`), and `/drive` spawns a `general-purpose` prioritizer then issues every navigation AskUserQuestion itself (no `drive-navigator`). The nested-Task anti-pattern (`ticket-organizer` spawning three `discoverer`s) is gone — one-level fan-out only. Step 7 (inline-shell extraction) was done in this ticket rather than deferred: `list-todo.sh`, `list-icebox.sh`, and `promote-icebox.sh` were added under `plugins/core/skills/drive/scripts/`, smoke-tested, and referenced via `${CLAUDE_PLUGIN_ROOT}`. Step-9 grep returns no `work:` drive/ticket-agent references. Agent `.md` files left on disk for 011417.
+
+### Discovered Insights
+
+- **Insight**: The Navigator's responsibilities had to be split by capability, not convenience — prioritization logic (topo-sort, severity, grouping) is non-interactive and runs in a leaf subagent, but the order-confirmation, empty-queue, and icebox-selection dialogs are all AskUserQuestion and must run at command level. The skill now documents this split explicitly ("Prioritizer Output" replaces "Navigator Output").
+  **Context**: Any future edit that moves an AskUserQuestion into the prioritizer subagent prompt breaks `/drive` silently — subagents cannot call AskUserQuestion. The capability boundary is the design constraint, not a style choice.
+- **Insight**: The `/ticket` command necessarily grew (skills frontmatter + a multi-step Workflow runner) because branch guard + discovery fan-out + moderation + complexity + AskUserQuestion relay all converge there. It stays thin by delegating all knowledge to `core:create-ticket` — the command is orchestration steps, not duplicated heuristics.
+  **Context**: This is the expected shape for the thinned `work` plugin: commands are orchestration shells that preload `core` skills; the "thin command" goal means no per-workflow agent files, not minimal command line-count.
 
 ## Considerations
 

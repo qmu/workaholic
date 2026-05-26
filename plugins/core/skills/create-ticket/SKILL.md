@@ -69,7 +69,7 @@ depends_on:
 ### Field Requirements
 
 - **Lines 1-4**: Fill with actual values (never placeholders)
-- **Lines 5-8**: Must be present but leave empty (filled after implementation or by ticket-organizer)
+- **Lines 5-8**: Must be present but leave empty (filled after implementation, or during creation when a request is split)
 
 ### Concrete Example
 
@@ -108,7 +108,7 @@ Example: `20260114153042-add-dark-mode.md`
 
 ## Workflow
 
-Followed by `work:ticket-organizer`. Skills cannot invoke subagents or AskUserQuestion directly; the steps below describe what the loading agent must do.
+The `/ticket` command (main agent) drives this Workflow directly. Skills cannot invoke subagents or AskUserQuestion directly; the steps below describe what the loading agent (the command) must do. The command issues every AskUserQuestion (moderation decisions, clarifications) and spawns every discovery subagent itself — no `ticket-organizer` subagent sits in between.
 
 ### 1. Check Branch
 
@@ -116,17 +116,17 @@ Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check.sh`. If `on_main`
 
 ### 2. Parallel Discovery
 
-Invoke `work:discoverer` three times in parallel via the Task tool (single message with three Task calls), `model: "opus"`, one per mode:
+The command spawns three `subagent_type: "general-purpose"` subagents in parallel (single message with three Task calls), `model: "opus"`, one per discovery mode. Each prompt instructs the subagent to preload `core:discover`, run the section matching its mode, and return that mode's output schema:
 
-- **history** (`subagent_type: "work:discoverer"`, mode: `history`): Returns JSON with summary, tickets list, match reasons, and `moderation` field (status/matches/recommendation).
-- **source** (`subagent_type: "work:discoverer"`, mode: `source`): Returns JSON with summary, files list, code_flow, and optional snippets.
-- **policy** (`subagent_type: "work:discoverer"`, mode: `policy`): Returns JSON with summary, policies list, and architecture (principles, dependency_rules).
+- **history** (`mode: history` → `core:discover` Discover History): Returns JSON with summary, tickets list, match reasons, and `moderation` field (status/matches/recommendation).
+- **source** (`mode: source` → `core:discover` Discover Source): Returns JSON with summary, files list, code_flow, and optional snippets.
+- **policy** (`mode: policy` → `core:discover` Discover Policy): Returns JSON with summary, policies list, and architecture (principles, dependency_rules).
 
-Wait for all three to complete before proceeding.
+These are leaf subagents — they do non-interactive discovery only and MUST NOT call AskUserQuestion. Wait for all three to complete before proceeding.
 
 ### 3. Handle Moderation Result
 
-Based on the history discoverer's `moderation` field:
+Based on the history discovery subagent's `moderation` field:
 
 - `moderation.status: "duplicate"` — Return `status: "duplicate"` with existing ticket path.
 - `moderation.status: "needs_decision"` — Return `status: "needs_decision"` with merge/split options.
@@ -315,7 +315,7 @@ These fields are updated by the `drive` skill (Update Frontmatter section) durin
 
 ### Optional
 
-- **depends_on**: List of ticket filenames that must be implemented before this ticket. Populated automatically when the ticket-organizer splits a request. Format: YAML list of filenames (e.g., `[20260410002111-foundation.md]`). Leave empty for standalone tickets.
+- **depends_on**: List of ticket filenames that must be implemented before this ticket. Populated automatically when the `/ticket` command splits a request. Format: YAML list of filenames (e.g., `[20260410002111-foundation.md]`). Leave empty for standalone tickets.
 
 ## Lead Lens
 
@@ -331,7 +331,7 @@ Each ticket should respect the relevant leading skills based on its `layer` fiel
 
 Anything touching authentication, authorization, secrets management, or input validation also engages `standards:leading-security` regardless of layer.
 
-When writing Implementation Steps, Considerations, and Patches, ensure they respect the policies, practices, and standards of every applicable lead. The `ticket-organizer` agent has these skills preloaded and applies them automatically; this section documents the mapping for human readers and future agents.
+When writing Implementation Steps, Considerations, and Patches, ensure they respect the policies, practices, and standards of every applicable lead. The `/ticket` command preloads these skills (this skill carries them in its `skills:` frontmatter) and applies them automatically; this section documents the mapping for human readers and future agents.
 
 ## Exploring the Codebase
 
@@ -343,7 +343,7 @@ Before writing a ticket:
 
 ## Related History
 
-The Related History section is populated by the `discoverer` agent in history mode (invoked by `/ticket` command).
+The Related History section is populated from the history-mode discovery subagent's output (the `/ticket` command spawns it as a `general-purpose` subagent preloading `core:discover`).
 
 **Link format**: Use markdown links with repository-relative paths:
 ```markdown

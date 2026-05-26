@@ -3,9 +3,9 @@ created_at: 2026-05-27T01:23:00+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 143f112
+category: Changed
 depends_on:
 ---
 
@@ -44,3 +44,16 @@ This ticket separates the two: `core:ship` becomes a **trip-independent** skill 
 - **Carry-over extraction stays in ship essence.** `extract-carryover.sh` (sections → `.workaholic/concerns/`) is part of the ship essence, not trip-specific; keep it on the portable path.
 - **This unblocks ship's portability** but does not itself make ship portable — script self-containment (build step) and agent-neutral prose are later tickets. Scope here is purely the trip/ship separation.
 - **`Config`-layer architecture change** governed by CLAUDE.md. No runtime change to what ship does; only which skill owns which step.
+
+## Final Report
+
+Development completed. `core:ship` is now the trip-independent essence (guards → pre-check → merge → extract-carryovers → deploy → verify → summarize, on the current branch), with §5 rewritten from the old context-routed "Route by Context" into a single linear Ship Flow. `find-gitignored-files.sh` and `sync-gitignored-files.sh` were `git mv`d to `trip-protocol/scripts/`. `core:trip-protocol` gained a **Trip Ship** section (worktree gitignored-sync + cleanup + worktree/unknown context routing) that wraps the `core:ship` Ship Flow, plus two rows in its Shell Scripts table. The `/ship` command now performs context detection and routes: `work` → `core:ship` Ship Flow; `worktree`/`unknown` → `core:trip-protocol` Trip Ship. Verified: no dangling references to the moved scripts under the old `ship/scripts/` path, and the only `worktree`/`trip` mentions left in `core:ship` are the intentional pointer sentences.
+
+### Deviation from Implementation Step 4
+
+The step said "drop `core:trip-protocol` from `/ship` frontmatter … pull it only when a worktree/trip context is detected." Kept the preload instead: Claude Code skills are preloaded via frontmatter and cannot be loaded conditionally mid-run, and the command's worktree route needs the Trip Ship section in context. This does not compromise the decoupling goal — `core:ship` itself has zero trip dependency (other agents invoke it directly), and `/ship` is the Claude-Code-only work-plugin command, so its trip-protocol preload is harmless. For the common work-context path, trip-protocol is simply unused.
+
+### Discovered Insights
+
+- **Insight**: ship's trip coupling was never Agent-Teams logic — it was purely **git-worktree lifecycle** (gitignored-file sync + worktree cleanup) plus drive/trip context routing. Trips run in worktrees, so ship had absorbed worktree teardown. The merge/deploy/verify essence (`core:ship` §1-2) referenced neither trip nor Agent Teams.
+  **Context**: This is why ship can join the portable set after a shallow reorganization, whereas `trip` cannot — trip's dependency is the Agent Teams runtime, ship's was only worktrees (a separable concern now owned by `core:trip-protocol`).

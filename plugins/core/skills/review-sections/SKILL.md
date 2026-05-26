@@ -16,7 +16,7 @@ Guidelines for generating story sections 4-7 (Outcome, Historical Analysis, Conc
    - Related History section for patterns
    - Considerations section for concerns
    - Final Report section (if present) for outcomes
-3. **Read carry-over verdicts** from the verdicts file path. Filter to entries with `verdict: still_active`. These carry-overs were judged active by `work:carryover-judge` and must be re-surfaced in this story's section 6 (Concerns).
+3. **Read carry-over verdicts** from the verdicts file path. Filter to entries with `verdict: still_active`. These carry-overs were judged active by the carry-over judge subagent (the `### Judge Carry-Overs` step in `core:report`) and must be re-surfaced in this story's section 6 (Concerns).
 
 ## Section Guidelines
 

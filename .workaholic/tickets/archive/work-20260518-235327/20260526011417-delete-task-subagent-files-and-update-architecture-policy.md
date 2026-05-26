@@ -3,9 +3,9 @@ created_at: 2026-05-26T01:14:17+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: ec726d2
+category: Removed
 depends_on: [20260526011415-flatten-report-orchestration-to-general-purpose-subagents.md, 20260526011416-route-drive-and-ticket-orchestration-through-general-purpose-subagents.md]
 ---
 
@@ -82,6 +82,17 @@ Past tickets that touched similar areas:
 9. **Re-confirm manifests are clean.** Verify `.claude-plugin/marketplace.json` and `plugins/work/.claude-plugin/plugin.json` name none of the deleted agents (expected: they don't). Verify `plugins/work/hooks/` and `plugins/work/rules/` reference none.
 
 10. **Run the post-deletion verification grep** identical to step 2. Expected: zero matches in live files. Commit as a single refactoring commit per workaholic convention.
+
+## Final Report
+
+Development completed as planned. Deleted the ten per-workflow agent files; `plugins/work/agents/` now contains exactly `planner`, `architect`, `constructor`. CLAUDE.md's Component Nesting Rules were rewritten to lift the Skill→Subagent prohibition for `general-purpose` only (with explicit prose distinguishing built-in `general-purpose` subagents from named Agent Teams members), and two new subsections ("No Per-Workflow Agent Files", "One-Level Fan-Out") were added. Design Principle, the project-structure agents comment, the soft-reference line, and Common Operations were updated to match. `work/README.md` lost its Drive Agents table. Both verification greps pass on live files (no `work:` agent refs; residual bare-name matches are intentional "there is no X subagent" notes and deliberate role labels).
+
+### Discovered Insights
+
+- **Insight**: Deleting agents surfaced doc drift the prerequisite tickets didn't own. The report-flattening ticket left a stale `story-writer` reference in `core:report` (line ~485, describing the old nested topology), and the root `README.md` still described this branch's own already-removed behavior (housekeeping-ticket emission, the concern/idea `kind` split, `<pr>-<slug>-<kind>.md` filenames). The deletion grep is what caught them.
+  **Context**: The verification grep should be run against *all* live markdown (root README included), not just the files a ticket nominally touches — descriptive prose references to deleted components dangle silently and the only gate is a repo-wide grep.
+- **Insight**: The capability asymmetry is now codified policy, not folklore. CLAUDE.md states that `general-purpose` leaves cannot nest `Task` or call `AskUserQuestion`, so all fan-out and user interaction live at the command level. This is the invariant that justifies "no per-workflow agent files."
+  **Context**: A future contributor tempted to re-introduce a named orchestration agent (or to push an AskUserQuestion into a leaf prompt) now has an explicit written rule to check against.
 
 ## Considerations
 

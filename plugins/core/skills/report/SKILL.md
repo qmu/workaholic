@@ -249,7 +249,7 @@ Include `resolved_by_pr` and `resolved_by_commit` only for `resolved` verdicts. 
 
 ### Overview Generation
 
-Generate the four fields consumed by sections 1, 2, and 3 (`overview`, `highlights`, `motivation`, `journey`) by analyzing commit history for the branch. The `overview-writer` agent runs this generation in parallel with `release-readiness` and `section-reviewer`.
+Generate the four fields consumed by sections 1, 2, and 3 (`overview`, `highlights`, `motivation`, `journey`) by analyzing commit history for the branch. The overview-writer role (a `general-purpose` subagent) runs this generation in parallel with the release-readiness and section-reviewer roles.
 
 #### Collect Commits
 
@@ -482,7 +482,7 @@ One subsection per ticket, in chronological order:
 
 **Release-readiness input:**
 
-The release-readiness JSON is provided by story-writer which invokes release-readiness as a parallel agent. The JSON contains:
+The release-readiness JSON is produced by the release-readiness role — a `general-purpose` subagent the command spawns in parallel during Phase 2. The JSON contains:
 
 ```json
 {

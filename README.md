@@ -164,14 +164,13 @@ flowchart LR
 
 **Implement** — `/drive` reads `tickets/todo/`, implements one ticket at a time, and on approval moves the file to `tickets/archive/<branch>/`. The archive subdirectory is named after the current branch so all of a branch's tickets cluster under one folder. Final reports and the resolving `commit_hash` are written into the ticket frontmatter at archive time.
 
-**Report** — `/report` runs after all tickets on a branch are archived. It does five writes in order:
-1. Judges every active file in `concerns/` (carry-overs from past PRs) via `work:carryover-judge`. Resolved items are marked in place; active items are passed to the section-reviewer.
-2. Writes `stories/<branch>.md` — the full PR description including section 6 (Concerns) and section 7 (Ideas), each prefixed with `(carried from PR #N)` if surfaced from the corpus.
-3. Commits the story together with any `concerns/*.md` status flips, so the audit history is coherent.
-4. Emits housekeeping tickets under `tickets/todo/` for carry-overs that have survived a PR cycle (deduplicated by slug; paired concern+idea items coalesce into one ticket).
-5. Opens the GitHub PR and writes `release-notes/<branch>.md`.
+**Report** — `/report` runs after all tickets on a branch are archived. It does four writes in order:
+1. Judges every active file in `concerns/` (carry-overs from past PRs) via a `general-purpose` carry-over-judge subagent. Resolved items are moved to `concerns/archive/`; still-active items are passed to the section-reviewer.
+2. Writes `stories/<branch>.md` — the full PR description including section 6 (Concerns), each item prefixed with `(carried from PR #N)` if surfaced from the corpus.
+3. Commits the story together with any `concerns/` status changes (including moves to `archive/`), so the audit history is coherent.
+4. Opens the GitHub PR and writes `release-notes/<branch>.md`.
 
-**Ship** — `/ship` merges the PR, then immediately extracts sections 6 and 7 from the just-shipped story into `concerns/`, one file per bullet. Filenames use `<pr-number>-<slug>-<kind>.md` (with `kind` being `concern` or `idea`) to sidestep the ticket validation hook. From that point on, those concerns and ideas are read on every subsequent `/report` until they are either judged resolved or promoted into a housekeeping ticket.
+**Ship** — `/ship` merges the PR, then immediately extracts section 6 (Concerns) from the just-shipped story into `concerns/`, one file per item. Filenames use `<pr-number>-<slug>.md` (sidestepping the ticket validation hook); each file carries a `severity` label (`urgent`/`moderate`/`low`) in frontmatter and a Title / Description / How to Fix body. From that point on, those concerns are read on every subsequent `/report` until they are judged resolved and moved to `concerns/archive/`.
 
 ### What "Carried Over" Means
 

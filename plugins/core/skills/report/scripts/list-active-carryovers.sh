@@ -3,7 +3,7 @@
 # Output: JSON array of {path, status, severity, origin_pr, origin_pr_url,
 #                       origin_branch, origin_commit, body}
 #
-# Used by /report to feed the work:carryover-judge subagent.
+# Used by /report to feed the carry-over judge (general-purpose) subagent.
 
 set -e
 

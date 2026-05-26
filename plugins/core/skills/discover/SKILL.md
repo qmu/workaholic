@@ -262,7 +262,7 @@ Return structured JSON with categorized discoveries:
 
 ### Tool Constraints
 
-In source mode, the discoverer has access to Glob, Grep, Read, and Bash tools but should primarily use Glob, Grep, Read:
+In source mode, the discovery subagent has access to Glob, Grep, Read, and Bash tools but should primarily use Glob, Grep, Read:
 
 - Cannot execute code or follow dynamic imports
 - Cannot analyze runtime behavior

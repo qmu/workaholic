@@ -3,9 +3,9 @@ created_at: 2026-05-27T00:08:01+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 8da225f
+category: Changed
 depends_on:
 ---
 
@@ -91,3 +91,42 @@ graph TD
 - **移植性は再編だけでは完結しない。** コマンド/サブエージェント/フック/Agent Teams は Agent Skills 標準外。本再編は「知識・スクリプトの自己完結化」までを対象とし、ワークフロー機構の移植は扱わない（`work` プラグインは Claude 専用のまま）。
 - **`standards` は変更不要。** 既に自己完結・移植済み。再編の基準形として参照するのみ。
 - **`CLAUDE.md` の現行方針と衝突する。** 「Common Operations / Skill Script Path Rule」は共有前提を推奨している。再編を採用するなら同方針の改定が必要になる旨を成果物に含める。
+
+## Final Report
+
+設計完了。実測に基づき推奨案 (B) を確定した。実際の統合実装は別チケットへ切り出す。
+
+### 確定した依存データ（実測）
+
+クロススキル・エッジ（SKILL.md、数字＝参照回数）と被参照数（fan-in）：
+
+| 共有ユーティリティ | fan-in | 呼び出し元 | インライン化の代償 |
+|---|---|---|---|
+| `branching` | 5 | create-ticket(2), drive(2), report(5), ship(4), trip-protocol(5) | 5 重複（真のハブ） |
+| `check-deps` | 2 | drive(1), trip-protocol(1) | 2 重複 |
+| `gather` | 1 | create-ticket(1) | 重複ゼロ |
+| `commit` | 1 | drive(1)（+ `archive.sh`→`commit.sh` の越境 1） | 重複ゼロ |
+| `system-safety` | 1 | trip-protocol(2) | 重複ゼロ |
+
+SKILL.md 越境参照は計 9 エッジ、script 越境は 1 件（`drive/archive.sh`→`commit/scripts/commit.sh`）のみ。SKILL.md 内のプラグイン越境(`../`)参照は 0。
+
+### 評価した3パターン
+
+- **(A) ワークフロー単位で全吸収**：5 つの大きな自己完結スキル。`branching` 5 重複・`check-deps` 2 重複でドリフト再来。かつワークフローは command/subagent/hook 記述なので自己完結化しても他エージェントでは動かず移植実利が薄い。非推奨。
+- **(B) fan-in しきい値で選択的統合（推奨）**：fan-in=1 の `gather`→create-ticket、`commit`→drive、`system-safety`→trip-protocol を吸収（重複ゼロ）。`branching`/`check-deps`（fan-in≥2）は共有のまま Claude 専用と明示。core スキルが 3 減り、越境参照の大半と script 越境 1 件が消え、グラフが単純化。無リスクの整理。
+- **(C) 知識/機構の分離**：移植面を実際に増やす唯一の案だが、抽出される知識が workaholic 固有なら単体価値は限定的。
+
+### 推奨と結論
+
+**推奨は (B)。** 依存の絡まりの実体は「fan-in=1 の utility が独立スキルとして散らばっていること」で、これは重複ゼロで畳める。唯一の真のハブ `branching` は無理に分解せず共有のまま Claude 専用に残す。**移植性は本再編だけでは増えない**（ワークフローは Agent Skills 標準外）点も確定事項として記録する。移植できるのは純知識スキルのみで、それは standards で達成済み。
+
+### Discovered Insights
+
+- **Insight**: 依存の絡まりの定量的実体は `branching`（fan-in 5）ただ一つで、他の共有 utility（gather/commit/system-safety）は全て fan-in=1。
+  **Context**: 「共有スクリプトが移植を阻む」問題は、実際にはほぼ `branching` 一点に集約される。fan-in=1 の utility は単一呼び出し元へ重複ゼロで吸収でき、再編の大半はローリスク。
+- **Insight**: スキルの自己完結化と移植性は別問題。drive/ship/report/ticket/trip は command/subagent/hook/Agent Teams を記述するため、スクリプトを自己完結化しても他エージェントでは依然動かない。
+  **Context**: 「移植のために再編する」という動機は (A) では満たされない。移植面を増やすのは知識抽出 (C) のみで、それも価値限定的。再編の主目的は移植性ではなく内部のクリーンさと位置づけるべき。
+
+### 次のアクション（別チケット）
+
+推奨 (B) の実装チケット：fan-in=1 の 3 utility を呼び出し元へ吸収、`archive.sh` の越境を drive 内に閉じ、`branching`/`check-deps` は共有のまま `metadata.internal: true` を明示、`CLAUDE.md` の Common Operations / Skill Script Path Rule を実態に合わせて改定。

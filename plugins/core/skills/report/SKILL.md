@@ -19,6 +19,13 @@ metadata:
 
 Guidelines for generating branch stories, creating pull requests, and assessing release readiness.
 
+## Agent Compatibility
+
+This skill works on any Agent-Skills-compatible agent. The two Claude-Code mechanisms used below are **enhancements, not requirements**:
+
+- **Parallel fan-out** — where a step spawns `general-purpose` subagents to run parts concurrently (the carry-over judge, the overview/section-review/release-readiness workers, the PR and release-note writers), that is the Claude Code optimization. On other agents, perform those parts **sequentially** in the same session; the inputs and outputs are identical.
+- **User interaction** — where a step uses `AskUserQuestion`, use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies.
+
 ## Run Workflow
 
 Context-aware report orchestration. Auto-detects whether the caller is in a drive or trip workflow and routes accordingly.

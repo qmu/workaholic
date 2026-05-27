@@ -1,3 +1,8 @@
+---
+name: review-sections
+description: Generate branch-story sections 4-7 (Outcome, Historical Analysis, Concerns, Successful Development Patterns) from archived tickets and carry-over verdicts. Used by the report workflow when assembling a PR story.
+---
+
 # Review Sections
 
 Guidelines for generating story sections 4-7 (Outcome, Historical Analysis, Concerns, Successful Development Patterns) from archived tickets.

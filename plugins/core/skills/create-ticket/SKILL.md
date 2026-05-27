@@ -16,6 +16,13 @@ metadata:
 
 Guidelines for creating implementation tickets in `.workaholic/tickets/`.
 
+## Agent Compatibility
+
+This skill works on any Agent-Skills-compatible agent. The two Claude-Code mechanisms used below are **enhancements, not requirements**:
+
+- **Parallel fan-out** — where a step spawns `general-purpose` subagents to run parts concurrently (e.g. the three discovery modes), that is the Claude Code optimization. On other agents, perform those parts **sequentially** in the same session; the inputs and outputs are identical.
+- **User interaction** — where a step uses `AskUserQuestion`, use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies.
+
 ## Allowed Locations
 
 Tickets are written to ONE of these two directories — never anywhere else:

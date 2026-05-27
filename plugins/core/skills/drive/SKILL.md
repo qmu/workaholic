@@ -18,6 +18,13 @@ metadata:
 
 Complete drive session skill covering the `/drive` command workflow, ticket navigation and prioritization, per-ticket implementation, approval, reporting, archiving, and frontmatter updates.
 
+## Agent Compatibility
+
+This skill works on any Agent-Skills-compatible agent. The two Claude-Code mechanisms used below are **enhancements, not requirements**:
+
+- **Parallel fan-out** — where a step spawns a `general-purpose` subagent (e.g. the ticket prioritizer), that is the Claude Code optimization. On other agents, perform that work **inline/sequentially** in the same session; the inputs and outputs are identical.
+- **User interaction** — where a step uses `AskUserQuestion` (order confirmation, per-ticket approval, icebox/abandon choices), use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies.
+
 ## Command Workflow
 
 End-to-end orchestration for `/drive`. The thin `/drive` command preloads this skill and follows this section.

@@ -3,10 +3,10 @@ created_at: 2026-05-27T01:23:02+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
+effort: 1h
+commit_hash: 4018b6a
 depends_on: [20260527012300-decouple-core-ship-from-trip.md]
-category:
+category: Changed
 ---
 
 # Make workflow-skill orchestration prose agent-neutral
@@ -48,3 +48,16 @@ This ticket rewrites the orchestration prose so it describes the **workflow** in
 - **Depends on ship decoupling** (`20260527012300`) so ship's prose is rewritten in its trip-independent form.
 - **Pairs with the build step** (`20260527012301`): prose makes orchestration portable, the build step makes scripts portable; both are needed before the Codex manifest ticket can expose runnable skills.
 - **`Config`-layer**; engages `standards:leading-accessibility` (the interaction prose should not assume one agent's modal UI) and `standards:leading-validity` (each step's inputs/outputs stay explicit so sequential execution yields the same result as parallel).
+
+## Final Report
+
+Development completed. Added an `## Agent Compatibility` section to `create-ticket`, `drive`, `report`, and `ship` that maps the two Claude-Code mechanisms once per skill — subagent fan-out → perform sequentially on other agents; `AskUserQuestion` → the agent's native multiple-choice/chat prompt — with the decision points themselves marked mandatory. Added `name`+`description` frontmatter to `review-sections` (Codex requires it; also makes it a discoverable skill `report` can ship alongside). Rebuilt the portable artifacts and re-verified: all 4 self-contained, 43 references resolve, the compatibility note rides into each `dist/skills/*/SKILL.md`.
+
+### Deviation from the ticket
+
+The steps prescribed rewriting each individual fan-out/AskUserQuestion mention inline ("In Claude Code … ; on other agents …"). With 47 such mentions across the four skills (drive 21, report 15, create-ticket 7, ship 4), inlining the caveat at every site would bloat the skills and duplicate the same sentence dozens of times. Instead a single **normative per-skill note** reframes all mentions at once. The detailed steps already state *what* to do; the subagent/AskUserQuestion phrasing is only *how* Claude does it, and the note makes that mapping explicit. The developer was offered the heavier line-by-line rewrite at approval and chose this approach.
+
+### Discovered Insights
+
+- **Insight**: The workflow skills' orchestration is already mostly agent-neutral at the *step* level — each step names concrete inputs, a script or action, and an output. The only Claude-specific surface is the fan-out *mechanism* (parallel subagents) and the interaction *mechanism* (`AskUserQuestion`), both of which are HOW-not-WHAT. That is why a single compatibility note suffices rather than a structural rewrite.
+  **Context**: Keep new workflow-skill steps written as explicit input→action→output units; then they stay portable for free and the compatibility note continues to cover the mechanism mapping.

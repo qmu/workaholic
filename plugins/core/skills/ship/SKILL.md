@@ -13,6 +13,10 @@ Merge a pull request, deploy to production, and verify the deployment. The agent
 
 This skill is the **trip-independent ship essence**: it operates on the current branch's PR. Worktree handling and drive/trip context routing are not part of this skill — they live in `core:trip-protocol` (Trip Ship) and are orchestrated by the Claude-Code `/ship` command. Any agent can run this skill directly to ship the current branch.
 
+## Agent Compatibility
+
+This skill works on any Agent-Skills-compatible agent. Where a step uses `AskUserQuestion` (workspace/ticket guards, deploy confirmation), use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The confirmations are mandatory; only the prompt mechanism varies. (This skill has no subagent fan-out.)
+
 ## 1. Cloud.md Convention
 
 `cloud.md` is a project-level file authored by the user (not part of Workaholic). It tells the ship workflow how to deploy and verify.

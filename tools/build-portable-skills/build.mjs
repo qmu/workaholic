@@ -25,8 +25,13 @@ import { fileURLToPath } from "node:url";
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
 const CORE_SKILLS = join(REPO_ROOT, "plugins/core/skills");
 const DIST = join(REPO_ROOT, "dist/skills");
+// Tracked Codex distribution (committed). dist/ is gitignored dev scratch; codex/ ships.
+const CODEX_PLUGIN = join(REPO_ROOT, "codex/workflows");
 
 const DEFAULT_TARGETS = ["create-ticket", "drive", "report", "ship"];
+// review-sections is pure prose (no scripts) but is a skill-preload dependency of
+// report, so it must ship as its own skill alongside the workflows on Codex.
+const CODEX_EXTRA_SKILLS = ["review-sections", "write-release-note"];
 
 const SKILL_REF = /\$\{CLAUDE_PLUGIN_ROOT\}\/skills\/([a-z-]+)\/scripts\//g;
 const SCRIPT_CROSS_REF = /\$\{SCRIPT_DIR\}\/(?:\.\.\/)+core\/skills\/([a-z-]+)\/scripts\//g;
@@ -104,6 +109,57 @@ function buildTarget(target) {
   return { target, closure: [...closure].sort(), outDir, leftovers };
 }
 
+// Turn a built SKILL.md into its public, agent-neutral form:
+// - drop Claude-only frontmatter: `metadata.internal`, `user-invocable`, and the
+//   `skills:` preload list (those preloads declare Claude-Code skill dependencies
+//   that do not exist on other agents; the scripts they provide are already bundled).
+// - strip `core:`/`standards:`/`work:` namespace prefixes so references to co-installed
+//   skills (e.g. `core:review-sections` -> `review-sections`, `standards:leading-validity`
+//   -> `leading-validity`) resolve by bare name.
+function publicizeSkillMd(p) {
+  let md = readText(p);
+  // remove the whole `skills:` block (key line + indented `- ...` items)
+  md = md.replace(/^skills:\n(?:[ \t]+-.*\n)*/m, "");
+  // remove metadata.internal (and an emptied metadata: key), and user-invocable
+  md = md.replace(/^metadata:\n(?:[ \t]+.*\n)*/m, (block) =>
+    block.replace(/^[ \t]+internal:.*\n/m, "")).replace(/^metadata:\n(?=\S|---)/m, "");
+  md = md.replace(/^user-invocable:.*\n/m, "");
+  // strip namespaced skill prefixes -> bare names
+  md = md.replace(/\b(?:core|standards|work):([a-z][a-z0-9-]*)/g, "$1");
+  writeFileSync(p, md);
+}
+
+// Assemble the committed Codex workflow plugin from the built self-contained skills.
+function assembleCodexPlugin(builtTargets) {
+  rmSync(CODEX_PLUGIN, { recursive: true, force: true });
+  mkdirSync(join(CODEX_PLUGIN, ".codex-plugin"), { recursive: true });
+  const skillsOut = join(CODEX_PLUGIN, "skills");
+  mkdirSync(skillsOut, { recursive: true });
+
+  // workflow skills come from dist/skills (self-contained); extras are pure prose.
+  for (const name of builtTargets) cpSync(join(DIST, name), join(skillsOut, name), { recursive: true });
+  for (const name of CODEX_EXTRA_SKILLS) {
+    const src = join(CORE_SKILLS, name);
+    cpSync(src, join(skillsOut, name), { recursive: true });
+  }
+  // publicize every shipped SKILL.md
+  for (const name of [...builtTargets, ...CODEX_EXTRA_SKILLS]) {
+    publicizeSkillMd(join(skillsOut, name, "SKILL.md"));
+  }
+
+  const manifest = {
+    name: "workflows",
+    version: "1.0.0",
+    description: "Ticket-driven development workflows (create-ticket, drive, report, ship) as agent-neutral skills.",
+    author: { name: "tamurayoshiya", email: "a@qmu.jp" },
+    repository: "https://github.com/qmu/workaholic",
+    license: "MIT",
+    keywords: ["workflow", "tickets", "tdd", "code-review", "release"],
+    skills: "./skills/",
+  };
+  writeFileSync(join(CODEX_PLUGIN, ".codex-plugin", "plugin.json"), JSON.stringify(manifest, null, 2) + "\n");
+}
+
 const targets = process.argv.slice(2).length ? process.argv.slice(2) : DEFAULT_TARGETS;
 let failed = false;
 for (const t of targets) {
@@ -116,3 +172,9 @@ for (const t of targets) {
   }
 }
 if (failed) process.exit(1);
+
+// Assemble the committed Codex plugin only on a full default build.
+if (!process.argv.slice(2).length) {
+  assembleCodexPlugin(DEFAULT_TARGETS);
+  console.log(`assembled Codex plugin -> ${CODEX_PLUGIN.replace(REPO_ROOT + "/", "")} (skills: ${[...DEFAULT_TARGETS, ...CODEX_EXTRA_SKILLS].join(", ")})`);
+}

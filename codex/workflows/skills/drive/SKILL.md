@@ -1,17 +1,7 @@
 ---
 name: drive
 description: Implementation workflow, approval flow, final report, archive, and frontmatter update for drive sessions.
-skills:
-  - commit
-  - system-safety
-  - standards:leading-validity
-  - standards:leading-accessibility
-  - standards:leading-security
-  - standards:leading-availability
 allowed-tools: Bash
-user-invocable: false
-metadata:
-  internal: true
 ---
 
 # Drive
@@ -32,7 +22,7 @@ End-to-end orchestration for `/drive`. The thin `/drive` command preloads this s
 ### Pre-check: Dependencies
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/check-deps/scripts/check.sh
+bash check-deps/scripts/check.sh
 ```
 
 If `ok` is `false`, display the `message` to the user and stop.
@@ -42,12 +32,12 @@ If `ok` is `false`, display the `message` to the user and stop.
 Check if trip worktrees exist before proceeding:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-worktrees.sh
+bash branching/scripts/check-worktrees.sh
 ```
 
 If `has_worktrees` is `true`, present the user with a choice using `AskUserQuestion` with selectable options:
 - **"Continue here"** - Proceed with drive on the current branch
-- **"Switch to worktree"** - Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/list-all-worktrees.sh`, display the worktree list, and inform the user to navigate to the selected worktree to run `/drive` there
+- **"Switch to worktree"** - Run `bash branching/scripts/list-all-worktrees.sh`, display the worktree list, and inform the user to navigate to the selected worktree to run `/drive` there
 
 If `has_worktrees` is `false`, proceed silently to Phase 1.
 
@@ -65,8 +55,8 @@ Determine mode from `$ARGUMENT`:
 
 **Normal mode:**
 
-1. Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-todo.sh`. If it prints nothing, follow the Navigator section's empty-queue handling (offer icebox/stop via `AskUserQuestion`).
-2. If todo tickets exist, spawn a `subagent_type: "general-purpose"` subagent (`model: "opus"`) whose prompt instructs it to preload `core:drive`, run the Navigator section's **list / analyze / prioritize** logic (read frontmatter, dependency topo-sort, severity ranking, context grouping), and return the proposed ordered ticket list with tier grouping as JSON. This subagent does NOT call AskUserQuestion.
+1. Run `bash drive/scripts/list-todo.sh`. If it prints nothing, follow the Navigator section's empty-queue handling (offer icebox/stop via `AskUserQuestion`).
+2. If todo tickets exist, spawn a `subagent_type: "general-purpose"` subagent (`model: "opus"`) whose prompt instructs it to preload `drive`, run the Navigator section's **list / analyze / prioritize** logic (read frontmatter, dependency topo-sort, severity ranking, context grouping), and return the proposed ordered ticket list with tier grouping as JSON. This subagent does NOT call AskUserQuestion.
 3. The command presents the prioritized list and confirms the order with the user via `AskUserQuestion` (Navigator section, "Confirm Order with User"), then proceeds to Phase 2 with the resolved order.
 
 **Icebox mode:** the command runs the Navigator section's Icebox Mode steps directly (list via script, select via `AskUserQuestion`, promote via script).
@@ -98,7 +88,7 @@ Follow the **Approval** section below to present the approval dialog. **CRITICAL
 2. **Verify update succeeded**: If Edit tool fails, halt and report the error to user. DO NOT proceed to archive.
 3. Archive and commit by calling the archive script directly:
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/archive.sh \
+   bash drive/scripts/archive.sh \
      <ticket-path> "<title>" <repo-url> "<description>" "<changes>" "<test-plan>" "<release-prep>"
    ```
    Where `<ticket-path>` is the current ticket file path in `todo/`, `<title>` is the commit title,
@@ -126,7 +116,7 @@ After all tickets from the navigator's list are processed:
 
 1. **Re-check todo directory**:
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-todo.sh
+   bash drive/scripts/list-todo.sh
    ```
 
 2. **If new tickets found**:
@@ -168,7 +158,7 @@ If a ticket cannot be implemented (out of scope, too complex, blocked, or any ot
 
 Navigate tickets for the `/drive` command: list, analyze, prioritize, and confirm execution order. Responsibilities split across two contexts because subagents cannot call AskUserQuestion:
 
-- **Prioritization (leaf `general-purpose` subagent, or inline at command level)** — the non-interactive logic: list todo tickets, read frontmatter, build the dependency graph and topologically sort it, apply severity ranking and context grouping, and return the proposed ordered ticket list with tier grouping as JSON. This runs with `core:drive` preloaded and issues NO AskUserQuestion.
+- **Prioritization (leaf `general-purpose` subagent, or inline at command level)** — the non-interactive logic: list todo tickets, read frontmatter, build the dependency graph and topologically sort it, apply severity ranking and context grouping, and return the proposed ordered ticket list with tier grouping as JSON. This runs with `drive` preloaded and issues NO AskUserQuestion.
 - **User interaction (command / main agent only)** — every `AskUserQuestion`: the order-confirmation dialog, the empty-queue "work on icebox / stop" choice, and the icebox ticket selection. The command spawns the prioritizer subagent, then presents its result for confirmation.
 
 The recommended flow is: command spawns the prioritizer subagent → subagent returns the ordered list JSON → command presents it and confirms via AskUserQuestion → command resolves the final order.
@@ -185,13 +175,13 @@ Run by the command (main agent), since steps 3–4 need AskUserQuestion:
 
 1. List icebox tickets:
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-icebox.sh
+   bash drive/scripts/list-icebox.sh
    ```
 2. If no tickets, inform the user the icebox is empty and stop.
 3. If tickets found, use `AskUserQuestion` with selectable options listing each ticket.
 4. Promote the selected ticket to todo (moves the file and stages both paths):
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/promote-icebox.sh <selected-icebox-path>
+   bash drive/scripts/promote-icebox.sh <selected-icebox-path>
    ```
 5. Proceed to Phase 2 with the promoted ticket.
 
@@ -202,14 +192,14 @@ Run by the command (main agent), since steps 3–4 need AskUserQuestion:
 List all tickets in the todo queue:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-todo.sh
+bash drive/scripts/list-todo.sh
 ```
 
 **If no tickets found** (handled by the command, since it needs AskUserQuestion):
 
 1. Check whether the icebox has tickets:
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-icebox.sh
+   bash drive/scripts/list-icebox.sh
    ```
 2. If the icebox has tickets, the command uses `AskUserQuestion` with selectable options:
    - "Work on icebox" - Run icebox mode
@@ -322,7 +312,7 @@ If no Patches section exists, skip to step 3.
 
 #### 3. Implement the Ticket
 
-- Read the ticket's `layer` field. For each layer, apply the policies, practices, and standards from the matching leading skill: UX → `standards:leading-accessibility`, Domain → `standards:leading-validity`, Infrastructure → `standards:leading-availability`, DB → `standards:leading-validity`, Config → the lead whose policies the config touches. Anything touching authentication, authorization, secrets, or input validation also engages `standards:leading-security`.
+- Read the ticket's `layer` field. For each layer, apply the policies, practices, and standards from the matching leading skill: UX → `leading-accessibility`, Domain → `leading-validity`, Infrastructure → `leading-availability`, DB → `leading-validity`, Config → the lead whose policies the config touches. Anything touching authentication, authorization, secrets, or input validation also engages `leading-security`.
 - Follow the implementation steps in the ticket
 - Use existing patterns and conventions in the codebase
 - For areas where patches applied, verify and adjust as needed
@@ -374,7 +364,7 @@ If an implementation requires discarding changes, use targeted commands that aff
 Before implementation, check whether the repository authorizes system-wide configuration changes. Run the detection script and respect the result:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/system-safety/scripts/detect.sh
+bash system-safety/scripts/detect.sh
 ```
 
 
@@ -510,7 +500,7 @@ mv <ticket-path> .workaholic/tickets/abandoned/
 Commit using **commit** skill:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh \
+bash commit/scripts/commit.sh \
   "Abandon: <ticket-title>" \
   "Implementation proved unworkable" \
   "None" \
@@ -551,12 +541,12 @@ ALWAYS use one of these exact values: `0.1h`, `0.25h`, `0.5h`, `1h`, `2h`, `4h`
 **MUST use update.sh** -- NEVER use the Edit tool to modify the effort field directly.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/update.sh <ticket-path> effort <value>
+bash drive/scripts/update.sh <ticket-path> effort <value>
 ```
 
 Example:
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/update.sh .workaholic/tickets/todo/20260212-example.md effort 0.5h
+bash drive/scripts/update.sh .workaholic/tickets/todo/20260212-example.md effort 0.5h
 ```
 
 ### Final Report Section
@@ -621,7 +611,7 @@ Complete commit workflow after user approves implementation. Always use this scr
 ### Usage
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/archive.sh \
+bash drive/scripts/archive.sh \
   <ticket-path> "<title>" <repo-url> "<description>" "<changes>" "<test-plan>" "<release-prep>"
 ```
 
@@ -650,7 +640,7 @@ Update ticket YAML frontmatter fields after implementation.
 ### Usage
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/update.sh <ticket-path> <field> <value>
+bash drive/scripts/update.sh <ticket-path> <field> <value>
 ```
 
 ### Fields

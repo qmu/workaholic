@@ -2,9 +2,6 @@
 name: ship
 description: Ship workflow - merge PR, deploy via cloud.md, and verify production.
 allowed-tools: Bash, Read, Glob, Grep
-user-invocable: false
-metadata:
-  internal: true
 ---
 
 # Ship
@@ -24,7 +21,7 @@ This skill works on any Agent-Skills-compatible agent. Where a step uses `AskUse
 ### 1-1. Search Order
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/find-cloud-md.sh
+bash ship/scripts/find-cloud-md.sh
 ```
 
 Searches: `./cloud.md`, `./.workaholic/cloud.md`
@@ -52,7 +49,7 @@ If no `cloud.md` is found, skip deploy and verify steps. Inform the user that de
 ### 2-1. Pre-check
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/pre-check.sh "<branch>"
+bash ship/scripts/pre-check.sh "<branch>"
 ```
 
 Verifies a PR exists for the branch. Returns JSON with PR number, URL, and merge status.
@@ -60,7 +57,7 @@ Verifies a PR exists for the branch. Returns JSON with PR number, URL, and merge
 ### 2-2. Merge PR
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/merge-pr.sh "<pr-number>"
+bash ship/scripts/merge-pr.sh "<pr-number>"
 ```
 
 Merges the PR, checks out main, and pulls to sync. Returns JSON with merge status and commit hash.
@@ -68,7 +65,7 @@ Merges the PR, checks out main, and pulls to sync. Returns JSON with merge statu
 ### 2-3. Find cloud.md
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/find-cloud-md.sh
+bash ship/scripts/find-cloud-md.sh
 ```
 
 Searches for cloud.md in standard locations. Returns JSON with path or `{"found": false}`.
@@ -76,7 +73,7 @@ Searches for cloud.md in standard locations. Returns JSON with path or `{"found"
 ### 2-4. Check Todo
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/check-todo.sh
+bash ship/scripts/check-todo.sh
 ```
 
 Checks if `.workaholic/tickets/todo/` has remaining tickets. Returns JSON with cleanliness status, count, and ticket list. Used as a pre-merge guard to prevent shipping with unfinished work.
@@ -84,7 +81,7 @@ Checks if `.workaholic/tickets/todo/` has remaining tickets. Returns JSON with c
 ### 2-5. Extract Carry-Overs
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/extract-carryover.sh "<branch>" "<pr-number>" "<pr-url>"
+bash ship/scripts/extract-carryover.sh "<branch>" "<pr-number>" "<pr-url>"
 ```
 
 Reads the just-shipped story (`.workaholic/stories/<branch>.md`), parses each `###` concern block in section 6 (Concerns), and writes one file per concern under `.workaholic/concerns/` as `<pr-number>-<slug>.md` (with `severity` and a Title/Description/How-to-Fix body). Returns JSON:
@@ -98,7 +95,7 @@ Commits the new files with message `Carry over concerns from PR #<pr-number>` so
 ## 3. Workspace Guard
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-workspace.sh
+bash branching/scripts/check-workspace.sh
 ```
 
 Parse the JSON output. If `clean` is `true`, proceed silently to the Ticket Guard.
@@ -112,7 +109,7 @@ If the user selects "Stop", end the workflow immediately.
 ## 4. Ticket Guard
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/check-todo.sh
+bash ship/scripts/check-todo.sh
 ```
 
 Parse the JSON output. If `clean` is `true`, proceed silently to the Ship Flow.
@@ -127,9 +124,9 @@ If the user selects "Stop", end the workflow immediately.
 
 Ship the current branch's PR. (Worktree sync/cleanup and drive/trip routing are not here; in Claude Code those are handled by the trip workflow.)
 
-1. **Pre-check**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/pre-check.sh "<branch>"`. If `found` is `false`: inform user "No PR found for this branch. Run `/report` first." and stop. If `merged` is `true`: skip to Deploy.
-2. **Merge PR**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/merge-pr.sh "<pr-number>"`. On failure, inform user and stop.
-3. **Extract carry-overs**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/extract-carryover.sh "<branch>" "<pr-number>" "<pr-url>"`. Persists active Concerns from the just-shipped story's section 6 into `.workaholic/concerns/`. Commits the new files. Skips silently when no story file exists or section 6 is empty. Report `extracted` count from the JSON output.
-4. **Deploy**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/find-cloud-md.sh`. If `found` is `false`: inform user "No cloud.md found. Deployment skipped." and skip to summary. If `found` is `true`: read the file, find `## Deploy` section, ask confirmation via AskUserQuestion, execute if confirmed.
+1. **Pre-check**: Run `bash ship/scripts/pre-check.sh "<branch>"`. If `found` is `false`: inform user "No PR found for this branch. Run `/report` first." and stop. If `merged` is `true`: skip to Deploy.
+2. **Merge PR**: Run `bash ship/scripts/merge-pr.sh "<pr-number>"`. On failure, inform user and stop.
+3. **Extract carry-overs**: Run `bash ship/scripts/extract-carryover.sh "<branch>" "<pr-number>" "<pr-url>"`. Persists active Concerns from the just-shipped story's section 6 into `.workaholic/concerns/`. Commits the new files. Skips silently when no story file exists or section 6 is empty. Report `extracted` count from the JSON output.
+4. **Deploy**: Run `bash ship/scripts/find-cloud-md.sh`. If `found` is `false`: inform user "No cloud.md found. Deployment skipped." and skip to summary. If `found` is `true`: read the file, find `## Deploy` section, ask confirmation via AskUserQuestion, execute if confirmed.
 5. **Verify**: If cloud.md found, read `## Verify` section and execute. Report results.
 6. **Summarize**: PR merge status (number, URL), carry-over extraction count, deployment status, verification results.

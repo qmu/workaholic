@@ -8,7 +8,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
-const DIST = join(REPO_ROOT, "dist/skills");
+const DIST_ROOT = join(REPO_ROOT, "dist");
 const read = (p) => readFileSync(p, "utf8");
 
 // SKILL.md relative refs: "<x>/scripts/<f>.sh"
@@ -19,11 +19,21 @@ const SH_REF = /\$\{SCRIPT_DIR\}\/([A-Za-z0-9._\/-]+\.sh)/g;
 let problems = 0;
 const check = (label, ok, detail) => { if (!ok) { problems++; console.error(`  MISS ${label}: ${detail}`); } };
 
-if (!existsSync(DIST)) { console.error("no dist/skills — run build.mjs first"); process.exit(1); }
+if (!existsSync(DIST_ROOT)) { console.error("no dist/ — run build.mjs first"); process.exit(1); }
 
-for (const target of readdirSync(DIST)) {
-  const skillRoot = join(DIST, target);
-  if (!statSync(skillRoot).isDirectory()) continue;
+// Each committed agent plugin (dist/<agent>/) holds its skills under skills/.
+const skillRoots = [];
+for (const agent of readdirSync(DIST_ROOT)) {
+  const skillsDir = join(DIST_ROOT, agent, "skills");
+  if (!existsSync(skillsDir) || !statSync(skillsDir).isDirectory()) continue;
+  for (const target of readdirSync(skillsDir)) {
+    const skillRoot = join(skillsDir, target);
+    if (statSync(skillRoot).isDirectory()) skillRoots.push([`${agent}/${target}`, skillRoot]);
+  }
+}
+if (!skillRoots.length) { console.error("no dist/<agent>/skills — run build.mjs first"); process.exit(1); }
+
+for (const [target, skillRoot] of skillRoots) {
   let refs = 0;
 
   // 1. no plugin-root token anywhere

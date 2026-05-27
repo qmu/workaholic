@@ -2,36 +2,45 @@
 // Build self-contained, cross-agent-portable skill folders from the DRY core source.
 //
 // Claude Code uses the source skills directly (resolving ${CLAUDE_PLUGIN_ROOT}).
-// Other agents (Codex, Cursor, ...) cannot expand that token and install each skill
+// Other agents (Codex, OpenCode, ...) cannot expand that token and install each skill
 // as an isolated folder, so this tool materializes a self-contained copy of each
 // target workflow skill: its SKILL.md plus the full scripts/ of every skill in its
 // cross-skill dependency closure, with all script references rewritten to
 // skill-root-relative paths.
 //
-// Layout produced (per target T):
-//   dist/skills/<T>/SKILL.md            # ${CLAUDE_PLUGIN_ROOT}/skills/<x>/scripts/ -> <x>/scripts/
-//   dist/skills/<T>/<x>/scripts/...     # whole scripts/ dir of every closure skill <x>
+// Topology:
+//   plugins/                  authored source of truth (Claude reads it directly)
+//   dist/<agent>/             committed, generated per-agent plugin (manifest + skills/)
 //
-// Reference rewrites:
+// The self-contained skills are assembled in a throwaway scratch dir (never committed);
+// each agent plugin under dist/ is then built from that scratch. dist/ is committed
+// because Codex (.agents/plugins/marketplace.json) and the skills CLI install by reading
+// paths out of the repo, so the artifacts must be present at install time.
+//
+// Reference rewrites (per built skill):
 //   SKILL.md:  ${CLAUDE_PLUGIN_ROOT}/skills/<x>/scripts/  ->  <x>/scripts/
 //   scripts:   ${SCRIPT_DIR}/(../)+core/skills/<x>/scripts/  ->  ${SCRIPT_DIR}/../../<x>/scripts/
 // (intra-skill same-dir refs like ${SCRIPT_DIR}/update.sh are preserved because each
 //  closure skill's whole scripts/ dir is copied intact.)
 
-import { readFileSync, writeFileSync, rmSync, mkdirSync, cpSync, existsSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, rmSync, mkdirSync, cpSync, existsSync, readdirSync, statSync, mkdtempSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { tmpdir } from "node:os";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
 const CORE_SKILLS = join(REPO_ROOT, "plugins/core/skills");
-const DIST = join(REPO_ROOT, "dist/skills");
-// Tracked Codex distribution (committed). dist/ is gitignored dev scratch; codex/ ships.
-const CODEX_PLUGIN = join(REPO_ROOT, "codex/workflows");
+const DIST_ROOT = join(REPO_ROOT, "dist");        // committed per-agent outputs
+const CODEX_PLUGIN = join(DIST_ROOT, "codex");    // dist/codex (was codex/workflows)
+
+// Self-contained skills are built here, then copied into each agent plugin. Throwaway:
+// removed after a full build; left in place (and its path printed) for partial dev builds.
+const SCRATCH = mkdtempSync(join(tmpdir(), "workaholic-skills-"));
 
 const DEFAULT_TARGETS = ["create-ticket", "drive", "report", "ship"];
-// review-sections is pure prose (no scripts) but is a skill-preload dependency of
-// report, so it must ship as its own skill alongside the workflows on Codex.
-const CODEX_EXTRA_SKILLS = ["review-sections", "write-release-note"];
+// review-sections / write-release-note are pure prose (no scripts) but are skill-preload
+// dependencies of report, so they ship as their own skills alongside the workflows.
+const EXTRA_SKILLS = ["review-sections", "write-release-note"];
 
 const SKILL_REF = /\$\{CLAUDE_PLUGIN_ROOT\}\/skills\/([a-z-]+)\/scripts\//g;
 const SCRIPT_CROSS_REF = /\$\{SCRIPT_DIR\}\/(?:\.\.\/)+core\/skills\/([a-z-]+)\/scripts\//g;
@@ -70,11 +79,12 @@ function computeClosure(target) {
   return closure;
 }
 
+// Build one self-contained target skill into the scratch dir.
 function buildTarget(target) {
   const srcDir = join(CORE_SKILLS, target);
   if (!existsSync(join(srcDir, "SKILL.md"))) throw new Error(`No SKILL.md for target '${target}'`);
   const closure = computeClosure(target);
-  const outDir = join(DIST, target);
+  const outDir = join(SCRATCH, target);
   rmSync(outDir, { recursive: true, force: true });
   mkdirSync(outDir, { recursive: true });
 
@@ -129,21 +139,18 @@ function publicizeSkillMd(p) {
   writeFileSync(p, md);
 }
 
-// Assemble the committed Codex workflow plugin from the built self-contained skills.
+// Assemble the committed Codex workflow plugin (dist/codex) from built scratch skills.
 function assembleCodexPlugin(builtTargets) {
   rmSync(CODEX_PLUGIN, { recursive: true, force: true });
   mkdirSync(join(CODEX_PLUGIN, ".codex-plugin"), { recursive: true });
   const skillsOut = join(CODEX_PLUGIN, "skills");
   mkdirSync(skillsOut, { recursive: true });
 
-  // workflow skills come from dist/skills (self-contained); extras are pure prose.
-  for (const name of builtTargets) cpSync(join(DIST, name), join(skillsOut, name), { recursive: true });
-  for (const name of CODEX_EXTRA_SKILLS) {
-    const src = join(CORE_SKILLS, name);
-    cpSync(src, join(skillsOut, name), { recursive: true });
-  }
+  // workflow skills come from scratch (self-contained); extras are pure prose from source.
+  for (const name of builtTargets) cpSync(join(SCRATCH, name), join(skillsOut, name), { recursive: true });
+  for (const name of EXTRA_SKILLS) cpSync(join(CORE_SKILLS, name), join(skillsOut, name), { recursive: true });
   // publicize every shipped SKILL.md
-  for (const name of [...builtTargets, ...CODEX_EXTRA_SKILLS]) {
+  for (const name of [...builtTargets, ...EXTRA_SKILLS]) {
     publicizeSkillMd(join(skillsOut, name, "SKILL.md"));
   }
 
@@ -160,12 +167,12 @@ function assembleCodexPlugin(builtTargets) {
   writeFileSync(join(CODEX_PLUGIN, ".codex-plugin", "plugin.json"), JSON.stringify(manifest, null, 2) + "\n");
 }
 
-const targets = process.argv.slice(2).length ? process.argv.slice(2) : DEFAULT_TARGETS;
+const argTargets = process.argv.slice(2);
+const targets = argTargets.length ? argTargets : DEFAULT_TARGETS;
 let failed = false;
 for (const t of targets) {
   const r = buildTarget(t);
-  const rel = r.outDir.replace(REPO_ROOT + "/", "");
-  console.log(`built ${t}: closure=[${r.closure.join(", ")}] -> ${rel}`);
+  console.log(`built ${t}: closure=[${r.closure.join(", ")}]`);
   if (r.leftovers.length) {
     failed = true;
     console.error(`  ERROR unresolved \${CLAUDE_PLUGIN_ROOT} in: ${r.leftovers.join(", ")}`);
@@ -173,8 +180,12 @@ for (const t of targets) {
 }
 if (failed) process.exit(1);
 
-// Assemble the committed Codex plugin only on a full default build.
-if (!process.argv.slice(2).length) {
+// Assemble the committed per-agent plugins only on a full default build, then clean up.
+if (!argTargets.length) {
   assembleCodexPlugin(DEFAULT_TARGETS);
-  console.log(`assembled Codex plugin -> ${CODEX_PLUGIN.replace(REPO_ROOT + "/", "")} (skills: ${[...DEFAULT_TARGETS, ...CODEX_EXTRA_SKILLS].join(", ")})`);
+  console.log(`assembled Codex plugin -> ${CODEX_PLUGIN.replace(REPO_ROOT + "/", "")} (skills: ${[...DEFAULT_TARGETS, ...EXTRA_SKILLS].join(", ")})`);
+  rmSync(SCRATCH, { recursive: true, force: true });
+} else {
+  // partial dev build: leave scratch in place for inspection
+  console.log(`scratch (inspect): ${SCRATCH}`);
 }

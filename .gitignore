@@ -1,5 +1,2 @@
 .DS_Store
 .claude/settings.local.json
-
-# Generated cross-agent skill artifacts (produced by tools/build-portable-skills)
-dist/

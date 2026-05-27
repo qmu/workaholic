@@ -20,7 +20,7 @@
       "name": "workflows",
       "source": {
         "source": "local",
-        "path": "./codex/workflows"
+        "path": "./dist/codex"
       },
       "policy": {
         "installation": "AVAILABLE",

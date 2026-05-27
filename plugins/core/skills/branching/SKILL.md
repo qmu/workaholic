@@ -21,7 +21,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/detect-context.sh
 
 | Context | Branch Pattern | JSON |
 | ------- | -------------- | ---- |
-| `work` | `work-*`, `drive-*`, `trip/*` | `{"context": "work", "branch": "<branch>", "mode": "<mode>"}` |
+| `work` | `work-*` (created); `drive-*`, `trip/*` (legacy, detected only) | `{"context": "work", "branch": "<branch>", "mode": "<mode>"}` |
 | `worktree` | Other (with worktrees) | `{"context": "worktree", "branch": "<branch>"}` |
 | `unknown` | `main`, `master`, or other | `{"context": "unknown", "branch": "<branch>"}` |
 
@@ -43,7 +43,7 @@ The `mode` field distinguishes workflow style within the `work` context:
 
 ### Backward Compatibility
 
-Legacy `drive-*` and `trip/*` branches are detected as `work` context with appropriate mode.
+Legacy `drive-*` and `trip/*` branches are **detected** as `work` context with the appropriate mode. They are recognized for backward compatibility only — **never created**. New branches are always `work-<timestamp>` (see Create Topic Branch).
 
 ## Worktree Guard
 
@@ -211,6 +211,8 @@ Create a new timestamped topic branch from the current branch.
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh
 ```
+
+**Sole branch-name format (mandatory):** branches are **always** named exactly `work-<YYYYMMDD-HHMMSS>` by `create.sh`. This is the only branch-creation path. Never name a branch yourself, never append a feature/description suffix, and never use another prefix. The `drive-*` and `trip/*` forms below are **legacy, detection-only** — recognized for backward compatibility, never created anew.
 
 ### Output Format
 

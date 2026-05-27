@@ -119,7 +119,11 @@ The `/ticket` command (main agent) drives this Workflow directly. Skills cannot 
 
 ### 1. Check Branch
 
-Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check.sh`. If `on_main` is true, create a topic branch via `${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh` and record the returned branch name as `branch_created` for the output JSON. Trip branches (`trip/*`) return `on_main: false` and skip branch creation; tickets go to `.workaholic/tickets/todo/` regardless of branch type.
+Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check.sh`. If `on_main` is true, create a topic branch **only** by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh`, and record the returned branch name as `branch_created` for the output JSON.
+
+**Branch-name rule (mandatory):** the branch name is **always** exactly `work-<YYYYMMDD-HHMMSS>`, produced by `create.sh`. Do **not** name a branch yourself, do **not** append a feature/description suffix, and do **not** use any other prefix (`drive-`, `trip/`, a feature name, etc.). `create.sh` is the only branch-creation path.
+
+Already-on-a-topic-branch returns `on_main: false` and skips creation (including legacy `drive-*`/`trip/*` branches, which are still recognized but never created anew); tickets go to `.workaholic/tickets/todo/` regardless of branch type.
 
 ### 2. Parallel Discovery
 

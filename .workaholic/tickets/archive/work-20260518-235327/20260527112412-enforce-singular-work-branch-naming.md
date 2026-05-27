@@ -3,9 +3,9 @@ created_at: 2026-05-27T11:24:12+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 144220f
+category: Changed
 depends_on:
 ---
 
@@ -45,3 +45,12 @@ This ticket makes the branch-naming rule **singular and emphatic** — branches 
 - **Don't break legacy detection.** `detect-context.sh`, `list-worktrees.sh`, `check-worktrees.sh` still need to RECOGNIZE existing `drive-*`/`trip/*` branches (backward compat). Only the *creation* guidance and the *advertising* of those as patterns change; detection scripts stay.
 - **Regeneration is mandatory** — the create-ticket prose is shipped to Codex via `codex/workflows/`; the source edit has no cross-agent effect until the artifacts are rebuilt (and the committed `codex/` tree updated).
 - **`Config`-layer**; engages `standards:leading-validity` (a single, total branch-name format with no ambiguous alternatives).
+
+## Final Report
+
+Development completed as planned. `create.sh` was already correct, so the fix is entirely prose. `core:create-ticket` Step 1 now states a mandatory, singular rule: the branch name is always `work-<YYYYMMDD-HHMMSS>` via `create.sh`, with explicit prohibitions on self-naming, feature suffixes, and other prefixes. `core:branching` Create Topic Branch states the sole-format rule, and the pattern table + backward-compat note now mark `drive-*`/`trip/*` as legacy detection-only (never created). Regenerated `codex/workflows/` so the new Check Branch rule rides into the built `create-ticket` artifact; `verify.mjs` passes. Legacy detection scripts untouched. `drive`'s trip-branch-compatibility note was left as-is — it describes *operating on* existing branches, not creating them.
+
+### Discovered Insights
+
+- **Insight**: The branch-naming bug was a documentation-leverage problem, not a code bug. Deterministic Claude Code masked it (it always runs `create.sh`); model-driven agents only do what the prose makes unambiguous. The same dynamic underlies the whole portability effort — anything the framework leaves implicit, a non-Claude agent fills in with default LLM habits.
+  **Context**: For cross-agent correctness, every behavior that must be exact (branch names, file locations, script invocation) needs an explicit, emphatic, singular instruction in the *shipped* skill prose — implicit conventions and "preloaded skill does it" do not survive the jump to other agents.

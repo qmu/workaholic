@@ -45,6 +45,25 @@
       },
       "source": "./plugins/work",
       "category": "development"
+    },
+    {
+      "name": "workflows",
+      "description": "Portable cross-agent build of the ticket/drive/report/ship workflow skills (self-contained, generated). For Codex, OpenCode, and other agents; Claude Code users install core/work instead.",
+      "version": "1.0.48",
+      "author": {
+        "name": "tamurayoshiya",
+        "email": "a@qmu.jp"
+      },
+      "source": "./dist/workflows",
+      "category": "development",
+      "skills": [
+        "./skills/create-ticket",
+        "./skills/drive",
+        "./skills/report",
+        "./skills/ship",
+        "./skills/review-sections",
+        "./skills/write-release-note"
+      ]
     }
   ]
 }

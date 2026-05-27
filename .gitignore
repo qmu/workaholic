@@ -1,2 +1,5 @@
 .DS_Store
 .claude/settings.local.json
+
+# Codex CLI local scratch (file or dir, depending on Codex version)
+.codex

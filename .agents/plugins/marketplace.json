@@ -1,0 +1,32 @@
+{
+  "name": "workaholic",
+  "interface": {
+    "displayName": "Workaholic"
+  },
+  "plugins": [
+    {
+      "name": "standards",
+      "source": {
+        "source": "local",
+        "path": "./plugins/standards"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "workflows",
+      "source": {
+        "source": "local",
+        "path": "./dist/workflows"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

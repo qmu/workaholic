@@ -11,11 +11,20 @@ skills:
   - standards:leading-validity
   - standards:leading-security
   - standards:leading-availability
+metadata:
+  internal: true
 ---
 
 # Report
 
 Guidelines for generating branch stories, creating pull requests, and assessing release readiness.
+
+## Agent Compatibility
+
+This skill works on any Agent-Skills-compatible agent. The two Claude-Code mechanisms used below are **enhancements, not requirements**:
+
+- **Parallel fan-out** — where a step spawns `general-purpose` subagents to run parts concurrently (the carry-over judge, the overview/section-review/release-readiness workers, the PR and release-note writers), that is the Claude Code optimization. On other agents, perform those parts **sequentially** in the same session; the inputs and outputs are identical.
+- **User interaction** — where a step uses `AskUserQuestion`, use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies.
 
 ## Run Workflow
 
@@ -52,20 +61,20 @@ Route by `mode` from detect-context output:
 ##### Drive Mode (`mode: "drive"`)
 
 1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
-2. **Invoke story-writer** (`subagent_type: "work:story-writer"`, `model: "opus"`)
-3. **Display story content**: Read the story file from the `story_file` path in the story-writer result and output the entire Markdown content so the developer can review inline
-4. **Display PR URL** from story-writer result (mandatory)
+2. **Run the Write Story orchestration** (`## Write Story → ### Orchestration`, Phases 0–6) directly in this command (main-agent) context. The command itself spawns the leaf `general-purpose` subagents — there is no intermediate story-writer subagent.
+3. **Display story content**: Read the story file at `.workaholic/stories/<branch-name>.md` and output the entire Markdown content so the developer can review inline.
+4. **Display PR URL** captured from Phase 5 (mandatory).
 
 ##### Trip Mode (`mode: "trip"`)
 
 1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
-2. **Invoke story-writer** (`subagent_type: "work:story-writer"`, `model: "opus"`)
-3. **Display story content**: Read the story file from the `story_file` path in the story-writer result and output the entire Markdown content so the developer can review inline
-4. **Display PR URL** from story-writer result (mandatory)
+2. **Run the Write Story orchestration** (`## Write Story → ### Orchestration`, Phases 0–6) directly in this command (main-agent) context. The command itself spawns the leaf `general-purpose` subagents — there is no intermediate story-writer subagent.
+3. **Display story content**: Read the story file at `.workaholic/stories/<branch-name>.md` and output the entire Markdown content so the developer can review inline.
+4. **Display PR URL** captured from Phase 5 (mandatory).
 
 ##### Hybrid Mode (`mode: "hybrid"`)
 
-Both trip artifacts and drive-style tickets exist on this branch. Both Drive Mode and Trip Mode now use the same story-writer workflow, so follow Drive Mode (version bump + story-writer). The story-writer captures the full narrative including any trip origin.
+Both trip artifacts and drive-style tickets exist on this branch. Drive Mode and Trip Mode run the identical Write Story orchestration, so follow Drive Mode. The orchestration captures the full narrative including any trip origin.
 
 #### Worktree Context (`context: "worktree"`)
 
@@ -89,59 +98,72 @@ Generate a branch story that serves as the single source of truth for PR content
 
 ### Orchestration
 
-Generate the story file, then create the PR and release note. The `work:story-writer` agent runs this orchestration.
+Generate the story file, then create the PR and release note. The `/report` command (main agent) runs this orchestration directly: it executes the bash/Read/Write steps inline and spawns each leaf worker as a `subagent_type: "general-purpose"` Task whose prompt preloads a `core` skill and runs one section. There is no intermediate subagent — the command does all fan-out, so the fan-out stays one level deep (a subagent cannot spawn further subagents).
 
 #### Phase 0: Gather Context
 
-Gather all context using the preloaded gather skill — run `git-context.sh`. Returns: branch, base_branch, repo_url, archived_tickets, git_log.
+Gather all context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/git-context.sh`. Returns: branch, base_branch, repo_url, archived_tickets, git_log.
 
-#### Phase 1: Invoke Story Generation Agents
+#### Phase 1: Judge Active Carry-Overs
 
-Invoke 3 agents in parallel via Task tool (single message with 3 tool calls):
+Run before the parallel agent batch so the verdicts flow into section-reviewer's input. Skip silently if `.workaholic/concerns/` is empty or absent.
 
-- **release-readiness** (`subagent_type: "work:release-readiness"`, `model: "opus"`): Analyzes branch for release readiness. Pass archived tickets list and branch name.
-- **overview-writer** (`subagent_type: "work:overview-writer"`, `model: "opus"`): Generates overview, highlights, motivation, and journey. Pass branch name and base branch.
-- **section-reviewer** (`subagent_type: "work:section-reviewer"`, `model: "opus"`): Generates sections 4-8 (Outcome, Historical Analysis, Concerns, Ideas, Successful Development Patterns). Pass branch name and archived tickets list.
+1. **Spawn a carry-over judge** as `subagent_type: "general-purpose"` (`model: "opus"`) in a single Task call. The prompt instructs it to preload `core:report`, follow the `### Judge Carry-Overs` section with the given branch name and base branch, and return `{verdicts: [...]}`.
+2. **Apply verdicts**: Write the returned `verdicts` array to `/tmp/carryover-verdicts.json`, then run:
 
-Wait for all 3 agents to complete. Track which succeeded and which failed.
+   ```bash
+   cat /tmp/carryover-verdicts.json | bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/apply-carryover-verdicts.sh
+   ```
 
-#### Phase 2: Write Story File
+   Files marked `resolved` have `status:` flipped to `resolved`, `resolved_by_pr` / `resolved_by_commit` recorded, and are then moved to `.workaholic/concerns/archive/`. Files marked `still_active` stay in `.workaholic/concerns/`.
+
+#### Phase 2: Spawn Story Generation Workers
+
+Spawn 3 `subagent_type: "general-purpose"` leaf subagents in parallel (single message with 3 Task calls). Each prompt names the skill to preload, the section to run, the inputs, and the expected return schema:
+
+- **release-readiness** (`model: "opus"`): preload `core:report`, run `## Assess Release Readiness`, return the releasability JSON. Pass archived tickets list and branch name.
+- **overview-writer** (`model: "haiku"`): preload `core:report`, run `### Overview Generation`, return the overview JSON. Pass branch name and base branch.
+- **section-reviewer** (`model: "haiku"`): preload `core:review-sections`, run it, return the sections 4-7 JSON (Outcome, Historical Analysis, Concerns, Successful Development Patterns). Pass branch name, archived tickets list, and the carryover verdicts file path `/tmp/carryover-verdicts.json`. The section-reviewer prepends `still_active` verdicts to section 6.
+
+Wait for all 3 to complete. Track which succeeded and which failed.
+
+#### Phase 3: Write Story File
 
 1. **Gather Source Data**: Read archived tickets using Glob pattern `.workaholic/tickets/archive/<branch-name>/*.md`. Extract frontmatter (`commit_hash`, `category`) and content (Overview, Final Report).
 2. **Write Story**: Follow the Story Content Structure section below.
 3. **Update Index**: Add entry to `.workaholic/stories/README.md`.
 
-#### Phase 3: Commit and Push Story
+#### Phase 4: Commit and Push Story
 
-1. **Stage story**: `git add .workaholic/stories/`
-2. **Commit**: `git commit -m "Add branch story for <branch-name>"`
+1. **Stage story and resolved carry-overs**: `git add .workaholic/stories/ .workaholic/concerns/`
+2. **Commit**: `git commit -m "Add branch story for <branch-name>"` (the same commit captures any carry-over archive moves from Phase 1, keeping audit history coherent)
 3. **Push branch**: `git push -u origin <branch-name>`
 
-#### Phase 4: Create PR and Generate Release Note
+#### Phase 5: Create PR and Generate Release Note
 
-Run sequentially:
+Spawn sequentially (PR first so its URL flows into the release note):
 
-1. **Create PR** first: Invoke **pr-creator** (`subagent_type: "work:pr-creator"`, `model: "opus"`). Reads story file, derives title, runs `gh` CLI operations. Capture PR URL from response.
-2. **Generate release note** with PR URL: Invoke **release-note-writer** (`subagent_type: "work:release-note-writer"`, `model: "haiku"`). Pass the PR URL obtained from pr-creator in the prompt. Reads story file, generates concise release notes, writes to `.workaholic/release-notes/<branch-name>.md`.
+1. **Create PR** first: spawn `subagent_type: "general-purpose"` (`model: "opus"`) preloading `core:report` and running `## Create PR`. It reads the story file, derives the title, and runs the `gh` CLI operations. Capture the `PR created/updated: <URL>` line from its response.
+2. **Generate release note** with PR URL: spawn `subagent_type: "general-purpose"` (`model: "haiku"`) preloading `core:write-release-note` and running it end-to-end. Pass the PR URL obtained in step 1. It reads the story file, generates concise release notes, and writes `.workaholic/release-notes/<branch-name>.md`.
 
-Capture PR URL from pr-creator response for final output.
+Capture the PR URL from step 1 for final output.
 
-#### Phase 5: Commit and Push Release Notes
+#### Phase 6: Commit and Push Release Notes
 
 1. **Stage release notes**: `git add .workaholic/release-notes/`
 2. **Commit**: `git commit -m "Add release notes for <branch-name>"`
 3. **Push**: `git push`
 
-#### Story-Writer Output Schema
+#### Report Output Schema
 
-Return JSON with story and PR status:
+Once orchestration completes, the report is described by:
 
 ```json
 {
   "story_file": ".workaholic/stories/<branch-name>.md",
   "release_note_file": ".workaholic/release-notes/<branch-name>.md",
   "pr_url": "<PR-URL>",
-  "agents": {
+  "workers": {
     "overview_writer": { "status": "success" | "failed", "error": "..." },
     "section_reviewer": { "status": "success" | "failed", "error": "..." },
     "release_readiness": { "status": "success" | "failed", "error": "..." },
@@ -151,22 +173,90 @@ Return JSON with story and PR status:
 }
 ```
 
-### Agent Output Mapping
+### Worker Output Mapping
 
-Story sections are populated from parallel agent outputs:
+Story sections are populated from the parallel leaf subagents' outputs (each is a `general-purpose` subagent running the named role):
 
-| Agent | Sections | Fields |
-| ----- | -------- | ------ |
+| Worker role | Sections | Fields |
+| ----------- | -------- | ------ |
 | overview-writer | 1, 2, 3 (journey preamble) | `overview`, `highlights[]`, `motivation`, `journey.mermaid`, `journey.summary` |
-| section-reviewer | 4, 5, 6, 7, 8 | `outcome`, `historical_analysis`, `concerns`, `ideas`, `development_patterns` |
-| release-readiness | 9 | `verdict`, `concerns[]`, `instructions.pre_release[]`, `instructions.post_release[]` |
+| section-reviewer | 4, 5, 6, 7 | `outcome`, `historical_analysis`, `concerns`, `development_patterns` |
+| release-readiness | 8 | `verdict`, `concerns[]`, `instructions.pre_release[]`, `instructions.post_release[]` |
 | release-note-writer | (separate file) | Writes to `.workaholic/release-notes/<branch>.md` |
 
-Section 3 (Changes) comes from archived tickets, prefaced by journey content from overview-writer. Section 10 (Notes) is optional context.
+Section 3 (Changes) comes from archived tickets, prefaced by journey content from the overview-writer role. Section 9 (Notes) is optional context.
+
+### Judge Carry-Overs
+
+Run by the Phase 1 carry-over judge (a `general-purpose` subagent that preloads this skill). Inputs: branch name and base branch (usually `main`).
+
+1. List active carry-overs:
+
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/list-active-carryovers.sh
+   ```
+
+   If the JSON output is `[]`, return `{"verdicts": []}` and stop.
+
+2. For each carry-over in the list, judge whether the work that landed on the current branch (since the carry-over's `origin_commit`) has resolved it.
+
+   Available evidence:
+
+   - `git log --oneline <origin_commit>..HEAD` to see commits that landed after the carry-over was filed
+   - `git diff <origin_commit>..HEAD -- <file mentioned in body>` to inspect changes to referenced files
+   - Reading files mentioned in the carry-over body (paths in backticks, paths after `in`)
+   - Searching commit subjects for keywords from the carry-over body (`git log --oneline --grep='<keyword>' <origin_commit>..HEAD`)
+
+   Heuristics for **resolved**:
+
+   - The file referenced in the body has been deleted, renamed, or refactored such that the concern no longer applies.
+   - A commit subject or body explicitly mentions fixing the concern.
+   - The behavior described as a risk no longer exists in the current code.
+
+   Heuristics for **still_active**:
+
+   - No evidence of remediation since `origin_commit`.
+   - The body describes a general suggestion (e.g., "consider parameterizing") without a clear trigger condition.
+   - The file still exists and still contains the pattern flagged.
+
+   When in doubt, prefer `still_active` — false positives (marking resolved when it isn't) lose institutional memory; false negatives (keeping active when it's done) merely re-surface in the next story.
+
+#### Efficiency: Handling Large Corpora
+
+The corpus can grow large (a backfill from N historical stories produces O(N × items-per-story) items). To stay within reasonable tool-use budgets:
+
+1. **Group items by `origin_branch` first.** Items from the same branch tend to reference the same files — cluster them so you can inspect each file once per cluster, not once per item.
+2. **Within a cluster, deduplicate by referenced file path.** Many bullets reference the same file from different angles; one `cat` plus one `git log -- <path>` is enough evidence for every bullet that points at that path.
+3. **Use `git log --oneline <origin_commit>..HEAD` once per cluster**, not per item — the commit list is the same for every bullet that shares an origin commit.
+4. **Batch the verdicts.** Emit verdicts incrementally if helpful, but the final response must be one combined `{verdicts: [...]}` JSON object.
+5. **First-run backfill caveat.** When the corpus is populated all at once by `backfill-carryover.sh`, expect a high proportion of `resolved` verdicts — the items predate the codebase's current structure significantly. This is normal; still-active items remain in `.workaholic/concerns/` as passive notes for future judging.
+
+Return a JSON object with the verdicts array:
+
+```json
+{
+  "verdicts": [
+    {
+      "path": ".workaholic/concerns/42-foo.md",
+      "verdict": "resolved",
+      "resolved_by_pr": 47,
+      "resolved_by_commit": "abc1234",
+      "rationale": "Commit abc1234 removed the inline shell logic this concern flagged."
+    },
+    {
+      "path": ".workaholic/concerns/42-bar.md",
+      "verdict": "still_active",
+      "rationale": "No commits modified the area this carry-over targets."
+    }
+  ]
+}
+```
+
+Include `resolved_by_pr` and `resolved_by_commit` only for `resolved` verdicts. The orchestrator feeds this to `apply-carryover-verdicts.sh` (Phase 1) and to the section-reviewer worker so still-active items appear in the new story.
 
 ### Overview Generation
 
-Generate the four fields consumed by sections 1, 2, and 3 (`overview`, `highlights`, `motivation`, `journey`) by analyzing commit history for the branch. The `overview-writer` agent runs this generation in parallel with `release-readiness` and `section-reviewer`.
+Generate the four fields consumed by sections 1, 2, and 3 (`overview`, `highlights`, `motivation`, `journey`) by analyzing commit history for the branch. The overview-writer role (a `general-purpose` subagent) runs this generation in parallel with the release-readiness and section-reviewer roles.
 
 #### Collect Commits
 
@@ -329,24 +419,36 @@ One subsection per ticket, in chronological order:
 
 ## 6. Concerns
 
-[Risks, trade-offs, or issues discovered during implementation. Each concern should include identifiable references.]
+[Risks, trade-offs, limitations, and forward-looking suggestions discovered during implementation. Each concern is one insight framed as a title, a description of the problem, and how to fix it. This structure is parsed verbatim by `extract-carryover.sh` on `/ship`, so follow it exactly.]
 
-**Format**: `- <description> (see [hash](<repo-url>/commit/<hash>) in path/to/file.ext)`
+**Format** (one `###` block per concern, or "None"):
+
+```markdown
+### <Concise title>
+
+- **Severity:** moderate
+- **Description:** <what the problem/risk is> (see [hash](<repo-url>/commit/<hash>) in path/to/file.ext)
+- **How to Fix:** <the concrete fix or improvement>
+```
 
 **Example**:
-- The pathspec exclusion syntax requires modern git versions (see [7eab801](<repo-url>/commit/7eab801) in `plugins/work/skills/drive/SKILL.md`)
-- Auto-approval configuration may be broader than intended (`~/.claude/settings.local.json`)
+
+```markdown
+### Inline shell invocations in core:drive
+
+- **Severity:** moderate
+- **Description:** `core:drive` still calls `ls -1` inline, violating the Shell Script Principle (see [7eab801](<repo-url>/commit/7eab801) in `plugins/core/skills/drive/SKILL.md`)
+- **How to Fix:** Extract the inline invocations into dedicated navigator scripts under the drive skill's `scripts/` directory
+```
 
 **Guidelines**:
-- Reference the commit hash from section 3 where the concern was introduced
-- Include the file path where readers should investigate
-- Write "None" if nothing to report
+- **Severity** is a label, not a number: `urgent` (act now), `moderate` (should fix), or `low` (nice-to-have). Default `moderate`.
+- Reference the commit hash from section 3 and the file path where readers should investigate, inside the Description.
+- Keep Description and How to Fix to one paragraph each.
+- Carried-over concerns (from `still_active` verdicts) are prepended here as `###` blocks, with their title prefixed `(carried from PR #N)` and their original severity preserved.
+- Write "None" if nothing to report.
 
-## 7. Ideas
-
-[Enhancement suggestions for future work. Improvements that were out of scope. "Nice to have" features identified during implementation. Write "None" if nothing to report.]
-
-## 8. Successful Development Patterns
+## 7. Successful Development Patterns
 
 [Effective patterns discovered during this branch's development that are worth preserving as institutional knowledge.]
 
@@ -365,21 +467,21 @@ One subsection per ticket, in chronological order:
 - Categories to consider: architectural decisions, testing strategies, refactoring approaches, collaboration patterns, tooling choices
 - Write "None" if no noteworthy patterns emerged
 
-## 9. Release Preparation
+## 8. Release Preparation
 
 **Verdict**: [Ready for release / Needs attention before release]
 
-### 9-1. Concerns
+### 8-1. Concerns
 
 - [List any concerns from release-readiness analysis]
 - Or "None - changes are safe for release"
 
-### 9-2. Pre-release Instructions
+### 8-2. Pre-release Instructions
 
 - [Steps to take before running /release]
 - Or "None - standard release process applies"
 
-### 9-3. Post-release Instructions
+### 8-3. Post-release Instructions
 
 - [Steps to take after release]
 - Or "None - no special post-release actions needed"
@@ -387,7 +489,7 @@ One subsection per ticket, in chronological order:
 
 **Release-readiness input:**
 
-The release-readiness JSON is provided by story-writer which invokes release-readiness as a parallel agent. The JSON contains:
+The release-readiness JSON is produced by the release-readiness role — a `general-purpose` subagent the command spawns in parallel during Phase 2. The JSON contains:
 
 ```json
 {
@@ -401,10 +503,10 @@ The release-readiness JSON is provided by story-writer which invokes release-rea
 }
 ```
 
-Format this JSON into section 9.
+Format this JSON into section 8.
 
 ```markdown
-## 10. Notes
+## 9. Notes
 
 Additional context for reviewers or future reference.
 ```
@@ -427,7 +529,7 @@ tickets_completed: <count of tickets>
 - Highlight decision points and trade-offs
 - Keep Motivation/Journey/Outcome concise (Journey: 50-100 words)
 - Changes section: one entry per ticket, brief descriptions
-- Historical Analysis/Concerns/Ideas can be "None" if empty
+- Historical Analysis/Concerns can be "None" if empty
 
 ### Updating Stories Index
 

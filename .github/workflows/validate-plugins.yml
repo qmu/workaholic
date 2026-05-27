@@ -78,25 +78,22 @@ jobs:
           done
           echo "All skill files exist"
 
-      - name: Validate marketplace plugins match directories
+      - name: Validate marketplace plugin sources exist
         run: |
-          echo "Checking marketplace plugins match directories..."
+          echo "Checking each marketplace plugin's source directory exists..."
 
-          # Get plugin names from marketplace.json
+          # A plugin's source may live under plugins/ (authored) or dist/ (generated,
+          # e.g. the portable 'workflows' plugin), so resolve the declared source rather
+          # than assuming plugins/<name>.
           marketplace_plugins=$(jq -r '.plugins[].name' .claude-plugin/marketplace.json | sort)
 
-          # Get plugin directories
-          dir_plugins=$(ls -1 plugins/ | sort)
-
-          echo "Marketplace plugins: $marketplace_plugins"
-          echo "Directory plugins: $dir_plugins"
-
-          # Check each marketplace plugin has a directory
           for plugin in $marketplace_plugins; do
-            if [ ! -d "plugins/$plugin" ]; then
-              echo "Error: Plugin '$plugin' in marketplace.json but directory not found"
+            source=$(jq -r --arg n "$plugin" '.plugins[] | select(.name==$n) | .source' .claude-plugin/marketplace.json)
+            if [ ! -d "$source" ]; then
+              echo "Error: Plugin '$plugin' source '$source' not found"
               exit 1
             fi
+            echo "  - $plugin -> $source"
           done
 
-          echo "All marketplace plugins have corresponding directories"
+          echo "All marketplace plugin sources exist"

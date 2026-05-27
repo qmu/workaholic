@@ -3,6 +3,8 @@ name: system-safety
 description: Prevent agents from modifying system-wide configuration in regular projects.
 allowed-tools: Bash, Read, Glob, Grep
 user-invocable: false
+metadata:
+  internal: true
 ---
 
 # System Safety

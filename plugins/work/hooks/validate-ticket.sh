@@ -15,12 +15,26 @@ input=$(cat)
 # Extract file path from tool input
 file_path=$(echo "$input" | jq -r '.tool_input.file_path // empty')
 
-# Exit early if no file path or not a ticket file
+# Exit early if no file path
 if [[ -z "$file_path" ]]; then
   exit 0
 fi
 
-# Check if file is in .workaholic/tickets/ directory
+# Extract filename early so we can detect ticket-shaped files outside tickets/
+filename=$(basename "$file_path")
+
+# Reject ticket-shaped files (YYYYMMDDHHmmss-*.md) written under .workaholic/
+# but outside .workaholic/tickets/. Catches misplacements like
+# .workaholic/RFDs/<ts>-foo.md that would otherwise silently pass.
+if [[ "$file_path" =~ \.workaholic/ ]] && [[ ! "$file_path" =~ \.workaholic/tickets/ ]] \
+  && [[ "$filename" =~ ^[0-9]{14}-.*\.md$ ]]; then
+  echo "Error: Ticket files must be under .workaholic/tickets/todo/ or .workaholic/tickets/icebox/" >&2
+  echo "Got: $file_path" >&2
+  print_skill_reference
+  exit 2
+fi
+
+# Skip non-ticket paths
 if [[ ! "$file_path" =~ \.workaholic/tickets/ ]]; then
   exit 0
 fi
@@ -41,9 +55,6 @@ else
   print_skill_reference
   exit 2
 fi
-
-# Extract filename
-filename=$(basename "$file_path")
 
 # Validate filename format: YYYYMMDDHHmmss-*.md
 if [[ ! "$filename" =~ ^[0-9]{14}-.*\.md$ ]]; then

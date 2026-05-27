@@ -68,7 +68,7 @@ Generate concise release notes from a branch story for GitHub Releases.
    - Format velocity as: "N commits/<unit>"
    - Omit velocity line when fields are absent
 
-6. **Links**: PR URL is provided as input to the release-note-writer agent. Always include it.
+6. **Links**: PR URL is provided as input to the release-note subagent. Always include it.
 
 ## Output Location
 

@@ -2,17 +2,6 @@
 name: report
 description: Story writing, PR creation, and release readiness assessment for branch reporting.
 allowed-tools: Bash
-user-invocable: false
-skills:
-  - core:trip-protocol
-  - core:branching
-  - core:gather
-  - standards:leading-accessibility
-  - standards:leading-validity
-  - standards:leading-security
-  - standards:leading-availability
-metadata:
-  internal: true
 ---
 
 # Report
@@ -33,7 +22,7 @@ Context-aware report orchestration. Auto-detects whether the caller is in a driv
 ### Step 0: Workspace Guard
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-workspace.sh
+bash branching/scripts/check-workspace.sh
 ```
 
 Parse the JSON output. If `clean` is `true`, proceed silently to Step 1.
@@ -47,7 +36,7 @@ If the user selects "Stop", end the command immediately.
 ### Step 1: Detect Context
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/detect-context.sh
+bash branching/scripts/detect-context.sh
 ```
 
 Parse the JSON output. Route to the appropriate workflow based on `context`.
@@ -60,14 +49,14 @@ Route by `mode` from detect-context output:
 
 ##### Drive Mode (`mode: "drive"`)
 
-1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
+1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
 2. **Run the Write Story orchestration** (`## Write Story → ### Orchestration`, Phases 0–6) directly in this command (main-agent) context. The command itself spawns the leaf `general-purpose` subagents — there is no intermediate story-writer subagent.
 3. **Display story content**: Read the story file at `.workaholic/stories/<branch-name>.md` and output the entire Markdown content so the developer can review inline.
 4. **Display PR URL** captured from Phase 5 (mandatory).
 
 ##### Trip Mode (`mode: "trip"`)
 
-1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
+1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
 2. **Run the Write Story orchestration** (`## Write Story → ### Orchestration`, Phases 0–6) directly in this command (main-agent) context. The command itself spawns the leaf `general-purpose` subagents — there is no intermediate story-writer subagent.
 3. **Display story content**: Read the story file at `.workaholic/stories/<branch-name>.md` and output the entire Markdown content so the developer can review inline.
 4. **Display PR URL** captured from Phase 5 (mandatory).
@@ -80,7 +69,7 @@ Both trip artifacts and drive-style tickets exist on this branch. Drive Mode and
 
 Not on a work branch, but worktrees exist.
 
-1. Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/list-worktrees.sh`
+1. Run `bash branching/scripts/list-worktrees.sh`
 2. Filter to worktrees where `has_pr` is `false` (unreported work)
 3. If no unreported worktrees found: inform the user "No unreported worktrees found." and stop.
 4. If exactly one unreported worktree: ask the user "Found worktree '<name>'. Generate report?" using AskUserQuestion. If confirmed, use it.
@@ -102,17 +91,17 @@ Generate the story file, then create the PR and release note. The `/report` comm
 
 #### Phase 0: Gather Context
 
-Gather all context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/git-context.sh`. Returns: branch, base_branch, repo_url, archived_tickets, git_log.
+Gather all context by running `bash gather/scripts/git-context.sh`. Returns: branch, base_branch, repo_url, archived_tickets, git_log.
 
 #### Phase 1: Judge Active Carry-Overs
 
 Run before the parallel agent batch so the verdicts flow into section-reviewer's input. Skip silently if `.workaholic/concerns/` is empty or absent.
 
-1. **Spawn a carry-over judge** as `subagent_type: "general-purpose"` (`model: "opus"`) in a single Task call. The prompt instructs it to preload `core:report`, follow the `### Judge Carry-Overs` section with the given branch name and base branch, and return `{verdicts: [...]}`.
+1. **Spawn a carry-over judge** as `subagent_type: "general-purpose"` (`model: "opus"`) in a single Task call. The prompt instructs it to preload `report`, follow the `### Judge Carry-Overs` section with the given branch name and base branch, and return `{verdicts: [...]}`.
 2. **Apply verdicts**: Write the returned `verdicts` array to `/tmp/carryover-verdicts.json`, then run:
 
    ```bash
-   cat /tmp/carryover-verdicts.json | bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/apply-carryover-verdicts.sh
+   cat /tmp/carryover-verdicts.json | bash report/scripts/apply-carryover-verdicts.sh
    ```
 
    Files marked `resolved` have `status:` flipped to `resolved`, `resolved_by_pr` / `resolved_by_commit` recorded, and are then moved to `.workaholic/concerns/archive/`. Files marked `still_active` stay in `.workaholic/concerns/`.
@@ -121,9 +110,9 @@ Run before the parallel agent batch so the verdicts flow into section-reviewer's
 
 Spawn 3 `subagent_type: "general-purpose"` leaf subagents in parallel (single message with 3 Task calls). Each prompt names the skill to preload, the section to run, the inputs, and the expected return schema:
 
-- **release-readiness** (`model: "opus"`): preload `core:report`, run `## Assess Release Readiness`, return the releasability JSON. Pass archived tickets list and branch name.
-- **overview-writer** (`model: "haiku"`): preload `core:report`, run `### Overview Generation`, return the overview JSON. Pass branch name and base branch.
-- **section-reviewer** (`model: "haiku"`): preload `core:review-sections`, run it, return the sections 4-7 JSON (Outcome, Historical Analysis, Concerns, Successful Development Patterns). Pass branch name, archived tickets list, and the carryover verdicts file path `/tmp/carryover-verdicts.json`. The section-reviewer prepends `still_active` verdicts to section 6.
+- **release-readiness** (`model: "opus"`): preload `report`, run `## Assess Release Readiness`, return the releasability JSON. Pass archived tickets list and branch name.
+- **overview-writer** (`model: "haiku"`): preload `report`, run `### Overview Generation`, return the overview JSON. Pass branch name and base branch.
+- **section-reviewer** (`model: "haiku"`): preload `review-sections`, run it, return the sections 4-7 JSON (Outcome, Historical Analysis, Concerns, Successful Development Patterns). Pass branch name, archived tickets list, and the carryover verdicts file path `/tmp/carryover-verdicts.json`. The section-reviewer prepends `still_active` verdicts to section 6.
 
 Wait for all 3 to complete. Track which succeeded and which failed.
 
@@ -143,8 +132,8 @@ Wait for all 3 to complete. Track which succeeded and which failed.
 
 Spawn sequentially (PR first so its URL flows into the release note):
 
-1. **Create PR** first: spawn `subagent_type: "general-purpose"` (`model: "opus"`) preloading `core:report` and running `## Create PR`. It reads the story file, derives the title, and runs the `gh` CLI operations. Capture the `PR created/updated: <URL>` line from its response.
-2. **Generate release note** with PR URL: spawn `subagent_type: "general-purpose"` (`model: "haiku"`) preloading `core:write-release-note` and running it end-to-end. Pass the PR URL obtained in step 1. It reads the story file, generates concise release notes, and writes `.workaholic/release-notes/<branch-name>.md`.
+1. **Create PR** first: spawn `subagent_type: "general-purpose"` (`model: "opus"`) preloading `report` and running `## Create PR`. It reads the story file, derives the title, and runs the `gh` CLI operations. Capture the `PR created/updated: <URL>` line from its response.
+2. **Generate release note** with PR URL: spawn `subagent_type: "general-purpose"` (`model: "haiku"`) preloading `write-release-note` and running it end-to-end. Pass the PR URL obtained in step 1. It reads the story file, generates concise release notes, and writes `.workaholic/release-notes/<branch-name>.md`.
 
 Capture the PR URL from step 1 for final output.
 
@@ -193,7 +182,7 @@ Run by the Phase 1 carry-over judge (a `general-purpose` subagent that preloads 
 1. List active carry-overs:
 
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/list-active-carryovers.sh
+   bash report/scripts/list-active-carryovers.sh
    ```
 
    If the JSON output is `[]`, return `{"verdicts": []}` and stop.
@@ -263,7 +252,7 @@ Generate the four fields consumed by sections 1, 2, and 3 (`overview`, `highligh
 Run the bundled script to collect commit information:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/collect-commits.sh [base-branch]
+bash report/scripts/collect-commits.sh [base-branch]
 ```
 
 Default base branch is `main`.
@@ -434,10 +423,10 @@ One subsection per ticket, in chronological order:
 **Example**:
 
 ```markdown
-### Inline shell invocations in core:drive
+### Inline shell invocations in drive
 
 - **Severity:** moderate
-- **Description:** `core:drive` still calls `ls -1` inline, violating the Shell Script Principle (see [7eab801](<repo-url>/commit/7eab801) in `plugins/core/skills/drive/SKILL.md`)
+- **Description:** `drive` still calls `ls -1` inline, violating the Shell Script Principle (see [7eab801](<repo-url>/commit/7eab801) in `plugins/core/skills/drive/SKILL.md`)
 - **How to Fix:** Extract the inline invocations into dedicated navigator scripts under the drive skill's `scripts/` directory
 ```
 
@@ -558,7 +547,7 @@ Use that first item as the title. If multiple items exist, append "etc" (e.g., "
 Run the bundled script:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/create-or-update.sh <branch-name> "<title>"
+bash report/scripts/create-or-update.sh <branch-name> "<title>"
 ```
 
 #### What the Script Does
@@ -574,7 +563,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/create-or-update.sh <branch-nam
 A reusable script for removing YAML frontmatter from any markdown file:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/strip-frontmatter.sh <file>
+bash report/scripts/strip-frontmatter.sh <file>
 ```
 
 Outputs clean markdown body to stdout. Handles files with frontmatter, without frontmatter (pass-through), and empty files. Only strips frontmatter starting on line 1 -- content `---` separators elsewhere are preserved.

@@ -76,11 +76,22 @@ Each plugin declares `dependencies` in its `plugin.json`. Cross-plugin `${CLAUDE
 The `standards` skills are installable by non-Claude agents (Cursor, OpenCode, Codex, Pi, 50+) via `npx skills add qmu/workaholic`. The `skills` CLI (`vercel-labs/skills`) reads `.claude-plugin/marketplace.json`: the `skills` array on the `standards` plugin entry labels its discovery group. Two rules keep the exposed set honest:
 
 - **Script-bearing `core` skills carry `metadata.internal: true`** in their SKILL.md frontmatter. Claude Code ignores this field (the skills still load normally); the `skills` CLI hides them from cross-agent discovery. This is required because the CLI always scans every marketplace plugin's `skills/` dir — `metadata.internal` is the only per-skill exclusion. Any new `core` skill that invokes a bundled script MUST include it.
-- **`write-release-note` is intentionally exposed** (no `metadata.internal`). It is pure prose — no bundled script, no `${CLAUDE_PLUGIN_ROOT}`, no namespaced preload — so it resolves on every agent. It is currently the only exposed `core` skill.
+- **`write-release-note` is intentionally exposed** (no `metadata.internal`). It is pure prose — no bundled script, no `${CLAUDE_PLUGIN_ROOT}`, no namespaced preload — so it resolves on every agent via the `skills` CLI.
 - **Why script-bearing core skills stay internal** (verified 2026-05-26): every agent (Claude Code, OpenCode, Codex, Pi) runs a skill's shell in the *project* CWD and only injects the skill's base directory as text for the *model* to prepend — none `cd`s into the skill dir. Claude Code additionally expands `${CLAUDE_PLUGIN_ROOT}`/`${CLAUDE_SKILL_DIR}` deterministically at load time. Rewriting a script call to the spec-relative `scripts/X.sh` form would drop that determinism and rely on non-deterministic model-prepend — unacceptable for skills workaholic runs in its own Claude-Code `/drive`/`/ship` critical path. So script-bearing skills keep the token and stay internal.
 - **`work` needs nothing** — it has no `skills/` directory, so the CLI finds nothing to expose.
 
 To preview what the CLI would install, run `npx skills add . --list` (add `INSTALL_INTERNAL_SKILLS=1` to include internal core skills).
+
+#### Codex distribution (workflow skills, built)
+
+Codex has its own plugin system, separate from the `skills` CLI: it reads `.agents/plugins/marketplace.json` at the repo root, with per-plugin `.codex-plugin/plugin.json`. Two plugins are published there:
+
+- **`standards`** — `plugins/standards/.codex-plugin/plugin.json` points Codex at the existing self-contained `leading-*` skills. No build needed.
+- **`workflows`** — the ticket/drive/report/ship skills, which depend on shared `core` scripts and so are **not** self-contained in source. They are exposed as **generated, self-contained artifacts** committed under `codex/workflows/` (a Codex plugin: `.codex-plugin/plugin.json` + `skills/<name>/`), produced by `tools/build-portable-skills` from the DRY `plugins/core` source. `trip` is excluded (Agent Teams, Claude-only).
+
+Source-vs-artifact rule: the `plugins/core` workflow skills keep `metadata.internal: true` and `${CLAUDE_PLUGIN_ROOT}` (so the `skills` CLI never offers the broken source); the **committed `codex/` artifacts** are the public versions (self-contained, `${CLAUDE_PLUGIN_ROOT}` rewritten to relative, `metadata.internal` stripped). **Regenerate `codex/` with `node tools/build-portable-skills/build.mjs` whenever a `core` workflow skill or its script closure changes** — the committed artifacts must stay in sync with source (a CI freshness check is a sensible follow-up). `dist/` is gitignored dev scratch; `codex/` is the shipped distribution.
+
+Known limitation: the built workflow skills retain Claude-namespaced `skills:` frontmatter preloads (e.g. `standards:leading-validity`) which Codex ignores; the equivalent guidance is restated in the skill bodies, so this degrades gracefully rather than breaking.
 
 ### Design Principle
 

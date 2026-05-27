@@ -16,15 +16,30 @@ Enable the plugins you want after installation. Auto update is recommended.
 
 ## Use with other coding agents
 
-The **standards** skills (the `leading-*` policy lenses) follow the cross-agent [Agent Skills standard](https://skills.sh) and work in Cursor, OpenCode, OpenAI Codex, Pi, and 50+ other agents. Install them with the `skills` CLI:
+Workaholic follows the cross-agent [Agent Skills standard](https://skills.sh). What's portable:
+
+- **`standards`** — the four `leading-*` policy lenses (pure prose, self-contained). Available on every Agent-Skills agent.
+- **`write-release-note`** — release-note structure guidance (pure prose).
+- **Workflows** — `create-ticket`, `drive`, `report`, `ship` as agent-neutral skills (`trip` stays Claude-only; it needs Agent Teams). On non-Claude agents the workflow runs the same steps without Claude's parallel subagents/`AskUserQuestion` — see each skill's **Agent Compatibility** note.
+
+### Install matrix
+
+| Agent | How |
+| ----- | --- |
+| **Claude Code** | `/plugin marketplace add qmu/workaholic` (slash commands `/ticket`, `/drive`, `/report`, `/ship`, `/trip`) |
+| **OpenAI Codex** | Codex reads `.agents/plugins/marketplace.json` — install the `standards` and `workflows` plugins from the Codex marketplace |
+| **Cursor / OpenCode / Pi / 50+** | `npx skills add qmu/workaholic` (exposes `standards` + `write-release-note`) |
+
+### How the workflows reach Codex
+
+The workflow skills share helper scripts across `plugins/core` via the Claude-only `${CLAUDE_PLUGIN_ROOT}` token, so they are not self-contained in source. `tools/build-portable-skills` generates **self-contained** copies (each skill bundling its own scripts, references rewritten to relative paths) and assembles the Codex `workflows` plugin under `codex/workflows/`. Regenerate after changing a core workflow skill:
 
 ```bash
-npx skills add qmu/workaholic
+node tools/build-portable-skills/build.mjs   # regenerate codex/workflows artifacts
+node tools/build-portable-skills/verify.mjs  # assert every script reference resolves
 ```
 
-This exposes only the four `standards` skills. The **core** and **work** plugins are Claude-Code-only — core skills are marked `metadata.internal: true` (Claude Code ignores this; the `skills` CLI hides them from cross-agent discovery), and `work` has no portable skills because it depends on subagents, slash commands, hooks, and Agent Teams. They install normally via the Claude Code marketplace above.
-
-> Core skills are intentionally withheld from cross-agent install until their Claude-Code-specific script references are made portable. To preview the full set during development, run `INSTALL_INTERNAL_SKILLS=1 npx skills add . --list`.
+The `plugins/core` source stays Claude-Code-only (`metadata.internal: true`, `${CLAUDE_PLUGIN_ROOT}`); the committed `codex/` artifacts are the public, portable versions. The **`work`** plugin's commands/hooks/Agent Teams remain Claude-Code-only.
 
 ## Plugins
 

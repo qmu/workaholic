@@ -3,9 +3,9 @@ created_at: 2026-05-27T14:21:32+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure, Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 0fddd5b
+category: Added
 depends_on: [20260527142130-relocate-cross-agent-output-into-dist.md]
 ---
 
@@ -33,3 +33,14 @@ Now that `dist/` is committed and generated from `plugins/`, the committed artif
 - This is the guard CLAUDE.md already flagged as "a sensible follow-up"; once it exists, update that note in the docs ticket.
 - Keep the build deterministic (stable file ordering, no timestamps in output) so the diff check is not flaky (`tools/build-portable-skills/build.mjs`).
 - The check must run on the same Node version contributors use locally to avoid spurious diffs.
+
+## Final Report
+
+Development completed as planned, plus a fix outside the original scope. Verified locally: the freshness check passes when in sync, and a negative test (edit a source skill → rebuild → `git diff` shows `dist/` diverging → restore → clean) confirms drift is actually caught.
+
+### Discovered Insights
+
+- **Insight**: T2's `workflows` marketplace entry (`source: ./dist/workflows`) silently invalidated an existing `validate-plugins.yml` step that asserted `plugins/<name>` exists for every marketplace plugin. Fixed it to resolve each plugin's declared `source` instead.
+  **Context**: Any future plugin whose source is generated (under `dist/`) rather than authored (under `plugins/`) now passes validation; assuming `plugins/<name>` is no longer safe anywhere in CI.
+- **Insight**: The freshness check must call `node build.mjs` with **no arguments** — a targeted build only writes the throwaway scratch dir and never touches `dist/`, so `git diff --exit-code dist/` would pass vacuously. This requirement is encoded as a comment in the workflow.
+  **Context**: Carries forward the T1 insight about argument-less vs targeted builds into the CI definition.

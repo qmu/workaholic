@@ -1,0 +1,50 @@
+name: Dist Freshness
+
+# Ensures the committed cross-agent artifacts under dist/ stay in lockstep with the
+# authored source under plugins/. Regenerates dist/ and fails if anything differs.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/**'
+      - 'tools/build-portable-skills/**'
+      - 'dist/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'plugins/**'
+      - 'tools/build-portable-skills/**'
+      - 'dist/**'
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Regenerate dist/ from source
+        # Argument-less build does the full assembly into dist/workflows. A build with
+        # explicit targets only writes the throwaway scratch dir and would not touch
+        # dist/, making the diff check pass vacuously — so never pass targets here.
+        run: node tools/build-portable-skills/build.mjs
+
+      - name: Verify generated skills are self-contained
+        run: node tools/build-portable-skills/verify.mjs
+
+      - name: Assert dist/ matches committed output
+        run: |
+          if ! git diff --exit-code -- dist/; then
+            echo ""
+            echo "Error: committed dist/ is out of sync with plugins/ source."
+            echo "Run 'node tools/build-portable-skills/build.mjs' and commit the result."
+            exit 1
+          fi
+          echo "dist/ is in sync with source"

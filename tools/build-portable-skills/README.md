@@ -19,13 +19,13 @@ closure, with all references rewritten to skill-root-relative paths.
 ## Usage
 
 ```bash
-node tools/build-portable-skills/build.mjs            # builds the default targets
-node tools/build-portable-skills/build.mjs drive ship # builds specific targets
-node tools/build-portable-skills/verify.mjs           # asserts every ref resolves
+node tools/build-portable-skills/build.mjs            # full build: assembles the committed dist/workflows plugin
+node tools/build-portable-skills/build.mjs drive ship # dev only: builds named skills into a throwaway scratch dir
+node tools/build-portable-skills/verify.mjs           # asserts every ref in dist/<agent>/skills resolves
 ```
 
-Default targets: `create-ticket`, `drive`, `report`, `ship`.
-Output: `dist/skills/<target>/` (git-ignored; regenerate on demand / in CI).
+Default targets: `create-ticket`, `drive`, `report`, `ship` (plus the prose `review-sections` and `write-release-note`). Only the **argument-less** full build writes `dist/`; passing explicit targets builds into a temp scratch dir for inspection and does not touch the committed output.
+Output: `dist/workflows/` — a committed, self-contained plugin (`.codex-plugin/plugin.json` + `skills/`) consumed by Codex (`.agents/plugins/marketplace.json`) and the `skills` CLI (`.claude-plugin/marketplace.json`).
 
 ## What it rewrites
 
@@ -39,6 +39,9 @@ sibling calls (e.g. `${SCRIPT_DIR}/update.sh`) keep working. The build fails
 loudly if any `${CLAUDE_PLUGIN_ROOT}` token survives; `verify.mjs` additionally
 checks that every emitted reference points at a real file.
 
-The Codex / cross-agent manifests consume `dist/skills/` (see the Codex
-manifest ticket). This tool only handles **script** portability — agent-neutral
-orchestration prose and skill-preload dependencies are separate concerns.
+The committed `dist/workflows/` output is consumed by both the Codex manifest
+(`.agents/plugins/marketplace.json`) and the `skills` CLI manifest
+(`.claude-plugin/marketplace.json`), and is kept in sync with source by the
+`Dist Freshness` CI check (`.github/workflows/dist-freshness.yml`). This tool only
+handles **script** portability — agent-neutral orchestration prose and skill-preload
+dependencies are separate concerns.

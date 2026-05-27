@@ -8,13 +8,13 @@ on:
     branches: [main]
     paths:
       - 'plugins/**'
-      - 'tools/build-portable-skills/**'
+      - 'scripts/build-plugins/**'
       - 'dist/**'
   pull_request:
     branches: [main]
     paths:
       - 'plugins/**'
-      - 'tools/build-portable-skills/**'
+      - 'scripts/build-plugins/**'
       - 'dist/**'
 
 jobs:
@@ -34,17 +34,17 @@ jobs:
         # Argument-less build does the full assembly into dist/workflows. A build with
         # explicit targets only writes the throwaway scratch dir and would not touch
         # dist/, making the diff check pass vacuously — so never pass targets here.
-        run: node tools/build-portable-skills/build.mjs
+        run: node scripts/build-plugins/build.mjs
 
       - name: Verify generated skills are self-contained
-        run: node tools/build-portable-skills/verify.mjs
+        run: node scripts/build-plugins/verify.mjs
 
       - name: Assert dist/ matches committed output
         run: |
           if ! git diff --exit-code -- dist/; then
             echo ""
             echo "Error: committed dist/ is out of sync with plugins/ source."
-            echo "Run 'node tools/build-portable-skills/build.mjs' and commit the result."
+            echo "Run 'node scripts/build-plugins/build.mjs' and commit the result."
             exit 1
           fi
           echo "dist/ is in sync with source"

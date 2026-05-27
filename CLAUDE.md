@@ -27,8 +27,9 @@ plugins/                 # Plugin source directories
     commands/            # ticket, drive, trip, report, ship
     hooks/               # ticket validation
     rules/               # diagrams, general, shell, typescript, workaholic
-tools/                   # Build tooling
-  build-portable-skills/ # Generates dist/ from plugins/core (run argument-less for a full build)
+scripts/                 # Repo tooling
+  claude.sh              # Launcher
+  build-plugins/         # Generates dist/ from plugins/core (run argument-less for a full build)
 dist/                    # GENERATED, committed cross-agent artifacts — do NOT hand-edit (CI-guarded)
   workflows/             # Portable workflows plugin: .codex-plugin/plugin.json + self-contained skills/
 .agents/                 # Codex marketplace
@@ -90,12 +91,12 @@ To preview what the CLI would install, run `npx skills add . --list` (add `INSTA
 
 #### Cross-agent distribution (workflow skills, built)
 
-The workflow skills (ticket/drive/report/ship) depend on shared `core` scripts and so are **not** self-contained in source. They ship to non-Claude agents as a **generated, self-contained, committed plugin** at `dist/workflows/`, produced by `tools/build-portable-skills` from the DRY `plugins/core` source (`trip` is excluded — Agent Teams, Claude-only). **One neutral generated dir serves every non-Claude agent** through two manifests that point at it:
+The workflow skills (ticket/drive/report/ship) depend on shared `core` scripts and so are **not** self-contained in source. They ship to non-Claude agents as a **generated, self-contained, committed plugin** at `dist/workflows/`, produced by `scripts/build-plugins` from the DRY `plugins/core` source (`trip` is excluded — Agent Teams, Claude-only). **One neutral generated dir serves every non-Claude agent** through two manifests that point at it:
 
 - **Codex** reads `.agents/plugins/marketplace.json` (repo root); its `workflows` plugin `source.path` is `./dist/workflows`, and Codex consumes the co-located `dist/workflows/.codex-plugin/plugin.json`.
 - **OpenCode, Cursor, Pi, 40+** get it via the `skills` CLI, which reads the `workflows` plugin entry in `.claude-plugin/marketplace.json` (`source: ./dist/workflows`) and its `skills/` (the `standards` `leading-*` skills are exposed the same way). The `skills` CLI ignores the co-located `.codex-plugin/` dir, so the same folder serves both systems. `write-release-note` and `review-sections` ship inside this plugin too.
 
-Source-vs-artifact rule: the `plugins/core` workflow skills keep `metadata.internal: true` and `${CLAUDE_PLUGIN_ROOT}` (so the `skills` CLI never offers the broken source); the **committed `dist/workflows/` artifacts** are the public versions — self-contained, `${CLAUDE_PLUGIN_ROOT}` rewritten to relative paths, and `metadata.internal` / `user-invocable` / the `skills:` preload block stripped with namespace prefixes flattened by `publicizeSkillMd`. **Regenerate with the argument-less `node tools/build-portable-skills/build.mjs` whenever a `core` workflow skill or its script closure changes** (a *targeted* build only writes a throwaway scratch dir and does not touch `dist/`). `dist/` is **committed, not gitignored** — Codex and the `skills` CLI install by reading repo paths, so the artifacts must be present. The `Dist Freshness` CI workflow (`.github/workflows/dist-freshness.yml`) rebuilds and fails on any `dist/` diff, keeping artifact and source in lockstep.
+Source-vs-artifact rule: the `plugins/core` workflow skills keep `metadata.internal: true` and `${CLAUDE_PLUGIN_ROOT}` (so the `skills` CLI never offers the broken source); the **committed `dist/workflows/` artifacts** are the public versions — self-contained, `${CLAUDE_PLUGIN_ROOT}` rewritten to relative paths, and `metadata.internal` / `user-invocable` / the `skills:` preload block stripped with namespace prefixes flattened by `publicizeSkillMd`. **Regenerate with the argument-less `node scripts/build-plugins/build.mjs` whenever a `core` workflow skill or its script closure changes** (a *targeted* build only writes a throwaway scratch dir and does not touch `dist/`). `dist/` is **committed, not gitignored** — Codex and the `skills` CLI install by reading repo paths, so the artifacts must be present. The `Dist Freshness` CI workflow (`.github/workflows/dist-freshness.yml`) rebuilds and fails on any `dist/` diff, keeping artifact and source in lockstep.
 
 Claude Code reads `plugins/` directly and consumes nothing from `dist/`. The `workflows` entry in `.claude-plugin/marketplace.json` is read by Claude Code too, so it is **opt-in** — its description points Claude users to `core`/`work` to avoid installing duplicate workflow skills.
 

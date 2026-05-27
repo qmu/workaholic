@@ -3,6 +3,8 @@ name: trip-protocol
 description: Two-phase collaborative workflow protocol and artifact conventions.
 allowed-tools: Bash, Read, Write, Glob
 user-invocable: false
+metadata:
+  internal: true
 ---
 
 # Trip Protocol
@@ -40,6 +42,8 @@ All scripts use absolute paths from home directory.
 | `read-plan.sh <trip-path>` | work | Read plan state as JSON |
 | `trip-commit.sh <agent> <phase> <step> <description>` | work | Commit with `[Agent] description` format |
 | `log-event.sh <trip-path> <agent> <event-type> <target> <impact>` | work | Append to event-log.md |
+| `find-gitignored-files.sh <worktree-path>` | work | Discover gitignored files in a worktree that differ from main (JSON) |
+| `sync-gitignored-files.sh <worktree-path> <main-repo-root> <files-json>` | work | Copy selected gitignored files from worktree to main repo root |
 
 Script base paths:
 - **branching scripts**: `${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/`
@@ -286,3 +290,36 @@ After the team completes:
 4. Show the trip branch name
 5. Transition guidance: "Use `/report` and `/ship` when ready to merge."
 6. Continuation guidance: "For follow-up modifications, request changes directly -- the lead will handle simple tasks or re-invoke the designated agents (Planner, Architect, Constructor). No new agents are created."
+
+## Trip Ship
+
+Trips run in isolated git worktrees, so shipping a trip adds worktree lifecycle handling around the trip-independent ship essence (`core:ship`). This section is Claude-Code-only (worktrees are a trip mechanism); it wraps `core:ship`'s **Ship Flow** with worktree sync and cleanup. The `/ship` command routes here when it detects a worktree/trip context.
+
+### Worktree gitignored-file handling
+
+Before cleaning up a worktree, preserve any gitignored files (e.g. `.env`, local config) that exist only in or differ in the worktree:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/find-gitignored-files.sh "<worktree-path>"
+```
+
+Excludes reinstallable directories (`node_modules/`, `.venv/`, `vendor/bundle/`, `.cache/`, `__pycache__/`) and files over 1MB. Returns `{"has_changes": true, "files": [{"path": ".env", "status": "modified", "size": "1KB"}]}` (`status` is `new` or `modified`).
+
+If `has_changes` is `true`, display the file list and ask the user via AskUserQuestion: **"Copy all to main worktree"** or **"Skip and erase"**. If "Copy all":
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/sync-gitignored-files.sh "<worktree-path>" "<main-repo-root>" '<files-json>'
+```
+
+### Trip Ship flow
+
+1. **Sync gitignored files** (above) from `.worktrees/<branch>/` to the main repo root.
+2. **Run the ship essence**: follow `core:ship`'s **Ship Flow** (pre-check → merge → extract carry-overs → deploy → verify) for the worktree's branch/PR.
+3. **Clean up worktree**: `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-worktree.sh "<branch>"`; report what was cleaned up.
+4. **Summarize**: include gitignored sync status and worktree cleanup status alongside the ship essence's summary.
+
+### Context routing (used by the /ship command)
+
+- **work context**: not a trip — run `core:ship`'s Ship Flow directly. No worktree handling.
+- **worktree context** (not on a work branch, worktrees exist): run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/list-worktrees.sh`, filter to `has_pr: true`, ask the user which shippable worktree to ship via AskUserQuestion, then run the Trip Ship flow for it.
+- **unknown context**: ask the user "drive or trip?" via AskUserQuestion; route to the Ship Flow (drive) or Trip Ship flow (trip) accordingly.

@@ -3,15 +3,23 @@ name: ship
 description: Ship workflow - merge PR, deploy via cloud.md, and verify production.
 allowed-tools: Bash, Read, Glob, Grep
 user-invocable: false
+metadata:
+  internal: true
 ---
 
 # Ship
 
-Merge a pull request, deploy to production, and verify the deployment. Claude Code acts as the deployment agent, following instructions from a user-provided `cloud.md` file.
+Merge a pull request, deploy to production, and verify the deployment. The agent acts as the deployment agent, following instructions from a user-provided `cloud.md` file.
+
+This skill is the **trip-independent ship essence**: it operates on the current branch's PR. Worktree handling and drive/trip context routing are not part of this skill — in Claude Code they are handled separately by the trip workflow and the `/ship` command. Any agent can run this skill directly to ship the current branch.
+
+## Agent Compatibility
+
+This skill works on any Agent-Skills-compatible agent. Where a step uses `AskUserQuestion` (workspace/ticket guards, deploy confirmation), use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The confirmations are mandatory; only the prompt mechanism varies. (This skill has no subagent fan-out.)
 
 ## 1. Cloud.md Convention
 
-`cloud.md` is a project-level file authored by the user (not part of Workaholic). It tells the ship command how to deploy and verify.
+`cloud.md` is a project-level file authored by the user (not part of Workaholic). It tells the ship workflow how to deploy and verify.
 
 ### 1-1. Search Order
 
@@ -25,7 +33,7 @@ Searches: `./cloud.md`, `./.workaholic/cloud.md`
 
 ```markdown
 ## Deploy
-Step-by-step deployment instructions for Claude Code to execute.
+Step-by-step deployment instructions for the agent to execute.
 
 ## Verify
 Health checks, smoke tests, and expected outcomes.
@@ -33,7 +41,7 @@ Health checks, smoke tests, and expected outcomes.
 
 ### 1-3. Confirmation
 
-Before executing deploy instructions, the ship command displays the Deploy section and asks for user confirmation via AskUserQuestion. If the user declines, deployment is skipped.
+Before executing deploy instructions, display the Deploy section and ask the user to confirm via AskUserQuestion. If the user declines, deployment is skipped.
 
 ### 1-4. Fallback
 
@@ -73,31 +81,19 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/check-todo.sh
 
 Checks if `.workaholic/tickets/todo/` has remaining tickets. Returns JSON with cleanliness status, count, and ticket list. Used as a pre-merge guard to prevent shipping with unfinished work.
 
-### 2-5. Find Gitignored Files
+### 2-5. Extract Carry-Overs
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/find-gitignored-files.sh "<worktree-path>"
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/extract-carryover.sh "<branch>" "<pr-number>" "<pr-url>"
 ```
 
-Discovers gitignored files in a worktree that differ from the main repo root. Excludes reinstallable directories (`node_modules/`, `.venv/`, `vendor/bundle/`, `.cache/`, `__pycache__/`) and files over 1MB. Returns JSON:
+Reads the just-shipped story (`.workaholic/stories/<branch>.md`), parses each `###` concern block in section 6 (Concerns), and writes one file per concern under `.workaholic/concerns/` as `<pr-number>-<slug>.md` (with `severity` and a Title/Description/How-to-Fix body). Returns JSON:
 
 ```json
-{"has_changes": true, "files": [{"path": ".env", "status": "modified", "size": "1KB"}]}
+{"status":"ok","extracted":10,"files":["..."]}
 ```
 
-Status is `new` (exists only in worktree) or `modified` (differs from main copy).
-
-### 2-6. Sync Gitignored Files
-
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/sync-gitignored-files.sh "<worktree-path>" "<main-repo-root>" '<files-json>'
-```
-
-Copies selected gitignored files from the worktree to the main repo root, creating parent directories as needed. `<files-json>` is a JSON array of relative paths. Returns JSON:
-
-```json
-{"synced": true, "count": 2, "files": [".env", ".local.md"]}
-```
+Commits the new files with message `Carry over concerns from PR #<pr-number>` so the corpus stays under version control. Skips silently when no story file exists or section 6 is empty.
 
 ## 3. Workspace Guard
 
@@ -109,7 +105,7 @@ Parse the JSON output. If `clean` is `true`, proceed silently to the Ticket Guar
 
 If `clean` is `false`, display the `summary` to the user and ask via AskUserQuestion with selectable options:
 - **"Ignore and proceed"** - Continue with the ship workflow. The unrelated changes will remain in the workspace after the command completes.
-- **"Stop"** - Halt the command so you can handle the changes first.
+- **"Stop"** - Halt the workflow so you can handle the changes first.
 
 If the user selects "Stop", end the workflow immediately.
 
@@ -119,45 +115,21 @@ If the user selects "Stop", end the workflow immediately.
 bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/check-todo.sh
 ```
 
-Parse the JSON output. If `clean` is `true`, proceed silently to Detect Context.
+Parse the JSON output. If `clean` is `true`, proceed silently to the Ship Flow.
 
 If `clean` is `false`, display the ticket list to the user: "Cannot ship: N ticket(s) remaining in `.workaholic/tickets/todo/`:" followed by the ticket filenames. Then ask via AskUserQuestion with selectable options:
-- **"Move all to icebox"** - Move all remaining tickets to `.workaholic/tickets/icebox/`, stage and commit "Move remaining tickets to icebox", then proceed to Detect Context.
-- **"Stop"** - Halt the command so you can handle tickets first (run `/drive`, manually reorganize, etc.)
+- **"Move all to icebox"** - Move all remaining tickets to `.workaholic/tickets/icebox/`, stage and commit "Move remaining tickets to icebox", then proceed to the Ship Flow.
+- **"Stop"** - Halt the workflow so you can handle tickets first (run `/drive`, manually reorganize, etc.)
 
 If the user selects "Stop", end the workflow immediately.
 
-## 5. Detect Context
+## 5. Ship Flow
 
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/detect-context.sh
-```
+Ship the current branch's PR. (Worktree sync/cleanup and drive/trip routing are not here; in Claude Code those are handled by the trip workflow.)
 
-Parse the JSON output. Route to the appropriate workflow based on `context`.
-
-## 6. Route by Context
-
-### Work Context (`context: "work"`)
-
-1. **Pre-check**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/pre-check.sh "<branch>"`. If `found` is `false`: inform user "No PR found for this branch. Run `/report` first." and stop. If `merged` is `true`: skip to Clean up worktree.
+1. **Pre-check**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/pre-check.sh "<branch>"`. If `found` is `false`: inform user "No PR found for this branch. Run `/report` first." and stop. If `merged` is `true`: skip to Deploy.
 2. **Merge PR**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/merge-pr.sh "<pr-number>"`. On failure, inform user and stop.
-3. **Sync gitignored files** (if worktree exists): Check if `.worktrees/<branch>/` exists. If yes, run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/find-gitignored-files.sh "<worktree-path>"`. If `has_changes` is `true`, display the file list and ask via AskUserQuestion with options: **"Copy all to main worktree"**, **"Skip and erase"**. If "Copy all", run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/sync-gitignored-files.sh "<worktree-path>" "<main-repo-root>" '<files-json>'` with all file paths. If `has_changes` is `false`, proceed silently. If no worktree exists, skip this step.
-4. **Clean up worktree** (if applicable): Check if `.worktrees/<branch>/` exists. If yes, run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-worktree.sh "<branch>"` and report what was cleaned up. If no worktree exists, skip this step.
-5. **Deploy**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/find-cloud-md.sh`. If `found` is `false`: inform user "No cloud.md found. Deployment skipped." and skip to summary. If `found` is `true`: read the file, find `## Deploy` section, ask confirmation via AskUserQuestion, execute if confirmed.
-6. **Verify**: If cloud.md found, read `## Verify` section and execute. Report results.
-7. **Summarize**: PR merge status (number, URL), gitignored file sync status, worktree cleanup status, deployment status, verification results.
-
-### Worktree Context (`context: "worktree"`)
-
-Not on a work branch, but worktrees exist.
-
-1. Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/list-worktrees.sh`
-2. Filter to worktrees where `has_pr` is `true` (branches with PRs ready to ship)
-3. If no shippable worktrees found: inform the user "No worktrees with open PRs found. Run `/report` first." and stop.
-4. If exactly one shippable worktree: ask the user "Found '<name>' with PR #<number>. Ship?" using AskUserQuestion. If confirmed, use it.
-5. If multiple shippable worktrees: list them with PR numbers and ask the user which one to ship using AskUserQuestion.
-6. Once selected, follow Work Context steps 1-6.
-
-### Unknown Context (`context: "unknown"`)
-
-Ask the user: "Could not determine development context from branch '<branch>'. Are you working on a drive or trip?" using AskUserQuestion with options "Drive" and "Trip". Route accordingly.
+3. **Extract carry-overs**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/extract-carryover.sh "<branch>" "<pr-number>" "<pr-url>"`. Persists active Concerns from the just-shipped story's section 6 into `.workaholic/concerns/`. Commits the new files. Skips silently when no story file exists or section 6 is empty. Report `extracted` count from the JSON output.
+4. **Deploy**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/find-cloud-md.sh`. If `found` is `false`: inform user "No cloud.md found. Deployment skipped." and skip to summary. If `found` is `true`: read the file, find `## Deploy` section, ask confirmation via AskUserQuestion, execute if confirmed.
+5. **Verify**: If cloud.md found, read `## Verify` section and execute. Report results.
+6. **Summarize**: PR merge status (number, URL), carry-over extraction count, deployment status, verification results.

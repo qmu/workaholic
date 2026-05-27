@@ -3,6 +3,8 @@ name: gather
 description: Gather git context and ticket metadata in single calls.
 allowed-tools: Bash
 user-invocable: false
+metadata:
+  internal: true
 ---
 
 # Gather

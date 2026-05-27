@@ -3,6 +3,8 @@ name: check-deps
 description: Verify required plugin dependencies are installed.
 allowed-tools: Bash
 user-invocable: false
+metadata:
+  internal: true
 ---
 
 # Check Dependencies

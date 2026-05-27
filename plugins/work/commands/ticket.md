@@ -1,6 +1,10 @@
 ---
 name: ticket
 description: Explore codebase and write implementation ticket for `$ARGUMENT`
+skills:
+  - core:create-ticket
+  - core:branching
+  - core:gather
 ---
 
 # Ticket
@@ -11,7 +15,7 @@ description: Explore codebase and write implementation ticket for `$ARGUMENT`
 
 **Lead Lens**: Ticket scoping uses the `standards:leading-*` skills as policy lenses, mapped to the ticket's `layer` field. The `core:create-ticket` skill preloads them; the Lead Lens table in the skill documents the mapping.
 
-Thin alias for `work:ticket-organizer` subagent.
+This command (main agent) runs the `core:create-ticket` **Workflow** directly: it spawns the three discovery subagents as `general-purpose` Task calls and issues every AskUserQuestion itself — there is no `ticket-organizer` subagent.
 
 ## Instructions
 
@@ -31,15 +35,17 @@ Run `bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/check-worktrees
 
 Rationale: prevents creating tickets on a drive branch when the user may intend to work within a trip worktree.
 
-### Step 1: Invoke Ticket Organizer
+### Step 1: Run the Create-Ticket Workflow
 
-Invoke `work:ticket-organizer` via Task tool (`model: "opus"`, prompt: `"Create ticket for: <$ARGUMENT>. Target: <todo|icebox based on argument>"`).
+Follow the **Workflow** section of the preloaded `core:create-ticket` skill end-to-end, with `$ARGUMENT` as the request description and the target directory (`todo` or `icebox`, based on the argument):
 
-Handle the response:
-- `status: "success"` — If `branch_created` is present, confirm branch creation. Proceed to step 2.
-- `status: "duplicate"` — Inform user, show existing ticket path, done.
-- `status: "needs_decision"` — Present options using `AskUserQuestion`, re-invoke with decision.
-- `status: "needs_clarification"` — Present questions using `AskUserQuestion`, re-invoke with answers.
+1. **Check branch** (skill Step 1) — create a topic branch if on main; record `branch_created`.
+2. **Parallel discovery** (skill Step 2) — spawn three `subagent_type: "general-purpose"` subagents in a single message (`model: "opus"`), one per mode (history/source/policy), each preloading `core:discover`. These are leaf subagents: they discover and return JSON only — never AskUserQuestion. Wait for all three.
+3. **Handle moderation** (skill Step 3) — on `duplicate`, inform the user and show the existing path (done); on `needs_decision`, present the merge/split options via `AskUserQuestion` and act on the choice; on `clear`, proceed.
+4. **Evaluate complexity and write ticket(s)** (skill Steps 4–5) — split when warranted, populate `depends_on`, write files under `.workaholic/tickets/{todo,icebox}/` only.
+5. **Handle ambiguity** (skill Step 6) — if the request is ambiguous, present the questions via `AskUserQuestion` and incorporate the answers.
+
+**CRITICAL guardrails** (from `core:create-ticket`): never implement code, never commit (Step 2 below handles commit), discovery subagents never call AskUserQuestion, and tickets are written ONLY under `.workaholic/tickets/todo/` or `.workaholic/tickets/icebox/` — never any other `.workaholic/` subdirectory. See the skill's Allowed Locations section.
 
 ### Step 2: Commit and Present
 

@@ -25,16 +25,9 @@ The upfront cost of documentation pays dividends when you (or a teammate) return
 
 ## Agents
 
-### Drive Agents
+The drive, ticket, and report workflows do **not** use per-workflow agent files. Each command spawns `subagent_type: "general-purpose"` subagents whose prompts preload the relevant `core` skill (`core:drive`, `core:create-ticket`, `core:discover`, `core:report`, `core:review-sections`, `core:write-release-note`) and run a named section. All fan-out and user interaction stay at the command level (one-level fan-out — see the root `CLAUDE.md` Architecture Policy).
 
-| Agent                 | Description                                             |
-| --------------------- | ------------------------------------------------------- |
-| `drive-navigator`     | Route and prioritize tickets for /drive                 |
-| `discoverer`          | Context discovery (history, source, policy modes)       |
-| `ticket-organizer`    | Discover context, check duplicates, and write tickets   |
-| `story-writer`        | Generate branch story for PR description                |
-| `pr-creator`          | Create or update GitHub PR from story file              |
-| `release-readiness`   | Analyze branch changes for release readiness            |
+The only agent files in this plugin are the Agent Teams members `/trip` launches:
 
 ### Trip Agents
 

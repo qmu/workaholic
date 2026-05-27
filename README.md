@@ -1,18 +1,47 @@
 # Workaholic
 
-Private marketplace for Claude Code plugins. Discover and enable plugins that add structured workflows to your Claude Code sessions, from ticket-driven development to AI-collaborative exploration.
+The development workflows we use at [qmu](https://github.com/qmu), written down so our coding agents can run them the way we do. They're tuned to how we work, so they may not fit everyone, and they'll keep changing as we do. We keep it public so the people we work with can share the same base.
+
+**Concretely**, it's a cross-agent distribution of structured development workflows and engineering-standard skills: ticket-driven development, AI-collaborative exploration, and the `leading-*` policy lenses. It's richest on **Claude Code** (a plugin marketplace: slash commands, hooks, `/trip` Agent Teams); the same skills install on **Codex**, **OpenCode**, and 40+ other agents via the [Agent Skills standard](https://skills.sh). Authored once under `plugins/`, generated into portable artifacts under `dist/`.
 
 > [!WARNING]
-> **This plugin drives git on your behalf.** Workaholic lets Claude Code autonomously create branches, commit, amend, push, and open pull requests. Review the plugin descriptions below before installing so you know what to expect.
+> **This drives git on your behalf.** Workaholic lets your coding agent autonomously create branches, commit, amend, push, and open pull requests. Review the plugin/skill descriptions below before installing so you know what to expect.
 
-## Quick Start
+## Quick Start (Claude Code)
 
 ```bash
 claude
 /plugin marketplace add qmu/workaholic
 ```
 
-Enable the plugins you want after installation. Auto update is recommended.
+Enable the plugins you want after installation. Auto update is recommended. For Codex, OpenCode, and other agents, see [Use with other coding agents](#use-with-other-coding-agents) below.
+
+## Use with other coding agents
+
+Workaholic follows the cross-agent [Agent Skills standard](https://skills.sh). What's portable:
+
+- **`standards`** — the four `leading-*` policy lenses (pure prose, self-contained). Available on every Agent-Skills agent.
+- **`write-release-note`** — release-note structure guidance (pure prose).
+- **Workflows** — `create-ticket`, `drive`, `report`, `ship` as agent-neutral skills (`trip` stays Claude-only; it needs Agent Teams). On non-Claude agents the workflow runs the same steps without Claude's parallel subagents/`AskUserQuestion` — see each skill's **Agent Compatibility** note.
+
+### Install matrix
+
+| Agent | How |
+| ----- | --- |
+| **Claude Code** | `/plugin marketplace add qmu/workaholic` (slash commands `/ticket`, `/drive`, `/report`, `/ship`, `/trip`) |
+| **OpenAI Codex** | Codex reads `.agents/plugins/marketplace.json` — install the `standards` and `workflows` plugins from the Codex marketplace |
+| **Cursor / OpenCode / Pi / 50+** | `npx skills add qmu/workaholic` (exposes `standards` + `workflows`) |
+
+### How the workflows reach other agents
+
+The workflow skills share helper scripts across `plugins/core` via the Claude-only `${CLAUDE_PLUGIN_ROOT}` token, so they are not self-contained in source. `scripts/build-plugins` generates **self-contained** copies (each skill bundling its own scripts, references rewritten to relative paths) and assembles one neutral, committed plugin under `dist/workflows/`. That single dir serves every non-Claude agent: Codex via `.agents/plugins/marketplace.json` (and the co-located `.codex-plugin/plugin.json`), and OpenCode/Cursor/40+ via the `skills` CLI reading the `workflows` entry in `.claude-plugin/marketplace.json`. Regenerate after changing a core workflow skill:
+
+```bash
+node scripts/build-plugins/build.mjs   # regenerate dist/workflows artifacts (no args = full build)
+node scripts/build-plugins/verify.mjs  # assert every script reference resolves
+```
+
+The `plugins/core` source stays Claude-Code-only (`metadata.internal: true`, `${CLAUDE_PLUGIN_ROOT}`); the committed `dist/workflows/` artifacts are the public, portable versions, kept in sync by the `Dist Freshness` CI check. The **`work`** plugin's commands/hooks/Agent Teams remain Claude-Code-only.
 
 ## Plugins
 
@@ -100,15 +129,75 @@ The session runs in two phases inside an isolated git worktree:
 1. **Specification** — Agents produce direction, model, and design artifacts through mutual review
 2. **Implementation** — Agents build, review, and test the agreed specification
 
-## Documentation
+## Artifacts under `.workaholic/`
 
-Working artifacts live in [.workaholic/](.workaholic/README.md):
+Working artifacts live in [.workaholic/](.workaholic/README.md). Each artifact captures a snapshot of the code change at a specific point in the workflow — they are not generic documentation. The table below summarizes what gets stored, when it is written, and how it survives (or is eliminated) through the ship process.
 
-- **guides/** - User documentation
-- **specs/** - Technical specifications
-- **stories/** - Development narratives per branch
-- **terms/** - Consistent term definitions
-- **tickets/** - Work queue and archives
+### Lifecycle Reference
+
+| Artifact | Written by | Snapshot of | Diffed on ship? | Carried over? | Eliminated when |
+| -------- | ---------- | ----------- | --------------- | ------------- | --------------- |
+| `tickets/todo/<ts>-*.md` | `/ticket` | Intended change (not yet implemented) | committed as a normal file | no | `/drive` archives it after approval |
+| `tickets/archive/<branch>/*.md` | `/drive` (archive) | Implemented change with final report and commit hash | committed, permanent | no — permanent record | never (institutional history) |
+| `tickets/icebox/*.md` | `/ticket --icebox` (or manual move) | Deferred change | committed | yes (survives across PRs until promoted) | `/drive` (after user promotes from icebox) |
+| `tickets/abandoned/*.md` | `/drive` (abandon flow) | Attempted-then-abandoned change with failure analysis | committed, permanent | no | never |
+| `stories/<branch>.md` | `/report` | PR description: overview, journey, outcome, concerns, ideas, release readiness | committed before PR creation | concerns/ideas sections only (extracted by `/ship`) | never (per-branch permanent record) |
+| `release-notes/<branch>.md` | `/report` | Concise release narrative for GitHub Releases | committed after PR creation | no | never |
+| `concerns/<pr>-<slug>-<kind>.md` | `/ship` (extract from story) | Unresolved concern or idea surfaced in a past PR | committed during ship | **yes — this is the carry-over corpus**; remains `status: active` until `/report` judges it resolved | judge marks `status: resolved` (file preserved, audit trail intact) |
+| `trips/<branch>/*` | `/trip` | Multi-agent collaborative design output (planner/architect/constructor) | committed inside trip worktree | no | never |
+| `specs/*.md` | manual (hand-edited reference) | Current-state documentation of how things work today | committed | n/a — not branch-scoped | superseded when manually rewritten |
+| `guides/*.md` `policies/*.md` `terms/*.md` | manual | Persistent reference material (user docs, policies, glossary) | committed | n/a | superseded when manually rewritten |
+
+### When, Where, and How Changes Occur
+
+The branch lifecycle traverses these artifacts in a fixed order:
+
+```mermaid
+flowchart LR
+  subgraph plan[Plan]
+    direction TB
+    a1[/ticket] --> a2[tickets/todo/]
+  end
+  subgraph implement[Implement]
+    direction TB
+    b1[/drive] --> b2[tickets/archive/<branch>/]
+  end
+  subgraph report[Report]
+    direction TB
+    c1[/report] --> c2[stories/<branch>.md]
+    c1 --> c3[release-notes/<branch>.md]
+    c1 -.judge.-> c4[concerns/]
+  end
+  subgraph ship[Ship]
+    direction TB
+    d1[/ship] --> d2[merge PR]
+    d2 --> d3[extract carry-overs<br/>to concerns/]
+  end
+  plan --> implement --> report --> ship
+  d3 -.next /report reads.-> c1
+```
+
+**Plan** — `/ticket` writes a new file under `tickets/todo/` describing the intended change. This is the only artifact created before code exists.
+
+**Implement** — `/drive` reads `tickets/todo/`, implements one ticket at a time, and on approval moves the file to `tickets/archive/<branch>/`. The archive subdirectory is named after the current branch so all of a branch's tickets cluster under one folder. Final reports and the resolving `commit_hash` are written into the ticket frontmatter at archive time.
+
+**Report** — `/report` runs after all tickets on a branch are archived. It does four writes in order:
+1. Judges every active file in `concerns/` (carry-overs from past PRs) via a `general-purpose` carry-over-judge subagent. Resolved items are moved to `concerns/archive/`; still-active items are passed to the section-reviewer.
+2. Writes `stories/<branch>.md` — the full PR description including section 6 (Concerns), each item prefixed with `(carried from PR #N)` if surfaced from the corpus.
+3. Commits the story together with any `concerns/` status changes (including moves to `archive/`), so the audit history is coherent.
+4. Opens the GitHub PR and writes `release-notes/<branch>.md`.
+
+**Ship** — `/ship` merges the PR, then immediately extracts section 6 (Concerns) from the just-shipped story into `concerns/`, one file per item. Filenames use `<pr-number>-<slug>.md` (sidestepping the ticket validation hook); each file carries a `severity` label (`urgent`/`moderate`/`low`) in frontmatter and a Title / Description / How to Fix body. From that point on, those concerns are read on every subsequent `/report` until they are judged resolved and moved to `concerns/archive/`.
+
+### What "Carried Over" Means
+
+Most artifacts are written once and never revisited — they form the permanent history of the codebase. The exception is `concerns/`: it is the **only** living corpus, deliberately persistent across PR cycles so that risks and improvement ideas raised in one PR cannot silently vanish when the PR merges. Three forces keep the corpus from growing unbounded:
+
+1. **Judge** — each `/report` re-evaluates active items and marks resolved ones.
+2. **Promote** — items that survive judgement become housekeeping tickets after one cycle.
+3. **Mark, don't delete** — resolved items remain on disk with `status: resolved` so the audit trail survives misclassification.
+
+See [`.workaholic/concerns/README.md`](.workaholic/concerns/README.md) for the file format, frontmatter schema, and lifecycle script references.
 
 ## Author
 

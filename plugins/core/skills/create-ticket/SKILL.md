@@ -8,11 +8,33 @@ skills:
   - standards:leading-security
   - standards:leading-availability
 user-invocable: false
+metadata:
+  internal: true
 ---
 
 # Create Ticket
 
 Guidelines for creating implementation tickets in `.workaholic/tickets/`.
+
+## Agent Compatibility
+
+This skill works on any Agent-Skills-compatible agent. The two Claude-Code mechanisms used below are **enhancements, not requirements**:
+
+- **Parallel fan-out** — where a step spawns `general-purpose` subagents to run parts concurrently (e.g. the three discovery modes), that is the Claude Code optimization. On other agents, perform those parts **sequentially** in the same session; the inputs and outputs are identical.
+- **User interaction** — where a step uses `AskUserQuestion`, use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies.
+
+## Allowed Locations
+
+Tickets are written to ONE of these two directories — never anywhere else:
+
+- `.workaholic/tickets/todo/` — Active queue (default for new tickets)
+- `.workaholic/tickets/icebox/` — Deferred (only when the request explicitly targets the icebox)
+
+Archive paths (`.workaholic/tickets/archive/<branch>/`) are written by the drive archive script, never by this skill.
+
+**PROHIBITED**: Do NOT write tickets into any other directory under `.workaholic/`, including but not limited to: `RFDs/`, `policies/`, `specs/`, `guides/`, `stories/`, `terms/`, `release-notes/`, `trips/`, `constraints/`, `concerns/`. Even if the user's request sounds like a design discussion, RFD, spec, policy, or carried-over concern, the artifact produced by this skill is a ticket and must live under `.workaholic/tickets/`. Other artifact types (including carry-over concerns/ideas — those are written by `core:ship` and updated by `core:report`) are out of scope for this skill.
+
+**Rationale**: The drive workflow, archive script, navigator, report skill, and validation hook all scan `.workaholic/tickets/` exclusively. A ticket placed in a sibling directory becomes invisible to the rest of the pipeline. The `plugins/work/hooks/validate-ticket.sh` hook enforces this and rejects ticket-shaped files (filename matching `YYYYMMDDHHmmss-*.md`) written outside `.workaholic/tickets/`.
 
 ## Step 1: Capture Dynamic Values
 
@@ -54,7 +76,7 @@ depends_on:
 ### Field Requirements
 
 - **Lines 1-4**: Fill with actual values (never placeholders)
-- **Lines 5-8**: Must be present but leave empty (filled after implementation or by ticket-organizer)
+- **Lines 5-8**: Must be present but leave empty (filled after implementation, or during creation when a request is split)
 
 ### Concrete Example
 
@@ -93,25 +115,29 @@ Example: `20260114153042-add-dark-mode.md`
 
 ## Workflow
 
-Followed by `work:ticket-organizer`. Skills cannot invoke subagents or AskUserQuestion directly; the steps below describe what the loading agent must do.
+The `/ticket` command (main agent) drives this Workflow directly. Skills cannot invoke subagents or AskUserQuestion directly; the steps below describe what the loading agent (the command) must do. The command issues every AskUserQuestion (moderation decisions, clarifications) and spawns every discovery subagent itself — no `ticket-organizer` subagent sits in between.
 
 ### 1. Check Branch
 
-Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check.sh`. If `on_main` is true, create a topic branch via `${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh` and record the returned branch name as `branch_created` for the output JSON. Trip branches (`trip/*`) return `on_main: false` and skip branch creation; tickets go to `.workaholic/tickets/todo/` regardless of branch type.
+Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check.sh`. If `on_main` is true, create a topic branch **only** by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh`, and record the returned branch name as `branch_created` for the output JSON.
+
+**Branch-name rule (mandatory):** the branch name is **always** exactly `work-<YYYYMMDD-HHMMSS>`, produced by `create.sh`. Do **not** name a branch yourself, do **not** append a feature/description suffix, and do **not** use any other prefix (`drive-`, `trip/`, a feature name, etc.). `create.sh` is the only branch-creation path.
+
+Already-on-a-topic-branch returns `on_main: false` and skips creation (including legacy `drive-*`/`trip/*` branches, which are still recognized but never created anew); tickets go to `.workaholic/tickets/todo/` regardless of branch type.
 
 ### 2. Parallel Discovery
 
-Invoke `work:discoverer` three times in parallel via the Task tool (single message with three Task calls), `model: "opus"`, one per mode:
+The command spawns three `subagent_type: "general-purpose"` subagents in parallel (single message with three Task calls), `model: "opus"`, one per discovery mode. Each prompt instructs the subagent to preload `core:discover`, run the section matching its mode, and return that mode's output schema:
 
-- **history** (`subagent_type: "work:discoverer"`, mode: `history`): Returns JSON with summary, tickets list, match reasons, and `moderation` field (status/matches/recommendation).
-- **source** (`subagent_type: "work:discoverer"`, mode: `source`): Returns JSON with summary, files list, code_flow, and optional snippets.
-- **policy** (`subagent_type: "work:discoverer"`, mode: `policy`): Returns JSON with summary, policies list, and architecture (principles, dependency_rules).
+- **history** (`mode: history` → `core:discover` Discover History): Returns JSON with summary, tickets list, match reasons, and `moderation` field (status/matches/recommendation).
+- **source** (`mode: source` → `core:discover` Discover Source): Returns JSON with summary, files list, code_flow, and optional snippets.
+- **policy** (`mode: policy` → `core:discover` Discover Policy): Returns JSON with summary, policies list, and architecture (principles, dependency_rules).
 
-Wait for all three to complete before proceeding.
+These are leaf subagents — they do non-interactive discovery only and MUST NOT call AskUserQuestion. Wait for all three to complete before proceeding.
 
 ### 3. Handle Moderation Result
 
-Based on the history discoverer's `moderation` field:
+Based on the history discovery subagent's `moderation` field:
 
 - `moderation.status: "duplicate"` — Return `status: "duplicate"` with existing ticket path.
 - `moderation.status: "needs_decision"` — Return `status: "needs_decision"` with merge/split options.
@@ -300,7 +326,7 @@ These fields are updated by the `drive` skill (Update Frontmatter section) durin
 
 ### Optional
 
-- **depends_on**: List of ticket filenames that must be implemented before this ticket. Populated automatically when the ticket-organizer splits a request. Format: YAML list of filenames (e.g., `[20260410002111-foundation.md]`). Leave empty for standalone tickets.
+- **depends_on**: List of ticket filenames that must be implemented before this ticket. Populated automatically when the `/ticket` command splits a request. Format: YAML list of filenames (e.g., `[20260410002111-foundation.md]`). Leave empty for standalone tickets.
 
 ## Lead Lens
 
@@ -316,7 +342,7 @@ Each ticket should respect the relevant leading skills based on its `layer` fiel
 
 Anything touching authentication, authorization, secrets management, or input validation also engages `standards:leading-security` regardless of layer.
 
-When writing Implementation Steps, Considerations, and Patches, ensure they respect the policies, practices, and standards of every applicable lead. The `ticket-organizer` agent has these skills preloaded and applies them automatically; this section documents the mapping for human readers and future agents.
+When writing Implementation Steps, Considerations, and Patches, ensure they respect the policies, practices, and standards of every applicable lead. The `/ticket` command preloads these skills (this skill carries them in its `skills:` frontmatter) and applies them automatically; this section documents the mapping for human readers and future agents.
 
 ## Exploring the Codebase
 
@@ -328,7 +354,7 @@ Before writing a ticket:
 
 ## Related History
 
-The Related History section is populated by the `discoverer` agent in history mode (invoked by `/ticket` command).
+The Related History section is populated from the history-mode discovery subagent's output (the `/ticket` command spawns it as a `general-purpose` subagent preloading `core:discover`).
 
 **Link format**: Use markdown links with repository-relative paths:
 ```markdown

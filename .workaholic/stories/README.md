@@ -69,6 +69,7 @@ Refs #<issue-number>
 
 ## Stories
 
+- [work-20260518-235327.md](work-20260518-235327.md) - Cross-agent distribution: package core/standards skills via the Agent Skills standard, flatten report/drive/ticket orchestration onto general-purpose subagents, build a CI-guarded committed dist/workflows for Codex and the skills CLI, add a carry-over concerns pipeline, decouple core:ship from trip - 17 tickets, 33 commits
 - [work-20260417-092936.md](work-20260417-092936.md) - Eliminate manager tier, redraw core/work plugin boundary, thin six work-side umbrellas (drive, report, trip, ticket, ship, discover) into core-skill aliases, rewrite leading skills in viewpoint prose - 16 tickets, 27 commits
 - [work-20260415-163724.md](work-20260415-163724.md) - Consolidate 7 lead domains to 4 (validity, availability, security, accessibility), rewrite policies in priority-based tone, soft dependency fix - 0 tickets, 4 commits
 - [work-20260408-001129.md](work-20260408-001129.md) - Lead skill architecture maturation: four-tier structure, domain consolidation, drive abandon fix, dependency tracking - 3 tickets, 15 commits

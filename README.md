@@ -1,18 +1,20 @@
 # Workaholic
 
-Private marketplace for Claude Code plugins. Discover and enable plugins that add structured workflows to your Claude Code sessions, from ticket-driven development to AI-collaborative exploration.
+The development workflows we use at [qmu](https://github.com/qmu), written down so our coding agents can run them the way we do. They're tuned to how we work, so they may not fit everyone, and they'll keep changing as we do. We keep it public so the people we work with can share the same base.
+
+**Concretely**, it's a cross-agent distribution of structured development workflows and engineering-standard skills: ticket-driven development, AI-collaborative exploration, and the `leading-*` policy lenses. It's richest on **Claude Code** (a plugin marketplace: slash commands, hooks, `/trip` Agent Teams); the same skills install on **Codex**, **OpenCode**, and 40+ other agents via the [Agent Skills standard](https://skills.sh). Authored once under `plugins/`, generated into portable artifacts under `dist/`.
 
 > [!WARNING]
-> **This plugin drives git on your behalf.** Workaholic lets Claude Code autonomously create branches, commit, amend, push, and open pull requests. Review the plugin descriptions below before installing so you know what to expect.
+> **This drives git on your behalf.** Workaholic lets your coding agent autonomously create branches, commit, amend, push, and open pull requests. Review the plugin/skill descriptions below before installing so you know what to expect.
 
-## Quick Start
+## Quick Start (Claude Code)
 
 ```bash
 claude
 /plugin marketplace add qmu/workaholic
 ```
 
-Enable the plugins you want after installation. Auto update is recommended.
+Enable the plugins you want after installation. Auto update is recommended. For Codex, OpenCode, and other agents, see [Use with other coding agents](#use-with-other-coding-agents) below.
 
 ## Use with other coding agents
 

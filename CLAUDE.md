@@ -1,6 +1,6 @@
 # Workaholic
 
-Private marketplace for Claude Code plugins.
+Private, cross-agent distribution of structured development workflows and engineering standards. It is richest on **Claude Code**, where it installs as a plugin marketplace (slash commands, hooks, `/trip` Agent Teams); the portable skills also ship to **Codex** (via `.agents/plugins/marketplace.json` → `dist/workflows`) and to **OpenCode** plus 40+ other agents via the Agent Skills standard / `skills` CLI. Authored source lives under `plugins/`; cross-agent artifacts are generated into `dist/`.
 
 ## Important
 

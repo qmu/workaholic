@@ -10,12 +10,13 @@
 //
 // Topology:
 //   plugins/                  authored source of truth (Claude reads it directly)
-//   dist/<agent>/             committed, generated per-agent plugin (manifest + skills/)
+//   dist/workflows/           committed, generated portable plugin (one neutral dir serves
+//                             Codex + OpenCode + other agents via their respective manifests)
 //
-// The self-contained skills are assembled in a throwaway scratch dir (never committed);
-// each agent plugin under dist/ is then built from that scratch. dist/ is committed
-// because Codex (.agents/plugins/marketplace.json) and the skills CLI install by reading
-// paths out of the repo, so the artifacts must be present at install time.
+// The self-contained skills are assembled in a throwaway scratch dir (never committed),
+// then copied into dist/workflows. dist/ is committed because Codex
+// (.agents/plugins/marketplace.json) and the skills CLI (.claude-plugin/marketplace.json)
+// install by reading paths out of the repo, so the artifacts must be present at install time.
 //
 // Reference rewrites (per built skill):
 //   SKILL.md:  ${CLAUDE_PLUGIN_ROOT}/skills/<x>/scripts/  ->  <x>/scripts/
@@ -30,8 +31,11 @@ import { tmpdir } from "node:os";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
 const CORE_SKILLS = join(REPO_ROOT, "plugins/core/skills");
-const DIST_ROOT = join(REPO_ROOT, "dist");        // committed per-agent outputs
-const CODEX_PLUGIN = join(DIST_ROOT, "codex");    // dist/codex (was codex/workflows)
+const DIST_ROOT = join(REPO_ROOT, "dist");                // committed generated output
+// One neutral portable plugin serves every non-Claude agent: Codex reads its co-located
+// .codex-plugin/plugin.json; OpenCode + Cursor + 40 others get it via the skills CLI
+// scanning .claude-plugin/marketplace.json. Both manifests point at this dir.
+const WORKFLOWS_PLUGIN = join(DIST_ROOT, "workflows");    // dist/workflows
 
 // Self-contained skills are built here, then copied into each agent plugin. Throwaway:
 // removed after a full build; left in place (and its path printed) for partial dev builds.
@@ -139,11 +143,13 @@ function publicizeSkillMd(p) {
   writeFileSync(p, md);
 }
 
-// Assemble the committed Codex workflow plugin (dist/codex) from built scratch skills.
-function assembleCodexPlugin(builtTargets) {
-  rmSync(CODEX_PLUGIN, { recursive: true, force: true });
-  mkdirSync(join(CODEX_PLUGIN, ".codex-plugin"), { recursive: true });
-  const skillsOut = join(CODEX_PLUGIN, "skills");
+// Assemble the committed portable workflows plugin (dist/workflows) from built scratch
+// skills. It carries a .codex-plugin/plugin.json for Codex; the skills CLI ignores that
+// and scans only skills/, so the same dir serves Codex, OpenCode, and other agents.
+function assembleWorkflowsPlugin(builtTargets) {
+  rmSync(WORKFLOWS_PLUGIN, { recursive: true, force: true });
+  mkdirSync(join(WORKFLOWS_PLUGIN, ".codex-plugin"), { recursive: true });
+  const skillsOut = join(WORKFLOWS_PLUGIN, "skills");
   mkdirSync(skillsOut, { recursive: true });
 
   // workflow skills come from scratch (self-contained); extras are pure prose from source.
@@ -164,7 +170,7 @@ function assembleCodexPlugin(builtTargets) {
     keywords: ["workflow", "tickets", "tdd", "code-review", "release"],
     skills: "./skills/",
   };
-  writeFileSync(join(CODEX_PLUGIN, ".codex-plugin", "plugin.json"), JSON.stringify(manifest, null, 2) + "\n");
+  writeFileSync(join(WORKFLOWS_PLUGIN, ".codex-plugin", "plugin.json"), JSON.stringify(manifest, null, 2) + "\n");
 }
 
 const argTargets = process.argv.slice(2);
@@ -182,8 +188,8 @@ if (failed) process.exit(1);
 
 // Assemble the committed per-agent plugins only on a full default build, then clean up.
 if (!argTargets.length) {
-  assembleCodexPlugin(DEFAULT_TARGETS);
-  console.log(`assembled Codex plugin -> ${CODEX_PLUGIN.replace(REPO_ROOT + "/", "")} (skills: ${[...DEFAULT_TARGETS, ...EXTRA_SKILLS].join(", ")})`);
+  assembleWorkflowsPlugin(DEFAULT_TARGETS);
+  console.log(`assembled workflows plugin -> ${WORKFLOWS_PLUGIN.replace(REPO_ROOT + "/", "")} (skills: ${[...DEFAULT_TARGETS, ...EXTRA_SKILLS].join(", ")})`);
   rmSync(SCRATCH, { recursive: true, force: true });
 } else {
   // partial dev build: leave scratch in place for inspection

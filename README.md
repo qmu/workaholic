@@ -28,18 +28,18 @@ Workaholic follows the cross-agent [Agent Skills standard](https://skills.sh). W
 | ----- | --- |
 | **Claude Code** | `/plugin marketplace add qmu/workaholic` (slash commands `/ticket`, `/drive`, `/report`, `/ship`, `/trip`) |
 | **OpenAI Codex** | Codex reads `.agents/plugins/marketplace.json` — install the `standards` and `workflows` plugins from the Codex marketplace |
-| **Cursor / OpenCode / Pi / 50+** | `npx skills add qmu/workaholic` (exposes `standards` + `write-release-note`) |
+| **Cursor / OpenCode / Pi / 50+** | `npx skills add qmu/workaholic` (exposes `standards` + `workflows`) |
 
-### How the workflows reach Codex
+### How the workflows reach other agents
 
-The workflow skills share helper scripts across `plugins/core` via the Claude-only `${CLAUDE_PLUGIN_ROOT}` token, so they are not self-contained in source. `tools/build-portable-skills` generates **self-contained** copies (each skill bundling its own scripts, references rewritten to relative paths) and assembles the Codex `workflows` plugin under `codex/workflows/`. Regenerate after changing a core workflow skill:
+The workflow skills share helper scripts across `plugins/core` via the Claude-only `${CLAUDE_PLUGIN_ROOT}` token, so they are not self-contained in source. `tools/build-portable-skills` generates **self-contained** copies (each skill bundling its own scripts, references rewritten to relative paths) and assembles one neutral, committed plugin under `dist/workflows/`. That single dir serves every non-Claude agent: Codex via `.agents/plugins/marketplace.json` (and the co-located `.codex-plugin/plugin.json`), and OpenCode/Cursor/40+ via the `skills` CLI reading the `workflows` entry in `.claude-plugin/marketplace.json`. Regenerate after changing a core workflow skill:
 
 ```bash
-node tools/build-portable-skills/build.mjs   # regenerate codex/workflows artifacts
+node tools/build-portable-skills/build.mjs   # regenerate dist/workflows artifacts (no args = full build)
 node tools/build-portable-skills/verify.mjs  # assert every script reference resolves
 ```
 
-The `plugins/core` source stays Claude-Code-only (`metadata.internal: true`, `${CLAUDE_PLUGIN_ROOT}`); the committed `codex/` artifacts are the public, portable versions. The **`work`** plugin's commands/hooks/Agent Teams remain Claude-Code-only.
+The `plugins/core` source stays Claude-Code-only (`metadata.internal: true`, `${CLAUDE_PLUGIN_ROOT}`); the committed `dist/workflows/` artifacts are the public, portable versions, kept in sync by the `Dist Freshness` CI check. The **`work`** plugin's commands/hooks/Agent Teams remain Claude-Code-only.
 
 ## Plugins
 

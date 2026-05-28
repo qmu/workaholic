@@ -13,176 +13,177 @@ depends_on:
 
 ## Overview
 
-Reflect the qmu.co.jp design-system policy into this repository's `plugins/standards/skills/leading-*/SKILL.md` automatically. An hourly GitHub Action polls `https://qmu.co.jp/design`, detects when its content has changed since the previous run, and — only on change — invokes the Claude Agent SDK in headless mode. The agent fetches the relevant sub-pages, diffs them against the previously-seen snapshot, and proposes edits to the four leading lenses (`leading-accessibility`, `leading-availability`, `leading-security`, `leading-validity`). The agent never pushes to `main`: it commits to a branch and opens a pull request for human review. The previously-seen snapshot is updated **inside the same PR commit**, so an unchanged page never produces git noise and each PR is self-contained.
+Reflect the qmu.co.jp design-system policy into this repository's `plugins/standards/skills/leading-*/SKILL.md` automatically, while keeping all secrets and all agent execution out of this public repository. A separate, **private** controller repository (`qmu/workaholic-standards-sync`) runs an hourly cron that polls `https://qmu.co.jp/design`, detects content changes against the last-seen hash, invokes the Claude Agent SDK in headless mode, validates the resulting edits against the lead-skill schema, and opens a draft pull request against this public repository via a narrowly-scoped GitHub App. This public repository carries no `ANTHROPIC_API_KEY`, no GitHub Actions secret consumed by the bot, and no scheduled workflow — only the resulting bot PR shows up here, and it is reviewed and merged by a human like any other contribution.
 
-The motivation is to make the qmu.co.jp design system the upstream source of truth for the project's policy lenses. Today the four `leading-*` skills carry hand-authored policy that nobody systematically reconciles with the corporate site; this change closes that loop with a structurally-bounded agent rather than a manual review cadence.
+The architecture is shaped by a specific threat: putting an Anthropic API key in a public repository's Actions secrets creates a standing credential-exfiltration target that survives the workflow's own defenses. A workflow-file PR, a compromised maintainer account, or an `@anthropic-ai/claude-agent-sdk` supply-chain compromise would all reach the key. Moving the secret and the executor into a controller repository with no external contributors collapses that attack surface. The residual risks — semantic prompt injection from qmu.co.jp HTML, controller compromise, third-party Action compromise — are bounded by deterministic guardrails (path allowlist, schema validator, draft PRs, CODEOWNERS, SHA-pinned Actions) and by human review of every PR.
 
 ## Key Files
 
-### Targets the agent is allowed to edit
-- [plugins/standards/skills/leading-accessibility/SKILL.md](plugins/standards/skills/leading-accessibility/SKILL.md) - 52 lines; frontmatter `name`/`description`/`user-invocable` only.
+### Targets the agent is allowed to edit (in the public repo's working tree on the controller)
+- [plugins/standards/skills/leading-accessibility/SKILL.md](plugins/standards/skills/leading-accessibility/SKILL.md) - 52 lines.
 - [plugins/standards/skills/leading-availability/SKILL.md](plugins/standards/skills/leading-availability/SKILL.md) - 57 lines; contains the `Deliberate Dependency Coupling` policy this very ticket must satisfy.
 - [plugins/standards/skills/leading-security/SKILL.md](plugins/standards/skills/leading-security/SKILL.md) - 37 lines (shortest, most skeletal).
-- [plugins/standards/skills/leading-validity/SKILL.md](plugins/standards/skills/leading-validity/SKILL.md) - 84 lines (longest, most mature; use as the structural template).
+- [plugins/standards/skills/leading-validity/SKILL.md](plugins/standards/skills/leading-validity/SKILL.md) - 84 lines (use as the structural template).
 
-The agent must edit only these four paths. Any change outside the allowlist is a validator failure.
+The agent must edit only these four paths. Any change outside the allowlist is a validator failure that aborts the PR-open step.
 
-### Schema contract
-- [.claude/rules/define-lead.md](.claude/rules/define-lead.md) - Required sections (`## Role` → `### Goal`/`### Responsibility`, `## Policies`, optional `## Practices`, optional `## Standards`), frontmatter shape (`name` + `description` only), and the four-tier order (Role → Policies → Practices → Standards). The post-edit validator runs against this checklist.
+### Schema contract this repository owns
+- [.claude/rules/define-lead.md](.claude/rules/define-lead.md) - Required sections, frontmatter shape, four-tier order. The controller's post-edit validator runs against this checklist, so it must read the file from the cloned repo at run time rather than carrying a stale copy.
 
-### New files this ticket creates
-- `.github/workflows/standards-sync.yml` - Hourly cron workflow. `permissions: contents: write, pull-requests: write` at job scope; `concurrency: group: standards-sync, cancel-in-progress: false`.
-- `scripts/standards-sync/fetch-design-page.sh` - Tiny POSIX-sh wrapper that fetches `https://qmu.co.jp/design` with a real browser User-Agent header (Cloudflare blocks the default Agent-SDK `WebFetch` — see Considerations). Writes the raw HTML and a content hash to `runtime/standards-sync/snapshot/`.
-- `scripts/standards-sync/run-agent.mjs` - Node entry-point that imports `query` from `@anthropic-ai/claude-agent-sdk`, configures `allowedTools: ["Read", "Edit", "Glob", "Grep"]` (no `Write`, no `Bash`, no `WebFetch` — fetched HTML is delivered as Read-able files), `permissionMode: "acceptEdits"`, `cwd` rooted at the repo, a `PreToolUse` hook that blocks any edit outside `plugins/standards/skills/leading-*/SKILL.md`, and a `PostToolUse` hook that appends every edit to a per-run audit log.
-- `scripts/standards-sync/validate-lead-schema.mjs` - Pure function that parses each edited SKILL.md frontmatter + section order against the `define-lead.md` checklist and exits non-zero if any file fails. Reused by the workflow as a separate step *after* the agent runs.
-- `scripts/standards-sync/state.json` - Committed marker file. Shape: `{ "url": "https://qmu.co.jp/design", "last_seen_content_hash": "sha256-...", "last_checked_at": "ISO-8601", "last_pr_url": "..." }`. Read at the start of every run; updated only inside the PR commit when a change is detected and applied.
-- `scripts/standards-sync/README.md` - Operator doc: what each script does, how to dry-run locally (`ANTHROPIC_API_KEY=... node scripts/standards-sync/run-agent.mjs --dry-run`), how to disable (workflow toggle), and the documented exit strategy.
+### New files in this repository (the only changes to land here directly from this ticket)
+- `.github/CODEOWNERS` - Requires reviewer approval for any PR touching `plugins/standards/skills/leading-*/SKILL.md`. Applies to the bot's PRs and to human PRs equally. Branch protection on `main` already requires reviews; this scopes the requirement to the maintainers for these four files specifically.
+- `CLAUDE.md` - Add a short Standards Sync section under Architecture Policy: name the controller repo, point at its operator README, and state that this public repo carries no secrets for the sync flow.
+- Repo setting (manual, not a file): set the default `GITHUB_TOKEN` permissions to `read-all` in repo Settings → Actions → General → Workflow permissions. Every existing workflow that needs writes (release.yml uses `contents: write`) declares it explicitly at job scope — verified during research, no regression.
 
-### Reference patterns from existing CI
-- [.github/workflows/release.yml](.github/workflows/release.yml) - Use as the `permissions:` + `GITHUB_TOKEN` + `gh` CLI pattern (lines 9-18, 42-43, 108).
-- [.github/workflows/validate-plugins.yml](.github/workflows/validate-plugins.yml) - The PR the bot opens must pass this workflow's `jq` checks, `validate-metadata.mjs`, and `test-workflow-scripts.mjs`. Since the agent only edits `plugins/standards/skills/leading-*/SKILL.md`, none of those should regress, but verify in a dry-run.
-- [.github/workflows/dist-freshness.yml](.github/workflows/dist-freshness.yml) - `plugins/standards/` is outside the `build.mjs` closure ([scripts/build-plugins/build.mjs](scripts/build-plugins/build.mjs) line 33 `CORE_SKILLS = plugins/core/skills`), so standards-only PRs do not need `dist/` regeneration and this workflow passes vacuously. Confirm in dry-run.
-- [plugins/core/hooks/validate-ticket.sh](plugins/core/hooks/validate-ticket.sh) - Rejects `@anthropic.com` authors. The bot's PR commits must author as `github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>` with `Co-Authored-By: TAMURA Yoshiya <a@qmu.jp>` — not the SDK's default Claude attribution.
+### New files in the controller repo (`qmu/workaholic-standards-sync`)
+This repository creates a sibling private repo; the implementation steps below scaffold it. Files there:
+- `.github/workflows/sync.yml` - The hourly cron. `permissions: read-all` at workflow scope. No `pull_request` or `pull_request_target` triggers. Every third-party Action pinned to a full commit SHA. Concurrency-grouped.
+- `package.json` + `package-lock.json` - Pins `@anthropic-ai/claude-agent-sdk`, `@octokit/auth-app`, and `@octokit/rest` to exact versions.
+- `src/fetch-design.mjs` - Fetches `https://qmu.co.jp/design` with a real browser User-Agent (Cloudflare blocks the SDK's built-in `WebFetch` — verified during research; `curl -A "Mozilla/5.0 ..."` returns 200, default UA returns 403). Writes raw HTML and SHA-256 to `runtime/snapshot/`.
+- `src/check-changed.mjs` - Reads `state/qmu-design-snapshot.json`, compares hash to the freshly-fetched value, emits `changed=true|false` as a `$GITHUB_OUTPUT`. Gates the agent step so the SDK is only paid for when there is actual work.
+- `src/run-agent.mjs` - Imports `query` from `@anthropic-ai/claude-agent-sdk`. Configures `allowedTools: ["Read", "Edit", "Glob", "Grep"]` (no `Write`, `Bash`, or `WebFetch`), `permissionMode: "acceptEdits"`, `cwd` rooted at the cloned `workaholic` repo, a `PreToolUse` hook that rejects any edit outside the four `leading-*/SKILL.md` paths, a `PostToolUse` hook that appends each edit to a per-run audit log, and `settingSources: []` so the agent loads no `.claude/` configuration from the target repo.
+- `src/validate-lead-schema.mjs` - Pure typed function. Asserts each edited file conforms to `.claude/rules/define-lead.md` (frontmatter keys, section order, required H3s under `## Role`). Exits non-zero on any failure.
+- `src/open-pr.mjs` - Authenticates as the GitHub App via `@octokit/auth-app`, mints an installation token (1-hour, repo-scoped, no `workflows:write`), creates a branch on `qmu/workaholic`, commits with the bot's identity, opens a **draft** PR via the REST API. PR body includes: upstream URL, content hash before and after, SDK version, model version, validator verdict, the upstream HTML diff rendered as a markdown code block, and a numbered reviewer checklist.
+- `state/qmu-design-snapshot.json` - Committed marker file. Shape: `{ "url", "last_seen_content_hash", "last_checked_at", "last_pr_url", "last_pr_branch" }`. Updated only after the bot PR is successfully opened — same commit in the controller repo, so an unchanged run produces zero git noise.
+- `README.md` - Operator doc: GitHub App setup steps, secret list, how to disable the cron, dry-run instructions, the documented exit strategy ("replace SDK with ~80 lines of `@anthropic-ai/sdk` Messages API plus the schema validator").
+- `test/fixtures/qmu-design-*.html` + `test/test-*.mjs` - Hermetic tests for fetch (against a local Python `http.server`), validator (against good and intentionally-broken fixture SKILL.md files), and the PR-body renderer.
+- `.github/dependabot.yml` - Weekly bumps for the npm deps and the pinned Action SHAs.
+
+### Reference patterns (this repo) the controller borrows from
+- [.github/workflows/release.yml](.github/workflows/release.yml) - `GITHUB_TOKEN` + `gh` CLI plumbing pattern.
+- [plugins/core/hooks/validate-ticket.sh](plugins/core/hooks/validate-ticket.sh) - Rejects `@anthropic.com` authors. The bot must commit as `github-actions[bot]` with `Co-Authored-By: TAMURA Yoshiya <a@qmu.jp>`, never the SDK default.
+- [scripts/build-plugins/build.mjs](scripts/build-plugins/build.mjs) line 33 - `CORE_SKILLS = plugins/core/skills`. Standards is outside the dist closure, so standards-only PRs need no `dist/` regen and pass `dist-freshness.yml` vacuously. Verify during dry-run.
 
 ## Related History
 
-This is net-new ground: no existing workflow in `.github/workflows/` uses a `schedule:` trigger, no prior commit introduces an Anthropic SDK / `npx` dependency in CI, and `qmu.co.jp` is referenced nowhere in the repository. The closest reference patterns are listed below.
+The architectural pivot was driven by a security-review pass that surfaced the credential-exfiltration risk of holding `ANTHROPIC_API_KEY` in a public repo. The history below covers the policy foundation, the existing automation patterns the controller borrows from, and the constraints any auto-PR bot in this repo must satisfy.
 
-- [.workaholic/tickets/archive/work-20260417-092936/20260509001216-wire-leads-into-work-flows.md](.workaholic/tickets/archive/work-20260417-092936/20260509001216-wire-leads-into-work-flows.md) - Establishes the four `leading-*` skills as the project's canonical policy surface; defines why those four files matter and why they are load-bearing for `/ticket` and `/drive`.
-- [.workaholic/tickets/archive/feat-20260131-125844/20260129123400-auto-release-on-merge.md](.workaholic/tickets/archive/feat-20260131-125844/20260129123400-auto-release-on-merge.md) - The only prior example of a GitHub Action that mutates the repo automatically. Sets the `permissions: contents: write` + `GITHUB_TOKEN` precedent that this workflow extends with `pull-requests: write`.
-- [.workaholic/tickets/archive/drive-20260202-203938/20260202204111-fix-release-action-trigger-on-merge.md](.workaholic/tickets/archive/drive-20260202-203938/20260202204111-fix-release-action-trigger-on-merge.md) - Cautionary tale about GitHub Action trigger semantics on merges — relevant to the auto-PR flow this ticket introduces.
-- [.workaholic/tickets/archive/drive-20260131-223656/20260201100737-reject-anthropic-email-in-ticket-author.md](.workaholic/tickets/archive/drive-20260131-223656/20260201100737-reject-anthropic-email-in-ticket-author.md) - The hard rule that bot commits cannot author as `@anthropic.com`. The Agent SDK's default attribution must be overridden.
-- [.workaholic/tickets/archive/work-20260518-235327/20260527142130-relocate-cross-agent-output-into-dist.md](.workaholic/tickets/archive/work-20260518-235327/20260527142130-relocate-cross-agent-output-into-dist.md) - Defines the `dist/` freshness check pattern. Standards is outside that closure, but the bot's PR must still pass.
-- Recent commit `c3796cc` (this branch) - Introduced `publicizeSkillMd`'s `PUBLIC_SUBSTITUTIONS` list. If the qmu.co.jp policy ever asks for terminology changes, the bot must apply them to source skills (Claude reads source) and let the build rewrite the public copies — the same source-vs-generated split applies here.
+- [.workaholic/tickets/archive/work-20260417-092936/20260509001216-wire-leads-into-work-flows.md](.workaholic/tickets/archive/work-20260417-092936/20260509001216-wire-leads-into-work-flows.md) - Establishes the four `leading-*` skills as the canonical policy surface.
+- [.workaholic/tickets/archive/feat-20260131-125844/20260129123400-auto-release-on-merge.md](.workaholic/tickets/archive/feat-20260131-125844/20260129123400-auto-release-on-merge.md) - Only prior example in this repo of an Action that mutates the repo automatically; sets the `GITHUB_TOKEN` + `gh` precedent.
+- [.workaholic/tickets/archive/drive-20260131-223656/20260201100737-reject-anthropic-email-in-ticket-author.md](.workaholic/tickets/archive/drive-20260131-223656/20260201100737-reject-anthropic-email-in-ticket-author.md) - The hard rule that bot commits cannot author as `@anthropic.com`. The controller must override the SDK's default attribution.
+- [.workaholic/tickets/archive/work-20260518-235327/20260527142130-relocate-cross-agent-output-into-dist.md](.workaholic/tickets/archive/work-20260518-235327/20260527142130-relocate-cross-agent-output-into-dist.md) - Defines the dist freshness contract; verified during research that standards changes do not touch dist.
+- Recent commit `c3796cc` (this branch) - Source-vs-generated split for skill prose. If a future qmu.co.jp policy ever asks for terminology changes, the bot edits source skills and the build rewrites public copies — same pattern still applies.
+- External precedent for the controller pattern: `tj-actions/changed-files` (2025) and `reviewdog` (2024) supply-chain compromises — both motivate pinning third-party Actions to full SHAs and minimizing the surface where a malicious Action could read secrets.
 
 ## Implementation Steps
 
-The pipeline has four layers; each is independently testable. Build them in order, with hermetic tests against fixtures before any live-internet step.
+This ticket creates two repositories' worth of changes. The public-repo changes are small and land first; the controller repo is the bulk of the work and lands in its own commits over there.
 
-### 1. State and fetch layer (no SDK yet)
+### 1. Public-repo guardrails (lands here)
 
-1. Add `scripts/standards-sync/state.json` with shape `{"url": "https://qmu.co.jp/design", "last_seen_content_hash": null, "last_checked_at": null, "last_pr_url": null}`. Commit as part of this work.
-2. Add `scripts/standards-sync/fetch-design-page.sh`. POSIX `#!/bin/sh -eu`. Args: `<output-dir>`. Uses `curl -fsSL -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 ..."` to fetch the page. Writes `<output-dir>/design.html` and `<output-dir>/design.sha256` (sha256 of the HTML). Retries with exponential backoff (3 attempts, 2s/8s/32s) on 5xx and connection errors. Exits 0 on transient failure with a stderr note; exits non-zero only on persistent failure after retries — the workflow can then `continue-on-error: true` and post a `$GITHUB_STEP_SUMMARY` line rather than failing the run.
-3. Hermetic test: `scripts/standards-sync/test/test-fetch.sh` runs the fetcher against a local fixture HTTP server (Python `http.server` started in the same script) serving `scripts/standards-sync/test/fixtures/design.html`. Assert exit code, file content, and hash.
-4. Add a single change-detection script `scripts/standards-sync/check-changed.sh` that reads `state.json`'s `last_seen_content_hash`, compares to the freshly-fetched hash, and exits 0 (`unchanged`) or 1 (`changed`). The workflow gates the agent step on this exit code so the SDK is only paid for when there's actual work.
+1. Add [.github/CODEOWNERS](.github/CODEOWNERS): `plugins/standards/skills/leading-* @qmu/maintainers` (or the appropriate human reviewer team / username). Without CODEOWNERS the bot's PRs could in principle be merged by anyone with write access; this scopes the four files to a named reviewer set.
+2. Update `CLAUDE.md` with a Standards Sync section under Architecture Policy. State: the cron, the secret, and the agent run in `qmu/workaholic-standards-sync` (private); this repo only receives the resulting draft PRs; the four `leading-*/SKILL.md` files are CODEOWNED; the App has no `workflows:write` so it cannot edit `.github/` from here.
+3. Operator step (cannot be coded by this ticket): set repo default `GITHUB_TOKEN` permissions to `read-all` (Settings → Actions → General). Verify existing workflows still pass — `release.yml` already declares `permissions: contents: write` at workflow scope, `validate-plugins.yml` and `dist-freshness.yml` need read-only and continue to work. Document the manual step in `CLAUDE.md`.
+4. Operator step (cannot be coded by this ticket): enable branch protection on `main` requiring CODEOWNERS review and disallowing self-approval by the App's bot account.
 
-### 2. Agent invocation layer
+### 2. GitHub App setup (one-time, manual operator work)
 
-1. Add `package.json` at the repo root with `{ "private": true, "dependencies": { "@anthropic-ai/claude-agent-sdk": "<pinned>" }, "type": "module" }`. Confine the dependency to a single module per the Deliberate Dependency Coupling policy. Pin the version exactly; document an exit strategy in the README that says "replace with ~80 lines of `@anthropic-ai/sdk` Messages API + the schema validator if SDK becomes unmaintained."
-2. Add `scripts/standards-sync/run-agent.mjs`. Pattern follows the official docs (`https://code.claude.com/docs/en/agent-sdk/overview`):
-   ```
+1. Create a GitHub App owned by the `qmu` org. Name: "Workaholic Standards Sync". Homepage: the controller repo URL.
+2. Permissions:
+   - Repository permissions → Contents: **Read & write**
+   - Repository permissions → Pull requests: **Read & write**
+   - Repository permissions → Metadata: **Read** (forced)
+   - **Do not grant** Workflows, Actions, Administration, Secrets, or any organization permission.
+3. Subscribe to no webhook events. The controller polls; it does not react to events.
+4. Install the App on exactly two repos: `qmu/workaholic` (target) and `qmu/workaholic-standards-sync` (controller).
+5. Generate a private key (`.pem` download). Store it as a secret on the controller repo only.
+6. Record the App ID and the installation ID in the controller's README and as repo variables (not secrets) so the runner can resolve the installation at run time.
+
+### 3. Controller repo scaffold
+
+1. Create the private repo `qmu/workaholic-standards-sync`. Initialize with `main`, default-branch protection (required PR review for any human change), and a CODEOWNERS pointing at the same human reviewer set as the public repo.
+2. Repo settings: default `GITHUB_TOKEN` permissions read-only, Dependabot enabled.
+3. Repo secrets: `ANTHROPIC_API_KEY`, `STANDARDS_SYNC_APP_PRIVATE_KEY`. Repo variables: `STANDARDS_SYNC_APP_ID`, `STANDARDS_SYNC_INSTALLATION_ID`.
+4. Initial `package.json` with exact-version pins for `@anthropic-ai/claude-agent-sdk`, `@octokit/auth-app`, `@octokit/rest`. Commit `package-lock.json` so `npm ci` is reproducible.
+5. Pin every third-party Action in `.github/workflows/sync.yml` to a full commit SHA, not a tag — per the `tj-actions/changed-files` precedent. Add a comment line above each `uses:` with the human-readable version for review.
+
+### 4. Fetch + change-detection layer
+
+1. `src/fetch-design.mjs`: fetch `https://qmu.co.jp/design` with `User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 ...`. Retries 3x with exponential backoff (2s/8s/32s) on 5xx and network errors. Write `runtime/snapshot/design.html` and a `runtime/snapshot/design.sha256` file containing the hex SHA-256 of the HTML.
+2. Exits 0 on transient failure with a stderr note; the workflow step uses `continue-on-error: true` so transient outages do not page anyone. The next-step gate naturally aborts the agent run.
+3. `src/check-changed.mjs`: compare the freshly-computed hash against `state/qmu-design-snapshot.json#last_seen_content_hash`. Emit `echo "changed=true|false" >> $GITHUB_OUTPUT`.
+4. Hermetic test (`test/test-fetch.mjs`): spin up a Python `http.server` on a random port serving `test/fixtures/qmu-design-baseline.html`. Assert fetch writes the right files and the right hash. Repeat with `qmu-design-changed.html` and assert `check-changed` emits `changed=true`.
+
+### 5. Agent layer
+
+1. `src/run-agent.mjs` skeleton (TypeScript shape; .mjs because the controller has no TS build):
+   ```js
    import { query } from "@anthropic-ai/claude-agent-sdk";
    for await (const message of query({
-     prompt: <system + user prompt described below>,
+     prompt: buildPrompt({ /* paths, current content, previous snapshot, new snapshot, schema contract */ }),
      options: {
        allowedTools: ["Read", "Edit", "Glob", "Grep"],
        permissionMode: "acceptEdits",
-       cwd: process.cwd(),
+       cwd: process.env.WORKAHOLIC_CLONE_PATH,
        hooks: {
          PreToolUse: [{ matcher: "Edit|Write", hooks: [blockOutsideAllowlist] }],
          PostToolUse: [{ matcher: "Edit", hooks: [auditEdit] }]
        },
-       settingSources: []  // do NOT load .claude/ — the bot runs with no project skills
+       settingSources: []
      }
    })) { /* stream to $GITHUB_STEP_SUMMARY */ }
    ```
-3. The `blockOutsideAllowlist` hook rejects any `tool_input.file_path` that does not match the regex `^plugins/standards/skills/leading-(accessibility|availability|security|validity)/SKILL\.md$`. Defense-in-depth (per `leading-security`): the post-run validator catches this too, but the hook fails fast and avoids spurious commits.
-4. The `auditEdit` hook appends each edit's `{timestamp, file_path, old_string, new_string}` to `runtime/standards-sync/audit-<run-id>.log` (uploaded as a workflow artifact).
-5. Construct the prompt as: (a) the four `leading-*/SKILL.md` paths and their current content (the agent reads them via Read); (b) the previous snapshot under `runtime/standards-sync/snapshot-previous/design.html` (committed marker text from `state.json` plus the file the agent re-fetches); (c) the new snapshot under `runtime/standards-sync/snapshot/design.html`; (d) the lead-schema contract from `.claude/rules/define-lead.md`; (e) an explicit instruction to propose minimal diffs, preserve the "humble trade-off-acknowledging tone" (per the leading-skill commit history `86a048c`), and place new content in the correct tier (Policies vs Practices vs Standards). For Read-able input the agent does NOT need WebFetch — that's why it isn't in `allowedTools`.
-6. The agent's prompt also says: edit no other files; do not run Bash; do not change frontmatter; do not bump versions.
+2. `blockOutsideAllowlist` rejects any `tool_input.file_path` not matching `^plugins/standards/skills/leading-(accessibility|availability|security|validity)/SKILL\.md$`. The schema validator below is the redundant second layer (defense in depth).
+3. `auditEdit` appends `{timestamp, file_path, old_string, new_string}` to `runtime/audit-<run-id>.log`. Uploaded as a workflow artifact.
+4. The prompt instructs the agent to: read the four files, read the previous and new snapshots (which are pre-fetched and Read-able files, no `WebFetch` in `allowedTools`), produce minimal diffs preserving the "humble trade-off-acknowledging tone" established in commit `86a048c`, place new content in the correct tier (Policies vs Practices vs Standards per `.claude/rules/define-lead.md`), do not modify frontmatter, do not bump versions.
+5. Before invoking, the workflow clones `qmu/workaholic` to a scratch path using the App installation token. `WORKAHOLIC_CLONE_PATH` is the clone root; `cwd` for the agent is that path so it cannot navigate outside.
 
-### 3. Schema validation layer
+### 6. Validator layer
 
-1. Add `scripts/standards-sync/validate-lead-schema.mjs`. Pure typed function `validateLeadFile(path) → { ok: boolean, errors: string[] }`. Checks:
-   - Frontmatter parses as YAML and contains only `name`, `description`, `user-invocable` keys
-   - `name` matches `leading-<speciality>` from the filename
-   - Top-level sections appear in the order `## Role` → `## Policies` → (optional `## Practices`) → (optional `## Standards`)
-   - `## Role` has `### Goal` and `### Responsibility` H3s
-2. Run the validator over every file in the allowlist after the agent step. If any file fails, the workflow opens an issue (`gh issue create`) with the failure summary and the audit log linked, and exits without opening a PR.
-3. Add Vitest-or-equivalent hermetic tests against `scripts/standards-sync/test/fixtures/lead-*.md` covering: valid file, missing Policies section, extra frontmatter key, wrong section order, renamed skill.
+1. `src/validate-lead-schema.mjs` exports `validateLeadFile(path) → { ok, errors[] }`. Checks frontmatter keys (`name`, `description`, `user-invocable` only), `name` matches filename, top-level sections appear in the documented order, `## Role` carries the two required H3s.
+2. On any failure, the workflow uses the App token to open a GitHub Issue on the controller repo (not the public repo) with the failure summary and the audit log linked. The public repo never sees a broken PR.
+3. Hermetic tests (`test/test-validator.mjs`) cover valid, missing-Policies, extra-frontmatter-key, wrong-section-order, and renamed-skill fixtures.
 
-### 4. PR-open layer
+### 7. PR-open layer
 
-1. After validation passes, the workflow stages: the edited `plugins/standards/skills/leading-*/SKILL.md` files, the new `state.json` (now carrying the freshly-fetched hash and the run timestamp), and nothing else.
-2. Commit using `git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com"`, message:
-   ```
-   Sync standards from qmu.co.jp/design
+1. `src/open-pr.mjs` authenticates as the App via `@octokit/auth-app`, mints an installation token, and uses the Git REST API to:
+   - Create branch `standards-sync/<YYYYMMDD-HHmmss>-<hash-prefix>` on `qmu/workaholic`
+   - Commit the edited `leading-*/SKILL.md` files with author `github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>` and `Co-Authored-By: TAMURA Yoshiya <a@qmu.jp>`
+   - Open a **draft** PR with title `Sync standards from qmu.co.jp/design (<hash-prefix>)`
+2. PR body sections (numbered H2s per `plugins/work/rules/general.md`):
+   1. Summary: plain-language description of what changed at qmu.co.jp
+   2. Provenance: upstream URL, previous content hash, new content hash, fetched-at timestamp
+   3. Agent run: SDK package version, model version, validator verdict, link to the audit-log artifact
+   4. Upstream diff: raw HTML diff in a fenced code block (or rendered Markdown if the page is structured enough to extract) — so the reviewer can sanity-check "the edit is justified by what the site says"
+   5. Affected files: per-file before/after diffs, markdown-linked to the file path
+   6. Reviewer checklist (numbered): "the edits reflect a real qmu.co.jp change, not an agent invention"; "tone is humble and trade-off-acknowledging"; "no frontmatter changes"; "no version bumps"; "no edits outside the four leading-* files"
+3. Dedupe: before opening, `gh pr list --search "in:title <hash-prefix>"` against the public repo. If a PR exists for the same hash, push to the existing branch and update the PR body instead of opening a duplicate.
+4. Only on successful PR open, update `state/qmu-design-snapshot.json` in the controller repo and commit it (with the App identity) to the controller's `main`. Unchanged runs produce zero commits anywhere.
 
-   Description: <one-paragraph summary the agent produced>
+### 8. Workflow wiring
 
-   Changes: <bulleted user-visible diffs>
+1. `.github/workflows/sync.yml` shape (final wording extracts multi-step shell to scripts per the project shell rule):
+   - Trigger: `schedule: '0 * * * *'` + `workflow_dispatch`
+   - `permissions: contents: read` at workflow scope (the App token, not `GITHUB_TOKEN`, is what writes to the public repo)
+   - `concurrency: { group: standards-sync, cancel-in-progress: false }`
+   - Steps: checkout controller → setup-node@v4 (SHA-pinned) → `npm ci` → mint App token → clone `qmu/workaholic` → fetch design page → check-changed gate → (if changed) run agent → validate → open PR → upload audit artifact
+2. Step summary writes to `$GITHUB_STEP_SUMMARY` at every gate: fetched OK / changed=true|false / agent edits N files / validator verdict / PR URL or "no PR opened".
+3. Optional: Slack webhook (controller secret) posts on PR open and on three consecutive failures.
 
-   Test Planning: validate-lead-schema.mjs passed on all 4 files; audit log attached.
+### 9. Documentation and operator handoff
 
-   Release Preparation: None -- documentation change, no behavior change.
-
-   Co-Authored-By: TAMURA Yoshiya <a@qmu.jp>
-   ```
-3. Create branch `standards-sync/<YYYYMMDD-HHmmss>` and push.
-4. `gh pr create` with title `Sync standards from qmu.co.jp/design (<short-version-marker>)` and a body containing: (a) plain-language summary of what changed at qmu.co.jp, (b) per-lens section with source URL + before/after diff (markdown code blocks, not raw HTML), (c) the validator verdict, (d) a numbered reviewer checklist (per `plugins/work/rules/general.md` heading conventions), (e) link to the audit-log artifact.
-5. If a PR already exists for the same `last_seen_content_hash` (search via `gh pr list --search "in:title <hash-prefix>"`), update it in place rather than opening a duplicate.
-
-### 5. Workflow wiring
-
-1. Add `.github/workflows/standards-sync.yml`:
-   ```yaml
-   name: Standards Sync
-   on:
-     schedule:
-       - cron: '0 * * * *'    # hourly; see Considerations re: cadence
-     workflow_dispatch:
-   permissions:
-     contents: write
-     pull-requests: write
-   concurrency:
-     group: standards-sync
-     cancel-in-progress: false
-   jobs:
-     sync:
-       runs-on: ubuntu-latest
-       steps:
-         - uses: actions/checkout@v4
-         - uses: actions/setup-node@v4
-           with: { node-version: '20' }
-         - run: npm ci
-         - run: bash scripts/standards-sync/fetch-design-page.sh runtime/standards-sync/snapshot
-           continue-on-error: true
-         - id: changed
-           run: bash scripts/standards-sync/check-changed.sh
-           continue-on-error: true
-         - if: steps.changed.outputs.changed == 'true'
-           run: node scripts/standards-sync/run-agent.mjs
-           env: { ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }} }
-         - if: steps.changed.outputs.changed == 'true'
-           run: node scripts/standards-sync/validate-lead-schema.mjs
-         - if: steps.changed.outputs.changed == 'true'
-           run: bash scripts/standards-sync/open-pr.sh
-           env: { GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
-         - if: always()
-           uses: actions/upload-artifact@v4
-           with: { name: standards-sync-audit, path: runtime/standards-sync/ }
-   ```
-   (Final shape may differ — extract any multi-line shell logic into scripts per the project's shell rule.)
-2. Add `.gitignore` entries for `runtime/standards-sync/snapshot*/` (transient fetch output) and `node_modules/`. Do NOT ignore `scripts/standards-sync/state.json` — that one is committed.
-3. Add `package-lock.json` (generated by `npm install`) so `npm ci` is reproducible.
-
-### 6. Documentation and operator handoff
-
-1. Add a Standards Sync section to `CLAUDE.md` under Architecture Policy: name the workflow, the four-layer pipeline, the allowlist, and the bot identity. State that the bot opens PRs and never pushes to main.
-2. Add a one-paragraph note in [plugins/standards/skills/leading-availability/SKILL.md](plugins/standards/skills/leading-availability/SKILL.md) acknowledging that this workflow itself is an instance of the Vendor Neutrality and Deliberate Dependency Coupling policies it enforces, with the exit strategy summarized. (Manual edit landed by this ticket; *not* by the bot.)
-3. Write `scripts/standards-sync/README.md` covering: what the pipeline does, how to dry-run locally (`ANTHROPIC_API_KEY=… node scripts/standards-sync/run-agent.mjs --dry-run --input runtime/standards-sync/snapshot/`), how to disable the cron (toggle the workflow off via the Actions UI; the file stays in the repo as record), and the exit strategy.
-4. Operator handoff item (cannot be automated by this ticket): the repo admin must add `ANTHROPIC_API_KEY` as a GitHub Actions secret before the first scheduled run. Document this in the README and call it out in the PR description when this ticket is implemented.
+1. Write `qmu/workaholic-standards-sync/README.md` covering: pipeline overview, secret list, GitHub App permissions, how to dry-run locally (`ANTHROPIC_API_KEY=… node src/run-agent.mjs --dry-run --input runtime/snapshot/`), how to rotate the App key, how to disable the cron, the exit strategy.
+2. Add a one-paragraph note in [plugins/standards/skills/leading-availability/SKILL.md](plugins/standards/skills/leading-availability/SKILL.md) acknowledging this controller-based design as an instance of the Vendor Neutrality and Deliberate Dependency Coupling policies the lens itself enforces. (Manual edit landed by this ticket, not by the bot.)
+3. Update [CLAUDE.md](CLAUDE.md) per Step 1.2.
 
 ## Considerations
 
-- **Cloudflare bot challenge on qmu.co.jp.** Verified during ticket research: `WebFetch https://qmu.co.jp/design` returns HTTP 403, but `curl -A "Mozilla/5.0 ..."` returns HTTP 200. The Agent SDK's built-in `WebFetch` will be blocked by the same Cloudflare rule. That is why this design fetches via a `curl`-based wrapper script *outside* the agent and hands the HTML to the agent as a Read-able file. Do **not** enable `WebFetch` in `allowedTools`. Alternative if curl spoofing later fails: switch the fetch step to Playwright MCP (per `https://code.claude.com/docs/en/agent-sdk/overview` MCP tab), accepting the heavier dependency.
-- **Threat model.** Risks to name in the implementation and the workflow's README, per `leading-security`'s ISMS policy: (1) prompt injection from qmu.co.jp HTML — mitigated by `PreToolUse` hook restricting edit targets, schema validator post-run, and human PR review; (2) SDK supply-chain compromise — mitigated by pinned version, exit strategy, npm audit in CI; (3) secret exfiltration — `ANTHROPIC_API_KEY` is only present as an env var on the `run-agent.mjs` step; `set -x` is disabled; the audit log redacts `Authorization` headers if any are logged; (4) bot writes outside allowlist — defense-in-depth via the hook + the validator + the diff allowlist check in `open-pr.sh`.
-- **Hourly cadence is the starting point, not the steady state.** Per `leading-availability`'s "Lean Capacity Planning", observe how often qmu.co.jp actually changes and downshift (probably to `0 */6 * * *` or daily) once the baseline is known. The workflow's `cron` is one line to change.
-- **Idempotency.** A run where `check-changed.sh` says "unchanged" exits 0 with a step summary and produces no commit, no PR, no API call to Anthropic. This is the common case and must stay free.
-- **Bot identity.** Per the `validate-ticket.sh` history, the bot must commit as `github-actions[bot]` with a `Co-Authored-By: TAMURA Yoshiya <a@qmu.jp>` line — never as `@anthropic.com`. Test this explicitly during dry-run.
-- **Do not bump versions.** Per CLAUDE.md, version bumps go through `/release`. The bot must not touch `version` fields in any `plugin.json` or `marketplace.json`.
-- **dist/ regeneration is not required.** `scripts/build-plugins/build.mjs` line 33 sets `CORE_SKILLS = plugins/core/skills`; `plugins/standards/` is outside the closure. The bot's PR will pass `dist-freshness.yml` vacuously. Confirm this assumption holds during dry-run; if a future build change pulls standards into the closure, this ticket's PR-open step must also run `node scripts/build-plugins/build.mjs`.
-- **Ubiquitous language.** The repo says "leading-*" skills, not "lenses" / "pillars" / "disciplines". Keep that vocabulary in any new prose this ticket adds (workflow file, README, PR body).
-- **Tone preservation.** The four `leading-*/SKILL.md` files carry a hand-tuned "humble trade-off-acknowledging tone" (commit `86a048c`). The agent's prompt must include this constraint explicitly; the human reviewer enforces it via PR review.
-- **No splitting into sub-tickets.** The four layers (state/fetch, agent, validator, PR-open) and the workflow file are artifact-coupled — the workflow can't run without all four scripts, and each script is hard to test in isolation without the others' fixtures. Implement as one ticket; the Implementation Steps decompose the work in build order. If implementation reveals a layer is genuinely independent (e.g., the schema validator turns out to be useful as a pre-commit hook for human edits too), split it out then.
-- **Open questions deferred to /drive.** Two design decisions I made with defaults rather than asking up-front: the change signal is content hash (not an explicit version string on the page — qmu.co.jp doesn't appear to render one), and the update scope is the four `leading-*` files only. If you want a different change signal (e.g., an explicit `<meta name="version">` once you add one to the page) or a wider edit allowlist, update this ticket before `/drive` picks it up.
+- **Cloudflare bot challenge on qmu.co.jp.** Verified during ticket research: SDK `WebFetch` returns 403, `curl -A "Mozilla/5.0 ..."` returns 200. Fetch happens outside the agent via the wrapper; the agent never receives `WebFetch` in `allowedTools`. If Cloudflare ever tightens UA-based whitelisting, switch the fetch step to Playwright MCP per the SDK docs at `https://code.claude.com/docs/en/agent-sdk/overview` (heavier dep, real-browser semantics).
+- **Threat model.** Named in this ticket and in the controller's README per `leading-security`'s ISMS policy:
+  - *Credential exfiltration of `ANTHROPIC_API_KEY` from a public-repo workflow change.* Mitigation: secret lives only on the private controller; public repo has no scheduled workflow.
+  - *Semantic prompt injection from qmu.co.jp HTML.* Mitigation: PRs are draft; PR body surfaces the upstream diff so the reviewer can verify "site actually said this"; CODEOWNERS + branch protection means the App cannot merge its own PR.
+  - *Third-party Action supply-chain compromise.* Mitigation: every `uses:` pinned to a full commit SHA, not a tag; Dependabot raises bumps.
+  - *SDK supply-chain compromise.* Mitigation: exact version pinning + `package-lock.json`; documented exit strategy reducing the SDK to ~80 lines of `@anthropic-ai/sdk` Messages API.
+  - *Controller-repo compromise.* The controller becomes the new trust boundary. Mitigations: private repo with required PR review, default `GITHUB_TOKEN` read-only, App key stored only as a controller secret, minimal collaborator set, MFA required on collaborator accounts.
+- **No `workflows: write`.** The GitHub App must not have permission to modify `.github/workflows/` in either repo. A rogue agent cannot then escalate by editing CI.
+- **Public-repo default token read-only.** Defense in depth — even if a future workflow is added here, its `GITHUB_TOKEN` cannot write by default. Workflows that need writes (release.yml) declare them at job scope explicitly.
+- **CODEOWNERS scope.** Apply only to the four files the bot may touch. Avoid CODEOWNERS sprawl that would slow human contributions to unrelated paths.
+- **Bot identity.** `github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>` with `Co-Authored-By: TAMURA Yoshiya <a@qmu.jp>`. Never `@anthropic.com` (rejected by `plugins/core/hooks/validate-ticket.sh`).
+- **Do not bump versions.** Per CLAUDE.md, version bumps go through `/release`. The bot must not touch any `version` field in `plugin.json` or `marketplace.json`.
+- **dist/ regeneration is not required.** `scripts/build-plugins/build.mjs` line 33 confines the build closure to `plugins/core/skills/`. Standards-only PRs pass `dist-freshness.yml` vacuously. Validate during dry-run; if a future build change pulls standards into the closure, this ticket's open-PR step must also run `node scripts/build-plugins/build.mjs` against the clone.
+- **Hourly cadence is the starting point.** Per `leading-availability`'s Lean Capacity Planning, observe how often qmu.co.jp actually changes and downshift to `0 */6 * * *` or daily once the baseline is known. One-line change in the controller's `sync.yml`.
+- **Idempotency.** A run where `check-changed` says "unchanged" exits 0, writes a step summary, and produces no commit, no PR, no API call to Anthropic.
+- **Ubiquitous language.** Use "leading-*" not "lenses" / "pillars" / "disciplines" in any new prose the controller emits (PR body, README, summaries).
+- **Tone preservation.** The four `leading-*/SKILL.md` files carry a hand-tuned "humble trade-off-acknowledging tone" (commit `86a048c`). The agent's prompt must include this constraint; the reviewer enforces it.
+- **One ticket, two repos.** The public-repo changes are small and can land in a single commit on this branch. The controller repo's scaffolding lands as commits there, owned by the same author. Mark both PRs cross-referenced in the body. This ticket's `commit_hash` field captures only the public-repo change; the controller setup is operator work tracked in the controller's own README.
+- **Open question deferred to /drive.** Change signal is content hash because qmu.co.jp does not render an explicit version string today. If you add an explicit version marker (e.g., `<meta name="version">`) to the page first, switching the signal is a one-line change in `check-changed.mjs`. Implementation should leave that swappable.

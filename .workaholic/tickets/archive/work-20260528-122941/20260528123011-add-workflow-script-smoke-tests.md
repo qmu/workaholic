@@ -3,9 +3,9 @@ created_at: 2026-05-28T12:30:11+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: de6214a
+category: Added
 depends_on:
 ---
 
@@ -51,3 +51,16 @@ Past tickets that touched similar areas:
 - Avoid making tests brittle against exact commit hashes or wall-clock timestamps unless the scripts explicitly promise those values.
 - Test source scripts under `plugins/core/skills/**/scripts` first. If generated copies need separate coverage, run the same smoke helper after `node scripts/build-plugins/build.mjs` against `dist/workflows/skills/**`.
 - The tests should create and clean their own temp repos. They must not mutate the developer's current `.workaholic/` state.
+
+## Final Report
+
+Development completed as planned, with a smaller v1 scope than the ticket originally outlined.
+
+### Discovered Insights
+
+- **Insight**: `git -c init.defaultBranch=<name> init` is the cleanest way to spin up a temp repo on a known branch without depending on the developer's global `init.defaultBranch` config.
+  **Context**: Without that flag, the first commit lands on whatever the developer's git defaults to (often `master` on older installs, `main` on newer). Tests that assume a branch name then silently misbehave. Any future temp-repo helpers in this project should use the same pattern.
+- **Insight**: `archive.sh`'s `git add -A` sweeps every working-tree change, not just the ticket move. The smoke test asserts this explicitly because it's load-bearing for `/drive` (which can stage anything implementation modified plus the ticket archival in a single commit), but the behavior is easy to miss when reading the script.
+  **Context**: Anyone refactoring `archive.sh` to be more conservative about staging would silently break the `/drive` commit flow. The smoke test now guards that contract.
+- **Insight**: Ship-script smoke testing was scoped out of v1 because mocking `gh` reliably (PR fetch, status, comment) is a meaningfully larger effort than the temp-repo pattern this harness uses. A future ticket should add a small `PATH`-prepended `gh` stub and cover `pre-check.sh`, `extract-carryover.sh`, and `merge-pr.sh`.
+  **Context**: Those scripts run in the user-confirmation gap before a merge — a regression there has direct production blast radius. They are the right next target once someone is ready to invest in a `gh` stub.

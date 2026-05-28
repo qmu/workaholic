@@ -188,6 +188,19 @@ bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/check-worktrees.sh
 
 No build step required - this is a configuration/documentation project.
 
+## Local Verification
+
+Before pushing changes to workflow scripts or plugin manifests:
+
+```bash
+node scripts/build-plugins/build.mjs              # regenerate dist/ if you touched a core skill or build.mjs
+node scripts/build-plugins/verify.mjs             # assert generated skills are self-contained
+node scripts/build-plugins/validate-metadata.mjs  # assert Codex manifests are well-formed and version-aligned
+node scripts/test-workflow-scripts.mjs            # hermetic smoke tests for branching + drive scripts
+```
+
+The smoke tests create throwaway repositories under the OS temp dir, exercise the scripts there, assert on JSON output and filesystem state, and clean up. They never touch the working tree or call `gh`/network — safe to run anywhere.
+
 ## Version Management
 
 Version files (all must stay at the same semver):

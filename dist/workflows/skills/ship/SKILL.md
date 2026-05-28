@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Ship workflow - merge PR, deploy via CLAUDE.md, and verify production.
+description: Use when the user runs `/ship`, asks to "merge and deploy", "ship this branch", or "push to production". Pre-checks the workspace and todo queue, confirms with the user, merges the current branch's PR on GitHub, runs the deploy steps from CLAUDE.md's `## Deploy` section, and reports the outcome.
 allowed-tools: Bash, Read, Glob, Grep
 ---
 
@@ -12,7 +12,7 @@ This skill is the **trip-independent ship essence**: it operates on the current 
 
 ## Agent Compatibility
 
-This skill works on any Agent-Skills-compatible agent. Where a step uses `AskUserQuestion` (workspace/ticket guards, deploy confirmation), use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The confirmations are mandatory; only the prompt mechanism varies. (This skill has no subagent fan-out.)
+This skill works on any Agent-Skills-compatible agent. Where a step uses the agent's selection prompt (workspace/ticket guards, deploy confirmation), use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The confirmations are mandatory; only the prompt mechanism varies. (This skill has no subagent fan-out.)
 
 ## 1. CLAUDE.md Convention
 
@@ -38,7 +38,7 @@ Health checks, smoke tests, and expected outcomes.
 
 ### 1-3. Confirmation
 
-Before executing deploy instructions, display the Deploy section and ask the user to confirm via AskUserQuestion. If the user declines, deployment is skipped.
+Before executing deploy instructions, display the Deploy section and ask the user to confirm via the agent's selection prompt. If the user declines, deployment is skipped.
 
 ### 1-4. Fallback
 
@@ -100,7 +100,7 @@ bash branching/scripts/check-workspace.sh
 
 Parse the JSON output. If `clean` is `true`, proceed silently to the Ticket Guard.
 
-If `clean` is `false`, display the `summary` to the user and ask via AskUserQuestion with selectable options:
+If `clean` is `false`, display the `summary` to the user and ask via the agent's selection prompt with selectable options:
 - **"Ignore and proceed"** - Continue with the ship workflow. The unrelated changes will remain in the workspace after the command completes.
 - **"Stop"** - Halt the workflow so you can handle the changes first.
 
@@ -114,7 +114,7 @@ bash ship/scripts/check-todo.sh
 
 Parse the JSON output. If `clean` is `true`, proceed silently to the Ship Flow.
 
-If `clean` is `false`, display the ticket list to the user: "Cannot ship: N ticket(s) remaining in `.workaholic/tickets/todo/`:" followed by the ticket filenames. Then ask via AskUserQuestion with selectable options:
+If `clean` is `false`, display the ticket list to the user: "Cannot ship: N ticket(s) remaining in `.workaholic/tickets/todo/`:" followed by the ticket filenames. Then ask via the agent's selection prompt with selectable options:
 - **"Move all to icebox"** - Move all remaining tickets to `.workaholic/tickets/icebox/`, stage and commit "Move remaining tickets to icebox", then proceed to the Ship Flow.
 - **"Stop"** - Halt the workflow so you can handle tickets first (run `/drive`, manually reorganize, etc.)
 
@@ -127,6 +127,6 @@ Ship the current branch's PR. (Worktree sync/cleanup and drive/trip routing are 
 1. **Pre-check**: Run `bash ship/scripts/pre-check.sh "<branch>"`. If `found` is `false`: inform user "No PR found for this branch. Run `/report` first." and stop. If `merged` is `true`: skip to Deploy.
 2. **Merge PR**: Run `bash ship/scripts/merge-pr.sh "<pr-number>"`. On failure, inform user and stop.
 3. **Extract carry-overs**: Run `bash ship/scripts/extract-carryover.sh "<branch>" "<pr-number>" "<pr-url>"`. Persists active Concerns from the just-shipped story's section 6 into `.workaholic/concerns/`. Commits the new files. Skips silently when no story file exists or section 6 is empty. Report `extracted` count from the JSON output.
-4. **Deploy**: Run `bash ship/scripts/find-claude-md.sh`. If `found` is `false`, or `CLAUDE.md` has no `## Deploy` section: inform user "No deploy instructions found in CLAUDE.md. Deployment skipped." and skip to summary. Otherwise: read `CLAUDE.md`, find the `## Deploy` section, ask confirmation via AskUserQuestion, execute if confirmed.
+4. **Deploy**: Run `bash ship/scripts/find-claude-md.sh`. If `found` is `false`, or `CLAUDE.md` has no `## Deploy` section: inform user "No deploy instructions found in CLAUDE.md. Deployment skipped." and skip to summary. Otherwise: read `CLAUDE.md`, find the `## Deploy` section, ask confirmation via the agent's selection prompt, execute if confirmed.
 5. **Verify**: If a `## Deploy` section was found, read the `## Verify` section of `CLAUDE.md` and execute. Report results.
 6. **Summarize**: PR merge status (number, URL), carry-over extraction count, deployment status, verification results.

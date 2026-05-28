@@ -141,6 +141,32 @@ function buildTarget(target) {
 // - strip `core:`/`standards:`/`work:` namespace prefixes so references to co-installed
 //   skills (e.g. `core:review-sections` -> `review-sections`, `standards:leading-validity`
 //   -> `leading-validity`) resolve by bare name.
+// - substitute Claude-Code mechanism wording with agent-neutral equivalents. The
+//   substitutions only affect the public copies; source skills retain Claude
+//   wording because Claude Code reads them directly. The mappings are the same
+//   ones each skill's "Agent Compatibility" preamble already documents inline.
+const PUBLIC_SUBSTITUTIONS = [
+  // Drop `model: "opus|haiku|sonnet"` annotations entirely — those are
+  // Claude-Code-only routing hints and noise on other agents. Handles
+  // `( ... )` parenthetical, `, ... ,` mid-sentence, and bare backtick forms.
+  [/ \(`model: "(?:opus|haiku|sonnet)"`\)/g, ""],
+  [/, `model: "(?:opus|haiku|sonnet)"`,/g, ","],
+  [/`model: "(?:opus|haiku|sonnet)"`/g, ""],
+  // `subagent_type: "general-purpose"` subagent (variants) -> "parallel worker"
+  [/`subagent_type: "general-purpose"` subagent/g, "parallel worker"],
+  [/`subagent_type: "general-purpose"`/g, "parallel worker"],
+  [/`general-purpose` subagents?/g, "parallel workers"],
+  [/\bgeneral-purpose subagents?\b/g, "parallel workers"],
+  // `AskUserQuestion` variants -> agent-neutral selection prompt
+  [/`AskUserQuestion` with selectable options/g, "the agent's selection prompt"],
+  [/`AskUserQuestion` with selectable `options`/g, "the agent's selection prompt"],
+  [/via `AskUserQuestion`/g, "via the agent's selection prompt"],
+  [/using `AskUserQuestion`/g, "using the agent's selection prompt"],
+  [/use `AskUserQuestion`/g, "use the agent's selection prompt"],
+  [/`AskUserQuestion`/g, "the agent's selection prompt"],
+  [/\bAskUserQuestion\b/g, "the agent's selection prompt"],
+];
+
 function publicizeSkillMd(p) {
   let md = readText(p);
   // remove the whole `skills:` block (key line + indented `- ...` items)
@@ -151,6 +177,8 @@ function publicizeSkillMd(p) {
   md = md.replace(/^user-invocable:.*\n/m, "");
   // strip namespaced skill prefixes -> bare names
   md = md.replace(/\b(?:core|standards|work):([a-z][a-z0-9-]*)/g, "$1");
+  // mechanism wording substitutions (Claude-only -> agent-neutral)
+  for (const [pat, repl] of PUBLIC_SUBSTITUTIONS) md = md.replace(pat, repl);
   writeFileSync(p, md);
 }
 

@@ -1,6 +1,6 @@
 ---
 name: create-ticket
-description: Create implementation tickets with proper format and conventions.
+description: Use when the user runs `/ticket <description>` or asks to "write a ticket", "spec out a feature", or "draft an implementation plan". Discovers historical context, source code, and standards for the request, then writes an implementation ticket to `.workaholic/tickets/todo/` with frontmatter, key files, related history, implementation steps, and considerations.
 ---
 
 # Create Ticket
@@ -11,8 +11,8 @@ Guidelines for creating implementation tickets in `.workaholic/tickets/`.
 
 This skill works on any Agent-Skills-compatible agent. The two Claude-Code mechanisms used below are **enhancements, not requirements**:
 
-- **Parallel fan-out** — where a step spawns `general-purpose` subagents to run parts concurrently (e.g. the three discovery modes), that is the Claude Code optimization. On other agents, perform those parts **sequentially** in the same session; the inputs and outputs are identical.
-- **User interaction** — where a step uses `AskUserQuestion`, use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies.
+- **Parallel fan-out** — where a step spawns parallel workers to run parts concurrently (e.g. the three discovery modes), that is the Claude Code optimization. On other agents, perform those parts **sequentially** in the same session; the inputs and outputs are identical.
+- **User interaction** — where a step uses the agent's selection prompt, use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies.
 
 ## Allowed Locations
 
@@ -106,7 +106,7 @@ Example: `20260114153042-add-dark-mode.md`
 
 ## Workflow
 
-The `/ticket` command (main agent) drives this Workflow directly. Skills cannot invoke subagents or AskUserQuestion directly; the steps below describe what the loading agent (the command) must do. The command issues every AskUserQuestion (moderation decisions, clarifications) and spawns every discovery subagent itself — no `ticket-organizer` subagent sits in between.
+The `/ticket` command (main agent) drives this Workflow directly. Skills cannot invoke subagents or the agent's selection prompt directly; the steps below describe what the loading agent (the command) must do. The command issues every the agent's selection prompt (moderation decisions, clarifications) and spawns every discovery subagent itself — no `ticket-organizer` subagent sits in between.
 
 ### 1. Check Branch
 
@@ -118,13 +118,13 @@ Already-on-a-topic-branch returns `on_main: false` and skips creation (including
 
 ### 2. Parallel Discovery
 
-The command spawns three `subagent_type: "general-purpose"` subagents in parallel (single message with three Task calls), `model: "opus"`, one per discovery mode. Each prompt instructs the subagent to preload `discover`, run the section matching its mode, and return that mode's output schema:
+The command spawns three parallel workers in parallel (single message with three Task calls), one per discovery mode. Each prompt instructs the subagent to preload `discover`, run the section matching its mode, and return that mode's output schema:
 
 - **history** (`mode: history` → `discover` Discover History): Returns JSON with summary, tickets list, match reasons, and `moderation` field (status/matches/recommendation).
 - **source** (`mode: source` → `discover` Discover Source): Returns JSON with summary, files list, code_flow, and optional snippets.
 - **policy** (`mode: policy` → `discover` Discover Policy): Returns JSON with summary, policies list, and architecture (principles, dependency_rules).
 
-These are leaf subagents — they do non-interactive discovery only and MUST NOT call AskUserQuestion. Wait for all three to complete before proceeding.
+These are leaf subagents — they do non-interactive discovery only and MUST NOT call the agent's selection prompt. Wait for all three to complete before proceeding.
 
 ### 3. Handle Moderation Result
 
@@ -219,7 +219,7 @@ Or if clarification needed:
 }
 ```
 
-**CRITICAL**: Never implement code changes — only discover context and write tickets. Never commit. Never use AskUserQuestion (the command relays decisions/clarifications). Return JSON only.
+**CRITICAL**: Never implement code changes — only discover context and write tickets. Never commit. Never use the agent's selection prompt (the command relays decisions/clarifications). Return JSON only.
 
 ## File Structure
 
@@ -345,7 +345,7 @@ Before writing a ticket:
 
 ## Related History
 
-The Related History section is populated from the history-mode discovery subagent's output (the `/ticket` command spawns it as a `general-purpose` subagent preloading `discover`).
+The Related History section is populated from the history-mode discovery subagent's output (the `/ticket` command spawns it as a parallel workers preloading `discover`).
 
 **Link format**: Use markdown links with repository-relative paths:
 ```markdown

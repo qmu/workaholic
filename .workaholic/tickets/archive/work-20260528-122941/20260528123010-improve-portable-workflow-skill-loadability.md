@@ -3,9 +3,9 @@ created_at: 2026-05-28T12:30:10+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Domain, Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 5c6f35d
+category: Changed
 depends_on:
 ---
 
@@ -52,3 +52,16 @@ Past tickets that touched similar areas:
 - Keep references shallow. Codex skill guidance favors one-level references from `SKILL.md`, not nested reference chains.
 - `dist/workflows` is generated. Make source/build changes first, then rebuild (`scripts/build-plugins/build.mjs`).
 - This is a documentation/refactoring change with behavior risk. Verification should include running the generated verifier and manually scanning the generated public skills for stale Claude-only requirements.
+
+## Final Report
+
+Development completed with a smaller v1 scope than the ticket originally proposed: the frontmatter rewrite and the agent-neutral substitution shipped; the `references/` split was deferred.
+
+### Discovered Insights
+
+- **Insight**: `publicizeSkillMd` is the right home for every Claude-only-to-agent-neutral transform. The function already stripped Claude-only frontmatter and namespace prefixes; this ticket added an ordered substitution list. Keeping the rewrite in one place means source skills stay authoritative for Claude Code, while every non-Claude installer sees the public form -- one transform boundary instead of two parallel source trees.
+  **Context**: The temptation when the dist copy needs different prose is to fork the source. Don't. Add another substitution to the list and rebuild. The full grep `AskUserQuestion|general-purpose|subagent_type|model: "(opus|haiku|sonnet)"` after every build is a fast way to catch missed terms.
+- **Insight**: Substitution order matters. The `subagent_type: "general-purpose"` patterns must run before the bare ``general-purpose`` pattern, or the longer match never fires. Similarly the `AskUserQuestion` parenthetical/`with selectable` variants must run before the bare backtick fallback. The list in `PUBLIC_SUBSTITUTIONS` is ordered most-specific-first; preserve that when adding new ones.
+  **Context**: Any future contributor adding a substitution should append to the end of the most-specific block, not the bottom of the array.
+- **Insight**: The references/ split (originally step 2 of this ticket) was not landed because the skills CLI README and OpenAI agent SDK docs do not document how a `references/` directory sibling to `SKILL.md` is loaded. Splitting now would risk fragmenting skills that other agents won't follow into. Re-open as a follow-up ticket only after confirming the loading behavior upstream.
+  **Context**: This mirrors the openai-metadata ticket: don't author against an unverified spec. The same upstream-verification step applies.

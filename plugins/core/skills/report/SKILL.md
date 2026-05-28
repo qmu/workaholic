@@ -1,6 +1,6 @@
 ---
 name: report
-description: Story writing, PR creation, and release readiness assessment for branch reporting.
+description: Use when the user runs `/report`, asks to "write up this branch", "open the PR", "create the release note", or "assess release readiness". Reads archived tickets, judges previously-deferred concerns, generates a branch story file, creates or updates the GitHub PR, writes the release note, and reports whether the branch is safe to ship.
 allowed-tools: Bash
 user-invocable: false
 skills:

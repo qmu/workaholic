@@ -1,6 +1,6 @@
 ---
 name: drive
-description: Implementation workflow, approval flow, final report, archive, and frontmatter update for drive sessions.
+description: Use when the user runs `/drive`, asks to "implement the queued tickets", "work through the todo list", or "drive the backlog". Reads tickets from `.workaholic/tickets/todo/`, prioritizes them by dependency and severity, implements each one with a per-ticket approval gate, then archives the ticket and commits with a structured message.
 skills:
   - commit
   - system-safety

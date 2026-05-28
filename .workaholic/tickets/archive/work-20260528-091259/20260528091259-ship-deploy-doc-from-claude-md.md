@@ -3,9 +3,9 @@ created_at: 2026-05-28T09:12:59+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure, Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 65d9734
+category: Changed
 depends_on:
 ---
 
@@ -88,3 +88,14 @@ Past tickets that touched this area:
 +4. **Deploy**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/find-claude-md.sh`. If `found` is `false`, or `CLAUDE.md` has no `## Deploy` section: inform user "No deploy instructions found in CLAUDE.md. Deployment skipped." and skip to summary. Otherwise: read `CLAUDE.md`, find the `## Deploy` section, ask confirmation via AskUserQuestion, execute if confirmed.
 +5. **Verify**: If a `## Deploy` section was found, read the `## Verify` section of `CLAUDE.md` and execute. Report results.
 ```
+
+## Final Report
+
+Development completed as planned. Implemented as a hard cutover: `git mv` renamed `find-cloud-md.sh` → `find-claude-md.sh` (now resolving `./CLAUDE.md` only), the ship `SKILL.md` §1 became "CLAUDE.md Convention" with the frontmatter description, §2-3 reference, Ship Flow steps 4–5, and not-found semantics all rewritten, and both READMEs were updated. `dist/workflows` was regenerated argument-less; `grep` confirms zero `cloud.md` references remain in `plugins/` or `dist/`, and `verify.mjs` passes.
+
+### Discovered Insights
+
+- **Insight**: Renaming a bundled skill script needs no `build.mjs` change, but the rebuild does not delete the previous artifact on its own — the orphaned `dist/.../find-cloud-md.sh` showed up as a git deletion that must be staged, otherwise `dist-freshness` CI would diff.
+  **Context**: `build.mjs` computes each skill's script closure dynamically and copies whatever is present in source, so a rename is picked up automatically; but confirm the stale generated file's deletion is staged when committing a script rename.
+- **Insight**: `find-claude-md.sh` only resolves the file path (`{found, path}`); detecting the `## Deploy`/`## Verify` sections is model-side. Because `CLAUDE.md` nearly always exists, the "skip deploy" trigger had to move from "file absent" to "file present but no `## Deploy` section."
+  **Context**: This split (script = path resolution, model = section parsing) is the existing design; preserving it kept the change to a single-candidate loop plus prose, rather than adding section-parsing shell.

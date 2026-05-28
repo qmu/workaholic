@@ -105,7 +105,7 @@ A ticket is a markdown file describing a change you want to make — the context
 
 Once tickets are queued, `/drive` implements them one by one with confirmation at each step. While one agent drives, others can keep creating tickets — no worktree overhead, just serial execution with clear commits.
 
-When ready to deliver, `/report` generates changelogs and PR descriptions from the accumulated ticket history. Then `/ship` merges the PR, deploys following your project's `cloud.md` instructions, and verifies the deployment.
+When ready to deliver, `/report` generates changelogs and PR descriptions from the accumulated ticket history. Then `/ship` merges the PR, deploys following the `## Deploy` instructions in your project's `CLAUDE.md`, and verifies the deployment.
 
 > [!NOTE]
 > **A flavor of Spec-Driven Development**

@@ -14,7 +14,7 @@ Shared commands and skills for cross-workflow operations. Provides context-aware
 | Skill | Description |
 | ----- | ----------- |
 | branching | Context detection and branch pattern matching for unified commands |
-| ship | Ship workflow: PR merge, cloud.md deploy, and production verify |
+| ship | Ship workflow: PR merge, CLAUDE.md deploy, and production verify |
 
 ## Installation
 

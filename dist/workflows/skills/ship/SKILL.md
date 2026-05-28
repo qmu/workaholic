@@ -1,12 +1,12 @@
 ---
 name: ship
-description: Ship workflow - merge PR, deploy via cloud.md, and verify production.
+description: Ship workflow - merge PR, deploy via CLAUDE.md, and verify production.
 allowed-tools: Bash, Read, Glob, Grep
 ---
 
 # Ship
 
-Merge a pull request, deploy to production, and verify the deployment. The agent acts as the deployment agent, following instructions from a user-provided `cloud.md` file.
+Merge a pull request, deploy to production, and verify the deployment. The agent acts as the deployment agent, following the `## Deploy` and `## Verify` instructions in the project's `CLAUDE.md`.
 
 This skill is the **trip-independent ship essence**: it operates on the current branch's PR. Worktree handling and drive/trip context routing are not part of this skill — in Claude Code they are handled separately by the trip workflow and the `/ship` command. Any agent can run this skill directly to ship the current branch.
 
@@ -14,17 +14,17 @@ This skill is the **trip-independent ship essence**: it operates on the current 
 
 This skill works on any Agent-Skills-compatible agent. Where a step uses `AskUserQuestion` (workspace/ticket guards, deploy confirmation), use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The confirmations are mandatory; only the prompt mechanism varies. (This skill has no subagent fan-out.)
 
-## 1. Cloud.md Convention
+## 1. CLAUDE.md Convention
 
-`cloud.md` is a project-level file authored by the user (not part of Workaholic). It tells the ship workflow how to deploy and verify.
+Deploy and verify instructions live in the project's `CLAUDE.md` — the file authored by the user that already carries the project's instructions. The ship workflow reads its `## Deploy` and `## Verify` sections to learn how to deploy and verify.
 
 ### 1-1. Search Order
 
 ```bash
-bash ship/scripts/find-cloud-md.sh
+bash ship/scripts/find-claude-md.sh
 ```
 
-Searches: `./cloud.md`, `./.workaholic/cloud.md`
+Searches: `./CLAUDE.md`
 
 ### 1-2. Expected Sections
 
@@ -42,7 +42,7 @@ Before executing deploy instructions, display the Deploy section and ask the use
 
 ### 1-4. Fallback
 
-If no `cloud.md` is found, skip deploy and verify steps. Inform the user that deployment was skipped because no `cloud.md` was found.
+If no `CLAUDE.md` is found, or it has no `## Deploy` section, skip deploy and verify steps. Inform the user that deployment was skipped because `CLAUDE.md` carried no deploy instructions.
 
 ## 2. Shell Scripts
 
@@ -62,13 +62,13 @@ bash ship/scripts/merge-pr.sh "<pr-number>"
 
 Merges the PR, checks out main, and pulls to sync. Returns JSON with merge status and commit hash.
 
-### 2-3. Find cloud.md
+### 2-3. Find CLAUDE.md
 
 ```bash
-bash ship/scripts/find-cloud-md.sh
+bash ship/scripts/find-claude-md.sh
 ```
 
-Searches for cloud.md in standard locations. Returns JSON with path or `{"found": false}`.
+Searches for the project's `CLAUDE.md`. Returns JSON with path or `{"found": false}`.
 
 ### 2-4. Check Todo
 
@@ -127,6 +127,6 @@ Ship the current branch's PR. (Worktree sync/cleanup and drive/trip routing are 
 1. **Pre-check**: Run `bash ship/scripts/pre-check.sh "<branch>"`. If `found` is `false`: inform user "No PR found for this branch. Run `/report` first." and stop. If `merged` is `true`: skip to Deploy.
 2. **Merge PR**: Run `bash ship/scripts/merge-pr.sh "<pr-number>"`. On failure, inform user and stop.
 3. **Extract carry-overs**: Run `bash ship/scripts/extract-carryover.sh "<branch>" "<pr-number>" "<pr-url>"`. Persists active Concerns from the just-shipped story's section 6 into `.workaholic/concerns/`. Commits the new files. Skips silently when no story file exists or section 6 is empty. Report `extracted` count from the JSON output.
-4. **Deploy**: Run `bash ship/scripts/find-cloud-md.sh`. If `found` is `false`: inform user "No cloud.md found. Deployment skipped." and skip to summary. If `found` is `true`: read the file, find `## Deploy` section, ask confirmation via AskUserQuestion, execute if confirmed.
-5. **Verify**: If cloud.md found, read `## Verify` section and execute. Report results.
+4. **Deploy**: Run `bash ship/scripts/find-claude-md.sh`. If `found` is `false`, or `CLAUDE.md` has no `## Deploy` section: inform user "No deploy instructions found in CLAUDE.md. Deployment skipped." and skip to summary. Otherwise: read `CLAUDE.md`, find the `## Deploy` section, ask confirmation via AskUserQuestion, execute if confirmed.
+5. **Verify**: If a `## Deploy` section was found, read the `## Verify` section of `CLAUDE.md` and execute. Report results.
 6. **Summarize**: PR merge status (number, URL), carry-over extraction count, deployment status, verification results.

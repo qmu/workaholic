@@ -1,11 +1,11 @@
 #!/bin/bash
-# Find cloud.md in standard locations.
-# Usage: bash find-cloud-md.sh
+# Find the project's CLAUDE.md (carries the ## Deploy / ## Verify sections).
+# Usage: bash find-claude-md.sh
 # Output: JSON with path if found, or {"found": false}
 
 set -euo pipefail
 
-for candidate in "./cloud.md" "./.workaholic/cloud.md"; do
+for candidate in "./CLAUDE.md"; do
   if [ -f "$candidate" ]; then
     echo '{"found": true, "path": "'"$candidate"'"}'
     exit 0

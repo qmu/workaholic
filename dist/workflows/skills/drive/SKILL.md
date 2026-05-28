@@ -1,6 +1,6 @@
 ---
 name: drive
-description: Implementation workflow, approval flow, final report, archive, and frontmatter update for drive sessions.
+description: Use when the user runs `/drive`, asks to "implement the queued tickets", "work through the todo list", or "drive the backlog". Reads tickets from `.workaholic/tickets/todo/`, prioritizes them by dependency and severity, implements each one with a per-ticket approval gate, then archives the ticket and commits with a structured message.
 allowed-tools: Bash
 ---
 
@@ -12,8 +12,8 @@ Complete drive session skill covering the `/drive` command workflow, ticket navi
 
 This skill works on any Agent-Skills-compatible agent. The two Claude-Code mechanisms used below are **enhancements, not requirements**:
 
-- **Parallel fan-out** — where a step spawns a `general-purpose` subagent (e.g. the ticket prioritizer), that is the Claude Code optimization. On other agents, perform that work **inline/sequentially** in the same session; the inputs and outputs are identical.
-- **User interaction** — where a step uses `AskUserQuestion` (order confirmation, per-ticket approval, icebox/abandon choices), use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies.
+- **Parallel fan-out** — where a step spawns a parallel workers (e.g. the ticket prioritizer), that is the Claude Code optimization. On other agents, perform that work **inline/sequentially** in the same session; the inputs and outputs are identical.
+- **User interaction** — where a step uses the agent's selection prompt (order confirmation, per-ticket approval, icebox/abandon choices), use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies.
 
 ## Command Workflow
 
@@ -35,7 +35,7 @@ Check if trip worktrees exist before proceeding:
 bash branching/scripts/check-worktrees.sh
 ```
 
-If `has_worktrees` is `true`, present the user with a choice using `AskUserQuestion` with selectable options:
+If `has_worktrees` is `true`, present the user with a choice using the agent's selection prompt:
 - **"Continue here"** - Proceed with drive on the current branch
 - **"Switch to worktree"** - Run `bash branching/scripts/list-all-worktrees.sh`, display the worktree list, and inform the user to navigate to the selected worktree to run `/drive` there
 
@@ -47,7 +47,7 @@ If `has_worktrees` is `false`, proceed silently to Phase 1.
 
 ### Phase 1: Navigate Tickets
 
-The command (main agent) runs the **Navigator** section below. Navigation splits into non-interactive prioritization (delegated to a leaf subagent) and user confirmation (issued by the command), because subagents cannot call AskUserQuestion.
+The command (main agent) runs the **Navigator** section below. Navigation splits into non-interactive prioritization (delegated to a leaf subagent) and user confirmation (issued by the command), because subagents cannot call the agent's selection prompt.
 
 Determine mode from `$ARGUMENT`:
 - If `$ARGUMENT` contains "icebox": mode = "icebox"
@@ -55,11 +55,11 @@ Determine mode from `$ARGUMENT`:
 
 **Normal mode:**
 
-1. Run `bash drive/scripts/list-todo.sh`. If it prints nothing, follow the Navigator section's empty-queue handling (offer icebox/stop via `AskUserQuestion`).
-2. If todo tickets exist, spawn a `subagent_type: "general-purpose"` subagent (`model: "opus"`) whose prompt instructs it to preload `drive`, run the Navigator section's **list / analyze / prioritize** logic (read frontmatter, dependency topo-sort, severity ranking, context grouping), and return the proposed ordered ticket list with tier grouping as JSON. This subagent does NOT call AskUserQuestion.
-3. The command presents the prioritized list and confirms the order with the user via `AskUserQuestion` (Navigator section, "Confirm Order with User"), then proceeds to Phase 2 with the resolved order.
+1. Run `bash drive/scripts/list-todo.sh`. If it prints nothing, follow the Navigator section's empty-queue handling (offer icebox/stop via the agent's selection prompt).
+2. If todo tickets exist, spawn a parallel worker whose prompt instructs it to preload `drive`, run the Navigator section's **list / analyze / prioritize** logic (read frontmatter, dependency topo-sort, severity ranking, context grouping), and return the proposed ordered ticket list with tier grouping as JSON. This subagent does NOT call the agent's selection prompt.
+3. The command presents the prioritized list and confirms the order with the user via the agent's selection prompt (Navigator section, "Confirm Order with User"), then proceeds to Phase 2 with the resolved order.
 
-**Icebox mode:** the command runs the Navigator section's Icebox Mode steps directly (list via script, select via `AskUserQuestion`, promote via script).
+**Icebox mode:** the command runs the Navigator section's Icebox Mode steps directly (list via script, select via the agent's selection prompt, promote via script).
 
 Outcomes:
 - No tickets in todo or icebox - Inform user: "No tickets in queue or icebox."
@@ -79,7 +79,7 @@ Follow the **Workflow** section below. Implementation context is preserved in th
 
 Follow the **Approval** section below to present the approval dialog. **CRITICAL**: You MUST use the `title` and `overview` fields from the Step 2.1 workflow result to populate the approval prompt header and question. If these fields are unavailable, re-read the ticket file to obtain them. Never present an approval prompt without the ticket title and summary.
 
-**CRITICAL**: Use `AskUserQuestion` with selectable `options`. NEVER proceed without explicit user approval.
+**CRITICAL**: Use the agent's selection prompt. NEVER proceed without explicit user approval.
 
 #### Step 2.3: Handle User Response
 
@@ -145,7 +145,7 @@ After todo is truly empty (and user declines icebox):
 
 If a ticket cannot be implemented (out of scope, too complex, blocked, or any other reason):
 
-1. **Stop and ask the developer** using `AskUserQuestion` with selectable `options`
+1. **Stop and ask the developer** using the agent's selection prompt
 2. Explain why implementation cannot proceed
 3. Use selectable options (NEVER open-ended text questions):
    - "Move to icebox" - Move ticket to `.workaholic/tickets/icebox/` and continue to next
@@ -156,12 +156,12 @@ If a ticket cannot be implemented (out of scope, too complex, blocked, or any ot
 
 ## Navigator
 
-Navigate tickets for the `/drive` command: list, analyze, prioritize, and confirm execution order. Responsibilities split across two contexts because subagents cannot call AskUserQuestion:
+Navigate tickets for the `/drive` command: list, analyze, prioritize, and confirm execution order. Responsibilities split across two contexts because subagents cannot call the agent's selection prompt:
 
-- **Prioritization (leaf `general-purpose` subagent, or inline at command level)** — the non-interactive logic: list todo tickets, read frontmatter, build the dependency graph and topologically sort it, apply severity ranking and context grouping, and return the proposed ordered ticket list with tier grouping as JSON. This runs with `drive` preloaded and issues NO AskUserQuestion.
-- **User interaction (command / main agent only)** — every `AskUserQuestion`: the order-confirmation dialog, the empty-queue "work on icebox / stop" choice, and the icebox ticket selection. The command spawns the prioritizer subagent, then presents its result for confirmation.
+- **Prioritization (leaf parallel workers, or inline at command level)** — the non-interactive logic: list todo tickets, read frontmatter, build the dependency graph and topologically sort it, apply severity ranking and context grouping, and return the proposed ordered ticket list with tier grouping as JSON. This runs with `drive` preloaded and issues NO the agent's selection prompt.
+- **User interaction (command / main agent only)** — every the agent's selection prompt: the order-confirmation dialog, the empty-queue "work on icebox / stop" choice, and the icebox ticket selection. The command spawns the prioritizer subagent, then presents its result for confirmation.
 
-The recommended flow is: command spawns the prioritizer subagent → subagent returns the ordered list JSON → command presents it and confirms via AskUserQuestion → command resolves the final order.
+The recommended flow is: command spawns the prioritizer subagent → subagent returns the ordered list JSON → command presents it and confirms via the agent's selection prompt → command resolves the final order.
 
 ### Input
 
@@ -171,14 +171,14 @@ The prioritizer receives:
 
 ### Icebox Mode (mode = "icebox")
 
-Run by the command (main agent), since steps 3–4 need AskUserQuestion:
+Run by the command (main agent), since steps 3–4 need the agent's selection prompt:
 
 1. List icebox tickets:
    ```bash
    bash drive/scripts/list-icebox.sh
    ```
 2. If no tickets, inform the user the icebox is empty and stop.
-3. If tickets found, use `AskUserQuestion` with selectable options listing each ticket.
+3. If tickets found, use the agent's selection prompt listing each ticket.
 4. Promote the selected ticket to todo (moves the file and stages both paths):
    ```bash
    bash drive/scripts/promote-icebox.sh <selected-icebox-path>
@@ -195,18 +195,18 @@ List all tickets in the todo queue:
 bash drive/scripts/list-todo.sh
 ```
 
-**If no tickets found** (handled by the command, since it needs AskUserQuestion):
+**If no tickets found** (handled by the command, since it needs the agent's selection prompt):
 
 1. Check whether the icebox has tickets:
    ```bash
    bash drive/scripts/list-icebox.sh
    ```
-2. If the icebox has tickets, the command uses `AskUserQuestion` with selectable options:
+2. If the icebox has tickets, the command uses the agent's selection prompt:
    - "Work on icebox" - Run icebox mode
    - "Stop" - End the drive session
 3. If the icebox is also empty, inform the user: "No tickets in queue or icebox."
 
-**If tickets found** (prioritizer logic — no AskUserQuestion):
+**If tickets found** (prioritizer logic — no the agent's selection prompt):
 
 For each ticket, read and extract YAML frontmatter to get:
 - `type`: bugfix > enhancement > refactoring > housekeeping (priority ranking)
@@ -252,7 +252,7 @@ Proposed order considers dependencies, severity, and context grouping.
 
 #### 4. Confirm Order with User
 
-**Runs at command level** (the prioritizer subagent returns the proposed order; the command presents it). **ALWAYS use `AskUserQuestion` with selectable `options` parameter. NEVER ask open-ended text questions.**
+**Runs at command level** (the prioritizer subagent returns the proposed order; the command presents it). **ALWAYS use the agent's selection prompt parameter. NEVER ask open-ended text questions.**
 
 Use selectable options:
 - **Proceed** - Execute in proposed order
@@ -337,7 +337,7 @@ After implementation is complete, return a summary to the parent command:
 ### Critical Rules
 
 - **NEVER commit** - drive command handles commit after user approval
-- **NEVER use AskUserQuestion** - drive command handles approval dialog
+- **NEVER use the agent's selection prompt** - drive command handles approval dialog
 - **NEVER archive tickets** - drive command handles archiving
 - After implementation, proceed to approval flow
 
@@ -391,7 +391,7 @@ Implementation complete. Changes made:
 - <change 1>
 - <change 2>
 
-[AskUserQuestion with selectable options]
+[the agent's selection prompt with selectable options]
 ```
 
 #### Options

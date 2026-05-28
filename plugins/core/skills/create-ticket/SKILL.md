@@ -1,6 +1,6 @@
 ---
 name: create-ticket
-description: Create implementation tickets with proper format and conventions.
+description: Use when the user runs `/ticket <description>` or asks to "write a ticket", "spec out a feature", or "draft an implementation plan". Discovers historical context, source code, and standards for the request, then writes an implementation ticket to `.workaholic/tickets/todo/` with frontmatter, key files, related history, implementation steps, and considerations.
 skills:
   - gather
   - standards:leading-validity

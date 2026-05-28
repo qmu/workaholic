@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Ship workflow - merge PR, deploy via CLAUDE.md, and verify production.
+description: Use when the user runs `/ship`, asks to "merge and deploy", "ship this branch", or "push to production". Pre-checks the workspace and todo queue, confirms with the user, merges the current branch's PR on GitHub, runs the deploy steps from CLAUDE.md's `## Deploy` section, and reports the outcome.
 allowed-tools: Bash, Read, Glob, Grep
 user-invocable: false
 metadata:

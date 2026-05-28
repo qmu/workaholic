@@ -29,7 +29,7 @@ Workaholic follows the cross-agent [Agent Skills standard](https://skills.sh). W
 | Agent | How |
 | ----- | --- |
 | **Claude Code** | `/plugin marketplace add qmu/workaholic` (slash commands `/ticket`, `/drive`, `/report`, `/ship`, `/trip`) |
-| **OpenAI Codex** | Codex reads `.agents/plugins/marketplace.json` — install the `standards` and `workflows` plugins from the Codex marketplace |
+| **OpenAI Codex** | `codex plugin marketplace add qmu/workaholic --ref main`<br>`codex plugin add standards@workaholic`<br>`codex plugin add workflows@workaholic` |
 | **Cursor / OpenCode / Pi / 50+** | `npx skills add qmu/workaholic` (exposes `standards` + `workflows`) |
 
 ### How the workflows reach other agents

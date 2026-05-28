@@ -190,14 +190,20 @@ No build step required - this is a configuration/documentation project.
 
 ## Version Management
 
-Version files:
-- `.claude-plugin/marketplace.json` - root `version` field
-- `plugins/core/.claude-plugin/plugin.json` - plugin `version` field
-- `plugins/standards/.claude-plugin/plugin.json` - plugin `version` field
-- `plugins/work/.claude-plugin/plugin.json` - plugin `version` field
+Version files (all must stay at the same semver):
+- `.claude-plugin/marketplace.json` - root `version` AND every `plugins[].version` entry (core, standards, work, workflows)
+- `plugins/core/.claude-plugin/plugin.json`
+- `plugins/standards/.claude-plugin/plugin.json`
+- `plugins/work/.claude-plugin/plugin.json`
+- `plugins/standards/.codex-plugin/plugin.json` - hand-maintained Codex-facing manifest
 
-Keep all versions in sync. When bumping version:
+Generated (do NOT hand-edit; rebuild with `node scripts/build-plugins/build.mjs`):
+- `dist/workflows/.codex-plugin/plugin.json` - version is read from `.claude-plugin/marketplace.json`'s `workflows` plugin entry at build time
+
+`.claude-plugin/marketplace.json` is the single source of truth. When bumping version:
 1. Read current version from `.claude-plugin/marketplace.json`
 2. Increment PATCH by default (e.g., 1.0.0 → 1.0.1)
-3. Update all version files with the new version
-4. Stage and commit: `Bump version to v{new_version}`
+3. Update the root `version` and every `plugins[].version` in `.claude-plugin/marketplace.json`
+4. Update each per-plugin `plugin.json` (core, standards, work) and the standards `.codex-plugin/plugin.json` to match
+5. Regenerate `dist/workflows/` so its Codex manifest picks up the new version
+6. Stage and commit: `Bump version to v{new_version}`

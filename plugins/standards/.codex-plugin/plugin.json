@@ -1,6 +1,6 @@
 {
   "name": "standards",
-  "version": "1.0.48",
+  "version": "1.0.50",
   "description": "Repository structuring policy lenses: logical validity, security, availability, and accessibility.",
   "author": {
     "name": "tamurayoshiya",

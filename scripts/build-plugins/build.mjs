@@ -32,6 +32,7 @@ import { tmpdir } from "node:os";
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
 const CORE_SKILLS = join(REPO_ROOT, "plugins/core/skills");
 const DIST_ROOT = join(REPO_ROOT, "dist");                // committed generated output
+const MARKETPLACE = join(REPO_ROOT, ".claude-plugin/marketplace.json");
 // One neutral portable plugin serves every non-Claude agent: Codex reads its co-located
 // .codex-plugin/plugin.json; OpenCode + Cursor + 40 others get it via the skills CLI
 // scanning .claude-plugin/marketplace.json. Both manifests point at this dir.
@@ -50,6 +51,16 @@ const SKILL_REF = /\$\{CLAUDE_PLUGIN_ROOT\}\/skills\/([a-z-]+)\/scripts\//g;
 const SCRIPT_CROSS_REF = /\$\{SCRIPT_DIR\}\/(?:\.\.\/)+core\/skills\/([a-z-]+)\/scripts\//g;
 
 function readText(p) { return readFileSync(p, "utf8"); }
+
+// Look up a plugin's version from the Claude marketplace manifest, which is the
+// single source of truth for all cross-agent plugin versions. The release flow
+// bumps that file; every generated/duplicated manifest derives from it.
+function lookupVersion(pluginName) {
+  const mkt = JSON.parse(readText(MARKETPLACE));
+  const entry = (mkt.plugins || []).find((p) => p.name === pluginName);
+  if (!entry || !entry.version) throw new Error(`No version for plugin '${pluginName}' in .claude-plugin/marketplace.json`);
+  return entry.version;
+}
 
 // Collect the cross-skill closure for a target: every skill whose scripts/ is reached
 // from the target's SKILL.md or transitively from copied scripts.
@@ -162,7 +173,7 @@ function assembleWorkflowsPlugin(builtTargets) {
 
   const manifest = {
     name: "workflows",
-    version: "1.0.0",
+    version: lookupVersion("workflows"),
     description: "Ticket-driven development workflows (create-ticket, drive, report, ship) as agent-neutral skills.",
     author: { name: "tamurayoshiya", email: "a@qmu.jp" },
     repository: "https://github.com/qmu/workaholic",

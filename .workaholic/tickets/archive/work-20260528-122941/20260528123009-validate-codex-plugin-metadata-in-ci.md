@@ -3,9 +3,9 @@ created_at: 2026-05-28T12:30:09+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 4d8bfba
+category: Changed
 depends_on: [20260528123008-sync-cross-agent-plugin-versions.md]
 ---
 
@@ -48,3 +48,7 @@ Past tickets that touched similar areas:
 - Keep validation source-path based. The workflows plugin intentionally lives under `dist/workflows`, so CI must not assume every plugin source is under `plugins/` (`.agents/plugins/marketplace.json`).
 - Avoid duplicating complex validation logic inline if it becomes hard to read; a small `scripts/build-plugins/validate-metadata.mjs` helper may be cleaner than a long shell block (`.github/workflows/validate-plugins.yml`).
 - This ticket depends on the version-sync ticket so CI does not start failing immediately because of the known existing drift.
+
+## Final Report
+
+Development completed as planned.

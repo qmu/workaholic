@@ -20,7 +20,7 @@
     },
     {
       "name": "standards",
-      "description": "Repository structuring policy, qualitative agents, and documentation standards",
+      "description": "The project's engineering policy index — 設計 / 実装 / 運用 — mirrored from qmu.co.jp as a single preloadable lens",
       "version": "1.0.50",
       "author": {
         "name": "tamurayoshiya",
@@ -29,10 +29,7 @@
       "source": "./plugins/standards",
       "category": "development",
       "skills": [
-        "./skills/leading-accessibility",
-        "./skills/leading-availability",
-        "./skills/leading-security",
-        "./skills/leading-validity"
+        "./skills/policies"
       ]
     },
     {

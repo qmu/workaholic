@@ -192,14 +192,11 @@ Role-specific:
 
 - **Constructor only**: Run `core:system-safety` detection (`${CLAUDE_PLUGIN_ROOT}/skills/system-safety/scripts/detect.sh`) before any implementation that may touch system configuration. (See the System Safety section above.)
 
-## Leading Standards (Soft Preloads)
+## Engineering Policies (Soft Preload)
 
-The trip protocol soft-depends on the following leading skills. Callers (commands or agents) that participate in a trip preload them so the protocol's planning, design, implementation, review, and testing all respect their policies:
+The trip protocol soft-depends on the project's engineering policy index. Callers (commands or agents) that participate in a trip preload it so the protocol's planning, design, implementation, review, and testing all respect its policies:
 
-- `standards:leading-validity`
-- `standards:leading-accessibility`
-- `standards:leading-security`
-- `standards:leading-availability`
+- `standards:policies`
 
 ## Trip Command Procedure
 

@@ -185,7 +185,7 @@ Shared by all three role agents:
 - All output must be in English (artifacts, reviews, code, commit descriptions).
 - After completing any task, STOP and wait for the team lead's next instruction.
 - When re-invoked for post-completion follow-up, the same role boundaries and QA domain apply.
-- Apply preloaded lead standards (validity, accessibility, security, availability) — ensure artifacts, implementation, and testing respect the team's policies, practices, and standards across all domains.
+- Apply the preloaded engineering policies (`standards:design`, `standards:implementation`, `standards:operation`) — ensure artifacts, implementation, and testing respect the team's policies, practices, and standards across all domains.
 - Never modify another agent's artifact.
 
 Role-specific:
@@ -194,9 +194,11 @@ Role-specific:
 
 ## Engineering Policies (Soft Preload)
 
-The trip protocol soft-depends on the project's engineering policy index. Callers (commands or agents) that participate in a trip preload it so the protocol's planning, design, implementation, review, and testing all respect its policies:
+The trip protocol soft-depends on the project's engineering policy indexes. Callers (commands or agents) that participate in a trip preload them so the protocol's planning, design, implementation, review, and testing all respect its policies:
 
-- `standards:policies`
+- `standards:design`
+- `standards:implementation`
+- `standards:operation`
 
 ## Trip Command Procedure
 
@@ -272,7 +274,7 @@ Create a three-member Agent Team. The team lead instruction:
 > 2. **Architect** (`work:architect`) - Structural bridge, analytical review
 > 3. **Constructor** (`work:constructor`) - Technical implementation, internal testing
 >
-> All agents work inside `<working_dir>`. Follow trip-protocol for the Planning Phase (concurrent artifacts, one-turn review, respond/escalate, moderate) and Coding Phase (concurrent launch, review & testing, iteration). All agents have the team's **lead standards** preloaded — ensure all planning, design, implementation, and testing respects the policies, practices, and standards defined by the leads. Enforce convergence cap: max 3 review rounds before forced moderation. Use `trip-commit.sh` and `log-event.sh` for every step. Update `plan.md` at phase transitions. If resuming, skip completed steps.
+> All agents work inside `<working_dir>`. Follow trip-protocol for the Planning Phase (concurrent artifacts, one-turn review, respond/escalate, moderate) and Coding Phase (concurrent launch, review & testing, iteration). All agents have the team's **engineering policies** (`standards:design`, `standards:implementation`, `standards:operation`) preloaded — ensure all planning, design, implementation, and testing respects those policies, practices, and standards. Enforce convergence cap: max 3 review rounds before forced moderation. Use `trip-commit.sh` and `log-event.sh` for every step. Update `plan.md` at phase transitions. If resuming, skip completed steps.
 >
 > Language policy: All agent output must be English.
 >

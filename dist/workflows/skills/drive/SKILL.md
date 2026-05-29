@@ -73,7 +73,7 @@ For each ticket in the ordered list:
 
 #### Step 2.1: Implement Ticket
 
-Follow the **Workflow** section below. Implementation context is preserved in the main conversation, providing full visibility of changes made. Apply the policies, practices, and standards from the relevant preloaded leading skill(s) — see the Lead Lens table in the `create-ticket` skill for the layer-to-lead mapping.
+Follow the **Workflow** section below. Implementation context is preserved in the main conversation, providing full visibility of changes made. Apply the policies, practices, and standards from the relevant preloaded `standards:*` policy skill(s) — see the Lead Lens table in the `create-ticket` skill for the layer-to-skill mapping.
 
 #### Step 2.2: Request Approval
 
@@ -312,7 +312,7 @@ If no Patches section exists, skip to step 3.
 
 #### 3. Implement the Ticket
 
-- Read the ticket's `layer` field and apply the relevant policies from the `policies` index, using its "Applying this index" mapping: UX → 設計 plus the アクセシビリティ viewpoint of 実装, Domain/DB → 実装 (妥当性 viewpoint), Infrastructure → 実装 (可用性 viewpoint) plus 運用, Config → the pillar whose policies the config touches.
+- **Load the policy lens first (when the standards plugin is installed).** `/drive` preloads `design`, `implementation`, and `operation`, so the three index `SKILL.md` files are in context. Before writing code, read the ticket's `layer` field and consult the relevant policy hard copies (`policies/<slug>.md`) using the Lead Lens mapping: UX → `design` plus `implementation`, Domain/DB → `implementation`, Infrastructure → `implementation` plus `operation`, Config → the skill whose policies the config touches. Judge the change's **design** (interaction and behavior), **implementation** (code structure and correctness), and **operation** (delivery, runtime, and recovery) against each applicable policy's Goal (目標), Responsibility (責務), and Practices (実践). If the standards plugin is not installed, proceed without it.
 - Follow the implementation steps in the ticket
 - Use existing patterns and conventions in the codebase
 - For areas where patches applied, verify and adjust as needed

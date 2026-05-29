@@ -1,7 +1,7 @@
 {
   "name": "standards",
   "version": "1.0.50",
-  "description": "The project's engineering policy index — design, implementation, and operations — mirrored from qmu.co.jp.",
+  "description": "The project's engineering policies — design, implementation, and operations — mirrored from qmu.co.jp as English hard copies across three index skills.",
   "author": {
     "name": "tamurayoshiya",
     "email": "a@qmu.jp"

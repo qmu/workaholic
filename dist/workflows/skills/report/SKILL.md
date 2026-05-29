@@ -19,6 +19,12 @@ This skill works on any Agent-Skills-compatible agent. The two Claude-Code mecha
 
 Context-aware report orchestration. Auto-detects whether the caller is in a drive or trip workflow and routes accordingly.
 
+### Policy Lens (read first, when the standards plugin is installed)
+
+Before assessing the branch, load the project's engineering policies as your judging lens. When the `standards` plugin is installed, the `/report` command has already preloaded `design`, `implementation`, and `operation`, so the three index `SKILL.md` files are in context. Read those indexes, and open the specific policy hard copies they link (`policies/<slug>.md`) when a concern or change maps to one.
+
+These policies are the lens for the report's judgments: when judging carry-over concerns, reviewing the story sections, and assessing release readiness, evaluate the branch's **design** (interaction and behavior), **implementation** (code structure and correctness), and **operation** (delivery, runtime, and recovery) against the relevant policy's Goal (目標), Responsibility (責務), and Practices (実践). Cite the specific policy when a concern or readiness verdict rests on one. If the `standards` plugin is not installed, skip this and proceed.
+
 ### Step 0: Workspace Guard
 
 ```bash

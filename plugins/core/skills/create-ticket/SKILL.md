@@ -3,7 +3,9 @@ name: create-ticket
 description: Use when the user runs `/ticket <description>` or asks to "write a ticket", "spec out a feature", or "draft an implementation plan". Discovers historical context, source code, and standards for the request, then writes an implementation ticket to `.workaholic/tickets/todo/` with frontmatter, key files, related history, implementation steps, and considerations.
 skills:
   - gather
-  - standards:policies
+  - standards:design
+  - standards:implementation
+  - standards:operation
 user-invocable: false
 metadata:
   internal: true
@@ -114,6 +116,14 @@ Example: `20260114153042-add-dark-mode.md`
 
 The `/ticket` command (main agent) drives this Workflow directly. Skills cannot invoke subagents or AskUserQuestion directly; the steps below describe what the loading agent (the command) must do. The command issues every AskUserQuestion (moderation decisions, clarifications) and spawns every discovery subagent itself — no `ticket-organizer` subagent sits in between.
 
+### 0. Load the Policy Lens (first, when the standards plugin is installed)
+
+Before scoping the request or writing any ticket content, load the project's engineering policies as your judging lens. When the `standards` plugin is installed, the `/ticket` command has already preloaded `standards:design`, `standards:implementation`, and `standards:operation`, so the three index `SKILL.md` files are in context. Read those indexes, then open the specific policy hard copies they link (`policies/<slug>.md`) for the layer(s) the request touches — use the **Policy Lens** table below to pick which skill(s) apply.
+
+These policies are the lens you judge the work against. Every proposal you put in the ticket — its **design** (interaction and behavior), its **implementation** (code structure and correctness), and its **operation** (delivery, runtime, and recovery) — must be defensible against the relevant policy's Goal (目標), Responsibility (責務), and Practices (実践). Carry the applicable policies forward into Implementation Steps, Considerations, and Patches.
+
+If the `standards` plugin is not installed (the `standards:*` indexes are not in context), skip this step and proceed; the rest of the workflow does not depend on it.
+
 ### 1. Check Branch
 
 Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check.sh`. If `on_main` is true, create a topic branch **only** by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh`, and record the returned branch name as `branch_created` for the output JSON.
@@ -148,7 +158,7 @@ Based on the history discovery subagent's `moderation` field:
 
 ### 5. Write Ticket(s)
 
-Follow the rest of this skill for format and content. Apply the Lead Lens table (below) to map the ticket's `layer` field to the relevant pillar in the `standards:policies` index — its policies and practices govern the ticket's Implementation Steps, Considerations, and Patches.
+Follow the rest of this skill for format and content. Apply the Lead Lens table (below) to map the ticket's `layer` field to the relevant `standards:*` policy skill — its policies and practices govern the ticket's Implementation Steps, Considerations, and Patches.
 
 Populate sections from the three discovery JSONs:
 
@@ -327,17 +337,17 @@ These fields are updated by the `drive` skill (Update Frontmatter section) durin
 
 ## Policy Lens
 
-Each ticket should respect the relevant policies in the `standards:policies` index based on its `layer` field. Map layer to pillar:
+Each ticket should respect the relevant policies in the `standards:*` policy skills based on its `layer` field. Map layer to skill:
 
-| Layer | Pillar / viewpoint in `standards:policies` | Lens |
-| ----- | ------------------------------------------ | ---- |
-| UX | 設計, plus 実装 (アクセシビリティ) | Modeless design, reach, WCAG conformance, emergent design system |
-| Domain | 実装 (妥当性) | Type-driven design, layer segregation, functional style |
-| Infrastructure | 実装 (可用性), plus 運用 | Vendor neutrality, IaC, observability; CI/CD automation |
-| DB | 実装 (妥当性) | Relational-first persistence, domain–persistence segregation |
-| Config | (whichever pillar governs the affected behavior) | Apply the pillar whose policies the config touches |
+| Layer | Policy skill | Lens |
+| ----- | ------------ | ---- |
+| UX | `standards:design`, plus `standards:implementation` | Modeless design, reach, WCAG conformance, emergent design system |
+| Domain | `standards:implementation` | Type-driven design, layer segregation, functional style |
+| Infrastructure | `standards:implementation`, plus `standards:operation` | Vendor neutrality, IaC, observability; CI/CD automation |
+| DB | `standards:implementation` | Relational-first persistence, domain–persistence segregation |
+| Config | (whichever skill governs the affected behavior) | Apply the skill whose policies the config touches |
 
-When writing Implementation Steps, Considerations, and Patches, ensure they respect the policies and practices of every applicable pillar. The `/ticket` command preloads the `standards:policies` index (this skill carries it in its `skills:` frontmatter) and applies it automatically; this section documents the mapping for human readers and future agents.
+When writing Implementation Steps, Considerations, and Patches, ensure they respect the policies and practices of every applicable skill. The `/ticket` command preloads the `standards:design`, `standards:implementation`, and `standards:operation` indexes (this skill carries them in its `skills:` frontmatter) and applies them automatically; this section documents the mapping for human readers and future agents.
 
 ## Exploring the Codebase
 

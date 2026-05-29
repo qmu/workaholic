@@ -20,7 +20,7 @@
     },
     {
       "name": "standards",
-      "description": "The project's engineering policy index — 設計 / 実装 / 運用 — mirrored from qmu.co.jp as a single preloadable lens",
+      "description": "The project's engineering policies — 設計 / 実装 / 運用 — mirrored from qmu.co.jp as English hard copies across three preloadable index skills (design, implementation, operation)",
       "version": "1.0.50",
       "author": {
         "name": "tamurayoshiya",
@@ -29,7 +29,9 @@
       "source": "./plugins/standards",
       "category": "development",
       "skills": [
-        "./skills/policies"
+        "./skills/design",
+        "./skills/implementation",
+        "./skills/operation"
       ]
     },
     {

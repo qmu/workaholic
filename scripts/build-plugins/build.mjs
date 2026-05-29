@@ -139,8 +139,8 @@ function buildTarget(target) {
 //   `skills:` preload list (those preloads declare Claude-Code skill dependencies
 //   that do not exist on other agents; the scripts they provide are already bundled).
 // - strip `core:`/`standards:`/`work:` namespace prefixes so references to co-installed
-//   skills (e.g. `core:review-sections` -> `review-sections`, `standards:leading-validity`
-//   -> `leading-validity`) resolve by bare name.
+//   skills (e.g. `core:review-sections` -> `review-sections`, `standards:policies`
+//   -> `policies`) resolve by bare name.
 // - substitute Claude-Code mechanism wording with agent-neutral equivalents. The
 //   substitutions only affect the public copies; source skills retain Claude
 //   wording because Claude Code reads them directly. The mappings are the same

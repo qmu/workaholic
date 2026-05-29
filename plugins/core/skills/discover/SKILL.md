@@ -282,7 +282,7 @@ Examine these locations for standards evidence:
 - Plugin rules directories (e.g., `plugins/*/rules/`)
 - `README.md` files at root and plugin level
 - Configuration files (`tsconfig.json`, `.eslintrc`, `.prettierrc`, `package.json`, etc.)
-- Standards plugin content (`plugins/standards/`) — leading skills (`leading-*/SKILL.md`) are the canonical policy source
+- Standards plugin content (`plugins/standards/`) — the policy index (`skills/policies/SKILL.md`) is the canonical policy source
 
 ### Discovery Categories
 
@@ -303,7 +303,7 @@ Identify structural patterns for:
 - Design principles (e.g., "thin commands, comprehensive skills")
 - Layering conventions (UX, Domain, Infrastructure, DB, Config)
 - File organization patterns
-- Apply the four leading skills (`standards:leading-{validity,availability,security,accessibility}`) as the project's authoritative policy lenses. Cite specific policies and practices when a discovered constraint maps to one (e.g., "leading-validity: Ours/Theirs Layer Segregation").
+- Apply the `standards:policies` index (the 設計 / 実装 / 運用 pillars) as the project's authoritative policy lens. Cite specific policies and practices when a discovered constraint maps to one (e.g., "実装 妥当性: ドメイン層の分離").
 
 #### Shell Script Policies
 

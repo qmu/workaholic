@@ -7,10 +7,7 @@ skills:
   - core:trip-protocol
   - core:branching
   - core:gather
-  - standards:leading-accessibility
-  - standards:leading-validity
-  - standards:leading-security
-  - standards:leading-availability
+  - standards:policies
 metadata:
   internal: true
 ---

@@ -3,10 +3,7 @@ name: create-ticket
 description: Use when the user runs `/ticket <description>` or asks to "write a ticket", "spec out a feature", or "draft an implementation plan". Discovers historical context, source code, and standards for the request, then writes an implementation ticket to `.workaholic/tickets/todo/` with frontmatter, key files, related history, implementation steps, and considerations.
 skills:
   - gather
-  - standards:leading-validity
-  - standards:leading-accessibility
-  - standards:leading-security
-  - standards:leading-availability
+  - standards:policies
 user-invocable: false
 metadata:
   internal: true
@@ -151,7 +148,7 @@ Based on the history discovery subagent's `moderation` field:
 
 ### 5. Write Ticket(s)
 
-Follow the rest of this skill for format and content. Apply the Lead Lens table (below) to map the ticket's `layer` field to the relevant `standards:leading-*` skill — its policies, practices, and standards govern the ticket's Implementation Steps, Considerations, and Patches.
+Follow the rest of this skill for format and content. Apply the Lead Lens table (below) to map the ticket's `layer` field to the relevant pillar in the `standards:policies` index — its policies and practices govern the ticket's Implementation Steps, Considerations, and Patches.
 
 Populate sections from the three discovery JSONs:
 
@@ -328,21 +325,19 @@ These fields are updated by the `drive` skill (Update Frontmatter section) durin
 
 - **depends_on**: List of ticket filenames that must be implemented before this ticket. Populated automatically when the `/ticket` command splits a request. Format: YAML list of filenames (e.g., `[20260410002111-foundation.md]`). Leave empty for standalone tickets.
 
-## Lead Lens
+## Policy Lens
 
-Each ticket should respect the relevant leading skills based on its `layer` field. Map layer to lead:
+Each ticket should respect the relevant policies in the `standards:policies` index based on its `layer` field. Map layer to pillar:
 
-| Layer | Leading skill | Lens |
-| ----- | ------------- | ---- |
-| UX | `standards:leading-accessibility` | Reach, modeless design, WCAG conformance |
-| Domain | `standards:leading-validity` | Type-driven design, layer segregation, functional style |
-| Infrastructure | `standards:leading-availability` | CI/CD, vendor neutrality, IaC, observability |
-| DB | `standards:leading-validity` | Relational-first persistence, domain–persistence segregation |
-| Config | (whichever lead governs the affected behavior) | Apply the lead whose policies the config touches |
+| Layer | Pillar / viewpoint in `standards:policies` | Lens |
+| ----- | ------------------------------------------ | ---- |
+| UX | 設計, plus 実装 (アクセシビリティ) | Modeless design, reach, WCAG conformance, emergent design system |
+| Domain | 実装 (妥当性) | Type-driven design, layer segregation, functional style |
+| Infrastructure | 実装 (可用性), plus 運用 | Vendor neutrality, IaC, observability; CI/CD automation |
+| DB | 実装 (妥当性) | Relational-first persistence, domain–persistence segregation |
+| Config | (whichever pillar governs the affected behavior) | Apply the pillar whose policies the config touches |
 
-Anything touching authentication, authorization, secrets management, or input validation also engages `standards:leading-security` regardless of layer.
-
-When writing Implementation Steps, Considerations, and Patches, ensure they respect the policies, practices, and standards of every applicable lead. The `/ticket` command preloads these skills (this skill carries them in its `skills:` frontmatter) and applies them automatically; this section documents the mapping for human readers and future agents.
+When writing Implementation Steps, Considerations, and Patches, ensure they respect the policies and practices of every applicable pillar. The `/ticket` command preloads the `standards:policies` index (this skill carries it in its `skills:` frontmatter) and applies it automatically; this section documents the mapping for human readers and future agents.
 
 ## Exploring the Codebase
 

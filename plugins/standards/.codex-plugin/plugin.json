@@ -1,13 +1,13 @@
 {
   "name": "standards",
   "version": "1.0.50",
-  "description": "Repository structuring policy lenses: logical validity, security, availability, and accessibility.",
+  "description": "The project's engineering policy index — design, implementation, and operations — mirrored from qmu.co.jp.",
   "author": {
     "name": "tamurayoshiya",
     "email": "a@qmu.jp"
   },
   "repository": "https://github.com/qmu/workaholic",
   "license": "MIT",
-  "keywords": ["standards", "policy", "validity", "security", "availability", "accessibility"],
+  "keywords": ["standards", "policy", "design", "implementation", "operations"],
   "skills": "./skills/"
 }

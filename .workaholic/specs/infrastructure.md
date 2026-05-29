@@ -83,7 +83,6 @@ The repository follows a dual-directory structure that separates plugin source c
 ├── .claude/                 # Claude Code configuration (symlink target)
 │   ├── commands/            # Symlinked from plugins/drivin/commands/
 │   ├── rules/               # Repository-scoped enforcement rules
-│   │   └── define-lead.md   # Lead agent schema enforcement
 │   ├── settings.json        # Claude Code permissions (denies git -C)
 │   └── settings.local.json  # Local environment overrides
 ├── .claude-plugin/          # Marketplace configuration
@@ -157,17 +156,7 @@ The file system layout separates concerns into three categories:
 
 ### Schema Enforcement Rules
 
-The `.claude/rules/` directory contains path-scoped schema enforcement rules that validate agent and skill structure. These rules are loaded by Claude Code and apply automatically to matching file paths.
-
-#### Lead Agent Schema
-
-The `define-lead.md` rule enforces the structure of lead agent skills and agent files:
-
-- **Skill path scope**: `plugins/drivin/skills/lead-*/SKILL.md`
-- **Agent path scope**: `plugins/drivin/agents/*-lead.md`
-- **Required sections**: Role, Responsibility, Default Policies (Implementation, Review, Documentation, Execution)
-
-Examples following this schema include `lead-infra`, `lead-security`, `lead-quality`, `lead-test`, `lead-a11y`, `lead-db`, `lead-delivery`, `lead-recovery`, `lead-observability`, `lead-ux`.
+The `.claude/rules/` directory holds path-scoped schema enforcement rules that Claude Code loads and applies automatically to matching file paths. It currently contains no rules; the former `define-lead.md` rule was removed when the per-domain lead concept was retired in favor of the single `standards:policies` index.
 
 ### Skill Directory Structure Pattern
 
@@ -187,7 +176,7 @@ Each skill's `SKILL.md` includes frontmatter specifying the skill name, descript
 
 Skills serve four distinct purposes in the architecture:
 
-**Lead domain skills** define role-specific responsibilities and policies. These skills are preloaded by agents and never invoked by users directly. The four leading skills (`leading-validity`, `leading-availability`, `leading-security`, `leading-accessibility`) cover logical comprehensiveness, operational continuity, preservation of trust, and universal reach respectively.
+**The policy index skill** defines the project's engineering-policy lens. The single `standards:policies` skill is preloaded by commands and agents and never invoked by users directly. It is an index mirrored from qmu.co.jp, organized into the 設計 (design), 実装 (implementation — sub-grouped by 妥当性, 可用性, and アクセシビリティ), and 運用 (operations) pillars.
 
 **Workflow operation skills** orchestrate multi-step processes with bundled shell scripts. Examples include `gather-git-context` (outputs JSON with branch, base_branch, repo_url) and `gather-ticket-metadata` (outputs JSON with date, author, filename timestamp).
 
@@ -362,7 +351,7 @@ No custom environment variables are required for basic drivin operation. The tri
 
 ### Agent Orchestration
 
-The standards plugin exposes a single parameterized `lead` agent that loads the matching `leading-<domain>` skill based on its prompt parameter. The four leading skills (`leading-validity`, `leading-availability`, `leading-security`, `leading-accessibility`) are also preloaded directly into work-plugin commands and orchestrators (`/drive`, `ticket-organizer`, `planner`, `architect`, `constructor`) via the soft cross-plugin reference pattern, so policy lenses are available wherever scoping or implementation happens. Leads derive their viewpoint directly from the codebase rather than from any upstream context source.
+The standards plugin exposes a single `policies` skill — an engineering-policy index mirrored from qmu.co.jp. It is preloaded directly into work-plugin commands and orchestrators (`/drive`, `ticket-organizer`, `planner`, `architect`, `constructor`) via the soft cross-plugin reference pattern, so the policy lens is available wherever scoping or implementation happens. The index derives nothing from an upstream context source; consumers read it directly against the codebase.
 
 ## Assumptions
 
@@ -376,7 +365,7 @@ The standards plugin exposes a single parameterized `lead` agent that loads the 
 
 [Explicit] The `.claude/settings.json` file explicitly denies the Bash command pattern `git -C:*`.
 
-[Explicit] The parameterized `lead` agent preloads all four `leading-*` skills.
+[Explicit] The single `standards:policies` index is preloaded by work-plugin commands and orchestrators via the soft cross-plugin reference pattern.
 
 [Inferred] The symlink architecture from `.claude/` to `plugins/drivin/` is inferred from the project structure rule "Edit `plugins/` not `.claude/`" and the marketplace installation pattern, though no explicit symlink creation code was observed.
 
@@ -388,7 +377,7 @@ The standards plugin exposes a single parameterized `lead` agent that loads the 
 
 [Inferred] The ticket validation hook prevents accidental ticket writes to arbitrary locations by enforcing path constraints, ensuring tickets remain organized in the designated directories.
 
-[Inferred] An earlier strategic-context tier was retired in favor of preloading leading skills directly into the work plugin's commands and orchestrators, reflecting that intermediate context artifacts had limited practical uptake compared to the simpler direct-preload model.
+[Inferred] An earlier strategic-context tier was retired in favor of preloading the policy lens directly into the work plugin's commands and orchestrators, reflecting that intermediate context artifacts had limited practical uptake compared to the simpler direct-preload model.
 
 [Explicit] The trippin plugin requires the experimental Agent Teams feature flag `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, as documented in trip.md.
 

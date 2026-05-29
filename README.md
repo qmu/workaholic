@@ -2,7 +2,7 @@
 
 The development workflows we use at [qmu](https://github.com/qmu), written down so our coding agents can run them the way we do. They're tuned to how we work, so they may not fit everyone, and they'll keep changing as we do. We keep it public so the people we work with can share the same base.
 
-**Concretely**, it's a cross-agent distribution of structured development workflows and engineering-standard skills: ticket-driven development, AI-collaborative exploration, and the `leading-*` policy lenses. It's richest on **Claude Code** (a plugin marketplace: slash commands, hooks, `/trip` Agent Teams); the same skills install on **Codex**, **OpenCode**, and 40+ other agents via the [Agent Skills standard](https://skills.sh). Authored once under `plugins/`, generated into portable artifacts under `dist/`.
+**Concretely**, it's a cross-agent distribution of structured development workflows and engineering-standard skills: ticket-driven development, AI-collaborative exploration, and the `standards:policies` engineering-policy index. It's richest on **Claude Code** (a plugin marketplace: slash commands, hooks, `/trip` Agent Teams); the same skills install on **Codex**, **OpenCode**, and 40+ other agents via the [Agent Skills standard](https://skills.sh). Authored once under `plugins/`, generated into portable artifacts under `dist/`.
 
 > [!WARNING]
 > **This drives git on your behalf.** Workaholic lets your coding agent autonomously create branches, commit, amend, push, and open pull requests. Review the plugin/skill descriptions below before installing so you know what to expect.
@@ -20,7 +20,7 @@ Enable the plugins you want after installation. Auto update is recommended. For 
 
 Workaholic follows the cross-agent [Agent Skills standard](https://skills.sh). What's portable:
 
-- **`standards`** — the four `leading-*` policy lenses (pure prose, self-contained). Available on every Agent-Skills agent.
+- **`standards`** — the `policies` engineering-policy index (pure prose, self-contained): title, one-line summary, and canonical qmu.co.jp link per policy, organized into the 設計 / 実装 / 運用 pillars. Available on every Agent-Skills agent.
 - **`write-release-note`** — release-note structure guidance (pure prose).
 - **Workflows** — `create-ticket`, `drive`, `report`, `ship` as agent-neutral skills (`trip` stays Claude-only; it needs Agent Teams). On non-Claude agents the workflow runs the same steps without Claude's parallel subagents/`AskUserQuestion` — see each skill's **Agent Compatibility** note.
 
@@ -57,7 +57,7 @@ Shared commands that work across all workflows. Auto-detects your development co
 
 ### Standards
 
-Repository structuring policy, qualitative agents, and documentation standards. This plugin has no commands — it provides agents and skills referenced by other plugins. Includes lead agents (a11y, db, delivery, infra, observability, quality, recovery, security, test, ux), manager agents (architecture, project, quality), and documentation writers (changelog, terms, specs, release notes).
+Engineering-policy index referenced by other plugins. This plugin has no commands — it provides the single `policies` skill: a catalog mirrored from qmu.co.jp giving each policy's title, one-line summary, and canonical link, organized into the 設計 (design), 実装 (implementation, sub-grouped by 妥当性 / 可用性 / アクセシビリティ), and 運用 (operations) pillars. Security (安全) and working-practice (執務) policies live elsewhere on qmu.co.jp and are out of scope for this plugin.
 
 ### Work
 

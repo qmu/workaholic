@@ -10,7 +10,7 @@ commit_hash: f76bde2
 
 # Component Viewpoint
 
-The Component Viewpoint describes the internal structure of the Workaholic marketplace, its module boundaries, and how the system decomposes into plugins, commands, agents, skills, and rules. The marketplace contains three plugins: core (shared utilities and context-aware commands), standards (the four leading skills, analyze-* skills, write-* skills, and the writer/analyst agents that produce documentation), and work (the `/ticket`, `/drive`, and `/trip` commands plus their orchestrators). All three plugins are organized in strict hierarchical architectures that enforce separation of concerns through nesting policies.
+The Component Viewpoint describes the internal structure of the Workaholic marketplace, its module boundaries, and how the system decomposes into plugins, commands, agents, skills, and rules. The marketplace contains three plugins: core (shared utilities and context-aware commands), standards (the single `policies` engineering-policy index), and work (the `/ticket`, `/drive`, and `/trip` commands plus their orchestrators). All three plugins are organized in strict hierarchical architectures that enforce separation of concerns through nesting policies.
 
 ## Module Boundaries
 
@@ -104,11 +104,7 @@ flowchart TD
 
 #### Agents Layer
 
-Agents are grouped by primary purpose. The standards plugin provides one parameterized lead agent and a small set of writer/analyst agents; the work plugin provides orchestrators for ticket creation, drive, trip, and reporting.
-
-##### Lead (1, parameterized)
-
-- `lead` -- Single agent in the standards plugin that takes a domain prompt parameter (`accessibility`, `availability`, `security`, `validity`) and applies the matching `leading-<domain>` skill. Replaced the per-domain lead agents that existed during the manager era.
+Agents are grouped by primary purpose. The standards plugin provides no agents — it carries only the single `policies` index skill; the work plugin provides orchestrators for ticket creation, drive, trip, and reporting.
 
 ##### Worker Tier: Ticket Management (3)
 
@@ -146,12 +142,9 @@ Agents are grouped by primary purpose. The standards plugin provides one paramet
 
 Skills are the knowledge layer, organized by domain. Each skill directory contains a `SKILL.md` file and optionally a `scripts/` directory with bundled shell scripts.
 
-##### Leading Skills (4)
+##### Policy Index Skill (1)
 
-- `leading-validity` -- Logical comprehensiveness, type-driven design, layer segregation
-- `leading-availability` -- CI/CD, vendor neutrality, IaC, observability, recovery
-- `leading-security` -- Secure-by-design defaults, ISMS-style risk management, defense in depth
-- `leading-accessibility` -- Universal reach, modeless design, tool-first interaction
+- `policies` -- Single index in the standards plugin, mirrored from qmu.co.jp. Gives each engineering policy a title, a one-line summary, and a canonical link, organized into three pillars: 設計 (design — modeless design), 実装 (implementation — sub-grouped by 妥当性, 可用性, and アクセシビリティ), and 運用 (operations — CI/CD automation). Replaced the four former `leading-*` lenses. Security (安全) and working-practice (執務) policies are out of scope and live elsewhere on qmu.co.jp.
 
 ##### Analysis Skills (3)
 
@@ -211,7 +204,7 @@ Rules are global constraints that apply to specific file patterns.
 | `typescript.md` | Path-specific | TypeScript conventions |
 | `workaholic.md` | Path-specific | Workaholic-specific rules |
 
-Note: `define-lead.md` resides in `.claude/rules/` (repository-scoped rule), not within any plugin's rules directory.
+Note: the `.claude/rules/` directory holds repository-scoped rules, separate from any plugin's rules directory. It previously held a `define-lead.md` schema rule, which was removed when the per-domain lead concept was retired in favor of the single `standards:policies` index.
 
 #### Hooks Layer (1)
 
@@ -257,10 +250,6 @@ flowchart TD
         drive["/drive"]
         report["/report"]
         trip["/trip"]
-    end
-
-    subgraph "Standards Lead (parameterized)"
-        L[lead]
     end
 
     subgraph "Standards Writers and Analysts"
@@ -310,11 +299,8 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    subgraph "Leading Skills"
-        LV[leading-validity]
-        LAv[leading-availability]
-        LSec[leading-security]
-        LAc[leading-accessibility]
+    subgraph "Policy Index Skill"
+        PI[policies]
     end
 
     subgraph "Trip Skills"
@@ -338,11 +324,8 @@ flowchart LR
     CT --> GTM
     Disc --> GGC
 
-    LV -.preloaded by.-> CT
-    LV -.preloaded by.-> D
-    LAv -.preloaded by.-> CT
-    LSec -.preloaded by.-> CT
-    LAc -.preloaded by.-> CT
+    PI -.preloaded by.-> CT
+    PI -.preloaded by.-> D
 
     TP -.- |self-contained| TP
 ```
@@ -361,16 +344,15 @@ Commands are responsible for:
 
 Commands delegate all knowledge operations to skills and all focused work to agents.
 
-### Lead Responsibilities
+### Policy Index Responsibilities
 
-The parameterized `lead` agent is responsible for:
+The single `policies` index is responsible for:
 
-- Loading the matching `leading-<domain>` skill based on its prompt parameter
-- Deriving its viewpoint directly from the codebase (no upstream context source)
-- Producing domain-specific policy documents when invoked for documentation generation
-- Documenting observable practices rather than aspirational recommendations
+- Naming each engineering policy with its title, a one-line summary of what it chooses and why, and a canonical qmu.co.jp link
+- Organizing the policies into the 設計, 実装 (妥当性 / 可用性 / アクセシビリティ), and 運用 pillars
+- Staying in step with the published articles rather than drifting across separate files
 
-The four leading skills (`leading-validity`, `leading-availability`, `leading-security`, `leading-accessibility`) are also preloaded directly into work-plugin commands and agents (`/drive`, `ticket-organizer`, `planner`, `architect`, `constructor`) where they act as policy lenses rather than producers.
+The index is preloaded directly into work-plugin commands and agents (`/drive`, `ticket-organizer`, `planner`, `architect`, `constructor`) where it acts as the policy lens rather than a producer. Security (安全) and working-practice (執務) policies are out of scope.
 
 ### Work Worker Agent Responsibilities
 
@@ -432,7 +414,7 @@ The work plugin follows a strict layered architecture:
 ```
 
 Dependencies flow downward only:
-- Commands depend on Agents and Skills (including preloaded `standards:leading-*` skills via soft cross-plugin references)
+- Commands depend on Agents and Skills (including the preloaded `standards:policies` index via a soft cross-plugin reference)
 - Agents depend on Skills only (and may invoke other agents)
 - Skills depend on other Skills only
 - Rules have no dependencies (applied by platform)
@@ -449,18 +431,15 @@ The trippin plugin follows a flatter architecture:
 +-----------------------------------------+
 ```
 
-### Information Flow: Leading Skills as Policy Lenses
+### Information Flow: The Policy Index as a Policy Lens
 
-Leading skills do not produce intermediate artifacts that other agents consume. Instead, they are preloaded into the work plugin's commands and orchestrators:
+The `policies` index does not produce intermediate artifacts that other agents consume. Instead, it is preloaded into the work plugin's commands and orchestrators:
 
 ```
-standards:leading-validity      -.preloaded by.-> /drive, ticket-organizer, planner, architect, constructor
-standards:leading-availability  -.preloaded by.-> /drive, ticket-organizer, planner, architect, constructor
-standards:leading-security      -.preloaded by.-> /drive, ticket-organizer, planner, architect, constructor
-standards:leading-accessibility -.preloaded by.-> /drive, ticket-organizer, planner, architect, constructor
+standards:policies -.preloaded by.-> /drive, ticket-organizer, planner, architect, constructor
 ```
 
-The work plugin's `dependencies` field declares only `["core"]`; the leading-skill references are soft (the work plugin tolerates the standards plugin being absent).
+The work plugin's `dependencies` field declares only `["core"]`; the `standards:policies` reference is soft (the work plugin tolerates the standards plugin being absent).
 
 ### Parallel Invocation Pattern
 
@@ -489,10 +468,7 @@ Agents and commands declare skill dependencies in their frontmatter:
 skills:
   - drive
   - core:system-safety
-  - standards:leading-validity
-  - standards:leading-accessibility
-  - standards:leading-security
-  - standards:leading-availability
+  - standards:policies
 ```
 
 The platform preloads these skills, making their content available to the agent without explicit reads. Cross-plugin references use either the `<plugin>:<skill>` slug for soft references or `${CLAUDE_PLUGIN_ROOT}/../<plugin>/` paths for declared dependencies. Bundled shell scripts within skills are always invoked via `${CLAUDE_PLUGIN_ROOT}` paths:
@@ -504,9 +480,9 @@ bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/check-worktrees.sh
 
 ## Design Patterns
 
-### Pattern 1: Lead-as-Lens Preloading
+### Pattern 1: Policy-Index-as-Lens Preloading
 
-The four leading skills are preloaded directly into work-plugin commands and orchestrators via the soft cross-plugin reference pattern (`standards:leading-*`). Each preload site treats the leads as policy lenses applied to whichever layers the ticket touches, rather than as upstream producers of intermediate context.
+The single `policies` index is preloaded directly into work-plugin commands and orchestrators via the soft cross-plugin reference pattern (`standards:policies`). Each preload site treats the index as the policy lens, applying the relevant pillars to whichever layers the ticket touches (UX → 設計 plus 実装's アクセシビリティ viewpoint, Domain/DB → 実装 妥当性, Infrastructure → 実装 可用性 plus 運用, Config → whichever pillar the config touches), rather than as an upstream producer of intermediate context.
 
 ### Pattern 2: Command-Agent-Skill Delegation
 
@@ -562,7 +538,7 @@ The drive approval flow was strengthened with CRITICAL enforcement requiring tic
 
 ### Removal of the Strategic-Context Tier
 
-A three-agent strategic-context tier was introduced in February 2026 to provide leads with a separate upstream layer of project, architectural, and quality context. It comprised three agents and their paired domain skills, a cross-cutting principles skill, a schema enforcement rule, a full-codebase documentation command, an agent-selection helper skill, and a directory of explicit constraint files. None of those artifacts were consulted by the active ticket, drive, or trip flows, which derived context directly from the codebase. The tier was removed in May 2026 in favor of preloading the four leading skills directly into work-plugin commands and orchestrators. The viewpoint specs that the architecture-side agent had produced (application.md, component.md, feature.md, usecase.md) are now hand-maintained reference documents without an automated owner.
+A three-agent strategic-context tier was introduced in February 2026 to provide leads with a separate upstream layer of project, architectural, and quality context. It comprised three agents and their paired domain skills, a cross-cutting principles skill, a schema enforcement rule, a full-codebase documentation command, an agent-selection helper skill, and a directory of explicit constraint files. None of those artifacts were consulted by the active ticket, drive, or trip flows, which derived context directly from the codebase. The tier was removed in May 2026 in favor of preloading the four `standards:leading-*` skills directly into work-plugin commands and orchestrators; those four lenses were subsequently consolidated into the single `standards:policies` index. The viewpoint specs that the architecture-side agent had produced (application.md, component.md, feature.md, usecase.md) are now hand-maintained reference documents without an automated owner.
 
 ## Assumptions
 

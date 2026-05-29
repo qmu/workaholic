@@ -4,10 +4,7 @@ description: Use when the user runs `/drive`, asks to "implement the queued tick
 skills:
   - commit
   - system-safety
-  - standards:leading-validity
-  - standards:leading-accessibility
-  - standards:leading-security
-  - standards:leading-availability
+  - standards:policies
 allowed-tools: Bash
 user-invocable: false
 metadata:
@@ -322,7 +319,7 @@ If no Patches section exists, skip to step 3.
 
 #### 3. Implement the Ticket
 
-- Read the ticket's `layer` field. For each layer, apply the policies, practices, and standards from the matching leading skill: UX → `standards:leading-accessibility`, Domain → `standards:leading-validity`, Infrastructure → `standards:leading-availability`, DB → `standards:leading-validity`, Config → the lead whose policies the config touches. Anything touching authentication, authorization, secrets, or input validation also engages `standards:leading-security`.
+- Read the ticket's `layer` field and apply the relevant policies from the `standards:policies` index, using its "Applying this index" mapping: UX → 設計 plus the アクセシビリティ viewpoint of 実装, Domain/DB → 実装 (妥当性 viewpoint), Infrastructure → 実装 (可用性 viewpoint) plus 運用, Config → the pillar whose policies the config touches.
 - Follow the implementation steps in the ticket
 - Use existing patterns and conventions in the codebase
 - For areas where patches applied, verify and adjust as needed

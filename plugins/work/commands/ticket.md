@@ -13,7 +13,7 @@ skills:
 
 **CRITICAL:** NEVER implement code changes when this command is invoked - only create tickets. The actual implementation happens later via `/drive`.
 
-**Lead Lens**: Ticket scoping uses the `standards:leading-*` skills as policy lenses, mapped to the ticket's `layer` field. The `core:create-ticket` skill preloads them; the Lead Lens table in the skill documents the mapping.
+**Policy Lens**: Ticket scoping uses the `standards:policies` index (the 設計 / 実装 / 運用 pillars) as its policy lens, mapped to the ticket's `layer` field. The `core:create-ticket` skill preloads it; the Policy Lens table in the skill documents the mapping.
 
 This command (main agent) runs the `core:create-ticket` **Workflow** directly: it spawns the three discovery subagents as `general-purpose` Task calls and issues every AskUserQuestion itself — there is no `ticket-organizer` subagent.
 

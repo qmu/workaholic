@@ -10,13 +10,13 @@ commit_hash: f76bde2
 
 # Application Viewpoint
 
-The Application Viewpoint describes how Workaholic behaves at runtime, focusing on agent orchestration patterns, data flow between components, and the execution model that governs how commands produce artifacts. The system comprises three plugins -- core (shared utilities and context-aware commands), standards (policy lenses and documentation writers), and work (development and exploration workflows) -- each with distinct orchestration models. Drive-style work operates as a directed acyclic graph of agent invocations where slash commands trigger cascades of orchestrator and writer agent executions, with the four leading skills preloaded directly as the project's policy lens. Trip-style work operates as an Agent Teams session where three philosophical agents collaborate through filesystem-based artifact exchange in an isolated git worktree.
+The Application Viewpoint describes how Workaholic behaves at runtime, focusing on agent orchestration patterns, data flow between components, and the execution model that governs how commands produce artifacts. The system comprises three plugins -- core (shared utilities and context-aware commands), standards (policy lenses and documentation writers), and work (development and exploration workflows) -- each with distinct orchestration models. Drive-style work operates as a directed acyclic graph of agent invocations where slash commands trigger cascades of orchestrator and writer agent executions, with the single `standards:policies` index preloaded directly as the project's policy lens. Trip-style work operates as an Agent Teams session where three philosophical agents collaborate through filesystem-based artifact exchange in an isolated git worktree.
 
 ## Orchestration Model
 
 ### Work Plugin Orchestration
 
-The work plugin follows a three-layer orchestration architecture: commands at the top, orchestrator agents in the middle, and skills at the bottom. Commands orchestrate workflows by invoking agents through Claude Code's Task tool. The four leading skills (`standards:leading-validity`, `leading-availability`, `leading-security`, `leading-accessibility`) are preloaded directly into the orchestration surfaces — `/drive`, `/ticket`, `/trip`, and the agents they invoke — so policy lenses are available wherever scoping or implementation happens. Skills contain domain knowledge, templates, and shell scripts that implement the actual operations.
+The work plugin follows a three-layer orchestration architecture: commands at the top, orchestrator agents in the middle, and skills at the bottom. Commands orchestrate workflows by invoking agents through Claude Code's Task tool. The single `standards:policies` index is preloaded directly into the orchestration surfaces — `/drive`, `/ticket`, `/trip`, and the agents they invoke — so the policy lens is available wherever scoping or implementation happens. Skills contain domain knowledge, templates, and shell scripts that implement the actual operations.
 
 The orchestration model enforces strict nesting rules. Commands can invoke skills and agents. Agents can invoke skills and other agents. Skills can invoke other skills but never agents or commands. This hierarchy prevents circular dependencies and maintains clear separation of concerns between workflow orchestration (commands and agents) and operational knowledge (skills).
 
@@ -205,19 +205,19 @@ sequenceDiagram
 
 The `/trip` command follows a different orchestration model from drivin commands. Instead of the Task tool pattern, it uses Claude Code's experimental Agent Teams feature to create a three-member team that collaborates through filesystem artifacts. The command orchestrates worktree creation and initialization, then delegates the entire specification and implementation workflow to the Agent Team. Each step produces a git commit through the `trip-commit.sh` script, creating a traceable history on the worktree branch.
 
-### Leading Skill Application
+### Policy Index Application
 
-The standards plugin exposes four leading skills that act as the project's policy lenses. Each skill owns one viewpoint and provides Role, Policies, Practices, and Standards content that any consumer can preload:
+The standards plugin exposes a single `policies` skill that acts as the project's policy lens: an index mirrored from qmu.co.jp giving each engineering policy's title, a one-line summary of what it chooses and why, and a link to its canonical article. The index is organized into three pillars:
 
-**leading-validity**: Logical comprehensiveness — type-driven design, layer segregation, functional style, relational-first persistence, domain–persistence separation.
+**設計 (design)**: How the product's interaction and experience are shaped — modeless design and the freedom to assemble one's own workflow.
 
-**leading-availability**: Operational continuity — CI/CD automation, vendor neutrality, infrastructure as code, observable-by-design, scenario-based recovery.
+**実装 (implementation)**: How the code is structured, viewed through three sub-grouped viewpoints — **妥当性** (logical comprehensiveness: declarative style, thick typing, active unit testing, DB-schema-first persistence, domain-layer separation), **可用性** (operational continuity: vendor neutrality, infrastructure as code, observability and self-healing, capacity and recovery planning), and **アクセシビリティ** (reachability: accessibility for humans and AI, emergent design systems).
 
-**leading-security**: Preservation of trust — secure-by-design defaults, ISMS-style risk management, defense in depth.
+**運用 (operations)**: How running code is kept serving — CI/CD automation as the ground of operation.
 
-**leading-accessibility**: Universal reach — accessibility-first structure, modeless interaction, tool-first design that works for human UI and AI agents alike.
+Security (安全) and working-practice (執務) policies live elsewhere on qmu.co.jp and are outside this index's scope.
 
-These skills are preloaded directly into the work plugin's orchestration surfaces — `/drive` and `/ticket` commands, plus the `ticket-organizer`, `planner`, `architect`, and `constructor` agents. The leads no longer have a producing or consuming relationship with anything else in the system; they are read whenever an agent needs to scope or implement work, and they apply to whichever layers the ticket touches (UX → leading-accessibility, Domain/DB → leading-validity, Infrastructure → leading-availability, anything touching authentication/secrets → leading-security).
+This skill is preloaded directly into the work plugin's orchestration surfaces — `/drive` and `/ticket` commands, plus the `ticket-organizer`, `planner`, `architect`, and `constructor` agents. The index has no producing or consuming relationship with anything else in the system; it is read whenever an agent needs to scope or implement work, and the relevant pillars apply to whichever layers the ticket touches (UX → 設計 plus 実装's アクセシビリティ viewpoint, Domain/DB → 実装 妥当性, Infrastructure → 実装 可用性 plus 運用, Config → whichever pillar the config touches).
 
 ### Parallel vs Sequential Execution
 
@@ -370,7 +370,7 @@ Commands are namespaced by plugin. The `/ticket`, `/drive`, and `/trip` commands
 
 Before the command executes, Claude Code preloads any skills listed in the frontmatter. Skill preloading means reading the skill's SKILL.md file and injecting its content into the prompt context. This makes the skill's knowledge and script paths available to the command without requiring explicit references in the instruction text. Commands reference skills by relative path when invoking bundled shell scripts.
 
-Skill paths are plugin-specific. Each plugin's skills resolve to `~/.claude/plugins/marketplaces/workaholic/plugins/<plugin>/skills/`. Cross-plugin references use the `<plugin>:<skill>` slug for soft references (e.g., the work plugin preloads `standards:leading-validity`) or the `${CLAUDE_PLUGIN_ROOT}/../<plugin>/` path for declared dependencies (e.g., the work plugin's `${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/...`).
+Skill paths are plugin-specific. Each plugin's skills resolve to `~/.claude/plugins/marketplaces/workaholic/plugins/<plugin>/skills/`. Cross-plugin references use the `<plugin>:<skill>` slug for soft references (e.g., the work plugin preloads `standards:policies`) or the `${CLAUDE_PLUGIN_ROOT}/../<plugin>/` path for declared dependencies (e.g., the work plugin's `${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/...`).
 
 ### Subagent Spawning
 
@@ -458,7 +458,7 @@ Commands specify which Claude model each subagent should use based on the comple
 
 Top-level orchestrators use opus because they make complex decisions, coordinate multiple agents, and handle multi-step workflows. The ticket-organizer (opus) evaluates whether to split or merge tickets, synthesizes results from three discovery agents, and determines ticket structure. The drive-navigator (opus) prioritizes tickets based on type, layer, and dependencies. The story-writer (opus) coordinates two phases of agent invocation and compiles diverse outputs into a coherent story.
 
-Writer and analyst agents use sonnet because they perform focused analysis on a single domain with well-defined inputs and outputs. The changelog-writer, release-note-writer, terms-writer, overview-writer, model-analyst, performance-analyst, section-reviewer, and the parameterized lead agent all use sonnet. They read source code and documentation, apply their specialized lens, and produce structured markdown outputs.
+Writer and analyst agents use sonnet because they perform focused analysis on a single domain with well-defined inputs and outputs. The changelog-writer, release-note-writer, terms-writer, overview-writer, model-analyst, performance-analyst, and section-reviewer all use sonnet. They read source code and documentation, apply their specialized lens, and produce structured markdown outputs.
 
 Release note generation uses haiku because it performs a simple transformation task: read the story file and extract key points into a concise format.
 
@@ -482,7 +482,7 @@ The drive approval flow was strengthened to enforce that every approval prompt i
 
 ### Removal of the Strategic-Context Tier
 
-A three-agent strategic-context tier was introduced in February 2026 to provide leads with separate project, architectural, and quality context, consumed through a full-codebase documentation command that ran the upstream agents first and the leads second. In practice, the intermediate context artifacts were not consulted by the active ticket, drive, or trip flows, which derived context directly from the codebase. The tier — comprising the three upstream agents and their paired domain skills, a cross-cutting principles skill, a schema enforcement rule, the documentation command, an agent-selection helper skill, and a directory of explicit constraint files — was removed in May 2026 in favor of preloading the four leading skills directly into the work plugin's commands and agents. The four viewpoint specs (application.md, component.md, feature.md, usecase.md) that the upstream architecture agent produced are now hand-maintained reference documents without an automated owner.
+A three-agent strategic-context tier was introduced in February 2026 to provide leads with separate project, architectural, and quality context, consumed through a full-codebase documentation command that ran the upstream agents first and the leads second. In practice, the intermediate context artifacts were not consulted by the active ticket, drive, or trip flows, which derived context directly from the codebase. The tier — comprising the three upstream agents and their paired domain skills, a cross-cutting principles skill, a schema enforcement rule, the documentation command, an agent-selection helper skill, and a directory of explicit constraint files — was removed in May 2026 in favor of preloading the four `standards:leading-*` skills directly into the work plugin's commands and agents. Those four lenses were subsequently consolidated into the single `standards:policies` index. The four viewpoint specs (application.md, component.md, feature.md, usecase.md) that the upstream architecture agent produced are now hand-maintained reference documents without an automated owner.
 
 ### Version Bump Idempotency
 
@@ -490,8 +490,8 @@ The report command was enhanced to check for existing version bump commits befor
 
 ## Assumptions
 
-- [Explicit] The four leading skills (`standards:leading-validity`, `leading-availability`, `leading-security`, `leading-accessibility`) are preloaded into `plugins/work/commands/drive.md`, `plugins/work/agents/ticket-organizer.md`, `plugins/work/agents/planner.md`, `plugins/work/agents/architect.md`, and `plugins/work/agents/constructor.md`.
-- [Explicit] The work plugin's `dependencies` field declares only `["core"]`; references to standards use the soft cross-plugin slug pattern (`standards:leading-*`) so the work plugin tolerates the standards plugin being absent.
+- [Explicit] The single `standards:policies` index is preloaded into `plugins/work/commands/drive.md`, `plugins/work/agents/ticket-organizer.md`, `plugins/work/agents/planner.md`, `plugins/work/agents/architect.md`, and `plugins/work/agents/constructor.md`.
+- [Explicit] The work plugin's `dependencies` field declares only `["core"]`; the reference to standards uses the soft cross-plugin slug pattern (`standards:policies`) so the work plugin tolerates the standards plugin being absent.
 - [Explicit] The marketplace registers three plugins (core, standards, work) as shown in `.claude-plugin/marketplace.json`.
 - [Explicit] The trip command requires the Agent Teams experimental feature flag (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) as stated in trip.md.
 - [Explicit] Trip sessions run in isolated git worktrees created by ensure-worktree.sh, as documented in trip-protocol SKILL.md.

@@ -361,9 +361,9 @@ flowchart LR
     end
 ```
 
-## Lead Lens Application
+## Policy Lens Application
 
-The four leading skills (`leading-validity`, `leading-availability`, `leading-security`, `leading-accessibility`) are preloaded into work-plugin commands and orchestrators. When ticket-organizer scopes a ticket or `/drive` implements one, the relevant leading skills apply as policy lenses based on the ticket's `layer` field. There is no separate strategic-context workflow; leads derive their viewpoint directly from the codebase.
+The single `standards:policies` index is preloaded into work-plugin commands and orchestrators. When ticket-organizer scopes a ticket or `/drive` implements one, the relevant pillars apply as the policy lens based on the ticket's `layer` field (UX → 設計 plus 実装's アクセシビリティ viewpoint, Domain/DB → 実装 妥当性, Infrastructure → 実装 可用性 plus 運用, Config → whichever pillar the config touches). There is no separate strategic-context workflow; consumers read the index directly against the codebase.
 
 ## Assumptions
 

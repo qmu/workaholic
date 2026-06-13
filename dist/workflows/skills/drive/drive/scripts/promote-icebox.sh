@@ -17,9 +17,11 @@ if [ ! -f "$SRC" ]; then
 fi
 
 FILENAME=$(basename "$SRC")
-DEST=".workaholic/tickets/todo/${FILENAME}"
+SCRIPT_DIR=$(dirname "$0")
+USER_SLUG=$(sh "${SCRIPT_DIR}/../../gather/scripts/user-slug.sh")
+DEST=".workaholic/tickets/todo/${USER_SLUG}/${FILENAME}"
 
-mkdir -p .workaholic/tickets/todo
+mkdir -p ".workaholic/tickets/todo/${USER_SLUG}"
 mv "$SRC" "$DEST"
 git add "$SRC" "$DEST"
 

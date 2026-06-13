@@ -26,7 +26,14 @@ const SCRIPTS = {
   checkWorkspace: join(REPO_ROOT, "plugins/core/skills/branching/scripts/check-workspace.sh"),
   update: join(REPO_ROOT, "plugins/core/skills/drive/scripts/update.sh"),
   archive: join(REPO_ROOT, "plugins/core/skills/drive/scripts/archive.sh"),
+  userSlug: join(REPO_ROOT, "plugins/core/skills/gather/scripts/user-slug.sh"),
+  sweepTodo: join(REPO_ROOT, "plugins/core/skills/create-ticket/scripts/sweep-todo.sh"),
+  listTodo: join(REPO_ROOT, "plugins/core/skills/drive/scripts/list-todo.sh"),
+  promoteIcebox: join(REPO_ROOT, "plugins/core/skills/drive/scripts/promote-icebox.sh"),
 };
+
+// Slug for the repo's standard test identity (git config user.email test@example.com).
+const TEST_SLUG = "test-example-com";
 
 let passed = 0;
 let failed = 0;
@@ -97,9 +104,11 @@ function testDetectContext() {
       context: "work", branch: "work-20260528-foo", mode: "drive",
     });
 
-    // Add a todo ticket -> still drive mode (workspace has tickets, no trips)
-    mkdirSync(join(dir, ".workaholic/tickets/todo"), { recursive: true });
-    writeFileSync(join(dir, ".workaholic/tickets/todo/x.md"), "---\n---\n");
+    // Add a todo ticket under the current user's subdirectory -> still drive mode
+    // (workspace has tickets, no trips). Mode detection is scoped per-user, so the
+    // ticket must live in todo/<user>/ to be counted.
+    mkdirSync(join(dir, `.workaholic/tickets/todo/${TEST_SLUG}`), { recursive: true });
+    writeFileSync(join(dir, `.workaholic/tickets/todo/${TEST_SLUG}/x.md`), "---\n---\n");
     r = run(dir, `bash ${SCRIPTS.detectContext}`);
     assertEq("detectContext on work-* with todo ticket", JSON.parse(r.stdout), {
       context: "work", branch: "work-20260528-foo", mode: "drive",
@@ -192,7 +201,9 @@ function testArchive() {
   const dir = makeRepo("main");
   try {
     execSync(`git checkout -q -b work-20260528-smoke`, { cwd: dir });
-    const todoDir = join(dir, ".workaholic/tickets/todo");
+    // Ticket lives under the per-user subdirectory; archive must still strip the
+    // /todo/<user> segment and land the ticket flat under archive/<branch>/.
+    const todoDir = join(dir, `.workaholic/tickets/todo/${TEST_SLUG}`);
     mkdirSync(todoDir, { recursive: true });
     const ticketPath = join(todoDir, "20260528120000-smoke-ticket.md");
     writeFileSync(ticketPath, `---
@@ -217,7 +228,7 @@ Development completed as planned.
     // sweeps everything (matches production behavior).
     writeFileSync(join(dir, "side.txt"), "side-effect\n");
 
-    const r = run(dir, `bash ${SCRIPTS.archive} .workaholic/tickets/todo/20260528120000-smoke-ticket.md "Add smoke feature" https://example.com/repo "why" "what" "tests" "release"`, { env: { ...process.env, GIT_AUTHOR_DATE: "2026-05-28T12:00:00+09:00", GIT_COMMITTER_DATE: "2026-05-28T12:00:00+09:00" } });
+    const r = run(dir, `bash ${SCRIPTS.archive} .workaholic/tickets/todo/${TEST_SLUG}/20260528120000-smoke-ticket.md "Add smoke feature" https://example.com/repo "why" "what" "tests" "release"`, { env: { ...process.env, GIT_AUTHOR_DATE: "2026-05-28T12:00:00+09:00", GIT_COMMITTER_DATE: "2026-05-28T12:00:00+09:00" } });
     assertEq("archive.sh exits 0", r.status, 0);
 
     const archivedPath = join(dir, ".workaholic/tickets/archive/work-20260528-smoke/20260528120000-smoke-ticket.md");
@@ -242,12 +253,129 @@ Development completed as planned.
   } finally { cleanup(dir); }
 }
 
+// ---------- 6. gather/user-slug.sh ----------
+function testUserSlug() {
+  const dir = makeRepo("main");
+  try {
+    // No argument -> derives from git config user.email (test@example.com).
+    let r = run(dir, `sh ${SCRIPTS.userSlug}`);
+    assertEq("user-slug default from git email", r.stdout.trim(), TEST_SLUG);
+
+    // Explicit argument, mixed case and non-alphanumerics all sanitized.
+    r = run(dir, `sh ${SCRIPTS.userSlug} 'A@QMU.JP'`);
+    assertEq("user-slug lowercases + slugs A@QMU.JP", r.stdout.trim(), "a-qmu-jp");
+
+    r = run(dir, `sh ${SCRIPTS.userSlug} 'Foo.Bar+x@Example.COM'`);
+    assertEq("user-slug sanitizes all non-[a-z0-9]", r.stdout.trim(), "foo-bar-x-example-com");
+  } finally { cleanup(dir); }
+}
+
+// ---------- 7. create-ticket/sweep-todo.sh ----------
+function testSweepTodo() {
+  const dir = makeRepo("main");
+  try {
+    execSync(`git checkout -q -b work-20260528-sweep`, { cwd: dir });
+    const todoRoot = join(dir, ".workaholic/tickets/todo");
+    mkdirSync(todoRoot, { recursive: true });
+
+    const mkTicket = (name, author) =>
+      writeFileSync(join(todoRoot, name),
+        `---\ncreated_at: 2026-05-28T12:00:00+09:00\n${author ? `author: ${author}\n` : ""}type: bugfix\nlayer: [Config]\n---\n\n# ${name}\n`);
+
+    // Stray from another developer -> routed to THEIR subdirectory.
+    mkTicket("20260528120000-other.md", "a@qmu.jp");
+    // Stray from the current user -> routed to the current user's subdirectory.
+    mkTicket("20260528120001-mine.md", "test@example.com");
+    // Stray with no author -> falls back to the current user's subdirectory.
+    mkTicket("20260528120002-orphan.md", null);
+
+    // A ticket already nested one level deep must be left untouched (depth-1 sweep).
+    mkdirSync(join(todoRoot, "someone-else"), { recursive: true });
+    writeFileSync(join(todoRoot, "someone-else/keep.md"), "---\n---\n");
+
+    const r = run(dir, `bash ${SCRIPTS.sweepTodo}`, { cwd: dir });
+    assertEq("sweep-todo exits 0", r.status, 0);
+    const summary = JSON.parse(r.stdout);
+    assertEq("sweep-todo moved 3 strays", summary.moved, 3);
+
+    assertTrue("sweep routed other dev's ticket by author",
+      existsSync(join(todoRoot, "a-qmu-jp/20260528120000-other.md")));
+    assertTrue("sweep routed current user's ticket",
+      existsSync(join(todoRoot, "test-example-com/20260528120001-mine.md")));
+    assertTrue("sweep routed authorless ticket to current user (fallback)",
+      existsSync(join(todoRoot, "test-example-com/20260528120002-orphan.md")));
+    assertTrue("sweep left already-nested ticket untouched",
+      existsSync(join(todoRoot, "someone-else/keep.md")));
+    assertTrue("sweep removed strays from todo root",
+      !existsSync(join(todoRoot, "20260528120000-other.md")));
+
+    // Every move is git-staged: each destination shows up in the index, and no
+    // swept destination is left as untracked (??) residue.
+    const staged = new Set(
+      execSync(`git diff --cached --name-only`, { cwd: dir, encoding: "utf8" })
+        .split("\n").filter(Boolean));
+    for (const p of [
+      `.workaholic/tickets/todo/a-qmu-jp/20260528120000-other.md`,
+      `.workaholic/tickets/todo/test-example-com/20260528120001-mine.md`,
+      `.workaholic/tickets/todo/test-example-com/20260528120002-orphan.md`,
+    ]) {
+      assertTrue(`sweep staged ${p}`, staged.has(p), [...staged].join("\n"));
+    }
+  } finally { cleanup(dir); }
+}
+
+// ---------- 8. drive/list-todo.sh ----------
+function testListTodo() {
+  const dir = makeRepo("main");
+  try {
+    const todoRoot = join(dir, ".workaholic/tickets/todo");
+    mkdirSync(join(todoRoot, TEST_SLUG), { recursive: true });
+    writeFileSync(join(todoRoot, TEST_SLUG, "20260528120000-a.md"), "---\n---\n");
+    writeFileSync(join(todoRoot, TEST_SLUG, "20260528120001-b.md"), "---\n---\n");
+    // Noise the scoped scan must ignore: a root stray and another user's queue.
+    writeFileSync(join(todoRoot, "20260528120002-stray.md"), "---\n---\n");
+    mkdirSync(join(todoRoot, "a-qmu-jp"), { recursive: true });
+    writeFileSync(join(todoRoot, "a-qmu-jp", "20260528120003-other.md"), "---\n---\n");
+
+    const r = run(dir, `bash ${SCRIPTS.listTodo}`, { cwd: dir });
+    const lines = r.stdout.split("\n").filter(Boolean);
+    assertEq("list-todo lists only the current user's queue, sorted", lines, [
+      `.workaholic/tickets/todo/${TEST_SLUG}/20260528120000-a.md`,
+      `.workaholic/tickets/todo/${TEST_SLUG}/20260528120001-b.md`,
+    ]);
+  } finally { cleanup(dir); }
+}
+
+// ---------- 9. drive/promote-icebox.sh ----------
+function testPromoteIcebox() {
+  const dir = makeRepo("main");
+  try {
+    const iceboxDir = join(dir, ".workaholic/tickets/icebox");
+    mkdirSync(iceboxDir, { recursive: true });
+    const src = join(iceboxDir, "20260528120000-parked.md");
+    writeFileSync(src, "---\n---\n");
+    execSync(`git add -A && git commit -q -m "park ticket"`, { cwd: dir });
+
+    const r = run(dir, `bash ${SCRIPTS.promoteIcebox} .workaholic/tickets/icebox/20260528120000-parked.md`, { cwd: dir });
+    assertEq("promote-icebox exits 0", r.status, 0);
+    assertEq("promote-icebox prints user-scoped destination", r.stdout.trim(),
+      `.workaholic/tickets/todo/${TEST_SLUG}/20260528120000-parked.md`);
+    assertTrue("promote-icebox moved ticket into todo/<user>/",
+      existsSync(join(dir, `.workaholic/tickets/todo/${TEST_SLUG}/20260528120000-parked.md`)));
+    assertTrue("promote-icebox removed ticket from icebox", !existsSync(src));
+  } finally { cleanup(dir); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching/detect-context.sh", testDetectContext],
   ["branching/check-workspace.sh", testCheckWorkspace],
   ["drive/update.sh", testUpdate],
   ["drive/archive.sh", testArchive],
+  ["gather/user-slug.sh", testUserSlug],
+  ["create-ticket/sweep-todo.sh", testSweepTodo],
+  ["drive/list-todo.sh", testListTodo],
+  ["drive/promote-icebox.sh", testPromoteIcebox],
 ];
 
 for (const [label, fn] of tests) {

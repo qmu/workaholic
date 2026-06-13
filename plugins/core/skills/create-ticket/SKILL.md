@@ -26,8 +26,8 @@ This skill works on any Agent-Skills-compatible agent. The two Claude-Code mecha
 
 Tickets are written to ONE of these two directories — never anywhere else:
 
-- `.workaholic/tickets/todo/` — Active queue (default for new tickets)
-- `.workaholic/tickets/icebox/` — Deferred (only when the request explicitly targets the icebox)
+- `.workaholic/tickets/todo/<user>/` — Active queue (default for new tickets). `<user>` is the filesystem-safe slug of `git config user.email` (the `user_slug` from Step 1). Partitioning the queue per developer stops one developer's unarchived tickets from leaking onto another's branch and being re-driven. The flat `todo/` root is never a write target for new tickets; any strays already sitting there are swept into a user subdirectory (see Step 1.5).
+- `.workaholic/tickets/icebox/` — Deferred, and stays flat (only when the request explicitly targets the icebox).
 
 Archive paths (`.workaholic/tickets/archive/<branch>/`) are written by the drive archive script, never by this skill.
 
@@ -49,11 +49,22 @@ Parse the JSON output:
 {
   "created_at": "2026-01-31T19:25:46+09:00",
   "author": "developer@company.com",
-  "filename_timestamp": "20260131192546"
+  "filename_timestamp": "20260131192546",
+  "user_slug": "developer-company-com"
 }
 ```
 
-Use these values for frontmatter fields and filename.
+Use `created_at`/`author` for frontmatter fields, `filename_timestamp` for the filename, and `user_slug` for the `todo/<user>/` write path.
+
+## Step 1.5: Sweep Stray Tickets
+
+Before writing the new ticket, route any leftover tickets sitting directly at the `todo/` root into per-user subdirectories:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/create-ticket/scripts/sweep-todo.sh
+```
+
+The sweep moves each root-level `todo/*.md` into `todo/<author-slug>/`, routing by the stray ticket's own `author:` frontmatter (falling back to the current user's slug when missing). It git-stages every move and **never** moves a ticket to the icebox. Report the `moved` count from its JSON output if any tickets were relocated.
 
 ## Frontmatter Template
 
@@ -192,7 +203,7 @@ Return one of:
   "branch_created": "work-20260202-181910",
   "tickets": [
     {
-      "path": ".workaholic/tickets/todo/20260131-feature.md",
+      "path": ".workaholic/tickets/todo/developer-company-com/20260131-feature.md",
       "title": "Ticket Title",
       "summary": "Brief one-line summary"
     }
@@ -207,7 +218,7 @@ Or if duplicate:
 ```json
 {
   "status": "duplicate",
-  "existing_ticket": ".workaholic/tickets/todo/20260130-existing.md",
+  "existing_ticket": ".workaholic/tickets/todo/developer-company-com/20260130-existing.md",
   "reason": "Existing ticket already covers this functionality"
 }
 ```

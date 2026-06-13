@@ -14,6 +14,8 @@ The `.workaholic/` directory has a fixed structure. Only these subdirectories ar
 | `terms/`  | Term definitions                           |
 | `tickets/`      | Implementation work queue and archives     |
 
+The `tickets/` queue is partitioned per developer: active tickets live under `tickets/todo/<user>/`, where `<user>` is the slug of `git config user.email` (e.g. `a-qmu-jp`). The icebox (`tickets/icebox/`) and archive (`tickets/archive/<branch>/`) stay as-is.
+
 README files at the root level are allowed (`README.md`).
 
 **Guidelines:**

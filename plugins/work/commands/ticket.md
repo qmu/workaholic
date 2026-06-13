@@ -42,10 +42,10 @@ Follow the **Workflow** section of the preloaded `core:create-ticket` skill end-
 1. **Check branch** (skill Step 1) — create a topic branch if on main; record `branch_created`.
 2. **Parallel discovery** (skill Step 2) — spawn three `subagent_type: "general-purpose"` subagents in a single message (`model: "opus"`), one per mode (history/source/policy), each preloading `core:discover`. These are leaf subagents: they discover and return JSON only — never AskUserQuestion. Wait for all three.
 3. **Handle moderation** (skill Step 3) — on `duplicate`, inform the user and show the existing path (done); on `needs_decision`, present the merge/split options via `AskUserQuestion` and act on the choice; on `clear`, proceed.
-4. **Evaluate complexity and write ticket(s)** (skill Steps 4–5) — split when warranted, populate `depends_on`, write files under `.workaholic/tickets/{todo,icebox}/` only.
+4. **Evaluate complexity and write ticket(s)** (skill Steps 4–5) — run the stray-ticket sweep (skill Step 1.5) first, then split when warranted, populate `depends_on`, and write files under `.workaholic/tickets/todo/<user>/` (or `.workaholic/tickets/icebox/`, which stays flat) only.
 5. **Handle ambiguity** (skill Step 6) — if the request is ambiguous, present the questions via `AskUserQuestion` and incorporate the answers.
 
-**CRITICAL guardrails** (from `core:create-ticket`): never implement code, never commit (Step 2 below handles commit), discovery subagents never call AskUserQuestion, and tickets are written ONLY under `.workaholic/tickets/todo/` or `.workaholic/tickets/icebox/` — never any other `.workaholic/` subdirectory. See the skill's Allowed Locations section.
+**CRITICAL guardrails** (from `core:create-ticket`): never implement code, never commit (Step 2 below handles commit), discovery subagents never call AskUserQuestion, and tickets are written ONLY under `.workaholic/tickets/todo/<user>/` or `.workaholic/tickets/icebox/` — never the flat `todo/` root and never any other `.workaholic/` subdirectory. See the skill's Allowed Locations section.
 
 ### Step 2: Commit and Present
 

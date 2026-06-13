@@ -3,9 +3,9 @@ created_at: 2026-06-13T09:02:09+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Domain, Config]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: 9aab12d
+category: Added
 depends_on:
 ---
 
@@ -176,3 +176,14 @@ Past tickets that touched similar areas:
 - **Mixed-layout transition is self-healing**: branches created before this change still carry flat tickets; the sweep at `/ticket` and `/drive` migrates them on first contact, routed to their authors. No one-shot migration script is needed.
 - **`discover/scripts/search.sh` and `gather/scripts/git-context.sh` need no changes** — recursive grep and archive-only globs respectively — but history-mode duplicate detection now sees all users' tickets, which is correct (a duplicate is a duplicate regardless of owner) (`plugins/core/skills/discover/scripts/search.sh`).
 - **Hook already admits nested paths** (`^todo/` is a prefix match), so the feature cannot be blocked by the hook even if step 11 is deferred; the tightening is hygiene, not a prerequisite (`plugins/work/hooks/validate-ticket.sh` lines 46-57).
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The speculative patches used the cross-skill reference form `${SCRIPT_DIR}/../../gather/scripts/user-slug.sh`, which resolves correctly when a script runs from its source location but is invisible to the dist build. `scripts/build-plugins/build.mjs`'s `SCRIPT_CROSS_REF` regex only matches `${SCRIPT_DIR}/(../)+core/skills/<x>/scripts/` — it requires the literal `core/skills/` segment to (a) add `<x>` to the build closure and (b) rewrite the path to the flat dist layout. The correct form is the full `${SCRIPT_DIR}/../../../../core/skills/gather/scripts/user-slug.sh` that `archive.sh` already uses for `commit.sh`. Any new cross-skill script reference must use that full form, with a literal uppercase `SCRIPT_DIR` variable, or the dist artifact ships without its dependency.
+  **Context**: This is the single most error-prone part of touching workflow scripts; the source will run fine in Claude Code (which reads `plugins/` directly) while the committed `dist/` artifact silently breaks for Codex and the skills CLI, and only `verify.mjs` catches it.
+- **Insight**: `git add <path>` on a never-tracked, now-missing path is fatal (exit 128), so the sweep cannot blindly `git add` both the old and new paths of a moved stray the way `promote-icebox.sh` does — `promote-icebox` only ever moves *tracked* icebox tickets. The sweep guards the old-path staging with `git ls-files --error-unmatch` so it stages a deletion only when the stray was actually committed, while always staging the new path.
+  **Context**: Strays reaching `todo/` root are usually tracked (inherited from a merged branch), but a freshly created or manually-placed stray is untracked; without the guard, `set -eu` aborts the sweep mid-run on exactly that case.

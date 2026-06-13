@@ -55,7 +55,12 @@ Determine mode from `$ARGUMENT`:
 
 **Normal mode:**
 
-1. Run `bash drive/scripts/list-todo.sh`. If it prints nothing, follow the Navigator section's empty-queue handling (offer icebox/stop via the agent's selection prompt).
+0. Sweep stray tickets into per-user subdirectories first, so root-level strays are routed even when `/drive` runs before any `/ticket`:
+   ```bash
+   bash create-ticket/scripts/sweep-todo.sh
+   ```
+   The sweep routes each root-level `todo/*.md` into `todo/<author-slug>/` by the stray's own `author:` frontmatter, git-staging each move (these staged moves ride along into the next archive commit, which runs `git add -A`). It never moves a ticket to the icebox.
+1. Run `bash drive/scripts/list-todo.sh` — it lists only the current user's `todo/<user>/` queue. If it prints nothing, follow the Navigator section's empty-queue handling (offer icebox/stop via the agent's selection prompt).
 2. If todo tickets exist, spawn a parallel worker whose prompt instructs it to preload `drive`, run the Navigator section's **list / analyze / prioritize** logic (read frontmatter, dependency topo-sort, severity ranking, context grouping), and return the proposed ordered ticket list with tier grouping as JSON. This subagent does NOT call the agent's selection prompt.
 3. The command presents the prioritized list and confirms the order with the user via the agent's selection prompt (Navigator section, "Confirm Order with User"), then proceeds to Phase 2 with the resolved order.
 

@@ -76,7 +76,7 @@ Searches for the project's `CLAUDE.md`. Returns JSON with path or `{"found": fal
 bash ship/scripts/check-todo.sh
 ```
 
-Checks if `.workaholic/tickets/todo/` has remaining tickets. Returns JSON with cleanliness status, count, and ticket list. Used as a pre-merge guard to prevent shipping with unfinished work.
+Checks if the current user's `.workaholic/tickets/todo/<user>/` queue has remaining tickets. Returns JSON with cleanliness status, count, and ticket list. Used as a pre-merge guard to prevent shipping with unfinished work. The check is scoped to the current user's subdirectory: other developers' tickets (in their own subdirectories, or unswept at the `todo/` root) do not block the merge.
 
 ### 2-5. Extract Carry-Overs
 
@@ -114,7 +114,7 @@ bash ship/scripts/check-todo.sh
 
 Parse the JSON output. If `clean` is `true`, proceed silently to the Ship Flow.
 
-If `clean` is `false`, display the ticket list to the user: "Cannot ship: N ticket(s) remaining in `.workaholic/tickets/todo/`:" followed by the ticket filenames. Then ask via the agent's selection prompt with selectable options:
+If `clean` is `false`, display the ticket list to the user: "Cannot ship: N ticket(s) remaining in your `.workaholic/tickets/todo/<user>/` queue:" followed by the ticket filenames. Then ask via the agent's selection prompt with selectable options:
 - **"Move all to icebox"** - Move all remaining tickets to `.workaholic/tickets/icebox/`, stage and commit "Move remaining tickets to icebox", then proceed to the Ship Flow.
 - **"Stop"** - Halt the workflow so you can handle tickets first (run `/drive`, manually reorganize, etc.)
 

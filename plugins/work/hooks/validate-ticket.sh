@@ -28,7 +28,7 @@ filename=$(basename "$file_path")
 # .workaholic/RFDs/<ts>-foo.md that would otherwise silently pass.
 if [[ "$file_path" =~ \.workaholic/ ]] && [[ ! "$file_path" =~ \.workaholic/tickets/ ]] \
   && [[ "$filename" =~ ^[0-9]{14}-.*\.md$ ]]; then
-  echo "Error: Ticket files must be under .workaholic/tickets/todo/ or .workaholic/tickets/icebox/" >&2
+  echo "Error: Ticket files must be under .workaholic/tickets/todo/<user>/ or .workaholic/tickets/icebox/" >&2
   echo "Got: $file_path" >&2
   print_skill_reference
   exit 2
@@ -42,15 +42,17 @@ fi
 # Extract the path after .workaholic/tickets/
 tickets_path="${file_path#*.workaholic/tickets/}"
 
-# Validate location: must be in todo/, icebox/, or archive/<branch>/
-if [[ "$tickets_path" =~ ^todo/ ]]; then
-  : # Valid
-elif [[ "$tickets_path" =~ ^icebox/ ]]; then
-  : # Valid
+# Validate location: must be in todo/ (flat root or one user subdirectory),
+# icebox/ (flat), or archive/<branch>/. Deeper todo/ nesting is rejected so the
+# per-user layout stays exactly one level (todo/<user>/<ticket>.md).
+if [[ "$tickets_path" =~ ^todo/([^/]+/)?[^/]+$ ]]; then
+  : # Valid (todo/<ticket>.md or todo/<user>/<ticket>.md)
+elif [[ "$tickets_path" =~ ^icebox/[^/]+$ ]]; then
+  : # Valid (icebox stays flat)
 elif [[ "$tickets_path" =~ ^archive/[^/]+/ ]]; then
   : # Valid (archive/<branch>/)
 else
-  echo "Error: Ticket must be in todo/, icebox/, or archive/<branch>/ directory" >&2
+  echo "Error: Ticket must be in todo/<user>/, icebox/, or archive/<branch>/ directory" >&2
   echo "Got: $tickets_path" >&2
   print_skill_reference
   exit 2

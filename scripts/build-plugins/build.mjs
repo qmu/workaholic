@@ -32,6 +32,7 @@ import { tmpdir } from "node:os";
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
 const CORE_SKILLS = join(REPO_ROOT, "plugins/core/skills");
 const DIST_ROOT = join(REPO_ROOT, "dist");                // committed generated output
+const MARKETPLACE = join(REPO_ROOT, ".claude-plugin/marketplace.json");
 // One neutral portable plugin serves every non-Claude agent: Codex reads its co-located
 // .codex-plugin/plugin.json; OpenCode + Cursor + 40 others get it via the skills CLI
 // scanning .claude-plugin/marketplace.json. Both manifests point at this dir.
@@ -50,6 +51,16 @@ const SKILL_REF = /\$\{CLAUDE_PLUGIN_ROOT\}\/skills\/([a-z-]+)\/scripts\//g;
 const SCRIPT_CROSS_REF = /\$\{SCRIPT_DIR\}\/(?:\.\.\/)+core\/skills\/([a-z-]+)\/scripts\//g;
 
 function readText(p) { return readFileSync(p, "utf8"); }
+
+// Look up a plugin's version from the Claude marketplace manifest, which is the
+// single source of truth for all cross-agent plugin versions. The release flow
+// bumps that file; every generated/duplicated manifest derives from it.
+function lookupVersion(pluginName) {
+  const mkt = JSON.parse(readText(MARKETPLACE));
+  const entry = (mkt.plugins || []).find((p) => p.name === pluginName);
+  if (!entry || !entry.version) throw new Error(`No version for plugin '${pluginName}' in .claude-plugin/marketplace.json`);
+  return entry.version;
+}
 
 // Collect the cross-skill closure for a target: every skill whose scripts/ is reached
 // from the target's SKILL.md or transitively from copied scripts.
@@ -128,8 +139,34 @@ function buildTarget(target) {
 //   `skills:` preload list (those preloads declare Claude-Code skill dependencies
 //   that do not exist on other agents; the scripts they provide are already bundled).
 // - strip `core:`/`standards:`/`work:` namespace prefixes so references to co-installed
-//   skills (e.g. `core:review-sections` -> `review-sections`, `standards:leading-validity`
-//   -> `leading-validity`) resolve by bare name.
+//   skills (e.g. `core:review-sections` -> `review-sections`, `standards:policies`
+//   -> `policies`) resolve by bare name.
+// - substitute Claude-Code mechanism wording with agent-neutral equivalents. The
+//   substitutions only affect the public copies; source skills retain Claude
+//   wording because Claude Code reads them directly. The mappings are the same
+//   ones each skill's "Agent Compatibility" preamble already documents inline.
+const PUBLIC_SUBSTITUTIONS = [
+  // Drop `model: "opus|haiku|sonnet"` annotations entirely — those are
+  // Claude-Code-only routing hints and noise on other agents. Handles
+  // `( ... )` parenthetical, `, ... ,` mid-sentence, and bare backtick forms.
+  [/ \(`model: "(?:opus|haiku|sonnet)"`\)/g, ""],
+  [/, `model: "(?:opus|haiku|sonnet)"`,/g, ","],
+  [/`model: "(?:opus|haiku|sonnet)"`/g, ""],
+  // `subagent_type: "general-purpose"` subagent (variants) -> "parallel worker"
+  [/`subagent_type: "general-purpose"` subagent/g, "parallel worker"],
+  [/`subagent_type: "general-purpose"`/g, "parallel worker"],
+  [/`general-purpose` subagents?/g, "parallel workers"],
+  [/\bgeneral-purpose subagents?\b/g, "parallel workers"],
+  // `AskUserQuestion` variants -> agent-neutral selection prompt
+  [/`AskUserQuestion` with selectable options/g, "the agent's selection prompt"],
+  [/`AskUserQuestion` with selectable `options`/g, "the agent's selection prompt"],
+  [/via `AskUserQuestion`/g, "via the agent's selection prompt"],
+  [/using `AskUserQuestion`/g, "using the agent's selection prompt"],
+  [/use `AskUserQuestion`/g, "use the agent's selection prompt"],
+  [/`AskUserQuestion`/g, "the agent's selection prompt"],
+  [/\bAskUserQuestion\b/g, "the agent's selection prompt"],
+];
+
 function publicizeSkillMd(p) {
   let md = readText(p);
   // remove the whole `skills:` block (key line + indented `- ...` items)
@@ -140,6 +177,8 @@ function publicizeSkillMd(p) {
   md = md.replace(/^user-invocable:.*\n/m, "");
   // strip namespaced skill prefixes -> bare names
   md = md.replace(/\b(?:core|standards|work):([a-z][a-z0-9-]*)/g, "$1");
+  // mechanism wording substitutions (Claude-only -> agent-neutral)
+  for (const [pat, repl] of PUBLIC_SUBSTITUTIONS) md = md.replace(pat, repl);
   writeFileSync(p, md);
 }
 
@@ -162,7 +201,7 @@ function assembleWorkflowsPlugin(builtTargets) {
 
   const manifest = {
     name: "workflows",
-    version: "1.0.0",
+    version: lookupVersion("workflows"),
     description: "Ticket-driven development workflows (create-ticket, drive, report, ship) as agent-neutral skills.",
     author: { name: "tamurayoshiya", email: "a@qmu.jp" },
     repository: "https://github.com/qmu/workaholic",

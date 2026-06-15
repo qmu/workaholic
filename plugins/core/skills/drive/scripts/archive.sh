@@ -30,7 +30,10 @@ if [ -z "$BRANCH" ]; then
 fi
 
 TICKET_DIR=$(dirname "$TICKET")
-TICKETS_ROOT=$(echo "$TICKET_DIR" | sed 's|/todo$||; s|/icebox$||')
+# Strip /todo, /icebox, or their per-user form /todo/<user>, /icebox/<user> to
+# find the tickets root. The per-user patterns run first so a trailing user
+# segment is removed before the bare-directory patterns apply.
+TICKETS_ROOT=$(echo "$TICKET_DIR" | sed 's|/todo/[^/]*$||; s|/icebox/[^/]*$||; s|/todo$||; s|/icebox$||')
 # Sanitize branch name: replace / with - for flat archive directory naming
 # e.g. trip/my-feature -> trip-my-feature (consistent with drive-* convention)
 SAFE_BRANCH=$(echo "$BRANCH" | tr '/' '-')

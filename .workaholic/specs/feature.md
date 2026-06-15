@@ -246,28 +246,29 @@ When two agents disagree, the third agent serves as moderator:
 
 ## Policy Lens Features
 
-### Leading Skill Capabilities
+### Policy Index Capabilities
 
-The four leading skills function as policy lenses, preloaded into work-plugin commands and orchestrators:
+The single `standards:policies` index functions as the policy lens, preloaded into work-plugin commands and orchestrators. It mirrors qmu.co.jp and is organized into three pillars:
 
-| Feature | Description | Leading Skill |
-| --- | --- | --- |
-| Logical comprehensiveness | Type-driven design, layer segregation, functional style, relational-first persistence, ubiquitous language | `leading-validity` |
-| Operational continuity | CI/CD automation, vendor neutrality, IaC, observability, scenario-based recovery, deliberate dependency coupling | `leading-availability` |
-| Preservation of trust | Secure-by-design defaults, ISMS-style risk management, defense in depth | `leading-security` |
-| Universal reach | Accessibility-first structure, modeless design, tool-first interaction | `leading-accessibility` |
+| Pillar | Description |
+| --- | --- |
+| 設計 (design) | How interaction and experience are shaped — modeless design and the freedom to assemble one's own workflow |
+| 実装 (implementation) | How code is structured, through three viewpoints — 妥当性 (logical comprehensiveness: declarative style, thick typing, active unit testing, DB-schema-first persistence, domain-layer separation), 可用性 (operational continuity: vendor neutrality, IaC, observability and self-healing, capacity/recovery planning), アクセシビリティ (reachability: accessibility for humans and AI, emergent design systems) |
+| 運用 (operations) | How running code is kept serving — CI/CD automation as the ground of operation |
 
-### Lead Lens Mapping
+Security (安全) and working-practice (執務) policies are out of scope and live elsewhere on qmu.co.jp.
 
-Tickets map their `layer` field to leading skills as a default; multi-layer tickets engage multiple leads.
+### Pillar Lens Mapping
 
-| Layer | Leading skill | Lens |
-| ----- | ------------- | ---- |
-| UX | `leading-accessibility` | Reach, modeless design, WCAG conformance |
-| Domain | `leading-validity` | Type-driven design, layer segregation, functional style |
-| Infrastructure | `leading-availability` | CI/CD, vendor neutrality, IaC, observability |
-| DB | `leading-validity` | Relational-first persistence, domain–persistence segregation |
-| Auth/secrets (any layer) | `leading-security` | Secure defaults, defense in depth |
+Tickets map their `layer` field to pillars as a default; multi-layer tickets engage multiple pillars.
+
+| Layer | Pillars | Lens |
+| ----- | ------- | ---- |
+| UX | 設計 + 実装's アクセシビリティ viewpoint | Reach, modeless design, WCAG conformance |
+| Domain | 実装 妥当性 | Type-driven design, layer separation, declarative style |
+| Infrastructure | 実装 可用性 + 運用 | CI/CD, vendor neutrality, IaC, observability |
+| DB | 実装 妥当性 | DB-schema-first persistence, domain–persistence separation |
+| Config | whichever pillar the config touches | Applies the policies that config affects |
 
 ## Cross-Cutting Features
 
@@ -431,7 +432,6 @@ flowchart TD
 | `hooks.json` | `plugins/drivin/hooks/` | PostToolUse hook configuration | Tool validation |
 | `settings.json` | `.claude/` | Claude Code runtime settings | IDE integration |
 | Rule files | `plugins/drivin/rules/` | Path-specific behavioral constraints | File-scoped operations |
-| `define-lead.md` | `.claude/rules/` | Leader schema enforcement | Leader skills and agents |
 
 ### Command Configuration
 

@@ -19,9 +19,10 @@ closure, with all references rewritten to skill-root-relative paths.
 ## Usage
 
 ```bash
-node scripts/build-plugins/build.mjs            # full build: assembles the committed dist/workflows plugin
-node scripts/build-plugins/build.mjs drive ship # dev only: builds named skills into a throwaway scratch dir
-node scripts/build-plugins/verify.mjs           # asserts every ref in dist/<agent>/skills resolves
+node scripts/build-plugins/build.mjs              # full build: assembles the committed dist/workflows plugin
+node scripts/build-plugins/build.mjs drive ship   # dev only: builds named skills into a throwaway scratch dir
+node scripts/build-plugins/verify.mjs             # asserts every ref in dist/<agent>/skills resolves
+node scripts/build-plugins/validate-metadata.mjs  # asserts Codex marketplace + .codex-plugin manifests are well-formed and version-aligned with the Claude marketplace
 ```
 
 Default targets: `create-ticket`, `drive`, `report`, `ship` (plus the prose `review-sections` and `write-release-note`). Only the **argument-less** full build writes `dist/`; passing explicit targets builds into a temp scratch dir for inspection and does not touch the committed output.

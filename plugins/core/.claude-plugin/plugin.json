@@ -1,7 +1,7 @@
 {
   "name": "core",
   "description": "Shared commands and skills for cross-workflow operations",
-  "version": "1.0.50",
+  "version": "1.0.51",
   "dependencies": [],
   "author": {
     "name": "tamurayoshiya",

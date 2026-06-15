@@ -82,9 +82,11 @@ When reviewing an implementation and requesting changes:
 
 ## Ticket Storage
 
-- Active tickets: `.workaholic/tickets/todo/`
-- Icebox (deferred): `.workaholic/tickets/icebox/`
+- Active tickets: `.workaholic/tickets/todo/<user>/` (partitioned per developer; `<user>` is the slug of `git config user.email`, e.g. `a-qmu-jp`)
+- Icebox (deferred): `.workaholic/tickets/icebox/` (flat)
 - Archived: `.workaholic/tickets/archive/<branch-name>/`
+
+The per-user `todo/` partition keeps one developer's unarchived tickets from leaking onto another's branch and being re-driven. `/ticket` and `/drive` sweep any stray tickets left at the `todo/` root into the right user's subdirectory (routed by each ticket's `author:`), and `/drive` and the `/ship` guard scope to the current user's subdirectory only. Note: a developer who changes their git email orphans their old subdirectory — the sweep self-heals root-level strays, not renamed subdirectories.
 
 ## Installation
 

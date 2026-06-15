@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Ship workflow - merge PR, deploy via CLAUDE.md, and verify production.
+description: Use when the user runs `/ship`, asks to "merge and deploy", "ship this branch", or "push to production". Pre-checks the workspace and todo queue, confirms with the user, merges the current branch's PR on GitHub, runs the deploy steps from CLAUDE.md's `## Deploy` section, and reports the outcome.
 allowed-tools: Bash, Read, Glob, Grep
 user-invocable: false
 metadata:
@@ -79,7 +79,7 @@ Searches for the project's `CLAUDE.md`. Returns JSON with path or `{"found": fal
 bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/check-todo.sh
 ```
 
-Checks if `.workaholic/tickets/todo/` has remaining tickets. Returns JSON with cleanliness status, count, and ticket list. Used as a pre-merge guard to prevent shipping with unfinished work.
+Checks if the current user's `.workaholic/tickets/todo/<user>/` queue has remaining tickets. Returns JSON with cleanliness status, count, and ticket list. Used as a pre-merge guard to prevent shipping with unfinished work. The check is scoped to the current user's subdirectory: other developers' tickets (in their own subdirectories, or unswept at the `todo/` root) do not block the merge.
 
 ### 2-5. Extract Carry-Overs
 
@@ -117,7 +117,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/check-todo.sh
 
 Parse the JSON output. If `clean` is `true`, proceed silently to the Ship Flow.
 
-If `clean` is `false`, display the ticket list to the user: "Cannot ship: N ticket(s) remaining in `.workaholic/tickets/todo/`:" followed by the ticket filenames. Then ask via AskUserQuestion with selectable options:
+If `clean` is `false`, display the ticket list to the user: "Cannot ship: N ticket(s) remaining in your `.workaholic/tickets/todo/<user>/` queue:" followed by the ticket filenames. Then ask via AskUserQuestion with selectable options:
 - **"Move all to icebox"** - Move all remaining tickets to `.workaholic/tickets/icebox/`, stage and commit "Move remaining tickets to icebox", then proceed to the Ship Flow.
 - **"Stop"** - Halt the workflow so you can handle tickets first (run `/drive`, manually reorganize, etc.)
 

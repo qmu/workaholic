@@ -1,6 +1,6 @@
 {
   "name": "workaholic",
-  "version": "1.0.50",
+  "version": "1.0.51",
   "description": "Standard Claude Code Configuration in qmu",
   "owner": {
     "name": "tamurayoshiya",
@@ -10,7 +10,7 @@
     {
       "name": "core",
       "description": "Shared commands and skills for cross-workflow operations",
-      "version": "1.0.50",
+      "version": "1.0.51",
       "author": {
         "name": "tamurayoshiya",
         "email": "a@qmu.jp"
@@ -20,8 +20,8 @@
     },
     {
       "name": "standards",
-      "description": "Repository structuring policy, qualitative agents, and documentation standards",
-      "version": "1.0.50",
+      "description": "The project's engineering policies — 設計 / 実装 / 運用 — mirrored from qmu.co.jp as English hard copies across three preloadable index skills (design, implementation, operation)",
+      "version": "1.0.51",
       "author": {
         "name": "tamurayoshiya",
         "email": "a@qmu.jp"
@@ -29,16 +29,15 @@
       "source": "./plugins/standards",
       "category": "development",
       "skills": [
-        "./skills/leading-accessibility",
-        "./skills/leading-availability",
-        "./skills/leading-security",
-        "./skills/leading-validity"
+        "./skills/design",
+        "./skills/implementation",
+        "./skills/operation"
       ]
     },
     {
       "name": "work",
       "description": "Unified development workflow: ticket-driven development and AI-collaborative exploration",
-      "version": "1.0.50",
+      "version": "1.0.51",
       "author": {
         "name": "tamurayoshiya",
         "email": "a@qmu.jp"
@@ -49,7 +48,7 @@
     {
       "name": "workflows",
       "description": "Portable cross-agent build of the ticket/drive/report/ship workflow skills (self-contained, generated). For Codex, OpenCode, and other agents; Claude Code users install core/work instead.",
-      "version": "1.0.50",
+      "version": "1.0.51",
       "author": {
         "name": "tamurayoshiya",
         "email": "a@qmu.jp"

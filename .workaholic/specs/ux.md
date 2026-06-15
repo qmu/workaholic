@@ -10,7 +10,7 @@ commit_hash: f76bde2
 
 # UX Viewpoint
 
-The UX Viewpoint examines how users experience and interact with the Workaholic plugin system, documenting the journeys they follow, the patterns they encounter, and the paths available for onboarding. Workaholic creates a triangular relationship between developers who request work, Claude Code agents that execute work, and the plugin author who maintains the system. The marketplace contains three plugins: core (shared utilities and context-aware commands), standards (the four leading skills, principle skills, and writer/analyst agents), and work (ticket-driven development plus collaborative trip-style exploration). Drive-style work uses serial implementation with per-ticket approval; trip-style work uses a collaborative three-agent workflow called the Implosive Structure inside an isolated git worktree.
+The UX Viewpoint examines how users experience and interact with the Workaholic plugin system, documenting the journeys they follow, the patterns they encounter, and the paths available for onboarding. Workaholic creates a triangular relationship between developers who request work, Claude Code agents that execute work, and the plugin author who maintains the system. The marketplace contains three plugins: core (shared utilities and context-aware commands), standards (the single `policies` engineering-policy index), and work (ticket-driven development plus collaborative trip-style exploration). Drive-style work uses serial implementation with per-ticket approval; trip-style work uses a collaborative three-agent workflow called the Implosive Structure inside an isolated git worktree.
 
 ## User Types and Their Goals
 
@@ -150,7 +150,7 @@ Critically, tickets never move to icebox autonomously. If a ticket cannot be imp
 
 Plugin authors follow the same four-phase journey (ticket creation, implementation, documentation, delivery) but work within the `plugins/` directory structure across both plugins (drivin and trippin). They add new commands, agents, skills, and rules while adhering to the architecture policy.
 
-The author's journey differs in the documentation update target. Viewpoint specs document the plugin's own architecture rather than application code. The leading skills act as policy lenses on each ticket — accessibility for command UX, validity for the agent hierarchy and skill structure, availability for shared infrastructure, security for any boundary that touches secrets or authorization.
+The author's journey differs in the documentation update target. Viewpoint specs document the plugin's own architecture rather than application code. The `standards:policies` index acts as the policy lens on each ticket — its アクセシビリティ viewpoint for command UX, 妥当性 for the agent hierarchy and skill structure, 可用性 and 運用 for shared infrastructure.
 
 The author uses archived tickets as a searchable history of architectural decisions. When making changes to the agent hierarchy or skill structure, the author reads related tickets to understand past rationale and avoid repeating the same mistakes. This creates a feedback loop where the plugin documents its own evolution through the same mechanisms it provides to developers.
 
@@ -244,7 +244,7 @@ Key characteristics of this pattern:
 
 ### Commit Message Enrichment Pattern
 
-Commit messages follow a five-section structure designed for consumption by both human reviewers and downstream lead-driven analysis:
+Commit messages follow a five-section structure designed for consumption by both human reviewers and downstream policy-driven analysis:
 
 - **Title**: Concise summary
 - **Description**: Why the change was needed (motivation and rationale)
@@ -252,7 +252,7 @@ Commit messages follow a five-section structure designed for consumption by both
 - **Test Planning**: What verification was performed or should be
 - **Release Preparation**: What is needed to ship and support
 
-Each section requires 3-5 sentences with rich detail. This pattern gives downstream readers (human reviewers and the leading skills applied during ticket scoping and review) sufficient signal to determine what is needed to ship each change without reading the full diff.
+Each section requires 3-5 sentences with rich detail. This pattern gives downstream readers (human reviewers and the `standards:policies` index applied during ticket scoping and review) sufficient signal to determine what is needed to ship each change without reading the full diff.
 
 ### Story Summary Pattern
 
@@ -468,7 +468,7 @@ The commit message format evolved from 4 sections to 5 sections with richer guid
 **New pattern** (5 sections):
 - Title, Description, Changes, Test Planning, Release Preparation
 - 3-5 sentences per section with rich detail
-- Each section targets specific lead concerns: leading-validity reads Test Planning, leading-availability reads Release Preparation, etc.
+- Each section targets specific policy concerns: the 妥当性 viewpoint reads Test Planning, the 可用性 / 運用 pillars read Release Preparation, etc.
 
 This evolution improves UX for AI agents by providing structured, detailed context that informs their analysis. Commit messages become structured input for documentation generation rather than merely human-readable summaries.
 
@@ -505,9 +505,9 @@ This evolution improves developer UX by making `/report` safely re-runnable. Dev
 
 ### Generic Naming to Domain-Specific Naming
 
-The project evolved through several skill renames to resolve naming collisions and improve semantic clarity. The branching utility skill was renamed from a prefix that collided with the strategic-context tier's namespace; subsequent renames distinguished cross-cutting behavioral principle skills from output-artifact skills. Lead skills were later renamed from a `<domain>-lead` form to `leading-<domain>` to make the "leading" function explicit at the namespace level.
+The project evolved through several skill renames to resolve naming collisions and improve semantic clarity. The branching utility skill was renamed from a prefix that collided with the strategic-context tier's namespace; subsequent renames distinguished cross-cutting behavioral principle skills from output-artifact skills. Lead skills were later renamed from a `<domain>-lead` form to `leading-<domain>` to make the "leading" function explicit at the namespace level. Those four `leading-*` skills were subsequently consolidated into a single `standards:policies` index mirrored from qmu.co.jp, retiring the per-domain "lead" naming entirely.
 
-This evolution improves plugin author UX by establishing clear conventions: `leading-*` for the four leading-skill domains, `*-principle` for cross-cutting behavioral rules, descriptive names for utility skills.
+This evolution improves plugin author UX by establishing clear conventions: descriptive names for utility skills, `*-principle` for cross-cutting behavioral rules, and the single `policies` index for the engineering-policy lens.
 
 ### Weak Approval Context to Enforced Ticket Context
 
@@ -532,7 +532,7 @@ This evolution improves developer UX by ensuring every approval prompt contains 
 - [Explicit] The plugin author is `tamurayoshiya <a@qmu.jp>`, as declared in `marketplace.json` and both `plugin.json` files.
 - [Explicit] Human-in-the-loop approval is mandatory during `/drive`, enforced by the `AskUserQuestion` requirement in `drive.md`.
 - [Explicit] Version management requires synchronization across `marketplace.json` and the three plugin `plugin.json` files (core, standards, work), as documented in `CLAUDE.md`.
-- [Explicit] The four leading skills (`leading-validity`, `leading-availability`, `leading-security`, `leading-accessibility`) are preloaded into work-plugin commands and orchestrators via the soft cross-plugin reference pattern.
+- [Explicit] The single `standards:policies` index is preloaded into work-plugin commands and orchestrators via the soft cross-plugin reference pattern.
 - [Explicit] Commit message format was expanded from 4 to 5 sections to provide richer context for downstream leads (ticket `20260210154917-expand-commit-message-sections.md`).
 - [Explicit] Story Section 4 was changed from file listings to concise summaries for improved readability (ticket `20260210121628-summarize-changes-in-report.md`).
 - [Explicit] The branching utility skill was renamed in February 2026 to resolve a naming collision with the strategic-context tier's namespace.

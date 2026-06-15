@@ -97,3 +97,9 @@ jobs:
           done
 
           echo "All marketplace plugin sources exist"
+
+      - name: Validate Codex plugin metadata
+        run: node scripts/build-plugins/validate-metadata.mjs
+
+      - name: Smoke-test workflow scripts
+        run: node scripts/test-workflow-scripts.mjs

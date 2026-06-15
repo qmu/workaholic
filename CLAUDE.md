@@ -165,6 +165,17 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/ticket-metadata.sh
 bash ${CLAUDE_PLUGIN_ROOT}/../core/skills/branching/scripts/check-worktrees.sh
 ```
 
+### Plugin Boundary Rule
+
+> **CRITICAL: Reach skills only through `${CLAUDE_PLUGIN_ROOT}` and their loaded namespace. Never spelunk for skill content on disk.**
+
+A command's skills are already loaded via its `skills:` frontmatter and resolved through `${CLAUDE_PLUGIN_ROOT}` at load time. Invoke them by their loaded namespace (`core:`, `work:`, `standards:`) and run their bundled scripts via `${CLAUDE_PLUGIN_ROOT}`. Do **not**:
+
+- read or run anything under `~/.claude/plugins/marketplaces/` or any other global/marketplace install — those may be stale copies from older versions and will silently run obsolete logic;
+- guess a plugin or skill namespace. `drivin` and `trippin` are **obsolete** names that were merged into `work`; the only live plugins are `core`, `standards`, and `work`.
+
+If a skill you expect is not in context, ask the user which plugins are loaded — do not search the filesystem for it. The five `work` command `**Notice:**` headers carry a short echo of this rule.
+
 ## Commands
 
 | Command                          | Description                                      |

@@ -3,9 +3,9 @@ created_at: 2026-06-16T07:39:37+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 2ab5754
+category: Added
 depends_on:
 ---
 
@@ -101,3 +101,24 @@ this failure mode.
 - standards:implementation reachability lens: the goal is a single stable
   contract (`${CLAUDE_PLUGIN_ROOT}`-resolved skill) the AI agent reaches reliably,
   not multiple drifting paths. (`plugins/standards/skills/implementation/`)
+
+## Final Report
+
+Development completed as planned. Added an identical `**Plugin boundary — do not
+spelunk:**` paragraph after the `**Notice:**` in all five `work` commands
+(`ticket`, `drive`, `report`, `ship`, `trip`), and added a canonical `### Plugin
+Boundary Rule` subsection to `CLAUDE.md` (after the Skill Script Path Rule) that
+the notices echo. Prose-only — no scripts, hooks, or agent files; `work` has no
+`skills/` dir and is excluded from `dist/`, so no rebuild was required.
+
+### Discovered Insights
+
+- **Insight**: The `drivin`/`trippin` namespace confusion is reinforced by stale
+  global marketplace installs physically present on disk
+  (`~/.claude/plugins/marketplaces/workaholic/` v1.0.40), not pure model
+  hallucination. The instructional guard is one layer; the durable complements
+  are (a) deleting stale installs from the environment and (b) the static
+  `${CLAUDE_PLUGIN_ROOT}/../<plugin>/`-resolves-to-declared-dependency validation
+  deferred in concern #34.
+  **Context**: A future agent debugging "wrong skill loaded" should check for
+  shadowing global installs before assuming a source bug.

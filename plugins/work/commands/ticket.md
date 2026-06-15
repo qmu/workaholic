@@ -11,6 +11,8 @@ skills:
 
 **Notice:** When user input contains `/ticket` - whether "create /ticket", "write /ticket", "add /ticket for X", or similar - they likely want this command.
 
+**Plugin boundary — do not spelunk:** The skills this command needs are already loaded via its `skills:` frontmatter and resolved through `${CLAUDE_PLUGIN_ROOT}`. Invoke them by their loaded namespace (`core:`, `work:`, `standards:`); never search the filesystem for skill content, never read or run anything under `~/.claude/plugins/marketplaces/` or any other global install, and never guess a namespace — `drivin` and `trippin` are obsolete names long since merged into `work`. If a skill you expect is missing, ask the user which plugins are loaded; do not hunt for it on disk.
+
 **CRITICAL:** NEVER implement code changes when this command is invoked - only create tickets. The actual implementation happens later via `/drive`.
 
 **Policy Lens**: When the `standards` plugin is installed, this command preloads the `standards:design`, `standards:implementation`, and `standards:operation` indexes (the 設計 / 実装 / 運用 policy skills). **Load and read them first** — before scoping the request or writing ticket content — and use them to judge the change's design, implementation, behavior, and operation, mapped to the ticket's `layer` field. The `core:create-ticket` skill's Workflow Step 0 and Policy Lens table document the mapping. If the standards plugin is not connected, skip the lens and proceed.

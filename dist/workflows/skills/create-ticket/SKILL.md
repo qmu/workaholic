@@ -1,6 +1,6 @@
 ---
 name: create-ticket
-description: Create implementation tickets with proper format and conventions.
+description: Use when the user runs `/ticket <description>` or asks to "write a ticket", "spec out a feature", or "draft an implementation plan". Discovers historical context, source code, and standards for the request, then writes an implementation ticket to `.workaholic/tickets/todo/` with frontmatter, key files, related history, implementation steps, and considerations.
 ---
 
 # Create Ticket
@@ -11,15 +11,15 @@ Guidelines for creating implementation tickets in `.workaholic/tickets/`.
 
 This skill works on any Agent-Skills-compatible agent. The two Claude-Code mechanisms used below are **enhancements, not requirements**:
 
-- **Parallel fan-out** — where a step spawns `general-purpose` subagents to run parts concurrently (e.g. the three discovery modes), that is the Claude Code optimization. On other agents, perform those parts **sequentially** in the same session; the inputs and outputs are identical.
-- **User interaction** — where a step uses `AskUserQuestion`, use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies.
+- **Parallel fan-out** — where a step spawns parallel workers to run parts concurrently (e.g. the three discovery modes), that is the Claude Code optimization. On other agents, perform those parts **sequentially** in the same session; the inputs and outputs are identical.
+- **User interaction** — where a step uses the agent's selection prompt, use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies.
 
 ## Allowed Locations
 
 Tickets are written to ONE of these two directories — never anywhere else:
 
-- `.workaholic/tickets/todo/` — Active queue (default for new tickets)
-- `.workaholic/tickets/icebox/` — Deferred (only when the request explicitly targets the icebox)
+- `.workaholic/tickets/todo/<user>/` — Active queue (default for new tickets). `<user>` is the filesystem-safe slug of `git config user.email` (the `user_slug` from Step 1). Partitioning the queue per developer stops one developer's unarchived tickets from leaking onto another's branch and being re-driven. The flat `todo/` root is never a write target for new tickets; any strays already sitting there are swept into a user subdirectory (see Step 1.5).
+- `.workaholic/tickets/icebox/` — Deferred, and stays flat (only when the request explicitly targets the icebox).
 
 Archive paths (`.workaholic/tickets/archive/<branch>/`) are written by the drive archive script, never by this skill.
 
@@ -41,11 +41,22 @@ Parse the JSON output:
 {
   "created_at": "2026-01-31T19:25:46+09:00",
   "author": "developer@company.com",
-  "filename_timestamp": "20260131192546"
+  "filename_timestamp": "20260131192546",
+  "user_slug": "developer-company-com"
 }
 ```
 
-Use these values for frontmatter fields and filename.
+Use `created_at`/`author` for frontmatter fields, `filename_timestamp` for the filename, and `user_slug` for the `todo/<user>/` write path.
+
+## Step 1.5: Sweep Stray Tickets
+
+Before writing the new ticket, route any leftover tickets sitting directly at the `todo/` root into per-user subdirectories:
+
+```bash
+bash create-ticket/scripts/sweep-todo.sh
+```
+
+The sweep moves each root-level `todo/*.md` into `todo/<author-slug>/`, routing by the stray ticket's own `author:` frontmatter (falling back to the current user's slug when missing). It git-stages every move and **never** moves a ticket to the icebox. Report the `moved` count from its JSON output if any tickets were relocated.
 
 ## Frontmatter Template
 
@@ -106,7 +117,15 @@ Example: `20260114153042-add-dark-mode.md`
 
 ## Workflow
 
-The `/ticket` command (main agent) drives this Workflow directly. Skills cannot invoke subagents or AskUserQuestion directly; the steps below describe what the loading agent (the command) must do. The command issues every AskUserQuestion (moderation decisions, clarifications) and spawns every discovery subagent itself — no `ticket-organizer` subagent sits in between.
+The `/ticket` command (main agent) drives this Workflow directly. Skills cannot invoke subagents or the agent's selection prompt directly; the steps below describe what the loading agent (the command) must do. The command issues every the agent's selection prompt (moderation decisions, clarifications) and spawns every discovery subagent itself — no `ticket-organizer` subagent sits in between.
+
+### 0. Load the Policy Lens (first, when the standards plugin is installed)
+
+Before scoping the request or writing any ticket content, load the project's engineering policies as your judging lens. When the `standards` plugin is installed, the `/ticket` command has already preloaded `design`, `implementation`, and `operation`, so the three index `SKILL.md` files are in context. Read those indexes, then open the specific policy hard copies they link (`policies/<slug>.md`) for the layer(s) the request touches — use the **Policy Lens** table below to pick which skill(s) apply.
+
+These policies are the lens you judge the work against. Every proposal you put in the ticket — its **design** (interaction and behavior), its **implementation** (code structure and correctness), and its **operation** (delivery, runtime, and recovery) — must be defensible against the relevant policy's Goal (目標), Responsibility (責務), and Practices (実践). Carry the applicable policies forward into Implementation Steps, Considerations, and Patches.
+
+If the `standards` plugin is not installed (the `standards:*` indexes are not in context), skip this step and proceed; the rest of the workflow does not depend on it.
 
 ### 1. Check Branch
 
@@ -118,13 +137,13 @@ Already-on-a-topic-branch returns `on_main: false` and skips creation (including
 
 ### 2. Parallel Discovery
 
-The command spawns three `subagent_type: "general-purpose"` subagents in parallel (single message with three Task calls), `model: "opus"`, one per discovery mode. Each prompt instructs the subagent to preload `discover`, run the section matching its mode, and return that mode's output schema:
+The command spawns three parallel workers in parallel (single message with three Task calls), one per discovery mode. Each prompt instructs the subagent to preload `discover`, run the section matching its mode, and return that mode's output schema:
 
 - **history** (`mode: history` → `discover` Discover History): Returns JSON with summary, tickets list, match reasons, and `moderation` field (status/matches/recommendation).
 - **source** (`mode: source` → `discover` Discover Source): Returns JSON with summary, files list, code_flow, and optional snippets.
 - **policy** (`mode: policy` → `discover` Discover Policy): Returns JSON with summary, policies list, and architecture (principles, dependency_rules).
 
-These are leaf subagents — they do non-interactive discovery only and MUST NOT call AskUserQuestion. Wait for all three to complete before proceeding.
+These are leaf subagents — they do non-interactive discovery only and MUST NOT call the agent's selection prompt. Wait for all three to complete before proceeding.
 
 ### 3. Handle Moderation Result
 
@@ -142,7 +161,7 @@ Based on the history discovery subagent's `moderation` field:
 
 ### 5. Write Ticket(s)
 
-Follow the rest of this skill for format and content. Apply the Lead Lens table (below) to map the ticket's `layer` field to the relevant `leading-*` skill — its policies, practices, and standards govern the ticket's Implementation Steps, Considerations, and Patches.
+Follow the rest of this skill for format and content. Apply the Lead Lens table (below) to map the ticket's `layer` field to the relevant `standards:*` policy skill — its policies and practices govern the ticket's Implementation Steps, Considerations, and Patches.
 
 Populate sections from the three discovery JSONs:
 
@@ -176,7 +195,7 @@ Return one of:
   "branch_created": "work-20260202-181910",
   "tickets": [
     {
-      "path": ".workaholic/tickets/todo/20260131-feature.md",
+      "path": ".workaholic/tickets/todo/developer-company-com/20260131-feature.md",
       "title": "Ticket Title",
       "summary": "Brief one-line summary"
     }
@@ -191,7 +210,7 @@ Or if duplicate:
 ```json
 {
   "status": "duplicate",
-  "existing_ticket": ".workaholic/tickets/todo/20260130-existing.md",
+  "existing_ticket": ".workaholic/tickets/todo/developer-company-com/20260130-existing.md",
   "reason": "Existing ticket already covers this functionality"
 }
 ```
@@ -219,7 +238,7 @@ Or if clarification needed:
 }
 ```
 
-**CRITICAL**: Never implement code changes — only discover context and write tickets. Never commit. Never use AskUserQuestion (the command relays decisions/clarifications). Return JSON only.
+**CRITICAL**: Never implement code changes — only discover context and write tickets. Never commit. Never use the agent's selection prompt (the command relays decisions/clarifications). Return JSON only.
 
 ## File Structure
 
@@ -319,21 +338,19 @@ These fields are updated by the `drive` skill (Update Frontmatter section) durin
 
 - **depends_on**: List of ticket filenames that must be implemented before this ticket. Populated automatically when the `/ticket` command splits a request. Format: YAML list of filenames (e.g., `[20260410002111-foundation.md]`). Leave empty for standalone tickets.
 
-## Lead Lens
+## Policy Lens
 
-Each ticket should respect the relevant leading skills based on its `layer` field. Map layer to lead:
+Each ticket should respect the relevant policies in the `standards:*` policy skills based on its `layer` field. Map layer to skill:
 
-| Layer | Leading skill | Lens |
-| ----- | ------------- | ---- |
-| UX | `leading-accessibility` | Reach, modeless design, WCAG conformance |
-| Domain | `leading-validity` | Type-driven design, layer segregation, functional style |
-| Infrastructure | `leading-availability` | CI/CD, vendor neutrality, IaC, observability |
-| DB | `leading-validity` | Relational-first persistence, domain–persistence segregation |
-| Config | (whichever lead governs the affected behavior) | Apply the lead whose policies the config touches |
+| Layer | Policy skill | Lens |
+| ----- | ------------ | ---- |
+| UX | `design`, plus `implementation` | Modeless design, reach, WCAG conformance, emergent design system |
+| Domain | `implementation` | Type-driven design, layer segregation, functional style |
+| Infrastructure | `implementation`, plus `operation` | Vendor neutrality, IaC, observability; CI/CD automation |
+| DB | `implementation` | Relational-first persistence, domain–persistence segregation |
+| Config | (whichever skill governs the affected behavior) | Apply the skill whose policies the config touches |
 
-Anything touching authentication, authorization, secrets management, or input validation also engages `leading-security` regardless of layer.
-
-When writing Implementation Steps, Considerations, and Patches, ensure they respect the policies, practices, and standards of every applicable lead. The `/ticket` command preloads these skills (this skill carries them in its `skills:` frontmatter) and applies them automatically; this section documents the mapping for human readers and future agents.
+When writing Implementation Steps, Considerations, and Patches, ensure they respect the policies and practices of every applicable skill. The `/ticket` command preloads the `design`, `implementation`, and `operation` indexes (this skill carries them in its `skills:` frontmatter) and applies them automatically; this section documents the mapping for human readers and future agents.
 
 ## Exploring the Codebase
 
@@ -345,7 +362,7 @@ Before writing a ticket:
 
 ## Related History
 
-The Related History section is populated from the history-mode discovery subagent's output (the `/ticket` command spawns it as a `general-purpose` subagent preloading `discover`).
+The Related History section is populated from the history-mode discovery subagent's output (the `/ticket` command spawns it as a parallel workers preloading `discover`).
 
 **Link format**: Use markdown links with repository-relative paths:
 ```markdown

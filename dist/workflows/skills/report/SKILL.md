@@ -1,6 +1,6 @@
 ---
 name: report
-description: Story writing, PR creation, and release readiness assessment for branch reporting.
+description: Use when the user runs `/report`, asks to "write up this branch", "open the PR", "create the release note", or "assess release readiness". Reads archived tickets, judges previously-deferred concerns, generates a branch story file, creates or updates the GitHub PR, writes the release note, and reports whether the branch is safe to ship.
 allowed-tools: Bash
 ---
 
@@ -12,12 +12,18 @@ Guidelines for generating branch stories, creating pull requests, and assessing 
 
 This skill works on any Agent-Skills-compatible agent. The two Claude-Code mechanisms used below are **enhancements, not requirements**:
 
-- **Parallel fan-out** — where a step spawns `general-purpose` subagents to run parts concurrently (the carry-over judge, the overview/section-review/release-readiness workers, the PR and release-note writers), that is the Claude Code optimization. On other agents, perform those parts **sequentially** in the same session; the inputs and outputs are identical.
-- **User interaction** — where a step uses `AskUserQuestion`, use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies.
+- **Parallel fan-out** — where a step spawns parallel workers to run parts concurrently (the carry-over judge, the overview/section-review/release-readiness workers, the PR and release-note writers), that is the Claude Code optimization. On other agents, perform those parts **sequentially** in the same session; the inputs and outputs are identical.
+- **User interaction** — where a step uses the agent's selection prompt, use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies.
 
 ## Run Workflow
 
 Context-aware report orchestration. Auto-detects whether the caller is in a drive or trip workflow and routes accordingly.
+
+### Policy Lens (read first, when the standards plugin is installed)
+
+Before assessing the branch, load the project's engineering policies as your judging lens. When the `standards` plugin is installed, the `/report` command has already preloaded `design`, `implementation`, and `operation`, so the three index `SKILL.md` files are in context. Read those indexes, and open the specific policy hard copies they link (`policies/<slug>.md`) when a concern or change maps to one.
+
+These policies are the lens for the report's judgments: when judging carry-over concerns, reviewing the story sections, and assessing release readiness, evaluate the branch's **design** (interaction and behavior), **implementation** (code structure and correctness), and **operation** (delivery, runtime, and recovery) against the relevant policy's Goal (目標), Responsibility (責務), and Practices (実践). Cite the specific policy when a concern or readiness verdict rests on one. If the `standards` plugin is not installed, skip this and proceed.
 
 ### Step 0: Workspace Guard
 
@@ -27,7 +33,7 @@ bash branching/scripts/check-workspace.sh
 
 Parse the JSON output. If `clean` is `true`, proceed silently to Step 1.
 
-If `clean` is `false`, display the `summary` to the user and ask via AskUserQuestion with selectable options:
+If `clean` is `false`, display the `summary` to the user and ask via the agent's selection prompt with selectable options:
 - **"Ignore and proceed"** - Continue with the report workflow. The unrelated changes will remain in the workspace after the command completes.
 - **"Stop"** - Halt the command so you can handle the changes first.
 
@@ -50,14 +56,14 @@ Route by `mode` from detect-context output:
 ##### Drive Mode (`mode: "drive"`)
 
 1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
-2. **Run the Write Story orchestration** (`## Write Story → ### Orchestration`, Phases 0–6) directly in this command (main-agent) context. The command itself spawns the leaf `general-purpose` subagents — there is no intermediate story-writer subagent.
+2. **Run the Write Story orchestration** (`## Write Story → ### Orchestration`, Phases 0–6) directly in this command (main-agent) context. The command itself spawns the leaf parallel workers — there is no intermediate story-writer subagent.
 3. **Display story content**: Read the story file at `.workaholic/stories/<branch-name>.md` and output the entire Markdown content so the developer can review inline.
 4. **Display PR URL** captured from Phase 5 (mandatory).
 
 ##### Trip Mode (`mode: "trip"`)
 
 1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
-2. **Run the Write Story orchestration** (`## Write Story → ### Orchestration`, Phases 0–6) directly in this command (main-agent) context. The command itself spawns the leaf `general-purpose` subagents — there is no intermediate story-writer subagent.
+2. **Run the Write Story orchestration** (`## Write Story → ### Orchestration`, Phases 0–6) directly in this command (main-agent) context. The command itself spawns the leaf parallel workers — there is no intermediate story-writer subagent.
 3. **Display story content**: Read the story file at `.workaholic/stories/<branch-name>.md` and output the entire Markdown content so the developer can review inline.
 4. **Display PR URL** captured from Phase 5 (mandatory).
 
@@ -72,14 +78,14 @@ Not on a work branch, but worktrees exist.
 1. Run `bash branching/scripts/list-worktrees.sh`
 2. Filter to worktrees where `has_pr` is `false` (unreported work)
 3. If no unreported worktrees found: inform the user "No unreported worktrees found." and stop.
-4. If exactly one unreported worktree: ask the user "Found worktree '<name>'. Generate report?" using AskUserQuestion. If confirmed, use it.
-5. If multiple unreported worktrees: list them and ask the user which one to report on using AskUserQuestion.
+4. If exactly one unreported worktree: ask the user "Found worktree '<name>'. Generate report?" using the agent's selection prompt. If confirmed, use it.
+5. If multiple unreported worktrees: list them and ask the user which one to report on using the agent's selection prompt.
 6. Once selected, all subsequent git operations must run from within the worktree directory.
 7. Re-run context detection from within the worktree and follow the appropriate mode workflow.
 
 #### Unknown Context (`context: "unknown"`)
 
-Ask the user: "Could not determine development context from branch '<branch>'. Are you working on a drive or trip?" using AskUserQuestion with options "Drive" and "Trip". Route accordingly.
+Ask the user: "Could not determine development context from branch '<branch>'. Are you working on a drive or trip?" using the agent's selection prompt with options "Drive" and "Trip". Route accordingly.
 
 ## Write Story
 
@@ -87,7 +93,7 @@ Generate a branch story that serves as the single source of truth for PR content
 
 ### Orchestration
 
-Generate the story file, then create the PR and release note. The `/report` command (main agent) runs this orchestration directly: it executes the bash/Read/Write steps inline and spawns each leaf worker as a `subagent_type: "general-purpose"` Task whose prompt preloads a `core` skill and runs one section. There is no intermediate subagent — the command does all fan-out, so the fan-out stays one level deep (a subagent cannot spawn further subagents).
+Generate the story file, then create the PR and release note. The `/report` command (main agent) runs this orchestration directly: it executes the bash/Read/Write steps inline and spawns each leaf worker as a parallel worker Task whose prompt preloads a `core` skill and runs one section. There is no intermediate subagent — the command does all fan-out, so the fan-out stays one level deep (a subagent cannot spawn further subagents).
 
 #### Phase 0: Gather Context
 
@@ -97,7 +103,7 @@ Gather all context by running `bash gather/scripts/git-context.sh`. Returns: bra
 
 Run before the parallel agent batch so the verdicts flow into section-reviewer's input. Skip silently if `.workaholic/concerns/` is empty or absent.
 
-1. **Spawn a carry-over judge** as `subagent_type: "general-purpose"` (`model: "opus"`) in a single Task call. The prompt instructs it to preload `report`, follow the `### Judge Carry-Overs` section with the given branch name and base branch, and return `{verdicts: [...]}`.
+1. **Spawn a carry-over judge** as parallel worker in a single Task call. The prompt instructs it to preload `report`, follow the `### Judge Carry-Overs` section with the given branch name and base branch, and return `{verdicts: [...]}`.
 2. **Apply verdicts**: Write the returned `verdicts` array to `/tmp/carryover-verdicts.json`, then run:
 
    ```bash
@@ -108,11 +114,11 @@ Run before the parallel agent batch so the verdicts flow into section-reviewer's
 
 #### Phase 2: Spawn Story Generation Workers
 
-Spawn 3 `subagent_type: "general-purpose"` leaf subagents in parallel (single message with 3 Task calls). Each prompt names the skill to preload, the section to run, the inputs, and the expected return schema:
+Spawn 3 parallel worker leaf subagents in parallel (single message with 3 Task calls). Each prompt names the skill to preload, the section to run, the inputs, and the expected return schema:
 
-- **release-readiness** (`model: "opus"`): preload `report`, run `## Assess Release Readiness`, return the releasability JSON. Pass archived tickets list and branch name.
-- **overview-writer** (`model: "haiku"`): preload `report`, run `### Overview Generation`, return the overview JSON. Pass branch name and base branch.
-- **section-reviewer** (`model: "haiku"`): preload `review-sections`, run it, return the sections 4-7 JSON (Outcome, Historical Analysis, Concerns, Successful Development Patterns). Pass branch name, archived tickets list, and the carryover verdicts file path `/tmp/carryover-verdicts.json`. The section-reviewer prepends `still_active` verdicts to section 6.
+- **release-readiness**: preload `report`, run `## Assess Release Readiness`, return the releasability JSON. Pass archived tickets list and branch name.
+- **overview-writer**: preload `report`, run `### Overview Generation`, return the overview JSON. Pass branch name and base branch.
+- **section-reviewer**: preload `review-sections`, run it, return the sections 4-7 JSON (Outcome, Historical Analysis, Concerns, Successful Development Patterns). Pass branch name, archived tickets list, and the carryover verdicts file path `/tmp/carryover-verdicts.json`. The section-reviewer prepends `still_active` verdicts to section 6.
 
 Wait for all 3 to complete. Track which succeeded and which failed.
 
@@ -132,8 +138,8 @@ Wait for all 3 to complete. Track which succeeded and which failed.
 
 Spawn sequentially (PR first so its URL flows into the release note):
 
-1. **Create PR** first: spawn `subagent_type: "general-purpose"` (`model: "opus"`) preloading `report` and running `## Create PR`. It reads the story file, derives the title, and runs the `gh` CLI operations. Capture the `PR created/updated: <URL>` line from its response.
-2. **Generate release note** with PR URL: spawn `subagent_type: "general-purpose"` (`model: "haiku"`) preloading `write-release-note` and running it end-to-end. Pass the PR URL obtained in step 1. It reads the story file, generates concise release notes, and writes `.workaholic/release-notes/<branch-name>.md`.
+1. **Create PR** first: spawn parallel worker preloading `report` and running `## Create PR`. It reads the story file, derives the title, and runs the `gh` CLI operations. Capture the `PR created/updated: <URL>` line from its response.
+2. **Generate release note** with PR URL: spawn parallel worker preloading `write-release-note` and running it end-to-end. Pass the PR URL obtained in step 1. It reads the story file, generates concise release notes, and writes `.workaholic/release-notes/<branch-name>.md`.
 
 Capture the PR URL from step 1 for final output.
 
@@ -164,7 +170,7 @@ Once orchestration completes, the report is described by:
 
 ### Worker Output Mapping
 
-Story sections are populated from the parallel leaf subagents' outputs (each is a `general-purpose` subagent running the named role):
+Story sections are populated from the parallel leaf subagents' outputs (each is a parallel workers running the named role):
 
 | Worker role | Sections | Fields |
 | ----------- | -------- | ------ |
@@ -177,7 +183,7 @@ Section 3 (Changes) comes from archived tickets, prefaced by journey content fro
 
 ### Judge Carry-Overs
 
-Run by the Phase 1 carry-over judge (a `general-purpose` subagent that preloads this skill). Inputs: branch name and base branch (usually `main`).
+Run by the Phase 1 carry-over judge (a parallel workers that preloads this skill). Inputs: branch name and base branch (usually `main`).
 
 1. List active carry-overs:
 
@@ -245,7 +251,7 @@ Include `resolved_by_pr` and `resolved_by_commit` only for `resolved` verdicts. 
 
 ### Overview Generation
 
-Generate the four fields consumed by sections 1, 2, and 3 (`overview`, `highlights`, `motivation`, `journey`) by analyzing commit history for the branch. The overview-writer role (a `general-purpose` subagent) runs this generation in parallel with the release-readiness and section-reviewer roles.
+Generate the four fields consumed by sections 1, 2, and 3 (`overview`, `highlights`, `motivation`, `journey`) by analyzing commit history for the branch. The overview-writer role (a parallel workers) runs this generation in parallel with the release-readiness and section-reviewer roles.
 
 #### Collect Commits
 
@@ -478,7 +484,7 @@ One subsection per ticket, in chronological order:
 
 **Release-readiness input:**
 
-The release-readiness JSON is produced by the release-readiness role — a `general-purpose` subagent the command spawns in parallel during Phase 2. The JSON contains:
+The release-readiness JSON is produced by the release-readiness role — a parallel workers the command spawns in parallel during Phase 2. The JSON contains:
 
 ```json
 {

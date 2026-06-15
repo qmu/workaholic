@@ -7,6 +7,8 @@ set -euo pipefail
 
 branch=$(git branch --show-current 2>/dev/null || echo "")
 root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+USER_SLUG=$(sh "${SCRIPT_DIR}/../../gather/scripts/user-slug.sh" 2>/dev/null || echo "")
 
 if [ -z "$branch" ]; then
   echo '{"context": "unknown", "branch": ""}'
@@ -27,7 +29,9 @@ detect_mode() {
     fi
   fi
 
-  ticket_count=$(find "$todo_dir" -name '*.md' 2>/dev/null | wc -l)
+  # Scope the count to the current user's subdirectory so another developer's
+  # leftover tickets don't flip mode detection for this user.
+  ticket_count=$(find "${todo_dir}/${USER_SLUG}" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l)
   if [ "$ticket_count" -gt 0 ]; then
     has_tickets=true
   fi

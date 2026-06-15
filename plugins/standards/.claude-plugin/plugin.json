@@ -1,7 +1,7 @@
 {
   "name": "standards",
-  "description": "Repository structuring policy, qualitative agents, and documentation standards",
-  "version": "1.0.50",
+  "description": "The project's engineering policies — 設計 / 実装 / 運用 — mirrored from qmu.co.jp as English hard copies across three index skills",
+  "version": "1.0.51",
   "dependencies": [],
   "author": {
     "name": "tamurayoshiya",

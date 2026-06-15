@@ -1,13 +1,12 @@
 ---
 name: drive
-description: Implementation workflow, approval flow, final report, archive, and frontmatter update for drive sessions.
+description: Use when the user runs `/drive`, asks to "implement the queued tickets", "work through the todo list", or "drive the backlog". Reads tickets from `.workaholic/tickets/todo/`, prioritizes them by dependency and severity, implements each one with a per-ticket approval gate, then archives the ticket and commits with a structured message.
 skills:
   - commit
   - system-safety
-  - standards:leading-validity
-  - standards:leading-accessibility
-  - standards:leading-security
-  - standards:leading-availability
+  - standards:design
+  - standards:implementation
+  - standards:operation
 allowed-tools: Bash
 user-invocable: false
 metadata:
@@ -65,7 +64,12 @@ Determine mode from `$ARGUMENT`:
 
 **Normal mode:**
 
-1. Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-todo.sh`. If it prints nothing, follow the Navigator section's empty-queue handling (offer icebox/stop via `AskUserQuestion`).
+0. Sweep stray tickets into per-user subdirectories first, so root-level strays are routed even when `/drive` runs before any `/ticket`:
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/create-ticket/scripts/sweep-todo.sh
+   ```
+   The sweep routes each root-level `todo/*.md` into `todo/<author-slug>/` by the stray's own `author:` frontmatter, git-staging each move (these staged moves ride along into the next archive commit, which runs `git add -A`). It never moves a ticket to the icebox.
+1. Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-todo.sh` — it lists only the current user's `todo/<user>/` queue. If it prints nothing, follow the Navigator section's empty-queue handling (offer icebox/stop via `AskUserQuestion`).
 2. If todo tickets exist, spawn a `subagent_type: "general-purpose"` subagent (`model: "opus"`) whose prompt instructs it to preload `core:drive`, run the Navigator section's **list / analyze / prioritize** logic (read frontmatter, dependency topo-sort, severity ranking, context grouping), and return the proposed ordered ticket list with tier grouping as JSON. This subagent does NOT call AskUserQuestion.
 3. The command presents the prioritized list and confirms the order with the user via `AskUserQuestion` (Navigator section, "Confirm Order with User"), then proceeds to Phase 2 with the resolved order.
 
@@ -83,7 +87,7 @@ For each ticket in the ordered list:
 
 #### Step 2.1: Implement Ticket
 
-Follow the **Workflow** section below. Implementation context is preserved in the main conversation, providing full visibility of changes made. Apply the policies, practices, and standards from the relevant preloaded leading skill(s) — see the Lead Lens table in the `create-ticket` skill for the layer-to-lead mapping.
+Follow the **Workflow** section below. Implementation context is preserved in the main conversation, providing full visibility of changes made. Apply the policies, practices, and standards from the relevant preloaded `standards:*` policy skill(s) — see the Lead Lens table in the `create-ticket` skill for the layer-to-skill mapping.
 
 #### Step 2.2: Request Approval
 
@@ -322,7 +326,7 @@ If no Patches section exists, skip to step 3.
 
 #### 3. Implement the Ticket
 
-- Read the ticket's `layer` field. For each layer, apply the policies, practices, and standards from the matching leading skill: UX → `standards:leading-accessibility`, Domain → `standards:leading-validity`, Infrastructure → `standards:leading-availability`, DB → `standards:leading-validity`, Config → the lead whose policies the config touches. Anything touching authentication, authorization, secrets, or input validation also engages `standards:leading-security`.
+- **Load the policy lens first (when the standards plugin is installed).** `/drive` preloads `standards:design`, `standards:implementation`, and `standards:operation`, so the three index `SKILL.md` files are in context. Before writing code, read the ticket's `layer` field and consult the relevant policy hard copies (`policies/<slug>.md`) using the Lead Lens mapping: UX → `standards:design` plus `standards:implementation`, Domain/DB → `standards:implementation`, Infrastructure → `standards:implementation` plus `standards:operation`, Config → the skill whose policies the config touches. Judge the change's **design** (interaction and behavior), **implementation** (code structure and correctness), and **operation** (delivery, runtime, and recovery) against each applicable policy's Goal (目標), Responsibility (責務), and Practices (実践). If the standards plugin is not installed, proceed without it.
 - Follow the implementation steps in the ticket
 - Use existing patterns and conventions in the codebase
 - For areas where patches applied, verify and adjust as needed

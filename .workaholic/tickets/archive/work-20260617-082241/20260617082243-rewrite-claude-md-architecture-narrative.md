@@ -3,9 +3,9 @@ created_at: 2026-06-17T08:22:43+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 3aadab8
+category: Changed
 depends_on:
 ---
 
@@ -60,3 +60,27 @@ and remove the temporary flag note added during the merge.
   sections rather than re-deriving. (`CLAUDE.md`)
 - `write-in-own-voice`: write the rewritten narrative cleanly and confidently, not
   as a patch over the old three-plugin sentences.
+
+## Final Report
+
+Development completed as planned. Rewrote CLAUDE.md's three-plugin narrative to the
+single-`workaholic`-plugin model: removed the temporary flag note; rewrote the
+Cross-Agent Skill Exposure section (script-bearing skills stay `metadata.internal`,
+the pure-prose policy + `write-release-note`/`review-sections` skills are exposed,
+commands/agents/hooks/rules are Claude-only and never scanned); fixed the
+distribution prose, Component-Nesting/No-Per-Workflow-Agent-Files/Design-Principle
+`core:`→`workaholic:` mentions, and — importantly — the **Plugin Boundary Rule**,
+which had wrongly listed `core`/`standards`/`work` as the live plugins. Also fixed
+the `workflows` entry description in `marketplace.json`, the five `workaholic`
+command Notice headers (stale "merged into `work`" + namespace list), and
+restructured README's three plugin sections into one. The `metadata.internal`
+gating and `${CLAUDE_PLUGIN_ROOT}` determinism rationale were preserved verbatim —
+only framing changed. Gates green; `outputs/` unchanged (docs/commands aren't built).
+
+### Discovered Insights
+
+- **Insight**: The anti-spelunking **Plugin Boundary Rule** (added two branches
+  ago) had itself gone stale — it told agents the live plugins were
+  `core`/`standards`/`work`, the exact names the merge retired. **Context**: a
+  guard that hardcodes the current topology must be updated whenever the topology
+  changes, or it actively misdirects — the opposite of its purpose.

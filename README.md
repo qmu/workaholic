@@ -20,7 +20,7 @@ Enable the plugins you want after installation. Auto update is recommended. For 
 
 Workaholic follows the cross-agent [Agent Skills standard](https://skills.sh). What's portable:
 
-- **`standards`** — the `policies` engineering-policy index (pure prose, self-contained): title, one-line summary, and canonical qmu.co.jp link per policy, organized into the 設計 / 実装 / 運用 pillars. Available on every Agent-Skills agent.
+- **Policy skills** (`design` / `implementation` / `operation`) — the engineering-policy index (pure prose, self-contained): title, one-line summary, and canonical qmu.co.jp link per policy, organized into the 設計 / 実装 / 運用 pillars. Available on every Agent-Skills agent.
 - **`write-release-note`** — release-note structure guidance (pure prose).
 - **Workflows** — `create-ticket`, `drive`, `report`, `ship` as agent-neutral skills (`trip` stays Claude-only; it needs Agent Teams). On non-Claude agents the workflow runs the same steps without Claude's parallel subagents/`AskUserQuestion` — see each skill's **Agent Compatibility** note.
 
@@ -29,48 +29,36 @@ Workaholic follows the cross-agent [Agent Skills standard](https://skills.sh). W
 | Agent | How |
 | ----- | --- |
 | **Claude Code** | `/plugin marketplace add qmu/workaholic` (slash commands `/ticket`, `/drive`, `/report`, `/ship`, `/trip`) |
-| **OpenAI Codex** | `codex plugin marketplace add qmu/workaholic --ref main`<br>`codex plugin add standards@workaholic`<br>`codex plugin add workflows@workaholic` |
-| **Cursor / OpenCode / Pi / 50+** | `npx skills add qmu/workaholic` (exposes `standards` + `workflows`) |
+| **OpenAI Codex** | `codex plugin marketplace add qmu/workaholic --ref main`<br>`codex plugin add workaholic@workaholic`<br>`codex plugin add workflows@workaholic` |
+| **Cursor / OpenCode / Pi / 50+** | `npx skills add qmu/workaholic` (exposes `workaholic` + `workflows`) |
 
 ### How the workflows reach other agents
 
-The workflow skills share helper scripts across `plugins/workaholic` via the Claude-only `${CLAUDE_PLUGIN_ROOT}` token, so they are not self-contained in source. `scripts/build-plugins` generates **self-contained** copies (each skill bundling its own scripts, references rewritten to relative paths) and assembles one neutral, committed plugin under `outputs/workflows/`. That single dir serves every non-Claude agent: Codex via `.agents/plugins/marketplace.json` (and the co-located `.codex-plugin/plugin.json`), and OpenCode/Cursor/40+ via the `skills` CLI reading the `workflows` entry in `.claude-plugin/marketplace.json`. Regenerate after changing a core workflow skill:
+The workflow skills share helper scripts across `plugins/workaholic` via the Claude-only `${CLAUDE_PLUGIN_ROOT}` token, so they are not self-contained in source. `scripts/build-plugins` generates **self-contained** copies (each skill bundling its own scripts, references rewritten to relative paths) and assembles one neutral, committed plugin under `outputs/workflows/`. That single dir serves every non-Claude agent: Codex via `.agents/plugins/marketplace.json` (and the co-located `.codex-plugin/plugin.json`), and OpenCode/Cursor/40+ via the `skills` CLI reading the `workflows` entry in `.claude-plugin/marketplace.json`. Regenerate after changing a workaholic workflow skill:
 
 ```bash
 node scripts/build-plugins/build.mjs   # regenerate outputs/workflows artifacts (no args = full build)
 node scripts/build-plugins/verify.mjs  # assert every script reference resolves
 ```
 
-The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true`, `${CLAUDE_PLUGIN_ROOT}`); the committed `outputs/workflows/` artifacts are the public, portable versions, kept in sync by the `Outputs Freshness` CI check. The **`work`** plugin's commands/hooks/Agent Teams remain Claude-Code-only.
+The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true`, `${CLAUDE_PLUGIN_ROOT}`); the committed `outputs/workflows/` artifacts are the public, portable versions, kept in sync by the `Outputs Freshness` CI check. The `workaholic` plugin's commands/hooks/Agent Teams remain Claude-Code-only.
 
-## Plugins
+## The plugin
 
-### Core
-
-Shared commands that work across all workflows. Auto-detects your development context from the current branch pattern.
-
-| Command    | What it does                                          |
-| ---------- | ----------------------------------------------------- |
-| `/report`  | Context-aware: generate story or journey report and create PR |
-| `/ship`    | Context-aware: merge PR, deploy, and verify           |
-| `/scan`    | Full documentation scan                               |
-
-### Standards
-
-Engineering-policy index referenced by other plugins. This plugin has no commands — it provides the single `policies` skill: a catalog mirrored from qmu.co.jp giving each policy's title, one-line summary, and canonical link, organized into the 設計 (design), 実装 (implementation, sub-grouped by 妥当性 / 可用性 / アクセシビリティ), and 運用 (operations) pillars. Security (安全) and working-practice (執務) policies live elsewhere on qmu.co.jp and are out of scope for this plugin.
-
-### Work
-
-Unified development workflow combining ticket-driven development (TiDD) and AI-collaborative exploration. Write implementation tickets, implement them serially with confirmation, generate PR stories, or launch Agent Teams for collaborative design.
+`workaholic` is a single plugin combining ticket-driven development (TiDD), AI-collaborative exploration, and context-aware reporting/shipping, plus the engineering-policy index. It auto-detects your development context from the current branch pattern.
 
 | Command    | What it does                                          |
 | ---------- | ----------------------------------------------------- |
 | `/ticket`  | Plan a change with context and steps                  |
-| `/drive`   | Implement queued tickets one by one                   |
+| `/drive`   | Implement queued tickets one by one (add "night" for an autonomous overnight run with a morning report) |
+| `/report`  | Context-aware: generate story or journey report and create PR |
+| `/ship`    | Context-aware: merge PR, deploy, verify, and publish the GitHub Release |
 | `/trip`    | Launch Agent Teams session for collaborative design   |
 
 > [!NOTE]
 > `/trip` requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` to be set in your environment.
+
+**Engineering-policy skills** (`design` / `implementation` / `operation`): a catalog mirrored from qmu.co.jp giving each policy's title, one-line summary, and canonical link, organized into the 設計 (design), 実装 (implementation, sub-grouped by 妥当性 / 可用性 / アクセシビリティ), and 運用 (operations) pillars. Pure prose, exposed on every Agent-Skills agent. Security (安全) and working-practice (執務) policies live elsewhere on qmu.co.jp and are out of scope.
 
 **Typical drive session:**
 

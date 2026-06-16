@@ -10,17 +10,17 @@
 //
 // Topology:
 //   plugins/                  authored source of truth (Claude reads it directly)
-//   dist/workflows/           committed, generated portable plugin (one neutral dir serves
+//   outputs/workflows/        committed, generated portable plugin (one neutral dir serves
 //                             Codex + OpenCode + other agents via their respective manifests)
 //
 // The self-contained skills are assembled in a throwaway scratch dir (never committed),
-// then copied into dist/workflows. dist/ is committed because Codex
+// then copied into outputs/workflows. outputs/ is committed because Codex
 // (.agents/plugins/marketplace.json) and the skills CLI (.claude-plugin/marketplace.json)
 // install by reading paths out of the repo, so the artifacts must be present at install time.
 //
 // Reference rewrites (per built skill):
 //   SKILL.md:  ${CLAUDE_PLUGIN_ROOT}/skills/<x>/scripts/  ->  <x>/scripts/
-//   scripts:   ${SCRIPT_DIR}/(../)+core/skills/<x>/scripts/  ->  ${SCRIPT_DIR}/../../<x>/scripts/
+//   scripts:   ${SCRIPT_DIR}/(../)+workaholic/skills/<x>/scripts/  ->  ${SCRIPT_DIR}/../../<x>/scripts/
 // (intra-skill same-dir refs like ${SCRIPT_DIR}/update.sh are preserved because each
 //  closure skill's whole scripts/ dir is copied intact.)
 
@@ -30,13 +30,13 @@ import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
-const CORE_SKILLS = join(REPO_ROOT, "plugins/core/skills");
-const DIST_ROOT = join(REPO_ROOT, "dist");                // committed generated output
+const CORE_SKILLS = join(REPO_ROOT, "plugins/workaholic/skills");
+const OUTPUTS_ROOT = join(REPO_ROOT, "outputs");          // committed generated output
 const MARKETPLACE = join(REPO_ROOT, ".claude-plugin/marketplace.json");
 // One neutral portable plugin serves every non-Claude agent: Codex reads its co-located
 // .codex-plugin/plugin.json; OpenCode + Cursor + 40 others get it via the skills CLI
 // scanning .claude-plugin/marketplace.json. Both manifests point at this dir.
-const WORKFLOWS_PLUGIN = join(DIST_ROOT, "workflows");    // dist/workflows
+const WORKFLOWS_PLUGIN = join(OUTPUTS_ROOT, "workflows"); // outputs/workflows
 
 // Self-contained skills are built here, then copied into each agent plugin. Throwaway:
 // removed after a full build; left in place (and its path printed) for partial dev builds.
@@ -48,7 +48,7 @@ const DEFAULT_TARGETS = ["create-ticket", "drive", "report", "ship"];
 const EXTRA_SKILLS = ["review-sections", "write-release-note"];
 
 const SKILL_REF = /\$\{CLAUDE_PLUGIN_ROOT\}\/skills\/([a-z-]+)\/scripts\//g;
-const SCRIPT_CROSS_REF = /\$\{SCRIPT_DIR\}\/(?:\.\.\/)+core\/skills\/([a-z-]+)\/scripts\//g;
+const SCRIPT_CROSS_REF = /\$\{SCRIPT_DIR\}\/(?:\.\.\/)+workaholic\/skills\/([a-z-]+)\/scripts\//g;
 
 function readText(p) { return readFileSync(p, "utf8"); }
 
@@ -176,13 +176,13 @@ function publicizeSkillMd(p) {
     block.replace(/^[ \t]+internal:.*\n/m, "")).replace(/^metadata:\n(?=\S|---)/m, "");
   md = md.replace(/^user-invocable:.*\n/m, "");
   // strip namespaced skill prefixes -> bare names
-  md = md.replace(/\b(?:core|standards|work):([a-z][a-z0-9-]*)/g, "$1");
+  md = md.replace(/\b(?:core|standards|work|workaholic):([a-z][a-z0-9-]*)/g, "$1");
   // mechanism wording substitutions (Claude-only -> agent-neutral)
   for (const [pat, repl] of PUBLIC_SUBSTITUTIONS) md = md.replace(pat, repl);
   writeFileSync(p, md);
 }
 
-// Assemble the committed portable workflows plugin (dist/workflows) from built scratch
+// Assemble the committed portable workflows plugin (outputs/workflows) from built scratch
 // skills. It carries a .codex-plugin/plugin.json for Codex; the skills CLI ignores that
 // and scans only skills/, so the same dir serves Codex, OpenCode, and other agents.
 function assembleWorkflowsPlugin(builtTargets) {

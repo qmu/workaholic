@@ -100,6 +100,14 @@ Reads the just-shipped story (`.workaholic/stories/<branch>.md`), parses each `#
 
 Commits the new files with message `Carry over concerns from PR #<pr-number>` so the corpus stays under version control. Skips silently when no story file exists or section 6 is empty.
 
+### 2-6. Publish GitHub Release
+
+```bash
+bash ship/scripts/publish-release.sh "<branch>" "<merge-commit>" "<tag>" "<notes-file>"
+```
+
+Publishes a GitHub Release from the generated note **unless** the repo already has a GitHub Actions workflow that publishes releases (scans `.github/workflows/` for `gh release create` / `softprops/action-gh-release` / `actions/create-release`). Returns `{published:false, reason:"ci_publishes"}` when CI owns publishing, `{published:false, reason:"no_notes_file"|"already_exists"}` for the safe no-ops, or `{published:true, tag, url, reason:"created"}`. Idempotent: never errors on an existing tag. Targets the merge commit.
+
 ## 3. Workspace Guard
 
 ```bash
@@ -138,4 +146,5 @@ Ship the current branch's PR. (Worktree sync/cleanup and drive/trip routing are 
 4. **Extract carry-overs**: Run `bash ship/scripts/extract-carryover.sh "<branch>" "<pr-number>" "<pr-url>"`. Persists active Concerns from the just-shipped story's section 6 into `.workaholic/concerns/`. Commits the new files. Skips silently when no story file exists or section 6 is empty. Report `extracted` count from the JSON output.
 5. **Deploy**: Run `bash ship/scripts/find-claude-md.sh`. If `found` is `false`, or `CLAUDE.md` has no `## Deploy` section: inform user "No deploy instructions found in CLAUDE.md. Deployment skipped." and skip to summary. Otherwise: read `CLAUDE.md`, find the `## Deploy` section, ask confirmation via the agent's selection prompt, execute if confirmed.
 6. **Verify**: If a `## Deploy` section was found, read the `## Verify` section of `CLAUDE.md` and execute. Report results.
-7. **Summarize**: PR merge status (number, URL), release-note commit status, carry-over extraction count, deployment status, verification results.
+7. **Publish GitHub Release** (gated on a successful merge): Run `bash ship/scripts/publish-release.sh "<branch>" "<merge-commit>" "<tag>" "<notes-file>"`. The script first checks for an existing release-publishing GitHub Actions workflow and **defers** to it (`reason:"ci_publishes"`) — do nothing in that case, CI owns releases. Otherwise it creates the release (idempotent) targeting `merge-pr.sh`'s `commit_hash`. Derive `<tag>` from the project version (`.claude-plugin/marketplace.json` or the project's version file) when present, else the next semver after `gh release view`/the latest git tag; for an additional release on the same branch, suffix the tag to stay unique. `<notes-file>` is the note written in step 2. When CI is absent and a release will actually be created interactively, confirm via the agent's selection prompt first. Report `published`/`reason` from the JSON.
+8. **Summarize**: PR merge status (number, URL), release-note commit status, carry-over extraction count, deployment status, verification results, and GitHub Release status (published/deferred).

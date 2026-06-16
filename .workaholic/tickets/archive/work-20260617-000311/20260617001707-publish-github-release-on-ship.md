@@ -3,9 +3,9 @@ created_at: 2026-06-17T00:17:07+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: c96a0c0
+category: Changed
 depends_on: [20260617001706-move-release-note-generation-to-ship.md]
 ---
 
@@ -92,3 +92,28 @@ mechanism), so the worktree/trip path inherits publishing for free via
   note file records delivery as code; the detection gate keeps the automated CI
   path authoritative where it exists rather than splitting responsibility.
   (`plugins/standards/skills/operation/policies/ci-cd.md`)
+
+## Final Report
+
+Development completed as planned (night drive, auto-approved). Added the bundled
+`publish-release.sh`: it scans `.github/workflows/` for an existing release
+publisher (`gh release create` / `softprops/action-gh-release` /
+`actions/create-release`) and defers (`ci_publishes`) when found; otherwise it
+runs an idempotent `gh release create --latest --target <merge-commit>`,
+short-circuiting safely on `no_notes_file` / `already_exists`. Wired it into the
+ship skill (§2-6 + Ship Flow step 7, gated on a successful merge, with the
+CI-deferral note), and added two hermetic smoke tests for the detection branch
+(CI present → `ci_publishes`; missing notes → `no_notes_file`) — neither calls
+`gh`. Regenerated `dist/`; build/verify/validate and 49 smoke tests pass.
+
+### Discovered Insights
+
+- **Insight**: Only the CI-detection and short-circuit branches of
+  `publish-release.sh` are hermetically testable; the actual `gh release create`
+  path needs a token/network and is left to live ship runs. **Context**: this
+  repo's own `release.yml` means `/ship` here will always hit the `ci_publishes`
+  branch — the create path is exercised only in adopter repos without a release
+  workflow.
+- **Insight**: The `/release` command / `release.yml` `ls -t` selector overlap
+  (concern #42) is acknowledged but not reconciled here; left for a focused
+  follow-up so this ticket stays scoped to ship-side publishing.

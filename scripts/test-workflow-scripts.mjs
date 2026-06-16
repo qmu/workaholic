@@ -30,6 +30,7 @@ const SCRIPTS = {
   sweepTodo: join(REPO_ROOT, "plugins/core/skills/create-ticket/scripts/sweep-todo.sh"),
   listTodo: join(REPO_ROOT, "plugins/core/skills/drive/scripts/list-todo.sh"),
   promoteIcebox: join(REPO_ROOT, "plugins/core/skills/drive/scripts/promote-icebox.sh"),
+  publishRelease: join(REPO_ROOT, "plugins/core/skills/ship/scripts/publish-release.sh"),
 };
 
 // Slug for the repo's standard test identity (git config user.email test@example.com).
@@ -366,6 +367,28 @@ function testPromoteIcebox() {
   } finally { cleanup(dir); }
 }
 
+// ---------- ship/publish-release.sh (CI-detection branch only — hermetic) ----------
+function testPublishRelease() {
+  // Repo with a GitHub Actions release publisher -> must defer to CI, never call gh.
+  const ci = makeRepo("main");
+  try {
+    mkdirSync(join(ci, ".github/workflows"), { recursive: true });
+    writeFileSync(join(ci, ".github/workflows/release.yml"),
+      "jobs:\n  release:\n    steps:\n      - run: gh release create v1\n");
+    const r = run(ci, `bash ${SCRIPTS.publishRelease} work-x abc123 v1.0.0 /tmp/none.md`);
+    assertEq("publish-release defers to CI publisher", JSON.parse(r.stdout),
+      { published: false, reason: "ci_publishes" });
+  } finally { cleanup(ci); }
+
+  // Repo with no CI publisher and a missing notes file -> no_notes_file (no gh call).
+  const bare = makeRepo("main");
+  try {
+    const r = run(bare, `bash ${SCRIPTS.publishRelease} work-x abc123 v1.0.0 /tmp/does-not-exist-xyz.md`);
+    assertEq("publish-release reports missing notes", JSON.parse(r.stdout),
+      { published: false, reason: "no_notes_file" });
+  } finally { cleanup(bare); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching/detect-context.sh", testDetectContext],
@@ -376,6 +399,7 @@ const tests = [
   ["create-ticket/sweep-todo.sh", testSweepTodo],
   ["drive/list-todo.sh", testListTodo],
   ["drive/promote-icebox.sh", testPromoteIcebox],
+  ["ship/publish-release.sh", testPublishRelease],
 ];
 
 for (const [label, fn] of tests) {

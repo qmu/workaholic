@@ -14,3 +14,5 @@ skills:
 This command runs the preloaded `core:drive` skill. Follow the **Command Workflow** section end to end (Pre-check, Phase 0 Worktree Guard, Phase 1 Navigate Tickets, Phase 2 Implement Tickets, Phase 3 Re-check and Continue, Phase 4 Completion, Critical Rules).
 
 This command (main agent) owns all navigation user-interaction: it spawns the ticket prioritizer as a `general-purpose` subagent and issues every `AskUserQuestion` (order confirmation, icebox/stop, abandonment) itself — there is no `drive-navigator` subagent.
+
+**Night mode**: when the invocation contains "night" (e.g. "go night /drive"), follow the skill's **Night Mode** section — ask upfront (one `multiSelect`) which tickets to target, then run the selected batch autonomously (skip the per-ticket approval gate, auto-commit + archive each, skip-and-record on failure), and print a whole-night report for morning review.

@@ -3,9 +3,9 @@ created_at: 2026-06-17T08:22:42+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: c4a1f44
+category: Changed
 depends_on:
 ---
 
@@ -64,3 +64,25 @@ Management section:
 - Note the overlap with CI `release.yml` (which publishes the GitHub Release on
   push to main): `/release` bumps the version + commits; CI then cuts the release.
   Keep responsibilities distinct. (`.github/workflows/release.yml`)
+
+## Final Report
+
+Development completed as planned. Rewrote `.claude/commands/release.md` for the
+single-plugin layout: it now updates `.claude-plugin/marketplace.json` (root +
+`workaholic` + `workflows` entries), `plugins/workaholic/.claude-plugin/plugin.json`,
+and `plugins/workaholic/.codex-plugin/plugin.json`, then regenerates `outputs/` via
+`build.mjs` and validates alignment with `validate-metadata.mjs` before committing
+`Release v{version}`. Removed all references to the gone `plugins/core`,
+`plugins/tdd`, and `sync-work.md`, kept the major/minor/patch handling, and added
+a note delimiting `/release` (bump+commit) from CI `release.yml` (publish). Points
+at CLAUDE.md Version Management as the authoritative file list to prevent future
+drift.
+
+### Discovered Insights
+
+- **Insight**: `.claude/commands/release.md` is project-local (operates ON the
+  repo's manifests) and is NOT part of the plugin build, so it needs no
+  `outputs/` rebuild of its own — but the procedure it documents must itself run
+  `build.mjs` so the generated Codex manifest version stays aligned. **Context**:
+  project-local commands and plugin-sourced commands have different build
+  relationships; don't conflate them.

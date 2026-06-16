@@ -3,9 +3,9 @@ created_at: 2026-06-17T00:03:02+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: a336afa
+category: Changed
 depends_on:
 ---
 
@@ -85,3 +85,23 @@ dedicated, self-consistent single-commit tickets.
 - **Source-vs-artifact split untouched.** Only the artifact directory's name changes; `plugins/core` source, `${CLAUDE_PLUGIN_ROOT}` tokens, `metadata.internal`, and `publicizeSkillMd` behavior stay as-is. (`scripts/build-plugins/build.mjs`)
 - **Naming thoroughness.** This ticket renames the full surface — directory, the `DIST_ROOT` constant, and the `dist-freshness.yml` workflow file/name — so nothing still reads "dist". If a lighter touch is preferred (move the directory but keep the internal constant/workflow names), drop steps 2's constant-rename, 3's constant-rename, and 5's file/name rename; the directory move + literal/manifest/path-filter updates are the minimum that keeps everything working.
 - **Leave history immutable.** `.workaholic/stories/` and `.workaholic/release-notes/` are point-in-time records that legitimately reference `dist/`; do not rewrite them.
+
+## Final Report
+
+Development completed as planned (night drive, auto-approved). `git mv dist outputs`
+(history preserved), then updated every functional site: `build.mjs`
+(`DIST_ROOT`→`OUTPUTS_ROOT` + literal + comments), `verify.mjs` (constant + error
+strings), both manifests (`./dist/workflows`→`./outputs/workflows`), the CI guard
+(renamed `dist-freshness.yml`→`outputs-freshness.yml`, `name: Outputs Freshness`,
+path filters + diff target + strings), the stale `validate-plugins.yml` comment,
+the `validate-metadata.mjs` header comment, and the three docs (CLAUDE.md, README,
+build-plugins/README). Regenerated into `outputs/` — byte-identical to the moved
+tree. build/verify/validate and 49 smoke tests pass.
+
+### Discovered Insights
+
+- **Insight**: `plugins/core/skills/discover/SKILL.md` lists `dist/` as a *generic*
+  build-output example (alongside `*.min.js`, `build/`) for discovery to skip — it
+  is correctly NOT renamed, since it refers to the common convention in arbitrary
+  repos, not workaholic's own output dir. **Context**: a future grep-based rename
+  must distinguish "our generated dir" from "generic build-dir examples in prose."

@@ -67,11 +67,16 @@ Generate concise release notes from a branch story for GitHub Releases.
    - Format velocity as: "N commits/<unit>"
    - Omit velocity line when fields are absent
 
-6. **Links**: PR URL is provided as input to the release-note subagent. Always include it.
+6. **Links**: The PR URL is provided as input (by the `ship` Ship Flow, from its `pre-check.sh` output). Always include it.
 
 ## Output Location
 
-Write release notes to `.workaholic/release-notes/<branch-name>.md`
+This skill runs at **ship time** (the `ship` Ship Flow generates the note before merging), so one branch can produce several notes across multiple ships:
+
+- **First release on a branch**: `.workaholic/release-notes/<branch-name>.md`
+- **Additional releases on the same branch** (subsequent ships): `.workaholic/release-notes/<branch-name>-<N>.md` (`-2`, `-3`, …), so each ship's release record is preserved separately.
+
+Pick the next free `-<N>` suffix when `<branch-name>.md` already exists.
 
 ## Writing Style
 

@@ -5,6 +5,7 @@ skills:
   - core:trip-protocol
   - core:ship
   - core:branching
+  - core:write-release-note
 ---
 
 # Ship

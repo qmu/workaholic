@@ -10,11 +10,11 @@
 //
 // Topology:
 //   plugins/                  authored source of truth (Claude reads it directly)
-//   dist/workflows/           committed, generated portable plugin (one neutral dir serves
+//   outputs/workflows/        committed, generated portable plugin (one neutral dir serves
 //                             Codex + OpenCode + other agents via their respective manifests)
 //
 // The self-contained skills are assembled in a throwaway scratch dir (never committed),
-// then copied into dist/workflows. dist/ is committed because Codex
+// then copied into outputs/workflows. outputs/ is committed because Codex
 // (.agents/plugins/marketplace.json) and the skills CLI (.claude-plugin/marketplace.json)
 // install by reading paths out of the repo, so the artifacts must be present at install time.
 //
@@ -31,12 +31,12 @@ import { tmpdir } from "node:os";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
 const CORE_SKILLS = join(REPO_ROOT, "plugins/core/skills");
-const DIST_ROOT = join(REPO_ROOT, "dist");                // committed generated output
+const OUTPUTS_ROOT = join(REPO_ROOT, "outputs");          // committed generated output
 const MARKETPLACE = join(REPO_ROOT, ".claude-plugin/marketplace.json");
 // One neutral portable plugin serves every non-Claude agent: Codex reads its co-located
 // .codex-plugin/plugin.json; OpenCode + Cursor + 40 others get it via the skills CLI
 // scanning .claude-plugin/marketplace.json. Both manifests point at this dir.
-const WORKFLOWS_PLUGIN = join(DIST_ROOT, "workflows");    // dist/workflows
+const WORKFLOWS_PLUGIN = join(OUTPUTS_ROOT, "workflows"); // outputs/workflows
 
 // Self-contained skills are built here, then copied into each agent plugin. Throwaway:
 // removed after a full build; left in place (and its path printed) for partial dev builds.
@@ -182,7 +182,7 @@ function publicizeSkillMd(p) {
   writeFileSync(p, md);
 }
 
-// Assemble the committed portable workflows plugin (dist/workflows) from built scratch
+// Assemble the committed portable workflows plugin (outputs/workflows) from built scratch
 // skills. It carries a .codex-plugin/plugin.json for Codex; the skills CLI ignores that
 // and scans only skills/, so the same dir serves Codex, OpenCode, and other agents.
 function assembleWorkflowsPlugin(builtTargets) {

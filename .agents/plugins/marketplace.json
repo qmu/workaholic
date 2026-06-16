@@ -20,7 +20,7 @@
       "name": "workflows",
       "source": {
         "source": "local",
-        "path": "./dist/workflows"
+        "path": "./outputs/workflows"
       },
       "policy": {
         "installation": "AVAILABLE",

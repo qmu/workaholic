@@ -82,7 +82,7 @@ jobs:
         run: |
           echo "Checking each marketplace plugin's source directory exists..."
 
-          # A plugin's source may live under plugins/ (authored) or dist/ (generated,
+          # A plugin's source may live under plugins/ (authored) or outputs/ (generated,
           # e.g. the portable 'workflows' plugin), so resolve the declared source rather
           # than assuming plugins/<name>.
           marketplace_plugins=$(jq -r '.plugins[].name' .claude-plugin/marketplace.json | sort)

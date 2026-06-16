@@ -1,7 +1,7 @@
-name: Dist Freshness
+name: Outputs Freshness
 
-# Ensures the committed cross-agent artifacts under dist/ stay in lockstep with the
-# authored source under plugins/. Regenerates dist/ and fails if anything differs.
+# Ensures the committed cross-agent artifacts under outputs/ stay in lockstep with the
+# authored source under plugins/. Regenerates outputs/ and fails if anything differs.
 
 on:
   push:
@@ -9,13 +9,13 @@ on:
     paths:
       - 'plugins/**'
       - 'scripts/build-plugins/**'
-      - 'dist/**'
+      - 'outputs/**'
   pull_request:
     branches: [main]
     paths:
       - 'plugins/**'
       - 'scripts/build-plugins/**'
-      - 'dist/**'
+      - 'outputs/**'
 
 jobs:
   freshness:
@@ -30,21 +30,21 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Regenerate dist/ from source
-        # Argument-less build does the full assembly into dist/workflows. A build with
+      - name: Regenerate outputs/ from source
+        # Argument-less build does the full assembly into outputs/workflows. A build with
         # explicit targets only writes the throwaway scratch dir and would not touch
-        # dist/, making the diff check pass vacuously — so never pass targets here.
+        # outputs/, making the diff check pass vacuously — so never pass targets here.
         run: node scripts/build-plugins/build.mjs
 
       - name: Verify generated skills are self-contained
         run: node scripts/build-plugins/verify.mjs
 
-      - name: Assert dist/ matches committed output
+      - name: Assert outputs/ matches committed output
         run: |
-          if ! git diff --exit-code -- dist/; then
+          if ! git diff --exit-code -- outputs/; then
             echo ""
-            echo "Error: committed dist/ is out of sync with plugins/ source."
+            echo "Error: committed outputs/ is out of sync with plugins/ source."
             echo "Run 'node scripts/build-plugins/build.mjs' and commit the result."
             exit 1
           fi
-          echo "dist/ is in sync with source"
+          echo "outputs/ is in sync with source"

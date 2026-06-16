@@ -53,7 +53,7 @@
         "name": "tamurayoshiya",
         "email": "a@qmu.jp"
       },
-      "source": "./dist/workflows",
+      "source": "./outputs/workflows",
       "category": "development",
       "skills": [
         "./skills/create-ticket",

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Validate Codex-facing plugin metadata. Complements the existing Claude-side
-// validation in .github/workflows/validate-plugins.yml and the dist-freshness
+// validation in .github/workflows/validate-plugins.yml and the outputs-freshness
 // check: those prove Claude manifests are well-formed and generated artifacts
 // are up to date, but they never inspected .agents/plugins/marketplace.json or
 // the .codex-plugin/plugin.json files. Drift like 1.0.48/1.0.0 vs. 1.0.50 went

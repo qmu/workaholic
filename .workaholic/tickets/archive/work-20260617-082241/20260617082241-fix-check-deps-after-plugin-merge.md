@@ -3,9 +3,9 @@ created_at: 2026-06-17T08:22:41+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.25h
+commit_hash: 4dd4d21
+category: Changed
 depends_on:
 ---
 
@@ -52,3 +52,22 @@ This regression was introduced by the merge on the same branch as this fix's par
 - This is the kind of cross-plugin-dependency assumption the merge had to unwind;
   audit for any other script that assumes a sibling `core`/`standards`/`work`
   plugin directory exists. (`grep -rn '\.\./core\|\.\./standards\|\.\./work' plugins/workaholic/skills/*/scripts/`)
+
+## Final Report
+
+Development completed as planned. Replaced `check.sh`'s sibling-`core`-plugin
+existence check with an unconditional `{"ok": true}`, and rewrote
+`check-deps/SKILL.md` to the single-plugin reality. Audited all skill scripts for
+other `../core` / `../standards` / `../work` sibling-plugin assumptions — **none
+remain**. `check-deps` now returns `{"ok": true}`, unblocking the `/ticket` and
+`/drive` pre-checks. Regenerated `outputs/`; build/verify/validate and 49 smoke
+tests pass.
+
+### Discovered Insights
+
+- **Insight**: This regression slipped past the merge's four gates because
+  `check-deps` is a runtime *command pre-check*, not exercised by
+  build/verify/validate/smoke. **Context**: after a structural change, also
+  smoke-run the command pre-checks (`check-deps`, `check-workspace`,
+  `detect-context`) — the build gates prove artifacts are well-formed, not that
+  the live command path still passes.

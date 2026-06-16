@@ -81,6 +81,14 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/check-todo.sh
 
 Checks if the current user's `.workaholic/tickets/todo/<user>/` queue has remaining tickets. Returns JSON with cleanliness status, count, and ticket list. Used as a pre-merge guard to prevent shipping with unfinished work. The check is scoped to the current user's subdirectory: other developers' tickets (in their own subdirectories, or unswept at the `todo/` root) do not block the merge.
 
+### 2-4b. Commit Release Note
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/commit-release-note.sh "<branch>"
+```
+
+Stages, commits (`Add release notes for <branch>`), and pushes any note file(s) under `.workaholic/release-notes/` so they ride into the merge. Returns `{committed, branch}` or `{committed:false, reason:"no_release_note_changes"}`. Run after `core:write-release-note` has written the note and before `merge-pr.sh`.
+
 ### 2-5. Extract Carry-Overs
 
 ```bash
@@ -127,9 +135,10 @@ If the user selects "Stop", end the workflow immediately.
 
 Ship the current branch's PR. (Worktree sync/cleanup and drive/trip routing are not here; in Claude Code those are handled by the trip workflow.)
 
-1. **Pre-check**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/pre-check.sh "<branch>"`. If `found` is `false`: inform user "No PR found for this branch. Run `/report` first." and stop. If `merged` is `true`: skip to Deploy.
-2. **Merge PR**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/merge-pr.sh "<pr-number>"`. On failure, inform user and stop.
-3. **Extract carry-overs**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/extract-carryover.sh "<branch>" "<pr-number>" "<pr-url>"`. Persists active Concerns from the just-shipped story's section 6 into `.workaholic/concerns/`. Commits the new files. Skips silently when no story file exists or section 6 is empty. Report `extracted` count from the JSON output.
-4. **Deploy**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/find-claude-md.sh`. If `found` is `false`, or `CLAUDE.md` has no `## Deploy` section: inform user "No deploy instructions found in CLAUDE.md. Deployment skipped." and skip to summary. Otherwise: read `CLAUDE.md`, find the `## Deploy` section, ask confirmation via AskUserQuestion, execute if confirmed.
-5. **Verify**: If a `## Deploy` section was found, read the `## Verify` section of `CLAUDE.md` and execute. Report results.
-6. **Summarize**: PR merge status (number, URL), carry-over extraction count, deployment status, verification results.
+1. **Pre-check**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/pre-check.sh "<branch>"`. If `found` is `false`: inform user "No PR found for this branch. Run `/report` first." and stop. If `merged` is `true`: skip to Deploy. Capture `pr_number` and `url`.
+2. **Generate release note**: Run the `core:write-release-note` skill against `.workaholic/stories/<branch>.md`, passing the PR `url` from step 1. Write the note per its Output Location scheme (first release → `.workaholic/release-notes/<branch>.md`; an additional ship on the same branch → `<branch>-<N>.md`). Then commit it to the branch with `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/commit-release-note.sh "<branch>"` so it is included in the merge. Skip silently if no story file exists.
+3. **Merge PR**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/merge-pr.sh "<pr-number>"`. On failure, inform user and stop.
+4. **Extract carry-overs**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/extract-carryover.sh "<branch>" "<pr-number>" "<pr-url>"`. Persists active Concerns from the just-shipped story's section 6 into `.workaholic/concerns/`. Commits the new files. Skips silently when no story file exists or section 6 is empty. Report `extracted` count from the JSON output.
+5. **Deploy**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/find-claude-md.sh`. If `found` is `false`, or `CLAUDE.md` has no `## Deploy` section: inform user "No deploy instructions found in CLAUDE.md. Deployment skipped." and skip to summary. Otherwise: read `CLAUDE.md`, find the `## Deploy` section, ask confirmation via AskUserQuestion, execute if confirmed.
+6. **Verify**: If a `## Deploy` section was found, read the `## Verify` section of `CLAUDE.md` and execute. Report results.
+7. **Summarize**: PR merge status (number, URL), release-note commit status, carry-over extraction count, deployment status, verification results.

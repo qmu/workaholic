@@ -3,9 +3,9 @@ created_at: 2026-06-17T00:17:06+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 0a23ff0
+category: Changed
 depends_on:
 ---
 
@@ -103,3 +103,25 @@ dependent ticket [20260617001707-publish-github-release-on-ship.md].
 - `standards:operation` (CI/CD — delivery as code): the note is a version-controlled
   artifact committed to the branch and merged to main, so the release record lives
   in-repo, not in operator memory. (`plugins/standards/skills/operation/`)
+
+## Final Report
+
+Development completed as planned (night drive, auto-approved). Removed release-note
+generation from `core:report` (Phase 5 step 2 + Phase 6 deleted; pruned
+`release_note_file`/`release_note_writer` from the Output Schema and Worker Output
+Mapping; renamed Phase 5 to "Create PR"; updated "Phases 0–6" → "0–5"). Added a
+generate-release-note step to the `core:ship` Ship Flow before merge, fed by
+`pre-check.sh`'s PR `url`, with a new bundled `commit-release-note.sh` that
+stages/commits/pushes the note so it rides into the merge. Updated
+`write-release-note`'s Output Location to the multi-release scheme
+(`<branch>.md`, then `<branch>-<N>.md`) and added `core:write-release-note` to the
+ship command's preloads. Regenerated `dist/`; build/verify/validate-metadata and
+47 smoke tests all pass.
+
+### Discovered Insights
+
+- **Insight**: The release-note step is correctly placed *before* `merge-pr.sh`
+  (which checks out main and pulls), so the note is committed on the topic branch
+  and carried into the merge. Placing it after merge would commit it onto main
+  out-of-band. **Context**: any future ship-flow step that must land in the PR has
+  to run before step 3 (Merge PR).

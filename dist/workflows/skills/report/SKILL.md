@@ -56,14 +56,14 @@ Route by `mode` from detect-context output:
 ##### Drive Mode (`mode: "drive"`)
 
 1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
-2. **Run the Write Story orchestration** (`## Write Story → ### Orchestration`, Phases 0–6) directly in this command (main-agent) context. The command itself spawns the leaf parallel workers — there is no intermediate story-writer subagent.
+2. **Run the Write Story orchestration** (`## Write Story → ### Orchestration`, Phases 0–5) directly in this command (main-agent) context. The command itself spawns the leaf parallel workers — there is no intermediate story-writer subagent.
 3. **Display story content**: Read the story file at `.workaholic/stories/<branch-name>.md` and output the entire Markdown content so the developer can review inline.
 4. **Display PR URL** captured from Phase 5 (mandatory).
 
 ##### Trip Mode (`mode: "trip"`)
 
 1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
-2. **Run the Write Story orchestration** (`## Write Story → ### Orchestration`, Phases 0–6) directly in this command (main-agent) context. The command itself spawns the leaf parallel workers — there is no intermediate story-writer subagent.
+2. **Run the Write Story orchestration** (`## Write Story → ### Orchestration`, Phases 0–5) directly in this command (main-agent) context. The command itself spawns the leaf parallel workers — there is no intermediate story-writer subagent.
 3. **Display story content**: Read the story file at `.workaholic/stories/<branch-name>.md` and output the entire Markdown content so the developer can review inline.
 4. **Display PR URL** captured from Phase 5 (mandatory).
 
@@ -93,7 +93,7 @@ Generate a branch story that serves as the single source of truth for PR content
 
 ### Orchestration
 
-Generate the story file, then create the PR and release note. The `/report` command (main agent) runs this orchestration directly: it executes the bash/Read/Write steps inline and spawns each leaf worker as a parallel worker Task whose prompt preloads a `core` skill and runs one section. There is no intermediate subagent — the command does all fan-out, so the fan-out stays one level deep (a subagent cannot spawn further subagents).
+Generate the story file, then create the PR. The `/report` command (main agent) runs this orchestration directly: it executes the bash/Read/Write steps inline and spawns each leaf worker as a parallel worker Task whose prompt preloads a `core` skill and runs one section. There is no intermediate subagent — the command does all fan-out, so the fan-out stays one level deep (a subagent cannot spawn further subagents).
 
 #### Phase 0: Gather Context
 
@@ -134,20 +134,13 @@ Wait for all 3 to complete. Track which succeeded and which failed.
 2. **Commit**: `git commit -m "Add branch story for <branch-name>"` (the same commit captures any carry-over archive moves from Phase 1, keeping audit history coherent)
 3. **Push branch**: `git push -u origin <branch-name>`
 
-#### Phase 5: Create PR and Generate Release Note
+#### Phase 5: Create PR
 
-Spawn sequentially (PR first so its URL flows into the release note):
+1. **Create PR**: spawn parallel worker preloading `report` and running `## Create PR`. It reads the story file, derives the title, and runs the `gh` CLI operations. Capture the `PR created/updated: <URL>` line from its response.
 
-1. **Create PR** first: spawn parallel worker preloading `report` and running `## Create PR`. It reads the story file, derives the title, and runs the `gh` CLI operations. Capture the `PR created/updated: <URL>` line from its response.
-2. **Generate release note** with PR URL: spawn parallel worker preloading `write-release-note` and running it end-to-end. Pass the PR URL obtained in step 1. It reads the story file, generates concise release notes, and writes `.workaholic/release-notes/<branch-name>.md`.
+Capture the PR URL for final output.
 
-Capture the PR URL from step 1 for final output.
-
-#### Phase 6: Commit and Push Release Notes
-
-1. **Stage release notes**: `git add .workaholic/release-notes/`
-2. **Commit**: `git commit -m "Add release notes for <branch-name>"`
-3. **Push**: `git push`
+**Note**: Release notes are no longer generated here. `write-release-note` now runs at **ship time** in the `ship` Ship Flow (before merge, committed to the branch), so each ship/release produces its own note and multiple releases per branch are possible.
 
 #### Report Output Schema
 
@@ -156,13 +149,11 @@ Once orchestration completes, the report is described by:
 ```json
 {
   "story_file": ".workaholic/stories/<branch-name>.md",
-  "release_note_file": ".workaholic/release-notes/<branch-name>.md",
   "pr_url": "<PR-URL>",
   "workers": {
     "overview_writer": { "status": "success" | "failed", "error": "..." },
     "section_reviewer": { "status": "success" | "failed", "error": "..." },
     "release_readiness": { "status": "success" | "failed", "error": "..." },
-    "release_note_writer": { "status": "success" | "failed", "error": "..." },
     "pr_creator": { "status": "success" | "failed", "error": "..." }
   }
 }
@@ -177,7 +168,6 @@ Story sections are populated from the parallel leaf subagents' outputs (each is 
 | overview-writer | 1, 2, 3 (journey preamble) | `overview`, `highlights[]`, `motivation`, `journey.mermaid`, `journey.summary` |
 | section-reviewer | 4, 5, 6, 7 | `outcome`, `historical_analysis`, `concerns`, `development_patterns` |
 | release-readiness | 8 | `verdict`, `concerns[]`, `instructions.pre_release[]`, `instructions.post_release[]` |
-| release-note-writer | (separate file) | Writes to `.workaholic/release-notes/<branch>.md` |
 
 Section 3 (Changes) comes from archived tickets, prefaced by journey content from the overview-writer role. Section 9 (Notes) is optional context.
 

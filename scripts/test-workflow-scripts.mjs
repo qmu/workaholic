@@ -21,16 +21,16 @@ import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../..");
 const SCRIPTS = {
-  branchCheck: join(REPO_ROOT, "plugins/core/skills/branching/scripts/check.sh"),
-  detectContext: join(REPO_ROOT, "plugins/core/skills/branching/scripts/detect-context.sh"),
-  checkWorkspace: join(REPO_ROOT, "plugins/core/skills/branching/scripts/check-workspace.sh"),
-  update: join(REPO_ROOT, "plugins/core/skills/drive/scripts/update.sh"),
-  archive: join(REPO_ROOT, "plugins/core/skills/drive/scripts/archive.sh"),
-  userSlug: join(REPO_ROOT, "plugins/core/skills/gather/scripts/user-slug.sh"),
-  sweepTodo: join(REPO_ROOT, "plugins/core/skills/create-ticket/scripts/sweep-todo.sh"),
-  listTodo: join(REPO_ROOT, "plugins/core/skills/drive/scripts/list-todo.sh"),
-  promoteIcebox: join(REPO_ROOT, "plugins/core/skills/drive/scripts/promote-icebox.sh"),
-  publishRelease: join(REPO_ROOT, "plugins/core/skills/ship/scripts/publish-release.sh"),
+  branchCheck: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check.sh"),
+  detectContext: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/detect-context.sh"),
+  checkWorkspace: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check-workspace.sh"),
+  update: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/update.sh"),
+  archive: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/archive.sh"),
+  userSlug: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/user-slug.sh"),
+  sweepTodo: join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/scripts/sweep-todo.sh"),
+  listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
+  promoteIcebox: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/promote-icebox.sh"),
+  publishRelease: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/publish-release.sh"),
 };
 
 // Slug for the repo's standard test identity (git config user.email test@example.com).

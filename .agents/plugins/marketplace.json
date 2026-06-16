@@ -5,10 +5,10 @@
   },
   "plugins": [
     {
-      "name": "standards",
+      "name": "workaholic",
       "source": {
         "source": "local",
-        "path": "./plugins/standards"
+        "path": "./plugins/workaholic"
       },
       "policy": {
         "installation": "AVAILABLE",

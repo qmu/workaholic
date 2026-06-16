@@ -1,7 +1,7 @@
 # build-plugins
 
 Generates self-contained, cross-agent-portable copies of the workflow skills from
-the DRY `plugins/core` source.
+the DRY `plugins/workaholic` source.
 
 ## Why
 

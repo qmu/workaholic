@@ -3,9 +3,9 @@ created_at: 2026-06-17T01:03:24+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 7f915a3
+category: Added
 depends_on:
 ---
 
@@ -115,3 +115,30 @@ no destructive git — fully intact.
 - **Cross-agent degradation.** On non-Claude agents the upfront `multiSelect`
   degrades to the agent's native multiple-choice per the skill's Agent Compatibility
   note; the autonomous behavior itself is agent-neutral. (`dist/workflows/skills/drive/SKILL.md`)
+
+## Final Report
+
+Development completed as planned (night drive, auto-approved — this ticket
+implements the very mode running it). Added a `night` branch to the mode-detection
+in `core:drive`, and a comprehensive **Night Mode** section covering: the upfront
+`multiSelect` authorization, the autonomous auto-approve loop, the safe-by-default
+failure policy (skip-and-continue + record; `git stash` to isolate partial work;
+no auto-icebox / no destructive git), the bounded run (skip Phase 3 re-check), and
+the whole-night stdout report. Wired pointers at Step 2.2 (gate auto-resolved),
+Phase 3 (skipped), Phase 4 (emits the report), and the Critical Rules (night-mode
+failure carve-out), plus a note in the `/drive` command. Regenerated `dist/`;
+build/verify/validate and 49 smoke tests pass.
+
+### Discovered Insights
+
+- **Insight**: Night mode keeps the Workflow "NEVER use AskUserQuestion" boundary
+  intact by *skipping* the approval gate rather than auto-answering it — the
+  approval is relocated to the single upfront `multiSelect`, not removed.
+  **Context**: this is the conceptual hinge that lets autonomy coexist with the
+  "explicit approval" Critical Rule.
+- **Insight**: The cross-ticket contamination risk is real in practice — `git
+  stash`-ing a failed ticket's partial work before continuing is the
+  non-destructive isolation the failure policy depends on (only `git stash drop`
+  is prohibited). **Context**: a future implementer wiring the actual loop must not
+  skip the stash, or a later ticket's `archive.sh` (`git add -A`) would sweep in
+  the failed ticket's changes.

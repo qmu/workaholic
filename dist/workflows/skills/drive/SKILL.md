@@ -50,6 +50,7 @@ If `has_worktrees` is `false`, proceed silently to Phase 1.
 The command (main agent) runs the **Navigator** section below. Navigation splits into non-interactive prioritization (delegated to a leaf subagent) and user confirmation (issued by the command), because subagents cannot call the agent's selection prompt.
 
 Determine mode from `$ARGUMENT`:
+- If `$ARGUMENT` contains "night": mode = "night" (autonomous overnight run — see **Night Mode** below; it overrides the per-ticket approval gate and Phase 3/4)
 - If `$ARGUMENT` contains "icebox": mode = "icebox"
 - Otherwise: mode = "normal"
 
@@ -84,7 +85,7 @@ Follow the **Workflow** section below. Implementation context is preserved in th
 
 Follow the **Approval** section below to present the approval dialog. **CRITICAL**: You MUST use the `title` and `overview` fields from the Step 2.1 workflow result to populate the approval prompt header and question. If these fields are unavailable, re-read the ticket file to obtain them. Never present an approval prompt without the ticket title and summary.
 
-**CRITICAL**: Use the agent's selection prompt. NEVER proceed without explicit user approval.
+**CRITICAL**: Use the agent's selection prompt. NEVER proceed without explicit user approval. (In **night mode** this gate is auto-resolved as "Approve" — the user pre-authorized the selected batch upfront; see **Night Mode**.)
 
 #### Step 2.3: Handle User Response
 
@@ -117,6 +118,8 @@ Follow the **Approval** section below to present the approval dialog. **CRITICAL
 
 ### Phase 3: Re-check and Continue
 
+**Night mode skips this phase** — it runs only the upfront-authorized batch and does not absorb tickets added during the run (see **Night Mode**). Proceed directly to Phase 4.
+
 After all tickets from the navigator's list are processed:
 
 1. **Re-check todo directory**:
@@ -144,13 +147,38 @@ After todo is truly empty (and user declines icebox):
 - Total commits created
 - List of all commit hashes
 
+**In night mode**, Phase 4 emits the **whole-night report** to stdout (see **Night Mode** §5): per-ticket outcome (implemented / skipped / failed), commit hashes, skip/failure reasons, totals, and any stashed partial work — the deliverable the developer reviews in the morning.
+
+### Night Mode (mode = "night")
+
+Autonomous, unattended overnight run for morning review, triggered when `$ARGUMENT` contains "night" (e.g. "go night /drive"). Night mode overrides parts of the normal flow:
+
+**1. Upfront authorization (the only interaction).** In Phase 1, after the prioritizer returns the ordered list, the command issues ONE the agent's selection prompt with `multiSelect: true` listing the prioritized todo tickets so the developer selects exactly **which** tickets tonight's run is authorized to implement — replacing the normal order-confirmation (Navigator step 4). The selected subset, kept in dependency/priority order, is the night's authorized batch. This single, explicit, informed selection IS the approval for the whole batch.
+
+**2. Autonomous loop (skip the per-ticket gate).** For each authorized ticket, run Step 2.1 (implement, including the type-check/test verification). Then **auto-approve without issuing the Step 2.2 the agent's selection prompt**: update effort, append Final Report, run `archive.sh`, commit, continue. The per-ticket approval is satisfied by the upfront batch authorization, so it is *skipped*, not invoked (the Workflow "NEVER use the agent's selection prompt" boundary stays intact).
+
+**3. Safe-by-default failure policy (no user present).** If a ticket cannot be implemented, or its checks/tests fail, or its frontmatter update fails:
+- **Skip and continue** — leave the ticket in `todo`, record the failure + reason for the night report, move to the next authorized ticket.
+- **NEVER** auto-move it to icebox, auto-abandon it, or run destructive git (`git restore .` / `git clean` / `git reset --hard` / `git stash drop`) — those require a human.
+- **Isolate partial changes** so a failed ticket's uncommitted work cannot contaminate the next ticket's commit: `git stash` the failed ticket's changes (recoverable; only `git stash drop` is prohibited) before continuing, and note the stash in the report.
+- A failing type-check/test means the ticket is **failed → skipped + recorded**, never force-committed.
+
+**4. Bounded run.** Night mode runs ONLY the upfront-selected batch. Do NOT pick up tickets added during the run (skip Phase 3's re-check). The run terminates when the authorized batch is exhausted.
+
+**5. Whole-night report (the deliverable).** At the end (Phase 4), print a complete, skimmable stdout report for morning review:
+- Per ticket: outcome (implemented / skipped / failed), commit hash (implemented), reason (skipped/failed).
+- Totals: implemented / skipped / failed counts, and all commit hashes.
+- Any stashed partial work and where to find it.
+
+**Critical Rule exception (scoped).** Night mode is the ONLY mode that skips the per-ticket "explicit user approval" gate — and only because the user explicitly pre-authorized the exact named batch upfront. Every other Critical Rule below remains in force.
+
 ### Critical Rules
 
 **NEVER autonomously move tickets to icebox.** Moving tickets is a developer decision, not an AI decision.
 
 If a ticket cannot be implemented (out of scope, too complex, blocked, or any other reason):
 
-1. **Stop and ask the developer** using the agent's selection prompt
+1. **Stop and ask the developer** using the agent's selection prompt — **except in night mode**, which is unattended: skip the ticket, record it for the night report, and continue (see **Night Mode**); never auto-icebox or use destructive git.
 2. Explain why implementation cannot proceed
 3. Use selectable options (NEVER open-ended text questions):
    - "Move to icebox" - Move ticket to `.workaholic/tickets/icebox/` and continue to next

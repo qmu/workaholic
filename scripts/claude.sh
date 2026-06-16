@@ -7,7 +7,5 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 exec claude \
-  --plugin-dir "$REPO_DIR/plugins/core" \
-  --plugin-dir "$REPO_DIR/plugins/drivin" \
-  --plugin-dir "$REPO_DIR/plugins/trippin" \
+  --plugin-dir "$REPO_DIR/plugins/workaholic" \
   "$@"

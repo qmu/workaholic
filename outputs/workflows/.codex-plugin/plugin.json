@@ -1,0 +1,19 @@
+{
+  "name": "workflows",
+  "version": "1.0.52",
+  "description": "Ticket-driven development workflows (create-ticket, drive, report, ship) as agent-neutral skills.",
+  "author": {
+    "name": "tamurayoshiya",
+    "email": "a@qmu.jp"
+  },
+  "repository": "https://github.com/qmu/workaholic",
+  "license": "MIT",
+  "keywords": [
+    "workflow",
+    "tickets",
+    "tdd",
+    "code-review",
+    "release"
+  ],
+  "skills": "./skills/"
+}

@@ -1,0 +1,13 @@
+{
+  "name": "workaholic",
+  "version": "1.0.51",
+  "description": "Structured development workflows and engineering standards: portable skills (workflows + design/implementation/operation policies) for cross-agent development.",
+  "author": {
+    "name": "tamurayoshiya",
+    "email": "a@qmu.jp"
+  },
+  "repository": "https://github.com/qmu/workaholic",
+  "license": "MIT",
+  "keywords": ["workflow", "standards", "policy", "design", "implementation", "operations"],
+  "skills": "./skills/"
+}

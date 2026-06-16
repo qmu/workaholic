@@ -13,22 +13,18 @@ Edit `plugins/` not `.claude/`. This repo develops plugins - changes go to `plug
   rules/                 # Repository-scoped rules
 .claude-plugin/          # Marketplace configuration
   marketplace.json       # Marketplace metadata and plugin list
-plugins/                 # Plugin source directories
-  core/                  # Core shared plugin (no dependencies)
+plugins/                 # Plugin source directory
+  workaholic/            # The single plugin (no dependencies; skills exposed cross-agent)
     .claude-plugin/      # Plugin configuration
-    skills/              # branching, check-deps, commit, create-ticket, discover, drive, gather, report, review-sections, ship, system-safety, trip-protocol, validate-writer-output, write-release-note
-  standards/             # Standards policy plugin (no dependencies; cross-agent exposed)
-    .claude-plugin/      # Plugin configuration
-    skills/              # design, implementation, operation (three engineering-policy index skills; each links English hard copies under its policies/ dir)
-  work/                  # Work plugin: drive + trip workflows (depends on: core)
-    .claude-plugin/      # Plugin configuration
+    .codex-plugin/       # Hand-maintained Codex-facing manifest
+    skills/              # workflow skills (branching, check-deps, commit, create-ticket, discover, drive, gather, report, review-sections, ship, system-safety, trip-protocol, validate-writer-output, write-release-note) + policy skills (design, implementation, operation, each linking English hard copies under its policies/ dir)
+    commands/            # ticket, drive, trip, report, ship (Claude-only; ignored by other agents)
     agents/              # Agent Teams members only: planner, architect, constructor (launched by /trip)
-    commands/            # ticket, drive, trip, report, ship
     hooks/               # ticket validation
     rules/               # diagrams, general, shell, typescript, workaholic
 scripts/                 # Repo tooling
   claude.sh              # Launcher
-  build-plugins/         # Generates outputs/ from plugins/core (run argument-less for a full build)
+  build-plugins/         # Generates outputs/ from plugins/workaholic/skills (run argument-less for a full build)
 outputs/                    # GENERATED, committed cross-agent artifacts — do NOT hand-edit (CI-guarded)
   workflows/             # Portable workflows plugin: .codex-plugin/plugin.json + self-contained skills/
 .agents/                 # Codex marketplace
@@ -48,7 +44,7 @@ outputs/                    # GENERATED, committed cross-agent artifacts — do 
 There are two distinct kinds of "subagent" in this repo, and the table above governs only the first:
 
 - **`general-purpose` subagents** are the built-in Claude Code subagent type. They have **no `.md` agent file** — a command (or a skill running in the command's main-agent context) spawns them with a `Task` call whose prompt says "preload `core:<skill>`, run `<section>` with these inputs, return `<schema>`." This is how `/report`, `/drive`, and `/ticket` fan out. Skills cannot issue `Task` calls themselves; the prohibition on Skill→Subagent that previously appeared here is lifted **only** in the sense that a skill's prose may instruct its loading agent (a command/main agent) to spawn `general-purpose` leaves.
-- **Named Agent Teams members** (`planner`, `architect`, `constructor` in `plugins/work/agents/`) are launched **only by `/trip`** as Agent Teams members — not as `Task` subagents. They are exempt from the nesting table; `/trip` is intrinsically Agent-Teams-based and Claude-Code-only.
+- **Named Agent Teams members** (`planner`, `architect`, `constructor` in `plugins/workaholic/agents/`) are launched **only by `/trip`** as Agent Teams members — not as `Task` subagents. They are exempt from the nesting table; `/trip` is intrinsically Agent-Teams-based and Claude-Code-only.
 
 ### No Per-Workflow Agent Files
 
@@ -68,14 +64,9 @@ When a workflow needs both parallel work and a user decision, the command spawns
 
 ### Plugin Dependencies
 
-```
-core (base)       standards (base)
-  ^               ⤴ soft
-  |            ⤴
-work ─ ─ ─ ─ ─
-```
+There is **one** plugin (`workaholic`) with `dependencies: []` — everything that was previously split across `core`, `standards`, and `work` now lives in it. All skill references are same-plugin: `${CLAUDE_PLUGIN_ROOT}/skills/<name>/...` (no cross-plugin `../<name>/` paths) and `workaholic:<skill>` namespaces. The `workflows` plugin in the marketplace is the **generated** `outputs/workflows` bundle, not an authored plugin.
 
-Each plugin declares `dependencies` in its `plugin.json`. Cross-plugin `${CLAUDE_PLUGIN_ROOT}/../<name>/` references must only target declared dependencies. Soft references (skill preloads) do not require a declared dependency — they are used when the referenced plugin is installed but do not prevent the caller from functioning without it. Work has a soft reference to standards (the `standards:design`, `standards:implementation`, and `standards:operation` indexes are preloaded by `core:create-ticket`/`core:drive` and named in `general-purpose` subagent prompts when installed).
+> **Note:** the prose below (Cross-Agent Skill Exposure and the distribution section) still describes the prior three-plugin topology (`core`/`standards`/`work`) in places; the mechanics (metadata.internal gating, the `${CLAUDE_PLUGIN_ROOT}` determinism rationale, the generated `outputs/workflows` bundle) are unchanged, but the plugin names and dependency framing are pending a narrative pass.
 
 ### Cross-Agent Skill Exposure
 
@@ -90,12 +81,12 @@ To preview what the CLI would install, run `npx skills add . --list` (add `INSTA
 
 #### Cross-agent distribution (workflow skills, built)
 
-The workflow skills (ticket/drive/report/ship) depend on shared `core` scripts and so are **not** self-contained in source. They ship to non-Claude agents as a **generated, self-contained, committed plugin** at `outputs/workflows/`, produced by `scripts/build-plugins` from the DRY `plugins/core` source (`trip` is excluded — Agent Teams, Claude-only). **One neutral generated dir serves every non-Claude agent** through two manifests that point at it:
+The workflow skills (ticket/drive/report/ship) depend on shared `core` scripts and so are **not** self-contained in source. They ship to non-Claude agents as a **generated, self-contained, committed plugin** at `outputs/workflows/`, produced by `scripts/build-plugins` from the DRY `plugins/workaholic` source (`trip` is excluded — Agent Teams, Claude-only). **One neutral generated dir serves every non-Claude agent** through two manifests that point at it:
 
 - **Codex** reads `.agents/plugins/marketplace.json` (repo root); its `workflows` plugin `source.path` is `./outputs/workflows`, and Codex consumes the co-located `outputs/workflows/.codex-plugin/plugin.json`.
 - **OpenCode, Cursor, Pi, 40+** get it via the `skills` CLI, which reads the `workflows` plugin entry in `.claude-plugin/marketplace.json` (`source: ./outputs/workflows`) and its `skills/` (the `standards` `design`/`implementation`/`operation` skills are exposed the same way). The `skills` CLI ignores the co-located `.codex-plugin/` dir, so the same folder serves both systems. `write-release-note` and `review-sections` ship inside this plugin too.
 
-Source-vs-artifact rule: the `plugins/core` workflow skills keep `metadata.internal: true` and `${CLAUDE_PLUGIN_ROOT}` (so the `skills` CLI never offers the broken source); the **committed `outputs/workflows/` artifacts** are the public versions — self-contained, `${CLAUDE_PLUGIN_ROOT}` rewritten to relative paths, and `metadata.internal` / `user-invocable` / the `skills:` preload block stripped with namespace prefixes flattened by `publicizeSkillMd`. **Regenerate with the argument-less `node scripts/build-plugins/build.mjs` whenever a `core` workflow skill or its script closure changes** (a *targeted* build only writes a throwaway scratch dir and does not touch `outputs/`). `outputs/` is **committed, not gitignored** — Codex and the `skills` CLI install by reading repo paths, so the artifacts must be present. The `Outputs Freshness` CI workflow (`.github/workflows/outputs-freshness.yml`) rebuilds and fails on any `outputs/` diff, keeping artifact and source in lockstep.
+Source-vs-artifact rule: the `plugins/workaholic` workflow skills keep `metadata.internal: true` and `${CLAUDE_PLUGIN_ROOT}` (so the `skills` CLI never offers the broken source); the **committed `outputs/workflows/` artifacts** are the public versions — self-contained, `${CLAUDE_PLUGIN_ROOT}` rewritten to relative paths, and `metadata.internal` / `user-invocable` / the `skills:` preload block stripped with namespace prefixes flattened by `publicizeSkillMd`. **Regenerate with the argument-less `node scripts/build-plugins/build.mjs` whenever a `core` workflow skill or its script closure changes** (a *targeted* build only writes a throwaway scratch dir and does not touch `outputs/`). `outputs/` is **committed, not gitignored** — Codex and the `skills` CLI install by reading repo paths, so the artifacts must be present. The `Outputs Freshness` CI workflow (`.github/workflows/outputs-freshness.yml`) rebuilds and fails on any `outputs/` diff, keeping artifact and source in lockstep.
 
 Claude Code reads `plugins/` directly and consumes nothing from `outputs/`. The `workflows` entry in `.claude-plugin/marketplace.json` is read by Claude Code too, so it is **opt-in** — its description points Claude users to `core`/`work` to avoid installing duplicate workflow skills.
 
@@ -214,11 +205,9 @@ The smoke tests create throwaway repositories under the OS temp dir, exercise th
 ## Version Management
 
 Version files (all must stay at the same semver):
-- `.claude-plugin/marketplace.json` - root `version` AND every `plugins[].version` entry (core, standards, work, workflows)
-- `plugins/core/.claude-plugin/plugin.json`
-- `plugins/standards/.claude-plugin/plugin.json`
-- `plugins/work/.claude-plugin/plugin.json`
-- `plugins/standards/.codex-plugin/plugin.json` - hand-maintained Codex-facing manifest
+- `.claude-plugin/marketplace.json` - root `version` AND every `plugins[].version` entry (workaholic, workflows)
+- `plugins/workaholic/.claude-plugin/plugin.json`
+- `plugins/workaholic/.codex-plugin/plugin.json` - hand-maintained Codex-facing manifest
 
 Generated (do NOT hand-edit; rebuild with `node scripts/build-plugins/build.mjs`):
 - `outputs/workflows/.codex-plugin/plugin.json` - version is read from `.claude-plugin/marketplace.json`'s `workflows` plugin entry at build time
@@ -227,6 +216,6 @@ Generated (do NOT hand-edit; rebuild with `node scripts/build-plugins/build.mjs`
 1. Read current version from `.claude-plugin/marketplace.json`
 2. Increment PATCH by default (e.g., 1.0.0 → 1.0.1)
 3. Update the root `version` and every `plugins[].version` in `.claude-plugin/marketplace.json`
-4. Update each per-plugin `plugin.json` (core, standards, work) and the standards `.codex-plugin/plugin.json` to match
+4. Update `plugins/workaholic/.claude-plugin/plugin.json` and `plugins/workaholic/.codex-plugin/plugin.json` to match
 5. Regenerate `outputs/workflows/` so its Codex manifest picks up the new version
 6. Stage and commit: `Bump version to v{new_version}`

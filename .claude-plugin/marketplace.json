@@ -8,42 +8,20 @@
   },
   "plugins": [
     {
-      "name": "core",
-      "description": "Shared commands and skills for cross-workflow operations",
+      "name": "workaholic",
+      "description": "Structured development workflows and engineering standards in one plugin: ticket/drive/report/ship commands, the /trip Agent Teams, hooks, and the 設計 / 実装 / 運用 policy skills (design, implementation, operation) mirrored from qmu.co.jp.",
       "version": "1.0.51",
       "author": {
         "name": "tamurayoshiya",
         "email": "a@qmu.jp"
       },
-      "source": "./plugins/core",
-      "category": "development"
-    },
-    {
-      "name": "standards",
-      "description": "The project's engineering policies — 設計 / 実装 / 運用 — mirrored from qmu.co.jp as English hard copies across three preloadable index skills (design, implementation, operation)",
-      "version": "1.0.51",
-      "author": {
-        "name": "tamurayoshiya",
-        "email": "a@qmu.jp"
-      },
-      "source": "./plugins/standards",
+      "source": "./plugins/workaholic",
       "category": "development",
       "skills": [
         "./skills/design",
         "./skills/implementation",
         "./skills/operation"
       ]
-    },
-    {
-      "name": "work",
-      "description": "Unified development workflow: ticket-driven development and AI-collaborative exploration",
-      "version": "1.0.51",
-      "author": {
-        "name": "tamurayoshiya",
-        "email": "a@qmu.jp"
-      },
-      "source": "./plugins/work",
-      "category": "development"
     },
     {
       "name": "workflows",

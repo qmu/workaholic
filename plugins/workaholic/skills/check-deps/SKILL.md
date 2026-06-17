@@ -9,7 +9,9 @@ metadata:
 
 # Check Dependencies
 
-Verify that required plugin dependencies (core) are installed before running commands.
+Workaholic is a **single plugin** (`dependencies: []`), so there are no external
+plugin dependencies to verify. This check is a trivially-satisfied guard kept for
+command-flow compatibility — `/ticket` and `/drive` call it as an early pre-check.
 
 ## Usage
 
@@ -23,14 +25,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/check-deps/scripts/check.sh
 {"ok": true}
 ```
 
-Or if missing:
+- `ok`: Boolean indicating dependencies are satisfied (always `true` for the
+  single-plugin layout).
 
-```json
-{"ok": false, "missing": ["core"], "message": "..."}
-```
-
-- `ok`: Boolean indicating all dependencies are satisfied
-- `missing`: Array of missing plugin names
-- `message`: Human-readable instruction for the user
-
-Commands should run this check early and stop with the `message` if `ok` is `false`.
+Commands run this check early and stop with a message if `ok` is ever `false`.

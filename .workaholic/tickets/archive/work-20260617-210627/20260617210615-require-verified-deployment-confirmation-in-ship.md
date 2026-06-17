@@ -3,9 +3,9 @@ created_at: 2026-06-17T21:06:15+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure, Config]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: 8883e3e
+category: Changed
 depends_on: [20260617210614-establish-deployments-directory-convention.md]
 ---
 
@@ -90,3 +90,15 @@ Past tickets that touched similar areas:
 - **operation:CI/CD policy** — this gate is the policy realized: delivery must not depend on knowledge in one person's head, and the codebase should answer whether a deploy is good. But avoid making the gate so heavy it pushes users back to manual console deploys; the confirmation can be lightweight where scale is small (`plugins/workaholic/skills/operation/policies/ci-cd.md`).
 - **implementation:Observability policy** — the executed confirmation is *posterior verification* (business-health); where possible, capture the observation window / threshold idea rather than a single point check (`plugins/workaholic/skills/implementation/policies/observability.md`).
 - **Dogfooding** — this repo's own `CLAUDE.md` has no `## Deploy`/`## Verify` sections and no `.workaholic/deployments/` entry, so workaholic itself would hit the new halt path on `/ship`. Decide whether to author a `.workaholic/deployments/` entry (or a `## Deploy`/`## Verify`) for this repo as part of landing the change, or to document that a docs/config-only project legitimately has a trivial confirmation method (`CLAUDE.md`, `plugins/workaholic/skills/ship/SKILL.md` §1-4).
+
+## Final Report
+
+Development completed as planned.
+
+Implemented the hard gate end-to-end. Reworked `plugins/workaholic/skills/ship/SKILL.md`: the intro and §1 now state the core design (ship requires an established confirmation method); §1 was renamed "Deployment Contract" with two sources (`.workaholic/deployments/` preferred, `CLAUDE.md ## Deploy`/`## Verify` fallback); §1-4 was inverted from silent-skip into a halt-and-ask gate with four resolution options (provide verification path/credentials, inspect production, author a deployments entry, abort); §2-3b documents the `read-deployments.sh` entry; Ship Flow step 5 (Deploy) gates on `has_confirmation`/`## Verify` and halts when absent; step 6 became "Confirm" — it executes the confirmation by `confirmation_method` and treats a failed confirmation as a failed ship. Updated `commands/ship.md` with a "Deployment confirmation is required" paragraph keeping the AskUserQuestion at the command level. Added a `testReadDeployments` hermetic smoke test (absent dir, README-only, valid target, empty-confirmation-body branches). Regenerated `outputs/` (ship SKILL.md public copy carries the gate; `metadata.internal` stripped from the public copy, retained on source).
+
+### Discovered Insights
+
+- **Insight**: The deployment-confirmation gate is decided at the command/main-agent level, but its *driver* (`read-deployments.sh`) is a non-interactive leaf script returning `has_confirmation` — the One-Level Fan-Out split (detection in a script, the halt question in the command) made the gate expressible without any inline conditional shell in the markdown.
+  **Context**: This mirrors the existing `publish-release.sh` "detect CI state, then the command acts" pattern; future ship gates should follow the same shape (script computes the boolean/JSON, command issues the AskUserQuestion).
+- **Insight**: The repo itself now hits the new halt path — it has no `.workaholic/deployments/` target entry (only the README template) and no `CLAUDE.md ## Deploy`/`## Verify`. A real deployments entry for workaholic's own release flow (or a `## Verify` in `CLAUDE.md`) was intentionally left for a follow-up rather than bundled here, so the behavior change and the project's own contract stay reviewable separately.

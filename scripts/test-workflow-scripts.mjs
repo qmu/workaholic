@@ -32,6 +32,8 @@ const SCRIPTS = {
   promoteIcebox: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/promote-icebox.sh"),
   publishRelease: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/publish-release.sh"),
   readDeployments: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/read-deployments.sh"),
+  recordEvidence: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/record-evidence.sh"),
+  catchupMain: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/catchup-main.sh"),
 };
 
 // Slug for the repo's standard test identity (git config user.email test@example.com).
@@ -434,6 +436,61 @@ function testReadDeployments() {
   } finally { cleanup(emptyConf); }
 }
 
+// ---------- ship/record-evidence.sh (pre-merge deployment evidence capture) ----------
+function testRecordEvidence() {
+  // No story file -> records nothing, does not error.
+  const noStory = makeRepo("main");
+  try {
+    const r = JSON.parse(run(noStory, `bash ${SCRIPTS.recordEvidence} work-x Prod api-probe "200 OK" pass`).stdout);
+    assertEq("record-evidence no story -> no-op", { rec: r.recorded, reason: r.reason }, { rec: false, reason: "no_story" });
+  } finally { cleanup(noStory); }
+
+  // Story exists -> appends a Deployment Evidence block with the observed result.
+  const withStory = makeRepo("main");
+  try {
+    mkdirSync(join(withStory, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(withStory, ".workaholic/stories/work-x.md"), "---\nbranch: work-x\n---\n# story\n");
+    const r = JSON.parse(run(withStory, `bash ${SCRIPTS.recordEvidence} work-x "Prod web" browser "homepage shows v1.0.54" pass`).stdout);
+    assertEq("record-evidence records pass", { rec: r.recorded, st: r.status }, { rec: true, st: "pass" });
+    const body = readFileSync(join(withStory, ".workaholic/stories/work-x.md"), "utf8");
+    assertTrue("record-evidence appended evidence block",
+      body.includes("## Deployment Evidence") && body.includes("homepage shows v1.0.54") && body.includes("**Status:** pass"),
+      "story is missing the Deployment Evidence block");
+  } finally { cleanup(withStory); }
+}
+
+// ---------- ship/catchup-main.sh (pre-deploy branch sync) ----------
+function testCatchupMain() {
+  // Build a bare "origin" with a main, clone it, branch off, and add an upstream
+  // commit to origin/main. catchup-main must merge it cleanly (no conflict).
+  const origin = mkdtempSync(join(tmpdir(), "wh-origin-"));
+  const clone = mkdtempSync(join(tmpdir(), "wh-clone-"));
+  try {
+    execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
+    // Seed origin via a temp working clone.
+    const seed = mkdtempSync(join(tmpdir(), "wh-seed-"));
+    execSync(`git clone -q ${origin} .`, { cwd: seed });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: seed });
+    writeFileSync(join(seed, "base.txt"), "base\n");
+    execSync(`git add base.txt && git commit -q -m base && git push -q origin main`, { cwd: seed });
+    // Add an upstream-only commit on origin/main.
+    writeFileSync(join(seed, "upstream.txt"), "upstream\n");
+    execSync(`git add upstream.txt && git commit -q -m upstream && git push -q origin main`, { cwd: seed });
+    rmSync(seed, { recursive: true, force: true });
+
+    // Clone, check out an older main, branch off behind, then catch up.
+    execSync(`git clone -q ${origin} .`, { cwd: clone });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: clone });
+    execSync(`git checkout -q -b work-20260617-x HEAD~1`, { cwd: clone });
+    const r = JSON.parse(run(clone, `bash ${SCRIPTS.catchupMain} main`).stdout);
+    assertEq("catchup-main merges upstream cleanly", { c: r.caught_up, cur: r.already_current }, { c: true, cur: false });
+    assertTrue("catchup-main brought upstream file into branch", existsSync(join(clone, "upstream.txt")),
+      "upstream.txt was not merged in");
+  } finally {
+    cleanup(origin); cleanup(clone);
+  }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching/detect-context.sh", testDetectContext],
@@ -446,6 +503,8 @@ const tests = [
   ["drive/promote-icebox.sh", testPromoteIcebox],
   ["ship/publish-release.sh", testPublishRelease],
   ["ship/read-deployments.sh", testReadDeployments],
+  ["ship/record-evidence.sh", testRecordEvidence],
+  ["ship/catchup-main.sh", testCatchupMain],
 ];
 
 for (const [label, fn] of tests) {

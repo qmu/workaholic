@@ -3,9 +3,9 @@ created_at: 2026-06-17T21:06:14+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config, Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: ea70c13
+category: Changed
 depends_on:
 ---
 
@@ -84,3 +84,16 @@ Past tickets that touched similar areas:
 - **implementation:Capacity & Recovery policy** — write the procedure and confirmation at copy-paste granularity (a concrete command/URL, not "verify the deploy"); a confirmation method is not trusted until it has actually been executed (`plugins/workaholic/skills/implementation/policies/operational-planning.md`).
 - **Shell rule** — all logic (dir resolution, field parsing, the `has_confirmation` decision) lives in the bundled `read-deployments.sh`; no inline conditionals/pipes in markdown. Reference it as `${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/read-deployments.sh` (`CLAUDE.md` Shell Script Principle / Skill Script Path Rule).
 - The existing allowed-list already omits `release-notes/` and `concerns/` (used by ship) — pre-existing drift. Consider noting it, but fixing that drift is out of scope for this ticket.
+
+## Final Report
+
+Development completed as planned, with one corrected assumption (see insight).
+
+Implemented: amended `plugins/workaholic/rules/workaholic.md` (added `deployments/` to the allowed-subdirectory table, the per-subdirectory frontmatter schema table — `title`/`environment`/`confirmation_method` enum + optional non-secret `url`/`endpoint`/`command` locators, the required `## Procedure`/`## Confirmation` body sections, and a "never commit secrets" warning — plus a request-mapping hint); added the POSIX `read-deployments.sh` reader under `plugins/workaholic/skills/ship/scripts/`; and created `.workaholic/deployments/README.md` as the convention's concrete template. Verified the reader against both an empty/README-only directory (`has_confirmation:false`) and a synthetic entry (`has_confirmation:true`, fields and `## Procedure`/`## Confirmation` parsed, valid JSON). build/verify/validate-metadata/smoke all pass.
+
+### Discovered Insights
+
+- **Insight**: The build does NOT bundle ship scripts by per-script SKILL.md reference — it copies the *entire* `plugins/workaholic/skills/ship/scripts/` directory into `outputs/workflows/skills/ship/ship/scripts/`. So adding `read-deployments.sh` produced an `outputs/` entry immediately, even though no SKILL.md references it yet.
+  **Context**: The ticket's step 5 assumed `computeClosure` includes a script only once SKILL.md references it, and therefore that this ticket should leave `outputs/` untouched. That is false for a skill's *own* scripts dir. The regenerated `outputs/workflows/skills/ship/ship/scripts/read-deployments.sh` was committed with this ticket; omitting it would have failed the Outputs Freshness CI. Future tickets adding a script to an existing built skill should expect — and commit — the corresponding `outputs/` copy.
+- **Insight**: The `outputs/workflows/skills/<skill>/<skill>/scripts/` doubled path (e.g. `ship/ship/scripts/`) is the normal generated layout for a skill's own scripts, not a bug.
+  **Context**: Sibling skills' scripts are nested one level under the target skill dir (`ship/branching/scripts/`, `ship/gather/scripts/`), and the skill's own scripts mirror that as `ship/ship/scripts/`.

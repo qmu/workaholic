@@ -13,6 +13,7 @@ The `.workaholic/` directory has a fixed structure. Only these subdirectories ar
 | `stories/`      | Development narratives per branch          |
 | `terms/`  | Term definitions                           |
 | `tickets/`      | Implementation work queue and archives     |
+| `deployments/`  | Deployment/release procedures and their success-confirmation methods |
 
 The `tickets/` queue is partitioned per developer: active tickets live under `tickets/todo/<user>/`, where `<user>` is the slug of `git config user.email` (e.g. `a-qmu-jp`). The icebox (`tickets/icebox/`) and archive (`tickets/archive/<branch>/`) stay as-is.
 
@@ -21,7 +22,7 @@ README files at the root level are allowed (`README.md`).
 **Guidelines:**
 - Never create directories outside the allowed list
 - If a user requests a new directory, explain the structure and suggest the appropriate existing directory
-- Map common requests: "docs" → `specs/`, "archive" → `tickets/archive/`, "changelog" → use ticket frontmatter
+- Map common requests: "docs" → `specs/`, "archive" → `tickets/archive/`, "changelog" → use ticket frontmatter, "deploy steps" / "release procedure" / "how to verify a deploy" → `deployments/`
 
 # Frontmatter Requirements
 
@@ -49,6 +50,14 @@ modified_at: <ISO 8601 timestamp>
 | `stories/`      | `branch`, `started_at`, `ended_at`, metrics fields     |
 | `terms/`  | `title`, `description`, `category`                     |
 | `tickets/`      | See `/ticket` command for full schema                  |
+| `deployments/`  | `title`, `environment`, `confirmation_method` (one of `browser` / `server-batch` / `db-query` / `api-probe` / `other`); optional **non-secret** locators `url` / `endpoint` / `command` |
+
+Each `deployments/<target>.md` file describes one deployment target and MUST carry two body sections:
+
+- `## Procedure` — the deploy/release steps, written at copy-paste-executable granularity (a concrete command, not "deploy it").
+- `## Confirmation` — the exact, executable way to confirm the deployment succeeded in production (a URL to open and the signal to look for, a batch command to run on the server, a DB query and its expected result, an API probe, …). This is the method `/ship` requires before it will complete a deployment.
+
+> **Never commit secrets.** `deployments/*.md` is version-controlled. Credentials, tokens, and session cookies are NEVER written here — the locator fields hold only a URL, an endpoint name, or a command *template*. Actual credentials are supplied transiently at ship time.
 
 **Exceptions:**
 - README files are exempt from the `author` requirement

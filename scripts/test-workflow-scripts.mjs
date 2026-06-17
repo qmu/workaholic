@@ -31,6 +31,7 @@ const SCRIPTS = {
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
   promoteIcebox: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/promote-icebox.sh"),
   publishRelease: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/publish-release.sh"),
+  readDeployments: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/read-deployments.sh"),
 };
 
 // Slug for the repo's standard test identity (git config user.email test@example.com).
@@ -389,6 +390,50 @@ function testPublishRelease() {
   } finally { cleanup(bare); }
 }
 
+// ---------- ship/read-deployments.sh (deployment-confirmation gate driver) ----------
+function testReadDeployments() {
+  // No .workaholic/deployments/ dir -> no confirmation method (gate would halt).
+  const none = makeRepo("main");
+  try {
+    const r = run(none, `bash ${SCRIPTS.readDeployments}`);
+    assertEq("read-deployments absent dir -> no confirmation", JSON.parse(r.stdout),
+      { has_confirmation: false, count: 0, deployments: [] });
+  } finally { cleanup(none); }
+
+  // README-only dir -> still no confirmation (README is skipped, not a target).
+  const readmeOnly = makeRepo("main");
+  try {
+    mkdirSync(join(readmeOnly, ".workaholic/deployments"), { recursive: true });
+    writeFileSync(join(readmeOnly, ".workaholic/deployments/README.md"), "# Deployments\n");
+    const r = JSON.parse(run(readmeOnly, `bash ${SCRIPTS.readDeployments}`).stdout);
+    assertEq("read-deployments README-only -> no confirmation",
+      { h: r.has_confirmation, c: r.count }, { h: false, c: 0 });
+  } finally { cleanup(readmeOnly); }
+
+  // A target declaring confirmation_method + ## Confirmation -> has_confirmation true.
+  const withConf = makeRepo("main");
+  try {
+    mkdirSync(join(withConf, ".workaholic/deployments"), { recursive: true });
+    writeFileSync(join(withConf, ".workaholic/deployments/prod.md"),
+      "---\ntitle: Prod\nenvironment: production\nconfirmation_method: browser\nurl: https://example.com/healthz\n---\n\n## Procedure\n\n1. npx wrangler deploy\n\n## Confirmation\n\n1. Open the healthz URL and confirm status ok.\n");
+    const r = JSON.parse(run(withConf, `bash ${SCRIPTS.readDeployments}`).stdout);
+    assertEq("read-deployments with confirmation -> gate passes",
+      { h: r.has_confirmation, c: r.count, m: r.deployments[0]?.confirmation_method, u: r.deployments[0]?.url },
+      { h: true, c: 1, m: "browser", u: "https://example.com/healthz" });
+  } finally { cleanup(withConf); }
+
+  // A target with a method but EMPTY ## Confirmation body -> not a usable confirmation.
+  const emptyConf = makeRepo("main");
+  try {
+    mkdirSync(join(emptyConf, ".workaholic/deployments"), { recursive: true });
+    writeFileSync(join(emptyConf, ".workaholic/deployments/prod.md"),
+      "---\ntitle: Prod\nconfirmation_method: browser\n---\n\n## Procedure\n\n1. deploy\n");
+    const r = JSON.parse(run(emptyConf, `bash ${SCRIPTS.readDeployments}`).stdout);
+    assertEq("read-deployments empty confirmation body -> halt",
+      { h: r.has_confirmation, c: r.count }, { h: false, c: 1 });
+  } finally { cleanup(emptyConf); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching/detect-context.sh", testDetectContext],
@@ -400,6 +445,7 @@ const tests = [
   ["drive/list-todo.sh", testListTodo],
   ["drive/promote-icebox.sh", testPromoteIcebox],
   ["ship/publish-release.sh", testPublishRelease],
+  ["ship/read-deployments.sh", testReadDeployments],
 ];
 
 for (const [label, fn] of tests) {

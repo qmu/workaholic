@@ -1,12 +1,12 @@
 ---
 name: implementation
-description: The project's implementation (実装) engineering policies — how the code is structured so gaps in domain reasoning are machine-checkable early, the running system keeps serving and recovering, and information and function stay reachable through multiple paths including AI agents. English hard copies of the canonical qmu.co.jp articles live in this skill's `policies/` directory; this index links to each. Preloaded as the policy lens wherever code is scoped or implemented.
+description: The project's implementation (実装) engineering policies — how the code is structured so gaps in domain reasoning are machine-checkable early and the running system keeps serving and recovering. English hard copies of the canonical qmu.co.jp articles live in this skill's `policies/` directory; this index links to each. Preloaded as the policy lens wherever code is scoped or implemented.
 user-invocable: false
 ---
 
 # Implementation Policies
 
-This skill is the project's index of **実装 (implementation)** engineering policies — how the code is structured so that gaps in domain reasoning are machine-checkable early, the running system keeps serving and recovering, and information and function stay reachable through multiple paths, including AI agents.
+This skill is the project's index of **実装 (implementation)** engineering policies — how the code is structured so that gaps in domain reasoning are machine-checkable early and the running system keeps serving and recovering.
 
 Each policy is mirrored from its canonical article at qmu.co.jp as an English hard copy under [`policies/`](policies/). The published article is the source of truth; the local copy is how this platform and our website share the same knowledge. Read a policy's file for its full **Goal (目標)**, **Responsibility (責務)**, and **Practices (実践)**. The `source:` field in each file's frontmatter links back to the canonical article.
 
@@ -17,13 +17,10 @@ Each policy is mirrored from its canonical article at qmu.co.jp as an English ha
 - **[Active Use of Unit Tests](policies/test.md)** (積極的な単体テスト活用) — Using unit tests actively in two roles — early scaffolding against real DBs/APIs, and regression tests kept in the domain layer — to widen the ground where AI itself can check completeness, while refusing to mistake "many AI-generated tests pass" for a healthy codebase.
 - **[Schema-First Database Design](policies/persistence.md)** (DB スキーマの先行設計) — Designing the DB schema before the domain model, with a properly normalized relational database as the first choice, so the schema outlines the space of states a coherent model can occupy.
 - **[Domain Layer Separation](policies/domain-layer-separation.md)** (ドメイン層の分離) — Separating business logic from entry points (HTTP routers, CLIs, queue workers) and writing it in standard-language vocabulary, keeping entry points thin so more is verifiable by static checks and unit tests and the domain layer is reusable across entry points.
-- **[Conservative Vendor Dependence](policies/vendor-neutrality.md)** (消極的ベンダー依存) — Managing dependencies on libraries, SDKs, SaaS, and managed infrastructure so no single vendor or project can strand the system; the aim is not to hand-write everything but to keep the freedom and the options to choose dependencies even after choosing them.
 - **[Infrastructure as Code](policies/infrastructure-as-code.md)** (コードとしてのインフラ) — Defining provisioned resources as version-controlled files reproducible from a clean state, so the current infrastructure can be fully rebuilt from code in the repository, avoiding console-only resources and long-lived drift.
 - **[Observability and Self-Healing](policies/observability.md)** (可観測性と自己修復) — Keeping the running system explainable from outside and recovering without human intervention where possible, treating observation outputs (logs, metrics, traces) and self-healing inputs (health checks, rollback triggers, circuit breakers) as one subject.
 - **[Capacity and Recovery Planning](policies/operational-planning.md)** (容量計画と復旧計画) — Holding "how much can it handle" and "how do we recover" in a simple form from the build stage, deriving RTO/RPO from concrete failure scenarios rather than abstract availability targets, without importing complexity through over-planning.
-- **[Accessibility for Humans and AI](policies/accessibility-first.md)** (人間とAIのためのアクセシビリティ) — Placing accessibility at the start of the experience and using standards conformance (WCAG 2.2 AA as the floor) as a foundation to raise quality; reachability is opened to AI agents too via tool-first interaction design, where typed tools are consumed by both the SPA and WebMCP under one contract.
-- **[Emergent Design System](policies/emergent-design-system.md)** (創発的な設計システム) — Letting the design system emerge through development rather than fixing a large one upfront; each new UI component introduces one rule for the screen–user interaction, and the engineer is the rule-maker at that boundary, enforcing consistency incrementally.
 
 ## Applying this index
 
-Apply these policies when a ticket touches the **Domain**, **DB**, or **Infrastructure** layers — and the **UX** layer alongside the [design](../design/SKILL.md) policies. The mapping is a starting point, not a fence; a change usually touches more than one category, and infrastructure work also reaches the [operation](../operation/SKILL.md) policies.
+Apply these policies when a ticket touches the **Domain**, **DB**, or **Infrastructure** layers. The mapping is a starting point, not a fence; a change usually touches more than one category, and infrastructure work also reaches the [operation](../operation/SKILL.md) policies.

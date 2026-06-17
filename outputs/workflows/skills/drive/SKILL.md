@@ -85,7 +85,7 @@ Follow the **Workflow** section below. Implementation context is preserved in th
 
 Follow the **Approval** section below to present the approval dialog. **CRITICAL**: You MUST use the `title` and `overview` fields from the Step 2.1 workflow result to populate the approval prompt header and question. If these fields are unavailable, re-read the ticket file to obtain them. Never present an approval prompt without the ticket title and summary.
 
-**CRITICAL**: Use the agent's selection prompt. NEVER proceed without explicit user approval. (In **night mode** this gate is auto-resolved as "Approve" — the user pre-authorized the selected batch upfront; see **Night Mode**.)
+**CRITICAL**: Use the agent's selection prompt. NEVER proceed without explicit user approval. (In **night mode** this gate is auto-resolved as "Approve" — the user authorized the batch by invoking `/drive night`, optionally narrowed by the §1b group choice; see **Night Mode**.)
 
 #### Step 2.3: Handle User Response
 
@@ -118,7 +118,7 @@ Follow the **Approval** section below to present the approval dialog. **CRITICAL
 
 ### Phase 3: Re-check and Continue
 
-**Night mode skips this phase** — it runs only the upfront-authorized batch and does not absorb tickets added during the run (see **Night Mode**). Proceed directly to Phase 4.
+**Night mode skips this phase** — it runs only the batch authorized at session start and does not absorb tickets added during the run (see **Night Mode**). Proceed directly to Phase 4.
 
 After all tickets from the navigator's list are processed:
 
@@ -153,9 +153,11 @@ After todo is truly empty (and user declines icebox):
 
 Autonomous, unattended overnight run for morning review, triggered when `$ARGUMENT` contains "night" (e.g. "go night /drive"). Night mode overrides parts of the normal flow:
 
-**1. Upfront authorization (the only interaction).** In Phase 1, after the prioritizer returns the ordered list, the command issues ONE the agent's selection prompt with `multiSelect: true` listing the prioritized todo tickets so the developer selects exactly **which** tickets tonight's run is authorized to implement — replacing the normal order-confirmation (Navigator step 4). The selected subset, kept in dependency/priority order, is the night's authorized batch. This single, explicit, informed selection IS the approval for the whole batch.
+**1. Authorization is the `/drive night` invocation itself — no per-ticket checkbox.** Invoking `/drive night` over the queue authorizes an autonomous run of the **whole** prioritized batch (the current user's `todo/<user>/` queue, kept in dependency/priority order). Night mode does **not** present a `multiSelect` checklist asking the developer to tick which tickets to run — that is not what "night drive" means. The full prioritized list IS the night's batch.
 
-**2. Autonomous loop (skip the per-ticket gate).** For each authorized ticket, run Step 2.1 (implement, including the type-check/test verification). Then **auto-approve without issuing the Step 2.2 the agent's selection prompt**: update effort, append Final Report, run `archive.sh`, commit, continue. The per-ticket approval is satisfied by the upfront batch authorization, so it is *skipped*, not invoked (the Workflow "NEVER use the agent's selection prompt" boundary stays intact).
+**1b. One question only on distinct topic groups.** The single exception: if the prioritizer's `groups` field (see Navigator → Determine Priority Order) reports the queued tickets span **two or more clearly distinct topic groups**, the command issues exactly **one** the agent's selection prompt (selectable options, never a per-ticket checklist) — while working on Group A, should Group B (and any further groups) be included too? The chosen groups, in dependency/priority order, become the night's batch. If the queue forms a single cohesive group, **no question is asked** and the whole batch runs. The heuristic is conservative (prefer one group when in doubt), so a cohesive queue never triggers a prompt.
+
+**2. Autonomous loop (skip the per-ticket gate).** For each authorized ticket, run Step 2.1 (implement, including the type-check/test verification). Then **auto-approve without issuing the Step 2.2 the agent's selection prompt**: update effort, append Final Report, run `archive.sh`, commit, continue. The per-ticket approval is satisfied by the `/drive night` batch authorization (§1, optionally narrowed by the §1b group choice), so it is *skipped*, not invoked (the Workflow "NEVER use the agent's selection prompt" boundary stays intact).
 
 **3. Safe-by-default failure policy (no user present).** If a ticket cannot be implemented, or its checks/tests fail, or its frontmatter update fails:
 - **Skip and continue** — leave the ticket in `todo`, record the failure + reason for the night report, move to the next authorized ticket.
@@ -163,14 +165,14 @@ Autonomous, unattended overnight run for morning review, triggered when `$ARGUME
 - **Isolate partial changes** so a failed ticket's uncommitted work cannot contaminate the next ticket's commit: `git stash` the failed ticket's changes (recoverable; only `git stash drop` is prohibited) before continuing, and note the stash in the report.
 - A failing type-check/test means the ticket is **failed → skipped + recorded**, never force-committed.
 
-**4. Bounded run.** Night mode runs ONLY the upfront-selected batch. Do NOT pick up tickets added during the run (skip Phase 3's re-check). The run terminates when the authorized batch is exhausted.
+**4. Bounded run.** Night mode runs ONLY the batch fixed at session start (the whole prioritized queue, or the groups chosen in §1b). Do NOT pick up tickets added during the run (skip Phase 3's re-check). The run terminates when the authorized batch is exhausted.
 
 **5. Whole-night report (the deliverable).** At the end (Phase 4), print a complete, skimmable stdout report for morning review:
 - Per ticket: outcome (implemented / skipped / failed), commit hash (implemented), reason (skipped/failed).
 - Totals: implemented / skipped / failed counts, and all commit hashes.
 - Any stashed partial work and where to find it.
 
-**Critical Rule exception (scoped).** Night mode is the ONLY mode that skips the per-ticket "explicit user approval" gate — and only because the user explicitly pre-authorized the exact named batch upfront. Every other Critical Rule below remains in force.
+**Critical Rule exception (scoped).** Night mode is the ONLY mode that skips the per-ticket "explicit user approval" gate — and only because invoking `/drive night` is itself the explicit authorization for the batch (optionally narrowed by the §1b group choice). Every other Critical Rule below remains in force.
 
 ### Critical Rules
 
@@ -263,6 +265,17 @@ Priority ranking by type (used within same dependency tier):
 3. `refactoring` - Normal priority
 4. `housekeeping` - Low priority
 
+#### 2b. Detect Topic Groups (for night mode's group question)
+
+Cluster the queued tickets into **topic groups** so night mode can decide whether to ask its one group-inclusion question (Night Mode §1b). A topic group is a set of tickets that belong together; clearly unrelated clusters are separate groups.
+
+Derive groups from signals already read above, in this order:
+
+1. **Dependency components** — tickets connected (directly or transitively) through `depends_on` belong to the same group.
+2. **Shared layer / key files** — tickets in the same `layer` or touching overlapping Key Files reinforce membership in one group.
+
+Be **conservative: prefer a single group when in doubt.** Only split into separate groups when clusters are clearly unrelated (disjoint dependency components AND non-overlapping layers/files). The goal is to avoid prompting on a cohesive queue — a single group means night mode asks nothing. Label each group by its dominant theme (e.g. its shared layer or a short phrase from the tickets' titles).
+
 #### 3. Present Prioritized List
 
 Show tickets grouped by priority tier:
@@ -309,11 +322,15 @@ The prioritizer subagent returns a JSON object with the proposed order (steps 1�
     "normal": [".workaholic/tickets/todo/20260131-add-dark-mode.md"],
     "low": []
   },
+  "groups": [
+    {"label": "auth", "tickets": [".workaholic/tickets/todo/20260131-fix-login-error.md"]},
+    {"label": "UX / dark mode", "tickets": [".workaholic/tickets/todo/20260131-add-dark-mode.md"]}
+  ],
   "cycle_warning": null
 }
 ```
 
-`tickets` is the proposed ordered list; `tiers` groups them for the display; `cycle_warning` is a message string if a dependency cycle was detected, otherwise null. The command resolves the final order after the step-4 confirmation and proceeds to Phase 2.
+`tickets` is the proposed ordered list; `tiers` groups them by severity for the display; `groups` is the topic-group clustering from step 2b (one entry when the queue is cohesive — the common case); `cycle_warning` is a message string if a dependency cycle was detected, otherwise null. In **normal mode** the command resolves the final order after the step-4 confirmation. In **night mode** the command uses `groups`: one entry → run the whole batch with no question; two or more → issue the single §1b group-inclusion the agent's selection prompt. Then it proceeds to Phase 2.
 
 ## Workflow
 

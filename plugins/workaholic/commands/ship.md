@@ -22,4 +22,6 @@ Context-aware ship workflow. Steps:
    - `work` — run `workaholic:ship`'s **Ship Flow** (§5) directly on the current branch. No worktree handling.
    - `worktree` or `unknown` — follow `workaholic:trip-protocol`'s **Trip Ship → Context routing** (worktree selection / drive-vs-trip prompt), which wraps the `workaholic:ship` Ship Flow with worktree sync + cleanup.
 
+**Deployment confirmation is required.** `/ship` only completes a deployment when an established way to confirm it succeeded exists (a `.workaholic/deployments/` entry or a `CLAUDE.md` `## Verify` section). When none exists, the Ship Flow **halts** (§1-4) and this command asks the user — via AskUserQuestion at this command/main-agent level — to provide a verification path / credentials, inspect production to establish one, author a `.workaholic/deployments/` entry, or abort. All such user interaction happens here, not in the skill's leaf scripts.
+
 `workaholic:ship` is the trip-independent essence (usable by any agent on its own); the worktree/trip lifecycle lives in `workaholic:trip-protocol` and is Claude-Code-only.

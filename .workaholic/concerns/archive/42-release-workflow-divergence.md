@@ -5,9 +5,9 @@ origin_branch: work-20260528-122941
 origin_commit: 0915802
 created_at: 2026-06-16T08:57:05+09:00
 severity: moderate
-status: active
-resolved_by_pr:
-resolved_by_commit:
+status: resolved
+resolved_by_pr: 6bb8db0
+resolved_by_commit: 
 ---
 
 # Release workflow divergence

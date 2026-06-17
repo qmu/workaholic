@@ -69,6 +69,7 @@ Refs #<issue-number>
 
 ## Stories
 
+- [work-20260617-082241.md](work-20260617-082241.md) - Post-merge follow-ups: fix the check-deps regression blocking /ticket+/drive, rewrite the stale /release command for the single-plugin layout, and rewrite CLAUDE.md/README/command-Notice architecture narrative (incl. the stale Plugin Boundary Rule) - 3 tickets
 - [work-20260617-000311.md](work-20260617-000311.md) - Consolidate core+standards+work into one workaholic plugin; move release-note generation to /ship and publish GitHub Releases on ship (deferring to CI); add autonomous night-drive mode to /drive; rename dist/ → outputs/ - 5 tickets, implemented in one night-drive batch
 - [work-20260528-122941.md](work-20260528-122941.md) - Cross-agent distribution hardening and multi-developer ergonomics: sync plugin versions through marketplace.json with Codex-metadata CI validation, split standards into design/implementation/operation policy-index skills, add hermetic workflow-script smoke tests, partition the todo queue per developer, and add a plugin-boundary guard against stale-install spelunking and obsolete-namespace guessing - 6 tickets, 8 commits
 - [work-20260528-091259.md](work-20260528-091259.md) - Replace /ship cloud.md deploy convention with CLAUDE.md as a hard cutover (rename find-claude-md.sh, rewrite ship SKILL.md, regenerate dist/workflows), and document the actual Codex install commands in the README - 1 ticket, 3 commits

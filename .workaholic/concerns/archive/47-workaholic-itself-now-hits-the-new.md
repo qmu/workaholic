@@ -5,9 +5,9 @@ origin_branch: work-20260617-210627
 origin_commit: 6a64cf0
 created_at: 2026-06-17T22:08:29+09:00
 severity: moderate
-status: active
-resolved_by_pr:
-resolved_by_commit:
+status: resolved
+resolved_by_pr: 48
+resolved_by_commit: 066714b
 ---
 
 # Workaholic itself now hits the new `/ship` halt path (dogfooding gap)

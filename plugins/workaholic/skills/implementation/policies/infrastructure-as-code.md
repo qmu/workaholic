@@ -79,6 +79,15 @@ We do not hardcode secrets into IaC code.
 
 `.tfvars` and `.env` files that contain secrets are excluded via `.gitignore`, and are checked by a pre-commit hook to prevent accidental commits.
 
+### Manage sensitive information rotation and location as configuration (センシティブ情報のローテーションと保管場所を設定として管理する)
+
+The location where a secret is stored and the schedule on which it is rotated are themselves configuration — they belong in version-controlled files, not in operator memory.
+
+- Record the storage location of each secret (which Secrets Manager path, which environment variable name, which vault key) in a configuration file or secrets manifest in the repository. Actual values are excluded via gitignore; what is recorded is the metadata: where the value lives, who owns it, and when it rotates.
+- Define rotation intervals for secrets that require periodic rotation (database passwords, API keys, certificates, signing keys). Use the rotation automation provided by the secret management service (AWS Secrets Manager automatic rotation, HashiCorp Vault lease TTLs, or Cloudflare Worker Secret replacement via CI).
+- When a secret is rotated, update the IaC configuration that references it in the same commit or PR, so the rotation event is traceable in git history alongside the infrastructure change.
+- Access to the secret manager itself is also access-controlled; model it in IaC alongside the secrets it protects, so its permission grants are auditable in the same way as any other resource.
+
 ### Minimize "differences between environments" through modularization
 
 When reproducing the same infrastructure across production / staging / dev, we structure it so that the common parts are extracted into a shared module and only the environment-specific variables are overridden.

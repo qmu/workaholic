@@ -3,9 +3,9 @@ created_at: 2026-06-17T21:32:42+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX, Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: c857ad1
+category: Changed
 depends_on:
 ---
 
@@ -80,3 +80,16 @@ Past tickets that touched similar areas:
 - **Conservative grouping** — over-eager group splitting would reintroduce prompting the user explicitly does not want. The heuristic must bias toward a single cohesive group; only clearly unrelated clusters trigger the one question (`plugins/workaholic/skills/drive/SKILL.md` Navigator §2).
 - **Unattended safety unchanged** — all other night-mode Critical Rules remain: skip-and-record on failure, never auto-icebox/auto-abandon, no destructive git, `git stash` isolation of failed partial work, and the whole-night stdout report (`plugins/workaholic/skills/drive/SKILL.md` lines 169-181).
 - **outputs/ lockstep** — `drive` is a `DEFAULT_TARGET`; forgetting to regenerate and commit `outputs/` after the SKILL.md change fails the Outputs Freshness CI (`.github/workflows/outputs-freshness.yml`, `scripts/build-plugins/build.mjs`).
+
+## Final Report
+
+Development completed as planned.
+
+Reworked the Night Mode section of `plugins/workaholic/skills/drive/SKILL.md`: §1 now states the `/drive night` invocation itself authorizes the whole prioritized batch with no per-ticket checkbox; new §1b defines the single group-inclusion question fired only when the prioritizer reports ≥2 distinct topic groups; §2/§4/§5 and the Step 2.2 and Phase 3 cross-references were swept so nothing still implies a per-ticket selection. Added a "Detect Topic Groups" step (2b) to the Navigator — conservative clustering by dependency components reinforced by layer/file overlap, biased toward one group — and a `groups` field to the Prioritizer Output JSON with command-level branching rules. Updated `commands/drive.md`'s night-mode notice. Regenerated `outputs/`; build/verify/validate/smoke all pass (53 tests). Confirmed the only remaining `multiSelect` mentions are the new "does NOT present a multiSelect" sentence and the unrelated per-ticket Approval dialog (`multiSelect: false`).
+
+### Discovered Insights
+
+- **Insight**: This ticket was driven in the same night-drive run whose behavior it changes, under the *old* per-ticket model — but the user pre-empted the checkbox by instructing "go night /drive it" and rejecting the dialog, which is exactly the re-anchored authorization this ticket codifies (the invocation is the approval).
+  **Context**: The three queued tickets formed two clearly distinct topic groups (the `/ship` deployment-confirmation gate vs. this `/drive` change), which is precisely the §1b "ask one group question" case the new design introduces — a real-world validation that group-level (not per-ticket) is the right granularity.
+- **Insight**: Topic-group detection has no dedicated script; it is prioritizer prose over `depends_on` components + `layer`/Key-Files overlap. No new bundled script was needed because the prioritizer already reads all the required frontmatter, and the conditional question is a command-level decision over the returned `groups` array.
+  **Context**: Keeps the change within the existing Navigator/command split and adds no inline shell — consistent with the thin-command / comprehensive-skill and One-Level Fan-Out rules.

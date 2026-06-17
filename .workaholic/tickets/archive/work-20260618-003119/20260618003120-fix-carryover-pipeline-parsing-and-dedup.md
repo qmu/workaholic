@@ -3,9 +3,9 @@ created_at: 2026-06-18T00:31:20+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: c883b2c
+category: Changed
 depends_on:
 ---
 
@@ -63,3 +63,16 @@ Past tickets that touched similar areas:
 - **Idempotency** — after Bug 2's fix, re-running `extract-carryover.sh` for the same story/concern must be a no-op; assert this in tests.
 - **One-time cleanup (separate)** — the existing ~18 active concerns already contain chained duplicates (`41-…`, `42-carried-from-41-…`, …). This ticket stops *new* duplication; collapsing the *existing* duplicates is a follow-up housekeeping pass, not in scope here.
 - **Shell rule / portability** — keep logic in the bundled scripts; both ship cross-agent via `outputs/`, so regenerate and keep them self-contained (`verify.mjs`).
+
+## Final Report
+
+Development completed as planned.
+
+**Bug 1:** normalized the input shape in `apply-carryover-verdicts.sh`'s python `parse()` — a `dict` now uses `data.get("verdicts", [])`, a `list` is used directly, anything else becomes empty, and non-dict items are skipped. The `{"verdicts":[...]}` object the judge naturally produces now archives resolved concerns instead of silently skipping. **Bug 2:** added canonical-identity dedup to `extract-carryover.sh` — a `canon()` helper strips the leading `<pr>-` and `carried-from-pr-<n>-` prefixes, and the writer skips any concern whose canonical identity already exists among active OR archived concerns, so the same logical concern is no longer re-emitted under each new PR prefix. Updated `report/SKILL.md` Phase 1 to pass the full `{"verdicts":…}` object (workaround retired; bare array still accepted for back-compat). Added 5 smoke tests (apply-verdicts: object/bare-array/archive; extract-carryover: extracts once, dedups across PR prefixes); suite 63/0. Regenerated `outputs/`.
+
+### Discovered Insights
+
+- **Insight**: The bare-array workaround used in the last few `/report` runs was masking Bug 1 entirely — because all verdicts were `still_active` on those runs, the silent-skip produced the same visible result as success, so the bug never surfaced through behavior. It only became provable when a `resolved` verdict needed archiving.
+  **Context**: A no-op that mimics success is invisible until the one case that needs the real effect appears. The new test asserts a `resolved` verdict actually archives, which is the case that distinguishes working from silently-skipping.
+- **Insight**: Canonical dedup must consult the `archive/` directory too, not just active concerns — otherwise a concern resolved and archived under an old PR prefix would be re-created from a later story that still lists it. `canon()` over both dirs prevents resurrecting resolved concerns.
+  **Context**: This is the missing-archive-check that, combined with the per-PR prefix, drove the corpus ballooning.

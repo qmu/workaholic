@@ -34,6 +34,8 @@ const SCRIPTS = {
   readDeployments: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/read-deployments.sh"),
   recordEvidence: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/record-evidence.sh"),
   catchupMain: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/catchup-main.sh"),
+  applyVerdicts: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/apply-carryover-verdicts.sh"),
+  extractCarryover: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/extract-carryover.sh"),
 };
 
 // Slug for the repo's standard test identity (git config user.email test@example.com).
@@ -491,6 +493,52 @@ function testCatchupMain() {
   }
 }
 
+// ---------- report/apply-carryover-verdicts.sh (Bug 1: accept object + array) ----------
+function testApplyVerdicts() {
+  // {"verdicts":[...]} object form must archive a resolved concern.
+  const repo = makeRepo("main");
+  try {
+    mkdirSync(join(repo, ".workaholic/concerns"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/concerns/99-foo.md"),
+      "---\nseverity: low\nstatus: active\nresolved_by_pr:\nresolved_by_commit:\n---\n\n# Foo\n");
+    execSync(`git add -A && git commit -q -m concern`, { cwd: repo });
+    const obj = JSON.stringify({ verdicts: [{ path: ".workaholic/concerns/99-foo.md", verdict: "resolved", resolved_by_pr: 5, resolved_by_commit: "abc1234" }] });
+    const r = JSON.parse(run(repo, `printf '%s' '${obj}' | bash ${SCRIPTS.applyVerdicts}`).stdout);
+    assertEq("apply-verdicts accepts {verdicts:...} object", { res: r.resolved, sa: r.still_active }, { res: 1, sa: 0 });
+    assertTrue("apply-verdicts archived the resolved file",
+      existsSync(join(repo, ".workaholic/concerns/archive/99-foo.md")) && !existsSync(join(repo, ".workaholic/concerns/99-foo.md")),
+      "resolved concern not moved to archive");
+  } finally { cleanup(repo); }
+
+  // Bare array form still works (back-compat).
+  const repo2 = makeRepo("main");
+  try {
+    mkdirSync(join(repo2, ".workaholic/concerns"), { recursive: true });
+    writeFileSync(join(repo2, ".workaholic/concerns/99-bar.md"),
+      "---\nseverity: low\nstatus: active\nresolved_by_pr:\nresolved_by_commit:\n---\n\n# Bar\n");
+    execSync(`git add -A && git commit -q -m concern`, { cwd: repo2 });
+    const arr = JSON.stringify([{ path: ".workaholic/concerns/99-bar.md", verdict: "resolved", resolved_by_pr: 5, resolved_by_commit: "abc1234" }]);
+    const r = JSON.parse(run(repo2, `printf '%s' '${arr}' | bash ${SCRIPTS.applyVerdicts}`).stdout);
+    assertEq("apply-verdicts still accepts a bare array", r.resolved, 1);
+  } finally { cleanup(repo2); }
+}
+
+// ---------- ship/extract-carryover.sh (Bug 2: canonical dedup across PR prefixes) ----------
+function testExtractCarryover() {
+  const repo = makeRepo("main");
+  try {
+    mkdirSync(join(repo, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/stories/work-x.md"),
+      "---\nbranch: work-x\n---\n## 6. Concerns\n\n### Some real concern\n\n- **Severity:** moderate\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n");
+    execSync(`git add -A && git commit -q -m story`, { cwd: repo });
+    const r1 = JSON.parse(run(repo, `NO_COMMIT=1 bash ${SCRIPTS.extractCarryover} work-x 10 https://x/pr/10`).stdout);
+    assertEq("extract-carryover first run extracts the concern", r1.extracted, 1);
+    // Same concern, different PR number -> must NOT re-emit (canonical dedup).
+    const r2 = JSON.parse(run(repo, `NO_COMMIT=1 bash ${SCRIPTS.extractCarryover} work-x 11 https://x/pr/11`).stdout);
+    assertEq("extract-carryover dedups same concern across PR prefixes", r2.extracted, 0);
+  } finally { cleanup(repo); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching/detect-context.sh", testDetectContext],
@@ -505,6 +553,8 @@ const tests = [
   ["ship/read-deployments.sh", testReadDeployments],
   ["ship/record-evidence.sh", testRecordEvidence],
   ["ship/catchup-main.sh", testCatchupMain],
+  ["report/apply-carryover-verdicts.sh", testApplyVerdicts],
+  ["ship/extract-carryover.sh", testExtractCarryover],
 ];
 
 for (const [label, fn] of tests) {

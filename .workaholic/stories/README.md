@@ -69,6 +69,7 @@ Refs #<issue-number>
 
 ## Stories
 
+- [work-20260617-231848.md](work-20260617-231848.md) - Fix /ship ordering: the PR merge is now the LAST step, gated on a passing pre-merge production confirmation (deploy + confirm from the branch, record evidence, then merge); adds catchup-main.sh + record-evidence.sh and this repo's own .workaholic/deployments/marketplace.md contract - 1 ticket
 - [work-20260617-210627.md](work-20260617-210627.md) - Make /ship require an established deployment-confirmation method (new .workaholic/deployments/ convention + reader; invert silent-skip into a halt-and-ask hard gate that executes the confirmation after deploy) and make night /drive run the whole queue with no per-ticket checkbox (one group-inclusion question only on distinct topic groups) - 3 tickets, night-drive batch
 - [work-20260617-082241.md](work-20260617-082241.md) - Post-merge follow-ups: fix the check-deps regression blocking /ticket+/drive, rewrite the stale /release command for the single-plugin layout, and rewrite CLAUDE.md/README/command-Notice architecture narrative (incl. the stale Plugin Boundary Rule) - 3 tickets
 - [work-20260617-000311.md](work-20260617-000311.md) - Consolidate core+standards+work into one workaholic plugin; move release-note generation to /ship and publish GitHub Releases on ship (deferring to CI); add autonomous night-drive mode to /drive; rename dist/ → outputs/ - 5 tickets, implemented in one night-drive batch

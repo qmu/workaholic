@@ -5,9 +5,9 @@ origin_branch: work-20260617-231848
 origin_commit: 63bbb9e
 created_at: 2026-06-18T00:21:49+09:00
 severity: moderate
-status: active
-resolved_by_pr:
-resolved_by_commit:
+status: resolved
+resolved_by_pr: 49
+resolved_by_commit: 8b2b58f
 ---
 
 # `record-evidence.sh` does not scrub secrets from captured evidence

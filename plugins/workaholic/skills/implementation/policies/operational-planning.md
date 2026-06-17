@@ -139,4 +139,4 @@ Within a range that does not contradict simple capacity planning, hold reserve c
 
 ### Related: CI/CD, Portability, Observability, Safety (関連: CI/CD・移植性・可観測性・安全性)
 
-Rollback automation is directly connected to CI/CD automation. Reproducibility presupposes passive vendor dependence (消極的ベンダー依存) and infrastructure as code. Scaling decisions take the metrics of observability and self-healing as their input. Recovery in the event of a security incident references safety and incident response.
+Rollback automation is directly connected to CI/CD automation. Reproducibility presupposes passive vendor dependence (消極的ベンダー依存) and infrastructure as code. Scaling decisions take the metrics of observability and self-healing as their input. Recovery in the event of a security incident references [Security Considered in Layers](../../design/policies/defense-in-depth.md) and the incident-response procedure in `docs/safety/incident-response.md`.

@@ -9,7 +9,7 @@ source: https://qmu.co.jp/implementation/modeless-design
 
 _Make every operation available without entering a "mode," and prioritize composability over the strength of step-by-step guidance._
 
-Modeless design is a policy that prioritizes keeping every operation available to the user without requiring them to enter a particular "mode." It places composability above the strength of guiding the user step by step. We make modelessness the default in order to leave users the freedom to assemble their own workflow, because that freedom is what sustains the flexibility of the experience over the medium and long term.
+Modeless design is a policy that prioritizes keeping every operation available to the user without requiring them to enter a particular "mode." It places composability above the strength of guiding the user step by step. We make modelessness the default in order to leave users the freedom to assemble their own workflow, because that freedom is what sustains the flexibility of the experience over the medium and long term. AI agents that interact with the product programmatically benefit equally from modeless surfaces — an agent can compose any sequence of operations without navigating wizard state or coordinating mode transitions.
 
 ## Goal (目標)
 
@@ -21,6 +21,7 @@ The outline of the goal is as follows:
 - "Going back," "interrupting," and "working in parallel" hold up naturally, with no special handling.
 - The UI does not force guidance on the user in situations where they do not need it.
 - Focus is introduced only at the moments where concentration is genuinely required (confirming destructive operations, or processing that cannot be reversed once submitted).
+- AI agents can reach and invoke any operation without maintaining awareness of mode state.
 
 ## Responsibility (責務)
 
@@ -78,6 +79,18 @@ When a modal, panel, or sidebar is closed, do not lose the in-progress input it 
 
 Assign keyboard shortcuts to frequent operations, creating a path independent of mouse operation. Make the shortcut table openable with a key such as `?`, and do not hide it (this works in concert with the keyboard path of Accessibility-First).
 
-### Related: Accessibility-First, Tool-First
+### Design operations as composable units
 
-Modeless design supports the "reachable via multiple paths" principle of Accessibility from the flow side of the visual interface. The typed tools that the same policy deals with are best designed as stateless, one-shot operations, which aligns naturally with modelessness.
+Each discrete action should be expressible as a standalone call that produces a deterministic result given the same inputs. This composability is what lets a user — or an AI agent — assemble their own sequence without the application prescribing an order.
+
+- Give each operation a predictable input shape and return value.
+- Avoid operations that silently depend on prior step state. Where prior context is needed, pass it explicitly.
+- When an operation is added, ask whether it could be invoked directly from a URL, a keyboard shortcut, or a tool call — not only through the flow it was designed inside.
+
+### Choose modeless as the default you can add modals to later
+
+Starting modeless and adding a modal later when the case for it becomes clear is straightforward. Starting modal and removing the modal later is expensive. When in doubt, hold the modeless form and add the modal only when the evidence for it arrives.
+
+### Related: Accessibility-First
+
+Modeless design supports the "reachable via multiple paths" principle of [Accessibility Open to AI](../../planning/policies/accessibility-first.md). The same principle that keeps information reachable for users on any path also keeps operations composable for AI agents on any sequence.

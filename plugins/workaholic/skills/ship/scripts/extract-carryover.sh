@@ -70,6 +70,24 @@ def slugify(s):
     words = [w for w in s.split() if w][:6]
     return '-'.join(words)[:60].strip('-')
 
+import glob
+
+def canon(slug):
+    # Canonical concern identity: strip the leading "<pr>-" filename prefix and
+    # any "carried-from-pr-<n>-" carry-chain prefix so the SAME logical concern
+    # is recognized across PRs instead of re-emitted under each new prefix.
+    slug = re.sub(r'^\d+-', '', slug)
+    slug = re.sub(r'^carried-from-pr-\d+-', '', slug)
+    return slug
+
+# Identities already present (active OR archived) — never re-create these.
+existing = set()
+for p in glob.glob('.workaholic/concerns/*.md') + glob.glob('.workaholic/concerns/archive/*.md'):
+    name = os.path.basename(p)[:-3]
+    if name == 'README':
+        continue
+    existing.add(canon(name))
+
 written = []
 for block in blocks:
     lines = block.split('\n')
@@ -83,10 +101,15 @@ for block in blocks:
     fix = field(block, 'How to Fix') or field(block, 'How To Fix') or field(block, 'Fix')
 
     slug = slugify(title) or f'concern'
+    identity = canon(slug)
+    # Dedup by canonical identity across PR prefixes (and vs archived/resolved).
+    if identity in existing:
+        continue
     slug_base = f'{pr_number}-{slug}'
     path = f'.workaholic/concerns/{slug_base}.md'
     if os.path.exists(path):
         continue
+    existing.add(identity)
 
     body = []
     body.append('---')

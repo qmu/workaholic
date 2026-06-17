@@ -104,7 +104,7 @@ Gather all context by running `bash gather/scripts/git-context.sh`. Returns: bra
 Run before the parallel agent batch so the verdicts flow into section-reviewer's input. Skip silently if `.workaholic/concerns/` is empty or absent.
 
 1. **Spawn a carry-over judge** as parallel worker in a single Task call. The prompt instructs it to preload `report`, follow the `### Judge Carry-Overs` section with the given branch name and base branch, and return `{verdicts: [...]}`.
-2. **Apply verdicts**: Write the returned `verdicts` array to `/tmp/carryover-verdicts.json`, then run:
+2. **Apply verdicts**: Write the judge's returned JSON to `/tmp/carryover-verdicts.json`. `apply-carryover-verdicts.sh` accepts both the full `{"verdicts": [...]}` object (the judge's natural output) and a bare `[...]` array, so either form works — prefer writing the object verbatim. Then run:
 
    ```bash
    cat /tmp/carryover-verdicts.json | bash report/scripts/apply-carryover-verdicts.sh

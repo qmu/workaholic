@@ -114,7 +114,7 @@ Gather all context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/
 Run before the parallel agent batch so the verdicts flow into section-reviewer's input. Skip silently if `.workaholic/concerns/` is empty or absent.
 
 1. **Spawn a carry-over judge** as `subagent_type: "general-purpose"` (`model: "opus"`) in a single Task call. The prompt instructs it to preload `workaholic:report`, follow the `### Judge Carry-Overs` section with the given branch name and base branch, and return `{verdicts: [...]}`.
-2. **Apply verdicts**: Write the returned `verdicts` array to `/tmp/carryover-verdicts.json`, then run:
+2. **Apply verdicts**: Write the judge's returned JSON to `/tmp/carryover-verdicts.json`. `apply-carryover-verdicts.sh` accepts both the full `{"verdicts": [...]}` object (the judge's natural output) and a bare `[...]` array, so either form works — prefer writing the object verbatim. Then run:
 
    ```bash
    cat /tmp/carryover-verdicts.json | bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/apply-carryover-verdicts.sh

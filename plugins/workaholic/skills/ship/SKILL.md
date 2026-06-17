@@ -161,7 +161,7 @@ Fetches origin and merges `origin/<base>` (default `main`) into the current work
 bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/record-evidence.sh "<branch>" "<target>" "<method>" "<result>" "<status>"
 ```
 
-Appends a `## Deployment Evidence` block (when / target / method / status / observed result) to `.workaholic/stories/<branch>.md` so the proof of a successful production confirmation rides into the merge and shows on the PR. `<result>` must be a **non-secret** observed result; `<status>` is `pass`|`fail`. Run after the confirmation executes and **before** the merge.
+Appends a `## Deployment Evidence` block (when / target / method / status / observed result) to `.workaholic/stories/<branch>.md` so the proof of a successful production confirmation rides into the merge and shows on the PR. `<result>` must be a **non-secret** observed result; `<status>` is `pass`|`fail`. Run after the confirmation executes and **before** the merge. The script **scans the inputs for common secret shapes** (cloud keys, GitHub/Slack tokens, bearer/basic auth, PEM keys, `password=`/`token=` assignments) and **refuses** (`{"recorded": false, "reason": "possible_secret"}`, non-zero exit) rather than writing a credential into the public story — re-supply a sanitized result if it refuses.
 
 ### 2-6. Publish GitHub Release
 

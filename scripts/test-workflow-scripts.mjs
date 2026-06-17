@@ -459,6 +459,29 @@ function testRecordEvidence() {
       body.includes("## Deployment Evidence") && body.includes("homepage shows v1.0.54") && body.includes("**Status:** pass"),
       "story is missing the Deployment Evidence block");
   } finally { cleanup(withStory); }
+
+  // A result containing a secret is refused and never written to the story.
+  const secretCase = makeRepo("main");
+  try {
+    mkdirSync(join(secretCase, ".workaholic/stories"), { recursive: true });
+    const sp = join(secretCase, ".workaholic/stories/work-x.md");
+    writeFileSync(sp, "---\nbranch: work-x\n---\n# story\n");
+    const r = run(secretCase, `bash ${SCRIPTS.recordEvidence} work-x Prod api-probe "token=ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ012345" pass`);
+    assertTrue("record-evidence refuses a secret-bearing result",
+      r.status !== 0 && r.stdout.includes("possible_secret"), `expected refusal, got status ${r.status}: ${r.stdout}`);
+    assertTrue("record-evidence did NOT write the secret to the story",
+      !readFileSync(sp, "utf8").includes("ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
+      "secret leaked into the story despite refusal");
+  } finally { cleanup(secretCase); }
+
+  // A clean result with a commit hash / version is NOT a false positive.
+  const cleanHash = makeRepo("main");
+  try {
+    mkdirSync(join(cleanHash, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(cleanHash, ".workaholic/stories/work-x.md"), "---\nbranch: work-x\n---\n# story\n");
+    const r = JSON.parse(run(cleanHash, `bash ${SCRIPTS.recordEvidence} work-x Prod other "200 OK v1.0.55 at commit 63bbb9e; smoke 63/0" pass`).stdout);
+    assertEq("record-evidence allows commit-hash/version result", r.recorded, true);
+  } finally { cleanup(cleanHash); }
 }
 
 // ---------- ship/catchup-main.sh (pre-deploy branch sync) ----------

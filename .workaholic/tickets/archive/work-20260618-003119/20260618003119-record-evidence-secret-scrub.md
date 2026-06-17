@@ -3,9 +3,9 @@ created_at: 2026-06-18T00:31:19+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 43cb069
+category: Changed
 depends_on:
 ---
 
@@ -57,3 +57,16 @@ Past tickets that touched similar areas:
 - **False positives vs leakage** — refusing on a suspected secret is safer than redacting silently (the operator learns and fixes the source). If refusal proves noisy in real use, add an opt-in redaction mode rather than weakening the scan.
 - **Scope** — the scan is a guardrail, not a vault; it catches common shapes, not every possible secret. Document that limitation so it is not mistaken for a guarantee.
 - **Shell rule** — keep all logic in the bundled POSIX script; no inline conditionals in markdown (`CLAUDE.md` Shell Script Principle, `rules/shell.md`).
+
+## Final Report
+
+Development completed as planned.
+
+Added a `scan_secrets()` guard to `record-evidence.sh` that runs `grep -Eiq` over the free-text inputs (`result`, `method`, `target`) for common secret shapes — `AKIA…` cloud keys, `gh[pousr]_…` / `github_pat_…` GitHub tokens, `xox[baprs]-…` Slack tokens, `bearer`/`basic` auth values, PEM `PRIVATE KEY` headers, and `password=`/`token=`/`api_key=` assignments. On a match it refuses (`{"recorded": false, "reason": "possible_secret"}`, exit 1) instead of writing, so a credential can't land in the public story. Documented the behavior in the script header and `ship/SKILL.md` §2-5c. Added 3 smoke tests (refuses a `token=ghp_…` result and confirms the secret never reaches the story; allows a commit-hash/version result as a non-false-positive). Regenerated `outputs/`; suite 66/0.
+
+### Discovered Insights
+
+- **Insight**: The scan deliberately omits a generic long-hex/base64 pattern even though the ticket listed it, because deployment evidence legitimately contains commit hashes (`63bbb9e`) and versions — a generic hex rule would refuse normal evidence. Coverage is restricted to *structured* secret shapes (known prefixes + `key=value` assignments), trading some recall for near-zero false positives.
+  **Context**: A guardrail that false-positives on legitimate evidence (commit hashes) would train operators to bypass it; precision matters more than exhaustive recall here. The "allows commit-hash/version result" test pins this decision.
+- **Insight**: Refuse-by-default (vs silent redaction) is the right failure mode for a public artifact — the operator is told to sanitize, so the secret is removed at the source rather than masked in one place while possibly lingering elsewhere.
+  **Context**: Matches the system-safety stance that credentials for confirmation are transient and never persisted.

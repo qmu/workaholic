@@ -1,6 +1,6 @@
 {
   "name": "workflows",
-  "version": "1.0.53",
+  "version": "1.0.54",
   "description": "Ticket-driven development workflows (create-ticket, drive, report, ship) as agent-neutral skills.",
   "author": {
     "name": "tamurayoshiya",

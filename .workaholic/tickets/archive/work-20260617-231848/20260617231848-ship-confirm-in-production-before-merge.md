@@ -3,9 +3,9 @@ created_at: 2026-06-17T23:18:48+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Infrastructure, Config]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: 0b564f4
+category: Changed
 depends_on:
 ---
 
@@ -86,3 +86,16 @@ Past tickets that touched similar areas:
 - **Evidence integrity / secrets** — deployment evidence recorded in the story/PR must not embed credentials or secret tokens (the story is public on the PR); capture only non-secret observed results (status, version, hash, response body sans secrets) (`plugins/workaholic/skills/system-safety/SKILL.md`).
 - **One-time reconciliation from the #47 incident** — PR #47 merged to `main` unconfirmed, and local `main` is currently ahead of `origin/main` by the post-merge `extract-carryover.sh` commit. As part of landing this, reconcile: decide whether to push that carry-over commit or fold it in, and confirm `origin/main` and local `main` match. This is cleanup from the bug, separate from the reorder itself.
 - **Trip path** — keep the reordered flow in the portable `workaholic:ship` essence so the trip ship wrapper inherits merge-last ordering automatically (`plugins/workaholic/skills/ship/SKILL.md`).
+
+## Final Report
+
+Development completed as planned.
+
+Reordered the `workaholic:ship` Ship Flow (§5) so the merge is the final step, gated on a passing production confirmation: pre-check → catch up with `main` → deploy + confirm (pre-merge, behind the §1-4 gate) → record evidence in the story and update the PR → merge → publish release → extract carry-overs → summarize. Updated the §1 intro and §1-4 gate prose to state the gate runs pre-merge and a failed/absent confirmation blocks the merge (not-merging is the rollback). Added two POSIX scripts — `catchup-main.sh` (fetch + merge `origin/<base>`, abort-and-report on conflict) and `record-evidence.sh` (append a non-secret `## Deployment Evidence` block to the story) — and documented them in §2. Authored this repo's own `.workaholic/deployments/marketplace.md` (deploy-on-merge target: pre-merge confirmation = build/verify/validate/test green + version aligned; post-merge = `gh release view` confirms the tag). Updated `commands/ship.md`. Added 5 hermetic smoke tests (record-evidence ×3, catchup-main ×2 using a temp bare origin); suite at 58/0. Regenerated `outputs/`.
+
+### Discovered Insights
+
+- **Insight**: Referencing the report skill's `create-or-update.sh` from `ship/SKILL.md` (to update the PR body mid-ship) made the build's cross-skill closure detector copy report's scripts into `outputs/workflows/skills/ship/report/`. This is the `${SCRIPT_DIR}` cross-skill closure mechanism (carry-over concern #42) working as designed; `verify.mjs` confirmed the bundle stays self-contained.
+  **Context**: Any ship step that calls another skill's script pulls that skill's closure into ship's generated bundle. Keep cross-skill references in the full `${CLAUDE_PLUGIN_ROOT}/skills/<skill>/scripts/...` form so the detector resolves them, and always re-run `verify.mjs` after adding one.
+- **Insight**: "Confirm before merge" does not fit a deploy-on-merge target uniformly — for workaholic the release is published *from* the merge commit, which doesn't exist pre-merge. The flow resolves this by splitting confirmation: a pre-merge branch/staging proof (the verification suite + version alignment) gates the merge, and a post-merge release-tag check confirms the production promotion.
+  **Context**: The deployments entry's `## Confirmation` is therefore written in two parts (pre-merge / post-merge). Projects that deploy a running service from a branch can confirm fully pre-merge; deploy-on-merge projects confirm readiness pre-merge and promotion post-merge.

@@ -4,7 +4,8 @@ author: a@qmu.jp
 type: bugfix
 layer: [Config]
 effort: 0.5h
-category:
+commit_hash: 2f97bdc
+category: Changed
 depends_on:
 ---
 

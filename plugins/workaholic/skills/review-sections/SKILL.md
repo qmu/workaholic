@@ -55,10 +55,11 @@ Risks, trade-offs, limitations, and forward-looking suggestions discovered durin
 - **How to Fix:** <the concrete fix or improvement>
 ```
 
-Compose the section from two sources, in this order:
+Compose the section from three sources, in this order:
 
 1. **Carried-over concerns** — entries in the verdicts file where `verdict: still_active`. Render each as a block above; prefix the title with `(carried from PR #N)` using `origin_pr`, and preserve the carry-over's existing `severity`.
 2. **New concerns** — extracted from Considerations sections of this branch's tickets.
+3. **Confirmed documentation drift** — drift the release-readiness role confirmed while assessing release readiness (its `doc-drift.sh` candidates judged real in `workaholic:report`'s `## Assess Release Readiness`). Render each as a block above: title the concern after the stale doc (e.g. `Documentation drift: CLAUDE.md skill index`), set Description to which structural change landed without the doc being updated, and How to Fix to the specific edit the doc needs. Default `severity: moderate`. Use only the drift the release-readiness role already confirmed — do **not** re-run or re-judge the script here (this skill stays script-free so it keeps resolving cross-agent via the `skills` CLI).
 
 For new concerns:
 

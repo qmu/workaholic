@@ -3,9 +3,9 @@ created_at: 2026-06-18T18:30:24+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config, Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: 66d30d2
+category: Added
 depends_on:
 ---
 
@@ -123,3 +123,14 @@ Documentation/artifact drift is a recurring failure mode here, caught so far onl
 - **Regenerate `outputs/`** — this changes a workflow skill and its script closure, so `outputs/workflows/` must be rebuilt and committed or CI fails; `review-sections` must stay script-free so it keeps resolving cross-agent via the `skills` CLI.
 - **One-level fan-out / no new agent file** — the work runs inside the existing release-readiness `general-purpose` leaf; do not add a new worker or agent `.md`. On non-Claude agents the same logic runs sequentially in-session with identical inputs/outputs.
 - **Routing choice (decided, but flag for the implementer):** findings surface both as a Section 8 release gate and a durable Section 6 Concern. If the implementer finds the double-surfacing noisy, Section 6 (carry-over durable) is the higher-value of the two — confirm with the requester before dropping either.
+
+## Final Report
+
+Development completed as planned. The double-surfacing routing (Section 8 gate + Section 6 durable Concern) was kept as specified.
+
+### Discovered Insights
+
+- **Insight**: The `doc-drift.sh` candidate logic deliberately fires only on **presence** changes (git status A/D/R/C), never on plain content edits (M). The smoke test pins this by merging a skill add onto `main` and then editing it on the branch — confirming a content-only `M` produces zero candidates.
+  **Context**: The Considerations warned "avoid flagging on every code edit." Restricting to presence changes is what keeps the check from false-blocking; any future broadening to content edits would reintroduce that noise and should be gated behind the judge, not the script.
+- **Insight**: `outputs/`, version manifests, and the script's own exclusions never reach the candidate stage because they fail the category `case` (they are not under `skills/|commands/|agents/|hooks/|scripts/`) — the exclusion is structural, not a separate filter.
+  **Context**: The `verify.mjs` rewrite placed the new script at `outputs/workflows/skills/{report,ship}/report/scripts/doc-drift.sh` (ship's closure includes report); confirming the build is transitive, not per-skill.

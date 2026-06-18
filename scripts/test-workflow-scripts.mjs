@@ -36,6 +36,7 @@ const SCRIPTS = {
   catchupMain: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/catchup-main.sh"),
   applyVerdicts: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/apply-carryover-verdicts.sh"),
   extractCarryover: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/extract-carryover.sh"),
+  docDrift: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/doc-drift.sh"),
 };
 
 // Slug for the repo's standard test identity (git config user.email test@example.com).
@@ -562,6 +563,80 @@ function testExtractCarryover() {
   } finally { cleanup(repo); }
 }
 
+// ---------- report/doc-drift.sh (documentation-drift fact emitter) ----------
+function testDocDrift() {
+  // Helper: seed a repo with CLAUDE.md + README.md committed on main, then
+  // branch to work-x. Returns the repo dir; caller adds the branch's changes.
+  const seed = () => {
+    const dir = makeRepo("main");
+    writeFileSync(join(dir, "CLAUDE.md"), "# claude\n");
+    writeFileSync(join(dir, "README.md"), "# readme\n");
+    execSync(`git add -A && git commit -q -m docs`, { cwd: dir });
+    execSync(`git checkout -q -b work-x`, { cwd: dir });
+    return dir;
+  };
+
+  // Positive: a new skill lands without CLAUDE.md being touched -> candidate.
+  const added = seed();
+  try {
+    mkdirSync(join(added, "plugins/workaholic/skills/foo"), { recursive: true });
+    writeFileSync(join(added, "plugins/workaholic/skills/foo/SKILL.md"), "---\nname: foo\n---\n");
+    execSync(`git add -A && git commit -q -m "add foo skill"`, { cwd: added });
+    const r = JSON.parse(run(added, `bash ${SCRIPTS.docDrift} main`).stdout);
+    assertEq("doc-drift reports skill_added structural change",
+      r.structural_changes, [{ kind: "skill_added", path: "plugins/workaholic/skills/foo/SKILL.md" }]);
+    const docs = r.candidates.map((c) => c.doc).sort();
+    assertEq("doc-drift raises CLAUDE.md + README.md candidates", docs, ["CLAUDE.md", "README.md"]);
+    assertTrue("doc-drift candidate signal is skill_added",
+      r.candidates.every((c) => c.signal === "skill_added"), JSON.stringify(r.candidates));
+  } finally { cleanup(added); }
+
+  // Negative: the same skill add WITH CLAUDE.md + README.md updated -> no candidate.
+  const updated = seed();
+  try {
+    mkdirSync(join(updated, "plugins/workaholic/skills/bar"), { recursive: true });
+    writeFileSync(join(updated, "plugins/workaholic/skills/bar/SKILL.md"), "---\nname: bar\n---\n");
+    writeFileSync(join(updated, "CLAUDE.md"), "# claude\n- bar skill\n");
+    writeFileSync(join(updated, "README.md"), "# readme\n- bar\n");
+    execSync(`git add -A && git commit -q -m "add bar skill + docs"`, { cwd: updated });
+    const r = JSON.parse(run(updated, `bash ${SCRIPTS.docDrift} main`).stdout);
+    assertEq("doc-drift no candidate when index docs were updated", r.candidates, []);
+    assertEq("doc-drift still reports the structural change",
+      r.structural_changes, [{ kind: "skill_added", path: "plugins/workaholic/skills/bar/SKILL.md" }]);
+  } finally { cleanup(updated); }
+
+  // Plain content edit (not a presence change) -> not structural, no candidate.
+  const edited = seed();
+  try {
+    mkdirSync(join(edited, "plugins/workaholic/skills/baz"), { recursive: true });
+    writeFileSync(join(edited, "plugins/workaholic/skills/baz/SKILL.md"), "---\nname: baz\n---\nv1\n");
+    execSync(`git add -A && git commit -q -m "add baz on base"`, { cwd: edited });
+    // Move the skill addition onto main so it is not part of work-x's diff, then
+    // edit it on the branch: a content-only (M) change must NOT be flagged.
+    execSync(`git checkout -q main && git merge -q work-x && git checkout -q work-x`, { cwd: edited });
+    writeFileSync(join(edited, "plugins/workaholic/skills/baz/SKILL.md"), "---\nname: baz\n---\nv2\n");
+    execSync(`git add -A && git commit -q -m "edit baz content"`, { cwd: edited });
+    const r = JSON.parse(run(edited, `bash ${SCRIPTS.docDrift} main`).stdout);
+    assertEq("doc-drift ignores content-only edits", { sc: r.structural_changes, c: r.candidates }, { sc: [], c: [] });
+  } finally { cleanup(edited); }
+
+  // Graceful degradation: a missing base ref returns not_applicable, exit 0.
+  const bad = seed();
+  try {
+    const r = run(bad, `bash ${SCRIPTS.docDrift} no-such-base-xyz`);
+    assertEq("doc-drift missing base exits 0", r.status, 0);
+    assertEq("doc-drift missing base -> not_applicable",
+      JSON.parse(r.stdout).not_applicable, "base_ref_not_found");
+  } finally { cleanup(bad); }
+
+  // docs_dir_present is false in a repo with no docs/ directory.
+  const nodocs = seed();
+  try {
+    const r = JSON.parse(run(nodocs, `bash ${SCRIPTS.docDrift} main`).stdout);
+    assertEq("doc-drift reports docs_dir_present false when no docs/", r.docs_dir_present, false);
+  } finally { cleanup(nodocs); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching/detect-context.sh", testDetectContext],
@@ -578,6 +653,7 @@ const tests = [
   ["ship/catchup-main.sh", testCatchupMain],
   ["report/apply-carryover-verdicts.sh", testApplyVerdicts],
   ["ship/extract-carryover.sh", testExtractCarryover],
+  ["report/doc-drift.sh", testDocDrift],
 ];
 
 for (const [label, fn] of tests) {

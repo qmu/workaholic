@@ -5,9 +5,9 @@ origin_branch: work-20260617-000311
 origin_commit: 1ed7fbb
 created_at: 2026-06-17T01:51:15+09:00
 severity: low
-status: active
-resolved_by_pr:
-resolved_by_commit:
+status: resolved
+resolved_by_pr: 49
+resolved_by_commit: e390172
 ---
 
 # Carry-over pipeline accumulates duplicates

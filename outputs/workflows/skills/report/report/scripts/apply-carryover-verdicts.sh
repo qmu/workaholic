@@ -25,7 +25,16 @@ parse() {
   python3 - "$input" <<'PY' 2>/dev/null
 import json, sys
 data = json.loads(sys.argv[1])
+# Accept both the judge's documented {"verdicts": [...]} object and a bare [...]
+# array. Anything else normalizes to empty so a malformed payload is a no-op
+# rather than silently iterating dict keys and skipping every verdict.
+if isinstance(data, dict):
+    data = data.get("verdicts", [])
+if not isinstance(data, list):
+    data = []
 for item in data:
+    if not isinstance(item, dict):
+        continue
     path = item.get("path", "")
     verdict = item.get("verdict", "still_active")
     rpr = item.get("resolved_by_pr") or ""

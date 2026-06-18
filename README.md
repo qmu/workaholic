@@ -2,7 +2,7 @@
 
 The development workflows we use at [qmu](https://github.com/qmu), written down so our coding agents can run them the way we do. They're tuned to how we work, so they may not fit everyone, and they'll keep changing as we do. We keep it public so the people we work with can share the same base.
 
-**Concretely**, it's a cross-agent distribution of structured development workflows and engineering-standard skills: ticket-driven development, AI-collaborative exploration, and the `standards:policies` engineering-policy index. It's richest on **Claude Code** (a plugin marketplace: slash commands, hooks, `/trip` Agent Teams); the same skills install on **Codex**, **OpenCode**, and 40+ other agents via the [Agent Skills standard](https://skills.sh). Authored once under `plugins/`, generated into portable artifacts under `outputs/`.
+**Concretely**, it's a cross-agent distribution of structured development workflows and engineering-standard skills: ticket-driven development, AI-collaborative exploration, and the engineering-policy index (the `planning` / `design` / `implementation` / `operation` skills, mirrored from qmu.co.jp). It's richest on **Claude Code** (a plugin marketplace: slash commands, hooks, `/trip` Agent Teams); the same skills install on **Codex**, **OpenCode**, and 40+ other agents via the [Agent Skills standard](https://skills.sh). Authored once under `plugins/`, generated into portable artifacts under `outputs/`.
 
 > [!WARNING]
 > **This drives git on your behalf.** Workaholic lets your coding agent autonomously create branches, commit, amend, push, and open pull requests. Review the plugin/skill descriptions below before installing so you know what to expect.
@@ -20,7 +20,7 @@ Enable the plugins you want after installation. Auto update is recommended. For 
 
 Workaholic follows the cross-agent [Agent Skills standard](https://skills.sh). What's portable:
 
-- **Policy skills** (`design` / `implementation` / `operation`) — the engineering-policy index (pure prose, self-contained): title, one-line summary, and canonical qmu.co.jp link per policy, organized into the 設計 / 実装 / 運用 pillars. Available on every Agent-Skills agent.
+- **Policy skills** (`planning` / `design` / `implementation` / `operation`) — the engineering-policy index (pure prose, self-contained): title, one-line summary, and canonical qmu.co.jp link per policy, organized into the 企画 / 設計 / 実装 / 運用 pillars. Available on every Agent-Skills agent.
 - **`write-release-note`** — release-note structure guidance (pure prose).
 - **Workflows** — `create-ticket`, `drive`, `report`, `ship` as agent-neutral skills (`trip` stays Claude-only; it needs Agent Teams). On non-Claude agents the workflow runs the same steps without Claude's parallel subagents/`AskUserQuestion` — see each skill's **Agent Compatibility** note.
 
@@ -58,7 +58,10 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 > [!NOTE]
 > `/trip` requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` to be set in your environment.
 
-**Engineering-policy skills** (`design` / `implementation` / `operation`): a catalog mirrored from qmu.co.jp giving each policy's title, one-line summary, and canonical link, organized into the 設計 (design), 実装 (implementation, sub-grouped by 妥当性 / 可用性 / アクセシビリティ), and 運用 (operations) pillars. Pure prose, exposed on every Agent-Skills agent. Security (安全) and working-practice (執務) policies live elsewhere on qmu.co.jp and are out of scope.
+**Engineering-policy skills** (`planning` / `design` / `implementation` / `operation`): a catalog mirrored from qmu.co.jp giving each policy's title, one-line summary, and canonical link, organized into the 企画 (planning — grounding a project in business, market, and legal context before design begins), 設計 (design), 実装 (implementation, sub-grouped by 妥当性 / 可用性 / アクセシビリティ), and 運用 (operations) pillars. Pure prose, exposed on every Agent-Skills agent. Security (安全) and working-practice (執務) policies live elsewhere on qmu.co.jp and are out of scope.
+
+> [!NOTE]
+> **How policies stay in sync.** The canonical articles live on [qmu.co.jp](https://qmu.co.jp) — that is the source of truth. This repo carries an English hard copy of each one under the matching policy skill's `policies/` directory, and every file's frontmatter `source:` links back to its canonical article, so the platform and the website share the same knowledge. When the canonical articles change, the refresh arrives as a `standards-sync/*` pull request that updates the hard copies; merging it (with a version bump) republishes the index so every agent installing by repo path picks up the new wording. The sync is produced upstream and lands as a PR — there is no policy-fetching step this repo runs on its own.
 
 **Typical drive session:**
 
@@ -93,7 +96,7 @@ A ticket is a markdown file describing a change you want to make — the context
 
 Once tickets are queued, `/drive` implements them one by one with confirmation at each step. While one agent drives, others can keep creating tickets — no worktree overhead, just serial execution with clear commits.
 
-When ready to deliver, `/report` generates changelogs and PR descriptions from the accumulated ticket history. Then `/ship` merges the PR, deploys following the `## Deploy` instructions in your project's `CLAUDE.md`, and verifies the deployment.
+When ready to deliver, `/report` generates changelogs and PR descriptions from the accumulated ticket history. Then `/ship` deploys and confirms in production *before* merging — it follows the `## Deploy` instructions in your project's `CLAUDE.md` (or a `.workaholic/deployments/` entry), verifies via the project's `## Verify` steps, and merges the PR as the final, evidence-gated step.
 
 > [!NOTE]
 > **A flavor of Spec-Driven Development**
@@ -144,25 +147,25 @@ The branch lifecycle traverses these artifacts in a fixed order:
 flowchart LR
   subgraph plan[Plan]
     direction TB
-    a1[/ticket] --> a2[tickets/todo/]
+    a1["/ticket"] --> a2["tickets/todo/"]
   end
   subgraph implement[Implement]
     direction TB
-    b1[/drive] --> b2[tickets/archive/<branch>/]
+    b1["/drive"] --> b2["tickets/archive/&lt;branch&gt;/"]
   end
   subgraph report[Report]
     direction TB
-    c1[/report] --> c2[stories/<branch>.md]
-    c1 --> c3[release-notes/<branch>.md]
-    c1 -.judge.-> c4[concerns/]
+    c1["/report"] --> c2["stories/&lt;branch&gt;.md"]
+    c1 --> c3["release-notes/&lt;branch&gt;.md"]
+    c1 -.judge.-> c4["concerns/"]
   end
   subgraph ship[Ship]
     direction TB
-    d1[/ship] --> d2[merge PR]
-    d2 --> d3[extract carry-overs<br/>to concerns/]
+    d1["/ship"] --> d2["merge PR"]
+    d2 --> d3["extract carry-overs<br/>to concerns/"]
   end
   plan --> implement --> report --> ship
-  d3 -.next /report reads.-> c1
+  d3 -."next /report reads".-> c1
 ```
 
 **Plan** — `/ticket` writes a new file under `tickets/todo/` describing the intended change. This is the only artifact created before code exists.

@@ -1,49 +1,60 @@
 ---
-title: Directory Structure Conventions
+title: Standard Directory Structure
 slug: directory-structure
 category: implementation
 source: https://qmu.co.jp/implementation/directory-structure
 ---
 
-# Directory Structure Conventions
+# Standard Directory Structure
 
-_Follow the directory structure conventions of the language and framework, keeping the layout flat enough to navigate, and document deviations from convention explicitly._
+_Dividing the repository top-level by role and following the same layout across projects, so that people and AI agents can find files from structure rather than exploration._
 
-A directory structure that follows established conventions reduces the time needed to orient in an unfamiliar part of the codebase, for both human developers and AI agents. Conventions exist at two levels: language-level (where Go packages live relative to the module root, where TypeScript source lives relative to the project root) and project-level (where migrations live, where tests live relative to the source they test, where ADRs live). Both levels are worth documenting. A project that deviates from conventions without documentation creates orientation cost each time someone navigates to a directory for the first time.
+Repositories follow a standard layout where the same kind of file lands in the same place, rather than working it out fresh for each project. The top level is divided by role — `packages/` for code, `scripts/` for common scripts, `workloads/` for execution environment configuration, `databases/` for schemas, `docs/` for documentation, `outputs/` for runtime output — and code is further divided one directory per package, with each package's internal layout following the language coding standards. When placement is readable from structure, both a person opening the repository for the first time and an AI agent working on their behalf can locate a file by navigating structure rather than searching.
 
 ## Goal (目標)
 
-The situation this policy aims to achieve is one in which a developer who knows the language can navigate the repository without a guided tour, because the layout follows the conventions of the language and the deviations from convention are documented.
-
-- The root of the repository contains a map of the directory structure in the README or a dedicated `STRUCTURE.md`.
-- The source layout follows the language's canonical conventions (Go: `cmd/`, `internal/`, `pkg/`; TypeScript: `src/` with colocated tests; Cloudflare Workers: `src/` with `wrangler.toml`).
-- Deviations from the canonical layout are documented with a reason.
+The situation this policy aims to achieve is one where the repository layout is consistent across projects and both people and AI agents can predict where things are from the structure itself. Code, scripts, execution environment configuration, schemas, and documentation land in places whose role is readable from the name and hierarchy. The sense of where things belong that someone builds on one project carries to the next. Directory and file names are pronounceable words, so the same name points to the same place in conversation and in instructions to an AI — without decoding abbreviations. The repository explains its own structure through its structure.
 
 ## Responsibility (責務)
 
-The situation this policy aims to prevent is one in which the directory layout is arbitrary and must be learned by exploration or asking a colleague.
+The situation this policy aims to prevent is one where placement varies from project to project, the same kind of file ends up in a different place each time, and both people and AI must search for where to put things and where to look each time.
 
-States we do not tolerate:
-
-- A monorepo or multi-package project whose workspace root has no documentation of what is in each directory.
-- Source code mixed with generated files, build artifacts, and configuration in the same directory without clear separation.
-- Tests scattered at arbitrary depths without a documented relationship to the source files they test.
-- A `utils/`, `helpers/`, or `misc/` directory that has become a catch-all for things whose home is unclear.
+With generative AI as the default author, a recurring failure mode is AI placing files based only on local context, so the same kind of file accumulates in different places across projects and directories. When structure is scattered, the next AI cannot use existing placement as a guide and adds to a different location, compounding the scatter.
 
 ## Practices (実践)
 
-### Follow the canonical layout for the language
+### Divide the repository top-level by role
 
-For TypeScript/Node projects: `src/` for source, tests colocated with source (`.test.ts` files next to the source file), `dist/` for build output (gitignored). For Go projects: `cmd/` for entry points, `internal/` for non-exported packages, top-level `pkg/` only if the packages are intended to be imported externally. For Cloudflare Workers projects: `src/` for source, `wrangler.toml` at the root.
+The repository is first divided at the top level by role. Code goes under `packages/` as one directory per package, with internal layout — domain layer, entry points, vendor boundaries — delegated to the language coding standards. Repository-wide common scripts are in `scripts/` per [Command Scripts for Development Tasks](command-scripts.md). Execution environment and infrastructure configuration is in `workloads/`. Schemas and migrations are in `databases/`, in keeping with [Schema-First Database Design](persistence.md). Documentation is in `docs/`, runtime output in `outputs/`. For example:
 
-### Document the directory structure in the README
+```
+repository/
+  packages/          Code. One directory per package. Internal layout follows the language coding standards.
+    <package>/
+      src/             Domain layer · entry points · vendor boundary (layout defined by the standards)
+      scripts/         Scripts for this package
+      docs/            Documentation for this package
+  scripts/           Repository-wide common scripts ([verb]-****.sh)
+  workloads/         Execution environment · infrastructure configuration
+    docker/            Container configuration (Compose · image definitions)
+    <iac>/             IaC, organized by environment
+  databases/         Schemas · migrations (one subdirectory per database)
+  docs/              Documentation
+    progress-reports/  Progress reports
+      01_dev1/
+      02_dev2/
+      ...
+    research-reports/  Research reports
+    ...
+  outputs/           Runtime output (normally .gitignore'd)
+```
 
-The repository README includes a section that maps the top-level directories to their purpose. The level of detail should be "enough to find a file you do not know the path of." For a monorepo, document both the workspace root and the significant top-level packages.
+How to arrange the inside of `<package>/src/` is defined per language by [Coding Standards (TypeScript)](coding-standards.md) and [Golang Coding Standards](golang-coding-standards.md). This policy covers the repository-wide layout up to that point — keeping the same role in the same named place across projects.
 
-### Keep the tree flat enough to navigate in two levels
+### Use pronounceable names
 
-Prefer a two-level structure (module/feature) to a deeply nested hierarchy. Deep nesting (five or more levels to reach a source file) increases the cognitive load of navigation and tends to indicate over-modularization. If a module has grown large enough to warrant internal structure, document that structure in a README within the module directory.
+Directory and file names are chosen from words that can be spoken aloud. Names like `packages`, `scripts`, `workloads`, `databases` can be used as-is in conversation and in instructions to an AI, pointing to the same place without decoding. Abbreviations that require decoding, vowel-dropped shortenings, and context-dependent acronyms are avoided. The words used follow the domain vocabulary principle from [Codifying Domain Terminology](../../planning/policies/terminology.md) — one role, one name, with no second names accruing to the same role. Numeric prefixes (`01_`, `02_`) are used as ordinals added to a pronounceable word, not as replacements for the word itself.
 
-### Related: Coding Standards and Conventions, Domain Layer Separation, Command Scripts for Development Tasks
+### Related: Coding Standards, Command Scripts for Development Tasks, Schema-First Database Design, Codifying Domain Terminology
 
-Directory layout is the physical expression of module boundaries — see [Domain Layer Separation](domain-layer-separation.md). File naming and path conventions are part of [Coding Standards and Conventions](coding-standards.md). The commands that operate on the directory structure are in [Command Scripts for Development Tasks](command-scripts.md).
+How to arrange the inside of packages is defined per language by [Coding Standards (TypeScript)](coding-standards.md) and [Golang Coding Standards](golang-coding-standards.md). What goes inside the `scripts/` slot is in [Command Scripts for Development Tasks](command-scripts.md). How schemas in `databases/` are handled is in [Schema-First Database Design](persistence.md). The naming approach follows the pronounceability and domain vocabulary principles in [Codifying Domain Terminology](../../planning/policies/terminology.md). This policy supports those by establishing the repository-level layout where their contents land.

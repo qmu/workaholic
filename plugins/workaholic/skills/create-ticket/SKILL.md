@@ -3,6 +3,7 @@ name: create-ticket
 description: Use when the user runs `/ticket <description>` or asks to "write a ticket", "spec out a feature", or "draft an implementation plan". Discovers historical context, source code, and standards for the request, then writes an implementation ticket to `.workaholic/tickets/todo/` with frontmatter, key files, related history, implementation steps, and considerations.
 skills:
   - gather
+  - workaholic:planning
   - workaholic:design
   - workaholic:implementation
   - workaholic:operation
@@ -127,13 +128,13 @@ Example: `20260114153042-add-dark-mode.md`
 
 The `/ticket` command (main agent) drives this Workflow directly. Skills cannot invoke subagents or AskUserQuestion directly; the steps below describe what the loading agent (the command) must do. The command issues every AskUserQuestion (moderation decisions, clarifications) and spawns every discovery subagent itself — no `ticket-organizer` subagent sits in between.
 
-### 0. Load the Policy Lens (first, when the standards plugin is installed)
+### 0. Load the Policy Lens (first)
 
-Before scoping the request or writing any ticket content, load the project's engineering policies as your judging lens. When the `standards` plugin is installed, the `/ticket` command has already preloaded `workaholic:design`, `workaholic:implementation`, and `workaholic:operation`, so the three index `SKILL.md` files are in context. Read those indexes, then open the specific policy hard copies they link (`policies/<slug>.md`) for the layer(s) the request touches — use the **Policy Lens** table below to pick which skill(s) apply.
+Before scoping the request or writing any ticket content, load the project's engineering policies as your judging lens: `workaholic:planning`, `workaholic:design`, `workaholic:implementation`, and `workaholic:operation`. On Claude Code these arrive automatically (this skill preloads them via its `skills:` frontmatter and the `/ticket` command's `policy-lens.sh` hook injects the reminder); on other agents, open each index skill yourself. Read those indexes, then open the specific policy hard copies they link (`policies/<slug>.md`) for the layer(s) the request touches — use the **Policy Lens** table below to pick which skill(s) apply.
 
-These policies are the lens you judge the work against. Every proposal you put in the ticket — its **design** (interaction and behavior), its **implementation** (code structure and correctness), and its **operation** (delivery, runtime, and recovery) — must be defensible against the relevant policy's Goal (目標), Responsibility (責務), and Practices (実践). Carry the applicable policies forward into Implementation Steps, Considerations, and Patches.
+These policies are the lens you judge the work against. Every proposal you put in the ticket — its **planning** (business/market/legal grounding), its **design** (interaction and behavior), its **implementation** (code structure and correctness), and its **operation** (delivery, runtime, and recovery) — must be defensible against the relevant policy's Goal (目標), Responsibility (責務), and Practices (実践). `implementation/directory-structure` and `implementation/coding-standards` always apply to code work, especially when scaffolding a new project. Carry the applicable policies forward into Implementation Steps, Considerations, and Patches.
 
-If the `standards` plugin is not installed (the `standards:*` indexes are not in context), skip this step and proceed; the rest of the workflow does not depend on it.
+If a policy index is somehow not in context, load it with the Skill tool and proceed; the rest of the workflow does not depend on the hook having fired.
 
 ### 1. Check Branch
 
@@ -348,7 +349,7 @@ These fields are updated by the `drive` skill (Update Frontmatter section) durin
 
 ## Policy Lens
 
-Each ticket should respect the relevant policies in the `standards:*` policy skills based on its `layer` field. Map layer to skill:
+Each ticket should respect the relevant policies in the `workaholic` policy skills based on its `layer` field. Map layer to skill:
 
 | Layer | Policy skill | Lens |
 | ----- | ------------ | ---- |
@@ -358,7 +359,9 @@ Each ticket should respect the relevant policies in the `standards:*` policy ski
 | DB | `workaholic:implementation` | Relational-first persistence, domain–persistence segregation |
 | Config | (whichever skill governs the affected behavior) | Apply the skill whose policies the config touches |
 
-When writing Implementation Steps, Considerations, and Patches, ensure they respect the policies and practices of every applicable skill. The `/ticket` command preloads the `workaholic:design`, `workaholic:implementation`, and `workaholic:operation` indexes (this skill carries them in its `skills:` frontmatter) and applies them automatically; this section documents the mapping for human readers and future agents.
+Two implementation policies apply across **every** layer when a ticket touches code — `implementation/directory-structure` (conventional project layout) and `implementation/coding-standards` (TypeScript/style conventions) — and matter most when a ticket initiates a new project or a new top-level area. When a ticket initiates new work at all (a new feature or project), also apply `workaholic:planning` (企画 — business, market, and legal grounding) before the design/implementation pillars.
+
+When writing Implementation Steps, Considerations, and Patches, ensure they respect the policies and practices of every applicable skill. The four policy indexes (`workaholic:planning`, `workaholic:design`, `workaholic:implementation`, `workaholic:operation`) are the lens — on Claude Code they are preloaded and the `policy-lens.sh` hook injects the reminder on every `/ticket` run; this section documents the layer→pillar mapping for human readers and future agents.
 
 ## Exploring the Codebase
 

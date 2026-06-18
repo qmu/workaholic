@@ -9,13 +9,15 @@ skills:
 
 # Ticket
 
+<!-- workaholic:policy-lens — opts this command into the always-on engineering-policy lens injected by hooks/policy-lens.sh (UserPromptSubmit). Keep this marker. -->
+
 **Notice:** When user input contains `/ticket` - whether "create /ticket", "write /ticket", "add /ticket for X", or similar - they likely want this command.
 
 **Plugin boundary — do not spelunk:** The skills this command needs are already loaded via its `skills:` frontmatter and resolved through `${CLAUDE_PLUGIN_ROOT}`. Invoke them by their loaded namespace (`workaholic:`); never search the filesystem for skill content, never read or run anything under `~/.claude/plugins/marketplaces/` or any other global install, and never guess a namespace — `drivin`, `trippin`, `core`, `standards`, and `work` are obsolete names long since merged into the single `workaholic` plugin. If a skill you expect is missing, ask the user which plugins are loaded; do not hunt for it on disk.
 
 **CRITICAL:** NEVER implement code changes when this command is invoked - only create tickets. The actual implementation happens later via `/drive`.
 
-**Policy Lens**: When the `standards` plugin is installed, this command preloads the `workaholic:design`, `workaholic:implementation`, and `workaholic:operation` indexes (the 設計 / 実装 / 運用 policy skills). **Load and read them first** — before scoping the request or writing ticket content — and use them to judge the change's design, implementation, behavior, and operation, mapped to the ticket's `layer` field. The `workaholic:create-ticket` skill's Workflow Step 0 and Policy Lens table document the mapping. If the standards plugin is not connected, skip the lens and proceed.
+**Policy Lens**: The `hooks/policy-lens.sh` UserPromptSubmit hook injects the engineering-policy lens automatically on every `/ticket` run — load and apply `workaholic:planning`, `workaholic:design`, `workaholic:implementation`, and `workaholic:operation` (the 企画 / 設計 / 実装 / 運用 policy skills) before scoping the request or writing ticket content, mapping the change to the ticket's `layer` field. The `workaholic:create-ticket` skill's Workflow Step 0 and Policy Lens table document the layer→pillar mapping; `implementation/directory-structure` and `implementation/coding-standards` always apply to code work.
 
 This command (main agent) runs the `workaholic:create-ticket` **Workflow** directly: it spawns the three discovery subagents as `general-purpose` Task calls and issues every AskUserQuestion itself — there is no `ticket-organizer` subagent.
 

@@ -7,6 +7,7 @@ skills:
   - workaholic:trip-protocol
   - workaholic:branching
   - workaholic:gather
+  - workaholic:planning
   - workaholic:design
   - workaholic:implementation
   - workaholic:operation
@@ -29,11 +30,11 @@ This skill works on any Agent-Skills-compatible agent. The two Claude-Code mecha
 
 Context-aware report orchestration. Auto-detects whether the caller is in a drive or trip workflow and routes accordingly.
 
-### Policy Lens (read first, when the standards plugin is installed)
+### Policy Lens (read first)
 
-Before assessing the branch, load the project's engineering policies as your judging lens. When the `standards` plugin is installed, the `/report` command has already preloaded `workaholic:design`, `workaholic:implementation`, and `workaholic:operation`, so the three index `SKILL.md` files are in context. Read those indexes, and open the specific policy hard copies they link (`policies/<slug>.md`) when a concern or change maps to one.
+Before assessing the branch, load the project's engineering policies as your judging lens: `workaholic:planning`, `workaholic:design`, `workaholic:implementation`, and `workaholic:operation`. On Claude Code these arrive automatically (this skill preloads them via its `skills:` frontmatter and the `/report` command's `policy-lens.sh` hook injects the reminder); on other agents, open each index skill yourself. Read those indexes, and open the specific policy hard copies they link (`policies/<slug>.md`) when a concern or change maps to one.
 
-These policies are the lens for the report's judgments: when judging carry-over concerns, reviewing the story sections, and assessing release readiness, evaluate the branch's **design** (interaction and behavior), **implementation** (code structure and correctness), and **operation** (delivery, runtime, and recovery) against the relevant policy's Goal (目標), Responsibility (責務), and Practices (実践). Cite the specific policy when a concern or readiness verdict rests on one. If the `standards` plugin is not installed, skip this and proceed.
+These policies are the lens for the report's judgments: when judging carry-over concerns, reviewing the story sections, and assessing release readiness, evaluate the branch's **planning** (business/market/legal grounding), **design** (interaction and behavior), **implementation** (code structure and correctness — `directory-structure` and `coding-standards` always apply to code work), and **operation** (delivery, runtime, and recovery) against the relevant policy's Goal (目標), Responsibility (責務), and Practices (実践). Cite the specific policy when a concern or readiness verdict rests on one.
 
 ### Step 0: Workspace Guard
 

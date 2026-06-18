@@ -119,4 +119,4 @@ Immediately after deploying to production via CD, observe the error rate, latenc
 
 ### Related: CI/CD, portability, testing (関連: CI/CD・移植性・テスト)
 
-Rollback automation works in concert with the rollback policy of CI/CD automation. For the portability of the observability foundation, see passive vendor dependence. Prior verification is testing; posterior verification is the observation means in this article — be conscious of the division of roles between the two.
+Rollback automation works in concert with the rollback policy of CI/CD automation. For the portability of the observability foundation, see passive vendor dependence. Prior verification is testing; posterior verification is the observation means in this article — be conscious of the division of roles between the two. Log outputs and access patterns are also inputs for the layered security measures described in [Security Considered in Layers](../../design/policies/defense-in-depth.md).

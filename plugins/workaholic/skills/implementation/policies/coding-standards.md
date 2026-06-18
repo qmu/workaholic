@@ -1,49 +1,83 @@
 ---
-title: Coding Standards and Conventions
+title: Coding Standards (TypeScript)
 slug: coding-standards
 category: implementation
 source: https://qmu.co.jp/implementation/coding-standards
 ---
 
-# Coding Standards and Conventions
+# Coding Standards (TypeScript)
 
-_Define formatting, naming, and style conventions once and enforce them automatically, so code review focuses on logic rather than style._
+_Defaulting to language features where type checking and declarative guarantees apply, and avoiding features where those guarantees fall away, so the compiler can detect as much as possible in AI-produced code._
 
-A codebase without consistent conventions accumulates two costs: the cognitive overhead of context-switching between styles within the same file, and the review noise of style discussions in PRs. Both are avoidable. Formatters and linters enforce conventions automatically, reducing the human cost to the initial choice of tool and configuration. With generative AI as a default author, consistent conventions also constrain the AI's output style, reducing the range of cosmetic variation that requires post-generation cleanup.
+TypeScript offers multiple language features for writing the same behavior, and which to reach for by default determines how much the compiler can detect. The policy defaults to features where type checking and declarative guarantees apply, and steps back from features where those guarantees fall away in this context. With generative AI as the default author, the compiler is the most accurate and least expensive feedback path an agent can take. Which language features to default to determines how much the compiler can detect in the AI-produced code at scale, so the feature choices are made explicit. The Go counterpart is [Golang Coding Standards](golang-coding-standards.md), with each policy collecting the language-specific differences.
 
 ## Goal (目標)
 
-The situation this policy aims to achieve is one in which the formatting and naming of any file in the codebase can be predicted from the conventions, rather than inferred from the surrounding context.
-
-- A formatter runs on save and on CI, producing identical output regardless of who wrote the code.
-- Naming conventions (for files, exports, types, constants, database columns) are documented and checked where tooling supports it.
-- Code review comments on style are not needed — the formatter settled style questions before the PR was opened.
+The situation this policy aims to achieve is one where language feature choices maximize the range of what the compiler can detect across the entire codebase. Features where type checking and declarative guarantees apply are used consistently as defaults, so mismatched values, missing cases, and incomplete branching are gathered at compile time before the code runs.
 
 ## Responsibility (責務)
 
-The situation this policy aims to prevent is one in which formatting and naming conventions are unenforced, so each contributor brings their own habits and PRs accumulate style noise.
+The situation this policy aims to prevent is one where the guarantees of types and declarativeness silently fall away through `any`, `as`, non-null assertions, `@ts-ignore`, or `==`. Each is locally convenient, but values passing through them bypass compiler checking and push inconsistencies into tests, reviews, and operations.
 
-States we do not tolerate:
-
-- A formatter configured but not run in CI, leaving the enforcement optional.
-- Naming conventions that differ between the frontend and backend of the same codebase without reason.
-- Configuration files (`eslint.config.*`, `.prettierrc`, `golangci-lint.yml`) that have diverged from each other, creating conflicting rules.
-- Style discussions in PR comments on code that a formatter would have resolved.
+With generative AI as the default author, AI-produced code that scatters `any` and type assertions, letting static-analysis gaps accumulate in the domain layer, is a recurring failure mode. Each assertion is small, but when stacked across many files without awareness, the range the compiler could have detected is broadly lost.
 
 ## Practices (実践)
 
-### Use a formatter as the authority on whitespace and syntax style
+### Principal avoidance (avoid in this context as a rule)
 
-For TypeScript/JavaScript: Prettier with a committed `.prettierrc`. For Go: `gofmt` and `goimports`. For other languages, adopt the ecosystem's standard formatter. The formatter is run on pre-commit (via a hook or `lint-staged`) and verified in CI. The formatter's output is not overridden by eslint or lint rules; formatting and linting are separate concerns.
+These features make it easy for type and declarativeness guarantees to fall away. The default in this context is to avoid them; when used, the reason is documented.
 
-### Run linters in CI with all rules enabled
+- `any` — Disables type checking at that point. Receive at boundaries with `unknown` and pass through a validation function. See [Preferring Rich Typing](type-driven-design.md) for the reasoning.
+- `as` (type assertions) — Overrides compiler inference and conceals errors under a declaration. Replace with `satisfies` or validation functions.
+- Non-null assertions (`hoge!`) — Causes the compiler to ignore the possibility of `null` or `undefined`. Express absence with `Option` types or branching.
+- `@ts-ignore` — Suppresses an error and leaves the cause in place. Consider fixing the type first.
+- `null` — Splitting absence representation across `null` and `undefined` increases the chance of missing a case. Keep absence on `undefined` or an `Option` type.
+- `==` / `!=` — Introduces implicit type coercion. Use `===` / `!==`. See [Preferring Declarative Code](functional-programming.md) for the reasoning.
+- `class` — Tends to bring in mutable internal state and inheritance, moving away from the default of pure functions and immutable data. Express data as `type`, behavior as functions.
+- `enum` — The runtime-value-to-type correspondence is its own system; literal unions and `as const` express the same thing more directly.
+- `switch` — Prone to fall-through and missed exhaustiveness; does not compose well with exhaustiveness checks on discriminated unions. Keep branching on discriminated unions with `never`-based exhaustiveness checks.
+- `namespace` — Duplicates the module system's partitioning; keep to ESM module boundaries.
+- `var` — Function scope and hoisting widen the reference range. Default to `const`.
+- `this` — Binding changes with call context, making behavior hard to read from the signature. Pass values as arguments.
 
-Linters (ESLint, golangci-lint, equivalent) are configured with the project's rule set and run in CI. Rules are not disabled without a comment explaining why and whether the suppression is temporary. The linter configuration file is committed; linter suppressions in source files are tracked.
+### Use with care (only when the situation clearly calls for it)
 
-### Document naming conventions where tooling cannot enforce them
+These features are not the default within the declarative range, but can be the natural choice in certain situations. Use only when there is a clear reason, and do so carefully.
 
-Conventions that tooling cannot yet enforce — database column naming style, file naming patterns, naming conventions for derived types — are documented in a `CONTRIBUTING.md` or an ADR. When a pattern recurs, consider adding a lint rule.
+- `let` — Mutable local variables are limited to loops, accumulators, and optimizations; not used as a general escape hatch. Default is `const`.
+- `for` — Most loops read linearly as `map`, `filter`, or `reduce`. Use only where early exit or index manipulation is the natural choice.
+- `if` — When branching returns a value, a ternary is more readable as an expression. Use `if` only where branching side effects as a statement.
+- Block scope and early `return` — Imperative control flow is limited to cases where it improves readability, such as guard clauses.
+- `throw` — The default is to return failures as `Result` types; exceptions are reserved for signalling program invariants or final catches at framework boundaries. See [Preferring Rich Typing](type-driven-design.md) for the reasoning.
+- `is` (type predicates) — Used to narrow values that have passed through validation. An `is` without real validation behind it is the same as `as` — claiming a guarantee that is not there.
+- `interface` — Limited to situations requiring declaration merging or inheritance; the default is `type`.
+- `function` declarations — Limited to situations that use hoisting; the default is arrow functions.
 
-### Related: Preferring Declarative Code, Preferring Rich Typing, Directory Structure Conventions
+### Recommended
 
-Coding standards interact with the language-level conventions of [Preferring Declarative Code](functional-programming.md) and [Preferring Rich Typing](type-driven-design.md). The file and directory layout conventions are in [Directory Structure Conventions](directory-structure.md).
+These features delegate the most to type and declarativeness guarantees. Use them consistently as defaults.
+
+- `unknown` — Use as the receiving point for values coming from outside, and pass through a validation function before flowing inward. Use instead of `any`.
+- Ternary expressions — Write value-returning branches as expressions, letting the compiler align the return type across branches.
+- `Readonly` / `ReadonlyArray` by default — Treat data as immutable; represent changes as creation of a new value.
+- Arrow functions — No `this` binding, composable as values.
+- `type` — The default for declaring data structures; expresses unions, intersections, and nominal types in a consistent vocabulary.
+- `===` / `!==` — Use comparisons that do not introduce implicit type coercion.
+- `as const` — Fix literals as narrow types, preserving the correspondence between value and type.
+- `satisfies` — Check that a value satisfies the target type while preserving the inferred concrete type. Does not override inference the way `as` does.
+
+Usage of the recommended and use-with-care tiers follows the patterns in plgg — the reference implementation for rich typing in this context — specifically its use of `unknown` boundaries, `as const`, `satisfies`, nominal types, and `Readonly`.
+
+### Package internal directory layout
+
+The default for TypeScript package contents is to divide the inside of `src/` by role. While [Standard Directory Structure](directory-structure.md) covers the repository-wide layout up to `packages/<package>/`, this section covers how to arrange `<package>/src/` from the TypeScript side:
+
+- `src/domain/` — Domain layer. Pure computations written in the standard language vocabulary. The range that does not bring in entry-point-specific or vendor-specific types.
+- `src/entrypoints/` — Entry points. The thin shell connecting the outside world to the domain layer — HTTP routers, CLIs, queue workers.
+- `src/vendors/` — Vendor boundary (anti-corruption layer). Translations that convert external service or SDK types into the types the domain layer handles.
+
+This three-part division follows [Domain Layer Separation](domain-layer-separation.md), using physical placement to keep dependency directions closed toward the domain layer. Where to place tests, package-specific scripts, and documentation follows the package-level layout in [Standard Directory Structure](directory-structure.md).
+
+### Related: Preferring Rich Typing, Preferring Declarative Code, Standard Directory Structure
+
+The reasoning behind avoiding `any`, `as`, non-null assertions, and `@ts-ignore`, and the approach of rich typing with `unknown` boundaries, `as const`, `satisfies`, and nominal types, is in [Preferring Rich Typing](type-driven-design.md). The reasoning behind avoiding `class`, `throw`, and `==` and defaulting to immutable data, return-type failure expression, and declarative comparison is in [Preferring Declarative Code](functional-programming.md). This policy sets out these principles as concrete TypeScript feature choices, showing which defaults to reach for.

@@ -117,4 +117,4 @@ The inspections that run on CI take on the verification points of multiple polic
 
 - Test execution is linked with Testing (integration tests that use real components also run here).
 
-- Automated accessibility verification (Axe, Lighthouse) is the path that defends WCAG 2.2 AA from Accessibility First in CI.
+- Automated accessibility verification (Axe, Lighthouse) is the path that defends WCAG 2.2 AA from [Accessibility Open to AI](../../planning/policies/accessibility-first.md) in CI.

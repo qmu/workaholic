@@ -46,7 +46,7 @@ Domain computation is written starting from the language's own standard features
 - TypeScript: Build it primarily around `Readonly`, `ReadonlyArray`, discriminated unions, and a `Result` type (defined yourself).
 - Go: Return a new value as the return value, make errors explicit with the two-value `(T, error)` return, and expose domain types at the `package` boundary.
 
-### Do not deny clean architecture or DI containers
+### Keep the domain layer pure rather than adding abstract layers
 
 We do not deny the classifications of onion, hexagonal, or clean architecture, nor DI containers. We leave open the possibility of choosing them depending on the situation. However, we do not make increasing abstraction layers an end in itself; first and foremost, we prioritize keeping the domain layer in a state where it "can be written purely."
 

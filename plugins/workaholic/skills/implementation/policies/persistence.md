@@ -53,6 +53,16 @@ In order to make the fundamental structure of the data explicit, and to update i
 
 We make transaction boundaries coincide with the boundaries of the aggregate that protects the business invariants. A design that updates multiple aggregates in a single SQL query tends, over the long term, to become a breeding ground for lock contention and consistency incidents.
 
+### Place referential integrity in the schema with foreign key constraints (外部キー制約でスキーマに参照整合性を置く)
+
+Foreign key constraints express referential relationships between tables as an enforceable database feature, rather than trusting application code to maintain them. We prefer to place referential integrity at the schema level.
+
+- Declare FOREIGN KEY constraints on all relationships between tables where referential integrity is a domain invariant.
+- Use ON DELETE RESTRICT (or equivalent) as the default unless a specific cascading behavior is required; failing loudly on an orphaned-reference attempt is safer than silently propagating a deletion.
+- Where the database engine or ORM does not enforce FK constraints by default, enable them explicitly (SQLite requires `PRAGMA foreign_keys = ON`; some ORM configurations disable constraint checking at the application layer).
+
+This practice aligns with the stance in "Make use of established schema and migration methods" above: schema-side constraints are enforceable declarations, not comments.
+
 ### Prepare event sourcing as an option (イベントソーシングは選択肢として準備する)
 
 Event sourcing is a persistence method that records the state transitions themselves, rather than the latest snapshot of state. We do not adopt it immediately, but we keep ourselves prepared — with persistence kept separated — so that we can adopt it when the following conditions appear.
@@ -64,3 +74,7 @@ Event sourcing is a persistence method that records the state transitions themse
 - There is a need to reconstruct the state at a past point in time (time-series reasoning, replay).
 
 We do not build a distributed event store in advance. The decision to adopt it is made at the point when the conditions become manifest.
+
+### Related: Conservative Vendor Dependence (関連: 消極的ベンダー依存)
+
+The choice of relational database vendor and migration framework affects how constraints and migrations are expressed. See [Conservative Vendor Dependence](vendor-neutrality.md) for the stance on managing those dependency choices.

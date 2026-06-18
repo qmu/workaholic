@@ -4,7 +4,8 @@ author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure]
 effort: 2h
-category:
+commit_hash: 2f1ba2d
+category: Added
 depends_on:
 ---
 

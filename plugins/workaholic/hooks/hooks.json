@@ -1,5 +1,5 @@
 {
-  "description": "Ticket format and location validation",
+  "description": "Ticket format/location validation (PostToolUse safeguard) and the always-on engineering-policy lens for workflow commands (UserPromptSubmit, non-blocking)",
   "hooks": {
     "PostToolUse": [
       {
@@ -8,6 +8,17 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/validate-ticket.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/policy-lens.sh",
             "timeout": 10
           }
         ]

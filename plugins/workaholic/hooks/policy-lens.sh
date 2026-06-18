@@ -1,6 +1,6 @@
 #!/bin/bash
 # UserPromptSubmit hook: the always-on engineering-policy LENS for the Workaholic
-# workflow commands (/ticket, /report, /ship).
+# workflow commands (/ticket, /report, /ship, /trip).
 #
 # This is a *referring* mechanism, not a safeguard: it injects a short context
 # block pointing the agent at the project's policy skills and never blocks or
@@ -9,7 +9,7 @@
 #
 # Trigger: UserPromptSubmit fires AFTER slash-command expansion, so the payload's
 # .prompt carries the *expanded command body*, not the literal "/ticket" the user
-# typed. The three workflow commands therefore opt in by carrying the stable
+# typed. The four workflow commands therefore opt in by carrying the stable
 # sentinel `workaholic:policy-lens` in their markdown; we match on that marker
 # (deterministic, scoped to exactly the tagged commands) rather than on slash
 # tokens (which every command body cross-references and would over-trigger).
@@ -28,7 +28,7 @@ case "$prompt" in
   *) exit 0 ;;
 esac
 
-context='[Workaholic engineering-policy lens] You are running a Workaholic workflow command (ticket / report / ship). Apply the project'"'"'s engineering policies as your judging lens before you scope, judge, or ship.
+context='[Workaholic engineering-policy lens] You are running a Workaholic workflow command (ticket / report / ship / trip). Apply the project'"'"'s engineering policies as your judging lens before you scope, judge, or ship.
 
 Load and apply the relevant policy index skills — workaholic:planning, workaholic:design, workaholic:implementation, workaholic:operation — which index the canonical qmu.co.jp policies (English hard copies under each skill'"'"'s policies/ directory). Apply the ones the change touches.
 

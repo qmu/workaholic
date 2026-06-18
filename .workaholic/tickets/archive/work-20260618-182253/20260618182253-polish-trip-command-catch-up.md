@@ -3,9 +3,9 @@ created_at: 2026-06-18T18:22:53+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config, Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: b57fe05
+category: Changed
 depends_on:
 ---
 
@@ -149,3 +149,14 @@ Past tickets that touched these areas:
 - **No `outputs/` rebuild** — `/trip` is deliberately excluded from the `outputs/` cross-agent build (Agent Teams, Claude-only), so none of these edits should change `outputs/`; confirm `git status outputs/` stays clean after `build.mjs`. No version bump is implied by this change.
 - **Thin command / comprehensive skill** — keep `commands/trip.md` orchestration-only; the Policy Lens addition is a short pointer, and the substantive lens knowledge stays in the policy skills `trip-protocol` already preloads.
 - **Sentinel-based matching** — the functional opt-in is the `workaholic:policy-lens` marker in `commands/trip.md`; the `policy-lens.sh` enumeration edits are documentation accuracy only, so the two must land together to avoid a command that claims the lens in prose but isn't matched (`plugins/workaholic/hooks/policy-lens.sh`).
+
+## Final Report
+
+Development completed as planned. All three drift items reconciled; the verified-not-drifted items (no `todo/` references, Agent Teams members consistent) required no change, as the ticket predicted.
+
+### Discovered Insights
+
+- **Insight**: The policy-lens opt-in is purely the `workaholic:policy-lens` string anywhere in the expanded command body — adding the marker to `commands/trip.md` is what actually makes the hook fire for `/trip`; the `policy-lens.sh` enumeration is documentation only. Verified by feeding the hook a payload containing the sentinel (it injects context mentioning "trip") versus one without (silent no-op).
+  **Context**: Future commands opt into the lens by carrying the marker, not by editing the hook. The two must still land together so the prose enumeration stays honest, but only the marker is load-bearing.
+- **Insight**: `/trip` edits genuinely leave `outputs/` untouched — `build.mjs` excludes the trip surface (Agent Teams, Claude-only), so `git status outputs/` stayed clean after a full rebuild even though three plugin files changed.
+  **Context**: Confirms the source-vs-artifact split: trip-only documentation fixes never trip the Outputs Freshness CI, unlike the sibling report-skill ticket which required a regenerate-and-commit.

@@ -30,20 +30,20 @@ Coding: Concurrent launch, review and testing, iteration, done (or rollback to p
 
 ## Shell Scripts
 
-All scripts use absolute paths from home directory.
+All script paths use the same-plugin `${CLAUDE_PLUGIN_ROOT}/skills/<name>/scripts/` form (see Script base paths below).
 
 | Script | Location | Usage |
 | ------ | -------- | ----- |
-| `ensure-worktree.sh <trip-name>` | core | Create isolated worktree and branch |
-| `cleanup-worktree.sh <trip-name>` | core | Remove worktree and branch after PR merge |
-| `list-worktrees.sh` | core | List existing worktrees with PR status (JSON) |
-| `init-trip.sh <trip-name> [instruction]` | work | Create artifact directories and plan.md |
-| `validate-dev-env.sh <worktree_path>` | work | Check env files, dependencies, ports |
-| `read-plan.sh <trip-path>` | work | Read plan state as JSON |
-| `trip-commit.sh <agent> <phase> <step> <description>` | work | Commit with `[Agent] description` format |
-| `log-event.sh <trip-path> <agent> <event-type> <target> <impact>` | work | Append to event-log.md |
-| `find-gitignored-files.sh <worktree-path>` | work | Discover gitignored files in a worktree that differ from main (JSON) |
-| `sync-gitignored-files.sh <worktree-path> <main-repo-root> <files-json>` | work | Copy selected gitignored files from worktree to main repo root |
+| `ensure-worktree.sh <trip-name>` | branching | Create isolated worktree and branch |
+| `cleanup-worktree.sh <trip-name>` | branching | Remove worktree and branch after PR merge |
+| `list-worktrees.sh` | branching | List existing worktrees with PR status (JSON) |
+| `init-trip.sh <trip-name> [instruction]` | trip-protocol | Create artifact directories and plan.md |
+| `validate-dev-env.sh <worktree_path>` | trip-protocol | Check env files, dependencies, ports |
+| `read-plan.sh <trip-path>` | trip-protocol | Read plan state as JSON |
+| `trip-commit.sh <agent> <phase> <step> <description>` | trip-protocol | Commit with `[Agent] description` format |
+| `log-event.sh <trip-path> <agent> <event-type> <target> <impact>` | trip-protocol | Append to event-log.md |
+| `find-gitignored-files.sh <worktree-path>` | trip-protocol | Discover gitignored files in a worktree that differ from main (JSON) |
+| `sync-gitignored-files.sh <worktree-path> <main-repo-root> <files-json>` | trip-protocol | Copy selected gitignored files from worktree to main repo root |
 
 Script base paths:
 - **branching scripts**: `${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/`
@@ -202,7 +202,7 @@ The trip protocol soft-depends on the project's engineering policy indexes. Call
 
 ## Trip Command Procedure
 
-Procedural body for `/trip` (executed from the work-side command via this preloaded skill). All script paths use same-plugin form because they resolve from this skill's owning plugin (core).
+Procedural body for `/trip` (executed from the work-side command via this preloaded skill). All script paths use same-plugin form because they resolve from this skill's owning plugin (workaholic).
 
 ### Pre-check: Dependencies
 
@@ -313,7 +313,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/sync-gitignored-files.sh
 ### Trip Ship flow
 
 1. **Sync gitignored files** (above) from `.worktrees/<branch>/` to the main repo root.
-2. **Run the ship essence**: follow `workaholic:ship`'s **Ship Flow** (pre-check → merge → extract carry-overs → deploy → verify) for the worktree's branch/PR.
+2. **Run the ship essence**: follow `workaholic:ship`'s **Ship Flow** for the worktree's branch/PR. The merge is the **LAST** step, gated on a passing pre-merge production confirmation: pre-check → catch up with `main` → deploy (gated on a `.workaholic/deployments/` confirmation method or `CLAUDE.md` `## Verify`; halt-and-ask if none) → execute the confirmation and record evidence → **merge LAST** → publish release / extract carry-overs. A failed confirmation leaves the PR unmerged (that is the rollback).
 3. **Clean up worktree**: `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-worktree.sh "<branch>"`; report what was cleaned up.
 4. **Summarize**: include gitignored sync status and worktree cleanup status alongside the ship essence's summary.
 

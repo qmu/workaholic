@@ -596,8 +596,30 @@ Analyze a branch to determine if it's ready for release.
    - Type errors (if type checking exists)
    - Missing files referenced in code
 
-3. **Identify actionable items** (not theoretical concerns):
-   - Documentation that needs updating
+3. **Assess documentation drift**: run
+
+   ```bash
+   bash report/scripts/doc-drift.sh "<base_branch>"
+   ```
+
+   passing the resolved `base_branch` from `git-context.sh`. It returns drift
+   **facts** (not verdicts): which structural files changed presence — skills,
+   commands, agents, hooks added/removed/renamed, plus top-level `scripts/` —
+   and whether the index/meta docs that enumerate them (`CLAUDE.md`, `README.md`,
+   `docs/` when present) were touched in the same range. For each `candidate`,
+   **judge** against the diff and the doc's actual content whether that meta/doc
+   file (`CLAUDE.md`, `README.md`, an affected `SKILL.md`, or `docs/`) genuinely
+   should have been updated and was not — exactly like the carry-over judge. A
+   candidate is a hint, not a verdict; dismiss it when the doc legitimately did
+   not need the change. Confirmed drift becomes (a) a release-readiness
+   `concerns[]` entry plus a `pre_release` instruction (the Section 8 ship gate),
+   and (b) a durable Section 6 Concern via `review-sections`, so it
+   carries over on `/ship` if not fixed first. **Exclude** `outputs/` staleness
+   and version/manifest drift — the Outputs Freshness CI and `validate-metadata.mjs`
+   own those domains; the script already omits them.
+
+4. **Identify actionable items** (not theoretical concerns):
+   - Documentation that needs updating (including confirmed doc drift from step 3)
    - Version numbers to bump
    - Files to stage/commit before release
 
@@ -607,6 +629,8 @@ Analyze a branch to determine if it's ready for release.
 - API changes in a plugin - plugins are configuration, not APIs
 - Internal refactoring - doesn't affect users
 - Theoretical upgrade concerns - users pull fresh versions
+- Doc drift the existing guards already own: `outputs/` staleness (Outputs Freshness CI) and version-number mismatches across manifests (`validate-metadata.mjs`)
+- A `doc-drift.sh` candidate that, on inspection, is not real: a plain content edit (the script flags only presence changes, but the judge still confirms), or a doc that legitimately did not need updating
 
 ### Release Readiness Output Format
 

@@ -1,7 +1,9 @@
 name: Outputs Freshness
 
-# Ensures the committed cross-agent artifacts under outputs/ stay in lockstep with the
-# authored source under plugins/. Regenerates outputs/ and fails if anything differs.
+# Ensures the committed generated artifacts stay in lockstep with the authored source
+# under plugins/. Regenerates everything `build.mjs` owns — outputs/ (cross-agent skills)
+# AND plugins/workaholic/hooks/policy-index.md (the always-loaded policy index) — and
+# fails if any committed artifact differs from a fresh rebuild.
 
 on:
   push:
@@ -39,12 +41,17 @@ jobs:
       - name: Verify generated skills are self-contained
         run: node scripts/build-plugins/verify.mjs
 
-      - name: Assert outputs/ matches committed output
+      - name: Assert generated artifacts match committed output
+        # Covers BOTH committed generated artifacts that build.mjs owns: outputs/ and
+        # the policy index under plugins/. The index lives outside outputs/, so it must
+        # be named explicitly here or a stale committed index would pass unnoticed
+        # (build.mjs already refreshed the on-disk copy, masking it from verify.mjs).
         run: |
-          if ! git diff --exit-code -- outputs/; then
+          if ! git diff --exit-code -- outputs/ plugins/workaholic/hooks/policy-index.md; then
             echo ""
-            echo "Error: committed outputs/ is out of sync with plugins/ source."
-            echo "Run 'node scripts/build-plugins/build.mjs' and commit the result."
+            echo "Error: a committed generated artifact is out of sync with plugins/ source."
+            echo "Run 'node scripts/build-plugins/build.mjs' and commit the result"
+            echo "(outputs/ and/or plugins/workaholic/hooks/policy-index.md)."
             exit 1
           fi
-          echo "outputs/ is in sync with source"
+          echo "Generated artifacts are in sync with source"

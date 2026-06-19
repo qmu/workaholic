@@ -28,6 +28,7 @@ import { readFileSync, writeFileSync, rmSync, mkdirSync, cpSync, existsSync, rea
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
+import { generatePolicyIndex, POLICY_INDEX_REL } from "./policy-index.mjs";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
 const CORE_SKILLS = join(REPO_ROOT, "plugins/workaholic/skills");
@@ -229,6 +230,10 @@ if (failed) process.exit(1);
 if (!argTargets.length) {
   assembleWorkflowsPlugin(DEFAULT_TARGETS);
   console.log(`assembled workflows plugin -> ${WORKFLOWS_PLUGIN.replace(REPO_ROOT + "/", "")} (skills: ${[...DEFAULT_TARGETS, ...EXTRA_SKILLS].join(", ")})`);
+  // Regenerate the always-loaded policy index (Claude-Code-only; committed under
+  // plugins/, read at runtime by hooks/policy-lens.sh). Not part of outputs/.
+  writeFileSync(join(REPO_ROOT, POLICY_INDEX_REL), generatePolicyIndex(REPO_ROOT));
+  console.log(`generated policy index -> ${POLICY_INDEX_REL}`);
   rmSync(SCRATCH, { recursive: true, force: true });
 } else {
   // partial dev build: leave scratch in place for inspection

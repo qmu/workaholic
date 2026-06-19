@@ -6,6 +6,7 @@
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { generatePolicyIndex, POLICY_INDEX_REL } from "./policy-index.mjs";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
 const OUTPUTS_ROOT = join(REPO_ROOT, "outputs");
@@ -69,6 +70,21 @@ for (const [target, skillRoot] of skillRoots) {
   scanScripts(skillRoot);
 
   console.log(`verified ${target}: ${refs} script references resolve`);
+}
+
+// Policy index freshness (working-tree check): the on-disk digest must match a
+// fresh regeneration from the four pillar `## Policies` sections. This catches a
+// pillar `## Policies` edit that forgot to rebuild when verify runs BEFORE build.
+// It does NOT guard committed bytes — in CI build.mjs runs first and refreshes the
+// file, so the authoritative stale-committed-index guard is the `git diff` over
+// plugins/workaholic/hooks/policy-index.md in .github/workflows/outputs-freshness.yml.
+const idxPath = join(REPO_ROOT, POLICY_INDEX_REL);
+if (!existsSync(idxPath)) {
+  check("policy-index", false, `${POLICY_INDEX_REL} missing — run build.mjs`);
+} else {
+  check("policy-index", read(idxPath) === generatePolicyIndex(REPO_ROOT),
+    `${POLICY_INDEX_REL} is stale — run 'node scripts/build-plugins/build.mjs'`);
+  console.log(`verified policy-index: ${POLICY_INDEX_REL} is in sync with the four pillar SKILL.md indexes`);
 }
 
 if (problems) { console.error(`\n${problems} unresolved reference(s)`); process.exit(1); }

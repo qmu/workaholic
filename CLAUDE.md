@@ -20,7 +20,7 @@ plugins/                 # Plugin source directory
     skills/              # workflow skills (branching, check-deps, commit, create-ticket, discover, drive, gather, report, review-sections, ship, system-safety, trip-protocol, validate-writer-output, write-release-note) + policy skills (design, implementation, operation, each linking English hard copies under its policies/ dir)
     commands/            # ticket, drive, trip, report, ship (Claude-only; ignored by other agents)
     agents/              # Agent Teams members only: planner, architect, constructor (launched by /trip)
-    hooks/               # ticket validation
+    hooks/               # ticket validation (validate-ticket.sh) + always-on policy lens (policy-lens.sh) + generated policy-index.md
     rules/               # diagrams, general, shell, typescript, workaholic
 scripts/                 # Repo tooling
   claude.sh              # Launcher
@@ -193,13 +193,20 @@ No build step required - this is a configuration/documentation project.
 Before pushing changes to workflow scripts or plugin manifests:
 
 ```bash
-node scripts/build-plugins/build.mjs              # regenerate outputs/ if you touched a core skill or build.mjs
-node scripts/build-plugins/verify.mjs             # assert generated skills are self-contained
+node scripts/build-plugins/build.mjs              # regenerate outputs/ AND hooks/policy-index.md if you touched a core skill, a pillar SKILL.md, or build.mjs
+node scripts/build-plugins/verify.mjs             # assert generated skills are self-contained AND the policy index is in sync
 node scripts/build-plugins/validate-metadata.mjs  # assert Codex manifests are well-formed and version-aligned
 node scripts/test-workflow-scripts.mjs            # hermetic smoke tests for branching + drive scripts
 ```
 
 The smoke tests create throwaway repositories under the OS temp dir, exercise the scripts there, assert on JSON output and filesystem state, and clean up. They never touch the working tree or call `gh`/network — safe to run anywhere.
+
+### Always-on policy lens
+
+`hooks/policy-lens.sh` is a non-blocking `UserPromptSubmit` hook that injects the engineering-policy lens for the workflow commands that carry the `<!-- workaholic:policy-lens -->` marker (`/ticket`, `/report`, `/ship`, `/trip`, `/drive`). The sentinel rides in the expanded command body, so the lens fires once per workflow invocation and stays in accumulated context. Two layers, by design:
+
+- **Refer for bodies**: the hook points at the four pillar policy skills (`workaholic:planning`/`design`/`implementation`/`operation`); the full Goal/Responsibility/Practices live in `skills/<pillar>/policies/<slug>.md` and are read **on demand** when a change touches that policy.
+- **Embed the index only**: the hook appends `hooks/policy-index.md` — a **generated** table of contents (per-policy heading + one-line summary across all four pillars), produced by `scripts/build-plugins/policy-index.mjs` from the four `SKILL.md` `## Policies` sections. This is the single bounded exception to "refer, never embed": headings are an index, not policy rules. The `## Policies` sections stay the single source of the heading list (kept fresh from qmu.co.jp by the `workaholic-standards-sync` controller). **Regenerate with `build.mjs` after editing any pillar's `## Policies` list.** Freshness is enforced in CI the same way `outputs/` is: the `Outputs Freshness` workflow rebuilds and fails on any diff to the committed `hooks/policy-index.md` (not by `verify.mjs`, which only flags a stale *working-tree* index when run before a build — after a build it is vacuously fresh).
 
 ## Version Management
 

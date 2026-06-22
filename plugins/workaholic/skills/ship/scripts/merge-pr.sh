@@ -12,7 +12,7 @@ if [ -z "$pr_number" ]; then
   exit 1
 fi
 
-if ! gh pr merge "$pr_number" --merge; then
+if ! gh pr merge "$pr_number" --merge --no-delete-branch; then
   echo '{"merged": false, "error": "merge failed"}' >&2
   exit 1
 fi

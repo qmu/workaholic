@@ -3,9 +3,9 @@ created_at: 2026-06-22T22:07:02+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: dfd2f70
+category: Added
 depends_on:
 ---
 
@@ -64,3 +64,16 @@ Night Trip closes those three by: auto-resolving the Step 1 choices with safe de
 - **Termination is guaranteed; wedging is the risk to design out.** The 3-round convergence cap + forced moderation already bounds Planning, and Coding iterates until approved — but an unattended run must not loop forever on a failing build or an impossible requirement. The safe-park rule (record blocker, stop at furthest safe state) is the backstop; make it explicit so a night trip always ends in either `complete/done` or a clearly-reported park, never a silent hang.
 - **No destructive git, no silent truncation.** Mirror Night Drive's safety: never `reset --hard`/`clean`/`restore .`; if the run is parked or partial, say so prominently in the report with the exact artifacts/locations, so "morning review" reflects reality rather than reading as a clean finish.
 - **No `outputs/` regeneration and no version bump implied.** Trip is excluded from the build; confirm `git status outputs/` stays clean. A patch bump happens at `/report`/release time as usual.
+
+## Final Report
+
+Development completed as planned. Both files changed (`commands/trip.md` night paragraph; `trip-protocol/SKILL.md` mode detection + Step 1/4/5 night overrides + a full `### Night Mode` subsection). `outputs/` stayed clean (trip is excluded from the build), confirming the Claude-only nature of the trip surface. The two flagged decisions were resolved as proposed: zero developer questions, and a new isolated worktree by default (never auto-resume).
+
+### Discovered Insights
+
+- **Insight**: Night Trip needed *no new decision machinery* — the trip protocol's Consensus Gate, 3-round Convergence Cap with forced moderation, and 2/3-majority rollback already make the team terminate without a human. Night mode is therefore almost entirely *subtractive*: remove the three developer stop points (Step 1 prompts, an unconstrained team-lead, ambiguity-asking) and add a safe-park backstop. The autonomy was latent; this just unlocked it.
+  **Context**: This is the structural difference from Night Drive — drive's night mode had to add a real autonomous loop over a ticket queue, whereas trip's night mode mostly suppresses prompts. Anyone extending it should resist adding new "night-only" decision logic; the protocol's existing convergence machinery is the decision-maker.
+- **Insight**: For `/trip` the `night` token lives *inside* the free-text instruction (`$ARGUMENT` is the request itself), unlike `/drive` where the argument is just a mode flag. So night detection must STRIP the token or the team would treat "night" as part of what to build. This stripping requirement is unique to trip and is the easiest thing to get wrong when mirroring Night Drive.
+  **Context**: The strip happens before `init-trip.sh` and before the team-lead instruction is composed; both consume the cleaned instruction.
+- **Insight**: The safe-park rule (record a "Night Park" amendment in plan.md + event-log.md, stop at furthest safe state) is what distinguishes "unattended" from "reckless." Termination was already guaranteed by the convergence cap, but an impossible requirement or a perpetually-failing build could still wedge a Coding-phase iteration loop; safe-park is the explicit backstop that makes every night run end in either `complete/done` or a clearly-reported park.
+  **Context**: Mirrors Night Drive's skip-and-record + no-destructive-git safety, adapted to the trip's phase/artifact model.

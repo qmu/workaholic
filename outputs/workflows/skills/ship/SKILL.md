@@ -120,7 +120,7 @@ Reads `.workaholic/deployments/*.md`. Returns `{"has_confirmation": <bool>, "cou
 bash ship/scripts/check-todo.sh
 ```
 
-Checks if the current user's `.workaholic/tickets/todo/<user>/` queue has remaining tickets. Returns JSON with cleanliness status, count, and ticket list. Used as a pre-merge guard to prevent shipping with unfinished work. The check is scoped to the current user's subdirectory: other developers' tickets (in their own subdirectories, or unswept at the `todo/` root) do not block the merge.
+Checks if the current user's `.workaholic/tickets/todo/<user>/` queue has remaining tickets. Returns JSON with cleanliness status, count, and ticket list. Drives the **informational, non-blocking** §4 note — it reports the count, but the queued tickets never block the merge (they are future work, unrelated to this branch's PR). The check is scoped to the current user's subdirectory: other developers' tickets (in their own subdirectories, or unswept at the `todo/` root) are never counted.
 
 ### 2-4b. Commit Release Note
 
@@ -182,7 +182,7 @@ If `clean` is `false`, display the `summary` to the user and ask via the agent's
 
 If the user selects "Stop", end the workflow immediately.
 
-## 4. Ticket Guard
+## 4. Ticket Guard (informational, non-blocking)
 
 ```bash
 bash ship/scripts/check-todo.sh
@@ -190,11 +190,11 @@ bash ship/scripts/check-todo.sh
 
 Parse the JSON output. If `clean` is `true`, proceed silently to the Ship Flow.
 
-If `clean` is `false`, display the ticket list to the user: "Cannot ship: N ticket(s) remaining in your `.workaholic/tickets/todo/<user>/` queue:" followed by the ticket filenames. Then ask via the agent's selection prompt with selectable options:
-- **"Move all to icebox"** - Move all remaining tickets to `.workaholic/tickets/icebox/`, stage and commit "Move remaining tickets to icebox", then proceed to the Ship Flow.
-- **"Stop"** - Halt the workflow so you can handle tickets first (run `/drive`, manually reorganize, etc.)
+If `clean` is `false`, print **one** non-blocking note and **proceed to the Ship Flow anyway** — never prompt, never block, never move tickets:
 
-If the user selects "Stop", end the workflow immediately.
+> Note: N ticket(s) still queued in your `.workaholic/tickets/todo/<user>/` (not blocking this ship): \<filenames\>.
+
+The queued tickets are future/unstarted work, unrelated to this branch's PR. A branch's shippability is gated by the **Workspace Guard** (§3, uncommitted changes) and the **deployment-confirmation gate** (Ship Flow) — not by the todo queue. Do **not** issue an the agent's selection prompt here, and do **not** move tickets to icebox. If the developer wants to clear the queue first, that is their call to make outside `/ship` (e.g. via `/drive`).
 
 ## 5. Ship Flow
 

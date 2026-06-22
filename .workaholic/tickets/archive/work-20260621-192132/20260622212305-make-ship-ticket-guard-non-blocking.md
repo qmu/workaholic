@@ -3,9 +3,9 @@ created_at: 2026-06-22T21:23:05+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 49f96d1
+category: Changed
 depends_on:
 ---
 
@@ -51,3 +51,14 @@ The legitimate "unfinished work" gate is the **§3 Workspace Guard** (uncommitte
 - **Shell Script Principle.** No inline conditionals/pipes added to the markdown; the skill just interprets `check-todo.sh`'s JSON and prints a note.
 - **Regenerate `outputs/`.** The ship skill ships cross-agent, so `outputs/workflows/skills/ship/SKILL.md` must be rebuilt and committed or the Outputs Freshness CI fails.
 - **No version bump implied** by the change itself; a patch bump happens at `/report`/release time as usual.
+
+## Final Report
+
+Development completed as planned. §4 became a non-blocking note; the §2-4 description and `commands/ship.md` guard labels were updated to match; `check-todo.sh` was left unchanged (still feeds the note, still per-user scoped). `outputs/workflows/skills/ship/SKILL.md` regenerated. The real gates (Workspace Guard, deploy-confirm-before-merge) were not touched.
+
+### Discovered Insights
+
+- **Insight**: The blocking behavior lived entirely in the SKILL.md prose, not in `check-todo.sh` — the script only ever reported `{clean, count, tickets}`. So making the guard non-blocking was a pure documentation/skill-prose change with zero script edit (and the existing smoke suite, which doesn't test check-todo, stayed green). The script's `clean:false` is now an informational signal, not a gate.
+  **Context**: This cleanly separates fact-gathering (script) from policy (skill prose) — the same script could later drive either a note or a block by prose alone. Future "should X block ship?" decisions are skill-prose edits, not script changes.
+- **Insight**: The two ship "guards" were always different in kind — §3 Workspace Guard protects against losing/shipping uncommitted work (real), while §4 Ticket Guard only ever reflected queue housekeeping (not branch state). Labeling them explicitly in `commands/ship.md` (blocking vs informational) removes the implication that they are peers.
+  **Context**: A branch's shippability is its archived tickets + clean workspace + passing deployment confirmation. The todo queue is orthogonal future work; it never belonged in the ship gate.

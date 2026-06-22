@@ -3,9 +3,9 @@ created_at: 2026-06-22T23:15:45+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 83ad6cf
+category: Added
 depends_on:
 ---
 
@@ -58,3 +58,14 @@ This complements, not duplicates, the existing guards: `verify.mjs` already asse
 - **Drift-proof anchors.** Assert on the fixed structural scaffolding (H1, the four `PILLARS` headers from `policy-index.mjs`, the pointer text) and minimum bullet counts — never on a specific policy title that the `workaholic-standards-sync` controller may rename.
 - **Stdin plumbing.** The existing `run()` helper in `test-workflow-scripts.mjs` may not pass stdin; either extend it with an `input` option or pipe via `printf '%s' '<json>' | bash …`. Keep the JSON payload small and inline.
 - **No version bump / no `outputs/` change.** Hooks and test scripts are Claude-only and not in the cross-agent build; confirm `outputs/` stays clean. Patch bump happens at `/report`/release as usual.
+
+## Final Report
+
+Development completed as planned. Added `testPolicyLens` to `scripts/test-workflow-scripts.mjs` (16 assertions; suite 75 → 91). Placed it in the existing suite (read-only invocation of the real hook, no temp repo needed for the main cases) rather than a sibling file, so it stays in the documented `node scripts/test-workflow-scripts.mjs` path — no CLAUDE.md change required. `outputs/` stayed clean.
+
+### Discovered Insights
+
+- **Insight**: The hook is fully testable for real because it is a pure stdin→stdout function — `policy-lens.sh` reads the JSON payload on stdin, reads its sibling `policy-index.md`, and prints the hook JSON, mutating nothing. So the test invokes the *actual* hook against the *actual* committed index with zero mocking and zero side effects, and even the graceful-degradation case is exercised for real by copying just the hook (no index) to a temp dir so its `SCRIPT_DIR` resolves to a dir without the index.
+  **Context**: This is the cleanest possible application of the `test.md` "no mocks" policy — the subject under test has no I/O beyond stdin/stdout/one file read, so the "real" test is also trivially hermetic.
+- **Insight**: Drift-proofing the assertions matters because the index content is synced from qmu.co.jp. The test anchors on the *generated scaffolding* — the H1 and the four `PILLARS` headers from `policy-index.mjs` (a fixed list) and a minimum bullet count (≥12) — never on a specific policy title. A standards-sync rename of any policy will not break this test, but deleting a whole pillar or emptying the index would.
+  **Context**: Complements `verify.mjs` (which asserts the committed index matches the `## Policies` sources): verify proves *freshness*, this test proves *runtime injection under the triggering circumstance*. Together they cover source→artifact→delivery; only the model's use of the delivered policy remains (inherently non-deterministic, out of scope for a unit test).

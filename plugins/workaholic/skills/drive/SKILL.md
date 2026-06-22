@@ -398,6 +398,7 @@ After implementation is complete, return a summary to the parent command:
 - **NEVER commit** - drive command handles commit after user approval
 - **NEVER use AskUserQuestion** - drive command handles approval dialog
 - **NEVER archive tickets** - drive command handles archiving
+- **NEVER spawn the `/trip` Agent Teams members** (`planner`/`architect`/`constructor`) — they are trip-only. Implement in the main agent, or fan out to `general-purpose` subagents only.
 - After implementation, proceed to approval flow
 
 ### Prohibited Operations

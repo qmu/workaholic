@@ -3,9 +3,9 @@ created_at: 2026-06-21T19:21:32+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: db6a4c1
+category: Changed
 depends_on:
 ---
 
@@ -59,3 +59,14 @@ So when `/drive` needs to "implement," the model sees Constructor advertising "t
 - **Do not invent a non-existent frontmatter field.** The robust lever is the `description` text (the real selection signal), not a speculative `disable-invocation`/`team-only` boolean. If Claude Code later exposes a hard exclusion field for agents, adopt it then as an addition, not a replacement.
 - **Agent Teams exemption is unchanged.** The three members stay exempt from the Component Nesting and One-Level Fan-Out tables; this ticket only prevents their selection **outside** a trip and must not introduce new agent files or alter their in-trip roles.
 - **`outputs/` is unaffected.** `agents/` is Claude-Code-only and excluded from the `outputs/` cross-agent build, so no regenerate/diff is expected; confirm `git status outputs/` stays clean after `build.mjs`.
+
+## Final Report
+
+Development completed as planned. The primary fix is the frontmatter rewrite of all three members' `description` into trip-only guards; the optional defense-in-depth (step 3) was taken in the drive skill (a new Critical Rule) but **not** in CLAUDE.md (the existing Architecture Policy already states the rule).
+
+### Discovered Insights
+
+- **Insight**: Adding the drive-skill Critical Rule did regenerate `outputs/workflows/skills/drive/SKILL.md` — the drive skill IS in the cross-agent build, so this ticket's "git status outputs/ stays clean" expectation held only for the agent-frontmatter edits, not the drive-skill edit. The agent files themselves never enter `outputs/` (agents/ is Claude-only), exactly as predicted.
+  **Context**: Any future edit that touches both a Claude-only file (agents/, commands/, hooks/) and a built skill (create-ticket/drive/report/ship) will produce a partial outputs/ diff — regenerate and commit it. The `publicizeSkillMd` substitution rewrote the guard's "general-purpose subagents" to "parallel workers" in the generated copy, so the cross-agent line reads "fan out to parallel workers only" (harmless on agents that have no /trip).
+- **Insight**: The fix relies entirely on `description` being the subagent-selection signal AND `/trip` selecting its members by explicit name. Both were verified (trip-protocol/SKILL.md lines ~273-275 reference `workaholic:planner`/`architect`/`constructor`). If a future change ever made `/trip` select members by description/auto-delegation, these guard descriptions would break trip — so that name-based launch is now a load-bearing invariant worth preserving.
+  **Context**: The guard is a soft (model-judgment) constraint, not a hard platform gate — Claude Code exposes no per-agent "exclude from Task" frontmatter field today. The description rewrite plus the drive Critical Rule are the strongest available levers; adopt a hard field if one ships.

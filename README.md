@@ -53,7 +53,7 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 | `/drive`   | Implement queued tickets one by one (add "night" for an autonomous overnight run with a morning report) |
 | `/report`  | Context-aware: generate story or journey report and create PR |
 | `/ship`    | Context-aware: merge PR, deploy, verify, and publish the GitHub Release |
-| `/trip`    | Launch Agent Teams session for collaborative design   |
+| `/trip`    | Agent Teams session: collaborative design, decomposed into tickets and driven |
 
 > [!NOTE]
 > `/trip` requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` to be set in your environment.
@@ -117,8 +117,10 @@ The `/trip` command launches an Agent Teams session where three agents with diff
 - **Constructor** (Conservative) — Tech perspective: implementation feasibility, performance, maintainability
 
 The session runs in two phases inside an isolated git worktree:
-1. **Specification** — Agents produce direction, model, and design artifacts through mutual review
-2. **Implementation** — Agents build, review, and test the agreed specification
+1. **Specification** — Agents produce direction, model, and design artifacts through mutual review, then **decompose the agreed design into tickets** (the same tickets `/drive` consumes). The design artifacts under `.workaholic/trips/` are the *rationale*; the tickets under `.workaholic/tickets/` are the *contract*, each linking back to the design via a **Trip Origin** reference.
+2. **Implementation** — Agents **drive the ticket queue** one ticket at a time, keeping their distinct QA roles (Constructor implements, Architect reviews, Planner E2E-tests) as the per-ticket approval gate, archiving each ticket so `/report` and `/ship` work identically to a drive.
+
+So `/trip` and `/drive` converge on the same unit of work — a ticket. `/trip` is the collaborative way to *produce* the tickets and build them with three-perspective QA; `/drive` implements a hand-written queue.
 
 ## Artifacts under `.workaholic/`
 

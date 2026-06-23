@@ -112,19 +112,29 @@ Step identifier: `planning/decomposition`.
 
 ## Coding Phase
 
+The Coding Phase is a **trip-native drive** over the ticket queue the Decomposition gate produced (`.workaholic/tickets/todo/<user>/`). The lead walks the tickets in dependency order (`depends_on`, then severity), and each ticket passes through the three-agent QA before the next begins. This is `/drive` with the trip's three-agent QA substituted for the developer approval gate.
+
 ### QA Differentiation
 - **Constructor**: Internal testing (compiler/type checks, unit tests, linters)
 - **Planner**: E2E/external testing (CLI execution, browser via Playwright, API calls)
 - **Architect**: Analytical review only (code review, architectural review, model checking -- no test execution)
 
-### Concurrent Launch
-Constructor implements + internal tests; Planner builds dev env + plans E2E scenarios; Architect discovers codebase. **GATE**: wait for all three.
+### Concurrent Launch (once, before the queue)
+Planner builds the dev env + plans E2E scenarios; Architect discovers the codebase; Constructor reviews the ticket queue and reconfirms ordering. **GATE**: wait for all three. This primes the team before the per-ticket loop.
 
-### Review and Testing
-Architect performs analytical review of Constructor's changes. **GATE**. Planner validates via E2E testing. **GATE**.
+Step identifier: `coding/concurrent-launch`.
 
-### Iteration
-If issues found: Constructor fixes → Architect re-reviews → Planner re-tests. Repeat until approved.
+### Per-Ticket Drive Loop
+For each ticket in the queue, in `depends_on` then severity order:
+
+1. **Constructor implements** the ticket — reads the ticket's `## Policies` and opens each named `policies/<slug>.md`, applies any Patches, follows the Implementation Steps, and runs internal tests (compiler/type checks, unit tests, linters). **GATE**.
+2. **Architect reviews** the Constructor's changes against the ticket and its policies (analytical / code / architectural review, no test execution). **GATE**.
+3. **Planner E2E-tests** the change (CLI / browser via Playwright / API per the project). **GATE**.
+4. On three-agent consensus, **archive the ticket**: `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/archive.sh <ticket-path> "<message>" <repo-url> "<description>" "<changes>" "<test-plan>" "<release-prep>"`. This stamps the ticket's frontmatter (`effort`/`commit_hash`/`category`), moves it to `.workaholic/tickets/archive/<branch>/`, and commits — so `/report` finds it. Log a trip event in `event-log.md` alongside.
+
+The three-agent QA (Architect review + Planner E2E) **is** the per-ticket approval gate — there is no developer `AskUserQuestion`, so the loop is night-mode-safe. If a ticket fails review or testing, iterate within that ticket (Constructor fixes → Architect re-reviews → Planner re-tests) before archiving and moving on.
+
+Step identifier: `coding/ticket-<id>` (one per ticket; `<id>` is the ticket's filename-timestamp slug). The legacy single `coding/iteration-N` identifier is retained only for resuming pre-decomposition trips.
 
 ### Rollback
 Any agent may propose returning to Planning Phase. Requires 2/3 majority. Proposer writes `rollbacks/rollback-v<N>.md`; others vote in `rollbacks/reviews/rollback-v<N>-<agent>.md`. On approval, return to Planning with incremented artifact versions.
@@ -158,6 +168,8 @@ All trip output must be written in English. This applies to: artifact content, r
 ## Commit Convention
 
 Format: `[Agent] Descriptive summary of what was accomplished`. Description must be a clear English sentence (not file names or terse labels). Every discrete workflow step produces a commit.
+
+**Exception — per-ticket archiving.** In the Coding Phase's Per-Ticket Drive Loop, completed tickets are committed by `drive/scripts/archive.sh` (the structured five-section drive message), **not** the `[Agent]` format. This is intentional: it moves the ticket into `.workaholic/tickets/archive/<branch>/` so `/report` finds it, and there is no second archive path to maintain. Preserve agent attribution by logging the trip event in `event-log.md` alongside the archive.
 
 ## Artifact Format
 

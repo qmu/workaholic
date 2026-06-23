@@ -188,6 +188,13 @@ function publicizeSkillMd(p) {
 // skills. It carries a .codex-plugin/plugin.json for Codex; the skills CLI ignores that
 // and scans only skills/, so the same dir serves Codex, OpenCode, and other agents.
 function assembleWorkflowsPlugin(builtTargets) {
+  // Orphan-cleanup guarantee: wipe the entire generated plugin before reassembly so
+  // a renamed or removed source script leaves NO stale artifact behind. This whole-tree
+  // rebuild is the only thing that prevents orphans — keep it. (Without it, build.mjs
+  // would write the new name but never delete the old one, and the committed outputs/
+  // would drift until manually cleaned; the Outputs Freshness CI is the backstop that
+  // catches any such drift.) outputs/ holds only this generated plugin, so the wipe is
+  // scoped to build-owned paths and touches nothing hand-authored.
   rmSync(WORKFLOWS_PLUGIN, { recursive: true, force: true });
   mkdirSync(join(WORKFLOWS_PLUGIN, ".codex-plugin"), { recursive: true });
   const skillsOut = join(WORKFLOWS_PLUGIN, "skills");

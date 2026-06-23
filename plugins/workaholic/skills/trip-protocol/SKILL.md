@@ -65,11 +65,13 @@ Script base paths:
 
 Each revision is a new file (e.g., `direction-v2.md`), preserving history. Only the artifact's author may modify the original file; others express feedback through review files.
 
+**Tickets live elsewhere.** The Decomposition gate (Planning Phase Step 5) writes implementation tickets to `.workaholic/tickets/todo/<user>/`, **never** under `trips/` — `create-ticket`'s Allowed Locations and the `validate-ticket.sh` hook forbid ticket-shaped files outside `.workaholic/tickets/`. The `trips/<trip-name>/` tree holds the **rationale** (direction/model/design); each emitted ticket links back to the design section that justifies it via a **Trip Origin** reference. So `trips/` is the *why*, `tickets/` is the *what* — the same ticket abstraction `/drive` consumes.
+
 ## Plan Document
 
 `plan.md` tracks trip lifecycle state with YAML frontmatter (`instruction`, `phase`, `step`, `iteration`, `updated_at`) and three sections: Initial Idea, Plan Amendments (leader decision log), and Progress (checklist with agent attribution). Update frontmatter at phase transitions; agents append progress entries bundled with artifact commits.
 
-Step identifiers: `planning/not-started`, `planning/artifact-generation`, `planning/one-turn-review`, `planning/respond-to-feedback`, `planning/moderation`, `coding/concurrent-launch`, `coding/review-and-testing`, `coding/iteration-N`, `complete/done`, `complete/followup`.
+Step identifiers: `planning/not-started`, `planning/artifact-generation`, `planning/one-turn-review`, `planning/respond-to-feedback`, `planning/moderation`, `planning/decomposition`, `coding/concurrent-launch`, `coding/review-and-testing`, `coding/iteration-N`, `complete/done`, `complete/followup`.
 
 ## Event Log
 
@@ -93,7 +95,20 @@ The uninvolved third agent reads both positions, writes a synthesized resolution
 Planning completes when all reviews approved, all revisions accepted, or all escalations moderated.
 
 ### Convergence Cap
-Maximum 3 review rounds. If consensus is not reached after round 3, the leader invokes forced moderation on all unresolved disagreements and appends a "Forced Convergence" entry to plan.md's Plan Amendments section with the unresolved items and rationale. A `forced-convergence` event is logged. After moderation, the plan is fixed and the team proceeds to Coding Phase.
+Maximum 3 review rounds. If consensus is not reached after round 3, the leader invokes forced moderation on all unresolved disagreements and appends a "Forced Convergence" entry to plan.md's Plan Amendments section with the unresolved items and rationale. A `forced-convergence` event is logged. After moderation, the plan is fixed and the team proceeds to the Decomposition gate.
+
+### Step 5: Decomposition (design → tickets)
+Once the plan is fixed (consensus, accepted revisions, or forced convergence), the **Constructor** decomposes the agreed `designs/design-v<N>.md` into implementation **tickets** — the unit the Coding Phase drives. This is the bridge that unifies `/trip` with `/drive`: the trip's design becomes a ticket queue, exactly what `/drive` consumes.
+
+Write each ticket to `.workaholic/tickets/todo/<user>/` (the `<user>` slug from `gather/scripts/ticket-metadata.sh`, under the trip's `<working_dir>`), following the standard ticket File Structure from `workaholic:create-ticket`:
+
+- **Mandatory `## Policies`** — propagate the design's Policies list (plus any layer-selected pillar policies) so each ticket records the standard policies its build answers to.
+- **Trip Origin** — a reference back to the section of `.workaholic/trips/<trip-name>/designs/design-v<N>.md` that justifies the ticket, keeping the rationale ("why") one link from the contract ("what").
+- **`depends_on`** — derived from the design's delivery plan, so the Coding Phase drives the tickets in a correct order.
+
+Split the design into 2–N independently-implementable tickets (tightly-coupled work stays one ticket). Tickets MUST be written under `.workaholic/tickets/` — never `trips/` (the `validate-ticket.sh` hook rejects ticket-shaped files written elsewhere). In **night mode**, the Constructor records reasonable decomposition assumptions in the design and `plan.md` rather than asking the developer. Log a `decomposition` event and commit the tickets. **GATE**: wait for all tickets to be written before entering the Coding Phase.
+
+Step identifier: `planning/decomposition`.
 
 ## Coding Phase
 
@@ -174,7 +189,7 @@ Technically accountable agent — Conservative stance, Intrinsic Idealism.
 
 **Domain**: protect engineering quality and production readiness. Review with technical ownership: Is this the right technical approach? What quality bar must this meet? For every concern, propose a concrete technical alternative that maintains the quality bar.
 
-- **Planning Phase**: Write `designs/design-v1.md` containing: scope and inventory, implementation approach, quality strategy, delivery plan, risk assessment, and a **Policies** section. The design translates structure into buildable, testable components. The **Policies** section is the trip's equivalent of a ticket's `## Policies` list — it records the standard engineering policies (synced from qmu.co.jp into `workaholic:design` / `workaholic:implementation` / `workaholic:operation`) the build answers to, one `workaholic:<pillar>` / `policies/<slug>.md` entry per line with why it applies; always list `implementation/directory-structure` and `implementation/coding-standards` for code work. All three agents read this list in the Coding Phase and judge their implementation, review, and testing against each named policy. Review Direction and Model in `reviews/round-1-constructor.md`. Respond to feedback in `reviews/response-constructor-to-<reviewer>.md`. Moderate Planner-Architect disagreements when called upon.
+- **Planning Phase**: Write `designs/design-v1.md` containing: scope and inventory, implementation approach, quality strategy, delivery plan, risk assessment, and a **Policies** section. The design translates structure into buildable, testable components. The **Policies** section is the trip's equivalent of a ticket's `## Policies` list — it records the standard engineering policies (synced from qmu.co.jp into `workaholic:design` / `workaholic:implementation` / `workaholic:operation`) the build answers to, one `workaholic:<pillar>` / `policies/<slug>.md` entry per line with why it applies; always list `implementation/directory-structure` and `implementation/coding-standards` for code work. All three agents read this list in the Coding Phase and judge their implementation, review, and testing against each named policy. Review Direction and Model in `reviews/round-1-constructor.md`. Respond to feedback in `reviews/response-constructor-to-<reviewer>.md`. Moderate Planner-Architect disagreements when called upon. After the plan is fixed, **decompose the agreed design into tickets** under `.workaholic/tickets/todo/<user>/` (Planning Phase Step 5: Decomposition) — each ticket carries the design's `## Policies` and a Trip Origin link, and is the unit the Coding Phase drives.
 - **Coding Phase QA Role**: Internal testing. Implement the program, then verify with compiler/type checks, unit tests, linters. Fix failures before reporting completion. Do NOT run E2E tests or perform analytical code review.
 
 ## Agent Rules

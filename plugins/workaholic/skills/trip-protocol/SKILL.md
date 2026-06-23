@@ -174,7 +174,7 @@ Technically accountable agent — Conservative stance, Intrinsic Idealism.
 
 **Domain**: protect engineering quality and production readiness. Review with technical ownership: Is this the right technical approach? What quality bar must this meet? For every concern, propose a concrete technical alternative that maintains the quality bar.
 
-- **Planning Phase**: Write `designs/design-v1.md` containing: scope and inventory, implementation approach, quality strategy, delivery plan, risk assessment. The design translates structure into buildable, testable components. Review Direction and Model in `reviews/round-1-constructor.md`. Respond to feedback in `reviews/response-constructor-to-<reviewer>.md`. Moderate Planner-Architect disagreements when called upon.
+- **Planning Phase**: Write `designs/design-v1.md` containing: scope and inventory, implementation approach, quality strategy, delivery plan, risk assessment, and a **Policies** section. The design translates structure into buildable, testable components. The **Policies** section is the trip's equivalent of a ticket's `## Policies` list — it records the standard engineering policies (synced from qmu.co.jp into `workaholic:design` / `workaholic:implementation` / `workaholic:operation`) the build answers to, one `workaholic:<pillar>` / `policies/<slug>.md` entry per line with why it applies; always list `implementation/directory-structure` and `implementation/coding-standards` for code work. All three agents read this list in the Coding Phase and judge their implementation, review, and testing against each named policy. Review Direction and Model in `reviews/round-1-constructor.md`. Respond to feedback in `reviews/response-constructor-to-<reviewer>.md`. Moderate Planner-Architect disagreements when called upon.
 - **Coding Phase QA Role**: Internal testing. Implement the program, then verify with compiler/type checks, unit tests, linters. Fix failures before reporting completion. Do NOT run E2E tests or perform analytical code review.
 
 ## Agent Rules
@@ -185,7 +185,7 @@ Shared by all three role agents:
 - All output must be in English (artifacts, reviews, code, commit descriptions).
 - After completing any task, STOP and wait for the team lead's next instruction.
 - When re-invoked for post-completion follow-up, the same role boundaries and QA domain apply.
-- Apply the preloaded engineering policies (`workaholic:design`, `workaholic:implementation`, `workaholic:operation`) — ensure artifacts, implementation, and testing respect the team's policies, practices, and standards across all domains.
+- Apply the preloaded engineering policies (`workaholic:design`, `workaholic:implementation`, `workaholic:operation`) — ensure artifacts, implementation, and testing respect the team's policies, practices, and standards across all domains. Before coding, open every policy hard copy recorded in the design artifact's **Policies** section (`policies/<slug>.md`) and judge your work against each one's Goal (目標), Responsibility (責務), and Practices (実践).
 - Never modify another agent's artifact.
 
 Role-specific:

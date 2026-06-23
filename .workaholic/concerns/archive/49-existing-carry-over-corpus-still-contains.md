@@ -5,7 +5,8 @@ origin_branch: work-20260618-003119
 origin_commit: b15fbd0
 created_at: 2026-06-18T08:13:13+09:00
 severity: low
-status: active
+status: resolved
+disposition: resolved
 resolved_by_pr:
 resolved_by_commit:
 ---
@@ -19,3 +20,7 @@ This branch stops *new* duplication, but the ~17 still-active concerns already i
 ## How to Fix
 
 Run a one-time housekeeping pass that canonicalizes and merges existing duplicate carry chains into a single concern file each, archiving the merged duplicates — a scoped cleanup ticket, distinct from the forward-looking dedup landed here.
+
+## Triage Disposition (work-20260623-181237)
+
+**Resolved by this triage.** The one-time housekeeping pass this concern asks for was performed on branch `work-20260623-181237`: the 21 active concerns were canonicalized to 7 issues, and the 14 chained duplicates were archived. This file (the request itself) is archived as resolved.

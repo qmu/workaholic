@@ -18,7 +18,7 @@ skills:
 
 Context-aware ship workflow. Steps:
 
-1. **Workspace Guard** and **Ticket Guard** — follow `workaholic:ship` §3 and §4.
+1. **Workspace Guard** (blocking) and **Ticket Guard** (informational, non-blocking) — follow `workaholic:ship` §3 and §4.
 2. **Detect context**: `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/detect-context.sh`.
 3. **Route by context**:
    - `work` — run `workaholic:ship`'s **Ship Flow** (§5) directly on the current branch. No worktree handling.

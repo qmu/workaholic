@@ -174,7 +174,7 @@ Technically accountable agent — Conservative stance, Intrinsic Idealism.
 
 **Domain**: protect engineering quality and production readiness. Review with technical ownership: Is this the right technical approach? What quality bar must this meet? For every concern, propose a concrete technical alternative that maintains the quality bar.
 
-- **Planning Phase**: Write `designs/design-v1.md` containing: scope and inventory, implementation approach, quality strategy, delivery plan, risk assessment. The design translates structure into buildable, testable components. Review Direction and Model in `reviews/round-1-constructor.md`. Respond to feedback in `reviews/response-constructor-to-<reviewer>.md`. Moderate Planner-Architect disagreements when called upon.
+- **Planning Phase**: Write `designs/design-v1.md` containing: scope and inventory, implementation approach, quality strategy, delivery plan, risk assessment, and a **Policies** section. The design translates structure into buildable, testable components. The **Policies** section is the trip's equivalent of a ticket's `## Policies` list — it records the standard engineering policies (synced from qmu.co.jp into `workaholic:design` / `workaholic:implementation` / `workaholic:operation`) the build answers to, one `workaholic:<pillar>` / `policies/<slug>.md` entry per line with why it applies; always list `implementation/directory-structure` and `implementation/coding-standards` for code work. All three agents read this list in the Coding Phase and judge their implementation, review, and testing against each named policy. Review Direction and Model in `reviews/round-1-constructor.md`. Respond to feedback in `reviews/response-constructor-to-<reviewer>.md`. Moderate Planner-Architect disagreements when called upon.
 - **Coding Phase QA Role**: Internal testing. Implement the program, then verify with compiler/type checks, unit tests, linters. Fix failures before reporting completion. Do NOT run E2E tests or perform analytical code review.
 
 ## Agent Rules
@@ -185,7 +185,7 @@ Shared by all three role agents:
 - All output must be in English (artifacts, reviews, code, commit descriptions).
 - After completing any task, STOP and wait for the team lead's next instruction.
 - When re-invoked for post-completion follow-up, the same role boundaries and QA domain apply.
-- Apply the preloaded engineering policies (`workaholic:design`, `workaholic:implementation`, `workaholic:operation`) — ensure artifacts, implementation, and testing respect the team's policies, practices, and standards across all domains.
+- Apply the preloaded engineering policies (`workaholic:design`, `workaholic:implementation`, `workaholic:operation`) — ensure artifacts, implementation, and testing respect the team's policies, practices, and standards across all domains. Before coding, open every policy hard copy recorded in the design artifact's **Policies** section (`policies/<slug>.md`) and judge your work against each one's Goal (目標), Responsibility (責務), and Practices (実践).
 - Never modify another agent's artifact.
 
 Role-specific:
@@ -204,6 +204,8 @@ The trip protocol soft-depends on the project's engineering policy indexes. Call
 
 Procedural body for `/trip` (executed from the work-side command via this preloaded skill). All script paths use same-plugin form because they resolve from this skill's owning plugin (workaholic).
 
+**Determine mode from `$ARGUMENT`**: if it contains the `night` token (e.g. "go night /trip …", "/trip night …"), mode = "night" — **strip** the `night` token so the remainder is the trip instruction, and apply the **Night Mode** subsection's overrides to Steps 1, 4, and 5 (unattended, no developer questions). Otherwise mode = "normal" and the steps run interactively as written.
+
 ### Pre-check: Dependencies
 
 ```bash
@@ -219,6 +221,8 @@ Check for existing worktrees:
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/list-worktrees.sh
 ```
+
+**Night mode** overrides this entire step (see the Night Mode subsection): present no `AskUserQuestion`. Default to a **new isolated worktree** for the (night-stripped) instruction — run `create.sh`, then `adopt-worktree.sh "<branch>"`, set `<working_dir>` to its `worktree_path`. Never auto-resume an existing worktree. Log the auto-selected default via `log-event.sh`, then continue to Step 2.
 
 If `count > 0`, present choices via AskUserQuestion: list each existing worktree, plus option to create new.
 
@@ -280,7 +284,11 @@ Create a three-member Agent Team. The team lead instruction:
 >
 > **Post-completion rule**: After the trip reaches `complete/done`, if the user sends follow-up requests: handle simple tasks directly (reading, answering, small edits). For substantial work, re-invoke ONLY the three designated teammates (Planner, Architect, Constructor) -- never create new agent team members. The designated agents retain their original roles and constraints.
 
+**Night mode**: append the **Team-lead night directive** (see the Night Mode subsection) to the instruction above before launching, so the team runs unattended and never pauses for the developer. The normal-mode instruction is otherwise unchanged.
+
 ### Step 5: Present Results
+
+**Night mode**: replace this interactive presentation with the **morning-review report** (see the Night Mode subsection).
 
 After the team completes:
 1. List all artifacts in the trip path
@@ -289,6 +297,26 @@ After the team completes:
 4. Show the trip branch name
 5. Transition guidance: "Use `/report` and `/ship` when ready to merge."
 6. Continuation guidance: "For follow-up modifications, request changes directly -- the lead will handle simple tasks or re-invoke the designated agents (Planner, Architect, Constructor). No new agents are created."
+
+### Night Mode (mode = "night")
+
+Autonomous, unattended overnight `/trip`, triggered when `$ARGUMENT` contains "night" (e.g. "go night /trip <instruction>"). The Agent Team judges everything itself and never pauses for the developer. Night mode overrides Steps 1, 4, and 5 above.
+
+**1. Authorization is the `/trip night` invocation itself — zero developer questions.** Invoking `/trip night <instruction>` authorizes the entire unattended run. Night Trip asks the developer **nothing** at any point (stricter than night `/drive`, which permits one group question) — the trip-protocol's own review / moderation / convergence machinery is what makes self-judgment safe. The `night` token is stripped from `$ARGUMENT`; the remainder is the trip instruction.
+
+**2. Auto-resolved setup (Step 1).** Skip every `AskUserQuestion`. Default to a **new isolated worktree** for the instruction (`create.sh` → `adopt-worktree.sh`); never auto-resume an existing worktree (resuming is an interactive decision). Log the auto-selected default via `log-event.sh`.
+
+**3. Autonomous session (Step 4).** Append the Team-lead night directive (below) to the Step 4 instruction. The lead and teammates run Planning → Coding → Completion judging everything themselves: every disagreement resolves through the existing one-turn review, respond/escalate, moderation, and the 3-round convergence cap with forced moderation (and 2/3-majority rollback) — never escalated to the developer. For an ambiguous instruction, the Planner makes the most reasonable interpretation and **records the assumptions** in `directions/direction-v1.md` and `plan.md` rather than asking.
+
+**4. Safe-by-default failure policy (no human present).** If a phase cannot complete (dev-env unfixable, a blocking external dependency, an irreducibly ambiguous requirement), **record the blocker** as a "Night Park" amendment in `plan.md` and an event in `event-log.md`, and **park at the furthest safe state**. NEVER halt waiting for a human, NEVER run destructive git (`git reset --hard` / `git clean` / `git restore .`), and NEVER create new agents. The convergence cap guarantees Planning terminates; the safe-park rule guarantees the run never wedges.
+
+**5. Bounded run.** Night mode runs the single instruction fixed at invocation through to `complete/done` (or a recorded park). It does not expand scope mid-run.
+
+**Team-lead night directive** (append to the Step 4 instruction in night mode):
+
+> **NIGHT MODE — run unattended.** Never pause to ask the developer a question. Resolve every disagreement through the trip-protocol review / moderation / convergence-cap mechanisms; for ambiguous requirements, make and record reasonable assumptions in the direction artifact and `plan.md`. If something cannot be completed, record the blocker in `plan.md` (a "Night Park" amendment) and `event-log.md` and park gracefully at the furthest safe state — do not wait for a human, do not run destructive git, do not create new agents.
+
+**Morning-review report (replaces Step 5's interactive presentation).** At the end, emit a complete, skimmable stdout report for morning review: phases completed; the agreed direction / model / design; implementation and internal/E2E test results; any forced-convergence entries, recorded assumptions, and parked blockers (with where to find them); the trip branch / worktree path; and next steps (`/report`, `/ship`). This is the deliverable the developer reviews in the morning.
 
 ## Trip Ship
 

@@ -3,9 +3,9 @@ created_at: 2026-06-23T23:53:48+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 87e4e1f
+category: Changed
 depends_on: [20260623235347-trip-decompose-design-into-tickets.md]
 ---
 

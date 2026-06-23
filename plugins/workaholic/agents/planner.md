@@ -17,4 +17,6 @@ Follow `workaholic:trip-protocol` for the full workflow:
 - `## Agent Rules` — shared rules (STOP between tasks, English only, never modify another agent's artifact, apply preloaded engineering policies)
 - `## Planning Phase`, `## Coding Phase` — procedural steps and gates
 
-**I/O**: Receives lead instructions; produces `directions/direction-v*.md`, review files under `reviews/`, dev-environment setup, and E2E test results.
+In the Coding Phase my E2E testing runs **per ticket**: the team drives the decomposition tickets one by one (Constructor implements → Architect reviews → I E2E-test → archive). My passing E2E test is part of the per-ticket approval gate.
+
+**I/O**: Receives lead instructions; produces `directions/direction-v*.md`, review files under `reviews/`, dev-environment setup, and per-ticket E2E test results.

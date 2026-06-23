@@ -637,6 +637,70 @@ function testDocDrift() {
   } finally { cleanup(nodocs); }
 }
 
+// ---------- hooks/policy-lens.sh (real policy-lens injection under a workflow command) ----------
+// REAL, non-mock: runs the ACTUAL hook against the ACTUAL committed hooks/policy-index.md.
+// Asserts the policy lens DELIVERS the four standard policy skills into prompt context when
+// (and only when) a workflow command runs — i.e. the expanded command body carries the
+// `workaholic:policy-lens` sentinel. This proves delivery up to the model boundary; it does
+// NOT (and a unit test cannot) assert that the model then reasoned with the policy.
+function testPolicyLens() {
+  const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/policy-lens.sh");
+  const PILLARS = ["Planning (企画)", "Design (設計)", "Implementation (実装)", "Operation (運用)"];
+  const COMMANDS = ["ticket", "drive", "report", "ship", "trip"];
+
+  // jq is required by the hook; skip loudly (never silently pass) if it is absent.
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  policy-lens (jq not available)"); return; }
+
+  // Invoke the real hook with a UserPromptSubmit payload on stdin. Resolving the hook by its
+  // absolute path makes its SCRIPT_DIR the real hooks/ dir, so it reads the real committed index.
+  const invoke = (prompt, hookPath = HOOK) => {
+    const payload = JSON.stringify({ prompt });
+    try {
+      return { stdout: execSync(`bash ${hookPath}`, { cwd: REPO_ROOT, input: payload, encoding: "utf8" }), status: 0 };
+    } catch (e) {
+      return { stdout: e.stdout?.toString() || "", status: e.status ?? 1 };
+    }
+  };
+
+  // 1. Triggering circumstance: sentinel present -> the standard policies are injected.
+  const fired = invoke("Expanded workflow-command body ... workaholic:policy-lens ... now run it.");
+  let ctx = "";
+  try { ctx = JSON.parse(fired.stdout).hookSpecificOutput.additionalContext || ""; }
+  catch { fail("policy-lens emits valid hook JSON when fired", `not JSON: ${fired.stdout.slice(0, 120)}`); }
+  assertTrue("policy-lens injects the index H1", ctx.includes("Workaholic Engineering Policy Index"), ctx.slice(0, 160));
+  for (const p of PILLARS) assertTrue(`policy-lens injects pillar ${p}`, ctx.includes(p));
+  assertTrue("policy-lens keeps the on-demand-bodies pointer", ctx.includes("Read the policy files for the actual rules"));
+  const bullets = (ctx.match(/- \*\*\[/g) || []).length;
+  assertTrue("policy-lens injects real policy bullets (>=12)", bullets >= 12, `only ${bullets} bullets`);
+
+  // 2. Non-triggering circumstance: no sentinel -> silent no-op, exit 0.
+  const quiet = invoke("an ordinary prompt with no workflow-command marker");
+  assertEq("policy-lens no-ops without the sentinel", quiet.stdout.trim(), "");
+  assertEq("policy-lens exits 0 without the sentinel", quiet.status, 0);
+
+  // 3. The trigger is wired: every workflow command carries the marker that fires the hook.
+  for (const c of COMMANDS) {
+    const md = readFileSync(join(REPO_ROOT, `plugins/workaholic/commands/${c}.md`), "utf8");
+    assertTrue(`command /${c} carries the policy-lens marker`, md.includes("workaholic:policy-lens"));
+  }
+
+  // 4. Graceful degradation: index absent -> pointer-only, still exit 0 (never errors a prompt).
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-lens-"));
+  try {
+    const hookCopy = join(dir, "policy-lens.sh");
+    writeFileSync(hookCopy, readFileSync(HOOK, "utf8")); // copy WITHOUT a sibling policy-index.md
+    const degraded = invoke("body with workaholic:policy-lens sentinel", hookCopy);
+    let dctx = "";
+    try { dctx = JSON.parse(degraded.stdout).hookSpecificOutput.additionalContext || ""; } catch {}
+    assertEq("policy-lens exits 0 with the index absent", degraded.status, 0);
+    assertTrue("policy-lens falls back to pointer-only when the index is missing",
+      dctx.includes("Read the policy files for the actual rules") && !dctx.includes("Workaholic Engineering Policy Index"),
+      "degraded context did not fall back cleanly");
+  } finally { cleanup(dir); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching/detect-context.sh", testDetectContext],
@@ -654,6 +718,7 @@ const tests = [
   ["report/apply-carryover-verdicts.sh", testApplyVerdicts],
   ["ship/extract-carryover.sh", testExtractCarryover],
   ["report/doc-drift.sh", testDocDrift],
+  ["hooks/policy-lens.sh", testPolicyLens],
 ];
 
 for (const [label, fn] of tests) {

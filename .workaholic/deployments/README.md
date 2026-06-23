@@ -45,3 +45,23 @@ url: https://example.com/healthz   # optional, non-secret locator
   concrete command/URL, not "deploy it" or "verify the deploy".
 - `confirmation_method` must be one of: `browser`, `server-batch`, `db-query`,
   `api-probe`, `other`.
+
+## Confirmation method prerequisites
+
+Each method needs specific tooling at ship time. In a headless or CI ship
+context that tooling may be absent, so a target with a declared method can
+still be unconfirmable at run time. `/ship` runs an advisory capability check
+(`check-confirmation-capability.sh`) before deploy and warns when the current
+environment can't run the declared method.
+
+| `confirmation_method` | Needs at ship time | Headless / CI |
+| --------------------- | ------------------ | ------------- |
+| `api-probe`    | `curl` or `wget` (network access to the endpoint) | runs headless |
+| `db-query`     | a DB client (`psql`/`mysql`/`sqlite3`/`mongosh`) + connection | runs headless |
+| `server-batch` | `ssh` + transient credentials (supplied at ship time, never persisted) | runs headless |
+| `browser`      | an interactive agent with browser tooling | assumes interactive; not for CI |
+| `other`        | whatever the `## Confirmation` body documents | depends — make it executable in the ship environment |
+
+**For headless or CI ship contexts, prefer `api-probe` or `db-query`.** Reserve
+`browser` for interactive ships. Whatever method a target declares, its
+`## Confirmation` must be executable in the environment where `/ship` runs.

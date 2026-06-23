@@ -3,9 +3,9 @@ created_at: 2026-06-23T17:04:17+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 4cc6ea8
+category: Added
 depends_on:
 ---
 

@@ -169,6 +169,7 @@ Populate sections from the three discovery JSONs:
 - **source → Key Files**: `files` array provides paths and relevance descriptions.
 - **source → Implementation Steps**: reference `code_flow`.
 - **source.snippets → Patches**: generate unified diffs from snippets. Follow the patch guidelines in this skill. Mark patches as speculative if based on interpretation rather than explicit requirements. Omit the Patches section if changes cannot be expressed as concrete diffs.
+- **policy → Policies**: write the mandatory `## Policies` section. Always list the two universal implementation policies (`directory-structure`, `coding-standards`), then add the pillar policies the ticket's `layer` selects via the Policy Lens table, plus any specific policy the policy-mode discovery surfaced. Each entry is `workaholic:<pillar>` / `policies/<slug>.md` followed by one line on why it applies. This is the recorded list `/drive` and `/trip` read before implementing — never leave it empty for a code-touching ticket.
 - **policy → Considerations**: reference relevant `policies` that the implementation must follow; note `architecture.principles` and `architecture.dependency_rules` that constrain the design.
 
 **If splitting**:
@@ -259,6 +260,16 @@ depends_on:
 ## Overview
 
 <Brief description of what will be implemented>
+
+## Policies
+
+The standard engineering policies — synced from the corporate site (qmu.co.jp) into the `workaholic` policy skills — that govern this ticket. The implementing session **MUST** read each linked policy hard copy before writing code and keep every change defensible against that policy's Goal (目標), Responsibility (責務), and Practices (実践). `/drive` and `/trip` both consume this section verbatim — it is the recorded, confirmable list of which standard policies the implementation answers to.
+
+This section is **mandatory and never empty**. A code-touching ticket always lists at least the two universal implementation policies; add the pillar policies the `layer` field selects (see the Policy Lens table) plus any specific policy the policy-mode discovery surfaced.
+
+- `implementation` / `policies/directory-structure.md` — conventional project layout (applies to all code work)
+- `implementation` / `policies/coding-standards.md` — TypeScript/style conventions (applies to all code work)
+- `design` / `policies/modeless-design.md` — <why this policy applies to this ticket>
 
 ## Key Files
 
@@ -353,6 +364,8 @@ Each ticket should respect the relevant policies in the `workaholic` policy skil
 Two implementation policies apply across **every** layer when a ticket touches code — `implementation/directory-structure` (conventional project layout) and `implementation/coding-standards` (TypeScript/style conventions) — and matter most when a ticket initiates a new project or a new top-level area. When a ticket initiates new work at all (a new feature or project), also apply `planning` (企画 — business, market, and legal grounding) before the design/implementation pillars.
 
 When writing Implementation Steps, Considerations, and Patches, ensure they respect the policies and practices of every applicable skill. The four policy indexes (`planning`, `design`, `implementation`, `operation`) are the lens — on Claude Code they are preloaded and the `policy-lens.sh` hook injects the reminder on every `/ticket` run; this section documents the layer→pillar mapping for human readers and future agents.
+
+Use this mapping to fill the ticket's mandatory **`## Policies`** section. That section is the durable, in-ticket record of which standard policies (synced from qmu.co.jp) the work answers to: the policy lens is preloaded *while the ticket is written*, but `/drive` and `/trip` implement the ticket later — they read the recorded `## Policies` list to know exactly which policy hard copies to open before writing code. Keeping the list explicit in the ticket is what lets a developer confirm, after the fact, that the implementation referred to the corporate standard policies.
 
 ## Exploring the Codebase
 

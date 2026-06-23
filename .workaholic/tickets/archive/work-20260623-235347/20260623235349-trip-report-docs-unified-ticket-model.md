@@ -3,9 +3,9 @@ created_at: 2026-06-23T23:53:49+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 1c7a387
+category: Changed
 depends_on: [20260623235347-trip-decompose-design-into-tickets.md, 20260623235348-trip-coding-phase-drive-ticket-queue.md]
 ---
 

@@ -7,9 +7,11 @@ import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generatePolicyIndex, POLICY_INDEX_REL } from "./policy-index.mjs";
+import { ANY_SKILL_SCRIPT, SKILL_MD_PREFIX, SCRIPT_PREFIX } from "./script-ref-patterns.mjs";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
 const OUTPUTS_ROOT = join(REPO_ROOT, "outputs");
+const SOURCE_SKILLS = join(REPO_ROOT, "plugins/workaholic/skills");
 const read = (p) => readFileSync(p, "utf8");
 
 // SKILL.md relative refs: "<x>/scripts/<f>.sh"
@@ -70,6 +72,39 @@ for (const [target, skillRoot] of skillRoots) {
   scanScripts(skillRoot);
 
   console.log(`verified ${target}: ${refs} script references resolve`);
+}
+
+// 4. Source cross-skill script references use the build-detectable form. A SKILL.md
+// or *.sh in the source tree that points at ANOTHER skill's scripts/ must use the
+// exact form build.mjs's regex detects (SKILL.md -> ${CLAUDE_PLUGIN_ROOT}/skills/...,
+// *.sh -> ${SCRIPT_DIR}/(../)+workaholic/skills/...). A shorter relative form resolves
+// for Claude in source but is invisible to the build, so its closure is never copied
+// and the generated bundle ships broken to Codex / the skills CLI. Catch it here,
+// pre-merge, instead of at a non-Claude agent's runtime.
+const lineAt = (text, idx) => text.slice(0, idx).split("\n").length;
+const prefixOk = (text, idx, prefixRe) => prefixRe.test(text.slice(Math.max(0, idx - 64), idx));
+const lintSourceRefs = (p) => {
+  for (const e of readdirSync(p)) {
+    const fp = join(p, e);
+    if (statSync(fp).isDirectory()) { lintSourceRefs(fp); continue; }
+    const isSkillMd = e === "SKILL.md";
+    const isShell = fp.endsWith(".sh");
+    if (!isSkillMd && !isShell) continue;
+    const text = read(fp);
+    const prefixRe = isSkillMd ? SKILL_MD_PREFIX : SCRIPT_PREFIX;
+    const expected = isSkillMd
+      ? "${CLAUDE_PLUGIN_ROOT}/skills/<x>/scripts/"
+      : "${SCRIPT_DIR}/(../)+workaholic/skills/<x>/scripts/";
+    for (const m of text.matchAll(ANY_SKILL_SCRIPT)) {
+      const rel = fp.slice(REPO_ROOT.length + 1);
+      check(`cross-skill ref ${rel}:${lineAt(text, m.index)}`, prefixOk(text, m.index, prefixRe),
+        `"${m[0]}" is not in the build-detectable form (expected ${expected}) — build.mjs would miss this closure`);
+    }
+  }
+};
+if (existsSync(SOURCE_SKILLS)) {
+  lintSourceRefs(SOURCE_SKILLS);
+  console.log(`verified source cross-skill references use the build-detectable form`);
 }
 
 // Policy index freshness (working-tree check): the on-disk digest must match a

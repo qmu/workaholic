@@ -29,6 +29,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { generatePolicyIndex, POLICY_INDEX_REL } from "./policy-index.mjs";
+import { SKILL_REF, SCRIPT_CROSS_REF } from "./script-ref-patterns.mjs";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
 const CORE_SKILLS = join(REPO_ROOT, "plugins/workaholic/skills");
@@ -48,8 +49,8 @@ const DEFAULT_TARGETS = ["create-ticket", "drive", "report", "ship"];
 // dependencies of report, so they ship as their own skills alongside the workflows.
 const EXTRA_SKILLS = ["review-sections", "write-release-note"];
 
-const SKILL_REF = /\$\{CLAUDE_PLUGIN_ROOT\}\/skills\/([a-z-]+)\/scripts\//g;
-const SCRIPT_CROSS_REF = /\$\{SCRIPT_DIR\}\/(?:\.\.\/)+workaholic\/skills\/([a-z-]+)\/scripts\//g;
+// SKILL_REF and SCRIPT_CROSS_REF are imported from ./script-ref-patterns.mjs so the
+// build and verify.mjs's source lint share one definition of the detectable forms.
 
 function readText(p) { return readFileSync(p, "utf8"); }
 

@@ -3,9 +3,9 @@ created_at: 2026-06-23T18:19:29+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 54044a4
+category: Changed
 depends_on:
 ---
 

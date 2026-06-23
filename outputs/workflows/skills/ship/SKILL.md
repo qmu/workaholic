@@ -80,6 +80,8 @@ Determine whether an established confirmation method exists: `read-deployments.s
 
 A docs/config-only project legitimately may have a trivial confirmation (e.g. "the merge to `main` is the deployment; confirm the commit is on `main`"); that still must be stated as a confirmation method, not left absent.
 
+A target follows one of two **deploy models** — *deploy-from-branch* (deploy + confirm from the branch, then merge) or *deploy-on-merge* (the merge is the deployment; confirmation splits into a pre-merge readiness proof and a post-merge promotion check). The `.workaholic/deployments/README.md` "Deploy models" section spells out both with copyable examples; a deploy-on-merge target should label its `## Confirmation` pre-merge vs post-merge so the two phases are unambiguous.
+
 ## 2. Shell Scripts
 
 ### 2-1. Pre-check

@@ -11,6 +11,46 @@ the deployment succeeded in production. `/ship` reads these entries (via
 `read-deployments.sh`) and will not complete a deployment unless an
 established confirmation method exists for the target.
 
+## Deploy models
+
+A target follows one of two models. Pick the one that matches how the target
+actually reaches production, and write the `## Confirmation` accordingly.
+
+**Deploy-from-branch** — deploy and confirm from the work branch, *then* merge.
+The branch is shipped to production (or a production-equivalent target) before
+the PR merges, so an unconfirmable change never reaches `main`. The whole
+`## Confirmation` is a single pre-merge check. Use this when you control deploy
+timing independently of the merge (e.g. `wrangler deploy` from the branch, then
+probe the live URL).
+
+```markdown
+---
+title: Production web — Cloudflare Workers
+environment: production
+confirmation_method: api-probe
+url: https://example.com/healthz
+---
+## Procedure
+1. `npx wrangler deploy`
+## Confirmation
+1. `curl -fsS https://example.com/healthz` returns `{"status":"ok"}` with the new build hash.
+```
+
+**Deploy-on-merge** — the merge *is* the deployment; the release is published
+*from* the merge commit (by CI or `publish-release.sh`). Confirmation splits in
+two: a **pre-merge** branch/staging proof that the artifact is production-ready,
+and a **post-merge** check that the promotion is live. Use this when production
+is defined by the merge itself (a marketplace/release published from `main`).
+This repo's own target, [`marketplace.md`](marketplace.md), is the worked
+example; its `## Confirmation` is explicitly labelled pre-merge (build/verify/
+test/version) and post-merge (`gh release view v<version>`).
+
+`/ship` runs the same flow for both — deploy + confirm before the merge, merge
+last — but a deploy-on-merge target's pre-merge step proves readiness while its
+post-merge step (Ship Flow step 7) confirms the live promotion. If you write a
+deploy-on-merge target, split `## Confirmation` into a "Pre-merge" and a
+"Post-merge" part so the two phases are unambiguous.
+
 ## File format
 
 ```markdown

@@ -17,4 +17,6 @@ Follow `workaholic:trip-protocol` for the full workflow:
 - `## Agent Rules` — shared rules
 - `## Planning Phase`, `## Coding Phase` — procedural steps and gates
 
-**I/O**: Receives lead instructions; produces `models/model-v*.md`, review files under `reviews/`, and analytical review notes.
+In the Coding Phase my analytical review runs **per ticket**: the team drives the decomposition tickets one by one (Constructor implements → I review → Planner E2E-tests → archive). My review is part of the per-ticket approval gate.
+
+**I/O**: Receives lead instructions; produces `models/model-v*.md`, review files under `reviews/`, and per-ticket analytical review notes.

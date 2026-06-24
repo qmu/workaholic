@@ -27,6 +27,10 @@ Archive paths (`.workaholic/tickets/archive/<branch>/`) are written by the drive
 
 **Rationale**: The drive workflow, archive script, navigator, report skill, and validation hook all scan `.workaholic/tickets/` exclusively. A ticket placed in a sibling directory becomes invisible to the rest of the pipeline. The `plugins/work/hooks/validate-ticket.sh` hook enforces this and rejects ticket-shaped files (filename matching `YYYYMMDDHHmmss-*.md`) written outside `.workaholic/tickets/`.
 
+### Trip Origin (trip-emitted tickets)
+
+A `/trip` produces its tickets through the trip-protocol **Decomposition gate** (Planning Phase Step 5), where the Constructor decomposes the agreed `designs/design-v<N>.md` into implementation tickets. Those tickets follow this skill's File Structure and the same location rule above — they are written under `.workaholic/tickets/todo/<user>/`, **never** under `.workaholic/trips/`. The only addition is a **Trip Origin** reference: a line linking the ticket back to the section of `.workaholic/trips/<trip-name>/designs/design-v<N>.md` that justifies it, so the rationale (in `trips/`) stays one link from the contract (the ticket). Add it as a short note under the `## Overview`, e.g. `**Trip Origin:** .workaholic/trips/<name>/designs/design-v2.md § "Data layer"`. Drive-created tickets (via `/ticket`) omit it.
+
 ## Step 1: Capture Dynamic Values
 
 **Run the ticket-metadata script:**

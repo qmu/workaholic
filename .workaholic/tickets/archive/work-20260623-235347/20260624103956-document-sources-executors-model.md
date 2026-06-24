@@ -3,9 +3,9 @@ created_at: 2026-06-24T10:39:56+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 183ac87
+category: Changed
 depends_on: [20260624103955-trip-context-aware-queue-execute-mode.md]
 ---
 

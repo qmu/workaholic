@@ -5,9 +5,9 @@ origin_branch: work-20260528-091259
 origin_commit: b53a3a0
 created_at: 2026-05-28T12:02:14+09:00
 severity: low
-status: active
-resolved_by_pr:
-resolved_by_commit:
+status: resolved
+resolved_by_pr: 55
+resolved_by_commit: 687ee82
 ---
 
 # Script rename requires stale-artifact cleanup

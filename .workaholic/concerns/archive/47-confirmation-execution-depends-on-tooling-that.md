@@ -5,9 +5,9 @@ origin_branch: work-20260617-210627
 origin_commit: 6a64cf0
 created_at: 2026-06-17T22:08:29+09:00
 severity: moderate
-status: active
-resolved_by_pr:
-resolved_by_commit:
+status: resolved
+resolved_by_pr: 55
+resolved_by_commit: a23d69c
 ---
 
 # Confirmation execution depends on tooling that may be absent in headless/CI sessions

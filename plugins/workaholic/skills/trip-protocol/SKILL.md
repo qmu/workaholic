@@ -25,8 +25,10 @@ Reviews create dialectical tension across perspectives. Requirements:
 
 ## Workflow Overview
 
-Planning: Concurrent artifacts, one-turn review, accept/revise/escalate, moderate, plan fixed.
-Coding: Concurrent launch, review and testing, iteration, done (or rollback to planning).
+`/trip` is context-aware (like `/report` and `/ship`). With an **instruction** it runs **design-first**; over a **populated todo queue** with no instruction it runs **queue-execute** (drive the existing tickets with three-agent QA, no design). See "Determine execution mode" in the Trip Command Procedure.
+
+Design-first Planning: Concurrent artifacts, one-turn review, accept/revise/escalate, moderate, plan fixed, **decompose into tickets**.
+Coding (both modes): drive the ticket queue per ticket — Constructor implements, Architect reviews, Planner E2E, archive — iterate, done (or rollback to planning).
 
 ## Shell Scripts
 
@@ -233,6 +235,20 @@ Procedural body for `/trip` (executed from the work-side command via this preloa
 
 **Determine mode from `$ARGUMENT`**: if it contains the `night` token (e.g. "go night /trip …", "/trip night …"), mode = "night" — **strip** the `night` token so the remainder is the trip instruction, and apply the **Night Mode** subsection's overrides to Steps 1, 4, and 5 (unattended, no developer questions). Otherwise mode = "normal" and the steps run interactively as written.
 
+**Determine execution mode (design-first vs queue-execute)** — `/trip` is context-aware, like `/report` and `/ship`. After the Pre-check, list the current todo queue:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-todo.sh
+```
+
+Route by the (night-stripped) instruction and the queue:
+
+- **Instruction present** → `design-first` (default, unchanged): Planning → Decomposition → Coding. The instruction seeds the trip; the Decomposition gate fills the queue. Steps 1–5 run as written.
+- **No instruction + non-empty queue** → `queue-execute`: the trip drives the **existing** queue with three-agent QA — **no** Planning, **no** Decomposition (the tickets are the spec). This is the `ticket → trip` direction. It modifies the steps below: **Step 1** uses the **current branch / working dir** (the tickets live here — do NOT create a new, empty worktree); **Step 2** initializes only a trip session record (`plan.md` + `event-log.md`, no design artifacts) with the `plan.md` step set to `coding/concurrent-launch`; **Step 4** launches the team with the **queue-execute team-lead instruction** (below); the team share-reads the queue and runs the Coding Phase Per-Ticket Drive Loop.
+- **No instruction + empty queue** → nothing to do: tell the user to run `/ticket` first or pass an instruction, then stop.
+
+For `design-first` with a non-empty queue, the instruction wins (design-first runs); the Coding loop then drives the full resulting queue, including any pre-existing tickets. Use a fresh worktree to keep an existing queue separate (already the night/default).
+
 ### Pre-check: Dependencies
 
 ```bash
@@ -312,6 +328,10 @@ Create a three-member Agent Team. The team lead instruction:
 > **Post-completion rule**: After the trip reaches `complete/done`, if the user sends follow-up requests: handle simple tasks directly (reading, answering, small edits). For substantial work, re-invoke ONLY the three designated teammates (Planner, Architect, Constructor) -- never create new agent team members. The designated agents retain their original roles and constraints.
 
 **Night mode**: append the **Team-lead night directive** (see the Night Mode subsection) to the instruction above before launching, so the team runs unattended and never pauses for the developer. The normal-mode instruction is otherwise unchanged.
+
+**Queue-execute mode**: replace the "Follow trip-protocol for the Planning Phase … and Coding Phase" sentence with this directive (the rest of the instruction — teammates, policies, language, post-completion rule — is unchanged):
+
+> **QUEUE-EXECUTE — no design phase.** The todo queue already holds the tickets to build (`.workaholic/tickets/todo/<user>/`); they are the spec. Skip the Planning Phase, the Consensus/Convergence gate, and the Decomposition gate entirely. First, all three teammates **share-read** the queued tickets (and any Trip Origin links). Then run the **Coding Phase Per-Ticket Drive Loop** over the queue in `depends_on` then severity order: per ticket, Constructor implements (reading its `## Policies`) + internal tests → Architect reviews → Planner E2E → archive via `drive/archive.sh`. The three-agent QA is the per-ticket gate. Rollback to add a design pass is available only if the queue proves underspecified.
 
 ### Step 5: Present Results
 

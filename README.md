@@ -120,7 +120,12 @@ The session runs in two phases inside an isolated git worktree:
 1. **Specification** — Agents produce direction, model, and design artifacts through mutual review, then **decompose the agreed design into tickets** (the same tickets `/drive` consumes). The design artifacts under `.workaholic/trips/` are the *rationale*; the tickets under `.workaholic/tickets/` are the *contract*, each linking back to the design via a **Trip Origin** reference.
 2. **Implementation** — Agents **drive the ticket queue** one ticket at a time, keeping their distinct QA roles (Constructor implements, Architect reviews, Planner E2E-tests) as the per-ticket approval gate, archiving each ticket so `/report` and `/ship` work identically to a drive.
 
-So `/trip` and `/drive` converge on the same unit of work — a ticket. `/trip` is the collaborative way to *produce* the tickets and build them with three-perspective QA; `/drive` implements a hand-written queue.
+So `/trip` and `/drive` converge on the same unit of work — a ticket. The shorthand: **sources fill the queue, executors drain it.**
+
+- **Sources** write tickets into `todo/`: `/ticket` (you, with discovery) and a trip's design **decomposition**.
+- **Executors** drain `todo/ → archive/`: `/drive` (solo, with your approval per ticket) and `/trip` (a three-agent team, with review + E2E as the per-ticket gate).
+
+`/trip` is **context-aware**: `/trip <concept>` over an empty queue designs *and* builds; `/trip` over a queue you already wrote just builds it with three-perspective QA (the `ticket → trip` direction). Either executor reads the same `todo/`, so you can start a trip and finish with `/drive`, or vice versa.
 
 ## Artifacts under `.workaholic/`
 

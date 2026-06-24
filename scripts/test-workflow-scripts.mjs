@@ -37,6 +37,7 @@ const SCRIPTS = {
   applyVerdicts: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/apply-carryover-verdicts.sh"),
   extractCarryover: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/extract-carryover.sh"),
   docDrift: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/doc-drift.sh"),
+  checkCapability: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/check-confirmation-capability.sh"),
 };
 
 // Slug for the repo's standard test identity (git config user.email test@example.com).
@@ -395,6 +396,29 @@ function testPublishRelease() {
   } finally { cleanup(bare); }
 }
 
+// ---------- ship/check-confirmation-capability.sh (advisory pre-deploy capability check) ----------
+function testCheckCapability() {
+  // Unknown method -> not capable, deterministic regardless of installed tooling.
+  const r1 = JSON.parse(run(REPO_ROOT, `bash ${SCRIPTS.checkCapability} bogus`).stdout);
+  assertEq("check-capability unknown method -> not capable",
+    { m: r1.method, c: r1.capable, miss: r1.missing }, { m: "bogus", c: false, miss: "unknown method" });
+
+  // browser under CI -> not capable (env-forced, no interactive agent).
+  const r2 = JSON.parse(run(REPO_ROOT, `bash ${SCRIPTS.checkCapability} browser`,
+    { env: { ...process.env, CI: "1" } }).stdout);
+  assertEq("check-capability browser in CI -> not capable", r2.capable, false);
+
+  // Missing method arg -> error JSON, non-zero exit.
+  const r3 = run(REPO_ROOT, `bash ${SCRIPTS.checkCapability}`);
+  assertTrue("check-capability no arg -> exit 1 + error", r3.status === 1 && /"error"/.test(r3.stdout + r3.stderr),
+    `status=${r3.status} out=${r3.stdout} err=${r3.stderr}`);
+
+  // Known method emits a well-formed object with a boolean capable.
+  const r4 = JSON.parse(run(REPO_ROOT, `bash ${SCRIPTS.checkCapability} api-probe`).stdout);
+  assertTrue("check-capability api-probe -> boolean capable + method echoed",
+    typeof r4.capable === "boolean" && r4.method === "api-probe", JSON.stringify(r4));
+}
+
 // ---------- ship/read-deployments.sh (deployment-confirmation gate driver) ----------
 function testReadDeployments() {
   // No .workaholic/deployments/ dir -> no confirmation method (gate would halt).
@@ -712,6 +736,7 @@ const tests = [
   ["drive/list-todo.sh", testListTodo],
   ["drive/promote-icebox.sh", testPromoteIcebox],
   ["ship/publish-release.sh", testPublishRelease],
+  ["ship/check-confirmation-capability.sh", testCheckCapability],
   ["ship/read-deployments.sh", testReadDeployments],
   ["ship/record-evidence.sh", testRecordEvidence],
   ["ship/catchup-main.sh", testCatchupMain],

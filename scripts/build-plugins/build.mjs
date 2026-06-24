@@ -29,6 +29,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { generatePolicyIndex, POLICY_INDEX_REL } from "./policy-index.mjs";
+import { SKILL_REF, SCRIPT_CROSS_REF } from "./script-ref-patterns.mjs";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
 const CORE_SKILLS = join(REPO_ROOT, "plugins/workaholic/skills");
@@ -48,8 +49,8 @@ const DEFAULT_TARGETS = ["create-ticket", "drive", "report", "ship"];
 // dependencies of report, so they ship as their own skills alongside the workflows.
 const EXTRA_SKILLS = ["review-sections", "write-release-note"];
 
-const SKILL_REF = /\$\{CLAUDE_PLUGIN_ROOT\}\/skills\/([a-z-]+)\/scripts\//g;
-const SCRIPT_CROSS_REF = /\$\{SCRIPT_DIR\}\/(?:\.\.\/)+workaholic\/skills\/([a-z-]+)\/scripts\//g;
+// SKILL_REF and SCRIPT_CROSS_REF are imported from ./script-ref-patterns.mjs so the
+// build and verify.mjs's source lint share one definition of the detectable forms.
 
 function readText(p) { return readFileSync(p, "utf8"); }
 
@@ -187,6 +188,13 @@ function publicizeSkillMd(p) {
 // skills. It carries a .codex-plugin/plugin.json for Codex; the skills CLI ignores that
 // and scans only skills/, so the same dir serves Codex, OpenCode, and other agents.
 function assembleWorkflowsPlugin(builtTargets) {
+  // Orphan-cleanup guarantee: wipe the entire generated plugin before reassembly so
+  // a renamed or removed source script leaves NO stale artifact behind. This whole-tree
+  // rebuild is the only thing that prevents orphans — keep it. (Without it, build.mjs
+  // would write the new name but never delete the old one, and the committed outputs/
+  // would drift until manually cleaned; the Outputs Freshness CI is the backstop that
+  // catches any such drift.) outputs/ holds only this generated plugin, so the wipe is
+  // scoped to build-owned paths and touches nothing hand-authored.
   rmSync(WORKFLOWS_PLUGIN, { recursive: true, force: true });
   mkdirSync(join(WORKFLOWS_PLUGIN, ".codex-plugin"), { recursive: true });
   const skillsOut = join(WORKFLOWS_PLUGIN, "skills");

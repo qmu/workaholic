@@ -80,6 +80,8 @@ Determine whether an established confirmation method exists: `read-deployments.s
 
 A docs/config-only project legitimately may have a trivial confirmation (e.g. "the merge to `main` is the deployment; confirm the commit is on `main`"); that still must be stated as a confirmation method, not left absent.
 
+A target follows one of two **deploy models** — *deploy-from-branch* (deploy + confirm from the branch, then merge) or *deploy-on-merge* (the merge is the deployment; confirmation splits into a pre-merge readiness proof and a post-merge promotion check). The `.workaholic/deployments/README.md` "Deploy models" section spells out both with copyable examples; a deploy-on-merge target should label its `## Confirmation` pre-merge vs post-merge so the two phases are unambiguous.
+
 ## 2. Shell Scripts
 
 ### 2-1. Pre-check
@@ -113,6 +115,14 @@ bash ship/scripts/read-deployments.sh
 ```
 
 Reads `.workaholic/deployments/*.md`. Returns `{"has_confirmation": <bool>, "count": N, "deployments": [{title, environment, confirmation_method, url, endpoint, command, procedure, confirmation}]}`. `has_confirmation` is true iff at least one target declares a `confirmation_method` and a non-empty `## Confirmation` body. Drives the §1-4 hard gate. Returns the empty/no-confirmation result (never errors) when the directory is absent.
+
+### 2-3c. Check Confirmation Capability
+
+```bash
+bash ship/scripts/check-confirmation-capability.sh "<confirmation_method>"
+```
+
+Checks whether the current ship environment has the tooling the matched target's `confirmation_method` needs (`api-probe` → curl/wget; `db-query` → a DB client; `server-batch` → ssh; `browser` → an interactive agent, flagged in CI). Returns `{"method", "capable": <bool>, "missing", "hint"}`. **Advisory only** — it warns and steers toward a headless-executable method; it never blocks on its own (the §1-4 gate and the actual confirmation in §5 step 4 remain authoritative). Run it pre-deploy (Ship Flow step 3).
 
 ### 2-4. Check Todo
 
@@ -206,7 +216,7 @@ Ship the current branch's PR. (Worktree sync/cleanup and drive/trip routing are 
 2. **Catch up with `main`**: Run `bash ship/scripts/catchup-main.sh "<base-branch>"` so what you deploy equals what will merge. If `caught_up` is `false` (`conflict:true`): halt and ask the user to resolve the conflict before continuing.
 3. **Deploy** (gated on a confirmation method — see §1-4; this runs PRE-MERGE): Run `bash ship/scripts/read-deployments.sh` and `bash ship/scripts/find-claude-md.sh`.
    - **No confirmation method** (`has_confirmation` is `false` AND `CLAUDE.md` has no `## Verify` section): **HALT — do not deploy, do not merge, do not skip.** Apply the §1-4 hard gate: ask the user (the agent's selection prompt, at the command level) to provide a verification path / credentials, inspect production to establish one, author a `.workaholic/deployments/` entry, or abort. Aborting leaves `main` untouched. Resolve before proceeding.
-   - **Confirmation method exists**: take the deploy procedure from the matching `.workaholic/deployments/` `## Procedure` (preferred) or `CLAUDE.md` `## Deploy`, display it, ask confirmation via the agent's selection prompt (§1-3), and execute if confirmed. For a **deploy-on-merge** project (the deploy is triggered by the merge itself, e.g. a marketplace release published from the merge commit), the pre-merge "deploy + confirm" is the branch/staging-level proof the contract names (build/verify/test green, version correct); the merge then promotes to production and step 7 publishes/confirms the release. Capture the target's `confirmation_method` and `## Confirmation` (or `CLAUDE.md` `## Verify`) for step 4.
+   - **Confirmation method exists**: first run the **capability check** (§2-3c) for the target's `confirmation_method`. If `capable` is `false`, print the `missing`/`hint` as a warning — the declared method cannot run in this ship environment (e.g. a `browser` confirmation in headless/CI) and will force the post-deploy halt; steer the user toward a headless-executable method (`api-probe`/`db-query`) or an interactive ship before deploying. This is advisory: it does not override the §1-4 gate. Then take the deploy procedure from the matching `.workaholic/deployments/` `## Procedure` (preferred) or `CLAUDE.md` `## Deploy`, display it, ask confirmation via the agent's selection prompt (§1-3), and execute if confirmed. For a **deploy-on-merge** project (the deploy is triggered by the merge itself, e.g. a marketplace release published from the merge commit), the pre-merge "deploy + confirm" is the branch/staging-level proof the contract names (build/verify/test green, version correct); the merge then promotes to production and step 7 publishes/confirms the release. Capture the target's `confirmation_method` and `## Confirmation` (or `CLAUDE.md` `## Verify`) for step 4.
 4. **Confirm in production** (execute the confirmation method, PRE-MERGE): run the captured confirmation and capture its observed result. Branch on `confirmation_method`:
    - `browser` — open the recorded `url` (browser tooling) and check the documented signal.
    - `server-batch` — run the documented batch command (credentials supplied transiently, never persisted).

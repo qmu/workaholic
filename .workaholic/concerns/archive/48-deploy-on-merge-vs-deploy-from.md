@@ -5,9 +5,9 @@ origin_branch: work-20260617-231848
 origin_commit: 63bbb9e
 created_at: 2026-06-18T00:21:49+09:00
 severity: low
-status: active
-resolved_by_pr:
-resolved_by_commit:
+status: resolved
+resolved_by_pr: 55
+resolved_by_commit: 9f754dc
 ---
 
 # Deploy-on-merge vs deploy-from-branch needs clearer guidance in the contract template

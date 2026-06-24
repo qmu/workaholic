@@ -62,10 +62,13 @@ Route by `mode` from detect-context output:
 
 ##### Trip Mode (`mode: "trip"`)
 
+A trip now decomposes its design into tickets and drives them (trip-protocol Decomposition gate + Per-Ticket Drive Loop), so its archived tickets populate the story's Changes section exactly like a drive — no special-casing needed. The only trip addition is the **rationale link** (step 3): the design artifacts under `.workaholic/trips/<trip-name>/` are the *why* behind those tickets.
+
 1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
 2. **Run the Write Story orchestration** (`## Write Story → ### Orchestration`, Phases 0–5) directly in this command (main-agent) context. The command itself spawns the leaf parallel workers — there is no intermediate story-writer subagent.
-3. **Display story content**: Read the story file at `.workaholic/stories/<branch-name>.md` and output the entire Markdown content so the developer can review inline.
-4. **Display PR URL** captured from Phase 5 (mandatory).
+3. **Link the trip rationale**: if a `.workaholic/trips/<trip-name>/` directory exists for this branch, add a short note to the story's section 9 (Notes) linking the trip's design artifacts (`.workaholic/trips/<trip-name>/designs/`) as the rationale behind the ticket-based Changes, so a reviewer can trace each ticket's **Trip Origin** back to the design that justified it. Do not duplicate the design into the story — link it.
+4. **Display story content**: Read the story file at `.workaholic/stories/<branch-name>.md` and output the entire Markdown content so the developer can review inline.
+5. **Display PR URL** captured from Phase 5 (mandatory).
 
 ##### Hybrid Mode (`mode: "hybrid"`)
 

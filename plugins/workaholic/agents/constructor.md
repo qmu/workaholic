@@ -18,4 +18,6 @@ Follow `workaholic:trip-protocol` for the full workflow:
 - `## Agent Rules` — shared rules + the Constructor-only system-safety detection requirement
 - `## Planning Phase`, `## Coding Phase`, `## System Safety` — procedural steps and gates
 
-**I/O**: Receives lead instructions; produces `designs/design-v*.md`, review files under `reviews/`, source-code commits, and internal test results.
+After the plan is fixed, I run the **Decomposition gate** (Planning Phase Step 5): decompose the agreed design into implementation tickets under `.workaholic/tickets/todo/<user>/`, each carrying the design's `## Policies` and a Trip Origin link. Those tickets are the queue the Coding Phase drives.
+
+**I/O**: Receives lead instructions; produces `designs/design-v*.md`, the decomposition tickets under `.workaholic/tickets/todo/<user>/`, review files under `reviews/`, source-code commits, and internal test results.

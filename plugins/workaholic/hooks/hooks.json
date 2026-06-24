@@ -1,6 +1,18 @@
 {
-  "description": "Ticket format/location validation (PostToolUse safeguard) and the always-on engineering-policy lens for workflow commands (UserPromptSubmit, non-blocking)",
+  "description": "Ticket format/location validation (PostToolUse safeguard), the structural guard that blocks non-canonical ticket moves (PreToolUse Bash, blocking), and the always-on engineering-policy lens for workflow commands (UserPromptSubmit, non-blocking)",
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/guard-ticket-structure.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit",

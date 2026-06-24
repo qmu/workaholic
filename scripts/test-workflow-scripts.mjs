@@ -725,6 +725,67 @@ function testPolicyLens() {
   } finally { cleanup(dir); }
 }
 
+// ---------- hooks/validate-ticket.sh (ticket location enforcement) ----------
+// REAL, non-mock: runs the ACTUAL PostToolUse hook with a crafted tool_input.
+// The location/filename checks run BEFORE the file-exists check, so a canonical
+// path to a (deliberately absent) file exits 0, while a non-canonical path
+// exits 2 — letting us assert location rules without writing fixtures.
+function testValidateTicket() {
+  const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh");
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  validate-ticket (jq not available)"); return; }
+
+  const invoke = (file_path) => {
+    const payload = JSON.stringify({ tool_input: { file_path } });
+    try { execSync(`bash ${HOOK}`, { cwd: REPO_ROOT, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return 0; }
+    catch (e) { return e.status ?? 1; }
+  };
+
+  const TS = "20260624140207";
+  // Canonical locations -> location check passes, absent file -> exit 0.
+  assertEq("validate-ticket allows todo/<user>/", invoke(`.workaholic/tickets/todo/a-qmu-jp/${TS}-x.md`), 0);
+  assertEq("validate-ticket allows icebox/ (flat)", invoke(`.workaholic/tickets/icebox/${TS}-x.md`), 0);
+  assertEq("validate-ticket allows abandoned/ (flat)", invoke(`.workaholic/tickets/abandoned/${TS}-x.md`), 0);
+  assertEq("validate-ticket allows archive/<branch>/", invoke(`.workaholic/tickets/archive/work-x/${TS}-x.md`), 0);
+  // Non-canonical locations -> exit 2.
+  assertEq("validate-ticket rejects root-level todo/ stray", invoke(`.workaholic/tickets/todo/${TS}-x.md`), 2);
+  assertEq("validate-ticket rejects invented done/", invoke(`.workaholic/tickets/done/${TS}-x.md`), 2);
+  assertEq("validate-ticket rejects nested todo/<user>/archive/", invoke(`.workaholic/tickets/todo/a-qmu-jp/archive/b/${TS}-x.md`), 2);
+}
+
+// ---------- hooks/guard-ticket-structure.sh (PreToolUse Bash move guard) ----------
+// REAL, non-mock: runs the ACTUAL PreToolUse guard with a crafted tool_input.command.
+// Asserts it BLOCKS (exit 2) mutating commands that place a ticket in a non-canonical
+// location, and ALLOWS (exit 0) canonical moves, variable destinations (archive.sh),
+// read-only commands, and unrelated commands.
+function testGuardTicketStructure() {
+  const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/guard-ticket-structure.sh");
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  guard-ticket-structure (jq not available)"); return; }
+
+  const invoke = (command) => {
+    const payload = JSON.stringify({ tool_input: { command } });
+    try { execSync(`bash ${HOOK}`, { cwd: REPO_ROOT, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return 0; }
+    catch (e) { return e.status ?? 1; }
+  };
+
+  // Blocks non-canonical moves (the observed drift patterns).
+  assertEq("guard blocks mv into done/", invoke("mv .workaholic/tickets/todo/a-qmu-jp/x.md .workaholic/tickets/done/"), 2);
+  assertEq("guard blocks mkdir done/", invoke("mkdir -p .workaholic/tickets/done"), 2);
+  assertEq("guard blocks nested todo/<user>/archive/ move", invoke("mv t.md .workaholic/tickets/todo/a-qmu-jp/archive/b/"), 2);
+  assertEq("guard blocks redirect into done/", invoke("cat x > .workaholic/tickets/done/foo.md"), 2);
+  // Allows canonical moves, variable destinations, read-only, and unrelated commands.
+  assertEq("guard allows canonical archive move", invoke("mv t.md .workaholic/tickets/archive/feat-x/x.md"), 0);
+  assertEq("guard allows todo/<user>/ move", invoke("mv s.md .workaholic/tickets/todo/a-qmu-jp/x.md"), 0);
+  assertEq("guard allows icebox move", invoke("mv t.md .workaholic/tickets/icebox/foo.md"), 0);
+  assertEq("guard allows abandoned move", invoke("mv t.md .workaholic/tickets/abandoned/foo.md"), 0);
+  assertEq("guard allows variable destination (archive.sh)", invoke('mv "$TICKET" "$ARCHIVE_DIR/"'), 0);
+  assertEq("guard allows read-only ls of a messy tree", invoke("ls .workaholic/tickets/done/"), 0);
+  assertEq("guard ignores unrelated command", invoke("git status"), 0);
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching/detect-context.sh", testDetectContext],
@@ -744,6 +805,8 @@ const tests = [
   ["ship/extract-carryover.sh", testExtractCarryover],
   ["report/doc-drift.sh", testDocDrift],
   ["hooks/policy-lens.sh", testPolicyLens],
+  ["hooks/validate-ticket.sh", testValidateTicket],
+  ["hooks/guard-ticket-structure.sh", testGuardTicketStructure],
 ];
 
 for (const [label, fn] of tests) {

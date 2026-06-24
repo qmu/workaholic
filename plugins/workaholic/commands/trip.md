@@ -15,6 +15,8 @@ skills:
 
 Launch an Agent Teams session to collaboratively explore and develop a concept through the Implosive Structure workflow. The session runs either in an isolated git worktree or on a trip branch in the main working tree.
 
+**Context-aware entry** (like `/report` and `/ship`): with an **instruction** (`/trip <concept>`) the team runs **design-first** — Planning → Decomposition into tickets → drive them. Over a **populated todo queue** with **no instruction** (`/trip`), the team runs **queue-execute** — it trip-drives the existing `/ticket` queue with three-agent QA, no design phase (the `ticket → trip` direction). With neither, it tells you to `/ticket` first or pass an instruction. The trip-protocol skill's "Determine execution mode" step routes this.
+
 **Prerequisites**: Agent Teams enabled (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), clean git state.
 
 Follow the preloaded **workaholic:trip-protocol** skill `## Trip Command Procedure` for the full five-step orchestration: Pre-check, Create or Resume Trip, Initialize Trip Artifacts, Validate Dev Environment, Launch Agent Teams (with verbatim team-lead instruction), Present Results.

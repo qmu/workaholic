@@ -42,18 +42,24 @@ fi
 # Extract the path after .workaholic/tickets/
 tickets_path="${file_path#*.workaholic/tickets/}"
 
-# Validate location: must be in todo/ (flat root or one user subdirectory),
-# icebox/ (flat), or archive/<branch>/. Deeper todo/ nesting is rejected so the
-# per-user layout stays exactly one level (todo/<user>/<ticket>.md).
-if [[ "$tickets_path" =~ ^todo/([^/]+/)?[^/]+$ ]]; then
-  : # Valid (todo/<ticket>.md or todo/<user>/<ticket>.md)
+# Validate location: must be in todo/<user>/ (the per-user subdir is MANDATORY —
+# the flat todo/ root is never a write target; strays are swept into
+# todo/<user>/ by create-ticket/drive), icebox/ (flat), abandoned/ (flat, where
+# drive parks failed tickets), or archive/<branch>/. The trailing [^/]+$ anchors
+# reject deeper nesting (e.g. todo/<user>/archive/...), and any other top-level
+# dir (an invented done/, root-level todo/ stray) falls through to the error.
+if [[ "$tickets_path" =~ ^todo/[^/]+/[^/]+$ ]]; then
+  : # Valid (todo/<user>/<ticket>.md)
 elif [[ "$tickets_path" =~ ^icebox/[^/]+$ ]]; then
   : # Valid (icebox stays flat)
+elif [[ "$tickets_path" =~ ^abandoned/[^/]+$ ]]; then
+  : # Valid (abandoned stays flat)
 elif [[ "$tickets_path" =~ ^archive/[^/]+/ ]]; then
   : # Valid (archive/<branch>/)
 else
-  echo "Error: Ticket must be in todo/<user>/, icebox/, or archive/<branch>/ directory" >&2
+  echo "Error: Ticket must be in todo/<user>/, icebox/, abandoned/, or archive/<branch>/" >&2
   echo "Got: $tickets_path" >&2
+  echo "(non-canonical subdirs such as done/ and root-level todo/ strays are not allowed)" >&2
   print_skill_reference
   exit 2
 fi

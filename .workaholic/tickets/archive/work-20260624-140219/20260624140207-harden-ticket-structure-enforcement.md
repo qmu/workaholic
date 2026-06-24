@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: enhancement
 layer: [Config]
 effort:
-commit_hash:
-category:
+commit_hash: 31dec7f
+category: Added
 depends_on:
 ---
 

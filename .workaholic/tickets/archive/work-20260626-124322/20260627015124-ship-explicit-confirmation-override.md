@@ -3,9 +3,9 @@ created_at: 2026-06-27T01:51:24+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config, Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 9f6fce5
+category: Added
 depends_on:
 ---
 
@@ -42,7 +42,7 @@ The standard engineering policies that govern this ticket. The implementing sess
 read each linked policy hard copy before writing code and keep every change defensible against
 that policy's Goal (目標), Responsibility (責務), and Practices (実践).
 
-- `workaholic:operation` / `policies/observability.md` — **the central policy here.** The bypass must be *explainable from the outside*: recorded into the story/PR as an accepted-risk, production-unverified merge, and surfaced distinctly in the §5 step-9 summary. No silent merge-without-confirmation.
+- `workaholic:implementation` / `policies/observability.md` — **the central policy here.** The bypass must be *explainable from the outside*: recorded into the story/PR as an accepted-risk, production-unverified merge, and surfaced distinctly in the §5 step-9 summary. No silent merge-without-confirmation.
 - `workaholic:operation` / `policies/ci-cd.md` — the gate and its override are part of the deploy→merge delivery path; keep the behavior reproducible and the merge step (`merge-pr.sh`) unchanged, with the override expressed as workflow logic, not a new bespoke merge path.
 - `workaholic:implementation` / `policies/coding-standards.md` — applies to the `record-evidence.sh` change (fail-fast, POSIX-clean, no silent fall-through).
 - `workaholic:implementation` / `policies/directory-structure.md` — applies to all code work; the override logic stays inside the existing `ship` skill/scripts, no new top-level surface.
@@ -90,3 +90,14 @@ Relevant gate-building commits (not tickets): `80e721c` (require a verified conf
 - **Honors prior feedback**: the gate stays the default and the merge stays evidence-aware; this only adds a deliberate, recorded exit. Do not weaken the gate into a warning, and do not auto-bypass — that would contradict the reason the gate was introduced (`80e721c`/`066714b`).
 - **Cross-agent / outputs**: `ship` ships into the committed `outputs/workflows/` bundle, so the SKILL.md and `record-evidence.sh` edits require a `build.mjs` regen committed in lockstep or the Outputs Freshness CI fails.
 - Keep the override description **project-agnostic** — it is a general escape hatch, not tied to any particular consumer repo's deploy setup.
+
+## Final Report
+
+Development completed as planned. The override was added to `ship/SKILL.md` (§1-4 menu, Ship Flow steps 3/4/5/9, Core-design paragraph), `commands/ship.md` (the command-level AskUserQuestion menu), and `record-evidence.sh` (documented `bypassed` status); a smoke case for `status=bypassed` was added (97/0). The `merge-pr.sh` path is unchanged — the bypass reaches the same merge after recording the evidence, exactly as scoped.
+
+### Discovered Insights
+
+- **Insight**: This ticket's `## Policies` section originally cited `workaholic:operation / policies/observability.md`, but `observability` lives under the **implementation** pillar (`skills/implementation/policies/observability.md`); `operation/policies/` holds only `ai-production-investigation`, `ci-cd`, and `no-customer-support-in-repo`. Corrected to `workaholic:implementation` during the policy-lens read.
+  **Context**: `/ticket`'s policy-mode discovery can mis-attribute a policy to the wrong pillar. A ticket's recorded `## Policies` paths are not checked by `validate-ticket.sh` (it validates frontmatter/location only), so a wrong pillar path survives to `/drive` — worth a glance against `ls skills/<pillar>/policies/` when reading the lens.
+- **Insight**: The load-bearing scope boundary is **cannot-confirm vs ran-and-failed**. The override has two triggers — no method exists, and the §2-3c capability check flagging a declared method as unrunnable in this environment (e.g. `browser` in headless) — while a confirmation that executed and returned a failing result stays a non-bypassable hard stop.
+  **Context**: Step 4 of the Ship Flow previously collapsed "couldn't confirm" and "confirmed-and-failed" into one "failed ship"; the override forced that distinction to be made explicit in the prose so the escape hatch can never be used to merge a known-bad deploy.

@@ -25,7 +25,7 @@ Archive paths (`.workaholic/tickets/archive/<branch>/`) are written by the drive
 
 **PROHIBITED**: Do NOT write tickets into any other directory under `.workaholic/`, including but not limited to: `RFDs/`, `policies/`, `specs/`, `guides/`, `stories/`, `terms/`, `release-notes/`, `trips/`, `constraints/`, `concerns/`. Even if the user's request sounds like a design discussion, RFD, spec, policy, or carried-over concern, the artifact produced by this skill is a ticket and must live under `.workaholic/tickets/`. Other artifact types (including carry-over concerns/ideas — those are written by `ship` and updated by `report`) are out of scope for this skill.
 
-**Rationale**: The drive workflow, archive script, navigator, report skill, and validation hook all scan `.workaholic/tickets/` exclusively. A ticket placed in a sibling directory becomes invisible to the rest of the pipeline. The `plugins/work/hooks/validate-ticket.sh` hook enforces this and rejects ticket-shaped files (filename matching `YYYYMMDDHHmmss-*.md`) written outside `.workaholic/tickets/`.
+**Rationale**: The drive workflow, archive script, navigator, report skill, and validation hook all scan `.workaholic/tickets/` exclusively. A ticket placed in a sibling directory becomes invisible to the rest of the pipeline. The `plugins/workaholic/hooks/validate-ticket.sh` hook enforces this and rejects ticket-shaped files (filename matching `YYYYMMDDHHmmss-*.md`) written outside `.workaholic/tickets/`.
 
 ### Trip Origin (trip-emitted tickets)
 
@@ -84,21 +84,6 @@ depends_on:
 - **Lines 1-4**: Fill with actual values (never placeholders)
 - **Lines 5-8**: Must be present but leave empty (filled after implementation, or during creation when a request is split)
 
-### Concrete Example
-
-```yaml
----
-created_at: 2026-01-31T19:25:46+09:00
-author: developer@company.com
-type: enhancement
-layer: [UX, Domain]
-effort:
-commit_hash:
-category:
-depends_on:
----
-```
-
 ## Common Mistakes
 
 These cause validation failures:
@@ -108,8 +93,8 @@ These cause validation failures:
 | Missing empty fields | Omitting `effort:` line | Include all 8 fields, even if empty |
 | Placeholder values | `author: user@example.com` | Run `git config user.email` and use actual output |
 | Wrong date format | `2026-01-31` or `2026/01/31T...` | Use `date -Iseconds` output (includes timezone) |
-| Scalar layer | `layer: Config` | Use array format: `layer: [Config]` |
-| Scalar depends_on | `depends_on: file.md` | Use array format: `depends_on: [file.md]` |
+| Invalid layer value | `layer: [Frontend]` | Use only `UX`, `Domain`, `Infrastructure`, `DB`, `Config` (the array form is the house style) |
+| Invalid depends_on entry | `depends_on: [notes.md]` | List real ticket filenames: `depends_on: [20260131192546-foo.md]` |
 
 ## Filename Convention
 
@@ -165,11 +150,11 @@ Based on the history discovery subagent's `moderation` field:
 
 ### 5. Write Ticket(s)
 
-Follow the rest of this skill for format and content. Apply the Lead Lens table (below) to map the ticket's `layer` field to the relevant `standards:*` policy skill — its policies and practices govern the ticket's Implementation Steps, Considerations, and Patches.
+Follow the rest of this skill for format and content. Apply the Policy Lens table (below) to map the ticket's `layer` field to the relevant `workaholic:` policy skill — its policies and practices govern the ticket's Implementation Steps, Considerations, and Patches.
 
 Populate sections from the three discovery JSONs:
 
-- **history → Related History**: `summary` field provides the synthesis sentence; `tickets` array provides the bullet list with paths and match reasons.
+- **history → Related History**: `summary` provides the 1-2 sentence synthesis; `tickets` provides a bullet list, one markdown link each — `[filename.md](.workaholic/tickets/archive/<branch>/filename.md) - description (match reason)` — with `<branch>` taken from the search result (e.g. `feat-20260126-214833`). Omit the Related History section entirely if there are no matches.
 - **source → Key Files**: `files` array provides paths and relevance descriptions.
 - **source → Implementation Steps**: reference `code_flow`.
 - **source.snippets → Patches**: generate unified diffs from snippets. Follow the patch guidelines in this skill. Mark patches as speculative if based on interpretation rather than explicit requirements. Omit the Patches section if changes cannot be expressed as concrete diffs.
@@ -370,27 +355,6 @@ Two implementation policies apply across **every** layer when a ticket touches c
 When writing Implementation Steps, Considerations, and Patches, ensure they respect the policies and practices of every applicable skill. The four policy indexes (`planning`, `design`, `implementation`, `operation`) are the lens — on Claude Code they are preloaded and the `policy-lens.sh` hook injects the reminder on every `/ticket` run; this section documents the layer→pillar mapping for human readers and future agents.
 
 Use this mapping to fill the ticket's mandatory **`## Policies`** section. That section is the durable, in-ticket record of which standard policies (synced from qmu.co.jp) the work answers to: the policy lens is preloaded *while the ticket is written*, but `/drive` and `/trip` implement the ticket later — they read the recorded `## Policies` list to know exactly which policy hard copies to open before writing code. Keeping the list explicit in the ticket is what lets a developer confirm, after the fact, that the implementation referred to the corporate standard policies.
-
-## Exploring the Codebase
-
-Before writing a ticket:
-
-- Use Glob, Grep, and Read tools to find relevant files
-- Understand existing patterns, architecture, and conventions
-- Identify files that will need to be modified or created
-
-## Related History
-
-The Related History section is populated from the history-mode discovery subagent's output (the `/ticket` command spawns it as a parallel workers preloading `discover`).
-
-**Link format**: Use markdown links with repository-relative paths:
-```markdown
-- [filename.md](.workaholic/tickets/archive/<branch>/filename.md) - Description (match reason)
-```
-
-The full path includes the branch directory from the search results (e.g., `feat-20260126-214833`).
-
-If the subagent returns no matches, omit the Related History section entirely.
 
 ## Patch Guidelines
 

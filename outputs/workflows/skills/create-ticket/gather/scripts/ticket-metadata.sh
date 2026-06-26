@@ -6,7 +6,8 @@
 set -eu
 
 CREATED_AT=$(date -Iseconds)
-AUTHOR=$(git config user.email)
+AUTHOR=$(git config user.email || true)
+[ -n "$AUTHOR" ] || { echo 'git user.email is not set; run: git config user.email you@example.com' >&2; exit 1; }
 FILENAME_TS=$(date +%Y%m%d%H%M%S)
 SCRIPT_DIR=$(dirname "$0")
 USER_SLUG=$(sh "${SCRIPT_DIR}/user-slug.sh")

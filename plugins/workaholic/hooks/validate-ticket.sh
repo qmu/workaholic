@@ -28,7 +28,7 @@ filename=$(basename "$file_path")
 # .workaholic/RFDs/<ts>-foo.md that would otherwise silently pass.
 if [[ "$file_path" =~ \.workaholic/ ]] && [[ ! "$file_path" =~ \.workaholic/tickets/ ]] \
   && [[ "$filename" =~ ^[0-9]{14}-.*\.md$ ]]; then
-  echo "Error: Ticket files must be under .workaholic/tickets/todo/<user>/ or .workaholic/tickets/icebox/" >&2
+  echo "Error: Ticket files must be under .workaholic/tickets/ (todo/<user>/, icebox/, or archive/<branch>/)" >&2
   echo "Got: $file_path" >&2
   print_skill_reference
   exit 2
@@ -52,7 +52,7 @@ elif [[ "$tickets_path" =~ ^icebox/[^/]+$ ]]; then
 elif [[ "$tickets_path" =~ ^archive/[^/]+/ ]]; then
   : # Valid (archive/<branch>/)
 else
-  echo "Error: Ticket must be in todo/<user>/, icebox/, or archive/<branch>/ directory" >&2
+  echo "Error: Ticket must be in todo/ (per-user subdirectory preferred), icebox/, or archive/<branch>/ directory" >&2
   echo "Got: $tickets_path" >&2
   print_skill_reference
   exit 2
@@ -143,7 +143,7 @@ if [[ ! "$type" =~ ^(enhancement|bugfix|refactoring|housekeeping)$ ]]; then
 fi
 
 # layer: YAML array with valid values
-layer_line=$(echo "$frontmatter" | grep "^layer:")
+layer_line=$(echo "$frontmatter" | grep "^layer:" || true)
 if [[ -z "$layer_line" ]]; then
   echo "Error: layer field is required" >&2
   print_skill_reference

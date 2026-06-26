@@ -485,6 +485,19 @@ function testRecordEvidence() {
       "story is missing the Deployment Evidence block");
   } finally { cleanup(withStory); }
 
+  // A bypass status records an accepted-risk, production-unverified merge.
+  const bypassCase = makeRepo("main");
+  try {
+    mkdirSync(join(bypassCase, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(bypassCase, ".workaholic/stories/work-x.md"), "---\nbranch: work-x\n---\n# story\n");
+    const r = JSON.parse(run(bypassCase, `bash ${SCRIPTS.recordEvidence} work-x none "none (accepted-risk bypass)" "production state unverified; bypass accepted by developer" bypassed`).stdout);
+    assertEq("record-evidence records bypass", { rec: r.recorded, st: r.status }, { rec: true, st: "bypassed" });
+    const body = readFileSync(join(bypassCase, ".workaholic/stories/work-x.md"), "utf8");
+    assertTrue("record-evidence appended bypass evidence block",
+      body.includes("## Deployment Evidence") && body.includes("**Status:** bypassed"),
+      "story is missing the bypass Deployment Evidence block");
+  } finally { cleanup(bypassCase); }
+
   // A result containing a secret is refused and never written to the story.
   const secretCase = makeRepo("main");
   try {

@@ -1,12 +1,14 @@
 #!/bin/sh -eu
 # Append a "## Deployment Evidence" block to a branch story, capturing the
-# production-confirmation proof BEFORE the PR is merged. Reviewers see the
-# evidence on the PR; the merged story carries it permanently.
+# production-confirmation proof (or, for status=bypassed, the explicit record of
+# an accepted-risk merge WITHOUT confirmation) BEFORE the PR is merged. Reviewers
+# see the evidence on the PR; the merged story carries it permanently.
 #
 # Usage: bash record-evidence.sh <branch> <target> <method> <result> <status>
 #   <result> = a short, NON-SECRET observed result (status/version/hash/response).
 #              Never pass credentials, tokens, or cookies — the story is public.
-#   <status> = pass | fail
+#   <status> = pass | fail | bypassed   (bypassed = an explicit accepted-risk
+#              merge WITHOUT a production confirmation; see /ship §1-4 override)
 # Output: JSON {"recorded": bool, "story"?: path, "status"?: status, "reason"?: ...}
 #
 # Secret guard: the free-text inputs are scanned for common secret shapes

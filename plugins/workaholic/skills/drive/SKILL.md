@@ -88,7 +88,7 @@ For each ticket in the ordered list:
 
 #### Step 2.1: Implement Ticket
 
-Follow the **Workflow** section below. Implementation context is preserved in the main conversation, providing full visibility of changes made. Apply the policies, practices, and standards from the relevant preloaded `standards:*` policy skill(s) — see the Lead Lens table in the `create-ticket` skill for the layer-to-skill mapping.
+Follow the **Workflow** section below. Implementation context is preserved in the main conversation, providing full visibility of changes made. Apply the policies, practices, and standards from the relevant preloaded `workaholic:*` policy skill(s) — see the Policy Lens table in the `create-ticket` skill for the layer-to-skill mapping.
 
 #### Step 2.2: Request Approval
 
@@ -372,7 +372,7 @@ If no Patches section exists, skip to step 3.
 
 #### 3. Implement the Ticket
 
-- **Load the policy lens first (when the standards plugin is installed).** `/drive` preloads `workaholic:design`, `workaholic:implementation`, and `workaholic:operation`, so the three index `SKILL.md` files are in context. Before writing code, open every policy hard copy the ticket's **`## Policies`** section lists — that recorded list (synced from qmu.co.jp) is authoritative for which policies this implementation answers to. Read each `policies/<slug>.md` it names. If a ticket predates the `## Policies` section (it is absent or empty), fall back to deriving the set from the ticket's `layer` field via the Lead Lens mapping: UX → `workaholic:design` plus `workaholic:implementation`, Domain/DB → `workaholic:implementation`, Infrastructure → `workaholic:implementation` plus `workaholic:operation`, Config → the skill whose policies the config touches. Either way, judge the change's **design** (interaction and behavior), **implementation** (code structure and correctness), and **operation** (delivery, runtime, and recovery) against each applicable policy's Goal (目標), Responsibility (責務), and Practices (実践). If the standards plugin is not installed, proceed without it.
+- **Load the policy lens first (when the standards plugin is installed).** `/drive` preloads `workaholic:design`, `workaholic:implementation`, and `workaholic:operation`, so the three index `SKILL.md` files are in context. Before writing code, open every policy hard copy the ticket's **`## Policies`** section lists — that recorded list (synced from qmu.co.jp) is authoritative for which policies this implementation answers to. Read each `policies/<slug>.md` it names. If a ticket predates the `## Policies` section (it is absent or empty), fall back to deriving the set from the ticket's `layer` field via the Policy Lens mapping: UX → `workaholic:design` plus `workaholic:implementation`, Domain/DB → `workaholic:implementation`, Infrastructure → `workaholic:implementation` plus `workaholic:operation`, Config → the skill whose policies the config touches. Either way, judge the change's **design** (interaction and behavior), **implementation** (code structure and correctness), and **operation** (delivery, runtime, and recovery) against each applicable policy's Goal (目標), Responsibility (責務), and Practices (実践). If the standards plugin is not installed, proceed without it.
 - Follow the implementation steps in the ticket
 - Use existing patterns and conventions in the codebase
 - For areas where patches applied, verify and adjust as needed

@@ -53,9 +53,9 @@ if [ -d "$TODO_ROOT" ]; then
         # Stage the new path, and the old path's deletion only when it was tracked.
         # A stray may be untracked (freshly created, never committed); `git add` on a
         # never-tracked, now-missing path is fatal, so guard it on index membership.
-        git add "$dest"
+        git add "$dest" 2>/dev/null || true
         if git ls-files --error-unmatch "$ticket" >/dev/null 2>&1; then
-            git add "$ticket"
+            git add "$ticket" 2>/dev/null || true
         fi
 
         if [ -n "$moves" ]; then

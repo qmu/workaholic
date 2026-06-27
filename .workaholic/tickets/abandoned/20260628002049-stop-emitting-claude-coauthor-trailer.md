@@ -68,3 +68,24 @@ Past tickets that touched similar areas:
 - **Outputs coupling:** `commit.sh` lives in the shipped drive/ship closure, so editing it requires a `build.mjs` rebuild and an `outputs/` commit in the same change, or Outputs Freshness CI fails. This differs from the hooks in `20260628002047` (which have no `outputs/` footprint).
 - **Existing history is out of scope.** This ticket changes future commits only; already-merged trailers in consumer repos are not rewritten here (history rewrite is a separate, repo-owner decision).
 - **Don't touch `Category:`** — it is machine-read by `/report`/`write-release-note`. Only the Claude attribution line is removed.
+
+## Failure Analysis
+
+### What Was Attempted
+
+Nothing was implemented. During the `/drive` session that picked up this batch (2026-06-28), the developer was asked to settle the commit-gate scope for ticket `20260628002047` and replied **"Co-Authored-By is ok."** That directive directly reverses this ticket's premise.
+
+### Why It Failed (superseded)
+
+This ticket exists to *stop emitting* and *strip* the `Co-Authored-By: Claude` trailer. The developer decided the opposite: the trailer is acceptable and `commit.sh` should keep emitting it. Asked explicitly how to reconcile this ticket with that decision, the developer chose **"Keep the trailer; drop trailer-removal"**:
+
+- `commit.sh` keeps its hardcoded `Co-Authored-By: Claude <noreply@anthropic.com>` trailer (unchanged).
+- The commit gate (`guard-git-commit.sh`, 2047) does **not** block or strip a Claude co-author trailer — it enforces *subject* policy only (Conventional-Commit prefix, `[bracket]` tag, >50 chars).
+- The sibling ticket `20260628002050` is narrowed to a subject-only `commit-msg` hook (no co-author stripping).
+
+Implementing this ticket would have removed a trailer the developer wants kept, so it is abandoned rather than built.
+
+### Insights for Future Attempts
+
+- The harness itself defaults to appending a `Co-Authored-By: Claude` trailer, and the developer is content with that attribution. Do not revive trailer-removal without re-confirming the decision.
+- If attribution ever becomes configurable, the lever both `commit.sh` and any gate must read is a single git-config key (e.g. `workaholic.coAuthor`) — never a model-side convention a harness can shadow. That YAGNI note from this ticket's Considerations still holds.

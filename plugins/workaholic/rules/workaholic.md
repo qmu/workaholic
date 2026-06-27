@@ -26,6 +26,7 @@ README files at the root level are allowed (`README.md`).
 
 **Guidelines:**
 - Never create directories outside the allowed list. Enforcement is **warn by default** (a `Write`/`Edit` into an undesignated `.workaholic/` subdirectory is allowed but flagged on stderr by `validate-ticket.sh`). To make it **blocking** for a repo, set `WORKAHOLIC_STRICT_LAYOUT=1` or commit an empty `.workaholic/.strict-layout` marker. The ticket-shape and ticket-location rules are always blocking, regardless of this toggle.
+- To audit an existing tree for drift without changing anything, run `bash ${CLAUDE_PLUGIN_ROOT}/hooks/layout-doctor.sh [path]` — it reports undesignated directories and misplaced ticket states (with suggested `git mv`s) against this same allowlist, and never mutates the tree. `[path]` defaults to the current repo; pass a repo root to audit another.
 - If a user requests a new directory, explain the structure and suggest the appropriate existing directory
 - Map common requests: "docs" → `specs/`, "archive" → `tickets/archive/`, "changelog" → use ticket frontmatter, "deploy steps" / "release procedure" / "how to verify a deploy" → `deployments/`
 

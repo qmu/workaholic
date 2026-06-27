@@ -799,6 +799,47 @@ function testValidateLayout() {
   } finally { cleanup(markerRepo); }
 }
 
+// ---------- hooks/layout-doctor.sh (one-shot .workaholic/ layout audit) ----------
+function testLayoutDoctor() {
+  const DOCTOR = join(REPO_ROOT, "plugins/workaholic/hooks/layout-doctor.sh");
+
+  // A drifted tree: undesignated dirs, a bad ticket state, a bad root file, plus valid dirs.
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-doctor-"));
+  try {
+    for (const d of [".workaholic/.trips/trip-x", ".workaholic/proposals", ".workaholic/research",
+      ".workaholic/tickets/done", ".workaholic/tickets/todo", ".workaholic/stories",
+      ".workaholic/concerns/archive", ".workaholic/trips/work-1/designs/reviews", ".workaholic/trips/trip-legacy"]) {
+      mkdirSync(join(dir, d), { recursive: true });
+    }
+    writeFileSync(join(dir, ".workaholic/README.md"), "x");
+    writeFileSync(join(dir, ".workaholic/notes.txt"), "x");
+
+    const r = JSON.parse(run(dir, `bash ${DOCTOR} ${dir}`).stdout);
+    assertEq("doctor reports non-conforming", r.conforming, false);
+    const paths = r.findings.map((f) => f.path).sort();
+    assertEq("doctor finds exactly the drifted paths", paths,
+      [".workaholic/.trips", ".workaholic/notes.txt", ".workaholic/proposals", ".workaholic/research", ".workaholic/tickets/done"].sort());
+    const byPath = Object.fromEntries(r.findings.map((f) => [f.path, f]));
+    assertEq("doctor classifies tickets/done as misplaced-ticket-state", byPath[".workaholic/tickets/done"].classification, "misplaced-ticket-state");
+    assertTrue("doctor suggests .trips -> trips/", byPath[".workaholic/.trips"].remediation.includes("trips/"));
+    assertEq("doctor leaves unknown dirs to the owner", byPath[".workaholic/proposals"].remediation, "owner decision required");
+    const advPaths = r.advisories.map((a) => a.path);
+    assertTrue("doctor advises on legacy trip-* naming", advPaths.includes(".workaholic/trips/trip-legacy"));
+    assertTrue("doctor advises on nested designs/reviews", advPaths.includes(".workaholic/trips/work-1/designs/reviews"));
+    assertTrue("doctor: no false positive on stories/", !paths.includes(".workaholic/stories"));
+    assertTrue("doctor: no false positive on concerns/", !paths.includes(".workaholic/concerns"));
+  } finally { cleanup(dir); }
+
+  // A clean tree conforms with zero findings.
+  const clean = mkdtempSync(join(tmpdir(), "workaholic-doctor-"));
+  try {
+    mkdirSync(join(clean, ".workaholic/stories"), { recursive: true });
+    mkdirSync(join(clean, ".workaholic/tickets/todo"), { recursive: true });
+    const r = JSON.parse(run(clean, `bash ${DOCTOR} ${clean}`).stdout);
+    assertTrue("doctor passes a clean tree", r.conforming === true && r.findings.length === 0);
+  } finally { cleanup(clean); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching/detect-context.sh", testDetectContext],
@@ -819,6 +860,7 @@ const tests = [
   ["report/doc-drift.sh", testDocDrift],
   ["hooks/policy-lens.sh", testPolicyLens],
   ["hooks/validate-ticket.sh", testValidateLayout],
+  ["hooks/layout-doctor.sh", testLayoutDoctor],
 ];
 
 for (const [label, fn] of tests) {

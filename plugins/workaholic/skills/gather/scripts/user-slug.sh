@@ -15,7 +15,8 @@ set -eu
 
 EMAIL="${1:-}"
 if [ -z "$EMAIL" ]; then
-    EMAIL=$(git config user.email)
+    EMAIL=$(git config user.email || true)
+    [ -n "$EMAIL" ] || { echo 'git user.email is not set; run: git config user.email you@example.com' >&2; exit 1; }
 fi
 
 SLUG=$(printf '%s' "$EMAIL" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '-')

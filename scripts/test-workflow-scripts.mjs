@@ -40,6 +40,9 @@ const SCRIPTS = {
   checkCapability: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/check-confirmation-capability.sh"),
   posixLint: join(REPO_ROOT, "plugins/workaholic/hooks/posix-lint.sh"),
   collectCommits: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/collect-commits.sh"),
+  guardGitCommit: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-commit.sh"),
+  guardGitBranch: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-branch.sh"),
+  ensureWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/ensure-worktree.sh"),
 };
 
 // rules/shell.md mandates POSIX sh. Exercise the scripts under the strictest
@@ -986,6 +989,110 @@ function testPosixLint() {
   } finally { cleanup(dir); }
 }
 
+// ---------- hooks/guard-git-commit.sh (PreToolUse Bash commit-subject gate) ----------
+// REAL, non-mock: feeds the actual guard a crafted tool_input.command and asserts
+// it BLOCKS (exit 2) only an off-policy inline subject (Conventional-Commit prefix,
+// [bracket] tag, or >50 chars) and ALLOWS conformant subjects, co-author trailers,
+// editor/-F commits, and non-commit commands. Co-Authored-By is explicitly allowed.
+function testGuardGitCommit() {
+  const HOOK = SCRIPTS.guardGitCommit;
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  guard-git-commit (jq not available)"); return; }
+
+  const invoke = (command) => {
+    const payload = JSON.stringify({ tool_input: { command } });
+    try {
+      execSync(`${POSIX_SH} ${HOOK}`, { cwd: REPO_ROOT, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+      return { status: 0, err: "" };
+    } catch (e) { return { status: e.status ?? 1, err: e.stderr?.toString() || "" }; }
+  };
+  const long = "A".repeat(60); // 60 chars, no prefix/bracket -> only length trips.
+
+  // Blocks off-policy inline subjects.
+  assertEq("guard-commit blocks Conventional-Commit prefix", invoke(`git commit -m "feat: x"`).status, 2);
+  assertEq("guard-commit blocks scoped prefix", invoke(`git commit -m "fix(api): y"`).status, 2);
+  assertEq("guard-commit blocks [bracket] tag", invoke(`git commit -m "[fix] y"`).status, 2);
+  assertEq("guard-commit blocks >50-char subject", invoke(`git commit -m "${long}"`).status, 2);
+  assertEq("guard-commit blocks prefix via -am", invoke(`git commit -am "chore: bump"`).status, 2);
+  assertEq("guard-commit blocks prefix with git -C", invoke(`git -C /some/path commit -m "docs: update"`).status, 2);
+  // The block message names the sanctioned command.
+  assertTrue("guard-commit block names /commit + commit.sh",
+    /\/commit/.test(invoke(`git commit -m "feat: x"`).err) && /commit\.sh/.test(invoke(`git commit -m "feat: x"`).err),
+    invoke(`git commit -m "feat: x"`).err.slice(0, 200));
+
+  // Allows conformant subjects and non-violating forms.
+  assertEq("guard-commit allows conformant subject", invoke(`git commit -m "Add branch story for work-x"`).status, 0);
+  assertEq("guard-commit allows conformant with git -C", invoke(`git -C /x commit -m "Fix the parser"`).status, 0);
+  assertEq("guard-commit allows a Co-Authored-By body", invoke(`git commit -m "Add feature" -m "Co-Authored-By: Claude <noreply@anthropic.com>"`).status, 0);
+  assertEq("guard-commit allows editor commit (no -m)", invoke(`git commit`).status, 0);
+  assertEq("guard-commit allows -F file (uninspectable)", invoke(`git commit -F /tmp/msg.txt`).status, 0);
+  assertEq("guard-commit allows commit.sh invocation", invoke(`sh \${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh "Add x" "" "y" "" "" "z"`).status, 0);
+  assertEq("guard-commit ignores git add commit.sh", invoke(`git add commit.sh`).status, 0);
+  assertEq("guard-commit ignores git status", invoke(`git status`).status, 0);
+}
+
+// ---------- hooks/guard-git-branch.sh (PreToolUse Bash branch-name gate) ----------
+// REAL, non-mock: feeds the actual guard a crafted tool_input.command and asserts
+// it BLOCKS (exit 2) off-pattern / variable / missing branch-creation names and
+// ALLOWS work-YYYYMMDD-HHMMSS creation, read/delete/list forms, and non-create cmds.
+function testGuardGitBranch() {
+  const HOOK = SCRIPTS.guardGitBranch;
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  guard-git-branch (jq not available)"); return; }
+
+  const invoke = (command) => {
+    const payload = JSON.stringify({ tool_input: { command } });
+    try {
+      execSync(`${POSIX_SH} ${HOOK}`, { cwd: REPO_ROOT, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+      return { status: 0, err: "" };
+    } catch (e) { return { status: e.status ?? 1, err: e.stderr?.toString() || "" }; }
+  };
+  const OK = "work-20260628-002047";
+
+  // Blocks off-pattern / variable / missing creation names.
+  assertEq("guard-branch blocks checkout -b off-pattern", invoke(`git checkout -b watchtower-foo`).status, 2);
+  assertEq("guard-branch blocks switch -c off-pattern", invoke(`git switch -c main2`).status, 2);
+  assertEq("guard-branch blocks switch --create off-pattern", invoke(`git switch --create my-thing`).status, 2);
+  assertEq("guard-branch blocks variable name", invoke(`git checkout -b "$BRANCH"`).status, 2);
+  assertEq("guard-branch blocks bare git branch <name>", invoke(`git branch my-feature`).status, 2);
+  assertEq("guard-branch blocks worktree add -b off-pattern", invoke(`git worktree add -b feature-x /tmp/wt`).status, 2);
+  // The block message names the sanctioned command.
+  assertTrue("guard-branch block names create.sh",
+    /create\.sh/.test(invoke(`git checkout -b watchtower-foo`).err),
+    invoke(`git checkout -b watchtower-foo`).err.slice(0, 200));
+
+  // Allows canonical creation and non-creation forms.
+  assertEq("guard-branch allows checkout -b work-*", invoke(`git checkout -b ${OK}`).status, 0);
+  assertEq("guard-branch allows switch -c work-*", invoke(`git switch -c ${OK}`).status, 0);
+  assertEq("guard-branch allows worktree add -b work-*", invoke(`git worktree add -b ${OK} /tmp/wt`).status, 0);
+  assertEq("guard-branch allows git branch --show-current", invoke(`git branch --show-current`).status, 0);
+  assertEq("guard-branch allows git branch -d (delete)", invoke(`git branch -d work-old`).status, 0);
+  assertEq("guard-branch allows checkout existing branch", invoke(`git checkout main`).status, 0);
+  assertEq("guard-branch allows git -c k=v commit (not a branch)", invoke(`git -c user.email=x commit -m "Add y"`).status, 0);
+  assertEq("guard-branch ignores git status", invoke(`git status`).status, 0);
+  assertEq("guard-branch ignores create.sh invocation", invoke(`sh \${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh`).status, 0);
+}
+
+// ---------- branching/ensure-worktree.sh (branch-name self-defense) ----------
+// The script creates a branch (git worktree add -b), so it must itself reject a
+// non-canonical name before touching git — even if the PreToolUse gate is bypassed.
+function testEnsureWorktreeGuard() {
+  const dir = makeRepo("main");
+  try {
+    const bad = run(dir, `${POSIX_SH} ${SCRIPTS.ensureWorktree} feature-x`);
+    assertTrue("ensure-worktree rejects off-pattern name (exit 1)", bad.status === 1, `status=${bad.status}`);
+    assertTrue("ensure-worktree names the pattern in its error",
+      /work-YYYYMMDD-HHMMSS/.test(bad.stdout + bad.stderr), bad.stdout + bad.stderr);
+    // No worktree was created for the rejected name.
+    assertTrue("ensure-worktree created no worktree for bad name",
+      !existsSync(join(dir, ".worktrees/feature-x")));
+    // Empty arg still errors (pre-existing behavior preserved).
+    assertTrue("ensure-worktree still requires a name", run(dir, `${POSIX_SH} ${SCRIPTS.ensureWorktree}`).status === 1);
+  } finally { cleanup(dir); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching/detect-context.sh", testDetectContext],
@@ -1011,6 +1118,9 @@ const tests = [
   ["hooks/guard-ticket-structure.sh", testGuardTicketStructure],
   ["hooks/posix-lint.sh", testPosixLint],
   ["report/collect-commits.sh", testCollectCommits],
+  ["hooks/guard-git-commit.sh", testGuardGitCommit],
+  ["hooks/guard-git-branch.sh", testGuardGitBranch],
+  ["branching/ensure-worktree.sh", testEnsureWorktreeGuard],
 ];
 
 for (const [label, fn] of tests) {

@@ -3,9 +3,9 @@ created_at: 2026-06-27T15:32:46+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config, Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 0de0419
+category: Changed
 depends_on:
 ---
 
@@ -88,4 +88,32 @@ Past tickets that touched similar areas:
 
 ## Final Report
 
-<!-- filled at drive time -->
+Development completed as planned. `validate-ticket.sh` is now `#!/bin/sh -eu` + explicit
+`set -eu`. All 40 `[[ ]]`/20 `=~` became `grep -qE` (the genuinely-regex checks: created_at,
+author, ticket-shape, commit_hash) or `case` (fixed enums: type, category, effort, layer
+membership, the `*@anthropic.com` and `README.md|README_ja.md` matches, the `.workaholic/`
+path tests); `${BASH_SOURCE[0]}` → `$0`; `local` dropped from `validate_field`. Behavior is
+byte-identical: smoke suite 140/0 (both `testValidateLayout` and `testValidateTicket`), a
+full path battery, and a frontmatter/field battery under `sh` all reproduce the original exit
+codes and messages. No `outputs/` drift (hooks are excluded from the bundle); `verify.mjs` green.
+
+### Discovered Insights
+
+- **Insight**: The two `<<<` here-string loops (layer-list and depends_on validation) were
+  replaced with `printf '%s\n' "$values" | grep -v '^$' | grep -vE '<allowed>' | head -n 1`
+  captured into a variable, then tested in the **current** shell. This is strictly better than
+  a literal `printf | while … exit 2` translation: a piped `while` runs in a subshell, so an
+  `exit 2` inside it would only leave the subshell and the script would continue past an invalid
+  layer/dep. Surfacing the first offender via `grep -v` and testing it in the parent shell keeps
+  the hard-block behavior intact. Future `<<<`→pipe conversions in the other scripts must watch
+  the same subshell-exit trap.
+  **Context**: `plugins/workaholic/hooks/validate-ticket.sh` — the layer and depends_on blocks.
+- **Insight**: On this host (Amazon Linux 2023) `/usr/bin/sh` is **bash 5.2 in POSIX mode**, and
+  `dash` is not installed. Running a script "under `sh`" here therefore does NOT prove POSIX
+  purity — bash-in-posix-mode still accepts `[[ ]]`, `<<<`, and arrays. Conversion correctness
+  rested on manual review of the constructs plus the behavior batteries, not on the `sh` runner.
+  This is exactly the gap ticket `20260627153248` (the gate-hardening) must close with a real
+  POSIX shell (`dash`/`ash`) in the test harness/CI; passing under this machine's `sh` is not a
+  bashism check.
+  **Context**: relevant to ticket `20260627153247` (the script sweep) and `20260627153248` —
+  do not treat a green run under this host's `sh` as POSIX validation.

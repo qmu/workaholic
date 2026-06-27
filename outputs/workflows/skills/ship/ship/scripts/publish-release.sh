@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Publish a GitHub Release from a generated release-note file, UNLESS the repo
 # already has a GitHub Actions workflow that publishes releases (then CI owns it
 # and we must not double-publish).
@@ -10,7 +10,7 @@
 # Hermetic note: the CI-detection branch (ci_publishes / no_notes_file) never
 # touches the network. The create branch calls `gh` and requires auth.
 
-set -euo pipefail
+set -eu
 
 branch="${1:-}"
 commit="${2:-}"

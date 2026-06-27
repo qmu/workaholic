@@ -3,9 +3,9 @@ created_at: 2026-06-27T15:32:47+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config, Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: 47ffe01
+category: Changed
 depends_on:
 ---
 
@@ -112,4 +112,32 @@ Past tickets that touched similar areas:
 
 ## Final Report
 
-<!-- filled at drive time -->
+Development completed as planned. All 30 remaining scripts are now `#!/bin/sh -eu` + explicit
+`set -eu`, leaving zero bash shebangs anywhere under `plugins/workaholic/` (and zero in the
+regenerated `outputs/workflows/` bundle). The 21 shipped copies flipped automatically via the
+argument-less `build.mjs` (it copies shebangs verbatim). Full gate green: `verify.mjs`
+(self-contained), `validate-metadata.mjs` (version-aligned), and `test-workflow-scripts.mjs`
+(140/0). Every script was spot-run under `sh` and produced byte-identical output to the bash
+original. 80 files changed (30 source + 50 outputs).
+
+### Discovered Insights
+
+- **Insight**: The recurring correctness hazard was **not** the shebang but bash's
+  `< <(process substitution)`, which several scripts (check-worktrees, list-worktrees,
+  list-all-worktrees, eject-worktree) used specifically to keep a `while` loop in the *current*
+  shell so its counters/accumulators persist. POSIX has no `< <(...)`, and the naive pipe
+  replacement (`cmd | while …`) runs the loop in a subshell and silently loses all mutations.
+  The fix is a here-doc fed from a captured variable (`done <<EOF` / `$var` / `EOF`), which keeps
+  the loop in the current shell. The same subshell trap governs the `<<<`→pipe and array→loop
+  rewrites. Any future POSIX conversion in this repo should reach for the here-doc pattern, not a pipe.
+  **Context**: branching worktree scripts, `apply-carryover-verdicts.sh`, `check-todo.sh`,
+  `system-safety/detect.sh`, and the two trip-protocol gitignore scripts.
+- **Insight**: `echo -n` is a real portability bug, not cosmetic: under dash (the POSIX `/bin/sh`
+  on Alpine) `echo -n` prints the literal `-n`. `list-active-carryovers.sh` built its JSON with
+  `echo -n` and would have emitted `-n{...}` on Alpine. All such sites became `printf '%s'`.
+  Likewise `${var:0:2}` substring slicing (check-workspace) and `${var//a/b}` substitution
+  (init-trip) are bash-only and became `cut`/`grep` and `sed`. These silent-wrong-output bugs are
+  exactly what a green run under this host's bash-masquerading-as-`sh` cannot catch — reinforcing
+  the need for the gate-hardening ticket (`20260627153248`) to run the harness under real `dash`.
+  **Context**: a PR #56 carry-over concern (`56-validate-ticket-sh-remains-bash`) flagged the
+  POSIX inconsistency this and ticket `20260627153246` resolve; `/report` should mark it resolved.

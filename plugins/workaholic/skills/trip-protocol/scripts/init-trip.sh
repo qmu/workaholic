@@ -1,11 +1,11 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Initialize a trip directory structure under .workaholic/trips/
-# Usage: bash init-trip.sh <trip-name> [instruction] [working-dir]
+# Usage: sh init-trip.sh <trip-name> [instruction] [working-dir]
 # When working-dir is provided, artifacts are created there instead of the git root.
 # The optional instruction argument is the user's original trip description.
 # Output: JSON with trip_path and plan_path
 
-set -euo pipefail
+set -eu
 
 trip_name="${1:-}"
 instruction="${2:-}"
@@ -44,8 +44,8 @@ updated_at="$(date -Iseconds)"
 plan_file="${trip_path}/plan.md"
 
 # Sanitize instruction for YAML: escape backslashes first, then double quotes
-safe_instruction="${instruction//\\/\\\\}"
-safe_instruction="${safe_instruction//\"/\\\"}"
+# (POSIX sh has no ${var//pat/repl}; use sed).
+safe_instruction=$(printf '%s' "$instruction" | sed 's/\\/\\\\/g; s/"/\\"/g')
 
 # Write plan.md — use printf %s to avoid interpreting escape sequences in content
 {

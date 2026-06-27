@@ -1,11 +1,11 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Commit and push generated release note(s) to the current branch, so they are
 # included in the merge to main. Run AFTER workaholic:write-release-note has written the
 # note file(s) under .workaholic/release-notes/ and BEFORE merge-pr.sh.
 # Usage: bash commit-release-note.sh <branch>
 # Output: JSON {committed, branch} or {committed:false, reason}
 
-set -euo pipefail
+set -eu
 
 branch="${1:-}"
 

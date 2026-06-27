@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Merge a PR and sync local main branch.
-# Usage: bash merge-pr.sh <pr-number>
+# Usage: sh merge-pr.sh <pr-number>
 # Output: JSON with merge status and commit hash
 
-set -euo pipefail
+set -eu
 
 pr_number="${1:-}"
 

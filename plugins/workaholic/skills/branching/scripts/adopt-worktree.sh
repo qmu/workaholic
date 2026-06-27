@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Adopt an existing branch into a git worktree.
-# Usage: bash adopt-worktree.sh <branch-name>
+# Usage: sh adopt-worktree.sh <branch-name>
 # Output: JSON with worktree_path, branch, and switched_from flag
 
-set -euo pipefail
+set -eu
 
 branch="${1:-}"
 

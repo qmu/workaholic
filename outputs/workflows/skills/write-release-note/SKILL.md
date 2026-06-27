@@ -54,7 +54,7 @@ Generate concise release notes from a branch story for GitHub Releases.
 
 3. **Key Changes**: Use the highlights from section 1. If fewer than 3 highlights, summarize the most impactful changes from section 4 (Changes).
 
-4. **Changes**: Group entries from story Section 4 by their ticket `category` frontmatter (Added, Changed, Removed). Each entry should be a concise one-line summary of the ticket change. Omit empty subsections.
+4. **Changes**: Group entries from story Section 4 by category (Added, Changed, Removed). The ticket `category` frontmatter is the immediate source; each commit also carries a `Category:` git trailer (the resilient, log-native source that survives ticket pruning — read it via `git log --format='%(trailers:key=Category,valueonly)'` when the frontmatter is unavailable). Each entry should be a concise one-line summary; omit empty subsections.
 
 5. **Metrics**: Extract from story frontmatter:
    - `tickets_completed` field

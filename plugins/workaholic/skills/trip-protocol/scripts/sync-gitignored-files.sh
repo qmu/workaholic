@@ -1,11 +1,11 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Copy gitignored files from a worktree to the main repo root.
-# Usage: bash sync-gitignored-files.sh <worktree-path> <main-repo-root> '<files-json>'
+# Usage: sh sync-gitignored-files.sh <worktree-path> <main-repo-root> '<files-json>'
 # Output: JSON with sync status and copied file list
 #
 # <files-json> is a JSON array of relative paths, e.g.: '["path/to/.env","path/to/.local.md"]'
 
-set -euo pipefail
+set -eu
 
 worktree_path="${1:-}"
 main_root="${2:-}"
@@ -64,7 +64,9 @@ while IFS= read -r rel_path; do
 
   escaped_path=$(echo "$rel_path" | sed 's/\\/\\\\/g; s/"/\\"/g')
   synced_files="${synced_files}\"${escaped_path}\""
-done <<< "$file_list"
+done <<EOF
+$file_list
+EOF
 
 synced_files="${synced_files}]"
 

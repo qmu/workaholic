@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Find the project's CLAUDE.md (carries the ## Deploy / ## Verify sections).
-# Usage: bash find-claude-md.sh
+# Usage: sh find-claude-md.sh
 # Output: JSON with path if found, or {"found": false}
 
-set -euo pipefail
+set -eu
 
 for candidate in "./CLAUDE.md"; do
   if [ -f "$candidate" ]; then

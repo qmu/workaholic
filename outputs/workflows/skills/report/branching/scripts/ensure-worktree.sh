@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Ensure git worktree readiness and create an isolated worktree.
-# Usage: bash ensure-worktree.sh <branch-name>
+# Usage: sh ensure-worktree.sh <branch-name>
 # Output: JSON with worktree_path and branch
 
-set -euo pipefail
+set -eu
 
 branch_name="${1:-}"
 

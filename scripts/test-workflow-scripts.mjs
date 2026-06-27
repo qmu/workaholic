@@ -38,7 +38,22 @@ const SCRIPTS = {
   extractCarryover: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/extract-carryover.sh"),
   docDrift: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/doc-drift.sh"),
   checkCapability: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/check-confirmation-capability.sh"),
+  posixLint: join(REPO_ROOT, "plugins/workaholic/hooks/posix-lint.sh"),
+  collectCommits: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/collect-commits.sh"),
 };
+
+// rules/shell.md mandates POSIX sh. Exercise the scripts under the strictest
+// POSIX shell available — prefer `dash` (what /bin/sh is on Alpine/CI, and which
+// rejects bashisms), falling back to `sh`. Running the suite under this shell is
+// what turns these behavioral tests into a real POSIX gate: a script that
+// regressed to a bashism fails here instead of passing under a permissive bash.
+const POSIX_SH = (() => {
+  for (const sh of ["dash", "sh"]) {
+    try { execSync(`command -v ${sh}`, { stdio: "ignore" }); return sh; }
+    catch { /* not available, try next */ }
+  }
+  return "sh";
+})();
 
 // Slug for the repo's standard test identity (git config user.email test@example.com).
 const TEST_SLUG = "test-example-com";
@@ -89,11 +104,11 @@ function cleanup(dir) { rmSync(dir, { recursive: true, force: true }); }
 function testBranchCheck() {
   const dir = makeRepo("main");
   try {
-    let r = run(dir, `bash ${SCRIPTS.branchCheck}`);
+    let r = run(dir, `${POSIX_SH} ${SCRIPTS.branchCheck}`);
     assertEq("branchCheck on main", JSON.parse(r.stdout), { on_main: true, branch: "main" });
 
     execSync(`git checkout -q -b work-20260528-foo`, { cwd: dir });
-    r = run(dir, `bash ${SCRIPTS.branchCheck}`);
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.branchCheck}`);
     assertEq("branchCheck on work-*", JSON.parse(r.stdout), { on_main: false, branch: "work-20260528-foo" });
   } finally { cleanup(dir); }
 }
@@ -102,12 +117,12 @@ function testBranchCheck() {
 function testDetectContext() {
   const dir = makeRepo("main");
   try {
-    let r = run(dir, `bash ${SCRIPTS.detectContext}`);
+    let r = run(dir, `${POSIX_SH} ${SCRIPTS.detectContext}`);
     assertEq("detectContext on main", JSON.parse(r.stdout), { context: "unknown", branch: "main" });
 
     execSync(`git checkout -q -b work-20260528-foo`, { cwd: dir });
     // No tickets/trips yet -> mode defaults to drive
-    r = run(dir, `bash ${SCRIPTS.detectContext}`);
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.detectContext}`);
     assertEq("detectContext on work-* (empty workspace)", JSON.parse(r.stdout), {
       context: "work", branch: "work-20260528-foo", mode: "drive",
     });
@@ -117,28 +132,28 @@ function testDetectContext() {
     // ticket must live in todo/<user>/ to be counted.
     mkdirSync(join(dir, `.workaholic/tickets/todo/${TEST_SLUG}`), { recursive: true });
     writeFileSync(join(dir, `.workaholic/tickets/todo/${TEST_SLUG}/x.md`), "---\n---\n");
-    r = run(dir, `bash ${SCRIPTS.detectContext}`);
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.detectContext}`);
     assertEq("detectContext on work-* with todo ticket", JSON.parse(r.stdout), {
       context: "work", branch: "work-20260528-foo", mode: "drive",
     });
 
     // Add a trip dir -> mode flips to hybrid (both trips and tickets present)
     mkdirSync(join(dir, ".workaholic/trips/some-trip"), { recursive: true });
-    r = run(dir, `bash ${SCRIPTS.detectContext}`);
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.detectContext}`);
     assertEq("detectContext on work-* with trips+tickets -> hybrid", JSON.parse(r.stdout), {
       context: "work", branch: "work-20260528-foo", mode: "hybrid",
     });
 
     // Drive-* legacy alias
     execSync(`git checkout -q -b drive-legacy`, { cwd: dir });
-    r = run(dir, `bash ${SCRIPTS.detectContext}`);
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.detectContext}`);
     assertEq("detectContext on drive-* legacy alias", JSON.parse(r.stdout), {
       context: "work", branch: "drive-legacy", mode: "drive",
     });
 
     // Random branch name -> unknown when no worktrees
     execSync(`git checkout -q -b feature-xyz`, { cwd: dir });
-    r = run(dir, `bash ${SCRIPTS.detectContext}`);
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.detectContext}`);
     const parsed = JSON.parse(r.stdout);
     assertEq("detectContext on unknown branch", parsed, { context: "unknown", branch: "feature-xyz" });
   } finally { cleanup(dir); }
@@ -148,19 +163,19 @@ function testDetectContext() {
 function testCheckWorkspace() {
   const dir = makeRepo("main");
   try {
-    let r = JSON.parse(run(dir, `bash ${SCRIPTS.checkWorkspace}`).stdout);
+    let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.checkWorkspace}`).stdout);
     assertEq("checkWorkspace clean", r, { clean: true, untracked_count: 0, unstaged_count: 0, staged_count: 0, summary: "" });
 
     writeFileSync(join(dir, "new.txt"), "x");
-    r = JSON.parse(run(dir, `bash ${SCRIPTS.checkWorkspace}`).stdout);
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.checkWorkspace}`).stdout);
     assertEq("checkWorkspace untracked", { clean: r.clean, u: r.untracked_count, m: r.unstaged_count, s: r.staged_count }, { clean: false, u: 1, m: 0, s: 0 });
 
     writeFileSync(join(dir, "README.md"), "modified\n");
-    r = JSON.parse(run(dir, `bash ${SCRIPTS.checkWorkspace}`).stdout);
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.checkWorkspace}`).stdout);
     assertEq("checkWorkspace untracked + unstaged", { clean: r.clean, u: r.untracked_count, m: r.unstaged_count, s: r.staged_count }, { clean: false, u: 1, m: 1, s: 0 });
 
     execSync(`git add README.md`, { cwd: dir });
-    r = JSON.parse(run(dir, `bash ${SCRIPTS.checkWorkspace}`).stdout);
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.checkWorkspace}`).stdout);
     assertEq("checkWorkspace untracked + staged", { clean: r.clean, u: r.untracked_count, m: r.unstaged_count, s: r.staged_count }, { clean: false, u: 1, m: 0, s: 1 });
   } finally { cleanup(dir); }
 }
@@ -185,17 +200,17 @@ depends_on:
 `);
 
     // Valid effort value updates in place
-    let r = run(dir, `bash ${SCRIPTS.update} ${ticket} effort 0.5h`);
+    let r = run(dir, `${POSIX_SH} ${SCRIPTS.update} ${ticket} effort 0.5h`);
     assertEq("update.sh accepts 0.5h", r.status, 0);
     assertTrue("update.sh wrote effort: 0.5h", readFileSync(ticket, "utf8").includes("effort: 0.5h"));
 
     // Invalid effort value rejected with non-zero status
-    r = run(dir, `bash ${SCRIPTS.update} ${ticket} effort 30m`);
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.update} ${ticket} effort 30m`);
     assertTrue("update.sh rejects 30m", r.status !== 0, `expected non-zero exit, got ${r.status}`);
     assertTrue("update.sh keeps original on reject", readFileSync(ticket, "utf8").includes("effort: 0.5h"));
 
     // commit_hash field updates
-    r = run(dir, `bash ${SCRIPTS.update} ${ticket} commit_hash abc1234`);
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.update} ${ticket} commit_hash abc1234`);
     assertEq("update.sh accepts commit_hash", r.status, 0);
     assertTrue("update.sh wrote commit_hash", readFileSync(ticket, "utf8").includes("commit_hash: abc1234"));
   } finally { cleanup(dir); }
@@ -236,7 +251,7 @@ Development completed as planned.
     // sweeps everything (matches production behavior).
     writeFileSync(join(dir, "side.txt"), "side-effect\n");
 
-    const r = run(dir, `bash ${SCRIPTS.archive} .workaholic/tickets/todo/${TEST_SLUG}/20260528120000-smoke-ticket.md "Add smoke feature" https://example.com/repo "why" "what" "tests" "release"`, { env: { ...process.env, GIT_AUTHOR_DATE: "2026-05-28T12:00:00+09:00", GIT_COMMITTER_DATE: "2026-05-28T12:00:00+09:00" } });
+    const r = run(dir, `${POSIX_SH} ${SCRIPTS.archive} .workaholic/tickets/todo/${TEST_SLUG}/20260528120000-smoke-ticket.md "Add smoke feature" https://example.com/repo "the why" "the changes" "the concerns" "the insights" "the verify"`, { env: { ...process.env, GIT_AUTHOR_DATE: "2026-05-28T12:00:00+09:00", GIT_COMMITTER_DATE: "2026-05-28T12:00:00+09:00" } });
     assertEq("archive.sh exits 0", r.status, 0);
 
     const archivedPath = join(dir, ".workaholic/tickets/archive/work-20260528-smoke/20260528120000-smoke-ticket.md");
@@ -247,13 +262,21 @@ Development completed as planned.
     assertTrue("archive.sh stamped commit_hash", /^commit_hash:\s*[0-9a-f]{7,}/m.test(archived), archived.split("\n").slice(0, 12).join("\n"));
     assertTrue("archive.sh stamped category=Added (from 'Add' verb)", /^category:\s*Added/m.test(archived));
 
-    // Commit message includes the structured sections and title.
+    // Commit message uses the report-aligned keys (Why/Changes/Concerns/Insights/Verify)
+    // and no longer carries the dropped Description/Test Planning/Release Preparation labels.
     const log = execSync(`git log -1 --format=%B`, { cwd: dir, encoding: "utf8" });
     assertTrue("commit title preserved", log.startsWith("Add smoke feature\n"));
-    assertTrue("commit body has Description:", log.includes("Description: why"));
-    assertTrue("commit body has Changes:", log.includes("Changes: what"));
-    assertTrue("commit body has Test Planning:", log.includes("Test Planning: tests"));
-    assertTrue("commit body has Release Preparation:", log.includes("Release Preparation: release"));
+    assertTrue("commit body has Why:", log.includes("Why: the why"));
+    assertTrue("commit body has Changes:", log.includes("Changes: the changes"));
+    assertTrue("commit body has Concerns:", log.includes("Concerns: the concerns"));
+    assertTrue("commit body has Insights:", log.includes("Insights: the insights"));
+    assertTrue("commit body has Verify:", log.includes("Verify: the verify"));
+    assertTrue("commit body dropped Release Preparation", !log.includes("Release Preparation:"));
+    assertTrue("commit body dropped Test Planning", !log.includes("Test Planning:"));
+    // Category is emitted as a real git trailer (parseable from the log).
+    assertTrue("commit has Category: Added trailer", log.includes("Category: Added"));
+    const trailer = execSync("git log -1 --format='%(trailers:key=Category,valueonly)'", { cwd: dir, encoding: "utf8" }).trim();
+    assertEq("git parses the Category trailer", trailer, "Added");
 
     // Workspace is clean after archive (everything got swept in).
     const status = execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" });
@@ -301,7 +324,7 @@ function testSweepTodo() {
     mkdirSync(join(todoRoot, "someone-else"), { recursive: true });
     writeFileSync(join(todoRoot, "someone-else/keep.md"), "---\n---\n");
 
-    const r = run(dir, `bash ${SCRIPTS.sweepTodo}`, { cwd: dir });
+    const r = run(dir, `${POSIX_SH} ${SCRIPTS.sweepTodo}`, { cwd: dir });
     assertEq("sweep-todo exits 0", r.status, 0);
     const summary = JSON.parse(r.stdout);
     assertEq("sweep-todo moved 3 strays", summary.moved, 3);
@@ -345,7 +368,7 @@ function testListTodo() {
     mkdirSync(join(todoRoot, "a-qmu-jp"), { recursive: true });
     writeFileSync(join(todoRoot, "a-qmu-jp", "20260528120003-other.md"), "---\n---\n");
 
-    const r = run(dir, `bash ${SCRIPTS.listTodo}`, { cwd: dir });
+    const r = run(dir, `${POSIX_SH} ${SCRIPTS.listTodo}`, { cwd: dir });
     const lines = r.stdout.split("\n").filter(Boolean);
     assertEq("list-todo lists only the current user's queue, sorted", lines, [
       `.workaholic/tickets/todo/${TEST_SLUG}/20260528120000-a.md`,
@@ -364,7 +387,7 @@ function testPromoteIcebox() {
     writeFileSync(src, "---\n---\n");
     execSync(`git add -A && git commit -q -m "park ticket"`, { cwd: dir });
 
-    const r = run(dir, `bash ${SCRIPTS.promoteIcebox} .workaholic/tickets/icebox/20260528120000-parked.md`, { cwd: dir });
+    const r = run(dir, `${POSIX_SH} ${SCRIPTS.promoteIcebox} .workaholic/tickets/icebox/20260528120000-parked.md`, { cwd: dir });
     assertEq("promote-icebox exits 0", r.status, 0);
     assertEq("promote-icebox prints user-scoped destination", r.stdout.trim(),
       `.workaholic/tickets/todo/${TEST_SLUG}/20260528120000-parked.md`);
@@ -382,7 +405,7 @@ function testPublishRelease() {
     mkdirSync(join(ci, ".github/workflows"), { recursive: true });
     writeFileSync(join(ci, ".github/workflows/release.yml"),
       "jobs:\n  release:\n    steps:\n      - run: gh release create v1\n");
-    const r = run(ci, `bash ${SCRIPTS.publishRelease} work-x abc123 v1.0.0 /tmp/none.md`);
+    const r = run(ci, `${POSIX_SH} ${SCRIPTS.publishRelease} work-x abc123 v1.0.0 /tmp/none.md`);
     assertEq("publish-release defers to CI publisher", JSON.parse(r.stdout),
       { published: false, reason: "ci_publishes" });
   } finally { cleanup(ci); }
@@ -390,7 +413,7 @@ function testPublishRelease() {
   // Repo with no CI publisher and a missing notes file -> no_notes_file (no gh call).
   const bare = makeRepo("main");
   try {
-    const r = run(bare, `bash ${SCRIPTS.publishRelease} work-x abc123 v1.0.0 /tmp/does-not-exist-xyz.md`);
+    const r = run(bare, `${POSIX_SH} ${SCRIPTS.publishRelease} work-x abc123 v1.0.0 /tmp/does-not-exist-xyz.md`);
     assertEq("publish-release reports missing notes", JSON.parse(r.stdout),
       { published: false, reason: "no_notes_file" });
   } finally { cleanup(bare); }
@@ -399,22 +422,22 @@ function testPublishRelease() {
 // ---------- ship/check-confirmation-capability.sh (advisory pre-deploy capability check) ----------
 function testCheckCapability() {
   // Unknown method -> not capable, deterministic regardless of installed tooling.
-  const r1 = JSON.parse(run(REPO_ROOT, `bash ${SCRIPTS.checkCapability} bogus`).stdout);
+  const r1 = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkCapability} bogus`).stdout);
   assertEq("check-capability unknown method -> not capable",
     { m: r1.method, c: r1.capable, miss: r1.missing }, { m: "bogus", c: false, miss: "unknown method" });
 
   // browser under CI -> not capable (env-forced, no interactive agent).
-  const r2 = JSON.parse(run(REPO_ROOT, `bash ${SCRIPTS.checkCapability} browser`,
+  const r2 = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkCapability} browser`,
     { env: { ...process.env, CI: "1" } }).stdout);
   assertEq("check-capability browser in CI -> not capable", r2.capable, false);
 
   // Missing method arg -> error JSON, non-zero exit.
-  const r3 = run(REPO_ROOT, `bash ${SCRIPTS.checkCapability}`);
+  const r3 = run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkCapability}`);
   assertTrue("check-capability no arg -> exit 1 + error", r3.status === 1 && /"error"/.test(r3.stdout + r3.stderr),
     `status=${r3.status} out=${r3.stdout} err=${r3.stderr}`);
 
   // Known method emits a well-formed object with a boolean capable.
-  const r4 = JSON.parse(run(REPO_ROOT, `bash ${SCRIPTS.checkCapability} api-probe`).stdout);
+  const r4 = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkCapability} api-probe`).stdout);
   assertTrue("check-capability api-probe -> boolean capable + method echoed",
     typeof r4.capable === "boolean" && r4.method === "api-probe", JSON.stringify(r4));
 }
@@ -424,7 +447,7 @@ function testReadDeployments() {
   // No .workaholic/deployments/ dir -> no confirmation method (gate would halt).
   const none = makeRepo("main");
   try {
-    const r = run(none, `bash ${SCRIPTS.readDeployments}`);
+    const r = run(none, `${POSIX_SH} ${SCRIPTS.readDeployments}`);
     assertEq("read-deployments absent dir -> no confirmation", JSON.parse(r.stdout),
       { has_confirmation: false, count: 0, deployments: [] });
   } finally { cleanup(none); }
@@ -434,7 +457,7 @@ function testReadDeployments() {
   try {
     mkdirSync(join(readmeOnly, ".workaholic/deployments"), { recursive: true });
     writeFileSync(join(readmeOnly, ".workaholic/deployments/README.md"), "# Deployments\n");
-    const r = JSON.parse(run(readmeOnly, `bash ${SCRIPTS.readDeployments}`).stdout);
+    const r = JSON.parse(run(readmeOnly, `${POSIX_SH} ${SCRIPTS.readDeployments}`).stdout);
     assertEq("read-deployments README-only -> no confirmation",
       { h: r.has_confirmation, c: r.count }, { h: false, c: 0 });
   } finally { cleanup(readmeOnly); }
@@ -445,7 +468,7 @@ function testReadDeployments() {
     mkdirSync(join(withConf, ".workaholic/deployments"), { recursive: true });
     writeFileSync(join(withConf, ".workaholic/deployments/prod.md"),
       "---\ntitle: Prod\nenvironment: production\nconfirmation_method: browser\nurl: https://example.com/healthz\n---\n\n## Procedure\n\n1. npx wrangler deploy\n\n## Confirmation\n\n1. Open the healthz URL and confirm status ok.\n");
-    const r = JSON.parse(run(withConf, `bash ${SCRIPTS.readDeployments}`).stdout);
+    const r = JSON.parse(run(withConf, `${POSIX_SH} ${SCRIPTS.readDeployments}`).stdout);
     assertEq("read-deployments with confirmation -> gate passes",
       { h: r.has_confirmation, c: r.count, m: r.deployments[0]?.confirmation_method, u: r.deployments[0]?.url },
       { h: true, c: 1, m: "browser", u: "https://example.com/healthz" });
@@ -457,7 +480,7 @@ function testReadDeployments() {
     mkdirSync(join(emptyConf, ".workaholic/deployments"), { recursive: true });
     writeFileSync(join(emptyConf, ".workaholic/deployments/prod.md"),
       "---\ntitle: Prod\nconfirmation_method: browser\n---\n\n## Procedure\n\n1. deploy\n");
-    const r = JSON.parse(run(emptyConf, `bash ${SCRIPTS.readDeployments}`).stdout);
+    const r = JSON.parse(run(emptyConf, `${POSIX_SH} ${SCRIPTS.readDeployments}`).stdout);
     assertEq("read-deployments empty confirmation body -> halt",
       { h: r.has_confirmation, c: r.count }, { h: false, c: 1 });
   } finally { cleanup(emptyConf); }
@@ -468,7 +491,7 @@ function testRecordEvidence() {
   // No story file -> records nothing, does not error.
   const noStory = makeRepo("main");
   try {
-    const r = JSON.parse(run(noStory, `bash ${SCRIPTS.recordEvidence} work-x Prod api-probe "200 OK" pass`).stdout);
+    const r = JSON.parse(run(noStory, `${POSIX_SH} ${SCRIPTS.recordEvidence} work-x Prod api-probe "200 OK" pass`).stdout);
     assertEq("record-evidence no story -> no-op", { rec: r.recorded, reason: r.reason }, { rec: false, reason: "no_story" });
   } finally { cleanup(noStory); }
 
@@ -477,7 +500,7 @@ function testRecordEvidence() {
   try {
     mkdirSync(join(withStory, ".workaholic/stories"), { recursive: true });
     writeFileSync(join(withStory, ".workaholic/stories/work-x.md"), "---\nbranch: work-x\n---\n# story\n");
-    const r = JSON.parse(run(withStory, `bash ${SCRIPTS.recordEvidence} work-x "Prod web" browser "homepage shows v1.0.54" pass`).stdout);
+    const r = JSON.parse(run(withStory, `${POSIX_SH} ${SCRIPTS.recordEvidence} work-x "Prod web" browser "homepage shows v1.0.54" pass`).stdout);
     assertEq("record-evidence records pass", { rec: r.recorded, st: r.status }, { rec: true, st: "pass" });
     const body = readFileSync(join(withStory, ".workaholic/stories/work-x.md"), "utf8");
     assertTrue("record-evidence appended evidence block",
@@ -490,7 +513,7 @@ function testRecordEvidence() {
   try {
     mkdirSync(join(bypassCase, ".workaholic/stories"), { recursive: true });
     writeFileSync(join(bypassCase, ".workaholic/stories/work-x.md"), "---\nbranch: work-x\n---\n# story\n");
-    const r = JSON.parse(run(bypassCase, `bash ${SCRIPTS.recordEvidence} work-x none "none (accepted-risk bypass)" "production state unverified; bypass accepted by developer" bypassed`).stdout);
+    const r = JSON.parse(run(bypassCase, `${POSIX_SH} ${SCRIPTS.recordEvidence} work-x none "none (accepted-risk bypass)" "production state unverified; bypass accepted by developer" bypassed`).stdout);
     assertEq("record-evidence records bypass", { rec: r.recorded, st: r.status }, { rec: true, st: "bypassed" });
     const body = readFileSync(join(bypassCase, ".workaholic/stories/work-x.md"), "utf8");
     assertTrue("record-evidence appended bypass evidence block",
@@ -504,7 +527,7 @@ function testRecordEvidence() {
     mkdirSync(join(secretCase, ".workaholic/stories"), { recursive: true });
     const sp = join(secretCase, ".workaholic/stories/work-x.md");
     writeFileSync(sp, "---\nbranch: work-x\n---\n# story\n");
-    const r = run(secretCase, `bash ${SCRIPTS.recordEvidence} work-x Prod api-probe "token=ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ012345" pass`);
+    const r = run(secretCase, `${POSIX_SH} ${SCRIPTS.recordEvidence} work-x Prod api-probe "token=ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ012345" pass`);
     assertTrue("record-evidence refuses a secret-bearing result",
       r.status !== 0 && r.stdout.includes("possible_secret"), `expected refusal, got status ${r.status}: ${r.stdout}`);
     assertTrue("record-evidence did NOT write the secret to the story",
@@ -517,7 +540,7 @@ function testRecordEvidence() {
   try {
     mkdirSync(join(cleanHash, ".workaholic/stories"), { recursive: true });
     writeFileSync(join(cleanHash, ".workaholic/stories/work-x.md"), "---\nbranch: work-x\n---\n# story\n");
-    const r = JSON.parse(run(cleanHash, `bash ${SCRIPTS.recordEvidence} work-x Prod other "200 OK v1.0.55 at commit 63bbb9e; smoke 63/0" pass`).stdout);
+    const r = JSON.parse(run(cleanHash, `${POSIX_SH} ${SCRIPTS.recordEvidence} work-x Prod other "200 OK v1.0.55 at commit 63bbb9e; smoke 63/0" pass`).stdout);
     assertEq("record-evidence allows commit-hash/version result", r.recorded, true);
   } finally { cleanup(cleanHash); }
 }
@@ -545,7 +568,7 @@ function testCatchupMain() {
     execSync(`git clone -q ${origin} .`, { cwd: clone });
     execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: clone });
     execSync(`git checkout -q -b work-20260617-x HEAD~1`, { cwd: clone });
-    const r = JSON.parse(run(clone, `bash ${SCRIPTS.catchupMain} main`).stdout);
+    const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.catchupMain} main`).stdout);
     assertEq("catchup-main merges upstream cleanly", { c: r.caught_up, cur: r.already_current }, { c: true, cur: false });
     assertTrue("catchup-main brought upstream file into branch", existsSync(join(clone, "upstream.txt")),
       "upstream.txt was not merged in");
@@ -564,7 +587,7 @@ function testApplyVerdicts() {
       "---\nseverity: low\nstatus: active\nresolved_by_pr:\nresolved_by_commit:\n---\n\n# Foo\n");
     execSync(`git add -A && git commit -q -m concern`, { cwd: repo });
     const obj = JSON.stringify({ verdicts: [{ path: ".workaholic/concerns/99-foo.md", verdict: "resolved", resolved_by_pr: 5, resolved_by_commit: "abc1234" }] });
-    const r = JSON.parse(run(repo, `printf '%s' '${obj}' | bash ${SCRIPTS.applyVerdicts}`).stdout);
+    const r = JSON.parse(run(repo, `printf '%s' '${obj}' | ${POSIX_SH} ${SCRIPTS.applyVerdicts}`).stdout);
     assertEq("apply-verdicts accepts {verdicts:...} object", { res: r.resolved, sa: r.still_active }, { res: 1, sa: 0 });
     assertTrue("apply-verdicts archived the resolved file",
       existsSync(join(repo, ".workaholic/concerns/archive/99-foo.md")) && !existsSync(join(repo, ".workaholic/concerns/99-foo.md")),
@@ -579,7 +602,7 @@ function testApplyVerdicts() {
       "---\nseverity: low\nstatus: active\nresolved_by_pr:\nresolved_by_commit:\n---\n\n# Bar\n");
     execSync(`git add -A && git commit -q -m concern`, { cwd: repo2 });
     const arr = JSON.stringify([{ path: ".workaholic/concerns/99-bar.md", verdict: "resolved", resolved_by_pr: 5, resolved_by_commit: "abc1234" }]);
-    const r = JSON.parse(run(repo2, `printf '%s' '${arr}' | bash ${SCRIPTS.applyVerdicts}`).stdout);
+    const r = JSON.parse(run(repo2, `printf '%s' '${arr}' | ${POSIX_SH} ${SCRIPTS.applyVerdicts}`).stdout);
     assertEq("apply-verdicts still accepts a bare array", r.resolved, 1);
   } finally { cleanup(repo2); }
 }
@@ -592,10 +615,10 @@ function testExtractCarryover() {
     writeFileSync(join(repo, ".workaholic/stories/work-x.md"),
       "---\nbranch: work-x\n---\n## 6. Concerns\n\n### Some real concern\n\n- **Severity:** moderate\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n");
     execSync(`git add -A && git commit -q -m story`, { cwd: repo });
-    const r1 = JSON.parse(run(repo, `NO_COMMIT=1 bash ${SCRIPTS.extractCarryover} work-x 10 https://x/pr/10`).stdout);
+    const r1 = JSON.parse(run(repo, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractCarryover} work-x 10 https://x/pr/10`).stdout);
     assertEq("extract-carryover first run extracts the concern", r1.extracted, 1);
     // Same concern, different PR number -> must NOT re-emit (canonical dedup).
-    const r2 = JSON.parse(run(repo, `NO_COMMIT=1 bash ${SCRIPTS.extractCarryover} work-x 11 https://x/pr/11`).stdout);
+    const r2 = JSON.parse(run(repo, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractCarryover} work-x 11 https://x/pr/11`).stdout);
     assertEq("extract-carryover dedups same concern across PR prefixes", r2.extracted, 0);
   } finally { cleanup(repo); }
 }
@@ -619,7 +642,7 @@ function testDocDrift() {
     mkdirSync(join(added, "plugins/workaholic/skills/foo"), { recursive: true });
     writeFileSync(join(added, "plugins/workaholic/skills/foo/SKILL.md"), "---\nname: foo\n---\n");
     execSync(`git add -A && git commit -q -m "add foo skill"`, { cwd: added });
-    const r = JSON.parse(run(added, `bash ${SCRIPTS.docDrift} main`).stdout);
+    const r = JSON.parse(run(added, `${POSIX_SH} ${SCRIPTS.docDrift} main`).stdout);
     assertEq("doc-drift reports skill_added structural change",
       r.structural_changes, [{ kind: "skill_added", path: "plugins/workaholic/skills/foo/SKILL.md" }]);
     const docs = r.candidates.map((c) => c.doc).sort();
@@ -636,7 +659,7 @@ function testDocDrift() {
     writeFileSync(join(updated, "CLAUDE.md"), "# claude\n- bar skill\n");
     writeFileSync(join(updated, "README.md"), "# readme\n- bar\n");
     execSync(`git add -A && git commit -q -m "add bar skill + docs"`, { cwd: updated });
-    const r = JSON.parse(run(updated, `bash ${SCRIPTS.docDrift} main`).stdout);
+    const r = JSON.parse(run(updated, `${POSIX_SH} ${SCRIPTS.docDrift} main`).stdout);
     assertEq("doc-drift no candidate when index docs were updated", r.candidates, []);
     assertEq("doc-drift still reports the structural change",
       r.structural_changes, [{ kind: "skill_added", path: "plugins/workaholic/skills/bar/SKILL.md" }]);
@@ -653,14 +676,14 @@ function testDocDrift() {
     execSync(`git checkout -q main && git merge -q work-x && git checkout -q work-x`, { cwd: edited });
     writeFileSync(join(edited, "plugins/workaholic/skills/baz/SKILL.md"), "---\nname: baz\n---\nv2\n");
     execSync(`git add -A && git commit -q -m "edit baz content"`, { cwd: edited });
-    const r = JSON.parse(run(edited, `bash ${SCRIPTS.docDrift} main`).stdout);
+    const r = JSON.parse(run(edited, `${POSIX_SH} ${SCRIPTS.docDrift} main`).stdout);
     assertEq("doc-drift ignores content-only edits", { sc: r.structural_changes, c: r.candidates }, { sc: [], c: [] });
   } finally { cleanup(edited); }
 
   // Graceful degradation: a missing base ref returns not_applicable, exit 0.
   const bad = seed();
   try {
-    const r = run(bad, `bash ${SCRIPTS.docDrift} no-such-base-xyz`);
+    const r = run(bad, `${POSIX_SH} ${SCRIPTS.docDrift} no-such-base-xyz`);
     assertEq("doc-drift missing base exits 0", r.status, 0);
     assertEq("doc-drift missing base -> not_applicable",
       JSON.parse(r.stdout).not_applicable, "base_ref_not_found");
@@ -669,7 +692,7 @@ function testDocDrift() {
   // docs_dir_present is false in a repo with no docs/ directory.
   const nodocs = seed();
   try {
-    const r = JSON.parse(run(nodocs, `bash ${SCRIPTS.docDrift} main`).stdout);
+    const r = JSON.parse(run(nodocs, `${POSIX_SH} ${SCRIPTS.docDrift} main`).stdout);
     assertEq("doc-drift reports docs_dir_present false when no docs/", r.docs_dir_present, false);
   } finally { cleanup(nodocs); }
 }
@@ -695,7 +718,7 @@ function testPolicyLens() {
   const invoke = (prompt, hookPath = HOOK) => {
     const payload = JSON.stringify({ prompt });
     try {
-      return { stdout: execSync(`bash ${hookPath}`, { cwd: REPO_ROOT, input: payload, encoding: "utf8" }), status: 0 };
+      return { stdout: execSync(`${POSIX_SH} ${hookPath}`, { cwd: REPO_ROOT, input: payload, encoding: "utf8" }), status: 0 };
     } catch (e) {
       return { stdout: e.stdout?.toString() || "", status: e.status ?? 1 };
     }
@@ -755,7 +778,7 @@ function testValidateLayout() {
     if (strict) env.WORKAHOLIC_STRICT_LAYOUT = "1"; else delete env.WORKAHOLIC_STRICT_LAYOUT;
     try {
       // 2>&1 so the warn-mode message (stderr, exit 0) is captured too.
-      const out = execSync(`bash ${HOOK} 2>&1`, { cwd: REPO_ROOT, input: payload, encoding: "utf8", env });
+      const out = execSync(`${POSIX_SH} ${HOOK} 2>&1`, { cwd: REPO_ROOT, input: payload, encoding: "utf8", env });
       return { status: 0, out };
     } catch (e) {
       return { status: e.status ?? 1, out: (e.stdout?.toString() || "") + (e.stderr?.toString() || "") };
@@ -793,7 +816,7 @@ function testValidateLayout() {
     writeFileSync(join(markerRepo, ".workaholic/.strict-layout"), "");
     const payload = JSON.stringify({ tool_input: { file_path: ".workaholic/proposals/notes.md" } });
     let status = 0;
-    try { execSync(`bash ${HOOK}`, { cwd: markerRepo, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); }
+    try { execSync(`${POSIX_SH} ${HOOK}`, { cwd: markerRepo, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); }
     catch (e) { status = e.status ?? 1; }
     assertEq("layout .strict-layout marker blocks (exit 2)", status, 2);
   } finally { cleanup(markerRepo); }
@@ -814,7 +837,7 @@ function testLayoutDoctor() {
     writeFileSync(join(dir, ".workaholic/README.md"), "x");
     writeFileSync(join(dir, ".workaholic/notes.txt"), "x");
 
-    const r = JSON.parse(run(dir, `bash ${DOCTOR} ${dir}`).stdout);
+    const r = JSON.parse(run(dir, `${POSIX_SH} ${DOCTOR} ${dir}`).stdout);
     assertEq("doctor reports non-conforming", r.conforming, false);
     const paths = r.findings.map((f) => f.path).sort();
     assertEq("doctor finds exactly the drifted paths", paths,
@@ -835,7 +858,7 @@ function testLayoutDoctor() {
   try {
     mkdirSync(join(clean, ".workaholic/stories"), { recursive: true });
     mkdirSync(join(clean, ".workaholic/tickets/todo"), { recursive: true });
-    const r = JSON.parse(run(clean, `bash ${DOCTOR} ${clean}`).stdout);
+    const r = JSON.parse(run(clean, `${POSIX_SH} ${DOCTOR} ${clean}`).stdout);
     assertTrue("doctor passes a clean tree", r.conforming === true && r.findings.length === 0);
   } finally { cleanup(clean); }
 }
@@ -853,7 +876,7 @@ function testValidateTicket() {
 
   const invoke = (file_path) => {
     const payload = JSON.stringify({ tool_input: { file_path } });
-    try { execSync(`bash ${HOOK}`, { cwd: REPO_ROOT, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return 0; }
+    try { execSync(`${POSIX_SH} ${HOOK}`, { cwd: REPO_ROOT, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return 0; }
     catch (e) { return e.status ?? 1; }
   };
 
@@ -882,7 +905,7 @@ function testGuardTicketStructure() {
 
   const invoke = (command) => {
     const payload = JSON.stringify({ tool_input: { command } });
-    try { execSync(`bash ${HOOK}`, { cwd: REPO_ROOT, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return 0; }
+    try { execSync(`${POSIX_SH} ${HOOK}`, { cwd: REPO_ROOT, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return 0; }
     catch (e) { return e.status ?? 1; }
   };
 
@@ -899,6 +922,68 @@ function testGuardTicketStructure() {
   assertEq("guard allows variable destination (archive.sh)", invoke('mv "$TICKET" "$ARCHIVE_DIR/"'), 0);
   assertEq("guard allows read-only ls of a messy tree", invoke("ls .workaholic/tickets/done/"), 0);
   assertEq("guard ignores unrelated command", invoke("git status"), 0);
+}
+
+// ---------- report/collect-commits.sh (commit body is emitted, not dropped) ----------
+// Regression guard for the historical bug where the script computed the body then
+// dropped it, starving /report of the structured commit content.
+function testCollectCommits() {
+  const dir = makeRepo("main");
+  try {
+    execSync("git checkout -q -b work-20260528-cc", { cwd: dir });
+    writeFileSync(join(dir, "f.txt"), "x\n");
+    execSync("git add f.txt", { cwd: dir });
+    execSync("git commit -q -F -", {
+      cwd: dir,
+      input: "Add f\n\nWhy: because\n\nChanges: a new file\n\nConcerns: watch the edge case\n\nVerify: ran it\n\nCategory: Changed\n",
+    });
+    const r = run(dir, `${POSIX_SH} ${SCRIPTS.collectCommits} main`);
+    let j = null;
+    try { j = JSON.parse(r.stdout); } catch { /* leave null */ }
+    assertTrue("collect-commits emits valid JSON", j !== null, r.stdout.slice(0, 240));
+    assertEq("collect-commits count is 1", j && j.count, 1);
+    const c = j && j.commits && j.commits[0];
+    assertTrue("collect-commits emits the body (not dropped)",
+      c && /Why: because/.test(c.body) && /Concerns: watch the edge case/.test(c.body),
+      `body=${JSON.stringify(c && c.body)}`);
+    assertTrue("collect-commits preserves the multi-line body",
+      c && c.body.includes("\n"), `body=${JSON.stringify(c && c.body)}`);
+    assertEq("collect-commits parses the Category trailer", c && c.category, "Changed");
+  } finally { cleanup(dir); }
+}
+
+// ---------- hooks/posix-lint.sh (POSIX-sh conformance gate) ----------
+// The standing guard that keeps rules/shell.md from regressing. (1) the real
+// plugin tree must be conforming — the regression lock that only passes once
+// every script is POSIX; (2) a planted bash script must be flagged.
+function testPosixLint() {
+  // 1. Real tree must be clean (this is the lock: it fails if any bashism returns).
+  const real = run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.posixLint}`);
+  let realJson = null;
+  try { realJson = JSON.parse(real.stdout); } catch { /* leave null */ }
+  assertTrue("posix-lint: plugins/workaholic is conforming",
+    real.status === 0 && realJson && realJson.conforming === true && realJson.count === 0,
+    `expected conforming, got status=${real.status} stdout=${real.stdout.slice(0, 240)}`);
+
+  // 2. A planted fixture with a bash shebang + a bashism must be flagged.
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-lint-"));
+  try {
+    mkdirSync(join(dir, "sub"), { recursive: true });
+    writeFileSync(join(dir, "sub/bad.sh"), '#!/bin/bash\nif [[ "$x" =~ ^a ]]; then :; fi\n');
+    writeFileSync(join(dir, "good.sh"), "#!/bin/sh -eu\nset -eu\necho ok\n");
+    const r = run(dir, `${POSIX_SH} ${SCRIPTS.posixLint} ${dir}`);
+    let j = null;
+    try { j = JSON.parse(r.stdout); } catch { /* leave null */ }
+    assertTrue("posix-lint: flags a planted bad script (exit 1)",
+      r.status === 1 && j && j.conforming === false && j.count >= 2,
+      `expected non-conforming, got status=${r.status} stdout=${r.stdout.slice(0, 240)}`);
+    const kinds = j ? j.findings.map((f) => f.kind) : [];
+    assertTrue("posix-lint: reports both shebang and bashism kinds",
+      kinds.includes("shebang") && kinds.includes("bashism"), `kinds=${JSON.stringify(kinds)}`);
+    assertTrue("posix-lint: does not flag the good POSIX script",
+      j && !j.findings.some((f) => f.path.endsWith("good.sh")),
+      `findings=${JSON.stringify(j && j.findings)}`);
+  } finally { cleanup(dir); }
 }
 
 const tests = [
@@ -924,6 +1009,8 @@ const tests = [
   ["hooks/layout-doctor.sh", testLayoutDoctor],
   ["hooks/validate-ticket.sh", testValidateTicket],
   ["hooks/guard-ticket-structure.sh", testGuardTicketStructure],
+  ["hooks/posix-lint.sh", testPosixLint],
+  ["report/collect-commits.sh", testCollectCommits],
 ];
 
 for (const [label, fn] of tests) {

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Apply carry-over judge verdicts to the corresponding files. Verdicts arrive
 # on stdin as a JSON array of {path, verdict, resolved_by_pr?, resolved_by_commit?}.
 # For "resolved" verdicts, flips status, records the resolving PR/commit, and
@@ -8,11 +8,11 @@
 # Output: JSON summary {resolved: N, still_active: N, files_resolved: [...]}.
 # The returned paths point to the new archive locations.
 
-set -e
+set -eu
 
 input=$(cat)
 
-if [[ -z "$input" || "$input" == "[]" ]]; then
+if [ -z "$input" ] || [ "$input" = "[]" ]; then
   echo '{"resolved":0,"still_active":0,"files_resolved":[]}'
   exit 0
 fi
@@ -46,13 +46,19 @@ PY
 
 resolved_count=0
 still_active_count=0
-files_resolved=()
+files_json="["
+first=1
 
-while IFS=$'\t' read -r path verdict rpr rcommit; do
-  [[ -z "$path" ]] && continue
-  [[ ! -f "$path" ]] && continue
+# Capture the parsed lines and iterate via a here-doc so the counters persist in
+# the current shell (POSIX has no `< <(...)`; a pipe would lose them).
+parsed=$(parse)
+tab=$(printf '\t')
 
-  if [[ "$verdict" == "resolved" ]]; then
+while IFS="$tab" read -r path verdict rpr rcommit; do
+  [ -z "$path" ] && continue
+  [ ! -f "$path" ] && continue
+
+  if [ "$verdict" = "resolved" ]; then
     awk -v rpr="$rpr" -v rcommit="$rcommit" '
       /^---$/ { c++ }
       c==1 && /^status:/ { print "status: resolved"; next }
@@ -64,20 +70,19 @@ while IFS=$'\t' read -r path verdict rpr rcommit; do
     dest="${archive_dir}/$(basename "$path")"
     git mv "$path" "$dest" 2>/dev/null || mv "$path" "$dest"
     resolved_count=$((resolved_count+1))
-    files_resolved+=("$dest")
+    if [ "$first" -eq 1 ]; then
+      first=0
+    else
+      files_json="${files_json},"
+    fi
+    files_json="${files_json}\"${dest}\""
   else
     still_active_count=$((still_active_count+1))
   fi
-done < <(parse)
+done <<EOF
+$parsed
+EOF
 
-# Build JSON output.
-files_json="["
-for idx in "${!files_resolved[@]}"; do
-  if [[ $idx -gt 0 ]]; then
-    files_json+=","
-  fi
-  files_json+="\"${files_resolved[$idx]}\""
-done
-files_json+="]"
+files_json="${files_json}]"
 
 echo "{\"resolved\":${resolved_count},\"still_active\":${still_active_count},\"files_resolved\":${files_json}}"

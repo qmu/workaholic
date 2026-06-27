@@ -1,11 +1,11 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Commit a trip workflow step with standardized message format.
-# Usage: bash trip-commit.sh <agent> <phase> <step> <description>
+# Usage: sh trip-commit.sh <agent> <phase> <step> <description>
 # Example: bash trip-commit.sh planner planning "write-direction-v1" "Define initial creative direction based on user requirements"
 # Commit message format: [Agent] <description>
 # Body: Phase: <phase>\nStep: <step>
 
-set -euo pipefail
+set -eu
 
 agent="${1:-}"
 phase="${2:-}"

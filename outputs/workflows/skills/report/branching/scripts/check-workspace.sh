@@ -1,33 +1,26 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Check workspace cleanliness: unstaged, untracked, and staged changes.
-# Usage: bash check-workspace.sh
+# Usage: sh check-workspace.sh
 # Output: JSON with clean status, counts, and human-readable summary
 
-set -euo pipefail
+set -eu
 
-untracked=0
-unstaged=0
-staged=0
+# Porcelain status: each line is "XY <path>". X = staged column, Y = unstaged
+# column, "??" = untracked. Count with grep (POSIX has no process substitution,
+# and a piped `while` loop would lose its counters to a subshell).
+status=$(git status --porcelain 2>/dev/null || true)
 
-while IFS= read -r line; do
-  [ -z "$line" ] && continue
-  xy="${line:0:2}"
-  case "$xy" in
-    '??') untracked=$((untracked + 1)) ;;
-    *)
-      # First char: staged status (non-space = staged change)
-      case "${xy:0:1}" in
-        ' '|'?') ;;
-        *) staged=$((staged + 1)) ;;
-      esac
-      # Second char: unstaged status (non-space = unstaged change)
-      case "${xy:1:1}" in
-        ' '|'?') ;;
-        *) unstaged=$((unstaged + 1)) ;;
-      esac
-      ;;
-  esac
-done < <(git status --porcelain 2>/dev/null)
+if [ -z "$status" ]; then
+  echo '{"clean": true, "untracked_count": 0, "unstaged_count": 0, "staged_count": 0, "summary": ""}'
+  exit 0
+fi
+
+# Untracked: first two columns are "??".
+untracked=$(printf '%s\n' "$status" | grep -cE '^\?\?' || true)
+# Staged: first column is neither space nor "?".
+staged=$(printf '%s\n' "$status" | grep -cE '^[^ ?]' || true)
+# Unstaged: second column is neither space nor "?".
+unstaged=$(printf '%s\n' "$status" | grep -cE '^.[^ ?]' || true)
 
 total=$((untracked + unstaged + staged))
 

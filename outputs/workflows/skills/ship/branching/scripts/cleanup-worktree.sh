@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Clean up a worktree and its local branch after PR merge.
-# Usage: bash cleanup-worktree.sh <branch-name>
+# Usage: sh cleanup-worktree.sh <branch-name>
 # Output: JSON with cleanup status
 
-set -euo pipefail
+set -eu
 
 branch_name="${1:-}"
 

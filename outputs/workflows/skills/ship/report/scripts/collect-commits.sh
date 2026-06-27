@@ -1,6 +1,11 @@
 #!/bin/sh -eu
 # Collect commit information for overview generation
-# Outputs JSON with commit subjects, bodies, and timestamps
+# Outputs JSON with commit hash, subject, body, and timestamp.
+#
+# The body is emitted (not dropped): /report's overview-writer reads the
+# structured commit body (Why/Changes/Concerns/Insights/Verify) from it. Fields
+# are delimited with ASCII unit separator (0x1f) and records with record
+# separator (0x1e) so multi-line bodies survive, and jq does the JSON escaping.
 
 set -eu
 
@@ -14,35 +19,18 @@ if [ "$COUNT" -eq 0 ]; then
     exit 0
 fi
 
-# Collect commits as JSON array
-# Format: hash, subject, body, timestamp
-COMMITS=$(git log "${BASE_BRANCH}..HEAD" --reverse --format='{
-  "hash": "%h",
-  "subject": "%s",
-  "body": "%b",
-  "timestamp": "%cI"
-},' | sed 's/"/\\"/g; s/\\"{/{/g; s/\\"}$/}/g' | sed '$ s/,$//')
-
-# Escape special characters in body for valid JSON
-COMMITS_CLEANED=$(git log "${BASE_BRANCH}..HEAD" --reverse --pretty=format:'%h|%s|%cI' | while IFS='|' read -r hash subject timestamp; do
-    # Escape quotes and newlines
-    subject_escaped=$(echo "$subject" | sed 's/"/\\"/g')
-    cat <<ENTRY
-    {
-      "hash": "$hash",
-      "subject": "$subject_escaped",
-      "timestamp": "$timestamp"
-    },
-ENTRY
-done | sed '$ s/,$//')
-
-# Output JSON
-cat <<EOF
-{
-  "commits": [
-$COMMITS_CLEANED
-  ],
-  "count": ${COUNT},
-  "base_branch": "${BASE_BRANCH}"
-}
-EOF
+git log "${BASE_BRANCH}..HEAD" --reverse \
+    --format='%h%x1f%s%x1f%cI%x1f%b%x1f%(trailers:key=Category,valueonly)%x1e' \
+  | jq -Rs --arg base "$BASE_BRANCH" '
+      split("")
+      | map(ltrimstr("\n"))
+      | map(select(length > 0))
+      | map(split(""))
+      | map({
+          hash: .[0],
+          subject: .[1],
+          timestamp: .[2],
+          body: ((.[3] // "") | sub("\n+$"; "")),
+          category: ((.[4] // "") | gsub("\\s"; ""))
+        })
+      | {commits: ., count: length, base_branch: $base}'

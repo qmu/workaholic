@@ -21,6 +21,12 @@
 
 set -eu
 
+# Shared subject validator (lib/check-subject.sh) -- the single source of the
+# subject rules, also used by the git commit-msg hook so the two layers cannot
+# drift. Resolve it relative to this hook's own directory.
+SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+LIB="${SCRIPT_DIR}/lib/check-subject.sh"
+
 block() {
   echo "Error: refusing off-policy commit subject ($1)." >&2
   echo "  Subject: \"$2\"" >&2
@@ -61,24 +67,11 @@ fi
 # No inspectable inline subject (editor commit, -F file, heredoc) -> allow.
 [ -z "$subject" ] && exit 0
 
-# Subject is the first line only.
-subject=$(printf '%s\n' "$subject" | sed -n '1p')
-
-# 1. Conventional-Commit prefix (feat:, fix(scope):, docs!: ...).
-if printf '%s' "$subject" | grep -qE '^[A-Za-z][A-Za-z0-9_-]*(\([^)]*\))?!?:[[:space:]]'; then
-  block "Conventional-Commit prefix" "$subject"
+# Delegate the subject checks to the shared validator. A conforming subject ->
+# lib exits 0 -> allow; a violation -> lib prints the reason and exits non-zero.
+# The `if` keeps `set -e` from tripping on the expected non-zero exit.
+if reason=$(printf '%s\n' "$subject" | sh "$LIB"); then
+  exit 0
 fi
 
-# 2. Leading [bracket] tag.
-if printf '%s' "$subject" | grep -qE '^\[[^]]+\]'; then
-  block "leading [bracket] tag" "$subject"
-fi
-
-# 3. Subject length > 50 characters. wc -m counts characters (not bytes), so a
-# multibyte (e.g. Japanese) subject is measured correctly, not by byte length.
-len=$(printf '%s' "$subject" | wc -m | tr -d '[:space:]')
-if [ "$len" -gt 50 ]; then
-  block "subject is ${len} characters (limit 50)" "$subject"
-fi
-
-exit 0
+block "$reason" "$subject"

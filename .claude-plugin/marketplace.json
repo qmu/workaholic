@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "workaholic",
-      "description": "Structured development workflows and engineering standards in one plugin: ticket/drive/report/ship commands, the /trip Agent Teams, hooks, and the 設計 / 実装 / 運用 policy skills (design, implementation, operation) mirrored from qmu.co.jp.",
+      "description": "Structured development workflows and engineering standards in one plugin: ticket/drive/commit/report/ship commands, the /trip Agent Teams, hooks, and the 設計 / 実装 / 運用 policy skills (design, implementation, operation) mirrored from qmu.co.jp.",
       "version": "1.0.66",
       "author": {
         "name": "tamurayoshiya",

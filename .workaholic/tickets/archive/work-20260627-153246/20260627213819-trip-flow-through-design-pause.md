@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: enhancement
 layer: [Config]
 effort: 1h
-commit_hash:
-category:
+commit_hash: 0d432a1
+category: Changed
 depends_on:
 ---
 
@@ -131,4 +131,31 @@ Past tickets that touched similar areas:
 
 ## Final Report
 
-<!-- filled at drive time -->
+Development completed as a prose hoist, exactly as scoped. Three files changed (CLAUDE.md,
+`commands/trip.md`, `trip-protocol/SKILL.md`); no scripts, no `outputs/` rebuild (trip is excluded
+from `DEFAULT_TARGETS` — confirmed `git status --porcelain outputs/` empty after `build.mjs`).
+Verify green, posix-lint conforming, 154/0. The default Step-4 team-lead instruction now explicitly
+flows design→build with no green-light pause; Night Mode keeps only its genuine overrides (setup
+auto-resolve, safe-park, morning report); the Decomposition gate, rollback, convergence cap, and all
+safety gates are untouched.
+
+### Discovered Insights
+
+- **Insight**: The "design pause" the user reported was **not encoded anywhere** — no
+  `AskUserQuestion`, no STOP line, no script gate between Planning and Coding. It was an *emergent*
+  behavior: Night Mode was the **only** place granting "never pauses for the developer," so a default
+  (non-night) team lead *inferred* it should present the design for confirmation before building. The
+  fix was therefore subtractive/clarifying (hoist the grant to the default, demote night to its real
+  specifics), not a code change. When a user reports a "gate," check whether it is literally encoded or
+  emergent from what the default path *fails to say* — the latter is fixed by making the default
+  explicit, not by deleting a gate.
+  **Context**: `plugins/workaholic/skills/trip-protocol/SKILL.md` Step 4 instruction + Night Mode; this
+  mirrors the night-trip ticket's own finding that the trip "was already autonomous internally."
+- **Insight**: Removing a synchronous human gate is policy-defensible only when paired with an
+  asynchronous, recorded substitute (operation/ci-cd) and outside-observability
+  (implementation/observability). Concretely the edit added a phase-transition `event-log.md`
+  requirement at the Planning→Coding handoff and leaned on the committed `designs/` artifacts as the
+  decision record `/report` reviews the morning after — so the gate became async, not absent.
+  modeless-design supplied the positive case (a forced "can't proceed until you confirm" is an
+  unjustified mode). Quote those three when relaxing any forced-stop in this repo.
+  **Context**: `design/modeless-design`, `operation/ci-cd`, `implementation/observability`.

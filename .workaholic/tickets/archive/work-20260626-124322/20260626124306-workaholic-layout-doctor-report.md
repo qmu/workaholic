@@ -3,9 +3,9 @@ created_at: 2026-06-26T12:43:06+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: ff001d5
+category: Added
 depends_on: [20260626124305-enforce-workaholic-layout-allowlist.md]
 ---
 
@@ -120,3 +120,13 @@ Past tickets that touched similar areas:
   `tickets/` sublocation rule. (`plugins/workaholic/rules/workaholic.md`)
 - **Pointing at another repo** via the optional path arg is a convenience for auditing a consumer
   repo from outside; ensure the arg doesn't assume the doctor runs from inside the target repo's git root.
+
+## Final Report
+
+Development completed as planned. The doctor (`hooks/layout-doctor.sh`) walks the top-level `.workaholic/` entries, classifies each against the same allowlist file the hook reads (`ok` / `undesignated` / `undesignated-root-file` / `misplaced-ticket-state`), and emits JSON findings + remediations + advisories with a human summary on stderr. Read-only by design. 10 hermetic smoke assertions (122/0); no `outputs/` drift.
+
+### Discovered Insights
+
+- **Insight**: The doctor was placed in `hooks/` (beside `workaholic-layout-allowlist.txt`), not in a skill's `scripts/` as the ticket's Step 1 suggested. The foundation ticket put the allowlist in `hooks/`, so co-locating gives the tightest single-source coupling (the doctor reads `${SCRIPT_DIR}/workaholic-layout-allowlist.txt` as a sibling) and, because `hooks/` is excluded from `outputs/`, avoids a rebuild and avoids bloating the `drive` bundle (which includes `system-safety` in its closure — the otherwise-natural skill host).
+  **Context**: When a utility is coupled to a hook's data, `hooks/` can be the right home even though it usually holds hook-event scripts — the `outputs/` exclusion and proximity win. A consumer runs it as `bash ${CLAUDE_PLUGIN_ROOT}/hooks/layout-doctor.sh`.
+- **Insight**: Classification only inspects the **top-level** entry plus the one-level `tickets/` sub-locations; nested allowed paths (`concerns/archive/`, `tickets/archive/<branch>/`, `trips/<trip>/designs/`) are intentionally not walked for conformance, which is what keeps `concerns/`/`tickets/` from producing false positives. Deeper trip-internal drift is surfaced only as non-blocking *advisories*, matching the foundation ticket's "top-level allowlist only" scope.

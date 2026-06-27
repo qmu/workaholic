@@ -1,10 +1,10 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Eject a worktree back to a regular branch in the main working tree.
 # Must be run from the main working tree, passing the worktree path as argument.
-# Usage: bash eject-worktree.sh <worktree-path>
+# Usage: sh eject-worktree.sh <worktree-path>
 # Output: JSON with ejected status, branch, and main_repo path
 
-set -euo pipefail
+set -eu
 
 worktree_path="${1:-}"
 
@@ -16,9 +16,10 @@ fi
 repo_root="$(git rev-parse --show-toplevel)"
 
 # Resolve to absolute path
-if [[ "$worktree_path" != /* ]]; then
-  worktree_path="${repo_root}/${worktree_path}"
-fi
+case "$worktree_path" in
+  /*) ;;
+  *) worktree_path="${repo_root}/${worktree_path}" ;;
+esac
 
 # Verify the path is a worktree
 if ! git worktree list --porcelain | grep -q "worktree ${worktree_path}"; then
@@ -26,19 +27,30 @@ if ! git worktree list --porcelain | grep -q "worktree ${worktree_path}"; then
   exit 1
 fi
 
-# Extract branch from worktree
+# Extract branch from worktree. Here-doc keeps the loop in the current shell so
+# wt_branch persists (POSIX has no `< <(...)`).
 wt_branch=""
 found_path=false
+wt_list="$(git worktree list --porcelain)"
 while IFS= read -r line; do
   if [ "$line" = "worktree ${worktree_path}" ]; then
     found_path=true
-  elif $found_path && [[ "$line" =~ ^branch\ refs/heads/(.+)$ ]]; then
-    wt_branch="${BASH_REMATCH[1]}"
-    break
+  elif [ "$found_path" = true ]; then
+    case "$line" in
+      "branch refs/heads/"*)
+        wt_branch="${line#branch refs/heads/}"
+        break
+        ;;
+    esac
+    if [ -z "$line" ]; then
+      found_path=false
+    fi
   elif [ -z "$line" ]; then
     found_path=false
   fi
-done < <(git worktree list --porcelain)
+done <<EOF
+$wt_list
+EOF
 
 if [ -z "$wt_branch" ]; then
   echo '{"error": "could not determine branch for worktree"}' >&2

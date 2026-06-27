@@ -1,12 +1,12 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Discover gitignored files in a worktree that differ from the main repo root.
-# Usage: bash find-gitignored-files.sh <worktree-path>
+# Usage: sh find-gitignored-files.sh <worktree-path>
 # Output: JSON with has_changes flag and file list
 #
 # Excludes reinstallable directories (node_modules, .venv, vendor/bundle, .cache, __pycache__).
 # Each file entry includes: path (relative), status (new|modified), size.
 
-set -euo pipefail
+set -eu
 
 worktree_path="${1:-}"
 
@@ -76,7 +76,9 @@ while IFS= read -r rel_path; do
   # Escape path for JSON
   escaped_path=$(echo "$rel_path" | sed 's/\\/\\\\/g; s/"/\\"/g')
   files_json="${files_json}{\"path\":\"${escaped_path}\",\"status\":\"${status}\",\"size\":\"${display_size}\"}"
-done <<< "$ignored_files"
+done <<EOF
+$ignored_files
+EOF
 
 files_json="${files_json}]"
 

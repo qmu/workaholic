@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Detect development context from current branch pattern.
-# Usage: bash detect-context.sh
+# Usage: sh detect-context.sh
 # Output: JSON with context type, branch, and optional mode/trip_name
 
-set -euo pipefail
+set -eu
 
 branch=$(git branch --show-current 2>/dev/null || echo "")
 root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
@@ -17,10 +17,10 @@ fi
 
 # Detect mode from workspace artifacts
 detect_mode() {
-  local trips_dir="${root}/.workaholic/trips"
-  local todo_dir="${root}/.workaholic/tickets/todo"
-  local has_trips=false
-  local has_tickets=false
+  trips_dir="${root}/.workaholic/trips"
+  todo_dir="${root}/.workaholic/tickets/todo"
+  has_trips=false
+  has_tickets=false
 
   if [ -d "$trips_dir" ]; then
     trip_dirs=$(find "$trips_dir" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
@@ -48,28 +48,34 @@ detect_mode() {
 }
 
 # Work context: branch matches work-*
-if [[ "$branch" == work-* ]]; then
-  mode=$(detect_mode)
-  echo "{\"context\": \"work\", \"branch\": \"${branch}\", \"mode\": \"${mode}\"}"
-  exit 0
-fi
+case "$branch" in
+  work-*)
+    mode=$(detect_mode)
+    echo "{\"context\": \"work\", \"branch\": \"${branch}\", \"mode\": \"${mode}\"}"
+    exit 0
+    ;;
+esac
 
 # Backward compat: drive-* branches map to work context with drive mode
-if [[ "$branch" == drive-* ]]; then
-  echo "{\"context\": \"work\", \"branch\": \"${branch}\", \"mode\": \"drive\"}"
-  exit 0
-fi
+case "$branch" in
+  drive-*)
+    echo "{\"context\": \"work\", \"branch\": \"${branch}\", \"mode\": \"drive\"}"
+    exit 0
+    ;;
+esac
 
 # Backward compat: trip/* branches map to work context with trip/hybrid mode
-if [[ "$branch" == trip/* ]]; then
-  trip_name="${branch#trip/}"
-  mode=$(detect_mode)
-  if [ "$mode" = "drive" ]; then
-    mode="trip"
-  fi
-  echo "{\"context\": \"work\", \"branch\": \"${branch}\", \"mode\": \"${mode}\", \"trip_name\": \"${trip_name}\"}"
-  exit 0
-fi
+case "$branch" in
+  trip/*)
+    trip_name="${branch#trip/}"
+    mode=$(detect_mode)
+    if [ "$mode" = "drive" ]; then
+      mode="trip"
+    fi
+    echo "{\"context\": \"work\", \"branch\": \"${branch}\", \"mode\": \"${mode}\", \"trip_name\": \"${trip_name}\"}"
+    exit 0
+    ;;
+esac
 
 # Main/master: unknown context
 if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
@@ -82,8 +88,8 @@ script_dir="$(cd "$(dirname "$0")" && pwd)"
 list_script="${script_dir}/list-worktrees.sh"
 
 if [ -f "$list_script" ]; then
-  worktree_output=$(bash "$list_script" 2>/dev/null || echo '{"count": 0}')
-  count=$(echo "$worktree_output" | jq -r '.count' 2>/dev/null || echo "0")
+  worktree_output=$(sh "$list_script" 2>/dev/null || echo '{"count": 0}')
+  count=$(printf '%s' "$worktree_output" | jq -r '.count' 2>/dev/null || echo "0")
 
   if [ "$count" -gt 0 ]; then
     echo "{\"context\": \"worktree\", \"branch\": \"${branch}\"}"

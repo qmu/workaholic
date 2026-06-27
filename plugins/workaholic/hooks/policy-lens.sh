@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh -eu
 # UserPromptSubmit hook: the always-on engineering-policy LENS for the Workaholic
 # workflow commands (/ticket, /report, /ship, /trip, /drive).
 #
@@ -24,11 +24,15 @@
 # heading + one-line summary) is appended so the agent always sees what policies
 # exist. Headings are an index, not the policy text — the bodies remain on-demand.
 
+set -eu
+
 input=$(cat)
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 INDEX_FILE="${SCRIPT_DIR}/policy-index.md"
 
-prompt=$(printf '%s' "$input" | jq -r '.prompt // empty' 2>/dev/null)
+# Guard the parse: a non-JSON prompt must degrade to "no sentinel" (exit 0),
+# never trip set -e.
+prompt=$(printf '%s' "$input" | jq -r '.prompt // empty' 2>/dev/null || true)
 
 # No sentinel -> not a tagged workflow command -> silent no-op.
 case "$prompt" in
@@ -57,6 +61,6 @@ $(cat "$INDEX_FILE")"
 fi
 
 jq -n --arg ctx "$context" \
-  '{hookSpecificOutput: {hookEventName: "UserPromptSubmit", additionalContext: $ctx}}'
+  '{hookSpecificOutput: {hookEventName: "UserPromptSubmit", additionalContext: $ctx}}' || true
 
 exit 0

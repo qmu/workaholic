@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Validate development environment readiness inside a worktree.
-# Usage: bash validate-dev-env.sh <worktree_path>
+# Usage: sh validate-dev-env.sh <worktree_path>
 # Output: JSON with ready status and per-check results.
 #
 # Checks:
@@ -9,7 +9,7 @@
 #   ports        - configured ports are not already in use
 #   shared_state - no shared lock/state files that conflict across worktrees
 
-set -euo pipefail
+set -eu
 
 worktree_path="${1:-}"
 
@@ -27,7 +27,7 @@ checks="[]"
 ready=true
 
 add_check() {
-  local name="$1" status="$2" details="$3" action="$4"
+  name="$1"; status="$2"; details="$3"; action="$4"
   checks=$(echo "$checks" | sed 's/]$//')
   if [ "$checks" != "[" ]; then
     checks="${checks},"

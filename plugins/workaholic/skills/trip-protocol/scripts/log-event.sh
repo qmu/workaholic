@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Append an event entry to the trip event log.
-# Usage: bash log-event.sh <trip-path> <agent> <event-type> <target> <impact>
+# Usage: sh log-event.sh <trip-path> <agent> <event-type> <target> <impact>
 # The event log file is created if it does not exist.
 
-set -euo pipefail
+set -eu
 
 trip_path="${1:-}"
 agent="${2:-}"

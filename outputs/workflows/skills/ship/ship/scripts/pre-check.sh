@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Pre-check: verify PR exists for a branch.
-# Usage: bash pre-check.sh <branch-name>
+# Usage: sh pre-check.sh <branch-name>
 # Output: JSON with pr_number, url, state, merged
 
-set -euo pipefail
+set -eu
 
 branch="${1:-}"
 

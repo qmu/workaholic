@@ -43,6 +43,9 @@ const SCRIPTS = {
   guardGitCommit: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-commit.sh"),
   guardGitBranch: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-branch.sh"),
   ensureWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/ensure-worktree.sh"),
+  checkSubject: join(REPO_ROOT, "plugins/workaholic/hooks/lib/check-subject.sh"),
+  commitMsgHook: join(REPO_ROOT, "plugins/workaholic/hooks/git/commit-msg"),
+  installGitHooks: join(REPO_ROOT, "plugins/workaholic/hooks/install-git-hooks.sh"),
 };
 
 // rules/shell.md mandates POSIX sh. Exercise the scripts under the strictest
@@ -1093,6 +1096,97 @@ function testEnsureWorktreeGuard() {
   } finally { cleanup(dir); }
 }
 
+// ---------- hooks/lib/check-subject.sh (shared subject validator) ----------
+// The single source of the subject rules used by BOTH the Bash gate and the
+// git commit-msg hook. Exit 0 = conforming, exit 1 + reason on stdout otherwise.
+function testCheckSubject() {
+  const invoke = (subject) => {
+    try {
+      const out = execSync(`${POSIX_SH} ${SCRIPTS.checkSubject} ${JSON.stringify(subject)}`, { encoding: "utf8" });
+      return { status: 0, out };
+    } catch (e) { return { status: e.status ?? 1, out: e.stdout?.toString() || "" }; }
+  };
+  assertEq("check-subject allows a clean subject", invoke("Add the parser module").status, 0);
+  assertEq("check-subject blocks Conventional prefix", invoke("feat: add x").status, 1);
+  assertEq("check-subject blocks scoped prefix", invoke("fix(api): y").status, 1);
+  assertEq("check-subject blocks [bracket] tag", invoke("[wip] y").status, 1);
+  assertEq("check-subject blocks >50 chars", invoke("A".repeat(60)).status, 1);
+  assertTrue("check-subject names the reason", /Conventional-Commit prefix/.test(invoke("feat: x").out), invoke("feat: x").out);
+  // stdin form works too.
+  const r = run(REPO_ROOT, `printf '%s' "docs: x" | ${POSIX_SH} ${SCRIPTS.checkSubject}`);
+  assertEq("check-subject reads subject from stdin", r.status, 1);
+}
+
+// ---------- hooks/git/commit-msg (git-native subject gate) ----------
+// Feed the hook a temp message file (the git contract: $1 = message path) and
+// assert it rejects off-policy subjects and accepts conformant ones. Subject-only
+// (it never rewrites the message). Hermetic: no real git config is touched.
+function testCommitMsgHook() {
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-commitmsg-"));
+  try {
+    const writeMsg = (text) => { const p = join(dir, "MSG"); writeFileSync(p, text); return p; };
+    const invoke = (text) => {
+      const p = writeMsg(text);
+      try { execSync(`${POSIX_SH} ${SCRIPTS.commitMsgHook} ${p}`, { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return { status: 0, err: "" }; }
+      catch (e) { return { status: e.status ?? 1, err: e.stderr?.toString() || "" }; }
+    };
+
+    assertEq("commit-msg allows a clean subject", invoke("Add the parser module\n\nbody line\n").status, 0);
+    assertEq("commit-msg allows a Co-Authored-By body (not stripped)",
+      invoke("Add feature\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n").status, 0);
+    assertEq("commit-msg blocks Conventional prefix", invoke("feat: add x\n").status, 1);
+    assertEq("commit-msg blocks [bracket] tag", invoke("[wip] y\n").status, 1);
+    assertEq("commit-msg blocks >50-char subject", invoke(`${"A".repeat(60)}\n`).status, 1);
+    assertTrue("commit-msg names the policy + --no-verify",
+      /skills\/commit\/SKILL\.md/.test(invoke("feat: x\n").err) && /--no-verify/.test(invoke("feat: x\n").err),
+      invoke("feat: x\n").err.slice(0, 200));
+
+    // Subject-only: a blocked commit's message file is NOT rewritten.
+    const p = writeMsg("feat: x\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n");
+    run(dir, `${POSIX_SH} ${SCRIPTS.commitMsgHook} ${p}`);
+    assertTrue("commit-msg does not rewrite the message file",
+      readFileSync(p, "utf8").includes("Co-Authored-By: Claude"), "message file was modified");
+  } finally { cleanup(dir); }
+}
+
+// ---------- hooks/install-git-hooks.sh (opt-in core.hooksPath installer) ----------
+function testInstallGitHooks() {
+  const HOOKS_DIR = join(REPO_ROOT, "plugins/workaholic/hooks/git");
+
+  // Clean repo: installs by setting core.hooksPath to the plugin's hooks/git.
+  const clean = makeRepo("main");
+  try {
+    const r = run(clean, `${POSIX_SH} ${SCRIPTS.installGitHooks}`);
+    assertEq("install-git-hooks installs in a clean repo", r.status, 0);
+    const set = execSync(`git config --get core.hooksPath`, { cwd: clean, encoding: "utf8" }).trim();
+    assertEq("install-git-hooks set core.hooksPath to plugin hooks/git", set, HOOKS_DIR);
+    // Idempotent: a second run is a no-op success.
+    assertEq("install-git-hooks is idempotent", run(clean, `${POSIX_SH} ${SCRIPTS.installGitHooks}`).status, 0);
+  } finally { cleanup(clean); }
+
+  // Pre-set core.hooksPath -> refuse without --force, succeed with --force.
+  const preset = makeRepo("main");
+  try {
+    execSync(`git config core.hooksPath /some/other/path`, { cwd: preset });
+    const refused = run(preset, `${POSIX_SH} ${SCRIPTS.installGitHooks}`);
+    assertEq("install-git-hooks refuses to clobber core.hooksPath", refused.status, 1);
+    assertTrue("install-git-hooks refusal explains --force", /--force/.test(refused.stderr), refused.stderr);
+    const forced = run(preset, `${POSIX_SH} ${SCRIPTS.installGitHooks} --force`);
+    assertEq("install-git-hooks --force overrides", forced.status, 0);
+    assertEq("install-git-hooks --force set the path",
+      execSync(`git config --get core.hooksPath`, { cwd: preset, encoding: "utf8" }).trim(), HOOKS_DIR);
+  } finally { cleanup(preset); }
+
+  // Classic .git/hooks present -> refuse without --force (would be shadowed).
+  const classic = makeRepo("main");
+  try {
+    writeFileSync(join(classic, ".git/hooks/pre-commit"), "#!/bin/sh\nexit 0\n");
+    const refused = run(classic, `${POSIX_SH} ${SCRIPTS.installGitHooks}`);
+    assertEq("install-git-hooks refuses to shadow classic .git/hooks", refused.status, 1);
+    assertTrue("install-git-hooks classic refusal lists the hook", /pre-commit/.test(refused.stderr), refused.stderr);
+  } finally { cleanup(classic); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching/detect-context.sh", testDetectContext],
@@ -1121,6 +1215,9 @@ const tests = [
   ["hooks/guard-git-commit.sh", testGuardGitCommit],
   ["hooks/guard-git-branch.sh", testGuardGitBranch],
   ["branching/ensure-worktree.sh", testEnsureWorktreeGuard],
+  ["hooks/lib/check-subject.sh", testCheckSubject],
+  ["hooks/git/commit-msg", testCommitMsgHook],
+  ["hooks/install-git-hooks.sh", testInstallGitHooks],
 ];
 
 for (const [label, fn] of tests) {

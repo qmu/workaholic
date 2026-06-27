@@ -4,6 +4,7 @@ author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure, Config]
 effort: 2h
+commit_hash: 89ce8e7
 category: Added
 depends_on: [20260628002047-gate-commit-and-branch-via-pretooluse-bash.md, 20260628002049-stop-emitting-claude-coauthor-trailer.md]
 ---
@@ -72,3 +73,20 @@ Past tickets that touched similar areas:
 - **Still bypassable** via `--no-verify` and on GitHub-web/server merges — state this; it is a strong belt, not a vault. The two layers together (Bash gate + git hook) cover agent + human local commits; remote enforcement (branch protection / required status check) is a separate, repo-side control.
 - **Single rule source.** The subject regex/length logic must not exist in two drifting copies — share it (lib) or keep them byte-identical with cross-references, per `policy-conformance-audit`.
 - **Propagation caveat:** like all plugin-shipped enforcement, this reaches a consumer only after the plugin is released and the consumer updates — then the owner still must run the installer. Note that in the release/rollout step.
+
+## Final Report
+
+Development completed as planned, with one scope narrowing carried from the batch's co-author decision.
+
+### Scope narrowing (recorded)
+
+Settled during this `/drive` (the "Co-Authored-By is ok" decision that also abandoned ticket `20260628002049`): the `commit-msg` hook enforces the **subject** policy only and **does not strip** Claude co-author trailers. The `lib/check-subject.sh` shared validator therefore covers only the subject rules (prefix / `[bracket]` / ≤50 chars). The Bash gate (`guard-git-commit.sh`) was refactored onto the same lib, so the two enforcement layers share one rule source and cannot drift — satisfying `policy-conformance-audit` exactly as the ticket intended, minus the co-author dimension.
+
+### Discovered Insights
+
+- **Insight**: A git hook must be named exactly `commit-msg` (no extension), but `hooks/posix-lint.sh` only scans `*.sh`, so the git hook is invisible to the POSIX gate. It is POSIX `#!/bin/sh -eu` by construction, but a future bashism in it would NOT be caught by CI.
+  **Context**: If more git-native hooks are added under `hooks/git/`, either extend `posix-lint.sh` to also scan that directory by name, or keep them trivially POSIX. The shared logic deliberately lives in `lib/check-subject.sh` (which `posix-lint` *does* scan) precisely to keep the lintable surface maximal.
+- **Insight**: `set -e` makes `var=$(cmd)` abort the script when `cmd` exits non-zero. Both the gate and the commit-msg hook expect the shared validator to exit 1 on a violation, so the call is wrapped as `if reason=$(... | sh "$LIB"); then exit 0; fi` — the `if` is what suppresses `-e` for that one expected failure.
+  **Context**: Any new caller of `check-subject.sh` must use the same `if`-guarded form, or a normal policy violation will crash the caller instead of being handled.
+- **Insight**: Documentation for the install command went to `CLAUDE.md` rather than `rules/shell.md` as the ticket suggested. `rules/shell.md` is scoped to POSIX-shell conventions; the commit-subject gate is commit policy, not a shell convention, so it belongs in CLAUDE.md's verification/hooks documentation next to the policy-lens hook.
+  **Context**: A reasonable, intentional deviation from the ticket's Key Files list; flagged here so a reviewer expecting a `rules/shell.md` edit knows it was a deliberate placement choice.

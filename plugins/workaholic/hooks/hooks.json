@@ -1,6 +1,18 @@
 {
-  "description": "Ticket format/location validation and canonical .workaholic/ layout enforcement (PostToolUse safeguard; layout gate warns by default, blocks under WORKAHOLIC_STRICT_LAYOUT or a .workaholic/.strict-layout marker) plus the always-on engineering-policy lens for workflow commands (UserPromptSubmit, non-blocking)",
+  "description": "Ticket format/location validation and canonical .workaholic/ layout enforcement (PostToolUse safeguard; layout gate warns by default, blocks under WORKAHOLIC_STRICT_LAYOUT or a .workaholic/.strict-layout marker), the structural guard that blocks non-canonical ticket moves (PreToolUse Bash, blocking), and the always-on engineering-policy lens for workflow commands (UserPromptSubmit, non-blocking)",
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/guard-ticket-structure.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit",

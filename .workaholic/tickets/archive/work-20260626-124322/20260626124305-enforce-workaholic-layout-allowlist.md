@@ -3,9 +3,9 @@ created_at: 2026-06-26T12:43:05+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config, Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: 983c840
+category: Changed
 depends_on:
 ---
 
@@ -167,3 +167,14 @@ Past tickets that touched similar areas:
   file disagree, the contract is ambiguous. Prefer one data file + generated/verified prose.
 - **No `outputs/` rebuild for a hook-only change**, but if Step 2 introduces a new script-bearing
   skill, it must carry `metadata.internal: true` and you must re-run `build.mjs`/`verify.mjs`.
+
+## Final Report
+
+Development completed as planned. The allowlist is a plain data file (`hooks/workaholic-layout-allowlist.txt`); the gate lives inline in `validate-ticket.sh` (the data file is the shared single source — the companion doctor ticket reads it, so no logic was extracted yet). Warn-by-default, strict via `WORKAHOLIC_STRICT_LAYOUT` or a `.workaholic/.strict-layout` marker. 15 new smoke assertions; `verify.mjs` confirmed no `outputs/` drift (hook-only change).
+
+### Discovered Insights
+
+- **Insight**: Step 4's premise was wrong — `tickets/done/` was **already** hard-blocked. The existing ticket-location check (`^todo|^icebox|^archive`, else `exit 2`) runs for *any* file under `.workaholic/tickets/`, not only `YYYYMMDDHHmmss-*.md` names; the early-return at the top only skips paths *outside* `tickets/`. So no new code was needed to catch `tickets/done/` — a regression test was added to pin it.
+  **Context**: When reasoning about `validate-ticket.sh`, note the order: ticket-shape-misplacement block → (new) layout gate → skip-non-ticket early-return → ticket-location → filename → frontmatter. The layout gate only governs *non-`tickets/`* undesignated dirs; everything under `tickets/` is still governed by the (hard-blocking) location check.
+- **Insight**: The gate must **degrade gracefully when the allowlist file is absent** (skip enforcement entirely). Without that guard a missing data file would make every `.workaholic/` subdir "undesignated" and warn/block on all of them. The `[[ -f "$allowlist_file" ]]` guard on the gate is load-bearing, not cosmetic.
+  **Context**: The same applies to the companion doctor (ticket #2) — it must read the same file and fail safe if it is missing.

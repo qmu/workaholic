@@ -738,6 +738,67 @@ function testPolicyLens() {
   } finally { cleanup(dir); }
 }
 
+// ---------- hooks/validate-ticket.sh (canonical .workaholic/ layout gate) ----------
+// Feed the real hook a {tool_input:{file_path}} payload on stdin (the PostToolUse
+// contract) and assert exit status / stderr. Resolving the hook by absolute path makes
+// its hook_dir the real hooks/ dir, so it reads the committed allowlist file.
+function testValidateLayout() {
+  const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh");
+
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  validate-layout (jq not available)"); return; }
+
+  const invoke = (filePath, strict = false) => {
+    const payload = JSON.stringify({ tool_input: { file_path: filePath } });
+    const env = { ...process.env };
+    if (strict) env.WORKAHOLIC_STRICT_LAYOUT = "1"; else delete env.WORKAHOLIC_STRICT_LAYOUT;
+    try {
+      // 2>&1 so the warn-mode message (stderr, exit 0) is captured too.
+      const out = execSync(`bash ${HOOK} 2>&1`, { cwd: REPO_ROOT, input: payload, encoding: "utf8", env });
+      return { status: 0, out };
+    } catch (e) {
+      return { status: e.status ?? 1, out: (e.stdout?.toString() || "") + (e.stderr?.toString() || "") };
+    }
+  };
+
+  // Strict mode: undesignated subdirectories are blocked (exit 2).
+  for (const p of [".workaholic/proposals/notes.md", ".workaholic/research/r.md", ".workaholic/.trips/x.md"]) {
+    assertEq(`layout strict blocks ${p}`, invoke(p, true).status, 2);
+  }
+  // The ticket-location rule (tickets/done/) is a HARD block regardless of the toggle.
+  assertEq("layout blocks tickets/done/ in strict", invoke(".workaholic/tickets/done/y.md", true).status, 2);
+  assertEq("layout blocks tickets/done/ in warn too (hard rule)", invoke(".workaholic/tickets/done/y.md", false).status, 2);
+
+  // Allowed locations pass cleanly (exit 0), even under strict mode.
+  for (const p of [
+    ".workaholic/stories/s.md", ".workaholic/deployments/prod.md", ".workaholic/concerns/42-foo.md",
+    ".workaholic/release-notes/work-x.md", ".workaholic/trips/work-x/designs/design-v1.md",
+    ".workaholic/README.md", ".workaholic/tickets/todo/test-example-com/20260101000000-t.md",
+  ]) {
+    assertEq(`layout strict allows ${p}`, invoke(p, true).status, 0);
+  }
+
+  // Warn mode (default): an undesignated path is allowed (exit 0) but flagged on stderr.
+  const warned = invoke(".workaholic/proposals/notes.md", false);
+  assertEq("layout warn allows undesignated path", warned.status, 0);
+  assertTrue("layout warn writes a warning to stderr",
+    warned.out.includes("Workaholic layout") && warned.out.includes("warn mode"),
+    `expected a warn-mode message, got: ${warned.out.slice(0, 200)}`);
+
+  // A committed .workaholic/.strict-layout marker flips warn -> block without the env var.
+  const markerRepo = makeRepo("main");
+  try {
+    mkdirSync(join(markerRepo, ".workaholic"), { recursive: true });
+    writeFileSync(join(markerRepo, ".workaholic/.strict-layout"), "");
+    const payload = JSON.stringify({ tool_input: { file_path: ".workaholic/proposals/notes.md" } });
+    let status = 0;
+    try { execSync(`bash ${HOOK}`, { cwd: markerRepo, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); }
+    catch (e) { status = e.status ?? 1; }
+    assertEq("layout .strict-layout marker blocks (exit 2)", status, 2);
+  } finally { cleanup(markerRepo); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching/detect-context.sh", testDetectContext],
@@ -757,6 +818,7 @@ const tests = [
   ["ship/extract-carryover.sh", testExtractCarryover],
   ["report/doc-drift.sh", testDocDrift],
   ["hooks/policy-lens.sh", testPolicyLens],
+  ["hooks/validate-ticket.sh", testValidateLayout],
 ];
 
 for (const [label, fn] of tests) {

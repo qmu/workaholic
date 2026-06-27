@@ -30,6 +30,8 @@ Reviews create dialectical tension across perspectives. Requirements:
 Design-first Planning: Concurrent artifacts, one-turn review, accept/revise/escalate, moderate, plan fixed, **decompose into tickets**.
 Coding (both modes): drive the ticket queue per ticket — Constructor implements, Architect reviews, Planner E2E, archive — iterate, done (or rollback to planning).
 
+**Design-first flows straight through by default.** When the plan is fixed and the Decomposition gate has written the tickets, the team proceeds **directly** into the Coding Phase — it does **not** stop to present the design for a developer green-light. The one-turn review / respond-escalate / moderation / 3-round convergence cap *are* the design gate; the per-ticket three-agent QA is the build gate; the committed `designs/` artifacts plus `event-log.md` are the recorded decision a developer reviews **afterward** via `/report` (an asynchronous approval, not a synchronous pause). A pre-build developer checkpoint is opt-in only, never the default. This is true in every mode — night mode only *adds* setup and failure-handling autonomy on top (see Night Mode).
+
 ## Shell Scripts
 
 All script paths use the same-plugin `${CLAUDE_PLUGIN_ROOT}/skills/<name>/scripts/` form (see Script base paths below).
@@ -108,7 +110,7 @@ Write each ticket to `.workaholic/tickets/todo/<user>/` (the `<user>` slug from 
 - **Trip Origin** — a reference back to the section of `.workaholic/trips/<trip-name>/designs/design-v<N>.md` that justifies the ticket, keeping the rationale ("why") one link from the contract ("what").
 - **`depends_on`** — derived from the design's delivery plan, so the Coding Phase drives the tickets in a correct order.
 
-Split the design into 2–N independently-implementable tickets (tightly-coupled work stays one ticket). Tickets MUST be written under `.workaholic/tickets/` — never `trips/` (the `validate-ticket.sh` hook rejects ticket-shaped files written elsewhere). In **night mode**, the Constructor records reasonable decomposition assumptions in the design and `plan.md` rather than asking the developer. Log a `decomposition` event and commit the tickets. **GATE**: wait for all tickets to be written before entering the Coding Phase.
+Split the design into 2–N independently-implementable tickets (tightly-coupled work stays one ticket). Tickets MUST be written under `.workaholic/tickets/` — never `trips/` (the `validate-ticket.sh` hook rejects ticket-shaped files written elsewhere). For ambiguous decomposition, the Constructor records reasonable assumptions in the design and `plan.md` rather than pausing for the developer. Log a `decomposition` event and commit the tickets. **GATE** (team-internal sync, not a developer pause): wait for all tickets to be written, then flow **straight into the Coding Phase** — there is no developer confirmation between Planning and Coding.
 
 Step identifier: `planning/decomposition`.
 
@@ -321,13 +323,13 @@ Create a three-member Agent Team. The team lead instruction:
 > 2. **Architect** (`workaholic:architect`) - Structural bridge, analytical review
 > 3. **Constructor** (`workaholic:constructor`) - Technical implementation, internal testing
 >
-> All agents work inside `<working_dir>`. Follow trip-protocol for the Planning Phase (concurrent artifacts, one-turn review, respond/escalate, moderate) and Coding Phase (concurrent launch, review & testing, iteration). All agents have the team's **engineering policies** (`workaholic:design`, `workaholic:implementation`, `workaholic:operation`) preloaded — ensure all planning, design, implementation, and testing respects those policies, practices, and standards. Enforce convergence cap: max 3 review rounds before forced moderation. Use `trip-commit.sh` and `log-event.sh` for every step. Update `plan.md` at phase transitions. If resuming, skip completed steps.
+> All agents work inside `<working_dir>`. Follow trip-protocol for the Planning Phase (concurrent artifacts, one-turn review, respond/escalate, moderate) and Coding Phase (concurrent launch, review & testing, iteration). **When the plan is fixed and the Decomposition gate has written all tickets, proceed directly into the Coding Phase — do NOT pause to present the design for developer approval or wait for a green-light.** The review / moderation / convergence machinery is the design gate; the per-ticket three-agent QA is the build gate; the developer reviews the finished branch afterward via `/report`. Insert a pre-build developer checkpoint only if the user explicitly asked for one. All agents have the team's **engineering policies** (`workaholic:design`, `workaholic:implementation`, `workaholic:operation`) preloaded — ensure all planning, design, implementation, and testing respects those policies, practices, and standards. Enforce convergence cap: max 3 review rounds before forced moderation. Use `trip-commit.sh` and `log-event.sh` for every step (including a `decomposition` event and a phase-transition event at the Planning→Coding handoff, so the autonomous handoff stays explainable for morning review). Update `plan.md` at phase transitions. If resuming, skip completed steps.
 >
 > Language policy: All agent output must be English.
 >
 > **Post-completion rule**: After the trip reaches `complete/done`, if the user sends follow-up requests: handle simple tasks directly (reading, answering, small edits). For substantial work, re-invoke ONLY the three designated teammates (Planner, Architect, Constructor) -- never create new agent team members. The designated agents retain their original roles and constraints.
 
-**Night mode**: append the **Team-lead night directive** (see the Night Mode subsection) to the instruction above before launching, so the team runs unattended and never pauses for the developer. The normal-mode instruction is otherwise unchanged.
+**Night mode**: append the **Team-lead night directive** (see the Night Mode subsection) to the instruction above before launching, so the team *additionally* auto-resolves setup, safe-parks on unrecoverable blockers, and emits a morning report. The design→build flow-through is already the default above; night mode adds only the *setup* and *failure-handling* autonomy on top. The normal-mode instruction is otherwise unchanged.
 
 **Queue-execute mode**: replace the "Follow trip-protocol for the Planning Phase … and Coding Phase" sentence with this directive (the rest of the instruction — teammates, policies, language, post-completion rule — is unchanged):
 
@@ -347,7 +349,7 @@ After the team completes:
 
 ### Night Mode (mode = "night")
 
-Autonomous, unattended overnight `/trip`, triggered when `$ARGUMENT` contains "night" (e.g. "go night /trip <instruction>"). The Agent Team judges everything itself and never pauses for the developer. Night mode overrides Steps 1, 4, and 5 above.
+Autonomous, unattended overnight `/trip`, triggered when `$ARGUMENT` contains "night" (e.g. "go night /trip <instruction>"). The Agent Team judges everything itself. Like every design-first trip it flows from the fixed design straight into the build with no developer green-light (that is the default — see Workflow Overview); night mode *additionally* removes the remaining interactive points — the Step 1 setup question and the Step 5 results presentation — and adds a safe-park failure policy and a morning-review report. Night mode overrides Steps 1, 4, and 5 above.
 
 **1. Authorization is the `/trip night` invocation itself — zero developer questions.** Invoking `/trip night <instruction>` authorizes the entire unattended run. Night Trip asks the developer **nothing** at any point (stricter than night `/drive`, which permits one group question) — the trip-protocol's own review / moderation / convergence machinery is what makes self-judgment safe. The `night` token is stripped from `$ARGUMENT`; the remainder is the trip instruction.
 

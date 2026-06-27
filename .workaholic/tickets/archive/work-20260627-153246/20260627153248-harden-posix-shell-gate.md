@@ -3,9 +3,9 @@ created_at: 2026-06-27T15:32:48+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config, Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: a933970
+category: Added
 depends_on: [20260627153246-posix-convert-validate-ticket-hook.md, 20260627153247-posix-convert-remaining-plugin-scripts.md]
 ---
 
@@ -84,4 +84,30 @@ Past tickets that touched similar areas:
 
 ## Final Report
 
-<!-- filled at drive time -->
+Development completed as planned. Added `plugins/workaholic/hooks/posix-lint.sh` (read-only,
+`#!/bin/sh -eu`): it walks every `*.sh` under the plugin dir, flags non-`#!/bin/sh` shebangs and
+bash-only tokens (`[[ `, `=~`, `<<<`, `${BASH_SOURCE}`, `BASH_REMATCH`, `declare`, statement
+`local`, `${x[@]}`/`${x[*]}`), emits JSON findings + a stderr summary, and exits non-zero on any
+violation. Switched `scripts/test-workflow-scripts.mjs` to invoke every plugin script through a
+resolved `POSIX_SH` (`dash` if present, else `sh`) instead of hard-coded `bash`, and added four
+lint assertions — including the regression-lock that the real tree is conforming. Documented the
+enforcement command in `rules/shell.md`. Suite: 144/0; `verify.mjs`/`validate-metadata.mjs` green;
+no `outputs/` drift (the lint is a hook, excluded from the bundle).
+
+### Discovered Insights
+
+- **Insight**: A token-grep linter inevitably flags **itself** — `posix-lint.sh`'s own doc
+  comments and its `bashism_re` pattern string literally contain `[[`, `=~`, `<<<`, `BASH_SOURCE`,
+  etc. The fix is two-fold: skip the linter's own file by absolute path, and drop full-line
+  comments (`^[0-9]+:[[:space:]]*#`) from the body scan so a token mentioned in prose in any
+  script never counts. Without both, the regression-lock test can never go green.
+  **Context**: `plugins/workaholic/hooks/posix-lint.sh` — the `self=`/`continue` skip and the
+  `grep -vE '^[0-9]+:[[:space:]]*#'` comment filter are load-bearing, not cosmetic.
+- **Insight**: On this host (Amazon Linux 2023) `/usr/bin/sh` IS bash 5.2 and `dash` is not
+  installed, so `POSIX_SH` resolves to `sh` (= bash) here and the *runner* half of the gate is
+  weak locally — it only becomes a true bashism trap on a machine/CI image where `/bin/sh` is
+  dash or busybox ash. That is why the **lint** (a shell-independent grep) is the real
+  cross-host guard and the runner is the secondary belt-and-braces. CI should install/run `dash`
+  (or run on Alpine) for the runner half to bite. The lint needs no special shell to be strict.
+  **Context**: `scripts/test-workflow-scripts.mjs` `POSIX_SH` resolver; relevant to whoever wires
+  this into a GitHub Actions job — prefer an Alpine/dash runner so both halves have teeth.

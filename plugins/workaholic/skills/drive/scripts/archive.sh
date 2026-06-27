@@ -61,7 +61,9 @@ git add -A
 SCRIPT_DIR=$(dirname "$0")
 COMMIT_SCRIPT="${SCRIPT_DIR}/../../../../workaholic/skills/commit/scripts/commit.sh"
 
-sh "$COMMIT_SCRIPT" --skip-staging "$COMMIT_MSG" "$WHY" "$CHANGES" "$CONCERNS" "$INSIGHTS" "$VERIFY"
+# Pass the same computed CATEGORY both into the commit (as a git trailer) and into
+# the ticket frontmatter below, so the two surfaces can never disagree.
+sh "$COMMIT_SCRIPT" --skip-staging --category "$CATEGORY" "$COMMIT_MSG" "$WHY" "$CHANGES" "$CONCERNS" "$INSIGHTS" "$VERIFY"
 
 COMMIT_HASH=$(git rev-parse --short HEAD)
 

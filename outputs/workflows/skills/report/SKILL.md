@@ -257,7 +257,9 @@ bash report/scripts/collect-commits.sh [base-branch]
 Default base branch is `main`. The `body` field carries the full structured commit message
 (`Why:` / `Changes:` / `Concerns:` / `Insights:` / `Verify:`). Read those keys: `Why` informs
 the Motivation, `Changes` the highlights/journey. (Historically this script dropped the body;
-it now emits it, so the structured commit content actually reaches this role.)
+it now emits it, so the structured commit content actually reaches this role.) The `category`
+field is parsed from the commit's `Category:` git trailer (`Added`/`Changed`/`Removed`, or empty) —
+a log-native grouping key that survives even if the ticket is pruned.
 
 ##### Output Format (JSON)
 
@@ -268,7 +270,8 @@ it now emits it, so the structured commit content actually reaches this role.)
       "hash": "abc1234",
       "subject": "Add feature X",
       "body": "Detailed description of the change...",
-      "timestamp": "2026-01-15T10:30:00+09:00"
+      "timestamp": "2026-01-15T10:30:00+09:00",
+      "category": "Added"
     }
   ],
   "count": 15,

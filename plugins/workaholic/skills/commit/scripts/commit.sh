@@ -5,17 +5,34 @@ set -eu
 
 # Parse flags
 SKIP_STAGING=false
+CATEGORY=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --skip-staging)
             SKIP_STAGING=true
             shift
             ;;
+        --category)
+            CATEGORY="${2:-}"
+            shift 2
+            ;;
         *)
             break
             ;;
     esac
 done
+
+# Validate the optional change category (emitted as a git trailer). Fail-fast on
+# a typo so the closed Added|Changed|Removed schema can't silently drift.
+if [ -n "$CATEGORY" ]; then
+    case "$CATEGORY" in
+        Added|Changed|Removed) : ;;
+        *)
+            echo "Error: --category must be one of: Added, Changed, Removed (got: $CATEGORY)"
+            exit 1
+            ;;
+    esac
+fi
 
 TITLE="${1:-}"
 WHY="${2:-}"
@@ -26,10 +43,11 @@ VERIFY="${6:-None}"
 shift 6 2>/dev/null || true
 
 if [ -z "$TITLE" ]; then
-    echo "Usage: commit.sh [--skip-staging] <title> <why> <changes> <concerns> <insights> <verify> [files...]"
+    echo "Usage: commit.sh [--skip-staging] [--category <Added|Changed|Removed>] <title> <why> <changes> <concerns> <insights> <verify> [files...]"
     echo ""
     echo "Options:"
-    echo "  --skip-staging  Skip staging step (use when files are already staged)"
+    echo "  --skip-staging        Skip staging step (use when files are already staged)"
+    echo "  --category <value>    Emit a 'Category: <Added|Changed|Removed>' git trailer for /report grouping"
     echo ""
     echo "Parameters:"
     echo "  title     - Commit title (present-tense verb, 50 chars max)"
@@ -102,7 +120,15 @@ case "$CONCERNS" in ""|None|none) : ;; *) append_section "Concerns" "$CONCERNS" 
 case "$INSIGHTS" in ""|None|none) : ;; *) append_section "Insights" "$INSIGHTS" ;; esac
 append_section "Verify" "$VERIFY"
 
-COMMIT_BODY="${COMMIT_BODY}Co-Authored-By: Claude <noreply@anthropic.com>"
+# Trailer block (last paragraph): a machine-readable Category trailer (when set)
+# plus the Co-Authored-By trailer. `git log --format='%(trailers:key=Category,valueonly)'`
+# can then read the Added/Changed/Removed grouping straight from the log.
+TRAILERS="Co-Authored-By: Claude <noreply@anthropic.com>"
+if [ -n "$CATEGORY" ]; then
+    TRAILERS="Category: ${CATEGORY}
+${TRAILERS}"
+fi
+COMMIT_BODY="${COMMIT_BODY}${TRAILERS}"
 
 # Commit
 echo "==> Committing..."

@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: enhancement
 layer: [Config, Infrastructure]
 effort: 1h
-commit_hash:
-category:
+commit_hash: b8d7efc
+category: Added
 depends_on: [20260627210216-restructure-commit-body-for-report.md]
 ---
 
@@ -87,4 +87,30 @@ Past tickets that touched similar areas:
 
 ## Final Report
 
-<!-- filled at drive time -->
+Development completed as planned, and additively. `commit.sh` gained a `--category` flag (parsed
+in the flag loop, validated against `Added|Changed|Removed` with a fail-fast error) that emits a
+`Category:` git trailer in the last paragraph next to `Co-Authored-By`. `archive.sh` passes its
+existing verb-derived `CATEGORY` into both the trailer and the `update.sh` frontmatter stamp, so
+the two surfaces share one source and cannot disagree. `collect-commits.sh` parses the trailer via
+`%(trailers:key=Category,valueonly)` into a per-commit `category` field; `report` and
+`write-release-note` docs name the trailer as the prune-resilient source while frontmatter stays
+the immediate read. 12 files (6 source + 6 outputs); 154/0; lint conforming. This very commit
+carries `Category: Added`.
+
+### Discovered Insights
+
+- **Insight**: Git only treats the **last paragraph** of a commit message as the trailer block, so
+  the body's own `Why:`/`Changes:`/`Verify:` lines (each its own blank-line-separated paragraph)
+  are NOT parsed as trailers — only `Category:` and `Co-Authored-By:` in the final paragraph are.
+  That is what lets the report-aligned body keys (ticket `20260627210216`) and the machine-readable
+  Category trailer coexist in one message without colliding. Verified `git log --format='%(trailers:key=Category,valueonly)'`
+  returns just the category.
+  **Context**: `plugins/workaholic/skills/commit/scripts/commit.sh` trailer block; depends on the
+  body-restructure ticket having put each section in its own paragraph.
+- **Insight**: Keeping the change **additive** (frontmatter still stamped, trailer added in
+  parallel from the same `CATEGORY`) meant `write-release-note`'s existing read path needed no
+  rewiring — the trailer is a resilience upgrade, not a migration. The single-source rule
+  (`archive.sh` computes `CATEGORY` once, feeds both) is what prevents the classic
+  two-sources-of-truth drift the carry-over corpus already flagged for the two enforcement layers.
+  **Context**: `plugins/workaholic/skills/drive/scripts/archive.sh`, `update.sh`,
+  `write-release-note/SKILL.md`.

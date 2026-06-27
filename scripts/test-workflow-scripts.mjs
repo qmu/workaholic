@@ -273,6 +273,10 @@ Development completed as planned.
     assertTrue("commit body has Verify:", log.includes("Verify: the verify"));
     assertTrue("commit body dropped Release Preparation", !log.includes("Release Preparation:"));
     assertTrue("commit body dropped Test Planning", !log.includes("Test Planning:"));
+    // Category is emitted as a real git trailer (parseable from the log).
+    assertTrue("commit has Category: Added trailer", log.includes("Category: Added"));
+    const trailer = execSync("git log -1 --format='%(trailers:key=Category,valueonly)'", { cwd: dir, encoding: "utf8" }).trim();
+    assertEq("git parses the Category trailer", trailer, "Added");
 
     // Workspace is clean after archive (everything got swept in).
     const status = execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" });
@@ -931,7 +935,7 @@ function testCollectCommits() {
     execSync("git add f.txt", { cwd: dir });
     execSync("git commit -q -F -", {
       cwd: dir,
-      input: "Add f\n\nWhy: because\n\nChanges: a new file\n\nConcerns: watch the edge case\n\nVerify: ran it\n",
+      input: "Add f\n\nWhy: because\n\nChanges: a new file\n\nConcerns: watch the edge case\n\nVerify: ran it\n\nCategory: Changed\n",
     });
     const r = run(dir, `${POSIX_SH} ${SCRIPTS.collectCommits} main`);
     let j = null;
@@ -944,6 +948,7 @@ function testCollectCommits() {
       `body=${JSON.stringify(c && c.body)}`);
     assertTrue("collect-commits preserves the multi-line body",
       c && c.body.includes("\n"), `body=${JSON.stringify(c && c.body)}`);
+    assertEq("collect-commits parses the Category trailer", c && c.category, "Changed");
   } finally { cleanup(dir); }
 }
 

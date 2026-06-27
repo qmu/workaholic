@@ -4,6 +4,7 @@ author: a@qmu.jp
 type: enhancement
 layer: [Config]
 effort: 1h
+commit_hash: 7a584b9
 category: Added
 depends_on: [20260628002047-gate-commit-and-branch-via-pretooluse-bash.md]
 ---
@@ -71,3 +72,14 @@ Past tickets that touched similar areas:
 - **Don't reimplement staging or message assembly** in the command — `commit.sh` already owns multi-contributor-safe staging and trailer rendering. The command only *derives inputs* and calls it (`command-scripts`).
 - **Co-author coupling:** this command must not hand-add any `Co-Authored-By` line — attribution is whatever `commit.sh` emits after ticket `20260628002049` settles the policy. Keep the command trailer-agnostic.
 - **Depends on the gate ticket** only for the whitelist coordination in step 4; the command itself is otherwise independent and could be built in parallel.
+
+## Final Report
+
+Development completed as planned. The `/commit` command is a thin orchestration over `workaholic:commit` + `commit.sh`; no staging or message-assembly logic was duplicated into it.
+
+### Discovered Insights
+
+- **Insight**: `commit.sh` parses option flags (`--category`, `--skip-staging`) ONLY at the front of its argument list — the parse loop `break`s on the first non-flag token. A `--category` placed *after* the six positional args is silently consumed as a `[files...]` entry (staged-or-skipped), and the `Category:` trailer goes missing with no error.
+  **Context**: Any caller (this command, future commands, CI) must pass flags **before** `title why changes concerns insights verify`. A temp-repo dry-run is the only thing that surfaces this — the missing trailer is invisible to `verify.mjs`. The command doc now states the ordering explicitly.
+- **Insight**: The commit gate (`guard-git-commit.sh`, 2047) needs no explicit whitelist for the sanctioned path. `commit.sh` is invoked as `sh …/commit.sh …`, which carries no top-level `git commit`, so the gate's `*git*commit*` relevance filter never matches it. The "whitelist the script path" coordination the ticket anticipated in step 4 was therefore a no-op — the gate is correct by construction, locked by the `guard-commit allows commit.sh invocation` smoke test.
+  **Context**: This is the same hook-scope property recorded on 2047: PreToolUse(Bash) only sees the top-level command, so script-wrapped git is invisible to the gate.

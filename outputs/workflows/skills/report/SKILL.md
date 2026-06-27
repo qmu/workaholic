@@ -121,7 +121,7 @@ Spawn 3 parallel worker leaf subagents in parallel (single message with 3 Task c
 
 - **release-readiness**: preload `report`, run `## Assess Release Readiness`, return the releasability JSON. Pass archived tickets list and branch name.
 - **overview-writer**: preload `report`, run `### Overview Generation`, return the overview JSON. Pass branch name and base branch.
-- **section-reviewer**: preload `review-sections`, run it, return the sections 4-7 JSON (Outcome, Historical Analysis, Concerns, Successful Development Patterns). Pass branch name, archived tickets list, and the carryover verdicts file path `/tmp/carryover-verdicts.json`. The section-reviewer prepends `still_active` verdicts to section 6.
+- **section-reviewer**: preload `review-sections`, run it, return the sections 4-7 JSON (Outcome, Historical Analysis, Concerns, Successful Development Patterns). Pass branch name, archived tickets list, the carryover verdicts file path `/tmp/carryover-verdicts.json`, **and the collected commit bodies** (`collect-commits.sh` output). The section-reviewer prepends `still_active` verdicts to section 6, then folds in any `Concerns:` keys from the commit bodies (§6) and `Insights:` keys (§7) so a concern or pattern recorded in a commit is not lost when a ticket is sparse or absent.
 
 Wait for all 3 to complete. Track which succeeded and which failed.
 
@@ -254,7 +254,10 @@ Run the bundled script to collect commit information:
 bash report/scripts/collect-commits.sh [base-branch]
 ```
 
-Default base branch is `main`.
+Default base branch is `main`. The `body` field carries the full structured commit message
+(`Why:` / `Changes:` / `Concerns:` / `Insights:` / `Verify:`). Read those keys: `Why` informs
+the Motivation, `Changes` the highlights/journey. (Historically this script dropped the body;
+it now emits it, so the structured commit content actually reaches this role.)
 
 ##### Output Format (JSON)
 

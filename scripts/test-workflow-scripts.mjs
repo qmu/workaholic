@@ -39,6 +39,7 @@ const SCRIPTS = {
   docDrift: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/doc-drift.sh"),
   checkCapability: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/check-confirmation-capability.sh"),
   posixLint: join(REPO_ROOT, "plugins/workaholic/hooks/posix-lint.sh"),
+  collectCommits: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/collect-commits.sh"),
 };
 
 // rules/shell.md mandates POSIX sh. Exercise the scripts under the strictest
@@ -250,7 +251,7 @@ Development completed as planned.
     // sweeps everything (matches production behavior).
     writeFileSync(join(dir, "side.txt"), "side-effect\n");
 
-    const r = run(dir, `${POSIX_SH} ${SCRIPTS.archive} .workaholic/tickets/todo/${TEST_SLUG}/20260528120000-smoke-ticket.md "Add smoke feature" https://example.com/repo "why" "what" "tests" "release"`, { env: { ...process.env, GIT_AUTHOR_DATE: "2026-05-28T12:00:00+09:00", GIT_COMMITTER_DATE: "2026-05-28T12:00:00+09:00" } });
+    const r = run(dir, `${POSIX_SH} ${SCRIPTS.archive} .workaholic/tickets/todo/${TEST_SLUG}/20260528120000-smoke-ticket.md "Add smoke feature" https://example.com/repo "the why" "the changes" "the concerns" "the insights" "the verify"`, { env: { ...process.env, GIT_AUTHOR_DATE: "2026-05-28T12:00:00+09:00", GIT_COMMITTER_DATE: "2026-05-28T12:00:00+09:00" } });
     assertEq("archive.sh exits 0", r.status, 0);
 
     const archivedPath = join(dir, ".workaholic/tickets/archive/work-20260528-smoke/20260528120000-smoke-ticket.md");
@@ -261,13 +262,17 @@ Development completed as planned.
     assertTrue("archive.sh stamped commit_hash", /^commit_hash:\s*[0-9a-f]{7,}/m.test(archived), archived.split("\n").slice(0, 12).join("\n"));
     assertTrue("archive.sh stamped category=Added (from 'Add' verb)", /^category:\s*Added/m.test(archived));
 
-    // Commit message includes the structured sections and title.
+    // Commit message uses the report-aligned keys (Why/Changes/Concerns/Insights/Verify)
+    // and no longer carries the dropped Description/Test Planning/Release Preparation labels.
     const log = execSync(`git log -1 --format=%B`, { cwd: dir, encoding: "utf8" });
     assertTrue("commit title preserved", log.startsWith("Add smoke feature\n"));
-    assertTrue("commit body has Description:", log.includes("Description: why"));
-    assertTrue("commit body has Changes:", log.includes("Changes: what"));
-    assertTrue("commit body has Test Planning:", log.includes("Test Planning: tests"));
-    assertTrue("commit body has Release Preparation:", log.includes("Release Preparation: release"));
+    assertTrue("commit body has Why:", log.includes("Why: the why"));
+    assertTrue("commit body has Changes:", log.includes("Changes: the changes"));
+    assertTrue("commit body has Concerns:", log.includes("Concerns: the concerns"));
+    assertTrue("commit body has Insights:", log.includes("Insights: the insights"));
+    assertTrue("commit body has Verify:", log.includes("Verify: the verify"));
+    assertTrue("commit body dropped Release Preparation", !log.includes("Release Preparation:"));
+    assertTrue("commit body dropped Test Planning", !log.includes("Test Planning:"));
 
     // Workspace is clean after archive (everything got swept in).
     const status = execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" });
@@ -915,6 +920,33 @@ function testGuardTicketStructure() {
   assertEq("guard ignores unrelated command", invoke("git status"), 0);
 }
 
+// ---------- report/collect-commits.sh (commit body is emitted, not dropped) ----------
+// Regression guard for the historical bug where the script computed the body then
+// dropped it, starving /report of the structured commit content.
+function testCollectCommits() {
+  const dir = makeRepo("main");
+  try {
+    execSync("git checkout -q -b work-20260528-cc", { cwd: dir });
+    writeFileSync(join(dir, "f.txt"), "x\n");
+    execSync("git add f.txt", { cwd: dir });
+    execSync("git commit -q -F -", {
+      cwd: dir,
+      input: "Add f\n\nWhy: because\n\nChanges: a new file\n\nConcerns: watch the edge case\n\nVerify: ran it\n",
+    });
+    const r = run(dir, `${POSIX_SH} ${SCRIPTS.collectCommits} main`);
+    let j = null;
+    try { j = JSON.parse(r.stdout); } catch { /* leave null */ }
+    assertTrue("collect-commits emits valid JSON", j !== null, r.stdout.slice(0, 240));
+    assertEq("collect-commits count is 1", j && j.count, 1);
+    const c = j && j.commits && j.commits[0];
+    assertTrue("collect-commits emits the body (not dropped)",
+      c && /Why: because/.test(c.body) && /Concerns: watch the edge case/.test(c.body),
+      `body=${JSON.stringify(c && c.body)}`);
+    assertTrue("collect-commits preserves the multi-line body",
+      c && c.body.includes("\n"), `body=${JSON.stringify(c && c.body)}`);
+  } finally { cleanup(dir); }
+}
+
 // ---------- hooks/posix-lint.sh (POSIX-sh conformance gate) ----------
 // The standing guard that keeps rules/shell.md from regressing. (1) the real
 // plugin tree must be conforming — the regression lock that only passes once
@@ -973,6 +1005,7 @@ const tests = [
   ["hooks/validate-ticket.sh", testValidateTicket],
   ["hooks/guard-ticket-structure.sh", testGuardTicketStructure],
   ["hooks/posix-lint.sh", testPosixLint],
+  ["report/collect-commits.sh", testCollectCommits],
 ];
 
 for (const [label, fn] of tests) {

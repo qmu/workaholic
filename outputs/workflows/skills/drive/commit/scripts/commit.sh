@@ -18,25 +18,27 @@ while [ $# -gt 0 ]; do
 done
 
 TITLE="${1:-}"
-DESCRIPTION="${2:-}"
+WHY="${2:-}"
 CHANGES="${3:-None}"
-TEST_PLAN="${4:-None}"
-RELEASE_PREP="${5:-None}"
-shift 5 2>/dev/null || true
+CONCERNS="${4:-}"
+INSIGHTS="${5:-}"
+VERIFY="${6:-None}"
+shift 6 2>/dev/null || true
 
 if [ -z "$TITLE" ]; then
-    echo "Usage: commit.sh [--skip-staging] <title> <description> <changes> <test-plan> <release-prep> [files...]"
+    echo "Usage: commit.sh [--skip-staging] <title> <why> <changes> <concerns> <insights> <verify> [files...]"
     echo ""
     echo "Options:"
     echo "  --skip-staging  Skip staging step (use when files are already staged)"
     echo ""
     echo "Parameters:"
-    echo "  title        - Commit title (present-tense verb, 50 chars max)"
-    echo "  description  - Why this change was needed, with motivation and rationale (can be empty)"
-    echo "  changes      - User-visible changes (or 'None')"
-    echo "  test-plan    - Verification done or needed (or 'None')"
-    echo "  release-prep - Ship and support requirements (or 'None')"
-    echo "  files...     - Optional: specific files to stage (ignored with --skip-staging)"
+    echo "  title     - Commit title (present-tense verb, 50 chars max)"
+    echo "  why       - Why this change was needed: problem, trigger, approach (feeds /report Motivation; can be empty)"
+    echo "  changes   - What users experience differently, before->after (or 'None')"
+    echo "  concerns  - Risks, follow-ups, deferred work surfaced by this change (feeds /report Concerns; 'None' or empty to omit)"
+    echo "  insights  - Non-obvious patterns or gotchas worth preserving (feeds /report Patterns; 'None' or empty to omit)"
+    echo "  verify    - Verification done or needed (or 'None')"
+    echo "  files...  - Optional: specific files to stage (ignored with --skip-staging)"
     exit 1
 fi
 
@@ -81,20 +83,26 @@ echo "==> Changes to be committed:"
 git diff --cached --stat
 echo ""
 
-# Build commit message
+# Build the structured body section by section. Each present section is followed
+# by a blank line. The optional sections (Why, Concerns, Insights) are omitted
+# when empty or "None" so the log stays clean; Changes and Verify always render.
+# Keys are chosen to feed /report: Why->Motivation, Changes->Changes/Outcome,
+# Concerns->Concerns, Insights->Successful Development Patterns.
 COMMIT_BODY=""
-if [ -n "$DESCRIPTION" ]; then
-    COMMIT_BODY="Description: ${DESCRIPTION}
+
+append_section() {
+    COMMIT_BODY="${COMMIT_BODY}${1}: ${2}
 
 "
-fi
-COMMIT_BODY="${COMMIT_BODY}Changes: ${CHANGES}
+}
 
-Test Planning: ${TEST_PLAN}
+case "$WHY" in ""|None|none) : ;; *) append_section "Why" "$WHY" ;; esac
+append_section "Changes" "$CHANGES"
+case "$CONCERNS" in ""|None|none) : ;; *) append_section "Concerns" "$CONCERNS" ;; esac
+case "$INSIGHTS" in ""|None|none) : ;; *) append_section "Insights" "$INSIGHTS" ;; esac
+append_section "Verify" "$VERIFY"
 
-Release Preparation: ${RELEASE_PREP}
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
+COMMIT_BODY="${COMMIT_BODY}Co-Authored-By: Claude <noreply@anthropic.com>"
 
 # Commit
 echo "==> Committing..."

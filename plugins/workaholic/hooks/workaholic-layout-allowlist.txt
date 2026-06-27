@@ -1,0 +1,18 @@
+# Canonical .workaholic/ top-level subdirectories — the single source of truth.
+#
+# Read by hooks/validate-ticket.sh (the layout gate) and by the layout-doctor
+# audit. One directory name per line; blank lines and lines starting with # are
+# ignored. Keep this list in lockstep with the table in
+# plugins/workaholic/rules/workaholic.md (README.md is allowed at the root).
+#
+# Grounded in code: every entry is created or read by a live plugin/script
+# (grep -rhoE '\.workaholic/<dir>' plugins/ scripts/). Adding a directory here is
+# a deliberate amendment to the closed `.workaholic/` structure, not an ad-hoc mkdir.
+concerns
+deployments
+release-notes
+specs
+stories
+terms
+tickets
+trips

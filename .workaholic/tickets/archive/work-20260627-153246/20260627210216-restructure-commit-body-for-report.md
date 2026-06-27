@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: refactoring
 layer: [Config, Infrastructure]
 effort: 2h
-commit_hash:
-category:
+commit_hash: b3f06a6
+category: Changed
 depends_on:
 ---
 
@@ -108,4 +108,33 @@ Past tickets that touched similar areas:
 
 ## Final Report
 
-<!-- filled at drive time -->
+Development completed as planned. The commit body is now `Why / Changes / Concerns / Insights /
+Verify` (Why/Concerns/Insights omitted when empty or "None"; Changes/Verify always render), built
+by an `append_section` helper in `commit.sh`. `archive.sh` gained the 8-arg signature and forwards
+the new keys; `commit.sh`'s 6-positional signature, `commit/SKILL.md`, the `drive/SKILL.md` archive
++ abandonment paths, and the report/review-sections wiring all moved in lockstep. The dropped-body
+gap in `collect-commits.sh` is fixed — it now emits the body via 0x1f/0x1e-delimited `git log` +
+`jq`. 15 files (8 source + 7 outputs); 151/0; lint conforming.
+
+### Discovered Insights
+
+- **Insight**: The restructure would have been **cosmetic** without fixing `collect-commits.sh`,
+  which computed the body (`%b`) and then emitted only hash/subject/timestamp — so `/report` never
+  saw a commit body at all, despite `report/SKILL.md` advertising a `body` field. Always trace a
+  "feed X more data" change to the actual consumer before assuming the producer is the problem; here
+  the producer was fine and the pipe was severed. The fix also replaced a fragile `sed` JSON-escaping
+  chain with `jq` over record/field separators (`%x1e`/`%x1f`), which is the robust way to carry
+  multi-line bodies through shell into JSON.
+  **Context**: `plugins/workaholic/skills/report/scripts/collect-commits.sh`.
+- **Insight**: `archive.sh` (a `#!/bin/sh` script) was invoking its sub-scripts with **`bash`**
+  (`bash "$COMMIT_SCRIPT"`, `bash "$UPDATE_SCRIPT"`) — a latent Alpine bug: the script is POSIX but
+  would have failed on a bash-less image at the sub-call. Switched to `sh`. The new `posix-lint`
+  gate does NOT catch this (it scans shebangs + bashism tokens, not `bash` *invocations* inside a
+  script body), so a future lint enhancement could flag `\bbash\b` calls in `#!/bin/sh` scripts.
+  **Context**: `plugins/workaholic/skills/drive/scripts/archive.sh`; relevant to the gate-hardening
+  lineage (`20260627153248`).
+- **Insight**: Aligning the commit-body keys one-to-one with the report's section taxonomy makes
+  `git log` a *draft of the PR story* — a reviewer reading the log sees the same Why/Changes/Concerns/
+  Patterns structure the report will assemble. This is the first commit authored under the new format
+  (dogfooded by this very archive).
+  **Context**: `plugins/workaholic/skills/commit/scripts/commit.sh`, `commit/SKILL.md`.

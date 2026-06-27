@@ -104,10 +104,14 @@ Follow the **Approval** section below to present the approval dialog. **CRITICAL
 3. Archive and commit by calling the archive script directly:
    ```bash
    bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/archive.sh \
-     <ticket-path> "<title>" <repo-url> "<description>" "<changes>" "<test-plan>" "<release-prep>"
+     <ticket-path> "<title>" <repo-url> "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"
    ```
    Where `<ticket-path>` is the current ticket file path in `todo/`, `<title>` is the commit title,
-   and `<repo-url>` comes from the gather skill's `git-context.sh` output.
+   and `<repo-url>` comes from the gather skill's `git-context.sh` output. Map the ticket and your
+   Final Report into the body args: `<why>` from the ticket Overview/motivation, `<changes>` from
+   what changed for users, `<concerns>` from the ticket Considerations (or "None"), `<insights>`
+   from your Discovered Insights (or "None"), `<verify>` from the verification you ran. These keys
+   feed `/report` (Motivation / Changes / Concerns / Successful Development Patterns).
    **NEVER manually move tickets** with `mv` + `git add` -- always use the archive script.
 4. If "Approve and stop": break loop, skip Phase 3, go directly to Phase 4
 5. Otherwise: continue to next ticket
@@ -564,9 +568,10 @@ Commit using **commit** skill:
 bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh \
   "Abandon: <ticket-title>" \
   "Implementation proved unworkable" \
-  "None" \
-  "None" \
   "Ticket moved to abandoned with failure analysis" \
+  "None" \
+  "<why it failed / what to retry, from the Failure Analysis, or None>" \
+  "None" \
   .workaholic/tickets/
 ```
 
@@ -673,7 +678,7 @@ Complete commit workflow after user approves implementation. Always use this scr
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/archive.sh \
-  <ticket-path> "<title>" <repo-url> "<description>" "<changes>" "<test-plan>" "<release-prep>"
+  <ticket-path> "<title>" <repo-url> "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"
 ```
 
 Follow the **commit** skill's Message Format section for message format.
@@ -683,13 +688,15 @@ Follow the **commit** skill's Message Format section for message format.
 ```
 Add structured commit message format
 
-Description: Commit messages lacked structured sections for downstream lead agents, making it harder to generate documentation and understand impact at a glance. Lead agents (leading-validity, leading-availability, leading-security) need to judge what is required to ship each change without reading the full diff. Restructured the format from three sections (Motivation, UX Change, Arch Change) to five well-scoped sections that give each lead enough signal to act.
+Why: Commit messages had two report-dead sections (Test Planning, Release Preparation) that /report never read, while the sections it works hardest to produce -- Concerns and Successful Development Patterns -- got nothing from git log. Re-aimed the body at the report's narrative so the log feeds Motivation/Changes/Concerns/Patterns directly.
 
-Changes: None -- this is an internal change to commit message format templates. The CLI behavior, command interfaces, and user-facing output remain identical.
+Changes: None -- this is an internal change to the commit message format. CLI behavior, command interfaces, and user-facing output remain identical.
 
-Test Planning: Verified commit.sh produces correctly labeled sections with all five parameters by running the script with sample inputs. Confirmed empty description fields are handled gracefully (Description section omitted when empty). Checked that archive.sh passes all seven positional arguments correctly to commit.sh.
+Concerns: collect-commits.sh previously dropped the commit body entirely; if that drop is ever reintroduced, the new keys stop reaching /report. Keep the collect-commits body-emission assertion green.
 
-Release Preparation: None -- backward-compatible change to message format. Existing lead agents consume commit messages as free text and will parse the new section labels automatically.
+Insights: Aligning the commit body keys one-to-one with the report's section taxonomy means a reviewer reading git log sees the same structure the PR story will have -- the log becomes a draft of the report.
+
+Verify: Ran commit.sh with sample inputs and confirmed the labeled sections, the omit-when-empty behavior for Why/Concerns/Insights, and that archive.sh forwards the body args. Confirmed collect-commits.sh now emits the body as valid JSON via the smoke tests.
 
 Co-Authored-By: Claude <noreply@anthropic.com>
 ```

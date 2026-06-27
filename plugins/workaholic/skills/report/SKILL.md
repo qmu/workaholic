@@ -436,7 +436,7 @@ One subsection per ticket, in chronological order:
 ### Inline shell invocations in workaholic:drive
 
 - **Severity:** moderate
-- **Description:** `workaholic:drive` still calls `ls -1` inline, violating the Shell Script Principle (see [7eab801](<repo-url>/commit/7eab801) in `plugins/core/skills/drive/SKILL.md`)
+- **Description:** `workaholic:drive` still calls `ls -1` inline, violating the Shell Script Principle (see [7eab801](<repo-url>/commit/7eab801) in `plugins/workaholic/skills/drive/SKILL.md`)
 - **How to Fix:** Extract the inline invocations into dedicated navigator scripts under the drive skill's `scripts/` directory
 ```
 

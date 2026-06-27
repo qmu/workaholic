@@ -36,7 +36,7 @@ The script searches archive, todo, and icebox directories. Results are sorted by
 
 ```
 5 .workaholic/tickets/archive/feat-xxx/ticket-a.md
-3 .workaholic/tickets/todo/ticket-b.md
+3 .workaholic/tickets/todo/developer-company-com/ticket-b.md
 2 .workaholic/tickets/icebox/ticket-c.md
 ```
 
@@ -119,7 +119,7 @@ Return structured JSON combining historical context and ticket moderation:
     "status": "clear|duplicate|needs_decision",
     "matches": [
       {
-        "path": ".workaholic/tickets/todo/filename.md",
+        "path": ".workaholic/tickets/todo/developer-company-com/filename.md",
         "title": "Ticket title from H1",
         "category": "duplicate|merge|split|related",
         "overlap_percentage": 85,
@@ -282,7 +282,7 @@ Examine these locations for standards evidence:
 - Plugin rules directories (e.g., `plugins/*/rules/`)
 - `README.md` files at root and plugin level
 - Configuration files (`tsconfig.json`, `.eslintrc`, `.prettierrc`, `package.json`, etc.)
-- Standards plugin content (`plugins/standards/`) — the policy indexes (`skills/design/`, `skills/implementation/`, `skills/operation/`, each linking English hard copies under its `policies/` directory) are the canonical policy source
+- Workaholic policy skills — the four pillar policy indexes `workaholic:planning` / `workaholic:design` / `workaholic:implementation` / `workaholic:operation` (under `plugins/workaholic/skills/{planning,design,implementation,operation}/`, each linking English hard copies under its `policies/` directory) are the canonical policy source
 
 ### Discovery Categories
 
@@ -303,7 +303,7 @@ Identify structural patterns for:
 - Design principles (e.g., "thin commands, comprehensive skills")
 - Layering conventions (UX, Domain, Infrastructure, DB, Config)
 - File organization patterns
-- Apply the `workaholic:design`, `workaholic:implementation`, and `workaholic:operation` indexes (the 設計 / 実装 / 運用 policy skills) as the project's authoritative policy lens. Cite specific policies and practices when a discovered constraint maps to one (e.g., "workaholic:implementation — Domain Layer Separation").
+- Apply the `workaholic:planning`, `workaholic:design`, `workaholic:implementation`, and `workaholic:operation` indexes (the 企画 / 設計 / 実装 / 運用 policy skills) as the project's authoritative policy lens. Cite specific policies and practices when a discovered constraint maps to one (e.g., "workaholic:implementation — Domain Layer Separation").
 
 #### Shell Script Policies
 
@@ -325,7 +325,7 @@ Identify conventions for:
 2. **Glob for rule files** in `.claude/rules/` and plugin rule directories
 3. **Read README files** at root and plugin directories for conventions
 4. **Scan configuration files** for tool-enforced standards
-5. **Examine standards plugin** (if present) for formalized policies
+5. **Examine the workaholic policy skills** (`workaholic:planning`/`design`/`implementation`/`operation`) for formalized policies
 6. **Synthesize findings** into categorized evidence
 
 ### Policy Output Schema

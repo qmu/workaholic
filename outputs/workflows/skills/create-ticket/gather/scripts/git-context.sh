@@ -8,7 +8,7 @@ set -eu
 BRANCH=$(git branch --show-current)
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 BASE_BRANCH=$(git remote show origin 2>/dev/null | grep 'HEAD branch' | sed 's/.*: //')
-REPO_URL_RAW=$(git remote get-url origin)
+REPO_URL_RAW=$(git remote get-url origin 2>/dev/null || true)
 
 # Transform SSH URL to HTTPS format
 # git@github.com:owner/repo.git -> https://github.com/owner/repo

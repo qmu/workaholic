@@ -28,10 +28,60 @@ filename=$(basename "$file_path")
 # .workaholic/RFDs/<ts>-foo.md that would otherwise silently pass.
 if [[ "$file_path" =~ \.workaholic/ ]] && [[ ! "$file_path" =~ \.workaholic/tickets/ ]] \
   && [[ "$filename" =~ ^[0-9]{14}-.*\.md$ ]]; then
-  echo "Error: Ticket files must be under .workaholic/tickets/todo/<user>/ or .workaholic/tickets/icebox/" >&2
+  echo "Error: Ticket files must be under .workaholic/tickets/ (todo/<user>/, icebox/, or archive/<branch>/)" >&2
   echo "Got: $file_path" >&2
   print_skill_reference
   exit 2
+fi
+
+# --- Canonical .workaholic/ layout gate -------------------------------------
+# Reject (strict) or warn about a file written into an undesignated .workaholic/
+# subdirectory. The allowed top-level set is the single source of truth in
+# hooks/workaholic-layout-allowlist.txt (kept in lockstep with rules/workaholic.md).
+# Default is non-blocking (warn -> exit 0); strict blocking (exit 2) is opt-in per
+# repo via the WORKAHOLIC_STRICT_LAYOUT env var or a committed
+# .workaholic/.strict-layout marker. The ticket-shape (above) and ticket-location
+# (below) rules stay hard-blocking regardless of this toggle. If the allowlist
+# file is missing, the gate is skipped (we never enforce a list we cannot read).
+hook_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+allowlist_file="${hook_dir}/workaholic-layout-allowlist.txt"
+if [[ "$file_path" =~ \.workaholic/ ]] && [[ -f "$allowlist_file" ]]; then
+  wh_root="${file_path%%.workaholic/*}.workaholic"
+  wh_rel="${file_path#*.workaholic/}"
+  first_seg="${wh_rel%%/*}"
+
+  layout_ok=true
+  layout_reason=""
+  if [[ "$wh_rel" != */* ]]; then
+    # A root-level file: only README.md / README_ja.md are allowed.
+    if [[ ! "$first_seg" =~ ^README(_ja)?\.md$ ]]; then
+      layout_ok=false
+      layout_reason="root-level file (only README.md is allowed at the .workaholic/ root)"
+    fi
+  elif ! grep -qxF "$first_seg" "$allowlist_file"; then
+    layout_ok=false
+    layout_reason="undesignated subdirectory '${first_seg}/'"
+  fi
+
+  if [[ "$layout_ok" == false ]]; then
+    strict=false
+    if [[ -n "${WORKAHOLIC_STRICT_LAYOUT:-}" ]] || [[ -f "${wh_root}/.strict-layout" ]]; then
+      strict=true
+    fi
+    allowed_list="$(grep -vE '^[[:space:]]*(#|$)' "$allowlist_file" | paste -sd' ' - || true)"
+    {
+      echo "Workaholic layout: ${layout_reason}."
+      echo "Got: $file_path"
+      echo "Allowed .workaholic/ subdirectories: ${allowed_list} (plus README.md at the root)."
+      echo "If you meant a ticket, write it under .workaholic/tickets/todo/<user>/."
+    } >&2
+    print_skill_reference
+    if [[ "$strict" == true ]]; then
+      echo "(strict layout enforcement is ON — blocking this write)" >&2
+      exit 2
+    fi
+    echo "(layout enforcement is in warn mode — allowing; set WORKAHOLIC_STRICT_LAYOUT=1 or add .workaholic/.strict-layout to block)" >&2
+  fi
 fi
 
 # Skip non-ticket paths
@@ -149,7 +199,7 @@ if [[ ! "$type" =~ ^(enhancement|bugfix|refactoring|housekeeping)$ ]]; then
 fi
 
 # layer: YAML array with valid values
-layer_line=$(echo "$frontmatter" | grep "^layer:")
+layer_line=$(echo "$frontmatter" | grep "^layer:" || true)
 if [[ -z "$layer_line" ]]; then
   echo "Error: layer field is required" >&2
   print_skill_reference

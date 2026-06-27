@@ -36,7 +36,7 @@ case "$prompt" in
   *) exit 0 ;;
 esac
 
-context='[Workaholic engineering-policy lens] You are running a Workaholic workflow command (ticket / report / ship / trip). Apply the project'"'"'s engineering policies as your judging lens before you scope, judge, or ship.
+context='[Workaholic engineering-policy lens] You are running a Workaholic workflow command (ticket / report / ship / trip / drive). Apply the project'"'"'s engineering policies as your judging lens before you scope, judge, or ship.
 
 Load and apply the relevant policy index skills — workaholic:planning, workaholic:design, workaholic:implementation, workaholic:operation — which index the canonical qmu.co.jp policies (English hard copies under each skill'"'"'s policies/ directory). Apply the ones the change touches.
 

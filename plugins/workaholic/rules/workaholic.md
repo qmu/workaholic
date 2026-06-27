@@ -7,20 +7,26 @@ paths:
 
 The `.workaholic/` directory has a fixed structure. Only these subdirectories are allowed:
 
-| Directory       | Purpose                                    |
-| --------------- | ------------------------------------------ |
-| `specs/`        | Current state reference documentation      |
-| `stories/`      | Development narratives per branch          |
-| `terms/`  | Term definitions                           |
-| `tickets/`      | Implementation work queue and archives     |
-| `deployments/`  | Deployment/release procedures and their success-confirmation methods |
+| Directory        | Purpose                                    |
+| ---------------- | ------------------------------------------ |
+| `concerns/`      | Carry-over concerns/ideas (and `concerns/archive/`) |
+| `deployments/`   | Deployment/release procedures and their success-confirmation methods |
+| `release-notes/` | Per-branch release notes                   |
+| `specs/`         | Current state reference documentation      |
+| `stories/`       | Development narratives per branch          |
+| `terms/`         | Term definitions                           |
+| `tickets/`       | Implementation work queue and archives (`todo/`, `archive/`, `icebox/`, `abandoned/`) |
+| `trips/`         | Trip design/decision artifacts per trip    |
+
+This list is the single source of truth in `plugins/workaholic/hooks/workaholic-layout-allowlist.txt` (one directory per line), which `hooks/validate-ticket.sh` reads to enforce the layout on every `Write`/`Edit`. Keep the table and that file in lockstep when amending the structure.
 
 The `tickets/` queue is partitioned per developer: active tickets live under `tickets/todo/<user>/`, where `<user>` is the slug of `git config user.email` (e.g. `a-qmu-jp`). The icebox (`tickets/icebox/`) and archive (`tickets/archive/<branch>/`) stay as-is.
 
 README files at the root level are allowed (`README.md`).
 
 **Guidelines:**
-- Never create directories outside the allowed list
+- Never create directories outside the allowed list. Enforcement is **warn by default** (a `Write`/`Edit` into an undesignated `.workaholic/` subdirectory is allowed but flagged on stderr by `validate-ticket.sh`). To make it **blocking** for a repo, set `WORKAHOLIC_STRICT_LAYOUT=1` or commit an empty `.workaholic/.strict-layout` marker. The ticket-shape and ticket-location rules are always blocking, regardless of this toggle.
+- To audit an existing tree for drift without changing anything, run `bash ${CLAUDE_PLUGIN_ROOT}/hooks/layout-doctor.sh [path]` — it reports undesignated directories and misplaced ticket states (with suggested `git mv`s) against this same allowlist, and never mutates the tree. `[path]` defaults to the current repo; pass a repo root to audit another.
 - If a user requests a new directory, explain the structure and suggest the appropriate existing directory
 - Map common requests: "docs" → `specs/`, "archive" → `tickets/archive/`, "changelog" → use ticket frontmatter, "deploy steps" / "release procedure" / "how to verify a deploy" → `deployments/`
 

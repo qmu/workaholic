@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Extract concerns from a shipped story's section 6 and persist them under
 # .workaholic/concerns/, one file per concern.
 #
@@ -18,20 +18,20 @@
 # Usage: extract-carryover.sh <branch> <pr-number> <pr-url>
 # Output: single JSON line summarizing what was extracted.
 
-set -e
+set -eu
 
-branch="$1"
-pr_number="$2"
-pr_url="$3"
+branch="${1:-}"
+pr_number="${2:-}"
+pr_url="${3:-}"
 
-if [[ -z "$branch" || -z "$pr_number" || -z "$pr_url" ]]; then
+if [ -z "$branch" ] || [ -z "$pr_number" ] || [ -z "$pr_url" ]; then
   echo '{"status":"error","reason":"missing_args","extracted":0}'
   exit 1
 fi
 
 story_file=".workaholic/stories/${branch}.md"
 
-if [[ ! -f "$story_file" ]]; then
+if [ ! -f "$story_file" ]; then
   echo "{\"status\":\"skipped\",\"reason\":\"no_story_file\",\"path\":\"$story_file\",\"extracted\":0}"
   exit 0
 fi
@@ -144,12 +144,12 @@ PY
 
 count=$(echo "$written" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))")
 
-if [[ "$count" -eq 0 ]]; then
+if [ "$count" -eq 0 ]; then
   echo "{\"status\":\"ok\",\"extracted\":0,\"files\":[]}"
   exit 0
 fi
 
-if [[ -z "${NO_COMMIT:-}" ]]; then
+if [ -z "${NO_COMMIT:-}" ]; then
   git add .workaholic/concerns/ >/dev/null
   git commit -m "Carry over concerns from PR #${pr_number}" >/dev/null
 fi

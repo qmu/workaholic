@@ -5,9 +5,9 @@ origin_branch: work-20260624-140219
 origin_commit: e78465d
 created_at: 2026-06-24T21:39:11+09:00
 severity: low
-status: active
-resolved_by_pr:
-resolved_by_commit:
+status: resolved
+resolved_by_pr: b0e57c9
+resolved_by_commit: 
 ---
 
 # `validate-ticket.sh` remains bash (POSIX inconsistency)

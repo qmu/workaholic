@@ -25,18 +25,19 @@ Before committing:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh \
-  "<title>" "<description>" "<changes>" "<test-plan>" "<release-prep>" [files...]
+  "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>" [files...]
 ```
 
 ### Parameters
 
-Each section (except title) should be a short paragraph of 3-5 sentences. See the Message Format section below for detailed guidance on what to cover in each section.
+Each section (except title) should be a short paragraph of 3-5 sentences. See the Message Format section below for detailed guidance on what to cover in each section. The body keys are chosen to feed `/report`: `Why` → Motivation, `Changes` → Changes/Outcome, `Concerns` → Concerns, `Insights` → Successful Development Patterns.
 
 - `title` - Commit title (present-tense verb, 50 chars max)
-- `description` - Why this change was needed: the problem, what triggered it, the chosen approach and rationale (from ticket Overview)
+- `why` - Why this change was needed: the problem, what triggered it, the chosen approach and rationale (from ticket Overview). Feeds `/report` Motivation. Omitted from the message when empty.
 - `changes` - What users will experience differently: concrete before-and-after differences, or "None" with brief explanation
-- `test-plan` - What verification was done or should be done: manual checks, automated tests, edge cases considered
-- `release-prep` - What is needed to ship and support: migration steps, config changes, documentation updates, or "None" with brief explanation
+- `concerns` - Risks, trade-offs, deferred work, or forward-looking follow-ups this change surfaced (from ticket Considerations). Feeds `/report` Concerns. Pass "None" or empty to omit the section.
+- `insights` - Non-obvious patterns, gotchas, or institutional knowledge worth preserving (from ticket Discovered Insights). Feeds `/report` Successful Development Patterns. Pass "None" or empty to omit the section.
+- `verify` - What verification was done or should be done: manual checks, automated tests, edge cases considered
 - `files...` - Optional: specific files to stage (if omitted, stages all tracked changes)
 
 ### Staging Behavior
@@ -55,18 +56,20 @@ The commit script performs safety checks:
 
 ## Message Format
 
-Each section should be a short paragraph (3-5 sentences) that gives lead agents enough signal to act without reading the full diff.
+Each section should be a short paragraph (3-5 sentences). The keys map onto the report's narrative sections so `git log` alone gives a reviewer — and the `/report` overview-writer — enough signal without reading the diff. `Why`, `Concerns`, and `Insights` are omitted when empty or "None"; `Changes` and `Verify` always render.
 
 ```
 <title>
 
-Description: <why this change was needed, including motivation and rationale>
+Why: <why this change was needed, including motivation and rationale>
 
 Changes: <what users will experience differently>
 
-Test Planning: <what verification was done or should be done>
+Concerns: <risks, trade-offs, deferred work, or forward-looking follow-ups>
 
-Release Preparation: <what is needed to ship and support afterward>
+Insights: <non-obvious patterns or gotchas worth preserving>
+
+Verify: <what verification was done or should be done>
 
 Co-Authored-By: Claude <noreply@anthropic.com>
 ```
@@ -80,21 +83,25 @@ Examples:
 - Fix Mermaid slash character in labels
 - Remove unused RegisterTool type
 
-### Description
+### Why
 
-Why this change was needed, including the motivation and rationale. Start with the problem or gap that existed before this change. Explain what triggered the work -- a user report, a downstream dependency, a missing capability, or a design decision. State the chosen approach and why it was preferred over alternatives. Extract context from the ticket Overview. Target 3-5 sentences so that a lead agent can understand the full intent without reading the diff.
+Why this change was needed, including the motivation and rationale. Start with the problem or gap that existed before this change. Explain what triggered the work -- a user report, a downstream dependency, a missing capability, or a design decision. State the chosen approach and why it was preferred over alternatives. Extract context from the ticket Overview. Target 3-5 sentences. `/report` synthesizes the branch's Motivation section from these. Omitted from the message when empty (e.g. a trivial archive commit).
 
 ### Changes
 
-What users will experience differently after this change. Describe each observable difference concretely -- new commands, altered output format, changed error messages, new options, or modified default behavior. Explain the before-and-after for each difference so that a reader who has never seen the code can understand the impact. If the change is internal only, write "None" and briefly explain why there is no user-facing impact (e.g., "None -- this is a refactor of internal shell scripts with no change to CLI behavior").
+What users will experience differently after this change. Describe each observable difference concretely -- new commands, altered output format, changed error messages, new options, or modified default behavior. Explain the before-and-after for each difference so that a reader who has never seen the code can understand the impact. `/report` draws the Changes and Outcome sections from these. If the change is internal only, write "None" and briefly explain why there is no user-facing impact (e.g., "None -- this is a refactor of internal shell scripts with no change to CLI behavior").
 
-### Test Planning
+### Concerns
+
+Risks, trade-offs, limitations, deferred work, or forward-looking follow-ups this change surfaced. Each should be a concrete, actionable observation -- what the risk is and, where possible, how to address it. Extract from the ticket Considerations and anything you discovered while implementing. `/report` feeds these into its Concerns section (and `/ship` can carry unresolved ones forward), so a concern recorded here is not lost if the ticket is later pruned. Pass "None" or leave empty when there is nothing to flag; the section is then omitted from the message.
+
+### Insights
+
+Non-obvious patterns, gotchas, hidden coupling, or institutional knowledge worth preserving for whoever touches this area next. Focus on what *worked* and why, or a surprising constraint that shaped the implementation -- not a restatement of the change. Extract from the ticket Discovered Insights. `/report` uses these for its Successful Development Patterns section. Pass "None" or leave empty when nothing noteworthy emerged; the section is then omitted.
+
+### Verify
 
 What verification was done or should be done to confirm this change works correctly. Describe manual checks that were performed and their results. List automated tests that were added, modified, or run. Identify edge cases that were considered and whether they were covered or deferred. If the change interacts with external systems, note how those interactions were validated. Write "None" only if the change is trivial (e.g., typo fix, comment update) and requires no special verification.
-
-### Release Preparation
-
-What is needed to ship this change and support it afterward. Cover migration steps or data format changes that consumers must adopt. Note configuration or environment changes required for the change to take effect. Identify documentation that needs updating (READMEs, specs, terms, changelogs). Flag any monitoring, alerting, or rollback considerations. If the change is straightforward to ship with no special requirements, write "None" and briefly explain why (e.g., "None -- backward-compatible addition with no migration needed").
 
 ## Examples
 
@@ -105,8 +112,9 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh \
   "Add session-based authentication" \
   "Users needed persistent login state across browser sessions. Previously, every page refresh required re-authentication, causing friction for returning users. Added cookie-based session management with configurable TTL, chosen over JWT tokens for simplicity and server-side revocation support." \
   "New 'Remember me' checkbox on the login form that persists sessions for 30 days. When unchecked, sessions expire when the browser closes. Session expiry now shows a friendly redirect to login instead of a raw 401 error." \
+  "Session fixation was considered and mitigated by regenerating the session id on login; CSRF protection for the new cookie path is deferred to a follow-up and should be tracked before this ships externally." \
+  "Server-side revocation via a session store turned out simpler to reason about than JWT blacklisting for this codebase -- prefer it whenever sessions must be invalidated mid-life." \
   "Manual login/logout flow tested across Chrome and Firefox. Verified session persistence across page refreshes and browser restarts. Tested session expiry by setting TTL to 5 seconds and confirming redirect behavior. Cookie security flags (HttpOnly, Secure, SameSite) verified in browser dev tools." \
-  "None -- backward-compatible addition. No existing auth flows are affected since session support is opt-in via the checkbox." \
   src/auth/session.ts src/middleware/auth.ts
 ```
 
@@ -116,6 +124,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh \
 bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh \
   "Archive ticket: add-authentication" \
   "" \
+  "None" \
   "None" \
   "None" \
   "None"
@@ -128,6 +137,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh \
   "Abandon: add-authentication" \
   "Implementation proved unworkable due to API limitations" \
   "None" \
+  "The provider's API has no idempotency key, so retries double-charge; revisit only if they ship one." \
   "None" \
-  "Ticket moved to abandoned with failure analysis"
+  "None"
 ```

@@ -6,14 +6,15 @@ set -eu
 TICKET="${1:-}"
 COMMIT_MSG="${2:-}"
 REPO_URL="${3:-}"
-DESCRIPTION="${4:-}"
+WHY="${4:-}"
 CHANGES="${5:-None}"
-TEST_PLAN="${6:-None}"
-RELEASE_PREP="${7:-None}"
-shift 7 2>/dev/null || true
+CONCERNS="${6:-}"
+INSIGHTS="${7:-}"
+VERIFY="${8:-None}"
+shift 8 2>/dev/null || true
 
 if [ -z "$TICKET" ] || [ -z "$COMMIT_MSG" ] || [ -z "$REPO_URL" ]; then
-    echo "Usage: archive.sh <ticket-path> <commit-message> <repo-url> [description] [changes] [test-plan] [release-prep] [files...]"
+    echo "Usage: archive.sh <ticket-path> <commit-message> <repo-url> [why] [changes] [concerns] [insights] [verify] [files...]"
     exit 1
 fi
 
@@ -60,14 +61,16 @@ git add -A
 SCRIPT_DIR=$(dirname "$0")
 COMMIT_SCRIPT="${SCRIPT_DIR}/../../commit/scripts/commit.sh"
 
-bash "$COMMIT_SCRIPT" --skip-staging "$COMMIT_MSG" "$DESCRIPTION" "$CHANGES" "$TEST_PLAN" "$RELEASE_PREP"
+# Pass the same computed CATEGORY both into the commit (as a git trailer) and into
+# the ticket frontmatter below, so the two surfaces can never disagree.
+sh "$COMMIT_SCRIPT" --skip-staging --category "$CATEGORY" "$COMMIT_MSG" "$WHY" "$CHANGES" "$CONCERNS" "$INSIGHTS" "$VERIFY"
 
 COMMIT_HASH=$(git rev-parse --short HEAD)
 
 echo "==> Updating ticket frontmatter..."
 UPDATE_SCRIPT="${SCRIPT_DIR}/update.sh"
-bash "$UPDATE_SCRIPT" "$ARCHIVED_TICKET" "commit_hash" "$COMMIT_HASH"
-bash "$UPDATE_SCRIPT" "$ARCHIVED_TICKET" "category" "$CATEGORY"
+sh "$UPDATE_SCRIPT" "$ARCHIVED_TICKET" "commit_hash" "$COMMIT_HASH"
+sh "$UPDATE_SCRIPT" "$ARCHIVED_TICKET" "category" "$CATEGORY"
 
 git add "$ARCHIVED_TICKET"
 git commit --amend --no-edit

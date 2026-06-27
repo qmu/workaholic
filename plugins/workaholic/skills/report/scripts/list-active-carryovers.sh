@@ -1,24 +1,23 @@
-#!/bin/bash
+#!/bin/sh -eu
 # List all carry-over files under .workaholic/concerns/ with status: active.
 # Output: JSON array of {path, status, severity, origin_pr, origin_pr_url,
 #                       origin_branch, origin_commit, body}
 #
 # Used by /report to feed the carry-over judge (general-purpose) subagent.
 
-set -e
+set -eu
 
 dir=".workaholic/concerns"
 
-if [[ ! -d "$dir" ]]; then
+if [ ! -d "$dir" ]; then
   echo "[]"
   exit 0
 fi
 
 # Read a frontmatter field from a file. Strips surrounding whitespace.
+# ($1 = file, $2 = field) — POSIX functions have no `local`.
 read_field() {
-  local file="$1"
-  local field="$2"
-  awk -v f="$field" '
+  awk -v f="$2" '
     /^---$/ { c++; next }
     c==1 && $0 ~ "^"f":" {
       sub("^"f":[[:space:]]*", "")
@@ -26,16 +25,15 @@ read_field() {
       print
       exit
     }
-  ' "$file"
+  ' "$1"
 }
 
-# Read the body (everything after the second ---) verbatim.
+# Read the body (everything after the second ---) verbatim. ($1 = file)
 read_body() {
-  local file="$1"
   awk '
     /^---$/ { c++; next }
     c>=2 { print }
-  ' "$file" | head -c 4000
+  ' "$1" | head -c 4000
 }
 
 # JSON-escape a string.
@@ -46,13 +44,13 @@ escape_json() {
 }
 
 first=1
-echo -n "["
+printf '%s' "["
 for file in "$dir"/*.md; do
-  [[ -e "$file" ]] || continue
-  [[ "$(basename "$file")" == "README.md" ]] && continue
+  [ -e "$file" ] || continue
+  [ "$(basename "$file")" = "README.md" ] && continue
 
   status=$(read_field "$file" "status")
-  [[ "$status" != "active" ]] && continue
+  [ "$status" != "active" ] && continue
 
   severity=$(read_field "$file" "severity")
   origin_pr=$(read_field "$file" "origin_pr")
@@ -68,19 +66,19 @@ for file in "$dir"/*.md; do
   branch_json=$(printf '%s' "$origin_branch" | escape_json)
   commit_json=$(printf '%s' "$origin_commit" | escape_json)
 
-  if [[ $first -eq 0 ]]; then
-    echo -n ","
+  if [ "$first" -eq 0 ]; then
+    printf '%s' ","
   fi
   first=0
-  echo -n "{"
-  echo -n "\"path\":$path_json,"
-  echo -n "\"status\":\"active\","
-  echo -n "\"severity\":$severity_json,"
-  echo -n "\"origin_pr\":${origin_pr:-0},"
-  echo -n "\"origin_pr_url\":$url_json,"
-  echo -n "\"origin_branch\":$branch_json,"
-  echo -n "\"origin_commit\":$commit_json,"
-  echo -n "\"body\":$body_json"
-  echo -n "}"
+  printf '%s' "{"
+  printf '%s' "\"path\":$path_json,"
+  printf '%s' "\"status\":\"active\","
+  printf '%s' "\"severity\":$severity_json,"
+  printf '%s' "\"origin_pr\":${origin_pr:-0},"
+  printf '%s' "\"origin_pr_url\":$url_json,"
+  printf '%s' "\"origin_branch\":$branch_json,"
+  printf '%s' "\"origin_commit\":$commit_json,"
+  printf '%s' "\"body\":$body_json"
+  printf '%s' "}"
 done
 echo "]"

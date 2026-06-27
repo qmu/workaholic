@@ -1,10 +1,10 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Read trip plan state from plan.md and output JSON.
-# Usage: bash read-plan.sh <trip-path>
+# Usage: sh read-plan.sh <trip-path>
 # Output: JSON with phase, step, iteration, instruction, updated_at
 # If plan.md does not exist, outputs {"phase": "unknown", "step": "unknown"}
 
-set -euo pipefail
+set -eu
 
 trip_path="${1:-}"
 

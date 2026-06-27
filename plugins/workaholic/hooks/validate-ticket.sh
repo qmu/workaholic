@@ -1,8 +1,9 @@
-#!/bin/bash
+#!/bin/sh -eu
 # Validates ticket file format and location after Write/Edit operations
 # Exit codes: 0 = success/not a ticket, 2 = validation failed (blocks operation)
 
-set -e
+# Strict mode (explicit fallback: some environments strip shebang flags).
+set -eu
 
 # Print reference to authoritative skill documentation
 print_skill_reference() {
@@ -13,10 +14,10 @@ print_skill_reference() {
 input=$(cat)
 
 # Extract file path from tool input
-file_path=$(echo "$input" | jq -r '.tool_input.file_path // empty')
+file_path=$(printf '%s' "$input" | jq -r '.tool_input.file_path // empty')
 
 # Exit early if no file path
-if [[ -z "$file_path" ]]; then
+if [ -z "$file_path" ]; then
   exit 0
 fi
 
@@ -26,13 +27,21 @@ filename=$(basename "$file_path")
 # Reject ticket-shaped files (YYYYMMDDHHmmss-*.md) written under .workaholic/
 # but outside .workaholic/tickets/. Catches misplacements like
 # .workaholic/RFDs/<ts>-foo.md that would otherwise silently pass.
-if [[ "$file_path" =~ \.workaholic/ ]] && [[ ! "$file_path" =~ \.workaholic/tickets/ ]] \
-  && [[ "$filename" =~ ^[0-9]{14}-.*\.md$ ]]; then
-  echo "Error: Ticket files must be under .workaholic/tickets/ (todo/<user>/, icebox/, or archive/<branch>/)" >&2
-  echo "Got: $file_path" >&2
-  print_skill_reference
-  exit 2
-fi
+case "$file_path" in
+  *.workaholic/*)
+    case "$file_path" in
+      *.workaholic/tickets/*) : ;;
+      *)
+        if printf '%s' "$filename" | grep -qE '^[0-9]{14}-.*\.md$'; then
+          echo "Error: Ticket files must be under .workaholic/tickets/ (todo/<user>/, icebox/, or archive/<branch>/)" >&2
+          echo "Got: $file_path" >&2
+          print_skill_reference
+          exit 2
+        fi
+        ;;
+    esac
+    ;;
+esac
 
 # --- Canonical .workaholic/ layout gate -------------------------------------
 # Reject (strict) or warn about a file written into an undesignated .workaholic/
@@ -43,51 +52,64 @@ fi
 # .workaholic/.strict-layout marker. The ticket-shape (above) and ticket-location
 # (below) rules stay hard-blocking regardless of this toggle. If the allowlist
 # file is missing, the gate is skipped (we never enforce a list we cannot read).
-hook_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+hook_dir="$(cd -- "$(dirname -- "$0")" && pwd)"
 allowlist_file="${hook_dir}/workaholic-layout-allowlist.txt"
-if [[ "$file_path" =~ \.workaholic/ ]] && [[ -f "$allowlist_file" ]]; then
-  wh_root="${file_path%%.workaholic/*}.workaholic"
-  wh_rel="${file_path#*.workaholic/}"
-  first_seg="${wh_rel%%/*}"
+case "$file_path" in
+  *.workaholic/*)
+    if [ -f "$allowlist_file" ]; then
+      wh_root="${file_path%%.workaholic/*}.workaholic"
+      wh_rel="${file_path#*.workaholic/}"
+      first_seg="${wh_rel%%/*}"
 
-  layout_ok=true
-  layout_reason=""
-  if [[ "$wh_rel" != */* ]]; then
-    # A root-level file: only README.md / README_ja.md are allowed.
-    if [[ ! "$first_seg" =~ ^README(_ja)?\.md$ ]]; then
-      layout_ok=false
-      layout_reason="root-level file (only README.md is allowed at the .workaholic/ root)"
-    fi
-  elif ! grep -qxF "$first_seg" "$allowlist_file"; then
-    layout_ok=false
-    layout_reason="undesignated subdirectory '${first_seg}/'"
-  fi
+      layout_ok=true
+      layout_reason=""
+      case "$wh_rel" in
+        */*)
+          if ! grep -qxF "$first_seg" "$allowlist_file"; then
+            layout_ok=false
+            layout_reason="undesignated subdirectory '${first_seg}/'"
+          fi
+          ;;
+        *)
+          # A root-level file: only README.md / README_ja.md are allowed.
+          case "$first_seg" in
+            README.md|README_ja.md) : ;;
+            *)
+              layout_ok=false
+              layout_reason="root-level file (only README.md is allowed at the .workaholic/ root)"
+              ;;
+          esac
+          ;;
+      esac
 
-  if [[ "$layout_ok" == false ]]; then
-    strict=false
-    if [[ -n "${WORKAHOLIC_STRICT_LAYOUT:-}" ]] || [[ -f "${wh_root}/.strict-layout" ]]; then
-      strict=true
+      if [ "$layout_ok" = false ]; then
+        strict=false
+        if [ -n "${WORKAHOLIC_STRICT_LAYOUT:-}" ] || [ -f "${wh_root}/.strict-layout" ]; then
+          strict=true
+        fi
+        allowed_list="$(grep -vE '^[[:space:]]*(#|$)' "$allowlist_file" | paste -sd' ' - || true)"
+        {
+          echo "Workaholic layout: ${layout_reason}."
+          echo "Got: $file_path"
+          echo "Allowed .workaholic/ subdirectories: ${allowed_list} (plus README.md at the root)."
+          echo "If you meant a ticket, write it under .workaholic/tickets/todo/<user>/."
+        } >&2
+        print_skill_reference
+        if [ "$strict" = true ]; then
+          echo "(strict layout enforcement is ON — blocking this write)" >&2
+          exit 2
+        fi
+        echo "(layout enforcement is in warn mode — allowing; set WORKAHOLIC_STRICT_LAYOUT=1 or add .workaholic/.strict-layout to block)" >&2
+      fi
     fi
-    allowed_list="$(grep -vE '^[[:space:]]*(#|$)' "$allowlist_file" | paste -sd' ' - || true)"
-    {
-      echo "Workaholic layout: ${layout_reason}."
-      echo "Got: $file_path"
-      echo "Allowed .workaholic/ subdirectories: ${allowed_list} (plus README.md at the root)."
-      echo "If you meant a ticket, write it under .workaholic/tickets/todo/<user>/."
-    } >&2
-    print_skill_reference
-    if [[ "$strict" == true ]]; then
-      echo "(strict layout enforcement is ON — blocking this write)" >&2
-      exit 2
-    fi
-    echo "(layout enforcement is in warn mode — allowing; set WORKAHOLIC_STRICT_LAYOUT=1 or add .workaholic/.strict-layout to block)" >&2
-  fi
-fi
+    ;;
+esac
 
 # Skip non-ticket paths
-if [[ ! "$file_path" =~ \.workaholic/tickets/ ]]; then
-  exit 0
-fi
+case "$file_path" in
+  *.workaholic/tickets/*) : ;;
+  *) exit 0 ;;
+esac
 
 # Extract the path after .workaholic/tickets/
 tickets_path="${file_path#*.workaholic/tickets/}"
@@ -98,13 +120,13 @@ tickets_path="${file_path#*.workaholic/tickets/}"
 # drive parks failed tickets), or archive/<branch>/. The trailing [^/]+$ anchors
 # reject deeper nesting (e.g. todo/<user>/archive/...), and any other top-level
 # dir (an invented done/, root-level todo/ stray) falls through to the error.
-if [[ "$tickets_path" =~ ^todo/[^/]+/[^/]+$ ]]; then
+if printf '%s' "$tickets_path" | grep -qE '^todo/[^/]+/[^/]+$'; then
   : # Valid (todo/<user>/<ticket>.md)
-elif [[ "$tickets_path" =~ ^icebox/[^/]+$ ]]; then
+elif printf '%s' "$tickets_path" | grep -qE '^icebox/[^/]+$'; then
   : # Valid (icebox stays flat)
-elif [[ "$tickets_path" =~ ^abandoned/[^/]+$ ]]; then
+elif printf '%s' "$tickets_path" | grep -qE '^abandoned/[^/]+$'; then
   : # Valid (abandoned stays flat)
-elif [[ "$tickets_path" =~ ^archive/[^/]+/ ]]; then
+elif printf '%s' "$tickets_path" | grep -qE '^archive/[^/]+/'; then
   : # Valid (archive/<branch>/)
 else
   echo "Error: Ticket must be in todo/<user>/, icebox/, abandoned/, or archive/<branch>/" >&2
@@ -115,7 +137,7 @@ else
 fi
 
 # Validate filename format: YYYYMMDDHHmmss-*.md
-if [[ ! "$filename" =~ ^[0-9]{14}-.*\.md$ ]]; then
+if ! printf '%s' "$filename" | grep -qE '^[0-9]{14}-.*\.md$'; then
   echo "Error: Ticket filename must match YYYYMMDDHHmmss-*.md pattern" >&2
   echo "Got: $filename" >&2
   print_skill_reference
@@ -123,40 +145,42 @@ if [[ ! "$filename" =~ ^[0-9]{14}-.*\.md$ ]]; then
 fi
 
 # Check if file exists (it should after Write/Edit)
-if [[ ! -f "$file_path" ]]; then
+if [ ! -f "$file_path" ]; then
   exit 0
 fi
 
 # Read file content
 content=$(cat "$file_path")
 
-# Check for frontmatter
-if [[ ! "$content" =~ ^---[[:space:]] ]]; then
-  echo "Error: Ticket must start with YAML frontmatter (---)" >&2
-  print_skill_reference
-  exit 2
-fi
+# Check for frontmatter (first line must be the opening ---)
+first_line=$(printf '%s\n' "$content" | head -n 1)
+case "$first_line" in
+  ---) : ;;
+  *)
+    echo "Error: Ticket must start with YAML frontmatter (---)" >&2
+    print_skill_reference
+    exit 2
+    ;;
+esac
 
 # Extract frontmatter (between first two ---)
 # Use awk for portability (macOS head doesn't support -n -1)
-frontmatter=$(echo "$content" | awk '/^---$/{if(++c==2)exit}c==1')
+frontmatter=$(printf '%s\n' "$content" | awk '/^---$/{if(++c==2)exit}c==1')
 
-# Validate required fields
+# Validate required fields. POSIX functions have no `local`; this reads the
+# global $frontmatter and echoes the trimmed value of the named field.
 validate_field() {
-  local field="$1"
-  local value
-  value=$(echo "$frontmatter" | grep "^${field}:" | sed "s/^${field}:[[:space:]]*//" | sed 's/[[:space:]]*$//')
-  echo "$value"
+  printf '%s\n' "$frontmatter" | grep "^$1:" | sed "s/^$1:[[:space:]]*//" | sed 's/[[:space:]]*$//'
 }
 
 # created_at: ISO 8601 format (YYYY-MM-DDTHH:MM:SS+TZ or YYYY-MM-DDTHH:MM:SS-TZ)
 created_at=$(validate_field "created_at")
-if [[ -z "$created_at" ]]; then
+if [ -z "$created_at" ]; then
   echo "Error: created_at field is required" >&2
   print_skill_reference
   exit 2
 fi
-if [[ ! "$created_at" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[+-][0-9]{2}:[0-9]{2}$ ]]; then
+if ! printf '%s' "$created_at" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[+-][0-9]{2}:[0-9]{2}$'; then
   echo "Error: created_at must be ISO 8601 format (e.g., 2026-01-29T04:19:24+09:00)" >&2
   echo "Got: $created_at" >&2
   print_skill_reference
@@ -165,77 +189,86 @@ fi
 
 # author: email format
 author=$(validate_field "author")
-if [[ -z "$author" ]]; then
+if [ -z "$author" ]; then
   echo "Error: author field is required" >&2
   print_skill_reference
   exit 2
 fi
-if [[ ! "$author" =~ ^[^@]+@[^@]+\.[^@]+$ ]]; then
+if ! printf '%s' "$author" | grep -qE '^[^@]+@[^@]+\.[^@]+$'; then
   echo "Error: author must be an email address" >&2
   echo "Got: $author" >&2
   print_skill_reference
   exit 2
 fi
 # Reject anthropic.com emails - Claude must use actual user's git email
-if [[ "$author" =~ @anthropic\.com$ ]]; then
-  echo "Error: author must be your actual email from 'git config user.email'" >&2
-  echo "Rejected: $author (run 'git config user.email' and use that value)" >&2
-  print_skill_reference
-  exit 2
-fi
+case "$author" in
+  *@anthropic.com)
+    echo "Error: author must be your actual email from 'git config user.email'" >&2
+    echo "Rejected: $author (run 'git config user.email' and use that value)" >&2
+    print_skill_reference
+    exit 2
+    ;;
+esac
 
 # type: one of enhancement, bugfix, refactoring, housekeeping
 type=$(validate_field "type")
-if [[ -z "$type" ]]; then
+if [ -z "$type" ]; then
   echo "Error: type field is required" >&2
   print_skill_reference
   exit 2
 fi
-if [[ ! "$type" =~ ^(enhancement|bugfix|refactoring|housekeeping)$ ]]; then
-  echo "Error: type must be one of: enhancement, bugfix, refactoring, housekeeping" >&2
-  echo "Got: $type" >&2
-  print_skill_reference
-  exit 2
-fi
+case "$type" in
+  enhancement|bugfix|refactoring|housekeeping) : ;;
+  *)
+    echo "Error: type must be one of: enhancement, bugfix, refactoring, housekeeping" >&2
+    echo "Got: $type" >&2
+    print_skill_reference
+    exit 2
+    ;;
+esac
 
 # layer: YAML array with valid values
-layer_line=$(echo "$frontmatter" | grep "^layer:" || true)
-if [[ -z "$layer_line" ]]; then
+layer_line=$(printf '%s\n' "$frontmatter" | grep "^layer:" || true)
+if [ -z "$layer_line" ]; then
   echo "Error: layer field is required" >&2
   print_skill_reference
   exit 2
 fi
 # Extract array values (handles [UX, Domain] format)
-layer_values=$(echo "$layer_line" | sed 's/^layer:[[:space:]]*//' | tr -d '[]' | tr ',' '\n' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
-if [[ -z "$layer_values" ]]; then
+layer_values=$(printf '%s\n' "$layer_line" | sed 's/^layer:[[:space:]]*//' | tr -d '[]' | tr ',' '\n' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+if [ -z "$layer_values" ]; then
   echo "Error: layer must contain at least one value" >&2
   print_skill_reference
   exit 2
 fi
-while IFS= read -r layer; do
-  if [[ -n "$layer" ]] && [[ ! "$layer" =~ ^(UX|Domain|Infrastructure|DB|Config)$ ]]; then
-    echo "Error: layer values must be one of: UX, Domain, Infrastructure, DB, Config" >&2
-    echo "Got: $layer" >&2
-    print_skill_reference
-    exit 2
-  fi
-done <<< "$layer_values"
+# Find the first non-empty value that is not an allowed layer (no subshell exit:
+# grep surfaces the offender, the test runs in the current shell).
+invalid_layer=$(printf '%s\n' "$layer_values" | grep -v '^$' | grep -vE '^(UX|Domain|Infrastructure|DB|Config)$' | head -n 1 || true)
+if [ -n "$invalid_layer" ]; then
+  echo "Error: layer values must be one of: UX, Domain, Infrastructure, DB, Config" >&2
+  echo "Got: $invalid_layer" >&2
+  print_skill_reference
+  exit 2
+fi
 
 # effort: empty or valid format (0.1h, 0.25h, 0.5h, 1h, 2h, 4h)
 effort=$(validate_field "effort")
-if [[ -n "$effort" ]]; then
-  if [[ ! "$effort" =~ ^(0\.1h|0\.25h|0\.5h|1h|2h|4h)$ ]]; then
-    echo "Error: effort must be one of: 0.1h, 0.25h, 0.5h, 1h, 2h, 4h (or empty)" >&2
-    echo "Got: $effort" >&2
-    print_skill_reference
-    exit 2
-  fi
+if [ -n "$effort" ]; then
+  case "$effort" in
+    0.1h|0.25h|0.5h|1h|2h|4h) : ;;
+    *)
+      echo "Error: effort must be one of: 0.1h, 0.25h, 0.5h, 1h, 2h, 4h (or empty)" >&2
+      echo "Got: $effort" >&2
+      print_skill_reference
+      exit 2
+      ;;
+  esac
 fi
 
 # commit_hash: empty or short git hash format (7-40 hex chars)
 commit_hash=$(validate_field "commit_hash")
-if [[ -n "$commit_hash" ]]; then
-  if [[ ! "$commit_hash" =~ ^[0-9a-f]{7,40}$ ]]; then
+if [ -n "$commit_hash" ]; then
+  if ! printf '%s' "$commit_hash" | grep -qE '^[0-9a-f]{7,40}$'; then
     echo "Error: commit_hash must be a valid short git hash (7-40 hex characters)" >&2
     echo "Got: $commit_hash" >&2
     print_skill_reference
@@ -245,30 +278,30 @@ fi
 
 # category: empty or one of Added, Changed, Removed
 category=$(validate_field "category")
-if [[ -n "$category" ]]; then
-  if [[ ! "$category" =~ ^(Added|Changed|Removed)$ ]]; then
-    echo "Error: category must be one of: Added, Changed, Removed (or empty)" >&2
-    echo "Got: $category" >&2
-    print_skill_reference
-    exit 2
-  fi
+if [ -n "$category" ]; then
+  case "$category" in
+    Added|Changed|Removed) : ;;
+    *)
+      echo "Error: category must be one of: Added, Changed, Removed (or empty)" >&2
+      echo "Got: $category" >&2
+      print_skill_reference
+      exit 2
+      ;;
+  esac
 fi
 
 # depends_on: optional, YAML list of ticket filenames
-depends_on_line=$(echo "$frontmatter" | grep "^depends_on:" || true)
-if [[ -n "$depends_on_line" ]]; then
-  depends_on_values=$(echo "$depends_on_line" | sed 's/^depends_on:[[:space:]]*//' | tr -d '[]' | tr ',' '\n' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
-  while IFS= read -r dep; do
-    if [[ -n "$dep" ]]; then
-      # Each entry must match ticket filename pattern
-      if [[ ! "$dep" =~ ^[0-9]{14}-.*\.md$ ]]; then
-        echo "Error: depends_on entries must match YYYYMMDDHHmmss-*.md pattern" >&2
-        echo "Got: $dep" >&2
-        print_skill_reference
-        exit 2
-      fi
-    fi
-  done <<< "$depends_on_values"
+depends_on_line=$(printf '%s\n' "$frontmatter" | grep "^depends_on:" || true)
+if [ -n "$depends_on_line" ]; then
+  depends_on_values=$(printf '%s\n' "$depends_on_line" | sed 's/^depends_on:[[:space:]]*//' | tr -d '[]' | tr ',' '\n' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+  # Each non-empty entry must match the ticket filename pattern.
+  invalid_dep=$(printf '%s\n' "$depends_on_values" | grep -v '^$' | grep -vE '^[0-9]{14}-.*\.md$' | head -n 1 || true)
+  if [ -n "$invalid_dep" ]; then
+    echo "Error: depends_on entries must match YYYYMMDDHHmmss-*.md pattern" >&2
+    echo "Got: $invalid_dep" >&2
+    print_skill_reference
+    exit 2
+  fi
 fi
 
 # All validations passed

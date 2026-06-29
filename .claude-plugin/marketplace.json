@@ -25,7 +25,7 @@
     },
     {
       "name": "workflows",
-      "description": "Portable cross-agent build of the ticket/drive/report/ship workflow skills (self-contained, generated). For Codex, OpenCode, and other agents; Claude Code users install the workaholic plugin instead.",
+      "description": "Portable cross-agent build of the ticket/drive/report/ship/catch workflow skills (self-contained, generated). For Codex, OpenCode, and other agents; Claude Code users install the workaholic plugin instead.",
       "version": "1.0.67",
       "author": {
         "name": "tamurayoshiya",
@@ -38,6 +38,7 @@
         "./skills/drive",
         "./skills/report",
         "./skills/ship",
+        "./skills/catch",
         "./skills/review-sections",
         "./skills/write-release-note"
       ]

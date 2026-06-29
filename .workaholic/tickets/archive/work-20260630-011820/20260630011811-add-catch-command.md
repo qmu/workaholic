@@ -3,9 +3,9 @@ created_at: 2026-06-30T01:18:11+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config, Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: 1e25903
+category: Added
 depends_on:
 ---
 
@@ -101,3 +101,16 @@ No prior ticket proposes `/catch`, but every building block has archived precede
 - **Window default vs. argument.** "Over 2 weeks" should default to `--since='2 weeks ago'` but accept an override argument (e.g. `/catch 30 days`) so the catch-up horizon is tunable; keep the default explicit in the script, not the markdown.
 - **Performance / cost.** Per-developer `model: "haiku"` collectors keep the fan-out cheap and fast; the `model:` annotation is a Claude-Code-only hint that `publicizeSkillMd` strips when generating the portable copy, so it does not leak into the cross-agent artifact. (`scripts/build-plugins/build.mjs`)
 - **Version alignment at release.** Adding files does not itself bump the version, but a release must keep `.claude-plugin/marketplace.json` (root + every `plugins[].version`), `plugins/workaholic/.claude-plugin/plugin.json`, and `plugins/workaholic/.codex-plugin/plugin.json` aligned; `outputs/workflows/.codex-plugin/plugin.json` regenerates. (CLAUDE.md Version Management)
+
+## Final Report
+
+Development completed as planned. Chose **option A** from Considerations (single script-bearing internal skill shipped cross-agent via the build, like `/report`) — it satisfies the Agent-Skills-compatibility requirement with one skill and no standalone synthesis split. Added the skill to `build.mjs` `DEFAULT_TARGETS` and `marketplace.json`'s `workflows.skills`, regenerated `outputs/`, and added a 9-assertion smoke test for `scan-window.sh`. All gates green: `build.mjs`, `verify.mjs`, `validate-metadata.mjs`, `posix-lint`, and `test-workflow-scripts.mjs` (221/221).
+
+### Discovered Insights
+
+- **Insight**: A script-bearing workflow skill becomes cross-agent-portable purely by adding its name to `build.mjs` `DEFAULT_TARGETS` (not `EXTRA_SKILLS`) plus a `marketplace.json` `workflows.skills` entry — the build computes the cross-skill closure from `${CLAUDE_PLUGIN_ROOT}/skills/<x>/scripts/` references in the SKILL.md and bundles them automatically. `catch`'s SKILL.md reference to `gather/scripts/git-context.sh` pulled the whole `gather` scripts dir into the public copy with no extra wiring.
+  **Context**: `DEFAULT_TARGETS` is for script-bearing skills (closure-built, self-contained); `EXTRA_SKILLS` is only for pure-prose preload dependencies. Picking the wrong list would either ship a broken closure or fail to bundle the scripts.
+- **Insight**: The by-developer axis is the **commit author email**, joined to ticket `author:` frontmatter — not the `user-slug`. Grouping on email directly (jq `group_by(.email)`) avoids duplicating the canonical `user-slug.sh` rule in a second place and still aligns with `todo/<user-slug>/` because the slug derives deterministically from that same email.
+  **Context**: Archived tickets are partitioned by branch, not by developer, so email is the only join key that spans commits + todo + archive uniformly.
+- **Insight**: Field/record separators (`0x1f`/`0x1e`) in a bundled script must be written so no raw control byte lands in a tool-call command string (the approval-dialog validator rejects control characters), yet the bytes must still reach the file. The Write tool embeds them correctly; a `cat <<'SH'` heredoc through Bash does not, because the *command* carries the bytes. Verify with `grep -P 'split\("' | cat -v` (shows `^^`=0x1e, `^_`=0x1f).
+  **Context**: This is the same `%x1f`/`%x1e` + `jq -Rs` idiom `collect-commits.sh` uses; the separators are invisible in the editor, so byte-level verification is the only reliable check.

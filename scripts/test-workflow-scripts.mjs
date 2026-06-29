@@ -40,6 +40,7 @@ const SCRIPTS = {
   checkCapability: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/check-confirmation-capability.sh"),
   posixLint: join(REPO_ROOT, "plugins/workaholic/hooks/posix-lint.sh"),
   collectCommits: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/collect-commits.sh"),
+  scanWindow: join(REPO_ROOT, "plugins/workaholic/skills/catch/scripts/scan-window.sh"),
   guardGitCommit: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-commit.sh"),
   guardGitBranch: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-branch.sh"),
   ensureWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/ensure-worktree.sh"),
@@ -958,6 +959,66 @@ function testCollectCommits() {
   } finally { cleanup(dir); }
 }
 
+// ---------- catch/scan-window.sh (by-developer catch-up roster + evidence) ----------
+// Asserts the scan groups commits per author email, tags tickets with their
+// frontmatter author + scope, lists stories (README excluded), and yields no
+// developers for a window that excludes all history.
+function testScanWindow() {
+  const dir = makeRepo("main");
+  try {
+    const commitAs = (email, name, msg, file) => {
+      writeFileSync(join(dir, file), `${file}\n`);
+      execSync(`git add ${file}`, { cwd: dir });
+      execSync(`git commit -q -m "${msg}"`, {
+        cwd: dir,
+        env: { ...process.env, GIT_AUTHOR_EMAIL: email, GIT_AUTHOR_NAME: name, GIT_COMMITTER_EMAIL: email, GIT_COMMITTER_NAME: name },
+      });
+    };
+    commitAs("alice@example.com", "Alice", "Add alpha", "alpha.txt");
+    commitAs("alice@example.com", "Alice", "Add beta", "beta.txt");
+    commitAs("bob@example.com", "Bob", "Add gamma", "gamma.txt");
+
+    // Tickets across scopes, each with a frontmatter author and an H1 title.
+    const todoDir = join(dir, ".workaholic/tickets/todo/alice-example-com");
+    mkdirSync(todoDir, { recursive: true });
+    writeFileSync(join(todoDir, "20260101000000-todo-a.md"), "---\nauthor: alice@example.com\n---\n\n# Todo A\n");
+    const archDir = join(dir, ".workaholic/tickets/archive/work-x");
+    mkdirSync(archDir, { recursive: true });
+    writeFileSync(join(archDir, "20260101000001-arch-b.md"), "---\nauthor: bob@example.com\n---\n\n# Arch B\n");
+
+    // A story (and a README that must be excluded from stories[]).
+    mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/stories/work-x.md"), "---\nbranch: work-x\n---\n# story\n");
+    writeFileSync(join(dir, ".workaholic/stories/README.md"), "# index\n");
+
+    let j = null;
+    const r = run(dir, `${POSIX_SH} ${SCRIPTS.scanWindow} "2 weeks ago"`);
+    try { j = JSON.parse(r.stdout); } catch { /* leave null */ }
+    assertTrue("scan-window emits valid JSON", j !== null, r.stdout.slice(0, 240));
+    assertEq("scan-window echoes the window", j && j.window, "2 weeks ago");
+
+    const byEmail = Object.fromEntries((j?.developers || []).map((d) => [d.email, d]));
+    assertEq("scan-window groups Alice's 2 commits", byEmail["alice@example.com"]?.commit_count, 2);
+    assertEq("scan-window groups Bob's 1 commit", byEmail["bob@example.com"]?.commit_count, 1);
+    assertTrue("scan-window carries commit subjects",
+      (byEmail["bob@example.com"]?.commits || []).some((c) => c.subject === "Add gamma"),
+      JSON.stringify(byEmail["bob@example.com"]?.commits));
+
+    const tByPath = Object.fromEntries((j?.tickets || []).map((t) => [t.path, t]));
+    const todoT = tByPath[".workaholic/tickets/todo/alice-example-com/20260101000000-todo-a.md"];
+    assertEq("scan-window tags todo ticket author+scope+title",
+      { a: todoT?.author, s: todoT?.scope, t: todoT?.title }, { a: "alice@example.com", s: "todo", t: "Todo A" });
+    assertEq("scan-window tags archive ticket scope",
+      tByPath[".workaholic/tickets/archive/work-x/20260101000001-arch-b.md"]?.scope, "archive");
+
+    assertEq("scan-window lists the story (README excluded)", j?.stories, [".workaholic/stories/work-x.md"]);
+
+    // A window in the future excludes all history -> no developers (graceful empty).
+    const er = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanWindow} "2099-01-01"`).stdout);
+    assertEq("scan-window future window -> no developers", er.developers, []);
+  } finally { cleanup(dir); }
+}
+
 // ---------- hooks/posix-lint.sh (POSIX-sh conformance gate) ----------
 // The standing guard that keeps rules/shell.md from regressing. (1) the real
 // plugin tree must be conforming — the regression lock that only passes once
@@ -1212,6 +1273,7 @@ const tests = [
   ["hooks/guard-ticket-structure.sh", testGuardTicketStructure],
   ["hooks/posix-lint.sh", testPosixLint],
   ["report/collect-commits.sh", testCollectCommits],
+  ["catch/scan-window.sh", testScanWindow],
   ["hooks/guard-git-commit.sh", testGuardGitCommit],
   ["hooks/guard-git-branch.sh", testGuardGitBranch],
   ["branching/ensure-worktree.sh", testEnsureWorktreeGuard],

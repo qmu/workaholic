@@ -40,6 +40,12 @@ const SCRIPTS = {
   checkCapability: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/check-confirmation-capability.sh"),
   posixLint: join(REPO_ROOT, "plugins/workaholic/hooks/posix-lint.sh"),
   collectCommits: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/collect-commits.sh"),
+  guardGitCommit: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-commit.sh"),
+  guardGitBranch: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-branch.sh"),
+  ensureWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/ensure-worktree.sh"),
+  checkSubject: join(REPO_ROOT, "plugins/workaholic/hooks/lib/check-subject.sh"),
+  commitMsgHook: join(REPO_ROOT, "plugins/workaholic/hooks/git/commit-msg"),
+  installGitHooks: join(REPO_ROOT, "plugins/workaholic/hooks/install-git-hooks.sh"),
 };
 
 // rules/shell.md mandates POSIX sh. Exercise the scripts under the strictest
@@ -986,6 +992,201 @@ function testPosixLint() {
   } finally { cleanup(dir); }
 }
 
+// ---------- hooks/guard-git-commit.sh (PreToolUse Bash commit-subject gate) ----------
+// REAL, non-mock: feeds the actual guard a crafted tool_input.command and asserts
+// it BLOCKS (exit 2) only an off-policy inline subject (Conventional-Commit prefix,
+// [bracket] tag, or >50 chars) and ALLOWS conformant subjects, co-author trailers,
+// editor/-F commits, and non-commit commands. Co-Authored-By is explicitly allowed.
+function testGuardGitCommit() {
+  const HOOK = SCRIPTS.guardGitCommit;
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  guard-git-commit (jq not available)"); return; }
+
+  const invoke = (command) => {
+    const payload = JSON.stringify({ tool_input: { command } });
+    try {
+      execSync(`${POSIX_SH} ${HOOK}`, { cwd: REPO_ROOT, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+      return { status: 0, err: "" };
+    } catch (e) { return { status: e.status ?? 1, err: e.stderr?.toString() || "" }; }
+  };
+  const long = "A".repeat(60); // 60 chars, no prefix/bracket -> only length trips.
+
+  // Blocks off-policy inline subjects.
+  assertEq("guard-commit blocks Conventional-Commit prefix", invoke(`git commit -m "feat: x"`).status, 2);
+  assertEq("guard-commit blocks scoped prefix", invoke(`git commit -m "fix(api): y"`).status, 2);
+  assertEq("guard-commit blocks [bracket] tag", invoke(`git commit -m "[fix] y"`).status, 2);
+  assertEq("guard-commit blocks >50-char subject", invoke(`git commit -m "${long}"`).status, 2);
+  assertEq("guard-commit blocks prefix via -am", invoke(`git commit -am "chore: bump"`).status, 2);
+  assertEq("guard-commit blocks prefix with git -C", invoke(`git -C /some/path commit -m "docs: update"`).status, 2);
+  // The block message names the sanctioned command.
+  assertTrue("guard-commit block names /commit + commit.sh",
+    /\/commit/.test(invoke(`git commit -m "feat: x"`).err) && /commit\.sh/.test(invoke(`git commit -m "feat: x"`).err),
+    invoke(`git commit -m "feat: x"`).err.slice(0, 200));
+
+  // Allows conformant subjects and non-violating forms.
+  assertEq("guard-commit allows conformant subject", invoke(`git commit -m "Add branch story for work-x"`).status, 0);
+  assertEq("guard-commit allows conformant with git -C", invoke(`git -C /x commit -m "Fix the parser"`).status, 0);
+  assertEq("guard-commit allows a Co-Authored-By body", invoke(`git commit -m "Add feature" -m "Co-Authored-By: Claude <noreply@anthropic.com>"`).status, 0);
+  assertEq("guard-commit allows editor commit (no -m)", invoke(`git commit`).status, 0);
+  assertEq("guard-commit allows -F file (uninspectable)", invoke(`git commit -F /tmp/msg.txt`).status, 0);
+  assertEq("guard-commit allows commit.sh invocation", invoke(`sh \${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh "Add x" "" "y" "" "" "z"`).status, 0);
+  assertEq("guard-commit ignores git add commit.sh", invoke(`git add commit.sh`).status, 0);
+  assertEq("guard-commit ignores git status", invoke(`git status`).status, 0);
+}
+
+// ---------- hooks/guard-git-branch.sh (PreToolUse Bash branch-name gate) ----------
+// REAL, non-mock: feeds the actual guard a crafted tool_input.command and asserts
+// it BLOCKS (exit 2) off-pattern / variable / missing branch-creation names and
+// ALLOWS work-YYYYMMDD-HHMMSS creation, read/delete/list forms, and non-create cmds.
+function testGuardGitBranch() {
+  const HOOK = SCRIPTS.guardGitBranch;
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  guard-git-branch (jq not available)"); return; }
+
+  const invoke = (command) => {
+    const payload = JSON.stringify({ tool_input: { command } });
+    try {
+      execSync(`${POSIX_SH} ${HOOK}`, { cwd: REPO_ROOT, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+      return { status: 0, err: "" };
+    } catch (e) { return { status: e.status ?? 1, err: e.stderr?.toString() || "" }; }
+  };
+  const OK = "work-20260628-002047";
+
+  // Blocks off-pattern / variable / missing creation names.
+  assertEq("guard-branch blocks checkout -b off-pattern", invoke(`git checkout -b watchtower-foo`).status, 2);
+  assertEq("guard-branch blocks switch -c off-pattern", invoke(`git switch -c main2`).status, 2);
+  assertEq("guard-branch blocks switch --create off-pattern", invoke(`git switch --create my-thing`).status, 2);
+  assertEq("guard-branch blocks variable name", invoke(`git checkout -b "$BRANCH"`).status, 2);
+  assertEq("guard-branch blocks bare git branch <name>", invoke(`git branch my-feature`).status, 2);
+  assertEq("guard-branch blocks worktree add -b off-pattern", invoke(`git worktree add -b feature-x /tmp/wt`).status, 2);
+  // The block message names the sanctioned command.
+  assertTrue("guard-branch block names create.sh",
+    /create\.sh/.test(invoke(`git checkout -b watchtower-foo`).err),
+    invoke(`git checkout -b watchtower-foo`).err.slice(0, 200));
+
+  // Allows canonical creation and non-creation forms.
+  assertEq("guard-branch allows checkout -b work-*", invoke(`git checkout -b ${OK}`).status, 0);
+  assertEq("guard-branch allows switch -c work-*", invoke(`git switch -c ${OK}`).status, 0);
+  assertEq("guard-branch allows worktree add -b work-*", invoke(`git worktree add -b ${OK} /tmp/wt`).status, 0);
+  assertEq("guard-branch allows git branch --show-current", invoke(`git branch --show-current`).status, 0);
+  assertEq("guard-branch allows git branch -d (delete)", invoke(`git branch -d work-old`).status, 0);
+  assertEq("guard-branch allows checkout existing branch", invoke(`git checkout main`).status, 0);
+  assertEq("guard-branch allows git -c k=v commit (not a branch)", invoke(`git -c user.email=x commit -m "Add y"`).status, 0);
+  assertEq("guard-branch ignores git status", invoke(`git status`).status, 0);
+  assertEq("guard-branch ignores create.sh invocation", invoke(`sh \${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh`).status, 0);
+}
+
+// ---------- branching/ensure-worktree.sh (branch-name self-defense) ----------
+// The script creates a branch (git worktree add -b), so it must itself reject a
+// non-canonical name before touching git — even if the PreToolUse gate is bypassed.
+function testEnsureWorktreeGuard() {
+  const dir = makeRepo("main");
+  try {
+    const bad = run(dir, `${POSIX_SH} ${SCRIPTS.ensureWorktree} feature-x`);
+    assertTrue("ensure-worktree rejects off-pattern name (exit 1)", bad.status === 1, `status=${bad.status}`);
+    assertTrue("ensure-worktree names the pattern in its error",
+      /work-YYYYMMDD-HHMMSS/.test(bad.stdout + bad.stderr), bad.stdout + bad.stderr);
+    // No worktree was created for the rejected name.
+    assertTrue("ensure-worktree created no worktree for bad name",
+      !existsSync(join(dir, ".worktrees/feature-x")));
+    // Empty arg still errors (pre-existing behavior preserved).
+    assertTrue("ensure-worktree still requires a name", run(dir, `${POSIX_SH} ${SCRIPTS.ensureWorktree}`).status === 1);
+  } finally { cleanup(dir); }
+}
+
+// ---------- hooks/lib/check-subject.sh (shared subject validator) ----------
+// The single source of the subject rules used by BOTH the Bash gate and the
+// git commit-msg hook. Exit 0 = conforming, exit 1 + reason on stdout otherwise.
+function testCheckSubject() {
+  const invoke = (subject) => {
+    try {
+      const out = execSync(`${POSIX_SH} ${SCRIPTS.checkSubject} ${JSON.stringify(subject)}`, { encoding: "utf8" });
+      return { status: 0, out };
+    } catch (e) { return { status: e.status ?? 1, out: e.stdout?.toString() || "" }; }
+  };
+  assertEq("check-subject allows a clean subject", invoke("Add the parser module").status, 0);
+  assertEq("check-subject blocks Conventional prefix", invoke("feat: add x").status, 1);
+  assertEq("check-subject blocks scoped prefix", invoke("fix(api): y").status, 1);
+  assertEq("check-subject blocks [bracket] tag", invoke("[wip] y").status, 1);
+  assertEq("check-subject blocks >50 chars", invoke("A".repeat(60)).status, 1);
+  assertTrue("check-subject names the reason", /Conventional-Commit prefix/.test(invoke("feat: x").out), invoke("feat: x").out);
+  // stdin form works too.
+  const r = run(REPO_ROOT, `printf '%s' "docs: x" | ${POSIX_SH} ${SCRIPTS.checkSubject}`);
+  assertEq("check-subject reads subject from stdin", r.status, 1);
+}
+
+// ---------- hooks/git/commit-msg (git-native subject gate) ----------
+// Feed the hook a temp message file (the git contract: $1 = message path) and
+// assert it rejects off-policy subjects and accepts conformant ones. Subject-only
+// (it never rewrites the message). Hermetic: no real git config is touched.
+function testCommitMsgHook() {
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-commitmsg-"));
+  try {
+    const writeMsg = (text) => { const p = join(dir, "MSG"); writeFileSync(p, text); return p; };
+    const invoke = (text) => {
+      const p = writeMsg(text);
+      try { execSync(`${POSIX_SH} ${SCRIPTS.commitMsgHook} ${p}`, { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return { status: 0, err: "" }; }
+      catch (e) { return { status: e.status ?? 1, err: e.stderr?.toString() || "" }; }
+    };
+
+    assertEq("commit-msg allows a clean subject", invoke("Add the parser module\n\nbody line\n").status, 0);
+    assertEq("commit-msg allows a Co-Authored-By body (not stripped)",
+      invoke("Add feature\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n").status, 0);
+    assertEq("commit-msg blocks Conventional prefix", invoke("feat: add x\n").status, 1);
+    assertEq("commit-msg blocks [bracket] tag", invoke("[wip] y\n").status, 1);
+    assertEq("commit-msg blocks >50-char subject", invoke(`${"A".repeat(60)}\n`).status, 1);
+    assertTrue("commit-msg names the policy + --no-verify",
+      /skills\/commit\/SKILL\.md/.test(invoke("feat: x\n").err) && /--no-verify/.test(invoke("feat: x\n").err),
+      invoke("feat: x\n").err.slice(0, 200));
+
+    // Subject-only: a blocked commit's message file is NOT rewritten.
+    const p = writeMsg("feat: x\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n");
+    run(dir, `${POSIX_SH} ${SCRIPTS.commitMsgHook} ${p}`);
+    assertTrue("commit-msg does not rewrite the message file",
+      readFileSync(p, "utf8").includes("Co-Authored-By: Claude"), "message file was modified");
+  } finally { cleanup(dir); }
+}
+
+// ---------- hooks/install-git-hooks.sh (opt-in core.hooksPath installer) ----------
+function testInstallGitHooks() {
+  const HOOKS_DIR = join(REPO_ROOT, "plugins/workaholic/hooks/git");
+
+  // Clean repo: installs by setting core.hooksPath to the plugin's hooks/git.
+  const clean = makeRepo("main");
+  try {
+    const r = run(clean, `${POSIX_SH} ${SCRIPTS.installGitHooks}`);
+    assertEq("install-git-hooks installs in a clean repo", r.status, 0);
+    const set = execSync(`git config --get core.hooksPath`, { cwd: clean, encoding: "utf8" }).trim();
+    assertEq("install-git-hooks set core.hooksPath to plugin hooks/git", set, HOOKS_DIR);
+    // Idempotent: a second run is a no-op success.
+    assertEq("install-git-hooks is idempotent", run(clean, `${POSIX_SH} ${SCRIPTS.installGitHooks}`).status, 0);
+  } finally { cleanup(clean); }
+
+  // Pre-set core.hooksPath -> refuse without --force, succeed with --force.
+  const preset = makeRepo("main");
+  try {
+    execSync(`git config core.hooksPath /some/other/path`, { cwd: preset });
+    const refused = run(preset, `${POSIX_SH} ${SCRIPTS.installGitHooks}`);
+    assertEq("install-git-hooks refuses to clobber core.hooksPath", refused.status, 1);
+    assertTrue("install-git-hooks refusal explains --force", /--force/.test(refused.stderr), refused.stderr);
+    const forced = run(preset, `${POSIX_SH} ${SCRIPTS.installGitHooks} --force`);
+    assertEq("install-git-hooks --force overrides", forced.status, 0);
+    assertEq("install-git-hooks --force set the path",
+      execSync(`git config --get core.hooksPath`, { cwd: preset, encoding: "utf8" }).trim(), HOOKS_DIR);
+  } finally { cleanup(preset); }
+
+  // Classic .git/hooks present -> refuse without --force (would be shadowed).
+  const classic = makeRepo("main");
+  try {
+    writeFileSync(join(classic, ".git/hooks/pre-commit"), "#!/bin/sh\nexit 0\n");
+    const refused = run(classic, `${POSIX_SH} ${SCRIPTS.installGitHooks}`);
+    assertEq("install-git-hooks refuses to shadow classic .git/hooks", refused.status, 1);
+    assertTrue("install-git-hooks classic refusal lists the hook", /pre-commit/.test(refused.stderr), refused.stderr);
+  } finally { cleanup(classic); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching/detect-context.sh", testDetectContext],
@@ -1011,6 +1212,12 @@ const tests = [
   ["hooks/guard-ticket-structure.sh", testGuardTicketStructure],
   ["hooks/posix-lint.sh", testPosixLint],
   ["report/collect-commits.sh", testCollectCommits],
+  ["hooks/guard-git-commit.sh", testGuardGitCommit],
+  ["hooks/guard-git-branch.sh", testGuardGitBranch],
+  ["branching/ensure-worktree.sh", testEnsureWorktreeGuard],
+  ["hooks/lib/check-subject.sh", testCheckSubject],
+  ["hooks/git/commit-msg", testCommitMsgHook],
+  ["hooks/install-git-hooks.sh", testInstallGitHooks],
 ];
 
 for (const [label, fn] of tests) {

@@ -1,0 +1,45 @@
+#!/bin/sh -eu
+# git commit-msg hook: enforce the Workaholic commit-SUBJECT policy on every
+# commit, including a developer's own terminal `git commit` and nested helper
+# scripts that never pass through Claude's Bash tool (which the PreToolUse Bash
+# gate, guard-git-commit.sh, is structurally blind to).
+#
+# Subject-only by design: it validates the subject and never rewrites the
+# message. (Co-Authored-By trailers are allowed -- the plugin keeps emitting
+# one by default; see the abandoned ticket 20260628002049.)
+#
+# Opt-in: installed by install-git-hooks.sh via core.hooksPath, run deliberately
+# by the repo owner. Bypassable with `git commit --no-verify`.
+#
+# git passes the path to the commit message file as $1.
+
+set -eu
+
+msgfile="${1:?commit-msg: message file path required}"
+
+# Resolve the shared validator relative to this hook (hooks/git/commit-msg ->
+# hooks/lib/check-subject.sh), so the same rules drive both enforcement layers.
+SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+LIB="${SCRIPT_DIR}/../lib/check-subject.sh"
+
+subject=$(sed -n '1p' "$msgfile")
+
+# A comment-only or empty subject is git's concern, not ours.
+case "$subject" in
+  ''|\#*) exit 0 ;;
+esac
+
+if reason=$(printf '%s\n' "$subject" | sh "$LIB"); then
+  exit 0
+fi
+
+echo "commit-msg: rejected off-policy subject (${reason})." >&2
+echo "  Subject: \"${subject}\"" >&2
+echo "" >&2
+echo "Subject policy (plugins/workaholic/skills/commit/SKILL.md):" >&2
+echo "  - present-tense, 50 characters or fewer" >&2
+echo "  - no Conventional-Commit prefix (feat:/fix:/docs: ...)" >&2
+echo "  - no leading [bracket] tag" >&2
+echo "" >&2
+echo "Fix the subject, or bypass (discouraged) with: git commit --no-verify" >&2
+exit 1

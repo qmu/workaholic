@@ -179,6 +179,7 @@ If a skill you expect is not in context, ask the user which plugins are loaded �
 | -------------------------------- | ------------------------------------------------ |
 | `/ticket <description>`          | Write implementation spec for a feature          |
 | `/drive`                         | Implement queued specs one by one                |
+| `/commit`                        | Commit working changes with a policy-conformant message (small non-ticketed changes; prefer `/drive` for ticketed work) |
 | `/report`                        | Context-aware: generate story or journey report and create PR |
 | `/ship`                          | Context-aware: merge PR, deploy, and verify      |
 | `/release [major\|minor\|patch]` | Release new marketplace version                  |
@@ -207,6 +208,19 @@ node scripts/test-workflow-scripts.mjs            # hermetic smoke tests for bra
 ```
 
 The smoke tests create throwaway repositories under the OS temp dir, exercise the scripts there, assert on JSON output and filesystem state, and clean up. They never touch the working tree or call `gh`/network — safe to run anywhere.
+
+### Commit-subject and branch-name enforcement
+
+The commit-subject rule (present-tense, ≤50 chars, no `feat:`/`[bracket]` prefix — see `skills/commit/SKILL.md`) and the branch-name rule (`work-YYYYMMDD-HHMMSS`, named only by `create.sh`) are enforced as gates, not just prose, in **two layers**:
+
+- **Agent/harness surface (always on, zero opt-in):** `hooks/guard-git-commit.sh` and `hooks/guard-git-branch.sh` are blocking `PreToolUse(Bash)` hooks (shipped active in `hooks.json`). The commit gate blocks a direct `git commit` only when its `-m` subject is off-policy (it does **not** block `Co-Authored-By` trailers, conformant subjects, or script-wrapped commits like `commit.sh`/`archive.sh`, which never expose a top-level `git commit`). The branch gate blocks off-pattern/variable branch creation. Both route the caller to the sanctioned script.
+- **Human-terminal surface (opt-in):** `hooks/git/commit-msg` is a git-native hook that enforces the **same subject rule** on every commit (including a developer's own terminal `git commit`), since `PreToolUse(Bash)` cannot see those. It is subject-only (never rewrites the message). Install it deliberately per-repo:
+
+  ```bash
+  sh ${CLAUDE_PLUGIN_ROOT}/hooks/install-git-hooks.sh   # sets core.hooksPath; refuses to clobber an existing one / classic .git/hooks without --force
+  ```
+
+  Bypass a single commit with `git commit --no-verify`; undo with `git config --unset core.hooksPath`. Both layers share one rule source (`hooks/lib/check-subject.sh`) so they cannot drift. These hooks are Claude-Code-only / git-native and have **no `outputs/` footprint** (not bundled, no rebuild). `commit-msg` is exempt from `posix-lint` only because git requires that exact extensionless name; it is POSIX `#!/bin/sh -eu` by construction.
 
 ### Always-on policy lens
 

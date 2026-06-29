@@ -17,7 +17,7 @@ plugins/                 # Plugin source directory
   workaholic/            # The single plugin (no dependencies; skills exposed cross-agent)
     .claude-plugin/      # Plugin configuration
     .codex-plugin/       # Hand-maintained Codex-facing manifest
-    skills/              # workflow skills (branching, check-deps, commit, create-ticket, discover, drive, gather, report, review-sections, ship, system-safety, trip-protocol, validate-writer-output, write-release-note) + policy skills (planning, design, implementation, operation, each linking English hard copies under its policies/ dir)
+    skills/              # workflow skills (branching, catch, check-deps, commit, create-ticket, discover, drive, gather, report, review-sections, ship, system-safety, trip-protocol, validate-writer-output, write-release-note) + policy skills (planning, design, implementation, operation, each linking English hard copies under its policies/ dir)
     commands/            # ticket, drive, trip, report, ship (Claude-only; ignored by other agents)
     agents/              # Agent Teams members only: planner, architect, constructor (launched by /trip)
     hooks/               # ticket validation (validate-ticket.sh, PostToolUse Write|Edit) + structural move guard (guard-ticket-structure.sh, PreToolUse Bash â€” blocks non-canonical ticket moves like done/ or todo/<user>/archive/) + always-on policy lens (policy-lens.sh) + generated policy-index.md
@@ -182,6 +182,7 @@ If a skill you expect is not in context, ask the user which plugins are loaded â
 | `/commit`                        | Commit working changes with a policy-conformant message (small non-ticketed changes; prefer `/drive` for ticketed work) |
 | `/report`                        | Context-aware: generate story or journey report and create PR |
 | `/ship`                          | Context-aware: merge PR, deploy, and verify      |
+| `/catch [window]`                | Read-only by-developer catch-up report over a recent window (commits, tickets, stories), then follow-up Q&A |
 | `/release [major\|minor\|patch]` | Release new marketplace version                  |
 
 ## Development Workflow

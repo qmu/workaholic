@@ -7,42 +7,34 @@ source: https://qmu.co.jp/design/modular-monolith-first
 
 # Cautious Consideration of Distributed Systems
 
-_Start with a well-structured monolith; consider moving to a distributed architecture only when the evidence for it becomes clear and the cost is justified._
+_Use managed services as development scaffolding while keeping the deployment unit as a single modular monolith; split into separate services only when the boundary is justified and the rationale is documented._
 
-Building a distributed system — microservices, event-driven architecture, or any form of service mesh — brings real operational complexity: service discovery, distributed tracing, network-failure handling, cross-service transaction boundaries, and independent deployment pipelines per service. These are costs that may be worth bearing, but only after the natural boundaries between services have become evident through actual use, not before. We treat a modular monolith, with clear internal module boundaries, as the starting point from which distribution can be extracted when the need is concrete.
+Managed services such as Cloudflare Workers and AWS Lambda offer excellent developer experience and cost efficiency, and serve as useful scaffolding for starting development quickly — we use them. As deployment units, however, the baseline is to design as a single modular monolith first; service splits are limited to cases where the boundaries are worthwhile, and expanding into a microservice-oriented architecture without concrete justification is not our approach.
 
 ## Goal (目標)
 
-The situation this policy aims to achieve is one in which the system's architecture matches its actual complexity — neither too simple to support the requirements, nor burdened with distributed systems overhead before the need for that overhead has been demonstrated.
-
-- Module boundaries are established inside the monolith before services are extracted from it.
-- Each module's public interface is defined explicitly, so that extraction to a separate service is mechanical rather than exploratory.
-- The decision to distribute is made on concrete evidence: throughput requirements that a single process cannot meet, independent deployment cadences that genuinely conflict, or data sovereignty constraints.
+The state we aim for is one in which the system is maintained as a single modular monolith with clear internal module boundaries, able to absorb new features without incurring the cost of distributed systems. Managed services provide the scaffolding to start development quickly; the deployment unit stays as one; module boundaries are kept clear in the code.
 
 ## Responsibility (責務)
 
-The situation this policy aims to prevent is one in which distributed system overhead is introduced speculatively, before the boundaries between parts of the system are understood.
+The state we work to prevent is one in which the system is split into separate deployment units without documented justification that the boundary is worthwhile.
 
-States we do not tolerate:
-
-- Splitting into microservices before a working monolith exists. A system whose service boundaries are chosen before the domain is understood tends to need costly restructuring when the real boundaries become clear.
-- Crossing service boundaries for operations that a single module boundary would resolve. Every network hop is a latency, a failure point, and a consistency challenge; internal function calls are free.
-- Treating distributed architecture as a mark of quality in itself. The goal is operational reliability and development velocity, not architectural sophistication.
+Splitting, once started, is hard to reverse, and each additional service tends to accumulate communication, consistency, monitoring, and deployment complexity. In development where AI writes much of the implementation, new services can be stood up quickly — making it easy for a distributed configuration to spread without anyone recording why the split was made.
 
 ## Practices (実践)
 
-### Establish module boundaries inside the monolith first
+### Use managed services as development scaffolding
 
-Before considering service extraction, create explicit module boundaries within the monolith: separate directories or packages, restricted cross-module imports, and clearly defined public interfaces for each module. A boundary that holds inside the monolith will hold across the network; a boundary that leaks inside will leak further when services are separated.
+Managed services like Cloudflare Workers and AWS Lambda, which offer excellent developer experience and cost efficiency, are used as scaffolding to start development quickly. Using these services and splitting the deployment unit into many services are separate questions; the whole remains designed as a single modular monolith even while individual functions run on managed runtimes.
 
-### Extract to a service only when the evidence is concrete
+### Separate by internal module boundaries
 
-The evidence that justifies extraction is specific: a module's throughput requirements that a single process cannot meet, a deployment cadence that conflicts with the rest of the codebase, or a compliance boundary that requires separate infrastructure. Architectural preference and anticipated future scale are not evidence.
+Within one deployment unit, draw module and package boundaries by concern. Well-organized internals leave room to later extract a genuinely necessary module into an independent service when the evidence is concrete.
 
-### Treat the distributed path as additive, not foundational
+### Split only when boundaries are justified, and document the rationale
 
-The distributed version of a system adds operational infrastructure on top of the monolith's module structure — it does not replace it. Keep the module structure clean so that, if distribution is warranted, the extraction path is predictable. Do not design the monolith in a way that assumes distribution.
+Splitting into a separate service is reserved for when a concrete need has become clear — independent scaling, an independent deployment cadence, or fault isolation. When the decision to split is made, record why that module is becoming a separate deployment unit in the PR description or an ADR, so that future readers can reconstruct the rationale for the boundary.
 
-### Related: Conservative Vendor Dependence, Containerization
+### Related: Conservative Vendor Dependence, Capacity and Recovery Planning, Domain Layer Separation
 
-When services are introduced, each service adds a vendor or runtime dependency of its own. See [Conservative Vendor Dependence](vendor-neutrality.md) for how to manage those choices. Container boundaries and their deployment are covered in the implementation pillar's Containerization policy.
+See [Conservative Vendor Dependence](vendor-neutrality.md), [Capacity and Recovery Planning](../implementation/policies/operational-planning.md), and [Domain Layer Separation](../implementation/policies/domain-layer-separation.md) for related policies.

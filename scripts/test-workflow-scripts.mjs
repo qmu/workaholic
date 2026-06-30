@@ -1137,6 +1137,17 @@ function testGuardGitBranch() {
   assertEq("guard-branch allows git -c k=v commit (not a branch)", invoke(`git -c user.email=x commit -m "Add y"`).status, 0);
   assertEq("guard-branch ignores git status", invoke(`git status`).status, 0);
   assertEq("guard-branch ignores create.sh invocation", invoke(`sh \${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh`).status, 0);
+
+  // A piped/redirected read-or-list form is NOT a create: the operator ends the
+  // git invocation, so the pipe is never mistaken for a bare branch name.
+  assertEq("guard-branch allows bare git branch (list)", invoke(`git branch`).status, 0);
+  assertEq("guard-branch allows git branch | grep (piped list)", invoke(`git branch | grep work`).status, 0);
+  assertEq("guard-branch allows git branch > file (redirect)", invoke(`git branch > /tmp/b.txt`).status, 0);
+  // ...but a real create chained after a separator is still inspected and blocked.
+  assertEq("guard-branch blocks create chained after ;", invoke(`git branch ; git checkout -b bad-name`).status, 2);
+  assertEq("guard-branch blocks create chained after &&", invoke(`git status && git switch -c nope`).status, 2);
+  // A conformant create chained after a separator still passes.
+  assertEq("guard-branch allows work-* create after &&", invoke(`git fetch && git checkout -b ${OK}`).status, 0);
 }
 
 // ---------- branching/ensure-worktree.sh (branch-name self-defense) ----------

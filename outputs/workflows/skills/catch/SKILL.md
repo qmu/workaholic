@@ -34,8 +34,11 @@ Before judging development direction, load the project's engineering policies as
    bash catch/scripts/scan-window.sh "<window>"
    ```
 
-   It returns `{ window, developers[], tickets[], stories[] }`:
-   - `developers[]` — each active author in the window: `name`, `email`, `commit_count`, and `commits[]` (`hash`, `subject`, `timestamp`, `body`). `email` is the **join key** for the by-developer axis.
+   It returns `{ window, buckets, developers[], tickets[], stories[] }`:
+   - `buckets` — the epoch boundaries the scanner used to time-bucket commits: `recent_start` (start of yesterday — the yesterday+today window), `week_start` (Monday 00:00 of the current week), `last_week_start` (Monday 00:00 of the previous week).
+   - `developers[]` — each active author in the window: `name`, `email`, `commit_count`, `commits[]`, and `branches[]`. `email` is the **join key** for the by-developer axis.
+     - each commit carries `hash`, `subject`, `timestamp` (ISO), `epoch` (committer epoch), `branch` (the branch it was reached from), and `bucket` — one of `recent` (yesterday+today), `this_week` (this calendar week but before yesterday), `last_week` (the previous calendar week), or `older`.
+     - `branches[]` — the developer's branches active in the window, each with `name` and `commit_count`, most active first. (The scan uses `--branches`, so unmerged topic branches are included.)
    - `tickets[]` — every ticket under `todo`/`archive`/`icebox` with its frontmatter `author`, `title`, and `scope`. Group these by `author` to match each developer's commits.
    - `stories[]` — branch-story file paths under `.workaholic/stories/`, the narrative record of completed branches.
 3. Run `bash gather/scripts/git-context.sh` to get `repo_url` (used to render commit links) and `branch`.
@@ -45,7 +48,8 @@ Before judging development direction, load the project's engineering policies as
 
 Spawn **one parallel workers per developer** in `developers[]`, in a **single message**. Each prompt instructs the collector to preload `catch`, run the **Collect Developer** section, and return that section's JSON. Pass each collector:
 
-- the developer's `name`, `email`, and `commits[]` (from `developers[]`);
+- the developer's `name`, `email`, `commits[]`, and `branches[]` (from `developers[]`);
+- the `buckets` boundaries (so the collector knows what each commit's `bucket` means);
 - the subset of `tickets[]` whose `author` equals this developer's `email`;
 - the `stories[]` list and `repo_url` (so it can read stories and link commits).
 
@@ -76,8 +80,16 @@ Run by a Phase 1 collector (a parallel workers that preloads this skill), once p
 2. Read the developer's `tickets[]` (their `## Overview` and `## Final Report`) for intent and outcome behind the commits.
 3. Skim any `stories[]` that clearly cover this developer's branches (match by title/theme) for the narrative arc — do not read all 50; sample the ones that match.
 4. Summarize **focus areas** (what parts of the system they touched), **themes** (the through-line of the work), **notable changes** (the few highest-impact items, each with a commit hash), and **open threads** (carried concerns, unfinished tickets in `todo`, or `Concerns:` keys from commit bodies).
+5. **Time-windowed focus** — summarize the work in three buckets using each commit's `bucket` field:
+   - `recent_focus` — from commits with `bucket: "recent"` (yesterday + today). What they're on right now.
+   - `week_focus` — from commits with `bucket: "recent"` **or** `"this_week"` (the full current calendar week — "this week" includes the recent days).
+   - `last_week_focus` — from commits with `bucket: "last_week"` (the previous calendar week).
+   Each is one line; if a bucket has no commits, return an empty string (do not pad).
+6. **Struggles** — what they're wrestling with, drawn **only** from concrete signals: `Concerns:` keys in their commit bodies, their open `todo`/`icebox` tickets, and matching story `## 6. Concerns` blocks. Each item should be traceable to its source; return `[]` if there is no real signal (do not invent difficulty).
+7. **Per-branch focus** — for each entry in the developer's `branches[]`, write a one-line `focus` derived from the subjects of that branch's commits. Carry through `name` and `commit_count` from the input.
+8. **Generation style** — an explicit **guess** at how the work was produced, inferred from the commit `timestamp`/`epoch` shape: commits spread across daytime hours over several days ⇒ "daytime ticket-driving"; a dense cluster of commits in one overnight run on a single branch ⇒ "overnight long-running drive"; a mix ⇒ describe both. Phrase it as an inference ("looks like…"), never as asserted fact.
 
-Keep it factual and verifiable — name files, hashes, and tickets; avoid evaluative adjectives ("elegant", "powerful"). Do not invent activity not present in the inputs.
+Keep it factual and verifiable — name files, hashes, and tickets; avoid evaluative adjectives ("elegant", "powerful"). Do not invent activity not present in the inputs. The generation-style guess is the one inference allowed, and it must be labelled as a guess (`implementation` / `objective-documentation`).
 
 ### Collector Output (JSON)
 
@@ -89,6 +101,14 @@ Keep it factual and verifiable — name files, hashes, and tickets; avoid evalua
   "headline": "One-sentence summary of this developer's window.",
   "focus_areas": ["cross-agent build pipeline", "ship/deploy gating"],
   "themes": "1-3 sentence narrative of the through-line connecting the work.",
+  "recent_focus": "Yesterday/today: hardening the /catch scanner and its tests.",
+  "week_focus": "This week: branch-guard fixes, check-deps staleness, /catch enrichment.",
+  "last_week_focus": "Last week: deployment-confirmation gating in /ship.",
+  "struggles": ["outputs/ freshness drift if a build step is skipped (Concerns: in 5059220)"],
+  "branches": [
+    { "name": "work-20260630-050446", "commit_count": 6, "focus": "guard + check-deps + catch tickets" }
+  ],
+  "generation_style": "Looks like daytime ticket-driving — commits spread across working hours over several days, one branch.",
   "notable_changes": [
     { "title": "Ship gate now confirms in production before merge", "hash": "abc1234" }
   ],
@@ -96,7 +116,7 @@ Keep it factual and verifiable — name files, hashes, and tickets; avoid evalua
 }
 ```
 
-If a developer's window is thin (a few commits, no tickets), return a short `headline` and empty arrays rather than padding — the report shows the real shape of the work.
+If a developer's window is thin (a few commits, no tickets), return a short `headline`, empty strings/arrays for the windowed fields, and the real `branches`/`generation_style` rather than padding — the report shows the real shape of the work.
 
 ## Report Structure
 
@@ -118,8 +138,15 @@ concentrated, how the individual threads fit together.>
 
 **<headline>**
 
-- **Focus:** <focus_areas, comma-separated>
+- **Yesterday + today:** <recent_focus, or "—">
+- **This week:** <week_focus, or "—">
+- **Last week:** <last_week_focus, or "—">
+- **Focus areas:** <focus_areas, comma-separated>
 - **Themes:** <themes>
+- **Struggling with:** <struggles as sub-bullets, or "None surfaced">
+- **Branches:**
+  - <name> — <commit_count> commits — <focus>
+- **Generation style:** <generation_style>
 - **Notable changes:**
   - <title> ([<hash>](<repo_url>/commit/<hash>))
 - **Open threads:** <open_threads, or "None">
@@ -128,8 +155,10 @@ concentrated, how the individual threads fit together.>
 ```
 
 **Guidelines:**
-- Commit hashes are clickable links: `([abc1234](<repo_url>/commit/abc1234))`, never bare text.
+- Commit hashes are clickable links: `([abc1234](<repo_url>/commit/abc1234))`, never bare text. Branch names link too where useful: `([work-…](<repo_url>/tree/work-…))`.
 - Order developers by `commit_count` descending (most active first).
+- The three time windows (yesterday+today / this week / last week) come straight from the collector's bucketed focus; render `—` for an empty window rather than omitting the line, so the shape of recent vs. older activity is visible at a glance.
+- **Generation style** is an inference — keep the "looks like…" framing; never present it as fact.
 - If a collector failed, render its section as `_Could not summarize — <N> commits, see git log._` and continue.
 - Footnote any skipped bot authors: `_Skipped automated authors: github-actions[bot] (2 commits)._`
 - Keep the report skimmable — the developer reads it, then asks questions. Do not pad.

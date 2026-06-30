@@ -1201,6 +1201,63 @@ function testCheckDeps() {
   } finally { cleanup(dir); }
 }
 
+// ---------- catch/scan-window.sh (time-buckets + per-branch axis) ----------
+// Hermetic: a repo with dated commits across two branches. Asserts the scanner
+// emits epoch bucket boundaries, tags each commit into a time-bucket, and builds
+// the per-developer branches[] axis (the --branches widening). Needs jq.
+function testScanWindowBuckets() {
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  scan-window (jq not available)"); return; }
+
+  const dir = makeRepo("main");
+  try {
+    const iso = (d) => d.toISOString().replace(/\.\d{3}Z$/, "Z");
+    const now = new Date();
+    const tenDaysAgo = new Date(now.getTime() - 10 * 86400 * 1000);
+    const longAgo = new Date(now.getTime() - 400 * 86400 * 1000);
+
+    // Push the repo's initial commit outside the scan window so only the two
+    // branch commits below are scanned (keeps the branches[] axis clean).
+    execSync(`git commit -q --amend --no-edit`, {
+      cwd: dir, env: { ...process.env, GIT_AUTHOR_DATE: iso(longAgo), GIT_COMMITTER_DATE: iso(longAgo) },
+    });
+
+    // Two independent branches off main, each with one dated commit, same author.
+    const commitOn = (branch, file, date) => {
+      execSync(`git checkout -q -B ${branch} main`, { cwd: dir });
+      writeFileSync(join(dir, file), `${file}\n`);
+      execSync(`git add ${file} && git commit -q -m "work on ${file}"`, {
+        cwd: dir, env: { ...process.env, GIT_AUTHOR_DATE: iso(date), GIT_COMMITTER_DATE: iso(date) },
+      });
+    };
+    commitOn("work-20260101-000000", "recent.txt", now);
+    commitOn("work-20260101-000001", "old.txt", tenDaysAgo);
+
+    const out = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanWindow} "2 months ago"`).stdout);
+
+    assertTrue("scan-window emits numeric bucket boundaries",
+      typeof out.buckets?.recent_start === "number" &&
+      typeof out.buckets?.week_start === "number" &&
+      typeof out.buckets?.last_week_start === "number", JSON.stringify(out.buckets));
+
+    const dev = out.developers.find((d) => d.email === "test@example.com");
+    assertTrue("scan-window grouped the test developer", !!dev, JSON.stringify(out.developers));
+    const branchNames = dev.branches.map((b) => b.name);
+    assertTrue("scan-window built the per-branch axis (both work branches present)",
+      branchNames.includes("work-20260101-000000") && branchNames.includes("work-20260101-000001"),
+      JSON.stringify(branchNames));
+
+    const recent = dev.commits.find((c) => c.branch === "work-20260101-000000");
+    const old = dev.commits.find((c) => c.branch === "work-20260101-000001");
+    assertEq("scan-window buckets a today commit as recent", recent.bucket, "recent");
+    assertTrue("scan-window buckets a 10-day-old commit as last_week/older",
+      ["last_week", "older"].includes(old.bucket), old.bucket);
+    assertTrue("scan-window attaches a positive epoch to each commit",
+      typeof recent.epoch === "number" && recent.epoch > 0, String(recent.epoch));
+  } finally { cleanup(dir); }
+}
+
 // ---------- branching/ensure-worktree.sh (branch-name self-defense) ----------
 // The script creates a branch (git worktree add -b), so it must itself reject a
 // non-canonical name before touching git — even if the PreToolUse gate is bypassed.
@@ -1339,6 +1396,7 @@ const tests = [
   ["hooks/guard-git-commit.sh", testGuardGitCommit],
   ["hooks/guard-git-branch.sh", testGuardGitBranch],
   ["check-deps/check.sh", testCheckDeps],
+  ["catch/scan-window.sh buckets+branches", testScanWindowBuckets],
   ["branching/ensure-worktree.sh", testEnsureWorktreeGuard],
   ["hooks/lib/check-subject.sh", testCheckSubject],
   ["hooks/git/commit-msg", testCommitMsgHook],

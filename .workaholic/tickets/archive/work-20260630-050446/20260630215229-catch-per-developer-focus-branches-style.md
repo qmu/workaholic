@@ -3,9 +3,9 @@ created_at: 2026-06-30T21:52:29+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: e01fea7
+category: Added
 depends_on:
 ---
 
@@ -69,3 +69,16 @@ The standard engineering policies — synced from the corporate site (qmu.co.jp)
 - Collectors are non-interactive leaves: every new field must be computable from inputs the command passes in, so new data (per-branch grouping) is collected by the scanner and handed to the collector, never fetched by the collector spawning anything. (`plugins/workaholic/skills/catch/SKILL.md`)
 - Stay POSIX `#!/bin/sh -eu` — no bashisms (`rules/shell.md`); the scanner already uses `sed`/`jq`/`case`, not bash features.
 - Widening each collector's task may pressure the haiku model; if summary quality drops, note it for a possible model bump (precedent: the haiku-collector ticket). (`plugins/workaholic/commands/catch.md`)
+
+## Final Report
+
+Development completed as planned. `scan-window.sh` now computes UTC-day time-bucket boundaries (`recent_start`/`week_start`/`last_week_start`) and tags every commit with a `bucket` (`recent`/`this_week`/`last_week`/`older`) plus its `epoch` and `branch`; the scan widened to `--branches --source` so unmerged topic branches are visible and a per-developer `branches[]` axis (name + commit_count, most-active-first) is emitted. `catch/SKILL.md` gained the six new collector dimensions (time-windowed focus, struggles from concrete signals, per-branch focus, generation-style-as-explicit-guess), the matching Collector Output keys, and the rendered Report Structure bullets.
+
+Verified: `scan-window.sh` runs clean (posix-lint conforming); a new hermetic `testScanWindowBuckets` asserts the bucket boundaries, per-commit bucket assignment, and the two-branch axis; the full suite is **238 passed / 0 failed**; `build.mjs` + `verify.mjs` green and `outputs/` rebuilt.
+
+### Discovered Insights
+
+- **Insight**: `catch` **is** bundled into `outputs/workflows` (the build log lists it, and `outputs/workflows/skills/catch/catch/scripts/scan-window.sh` exists) — so editing `catch/SKILL.md` or `scan-window.sh` **does** require an `outputs/` rebuild. The ticket's premise that catch is "Claude-only and excluded from the generated bundle" was wrong; treat the build output / `outputs/` tree as authoritative, not a prior assumption.
+  **Context**: The `Outputs Freshness` CI fails on any `outputs/` diff, so a catch change without a rebuild would fail CI. The same applies to ticket 2 (field 7), which also edits these files.
+- **Insight**: The scanner's bucket boundaries are UTC-day based (`epoch - epoch % 86400`) to stay POSIX (no `date -d` arithmetic); committer epoch comes from `%ct` and is compared in jq against `--argjson` boundaries. This is precise enough for a focus narrative but shifts day boundaries by the local-UTC offset — acceptable here, but worth knowing if exact local-midnight bucketing is ever required.
+  **Context**: `git log --source %S` attributes each commit to one branch (the ref it was walked from); a commit on multiple branches lands on whichever git walks first, so `branches[]` counts are approximate for shared commits.

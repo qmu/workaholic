@@ -157,6 +157,22 @@ Based on the history discovery subagent's `moderation` field:
 - **Keep single when**: tightly coupled, shared context, small enough for one commit.
 - If splitting: 2-4 discrete tickets, each independently implementable.
 
+### 4b. Quality Gate Interrogation (mandatory — always run)
+
+Before writing the ticket, **interrogate the developer about how the outcome's quality will be assured**, and record the answers as the ticket's mandatory `## Quality Gate` section. This step **always runs** — it is not skippable and is not gated on the request "seeming obvious." The point is to make the eventual `/drive` approval concrete: the developer should approve the implementation against a gate they pre-agreed, not a vague description.
+
+**Grill, don't tick a box.** Ask enough focused questions (one or several `AskUserQuestion` rounds, issued by the command/main agent — leaves cannot ask) to pin down a gate that is **objective and checkable**, converting vague intent ("make it robust") into verifiable criteria ("`node scripts/test-workflow-scripts.mjs` green; returns 422 on a missing email"). Cover:
+
+- **Verification method** — which automated tests, type-checks, CI checks, manual steps, or production probes will prove the outcome.
+- **Acceptance criteria** — the specific, checkable conditions that must hold for the work to be correct (each phrased as a verifiable statement, per `workaholic:implementation` / `objective-documentation`).
+- **The gate** — exactly which checks/commands must be green before the developer approves at `/drive`.
+- **Edge cases / failure modes** — what must be covered, not just the happy path.
+- **Division of assurance** — what Claude verifies during implementation vs. what the developer confirms at the approval gate.
+
+Keep asking until the gate is concrete enough to drive an approval prompt. Seed proposals from discovery's `source.test_coverage` and any existing CI checks so the questions are specific, but the developer's answers are authoritative. Prefer machine-checkable substance (tests / type-checks / CI gates) over manual sign-off (`workaholic:implementation` / `test`, `workaholic:operation` / `ci-cd`).
+
+> **Do not soften this step.** A "minimal-friction / skip if it seems obvious" escape hatch is explicitly **not** wanted here — thorough interrogation is the goal, not a cost. Issue these questions through the same `needs_clarification` channel the command relays via `AskUserQuestion`.
+
 ### 5. Write Ticket(s)
 
 Follow the rest of this skill for format and content. Apply the Policy Lens table (below) to map the ticket's `layer` field to the relevant `workaholic:` policy skill — its policies and practices govern the ticket's Implementation Steps, Considerations, and Patches.
@@ -168,6 +184,7 @@ Populate sections from the three discovery JSONs:
 - **source → Implementation Steps**: reference `code_flow`.
 - **source.snippets → Patches**: generate unified diffs from snippets. Follow the patch guidelines in this skill. Mark patches as speculative if based on interpretation rather than explicit requirements. Omit the Patches section if changes cannot be expressed as concrete diffs.
 - **policy → Policies**: write the mandatory `## Policies` section. Always list the two universal implementation policies (`directory-structure`, `coding-standards`), then add the pillar policies the ticket's `layer` selects via the Policy Lens table, plus any specific policy the policy-mode discovery surfaced. Each entry is `workaholic:<pillar>` / `policies/<slug>.md` followed by one line on why it applies. This is the recorded list `/drive` and `/trip` read before implementing — never leave it empty for a code-touching ticket.
+- **interrogation → Quality Gate**: write the mandatory `## Quality Gate` section from the Step 4b interrogation answers (unlike the other sections, this content is **developer-elicited**, not discovery-fed). Structure it as **Acceptance Criteria** (checkable bullets), **Verification Method** (the commands/tests/probes that prove them), and **Gate** (what must pass before approval). Keep every line objective and verifiable. This is the recorded gate `/drive` surfaces in its approval prompt and forwards into the commit `Verify:` key — never leave it empty.
 - **policy → Considerations**: reference relevant `policies` that the implementation must follow; note `architecture.principles` and `architecture.dependency_rules` that constrain the design.
 
 **If splitting**:
@@ -228,7 +245,7 @@ Or if decision needed:
 }
 ```
 
-Or if clarification needed:
+Or if clarification needed — this is also the channel for the **mandatory Quality Gate interrogation** (Workflow Step 4b): return the QA questions here so the command relays them via `AskUserQuestion`, then incorporate the answers into the `## Quality Gate` section:
 
 ```json
 {
@@ -287,6 +304,22 @@ Past tickets that touched similar areas:
 1. <Step 1>
 2. <Step 2>
    ...
+
+## Quality Gate
+
+How the outcome's quality is assured, captured from the developer at ticket time (Workflow Step 4b). `/drive` surfaces this in its approval prompt and forwards it into the commit `Verify:` key, so the approval is concrete: the implementation is approved against a pre-agreed, checkable gate. **Mandatory and never empty** for a code-touching ticket; every line must be objective and verifiable (`workaholic:implementation` / `objective-documentation`).
+
+**Acceptance criteria** — the checkable conditions that must hold:
+
+- <e.g. `git branch | grep` exits 0 (allow); `git branch foo` exits 2 (block)>
+
+**Verification method** — the commands/tests/probes that prove them:
+
+- <e.g. `node scripts/test-workflow-scripts.mjs` is green; the new assertions cover the criteria>
+
+**Gate** — what must pass before approval:
+
+- <e.g. the suite is green, posix-lint conforming, and the change verified live in-session>
 
 ## Patches
 

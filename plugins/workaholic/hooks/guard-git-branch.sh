@@ -76,6 +76,22 @@ for tok in "$@"; do
     continue
   fi
 
+  # A shell command separator, pipe, or redirection ends the current git
+  # invocation. Reset parsing so a later `git ...` segment in the pipeline or
+  # chain is still inspected on its own, and so a read/list form like
+  # `git branch | grep x` is not mistaken for a bare-name create. Resetting
+  # (not allowing outright) keeps a chained violation such as
+  # `git branch ; git checkout -b bad` blocked. A creation name can never be one
+  # of these operators, so this never lets a real off-pattern name through.
+  case "$tok" in
+    '|'|'||'|'&'|'&&'|';'|';;'|'>'*|'<'*)
+      gitseen=0
+      subcmd=""
+      wantname=0
+      continue
+      ;;
+  esac
+
   # A creation flag was seen; the next non-flag token is the new branch name.
   if [ "$wantname" = 1 ]; then
     case "$tok" in

@@ -34,13 +34,14 @@ Before judging development direction, load the project's engineering policies as
    bash catch/scripts/scan-window.sh "<window>"
    ```
 
-   It returns `{ window, buckets, developers[], tickets[], stories[] }`:
+   It returns `{ window, buckets, developers[], tickets[], stories[], deployments[] }`:
    - `buckets` — the epoch boundaries the scanner used to time-bucket commits: `recent_start` (start of yesterday — the yesterday+today window), `week_start` (Monday 00:00 of the current week), `last_week_start` (Monday 00:00 of the previous week).
    - `developers[]` — each active author in the window: `name`, `email`, `commit_count`, `commits[]`, and `branches[]`. `email` is the **join key** for the by-developer axis.
      - each commit carries `hash`, `subject`, `timestamp` (ISO), `epoch` (committer epoch), `branch` (the branch it was reached from), and `bucket` — one of `recent` (yesterday+today), `this_week` (this calendar week but before yesterday), `last_week` (the previous calendar week), or `older`.
      - `branches[]` — the developer's branches active in the window, each with `name` and `commit_count`, most active first. (The scan uses `--branches`, so unmerged topic branches are included.)
    - `tickets[]` — every ticket under `todo`/`archive`/`icebox` with its frontmatter `author`, `title`, and `scope`. Group these by `author` to match each developer's commits.
    - `stories[]` — branch-story file paths under `.workaholic/stories/`, the narrative record of completed branches.
+   - `deployments[]` — **this week's** deployments/releases, one per branch story carrying a `## Deployment Evidence` block (written by `/ship`): `branch`, `author` (git author of the ship commit — the join key, since stories/release-notes carry no author), `timestamp` (the evidence `When:`), `release_title` (the matching `release-notes/<branch>.md` H1, or the story H1), `status` (`pass`/`fail`/`bypassed`), and `confirmation` (the evidence `Observed:` line — empty when none was recorded). Filtered to the current calendar week.
 3. Run `bash gather/scripts/git-context.sh` to get `repo_url` (used to render commit links) and `branch`.
 4. **Empty window**: if `developers[]` is empty, print "No commits in the last `<window>`." and suggest a wider window (e.g. `/catch 1 month`). Stop — there is nothing to summarize.
 
@@ -51,6 +52,7 @@ Spawn **one parallel workers per developer** in `developers[]`, in a **single me
 - the developer's `name`, `email`, `commits[]`, and `branches[]` (from `developers[]`);
 - the `buckets` boundaries (so the collector knows what each commit's `bucket` means);
 - the subset of `tickets[]` whose `author` equals this developer's `email`;
+- the subset of `deployments[]` whose `author` equals this developer's `email`;
 - the `stories[]` list and `repo_url` (so it can read stories and link commits).
 
 Bots are developers too only if relevant — by default **skip authors whose email contains `[bot]`** (e.g. `github-actions[bot]`) unless the user asked to include automation. Note any skipped bot authors in the final report's footnote.
@@ -88,6 +90,7 @@ Run by a Phase 1 collector (a parallel workers that preloads this skill), once p
 6. **Struggles** — what they're wrestling with, drawn **only** from concrete signals: `Concerns:` keys in their commit bodies, their open `todo`/`icebox` tickets, and matching story `## 6. Concerns` blocks. Each item should be traceable to its source; return `[]` if there is no real signal (do not invent difficulty).
 7. **Per-branch focus** — for each entry in the developer's `branches[]`, write a one-line `focus` derived from the subjects of that branch's commits. Carry through `name` and `commit_count` from the input.
 8. **Generation style** — an explicit **guess** at how the work was produced, inferred from the commit `timestamp`/`epoch` shape: commits spread across daytime hours over several days ⇒ "daytime ticket-driving"; a dense cluster of commits in one overnight run on a single branch ⇒ "overnight long-running drive"; a mix ⇒ describe both. Phrase it as an inference ("looks like…"), never as asserted fact.
+9. **Deployments / releases this week** — from the developer's `deployments[]` (already filtered to this week and to this developer by `author`), build one entry per deployment: `timestamp`, `release_title`, `status`, and `confirmation`. For any entry whose `confirmation` is empty (a ship that recorded no production confirmation), and when the developer has shipped this week but `deployments[]` is empty for them, set `deployments_fallback` to the guidance that the confirmation could not be referenced and `/ship` can capture it going forward (it deploys and confirms in production before merge). Render `status: bypassed`/`fail` distinctly — never as a confirmed deployment. Do **not** fabricate a confirmation that was not recorded (`operation` / `ci-cd`).
 
 Keep it factual and verifiable — name files, hashes, and tickets; avoid evaluative adjectives ("elegant", "powerful"). Do not invent activity not present in the inputs. The generation-style guess is the one inference allowed, and it must be labelled as a guess (`implementation` / `objective-documentation`).
 
@@ -109,12 +112,18 @@ Keep it factual and verifiable — name files, hashes, and tickets; avoid evalua
     { "name": "work-20260630-050446", "commit_count": 6, "focus": "guard + check-deps + catch tickets" }
   ],
   "generation_style": "Looks like daytime ticket-driving — commits spread across working hours over several days, one branch.",
+  "deployments": [
+    { "timestamp": "2026-07-01T10:00:00+09:00", "release_title": "Ship gate confirms before merge", "status": "pass", "confirmation": "homepage shows v1.0.69" }
+  ],
+  "deployments_fallback": "",
   "notable_changes": [
     { "title": "Ship gate now confirms in production before merge", "hash": "abc1234" }
   ],
   "open_threads": ["carried concern: outputs/ freshness drift if build skipped"]
 }
 ```
+
+`deployments_fallback` is a non-empty string only when this developer shipped this week but no referenceable confirmation exists (empty otherwise) — it carries the "`/ship` can capture it going forward" guidance.
 
 If a developer's window is thin (a few commits, no tickets), return a short `headline`, empty strings/arrays for the windowed fields, and the real `branches`/`generation_style` rather than padding — the report shows the real shape of the work.
 
@@ -147,6 +156,9 @@ concentrated, how the individual threads fit together.>
 - **Branches:**
   - <name> — <commit_count> commits — <focus>
 - **Generation style:** <generation_style>
+- **Deployments / releases this week:**
+  - <timestamp> — <release_title> — <status> — "<confirmation>"
+  - _<deployments_fallback, when set>_
 - **Notable changes:**
   - <title> ([<hash>](<repo_url>/commit/<hash>))
 - **Open threads:** <open_threads, or "None">
@@ -159,6 +171,7 @@ concentrated, how the individual threads fit together.>
 - Order developers by `commit_count` descending (most active first).
 - The three time windows (yesterday+today / this week / last week) come straight from the collector's bucketed focus; render `—` for an empty window rather than omitting the line, so the shape of recent vs. older activity is visible at a glance.
 - **Generation style** is an inference — keep the "looks like…" framing; never present it as fact.
+- **Deployments / releases:** render `pass` plainly, but mark `bypassed` (accepted-risk merge, production unverified) and `fail` distinctly — never collapse them into "confirmed". When `deployments_fallback` is set, render it as the italic fallback line instead of (or below) the list, so the developer sees that `/ship` can capture the missing confirmation. Omit the whole subsection only when the developer made no deployments this week and has no fallback.
 - If a collector failed, render its section as `_Could not summarize — <N> commits, see git log._` and continue.
 - Footnote any skipped bot authors: `_Skipped automated authors: github-actions[bot] (2 commits)._`
 - Keep the report skimmable — the developer reads it, then asks questions. Do not pad.

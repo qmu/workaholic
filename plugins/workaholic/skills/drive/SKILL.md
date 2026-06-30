@@ -362,6 +362,7 @@ Step-by-step workflow for implementing a single ticket during `/drive`. This ski
 - Identify key files mentioned in the ticket
 - Understand the implementation steps outlined
 - **Read the ticket's `## Policies` section.** It is the recorded list of standard engineering policies (synced from qmu.co.jp) this ticket answers to. Note every `workaholic:<pillar>` / `policies/<slug>.md` entry — Step 3 opens each one before writing code.
+- **Read the ticket's `## Quality Gate` section** (if present). It is the developer-agreed acceptance criteria, verification method, and the gate that must pass before approval — captured at `/ticket` time. Implement *to* this gate, and run its verification before requesting approval. Carry its acceptance criteria into the Step 4 return so the approval prompt can state them, and into the archive `<verify>` arg so the commit `Verify:` key records what cleared the gate.
 
 #### 2. Apply Patches (if present)
 
@@ -397,6 +398,7 @@ After implementation is complete, return a summary to the parent command:
   "title": "<Title from H1>",
   "overview": "<Summary from Overview section>",
   "changes": ["<Change 1>", "<Change 2>", "..."],
+  "quality_gate": "<acceptance criteria + what passed, from the ticket's ## Quality Gate, with the verification you ran against it — omit if the ticket has no Quality Gate>",
   "repo_url": "<repository URL>"
 }
 ```
@@ -466,10 +468,12 @@ Implementation complete. Changes made:
 
 **CRITICAL**: The `header` and `question` fields below are templates that MUST be replaced with actual values before presenting to the user. Use `title` and `overview` from the workflow result JSON. If those values are not available in context, re-read the ticket file to obtain the H1 title and Overview section. Presenting an approval prompt with missing, empty, or literal angle-bracket placeholder values is a failure condition -- the user cannot make an informed decision without knowing what ticket was implemented.
 
+**Surface the quality gate.** If the ticket has a `## Quality Gate` (and the Step 4 result carries `quality_gate`), include the agreed acceptance criteria and what you verified against them in the question body, so the developer approves against the concrete, pre-agreed gate rather than a vague summary. This is the payoff of the `/ticket`-time interrogation — never drop it from the prompt when it exists.
+
 ```json
 {
   "questions": [{
-    "question": "<overview from ticket Overview section>\n\nApprove this implementation?",
+    "question": "<overview from ticket Overview section>\n\nQuality gate: <acceptance criteria from the ticket's ## Quality Gate, and what you verified against them>\n\nApprove this implementation?",
     "header": "<title from ticket H1>",
     "options": [
       {"label": "Approve", "description": "Commit and archive this ticket, continue to next"},

@@ -25,26 +25,55 @@ set -eu
 
 WINDOW="${1:-2 weeks ago}"
 
+# --- Time-bucket boundaries (epoch seconds) ---------------------------------
+# Each commit is tagged into a bucket so collectors can summarize a developer's
+# yesterday+today / this-week / last-week focus without doing date math in the LLM.
+# Boundaries are UTC-day based (today midnight = epoch - epoch % 86400), precise
+# enough for a focus narrative and avoiding non-POSIX `date -d` arithmetic.
+NOW=$(date +%s)
+DOW=$(date +%u)                              # 1=Mon .. 7=Sun
+TODAY0=$(( NOW - NOW % 86400 ))              # today 00:00 UTC
+RECENT_START=$(( TODAY0 - 86400 ))           # yesterday 00:00 (yesterday+today)
+WEEK_START=$(( TODAY0 - (DOW - 1) * 86400 )) # Monday 00:00 of the current week
+LAST_WEEK_START=$(( WEEK_START - 604800 ))   # Monday 00:00 of the previous week
+
 # --- Developers + their commits in the window -------------------------------
 # git emits %x1f/%x1e as literal 0x1f/0x1e bytes; jq splits on the same code points.
+# --branches --source widens the scan beyond HEAD-reachable history so unmerged
+# topic branches are visible, and each commit carries the branch (%S) it was reached
+# from; %ct (committer epoch) drives the bucket assignment. The window (--since)
+# still bounds it, so only branches with recent commits appear.
 DEVELOPERS=$(
-  git log --since="$WINDOW" --reverse --no-merges \
-    --format='%h%x1f%an%x1f%ae%x1f%s%x1f%cI%x1f%b%x1e' 2>/dev/null \
-  | jq -Rs '
+  git log --since="$WINDOW" --reverse --no-merges --branches --source \
+    --format='%h%x1f%an%x1f%ae%x1f%s%x1f%cI%x1f%ct%x1f%S%x1f%b%x1e' 2>/dev/null \
+  | jq -Rs \
+      --argjson recent_start "$RECENT_START" \
+      --argjson week_start "$WEEK_START" \
+      --argjson last_week_start "$LAST_WEEK_START" '
       split("")
       | map(select((gsub("\\s"; "") | length) > 0))
       | map(ltrimstr("\n") | split(""))
       | map({
           hash: .[0], name: .[1], email: .[2],
           subject: .[3], timestamp: .[4],
-          body: ((.[5] // "") | sub("\n+$"; ""))
+          epoch: (.[5] | tonumber),
+          branch: ((.[6] // "") | sub("^refs/heads/"; "")),
+          body: ((.[7] // "") | sub("\n+$"; "")),
+          bucket: ((.[5] | tonumber) as $e
+            | if   $e >= $recent_start    then "recent"
+              elif $e >= $week_start      then "this_week"
+              elif $e >= $last_week_start then "last_week"
+              else "older" end)
         })
       | group_by(.email)
       | map({
           name: .[0].name,
           email: .[0].email,
           commit_count: length,
-          commits: map({hash, subject, timestamp, body})
+          commits: map({hash, subject, timestamp, epoch, bucket, branch}),
+          branches: (group_by(.branch)
+            | map({name: .[0].branch, commit_count: length})
+            | sort_by(.commit_count) | reverse)
         })'
 )
 [ -n "$DEVELOPERS" ] || DEVELOPERS='[]'
@@ -100,6 +129,11 @@ WINDOW_JSON=$(printf '%s' "$WINDOW" | jq -Rs .)
 cat <<EOF
 {
   "window": ${WINDOW_JSON},
+  "buckets": {
+    "recent_start": ${RECENT_START},
+    "week_start": ${WEEK_START},
+    "last_week_start": ${LAST_WEEK_START}
+  },
   "developers": ${DEVELOPERS},
   "tickets": ${TICKETS},
   "stories": ${STORIES}

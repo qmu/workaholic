@@ -3,9 +3,9 @@ created_at: 2026-06-30T21:58:36+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 414f20e
+category: Added
 depends_on:
 ---
 
@@ -69,3 +69,20 @@ The mandatory-recorded-section pattern and the downstream approval/verify surfac
 - Cross-agent: `AskUserQuestion` is a Claude-Code enhancement; on other agents the same interrogation degrades to the native prompt / plain chat — the skill prose must not hard-depend on `AskUserQuestion`. (`plugins/workaholic/skills/create-ticket/SKILL.md`)
 - Editing `create-ticket`/`drive` SKILL.md requires an `outputs/` rebuild; keep the source's `${CLAUDE_PLUGIN_ROOT}` / `metadata.internal` markers intact so the generated bundle stays self-contained. (`outputs/workflows/skills/`)
 - `/trip`'s decomposition emits tickets too; the new mandatory section should be authored by the trip Constructor as well, so trip-emitted tickets also carry a quality gate. (`plugins/workaholic/skills/trip-protocol/SKILL.md`)
+
+## Final Report
+
+Development completed as planned. The quality gate now threads end to end:
+
+- `create-ticket/SKILL.md` gained a mandatory **Step 4b "Quality Gate Interrogation"** (always runs; explicitly non-softenable), Step 5 populates the section from the answers, the File Structure template carries a mandatory **`## Quality Gate`** (Acceptance Criteria / Verification Method / Gate), and the `needs_clarification` Output Contract channel is documented as the QA-question relay.
+- `commands/ticket.md` issues the interrogation `AskUserQuestion`(s) at command level (where user interaction must live).
+- `drive/SKILL.md` reads `## Quality Gate` in Workflow Step 1, returns `quality_gate` in Step 4, **injects the acceptance criteria into the approval prompt**, and forwards it into the archive `<verify>` arg → commit `Verify:` key.
+
+Per the Considerations decision, the section is **prose-mandated like `## Policies`** (no `validate-ticket.sh` change), so no hook/test addition was needed. The developer's "grill, don't soften" directive is enforced in the prose: the SKILL and command both forbid a "skip if obvious" escape hatch and do not cite `modeless-design` as a softener.
+
+Verified: `build.mjs` + `verify.mjs` ("all built skills self-contained") + `validate-metadata.mjs` green; `outputs/` rebuilt (create-ticket and drive are bundled); full suite **240 passed / 0 failed**.
+
+### Discovered Insights
+
+- **Insight**: The `## Quality Gate` is the first ticket section that is **developer-elicited** rather than discovery-fed — so unlike Policies/Key Files/Related History (populated from the three discovery JSONs), its content must be threaded from the Step 4b `AskUserQuestion` answers into the Step 5 write. Any future "populate from discovery" automation must special-case it.
+  **Context**: This mirrors the `## Policies` rollout (a recorded section consumed verbatim by `/drive`/`/trip`), but Policies is derivable from the policy-discovery JSON whereas the gate only exists once the developer is interrogated.

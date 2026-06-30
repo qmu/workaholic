@@ -3,9 +3,9 @@ created_at: 2026-06-30T21:52:30+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 95fae57
+category: Added
 depends_on: [20260630215229-catch-per-developer-focus-branches-style.md]
 ---
 
@@ -71,3 +71,16 @@ The deployment-evidence and release-note machinery this section reads was built 
 - Prefer the offline/portable sources (story evidence + release-note files) over `gh release list` so `/catch` works without network/GitHub; treat `gh` as an optional cross-check, not a dependency. (`plugins/workaholic/skills/catch/scripts/scan-window.sh`)
 - Depends on the activity-dimensions ticket: both edit the Collector Output schema and Report Structure in `catch/SKILL.md`; implement that first to avoid a conflicting schema. (`.workaholic/tickets/todo/a-qmu-jp/20260630215229-catch-per-developer-focus-branches-style.md`)
 - Stay POSIX `#!/bin/sh -eu` — no bashisms (`rules/shell.md`).
+
+## Final Report
+
+Development completed as planned. `scan-window.sh` gained a `deployments[]` axis: for each branch story carrying a `## Deployment Evidence` block (and committed this week), it captures `When`→`timestamp`, `Status`, and `Observed`→`confirmation`, joins the `release-notes/<branch>.md` H1 as `release_title`, and attributes the deployment to the git author of the ship commit (`git log -1 --format=%ae` on the story), keyed by branch and filtered to `WEEK_START`. `catch/SKILL.md` gained the collector inputs, Collect Developer step 9 (with the empty-confirmation / no-deployment `/ship` fallback), the `deployments` + `deployments_fallback` Collector Output keys, and the rendered "Deployments / releases this week" subsection (rendering `pass`/`bypassed`/`fail` distinctly).
+
+Verified: posix-lint conforming; a synthetic story + release-note parses to the exact expected `deployments[]` entry; new test assertions (one this-week deployment + field correctness) pass; full suite **240 passed / 0 failed**; `build.mjs` + `verify.mjs` green; `outputs/` rebuilt.
+
+### Discovered Insights
+
+- **Insight**: The whole `scan-window.sh` was rewritten so every `jq split()` uses the separator code points written as `\uXXXX` escapes in the Write call (the JSON tool layer materializes them as the literal `0x1f`/`0x1e` bytes git/`printf` emit). This removed the previous hazard where the separator bytes were invisible in the editor and impossible to match in a targeted Edit — future edits to this script are now safe.
+  **Context**: git `%x1f`/`%x1e` and shell `printf '\037'/'\036'` produce the literal separator bytes; jq's `split("")` matches the same codepoint, so the escape form and the literal-byte form are behaviorally identical.
+- **Insight**: Deployment/release attribution has no author field in stories or release-notes; the only reliable signal is the git author of the ship commit that last touched the story. A branch authored by one developer but shipped by another attributes to the shipper — acceptable, but worth knowing when reading the report.
+  **Context**: `record-evidence.sh` and `commit-release-note.sh` write these artifacts at ship time, so the story's last-touching commit is the ship.

@@ -1255,6 +1255,25 @@ function testScanWindowBuckets() {
       ["last_week", "older"].includes(old.bucket), old.bucket);
     assertTrue("scan-window attaches a positive epoch to each commit",
       typeof recent.epoch === "number" && recent.epoch > 0, String(recent.epoch));
+
+    // This-week deployments: a branch story with a ## Deployment Evidence block
+    // plus a matching release-note, committed now (this week) -> one deployment.
+    execSync(`git checkout -q main`, { cwd: dir });
+    mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
+    mkdirSync(join(dir, ".workaholic/release-notes"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/stories/work-ship.md"),
+      "---\nbranch: work-ship\n---\n# Story\n\n## Deployment Evidence\n\n" +
+      "- **When:** 2026-07-01T10:00:00+09:00\n- **Target:** Prod\n- **Method:** browser\n" +
+      "- **Status:** pass\n- **Observed:** homepage shows v1.2.3\n");
+    writeFileSync(join(dir, ".workaholic/release-notes/work-ship.md"), "# Release v1.2.3\n\nSummary.\n");
+    execSync(`git add -A && git commit -q -m "ship work-ship"`, { cwd: dir });
+
+    const out2 = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanWindow} "2 months ago"`).stdout);
+    assertEq("scan-window emits one this-week deployment", out2.deployments.length, 1);
+    const dep = out2.deployments[0];
+    assertEq("scan-window deployment fields (branch/title/status/confirmation)",
+      { b: dep.branch, t: dep.release_title, s: dep.status, c: dep.confirmation, a: dep.author },
+      { b: "work-ship", t: "Release v1.2.3", s: "pass", c: "homepage shows v1.2.3", a: "test@example.com" });
   } finally { cleanup(dir); }
 }
 

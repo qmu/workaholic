@@ -43,6 +43,7 @@ const SCRIPTS = {
   scanWindow: join(REPO_ROOT, "plugins/workaholic/skills/catch/scripts/scan-window.sh"),
   guardGitCommit: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-commit.sh"),
   guardGitBranch: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-branch.sh"),
+  checkDeps: join(REPO_ROOT, "plugins/workaholic/skills/check-deps/scripts/check.sh"),
   ensureWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/ensure-worktree.sh"),
   checkSubject: join(REPO_ROOT, "plugins/workaholic/hooks/lib/check-subject.sh"),
   commitMsgHook: join(REPO_ROOT, "plugins/workaholic/hooks/git/commit-msg"),
@@ -1150,6 +1151,56 @@ function testGuardGitBranch() {
   assertEq("guard-branch allows work-* create after &&", invoke(`git fetch && git checkout -b ${OK}`).status, 0);
 }
 
+// ---------- check-deps/check.sh (dependency guard + stale-install diagnostics) ----------
+// The pre-check is trivially ok (single-plugin layout), but it also surfaces the
+// loaded version and asserts the three PreToolUse Bash guards are registered, so a
+// stale/partial install is visible instead of looking like a broken hook. It locates
+// the plugin root relative to its own path and degrades to {ok:true} when no manifest
+// is found (the cross-agent bundle), so source and bundle copies stay identical.
+function testCheckDeps() {
+  // Always-true contract: ok is true regardless of jq/manifest presence.
+  const real = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkDeps}`).stdout);
+  assertEq("check-deps ok in the real plugin tree", real.ok, true);
+
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  check-deps diagnostics (jq not available)"); return; }
+
+  // With jq + the real manifest/hooks: reports the version and all guards present.
+  assertTrue("check-deps surfaces a semver version",
+    typeof real.version === "string" && /^\d+\.\d+\.\d+$/.test(real.version), JSON.stringify(real));
+  assertEq("check-deps reports all guards present in source",
+    { g: real.guards_present, m: real.missing_guards }, { g: true, m: [] });
+
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-checkdeps-"));
+  try {
+    // Fabricate a plugin root whose hooks.json is missing one guard -> flagged.
+    const scriptsDir = join(dir, "skills/check-deps/scripts");
+    mkdirSync(scriptsDir, { recursive: true });
+    mkdirSync(join(dir, ".claude-plugin"), { recursive: true });
+    mkdirSync(join(dir, "hooks"), { recursive: true });
+    writeFileSync(join(scriptsDir, "check.sh"), readFileSync(SCRIPTS.checkDeps, "utf8"));
+    writeFileSync(join(dir, ".claude-plugin/plugin.json"), JSON.stringify({ name: "workaholic", version: "9.9.9" }));
+    writeFileSync(join(dir, "hooks/hooks.json"), JSON.stringify({
+      hooks: { PreToolUse: [{ matcher: "Bash", hooks: [
+        { type: "command", command: "${CLAUDE_PLUGIN_ROOT}/hooks/guard-ticket-structure.sh" },
+        { type: "command", command: "${CLAUDE_PLUGIN_ROOT}/hooks/guard-git-commit.sh" },
+      ] }] },
+    }));
+    const stale = JSON.parse(run(dir, `${POSIX_SH} ${join(scriptsDir, "check.sh")}`).stdout);
+    assertEq("check-deps surfaces stale version + missing guard",
+      { v: stale.version, g: stale.guards_present, m: stale.missing_guards },
+      { v: "9.9.9", g: false, m: ["guard-git-branch.sh"] });
+
+    // No manifest (the cross-agent bundle) -> degrades to {ok:true} only.
+    const bare = join(dir, "bare/skills/check-deps/scripts");
+    mkdirSync(bare, { recursive: true });
+    writeFileSync(join(bare, "check.sh"), readFileSync(SCRIPTS.checkDeps, "utf8"));
+    assertEq("check-deps degrades to ok-only without a manifest",
+      JSON.parse(run(dir, `${POSIX_SH} ${join(bare, "check.sh")}`).stdout), { ok: true });
+  } finally { cleanup(dir); }
+}
+
 // ---------- branching/ensure-worktree.sh (branch-name self-defense) ----------
 // The script creates a branch (git worktree add -b), so it must itself reject a
 // non-canonical name before touching git — even if the PreToolUse gate is bypassed.
@@ -1287,6 +1338,7 @@ const tests = [
   ["catch/scan-window.sh", testScanWindow],
   ["hooks/guard-git-commit.sh", testGuardGitCommit],
   ["hooks/guard-git-branch.sh", testGuardGitBranch],
+  ["check-deps/check.sh", testCheckDeps],
   ["branching/ensure-worktree.sh", testEnsureWorktreeGuard],
   ["hooks/lib/check-subject.sh", testCheckSubject],
   ["hooks/git/commit-msg", testCommitMsgHook],

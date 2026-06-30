@@ -3,9 +3,9 @@ created_at: 2026-06-30T09:52:33+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 19c4b35
+category: Changed
 depends_on:
 ---
 
@@ -55,3 +55,23 @@ Direct successor of the branch-guard activation investigation, which closed as a
 - Output is parsed by the command pre-checks for the `ok` field; add fields additively and keep `ok` semantics so `/ticket` and `/drive` pre-checks don't break. (`plugins/workaholic/commands/ticket.md`, `plugins/workaholic/commands/drive.md`)
 - Stay POSIX `#!/bin/sh -eu` — no bashisms (`rules/shell.md`); `jq` is already the hooks' external dependency, so reusing it is fine.
 - This is intentionally non-blocking diagnostics, not a hard gate: a partial install should be *visible*, not a flow-breaker. (`plugins/workaholic/skills/check-deps/scripts/check.sh`)
+
+## Final Report
+
+Development completed as planned, with one deliberate refinement to the approach: the script locates the plugin root **relative to its own path** (three parent hops) rather than via the plugin-root path expansion. This keeps the source and the generated bundle copy byte-identical, so the build copies it verbatim and there is nothing for the build's self-containment rewrite to touch.
+
+`check-deps/scripts/check.sh` now emits, additively, `version`, `guards_present`, and `missing_guards` when it can locate the manifest/hooks (Claude Code, running from the plugin tree), and degrades to `{"ok": true}` otherwise (the cross-agent bundle, where hooks do not exist, or when `jq` is absent). `ok` semantics are unchanged. The `check-deps` SKILL.md documents the fields and an **Activation probe** subsection; the `/drive` SKILL.md and `/ticket` command pre-checks surface `version` and warn (non-blocking) on a non-empty `missing_guards`.
+
+Verified:
+
+- Real plugin tree → `{"ok": true, "version": "1.0.68", "guards_present": true, "missing_guards": []}`.
+- Fabricated root with a guard removed from `hooks.json` → `guards_present: false`, `missing_guards: ["guard-git-branch.sh"]`.
+- No manifest (bundle) → `{"ok": true}`.
+- 232/232 smoke tests pass (5 new `check-deps` assertions); `posix-lint` conforming; `build.mjs` + `verify.mjs` ("all built skills self-contained") + `validate-metadata.mjs` green; `outputs/` rebuilt and the bundled `check.sh` is byte-identical to source (`cmp` exit 0).
+
+### Discovered Insights
+
+- **Insight**: The build's self-containment verifier scans script **comment text**, not just executable lines: a literal `${CLAUDE_PLUGIN_ROOT}` token and even a literal `skills/<x>/scripts/` path inside a comment are both flagged (the former as an unresolved reference, the latter as a non-build-detectable cross-skill ref). A bundled script must keep such path/token forms out of its comments entirely.
+  **Context**: `scripts/build-plugins/verify.mjs` greps the raw file bytes for these patterns to prove the generated bundle is self-contained, so prose explaining *why* a path form is avoided must paraphrase rather than quote it.
+- **Insight**: A script that needs the plugin root but must stay identical between source and the generated bundle should derive the root from `$0`/`dirname` (its own location), not from the plugin-root path expansion — the latter is rewritten by the build and diverges between trees.
+  **Context**: `check.sh` is copied into the `drive` skill's `outputs/` closure; deriving the root from its own path is what lets the same bytes work in both the plugin tree and the bundle (degrading cleanly in the bundle, where no manifest exists).

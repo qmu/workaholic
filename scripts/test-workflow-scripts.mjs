@@ -43,6 +43,7 @@ const SCRIPTS = {
   scanWindow: join(REPO_ROOT, "plugins/workaholic/skills/catch/scripts/scan-window.sh"),
   guardGitCommit: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-commit.sh"),
   guardGitBranch: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-branch.sh"),
+  checkDeps: join(REPO_ROOT, "plugins/workaholic/skills/check-deps/scripts/check.sh"),
   ensureWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/ensure-worktree.sh"),
   checkSubject: join(REPO_ROOT, "plugins/workaholic/hooks/lib/check-subject.sh"),
   commitMsgHook: join(REPO_ROOT, "plugins/workaholic/hooks/git/commit-msg"),
@@ -1137,6 +1138,143 @@ function testGuardGitBranch() {
   assertEq("guard-branch allows git -c k=v commit (not a branch)", invoke(`git -c user.email=x commit -m "Add y"`).status, 0);
   assertEq("guard-branch ignores git status", invoke(`git status`).status, 0);
   assertEq("guard-branch ignores create.sh invocation", invoke(`sh \${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh`).status, 0);
+
+  // A piped/redirected read-or-list form is NOT a create: the operator ends the
+  // git invocation, so the pipe is never mistaken for a bare branch name.
+  assertEq("guard-branch allows bare git branch (list)", invoke(`git branch`).status, 0);
+  assertEq("guard-branch allows git branch | grep (piped list)", invoke(`git branch | grep work`).status, 0);
+  assertEq("guard-branch allows git branch > file (redirect)", invoke(`git branch > /tmp/b.txt`).status, 0);
+  // ...but a real create chained after a separator is still inspected and blocked.
+  assertEq("guard-branch blocks create chained after ;", invoke(`git branch ; git checkout -b bad-name`).status, 2);
+  assertEq("guard-branch blocks create chained after &&", invoke(`git status && git switch -c nope`).status, 2);
+  // A conformant create chained after a separator still passes.
+  assertEq("guard-branch allows work-* create after &&", invoke(`git fetch && git checkout -b ${OK}`).status, 0);
+}
+
+// ---------- check-deps/check.sh (dependency guard + stale-install diagnostics) ----------
+// The pre-check is trivially ok (single-plugin layout), but it also surfaces the
+// loaded version and asserts the three PreToolUse Bash guards are registered, so a
+// stale/partial install is visible instead of looking like a broken hook. It locates
+// the plugin root relative to its own path and degrades to {ok:true} when no manifest
+// is found (the cross-agent bundle), so source and bundle copies stay identical.
+function testCheckDeps() {
+  // Always-true contract: ok is true regardless of jq/manifest presence.
+  const real = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkDeps}`).stdout);
+  assertEq("check-deps ok in the real plugin tree", real.ok, true);
+
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  check-deps diagnostics (jq not available)"); return; }
+
+  // With jq + the real manifest/hooks: reports the version and all guards present.
+  assertTrue("check-deps surfaces a semver version",
+    typeof real.version === "string" && /^\d+\.\d+\.\d+$/.test(real.version), JSON.stringify(real));
+  assertEq("check-deps reports all guards present in source",
+    { g: real.guards_present, m: real.missing_guards }, { g: true, m: [] });
+
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-checkdeps-"));
+  try {
+    // Fabricate a plugin root whose hooks.json is missing one guard -> flagged.
+    const scriptsDir = join(dir, "skills/check-deps/scripts");
+    mkdirSync(scriptsDir, { recursive: true });
+    mkdirSync(join(dir, ".claude-plugin"), { recursive: true });
+    mkdirSync(join(dir, "hooks"), { recursive: true });
+    writeFileSync(join(scriptsDir, "check.sh"), readFileSync(SCRIPTS.checkDeps, "utf8"));
+    writeFileSync(join(dir, ".claude-plugin/plugin.json"), JSON.stringify({ name: "workaholic", version: "9.9.9" }));
+    writeFileSync(join(dir, "hooks/hooks.json"), JSON.stringify({
+      hooks: { PreToolUse: [{ matcher: "Bash", hooks: [
+        { type: "command", command: "${CLAUDE_PLUGIN_ROOT}/hooks/guard-ticket-structure.sh" },
+        { type: "command", command: "${CLAUDE_PLUGIN_ROOT}/hooks/guard-git-commit.sh" },
+      ] }] },
+    }));
+    const stale = JSON.parse(run(dir, `${POSIX_SH} ${join(scriptsDir, "check.sh")}`).stdout);
+    assertEq("check-deps surfaces stale version + missing guard",
+      { v: stale.version, g: stale.guards_present, m: stale.missing_guards },
+      { v: "9.9.9", g: false, m: ["guard-git-branch.sh"] });
+
+    // No manifest (the cross-agent bundle) -> degrades to {ok:true} only.
+    const bare = join(dir, "bare/skills/check-deps/scripts");
+    mkdirSync(bare, { recursive: true });
+    writeFileSync(join(bare, "check.sh"), readFileSync(SCRIPTS.checkDeps, "utf8"));
+    assertEq("check-deps degrades to ok-only without a manifest",
+      JSON.parse(run(dir, `${POSIX_SH} ${join(bare, "check.sh")}`).stdout), { ok: true });
+  } finally { cleanup(dir); }
+}
+
+// ---------- catch/scan-window.sh (time-buckets + per-branch axis) ----------
+// Hermetic: a repo with dated commits across two branches. Asserts the scanner
+// emits epoch bucket boundaries, tags each commit into a time-bucket, and builds
+// the per-developer branches[] axis (the --branches widening). Needs jq.
+function testScanWindowBuckets() {
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  scan-window (jq not available)"); return; }
+
+  const dir = makeRepo("main");
+  try {
+    const iso = (d) => d.toISOString().replace(/\.\d{3}Z$/, "Z");
+    const now = new Date();
+    const tenDaysAgo = new Date(now.getTime() - 10 * 86400 * 1000);
+    const longAgo = new Date(now.getTime() - 400 * 86400 * 1000);
+
+    // Push the repo's initial commit outside the scan window so only the two
+    // branch commits below are scanned (keeps the branches[] axis clean).
+    execSync(`git commit -q --amend --no-edit`, {
+      cwd: dir, env: { ...process.env, GIT_AUTHOR_DATE: iso(longAgo), GIT_COMMITTER_DATE: iso(longAgo) },
+    });
+
+    // Two independent branches off main, each with one dated commit, same author.
+    const commitOn = (branch, file, date) => {
+      execSync(`git checkout -q -B ${branch} main`, { cwd: dir });
+      writeFileSync(join(dir, file), `${file}\n`);
+      execSync(`git add ${file} && git commit -q -m "work on ${file}"`, {
+        cwd: dir, env: { ...process.env, GIT_AUTHOR_DATE: iso(date), GIT_COMMITTER_DATE: iso(date) },
+      });
+    };
+    commitOn("work-20260101-000000", "recent.txt", now);
+    commitOn("work-20260101-000001", "old.txt", tenDaysAgo);
+
+    const out = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanWindow} "2 months ago"`).stdout);
+
+    assertTrue("scan-window emits numeric bucket boundaries",
+      typeof out.buckets?.recent_start === "number" &&
+      typeof out.buckets?.week_start === "number" &&
+      typeof out.buckets?.last_week_start === "number", JSON.stringify(out.buckets));
+
+    const dev = out.developers.find((d) => d.email === "test@example.com");
+    assertTrue("scan-window grouped the test developer", !!dev, JSON.stringify(out.developers));
+    const branchNames = dev.branches.map((b) => b.name);
+    assertTrue("scan-window built the per-branch axis (both work branches present)",
+      branchNames.includes("work-20260101-000000") && branchNames.includes("work-20260101-000001"),
+      JSON.stringify(branchNames));
+
+    const recent = dev.commits.find((c) => c.branch === "work-20260101-000000");
+    const old = dev.commits.find((c) => c.branch === "work-20260101-000001");
+    assertEq("scan-window buckets a today commit as recent", recent.bucket, "recent");
+    assertTrue("scan-window buckets a 10-day-old commit as last_week/older",
+      ["last_week", "older"].includes(old.bucket), old.bucket);
+    assertTrue("scan-window attaches a positive epoch to each commit",
+      typeof recent.epoch === "number" && recent.epoch > 0, String(recent.epoch));
+
+    // This-week deployments: a branch story with a ## Deployment Evidence block
+    // plus a matching release-note, committed now (this week) -> one deployment.
+    execSync(`git checkout -q main`, { cwd: dir });
+    mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
+    mkdirSync(join(dir, ".workaholic/release-notes"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/stories/work-ship.md"),
+      "---\nbranch: work-ship\n---\n# Story\n\n## Deployment Evidence\n\n" +
+      "- **When:** 2026-07-01T10:00:00+09:00\n- **Target:** Prod\n- **Method:** browser\n" +
+      "- **Status:** pass\n- **Observed:** homepage shows v1.2.3\n");
+    writeFileSync(join(dir, ".workaholic/release-notes/work-ship.md"), "# Release v1.2.3\n\nSummary.\n");
+    execSync(`git add -A && git commit -q -m "ship work-ship"`, { cwd: dir });
+
+    const out2 = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanWindow} "2 months ago"`).stdout);
+    assertEq("scan-window emits one this-week deployment", out2.deployments.length, 1);
+    const dep = out2.deployments[0];
+    assertEq("scan-window deployment fields (branch/title/status/confirmation)",
+      { b: dep.branch, t: dep.release_title, s: dep.status, c: dep.confirmation, a: dep.author },
+      { b: "work-ship", t: "Release v1.2.3", s: "pass", c: "homepage shows v1.2.3", a: "test@example.com" });
+  } finally { cleanup(dir); }
 }
 
 // ---------- branching/ensure-worktree.sh (branch-name self-defense) ----------
@@ -1276,6 +1414,8 @@ const tests = [
   ["catch/scan-window.sh", testScanWindow],
   ["hooks/guard-git-commit.sh", testGuardGitCommit],
   ["hooks/guard-git-branch.sh", testGuardGitBranch],
+  ["check-deps/check.sh", testCheckDeps],
+  ["catch/scan-window.sh buckets+branches", testScanWindowBuckets],
   ["branching/ensure-worktree.sh", testEnsureWorktreeGuard],
   ["hooks/lib/check-subject.sh", testCheckSubject],
   ["hooks/git/commit-msg", testCommitMsgHook],

@@ -34,7 +34,10 @@ End-to-end orchestration for `/drive`. The thin `/drive` command preloads this s
 bash ${CLAUDE_PLUGIN_ROOT}/skills/check-deps/scripts/check.sh
 ```
 
-If `ok` is `false`, display the `message` to the user and stop.
+If `ok` is `false`, display the `message` to the user and stop. Otherwise note the
+reported `version`, and if `missing_guards` is non-empty, **warn** the user that a
+stale or partial plugin install is loaded (the listed PreToolUse guards are not
+registered in this build) before proceeding — do not block on it.
 
 ### Phase 0: Worktree Guard
 

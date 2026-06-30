@@ -3,9 +3,9 @@ created_at: 2026-06-30T09:52:32+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: da33210
+category: Changed
 depends_on:
 ---
 
@@ -79,3 +79,20 @@ The over-block was surfaced while closing the branch-guard activation investigat
 - No-space pipelines like `git branch|grep` are already allowed because `branch|grep` never matches the `branch` subcommand token exactly — only the space-separated `git branch | grep` form is affected. Keep that asymmetry in mind when writing tests. (`plugins/workaholic/hooks/guard-git-branch.sh`)
 - Keep it least-privilege: the change must not let any real off-policy creation through, including chained ones after `;`/`&&`/`||`. The reset-and-continue behavior (not allow-and-stop) is what preserves this. (`plugins/workaholic/hooks/guard-git-branch.sh`)
 - Stay POSIX `#!/bin/sh -eu` — no bashisms (`rules/shell.md`); Alpine images have no bash.
+
+## Final Report
+
+Development completed as planned. Implemented the **preferred** form from Step 1 (a single operator interception near the top of the token loop, covering every subcommand) rather than the minimal `branch)`-arm patch shown in the speculative Patches section.
+
+`guard-git-branch.sh` now resets parser state (`gitseen=0`, `subcmd=""`, `wantname=0`) on a shell operator token (`|`, `||`, `&`, `&&`, `;`, `;;`, `>…`, `<…`) and continues scanning, so each pipeline/chain segment is inspected independently. Verified:
+
+- `git branch | grep work`, bare `git branch`, and `git branch > file` → allowed (exit 0).
+- `git branch ; git checkout -b bad-name` and `git status && git switch -c nope` → still blocked (exit 2).
+- `git fetch && git checkout -b work-…` → allowed; all pre-existing block/allow cases unchanged.
+- 227/227 smoke tests pass (6 new assertions added to `testGuardGitBranch`); `posix-lint` conforming; `verify.mjs` green.
+- **Live in-session**: `git branch | head -3` returned exit 0 — the exact form blocked before the fix.
+
+### Discovered Insights
+
+- **Insight**: The guard scans the **entire** command string and cannot distinguish a real command from text inside an `echo`/quoted argument. After this fix, the literal phrase `git branch <word>` appearing inside an `echo "…"` argument still trips the guard (observed live: an `echo "… git branch piped …"` was blocked on the token `piped`). This is inherent to the whitespace tokenizer, not a regression — but agents should avoid embedding `git branch <word>` in echo/log strings.
+  **Context**: The guard receives `tool_input.command` as one opaque string; it has no shell-quoting model, so any `git <subcommand> <word>` substring anywhere in the command line is treated as if it were the real invocation. Widening it to understand quoting would mean a full shell parser, which the script deliberately avoids.

@@ -3,9 +3,9 @@ created_at: 2026-07-01T10:41:15+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX, Config]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: 386af5e
+category: Added
 depends_on: [20260701104114-rename-carryover-to-deferred-concerns.md]
 ---
 
@@ -92,3 +92,18 @@ Developer-selected gate: **script smoke test + manual resume**.
 - **Ticket is per-user scoped.** `list-todo.sh` reads only the current user's `todo/<user>/`; the carried ticket must belong to the same developer who will resume (`plugins/workaholic/skills/drive/scripts/user-slug.sh`).
 - **No new `.workaholic/` dir without allowlisting.** Stay within `tickets/todo/<user>/` and `trips/` (`plugins/workaholic/hooks/workaholic-layout-allowlist.txt`); do not invent `.workaholic/carry/`.
 - **Depends on the rename.** Document `/carry` only after ticket 20260701104114 frees the "carry" vocabulary, or the docs will conflate it with deferred concerns.
+
+## Final Report
+
+Development completed as planned. Built `commands/carry.md` (thin, capture-only), `skills/carry/SKILL.md` (`metadata.internal: true`, numbered headings, drive + trip cases), and `skills/carry/scripts/carry-checkpoint.sh` (POSIX; emits the resumption-ticket path + dynamic frontmatter metadata + trip detection). Reused the existing `user-slug.sh` and `log-event.sh` rather than reinventing them. Added `/carry` to the CLAUDE.md Commands table and structure listings, and an 8-assertion smoke test to `test-workflow-scripts.mjs`. Verified Claude-only: `outputs/` contains no `carry` skill (not added to `DEFAULT_TARGETS`), the skill stays internal, and the command is never built. Suite: 248 passed / 0 failed; posix-lint 0 findings; build/verify/policy-index in lockstep.
+
+The one carried-forward manual criterion (per the agreed script-tests-plus-manual gate) is the fresh-session resume: run `/carry` mid-work, then start a new session and `/drive` to confirm it continues from the carried position without redoing completed steps.
+
+### Discovered Insights
+
+- **Insight**: The correctness crux of the whole feature is that `/drive`'s per-ticket Workflow implements EVERY `## Implementation Steps` entry with no "already done" concept, so a resumption ticket must list only *remaining* work — completed work goes in the Overview as context. This single rule is what makes a fresh `/drive` continue rather than restart, and it is stated as the first Writing Guideline in the skill.
+  **Context**: Any future change to how `/drive` reads Implementation Steps (e.g. adding a "completed" marker) would let `/carry` carry richer state; until then, the remaining-only discipline is load-bearing.
+- **Insight**: There is genuinely no programmatic token-budget signal available to a command or hook (a `PreCompact` hook has no model access), so a "carry automatically before compaction" design is infeasible with current Claude Code — `/carry` is necessarily user-invoked. This was validated by grepping the whole plugin/settings surface for any token/context/statusline signal and finding none.
+  **Context**: If Claude Code later exposes a context-budget signal or a model-capable pre-compaction hook, an auto-nudge (or auto-carry) becomes possible; the ticket records this as a deliberate scope boundary, not an oversight.
+- **Insight**: The resumption ticket rides the existing per-user `todo/<user>/` channel and the `validate-ticket.sh` hook unchanged — no new `.workaholic/` subdirectory or allowlist entry was needed, which kept the feature entirely within the sanctioned artifact surface.
+  **Context**: Keeping carry output inside `tickets/todo/<user>/` (and trips/) is why a fresh `/drive` finds it automatically; inventing a `.workaholic/carry/` dir would have required an allowlist change and made the artifact invisible to `list-todo.sh`.

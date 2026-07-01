@@ -13,7 +13,7 @@ Guidelines for generating branch stories, creating pull requests, and assessing 
 This skill works on any Agent-Skills-compatible agent. The two Claude-Code mechanisms used below are **enhancements, not requirements**:
 
 - **Parallel fan-out** — where a step spawns parallel workers to run parts concurrently (the carry-over judge, the overview/section-review/release-readiness workers, the PR and release-note writers), that is the Claude Code optimization. On other agents, perform those parts **sequentially** in the same session; the inputs and outputs are identical.
-- **User interaction** — where a step uses the agent's selection prompt, use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies.
+- **User interaction** — where a step uses the agent's selection prompt, use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies. Set the `header` field of each interactive prompt (the agent's selection prompt) to the **project label** — run `bash gather/scripts/project-label.sh` once and reuse its `project` value — so a developer with several sessions open across tmux panes can see which repository is asking; keep the decision wording in the `question` body.
 
 ## Run Workflow
 

@@ -17,7 +17,7 @@ This skill is the **trip-independent ship essence**: it operates on the current 
 
 ## Agent Compatibility
 
-This skill works on any Agent-Skills-compatible agent. Where a step uses `AskUserQuestion` (workspace/ticket guards, deploy confirmation, the §1-4 no-confirmation-method halt), use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The confirmations are mandatory; only the prompt mechanism varies. (This skill has no subagent fan-out.)
+This skill works on any Agent-Skills-compatible agent. Where a step uses `AskUserQuestion` (workspace/ticket guards, deploy confirmation, the §1-4 no-confirmation-method halt), use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The confirmations are mandatory; only the prompt mechanism varies. (This skill has no subagent fan-out.) Set the `header` field of each interactive prompt (`AskUserQuestion`) to the **project label** — run `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh` once and reuse its `project` value — so a developer with several sessions open across tmux panes can see which repository is asking; keep the decision wording in the `question` body.
 
 ## 1. Deployment Contract
 

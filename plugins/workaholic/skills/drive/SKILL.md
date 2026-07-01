@@ -22,7 +22,7 @@ Complete drive session skill covering the `/drive` command workflow, ticket navi
 This skill works on any Agent-Skills-compatible agent. The two Claude-Code mechanisms used below are **enhancements, not requirements**:
 
 - **Parallel fan-out** — where a step spawns a `general-purpose` subagent (e.g. the ticket prioritizer), that is the Claude Code optimization. On other agents, perform that work **inline/sequentially** in the same session; the inputs and outputs are identical.
-- **User interaction** — where a step uses `AskUserQuestion` (order confirmation, per-ticket approval, icebox/abandon choices), use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies.
+- **User interaction** — where a step uses `AskUserQuestion` (order confirmation, per-ticket approval, icebox/abandon choices), use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies. Set the `header` field of each interactive prompt (`AskUserQuestion`) to the **project label** — run `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh` once and reuse its `project` value — so a developer with several sessions open across tmux panes can see which repository is asking; keep the decision wording (and any ticket title) in the `question` body.
 
 ## Command Workflow
 
@@ -95,7 +95,7 @@ Follow the **Workflow** section below. Implementation context is preserved in th
 
 #### Step 2.2: Request Approval
 
-Follow the **Approval** section below to present the approval dialog. **CRITICAL**: You MUST use the `title` and `overview` fields from the Step 2.1 workflow result to populate the approval prompt header and question. If these fields are unavailable, re-read the ticket file to obtain them. Never present an approval prompt without the ticket title and summary.
+Follow the **Approval** section below to present the approval dialog. **CRITICAL**: You MUST use the `title` and `overview` fields from the Step 2.1 workflow result to populate the approval prompt question (the `header` carries the project label — see the Approval section). If these fields are unavailable, re-read the ticket file to obtain them. Never present an approval prompt without the ticket title and summary.
 
 **CRITICAL**: Use `AskUserQuestion` with selectable `options`. NEVER proceed without explicit user approval. (In **night mode** this gate is auto-resolved as "Approve" — the user authorized the batch by invoking `/drive night`, optionally narrowed by the §1b group choice; see **Night Mode**.)
 
@@ -466,15 +466,15 @@ Implementation complete. Changes made:
 
 #### Options
 
-**CRITICAL**: The `header` and `question` fields below are templates that MUST be replaced with actual values before presenting to the user. Use `title` and `overview` from the workflow result JSON. If those values are not available in context, re-read the ticket file to obtain the H1 title and Overview section. Presenting an approval prompt with missing, empty, or literal angle-bracket placeholder values is a failure condition -- the user cannot make an informed decision without knowing what ticket was implemented.
+**CRITICAL**: The `header` and `question` fields below are templates that MUST be replaced with actual values before presenting to the user. The `header` is the **project label** (`project` from `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`), so a developer with several sessions across tmux panes sees which repository is asking; the ticket **title** (from the H1) leads the `question` body, followed by `overview`. Use `title` and `overview` from the workflow result JSON. If those values are not available in context, re-read the ticket file to obtain the H1 title and Overview section. Presenting an approval prompt with missing, empty, or literal angle-bracket placeholder values is a failure condition -- the user cannot make an informed decision without knowing what ticket was implemented and in which project.
 
 **Surface the quality gate.** If the ticket has a `## Quality Gate` (and the Step 4 result carries `quality_gate`), include the agreed acceptance criteria and what you verified against them in the question body, so the developer approves against the concrete, pre-agreed gate rather than a vague summary. This is the payoff of the `/ticket`-time interrogation — never drop it from the prompt when it exists.
 
 ```json
 {
   "questions": [{
-    "question": "<overview from ticket Overview section>\n\nQuality gate: <acceptance criteria from the ticket's ## Quality Gate, and what you verified against them>\n\nApprove this implementation?",
-    "header": "<title from ticket H1>",
+    "question": "<title from ticket H1>\n\n<overview from ticket Overview section>\n\nQuality gate: <acceptance criteria from the ticket's ## Quality Gate, and what you verified against them>\n\nApprove this implementation?",
+    "header": "<project label from project-label.sh>",
     "options": [
       {"label": "Approve", "description": "Commit and archive this ticket, continue to next"},
       {"label": "Approve and stop", "description": "Commit and archive this ticket, then stop driving"},

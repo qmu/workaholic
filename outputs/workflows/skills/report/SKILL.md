@@ -12,7 +12,7 @@ Guidelines for generating branch stories, creating pull requests, and assessing 
 
 This skill works on any Agent-Skills-compatible agent. The two Claude-Code mechanisms used below are **enhancements, not requirements**:
 
-- **Parallel fan-out** — where a step spawns parallel workers to run parts concurrently (the carry-over judge, the overview/section-review/release-readiness workers, the PR and release-note writers), that is the Claude Code optimization. On other agents, perform those parts **sequentially** in the same session; the inputs and outputs are identical.
+- **Parallel fan-out** — where a step spawns parallel workers to run parts concurrently (the deferred-concern judge, the overview/section-review/release-readiness workers, the PR and release-note writers), that is the Claude Code optimization. On other agents, perform those parts **sequentially** in the same session; the inputs and outputs are identical.
 - **User interaction** — where a step uses the agent's selection prompt, use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies. Prefix each interactive prompt's (the agent's selection prompt) `question` body with `[<project label>]` — run `bash gather/scripts/project-label.sh` once and reuse its `project` value — so a developer with several sessions open across tmux panes can see which repository is asking; leave the `header` as the decision/topic label.
 
 ## Run Workflow
@@ -23,7 +23,7 @@ Context-aware report orchestration. Auto-detects whether the caller is in a driv
 
 Before assessing the branch, load the project's engineering policies as your judging lens: `planning`, `design`, `implementation`, and `operation`. On Claude Code these arrive automatically (this skill preloads them via its `skills:` frontmatter and the `/report` command's `policy-lens.sh` hook injects the reminder); on other agents, open each index skill yourself. Read those indexes, and open the specific policy hard copies they link (`policies/<slug>.md`) when a concern or change maps to one.
 
-These policies are the lens for the report's judgments: when judging carry-over concerns, reviewing the story sections, and assessing release readiness, evaluate the branch's **planning** (business/market/legal grounding), **design** (interaction and behavior), **implementation** (code structure and correctness — `directory-structure` and `coding-standards` always apply to code work), and **operation** (delivery, runtime, and recovery) against the relevant policy's Goal (目標), Responsibility (責務), and Practices (実践). Cite the specific policy when a concern or readiness verdict rests on one.
+These policies are the lens for the report's judgments: when judging deferred concerns, reviewing the story sections, and assessing release readiness, evaluate the branch's **planning** (business/market/legal grounding), **design** (interaction and behavior), **implementation** (code structure and correctness — `directory-structure` and `coding-standards` always apply to code work), and **operation** (delivery, runtime, and recovery) against the relevant policy's Goal (目標), Responsibility (責務), and Practices (実践). Cite the specific policy when a concern or readiness verdict rests on one.
 
 ### Step 0: Workspace Guard
 
@@ -102,15 +102,15 @@ Generate the story file, then create the PR. The `/report` command (main agent) 
 
 Gather all context by running `bash gather/scripts/git-context.sh`. Returns: branch, base_branch, repo_url, archived_tickets, git_log.
 
-#### Phase 1: Judge Active Carry-Overs
+#### Phase 1: Judge Active Deferred Concerns
 
 Run before the parallel agent batch so the verdicts flow into section-reviewer's input. Skip silently if `.workaholic/concerns/` is empty or absent.
 
-1. **Spawn a carry-over judge** as parallel worker in a single Task call. The prompt instructs it to preload `report`, follow the `### Judge Carry-Overs` section with the given branch name and base branch, and return `{verdicts: [...]}`.
-2. **Apply verdicts**: Write the judge's returned JSON to `/tmp/carryover-verdicts.json`. `apply-carryover-verdicts.sh` accepts both the full `{"verdicts": [...]}` object (the judge's natural output) and a bare `[...]` array, so either form works — prefer writing the object verbatim. Then run:
+1. **Spawn a deferred-concern judge** as parallel worker in a single Task call. The prompt instructs it to preload `report`, follow the `### Judge Deferred Concerns` section with the given branch name and base branch, and return `{verdicts: [...]}`.
+2. **Apply verdicts**: Write the judge's returned JSON to `/tmp/deferred-concern-verdicts.json`. `apply-deferred-concern-verdicts.sh` accepts both the full `{"verdicts": [...]}` object (the judge's natural output) and a bare `[...]` array, so either form works — prefer writing the object verbatim. Then run:
 
    ```bash
-   cat /tmp/carryover-verdicts.json | bash report/scripts/apply-carryover-verdicts.sh
+   cat /tmp/deferred-concern-verdicts.json | bash report/scripts/apply-deferred-concern-verdicts.sh
    ```
 
    Files marked `resolved` have `status:` flipped to `resolved`, `resolved_by_pr` / `resolved_by_commit` recorded, and are then moved to `.workaholic/concerns/archive/`. Files marked `still_active` stay in `.workaholic/concerns/`.
@@ -121,7 +121,7 @@ Spawn 3 parallel worker leaf subagents in parallel (single message with 3 Task c
 
 - **release-readiness**: preload `report`, run `## Assess Release Readiness`, return the releasability JSON. Pass archived tickets list and branch name.
 - **overview-writer**: preload `report`, run `### Overview Generation`, return the overview JSON. Pass branch name and base branch.
-- **section-reviewer**: preload `review-sections`, run it, return the sections 4-7 JSON (Outcome, Historical Analysis, Concerns, Successful Development Patterns). Pass branch name, archived tickets list, the carryover verdicts file path `/tmp/carryover-verdicts.json`, **and the collected commit bodies** (`collect-commits.sh` output). The section-reviewer prepends `still_active` verdicts to section 6, then folds in any `Concerns:` keys from the commit bodies (§6) and `Insights:` keys (§7) so a concern or pattern recorded in a commit is not lost when a ticket is sparse or absent.
+- **section-reviewer**: preload `review-sections`, run it, return the sections 4-7 JSON (Outcome, Historical Analysis, Concerns, Successful Development Patterns). Pass branch name, archived tickets list, the deferred concern verdicts file path `/tmp/deferred-concern-verdicts.json`, **and the collected commit bodies** (`collect-commits.sh` output). The section-reviewer prepends `still_active` verdicts to section 6, then folds in any `Concerns:` keys from the commit bodies (§6) and `Insights:` keys (§7) so a concern or pattern recorded in a commit is not lost when a ticket is sparse or absent.
 
 Wait for all 3 to complete. Track which succeeded and which failed.
 
@@ -133,8 +133,8 @@ Wait for all 3 to complete. Track which succeeded and which failed.
 
 #### Phase 4: Commit and Push Story
 
-1. **Stage story and resolved carry-overs**: `git add .workaholic/stories/ .workaholic/concerns/`
-2. **Commit**: `git commit -m "Add branch story for <branch-name>"` (the same commit captures any carry-over archive moves from Phase 1, keeping audit history coherent)
+1. **Stage story and resolved deferred concerns**: `git add .workaholic/stories/ .workaholic/concerns/`
+2. **Commit**: `git commit -m "Add branch story for <branch-name>"` (the same commit captures any deferred concern archive moves from Phase 1, keeping audit history coherent)
 3. **Push branch**: `git push -u origin <branch-name>`
 
 #### Phase 5: Create PR
@@ -174,26 +174,26 @@ Story sections are populated from the parallel leaf subagents' outputs (each is 
 
 Section 3 (Changes) comes from archived tickets, prefaced by journey content from the overview-writer role. Section 9 (Notes) is optional context.
 
-### Judge Carry-Overs
+### Judge Deferred Concerns
 
-Run by the Phase 1 carry-over judge (a parallel workers that preloads this skill). Inputs: branch name and base branch (usually `main`).
+Run by the Phase 1 deferred-concern judge (a parallel workers that preloads this skill). Inputs: branch name and base branch (usually `main`).
 
-1. List active carry-overs:
+1. List active deferred concerns:
 
    ```bash
-   bash report/scripts/list-active-carryovers.sh
+   bash report/scripts/list-active-deferred-concerns.sh
    ```
 
    If the JSON output is `[]`, return `{"verdicts": []}` and stop.
 
-2. For each carry-over in the list, judge whether the work that landed on the current branch (since the carry-over's `origin_commit`) has resolved it.
+2. For each deferred concern in the list, judge whether the work that landed on the current branch (since the deferred concern's `origin_commit`) has resolved it.
 
    Available evidence:
 
-   - `git log --oneline <origin_commit>..HEAD` to see commits that landed after the carry-over was filed
+   - `git log --oneline <origin_commit>..HEAD` to see commits that landed after the deferred concern was filed
    - `git diff <origin_commit>..HEAD -- <file mentioned in body>` to inspect changes to referenced files
-   - Reading files mentioned in the carry-over body (paths in backticks, paths after `in`)
-   - Searching commit subjects for keywords from the carry-over body (`git log --oneline --grep='<keyword>' <origin_commit>..HEAD`)
+   - Reading files mentioned in the deferred concern body (paths in backticks, paths after `in`)
+   - Searching commit subjects for keywords from the deferred concern body (`git log --oneline --grep='<keyword>' <origin_commit>..HEAD`)
 
    Heuristics for **resolved**:
 
@@ -217,7 +217,7 @@ The corpus can grow large (a backfill from N historical stories produces O(N × 
 2. **Within a cluster, deduplicate by referenced file path.** Many bullets reference the same file from different angles; one `cat` plus one `git log -- <path>` is enough evidence for every bullet that points at that path.
 3. **Use `git log --oneline <origin_commit>..HEAD` once per cluster**, not per item — the commit list is the same for every bullet that shares an origin commit.
 4. **Batch the verdicts.** Emit verdicts incrementally if helpful, but the final response must be one combined `{verdicts: [...]}` JSON object.
-5. **First-run backfill caveat.** When the corpus is populated all at once by `backfill-carryover.sh`, expect a high proportion of `resolved` verdicts — the items predate the codebase's current structure significantly. This is normal; still-active items remain in `.workaholic/concerns/` as passive notes for future judging.
+5. **First-run backfill caveat.** When the corpus is populated all at once by `backfill-deferred-concerns.sh`, expect a high proportion of `resolved` verdicts — the items predate the codebase's current structure significantly. This is normal; still-active items remain in `.workaholic/concerns/` as passive notes for future judging.
 
 Return a JSON object with the verdicts array:
 
@@ -234,13 +234,13 @@ Return a JSON object with the verdicts array:
     {
       "path": ".workaholic/concerns/42-bar.md",
       "verdict": "still_active",
-      "rationale": "No commits modified the area this carry-over targets."
+      "rationale": "No commits modified the area this deferred concern targets."
     }
   ]
 }
 ```
 
-Include `resolved_by_pr` and `resolved_by_commit` only for `resolved` verdicts. The orchestrator feeds this to `apply-carryover-verdicts.sh` (Phase 1) and to the section-reviewer worker so still-active items appear in the new story.
+Include `resolved_by_pr` and `resolved_by_commit` only for `resolved` verdicts. The orchestrator feeds this to `apply-deferred-concern-verdicts.sh` (Phase 1) and to the section-reviewer worker so still-active items appear in the new story.
 
 ### Overview Generation
 
@@ -413,7 +413,7 @@ One subsection per ticket, in chronological order:
 
 ## 6. Concerns
 
-[Risks, trade-offs, limitations, and forward-looking suggestions discovered during implementation. Each concern is one insight framed as a title, a description of the problem, and how to fix it. This structure is parsed verbatim by `extract-carryover.sh` on `/ship`, so follow it exactly.]
+[Risks, trade-offs, limitations, and forward-looking suggestions discovered during implementation. Each concern is one insight framed as a title, a description of the problem, and how to fix it. This structure is parsed verbatim by `extract-deferred-concerns.sh` on `/ship`, so follow it exactly.]
 
 **Format** (one `###` block per concern, or "None"):
 
@@ -439,7 +439,7 @@ One subsection per ticket, in chronological order:
 - **Severity** is a label, not a number: `urgent` (act now), `moderate` (should fix), or `low` (nice-to-have). Default `moderate`.
 - Reference the commit hash from section 3 and the file path where readers should investigate, inside the Description.
 - Keep Description and How to Fix to one paragraph each.
-- Carried-over concerns (from `still_active` verdicts) are prepended here as `###` blocks, with their title prefixed `(carried from PR #N)` and their original severity preserved.
+- Deferred concerns (from `still_active` verdicts) are prepended here as `###` blocks, with their title prefixed `(carried from PR #N)` and their original severity preserved.
 - Write "None" if nothing to report.
 
 ## 7. Successful Development Patterns
@@ -618,7 +618,7 @@ Analyze a branch to determine if it's ready for release.
    `docs/` when present) were touched in the same range. For each `candidate`,
    **judge** against the diff and the doc's actual content whether that meta/doc
    file (`CLAUDE.md`, `README.md`, an affected `SKILL.md`, or `docs/`) genuinely
-   should have been updated and was not — exactly like the carry-over judge. A
+   should have been updated and was not — exactly like the deferred-concern judge. A
    candidate is a hint, not a verdict; dismiss it when the doc legitimately did
    not need the change. Confirmed drift becomes (a) a release-readiness
    `concerns[]` entry plus a `pre_release` instruction (the Section 8 ship gate),

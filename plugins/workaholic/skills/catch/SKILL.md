@@ -90,7 +90,7 @@ Run by a Phase 1 collector (a `general-purpose` subagent that preloads this skil
 1. Read the developer's `commits[]` bodies (they carry the structured `Why:` / `Changes:` / `Concerns:` / `Insights:` keys from the commit format) and subjects.
 2. Read the developer's `tickets[]` (their `## Overview` and `## Final Report`) for intent and outcome behind the commits.
 3. Skim any `stories[]` that clearly cover this developer's branches (match by title/theme) for the narrative arc — do not read all 50; sample the ones that match.
-4. Summarize **focus areas** (what parts of the system they touched), **themes** (the through-line of the work), **notable changes** (the few highest-impact items, each with a commit hash), and **open threads** (carried concerns, unfinished tickets in `todo`, or `Concerns:` keys from commit bodies).
+4. Summarize **focus areas** (what parts of the system they touched), **themes** (the through-line of the work), **notable changes** (the few highest-impact items, each with a commit hash), and **open threads** (deferred concerns, unfinished tickets in `todo`, or `Concerns:` keys from commit bodies).
 5. **Time-windowed focus** — summarize the work in three buckets using each commit's `bucket` field:
    - `recent_focus` — from commits with `bucket: "recent"` (yesterday + today). What they're on right now.
    - `week_focus` — from commits with `bucket: "recent"` **or** `"this_week"` (the full current calendar week — "this week" includes the recent days).
@@ -128,7 +128,7 @@ Keep it factual and verifiable — name files, hashes, and tickets; avoid evalua
   "notable_changes": [
     { "title": "Ship gate now confirms in production before merge", "hash": "abc1234" }
   ],
-  "open_threads": ["carried concern: outputs/ freshness drift if build skipped"]
+  "open_threads": ["deferred concern: outputs/ freshness drift if build skipped"]
 }
 ```
 

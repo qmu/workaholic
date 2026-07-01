@@ -15,7 +15,7 @@
 #   ### <Next Title>
 #   ...
 #
-# Usage: extract-carryover.sh <branch> <pr-number> <pr-url>
+# Usage: extract-deferred-concerns.sh <branch> <pr-number> <pr-url>
 # Output: single JSON line summarizing what was extracted.
 
 set -eu
@@ -151,7 +151,7 @@ fi
 
 if [ -z "${NO_COMMIT:-}" ]; then
   git add .workaholic/concerns/ >/dev/null
-  git commit -m "Carry over concerns from PR #${pr_number}" >/dev/null
+  git commit -m "Add deferred concerns from PR #${pr_number}" >/dev/null
 fi
 
 echo "{\"status\":\"ok\",\"extracted\":${count},\"files\":${written}}"

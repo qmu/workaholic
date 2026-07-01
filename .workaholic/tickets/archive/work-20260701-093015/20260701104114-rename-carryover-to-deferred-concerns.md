@@ -3,9 +3,9 @@ created_at: 2026-07-01T10:41:14+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [UX, Config]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: 6a32c4d
+category: Changed
 depends_on:
 ---
 
@@ -80,3 +80,18 @@ Past tickets that touched similar areas:
 - **Immutable history.** Archived tickets and stories under `.workaholic/tickets/archive/` and `.workaholic/stories/` will keep the old term; excluding them from the grep gate is intentional, not an oversight.
 - **Directory name.** `.workaholic/concerns/` is already neutral — renaming the directory would break existing concern artifacts and is explicitly out of scope.
 - This ticket must land **before** the `/carry` ticket so the "carry" vocabulary is unambiguous when the new command is documented (`depends_on` is expressed on the `/carry` ticket).
+
+## Final Report
+
+Scope was widened from the ticket's original "wording only" (Step 3) to a **full rename including the four `*carryover*.sh` script files**, on the developer's decision, because the governing `terminology` policy demands one-concept-one-word (no coexisting terms) and the feared blocker was absent: the on-disk concern files key on `status`/`severity`/`origin_pr`/`verdict`, never a literal `carryover`, so renaming the scripts required no data migration. `git mv`'d `extract-`, `backfill-`, `list-active-` and `apply-` scripts to `*-deferred-concerns*.sh`, updated every invocation/cross-ref, all prose across report/ship/review-sections/create-ticket/trip-protocol/catch + the report command + rules, the two emitted commit-message strings, and the `test-workflow-scripts.mjs` fixture. `.workaholic/concerns/` and all frontmatter keys unchanged.
+
+**Deliberate machine-identifier exception (not renamed):** the `carried-from-pr-<n>-` slug prefix in `extract-deferred-concerns.sh` (line 80, `re.sub(r'^carried-from-pr-\d+-', '', slug)`) and the rendered `(carried from PR #N)` story-title label. These encode the on-disk filename identity of already-persisted concern artifacts and the human-facing story prefix; changing them would break dedup against existing files and diverge from published stories. "carried" is not the retired "carry-over" term, so it is left intact by design.
+
+Verification run: repo-wide `grep -rniE 'carry.?over|carryover'` over `plugins/ scripts/ outputs/ CLAUDE.md .github/` (excluding `tickets/archive/`) returned **NONE**; `build.mjs`/`verify.mjs`/`validate-metadata.mjs` green; `posix-lint.sh` 0 findings; `test-workflow-scripts.mjs` **240 passed, 0 failed**; `outputs/` regenerated in lockstep.
+
+### Discovered Insights
+
+- **Insight**: The "carry-over" vocabulary was split across two grammatical forms the naive grep `carry.?over` does NOT catch — `Carried-over` (concept labels) and `carried-from-pr-` (a slug identifier). A rename that greps only the obvious spelling leaves these behind.
+  **Context**: When retiring a term, also grep the participle/derived forms (`carried`, `carrying`) and separate the true synonyms (rename) from unrelated English ("carried out/forward" in the policy files) and from on-disk identifiers that must stay (`carried-from-pr-`).
+- **Insight**: `scripts/test-workflow-scripts.mjs` hard-codes absolute script paths (`SCRIPTS.extractCarryover = .../extract-carryover.sh`), so renaming a workflow script silently breaks the smoke suite until the fixture is updated — the terminology policy's "update test fixtures in the same change" is load-bearing here, not optional.
+  **Context**: Any future rename of a `report`/`ship` script must update the `SCRIPTS` map and test names in that file, or 2 tests fail with a missing-file error.

@@ -163,7 +163,7 @@ After todo is truly empty (and user declines icebox):
 - Total commits created
 - List of all commit hashes
 
-**In night mode**, Phase 4 emits the **whole-night report** to stdout (see **Night Mode** §5): per-ticket outcome (implemented / skipped / failed), commit hashes, skip/failure reasons, totals, and any stashed partial work — the deliverable the developer reviews in the morning.
+**In night mode**, Phase 4 emits the **whole-night report** to stdout (see **Night Mode** §5): per-ticket outcome from the closed set (implemented / failed / blocked — no "declined" category), commit hashes, failure/blocker reasons, totals reconciled to the authorized batch size, and any stashed partial work — the deliverable the developer reviews in the morning.
 
 ### Night Mode (mode = "night")
 
@@ -175,17 +175,22 @@ Autonomous, unattended overnight run for morning review, triggered when `$ARGUME
 
 **2. Autonomous loop (skip the per-ticket gate).** For each authorized ticket, run Step 2.1 (implement, including the type-check/test verification). Then **auto-approve without issuing the Step 2.2 `AskUserQuestion`**: update effort, append Final Report, run `archive.sh`, commit, continue. The per-ticket approval is satisfied by the `/drive night` batch authorization (§1, optionally narrowed by the §1b group choice), so it is *skipped*, not invoked (the Workflow "NEVER use AskUserQuestion" boundary stays intact).
 
-**3. Safe-by-default failure policy (no user present).** If a ticket cannot be implemented, or its checks/tests fail, or its frontmatter update fails:
-- **Skip and continue** — leave the ticket in `todo`, record the failure + reason for the night report, move to the next authorized ticket.
-- **NEVER** auto-move it to icebox, auto-abandon it, or run destructive git (`git restore .` / `git clean` / `git reset --hard` / `git stash drop`) — those require a human.
+**3. Attempt every ticket — skip only on a demonstrated failure or a named hard blocker.** Every authorized ticket **must be attempted** (run Step 2.1 in full). A ticket's **size, complexity, "all-or-nothing" scope, and "this looks like it needs a human" are NOT skip reasons** — a large or all-or-nothing ticket is implemented in full, then verified; you do not get to decline it because it looks big. A skip is legitimate in exactly two cases, and **only after a real attempt**:
+- **Failed** — the ticket was implemented but its type-check/tests are red (or its frontmatter update fails). Record it as `failed` with the reason for the night report.
+- **Blocked** — implementation is stopped by a **named hard external blocker** (a missing credential, an unreachable external service or dependency). Record the specific blocker and what would unblock it. A vague "too complex" or "any other reason" is **not** a blocker.
+
+In either case, apply the safety floor and continue to the next authorized ticket (this floor is unchanged — only the *entry condition to skipping* is tightened):
 - **Isolate partial changes** so a failed ticket's uncommitted work cannot contaminate the next ticket's commit: `git stash` the failed ticket's changes (recoverable; only `git stash drop` is prohibited) before continuing, and note the stash in the report.
-- A failing type-check/test means the ticket is **failed → skipped + recorded**, never force-committed.
+- Leave the ticket in `todo`; a failing type-check/test means **failed → skipped + recorded**, never force-committed.
+- **NEVER** auto-move it to icebox, auto-abandon it, or run destructive git (`git restore .` / `git clean` / `git reset --hard` / `git stash drop`) — those require a human.
 
 **4. Bounded run.** Night mode runs ONLY the batch fixed at session start (the whole prioritized queue, or the groups chosen in §1b). Do NOT pick up tickets added during the run (skip Phase 3's re-check). The run terminates when the authorized batch is exhausted.
 
-**5. Whole-night report (the deliverable).** At the end (Phase 4), print a complete, skimmable stdout report for morning review:
-- Per ticket: outcome (implemented / skipped / failed), commit hash (implemented), reason (skipped/failed).
-- Totals: implemented / skipped / failed counts, and all commit hashes.
+**5. Whole-night report (the deliverable).** At the end (Phase 4), print a complete, skimmable stdout report for morning review. Every authorized ticket appears as exactly one of a **closed set of three outcomes** — there is **no** "declined / did not force / too large / needs a human" category:
+- **implemented** — commit hash.
+- **failed** — attempted, but its checks/tests went red; reason + stash location.
+- **blocked** — a **named** hard external blocker; what would unblock it.
+- Totals: implemented / failed / blocked counts, which **must reconcile to the authorized batch size**, plus all commit hashes.
 - Any stashed partial work and where to find it.
 
 **Critical Rule exception (scoped).** Night mode is the ONLY mode that skips the per-ticket "explicit user approval" gate — and only because invoking `/drive night` is itself the explicit authorization for the batch (optionally narrowed by the §1b group choice). Every other Critical Rule below remains in force.
@@ -194,9 +199,9 @@ Autonomous, unattended overnight run for morning review, triggered when `$ARGUME
 
 **NEVER autonomously move tickets to icebox.** Moving tickets is a developer decision, not an AI decision.
 
-If a ticket cannot be implemented (out of scope, too complex, blocked, or any other reason):
+If a ticket cannot be implemented **after a genuine attempt** — its type-check/tests fail, or a **named** hard external blocker (missing credential, unreachable external service/dependency) stops it. A ticket's size, complexity, or "all-or-nothing" scope is **never** a reason to not attempt it:
 
-1. **Stop and ask the developer** using `AskUserQuestion` with selectable `options` — **except in night mode**, which is unattended: skip the ticket, record it for the night report, and continue (see **Night Mode**); never auto-icebox or use destructive git.
+1. **Stop and ask the developer** using `AskUserQuestion` with selectable `options` — **except in night mode**, which is unattended and follows the attempt-first policy in **Night Mode** §3 (attempt every ticket; on a demonstrated failure or named hard blocker, stash + record + continue); never auto-icebox or use destructive git.
 2. Explain why implementation cannot proceed
 3. Use selectable options (NEVER open-ended text questions):
    - "Move to icebox" - Move ticket to `.workaholic/tickets/icebox/` and continue to next

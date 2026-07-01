@@ -3,9 +3,9 @@ created_at: 2026-07-01T22:18:03+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 075a4cf
+category: Changed
 depends_on:
 ---
 
@@ -91,3 +91,14 @@ How the outcome's quality is assured. This is skill/command **prose** (no shell 
 - **Trip ambiguity handling already differs and is correct.** Trip night mode records reasonable assumptions and proceeds rather than asking (`skills/trip-protocol/SKILL.md` §3, line 360). Preserve that; only the *park-on-cannot-complete* clause (§4) needs the size/complexity carve-out, so the two skills read consistently without overwriting trip's superior ambiguity behavior.
 - **Trip is excluded from the `outputs/` build** (Agent Teams, Claude-only), so editing `trip-protocol/SKILL.md` produces no `outputs/` diff — but still run `build.mjs` to catch shared-closure drift and keep `hooks/policy-index.md` fresh (affects `.github/workflows/outputs-freshness.yml`).
 - **This is a behavior/policy change to an LLM-driven flow**, not deterministic code, so there is no unit test that asserts "the AI attempted ticket N." The gate is therefore prose-precision + builds-green; the real-world confirmation is the next night run's report showing all authorized tickets attempted.
+
+## Final Report
+
+Development completed as planned. All six edits landed: drive Night Mode §3 (attempt-first, two-case skip), drive Critical Rules (subjective outs struck), drive report §5 + Phase 4 (closed set {implemented, failed, blocked}, totals reconcile), `commands/drive.md` line 20, and trip-protocol Night Mode §4 + Team-lead directive. Builds/verify/validate/smoke all green (268 passed / 0 failed); `outputs/` regenerated with no leftover drift.
+
+### Discovered Insights
+
+- **Insight**: The over-protective behavior lived in the *entry condition to skipping*, not the safety floor. Night mode's front end (authorization, per-ticket-gate removal) was tightened repeatedly across four prior tickets, but the failure/skip clause at the back end was never revisited — so "safe-by-default" quietly meant "skip anything that looks big."
+  **Context**: When tuning autonomous behavior, separate the *safety floor* (stash / no-force-commit / no-destructive-git — keep byte-for-byte) from the *decision to stop* (attempt vs. decline). Only the latter needed changing; conflating them would have regressed safety.
+- **Insight**: The closed-set report ({implemented, failed, blocked}, totals reconciled to batch size) is what structurally prevents the loophole from returning — a free-text "outcome" field is where "deliberately did not force" re-enters. `blocked` must name its external blocker or it becomes the next escape hatch.
+  **Context**: Objective-documentation policy in practice — constrain the report to verifiable categories rather than trusting the runner's prose.

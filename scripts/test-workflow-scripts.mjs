@@ -41,6 +41,7 @@ const SCRIPTS = {
   posixLint: join(REPO_ROOT, "plugins/workaholic/hooks/posix-lint.sh"),
   collectCommits: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/collect-commits.sh"),
   scanWindow: join(REPO_ROOT, "plugins/workaholic/skills/catch/scripts/scan-window.sh"),
+  carryCheckpoint: join(REPO_ROOT, "plugins/workaholic/skills/carry/scripts/carry-checkpoint.sh"),
   guardGitCommit: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-commit.sh"),
   guardGitBranch: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-branch.sh"),
   checkDeps: join(REPO_ROOT, "plugins/workaholic/skills/check-deps/scripts/check.sh"),
@@ -1386,8 +1387,37 @@ function testInstallGitHooks() {
   } finally { cleanup(classic); }
 }
 
+// ---------- carry/carry-checkpoint.sh ----------
+function testCarryCheckpoint() {
+  const dir = makeRepo("main");
+  try {
+    // No trips dir -> trips_present false; ticket_path routed to todo/<user>/.
+    let r = run(dir, `${POSIX_SH} ${SCRIPTS.carryCheckpoint} resume-foo`);
+    let j = JSON.parse(r.stdout);
+    assertEq("carryCheckpoint user_slug", j.user_slug, TEST_SLUG);
+    assertEq("carryCheckpoint slug", j.slug, "resume-foo");
+    assertTrue("carryCheckpoint ticket_path routed to todo/<user>/",
+      new RegExp(`^\\.workaholic/tickets/todo/${TEST_SLUG}/\\d{14}-resume-foo\\.md$`).test(j.ticket_path),
+      `got ${j.ticket_path}`);
+    assertEq("carryCheckpoint no trips -> trips_present false", j.trips_present, false);
+    assertEq("carryCheckpoint no trips -> empty trips", j.trips, []);
+
+    // With a trip directory present -> trips_present true and the trip listed.
+    mkdirSync(join(dir, ".workaholic/trips/trip-20260101-000000"), { recursive: true });
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.carryCheckpoint} resume-bar`);
+    j = JSON.parse(r.stdout);
+    assertEq("carryCheckpoint trips_present true", j.trips_present, true);
+    assertEq("carryCheckpoint lists the trip", j.trips, ["trip-20260101-000000"]);
+
+    // Missing slug -> non-zero exit (capture-only helper must not guess a name).
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.carryCheckpoint}`);
+    assertTrue("carryCheckpoint errors without a slug", r.status !== 0, `status ${r.status}`);
+  } finally { cleanup(dir); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
+  ["carry/carry-checkpoint.sh", testCarryCheckpoint],
   ["branching/detect-context.sh", testDetectContext],
   ["branching/check-workspace.sh", testCheckWorkspace],
   ["drive/update.sh", testUpdate],

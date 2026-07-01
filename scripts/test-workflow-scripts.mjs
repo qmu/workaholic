@@ -999,6 +999,9 @@ function testScanWindow() {
     try { j = JSON.parse(r.stdout); } catch { /* leave null */ }
     assertTrue("scan-window emits valid JSON", j !== null, r.stdout.slice(0, 240));
     assertEq("scan-window echoes the window", j && j.window, "2 weeks ago");
+    // No remote configured -> `git fetch --all` is a vacuous success, so fetch_ok
+    // is true. The field is always present so the report can flag a stale view.
+    assertEq("scan-window reports fetch_ok (true with nothing to fetch)", j && j.fetch_ok, true);
 
     const byEmail = Object.fromEntries((j?.developers || []).map((d) => [d.email, d]));
     assertEq("scan-window groups Alice's 2 commits", byEmail["alice@example.com"]?.commit_count, 2);
@@ -1020,6 +1023,58 @@ function testScanWindow() {
     const er = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanWindow} "2099-01-01"`).stdout);
     assertEq("scan-window future window -> no developers", er.developers, []);
   } finally { cleanup(dir); }
+}
+
+// ---------- catch/scan-window.sh (remote fetch + remote-branch scan) ----------
+// /catch fetches before scanning and scans --branches --remotes so teammates'
+// pushed-but-unpulled work is visible. Two hermetic scenarios (bare local remote,
+// no network): (A) an unreachable remote degrades gracefully -- fetch_ok=false and
+// the local scan still runs; (B) a real remote's branch surfaces after the
+// scan's own internal fetch, with the branch name normalized (no origin/ prefix).
+function testScanWindowRemote() {
+  // --- Scenario A: unreachable remote -> fetch_ok false, local scan intact -----
+  const a = makeRepo("main");
+  try {
+    writeFileSync(join(a, "f.txt"), "f\n");
+    execSync(`git add f.txt && git commit -q -m "Add f"`, { cwd: a });
+    execSync(`git remote add origin /nonexistent/nope.git`, { cwd: a });
+    const j = JSON.parse(run(a, `${POSIX_SH} ${SCRIPTS.scanWindow} "2 weeks ago"`).stdout);
+    assertEq("scan-window fetch_ok is false when the remote is unreachable", j.fetch_ok, false);
+    assertTrue("scan-window still yields local developers after a failed fetch (graceful)",
+      (j.developers || []).length >= 1, JSON.stringify(j.developers));
+  } finally { cleanup(a); }
+
+  // --- Scenario B: real bare remote -> remote-only branch appears normalized ---
+  const remote = mkdtempSync(join(tmpdir(), "workaholic-remote-"));
+  const pusher = makeRepo("main");
+  const cloneParent = mkdtempSync(join(tmpdir(), "workaholic-clone-"));
+  const scanned = join(cloneParent, "repo");
+  try {
+    execSync(`git init -q --bare`, { cwd: remote });
+    // Publish main from the pusher, then clone it into the repo we will scan.
+    execSync(`git remote add origin ${remote} && git push -q -u origin main`, { cwd: pusher });
+    execSync(`git clone -q ${remote} ${scanned}`, { cwd: cloneParent });
+    // AFTER the clone, Carol pushes a branch the scanned repo has not seen yet, so
+    // it only becomes visible because scan-window fetches internally.
+    execSync(`git checkout -q -b work-remote`, { cwd: pusher });
+    execSync(`git commit -q --allow-empty -m "Carol remote work"`, {
+      cwd: pusher,
+      env: { ...process.env, GIT_AUTHOR_EMAIL: "carol@example.com", GIT_AUTHOR_NAME: "Carol", GIT_COMMITTER_EMAIL: "carol@example.com", GIT_COMMITTER_NAME: "Carol" },
+    });
+    execSync(`git push -q origin work-remote`, { cwd: pusher });
+
+    const j = JSON.parse(run(scanned, `${POSIX_SH} ${SCRIPTS.scanWindow} "2 weeks ago"`).stdout);
+    assertEq("scan-window fetch_ok true against a reachable remote", j.fetch_ok, true);
+    const carol = (j.developers || []).find((d) => d.email === "carol@example.com");
+    assertTrue("scan-window surfaces the remote-only developer via its internal fetch",
+      !!carol, JSON.stringify(j.developers));
+    assertEq("scan-window counts the remote-only commit", carol?.commit_count, 1);
+    assertEq("scan-window normalizes the remote branch name (no origin/ prefix)",
+      (carol?.branches || []).map((b) => b.name), ["work-remote"]);
+    const leaked = (j.developers || []).flatMap((d) => d.branches || [])
+      .map((b) => b.name).filter((n) => n.startsWith("origin/") || n === "HEAD");
+    assertEq("scan-window leaks no origin/ or HEAD branch names", leaked, []);
+  } finally { cleanup(remote); cleanup(pusher); cleanup(cloneParent); }
 }
 
 // ---------- hooks/posix-lint.sh (POSIX-sh conformance gate) ----------
@@ -1482,6 +1537,7 @@ const tests = [
   ["hooks/posix-lint.sh", testPosixLint],
   ["report/collect-commits.sh", testCollectCommits],
   ["catch/scan-window.sh", testScanWindow],
+  ["catch/scan-window.sh remote fetch+scan", testScanWindowRemote],
   ["hooks/guard-git-commit.sh", testGuardGitCommit],
   ["hooks/guard-git-branch.sh", testGuardGitBranch],
   ["check-deps/check.sh", testCheckDeps],

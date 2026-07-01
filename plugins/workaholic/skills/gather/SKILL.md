@@ -55,7 +55,7 @@ Fields: `created_at` (ISO 8601 with timezone for frontmatter), `author` (git use
 
 ## Project Label
 
-Emits a short label — the git repository's directory name, truncated to 12 characters — for the `header` field of interactive prompts, so a developer running several Claude Code sessions across tmux panes can tell which repository a waiting dialog belongs to.
+Emits a short label — the git repository's directory name, truncated to 12 characters — used as a `[label]` prefix at the start of interactive-prompt question text, so a developer running several Claude Code sessions across tmux panes can tell which repository a waiting dialog belongs to.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh

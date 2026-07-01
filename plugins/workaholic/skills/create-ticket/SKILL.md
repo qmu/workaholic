@@ -21,7 +21,7 @@ Guidelines for creating implementation tickets in `.workaholic/tickets/`.
 This skill works on any Agent-Skills-compatible agent. The two Claude-Code mechanisms used below are **enhancements, not requirements**:
 
 - **Parallel fan-out** — where a step spawns `general-purpose` subagents to run parts concurrently (e.g. the three discovery modes), that is the Claude Code optimization. On other agents, perform those parts **sequentially** in the same session; the inputs and outputs are identical.
-- **User interaction** — where a step uses `AskUserQuestion`, use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies. Set the `header` field of each interactive prompt (`AskUserQuestion`) to the **project label** — run `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh` once and reuse its `project` value — so a developer with several sessions open across tmux panes can see which repository is asking; keep the decision wording in the `question` body.
+- **User interaction** — where a step uses `AskUserQuestion`, use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies. Prefix each interactive prompt's (`AskUserQuestion`) `question` body with `[<project label>]` — run `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh` once and reuse its `project` value — so a developer with several sessions open across tmux panes can see which repository is asking; leave the `header` as the decision/topic label.
 
 ## Allowed Locations
 

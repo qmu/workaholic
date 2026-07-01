@@ -1,12 +1,13 @@
 #!/bin/sh -eu
-# Emit a short project label for AskUserQuestion headers.
+# Emit a short project label for AskUserQuestion prompts.
 # Usage: project-label.sh
 # Output: JSON {"project": "<label>"}
 #
 # The label is the basename of the git repository root, truncated to 12
-# characters so it fits the AskUserQuestion `header` chip. Commands render it in
-# every interactive prompt so a developer running several Claude Code sessions
-# across tmux panes can tell which repository a waiting dialog belongs to.
+# characters (kept short). Commands render it as a `[label]` prefix at the start
+# of every interactive prompt's question text so a developer running several
+# Claude Code sessions across tmux panes can tell which repository a waiting
+# dialog belongs to.
 #
 # Kept deliberately network-free and cheap: unlike git-context.sh (which runs
 # `git remote show origin`), this is called at prompt time on every question, so

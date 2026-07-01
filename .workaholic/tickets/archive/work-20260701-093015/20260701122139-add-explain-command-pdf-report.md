@@ -3,9 +3,9 @@ created_at: 2026-07-01T12:21:39+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX, Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 4h
+commit_hash: 2e5ef4f
+category: Added
 depends_on:
 ---
 
@@ -110,3 +110,18 @@ Developer-selected gate: **script tests + manual E2E**.
 - **Consent must precede the write.** The Home prompt is asked before rendering-to-disk-at-Home, at command level (leaf subagents can't prompt); symmetric agree/decline, no default-yes (`consent-recording`, `no-dark-patterns`).
 - **Desktop may not exist** (e.g. a headless Linux box has no `~/Desktop`) — the resolver's fallback to Home (which then prompts) handles this; the smoke test must cover it.
 - **Report objectivity.** The answer is technical documentation subject to "verifiable against the code": cite file paths, quote evidence, mark unknowns as unknown (`objective-documentation`).
+
+## Final Report
+
+Development completed as planned, with one scope refinement. Built `commands/explain.md` (thin, mandatory-question + optional-dest, Home-consent gate at command level), `skills/explain/SKILL.md` (`metadata.internal: true`, numbered headings, adaptive discovery → printer-ready HTML template with `@page` print CSS → path resolution → consent → vendor-neutral browser print → no-MCP halt), and `skills/explain/scripts/resolve-export-path.sh` (POSIX; `{chosen_dir, is_home, needs_permission, exists, writable}`). Added `/explain` to the CLAUDE.md Commands table + structure listings and a 12-assertion resolver smoke test. Verified Claude-only: no `explain` in `outputs/` (not in `DEFAULT_TARGETS`), skill internal, command unbuilt. Suite 260 passed / 0 failed; posix-lint 0; build/verify/metadata in lockstep.
+
+**Scope refinement — the browser-MCP capability check is model-level, not a shell script.** Implementation Step 4 offered "check-browser-capability.sh (or a documented in-skill check)"; the shell-script form is not viable because a shell cannot see the session's MCP tool surface (MCP tools are exposed to the model, not the shell), so the check is documented in the skill as the agent inspecting its own available tools. This is the ticket's sanctioned alternative. The consequence is that the gate item "capability-check tested" is covered by the manual no-MCP E2E rather than a unit test; the one bundled script (`resolve-export-path.sh`) received the full smoke suite instead.
+
+The remaining criteria are the agreed manual E2E: (1) `/explain "<q>"` with no dest → a real printer-ready PDF on the Desktop; (2) a Home-resolving target → the symmetric permission prompt, writing only on accept; (3) a session with no browser MCP → halt with guidance and the saved `.html`.
+
+### Discovered Insights
+
+- **Insight**: A bundled shell script cannot detect which browser MCP (Playwright plugin vs Chrome DevTools) — or whether any — is available, because MCP tools are part of the model's tool surface, not the shell environment. Capability detection for MCP-backed features is inherently model-level; a shell "capability check" can only probe OS-level signals (a browser binary on PATH), which is not the same gate.
+  **Context**: Future workaholic features that depend on session-provided MCP tools (like `/explain`'s browser, or a future data-source MCP) must document a model-level tool-availability check and a graceful halt, and cannot rely on a shell probe or a bundled `.mcp.json` — the plugin declares none.
+- **Insight**: `/explain` is the first workaholic feature to write an artifact outside `.workaholic/`. The `validate-ticket.sh` layout hook matches only `*.workaholic/*` paths, so a `~/Desktop/*.pdf` write is neither validated nor blocked — the out-of-repo export sits entirely outside the plugin's artifact-confinement machinery by construction, which is why the consent gate + resolver's fail-safe writability check are the only guardrails and had to be built deliberately.
+  **Context**: The consent is UX/design (Home prompt), not a system-safety block — writing to user-document dirs is permitted; only config/profile/privilege paths are prohibited. The resolver centralizes "which destination needs consent" so that rule lives in one place (`access-control`).

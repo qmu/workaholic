@@ -42,6 +42,7 @@ const SCRIPTS = {
   collectCommits: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/collect-commits.sh"),
   scanWindow: join(REPO_ROOT, "plugins/workaholic/skills/catch/scripts/scan-window.sh"),
   carryCheckpoint: join(REPO_ROOT, "plugins/workaholic/skills/carry/scripts/carry-checkpoint.sh"),
+  resolveExportPath: join(REPO_ROOT, "plugins/workaholic/skills/explain/scripts/resolve-export-path.sh"),
   guardGitCommit: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-commit.sh"),
   guardGitBranch: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-branch.sh"),
   checkDeps: join(REPO_ROOT, "plugins/workaholic/skills/check-deps/scripts/check.sh"),
@@ -1415,9 +1416,48 @@ function testCarryCheckpoint() {
   } finally { cleanup(dir); }
 }
 
+// ---------- explain/resolve-export-path.sh ----------
+function testResolveExportPath() {
+  const home = mkdtempSync(join(tmpdir(), "explain-home-"));
+  const envHome = (h) => ({ env: { ...process.env, HOME: h } });
+  const S = SCRIPTS.resolveExportPath;
+  try {
+    // No Desktop -> Home fallback, which always needs consent.
+    let j = JSON.parse(run(home, `${POSIX_SH} ${S}`, envHome(home)).stdout);
+    assertEq("resolveExportPath home fallback chosen_dir", j.chosen_dir, home);
+    assertEq("resolveExportPath home fallback is_home", j.is_home, true);
+    assertEq("resolveExportPath home fallback needs_permission", j.needs_permission, true);
+    assertEq("resolveExportPath home writable", j.writable, true);
+
+    // Desktop present -> Desktop chosen, no prompt.
+    mkdirSync(join(home, "Desktop"));
+    j = JSON.parse(run(home, `${POSIX_SH} ${S}`, envHome(home)).stdout);
+    assertEq("resolveExportPath desktop chosen_dir", j.chosen_dir, join(home, "Desktop"));
+    assertEq("resolveExportPath desktop is_home", j.is_home, false);
+    assertEq("resolveExportPath desktop needs_permission", j.needs_permission, false);
+
+    // Explicit non-home dest -> honored without a prompt.
+    const dest = mkdtempSync(join(tmpdir(), "explain-dest-"));
+    j = JSON.parse(run(home, `${POSIX_SH} ${S} ${dest}`, envHome(home)).stdout);
+    assertEq("resolveExportPath explicit dest chosen_dir", j.chosen_dir, dest);
+    assertEq("resolveExportPath explicit dest needs_permission", j.needs_permission, false);
+    cleanup(dest);
+
+    // Explicit Home dest -> still needs consent.
+    j = JSON.parse(run(home, `${POSIX_SH} ${S} ${home}`, envHome(home)).stdout);
+    assertEq("resolveExportPath explicit home needs_permission", j.needs_permission, true);
+
+    // Nonexistent dest -> exists/writable false (fail-safe blocker).
+    j = JSON.parse(run(home, `${POSIX_SH} ${S} ${join(home, "nope")}`, envHome(home)).stdout);
+    assertEq("resolveExportPath missing dest exists", j.exists, false);
+    assertEq("resolveExportPath missing dest writable", j.writable, false);
+  } finally { cleanup(home); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["carry/carry-checkpoint.sh", testCarryCheckpoint],
+  ["explain/resolve-export-path.sh", testResolveExportPath],
   ["branching/detect-context.sh", testDetectContext],
   ["branching/check-workspace.sh", testCheckWorkspace],
   ["drive/update.sh", testUpdate],

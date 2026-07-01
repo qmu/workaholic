@@ -15,7 +15,7 @@ metadata:
 
 # Catch
 
-Generate a **by-developer catch-up report** over a recent time window (default: the last two weeks) so a developer can absorb the overall direction of the repository and how each individual is taking their part, then ask follow-up questions to go deeper. `/catch` is **read-only**: it reads tickets, branch stories, docs, and commit messages, and writes nothing.
+Generate a **by-developer catch-up report** over a recent time window (default: the last two weeks) so a developer can absorb the overall direction of the repository and how each individual is taking their part, then ask follow-up questions to go deeper. `/catch` reads tickets, branch stories, docs, and commit messages: it writes **no files and makes no commits**. The one write it performs is a best-effort `git fetch` at the start of the scan, which updates only remote-tracking refs (`refs/remotes/*`) so the report reflects what teammates have pushed — never the working tree, the index, or any project file.
 
 ## Agent Compatibility
 
@@ -43,16 +43,18 @@ Before judging development direction, load the project's engineering policies as
    bash ${CLAUDE_PLUGIN_ROOT}/skills/catch/scripts/scan-window.sh "<window>"
    ```
 
-   It returns `{ window, buckets, developers[], tickets[], stories[], deployments[] }`:
+   The script first runs a best-effort `git fetch --all --prune` so remote-tracking branches reflect what teammates have pushed, then scans `--branches --remotes` (local heads **and** remote-tracking refs) — so a branch that lives only on the remote appears too. It returns `{ window, fetch_ok, buckets, developers[], tickets[], stories[], deployments[] }`:
+   - `fetch_ok` — whether that startup fetch succeeded. `false` means the remote could not be refreshed (offline, no remote, auth); the scan still runs against whatever refs are local, and the report notes the view may be stale (see step 5).
    - `buckets` — the epoch boundaries the scanner used to time-bucket commits: `recent_start` (start of yesterday — the yesterday+today window), `week_start` (Monday 00:00 of the current week), `last_week_start` (Monday 00:00 of the previous week).
    - `developers[]` — each active author in the window: `name`, `email`, `commit_count`, `commits[]`, and `branches[]`. `email` is the **join key** for the by-developer axis.
      - each commit carries `hash`, `subject`, `timestamp` (ISO), `epoch` (committer epoch), `branch` (the branch it was reached from), and `bucket` — one of `recent` (yesterday+today), `this_week` (this calendar week but before yesterday), `last_week` (the previous calendar week), or `older`.
-     - `branches[]` — the developer's branches active in the window, each with `name` and `commit_count`, most active first. (The scan uses `--branches`, so unmerged topic branches are included.)
+     - `branches[]` — the developer's branches active in the window, each with `name` and `commit_count`, most active first. (The scan uses `--branches --remotes`, so unmerged local topic branches **and** remote-only branches are included; the `refs/remotes/<remote>/` prefix is stripped, so a branch present both locally and on the remote collapses to one entry.)
    - `tickets[]` — every ticket under `todo`/`archive`/`icebox` with its frontmatter `author`, `title`, and `scope`. Group these by `author` to match each developer's commits.
    - `stories[]` — branch-story file paths under `.workaholic/stories/`, the narrative record of completed branches.
    - `deployments[]` — **this week's** deployments/releases, one per branch story carrying a `## Deployment Evidence` block (written by `/ship`): `branch`, `author` (git author of the ship commit — the join key, since stories/release-notes carry no author), `timestamp` (the evidence `When:`), `release_title` (the matching `release-notes/<branch>.md` H1, or the story H1), `status` (`pass`/`fail`/`bypassed`), and `confirmation` (the evidence `Observed:` line — empty when none was recorded). Filtered to the current calendar week.
 3. Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/git-context.sh` to get `repo_url` (used to render commit links) and `branch`.
 4. **Empty window**: if `developers[]` is empty, print "No commits in the last `<window>`." and suggest a wider window (e.g. `/catch 1 month`). Stop — there is nothing to summarize.
+5. **Stale-view note**: if `fetch_ok` is `false`, the remote could not be refreshed, so pushed work by others may be missing. Add a short note to the report (a line under the report title) stating the remote was not reachable and the view may be stale — do not present a local-only scan as an up-to-date remote view (`workaholic:implementation` / `objective-documentation`). When `fetch_ok` is `true`, add nothing.
 
 ### Phase 1: Collect Per Developer (parallel fan-out)
 

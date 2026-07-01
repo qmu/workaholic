@@ -235,6 +235,8 @@ The trip protocol soft-depends on the project's engineering policy indexes. Call
 
 Procedural body for `/trip` (executed from the work-side command via this preloaded skill). All script paths use same-plugin form because they resolve from this skill's owning plugin (workaholic).
 
+**Project label in interactive prompts.** In normal mode, prefix the `question` body of each interactive prompt (`AskUserQuestion`) this procedure issues — worktree setup selection, copy-back, ship-worktree selection, drive-vs-trip routing — with `[<project label>]` from `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh` (run once, reuse its `project` value), so a developer with several sessions open across tmux panes can see which repository is asking; leave the `header` as the decision/topic label. Night mode issues no `AskUserQuestion`, so this does not apply there.
+
 **Determine mode from `$ARGUMENT`**: if it contains the `night` token (e.g. "go night /trip …", "/trip night …"), mode = "night" — **strip** the `night` token so the remainder is the trip instruction, and apply the **Night Mode** subsection's overrides to Steps 1, 4, and 5 (unattended, no developer questions). Otherwise mode = "normal" and the steps run interactively as written.
 
 **Determine execution mode (design-first vs queue-execute)** — `/trip` is context-aware, like `/report` and `/ship`. After the Pre-check, list the current todo queue:
@@ -390,7 +392,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/sync-gitignored-files.sh
 ### Trip Ship flow
 
 1. **Sync gitignored files** (above) from `.worktrees/<branch>/` to the main repo root.
-2. **Run the ship essence**: follow `workaholic:ship`'s **Ship Flow** for the worktree's branch/PR. The merge is the **LAST** step, gated on a passing pre-merge production confirmation: pre-check → catch up with `main` → deploy (gated on a `.workaholic/deployments/` confirmation method or `CLAUDE.md` `## Verify`; halt-and-ask if none) → execute the confirmation and record evidence → **merge LAST** → publish release / extract carry-overs. A failed confirmation leaves the PR unmerged (that is the rollback).
+2. **Run the ship essence**: follow `workaholic:ship`'s **Ship Flow** for the worktree's branch/PR. The merge is the **LAST** step, gated on a passing pre-merge production confirmation: pre-check → catch up with `main` → deploy (gated on a `.workaholic/deployments/` confirmation method or `CLAUDE.md` `## Verify`; halt-and-ask if none) → execute the confirmation and record evidence → **merge LAST** → publish release / extract deferred concerns. A failed confirmation leaves the PR unmerged (that is the rollback).
 3. **Clean up worktree**: `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-worktree.sh "<branch>"`; report what was cleaned up.
 4. **Summarize**: include gitignored sync status and worktree cleanup status alongside the ship essence's summary.
 

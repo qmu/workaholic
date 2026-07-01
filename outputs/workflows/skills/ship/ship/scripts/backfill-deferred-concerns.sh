@@ -1,10 +1,10 @@
 #!/bin/sh -eu
 # Backfill .workaholic/concerns/ from every story file in .workaholic/stories/.
 # Matches each story's branch to a merged PR via the GitHub CLI, then runs
-# extract-carryover.sh per story with commits suppressed. Stages and commits
+# extract-deferred-concerns.sh per story with commits suppressed. Stages and commits
 # everything in one batch at the end.
 #
-# Usage: backfill-carryover.sh
+# Usage: backfill-deferred-concerns.sh
 #
 # Output: JSON summary {processed: N, skipped: N, files_total: N}.
 
@@ -55,7 +55,7 @@ for story in "$stories_dir"/*.md; do
   if pr_info=$(lookup "$branch"); then
     pr_number=$(printf '%s' "$pr_info" | cut -f1)
     pr_url=$(printf '%s' "$pr_info" | cut -f2)
-    NO_COMMIT=1 sh "$script_dir/extract-carryover.sh" "$branch" "$pr_number" "$pr_url" > /dev/null || true
+    NO_COMMIT=1 sh "$script_dir/extract-deferred-concerns.sh" "$branch" "$pr_number" "$pr_url" > /dev/null || true
     processed=$((processed+1))
   else
     skipped=$((skipped+1))
@@ -70,7 +70,7 @@ files_total=$(find .workaholic/concerns -maxdepth 1 -name '*.md' ! -name 'README
 if [ "$processed" -gt 0 ]; then
   git add .workaholic/concerns/ >/dev/null
   if ! git diff --cached --quiet; then
-    git commit -m "Backfill carry-over concerns from historical stories" >/dev/null
+    git commit -m "Backfill deferred concerns from stories" >/dev/null
   fi
 fi
 

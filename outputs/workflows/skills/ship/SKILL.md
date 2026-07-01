@@ -14,7 +14,7 @@ This skill is the **trip-independent ship essence**: it operates on the current 
 
 ## Agent Compatibility
 
-This skill works on any Agent-Skills-compatible agent. Where a step uses the agent's selection prompt (workspace/ticket guards, deploy confirmation, the §1-4 no-confirmation-method halt), use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The confirmations are mandatory; only the prompt mechanism varies. (This skill has no subagent fan-out.)
+This skill works on any Agent-Skills-compatible agent. Where a step uses the agent's selection prompt (workspace/ticket guards, deploy confirmation, the §1-4 no-confirmation-method halt), use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The confirmations are mandatory; only the prompt mechanism varies. (This skill has no subagent fan-out.) Prefix each interactive prompt's (the agent's selection prompt) `question` body with `[<project label>]` — run `bash gather/scripts/project-label.sh` once and reuse its `project` value — so a developer with several sessions open across tmux panes can see which repository is asking; leave the `header` as the decision/topic label.
 
 ## 1. Deployment Contract
 
@@ -141,10 +141,10 @@ bash ship/scripts/commit-release-note.sh "<branch>"
 
 Stages, commits (`Add release notes for <branch>`), and pushes any note file(s) under `.workaholic/release-notes/` so they ride into the merge. Returns `{committed, branch}` or `{committed:false, reason:"no_release_note_changes"}`. Run after `write-release-note` has written the note and before `merge-pr.sh`.
 
-### 2-5. Extract Carry-Overs
+### 2-5. Extract Deferred Concerns
 
 ```bash
-bash ship/scripts/extract-carryover.sh "<branch>" "<pr-number>" "<pr-url>"
+bash ship/scripts/extract-deferred-concerns.sh "<branch>" "<pr-number>" "<pr-url>"
 ```
 
 Reads the just-shipped story (`.workaholic/stories/<branch>.md`), parses each `###` concern block in section 6 (Concerns), and writes one file per concern under `.workaholic/concerns/` as `<pr-number>-<slug>.md` (with `severity` and a Title/Description/How-to-Fix body). Returns JSON:
@@ -153,7 +153,7 @@ Reads the just-shipped story (`.workaholic/stories/<branch>.md`), parses each `#
 {"status":"ok","extracted":10,"files":["..."]}
 ```
 
-Commits the new files with message `Carry over concerns from PR #<pr-number>` so the corpus stays under version control. Skips silently when no story file exists or section 6 is empty.
+Commits the new files with message `Add deferred concerns from PR #<pr-number>` so the corpus stays under version control. Skips silently when no story file exists or section 6 is empty.
 
 ### 2-5b. Catch Up With main
 
@@ -233,5 +233,5 @@ Ship the current branch's PR. (Worktree sync/cleanup and drive/trip routing are 
    - Update the PR body with the evidence so reviewers see the proof before merge: `bash report/scripts/create-or-update.sh "<branch>" "<title>"`.
 6. **Merge PR** (LAST — only after a passing confirmation): Run `bash ship/scripts/merge-pr.sh "<pr-number>"`. On failure, inform user and stop. Capture the merge `commit_hash`.
 7. **Publish GitHub Release** (post-merge, gated on a successful merge): Run `bash ship/scripts/publish-release.sh "<branch>" "<merge-commit>" "<tag>" "<notes-file>"`. The script first checks for an existing release-publishing GitHub Actions workflow and **defers** to it (`reason:"ci_publishes"`) — do nothing in that case, CI owns releases. Otherwise it creates the release (idempotent) targeting `merge-pr.sh`'s `commit_hash`. Derive `<tag>` from the project version (`.claude-plugin/marketplace.json` or the project's version file) when present, else the next semver after `gh release view`/the latest git tag; for an additional release on the same branch, suffix the tag to stay unique. `<notes-file>` is the note written in step 5. When CI is absent and a release will actually be created interactively, confirm via the agent's selection prompt first. Report `published`/`reason` from the JSON.
-8. **Extract carry-overs** (post-merge): Run `bash ship/scripts/extract-carryover.sh "<branch>" "<pr-number>" "<pr-url>"`. Persists active Concerns from the just-merged story's section 6 into `.workaholic/concerns/`. Commits the new files. Skips silently when no story file exists or section 6 is empty. Report `extracted` count from the JSON output.
-9. **Summarize**: catch-up result, deployment status, **confirmation result** (method used and pass/fail, with the recorded evidence, the unresolved-gate outcome if ship halted, or — distinctly — **merged WITHOUT production confirmation (accepted-risk bypass)** with the recorded bypass evidence), PR merge status (number, URL — emphasizing it merged only after confirmation passed), release-note status, GitHub Release status (published/deferred), and carry-over extraction count.
+8. **Extract deferred concerns** (post-merge): Run `bash ship/scripts/extract-deferred-concerns.sh "<branch>" "<pr-number>" "<pr-url>"`. Persists active Concerns from the just-merged story's section 6 into `.workaholic/concerns/`. Commits the new files. Skips silently when no story file exists or section 6 is empty. Report `extracted` count from the JSON output.
+9. **Summarize**: catch-up result, deployment status, **confirmation result** (method used and pass/fail, with the recorded evidence, the unresolved-gate outcome if ship halted, or — distinctly — **merged WITHOUT production confirmation (accepted-risk bypass)** with the recorded bypass evidence), PR merge status (number, URL — emphasizing it merged only after confirmation passed), release-note status, GitHub Release status (published/deferred), and deferred concern extraction count.

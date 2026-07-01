@@ -22,7 +22,7 @@ Do **not** re-implement staging or message assembly here — `commit.sh` owns mu
 
 2. **Stage safely.**
    - `commit.sh` stages all **tracked** changes by default (`git add -u`); it **never** uses `git add -A`.
-   - If there are **untracked** files that belong in this commit, list them and **ask the user** (`AskUserQuestion`, selectable options) before staging them, then pass those files explicitly to `commit.sh` as trailing `[files...]` arguments. Never stage untracked files without confirmation — they may belong to another contributor.
+   - If there are **untracked** files that belong in this commit, list them and **ask the user** (`AskUserQuestion`, selectable options) before staging them, then pass those files explicitly to `commit.sh` as trailing `[files...]` arguments. Never stage untracked files without confirmation — they may belong to another contributor. Prefix that prompt's `question` body with `[<project label>]` — run `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh` and use its `project` value — so a developer with several sessions open across tmux panes can see which repository is asking.
    - If nothing is staged and there are no tracked changes, tell the user there is nothing to commit and stop.
 
 3. **Derive a conformant message** (see `workaholic:commit` → Message Format):

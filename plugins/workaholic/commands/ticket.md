@@ -21,6 +21,8 @@ skills:
 
 This command (main agent) runs the `workaholic:create-ticket` **Workflow** directly: it spawns the three discovery subagents as `general-purpose` Task calls and issues every AskUserQuestion itself — there is no `ticket-organizer` subagent.
 
+**Project label in every prompt:** for each `AskUserQuestion` this command issues (worktree guard, moderation merge/split, Quality-Gate interrogation, ambiguity), prefix the `question` body with `[<project label>]` — run `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh` once and reuse its `project` value — so a developer with several sessions open across tmux panes can see which repository is asking; leave the `header` as the decision/topic label.
+
 ## Instructions
 
 ### Pre-check: Dependencies

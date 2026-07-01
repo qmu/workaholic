@@ -52,3 +52,21 @@ Output:
 ```
 
 Fields: `created_at` (ISO 8601 with timezone for frontmatter), `author` (git user email), `filename_timestamp` (YYYYMMDDHHmmss for the ticket filename).
+
+## Project Label
+
+Emits a short label — the git repository's directory name, truncated to 12 characters — for the `header` field of interactive prompts, so a developer running several Claude Code sessions across tmux panes can tell which repository a waiting dialog belongs to.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh
+```
+
+Output:
+
+```json
+{
+  "project": "workaholic"
+}
+```
+
+Field: `project` (repo-root basename, ≤12 chars for the header chip). Deliberately network-free — unlike `git-context.sh` it makes no `git remote` call, because it is invoked at prompt time on every question.

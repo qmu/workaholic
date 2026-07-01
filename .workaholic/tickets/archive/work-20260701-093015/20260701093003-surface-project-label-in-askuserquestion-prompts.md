@@ -3,9 +3,9 @@ created_at: 2026-07-01T09:30:03+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX, Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: fc163bd
+category: Changed
 depends_on:
 ---
 
@@ -107,3 +107,14 @@ Past tickets that touched similar areas:
 - **Prompt phrasing is prose, not machine-checked.** The developer chose the manual-eyeball gate over a `verify.mjs` assertion, so nothing enforces that a *future* new `AskUserQuestion` carries the label — the shared "User interaction" bullet in each skill is the only guard. If prompts later drift, revisit adding a coverage check (`scripts/build-plugins/verify.mjs`).
 - **Outputs rewrite.** The build turns `AskUserQuestion` into "the agent's selection prompt" in `outputs/workflows/`; word the convention so it still reads correctly there (`outputs/workflows/skills/**`), and never hand-edit the generated files.
 - **Network cost.** Deliberately avoid extending `git-context.sh` for the label because it performs a network `git remote show origin`; a per-prompt label must stay fast and offline (`plugins/workaholic/skills/gather/scripts/git-context.sh`).
+
+## Final Report
+
+Development completed as planned. A dedicated network-free `project-label.sh` was chosen over extending `git-context.sh` (its `git remote show origin` is too heavy for a prompt-time call). The convention was stated once per workflow skill's "User interaction" anchor (drive/ship/report/create-ticket/trip-protocol) plus the two commands that author prompts directly (ticket/commit); the drive Approval JSON was the one call site with an explicit header value, so its header became the project label and the ticket title moved into the question body. Build/verify/metadata/posix-lint and 240 smoke tests are green with `outputs/` in lockstep.
+
+### Discovered Insights
+
+- **Insight**: Convention prose that mentions `AskUserQuestion` must be phrased so it survives the outputs build's term rewrite (`AskUserQuestion` → "the agent's selection prompt"). A trailing parenthetical — `each interactive prompt (AskUserQuestion)` — rewrites cleanly, whereas a possessive like "every `AskUserQuestion`'s header" becomes the awkward "every the agent's selection prompt's header".
+  **Context**: `scripts/build-plugins/build.mjs` (lines ~162-169) applies ordered regex replacements when publicizing skills to `outputs/workflows/`; any new prompt-convention text in a built workflow skill should be checked against that rewrite, not just read in source.
+- **Insight**: The drive approval `header` already carried the ticket title (from ticket 20260212222003), which competes with the project label for the same ≤12-char chip. Resolving it by moving the title into the `question` body actually improves both — the chip is too small for a title anyway, and the body reliably shows the full title.
+  **Context**: When two features want the same `AskUserQuestion` field, prefer the glanceable chip for the shorter, higher-cardinality signal (which project) and the body for the longer context (which ticket).

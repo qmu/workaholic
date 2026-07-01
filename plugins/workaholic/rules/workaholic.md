@@ -9,7 +9,7 @@ The `.workaholic/` directory has a fixed structure. Only these subdirectories ar
 
 | Directory        | Purpose                                    |
 | ---------------- | ------------------------------------------ |
-| `concerns/`      | Carry-over concerns/ideas (and `concerns/archive/`) |
+| `concerns/`      | Deferred concerns/ideas (and `concerns/archive/`) |
 | `deployments/`   | Deployment/release procedures and their success-confirmation methods |
 | `release-notes/` | Per-branch release notes                   |
 | `specs/`         | Current state reference documentation      |

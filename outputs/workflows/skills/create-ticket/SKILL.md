@@ -23,7 +23,7 @@ Tickets are written to ONE of these two directories — never anywhere else:
 
 Archive paths (`.workaholic/tickets/archive/<branch>/`) are written by the drive archive script, never by this skill.
 
-**PROHIBITED**: Do NOT write tickets into any other directory under `.workaholic/`, including but not limited to: `RFDs/`, `policies/`, `specs/`, `guides/`, `stories/`, `terms/`, `release-notes/`, `trips/`, `constraints/`, `concerns/`. Even if the user's request sounds like a design discussion, RFD, spec, policy, or carried-over concern, the artifact produced by this skill is a ticket and must live under `.workaholic/tickets/`. Other artifact types (including carry-over concerns/ideas — those are written by `ship` and updated by `report`) are out of scope for this skill.
+**PROHIBITED**: Do NOT write tickets into any other directory under `.workaholic/`, including but not limited to: `RFDs/`, `policies/`, `specs/`, `guides/`, `stories/`, `terms/`, `release-notes/`, `trips/`, `constraints/`, `concerns/`. Even if the user's request sounds like a design discussion, RFD, spec, policy, or deferred concern, the artifact produced by this skill is a ticket and must live under `.workaholic/tickets/`. Other artifact types (including deferred concerns/ideas — those are written by `ship` and updated by `report`) are out of scope for this skill.
 
 **Rationale**: The drive workflow, archive script, navigator, report skill, and validation hook all scan `.workaholic/tickets/` exclusively. A ticket placed in a sibling directory becomes invisible to the rest of the pipeline. The `plugins/workaholic/hooks/validate-ticket.sh` hook enforces this and rejects ticket-shaped files (filename matching `YYYYMMDDHHmmss-*.md`) written outside `.workaholic/tickets/`.
 

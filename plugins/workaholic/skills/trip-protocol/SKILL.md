@@ -392,7 +392,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/sync-gitignored-files.sh
 ### Trip Ship flow
 
 1. **Sync gitignored files** (above) from `.worktrees/<branch>/` to the main repo root.
-2. **Run the ship essence**: follow `workaholic:ship`'s **Ship Flow** for the worktree's branch/PR. The merge is the **LAST** step, gated on a passing pre-merge production confirmation: pre-check → catch up with `main` → deploy (gated on a `.workaholic/deployments/` confirmation method or `CLAUDE.md` `## Verify`; halt-and-ask if none) → execute the confirmation and record evidence → **merge LAST** → publish release / extract carry-overs. A failed confirmation leaves the PR unmerged (that is the rollback).
+2. **Run the ship essence**: follow `workaholic:ship`'s **Ship Flow** for the worktree's branch/PR. The merge is the **LAST** step, gated on a passing pre-merge production confirmation: pre-check → catch up with `main` → deploy (gated on a `.workaholic/deployments/` confirmation method or `CLAUDE.md` `## Verify`; halt-and-ask if none) → execute the confirmation and record evidence → **merge LAST** → publish release / extract deferred concerns. A failed confirmation leaves the PR unmerged (that is the rollback).
 3. **Clean up worktree**: `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-worktree.sh "<branch>"`; report what was cleaned up.
 4. **Summarize**: include gitignored sync status and worktree cleanup status alongside the ship essence's summary.
 

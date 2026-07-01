@@ -1,6 +1,6 @@
 ---
 name: review-sections
-description: Generate branch-story sections 4-7 (Outcome, Historical Analysis, Concerns, Successful Development Patterns) from archived tickets and carry-over verdicts. Used by the report workflow when assembling a PR story.
+description: Generate branch-story sections 4-7 (Outcome, Historical Analysis, Concerns, Successful Development Patterns) from archived tickets and deferred concern verdicts. Used by the report workflow when assembling a PR story.
 ---
 
 # Review Sections
@@ -11,7 +11,7 @@ Guidelines for generating story sections 4-7 (Outcome, Historical Analysis, Conc
 
 - Branch name
 - List of archived ticket paths
-- Carry-over verdicts file path (`/tmp/carryover-verdicts.json`, optional — empty/missing if no active carry-overs)
+- Deferred concern verdicts file path (`/tmp/deferred-concern-verdicts.json`, optional — empty/missing if no active deferred concerns)
 - Collected commit bodies (the `collect-commits.sh` output): each commit's structured body may carry `Concerns:` and `Insights:` keys recorded at commit time. These are a resilient secondary source for sections 6 and 7 — they survive even when a ticket is sparse or has been pruned.
 
 ## Analysis Process
@@ -22,7 +22,7 @@ Guidelines for generating story sections 4-7 (Outcome, Historical Analysis, Conc
    - Related History section for patterns
    - Considerations section for concerns
    - Final Report section (if present) for outcomes
-3. **Read carry-over verdicts** from the verdicts file path. Filter to entries with `verdict: still_active`. These carry-overs were judged active by the carry-over judge subagent (the `### Judge Carry-Overs` step in `workaholic:report`) and must be re-surfaced in this story's section 6 (Concerns).
+3. **Read deferred concern verdicts** from the verdicts file path. Filter to entries with `verdict: still_active`. These deferred concerns were judged active by the deferred-concern judge subagent (the `### Judge Deferred Concerns` step in `workaholic:report`) and must be re-surfaced in this story's section 6 (Concerns).
 
 ## Section Guidelines
 
@@ -46,7 +46,7 @@ Extract patterns and learnings from Related History sections.
 
 ### Section 6: Concerns
 
-Risks, trade-offs, limitations, and forward-looking suggestions discovered during implementation. Each concern is one insight expressed as a title, a description, and how to fix it — with a severity label. Emit one `###` block per concern using this exact structure (it is parsed by `extract-carryover.sh` on `/ship`):
+Risks, trade-offs, limitations, and forward-looking suggestions discovered during implementation. Each concern is one insight expressed as a title, a description, and how to fix it — with a severity label. Emit one `###` block per concern using this exact structure (it is parsed by `extract-deferred-concerns.sh` on `/ship`):
 
 ```markdown
 ### <Concise title>
@@ -58,7 +58,7 @@ Risks, trade-offs, limitations, and forward-looking suggestions discovered durin
 
 Compose the section from three sources, in this order:
 
-1. **Carried-over concerns** — entries in the verdicts file where `verdict: still_active`. Render each as a block above; prefix the title with `(carried from PR #N)` using `origin_pr`, and preserve the carry-over's existing `severity`.
+1. **Deferred concerns** — entries in the verdicts file where `verdict: still_active`. Render each as a block above; prefix the title with `(carried from PR #N)` using `origin_pr`, and preserve the deferred concern's existing `severity`.
 2. **New concerns** — extracted from the Considerations sections of this branch's tickets **and** the `Concerns:` keys of the collected commit bodies. Deduplicate where a ticket Consideration and a commit Concern describe the same issue.
 3. **Confirmed documentation drift** — drift the release-readiness role confirmed while assessing release readiness (its `doc-drift.sh` candidates judged real in `workaholic:report`'s `## Assess Release Readiness`). Render each as a block above: title the concern after the stale doc (e.g. `Documentation drift: CLAUDE.md skill index`), set Description to which structural change landed without the doc being updated, and How to Fix to the specific edit the doc needs. Default `severity: moderate`. Use only the drift the release-readiness role already confirmed — do **not** re-run or re-judge the script here (this skill stays script-free so it keeps resolving cross-agent via the `skills` CLI).
 

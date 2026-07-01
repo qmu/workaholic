@@ -12,7 +12,7 @@ Each policy is mirrored from its canonical article at qmu.co.jp as an English ha
 
 ## Policies
 
-- **[CI/CD Automation](policies/ci-cd.md)** (CI/CD 自動化) — Consolidating the deployment path as repository scripts executed by generative AI, with pre-deployment container inspection and post-deployment live-site verification, so the safety of a shipment rests on reproducible evidence rather than an operator's care.
+- **[Local CI/CD Execution](policies/ci-cd.md)** (CI/CDのローカル実施) — Running CI checks and CD releases inside the team's own containerized development environment rather than external hosted services, so that both inspections and releases are reproducible locally and the safety of a shipment rests on verifiable evidence rather than an operator's care.
 - **[No Customer Support in the Repository](policies/no-customer-support-in-repo.md)** (リポジトリ内CS対応の禁止) — Routing customer support communication through a dedicated support channel rather than the GitHub issue tracker, keeping the engineering backlog and the support queue separate.
 - **[AI-Assisted Production Investigation](policies/ai-production-investigation.md)** (AIによる本番環境調査) — Using AI agents to accelerate production diagnosis under a read-only access constraint, with all agent actions logged and proposed production changes reviewed by a human before execution.
 

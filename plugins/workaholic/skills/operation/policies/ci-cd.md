@@ -7,114 +7,44 @@ source: https://qmu.co.jp/implementation/ci-cd
 
 # CI/CD Automation
 
-CI/CD Automation (CI/CD 自動化) is the policy for decoupling the path from commit to deployment from the operator's memory. Building, testing, inspection, and delivery are all recorded in the repository as code, creating a state in which the same result is obtained no matter who runs it or when they run it. We place CI/CD Automation at the top of the availability policy domain because operational continuity is supported not by "the reliability of human hands" but by "the reliability of the codebase itself."
+*Consolidating the deployment path as repository scripts executed by generative AI, verified against production before and after, so the safety of a shipment rests on reproducible evidence rather than an operator's care.*
+
+CI/CD Automation (CI/CD 自動化) is the policy for recording the path to production deployment as scripts in the repository and having generative AI execute them. Before and after each deployment, verifications are run against production — the live site — and the fact that deployment passed is backed by online confirmation. We want to hold the path from building through inspecting to deploying in the codebase itself, separate from any operator's memory, so that whether a human or an AI executes it, the same result is reached.
 
 ## Goal (目標)
 
-The situation this policy aims to achieve is one in which the codebase can answer for itself whether a commit is in a deployable state.
+The aim is a state where the deployment path is recorded as code in the repository and, whether executed by a human or an AI, arrives at the same result.
 
-The contours of the goal are as follows:
-
-- From day one, a `git push` runs every inspection, and the delivery path to `main` / `production` starts automatically.
-
-- The class of discrepancy described by "it works locally but the build doesn't pass" or "it passes when person A deploys but fails when person B runs it" cannot arise structurally.
-
-- Regressions (type errors, test failures, lint warnings, dependency vulnerabilities) are detected at the time of the PR rather than after release.
-
-- Rollback is provided as an automated path (as a button / command, not as a runbook).
+Deployment is consolidated into scripts in the repository, reproducible from anyone's machine at any time, producing the same build and the same delivery. Before deployment, builds and inspections run through containers configured to match production, with every inspection the codebase provides applied at this stage; after deployment, the production response itself is confirmed to match expectations through a live-site check. The safety of a deployment rests not on a particular operator's care but on the reproducibility of the deployment path and the verifications that bracket it.
 
 ## Responsibility (責務)
 
-The situation this policy aims to prevent is one in which the delivery path depends on an individual's operational knowledge, and reproducibility and regression detection are not built in as the default. It prevents a state in which delivery depends on a procedure that lives inside one person's head.
+The situations this policy aims to prevent are: a state where unverified deployment reaches production, and a state where the deployment procedure depends only on a particular person's or session's memory and cannot be reproduced.
 
-States that are not tolerated:
-
-- A deployment path reachable only by hand. A state in which production rollout depends on "person A typing commands in sequence" or "logging into a console and clicking manually."
-
-- Inspections that are not run in CI. A state in which any of type checking, unit tests, lint, dependency vulnerability scanning, or automated accessibility verification that exist in the codebase are not being run in CI.
-
-- "Tests that fail but aren't red." A state in which flaky, skipped, and disabled tests pile up until green is no longer grounds for trust.
-
-- A rollback procedure that has not been rehearsed. Putting "if it comes to it, we can just revert" into operation while never having actually executed it.
-
-- CI configuration that is locked inside vendor-specific DSL. A state in which logic that cannot be reproduced locally (dependency resolution, container startup, test execution) disappears into DSL such as `.github/workflows/*` or `.gitlab-ci.yml` (consistent with Passive Vendor Dependence).
+In a setup where AI writes most of the implementation and also executes deployments, deployments run fast and often. In this arrangement, "just ship it" deployments that skip verification and one-off commands that touch production directly tend to accumulate. Treating the deployment process turning green as sufficient evidence that production is healthy — without checking the live site's actual responses — leaves a broken state unnoticed in production while the next deployment proceeds.
 
 ## Practices (実践)
 
-### Establish automation ahead of other infrastructure work
+### Run builds and inspections through containers before deployment
 
-In new projects, set up CI/CD before shipping the first feature. Manual deployment is easy to set up initially and is sufficient for small teams. The reason to prioritize automation nonetheless is that it makes reproducibility and regression detection the default from day one. The cost is that the setup effort is incurred before the first feature ships.
+Before deploying, run builds and inspections through containers in the same configuration as production and confirm they pass. Apply the inspections the codebase provides — link resolution, type checking, tests, and others — at this stage; anything that stops here does not proceed to production. Pre-deployment inspection also gives the generative AI executing the deployment a scaffold it can re-run to self-correct.
 
-The paths to set up first are as follows:
+### Apply online verification to production after deployment
 
-- A push to the repository runs the build, type check, and tests.
+After deploying, confirm the actual responses from the production origin. Check whether the home page, representative pages, and the sitemap return the expected responses; check whether changes from the branch appear in the live HTML — newly added slugs are reachable, removed slugs return 404, retitled pages show the new title, and content that should not appear is absent. If these checks do not pass, treat the deployment as failed and do not proceed to merge. Ground the decision to ship not in the fact that the deployment process turned green but in the fact that production actually responds as expected.
 
-- A merge into the `main` / `production` branch starts the production rollout (or starts it after manual approval).
+### Consolidate deployment paths into scripts and execute from the shipping flow
 
-- On failure, a notification is delivered (Slack, email, GitHub PR).
+Consolidate the deployment procedure into a repository script (`scripts/deploy.sh`) and have generative AI (Claude Code) execute it as part of the `/ship` shipping flow. This keeps the deployment approach from scattering across one person's memory or ad-hoc commands, and makes the same deployment reproducible by anyone from the repository. Managed CD such as GitHub Actions functions as support for this flow where appropriate. For a small team where AI executes deployments, we lean toward placing the deployment path in repository scripts in a form that both humans and AI can execute without routing through CI-specific DSL.
 
-### The CI logic must be reproducible locally
+### Only pass credentials at runtime; do not leave them in the repository
 
-The inspections and build steps that run in CI are kept in a state where developers can run them locally with the same commands. Rather than writing logic only inside `.github/workflows/*`, consolidate it into commands such as `npm run check` or `make test`, and have CI merely invoke them.
+Place credentials needed for deployment only in the environment of the host executing the deployment — not in the repository and not in deployment contract files. Bringing the deployment path closer to local execution means giving up CI's secret isolation, but the single point of never baking credentials into version control is maintained without exception.
 
-- Local reproducibility raises the debugging speed on CI failure by an order of magnitude.
+### Link deployment records to change history
 
-- The blast radius of a vendor swap (GitHub Actions → CircleCI → another tool) becomes smaller.
+Maintain a state where what was deployed and when can be traced after the fact. Link deployment to the change history — tickets, stories, release notes, and commit messages — so that what was reflected in production with each shipment is preserved. The actual state of production is confirmed through the online verification results at deployment time and the dashboard of the deployment target.
 
-### Operate inspection additions on the premise of "increasing the red"
+### Related (関連): Testing, Observability, External Dependencies
 
-When adding a new inspection (a test, a lint rule, a vulnerability scan), it is acceptable to first surface the places that currently turn red. If the addition of an inspection is delayed out of fear that `main` will turn red the instant it is added, an inspection culture will never grow.
-
-- When the existing red cannot be resolved all at once, enable the new inspection in stages (exclusion files, an upper bound on the number of tolerated warnings).
-
-- Leave the goal of "eventually applying it across the board" in the PR description or in an ADR.
-
-### Deployment has "automated stages"
-
-Rather than shipping directly to production, separate it into stages.
-
-- build / test: the stage that runs inspections. If it fails, it stops here.
-
-- deploy to staging: once inspections pass, it is reflected to staging automatically.
-
-- deploy to production: once confirmation is obtained on staging (automatically / with manual approval), it is reflected to production.
-
-The stages may be shortened according to scale (for a small documentation site, the two stages of build → production are sufficient). What matters is that each stage is an automated decision point.
-
-### Provide rollback as an automated path
-
-Rather than "if it comes to it, we can just revert," provide a rollback button / command.
-
-- Rolling back to the previous successful deployment can be executed in one operation.
-
-- Data integrity at rollback time (downgrading DB migrations, handling schema-incompatible changes) is documented as a procedure.
-
-- Run a rollback rehearsal monthly to quarterly.
-
-### Use caching and artifacts appropriately
-
-CI execution time can be greatly reduced with caching of dependency resolution and build artifacts. For dependency-resolution caching (npm cache, Gradle cache, etc.), use the standard features of the CI configuration. For build artifacts (Docker images, compiled binaries), push them to a registry and have other jobs retrieve them.
-
-### Operate required checks on Pull Requests
-
-Using GitHub's Required status checks (or an equivalent feature), make a green CI mandatory before a merge into `main`. Leave no path by which a manual merge lets red code in.
-
-### Treat CI maintenance "with the same weight as feature development"
-
-Treat the improvement and tidying of CI configuration with the same weight as feature development. A CI that is slow, unstable, or inscrutable directly harms the development experience and induces manual evasion of inspections (skipping local tests before pushing).
-
-### Retain deployment logs for the long term
-
-Make "when and what was deployed" traceable for at least six months. Deliberately choose the retention-period settings for GitHub Actions / GitLab CI logs and artifacts. In post-incident review, deployment history is a primary source.
-
-### Related (関連): Portability, Observability, Testing, WCAG
-
-The inspections that run on CI take on the verification points of multiple policy domains.
-
-- Delivery portability is linked with Passive Vendor Dependence.
-
-- Inspection of metrics and log output is linked with Observability and Self-Healing.
-
-- Test execution is linked with Testing (integration tests that use real components also run here).
-
-- Automated accessibility verification (Axe, Lighthouse) is the path that defends WCAG 2.2 AA from [Accessibility Open to AI](../../planning/policies/accessibility-first.md) in CI.
+Pre-deployment container inspection connects with [Active Use of Unit Tests](../../implementation/policies/test.md), with real-component verification also applied at this stage. The stance of confirming production responses after deployment connects with [Observability and Self-Healing](../../implementation/policies/observability.md). The choice not to lock the deployment path to a specific vendor's CI DSL is continuous with [Conservative Vendor Dependence](../../design/policies/vendor-neutrality.md).

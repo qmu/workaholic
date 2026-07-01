@@ -22,6 +22,7 @@ Each policy is mirrored from its canonical article at qmu.co.jp as an English ha
 - **[Legal Compliance Verification](policies/legal-compliance-check.md)** (法令の確認と順守) — Enumerating applicable laws and regulatory requirements before design begins, so legal constraints are a shared premise rather than a late discovery.
 - **[Cost Estimation Methods](policies/cost-estimation.md)** (コスト試算方法の検討) — Building cost estimates on explainable foundations that account for AI productivity variability, state scope boundaries clearly, and present uncertainty as ranges rather than single figures.
 - **[Upfront IT Investment Evaluation](policies/it-investment-evaluation.md)** (IT投資評価の事前実施) — Evaluating IT investment from a return-on-investment perspective before proposals, so clients can make informed decisions about scope rather than being pushed toward larger orders.
+- **[Demonstrating Capability over Track Record](policies/capability-over-track-record.md)** (実力のアピールに努める) — Demonstrating capability through the real thing at hand — a working PoC, concrete design reasoning, and the service itself — rather than listing past achievements, so that the motivation to build stays aligned with client and user value.
 
 ## Applying this index
 

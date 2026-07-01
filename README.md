@@ -141,7 +141,7 @@ Working artifacts live in [.workaholic/](.workaholic/README.md). Each artifact c
 | `tickets/abandoned/*.md` | `/drive` (abandon flow) | Attempted-then-abandoned change with failure analysis | committed, permanent | no | never |
 | `stories/<branch>.md` | `/report` | PR description: overview, journey, outcome, concerns, ideas, release readiness | committed before PR creation | concerns/ideas sections only (extracted by `/ship`) | never (per-branch permanent record) |
 | `release-notes/<branch>.md` | `/report` | Concise release narrative for GitHub Releases | committed after PR creation | no | never |
-| `concerns/<pr>-<slug>-<kind>.md` | `/ship` (extract from story) | Unresolved concern or idea surfaced in a past PR | committed during ship | **yes — this is the carry-over corpus**; remains `status: active` until `/report` judges it resolved | judge marks `status: resolved` (file preserved, audit trail intact) |
+| `concerns/<pr>-<slug>-<kind>.md` | `/ship` (extract from story) | Unresolved concern or idea surfaced in a past PR | committed during ship | **yes — this is the deferred-concerns corpus**; remains `status: active` until `/report` judges it resolved | judge marks `status: resolved` (file preserved, audit trail intact) |
 | `trips/<branch>/*` | `/trip` | Multi-agent collaborative design output (planner/architect/constructor) | committed inside trip worktree | no | never |
 | `specs/*.md` | manual (hand-edited reference) | Current-state documentation of how things work today | committed | n/a — not branch-scoped | superseded when manually rewritten |
 | `guides/*.md` `policies/*.md` `terms/*.md` | manual | Persistent reference material (user docs, policies, glossary) | committed | n/a | superseded when manually rewritten |
@@ -169,7 +169,7 @@ flowchart LR
   subgraph ship[Ship]
     direction TB
     d1["/ship"] --> d2["merge PR"]
-    d2 --> d3["extract carry-overs<br/>to concerns/"]
+    d2 --> d3["extract deferred concerns<br/>to concerns/"]
   end
   plan --> implement --> report --> ship
   d3 -."next /report reads".-> c1
@@ -180,7 +180,7 @@ flowchart LR
 **Implement** — `/drive` reads `tickets/todo/`, implements one ticket at a time, and on approval moves the file to `tickets/archive/<branch>/`. The archive subdirectory is named after the current branch so all of a branch's tickets cluster under one folder. Final reports and the resolving `commit_hash` are written into the ticket frontmatter at archive time.
 
 **Report** — `/report` runs after all tickets on a branch are archived. It does four writes in order:
-1. Judges every active file in `concerns/` (carry-overs from past PRs) via a `general-purpose` carry-over-judge subagent. Resolved items are moved to `concerns/archive/`; still-active items are passed to the section-reviewer.
+1. Judges every active file in `concerns/` (deferred concerns from past PRs) via a `general-purpose` deferred-concern-judge subagent. Resolved items are moved to `concerns/archive/`; still-active items are passed to the section-reviewer.
 2. Writes `stories/<branch>.md` — the full PR description including section 6 (Concerns), each item prefixed with `(carried from PR #N)` if surfaced from the corpus.
 3. Commits the story together with any `concerns/` status changes (including moves to `archive/`), so the audit history is coherent.
 4. Opens the GitHub PR and writes `release-notes/<branch>.md`.

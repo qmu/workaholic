@@ -6,7 +6,9 @@
 # Usage: scan-window.sh [window]
 #   window: any `git log --since` expression; defaults to "2 weeks ago".
 #
-# Output (JSON): { window, buckets, developers[], tickets[], stories[], deployments[] }.
+# Output (JSON): { window, fetch_ok, buckets, developers[], tickets[], stories[], deployments[] }.
+# fetch_ok reports whether the best-effort `git fetch` at startup succeeded; false
+# means the remote view could not be refreshed and the scan may be stale.
 # Records are delimited with ASCII unit (0x1f) and record (0x1e) separators so
 # multi-line bodies/titles survive: git emits them via %x1f/%x1e, the shell via
 # octal \037/\036, and jq splits on the matching  /  escapes and does
@@ -16,6 +18,19 @@
 set -eu
 
 WINDOW="${1:-2 weeks ago}"
+
+# --- Refresh remote-tracking refs (best-effort, non-fatal) ------------------
+# /catch answers "what has everyone pushed", so refresh refs/remotes/* before
+# scanning. This is the one write /catch performs, and it touches only
+# remote-tracking refs -- never the working tree, the index, or any project file.
+# It is best-effort: on failure (offline, no remote, auth) we proceed from
+# whatever refs are already local and report the staleness via fetch_ok downstream
+# rather than aborting the report. set -eu is active, so the `if` neutralizes a
+# non-zero fetch exit instead of letting it terminate the script.
+FETCH_OK=false
+if git fetch --quiet --all --prune 2>/dev/null; then
+  FETCH_OK=true
+fi
 
 # --- Time-bucket boundaries (epoch seconds) ---------------------------------
 # Each commit is tagged into a bucket so collectors can summarize a developer's
@@ -30,17 +45,38 @@ WEEK_START=$(( TODAY0 - (DOW - 1) * 86400 )) # Monday 00:00 of the current week
 LAST_WEEK_START=$(( WEEK_START - 604800 ))   # Monday 00:00 of the previous week
 
 # --- Developers + their commits in the window -------------------------------
-# --branches --source widens the scan beyond HEAD-reachable history so unmerged
-# topic branches are visible, and each commit carries the branch (%S) it was reached
-# from; %ct (committer epoch) drives the bucket assignment. The window (--since)
-# still bounds it, so only branches with recent commits appear.
+# --branches --remotes --source widens the scan beyond HEAD-reachable history so
+# unmerged local topic branches AND branches that live only on a remote (other
+# developers' pushed-but-unpulled work, now refreshed by the fetch above) are
+# visible. Each commit carries the branch (%S) it was reached from; --source emits
+# each commit exactly once, so a commit present on both a local head and a remote
+# ref is not double-counted. --exclude drops the symbolic refs/remotes/*/HEAD so a
+# commit is never mis-attributed to a branch named "HEAD". %ct (committer epoch)
+# drives the bucket assignment; the window (--since) still bounds it.
+#
+# %S emits the branch shortened: a local head as `feature`, a remote-only ref as
+# `origin/feature` (and, on some git versions, the full `refs/heads/…`/`refs/remotes/…`).
+# REMOTES carries the configured remote names so strip_branch (in the jq below) can
+# normalize every form to the bare branch name, collapsing `origin/feature` and a
+# local `feature` into one entry.
+REMOTES=$(git remote 2>/dev/null | jq -Rs 'split("\n") | map(select(length > 0))')
+[ -n "$REMOTES" ] || REMOTES='[]'
+
 DEVELOPERS=$(
-  git log --since="$WINDOW" --reverse --no-merges --branches --source \
+  git log --since="$WINDOW" --reverse --no-merges \
+    --exclude='refs/remotes/*/HEAD' --branches --remotes --source \
     --format='%h%x1f%an%x1f%ae%x1f%s%x1f%cI%x1f%ct%x1f%S%x1f%b%x1e' 2>/dev/null \
   | jq -Rs \
       --argjson recent_start "$RECENT_START" \
       --argjson week_start "$WEEK_START" \
-      --argjson last_week_start "$LAST_WEEK_START" '
+      --argjson last_week_start "$LAST_WEEK_START" \
+      --argjson remotes "$REMOTES" '
+      def strip_branch:
+        sub("^refs/heads/"; "")
+        | sub("^refs/remotes/"; "")
+        | . as $b
+        | ([$remotes[] | . + "/" | select($b | startswith(.))] | first) as $pfx
+        | if $pfx then $b[($pfx | length):] else $b end;
       split("")
       | map(select((gsub("\\s"; "") | length) > 0))
       | map(ltrimstr("\n") | split(""))
@@ -48,7 +84,7 @@ DEVELOPERS=$(
           hash: .[0], name: .[1], email: .[2],
           subject: .[3], timestamp: .[4],
           epoch: (.[5] | tonumber),
-          branch: ((.[6] // "") | sub("^refs/heads/"; "")),
+          branch: ((.[6] // "") | strip_branch),
           body: ((.[7] // "") | sub("\n+$"; "")),
           bucket: ((.[5] | tonumber) as $e
             | if   $e >= $recent_start    then "recent"
@@ -164,6 +200,7 @@ WINDOW_JSON=$(printf '%s' "$WINDOW" | jq -Rs .)
 cat <<EOF
 {
   "window": ${WINDOW_JSON},
+  "fetch_ok": ${FETCH_OK},
   "buckets": {
     "recent_start": ${RECENT_START},
     "week_start": ${WEEK_START},

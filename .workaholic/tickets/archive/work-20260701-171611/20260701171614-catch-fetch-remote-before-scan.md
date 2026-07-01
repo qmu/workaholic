@@ -3,9 +3,9 @@ created_at: 2026-07-01T17:16:14+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure, Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: ad4ea8d
+category: Changed
 depends_on:
 ---
 
@@ -117,3 +117,15 @@ How the outcome's quality is assured, captured from the developer at ticket time
 - **`--prune` is a deliberate choice** — it removes remote-tracking refs for upstream-deleted branches so the report doesn't show ghosts; it only touches `refs/remotes/*`, never local heads or the working tree.
 - **Performance** — `git fetch --all` adds a network round-trip to every `/catch`. It is `--quiet` and best-effort; acceptable for a report command, but worth noting the added latency on large remotes (`plugins/workaholic/skills/catch/scripts/scan-window.sh`).
 - **Deployment scan unchanged** — the `emit_deployments` join still keys on branch-story ship commits; widening the developer scan does not change deployment attribution.
+
+## Final Report
+
+Development completed as planned. `scan-window.sh` now fetches best-effort at startup, scans `--branches --remotes`, normalizes branch names via a `strip_branch` jq helper, and emits `fetch_ok`. `SKILL.md` gained the fetch/remote-scan description, corrected read-only claim, and a stale-view report step. Verified by `node scripts/test-workflow-scripts.mjs` (268 passed, 0 failed) with two new remote scenarios, posix-lint conformance, and `outputs/` rebuilt + `verify.mjs`/`validate-metadata.mjs` green.
+
+### Discovered Insights
+
+- **Insight**: `git fetch --all` in a repo with **no** remote configured exits 0 (a vacuous success), so `fetch_ok` is `true` there, not `false`. The ticket's acceptance criteria assumed no-remote ⇒ `fetch_ok: false`; in reality only an *unreachable/failing* remote (bad URL, offline, auth) yields `false`. The tests were written to the true behavior: no-remote asserts `fetch_ok: true`, and a separate unreachable-remote scenario asserts `fetch_ok: false` with the local scan intact.
+  **Context**: The stale-view note in the report keys on `fetch_ok: false`, so it correctly fires only when a configured remote genuinely could not be refreshed — never on a purely local repo where "stale relative to remote" is meaningless.
+
+- **Insight**: `%S` (`git log --source`) emits the **short** ref form — a local head as `feature`, a remote-only ref as `origin/feature` — not the full `refs/remotes/origin/feature`. Stripping a `refs/remotes/<remote>/` regex alone leaves the `origin/` prefix. Normalization must strip the actual remote names (hence passing `git remote` into jq as `$remotes`). Because `--branches` is traversed before `--remotes`, a commit on both a local and remote ref is attributed to the local head, so branch grouping never fragments.
+  **Context**: Anyone extending the per-branch axis must keep the `strip_branch` helper and the `$remotes` argument in sync; dropping either re-leaks `origin/` prefixes into branch names.

@@ -1,5 +1,5 @@
 #!/bin/sh -eu
-# Apply carry-over judge verdicts to the corresponding files. Verdicts arrive
+# Apply deferred-concern judge verdicts to the corresponding files. Verdicts arrive
 # on stdin as a JSON array of {path, verdict, resolved_by_pr?, resolved_by_commit?}.
 # For "resolved" verdicts, flips status, records the resolving PR/commit, and
 # moves the file into .workaholic/concerns/archive/. For "still_active"

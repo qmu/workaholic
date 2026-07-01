@@ -34,13 +34,15 @@ const SCRIPTS = {
   readDeployments: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/read-deployments.sh"),
   recordEvidence: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/record-evidence.sh"),
   catchupMain: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/catchup-main.sh"),
-  applyVerdicts: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/apply-carryover-verdicts.sh"),
-  extractCarryover: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/extract-carryover.sh"),
+  applyVerdicts: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/apply-deferred-concern-verdicts.sh"),
+  extractDeferredConcerns: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/extract-deferred-concerns.sh"),
   docDrift: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/doc-drift.sh"),
   checkCapability: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/check-confirmation-capability.sh"),
   posixLint: join(REPO_ROOT, "plugins/workaholic/hooks/posix-lint.sh"),
   collectCommits: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/collect-commits.sh"),
   scanWindow: join(REPO_ROOT, "plugins/workaholic/skills/catch/scripts/scan-window.sh"),
+  carryCheckpoint: join(REPO_ROOT, "plugins/workaholic/skills/carry/scripts/carry-checkpoint.sh"),
+  resolveExportPath: join(REPO_ROOT, "plugins/workaholic/skills/explain/scripts/resolve-export-path.sh"),
   guardGitCommit: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-commit.sh"),
   guardGitBranch: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-branch.sh"),
   checkDeps: join(REPO_ROOT, "plugins/workaholic/skills/check-deps/scripts/check.sh"),
@@ -585,7 +587,7 @@ function testCatchupMain() {
   }
 }
 
-// ---------- report/apply-carryover-verdicts.sh (Bug 1: accept object + array) ----------
+// ---------- report/apply-deferred-concern-verdicts.sh (Bug 1: accept object + array) ----------
 function testApplyVerdicts() {
   // {"verdicts":[...]} object form must archive a resolved concern.
   const repo = makeRepo("main");
@@ -615,19 +617,19 @@ function testApplyVerdicts() {
   } finally { cleanup(repo2); }
 }
 
-// ---------- ship/extract-carryover.sh (Bug 2: canonical dedup across PR prefixes) ----------
-function testExtractCarryover() {
+// ---------- ship/extract-deferred-concerns.sh (Bug 2: canonical dedup across PR prefixes) ----------
+function testExtractDeferredConcerns() {
   const repo = makeRepo("main");
   try {
     mkdirSync(join(repo, ".workaholic/stories"), { recursive: true });
     writeFileSync(join(repo, ".workaholic/stories/work-x.md"),
       "---\nbranch: work-x\n---\n## 6. Concerns\n\n### Some real concern\n\n- **Severity:** moderate\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n");
     execSync(`git add -A && git commit -q -m story`, { cwd: repo });
-    const r1 = JSON.parse(run(repo, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractCarryover} work-x 10 https://x/pr/10`).stdout);
-    assertEq("extract-carryover first run extracts the concern", r1.extracted, 1);
+    const r1 = JSON.parse(run(repo, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/pr/10`).stdout);
+    assertEq("extract-deferred-concerns first run extracts the concern", r1.extracted, 1);
     // Same concern, different PR number -> must NOT re-emit (canonical dedup).
-    const r2 = JSON.parse(run(repo, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractCarryover} work-x 11 https://x/pr/11`).stdout);
-    assertEq("extract-carryover dedups same concern across PR prefixes", r2.extracted, 0);
+    const r2 = JSON.parse(run(repo, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 11 https://x/pr/11`).stdout);
+    assertEq("extract-deferred-concerns dedups same concern across PR prefixes", r2.extracted, 0);
   } finally { cleanup(repo); }
 }
 
@@ -1386,8 +1388,76 @@ function testInstallGitHooks() {
   } finally { cleanup(classic); }
 }
 
+// ---------- carry/carry-checkpoint.sh ----------
+function testCarryCheckpoint() {
+  const dir = makeRepo("main");
+  try {
+    // No trips dir -> trips_present false; ticket_path routed to todo/<user>/.
+    let r = run(dir, `${POSIX_SH} ${SCRIPTS.carryCheckpoint} resume-foo`);
+    let j = JSON.parse(r.stdout);
+    assertEq("carryCheckpoint user_slug", j.user_slug, TEST_SLUG);
+    assertEq("carryCheckpoint slug", j.slug, "resume-foo");
+    assertTrue("carryCheckpoint ticket_path routed to todo/<user>/",
+      new RegExp(`^\\.workaholic/tickets/todo/${TEST_SLUG}/\\d{14}-resume-foo\\.md$`).test(j.ticket_path),
+      `got ${j.ticket_path}`);
+    assertEq("carryCheckpoint no trips -> trips_present false", j.trips_present, false);
+    assertEq("carryCheckpoint no trips -> empty trips", j.trips, []);
+
+    // With a trip directory present -> trips_present true and the trip listed.
+    mkdirSync(join(dir, ".workaholic/trips/trip-20260101-000000"), { recursive: true });
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.carryCheckpoint} resume-bar`);
+    j = JSON.parse(r.stdout);
+    assertEq("carryCheckpoint trips_present true", j.trips_present, true);
+    assertEq("carryCheckpoint lists the trip", j.trips, ["trip-20260101-000000"]);
+
+    // Missing slug -> non-zero exit (capture-only helper must not guess a name).
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.carryCheckpoint}`);
+    assertTrue("carryCheckpoint errors without a slug", r.status !== 0, `status ${r.status}`);
+  } finally { cleanup(dir); }
+}
+
+// ---------- explain/resolve-export-path.sh ----------
+function testResolveExportPath() {
+  const home = mkdtempSync(join(tmpdir(), "explain-home-"));
+  const envHome = (h) => ({ env: { ...process.env, HOME: h } });
+  const S = SCRIPTS.resolveExportPath;
+  try {
+    // No Desktop -> Home fallback, which always needs consent.
+    let j = JSON.parse(run(home, `${POSIX_SH} ${S}`, envHome(home)).stdout);
+    assertEq("resolveExportPath home fallback chosen_dir", j.chosen_dir, home);
+    assertEq("resolveExportPath home fallback is_home", j.is_home, true);
+    assertEq("resolveExportPath home fallback needs_permission", j.needs_permission, true);
+    assertEq("resolveExportPath home writable", j.writable, true);
+
+    // Desktop present -> Desktop chosen, no prompt.
+    mkdirSync(join(home, "Desktop"));
+    j = JSON.parse(run(home, `${POSIX_SH} ${S}`, envHome(home)).stdout);
+    assertEq("resolveExportPath desktop chosen_dir", j.chosen_dir, join(home, "Desktop"));
+    assertEq("resolveExportPath desktop is_home", j.is_home, false);
+    assertEq("resolveExportPath desktop needs_permission", j.needs_permission, false);
+
+    // Explicit non-home dest -> honored without a prompt.
+    const dest = mkdtempSync(join(tmpdir(), "explain-dest-"));
+    j = JSON.parse(run(home, `${POSIX_SH} ${S} ${dest}`, envHome(home)).stdout);
+    assertEq("resolveExportPath explicit dest chosen_dir", j.chosen_dir, dest);
+    assertEq("resolveExportPath explicit dest needs_permission", j.needs_permission, false);
+    cleanup(dest);
+
+    // Explicit Home dest -> still needs consent.
+    j = JSON.parse(run(home, `${POSIX_SH} ${S} ${home}`, envHome(home)).stdout);
+    assertEq("resolveExportPath explicit home needs_permission", j.needs_permission, true);
+
+    // Nonexistent dest -> exists/writable false (fail-safe blocker).
+    j = JSON.parse(run(home, `${POSIX_SH} ${S} ${join(home, "nope")}`, envHome(home)).stdout);
+    assertEq("resolveExportPath missing dest exists", j.exists, false);
+    assertEq("resolveExportPath missing dest writable", j.writable, false);
+  } finally { cleanup(home); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
+  ["carry/carry-checkpoint.sh", testCarryCheckpoint],
+  ["explain/resolve-export-path.sh", testResolveExportPath],
   ["branching/detect-context.sh", testDetectContext],
   ["branching/check-workspace.sh", testCheckWorkspace],
   ["drive/update.sh", testUpdate],
@@ -1401,8 +1471,8 @@ const tests = [
   ["ship/read-deployments.sh", testReadDeployments],
   ["ship/record-evidence.sh", testRecordEvidence],
   ["ship/catchup-main.sh", testCatchupMain],
-  ["report/apply-carryover-verdicts.sh", testApplyVerdicts],
-  ["ship/extract-carryover.sh", testExtractCarryover],
+  ["report/apply-deferred-concern-verdicts.sh", testApplyVerdicts],
+  ["ship/extract-deferred-concerns.sh", testExtractDeferredConcerns],
   ["report/doc-drift.sh", testDocDrift],
   ["hooks/policy-lens.sh", testPolicyLens],
   ["hooks/validate-ticket.sh", testValidateLayout],

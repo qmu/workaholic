@@ -1,9 +1,9 @@
 #!/bin/sh -eu
-# List all carry-over files under .workaholic/concerns/ with status: active.
+# List all deferred concern files under .workaholic/concerns/ with status: active.
 # Output: JSON array of {path, status, severity, origin_pr, origin_pr_url,
 #                       origin_branch, origin_commit, body}
 #
-# Used by /report to feed the carry-over judge (general-purpose) subagent.
+# Used by /report to feed the deferred-concern judge (general-purpose) subagent.
 
 set -eu
 

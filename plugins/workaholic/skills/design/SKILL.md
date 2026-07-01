@@ -6,7 +6,7 @@ user-invocable: false
 
 # Design Policies
 
-This skill is the project's index of **設計 (design)** engineering policies — covering interaction and experience design, security design, data handling and sovereignty, external dependency choices, and API design. The pillar now has 16 policies, on the behavior and structure side rather than the code-implementation side.
+This skill is the project's index of **設計 (design)** engineering policies — covering interaction and experience design, security design, data handling and sovereignty, external dependency choices, and API design. The pillar now has 17 policies, on the behavior and structure side rather than the code-implementation side.
 
 Each policy is mirrored from its canonical article at qmu.co.jp as an English hard copy under [`policies/`](policies/). The published article is the source of truth; the local copy is how this platform and our website share the same knowledge. Read a policy's file for its full **Goal (目標)**, **Responsibility (責務)**, and **Practices (実践)**. The `source:` field in each file's frontmatter links back to the canonical article.
 
@@ -14,6 +14,7 @@ Each policy is mirrored from its canonical article at qmu.co.jp as an English ha
 
 - **[Modeless Design](policies/modeless-design.md)** (モードレス設計) — Keeping every action available without entering a special "mode", placing composability above step-by-step guidance, so users keep the freedom to assemble their own workflow; focus is introduced only where a task genuinely benefits from it.
 - **[Cautious Consideration of Distributed Systems](policies/modular-monolith-first.md)** (分散システムの慎重検討) — Using managed services as development scaffolding while keeping the deployment unit as a single modular monolith; splitting into separate services only when the boundary is justified and the rationale is documented.
+- **[Proactive Consideration of Sacrificial Architecture](policies/sacrificial-architecture.md)** (犠牲的アーキテクチャの積極検討) — Designing module boundaries along rebuildable units so that discarding and rebuilding a part is a normal option alongside incremental change, especially in early project stages when requirements are still fluid.
 - **[Authentication and Authorization Procurement Policy](policies/auth-procurement.md)** (認証・認可機能の調達方針) — Evaluating existing authentication and authorization solutions before building, because the security surface of a custom implementation is wide and the failure modes are severe.
 - **[Access Control Mechanism Selection](policies/access-control.md)** (アクセス制御機構の使い分け) — Choosing the access control mechanism proportionate to the actual authorization requirements, starting simple and escalating only when a simpler model cannot express the needed rules.
 - **[Security Considered in Layers](policies/defense-in-depth.md)** (セキュリティの多層的検討) — Designing security as a set of independent controls at the network, application, data, and process layers so that the breach of any single layer does not expose the system.

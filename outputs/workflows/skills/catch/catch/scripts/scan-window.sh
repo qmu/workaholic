@@ -144,7 +144,7 @@ STORIES='[]'
 if [ -d ".workaholic/stories" ]; then
   STORIES=$(
     find .workaholic/stories -maxdepth 1 -name '*.md' -type f 2>/dev/null \
-      | grep -v '/README\.md$' \
+      | grep -vE '/(README|index)\.md$' \
       | sort \
       | jq -Rs 'split("\n") | map(select(length > 0))'
   )
@@ -162,7 +162,7 @@ fi
 emit_deployments() {
   [ -d ".workaholic/stories" ] || return 0
   find .workaholic/stories -maxdepth 1 -name '*.md' -type f 2>/dev/null \
-    | grep -v '/README\.md$' | sort | while IFS= read -r f; do
+    | grep -vE '/(README|index)\.md$' | sort | while IFS= read -r f; do
       grep -q '^## Deployment Evidence' "$f" || continue
       epoch=$(git log -1 --format=%ct -- "$f" 2>/dev/null)
       [ -n "$epoch" ] || continue

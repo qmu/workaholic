@@ -3,9 +3,9 @@ created_at: 2026-07-03T01:08:58+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config, Infrastructure]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: 8e8e690
+category: Added
 depends_on:
 ---
 
@@ -77,6 +77,16 @@ Past tickets that touched similar areas:
 5. **Extend `verify.mjs`** with OKF conformance assertions over `outputs/okf/`: every non-reserved `.md` parses as YAML frontmatter + body; `type` is non-empty everywhere; `index.md`/`log.md` never appear as concept documents; all intra-bundle links resolve to files inside the bundle.
 6. **Confirm CI coverage**: the Outputs Freshness workflow's existing `outputs/` diff covers `outputs/okf/`; run the full local verification suite.
 7. **Document**: update `CLAUDE.md`'s Project Structure (`outputs/okf/`) and Local Verification sections; note the OKF target is opt-in knowledge interchange, consumed by any OKF reader via the git repo (the spec's recommended distribution), with no marketplace manifest required.
+8. **Make the runtime-generated `.workaholic/` markdown OKF-conformant** (Revision 1 — the developer's primary intent): every markdown file the workflow skills write into a project's `.workaholic/` tree must satisfy OKF's conformance floor — a parseable YAML frontmatter block whose `type` is non-empty. Tickets already conform (`type: enhancement|bugfix|refactoring|housekeeping` — producer-defined values are explicitly allowed). Update the file-writing templates in the skills whose artifacts lack frontmatter, adding a minimal OKF-conformant block (`type` + existing metadata conventions like `created_at`/`author` as extra keys, which OKF consumers must preserve):
+   - `report` / `review-sections` — the branch story file (`.workaholic/stories/<branch>.md`): `type: Story`.
+   - `write-release-note` — the release note file (`.workaholic/release-notes/`): `type: Release Note`.
+   - `ship` — deferred concern/idea files (`.workaholic/concerns/`): `type: Concern`.
+   - `carry` / `trip-protocol` — trip checkpoints and design documents (`.workaholic/trips/`): `type: Design` / `type: Checkpoint` (resumption tickets already use the ticket format).
+9. **Keep source conventions primary**: OKF conformance is additive — do not rename existing keys (`created_at` stays `created_at`; OKF tolerates unknown keys), do not break `validate-ticket.sh`, `collect`-side parsers, or the report workflow's story readers.
+10. **Regenerate `outputs/workflows`** (the changed skills ship in the portable bundle) and re-run the full verification suite.
+11. **Switch the workflow-maintained directory index to OKF's reserved `index.md`** (Revision 2): the story index the report workflow maintains moves from `.workaholic/stories/README.md` to `.workaholic/stories/index.md` in OKF index form (no frontmatter; `* [title](file.md) - description` entries) so OKF readers recognize it as the navigation index; update `catch`'s `scan-window.sh` to exclude `index.md` alongside `README.md` when scanning stories; migrate this repo's existing `stories/README.md` to the new form.
+12. **Make `.workaholic/` itself an OKF bundle hierarchy that the workflows keep organized** (Revision 3 — the developer's core requirement): add a bundled index-refresh script (new internal `okf` skill) that deterministically regenerates the bundle entry point `.workaholic/index.md` (frontmatter `okf_version: "0.1"` — the bundle root is the one `index.md` allowed frontmatter) listing each present knowledge area, plus per-directory `index.md` files for the flat knowledge dirs (`release-notes`, `concerns`, `deployments`, `guides`, `specs`, `policies`, `terms`) and `trips/` (one entry per trip linking its `plan.md`). Entry titles/descriptions derive from each file's frontmatter (falling back to the H1), so the hierarchy reorganizes itself from what exists. `stories/index.md` stays report-maintained (richer hand-written descriptions) and is linked, not regenerated; `tickets/` internals are never touched (its queue scripts and structure guards own that tree — the root index links the directory without generating indexes inside it).
+13. **Wire the refresh into the writing flows**: `drive`'s `archive.sh` runs the refresh before its commit so every archived ticket ships with a fresh hierarchy; the `report` and `ship` flows run it after writing stories/release-notes/concerns and stage the refreshed indexes with their existing commits.
 
 ## Quality Gate
 
@@ -90,6 +100,7 @@ How the outcome's quality is assured. **Note:** the developer was away at ticket
 - A dependency-decision log for adopting OKF v0.1 (Reason/Assessment/Monitoring/Exit strategy) is committed in the same PR.
 - Source files under `plugins/` are byte-identical before and after the change except for build-script edits — the translation happens entirely at publish time.
 - Running `node scripts/build-plugins/build.mjs` twice in a row produces zero diff (deterministic output; no wall-clock timestamps).
+- (Revision 1) Every markdown artifact template the workflow skills write into `.workaholic/` produces a file with a parseable YAML frontmatter block and a non-empty `type` — the OKF conformance floor — without renaming any existing metadata key.
 
 **Verification method** — the commands/tests/probes that prove them:
 
@@ -110,3 +121,42 @@ How the outcome's quality is assured. **Note:** the developer was away at ticket
 - `outputs/okf/` is generated and committed — never hand-edited; the existing `outputs/` diff in CI should cover it with no workflow edit, but confirm rather than assume (`.github/workflows/outputs-freshness.yml`)
 - The `workflows` marketplace entry pattern does not apply: OKF consumers read the bundle directly from the repo path, so no `.claude-plugin`/`.codex-plugin` manifest is added unless the spec requires one (`.claude-plugin/marketplace.json`)
 - New build code is Node `.mjs` under the TypeScript-family coding standards; any helper shell must be POSIX `#!/bin/sh -eu`, never bash (`plugins/workaholic/rules/shell.md`)
+
+## Discussion
+
+### Revision 1 - 2026-07-03T03:12:52+09:00
+
+**User feedback**: "I don't think you get my point correctly, because what I was expecting is that the Markdown files generated by Wakahoric should be compatible with the OKF format."
+
+**Ticket updates**: Added Implementation Steps 8–10 (make the runtime-generated `.workaholic/` markdown OKF-conformant by updating the file-writing templates in `report`/`review-sections`, `write-release-note`, `ship`, and `carry`/`trip-protocol`; keep existing key conventions; regenerate `outputs/workflows`). Added a Revision 1 acceptance criterion to the Quality Gate.
+
+**Direction change**: The primary deliverable is native OKF compatibility of the markdown files workaholic *generates at runtime* (tickets, stories, release notes, concerns, trip artifacts) — not only an exported bundle. The `outputs/okf/` policy bundle built in the first pass is kept (it is a valid OKF surface and independently useful), but the templates the workflow skills use to write `.workaholic/` files are the point: each generated file must itself satisfy OKF's conformance floor (parseable YAML frontmatter, non-empty `type`). Tickets already conform; the other artifact families gain a minimal frontmatter block.
+
+### Revision 2 - 2026-07-03T03:12:52+09:00
+
+**User feedback**: "how about index.md ?"
+
+**Ticket updates**: Added Implementation Step 11 — the workflow-maintained story index moves from `README.md` to OKF's reserved `index.md` (no frontmatter, link-list entries), `scan-window.sh` excludes `index.md` when scanning stories, and the repo's existing `stories/README.md` is migrated.
+
+**Direction change**: Directory navigation should use OKF's reserved `index.md` filename so OKF readers recognize the index as an index (progressive disclosure), accepting the loss of GitHub's automatic README rendering on that directory page.
+
+### Revision 3 - 2026-07-03T03:12:52+09:00
+
+**User feedback**: "if the user is using this plugin ... to generate Markdown file documents under the .workaholic directory, we will have the OKF format compatibility document hierarchy. I am not talking about currently existing Markdown files right now. However, once the next version release ... has been cut over, the developer will use this. Under the .workaholic directory, I want to have the OKF-compatible organized documents generated and reorganized."
+
+**Ticket updates**: Added Implementation Steps 12–13 — a deterministic index-refresh script (internal `okf` skill) that generates and maintains the `.workaholic/` bundle hierarchy (root `index.md` with `okf_version` + per-area indexes), wired into the drive/report/ship writing flows.
+
+**Direction change**: The unit of OKF compatibility is the whole `.workaholic/` tree in a *consumer project*, kept organized automatically as workflows generate documents — per-file frontmatter (Revision 1) and reserved index names (Revision 2) are necessary but not sufficient; the bundle needs a self-maintaining entry-point hierarchy.
+
+## Final Report
+
+Development completed as planned, across three developer-driven revisions: the OKF policy bundle (`outputs/okf/`, 50 concepts + root `index.md`), OKF-conformant frontmatter on every workflow-generated artifact family, reserved-name `index.md` navigation, and the self-maintaining `.workaholic/` bundle hierarchy (new internal `okf` skill; `refresh-index.sh` called by drive/ship/report before their commits). Documentation (root README, `.workaholic/README.md`, CLAUDE.md, rules) updated in the same change, with a new CLAUDE.md rule making same-commit doc updates mandatory.
+
+### Discovered Insights
+
+- **Insight**: Commit-date-derived `timestamp` values in committed generated artifacts are structurally incompatible with a rebuild-and-diff freshness CI — the artifact's inputs change at the very commit that ships it, so the tree is permanently one commit stale.
+  **Context**: Any future generated artifact under `outputs/` must be a pure function of the working tree (no git-state, no wall clock). The OKF bundle omits `timestamp` for exactly this reason.
+- **Insight**: `publish-release.sh` posted the release-note file verbatim to GitHub Releases, so adding frontmatter to committed notes required a strip step at the publish boundary — any future frontmatter addition to a file that is republished elsewhere needs the same audit of its consumers.
+  **Context**: The consumer list of an artifact family (PR body via `create-or-update.sh`, GitHub Release via `publish-release.sh`, scanners like `scan-window.sh`) is the real blast radius of a format change, not the writer.
+- **Insight**: Scripts that scan `.workaholic` directories by glob (`scan-window.sh`, `list-todo.sh`, concern scripts) each carry their own reserved-filename exclusions; introducing a new reserved name (`index.md`) means auditing every scanner, and the tickets/ tree was deliberately left index-free because its scanners and structure guards would fight generated files.
+  **Context**: Explains why `refresh-index.sh` covers the flat knowledge areas but never writes inside `tickets/`, and why `stories/index.md` is report-maintained rather than regenerated.

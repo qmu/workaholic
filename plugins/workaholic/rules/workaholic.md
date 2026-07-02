@@ -22,7 +22,7 @@ This list is the single source of truth in `plugins/workaholic/hooks/workaholic-
 
 The `tickets/` queue is partitioned per developer: active tickets live under `tickets/todo/<user>/`, where `<user>` is the slug of `git config user.email` (e.g. `a-qmu-jp`). The icebox (`tickets/icebox/`) and archive (`tickets/archive/<branch>/`) stay as-is.
 
-README files at the root level are allowed (`README.md`).
+Two root-level files are allowed: `README.md`, and `index.md` — the [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) bundle entry point, regenerated together with each area's `index.md` by `okf/scripts/refresh-index.sh` whenever a workflow commits knowledge documents.
 
 **Guidelines:**
 - Never create directories outside the allowed list. Enforcement is **warn by default** (a `Write`/`Edit` into an undesignated `.workaholic/` subdirectory is allowed but flagged on stderr by `validate-ticket.sh`). To make it **blocking** for a repo, set `WORKAHOLIC_STRICT_LAYOUT=1` or commit an empty `.workaholic/.strict-layout` marker. The ticket-shape and ticket-location rules are always blocking, regardless of this toggle.

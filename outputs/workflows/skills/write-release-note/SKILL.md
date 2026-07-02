@@ -10,6 +10,12 @@ Generate concise release notes from a branch story for GitHub Releases.
 ## Content Structure
 
 ```markdown
+---
+type: Release Note
+branch: <branch-name>
+released_at: <date -Iseconds output>
+---
+
 # <Story Title>
 
 ## Summary
@@ -68,6 +74,8 @@ Generate concise release notes from a branch story for GitHub Releases.
    - Omit velocity line when fields are absent
 
 6. **Links**: The PR URL is provided as input (by the `ship` Ship Flow, from its `pre-check.sh` output). Always include it.
+
+7. **Frontmatter**: Always start the file with the YAML frontmatter block shown above — the non-empty `type` key makes the committed note readable as an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) concept document. It never reaches GitHub: the ship flow's `publish-release.sh` strips frontmatter before creating the Release.
 
 ## Output Location
 

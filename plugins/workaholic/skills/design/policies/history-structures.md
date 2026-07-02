@@ -7,42 +7,34 @@ source: https://qmu.co.jp/design/history-structures
 
 # Proactive Introduction of History Structures
 
-_Design data structures to preserve history from the start; the ability to answer "what was the state at time T" and "who changed what, when" is much cheaper to build in than to add later._
+_Design data structures to preserve state transitions as history; the ability to reconstruct what was true at a given point in time is much cheaper to build in from the start than to add after data has accumulated._
 
-Many products reach a point where they need to answer questions about the past: what changed in this record, who approved this transaction, what did the state look like before this bug was introduced? If the data structure only holds current state, answering these questions requires either a reconstruction from logs — if logs were comprehensive — or the answer is simply unavailable. History structures — temporal tables, append-only event logs, audit tables, or event sourcing — are the design patterns that make these questions answerable. Our policy is to decide early, for each significant data model, what history is needed and to build it in before data accumulates.
+We proactively hold the history of state as a structure in design. Not only what status a record holds now, but when, in what order, and through what it arrived at the present — we place it as a default consideration at the design stage to retain this in a structurally traceable form. The reason for holding history as a structure is that three concerns — audit, re-consent recording, and temporal reasoning — all presuppose the ability to reconstruct "what was true at a given point in time" after the fact. Keeping only the latest state and overwriting the past with each change is light and fast, but when these concerns arise later there are no means left to recover the lost history. At our scale, stage, and structure, these concerns often arise as the business progresses, and we judge it easier to place each judgment on the same foundation if history is held structurally from the start.
 
 ## Goal (目標)
 
-The situation this policy aims to achieve is one in which the history the product needs to answer its operational, audit, and debugging questions is present in the database, having been accumulated from the first write.
-
-- Each significant entity has a defined history policy: snapshot-on-change, event log, or current-state-only with external log.
-- The who-changed-what audit trail is queryable for entities that require it.
-- Point-in-time queries — "what did the state look like at this timestamp" — are possible for entities whose temporal state matters.
+The situation this policy aims to achieve is one in which state transitions remain as history, and the state at a given point in time and the history of changes leading to it can be traced structurally after the fact. Not just showing the current status, but a state in which when and through what the present was reached can be read from the records, and the path of consent updates and status changes can be traced back. Reaching a state in which the same history structure can provide answers for audit questions, re-consent records, and reconstruction of past-point states is placed as our destination.
 
 ## Responsibility (責務)
 
-The situation this policy aims to prevent is one in which a history question arises in production and cannot be answered because the data structure never accumulated the needed information.
+The situation this policy aims to prevent is one in which the past is lost by overwriting state, making it impossible to reconstruct what happened and when after the fact.
 
-States we do not tolerate:
-
-- Current-state-only tables for entities whose change history is operationally or compliance-relevant, with no audit trail anywhere.
-- History decided as a retrofit after the first data has accumulated in current-state-only form. The retrofitted audit trail contains no history from before the retrofit.
-- Audit logs that record only the user and timestamp of a change, without the before and after state of the changed fields. An audit log that says "user X changed record Y at time T" but not what changed is insufficient for most audit use cases.
+Implementation that updates status tends to take the form of writing back only the latest value and discarding the previous value and the history leading to it. In development where AI writes most of the implementation, as code that updates status is mass-produced, overwriting without retaining the before and after of changes tends to spread as the default behavior, resulting in history silently being lost. We want to prevent the state in which when audit or re-consent questions arise later, there is no history left to trace.
 
 ## Practices (実践)
 
-### Decide the history policy when designing each significant entity
+### Add change history alongside tables that hold status
 
-When a new entity is designed, decide: does this need an audit trail (who changed what, when)? Does it need temporal query support (what was the state at time T)? Neither? Record the decision in the migration notes or ADR. The default is current-state-only, but the decision is explicit.
+When a record holds a status or state field, consider alongside it a structure that can retain the history of change — when, from what value to what value, triggered by what — rather than only overwriting the value. Plan from the design stage for a form in which simple queries for the latest status remain straightforward while the history of change accumulates behind them.
 
-### Use append-only tables for entities that require audit trails
+### Adopt event-sourcing-style recording according to the concern
 
-For entities that require an audit trail, design an accompanying history or changelog table: for each change, insert a row with the entity ID, timestamp, changed-by user ID, and the before and after values of changed fields. The history table is append-only (no updates or deletes). This complements the relational database stance in the persistence policy — see [Schema-First Database Design](../../implementation/policies/persistence.md).
+Event-sourcing-style recording — recording state transitions themselves rather than the latest state snapshot — is worth considering where concerns of audit, re-consent recording, or temporal reasoning arise. That said, holding history as a structure as a default consideration, and building a heavyweight event store from the start, are separate matters. We do not recommend building a distributed event store in advance; the judgment of whether to adopt it and to what degree is made when the concern becomes concrete. The implementation details of storage format, migration, and adoption conditions are covered in the event sourcing section of [Schema-First Database Design](../../implementation/policies/persistence.md).
 
-### Consider event sourcing for entities that need temporal queries
+### Plan for audit, re-consent recording, and temporal reasoning as uses of history
 
-For entities that need point-in-time queries (financial ledgers, version-controlled documents, state machine records), consider an event-sourcing model: store events (what happened), derive current state from the event log. See the event sourcing section of [Schema-First Database Design](../../implementation/policies/persistence.md) for when to adopt this.
+Plan ahead for three concerns as uses of history. For audit: the ability to trace after the fact who changed what, when, as primary material forms the basis for evaluation under [Risk Management under ISMS](../../safety/policies/risk-management.md) and post-incident verification. For re-consent recording: being able to retain as history when and how terms changed and consent was updated is key — see [Recording of Policy Changes and Consent](consent-recording.md). For temporal reasoning: plan to reconstruct past states and ask what was true at a given point.
 
-### Related: Schema-First Database Design, Respecting User Data Sovereignty, Capacity and Recovery Planning
+### Related: Schema-First Database Design, Respecting User Data Sovereignty, Risk Management under ISMS, Recording of Policy Changes and Consent
 
-History structures are an extension of [Schema-First Database Design](../../implementation/policies/persistence.md). The right to access and export history is part of [Respecting User Data Sovereignty](data-sovereignty.md). Backup and recovery of historical data must be planned in [Capacity and Recovery Planning](../../implementation/policies/operational-planning.md).
+Related: [Schema-First Database Design](../../implementation/policies/persistence.md), [Respecting User Data Sovereignty](data-sovereignty.md), [Risk Management under ISMS](../../safety/policies/risk-management.md), and [Recording of Policy Changes and Consent](consent-recording.md).

@@ -89,10 +89,34 @@ Security measures for applications and their execution infrastructure are define
 
 Comprehensive security initiatives are carried out through ISMS activities. Here, particularly important items are excerpted and prescribed regarding the security level that developers participating in projects — including collaborators — must maintain. The full picture is in the ISMS documents.
 
+> Note: The purpose here is to succinctly describe the risk measures developers should normally keep in mind. Information assets and assumed risks are also touched on as supplementary notes, but the full picture is in the ISMS documents.
+
 ### Supplementary note: Assets to be protected
 
 All information assets related to a project are subject to protection. Examples include: source code, documentation, accompanying files, and various accounts; DB and files uploaded by users; operational logs such as access logs and metrics; communication history in email and on GitHub and Slack; screenshots.
 
 ### Supplementary note: Assumed risks
 
-Projects assume and address the following risks: accidents and negligence by developers (and natural disasters); external breaches motivated by economic or reputational goals; and internal breaches motivated by individual economic or reputational goals.
+Projects assume and address the following risks.
+
+#### 1. Accidents and negligence
+
+Project participants' accidents, negligence, and natural disasters are assumed as risks.
+
+> Examples: sending an email to the wrong recipient; a SQL execution error that deletes the wrong data; infrastructure failure or inability to work due to a natural disaster.
+
+#### 2. External breaches
+
+External threats assumed are breaches motivated by economic gain and breaches aimed at reputational damage.
+
+> Examples of economically motivated external breaches: stealing authentication credentials to mine cryptocurrency, conduct phishing through defacement, or send spam; exploiting infrastructure configuration gaps to install ransomware and demand ransom; stealing admin system credentials to obtain privileged information not available through the user-facing page; stealing admin system credentials or breaking into servers to sell acquired personal information to data brokers.
+
+> Examples of reputation-damage external breaches: stealing authentication credentials to destroy the system.
+
+#### 3. Internal breaches
+
+Internal threats assumed are breaches motivated by individual economic gain and breaches aimed at the reputational damage of contractor or client.
+
+> Examples of individually motivated internal breaches: a developer using the system infrastructure to mine cryptocurrency; a developer or client's internal users leaking privileged information not available through the main service; stealing admin system credentials or breaking into servers to sell acquired personal information to data brokers.
+
+> Examples of reputation-damage internal breaches: a developer destroying the system; a developer or internal user defacing the service content.

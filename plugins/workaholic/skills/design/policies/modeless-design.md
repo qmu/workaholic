@@ -7,27 +7,19 @@ source: https://qmu.co.jp/implementation/modeless-design
 
 # Modeless Design
 
-_Make every operation available without entering a "mode," and prioritize composability over the strength of step-by-step guidance._
+_Place modelessness at the design starting point; introduce modals only where concentration is truly warranted._
 
-Modeless design is a policy that prioritizes keeping every operation available to the user without requiring them to enter a particular "mode." It places composability above the strength of guiding the user step by step. We make modelessness the default in order to leave users the freedom to assemble their own workflow, because that freedom is what sustains the flexibility of the experience over the medium and long term. AI agents that interact with the product programmatically benefit equally from modeless surfaces — an agent can compose any sequence of operations without navigating wizard state or coordinating mode transitions.
+A modal temporarily stops surrounding operations to allow concentration on one task. We make modelessness the starting point of design, introducing modals only in situations where they are truly appropriate. Modals are quick to implement, so without deliberate attention screens tend to be enclosed one by one. The more operations can be combined, the more users can choose their own way of proceeding rather than following a prescribed route. We believe this freedom also connects to the range of actions available to AI agents operating the screen.
 
 ## Goal (目標)
 
-The situation this policy aims to achieve is one in which users can choose the combinations of operations themselves. We create a state where users can reach any operation they need at any time, without having to remember what mode the application is currently in.
-
-The outline of the goal is as follows:
-
-- The entry points to operations do not depend on the current mode, step, or wizard state.
-- "Going back," "interrupting," and "working in parallel" hold up naturally, with no special handling.
-- The UI does not force guidance on the user in situations where they do not need it.
-- Focus is introduced only at the moments where concentration is genuinely required (confirming destructive operations, or processing that cannot be reversed once submitted).
-- AI agents can reach and invoke any operation without maintaining awareness of mode state.
+The situation this policy aims to achieve is one in which users can choose the combinations of operations themselves. We create a state where users can reach any operation they need at any time, without having to remember what mode the application is currently in. Reaching a state where operations are composable and both humans and AI can act across the entire operation space is placed as the destination of this policy.
 
 ## Responsibility (責務)
 
 The situation this policy aims to prevent is one in which the user's freedom to operate is taken away without design justification, and the right to "not have to notice" mode switches is not respected.
 
-States that are not tolerated:
+Specifically:
 
 - Flows where modals keep stacking by default. A UI in which a modal appears every time a task advances, so that the previous state disappears from the screen.
 - Creating, without design justification, a state where "you cannot perform other operations until you leave this mode." Do not trap the user in a linear sequence of steps in situations where concentration is not required.
@@ -46,6 +38,14 @@ When building a new UI, first consider whether it can hold up in a modeless form
 - When simultaneous interaction with the background context is physically impossible (full-screen video playback, a 3D selection mode, and the like).
 
 "A wizard would probably make it less confusing for the user" is not a valid basis for adoption. Whether something is confusing is solved through information design and labeling.
+
+### Design operations as composable units
+
+Design operations as composable units that do not depend on mode. The more this is the case, the more the operation space is open not only to humans but also to AI agents operating the screen. A guided path that merely follows a predetermined sequence narrows the actions AI can take when deviating from that sequence. If entry points are not constrained by mode, AI can resume midway, proceed multiple operations in parallel, or assemble them in an unanticipated order without requiring special branching. We position making modelessness the default as a decision that both leaves humans free and leaves room for AI to reach the entire operation space.
+
+### Choose modeless as the default you can add modals to later
+
+Making modelessness the default is a decision to default to the side with lower rollback costs. Starting a flow in modeless form and adding a modal later when concentration is found to be needed is a localized addition to the one point where it is needed. Conversely, unraveling a flow enclosed in modals from the start and reopening the operation space requires retracing guided paths built on the assumption of enclosure, tending to increase work. We start with modelessness because we want to default to the side that is cheaper whichever way it goes.
 
 ### Hold state in the URL
 
@@ -77,20 +77,8 @@ When a modal, panel, or sidebar is closed, do not lose the in-progress input it 
 
 ### Reinforce "going modeless" with shortcuts
 
-Assign keyboard shortcuts to frequent operations, creating a path independent of mouse operation. Make the shortcut table openable with a key such as `?`, and do not hide it (this works in concert with the keyboard path of Accessibility-First).
+Assign keyboard shortcuts to frequent operations, creating a path independent of mouse operation. Make the shortcut table openable with a key such as `?`, and do not hide it.
 
-### Design operations as composable units
+### Related: Accessibility Open to AI
 
-Each discrete action should be expressible as a standalone call that produces a deterministic result given the same inputs. This composability is what lets a user — or an AI agent — assemble their own sequence without the application prescribing an order.
-
-- Give each operation a predictable input shape and return value.
-- Avoid operations that silently depend on prior step state. Where prior context is needed, pass it explicitly.
-- When an operation is added, ask whether it could be invoked directly from a URL, a keyboard shortcut, or a tool call — not only through the flow it was designed inside.
-
-### Choose modeless as the default you can add modals to later
-
-Starting modeless and adding a modal later when the case for it becomes clear is straightforward. Starting modal and removing the modal later is expensive. When in doubt, hold the modeless form and add the modal only when the evidence for it arrives.
-
-### Related: Accessibility-First
-
-Modeless design supports the "reachable via multiple paths" principle of [Accessibility Open to AI](../../planning/policies/accessibility-first.md). The same principle that keeps information reachable for users on any path also keeps operations composable for AI agents on any sequence.
+Related: [Accessibility Open to AI](../../planning/policies/accessibility-first.md).

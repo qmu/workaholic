@@ -129,13 +129,14 @@ Wait for all 3 to complete. Track which succeeded and which failed.
 
 1. **Gather Source Data**: Read archived tickets using Glob pattern `.workaholic/tickets/archive/<branch-name>/*.md`. Extract frontmatter (`commit_hash`, `category`) and content (Overview, Final Report).
 2. **Write Story**: Follow the Story Content Structure section below.
-3. **Update Index**: Add entry to `.workaholic/stories/README.md`.
+3. **Update Index**: Add entry to `.workaholic/stories/index.md` (see Updating Stories Index).
 
 #### Phase 4: Commit and Push Story
 
-1. **Stage story and resolved deferred concerns**: `git add .workaholic/stories/ .workaholic/concerns/`
-2. **Commit**: `git commit -m "Add branch story for <branch-name>"` (the same commit captures any deferred concern archive moves from Phase 1, keeping audit history coherent)
-3. **Push branch**: `git push -u origin <branch-name>`
+1. **Refresh the OKF bundle indexes** (stages them): `bash okf/scripts/refresh-index.sh` — keeps the `.workaholic/` hierarchy's `index.md` files in sync with the story and concern files this flow just wrote.
+2. **Stage story and resolved deferred concerns**: `git add .workaholic/stories/ .workaholic/concerns/`
+3. **Commit**: `git commit -m "Add branch story for <branch-name>"` (the same commit captures any deferred concern archive moves from Phase 1 and the refreshed indexes, keeping audit history coherent)
+4. **Push branch**: `git push -u origin <branch-name>`
 
 #### Phase 5: Create PR
 
@@ -511,10 +512,13 @@ Create `.workaholic/stories/<branch-name>.md` with YAML frontmatter:
 
 ```yaml
 ---
+type: Story
 branch: <branch-name>
 tickets_completed: <count of tickets>
 ---
 ```
+
+The `type` key is what makes the story readable as an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) concept document (OKF requires a parseable frontmatter block with a non-empty `type`; all other keys ride along as producer extensions). Keep it first and never omit it.
 
 ### Writing Guidelines
 
@@ -527,9 +531,11 @@ tickets_completed: <count of tickets>
 
 ### Updating Stories Index
 
-Update `.workaholic/stories/README.md` to include the new story:
+Update `.workaholic/stories/index.md` to include the new story:
 
-- Add entry: `- [<branch-name>.md](<branch-name>.md) - Brief description of the branch work`
+- Add entry: `* [<branch-name>.md](<branch-name>.md) - Brief description of the branch work`
+
+`index.md` is the [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) reserved index filename, so OKF readers recognize the story list as the directory's navigation index. Keep it in OKF index form: **no frontmatter**, a heading, and one `* [link](target) - description` entry per story. If the directory still carries its story list in a legacy `README.md`, migrate the entries into `index.md` in the same commit; a README may stay as a prose document describing the directory, but then it needs frontmatter with a non-empty `type` like every other non-reserved markdown file.
 
 ## Create PR
 

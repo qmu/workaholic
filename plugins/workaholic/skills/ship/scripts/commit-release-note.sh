@@ -23,6 +23,11 @@ if [ -z "$tracked_changes" ]; then
   exit 0
 fi
 
+# Refresh the .workaholic OKF bundle indexes (stages them) so the new note is
+# reflected in the committed hierarchy (best-effort: never blocks the commit).
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+sh "${SCRIPT_DIR}/../../../../workaholic/skills/okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
+
 git add "$notes_dir"
 git commit -m "Add release notes for $branch" >/dev/null
 git push >/dev/null 2>&1 || true

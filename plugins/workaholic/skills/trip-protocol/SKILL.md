@@ -69,11 +69,13 @@ Script base paths:
 
 Each revision is a new file (e.g., `direction-v2.md`), preserving history. Only the artifact's author may modify the original file; others express feedback through review files.
 
+**Artifact frontmatter (OKF conformance).** Every trip artifact file starts with a YAML frontmatter block whose first key is a non-empty `type`, which makes each file readable as an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) concept document (further keys are free extensions). Use the artifact's role as the type: `type: Direction` (directions/), `type: Model` (models/), `type: Design` (designs/), `type: Review` (reviews/), `type: Rollback` (rollbacks/), `type: Event Log` (event-log.md), `type: Trip Plan` (plan.md — alongside its lifecycle keys below).
+
 **Tickets live elsewhere.** The Decomposition gate (Planning Phase Step 5) writes implementation tickets to `.workaholic/tickets/todo/<user>/`, **never** under `trips/` — `create-ticket`'s Allowed Locations and the `validate-ticket.sh` hook forbid ticket-shaped files outside `.workaholic/tickets/`. The `trips/<trip-name>/` tree holds the **rationale** (direction/model/design); each emitted ticket links back to the design section that justifies it via a **Trip Origin** reference. So `trips/` is the *why*, `tickets/` is the *what* — the same ticket abstraction `/drive` consumes.
 
 ## Plan Document
 
-`plan.md` tracks trip lifecycle state with YAML frontmatter (`instruction`, `phase`, `step`, `iteration`, `updated_at`) and three sections: Initial Idea, Plan Amendments (leader decision log), and Progress (checklist with agent attribution). Update frontmatter at phase transitions; agents append progress entries bundled with artifact commits.
+`plan.md` tracks trip lifecycle state with YAML frontmatter (`type: Trip Plan`, `instruction`, `phase`, `step`, `iteration`, `updated_at`) and three sections: Initial Idea, Plan Amendments (leader decision log), and Progress (checklist with agent attribution). Update frontmatter at phase transitions; agents append progress entries bundled with artifact commits.
 
 Step identifiers: `planning/not-started`, `planning/artifact-generation`, `planning/one-turn-review`, `planning/respond-to-feedback`, `planning/moderation`, `planning/decomposition`, `coding/concurrent-launch`, `coding/review-and-testing`, `coding/iteration-N`, `complete/done`, `complete/followup`.
 

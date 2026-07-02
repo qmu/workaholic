@@ -113,6 +113,9 @@ for block in blocks:
 
     body = []
     body.append('---')
+    # `type` first: the non-empty type key is what makes the file an OKF
+    # (Open Knowledge Format) concept document; the rest are extension keys.
+    body.append('type: Concern')
     body.append(f'origin_pr: {pr_number}')
     body.append(f'origin_pr_url: {pr_url}')
     body.append(f'origin_branch: {branch}')
@@ -150,6 +153,10 @@ if [ "$count" -eq 0 ]; then
 fi
 
 if [ -z "${NO_COMMIT:-}" ]; then
+  # Refresh the .workaholic OKF bundle indexes (stages them) so the new concern
+  # files appear in the committed hierarchy (best-effort: never blocks the commit).
+  SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+  sh "${SCRIPT_DIR}/../../../../workaholic/skills/okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
   git add .workaholic/concerns/ >/dev/null
   git commit -m "Add deferred concerns from PR #${pr_number}" >/dev/null
 fi

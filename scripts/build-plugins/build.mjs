@@ -12,6 +12,8 @@
 //   plugins/                  authored source of truth (Claude reads it directly)
 //   outputs/workflows/        committed, generated portable plugin (one neutral dir serves
 //                             Codex + OpenCode + other agents via their respective manifests)
+//   outputs/okf/              committed, generated OKF v0.1 knowledge bundle (Open Knowledge
+//                             Format) of the four pillars' policy hard copies (see okf.mjs)
 //
 // The self-contained skills are assembled in a throwaway scratch dir (never committed),
 // then copied into outputs/workflows. outputs/ is committed because Codex
@@ -29,6 +31,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { generatePolicyIndex, POLICY_INDEX_REL } from "./policy-index.mjs";
+import { generateOkfBundle, OKF_BUNDLE_REL } from "./okf.mjs";
 import { SKILL_REF, SCRIPT_CROSS_REF } from "./script-ref-patterns.mjs";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
@@ -242,6 +245,16 @@ if (!argTargets.length) {
   // plugins/, read at runtime by hooks/policy-lens.sh). Not part of outputs/.
   writeFileSync(join(REPO_ROOT, POLICY_INDEX_REL), generatePolicyIndex(REPO_ROOT));
   console.log(`generated policy index -> ${POLICY_INDEX_REL}`);
+  // Regenerate the OKF knowledge bundle. Same whole-tree wipe-and-rewrite as the
+  // workflows plugin so a removed/renamed policy leaves no stale concept behind.
+  const okfRoot = join(REPO_ROOT, OKF_BUNDLE_REL);
+  rmSync(okfRoot, { recursive: true, force: true });
+  const okfFiles = generateOkfBundle(REPO_ROOT);
+  for (const [rel, content] of okfFiles) {
+    mkdirSync(dirname(join(okfRoot, rel)), { recursive: true });
+    writeFileSync(join(okfRoot, rel), content);
+  }
+  console.log(`generated OKF bundle -> ${OKF_BUNDLE_REL} (${okfFiles.size - 1} concepts + index.md)`);
   rmSync(SCRATCH, { recursive: true, force: true });
 } else {
   // partial dev build: leave scratch in place for inspection

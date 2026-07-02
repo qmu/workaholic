@@ -7,6 +7,7 @@ import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generatePolicyIndex, POLICY_INDEX_REL } from "./policy-index.mjs";
+import { generateOkfBundle, OKF_BUNDLE_REL } from "./okf.mjs";
 import { ANY_SKILL_SCRIPT, SKILL_MD_PREFIX, SCRIPT_PREFIX } from "./script-ref-patterns.mjs";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
@@ -120,6 +121,62 @@ if (!existsSync(idxPath)) {
   check("policy-index", read(idxPath) === generatePolicyIndex(REPO_ROOT),
     `${POLICY_INDEX_REL} is stale — run 'node scripts/build-plugins/build.mjs'`);
   console.log(`verified policy-index: ${POLICY_INDEX_REL} is in sync with the four pillar SKILL.md indexes`);
+}
+
+// OKF bundle (outputs/okf): freshness against a regeneration, then OKF v0.1
+// conformance (okf/SPEC.md §9): every non-reserved .md parses as frontmatter + body
+// with a non-empty `type`; reserved filenames (index.md, log.md) are never concept
+// documents; and — stricter than the spec's broken-link tolerance — every in-bundle
+// link resolves to a bundle file. Committed-bytes drift is caught by the outputs/
+// git diff in .github/workflows/outputs-freshness.yml, same as the workflows plugin.
+const okfRoot = join(REPO_ROOT, OKF_BUNDLE_REL);
+if (!existsSync(okfRoot)) {
+  check("okf", false, `${OKF_BUNDLE_REL} missing — run build.mjs`);
+} else {
+  const expected = generateOkfBundle(REPO_ROOT);
+  const onDisk = [];
+  const walk = (p, rel) => {
+    for (const e of readdirSync(p)) {
+      const fp = join(p, e);
+      const r = rel ? `${rel}/${e}` : e;
+      if (statSync(fp).isDirectory()) walk(fp, r);
+      else onDisk.push(r);
+    }
+  };
+  walk(okfRoot, "");
+  for (const rel of onDisk) {
+    check(`okf stray ${rel}`, expected.has(rel), `not produced by okf.mjs — run build.mjs`);
+  }
+  for (const [rel, content] of expected) {
+    check(`okf ${rel}`, existsSync(join(okfRoot, rel)) && read(join(okfRoot, rel)) === content,
+      `stale or missing — run 'node scripts/build-plugins/build.mjs'`);
+  }
+  let links = 0;
+  for (const rel of onDisk) {
+    const base = rel.split("/").pop();
+    const body = read(join(okfRoot, rel));
+    if (base === "log.md") { check(`okf reserved ${rel}`, false, "log.md is a reserved filename this bundle never emits"); continue; }
+    if (base !== "index.md") {
+      const fm = body.match(/^---\n([\s\S]*?)\n---\n/);
+      check(`okf frontmatter ${rel}`, !!fm, "no parseable YAML frontmatter block");
+      check(`okf type ${rel}`, !!fm && /^type:\s*\S/m.test(fm[1]), "frontmatter lacks a non-empty `type`");
+    }
+    let inFence = false;
+    for (const line of body.split("\n")) {
+      if (/^\s*(```|~~~)/.test(line)) { inFence = !inFence; continue; }
+      if (inFence) continue;
+      for (const m of line.matchAll(/\]\(([^)\s]+)\)/g)) {
+        const target = m[1].split("#")[0];
+        if (!target || /^https?:\/\//.test(target)) continue;
+        links++;
+        const resolved = target.startsWith("/")
+          ? join(okfRoot, target.slice(1))
+          : resolve(dirname(join(okfRoot, rel)), target);
+        check(`okf link ${rel}`, existsSync(resolved), `${m[1]} does not resolve in-bundle`);
+      }
+    }
+  }
+  console.log(`verified okf bundle: ${expected.size} files fresh, frontmatter conformant, ${links} in-bundle links resolve`);
 }
 
 if (problems) { console.error(`\n${problems} unresolved reference(s)`); process.exit(1); }

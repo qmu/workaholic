@@ -9,7 +9,7 @@ source: https://qmu.co.jp/implementation/golang-coding-standards
 
 _Choosing the forms where the compiler, `go vet`, and lint can detect the most — defaulting to returning failures as values, defining interfaces small on the consumer side, and using the standard toolchain._
 
-In Go, the same behavior can often be written in more than one way, and the choice of which forms to default to determines how much the compiler, `go vet`, and lint can detect. The policy defaults to treating failures as values, defining interfaces small on the consumer side, and using the standard toolchain — and steps back from forms that reduce static-analysis coverage. With generative AI as the default author, the compiler and standard tools are the most accurate and least expensive feedback path an agent can take. Which forms to default to matters because it determines how much static checking applies to the Go code AI produces at scale, so the conventions are made explicit. This policy is the Go counterpart to [Coding Standards (TypeScript)](coding-standards.md), with each policy collecting the language-specific differences.
+In Go, the same behavior can often be written in more than one way, and the choice of which forms to default to determines how much the compiler, `go vet`, and lint can detect. The policy defaults to treating failures as values, defining interfaces small on the consumer side, and using the standard toolchain — and steps back from forms that reduce static-analysis coverage. Most of the implementation is written by AI, and the compiler and standard tools are the most accurate and least expensive feedback path an agent can take. Which forms to default to matters because it determines how much static checking applies to the Go code AI produces at scale, so the conventions are made explicit. This policy is paired with [Coding Standards (TypeScript)](coding-standards.md), with each policy collecting the language-specific differences.
 
 ## Goal (目標)
 
@@ -19,7 +19,7 @@ The situation this policy aims to achieve is one where language feature choices 
 
 The situation this policy aims to prevent is one where failures hide through `panic` or swallowed errors without appearing in return value types, so that inconsistencies are detected only at the test, review, or operations stage. It also aims to prevent unformatted or statically-unchecked code from accumulating.
 
-With generative AI as the default author, errors discarded to `_`, or large interfaces and excessive abstraction spreading through AI-produced code, are recurring failure modes — each small, but when they recur across many files the range of inconsistencies that could have been detected statically accumulates and slips through to production.
+In a structure where AI writes most of the implementation, errors discarded to `_`, or large interfaces and excessive abstraction spreading through AI-produced code, are recurring failure modes — each small, but when they recur across many files the range of inconsistencies that could have been detected statically accumulates and slips through to production.
 
 ## Practices (実践)
 
@@ -53,6 +53,6 @@ Go package contents are divided by role. While [Standard Directory Structure](di
 
 The division of domain layer, entry points, and vendor boundaries is a physical expression of [Domain Layer Separation](domain-layer-separation.md), using placement to keep dependency directions closed toward the domain layer.
 
-### Related: Preferring Declarative Code, Preferring Rich Typing, Standard Directory Structure, Domain Layer Separation
+## Related
 
 The reasoning behind returning failures as values and suppressing mutable state is in [Preferring Declarative Code](functional-programming.md) and [Preferring Rich Typing](type-driven-design.md). Repository-wide layout across packages is in [Standard Directory Structure](directory-structure.md), and the division of domain layer, entry points, and vendor boundaries is in [Domain Layer Separation](domain-layer-separation.md). This policy sets out these principles as concrete Go feature choices, showing which defaults to reach for.

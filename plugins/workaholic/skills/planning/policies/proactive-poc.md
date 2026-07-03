@@ -19,7 +19,7 @@ We aim for a state in which high-uncertainty areas are verified small before ent
 
 Our responsibility is to prevent a state in which we dive deeply into full development with high uncertainty remaining, and then layer build-out on top of premises that will later be overturned.
 
-In a firm where generative AI is our default author, once we enter full development we can quickly stack up large amounts of implementation. This speed also becomes an incentive to enter build-out without skipping verification with uncertain premises. We want to avoid the state of carrying into full development at scale the uncertainty that could have been reduced by verifying small.
+In development where AI writes most of the implementation, once we enter full development we can quickly stack up large amounts of implementation. This speed also becomes an incentive to enter build-out without skipping verification with uncertain premises. We want to avoid the state of carrying into full development at scale the uncertainty that could have been reduced by verifying small.
 
 ## Practices (実践)
 

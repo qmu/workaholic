@@ -19,13 +19,7 @@ The situation this policy aims to achieve is one in which users can choose the c
 
 The situation this policy aims to prevent is one in which the user's freedom to operate is taken away without design justification, and the right to "not have to notice" mode switches is not respected.
 
-Specifically:
-
-- Flows where modals keep stacking by default. A UI in which a modal appears every time a task advances, so that the previous state disappears from the screen.
-- Creating, without design justification, a state where "you cannot perform other operations until you leave this mode." Do not trap the user in a linear sequence of steps in situations where concentration is not required.
-- No clearly indicated means of leaving a mode. Leave multiple exits — Esc, the × button, clicking the background, keyboard shortcuts, and so on.
-- A modal that traps focus while leaving no way to return from inside it to the external context. Confine focus, but do not confine context.
-- A UI that treats "users who do not follow the steps" as exceptions. Wanting to skip a step, go back, or work in parallel is ordinary usage, not an exception.
+Modals stack every time a task advances so the previous state disappears from the screen; flow steps that require no concentration are left in place without justification with the path "you cannot perform other operations until you leave this mode" remaining; means of exit are not clearly indicated; focus is trapped together with context. And wanting to skip a step, go back, or work in parallel — ordinary usage — is treated as exceptional, as "users who do not follow the steps" — that is the UI shape this policy aims to prevent.
 
 ## Practices (実践)
 
@@ -79,6 +73,6 @@ When a modal, panel, or sidebar is closed, do not lose the in-progress input it 
 
 Assign keyboard shortcuts to frequent operations, creating a path independent of mouse operation. Make the shortcut table openable with a key such as `?`, and do not hide it.
 
-### Related: Accessibility Open to AI
+### Related: Accessibility-First, Tool-First
 
-Related: [Accessibility Open to AI](../../planning/policies/accessibility-first.md).
+Related: [Accessibility](../../planning/policies/accessibility-first.md).

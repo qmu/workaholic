@@ -5,9 +5,9 @@ origin_branch: work-20260701-171611
 origin_commit: e3c3a4b
 created_at: 2026-07-01T21:16:06+09:00
 severity: moderate
-status: active
-resolved_by_pr:
-resolved_by_commit:
+status: resolved
+resolved_by_pr: 6601029
+resolved_by_commit: 
 ---
 
 # (carried from PR #67) Prompt phrasing is prose, not machine-checked

@@ -4,7 +4,7 @@ author: a@qmu.jp
 type: bugfix
 layer: [Config]
 effort: 1h
-commit_hash: 3abe781
+commit_hash: 6e69651
 category: Changed
 depends_on:
 mission:

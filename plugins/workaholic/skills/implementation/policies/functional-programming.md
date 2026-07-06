@@ -11,11 +11,11 @@ Not all code can be written declaratively; there are situations where writing im
 
 A function written declaratively has behavior that can be foreseen from its signature, and it returns the same result for the same input. This property is preserved even when functions are combined. In procedurally written code, the behavior does not fit entirely within the signature, and parts of it tend to remain unknowable until you run it and check.
 
-We treat generative AI as our default author, and the compiler functions as the most accurate and least expensive feedback path available to an agent. The more we write code whose behavior can be foreseen from its signature, the wider the path along which the AI can self-correct. For that reason, our policy prioritizes predictability of behavior and ease of composition over readability for humans.
+Most of the implementation is written by AI, and the compiler functions as the most accurate and least expensive feedback path available to an agent. The more we write code whose behavior can be foreseen from its signature, the wider the path along which the AI can self-correct. For that reason, our policy prioritizes predictability of behavior and ease of composition over readability for humans.
 
 ## Goal (目標)
 
-The situation this policy aims to achieve is a state where runtime errors are close to zero. We push the detection of inconsistencies back to compile time as far as possible, aiming for a state in which the kinds of errors you cannot notice until you run the code are not left in the domain. As with the direction Elm sets out under "No Runtime Exception," we do not guarantee that this is attained, but we hold it up as our ideal to approach.
+The situation this policy aims to achieve is a state where runtime errors are close to zero. We push the detection of inconsistencies back to compile time as far as possible, aiming for a state in which the kinds of errors you cannot notice until you run the code are not left in the domain.
 
 ## Responsibility (責務)
 
@@ -116,4 +116,4 @@ The range that can be expressed in declarative code depends on the vocabulary of
 - TypeScript and Rust can express many failure patterns and state transitions at compile time by using sum types, exhaustiveness checking, the `Result` type, and generics. Because the thickness that can be stacked declaratively is large, the range that can be covered by static checking widens as well.
 - Go has no sum types, and its generics vocabulary is limited, so the reach of declarative code is constrained. Our policy is to use the declarative style within the range Go can express: (a) returning a new value from the return value, (b) making error branching explicit with `errors.Is` and custom `error` types, and (c) injecting dependencies by passing functions as arguments.
 
-When trying to write declaratively, type-level descriptions (conditional types, advanced generics, deep nesting of branded types, and the like) can take a form that is time-consuming to read. The unreadability that surfaces most readily is mainly this "thickness of type-level declaration." Because we treat AI coding agents as our default author, there we make the choice to prioritize the breadth of compile-time detection.
+When trying to write declaratively, type-level descriptions (conditional types, advanced generics, deep nesting of branded types, and the like) can take a form that is time-consuming to read. The unreadability that surfaces most readily is mainly this "thickness of type-level declaration." Because AI coding agents write most of the implementation, there we make the choice to prioritize the breadth of compile-time detection.

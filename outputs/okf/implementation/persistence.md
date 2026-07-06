@@ -80,4 +80,4 @@ We do not build a distributed event store in advance. The decision to adopt it i
 
 ### Related: Conservative Vendor Dependence (関連: 消極的ベンダー依存)
 
-The choice of relational database vendor and migration framework affects how constraints and migrations are expressed. See Conservative Vendor Dependence for the stance on managing those dependency choices.
+The choice of relational database vendor and migration framework affects how constraints and migrations are expressed. See [Conservative Vendor Dependence](/implementation/vendor-neutrality.md) for the stance on managing those dependency choices.

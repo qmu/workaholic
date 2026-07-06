@@ -60,3 +60,4 @@
 * [Fetch and scan remote branches in /catch so pushed work is visible](work-20260701-171611.md)
 * [Attempt-first night mode, OKF compatibility, and carry Findings/Decisions](work-20260701-221800.md)
 * [Machine-enforce ship catch-up, prompt labels, and /workaholify setup](work-20260706-113425.md)
+* [Add missions and Codex hook compatibility](work-20260706-182705.md)

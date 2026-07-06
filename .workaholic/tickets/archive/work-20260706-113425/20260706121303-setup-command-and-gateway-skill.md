@@ -3,9 +3,9 @@ created_at: 2026-07-06T12:13:03+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: 14902b1
+category: Added
 depends_on:
 ---
 
@@ -90,3 +90,14 @@ New Claude-Code command + gateway skill + PreToolUse hook + audit script; gated 
 - **Keep CLAUDE.md thin — the whole point.** Resist the pull to document the operational rules in `CLAUDE.md`; they belong in the gateway skill, reached by reference. The only `CLAUDE.md` change is truthful enumeration (`CLAUDE.md`).
 - **Cross-agent exposure of the gateway skill.** If it is pure prose (no bundled script), it can reach non-Claude agents via the `skills` CLI (add to `marketplace.json`); if it bundles a script it must carry `metadata.internal: true`. Decide deliberately (`.claude-plugin/marketplace.json`).
 - **Composes with the label-enforcement ticket.** Both this and `20260706121304-enforce-askuserquestion-project-label.md` use the "refer to a skill + PreToolUse guard" pattern; keep the two hooks independent but stylistically consistent.
+
+## Final Report
+
+Development completed. Names finalized by the developer: command **`/workaholify`** (a verb — "workaholify this repo"), gateway skill **`workaholify`**. Delivered: (1) the thin `commands/workaholify.md` whose primary instruction refers to the gateway skill, then audits CLAUDE.md and confirms the working-dir advisory; (2) `skills/workaholify/SKILL.md` (metadata.internal, script-bearing) linking all six policy pillars (planning/design/implementation/operation/development/safety) by reference and stating the two working-directory ground rules; (3) `audit-claude-md.sh` (extensible 2-check checklist: CLAUDE.md present at root + refers to the gateway); (4) `hooks/guard-working-directory.sh` — a **non-blocking** PreToolUse(Bash) advisory (developer's choice) that flags a top-level cwd-moving `cd` and steers to absolute paths / a `( cd … )` subshell, registered in hooks.json. CLAUDE.md gained only the `/workaholify` Commands-table row + enumeration entries (no embedded rules). 10 hermetic tests (audit 5 + working-dir 5), 290 total; build clean (no `outputs/` footprint — command/skill/hooks are Claude-only); verify + validate green.
+
+### Discovered Insights
+
+- **Insight**: The whole feature is the "refer, never embed" principle made operational — the setup command's most important line is a *reference* to a skill, the skill *references* the `policies/`, and CLAUDE.md *references* the skill. Nothing is copied. This is `development/policy-as-plugin` realized: a repo opts into the standards by pointing at the plugin, so the rules update in one place.
+  **Context**: It generalizes the existing `policy-lens.sh` pattern (refer workflow commands to the pillar skills) to repo bootstrapping, and keeps CLAUDE.md thin by construction rather than by discipline.
+- **Insight**: The working-directory rule (b) ("return to root after cd") is only partially machine-checkable — a PreToolUse(Bash) hook sees the command string but cannot track cwd state across separate tool calls. The non-blocking advisory that steers toward absolute paths / `( cd … )` subshells (which never change the persistent cwd) enforces the *intent* without falsely promising state tracking, and without breaking a deliberate one-off cd.
+  **Context**: The subshell/absolute-path steer aligns with the harness's own "prefer absolute paths" guidance, so the advisory reinforces an existing good habit rather than inventing a new constraint.

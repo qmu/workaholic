@@ -1,5 +1,5 @@
 {
-  "description": "Ticket format/location validation and canonical .workaholic/ layout enforcement (PostToolUse safeguard; layout gate warns by default, blocks under WORKAHOLIC_STRICT_LAYOUT or a .workaholic/.strict-layout marker), the structural guard that blocks non-canonical ticket moves plus two git gates that block off-policy commit subjects and off-pattern branch creation (PreToolUse Bash, blocking), a gate that blocks an AskUserQuestion missing the [project] label so parallel sessions stay identifiable (PreToolUse AskUserQuestion, blocking), and the always-on engineering-policy lens for workflow commands (UserPromptSubmit, non-blocking)",
+  "description": "Ticket format/location validation and canonical .workaholic/ layout enforcement (PostToolUse safeguard; layout gate warns by default, blocks under WORKAHOLIC_STRICT_LAYOUT or a .workaholic/.strict-layout marker), the structural guard that blocks non-canonical ticket moves plus two git gates that block off-policy commit subjects and off-pattern branch creation (PreToolUse Bash, blocking), a gate that blocks an AskUserQuestion missing the [project] label so parallel sessions stay identifiable (PreToolUse AskUserQuestion, blocking), a non-blocking working-directory advisory that steers a cwd-moving cd back toward the repo root (PreToolUse Bash), and the always-on engineering-policy lens for workflow commands (UserPromptSubmit, non-blocking)",
   "hooks": {
     "PreToolUse": [
       {
@@ -18,6 +18,11 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/guard-git-branch.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/guard-working-directory.sh",
             "timeout": 10
           }
         ]

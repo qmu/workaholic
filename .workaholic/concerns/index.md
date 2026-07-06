@@ -53,6 +53,9 @@
 * [--prune mutates the user's remote-tracking refs on every /catch](69-prune-mutates-the-user-s-remote.md)
 * [(carried from PR #69) Best-effort fetch adds a per-run latency and failure mode](74-carried-from-pr-69-best-effort.md)
 * [(carried from PR #69) Prune mutates the user's `refs/remotes/` state](74-carried-from-pr-69-prune-mutates.md)
+* [Archive script records the pre-amend commit hash](77-archive-script-records-the-pre-amend.md)
+* [Codex hook runtime behavior remains unproven](77-codex-hook-runtime-behavior-remains-unproven.md)
+* [Existing artifacts are not backfilled into missions](77-existing-artifacts-are-not-backfilled-into.md)
 * [Concerns](README.md)
 
 * [archive/](archive/)

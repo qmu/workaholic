@@ -23,6 +23,7 @@ Workaholic follows the cross-agent [Agent Skills standard](https://skills.sh). W
 - **Policy skills** (`planning` / `design` / `implementation` / `operation`) — the engineering-policy index (pure prose, self-contained): title, one-line summary, and canonical qmu.co.jp link per policy, organized into the 企画 / 設計 / 実装 / 運用 pillars. Available on every Agent-Skills agent.
 - **`write-release-note`** — release-note structure guidance (pure prose).
 - **Workflows** — `create-ticket`, `drive`, `report`, `ship` as agent-neutral skills (`trip` stays Claude-only; it needs Agent Teams). On non-Claude agents the workflow runs the same steps without Claude's parallel subagents/`AskUserQuestion` — see each skill's **Agent Compatibility** note.
+- **[Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) (OKF v0.1)** — two surfaces, no install needed. The committed `outputs/okf/` bundle exposes the four pillars' policy hard copies to any OKF reader straight from the repo path; and every project using the plugin gets an OKF-compatible `.workaholic/` tree — generated documents carry `type` frontmatter and the workflows regenerate the `index.md` hierarchy (entry point: `.workaholic/index.md`) before each knowledge commit.
 
 ### Install matrix
 
@@ -131,6 +132,8 @@ So `/trip` and `/drive` converge on the same unit of work — a ticket. The shor
 
 Working artifacts live in [.workaholic/](.workaholic/README.md). Each artifact captures a snapshot of the code change at a specific point in the workflow — they are not generic documentation. The table below summarizes what gets stored, when it is written, and how it survives (or is eliminated) through the ship process.
 
+The tree is also an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) bundle: `.workaholic/index.md` is the entry point (declaring `okf_version`), each knowledge area keeps an `index.md` the workflows regenerate before committing (via the internal `okf` skill's `refresh-index.sh`), and every generated document carries YAML frontmatter with a non-empty `type` — so any OKF reader can walk the project's development knowledge.
+
 ### Lifecycle Reference
 
 | Artifact | Written by | Snapshot of | Diffed on ship? | Carried over? | Eliminated when |
@@ -140,7 +143,7 @@ Working artifacts live in [.workaholic/](.workaholic/README.md). Each artifact c
 | `tickets/icebox/*.md` | `/ticket --icebox` (or manual move) | Deferred change | committed | yes (survives across PRs until promoted) | `/drive` (after user promotes from icebox) |
 | `tickets/abandoned/*.md` | `/drive` (abandon flow) | Attempted-then-abandoned change with failure analysis | committed, permanent | no | never |
 | `stories/<branch>.md` | `/report` | PR description: overview, journey, outcome, concerns, ideas, release readiness | committed before PR creation | concerns/ideas sections only (extracted by `/ship`) | never (per-branch permanent record) |
-| `release-notes/<branch>.md` | `/report` | Concise release narrative for GitHub Releases | committed after PR creation | no | never |
+| `release-notes/<branch>.md` | `/ship` (before merging) | Concise release narrative for GitHub Releases | committed before merge | no | never |
 | `concerns/<pr>-<slug>-<kind>.md` | `/ship` (extract from story) | Unresolved concern or idea surfaced in a past PR | committed during ship | **yes — this is the deferred-concerns corpus**; remains `status: active` until `/report` judges it resolved | judge marks `status: resolved` (file preserved, audit trail intact) |
 | `trips/<branch>/*` | `/trip` | Multi-agent collaborative design output (planner/architect/constructor) | committed inside trip worktree | no | never |
 | `specs/*.md` | manual (hand-edited reference) | Current-state documentation of how things work today | committed | n/a — not branch-scoped | superseded when manually rewritten |
@@ -183,7 +186,7 @@ flowchart LR
 1. Judges every active file in `concerns/` (deferred concerns from past PRs) via a `general-purpose` deferred-concern-judge subagent. Resolved items are moved to `concerns/archive/`; still-active items are passed to the section-reviewer.
 2. Writes `stories/<branch>.md` — the full PR description including section 6 (Concerns), each item prefixed with `(carried from PR #N)` if surfaced from the corpus.
 3. Commits the story together with any `concerns/` status changes (including moves to `archive/`), so the audit history is coherent.
-4. Opens the GitHub PR and writes `release-notes/<branch>.md`.
+4. Opens the GitHub PR (`release-notes/<branch>.md` is written later, by `/ship`, just before merging).
 
 **Ship** — `/ship` merges the PR, then immediately extracts section 6 (Concerns) from the just-shipped story into `concerns/`, one file per item. Filenames use `<pr-number>-<slug>.md` (sidestepping the ticket validation hook); each file carries a `severity` label (`urgent`/`moderate`/`low`) in frontmatter and a Title / Description / How to Fix body. From that point on, those concerns are read on every subsequent `/report` until they are judged resolved and moved to `concerns/archive/`.
 

@@ -1,31 +1,26 @@
 ---
+type: Guide
 title: Work
-description: Working artifacts index for Workaholic plugin marketplace
+description: Working artifacts hub for the workaholic plugin — what lives here and where to enter
 category: developer
-modified_at: 2026-03-10T01:13:03+09:00
-commit_hash: f76bde2
 ---
-
 
 # Work
 
-This is the working artifacts hub for the Workaholic plugin marketplace.
+This is the working artifacts hub for the `workaholic` plugin. The tree is an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) bundle: enter at [index.md](index.md) (regenerated automatically by the workflows) and every document carries frontmatter with a `type` key.
 
-- [concerns/](concerns/README.md) - Carry-over corpus of unresolved concerns and ideas surfaced in past PR stories (living corpus)
-- [constraints/](constraints/) - Manager-generated prescriptive boundaries
-- [guides/](guides/README.md) - User documentation
-- [policies/](policies/README.md) - Policy documentation (testing, security, quality, operations)
-- [specs/](specs/README.md) - Technical specifications
-- [stories/](stories/README.md) - Development narratives and PR descriptions per branch
-- [terms/](terms/README.md) - Consistent term definitions across the project
-- [tickets/](tickets/README.md) - Implementation work queue and archives
+- [concerns/](concerns/index.md) - Deferred concerns surfaced in past PR stories, judged on later reports (living corpus)
+- [deployments/](deployments/index.md) - Deployment targets and confirmation methods `/ship` executes
+- [guides/](guides/) - User documentation
+- [policies/](policies/) - Project-local policy documentation
+- [release-notes/](release-notes/index.md) - Per-ship release records
+- [specs/](specs/index.md) - Technical specifications
+- [stories/](stories/index.md) - Development narratives and PR descriptions per branch
+- [terms/](terms/index.md) - Consistent term definitions across the project
+- [tickets/](tickets/) - Implementation work queue and archives (`todo/`, `archive/`, `icebox/`, `abandoned/`)
+- [trips/](trips/index.md) - Trip design/decision artifacts per trip
 
 For the full per-artifact lifecycle (who writes it, when, and how it survives or is eliminated through the ship process), see the **Artifacts under `.workaholic/`** section of the [root README](../README.md).
-
-## Plugins
-
-- [Drivin](../plugins/drivin/README.md) - Core development workflow: branch, commit, pull-request, ticket-driven development
-- [Trippin](../plugins/trippin/README.md) - AI-oriented exploration and creative development workflow
 
 ## Design Policy
 

@@ -53,6 +53,11 @@ mv "$TICKET" "$ARCHIVE_DIR/"
 ARCHIVED_TICKET="${ARCHIVE_DIR}/${TICKET_FILENAME}"
 echo "    ${ARCHIVED_TICKET}"
 
+# Refresh the .workaholic OKF bundle indexes so the archive commit ships with a
+# fresh hierarchy (best-effort: an index problem must not block the archive).
+SCRIPT_DIR=$(dirname "$0")
+sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
+
 # Stage all changes including the archived ticket
 echo "==> Staging changes..."
 git add -A

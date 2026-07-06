@@ -42,10 +42,17 @@ if gh release view "$tag" >/dev/null 2>&1; then
   exit 0
 fi
 
+# The committed note file carries YAML frontmatter (its OKF `type` block); the
+# GitHub Release body must be the prose only, so strip it before publishing.
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+body_file=$(mktemp)
+trap 'rm -f "$body_file"' EXIT
+sh "${SCRIPT_DIR}/../../../../workaholic/skills/report/scripts/strip-frontmatter.sh" "$notes_file" >| "$body_file"
+
 if [ -n "$commit" ]; then
-  url=$(gh release create "$tag" --title "$tag" --notes-file "$notes_file" --latest --target "$commit")
+  url=$(gh release create "$tag" --title "$tag" --notes-file "$body_file" --latest --target "$commit")
 else
-  url=$(gh release create "$tag" --title "$tag" --notes-file "$notes_file" --latest)
+  url=$(gh release create "$tag" --title "$tag" --notes-file "$body_file" --latest)
 fi
 
 echo '{"published": true, "tag": "'"$tag"'", "url": "'"$url"'", "reason": "created"}'

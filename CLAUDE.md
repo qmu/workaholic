@@ -238,6 +238,10 @@ The commit-subject rule (present-tense, ≤50 chars, no `feat:`/`[bracket]` pref
 
   Bypass a single commit with `git commit --no-verify`; undo with `git config --unset core.hooksPath`. Both layers share one rule source (`hooks/lib/check-subject.sh`) so they cannot drift. These hooks are Claude-Code-only / git-native and have **no `outputs/` footprint** (not bundled, no rebuild). `commit-msg` is exempt from `posix-lint` only because git requires that exact extensionless name; it is POSIX `#!/bin/sh -eu` by construction.
 
+### AskUserQuestion project-label enforcement
+
+The `[<project label>]` prompt-prefix convention (each `AskUserQuestion` question body opens with the owning repo's label, from `skills/gather/scripts/project-label.sh`, so a developer with many parallel sessions sees which repo is asking) is enforced as a gate, not just prose. `hooks/guard-askuserquestion-label.sh` is a blocking `PreToolUse(AskUserQuestion)` hook (shipped active in `hooks.json`): it reads `tool_input.questions[].question` and exits 2 (re-issue) when any body lacks a leading `[…]` label. It fires on every `AskUserQuestion` by design — labeling any prompt with its repo is a net good, so the over-fire onto ad-hoc questions is intentional. Claude-Code-only, POSIX `#!/bin/sh -eu`, **no `outputs/` footprint**. The rule itself stays where it was — the per-skill "User interaction" prose — this hook only makes it machine-checked.
+
 ### Always-on policy lens
 
 `hooks/policy-lens.sh` is a non-blocking `UserPromptSubmit` hook that injects the engineering-policy lens for the workflow commands that carry the `workaholic:policy-lens` sentinel marker (`/ticket`, `/report`, `/ship`, `/trip`, `/drive`). The sentinel rides in the expanded command body, so the lens fires once per workflow invocation and stays in accumulated context. Two layers, by design:

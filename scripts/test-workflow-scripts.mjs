@@ -45,6 +45,7 @@ const SCRIPTS = {
   resolveExportPath: join(REPO_ROOT, "plugins/workaholic/skills/explain/scripts/resolve-export-path.sh"),
   guardGitCommit: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-commit.sh"),
   guardGitBranch: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-branch.sh"),
+  guardAskLabel: join(REPO_ROOT, "plugins/workaholic/hooks/guard-askuserquestion-label.sh"),
   checkDeps: join(REPO_ROOT, "plugins/workaholic/skills/check-deps/scripts/check.sh"),
   ensureWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/ensure-worktree.sh"),
   checkSubject: join(REPO_ROOT, "plugins/workaholic/hooks/lib/check-subject.sh"),
@@ -578,6 +579,43 @@ function makeConflictClone(file, baseVal, mainVal, branchVal) {
   writeFileSync(join(clone, file), branchVal); // branch diverges the same path
   execSync(`git add -A && git commit -q -m branchside`, { cwd: clone });
   return { origin, clone };
+}
+
+// ---------- hooks/guard-askuserquestion-label.sh (PreToolUse AskUserQuestion) ----------
+function testGuardAskUserQuestionLabel() {
+  const HOOK = SCRIPTS.guardAskLabel;
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  guard-askuserquestion-label (jq not available)"); return; }
+
+  const invoke = (questions) => {
+    const payload = JSON.stringify({ tool_name: "AskUserQuestion", tool_input: { questions } });
+    try {
+      execSync(`${POSIX_SH} ${HOOK}`, { cwd: REPO_ROOT, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+      return { status: 0, err: "" };
+    } catch (e) { return { status: e.status ?? 1, err: e.stderr?.toString() || "" }; }
+  };
+
+  // Blocks a question body with no [label].
+  assertEq("guard-ask blocks an unlabeled question",
+    invoke([{ question: "Approve this implementation?" }]).status, 2);
+  // Blocks when ANY question in a multi-question prompt is unlabeled.
+  assertEq("guard-ask blocks a mixed labeled/unlabeled prompt",
+    invoke([{ question: "[repo] Which order?" }, { question: "What gate?" }]).status, 2);
+  // The block message names project-label.sh so the fix is discoverable.
+  assertTrue("guard-ask block names project-label.sh",
+    /project-label\.sh/.test(invoke([{ question: "no label here" }]).err),
+    invoke([{ question: "no label here" }]).err.slice(0, 200));
+
+  // Allows labeled question bodies (single and multi).
+  assertEq("guard-ask allows a labeled question",
+    invoke([{ question: "[workaholic] Approve this implementation?" }]).status, 0);
+  assertEq("guard-ask allows all-labeled multi-question",
+    invoke([{ question: "[workaholic] Which order?" }, { question: "[workaholic] What gate?" }]).status, 0);
+  assertEq("guard-ask tolerates leading whitespace before the label",
+    invoke([{ question: "  [workaholic] ok?" }]).status, 0);
+  // Fails open when there are no question bodies.
+  assertEq("guard-ask allows an empty questions array", invoke([]).status, 0);
 }
 
 // ---------- ship/catchup-main.sh (pre-deploy branch sync) ----------
@@ -1595,6 +1633,7 @@ const tests = [
   ["catch/scan-window.sh remote fetch+scan", testScanWindowRemote],
   ["hooks/guard-git-commit.sh", testGuardGitCommit],
   ["hooks/guard-git-branch.sh", testGuardGitBranch],
+  ["hooks/guard-askuserquestion-label.sh", testGuardAskUserQuestionLabel],
   ["check-deps/check.sh", testCheckDeps],
   ["catch/scan-window.sh buckets+branches", testScanWindowBuckets],
   ["branching/ensure-worktree.sh", testEnsureWorktreeGuard],

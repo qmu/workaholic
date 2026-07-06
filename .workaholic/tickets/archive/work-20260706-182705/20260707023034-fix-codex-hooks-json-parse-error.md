@@ -3,9 +3,9 @@ created_at: 2026-07-07T02:30:34+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 3abe781
+category: Changed
 depends_on:
 mission:
 ---
@@ -86,3 +86,12 @@ How the outcome's quality is assured (Workflow Step 4b), developer-confirmed at 
 - **Parse fix vs. runtime behavior** — removing `description` fixes the *load* failure. It does not change whether Codex then attempts to *run* the Claude-only hooks (they reference `${CLAUDE_PLUGIN_ROOT}` and Claude-specific events like `PreToolUse`/`UserPromptSubmit`). The reported symptom is purely the parse error; if Codex later mis-fires or errors on the hook entries themselves, that is a separate, larger concern (the "structural: isolate hooks from Codex" option deferred at `/ticket`) — note it, don't scope-creep into it here. (`plugins/workaholic/hooks/hooks.json`)
 - **CLAUDE.md is the single source of truth for hook documentation** — deleting the blob is only safe because CLAUDE.md already covers every hook; verify that remains true at implementation time so no knowledge is lost. (`CLAUDE.md`)
 - **Versioned Codex cache** — the error cites `1.0.81`; Codex caches per version under `~/.codex/plugins/cache/`. The fix only reaches a user after a version bump and a re-add/refresh, so the bump (step 5) is part of the fix, not optional. (`.claude-plugin/marketplace.json`)
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: Codex currently parses `plugins/workaholic/hooks/hooks.json` from the raw plugin directory even though the source docs previously described `hooks/` as invisible to Codex.
+  **Context**: Cross-agent compatibility checks need to cover raw plugin config files, not only the public `skills/` surface and generated workflow bundle.

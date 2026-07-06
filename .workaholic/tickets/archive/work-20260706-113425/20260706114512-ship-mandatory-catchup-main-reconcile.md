@@ -3,9 +3,9 @@ created_at: 2026-07-06T11:45:12+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 1e0a187
+category: Changed
 depends_on:
 ---
 
@@ -94,3 +94,14 @@ Prose + shell-script + test change to the ship delivery path; gated on structura
 - **Shell-script principle.** The conflict classification is exactly the kind of conditional logic that must live in the script, not in SKILL prose (`plugins/workaholic/skills/implementation/policies/command-scripts.md`); POSIX `sh`, not bash.
 - **outputs/ lockstep.** `ship` is a build target, so the source edit and its regenerated `outputs/workflows/skills/ship/` copies must land in the same change or the Outputs Freshness CI fails (`scripts/build-plugins/build.mjs`).
 - **Keep it generic and portable.** The rule is about *any* deploy-from-branch or deploy-on-merge target, not this repo's marketplace specifically; phrase it so it reads correctly for a consumer project with its own `.workaholic/deployments/` contract.
+
+## Final Report
+
+Development completed as planned. `catchup-main.sh` now classifies a merge conflict as `mechanical` (every conflicted path is a version/lockstep manifest or under `outputs/`) vs `content`, returns `conflicted_files`, and aborts to a clean tree. `ship/SKILL.md` was reframed at three loci (core-design paragraph, §2-5b, Ship Flow step 2): catch-up is mandatory before any deploy, the agent reconciles mechanical conflicts as routine (merge → resolve → re-bump past collision → rebuild → re-run proof, no prompt), halt-and-ask fires ONLY on a content conflict, and the version-collision guard is folded into catch-up. The smoke suite gained mechanical- and content-conflict cases (273 passed). `outputs/` regenerated (ship SKILL + script only); verify + validate green; check-only docs confirmed truthful (no edits needed).
+
+### Discovered Insights
+
+- **Insight**: The pre-existing `catchup-main.sh` auto-aborted on *any* conflict and returned a bare `{conflict:true}`, which structurally forced the "halt and ask" framing — the script's behavior, not just the prose, was fighting agent-driven reconciliation. Classifying (and still aborting to a clean tree) is what lets the SKILL give a deterministic branch without inline conditional git.
+  **Context**: When a skill's prose and its bundled script disagree on intent, the script wins in practice; changing the framing required changing the script's output contract, not just the words.
+- **Insight**: The mechanical allowlist is deliberately strict (the three named manifests + `outputs/`); a conflict anywhere else is `content` → halt. This errs toward halting, so a misclassification never auto-resolves something a human should judge — the safe direction for an unattended ship path.
+  **Context**: The two real collisions this encodes (1.0.64→1.0.65, 1.0.76→1.0.79) were both pure manifest conflicts, so the strict allowlist covers the actual failure without widening the auto-resolve surface.

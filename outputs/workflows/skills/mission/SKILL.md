@@ -107,3 +107,28 @@ bash mission/scripts/list.sh
 ```
 
 List every mission with its `status` and computed progress: a JSON array of `{slug, title, status, checked, total}`, sorted by slug. Emits `[]` when there are no missions.
+
+```bash
+bash mission/scripts/append-changelog.sh <mission-slug-or-file> <event> <artifact-filename> [date]
+```
+
+Append one dated line to a mission's `## Changelog`. **The single writer of changelog lines** — every workflow seam calls it rather than hand-editing `mission.md`. Append-only and **idempotent**: the `(event, artifact)` pair is the stable event id, so re-running for the same event never duplicates a line. Git-stages the mission file. Standard events: `ticket archived` (drive), `story reported` (report), `concern deferred (stuck)` (ship), `concern resolved (unstuck)` (report).
+
+```bash
+bash mission/scripts/tick-acceptance.sh <mission-slug-or-file> <artifact-filename>
+```
+
+Flip the `## Acceptance` item whose `(#<artifact-filename>)` marker matches from `- [ ]` to `- [x]`. Idempotent (an already-checked or unmatched item is a no-op) and scoped to the `## Acceptance` section. Progress stays derived — this changes only checklist state; `progress.sh` recomputes `checked/total`. Git-stages the mission file.
+
+## Automatic Updates (the workflow seams)
+
+The mutators above are called automatically as missioned work moves through the pipeline, so a mission's progress and changelog stay current without hand-editing. Each seam reads the artifact's `mission:` relation (emitted per the frontmatter-linkage schema) and, when non-empty, calls the shared scripts:
+
+| Seam | Trigger | Changelog event | Acceptance |
+| ---- | ------- | --------------- | ---------- |
+| `drive` (`archive.sh`) | a missioned ticket is archived | `ticket archived` | ticks the ticket's item |
+| `report` (story flow) | a missioned story is reported | `story reported` | reconciles items for the story's `tickets:` |
+| `report` (`apply-deferred-concern-verdicts.sh`) | a missioned concern is judged resolved | `concern resolved (unstuck)` | — |
+| `ship` (`extract-deferred-concerns.sh`) | a missioned concern is deferred | `concern deferred (stuck)` | — |
+
+An un-missioned artifact touches no mission. Because the appends are idempotent, a re-run (retry, re-report) never double-counts.

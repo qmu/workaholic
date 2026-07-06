@@ -53,9 +53,26 @@ mv "$TICKET" "$ARCHIVE_DIR/"
 ARCHIVED_TICKET="${ARCHIVE_DIR}/${TICKET_FILENAME}"
 echo "    ${ARCHIVED_TICKET}"
 
+SCRIPT_DIR=$(dirname "$0")
+
+# Roll the related mission (if any): a ticket carrying `mission: <slug>` appends a
+# "ticket archived" changelog line and ticks its acceptance item on that mission,
+# via the mission skill's shared, idempotent mutators. Best-effort — a mission
+# update must never block archiving. The mutators git-stage the mission file, so
+# it rides along in the archive commit's `git add -A` below.
+MISSION_SLUG=$(awk '
+    NR == 1 { if ($0 != "---") exit; next }
+    /^---[ \t]*$/ { exit }
+    /^mission:[ \t]*/ { sub(/^mission:[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit }
+' "$ARCHIVED_TICKET" 2>/dev/null || true)
+if [ -n "$MISSION_SLUG" ]; then
+    MISSION_SCRIPTS="${SCRIPT_DIR}/../../../../workaholic/skills/mission/scripts"
+    sh "${MISSION_SCRIPTS}/append-changelog.sh" "$MISSION_SLUG" "ticket archived" "$TICKET_FILENAME" >/dev/null 2>&1 || true
+    sh "${MISSION_SCRIPTS}/tick-acceptance.sh" "$MISSION_SLUG" "$TICKET_FILENAME" >/dev/null 2>&1 || true
+fi
+
 # Refresh the .workaholic OKF bundle indexes so the archive commit ships with a
 # fresh hierarchy (best-effort: an index problem must not block the archive).
-SCRIPT_DIR=$(dirname "$0")
 sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
 
 # Stage all changes including the archived ticket

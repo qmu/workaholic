@@ -42,3 +42,5 @@ The writing flows call it just before they commit, so every knowledge commit shi
 - `drive` — `archive.sh` refreshes before staging the archive commit.
 - `ship` — `commit-release-note.sh` and `extract-deferred-concerns.sh` refresh before their commits.
 - `report` — the story flow runs it before staging the story and concern verdicts.
+
+**Mission roll (same seams).** These same commit seams also update any **mission** the touched artifact advances (`workaholic:mission`): when an archived ticket, shipped story, or extracted/resolved concern carries a `mission:` relation, the seam appends a changelog line and reconciles the mission's acceptance checklist via the mission skill's shared, idempotent mutators (`append-changelog.sh` / `tick-acceptance.sh`) before the refresh + commit. The appends are keyed on a stable event id, so they never duplicate on a re-run, and `refresh-index.sh` stays deterministic over the updated `mission.md`.

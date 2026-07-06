@@ -3,9 +3,9 @@ created_at: 2026-07-06T10:52:58+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 03152fe
+category: Added
 depends_on:
 ---
 
@@ -88,3 +88,14 @@ Prose/skill change with no runtime or test surface; the gate is structural + inv
 - **Objective, not a reasoning dump.** The value is captured reasoning held to `objective-documentation` — a verifiable claim per line ("ruled out X because Y", "chose A over B because C"), not a transcript of deliberation. The guideline must make that bar explicit or the sections will drift into aspirational prose (`plugins/workaholic/skills/implementation/policies/objective-documentation.md`).
 - **No build/rebuild.** `carry` is `metadata.internal: true` and absent from `build.mjs`'s targets, so no `outputs/` regeneration and no Outputs Freshness CI impact — running `verify.mjs` is a confirmation, not a rebuild (`scripts/build-plugins/build.mjs`).
 - **Keep it Claude-only in framing.** `/carry` targets Claude Code sessions specifically; the new sections are session-reasoning capture and should not imply cross-agent behavior (`plugins/workaholic/skills/carry/SKILL.md` §1).
+
+## Final Report
+
+Development completed as planned. All four edits landed in `plugins/workaholic/skills/carry/SKILL.md`: `## Findings` and `## Decisions` added to the §3 template (after Quality Gate, before Considerations, both optional and marked "context, never an Implementation Step"), §2-3 Phase 1 gained the two distillation bullets, §4 Writing Guidelines gained "Preserve the reasoning, objectively," and §2-1 Policy Lens was reinforced. Quality gate cleared: heading order confirmed by grep, `verify.mjs` green (no `outputs/` drift), remaining-only invariant untouched, all check-only docs re-verified truthful (no edits needed).
+
+### Discovered Insights
+
+- **Insight**: The value `/carry` adds over `/compact` is precisely the session's *reasoning* — the dead-ends and decisions a remaining-only ticket silently drops — but that reasoning must be captured as verifiable claims, not a deliberation transcript, or it violates the same `objective-documentation` bar the rest of the carried state answers to.
+  **Context**: `objective-documentation`'s "document decisions, not implementations" practice is the exact fit — Findings/Decisions record the *why* that is not visible in the remaining steps, which is what the policy says documentation is *for*. Future carry-template changes should preserve that framing rather than inviting free-form narrative.
+- **Insight**: `carry` is fully insulated from the cross-agent build (`metadata.internal: true`, absent from `build.mjs` `DEFAULT_TARGETS`/`EXTRA_SKILLS`), so edits to it need no `outputs/` rebuild and cannot trip the Outputs Freshness CI diff — `verify.mjs` is a confirmation, not a regeneration step.
+  **Context**: `validate-ticket.sh` also inspects only frontmatter/location/filename, never body sections, so adding template headings is invisible to every gate. A carry-template change is therefore a single-file, no-rebuild edit — cheaper to iterate than most skill changes.

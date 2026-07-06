@@ -27,7 +27,7 @@ The `/carry` command (main agent) runs this workflow directly. It reads the live
 
 ### 2-1. Policy Lens (read first)
 
-The carried state is **documentation for a future agent**, so hold it to `workaholic:implementation` / `objective-documentation`: concrete and verifiable (exact ticket path, the specific next step, files touched, the current position), never aspirational prose. Shape it as a recovery checkpoint worked backward from the context-exhaustion scenario (`workaholic:implementation` / `operational-planning`) — keep it simple: write the remaining state, and make it resumable. The resume path must need no manual (`workaholic:design` / `self-explanatory-ui`): the resumption ticket must, on its own, tell a fresh `/drive` what the priority is and where work stopped.
+The carried state is **documentation for a future agent**, so hold it to `workaholic:implementation` / `objective-documentation`: concrete and verifiable (exact ticket path, the specific next step, files touched, the current position), never aspirational prose. Shape it as a recovery checkpoint worked backward from the context-exhaustion scenario (`workaholic:implementation` / `operational-planning`) — keep it simple: write the remaining state, and make it resumable. The resume path must need no manual (`workaholic:design` / `self-explanatory-ui`): the resumption ticket must, on its own, tell a fresh `/drive` what the priority is, where work stopped, and the findings and decisions it should not rediscover.
 
 ### 2-2. Phase 0: Identify the In-Progress Work
 
@@ -46,6 +46,8 @@ Distil, factually (catch-style — name files, paths, step numbers, commit hashe
 - **What is already done** — the completed steps / landed commits, as *context* (this becomes Overview background, NOT steps to re-run).
 - **What remains** — the concrete outstanding actions, in order. These become the resumption ticket's `## Implementation Steps`. **Only remaining work** goes here: `/drive` implements every listed step with no notion of "already done", so any completed step left in the list is re-run.
 - **Where we are** — the exact current position (mid-step N of ticket X; trip at `coding/iteration-2`; etc.).
+- **What was learned** — the insights and dead-ends the session surfaced: what was ruled out and why, what behaved unexpectedly. These become `## Findings` — the reasoning a fresh `/drive` would otherwise have to rediscover, so it does not re-explore a path this session already closed.
+- **What was decided** — the choices made this session and their rationale (approach A over B, and the constraint that drove it). These become `## Decisions`, so the resuming agent does not relitigate a settled choice.
 
 ### 2-4. Phase 2: Write the Handoff
 
@@ -112,6 +114,23 @@ per the create-ticket Policy Lens. Mandatory and never empty for code work.>
 <Carried forward from the origin ticket's ## Quality Gate so the fresh /drive
 approval stays gated on the same objective criteria.>
 
+## Findings
+
+<Optional — omit this heading entirely when the session surfaced nothing worth
+recording. What the session learned, as verifiable claims, so the resuming agent
+does not re-explore a path already closed:
+"Ruled out <X> because <Y> (verified by <Z>)." /
+"Discovered <A> behaves as <B>, contrary to <assumption>."
+Context for the remaining steps — never itself an Implementation Step.>
+
+## Decisions
+
+<Optional — omit this heading entirely when nothing of note was decided. The
+choices made this session and their rationale, so the resuming agent does not
+relitigate them:
+"Chose <A> over <B> because <constraint C>."
+State the reason, not the deliberation. Context — never an Implementation Step.>
+
 ## Considerations
 
 - <Any in-flight caveat the resuming agent must know (uncommitted changes, a
@@ -122,5 +141,6 @@ approval stays gated on the same objective criteria.>
 
 - **Remaining-only steps.** The single correctness rule: completed work is Overview context, never an Implementation Step. `/drive` re-runs any step it sees.
 - **Objective and traceable.** Name the exact files, paths, step numbers, and commit hashes; a resuming agent must be able to verify the state, not guess it (`workaholic:implementation` / `objective-documentation`).
+- **Preserve the reasoning, objectively.** `## Findings` and `## Decisions` carry what the session learned and decided so a fresh `/drive` neither re-explores a ruled-out path nor relitigates a settled choice — the one thing a remaining-only ticket would otherwise drop. Hold them to the same bar: each is a verifiable claim — the dead-end and *why* it was ruled out, the decision and *its* rationale — never aspirational prose or a transcript of deliberation (`workaholic:implementation` / `objective-documentation`, "document decisions, not implementations"). They are context, not Implementation Steps; omit either heading when the session produced none.
 - **Carry the gate.** Preserve the origin's `## Quality Gate` so the resumed approval is concrete, not a fresh vague summary.
 - **Capture only.** Never implement, edit toward the task, commit, or archive; never discard uncommitted changes. `/carry` writes resume state and stops.

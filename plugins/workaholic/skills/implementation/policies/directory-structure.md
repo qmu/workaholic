@@ -25,13 +25,13 @@ With generative AI as the default author, a recurring failure mode is AI placing
 
 ### Divide the repository top-level by role
 
-The repository is first divided at the top level by role. Code goes under `packages/` as one directory per package, with internal layout — domain layer, entry points, vendor boundaries — delegated to the language coding standards. Repository-wide common scripts are in `scripts/` per [Command Scripts for Development Tasks](command-scripts.md). Execution environment and infrastructure configuration is in `workloads/`. Schemas and migrations are in `databases/`, in keeping with [Schema-First Database Design](persistence.md). Documentation is in `docs/`, runtime output in `outputs/`. For example:
+The repository is first divided at the top level by role. Code goes under `packages/` as one directory per package, with internal layout delegated to the language coding standards. Repository-wide common scripts are in `scripts/` per [Command Scripts for Development Tasks](command-scripts.md). Execution environment and infrastructure configuration is in `workloads/`. Schemas and migrations are in `databases/`, in keeping with [Schema-First Database Design](persistence.md). Documentation is in `docs/`, runtime output in `outputs/`. For example:
 
 ```
 repository/
   packages/          Code. One directory per package. Internal layout follows the language coding standards.
     <package>/
-      src/             Domain layer · entry points · vendor boundary (layout defined by the standards)
+      src/             Code body (layout defined by the language coding standards)
       scripts/         Scripts for this package
       docs/            Documentation for this package
   scripts/           Repository-wide common scripts ([verb]-****.sh)

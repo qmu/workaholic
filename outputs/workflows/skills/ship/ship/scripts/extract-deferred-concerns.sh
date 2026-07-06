@@ -159,6 +159,10 @@ if [ -z "${NO_COMMIT:-}" ]; then
   sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
   git add .workaholic/concerns/ >/dev/null
   git commit -m "Add deferred concerns from PR #${pr_number}" >/dev/null
+  # This step runs post-merge, so the commit lands on local `main` (merge-pr.sh
+  # already checked it out). Push it so local `main` stays level with
+  # origin/main and the concerns reach the team (best-effort, never blocks).
+  git push >/dev/null 2>&1 || true
 fi
 
 echo "{\"status\":\"ok\",\"extracted\":${count},\"files\":${written}}"

@@ -791,6 +791,52 @@ function testExtractDeferredConcerns() {
   } finally { cleanup(repo); }
 }
 
+// The script runs post-merge (main is checked out), so its concern commit lands
+// on local main; it must PUSH so local main stays level with origin/main instead
+// of one commit ahead. Mirrors commit-release-note.sh's commit-and-push pattern.
+const STORY_WITH_CONCERN =
+  "---\nbranch: work-x\n---\n## 6. Concerns\n\n### Some real concern\n\n- **Severity:** moderate\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n";
+
+function testExtractDeferredConcernsPush() {
+  // With a reachable origin: the concern commit is pushed, so origin/main == main.
+  const origin = mkdtempSync(join(tmpdir(), "wh-origin-"));
+  const clone = mkdtempSync(join(tmpdir(), "wh-clone-"));
+  try {
+    execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
+    const seed = mkdtempSync(join(tmpdir(), "wh-seed-"));
+    execSync(`git clone -q ${origin} .`, { cwd: seed });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: seed });
+    mkdirSync(join(seed, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(seed, ".workaholic/stories/work-x.md"), STORY_WITH_CONCERN);
+    execSync(`git add -A && git commit -q -m story && git push -q origin main`, { cwd: seed });
+    rmSync(seed, { recursive: true, force: true });
+
+    // Clone (main tracks origin/main), then run the script WITHOUT NO_COMMIT so it
+    // commits AND pushes — the post-merge situation the script must handle.
+    execSync(`git clone -q ${origin} .`, { cwd: clone });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: clone });
+    const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/pr/10`).stdout);
+    assertEq("extract-deferred-concerns extracts the concern (push scenario)", r.extracted, 1);
+    const local = execSync(`git rev-parse main`, { cwd: clone, encoding: "utf8" }).trim();
+    const remote = execSync(`git rev-parse origin/main`, { cwd: clone, encoding: "utf8" }).trim();
+    assertEq("extract-deferred-concerns pushes the commit (origin/main == main)", remote, local);
+  } finally { cleanup(origin); cleanup(clone); }
+
+  // With NO reachable remote: the guarded push must no-op — exit 0, normal JSON,
+  // commit still made locally. A push failure must never fail the post-merge ship.
+  const noRemote = makeRepo("main");
+  try {
+    mkdirSync(join(noRemote, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(noRemote, ".workaholic/stories/work-x.md"), STORY_WITH_CONCERN);
+    execSync(`git add -A && git commit -q -m story`, { cwd: noRemote });
+    const res = run(noRemote, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/pr/10`);
+    assertEq("extract-deferred-concerns exits 0 with no remote", res.status, 0);
+    assertEq("extract-deferred-concerns still extracts with no remote", JSON.parse(res.stdout).extracted, 1);
+    const subject = execSync(`git log -1 --pretty=%s`, { cwd: noRemote, encoding: "utf8" }).trim();
+    assertEq("extract-deferred-concerns committed locally with no remote", subject, "Add deferred concerns from PR #10");
+  } finally { cleanup(noRemote); }
+}
+
 // ---------- report/doc-drift.sh (documentation-drift fact emitter) ----------
 function testDocDrift() {
   // Helper: seed a repo with CLAUDE.md + README.md committed on main, then
@@ -1686,6 +1732,7 @@ const tests = [
   ["ship/catchup-main.sh", testCatchupMain],
   ["report/apply-deferred-concern-verdicts.sh", testApplyVerdicts],
   ["ship/extract-deferred-concerns.sh", testExtractDeferredConcerns],
+  ["ship/extract-deferred-concerns.sh push", testExtractDeferredConcernsPush],
   ["report/doc-drift.sh", testDocDrift],
   ["hooks/policy-lens.sh", testPolicyLens],
   ["hooks/validate-ticket.sh", testValidateLayout],

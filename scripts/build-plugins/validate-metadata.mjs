@@ -13,6 +13,7 @@
 //      author, skills) and its skills/ dir holds at least one SKILL.md.
 //   4. Codex manifest versions match the Claude marketplace version for the same plugin
 //      (when the plugin appears in both manifests).
+//   5. workaholic hooks.json uses only Codex-compatible top-level keys.
 
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -21,6 +22,7 @@ import { fileURLToPath } from "node:url";
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
 const CODEX_MARKETPLACE = join(REPO_ROOT, ".agents/plugins/marketplace.json");
 const CLAUDE_MARKETPLACE = join(REPO_ROOT, ".claude-plugin/marketplace.json");
+const WORKAHOLIC_HOOKS = join(REPO_ROOT, "plugins/workaholic/hooks/hooks.json");
 const REQUIRED_FIELDS = ["name", "version", "description", "author", "skills"];
 
 let problems = 0;
@@ -38,6 +40,19 @@ const claude = readJson(CLAUDE_MARKETPLACE);
 const claudeVersions = new Map();
 if (claude && Array.isArray(claude.plugins)) {
   for (const p of claude.plugins) if (p.name && p.version) claudeVersions.set(p.name, p.version);
+}
+
+if (existsSync(WORKAHOLIC_HOOKS)) {
+  const hooksConfig = readJson(WORKAHOLIC_HOOKS);
+  if (hooksConfig) {
+    const keys = Object.keys(hooksConfig);
+    const unexpectedKeys = keys.filter((key) => key !== "hooks");
+    if (keys.length !== 1 || unexpectedKeys.length > 0) {
+      fail(`plugins/workaholic/hooks/hooks.json: Codex parses hooks config with deny_unknown_fields; only top-level key 'hooks' is allowed (found: ${keys.join(", ") || "none"})`);
+    } else {
+      console.log("validated plugins/workaholic/hooks/hooks.json: Codex-compatible top-level keys");
+    }
+  }
 }
 
 for (const entry of codex.plugins || []) {

@@ -49,6 +49,23 @@ story_file, pr_number, pr_url, branch, origin_commit, created_at = sys.argv[1:7]
 with open(story_file) as h:
     text = h.read()
 
+# Parse the shipped story's frontmatter for the machine-readable relations it
+# carries (both optional): the mission slug and the tickets: list the story
+# covers. Each extracted concern inherits them, so a deferred concern is
+# traceable to its mission and the specific tickets it arose from, not only to
+# its origin PR/branch/commit. Absent -> empty mission and an empty [] list.
+story_mission = ""
+story_tickets = "[]"
+fm = re.match(r'^---\n(.*?)\n---\n', text, re.DOTALL)
+if fm:
+    for line in fm.group(1).split('\n'):
+        mm = re.match(r'\s*mission:\s*(.*)$', line)
+        if mm and not story_mission:
+            story_mission = mm.group(1).strip()
+        tm = re.match(r'\s*tickets:\s*(.*)$', line)
+        if tm and tm.group(1).strip():
+            story_tickets = tm.group(1).strip()
+
 # Isolate section 6 (## 6. ...) up to the next top-level "## " heading.
 m = re.search(r'^##\s+6\.\s.*?$(.*?)(?=^##\s+\d+\.\s|\Z)', text, re.MULTILINE | re.DOTALL)
 section = m.group(1) if m else ""
@@ -116,6 +133,10 @@ for block in blocks:
     # `type` first: the non-empty type key is what makes the file an OKF
     # (Open Knowledge Format) concept document; the rest are extension keys.
     body.append('type: Concern')
+    # Machine-readable relations inherited from the shipped story (both optional):
+    # the mission this concern advances, and the tickets it arose from.
+    body.append(f'mission: {story_mission}')
+    body.append(f'tickets: {story_tickets}')
     body.append(f'origin_pr: {pr_number}')
     body.append(f'origin_pr_url: {pr_url}')
     body.append(f'origin_branch: {branch}')
@@ -152,13 +173,39 @@ if [ "$count" -eq 0 ]; then
   exit 0
 fi
 
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
+# Mission changelog: a concern that advances a mission records a "concern deferred
+# (stuck)" line on that mission (one per concern, idempotent), so the mission's
+# historical stuck-changelog shows where work was deferred. The slug comes from
+# the shipped story's frontmatter (the same relation the concerns inherit above).
+# The mutator git-stages the mission file, so it rides along in the commit below.
+# Best-effort — a mission update must never block the ship extraction. Runs
+# regardless of NO_COMMIT so the changelog is written even in dry runs.
+story_mission=$(awk '
+    NR == 1 { if ($0 != "---") exit; next }
+    /^---[ \t]*$/ { exit }
+    /^mission:[ \t]*/ { sub(/^mission:[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit }
+' "$story_file" 2>/dev/null || true)
+if [ -n "$story_mission" ]; then
+  echo "$written" | python3 -c "import json,sys
+for p in json.load(sys.stdin): print(p)" | while IFS= read -r cfile; do
+    [ -n "$cfile" ] || continue
+    sh "${SCRIPT_DIR}/../../mission/scripts/append-changelog.sh" \
+      "$story_mission" "concern deferred (stuck)" "$(basename "$cfile")" >/dev/null 2>&1 || true
+  done
+fi
+
 if [ -z "${NO_COMMIT:-}" ]; then
   # Refresh the .workaholic OKF bundle indexes (stages them) so the new concern
   # files appear in the committed hierarchy (best-effort: never blocks the commit).
-  SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
   sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
-  git add .workaholic/concerns/ >/dev/null
+  git add .workaholic/concerns/ .workaholic/missions/ >/dev/null 2>&1 || git add .workaholic/concerns/ >/dev/null
   git commit -m "Add deferred concerns from PR #${pr_number}" >/dev/null
+  # This step runs post-merge, so the commit lands on local `main` (merge-pr.sh
+  # already checked it out). Push it so local `main` stays level with
+  # origin/main and the concerns reach the team (best-effort, never blocks).
+  git push >/dev/null 2>&1 || true
 fi
 
 echo "{\"status\":\"ok\",\"extracted\":${count},\"files\":${written}}"

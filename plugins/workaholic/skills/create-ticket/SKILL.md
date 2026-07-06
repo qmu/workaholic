@@ -85,13 +85,15 @@ effort:
 commit_hash:
 category:
 depends_on:
+mission:                           # optional: the slug of the mission this ticket advances (empty when none)
 ---
 ```
 
 ### Field Requirements
 
 - **Lines 1-4**: Fill with actual values (never placeholders)
-- **Lines 5-8**: Must be present but leave empty (filled after implementation, or during creation when a request is split)
+- **Lines 5-8** (`effort`/`commit_hash`/`category`/`depends_on`): Must be present but leave empty (filled after implementation, or during creation when a request is split)
+- **`mission`**: Optional. Present but empty unless the developer associates the ticket with an existing mission at `/ticket` time (see Workflow Step 4c) — then it holds that mission's `slug`. Machine-readable, never required; the pipeline tolerates its absence.
 
 ## Common Mistakes
 
@@ -172,6 +174,16 @@ Before writing the ticket, **interrogate the developer about how the outcome's q
 Keep asking until the gate is concrete enough to drive an approval prompt. Seed proposals from discovery's `source.test_coverage` and any existing CI checks so the questions are specific, but the developer's answers are authoritative. Prefer machine-checkable substance (tests / type-checks / CI gates) over manual sign-off (`workaholic:implementation` / `test`, `workaholic:operation` / `ci-cd`).
 
 > **Do not soften this step.** A "minimal-friction / skip if it seems obvious" escape hatch is explicitly **not** wanted here — thorough interrogation is the goal, not a cost. Issue these questions through the same `needs_clarification` channel the command relays via `AskUserQuestion`.
+
+### 4c. Offer Mission Association (optional)
+
+Before writing, offer to associate the ticket(s) with an existing **mission** — a long-lived goal spanning many tickets (see `workaholic:mission`). List the missions:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list.sh
+```
+
+If the array is non-empty, the command issues one `AskUserQuestion` offering each mission (by `title` + `slug`) plus a **"None"** option, and writes the chosen mission's `slug` into each written ticket's `mission:` frontmatter field. If the array is empty, or the developer picks "None", leave `mission:` empty. Because the choice is drawn from the list of existing missions, the written slug is valid by construction — no separate slug validation is applied (the field is optional and the pipeline tolerates its absence). Skip this step silently when there are no missions.
 
 ### 5. Write Ticket(s)
 
@@ -268,6 +280,7 @@ effort:
 commit_hash:
 category:
 depends_on:
+mission:
 ---
 
 # <Title>
@@ -379,6 +392,7 @@ These fields are updated by the `drive` skill (Update Frontmatter section) durin
 ### Optional
 
 - **depends_on**: List of ticket filenames that must be implemented before this ticket. Populated automatically when the `/ticket` command splits a request. Format: YAML list of filenames (e.g., `[20260410002111-foundation.md]`). Leave empty for standalone tickets.
+- **mission**: The `slug` of an existing mission this ticket advances (see `workaholic:mission`). Chosen at `/ticket` time from the list of existing missions (Workflow Step 4c), or left empty. This is the machine-readable ticket→mission relation a mission rolls up from; it is never required and the whole pipeline works with it absent.
 
 ## Policy Lens
 

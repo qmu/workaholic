@@ -29,6 +29,12 @@ const SCRIPTS = {
   userSlug: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/user-slug.sh"),
   sweepTodo: join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/scripts/sweep-todo.sh"),
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
+  missionCreate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"),
+  missionProgress: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/progress.sh"),
+  missionList: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list.sh"),
+  appendChangelog: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/append-changelog.sh"),
+  tickAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/tick-acceptance.sh"),
+  refreshIndex: join(REPO_ROOT, "plugins/workaholic/skills/okf/scripts/refresh-index.sh"),
   promoteIcebox: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/promote-icebox.sh"),
   publishRelease: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/publish-release.sh"),
   readDeployments: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/read-deployments.sh"),
@@ -387,6 +393,293 @@ function testListTodo() {
       `.workaholic/tickets/todo/${TEST_SLUG}/20260528120000-a.md`,
       `.workaholic/tickets/todo/${TEST_SLUG}/20260528120001-b.md`,
     ]);
+  } finally { cleanup(dir); }
+}
+
+// ---------- mission/create.sh + progress.sh + list.sh ----------
+function testMission() {
+  const dir = makeRepo("main");
+  try {
+    execSync(`git checkout -q -b work-20260706-mission`, { cwd: dir });
+
+    // create.sh scaffolds a mission with valid frontmatter + the four sections,
+    // deriving the slug from the title.
+    let r = run(dir, `${POSIX_SH} ${SCRIPTS.missionCreate} "Real-time Notifications"`);
+    assertEq("mission create exits 0", r.status, 0);
+    const created = JSON.parse(r.stdout);
+    assertEq("mission create slug", created.slug, "real-time-notifications");
+    assertEq("mission create flag", created.created, true);
+    const mpath = join(dir, ".workaholic/missions/real-time-notifications/mission.md");
+    assertTrue("mission.md written", existsSync(mpath), created.path);
+    const body = readFileSync(mpath, "utf8");
+    assertTrue("mission has type: Mission", /^type:\s*Mission\s*$/m.test(body), body.split("\n").slice(0, 12).join("\n"));
+    assertTrue("mission has slug", /^slug:\s*real-time-notifications\s*$/m.test(body));
+    assertTrue("mission has status active", /^status:\s*active\s*$/m.test(body));
+    assertTrue("mission reserves empty tickets list", /^tickets:\s*\[\]\s*$/m.test(body));
+    for (const sec of ["## Goal", "## Scope", "## Acceptance", "## Changelog"]) {
+      assertTrue(`mission has ${sec}`, body.includes(`\n${sec}\n`), sec);
+    }
+
+    // missions/index.md gains a linking entry.
+    const idx = join(dir, ".workaholic/missions/index.md");
+    assertTrue("missions index written", existsSync(idx));
+    assertTrue("missions index links the mission",
+      readFileSync(idx, "utf8").includes("(real-time-notifications/mission.md)"),
+      readFileSync(idx, "utf8"));
+
+    // create.sh refuses to overwrite an existing mission.
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.missionCreate} "Real-time Notifications"`);
+    assertTrue("mission create refuses overwrite", r.status !== 0, `expected non-zero, got ${r.status}`);
+    assertEq("mission create reports exists", JSON.parse(r.stdout).reason, "exists");
+
+    // Fresh mission (empty ## Acceptance, only a comment) computes 0/0 — the
+    // template comment must not be miscounted as a checklist item.
+    assertEq("mission progress on fresh mission is 0/0",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${mpath}`).stdout), { checked: 0, total: 0 });
+
+    // progress.sh computes checked/total from the ## Acceptance checklist (2/3),
+    // counting [x]/[X] and ignoring items outside the section.
+    writeFileSync(mpath, `---
+type: Mission
+title: Fixture Mission
+slug: real-time-notifications
+status: active
+created_at: 2026-07-06T00:00:00+09:00
+author: test@example.com
+tickets: []
+stories: []
+concerns: []
+---
+
+# Fixture Mission
+
+## Goal
+
+- [ ] this bullet is under Goal, not Acceptance, and must not count
+
+## Acceptance
+
+- [x] First criterion (#20260706120000-a.md)
+- [ ] Second criterion (#20260706120001-b.md)
+- [X] Third criterion (#20260706120002-c.md)
+
+## Changelog
+
+- 2026-07-06 — mission created — real-time-notifications
+`);
+    assertEq("mission progress counts checked/total in the Acceptance section only",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${mpath}`).stdout), { checked: 2, total: 3 });
+    assertEq("mission progress resolves a bare slug",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} real-time-notifications`).stdout), { checked: 2, total: 3 });
+
+    // list.sh returns the mission with its status and computed progress.
+    const list = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
+    assertEq("mission list length", list.length, 1);
+    assertEq("mission list entry",
+      { slug: list[0].slug, title: list[0].title, status: list[0].status, checked: list[0].checked, total: list[0].total },
+      { slug: "real-time-notifications", title: "Fixture Mission", status: "active", checked: 2, total: 3 });
+
+    // refresh-index.sh is deterministic with a mission present: commit a fresh
+    // tree, run it again, and assert no working-tree change.
+    run(dir, `${POSIX_SH} ${SCRIPTS.refreshIndex}`);
+    execSync(`git add -A && git commit -q -m fixture`, { cwd: dir });
+    run(dir, `${POSIX_SH} ${SCRIPTS.refreshIndex}`);
+    assertEq("refresh-index idempotent with a mission present",
+      execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim(), "");
+  } finally { cleanup(dir); }
+}
+
+// ---------- mission/append-changelog.sh + tick-acceptance.sh (shared mutators) ----------
+function testMissionMutators() {
+  const dir = makeRepo("main");
+  try {
+    const slug = "demo";
+    const mdir = join(dir, `.workaholic/missions/${slug}`);
+    mkdirSync(mdir, { recursive: true });
+    const mfile = join(mdir, "mission.md");
+    writeFileSync(mfile, `---
+type: Mission
+title: Demo
+slug: ${slug}
+status: active
+created_at: 2026-07-06T00:00:00+09:00
+author: test@example.com
+tickets: []
+stories: []
+concerns: []
+---
+
+# Demo
+
+## Acceptance
+
+- [ ] First (#t1.md)
+- [ ] Second (#t2.md)
+
+## Changelog
+`);
+    // append-changelog: first append writes the line.
+    let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.appendChangelog} ${slug} "ticket archived" t1.md 2026-07-06`).stdout);
+    assertEq("append-changelog first append", r.appended, true);
+    assertTrue("changelog line written with date/event/artifact",
+      /- 2026-07-06 — ticket archived — t1\.md/.test(readFileSync(mfile, "utf8")), readFileSync(mfile, "utf8"));
+    // Idempotent on (event, artifact) even on a different day -> no duplicate.
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.appendChangelog} ${slug} "ticket archived" t1.md 2026-07-07`).stdout);
+    assertEq("append-changelog idempotent on (event, artifact)", r.appended, false);
+    assertEq("no duplicate changelog line",
+      (readFileSync(mfile, "utf8").match(/ticket archived — t1\.md/g) || []).length, 1);
+    // A distinct event for the same artifact IS appended.
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.appendChangelog} ${slug} "story reported" t1.md 2026-07-08`).stdout);
+    assertEq("append-changelog appends a distinct event", r.appended, true);
+
+    // tick-acceptance: flips the matching item; idempotent; progress reflects it.
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.tickAcceptance} ${slug} t1.md`).stdout);
+    assertEq("tick-acceptance flips the matching item", r.ticked, true);
+    assertTrue("acceptance item now checked",
+      /- \[x\] First \(#t1\.md\)/.test(readFileSync(mfile, "utf8")), readFileSync(mfile, "utf8"));
+    assertTrue("the other acceptance item stays unchecked",
+      /- \[ \] Second \(#t2\.md\)/.test(readFileSync(mfile, "utf8")));
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.tickAcceptance} ${slug} t1.md`).stdout);
+    assertEq("tick-acceptance idempotent (already checked)", r.ticked, false);
+    assertEq("progress after one tick", JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${slug}`).stdout), { checked: 1, total: 2 });
+    // Ticking an artifact with no matching acceptance item is a no-op.
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.tickAcceptance} ${slug} nope.md`).stdout);
+    assertEq("tick-acceptance no-match is a no-op", r.ticked, false);
+    assertEq("progress unchanged after a no-op tick", JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${slug}`).stdout), { checked: 1, total: 2 });
+  } finally { cleanup(dir); }
+}
+
+// ---------- drive/archive.sh mission seam (roll on archive) ----------
+function testMissionDriveSeam() {
+  // A missioned ticket rolls its mission on archive: changelog + acceptance tick.
+  const dir = makeRepo("main");
+  try {
+    execSync(`git checkout -q -b work-20260706-ms`, { cwd: dir });
+    const slug = "rt-notify";
+    const mdir = join(dir, `.workaholic/missions/${slug}`);
+    mkdirSync(mdir, { recursive: true });
+    const ticketName = "20260706120000-feat.md";
+    writeFileSync(join(mdir, "mission.md"), `---
+type: Mission
+title: RT Notify
+slug: ${slug}
+status: active
+created_at: 2026-07-06T00:00:00+09:00
+author: test@example.com
+tickets: []
+stories: []
+concerns: []
+---
+
+# RT Notify
+
+## Acceptance
+
+- [ ] Ship the feature (#${ticketName})
+- [ ] Another thing (#20260706120099-other.md)
+
+## Changelog
+`);
+    const todoDir = join(dir, `.workaholic/tickets/todo/${TEST_SLUG}`);
+    mkdirSync(todoDir, { recursive: true });
+    writeFileSync(join(todoDir, ticketName), `---
+created_at: 2026-07-06T12:00:00+09:00
+author: test@example.com
+type: enhancement
+layer: [Domain]
+effort: 0.5h
+commit_hash:
+category:
+depends_on:
+mission: ${slug}
+---
+
+# Feat
+
+## Final Report
+
+Development completed as planned.
+`);
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+
+    const env = { ...process.env, GIT_AUTHOR_DATE: "2026-07-06T12:00:00+09:00", GIT_COMMITTER_DATE: "2026-07-06T12:00:00+09:00" };
+    const r = run(dir, `${POSIX_SH} ${SCRIPTS.archive} .workaholic/tickets/todo/${TEST_SLUG}/${ticketName} "Add feat" https://x/repo "why" "changes" "None" "None" "verify"`, { env });
+    assertEq("archive.sh (mission seam) exits 0", r.status, 0);
+
+    const mbody = readFileSync(join(mdir, "mission.md"), "utf8");
+    assertTrue("drive seam appended a 'ticket archived' changelog line",
+      new RegExp(`ticket archived — ${ticketName.replace(/\./g, "\\.")}`).test(mbody), mbody);
+    assertTrue("drive seam ticked the matching acceptance item",
+      new RegExp(`- \\[x\\] Ship the feature \\(#${ticketName.replace(/\./g, "\\.")}\\)`).test(mbody), mbody);
+    assertTrue("drive seam left the non-matching item unchecked", /- \[ \] Another thing/.test(mbody), mbody);
+    assertEq("drive seam progress now 1/2",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${join(mdir, "mission.md")}`).stdout), { checked: 1, total: 2 });
+    assertEq("archive.sh workspace clean after the mission roll",
+      execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim(), "");
+  } finally { cleanup(dir); }
+
+  // An un-missioned ticket leaves every mission untouched.
+  const dir2 = makeRepo("main");
+  try {
+    execSync(`git checkout -q -b work-20260706-ms2`, { cwd: dir2 });
+    const slug = "rt-notify";
+    const mdir = join(dir2, `.workaholic/missions/${slug}`);
+    mkdirSync(mdir, { recursive: true });
+    const missionContent = `---\ntype: Mission\ntitle: RT\nslug: ${slug}\nstatus: active\ncreated_at: 2026-07-06T00:00:00+09:00\nauthor: test@example.com\ntickets: []\nstories: []\nconcerns: []\n---\n\n# RT\n\n## Acceptance\n\n- [ ] X (#20260706120000-feat.md)\n\n## Changelog\n`;
+    writeFileSync(join(mdir, "mission.md"), missionContent);
+    const todoDir = join(dir2, `.workaholic/tickets/todo/${TEST_SLUG}`);
+    mkdirSync(todoDir, { recursive: true });
+    writeFileSync(join(todoDir, "20260706120000-feat.md"),
+      `---\ncreated_at: 2026-07-06T12:00:00+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Domain]\neffort: 0.5h\ncommit_hash:\ncategory:\ndepends_on:\nmission:\n---\n\n# Feat\n\n## Final Report\n\nDone.\n`);
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir2 });
+    const env = { ...process.env, GIT_AUTHOR_DATE: "2026-07-06T12:00:00+09:00", GIT_COMMITTER_DATE: "2026-07-06T12:00:00+09:00" };
+    run(dir2, `${POSIX_SH} ${SCRIPTS.archive} .workaholic/tickets/todo/${TEST_SLUG}/20260706120000-feat.md "Add feat" https://x/repo "why" "changes" "None" "None" "verify"`, { env });
+    assertEq("un-missioned ticket leaves the mission byte-for-byte untouched",
+      readFileSync(join(mdir, "mission.md"), "utf8"), missionContent);
+  } finally { cleanup(dir2); }
+}
+
+// ---------- ship/extract-deferred-concerns.sh mission seam ("stuck") ----------
+function testMissionShipSeam() {
+  const dir = makeRepo("main");
+  try {
+    const slug = "rt";
+    const mdir = join(dir, `.workaholic/missions/${slug}`);
+    mkdirSync(mdir, { recursive: true });
+    const mfile = join(mdir, "mission.md");
+    writeFileSync(mfile, `---\ntype: Mission\ntitle: RT\nslug: ${slug}\nstatus: active\ncreated_at: 2026-07-06T00:00:00+09:00\nauthor: test@example.com\ntickets: []\nstories: []\nconcerns: []\n---\n\n# RT\n\n## Acceptance\n\n## Changelog\n`);
+    mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/stories/work-s.md"),
+      `---\ntype: Story\nbranch: work-s\nmission: ${slug}\ntickets: [20260706120000-a.md]\n---\n## 6. Concerns\n\n### A deferred thing\n\n- **Severity:** low\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n`);
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+    const r = JSON.parse(run(dir, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-s 30 https://x/pr/30`).stdout);
+    assertEq("ship seam extracted one concern", r.extracted, 1);
+    const cbase = r.files[0].split("/").pop();
+    assertTrue("ship seam appended a 'concern deferred (stuck)' changelog line",
+      new RegExp(`concern deferred \\(stuck\\) — ${cbase.replace(/\./g, "\\.")}`).test(readFileSync(mfile, "utf8")),
+      readFileSync(mfile, "utf8"));
+  } finally { cleanup(dir); }
+}
+
+// ---------- report/apply-deferred-concern-verdicts.sh mission seam ("unstuck") ----------
+function testMissionReportSeam() {
+  const dir = makeRepo("main");
+  try {
+    const slug = "rt";
+    const mdir = join(dir, `.workaholic/missions/${slug}`);
+    mkdirSync(mdir, { recursive: true });
+    const mfile = join(mdir, "mission.md");
+    writeFileSync(mfile, `---\ntype: Mission\ntitle: RT\nslug: ${slug}\nstatus: active\ncreated_at: 2026-07-06T00:00:00+09:00\nauthor: test@example.com\ntickets: []\nstories: []\nconcerns: []\n---\n\n# RT\n\n## Acceptance\n\n## Changelog\n`);
+    mkdirSync(join(dir, ".workaholic/concerns"), { recursive: true });
+    const cpath = ".workaholic/concerns/30-a-thing.md";
+    writeFileSync(join(dir, cpath),
+      `---\ntype: Concern\nmission: ${slug}\ntickets: [20260706120000-a.md]\norigin_pr: 30\norigin_pr_url: https://x/pr/30\norigin_branch: work-s\norigin_commit: abc1234\ncreated_at: 2026-07-06T00:00:00+09:00\nseverity: low\nstatus: active\nresolved_by_pr:\nresolved_by_commit:\n---\n\n# A thing\n`);
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+    const verdicts = JSON.stringify({ verdicts: [{ path: cpath, verdict: "resolved", resolved_by_pr: 31, resolved_by_commit: "def5678" }] });
+    const r = JSON.parse(run(dir, `printf '%s' '${verdicts}' | ${POSIX_SH} ${SCRIPTS.applyVerdicts}`).stdout);
+    assertEq("report seam resolved one concern", r.resolved, 1);
+    assertTrue("report seam appended a 'concern resolved (unstuck)' changelog line",
+      /concern resolved \(unstuck\) — 30-a-thing\.md/.test(readFileSync(mfile, "utf8")), readFileSync(mfile, "utf8"));
   } finally { cleanup(dir); }
 }
 
@@ -791,6 +1084,89 @@ function testExtractDeferredConcerns() {
   } finally { cleanup(repo); }
 }
 
+// The script runs post-merge (main is checked out), so its concern commit lands
+// on local main; it must PUSH so local main stays level with origin/main instead
+// of one commit ahead. Mirrors commit-release-note.sh's commit-and-push pattern.
+const STORY_WITH_CONCERN =
+  "---\nbranch: work-x\n---\n## 6. Concerns\n\n### Some real concern\n\n- **Severity:** moderate\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n";
+
+function testExtractDeferredConcernsPush() {
+  // With a reachable origin: the concern commit is pushed, so origin/main == main.
+  const origin = mkdtempSync(join(tmpdir(), "wh-origin-"));
+  const clone = mkdtempSync(join(tmpdir(), "wh-clone-"));
+  try {
+    execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
+    const seed = mkdtempSync(join(tmpdir(), "wh-seed-"));
+    execSync(`git clone -q ${origin} .`, { cwd: seed });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: seed });
+    mkdirSync(join(seed, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(seed, ".workaholic/stories/work-x.md"), STORY_WITH_CONCERN);
+    execSync(`git add -A && git commit -q -m story && git push -q origin main`, { cwd: seed });
+    rmSync(seed, { recursive: true, force: true });
+
+    // Clone (main tracks origin/main), then run the script WITHOUT NO_COMMIT so it
+    // commits AND pushes — the post-merge situation the script must handle.
+    execSync(`git clone -q ${origin} .`, { cwd: clone });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: clone });
+    const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/pr/10`).stdout);
+    assertEq("extract-deferred-concerns extracts the concern (push scenario)", r.extracted, 1);
+    const local = execSync(`git rev-parse main`, { cwd: clone, encoding: "utf8" }).trim();
+    const remote = execSync(`git rev-parse origin/main`, { cwd: clone, encoding: "utf8" }).trim();
+    assertEq("extract-deferred-concerns pushes the commit (origin/main == main)", remote, local);
+  } finally { cleanup(origin); cleanup(clone); }
+
+  // With NO reachable remote: the guarded push must no-op — exit 0, normal JSON,
+  // commit still made locally. A push failure must never fail the post-merge ship.
+  const noRemote = makeRepo("main");
+  try {
+    mkdirSync(join(noRemote, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(noRemote, ".workaholic/stories/work-x.md"), STORY_WITH_CONCERN);
+    execSync(`git add -A && git commit -q -m story`, { cwd: noRemote });
+    const res = run(noRemote, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/pr/10`);
+    assertEq("extract-deferred-concerns exits 0 with no remote", res.status, 0);
+    assertEq("extract-deferred-concerns still extracts with no remote", JSON.parse(res.stdout).extracted, 1);
+    const subject = execSync(`git log -1 --pretty=%s`, { cwd: noRemote, encoding: "utf8" }).trim();
+    assertEq("extract-deferred-concerns committed locally with no remote", subject, "Add deferred concerns from PR #10");
+  } finally { cleanup(noRemote); }
+}
+
+// ---------- ship/extract-deferred-concerns.sh (mission/tickets relation propagation) ----------
+// Each extracted concern inherits the shipped story's machine-readable relations:
+// mission: <slug> and tickets: [...]. Absent on the story -> empty mission + [].
+function testExtractConcernMissionRelation() {
+  // Story WITH the relations -> concern carries them forward.
+  const repo = makeRepo("main");
+  try {
+    mkdirSync(join(repo, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/stories/work-m.md"),
+      "---\ntype: Story\nbranch: work-m\nmission: real-time-notifications\ntickets: [20260706120000-a.md, 20260706120001-b.md]\n---\n## 6. Concerns\n\n### A carried concern\n\n- **Severity:** low\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n");
+    execSync(`git add -A && git commit -q -m story`, { cwd: repo });
+    const r = JSON.parse(run(repo, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-m 20 https://x/pr/20`).stdout);
+    assertEq("extract with relations -> one concern", r.extracted, 1);
+    const body = readFileSync(join(repo, r.files[0]), "utf8");
+    assertTrue("concern inherits mission slug from the story",
+      /^mission:\s*real-time-notifications\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
+    assertTrue("concern inherits the tickets list from the story",
+      /^tickets:\s*\[20260706120000-a\.md, 20260706120001-b\.md\]\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
+    assertTrue("concern still records its origin provenance", /^origin_pr:\s*20\s*$/m.test(body), body);
+  } finally { cleanup(repo); }
+
+  // Story WITHOUT the relations -> empty mission + empty [] tickets (back-compat).
+  const repo2 = makeRepo("main");
+  try {
+    mkdirSync(join(repo2, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(repo2, ".workaholic/stories/work-n.md"),
+      "---\ntype: Story\nbranch: work-n\n---\n## 6. Concerns\n\n### Another concern\n\n- **Severity:** low\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n");
+    execSync(`git add -A && git commit -q -m story`, { cwd: repo2 });
+    const r = JSON.parse(run(repo2, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-n 21 https://x/pr/21`).stdout);
+    const body = readFileSync(join(repo2, r.files[0]), "utf8");
+    assertTrue("concern from a mission-less story -> empty mission:",
+      /^mission:\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
+    assertTrue("concern from a mission-less story -> tickets: []",
+      /^tickets:\s*\[\]\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
+  } finally { cleanup(repo2); }
+}
+
 // ---------- report/doc-drift.sh (documentation-drift fact emitter) ----------
 function testDocDrift() {
   // Helper: seed a repo with CLAUDE.md + README.md committed on main, then
@@ -1058,6 +1434,47 @@ function testValidateTicket() {
   assertEq("validate-ticket rejects root-level todo/ stray", invoke(`.workaholic/tickets/todo/${TS}-x.md`), 2);
   assertEq("validate-ticket rejects invented done/", invoke(`.workaholic/tickets/done/${TS}-x.md`), 2);
   assertEq("validate-ticket rejects nested todo/<user>/archive/", invoke(`.workaholic/tickets/todo/a-qmu-jp/archive/b/${TS}-x.md`), 2);
+}
+
+// ---------- hooks/validate-ticket.sh (optional mission: field passes) ----------
+// The mission relation is optional and must never cause a validation failure —
+// whether it carries a slug, is empty, or is absent entirely.
+function testValidateTicketMission() {
+  const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh");
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  validate-ticket mission (jq not available)"); return; }
+
+  const dir = makeRepo("main");
+  try {
+    const rel = ".workaholic/tickets/todo/a-qmu-jp/20260706120000-m.md";
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    const ticket = (missionLine) => `---
+created_at: 2026-07-06T12:00:00+09:00
+author: a@qmu.jp
+type: enhancement
+layer: [Domain]
+effort:
+commit_hash:
+category:
+depends_on:
+${missionLine}---
+
+# M
+`;
+    const invoke = () => {
+      const payload = JSON.stringify({ tool_input: { file_path: rel } });
+      try { execSync(`${POSIX_SH} ${HOOK}`, { cwd: dir, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return 0; }
+      catch (e) { return e.status ?? 1; }
+    };
+    writeFileSync(abs, ticket("mission: real-time-notifications\n"));
+    assertEq("validate-ticket accepts a ticket with mission: <slug>", invoke(), 0);
+    writeFileSync(abs, ticket("mission:\n"));
+    assertEq("validate-ticket accepts a ticket with an empty mission:", invoke(), 0);
+    writeFileSync(abs, ticket(""));
+    assertEq("validate-ticket accepts a ticket with no mission field", invoke(), 0);
+  } finally { cleanup(dir); }
 }
 
 // ---------- hooks/guard-ticket-structure.sh (PreToolUse Bash move guard) ----------
@@ -1678,6 +2095,11 @@ const tests = [
   ["gather/user-slug.sh", testUserSlug],
   ["create-ticket/sweep-todo.sh", testSweepTodo],
   ["drive/list-todo.sh", testListTodo],
+  ["mission/create.sh + progress.sh + list.sh", testMission],
+  ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],
+  ["drive/archive.sh mission seam", testMissionDriveSeam],
+  ["ship/extract-deferred-concerns.sh mission seam", testMissionShipSeam],
+  ["report/apply-deferred-concern-verdicts.sh mission seam", testMissionReportSeam],
   ["drive/promote-icebox.sh", testPromoteIcebox],
   ["ship/publish-release.sh", testPublishRelease],
   ["ship/check-confirmation-capability.sh", testCheckCapability],
@@ -1686,11 +2108,14 @@ const tests = [
   ["ship/catchup-main.sh", testCatchupMain],
   ["report/apply-deferred-concern-verdicts.sh", testApplyVerdicts],
   ["ship/extract-deferred-concerns.sh", testExtractDeferredConcerns],
+  ["ship/extract-deferred-concerns.sh push", testExtractDeferredConcernsPush],
+  ["ship/extract-deferred-concerns.sh mission/tickets relation", testExtractConcernMissionRelation],
   ["report/doc-drift.sh", testDocDrift],
   ["hooks/policy-lens.sh", testPolicyLens],
   ["hooks/validate-ticket.sh", testValidateLayout],
   ["hooks/layout-doctor.sh", testLayoutDoctor],
   ["hooks/validate-ticket.sh", testValidateTicket],
+  ["hooks/validate-ticket.sh mission field", testValidateTicketMission],
   ["hooks/guard-ticket-structure.sh", testGuardTicketStructure],
   ["hooks/posix-lint.sh", testPosixLint],
   ["report/collect-commits.sh", testCollectCommits],

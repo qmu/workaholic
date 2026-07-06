@@ -12,7 +12,7 @@ The `.workaholic/` tree of a project using workaholic is an [Open Knowledge Form
 
 Two layers keep that true:
 
-- **Per-file conformance** is owned by the writing workflows: tickets (`type: enhancement|bugfix|refactoring|housekeeping`), stories (`type: Story`), release notes (`type: Release Note`), deferred concerns (`type: Concern`), and trip artifacts (`type: Direction|Model|Design|Review|Rollback|Trip Plan|Event Log`).
+- **Per-file conformance** is owned by the writing workflows: tickets (`type: enhancement|bugfix|refactoring|housekeeping`), stories (`type: Story`), missions (`type: Mission`), release notes (`type: Release Note`), deferred concerns (`type: Concern`), and trip artifacts (`type: Direction|Model|Design|Review|Rollback|Trip Plan|Event Log`).
 - **Hierarchy organization** is owned by this skill's refresh script, which deterministically regenerates the indexes from whatever exists on disk — documents added, renamed, or removed by any workflow are reflected on the next refresh, with no hand-maintained lists.
 
 ## Refresh Script
@@ -26,6 +26,7 @@ Regenerates and git-stages:
 - `.workaholic/index.md` — the bundle root. Carries the one frontmatter block an OKF `index.md` may have (`okf_version: "0.1"`) and lists each knowledge area present.
 - `<area>/index.md` for the flat knowledge areas (`concerns`, `deployments`, `release-notes`, `specs`, `terms`) — one `* [title](file.md) - description` entry per document, title/description read from the file's frontmatter (H1 and filename as fallbacks), plus links to subdirectories.
 - `trips/index.md` — one entry per trip, linking its `plan.md`.
+- `missions/index.md` — one entry per mission, linking its `mission.md`, described by the mission's frontmatter `title`.
 
 It deliberately does **not** touch:
 

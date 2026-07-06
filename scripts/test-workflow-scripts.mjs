@@ -29,6 +29,10 @@ const SCRIPTS = {
   userSlug: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/user-slug.sh"),
   sweepTodo: join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/scripts/sweep-todo.sh"),
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
+  missionCreate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"),
+  missionProgress: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/progress.sh"),
+  missionList: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list.sh"),
+  refreshIndex: join(REPO_ROOT, "plugins/workaholic/skills/okf/scripts/refresh-index.sh"),
   promoteIcebox: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/promote-icebox.sh"),
   publishRelease: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/publish-release.sh"),
   readDeployments: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/read-deployments.sh"),
@@ -387,6 +391,99 @@ function testListTodo() {
       `.workaholic/tickets/todo/${TEST_SLUG}/20260528120000-a.md`,
       `.workaholic/tickets/todo/${TEST_SLUG}/20260528120001-b.md`,
     ]);
+  } finally { cleanup(dir); }
+}
+
+// ---------- mission/create.sh + progress.sh + list.sh ----------
+function testMission() {
+  const dir = makeRepo("main");
+  try {
+    execSync(`git checkout -q -b work-20260706-mission`, { cwd: dir });
+
+    // create.sh scaffolds a mission with valid frontmatter + the four sections,
+    // deriving the slug from the title.
+    let r = run(dir, `${POSIX_SH} ${SCRIPTS.missionCreate} "Real-time Notifications"`);
+    assertEq("mission create exits 0", r.status, 0);
+    const created = JSON.parse(r.stdout);
+    assertEq("mission create slug", created.slug, "real-time-notifications");
+    assertEq("mission create flag", created.created, true);
+    const mpath = join(dir, ".workaholic/missions/real-time-notifications/mission.md");
+    assertTrue("mission.md written", existsSync(mpath), created.path);
+    const body = readFileSync(mpath, "utf8");
+    assertTrue("mission has type: Mission", /^type:\s*Mission\s*$/m.test(body), body.split("\n").slice(0, 12).join("\n"));
+    assertTrue("mission has slug", /^slug:\s*real-time-notifications\s*$/m.test(body));
+    assertTrue("mission has status active", /^status:\s*active\s*$/m.test(body));
+    assertTrue("mission reserves empty tickets list", /^tickets:\s*\[\]\s*$/m.test(body));
+    for (const sec of ["## Goal", "## Scope", "## Acceptance", "## Changelog"]) {
+      assertTrue(`mission has ${sec}`, body.includes(`\n${sec}\n`), sec);
+    }
+
+    // missions/index.md gains a linking entry.
+    const idx = join(dir, ".workaholic/missions/index.md");
+    assertTrue("missions index written", existsSync(idx));
+    assertTrue("missions index links the mission",
+      readFileSync(idx, "utf8").includes("(real-time-notifications/mission.md)"),
+      readFileSync(idx, "utf8"));
+
+    // create.sh refuses to overwrite an existing mission.
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.missionCreate} "Real-time Notifications"`);
+    assertTrue("mission create refuses overwrite", r.status !== 0, `expected non-zero, got ${r.status}`);
+    assertEq("mission create reports exists", JSON.parse(r.stdout).reason, "exists");
+
+    // Fresh mission (empty ## Acceptance, only a comment) computes 0/0 — the
+    // template comment must not be miscounted as a checklist item.
+    assertEq("mission progress on fresh mission is 0/0",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${mpath}`).stdout), { checked: 0, total: 0 });
+
+    // progress.sh computes checked/total from the ## Acceptance checklist (2/3),
+    // counting [x]/[X] and ignoring items outside the section.
+    writeFileSync(mpath, `---
+type: Mission
+title: Fixture Mission
+slug: real-time-notifications
+status: active
+created_at: 2026-07-06T00:00:00+09:00
+author: test@example.com
+tickets: []
+stories: []
+concerns: []
+---
+
+# Fixture Mission
+
+## Goal
+
+- [ ] this bullet is under Goal, not Acceptance, and must not count
+
+## Acceptance
+
+- [x] First criterion (#20260706120000-a.md)
+- [ ] Second criterion (#20260706120001-b.md)
+- [X] Third criterion (#20260706120002-c.md)
+
+## Changelog
+
+- 2026-07-06 — mission created — real-time-notifications
+`);
+    assertEq("mission progress counts checked/total in the Acceptance section only",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${mpath}`).stdout), { checked: 2, total: 3 });
+    assertEq("mission progress resolves a bare slug",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} real-time-notifications`).stdout), { checked: 2, total: 3 });
+
+    // list.sh returns the mission with its status and computed progress.
+    const list = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
+    assertEq("mission list length", list.length, 1);
+    assertEq("mission list entry",
+      { slug: list[0].slug, title: list[0].title, status: list[0].status, checked: list[0].checked, total: list[0].total },
+      { slug: "real-time-notifications", title: "Fixture Mission", status: "active", checked: 2, total: 3 });
+
+    // refresh-index.sh is deterministic with a mission present: commit a fresh
+    // tree, run it again, and assert no working-tree change.
+    run(dir, `${POSIX_SH} ${SCRIPTS.refreshIndex}`);
+    execSync(`git add -A && git commit -q -m fixture`, { cwd: dir });
+    run(dir, `${POSIX_SH} ${SCRIPTS.refreshIndex}`);
+    assertEq("refresh-index idempotent with a mission present",
+      execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim(), "");
   } finally { cleanup(dir); }
 }
 
@@ -1724,6 +1821,7 @@ const tests = [
   ["gather/user-slug.sh", testUserSlug],
   ["create-ticket/sweep-todo.sh", testSweepTodo],
   ["drive/list-todo.sh", testListTodo],
+  ["mission/create.sh + progress.sh + list.sh", testMission],
   ["drive/promote-icebox.sh", testPromoteIcebox],
   ["ship/publish-release.sh", testPublishRelease],
   ["ship/check-confirmation-capability.sh", testCheckCapability],

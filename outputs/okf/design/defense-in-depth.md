@@ -1,7 +1,7 @@
 ---
 type: Engineering Policy
 title: "Security Considered in Layers"
-description: "Designing security as a set of independent controls at the network, application, data, and process layers so that the breach of any single layer does not expose the system."
+description: "Layering independent security boundaries before important assets, starting each closed by default, so that the breach of any single layer does not directly lead to damage."
 resource: https://qmu.co.jp/design/defense-in-depth
 tags:
   - design
@@ -10,52 +10,44 @@ tags:
 
 # Security Considered in Layers
 
-_Design security as a set of independent layers so that the breach of any single layer does not expose the system; treat each layer's failure as an expected event, not an impossibility._
+_Design security as independent layers so that the breach of any single layer does not directly expose the system; start each boundary in a closed default state and open only the paths that need to be open._
 
-No single security measure is reliable enough to be treated as the only defense. Passwords are stolen, secrets are leaked, access control rules have edge cases, network boundaries are misconfigured. Defense in depth is the practice of layering independent controls — at the network, application, data, and process levels — so that a breach of one layer still faces resistance from the others. The goal is not to make breach impossible; it is to make the consequence of any individual breach survivable.
+Defense in depth does not design any single layer as "sufficient on its own." We select, as the system's structure, the form of layering multiple independent boundaries before reaching important assets, with remaining layers limiting the damage range if one layer is breached. Each boundary starts from a closed default state (restrictive defaults) and explicitly opens only the paths that need to be open. Single-layer defense is easier to maintain and operate. We nonetheless layer controls because we want the failure of any one control not to directly lead to client value degradation — accepting as a trade-off the effort of duplication across layers.
 
 ## Goal (目標)
 
-The situation this policy aims to achieve is one in which each security control assumes that all other controls may have already failed, and is designed to limit damage on its own.
-
-- Network-level controls (firewalls, VPC boundaries, rate limiting) restrict what can reach the application.
-- Application-level controls (input validation, output encoding, authentication, authorization) restrict what authenticated callers can do.
-- Data-level controls (encryption at rest, column masking, row-level security, FK constraints) restrict what can be extracted even if application logic is bypassed.
-- Process-level controls (least privilege, secret rotation, audit logging, incident response) limit the blast radius of a compromised credential or compromised component.
+The situation this policy aims to achieve is one in which multiple independent boundaries are built into the design on the path to important assets, each boundary starts from a closed default state, and the remaining layers limit the damage range when any one layer is breached. Before reaching assets such as personal information, credentials, and production data, there are multiple independent controls that are not concentrated on the same implementation base, the same vendor, or the same operator — a state in which the independence of layers is maintained and a single point of failure does not become a total failure.
 
 ## Responsibility (責務)
 
-The situation this policy aims to prevent is one in which a single control is relied upon to carry the entire security posture, so that its failure is a total failure.
+The situation this policy aims to prevent is one in which controls are concentrated in a single layer so that the failure of that layer leads immediately to damage, or in which the layers exist in form only and do not actually work.
 
-States we do not tolerate:
-
-- "We have authentication, so we don't need authorization checks on each resource." Authentication establishes identity; it does not enforce what that identity may access.
-- "The database is inside the VPC, so it doesn't need access controls." Network isolation reduces the attack surface; it does not substitute for access control at the data level.
-- "We use a managed service, so we don't need to audit its access." Managed services extend the attack surface; their access logs and configuration belong in the security model.
-- Secrets that are never rotated because "they haven't been leaked." Rotation limits the window of exposure for any credential that has been leaked without detection.
+When boundaries are left open with permissive defaults so that the layer effectively rejects nothing, or when duplication is cut away with reasoning like "we're already validating upstream, so we can skip this one" or "the WAF will stop it, so the API layer can be loose," layers become nominal in name only. In development where AI writes much of the implementation, the process of producing functionality at volume tends to spread paths that assume a "just open it" default or that skip per-layer checks on the premise that "it's already been validated" — and layers tend to become hollow shells.
 
 ## Practices (実践)
 
-### Define the layers explicitly for this product
+### Start each boundary closed (restrictive defaults)
 
-For each product, enumerate the active security layers: what network controls exist, what application-level controls are in place, what data-level protections are applied, and what process controls are in the incident-response plan. A defense-in-depth posture that has not been enumerated is not a posture — it is a collection of independent controls whose coverage is unknown.
+When creating a new boundary (API endpoint, database, storage, queue, function), make the most restrictive default the starting point. Reach, exposure, and acceptance are closed by default; only the paths that need to be opened are made explicit. Permissions are granted at the minimum needed for the work, not held in a broad default. Relaxations (permits, exposures, acceptances) are recorded in the PR or ADR that makes them — why, for what scope, until when. When exceptions are needed, record them as exceptions; review periodically whether they remain beyond their intended duration and whether their number has grown to signal that the default itself no longer matches reality. Each boundary being closed by default this way is what keeps layers effective rather than merely nominal.
 
-### Validate at each boundary, not only at the first entry point
+### Default to escaping output; limit disabling to explicit paths
 
-Input that arrives at an internal service, a queue worker, or a batch job may have passed through an external-facing layer, but assume it has not. Validate and authorize at each boundary that consumes the input.
+Restrictive defaults apply equally to the output layer that renders the screen. Libraries, templates, and engines that render to the screen should default to escaping, treating strings as not to be interpreted as markup or scripts as the initial value. Output boundary closed by default — this is the "start closed, open only explicit paths" of the previous section applied to output rather than to APIs or storage.
 
-### Treat secrets as having a finite safe lifespan
+Disabling automatic escaping (`dangerouslySetInnerHTML`, a template engine's `| safe`, and so on) is the operation of opening one point in the output boundary. Treat it as "making the open path explicit" — use it only where explicitly written, and record why and for what scope in the PR or ADR that makes the change. Following the same form as relaxation records in the previous section, output-boundary relaxations are also left in the record. In development where AI writes much of the implementation, disabling escaping can be inserted without notice in the process of producing features at volume, and output boundaries can become hollow without anyone realizing it. The form of defaulting to escape and limiting disabling to explicit paths is positioned as a target where restrictive defaults can be effective against this failure mode.
 
-Rotate credentials, API keys, and certificates on a schedule rather than waiting for a known leak. Define the rotation interval as part of the infrastructure-as-code configuration — see [Infrastructure as Code](/implementation/infrastructure-as-code.md).
+### Cover the path to important assets with multiple independent boundaries
 
-### Audit logs are a layer, not an afterthought
+Identify what needs to be protected — production data, personal information, credentials — and arrange for multiple independent boundaries to be traversed before they can be reached from the outside. Design each boundary so it can fail independently, so that the next layer remains when one layer is breached.
 
-Audit logs of who accessed what and when are a security control: they enable incident detection and forensic reconstruction. Log access to sensitive data, privilege escalations, and authentication failures as structured events. Design the logging layer alongside the access control layer, not afterward.
+### Consciously maintain the independence of layers
 
-### Apply the principle of least privilege to every component
+Even if layers are stacked, if all of them depend on the same validation base, the same vendor, or the same operator's judgment, a single flaw loses multiple layers simultaneously. Keep different implementation lineages and different permission boundaries for each layer, consciously maintaining independence.
 
-Every process, service account, and human operator should have the minimum set of permissions needed to perform its function. Permissions are not additive defaults to be trimmed later; they are explicit grants. Review the permission set of each component when it is created, and again whenever its responsibilities change.
+### Anticipate lateral movement across layers
 
-### Related: Authentication and Authorization Procurement, Access Control Mechanism Selection, Observability and Self-Healing, Infrastructure as Code
+Assume internal movement (lateral movement) after the first layer is breached, and divide boundaries so damage does not cascade. Separate permissions per service and connection; do not assume "it's safe because it's internal."
 
-Defense in depth connects authentication procurement — [Authentication and Authorization Procurement Policy](/design/auth-procurement.md) — with access control mechanism selection — [Access Control Mechanism Selection](/design/access-control.md). Audit logs are part of [Observability and Self-Healing](/implementation/observability.md). Secrets rotation lives in [Infrastructure as Code](/implementation/infrastructure-as-code.md).
+### Related: Access Control, Conservative Vendor Dependence, Preferring Rich Typing, Security Standards
+
+Authorization decisions are handled by [Access Control Mechanism Selection](/design/access-control.md). Distributing dependencies to support layer independence is handled by [Conservative Vendor Dependence](/design/vendor-neutrality.md). Closing invalid states that can be expressed in types is linked to [Preferring Rich Typing](/implementation/type-driven-design.md). Specific control standards placed at each layer are linked to Security Standards.

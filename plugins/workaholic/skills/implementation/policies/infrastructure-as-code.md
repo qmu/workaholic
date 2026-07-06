@@ -5,39 +5,21 @@ category: implementation
 source: https://qmu.co.jp/implementation/infrastructure-as-code
 ---
 
-# Infrastructure as Code — define configuration as version-controlled code, reproducible from a clean state
+# Infrastructure as Code
 
-Infrastructure as Code (IaC) is the policy of defining already-provisioned resources as version-controlled files, in a form that can be reproduced from a clean state. Building things in the console is fast for one-off changes and easy to learn, but we prioritize IaC in order to keep infrastructure reproducible and auditable. The cost is that ad-hoc, in-the-moment fixes become slower.
+Define configuration as version-controlled code, reproducible from a clean state. Building things in the console is fast for one-off changes and easy to learn, but we prioritize IaC in order to keep infrastructure **reproducible and auditable**. The cost is that ad-hoc, in-the-moment fixes become slower.
 
 ## Goal (目標)
 
 The situation this policy aims to achieve is one where the current state of the infrastructure can be fully reconstructed from the code in the repository.
 
-The shape of the goal is as follows:
-
-- All production infrastructure (VPCs, subnets, load balancers, serverless functions, databases, queues, storage, DNS) is defined in configuration files in the repository.
-
-- The same infrastructure can be reproduced from the same code in a different account or different region.
-
-- "When, by whom, and what was changed" can be traced from the git history.
-
-- Direct changes made in the console (drift) are detected, and there is a path for taking them back into the code.
+All production infrastructure — VPCs, subnets, load balancers, serverless functions, databases, queues, storage, DNS — is defined in configuration files in the repository; the same infrastructure can be reproduced from the same code in a different account or different region. "When, by whom, and what was changed" can be traced from the git history, and direct changes made in the console (drift) are detected with a path to take them back into the code — the aim is a state in which this cycle continues to turn.
 
 ## Responsibility (責務)
 
 The situation this policy aims to prevent is one where the structure of the infrastructure depends on the operator's memory and cannot be explained as files.
 
-States that are not tolerated:
-
-- Resources that reached production by manual console construction alone. A state where a resource is running in production simply because someone created it from the Cloudflare dashboard or the AWS Console, with no record in code.
-
-- Long-term neglect of manual changes that have not been put into code. A state where the IaC code and the actual infrastructure state remain drifted and the drift is never resolved.
-
-- "Just fix it manually for now and reflect it in code later" becoming a habit. Making manual changes during an emergency response is tolerated, but it is an operational rule that they must afterward always be taken back into the code.
-
-- IaC code exists, but the procedure for creating a new environment is not documented. A state where the code exists, but the preconditions and execution order for `terraform init` / `wrangler deploy` / `pulumi up` live in the operator's memory.
-
-- Hardcoded secrets. A state where access keys, passwords, and API tokens are written directly into the IaC code and included in git. Secrets must be referenced from external secret management (Secrets Manager, `wrangler secret`, etc.).
+Resources that reached production by manual console construction alone — a resource running in production simply because someone created it from the dashboard with no record in code; IaC code and actual infrastructure state remaining drifted and the drift never resolved; "fix it manually for now and reflect it in code later" becoming a habit (manual changes during emergency response are tolerated, but they must always be taken back into the code afterward); IaC code existing but the procedure for creating a new environment living in the operator's memory; secrets hardcoded directly into the IaC code and included in git — these are the states this policy aims not to allow.
 
 ## Practices (実践)
 
@@ -53,7 +35,7 @@ Tooling options we adopt:
 
 - Kubernetes: Helm / Kustomize / Argo CD.
 
-The choice of tool is evaluated in line with the rule of reluctant vendor dependence.
+The choice of tool is evaluated in line with [Conservative Vendor Dependence](../../design/policies/vendor-neutrality.md).
 
 ### Detect drift between the code and the actual state
 
@@ -148,4 +130,4 @@ Prototyping new features and exploring new configurations may be tried quickly i
 
 ### Related (関連): CI/CD, portability, observability
 
-IaC should be executed by CI/CD automation. Reproducibility supports reluctant vendor dependence. Whether the resources defined by IaC are behaving as expected is confirmed through observability and self-healing.
+IaC should be executed by [Local CI/CD Execution](../../operation/policies/ci-cd.md). Reproducibility supports [Conservative Vendor Dependence](../../design/policies/vendor-neutrality.md). Whether the resources defined by IaC are behaving as expected is confirmed through [Observability and Self-Healing](observability.md).

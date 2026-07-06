@@ -13,25 +13,13 @@ Observability and self-healing are policies for keeping a running system in a st
 
 The situations this policy aims to achieve are: a state in which a person can answer what the system is doing and what is broken without having to peer in with a debugger, and a state in which, when a component goes down, the system first diagnoses its own condition and attempts to recover.
 
-The outline of the goal is as follows:
-
-- At the same time a constituent element is created, it is already emitting structured logs, metrics, and traces.
-- "What is happening in production right now," "when it happened," and "which request it was" can be answered from the outside within a few minutes.
-- Health checks, automatic restart, rollback triggers, and circuit breakers are built in by default.
-- When a component goes down, the system first attempts diagnosis and recovery, and only when that still fails to resolve the issue does it call a human.
+A constituent element emits structured logs, metrics, and traces from the moment it is created; "what is happening in production right now," "when it happened," and "which request it was" can be answered from the outside within a few minutes. Health checks, automatic restart, rollback triggers, and circuit breakers are built in by default, and when a component goes down, the system first attempts diagnosis and recovery — only when that still fails to resolve the issue does it call a human.
 
 ## Responsibility (責務)
 
 The situation this policy aims to prevent is one in which operational continuity depends on the operator's active monitoring and intervention, rather than on the system's own self-explanatory capability and recovery behavior.
 
-States we do not tolerate:
-
-- A system where you cannot tell what is happening unless you attach a debugger. A state in which one of logs, metrics, or traces is missing, so that grasping the state from the outside is broken.
-- "Just log it for now." A state in which large volumes of unstructured, free-form log text are emitted, with no means of searching or aggregating them.
-- No health check, or a health check that is not functioning. A state in which a service that has merely started up but is logically broken cannot be detected from the outside.
-- Failures retried infinitely. A state in which circuit breakers, timeouts, and a maximum retry count are not configured, so that a failure in a dependency propagates in a cascade.
-- Rollback decisions that depend on manual consensus. A state in which clear rollback trigger conditions (error-rate thresholds, latency thresholds) are not defined in advance.
-- Alerts that cry wolf. A state in which large numbers of low-importance alerts fire, so that the truly important alerts are overlooked.
+A system where you cannot tell what is happening unless you attach a debugger — one of logs, metrics, or traces is missing so that grasping the state from the outside is broken; "just log it for now" producing large volumes of unstructured, free-form log text with no means of searching or aggregating them; no health check, or a health check not functioning so that a service that has merely started up but is logically broken cannot be detected from the outside; failures retried infinitely because circuit breakers, timeouts, and a maximum retry count are not configured so that a failure in a dependency propagates in a cascade; rollback decisions that depend on manual consensus because clear rollback trigger conditions are not defined in advance; alerts that cry wolf so that the truly important alerts are overlooked — these are the states this policy aims not to allow.
 
 ## Practices (実践)
 
@@ -70,7 +58,7 @@ If you feel the number of alerts is too high, that is a sign not to "reduce aler
 
 ### Keep the observability foundation portable (観測基盤の移植性を保つ)
 
-Align the output formats of metrics, logs, and traces to standard formats that are not locked to a specific vendor (OpenTelemetry / OpenMetrics). Do not lean deeply on vendor-specific query languages or SDKs, and leave open a path to export the data to a different store (in concert with passive vendor dependence (消極的ベンダー依存)).
+Align the output formats of metrics, logs, and traces to standard formats that are not locked to a specific vendor (OpenTelemetry / OpenMetrics). Do not lean deeply on vendor-specific query languages or SDKs, and leave open a path to export the data to a different store.
 
 ### A minimal schema for structured logs (構造化ログの最低限のスキーマ)
 
@@ -83,7 +71,7 @@ Every production log carries, at minimum, the following fields:
 - message (a short, human-readable description)
 - error (when applicable, the error's type and stack trace)
 
-Personal information (email addresses, names) is masked as needed before being emitted (in keeping with safety (安全性)).
+Personal information (email addresses, names) is masked as needed before being emitted.
 
 ### Build live-log references such as wrangler tail into operations (wrangler tail などのライブログ参照を運用に組み込む)
 
@@ -119,4 +107,4 @@ Immediately after deploying to production via CD, observe the error rate, latenc
 
 ### Related: CI/CD, portability, testing (関連: CI/CD・移植性・テスト)
 
-Rollback automation works in concert with the rollback policy of CI/CD automation. For the portability of the observability foundation, see passive vendor dependence. Prior verification is testing; posterior verification is the observation means in this article — be conscious of the division of roles between the two. Log outputs and access patterns are also inputs for the layered security measures described in [Security Considered in Layers](../../design/policies/defense-in-depth.md).
+Rollback automation works in concert with the rollback policy of [Local CI/CD Execution](../../operation/policies/ci-cd.md). For the portability of the observability foundation, see [Conservative Vendor Dependence](../../design/policies/vendor-neutrality.md). Prior verification is testing; posterior verification is the observation means in this article — be conscious of the division of roles between the two. Log outputs and access patterns are also inputs for the layered security measures described in [Security Considered in Layers](../../design/policies/defense-in-depth.md).

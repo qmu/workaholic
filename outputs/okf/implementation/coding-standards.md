@@ -12,7 +12,7 @@ tags:
 
 _Defaulting to language features where type checking and declarative guarantees apply, and avoiding features where those guarantees fall away, so the compiler can detect as much as possible in AI-produced code._
 
-TypeScript offers multiple language features for writing the same behavior, and which to reach for by default determines how much the compiler can detect. The policy defaults to features where type checking and declarative guarantees apply, and steps back from features where those guarantees fall away in this context. With generative AI as the default author, the compiler is the most accurate and least expensive feedback path an agent can take. Which language features to default to determines how much the compiler can detect in the AI-produced code at scale, so the feature choices are made explicit. The Go counterpart is [Golang Coding Standards](/implementation/golang-coding-standards.md), with each policy collecting the language-specific differences.
+TypeScript offers multiple language features for writing the same behavior, and which to reach for by default determines how much the compiler can detect. The policy defaults to features where type checking and declarative guarantees apply, and steps back from features where those guarantees fall away in this context. Most of the implementation is written by AI, and the compiler is the most accurate and least expensive feedback path an agent can take. Which language features to default to determines how much the compiler can detect in the AI-produced code at scale, so the feature choices are made explicit.
 
 ## Goal (目標)
 
@@ -22,7 +22,7 @@ The situation this policy aims to achieve is one where language feature choices 
 
 The situation this policy aims to prevent is one where the guarantees of types and declarativeness silently fall away through `any`, `as`, non-null assertions, `@ts-ignore`, or `==`. Each is locally convenient, but values passing through them bypass compiler checking and push inconsistencies into tests, reviews, and operations.
 
-With generative AI as the default author, AI-produced code that scatters `any` and type assertions, letting static-analysis gaps accumulate in the domain layer, is a recurring failure mode. Each assertion is small, but when stacked across many files without awareness, the range the compiler could have detected is broadly lost.
+In a structure where AI writes most of the implementation, AI-produced code that scatters `any` and type assertions, letting static-analysis gaps accumulate in the domain layer, is a recurring failure mode. Each assertion is small, but when stacked across many files without awareness, the range the compiler could have detected is broadly lost.
 
 ## Practices (実践)
 

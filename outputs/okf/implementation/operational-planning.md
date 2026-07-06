@@ -10,41 +10,19 @@ tags:
 
 # Capacity and Recovery Planning — Start from Simple Capacity, and Shape Recovery Procedures by Working Backward from Scenarios
 
-Capacity planning and recovery planning are policies that secure operational continuity as a matter of planning done in advance. Rather than scrambling to think about "how much can we handle" and "how do we get back after a failure" only once operations have begun, we hold these in a simple form at the construction stage. We treat the two as a single subject because they are bound together by a common principle — rejecting excessive advance planning while working backward from scenarios.
+Capacity planning and recovery planning are policies that secure operational continuity as a matter of planning done in advance. Rather than scrambling to think about "how much can we handle" and "how do we get back after a failure" only once operations have begun, we hold these in a simple form at the construction stage.
 
 ## Goal (目標)
 
 The situation this policy aims to achieve is one in which the preparation needed for operational continuity is in place, without introducing complexity through excessive advance headroom or elaborate calculation.
 
-The contours of the goal are as follows:
-
-- Room is left, in both infrastructure and process, to start from the minimum, observe actual demand, and expand accordingly.
-
-- The recovery plan is worked backward from concrete failure scenarios (具体的な障害シナリオ), rather than from an abstract "99.9% availability."
-
-- For each failure scenario, a recovery path, an allowable data-loss margin, and a restoration procedure are defined.
-
-- The RTO (Recovery Time Objective / 復旧時間目標) and RPO (Recovery Point Objective / 復旧時点目標) are derived from the scenarios, and are not established in the reverse order.
-
-- The recovery plan has been rehearsed, and has not been left to languish as a desk-bound document.
+Room is left, in both infrastructure and process, to start from the minimum, observe actual demand, and expand accordingly. The recovery plan is worked backward from concrete failure scenarios (具体的な障害シナリオ) rather than from an abstract "99.9% availability" — for each scenario, a recovery path, an allowable data-loss margin, and a restoration procedure are defined. The RTO (Recovery Time Objective / 復旧時間目標) and RPO (Recovery Point Objective / 復旧時点目標) are derived from the scenarios and are not established in the reverse order. The recovery plan has been rehearsed, and has not been left to languish as a desk-bound document.
 
 ## Responsibility (責務)
 
 The situation this policy aims to prevent is one in which continuity preparation is optimized only for "good days," and the "worst day" is not anticipated before it arrives.
 
-States we do not tolerate:
-
-- Introducing complexity through elaborate advance capacity planning. A state in which, while actual demand is still unknown, one invests in large-scale load testing, capacity models, and scaling design, and implementation falls behind as a result.
-
-- Recovery design worked backward from abstract availability targets (99.9%, 99.99%). Numerical targets that are not tied to concrete scenarios cannot be translated into operational judgment.
-
-- Recovery procedures that have not been rehearsed. A state in which "if a failure occurs, we restore using this procedure" is written down, but the procedure has never actually been carried out.
-
-- No decided margin for allowable data loss. If you set "we will absolutely never lose data" as the goal, you cannot devise a response to unavoidable failures (a full-region outage, accidental deletion, corruption).
-
-- Treating "recovery" as synonymous with "rollback." Data corruption, accidental deletion, and failures of dependencies are not undone by a rollback. The recovery path differs from scenario to scenario.
-
-- Not considering a scenario "because it can't happen." If you assume that "a region failure won't occur" or that "the DB will never break," then when it does occur, the response becomes improvised.
+Introducing complexity through elaborate advance capacity planning — investing in large-scale load testing, capacity models, and scaling design while actual demand is still unknown; recovery design worked backward from abstract availability targets (99.9%, 99.99%) that cannot be translated into operational judgment; recovery procedures that have never been rehearsed; no decided margin for allowable data loss, making it impossible to devise a response to unavoidable failures; treating "recovery" as synonymous with "rollback" when data corruption, accidental deletion, and dependency failures are not undone by a rollback; not considering a scenario "because it can't happen" — these are the states this policy aims not to allow.
 
 ## Practices (実践)
 
@@ -114,9 +92,9 @@ The decision to increase capacity is made on the basis of metrics.
 
 Decide the thresholds in advance and build them into automatic responses (linked with the scale-out triggers of observability and self-healing).
 
-### Reference the recovery manifest from docs/safety/incident-response.md (復旧マニフェストを docs/safety/incident-response.md から参照する)
+### Reference the recovery manifest from Incident Response Procedure (復旧マニフェストを docs/safety/incident-response.md から参照する)
 
-The per-scenario recovery procedures are placed where they can be referenced from the incident-response procedures of the safety policy.
+The per-scenario recovery procedures are placed where they can be referenced from the Incident Response Procedure.
 
 - For each scenario: scenario name, detection method, priority, RTO/RPO, recovery procedure (at the command level), and contacts.
 
@@ -142,4 +120,4 @@ Within a range that does not contradict simple capacity planning, hold reserve c
 
 ### Related: CI/CD, Portability, Observability, Safety (関連: CI/CD・移植性・可観測性・安全性)
 
-Rollback automation is directly connected to CI/CD automation. Reproducibility presupposes passive vendor dependence (消極的ベンダー依存) and infrastructure as code. Scaling decisions take the metrics of observability and self-healing as their input. Recovery in the event of a security incident references [Security Considered in Layers](/design/defense-in-depth.md) and the incident-response procedure in `docs/safety/incident-response.md`.
+Rollback automation is directly connected to [Local CI/CD Execution](/operation/ci-cd.md). Reproducibility presupposes [Conservative Vendor Dependence](/design/vendor-neutrality.md) and [Infrastructure as Code](/implementation/infrastructure-as-code.md). Scaling decisions take the metrics of [Observability and Self-Healing](/implementation/observability.md) as their input. Recovery in the event of a security incident references [Security Considered in Layers](/design/defense-in-depth.md) and the Incident Response Procedure.

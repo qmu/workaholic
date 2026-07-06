@@ -58,7 +58,7 @@ For information conveyed only by color, size, or position, we layer additional p
 
 ### Verify reachability
 
-For tickets involving UI, we confirm that primary functions can be reached by screen reader (VoiceOver, NVDA, etc.) and keyboard alone. We also confirm that AI agents can reach the same operations through browser automation or WebMCP. Paths that AI agents cannot reach are treated as signs that the path is also difficult to reach for people using assistive technologies. These automated verifications are incorporated into [CI/CD Automation](/operation/ci-cd.md).
+For tickets involving UI, we confirm that primary functions can be reached by screen reader (VoiceOver, NVDA, etc.) and keyboard alone. We also confirm that AI agents can reach the same operations through browser automation or WebMCP. Paths that AI agents cannot reach are treated as signs that the path is also difficult to reach for people using assistive technologies. These automated verifications are incorporated into [Local CI/CD Execution](/operation/ci-cd.md).
 
 ### Related: Modeless Design, Preferring Rich Typing
 

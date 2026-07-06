@@ -58,3 +58,4 @@
 * [Release v1.0.70 — release PR #63's work under a free version](work-20260701-013106.md)
 * [Add /carry and /explain commands, plus prompt project label and deferred-concerns rename](work-20260701-093015.md)
 * [Fetch and scan remote branches in /catch so pushed work is visible](work-20260701-171611.md)
+* [Attempt-first night mode, OKF compatibility, and carry Findings/Decisions](work-20260701-221800.md)

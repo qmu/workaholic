@@ -49,6 +49,23 @@ story_file, pr_number, pr_url, branch, origin_commit, created_at = sys.argv[1:7]
 with open(story_file) as h:
     text = h.read()
 
+# Parse the shipped story's frontmatter for the machine-readable relations it
+# carries (both optional): the mission slug and the tickets: list the story
+# covers. Each extracted concern inherits them, so a deferred concern is
+# traceable to its mission and the specific tickets it arose from, not only to
+# its origin PR/branch/commit. Absent -> empty mission and an empty [] list.
+story_mission = ""
+story_tickets = "[]"
+fm = re.match(r'^---\n(.*?)\n---\n', text, re.DOTALL)
+if fm:
+    for line in fm.group(1).split('\n'):
+        mm = re.match(r'\s*mission:\s*(.*)$', line)
+        if mm and not story_mission:
+            story_mission = mm.group(1).strip()
+        tm = re.match(r'\s*tickets:\s*(.*)$', line)
+        if tm and tm.group(1).strip():
+            story_tickets = tm.group(1).strip()
+
 # Isolate section 6 (## 6. ...) up to the next top-level "## " heading.
 m = re.search(r'^##\s+6\.\s.*?$(.*?)(?=^##\s+\d+\.\s|\Z)', text, re.MULTILINE | re.DOTALL)
 section = m.group(1) if m else ""
@@ -116,6 +133,10 @@ for block in blocks:
     # `type` first: the non-empty type key is what makes the file an OKF
     # (Open Knowledge Format) concept document; the rest are extension keys.
     body.append('type: Concern')
+    # Machine-readable relations inherited from the shipped story (both optional):
+    # the mission this concern advances, and the tickets it arose from.
+    body.append(f'mission: {story_mission}')
+    body.append(f'tickets: {story_tickets}')
     body.append(f'origin_pr: {pr_number}')
     body.append(f'origin_pr_url: {pr_url}')
     body.append(f'origin_branch: {branch}')

@@ -127,8 +127,8 @@ Wait for all 3 to complete. Track which succeeded and which failed.
 
 #### Phase 3: Write Story File
 
-1. **Gather Source Data**: Read archived tickets using Glob pattern `.workaholic/tickets/archive/<branch-name>/*.md`. Extract frontmatter (`commit_hash`, `category`) and content (Overview, Final Report).
-2. **Write Story**: Follow the Story Content Structure section below.
+1. **Gather Source Data**: Read archived tickets using Glob pattern `.workaholic/tickets/archive/<branch-name>/*.md`. Extract frontmatter (`commit_hash`, `category`, **`mission`**) and content (Overview, Final Report). Record each ticket's **filename** (basename) — this is the `tickets:` relation — and its `mission:` value — the source of the story's `mission:` (see Story Frontmatter for the inheritance rule).
+2. **Write Story**: Follow the Story Content Structure section below; write the `mission:` and `tickets:` relations into the frontmatter per the **Story Frontmatter** section.
 3. **Update Index**: Add entry to `.workaholic/stories/index.md` (see Updating Stories Index).
 
 #### Phase 4: Commit and Push Story
@@ -515,10 +515,17 @@ Create `.workaholic/stories/<branch-name>.md` with YAML frontmatter:
 type: Story
 branch: <branch-name>
 tickets_completed: <count of tickets>
+mission: <slug>                     # optional — the mission this branch advances (empty when none)
+tickets: [<ticket-a.md>, <ticket-b.md>]   # the archived ticket filenames this story covers (report→tickets relation)
 ---
 ```
 
 The `type` key is what makes the story readable as an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) concept document (OKF requires a parseable frontmatter block with a non-empty `type`; all other keys ride along as producer extensions). Keep it first and never omit it.
+
+**Machine-readable relations** (both derived in Phase 3, from the archived tickets):
+
+- `tickets:` — the list of archived ticket **filenames** this story covers (basenames of `.workaholic/tickets/archive/<branch>/*.md`). A story already narrates its tickets in prose (section 3); this records the association in frontmatter so a mission can roll them up mechanically (the report→tickets relation). Write `[]` if the branch archived no tickets.
+- `mission:` — the mission `slug` this branch advances, **inherited from the archived tickets' `mission:` field**: if the covered tickets share a single non-empty mission slug, use it; if none carry one, leave it empty; if they disagree (more than one distinct slug), ask the developer which mission the story belongs to (or none) via the agent's selection prompt. This is the machine-readable relation `/ship` propagates into any deferred concern extracted from this story.
 
 ### Writing Guidelines
 

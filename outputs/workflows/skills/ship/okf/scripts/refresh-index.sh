@@ -124,6 +124,36 @@ if [ -d "$ROOT/trips" ]; then
   write_index "$ROOT/trips/index.md" "$body"
 fi
 
+# --- Missions ------------------------------------------------------------------
+# Per-slug subdirectory artifact, indexed like trips: one entry per mission linking
+# its mission.md, described by the mission's frontmatter title.
+if [ -d "$ROOT/missions" ]; then
+  body="# missions
+"
+  missions=$(find "$ROOT/missions" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | LC_ALL=C sort)
+  if [ -n "$missions" ]; then
+    body="$body
+"
+    for d in $missions; do
+      mission=$(basename "$d")
+      if [ -f "$d/mission.md" ]; then
+        desc=$(fm_field "$d/mission.md" title)
+        if [ -n "$desc" ]; then
+          body="$body* [${mission}](${mission}/mission.md) - ${desc}
+"
+        else
+          body="$body* [${mission}](${mission}/mission.md)
+"
+        fi
+      else
+        body="$body* [${mission}/](${mission}/)
+"
+      fi
+    done
+  fi
+  write_index "$ROOT/missions/index.md" "$body"
+fi
+
 # --- Bundle root -----------------------------------------------------------------
 root_body="---
 okf_version: \"0.1\"
@@ -135,13 +165,15 @@ The development knowledge this project's workaholic workflows generate and maint
 organized as an Open Knowledge Format bundle. Enter any area through its index.
 
 "
-for area in tickets stories concerns deployments release-notes specs terms trips; do
+for area in tickets stories missions concerns deployments release-notes specs terms trips; do
   dir="$ROOT/$area"
   [ -d "$dir" ] || continue
   case "$area" in
     tickets)       root_body="$root_body* [tickets/](tickets/) - implementation tickets (todo / archive / icebox queues)
 " ;;
     stories)       root_body="$root_body* [stories](stories/index.md) - branch development narratives (PR descriptions and historical record)
+" ;;
+    missions)      root_body="$root_body* [missions](missions/index.md) - long-lived goals spanning many tickets, with acceptance progress and an append-only changelog
 " ;;
     concerns)      root_body="$root_body* [concerns](concerns/index.md) - deferred concerns extracted at ship time, judged on later reports
 " ;;

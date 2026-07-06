@@ -47,7 +47,7 @@ const WORKFLOWS_PLUGIN = join(OUTPUTS_ROOT, "workflows"); // outputs/workflows
 // removed after a full build; left in place (and its path printed) for partial dev builds.
 const SCRATCH = mkdtempSync(join(tmpdir(), "workaholic-skills-"));
 
-const DEFAULT_TARGETS = ["create-ticket", "drive", "report", "ship", "catch"];
+const DEFAULT_TARGETS = ["create-ticket", "drive", "report", "ship", "catch", "mission"];
 // review-sections / write-release-note are pure prose (no scripts) but are skill-preload
 // dependencies of report, so they ship as their own skills alongside the workflows.
 const EXTRA_SKILLS = ["review-sections", "write-release-note"];
@@ -214,7 +214,7 @@ function assembleWorkflowsPlugin(builtTargets) {
   const manifest = {
     name: "workflows",
     version: lookupVersion("workflows"),
-    description: "Ticket-driven development workflows (create-ticket, drive, report, ship, catch) as agent-neutral skills.",
+    description: "Ticket-driven development workflows (create-ticket, drive, report, ship, catch, mission) as agent-neutral skills.",
     author: { name: "tamurayoshiya", email: "a@qmu.jp" },
     repository: "https://github.com/qmu/workaholic",
     license: "MIT",

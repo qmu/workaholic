@@ -3,9 +3,9 @@ created_at: 2026-07-06T12:13:04+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 130a02e
+category: Added
 depends_on:
 ---
 
@@ -89,3 +89,14 @@ New PreToolUse(AskUserQuestion) guard; gated on the empirically-verified mechani
 - **Keep CLAUDE.md thin.** Only the hook enumeration line changes; the rule itself is the hook plus the existing skill prose — not a new CLAUDE.md section (`CLAUDE.md`).
 - **Resolves #67/#69.** Note the resolution so the next `/report` deferred-concern judge marks them resolved (`.workaholic/concerns/67-prompt-phrasing-is-prose-not-machine.md`).
 - **`outputs/` mirrors are not hook-covered.** Non-Claude agents run the generated `outputs/workflows` skills, which a Claude-Code hook cannot reach; their "User interaction" prose remains the only guard there — acceptable, but do not claim the hook protects them.
+
+## Final Report
+
+Development completed with a deliberate scope decision. Implemented the **blocking** guard (Option B): `guard-askuserquestion-label.sh` (POSIX sh, jq) reads `.tool_input.questions[].question` and exits 2 when any body lacks a leading `[…]` label, with a message routing to `project-label.sh`; registered as a `PreToolUse(AskUserQuestion)` matcher in `hooks.json`; 7 hermetic tests (single/multi/mixed/whitespace/empty). CLAUDE.md gained a short factual subsection documenting the hook (not a re-stated rule). No `outputs/` footprint; posix-lint conforming; 280 tests green. The per-skill "User interaction" prose was left unedited (it stays truthful — the convention still holds; the hook is additive), keeping the change minimal and CLAUDE.md thin.
+
+### Discovered Insights
+
+- **Insight**: Option A (auto-inject the label via `hookSpecificOutput.updatedInput`) is the nicer UX but its support for the `AskUserQuestion` tool cannot be verified from **inside** a running Claude Code session — hooks load at session start, so testing it needs a restart + `claude --debug`. Shipping on an unverified rewrite path would be a guess; the block path is the proven `guard-git-commit.sh` behavior and is fully unit-testable in-session. Auto-inject remains a clean follow-up once the harness behavior is confirmed.
+  **Context**: The same session-start load means this guard does **not** affect the session that installs it — enforcement begins on the next session. Any in-session test of a new hook must therefore be a hermetic unit test of the script, never a live trigger.
+- **Insight**: A blanket `AskUserQuestion` matcher cannot scope to "workflow prompts only" (tool_input carries no command-origin signal), but that is fine: labeling every prompt with its repo helps ad-hoc questions as much as workflow ones, so the over-fire is a feature. Trying to scope it would add complexity for no benefit.
+  **Context**: Resolves deferred concerns #67 and #69 more strongly than their original "add a verify.mjs prose check" suggestion — it validates the real prompt text at issue time, not the convention prose.

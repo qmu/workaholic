@@ -45,6 +45,9 @@ const SCRIPTS = {
   resolveExportPath: join(REPO_ROOT, "plugins/workaholic/skills/explain/scripts/resolve-export-path.sh"),
   guardGitCommit: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-commit.sh"),
   guardGitBranch: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-branch.sh"),
+  guardAskLabel: join(REPO_ROOT, "plugins/workaholic/hooks/guard-askuserquestion-label.sh"),
+  guardWorkingDir: join(REPO_ROOT, "plugins/workaholic/hooks/guard-working-directory.sh"),
+  auditClaudeMd: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/audit-claude-md.sh"),
   checkDeps: join(REPO_ROOT, "plugins/workaholic/skills/check-deps/scripts/check.sh"),
   ensureWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/ensure-worktree.sh"),
   checkSubject: join(REPO_ROOT, "plugins/workaholic/hooks/lib/check-subject.sh"),
@@ -555,6 +558,131 @@ function testRecordEvidence() {
   } finally { cleanup(cleanHash); }
 }
 
+// Build a bare "origin" whose main and a behind-branch both change `file` from a
+// shared base, so `catchup-main.sh main` hits a conflict on exactly that path.
+// Returns the checked-out work-branch clone (behind main) and the origin, for cleanup.
+function makeConflictClone(file, baseVal, mainVal, branchVal) {
+  const origin = mkdtempSync(join(tmpdir(), "wh-corigin-"));
+  const clone = mkdtempSync(join(tmpdir(), "wh-cclone-"));
+  const seed = mkdtempSync(join(tmpdir(), "wh-cseed-"));
+  execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
+  execSync(`git clone -q ${origin} .`, { cwd: seed });
+  execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: seed });
+  mkdirSync(dirname(join(seed, file)), { recursive: true });
+  writeFileSync(join(seed, file), baseVal);
+  execSync(`git add -A && git commit -q -m base && git push -q origin main`, { cwd: seed });
+  writeFileSync(join(seed, file), mainVal); // origin/main diverges
+  execSync(`git add -A && git commit -q -m mainside && git push -q origin main`, { cwd: seed });
+  rmSync(seed, { recursive: true, force: true });
+  execSync(`git clone -q ${origin} .`, { cwd: clone });
+  execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: clone });
+  execSync(`git checkout -q -b work-20260706-x HEAD~1`, { cwd: clone }); // branch off the base
+  mkdirSync(dirname(join(clone, file)), { recursive: true });
+  writeFileSync(join(clone, file), branchVal); // branch diverges the same path
+  execSync(`git add -A && git commit -q -m branchside`, { cwd: clone });
+  return { origin, clone };
+}
+
+// ---------- workaholify/audit-claude-md.sh + hooks/guard-working-directory.sh ----------
+function testAuditClaudeMd() {
+  const HOOK = SCRIPTS.auditClaudeMd;
+  // Conformant: CLAUDE.md exists and refers to the workaholify gateway.
+  {
+    const dir = makeRepo("main");
+    try {
+      writeFileSync(join(dir, "CLAUDE.md"), "# Repo\n\nRules load via the workaholify gateway skill.\n");
+      const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.auditClaudeMd}`).stdout);
+      assertEq("audit-claude-md conformant when present + refers gateway",
+        { c: r.conformant, m: r.missing.length }, { c: true, m: 0 });
+    } finally { cleanup(dir); }
+  }
+  // Missing file: flags claude_md_present.
+  {
+    const dir = makeRepo("main");
+    try {
+      rmSync(join(dir, "README.md"), { force: true });
+      const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.auditClaudeMd}`).stdout);
+      assertEq("audit-claude-md flags a missing CLAUDE.md",
+        { c: r.conformant, present: r.checks.claude_md_present }, { c: false, present: false });
+      assertTrue("audit-claude-md lists claude_md_present as missing",
+        r.missing.includes("claude_md_present"), JSON.stringify(r.missing));
+    } finally { cleanup(dir); }
+  }
+  // Exists but does not refer to the gateway: flags refers_workaholify_gateway.
+  {
+    const dir = makeRepo("main");
+    try {
+      writeFileSync(join(dir, "CLAUDE.md"), "# Repo\n\nSome project instructions with no gateway reference.\n");
+      const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.auditClaudeMd}`).stdout);
+      assertEq("audit-claude-md flags a CLAUDE.md that does not refer to the gateway",
+        { c: r.conformant, refers: r.checks.refers_workaholify_gateway }, { c: false, refers: false });
+      assertTrue("audit-claude-md lists refers_workaholify_gateway as missing",
+        r.missing.includes("refers_workaholify_gateway"), JSON.stringify(r.missing));
+    } finally { cleanup(dir); }
+  }
+}
+
+function testGuardWorkingDirectory() {
+  const HOOK = SCRIPTS.guardWorkingDir;
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  guard-working-directory (jq not available)"); return; }
+
+  // Non-blocking: always exit 0. Returns a reminder (additionalContext) only when
+  // the command moves the persistent cwd.
+  const invoke = (command) => {
+    const payload = JSON.stringify({ tool_name: "Bash", tool_input: { command } });
+    const out = execSync(`${POSIX_SH} ${HOOK}`, { cwd: REPO_ROOT, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+    return out; // never throws — hook always exits 0
+  };
+  const warns = (command) => /additionalContext/.test(invoke(command)) && /repository root/.test(invoke(command));
+
+  assertTrue("guard-workdir warns on a leading cd", warns("cd /tmp && ls"), invoke("cd /tmp && ls"));
+  assertTrue("guard-workdir warns on a chained cd", warns("ls && cd /var"), invoke("ls && cd /var"));
+  assertTrue("guard-workdir stays silent on a ( cd ... ) subshell",
+    !warns("( cd /tmp && ls )"), invoke("( cd /tmp && ls )"));
+  assertTrue("guard-workdir stays silent on an absolute-path command",
+    !warns("cat /etc/hostname"), invoke("cat /etc/hostname"));
+  assertTrue("guard-workdir stays silent on a plain command", !warns("git status"), invoke("git status"));
+}
+
+// ---------- hooks/guard-askuserquestion-label.sh (PreToolUse AskUserQuestion) ----------
+function testGuardAskUserQuestionLabel() {
+  const HOOK = SCRIPTS.guardAskLabel;
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  guard-askuserquestion-label (jq not available)"); return; }
+
+  const invoke = (questions) => {
+    const payload = JSON.stringify({ tool_name: "AskUserQuestion", tool_input: { questions } });
+    try {
+      execSync(`${POSIX_SH} ${HOOK}`, { cwd: REPO_ROOT, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+      return { status: 0, err: "" };
+    } catch (e) { return { status: e.status ?? 1, err: e.stderr?.toString() || "" }; }
+  };
+
+  // Blocks a question body with no [label].
+  assertEq("guard-ask blocks an unlabeled question",
+    invoke([{ question: "Approve this implementation?" }]).status, 2);
+  // Blocks when ANY question in a multi-question prompt is unlabeled.
+  assertEq("guard-ask blocks a mixed labeled/unlabeled prompt",
+    invoke([{ question: "[repo] Which order?" }, { question: "What gate?" }]).status, 2);
+  // The block message names project-label.sh so the fix is discoverable.
+  assertTrue("guard-ask block names project-label.sh",
+    /project-label\.sh/.test(invoke([{ question: "no label here" }]).err),
+    invoke([{ question: "no label here" }]).err.slice(0, 200));
+
+  // Allows labeled question bodies (single and multi).
+  assertEq("guard-ask allows a labeled question",
+    invoke([{ question: "[workaholic] Approve this implementation?" }]).status, 0);
+  assertEq("guard-ask allows all-labeled multi-question",
+    invoke([{ question: "[workaholic] Which order?" }, { question: "[workaholic] What gate?" }]).status, 0);
+  assertEq("guard-ask tolerates leading whitespace before the label",
+    invoke([{ question: "  [workaholic] ok?" }]).status, 0);
+  // Fails open when there are no question bodies.
+  assertEq("guard-ask allows an empty questions array", invoke([]).status, 0);
+}
+
 // ---------- ship/catchup-main.sh (pre-deploy branch sync) ----------
 function testCatchupMain() {
   // Build a bare "origin" with a main, clone it, branch off, and add an upstream
@@ -584,6 +712,36 @@ function testCatchupMain() {
       "upstream.txt was not merged in");
   } finally {
     cleanup(origin); cleanup(clone);
+  }
+
+  // Mechanical conflict: only a version/lockstep manifest conflicts -> the agent
+  // reconciles it as routine (classified "mechanical"), and the merge is aborted clean.
+  {
+    const { origin, clone } = makeConflictClone(".claude-plugin/marketplace.json",
+      '{"version":"1.0.0"}\n', '{"version":"1.0.1"}\n', '{"version":"1.0.2"}\n');
+    try {
+      const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.catchupMain} main`).stdout);
+      assertEq("catchup-main classifies a manifest-only conflict as mechanical",
+        { c: r.caught_up, cls: r.conflict_class }, { c: false, cls: "mechanical" });
+      assertTrue("catchup-main reports the conflicted manifest",
+        Array.isArray(r.conflicted_files) && r.conflicted_files.includes(".claude-plugin/marketplace.json"),
+        JSON.stringify(r.conflicted_files));
+      assertTrue("catchup-main aborts to a clean tree after a mechanical conflict",
+        run(clone, `git status --porcelain`).stdout.trim() === "", "tree not clean after abort");
+    } finally { cleanup(origin); cleanup(clone); }
+  }
+
+  // Content conflict: a non-allowlisted path conflicts -> a human must judge it
+  // (classified "content"), so the ship flow halts rather than auto-reconciling.
+  {
+    const { origin, clone } = makeConflictClone("base.txt", "base\n", "mainside\n", "branchside\n");
+    try {
+      const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.catchupMain} main`).stdout);
+      assertEq("catchup-main classifies a source-file conflict as content",
+        { c: r.caught_up, cls: r.conflict_class }, { c: false, cls: "content" });
+      assertTrue("catchup-main reports the conflicted content file",
+        r.conflicted_files.includes("base.txt"), JSON.stringify(r.conflicted_files));
+    } finally { cleanup(origin); cleanup(clone); }
   }
 }
 
@@ -1540,6 +1698,9 @@ const tests = [
   ["catch/scan-window.sh remote fetch+scan", testScanWindowRemote],
   ["hooks/guard-git-commit.sh", testGuardGitCommit],
   ["hooks/guard-git-branch.sh", testGuardGitBranch],
+  ["hooks/guard-askuserquestion-label.sh", testGuardAskUserQuestionLabel],
+  ["workaholify/audit-claude-md.sh", testAuditClaudeMd],
+  ["hooks/guard-working-directory.sh", testGuardWorkingDirectory],
   ["check-deps/check.sh", testCheckDeps],
   ["catch/scan-window.sh buckets+branches", testScanWindowBuckets],
   ["branching/ensure-worktree.sh", testEnsureWorktreeGuard],

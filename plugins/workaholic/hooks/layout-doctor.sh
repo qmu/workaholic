@@ -73,9 +73,9 @@ for entry in "$WH"/* "$WH"/.*; do
 
   if [ -f "$entry" ]; then
     case "$name" in
-      README.md|README_ja.md) : ;;
+      README.md|README_ja.md|index.md) : ;;
       *) add_finding ".workaholic/${name}" "undesignated-root-file" \
-           "only README.md is allowed at the .workaholic/ root" "owner decision required" ;;
+           "only README.md and index.md are allowed at the .workaholic/ root" "owner decision required" ;;
     esac
     continue
   fi

@@ -71,12 +71,13 @@ case "$file_path" in
           fi
           ;;
         *)
-          # A root-level file: only README.md / README_ja.md are allowed.
+          # A root-level file: only README.md / README_ja.md and index.md (the OKF
+          # bundle entry point, maintained by okf/refresh-index.sh) are allowed.
           case "$first_seg" in
-            README.md|README_ja.md) : ;;
+            README.md|README_ja.md|index.md) : ;;
             *)
               layout_ok=false
-              layout_reason="root-level file (only README.md is allowed at the .workaholic/ root)"
+              layout_reason="root-level file (only README.md and index.md are allowed at the .workaholic/ root)"
               ;;
           esac
           ;;
@@ -91,7 +92,7 @@ case "$file_path" in
         {
           echo "Workaholic layout: ${layout_reason}."
           echo "Got: $file_path"
-          echo "Allowed .workaholic/ subdirectories: ${allowed_list} (plus README.md at the root)."
+          echo "Allowed .workaholic/ subdirectories: ${allowed_list} (plus README.md and index.md at the root)."
           echo "If you meant a ticket, write it under .workaholic/tickets/todo/<user>/."
         } >&2
         print_skill_reference

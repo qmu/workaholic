@@ -3,9 +3,9 @@ created_at: 2026-07-06T20:30:46+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Domain, Config]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: b7a11ad
+category: Changed
 depends_on: [20260706203044-mission-artifact-type-and-command.md, 20260706203045-mission-frontmatter-linkage.md]
 ---
 
@@ -147,3 +147,14 @@ Full automated gate (Workflow Step 4b).
   ticket 1's schema and rely on it here.
 - **Depends on tickets 1 and 2** — needs the mission skill/scripts and the `mission:`/`tickets:`
   relations already emitted on artifacts.
+
+## Final Report
+
+Development completed as planned. All mission mutation is centralized in two shared, idempotent scripts in the mission skill; the drive/ship/report seams read each artifact's `mission:` relation and call them. Version bumped to 1.0.83.
+
+### Discovered Insights
+
+- **Insight**: Idempotency is keyed on `(event, artifact)` with the date deliberately excluded from the key. `append-changelog.sh` greps for the `"<event> — <artifact>"` substring before appending, so a re-run on a different day still no-ops. This is what makes the drive/report/ship seams safe to re-run (retries, re-reports) without double-counting a mission's history.
+- **Insight**: The mutators git-stage the mission file themselves (`git add "$FILE" || true`), so no seam needs to change its staging logic — drive's `git add -A` and the report/ship commits pick the mission change up automatically. This mirrors the ticket-1 lesson about unstaged deletions: the writer stages its own output.
+- **Insight**: Wiring the seams expanded the build closures — `drive`, `report`, and `ship` now bundle the `mission` skill (via `archive.sh`, `apply-deferred-concern-verdicts.sh`, `extract-deferred-concerns.sh` referencing `${SCRIPT_DIR}/../../../../workaholic/skills/mission/scripts/`). The build-detectable `${SCRIPT_DIR}` reference form is mandatory here; a computed path (e.g. `$(cd ...)/../...`) would pass the shell but be invisible to `build.mjs`, shipping a broken closure to Codex. `verify.mjs` confirms self-containment.
+- **Insight**: The tick regex uses alternation-free `\[ \]` (unchecked box) and matches the artifact via `index($0, "(#" artifact ")")` rather than a regex, so filenames with regex-special characters (dots) match literally and the source never contains a `[[` the POSIX lint would flag.

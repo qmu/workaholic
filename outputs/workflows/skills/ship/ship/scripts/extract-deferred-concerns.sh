@@ -173,12 +173,34 @@ if [ "$count" -eq 0 ]; then
   exit 0
 fi
 
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
+# Mission changelog: a concern that advances a mission records a "concern deferred
+# (stuck)" line on that mission (one per concern, idempotent), so the mission's
+# historical stuck-changelog shows where work was deferred. The slug comes from
+# the shipped story's frontmatter (the same relation the concerns inherit above).
+# The mutator git-stages the mission file, so it rides along in the commit below.
+# Best-effort — a mission update must never block the ship extraction. Runs
+# regardless of NO_COMMIT so the changelog is written even in dry runs.
+story_mission=$(awk '
+    NR == 1 { if ($0 != "---") exit; next }
+    /^---[ \t]*$/ { exit }
+    /^mission:[ \t]*/ { sub(/^mission:[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit }
+' "$story_file" 2>/dev/null || true)
+if [ -n "$story_mission" ]; then
+  echo "$written" | python3 -c "import json,sys
+for p in json.load(sys.stdin): print(p)" | while IFS= read -r cfile; do
+    [ -n "$cfile" ] || continue
+    sh "${SCRIPT_DIR}/../../mission/scripts/append-changelog.sh" \
+      "$story_mission" "concern deferred (stuck)" "$(basename "$cfile")" >/dev/null 2>&1 || true
+  done
+fi
+
 if [ -z "${NO_COMMIT:-}" ]; then
   # Refresh the .workaholic OKF bundle indexes (stages them) so the new concern
   # files appear in the committed hierarchy (best-effort: never blocks the commit).
-  SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
   sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
-  git add .workaholic/concerns/ >/dev/null
+  git add .workaholic/concerns/ .workaholic/missions/ >/dev/null 2>&1 || git add .workaholic/concerns/ >/dev/null
   git commit -m "Add deferred concerns from PR #${pr_number}" >/dev/null
   # This step runs post-merge, so the commit lands on local `main` (merge-pr.sh
   # already checked it out). Push it so local `main` stays level with

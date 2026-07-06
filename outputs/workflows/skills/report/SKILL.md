@@ -133,10 +133,14 @@ Wait for all 3 to complete. Track which succeeded and which failed.
 
 #### Phase 4: Commit and Push Story
 
-1. **Refresh the OKF bundle indexes** (stages them): `bash okf/scripts/refresh-index.sh` — keeps the `.workaholic/` hierarchy's `index.md` files in sync with the story and concern files this flow just wrote.
-2. **Stage story and resolved deferred concerns**: `git add .workaholic/stories/ .workaholic/concerns/`
-3. **Commit**: `git commit -m "Add branch story for <branch-name>"` (the same commit captures any deferred concern archive moves from Phase 1 and the refreshed indexes, keeping audit history coherent)
-4. **Push branch**: `git push -u origin <branch-name>`
+1. **Roll the related mission** (only if the story frontmatter carries a non-empty `mission:`; skip this whole step otherwise). Update that mission through the shared, idempotent mutators — never hand-edit `mission.md`:
+   - `bash mission/scripts/append-changelog.sh <mission-slug> "story reported" <branch-name>.md` — records that this branch's story advanced the mission.
+   - for **each** ticket filename in the story's `tickets:` list: `bash mission/scripts/tick-acceptance.sh <mission-slug> <ticket-filename>` — reconciles the mission's acceptance checklist for the tickets this story covers. Drive's `archive.sh` already ticks per ticket; this idempotent catch-up covers tickets archived outside the mission-aware path (e.g. a trip).
+   Resolved deferred concerns judged in Phase 1 already recorded their `concern resolved (unstuck)` line via `apply-deferred-concern-verdicts.sh`, so nothing extra is needed for those here.
+2. **Refresh the OKF bundle indexes** (stages them): `bash okf/scripts/refresh-index.sh` — keeps the `.workaholic/` hierarchy's `index.md` files in sync with the story and concern files this flow just wrote.
+3. **Stage story, resolved deferred concerns, and any mission updates**: `git add .workaholic/stories/ .workaholic/concerns/ .workaholic/missions/`
+4. **Commit**: `git commit -m "Add branch story for <branch-name>"` (the same commit captures any deferred concern archive moves from Phase 1, the mission changelog/acceptance updates, and the refreshed indexes, keeping audit history coherent)
+5. **Push branch**: `git push -u origin <branch-name>`
 
 #### Phase 5: Create PR
 

@@ -53,6 +53,8 @@
 * [(carried from PR #67) Prompt phrasing is prose, not machine-checked](69-carried-from-pr-67-prompt-phrasing.md)
 * [(carried from PR #67) Resumption tickets must list remaining work only](69-carried-from-pr-67-resumption-tickets.md)
 * [--prune mutates the user's remote-tracking refs on every /catch](69-prune-mutates-the-user-s-remote.md)
+* [(carried from PR #69) Best-effort fetch adds a per-run latency and failure mode](74-carried-from-pr-69-best-effort.md)
+* [(carried from PR #69) Prune mutates the user's `refs/remotes/` state](74-carried-from-pr-69-prune-mutates.md)
 * [Concerns](README.md)
 
 * [archive/](archive/)

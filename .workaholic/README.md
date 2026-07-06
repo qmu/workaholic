@@ -12,6 +12,7 @@ This is the working artifacts hub for the `workaholic` plugin. The tree is an [O
 - [concerns/](concerns/index.md) - Deferred concerns surfaced in past PR stories, judged on later reports (living corpus)
 - [deployments/](deployments/index.md) - Deployment targets and confirmation methods `/ship` executes
 - [guides/](guides/) - User documentation
+- [missions/](missions/index.md) - Long-lived goals spanning many tickets, with acceptance progress and an append-only changelog
 - [policies/](policies/) - Project-local policy documentation
 - [release-notes/](release-notes/index.md) - Per-ship release records
 - [specs/](specs/index.md) - Technical specifications

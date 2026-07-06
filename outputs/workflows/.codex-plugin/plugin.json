@@ -1,7 +1,7 @@
 {
   "name": "workflows",
-  "version": "1.0.80",
-  "description": "Ticket-driven development workflows (create-ticket, drive, report, ship, catch) as agent-neutral skills.",
+  "version": "1.0.81",
+  "description": "Ticket-driven development workflows (create-ticket, drive, report, ship, catch, mission) as agent-neutral skills.",
   "author": {
     "name": "tamurayoshiya",
     "email": "a@qmu.jp"

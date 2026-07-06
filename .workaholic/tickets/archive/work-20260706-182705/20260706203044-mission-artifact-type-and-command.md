@@ -3,9 +3,9 @@ created_at: 2026-07-06T20:30:44+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Domain, Config]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: 24e78fa
+category: Added
 depends_on:
 ---
 
@@ -187,3 +187,14 @@ How the outcome's quality is assured (Workflow Step 4b — full automated gate).
   `policies/terminology.md`).
 - **`.workaholic/` root file rule** — only `README.md` and `index.md` may sit at the bundle
   root; `missions/` is a subdirectory, so this holds — verify the guard/docs still agree.
+
+## Final Report
+
+Development completed as planned. The `mission` skill ships cross-agent (developer chose "ship cross-agent" at `/drive`, matching the ticket's default steps), so `mission` was added to `build.mjs` `DEFAULT_TARGETS` and to the `workflows` plugin's `skills` list in `.claude-plugin/marketplace.json`. Version bumped to 1.0.81.
+
+### Discovered Insights
+
+- **Insight**: `posix-lint.sh` is line-based and flags any literal `[[` as a bash test, even inside a single-quoted `awk` program. `progress.sh`'s acceptance-checkbox regex originally read `\[[ xX]\]` (escaped bracket immediately followed by a character class), which produced a `[[` sequence and failed the lint.
+  **Context**: Rewriting the sub-pattern with alternation (`\[( |x|X)\]`) keeps the same match while never placing two `[` adjacent. Any future skill embedding a regex bracket-class right after an escaped `[` inside a shell script will hit the same false positive — prefer alternation there.
+- **Insight**: A built workflow skill nests each closure skill's scripts under `outputs/workflows/skills/<target>/<skill>/scripts/`, including the target's own scripts under `<target>/<target>/scripts/`. Cross-skill calls from a skill's own scripts must use the exact `${SCRIPT_DIR}/../../../../workaholic/skills/<x>/scripts/` form (four `../` from `skills/<name>/scripts/`) so `build.mjs` detects the closure and `verify.mjs` confirms self-containment — mirrored from `drive/archive.sh`.
+- **Insight**: `mission` is indexed like `trips` (per-slug subdirectory linking its long-form doc), not like the flat frontmatter-derived areas. The `okf/refresh-index.sh` missions block mirrors the trips block, and `missions/index.md` is refresh-generated (never report-maintained), so `okf/refresh-index.sh` stays the sole writer of that index.

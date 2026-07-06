@@ -1,6 +1,6 @@
 {
   "name": "workaholic",
-  "version": "1.0.80",
+  "version": "1.0.81",
   "description": "Standard Claude Code Configuration in qmu",
   "owner": {
     "name": "tamurayoshiya",
@@ -9,8 +9,8 @@
   "plugins": [
     {
       "name": "workaholic",
-      "description": "Structured development workflows and engineering standards in one plugin: ticket/drive/commit/report/ship commands, the /trip Agent Teams, hooks, and the 設計 / 実装 / 運用 policy skills (design, implementation, operation) mirrored from qmu.co.jp.",
-      "version": "1.0.80",
+      "description": "Structured development workflows and engineering standards in one plugin: ticket/drive/commit/report/ship/mission commands, the /trip Agent Teams, hooks, and the 設計 / 実装 / 運用 policy skills (design, implementation, operation) mirrored from qmu.co.jp.",
+      "version": "1.0.81",
       "author": {
         "name": "tamurayoshiya",
         "email": "a@qmu.jp"
@@ -25,8 +25,8 @@
     },
     {
       "name": "workflows",
-      "description": "Portable cross-agent build of the ticket/drive/report/ship/catch workflow skills (self-contained, generated). For Codex, OpenCode, and other agents; Claude Code users install the workaholic plugin instead.",
-      "version": "1.0.80",
+      "description": "Portable cross-agent build of the ticket/drive/report/ship/catch/mission workflow skills (self-contained, generated). For Codex, OpenCode, and other agents; Claude Code users install the workaholic plugin instead.",
+      "version": "1.0.81",
       "author": {
         "name": "tamurayoshiya",
         "email": "a@qmu.jp"
@@ -39,6 +39,7 @@
         "./skills/report",
         "./skills/ship",
         "./skills/catch",
+        "./skills/mission",
         "./skills/review-sections",
         "./skills/write-release-note"
       ]

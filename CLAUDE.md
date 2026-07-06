@@ -19,8 +19,8 @@ plugins/                 # Plugin source directory
   workaholic/            # The single plugin (no dependencies; skills exposed cross-agent)
     .claude-plugin/      # Plugin configuration
     .codex-plugin/       # Hand-maintained Codex-facing manifest
-    skills/              # workflow skills (branching, carry, catch, check-deps, commit, create-ticket, discover, drive, explain, gather, okf, report, review-sections, ship, system-safety, trip-protocol, validate-writer-output, workaholify, write-release-note) + policy skills (planning, design, implementation, operation, each linking English hard copies under its policies/ dir)
-    commands/            # ticket, drive, trip, report, ship, catch, carry, explain, commit, workaholify (Claude-only; ignored by other agents)
+    skills/              # workflow skills (branching, carry, catch, check-deps, commit, create-ticket, discover, drive, explain, gather, mission, okf, report, review-sections, ship, system-safety, trip-protocol, validate-writer-output, workaholify, write-release-note) + policy skills (planning, design, implementation, operation, each linking English hard copies under its policies/ dir)
+    commands/            # ticket, drive, trip, report, ship, catch, carry, explain, commit, mission, workaholify (Claude-only; ignored by other agents)
     agents/              # Agent Teams members only: planner, architect, constructor (launched by /trip)
     hooks/               # ticket validation (validate-ticket.sh, PostToolUse Write|Edit) + structural move guard (guard-ticket-structure.sh, PreToolUse Bash — blocks non-canonical ticket moves like done/ or todo/<user>/archive/) + always-on policy lens (policy-lens.sh) + generated policy-index.md
     rules/               # diagrams, general, shell, typescript, workaholic
@@ -92,7 +92,7 @@ To preview what the CLI would install, run `npx skills add . --list` (add `INSTA
 
 #### Cross-agent distribution (workflow skills, built)
 
-The workflow skills (ticket/drive/report/ship) depend on shared scripts elsewhere in the plugin (via `${CLAUDE_PLUGIN_ROOT}`) and so are **not** self-contained in source. They ship to non-Claude agents as a **generated, self-contained, committed plugin** at `outputs/workflows/`, produced by `scripts/build-plugins` from the DRY `plugins/workaholic` source (`trip` is excluded — Agent Teams, Claude-only). **One neutral generated dir serves every non-Claude agent** through two manifests that point at it:
+The workflow skills (ticket/drive/report/ship/catch/mission) depend on shared scripts elsewhere in the plugin (via `${CLAUDE_PLUGIN_ROOT}`) and so are **not** self-contained in source. They ship to non-Claude agents as a **generated, self-contained, committed plugin** at `outputs/workflows/`, produced by `scripts/build-plugins` from the DRY `plugins/workaholic` source (`trip` is excluded — Agent Teams, Claude-only). **One neutral generated dir serves every non-Claude agent** through two manifests that point at it:
 
 - **Codex** reads `.agents/plugins/marketplace.json` (repo root); its `workflows` plugin `source.path` is `./outputs/workflows`, and Codex consumes the co-located `outputs/workflows/.codex-plugin/plugin.json`.
 - **OpenCode, Cursor, Pi, 40+** get it via the `skills` CLI, which reads the `workflows` plugin entry in `.claude-plugin/marketplace.json` (`source: ./outputs/workflows`) and its `skills/` (the `design`/`implementation`/`operation` policy skills are exposed the same way). The `skills` CLI ignores the co-located `.codex-plugin/` dir, so the same folder serves both systems. `write-release-note` and `review-sections` ship inside this plugin too.
@@ -107,7 +107,7 @@ Claude Code reads `plugins/` directly and consumes nothing from `outputs/`. The 
 
 #### `.workaholic/` as an OKF bundle (runtime)
 
-Separately from the generated policy bundle, the `.workaholic/` tree of any project using the plugin is itself kept OKF-compatible **as the workflows generate documents**: every written artifact carries frontmatter with a non-empty `type` (tickets `enhancement|bugfix|refactoring|housekeeping`, stories `Story`, release notes `Release Note`, deferred concerns `Concern`, trip artifacts `Direction|Model|Design|Review|Rollback|Trip Plan|Event Log`), and the internal `okf` skill's `refresh-index.sh` deterministically regenerates the bundle hierarchy — `.workaholic/index.md` (bundle root, declares `okf_version`) plus per-area `index.md` files — before each knowledge commit (called by `drive`'s `archive.sh`, `ship`'s `commit-release-note.sh`/`extract-deferred-concerns.sh`, and the `report` story flow). `stories/index.md` stays report-maintained; `tickets/` internals are never index-managed (the queue scripts and structure guards own that tree). `README.md` and `index.md` are the two files allowed at the `.workaholic/` root.
+Separately from the generated policy bundle, the `.workaholic/` tree of any project using the plugin is itself kept OKF-compatible **as the workflows generate documents**: every written artifact carries frontmatter with a non-empty `type` (tickets `enhancement|bugfix|refactoring|housekeeping`, stories `Story`, missions `Mission`, release notes `Release Note`, deferred concerns `Concern`, trip artifacts `Direction|Model|Design|Review|Rollback|Trip Plan|Event Log`), and the internal `okf` skill's `refresh-index.sh` deterministically regenerates the bundle hierarchy — `.workaholic/index.md` (bundle root, declares `okf_version`) plus per-area `index.md` files — before each knowledge commit (called by `drive`'s `archive.sh`, `ship`'s `commit-release-note.sh`/`extract-deferred-concerns.sh`, and the `report` story flow). `stories/index.md` stays report-maintained; `tickets/` internals are never index-managed (the queue scripts and structure guards own that tree). `README.md` and `index.md` are the two files allowed at the `.workaholic/` root.
 
 ### Design Principle
 
@@ -195,6 +195,7 @@ If a skill you expect is not in context, ask the user which plugins are loaded �
 | `/commit`                        | Commit working changes with a policy-conformant message (small non-ticketed changes; prefer `/drive` for ticketed work) |
 | `/report`                        | Context-aware: generate story or journey report and create PR |
 | `/ship`                          | Context-aware: merge PR, deploy, and verify      |
+| `/mission ["<title>"]`           | Create a mission (a durable, information-rich goal spanning many tickets) or list existing missions with computed progress |
 | `/catch [window]`                | Read-only by-developer catch-up report over a recent window (commits, tickets, stories), then follow-up Q&A |
 | `/carry`                         | Hand off in-progress work to a fresh session (capture-only): write a resumption ticket / trip checkpoint a later `/drive` continues, instead of relying on compaction |
 | `/explain <question> [dir]`      | Answer a repo question and export a printer-ready PDF report (HTML printed by a real browser); exports to `dir`, else Desktop→Home (Home write asks permission) |

@@ -555,6 +555,31 @@ function testRecordEvidence() {
   } finally { cleanup(cleanHash); }
 }
 
+// Build a bare "origin" whose main and a behind-branch both change `file` from a
+// shared base, so `catchup-main.sh main` hits a conflict on exactly that path.
+// Returns the checked-out work-branch clone (behind main) and the origin, for cleanup.
+function makeConflictClone(file, baseVal, mainVal, branchVal) {
+  const origin = mkdtempSync(join(tmpdir(), "wh-corigin-"));
+  const clone = mkdtempSync(join(tmpdir(), "wh-cclone-"));
+  const seed = mkdtempSync(join(tmpdir(), "wh-cseed-"));
+  execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
+  execSync(`git clone -q ${origin} .`, { cwd: seed });
+  execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: seed });
+  mkdirSync(dirname(join(seed, file)), { recursive: true });
+  writeFileSync(join(seed, file), baseVal);
+  execSync(`git add -A && git commit -q -m base && git push -q origin main`, { cwd: seed });
+  writeFileSync(join(seed, file), mainVal); // origin/main diverges
+  execSync(`git add -A && git commit -q -m mainside && git push -q origin main`, { cwd: seed });
+  rmSync(seed, { recursive: true, force: true });
+  execSync(`git clone -q ${origin} .`, { cwd: clone });
+  execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: clone });
+  execSync(`git checkout -q -b work-20260706-x HEAD~1`, { cwd: clone }); // branch off the base
+  mkdirSync(dirname(join(clone, file)), { recursive: true });
+  writeFileSync(join(clone, file), branchVal); // branch diverges the same path
+  execSync(`git add -A && git commit -q -m branchside`, { cwd: clone });
+  return { origin, clone };
+}
+
 // ---------- ship/catchup-main.sh (pre-deploy branch sync) ----------
 function testCatchupMain() {
   // Build a bare "origin" with a main, clone it, branch off, and add an upstream
@@ -584,6 +609,36 @@ function testCatchupMain() {
       "upstream.txt was not merged in");
   } finally {
     cleanup(origin); cleanup(clone);
+  }
+
+  // Mechanical conflict: only a version/lockstep manifest conflicts -> the agent
+  // reconciles it as routine (classified "mechanical"), and the merge is aborted clean.
+  {
+    const { origin, clone } = makeConflictClone(".claude-plugin/marketplace.json",
+      '{"version":"1.0.0"}\n', '{"version":"1.0.1"}\n', '{"version":"1.0.2"}\n');
+    try {
+      const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.catchupMain} main`).stdout);
+      assertEq("catchup-main classifies a manifest-only conflict as mechanical",
+        { c: r.caught_up, cls: r.conflict_class }, { c: false, cls: "mechanical" });
+      assertTrue("catchup-main reports the conflicted manifest",
+        Array.isArray(r.conflicted_files) && r.conflicted_files.includes(".claude-plugin/marketplace.json"),
+        JSON.stringify(r.conflicted_files));
+      assertTrue("catchup-main aborts to a clean tree after a mechanical conflict",
+        run(clone, `git status --porcelain`).stdout.trim() === "", "tree not clean after abort");
+    } finally { cleanup(origin); cleanup(clone); }
+  }
+
+  // Content conflict: a non-allowlisted path conflicts -> a human must judge it
+  // (classified "content"), so the ship flow halts rather than auto-reconciling.
+  {
+    const { origin, clone } = makeConflictClone("base.txt", "base\n", "mainside\n", "branchside\n");
+    try {
+      const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.catchupMain} main`).stdout);
+      assertEq("catchup-main classifies a source-file conflict as content",
+        { c: r.caught_up, cls: r.conflict_class }, { c: false, cls: "content" });
+      assertTrue("catchup-main reports the conflicted content file",
+        r.conflicted_files.includes("base.txt"), JSON.stringify(r.conflicted_files));
+    } finally { cleanup(origin); cleanup(clone); }
   }
 }
 

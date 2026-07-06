@@ -46,6 +46,8 @@ const SCRIPTS = {
   guardGitCommit: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-commit.sh"),
   guardGitBranch: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-branch.sh"),
   guardAskLabel: join(REPO_ROOT, "plugins/workaholic/hooks/guard-askuserquestion-label.sh"),
+  guardWorkingDir: join(REPO_ROOT, "plugins/workaholic/hooks/guard-working-directory.sh"),
+  auditClaudeMd: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/audit-claude-md.sh"),
   checkDeps: join(REPO_ROOT, "plugins/workaholic/skills/check-deps/scripts/check.sh"),
   ensureWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/ensure-worktree.sh"),
   checkSubject: join(REPO_ROOT, "plugins/workaholic/hooks/lib/check-subject.sh"),
@@ -579,6 +581,69 @@ function makeConflictClone(file, baseVal, mainVal, branchVal) {
   writeFileSync(join(clone, file), branchVal); // branch diverges the same path
   execSync(`git add -A && git commit -q -m branchside`, { cwd: clone });
   return { origin, clone };
+}
+
+// ---------- workaholify/audit-claude-md.sh + hooks/guard-working-directory.sh ----------
+function testAuditClaudeMd() {
+  const HOOK = SCRIPTS.auditClaudeMd;
+  // Conformant: CLAUDE.md exists and refers to the workaholify gateway.
+  {
+    const dir = makeRepo("main");
+    try {
+      writeFileSync(join(dir, "CLAUDE.md"), "# Repo\n\nRules load via the workaholify gateway skill.\n");
+      const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.auditClaudeMd}`).stdout);
+      assertEq("audit-claude-md conformant when present + refers gateway",
+        { c: r.conformant, m: r.missing.length }, { c: true, m: 0 });
+    } finally { cleanup(dir); }
+  }
+  // Missing file: flags claude_md_present.
+  {
+    const dir = makeRepo("main");
+    try {
+      rmSync(join(dir, "README.md"), { force: true });
+      const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.auditClaudeMd}`).stdout);
+      assertEq("audit-claude-md flags a missing CLAUDE.md",
+        { c: r.conformant, present: r.checks.claude_md_present }, { c: false, present: false });
+      assertTrue("audit-claude-md lists claude_md_present as missing",
+        r.missing.includes("claude_md_present"), JSON.stringify(r.missing));
+    } finally { cleanup(dir); }
+  }
+  // Exists but does not refer to the gateway: flags refers_workaholify_gateway.
+  {
+    const dir = makeRepo("main");
+    try {
+      writeFileSync(join(dir, "CLAUDE.md"), "# Repo\n\nSome project instructions with no gateway reference.\n");
+      const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.auditClaudeMd}`).stdout);
+      assertEq("audit-claude-md flags a CLAUDE.md that does not refer to the gateway",
+        { c: r.conformant, refers: r.checks.refers_workaholify_gateway }, { c: false, refers: false });
+      assertTrue("audit-claude-md lists refers_workaholify_gateway as missing",
+        r.missing.includes("refers_workaholify_gateway"), JSON.stringify(r.missing));
+    } finally { cleanup(dir); }
+  }
+}
+
+function testGuardWorkingDirectory() {
+  const HOOK = SCRIPTS.guardWorkingDir;
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  guard-working-directory (jq not available)"); return; }
+
+  // Non-blocking: always exit 0. Returns a reminder (additionalContext) only when
+  // the command moves the persistent cwd.
+  const invoke = (command) => {
+    const payload = JSON.stringify({ tool_name: "Bash", tool_input: { command } });
+    const out = execSync(`${POSIX_SH} ${HOOK}`, { cwd: REPO_ROOT, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+    return out; // never throws — hook always exits 0
+  };
+  const warns = (command) => /additionalContext/.test(invoke(command)) && /repository root/.test(invoke(command));
+
+  assertTrue("guard-workdir warns on a leading cd", warns("cd /tmp && ls"), invoke("cd /tmp && ls"));
+  assertTrue("guard-workdir warns on a chained cd", warns("ls && cd /var"), invoke("ls && cd /var"));
+  assertTrue("guard-workdir stays silent on a ( cd ... ) subshell",
+    !warns("( cd /tmp && ls )"), invoke("( cd /tmp && ls )"));
+  assertTrue("guard-workdir stays silent on an absolute-path command",
+    !warns("cat /etc/hostname"), invoke("cat /etc/hostname"));
+  assertTrue("guard-workdir stays silent on a plain command", !warns("git status"), invoke("git status"));
 }
 
 // ---------- hooks/guard-askuserquestion-label.sh (PreToolUse AskUserQuestion) ----------
@@ -1634,6 +1699,8 @@ const tests = [
   ["hooks/guard-git-commit.sh", testGuardGitCommit],
   ["hooks/guard-git-branch.sh", testGuardGitBranch],
   ["hooks/guard-askuserquestion-label.sh", testGuardAskUserQuestionLabel],
+  ["workaholify/audit-claude-md.sh", testAuditClaudeMd],
+  ["hooks/guard-working-directory.sh", testGuardWorkingDirectory],
   ["check-deps/check.sh", testCheckDeps],
   ["catch/scan-window.sh buckets+branches", testScanWindowBuckets],
   ["branching/ensure-worktree.sh", testEnsureWorktreeGuard],

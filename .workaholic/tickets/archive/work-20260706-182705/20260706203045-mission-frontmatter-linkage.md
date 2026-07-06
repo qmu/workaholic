@@ -3,9 +3,9 @@ created_at: 2026-07-06T20:30:45+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Domain, Config]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: ce2f436
+category: Changed
 depends_on: [20260706203044-mission-artifact-type-and-command.md]
 ---
 
@@ -139,3 +139,14 @@ Full automated gate (Workflow Step 4b).
   (`.workaholic/concerns/`).
 - **Depends on ticket 1** — the mission slug space and `list.sh` come from
   `20260706203044-mission-artifact-type-and-command.md`.
+
+## Final Report
+
+Development completed as planned. Developer chose "no constraint" for slug integrity at `/drive`, so `validate-ticket.sh` is untouched: the `/ticket` mission picker (Workflow Step 4c) only offers existing missions, making a written slug valid by construction, and `mission:` stays optional across ticket/story/concern writers. Version bumped to 1.0.82.
+
+### Discovered Insights
+
+- **Insight**: The ticket named the concern writer `ship/scripts/extract-carryover.sh`, but the actual script is `ship/scripts/extract-deferred-concerns.sh` (the carryover→deferred-concern rename predates this work). `.workaholic/concerns/README.md` still carried the old name plus obsolete `core:`/`work:` plugin paths; those were corrected in the same change per the doc-truth rule.
+  **Context**: When a ticket references a script by a plausible-but-wrong name, verify against `ls skills/<x>/scripts/` before editing — the surrounding docs may be stale in the same way.
+- **Insight**: Adding `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list.sh` to `create-ticket/SKILL.md` expanded that skill's build closure from `[branching, create-ticket, gather]` to `[branching, create-ticket, gather, mission, okf]`. `build.mjs` detects the new cross-skill reference automatically and bundles mission+okf under `outputs/workflows/skills/create-ticket/`; `verify.mjs` confirms self-containment. No manual closure wiring is needed — the reference form is the contract.
+- **Insight**: The story-frontmatter writer is prose-driven (the `/report` main agent following `report/SKILL.md`), not a script, so it has no direct unit test. The contract is tested at the consumer boundary instead: `extract-deferred-concerns.sh` reads the exact `mission:`/`tickets:` frontmatter shape the report writer produces, and its smoke test fixtures use that shape.

@@ -934,6 +934,43 @@ function testExtractDeferredConcernsPush() {
   } finally { cleanup(noRemote); }
 }
 
+// ---------- ship/extract-deferred-concerns.sh (mission/tickets relation propagation) ----------
+// Each extracted concern inherits the shipped story's machine-readable relations:
+// mission: <slug> and tickets: [...]. Absent on the story -> empty mission + [].
+function testExtractConcernMissionRelation() {
+  // Story WITH the relations -> concern carries them forward.
+  const repo = makeRepo("main");
+  try {
+    mkdirSync(join(repo, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/stories/work-m.md"),
+      "---\ntype: Story\nbranch: work-m\nmission: real-time-notifications\ntickets: [20260706120000-a.md, 20260706120001-b.md]\n---\n## 6. Concerns\n\n### A carried concern\n\n- **Severity:** low\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n");
+    execSync(`git add -A && git commit -q -m story`, { cwd: repo });
+    const r = JSON.parse(run(repo, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-m 20 https://x/pr/20`).stdout);
+    assertEq("extract with relations -> one concern", r.extracted, 1);
+    const body = readFileSync(join(repo, r.files[0]), "utf8");
+    assertTrue("concern inherits mission slug from the story",
+      /^mission:\s*real-time-notifications\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
+    assertTrue("concern inherits the tickets list from the story",
+      /^tickets:\s*\[20260706120000-a\.md, 20260706120001-b\.md\]\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
+    assertTrue("concern still records its origin provenance", /^origin_pr:\s*20\s*$/m.test(body), body);
+  } finally { cleanup(repo); }
+
+  // Story WITHOUT the relations -> empty mission + empty [] tickets (back-compat).
+  const repo2 = makeRepo("main");
+  try {
+    mkdirSync(join(repo2, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(repo2, ".workaholic/stories/work-n.md"),
+      "---\ntype: Story\nbranch: work-n\n---\n## 6. Concerns\n\n### Another concern\n\n- **Severity:** low\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n");
+    execSync(`git add -A && git commit -q -m story`, { cwd: repo2 });
+    const r = JSON.parse(run(repo2, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-n 21 https://x/pr/21`).stdout);
+    const body = readFileSync(join(repo2, r.files[0]), "utf8");
+    assertTrue("concern from a mission-less story -> empty mission:",
+      /^mission:\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
+    assertTrue("concern from a mission-less story -> tickets: []",
+      /^tickets:\s*\[\]\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
+  } finally { cleanup(repo2); }
+}
+
 // ---------- report/doc-drift.sh (documentation-drift fact emitter) ----------
 function testDocDrift() {
   // Helper: seed a repo with CLAUDE.md + README.md committed on main, then
@@ -1201,6 +1238,47 @@ function testValidateTicket() {
   assertEq("validate-ticket rejects root-level todo/ stray", invoke(`.workaholic/tickets/todo/${TS}-x.md`), 2);
   assertEq("validate-ticket rejects invented done/", invoke(`.workaholic/tickets/done/${TS}-x.md`), 2);
   assertEq("validate-ticket rejects nested todo/<user>/archive/", invoke(`.workaholic/tickets/todo/a-qmu-jp/archive/b/${TS}-x.md`), 2);
+}
+
+// ---------- hooks/validate-ticket.sh (optional mission: field passes) ----------
+// The mission relation is optional and must never cause a validation failure —
+// whether it carries a slug, is empty, or is absent entirely.
+function testValidateTicketMission() {
+  const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh");
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  validate-ticket mission (jq not available)"); return; }
+
+  const dir = makeRepo("main");
+  try {
+    const rel = ".workaholic/tickets/todo/a-qmu-jp/20260706120000-m.md";
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    const ticket = (missionLine) => `---
+created_at: 2026-07-06T12:00:00+09:00
+author: a@qmu.jp
+type: enhancement
+layer: [Domain]
+effort:
+commit_hash:
+category:
+depends_on:
+${missionLine}---
+
+# M
+`;
+    const invoke = () => {
+      const payload = JSON.stringify({ tool_input: { file_path: rel } });
+      try { execSync(`${POSIX_SH} ${HOOK}`, { cwd: dir, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return 0; }
+      catch (e) { return e.status ?? 1; }
+    };
+    writeFileSync(abs, ticket("mission: real-time-notifications\n"));
+    assertEq("validate-ticket accepts a ticket with mission: <slug>", invoke(), 0);
+    writeFileSync(abs, ticket("mission:\n"));
+    assertEq("validate-ticket accepts a ticket with an empty mission:", invoke(), 0);
+    writeFileSync(abs, ticket(""));
+    assertEq("validate-ticket accepts a ticket with no mission field", invoke(), 0);
+  } finally { cleanup(dir); }
 }
 
 // ---------- hooks/guard-ticket-structure.sh (PreToolUse Bash move guard) ----------
@@ -1831,11 +1909,13 @@ const tests = [
   ["report/apply-deferred-concern-verdicts.sh", testApplyVerdicts],
   ["ship/extract-deferred-concerns.sh", testExtractDeferredConcerns],
   ["ship/extract-deferred-concerns.sh push", testExtractDeferredConcernsPush],
+  ["ship/extract-deferred-concerns.sh mission/tickets relation", testExtractConcernMissionRelation],
   ["report/doc-drift.sh", testDocDrift],
   ["hooks/policy-lens.sh", testPolicyLens],
   ["hooks/validate-ticket.sh", testValidateLayout],
   ["hooks/layout-doctor.sh", testLayoutDoctor],
   ["hooks/validate-ticket.sh", testValidateTicket],
+  ["hooks/validate-ticket.sh mission field", testValidateTicketMission],
   ["hooks/guard-ticket-structure.sh", testGuardTicketStructure],
   ["hooks/posix-lint.sh", testPosixLint],
   ["report/collect-commits.sh", testCollectCommits],

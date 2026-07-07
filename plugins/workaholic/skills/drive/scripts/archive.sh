@@ -66,14 +66,14 @@ MISSION_SLUG=$(awk '
     /^mission:[ \t]*/ { sub(/^mission:[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit }
 ' "$ARCHIVED_TICKET" 2>/dev/null || true)
 if [ -n "$MISSION_SLUG" ]; then
-    MISSION_SCRIPTS="${SCRIPT_DIR}/../../../../workaholic/skills/mission/scripts"
+    MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts"
     sh "${MISSION_SCRIPTS}/append-changelog.sh" "$MISSION_SLUG" "ticket archived" "$TICKET_FILENAME" >/dev/null 2>&1 || true
     sh "${MISSION_SCRIPTS}/tick-acceptance.sh" "$MISSION_SLUG" "$TICKET_FILENAME" >/dev/null 2>&1 || true
 fi
 
 # Refresh the .workaholic OKF bundle indexes so the archive commit ships with a
 # fresh hierarchy (best-effort: an index problem must not block the archive).
-sh "${SCRIPT_DIR}/../../../../workaholic/skills/okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
+sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
 
 # Stage all changes including the archived ticket
 echo "==> Staging changes..."
@@ -81,7 +81,7 @@ git add -A
 
 # Delegate to commit skill (with --skip-staging since we already staged)
 SCRIPT_DIR=$(dirname "$0")
-COMMIT_SCRIPT="${SCRIPT_DIR}/../../../../workaholic/skills/commit/scripts/commit.sh"
+COMMIT_SCRIPT="${SCRIPT_DIR}/../../commit/scripts/commit.sh"
 
 # Pass the same computed CATEGORY both into the commit (as a git trailer) and into
 # the ticket frontmatter below, so the two surfaces can never disagree.

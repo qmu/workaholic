@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: bugfix
 layer: [Config]
 effort: 0.5h
-commit_hash:
-category:
+commit_hash: 99d1efb
+category: Changed
 ---
 
 # Guard That hooks.json-Referenced Scripts Stay Executable

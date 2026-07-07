@@ -13,7 +13,7 @@
 // state, and cleans up. No network, no real remotes, no GitHub token, no
 // mutation of the developer's working tree. Run with `node scripts/test-workflow-scripts.mjs`.
 
-import { mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync, existsSync } from "node:fs";
+import { cpSync, mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync, existsSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join, resolve, dirname } from "node:path";
 import { tmpdir } from "node:os";
@@ -118,6 +118,16 @@ function makeRepo(initialBranch = "main") {
 }
 
 function cleanup(dir) { rmSync(dir, { recursive: true, force: true }); }
+
+function makeInstalledSkillsTree(skillNames) {
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-installed-skills-"));
+  const skillsDir = join(dir, "skills");
+  mkdirSync(skillsDir, { recursive: true });
+  for (const skill of skillNames) {
+    cpSync(join(REPO_ROOT, "plugins/workaholic/skills", skill), join(skillsDir, skill), { recursive: true });
+  }
+  return { dir, skillsDir };
+}
 
 // ---------- 1. branching/check.sh ----------
 function testBranchCheck() {
@@ -394,6 +404,45 @@ function testListTodo() {
       `.workaholic/tickets/todo/${TEST_SLUG}/20260528120001-b.md`,
     ]);
   } finally { cleanup(dir); }
+}
+
+// ---------- 9. installed plugin helper resolution ----------
+function testInstalledPluginHelperResolution() {
+  const dir = makeRepo("main");
+  const installed = makeInstalledSkillsTree(["create-ticket", "drive", "gather"]);
+  try {
+    const todoRoot = join(dir, ".workaholic/tickets/todo");
+    mkdirSync(join(todoRoot, TEST_SLUG), { recursive: true });
+    writeFileSync(join(todoRoot, TEST_SLUG, "20260707104117-installed.md"), "---\n---\n");
+
+    const installedListTodo = join(installed.skillsDir, "drive/scripts/list-todo.sh");
+    const list = run(dir, `${POSIX_SH} ${installedListTodo}`);
+    assertEq("installed list-todo exits 0", list.status, 0);
+    assertEq("installed list-todo resolves gather/user-slug.sh", list.stdout.trim(),
+      `.workaholic/tickets/todo/${TEST_SLUG}/20260707104117-installed.md`);
+
+    writeFileSync(join(todoRoot, "20260707104118-stray.md"),
+      "---\nauthor: a@qmu.jp\ntype: bugfix\nlayer: [Config]\n---\n\n# Stray\n");
+    const installedSweepTodo = join(installed.skillsDir, "create-ticket/scripts/sweep-todo.sh");
+    const sweep = run(dir, `${POSIX_SH} ${installedSweepTodo}`);
+    assertEq("installed sweep-todo exits 0", sweep.status, 0);
+    assertEq("installed sweep-todo moved one stray", JSON.parse(sweep.stdout).moved, 1);
+    assertTrue("installed sweep-todo routed by author",
+      existsSync(join(todoRoot, "a-qmu-jp/20260707104118-stray.md")));
+
+    const icebox = join(dir, ".workaholic/tickets/icebox/20260707104119-icebox.md");
+    mkdirSync(dirname(icebox), { recursive: true });
+    writeFileSync(icebox, "---\n---\n\n# Icebox\n");
+    execSync(`git add -A && git commit -q -m "park installed fixture"`, { cwd: dir });
+    const installedPromoteIcebox = join(installed.skillsDir, "drive/scripts/promote-icebox.sh");
+    const promote = run(dir, `${POSIX_SH} ${installedPromoteIcebox} .workaholic/tickets/icebox/20260707104119-icebox.md`);
+    assertEq("installed promote-icebox exits 0", promote.status, 0);
+    assertTrue("installed promote-icebox routes to current user's todo",
+      existsSync(join(todoRoot, `${TEST_SLUG}/20260707104119-icebox.md`)));
+  } finally {
+    cleanup(dir);
+    cleanup(installed.dir);
+  }
 }
 
 // ---------- mission/create.sh + progress.sh + list.sh ----------
@@ -2095,6 +2144,7 @@ const tests = [
   ["gather/user-slug.sh", testUserSlug],
   ["create-ticket/sweep-todo.sh", testSweepTodo],
   ["drive/list-todo.sh", testListTodo],
+  ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],
   ["drive/archive.sh mission seam", testMissionDriveSeam],

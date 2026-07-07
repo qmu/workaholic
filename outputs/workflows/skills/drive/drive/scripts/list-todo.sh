@@ -6,7 +6,7 @@
 set -eu
 
 SCRIPT_DIR=$(dirname "$0")
-USER_SLUG=$(sh "${SCRIPT_DIR}/../../gather/scripts/user-slug.sh")
+USER_SLUG=$(sh "${SCRIPT_DIR}/../../gather/scripts//user-slug.sh")
 DIR=".workaholic/tickets/todo/${USER_SLUG}"
 
 if [ ! -d "$DIR" ]; then

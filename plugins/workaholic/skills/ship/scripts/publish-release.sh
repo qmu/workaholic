@@ -47,7 +47,7 @@ fi
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 body_file=$(mktemp)
 trap 'rm -f "$body_file"' EXIT
-sh "${SCRIPT_DIR}/../../../../workaholic/skills/report/scripts/strip-frontmatter.sh" "$notes_file" >| "$body_file"
+sh "${SCRIPT_DIR}/../../report/scripts/strip-frontmatter.sh" "$notes_file" >| "$body_file"
 
 if [ -n "$commit" ]; then
   url=$(gh release create "$tag" --title "$tag" --notes-file "$body_file" --latest --target "$commit")

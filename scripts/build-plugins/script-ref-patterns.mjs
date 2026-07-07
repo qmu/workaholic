@@ -10,18 +10,17 @@
 
 // Build-detectable cross-skill script reference, by file kind:
 //   SKILL.md  ${CLAUDE_PLUGIN_ROOT}/skills/<x>/scripts/   (Claude expands the token)
-//   *.sh      ${SCRIPT_DIR}/(../)+workaholic/skills/<x>/scripts/   (relative to the script)
+//   *.sh      ${SCRIPT_DIR}/../../<x>/scripts/             (same plugin's skills root)
 // The capture group is the referenced skill name.
 export const SKILL_REF = /\$\{CLAUDE_PLUGIN_ROOT\}\/skills\/([a-z-]+)\/scripts\//g;
-export const SCRIPT_CROSS_REF = /\$\{SCRIPT_DIR\}\/(?:\.\.\/)+workaholic\/skills\/([a-z-]+)\/scripts\//g;
+export const SCRIPT_CROSS_REF = /\$\{SCRIPT_DIR\}\/\.\.\/\.\.\/([a-z-]+)\/scripts(?=\/|["'\s])/g;
 
-// Any reference to a skill's scripts directory, in any form. The lint finds every
-// candidate with this, then requires the text immediately before each one to match
-// the prefix its file kind demands (below). A candidate that does not is a fragile
-// reference the build would miss.
-export const ANY_SKILL_SCRIPT = /skills\/[a-z-]+\/scripts\//g;
+// Any reference to another skill's scripts directory, in any supported source
+// form. The lint finds every candidate with this, then requires the full
+// reference to match the file-kind-specific pattern below. A candidate that does
+// not is a fragile reference the build would miss.
+export const ANY_SKILL_SCRIPT = /(?:skills\/[a-z-]+\/scripts(?=\/|["'\s])|\$\{SCRIPT_DIR\}\/(?:\.\.\/)+[a-z-]+\/scripts(?=\/|["'\s]))/g;
 
-// The exact prefix that must immediately precede "skills/<x>/scripts/" for the
-// reference to be build-detectable, anchored to the end of the preceding text.
+// The exact source forms that are build-detectable.
 export const SKILL_MD_PREFIX = /\$\{CLAUDE_PLUGIN_ROOT\}\/$/; // SKILL.md
-export const SCRIPT_PREFIX = /\$\{SCRIPT_DIR\}\/(?:\.\.\/)+workaholic\/$/; // *.sh
+export const SCRIPT_PREFIX = /\$\{SCRIPT_DIR\}\/\.\.\/\.\.\/[a-z-]+\/scripts(?:\/|$)/; // *.sh

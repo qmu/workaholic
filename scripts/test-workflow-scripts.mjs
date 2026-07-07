@@ -13,7 +13,7 @@
 // state, and cleans up. No network, no real remotes, no GitHub token, no
 // mutation of the developer's working tree. Run with `node scripts/test-workflow-scripts.mjs`.
 
-import { cpSync, mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync, existsSync } from "node:fs";
+import { cpSync, mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync, existsSync, statSync, chmodSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join, resolve, dirname } from "node:path";
 import { tmpdir } from "node:os";
@@ -1735,6 +1735,61 @@ function testPosixLint() {
   } finally { cleanup(dir); }
 }
 
+// ---------- hooks/hooks.json executable-bit gate ----------
+// hooks.json invokes each hook by its bare path, so Claude Code executes the file
+// directly and it MUST carry the execute bit. A hook committed as 100644 fails at
+// runtime with "Permission denied" — silently, since these are non-blocking hooks.
+// (1) every script hooks.json references by path must be executable on the real
+// tree (the regression lock); (2) a self-check proves the mode predicate flags a
+// non-executable fixture, so the lock is trusted.
+const isExecutable = (path) => (statSync(path).mode & 0o111) !== 0;
+
+// Collect every hooks[].hooks[].command path from a parsed hooks.json, with
+// ${CLAUDE_PLUGIN_ROOT} resolved to `root`. Resilient to a missing event key.
+function collectHookCommands(hooksJson, root) {
+  const paths = [];
+  const events = hooksJson.hooks || {};
+  for (const eventKey of Object.keys(events)) {
+    for (const matcher of events[eventKey] || []) {
+      for (const hook of matcher.hooks || []) {
+        if (typeof hook.command !== "string") continue;
+        paths.push(hook.command.replace("${CLAUDE_PLUGIN_ROOT}", root));
+      }
+    }
+  }
+  return paths;
+}
+
+function testHooksExecutable() {
+  const PLUGIN_ROOT = join(REPO_ROOT, "plugins/workaholic");
+  const hooksJson = JSON.parse(readFileSync(join(PLUGIN_ROOT, "hooks/hooks.json"), "utf8"));
+  const commands = collectHookCommands(hooksJson, PLUGIN_ROOT);
+
+  // 1. Every referenced hook must exist and be executable (the regression lock).
+  assertTrue("hooks-exec: hooks.json references at least one command",
+    commands.length > 0, `got ${commands.length}`);
+  const missing = commands.filter((p) => !existsSync(p));
+  assertTrue("hooks-exec: every referenced hook exists",
+    missing.length === 0, `missing: ${JSON.stringify(missing)}`);
+  const nonExec = commands.filter((p) => existsSync(p) && !isExecutable(p));
+  assertTrue("hooks-exec: every referenced hook is executable",
+    nonExec.length === 0, `non-executable (needs chmod +x): ${JSON.stringify(nonExec)}`);
+
+  // 2. Self-check: the identical predicate must flag a non-executable fixture, so
+  //    a hook reverted to 100644 would turn assertion (1) red.
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-exec-"));
+  try {
+    const fixture = join(dir, "not-executable.sh");
+    writeFileSync(fixture, "#!/bin/sh -eu\necho hi\n");
+    chmodSync(fixture, 0o644);
+    assertTrue("hooks-exec: predicate flags a 644 fixture as non-executable",
+      !isExecutable(fixture), "0644 fixture reported executable");
+    chmodSync(fixture, 0o755);
+    assertTrue("hooks-exec: predicate accepts a 755 fixture as executable",
+      isExecutable(fixture), "0755 fixture reported non-executable");
+  } finally { cleanup(dir); }
+}
+
 // ---------- hooks/guard-git-commit.sh (PreToolUse Bash commit-subject gate) ----------
 // REAL, non-mock: feeds the actual guard a crafted tool_input.command and asserts
 // it BLOCKS (exit 2) only an off-policy inline subject (Conventional-Commit prefix,
@@ -2168,6 +2223,7 @@ const tests = [
   ["hooks/validate-ticket.sh mission field", testValidateTicketMission],
   ["hooks/guard-ticket-structure.sh", testGuardTicketStructure],
   ["hooks/posix-lint.sh", testPosixLint],
+  ["hooks/hooks.json executable", testHooksExecutable],
   ["report/collect-commits.sh", testCollectCommits],
   ["catch/scan-window.sh", testScanWindow],
   ["catch/scan-window.sh remote fetch+scan", testScanWindowRemote],

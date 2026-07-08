@@ -44,6 +44,7 @@ An [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-cata
 
 ## Implementation (実装)
 
+* [Anti-Corruption Structure](implementation/anti-corruption-structure.md) - Dividing each package's interior by domain and into three responsibilities — model, service, and dependency implementation — so that external libraries, I/O, and entry point wiring cannot corrupt the domain's own vocabulary.
 * [Coding Standards (TypeScript)](implementation/coding-standards.md) - Defaulting to TypeScript language features where type checking and declarative guarantees apply, and avoiding features where those guarantees fall away, so the compiler detects as much as possible in AI-produced code.
 * [Command Scripts for Development Tasks](implementation/command-scripts.md) - Consolidating common development operations into runnable scripts so that any team member or AI agent can perform them consistently, and CI invokes the same commands as developers.
 * [Containerization](implementation/containerization.md) - Using containers to make the local development environment match production and to make the deployment unit reproducible, with multi-stage builds, pinned base image versions, and non-root runtime users.

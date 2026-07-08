@@ -28,6 +28,7 @@ Each policy is mirrored from its canonical article at qmu.co.jp as an English ha
 - **[Objective Technical Documentation](policies/objective-documentation.md)** (客観的なドキュメント) — Writing technical documentation in factual, verifiable language that describes actual behavior rather than aspirational intent, treating documentation as part of the codebase subject to the same review standards.
 - **[Policy Conformance Auditing](policies/policy-conformance-audit.md)** (ポリシー準拠審査) — Auditing the codebase against stated policies on a quarterly cadence to surface drift before it becomes structural, tracking non-conformances as debt, and updating policies that the audit reveals as unworkable.
 - **[Standard Directory Structure](policies/directory-structure.md)** (標準ディレクトリ構造) — Dividing the repository top-level by role and following the same layout across projects, so that people and AI agents can find files from structure rather than exploration.
+- **[Anti-Corruption Structure](policies/anti-corruption-structure.md)** (腐敗防止構造を持つ) — Dividing each package's interior by domain and into three responsibilities — model, service, and dependency implementation — so that external libraries, I/O, and entry point wiring cannot corrupt the domain's own vocabulary.
 
 ## Applying this index
 

@@ -1,6 +1,6 @@
 ---
 name: catch
-description: By-developer catch-up report over a recent window (commits, tickets, stories), then follow-up Q&A.
+description: By-developer catch-up report over a recent window (commits, tickets, stories, mission progress), then follow-up Q&A.
 skills:
   - workaholic:catch
 ---
@@ -15,6 +15,6 @@ skills:
 
 This command (main agent) runs the preloaded `workaholic:catch` skill. Follow the **Run Workflow** section end-to-end (Phase 0 Gather the Window and Roster, Phase 1 Collect Per Developer, Phase 2 Synthesize the Report, Phase 3 Stand Ready for Questions). The command spawns the per-developer collectors as `general-purpose` subagents (`model: "haiku"`); all synthesis and follow-up Q&A happen at the main-agent level. `$ARGUMENT` is an optional window (e.g. `/catch 30 days`); default is the last two weeks.
 
-`/catch` is **read-only** — it reads tickets, stories, docs, and commit messages and writes nothing. It never creates, moves, or archives tickets.
+`/catch` is **read-only** — it reads tickets, stories, docs, commit messages, and missions, and writes nothing. It never creates, moves, or archives tickets, and never mutates a mission (no changelog append, no acceptance tick). The report includes a top-level **Missions** section (each active mission's derived progress plus its merged and unmerged in-flight work) and a per-developer mission-attribution line.
 
 **Policy Lens**: The `hooks/policy-lens.sh` UserPromptSubmit hook injects the engineering-policy lens on every `/catch` run (via the marker above). Use `workaholic:planning`/`design`/`implementation`/`operation` only to frame how each developer's direction maps to the pillars — keep the report factual and verifiable (`workaholic:implementation` / `objective-documentation`), never a grade.

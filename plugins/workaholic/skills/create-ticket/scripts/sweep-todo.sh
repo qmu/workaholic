@@ -20,7 +20,7 @@
 set -eu
 
 SCRIPT_DIR=$(dirname "$0")
-SLUG_SCRIPT="${SCRIPT_DIR}/../../../../workaholic/skills/gather/scripts/user-slug.sh"
+SLUG_SCRIPT="${SCRIPT_DIR}/../../gather/scripts/user-slug.sh"
 TODO_ROOT=".workaholic/tickets/todo"
 
 DEFAULT_SLUG=$(sh "$SLUG_SCRIPT")

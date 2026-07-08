@@ -18,7 +18,7 @@ fi
 
 FILENAME=$(basename "$SRC")
 SCRIPT_DIR=$(dirname "$0")
-USER_SLUG=$(sh "${SCRIPT_DIR}/../../gather/scripts/user-slug.sh")
+USER_SLUG=$(sh "${SCRIPT_DIR}/../../gather/scripts//user-slug.sh")
 DEST=".workaholic/tickets/todo/${USER_SLUG}/${FILENAME}"
 
 mkdir -p ".workaholic/tickets/todo/${USER_SLUG}"

@@ -11,7 +11,7 @@
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-USER_SLUG=$(sh "${SCRIPT_DIR}/../../gather/scripts/user-slug.sh")
+USER_SLUG=$(sh "${SCRIPT_DIR}/../../gather/scripts//user-slug.sh")
 
 root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 todo_dir="${root}/.workaholic/tickets/todo/${USER_SLUG}"

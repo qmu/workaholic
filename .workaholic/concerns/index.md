@@ -56,6 +56,13 @@
 * [Archive script records the pre-amend commit hash](77-archive-script-records-the-pre-amend.md)
 * [Codex hook runtime behavior remains unproven](77-codex-hook-runtime-behavior-remains-unproven.md)
 * [Existing artifacts are not backfilled into missions](77-existing-artifacts-are-not-backfilled-into.md)
+* [(carried from PR #58 → #54) Trip unification is unproven by a deployed end-to-end flow](80-carried-from-pr-58-54-trip.md)
+* [(carried from PR #58 → #56) Enforcement reaches consumer repos only after landing on main](80-carried-from-pr-58-56-enforcement.md)
+* [(carried from PR #58 → #56) Two enforcement layers encode one rule](80-carried-from-pr-58-56-two.md)
+* [(carried from PR #59) /commit can emit off-policy subjects if invoked directly](80-carried-from-pr-59-commit-can.md)
+* [(carried from PR #77) Archive script records the pre-amend commit hash](80-carried-from-pr-77-archive-script.md)
+* [(carried from PR #77) Codex hook runtime behavior remains unproven in deployed installations](80-carried-from-pr-77-codex-hook.md)
+* [(carried from PR #77) Existing artifacts are not backfilled into the .workaholic OKF bundle index](80-carried-from-pr-77-existing-artifacts.md)
 * [Concerns](README.md)
 
 * [archive/](archive/)

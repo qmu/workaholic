@@ -44,14 +44,12 @@ An [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-cata
 
 ## Implementation (実装)
 
-* [Accessibility for Humans and AI](implementation/accessibility-first.md)
 * [Coding Standards (TypeScript)](implementation/coding-standards.md) - Defaulting to TypeScript language features where type checking and declarative guarantees apply, and avoiding features where those guarantees fall away, so the compiler detects as much as possible in AI-produced code.
 * [Command Scripts for Development Tasks](implementation/command-scripts.md) - Consolidating common development operations into runnable scripts so that any team member or AI agent can perform them consistently, and CI invokes the same commands as developers.
 * [Containerization](implementation/containerization.md) - Using containers to make the local development environment match production and to make the deployment unit reproducible, with multi-stage builds, pinned base image versions, and non-root runtime users.
 * [Diagram Generation from Code](implementation/diagram-generation.md) - Preferring diagrams expressed in text-based formats embedded in documentation or generated from the code and schema, so that the diagram and its subject can be reviewed in the same PR and do not drift.
 * [Standard Directory Structure](implementation/directory-structure.md) - Dividing the repository top-level by role and following the same layout across projects, so that people and AI agents can find files from structure rather than exploration.
 * [Domain Layer Separation](implementation/domain-layer-separation.md) - Separating business logic from entry points (HTTP routers, CLIs, queue workers) and writing it in standard-language vocabulary, keeping entry points thin so more is verifiable by static checks and unit tests and the domain layer is reusable across entry points.
-* [Emergent Design System](implementation/emergent-design-system.md)
 * [Preferring Declarative Code](implementation/functional-programming.md) - Writing declaratively wherever it is possible to, so behavior is predictable from a function's signature and preserved under composition; with generative AI as the default author, the compiler is treated as AI's most accurate and cheapest feedback path.
 * [Golang Coding Standards](implementation/golang-coding-standards.md) - Defaulting to returning failures as values, defining interfaces small on the consumer side, and using the standard toolchain, so the compiler, `go vet`, and lint can detect as much as possible in AI-produced Go code.
 * [Infrastructure as Code](implementation/infrastructure-as-code.md) - Defining provisioned resources as version-controlled files reproducible from a clean state, so the current infrastructure can be fully rebuilt from code in the repository, avoiding console-only resources and long-lived drift.
@@ -62,10 +60,9 @@ An [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-cata
 * [Policy Conformance Auditing](implementation/policy-conformance-audit.md) - Auditing the codebase against stated policies on a quarterly cadence to surface drift before it becomes structural, tracking non-conformances as debt, and updating policies that the audit reveals as unworkable.
 * [Active Use of Unit Tests](implementation/test.md) - Using unit tests actively in two roles — early scaffolding against real DBs/APIs, and regression tests kept in the domain layer — to widen the ground where AI itself can check completeness, while refusing to mistake "many AI-generated tests pass" for a healthy codebase.
 * [Preferring Rich Typing](implementation/type-driven-design.md) - Narrowing each type's range of values to the domain's actual shape, introduced selectively where confusion or omission can occur — not over every value — so that expressing a new requirement in the existing type vocabulary doubles as a consistency check on the requirement itself.
-* [Conservative Vendor Dependence](implementation/vendor-neutrality.md)
 
 ## Operation (運用)
 
-* [AI-Assisted Production Investigation](operation/ai-production-investigation.md) - Using AI agents to accelerate production diagnosis under a read-only access constraint, with all agent actions logged and proposed production changes reviewed by a human before execution.
+* [AI-Assisted Production Investigation](operation/ai-production-investigation.md) - Arranging read-only paths for AI to reach the same production observation outputs as humans, with PII masked before entering AI context, so investigation speed improves without expanding the blast radius.
 * [Local CI/CD Execution](operation/ci-cd.md) - Running CI checks and CD releases inside the team's own containerized development environment rather than external hosted services, so that both inspections and releases are reproducible locally and the safety of a shipment rests on verifiable evidence rather than an operator's care.
 * [No Customer Support in the Repository](operation/no-customer-support-in-repo.md) - Routing customer support communication through a dedicated support channel rather than the GitHub issue tracker, keeping the engineering backlog and the support queue separate.

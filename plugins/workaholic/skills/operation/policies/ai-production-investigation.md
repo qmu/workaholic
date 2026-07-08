@@ -7,46 +7,42 @@ source: https://qmu.co.jp/operation/ai-production-investigation
 
 # AI-Assisted Production Investigation
 
-_When using an AI agent to investigate a production issue, constrain it to read-only access and record its actions; the speed advantage of AI-assisted diagnosis is real, but so is the risk of an agent taking an unintended action on live data._
+_Set up paths for AI to reach the same production observation outputs as humans through read-only tools, with PII masked before entering AI context, so investigation speed improves without expanding the blast radius._
 
-AI agents are useful in production investigation: they can cross-reference logs, query metrics, correlate events, and draft hypotheses faster than a human reading the same data manually. The risk is that an agent operating against a production environment has both read access and, unless constrained, write access. An agent that queries a database to understand a data inconsistency is helpful. An agent that modifies data to "fix" what it diagnosed — without a human review step — is a production incident waiting to happen. The policy here is to capture the benefit while structuring the constraint: AI-assisted investigation operates in read-only mode, and any production change it proposes is reviewed and executed by a human.
+Arrange paths for AI coding agents to read what is happening in production from the same information sources as humans. Observation outputs have until now had two main recipients: automated self-healing and human operators. This policy adds a third — AI investigating production. The central premise is the symmetry between human and AI perspectives: what humans grasp from dashboards, live logs, and metrics, AI can reach through read-only tools and queries against the same outputs.
 
 ## Goal (目標)
 
-The situation this policy aims to achieve is one in which AI-assisted production investigation produces faster diagnosis without increasing the risk of unintended production mutations.
+The situation this policy aims to achieve is one in which AI can read what is currently happening in production from the same information sources as humans.
 
-- The agent's access to production systems is read-only during investigation.
-- Every action the agent takes during an investigation is logged, so the investigation can be replayed and audited.
-- The agent's findings and proposed remediation steps are presented to a human for review before any production change is executed.
+That humans and AI derive understanding from the same information source defines the outline of this symmetry. The direction is toward a state in which AI can — without human intermediation — assemble "what is happening in production right now," "when it happened," and "which request" from observation outputs during an incident. The observation foundation itself — emitting structured logs, metrics, and traces — is the subject of [Observability and Self-Healing](../../implementation/policies/observability.md); this policy covers the paths through which AI reaches those outputs and the boundaries drawn on those paths.
 
 ## Responsibility (責務)
 
-The situation this policy aims to prevent is one in which an AI agent causes a production incident in the course of investigating one.
+The situation this policy aims to prevent is one in which AI, under the guise of production investigation, obtains write or destructive-operation permissions and modifies production. A second state to prevent is one in which personal information from production flows into AI context without limit.
 
-States we do not tolerate:
+Investigation paths are confined to reads; the hand that changes production state does not co-reside on the same path. In development where AI writes much of the implementation, investigation and remediation can look continuous, so there is a failure mode where AI — still holding read permissions — reaches toward "fixing things while here," and write or destructive operations arrive in production as an extension of the investigation. The goal is to prevent a state in which the permission boundary between reading and changing is not drawn on the path side.
 
-- An AI agent with write access to a production database during an investigation that was initiated to diagnose a data issue.
-- Agentic execution of remediation steps — running DELETE, UPDATE, or INSERT against production — without a human review of those steps before execution.
-- Investigations that leave no record of what the agent queried or what it found, so that the investigation cannot be verified or audited afterward.
+The second state to prevent is personal information contained in production observation outputs — names, email addresses — flowing into AI context unmasked. AI retains what it reads as context and carries it into subsequent responses. Paths where personal information appears unmasked in observation outputs and is ingested without limit by AI are a state in which both the PII masking of [Observability and Self-Healing](../../implementation/policies/observability.md) and the same kind of permission boundaries that [Capacity and Recovery Planning](../../implementation/policies/operational-planning.md) draws around backup access are both inactive. The two inviolable boundaries of the investigation path are that it is read-only and that PII is masked.
 
 ## Practices (実践)
 
-### Create a read-only investigation credential
+### AI reaches the same screen humans see, through read-only tools
 
-For database access, create a read-only database user for AI-assisted investigations. The credential has SELECT and no other DML permissions. Do not use the application's read-write credential for AI-assisted queries. The read-only credential is managed in the same rotation schedule as other credentials — see the infrastructure-as-code policy on sensitive information management.
+Starting from what humans grasp through dashboards, live logs, and metrics, enable AI to reach the same information sources through read-only tools and queries. What humans read as trends in metric graphs, AI reaches through metric queries; what humans trace as recent behavior in live logs, AI reaches through read-only tools against those same logs — each arriving at the same output. When the human screen and AI tools look at separate information sources the symmetry breaks. Keep the output source singular, and have human and AI paths arrive at it in parallel.
 
-### Log the investigation session
+### Draw the permission boundary between reading and changing on the path
 
-Record the full session of an AI-assisted investigation: the queries issued, the logs and metrics accessed, the hypotheses generated, and the proposed remediation. The record is attached to the incident ticket or equivalent. This log is the audit trail that allows a later reviewer to verify what the agent found and what it proposed.
+Place only read-class operations on the investigation path AI traverses. Operations that change production state — writes, deletes, restarts, configuration changes — are not co-resident on the same path; they are separated onto a distinct path that requires explicit human approval. Following the same thinking as [Capacity and Recovery Planning](../../implementation/policies/operational-planning.md) managing backup access under a separate permission boundary from production write access, separate the permission for investigation from the permission for change. Hold the boundary on the tool design side, not relying on operator vigilance alone.
 
-### Present proposed changes for human review before execution
+### Mask PII before it flows into AI context
 
-An AI agent's proposed remediation — a data correction script, a configuration change, a restart procedure — is presented as a diff or a command for human review before it is executed. The human executes the change; the agent does not. This applies even in high-urgency incidents: the few seconds of review for a proposed DELETE or UPDATE are worth the protection against an erroneous agent action.
+Observation outputs that AI reads — like the logs humans see — are returned with personal information such as names and email addresses masked before delivery. The masking point is before the data reaches AI, leaving no path for unmasked personal information to enter AI context. Apply the PII masking policy that [Observability and Self-Healing](../../implementation/policies/observability.md) draws on structured logs with equal strength to AI-facing read paths. Read-only access and PII masking together are what make the investigation path safe to open.
 
-### Limit the investigation scope to the incident context
+### Target WebMCP; write read paths with Realtime API for now
 
-Configure the agent's context to include only the data relevant to the incident being investigated. An agent that has access to the entire production database during every investigation has a larger blast radius than an agent whose access is scoped to the relevant tables, time window, and tenant. Narrow the scope before starting the investigation.
+Set WebMCP as the destination for paths through which AI reaches production observation. Arrange for the human UI and AI agents to read the same tool definitions, maintaining symmetry between human-facing screens and AI-facing read paths without building them separately. Since WebMCP is still maturing, use OpenAI's Realtime API — which can drive browser tools — as a bridge for now, writing read-class tools and queries in a WebMCP-compatible form that distinguishes reads from writes. The reason for the bridge is to preserve a form from which tool definitions can be migrated as-is when WebMCP matures. Having the read/write distinction on the path from the start is the scaffold for embedding the permission boundary from the previous section into the path's design.
 
-### Related: Observability and Self-Healing, CI/CD Automation, Capacity and Recovery Planning
+### Related: Observability and Self-Healing, Capacity and Recovery Planning, Incident Response Procedure
 
-AI-assisted investigation supplements the observability posture — [Observability and Self-Healing](../../implementation/policies/observability.md) — and is activated when observability outputs point to an incident. The rollback automation in [CI/CD Automation](ci-cd.md) is the preferred first response for deploy-induced incidents; AI-assisted investigation handles cases where automated rollback did not resolve the issue. Recovery planning that accounts for AI-investigation procedures belongs in [Capacity and Recovery Planning](../../implementation/policies/operational-planning.md).
+[Observability and Self-Healing](../../implementation/policies/observability.md) prepares the observation outputs that investigation paths reach; this policy adds AI as a recipient of those outputs. The permission boundary separating reading from changing follows the same thinking as the boundary [Capacity and Recovery Planning](../../implementation/policies/operational-planning.md) draws around backups, keeping the investigation path separate from the recovery path. The production state AI can read independently also becomes an input for grasping the situation during the initial response in the [Incident Response Procedure](../../safety/policies/incident-response.md), supporting a posture in which humans and AI can assemble facts from the same information sources.

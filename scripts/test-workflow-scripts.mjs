@@ -1701,6 +1701,138 @@ function testScanWindowRemote() {
   } finally { cleanup(remote); cleanup(pusher); cleanup(cloneParent); }
 }
 
+// ---------- catch/scan-window.sh (mission join) ----------
+// /catch surfaces missions: the scanner emits a missions[] block (active missions
+// + derived progress + this-window changelog events + unmerged in-flight tickets)
+// and carries mission/commit_hash on each ticket. This exercises the full join:
+// a real missioned ticket is archived in-window (via archive.sh, which stamps
+// commit_hash + rolls the changelog), a second missioned ticket stays in todo
+// (unmerged), and the scan must report merged progress distinctly from in-flight.
+function testScanWindowMissions() {
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  scan-window mission join (jq not available)"); return; }
+  const dir = makeRepo("main");
+  try {
+    execSync(`git checkout -q -b work-20260709-020000`, { cwd: dir });
+    const slug = "rt-notify";
+    const mdir = join(dir, `.workaholic/missions/${slug}`);
+    mkdirSync(mdir, { recursive: true });
+    const archName = "20260709020000-merged.md";
+    const flightName = "20260709020001-inflight.md";
+    // Acceptance names both tickets so the archived one ticks and the todo one stays.
+    writeFileSync(join(mdir, "mission.md"), `---
+type: Mission
+title: RT Notify
+slug: ${slug}
+status: active
+created_at: 2026-07-09T00:00:00+09:00
+author: test@example.com
+tickets: []
+stories: []
+concerns: []
+---
+
+# RT Notify
+
+## Acceptance
+
+- [ ] Merged work (#${archName})
+- [ ] In-flight work (#${flightName})
+
+## Changelog
+`);
+    const todoDir = join(dir, `.workaholic/tickets/todo/${TEST_SLUG}`);
+    mkdirSync(todoDir, { recursive: true });
+    // The to-be-archived ticket (carries the mission; archive.sh stamps commit_hash).
+    writeFileSync(join(todoDir, archName), `---
+created_at: 2026-07-09T02:00:00+09:00
+author: test@example.com
+type: enhancement
+layer: [Domain]
+effort: 0.5h
+commit_hash:
+category:
+depends_on:
+mission: ${slug}
+---
+
+# Merged work
+
+## Final Report
+
+Development completed as planned.
+`);
+    // The in-flight ticket stays in todo (unmerged: no commit_hash).
+    writeFileSync(join(todoDir, flightName), `---
+created_at: 2026-07-09T02:01:00+09:00
+author: test@example.com
+type: enhancement
+layer: [Domain]
+effort:
+commit_hash:
+category:
+depends_on:
+mission: ${slug}
+---
+
+# In-flight work
+`);
+    // An un-missioned todo ticket must never appear under any mission's in_flight.
+    writeFileSync(join(todoDir, "20260709020002-loose.md"),
+      "---\nauthor: test@example.com\nmission:\n---\n\n# Loose\n");
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+
+    // Archive the missioned ticket at real "now" so it falls inside "2 weeks ago"
+    // and its changelog line is dated today (>= the git-resolved window start).
+    const r = run(dir, `${POSIX_SH} ${SCRIPTS.archive} .workaholic/tickets/todo/${TEST_SLUG}/${archName} "Add merged work" https://x/repo "why" "changes" "None" "None" "verify"`);
+    assertEq("scan-window mission: archive.sh exits 0", r.status, 0);
+
+    const cleanBefore = execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim();
+    const j = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanWindow} "2 weeks ago"`).stdout);
+
+    // (a) the mission surfaces with derived progress reflecting only the merged item.
+    assertEq("scan-window emits one mission", (j.missions || []).length, 1);
+    const m = j.missions[0];
+    assertEq("scan-window mission slug/progress",
+      { slug: m.slug, checked: m.checked, total: m.total, status: m.status },
+      { slug, checked: 1, total: 2, status: "active" });
+
+    // (b) a matching 'ticket archived' window event exists for the merged ticket.
+    assertTrue("scan-window mission window_events has the archived event",
+      (m.window_events || []).some((e) => e.event === "ticket archived" && e.artifact === archName),
+      JSON.stringify(m.window_events));
+
+    // (c) the todo ticket is in_flight (unmerged); the archived one is NOT.
+    const flightPaths = (m.in_flight || []).map((t) => t.path);
+    assertTrue("scan-window in_flight carries the unmerged todo ticket",
+      flightPaths.some((p) => p.endsWith(flightName)), JSON.stringify(flightPaths));
+    assertTrue("scan-window in_flight excludes the archived ticket",
+      !flightPaths.some((p) => p.endsWith(archName)), JSON.stringify(flightPaths));
+    assertTrue("scan-window in_flight excludes an un-missioned ticket",
+      !flightPaths.some((p) => p.endsWith("20260709020002-loose.md")), JSON.stringify(flightPaths));
+
+    // (d) tickets[] carries mission + commit_hash; archived has a hash, todo is empty.
+    const tByName = (name) => (j.tickets || []).find((t) => t.path.endsWith(name));
+    assertEq("scan-window tags archived ticket mission", tByName(archName)?.mission, slug);
+    assertTrue("scan-window stamps archived ticket commit_hash",
+      /^[0-9a-f]{7,}$/.test(tByName(archName)?.commit_hash || ""), tByName(archName)?.commit_hash);
+    assertEq("scan-window tags todo ticket mission", tByName(flightName)?.mission, slug);
+    assertEq("scan-window todo ticket has empty commit_hash", tByName(flightName)?.commit_hash, "");
+
+    // (e) the scan mutated nothing (read-only contract): worktree unchanged.
+    assertEq("scan-window mission join is read-only (no worktree change)",
+      execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim(), cleanBefore);
+  } finally { cleanup(dir); }
+
+  // No missions present -> missions is [] and the rest of the scan is unaffected.
+  const bare = makeRepo("main");
+  try {
+    const j = JSON.parse(run(bare, `${POSIX_SH} ${SCRIPTS.scanWindow} "2 weeks ago"`).stdout);
+    assertEq("scan-window missions is [] when no missions exist", j.missions, []);
+  } finally { cleanup(bare); }
+}
+
 // ---------- hooks/posix-lint.sh (POSIX-sh conformance gate) ----------
 // The standing guard that keeps rules/shell.md from regressing. (1) the real
 // plugin tree must be conforming — the regression lock that only passes once
@@ -2227,6 +2359,7 @@ const tests = [
   ["report/collect-commits.sh", testCollectCommits],
   ["catch/scan-window.sh", testScanWindow],
   ["catch/scan-window.sh remote fetch+scan", testScanWindowRemote],
+  ["catch/scan-window.sh mission join", testScanWindowMissions],
   ["hooks/guard-git-commit.sh", testGuardGitCommit],
   ["hooks/guard-git-branch.sh", testGuardGitBranch],
   ["hooks/guard-askuserquestion-label.sh", testGuardAskUserQuestionLabel],

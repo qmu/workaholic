@@ -132,3 +132,7 @@ The mutators above are called automatically as missioned work moves through the 
 | `ship` (`extract-deferred-concerns.sh`) | a missioned concern is deferred | `concern deferred (stuck)` | — |
 
 An un-missioned artifact touches no mission. Because the appends are idempotent, a re-run (retry, re-report) never double-counts.
+
+### Read-only consumers
+
+Separately from the mutating seams above, a workflow may **read** missions without writing them. `/catch` (`catch`) is such a consumer: its scanner calls `list.sh`/`progress.sh` for the active-mission list and derived progress, window-filters each mission's `## Changelog` for merged activity, and reads the `mission:` relation on unarchived tickets to surface **in-flight** (unmerged) progress the merge-time seams cannot yet show. It appears in no seam table because a `/catch` run mutates nothing — no changelog line, no acceptance tick.

@@ -3,9 +3,9 @@ created_at: 2026-07-09T02:32:55+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure, Domain]
-effort:
-commit_hash:
-category:
+effort: 1h
+commit_hash: 3cb23a4
+category: Changed
 depends_on:
 mission:
 ---
@@ -111,3 +111,14 @@ Past tickets that touched similar areas:
 - **POSIX-only date math.** Window-filter the changelog with the epoch boundaries already computed in the scanner and `awk` string/number compares — no `date -d` (Alpine). (`plugins/workaholic/skills/catch/scripts/scan-window.sh` lines 40–45)
 - **Reuse, don't reimplement.** Call `list.sh`/`progress.sh` for slug/title/status/progress; do not re-derive acceptance counts in the catch scanner (`workaholic:implementation` / `domain-layer-separation`).
 - Both `catch` and `mission` are `DEFAULT_TARGETS`; forgetting the rebuild fails CI. (`scripts/build-plugins/build.mjs` line 50)
+
+## Final Report
+
+Development completed as planned. The scanner now emits `missions[]` (active list + derived `checked/total` + window-filtered `window_events` + unmerged `in_flight`) and carries `mission`/`commit_hash` on every `tickets[]` entry, all read-only. Verified by the new `catch/scan-window.sh mission join` smoke test (13 assertions), the full suite (374 passed / 0 failed), and a clean `build.mjs`/`verify.mjs`/`validate-metadata.mjs`.
+
+### Discovered Insights
+
+- **Insight**: "This window" for the changelog filter is resolved by asking git for the oldest in-window commit's date via `git log --since="$WINDOW" --format=%cd --date=format:'%Y-%m-%d' --reverse | head -1`, then comparing changelog `YYYY-MM-DD` strings lexicographically — no `date -d`.
+  **Context**: `scan-window.sh` deliberately avoids the non-POSIX `date -d` (Alpine/busybox). Using git's own date engine defines the mission window identically to the commit window the rest of the scan uses, so the two never disagree, and ISO-date string comparison is a correct substitute for epoch math.
+- **Insight**: Because `scan-window.sh` now references `${SCRIPT_DIR}/../../mission/scripts/list.sh`, the argument-less `build.mjs` auto-vendors the `mission` (and its transitive `okf`) closure *inside* catch's self-contained bundle — the new untracked `outputs/workflows/skills/catch/{mission,okf}/` dirs are expected generated output, not stray files.
+  **Context**: The generated `outputs/workflows` skills must be self-contained with relative script paths; a new cross-skill `../../<skill>/scripts/` reference silently expands the closure, so any such reference must be followed by a rebuild + `git add` of the newly vendored dirs or Outputs Freshness CI fails.

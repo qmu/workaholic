@@ -22,7 +22,7 @@
 //
 // Reference rewrites (per built skill):
 //   SKILL.md:  ${CLAUDE_PLUGIN_ROOT}/skills/<x>/scripts/  ->  <x>/scripts/
-//   scripts:   ${SCRIPT_DIR}/(../)+workaholic/skills/<x>/scripts/  ->  ${SCRIPT_DIR}/../../<x>/scripts/
+//   scripts:   ${SCRIPT_DIR}/../../<x>/scripts/                    ->  unchanged
 // (intra-skill same-dir refs like ${SCRIPT_DIR}/update.sh are preserved because each
 //  closure skill's whole scripts/ dir is copied intact.)
 

@@ -1,6 +1,6 @@
 ---
 name: catch
-description: Use when the user runs `/catch`, asks to "catch me up", "what has everyone been working on", "summarize the last two weeks", or "show a by-developer development report". Scans the recent commit/ticket/story trail, fans out one collector per active developer to summarize their work, then synthesizes the overall development direction and stands ready for follow-up questions.
+description: Use when the user runs `/catch`, asks to "catch me up", "what has everyone been working on", "summarize the last two weeks", or "show a by-developer development report". Scans the recent commit/ticket/story trail, fans out one collector per active developer to summarize their work, then synthesizes the overall development direction, the active missions (progress plus merged and unmerged in-flight work), and stands ready for follow-up questions.
 allowed-tools: Bash
 ---
 
@@ -34,15 +34,16 @@ Before judging development direction, load the project's engineering policies as
    bash catch/scripts/scan-window.sh "<window>"
    ```
 
-   The script first runs a best-effort `git fetch --all --prune` so remote-tracking branches reflect what teammates have pushed, then scans `--branches --remotes` (local heads **and** remote-tracking refs) — so a branch that lives only on the remote appears too. It returns `{ window, fetch_ok, buckets, developers[], tickets[], stories[], deployments[] }`:
+   The script first runs a best-effort `git fetch --all --prune` so remote-tracking branches reflect what teammates have pushed, then scans `--branches --remotes` (local heads **and** remote-tracking refs) — so a branch that lives only on the remote appears too. It returns `{ window, fetch_ok, buckets, developers[], tickets[], stories[], deployments[], missions[] }`:
    - `fetch_ok` — whether that startup fetch succeeded. `false` means the remote could not be refreshed (offline, no remote, auth); the scan still runs against whatever refs are local, and the report notes the view may be stale (see step 5).
    - `buckets` — the epoch boundaries the scanner used to time-bucket commits: `recent_start` (start of yesterday — the yesterday+today window), `week_start` (Monday 00:00 of the current week), `last_week_start` (Monday 00:00 of the previous week).
    - `developers[]` — each active author in the window: `name`, `email`, `commit_count`, `commits[]`, and `branches[]`. `email` is the **join key** for the by-developer axis.
      - each commit carries `hash`, `subject`, `timestamp` (ISO), `epoch` (committer epoch), `branch` (the branch it was reached from), and `bucket` — one of `recent` (yesterday+today), `this_week` (this calendar week but before yesterday), `last_week` (the previous calendar week), or `older`.
      - `branches[]` — the developer's branches active in the window, each with `name` and `commit_count`, most active first. (The scan uses `--branches --remotes`, so unmerged local topic branches **and** remote-only branches are included; the `refs/remotes/<remote>/` prefix is stripped, so a branch present both locally and on the remote collapses to one entry.)
-   - `tickets[]` — every ticket under `todo`/`archive`/`icebox` with its frontmatter `author`, `title`, and `scope`. Group these by `author` to match each developer's commits.
+   - `tickets[]` — every ticket under `todo`/`archive`/`icebox` with its frontmatter `author`, `title`, `scope`, `mission` (the `mission:<slug>` relation, or `""`), and `commit_hash` (set on archived tickets, `""` on unarchived ones). Group these by `author` to match each developer's commits; group by `mission` to attribute a developer's missioned work, and use `commit_hash` to tie an archived missioned ticket back to a commit in the window.
    - `stories[]` — branch-story file paths under `.workaholic/stories/`, the narrative record of completed branches.
    - `deployments[]` — **this week's** deployments/releases, one per branch story carrying a `## Deployment Evidence` block (written by `/ship`): `branch`, `author` (git author of the ship commit — the join key, since stories/release-notes carry no author), `timestamp` (the evidence `When:`), `release_title` (the matching `release-notes/<branch>.md` H1, or the story H1), `status` (`pass`/`fail`/`bypassed`), and `confirmation` (the evidence `Observed:` line — empty when none was recorded). Filtered to the current calendar week.
+   - `missions[]` — every mission (from the mission skill's own `list.sh`, so progress stays derived, never stored): `slug`, `title`, `status` (`active`/`achieved`/`abandoned`), `checked`, `total` (merged acceptance progress, `checked ÷ total`), plus two window-scoped views. `window_events[]` — the mission's `## Changelog` lines dated within the window (`{date, event, artifact}` — **merged** activity: `ticket archived` / `story reported` / `concern deferred|resolved`). `in_flight[]` — **unmerged** tickets carrying `mission:<slug>` that are not yet archived (`{path, title, author, scope}`): progress toward the mission from work still on a branch, which the merge-time changelog and `checked/total` cannot yet reflect. The scan reads missions **read-only** — it mutates no `mission.md` (no changelog append, no acceptance tick).
 3. Run `bash gather/scripts/git-context.sh` to get `repo_url` (used to render commit links) and `branch`.
 4. **Empty window**: if `developers[]` is empty, print "No commits in the last `<window>`." and suggest a wider window (e.g. `/catch 1 month`). Stop — there is nothing to summarize.
 5. **Stale-view note**: if `fetch_ok` is `false`, the remote could not be refreshed, so pushed work by others may be missing. Add a short note to the report (a line under the report title) stating the remote was not reachable and the view may be stale — do not present a local-only scan as an up-to-date remote view (`implementation` / `objective-documentation`). When `fetch_ok` is `true`, add nothing.
@@ -53,8 +54,9 @@ Spawn **one parallel workers per developer** in `developers[]`, in a **single me
 
 - the developer's `name`, `email`, `commits[]`, and `branches[]` (from `developers[]`);
 - the `buckets` boundaries (so the collector knows what each commit's `bucket` means);
-- the subset of `tickets[]` whose `author` equals this developer's `email`;
+- the subset of `tickets[]` whose `author` equals this developer's `email` (each ticket now carries `mission` and `commit_hash`, so the collector can attribute the developer's missioned work);
 - the subset of `deployments[]` whose `author` equals this developer's `email`;
+- the `missions[]` array (so the collector can name the missions its developer advanced — matching a merged ticket's `commit_hash` to the developer's `commits[]`, and an in-flight `todo` ticket by its `mission` slug);
 - the `stories[]` list and `repo_url` (so it can read stories and link commits).
 
 Bots are developers too only if relevant — by default **skip authors whose email contains `[bot]`** (e.g. `github-actions[bot]`) unless the user asked to include automation. Note any skipped bot authors in the final report's footnote.
@@ -63,10 +65,11 @@ Wait for all collectors to finish. Track which succeeded and which failed; a fai
 
 ### Phase 2: Synthesize the Report
 
-Assemble the collectors' JSON into the **Report Structure** below. Two parts:
+Assemble the collectors' JSON into the **Report Structure** below. Three parts:
 
-1. **Overall Direction** — your own synthesis across all developers: the dominant themes of the window, where effort concentrated, and how the individual threads fit together. This is the part the developer reads first to orient.
-2. **By Developer** — one section per developer, populated verbatim from that collector's returned fields.
+1. **Overall Direction** — your own synthesis across all developers: the dominant themes of the window, where effort concentrated, and how the individual threads fit together. This is the part the developer reads first to orient. Where a mission dominates the window's effort, fold a one-line read of it into this synthesis.
+2. **Missions** — a cross-cutting section, synthesized **by you (the main agent)** directly from the scanner's `missions[]` (not from the collectors — this is the one-level-fan-out rule: cross-developer synthesis stays in the main agent). One entry per **active** mission: its derived progress (`checked/total`), the merged activity under it this window (`window_events`), and the unmerged **in-flight** work (`in_flight`) — rendered so merged progress and in-flight work are never conflated. This is the "how far has each mission come, and what's heading toward it" view.
+3. **By Developer** — one section per developer, populated verbatim from that collector's returned fields, including the developer's `missions` attribution line.
 
 Print the full report to the developer.
 
@@ -76,7 +79,7 @@ After printing, the developer will ask follow-up questions to understand a threa
 
 ## Collect Developer
 
-Run by a Phase 1 collector (a parallel workers that preloads this skill), once per developer. **Inputs** (from the command): `name`, `email`, `commits[]`, this developer's `tickets[]`, the `stories[]` paths, and `repo_url`.
+Run by a Phase 1 collector (a parallel workers that preloads this skill), once per developer. **Inputs** (from the command): `name`, `email`, `commits[]`, this developer's `tickets[]` (each with `mission`/`commit_hash`), the `missions[]` array, the `stories[]` paths, and `repo_url`.
 
 **Task** — characterize what this developer worked on in the window, factually:
 
@@ -93,6 +96,7 @@ Run by a Phase 1 collector (a parallel workers that preloads this skill), once p
 7. **Per-branch focus** — for each entry in the developer's `branches[]`, write a one-line `focus` derived from the subjects of that branch's commits. Carry through `name` and `commit_count` from the input.
 8. **Generation style** — an explicit **guess** at how the work was produced, inferred from the commit `timestamp`/`epoch` shape: commits spread across daytime hours over several days ⇒ "daytime ticket-driving"; a dense cluster of commits in one overnight run on a single branch ⇒ "overnight long-running drive"; a mix ⇒ describe both. Phrase it as an inference ("looks like…"), never as asserted fact.
 9. **Deployments / releases this week** — from the developer's `deployments[]` (already filtered to this week and to this developer by `author`), build one entry per deployment: `timestamp`, `release_title`, `status`, and `confirmation`. For any entry whose `confirmation` is empty (a ship that recorded no production confirmation), and when the developer has shipped this week but `deployments[]` is empty for them, set `deployments_fallback` to the guidance that the confirmation could not be referenced and `/ship` can capture it going forward (it deploys and confirms in production before merge). Render `status: bypassed`/`fail` distinctly — never as a confirmed deployment. Do **not** fabricate a confirmation that was not recorded (`operation` / `ci-cd`).
+10. **Missions advanced** — the missions this developer moved this window, drawn from the join between their `tickets[]` and the `missions[]` list. For each mission slug that appears on any of this developer's tickets, build one entry: `slug`, `title` (from `missions[]`), `merged` (their archived tickets carrying that slug **whose `commit_hash` is among this developer's `commits[]`** — each `{title, hash}`), and `in_flight` (their unarchived `todo`/`icebox` tickets carrying that slug — each `{title, scope}`). Return `[]` when none of the developer's tickets carry a `mission`. Attribution is at ticket granularity: never assert that an individual raw commit belongs to a mission unless it is the `commit_hash` of a missioned archived ticket (`implementation` / `objective-documentation`).
 
 Keep it factual and verifiable — name files, hashes, and tickets; avoid evaluative adjectives ("elegant", "powerful"). Do not invent activity not present in the inputs. The generation-style guess is the one inference allowed, and it must be labelled as a guess (`implementation` / `objective-documentation`).
 
@@ -121,11 +125,19 @@ Keep it factual and verifiable — name files, hashes, and tickets; avoid evalua
   "notable_changes": [
     { "title": "Ship gate now confirms in production before merge", "hash": "abc1234" }
   ],
-  "open_threads": ["deferred concern: outputs/ freshness drift if build skipped"]
+  "open_threads": ["deferred concern: outputs/ freshness drift if build skipped"],
+  "missions": [
+    {
+      "slug": "rt-notify",
+      "title": "Real-time Notifications",
+      "merged": [ { "title": "Persist notification prefs", "hash": "abc1234" } ],
+      "in_flight": [ { "title": "Wire the websocket fan-out", "scope": "todo" } ]
+    }
+  ]
 }
 ```
 
-`deployments_fallback` is a non-empty string only when this developer shipped this week but no referenceable confirmation exists (empty otherwise) — it carries the "`/ship` can capture it going forward" guidance.
+`deployments_fallback` is a non-empty string only when this developer shipped this week but no referenceable confirmation exists (empty otherwise) — it carries the "`/ship` can capture it going forward" guidance. `missions` is `[]` when none of the developer's tickets carry a mission; `merged` and `in_flight` stay disjoint (an archived ticket is never also in-flight).
 
 If a developer's window is thin (a few commits, no tickets), return a short `headline`, empty strings/arrays for the windowed fields, and the real `branches`/`generation_style` rather than padding — the report shows the real shape of the work.
 
@@ -142,6 +154,25 @@ The printed report (Markdown):
 concentrated, how the individual threads fit together.>
 
 **Active this window:** <N> developer(s), <total> commits.
+
+## Missions
+
+<One block per **active** mission from the scanner's `missions[]`, synthesized by
+the main agent. Omit the whole section when there are no active missions. Order
+missions by this-window activity (most active first), then by slug.>
+
+### <title> — <checked>/<total> (<status>)
+
+<Optional one-line framing of where the mission stands.>
+
+- **Progress this window (merged):**
+  - <date> — <event> — <artifact> (<author> [<hash>](<repo_url>/commit/<hash>) when a `commit_hash` join exists)
+  - _or "— none this window"_
+- **In flight (unmerged):**
+  - <in_flight title> — <author> — <scope> — <branch / latest commit subject where available> _(not yet counted in <checked>/<total>)_
+  - _or "— none"_
+
+### <Next active mission> ...
 
 ## By Developer
 
@@ -164,6 +195,7 @@ concentrated, how the individual threads fit together.>
 - **Notable changes:**
   - <title> ([<hash>](<repo_url>/commit/<hash>))
 - **Open threads:** <open_threads, or "None">
+- **Missions:** <per mission in `missions`: "<title> — <N> merged (<hashes>), <M> in flight (<titles>)">, or "—">
 
 ### <Next developer> ...
 ```
@@ -176,11 +208,13 @@ concentrated, how the individual threads fit together.>
 - **Deployments / releases:** render `pass` plainly, but mark `bypassed` (accepted-risk merge, production unverified) and `fail` distinctly — never collapse them into "confirmed". When `deployments_fallback` is set, render it as the italic fallback line instead of (or below) the list, so the developer sees that `/ship` can capture the missing confirmation. Omit the whole subsection only when the developer made no deployments this week and has no fallback.
 - If a collector failed, render its section as `_Could not summarize — <N> commits, see git log._` and continue.
 - Footnote any skipped bot authors: `_Skipped automated authors: github-actions[bot] (2 commits)._`
+- **Missions:** progress is the derived `checked/total` — the **only** number; never add in-flight tickets into it. Render merged activity (`window_events`) and unmerged `in_flight` as separate lists, and mark in-flight explicitly as *not yet counted*, so unmerged work is never mistaken for landed progress. A commit link on a merged event is drawn only from a missioned ticket's `commit_hash`; do not assert a raw commit belongs to a mission otherwise (`implementation` / `objective-documentation`). Show an active mission even when it had no window activity (its standing progress is still informative); render `achieved`/`abandoned` missions compactly or omit them. Omit the whole `## Missions` section only when there are no active missions.
+- The per-developer **Missions:** line is that developer's slice (their merged + in-flight tickets for each mission); render `—` when they advanced none. It complements, and must agree with, the top-level `## Missions` section.
 - Keep the report skimmable — the developer reads it, then asks questions. Do not pad.
 
 ## Writing Guidelines
 
 - Describe actual activity, not aspiration — every characterization must be checkable against a commit, ticket, or story (`implementation` / `objective-documentation`).
 - Third person, past tense for completed work.
-- The **Overall Direction** is the only place you synthesize across developers; the per-developer sections stay faithful to each collector's returned facts.
+- **Overall Direction** and **Missions** are the two places you synthesize across developers (both are main-agent work — collectors never see the whole picture); the per-developer sections stay faithful to each collector's returned facts, including its `missions` attribution.
 - Prefer naming the concrete artifact (file, hash, ticket) over a vague summary, so a follow-up question has somewhere to land.

@@ -33,7 +33,7 @@ Output: `outputs/workflows/` — a committed, self-contained plugin (`.codex-plu
 | Location | From | To |
 | -------- | ---- | -- |
 | `SKILL.md` | `${CLAUDE_PLUGIN_ROOT}/skills/<x>/scripts/` | `<x>/scripts/` |
-| scripts | `${SCRIPT_DIR}/(../)+core/skills/<x>/scripts/` | `${SCRIPT_DIR}/../../<x>/scripts/` |
+| scripts | `${SCRIPT_DIR}/../../<x>/scripts/` | unchanged |
 
 Each closure skill's whole `scripts/` dir is copied intact, so same-directory
 sibling calls (e.g. `${SCRIPT_DIR}/update.sh`) keep working. The build fails

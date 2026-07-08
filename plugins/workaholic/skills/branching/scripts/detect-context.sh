@@ -8,7 +8,7 @@ set -eu
 branch=$(git branch --show-current 2>/dev/null || echo "")
 root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-USER_SLUG=$(sh "${SCRIPT_DIR}/../../../../workaholic/skills/gather/scripts/user-slug.sh" 2>/dev/null || echo "")
+USER_SLUG=$(sh "${SCRIPT_DIR}/../../gather/scripts/user-slug.sh" 2>/dev/null || echo "")
 
 if [ -z "$branch" ]; then
   echo '{"context": "unknown", "branch": ""}'

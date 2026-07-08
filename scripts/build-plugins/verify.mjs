@@ -78,10 +78,9 @@ for (const [target, skillRoot] of skillRoots) {
 // 4. Source cross-skill script references use the build-detectable form. A SKILL.md
 // or *.sh in the source tree that points at ANOTHER skill's scripts/ must use the
 // exact form build.mjs's regex detects (SKILL.md -> ${CLAUDE_PLUGIN_ROOT}/skills/...,
-// *.sh -> ${SCRIPT_DIR}/(../)+workaholic/skills/...). A shorter relative form resolves
-// for Claude in source but is invisible to the build, so its closure is never copied
-// and the generated bundle ships broken to Codex / the skills CLI. Catch it here,
-// pre-merge, instead of at a non-Claude agent's runtime.
+// *.sh -> ${SCRIPT_DIR}/../../<x>/scripts/). Other relative forms can resolve
+// in one plugin layout but fail in another, or be invisible to the build so their
+// closure is never copied. Catch that here, pre-merge, instead of at runtime.
 const lineAt = (text, idx) => text.slice(0, idx).split("\n").length;
 const prefixOk = (text, idx, prefixRe) => prefixRe.test(text.slice(Math.max(0, idx - 64), idx));
 const lintSourceRefs = (p) => {
@@ -92,13 +91,13 @@ const lintSourceRefs = (p) => {
     const isShell = fp.endsWith(".sh");
     if (!isSkillMd && !isShell) continue;
     const text = read(fp);
-    const prefixRe = isSkillMd ? SKILL_MD_PREFIX : SCRIPT_PREFIX;
     const expected = isSkillMd
       ? "${CLAUDE_PLUGIN_ROOT}/skills/<x>/scripts/"
-      : "${SCRIPT_DIR}/(../)+workaholic/skills/<x>/scripts/";
+      : "${SCRIPT_DIR}/../../<x>/scripts/";
     for (const m of text.matchAll(ANY_SKILL_SCRIPT)) {
       const rel = fp.slice(REPO_ROOT.length + 1);
-      check(`cross-skill ref ${rel}:${lineAt(text, m.index)}`, prefixOk(text, m.index, prefixRe),
+      const ok = isSkillMd ? prefixOk(text, m.index, SKILL_MD_PREFIX) : SCRIPT_PREFIX.test(m[0]);
+      check(`cross-skill ref ${rel}:${lineAt(text, m.index)}`, ok,
         `"${m[0]}" is not in the build-detectable form (expected ${expected}) — build.mjs would miss this closure`);
     }
   }

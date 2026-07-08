@@ -84,7 +84,7 @@ while IFS="$tab" read -r path verdict rpr rcommit; do
     # (unstuck)" line on that mission's changelog (idempotent; the mutator
     # git-stages the mission file). Best-effort — never blocks verdict application.
     if [ -n "$concern_mission" ]; then
-      sh "${SCRIPT_DIR}/../../mission/scripts/append-changelog.sh" \
+      sh "${SCRIPT_DIR}/../../mission/scripts//append-changelog.sh" \
         "$concern_mission" "concern resolved (unstuck)" "$concern_base" >/dev/null 2>&1 || true
     fi
 

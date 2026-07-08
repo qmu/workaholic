@@ -28,7 +28,7 @@ if [ -e "$MISSION_FILE" ]; then
 fi
 
 # created_at / author from the single canonical gather script (one line per field).
-META=$(sh "${SCRIPT_DIR}/../../gather/scripts/ticket-metadata.sh")
+META=$(sh "${SCRIPT_DIR}/../../gather/scripts//ticket-metadata.sh")
 CREATED_AT=$(printf '%s\n' "$META" | grep '"created_at"' | sed -e 's/.*: *"//' -e 's/".*//')
 AUTHOR=$(printf '%s\n' "$META" | grep '"author"' | sed -e 's/.*: *"//' -e 's/".*//')
 
@@ -70,7 +70,7 @@ EOF
 
 # Refresh the OKF bundle indexes so the create commit ships a fresh hierarchy
 # (best-effort: an index problem must not block mission creation).
-sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
+sh "${SCRIPT_DIR}/../../okf/scripts//refresh-index.sh" >/dev/null 2>&1 || true
 
 git add "$MISSION_FILE" 2>/dev/null || true
 

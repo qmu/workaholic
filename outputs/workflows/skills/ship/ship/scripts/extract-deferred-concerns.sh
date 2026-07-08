@@ -191,7 +191,7 @@ if [ -n "$story_mission" ]; then
   echo "$written" | python3 -c "import json,sys
 for p in json.load(sys.stdin): print(p)" | while IFS= read -r cfile; do
     [ -n "$cfile" ] || continue
-    sh "${SCRIPT_DIR}/../../mission/scripts/append-changelog.sh" \
+    sh "${SCRIPT_DIR}/../../mission/scripts//append-changelog.sh" \
       "$story_mission" "concern deferred (stuck)" "$(basename "$cfile")" >/dev/null 2>&1 || true
   done
 fi
@@ -199,7 +199,7 @@ fi
 if [ -z "${NO_COMMIT:-}" ]; then
   # Refresh the .workaholic OKF bundle indexes (stages them) so the new concern
   # files appear in the committed hierarchy (best-effort: never blocks the commit).
-  sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
+  sh "${SCRIPT_DIR}/../../okf/scripts//refresh-index.sh" >/dev/null 2>&1 || true
   git add .workaholic/concerns/ .workaholic/missions/ >/dev/null 2>&1 || git add .workaholic/concerns/ >/dev/null
   git commit -m "Add deferred concerns from PR #${pr_number}" >/dev/null
   # This step runs post-merge, so the commit lands on local `main` (merge-pr.sh

@@ -196,7 +196,7 @@ If a skill you expect is not in context, ask the user which plugins are loaded �
 | `/report`                        | Context-aware: generate story or journey report and create PR |
 | `/ship`                          | Context-aware: merge PR, deploy, and verify      |
 | `/mission ["<title>"]`           | Create a mission (a durable, information-rich goal spanning many tickets) or list existing missions with computed progress |
-| `/catch [window]`                | Read-only by-developer catch-up report over a recent window (commits, tickets, stories), then follow-up Q&A |
+| `/catch [window]`                | Read-only by-developer catch-up report over a recent window (commits, tickets, stories) plus a Missions view (each active mission's derived progress, merged activity, and unmerged in-flight work), then follow-up Q&A |
 | `/carry`                         | Hand off in-progress work to a fresh session (capture-only): write a resumption ticket / trip checkpoint a later `/drive` continues, instead of relying on compaction |
 | `/explain <question> [dir]`      | Answer a repo question and export a printer-ready PDF report (HTML printed by a real browser); exports to `dir`, else Desktop→Home (Home write asks permission) |
 | `/workaholify`                   | Wire the current repo to the standards: refer to the `workaholify` gateway skill (reaches the `policies/`), audit `CLAUDE.md` against the documentation standard, and confirm the working-directory advisory hook is active — rules stay in the skill, not copied into `CLAUDE.md` |

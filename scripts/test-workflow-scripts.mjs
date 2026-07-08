@@ -13,7 +13,7 @@
 // state, and cleans up. No network, no real remotes, no GitHub token, no
 // mutation of the developer's working tree. Run with `node scripts/test-workflow-scripts.mjs`.
 
-import { mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync, existsSync } from "node:fs";
+import { cpSync, mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync, existsSync, statSync, chmodSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join, resolve, dirname } from "node:path";
 import { tmpdir } from "node:os";
@@ -118,6 +118,16 @@ function makeRepo(initialBranch = "main") {
 }
 
 function cleanup(dir) { rmSync(dir, { recursive: true, force: true }); }
+
+function makeInstalledSkillsTree(skillNames) {
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-installed-skills-"));
+  const skillsDir = join(dir, "skills");
+  mkdirSync(skillsDir, { recursive: true });
+  for (const skill of skillNames) {
+    cpSync(join(REPO_ROOT, "plugins/workaholic/skills", skill), join(skillsDir, skill), { recursive: true });
+  }
+  return { dir, skillsDir };
+}
 
 // ---------- 1. branching/check.sh ----------
 function testBranchCheck() {
@@ -394,6 +404,45 @@ function testListTodo() {
       `.workaholic/tickets/todo/${TEST_SLUG}/20260528120001-b.md`,
     ]);
   } finally { cleanup(dir); }
+}
+
+// ---------- 9. installed plugin helper resolution ----------
+function testInstalledPluginHelperResolution() {
+  const dir = makeRepo("main");
+  const installed = makeInstalledSkillsTree(["create-ticket", "drive", "gather"]);
+  try {
+    const todoRoot = join(dir, ".workaholic/tickets/todo");
+    mkdirSync(join(todoRoot, TEST_SLUG), { recursive: true });
+    writeFileSync(join(todoRoot, TEST_SLUG, "20260707104117-installed.md"), "---\n---\n");
+
+    const installedListTodo = join(installed.skillsDir, "drive/scripts/list-todo.sh");
+    const list = run(dir, `${POSIX_SH} ${installedListTodo}`);
+    assertEq("installed list-todo exits 0", list.status, 0);
+    assertEq("installed list-todo resolves gather/user-slug.sh", list.stdout.trim(),
+      `.workaholic/tickets/todo/${TEST_SLUG}/20260707104117-installed.md`);
+
+    writeFileSync(join(todoRoot, "20260707104118-stray.md"),
+      "---\nauthor: a@qmu.jp\ntype: bugfix\nlayer: [Config]\n---\n\n# Stray\n");
+    const installedSweepTodo = join(installed.skillsDir, "create-ticket/scripts/sweep-todo.sh");
+    const sweep = run(dir, `${POSIX_SH} ${installedSweepTodo}`);
+    assertEq("installed sweep-todo exits 0", sweep.status, 0);
+    assertEq("installed sweep-todo moved one stray", JSON.parse(sweep.stdout).moved, 1);
+    assertTrue("installed sweep-todo routed by author",
+      existsSync(join(todoRoot, "a-qmu-jp/20260707104118-stray.md")));
+
+    const icebox = join(dir, ".workaholic/tickets/icebox/20260707104119-icebox.md");
+    mkdirSync(dirname(icebox), { recursive: true });
+    writeFileSync(icebox, "---\n---\n\n# Icebox\n");
+    execSync(`git add -A && git commit -q -m "park installed fixture"`, { cwd: dir });
+    const installedPromoteIcebox = join(installed.skillsDir, "drive/scripts/promote-icebox.sh");
+    const promote = run(dir, `${POSIX_SH} ${installedPromoteIcebox} .workaholic/tickets/icebox/20260707104119-icebox.md`);
+    assertEq("installed promote-icebox exits 0", promote.status, 0);
+    assertTrue("installed promote-icebox routes to current user's todo",
+      existsSync(join(todoRoot, `${TEST_SLUG}/20260707104119-icebox.md`)));
+  } finally {
+    cleanup(dir);
+    cleanup(installed.dir);
+  }
 }
 
 // ---------- mission/create.sh + progress.sh + list.sh ----------
@@ -1652,6 +1701,138 @@ function testScanWindowRemote() {
   } finally { cleanup(remote); cleanup(pusher); cleanup(cloneParent); }
 }
 
+// ---------- catch/scan-window.sh (mission join) ----------
+// /catch surfaces missions: the scanner emits a missions[] block (active missions
+// + derived progress + this-window changelog events + unmerged in-flight tickets)
+// and carries mission/commit_hash on each ticket. This exercises the full join:
+// a real missioned ticket is archived in-window (via archive.sh, which stamps
+// commit_hash + rolls the changelog), a second missioned ticket stays in todo
+// (unmerged), and the scan must report merged progress distinctly from in-flight.
+function testScanWindowMissions() {
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  scan-window mission join (jq not available)"); return; }
+  const dir = makeRepo("main");
+  try {
+    execSync(`git checkout -q -b work-20260709-020000`, { cwd: dir });
+    const slug = "rt-notify";
+    const mdir = join(dir, `.workaholic/missions/${slug}`);
+    mkdirSync(mdir, { recursive: true });
+    const archName = "20260709020000-merged.md";
+    const flightName = "20260709020001-inflight.md";
+    // Acceptance names both tickets so the archived one ticks and the todo one stays.
+    writeFileSync(join(mdir, "mission.md"), `---
+type: Mission
+title: RT Notify
+slug: ${slug}
+status: active
+created_at: 2026-07-09T00:00:00+09:00
+author: test@example.com
+tickets: []
+stories: []
+concerns: []
+---
+
+# RT Notify
+
+## Acceptance
+
+- [ ] Merged work (#${archName})
+- [ ] In-flight work (#${flightName})
+
+## Changelog
+`);
+    const todoDir = join(dir, `.workaholic/tickets/todo/${TEST_SLUG}`);
+    mkdirSync(todoDir, { recursive: true });
+    // The to-be-archived ticket (carries the mission; archive.sh stamps commit_hash).
+    writeFileSync(join(todoDir, archName), `---
+created_at: 2026-07-09T02:00:00+09:00
+author: test@example.com
+type: enhancement
+layer: [Domain]
+effort: 0.5h
+commit_hash:
+category:
+depends_on:
+mission: ${slug}
+---
+
+# Merged work
+
+## Final Report
+
+Development completed as planned.
+`);
+    // The in-flight ticket stays in todo (unmerged: no commit_hash).
+    writeFileSync(join(todoDir, flightName), `---
+created_at: 2026-07-09T02:01:00+09:00
+author: test@example.com
+type: enhancement
+layer: [Domain]
+effort:
+commit_hash:
+category:
+depends_on:
+mission: ${slug}
+---
+
+# In-flight work
+`);
+    // An un-missioned todo ticket must never appear under any mission's in_flight.
+    writeFileSync(join(todoDir, "20260709020002-loose.md"),
+      "---\nauthor: test@example.com\nmission:\n---\n\n# Loose\n");
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+
+    // Archive the missioned ticket at real "now" so it falls inside "2 weeks ago"
+    // and its changelog line is dated today (>= the git-resolved window start).
+    const r = run(dir, `${POSIX_SH} ${SCRIPTS.archive} .workaholic/tickets/todo/${TEST_SLUG}/${archName} "Add merged work" https://x/repo "why" "changes" "None" "None" "verify"`);
+    assertEq("scan-window mission: archive.sh exits 0", r.status, 0);
+
+    const cleanBefore = execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim();
+    const j = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanWindow} "2 weeks ago"`).stdout);
+
+    // (a) the mission surfaces with derived progress reflecting only the merged item.
+    assertEq("scan-window emits one mission", (j.missions || []).length, 1);
+    const m = j.missions[0];
+    assertEq("scan-window mission slug/progress",
+      { slug: m.slug, checked: m.checked, total: m.total, status: m.status },
+      { slug, checked: 1, total: 2, status: "active" });
+
+    // (b) a matching 'ticket archived' window event exists for the merged ticket.
+    assertTrue("scan-window mission window_events has the archived event",
+      (m.window_events || []).some((e) => e.event === "ticket archived" && e.artifact === archName),
+      JSON.stringify(m.window_events));
+
+    // (c) the todo ticket is in_flight (unmerged); the archived one is NOT.
+    const flightPaths = (m.in_flight || []).map((t) => t.path);
+    assertTrue("scan-window in_flight carries the unmerged todo ticket",
+      flightPaths.some((p) => p.endsWith(flightName)), JSON.stringify(flightPaths));
+    assertTrue("scan-window in_flight excludes the archived ticket",
+      !flightPaths.some((p) => p.endsWith(archName)), JSON.stringify(flightPaths));
+    assertTrue("scan-window in_flight excludes an un-missioned ticket",
+      !flightPaths.some((p) => p.endsWith("20260709020002-loose.md")), JSON.stringify(flightPaths));
+
+    // (d) tickets[] carries mission + commit_hash; archived has a hash, todo is empty.
+    const tByName = (name) => (j.tickets || []).find((t) => t.path.endsWith(name));
+    assertEq("scan-window tags archived ticket mission", tByName(archName)?.mission, slug);
+    assertTrue("scan-window stamps archived ticket commit_hash",
+      /^[0-9a-f]{7,}$/.test(tByName(archName)?.commit_hash || ""), tByName(archName)?.commit_hash);
+    assertEq("scan-window tags todo ticket mission", tByName(flightName)?.mission, slug);
+    assertEq("scan-window todo ticket has empty commit_hash", tByName(flightName)?.commit_hash, "");
+
+    // (e) the scan mutated nothing (read-only contract): worktree unchanged.
+    assertEq("scan-window mission join is read-only (no worktree change)",
+      execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim(), cleanBefore);
+  } finally { cleanup(dir); }
+
+  // No missions present -> missions is [] and the rest of the scan is unaffected.
+  const bare = makeRepo("main");
+  try {
+    const j = JSON.parse(run(bare, `${POSIX_SH} ${SCRIPTS.scanWindow} "2 weeks ago"`).stdout);
+    assertEq("scan-window missions is [] when no missions exist", j.missions, []);
+  } finally { cleanup(bare); }
+}
+
 // ---------- hooks/posix-lint.sh (POSIX-sh conformance gate) ----------
 // The standing guard that keeps rules/shell.md from regressing. (1) the real
 // plugin tree must be conforming — the regression lock that only passes once
@@ -1683,6 +1864,61 @@ function testPosixLint() {
     assertTrue("posix-lint: does not flag the good POSIX script",
       j && !j.findings.some((f) => f.path.endsWith("good.sh")),
       `findings=${JSON.stringify(j && j.findings)}`);
+  } finally { cleanup(dir); }
+}
+
+// ---------- hooks/hooks.json executable-bit gate ----------
+// hooks.json invokes each hook by its bare path, so Claude Code executes the file
+// directly and it MUST carry the execute bit. A hook committed as 100644 fails at
+// runtime with "Permission denied" — silently, since these are non-blocking hooks.
+// (1) every script hooks.json references by path must be executable on the real
+// tree (the regression lock); (2) a self-check proves the mode predicate flags a
+// non-executable fixture, so the lock is trusted.
+const isExecutable = (path) => (statSync(path).mode & 0o111) !== 0;
+
+// Collect every hooks[].hooks[].command path from a parsed hooks.json, with
+// ${CLAUDE_PLUGIN_ROOT} resolved to `root`. Resilient to a missing event key.
+function collectHookCommands(hooksJson, root) {
+  const paths = [];
+  const events = hooksJson.hooks || {};
+  for (const eventKey of Object.keys(events)) {
+    for (const matcher of events[eventKey] || []) {
+      for (const hook of matcher.hooks || []) {
+        if (typeof hook.command !== "string") continue;
+        paths.push(hook.command.replace("${CLAUDE_PLUGIN_ROOT}", root));
+      }
+    }
+  }
+  return paths;
+}
+
+function testHooksExecutable() {
+  const PLUGIN_ROOT = join(REPO_ROOT, "plugins/workaholic");
+  const hooksJson = JSON.parse(readFileSync(join(PLUGIN_ROOT, "hooks/hooks.json"), "utf8"));
+  const commands = collectHookCommands(hooksJson, PLUGIN_ROOT);
+
+  // 1. Every referenced hook must exist and be executable (the regression lock).
+  assertTrue("hooks-exec: hooks.json references at least one command",
+    commands.length > 0, `got ${commands.length}`);
+  const missing = commands.filter((p) => !existsSync(p));
+  assertTrue("hooks-exec: every referenced hook exists",
+    missing.length === 0, `missing: ${JSON.stringify(missing)}`);
+  const nonExec = commands.filter((p) => existsSync(p) && !isExecutable(p));
+  assertTrue("hooks-exec: every referenced hook is executable",
+    nonExec.length === 0, `non-executable (needs chmod +x): ${JSON.stringify(nonExec)}`);
+
+  // 2. Self-check: the identical predicate must flag a non-executable fixture, so
+  //    a hook reverted to 100644 would turn assertion (1) red.
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-exec-"));
+  try {
+    const fixture = join(dir, "not-executable.sh");
+    writeFileSync(fixture, "#!/bin/sh -eu\necho hi\n");
+    chmodSync(fixture, 0o644);
+    assertTrue("hooks-exec: predicate flags a 644 fixture as non-executable",
+      !isExecutable(fixture), "0644 fixture reported executable");
+    chmodSync(fixture, 0o755);
+    assertTrue("hooks-exec: predicate accepts a 755 fixture as executable",
+      isExecutable(fixture), "0755 fixture reported non-executable");
   } finally { cleanup(dir); }
 }
 
@@ -2095,6 +2331,7 @@ const tests = [
   ["gather/user-slug.sh", testUserSlug],
   ["create-ticket/sweep-todo.sh", testSweepTodo],
   ["drive/list-todo.sh", testListTodo],
+  ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],
   ["drive/archive.sh mission seam", testMissionDriveSeam],
@@ -2118,9 +2355,11 @@ const tests = [
   ["hooks/validate-ticket.sh mission field", testValidateTicketMission],
   ["hooks/guard-ticket-structure.sh", testGuardTicketStructure],
   ["hooks/posix-lint.sh", testPosixLint],
+  ["hooks/hooks.json executable", testHooksExecutable],
   ["report/collect-commits.sh", testCollectCommits],
   ["catch/scan-window.sh", testScanWindow],
   ["catch/scan-window.sh remote fetch+scan", testScanWindowRemote],
+  ["catch/scan-window.sh mission join", testScanWindowMissions],
   ["hooks/guard-git-commit.sh", testGuardGitCommit],
   ["hooks/guard-git-branch.sh", testGuardGitBranch],
   ["hooks/guard-askuserquestion-label.sh", testGuardAskUserQuestionLabel],

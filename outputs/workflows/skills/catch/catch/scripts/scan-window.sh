@@ -18,6 +18,7 @@
 set -eu
 
 WINDOW="${1:-2 weeks ago}"
+SCRIPT_DIR=$(dirname "$0")
 
 # --- Refresh remote-tracking refs (best-effort, non-fatal) ------------------
 # /catch answers "what has everyone pushed", so refresh refs/remotes/* before
@@ -120,13 +121,19 @@ emit_tickets() {
   find $TDIRS -name '*.md' -type f 2>/dev/null | sort | while IFS= read -r f; do
     author=$(sed -n 's/^author:[[:space:]]*//p' "$f" | head -n1)
     title=$(sed -n 's/^#[[:space:]]\{1,\}\(.*\)/\1/p' "$f" | head -n1)
+    # `mission:` and `commit_hash:` are optional ticket frontmatter (empty until
+    # set): mission is the join key to a mission, commit_hash ties an archived
+    # ticket to a commit. Absent fields emit "" and never fail the scan.
+    mission=$(sed -n 's/^mission:[[:space:]]*//p' "$f" | head -n1)
+    commit_hash=$(sed -n 's/^commit_hash:[[:space:]]*//p' "$f" | head -n1)
     case "$f" in
       *.workaholic/tickets/todo/*) scope=todo ;;
       *.workaholic/tickets/archive/*) scope=archive ;;
       *.workaholic/tickets/icebox/*) scope=icebox ;;
       *) scope=unknown ;;
     esac
-    printf '%s\037%s\037%s\037%s\036' "$f" "$author" "$title" "$scope"
+    printf '%s\037%s\037%s\037%s\037%s\037%s\036' \
+      "$f" "$author" "$title" "$scope" "$mission" "$commit_hash"
   done
 }
 
@@ -135,9 +142,80 @@ TICKETS=$(
     split("")
     | map(select((gsub("\\s"; "") | length) > 0))
     | map(split(""))
-    | map({path: .[0], author: .[1], title: .[2], scope: .[3]})'
+    | map({path: .[0], author: .[1], title: .[2], scope: .[3], mission: .[4], commit_hash: .[5]})'
 )
 [ -n "$TICKETS" ] || TICKETS='[]'
+
+# --- Missions: active list + progress + this-window activity -----------------
+# The mission axis for /catch. Reuse the mission skill's OWN readers as the domain
+# interface (list.sh -> {slug,title,status,checked,total}; progress stays derived,
+# never stored), then attach two window-scoped views per mission without writing
+# anything:
+#   - window_events: the mission's append-only ## Changelog lines dated within the
+#     window (MERGED activity: ticket archived / story reported / concern events).
+#   - in_flight: UNMERGED tickets carrying `mission: <slug>` that are not yet
+#     archived (no commit_hash) -- progress toward the mission from work still on a
+#     branch, which the merge-time changelog cannot yet show.
+# Read-only: a /catch scan mutates no mission file (no changelog append, no tick).
+
+# Emit each mission's changelog entries as a slug-tagged record stream so jq can
+# window-filter them by date. A changelog line is `- <YYYY-MM-DD> — <event> —
+# <artifact>` inside the `## Changelog` section; events carry no " — " so a split
+# on " — " yields exactly [date, event, artifact].
+emit_changelog_events() {
+  [ -d ".workaholic/missions" ] || return 0
+  for d in $(find .workaholic/missions -maxdepth 1 -mindepth 1 -type d 2>/dev/null | LC_ALL=C sort); do
+    f="$d/mission.md"
+    [ -f "$f" ] || continue
+    slug=$(basename "$d")
+    awk -v slug="$slug" '
+      /^## / { in_cl = ($0 ~ /^##[ \t]+Changelog[ \t]*$/); next }
+      in_cl && /^[ \t]*-[ \t]+[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][ \t]/ {
+        line = $0
+        sub(/^[ \t]*-[ \t]+/, "", line)
+        n = split(line, p, / — /)
+        gsub(/[ \t]+$/, "", p[1])
+        printf "%s\037%s\037%s\037%s\036", slug, p[1], p[2], p[n]
+      }
+    ' "$f"
+  done
+}
+
+MISSIONS='[]'
+if [ -d ".workaholic/missions" ]; then
+  # Window start as a YYYY-MM-DD string, resolved by git's own date engine (the
+  # same --since the scan uses) so "this window" is defined consistently and we
+  # avoid non-POSIX `date -d` arithmetic. Empty when no commit falls in the window.
+  WINDOW_START_DATE=$(git log --since="$WINDOW" --branches --remotes \
+    --format=%cd --date=format:'%Y-%m-%d' --reverse 2>/dev/null | head -n1 || true)
+
+  MLIST=$(sh "${SCRIPT_DIR}/../../mission/scripts//list.sh" 2>/dev/null || echo '[]')
+  [ -n "$MLIST" ] || MLIST='[]'
+
+  MISSIONS=$(
+    emit_changelog_events | jq -Rs \
+      --argjson list "$MLIST" \
+      --argjson tickets "$TICKETS" \
+      --arg cutoff "$WINDOW_START_DATE" '
+      ( split("")
+        | map(select((gsub("\\s"; "") | length) > 0))
+        | map(split("") | {slug: .[0], date: .[1], event: .[2], artifact: .[3]})
+      ) as $events
+      | $list
+      | map(
+          .slug as $s
+          | . + {
+              window_events: ( $events
+                | map(select(.slug == $s and ($cutoff == "" or .date >= $cutoff)))
+                | map({date, event, artifact}) ),
+              in_flight: ( $tickets
+                | map(select(.mission == $s and .scope != "archive"))
+                | map({path, title, author, scope}) )
+            }
+        )'
+  )
+  [ -n "$MISSIONS" ] || MISSIONS='[]'
+fi
 
 # --- Branch stories ---------------------------------------------------------
 STORIES='[]'
@@ -209,6 +287,7 @@ cat <<EOF
   "developers": ${DEVELOPERS},
   "tickets": ${TICKETS},
   "stories": ${STORIES},
-  "deployments": ${DEPLOYMENTS}
+  "deployments": ${DEPLOYMENTS},
+  "missions": ${MISSIONS}
 }
 EOF

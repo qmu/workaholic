@@ -3,9 +3,9 @@ created_at: 2026-07-09T02:32:56+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX]
-effort:
-commit_hash:
-category:
+effort: 0.5h
+commit_hash: 705f7a8
+category: Changed
 depends_on: [20260709023255-catch-scan-mission-join.md]
 mission:
 ---
@@ -118,3 +118,14 @@ Past tickets that touched similar areas:
 - **One-level fan-out.** The cross-developer Missions synthesis belongs in the main-agent Phase 2, not inside a collector leaf; collectors only return their own developer's `missions` field. (`plugins/workaholic/skills/catch/SKILL.md` Phase 1/2)
 - **Only the view combines, not creation.** `/mission` still creates missions (a write); `/catch` mirrors only the list/progress *view*. Do not imply `/catch` can create or mutate a mission. (`plugins/workaholic/commands/mission.md`)
 - Depends on `20260709023255-catch-scan-mission-join.md` — the `missions[]` contract and enriched `tickets[]` must exist first.
+
+## Final Report
+
+Development completed as planned. The catch skill now renders a top-level `## Missions` section (main-agent synthesis from the scanner's `missions[]`) and a per-developer `**Missions:**` line (from a new collector `missions` field), with rules that keep derived `checked/total` progress strictly separate from unmerged in-flight work. Docs updated across `commands/catch.md`, `README`/`.workaholic/README`, and `CLAUDE.md`; the mission-side `/catch` read-only-consumer cross-reference already landed with the dependency ticket.
+
+Verified by a live end-to-end run: a realistic throwaway repo (a mission, one missioned ticket archived via `archive.sh`, two in-flight `todo` tickets) fed the real `scan-window.sh`, and the rendered report showed the mission at 1/3 merged, the `ticket archived` event with an author + commit link, both in-flight todos marked "not yet counted", and a matching per-developer Missions line. No-mission repos omit the section (smoke-test asserted). `build.mjs`/`verify.mjs`/`validate-metadata.mjs` green; full suite 374 passed / 0 failed.
+
+### Discovered Insights
+
+- **Insight**: The two cross-developer syntheses in the report — `## Overall Direction` and the new `## Missions` — both live in the main agent, never in a collector; a collector only returns its own developer's `missions` slice.
+  **Context**: The one-level-fan-out rule means a `general-purpose` collector leaf sees only one developer's inputs, so any "across all missions/developers" view must be assembled by the command/main agent after the collectors return. Putting the top-level Missions synthesis in a collector would have given each leaf a partial, per-developer picture.

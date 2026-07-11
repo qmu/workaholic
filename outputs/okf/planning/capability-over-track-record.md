@@ -28,7 +28,7 @@ When the selection of what to build starts being driven by "will this become a t
 
 ### Demonstrate capability through present work, not past achievements
 
-In proposals, we do not lead with a list of past achievements; instead we answer the problem at hand with a working PoC or prototype, and concrete design reasoning explaining why that structure was chosen. For services built together with clients and toward their users, likewise, rather than foregrounding the volume of adoption track records and case studies, we aim to have the value read from how the service itself answers the need in use. See also [Proactive PoC Proposals](/planning/proactive-poc.md) and [UX Research through Prototypes](/planning/ux-research-prototype.md).
+In proposals, we do not lead with a list of past achievements; instead we answer the problem at hand with a working PoC or prototype, and concrete design reasoning explaining why that structure was chosen. For services built together with clients and toward their users, likewise, rather than foregrounding the volume of adoption track records and case studies, we aim to have the value read from how the service itself answers the need in use. See also Proactive PoC Proposals and UX Research through Prototypes.
 
 ### Show thinking through written policy, not a list of achievements
 
@@ -48,4 +48,4 @@ When uncertain which way to lean, we choose the concreteness of the proposal or 
 
 ### Related: Upfront IT Investment Evaluation, Proactive PoC Proposals, Conservative Vendor Dependence
 
-See also [Upfront IT Investment Evaluation](/planning/it-investment-evaluation.md), [Proactive PoC Proposals](/planning/proactive-poc.md), and [Conservative Vendor Dependence](/design/vendor-neutrality.md).
+See also [Upfront IT Investment Evaluation](/planning/it-investment-evaluation.md), Proactive PoC Proposals, and [Conservative Vendor Dependence](/design/vendor-neutrality.md).

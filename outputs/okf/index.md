@@ -18,9 +18,8 @@ An [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-cata
 * [Legal Compliance Verification](planning/legal-compliance-check.md) - Enumerating applicable laws and regulatory requirements before design begins, so legal constraints are a shared premise rather than a late discovery.
 * [Industry Research and Market Survey](planning/market-research.md) - Studying the client's industry, market structure, and actual business operations before starting a project, to ground design and implementation in verified understanding rather than assumed requirements.
 * [Requirements Analysis through Modeling](planning/modeling-centric-design.md) - Analyzing requirements by abstracting reality into models that capture stakeholders, events, data, demands, pain points, and solutions, placing this shared model as the foundation for all subsequent design and implementation.
-* [Proactive PoC Proposals](planning/proactive-poc.md) - Actively proposing proof-of-concept work for high-uncertainty areas before full development begins, reducing investment risk by validating early with small, disposable builds.
 * [Codifying Domain Terminology](planning/terminology.md) - Collecting established project terms into a dictionary with one word per concept, used consistently across code, documents, commits, diagrams, and conversation to keep the codebase self-explanatory for humans and AI agents alike.
-* [UX Research through Prototypes](planning/ux-research-prototype.md) - Verifying requirements through working prototypes that clients and users can try, surfacing misalignments between stated requests and actual experience before design solidifies.
+* [Verify Before Building](planning/verify-before-building.md) - Reducing uncertainty around investment, requirements, experience, and technical feasibility before full development by verifying small with the real thing — through PoC, working prototypes, and in-repository labs.
 
 ## Design (設計)
 

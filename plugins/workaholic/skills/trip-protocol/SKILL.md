@@ -385,6 +385,8 @@ Trips run in isolated git worktrees, so shipping a trip adds worktree lifecycle 
 
 ### Worktree gitignored-file handling
 
+The create side is symmetric: `ensure-worktree.sh` copies the root git-ignored `.env` (the single credential source) into a new worktree, and a pre-existing worktree may need a manual `cp <repo-root>/.env .env` (see the Credentials section of `workaholic:branching`). Cleanup preserves it back:
+
 Before cleaning up a worktree, preserve any gitignored files (e.g. `.env`, local config) that exist only in or differ in the worktree:
 
 ```bash

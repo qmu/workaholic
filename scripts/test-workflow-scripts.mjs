@@ -40,6 +40,7 @@ const SCRIPTS = {
   missionSummary: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/summary.sh"),
   missionCreate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"),
   missionSlug: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/slug.sh"),
+  missionGate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/gate.sh"),
   commit: join(REPO_ROOT, "plugins/workaholic/skills/commit/scripts/commit.sh"),
   missionProgress: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/progress.sh"),
   missionList: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list.sh"),
@@ -874,6 +875,49 @@ function testMissionWorktreePorts() {
     assertEq("freed base is reused after the worktree is removed", afterRemove.port_base, a.port_base);
 
     run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} mission-b`);
+  } finally { cleanup(dir); }
+}
+
+// ---------- 8j. per-mission quality gate (declaration round-trip + port) ----------
+function testMissionQualityGate() {
+  const dir = makeRepo("main");
+  try {
+    writeFileSync(join(dir, ".gitignore"), ".env\n");
+    execSync(`git add .gitignore && git commit -q -m gitignore`, { cwd: dir });
+
+    // create.sh scaffolds the empty gate fields.
+    JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionCreate} "Docs Site"`).stdout);
+    const mfile = join(dir, ".workaholic/missions/active/docs-site/mission.md");
+    assertTrue("scaffold includes empty gate_type", readFileSync(mfile, "utf8").includes("gate_type:"));
+
+    // gate.sh on the empty gate: no type, valid, no ports (no worktree yet).
+    let g = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionGate} docs-site`).stdout);
+    assertEq("empty gate valid with no type/ports",
+      { type: g.type, valid: g.valid, dev: g.dev_port }, { type: "", valid: true, dev: "" });
+
+    // Fill a live-app gate and re-read: fields round-trip, valid true.
+    writeFileSync(mfile, readFileSync(mfile, "utf8")
+      .replace(/^gate_type:.*$/m, "gate_type: live-app")
+      .replace(/^gate_target:.*$/m, "gate_target: /feature/notifications")
+      .replace(/^gate_assert:.*$/m, "gate_assert: the bell shows an unread badge"));
+    g = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionGate} docs-site`).stdout);
+    assertEq("gate declaration round-trips",
+      { type: g.type, target: g.target, assert: g.assert, valid: g.valid },
+      { type: "live-app", target: "/feature/notifications", assert: "the bell shows an unread badge", valid: true });
+
+    // An invalid type is flagged valid:false.
+    writeFileSync(mfile, readFileSync(mfile, "utf8").replace(/^gate_type:.*$/m, "gate_type: bogus"));
+    assertEq("invalid gate_type flagged",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionGate} docs-site`).stdout).valid, false);
+
+    // With a worktree, the gate resolves against the worktree's assigned dev port.
+    writeFileSync(mfile, readFileSync(mfile, "utf8").replace(/^gate_type:.*$/m, "gate_type: live-app"));
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+    const wt = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} docs-site`).stdout);
+    g = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionGate} docs-site`).stdout);
+    assertEq("gate resolves the worktree's dev port", g.dev_port, String(wt.dev_port));
+
+    run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} docs-site`);
   } finally { cleanup(dir); }
 }
 
@@ -3079,6 +3123,7 @@ const tests = [
   ["mission worktree ship reset", testMissionWorktreeShipReset],
   ["mission close removes worktree", testMissionCloseRemovesWorktree],
   ["mission worktree port assignment", testMissionWorktreePorts],
+  ["mission quality gate", testMissionQualityGate],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],

@@ -5,6 +5,8 @@ skills:
   - workaholic:mission
   - workaholic:gather
   - workaholic:branching
+  - workaholic:create-ticket
+  - workaholic:commit
 ---
 
 # Mission
@@ -29,33 +31,41 @@ The script lists only missions whose `assignee` matches your `git config user.em
 
 ## With a title — create a mission
 
-When `$ARGUMENT` is a non-empty title, create a new mission.
+When `$ARGUMENT` is a non-empty title, create a new mission **in its own dedicated worktree**, and leave it drive-ready. A mission runs in a persistent `.worktrees/<mission-slug>/` worktree so several missions develop in parallel without stepping on each other; the mission worktree outlives the branches driven inside it (it is removed only at `/mission close`). This worktree flow is the create path **only** — the list and `close` modes below never touch worktrees.
 
-**First, start a topic branch when on main** — exactly as `/ticket` does before writing a ticket, so a mission is never created on `main`. Run the branch check:
-
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check.sh
-```
-
-If `on_main` is `true`, create a topic branch **only** via the sanctioned creator (never name a branch yourself), and note the returned branch name:
+**1. Derive the mission slug** (the descriptive worktree directory name):
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/slug.sh "$ARGUMENT"
 ```
 
-If `on_main` is `false`, you are already on a work branch — skip branch creation and create the mission on the current branch. This branch step applies to the create path **only**; the list and `close` modes below never branch.
+If the slug is empty, ask the user for a title with letters/digits and stop.
 
-Then create the mission:
+**2. Create the dedicated worktree** — `.worktrees/<slug>/` on a fresh `work-*` branch off `main`, root `.env` carried in:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/create.sh "$ARGUMENT"
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create-mission-worktree.sh "<slug>"
 ```
 
-The script derives the slug from the title, scaffolds `mission.md` (frontmatter + the four sections `## Goal`, `## Scope`, `## Acceptance`, `## Changelog`), stamps `created_at`/`author`, refreshes the OKF indexes, and git-stages. Report the JSON result:
+Note the returned `worktree_path`. On `"error": "worktree already exists"`, report the existing worktree and stop (do not clobber). This is the sanctioned worktree creator — never hand-roll `git worktree`, and never name the branch yourself.
 
-- `created: true` — tell the user the mission slug and path, and that the next step is to fill in `## Goal`, `## Scope`, and the `## Acceptance` checklist (each item naming the ticket/story that will satisfy it — see the skill's acceptance-checklist convention). Associate future tickets with `mission: <slug>` at `/ticket` time.
-- `created: false` with `reason: "exists"` — a mission with that slug already exists; report its path and do not overwrite.
-- `created: false` with `reason: "no_title"` / `"empty_slug"` — ask the user for a valid title.
+**3. Write the mission statement inside the worktree.** Run the scaffold with the mission worktree as the working directory (use a `( cd <worktree_path> && … )` subshell so the persistent cwd stays at the repo root):
+
+```bash
+( cd <worktree_path> && bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/create.sh "$ARGUMENT" )
+```
+
+`create.sh` scaffolds `mission.md` (frontmatter + `## Goal`/`## Scope`/`## Acceptance`/`## Changelog`), stamps `created_at`/`author`/`assignee`, refreshes the OKF indexes, and git-stages — all inside the worktree. Then work with the developer to fill in `## Goal`, `## Scope`, and the `## Acceptance` checklist (each item naming the ticket/story that will satisfy it). On `reason: "exists"`, report the path and do not overwrite.
+
+**4. Create the ordered kickoff tickets inside the worktree.** With the worktree as the working directory, run the full `workaholic:create-ticket` **Workflow** (three-mode discovery + the mandatory Quality-Gate interrogation) once **per** kickoff ticket the developer wants to start the mission with — writing each to the worktree's `.workaholic/tickets/todo/<user>/`, stamping `mission: <slug>` in its frontmatter, and ordering them with `depends_on` so `/drive` runs them in sequence.
+
+**5. Commit the mission statement and kickoff tickets inside the worktree** via the commit skill (policy-conformant subject, `Co-Authored-By` trailer kept):
+
+```bash
+( cd <worktree_path> && bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh "Kick off mission <slug>" "<why>" "<changes>" "None" "None" "<verify>" )
+```
+
+**6. Report and hand off.** Tell the developer the mission is set up in `<worktree_path>` with its statement and an ordered, ready-to-drive kickoff queue. **Do not instruct them to `cd`** — `/drive` auto-routes into an existing worktree, so they just open that worktree and drive. Summarize the mission slug, the worktree path, and the kickoff tickets.
 
 ## Without a title — list missions
 

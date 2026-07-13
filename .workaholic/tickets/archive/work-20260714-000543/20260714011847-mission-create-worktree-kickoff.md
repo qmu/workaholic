@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure]
 effort: 4h
-commit_hash:
-category: Changed
+commit_hash: 86bdbc3
+category: Added
 depends_on: [20260714011846-mission-worktree-primitive.md]
 mission:
 ---
@@ -89,3 +89,12 @@ Past tickets that touched similar areas:
 - CWD discipline: `create.sh`, the kickoff `/ticket` writes, and `commit.sh` must all run against the **worktree** tree, not the main tree; the `guard-working-directory.sh` advisory prefers a `( cd <worktree> && … )` subshell over moving the persistent cwd (`plugins/workaholic/hooks/guard-working-directory.sh`).
 - Never instruct `cd`; rely on `/drive` worktree auto-routing (standing feedback) (`plugins/workaholic/commands/mission.md`).
 - Keep worktree/kickoff prose out of the built `mission` SKILL.md to preserve portability; only the `slug.sh` extraction touches the built skill (`plugins/workaholic/skills/mission/SKILL.md`).
+
+## Final Report
+
+Development completed as planned. The `/mission` create path now: derives the slug (`slug.sh`), creates `.worktrees/<slug>/` via `create-mission-worktree.sh`, scaffolds `mission.md` inside the worktree, runs the full `/ticket` flow per kickoff ticket (mission-linked, ordered), and commits inside the worktree — reporting the path without a `cd` instruction. The slug rule was extracted to `mission/scripts/slug.sh` (single source) so the worktree dir always equals the mission slug. The hermetic test covers the scriptable spine (slug → worktree → mission.md inside → kickoff ticket → commit → in-worktree list-todo → main tree untouched); 481 passed / 0 failed, build/verify/metadata/posix-lint clean.
+
+### Discovered Insights
+
+- **Insight**: The interactive kickoff (full `/ticket` per ticket) is command-agent orchestration, not scriptable, so the hermetic gate exercises only the scriptable spine and asserts a manually-written kickoff ticket rides the worktree commit. The in-session/interactive decomposition is out of the automated suite by construction.
+  **Context**: `commit.sh` with `git add -u` stages only tracked changes, so the flow must pass an explicit path (e.g. `.workaholic/`) to stage the new untracked kickoff tickets + mission.md into the worktree commit.

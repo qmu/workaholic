@@ -156,15 +156,24 @@ TICKETS=$(
 #   - in_flight: UNMERGED tickets carrying `mission: <slug>` that are not yet
 #     archived (no commit_hash) -- progress toward the mission from work still on a
 #     branch, which the merge-time changelog cannot yet show.
-# Read-only: a /catch scan mutates no mission file (no changelog append, no tick).
+# Read-only: a /catch scan mutates no mission file content (no changelog append,
+# no tick). The one tree change it can trigger is the mission scripts' living
+# layout migration (flat -> active|archive), which the list.sh call below runs.
 
 # Emit each mission's changelog entries as a slug-tagged record stream so jq can
-# window-filter them by date. A changelog line is `- <YYYY-MM-DD> — <event> —
-# <artifact>` inside the `## Changelog` section; events carry no " — " so a split
-# on " — " yields exactly [date, event, artifact].
+# window-filter them by date. Missions are walked across both areas (active/ and
+# archive/) plus any legacy flat dir the migration could not move. A changelog
+# line is `- <YYYY-MM-DD> — <event> — <artifact>` inside the `## Changelog`
+# section; events carry no " — " so a split on " — " yields exactly
+# [date, event, artifact].
 emit_changelog_events() {
   [ -d ".workaholic/missions" ] || return 0
-  for d in $(find .workaholic/missions -maxdepth 1 -mindepth 1 -type d 2>/dev/null | LC_ALL=C sort); do
+  for d in $(
+    {
+      find .workaholic/missions/active .workaholic/missions/archive -maxdepth 1 -mindepth 1 -type d 2>/dev/null
+      find .workaholic/missions -maxdepth 1 -mindepth 1 -type d ! -name active ! -name archive 2>/dev/null
+    } | awk -F/ '{print $NF "\t" $0}' | LC_ALL=C sort | cut -f2-
+  ); do
     f="$d/mission.md"
     [ -f "$f" ] || continue
     slug=$(basename "$d")

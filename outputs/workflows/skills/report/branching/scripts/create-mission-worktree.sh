@@ -50,6 +50,18 @@ fi
 
 mkdir -p "${repo_root}/.worktrees"
 
+# git does NOT auto-ignore a linked worktree directory, so a stray `git add -A`
+# in the main tree would embed .worktrees/<slug> as a gitlink. Ensure .worktrees/
+# is excluded via the shared, untracked .git/info/exclude (applies to every
+# worktree of this repo, needs no commit).
+common_dir="$(git rev-parse --git-common-dir 2>/dev/null || echo "${repo_root}/.git")"
+case "$common_dir" in /*) : ;; *) common_dir="${repo_root}/${common_dir}" ;; esac
+exclude="${common_dir}/info/exclude"
+if [ ! -f "$exclude" ] || ! grep -qE '^\.worktrees/?$' "$exclude"; then
+    mkdir -p "${common_dir}/info"
+    printf '.worktrees/\n' >> "$exclude"
+fi
+
 # Branch from the base (default main) so the worktree starts on a clean, merged
 # base — uncommitted work in the main tree stays in the main tree. Send git's
 # progress chatter ("Preparing worktree", "HEAD is now at ...") to stderr so

@@ -4,7 +4,7 @@ author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure]
 effort: 2h
-commit_hash:
+commit_hash: dfd9b1e
 category: Changed
 depends_on: [20260714011846-mission-worktree-primitive.md]
 mission:
@@ -81,3 +81,13 @@ Past tickets that touched similar areas:
 - Re-branch safety: only re-branch a **clean** worktree; if the merged worktree still has uncommitted work, surface it rather than force-switching (`ship` flow).
 - `/ship` deploy/verify/merge ordering is unchanged — this only alters the post-merge worktree disposition; do not reorder the ship gates (`plugins/workaholic/skills/ship/SKILL.md`).
 - ship is a built, cross-agent skill; keep worktree specifics minimal there and lean on `branching` scripts so portability is preserved (`plugins/workaholic/skills/ship/SKILL.md`).
+
+## Final Report
+
+Development completed as planned. Added `branching/scripts/reset-mission-worktree.sh` (cuts a fresh `work-*` branch off `main` inside the same worktree, refuses dirty) and taught trip-protocol's ship-flow cleanup step to **reset** a mission worktree instead of deleting it (ordinary `work-*` worktrees still get `cleanup-worktree.sh`). Hermetic test proves the mission worktree survives a simulated merge, gets a fresh main-based branch, and an ordinary worktree still cleans up; 487 passed / 0 failed, build/verify/metadata/posix-lint clean.
+
+### Discovered Insights
+
+- **Insight**: `.worktrees/` is **NOT** auto-ignored by git — `git status` shows `?? .worktrees/` and `git add -A` in the main tree **embeds** `.worktrees/<slug>` as a gitlink ("adding embedded git repository"). The earlier "no gitignore needed" assumption was wrong. Fixed by having `create-mission-worktree.sh` add `.worktrees/` to `.git/info/exclude` (repo-local, shared across worktrees, untracked — no commit side-effect).
+  **Context**: Any main-tree `git add -A` (drive `archive.sh`, sweeps) while a worktree exists would otherwise corrupt a commit with a stray gitlink. **The pre-existing `ensure-worktree.sh` (trip/drive worktrees) has the same latent embedding risk and does NOT add the exclude — a follow-up should apply the same `.git/info/exclude` guard there.**
+- **Insight**: `git checkout -b <new> main` works inside a worktree even though `main` is checked out in the primary tree, because the base is used only as a start-point (not checked out). This is what lets the reset renew the branch without a "main already checked out" conflict.

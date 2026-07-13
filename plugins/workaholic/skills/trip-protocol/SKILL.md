@@ -405,8 +405,13 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/sync-gitignored-files.sh
 
 1. **Sync gitignored files** (above) from `.worktrees/<branch>/` to the main repo root.
 2. **Run the ship essence**: follow `workaholic:ship`'s **Ship Flow** for the worktree's branch/PR. The merge is the **LAST** step, gated on a passing pre-merge production confirmation: pre-check → catch up with `main` → deploy (gated on a `.workaholic/deployments/` confirmation method or `CLAUDE.md` `## Verify`; halt-and-ask if none) → execute the confirmation and record evidence → **merge LAST** → publish release / extract deferred concerns. A failed confirmation leaves the PR unmerged (that is the rollback).
-3. **Clean up worktree**: `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-worktree.sh "<branch>"`; report what was cleaned up.
-4. **Summarize**: include gitignored sync status and worktree cleanup status alongside the ship essence's summary.
+3. **Reset or clean up the worktree**:
+   - **Mission worktree** — a `.worktrees/<slug>/` worktree with a descriptive slug directory (`list-all-worktrees.sh` tags it `"type": "mission"`) is **persistent**: it is removed only at `/mission close`, never on a merge. Instead of deleting it, **reset** it for the mission's next batch — cut a fresh `work-*` branch off `main` inside the same worktree:
+     ```bash
+     bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/reset-mission-worktree.sh "<slug>"
+     ```
+   - **Ordinary drive/trip worktree** (a `work-*`-named `.worktrees/<branch>/`) — clean it up as before: `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-worktree.sh "<branch>"`.
+4. **Summarize**: include gitignored sync status and whether the worktree was **reset** (mission) or **cleaned up** (ordinary) alongside the ship essence's summary.
 
 ### Context routing (used by the /ship command)
 

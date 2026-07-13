@@ -26,6 +26,7 @@ const SCRIPTS = {
   createMissionWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/create-mission-worktree.sh"),
   cleanupMissionWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/cleanup-mission-worktree.sh"),
   resetMissionWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/reset-mission-worktree.sh"),
+  allocateWorktreePort: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/allocate-worktree-port.sh"),
   listAllWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/list-all-worktrees.sh"),
   missionLens: join(REPO_ROOT, "plugins/workaholic/hooks/mission-lens.sh"),
   detectContext: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/detect-context.sh"),
@@ -840,6 +841,40 @@ concerns: []
     execSync(`rm -f .worktrees/dirtyclose/wip.txt`, { cwd: dir2 });
     run(dir2, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} dirtyclose`);
   } finally { cleanup(dir2); }
+}
+
+// ---------- 8i. per-mission-worktree port assignment (collision-free) ----------
+function testMissionWorktreePorts() {
+  const dir = makeRepo("main");
+  try {
+    // First worktree gets a base; it is recorded in the worktree's .env.
+    const a = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} mission-a`).stdout);
+    assertTrue("first worktree has a numeric port base >= 4100",
+      typeof a.port_base === "number" && a.port_base >= 4100, JSON.stringify(a));
+    assertEq("derived docs port is base+1", a.docs_port, a.port_base + 1);
+    assertTrue("worktree .env carries WORKAHOLIC_PORT_BASE",
+      readFileSync(join(dir, ".worktrees/mission-a/.env"), "utf8").includes(`WORKAHOLIC_PORT_BASE=${a.port_base}`),
+      readFileSync(join(dir, ".worktrees/mission-a/.env"), "utf8"));
+
+    // Second worktree gets a DISTINCT base (collision-free). Space by 1s so the
+    // work-* branch names differ.
+    execSync(`sleep 1`, { cwd: dir });
+    const b = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} mission-b`).stdout);
+    assertTrue("second worktree gets a distinct port base", b.port_base !== a.port_base, `${a.port_base} vs ${b.port_base}`);
+    assertTrue("distinct dev ports", b.dev_port !== a.dev_port);
+
+    // The allocator itself avoids both already-assigned bases.
+    const alloc = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.allocateWorktreePort}`).stdout);
+    assertTrue("allocator returns a base free of both assigned ones",
+      alloc.port_base !== a.port_base && alloc.port_base !== b.port_base, JSON.stringify(alloc));
+
+    // A removed worktree's base becomes allocatable again (live-worktree based).
+    run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} mission-a`);
+    const afterRemove = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.allocateWorktreePort}`).stdout);
+    assertEq("freed base is reused after the worktree is removed", afterRemove.port_base, a.port_base);
+
+    run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} mission-b`);
+  } finally { cleanup(dir); }
 }
 
 // ---------- 9. installed plugin helper resolution ----------
@@ -3043,6 +3078,7 @@ const tests = [
   ["mission create worktree+kickoff spine", testMissionCreateWorktreeFlow],
   ["mission worktree ship reset", testMissionWorktreeShipReset],
   ["mission close removes worktree", testMissionCloseRemovesWorktree],
+  ["mission worktree port assignment", testMissionWorktreePorts],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],

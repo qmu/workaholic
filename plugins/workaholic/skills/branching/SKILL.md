@@ -192,7 +192,15 @@ Create a mission worktree — cuts a fresh `work-*` branch off the base (default
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create-mission-worktree.sh <slug> [base-branch]
 ```
 
-Output: `{"worktree_path": "<path>", "branch": "work-YYYYMMDD-HHMMSS", "slug": "<slug>"}`. Errors on a missing/invalid slug, a non-git dir, or an existing worktree.
+Output: `{"worktree_path": "<path>", "branch": "work-YYYYMMDD-HHMMSS", "slug": "<slug>", "port_base": N, "dev_port": N, "docs_port": N+1}`. Errors on a missing/invalid slug, a non-git dir, or an existing worktree.
+
+Each mission worktree is assigned a **unique local port base** (via `allocate-worktree-port.sh` below) written into its `.env` as `WORKAHOLIC_PORT_BASE`/`WORKAHOLIC_DEV_PORT`/`WORKAHOLIC_DOCS_PORT`, so several worktrees can run dev/docs servers at once without colliding on `localhost` (and each can be driven/verified independently, e.g. via Playwright). A project's serve scripts read these variables with their own env precedence; workaholic supplies the unique numbers and the convention, not the servers.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/allocate-worktree-port.sh
+```
+
+Returns the next free port base (`{port_base, dev_port, docs_port}`), scanning the bases already assigned in existing `.worktrees/*/.env` — so a removed worktree's base is reusable (allocation tracks live worktrees, not an ever-growing counter).
 
 Remove a mission worktree (only sanctioned at `/mission close`) — **never discards uncommitted work**: refuses a dirty worktree and reports it; idempotent when already gone:
 

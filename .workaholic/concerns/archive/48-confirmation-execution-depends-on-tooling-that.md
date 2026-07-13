@@ -4,10 +4,13 @@ origin_pr_url: https://github.com/qmu/workaholic/pull/48
 origin_branch: work-20260617-231848
 origin_commit: 63bbb9e
 created_at: 2026-06-18T00:21:49+09:00
+last_seen: 2026-06-18T00:21:49+09:00
+first_seen: 2026-06-18T00:21:49+09:00
+concern_id: confirmation-execution-depends-on-tooling-that
 severity: moderate
 status: active
-resolved_by_pr:
-resolved_by_commit:
+resolved_by_pr: 
+resolved_by_commit: 
 ---
 
 # Confirmation execution depends on tooling that may be absent in headless/CI sessions

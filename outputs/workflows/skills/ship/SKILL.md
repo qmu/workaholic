@@ -149,13 +149,19 @@ Stages, commits (`Add release notes for <branch>`), and pushes any note file(s) 
 bash ship/scripts/extract-deferred-concerns.sh "<branch>" "<pr-number>" "<pr-url>"
 ```
 
-Reads the just-shipped story (`.workaholic/stories/<branch>.md`), parses each `###` concern block in section 6 (Concerns), and writes one file per concern under `.workaholic/concerns/` as `<pr-number>-<slug>.md` (with `severity` and a Title/Description/How-to-Fix body). Returns JSON:
+Reads the just-shipped story (`.workaholic/stories/<branch>.md`) and parses each `###` concern block in section 6 (Concerns). Each concern is keyed on a **stable identity** — `concern_id`, the slug of its title with any leading `(carried from …)` prefix stripped — so the same logical concern is recognized across PRs. Extraction is **update-or-create**, not append:
+
+- an **active** concern with that id → **updated in place** (bumps `last_seen`, escalates `severity` to the most severe, refreshes text) — no new file;
+- an **archived** (resolved/superseded) one → skipped (never resurfaces);
+- otherwise → a fresh `<concern_id>.md` is written (`type: Concern`, `concern_id`, `first_seen`, `last_seen`, `severity`, provenance, and a Title/Description/How-to-Fix body).
+
+This is what keeps the corpus **fresh** instead of accumulating `NN-carried-from-…` clones. Before parsing, it runs the living identity migration (`report/scripts/migrate-concern-identity.sh`, best-effort, idempotent), which back-fills identity fields on legacy files and collapses existing carry chains into one file per concern. Returns JSON:
 
 ```json
-{"status":"ok","extracted":10,"files":["..."]}
+{"status":"ok","created":2,"updated":8,"extracted":2,"files":["..."]}
 ```
 
-Commits the new files with message `Add deferred concerns from PR #<pr-number>` so the corpus stays under version control, then **pushes** them. Because this runs post-merge, the commit lands on local `main` (the merge already checked it out); the push keeps local `main` level with `origin/main` and gets the concerns to the team, rather than leaving `main` one unpushed commit ahead. Skips silently when no story file exists or section 6 is empty.
+`extracted` counts **new** files (`created`); `updated` counts in-place refreshes; `files` lists the newly-created files. Commits with message `Add deferred concerns from PR #<pr-number>` (whenever anything was created or updated) so the corpus stays under version control, then **pushes**. Because this runs post-merge, the commit lands on local `main` (the merge already checked it out); the push keeps local `main` level with `origin/main`. Skips silently when no story file exists or section 6 is empty.
 
 ### 2-5b. Catch Up With main
 

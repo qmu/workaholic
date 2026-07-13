@@ -46,4 +46,4 @@ When we decide to rebuild, we leave in the PR description or an ADR why we are a
 
 ### Related: Cautious Consideration of Distributed Systems, Proactive PoC Proposals
 
-See also [Cautious Consideration of Distributed Systems](/design/modular-monolith-first.md) and [Proactive PoC Proposals](/planning/proactive-poc.md). Note that PoC is a disposable verification artifact, whereas the rebuilding here concerns production structures premised on future revision — the time horizons differ.
+See also [Cautious Consideration of Distributed Systems](/design/modular-monolith-first.md) and Proactive PoC Proposals. Note that PoC is a disposable verification artifact, whereas the rebuilding here concerns production structures premised on future revision — the time horizons differ.

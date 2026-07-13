@@ -44,4 +44,4 @@ We retain what was exchanged in research and the materials provided by the clien
 
 ### Related: Requirements Analysis through Modeling, UX Research through Prototypes
 
-Related: [Requirements Analysis through Modeling](/planning/modeling-centric-design.md) and [UX Research through Prototypes](/planning/ux-research-prototype.md).
+Related: [Requirements Analysis through Modeling](/planning/modeling-centric-design.md) and UX Research through Prototypes.

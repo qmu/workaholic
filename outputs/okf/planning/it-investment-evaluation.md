@@ -40,4 +40,4 @@ The assessment of return on investment stands on understanding the client's busi
 
 ### Related: Cost Estimation Methods, Proactive PoC Proposals
 
-Related: [Cost Estimation Methods](/planning/cost-estimation.md) and [Proactive PoC Proposals](/planning/proactive-poc.md).
+Related: [Cost Estimation Methods](/planning/cost-estimation.md) and Proactive PoC Proposals.

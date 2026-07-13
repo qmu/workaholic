@@ -37,6 +37,8 @@ const SCRIPTS = {
   ticketSummary: join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/scripts/summary.sh"),
   missionSummary: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/summary.sh"),
   missionCreate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"),
+  missionSlug: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/slug.sh"),
+  commit: join(REPO_ROOT, "plugins/workaholic/skills/commit/scripts/commit.sh"),
   missionProgress: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/progress.sh"),
   missionList: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list.sh"),
   missionClose: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/close.sh"),
@@ -682,6 +684,59 @@ concerns: []
     assertTrue("lens never surfaces another user's mission", !runLens(dir).includes("Delta Mission"));
 
     run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} alpha`);
+  } finally { cleanup(dir); }
+}
+
+// ---------- 8f. /mission create worktree+kickoff scriptable spine ----------
+// The create flow's scriptable core: slug -> mission worktree -> mission.md inside
+// -> a mission-linked kickoff ticket -> commit inside the worktree, leaving an
+// in-worktree drive-ready queue and the main tree untouched.
+function testMissionCreateWorktreeFlow() {
+  const dir = makeRepo("main");
+  try {
+    writeFileSync(join(dir, ".gitignore"), ".env\n");
+    execSync(`git add .gitignore && git commit -q -m gitignore`, { cwd: dir });
+
+    // 1. slug rule (single source, shared with create.sh)
+    const slug = run(dir, `${POSIX_SH} ${SCRIPTS.missionSlug} "Real-time Notifications"`).stdout.trim();
+    assertEq("mission slug derived from title", slug, "real-time-notifications");
+
+    // 2. dedicated worktree named by the slug
+    const wt = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} ${slug}`).stdout);
+    const wtPath = wt.worktree_path;
+    assertTrue("mission worktree dir matches the slug", wtPath.endsWith("/.worktrees/real-time-notifications"), wtPath);
+
+    // 3. mission.md scaffolded INSIDE the worktree
+    const cr = JSON.parse(run(wtPath, `${POSIX_SH} ${SCRIPTS.missionCreate} "Real-time Notifications"`).stdout);
+    assertEq("mission created inside worktree", cr.created, true);
+    assertTrue("mission.md lives inside the worktree",
+      existsSync(join(wtPath, ".workaholic/missions/active/real-time-notifications/mission.md")));
+
+    // 4. an ordered kickoff ticket, mission-linked, in the worktree's todo/<user>/
+    const todoDir = join(wtPath, `.workaholic/tickets/todo/${TEST_SLUG}`);
+    mkdirSync(todoDir, { recursive: true });
+    writeFileSync(join(todoDir, "20260714120000-first-step.md"),
+      `---\ncreated_at: 2026-07-14T12:00:00+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Infrastructure]\neffort:\ncommit_hash:\ncategory:\ndepends_on:\nmission: ${slug}\n---\n\n# First Step\n`);
+
+    // 5. commit the statement + kickoff ticket INSIDE the worktree
+    const cm = run(wtPath, `${POSIX_SH} ${SCRIPTS.commit} "Kick off mission ${slug}" "why" "changes" "None" "None" "verify" .workaholic/`);
+    assertEq("commit inside worktree exits 0", cm.status, 0);
+    assertTrue("worktree kickoff commit present",
+      /Kick off mission real-time-notifications/.test(execSync(`git log --oneline -1`, { cwd: wtPath, encoding: "utf8" })));
+    assertEq("worktree branch clean after commit",
+      execSync(`git status --porcelain`, { cwd: wtPath, encoding: "utf8" }).trim(), "");
+
+    // 6. in-worktree list-todo returns exactly the kickoff set (drive-ready)
+    assertEq("in-worktree list-todo returns the kickoff ticket",
+      run(wtPath, `${POSIX_SH} ${SCRIPTS.listTodo}`).stdout.split("\n").filter(Boolean),
+      [`.workaholic/tickets/todo/${TEST_SLUG}/20260714120000-first-step.md`]);
+
+    // 7. the main tree is untouched (still on main, mission not present there)
+    assertEq("main tree still on main", execSync(`git branch --show-current`, { cwd: dir, encoding: "utf8" }).trim(), "main");
+    assertTrue("mission absent from the main tree checkout",
+      !existsSync(join(dir, ".workaholic/missions/active/real-time-notifications/mission.md")));
+
+    run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} ${slug}`);
   } finally { cleanup(dir); }
 }
 
@@ -2883,6 +2938,7 @@ const tests = [
   ["mission create branches on main", testMissionBranchOnCreate],
   ["branching mission worktree primitive", testMissionWorktreePrimitive],
   ["mission-lens worktree focus", testMissionLensWorktreeFocus],
+  ["mission create worktree+kickoff spine", testMissionCreateWorktreeFlow],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],

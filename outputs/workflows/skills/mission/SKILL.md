@@ -102,7 +102,13 @@ Progress toward achievement is **derived, never stored**: `checked ÷ total` ove
 bash mission/scripts/create.sh "<title>" [assignee]
 ```
 
-Create a new mission: derive the slug from the title, scaffold `.workaholic/missions/active/<slug>/mission.md` (frontmatter + the four empty sections), stamp `created_at`/`author` from the `gather` skill, set `assignee` to the optional second argument or (default) the creator's `git config user.email`, refresh the OKF bundle indexes, and git-stage. Refuses to overwrite an existing mission in either area. Emits `{created, slug, path}` JSON.
+Create a new mission: derive the slug from the title (via `slug.sh`), scaffold `.workaholic/missions/active/<slug>/mission.md` (frontmatter + the four empty sections), stamp `created_at`/`author` from the `gather` skill, set `assignee` to the optional second argument or (default) the creator's `git config user.email`, refresh the OKF bundle indexes, and git-stage. Refuses to overwrite an existing mission in either area. Emits `{created, slug, path}` JSON. (The `/mission` command runs this with a mission worktree as the working directory, so `mission.md` lands inside `.worktrees/<slug>/` — see the command's create flow.)
+
+```bash
+bash mission/scripts/slug.sh "<title>"
+```
+
+Derive a mission slug from a title (lowercase, non-`[a-z0-9]` runs → single hyphen, ends trimmed). The **single source of the slug rule** — both `create.sh` (the mission directory name) and the `/mission` worktree flow (the `.worktrees/<slug>` directory name) derive the slug here, so the worktree directory always matches the mission slug. Emits the slug on stdout (empty when the title has no `[a-z0-9]`).
 
 ```bash
 bash mission/scripts/progress.sh <mission-file-or-slug>

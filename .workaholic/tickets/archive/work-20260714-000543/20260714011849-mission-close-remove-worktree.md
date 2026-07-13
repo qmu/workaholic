@@ -4,7 +4,7 @@ author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure]
 effort: 1h
-commit_hash:
+commit_hash: 575f3a4
 category: Changed
 depends_on: [20260714011846-mission-worktree-primitive.md]
 mission:
@@ -72,3 +72,7 @@ Past tickets that touched similar areas:
 - Order matters: tear down the worktree **after** the mission is safely archived, so a teardown failure never leaves a half-closed mission (`plugins/workaholic/commands/mission.md`).
 - Do not force-remove: a dirty mission worktree at close time signals unshipped work; report it and let the developer decide, rather than discarding it (`plugins/workaholic/skills/branching/scripts/cleanup-mission-worktree.sh`).
 - Keep the teardown in the command, not `close.sh`, so the built `mission` skill stays worktree-free and portable (`plugins/workaholic/skills/mission/scripts/close.sh`).
+
+## Final Report
+
+Development completed as planned. `commands/mission.md`'s close path now runs `cleanup-mission-worktree.sh "<slug>"` after a successful `close.sh`, scoped to `closed: true` only. `close.sh` is unchanged (built `mission` skill untouched → no `outputs/` diff). Hermetic test proves close archives the mission and the teardown removes its worktree, is idempotent when already gone, and — with a dirty worktree — the mission still closes while the teardown refuses to discard the unshipped work; 496 passed / 0 failed, build/verify/posix-lint clean.

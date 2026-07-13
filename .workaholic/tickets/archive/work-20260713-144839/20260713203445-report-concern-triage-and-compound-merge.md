@@ -4,7 +4,7 @@ author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure]
 effort: 4h
-commit_hash:
+commit_hash: 319a185
 category: Added
 depends_on: 20260713203444-concern-identity-update-in-place.md
 mission:
@@ -131,3 +131,29 @@ The judge pass to extend is the report skill's Judge Deferred Concerns
 idempotent single-writer mutator pattern and the `active/archive` split to
 imitate are the mission skill's mutators and `close.sh`. User-interaction
 placement follows the one-level fan-out rule in `CLAUDE.md`.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: the triage step's testable surface is the two mutators
+  (`merge-concerns.sh`, `close-concern.sh`); the trigger, the judge's
+  `compounds` proposal, and the `AskUserQuestion` are orchestration prose in the
+  report SKILL, not scripts.
+  **Context**: hermetic smoke tests cover merge/close (collapse, escalation,
+  `superseded_by`, idempotency, bad-status rejection); the `[project]`-label
+  requirement on the triage prompt is already machine-enforced by the existing
+  `guard-askuserquestion-label.sh` hook, so it needs no new test.
+- **Insight**: `merge-concerns.sh` can both create a *new* compound (A+B, needs
+  `--title`) and fold duplicates into an *existing* target id — one command, two
+  triage buckets.
+  **Context**: a compound sets `compound: true` and archives its parts with
+  `superseded_by`; a superseded/closed concern is filtered by the ship extractor
+  and the report judge (via the archived-id skip from ticket #1), so it never
+  resurfaces.
+- **Insight**: severity merges by *most-severe* and never downgrades; an explicit
+  `--severity` (the developer's confirmed A+B escalation) overrides.
+  **Context**: this matches the update-in-place escalation rule from ticket #1, so
+  a concern's severity is monotonic unless a human deliberately closes it.

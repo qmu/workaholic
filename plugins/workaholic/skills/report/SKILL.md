@@ -117,7 +117,7 @@ Gather all context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/
 
 Run before the parallel agent batch so the verdicts flow into section-reviewer's input. Skip silently if `.workaholic/concerns/` is empty or absent.
 
-1. **Spawn a deferred-concern judge** as `subagent_type: "general-purpose"` (`model: "opus"`) in a single Task call. The prompt instructs it to preload `workaholic:report`, follow the `### Judge Deferred Concerns` section with the given branch name and base branch, and return `{verdicts: [...]}`.
+1. **Spawn a deferred-concern judge** as `subagent_type: "general-purpose"` (`model: "opus"`) in a single Task call. The prompt instructs it to preload `workaholic:report`, follow the `### Judge Deferred Concerns` section with the given branch name and base branch, and return `{verdicts: [...], compounds: [...]}` (compounds are candidate A+B combinations — see that section).
 2. **Apply verdicts**: Write the judge's returned JSON to `/tmp/deferred-concern-verdicts.json`. `apply-deferred-concern-verdicts.sh` accepts both the full `{"verdicts": [...]}` object (the judge's natural output) and a bare `[...]` array, so either form works — prefer writing the object verbatim. Then run:
 
    ```bash
@@ -125,6 +125,35 @@ Run before the parallel agent batch so the verdicts flow into section-reviewer's
    ```
 
    Files marked `resolved` have `status:` flipped to `resolved`, `resolved_by_pr` / `resolved_by_commit` recorded, and are then moved to `.workaholic/concerns/archive/`. Files marked `still_active` stay in `.workaholic/concerns/`.
+
+#### Phase 1b: Triage Concerns (keep the set fresh)
+
+The corpus never re-clones (identity-keyed update-in-place; Phase 1's `list-active` already ran the collapsing migration), but it can still grow *many* real concerns, and two minor ones can combine into a bigger risk. Run a triage decision point **when either trigger fires**, else skip silently:
+
+- **Count trigger** — the number of `still_active` concerns after Phase 1 exceeds a threshold (default **20**).
+- **Compound trigger** — the judge returned a non-empty `compounds` list.
+
+The triage is **judge-proposes / developer-decides**, and every decision leaves an auditable trail. The command (main agent) issues the choice via `AskUserQuestion` (each question body prefixed `[<project label>]`) — a leaf subagent must not. Present the developer these buckets and apply each through the idempotent mutators (never hand-edit concern files):
+
+- **Combine A+B → compound** (from a `compounds` proposal the developer confirms/edits the severity and title of):
+
+  ```bash
+  bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/merge-concerns.sh \
+    --severity <confirmed> --title "<compound title>" <new-compound-id> <member-id> <member-id>...
+  ```
+
+  Creates the compound (or updates an existing target), escalates severity to the confirmed value, and archives each member as `status: superseded, superseded_by: <compound-id>`.
+- **Merge duplicates** — same command, folding near-duplicate ids into one target id.
+- **Close** a won't-fix or resolved concern:
+
+  ```bash
+  bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/close-concern.sh <concern-id> <resolved|accepted> "<reason>"
+  ```
+
+  `resolved` = fixed / no longer applies; `accepted` = a deliberate, documented won't-fix. Moves it to `archive/` with the reason.
+- **Keep as-is** — no action.
+
+After applying, the still-active set reflected in the story's section 6 is the curated, fresh set. Both mutators git-stage their changes, so they ride the Phase 4 story commit. The threshold is a policy knob — never auto-merge without the developer's confirmation; the A+B severity call is the developer's.
 
 #### Phase 2: Spawn Story Generation Workers
 
@@ -235,7 +264,7 @@ The corpus can grow large (a backfill from N historical stories produces O(N × 
 4. **Batch the verdicts.** Emit verdicts incrementally if helpful, but the final response must be one combined `{verdicts: [...]}` JSON object.
 5. **First-run backfill caveat.** When the corpus is populated all at once by `backfill-deferred-concerns.sh`, expect a high proportion of `resolved` verdicts — the items predate the codebase's current structure significantly. This is normal; still-active items remain in `.workaholic/concerns/` as passive notes for future judging.
 
-Return a JSON object with the verdicts array:
+Return a JSON object with the verdicts array **and** a `compounds` array of candidate combinations:
 
 ```json
 {
@@ -252,11 +281,19 @@ Return a JSON object with the verdicts array:
       "verdict": "still_active",
       "rationale": "No commits modified the area this deferred concern targets."
     }
+  ],
+  "compounds": [
+    {
+      "members": ["auth-token-logged-plaintext", "verbose-error-leaks-stack"],
+      "suggested_severity": "urgent",
+      "suggested_title": "Plaintext token logging + verbose errors together expose credentials",
+      "rationale": "Individually low, but a logged token plus a stack-trace endpoint is a credential-exfiltration path."
+    }
   ]
 }
 ```
 
-Include `resolved_by_pr` and `resolved_by_commit` only for `resolved` verdicts. The orchestrator feeds this to `apply-deferred-concern-verdicts.sh` (Phase 1) and to the section-reviewer worker so still-active items appear in the new story.
+Include `resolved_by_pr` and `resolved_by_commit` only for `resolved` verdicts. **Compounds** are the judge's *proposals only* — where two or more `still_active` concerns interact so their combined risk exceeds the parts (A + B = a bigger risk); each names its `members` (by `concern_id`), a `suggested_severity` (usually escalated), a `suggested_title`, and the `rationale`. Emit `"compounds": []` when none apply; **prefer few, high-confidence proposals** over speculative ones. The orchestrator feeds `verdicts` to `apply-deferred-concern-verdicts.sh` (Phase 1) and to the section-reviewer, and surfaces `compounds` in the Phase 1b triage where the developer confirms or edits each before `merge-concerns.sh` applies it — the judge never merges anything itself.
 
 ### Overview Generation
 

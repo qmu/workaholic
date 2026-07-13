@@ -22,6 +22,11 @@ mkdir -p "$archive_dir"
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
+# NOTE: no living migration here on purpose. Verdicts arrive from
+# list-active-deferred-concerns.sh, which already migrated the tree and returned
+# post-migration paths; migrating again would rename files out from under those
+# paths. Apply operates on the paths it is given.
+
 # Use python (preferred) or node to parse JSON and emit shell-friendly lines.
 parse() {
   python3 - "$input" <<'PY' 2>/dev/null

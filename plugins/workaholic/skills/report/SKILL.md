@@ -200,7 +200,7 @@ Run by the Phase 1 deferred-concern judge (a `general-purpose` subagent that pre
    bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/list-active-deferred-concerns.sh
    ```
 
-   If the JSON output is `[]`, return `{"verdicts": []}` and stop.
+   This first runs the living identity migration (`migrate-concern-identity.sh`, best-effort, idempotent): it back-fills each concern's `concern_id`/`first_seen`/`last_seen` and collapses any legacy `carried-from` clone chains into one fresh file per concern, so the judge sees a deduplicated set. Each entry carries `concern_id` (the stable identity), `first_seen`/`last_seen`, `severity`, and provenance. If the JSON output is `[]`, return `{"verdicts": []}` and stop.
 
 2. For each deferred concern in the list, judge whether the work that landed on the current branch (since the deferred concern's `origin_commit`) has resolved it.
 

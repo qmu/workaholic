@@ -26,7 +26,7 @@ Regenerates and git-stages:
 - `.workaholic/index.md` — the bundle root. Carries the one frontmatter block an OKF `index.md` may have (`okf_version: "0.1"`) and lists each knowledge area present.
 - `<area>/index.md` for the flat knowledge areas (`concerns`, `deployments`, `release-notes`, `specs`, `terms`) — one `* [title](file.md) - description` entry per document, title/description read from the file's frontmatter (H1 and filename as fallbacks), plus links to subdirectories.
 - `trips/index.md` — one entry per trip, linking its `plan.md`.
-- `missions/index.md` — one entry per mission, linking its `mission.md`, described by the mission's frontmatter `title`.
+- `missions/index.md` — one `## active` / `## archive` section per non-empty area, one entry per mission linking its `mission.md` (`<area>/<slug>/mission.md`), described by the mission's frontmatter `title`. Legacy flat mission dirs (a pre-migration tree) are listed at the top level until the mission scripts' living migration relocates them.
 
 It deliberately does **not** touch:
 

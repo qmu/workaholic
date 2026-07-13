@@ -11,6 +11,7 @@ The `.workaholic/` directory has a fixed structure. Only these subdirectories ar
 | ---------------- | ------------------------------------------ |
 | `concerns/`      | Deferred concerns/ideas (and `concerns/archive/`) |
 | `deployments/`   | Deployment/release procedures and their success-confirmation methods |
+| `missions/`      | Long-lived goals spanning many tickets (`active/`, `archive/`) |
 | `release-notes/` | Per-branch release notes                   |
 | `specs/`         | Current state reference documentation      |
 | `stories/`       | Development narratives per branch          |
@@ -21,6 +22,8 @@ The `.workaholic/` directory has a fixed structure. Only these subdirectories ar
 This list is the single source of truth in `plugins/workaholic/hooks/workaholic-layout-allowlist.txt` (one directory per line), which `hooks/validate-ticket.sh` reads to enforce the layout on every `Write`/`Edit`. Keep the table and that file in lockstep when amending the structure.
 
 The `tickets/` queue is partitioned per developer: active tickets live under `tickets/todo/<user>/`, where `<user>` is the slug of `git config user.email` (e.g. `a-qmu-jp`). The icebox (`tickets/icebox/`) and archive (`tickets/archive/<branch>/`) stay as-is.
+
+The `missions/` tree mirrors that working-vs-archived split: an in-progress mission lives at `missions/active/<slug>/mission.md` and an ended one (status `achieved` or `abandoned`) at `missions/archive/<slug>/mission.md`. The mission skill's scripts own the placement — `close.sh` performs the move, and a living migration relocates any legacy flat `missions/<slug>/` dir by its `status` on the next mission-script touch. Never `mv` a mission dir or hand-edit its `status:` field.
 
 Two root-level files are allowed: `README.md`, and `index.md` — the [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) bundle entry point, regenerated together with each area's `index.md` by `okf/scripts/refresh-index.sh` whenever a workflow commits knowledge documents.
 

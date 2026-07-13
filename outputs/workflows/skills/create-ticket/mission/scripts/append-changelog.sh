@@ -24,7 +24,10 @@ if [ -z "$ARG" ] || [ -z "$EVENT" ] || [ -z "$ARTIFACT" ]; then
     exit 1
 fi
 
-if [ -f "$ARG" ]; then FILE="$ARG"; else FILE=".workaholic/missions/${ARG}/mission.md"; fi
+SCRIPT_DIR=$(dirname "$0")
+. "${SCRIPT_DIR}/lib/resolve.sh"
+missions_migrate_layout
+FILE=$(mission_resolve "$ARG")
 [ -f "$FILE" ] || { printf '{"appended": false, "reason": "not_found", "path": "%s"}\n' "$FILE" >&2; exit 1; }
 
 # Stable event id = "<event> — <artifact>" (date excluded, so a re-run on any day

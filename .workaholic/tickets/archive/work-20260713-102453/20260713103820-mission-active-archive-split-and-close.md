@@ -3,9 +3,9 @@ created_at: 2026-07-13T10:38:20+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
-commit_hash:
-category:
+effort: 2h
+commit_hash: 100f859
+category: Changed
 depends_on:
 mission:
 ---
@@ -119,3 +119,16 @@ How the outcome's quality is assured, captured from the developer at ticket time
 - **This repo has no `.workaholic/missions/` yet** — the migration cannot be exercised against the local tree; the hermetic tests are the only proof, hence their place in the gate (`scripts/test-workflow-scripts.mjs`)
 - **Generated-bundle footprint**: every affected script/skill is copied into `outputs/workflows/`; forgetting the rebuild fails the Outputs Freshness CI (`scripts/build-plugins/build.mjs`)
 - **`missions/index.md` structure choice**: either one flat list annotated by area or per-area grouping — pick one, keep it deterministic, and document it in `okf/SKILL.md`
+
+## Final Report
+
+Development completed as planned. Per-area grouping was chosen for `missions/index.md` (`## active` / `## archive` sections, legacy flat dirs listed at the top level until migrated), and the create-ticket association scope consideration was implemented: `/ticket` now offers only `status: active` missions.
+
+### Discovered Insights
+
+- **Insight**: The self-containment checker (`verify.mjs`) treats any `${SCRIPT_DIR}/<path>.sh` occurrence in a script — including inside comments — as a reference resolved from that script's own directory.
+  **Context**: A usage comment in `lib/resolve.sh` showing how callers source it (`${SCRIPT_DIR}/lib/resolve.sh`) failed the bundle verification six times, because from inside `lib/` the path resolves to `lib/lib/resolve.sh`. Doc comments in bundled scripts must avoid the literal `${SCRIPT_DIR}/` form for paths that are not real from that file's location.
+- **Insight**: Every workflow seam reaches missions through bare slugs passed to the shared mutators, so centralizing slug→path resolution in one sourced helper made the drive/report/ship seams area-aware with zero edits to the seams themselves.
+  **Context**: Confirms the "single writer" architecture pays off: only the two direct dir-scanners (`okf/refresh-index.sh`, `catch/scan-window.sh`) and the `/mission` command's tail-read needed their own updates.
+- **Insight**: `/catch` is documented as read-only over missions, but its `list.sh` call now triggers the living migration — a tree mutation (file moves) without a content mutation.
+  **Context**: The read-only contract was reworded to "mutates no mission content" in both catch and mission SKILL.md; anyone tightening that contract later must exempt the migration or exclude readers from it.

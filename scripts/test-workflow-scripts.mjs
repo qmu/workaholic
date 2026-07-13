@@ -25,6 +25,7 @@ const SCRIPTS = {
   branchCreate: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/create.sh"),
   createMissionWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/create-mission-worktree.sh"),
   cleanupMissionWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/cleanup-mission-worktree.sh"),
+  resetMissionWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/reset-mission-worktree.sh"),
   listAllWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/list-all-worktrees.sh"),
   missionLens: join(REPO_ROOT, "plugins/workaholic/hooks/mission-lens.sh"),
   detectContext: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/detect-context.sh"),
@@ -585,6 +586,14 @@ function testMissionWorktreePrimitive() {
     assertTrue("worktree dir created at .worktrees/<slug>", existsSync(join(dir, ".worktrees/demo-mission")), r.worktree_path);
     assertTrue("root .env copied into the worktree", existsSync(join(dir, ".worktrees/demo-mission/.env")));
 
+    // .worktrees/ is excluded (via .git/info/exclude) so a stray `git add -A` in
+    // the main tree never embeds the linked worktree as a gitlink.
+    assertEq("main tree clean after worktree create (.worktrees excluded)",
+      execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim(), "");
+    execSync(`git add -A`, { cwd: dir });
+    assertTrue("git add -A does not stage the worktree dir",
+      !execSync(`git diff --cached --name-only`, { cwd: dir, encoding: "utf8" }).includes(".worktrees"));
+
     // Main tree untouched: still on main, based off main's tip.
     assertEq("main tree still on main", execSync(`git branch --show-current`, { cwd: dir, encoding: "utf8" }).trim(), "main");
     const mainTip = execSync(`git rev-parse main`, { cwd: dir, encoding: "utf8" }).trim();
@@ -737,6 +746,34 @@ function testMissionCreateWorktreeFlow() {
       !existsSync(join(dir, ".workaholic/missions/active/real-time-notifications/mission.md")));
 
     run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} ${slug}`);
+  } finally { cleanup(dir); }
+}
+
+// ---------- 8g. /ship resets a mission worktree instead of deleting it ----------
+function testMissionWorktreeShipReset() {
+  const dir = makeRepo("main");
+  try {
+    const wt = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} shipdemo`).stdout);
+    const branchA = wt.branch;
+
+    // Simulate the mission's branch merging: advance main in the main tree.
+    writeFileSync(join(dir, "merged.txt"), "merged\n");
+    execSync(`git add merged.txt && git commit -q -m "simulate merge to main"`, { cwd: dir });
+    const mainTip = execSync(`git rev-parse main`, { cwd: dir, encoding: "utf8" }).trim();
+
+    execSync(`sleep 1`, { cwd: dir }); // avoid a same-second work-* name collision with branchA
+    const rs = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.resetMissionWorktree} shipdemo`).stdout);
+
+    assertTrue("mission worktree preserved (not deleted) on ship", existsSync(join(dir, ".worktrees/shipdemo")));
+    assertTrue("reset cut a fresh work-* branch (distinct from the merged one)",
+      /^work-\d{8}-\d{6}$/.test(rs.branch) && rs.branch !== branchA, `${rs.branch} vs ${branchA}`);
+    const wtDir = join(dir, ".worktrees/shipdemo");
+    assertEq("worktree HEAD is the fresh branch",
+      execSync(`git -C ${wtDir} branch --show-current`, { encoding: "utf8" }).trim(), rs.branch);
+    assertEq("fresh branch is based off the merged main tip",
+      execSync(`git -C ${wtDir} merge-base HEAD main`, { encoding: "utf8" }).trim(), mainTip);
+
+    run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} shipdemo`);
   } finally { cleanup(dir); }
 }
 
@@ -2939,6 +2976,7 @@ const tests = [
   ["branching mission worktree primitive", testMissionWorktreePrimitive],
   ["mission-lens worktree focus", testMissionLensWorktreeFocus],
   ["mission create worktree+kickoff spine", testMissionCreateWorktreeFlow],
+  ["mission worktree ship reset", testMissionWorktreeShipReset],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],

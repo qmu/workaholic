@@ -200,7 +200,13 @@ Remove a mission worktree (only sanctioned at `/mission close`) — **never disc
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-mission-worktree.sh <slug>
 ```
 
-`list-all-worktrees.sh` tags a `.worktrees/<slug>` worktree with `"type": "mission"` (ordinary `work-*` dirs stay `"type": "work"`), so `/ship` and the mission lens can distinguish a mission worktree from a drive/trip one.
+Reset a mission worktree for its next batch after a merge — cuts a fresh `work-*` branch off `main` inside the same worktree (the worktree persists; only the branch is renewed). `/ship` calls this instead of `cleanup-worktree.sh` for a mission worktree:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/reset-mission-worktree.sh <slug> [base-branch]
+```
+
+`list-all-worktrees.sh` tags a `.worktrees/<slug>` worktree with `"type": "mission"` (ordinary `work-*` dirs stay `"type": "work"`), so `/ship` and the mission lens can distinguish a mission worktree from a drive/trip one. `create-mission-worktree.sh` also adds `.worktrees/` to `.git/info/exclude` so a linked worktree is never accidentally embedded as a gitlink by a main-tree `git add -A`.
 
 ## Credentials — root `.env`
 

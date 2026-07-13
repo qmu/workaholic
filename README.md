@@ -54,7 +54,7 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 | `/drive`   | Implement queued tickets one by one (add "night" for an autonomous overnight run with a morning report) |
 | `/report`  | Context-aware: generate story or journey report and create PR |
 | `/ship`    | Context-aware: merge PR, deploy, verify, and publish the GitHub Release |
-| `/mission` | Track a long-lived goal spanning many tickets: create one, or list missions with computed progress |
+| `/mission` | Track a long-lived goal spanning many tickets: create one, list missions with computed progress, or close one (achieved/abandoned) into the archive area |
 | `/trip`    | Agent Teams session: collaborative design, decomposed into tickets and driven |
 
 > [!NOTE]
@@ -147,7 +147,7 @@ The tree is also an [Open Knowledge Format](https://github.com/GoogleCloudPlatfo
 | `release-notes/<branch>.md` | `/ship` (before merging) | Concise release narrative for GitHub Releases | committed before merge | no | never |
 | `concerns/<pr>-<slug>-<kind>.md` | `/ship` (extract from story) | Unresolved concern or idea surfaced in a past PR | committed during ship | **yes — this is the deferred-concerns corpus**; remains `status: active` until `/report` judges it resolved | judge marks `status: resolved` (file preserved, audit trail intact) |
 | `trips/<branch>/*` | `/trip` | Multi-agent collaborative design output (planner/architect/constructor) | committed inside trip worktree | no | never |
-| `missions/<slug>/mission.md` | `/mission` | Long-lived goal spanning many tickets: goal, scope, acceptance checklist (progress = checked/total), append-only changelog | committed, updated as related work lands | n/a — outlives any branch | `status: achieved` or `abandoned` (file preserved) |
+| `missions/active/<slug>/mission.md` | `/mission` | Long-lived goal spanning many tickets: goal, scope, acceptance checklist (progress = checked/total), append-only changelog | committed, updated as related work lands | n/a — outlives any branch | `/mission close` flips `status` to `achieved` or `abandoned` and moves the dir to `missions/archive/<slug>/` (file and changelog preserved) |
 | `specs/*.md` | manual (hand-edited reference) | Current-state documentation of how things work today | committed | n/a — not branch-scoped | superseded when manually rewritten |
 | `guides/*.md` `policies/*.md` `terms/*.md` | manual | Persistent reference material (user docs, policies, glossary) | committed | n/a | superseded when manually rewritten |
 

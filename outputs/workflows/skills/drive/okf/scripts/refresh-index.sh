@@ -125,16 +125,20 @@ if [ -d "$ROOT/trips" ]; then
 fi
 
 # --- Missions ------------------------------------------------------------------
-# Per-slug subdirectory artifact, indexed like trips: one entry per mission linking
-# its mission.md, described by the mission's frontmatter title.
+# Two-area artifact (active/ and archive/, keyed off each mission's status by the
+# mission scripts' living migration): one `## <area>` section per non-empty area,
+# one entry per mission linking its mission.md, described by the frontmatter
+# title. Legacy flat mission dirs (a pre-migration tree the mission scripts have
+# not touched yet) are listed first, at the top level, so nothing disappears from
+# the index before the migration runs.
 if [ -d "$ROOT/missions" ]; then
   body="# missions
 "
-  missions=$(find "$ROOT/missions" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | LC_ALL=C sort)
-  if [ -n "$missions" ]; then
+  flat=$(find "$ROOT/missions" -maxdepth 1 -mindepth 1 -type d ! -name active ! -name archive 2>/dev/null | LC_ALL=C sort)
+  if [ -n "$flat" ]; then
     body="$body
 "
-    for d in $missions; do
+    for d in $flat; do
       mission=$(basename "$d")
       if [ -f "$d/mission.md" ]; then
         desc=$(fm_field "$d/mission.md" title)
@@ -151,6 +155,30 @@ if [ -d "$ROOT/missions" ]; then
       fi
     done
   fi
+  for area in active archive; do
+    missions=$(find "$ROOT/missions/$area" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | LC_ALL=C sort)
+    [ -n "$missions" ] || continue
+    body="$body
+## ${area}
+
+"
+    for d in $missions; do
+      mission=$(basename "$d")
+      if [ -f "$d/mission.md" ]; then
+        desc=$(fm_field "$d/mission.md" title)
+        if [ -n "$desc" ]; then
+          body="$body* [${mission}](${area}/${mission}/mission.md) - ${desc}
+"
+        else
+          body="$body* [${mission}](${area}/${mission}/mission.md)
+"
+        fi
+      else
+        body="$body* [${mission}/](${area}/${mission}/)
+"
+      fi
+    done
+  done
   write_index "$ROOT/missions/index.md" "$body"
 fi
 

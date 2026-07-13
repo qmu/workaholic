@@ -32,6 +32,7 @@ const SCRIPTS = {
   missionCreate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"),
   missionProgress: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/progress.sh"),
   missionList: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list.sh"),
+  missionClose: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/close.sh"),
   appendChangelog: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/append-changelog.sh"),
   tickAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/tick-acceptance.sh"),
   refreshIndex: join(REPO_ROOT, "plugins/workaholic/skills/okf/scripts/refresh-index.sh"),
@@ -452,14 +453,14 @@ function testMission() {
     execSync(`git checkout -q -b work-20260706-mission`, { cwd: dir });
 
     // create.sh scaffolds a mission with valid frontmatter + the four sections,
-    // deriving the slug from the title.
+    // deriving the slug from the title. A new mission lands in the active/ area.
     let r = run(dir, `${POSIX_SH} ${SCRIPTS.missionCreate} "Real-time Notifications"`);
     assertEq("mission create exits 0", r.status, 0);
     const created = JSON.parse(r.stdout);
     assertEq("mission create slug", created.slug, "real-time-notifications");
     assertEq("mission create flag", created.created, true);
-    const mpath = join(dir, ".workaholic/missions/real-time-notifications/mission.md");
-    assertTrue("mission.md written", existsSync(mpath), created.path);
+    const mpath = join(dir, ".workaholic/missions/active/real-time-notifications/mission.md");
+    assertTrue("mission.md written into active/", existsSync(mpath), created.path);
     const body = readFileSync(mpath, "utf8");
     assertTrue("mission has type: Mission", /^type:\s*Mission\s*$/m.test(body), body.split("\n").slice(0, 12).join("\n"));
     assertTrue("mission has slug", /^slug:\s*real-time-notifications\s*$/m.test(body));
@@ -469,11 +470,14 @@ function testMission() {
       assertTrue(`mission has ${sec}`, body.includes(`\n${sec}\n`), sec);
     }
 
-    // missions/index.md gains a linking entry.
+    // missions/index.md gains an area-qualified linking entry under ## active.
     const idx = join(dir, ".workaholic/missions/index.md");
     assertTrue("missions index written", existsSync(idx));
-    assertTrue("missions index links the mission",
-      readFileSync(idx, "utf8").includes("(real-time-notifications/mission.md)"),
+    assertTrue("missions index links the mission under active/",
+      readFileSync(idx, "utf8").includes("(active/real-time-notifications/mission.md)"),
+      readFileSync(idx, "utf8"));
+    assertTrue("missions index has an ## active section",
+      readFileSync(idx, "utf8").includes("\n## active\n"),
       readFileSync(idx, "utf8"));
 
     // create.sh refuses to overwrite an existing mission.
@@ -543,7 +547,7 @@ function testMissionMutators() {
   const dir = makeRepo("main");
   try {
     const slug = "demo";
-    const mdir = join(dir, `.workaholic/missions/${slug}`);
+    const mdir = join(dir, `.workaholic/missions/active/${slug}`);
     mkdirSync(mdir, { recursive: true });
     const mfile = join(mdir, "mission.md");
     writeFileSync(mfile, `---
@@ -598,6 +602,113 @@ concerns: []
   } finally { cleanup(dir); }
 }
 
+// ---------- mission layout: living migration + close.sh (end a mission) ----------
+function testMissionLayoutMigrationAndClose() {
+  const dir = makeRepo("main");
+  try {
+    // Seed a LEGACY FLAT tree: two missions directly under .workaholic/missions/,
+    // one in progress and one already ended — the pre-split layout a downstream
+    // repo may still carry.
+    const missionBody = (slug, title, status) => `---
+type: Mission
+title: ${title}
+slug: ${slug}
+status: ${status}
+created_at: 2026-07-01T00:00:00+09:00
+author: test@example.com
+tickets: []
+stories: []
+concerns: []
+---
+
+# ${title}
+
+## Acceptance
+
+- [x] Done thing (#t1.md)
+- [ ] Open thing (#t2.md)
+
+## Changelog
+
+- 2026-07-01 — ticket archived — t1.md
+`;
+    mkdirSync(join(dir, ".workaholic/missions/alpha"), { recursive: true });
+    mkdirSync(join(dir, ".workaholic/missions/omega"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/missions/alpha/mission.md"), missionBody("alpha", "Alpha", "active"));
+    writeFileSync(join(dir, ".workaholic/missions/omega/mission.md"), missionBody("omega", "Omega", "achieved"));
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+
+    // Any mission-script touch migrates the flat tree: active status -> active/,
+    // achieved -> archive/, flat dirs gone, git history carried (rename staged).
+    const list = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
+    assertTrue("migration moved the active mission into active/",
+      existsSync(join(dir, ".workaholic/missions/active/alpha/mission.md")));
+    assertTrue("migration moved the achieved mission into archive/",
+      existsSync(join(dir, ".workaholic/missions/archive/omega/mission.md")));
+    assertTrue("migration left no flat mission dirs",
+      !existsSync(join(dir, ".workaholic/missions/alpha")) && !existsSync(join(dir, ".workaholic/missions/omega")));
+    assertEq("list.sh spans both areas after migration",
+      list.map((m) => ({ slug: m.slug, status: m.status, path: m.path })),
+      [
+        { slug: "alpha", status: "active", path: ".workaholic/missions/active/alpha/mission.md" },
+        { slug: "omega", status: "achieved", path: ".workaholic/missions/archive/omega/mission.md" },
+      ]);
+    assertTrue("migrated mission content is byte-identical",
+      readFileSync(join(dir, ".workaholic/missions/active/alpha/mission.md"), "utf8") === missionBody("alpha", "Alpha", "active"));
+
+    // Idempotent: with the migrated tree committed, a re-run changes nothing.
+    execSync(`git add -A && git commit -q -m migrated`, { cwd: dir });
+    run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`);
+    assertEq("migration re-run is a no-op on a migrated tree",
+      execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim(), "");
+
+    // Bare-slug resolution reaches both areas.
+    assertEq("progress.sh resolves a slug in active/",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} alpha`).stdout), { checked: 1, total: 2 });
+    assertEq("progress.sh resolves a slug in archive/",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} omega`).stdout), { checked: 1, total: 2 });
+    let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.appendChangelog} omega "story reported" s1.md 2026-07-02`).stdout);
+    assertEq("append-changelog resolves a slug in archive/", r.appended, true);
+
+    // close.sh ends the active mission: status flipped, closing changelog line
+    // appended, dir moved to archive/, pre-existing changelog preserved.
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} alpha achieved 2026-07-03`).stdout);
+    assertEq("close.sh closes", { closed: r.closed, slug: r.slug, status: r.status, path: r.path },
+      { closed: true, slug: "alpha", status: "achieved", path: ".workaholic/missions/archive/alpha/mission.md" });
+    const closedBody = readFileSync(join(dir, ".workaholic/missions/archive/alpha/mission.md"), "utf8");
+    assertTrue("close.sh flipped status in frontmatter", /^status:\s*achieved\s*$/m.test(closedBody), closedBody);
+    assertTrue("close.sh appended the closing changelog line",
+      closedBody.includes("- 2026-07-03 — mission achieved — mission.md"), closedBody);
+    assertTrue("close.sh preserved the prior changelog line",
+      closedBody.includes("- 2026-07-01 — ticket archived — t1.md"), closedBody);
+    assertTrue("close.sh removed the active/ copy",
+      !existsSync(join(dir, ".workaholic/missions/active/alpha")));
+
+    // Idempotent: re-closing with the same status is a no-op with no second line.
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} alpha achieved 2026-07-04`).stdout);
+    assertEq("close.sh re-run reports already_closed", { closed: r.closed, reason: r.reason },
+      { closed: false, reason: "already_closed" });
+    assertEq("close.sh re-run appends no second closing line",
+      (readFileSync(join(dir, ".workaholic/missions/archive/alpha/mission.md"), "utf8").match(/mission achieved — mission\.md/g) || []).length, 1);
+
+    // create.sh's exists-check sees archived missions too.
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.missionCreate} "Alpha"`);
+    assertTrue("create.sh refuses a slug that exists in archive/", r.status !== 0);
+    assertEq("create.sh reports exists for an archived slug", JSON.parse(r.stdout).reason, "exists");
+
+    // missions/index.md covers both areas; refresh-index stays deterministic.
+    run(dir, `${POSIX_SH} ${SCRIPTS.refreshIndex}`);
+    const idx = readFileSync(join(dir, ".workaholic/missions/index.md"), "utf8");
+    assertTrue("missions index has an ## archive section", idx.includes("\n## archive\n"), idx);
+    assertTrue("missions index links archived missions",
+      idx.includes("(archive/alpha/mission.md)") && idx.includes("(archive/omega/mission.md)"), idx);
+    execSync(`git add -A && git commit -q -m closed`, { cwd: dir });
+    run(dir, `${POSIX_SH} ${SCRIPTS.refreshIndex}`);
+    assertEq("refresh-index idempotent over the two-area layout",
+      execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim(), "");
+  } finally { cleanup(dir); }
+}
+
 // ---------- drive/archive.sh mission seam (roll on archive) ----------
 function testMissionDriveSeam() {
   // A missioned ticket rolls its mission on archive: changelog + acceptance tick.
@@ -605,7 +716,7 @@ function testMissionDriveSeam() {
   try {
     execSync(`git checkout -q -b work-20260706-ms`, { cwd: dir });
     const slug = "rt-notify";
-    const mdir = join(dir, `.workaholic/missions/${slug}`);
+    const mdir = join(dir, `.workaholic/missions/active/${slug}`);
     mkdirSync(mdir, { recursive: true });
     const ticketName = "20260706120000-feat.md";
     writeFileSync(join(mdir, "mission.md"), `---
@@ -667,7 +778,8 @@ Development completed as planned.
       execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim(), "");
   } finally { cleanup(dir); }
 
-  // An un-missioned ticket leaves every mission untouched.
+  // An un-missioned ticket leaves every mission untouched — even a legacy flat
+  // mission dir (no mission script runs, so the living migration never fires).
   const dir2 = makeRepo("main");
   try {
     execSync(`git checkout -q -b work-20260706-ms2`, { cwd: dir2 });
@@ -693,7 +805,7 @@ function testMissionShipSeam() {
   const dir = makeRepo("main");
   try {
     const slug = "rt";
-    const mdir = join(dir, `.workaholic/missions/${slug}`);
+    const mdir = join(dir, `.workaholic/missions/active/${slug}`);
     mkdirSync(mdir, { recursive: true });
     const mfile = join(mdir, "mission.md");
     writeFileSync(mfile, `---\ntype: Mission\ntitle: RT\nslug: ${slug}\nstatus: active\ncreated_at: 2026-07-06T00:00:00+09:00\nauthor: test@example.com\ntickets: []\nstories: []\nconcerns: []\n---\n\n# RT\n\n## Acceptance\n\n## Changelog\n`);
@@ -715,7 +827,7 @@ function testMissionReportSeam() {
   const dir = makeRepo("main");
   try {
     const slug = "rt";
-    const mdir = join(dir, `.workaholic/missions/${slug}`);
+    const mdir = join(dir, `.workaholic/missions/active/${slug}`);
     mkdirSync(mdir, { recursive: true });
     const mfile = join(mdir, "mission.md");
     writeFileSync(mfile, `---\ntype: Mission\ntitle: RT\nslug: ${slug}\nstatus: active\ncreated_at: 2026-07-06T00:00:00+09:00\nauthor: test@example.com\ntickets: []\nstories: []\nconcerns: []\n---\n\n# RT\n\n## Acceptance\n\n## Changelog\n`);
@@ -1716,7 +1828,7 @@ function testScanWindowMissions() {
   try {
     execSync(`git checkout -q -b work-20260709-020000`, { cwd: dir });
     const slug = "rt-notify";
-    const mdir = join(dir, `.workaholic/missions/${slug}`);
+    const mdir = join(dir, `.workaholic/missions/active/${slug}`);
     mkdirSync(mdir, { recursive: true });
     const archName = "20260709020000-merged.md";
     const flightName = "20260709020001-inflight.md";
@@ -2334,6 +2446,7 @@ const tests = [
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],
+  ["mission layout migration + close.sh", testMissionLayoutMigrationAndClose],
   ["drive/archive.sh mission seam", testMissionDriveSeam],
   ["ship/extract-deferred-concerns.sh mission seam", testMissionShipSeam],
   ["report/apply-deferred-concern-verdicts.sh mission seam", testMissionReportSeam],

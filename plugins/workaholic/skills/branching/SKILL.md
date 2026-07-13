@@ -182,6 +182,15 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-worktree.sh <branch-
 
 Output: `{"cleaned": true, "worktree_path": "<path>", "branch": "<branch-name>", "worktree_removed": true, "branch_removed": true}`
 
+## Credentials — root `.env`
+
+Development credentials live in **one** git-ignored `.env` at the repository root — the single credential source (not per-package, not per-worktree-authored). When working with worktrees, treat the `.env` as something to carry along:
+
+- **New worktrees carry it automatically.** `ensure-worktree.sh` **copies** the root `.env` into each worktree it creates (a *copy*, not a symlink — so worktrees diverge credentials independently), and silently skips the copy when the root has no `.env`. A branch created in the main tree via `create.sh` already sits beside the root `.env`, so no copy is needed there.
+- **Pre-existing / externally-created worktrees need a manual copy.** A worktree that predates this convention, or was created outside `ensure-worktree.sh`, has **no** `.env` — before it can serve or authenticate, copy it in: `cp <repo-root>/.env .env`. Bring the `.env` along as a matter of judgment, not only when `ensure-worktree.sh` happens to run.
+
+The cleanup side is symmetric: `/trip`'s worktree teardown **preserves** git-ignored files like `.env` when syncing a worktree back (see `workaholic:trip-protocol`).
+
 ## Branch State Check
 
 Check if the current branch is main/master or a topic branch.

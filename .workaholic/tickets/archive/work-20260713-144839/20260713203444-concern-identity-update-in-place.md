@@ -4,7 +4,7 @@ author: a@qmu.jp
 type: refactoring
 layer: [Infrastructure]
 effort: 2h
-commit_hash:
+commit_hash: 7fe1afe
 category: Changed
 depends_on:
 mission:
@@ -129,3 +129,32 @@ in `report`/`review-sections`/`carry`. The idempotent, single-writer
 mutator pattern to imitate is the mission skill's `append-changelog.sh` /
 `tick-acceptance.sh`. The migration-scoping precedent (and its recorded
 caution) is the mission living-layout migration in `mission/lib/resolve.sh`.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: `extract-deferred-concerns.sh` already carried a filename-based
+  `canon()` dedup (added PR #82) that *skipped* re-clones but never updated them
+  and left the historical carried-from files intact.
+  **Context**: The accumulation was two problems, not one — a create-only
+  extractor AND a pile of legacy clones. The fix needed both an update-in-place
+  engine (frontmatter `concern_id`, not filename-based) and a collapsing
+  migration; either alone would have left the corpus growing or stale.
+- **Insight**: `extracted` in the output JSON is deliberately kept as the
+  *created* count (new files), with `updated` added alongside.
+  **Context**: The existing smoke test asserts `extracted == 0` on a same-concern
+  re-run as the no-clone signal; defining `extracted` as created preserves that
+  contract and makes "no new file" the machine-checkable freshness invariant.
+- **Insight**: the living migration is wired into `extract` and `list-active`
+  (the write and read entry points) but deliberately NOT into `apply-verdicts`.
+  **Context**: `apply` consumes paths that `list-active` already migrated;
+  migrating again would rename files out from under those paths. Entry-point-only
+  migration keeps the tree fresh without path races.
+- **Scope note**: the ticket's step-3 "reference carried concerns compactly in
+  the PR body" is delivered as a *guideline* in `review-sections` (summarize
+  low-severity carried concerns at scale) rather than a hard behavior change,
+  because update-in-place already kills the accumulation at the engine level and
+  the PR-body curation is where the companion triage ticket (#2) operates.

@@ -4,6 +4,9 @@ origin_pr_url: https://github.com/qmu/workaholic/pull/24
 origin_branch: drive-20260210-121635
 origin_commit: cc5de17
 created_at: 2026-05-19T11:48:40+09:00
+last_seen: 2026-05-19T11:48:40+09:00
+first_seen: 2026-05-19T11:48:40+09:00
+concern_id: the-managers-policy-duplicates-prior-term
 status: resolved
 resolved_by_pr: 174b988
 resolved_by_commit: 

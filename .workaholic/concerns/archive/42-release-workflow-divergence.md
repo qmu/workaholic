@@ -4,6 +4,9 @@ origin_pr_url: https://github.com/qmu/workaholic/pull/42
 origin_branch: work-20260528-122941
 origin_commit: 0915802
 created_at: 2026-06-16T08:57:05+09:00
+last_seen: 2026-06-16T08:57:05+09:00
+first_seen: 2026-06-16T08:57:05+09:00
+concern_id: release-workflow-divergence
 severity: moderate
 status: resolved
 resolved_by_pr: 6bb8db0

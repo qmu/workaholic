@@ -4,6 +4,9 @@ origin_pr_url: https://github.com/qmu/workaholic/pull/26
 origin_branch: drive-20260213-131416
 origin_commit: cc5de17
 created_at: 2026-05-19T11:48:40+09:00
+last_seen: 2026-05-19T11:48:40+09:00
+first_seen: 2026-05-19T11:48:40+09:00
+concern_id: documentation-files-in-workaholic-specs-and
 status: resolved
 resolved_by_pr: 
 resolved_by_commit: 

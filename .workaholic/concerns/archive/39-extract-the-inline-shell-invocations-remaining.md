@@ -4,6 +4,9 @@ origin_pr_url: https://github.com/qmu/workaholic/pull/39
 origin_branch: work-20260417-092936
 origin_commit: cc5de17
 created_at: 2026-05-19T11:48:42+09:00
+last_seen: 2026-05-19T11:48:42+09:00
+first_seen: 2026-05-19T11:48:42+09:00
+concern_id: inline-shell-invocations-remain-in-core
 severity: moderate
 status: resolved
 resolved_by_pr: a5c376f

@@ -4,6 +4,9 @@ origin_pr_url: https://github.com/qmu/workaholic/pull/56
 origin_branch: work-20260624-140219
 origin_commit: e78465d
 created_at: 2026-06-24T21:39:11+09:00
+last_seen: 2026-06-24T21:39:11+09:00
+first_seen: 2026-06-24T21:39:11+09:00
+concern_id: validate-ticket-sh-remains-bash-posix
 severity: low
 status: resolved
 resolved_by_pr: b0e57c9

@@ -4,6 +4,9 @@ origin_pr_url: https://github.com/qmu/workaholic/pull/47
 origin_branch: work-20260617-210627
 origin_commit: 6a64cf0
 created_at: 2026-06-17T22:08:29+09:00
+last_seen: 2026-06-17T22:08:29+09:00
+first_seen: 2026-06-17T22:08:29+09:00
+concern_id: workaholic-itself-now-hits-the-new
 severity: moderate
 status: resolved
 resolved_by_pr: 48

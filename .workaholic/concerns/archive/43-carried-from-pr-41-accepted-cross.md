@@ -4,10 +4,13 @@ origin_pr_url: https://github.com/qmu/workaholic/pull/43
 origin_branch: work-20260617-000311
 origin_commit: 1ed7fbb
 created_at: 2026-06-17T01:51:15+09:00
+last_seen: 2026-06-17T01:51:15+09:00
+first_seen: 2026-06-17T01:51:15+09:00
+concern_id: accepted-cross-agent-coupling
 severity: low
 status: active
-resolved_by_pr:
-resolved_by_commit:
+resolved_by_pr: 
+resolved_by_commit: 
 ---
 
 # (carried from PR #41) Accepted cross-agent coupling

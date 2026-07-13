@@ -4,6 +4,9 @@ origin_pr_url: https://github.com/qmu/workaholic/pull/32
 origin_branch: drive-20260326-183949
 origin_commit: cc5de17
 created_at: 2026-05-19T11:48:41+09:00
+last_seen: 2026-05-19T11:48:41+09:00
+first_seen: 2026-05-19T11:48:41+09:00
+concern_id: agent-teams-agents-operate-in-separate
 status: resolved
 resolved_by_pr: 
 resolved_by_commit: 

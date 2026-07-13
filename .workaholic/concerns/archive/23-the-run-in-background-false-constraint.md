@@ -4,6 +4,9 @@ origin_pr_url: https://github.com/qmu/workaholic/pull/23
 origin_branch: drive-20260208-131649
 origin_commit: cc5de17
 created_at: 2026-05-19T11:48:40+09:00
+last_seen: 2026-05-19T11:48:40+09:00
+first_seen: 2026-05-19T11:48:40+09:00
+concern_id: the-run-in-background-false-constraint
 status: resolved
 resolved_by_pr: d4352d5
 resolved_by_commit: 

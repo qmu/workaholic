@@ -1,0 +1,25 @@
+---
+origin_pr: 69
+origin_pr_url: https://github.com/qmu/workaholic/pull/69
+origin_branch: work-20260701-171611
+origin_commit: e3c3a4b
+created_at: 2026-07-01T21:16:06+09:00
+last_seen: 2026-07-01T21:16:06+09:00
+first_seen: 2026-07-01T21:16:06+09:00
+concern_id: by-developer-axis-lacks-icebox-abandoned
+severity: moderate
+status: superseded
+resolved_by_pr: 
+resolved_by_commit: 
+superseded_by: by-developer-axis-joins-on-commit
+---
+
+# (carried from PR #60) By-developer axis lacks icebox/abandoned attribution
+
+## Description
+
+The by-developer axis in `scan-window.sh` joins on commits but has no icebox/abandoned attribution; this branch widened ref scope but did not add that attribution, so the gap remains (deferred concern `.workaholic/concerns/60-by-developer-axis-joins-on-commit.md`).
+
+## How to Fix
+
+Extend the by-developer join to attribute icebox/abandoned tickets alongside commits.

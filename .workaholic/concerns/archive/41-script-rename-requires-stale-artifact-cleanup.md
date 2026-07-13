@@ -4,6 +4,9 @@ origin_pr_url: https://github.com/qmu/workaholic/pull/41
 origin_branch: work-20260528-091259
 origin_commit: b53a3a0
 created_at: 2026-05-28T12:02:14+09:00
+last_seen: 2026-05-28T12:02:14+09:00
+first_seen: 2026-05-28T12:02:14+09:00
+concern_id: script-rename-requires-stale-artifact-cleanup
 severity: low
 status: resolved
 resolved_by_pr: 55

@@ -368,6 +368,7 @@ Step-by-step workflow for implementing a single ticket during `/drive`. This ski
 - Understand the implementation steps outlined
 - **Read the ticket's `## Policies` section.** It is the recorded list of standard engineering policies (synced from qmu.co.jp) this ticket answers to. Note every `workaholic:<pillar>` / `policies/<slug>.md` entry — Step 3 opens each one before writing code.
 - **Read the ticket's `## Quality Gate` section** (if present). It is the developer-agreed acceptance criteria, verification method, and the gate that must pass before approval — captured at `/ticket` time. Implement *to* this gate, and run its verification before requesting approval. Carry its acceptance criteria into the Step 4 return so the approval prompt can state them, and into the archive `<verify>` arg so the commit `Verify:` key records what cleared the gate.
+- **If the ticket carries a `mission:` relation, also read the owning mission's quality gate** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/gate.sh <mission-slug>`. When `type` is `documentation` or `live-app`, the mission has a live gate: the change must move the mission toward passing it. Verify it by running the project's dev/docs server on the mission worktree's `dev_port` (from the gate reader) and driving `target` with the Playwright plugin to check `assert`. This is the mission-level "is the outcome good?" check on top of the per-ticket gate.
 
 #### 2. Apply Patches (if present)
 

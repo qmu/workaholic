@@ -51,10 +51,17 @@ assignee: <email>       # the user id / email that owns driving this mission (de
 tickets: []             # machine-readable member lists — reserved; populated by later work
 stories: []
 concerns: []
+gate_type:              # documentation | live-app | (empty = no live gate)
+gate_target:            # a route served on the mission worktree's port to check (e.g. /docs)
+gate_assert:            # one line: what must hold for the mission's outcome to pass
 ---
 ```
 
 The `tickets` / `stories` / `concerns` lists are reserved for the machine-readable relations that downstream artifacts emit; a freshly created mission leaves them empty.
+
+### Quality gate
+
+The `gate_*` fields declare the mission's own quality gate — the objective "is the outcome good?" check, distinct from per-ticket gates. `gate_type` is `documentation` (the mission's docs render and read correctly) or `live-app` (the mission's feature works in the running app); `gate_target` is the route to check; `gate_assert` states what must hold. Because a mission runs in its own worktree with a unique port base (`WORKAHOLIC_DEV_PORT`), the gate is verified by driving that worktree's running server with the Playwright plugin — and, since every worktree serves on a different port, several missions' gates can be checked at once. workaholic declares the gate and supplies the port; the server-start command is the project's (declared once, e.g. in the project's `CLAUDE.md`). Read it with `gate.sh` (below); it stays **objective** (`workaholic:implementation` / `objective-documentation`) — a named route plus an asserted condition, never "looks good".
 
 ### Assignee
 
@@ -112,6 +119,12 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/slug.sh "<title>"
 ```
 
 Derive a mission slug from a title (lowercase, non-`[a-z0-9]` runs → single hyphen, ends trimmed). The **single source of the slug rule** — both `create.sh` (the mission directory name) and the `/mission` worktree flow (the `.worktrees/<slug>` directory name) derive the slug here, so the worktree directory always matches the mission slug. Emits the slug on stdout (empty when the title has no `[a-z0-9]`).
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/gate.sh <mission-slug-or-file>
+```
+
+Read the mission's **quality-gate** declaration (`gate_type`/`gate_target`/`gate_assert`) and resolve the mission worktree's ports the gate is checked against. Emits `{type, target, assert, valid, slug, port_base, dev_port, docs_port}` — `valid` is `false` when `gate_type` is set but not `documentation`/`live-app`; the port fields are `""` when the mission has no worktree. `/drive` surfaces this for a missioned ticket so the work is judged against the mission's gate; the live check runs the project's server on `dev_port` and drives `target` with the Playwright plugin.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/progress.sh <mission-file-or-slug>

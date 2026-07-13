@@ -4,7 +4,7 @@ author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure]
 effort: 2h
-commit_hash:
+commit_hash: 82c8500
 category: Added
 depends_on: [20260714011847-mission-create-worktree-kickoff.md, 20260714014043-mission-worktree-port-assignment.md]
 mission:
@@ -82,3 +82,12 @@ Past tickets that touched similar areas:
 - Playwright is not hermetic: keep the automated gate to the schema round-trip; the live browser check is an in-session demonstration, clearly marked (`scripts/test-workflow-scripts.mjs`).
 - Keep the gate declaration in the built `mission` schema but keep worktree/Playwright orchestration in the command/agent layer, so the portable `mission` skill does not gain Claude-only browser/worktree logic (`plugins/workaholic/skills/mission/SKILL.md`).
 - This ticket has genuine open design (how the project's server-start is declared and invoked); if it grows, split the schema part (declaration) from the verification-run part at drive time (`plugins/workaholic/commands/mission.md`).
+
+## Final Report
+
+Development completed as planned. Missions now declare `gate_type` (`documentation`|`live-app`) / `gate_target` / `gate_assert` (scaffolded by `create.sh`); the new `mission/scripts/gate.sh` reads the declaration, resolves the worktree's assigned ports, and flags an invalid type (`valid: false`). `/drive` surfaces a missioned ticket's gate (run the project's server on the worktree `dev_port`, drive `target` with Playwright to check `assert`); the `/mission` create flow captures the gate. Server-start stays project-owned. Hermetic test covers the schema round-trip, invalid-type flag, and worktree-port resolution; the live Playwright run is an in-session step by design. 508 passed / 0 failed, build/verify/metadata/posix-lint clean.
+
+### Discovered Insights
+
+- **Insight**: The gate declaration uses **flat, grep-parseable** frontmatter keys (`gate_type`/`gate_target`/`gate_assert`) rather than a nested YAML block, because every mission script parses frontmatter with `grep`/`sed` (no YAML parser). A nested block would not round-trip through `fm_field`-style readers.
+  **Context**: This matches the existing flat-key convention (`assignee`, `status`) the mission scripts already rely on; keep new mission frontmatter flat so the shell readers stay simple.

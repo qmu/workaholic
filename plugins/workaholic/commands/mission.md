@@ -14,7 +14,17 @@ skills:
 
 This command (main agent) runs the preloaded `workaholic:mission` skill. A **mission** is a first-class knowledge artifact: a long-lived, information-rich goal that spans many tickets, drives, reports, and PRs — distinct from a `trip` (a short design/build session) and from a generic "epic/milestone" (see the skill's opening section). It lives at `.workaholic/missions/active/<slug>/mission.md` while in progress, and moves to `.workaholic/missions/archive/<slug>/mission.md` when ended (see the skill's Allowed Location section).
 
-`$ARGUMENT` selects the mode:
+`$ARGUMENT` selects the mode. Match `summary` **first** (before the title branch, so the literal word `summary` reports rather than becoming a mission title), then the empty and `close` branches, then any other non-empty value as a title.
+
+## `summary` — my assigned missions
+
+When `$ARGUMENT` is exactly `summary`, report the current user's **assigned active** missions and stop — a read-only view that creates nothing:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/summary.sh
+```
+
+The script lists only missions whose `assignee` matches your `git config user.email` and whose `status` is `active` (the same gate the mission lens uses), each with computed `checked/total` progress and its next unchecked acceptance item. Present the returned array as one line per mission — `title` (`slug`) — `checked/total`, then `next: <item>`. If the array is empty, tell the user no active mission is assigned to them and that `/mission` (bare) lists everyone's missions and `/mission "<title>"` starts one.
 
 ## With a title — create a mission
 

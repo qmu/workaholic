@@ -120,6 +120,12 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list.sh
 List every mission — across both `active/` and `archive/` — with its `status`, `assignee`, and computed progress: a JSON array of `{slug, title, status, assignee, checked, total, path}`, sorted by slug (`path` is the resolved `mission.md` location, so consumers never rebuild it by hand). Emits `[]` when there are no missions.
 
 ```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/summary.sh
+```
+
+Summarize the **current user's assigned active** missions (read-only) — the engine behind `/mission summary`. Lists only missions whose `assignee` matches `git config user.email` and whose `status` is `active` (the same gate the mission lens uses), each with computed progress and next step. Emits a JSON array `[{slug, title, checked, total, next, path}]` sorted by slug, or `[]` when no active mission is assigned to the current user. Reuses `progress.sh` (computed `checked/total`, never stored) and `next-acceptance.sh` (the first unchecked item), so the ownership and progress rules stay defined once. Mutates nothing.
+
+```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/next-acceptance.sh <mission-slug-or-file>
 ```
 

@@ -29,6 +29,8 @@ const SCRIPTS = {
   userSlug: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/user-slug.sh"),
   sweepTodo: join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/scripts/sweep-todo.sh"),
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
+  ticketSummary: join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/scripts/summary.sh"),
+  missionSummary: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/summary.sh"),
   missionCreate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"),
   missionProgress: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/progress.sh"),
   missionList: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list.sh"),
@@ -408,6 +410,99 @@ function testListTodo() {
       `.workaholic/tickets/todo/${TEST_SLUG}/20260528120000-a.md`,
       `.workaholic/tickets/todo/${TEST_SLUG}/20260528120001-b.md`,
     ]);
+  } finally { cleanup(dir); }
+}
+
+// ---------- 8b. create-ticket/summary.sh + mission/summary.sh (summary mode) ----------
+// The read-only summary mode must report EXACTLY the current user's assigned work
+// and nothing of another user's. Seed two users (A, B), each with their own
+// tickets and an active mission, plus an achieved mission for A that must not
+// surface. Then run each summarizer as A and as B and assert the exact sets.
+function testSummaryMode() {
+  const dir = makeRepo("main");
+  try {
+    execSync(`git checkout -q -b work-20260714-summary`, { cwd: dir });
+    const A = "test@example.com", Aslug = "test-example-com";
+    const B = "b@example.com", Bslug = "b-example-com";
+
+    const mkTicket = (slug, email, name, title, type) => {
+      const d = join(dir, `.workaholic/tickets/todo/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, name),
+        `---\ncreated_at: 2026-07-14T00:00:00+09:00\nauthor: ${email}\ntype: ${type}\nlayer: [Infrastructure]\ndepends_on:\n---\n\n# ${title}\n`);
+    };
+    mkTicket(Aslug, A, "20260714120000-t1.md", "Ticket One", "enhancement");
+    mkTicket(Aslug, A, "20260714120001-t2.md", "Ticket Two", "bugfix");
+    mkTicket(Bslug, B, "20260714120002-t3.md", "Ticket Three", "enhancement");
+
+    const mkMission = (slug, title, status, assignee, nextItem) => {
+      const area = status === "active" ? "active" : "archive";
+      const d = join(dir, `.workaholic/missions/${area}/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "mission.md"), `---
+type: Mission
+title: ${title}
+slug: ${slug}
+status: ${status}
+created_at: 2026-07-14T00:00:00+09:00
+author: ${assignee}
+assignee: ${assignee}
+tickets: []
+stories: []
+concerns: []
+---
+
+# ${title}
+
+## Acceptance
+
+- [x] First criterion (#a.md)
+- [ ] ${nextItem} (#b.md)
+
+## Changelog
+`);
+    };
+    mkMission("mission-a", "Mission A", "active", A, "Second criterion");
+    mkMission("mission-old", "Mission Old", "achieved", A, "Old criterion");
+    mkMission("mission-b", "Mission B", "active", B, "Bee criterion");
+
+    const setEmail = (email) => execSync(`git config user.email ${email}`, { cwd: dir });
+
+    // ---- ticket summary: exact per-user set ----
+    setEmail(A);
+    const tA = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.ticketSummary}`).stdout);
+    assertEq("ticket summary (A) lists exactly A's tickets, sorted", tA.map((t) => t.path), [
+      `.workaholic/tickets/todo/${Aslug}/20260714120000-t1.md`,
+      `.workaholic/tickets/todo/${Aslug}/20260714120001-t2.md`,
+    ]);
+    assertEq("ticket summary carries title/type/layer",
+      { title: tA[0].title, type: tA[0].type, layer: tA[0].layer },
+      { title: "Ticket One", type: "enhancement", layer: "[Infrastructure]" });
+
+    setEmail(B);
+    const tB = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.ticketSummary}`).stdout);
+    assertEq("ticket summary (B) excludes A's tickets", tB.map((t) => t.path), [
+      `.workaholic/tickets/todo/${Bslug}/20260714120002-t3.md`,
+    ]);
+
+    // ---- mission summary: exact per-user active set, achieved excluded ----
+    setEmail(A);
+    const mA = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSummary}`).stdout);
+    assertEq("mission summary (A) = A's ACTIVE missions only (achieved excluded)",
+      mA.map((m) => ({ slug: m.slug, checked: m.checked, total: m.total })),
+      [{ slug: "mission-a", checked: 1, total: 2 }]);
+    assertEq("mission summary (A) computes the next unchecked item", mA[0].next, "Second criterion");
+
+    setEmail(B);
+    const mB = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSummary}`).stdout);
+    assertEq("mission summary (B) excludes A's missions", mB.map((m) => m.slug), ["mission-b"]);
+
+    // ---- a user with nothing assigned gets [] from both ----
+    setEmail("nobody@example.com");
+    assertEq("ticket summary empty for a user with no queue",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.ticketSummary}`).stdout), []);
+    assertEq("mission summary empty for a user with no assigned mission",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSummary}`).stdout), []);
   } finally { cleanup(dir); }
 }
 
@@ -2605,6 +2700,7 @@ const tests = [
   ["gather/user-slug.sh", testUserSlug],
   ["create-ticket/sweep-todo.sh", testSweepTodo],
   ["drive/list-todo.sh", testListTodo],
+  ["create-ticket/summary.sh + mission/summary.sh (summary mode)", testSummaryMode],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],

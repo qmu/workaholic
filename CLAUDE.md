@@ -56,7 +56,7 @@ There are two distinct kinds of "subagent" in this repo, and the table above gov
 - **Sources** (write to `todo/`): `/ticket` (human-directed, with discovery) and a trip's **Decomposition gate** (trip-protocol Planning Step 5 — the Constructor decomposes the agreed design into tickets, each carrying the mandatory `## Policies` and a **Trip Origin** link back to its `.workaholic/trips/<name>/designs/` rationale).
 - **Executors** (drain `todo/ → archive/`): the **drive executor** (`/drive` — solo main-agent + developer approval per ticket) and the **trip executor** (`/trip` — three-agent team, with Constructor implements → Architect reviews → Planner E2E standing in for the developer gate; `drive/archive.sh` archives each ticket).
 
-`/trip` is **context-aware** (like `/report` and `/ship`): `/trip <instruction>` over an empty queue is source+executor (design → decompose → drive, as **one continuous run** — the team flows from the fixed design straight into the build with no developer green-light pause; review happens afterward via `/report`); `/trip` over a populated queue is executor-only (trip-drive the existing `/ticket` queue, no design — the `ticket → trip` direction); `/trip` over nothing tells you to `/ticket` first. Because both executors read the same `todo/`, you can switch between them mid-queue (`trip → interrupt → /drive`). So `trips/` holds the *why*, `tickets/` the *what*, and `/report`/`/ship` treat a trip exactly like a drive.
+`/trip` is **context-aware** (like `/report` and `/ship`): `/trip <instruction>` over an empty queue is source+executor (design → decompose → drive, as **one continuous run** — the team flows from the fixed design straight into the build with no developer green-light pause; review happens afterward via `/report`); `/trip` over a populated queue is executor-only (trip-drive the existing `/ticket` queue, no design — the `ticket → trip` direction); `/trip` over nothing tells you to `/ticket` first. `/trip summary` is the read-only exception: it launches no team and instead reports every trip under `trips/` (plan phase/step) plus the todo-queue snapshot a `/trip` would execute. Because both executors read the same `todo/`, you can switch between them mid-queue (`trip → interrupt → /drive`). So `trips/` holds the *why*, `tickets/` the *what*, and `/report`/`/ship` treat a trip exactly like a drive.
 
 ### No Per-Workflow Agent Files
 
@@ -190,12 +190,12 @@ If a skill you expect is not in context, ask the user which plugins are loaded �
 
 | Command                          | Description                                      |
 | -------------------------------- | ------------------------------------------------ |
-| `/ticket <description>`          | Write implementation spec for a feature          |
+| `/ticket <description>`          | Write implementation spec for a feature (bare `/ticket` or `/ticket summary` reports your assigned todo tickets instead of creating one) |
 | `/drive`                         | Implement queued specs one by one                |
 | `/commit`                        | Commit working changes with a policy-conformant message (small non-ticketed changes; prefer `/drive` for ticketed work) |
 | `/report`                        | Context-aware: generate story or journey report and create PR |
 | `/ship`                          | Context-aware: merge PR, deploy, and verify      |
-| `/mission ["<title>" \| close <slug>]` | Create a mission (a durable, information-rich goal spanning many tickets), list existing missions with computed progress, or close one (achieved/abandoned) into `missions/archive/` |
+| `/mission ["<title>" \| summary \| close <slug>]` | Create a mission (a durable, information-rich goal spanning many tickets), list existing missions with computed progress, show just **your** assigned active missions (`summary`), or close one (achieved/abandoned) into `missions/archive/` |
 | `/catch [window]`                | Read-only by-developer catch-up report over a recent window (commits, tickets, stories) plus a Missions view (each active mission's derived progress, merged activity, and unmerged in-flight work), then follow-up Q&A |
 | `/carry`                         | Hand off in-progress work to a fresh session (capture-only): write a resumption ticket / trip checkpoint a later `/drive` continues, instead of relying on compaction |
 | `/explain <question> [dir]`      | Answer a repo question and export a printer-ready PDF report (HTML printed by a real browser); exports to `dir`, else Desktop→Home (Home write asks permission) |

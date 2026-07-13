@@ -241,6 +241,14 @@ Procedural body for `/trip` (executed from the work-side command via this preloa
 
 **Determine mode from `$ARGUMENT`**: if it contains the `night` token (e.g. "go night /trip …", "/trip night …"), mode = "night" — **strip** the `night` token so the remainder is the trip instruction, and apply the **Night Mode** subsection's overrides to Steps 1, 4, and 5 (unattended, no developer questions). Otherwise mode = "normal" and the steps run interactively as written.
 
+**Summary mode (read-only)** — if the (night-stripped) `$ARGUMENT` is exactly `summary`, do **not** determine execution mode or launch a team. Run the trip summary and stop:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/summary.sh
+```
+
+It emits `{"trips": [...], "queue": [...]}`: each trip under `.workaholic/trips/` with its plan `phase`/`step`/`instruction`/`blocked` (via `read-plan.sh`), followed by the current user's todo-queue snapshot a `/trip` would execute (via `drive/list-todo.sh`). Present each trip as one line — `name` — `phase/step` (note `blocked` when set) — and then the queued ticket count/paths. This reports only; it creates no worktree, branch, or artifact. Bare `/trip` (no argument) keeps its context-aware queue-execute behavior below.
+
 **Determine execution mode (design-first vs queue-execute)** — `/trip` is context-aware, like `/report` and `/ship`. After the Pre-check, list the current todo queue:
 
 ```bash

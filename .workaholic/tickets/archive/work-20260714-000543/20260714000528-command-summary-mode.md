@@ -3,8 +3,8 @@ created_at: 2026-07-14T00:05:28+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure]
-effort: 4h
-commit_hash:
+effort: 2h
+commit_hash: 651bc53
 category: Added
 depends_on:
 mission:
@@ -104,3 +104,14 @@ Past tickets that touched similar areas:
 - Keep the mode read-only and non-interactive: no `AskUserQuestion`, so no `[<project label>]` prefix obligation; if a prompt is ever added it must carry the label (`hooks/guard-askuserquestion-label.sh`).
 - Remember the asymmetric build impact: create-ticket + mission are built into `outputs/workflows` (rebuild required), trip-protocol is not (`scripts/build-plugins/build.mjs`).
 - Consider whether `/trip summary`'s value overlaps enough with `/catch` and the mission-lens that it should instead defer to `/catch` for the trip view — decide during implementation, but the ticket's default is the per-domain trip snapshot (`plugins/workaholic/skills/catch/SKILL.md`).
+
+## Final Report
+
+Development completed as planned. All three summary modes were wired (bare `/ticket` + `/ticket summary`, `/mission summary`, `/trip summary`), the two preserved bare contracts (`/mission` list, `/trip` queue-execute) were left untouched, docs updated, and the hermetic two-user exact-set test added (8 assertions; full suite 440 passed / 0 failed; build/verify/validate-metadata/posix-lint clean).
+
+### Discovered Insights
+
+- **Insight**: Reusing another skill's script pulls that skill's entire build closure into the reusing skill's `outputs/workflows` bundle. `create-ticket/scripts/summary.sh` calling `drive/scripts/list-todo.sh` expanded create-ticket's built closure to `[branching, check-deps, commit, create-ticket, drive, gather, mission, okf, system-safety]`, adding several new bundled `scripts/` dirs under `outputs/workflows/skills/create-ticket/`.
+  **Context**: `build.mjs`'s `computeClosure` is transitive over `${SCRIPT_DIR}/../../<x>/scripts/` references, so a single cross-skill reuse can materially grow the committed outputs. It's correct (self-containment) and auto-handled, but any future cross-skill script reuse should expect a larger `outputs/` diff and a bigger portable bundle — weigh that against inlining a tiny helper.
+- **Insight**: A `summary` keyword mode must be dispatched **before** a command's "non-empty argument = create/title" branch, or the literal word `summary` is swallowed as content (a mission titled "summary", an empty-description ticket). The three commands each needed the summary check ordered ahead of their existing arg handling.
+  **Context**: `/mission`'s create branch treats any non-empty `$ARGUMENT` as a title, so `commands/mission.md` explicitly documents "match `summary` first"; the same ordering rule applies to `/trip` (route `summary` before "Determine execution mode") and `/ticket` (short-circuit before the create workflow).

@@ -5,8 +5,8 @@
 # via progress.sh, never read from a stored number.
 #
 # Usage: list.sh
-# Output: JSON array [{slug, title, status, checked, total, path}], sorted by slug.
-#         Emits [] when there are no missions.
+# Output: JSON array [{slug, title, status, assignee, checked, total, path}],
+#         sorted by slug. Emits [] when there are no missions.
 
 set -eu
 
@@ -48,12 +48,13 @@ for d in $DIRS; do
     slug=$(basename "$d")
     title=$(json_escape "$(fm_field "$f" title)")
     status=$(json_escape "$(fm_field "$f" status)")
+    assignee=$(json_escape "$(fm_field "$f" assignee)")
     prog=$(sh "${SCRIPT_DIR}/progress.sh" "$f")
     checked=$(printf '%s' "$prog" | sed -e 's/.*"checked": *//' -e 's/[,}].*//')
     total=$(printf '%s' "$prog" | sed -e 's/.*"total": *//' -e 's/[,}].*//')
     [ "$FIRST" -eq 1 ] || OUT="${OUT},"
     FIRST=0
-    OUT="${OUT}{\"slug\":\"${slug}\",\"title\":\"${title}\",\"status\":\"${status}\",\"checked\":${checked},\"total\":${total},\"path\":\"${f}\"}"
+    OUT="${OUT}{\"slug\":\"${slug}\",\"title\":\"${title}\",\"status\":\"${status}\",\"assignee\":\"${assignee}\",\"checked\":${checked},\"total\":${total},\"path\":\"${f}\"}"
 done
 OUT="${OUT}]"
 printf '%s\n' "$OUT"

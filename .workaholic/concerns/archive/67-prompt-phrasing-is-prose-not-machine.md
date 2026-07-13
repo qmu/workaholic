@@ -4,6 +4,9 @@ origin_pr_url: https://github.com/qmu/workaholic/pull/67
 origin_branch: work-20260701-093015
 origin_commit: 21a5f49
 created_at: 2026-07-01T13:35:59+09:00
+last_seen: 2026-07-01T13:35:59+09:00
+first_seen: 2026-07-01T13:35:59+09:00
+concern_id: prompt-phrasing-is-prose-not-machine
 severity: moderate
 status: resolved
 resolved_by_pr: 6601029

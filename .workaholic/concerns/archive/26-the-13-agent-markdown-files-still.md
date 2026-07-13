@@ -4,6 +4,9 @@ origin_pr_url: https://github.com/qmu/workaholic/pull/26
 origin_branch: drive-20260213-131416
 origin_commit: cc5de17
 created_at: 2026-05-19T11:48:40+09:00
+last_seen: 2026-05-19T11:48:40+09:00
+first_seen: 2026-05-19T11:48:40+09:00
+concern_id: the-13-agent-markdown-files-still
 status: resolved
 resolved_by_pr: a0949ae
 resolved_by_commit: 

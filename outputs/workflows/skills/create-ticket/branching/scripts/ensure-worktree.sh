@@ -45,4 +45,13 @@ mkdir -p "${repo_root}/.worktrees"
 
 git worktree add -b "${branch_name}" "${worktree_path}" HEAD
 
+# Credentials protocol (2026-07-13): development credentials live in ONE
+# git-ignored .env at the repository root, and worktree creation carries it
+# into the new worktree — git worktree add alone never brings an ignored
+# file along. A COPY, not a symlink, so worktrees can diverge credentials
+# independently; silently skipped when the root has no .env.
+if [ -f "${repo_root}/.env" ]; then
+  cp "${repo_root}/.env" "${worktree_path}/.env"
+fi
+
 echo '{"worktree_path": "'"${worktree_path}"'", "branch": "'"${branch_name}"'"}'

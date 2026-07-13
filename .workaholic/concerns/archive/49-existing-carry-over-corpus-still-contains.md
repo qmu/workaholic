@@ -4,11 +4,14 @@ origin_pr_url: https://github.com/qmu/workaholic/pull/49
 origin_branch: work-20260618-003119
 origin_commit: b15fbd0
 created_at: 2026-06-18T08:13:13+09:00
+last_seen: 2026-06-18T08:13:13+09:00
+first_seen: 2026-06-18T08:13:13+09:00
+concern_id: existing-carry-over-corpus-still-contains
 severity: low
 status: resolved
 disposition: resolved
-resolved_by_pr:
-resolved_by_commit:
+resolved_by_pr: 
+resolved_by_commit: 
 ---
 
 # Existing carry-over corpus still contains chained duplicates from before the dedup fix

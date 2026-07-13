@@ -4,6 +4,9 @@ origin_pr_url: https://github.com/qmu/workaholic/pull/48
 origin_branch: work-20260617-231848
 origin_commit: 63bbb9e
 created_at: 2026-06-18T00:21:49+09:00
+last_seen: 2026-06-18T00:21:49+09:00
+first_seen: 2026-06-18T00:21:49+09:00
+concern_id: record-evidence-sh-does-not-scrub
 severity: moderate
 status: resolved
 resolved_by_pr: 49

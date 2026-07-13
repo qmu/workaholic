@@ -56,6 +56,22 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/policy-lens.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/mission-lens.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/mission-lens.sh",
+            "timeout": 10
           }
         ]
       }

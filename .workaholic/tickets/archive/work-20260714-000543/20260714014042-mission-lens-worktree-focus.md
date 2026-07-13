@@ -4,7 +4,7 @@ author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure]
 effort: 1h
-commit_hash:
+commit_hash: 7a0baa7
 category: Changed
 depends_on: [20260714011846-mission-worktree-primitive.md, 20260714011847-mission-create-worktree-kickoff.md]
 mission:
@@ -78,3 +78,12 @@ Past tickets that touched similar areas:
 - Do not weaken the identity gate: scoping is **additional** to `assignee == git user.email`, never a replacement (`plugins/workaholic/hooks/mission-lens.sh`).
 - Detection must be cheap — the lens runs on every turn/stop; read `git worktree list` once and avoid per-mission subprocess storms (`plugins/workaholic/hooks/mission-lens.sh`).
 - A mission whose worktree was removed (post-close) correctly falls back to "no worktree → shows in main tree" until the mission itself is closed; ensure the fallback is graceful (`plugins/workaholic/skills/branching/scripts/list-all-worktrees.sh`).
+
+## Final Report
+
+Development completed as planned. `mission-lens.sh` now scopes on top of the assignee gate: inside `.worktrees/<slug>` it surfaces only that mission; in the main tree it hides worktree-owned missions and shows only worktree-less ones. Hermetic test (alpha with a worktree, gamma without, delta owned by another user) proves the scoping and that the identity gate is intact (471 passed, 0 failed). Hook is not built, so no `outputs/` diff; posix-lint clean; CLAUDE.md updated.
+
+### Discovered Insights
+
+- **Insight**: In a `set -e` POSIX script, `cmd | grep -Fqx x && continue` **exits the whole script** when grep does not match — the `A && B` statement's non-zero status (from A failing) is fatal under `set -e` because it is a standalone statement, not a condition. Rewriting as `if …; then continue; fi` puts grep in the exempt condition position.
+  **Context**: The first draft used the `&& continue` form; it would have silently killed the lens for every worktree-less mission (the common main-tree case). The `if` form is the safe idiom for "skip on match" under `set -eu`.

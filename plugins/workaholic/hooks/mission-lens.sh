@@ -33,11 +33,37 @@ ACTIVE_DIR="${ROOT}/.workaholic/missions/active"
 ME=$(git config user.email 2>/dev/null || true)
 [ -n "$ME" ] || exit 0
 
+# Worktree focus: a mission runs in its own worktree (.worktrees/<slug>). Inside
+# a mission worktree, surface ONLY that mission — you are already focused on it,
+# so other worktrees' missions are noise. In the main tree (or a non-mission
+# worktree), surface only missions that do NOT own a dedicated worktree (a
+# worktree-owned mission stays silent everywhere but its own worktree).
+CURRENT_MISSION=""
+case "$ROOT" in
+    */.worktrees/*)
+        cand="${ROOT##*/}"
+        [ -f "${ACTIVE_DIR}/${cand}/mission.md" ] && CURRENT_MISSION="$cand"
+        ;;
+esac
+# Slugs that own a registered .worktrees/<slug> worktree (one per line).
+WT_SLUGS=$(git worktree list --porcelain 2>/dev/null | sed -n 's|^worktree .*/\.worktrees/\(.*\)$|\1|p' || true)
+
 LINES=""
 for f in "$ACTIVE_DIR"/*/mission.md; do
     [ -f "$f" ] || continue
     assignee=$(grep -m1 '^assignee:' "$f" 2>/dev/null | sed -e 's/^assignee:[ \t]*//' -e 's/[ \t]*$//' || true)
     [ "$assignee" = "$ME" ] || continue
+
+    slug=$(basename "$(dirname "$f")")
+    if [ -n "$CURRENT_MISSION" ]; then
+        # Inside a mission worktree: only that worktree's mission.
+        [ "$slug" = "$CURRENT_MISSION" ] || continue
+    else
+        # Main tree / non-mission worktree: skip missions owned by a worktree.
+        if printf '%s\n' "$WT_SLUGS" | grep -Fqx "$slug"; then
+            continue
+        fi
+    fi
 
     title=$(grep -m1 '^title:' "$f" 2>/dev/null | sed -e 's/^title:[ \t]*//' -e 's/[ \t]*$//' || true)
     prog=$(sh "${PLUGIN_ROOT}/skills/mission/scripts/progress.sh" "$f" 2>/dev/null || true)

@@ -26,6 +26,7 @@ const SCRIPTS = {
   createMissionWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/create-mission-worktree.sh"),
   cleanupMissionWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/cleanup-mission-worktree.sh"),
   listAllWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/list-all-worktrees.sh"),
+  missionLens: join(REPO_ROOT, "plugins/workaholic/hooks/mission-lens.sh"),
   detectContext: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/detect-context.sh"),
   checkWorkspace: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check-workspace.sh"),
   update: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/update.sh"),
@@ -620,6 +621,68 @@ function testMissionWorktreePrimitive() {
     execSync(`rm -f .worktrees/dirty-mission/uncommitted.txt`, { cwd: dir2 });
     run(dir2, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} dirty-mission`);
   } finally { cleanup(dir2); }
+}
+
+// ---------- 8e. mission-lens worktree focus ----------
+// Inside a mission's worktree the lens surfaces only that mission; in the main
+// tree it hides missions that own a worktree and shows only worktree-less ones.
+function testMissionLensWorktreeFocus() {
+  const dir = makeRepo("main");
+  const PLUGIN_ROOT = join(REPO_ROOT, "plugins/workaholic");
+  try {
+    const mk = (slug, title) => {
+      const d = join(dir, `.workaholic/missions/active/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "mission.md"), `---
+type: Mission
+title: ${title}
+slug: ${slug}
+status: active
+created_at: 2026-07-14T00:00:00+09:00
+author: test@example.com
+assignee: test@example.com
+tickets: []
+stories: []
+concerns: []
+---
+
+# ${title}
+
+## Acceptance
+
+- [ ] first (#a.md)
+
+## Changelog
+`);
+    };
+    mk("alpha", "Alpha Mission");
+    mk("gamma", "Gamma Mission");
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+
+    // alpha gets a dedicated worktree; gamma does not.
+    JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} alpha`).stdout);
+
+    const env = { ...process.env, CLAUDE_PLUGIN_ROOT: PLUGIN_ROOT };
+    const runLens = (cwd) => run(cwd, `printf '%s' '{"hook_event_name":"Stop"}' | ${POSIX_SH} ${SCRIPTS.missionLens}`, { env }).stdout;
+
+    // Main tree: only gamma (alpha is worktree-owned and stays silent here).
+    const mainOut = runLens(dir);
+    assertTrue("main-tree lens shows the worktree-less mission (gamma)", mainOut.includes("Gamma Mission"), mainOut);
+    assertTrue("main-tree lens hides the worktree-owned mission (alpha)", !mainOut.includes("Alpha Mission"), mainOut);
+
+    // Inside .worktrees/alpha: only alpha.
+    const alphaOut = runLens(join(dir, ".worktrees/alpha"));
+    assertTrue("alpha worktree lens shows alpha", alphaOut.includes("Alpha Mission"), alphaOut);
+    assertTrue("alpha worktree lens hides other missions (gamma)", !alphaOut.includes("Gamma Mission"), alphaOut);
+
+    // A mission assigned to someone else is never surfaced (gate intact).
+    mkdirSync(join(dir, ".workaholic/missions/active/delta"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/missions/active/delta/mission.md"),
+      `---\ntype: Mission\ntitle: Delta Mission\nslug: delta\nstatus: active\ncreated_at: 2026-07-14T00:00:00+09:00\nauthor: other@example.com\nassignee: other@example.com\ntickets: []\nstories: []\nconcerns: []\n---\n\n# Delta Mission\n\n## Acceptance\n\n- [ ] x (#a.md)\n\n## Changelog\n`);
+    assertTrue("lens never surfaces another user's mission", !runLens(dir).includes("Delta Mission"));
+
+    run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} alpha`);
+  } finally { cleanup(dir); }
 }
 
 // ---------- 9. installed plugin helper resolution ----------
@@ -2819,6 +2882,7 @@ const tests = [
   ["create-ticket/summary.sh + mission/summary.sh (summary mode)", testSummaryMode],
   ["mission create branches on main", testMissionBranchOnCreate],
   ["branching mission worktree primitive", testMissionWorktreePrimitive],
+  ["mission-lens worktree focus", testMissionLensWorktreeFocus],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],

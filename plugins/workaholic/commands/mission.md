@@ -4,6 +4,7 @@ description: Create a mission (a durable, information-rich goal spanning many ti
 skills:
   - workaholic:mission
   - workaholic:gather
+  - workaholic:branching
 ---
 
 # Mission
@@ -28,7 +29,23 @@ The script lists only missions whose `assignee` matches your `git config user.em
 
 ## With a title — create a mission
 
-When `$ARGUMENT` is a non-empty title, create a new mission:
+When `$ARGUMENT` is a non-empty title, create a new mission.
+
+**First, start a topic branch when on main** — exactly as `/ticket` does before writing a ticket, so a mission is never created on `main`. Run the branch check:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check.sh
+```
+
+If `on_main` is `true`, create a topic branch **only** via the sanctioned creator (never name a branch yourself), and note the returned branch name:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh
+```
+
+If `on_main` is `false`, you are already on a work branch — skip branch creation and create the mission on the current branch. This branch step applies to the create path **only**; the list and `close` modes below never branch.
+
+Then create the mission:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/create.sh "$ARGUMENT"

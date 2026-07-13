@@ -22,6 +22,7 @@ import { fileURLToPath } from "node:url";
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../..");
 const SCRIPTS = {
   branchCheck: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check.sh"),
+  branchCreate: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/create.sh"),
   detectContext: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/detect-context.sh"),
   checkWorkspace: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check-workspace.sh"),
   update: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/update.sh"),
@@ -504,6 +505,61 @@ concerns: []
     assertEq("mission summary empty for a user with no assigned mission",
       JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSummary}`).stdout), []);
   } finally { cleanup(dir); }
+}
+
+// ---------- 8c. /mission create branches on main (branch-if-on-main orchestration) ----------
+// /mission "<title>" starts a topic branch when on main, like /ticket. The command
+// orchestrates check.sh -> (on_main) create.sh before mission/create.sh; list and
+// close never branch. This test drives that exact sequence in throwaway repos.
+function testMissionBranchOnCreate() {
+  // On main: check.sh reports on_main -> create.sh makes a work-* branch -> mission
+  // lands on it, off main.
+  const dir = makeRepo("main");
+  try {
+    const chk = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.branchCheck}`).stdout);
+    assertEq("mission-create on main: check.sh reports on_main", chk.on_main, true);
+
+    const created = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.branchCreate}`).stdout);
+    assertTrue("branch matches work-YYYYMMDD-HHMMSS", /^work-\d{8}-\d{6}$/.test(created.branch), created.branch);
+    assertEq("HEAD moved onto the new work branch",
+      execSync(`git branch --show-current`, { cwd: dir, encoding: "utf8" }).trim(), created.branch);
+
+    const m = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionCreate} "Ship It"`).stdout);
+    assertEq("mission created after branching", m.created, true);
+    assertTrue("mission.md written on the work branch",
+      existsSync(join(dir, ".workaholic/missions/active/ship-it/mission.md")), m.path);
+    // The mission does not exist on main (it was created on the work branch).
+    execSync(`git add -A && git commit -q -m "mission on work branch"`, { cwd: dir });
+    execSync(`git checkout -q main`, { cwd: dir });
+    assertTrue("mission is absent on main",
+      !existsSync(join(dir, ".workaholic/missions/active/ship-it/mission.md")));
+  } finally { cleanup(dir); }
+
+  // On an existing work branch: check.sh reports not on_main -> command skips
+  // create.sh; mission is created on the current branch, no new branch appears.
+  const dir2 = makeRepo("main");
+  try {
+    execSync(`git checkout -q -b work-20260714-existing`, { cwd: dir2 });
+    const chk = JSON.parse(run(dir2, `${POSIX_SH} ${SCRIPTS.branchCheck}`).stdout);
+    assertEq("on a work branch: check.sh reports not on_main", chk.on_main, false);
+
+    const m = JSON.parse(run(dir2, `${POSIX_SH} ${SCRIPTS.missionCreate} "Ship It"`).stdout);
+    assertEq("mission created without branching", m.created, true);
+    assertEq("branch unchanged — no new work-* created",
+      execSync(`git branch --show-current`, { cwd: dir2, encoding: "utf8" }).trim(), "work-20260714-existing");
+    const branches = execSync(`git branch --format='%(refname:short)'`, { cwd: dir2, encoding: "utf8" })
+      .split("\n").filter(Boolean).sort();
+    assertEq("only main + the pre-existing work branch exist", branches, ["main", "work-20260714-existing"]);
+  } finally { cleanup(dir2); }
+
+  // The list and close modes never branch: list.sh on main creates no branch.
+  const dir3 = makeRepo("main");
+  try {
+    run(dir3, `${POSIX_SH} ${SCRIPTS.missionList}`);
+    assertEq("mission list on main creates no branch",
+      execSync(`git branch --format='%(refname:short)'`, { cwd: dir3, encoding: "utf8" }).split("\n").filter(Boolean),
+      ["main"]);
+  } finally { cleanup(dir3); }
 }
 
 // ---------- 9. installed plugin helper resolution ----------
@@ -2701,6 +2757,7 @@ const tests = [
   ["create-ticket/sweep-todo.sh", testSweepTodo],
   ["drive/list-todo.sh", testListTodo],
   ["create-ticket/summary.sh + mission/summary.sh (summary mode)", testSummaryMode],
+  ["mission create branches on main", testMissionBranchOnCreate],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],

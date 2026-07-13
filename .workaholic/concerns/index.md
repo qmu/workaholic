@@ -63,6 +63,8 @@
 * [(carried from PR #77) Archive script records the pre-amend commit hash](80-carried-from-pr-77-archive-script.md)
 * [(carried from PR #77) Codex hook runtime behavior remains unproven in deployed installations](80-carried-from-pr-77-codex-hook.md)
 * [(carried from PR #77) Existing artifacts are not backfilled into the .workaholic OKF bundle index](80-carried-from-pr-77-existing-artifacts.md)
+* [Hermetic tests prove migration, not local use (repo has no missions)](82-hermetic-tests-prove-migration-not-local.md)
+* [Living migration departs from forward-only stance but is strictly scoped](82-living-migration-departs-from-forward-only.md)
 * [Concerns](README.md)
 
 * [archive/](archive/)

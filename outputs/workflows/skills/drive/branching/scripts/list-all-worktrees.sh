@@ -45,6 +45,18 @@ while IFS= read -r line; do
       work-*|drive-*|trip/*) wt_type="work" ;;
       *) wt_type="other" ;;
     esac
+    # A MISSION worktree is keyed by a descriptive slug DIRECTORY under
+    # .worktrees/ (its branch is still work-*), so detect it by the path's
+    # basename rather than the branch pattern.
+    wt_basename="${current_path##*/}"
+    case "$current_path" in
+      */.worktrees/*)
+        case "$wt_basename" in
+          work-*|drive-*|trip-*) : ;;
+          *) wt_type="mission" ;;
+        esac
+        ;;
+    esac
     wt_name="${current_branch}"
 
     entry="{\"name\":\"${wt_name}\",\"branch\":\"${current_branch}\",\"worktree_path\":\"${current_path}\",\"type\":\"${wt_type}\"}"
@@ -56,6 +68,7 @@ while IFS= read -r line; do
   current_branch=""
 done <<EOF
 $wt_list
+
 EOF
 
 echo "{\"count\":${count},\"worktrees\":${worktrees_json}}"

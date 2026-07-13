@@ -4,7 +4,7 @@ author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure]
 effort: 2h
-commit_hash:
+commit_hash: 58844ad
 category: Added
 depends_on:
 mission:
@@ -83,3 +83,14 @@ Past tickets that touched similar areas:
 - Path-vs-branch split: the rest of the toolkit derives the worktree path from the branch; `cleanup-mission-worktree.sh` instead derives it from the slug. Keep the two cleanup scripts distinct so branch-keyed drive/trip cleanup is untouched (`plugins/workaholic/skills/branching/scripts/cleanup-worktree.sh`).
 - A worktree branches from a committed base — `git worktree add -b … main` takes `main`'s tip; uncommitted changes in the main tree stay there. Base off `main` for a clean start (`plugins/workaholic/skills/branching/scripts/create-mission-worktree.sh`).
 - Keep worktree logic in `branching` (not built), never in the built `mission` skill, to preserve cross-agent portability of `outputs/workflows` (`plugins/workaholic/skills/mission/SKILL.md`).
+
+## Final Report
+
+Development completed as planned. Added `create-mission-worktree.sh` (mission-slug dir, work-* branch off main, `.env` copied) and `cleanup-mission-worktree.sh` (refuses dirty worktrees, idempotent), added `type: "mission"` detection to `list-all-worktrees.sh`, documented the convention in `branching/SKILL.md`, and covered it with a hermetic create/cleanup/type/dirty-refusal test (466 passed, 0 failed).
+
+### Discovered Insights
+
+- **Insight**: `list-all-worktrees.sh` had a latent bug — it dropped the **last** worktree. `$(git worktree list … )` strips trailing newlines, and the loop flushed a record only on a blank line, so the final entry never flushed. The new hermetic test exposed it; fixed by terminating the heredoc with an explicit blank line.
+  **Context**: The script had no hermetic test before this ticket, so the drop went unnoticed (the primary/main tree is first in porcelain output, so the *missing* one was always a real worktree). Any consumer of `list-all-worktrees.sh` was silently missing its last worktree until now.
+- **Insight**: `branching` is not a build *target* but it **is** in the build *closure* of `create-ticket`/`drive`/`report`/`ship`, so editing any `branching/scripts/*.sh` DOES require `node scripts/build-plugins/build.mjs` and commits an `outputs/` diff (the whole `branching/scripts/` dir is copied into each built skill). The ticket's "no rebuild" assumption was wrong; a rebuild is required for any branching-script change.
+  **Context**: `computeClosure` copies a closure skill's entire `scripts/` dir, so a new/edited branching script propagates to `outputs/workflows/skills/{create-ticket,drive,report,ship}/branching/scripts/`.

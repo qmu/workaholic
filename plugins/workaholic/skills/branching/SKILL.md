@@ -182,6 +182,26 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-worktree.sh <branch-
 
 Output: `{"cleaned": true, "worktree_path": "<path>", "branch": "<branch-name>", "worktree_removed": true, "branch_removed": true}`
 
+### Mission Worktrees
+
+A **mission** runs in a dedicated, persistent worktree keyed by a **descriptive slug directory** — `.worktrees/<mission-slug>/` (e.g. `.worktrees/real-time-notifications/`), *not* a `work-*` directory. The branch checked out inside is still an ordinary `work-YYYYMMDD-HHMMSS` branch (the branch-name invariant is preserved); only the directory carries the mission's name. The worktree persists across many branches (each cut from `main`, merged, and re-cut) and is removed only when the mission is closed.
+
+Create a mission worktree — cuts a fresh `work-*` branch off the base (default `main`) into `.worktrees/<slug>/` and copies the root `.env` in:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create-mission-worktree.sh <slug> [base-branch]
+```
+
+Output: `{"worktree_path": "<path>", "branch": "work-YYYYMMDD-HHMMSS", "slug": "<slug>"}`. Errors on a missing/invalid slug, a non-git dir, or an existing worktree.
+
+Remove a mission worktree (only sanctioned at `/mission close`) — **never discards uncommitted work**: refuses a dirty worktree and reports it; idempotent when already gone:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-mission-worktree.sh <slug>
+```
+
+`list-all-worktrees.sh` tags a `.worktrees/<slug>` worktree with `"type": "mission"` (ordinary `work-*` dirs stay `"type": "work"`), so `/ship` and the mission lens can distinguish a mission worktree from a drive/trip one.
+
 ## Credentials — root `.env`
 
 Development credentials live in **one** git-ignored `.env` at the repository root — the single credential source (not per-package, not per-worktree-authored). When working with worktrees, treat the `.env` as something to carry along:

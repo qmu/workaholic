@@ -23,6 +23,9 @@ const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../..");
 const SCRIPTS = {
   branchCheck: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check.sh"),
   branchCreate: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/create.sh"),
+  createMissionWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/create-mission-worktree.sh"),
+  cleanupMissionWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/cleanup-mission-worktree.sh"),
+  listAllWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/list-all-worktrees.sh"),
   detectContext: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/detect-context.sh"),
   checkWorkspace: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check-workspace.sh"),
   update: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/update.sh"),
@@ -560,6 +563,63 @@ function testMissionBranchOnCreate() {
       execSync(`git branch --format='%(refname:short)'`, { cwd: dir3, encoding: "utf8" }).split("\n").filter(Boolean),
       ["main"]);
   } finally { cleanup(dir3); }
+}
+
+// ---------- 8d. branching mission worktree primitive (create/cleanup/type) ----------
+function testMissionWorktreePrimitive() {
+  const dir = makeRepo("main");
+  try {
+    // Real repos gitignore .env, so the copied credential file never registers as
+    // a "dirty" worktree at cleanup time. Model that.
+    writeFileSync(join(dir, ".gitignore"), ".env\n");
+    execSync(`git add .gitignore && git commit -q -m gitignore`, { cwd: dir });
+    // .env present -> copied into the worktree (gitignored there too).
+    writeFileSync(join(dir, ".env"), "SECRET=1\n");
+
+    const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} demo-mission`).stdout);
+    assertTrue("mission worktree branch matches work-YYYYMMDD-HHMMSS", /^work-\d{8}-\d{6}$/.test(r.branch), r.branch);
+    assertEq("mission worktree slug echoed", r.slug, "demo-mission");
+    assertTrue("worktree dir created at .worktrees/<slug>", existsSync(join(dir, ".worktrees/demo-mission")), r.worktree_path);
+    assertTrue("root .env copied into the worktree", existsSync(join(dir, ".worktrees/demo-mission/.env")));
+
+    // Main tree untouched: still on main, based off main's tip.
+    assertEq("main tree still on main", execSync(`git branch --show-current`, { cwd: dir, encoding: "utf8" }).trim(), "main");
+    const mainTip = execSync(`git rev-parse main`, { cwd: dir, encoding: "utf8" }).trim();
+    const mergeBase = execSync(`git merge-base main ${r.branch}`, { cwd: dir, encoding: "utf8" }).trim();
+    assertEq("mission branch based off main tip", mergeBase, mainTip);
+
+    // list-all-worktrees tags it type "mission" (dir is a slug, not work-*).
+    const wl = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listAllWorktrees}`).stdout);
+    const entry = wl.worktrees.find((w) => w.worktree_path.endsWith("/.worktrees/demo-mission"));
+    assertTrue("list-all-worktrees found the mission worktree", !!entry, JSON.stringify(wl));
+    assertEq("mission worktree tagged type=mission", entry.type, "mission");
+
+    // Invalid slug rejected.
+    assertTrue("create rejects an invalid slug", run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} 'Bad Slug'`).status !== 0);
+
+    // Cleanup removes the worktree + its branch.
+    const c = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} demo-mission`).stdout);
+    assertEq("cleanup reports removed", { removed: c.worktree_removed, branchRemoved: c.branch_removed }, { removed: true, branchRemoved: true });
+    assertTrue("worktree dir gone", !existsSync(join(dir, ".worktrees/demo-mission")));
+    assertTrue("mission branch deleted", !/refs\/heads\//.test(execSync(`git show-ref || true`, { cwd: dir, encoding: "utf8" }).split("\n").filter((l) => l.includes(r.branch)).join("")));
+
+    // Idempotent: re-cleanup is a no-op that still reports cleaned.
+    const c2 = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} demo-mission`).stdout);
+    assertEq("cleanup idempotent when already gone", { cleaned: c2.cleaned, removed: c2.worktree_removed }, { cleaned: true, removed: false });
+  } finally { cleanup(dir); }
+
+  // Cleanup refuses to discard uncommitted work in a mission worktree.
+  const dir2 = makeRepo("main");
+  try {
+    const r = JSON.parse(run(dir2, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} dirty-mission`).stdout);
+    writeFileSync(join(dir2, ".worktrees/dirty-mission/uncommitted.txt"), "work in progress\n");
+    const c = run(dir2, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} dirty-mission`);
+    assertTrue("cleanup refuses a dirty worktree (non-zero exit)", c.status !== 0, `status ${c.status}`);
+    assertTrue("dirty worktree left intact", existsSync(join(dir2, ".worktrees/dirty-mission")));
+    // clean it up for real so the temp dir removes cleanly
+    execSync(`rm -f .worktrees/dirty-mission/uncommitted.txt`, { cwd: dir2 });
+    run(dir2, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} dirty-mission`);
+  } finally { cleanup(dir2); }
 }
 
 // ---------- 9. installed plugin helper resolution ----------
@@ -2758,6 +2818,7 @@ const tests = [
   ["drive/list-todo.sh", testListTodo],
   ["create-ticket/summary.sh + mission/summary.sh (summary mode)", testSummaryMode],
   ["mission create branches on main", testMissionBranchOnCreate],
+  ["branching mission worktree primitive", testMissionWorktreePrimitive],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],

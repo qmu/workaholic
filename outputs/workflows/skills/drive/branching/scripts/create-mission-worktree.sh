@@ -10,6 +10,7 @@
 
 set -eu
 
+SCRIPT_DIR=$(dirname "$0")
 slug="${1:-}"
 base="${2:-main}"
 
@@ -51,16 +52,19 @@ fi
 mkdir -p "${repo_root}/.worktrees"
 
 # git does NOT auto-ignore a linked worktree directory, so a stray `git add -A`
-# in the main tree would embed .worktrees/<slug> as a gitlink. Ensure .worktrees/
-# is excluded via the shared, untracked .git/info/exclude (applies to every
-# worktree of this repo, needs no commit).
+# in the main tree would embed .worktrees/<slug> as a gitlink. And the per-worktree
+# .env (credentials + assigned ports) must not register as a "dirty" file that
+# blocks worktree reset/cleanup. Exclude both via the shared, untracked
+# .git/info/exclude (applies to every worktree of this repo, needs no commit).
 common_dir="$(git rev-parse --git-common-dir 2>/dev/null || echo "${repo_root}/.git")"
 case "$common_dir" in /*) : ;; *) common_dir="${repo_root}/${common_dir}" ;; esac
 exclude="${common_dir}/info/exclude"
-if [ ! -f "$exclude" ] || ! grep -qE '^\.worktrees/?$' "$exclude"; then
-    mkdir -p "${common_dir}/info"
-    printf '.worktrees/\n' >> "$exclude"
-fi
+mkdir -p "${common_dir}/info"
+for pat in '.worktrees/' '.env'; do
+    if [ ! -f "$exclude" ] || ! grep -qxF "$pat" "$exclude"; then
+        printf '%s\n' "$pat" >> "$exclude"
+    fi
+done
 
 # Branch from the base (default main) so the worktree starts on a clean, merged
 # base — uncommitted work in the main tree stays in the main tree. Send git's
@@ -73,4 +77,17 @@ if [ -f "${repo_root}/.env" ]; then
   cp "${repo_root}/.env" "${worktree_path}/.env"
 fi
 
-echo '{"worktree_path": "'"${worktree_path}"'", "branch": "'"${branch}"'", "slug": "'"${slug}"'"}'
+# Assign a unique local port base so concurrent worktrees' dev/docs servers do not
+# collide on localhost, and record it in the worktree's .env for the project's
+# serve scripts to read (with the project's own env precedence).
+ports="$(sh "${SCRIPT_DIR}/allocate-worktree-port.sh")"
+port_base="$(printf '%s' "$ports" | sed -n 's/.*"port_base":[ ]*\([0-9][0-9]*\).*/\1/p')"
+dev_port="$(printf '%s' "$ports" | sed -n 's/.*"dev_port":[ ]*\([0-9][0-9]*\).*/\1/p')"
+docs_port="$(printf '%s' "$ports" | sed -n 's/.*"docs_port":[ ]*\([0-9][0-9]*\).*/\1/p')"
+{
+  printf 'WORKAHOLIC_PORT_BASE=%s\n' "$port_base"
+  printf 'WORKAHOLIC_DEV_PORT=%s\n' "$dev_port"
+  printf 'WORKAHOLIC_DOCS_PORT=%s\n' "$docs_port"
+} >> "${worktree_path}/.env"
+
+echo '{"worktree_path": "'"${worktree_path}"'", "branch": "'"${branch}"'", "slug": "'"${slug}"'", "port_base": '"${port_base}"', "dev_port": '"${dev_port}"', "docs_port": '"${docs_port}"'}'

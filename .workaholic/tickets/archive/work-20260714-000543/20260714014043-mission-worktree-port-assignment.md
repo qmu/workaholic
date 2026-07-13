@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure]
 effort: 2h
-commit_hash:
-category: Added
+commit_hash: ed775ca
+category: Changed
 depends_on: [20260714011846-mission-worktree-primitive.md, 20260714011847-mission-create-worktree-kickoff.md]
 mission:
 ---
@@ -81,3 +81,12 @@ Past tickets that touched similar areas:
 - Keep it project-agnostic: workaholic assigns numbers and a convention; it must not hardcode any specific project's server names or ports (`plugins/workaholic/skills/branching/SKILL.md`).
 - Port exhaustion / reuse: after a worktree is removed, its base should become allocatable again; base the allocation on currently-registered worktrees, not an ever-growing counter (`plugins/workaholic/skills/branching/scripts/allocate-worktree-port.sh`).
 - `.env` is a copy per worktree, so writing ports there keeps worktrees independent — do not centralize port state in a shared file (`plugins/workaholic/skills/branching/scripts/ensure-worktree.sh`).
+
+## Final Report
+
+Development completed as planned. Confirmed with the developer the carrier is the worktree `.env`. Added `allocate-worktree-port.sh` (next free base `4100 + k*10`, scanning live `.worktrees/*/.env` so freed bases reuse) and wired `create-mission-worktree.sh` to write `WORKAHOLIC_PORT_BASE`/`_DEV_PORT`/`_DOCS_PORT` into the worktree `.env` and report them. Hermetic test: distinct bases per worktree, allocator avoids assigned ones, docs=base+1, `.env` carries the base, a removed worktree's base is reallocated; 503 passed / 0 failed, build/verify/metadata/posix-lint clean.
+
+### Discovered Insights
+
+- **Insight**: Writing ports into the worktree `.env` required also excluding `.env` (not just `.worktrees/`) via `.git/info/exclude` — otherwise the newly-written `.env` registers as an untracked "dirty" file and blocks `reset-mission-worktree.sh` / `cleanup-mission-worktree.sh` (which refuse dirty worktrees). The exclude guard now covers both patterns.
+  **Context**: This is why the earlier ship-reset and close tests kept passing without per-test `.gitignore` after ports were added — the shared exclude keeps the worktree clean by construction.

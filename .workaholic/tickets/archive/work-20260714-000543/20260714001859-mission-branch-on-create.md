@@ -3,8 +3,8 @@ created_at: 2026-07-14T00:18:59+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure]
-effort: 1h
-commit_hash:
+effort: 0.5h
+commit_hash: 7a198e9
 category: Changed
 depends_on:
 mission:
@@ -84,3 +84,7 @@ Past tickets that touched similar areas:
 - Prefer the command-only placement to avoid an `outputs/` rebuild; only touch `mission/scripts/create.sh` or the built `mission/SKILL.md` if genuinely needed, and rebuild if so (`scripts/build-plugins/build.mjs`).
 - Worktree interaction is out of scope by decision: `create.sh` does a plain `git checkout -b` in the current worktree, which is correct for the on-main case; no worktree guard is added (`plugins/workaholic/commands/mission.md`).
 - A mission can also be created implicitly via `/ticket`'s mission-association flow, but that path only *associates existing* missions, so the branch-on-create concern is scoped to the `/mission` command's own create mode (`plugins/workaholic/skills/create-ticket/SKILL.md`).
+
+## Final Report
+
+Development completed as planned. The branch-if-on-main step was added to `commands/mission.md`'s create path only (with `workaholic:branching` in frontmatter), reusing `branching/scripts/check.sh` → `create.sh`; list and close were left untouched, `mission/scripts/create.sh` was not modified, and `build.mjs` produced no `outputs/` diff. The hermetic scenario test (10 assertions) proved create-from-main branches (mission absent on main), create-from-work-branch does not, and list creates no branch; full suite 451 passed / 0 failed with verify + posix-lint clean.

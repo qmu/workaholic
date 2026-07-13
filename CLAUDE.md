@@ -195,7 +195,7 @@ If a skill you expect is not in context, ask the user which plugins are loaded �
 | `/commit`                        | Commit working changes with a policy-conformant message (small non-ticketed changes; prefer `/drive` for ticketed work) |
 | `/report`                        | Context-aware: generate story or journey report and create PR |
 | `/ship`                          | Context-aware: merge PR, deploy, and verify      |
-| `/mission ["<title>" \| summary \| close <slug>]` | Create a mission (a durable, information-rich goal spanning many tickets), list existing missions with computed progress, show just **your** assigned active missions (`summary`), or close one (achieved/abandoned) into `missions/archive/` |
+| `/mission ["<title>" \| summary \| close <slug>]` | Create a mission (a durable, information-rich goal spanning many tickets — creating one starts a topic branch when on main, like `/ticket`), list existing missions with computed progress, show just **your** assigned active missions (`summary`), or close one (achieved/abandoned) into `missions/archive/` |
 | `/catch [window]`                | Read-only by-developer catch-up report over a recent window (commits, tickets, stories) plus a Missions view (each active mission's derived progress, merged activity, and unmerged in-flight work), then follow-up Q&A |
 | `/carry`                         | Hand off in-progress work to a fresh session (capture-only): write a resumption ticket / trip checkpoint a later `/drive` continues, instead of relying on compaction |
 | `/explain <question> [dir]`      | Answer a repo question and export a printer-ready PDF report (HTML printed by a real browser); exports to `dir`, else Desktop→Home (Home write asks permission) |

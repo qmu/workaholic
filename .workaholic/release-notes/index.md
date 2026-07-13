@@ -62,3 +62,4 @@
 * [Machine-enforce ship catch-up, prompt labels, and /workaholify setup](work-20260706-113425.md)
 * [Add missions and Codex hook compatibility](work-20260706-182705.md)
 * [Surface missions in the /catch report](work-20260707-104047.md)
+* [Missions gain an active/archive lifecycle etc](work-20260713-102453.md)

@@ -87,6 +87,12 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/close.sh "<slug>" <achieved|ab
 
 The script flips `status`, appends a closing `## Changelog` line, moves the mission dir to `.workaholic/missions/archive/<slug>/`, refreshes the OKF indexes, and git-stages. Report the JSON result:
 
-- `closed: true` — tell the user the mission is ended, its final status, and its archived path.
-- `closed: false` with `reason: "already_closed"` — the mission was already archived with that status; nothing changed.
-- `closed: false` with `reason: "not_found"` — no such mission; run `list.sh` and show the available slugs.
+- `closed: true` — tell the user the mission is ended, its final status, and its archived path. Then **tear down the mission's persistent worktree** — closing a mission is the only sanctioned point that removes it:
+
+  ```bash
+  bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-mission-worktree.sh "<slug>"
+  ```
+
+  Do this **after** `close.sh` succeeds, so a teardown problem never leaves a half-closed mission. The teardown never discards uncommitted work: on `"error": "worktree has uncommitted changes"`, report that the worktree was kept (unshipped work remains) — the mission is still closed. When the worktree is already gone, the teardown is a reported no-op.
+- `closed: false` with `reason: "already_closed"` — the mission was already archived with that status; nothing changed (no worktree teardown).
+- `closed: false` with `reason: "not_found"` — no such mission; run `list.sh` and show the available slugs (no worktree teardown).

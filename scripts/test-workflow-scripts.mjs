@@ -777,6 +777,71 @@ function testMissionWorktreeShipReset() {
   } finally { cleanup(dir); }
 }
 
+// ---------- 8h. /mission close removes the mission worktree ----------
+function testMissionCloseRemovesWorktree() {
+  const seedMission = (dir, slug, title, checked) => {
+    const mdir = join(dir, `.workaholic/missions/active/${slug}`);
+    mkdirSync(mdir, { recursive: true });
+    writeFileSync(join(mdir, "mission.md"), `---
+type: Mission
+title: ${title}
+slug: ${slug}
+status: active
+created_at: 2026-07-14T00:00:00+09:00
+author: test@example.com
+assignee: test@example.com
+tickets: []
+stories: []
+concerns: []
+---
+
+# ${title}
+
+## Acceptance
+
+- [${checked ? "x" : " "}] a criterion (#a.md)
+
+## Changelog
+`);
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+  };
+
+  // Happy path: close archives the mission and the teardown removes its worktree.
+  const dir = makeRepo("main");
+  try {
+    seedMission(dir, "closedemo", "Close Demo", true);
+    JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} closedemo`).stdout);
+    assertTrue("mission worktree exists before close", existsSync(join(dir, ".worktrees/closedemo")));
+
+    const c = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} closedemo achieved 2026-07-14`).stdout);
+    assertEq("close flips to achieved and archives", { closed: c.closed, status: c.status }, { closed: true, status: "achieved" });
+    assertTrue("mission moved to archive", existsSync(join(dir, ".workaholic/missions/archive/closedemo/mission.md")));
+
+    const cl = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} closedemo`).stdout);
+    assertEq("close teardown removed the worktree", cl.worktree_removed, true);
+    assertTrue("worktree gone after close", !existsSync(join(dir, ".worktrees/closedemo")));
+    assertEq("teardown idempotent when already gone",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} closedemo`).stdout).worktree_removed, false);
+  } finally { cleanup(dir); }
+
+  // Dirty worktree: the mission still closes; teardown refuses to discard work.
+  const dir2 = makeRepo("main");
+  try {
+    seedMission(dir2, "dirtyclose", "Dirty Close", false);
+    run(dir2, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} dirtyclose`);
+    writeFileSync(join(dir2, ".worktrees/dirtyclose/wip.txt"), "unshipped\n");
+
+    const c = JSON.parse(run(dir2, `${POSIX_SH} ${SCRIPTS.missionClose} dirtyclose abandoned 2026-07-14`).stdout);
+    assertEq("mission still closes with a dirty worktree", c.closed, true);
+    assertTrue("teardown refuses a dirty worktree (non-zero exit)",
+      run(dir2, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} dirtyclose`).status !== 0);
+    assertTrue("dirty worktree kept (unshipped work preserved)", existsSync(join(dir2, ".worktrees/dirtyclose")));
+
+    execSync(`rm -f .worktrees/dirtyclose/wip.txt`, { cwd: dir2 });
+    run(dir2, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} dirtyclose`);
+  } finally { cleanup(dir2); }
+}
+
 // ---------- 9. installed plugin helper resolution ----------
 function testInstalledPluginHelperResolution() {
   const dir = makeRepo("main");
@@ -2977,6 +3042,7 @@ const tests = [
   ["mission-lens worktree focus", testMissionLensWorktreeFocus],
   ["mission create worktree+kickoff spine", testMissionCreateWorktreeFlow],
   ["mission worktree ship reset", testMissionWorktreeShipReset],
+  ["mission close removes worktree", testMissionCloseRemovesWorktree],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],

@@ -1,8 +1,10 @@
 #!/bin/sh -eu
-# Create a new mission: scaffold .workaholic/missions/<slug>/mission.md from a title,
-# stamp created_at/author from the gather skill, refresh the OKF bundle indexes, and
-# git-stage. The slug is derived from the title (lowercased, every run of non-[a-z0-9]
-# collapsed to a single hyphen, ends trimmed). Refuses to overwrite an existing mission.
+# Create a new mission: scaffold .workaholic/missions/active/<slug>/mission.md from a
+# title, stamp created_at/author from the gather skill, refresh the OKF bundle indexes,
+# and git-stage. A new mission is active by definition, so it always lands in the
+# active/ area. The slug is derived from the title (lowercased, every run of
+# non-[a-z0-9] collapsed to a single hyphen, ends trimmed). Refuses to overwrite an
+# existing mission in either area (active/ or archive/).
 #
 # Usage: create.sh "<title>"
 # Output: JSON {created, slug, path[, reason]}
@@ -13,17 +15,20 @@ TITLE="${1:-}"
 [ -n "$TITLE" ] || { echo '{"created": false, "reason": "no_title"}'; exit 1; }
 
 SCRIPT_DIR=$(dirname "$0")
+. "${SCRIPT_DIR}/lib/resolve.sh"
+missions_migrate_layout
 
 # Slug rule (mirrors the mission SKILL.md): lowercase, non-[a-z0-9] runs -> single
 # hyphen, leading/trailing hyphens trimmed.
 SLUG=$(printf '%s' "$TITLE" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '-' | tr -s '-' | sed -e 's/^-//' -e 's/-$//')
 [ -n "$SLUG" ] || { echo '{"created": false, "reason": "empty_slug"}'; exit 1; }
 
-MISSION_DIR=".workaholic/missions/${SLUG}"
+MISSION_DIR=".workaholic/missions/active/${SLUG}"
 MISSION_FILE="${MISSION_DIR}/mission.md"
 
-if [ -e "$MISSION_FILE" ]; then
-    printf '{"created": false, "reason": "exists", "slug": "%s", "path": "%s"}\n' "$SLUG" "$MISSION_FILE"
+EXISTING=$(mission_resolve "$SLUG")
+if [ -f "$EXISTING" ]; then
+    printf '{"created": false, "reason": "exists", "slug": "%s", "path": "%s"}\n' "$SLUG" "$EXISTING"
     exit 1
 fi
 

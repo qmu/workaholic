@@ -10,6 +10,7 @@
 # a deliberate amendment to the closed `.workaholic/` structure, not an ad-hoc mkdir.
 concerns
 deployments
+missions
 release-notes
 specs
 stories

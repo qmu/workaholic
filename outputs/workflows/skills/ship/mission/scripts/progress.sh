@@ -4,7 +4,7 @@
 # never read from a stored number.
 #
 # Usage: progress.sh <mission-file-or-slug>
-#   - a path to a mission.md, or a bare slug (resolved to .workaholic/missions/<slug>/mission.md)
+#   - a path to a mission.md, or a bare slug (resolved across active/ and archive/)
 # Output: JSON {checked, total}
 
 set -eu
@@ -12,11 +12,10 @@ set -eu
 ARG="${1:-}"
 [ -n "$ARG" ] || { echo '{"error": "no_mission"}' >&2; exit 1; }
 
-if [ -f "$ARG" ]; then
-    FILE="$ARG"
-else
-    FILE=".workaholic/missions/${ARG}/mission.md"
-fi
+SCRIPT_DIR=$(dirname "$0")
+. "${SCRIPT_DIR}/lib/resolve.sh"
+missions_migrate_layout
+FILE=$(mission_resolve "$ARG")
 [ -f "$FILE" ] || { printf '{"error": "not_found", "path": "%s"}\n' "$FILE" >&2; exit 1; }
 
 # Count checklist items only within the "## Acceptance" section (a checklist item

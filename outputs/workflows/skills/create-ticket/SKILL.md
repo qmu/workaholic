@@ -174,7 +174,7 @@ Before writing, offer to associate the ticket(s) with an existing **mission** �
 bash mission/scripts/list.sh
 ```
 
-If the array is non-empty, the command issues one the agent's selection prompt offering each mission (by `title` + `slug`) plus a **"None"** option, and writes the chosen mission's `slug` into each written ticket's `mission:` frontmatter field. If the array is empty, or the developer picks "None", leave `mission:` empty. Because the choice is drawn from the list of existing missions, the written slug is valid by construction — no separate slug validation is applied (the field is optional and the pipeline tolerates its absence). Skip this step silently when there are no missions.
+If the array contains missions with `status: active`, the command issues one the agent's selection prompt offering each **active** mission (by `title` + `slug`) plus a **"None"** option, and writes the chosen mission's `slug` into each written ticket's `mission:` frontmatter field (ended — `achieved`/`abandoned` — missions live in the archive area and are never offered: new work does not advance a closed mission). If no active mission exists, or the developer picks "None", leave `mission:` empty. Because the choice is drawn from the list of existing missions, the written slug is valid by construction — no separate slug validation is applied (the field is optional and the pipeline tolerates its absence). Skip this step silently when there are no missions.
 
 ### 5. Write Ticket(s)
 

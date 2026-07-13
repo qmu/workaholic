@@ -47,6 +47,7 @@ slug: <slug>
 status: active          # active | achieved | abandoned — selects the area (active/ vs archive/); flipped only by close.sh
 created_at: <ISO-8601>
 author: <email>
+assignee: <email>       # the user id / email that owns driving this mission (defaults to author)
 tickets: []             # machine-readable member lists — reserved; populated by later work
 stories: []
 concerns: []
@@ -54,6 +55,10 @@ concerns: []
 ```
 
 The `tickets` / `stories` / `concerns` lists are reserved for the machine-readable relations that downstream artifacts emit; a freshly created mission leaves them empty.
+
+### Assignee
+
+`assignee` names the user responsible for driving the mission to completion — a git user id / email. `create.sh` self-assigns it to the creator (`git config user.email`) by default; pass an explicit second argument to assign it to someone else. It is the key the **mission lens** gates on: a Claude Code session re-surfaces an active mission's roadmap only to the developer whose `git config user.email` matches this field (see *Read-only consumers*). This is per-worktree by construction — each worktree checks out its own `.workaholic/missions/`, so the lens that fires there reflects the missions assigned to whoever is working that tree.
 
 Body sections, in order:
 
@@ -97,10 +102,10 @@ Progress toward achievement is **derived, never stored**: `checked ÷ total` ove
 ## Scripts
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/create.sh "<title>"
+bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/create.sh "<title>" [assignee]
 ```
 
-Create a new mission: derive the slug from the title, scaffold `.workaholic/missions/active/<slug>/mission.md` (frontmatter + the four empty sections), stamp `created_at`/`author` from the `gather` skill, refresh the OKF bundle indexes, and git-stage. Refuses to overwrite an existing mission in either area. Emits `{created, slug, path}` JSON.
+Create a new mission: derive the slug from the title, scaffold `.workaholic/missions/active/<slug>/mission.md` (frontmatter + the four empty sections), stamp `created_at`/`author` from the `gather` skill, set `assignee` to the optional second argument or (default) the creator's `git config user.email`, refresh the OKF bundle indexes, and git-stage. Refuses to overwrite an existing mission in either area. Emits `{created, slug, path}` JSON.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/progress.sh <mission-file-or-slug>
@@ -112,7 +117,13 @@ Compute `{checked, total}` over a mission's `## Acceptance` checklist. Accepts e
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list.sh
 ```
 
-List every mission — across both `active/` and `archive/` — with its `status` and computed progress: a JSON array of `{slug, title, status, checked, total, path}`, sorted by slug (`path` is the resolved `mission.md` location, so consumers never rebuild it by hand). Emits `[]` when there are no missions.
+List every mission — across both `active/` and `archive/` — with its `status`, `assignee`, and computed progress: a JSON array of `{slug, title, status, assignee, checked, total, path}`, sorted by slug (`path` is the resolved `mission.md` location, so consumers never rebuild it by hand). Emits `[]` when there are no missions.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/next-acceptance.sh <mission-slug-or-file>
+```
+
+Emit the display text of the mission's **first unchecked** `## Acceptance` item — the next criterion on the road to achievement — with its trailing `(#<filename>)` marker stripped. Scoped to the `## Acceptance` section with the same checklist convention as `progress.sh`. Prints nothing when every item is checked or the section is empty. The mission lens uses it to show "next: …" alongside `checked/total`.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/append-changelog.sh <mission-slug-or-file> <event> <artifact-filename> [date]
@@ -148,3 +159,5 @@ An un-missioned artifact touches no mission. Because the appends are idempotent,
 ### Read-only consumers
 
 Separately from the mutating seams above, a workflow may **read** missions without writing them. `/catch` (`workaholic:catch`) is such a consumer: its scanner calls `list.sh`/`progress.sh` for the active-mission list and derived progress, window-filters each mission's `## Changelog` for merged activity, and reads the `mission:` relation on unarchived tickets to surface **in-flight** (unmerged) progress the merge-time seams cannot yet show. It appears in no seam table because a `/catch` run mutates no mission content — no changelog line, no acceptance tick. (The one tree change any reader can trigger is the living layout migration, which relocates a legacy flat mission dir without touching its bytes.)
+
+The **mission lens** (`hooks/mission-lens.sh`) is the other read-only consumer, and an always-on one. On every `UserPromptSubmit` it injects a model-visible `additionalContext` line, and on every `Stop` a user-visible `systemMessage`, naming each **active** mission whose `assignee` matches the current `git config user.email`, with its derived `checked/total` and next unchecked acceptance item (via `progress.sh` + `next-acceptance.sh`). It keeps the agent oriented to the roadmap without hijacking the turn — it never blocks a stop (informs, does not force). Silent no-op when no active mission is assigned to the current user. Like `/catch` it mutates nothing, so it is in no seam table. (Because a Stop hook cannot inject model-visible context without `decision: block`, the model-facing half deliberately rides `UserPromptSubmit`; the `Stop` half is the user-facing nudge only.)

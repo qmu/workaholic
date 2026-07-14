@@ -8,9 +8,10 @@ last_seen: 2026-06-30T02:27:29+09:00
 first_seen: 2026-06-29T13:18:46+09:00
 concern_id: both-local-enforcement-layers-stay-bypassable
 severity: moderate
-status: active
+status: superseded
 resolved_by_pr: 
 resolved_by_commit: 
+superseded_by: commit-subject-rule-lacks-unbypassable-enforcement
 ---
 
 # Both local enforcement layers stay bypassable and arrive late

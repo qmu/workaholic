@@ -8,10 +8,12 @@ origin_pr_url:
 origin_branch: 
 origin_commit: 
 severity: moderate
+last_seen: 
+first_seen: 
 status: active
 compound: true
-resolved_by_pr:
-resolved_by_commit:
+resolved_by_pr: 
+resolved_by_commit: 
 ---
 
 # Commit-subject rule has no unbypassable enforcement surface anywhere

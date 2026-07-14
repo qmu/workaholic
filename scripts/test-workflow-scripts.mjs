@@ -22,6 +22,13 @@ import { fileURLToPath } from "node:url";
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../..");
 const SCRIPTS = {
   branchCheck: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check.sh"),
+  branchCreate: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/create.sh"),
+  createMissionWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/create-mission-worktree.sh"),
+  cleanupMissionWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/cleanup-mission-worktree.sh"),
+  resetMissionWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/reset-mission-worktree.sh"),
+  allocateWorktreePort: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/allocate-worktree-port.sh"),
+  listAllWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/list-all-worktrees.sh"),
+  missionLens: join(REPO_ROOT, "plugins/workaholic/hooks/mission-lens.sh"),
   detectContext: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/detect-context.sh"),
   checkWorkspace: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check-workspace.sh"),
   update: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/update.sh"),
@@ -29,7 +36,12 @@ const SCRIPTS = {
   userSlug: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/user-slug.sh"),
   sweepTodo: join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/scripts/sweep-todo.sh"),
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
+  ticketSummary: join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/scripts/summary.sh"),
+  missionSummary: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/summary.sh"),
   missionCreate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"),
+  missionSlug: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/slug.sh"),
+  missionGate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/gate.sh"),
+  commit: join(REPO_ROOT, "plugins/workaholic/skills/commit/scripts/commit.sh"),
   missionProgress: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/progress.sh"),
   missionList: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list.sh"),
   missionClose: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/close.sh"),
@@ -50,6 +62,8 @@ const SCRIPTS = {
   docDrift: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/doc-drift.sh"),
   checkCapability: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/check-confirmation-capability.sh"),
   posixLint: join(REPO_ROOT, "plugins/workaholic/hooks/posix-lint.sh"),
+  scanBranchSafety: join(REPO_ROOT, "plugins/workaholic/skills/release-scan/scripts/scan-branch-safety.sh"),
+  gateDecision: join(REPO_ROOT, "plugins/workaholic/skills/release-scan/scripts/gate-decision.sh"),
   collectCommits: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/collect-commits.sh"),
   scanWindow: join(REPO_ROOT, "plugins/workaholic/skills/catch/scripts/scan-window.sh"),
   carryCheckpoint: join(REPO_ROOT, "plugins/workaholic/skills/carry/scripts/carry-checkpoint.sh"),
@@ -408,6 +422,614 @@ function testListTodo() {
       `.workaholic/tickets/todo/${TEST_SLUG}/20260528120000-a.md`,
       `.workaholic/tickets/todo/${TEST_SLUG}/20260528120001-b.md`,
     ]);
+  } finally { cleanup(dir); }
+}
+
+// ---------- 8b. create-ticket/summary.sh + mission/summary.sh (summary mode) ----------
+// The read-only summary mode must report EXACTLY the current user's assigned work
+// and nothing of another user's. Seed two users (A, B), each with their own
+// tickets and an active mission, plus an achieved mission for A that must not
+// surface. Then run each summarizer as A and as B and assert the exact sets.
+function testSummaryMode() {
+  const dir = makeRepo("main");
+  try {
+    execSync(`git checkout -q -b work-20260714-summary`, { cwd: dir });
+    const A = "test@example.com", Aslug = "test-example-com";
+    const B = "b@example.com", Bslug = "b-example-com";
+
+    const mkTicket = (slug, email, name, title, type) => {
+      const d = join(dir, `.workaholic/tickets/todo/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, name),
+        `---\ncreated_at: 2026-07-14T00:00:00+09:00\nauthor: ${email}\ntype: ${type}\nlayer: [Infrastructure]\ndepends_on:\n---\n\n# ${title}\n`);
+    };
+    mkTicket(Aslug, A, "20260714120000-t1.md", "Ticket One", "enhancement");
+    mkTicket(Aslug, A, "20260714120001-t2.md", "Ticket Two", "bugfix");
+    mkTicket(Bslug, B, "20260714120002-t3.md", "Ticket Three", "enhancement");
+
+    const mkMission = (slug, title, status, assignee, nextItem) => {
+      const area = status === "active" ? "active" : "archive";
+      const d = join(dir, `.workaholic/missions/${area}/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "mission.md"), `---
+type: Mission
+title: ${title}
+slug: ${slug}
+status: ${status}
+created_at: 2026-07-14T00:00:00+09:00
+author: ${assignee}
+assignee: ${assignee}
+tickets: []
+stories: []
+concerns: []
+---
+
+# ${title}
+
+## Acceptance
+
+- [x] First criterion (#a.md)
+- [ ] ${nextItem} (#b.md)
+
+## Changelog
+`);
+    };
+    mkMission("mission-a", "Mission A", "active", A, "Second criterion");
+    mkMission("mission-old", "Mission Old", "achieved", A, "Old criterion");
+    mkMission("mission-b", "Mission B", "active", B, "Bee criterion");
+
+    const setEmail = (email) => execSync(`git config user.email ${email}`, { cwd: dir });
+
+    // ---- ticket summary: exact per-user set ----
+    setEmail(A);
+    const tA = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.ticketSummary}`).stdout);
+    assertEq("ticket summary (A) lists exactly A's tickets, sorted", tA.map((t) => t.path), [
+      `.workaholic/tickets/todo/${Aslug}/20260714120000-t1.md`,
+      `.workaholic/tickets/todo/${Aslug}/20260714120001-t2.md`,
+    ]);
+    assertEq("ticket summary carries title/type/layer",
+      { title: tA[0].title, type: tA[0].type, layer: tA[0].layer },
+      { title: "Ticket One", type: "enhancement", layer: "[Infrastructure]" });
+
+    setEmail(B);
+    const tB = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.ticketSummary}`).stdout);
+    assertEq("ticket summary (B) excludes A's tickets", tB.map((t) => t.path), [
+      `.workaholic/tickets/todo/${Bslug}/20260714120002-t3.md`,
+    ]);
+
+    // ---- mission summary: exact per-user active set, achieved excluded ----
+    setEmail(A);
+    const mA = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSummary}`).stdout);
+    assertEq("mission summary (A) = A's ACTIVE missions only (achieved excluded)",
+      mA.map((m) => ({ slug: m.slug, checked: m.checked, total: m.total })),
+      [{ slug: "mission-a", checked: 1, total: 2 }]);
+    assertEq("mission summary (A) computes the next unchecked item", mA[0].next, "Second criterion");
+
+    setEmail(B);
+    const mB = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSummary}`).stdout);
+    assertEq("mission summary (B) excludes A's missions", mB.map((m) => m.slug), ["mission-b"]);
+
+    // ---- a user with nothing assigned gets [] from both ----
+    setEmail("nobody@example.com");
+    assertEq("ticket summary empty for a user with no queue",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.ticketSummary}`).stdout), []);
+    assertEq("mission summary empty for a user with no assigned mission",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSummary}`).stdout), []);
+  } finally { cleanup(dir); }
+}
+
+// ---------- 8c. /mission create branches on main (branch-if-on-main orchestration) ----------
+// /mission "<title>" starts a topic branch when on main, like /ticket. The command
+// orchestrates check.sh -> (on_main) create.sh before mission/create.sh; list and
+// close never branch. This test drives that exact sequence in throwaway repos.
+function testMissionBranchOnCreate() {
+  // On main: check.sh reports on_main -> create.sh makes a work-* branch -> mission
+  // lands on it, off main.
+  const dir = makeRepo("main");
+  try {
+    const chk = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.branchCheck}`).stdout);
+    assertEq("mission-create on main: check.sh reports on_main", chk.on_main, true);
+
+    const created = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.branchCreate}`).stdout);
+    assertTrue("branch matches work-YYYYMMDD-HHMMSS", /^work-\d{8}-\d{6}$/.test(created.branch), created.branch);
+    assertEq("HEAD moved onto the new work branch",
+      execSync(`git branch --show-current`, { cwd: dir, encoding: "utf8" }).trim(), created.branch);
+
+    const m = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionCreate} "Ship It"`).stdout);
+    assertEq("mission created after branching", m.created, true);
+    assertTrue("mission.md written on the work branch",
+      existsSync(join(dir, ".workaholic/missions/active/ship-it/mission.md")), m.path);
+    // The mission does not exist on main (it was created on the work branch).
+    execSync(`git add -A && git commit -q -m "mission on work branch"`, { cwd: dir });
+    execSync(`git checkout -q main`, { cwd: dir });
+    assertTrue("mission is absent on main",
+      !existsSync(join(dir, ".workaholic/missions/active/ship-it/mission.md")));
+  } finally { cleanup(dir); }
+
+  // On an existing work branch: check.sh reports not on_main -> command skips
+  // create.sh; mission is created on the current branch, no new branch appears.
+  const dir2 = makeRepo("main");
+  try {
+    execSync(`git checkout -q -b work-20260714-existing`, { cwd: dir2 });
+    const chk = JSON.parse(run(dir2, `${POSIX_SH} ${SCRIPTS.branchCheck}`).stdout);
+    assertEq("on a work branch: check.sh reports not on_main", chk.on_main, false);
+
+    const m = JSON.parse(run(dir2, `${POSIX_SH} ${SCRIPTS.missionCreate} "Ship It"`).stdout);
+    assertEq("mission created without branching", m.created, true);
+    assertEq("branch unchanged — no new work-* created",
+      execSync(`git branch --show-current`, { cwd: dir2, encoding: "utf8" }).trim(), "work-20260714-existing");
+    const branches = execSync(`git branch --format='%(refname:short)'`, { cwd: dir2, encoding: "utf8" })
+      .split("\n").filter(Boolean).sort();
+    assertEq("only main + the pre-existing work branch exist", branches, ["main", "work-20260714-existing"]);
+  } finally { cleanup(dir2); }
+
+  // The list and close modes never branch: list.sh on main creates no branch.
+  const dir3 = makeRepo("main");
+  try {
+    run(dir3, `${POSIX_SH} ${SCRIPTS.missionList}`);
+    assertEq("mission list on main creates no branch",
+      execSync(`git branch --format='%(refname:short)'`, { cwd: dir3, encoding: "utf8" }).split("\n").filter(Boolean),
+      ["main"]);
+  } finally { cleanup(dir3); }
+}
+
+// ---------- 8d. branching mission worktree primitive (create/cleanup/type) ----------
+function testMissionWorktreePrimitive() {
+  const dir = makeRepo("main");
+  try {
+    // Real repos gitignore .env, so the copied credential file never registers as
+    // a "dirty" worktree at cleanup time. Model that.
+    writeFileSync(join(dir, ".gitignore"), ".env\n");
+    execSync(`git add .gitignore && git commit -q -m gitignore`, { cwd: dir });
+    // .env present -> copied into the worktree (gitignored there too).
+    writeFileSync(join(dir, ".env"), "SECRET=1\n");
+
+    const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} demo-mission`).stdout);
+    assertTrue("mission worktree branch matches work-YYYYMMDD-HHMMSS", /^work-\d{8}-\d{6}$/.test(r.branch), r.branch);
+    assertEq("mission worktree slug echoed", r.slug, "demo-mission");
+    assertTrue("worktree dir created at .worktrees/<slug>", existsSync(join(dir, ".worktrees/demo-mission")), r.worktree_path);
+    assertTrue("root .env copied into the worktree", existsSync(join(dir, ".worktrees/demo-mission/.env")));
+
+    // .worktrees/ is excluded (via .git/info/exclude) so a stray `git add -A` in
+    // the main tree never embeds the linked worktree as a gitlink.
+    assertEq("main tree clean after worktree create (.worktrees excluded)",
+      execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim(), "");
+    execSync(`git add -A`, { cwd: dir });
+    assertTrue("git add -A does not stage the worktree dir",
+      !execSync(`git diff --cached --name-only`, { cwd: dir, encoding: "utf8" }).includes(".worktrees"));
+
+    // Main tree untouched: still on main, based off main's tip.
+    assertEq("main tree still on main", execSync(`git branch --show-current`, { cwd: dir, encoding: "utf8" }).trim(), "main");
+    const mainTip = execSync(`git rev-parse main`, { cwd: dir, encoding: "utf8" }).trim();
+    const mergeBase = execSync(`git merge-base main ${r.branch}`, { cwd: dir, encoding: "utf8" }).trim();
+    assertEq("mission branch based off main tip", mergeBase, mainTip);
+
+    // list-all-worktrees tags it type "mission" (dir is a slug, not work-*).
+    const wl = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listAllWorktrees}`).stdout);
+    const entry = wl.worktrees.find((w) => w.worktree_path.endsWith("/.worktrees/demo-mission"));
+    assertTrue("list-all-worktrees found the mission worktree", !!entry, JSON.stringify(wl));
+    assertEq("mission worktree tagged type=mission", entry.type, "mission");
+
+    // Invalid slug rejected.
+    assertTrue("create rejects an invalid slug", run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} 'Bad Slug'`).status !== 0);
+
+    // Cleanup removes the worktree + its branch.
+    const c = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} demo-mission`).stdout);
+    assertEq("cleanup reports removed", { removed: c.worktree_removed, branchRemoved: c.branch_removed }, { removed: true, branchRemoved: true });
+    assertTrue("worktree dir gone", !existsSync(join(dir, ".worktrees/demo-mission")));
+    assertTrue("mission branch deleted", !/refs\/heads\//.test(execSync(`git show-ref || true`, { cwd: dir, encoding: "utf8" }).split("\n").filter((l) => l.includes(r.branch)).join("")));
+
+    // Idempotent: re-cleanup is a no-op that still reports cleaned.
+    const c2 = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} demo-mission`).stdout);
+    assertEq("cleanup idempotent when already gone", { cleaned: c2.cleaned, removed: c2.worktree_removed }, { cleaned: true, removed: false });
+  } finally { cleanup(dir); }
+
+  // Cleanup refuses to discard uncommitted work in a mission worktree.
+  const dir2 = makeRepo("main");
+  try {
+    const r = JSON.parse(run(dir2, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} dirty-mission`).stdout);
+    writeFileSync(join(dir2, ".worktrees/dirty-mission/uncommitted.txt"), "work in progress\n");
+    const c = run(dir2, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} dirty-mission`);
+    assertTrue("cleanup refuses a dirty worktree (non-zero exit)", c.status !== 0, `status ${c.status}`);
+    assertTrue("dirty worktree left intact", existsSync(join(dir2, ".worktrees/dirty-mission")));
+    // clean it up for real so the temp dir removes cleanly
+    execSync(`rm -f .worktrees/dirty-mission/uncommitted.txt`, { cwd: dir2 });
+    run(dir2, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} dirty-mission`);
+  } finally { cleanup(dir2); }
+}
+
+// ---------- 8e. mission-lens worktree focus ----------
+// Inside a mission's worktree the lens surfaces only that mission; in the main
+// tree it hides missions that own a worktree and shows only worktree-less ones.
+function testMissionLensWorktreeFocus() {
+  const dir = makeRepo("main");
+  const PLUGIN_ROOT = join(REPO_ROOT, "plugins/workaholic");
+  try {
+    const mk = (slug, title) => {
+      const d = join(dir, `.workaholic/missions/active/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "mission.md"), `---
+type: Mission
+title: ${title}
+slug: ${slug}
+status: active
+created_at: 2026-07-14T00:00:00+09:00
+author: test@example.com
+assignee: test@example.com
+tickets: []
+stories: []
+concerns: []
+---
+
+# ${title}
+
+## Acceptance
+
+- [ ] first (#a.md)
+
+## Changelog
+`);
+    };
+    mk("alpha", "Alpha Mission");
+    mk("gamma", "Gamma Mission");
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+
+    // alpha gets a dedicated worktree; gamma does not.
+    JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} alpha`).stdout);
+
+    const env = { ...process.env, CLAUDE_PLUGIN_ROOT: PLUGIN_ROOT };
+    const runLens = (cwd) => run(cwd, `printf '%s' '{"hook_event_name":"Stop"}' | ${POSIX_SH} ${SCRIPTS.missionLens}`, { env }).stdout;
+
+    // Main tree: only gamma (alpha is worktree-owned and stays silent here).
+    const mainOut = runLens(dir);
+    assertTrue("main-tree lens shows the worktree-less mission (gamma)", mainOut.includes("Gamma Mission"), mainOut);
+    assertTrue("main-tree lens hides the worktree-owned mission (alpha)", !mainOut.includes("Alpha Mission"), mainOut);
+
+    // Inside .worktrees/alpha: only alpha.
+    const alphaOut = runLens(join(dir, ".worktrees/alpha"));
+    assertTrue("alpha worktree lens shows alpha", alphaOut.includes("Alpha Mission"), alphaOut);
+    assertTrue("alpha worktree lens hides other missions (gamma)", !alphaOut.includes("Gamma Mission"), alphaOut);
+
+    // A mission assigned to someone else is never surfaced (gate intact).
+    mkdirSync(join(dir, ".workaholic/missions/active/delta"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/missions/active/delta/mission.md"),
+      `---\ntype: Mission\ntitle: Delta Mission\nslug: delta\nstatus: active\ncreated_at: 2026-07-14T00:00:00+09:00\nauthor: other@example.com\nassignee: other@example.com\ntickets: []\nstories: []\nconcerns: []\n---\n\n# Delta Mission\n\n## Acceptance\n\n- [ ] x (#a.md)\n\n## Changelog\n`);
+    assertTrue("lens never surfaces another user's mission", !runLens(dir).includes("Delta Mission"));
+
+    run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} alpha`);
+  } finally { cleanup(dir); }
+}
+
+// ---------- 8f. /mission create worktree+kickoff scriptable spine ----------
+// The create flow's scriptable core: slug -> mission worktree -> mission.md inside
+// -> a mission-linked kickoff ticket -> commit inside the worktree, leaving an
+// in-worktree drive-ready queue and the main tree untouched.
+function testMissionCreateWorktreeFlow() {
+  const dir = makeRepo("main");
+  try {
+    writeFileSync(join(dir, ".gitignore"), ".env\n");
+    execSync(`git add .gitignore && git commit -q -m gitignore`, { cwd: dir });
+
+    // 1. slug rule (single source, shared with create.sh)
+    const slug = run(dir, `${POSIX_SH} ${SCRIPTS.missionSlug} "Real-time Notifications"`).stdout.trim();
+    assertEq("mission slug derived from title", slug, "real-time-notifications");
+
+    // 2. dedicated worktree named by the slug
+    const wt = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} ${slug}`).stdout);
+    const wtPath = wt.worktree_path;
+    assertTrue("mission worktree dir matches the slug", wtPath.endsWith("/.worktrees/real-time-notifications"), wtPath);
+
+    // 3. mission.md scaffolded INSIDE the worktree
+    const cr = JSON.parse(run(wtPath, `${POSIX_SH} ${SCRIPTS.missionCreate} "Real-time Notifications"`).stdout);
+    assertEq("mission created inside worktree", cr.created, true);
+    assertTrue("mission.md lives inside the worktree",
+      existsSync(join(wtPath, ".workaholic/missions/active/real-time-notifications/mission.md")));
+
+    // 4. an ordered kickoff ticket, mission-linked, in the worktree's todo/<user>/
+    const todoDir = join(wtPath, `.workaholic/tickets/todo/${TEST_SLUG}`);
+    mkdirSync(todoDir, { recursive: true });
+    writeFileSync(join(todoDir, "20260714120000-first-step.md"),
+      `---\ncreated_at: 2026-07-14T12:00:00+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Infrastructure]\neffort:\ncommit_hash:\ncategory:\ndepends_on:\nmission: ${slug}\n---\n\n# First Step\n`);
+
+    // 5. commit the statement + kickoff ticket INSIDE the worktree
+    const cm = run(wtPath, `${POSIX_SH} ${SCRIPTS.commit} "Kick off mission ${slug}" "why" "changes" "None" "None" "verify" .workaholic/`);
+    assertEq("commit inside worktree exits 0", cm.status, 0);
+    assertTrue("worktree kickoff commit present",
+      /Kick off mission real-time-notifications/.test(execSync(`git log --oneline -1`, { cwd: wtPath, encoding: "utf8" })));
+    assertEq("worktree branch clean after commit",
+      execSync(`git status --porcelain`, { cwd: wtPath, encoding: "utf8" }).trim(), "");
+
+    // 6. in-worktree list-todo returns exactly the kickoff set (drive-ready)
+    assertEq("in-worktree list-todo returns the kickoff ticket",
+      run(wtPath, `${POSIX_SH} ${SCRIPTS.listTodo}`).stdout.split("\n").filter(Boolean),
+      [`.workaholic/tickets/todo/${TEST_SLUG}/20260714120000-first-step.md`]);
+
+    // 7. the main tree is untouched (still on main, mission not present there)
+    assertEq("main tree still on main", execSync(`git branch --show-current`, { cwd: dir, encoding: "utf8" }).trim(), "main");
+    assertTrue("mission absent from the main tree checkout",
+      !existsSync(join(dir, ".workaholic/missions/active/real-time-notifications/mission.md")));
+
+    run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} ${slug}`);
+  } finally { cleanup(dir); }
+}
+
+// ---------- 8g. /ship resets a mission worktree instead of deleting it ----------
+function testMissionWorktreeShipReset() {
+  const dir = makeRepo("main");
+  try {
+    const wt = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} shipdemo`).stdout);
+    const branchA = wt.branch;
+
+    // Simulate the mission's branch merging: advance main in the main tree.
+    writeFileSync(join(dir, "merged.txt"), "merged\n");
+    execSync(`git add merged.txt && git commit -q -m "simulate merge to main"`, { cwd: dir });
+    const mainTip = execSync(`git rev-parse main`, { cwd: dir, encoding: "utf8" }).trim();
+
+    execSync(`sleep 1`, { cwd: dir }); // avoid a same-second work-* name collision with branchA
+    const rs = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.resetMissionWorktree} shipdemo`).stdout);
+
+    assertTrue("mission worktree preserved (not deleted) on ship", existsSync(join(dir, ".worktrees/shipdemo")));
+    assertTrue("reset cut a fresh work-* branch (distinct from the merged one)",
+      /^work-\d{8}-\d{6}$/.test(rs.branch) && rs.branch !== branchA, `${rs.branch} vs ${branchA}`);
+    const wtDir = join(dir, ".worktrees/shipdemo");
+    assertEq("worktree HEAD is the fresh branch",
+      execSync(`git -C ${wtDir} branch --show-current`, { encoding: "utf8" }).trim(), rs.branch);
+    assertEq("fresh branch is based off the merged main tip",
+      execSync(`git -C ${wtDir} merge-base HEAD main`, { encoding: "utf8" }).trim(), mainTip);
+
+    run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} shipdemo`);
+  } finally { cleanup(dir); }
+}
+
+// ---------- 8h. /mission close removes the mission worktree ----------
+function testMissionCloseRemovesWorktree() {
+  const seedMission = (dir, slug, title, checked) => {
+    const mdir = join(dir, `.workaholic/missions/active/${slug}`);
+    mkdirSync(mdir, { recursive: true });
+    writeFileSync(join(mdir, "mission.md"), `---
+type: Mission
+title: ${title}
+slug: ${slug}
+status: active
+created_at: 2026-07-14T00:00:00+09:00
+author: test@example.com
+assignee: test@example.com
+tickets: []
+stories: []
+concerns: []
+---
+
+# ${title}
+
+## Acceptance
+
+- [${checked ? "x" : " "}] a criterion (#a.md)
+
+## Changelog
+`);
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+  };
+
+  // Happy path: close archives the mission and the teardown removes its worktree.
+  const dir = makeRepo("main");
+  try {
+    seedMission(dir, "closedemo", "Close Demo", true);
+    JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} closedemo`).stdout);
+    assertTrue("mission worktree exists before close", existsSync(join(dir, ".worktrees/closedemo")));
+
+    const c = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} closedemo achieved 2026-07-14`).stdout);
+    assertEq("close flips to achieved and archives", { closed: c.closed, status: c.status }, { closed: true, status: "achieved" });
+    assertTrue("mission moved to archive", existsSync(join(dir, ".workaholic/missions/archive/closedemo/mission.md")));
+
+    const cl = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} closedemo`).stdout);
+    assertEq("close teardown removed the worktree", cl.worktree_removed, true);
+    assertTrue("worktree gone after close", !existsSync(join(dir, ".worktrees/closedemo")));
+    assertEq("teardown idempotent when already gone",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} closedemo`).stdout).worktree_removed, false);
+  } finally { cleanup(dir); }
+
+  // Dirty worktree: the mission still closes; teardown refuses to discard work.
+  const dir2 = makeRepo("main");
+  try {
+    seedMission(dir2, "dirtyclose", "Dirty Close", false);
+    run(dir2, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} dirtyclose`);
+    writeFileSync(join(dir2, ".worktrees/dirtyclose/wip.txt"), "unshipped\n");
+
+    const c = JSON.parse(run(dir2, `${POSIX_SH} ${SCRIPTS.missionClose} dirtyclose abandoned 2026-07-14`).stdout);
+    assertEq("mission still closes with a dirty worktree", c.closed, true);
+    assertTrue("teardown refuses a dirty worktree (non-zero exit)",
+      run(dir2, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} dirtyclose`).status !== 0);
+    assertTrue("dirty worktree kept (unshipped work preserved)", existsSync(join(dir2, ".worktrees/dirtyclose")));
+
+    execSync(`rm -f .worktrees/dirtyclose/wip.txt`, { cwd: dir2 });
+    run(dir2, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} dirtyclose`);
+  } finally { cleanup(dir2); }
+}
+
+// ---------- 8i. per-mission-worktree port assignment (collision-free) ----------
+function testMissionWorktreePorts() {
+  const dir = makeRepo("main");
+  try {
+    // First worktree gets a base; it is recorded in the worktree's .env.
+    const a = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} mission-a`).stdout);
+    assertTrue("first worktree has a numeric port base >= 4100",
+      typeof a.port_base === "number" && a.port_base >= 4100, JSON.stringify(a));
+    assertEq("derived docs port is base+1", a.docs_port, a.port_base + 1);
+    assertTrue("worktree .env carries WORKAHOLIC_PORT_BASE",
+      readFileSync(join(dir, ".worktrees/mission-a/.env"), "utf8").includes(`WORKAHOLIC_PORT_BASE=${a.port_base}`),
+      readFileSync(join(dir, ".worktrees/mission-a/.env"), "utf8"));
+
+    // Second worktree gets a DISTINCT base (collision-free). Space by 1s so the
+    // work-* branch names differ.
+    execSync(`sleep 1`, { cwd: dir });
+    const b = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} mission-b`).stdout);
+    assertTrue("second worktree gets a distinct port base", b.port_base !== a.port_base, `${a.port_base} vs ${b.port_base}`);
+    assertTrue("distinct dev ports", b.dev_port !== a.dev_port);
+
+    // The allocator itself avoids both already-assigned bases.
+    const alloc = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.allocateWorktreePort}`).stdout);
+    assertTrue("allocator returns a base free of both assigned ones",
+      alloc.port_base !== a.port_base && alloc.port_base !== b.port_base, JSON.stringify(alloc));
+
+    // A removed worktree's base becomes allocatable again (live-worktree based).
+    run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} mission-a`);
+    const afterRemove = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.allocateWorktreePort}`).stdout);
+    assertEq("freed base is reused after the worktree is removed", afterRemove.port_base, a.port_base);
+
+    run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} mission-b`);
+  } finally { cleanup(dir); }
+}
+
+// ---------- 8j. per-mission quality gate (declaration round-trip + port) ----------
+function testMissionQualityGate() {
+  const dir = makeRepo("main");
+  try {
+    writeFileSync(join(dir, ".gitignore"), ".env\n");
+    execSync(`git add .gitignore && git commit -q -m gitignore`, { cwd: dir });
+
+    // create.sh scaffolds the empty gate fields.
+    JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionCreate} "Docs Site"`).stdout);
+    const mfile = join(dir, ".workaholic/missions/active/docs-site/mission.md");
+    assertTrue("scaffold includes empty gate_type", readFileSync(mfile, "utf8").includes("gate_type:"));
+
+    // gate.sh on the empty gate: no type, valid, no ports (no worktree yet).
+    let g = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionGate} docs-site`).stdout);
+    assertEq("empty gate valid with no type/ports",
+      { type: g.type, valid: g.valid, dev: g.dev_port }, { type: "", valid: true, dev: "" });
+
+    // Fill a live-app gate and re-read: fields round-trip, valid true.
+    writeFileSync(mfile, readFileSync(mfile, "utf8")
+      .replace(/^gate_type:.*$/m, "gate_type: live-app")
+      .replace(/^gate_target:.*$/m, "gate_target: /feature/notifications")
+      .replace(/^gate_assert:.*$/m, "gate_assert: the bell shows an unread badge"));
+    g = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionGate} docs-site`).stdout);
+    assertEq("gate declaration round-trips",
+      { type: g.type, target: g.target, assert: g.assert, valid: g.valid },
+      { type: "live-app", target: "/feature/notifications", assert: "the bell shows an unread badge", valid: true });
+
+    // An invalid type is flagged valid:false.
+    writeFileSync(mfile, readFileSync(mfile, "utf8").replace(/^gate_type:.*$/m, "gate_type: bogus"));
+    assertEq("invalid gate_type flagged",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionGate} docs-site`).stdout).valid, false);
+
+    // With a worktree, the gate resolves against the worktree's assigned dev port.
+    writeFileSync(mfile, readFileSync(mfile, "utf8").replace(/^gate_type:.*$/m, "gate_type: live-app"));
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+    const wt = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} docs-site`).stdout);
+    g = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionGate} docs-site`).stdout);
+    assertEq("gate resolves the worktree's dev port", g.dev_port, String(wt.dev_port));
+
+    run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} docs-site`);
+  } finally { cleanup(dir); }
+}
+
+// ---------- 8k. release-scan branch-safety engine ----------
+function testReleaseScanEngine() {
+  const dir = makeRepo("main");
+  try {
+    // Base: git-ignore the denylist so it never enters a diff.
+    writeFileSync(join(dir, ".gitignore"), ".workaholic/leak-denylist\n");
+    execSync(`git add .gitignore && git commit -q -m gi`, { cwd: dir });
+    // The developer's denylist (git-ignored, filesystem-only).
+    mkdirSync(join(dir, ".workaholic"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/leak-denylist"), "acmeclient\n# a comment\n");
+
+    // Scan a fresh branch off main carrying `files`.
+    const scan = (branch, files) => {
+      execSync(`git checkout -q main`, { cwd: dir });
+      execSync(`git checkout -q -b ${branch}`, { cwd: dir });
+      for (const [name, content] of Object.entries(files)) writeFileSync(join(dir, name), content);
+      execSync(`git add -A && git commit -q -m x`, { cwd: dir });
+      return JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanBranchSafety} main`).stdout);
+    };
+
+    // 1. secret -> hard block, file:line + rule, evidence redacted.
+    let r = scan("work-20260714-000001", { "creds.txt": "aws = AKIA1234567890ABCDEF\ntoken=supersecretvalue123\n" });
+    const sec = r.findings.filter((f) => f.category === "secret");
+    assertEq("secret makes verdict block", r.verdict, "block");
+    assertTrue("secret finding: file/line/severity/rule",
+      sec.length > 0 && sec[0].file === "creds.txt" && sec[0].line >= 1 && sec[0].severity === "hard" && sec[0].rule === "credential",
+      JSON.stringify(sec));
+    assertEq("secret evidence is redacted", sec[0].evidence, "<redacted>");
+
+    // 2. size -> override finding on the offending file.
+    const big = Array.from({ length: 3100 }, (_, i) => `line ${i}`).join("\n") + "\n";
+    r = scan("work-20260714-000002", { "big.txt": big });
+    const size = r.findings.filter((f) => f.category === "size");
+    assertTrue("size is an override finding on the file",
+      size.length > 0 && size.some((f) => f.file === "big.txt" && f.severity === "override"), JSON.stringify(size));
+
+    // 3. leak (denylist) -> confirm finding citing the term.
+    r = scan("work-20260714-000003", { "doc.md": "the acmeclient integration notes\n" });
+    assertTrue("denylist term is a confirm leak with file:line + rule",
+      r.findings.some((f) => f.category === "leak" && f.rule === "denylist:acmeclient" && f.severity === "confirm" && f.file === "doc.md" && f.line >= 1),
+      JSON.stringify(r.findings));
+
+    // 3b. no denylist -> the same term is NOT flagged.
+    rmSync(join(dir, ".workaholic/leak-denylist"));
+    r = scan("work-20260714-000004", { "doc2.md": "the acmeclient integration notes\n" });
+    assertTrue("without a denylist, the term is not flagged",
+      !r.findings.some((f) => (f.rule || "").startsWith("denylist:")), JSON.stringify(r.findings));
+    writeFileSync(join(dir, ".workaholic/leak-denylist"), "acmeclient\n");
+
+    // 4. clean diff (a commit hash / semver / this repo's own name) -> pass, no false positives.
+    r = scan("work-20260714-000005", { "notes.md": "release v1.2.3 at commit a1b2c3d4e5f6 in workaholic\n" });
+    assertEq("clean diff passes", r.verdict, "pass");
+    assertEq("clean diff has no findings", r.findings.length, 0);
+  } finally { cleanup(dir); }
+}
+
+// ---------- 8l0. release-scan allowlist (.workaholic/scan-allow) ----------
+function testReleaseScanAllowlist() {
+  const dir = makeRepo("main");
+  try {
+    mkdirSync(join(dir, ".workaholic"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/scan-allow"), "# fixtures\ntest/fixtures/**\n");
+    execSync(`git add -A && git commit -q -m allow`, { cwd: dir });
+
+    execSync(`git checkout -q -b work-20260714-000010`, { cwd: dir });
+    mkdirSync(join(dir, "test/fixtures"), { recursive: true });
+    writeFileSync(join(dir, "test/fixtures/sample.txt"), "token=supersecretvalue123\n");
+    writeFileSync(join(dir, "real.txt"), "token=anothersecretvalue999\n");
+    execSync(`git add -A && git commit -q -m x`, { cwd: dir });
+
+    const files = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanBranchSafety} main`).stdout)
+      .findings.filter((f) => f.category === "secret").map((f) => f.file);
+    assertTrue("secret in an allowlisted path is NOT flagged", !files.includes("test/fixtures/sample.txt"), JSON.stringify(files));
+    assertTrue("secret outside the allowlist is still flagged", files.includes("real.txt"), JSON.stringify(files));
+  } finally { cleanup(dir); }
+}
+
+// ---------- 8l. release-scan gate decision (ship tier enforcement) ----------
+function testReleaseScanGateDecision() {
+  const dir = makeRepo("main");
+  try {
+    const decide = (verdictJson) => {
+      writeFileSync(join(dir, "v.json"), verdictJson);
+      return JSON.parse(run(dir, `cat v.json | ${POSIX_SH} ${SCRIPTS.gateDecision}`).stdout);
+    };
+
+    let d = decide('{"verdict":"block","findings":[{"category":"secret","severity":"hard","file":"a","line":1,"rule":"credential"}]}');
+    assertEq("secret -> non-overridable block", { decision: d.decision, overridable: d.overridable }, { decision: "block", overridable: false });
+
+    d = decide('{"verdict":"block","findings":[{"category":"size","severity":"override","file":"b","line":0,"rule":"large-file"}]}');
+    assertEq("size-only -> overridable block", { decision: d.decision, overridable: d.overridable }, { decision: "block", overridable: true });
+
+    d = decide('{"verdict":"block","findings":[{"category":"leak","severity":"confirm","file":"c","line":2,"rule":"denylist:x"}]}');
+    assertEq("leak-only -> overridable block", { decision: d.decision, overridable: d.overridable }, { decision: "block", overridable: true });
+
+    d = decide('{"verdict":"block","findings":[{"category":"size","severity":"override"},{"category":"secret","severity":"hard"}]}');
+    assertEq("secret + size -> secret wins (non-overridable)", d.overridable, false);
+
+    d = decide('{"verdict":"pass","findings":[]}');
+    assertEq("clean -> pass, nothing to block", { decision: d.decision, overridable: d.overridable, total: d.total }, { decision: "pass", overridable: true, total: 0 });
+
+    // End-to-end: a real secret branch through scan | gate-decision is a hard block.
+    execSync(`git checkout -q -b work-20260714-000009`, { cwd: dir });
+    writeFileSync(join(dir, "creds.txt"), "token=supersecretvalue123\n");
+    execSync(`git add -A && git commit -q -m x`, { cwd: dir });
+    const e2e = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanBranchSafety} main | ${POSIX_SH} ${SCRIPTS.gateDecision}`).stdout);
+    assertEq("scan | gate-decision on a real secret -> non-overridable block", { decision: e2e.decision, overridable: e2e.overridable }, { decision: "block", overridable: false });
   } finally { cleanup(dir); }
 }
 
@@ -2605,6 +3227,18 @@ const tests = [
   ["gather/user-slug.sh", testUserSlug],
   ["create-ticket/sweep-todo.sh", testSweepTodo],
   ["drive/list-todo.sh", testListTodo],
+  ["create-ticket/summary.sh + mission/summary.sh (summary mode)", testSummaryMode],
+  ["mission create branches on main", testMissionBranchOnCreate],
+  ["branching mission worktree primitive", testMissionWorktreePrimitive],
+  ["mission-lens worktree focus", testMissionLensWorktreeFocus],
+  ["mission create worktree+kickoff spine", testMissionCreateWorktreeFlow],
+  ["mission worktree ship reset", testMissionWorktreeShipReset],
+  ["mission close removes worktree", testMissionCloseRemovesWorktree],
+  ["mission worktree port assignment", testMissionWorktreePorts],
+  ["mission quality gate", testMissionQualityGate],
+  ["release-scan branch-safety engine", testReleaseScanEngine],
+  ["release-scan allowlist", testReleaseScanAllowlist],
+  ["release-scan gate decision", testReleaseScanGateDecision],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],

@@ -14,6 +14,16 @@ This skill works on any Agent-Skills-compatible agent. The two Claude-Code mecha
 - **Parallel fan-out** — where a step spawns parallel workers to run parts concurrently (e.g. the three discovery modes), that is the Claude Code optimization. On other agents, perform those parts **sequentially** in the same session; the inputs and outputs are identical.
 - **User interaction** — where a step uses the agent's selection prompt, use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies. Prefix each interactive prompt's (the agent's selection prompt) `question` body with `[<project label>]` — run `bash gather/scripts/project-label.sh` once and reuse its `project` value — so a developer with several sessions open across tmux panes can see which repository is asking; leave the `header` as the decision/topic label.
 
+## Summary Mode
+
+`/ticket` has a read-only **summary** mode, triggered by a bare invocation (empty `$ARGUMENT`) or the explicit argument `summary`. It reports the current user's assigned todo tickets and creates nothing — the discovery workflow, worktree guard, and every the agent's selection prompt are skipped.
+
+```bash
+bash create-ticket/scripts/summary.sh
+```
+
+`summary.sh` reuses `drive/list-todo.sh` for the current-user scoping (`todo/<user-slug>/`, from `git config user.email`), so "assigned to me" stays defined in one place, then enriches each ticket with its H1 title and frontmatter `type`/`layer`/`depends_on`. Output is a JSON array `[{path, title, type, layer, depends_on}]` (sorted by path), or `[]` when the queue is empty. This is the create-only guardrail's one read-only exception: it lists work, it never writes.
+
 ## Allowed Locations
 
 Tickets are written to ONE of these two directories — never anywhere else:

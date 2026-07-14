@@ -25,6 +25,16 @@ This command (main agent) runs the `workaholic:create-ticket` **Workflow** direc
 
 ## Instructions
 
+### Summary mode (bare `/ticket` or `/ticket summary`)
+
+If `$ARGUMENT` is **empty** or exactly `summary`, do **not** create a ticket. Run the read-only assigned-ticket summary and stop (this respects the create-only guardrail — it writes nothing):
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/create-ticket/scripts/summary.sh
+```
+
+Present the returned JSON as a readable list of the current user's `todo/<user>/` queue — one line per ticket showing its title, `type`, `layer`, and any `depends_on` — or tell the user their queue is empty and that `/ticket "<description>"` writes a new one. Do not run the discovery workflow, worktree guard, or any AskUserQuestion in this mode. For any other `$ARGUMENT`, continue with ticket creation below.
+
 ### Pre-check: Dependencies
 
 ```bash

@@ -649,17 +649,24 @@ Analyze a branch to determine if it's ready for release.
 
 ### Analysis Tasks
 
-1. **Review code changes**: Check `git diff main..HEAD` for:
+1. **Run the branch-safety scan** (objective — the same engine `/ship` blocks on): this supersedes eyeballing the diff for secrets. `/report` cannot merge, so it **warns loudly** rather than blocking:
+
+   ```bash
+   bash release-scan/scripts/scan-branch-safety.sh
+   ```
+
+   If `verdict` is `block`, list every finding (category, `file:line`, rule — the secret value is redacted) in the release-readiness output and force `releasable: false`, so the assessment cannot report "ready" over a real finding. A `secret` finding especially means the branch must not ship until it is removed. If `verdict` is `pass`, note the scan is clean.
+
+2. **Review code changes**: Check `git diff main..HEAD` for:
    - Incomplete work (TODO, FIXME, XXX comments in new code)
-   - Security concerns (hardcoded secrets, credentials)
    - Runtime errors or obvious bugs
 
-2. **Check for blocking issues**:
+3. **Check for blocking issues**:
    - Tests failing (if tests exist)
    - Type errors (if type checking exists)
    - Missing files referenced in code
 
-3. **Assess documentation drift**: run
+4. **Assess documentation drift**: run
 
    ```bash
    bash report/scripts/doc-drift.sh "<base_branch>"
@@ -681,7 +688,7 @@ Analyze a branch to determine if it's ready for release.
    and version/manifest drift — the Outputs Freshness CI and `validate-metadata.mjs`
    own those domains; the script already omits them.
 
-4. **Identify actionable items** (not theoretical concerns):
+5. **Identify actionable items** (not theoretical concerns):
    - Documentation that needs updating (including confirmed doc drift from step 3)
    - Version numbers to bump
    - Files to stage/commit before release

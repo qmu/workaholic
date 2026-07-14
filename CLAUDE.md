@@ -193,8 +193,8 @@ If a skill you expect is not in context, ask the user which plugins are loaded â
 | `/ticket <description>`          | Write implementation spec for a feature (bare `/ticket` or `/ticket summary` reports your assigned todo tickets instead of creating one) |
 | `/drive`                         | Implement queued specs one by one                |
 | `/commit`                        | Commit working changes with a policy-conformant message (small non-ticketed changes; prefer `/drive` for ticketed work) |
-| `/report`                        | Context-aware: generate story or journey report and create PR |
-| `/ship`                          | Context-aware: merge PR, deploy, and verify      |
+| `/report`                        | Context-aware: generate story or journey report and create PR (warns on the branch-safety scan) |
+| `/ship`                          | Context-aware: merge PR, deploy, and verify (blocks pre-merge on the branch-safety scan; secrets non-overridable) |
 | `/mission ["<title>" \| summary \| close <slug>]` | Create a mission (a durable, information-rich goal spanning many tickets â€” creating one spins up a dedicated `.worktrees/<slug>/` worktree with the mission statement and ordered kickoff tickets, drive-ready), list existing missions with computed progress, show just **your** assigned active missions (`summary`), or close one (achieved/abandoned) into `missions/archive/` and tear down its worktree |
 | `/catch [window]`                | Read-only by-developer catch-up report over a recent window (commits, tickets, stories) plus a Missions view (each active mission's derived progress, merged activity, and unmerged in-flight work), then follow-up Q&A |
 | `/carry`                         | Hand off in-progress work to a fresh session (capture-only): write a resumption ticket / trip checkpoint a later `/drive` continues, instead of relying on compaction |

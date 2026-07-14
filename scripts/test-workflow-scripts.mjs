@@ -63,6 +63,7 @@ const SCRIPTS = {
   checkCapability: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/check-confirmation-capability.sh"),
   posixLint: join(REPO_ROOT, "plugins/workaholic/hooks/posix-lint.sh"),
   scanBranchSafety: join(REPO_ROOT, "plugins/workaholic/skills/release-scan/scripts/scan-branch-safety.sh"),
+  gateDecision: join(REPO_ROOT, "plugins/workaholic/skills/release-scan/scripts/gate-decision.sh"),
   collectCommits: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/collect-commits.sh"),
   scanWindow: join(REPO_ROOT, "plugins/workaholic/skills/catch/scripts/scan-window.sh"),
   carryCheckpoint: join(REPO_ROOT, "plugins/workaholic/skills/carry/scripts/carry-checkpoint.sh"),
@@ -975,6 +976,39 @@ function testReleaseScanEngine() {
     r = scan("work-20260714-000005", { "notes.md": "release v1.2.3 at commit a1b2c3d4e5f6 in workaholic\n" });
     assertEq("clean diff passes", r.verdict, "pass");
     assertEq("clean diff has no findings", r.findings.length, 0);
+  } finally { cleanup(dir); }
+}
+
+// ---------- 8l. release-scan gate decision (ship tier enforcement) ----------
+function testReleaseScanGateDecision() {
+  const dir = makeRepo("main");
+  try {
+    const decide = (verdictJson) => {
+      writeFileSync(join(dir, "v.json"), verdictJson);
+      return JSON.parse(run(dir, `cat v.json | ${POSIX_SH} ${SCRIPTS.gateDecision}`).stdout);
+    };
+
+    let d = decide('{"verdict":"block","findings":[{"category":"secret","severity":"hard","file":"a","line":1,"rule":"credential"}]}');
+    assertEq("secret -> non-overridable block", { decision: d.decision, overridable: d.overridable }, { decision: "block", overridable: false });
+
+    d = decide('{"verdict":"block","findings":[{"category":"size","severity":"override","file":"b","line":0,"rule":"large-file"}]}');
+    assertEq("size-only -> overridable block", { decision: d.decision, overridable: d.overridable }, { decision: "block", overridable: true });
+
+    d = decide('{"verdict":"block","findings":[{"category":"leak","severity":"confirm","file":"c","line":2,"rule":"denylist:x"}]}');
+    assertEq("leak-only -> overridable block", { decision: d.decision, overridable: d.overridable }, { decision: "block", overridable: true });
+
+    d = decide('{"verdict":"block","findings":[{"category":"size","severity":"override"},{"category":"secret","severity":"hard"}]}');
+    assertEq("secret + size -> secret wins (non-overridable)", d.overridable, false);
+
+    d = decide('{"verdict":"pass","findings":[]}');
+    assertEq("clean -> pass, nothing to block", { decision: d.decision, overridable: d.overridable, total: d.total }, { decision: "pass", overridable: true, total: 0 });
+
+    // End-to-end: a real secret branch through scan | gate-decision is a hard block.
+    execSync(`git checkout -q -b work-20260714-000009`, { cwd: dir });
+    writeFileSync(join(dir, "creds.txt"), "token=supersecretvalue123\n");
+    execSync(`git add -A && git commit -q -m x`, { cwd: dir });
+    const e2e = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanBranchSafety} main | ${POSIX_SH} ${SCRIPTS.gateDecision}`).stdout);
+    assertEq("scan | gate-decision on a real secret -> non-overridable block", { decision: e2e.decision, overridable: e2e.overridable }, { decision: "block", overridable: false });
   } finally { cleanup(dir); }
 }
 
@@ -3182,6 +3216,7 @@ const tests = [
   ["mission worktree port assignment", testMissionWorktreePorts],
   ["mission quality gate", testMissionQualityGate],
   ["release-scan branch-safety engine", testReleaseScanEngine],
+  ["release-scan gate decision", testReleaseScanGateDecision],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],

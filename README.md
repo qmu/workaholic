@@ -52,8 +52,8 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 | ---------- | ----------------------------------------------------- |
 | `/ticket`  | Plan a change with context and steps (bare `/ticket` or `/ticket summary` reports your assigned todo tickets instead) |
 | `/drive`   | Implement queued tickets one by one (add "night" for an autonomous overnight run with a morning report) |
-| `/report`  | Context-aware: generate story or journey report and create PR |
-| `/ship`    | Context-aware: merge PR, deploy, verify, and publish the GitHub Release |
+| `/report`  | Context-aware: generate story or journey report and create PR (warns on the branch-safety scan — credentials/oversize/leakage) |
+| `/ship`    | Context-aware: merge PR, deploy, verify, and publish the GitHub Release (blocks pre-merge on the branch-safety scan; secrets are non-overridable) |
 | `/mission` | Track a long-lived goal spanning many tickets: create one (spins up a dedicated `.worktrees/<slug>/` worktree with the mission statement and ordered kickoff tickets, drive-ready), list missions with computed progress, show just **your** assigned active missions (`/mission summary`), or close one (achieved/abandoned) into the archive area (tearing down its worktree) |
 | `/trip`    | Agent Teams session: collaborative design, decomposed into tickets and driven (`/trip summary` reports trips + the todo queue, read-only) |
 

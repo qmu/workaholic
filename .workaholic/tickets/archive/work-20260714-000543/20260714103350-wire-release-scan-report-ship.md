@@ -4,8 +4,8 @@ author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure]
 effort: 2h
-commit_hash:
-category: Added
+commit_hash: 0fb0888
+category: Changed
 depends_on: [20260714103349-release-scan-engine.md]
 mission:
 ---
@@ -83,3 +83,12 @@ Past tickets that touched similar areas:
 - `/report`'s warn must not become a silent pass — a block-class finding forces `releasable: false` so the readiness assessment cannot say "ready" over a real finding (`plugins/workaholic/skills/report/SKILL.md`).
 - Record overrides so an accepted size/leak risk is auditable later (`plugins/workaholic/skills/ship/scripts/record-evidence.sh`).
 - Any `AskUserQuestion` the ship override uses must carry the `[<project label>]` prefix (guard-askuserquestion-label.sh) (`plugins/workaholic/commands/ship.md`).
+
+## Final Report
+
+Development completed as planned. Added `release-scan/scripts/gate-decision.sh` (maps the scan verdict to a ship decision: any finding → block; any `hard`/secret → non-overridable) so the tier policy is a testable script, not just prose. `/report` Step 8 runs the scan as a loud warn (forces `releasable: false` on a block, supersedes the prose secret-review); `/ship` Ship Flow §5 gains step 2b, a pre-merge gate that halts on a block — secret non-overridable, size/leak overridable with a recorded accepted-risk evidence entry, the override prompt issued by the `/ship` command. Hermetic test covers all tier mappings + a real `scan | gate-decision` on a secret; 522 passed / 0 failed, build/verify/metadata/posix-lint clean, report+ship rebuilt with release-scan bundled.
+
+### Discovered Insights
+
+- **Insight**: Making the ship tier policy a small `gate-decision.sh` (verdict JSON → `{decision, overridable}`) keeps the secret-is-never-bypassable rule **objective and unit-testable**, rather than relying on the agent to interpret severities from prose. The ship flow prose then just acts on `overridable`.
+  **Context**: Referencing `release-scan` from the built `report` and `ship` skills pulls it into both closures, so its scripts are bundled into `outputs/workflows/skills/{report,ship}/release-scan/` — a rebuild is required and the outputs diff is expected.

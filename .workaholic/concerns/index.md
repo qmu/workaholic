@@ -2,7 +2,6 @@
 
 * [50-char cap is byte-based outside a UTF-8 locale](50-char-cap-is-byte-based.md)
 * [Concerns](README.md)
-* [Archive script records the pre-amend commit hash](archive-script-records-the-pre-amend.md)
 * [Best-effort fetch adds a per-run network round-trip to /catch](best-effort-fetch-adds-a-per.md)
 * [Branch-guard tokenizer lacks shell-quoting awareness](branch-guard-tokenizer-lacks-shell-quoting.md)
 * [Branch-safety scan WARN (overridable): oversized change set](branch-safety-scan-warn-overridable-oversized.md)

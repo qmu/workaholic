@@ -41,6 +41,20 @@ TAB=$(printf '\t')
 NL='
 '
 
+# Build the diff pathspec: base..HEAD plus :(exclude) globs from the committed,
+# reviewable .workaholic/scan-allow (paths that legitimately contain secret-shaped
+# or pattern-describing content — test fixtures, the scanner's own docs — NOT real
+# secrets). Excluding them here keeps secret findings non-overridable at ship time
+# while letting a repo pre-declare, in review, its known-safe paths.
+set -- "${BASE}..HEAD" --
+allowfile="${ROOT}/.workaholic/scan-allow"
+if [ -f "$allowfile" ]; then
+    while IFS= read -r pat; do
+        case "$pat" in ''|'#'*) continue ;; esac
+        set -- "$@" ":(exclude,glob)${pat}"
+    done < "$allowfile"
+fi
+
 findings=""   # newline-delimited: category<TAB>severity<TAB>file<TAB>line<TAB>rule<TAB>evidence
 
 json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
@@ -51,7 +65,7 @@ add_finding() {
 }
 
 # ---- size / count ----
-numstat=$(git diff --numstat "${BASE}..HEAD" 2>/dev/null || true)
+numstat=$(git diff --numstat "$@" 2>/dev/null || true)
 filecount=$(printf '%s\n' "$numstat" | grep -c . || true)
 if [ "${filecount:-0}" -gt "$MAX_FILES" ]; then
     add_finding size override "(diff)" 0 "too-many-files" "${filecount} files > ${MAX_FILES}"
@@ -75,7 +89,7 @@ EOF
 # ---- added lines, tagged file<TAB>line<TAB>content (via -U0 so only + lines) ----
 # The denylist file itself is excluded — it legitimately contains the very terms
 # it lists, and it is git-ignored anyway, so it should never be scanned as content.
-added_lines=$(git diff -U0 "${BASE}..HEAD" 2>/dev/null | awk '
+added_lines=$(git diff -U0 "$@" 2>/dev/null | awk '
 /^\+\+\+ /{ f=$2; sub(/^b\//,"",f); next }
 /^@@ /{ if (match($0, /\+[0-9]+/)) ln=substr($0,RSTART+1,RLENGTH-1)+0; next }
 /^\+/{ if (f != ".workaholic/leak-denylist") print f "\t" ln "\t" substr($0,2); ln++; next }

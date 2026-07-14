@@ -979,6 +979,27 @@ function testReleaseScanEngine() {
   } finally { cleanup(dir); }
 }
 
+// ---------- 8l0. release-scan allowlist (.workaholic/scan-allow) ----------
+function testReleaseScanAllowlist() {
+  const dir = makeRepo("main");
+  try {
+    mkdirSync(join(dir, ".workaholic"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/scan-allow"), "# fixtures\ntest/fixtures/**\n");
+    execSync(`git add -A && git commit -q -m allow`, { cwd: dir });
+
+    execSync(`git checkout -q -b work-20260714-000010`, { cwd: dir });
+    mkdirSync(join(dir, "test/fixtures"), { recursive: true });
+    writeFileSync(join(dir, "test/fixtures/sample.txt"), "token=supersecretvalue123\n");
+    writeFileSync(join(dir, "real.txt"), "token=anothersecretvalue999\n");
+    execSync(`git add -A && git commit -q -m x`, { cwd: dir });
+
+    const files = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanBranchSafety} main`).stdout)
+      .findings.filter((f) => f.category === "secret").map((f) => f.file);
+    assertTrue("secret in an allowlisted path is NOT flagged", !files.includes("test/fixtures/sample.txt"), JSON.stringify(files));
+    assertTrue("secret outside the allowlist is still flagged", files.includes("real.txt"), JSON.stringify(files));
+  } finally { cleanup(dir); }
+}
+
 // ---------- 8l. release-scan gate decision (ship tier enforcement) ----------
 function testReleaseScanGateDecision() {
   const dir = makeRepo("main");
@@ -3216,6 +3237,7 @@ const tests = [
   ["mission worktree port assignment", testMissionWorktreePorts],
   ["mission quality gate", testMissionQualityGate],
   ["release-scan branch-safety engine", testReleaseScanEngine],
+  ["release-scan allowlist", testReleaseScanAllowlist],
   ["release-scan gate decision", testReleaseScanGateDecision],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],

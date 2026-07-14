@@ -21,7 +21,7 @@ Scans the **added** lines of `git diff <base>..HEAD` (base from `gather/git-cont
 
 | category | severity | what it catches |
 | -------- | -------- | --------------- |
-| `secret` | `hard` | a known credential shape in an added line (AWS `AKIA…`, `gh*`/`github_pat` tokens, `xox*` Slack, bearer/basic auth, PEM private keys, `password=`/`token=`/`api_key=` assignments) — see `scripts/lib/secret-patterns.sh`, shared with `ship/record-evidence.sh` |
+| `secret` | `hard` | a known credential shape in an added line (AWS `AKIA…`, `gh*`/`github_pat` tokens, `xox*` Slack, bearer/basic auth, PEM private keys), or a `password=`/`token=`/`api_key=` assignment **whose right-hand side is a literal value**. An assignment that merely *references* a secret — `= process.env.X`, `apiKey: someVar`, `${VAR}`, `{{tpl}}`, `<placeholder>`, or a key name inside a string literal — is not a credential and is not flagged; reading a key from the environment is the correct way to handle one, and `secret` is non-overridable, so a false positive here permanently blocks `/ship`. See `scripts/lib/secret-patterns.sh`, shared with `ship/record-evidence.sh` |
 | `size` | `override` | more than `MAX_FILES` changed files, or a file with more than `MAX_FILE_ADDED_LINES` added lines, or an added file larger than `MAX_FILE_BYTES` |
 | `leak` | `confirm` | an added line matching an internal-hostname pattern (`*.internal`/`.local`/`.corp`) or a term from the git-ignored `.workaholic/leak-denylist` |
 

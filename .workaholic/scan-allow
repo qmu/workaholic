@@ -1,0 +1,16 @@
+# release-scan allowlist — paths excluded from the branch-safety scan because they
+# legitimately contain secret-shaped or pattern-describing content, NOT real
+# secrets. One git pathspec glob per line; `#` comments. COMMITTED and reviewed:
+# a reviewer sees exactly which paths are exempt from secret scanning.
+#
+# Keep this surgical — only internal (non-shipped-as-product) paths known to
+# contain fixtures or pattern documentation.
+
+# Hermetic tests deliberately embed fake AWS/GitHub-shaped secrets as fixtures.
+scripts/test-workflow-scripts.mjs
+
+# The scanner's own source and docs literally contain the secret regexes it matches.
+plugins/workaholic/skills/release-scan/**
+
+# The engine ticket documents the credential / internal-hostname patterns in prose.
+.workaholic/tickets/**/*release-scan*

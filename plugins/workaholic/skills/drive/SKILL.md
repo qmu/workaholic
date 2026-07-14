@@ -738,9 +738,7 @@ Update when: After implementation, before archiving.
 
 #### commit_hash
 
-Short git commit hash (7 characters).
-
-Update when: After creating the commit, set automatically by archive script.
+**Not written — derived from git.** `archive.sh` deliberately does not stamp this field: a commit cannot carry its own hash, so writing it and amending the ticket into that same commit changes the hash, leaving a value that points at an orphaned, never-pushed commit (and no stamping order fixes it — re-stamping after the amend regresses forever). `/report` derives the hash from the commit that *added* the archived ticket (its `ticket-commits.sh` script). Do not re-introduce a stamp here, and do not read this field: tickets archived before the fix still carry dead values.
 
 #### category
 

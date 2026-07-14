@@ -62,6 +62,7 @@ const SCRIPTS = {
   docDrift: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/doc-drift.sh"),
   checkCapability: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/check-confirmation-capability.sh"),
   posixLint: join(REPO_ROOT, "plugins/workaholic/hooks/posix-lint.sh"),
+  ticketCommits: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/ticket-commits.sh"),
   scanBranchSafety: join(REPO_ROOT, "plugins/workaholic/skills/release-scan/scripts/scan-branch-safety.sh"),
   gateDecision: join(REPO_ROOT, "plugins/workaholic/skills/release-scan/scripts/gate-decision.sh"),
   collectCommits: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/collect-commits.sh"),
@@ -307,8 +308,19 @@ Development completed as planned.
     assertTrue("archive.sh removed ticket from todo/", !existsSync(ticketPath));
 
     const archived = readFileSync(archivedPath, "utf8");
-    assertTrue("archive.sh stamped commit_hash", /^commit_hash:\s*[0-9a-f]{7,}/m.test(archived), archived.split("\n").slice(0, 12).join("\n"));
+    // commit_hash is deliberately NOT stamped: a commit cannot carry its own hash, so the
+    // old stamp-then-amend named a pre-amend commit that is orphaned and never pushed.
+    // /report derives it from git instead (ticket-commits.sh).
+    assertTrue("archive.sh does NOT stamp commit_hash", !/^commit_hash:\s*[0-9a-f]{7,}/m.test(archived), archived.split("\n").slice(0, 12).join("\n"));
     assertTrue("archive.sh stamped category=Added (from 'Add' verb)", /^category:\s*Added/m.test(archived));
+
+    // The hash archive.sh reports must exist — it is read after the final amend.
+    // Match archive.sh's own summary line, not commit.sh's earlier "Done! Commit:"
+    // (that one is the pre-amend hash by construction).
+    const reported = (r.stdout.match(/Archive complete!\s*\n\s*Commit:\s*([0-9a-f]{7,})/) || [])[1];
+    assertTrue("archive.sh reports a hash", !!reported, r.stdout);
+    assertEq("the reported hash is the branch tip (not an orphaned pre-amend commit)",
+      execSync(`git rev-parse --short HEAD`, { cwd: dir, encoding: "utf8" }).trim(), reported);
 
     // Commit message uses the report-aligned keys (Why/Changes/Concerns/Insights/Verify)
     // and no longer carries the dropped Description/Test Planning/Release Preparation labels.
@@ -976,6 +988,56 @@ function testReleaseScanEngine() {
     r = scan("work-20260714-000005", { "notes.md": "release v1.2.3 at commit a1b2c3d4e5f6 in workaholic\n" });
     assertEq("clean diff passes", r.verdict, "pass");
     assertEq("clean diff has no findings", r.findings.length, 0);
+  } finally { cleanup(dir); }
+}
+
+// ---------- 8j2. report/ticket-commits.sh: the derived hash must be REACHABLE ----------
+// A commit cannot carry its own hash, so archive.sh no longer stamps commit_hash: the old
+// stamp-then-amend recorded a pre-amend commit that is orphaned and never pushed, which made
+// every /report commit link 404. The hash is derived from the commit that ADDED the archived
+// ticket. Reachability from the branch is the whole point — it is what "GitHub has it" means.
+function testTicketCommitsDerivation() {
+  const dir = makeRepo("work-20260715-000001");
+  try {
+    const slug = "a-qmu-jp";
+    const todo = `.workaholic/tickets/todo/${slug}`;
+    mkdirSync(join(dir, todo), { recursive: true });
+    const mk = (name, title) => {
+      writeFileSync(join(dir, todo, name),
+        `---\ncreated_at: 2026-07-15T00:00:00+09:00\nauthor: a@qmu.jp\ntype: enhancement\nlayer: [Infrastructure]\neffort: 0.5h\ncommit_hash:\ncategory:\ndepends_on:\nmission:\n---\n\n# ${title}\n\n## Overview\n\nx\n`);
+    };
+    mk("20260715000001-first.md", "First");
+    mk("20260715000002-second.md", "Second");
+    execSync(`git add -A && git commit -q -m "Add tickets"`, { cwd: dir });
+
+    const arch = (name) => run(dir, `${POSIX_SH} ${SCRIPTS.archive} ${todo}/${name} "Add ${name}" https://x/repo "why" "changes" "None" "None" "verify"`);
+    arch("20260715000001-first.md");
+    arch("20260715000002-second.md");
+
+    const out = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.ticketCommits} work-20260715-000001`).stdout);
+    assertEq("derives one entry per archived ticket", out.length, 2);
+    assertTrue("every ticket resolved to a hash", out.every((e) => /^[0-9a-f]{7,}$/.test(e.commit)), JSON.stringify(out));
+
+    // The contract: each hash is reachable from the branch (i.e. it would be pushed).
+    const reachable = (h) => run(dir, `git merge-base --is-ancestor ${h} HEAD`).status === 0;
+    assertTrue("every derived hash is reachable from the branch", out.every((e) => reachable(e.commit)), JSON.stringify(out));
+
+    // And it names the commit that actually archived that ticket.
+    for (const e of out) {
+      const subject = execSync(`git log -1 --format=%s ${e.commit}`, { cwd: dir, encoding: "utf8" }).trim();
+      assertEq(`hash for ${e.ticket} names its own archive commit`, subject, `Add ${e.ticket}`);
+    }
+
+    // A stale commit_hash left by the old buggy archive script must not be believed:
+    // derivation reads git, so it resolves correctly regardless of the frontmatter.
+    const p = join(dir, `.workaholic/tickets/archive/work-20260715-000001/20260715000001-first.md`);
+    writeFileSync(p, readFileSync(p, "utf8").replace(/^commit_hash:.*$/m, "commit_hash: deadbee"));
+    execSync(`git add -A && git commit -q -m "Add stale hash"`, { cwd: dir });
+    const after = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.ticketCommits} work-20260715-000001`).stdout);
+    const first = after.find((e) => e.ticket === "20260715000001-first.md");
+    assertTrue("a stale frontmatter hash is ignored (git wins)", first.commit !== "deadbee" && reachable(first.commit), JSON.stringify(first));
+    assertEq("a later edit does not re-point the link (still the archiving commit)",
+      execSync(`git log -1 --format=%s ${first.commit}`, { cwd: dir, encoding: "utf8" }).trim(), "Add 20260715000001-first.md");
   } finally { cleanup(dir); }
 }
 
@@ -3282,6 +3344,7 @@ const tests = [
   ["mission close removes worktree", testMissionCloseRemovesWorktree],
   ["mission worktree port assignment", testMissionWorktreePorts],
   ["mission quality gate", testMissionQualityGate],
+  ["report/ticket-commits.sh derivation", testTicketCommitsDerivation],
   ["release-scan branch-safety engine", testReleaseScanEngine],
   ["release-scan secret literal vs reference", testReleaseScanSecretLiteralVsReference],
   ["release-scan allowlist", testReleaseScanAllowlist],

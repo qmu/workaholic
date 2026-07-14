@@ -241,6 +241,14 @@ Procedural body for `/trip` (executed from the work-side command via this preloa
 
 **Determine mode from `$ARGUMENT`**: if it contains the `night` token (e.g. "go night /trip …", "/trip night …"), mode = "night" — **strip** the `night` token so the remainder is the trip instruction, and apply the **Night Mode** subsection's overrides to Steps 1, 4, and 5 (unattended, no developer questions). Otherwise mode = "normal" and the steps run interactively as written.
 
+**Summary mode (read-only)** — if the (night-stripped) `$ARGUMENT` is exactly `summary`, do **not** determine execution mode or launch a team. Run the trip summary and stop:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/summary.sh
+```
+
+It emits `{"trips": [...], "queue": [...]}`: each trip under `.workaholic/trips/` with its plan `phase`/`step`/`instruction`/`blocked` (via `read-plan.sh`), followed by the current user's todo-queue snapshot a `/trip` would execute (via `drive/list-todo.sh`). Present each trip as one line — `name` — `phase/step` (note `blocked` when set) — and then the queued ticket count/paths. This reports only; it creates no worktree, branch, or artifact. Bare `/trip` (no argument) keeps its context-aware queue-execute behavior below.
+
 **Determine execution mode (design-first vs queue-execute)** — `/trip` is context-aware, like `/report` and `/ship`. After the Pre-check, list the current todo queue:
 
 ```bash
@@ -377,6 +385,8 @@ Trips run in isolated git worktrees, so shipping a trip adds worktree lifecycle 
 
 ### Worktree gitignored-file handling
 
+The create side is symmetric: `ensure-worktree.sh` copies the root git-ignored `.env` (the single credential source) into a new worktree, and a pre-existing worktree may need a manual `cp <repo-root>/.env .env` (see the Credentials section of `workaholic:branching`). Cleanup preserves it back:
+
 Before cleaning up a worktree, preserve any gitignored files (e.g. `.env`, local config) that exist only in or differ in the worktree:
 
 ```bash
@@ -395,8 +405,13 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/trip-protocol/scripts/sync-gitignored-files.sh
 
 1. **Sync gitignored files** (above) from `.worktrees/<branch>/` to the main repo root.
 2. **Run the ship essence**: follow `workaholic:ship`'s **Ship Flow** for the worktree's branch/PR. The merge is the **LAST** step, gated on a passing pre-merge production confirmation: pre-check → catch up with `main` → deploy (gated on a `.workaholic/deployments/` confirmation method or `CLAUDE.md` `## Verify`; halt-and-ask if none) → execute the confirmation and record evidence → **merge LAST** → publish release / extract deferred concerns. A failed confirmation leaves the PR unmerged (that is the rollback).
-3. **Clean up worktree**: `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-worktree.sh "<branch>"`; report what was cleaned up.
-4. **Summarize**: include gitignored sync status and worktree cleanup status alongside the ship essence's summary.
+3. **Reset or clean up the worktree**:
+   - **Mission worktree** — a `.worktrees/<slug>/` worktree with a descriptive slug directory (`list-all-worktrees.sh` tags it `"type": "mission"`) is **persistent**: it is removed only at `/mission close`, never on a merge. Instead of deleting it, **reset** it for the mission's next batch — cut a fresh `work-*` branch off `main` inside the same worktree:
+     ```bash
+     bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/reset-mission-worktree.sh "<slug>"
+     ```
+   - **Ordinary drive/trip worktree** (a `work-*`-named `.worktrees/<branch>/`) — clean it up as before: `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-worktree.sh "<branch>"`.
+4. **Summarize**: include gitignored sync status and whether the worktree was **reset** (mission) or **cleaned up** (ordinary) alongside the ship essence's summary.
 
 ### Context routing (used by the /ship command)
 

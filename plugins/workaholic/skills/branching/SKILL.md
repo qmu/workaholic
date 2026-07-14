@@ -182,6 +182,49 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-worktree.sh <branch-
 
 Output: `{"cleaned": true, "worktree_path": "<path>", "branch": "<branch-name>", "worktree_removed": true, "branch_removed": true}`
 
+### Mission Worktrees
+
+A **mission** runs in a dedicated, persistent worktree keyed by a **descriptive slug directory** — `.worktrees/<mission-slug>/` (e.g. `.worktrees/real-time-notifications/`), *not* a `work-*` directory. The branch checked out inside is still an ordinary `work-YYYYMMDD-HHMMSS` branch (the branch-name invariant is preserved); only the directory carries the mission's name. The worktree persists across many branches (each cut from `main`, merged, and re-cut) and is removed only when the mission is closed.
+
+Create a mission worktree — cuts a fresh `work-*` branch off the base (default `main`) into `.worktrees/<slug>/` and copies the root `.env` in:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create-mission-worktree.sh <slug> [base-branch]
+```
+
+Output: `{"worktree_path": "<path>", "branch": "work-YYYYMMDD-HHMMSS", "slug": "<slug>", "port_base": N, "dev_port": N, "docs_port": N+1}`. Errors on a missing/invalid slug, a non-git dir, or an existing worktree.
+
+Each mission worktree is assigned a **unique local port base** (via `allocate-worktree-port.sh` below) written into its `.env` as `WORKAHOLIC_PORT_BASE`/`WORKAHOLIC_DEV_PORT`/`WORKAHOLIC_DOCS_PORT`, so several worktrees can run dev/docs servers at once without colliding on `localhost` (and each can be driven/verified independently, e.g. via Playwright). A project's serve scripts read these variables with their own env precedence; workaholic supplies the unique numbers and the convention, not the servers.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/allocate-worktree-port.sh
+```
+
+Returns the next free port base (`{port_base, dev_port, docs_port}`), scanning the bases already assigned in existing `.worktrees/*/.env` — so a removed worktree's base is reusable (allocation tracks live worktrees, not an ever-growing counter).
+
+Remove a mission worktree (only sanctioned at `/mission close`) — **never discards uncommitted work**: refuses a dirty worktree and reports it; idempotent when already gone:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-mission-worktree.sh <slug>
+```
+
+Reset a mission worktree for its next batch after a merge — cuts a fresh `work-*` branch off `main` inside the same worktree (the worktree persists; only the branch is renewed). `/ship` calls this instead of `cleanup-worktree.sh` for a mission worktree:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/reset-mission-worktree.sh <slug> [base-branch]
+```
+
+`list-all-worktrees.sh` tags a `.worktrees/<slug>` worktree with `"type": "mission"` (ordinary `work-*` dirs stay `"type": "work"`), so `/ship` and the mission lens can distinguish a mission worktree from a drive/trip one. `create-mission-worktree.sh` also adds `.worktrees/` to `.git/info/exclude` so a linked worktree is never accidentally embedded as a gitlink by a main-tree `git add -A`.
+
+## Credentials — root `.env`
+
+Development credentials live in **one** git-ignored `.env` at the repository root — the single credential source (not per-package, not per-worktree-authored). When working with worktrees, treat the `.env` as something to carry along:
+
+- **New worktrees carry it automatically.** `ensure-worktree.sh` **copies** the root `.env` into each worktree it creates (a *copy*, not a symlink — so worktrees diverge credentials independently), and silently skips the copy when the root has no `.env`. A branch created in the main tree via `create.sh` already sits beside the root `.env`, so no copy is needed there.
+- **Pre-existing / externally-created worktrees need a manual copy.** A worktree that predates this convention, or was created outside `ensure-worktree.sh`, has **no** `.env` — before it can serve or authenticate, copy it in: `cp <repo-root>/.env .env`. Bring the `.env` along as a matter of judgment, not only when `ensure-worktree.sh` happens to run.
+
+The cleanup side is symmetric: `/trip`'s worktree teardown **preserves** git-ignored files like `.env` when syncing a worktree back (see `workaholic:trip-protocol`).
+
 ## Branch State Check
 
 Check if the current branch is main/master or a topic branch.

@@ -21,9 +21,9 @@ SCRIPT_DIR=$(dirname "$0")
 . "${SCRIPT_DIR}/lib/resolve.sh"
 missions_migrate_layout
 
-# Slug rule (mirrors the mission SKILL.md): lowercase, non-[a-z0-9] runs -> single
-# hyphen, leading/trailing hyphens trimmed.
-SLUG=$(printf '%s' "$TITLE" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '-' | tr -s '-' | sed -e 's/^-//' -e 's/-$//')
+# Slug rule lives in slug.sh (the single source), so the mission directory name
+# and the /mission worktree directory name always agree.
+SLUG=$(sh "${SCRIPT_DIR}/slug.sh" "$TITLE")
 [ -n "$SLUG" ] || { echo '{"created": false, "reason": "empty_slug"}'; exit 1; }
 
 MISSION_DIR=".workaholic/missions/active/${SLUG}"
@@ -58,6 +58,9 @@ assignee: ${ASSIGNEE}
 tickets: []
 stories: []
 concerns: []
+gate_type:
+gate_target:
+gate_assert:
 ---
 
 # ${TITLE}

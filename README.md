@@ -50,12 +50,12 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 
 | Command    | What it does                                          |
 | ---------- | ----------------------------------------------------- |
-| `/ticket`  | Plan a change with context and steps                  |
+| `/ticket`  | Plan a change with context and steps (bare `/ticket` or `/ticket summary` reports your assigned todo tickets instead) |
 | `/drive`   | Implement queued tickets one by one (add "night" for an autonomous overnight run with a morning report) |
-| `/report`  | Context-aware: generate story or journey report and create PR |
-| `/ship`    | Context-aware: merge PR, deploy, verify, and publish the GitHub Release |
-| `/mission` | Track a long-lived goal spanning many tickets: create one, list missions with computed progress, or close one (achieved/abandoned) into the archive area |
-| `/trip`    | Agent Teams session: collaborative design, decomposed into tickets and driven |
+| `/report`  | Context-aware: generate story or journey report and create PR (warns on the branch-safety scan — credentials/oversize/leakage) |
+| `/ship`    | Context-aware: merge PR, deploy, verify, and publish the GitHub Release (blocks pre-merge on the branch-safety scan; secrets are non-overridable) |
+| `/mission` | Track a long-lived goal spanning many tickets: create one (spins up a dedicated `.worktrees/<slug>/` worktree with the mission statement and ordered kickoff tickets, drive-ready), list missions with computed progress, show just **your** assigned active missions (`/mission summary`), or close one (achieved/abandoned) into the archive area (tearing down its worktree) |
+| `/trip`    | Agent Teams session: collaborative design, decomposed into tickets and driven (`/trip summary` reports trips + the todo queue, read-only) |
 
 > [!NOTE]
 > `/trip` requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` to be set in your environment.
@@ -127,7 +127,7 @@ So `/trip` and `/drive` converge on the same unit of work — a ticket. The shor
 - **Sources** write tickets into `todo/`: `/ticket` (you, with discovery) and a trip's design **decomposition**.
 - **Executors** drain `todo/ → archive/`: `/drive` (solo, with your approval per ticket) and `/trip` (a three-agent team, with review + E2E as the per-ticket gate).
 
-`/trip` is **context-aware**: `/trip <concept>` over an empty queue designs *and* builds; `/trip` over a queue you already wrote just builds it with three-perspective QA (the `ticket → trip` direction). Either executor reads the same `todo/`, so you can start a trip and finish with `/drive`, or vice versa.
+`/trip` is **context-aware**: `/trip <concept>` over an empty queue designs *and* builds; `/trip` over a queue you already wrote just builds it with three-perspective QA (the `ticket → trip` direction); `/trip summary` launches nothing and just reports the trips and todo queue. Either executor reads the same `todo/`, so you can start a trip and finish with `/drive`, or vice versa.
 
 ## Artifacts under `.workaholic/`
 

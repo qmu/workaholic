@@ -979,6 +979,52 @@ function testReleaseScanEngine() {
   } finally { cleanup(dir); }
 }
 
+// ---------- 8k2. release-scan secret: a literal is a credential, a reference is not ----------
+// The generic `api_key=`/`token=` rule keys off the NAME, so only the right-hand side says
+// whether a line holds a secret or merely references one. Reading a key from the environment
+// or passing it in a variable is the correct way to handle secrets — flagging that punished
+// good code and hard-blocked /ship (secret is non-overridable) on pure false positives.
+function testReleaseScanSecretLiteralVsReference() {
+  const dir = makeRepo("main");
+  try {
+    const scan = (branch, files) => {
+      execSync(`git checkout -q main`, { cwd: dir });
+      execSync(`git checkout -q -b ${branch}`, { cwd: dir });
+      for (const [name, content] of Object.entries(files)) writeFileSync(join(dir, name), content);
+      execSync(`git add -A && git commit -q -m x`, { cwd: dir });
+      return JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanBranchSafety} main`).stdout)
+        .findings.filter((f) => f.category === "secret");
+    };
+
+    // Reference forms — none of these carry a key. Single-quoted so ${...} stays literal.
+    const refs = [
+      'const apiKey = process.env.OPENAI_API_KEY;',
+      'const anthropic = new Anthropic({ apiKey: anthropicKey });',
+      'return line?.slice("OPENAI_API_KEY=".length).trim();',
+      'const line = envText.split("x").find((c) => c.startsWith("OPENAI_API_KEY="));',
+      'const p = { apiKey: opts.apiKey, };',
+      'password: ${DB_PASSWORD}',
+      'api_key: {{ vault_api_key }}',
+      'token: <your-token-here>',
+    ].join("\n") + "\n";
+    let sec = scan("work-20260714-000020", { "app.ts": refs });
+    assertEq("env reads / variable refs / placeholders are not credentials", sec.length, 0);
+
+    // Literal forms — these must still be caught, or the fix would gut the gate.
+    sec = scan("work-20260714-000021", {
+      "a.env": "TOKEN=supersecretvalue123\n",
+      "b.ts": 'const k = { api_key: "sk-ant-abc123def" };\n',
+      "c.yml": 'api_key: sk-abc123def\npassword: "hunter2xyz"\n',
+      "d.ts": "const k = process.env.X; // ghp_AAAAAAAAAAAAAAAAAAAAAAAA\n",
+    });
+    const files = sec.map((f) => f.file);
+    assertTrue(".env-style bare literal still flagged", files.includes("a.env"), JSON.stringify(files));
+    assertTrue("quoted literal still flagged", files.includes("b.ts"), JSON.stringify(files));
+    assertTrue("unquoted non-identifier literal still flagged", files.includes("c.yml"), JSON.stringify(files));
+    assertTrue("key shape beside a reference on one line still flagged", files.includes("d.ts"), JSON.stringify(files));
+  } finally { cleanup(dir); }
+}
+
 // ---------- 8l0. release-scan allowlist (.workaholic/scan-allow) ----------
 function testReleaseScanAllowlist() {
   const dir = makeRepo("main");
@@ -3237,6 +3283,7 @@ const tests = [
   ["mission worktree port assignment", testMissionWorktreePorts],
   ["mission quality gate", testMissionQualityGate],
   ["release-scan branch-safety engine", testReleaseScanEngine],
+  ["release-scan secret literal vs reference", testReleaseScanSecretLiteralVsReference],
   ["release-scan allowlist", testReleaseScanAllowlist],
   ["release-scan gate decision", testReleaseScanGateDecision],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],

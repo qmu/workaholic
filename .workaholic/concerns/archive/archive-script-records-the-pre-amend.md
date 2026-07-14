@@ -11,8 +11,8 @@ last_seen: 2026-07-09T03:28:39+09:00
 first_seen: 2026-07-07T04:09:44+09:00
 concern_id: archive-script-records-the-pre-amend
 severity: moderate
-status: active
-resolved_by_pr: 
+status: resolved
+resolved_by_pr: 9d4b22c
 resolved_by_commit: 
 ---
 

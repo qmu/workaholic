@@ -4,7 +4,7 @@ author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure]
 effort: 4h
-commit_hash:
+commit_hash: c5f4b9c
 category: Added
 depends_on:
 mission:
@@ -94,3 +94,13 @@ Past tickets that touched similar areas:
 - Redact evidence in findings (show the rule + a masked snippet, not the full secret) so the scan output itself does not leak the secret (`workaholic:implementation` / `objective-documentation`).
 - Keep the secret regex in one shared lib; when convenient, migrate `record-evidence.sh` to consume it too (ship → release-scan stays acyclic) rather than maintaining two copies (`plugins/workaholic/skills/ship/scripts/record-evidence.sh`).
 - Thresholds are named constants with sensible defaults; a project may need to tune them — keep them discoverable at the top of the script (`plugins/workaholic/skills/release-scan/scripts/scan-branch-safety.sh`).
+
+## Final Report
+
+Development completed as planned. Added the `release-scan` skill with `scan-branch-safety.sh` (parses `git diff -U0`/`--numstat`, scans added lines for secrets + denylist terms + internal-hostname patterns and files for size/count, emits `{verdict, findings[]}` with `file:line` + rule + severity, secret evidence redacted) and `lib/secret-patterns.sh` factored from `record-evidence.sh`. Git-ignored `.workaholic/leak-denylist` convention. Hermetic test covers all four scenarios + no-false-positive; 516 passed / 0 failed, posix-lint clean, no `outputs/` diff (wired into report/ship next ticket).
+
+### Discovered Insights
+
+- **Insight**: The scan must exclude the `.workaholic/leak-denylist` file itself from content scanning — it legitimately contains the very client terms it lists, so scanning it would flag every entry as a leak. It is git-ignored (so normally never in a diff), but the awk added-line extractor also drops that path defensively.
+  **Context**: Surfaced in a smoke test where a stray `git add -A` committed the denylist and the scan then flagged its own contents. The exclusion keeps the gate quiet even if the denylist leaks into a diff.
+- **Insight**: The branch guard (`guard-git-branch.sh`) blocks off-pattern `git checkout -b` even in a throwaway smoke-test repo run from a Bash tool call, so manual scratch repos must use a `work-YYYYMMDD-HHMMSS` branch name. Hermetic tests are unaffected (their git runs inside node, not through the PreToolUse hook).

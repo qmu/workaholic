@@ -62,6 +62,7 @@ const SCRIPTS = {
   docDrift: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/doc-drift.sh"),
   checkCapability: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/check-confirmation-capability.sh"),
   posixLint: join(REPO_ROOT, "plugins/workaholic/hooks/posix-lint.sh"),
+  scanBranchSafety: join(REPO_ROOT, "plugins/workaholic/skills/release-scan/scripts/scan-branch-safety.sh"),
   collectCommits: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/collect-commits.sh"),
   scanWindow: join(REPO_ROOT, "plugins/workaholic/skills/catch/scripts/scan-window.sh"),
   carryCheckpoint: join(REPO_ROOT, "plugins/workaholic/skills/carry/scripts/carry-checkpoint.sh"),
@@ -918,6 +919,62 @@ function testMissionQualityGate() {
     assertEq("gate resolves the worktree's dev port", g.dev_port, String(wt.dev_port));
 
     run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} docs-site`);
+  } finally { cleanup(dir); }
+}
+
+// ---------- 8k. release-scan branch-safety engine ----------
+function testReleaseScanEngine() {
+  const dir = makeRepo("main");
+  try {
+    // Base: git-ignore the denylist so it never enters a diff.
+    writeFileSync(join(dir, ".gitignore"), ".workaholic/leak-denylist\n");
+    execSync(`git add .gitignore && git commit -q -m gi`, { cwd: dir });
+    // The developer's denylist (git-ignored, filesystem-only).
+    mkdirSync(join(dir, ".workaholic"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/leak-denylist"), "acmeclient\n# a comment\n");
+
+    // Scan a fresh branch off main carrying `files`.
+    const scan = (branch, files) => {
+      execSync(`git checkout -q main`, { cwd: dir });
+      execSync(`git checkout -q -b ${branch}`, { cwd: dir });
+      for (const [name, content] of Object.entries(files)) writeFileSync(join(dir, name), content);
+      execSync(`git add -A && git commit -q -m x`, { cwd: dir });
+      return JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanBranchSafety} main`).stdout);
+    };
+
+    // 1. secret -> hard block, file:line + rule, evidence redacted.
+    let r = scan("work-20260714-000001", { "creds.txt": "aws = AKIA1234567890ABCDEF\ntoken=supersecretvalue123\n" });
+    const sec = r.findings.filter((f) => f.category === "secret");
+    assertEq("secret makes verdict block", r.verdict, "block");
+    assertTrue("secret finding: file/line/severity/rule",
+      sec.length > 0 && sec[0].file === "creds.txt" && sec[0].line >= 1 && sec[0].severity === "hard" && sec[0].rule === "credential",
+      JSON.stringify(sec));
+    assertEq("secret evidence is redacted", sec[0].evidence, "<redacted>");
+
+    // 2. size -> override finding on the offending file.
+    const big = Array.from({ length: 3100 }, (_, i) => `line ${i}`).join("\n") + "\n";
+    r = scan("work-20260714-000002", { "big.txt": big });
+    const size = r.findings.filter((f) => f.category === "size");
+    assertTrue("size is an override finding on the file",
+      size.length > 0 && size.some((f) => f.file === "big.txt" && f.severity === "override"), JSON.stringify(size));
+
+    // 3. leak (denylist) -> confirm finding citing the term.
+    r = scan("work-20260714-000003", { "doc.md": "the acmeclient integration notes\n" });
+    assertTrue("denylist term is a confirm leak with file:line + rule",
+      r.findings.some((f) => f.category === "leak" && f.rule === "denylist:acmeclient" && f.severity === "confirm" && f.file === "doc.md" && f.line >= 1),
+      JSON.stringify(r.findings));
+
+    // 3b. no denylist -> the same term is NOT flagged.
+    rmSync(join(dir, ".workaholic/leak-denylist"));
+    r = scan("work-20260714-000004", { "doc2.md": "the acmeclient integration notes\n" });
+    assertTrue("without a denylist, the term is not flagged",
+      !r.findings.some((f) => (f.rule || "").startsWith("denylist:")), JSON.stringify(r.findings));
+    writeFileSync(join(dir, ".workaholic/leak-denylist"), "acmeclient\n");
+
+    // 4. clean diff (a commit hash / semver / this repo's own name) -> pass, no false positives.
+    r = scan("work-20260714-000005", { "notes.md": "release v1.2.3 at commit a1b2c3d4e5f6 in workaholic\n" });
+    assertEq("clean diff passes", r.verdict, "pass");
+    assertEq("clean diff has no findings", r.findings.length, 0);
   } finally { cleanup(dir); }
 }
 
@@ -3124,6 +3181,7 @@ const tests = [
   ["mission close removes worktree", testMissionCloseRemovesWorktree],
   ["mission worktree port assignment", testMissionWorktreePorts],
   ["mission quality gate", testMissionQualityGate],
+  ["release-scan branch-safety engine", testReleaseScanEngine],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],

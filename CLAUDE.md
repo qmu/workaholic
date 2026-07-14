@@ -263,6 +263,10 @@ On top of the assignee gate, the lens is **worktree-focused** (missions run in t
 - **Assignee is the gate:** the field is stamped by `mission/scripts/create.sh` (self-assigned to the creator by default; see the mission skill's *Assignee* section). Because each git worktree checks out its own `.workaholic/missions/`, the lens that fires in a worktree reflects the missions assigned to whoever is working that tree.
 - **Reuse, not duplication:** the hook computes progress via `mission/scripts/progress.sh` and the next step via `mission/scripts/next-acceptance.sh`, so the Acceptance-scoping convention lives in one place. Claude-Code-only, POSIX `#!/bin/sh -eu`, **no `outputs/` footprint** (lives in `hooks/`, not built). The mission skill itself *is* built into `outputs/workflows`, so the `assignee`/`next-acceptance.sh` changes there require a `build.mjs` rebuild; the hook does not.
 
+### Release-safety scan
+
+The `release-scan` skill (`skills/release-scan/scan-branch-safety.sh`) is a **deterministic, script-only** branch-safety gate that `/report` (warn) and `/ship` (block, pre-merge) run over `git diff <base>..HEAD` to catch, before content reaches a public remote: **credentials** (`secret`, hard block — regex set shared with `ship/record-evidence.sh` via `release-scan/scripts/lib/secret-patterns.sh`), **oversized/too-many files** (`size`, overridable), and **unrelated client-work / terminology leakage** (`leak`, confirm — a git-ignored, developer-maintained `.workaholic/leak-denylist` plus internal-hostname patterns). It emits `{verdict, findings[]}` with each finding citing `file:line` + the matched rule (objective, so it can gate a merge); the consumers enforce the severity tiers. It is a script, not a subagent, on purpose — a merge gate must be reproducible, not a model judgment. This machine-enforces the standing "keep motivation generic, never name other repos/clients in committed artifacts" convention.
+
 ## Version Management
 
 Version files (all must stay at the same semver):

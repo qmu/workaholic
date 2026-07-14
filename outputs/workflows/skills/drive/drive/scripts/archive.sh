@@ -87,16 +87,22 @@ COMMIT_SCRIPT="${SCRIPT_DIR}/../../commit/scripts//commit.sh"
 # the ticket frontmatter below, so the two surfaces can never disagree.
 sh "$COMMIT_SCRIPT" --skip-staging --category "$CATEGORY" "$COMMIT_MSG" "$WHY" "$CHANGES" "$CONCERNS" "$INSIGHTS" "$VERIFY"
 
-COMMIT_HASH=$(git rev-parse --short HEAD)
-
+# NOTE: `commit_hash` is deliberately NOT stamped here. A commit cannot contain its own
+# hash: writing it and amending changes the hash, so the recorded value named a pre-amend
+# commit that is orphaned and never pushed — every link built from it 404s. Re-stamping
+# after the amend just regresses forever (no fixed point exists). The hash is derived
+# instead, from the commit that ADDED the archived ticket — see
+# `report/scripts/ticket-commits.sh`, which is the single source of truth for it.
 echo "==> Updating ticket frontmatter..."
 UPDATE_SCRIPT="${SCRIPT_DIR}/update.sh"
-sh "$UPDATE_SCRIPT" "$ARCHIVED_TICKET" "commit_hash" "$COMMIT_HASH"
 sh "$UPDATE_SCRIPT" "$ARCHIVED_TICKET" "category" "$CATEGORY"
 
 git add "$ARCHIVED_TICKET"
 git commit --amend --no-edit
-echo "==> Updated ticket with commit hash and category"
+echo "==> Updated ticket with category"
+
+# Read the hash only AFTER the final amend, so what we print actually exists.
+COMMIT_HASH=$(git rev-parse --short HEAD)
 
 echo ""
 echo "Archive complete!"

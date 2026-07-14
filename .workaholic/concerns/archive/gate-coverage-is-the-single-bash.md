@@ -8,9 +8,10 @@ last_seen: 2026-06-30T02:27:29+09:00
 first_seen: 2026-06-29T13:18:46+09:00
 concern_id: gate-coverage-is-the-single-bash
 severity: moderate
-status: active
+status: superseded
 resolved_by_pr: 
 resolved_by_commit: 
+superseded_by: commit-subject-rule-lacks-unbypassable-enforcement
 ---
 
 # Gate coverage is the single-Bash-call agent surface only

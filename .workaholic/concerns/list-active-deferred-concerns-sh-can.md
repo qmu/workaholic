@@ -12,8 +12,8 @@ first_seen: 2026-07-13T23:39:50+09:00
 last_seen: 2026-07-13T23:39:50+09:00
 severity: moderate
 status: active
-resolved_by_pr:
-resolved_by_commit:
+resolved_by_pr: 
+resolved_by_commit: 
 ---
 
 # list-active-deferred-concerns.sh can emit transiently-invalid JSON during the first large migration

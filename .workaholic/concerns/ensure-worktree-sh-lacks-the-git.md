@@ -1,0 +1,27 @@
+---
+type: Concern
+concern_id: ensure-worktree-sh-lacks-the-git
+mission: 
+tickets: [20260714000528-command-summary-mode.md, 20260714001859-mission-branch-on-create.md, 20260714010905-document-root-env-worktree-convention-in-branching-skill.md, 20260714011846-mission-worktree-primitive.md, 20260714011847-mission-create-worktree-kickoff.md, 20260714011848-ship-preserve-mission-worktree.md, 20260714011849-mission-close-remove-worktree.md, 20260714014042-mission-lens-worktree-focus.md, 20260714014043-mission-worktree-port-assignment.md, 20260714014044-mission-quality-gate.md, 20260714103349-release-scan-engine.md, 20260714103350-wire-release-scan-report-ship.md]
+origin_pr: 84
+origin_pr_url: https://github.com/qmu/workaholic/pull/84
+origin_branch: work-20260714-000543
+origin_commit: a1bb87a
+created_at: 2026-07-14T16:15:36+09:00
+first_seen: 2026-07-14T16:15:36+09:00
+last_seen: 2026-07-14T16:15:36+09:00
+severity: moderate
+status: active
+resolved_by_pr:
+resolved_by_commit:
+---
+
+# ensure-worktree.sh lacks the `.git/info/exclude` embedding guard
+
+## Description
+
+The mission-worktree path adds `.worktrees/`/`.env` to `.git/info/exclude` to stop `git add -A` from embedding a linked worktree as a gitlink, but the pre-existing `ensure-worktree.sh` (trip/drive worktrees) still lacks the same guard.
+
+## How to Fix
+
+Apply the same `.git/info/exclude` guard in `ensure-worktree.sh` (a small parity follow-up).

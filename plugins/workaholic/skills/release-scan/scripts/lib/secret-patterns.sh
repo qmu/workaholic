@@ -29,6 +29,13 @@
 # literals (`api_key: sk-abc123`). The "bare identifier + terminator" exclusion is what
 # keeps those safe — a real `.env` value ends the line, whereas a variable reference is
 # followed by `,` `;` `)` or `}`.
+#
+# One subtraction is not about the right-hand side at all: the SCOPE-RESOLUTION operator.
+# `[:=]` matches a single colon, so the first `:` of Rust/C++/PHP's `::` reads as an
+# assignment and `[^[:space:]]{6,}` then swallows the type name — making every `Token::Path`
+# in a parser a `token=<secret>` hit. Observed on qfs, where 7 lines tripped the
+# non-overridable tier and 5 of them were DOC COMMENTS. A key immediately followed by `::`
+# is a namespace qualifier, never an assignment, so it is subtracted before the RHS rules.
 
 # The credential key group, defined ONCE and reused by the match and by every
 # subtraction below. They repeat the group on purpose (each must bind to its own matched
@@ -79,6 +86,7 @@ secret_grep() {
             printf '%s\n' "$_sp_input" \
                 | grep -Ei -e "${_SP_KEY}[[:space:]]*[:=][[:space:]]*[^[:space:]]{6,}" \
                 | grep -Eiv \
+                    -e "${_SP_KEY}[[:space:]]*::" \
                     -e "${_SP_KEY}[[:space:]]*[:=][[:space:]]*(process\.env|import\.meta\.env|os\.environ|Deno\.env|ENV\[|getenv|System\.getenv)" \
                     -e "${_SP_KEY}[[:space:]]*[:=][[:space:]]*[\$][{]?[A-Za-z_]" \
                     -e "${_SP_KEY}[[:space:]]*[:=][[:space:]]*[{][{]" \

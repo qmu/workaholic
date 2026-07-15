@@ -45,6 +45,21 @@
 # a separate word and is not matched.
 _SP_KEY='(password|passwd|secret|token|api[_-]?key|access[_-]?key)([_-][A-Za-z0-9_-]*)?'
 
+# A TypeScript TYPE EXPRESSION, for the annotation subtraction below. `apiKey: string` is
+# a declaration, not a credential, but it parses as key-colon-literal and so was reported
+# on the one tier that cannot be waived — in any TS codebase, on ordinary code.
+#
+# Note the bug was never "type annotations are unsupported": `let apiKey: string;` was
+# always skipped, because the identifier-terminator subtraction accepts the trailing `;`.
+# It is narrower — an annotation whose type does NOT end at a terminator. A union
+# (`string | undefined`), a generic, or a type ending the line satisfies neither branch and
+# falls through to "literal". That is also why it went unnoticed: the simplest shape passes.
+#
+# Covers `string`, `string | undefined`, `Array<string>`, `Map<string, string>`, `string[]`.
+# Deliberately excludes `-`, so `api_key: sk-abc123def` is NOT read as a type and stays
+# flagged, and requires a leading letter, so `password: "hunter2xyz"` stays flagged.
+_SP_TYPE='[A-Za-z_$][A-Za-z0-9_$]*(<[^>]*>|\[\]|[[:space:]]*[|&][[:space:]]*[A-Za-z_$][A-Za-z0-9_$]*(<[^>]*>|\[\])*)*'
+
 # Reads stdin, prints matching lines, returns 1 when nothing matched.
 secret_grep() {
     _sp_input=$(cat)
@@ -70,6 +85,8 @@ secret_grep() {
                     -e "${_SP_KEY}[[:space:]]*[:=][[:space:]]*<[A-Za-z_][A-Za-z0-9_ -]*>" \
                     -e "${_SP_KEY}[[:space:]]*[:=][[:space:]]*[\"'][^A-Za-z0-9]" \
                     -e "${_SP_KEY}[[:space:]]*[:=][[:space:]]*[A-Za-z_\$][A-Za-z0-9_\$]*(\.[A-Za-z0-9_\$]+)*[[:space:]]*[,;)}]" \
+                    -e "${_SP_KEY}[[:space:]]*:[[:space:]]*${_SP_TYPE}[[:space:]]*([,;)}]|\$)" \
+                    -e "${_SP_KEY}[[:space:]]*:[[:space:]]*${_SP_TYPE}[[:space:]]*=[[:space:]]*([A-Za-z_\$][A-Za-z0-9_\$.]*[[:space:]]*([,;)}]|\$)|[0-9])" \
                 || true
         } | grep -v '^[[:space:]]*$' | sort -u
     )

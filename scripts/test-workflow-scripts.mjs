@@ -1120,6 +1120,30 @@ function testReleaseScanSecretLiteralVsReference() {
         .findings.filter((f) => f.category === "secret");
     };
 
+    // TypeScript type annotations are references, not credentials. These were reported as
+    // secret/hard — non-overridable — on ordinary declarations in any TS codebase. The bug
+    // was narrow: `let apiKey: string;` always passed, because the identifier-terminator
+    // subtraction accepts the trailing `;`. Only a type that does NOT reach a terminator
+    // (a union, a generic, or one ending the line) fell through to "literal".
+    const typeAnnotations = [
+      "let nextToken: string | undefined;",
+      "password: string | null;",
+      "readonly apiKey: string | undefined",
+      "secret: boolean = false;",
+      "let apiKey: string;",
+      "private token: string;",
+      "interface X { token: string; secret: string }",
+      "type Cfg = { apiKey: Array<string>; secret: Map<string, string> };",
+      "let keys: string[];",
+    ];
+    assertEq("secret ignores TS type annotations", scan("ts-types", { "a.ts": typeAnnotations.join("\n") }).length, 0);
+
+    // ...and the discriminator survives: an annotation whose initializer IS a literal
+    // secret must still fire. `secret: boolean = false` and `secret: string = "..."` differ
+    // only in the initializer, and that is the whole distinction being preserved.
+    assertEq("secret still flags a literal behind an annotation",
+      scan("ts-literal", { "a.ts": 'secret: string = "hunter2value"\n' }).length, 1);
+
     // Reference forms — none of these carry a key. Single-quoted so ${...} stays literal.
     const refs = [
       'const apiKey = process.env.OPENAI_API_KEY;',

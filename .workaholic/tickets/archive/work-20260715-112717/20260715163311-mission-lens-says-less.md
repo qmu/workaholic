@@ -5,7 +5,7 @@ type: bugfix
 layer: [UX, Config]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---

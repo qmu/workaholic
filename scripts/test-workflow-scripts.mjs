@@ -711,6 +711,30 @@ concerns: []
       `---\ntype: Mission\ntitle: Delta Mission\nslug: delta\nstatus: active\ncreated_at: 2026-07-14T00:00:00+09:00\nauthor: other@example.com\nassignee: other@example.com\ntickets: []\nstories: []\nconcerns: []\n---\n\n# Delta Mission\n\n## Acceptance\n\n- [ ] x (#a.md)\n\n## Changelog\n`);
     assertTrue("lens never surfaces another user's mission", !runLens(dir).includes("Delta Mission"));
 
+    // A mission whose ## Acceptance is empty says nothing worth reading: progress is
+    // 0/0 and next-acceptance has nothing to offer, so the line would report a
+    // technical condition (the section was never filled in) with no next step. Stay
+    // silent — `/mission summary` is the on-demand view where it is still visible.
+    const empty = join(dir, ".workaholic/missions/active/epsilon");
+    mkdirSync(empty, { recursive: true });
+    writeFileSync(join(empty, "mission.md"),
+      `---\ntype: Mission\ntitle: Epsilon Mission\nslug: epsilon\nstatus: active\ncreated_at: 2026-07-15T00:00:00+09:00\nauthor: test@example.com\nassignee: test@example.com\ntickets: []\nstories: []\nconcerns: []\n---\n\n# Epsilon Mission\n\n## Acceptance\n\n## Changelog\n`);
+    const withEmpty = runLens(dir);
+    assertTrue("lens stays silent on a mission with no acceptance criteria",
+      !withEmpty.includes("Epsilon Mission"), withEmpty);
+    assertTrue("lens still shows a sibling that has criteria",
+      withEmpty.includes("Gamma Mission"), withEmpty);
+
+    // A worktree that names no mission is a /drive worktree: it is focused on one
+    // ticket, and the roadmap is not its business. Without this the lens falls through
+    // to the main-tree branch and shows the whole list to a session that asked for none
+    // of it.
+    const driveWt = join(dir, ".worktrees/work-20260714-005155");
+    execSync(`git worktree add -q "${driveWt}" -b work-20260714-005155`, { cwd: dir });
+    const driveOut = runLens(driveWt);
+    assertEq("lens is silent in a worktree that owns no mission", driveOut.trim(), "");
+    execSync(`git worktree remove --force "${driveWt}"`, { cwd: dir });
+
     run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} alpha`);
   } finally { cleanup(dir); }
 }

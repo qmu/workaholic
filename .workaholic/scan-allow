@@ -31,12 +31,16 @@ outputs/workflows/skills/*/release-scan/**
 .workaholic/tickets/**/*secret-scan-flags*
 .workaholic/tickets/**/*secret-rule-reads*
 .workaholic/tickets/**/*remove-dead-leak-rule*
+.workaholic/tickets/**/*invert-secret-pass2*
 
-# Four entries here in one day is itself a finding: every ticket that argues about the
+# FIVE entries here in one day is itself a finding: every ticket that argues about the
 # secret rule must quote the shapes it argues about, so writing about the gate trips the
 # gate. Resist widening this to `tickets/**` — a ticket can legitimately carry a pasted
-# credential and those must stay scanned. If the list keeps growing, the answer is a
-# convention (a fixed filename prefix for scanner tickets) rather than a broader glob.
+# credential and those must stay scanned. The list HAS kept growing (the fifth entry was
+# added the same day this note predicted it), so the answer it names is now due: adopt a
+# fixed filename prefix for scanner tickets and collapse these five into one glob. Until
+# then, each new scanner ticket costs a line here — and a ticket that forgets one does not
+# fail loudly, it hard-blocks its own /ship with no bypass.
 
 # Same reason, for the story that narrates the false-positive fix: prose describing the
 # rule cannot avoid the rule -- even ordinary English phrasing parses as an assignment,

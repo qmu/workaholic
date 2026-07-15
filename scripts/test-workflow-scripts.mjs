@@ -1210,6 +1210,96 @@ function testReleaseScanSecretLiteralVsReference() {
   } finally { cleanup(dir); }
 }
 
+// ---------- 8k3. release-scan secret: pass 2 matches the VALUE, not the key name ----------
+// The table below IS the gate. Pass 2 used to match the key NAME and subtract innocent
+// right-hand sides one at a time; the list never converged, because the default for an
+// unseen shape was "hard-block, non-overridable" and innocence is unbounded. Four
+// subtractions were retrofitted after real branches were blocked, and a call —
+// `apiKey: keyOption()` — was the fifth. Pass 2 now asks whether the right-hand side LOOKS
+// LIKE A SECRET (quoted-alphanumeric, or a bare value-run ending the line), which is a
+// bounded question. Both columns matter and they are not symmetric: a miss in the first
+// SHIPS A KEY, a hit in the second hard-blocks /ship with no bypass (secret is
+// non-overridable by design).
+function testReleaseScanSecretValueInversion() {
+  const LIB = join(REPO_ROOT, "plugins/workaholic/skills/release-scan/scripts/lib/secret-patterns.sh");
+  const tmp = mkdtempSync(join(tmpdir(), "secretinv-"));
+  const runner = join(tmp, "run.sh");
+  // Line goes in on stdin: execSync runs its command through an outer shell, which would
+  // expand a `$1` in the script before the inner sh ever saw it.
+  writeFileSync(runner, `. ${LIB}\nsecret_grep >/dev/null 2>&1 && echo yes || echo no\n`);
+  const hits = (line) =>
+    execSync(`${POSIX_SH} ${runner}`, { input: `${line}\n`, encoding: "utf8" }).trim() === "yes";
+
+  // Guard the harness before trusting a single row below. This suite has already produced
+  // tests that passed while measuring nothing.
+  assertTrue("inversion harness detects a known-positive", hits('api_key = "hunter2value"'), "runner should hit");
+  assertTrue("inversion harness silent on a known-negative", !hits("just some ordinary prose"), "runner should miss");
+
+  // MUST FLAG — a false negative here ships a credential.
+  for (const line of [
+    "TOKEN=supersecretvalue123",              // .env bare value ending the line
+    "api_key: sk-abc123def",                  // unquoted non-identifier literal
+    'password: "hunter2xyz"',                 // quoted literal
+    'const k = { api_key: "sk-ant-abc123def" };',
+    "password: mysecret123",                  // bare word after `:` — the ambiguous shape
+    "api_key: abcdef123456",
+    "token: hunter2value",
+    'SECRET_KEY = "django-insecure-abc123xyz"',
+    'secret_key = "hunter2value"',
+    'aws_secret_access_key = "wJalrXUtnFEMIKEXAMPLE"',
+    'access_key_id = "hunter2value"',
+    'refresh_token_value = "hunter2value"',
+    'secret: string = "hunter2value"',        // literal behind an annotation
+    "const k = process.env.X; // ghp_AAAAAAAAAAAAAAAAAAAAAAAA", // pass 1, beside a reference
+    "AKIAIOSFODNN7EXAMPLE",
+  ]) assertTrue(`secret flags a literal: ${line.slice(0, 30)}`, hits(line), `should flag: ${line}`);
+
+  // MUST SUBTRACT — a false positive here permanently bricks a branch's /ship.
+  for (const line of [
+    "apiKey: keyOption(),",                   // call — the bug that motivated the inversion
+    "const htmlToken: Parser<Inline, null> = map<", // generic call after an annotation
+    "apiKey: theKey,",
+    "let nextToken: string | undefined;",
+    "password: string | null;",
+    "readonly apiKey: string | undefined",
+    "secret: boolean = false;",
+    "let apiKey: string;",
+    "private token: string;",
+    "interface X { token: string; secret: string }",
+    "type Cfg = { apiKey: Array<string>; secret: Map<string, string> };",
+    "Token::Path",                            // scope resolution: no `::` rule exists now
+    "const apiKey = process.env.OPENAI_API_KEY;",
+    "SECRET_KEY = process.env.DJANGO_SECRET",
+    'SECRET_KEY = os.environ["DJANGO_SECRET"]',
+    'refresh_token_value = getenv("RT")',
+    "aws_secret_access_key: ${AWS_SECRET}",
+    "secret_key = someVar,",
+    "api_key: {{tpl}}",
+    'token = "<placeholder>"',
+    "access_key_id: config.awsKeyId,",
+    "const p = { apiKey: opts.apiKey, };",
+    "const anthropic = new Anthropic({ apiKey: anthropicKey });",
+    'return line?.slice("OPENAI_API_KEY=".length).trim();',
+    'tokenizer = "gpt-4-tokenizer"',
+  ]) assertTrue(`secret silent on a reference: ${line.slice(0, 30)}`, !hits(line), `false positive on: ${line}`);
+
+  // The `key: bareword` ambiguity, pinned to the side it was deliberately resolved toward.
+  // `apiKey: string` (annotation) and `password: mysecret123` (credential) are the SAME
+  // shape and the line carries nothing that separates them, so matching on the value cannot
+  // help. Only a KNOWN PRIMITIVE is subtracted; an unknown word reads as a literal. If the
+  // first of these ever goes red, real TypeScript is being hard-blocked; if the second
+  // does, the subtraction has been widened back over real keys.
+  assertTrue("bare primitive annotation at EOL is subtracted", !hits("readonly apiKey: string"), "should be quiet");
+  assertTrue("unknown bare word at EOL reads as a literal", hits("apiKey: MyKeyType"), "should flag");
+
+  // A narrow annotation class is what stops `key:` from reaching across a line to an
+  // unrelated `= "..."` and manufacturing a hit on a key that has no value of its own.
+  assertTrue("annotation does not span an unrelated assignment",
+    !hits('const p = { apiKey: opts.apiKey, secret: x }; const y = "abc123def";'), "false positive");
+
+  rmSync(tmp, { recursive: true, force: true });
+}
+
 // ---------- 8l0. release-scan allowlist (.workaholic/scan-allow) ----------
 function testReleaseScanAllowlist() {
   const dir = makeRepo("main");
@@ -3685,6 +3775,7 @@ const tests = [
   ["release-scan branch-safety engine", testReleaseScanEngine],
   ["release-scan secret literal vs reference", testReleaseScanSecretLiteralVsReference],
   ["release-scan secret suffixed keywords", testReleaseScanSecretSuffixedKeywords],
+  ["release-scan secret value inversion", testReleaseScanSecretValueInversion],
   ["release-scan allowlist", testReleaseScanAllowlist],
   ["release-scan gate decision", testReleaseScanGateDecision],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],

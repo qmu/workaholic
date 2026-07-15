@@ -12,8 +12,8 @@ first_seen: 2026-07-15T20:55:56+09:00
 last_seen: 2026-07-15T20:55:56+09:00
 severity: low
 status: active
-resolved_by_pr:
-resolved_by_commit:
+resolved_by_pr: 
+resolved_by_commit: 
 ---
 
 # A PreToolUse hook cannot know its caller, so per-skill exceptions are unimplementable

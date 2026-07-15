@@ -10,10 +10,11 @@ origin_commit:
 severity: moderate
 last_seen: 
 first_seen: 
-status: active
+status: superseded
 compound: true
 resolved_by_pr: 
 resolved_by_commit: 
+superseded_by: the-commit-subject-rule-binds-on
 ---
 
 # The commit-subject rule binds on no path — including the sanctioned one

@@ -23,14 +23,14 @@ Scans the **added** lines of `git diff <base>..HEAD` (base from `gather/git-cont
 | -------- | -------- | --------------- |
 | `secret` | `hard` | a known credential shape in an added line (AWS `AKIA…`, `gh*`/`github_pat` tokens, `xox*` Slack, bearer/basic auth, PEM private keys), or a `password=`/`token=`/`api_key=` assignment **whose right-hand side is a literal value**. An assignment that merely *references* a secret — `= process.env.X`, `apiKey: someVar`, `${VAR}`, `{{tpl}}`, `<placeholder>`, or a key name inside a string literal — is not a credential and is not flagged; reading a key from the environment is the correct way to handle one, and `secret` is non-overridable, so a false positive here permanently blocks `/ship`. See `scripts/lib/secret-patterns.sh`, shared with `ship/record-evidence.sh` |
 | `size` | `override` | more than `MAX_FILES` changed files, or a file with more than `MAX_FILE_ADDED_LINES` added lines, or an added file larger than `MAX_FILE_BYTES` |
-| `leak` | `confirm` | an added line matching an internal-hostname pattern (`*.internal`/`.local`/`.corp`) or a term from the git-ignored `.workaholic/leak-denylist` |
+| `leak` | `confirm` | an added line containing a term from the git-ignored `.workaholic/leak-denylist`. Listed terms only — absent file means this rule does nothing. Not a detector of client context; see **Leak denylist** below |
 
 Output:
 
 ```json
 { "verdict": "pass" | "block",
   "findings": [ { "category": "secret"|"size"|"leak", "severity": "hard"|"override"|"confirm",
-                  "file": "path", "line": 12, "rule": "credential|too-many-files|large-file|large-added-lines|internal-hostname|denylist:<term>",
+                  "file": "path", "line": 12, "rule": "credential|too-many-files|large-file|large-added-lines|denylist:<term>",
                   "evidence": "<redacted for secrets; the term/threshold otherwise>" } ] }
 ```
 
@@ -38,7 +38,11 @@ Output:
 
 ## Leak denylist
 
-`.workaholic/leak-denylist` is a repo-local, **git-ignored** file the developer maintains — one term or substring per line, `#` for comments — of client/project names, product terms, or domains that must not appear in this repo's committed artifacts. It is git-ignored so the list of client names never itself ships. Matching is case-insensitive substring over added lines; each hit cites `file:line` + `denylist:<term>`. Absent file → only the structured internal-hostname pattern runs (conservative default). This machine-enforces the standing "keep motivation generic, never name other repos/clients" convention.
+`.workaholic/leak-denylist` is a repo-local, **git-ignored** file the developer maintains — one term or substring per line, `#` for comments — of client/project names, product terms, or domains that must not appear in this repo's committed artifacts. It is git-ignored so the list of client names never itself ships. Matching is case-insensitive substring over added lines; each hit cites `file:line` + `denylist:<term>`.
+
+**Absent file → the leak rule does nothing at all.** There is no fallback. Because the file is git-ignored, it exists only where a developer has created it, so in most repos this rule is a silent no-op. That is a consequence of not shipping the client-name list, not an oversight — but do not mistake a `pass` verdict for "no client context here".
+
+**What this rule can and cannot do.** It matches terms already known and listed. It cannot match what is not on the list, and the things that leak in practice — a component name, a document filename, a mail label, a hostname — usually do not exist as terms until the moment they leak. A list cannot hold tomorrow's filenames. This rule is a backstop against re-introducing a *known* term; it is not a detector of client context, and nothing here enforces the "keep motivation generic, never name other repos/clients" rule in general. That rule is enforced by confining writes to the current repo and by `/request`'s masking confirmation — a judgement, made by a person, at the moment content crosses a repository boundary.
 
 ## Allowlist (false positives)
 

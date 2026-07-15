@@ -3392,6 +3392,19 @@ function testGuardRepoConfinement() {
     /\/request/.test(invoke(repoA, join(repoB, T)).err),
     "block message should route the caller to /request");
 
+  // Refused: an ordinary directory outside the repo that is NOT a repository at all
+  // (a Desktop/Home-shaped export destination). This is not an incidental case — it is
+  // the constraint that decides /explain's design. The gate cannot exempt a skill (a
+  // PreToolUse hook sees only tool_input.file_path, never the caller), so /explain must
+  // stage its HTML IN-REPO at .explain/<slug>.html and let the BROWSER write the PDF to
+  // the developer's directory over MCP, which is not a Write and never reaches this hook.
+  // If this assertion ever flips to 0, that reasoning is void and explain/SKILL.md's
+  // Phase 2 rationale must be revisited rather than quietly left stale.
+  const desktop = join(tmp, "Desktop");
+  mkdirSync(desktop, { recursive: true });
+  assertEq("confine blocks a non-repo path outside the repo (export dir)",
+    invoke(repoA, join(desktop, "answer.html")).status, 2);
+
   // Fails open outside a git repo — never blocks a write it cannot reason about.
   const bare = join(tmp, "bare");
   mkdirSync(bare, { recursive: true });

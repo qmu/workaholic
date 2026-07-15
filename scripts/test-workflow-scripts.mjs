@@ -55,6 +55,7 @@ const SCRIPTS = {
   catchupMain: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/catchup-main.sh"),
   applyVerdicts: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/apply-deferred-concern-verdicts.sh"),
   extractDeferredConcerns: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/extract-deferred-concerns.sh"),
+  commitReleaseNote: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/commit-release-note.sh"),
   migrateConcernIdentity: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/migrate-concern-identity.sh"),
   listActiveConcerns: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/list-active-deferred-concerns.sh"),
   mergeConcerns: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/merge-concerns.sh"),
@@ -2399,7 +2400,45 @@ function testExtractDeferredConcernsPush() {
     const local = execSync(`git rev-parse main`, { cwd: clone, encoding: "utf8" }).trim();
     const remote = execSync(`git rev-parse origin/main`, { cwd: clone, encoding: "utf8" }).trim();
     assertEq("extract-deferred-concerns pushes the commit (origin/main == main)", remote, local);
+    assertEq("extract-deferred-concerns reports pushed:true on success", r.pushed, true);
+    assertEq("extract-deferred-concerns reports no push_error on success", r.push_error, "");
   } finally { cleanup(origin); cleanup(clone); }
+
+  // THE CASE THAT SHIPPED THE BUG: a REACHABLE remote that REJECTS the push. On PR #86
+  // the push silently did not happen and the script still printed status:ok, leaving main
+  // ahead of origin/main unnoticed. Nothing covered this — the success path and the
+  // no-remote path were both green throughout. The push must stay non-fatal (the PR has
+  // already merged) but must no longer claim success it did not have.
+  const rOrigin = mkdtempSync(join(tmpdir(), "wh-rorigin-"));
+  const rClone = mkdtempSync(join(tmpdir(), "wh-rclone-"));
+  try {
+    execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: rOrigin });
+    const seed = mkdtempSync(join(tmpdir(), "wh-rseed-"));
+    execSync(`git clone -q ${rOrigin} .`, { cwd: seed });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: seed });
+    mkdirSync(join(seed, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(seed, ".workaholic/stories/work-x.md"), STORY_WITH_CONCERN);
+    execSync(`git add -A && git commit -q -m story && git push -q origin main`, { cwd: seed });
+
+    execSync(`git clone -q ${rOrigin} .`, { cwd: rClone });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: rClone });
+
+    // Advance origin behind the clone's back -> the clone's push is now non-fast-forward.
+    writeFileSync(join(seed, "other.txt"), "moved on\n");
+    execSync(`git add -A && git commit -q -m other && git push -q origin main`, { cwd: seed });
+    rmSync(seed, { recursive: true, force: true });
+
+    const res = run(rClone, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/pr/10`);
+    assertEq("extract-deferred-concerns exits 0 when the push is rejected", res.status, 0);
+    const j = JSON.parse(res.stdout);
+    assertEq("extract-deferred-concerns still extracts when the push is rejected", j.extracted, 1);
+    assertEq("extract-deferred-concerns reports pushed:false when rejected", j.pushed, false);
+    assertEq("extract-deferred-concerns names the rejection cause", j.push_error, "rejected_non_fast_forward");
+    // The divergence is real and now visible instead of silent.
+    const l = execSync(`git rev-parse main`, { cwd: rClone, encoding: "utf8" }).trim();
+    const rm = execSync(`git rev-parse origin/main`, { cwd: rClone, encoding: "utf8" }).trim();
+    assertTrue("rejected push leaves main ahead of origin/main (the reported state)", l !== rm, "should diverge");
+  } finally { cleanup(rOrigin); cleanup(rClone); }
 
   // With NO reachable remote: the guarded push must no-op — exit 0, normal JSON,
   // commit still made locally. A push failure must never fail the post-merge ship.
@@ -2410,9 +2449,67 @@ function testExtractDeferredConcernsPush() {
     execSync(`git add -A && git commit -q -m story`, { cwd: noRemote });
     const res = run(noRemote, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/pr/10`);
     assertEq("extract-deferred-concerns exits 0 with no remote", res.status, 0);
-    assertEq("extract-deferred-concerns still extracts with no remote", JSON.parse(res.stdout).extracted, 1);
+    const j = JSON.parse(res.stdout);
+    assertEq("extract-deferred-concerns still extracts with no remote", j.extracted, 1);
+    assertEq("extract-deferred-concerns reports pushed:false with no remote", j.pushed, false);
+    assertEq("extract-deferred-concerns names the no-remote cause", j.push_error, "no_remote");
     const subject = execSync(`git log -1 --pretty=%s`, { cwd: noRemote, encoding: "utf8" }).trim();
     assertEq("extract-deferred-concerns committed locally with no remote", subject, "Add deferred concerns from PR #10");
+  } finally { cleanup(noRemote); }
+
+  // Today's observed case: a remote exists but the branch has NO upstream, so a bare
+  // `git push` cannot resolve a destination. This is what actually happened on PR #86.
+  const noUp = mkdtempSync(join(tmpdir(), "wh-noup-"));
+  try {
+    const bare = mkdtempSync(join(tmpdir(), "wh-noupbare-"));
+    execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: bare });
+    execSync(`git -c init.defaultBranch=main init -q`, { cwd: noUp });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: noUp });
+    execSync(`git remote add origin ${bare}`, { cwd: noUp });   // remote yes, upstream no
+    mkdirSync(join(noUp, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(noUp, ".workaholic/stories/work-x.md"), STORY_WITH_CONCERN);
+    execSync(`git add -A && git commit -q -m story`, { cwd: noUp });
+    const res = run(noUp, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/pr/10`);
+    assertEq("extract-deferred-concerns exits 0 with no upstream", res.status, 0);
+    const j = JSON.parse(res.stdout);
+    assertEq("extract-deferred-concerns reports pushed:false with no upstream", j.pushed, false);
+    assertEq("extract-deferred-concerns names the no-upstream cause", j.push_error, "no_upstream");
+    cleanup(bare);
+  } finally { cleanup(noUp); }
+}
+
+// ---------- ship/commit-release-note.sh: the push outcome is reported ----------
+// Same swallow as extract-deferred-concerns.sh, and it had NO push test at all. A note
+// committed but not pushed is a note the merged PR does not carry.
+function testCommitReleaseNotePush() {
+  const origin = mkdtempSync(join(tmpdir(), "wh-rn-origin-"));
+  const clone = mkdtempSync(join(tmpdir(), "wh-rn-clone-"));
+  try {
+    execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
+    execSync(`git clone -q ${origin} .`, { cwd: clone });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: clone });
+    execSync(`git commit -q --allow-empty -m seed && git push -q origin main`, { cwd: clone });
+    mkdirSync(join(clone, ".workaholic/release-notes"), { recursive: true });
+    writeFileSync(join(clone, ".workaholic/release-notes/work-x.md"), "# Note\n");
+    const j = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.commitReleaseNote} work-x`).stdout);
+    assertEq("commit-release-note commits the note", j.committed, true);
+    assertEq("commit-release-note reports pushed:true on success", j.pushed, true);
+    const local = execSync(`git rev-parse main`, { cwd: clone, encoding: "utf8" }).trim();
+    const remote = execSync(`git rev-parse origin/main`, { cwd: clone, encoding: "utf8" }).trim();
+    assertEq("commit-release-note actually pushed (origin/main == main)", remote, local);
+  } finally { cleanup(origin); cleanup(clone); }
+
+  // No remote: still commits, still exits 0, and says so rather than implying a push.
+  const noRemote = makeRepo("main");
+  try {
+    mkdirSync(join(noRemote, ".workaholic/release-notes"), { recursive: true });
+    writeFileSync(join(noRemote, ".workaholic/release-notes/work-x.md"), "# Note\n");
+    const res = run(noRemote, `${POSIX_SH} ${SCRIPTS.commitReleaseNote} work-x`);
+    assertEq("commit-release-note exits 0 with no remote", res.status, 0);
+    const j = JSON.parse(res.stdout);
+    assertEq("commit-release-note still commits with no remote", j.committed, true);
+    assertEq("commit-release-note reports pushed:false with no remote", j.pushed, false);
+    assertEq("commit-release-note names the no-remote cause", j.push_error, "no_remote");
   } finally { cleanup(noRemote); }
 }
 
@@ -3809,6 +3906,7 @@ const tests = [
   ["report/migrate-concern-identity.sh + update-in-place", testConcernIdentity],
   ["report/merge-concerns.sh + close-concern.sh (triage)", testConcernTriage],
   ["ship/extract-deferred-concerns.sh push", testExtractDeferredConcernsPush],
+  ["ship/commit-release-note.sh push", testCommitReleaseNotePush],
   ["ship/extract-deferred-concerns.sh mission/tickets relation", testExtractConcernMissionRelation],
   ["report/doc-drift.sh", testDocDrift],
   ["hooks/policy-lens.sh", testPolicyLens],

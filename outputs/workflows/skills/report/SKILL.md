@@ -156,7 +156,15 @@ Wait for all 3 to complete. Track which succeeded and which failed.
 
 #### Phase 3: Write Story File
 
-1. **Gather Source Data**: Read archived tickets using Glob pattern `.workaholic/tickets/archive/<branch-name>/*.md`. Extract frontmatter (`commit_hash`, `category`, **`mission`**) and content (Overview, Final Report). Record each ticket's **filename** (basename) — this is the `tickets:` relation — and its `mission:` value — the source of the story's `mission:` (see Story Frontmatter for the inheritance rule).
+1. **Gather Source Data**: Read archived tickets using Glob pattern `.workaholic/tickets/archive/<branch-name>/*.md`. Extract frontmatter (`category`, **`mission`**) and content (Overview, Final Report). Record each ticket's **filename** (basename) — this is the `tickets:` relation — and its `mission:` value — the source of the story's `mission:` (see Story Frontmatter for the inheritance rule).
+
+   **Take each ticket's commit hash from git, never from frontmatter:**
+
+   ```bash
+   bash report/scripts/ticket-commits.sh <branch-name>
+   ```
+
+   It returns `[{"ticket": "<basename>.md", "commit": "<short-hash>"}]` — the commit that *added* each archived ticket, which is the commit that implemented it. Use those hashes for section 3's links. **Never read a ticket's `commit_hash` frontmatter**: a commit cannot carry its own hash, so the old archive script stamped a pre-amend hash that ends up orphaned and never pushed — tickets archived before that fix still carry those dead values, and every link built from one 404s. Git is the single source of truth (`archive.sh` no longer writes the field). A ticket whose `commit` comes back empty is not committed yet — surface that rather than dropping the ticket.
 2. **Write Story**: Follow the Story Content Structure section below; write the `mission:` and `tickets:` relations into the frontmatter per the **Story Frontmatter** section.
 3. **Update Index**: Add entry to `.workaholic/stories/index.md` (see Updating Stories Index).
 

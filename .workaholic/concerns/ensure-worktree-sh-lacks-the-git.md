@@ -12,8 +12,8 @@ first_seen: 2026-07-14T16:15:36+09:00
 last_seen: 2026-07-14T16:15:36+09:00
 severity: moderate
 status: active
-resolved_by_pr:
-resolved_by_commit:
+resolved_by_pr: 
+resolved_by_commit: 
 ---
 
 # ensure-worktree.sh lacks the `.git/info/exclude` embedding guard

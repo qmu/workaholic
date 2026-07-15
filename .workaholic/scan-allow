@@ -12,5 +12,22 @@ scripts/test-workflow-scripts.mjs
 # The scanner's own source and docs literally contain the secret regexes it matches.
 plugins/workaholic/skills/release-scan/**
 
+# ...and build.mjs copies that source verbatim into the generated bundles, so the
+# generated mirror needs the same exemption as the source it is generated FROM.
+# Without this the scanner blocks any branch that touches its own patterns — the file
+# defining the denylist matches the denylist.
+outputs/workflows/skills/*/release-scan/**
+
 # The engine ticket documents the credential / internal-hostname patterns in prose.
 .workaholic/tickets/**/*release-scan*
+
+# Same reason, for the story that narrates the false-positive fix: prose describing the
+# rule cannot avoid the rule -- even ordinary English phrasing parses as an assignment,
+# and the illustrations are the very shapes under discussion. Exempted by exact path,
+# not `stories/**` -- a story can legitimately carry a pasted credential, so stories
+# stay scanned by default.
+.workaholic/stories/work-20260714-222630.md
+
+# NOTE: keep this file's own comments free of key-shaped examples. It is scanned like any
+# other committed file and cannot sensibly exempt itself -- and it never needs to, since
+# it holds paths, not patterns.

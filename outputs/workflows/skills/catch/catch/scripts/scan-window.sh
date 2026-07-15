@@ -121,17 +121,24 @@ emit_tickets() {
   find $TDIRS -name '*.md' -type f 2>/dev/null | sort | while IFS= read -r f; do
     author=$(sed -n 's/^author:[[:space:]]*//p' "$f" | head -n1)
     title=$(sed -n 's/^#[[:space:]]\{1,\}\(.*\)/\1/p' "$f" | head -n1)
-    # `mission:` and `commit_hash:` are optional ticket frontmatter (empty until
-    # set): mission is the join key to a mission, commit_hash ties an archived
-    # ticket to a commit. Absent fields emit "" and never fail the scan.
+    # `mission:` is optional ticket frontmatter (empty until set) — the join key to a
+    # mission. Absent fields emit "" and never fail the scan.
     mission=$(sed -n 's/^mission:[[:space:]]*//p' "$f" | head -n1)
-    commit_hash=$(sed -n 's/^commit_hash:[[:space:]]*//p' "$f" | head -n1)
     case "$f" in
       *.workaholic/tickets/todo/*) scope=todo ;;
       *.workaholic/tickets/archive/*) scope=archive ;;
       *.workaholic/tickets/icebox/*) scope=icebox ;;
       *) scope=unknown ;;
     esac
+    # commit_hash ties an archived ticket to the commit that implemented it. Derive it
+    # from git — the commit that ADDED the archived ticket — never from frontmatter: a
+    # commit cannot carry its own hash, so the value archive.sh used to stamp named a
+    # pre-amend commit that is orphaned and never pushed (see report/scripts/ticket-commits.sh,
+    # the single source of truth for this derivation). Only archived tickets have one.
+    commit_hash=""
+    if [ "$scope" = archive ]; then
+      commit_hash=$(git log --diff-filter=A --format=%h -- "$f" 2>/dev/null | head -n1 || true)
+    fi
     printf '%s\037%s\037%s\037%s\037%s\037%s\036' \
       "$f" "$author" "$title" "$scope" "$mission" "$commit_hash"
   done

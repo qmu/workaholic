@@ -7,7 +7,7 @@ origin_pr_url: https://github.com/qmu/workaholic/pull/82
 origin_branch: work-20260713-102453
 origin_commit: 5d2efad
 created_at: 2026-07-13T11:56:22+09:00
-last_seen: 2026-07-13T11:56:22+09:00
+last_seen: 2026-07-15T20:55:56+09:00
 first_seen: 2026-07-13T11:56:22+09:00
 concern_id: hermetic-tests-prove-migration-not-local
 severity: moderate
@@ -20,8 +20,9 @@ resolved_by_commit:
 
 ## Description
 
-The migration mechanism is validated only by hermetic test cases (test-workflow-scripts.mjs) that create throwaway repos with fake legacy missions. This repository has no actual missions of its own, so the migration logic cannot be proven by real usage before release.
+`.workaholic/missions/` does not exist in this repo, so the living layout migration is exercised only by throwaway fixtures — confirmed again this branch, where all eight tickets carry an empty `mission:` (see `scripts/test-workflow-scripts.mjs`).
 
 ## How to Fix
 
-After release, run /catch and other mission scripts on a deployed consumer repo that did adopt the flat layout; verify no unexpected regressions. Consider adding a canary check to the release notes asking early adopters to report migration behavior.
+Close only once the mission scripts have run on a real consumer repo that adopted the flat layout.
+

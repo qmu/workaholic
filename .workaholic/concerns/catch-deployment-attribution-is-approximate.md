@@ -4,7 +4,7 @@ origin_pr_url: https://github.com/qmu/workaholic/pull/69
 origin_branch: work-20260701-171611
 origin_commit: e3c3a4b
 created_at: 2026-07-01T21:16:06+09:00
-last_seen: 2026-07-01T21:16:06+09:00
+last_seen: 2026-07-15T20:55:56+09:00
 first_seen: 2026-07-01T21:16:06+09:00
 concern_id: catch-deployment-attribution-is-approximate
 severity: moderate
@@ -17,8 +17,9 @@ resolved_by_commit:
 
 ## Description
 
-`/catch` deployment attribution is approximate because the join keys on branch-story ship commits; this branch's fetch/remote-scan change did not touch that join, so the approximation remains (deferred concern `.workaholic/concerns/63-catch-deployment-attribution-is-approximate-for.md`).
+Stories and release notes carry no author, so a deployment is attributed to the git author of the commit that last touched the story (see `plugins/workaholic/skills/catch/scripts/scan-window.sh`).
 
 ## How to Fix
 
-Tighten the deployment-attribution join to a more precise key than ship-commit matching.
+Have `/ship`'s `record-evidence.sh` stamp an explicit author into the Deployment Evidence block so the join reads a recorded author instead of inferring one.
+

@@ -9,7 +9,7 @@ origin_branch: work-20260714-000543
 origin_commit: a1bb87a
 created_at: 2026-07-14T16:15:36+09:00
 first_seen: 2026-07-14T16:15:36+09:00
-last_seen: 2026-07-14T16:15:36+09:00
+last_seen: 2026-07-15T20:55:56+09:00
 severity: moderate
 status: active
 resolved_by_pr: 
@@ -20,8 +20,9 @@ resolved_by_commit:
 
 ## Description
 
-The mission-worktree path adds `.worktrees/`/`.env` to `.git/info/exclude` to stop `git add -A` from embedding a linked worktree as a gitlink, but the pre-existing `ensure-worktree.sh` (trip/drive worktrees) still lacks the same guard.
+The mission-worktree path writes `.git/info/exclude` to stop `git add -A` embedding a linked worktree as a gitlink; `ensure-worktree.sh` (trip/drive worktrees) has the same latent risk and no guard (see `plugins/workaholic/skills/branching/scripts/ensure-worktree.sh`).
 
 ## How to Fix
 
-Apply the same `.git/info/exclude` guard in `ensure-worktree.sh` (a small parity follow-up).
+Port the exclude block from `create-mission-worktree.sh`; rebuild `outputs/` since branching scripts are bundled.
+

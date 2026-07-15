@@ -9,7 +9,7 @@ origin_branch: work-20260713-144839
 origin_commit: fbceaaa
 created_at: 2026-07-13T23:39:50+09:00
 first_seen: 2026-07-13T23:39:50+09:00
-last_seen: 2026-07-13T23:39:50+09:00
+last_seen: 2026-07-15T20:55:56+09:00
 severity: low
 status: active
 resolved_by_pr: 
@@ -20,8 +20,9 @@ resolved_by_commit:
 
 ## Description
 
-The count threshold (20) and the "judge proposes compounds" step live in report SKILL prose, not a machine check (see [da318d7](https://github.com/qmu/workaholic/commit/da318d7) in `plugins/workaholic/skills/report/SKILL.md`) — matching the repo's existing prose-gate precedent, but skippable.
+The count threshold (20) and the compound trigger live in `report/SKILL.md` prose; `list-active-deferred-concerns.sh` emits neither an active count nor a `should_triage` flag, so the gate is skippable. It fired on this branch only because a human ran the triage.
 
 ## How to Fix
 
-If enforcement is wanted, have `list-active` emit the active count and a `should_triage` flag the command can branch on mechanically.
+Emit an envelope with `active_count` and `should_triage` so `/report` branches mechanically.
+

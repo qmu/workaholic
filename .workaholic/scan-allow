@@ -29,7 +29,14 @@ outputs/workflows/skills/*/release-scan/**
 # carry a pasted credential and those must stay scanned.
 .workaholic/tickets/**/*secret-pattern-misses*
 .workaholic/tickets/**/*secret-scan-flags*
+.workaholic/tickets/**/*secret-rule-reads*
 .workaholic/tickets/**/*remove-dead-leak-rule*
+
+# Four entries here in one day is itself a finding: every ticket that argues about the
+# secret rule must quote the shapes it argues about, so writing about the gate trips the
+# gate. Resist widening this to `tickets/**` — a ticket can legitimately carry a pasted
+# credential and those must stay scanned. If the list keeps growing, the answer is a
+# convention (a fixed filename prefix for scanner tickets) rather than a broader glob.
 
 # Same reason, for the story that narrates the false-positive fix: prose describing the
 # rule cannot avoid the rule -- even ordinary English phrasing parses as an assignment,

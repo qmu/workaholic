@@ -12,7 +12,6 @@
 * [collect-commits body emission is a load-bearing, easily-severed link](collect-commits-body-emission-is-a.md)
 * [Collectors sample branch stories by title match; very large dirs may need indexing](collectors-sample-branch-stories-by-title.md)
 * [commit.sh silently drops a --category placed after its positional args](commit-sh-silently-drops-a-category.md)
-* [The commit-subject rule binds on no path — including the sanctioned one](commit-subject-rule-binds-on-no-path.md)
 * [Confinement's guarded surface is Write/Edit only; Bash and MCP cross freely](confinement-s-guarded-surface-is-write.md)
 * [Deferred-concern severity has no re-grade mutator](deferred-concern-severity-has-no-re.md)
 * [ensure-worktree.sh lacks the `.git/info/exclude` embedding guard](ensure-worktree-sh-lacks-the-git.md)

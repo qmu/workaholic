@@ -1168,6 +1168,19 @@ function testReleaseScanSecretLiteralVsReference() {
     assertEq("secret still flags a literal behind an annotation",
       scan("ts-literal", { "a.ts": 'secret: string = "hunter2value"\n' }).length, 1);
 
+    // The annotation subtraction's blast radius, pinned. `apiKey: string` and
+    // `password: mysecret123` are the SAME shape (`key: word`) and the line carries
+    // nothing that separates a type name from a plaintext credential. An earlier version
+    // of _SP_TYPE accepted any identifier as a type and quietly subtracted all three of
+    // these -- a false negative on the one tier nothing else backstops, shipped for the
+    // sake of silencing a false positive. A type is now only a known primitive or an
+    // identifier carrying type syntax, so an unknown bare word reads as a literal.
+    // If this test ever goes red, the subtraction has been widened back over real keys.
+    const bareLiterals = ["password: mysecret123", "api_key: abcdef123456", "token: hunter2value"];
+    bareLiterals.forEach((line, i) =>
+      assertEq(`secret flags a bare unquoted literal: ${line.split(":")[0]}`,
+        scan(`bare-${i}`, { "a.yml": `${line}\n` }).length, 1));
+
     // Reference forms — none of these carry a key. Single-quoted so ${...} stays literal.
     const refs = [
       'const apiKey = process.env.OPENAI_API_KEY;',

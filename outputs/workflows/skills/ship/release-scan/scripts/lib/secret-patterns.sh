@@ -65,7 +65,20 @@ _SP_KEY='(password|passwd|secret|token|api[_-]?key|access[_-]?key)([_-][A-Za-z0-
 # Covers `string`, `string | undefined`, `Array<string>`, `Map<string, string>`, `string[]`.
 # Deliberately excludes `-`, so `api_key: sk-abc123def` is NOT read as a type and stays
 # flagged, and requires a leading letter, so `password: "hunter2xyz"` stays flagged.
-_SP_TYPE='[A-Za-z_$][A-Za-z0-9_$]*(<[^>]*>|\[\]|[[:space:]]*[|&][[:space:]]*[A-Za-z_$][A-Za-z0-9_$]*(<[^>]*>|\[\])*)*'
+#
+# A type is recognized ONLY as a known primitive name, or as an identifier CARRYING type
+# syntax (`<…>` / `[]`). A bare unknown word is NOT a type. That restriction is the whole
+# point: the first version of this accepted any identifier, which made `password:
+# mysecret123` — a plaintext credential in a YAML file — parse as an annotation and be
+# subtracted. It was flagged before that change and silently stopped being flagged after,
+# on the one tier nothing else backstops. `apiKey: string` and `password: mysecret123` are
+# the same shape (`key: word`) and the line carries nothing that separates them, so the
+# only safe reading of a bare unknown word is "literal". The cost is that a custom type
+# (`apiKey: MyKeyType`) is flagged again — which is exactly what it did before this
+# subtraction existed, so it is not a new false positive, and a false positive on this tier
+# is noise while a false negative ships a key.
+_SP_TYPEATOM='(string|number|boolean|bigint|symbol|undefined|null|any|unknown|never|void|object|date|[A-Za-z_$][A-Za-z0-9_$]*(<[^>]*>|\[\]))'
+_SP_TYPE="${_SP_TYPEATOM}(\[\])*([[:space:]]*[|&][[:space:]]*${_SP_TYPEATOM}(\[\])*)*"
 
 # Reads stdin, prints matching lines, returns 1 when nothing matched.
 secret_grep() {

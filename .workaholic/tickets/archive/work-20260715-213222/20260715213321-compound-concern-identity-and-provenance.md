@@ -3,9 +3,9 @@ created_at: 2026-07-15T21:33:21+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Infrastructure]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -82,3 +82,29 @@ The two defects are one ticket because they are one schema decision: what a comp
 - Do not "fix" this by making the extractor recognise arbitrary ids — the field is authoritative and the filename is a convention (`active_by_id` keys on the `concern_id` frontmatter field, not the filename). Aligning the *minting* side is the smaller and correct change.
 - The active concern `triage-threshold-and-compound-detection-are` is adjacent (the triage *trigger* is unenforced) but is a different gap. Cross-reference it; do not fold it in.
 - Evidence that the engine itself is sound: today's ship bumped `last_seen` on ten concerns whose ids matched (`updated: 10`). Update-in-place works. The defect is isolated to id derivation and provenance at mint time.
+
+## Final Report
+
+Development completed as planned. All seven implementation steps landed and every quality-gate row passes.
+
+**Step 3's open question, answered explicitly** (the ticket required the reasoning be written into the file, not left implicit): a compound's `origin_*`/`first_seen` are its **earliest-seen member's**, not the triage act's. A compound does not surface a new risk — it re-frames risks already on the books, so attributing its origin to the triage would restart the clock on a weeks-old risk and break the audit chain back to the PR that raised it. `created_at`/`last_seen` are the triage act's, which is the honest answer to the different question of when *this file* was minted. The dividend is that every field derives from the members, so no `--pr`/`--branch` flags and no caller changes were needed.
+
+**Step 2's closure check, measured** (the ticket required checking before extracting): a shared helper was rejected. `merge-concerns.sh` currently calls nothing, and `build.mjs`'s `computeClosure()` follows cross-skill `${SCRIPT_DIR}/../../<skill>/scripts/` references, so reaching for one would widen the bundle for two skills. The `slugify()` was duplicated **deliberately**, with a header comment naming the other two copies and stating that all three must agree. The duplication is then pinned behaviourally by `testSlugifyWritersAgree`, which extracts each of the three definitions and asserts they agree on seven adversarial cases — the guard a text diff could not give.
+
+**Step 5, the two dismissals, reversed rather than left standing:**
+- `deferred-concern-severity-has-no-re` claimed `commit-subject-rule-lacks-unbypassable-enforcement`'s empty provenance was "a data defect from before identity collapse". Falsified by that file's own `compound: true` — a field only `merge-concerns.sh` writes, so it postdates the collapse and was produced by it. A correction note now records this. The archived files stay as historical evidence; they are not back-filled.
+- `the-identity-migration-under-collapses-title` was accepted on the premise that "the triage now exists as the sanctioned handler". The premise was unsound *when made* — that handler was not round-trip safe. The acceptance stands only because this change made the premise true; a `reopened_note` records that sequence.
+
+### Discovered Insights
+
+- **Insight**: The 6-word/60-char truncation collision the Considerations predicted is **real, and was measured, not argued**: two unrelated compounds whose titles share their first six words derive the same id, and the second silently folds into the first — all four members superseded under one compound, the second title overwriting the first's H1.
+  **Context**: The honest framing matters for whoever picks this up. The collision is a property of the *shared slugify identity scheme* — `extract-deferred-concerns.sh` already had it, so two unrelated concerns with the same first six words already collided at ship time. Deriving the compound id does not introduce the risk; it inherits it. What the change trades is an **always-broken** round trip for a **rare** title collision, which is strictly the better position but not a free one. It deserves its own ticket, not a silent pass.
+
+- **Insight**: `compound: true` is a **forensic tell**, not just a flag: only `merge-concerns.sh` writes it, so its presence proves a file postdates the identity collapse. That single field is what falsified the "historical residue" dismissal and turned a misdiagnosis into a reproducible, two-for-two defect.
+  **Context**: When judging whether a defect in a generated record is old residue or is being produced right now, look for a field only the current writer emits. The dismissal was made by reading the *symptom* (empty provenance looks historical) instead of the *provenance of the record itself*.
+
+- **Insight**: The generated `outputs/` bundle acted as an unintended backup. When the source `merge-concerns.sh` was destroyed mid-run, the committed generated copy still held the full implementation and — because `build.mjs` applies no transformation to this script — restored it losslessly and provably (byte-identical at HEAD, suite back to green).
+  **Context**: This is a happy accident, not a safety net to rely on. It only worked because this particular script has no `${CLAUDE_PLUGIN_ROOT}` references for the build to rewrite; any script that does would have come back subtly wrong. The real lesson is the one below.
+
+- **Insight**: The gate's own `git checkout HEAD -- <file>` step is **only safe once the work is committed**. Run against uncommitted work it is pure destruction — there is no HEAD version to return to, which is the exact hazard the "never `git stash`" wording was written to avoid and does not itself cover.
+  **Context**: The Quality Gate prescribes the revert to prove the test fails, and the surrounding prose warns only against `git stash` (which takes the tests away). Neither says "back up the working copy first". A `/drive` resuming a prior session's uncommitted work is precisely where this bites. The working discipline is: copy the file aside, revert, watch red, restore from the copy.

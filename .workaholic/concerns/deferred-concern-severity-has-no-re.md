@@ -20,7 +20,9 @@ resolved_by_commit:
 
 ## Description
 
-`merge-concerns.sh` escalates severity only when forming a compound and `close-concern.sh` archives; nothing edits severity in place, so this branch's urgent → moderate re-grade had to be a hand edit against the README's never-hand-edit rule ([9d81dd3a](https://github.com/qmu/workaholic/commit/9d81dd3a)). The same triage found `commit-subject-rule-lacks-unbypassable-enforcement` carried no provenance at all — empty `origin_pr`/`branch`/`commit`, no `created_at` — a data defect from before identity collapse, since superseded by the compound.
+`merge-concerns.sh` escalates severity only when forming a compound and `close-concern.sh` archives; nothing edits severity in place, so this branch's urgent → moderate re-grade had to be a hand edit against the README's never-hand-edit rule ([9d81dd3a](https://github.com/qmu/workaholic/commit/9d81dd3a)).
+
+**Correction (2026-07-16).** This concern originally added that the same triage found `commit-subject-rule-lacks-unbypassable-enforcement` carrying no provenance — empty `origin_pr`/`branch`/`commit`, no `created_at` — and dismissed it as "a data defect from before identity collapse". That dismissal was wrong on the record. The file carries `compound: true`, a field **only `merge-concerns.sh` writes**, so it postdates the collapse and was produced by the triage itself; its sibling `commit-subject-rule-binds-on-no-path` has the identical signature. The script reproduced the defect on every run. Fixed at source: a compound now inherits `origin_*`/`first_seen` from its earliest-seen member and stamps `created_at`/`last_seen`. The two archived files remain as historical evidence and are not back-filled.
 
 ## How to Fix
 

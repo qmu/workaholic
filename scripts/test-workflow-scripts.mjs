@@ -2513,40 +2513,165 @@ function testCommitReleaseNotePush() {
   } finally { cleanup(noRemote); }
 }
 
+// ---------- concern identity: the three slugify() writers must agree ----------
+// concern_id is derived from the title by THREE scripts: extract-deferred-concerns.sh
+// mints it on ship, merge-concerns.sh mints a triage compound, migrate-concern-identity.sh
+// back-fills and renames files to it. If any two disagree, the round trip silently breaks —
+// the extractor computes an id it cannot find and writes a SECOND file for the same
+// concern. That is not hypothetical: PR #86 produced `commit-subject-rule-binds-on-no-path`
+// (triage) and `the-commit-subject-rule-binds-on` (ship) for one concern, because
+// merge-concerns.sh had no slugify at all and took the id from the caller's hand.
+//
+// They live in python heredocs in three shell scripts, so they cannot be imported from one
+// place without a module-loading pattern this codebase does not use. Equivalence is
+// therefore asserted BEHAVIOURALLY, which is the property that actually matters: a text
+// diff would flag quote style, and would miss a real divergence written to look the same.
+function testSlugifyWritersAgree() {
+  const paths = {
+    extract: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/extract-deferred-concerns.sh"),
+    migrate: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/migrate-concern-identity.sh"),
+    merge: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/merge-concerns.sh"),
+  };
+  const cases = [
+    "The commit-subject rule binds on no path — including the sanctioned one",
+    "Compound risk",
+    "`merge-concerns.sh` writes [a link](http://x) and CAPS_UNDER_scores",
+    "50-char cap is byte-based outside a UTF-8 locale",
+    "one two three four five six seven eight",   // 6-word truncation
+    "A".repeat(200),                              // 60-char truncation
+    "(carried from PR #59) Concern that was carried",
+  ];
+  // Cases go in on STDIN, never as an argv string. execSync runs its command through an
+  // outer shell, which would evaluate the backticks in "`merge-concerns.sh`" as command
+  // substitution and silently hand python a mangled case — all three writers would then
+  // agree on garbage and the assertion would pass while measuring nothing. This is the
+  // same trap the secret-pattern work hit twice; the fix is always stdin.
+  const driver = `
+import re, sys, json
+srcs = ${JSON.stringify(paths)}
+fns = {}
+for name, path in srcs.items():
+    text = open(path).read()
+    m = re.search(r'^def slugify\\(s\\):\\n(?:(?:[ \\t]+.*)?\\n)+?(?=\\n*\\S)', text, re.M)
+    if not m:
+        print(json.dumps({"error": "no slugify in " + name})); sys.exit(0)
+    ns = {"re": re}
+    exec(m.group(0), ns)
+    fns[name] = ns["slugify"]
+cases = json.loads(sys.stdin.read())
+print(json.dumps([{n: f(c) for n, f in fns.items()} for c in cases]))
+`;
+  const tmp = mkdtempSync(join(tmpdir(), "slug-"));
+  try {
+    const drv = join(tmp, "d.py");
+    writeFileSync(drv, driver);
+    const out = execSync(`python3 ${drv}`, { input: JSON.stringify(cases), encoding: "utf8" });
+    const rows = JSON.parse(out);
+    assertTrue("all three scripts define a slugify()", !rows.error, JSON.stringify(rows));
+    rows.forEach((r, i) => {
+      const distinct = [...new Set(Object.values(r))];
+      assertEq(`slugify agrees across writers: ${cases[i].slice(0, 34)}`, distinct.length, 1);
+    });
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+}
+
 // ---------- report/merge-concerns.sh + close-concern.sh (triage mutators) ----------
 // The triage step's apply mutators: merge folds members into a compound that
 // supersedes its parts (severity escalated), close archives with a reason. Both
 // idempotent.
 function testConcernTriage() {
-  const mkConcern = (id, sev, title) =>
-    `---\ntype: Concern\nconcern_id: ${id}\nseverity: ${sev}\nstatus: active\nresolved_by_pr:\nresolved_by_commit:\n---\n\n# ${title}\n\n## Description\n\ndesc ${id}\n\n## How to Fix\n\nfix\n`;
+  // Members carry provenance, as extract-deferred-concerns.sh stamps it. `b` is the
+  // EARLIEST-seen member, so a compound folding these must inherit b's origin, not a's.
+  const mkConcern = (id, sev, title, seen = "2026-07-01T00:00:00+09:00", pr = "50") =>
+    `---\ntype: Concern\nconcern_id: ${id}\norigin_pr: ${pr}\norigin_pr_url: https://x/pr/${pr}\norigin_branch: work-${pr}\norigin_commit: abc${pr}\ncreated_at: ${seen}\nfirst_seen: ${seen}\nlast_seen: ${seen}\nseverity: ${sev}\nstatus: active\nresolved_by_pr:\nresolved_by_commit:\n---\n\n# ${title}\n\n## Description\n\ndesc ${id}\n\n## How to Fix\n\nfix\n`;
 
   // (1) Merge 3 members into a new compound: 1 active compound, 3 superseded.
+  // The compound's id is DERIVED from --title, not taken from the positional argument:
+  // slugify("Compound risk") == "compound-risk". This test used to pass `abc` and assert
+  // `abc.md`, which encoded the very bug that cloned a compound on the next ship — the
+  // extractor computes slugify(title) and would never have found `abc`.
   const repo = makeRepo("main");
   try {
     const cdir = join(repo, ".workaholic/concerns");
     mkdirSync(cdir, { recursive: true });
-    writeFileSync(join(cdir, "a.md"), mkConcern("a", "low", "Concern A"));
-    writeFileSync(join(cdir, "b.md"), mkConcern("b", "low", "Concern B"));
-    writeFileSync(join(cdir, "c.md"), mkConcern("c", "moderate", "Concern C"));
+    writeFileSync(join(cdir, "a.md"), mkConcern("a", "low", "Concern A", "2026-07-05T00:00:00+09:00", "55"));
+    writeFileSync(join(cdir, "b.md"), mkConcern("b", "low", "Concern B", "2026-07-01T00:00:00+09:00", "50"));
+    writeFileSync(join(cdir, "c.md"), mkConcern("c", "moderate", "Concern C", "2026-07-09T00:00:00+09:00", "59"));
     execSync(`git add -A && git commit -q -m seed`, { cwd: repo });
 
-    const r = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPTS.mergeConcerns} --severity urgent --title "Compound risk" abc a b c`).stdout);
+    const r = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPTS.mergeConcerns} --severity urgent --title "Compound risk" - a b c`).stdout);
     assertEq("merge reports the target and superseded members", { m: r.merged, n: r.superseded.length }, { m: true, n: 3 });
+    assertEq("new compound's id is derived from its title", r.target_id, "compound-risk");
     const active = readdirSync(cdir).filter((f) => f.endsWith(".md"));
-    assertEq("merge leaves exactly one active file (the compound)", active, ["abc.md"]);
-    const compound = readFileSync(join(cdir, "abc.md"), "utf8");
+    assertEq("merge leaves exactly one active file (the compound)", active, ["compound-risk.md"]);
+    const compound = readFileSync(join(cdir, "compound-risk.md"), "utf8");
     assertTrue("compound severity is the confirmed escalation (urgent)", /^severity:\s*urgent\s*$/m.test(compound), compound);
     assertTrue("compound is flagged compound: true", /^compound:\s*true\s*$/m.test(compound), compound);
+
+    // Provenance: a compound re-frames risks already on the books, so its origin is its
+    // EARLIEST-seen member's (b, 2026-07-01, PR 50) — not the triage act's, which would
+    // restart the clock on a weeks-old risk. created_at/last_seen ARE the triage act's.
+    assertTrue("compound inherits the earliest member's origin_pr", /^origin_pr:\s*50\s*$/m.test(compound), compound);
+    assertTrue("compound inherits the earliest member's origin_branch", /^origin_branch:\s*work-50\s*$/m.test(compound), compound);
+    assertTrue("compound inherits the earliest member's origin_commit", /^origin_commit:\s*abc50\s*$/m.test(compound), compound);
+    assertTrue("compound inherits the earliest member's first_seen",
+      /^first_seen:\s*2026-07-01T00:00:00\+09:00\s*$/m.test(compound), compound);
+    assertTrue("compound stamps created_at (the triage act)", /^created_at:\s*\S+/m.test(compound), compound);
+    assertTrue("compound stamps last_seen (the triage act)", /^last_seen:\s*\S+/m.test(compound), compound);
+    assertTrue("compound's created_at is NOT the inherited first_seen",
+      !/^created_at:\s*2026-07-01T00:00:00\+09:00\s*$/m.test(compound), compound);
+
     const archived = readdirSync(join(cdir, "archive")).filter((f) => f.endsWith(".md")).sort();
     assertEq("all three members archived", archived, ["a.md", "b.md", "c.md"]);
     assertTrue("archived member records superseded_by the compound",
-      /^superseded_by:\s*abc\s*$/m.test(readFileSync(join(cdir, "archive/a.md"), "utf8")), "no superseded_by");
+      /^superseded_by:\s*compound-risk\s*$/m.test(readFileSync(join(cdir, "archive/a.md"), "utf8")), "no superseded_by");
 
     // Idempotent: re-running the same merge supersedes nothing new.
-    const r2 = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPTS.mergeConcerns} --severity urgent --title "Compound risk" abc a b c`).stdout);
+    const r2 = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPTS.mergeConcerns} --severity urgent --title "Compound risk" - a b c`).stdout);
     assertEq("merge is idempotent (no members left to supersede)", r2.superseded.length, 0);
+
+    // Folding into an EXISTING target still takes its id as given — that path was never
+    // broken and must not regress.
+    writeFileSync(join(cdir, "d.md"), mkConcern("d", "low", "Concern D", "2026-07-11T00:00:00+09:00", "60"));
+    const r3 = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPTS.mergeConcerns} --title "Compound risk" compound-risk d`).stdout);
+    assertEq("folding into an existing target keeps its id", r3.target_id, "compound-risk");
+    assertEq("folding into an existing target supersedes the new member", r3.superseded.length, 1);
   } finally { cleanup(repo); }
+
+  // (1b) THE ROUND TRIP — the assertion whose absence let a compound clone itself.
+  // A triage-minted compound, then a story whose section-6 title IS that compound:
+  // ship's extractor must compute the same id, find it, and UPDATE IN PLACE.
+  const rt = makeRepo("main");
+  try {
+    const cdir = join(rt, ".workaholic/concerns");
+    mkdirSync(cdir, { recursive: true });
+    mkdirSync(join(rt, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(cdir, "a.md"), mkConcern("a", "low", "Concern A", "2026-07-05T00:00:00+09:00", "55"));
+    writeFileSync(join(cdir, "b.md"), mkConcern("b", "low", "Concern B", "2026-07-01T00:00:00+09:00", "50"));
+    execSync(`git add -A && git commit -q -m seed`, { cwd: rt });
+
+    const m = JSON.parse(run(rt, `${POSIX_SH} ${SCRIPTS.mergeConcerns} --severity urgent --title "The rule binds on no path" - a b`).stdout);
+    assertEq("round trip: compound minted with a derived id", m.target_id, "the-rule-binds-on-no-path");
+
+    // The next story carries the compound as a section-6 block, exactly as the
+    // section-reviewer writes it back out.
+    writeFileSync(join(rt, ".workaholic/stories/work-rt.md"),
+      `---\ntype: Story\nbranch: work-rt\n---\n\n## 6. Concerns\n\n### The rule binds on no path\n\n- **Severity:** urgent\n- **Description:** still open\n- **How to Fix:** fix it\n`);
+    execSync(`git add -A && git commit -q -m story`, { cwd: rt });
+
+    const e = JSON.parse(run(rt, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-rt 90 https://x/pr/90`).stdout);
+    assertEq("round trip: ship UPDATES the compound in place", e.updated, 1);
+    assertEq("round trip: ship does NOT clone it", e.created, 0);
+    // Exclude the OKF bundle index, which extract legitimately regenerates — the same
+    // reserved names migrate-concern-identity.sh skips (RESERVED = {README, index}).
+    const files = readdirSync(cdir)
+      .filter((f) => f.endsWith(".md") && !["index.md", "README.md"].includes(f)).sort();
+    assertEq("round trip: exactly one file for the concern", files, ["the-rule-binds-on-no-path.md"]);
+    // And the inherited origin survives the update — origin_* is never edited after creation.
+    const after = readFileSync(join(cdir, "the-rule-binds-on-no-path.md"), "utf8");
+    assertTrue("round trip: the compound keeps its inherited origin_pr (not the ship's PR 90)",
+      /^origin_pr:\s*50\s*$/m.test(after), after);
+  } finally { cleanup(rt); }
 
   // (2) Close archives with status + reason and drops from the active list.
   const repo2 = makeRepo("main");
@@ -3907,6 +4032,7 @@ const tests = [
   ["report/merge-concerns.sh + close-concern.sh (triage)", testConcernTriage],
   ["ship/extract-deferred-concerns.sh push", testExtractDeferredConcernsPush],
   ["ship/commit-release-note.sh push", testCommitReleaseNotePush],
+  ["concern identity: slugify writers agree", testSlugifyWritersAgree],
   ["ship/extract-deferred-concerns.sh mission/tickets relation", testExtractConcernMissionRelation],
   ["report/doc-drift.sh", testDocDrift],
   ["hooks/policy-lens.sh", testPolicyLens],

@@ -139,10 +139,14 @@ The triage is **judge-proposes / developer-decides**, and every decision leaves 
 
   ```bash
   bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/merge-concerns.sh \
-    --severity <confirmed> --title "<compound title>" <new-compound-id> <member-id> <member-id>...
+    --severity <confirmed> --title "<compound title>" - <member-id> <member-id>...
   ```
 
   Creates the compound (or updates an existing target), escalates severity to the confirmed value, and archives each member as `status: superseded, superseded_by: <compound-id>`.
+
+  **Do not invent an id — pass `-`.** A new compound's id is *derived* from `--title` by the same `slugify()` the ship-time extractor uses, and the script returns the real one in `target_id`. This is what closes the round trip: when the compound reappears as a `###` block in the next story's section 6, `extract-deferred-concerns.sh` computes `slugify(title)`, finds it, and updates it **in place**. An earlier version of this step said `<new-compound-id>` and the model invented one; the extractor then missed and cloned the compound alongside itself (PR #86 produced two files for one concern). To fold members into an **existing** concern, pass that concern's id instead of `-` — that path takes the id as given.
+
+  The compound inherits `origin_*` and `first_seen` from its **earliest-seen member** (a compound re-frames risks already on the books, so its origin is where the risk first surfaced), and stamps `created_at`/`last_seen` with the triage act.
 - **Merge duplicates** — same command, folding near-duplicate ids into one target id.
 - **Close** a won't-fix or resolved concern:
 

@@ -8,9 +8,11 @@ last_seen: 2026-07-09T03:28:39+09:00
 first_seen: 2026-06-24T21:39:11+09:00
 concern_id: enforcement-reaches-consumer-repos-only-after
 severity: moderate
-status: active
+status: resolved
 resolved_by_pr: 
 resolved_by_commit: 
+closed_reason: Time-bound by construction and the wait is over. The ticket-structure guard landed 2026-06-24 (b88dbd59); HEAD is v1.0.93 with a continuous release train since, ~40 releases later. The transient window has closed. (The standing risk that a repo never enables the plugin is a separate, known issue.)
+closed_at: 2026-07-15T19:50:28+09:00
 ---
 
 # Enforcement reaches consumer repos only after this release

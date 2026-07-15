@@ -97,14 +97,31 @@ for mid in member_ids:
         members.append(p)
 
 # Compute the merged severity: explicit flag wins, else most-severe across the set.
+# Alongside it, union the mission relations: a compound concern blocks every mission its
+# members blocked, so writing one (or, as this used to, writing none) would drop the rest
+# from those missions' rolled-up work. Same reasoning as the story's inheritance rule —
+# a relation is never discarded to fit a narrower field.
 sev_pool = []
+mission_pool = []
+
+def collect_missions(fm):
+    raw = get(fm, "mission", "").strip()
+    if not raw:
+        return
+    for s in raw.strip("[]").split(","):
+        s = s.strip()
+        if s and s not in mission_pool:
+            mission_pool.append(s)
+
 tpath = path_of(target_id)
 if os.path.exists(tpath):
     tfm, _ = parse(tpath)
     sev_pool.append(get(tfm, "severity", "moderate"))
+    collect_missions(tfm)
 for p in members:
     mfm, _ = parse(p)
     sev_pool.append(get(mfm, "severity", "moderate"))
+    collect_missions(mfm)
 if severity:
     merged_sev = severity
 elif sev_pool:
@@ -134,7 +151,8 @@ else:
     fixtext = fix or "Address the combined risk described above; the superseded parts are archived."
     lines = [
         "---", "type: Concern", f"concern_id: {target_id}",
-        "mission: ", "tickets: []",
+        "mission: " + ("[" + ", ".join(mission_pool) + "]" if mission_pool else ""),
+        "tickets: []",
         "origin_pr: ", "origin_pr_url: ", "origin_branch: ", "origin_commit: ",
         f"severity: {merged_sev}", "status: active", "compound: true",
         "resolved_by_pr:", "resolved_by_commit:", "---", "",

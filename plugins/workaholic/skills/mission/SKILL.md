@@ -121,6 +121,12 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/slug.sh "<title>"
 Derive a mission slug from a title (lowercase, non-`[a-z0-9]` runs → single hyphen, ends trimmed). The **single source of the slug rule** — both `create.sh` (the mission directory name) and the `/mission` worktree flow (the `.worktrees/<slug>` directory name) derive the slug here, so the worktree directory always matches the mission slug. Emits the slug on stdout (empty when the title has no `[a-z0-9]`).
 
 ```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/read-relation.sh <artifact-file>
+```
+
+Read an artifact's `mission:` relation; prints one slug per line, nothing when absent or empty. The **single source of the relation's shape** — every seam reads through this rather than parsing frontmatter itself. Accepts `mission: [a, b]` and a bare `mission: a` alike, and only ever looks inside the frontmatter block (a body line starting `mission:` is not the relation). Never fails: a missing file, a file with no frontmatter, and an empty field all print nothing. Note this reads a relation **on** an artifact — `mission.md`'s own fields (`title`/`status`/`assignee`/`gate_*`) are read by `list.sh`, `progress.sh`, and `gate.sh` instead.
+
+```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/gate.sh <mission-slug-or-file>
 ```
 
@@ -142,7 +148,7 @@ List every mission — across both `active/` and `archive/` — with its `status
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/summary.sh
 ```
 
-Summarize the **current user's assigned active** missions (read-only) — the engine behind `/mission summary`. Lists only missions whose `assignee` matches `git config user.email` and whose `status` is `active` (the same gate the mission lens uses), each with computed progress and next step. Emits a JSON array `[{slug, title, checked, total, next, path}]` sorted by slug, or `[]` when no active mission is assigned to the current user. Reuses `progress.sh` (computed `checked/total`, never stored) and `next-acceptance.sh` (the first unchecked item), so the ownership and progress rules stay defined once. Mutates nothing.
+Summarize the **current user's assigned active** missions (read-only) — the engine behind `/mission summary`. Lists only missions whose `assignee` matches `git config user.email` and whose `status` is `active`, each with computed progress and next step. **This is deliberately a lower bar than the mission lens's.** The lens also requires location (worktree focus) and signal (at least one acceptance criterion) before it will print a line, because it speaks unasked, above the agent's answer. `/mission summary` is the view you asked for, so it shows an unfilled `0/0` mission that the lens stays silent about — that is the point of having both, and the difference is intentional rather than drift. Emits a JSON array `[{slug, title, checked, total, next, path}]` sorted by slug, or `[]` when no active mission is assigned to the current user. Reuses `progress.sh` (computed `checked/total`, never stored) and `next-acceptance.sh` (the first unchecked item), so the ownership and progress rules stay defined once. Mutates nothing.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/next-acceptance.sh <mission-slug-or-file>
@@ -170,7 +176,11 @@ End a mission — the only sanctioned way. Flips `status` to `achieved` or `aban
 
 ## Automatic Updates (the workflow seams)
 
-The mutators above are called automatically as missioned work moves through the pipeline, so a mission's progress and changelog stay current without hand-editing. Each seam reads the artifact's `mission:` relation (emitted per the frontmatter-linkage schema) and, when non-empty, calls the shared scripts:
+The mutators above are called automatically as missioned work moves through the pipeline, so a mission's progress and changelog stay current without hand-editing. Each seam reads the artifact's `mission:` relation through the single reader — `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/read-relation.sh <artifact>`, which prints one slug per line — and calls the shared scripts **once per slug**:
+
+The relation is **many-valued**: an artifact records every mission it advances (`mission: [alpha, beta]`; a bare `mission: alpha` still reads as one, and is the right spelling for the common case). Looping needs no de-duplication — both mutators are keyed and idempotent, and `tick-acceptance.sh` finds nothing on a mission whose Acceptance does not list that artifact, so each mission reconciles only what it actually claims. Never re-implement the parse in a seam: the field's shape lives in `read-relation.sh` alone, and the four hand-rolled copies that used to exist all truncated a list to nothing **silently**, because every seam is best-effort (`|| true`).
+
+Note the split this rests on: **data is plural, placement is singular.** The relation answers "which missions does this work advance"; it says nothing about where the work happens. A ticket is still driven in exactly one worktree, and `.worktrees/<slug>` stays keyed 1:1 to a mission.
 
 | Seam | Trigger | Changelog event | Acceptance |
 | ---- | ------- | --------------- | ---------- |
@@ -185,4 +195,10 @@ An un-missioned artifact touches no mission. Because the appends are idempotent,
 
 Separately from the mutating seams above, a workflow may **read** missions without writing them. `/catch` (`workaholic:catch`) is such a consumer: its scanner calls `list.sh`/`progress.sh` for the active-mission list and derived progress, window-filters each mission's `## Changelog` for merged activity, and reads the `mission:` relation on unarchived tickets to surface **in-flight** (unmerged) progress the merge-time seams cannot yet show. It appears in no seam table because a `/catch` run mutates no mission content — no changelog line, no acceptance tick. (The one tree change any reader can trigger is the living layout migration, which relocates a legacy flat mission dir without touching its bytes.)
 
-The **mission lens** (`hooks/mission-lens.sh`) is the other read-only consumer, and an always-on one. On every `UserPromptSubmit` it injects a model-visible `additionalContext` line, and on every `Stop` a user-visible `systemMessage`, naming each **active** mission whose `assignee` matches the current `git config user.email`, with its derived `checked/total` and next unchecked acceptance item (via `progress.sh` + `next-acceptance.sh`). It keeps the agent oriented to the roadmap without hijacking the turn — it never blocks a stop (informs, does not force). Silent no-op when no active mission is assigned to the current user. Like `/catch` it mutates nothing, so it is in no seam table. (Because a Stop hook cannot inject model-visible context without `decision: block`, the model-facing half deliberately rides `UserPromptSubmit`; the `Stop` half is the user-facing nudge only.)
+The **mission lens** (`hooks/mission-lens.sh`) is the other read-only consumer, and an always-on one. On every `UserPromptSubmit` it injects a model-visible `additionalContext` line, and on every `Stop` a user-visible `systemMessage`, naming each **active** mission that passes all three of its gates, with derived `checked/total` and the next unchecked acceptance item (via `progress.sh` + `next-acceptance.sh`):
+
+1. **assignee** — matches the current `git config user.email`.
+2. **location** — worktree focus: inside a mission's own `.worktrees/<slug>`, only that mission; inside a worktree that owns **no** mission (a `/drive` worktree), nothing at all; in the main tree, only missions that own no worktree.
+3. **signal** — the mission has at least one acceptance criterion. A mission whose `## Acceptance` is empty would render as `0/0` with no next step — a technical condition with nothing to act on — so it stays silent.
+
+It keeps the agent oriented to the roadmap without hijacking the turn — it never blocks a stop (informs, does not force). Silent no-op when nothing passes all three. Note the consequence accepted knowingly: `create.sh` scaffolds `## Acceptance` empty, so a mission whose criteria are never written is invisible to the lens and can stay unfilled indefinitely (`/mission summary` and `/catch` still show it). If unfilled missions accumulate, the fix belongs in `create.sh`, not in more lens rules. Like `/catch` it mutates nothing, so it is in no seam table. (Because a Stop hook cannot inject model-visible context without `decision: block`, the model-facing half deliberately rides `UserPromptSubmit`; the `Stop` half is the user-facing nudge only.)

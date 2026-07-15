@@ -238,19 +238,23 @@ if [ "$total" -eq 0 ]; then
   exit 0
 fi
 
-# Mission changelog: a NEWLY-deferred concern that advances a mission records a
-# "concern deferred (stuck)" line on that mission (idempotent). Updated (already
-# deferred) concerns add no new line. Best-effort — never blocks extraction.
-story_mission=$(awk '
-    NR == 1 { if ($0 != "---") exit; next }
-    /^---[ \t]*$/ { exit }
-    /^mission:[ \t]*/ { sub(/^mission:[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit }
-' "$story_file" 2>/dev/null || true)
-if [ -n "$story_mission" ] && [ "$count_created" -gt 0 ]; then
+# Mission changelog: a NEWLY-deferred concern records a "concern deferred (stuck)" line
+# on EVERY mission the story advances (idempotent). Updated (already deferred) concerns
+# add no new line. Best-effort — never blocks extraction.
+#
+# Note the python block above needs no equivalent change: it copies the story's raw
+# `mission:` value verbatim into each concern's frontmatter, so an inline list round-trips
+# as an inline list. Here the value is used as a SLUG, so it must be split first — passing
+# the literal `[a, b]` would resolve to no mission and silently roll nothing.
+story_missions=$(sh "${SCRIPT_DIR}/../../mission/scripts//read-relation.sh" "$story_file" 2>/dev/null || true)
+if [ -n "$story_missions" ] && [ "$count_created" -gt 0 ]; then
   printf '%s\n' "$created_files" | while IFS= read -r cfile; do
     [ -n "$cfile" ] || continue
-    sh "${SCRIPT_DIR}/../../mission/scripts//append-changelog.sh" \
-      "$story_mission" "concern deferred (stuck)" "$(basename "$cfile")" >/dev/null 2>&1 || true
+    printf '%s\n' "$story_missions" | while IFS= read -r sm; do
+      [ -n "$sm" ] || continue
+      sh "${SCRIPT_DIR}/../../mission/scripts//append-changelog.sh" \
+        "$sm" "concern deferred (stuck)" "$(basename "$cfile")" >/dev/null 2>&1 || true
+    done
   done
 fi
 

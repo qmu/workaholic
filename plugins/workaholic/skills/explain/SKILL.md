@@ -44,7 +44,11 @@ Answer the question from the actual repository, **inline first**: read and grep 
 
 ### 2-4. Phase 2: Render the HTML Report
 
-Write a **printer-ready HTML file** (see the **HTML Report Template**, section 3) to a working path (e.g. a scratch file, or `<chosen_dir>/<slug>.html`). Use semantic HTML with a proper heading hierarchy so the PDF is structurally sound and machine-readable (`workaholic:planning` / `accessibility-first`). The body carries the question, the sourced answer, and an evidence list of the files/paths consulted.
+Write a **printer-ready HTML file** (see the **HTML Report Template**, section 3) to **`.explain/<slug>.html`, inside this repository** (git-ignored; create the directory if absent). Use semantic HTML with a proper heading hierarchy so the PDF is structurally sound and machine-readable (`workaholic:planning` / `accessibility-first`). The body carries the question, the sourced answer, and an evidence list of the files/paths consulted.
+
+> **The HTML staging path is in-repo on purpose — do not write it to `chosen_dir`.** `hooks/guard-repo-confinement.sh` is a blocking `PreToolUse(Write|Edit)` gate: **every** `Write` outside this repository is refused, and `chosen_dir` (Desktop, Home, or an explicit destination) is outside it by definition. An earlier version of this step offered `<chosen_dir>/<slug>.html` as an option; that path is now dead on arrival and would halt the run. The gate cannot carve out an exception for this skill — a `PreToolUse` hook sees only `tool_input.file_path`, never which skill is asking, so an `.html` bound for Home is indistinguishable from any other write there.
+>
+> **The export is unaffected.** Only the *staging* file moves in-repo. The PDF still lands at `<chosen_dir>/<slug>.pdf`, because the **browser** writes it (Phase 4) — that is an MCP call, not a `Write` tool call, so the gate never sees it and confinement stays absolute on the tool surface it governs.
 
 ### 2-5. Phase 3: Resolve Path + Consent
 
@@ -74,11 +78,11 @@ Drive whichever is present, expressing the same one step (open the HTML `file://
 - **Playwright plugin**: `browser_navigate` to `file://<abs-html-path>`, then print via `browser_run_code_unsafe` running `await page.pdf({ path: '<pdf-path>', format: 'A4', printBackground: true })` (the Playwright MCP exposes no direct pdf tool, so the page-context call is the boundary).
 - **Chrome DevTools MCP**: navigate to the `file://` URL, then invoke its native print-to-PDF to the resolved path.
 
-**No browser MCP available → halt with guidance.** Do not emit a broken/empty PDF. Save the generated **`.html`** to `chosen_dir` so the work is not lost, then stop and tell the developer to enable the Playwright plugin or the Chrome DevTools MCP and re-run (mirrors the degrade-gracefully pattern in `.workaholic/concerns/archive/48-*`).
+**No browser MCP available → halt with guidance.** Do not emit a broken/empty PDF. The generated **`.html`** already sits at `.explain/<slug>.html` from Phase 2, so the work is never lost — **name that path** and stop, telling the developer to enable the Playwright plugin or the Chrome DevTools MCP and re-run (mirrors the degrade-gracefully pattern in `.workaholic/concerns/archive/48-*`). Do **not** copy it to `chosen_dir`: that write is refused by the confinement gate (see Phase 2), and re-running with a browser present produces the PDF there anyway.
 
 ### 2-7. Phase 5: Report
 
-Print the concrete outcome: the written **PDF path** (or, on the no-MCP halt, the saved `.html` path plus the enable-a-browser-MCP instruction; or the unwritable-destination blocker). Name the primary files the answer drew from so the developer can verify it.
+Print the concrete outcome: the written **PDF path** (or, on the no-MCP halt, the in-repo `.explain/<slug>.html` path plus the enable-a-browser-MCP instruction; or the unwritable-destination blocker). Name the primary files the answer drew from so the developer can verify it.
 
 ## 3. HTML Report Template (printer-ready)
 

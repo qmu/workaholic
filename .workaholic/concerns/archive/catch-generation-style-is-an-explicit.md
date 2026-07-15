@@ -8,9 +8,11 @@ last_seen: 2026-07-01T21:16:06+09:00
 first_seen: 2026-07-01T01:12:10+09:00
 concern_id: catch-generation-style-is-an-explicit
 severity: moderate
-status: active
+status: accepted
 resolved_by_pr: 
 resolved_by_commit: 
+closed_reason: Filed already-accepted: the guess-framing the concern asked to preserve is in place at catch/SKILL.md:106, :110 and :216 ('phrase it as an inference, never as asserted fact'). The inference is by design and cannot be made factual.
+closed_at: 2026-07-15T19:50:28+09:00
 ---
 
 # `/catch` generation-style is an explicit guess

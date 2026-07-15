@@ -8,9 +8,11 @@ last_seen: 2026-07-01T21:16:06+09:00
 first_seen: 2026-07-01T21:16:06+09:00
 concern_id: prune-mutates-the-user-s-remote
 severity: moderate
-status: active
+status: accepted
 resolved_by_pr: 
 resolved_by_commit: 
+closed_reason: A deliberate decision recorded in the origin ticket's Considerations: --prune removes remote-tracking refs for upstream-deleted branches so the report shows no ghosts, and touches only refs/remotes/*, never local heads or the working tree. The read-only wording the concern asked to keep prominent is at catch/SKILL.md:18. Revisit only if a user reports surprise.
+closed_at: 2026-07-15T19:50:28+09:00
 ---
 
 # --prune mutates the user's remote-tracking refs on every /catch

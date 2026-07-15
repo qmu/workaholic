@@ -7,11 +7,16 @@
 #   size    (severity override) — too many changed files, or an oversized / very
 #                                 large-diff file
 #   leak    (severity confirm)  — an added line contains a term from the git-ignored
-#                                 .workaholic/leak-denylist, or an internal-hostname
-#                                 pattern (*.internal/.local/.corp)
+#                                 .workaholic/leak-denylist. Listed terms only; absent
+#                                 file means this check does nothing at all.
 #
 # Only ADDED lines (the diff's `+`) are scanned, so unrelated pre-existing content
 # never trips the gate. Every finding cites file:line + the matched rule.
+#
+# Scope, stated plainly: this catches credential SHAPES and re-introduction of terms
+# someone already listed. It does not detect client context — that is semantic and not
+# enumerable in advance, and belongs to /request's masking confirmation. A `pass`
+# verdict never means "no client context here".
 #
 # Usage: scan-branch-safety.sh [base-branch]
 #   base defaults to gather/git-context.sh's base_branch, else main.
@@ -104,16 +109,13 @@ done <<EOF
 $secret_hits
 EOF
 
-# ---- leak: internal-hostname structured pattern (confirm) ----
-host_hits=$(printf '%s\n' "$added_lines" | grep -Ei '[a-z0-9_-]+\.(internal|local|corp)([^a-z0-9]|$)' || true)
-while IFS="$TAB" read -r f l c; do
-    [ -n "$f" ] || continue
-    add_finding leak confirm "$f" "$l" "internal-hostname" "$(json_escape "$c")"
-done <<EOF
-$host_hits
-EOF
-
 # ---- leak: developer-maintained denylist (confirm) ----
+# Denylist-only by design. A structured internal-hostname pattern lived here and was
+# removed: replayed against five real leaks it matched none of them, while matching
+# `metadata.internal` — the frontmatter field every script-bearing skill must carry.
+# Zero true positives, a standing false positive against our own docs. Do not
+# reintroduce a pattern here: what leaks is a client's vocabulary, which is semantic
+# and not enumerable in advance. That judgement belongs to /request, not to a regex.
 denylist="${ROOT}/.workaholic/leak-denylist"
 if [ -f "$denylist" ]; then
     while IFS= read -r term; do

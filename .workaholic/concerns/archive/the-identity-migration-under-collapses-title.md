@@ -11,9 +11,11 @@ created_at: 2026-07-13T23:39:50+09:00
 first_seen: 2026-07-13T23:39:50+09:00
 last_seen: 2026-07-13T23:39:50+09:00
 severity: low
-status: active
+status: accepted
 resolved_by_pr: 
 resolved_by_commit: 
+closed_reason: By design, as the concern's own Description states ('semantic dedup is the triage's job'), and that triage now exists as the sanctioned handler: report/SKILL.md Phase 1b with merge-concerns.sh. Fuzzy pre-clustering remains optional polish, not a defect.
+closed_at: 2026-07-15T19:50:28+09:00
 ---
 
 # The identity migration under-collapses title-drift near-duplicates

@@ -8,9 +8,11 @@ last_seen: 2026-06-30T02:27:29+09:00
 first_seen: 2026-06-29T13:18:46+09:00
 concern_id: git-commit-msg-hook-escapes-the
 severity: low
-status: active
+status: accepted
 resolved_by_pr: 
 resolved_by_commit: 
+closed_reason: Documented exemption at CLAUDE.md:242 — git requires the exact extensionless name. The concern's own second branch is the state of the code: commit-msg is trivially POSIX with all rule logic in hooks/lib/check-subject.sh, which posix-lint does scan. Revisit if a second file lands under hooks/git/.
+closed_at: 2026-07-15T19:50:28+09:00
 ---
 
 # git commit-msg hook escapes the POSIX lint gate

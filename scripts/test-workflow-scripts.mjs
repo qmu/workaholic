@@ -15,7 +15,7 @@
 
 import { cpSync, mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync, existsSync, statSync, chmodSync, readdirSync } from "node:fs";
 import { execSync } from "node:child_process";
-import { join, resolve, dirname } from "node:path";
+import { join, resolve, dirname, basename } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 
@@ -71,6 +71,9 @@ const SCRIPTS = {
   resolveExportPath: join(REPO_ROOT, "plugins/workaholic/skills/explain/scripts/resolve-export-path.sh"),
   guardGitCommit: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-commit.sh"),
   guardGitBranch: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-branch.sh"),
+  guardRepoConfinement: join(REPO_ROOT, "plugins/workaholic/hooks/guard-repo-confinement.sh"),
+  resolveTarget: join(REPO_ROOT, "plugins/workaholic/skills/request/scripts/resolve-target.sh"),
+  fileRequest: join(REPO_ROOT, "plugins/workaholic/skills/request/scripts/file-request.sh"),
   guardAskLabel: join(REPO_ROOT, "plugins/workaholic/hooks/guard-askuserquestion-label.sh"),
   guardWorkingDir: join(REPO_ROOT, "plugins/workaholic/hooks/guard-working-directory.sh"),
   auditClaudeMd: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/audit-claude-md.sh"),
@@ -708,6 +711,30 @@ concerns: []
       `---\ntype: Mission\ntitle: Delta Mission\nslug: delta\nstatus: active\ncreated_at: 2026-07-14T00:00:00+09:00\nauthor: other@example.com\nassignee: other@example.com\ntickets: []\nstories: []\nconcerns: []\n---\n\n# Delta Mission\n\n## Acceptance\n\n- [ ] x (#a.md)\n\n## Changelog\n`);
     assertTrue("lens never surfaces another user's mission", !runLens(dir).includes("Delta Mission"));
 
+    // A mission whose ## Acceptance is empty says nothing worth reading: progress is
+    // 0/0 and next-acceptance has nothing to offer, so the line would report a
+    // technical condition (the section was never filled in) with no next step. Stay
+    // silent — `/mission summary` is the on-demand view where it is still visible.
+    const empty = join(dir, ".workaholic/missions/active/epsilon");
+    mkdirSync(empty, { recursive: true });
+    writeFileSync(join(empty, "mission.md"),
+      `---\ntype: Mission\ntitle: Epsilon Mission\nslug: epsilon\nstatus: active\ncreated_at: 2026-07-15T00:00:00+09:00\nauthor: test@example.com\nassignee: test@example.com\ntickets: []\nstories: []\nconcerns: []\n---\n\n# Epsilon Mission\n\n## Acceptance\n\n## Changelog\n`);
+    const withEmpty = runLens(dir);
+    assertTrue("lens stays silent on a mission with no acceptance criteria",
+      !withEmpty.includes("Epsilon Mission"), withEmpty);
+    assertTrue("lens still shows a sibling that has criteria",
+      withEmpty.includes("Gamma Mission"), withEmpty);
+
+    // A worktree that names no mission is a /drive worktree: it is focused on one
+    // ticket, and the roadmap is not its business. Without this the lens falls through
+    // to the main-tree branch and shows the whole list to a session that asked for none
+    // of it.
+    const driveWt = join(dir, ".worktrees/work-20260714-005155");
+    execSync(`git worktree add -q "${driveWt}" -b work-20260714-005155`, { cwd: dir });
+    const driveOut = runLens(driveWt);
+    assertEq("lens is silent in a worktree that owns no mission", driveOut.trim(), "");
+    execSync(`git worktree remove --force "${driveWt}"`, { cwd: dir });
+
     run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} alpha`);
   } finally { cleanup(dir); }
 }
@@ -1046,6 +1073,65 @@ function testTicketCommitsDerivation() {
 // whether a line holds a secret or merely references one. Reading a key from the environment
 // or passing it in a variable is the correct way to handle secrets — flagging that punished
 // good code and hard-blocked /ship (secret is non-overridable) on pure false positives.
+function testReleaseScanSecretSuffixedKeywords() {
+  // secret_grep is a sourced stdin filter, so drive it directly — no repo needed. The
+  // candidate line goes in on stdin rather than as an argument: execSync runs its command
+  // through an outer shell, which would expand a `$1` in the script before the inner sh
+  // ever saw it.
+  const LIB = join(REPO_ROOT, "plugins/workaholic/skills/release-scan/scripts/lib/secret-patterns.sh");
+  const tmp = mkdtempSync(join(tmpdir(), "secretgrep-"));
+  const runner = join(tmp, "run.sh");
+  writeFileSync(runner, `. ${LIB}\nsecret_grep >/dev/null 2>&1 && echo yes || echo no\n`);
+  const hits = (line) =>
+    execSync(`${POSIX_SH} ${runner}`, { input: `${line}\n`, encoding: "utf8" }).trim() === "yes";
+
+  // Guard the harness itself: if these two ever agree, the runner is broken and every
+  // assertion below is vacuous — which is exactly how this test first "passed".
+  assertTrue("harness detects a known-positive", hits('api_key = "hunter2value"'), "runner should report a hit");
+  assertTrue("harness stays silent on a known-negative", !hits("just some ordinary prose"), "runner should report no hit");
+
+  // A prefix always worked; a SUFFIX used to be fatal, so these five walked straight
+  // through the one tier that cannot be waived — including Django's SECRET_KEY and the
+  // exact key name AWS's own config files use.
+  for (const line of [
+    'SECRET_KEY = "django-insecure-abc123xyz"',
+    'secret_key = "hunter2value"',
+    'aws_secret_access_key = "wJalrXUtnFEMIKEXAMPLE"',
+    'access_key_id = "hunter2value"',
+    'refresh_token_value = "hunter2value"',
+  ]) assertTrue(`secret detects suffixed keyword: ${line.split(" ")[0]}`, hits(line), `should flag: ${line}`);
+
+  // No regression on what already worked.
+  for (const line of [
+    'secret = "hunter2value"',
+    'client_secret = "hunter2value"',
+    'api_key = "hunter2value"',
+    'token = "hunter2value"',
+    "AKIAIOSFODNN7EXAMPLE",
+  ]) assertTrue(`secret still detects: ${line.split(" ")[0]}`, hits(line), `should still flag: ${line}`);
+
+  // The dangerous half. `secret` is non-overridable, so a false positive here cannot be
+  // waived and permanently bricks a branch's /ship — that has already happened once in
+  // production. Every subtraction must survive the widened keyword group.
+  for (const line of [
+    "SECRET_KEY = process.env.DJANGO_SECRET",
+    "aws_secret_access_key: ${AWS_SECRET}",
+    "secret_key = someVar,",
+    "api_key: {{tpl}}",
+    'token = "<placeholder>"',
+    'SECRET_KEY = os.environ["DJANGO_SECRET"]',
+    "access_key_id: config.awsKeyId,",
+    'refresh_token_value = getenv("RT")',
+  ]) assertTrue(`secret stays silent on a reference: ${line.slice(0, 26)}`, !hits(line), `false positive on: ${line}`);
+
+  // The suffix must start with `_` or `-`. An alphanumeric continuation is a different
+  // word, not a suffixed key — this is what keeps the widening from eating real code.
+  for (const line of ['tokenizer = "gpt-4-tokenizer"', 'const tokenized = "abcdefgh"'])
+    assertTrue(`secret stays silent on a word continuation: ${line.slice(0, 22)}`, !hits(line), `false positive on: ${line}`);
+
+  rmSync(tmp, { recursive: true, force: true });
+}
+
 function testReleaseScanSecretLiteralVsReference() {
   const dir = makeRepo("main");
   try {
@@ -1057,6 +1143,43 @@ function testReleaseScanSecretLiteralVsReference() {
       return JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanBranchSafety} main`).stdout)
         .findings.filter((f) => f.category === "secret");
     };
+
+    // TypeScript type annotations are references, not credentials. These were reported as
+    // secret/hard — non-overridable — on ordinary declarations in any TS codebase. The bug
+    // was narrow: `let apiKey: string;` always passed, because the identifier-terminator
+    // subtraction accepts the trailing `;`. Only a type that does NOT reach a terminator
+    // (a union, a generic, or one ending the line) fell through to "literal".
+    const typeAnnotations = [
+      "let nextToken: string | undefined;",
+      "password: string | null;",
+      "readonly apiKey: string | undefined",
+      "secret: boolean = false;",
+      "let apiKey: string;",
+      "private token: string;",
+      "interface X { token: string; secret: string }",
+      "type Cfg = { apiKey: Array<string>; secret: Map<string, string> };",
+      "let keys: string[];",
+    ];
+    assertEq("secret ignores TS type annotations", scan("ts-types", { "a.ts": typeAnnotations.join("\n") }).length, 0);
+
+    // ...and the discriminator survives: an annotation whose initializer IS a literal
+    // secret must still fire. `secret: boolean = false` and `secret: string = "..."` differ
+    // only in the initializer, and that is the whole distinction being preserved.
+    assertEq("secret still flags a literal behind an annotation",
+      scan("ts-literal", { "a.ts": 'secret: string = "hunter2value"\n' }).length, 1);
+
+    // The annotation subtraction's blast radius, pinned. `apiKey: string` and
+    // `password: mysecret123` are the SAME shape (`key: word`) and the line carries
+    // nothing that separates a type name from a plaintext credential. An earlier version
+    // of _SP_TYPE accepted any identifier as a type and quietly subtracted all three of
+    // these -- a false negative on the one tier nothing else backstops, shipped for the
+    // sake of silencing a false positive. A type is now only a known primitive or an
+    // identifier carrying type syntax, so an unknown bare word reads as a literal.
+    // If this test ever goes red, the subtraction has been widened back over real keys.
+    const bareLiterals = ["password: mysecret123", "api_key: abcdef123456", "token: hunter2value"];
+    bareLiterals.forEach((line, i) =>
+      assertEq(`secret flags a bare unquoted literal: ${line.split(":")[0]}`,
+        scan(`bare-${i}`, { "a.yml": `${line}\n` }).length, 1));
 
     // Reference forms — none of these carry a key. Single-quoted so ${...} stays literal.
     const refs = [
@@ -1085,6 +1208,96 @@ function testReleaseScanSecretLiteralVsReference() {
     assertTrue("unquoted non-identifier literal still flagged", files.includes("c.yml"), JSON.stringify(files));
     assertTrue("key shape beside a reference on one line still flagged", files.includes("d.ts"), JSON.stringify(files));
   } finally { cleanup(dir); }
+}
+
+// ---------- 8k3. release-scan secret: pass 2 matches the VALUE, not the key name ----------
+// The table below IS the gate. Pass 2 used to match the key NAME and subtract innocent
+// right-hand sides one at a time; the list never converged, because the default for an
+// unseen shape was "hard-block, non-overridable" and innocence is unbounded. Four
+// subtractions were retrofitted after real branches were blocked, and a call —
+// `apiKey: keyOption()` — was the fifth. Pass 2 now asks whether the right-hand side LOOKS
+// LIKE A SECRET (quoted-alphanumeric, or a bare value-run ending the line), which is a
+// bounded question. Both columns matter and they are not symmetric: a miss in the first
+// SHIPS A KEY, a hit in the second hard-blocks /ship with no bypass (secret is
+// non-overridable by design).
+function testReleaseScanSecretValueInversion() {
+  const LIB = join(REPO_ROOT, "plugins/workaholic/skills/release-scan/scripts/lib/secret-patterns.sh");
+  const tmp = mkdtempSync(join(tmpdir(), "secretinv-"));
+  const runner = join(tmp, "run.sh");
+  // Line goes in on stdin: execSync runs its command through an outer shell, which would
+  // expand a `$1` in the script before the inner sh ever saw it.
+  writeFileSync(runner, `. ${LIB}\nsecret_grep >/dev/null 2>&1 && echo yes || echo no\n`);
+  const hits = (line) =>
+    execSync(`${POSIX_SH} ${runner}`, { input: `${line}\n`, encoding: "utf8" }).trim() === "yes";
+
+  // Guard the harness before trusting a single row below. This suite has already produced
+  // tests that passed while measuring nothing.
+  assertTrue("inversion harness detects a known-positive", hits('api_key = "hunter2value"'), "runner should hit");
+  assertTrue("inversion harness silent on a known-negative", !hits("just some ordinary prose"), "runner should miss");
+
+  // MUST FLAG — a false negative here ships a credential.
+  for (const line of [
+    "TOKEN=supersecretvalue123",              // .env bare value ending the line
+    "api_key: sk-abc123def",                  // unquoted non-identifier literal
+    'password: "hunter2xyz"',                 // quoted literal
+    'const k = { api_key: "sk-ant-abc123def" };',
+    "password: mysecret123",                  // bare word after `:` — the ambiguous shape
+    "api_key: abcdef123456",
+    "token: hunter2value",
+    'SECRET_KEY = "django-insecure-abc123xyz"',
+    'secret_key = "hunter2value"',
+    'aws_secret_access_key = "wJalrXUtnFEMIKEXAMPLE"',
+    'access_key_id = "hunter2value"',
+    'refresh_token_value = "hunter2value"',
+    'secret: string = "hunter2value"',        // literal behind an annotation
+    "const k = process.env.X; // ghp_AAAAAAAAAAAAAAAAAAAAAAAA", // pass 1, beside a reference
+    "AKIAIOSFODNN7EXAMPLE",
+  ]) assertTrue(`secret flags a literal: ${line.slice(0, 30)}`, hits(line), `should flag: ${line}`);
+
+  // MUST SUBTRACT — a false positive here permanently bricks a branch's /ship.
+  for (const line of [
+    "apiKey: keyOption(),",                   // call — the bug that motivated the inversion
+    "const htmlToken: Parser<Inline, null> = map<", // generic call after an annotation
+    "apiKey: theKey,",
+    "let nextToken: string | undefined;",
+    "password: string | null;",
+    "readonly apiKey: string | undefined",
+    "secret: boolean = false;",
+    "let apiKey: string;",
+    "private token: string;",
+    "interface X { token: string; secret: string }",
+    "type Cfg = { apiKey: Array<string>; secret: Map<string, string> };",
+    "Token::Path",                            // scope resolution: no `::` rule exists now
+    "const apiKey = process.env.OPENAI_API_KEY;",
+    "SECRET_KEY = process.env.DJANGO_SECRET",
+    'SECRET_KEY = os.environ["DJANGO_SECRET"]',
+    'refresh_token_value = getenv("RT")',
+    "aws_secret_access_key: ${AWS_SECRET}",
+    "secret_key = someVar,",
+    "api_key: {{tpl}}",
+    'token = "<placeholder>"',
+    "access_key_id: config.awsKeyId,",
+    "const p = { apiKey: opts.apiKey, };",
+    "const anthropic = new Anthropic({ apiKey: anthropicKey });",
+    'return line?.slice("OPENAI_API_KEY=".length).trim();',
+    'tokenizer = "gpt-4-tokenizer"',
+  ]) assertTrue(`secret silent on a reference: ${line.slice(0, 30)}`, !hits(line), `false positive on: ${line}`);
+
+  // The `key: bareword` ambiguity, pinned to the side it was deliberately resolved toward.
+  // `apiKey: string` (annotation) and `password: mysecret123` (credential) are the SAME
+  // shape and the line carries nothing that separates them, so matching on the value cannot
+  // help. Only a KNOWN PRIMITIVE is subtracted; an unknown word reads as a literal. If the
+  // first of these ever goes red, real TypeScript is being hard-blocked; if the second
+  // does, the subtraction has been widened back over real keys.
+  assertTrue("bare primitive annotation at EOL is subtracted", !hits("readonly apiKey: string"), "should be quiet");
+  assertTrue("unknown bare word at EOL reads as a literal", hits("apiKey: MyKeyType"), "should flag");
+
+  // A narrow annotation class is what stops `key:` from reaching across a line to an
+  // unrelated `= "..."` and manufacturing a hit on a key that has no value of its own.
+  assertTrue("annotation does not span an unrelated assignment",
+    !hits('const p = { apiKey: opts.apiKey, secret: x }; const y = "abc123def";'), "false positive");
+
+  rmSync(tmp, { recursive: true, force: true });
 }
 
 // ---------- 8l0. release-scan allowlist (.workaholic/scan-allow) ----------
@@ -1511,6 +1724,91 @@ Development completed as planned.
     assertEq("archive.sh workspace clean after the mission roll",
       execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim(), "");
   } finally { cleanup(dir); }
+
+  // A ticket advancing TWO missions rolls BOTH, exactly once each. The relation is
+  // many-valued precisely so a real relation never has to be discarded to fit a scalar;
+  // this is the assertion that says so. Note the seams swallow their own errors
+  // (`|| true`), so a half-migrated parser does not fail here — it silently rolls
+  // nothing. That is what this case exists to catch.
+  const dirM = makeRepo("main");
+  try {
+    execSync(`git checkout -q -b work-20260715-mm`, { cwd: dirM });
+    const ticketName = "20260715120000-spans.md";
+    const mk = (slug, title, acceptance) => {
+      const mdir = join(dirM, `.workaholic/missions/active/${slug}`);
+      mkdirSync(mdir, { recursive: true });
+      writeFileSync(join(mdir, "mission.md"), `---
+type: Mission
+title: ${title}
+slug: ${slug}
+status: active
+created_at: 2026-07-15T00:00:00+09:00
+author: test@example.com
+tickets: []
+stories: []
+concerns: []
+---
+
+# ${title}
+
+## Acceptance
+
+${acceptance}
+
+## Changelog
+`);
+      return mdir;
+    };
+    // alpha lists the ticket; beta deliberately does NOT. tick-acceptance keys on the
+    // artifact basename, so beta should gain a changelog line but tick nothing — a
+    // mission only ticks what its own Acceptance actually claims.
+    const aDir = mk("alpha", "Alpha", `- [ ] Land it (#${ticketName})\n- [ ] Something else (#20260715120099-other.md)`);
+    const bDir = mk("beta", "Beta", `- [ ] Unrelated item (#20260715120098-nope.md)`);
+
+    const todoDir = join(dirM, `.workaholic/tickets/todo/${TEST_SLUG}`);
+    mkdirSync(todoDir, { recursive: true });
+    writeFileSync(join(todoDir, ticketName), `---
+created_at: 2026-07-15T12:00:00+09:00
+author: test@example.com
+type: enhancement
+layer: [Domain]
+effort: 0.5h
+commit_hash:
+category:
+depends_on:
+mission: [alpha, beta]
+---
+
+# Spans two missions
+
+## Final Report
+
+Development completed as planned.
+`);
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dirM });
+
+    const env = { ...process.env, GIT_AUTHOR_DATE: "2026-07-15T12:00:00+09:00", GIT_COMMITTER_DATE: "2026-07-15T12:00:00+09:00" };
+    const r = run(dirM, `${POSIX_SH} ${SCRIPTS.archive} .workaholic/tickets/todo/${TEST_SLUG}/${ticketName} "Add spans" https://x/repo "why" "changes" "None" "None" "verify"`, { env });
+    assertEq("archive.sh (two missions) exits 0", r.status, 0);
+
+    const esc = ticketName.replace(/\./g, "\\.");
+    const countLines = (body) => (body.match(new RegExp(`ticket archived — ${esc}`, "g")) || []).length;
+    const aBody = readFileSync(join(aDir, "mission.md"), "utf8");
+    const bBody = readFileSync(join(bDir, "mission.md"), "utf8");
+
+    assertEq("two-mission ticket rolls alpha exactly once", countLines(aBody), 1);
+    assertEq("two-mission ticket rolls beta exactly once", countLines(bBody), 1);
+    assertTrue("two-mission ticket ticks alpha's matching item",
+      new RegExp(`- \\[x\\] Land it \\(#${esc}\\)`).test(aBody), aBody);
+    assertTrue("two-mission ticket leaves alpha's other item unchecked", /- \[ \] Something else/.test(aBody), aBody);
+    assertTrue("two-mission ticket ticks nothing beta does not claim", /- \[ \] Unrelated item/.test(bBody), bBody);
+    assertEq("alpha progress now 1/2",
+      JSON.parse(run(dirM, `${POSIX_SH} ${SCRIPTS.missionProgress} ${join(aDir, "mission.md")}`).stdout), { checked: 1, total: 2 });
+    assertEq("beta progress still 0/1",
+      JSON.parse(run(dirM, `${POSIX_SH} ${SCRIPTS.missionProgress} ${join(bDir, "mission.md")}`).stdout), { checked: 0, total: 1 });
+    assertEq("archive.sh workspace clean after the two-mission roll",
+      execSync(`git status --porcelain`, { cwd: dirM, encoding: "utf8" }).trim(), "");
+  } finally { cleanup(dirM); }
 
   // An un-missioned ticket leaves every mission untouched — even a legacy flat
   // mission dir (no mission script runs, so the living migration never fires).
@@ -2818,10 +3116,12 @@ mission: ${slug}
 
     // (d) tickets[] carries mission + commit_hash; archived has a hash, todo is empty.
     const tByName = (name) => (j.tickets || []).find((t) => t.path.endsWith(name));
-    assertEq("scan-window tags archived ticket mission", tByName(archName)?.mission, slug);
+    // `mission` is a LIST — an artifact records every mission it advances. A ticket
+    // written with the bare scalar `mission: <slug>` still reads as a one-element list.
+    assertEq("scan-window tags archived ticket mission", JSON.stringify(tByName(archName)?.mission), JSON.stringify([slug]));
     assertTrue("scan-window stamps archived ticket commit_hash",
       /^[0-9a-f]{7,}$/.test(tByName(archName)?.commit_hash || ""), tByName(archName)?.commit_hash);
-    assertEq("scan-window tags todo ticket mission", tByName(flightName)?.mission, slug);
+    assertEq("scan-window tags todo ticket mission", JSON.stringify(tByName(flightName)?.mission), JSON.stringify([slug]));
     assertEq("scan-window todo ticket has empty commit_hash", tByName(flightName)?.commit_hash, "");
 
     // (e) the scan mutated nothing (read-only contract): worktree unchanged.
@@ -2973,6 +3273,146 @@ function testGuardGitCommit() {
 // REAL, non-mock: feeds the actual guard a crafted tool_input.command and asserts
 // it BLOCKS (exit 2) off-pattern / variable / missing branch-creation names and
 // ALLOWS work-YYYYMMDD-HHMMSS creation, read/delete/list forms, and non-create cmds.
+function testRequestScripts() {
+  const tmp = mkdtempSync(join(tmpdir(), "request-"));
+  const src = join(tmp, "source-repo");
+  const tgt = join(tmp, "target-repo");
+  const git = (cwd, args) => execSync(`git ${args}`, { cwd, stdio: "ignore" });
+  for (const r of [src, tgt]) {
+    mkdirSync(r, { recursive: true });
+    git(r, "init -q");
+    git(r, "config user.email a@qmu.jp");
+    git(r, "config user.name t");
+    writeFileSync(join(r, "a.md"), "x\n");
+    git(r, "add -A");
+    git(r, "-c commit.gpgsign=false commit -qm base");
+  }
+  const json = (cwd, script, args) => {
+    try {
+      return JSON.parse(execSync(`${POSIX_SH} ${script} ${args}`, { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }));
+    } catch (e) { return { ok: false, error: `threw: ${e.status}` }; }
+  };
+  const q = (s) => `"${s}"`;
+
+  // resolve-target refuses the source repo itself — that is /ticket's job, not /request's.
+  const self = json(src, SCRIPTS.resolveTarget, q(src));
+  assertEq("resolve-target refuses this repo", self.ok, false);
+  assertTrue("resolve-target names /ticket", /\/ticket/.test(self.error || ""), "should route to /ticket");
+  assertEq("resolve-target refuses a missing dir", json(src, SCRIPTS.resolveTarget, q(join(tmp, "nope"))).ok, false);
+  const ok = json(src, SCRIPTS.resolveTarget, q(tgt));
+  assertEq("resolve-target resolves a real repo", ok.ok, true);
+  assertEq("resolve-target reports the name", ok.name, "target-repo");
+
+  const body = (name, text) => { const p = join(tmp, name); writeFileSync(p, text); return p; };
+  const clean = body("clean.md", "---\ntype: enhancement\n---\n\n# Request\n\nA consumer repo needs the guard.\n");
+
+  // Mechanical refusals.
+  assertEq("file-request refuses an empty body", json(src, SCRIPTS.fileRequest, `${q(tgt)} 20260715130000-x.md ${q(body("empty.md", ""))}`).ok, false);
+  assertEq("file-request refuses a malformed filename", json(src, SCRIPTS.fileRequest, `${q(tgt)} notaticket.md ${q(clean)}`).ok, false);
+  assertEq("file-request refuses the source repo as target", json(src, SCRIPTS.fileRequest, `${q(src)} 20260715130000-x.md ${q(clean)}`).ok, false);
+
+  // The backstop knows only this repo's own name and path.
+  const named = body("named.md", `A ticket that still says ${basename(src)} in the text.\n`);
+  assertEq("file-request refuses a body naming the source repo", json(src, SCRIPTS.fileRequest, `${q(tgt)} 20260715130000-x.md ${q(named)}`).ok, false);
+
+  // Happy path, and no double-file.
+  const filed = json(src, SCRIPTS.fileRequest, `${q(tgt)} 20260715130000-x.md ${q(clean)}`);
+  assertEq("file-request files a clean body", filed.ok, true);
+  assertTrue("file-request lands in the target's todo queue",
+    filed.path.startsWith(join(tgt, ".workaholic/tickets/todo/")), `landed at ${filed.path}`);
+  assertEq("file-request refuses a duplicate", json(src, SCRIPTS.fileRequest, `${q(tgt)} 20260715130000-x.md ${q(clean)}`).ok, false);
+
+  // THE POINT. Real leaked sentences from the incident carry no reference to this repo,
+  // so the mechanical backstop cannot see them and files them without complaint. This is
+  // asserted, not lamented: it is why the developer confirmation in the /request workflow
+  // is non-skippable. If a future change makes these fail here, the confirmation has
+  // probably been quietly demoted to a pattern match — read request/SKILL.md §1 first.
+  const realLeaks = [
+    "The house tsconfig lives at packages/realestate-mcp/tsconfig.json.",
+    "Repro moved seiho-target-matrix.pdf (798.1KB) into /My Drive.",
+    'The fixture uses the mail label "HSS-sama" as a user label.',
+    "Port 5173 collides with poc-host.example.dev on this host.",
+  ];
+  realLeaks.forEach((text, i) => {
+    const p = body(`leak-${i}.md`, `---\ntype: bugfix\n---\n\n# Request\n\n${text}\n`);
+    const r = json(src, SCRIPTS.fileRequest, `${q(tgt)} 2026071513100${i}-x.md ${q(p)}`);
+    assertEq(`file-request cannot detect leak #${i + 1} (by design — the human gate does)`, r.ok, true);
+  });
+
+  rmSync(tmp, { recursive: true, force: true });
+}
+
+function testGuardRepoConfinement() {
+  const HOOK = SCRIPTS.guardRepoConfinement;
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  guard-repo-confinement (jq not available)"); return; }
+
+  // Two real repos plus a real worktree of the first. The worktree cases are the
+  // point: missions run in .worktrees/<slug>, so a confinement that only accepts
+  // the toplevel would break the mission model.
+  const tmp = mkdtempSync(join(tmpdir(), "confine-"));
+  const repoA = join(tmp, "repoA");
+  const repoB = join(tmp, "repoB");
+  const wt = join(tmp, "wt");
+  const git = (cwd, args) => execSync(`git ${args}`, { cwd, stdio: "ignore" });
+  for (const r of [repoA, repoB]) {
+    mkdirSync(r, { recursive: true });
+    git(r, "init -q");
+    git(r, "config user.email t@t");
+    git(r, "config user.name t");
+    writeFileSync(join(r, "a.md"), "x\n");
+    git(r, "add -A");
+    git(r, "-c commit.gpgsign=false commit -qm base");
+  }
+  git(repoA, `worktree add -q "${wt}" -b work-20260715-000000`);
+
+  const invoke = (cwd, file_path) => {
+    const payload = JSON.stringify({ tool_input: { file_path } });
+    try {
+      execSync(`${POSIX_SH} ${HOOK}`, { cwd, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+      return { status: 0, err: "" };
+    } catch (e) { return { status: e.status ?? 1, err: e.stderr?.toString() || "" }; }
+  };
+  const T = ".workaholic/tickets/todo/u/20260715000000-x.md";
+
+  // Allowed: this repo, and this repo's own worktrees (in both directions).
+  assertEq("confine allows in-repo write", invoke(repoA, T).status, 0);
+  assertEq("confine allows own worktree", invoke(repoA, join(wt, T)).status, 0);
+  assertEq("confine allows from inside worktree", invoke(wt, T).status, 0);
+  assertEq("confine allows worktree -> its own toplevel", invoke(wt, join(repoA, T)).status, 0);
+
+  // Refused: another repository, however the path is spelled.
+  assertEq("confine blocks foreign repo (absolute)", invoke(repoA, join(repoB, T)).status, 2);
+  assertEq("confine blocks foreign repo (../ relative)", invoke(repoA, `../repoB/${T}`).status, 2);
+  assertEq("confine blocks foreign repo from worktree", invoke(wt, join(repoB, T)).status, 2);
+
+  // The refusal names the sanctioned route.
+  assertTrue("confine block names /request",
+    /\/request/.test(invoke(repoA, join(repoB, T)).err),
+    "block message should route the caller to /request");
+
+  // Refused: an ordinary directory outside the repo that is NOT a repository at all
+  // (a Desktop/Home-shaped export destination). This is not an incidental case — it is
+  // the constraint that decides /explain's design. The gate cannot exempt a skill (a
+  // PreToolUse hook sees only tool_input.file_path, never the caller), so /explain must
+  // stage its HTML IN-REPO at .explain/<slug>.html and let the BROWSER write the PDF to
+  // the developer's directory over MCP, which is not a Write and never reaches this hook.
+  // If this assertion ever flips to 0, that reasoning is void and explain/SKILL.md's
+  // Phase 2 rationale must be revisited rather than quietly left stale.
+  const desktop = join(tmp, "Desktop");
+  mkdirSync(desktop, { recursive: true });
+  assertEq("confine blocks a non-repo path outside the repo (export dir)",
+    invoke(repoA, join(desktop, "answer.html")).status, 2);
+
+  // Fails open outside a git repo — never blocks a write it cannot reason about.
+  const bare = join(tmp, "bare");
+  mkdirSync(bare, { recursive: true });
+  assertEq("confine fails open outside a repo", invoke(bare, join(bare, "x.md")).status, 0);
+
+  rmSync(tmp, { recursive: true, force: true });
+}
+
 function testGuardGitBranch() {
   const HOOK = SCRIPTS.guardGitBranch;
   let hasJq = true;
@@ -3347,6 +3787,8 @@ const tests = [
   ["report/ticket-commits.sh derivation", testTicketCommitsDerivation],
   ["release-scan branch-safety engine", testReleaseScanEngine],
   ["release-scan secret literal vs reference", testReleaseScanSecretLiteralVsReference],
+  ["release-scan secret suffixed keywords", testReleaseScanSecretSuffixedKeywords],
+  ["release-scan secret value inversion", testReleaseScanSecretValueInversion],
   ["release-scan allowlist", testReleaseScanAllowlist],
   ["release-scan gate decision", testReleaseScanGateDecision],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
@@ -3383,6 +3825,8 @@ const tests = [
   ["catch/scan-window.sh mission join", testScanWindowMissions],
   ["hooks/guard-git-commit.sh", testGuardGitCommit],
   ["hooks/guard-git-branch.sh", testGuardGitBranch],
+  ["hooks/guard-repo-confinement.sh", testGuardRepoConfinement],
+  ["request/scripts", testRequestScripts],
   ["hooks/guard-askuserquestion-label.sh", testGuardAskUserQuestionLabel],
   ["workaholify/audit-claude-md.sh", testAuditClaudeMd],
   ["hooks/guard-working-directory.sh", testGuardWorkingDirectory],

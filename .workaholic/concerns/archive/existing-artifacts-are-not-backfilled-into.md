@@ -11,9 +11,11 @@ last_seen: 2026-07-09T03:28:39+09:00
 first_seen: 2026-07-07T04:09:44+09:00
 concern_id: existing-artifacts-are-not-backfilled-into
 severity: low
-status: active
+status: accepted
 resolved_by_pr: 
 resolved_by_commit: 
+closed_reason: Forward-only is the deliberate stance, recorded at the code seam (mission/scripts/read-relation.sh:22, 'Emission is forward-only; nothing backfills them'). The concern's own How to Fix prescribes acceptance; it converts to a ticket only if a specific mission needs backfill.
+closed_at: 2026-07-15T19:50:28+09:00
 ---
 
 # Existing artifacts are not backfilled into missions

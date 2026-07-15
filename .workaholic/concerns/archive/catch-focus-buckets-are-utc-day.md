@@ -8,9 +8,11 @@ last_seen: 2026-07-01T21:16:06+09:00
 first_seen: 2026-07-01T01:12:10+09:00
 concern_id: catch-focus-buckets-are-utc-day
 severity: moderate
-status: active
+status: accepted
 resolved_by_pr: 
 resolved_by_commit: 
+closed_reason: Filed already-accepted: the remedy asked for was documentation, and scan-window.sh:39-40 and :209 carry it. UTC-day bucketing is precise enough for a focus narrative and avoids non-POSIX date -d arithmetic.
+closed_at: 2026-07-15T19:50:28+09:00
 ---
 
 # `/catch` focus buckets are UTC-day based

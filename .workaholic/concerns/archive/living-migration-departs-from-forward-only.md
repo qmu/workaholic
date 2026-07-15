@@ -11,9 +11,11 @@ last_seen: 2026-07-13T11:56:22+09:00
 first_seen: 2026-07-13T11:56:22+09:00
 concern_id: living-migration-departs-from-forward-only
 severity: low
-status: active
+status: accepted
 resolved_by_pr: 
 resolved_by_commit: 
+closed_reason: The documentation obligation the concern set is discharged: mission/SKILL.md:36 records the scope, git-mv history preservation, idempotency and non-blocking behavior, and :196 names the exact read-only case ('the one tree change any reader can trigger'). The --skip-migration opt-out was conditional on side-effect reports; none exist.
+closed_at: 2026-07-15T19:50:28+09:00
 ---
 
 # Living migration departs from forward-only stance but is strictly scoped

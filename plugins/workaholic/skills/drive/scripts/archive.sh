@@ -55,21 +55,23 @@ echo "    ${ARCHIVED_TICKET}"
 
 SCRIPT_DIR=$(dirname "$0")
 
-# Roll the related mission (if any): a ticket carrying `mission: <slug>` appends a
-# "ticket archived" changelog line and ticks its acceptance item on that mission,
-# via the mission skill's shared, idempotent mutators. Best-effort — a mission
-# update must never block archiving. The mutators git-stage the mission file, so
-# it rides along in the archive commit's `git add -A` below.
-MISSION_SLUG=$(awk '
-    NR == 1 { if ($0 != "---") exit; next }
-    /^---[ \t]*$/ { exit }
-    /^mission:[ \t]*/ { sub(/^mission:[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit }
-' "$ARCHIVED_TICKET" 2>/dev/null || true)
-if [ -n "$MISSION_SLUG" ]; then
-    MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts"
+# Roll every related mission: a ticket carrying `mission: [a, b]` appends a "ticket
+# archived" changelog line and ticks its acceptance item on EACH mission it names, via
+# the mission skill's shared, idempotent mutators. The relation is read by the mission
+# skill's single reader, so the field's shape lives in one place.
+#
+# Looping is safe without dedup: append-changelog.sh keys on the (event, artifact) pair
+# and tick-acceptance.sh on the artifact basename, so both no-op on a repeat and
+# tick-acceptance simply finds nothing on a mission whose Acceptance does not list this
+# ticket. Best-effort throughout — a mission update must never block archiving. The
+# mutators git-stage the mission file, so it rides along in the archive commit's
+# `git add -A` below.
+MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts"
+sh "${MISSION_SCRIPTS}/read-relation.sh" "$ARCHIVED_TICKET" 2>/dev/null | while IFS= read -r MISSION_SLUG; do
+    [ -n "$MISSION_SLUG" ] || continue
     sh "${MISSION_SCRIPTS}/append-changelog.sh" "$MISSION_SLUG" "ticket archived" "$TICKET_FILENAME" >/dev/null 2>&1 || true
     sh "${MISSION_SCRIPTS}/tick-acceptance.sh" "$MISSION_SLUG" "$TICKET_FILENAME" >/dev/null 2>&1 || true
-fi
+done
 
 # Refresh the .workaholic OKF bundle indexes so the archive commit ships with a
 # fresh hierarchy (best-effort: an index problem must not block the archive).

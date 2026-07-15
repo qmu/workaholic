@@ -8,9 +8,11 @@ last_seen: 2026-06-30T02:27:29+09:00
 first_seen: 2026-06-29T13:18:46+09:00
 concern_id: bundled-script-hardened-without-rebuilding-outputs
 severity: moderate
-status: active
+status: resolved
 resolved_by_pr: 
 resolved_by_commit: 
+closed_reason: Closed by the Outputs Freshness CI workflow, which rebuilds and runs git diff --exit-code over outputs/ on every PR touching plugins/**, so a bundled-skill edit without a rebuild cannot reach main. Verified: build at HEAD leaves outputs/ clean.
+closed_at: 2026-07-15T19:50:28+09:00
 ---
 
 # Bundled script hardened without rebuilding outputs/, leaving the public copy stale

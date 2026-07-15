@@ -4,5 +4,11 @@
 # Codex CLI local scratch (file or dir, depending on Codex version)
 .codex
 
+# /explain stages its printer-ready HTML here before the browser prints the PDF to the
+# developer's chosen directory. It is staged IN-REPO because guard-repo-confinement.sh
+# refuses every Write outside the repository; it is ignored because the report is a
+# throwaway render of an answer, not a repository artifact.
+.explain/
+
 # Developer-maintained leak denylist for release-scan (client names must never ship)
 .workaholic/leak-denylist

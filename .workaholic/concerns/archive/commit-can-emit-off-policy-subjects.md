@@ -11,9 +11,10 @@ last_seen: 2026-07-09T03:28:39+09:00
 first_seen: 2026-07-09T03:28:39+09:00
 concern_id: commit-can-emit-off-policy-subjects
 severity: low
-status: active
+status: superseded
 resolved_by_pr: 
 resolved_by_commit: 
+superseded_by: commit-subject-rule-binds-on-no-path
 ---
 
 # (carried from PR #59) /commit can emit off-policy subjects if invoked directly

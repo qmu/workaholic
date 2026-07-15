@@ -8,9 +8,11 @@ last_seen: 2026-07-01T21:16:06+09:00
 first_seen: 2026-07-01T01:12:10+09:00
 concern_id: stale-plugin-install-is-indistinguishable-from
 severity: moderate
-status: active
+status: accepted
 resolved_by_pr: 
 resolved_by_commit: 
+closed_reason: Unfixable as stated and documented as such: activation cannot be proven from a script (check-deps/check.sh:16-19), because a guard fires on the Bash tool call, not on a nested sh. Both mitigations the concern asked for are in place: version surfacing and the in-session activation probe. See the separate follow-up for check.sh's guard list being incomplete.
+closed_at: 2026-07-15T19:50:28+09:00
 ---
 
 # Stale plugin install is indistinguishable from a broken hook

@@ -11,9 +11,11 @@ created_at: 2026-07-14T16:15:36+09:00
 first_seen: 2026-07-14T16:15:36+09:00
 last_seen: 2026-07-14T16:15:36+09:00
 severity: low
-status: active
+status: resolved
 resolved_by_pr: 
 resolved_by_commit: 
+closed_reason: Scoped to PR #84's 103-file branch and already resolved by the recorded override at ship; its own How to Fix said 'None required'. Carries no forward condition: the current branch scans pass at 59 files, under MAX_FILES=100.
+closed_at: 2026-07-15T19:50:28+09:00
 ---
 
 # Branch-safety scan WARN (overridable): oversized change set

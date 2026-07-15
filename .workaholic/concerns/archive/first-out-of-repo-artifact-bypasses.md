@@ -8,9 +8,11 @@ last_seen: 2026-07-01T21:16:06+09:00
 first_seen: 2026-07-01T13:35:59+09:00
 concern_id: first-out-of-repo-artifact-bypasses
 severity: moderate
-status: active
+status: accepted
 resolved_by_pr: 
 resolved_by_commit: 
+closed_reason: The /explain export is a by-design, consent-gated developer artifact, and its safeguards are all present (symmetric no-default-yes consent, fail-safe writability halt, never touching config/profile paths). The confinement guard cannot close it: a PreToolUse hook sees only tool_input.file_path and the PDF is written by the browser over MCP, not by a Write. Addressed instead by staging /explain's HTML in-repo this session.
+closed_at: 2026-07-15T19:50:28+09:00
 ---
 
 # First out-of-repo artifact bypasses the layout hook

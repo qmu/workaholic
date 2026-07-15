@@ -11,9 +11,11 @@ created_at: 2026-07-13T23:39:50+09:00
 first_seen: 2026-07-13T23:39:50+09:00
 last_seen: 2026-07-13T23:39:50+09:00
 severity: low
-status: active
+status: resolved
 resolved_by_pr: 
 resolved_by_commit: 
+closed_reason: The one-time churn already landed in f8203d0e (210 files) and cannot be retroactively restructured. The migration is now a proven no-op: every active file carries concern_id and re-running list-active leaves git status clean, so future /report commits carry no migration churn.
+closed_at: 2026-07-15T19:50:28+09:00
 ---
 
 # The living migration commits a large one-time churn inside a normal /report commit

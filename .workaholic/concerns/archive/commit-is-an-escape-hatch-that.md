@@ -8,9 +8,11 @@ last_seen: 2026-06-30T02:27:29+09:00
 first_seen: 2026-06-29T13:18:46+09:00
 concern_id: commit-is-an-escape-hatch-that
 severity: low
-status: active
+status: accepted
 resolved_by_pr: 
 resolved_by_commit: 
+closed_reason: The steering copy the concern asked for is in place (commands/commit.md:15 and CLAUDE.md's command table both say prefer /drive for ticketed work). An escape hatch existing is a deliberate trade-off; the remaining action was monitoring, not a fix.
+closed_at: 2026-07-15T19:50:28+09:00
 ---
 
 # /commit is an escape hatch that can invite non-ticketed commits

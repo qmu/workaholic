@@ -71,6 +71,7 @@ const SCRIPTS = {
   resolveExportPath: join(REPO_ROOT, "plugins/workaholic/skills/explain/scripts/resolve-export-path.sh"),
   guardGitCommit: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-commit.sh"),
   guardGitBranch: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-branch.sh"),
+  guardRepoConfinement: join(REPO_ROOT, "plugins/workaholic/hooks/guard-repo-confinement.sh"),
   guardAskLabel: join(REPO_ROOT, "plugins/workaholic/hooks/guard-askuserquestion-label.sh"),
   guardWorkingDir: join(REPO_ROOT, "plugins/workaholic/hooks/guard-working-directory.sh"),
   auditClaudeMd: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/audit-claude-md.sh"),
@@ -2973,6 +2974,64 @@ function testGuardGitCommit() {
 // REAL, non-mock: feeds the actual guard a crafted tool_input.command and asserts
 // it BLOCKS (exit 2) off-pattern / variable / missing branch-creation names and
 // ALLOWS work-YYYYMMDD-HHMMSS creation, read/delete/list forms, and non-create cmds.
+function testGuardRepoConfinement() {
+  const HOOK = SCRIPTS.guardRepoConfinement;
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  guard-repo-confinement (jq not available)"); return; }
+
+  // Two real repos plus a real worktree of the first. The worktree cases are the
+  // point: missions run in .worktrees/<slug>, so a confinement that only accepts
+  // the toplevel would break the mission model.
+  const tmp = mkdtempSync(join(tmpdir(), "confine-"));
+  const repoA = join(tmp, "repoA");
+  const repoB = join(tmp, "repoB");
+  const wt = join(tmp, "wt");
+  const git = (cwd, args) => execSync(`git ${args}`, { cwd, stdio: "ignore" });
+  for (const r of [repoA, repoB]) {
+    mkdirSync(r, { recursive: true });
+    git(r, "init -q");
+    git(r, "config user.email t@t");
+    git(r, "config user.name t");
+    writeFileSync(join(r, "a.md"), "x\n");
+    git(r, "add -A");
+    git(r, "-c commit.gpgsign=false commit -qm base");
+  }
+  git(repoA, `worktree add -q "${wt}" -b work-20260715-000000`);
+
+  const invoke = (cwd, file_path) => {
+    const payload = JSON.stringify({ tool_input: { file_path } });
+    try {
+      execSync(`${POSIX_SH} ${HOOK}`, { cwd, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+      return { status: 0, err: "" };
+    } catch (e) { return { status: e.status ?? 1, err: e.stderr?.toString() || "" }; }
+  };
+  const T = ".workaholic/tickets/todo/u/20260715000000-x.md";
+
+  // Allowed: this repo, and this repo's own worktrees (in both directions).
+  assertEq("confine allows in-repo write", invoke(repoA, T).status, 0);
+  assertEq("confine allows own worktree", invoke(repoA, join(wt, T)).status, 0);
+  assertEq("confine allows from inside worktree", invoke(wt, T).status, 0);
+  assertEq("confine allows worktree -> its own toplevel", invoke(wt, join(repoA, T)).status, 0);
+
+  // Refused: another repository, however the path is spelled.
+  assertEq("confine blocks foreign repo (absolute)", invoke(repoA, join(repoB, T)).status, 2);
+  assertEq("confine blocks foreign repo (../ relative)", invoke(repoA, `../repoB/${T}`).status, 2);
+  assertEq("confine blocks foreign repo from worktree", invoke(wt, join(repoB, T)).status, 2);
+
+  // The refusal names the sanctioned route.
+  assertTrue("confine block names /request",
+    /\/request/.test(invoke(repoA, join(repoB, T)).err),
+    "block message should route the caller to /request");
+
+  // Fails open outside a git repo — never blocks a write it cannot reason about.
+  const bare = join(tmp, "bare");
+  mkdirSync(bare, { recursive: true });
+  assertEq("confine fails open outside a repo", invoke(bare, join(bare, "x.md")).status, 0);
+
+  rmSync(tmp, { recursive: true, force: true });
+}
+
 function testGuardGitBranch() {
   const HOOK = SCRIPTS.guardGitBranch;
   let hasJq = true;
@@ -3383,6 +3442,7 @@ const tests = [
   ["catch/scan-window.sh mission join", testScanWindowMissions],
   ["hooks/guard-git-commit.sh", testGuardGitCommit],
   ["hooks/guard-git-branch.sh", testGuardGitBranch],
+  ["hooks/guard-repo-confinement.sh", testGuardRepoConfinement],
   ["hooks/guard-askuserquestion-label.sh", testGuardAskUserQuestionLabel],
   ["workaholify/audit-claude-md.sh", testAuditClaudeMd],
   ["hooks/guard-working-directory.sh", testGuardWorkingDirectory],

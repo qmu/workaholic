@@ -246,6 +246,17 @@ The `[<project label>]` prompt-prefix convention (each `AskUserQuestion` questio
 
 A companion `hooks/guard-working-directory.sh` (`PreToolUse(Bash)`, shipped active) is **non-blocking**: it reminds and steers a top-level cwd-moving `cd` toward an absolute path or a `( cd … )` subshell so the working directory stays at the repo root, but never blocks a deliberate `cd`. It is the machine-surfaced half of the `workaholify` working-directory ground rules (`skills/workaholify/`); like the other guards it is Claude-Code-only, POSIX `#!/bin/sh -eu`, with no `outputs/` footprint.
 
+### Repository confinement
+
+Every write lands inside the current repository or one of its own worktrees. Crossing to another repository is done **only** through `/request`, which masks this project's customer context before filing. Two layers, and the order matters:
+
+- **The rule is primary.** It lives in `rules/general.md` ("Never modify another repository", plus "Never carry one repository's context into another's artifacts"), which is `paths: '**/*'` — always loaded, and shipped to every repo that installs the plugin. This is deliberately where the weight sits: the rule is what an agent reads before it acts.
+- **The hook is a syntactic backstop.** `hooks/guard-repo-confinement.sh` is a blocking `PreToolUse(Write|Edit)` hook (shipped active) that resolves `tool_input.file_path` against `git rev-parse --show-toplevel` plus every entry of `git worktree list`, and exits 2 when the target is outside all of them. It runs PreToolUse because `validate-ticket.sh` is PostToolUse — refusing *after* the file exists in the foreign repo is not confinement. It accepts worktrees in both directions, because missions run in `.worktrees/<slug>/` and a toplevel-only test would break the mission model. It fails open outside a git repo. Claude-Code-only, POSIX `#!/bin/sh -eu`, no `outputs/` footprint.
+
+**Do not grow the hook toward content matching.** A path is syntax and a matcher handles it well; a customer's vocabulary is semantic and a matcher cannot recognise it — the terms that leak are usually not enumerable until the moment they leak. That judgement belongs to `/request`, where a person confirms it.
+
+**The rule only reaches a repo that installs the plugin.** This is the failure that produced the incident: rules, hooks, and the scan are all inert in a repo where `workaholic@workaholic` is not in `enabledPlugins` — no matter what is written here. Enable it at the user level (`~/.claude/settings.json`) so every repo is covered, not per-project.
+
 ### Always-on policy lens
 
 `hooks/policy-lens.sh` is a non-blocking `UserPromptSubmit` hook that injects the engineering-policy lens for the workflow commands that carry the `workaholic:policy-lens` sentinel marker (`/ticket`, `/report`, `/ship`, `/trip`, `/drive`). The sentinel rides in the expanded command body, so the lens fires once per workflow invocation and stays in accumulated context. Two layers, by design:

@@ -35,6 +35,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/create-ticket/scripts/summary.sh
 
 ## Allowed Locations
 
+**In THIS repository, always.** Both paths below are relative to the current repository's root (`git rev-parse --show-toplevel`) or one of its worktrees. Never resolve them against another checkout: not by absolute path, not by `../sibling-repo/`, not by `cd`-ing elsewhere first. A ticket that belongs to a different repository is filed with `/request`, which is the only sanctioned route and which masks this project's customer context before filing. `hooks/guard-repo-confinement.sh` refuses an out-of-repo write before it happens, but the rule stands on its own — see `rules/general.md` ("Never modify another repository"). The same rule bars carrying this repository's customer context *into* a ticket you file elsewhere.
+
 Tickets are written to ONE of these two directories — never anywhere else:
 
 - `.workaholic/tickets/todo/<user>/` — Active queue (default for new tickets). `<user>` is the filesystem-safe slug of `git config user.email` (the `user_slug` from Step 1). Partitioning the queue per developer stops one developer's unarchived tickets from leaking onto another's branch and being re-driven. The flat `todo/` root is never a write target for new tickets; any strays already sitting there are swept into a user subdirectory (see Step 1.5).

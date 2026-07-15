@@ -121,9 +121,12 @@ emit_tickets() {
   find $TDIRS -name '*.md' -type f 2>/dev/null | sort | while IFS= read -r f; do
     author=$(sed -n 's/^author:[[:space:]]*//p' "$f" | head -n1)
     title=$(sed -n 's/^#[[:space:]]\{1,\}\(.*\)/\1/p' "$f" | head -n1)
-    # `mission:` is optional ticket frontmatter (empty until set) — the join key to a
-    # mission. Absent fields emit "" and never fail the scan.
-    mission=$(sed -n 's/^mission:[[:space:]]*//p' "$f" | head -n1)
+    # `mission:` is optional ticket frontmatter (empty until set) and MANY-valued — the
+    # join key(s) to missions. Read through the mission skill's single reader, which
+    # accepts both `mission: [a, b]` and a bare `mission: a`, then carried through this
+    # record comma-joined and split back into an array by the jq below. Absent fields emit
+    # "" and never fail the scan.
+    mission=$(sh "${SCRIPT_DIR}/../../mission/scripts/read-relation.sh" "$f" 2>/dev/null | paste -sd, - || true)
     case "$f" in
       *.workaholic/tickets/todo/*) scope=todo ;;
       *.workaholic/tickets/archive/*) scope=archive ;;
@@ -149,7 +152,9 @@ TICKETS=$(
     split("")
     | map(select((gsub("\\s"; "") | length) > 0))
     | map(split(""))
-    | map({path: .[0], author: .[1], title: .[2], scope: .[3], mission: .[4], commit_hash: .[5]})'
+    | map({path: .[0], author: .[1], title: .[2], scope: .[3],
+           mission: (.[4] | if . == "" then [] else split(",") end),
+           commit_hash: .[5]})'
 )
 [ -n "$TICKETS" ] || TICKETS='[]'
 
@@ -225,7 +230,7 @@ if [ -d ".workaholic/missions" ]; then
                 | map(select(.slug == $s and ($cutoff == "" or .date >= $cutoff)))
                 | map({date, event, artifact}) ),
               in_flight: ( $tickets
-                | map(select(.mission == $s and .scope != "archive"))
+                | map(select((.mission | index($s)) and .scope != "archive"))
                 | map({path, title, author, scope}) )
             }
         )'

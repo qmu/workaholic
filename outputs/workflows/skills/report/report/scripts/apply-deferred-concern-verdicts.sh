@@ -67,11 +67,8 @@ while IFS="$tab" read -r path verdict rpr rcommit; do
 
   if [ "$verdict" = "resolved" ]; then
     # Read the mission relation before moving (concern frontmatter carries mission:).
-    concern_mission=$(awk '
-      NR == 1 { if ($0 != "---") exit; next }
-      /^---[ \t]*$/ { exit }
-      /^mission:[ \t]*/ { sub(/^mission:[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit }
-    ' "$path" 2>/dev/null || true)
+    # Many-valued: a concern can have blocked more than one mission.
+    concern_missions=$(sh "${SCRIPT_DIR}/../../mission/scripts//read-relation.sh" "$path" 2>/dev/null || true)
     concern_base=$(basename "$path")
 
     awk -v rpr="$rpr" -v rcommit="$rcommit" '
@@ -85,13 +82,14 @@ while IFS="$tab" read -r path verdict rpr rcommit; do
     dest="${archive_dir}/${concern_base}"
     git mv "$path" "$dest" 2>/dev/null || mv "$path" "$dest"
 
-    # A resolved concern that advanced a mission records a "concern resolved
-    # (unstuck)" line on that mission's changelog (idempotent; the mutator
-    # git-stages the mission file). Best-effort — never blocks verdict application.
-    if [ -n "$concern_mission" ]; then
+    # A resolved concern records a "concern resolved (unstuck)" line on EVERY mission it
+    # blocked (idempotent; the mutator git-stages the mission file). Best-effort — never
+    # blocks verdict application.
+    printf '%s\n' "$concern_missions" | while IFS= read -r cm; do
+      [ -n "$cm" ] || continue
       sh "${SCRIPT_DIR}/../../mission/scripts//append-changelog.sh" \
-        "$concern_mission" "concern resolved (unstuck)" "$concern_base" >/dev/null 2>&1 || true
-    fi
+        "$cm" "concern resolved (unstuck)" "$concern_base" >/dev/null 2>&1 || true
+    done
 
     resolved_count=$((resolved_count+1))
     if [ "$first" -eq 1 ]; then

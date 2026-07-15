@@ -97,7 +97,7 @@ effort:
 commit_hash:
 category:
 depends_on:
-mission:                           # optional: the slug of the mission this ticket advances (empty when none)
+mission:                           # optional: every mission this ticket advances — `[slug-a, slug-b]`, or a bare slug for one (empty when none)
 ---
 ```
 
@@ -195,7 +195,9 @@ Before writing, offer to associate the ticket(s) with an existing **mission** �
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list.sh
 ```
 
-If the array contains missions with `status: active`, the command issues one `AskUserQuestion` offering each **active** mission (by `title` + `slug`) plus a **"None"** option, and writes the chosen mission's `slug` into each written ticket's `mission:` frontmatter field (ended — `achieved`/`abandoned` — missions live in the archive area and are never offered: new work does not advance a closed mission). If no active mission exists, or the developer picks "None", leave `mission:` empty. Because the choice is drawn from the list of existing missions, the written slug is valid by construction — no separate slug validation is applied (the field is optional and the pipeline tolerates its absence). Skip this step silently when there are no missions.
+If the array contains missions with `status: active`, the command issues one **`multiSelect: true`** `AskUserQuestion` offering each **active** mission (by `title` + `slug`) plus a **"None"** option, and writes **every** chosen `slug` into each written ticket's `mission:` field — `mission: [alpha, beta]` for two, a bare `mission: alpha` for one (ended — `achieved`/`abandoned` — missions live in the archive area and are never offered: new work does not advance a closed mission). If no active mission exists, or the developer picks "None", leave `mission:` empty. Because the choices are drawn from the list of existing missions, the written slugs are valid by construction — no separate slug validation is applied (the field is optional and the pipeline tolerates its absence). Skip this step silently when there are no missions.
+
+The select is multi because a ticket can genuinely advance more than one mission, and the relation should record that rather than force a choice. Naming a mission is a **commitment, not a label**: `/drive` reads the quality gate of **every** mission a ticket names and the change must satisfy all of them. If the work cannot meet a mission's bar, do not name that mission.
 
 ### 5. Write Ticket(s)
 

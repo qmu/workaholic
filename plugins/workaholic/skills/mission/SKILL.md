@@ -121,6 +121,12 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/slug.sh "<title>"
 Derive a mission slug from a title (lowercase, non-`[a-z0-9]` runs → single hyphen, ends trimmed). The **single source of the slug rule** — both `create.sh` (the mission directory name) and the `/mission` worktree flow (the `.worktrees/<slug>` directory name) derive the slug here, so the worktree directory always matches the mission slug. Emits the slug on stdout (empty when the title has no `[a-z0-9]`).
 
 ```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/read-relation.sh <artifact-file>
+```
+
+Read an artifact's `mission:` relation; prints one slug per line, nothing when absent or empty. The **single source of the relation's shape** — every seam reads through this rather than parsing frontmatter itself. Accepts `mission: [a, b]` and a bare `mission: a` alike, and only ever looks inside the frontmatter block (a body line starting `mission:` is not the relation). Never fails: a missing file, a file with no frontmatter, and an empty field all print nothing. Note this reads a relation **on** an artifact — `mission.md`'s own fields (`title`/`status`/`assignee`/`gate_*`) are read by `list.sh`, `progress.sh`, and `gate.sh` instead.
+
+```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/gate.sh <mission-slug-or-file>
 ```
 
@@ -170,7 +176,11 @@ End a mission — the only sanctioned way. Flips `status` to `achieved` or `aban
 
 ## Automatic Updates (the workflow seams)
 
-The mutators above are called automatically as missioned work moves through the pipeline, so a mission's progress and changelog stay current without hand-editing. Each seam reads the artifact's `mission:` relation (emitted per the frontmatter-linkage schema) and, when non-empty, calls the shared scripts:
+The mutators above are called automatically as missioned work moves through the pipeline, so a mission's progress and changelog stay current without hand-editing. Each seam reads the artifact's `mission:` relation through the single reader — `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/read-relation.sh <artifact>`, which prints one slug per line — and calls the shared scripts **once per slug**:
+
+The relation is **many-valued**: an artifact records every mission it advances (`mission: [alpha, beta]`; a bare `mission: alpha` still reads as one, and is the right spelling for the common case). Looping needs no de-duplication — both mutators are keyed and idempotent, and `tick-acceptance.sh` finds nothing on a mission whose Acceptance does not list that artifact, so each mission reconciles only what it actually claims. Never re-implement the parse in a seam: the field's shape lives in `read-relation.sh` alone, and the four hand-rolled copies that used to exist all truncated a list to nothing **silently**, because every seam is best-effort (`|| true`).
+
+Note the split this rests on: **data is plural, placement is singular.** The relation answers "which missions does this work advance"; it says nothing about where the work happens. A ticket is still driven in exactly one worktree, and `.worktrees/<slug>` stays keyed 1:1 to a mission.
 
 | Seam | Trigger | Changelog event | Acceptance |
 | ---- | ------- | --------------- | ---------- |

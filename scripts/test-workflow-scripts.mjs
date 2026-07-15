@@ -1598,6 +1598,91 @@ Development completed as planned.
       execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim(), "");
   } finally { cleanup(dir); }
 
+  // A ticket advancing TWO missions rolls BOTH, exactly once each. The relation is
+  // many-valued precisely so a real relation never has to be discarded to fit a scalar;
+  // this is the assertion that says so. Note the seams swallow their own errors
+  // (`|| true`), so a half-migrated parser does not fail here — it silently rolls
+  // nothing. That is what this case exists to catch.
+  const dirM = makeRepo("main");
+  try {
+    execSync(`git checkout -q -b work-20260715-mm`, { cwd: dirM });
+    const ticketName = "20260715120000-spans.md";
+    const mk = (slug, title, acceptance) => {
+      const mdir = join(dirM, `.workaholic/missions/active/${slug}`);
+      mkdirSync(mdir, { recursive: true });
+      writeFileSync(join(mdir, "mission.md"), `---
+type: Mission
+title: ${title}
+slug: ${slug}
+status: active
+created_at: 2026-07-15T00:00:00+09:00
+author: test@example.com
+tickets: []
+stories: []
+concerns: []
+---
+
+# ${title}
+
+## Acceptance
+
+${acceptance}
+
+## Changelog
+`);
+      return mdir;
+    };
+    // alpha lists the ticket; beta deliberately does NOT. tick-acceptance keys on the
+    // artifact basename, so beta should gain a changelog line but tick nothing — a
+    // mission only ticks what its own Acceptance actually claims.
+    const aDir = mk("alpha", "Alpha", `- [ ] Land it (#${ticketName})\n- [ ] Something else (#20260715120099-other.md)`);
+    const bDir = mk("beta", "Beta", `- [ ] Unrelated item (#20260715120098-nope.md)`);
+
+    const todoDir = join(dirM, `.workaholic/tickets/todo/${TEST_SLUG}`);
+    mkdirSync(todoDir, { recursive: true });
+    writeFileSync(join(todoDir, ticketName), `---
+created_at: 2026-07-15T12:00:00+09:00
+author: test@example.com
+type: enhancement
+layer: [Domain]
+effort: 0.5h
+commit_hash:
+category:
+depends_on:
+mission: [alpha, beta]
+---
+
+# Spans two missions
+
+## Final Report
+
+Development completed as planned.
+`);
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dirM });
+
+    const env = { ...process.env, GIT_AUTHOR_DATE: "2026-07-15T12:00:00+09:00", GIT_COMMITTER_DATE: "2026-07-15T12:00:00+09:00" };
+    const r = run(dirM, `${POSIX_SH} ${SCRIPTS.archive} .workaholic/tickets/todo/${TEST_SLUG}/${ticketName} "Add spans" https://x/repo "why" "changes" "None" "None" "verify"`, { env });
+    assertEq("archive.sh (two missions) exits 0", r.status, 0);
+
+    const esc = ticketName.replace(/\./g, "\\.");
+    const countLines = (body) => (body.match(new RegExp(`ticket archived — ${esc}`, "g")) || []).length;
+    const aBody = readFileSync(join(aDir, "mission.md"), "utf8");
+    const bBody = readFileSync(join(bDir, "mission.md"), "utf8");
+
+    assertEq("two-mission ticket rolls alpha exactly once", countLines(aBody), 1);
+    assertEq("two-mission ticket rolls beta exactly once", countLines(bBody), 1);
+    assertTrue("two-mission ticket ticks alpha's matching item",
+      new RegExp(`- \\[x\\] Land it \\(#${esc}\\)`).test(aBody), aBody);
+    assertTrue("two-mission ticket leaves alpha's other item unchecked", /- \[ \] Something else/.test(aBody), aBody);
+    assertTrue("two-mission ticket ticks nothing beta does not claim", /- \[ \] Unrelated item/.test(bBody), bBody);
+    assertEq("alpha progress now 1/2",
+      JSON.parse(run(dirM, `${POSIX_SH} ${SCRIPTS.missionProgress} ${join(aDir, "mission.md")}`).stdout), { checked: 1, total: 2 });
+    assertEq("beta progress still 0/1",
+      JSON.parse(run(dirM, `${POSIX_SH} ${SCRIPTS.missionProgress} ${join(bDir, "mission.md")}`).stdout), { checked: 0, total: 1 });
+    assertEq("archive.sh workspace clean after the two-mission roll",
+      execSync(`git status --porcelain`, { cwd: dirM, encoding: "utf8" }).trim(), "");
+  } finally { cleanup(dirM); }
+
   // An un-missioned ticket leaves every mission untouched — even a legacy flat
   // mission dir (no mission script runs, so the living migration never fires).
   const dir2 = makeRepo("main");
@@ -2904,10 +2989,12 @@ mission: ${slug}
 
     // (d) tickets[] carries mission + commit_hash; archived has a hash, todo is empty.
     const tByName = (name) => (j.tickets || []).find((t) => t.path.endsWith(name));
-    assertEq("scan-window tags archived ticket mission", tByName(archName)?.mission, slug);
+    // `mission` is a LIST — an artifact records every mission it advances. A ticket
+    // written with the bare scalar `mission: <slug>` still reads as a one-element list.
+    assertEq("scan-window tags archived ticket mission", JSON.stringify(tByName(archName)?.mission), JSON.stringify([slug]));
     assertTrue("scan-window stamps archived ticket commit_hash",
       /^[0-9a-f]{7,}$/.test(tByName(archName)?.commit_hash || ""), tByName(archName)?.commit_hash);
-    assertEq("scan-window tags todo ticket mission", tByName(flightName)?.mission, slug);
+    assertEq("scan-window tags todo ticket mission", JSON.stringify(tByName(flightName)?.mission), JSON.stringify([slug]));
     assertEq("scan-window todo ticket has empty commit_hash", tByName(flightName)?.commit_hash, "");
 
     // (e) the scan mutated nothing (read-only contract): worktree unchanged.

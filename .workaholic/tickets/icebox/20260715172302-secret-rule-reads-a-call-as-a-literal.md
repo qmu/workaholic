@@ -9,6 +9,25 @@ mission:
 
 # The secret rule reads a function call as a literal, and hard-blocks `/ship` on it
 
+> **Iceboxed 2026-07-15 — superseded, work delivered.** This ticket's argument was accepted
+> and carried out. The developer chose its second direction (**Invert pass 2**), and the
+> inversion shipped in `e3366bfd` via
+> `.workaholic/tickets/archive/work-20260715-112717/20260715181934-invert-secret-pass2-to-match-values.md`,
+> which carried the executable plan and the measured 40-row gate. Both shapes this ticket
+> reported now subtract: `apiKey: keyOption(),` and
+> `const htmlToken: Parser<Inline, null> = map<`.
+>
+> It is kept rather than deleted because the *argument* outlived the fix: a denylist of
+> innocence can never be finished, and four subtractions retrofitted after four incidents is
+> what that looks like from inside. That reasoning is the reason the current rule matches on
+> the value, and it is the thing to re-read before anyone proposes a fifth subtraction.
+>
+> Two claims here were later measured FALSE and should not be trusted on re-read:
+> `record-evidence.sh` does **not** share this file (it keeps an inline copy, and the two
+> have drifted), and the inversion does **not** eliminate enumeration — `apiKey: string` and
+> `password: mysecret123` are the same shape, so a bounded primitive list survives by
+> necessity. See the successor's Findings and Final Report.
+
 ## Motivation
 
 `secret_grep`'s pass 2 subtracts reference-shaped right-hand sides, because reading a key

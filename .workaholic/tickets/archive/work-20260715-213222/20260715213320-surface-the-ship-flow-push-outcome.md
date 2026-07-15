@@ -3,9 +3,9 @@ created_at: 2026-07-15T21:33:20+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Infrastructure]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -80,4 +80,22 @@ The defect is the **`2>&1`**, which throws the diagnosis away, and the **JSON**,
 ## Considerations
 
 - Keep the JSON single-line and non-secret: `push_error` must carry a cause (`non-fast-forward`, `no upstream`, `network`), never a remote URL with credentials. `record-evidence.sh`'s secret guard is a reminder of the standard, not a substitute for judgement.
+
+## Final Report
+
+Development completed as planned. Both pushing scripts now report their outcome (`pushed` plus a classified `push_error`) while staying non-fatal, and the shared logic lives in one new same-skill helper, `ship/scripts/lib/push-outcome.sh`, rather than being written twice. All five gate rows are covered by measured assertions; the suite went 648 → 667 passing, 0 failed.
+
+### Discovered Insights
+
+- **Insight**: The old script already behaved correctly — it exited 0 on a rejected push — and the fail-first run proved it: of the 11 new assertions that went red, *none* were about exit status or extraction. Only the reporting assertions failed.
+  **Context**: This is the cleanest possible evidence that the change is observability and not a behavior change, and it is exactly what the ticket demanded ("the bar is *reported*, not *enforced*"). It also means the prior ticket's `|| true` reasoning was right all along and survives untouched; the defect was never the non-fatality, only the silence. A fail-first run is not just proof the test works — the *shape* of what fails tells you whether you changed what you meant to.
+
+- **Insight**: `push_error` is a classified token, never git's stderr. A remote URL can embed a credential, and this value is printed to stdout and read by `/ship`, so echoing raw stderr would have piped a possible secret into a field the release path reads.
+  **Context**: The natural implementation — `push_error=$(git push 2>&1)` — is the one that leaks. The classification `case` is not defensive styling; it is the boundary. Worth preserving if anyone later wants "more detail" in the error.
+
+- **Insight**: The shared helper cost the bundle nothing, and the prioritizer caught that my own ticket said otherwise. This ticket's Considerations warned "the fix must not widen the bundled closure", implying a same-skill helper might. It cannot: `lib/` sits inside `ship/scripts/`, and `build.mjs`'s `computeClosure()` only follows cross-skill `${SCRIPT_DIR}/../../<skill>/` references. Confirmed by rebuilding — the ship closure is unchanged at `[branching, gather, mission, okf, release-scan, report, ship]`.
+  **Context**: The same correction applies to the next ticket, which carries a stronger version of the same warning: `extract-deferred-concerns.sh` *already* calls `../../report/scripts/migrate-concern-identity.sh`, so the ship→report edge exists today and a shared slugify under `report/scripts/` is free. Both warnings were written from caution rather than measurement.
+
+- **Insight**: `commit-release-note.sh`'s push failing is worse than the concern push failing, and nothing said so. If the concern push fails, `main` is briefly ahead of `origin/main` — untidy, recoverable. If the release-note push fails, the note is committed locally but **is not on the branch the PR merges**, so the merge silently drops it and the release ships without its note.
+  **Context**: It carried the identical swallow with zero push tests. The SKILL.md step-5 note now says to push before step 6 on `pushed: false`, because unlike step 8 this one is not merely untidy — it changes what reaches production.
 - The fix must not widen the bundled closure: solve it inside the script rather than by calling another skill's script (`build.mjs`'s `computeClosure()` detects cross-skill `${SCRIPT_DIR}/../../<skill>/` references and would pull that skill in).

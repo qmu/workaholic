@@ -1049,6 +1049,65 @@ function testTicketCommitsDerivation() {
 // whether a line holds a secret or merely references one. Reading a key from the environment
 // or passing it in a variable is the correct way to handle secrets — flagging that punished
 // good code and hard-blocked /ship (secret is non-overridable) on pure false positives.
+function testReleaseScanSecretSuffixedKeywords() {
+  // secret_grep is a sourced stdin filter, so drive it directly — no repo needed. The
+  // candidate line goes in on stdin rather than as an argument: execSync runs its command
+  // through an outer shell, which would expand a `$1` in the script before the inner sh
+  // ever saw it.
+  const LIB = join(REPO_ROOT, "plugins/workaholic/skills/release-scan/scripts/lib/secret-patterns.sh");
+  const tmp = mkdtempSync(join(tmpdir(), "secretgrep-"));
+  const runner = join(tmp, "run.sh");
+  writeFileSync(runner, `. ${LIB}\nsecret_grep >/dev/null 2>&1 && echo yes || echo no\n`);
+  const hits = (line) =>
+    execSync(`${POSIX_SH} ${runner}`, { input: `${line}\n`, encoding: "utf8" }).trim() === "yes";
+
+  // Guard the harness itself: if these two ever agree, the runner is broken and every
+  // assertion below is vacuous — which is exactly how this test first "passed".
+  assertTrue("harness detects a known-positive", hits('api_key = "hunter2value"'), "runner should report a hit");
+  assertTrue("harness stays silent on a known-negative", !hits("just some ordinary prose"), "runner should report no hit");
+
+  // A prefix always worked; a SUFFIX used to be fatal, so these five walked straight
+  // through the one tier that cannot be waived — including Django's SECRET_KEY and the
+  // exact key name AWS's own config files use.
+  for (const line of [
+    'SECRET_KEY = "django-insecure-abc123xyz"',
+    'secret_key = "hunter2value"',
+    'aws_secret_access_key = "wJalrXUtnFEMIKEXAMPLE"',
+    'access_key_id = "hunter2value"',
+    'refresh_token_value = "hunter2value"',
+  ]) assertTrue(`secret detects suffixed keyword: ${line.split(" ")[0]}`, hits(line), `should flag: ${line}`);
+
+  // No regression on what already worked.
+  for (const line of [
+    'secret = "hunter2value"',
+    'client_secret = "hunter2value"',
+    'api_key = "hunter2value"',
+    'token = "hunter2value"',
+    "AKIAIOSFODNN7EXAMPLE",
+  ]) assertTrue(`secret still detects: ${line.split(" ")[0]}`, hits(line), `should still flag: ${line}`);
+
+  // The dangerous half. `secret` is non-overridable, so a false positive here cannot be
+  // waived and permanently bricks a branch's /ship — that has already happened once in
+  // production. Every subtraction must survive the widened keyword group.
+  for (const line of [
+    "SECRET_KEY = process.env.DJANGO_SECRET",
+    "aws_secret_access_key: ${AWS_SECRET}",
+    "secret_key = someVar,",
+    "api_key: {{tpl}}",
+    'token = "<placeholder>"',
+    'SECRET_KEY = os.environ["DJANGO_SECRET"]',
+    "access_key_id: config.awsKeyId,",
+    'refresh_token_value = getenv("RT")',
+  ]) assertTrue(`secret stays silent on a reference: ${line.slice(0, 26)}`, !hits(line), `false positive on: ${line}`);
+
+  // The suffix must start with `_` or `-`. An alphanumeric continuation is a different
+  // word, not a suffixed key — this is what keeps the widening from eating real code.
+  for (const line of ['tokenizer = "gpt-4-tokenizer"', 'const tokenized = "abcdefgh"'])
+    assertTrue(`secret stays silent on a word continuation: ${line.slice(0, 22)}`, !hits(line), `false positive on: ${line}`);
+
+  rmSync(tmp, { recursive: true, force: true });
+}
+
 function testReleaseScanSecretLiteralVsReference() {
   const dir = makeRepo("main");
   try {
@@ -3477,6 +3536,7 @@ const tests = [
   ["report/ticket-commits.sh derivation", testTicketCommitsDerivation],
   ["release-scan branch-safety engine", testReleaseScanEngine],
   ["release-scan secret literal vs reference", testReleaseScanSecretLiteralVsReference],
+  ["release-scan secret suffixed keywords", testReleaseScanSecretSuffixedKeywords],
   ["release-scan allowlist", testReleaseScanAllowlist],
   ["release-scan gate decision", testReleaseScanGateDecision],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],

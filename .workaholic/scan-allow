@@ -21,6 +21,16 @@ outputs/workflows/skills/*/release-scan/**
 # The engine ticket documents the credential / internal-hostname patterns in prose.
 .workaholic/tickets/**/*release-scan*
 
+# Tickets about the scanner itself have the same problem in a sharper form: a ticket
+# arguing that `SECRET_KEY = "..."` is missed must SHOW the line it is missed on, and the
+# whole point of the fix is that the line now matches. Writing about the gate trips the
+# gate. Matched by name, not by an exact path, so the exemption survives the todo ->
+# archive move; kept narrow rather than `tickets/**` because a ticket can legitimately
+# carry a pasted credential and those must stay scanned.
+.workaholic/tickets/**/*secret-pattern-misses*
+.workaholic/tickets/**/*secret-scan-flags*
+.workaholic/tickets/**/*remove-dead-leak-rule*
+
 # Same reason, for the story that narrates the false-positive fix: prose describing the
 # rule cannot avoid the rule -- even ordinary English phrasing parses as an assignment,
 # and the illustrations are the very shapes under discussion. Exempted by exact path,

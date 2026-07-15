@@ -30,6 +30,21 @@
 # keeps those safe — a real `.env` value ends the line, whereas a variable reference is
 # followed by `,` `;` `)` or `}`.
 
+# The credential key group, defined ONCE and reused by the match and by every
+# subtraction below. They repeat the group on purpose (each must bind to its own matched
+# key's right-hand side), so they must stay byte-identical — a group that drifts out of
+# step either lets a real secret through or hard-blocks good code on a tier that cannot
+# be waived. Interpolate `${_SP_KEY}`; never re-spell it inline.
+#
+# The `([_-][A-Za-z0-9_-]*)?` tail is what allows a SUFFIX after the keyword. A prefix
+# always worked (`client_secret`), but a suffix used to be fatal, so `SECRET_KEY`,
+# `secret_key`, `aws_secret_access_key` and `refresh_token_value` all passed straight
+# through the non-overridable tier — including Django's SECRET_KEY and the exact key name
+# AWS's own config files use. The tail requires the suffix to start with `_` or `-`, which
+# is what keeps `tokenizer = "gpt-4"` and friends out: an alphanumeric continuation is not
+# a separate word and is not matched.
+_SP_KEY='(password|passwd|secret|token|api[_-]?key|access[_-]?key)([_-][A-Za-z0-9_-]*)?'
+
 # Reads stdin, prints matching lines, returns 1 when nothing matched.
 secret_grep() {
     _sp_input=$(cat)
@@ -47,14 +62,14 @@ secret_grep() {
 
             # ---- pass 2: generic assignments, minus reference-shaped right-hand sides ----
             printf '%s\n' "$_sp_input" \
-                | grep -Ei -e '(password|passwd|secret|token|api[_-]?key)[[:space:]]*[:=][[:space:]]*[^[:space:]]{6,}' \
+                | grep -Ei -e "${_SP_KEY}[[:space:]]*[:=][[:space:]]*[^[:space:]]{6,}" \
                 | grep -Eiv \
-                    -e '(password|passwd|secret|token|api[_-]?key)[[:space:]]*[:=][[:space:]]*(process\.env|import\.meta\.env|os\.environ|Deno\.env|ENV\[|getenv|System\.getenv)' \
-                    -e '(password|passwd|secret|token|api[_-]?key)[[:space:]]*[:=][[:space:]]*[$][{]?[A-Za-z_]' \
-                    -e '(password|passwd|secret|token|api[_-]?key)[[:space:]]*[:=][[:space:]]*[{][{]' \
-                    -e '(password|passwd|secret|token|api[_-]?key)[[:space:]]*[:=][[:space:]]*<[A-Za-z_][A-Za-z0-9_ -]*>' \
-                    -e '(password|passwd|secret|token|api[_-]?key)[[:space:]]*[:=][[:space:]]*["'"'"'][^A-Za-z0-9]' \
-                    -e '(password|passwd|secret|token|api[_-]?key)[[:space:]]*[:=][[:space:]]*[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z0-9_$]+)*[[:space:]]*[,;)}]' \
+                    -e "${_SP_KEY}[[:space:]]*[:=][[:space:]]*(process\.env|import\.meta\.env|os\.environ|Deno\.env|ENV\[|getenv|System\.getenv)" \
+                    -e "${_SP_KEY}[[:space:]]*[:=][[:space:]]*[\$][{]?[A-Za-z_]" \
+                    -e "${_SP_KEY}[[:space:]]*[:=][[:space:]]*[{][{]" \
+                    -e "${_SP_KEY}[[:space:]]*[:=][[:space:]]*<[A-Za-z_][A-Za-z0-9_ -]*>" \
+                    -e "${_SP_KEY}[[:space:]]*[:=][[:space:]]*[\"'][^A-Za-z0-9]" \
+                    -e "${_SP_KEY}[[:space:]]*[:=][[:space:]]*[A-Za-z_\$][A-Za-z0-9_\$]*(\.[A-Za-z0-9_\$]+)*[[:space:]]*[,;)}]" \
                 || true
         } | grep -v '^[[:space:]]*$' | sort -u
     )

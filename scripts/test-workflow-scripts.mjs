@@ -15,7 +15,7 @@
 
 import { cpSync, mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync, existsSync, statSync, chmodSync, readdirSync } from "node:fs";
 import { execSync } from "node:child_process";
-import { join, resolve, dirname } from "node:path";
+import { join, resolve, dirname, basename } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 
@@ -72,6 +72,8 @@ const SCRIPTS = {
   guardGitCommit: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-commit.sh"),
   guardGitBranch: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-branch.sh"),
   guardRepoConfinement: join(REPO_ROOT, "plugins/workaholic/hooks/guard-repo-confinement.sh"),
+  resolveTarget: join(REPO_ROOT, "plugins/workaholic/skills/request/scripts/resolve-target.sh"),
+  fileRequest: join(REPO_ROOT, "plugins/workaholic/skills/request/scripts/file-request.sh"),
   guardAskLabel: join(REPO_ROOT, "plugins/workaholic/hooks/guard-askuserquestion-label.sh"),
   guardWorkingDir: join(REPO_ROOT, "plugins/workaholic/hooks/guard-working-directory.sh"),
   auditClaudeMd: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/audit-claude-md.sh"),
@@ -2974,6 +2976,75 @@ function testGuardGitCommit() {
 // REAL, non-mock: feeds the actual guard a crafted tool_input.command and asserts
 // it BLOCKS (exit 2) off-pattern / variable / missing branch-creation names and
 // ALLOWS work-YYYYMMDD-HHMMSS creation, read/delete/list forms, and non-create cmds.
+function testRequestScripts() {
+  const tmp = mkdtempSync(join(tmpdir(), "request-"));
+  const src = join(tmp, "source-repo");
+  const tgt = join(tmp, "target-repo");
+  const git = (cwd, args) => execSync(`git ${args}`, { cwd, stdio: "ignore" });
+  for (const r of [src, tgt]) {
+    mkdirSync(r, { recursive: true });
+    git(r, "init -q");
+    git(r, "config user.email a@qmu.jp");
+    git(r, "config user.name t");
+    writeFileSync(join(r, "a.md"), "x\n");
+    git(r, "add -A");
+    git(r, "-c commit.gpgsign=false commit -qm base");
+  }
+  const json = (cwd, script, args) => {
+    try {
+      return JSON.parse(execSync(`${POSIX_SH} ${script} ${args}`, { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }));
+    } catch (e) { return { ok: false, error: `threw: ${e.status}` }; }
+  };
+  const q = (s) => `"${s}"`;
+
+  // resolve-target refuses the source repo itself — that is /ticket's job, not /request's.
+  const self = json(src, SCRIPTS.resolveTarget, q(src));
+  assertEq("resolve-target refuses this repo", self.ok, false);
+  assertTrue("resolve-target names /ticket", /\/ticket/.test(self.error || ""), "should route to /ticket");
+  assertEq("resolve-target refuses a missing dir", json(src, SCRIPTS.resolveTarget, q(join(tmp, "nope"))).ok, false);
+  const ok = json(src, SCRIPTS.resolveTarget, q(tgt));
+  assertEq("resolve-target resolves a real repo", ok.ok, true);
+  assertEq("resolve-target reports the name", ok.name, "target-repo");
+
+  const body = (name, text) => { const p = join(tmp, name); writeFileSync(p, text); return p; };
+  const clean = body("clean.md", "---\ntype: enhancement\n---\n\n# Request\n\nA consumer repo needs the guard.\n");
+
+  // Mechanical refusals.
+  assertEq("file-request refuses an empty body", json(src, SCRIPTS.fileRequest, `${q(tgt)} 20260715130000-x.md ${q(body("empty.md", ""))}`).ok, false);
+  assertEq("file-request refuses a malformed filename", json(src, SCRIPTS.fileRequest, `${q(tgt)} notaticket.md ${q(clean)}`).ok, false);
+  assertEq("file-request refuses the source repo as target", json(src, SCRIPTS.fileRequest, `${q(src)} 20260715130000-x.md ${q(clean)}`).ok, false);
+
+  // The backstop knows only this repo's own name and path.
+  const named = body("named.md", `A ticket that still says ${basename(src)} in the text.\n`);
+  assertEq("file-request refuses a body naming the source repo", json(src, SCRIPTS.fileRequest, `${q(tgt)} 20260715130000-x.md ${q(named)}`).ok, false);
+
+  // Happy path, and no double-file.
+  const filed = json(src, SCRIPTS.fileRequest, `${q(tgt)} 20260715130000-x.md ${q(clean)}`);
+  assertEq("file-request files a clean body", filed.ok, true);
+  assertTrue("file-request lands in the target's todo queue",
+    filed.path.startsWith(join(tgt, ".workaholic/tickets/todo/")), `landed at ${filed.path}`);
+  assertEq("file-request refuses a duplicate", json(src, SCRIPTS.fileRequest, `${q(tgt)} 20260715130000-x.md ${q(clean)}`).ok, false);
+
+  // THE POINT. Real leaked sentences from the incident carry no reference to this repo,
+  // so the mechanical backstop cannot see them and files them without complaint. This is
+  // asserted, not lamented: it is why the developer confirmation in the /request workflow
+  // is non-skippable. If a future change makes these fail here, the confirmation has
+  // probably been quietly demoted to a pattern match — read request/SKILL.md §1 first.
+  const realLeaks = [
+    "The house tsconfig lives at packages/realestate-mcp/tsconfig.json.",
+    "Repro moved seiho-target-matrix.pdf (798.1KB) into /My Drive.",
+    'The fixture uses the mail label "HSS-sama" as a user label.',
+    "Port 5173 collides with poc-host.example.dev on this host.",
+  ];
+  realLeaks.forEach((text, i) => {
+    const p = body(`leak-${i}.md`, `---\ntype: bugfix\n---\n\n# Request\n\n${text}\n`);
+    const r = json(src, SCRIPTS.fileRequest, `${q(tgt)} 2026071513100${i}-x.md ${q(p)}`);
+    assertEq(`file-request cannot detect leak #${i + 1} (by design — the human gate does)`, r.ok, true);
+  });
+
+  rmSync(tmp, { recursive: true, force: true });
+}
+
 function testGuardRepoConfinement() {
   const HOOK = SCRIPTS.guardRepoConfinement;
   let hasJq = true;
@@ -3443,6 +3514,7 @@ const tests = [
   ["hooks/guard-git-commit.sh", testGuardGitCommit],
   ["hooks/guard-git-branch.sh", testGuardGitBranch],
   ["hooks/guard-repo-confinement.sh", testGuardRepoConfinement],
+  ["request/scripts", testRequestScripts],
   ["hooks/guard-askuserquestion-label.sh", testGuardAskUserQuestionLabel],
   ["workaholify/audit-claude-md.sh", testAuditClaudeMd],
   ["hooks/guard-working-directory.sh", testGuardWorkingDirectory],

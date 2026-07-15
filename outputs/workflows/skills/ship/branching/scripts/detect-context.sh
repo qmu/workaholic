@@ -15,18 +15,41 @@ if [ -z "$branch" ]; then
   exit 0
 fi
 
+# Resolve the trip directory belonging to THIS branch, or empty when the branch owns none.
+#
+# The ONLY trip<->branch association this repository records is the legacy naming
+# convention: branch trip/<name> owns .workaholic/trips/<name>. A modern work-* branch
+# stores no link to any trip -- init-trip.sh records no branch, plan.md carries no branch
+# field, and a trip's branch is an independent work-YYYYMMDD-HHMMSS minted by create.sh.
+# So a work-* branch cannot truthfully claim a trip, and this returns empty for it.
+#
+# This replaced a repo-wide `find` for ANY trip directory, which made has_trips a property
+# of the repository instead of the branch: once .workaholic/trips/trip-20260319-040153/
+# landed on main in March 2026, every branch after it reported trip or hybrid forever.
+# The asymmetry was inside one function -- the ticket half three lines below was already
+# scoped to USER_SLUG, deliberately and with a comment.
+#
+# Giving work-* branches a real association is a deliberate, separate decision, not a
+# thing to infer here: detect-context.sh also emits trip_name only for trip/* branches, so
+# report/SKILL.md's Trip Mode step 3 cannot resolve <trip-name> on a work-* branch either.
+# The association must answer both, and inventing one inside a bugfix would make the
+# detector wrong in a NEW way -- worse than wrong in a known one.
+branch_trip_dir() {
+  case "$branch" in
+    trip/*) printf '%s' "${root}/.workaholic/trips/${branch#trip/}" ;;
+    *) printf '' ;;
+  esac
+}
+
 # Detect mode from workspace artifacts
 detect_mode() {
-  trips_dir="${root}/.workaholic/trips"
   todo_dir="${root}/.workaholic/tickets/todo"
   has_trips=false
   has_tickets=false
 
-  if [ -d "$trips_dir" ]; then
-    trip_dirs=$(find "$trips_dir" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
-    if [ "$trip_dirs" -gt 0 ]; then
-      has_trips=true
-    fi
+  trip_dir=$(branch_trip_dir)
+  if [ -n "$trip_dir" ] && [ -d "$trip_dir" ]; then
+    has_trips=true
   fi
 
   # Scope the count to the current user's subdirectory so another developer's

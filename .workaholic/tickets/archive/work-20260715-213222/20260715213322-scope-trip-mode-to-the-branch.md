@@ -3,9 +3,9 @@ created_at: 2026-07-15T21:33:22+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Infrastructure]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -82,3 +82,33 @@ There is direct precedent for the fix. The archived concern `.workaholic/concern
 
 - Do not solve this by deleting or relocating the March trip directory. It is a legitimate historical artifact and `trips/` is the recorded *why* behind past work; the detector is what is wrong.
 - If no clean branch↔trip association exists, say so rather than inventing a fragile one (e.g. matching on branch name inside `plan.md`). A detector that is wrong in a *new* way is worse than one that is wrong in a known way — record the finding and propose the association as its own decision.
+
+## Final Report
+
+Development completed, but **not as planned** — the Considerations' escape hatch fired, and the developer took it.
+
+**The finding: no branch↔trip association exists at all.** The ticket's step 1 assumed one could be reused ("use the association the repo already relies on"). It cannot, because for a modern `work-*` branch there is none. Verified on four independent points:
+
+- `init-trip.sh` records no branch anywhere.
+- `plan.md` frontmatter carries `instruction`/`phase`/`step`/`iteration`/`updated_at` — no branch. Confirmed on the real March artifact.
+- `read-plan.sh` exposes no branch field.
+- A trip's branch comes from `create.sh` as an independent `work-YYYYMMDD-HHMMSS`, unrelated to the trip name.
+
+The only association that exists is the legacy `trip/<name>` → `trips/<name>` naming convention.
+
+**This forced a conflict between the ticket's own two halves**, which is why it went back to the developer rather than being resolved silently. The Quality Gate demanded "a branch with its own trip dir → `mode: trip`"; the Considerations forbade inventing the association that row requires. Both could not hold. The developer chose the **narrow fix**: `has_trips` is now sourced solely from the legacy `trip/<name>` association, so a `work-*`/`drive-*` branch never claims a trip. The "own trip dir" gate row is satisfied only for `trip/*` branches — it is currently unrepresentable for `work-*` ones, and that row was dropped as such rather than faked.
+
+Two candidate associations were costed and rejected as decisions too big to make inside a bugfix: a **git-history** test (untracked, or introduced by `main..HEAD`) — attractive because it needs no new metadata and reuses the trunk assumption the script already makes at line 81, but it silently decides the association and misreads stacked branches; and **stamping `branch:` into `plan.md`** — which is literally the anti-example the Considerations name, and breaks when a trip is resumed on another branch.
+
+**Gate results.** Watched it fail first (backing the file up before reverting, not after — see the insights): the two corrected `work-*` assertions went red on the old script, then green. Full suite 694 passed / 0 failed. Real-repository check, which is the one that matters here: this branch, still holding `.workaholic/trips/trip-20260319-040153/`, now reports `{"mode": "drive"}` where it reported `trip` this morning. `posix-lint` conforming; `verify.mjs` and `validate-metadata.mjs` pass; `build.mjs` touched exactly the four bundled copies the ticket predicted.
+
+### Discovered Insights
+
+- **Insight**: The trip path is **inoperative end-to-end for modern branches, not merely mis-detected** — a strictly larger finding than the ticket describes. `detect-context.sh` emits `trip_name` only for `trip/*` branches, so `report/SKILL.md`'s Trip Mode step 3 ("if a `.workaholic/trips/<trip-name>/` directory exists for this branch") cannot resolve `<trip-name>` on a `work-*` branch either.
+  **Context**: This reframes the deferred work. The follow-up is not "scope a boolean" but "define the trip↔branch association", and it must answer `has_trips` **and** `trip_name` together — two consumers, one missing fact. Fixing either alone leaves the other silently wrong. It also explains why the impact was nil: the mode was wrong, but nothing downstream could act on it anyway.
+
+- **Insight**: The ticket's Motivation is the strongest argument in it: this defect was **written down verbatim in a story and shipped anyway** (`work-20260713-144839.md:124`), because a story observation carries no obligation — no ticket, no concern, so the corpus never held it and it resurfaced two days later.
+  **Context**: The lesson generalizes past this fix. `/report`'s section 6 is the seam where an observation becomes a tracked obligation; anything noticed but left in prose is, in practice, discarded. That is precisely what makes the deferred association above worth filing rather than leaving in this report.
+
+- **Insight**: The asymmetry was the tell, and it was visible in three lines of one function. The ticket half was scoped to `USER_SLUG` **with a comment explaining why**; the trips half three lines above was repo-wide. A reviewer who asked "why is one predicate scoped and its neighbour not?" would have found this in March.
+  **Context**: Two predicates feeding one decision should share a scope, and a comment justifying one of them is a standing invitation to ask about the other. Worth noting the archived concern `30-the-detect-context-sh-change-introduces` flagged exactly this class and was marked **resolved** — for the ticket half only. "Resolved" on a class-level concern deserves a check that every member of the class was actually fixed.

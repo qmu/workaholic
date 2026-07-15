@@ -9,7 +9,7 @@ origin_branch: work-20260714-000543
 origin_commit: a1bb87a
 created_at: 2026-07-14T16:15:36+09:00
 first_seen: 2026-07-14T16:15:36+09:00
-last_seen: 2026-07-14T16:15:36+09:00
+last_seen: 2026-07-15T20:55:56+09:00
 severity: low
 status: active
 resolved_by_pr: 
@@ -20,8 +20,9 @@ resolved_by_commit:
 
 ## Description
 
-`report/SKILL.md` step 1 says "force `releasable: false` on a block," but the scan now has an `override` tier that should warn-and-record rather than block. The release-readiness pass handled this correctly (it treated the override size finding as non-blocking), but the wording should distinguish `hard`/`confirm` (force not-releasable) from `override` (warn).
+`report/SKILL.md` still says "if `verdict` is `block` … force `releasable: false`", keyed off the binary verdict, so a lone override-tier size finding forces not-releasable. `release-scan/SKILL.md` asserts the same un-tiered behavior, so a fix must reconcile both.
 
 ## How to Fix
 
-Reconcile the step-1 wording to key off severity, not just "block."
+Key the wording off severity: hard/confirm force `releasable: false`; override warns and records.
+

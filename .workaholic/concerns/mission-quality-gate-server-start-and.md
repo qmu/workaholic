@@ -9,7 +9,7 @@ origin_branch: work-20260714-000543
 origin_commit: a1bb87a
 created_at: 2026-07-14T16:15:36+09:00
 first_seen: 2026-07-14T16:15:36+09:00
-last_seen: 2026-07-14T16:15:36+09:00
+last_seen: 2026-07-15T20:55:56+09:00
 severity: low
 status: active
 resolved_by_pr: 
@@ -20,8 +20,9 @@ resolved_by_commit:
 
 ## Description
 
-The per-mission gate declares the check and supplies the worktree port, but the server-start command is project-owned and the live Playwright verification is an in-session step, not covered by the hermetic suite (the schema round-trip is).
+`gate.sh` is declaration-and-ports only; the server start and the Playwright drive are in-session steps outside the suite (see `plugins/workaholic/skills/mission/scripts/gate.sh`).
 
 ## How to Fix
 
-If the run-side grows, split the declaration from the verification-run at drive time.
+Split declaration from verification-run if the run side grows.
+

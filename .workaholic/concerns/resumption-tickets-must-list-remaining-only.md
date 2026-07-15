@@ -4,7 +4,7 @@ origin_pr_url: https://github.com/qmu/workaholic/pull/67
 origin_branch: work-20260701-093015
 origin_commit: 21a5f49
 created_at: 2026-07-01T13:35:59+09:00
-last_seen: 2026-07-01T13:35:59+09:00
+last_seen: 2026-07-15T20:55:56+09:00
 first_seen: 2026-07-01T13:35:59+09:00
 concern_id: resumption-tickets-must-list-remaining-only
 severity: moderate
@@ -29,8 +29,9 @@ resolved_by_commit:
 
 ## Description
 
-`/carry` + `/drive` correctness depends on `/drive` implementing every `## Implementation Steps` entry with no "already done" concept; a resumption ticket that includes completed steps risks re-running them (see [386af5e](https://github.com/qmu/workaholic/commit/386af5e) in `plugins/workaholic/skills/carry/SKILL.md`).
+The remaining-only rule is prose in four places in `carry/SKILL.md`; `carry-checkpoint.sh` never inspects the ticket body and `validate-ticket.sh` checks frontmatter and location only, so nothing enforces it. Re-graded urgent → moderate during this branch's triage ([9d81dd3a](https://github.com/qmu/workaholic/commit/9d81dd3a)): the first real resumption ticket to reach a drive — `20260715181934-invert-secret-pass2-to-match-values.md` — follows the rule cleanly and even declared its own origin superseded, and `/drive`'s approval gate sits downstream.
 
 ## How to Fix
 
-The rule is stated as the first carry Writing Guideline (completed work goes in the Overview as context). Consider enforcing it in a carry-ticket template or a lint that strips completed steps before writing the resumption ticket.
+Add a body-section lint. Re-grade to urgent only if a resumption ticket is observed re-listing done steps.
+

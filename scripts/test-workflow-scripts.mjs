@@ -190,12 +190,52 @@ function testDetectContext() {
       context: "work", branch: "work-20260528-foo", mode: "drive",
     });
 
-    // Add a trip dir -> mode flips to hybrid (both trips and tickets present)
+    // An unrelated trip dir must NOT flip a work-* branch's mode. This assertion used to
+    // read "-> hybrid", which stated the defect as the contract: has_trips was a repo-wide
+    // find for ANY trip directory, so the single March 2026 trip dir committed to main made
+    // every branch after it report trip/hybrid forever. Observed on work-20260715-112717, a
+    // pure drive branch, where /report detected mode: "trip".
+    //
+    // A work-* branch owns no trip: the only trip<->branch association the repo records is
+    // the legacy trip/<name> naming, and init-trip.sh stores no branch anywhere.
     mkdirSync(join(dir, ".workaholic/trips/some-trip"), { recursive: true });
     r = run(dir, `${POSIX_SH} ${SCRIPTS.detectContext}`);
-    assertEq("detectContext on work-* with trips+tickets -> hybrid", JSON.parse(r.stdout), {
-      context: "work", branch: "work-20260528-foo", mode: "hybrid",
+    assertEq("detectContext on work-* ignores an unrelated trip dir (tickets present)", JSON.parse(r.stdout), {
+      context: "work", branch: "work-20260528-foo", mode: "drive",
     });
+
+    // The exact state of work-20260715-112717 when /report misfired: unrelated trip dir,
+    // no tickets of this user's. Must still be drive, not trip.
+    rmSync(join(dir, `.workaholic/tickets/todo/${TEST_SLUG}/x.md`));
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.detectContext}`);
+    assertEq("detectContext on work-* ignores an unrelated trip dir (no tickets)", JSON.parse(r.stdout), {
+      context: "work", branch: "work-20260528-foo", mode: "drive",
+    });
+    writeFileSync(join(dir, `.workaholic/tickets/todo/${TEST_SLUG}/x.md`), "---\n---\n");
+
+    // The real trip case still detects, via the one association that exists: trip/<name>
+    // owns trips/<name>. With this user's ticket present too, that is hybrid.
+    execSync(`git checkout -q -b trip/some-trip`, { cwd: dir });
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.detectContext}`);
+    assertEq("detectContext on trip/<name> owning its trip dir -> hybrid", JSON.parse(r.stdout), {
+      context: "work", branch: "trip/some-trip", mode: "hybrid", trip_name: "some-trip",
+    });
+
+    // Same branch, no tickets -> trip.
+    rmSync(join(dir, `.workaholic/tickets/todo/${TEST_SLUG}/x.md`));
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.detectContext}`);
+    assertEq("detectContext on trip/<name> owning its trip dir, no tickets -> trip", JSON.parse(r.stdout), {
+      context: "work", branch: "trip/some-trip", mode: "trip", trip_name: "some-trip",
+    });
+
+    // The name-based floor survives: a trip/* branch is a trip by name even with no dir.
+    execSync(`git checkout -q -b trip/no-dir-at-all`, { cwd: dir });
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.detectContext}`);
+    assertEq("detectContext on trip/* with no trip dir keeps the name-based floor", JSON.parse(r.stdout), {
+      context: "work", branch: "trip/no-dir-at-all", mode: "trip", trip_name: "no-dir-at-all",
+    });
+    writeFileSync(join(dir, `.workaholic/tickets/todo/${TEST_SLUG}/x.md`), "---\n---\n");
+    execSync(`git checkout -q work-20260528-foo`, { cwd: dir });
 
     // Drive-* legacy alias
     execSync(`git checkout -q -b drive-legacy`, { cwd: dir });

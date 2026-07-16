@@ -11,9 +11,10 @@ created_at: 2026-07-15T20:55:56+09:00
 first_seen: 2026-07-15T20:55:56+09:00
 last_seen: 2026-07-15T20:55:56+09:00
 severity: moderate
-status: active
+status: superseded
 resolved_by_pr: 
 resolved_by_commit: 
+superseded_by: closing-the-default-commit-path-routes
 ---
 
 # The commit-subject rule binds on no path — including the sanctioned one

@@ -298,7 +298,7 @@ mission:
 
 The standard engineering policies — synced from the corporate site (qmu.co.jp) into the `workaholic` policy skills — that govern this ticket. The implementing session **MUST** read each linked policy hard copy before writing code and keep every change defensible against that policy's Goal (目標), Responsibility (責務), and Practices (実践). `/drive` and `/trip` both consume this section verbatim — it is the recorded, confirmable list of which standard policies the implementation answers to.
 
-This section is **mandatory and never empty**. A code-touching ticket always lists at least the two universal implementation policies; add the pillar policies the `layer` field selects (see the Policy Lens table) plus any specific policy the policy-mode discovery surfaced.
+This section is **mandatory and never empty**, and that is now **machine-checked**, not merely prose: `hooks/validate-ticket.sh` rejects a ticket written to `todo/<user>/` whose `## Policies` heading is absent or has nothing under it. A code-touching ticket always lists at least the two universal implementation policies; add the pillar policies the `layer` field selects (see the Policy Lens table) plus any specific policy the policy-mode discovery surfaced.
 
 - `implementation` / `policies/directory-structure.md` — conventional project layout (applies to all code work)
 - `implementation` / `policies/coding-standards.md` — TypeScript/style conventions (applies to all code work)
@@ -326,6 +326,8 @@ Past tickets that touched similar areas:
 ## Quality Gate
 
 How the outcome's quality is assured, captured from the developer at ticket time (Workflow Step 4b). `/drive` surfaces this in its approval prompt and forwards it into the commit `Verify:` key, so the approval is concrete: the implementation is approved against a pre-agreed, checkable gate. **Mandatory and never empty** for a code-touching ticket; every line must be objective and verifiable (`implementation` / `objective-documentation`).
+
+This is **machine-checked**: `hooks/validate-ticket.sh` rejects a ticket written to `todo/<user>/` whose `## Quality Gate` heading is absent or has nothing under it. The hook checks *presence*, never *quality* — whether a gate is any good is semantic, and stays the job of the Step 4b interrogation and the developer. Note the check is scoped to `todo/<user>/`: archived tickets are history and are never retro-blocked, and the hook is `PostToolUse`, so it reviews after the write rather than preventing it.
 
 **Acceptance criteria** — the checkable conditions that must hold:
 

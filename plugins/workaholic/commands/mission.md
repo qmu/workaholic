@@ -19,15 +19,19 @@ This command (main agent) runs the preloaded `workaholic:mission` skill. A **mis
 
 `$ARGUMENT` selects the mode. Match `summary` **first** (before the title branch, so the literal word `summary` reports rather than becoming a mission title), then the empty and `close` branches, then any other non-empty value as a title.
 
-## `summary` — my assigned missions
+## `summary` — the missions that are my business
 
-When `$ARGUMENT` is exactly `summary`, report the current user's **assigned active** missions and stop — a read-only view that creates nothing:
+When `$ARGUMENT` is exactly `summary`, report the **active** missions that are the current user's business and stop — a read-only view that creates nothing:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/summary.sh
 ```
 
-The script lists only missions whose `assignee` matches your `git config user.email` and whose `status` is `active` (the same gate the mission lens uses), each with computed `checked/total` progress and its next unchecked acceptance item. Present the returned array as one line per mission — `title` (`slug`) — `checked/total`, then `next: <item>`. If the array is empty, tell the user no active mission is assigned to them and that `/mission` (bare) lists everyone's missions and `/mission "<title>"` starts one.
+The script reports every `active` mission that is **not somebody else's** (the same gate the mission lens uses): those whose `assignee` matches your `git config user.email`, followed by **unassigned** ones — unclaimed work is closer to your business than a colleague's mission, so it is offered rather than hidden. Missions assigned to another developer are excluded. Each entry carries computed `checked/total` progress, its next unchecked acceptance item, and its `assignee` (empty when unassigned).
+
+Present the returned array as one line per mission — `title` (`slug`) — `checked/total`, then `next: <item>`. **Render an unassigned mission distinguishably** — read the entry's `assignee` field (do not re-derive it from the file) and mark an empty one as unclaimed and claimable, so it never reads as work the developer has already taken on. The array is ordered for you: yours first, unassigned after.
+
+If the array is empty, tell the user no active mission is theirs or unclaimed, and that `/mission` (bare) lists everyone's missions and `/mission "<title>"` starts one.
 
 ## With a title — create a mission
 
@@ -55,9 +59,21 @@ Note the returned `worktree_path`. On `"error": "worktree already exists"`, repo
 ( cd <worktree_path> && bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/create.sh "$ARGUMENT" )
 ```
 
-`create.sh` scaffolds `mission.md` (frontmatter + `## Goal`/`## Scope`/`## Acceptance`/`## Changelog` and the empty `gate_*` fields), stamps `created_at`/`author`/`assignee`, refreshes the OKF indexes, and git-stages — all inside the worktree. Then work with the developer to fill in `## Goal`, `## Scope`, and the `## Acceptance` checklist (each item naming the ticket/story that will satisfy it), **and the mission's quality gate**: set `gate_type` (`documentation` or `live-app`), `gate_target` (a route served on the worktree's port), and `gate_assert` (one line: what must hold) — the objective mission-level check that `/drive` reads via `mission/scripts/gate.sh` and verifies against the worktree's port with Playwright. On `reason: "exists"`, report the path and do not overwrite.
+`create.sh` scaffolds `mission.md` (frontmatter + `## Goal`/`## Scope`/`## Experience`/`## Acceptance`/`## Changelog` and the empty, optional `gate_*` fields), stamps `created_at`/`author`/`assignee`, refreshes the OKF indexes, and git-stages — all inside the worktree. On `reason: "exists"`, report the path and do not overwrite.
 
-**4. Create the ordered kickoff tickets inside the worktree.** With the worktree as the working directory, run the full `workaholic:create-ticket` **Workflow** (three-mode discovery + the mandatory Quality-Gate interrogation) once **per** kickoff ticket the developer wants to start the mission with — writing each to the worktree's `.workaholic/tickets/todo/<user>/`, stamping `mission: <slug>` in its frontmatter, and ordering them with `depends_on` so `/drive` runs them in sequence.
+**3b. Interrogate — mandatory, and not skippable.** Follow the skill's **Creation Interrogation** section (`workaholic:mission`) end to end. It defines the rounds (Direction → the demanded experience → the ticket set → per-ticket pre-answers → Acceptance), the ordering rule, and the emission rules; do not restate them here.
+
+Issue every question from **this command (main agent)** — a subagent cannot call `AskUserQuestion` (CLAUDE.md One-Level Fan-Out). "As many questions as necessary" therefore means **multiple sequential `AskUserQuestion` rounds**, not one prompt. A `general-purpose` leaf may *propose* the question set as JSON for you to ask; only the command asks. Prefix every `question` body with the `[<project label>]` from `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh` or `guard-askuserquestion-label.sh` rejects it (exit 2).
+
+Do **not** interrogate the mission gate: `gate_*` is optional and normally left empty (see the skill's *Quality gate*). Ask only if the developer volunteers a stable, objective outcome check.
+
+Then write `## Goal`, `## Scope` and `## Experience` into the mission from the answers.
+
+**4. Emit the whole ticket set inside the worktree, in one pass.** Per the skill's *Emitting the set*: write every ticket the interrogation determined — not just the ones the developer happened to name — to the worktree's `.workaholic/tickets/todo/<user>/`, each stamped `mission: <slug>`, carrying its mandatory `## Policies` and `## Quality Gate` (pre-answered in round 4, so no later interrogation is needed), and ordered by `depends_on`. The `create-ticket` "2–4" split cap does **not** apply to a mission — the skill records why. Then write `## Acceptance`, one item per criterion, each naming its ticket by `(#<filename>)`.
+
+By the end of this step the mission is **drive-ready**: a complete, ordered queue whose judgement calls are already answered.
+
+**4b. Stamp the authorization.** Set `drive_authorized: true` in the mission's frontmatter — **only now**, once the interrogation is complete and the whole set is written. That stamp is what lets `/drive` drain this queue without the per-ticket approval prompt (`mission/scripts/drive-authorized.sh` reads it; see the skill's *Drive authorization*). Do **not** stamp a mission whose interrogation was cut short or whose set is partial: the stamp asserts that the developer answered every judgement call about these exact tickets, and an unearned stamp removes a gate nobody agreed to remove.
 
 **5. Commit the mission statement and kickoff tickets inside the worktree** via the commit skill (policy-conformant subject, `Co-Authored-By` trailer kept):
 
@@ -79,14 +95,28 @@ Present the returned array as a readable summary — one line per mission showin
 
 ## `close <slug>` — end a mission
 
-When `$ARGUMENT` starts with `close`, end the named mission. If the outcome is not stated in the argument, ask with `AskUserQuestion` (prefix the `question` body with the `[<project label>]` from `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`): was the mission **achieved** (its goal reached) or **abandoned** (ended without reaching it)? If the mission's `## Acceptance` progress (from `list.sh`) is not `total/total`, say so in the question body — unfinished criteria usually mean `abandoned`, but the developer decides. Then run the shared mutator (never hand-edit `status:` or `mv` the directory):
+When `$ARGUMENT` starts with `close`, end the named mission.
+
+**State where the mission stands first — always, before asking anything.** Give the **Mission Position Report** (defined once in `workaholic:mission`; do not restate it here), plus — when carrying — exactly what would move to the successor. A mission is the unit the developer reasons in; ending one without saying where it stands asks them to decide blind.
+
+If the outcome is not stated in the argument, ask with `AskUserQuestion` (prefix the `question` body with the `[<project label>]` from `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`) — the outcome is **three-way**:
+
+- **achieved** — the goal was reached.
+- **abandoned** — ended without reaching it, and the remainder is not worth doing.
+- **carried** — done **as framed**, with the remainder still worth doing: it becomes a successor mission that inherits the unmet criteria. Requires a successor (a title to mint one, or an existing slug).
+
+If the mission's `## Acceptance` progress is not `total/total`, say so in the question body — unfinished criteria mean `abandoned` **or** `carried`, and the difference is whether the remainder is still worth doing. Do not let `carried` become a way to avoid saying `abandoned`: a successor nobody drives is an abandoned mission with a longer name. The developer decides.
+
+Then run the shared mutator (never hand-edit `status:` or `mv` the directory):
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/close.sh "<slug>" <achieved|abandoned>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/close.sh "<slug>" <achieved|abandoned|carried> \
+  [--successor-title "<title>" | --successor <slug>]
 ```
 
 The script flips `status`, appends a closing `## Changelog` line, moves the mission dir to `.workaholic/missions/archive/<slug>/`, refreshes the OKF indexes, and git-stages. Report the JSON result:
 
+- `closed: true` with `status: "carried"` — the JSON carries `successor` and `successor_path`. **Report where the mission landed and what carried**: the predecessor's final `checked/total`, the successor's slug and its computed progress (`0/<n unmet>`, from `progress.sh` — never a carried-across number), and the unmet criteria that moved. Say plainly how far a fresh session could take the successor from here: its Goal, Scope and gate came along, so the successor is drive-ready once it has tickets. The successor gets **no worktree** from the predecessor (see the skill's *Outcomes*); it is created through the normal `/mission` worktree flow, so say so rather than letting the developer assume in-flight state carried. Then tear down the predecessor's worktree exactly as below.
 - `closed: true` — tell the user the mission is ended, its final status, and its archived path. Then **tear down the mission's persistent worktree** — closing a mission is the only sanctioned point that removes it:
 
   ```bash

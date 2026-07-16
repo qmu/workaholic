@@ -46,6 +46,15 @@ Distil, factually (catch-style — name files, paths, step numbers, commit hashe
 - **What is already done** — the completed steps / landed commits, as *context* (this becomes Overview background, NOT steps to re-run).
 - **What remains** — the concrete outstanding actions, in order. These become the resumption ticket's `## Implementation Steps`. **Only remaining work** goes here: `/drive` implements every listed step with no notion of "already done", so any completed step left in the list is re-run.
 - **Where we are** — the exact current position (mid-step N of ticket X; trip at `coding/iteration-2`; etc.).
+- **Where the MISSION stands** — if the in-flight work carries a `mission:` relation, the **Mission Position Report** (`workaholic:mission` defines it; do not restate it here). It answers the question this whole command exists for: *in another session, how much can we proceed with the mission?* A resumption ticket that says what to do next but not where it sits in the mission hands over a task, not a mission.
+
+  ```bash
+  bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/read-relation.sh <ticket-path>     # every mission it advances
+  bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/progress.sh <mission-file>          # checked/total
+  bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/next-acceptance.sh <mission-file>   # the next step
+  ```
+
+  The relation is **many-valued** — report **every** mission the work advances, not the first. When the work carries **no** mission relation, say nothing about missions; do not fabricate a mission-shaped frame around unrelated work.
 - **What was learned** — the insights and dead-ends the session surfaced: what was ruled out and why, what behaved unexpectedly. These become `## Findings` — the reasoning a fresh `/drive` would otherwise have to rediscover, so it does not re-explore a path this session already closed.
 - **What was decided** — the choices made this session and their rationale (approach A over B, and the constraint that drove it). These become `## Decisions`, so the resuming agent does not relitigate a settled choice.
 
@@ -87,6 +96,8 @@ effort:
 commit_hash:
 category:
 depends_on:
+mission: <carried from the origin ticket's relation via read-relation.sh — every mission it
+          advances, not the first; omit entirely when the work carries none>
 ---
 
 # Resume: <what remains, in a few words>
@@ -94,6 +105,14 @@ depends_on:
 ## Overview
 
 **Carry Origin:** <origin ticket path or "session handoff on <branch>"> — carried on <date> because the token window was filling; continue in a fresh session.
+
+**Mission Position:** <Only when the work carries a `mission:` relation — omit this line
+entirely when it does not. One entry per mission it advances (the relation is many-valued):
+the mission slug, `checked/total` from progress.sh, the next unchecked item from
+next-acceptance.sh, and — the part a fresh session cannot reconstruct — how much of the
+mission it can proceed with from here, and what is waiting on a decision or an external
+blocker. A mission with no acceptance criteria yet is reported as exactly that, not as
+`0/0`. See the Mission Position Report in `workaholic:mission`.>
 
 <What is already done, as context — the completed steps / landed commits, so the
 resuming agent does not redo them. Then one line on where work stopped.>

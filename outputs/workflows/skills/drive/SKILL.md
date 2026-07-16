@@ -88,7 +88,55 @@ Follow the **Workflow** section below. Implementation context is preserved in th
 
 Follow the **Approval** section below to present the approval dialog. **CRITICAL**: You MUST use the `title` and `overview` fields from the Step 2.1 workflow result to populate the approval prompt header and question (the `question` body opens with the `[project]` label — see the Approval section). If these fields are unavailable, re-read the ticket file to obtain them. Never present an approval prompt without the ticket title and summary.
 
-**CRITICAL**: Use the agent's selection prompt. NEVER proceed without explicit user approval. (In **night mode** this gate is auto-resolved as "Approve" — the user authorized the batch by invoking `/drive night`, optionally narrowed by the §1b group choice; see **Night Mode**.)
+**CRITICAL**: Use the agent's selection prompt. NEVER proceed without explicit user approval — **unless a prior explicit batch authorization already covers this ticket**, in which case the gate is *skipped, not auto-answered* (see below).
+
+##### When the gate is skipped
+
+Explicit approval is **relocated, never removed**. The gate is skipped exactly when the developer has already authorized this exact work, in one of two ways — and never otherwise:
+
+- **Night mode** — `/drive night` is the authorization for the whole prioritized batch (see **Night Mode**).
+- **A mission-authorized queue** — the ticket's mission was interrogated at `/mission` time and stamped `drive_authorized: true`. Do not decide this in prose; ask the resolver:
+
+  ```bash
+  bash mission/scripts/drive-authorized.sh <ticket-path>
+  ```
+
+  When `authorized` is `true`, **do not issue the Step 2.2 the agent's selection prompt at all** — go straight to Step 2.3's approve path (update effort, append the Final Report, `archive.sh`, continue). When it is `false`, ask exactly as before; `reason` says why (`no_mission`, `mission_not_found`, `not_authorized`).
+
+**Skip it; never auto-answer it.** The prompt is not issued, and the implementer does not "answer" it on the developer's behalf — the Workflow-level `NEVER use the agent's selection prompt` boundary stays intact. This is night mode's accepted mechanism; do not regress it.
+
+**What is removed is the completeness check inside the drive loop — nothing else.** The question "did it do the thing?" was already answered by the developer, at mission time, about these exact tickets, against gates they co-authored. The qualitative **looking-through** that `development` / `qa-engineering` makes non-delegable is **not** eliminated: it relocates to the PR, which is what `development` / `review` prescribes — `/report` still writes the story and `/ship` still gates the merge on evidence. Eliminate the completeness check and you are on policy; eliminate the looking-through and you are in the state three policies exist to prevent.
+
+**An authorized queue inherits night mode's failure contract** (see **Night Mode** §3/§5), because that is where an autonomous run actually leaks — not at the approval gate:
+
+- **Attempt every ticket.** Size, complexity, "all-or-nothing", and "this looks like it needs a human" are **not** skip reasons.
+- A skip is legitimate only after a real attempt, and only as **`failed`** (implemented, checks red) or **`blocked`** (a **named** hard external blocker).
+- **Safety floor**: `git stash` a failed ticket's partial work so it cannot contaminate the next commit; leave the ticket in `todo`; **never** auto-icebox, auto-abandon, or run destructive git.
+- **Report a closed three-outcome set** (implemented / failed / blocked) whose totals **reconcile to the authorized set size**. There is no "declined" category.
+
+**No group question here.** Night mode's §1b group-inclusion prompt is vacuous for a mission queue: it is one cohesive topic group by construction, and asking whether to include "group B" of a set the developer just designed is noise.
+
+##### Take the initiative: an unqueued problem becomes a ticket
+
+When an unattended run meets a problem the queue does not cover — a defect found while implementing, a missing prerequisite, an assumption that proves false — there is a **third outcome** alongside `failed` and `blocked`: **`deferred`** — write a ticket for it and continue.
+
+**An observation is not an obligation. Only a ticket is.** A run that notices a problem and writes prose about it has, in practice, discarded it: this repo shipped a known defect that was recorded verbatim in a story because *"no ticket, no concern — so the corpus never carried it"*, and it resurfaced two days later. Recording the finding in a report a human reads later is the failure mode, not the fix.
+
+The boundary decides everything, so hold it exactly:
+
+- **Inside the current ticket's scope** → **implement it.** Not new, and not a defer. This must never become a way to avoid work.
+- **Outside it** → **write a ticket, continue.** Do **not** fix it opportunistically: an unqueued fix rides into a commit whose message describes something else, and it is the "unverified inferences pile up in the code" that `development` / `overnight-ai` names as the explicit limit on a blank cheque.
+- **Blocks the current ticket** → write the ticket, then record the current one **`blocked`**, naming the minted ticket as what would unblock it. Reuse the contract above; do not invent a parallel one.
+
+**Mint only for an observed problem — never a passing thought.** A ticket per speculative improvement turns the queue into a diary and buries the real ones, which is worse than a report paragraph because it looks like a plan. The threshold: the run **actually hit** it (a failure, a false assumption, a missing prerequisite). A refactor idea, a "we might also want", a thing you noticed but did not run into — **not a ticket**.
+
+The minted ticket goes through the sanctioned path: the `create-ticket` structure, written to `todo/<user>/`, with its mandatory `## Policies` and `## Quality Gate` (`validate-ticket.sh` rejects it otherwise — an auto-minted ticket answers to the same bar as a hand-written one), and it inherits the provoking ticket's `mission:` relation (read via `mission/scripts/read-relation.sh`, never re-parsed) so the mission's own plan absorbs the problem.
+
+**Report every minted ticket** in the batch report, as its own line: what was found, which ticket provoked it, and the new filename. A run that quietly mints tickets is a run that quietly changes the plan (`implementation` / `observability`).
+
+**This is initiative to *record*, not a licence to redesign.** `overnight-ai`'s Responsibility is the governing sentence: *"if AI is given a blank check to avoid stopping it, unverified inferences pile up in the code."* Minting a ticket defers a problem; it does not resolve it, and the developer's looking-through still happens at the PR (`development` / `qa-engineering`).
+
+**Do not append an acceptance item to the mission for a minted ticket.** The `mission:` relation is inherited so the ticket is traceable, but `## Acceptance` is the plan **the developer agreed to** at interrogation time, and its `checked ÷ total` is the mission's progress. Auto-appending would silently move the goalposts — every minted ticket would lower the mission's completion percentage against criteria nobody accepted, and a run could make a mission recede as it works. The minted ticket surfaces in the batch report and in the queue; promoting it into the mission's definition of done is the developer's call at the next `/report` or `/mission` touch. (Consequence, accepted knowingly: a mission's ticket set can drift from its `## Acceptance` list. That is the honest state — the queue reflects reality, the acceptance list reflects the agreement.)
 
 #### Step 2.3: Handle User Response
 
@@ -170,6 +218,8 @@ Autonomous, unattended overnight run for morning review, triggered when `$ARGUME
 - **Failed** — the ticket was implemented but its type-check/tests are red (or its frontmatter update fails). Record it as `failed` with the reason for the night report.
 - **Blocked** — implementation is stopped by a **named hard external blocker** (a missing credential, an unreachable external service or dependency). Record the specific blocker and what would unblock it. A vague "too complex" or "any other reason" is **not** a blocker.
 
+**Take the initiative on an unqueued problem: write a ticket, do not stop.** A problem the queue does not cover — met while implementing — gets a **ticket**, not a paragraph in this report, and the run continues (**`deferred`**). An observation is not an obligation; only a ticket is. See Step 2.2's *Take the initiative* for the boundary (implement what is in the current ticket's scope; mint-and-continue for what is outside it; mint-then-`blocked` when it blocks), the mint-only-for-an-observed-problem threshold, and the requirement that a minted ticket carry its own `## Policies` and `## Quality Gate`. Initiative here is to **record**, never to redesign mid-run.
+
 In either case, apply the safety floor and continue to the next authorized ticket (this floor is unchanged — only the *entry condition to skipping* is tightened):
 - **Isolate partial changes** so a failed ticket's uncommitted work cannot contaminate the next ticket's commit: `git stash` the failed ticket's changes (recoverable; only `git stash drop` is prohibited) before continuing, and note the stash in the report.
 - Leave the ticket in `todo`; a failing type-check/test means **failed → skipped + recorded**, never force-committed.
@@ -182,9 +232,10 @@ In either case, apply the safety floor and continue to the next authorized ticke
 - **failed** — attempted, but its checks/tests went red; reason + stash location.
 - **blocked** — a **named** hard external blocker; what would unblock it.
 - Totals: implemented / failed / blocked counts, which **must reconcile to the authorized batch size**, plus all commit hashes.
+- **Tickets minted mid-run** (`deferred`), one line each: what was found, which ticket provoked it, and the new filename. These are *additional* to the authorized batch and do not affect its reconciliation — but a run that quietly mints tickets is a run that quietly changes the plan, so they are never silent.
 - Any stashed partial work and where to find it.
 
-**Critical Rule exception (scoped).** Night mode is the ONLY mode that skips the per-ticket "explicit user approval" gate — and only because invoking `/drive night` is itself the explicit authorization for the batch (optionally narrowed by the §1b group choice). Every other Critical Rule below remains in force.
+**Critical Rule exception (scoped).** The per-ticket "explicit user approval" gate is skipped exactly when a **prior explicit batch authorization** covers the ticket, and never otherwise. There are two such authorizations, and no others: invoking **`/drive night`** (this mode — the batch, optionally narrowed by the §1b group choice), and a **mission stamped `drive_authorized: true`** by its Creation Interrogation (see Step 2.2's *When the gate is skipped*). Both are the same shape: the developer authorized this exact work in advance. Every other Critical Rule below remains in force in both modes.
 
 ### Critical Rules
 
@@ -192,7 +243,7 @@ In either case, apply the safety floor and continue to the next authorized ticke
 
 If a ticket cannot be implemented **after a genuine attempt** — its type-check/tests fail, or a **named** hard external blocker (missing credential, unreachable external service/dependency) stops it. A ticket's size, complexity, or "all-or-nothing" scope is **never** a reason to not attempt it:
 
-1. **Stop and ask the developer** using the agent's selection prompt — **except in night mode**, which is unattended and follows the attempt-first policy in **Night Mode** §3 (attempt every ticket; on a demonstrated failure or named hard blocker, stash + record + continue); never auto-icebox or use destructive git.
+1. **Stop and ask the developer** using the agent's selection prompt — **except when a prior batch authorization covers the ticket** (night mode, or a mission stamped `drive_authorized: true`). Those runs are unattended and follow the attempt-first policy in **Night Mode** §3 (attempt every ticket; on a demonstrated failure or named hard blocker, stash + record + continue); never auto-icebox or use destructive git.
 2. Explain why implementation cannot proceed
 3. Use selectable options (NEVER open-ended text questions):
    - "Move to icebox" - Move ticket to `.workaholic/tickets/icebox/` and continue to next
@@ -359,7 +410,7 @@ Step-by-step workflow for implementing a single ticket during `/drive`. This ski
 - Understand the implementation steps outlined
 - **Read the ticket's `## Policies` section.** It is the recorded list of standard engineering policies (synced from qmu.co.jp) this ticket answers to. Note every `workaholic:<pillar>` / `policies/<slug>.md` entry — Step 3 opens each one before writing code.
 - **Read the ticket's `## Quality Gate` section** (if present). It is the developer-agreed acceptance criteria, verification method, and the gate that must pass before approval — captured at `/ticket` time. Implement *to* this gate, and run its verification before requesting approval. Carry its acceptance criteria into the Step 4 return so the approval prompt can state them, and into the archive `<verify>` arg so the commit `Verify:` key records what cleared the gate.
-- **If the ticket carries a `mission:` relation, also read the quality gate of EVERY mission it names** — `bash mission/scripts/gate.sh <mission-slug>`, once per slug (the relation is a list; a bare scalar is one). When `type` is `documentation` or `live-app`, the mission has a live gate: the change must move the mission toward passing it. Verify it by running the project's dev/docs server on the mission worktree's `dev_port` (from the gate reader) and driving `target` with the Playwright plugin to check `assert`. This is the mission-level "is the outcome good?" check on top of the per-ticket gate.
+- **If the ticket carries a `mission:` relation, also read the quality gate of EVERY mission it names** — `bash mission/scripts/gate.sh <mission-slug>`, once per slug (the relation is a list; a bare scalar is one). A mission gate is **optional and normally absent** — a mission's substance is its `## Experience` section (the demanded behavior) plus its ticket plan, not a check fixed at kickoff before the work existed. When a mission *does* declare `type: documentation` or `live-app`, the change must move it toward passing: run the project's dev/docs server on the mission worktree's `dev_port` (from the gate reader) and drive `target` with the Playwright plugin to check `assert`. When it declares none — the common case — **read the mission's `## Experience` and judge the change against the behavior it demands** instead; there is no mission-level check to run, and that is not a defect.
 
   **All of them must pass, not the most convenient one.** A ticket naming two missions claims to advance both, so it answers to both bars — naming a mission is a commitment, not a label. If the change cannot meet one mission's gate, the fix is to drop that mission from the ticket's relation, not to skip its gate.
 

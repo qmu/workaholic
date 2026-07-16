@@ -8,9 +8,9 @@ last_seen: 2026-07-01T21:16:06+09:00
 first_seen: 2026-07-01T01:12:10+09:00
 concern_id: quality-gate-is-prose-mandated-not
 severity: moderate
-status: active
-resolved_by_pr: 
-resolved_by_commit: 
+status: resolved
+resolved_by_pr: 87
+resolved_by_commit: e12448d4
 ---
 
 # Quality Gate is prose-mandated, not hook-enforced

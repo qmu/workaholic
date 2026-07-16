@@ -1,0 +1,69 @@
+#!/bin/sh -eu
+# Answer, for ONE ticket: is this ticket's queue pre-authorized to drive without the
+# per-ticket approval prompt?
+#
+# WHY THIS IS A SCRIPT AND NOT PROSE. The /drive approval gate lived entirely in
+# drive/SKILL.md as prose, which is why neither it nor night mode ever had a single
+# assertion: there was nothing to call. A rule that decides whether to ask a human for
+# permission is exactly the rule that must be reproducible and testable, so it is a
+# script. /drive consults this instead of deciding in prose, and night mode gets coverage
+# as a side effect.
+#
+# THE RULE. Explicit approval is RELOCATED, never removed. A ticket is gate-free only
+# when a prior explicit authorization covers it: the developer interrogated the mission
+# (see the mission skill's Creation Interrogation), co-authored every ticket's quality
+# gate, and the mission was stamped `drive_authorized: true`. Anything else asks.
+#
+# CONSERVATIVE BY CONSTRUCTION. A ticket relating to several missions is authorized only
+# if EVERY mission it claims says so. Naming a mission is a commitment, not a label --
+# the same reason /drive holds a ticket to the gate of every mission it names, "all of
+# them must pass, not the most convenient one". One unauthorized mission means ask.
+#
+# Usage: drive-authorized.sh <ticket-file>
+# Output: {"authorized": <bool>, "reason": "<why>", "missions": ["<slug>", ...]}
+#   reason: ""                  authorized
+#           "no_ticket"         the ticket file does not exist
+#           "no_mission"        the ticket claims no mission -- nothing authorized it
+#           "mission_not_found" a claimed mission does not resolve
+#           "not_authorized"    a claimed mission is not stamped drive_authorized: true
+
+set -eu
+
+TICKET="${1:-}"
+[ -n "$TICKET" ] || { echo '{"authorized": false, "reason": "no_ticket", "missions": []}'; exit 0; }
+[ -f "$TICKET" ] || { echo '{"authorized": false, "reason": "no_ticket", "missions": []}'; exit 0; }
+
+SCRIPT_DIR=$(dirname "$0")
+. "${SCRIPT_DIR}/lib/resolve.sh"
+missions_migrate_layout
+
+# The relation is many-valued and is read through the single reader, never re-parsed
+# here -- `mission: [a, b]` and a bare `mission: a` must behave identically, and that
+# shape is defined in exactly one place.
+SLUGS=$(sh "${SCRIPT_DIR}/read-relation.sh" "$TICKET" 2>/dev/null || true)
+
+if [ -z "$SLUGS" ]; then
+    echo '{"authorized": false, "reason": "no_mission", "missions": []}'
+    exit 0
+fi
+
+json_list=""
+reason=""
+for slug in $SLUGS; do
+    [ -z "$json_list" ] && json_list="\"${slug}\"" || json_list="${json_list}, \"${slug}\""
+    [ -n "$reason" ] && continue   # already refused; keep collecting slugs for the report
+
+    f=$(mission_resolve "$slug")
+    if [ ! -f "$f" ]; then
+        reason="mission_not_found"
+        continue
+    fi
+    stamp=$(grep -m1 '^drive_authorized:' "$f" 2>/dev/null | sed -e 's/^drive_authorized:[ \t]*//' -e 's/[ \t]*$//' || true)
+    [ "$stamp" = "true" ] || reason="not_authorized"
+done
+
+if [ -n "$reason" ]; then
+    printf '{"authorized": false, "reason": "%s", "missions": [%s]}\n' "$reason" "$json_list"
+else
+    printf '{"authorized": true, "reason": "", "missions": [%s]}\n' "$json_list"
+fi

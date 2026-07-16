@@ -16,6 +16,8 @@ resolved_by_pr:
 resolved_by_commit: 
 closed_reason: By design, as the concern's own Description states ('semantic dedup is the triage's job'), and that triage now exists as the sanctioned handler: report/SKILL.md Phase 1b with merge-concerns.sh. Fuzzy pre-clustering remains optional polish, not a defect.
 closed_at: 2026-07-15T19:50:28+09:00
+reopened_note: 'The premise of the 2026-07-15 acceptance was unsound WHEN MADE: the sanctioned handler it points at was not round-trip safe. merge-concerns.sh minted a hand-invented id, so the next ship cloned the compound instead of updating it in place - the triage door re-introduced the very carried-from chain the identity collapse killed. The acceptance stands, but only because 2026-07-16 made the premise true: the compound id is now derived from the title by the same slugify() the extractor uses, and a round-trip regression test pins created:0/updated:1. Recorded rather than left standing, per the driving ticket step 5.'
+reopened_at: 2026-07-16T01:49:00+09:00
 ---
 
 # The identity migration under-collapses title-drift near-duplicates

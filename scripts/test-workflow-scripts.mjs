@@ -41,6 +41,7 @@ const SCRIPTS = {
   missionCreate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"),
   missionSlug: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/slug.sh"),
   missionGate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/gate.sh"),
+  driveAuthorized: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/drive-authorized.sh"),
   commit: join(REPO_ROOT, "plugins/workaholic/skills/commit/scripts/commit.sh"),
   missionProgress: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/progress.sh"),
   missionList: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list.sh"),
@@ -55,6 +56,7 @@ const SCRIPTS = {
   catchupMain: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/catchup-main.sh"),
   applyVerdicts: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/apply-deferred-concern-verdicts.sh"),
   extractDeferredConcerns: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/extract-deferred-concerns.sh"),
+  commitReleaseNote: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/commit-release-note.sh"),
   migrateConcernIdentity: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/migrate-concern-identity.sh"),
   listActiveConcerns: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/list-active-deferred-concerns.sh"),
   mergeConcerns: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/merge-concerns.sh"),
@@ -189,12 +191,52 @@ function testDetectContext() {
       context: "work", branch: "work-20260528-foo", mode: "drive",
     });
 
-    // Add a trip dir -> mode flips to hybrid (both trips and tickets present)
+    // An unrelated trip dir must NOT flip a work-* branch's mode. This assertion used to
+    // read "-> hybrid", which stated the defect as the contract: has_trips was a repo-wide
+    // find for ANY trip directory, so the single March 2026 trip dir committed to main made
+    // every branch after it report trip/hybrid forever. Observed on work-20260715-112717, a
+    // pure drive branch, where /report detected mode: "trip".
+    //
+    // A work-* branch owns no trip: the only trip<->branch association the repo records is
+    // the legacy trip/<name> naming, and init-trip.sh stores no branch anywhere.
     mkdirSync(join(dir, ".workaholic/trips/some-trip"), { recursive: true });
     r = run(dir, `${POSIX_SH} ${SCRIPTS.detectContext}`);
-    assertEq("detectContext on work-* with trips+tickets -> hybrid", JSON.parse(r.stdout), {
-      context: "work", branch: "work-20260528-foo", mode: "hybrid",
+    assertEq("detectContext on work-* ignores an unrelated trip dir (tickets present)", JSON.parse(r.stdout), {
+      context: "work", branch: "work-20260528-foo", mode: "drive",
     });
+
+    // The exact state of work-20260715-112717 when /report misfired: unrelated trip dir,
+    // no tickets of this user's. Must still be drive, not trip.
+    rmSync(join(dir, `.workaholic/tickets/todo/${TEST_SLUG}/x.md`));
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.detectContext}`);
+    assertEq("detectContext on work-* ignores an unrelated trip dir (no tickets)", JSON.parse(r.stdout), {
+      context: "work", branch: "work-20260528-foo", mode: "drive",
+    });
+    writeFileSync(join(dir, `.workaholic/tickets/todo/${TEST_SLUG}/x.md`), "---\n---\n");
+
+    // The real trip case still detects, via the one association that exists: trip/<name>
+    // owns trips/<name>. With this user's ticket present too, that is hybrid.
+    execSync(`git checkout -q -b trip/some-trip`, { cwd: dir });
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.detectContext}`);
+    assertEq("detectContext on trip/<name> owning its trip dir -> hybrid", JSON.parse(r.stdout), {
+      context: "work", branch: "trip/some-trip", mode: "hybrid", trip_name: "some-trip",
+    });
+
+    // Same branch, no tickets -> trip.
+    rmSync(join(dir, `.workaholic/tickets/todo/${TEST_SLUG}/x.md`));
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.detectContext}`);
+    assertEq("detectContext on trip/<name> owning its trip dir, no tickets -> trip", JSON.parse(r.stdout), {
+      context: "work", branch: "trip/some-trip", mode: "trip", trip_name: "some-trip",
+    });
+
+    // The name-based floor survives: a trip/* branch is a trip by name even with no dir.
+    execSync(`git checkout -q -b trip/no-dir-at-all`, { cwd: dir });
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.detectContext}`);
+    assertEq("detectContext on trip/* with no trip dir keeps the name-based floor", JSON.parse(r.stdout), {
+      context: "work", branch: "trip/no-dir-at-all", mode: "trip", trip_name: "no-dir-at-all",
+    });
+    writeFileSync(join(dir, `.workaholic/tickets/todo/${TEST_SLUG}/x.md`), "---\n---\n");
+    execSync(`git checkout -q work-20260528-foo`, { cwd: dir });
 
     // Drive-* legacy alias
     execSync(`git checkout -q -b drive-legacy`, { cwd: dir });
@@ -533,6 +575,557 @@ concerns: []
   } finally { cleanup(dir); }
 }
 
+// ---------- the Mission Position Report: one definition, stated at every handoff ----------
+// The pieces to say "where does the mission stand" already existed and were already
+// computed (progress.sh, next-acceptance.sh). What was missing was the OBLIGATION to say
+// it at the moments that decide continuity -- the handoffs. /carry's whole purpose is
+// handing work to a fresh session and it mentioned missions ZERO times, so a resumption
+// ticket handed over a task, not a mission.
+//
+// The lens already does this continuously; the gap is the discontinuity, which is exactly
+// when the lens's context is lost.
+function testMissionPositionReport() {
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/SKILL.md"), "utf8");
+  const carry = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/carry/SKILL.md"), "utf8");
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/mission.md"), "utf8");
+
+  // One definition, in one place.
+  assertTrue("the mission skill defines the Mission Position Report",
+    /^## Mission Position Report$/m.test(skill), "no definition section");
+  assertTrue("the report answers how far a fresh session can proceed",
+    /How far a fresh session can proceed/.test(skill), "the continuity question is missing");
+  assertTrue("figures are read through the scripts, never by parsing mission.md",
+    /never parse `mission\.md` to answer this/.test(skill), "domain-layer rule missing");
+  assertTrue("the relation is read as many-valued",
+    /report \*\*every\*\* mission the work advances, not the first/.test(skill), "many-valued rule missing");
+  // The developer asked for LESS confirmation; a report that grows into a prompt is this
+  // ticket failing.
+  assertTrue("the report is explicitly a report, never a prompt",
+    /It is a report, never a prompt/.test(skill), "prompt ban missing");
+
+  // The inversion of the lens's signal gate -- deliberate, and it must say so or someone
+  // will "fix" the inconsistency later.
+  assertTrue("a 0/0 mission is reported honestly at a handoff, not silenced like in the lens",
+    /An empty `## Acceptance` \(`0\/0`\) is reported honestly, not silenced/.test(skill), "0/0 rule missing");
+  assertTrue("the divergence from the lens is marked deliberate",
+    /this divergence is deliberate, not drift/.test(skill), "divergence not justified");
+
+  // The /report + /ship decision was made rather than left to default.
+  assertTrue("the /report + /ship decision is recorded either way",
+    /Decided rather than defaulted/.test(skill), "the decision was left to default");
+
+  // /carry states it -- the seam whose purpose IS the handoff.
+  assertTrue("carry reports where the mission stands", /Where the MISSION stands/.test(carry), "carry omits mission position");
+  assertTrue("carry asks the developer's actual question",
+    /in another session, how much can we proceed with the mission\?/.test(carry), "the driving question is missing");
+  assertTrue("carry routes to the shared definition rather than restating it",
+    /do not restate it here/.test(carry), "carry restates the definition");
+  assertTrue("carry reads the relation through read-relation.sh", /read-relation\.sh/.test(carry), "carry re-derives the relation");
+  // The negative case: no mission -> say nothing. Never invent a frame.
+  assertTrue("carry says nothing about missions when the work carries none",
+    /do not fabricate a mission-shaped frame around unrelated work/.test(carry), "no-mission case missing");
+  // The resumption ticket must actually carry the relation forward, or the next session
+  // cannot roll the mission either.
+  assertTrue("the resumption ticket template carries the mission relation forward",
+    /mission: <carried from the origin ticket's relation/.test(carry), "template drops the relation");
+  assertTrue("the resumption ticket template has a Mission Position line",
+    /\*\*Mission Position:\*\*/.test(carry), "template has no position line");
+
+  // /mission close sources the shared definition (a027cd1b's behaviour, de-duplicated).
+  assertTrue("the close branch sources the shared definition",
+    /Give the \*\*Mission Position Report\*\*/.test(cmd), "close restates instead of sourcing");
+}
+
+// ---------- drive: an unqueued problem becomes a ticket, not a stop ----------
+// Removing the approval prompt answers "stop asking me to approve each ticket". It does
+// not answer what happens when the run meets something the queue does not cover. /drive
+// had two moves and both stopped; night mode could record a `failed`/`blocked` and
+// continue, which keeps the run alive but DISCARDS the finding into a report.
+//
+// This repo has measured that cost twice: a defect recorded verbatim in a story shipped
+// anyway ("no ticket, no concern -- so the corpus never carried it") and resurfaced two
+// days later. An observation is not an obligation; only a ticket is.
+//
+// The rule is skill prose (no script decides "is this in scope?"), so what is asserted is
+// the contract at its boundary: the rule is stated with its threshold, and a minted
+// ticket must pass the real validate-ticket.sh -- which is what stops "mint a ticket"
+// degrading into "mint a shell".
+function testDriveMintsTicketsForMidrunProblems() {
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+
+  assertTrue("drive states the deferred outcome for an unqueued problem",
+    /\*\*`deferred`\*\*/.test(skill), "no deferred outcome");
+  assertTrue("drive states why prose is not enough: an observation is not an obligation",
+    /An observation is not an obligation\. Only a ticket is\./.test(skill), "rationale missing");
+
+  // The three-way boundary. Each half matters: the in-scope half stops this becoming a
+  // way to avoid work; the outside half stops opportunistic fixes riding into a commit
+  // that describes something else.
+  assertTrue("in-scope work is implemented, not deferred",
+    /\*\*Inside the current ticket's scope\*\* → \*\*implement it\.\*\*/.test(skill), "in-scope rule missing");
+  assertTrue("out-of-scope work is minted and the run continues",
+    /\*\*Outside it\*\* → \*\*write a ticket, continue\.\*\*/.test(skill), "outside rule missing");
+  assertTrue("drive forbids fixing an out-of-scope problem opportunistically",
+    /Do \*\*not\*\* fix it opportunistically/.test(skill), "opportunistic-fix ban missing");
+  assertTrue("a blocking problem is minted THEN recorded blocked, naming the new ticket",
+    /\*\*Blocks the current ticket\*\* → write the ticket, then record the current one \*\*`blocked`\*\*/.test(skill),
+    "blocking rule missing");
+
+  // The failure mode is over-minting: a queue of auto-written tickets nobody asked for
+  // looks like a plan. The threshold has to be in the skill, not just the ticket.
+  assertTrue("drive mints only for an OBSERVED problem, never a speculative one",
+    /Mint only for an observed problem — never a passing thought/.test(skill), "threshold missing");
+  assertTrue("drive names the over-minting failure mode explicitly",
+    /turns the queue into a diary/.test(skill), "over-minting risk not stated");
+
+  // Initiative to record, not a licence to redesign -- overnight-ai's explicit limit,
+  // quoted where the implementer will read it rather than only cited in the ticket.
+  assertTrue("drive quotes overnight-ai's blank-cheque limit at the point of use",
+    /unverified inferences pile up in the code/.test(skill), "policy limit not quoted");
+  assertTrue("a minted ticket inherits the provoking ticket's mission relation",
+    /inherits the provoking ticket's `mission:` relation/.test(skill), "mission inheritance missing");
+  assertTrue("every minted ticket is named in the batch report",
+    /Tickets minted mid-run/.test(skill), "report line missing");
+
+  // The row with teeth: a minted ticket answers to the same bar as a hand-written one.
+  const dir = makeRepo("main");
+  try {
+    const rel = ".workaholic/tickets/todo/a-qmu-jp/20260716120000-minted.md";
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh");
+    const check = () => {
+      try {
+        execSync(`${POSIX_SH} ${HOOK}`, {
+          cwd: dir, input: JSON.stringify({ tool_input: { file_path: rel } }),
+          encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
+        });
+        return 0;
+      } catch (e) { return e.status ?? 1; }
+    };
+    const FM = `---\ncreated_at: 2026-07-16T12:00:00+09:00\nauthor: a@qmu.jp\ntype: bugfix\nlayer: [Domain]\neffort:\ncommit_hash:\ncategory:\ndepends_on:\nmission: some-mission\n---\n\n# A problem the run actually hit\n`;
+
+    // A well-formed minted ticket passes.
+    writeFileSync(abs, FM + `\n## Policies\n\n- \`implementation/coding-standards\` — applies.\n\n## Quality Gate\n\nAcceptance: the observed failure stops. Verification: the suite. Gate: green.\n`);
+    assertEq("a well-formed minted ticket passes validate-ticket.sh", check(), 0);
+
+    // A shell does NOT. This is the assertion that keeps "write a ticket" honest: an
+    // auto-minted ticket cannot skip the bar a hand-written one answers to.
+    writeFileSync(abs, FM);
+    assertEq("a minted ticket with no Policies/Quality Gate is rejected, like any other", check(), 2);
+  } finally { cleanup(dir); }
+}
+
+// ---------- mission/drive-authorized.sh: is this ticket's queue pre-authorized? ----------
+// The /drive approval gate was prose in drive/SKILL.md with no script behind it, which is
+// why neither it nor night mode ever carried a single assertion -- there was nothing to
+// call. A rule that decides whether to ask a human for permission must be reproducible,
+// so it is a script, and these are the assertions that were impossible before.
+//
+// Explicit approval is RELOCATED, never removed: a ticket is gate-free only when the
+// developer interrogated the mission and it was stamped drive_authorized: true.
+function testDriveAuthorized() {
+  const dir = makeRepo("main");
+  try {
+    const mission = (slug, stamp) => {
+      const d = join(dir, `.workaholic/missions/active/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "mission.md"),
+        `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\nassignee: a@qmu.jp\ndrive_authorized:${stamp ? " true" : ""}\n---\n\n## Acceptance\n\n- [ ] One\n`);
+    };
+    const ticket = (name, missionLine) => {
+      const rel = `.workaholic/tickets/todo/a-qmu-jp/${name}`;
+      const abs = join(dir, rel);
+      mkdirSync(dirname(abs), { recursive: true });
+      writeFileSync(abs, `---\ncreated_at: 2026-07-16T11:00:00+09:00\nauthor: a@qmu.jp\ntype: enhancement\nlayer: [Domain]\neffort:\ncommit_hash:\ncategory:\ndepends_on:\n${missionLine}---\n\n# T\n\n## Policies\n\n- x\n\n## Quality Gate\n\ng\n`);
+      return rel;
+    };
+    const ask = (rel) => JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.driveAuthorized} ${rel}`).stdout);
+
+    mission("authorized-one", true);
+    mission("authorized-two", true);
+    mission("unstamped", false);
+
+    // Authorized: the mission was interrogated and stamped.
+    let r = ask(ticket("20260716110000-a.md", "mission: authorized-one\n"));
+    assertEq("a ticket whose mission is stamped is authorized",
+      { a: r.authorized, reason: r.reason, m: r.missions }, { a: true, reason: "", m: ["authorized-one"] });
+
+    // No mission relation -> nothing authorized it. This is the common /ticket case.
+    r = ask(ticket("20260716110001-b.md", "mission:\n"));
+    assertEq("a ticket with no mission is NOT authorized",
+      { a: r.authorized, reason: r.reason }, { a: false, reason: "no_mission" });
+
+    // A mission that exists but was never stamped -> ask.
+    r = ask(ticket("20260716110002-c.md", "mission: unstamped\n"));
+    assertEq("a ticket whose mission is unstamped is NOT authorized",
+      { a: r.authorized, reason: r.reason }, { a: false, reason: "not_authorized" });
+
+    // A slug that does not resolve -> ask. Never fail open.
+    r = ask(ticket("20260716110003-d.md", "mission: ghost\n"));
+    assertEq("a ticket naming a nonexistent mission is NOT authorized",
+      { a: r.authorized, reason: r.reason }, { a: false, reason: "mission_not_found" });
+
+    // THE conservative row: two missions, one unauthorized -> ask. A ticket is gate-free
+    // only if EVERY mission it claims says so. Naming a mission is a commitment.
+    r = ask(ticket("20260716110004-e.md", "mission: [authorized-one, unstamped]\n"));
+    assertEq("a ticket authorized by only ONE of its two missions is NOT authorized",
+      { a: r.authorized, reason: r.reason }, { a: false, reason: "not_authorized" });
+    assertEq("the refusal still reports both claimed missions", r.missions, ["authorized-one", "unstamped"]);
+
+    // Both stamped -> authorized.
+    r = ask(ticket("20260716110005-f.md", "mission: [authorized-one, authorized-two]\n"));
+    assertEq("a ticket whose two missions are both stamped is authorized",
+      { a: r.authorized, m: r.missions }, { a: true, m: ["authorized-one", "authorized-two"] });
+
+    // The list form and the bare scalar must behave identically -- read-relation.sh is
+    // the single reader, so this is really asserting nothing re-parses frontmatter.
+    const bare = ask(ticket("20260716110006-g.md", "mission: authorized-one\n"));
+    const list = ask(ticket("20260716110007-h.md", "mission: [authorized-one]\n"));
+    assertEq("bare `mission: a` and `mission: [a]` resolve identically",
+      { a: bare.authorized, m: bare.missions }, { a: list.authorized, m: list.missions });
+
+    // A missing file never crashes the drive loop.
+    const missing = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.driveAuthorized} .workaholic/tickets/todo/a-qmu-jp/nope.md`).stdout);
+    assertEq("a missing ticket file is NOT authorized, and does not crash",
+      { a: missing.authorized, reason: missing.reason }, { a: false, reason: "no_ticket" });
+  } finally { cleanup(dir); }
+
+  // The prose contract this ticket had to correct: night mode was documented as the ONLY
+  // gate-skipping mode, which stops being true the moment a mission queue can skip it.
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  assertTrue("drive/SKILL.md no longer claims night mode is the only gate-skipping mode",
+    !/ONLY mode that skips/.test(skill), "the false sentence survives");
+  assertTrue("drive/SKILL.md states the rule as a prior batch authorization",
+    /prior explicit batch authorization/.test(skill), "rule not restated");
+  assertTrue("drive/SKILL.md tells the loop to consult the resolver, not decide in prose",
+    /drive-authorized\.sh/.test(skill), "resolver not wired in");
+  assertTrue("the gate is skipped, never auto-answered",
+    /Skip it; never auto-answer it/.test(skill), "auto-answer boundary not stated");
+  assertTrue("the authorized mode inherits the attempt-every failure contract",
+    /Attempt every ticket/.test(skill), "failure contract not stated");
+}
+
+// ---------- mission Creation Interrogation: the protocol is stated, and its output validates ----------
+// /mission produced an empty shell and asked nothing: create.sh scaffolds the sections as
+// HTML comments, and the only elicitation was one prose sentence with no question protocol
+// and no stop condition. The ticket set was whatever the developer happened to name.
+//
+// The interrogation itself is skill prose driven by the command (a script cannot ask), so
+// what is asserted here is what CAN be: that the protocol exists and is mandatory in the
+// skill, that the command routes to it rather than restating it, that the gate round is
+// gone, and -- the part that actually bites -- that a ticket the interrogation emits must
+// pass the real validate-ticket.sh. Rows the suite cannot reach are driven, not implied.
+function testMissionInterrogationProtocol() {
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/SKILL.md"), "utf8");
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/mission.md"), "utf8");
+
+  assertTrue("the skill states the Creation Interrogation protocol",
+    /^## Creation Interrogation \(mandatory — always run\)$/m.test(skill), "no protocol section");
+  assertTrue("the interrogation is explicitly non-skippable",
+    /always runs — it is not skippable/.test(skill), "not marked non-skippable");
+  // The round nobody asked before, and the reason the mission ends up drive-ready.
+  assertTrue("the protocol includes the ticket-set round",
+    /\*\*The ticket set\*\*/.test(skill), "no ticket-set round");
+  assertTrue("the protocol includes the demanded-experience round",
+    /\*\*The demanded experience\*\*/.test(skill), "no experience round");
+  // Re-aimed off the gate: a mandatory gate round would contradict the schema, which now
+  // calls gate_* optional-and-normally-empty (54e5ec65).
+  assertTrue("the protocol tells the interrogation NOT to ask for the mission gate",
+    /Do not interrogate the mission gate/.test(skill), "gate round not removed");
+  // The ordering rule that reconciles "ask everything first" with "Acceptance names tickets".
+  assertTrue("the protocol records the ask-vs-write ordering rule",
+    /ask everything → decide the ticket set → write the tickets → write `## Acceptance` naming them/.test(skill),
+    "no ordering rule");
+  // The 2-4 split cap conflicts with "a complete set" for a mission-sized goal; the
+  // exception must be stated rather than silently violated.
+  assertTrue("the mission-scoped split-cap exception is stated, not silently taken",
+    /The split cap does not apply to a mission/.test(skill), "cap exception not recorded");
+
+  // Thin commands, comprehensive skills: the command routes to the protocol.
+  assertTrue("the command routes to the skill's interrogation rather than restating it",
+    /Creation Interrogation/.test(cmd), "command does not reference the protocol");
+  assertTrue("the command keeps AskUserQuestion at main-agent level",
+    /a subagent cannot call `AskUserQuestion`/.test(cmd), "One-Level Fan-Out not stated");
+  assertTrue("the command no longer tells the developer to fill in the mission gate",
+    !/set `gate_type` \(`documentation` or `live-app`\)/.test(cmd), "command still interrogates the gate");
+
+  // The part with teeth: a ticket the interrogation emits answers to the real hook.
+  const dir = makeRepo("main");
+  try {
+    const rel = ".workaholic/tickets/todo/a-qmu-jp/20260716110000-emitted.md";
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, `---
+created_at: 2026-07-16T11:00:00+09:00
+author: a@qmu.jp
+type: enhancement
+layer: [Domain]
+effort:
+commit_hash:
+category:
+depends_on:
+mission: some-mission
+---
+
+# An emitted ticket
+
+## Policies
+
+- \`implementation/coding-standards\` — applies.
+
+## Quality Gate
+
+Acceptance: pre-answered at mission time. Verification: the suite. Gate: green.
+`);
+    const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh");
+    let status = 0;
+    try {
+      execSync(`${POSIX_SH} ${HOOK}`, {
+        cwd: dir, input: JSON.stringify({ tool_input: { file_path: rel } }),
+        encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
+      });
+    } catch (e) { status = e.status ?? 1; }
+    assertEq("a ticket emitted by the interrogation passes validate-ticket.sh", status, 0);
+  } finally { cleanup(dir); }
+}
+
+// ---------- mission/gate.sh resolves ports from INSIDE the mission's worktree ----------
+// The prescribed layout is: a mission lives in its own .worktrees/<slug>/ worktree, and
+// /drive auto-routes there -- so that is where gate.sh runs. It used
+// `git rev-parse --show-toplevel` to find the worktrees root, which inside a worktree
+// returns THE WORKTREE, making the lookup <worktree>/.worktrees/<slug>/.env: a path
+// nothing ever creates. Ports came back empty for every mission in the one layout the
+// gate is specified for, while `valid: true` still claimed the gate was fine.
+//
+// The bug reproduces ONLY with a genuine worktree -- a fixture that fakes the directory
+// resolves through show-toplevel by accident and proves nothing. So this builds one.
+function testMissionGateWorktreePorts() {
+  const dir = makeRepo("main");
+  try {
+    execSync(`git config user.email a@qmu.jp`, { cwd: dir });
+    const wt = join(dir, ".worktrees/portmission");
+    mkdirSync(join(dir, ".worktrees"), { recursive: true });
+    execSync(`git worktree add -q .worktrees/portmission -b work-20260716-110000`, { cwd: dir });
+    // The .env create-mission-worktree.sh writes: the port allocation lives with the dir.
+    writeFileSync(join(wt, ".env"), "WORKAHOLIC_PORT_BASE=4100\nWORKAHOLIC_DEV_PORT=4100\nWORKAHOLIC_DOCS_PORT=4101\n");
+    // The mission lives INSIDE the worktree, on the worktree's branch -- as created.
+    const md = join(wt, ".workaholic/missions/active/portmission");
+    mkdirSync(md, { recursive: true });
+    writeFileSync(join(md, "mission.md"),
+      `---\ntype: Mission\ntitle: Port mission\nslug: portmission\nstatus: active\nassignee: a@qmu.jp\ngate_type: live-app\ngate_target: /dashboard\ngate_assert: the chart renders\n---\n\n## Goal\n\ng\n\n## Acceptance\n\n- [ ] One\n`);
+
+    // THE case: from inside the mission's own worktree.
+    const g = JSON.parse(run(wt, `${POSIX_SH} ${SCRIPTS.missionGate} portmission`).stdout);
+    assertEq("gate.sh resolves dev_port from inside the mission's worktree", g.dev_port, "4100");
+    assertEq("gate.sh resolves docs_port from inside the mission's worktree", g.docs_port, "4101");
+    assertEq("gate.sh resolves port_base from inside the mission's worktree", g.port_base, "4100");
+    assertEq("a resolvable live-app gate is driveable", { d: g.driveable, r: g.reason }, { d: true, r: "" });
+    assertEq("the gate declaration is still reported", { t: g.type, tgt: g.target }, { t: "live-app", tgt: "/dashboard" });
+
+    // From a SUBDIR of the worktree: git returns --git-common-dir RELATIVE to cwd
+    // ("../../.git"), so this is the case string surgery would get wrong and `cd`+`pwd`
+    // gets right. The mission is addressed by absolute path here on purpose --
+    // mission_resolve looks under a CWD-relative .workaholic/, so a bare slug cannot
+    // resolve from a subdir. That is a separate, pre-existing property of every mission
+    // script; conflating it with port resolution would test the wrong thing.
+    const sub = join(wt, "deep/nested");
+    mkdirSync(sub, { recursive: true });
+    const g2 = JSON.parse(run(sub, `${POSIX_SH} ${SCRIPTS.missionGate} ${join(md, "mission.md")}`).stdout);
+    assertEq("gate.sh resolves ports from a subdir, where --git-common-dir is relative", g2.dev_port, "4100");
+  } finally { cleanup(dir); }
+
+  // A mission with NO worktree: empty ports, no error -- the legitimate case, which used
+  // to be indistinguishable from the bug (both returned empty, for opposite reasons).
+  const d2 = makeRepo("main");
+  try {
+    execSync(`git config user.email a@qmu.jp`, { cwd: d2 });
+    const md = join(d2, ".workaholic/missions/active/noworktree");
+    mkdirSync(md, { recursive: true });
+    writeFileSync(join(md, "mission.md"),
+      `---\ntype: Mission\ntitle: No worktree\nslug: noworktree\nstatus: active\nassignee: a@qmu.jp\ngate_type: live-app\ngate_target: /x\ngate_assert: it works\n---\n\n## Acceptance\n\n- [ ] One\n`);
+    const g = JSON.parse(run(d2, `${POSIX_SH} ${SCRIPTS.missionGate} noworktree`).stdout);
+    assertEq("a mission with no worktree still reports empty ports", g.dev_port, "");
+    // The point of `driveable`: a declared gate with no port is NOT fine, and valid:true
+    // used to be the only thing said about it.
+    assertEq("a live-app gate with no worktree is reported undriveable, with the reason",
+      { d: g.driveable, r: g.reason }, { d: false, r: "no_worktree" });
+    assertTrue("valid keeps its meaning: the declaration is well-formed", g.valid === true, JSON.stringify(g));
+  } finally { cleanup(d2); }
+
+  // No gate declared: the NORMAL case after 54e5ec65. Not an error, not driveable.
+  const d3 = makeRepo("main");
+  try {
+    execSync(`git config user.email a@qmu.jp`, { cwd: d3 });
+    const md = join(d3, ".workaholic/missions/active/nogate");
+    mkdirSync(md, { recursive: true });
+    writeFileSync(join(md, "mission.md"),
+      `---\ntype: Mission\ntitle: No gate\nslug: nogate\nstatus: active\nassignee: a@qmu.jp\ngate_type:\ngate_target:\ngate_assert:\n---\n\n## Acceptance\n\n- [ ] One\n`);
+    const g = JSON.parse(run(d3, `${POSIX_SH} ${SCRIPTS.missionGate} nogate`).stdout);
+    assertEq("a mission with no gate declared says so, and is not an error",
+      { v: g.valid, d: g.driveable, r: g.reason }, { v: true, d: false, r: "no_gate" });
+  } finally { cleanup(d3); }
+}
+
+// ---------- mission: substance is ## Experience; the gate is optional ----------
+// A gate declared at kickoff predicts work that does not exist yet: it goes stale as the
+// mission learns, but stays in the file and an agent keeps steering by it. The record
+// backs this rather than merely arguing it -- every mission created to date left all
+// three gate_* fields empty, and gate.sh cannot resolve ports in the prescribed
+// worktree layout. So the mission's substance moved to ## Experience (the demanded
+// behavior) and gate_* is optional-and-normally-empty.
+//
+// The load-bearing assertions are the "empty gate is fully functional" ones: if an
+// absent gate broke any reader, "optional" would be a lie.
+function testMissionExperienceSection() {
+  const dir = makeRepo("main");
+  try {
+    execSync(`git config user.email a@qmu.jp`, { cwd: dir });
+    run(dir, `${POSIX_SH} ${SCRIPTS.missionCreate} "Reorder the dashboard"`);
+    const path = ".workaholic/missions/active/reorder-the-dashboard/mission.md";
+    const m = readFileSync(join(dir, path), "utf8");
+
+    assertTrue("scaffold has an ## Experience section", /^## Experience$/m.test(m), m);
+    // Position matters: it is the mission's substance, between the why and the plan.
+    const iScope = m.indexOf("## Scope");
+    const iExp = m.indexOf("## Experience");
+    const iAcc = m.indexOf("## Acceptance");
+    assertTrue("## Experience sits between ## Scope and ## Acceptance",
+      iScope < iExp && iExp < iAcc, `scope=${iScope} exp=${iExp} acc=${iAcc}`);
+
+    // Demoted, not removed: gate.sh and the `carried` inheritance still read these.
+    assertTrue("scaffold still carries gate_type", /^gate_type:\s*$/m.test(m), m);
+    assertTrue("scaffold still carries gate_target", /^gate_target:\s*$/m.test(m), m);
+    assertTrue("scaffold still carries gate_assert", /^gate_assert:\s*$/m.test(m), m);
+
+    // An empty gate is the NORMAL case -- every reader must work without one.
+    const g = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionGate} reorder-the-dashboard`).stdout);
+    assertEq("gate.sh on an empty gate reports no type rather than erroring", g.type ?? "", "");
+    assertTrue("gate.sh does not error on a mission with no gate", !g.error, JSON.stringify(g));
+
+    const p = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${path}`).stdout);
+    assertEq("progress computes on a mission with no gate", p, { checked: 0, total: 0 });
+
+    const s = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSummary}`).stdout);
+    assertEq("summary reports a mission with no gate", s.map((x) => x.slug), ["reorder-the-dashboard"]);
+  } finally { cleanup(dir); }
+
+  // A mission written BEFORE this change (no ## Experience) must not be retro-broken.
+  const old = makeRepo("main");
+  try {
+    execSync(`git config user.email a@qmu.jp`, { cwd: old });
+    const d = join(old, ".workaholic/missions/active/legacy");
+    mkdirSync(d, { recursive: true });
+    writeFileSync(join(d, "mission.md"),
+      `---\ntype: Mission\ntitle: Legacy\nslug: legacy\nstatus: active\nassignee: a@qmu.jp\ngate_type:\ngate_target:\ngate_assert:\n---\n\n## Goal\n\ng\n\n## Acceptance\n\n- [x] One\n- [ ] Two\n`);
+    execSync(`git add -A && git commit -q -m seed`, { cwd: old });
+    const p = JSON.parse(run(old, `${POSIX_SH} ${SCRIPTS.missionProgress} .workaholic/missions/active/legacy/mission.md`).stdout);
+    assertEq("a mission with no ## Experience still computes progress", p, { checked: 1, total: 2 });
+    const s = JSON.parse(run(old, `${POSIX_SH} ${SCRIPTS.missionSummary}`).stdout);
+    assertEq("a mission with no ## Experience still summarizes", s.map((x) => x.slug), ["legacy"]);
+  } finally { cleanup(old); }
+}
+
+// ---------- 8b-2. mission/summary.sh surfaces UNASSIGNED active missions ----------
+// summary.sh gated on an exact `assignee == git config user.email` match. fm_field
+// returns "" for an absent field, and "" matches no email that can exist, so an
+// unassigned mission was skipped for EVERYBODY -- not just for the caller. list.sh still
+// showed it, which is what made the gap silent rather than loud. Not one stale file
+// either: create.sh's self-assignment default is not the only way a mission.md is born,
+// so hand-authored missions keep arriving unassigned and keep vanishing from the summary.
+//
+// The gate is "not somebody else's", NOT "exactly mine": unclaimed work is closer to the
+// developer's business than a colleague's mission. Another developer's mission stays out.
+function testMissionSummaryUnassigned() {
+  const dir = makeRepo("main");
+  const ME = "me@example.com";
+  const OTHER = "other@example.com";
+  try {
+    const mission = (slug, assigneeLine) => {
+      const d = join(dir, `.workaholic/missions/active/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "mission.md"),
+        `---\ntype: Mission\ntitle: ${slug} title\nstatus: active\n${assigneeLine}---\n\n` +
+        `## Goal\n\ng\n\n## Acceptance\n\n- [x] First criterion\n- [ ] Second criterion\n`);
+    };
+    mission("mine", `assignee: ${ME}\n`);
+    mission("theirs", `assignee: ${OTHER}\n`);
+    mission("absent", "");                 // no assignee field at all
+    mission("empty", "assignee:\n");       // field present, no value
+    execSync(`git config user.email ${ME}`, { cwd: dir });
+
+    const out = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSummary}`).stdout);
+    const slugs = out.map((m) => m.slug);
+
+    // Another developer's mission is the ONE thing still excluded.
+    assertTrue("summary still excludes another developer's mission", !slugs.includes("theirs"), JSON.stringify(slugs));
+
+    // Absent and empty are the same thing -- the schema draws no distinction.
+    assertTrue("summary surfaces a mission with an ABSENT assignee", slugs.includes("absent"), JSON.stringify(slugs));
+    assertTrue("summary surfaces a mission with an EMPTY assignee", slugs.includes("empty"), JSON.stringify(slugs));
+
+    // Mine first, unassigned after: real assigned work is never crowded out by an offer.
+    assertEq("summary orders mine before unassigned, each by slug", slugs, ["mine", "absent", "empty"]);
+
+    // The payload carries the fact, so neither consumer re-derives it from frontmatter.
+    const by = Object.fromEntries(out.map((m) => [m.slug, m]));
+    assertEq("summary reports the assignee of a claimed mission", by.mine.assignee, ME);
+    assertEq("summary reports an absent assignee as empty", by.absent.assignee, "");
+    assertEq("summary reports an empty assignee as empty", by.empty.assignee, "");
+
+    // Progress is still computed, not stored, for an unassigned mission.
+    assertEq("summary computes progress for an unassigned mission",
+      { checked: by.absent.checked, total: by.absent.total }, { checked: 1, total: 2 });
+    assertEq("summary computes the next item for an unassigned mission", by.absent.next, "Second criterion");
+
+    // A developer with nothing of their own still sees the unclaimed work -- that IS the
+    // point. Before this, OTHER saw only their own and the unassigned ones vanished.
+    execSync(`git config user.email ${OTHER}`, { cwd: dir });
+    const asOther = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSummary}`).stdout).map((m) => m.slug);
+    assertEq("another developer sees their own first, then the same unclaimed work", asOther, ["theirs", "absent", "empty"]);
+  } finally { cleanup(dir); }
+}
+
+// ---------- 8b-3. mission-lens.sh follows the summary on unassigned missions ----------
+// The lens fires on every prompt, so what it says about unclaimed work gets said
+// constantly: it must read as an invitation, not an error. It follows summary.sh's
+// "not somebody else's" gate, while its OTHER two gates (location, signal) are untouched.
+function testMissionLensUnassigned() {
+  const dir = makeRepo("main");
+  const ME = "me@example.com";
+  try {
+    const mission = (slug, assigneeLine, acceptance) => {
+      const d = join(dir, `.workaholic/missions/active/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "mission.md"),
+        `---\ntype: Mission\ntitle: ${slug} title\nstatus: active\n${assigneeLine}---\n\n` +
+        `## Goal\n\ng\n\n## Acceptance\n\n${acceptance}`);
+    };
+    mission("mine", `assignee: ${ME}\n`, "- [x] A\n- [ ] B\n");
+    mission("unclaimed", "", "- [ ] Claim me\n");
+    mission("theirs", "assignee: other@example.com\n", "- [ ] Not yours\n");
+    // Signal gate: no acceptance criteria -> silent even though it is unassigned.
+    mission("no-signal", "", "");
+    execSync(`git config user.email ${ME}`, { cwd: dir });
+
+    const env = { ...process.env, CLAUDE_PLUGIN_ROOT: join(REPO_ROOT, "plugins/workaholic") };
+    const out = execSync(`${POSIX_SH} ${SCRIPTS.missionLens}`, {
+      cwd: dir, input: JSON.stringify({ hook_event_name: "UserPromptSubmit" }), encoding: "utf8", env,
+    });
+
+    assertTrue("lens surfaces the developer's own mission", out.includes("mine title"), out);
+    assertTrue("lens surfaces an UNASSIGNED mission", out.includes("unclaimed title"), out);
+    assertTrue("lens still stays silent about another developer's mission", !out.includes("theirs title"), out);
+    assertTrue("lens signal gate still holds: an unassigned 0/0 mission stays silent",
+      !out.includes("no-signal title"), out);
+    // An offer, not a defect -- this is printed above every answer.
+    assertTrue("lens marks unclaimed work as claimable, not as an error",
+      out.includes("unclaimed — yours to take") || out.includes("unclaimed \\u2014 yours to take"), out);
+    assertTrue("lens shows mine before the unclaimed offer",
+      out.indexOf("mine title") < out.indexOf("unclaimed title"), out);
+  } finally { cleanup(dir); }
+}
+
 // ---------- 8c. /mission create branches on main (branch-if-on-main orchestration) ----------
 // /mission "<title>" starts a topic branch when on main, like /ticket. The command
 // orchestrates check.sh -> (on_main) create.sh before mission/create.sh; list and
@@ -821,6 +1414,144 @@ function testMissionWorktreeShipReset() {
 }
 
 // ---------- 8h. /mission close removes the mission worktree ----------
+// ---------- mission/close.sh `carried`: close by carrying the remainder forward ----------
+// A mission ended in one of two ways, and neither fit the common verdict "most of this
+// landed, the rest is still worth doing": `achieved` lies to a progress model whose whole
+// claim is that progress is COMPUTED from unchecked items and never hand-set, and
+// `abandoned` is false too. `carried` says the mission is done AS FRAMED and its remainder
+// becomes a successor that inherits what was not finished.
+//
+// The load-bearing assertion is the progress one: the successor must start at 0/<n unmet>,
+// falling out of its OWN list. Carrying a number across is exactly what the model forbids.
+function testMissionCloseCarried() {
+  const PRED = `---
+type: Mission
+title: Predecessor mission
+slug: predecessor
+status: active
+created_at: 2026-07-01T00:00:00+09:00
+author: a@qmu.jp
+assignee: a@qmu.jp
+tickets: []
+stories: []
+concerns: []
+gate_type: live-app
+gate_target: /dashboard
+gate_assert: the chart renders
+---
+
+# Predecessor mission
+
+## Goal
+
+The original information-rich why.
+
+## Scope
+
+In: the dashboard. Out: the API.
+
+## Acceptance
+
+- [x] Landed criterion (#20260101120000-done.md)
+- [ ] Unmet criterion one (#20260101120001-todo.md)
+- [x] Another landed one
+- [ ] Unmet criterion two (#20260101120002-todo.md)
+
+## Changelog
+
+- 2026-07-01 — mission created — mission.md
+`;
+  const seed = (dir) => {
+    mkdirSync(join(dir, ".workaholic/missions/active/predecessor"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/missions/active/predecessor/mission.md"), PRED);
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+  };
+
+  const dir = makeRepo("main");
+  try {
+    seed(dir);
+    const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} predecessor carried --successor-title "Successor mission" 2026-07-16`).stdout);
+    assertEq("carried closes the predecessor and names the successor",
+      { closed: r.closed, status: r.status, successor: r.successor }, { closed: true, status: "carried", successor: "successor-mission" });
+
+    // Predecessor: archived, status carried, and its OWN history says where the
+    // remainder went (design/history-structures -- half of the two-way lineage).
+    const pred = readFileSync(join(dir, ".workaholic/missions/archive/predecessor/mission.md"), "utf8");
+    assertTrue("predecessor is archived with status: carried", /^status:\s*carried\s*$/m.test(pred), pred);
+    assertTrue("predecessor's changelog names the successor",
+      /^- 2026-07-16 — mission carried into successor-mission — mission\.md$/m.test(pred), pred);
+    // Checked items were achieved THERE and stay there.
+    const pprog = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} .workaholic/missions/archive/predecessor/mission.md`).stdout);
+    assertEq("predecessor keeps its full acceptance list", pprog, { checked: 2, total: 4 });
+
+    const succPath = ".workaholic/missions/active/successor-mission/mission.md";
+    const succ = readFileSync(join(dir, succPath), "utf8");
+
+    // Exactly the unchecked items, markers intact -- and NONE of the checked ones.
+    assertTrue("successor carries unmet item one verbatim, marker intact",
+      /^- \[ \] Unmet criterion one \(#20260101120001-todo\.md\)$/m.test(succ), succ);
+    assertTrue("successor carries unmet item two verbatim, marker intact",
+      /^- \[ \] Unmet criterion two \(#20260101120002-todo\.md\)$/m.test(succ), succ);
+    assertTrue("successor does NOT inherit a checked item", !succ.includes("Landed criterion"), succ);
+    assertTrue("successor does NOT inherit the other checked item", !succ.includes("Another landed one"), succ);
+
+    // THE assertion: progress falls out of the successor's own list.
+    const sprog = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${succPath}`).stdout);
+    assertEq("successor's computed progress is 0/<n unmet>, not the predecessor's count", sprog, { checked: 0, total: 2 });
+
+    // Lineage the other way, so the archive does not show two unrelated missions.
+    assertTrue("successor records carried_from", /^carried_from:\s*predecessor\s*$/m.test(succ), succ);
+    // A carry is a continuation: goal, scope and the gate come along.
+    assertTrue("successor inherits the Goal verbatim", succ.includes("The original information-rich why."), succ);
+    assertTrue("successor inherits the Scope verbatim", succ.includes("In: the dashboard. Out: the API."), succ);
+    assertTrue("successor inherits gate_type", /^gate_type:\s*live-app\s*$/m.test(succ), succ);
+    assertTrue("successor inherits gate_target", /^gate_target:\s*\/dashboard\s*$/m.test(succ), succ);
+    assertTrue("successor inherits gate_assert", /^gate_assert:\s*the chart renders\s*$/m.test(succ), succ);
+    assertTrue("successor is active", /^status:\s*active\s*$/m.test(succ), succ);
+
+    // Idempotent, like every other mission mutator.
+    const again = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} predecessor carried --successor-title "Successor mission" 2026-07-16`).stdout);
+    assertEq("re-running the same carry is a no-op", { closed: again.closed, reason: again.reason }, { closed: false, reason: "already_closed" });
+  } finally { cleanup(dir); }
+
+  // A carry with nowhere to carry to is an abandon wearing a nicer name -> rejected.
+  const d2 = makeRepo("main");
+  try {
+    seed(d2);
+    const r = run(d2, `${POSIX_SH} ${SCRIPTS.missionClose} predecessor carried 2026-07-16`);
+    assertTrue("carried without a successor is rejected", r.stderr.includes("carried_needs_successor"), r.stderr);
+    assertTrue("the rejected carry left the mission active",
+      existsSync(join(d2, ".workaholic/missions/active/predecessor/mission.md")), "predecessor moved");
+    // The status set stays closed and validated -- just larger by one.
+    const bad = run(d2, `${POSIX_SH} ${SCRIPTS.missionClose} predecessor finished 2026-07-16`);
+    assertTrue("an unknown status is still invalid_status", bad.stderr.includes("invalid_status"), bad.stderr);
+  } finally { cleanup(d2); }
+
+  // Carry into an EXISTING active mission, rather than minting one.
+  const d3 = makeRepo("main");
+  try {
+    seed(d3);
+    mkdirSync(join(d3, ".workaholic/missions/active/existing"), { recursive: true });
+    writeFileSync(join(d3, ".workaholic/missions/active/existing/mission.md"),
+      `---\ntype: Mission\ntitle: Existing\nslug: existing\nstatus: active\nassignee: a@qmu.jp\n---\n\n## Acceptance\n\n- [ ] Its own item\n`);
+    execSync(`git add -A && git commit -q -m seed2`, { cwd: d3 });
+
+    // An unknown successor is rejected rather than silently minted. This must run while
+    // the predecessor is still ACTIVE -- once it is archived, close.sh short-circuits on
+    // already_closed and never reaches the successor check.
+    const bad = run(d3, `${POSIX_SH} ${SCRIPTS.missionClose} predecessor carried --successor nope 2026-07-16`);
+    assertTrue("carrying into a nonexistent mission is rejected", bad.stderr.includes("successor_not_found"), bad.stderr);
+    assertTrue("the rejected carry left the predecessor active",
+      existsSync(join(d3, ".workaholic/missions/active/predecessor/mission.md")), "predecessor moved");
+
+    const r = JSON.parse(run(d3, `${POSIX_SH} ${SCRIPTS.missionClose} predecessor carried --successor existing 2026-07-16`).stdout);
+    assertEq("carrying into an existing mission names it", { closed: r.closed, successor: r.successor }, { closed: true, successor: "existing" });
+    const pred = readFileSync(join(d3, ".workaholic/missions/archive/predecessor/mission.md"), "utf8");
+    assertTrue("predecessor's changelog names the existing successor",
+      /mission carried into existing/.test(pred), pred);
+  } finally { cleanup(d3); }
+}
+
 function testMissionCloseRemovesWorktree() {
   const seedMission = (dir, slug, title, checked) => {
     const mdir = join(dir, `.workaholic/missions/active/${slug}`);
@@ -2399,7 +3130,45 @@ function testExtractDeferredConcernsPush() {
     const local = execSync(`git rev-parse main`, { cwd: clone, encoding: "utf8" }).trim();
     const remote = execSync(`git rev-parse origin/main`, { cwd: clone, encoding: "utf8" }).trim();
     assertEq("extract-deferred-concerns pushes the commit (origin/main == main)", remote, local);
+    assertEq("extract-deferred-concerns reports pushed:true on success", r.pushed, true);
+    assertEq("extract-deferred-concerns reports no push_error on success", r.push_error, "");
   } finally { cleanup(origin); cleanup(clone); }
+
+  // THE CASE THAT SHIPPED THE BUG: a REACHABLE remote that REJECTS the push. On PR #86
+  // the push silently did not happen and the script still printed status:ok, leaving main
+  // ahead of origin/main unnoticed. Nothing covered this — the success path and the
+  // no-remote path were both green throughout. The push must stay non-fatal (the PR has
+  // already merged) but must no longer claim success it did not have.
+  const rOrigin = mkdtempSync(join(tmpdir(), "wh-rorigin-"));
+  const rClone = mkdtempSync(join(tmpdir(), "wh-rclone-"));
+  try {
+    execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: rOrigin });
+    const seed = mkdtempSync(join(tmpdir(), "wh-rseed-"));
+    execSync(`git clone -q ${rOrigin} .`, { cwd: seed });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: seed });
+    mkdirSync(join(seed, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(seed, ".workaholic/stories/work-x.md"), STORY_WITH_CONCERN);
+    execSync(`git add -A && git commit -q -m story && git push -q origin main`, { cwd: seed });
+
+    execSync(`git clone -q ${rOrigin} .`, { cwd: rClone });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: rClone });
+
+    // Advance origin behind the clone's back -> the clone's push is now non-fast-forward.
+    writeFileSync(join(seed, "other.txt"), "moved on\n");
+    execSync(`git add -A && git commit -q -m other && git push -q origin main`, { cwd: seed });
+    rmSync(seed, { recursive: true, force: true });
+
+    const res = run(rClone, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/pr/10`);
+    assertEq("extract-deferred-concerns exits 0 when the push is rejected", res.status, 0);
+    const j = JSON.parse(res.stdout);
+    assertEq("extract-deferred-concerns still extracts when the push is rejected", j.extracted, 1);
+    assertEq("extract-deferred-concerns reports pushed:false when rejected", j.pushed, false);
+    assertEq("extract-deferred-concerns names the rejection cause", j.push_error, "rejected_non_fast_forward");
+    // The divergence is real and now visible instead of silent.
+    const l = execSync(`git rev-parse main`, { cwd: rClone, encoding: "utf8" }).trim();
+    const rm = execSync(`git rev-parse origin/main`, { cwd: rClone, encoding: "utf8" }).trim();
+    assertTrue("rejected push leaves main ahead of origin/main (the reported state)", l !== rm, "should diverge");
+  } finally { cleanup(rOrigin); cleanup(rClone); }
 
   // With NO reachable remote: the guarded push must no-op — exit 0, normal JSON,
   // commit still made locally. A push failure must never fail the post-merge ship.
@@ -2410,10 +3179,130 @@ function testExtractDeferredConcernsPush() {
     execSync(`git add -A && git commit -q -m story`, { cwd: noRemote });
     const res = run(noRemote, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/pr/10`);
     assertEq("extract-deferred-concerns exits 0 with no remote", res.status, 0);
-    assertEq("extract-deferred-concerns still extracts with no remote", JSON.parse(res.stdout).extracted, 1);
+    const j = JSON.parse(res.stdout);
+    assertEq("extract-deferred-concerns still extracts with no remote", j.extracted, 1);
+    assertEq("extract-deferred-concerns reports pushed:false with no remote", j.pushed, false);
+    assertEq("extract-deferred-concerns names the no-remote cause", j.push_error, "no_remote");
     const subject = execSync(`git log -1 --pretty=%s`, { cwd: noRemote, encoding: "utf8" }).trim();
     assertEq("extract-deferred-concerns committed locally with no remote", subject, "Add deferred concerns from PR #10");
   } finally { cleanup(noRemote); }
+
+  // Today's observed case: a remote exists but the branch has NO upstream, so a bare
+  // `git push` cannot resolve a destination. This is what actually happened on PR #86.
+  const noUp = mkdtempSync(join(tmpdir(), "wh-noup-"));
+  try {
+    const bare = mkdtempSync(join(tmpdir(), "wh-noupbare-"));
+    execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: bare });
+    execSync(`git -c init.defaultBranch=main init -q`, { cwd: noUp });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: noUp });
+    execSync(`git remote add origin ${bare}`, { cwd: noUp });   // remote yes, upstream no
+    mkdirSync(join(noUp, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(noUp, ".workaholic/stories/work-x.md"), STORY_WITH_CONCERN);
+    execSync(`git add -A && git commit -q -m story`, { cwd: noUp });
+    const res = run(noUp, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/pr/10`);
+    assertEq("extract-deferred-concerns exits 0 with no upstream", res.status, 0);
+    const j = JSON.parse(res.stdout);
+    assertEq("extract-deferred-concerns reports pushed:false with no upstream", j.pushed, false);
+    assertEq("extract-deferred-concerns names the no-upstream cause", j.push_error, "no_upstream");
+    cleanup(bare);
+  } finally { cleanup(noUp); }
+}
+
+// ---------- ship/commit-release-note.sh: the push outcome is reported ----------
+// Same swallow as extract-deferred-concerns.sh, and it had NO push test at all. A note
+// committed but not pushed is a note the merged PR does not carry.
+function testCommitReleaseNotePush() {
+  const origin = mkdtempSync(join(tmpdir(), "wh-rn-origin-"));
+  const clone = mkdtempSync(join(tmpdir(), "wh-rn-clone-"));
+  try {
+    execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
+    execSync(`git clone -q ${origin} .`, { cwd: clone });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: clone });
+    execSync(`git commit -q --allow-empty -m seed && git push -q origin main`, { cwd: clone });
+    mkdirSync(join(clone, ".workaholic/release-notes"), { recursive: true });
+    writeFileSync(join(clone, ".workaholic/release-notes/work-x.md"), "# Note\n");
+    const j = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.commitReleaseNote} work-x`).stdout);
+    assertEq("commit-release-note commits the note", j.committed, true);
+    assertEq("commit-release-note reports pushed:true on success", j.pushed, true);
+    const local = execSync(`git rev-parse main`, { cwd: clone, encoding: "utf8" }).trim();
+    const remote = execSync(`git rev-parse origin/main`, { cwd: clone, encoding: "utf8" }).trim();
+    assertEq("commit-release-note actually pushed (origin/main == main)", remote, local);
+  } finally { cleanup(origin); cleanup(clone); }
+
+  // No remote: still commits, still exits 0, and says so rather than implying a push.
+  const noRemote = makeRepo("main");
+  try {
+    mkdirSync(join(noRemote, ".workaholic/release-notes"), { recursive: true });
+    writeFileSync(join(noRemote, ".workaholic/release-notes/work-x.md"), "# Note\n");
+    const res = run(noRemote, `${POSIX_SH} ${SCRIPTS.commitReleaseNote} work-x`);
+    assertEq("commit-release-note exits 0 with no remote", res.status, 0);
+    const j = JSON.parse(res.stdout);
+    assertEq("commit-release-note still commits with no remote", j.committed, true);
+    assertEq("commit-release-note reports pushed:false with no remote", j.pushed, false);
+    assertEq("commit-release-note names the no-remote cause", j.push_error, "no_remote");
+  } finally { cleanup(noRemote); }
+}
+
+// ---------- concern identity: the three slugify() writers must agree ----------
+// concern_id is derived from the title by THREE scripts: extract-deferred-concerns.sh
+// mints it on ship, merge-concerns.sh mints a triage compound, migrate-concern-identity.sh
+// back-fills and renames files to it. If any two disagree, the round trip silently breaks —
+// the extractor computes an id it cannot find and writes a SECOND file for the same
+// concern. That is not hypothetical: PR #86 produced `commit-subject-rule-binds-on-no-path`
+// (triage) and `the-commit-subject-rule-binds-on` (ship) for one concern, because
+// merge-concerns.sh had no slugify at all and took the id from the caller's hand.
+//
+// They live in python heredocs in three shell scripts, so they cannot be imported from one
+// place without a module-loading pattern this codebase does not use. Equivalence is
+// therefore asserted BEHAVIOURALLY, which is the property that actually matters: a text
+// diff would flag quote style, and would miss a real divergence written to look the same.
+function testSlugifyWritersAgree() {
+  const paths = {
+    extract: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/extract-deferred-concerns.sh"),
+    migrate: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/migrate-concern-identity.sh"),
+    merge: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/merge-concerns.sh"),
+  };
+  const cases = [
+    "The commit-subject rule binds on no path — including the sanctioned one",
+    "Compound risk",
+    "`merge-concerns.sh` writes [a link](http://x) and CAPS_UNDER_scores",
+    "50-char cap is byte-based outside a UTF-8 locale",
+    "one two three four five six seven eight",   // 6-word truncation
+    "A".repeat(200),                              // 60-char truncation
+    "(carried from PR #59) Concern that was carried",
+  ];
+  // Cases go in on STDIN, never as an argv string. execSync runs its command through an
+  // outer shell, which would evaluate the backticks in "`merge-concerns.sh`" as command
+  // substitution and silently hand python a mangled case — all three writers would then
+  // agree on garbage and the assertion would pass while measuring nothing. This is the
+  // same trap the secret-pattern work hit twice; the fix is always stdin.
+  const driver = `
+import re, sys, json
+srcs = ${JSON.stringify(paths)}
+fns = {}
+for name, path in srcs.items():
+    text = open(path).read()
+    m = re.search(r'^def slugify\\(s\\):\\n(?:(?:[ \\t]+.*)?\\n)+?(?=\\n*\\S)', text, re.M)
+    if not m:
+        print(json.dumps({"error": "no slugify in " + name})); sys.exit(0)
+    ns = {"re": re}
+    exec(m.group(0), ns)
+    fns[name] = ns["slugify"]
+cases = json.loads(sys.stdin.read())
+print(json.dumps([{n: f(c) for n, f in fns.items()} for c in cases]))
+`;
+  const tmp = mkdtempSync(join(tmpdir(), "slug-"));
+  try {
+    const drv = join(tmp, "d.py");
+    writeFileSync(drv, driver);
+    const out = execSync(`python3 ${drv}`, { input: JSON.stringify(cases), encoding: "utf8" });
+    const rows = JSON.parse(out);
+    assertTrue("all three scripts define a slugify()", !rows.error, JSON.stringify(rows));
+    rows.forEach((r, i) => {
+      const distinct = [...new Set(Object.values(r))];
+      assertEq(`slugify agrees across writers: ${cases[i].slice(0, 34)}`, distinct.length, 1);
+    });
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
 }
 
 // ---------- report/merge-concerns.sh + close-concern.sh (triage mutators) ----------
@@ -2421,35 +3310,98 @@ function testExtractDeferredConcernsPush() {
 // supersedes its parts (severity escalated), close archives with a reason. Both
 // idempotent.
 function testConcernTriage() {
-  const mkConcern = (id, sev, title) =>
-    `---\ntype: Concern\nconcern_id: ${id}\nseverity: ${sev}\nstatus: active\nresolved_by_pr:\nresolved_by_commit:\n---\n\n# ${title}\n\n## Description\n\ndesc ${id}\n\n## How to Fix\n\nfix\n`;
+  // Members carry provenance, as extract-deferred-concerns.sh stamps it. `b` is the
+  // EARLIEST-seen member, so a compound folding these must inherit b's origin, not a's.
+  const mkConcern = (id, sev, title, seen = "2026-07-01T00:00:00+09:00", pr = "50") =>
+    `---\ntype: Concern\nconcern_id: ${id}\norigin_pr: ${pr}\norigin_pr_url: https://x/pr/${pr}\norigin_branch: work-${pr}\norigin_commit: abc${pr}\ncreated_at: ${seen}\nfirst_seen: ${seen}\nlast_seen: ${seen}\nseverity: ${sev}\nstatus: active\nresolved_by_pr:\nresolved_by_commit:\n---\n\n# ${title}\n\n## Description\n\ndesc ${id}\n\n## How to Fix\n\nfix\n`;
 
   // (1) Merge 3 members into a new compound: 1 active compound, 3 superseded.
+  // The compound's id is DERIVED from --title, not taken from the positional argument:
+  // slugify("Compound risk") == "compound-risk". This test used to pass `abc` and assert
+  // `abc.md`, which encoded the very bug that cloned a compound on the next ship — the
+  // extractor computes slugify(title) and would never have found `abc`.
   const repo = makeRepo("main");
   try {
     const cdir = join(repo, ".workaholic/concerns");
     mkdirSync(cdir, { recursive: true });
-    writeFileSync(join(cdir, "a.md"), mkConcern("a", "low", "Concern A"));
-    writeFileSync(join(cdir, "b.md"), mkConcern("b", "low", "Concern B"));
-    writeFileSync(join(cdir, "c.md"), mkConcern("c", "moderate", "Concern C"));
+    writeFileSync(join(cdir, "a.md"), mkConcern("a", "low", "Concern A", "2026-07-05T00:00:00+09:00", "55"));
+    writeFileSync(join(cdir, "b.md"), mkConcern("b", "low", "Concern B", "2026-07-01T00:00:00+09:00", "50"));
+    writeFileSync(join(cdir, "c.md"), mkConcern("c", "moderate", "Concern C", "2026-07-09T00:00:00+09:00", "59"));
     execSync(`git add -A && git commit -q -m seed`, { cwd: repo });
 
-    const r = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPTS.mergeConcerns} --severity urgent --title "Compound risk" abc a b c`).stdout);
+    const r = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPTS.mergeConcerns} --severity urgent --title "Compound risk" - a b c`).stdout);
     assertEq("merge reports the target and superseded members", { m: r.merged, n: r.superseded.length }, { m: true, n: 3 });
+    assertEq("new compound's id is derived from its title", r.target_id, "compound-risk");
     const active = readdirSync(cdir).filter((f) => f.endsWith(".md"));
-    assertEq("merge leaves exactly one active file (the compound)", active, ["abc.md"]);
-    const compound = readFileSync(join(cdir, "abc.md"), "utf8");
+    assertEq("merge leaves exactly one active file (the compound)", active, ["compound-risk.md"]);
+    const compound = readFileSync(join(cdir, "compound-risk.md"), "utf8");
     assertTrue("compound severity is the confirmed escalation (urgent)", /^severity:\s*urgent\s*$/m.test(compound), compound);
     assertTrue("compound is flagged compound: true", /^compound:\s*true\s*$/m.test(compound), compound);
+
+    // Provenance: a compound re-frames risks already on the books, so its origin is its
+    // EARLIEST-seen member's (b, 2026-07-01, PR 50) — not the triage act's, which would
+    // restart the clock on a weeks-old risk. created_at/last_seen ARE the triage act's.
+    assertTrue("compound inherits the earliest member's origin_pr", /^origin_pr:\s*50\s*$/m.test(compound), compound);
+    assertTrue("compound inherits the earliest member's origin_branch", /^origin_branch:\s*work-50\s*$/m.test(compound), compound);
+    assertTrue("compound inherits the earliest member's origin_commit", /^origin_commit:\s*abc50\s*$/m.test(compound), compound);
+    assertTrue("compound inherits the earliest member's first_seen",
+      /^first_seen:\s*2026-07-01T00:00:00\+09:00\s*$/m.test(compound), compound);
+    assertTrue("compound stamps created_at (the triage act)", /^created_at:\s*\S+/m.test(compound), compound);
+    assertTrue("compound stamps last_seen (the triage act)", /^last_seen:\s*\S+/m.test(compound), compound);
+    assertTrue("compound's created_at is NOT the inherited first_seen",
+      !/^created_at:\s*2026-07-01T00:00:00\+09:00\s*$/m.test(compound), compound);
+
     const archived = readdirSync(join(cdir, "archive")).filter((f) => f.endsWith(".md")).sort();
     assertEq("all three members archived", archived, ["a.md", "b.md", "c.md"]);
     assertTrue("archived member records superseded_by the compound",
-      /^superseded_by:\s*abc\s*$/m.test(readFileSync(join(cdir, "archive/a.md"), "utf8")), "no superseded_by");
+      /^superseded_by:\s*compound-risk\s*$/m.test(readFileSync(join(cdir, "archive/a.md"), "utf8")), "no superseded_by");
 
     // Idempotent: re-running the same merge supersedes nothing new.
-    const r2 = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPTS.mergeConcerns} --severity urgent --title "Compound risk" abc a b c`).stdout);
+    const r2 = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPTS.mergeConcerns} --severity urgent --title "Compound risk" - a b c`).stdout);
     assertEq("merge is idempotent (no members left to supersede)", r2.superseded.length, 0);
+
+    // Folding into an EXISTING target still takes its id as given — that path was never
+    // broken and must not regress.
+    writeFileSync(join(cdir, "d.md"), mkConcern("d", "low", "Concern D", "2026-07-11T00:00:00+09:00", "60"));
+    const r3 = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPTS.mergeConcerns} --title "Compound risk" compound-risk d`).stdout);
+    assertEq("folding into an existing target keeps its id", r3.target_id, "compound-risk");
+    assertEq("folding into an existing target supersedes the new member", r3.superseded.length, 1);
   } finally { cleanup(repo); }
+
+  // (1b) THE ROUND TRIP — the assertion whose absence let a compound clone itself.
+  // A triage-minted compound, then a story whose section-6 title IS that compound:
+  // ship's extractor must compute the same id, find it, and UPDATE IN PLACE.
+  const rt = makeRepo("main");
+  try {
+    const cdir = join(rt, ".workaholic/concerns");
+    mkdirSync(cdir, { recursive: true });
+    mkdirSync(join(rt, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(cdir, "a.md"), mkConcern("a", "low", "Concern A", "2026-07-05T00:00:00+09:00", "55"));
+    writeFileSync(join(cdir, "b.md"), mkConcern("b", "low", "Concern B", "2026-07-01T00:00:00+09:00", "50"));
+    execSync(`git add -A && git commit -q -m seed`, { cwd: rt });
+
+    const m = JSON.parse(run(rt, `${POSIX_SH} ${SCRIPTS.mergeConcerns} --severity urgent --title "The rule binds on no path" - a b`).stdout);
+    assertEq("round trip: compound minted with a derived id", m.target_id, "the-rule-binds-on-no-path");
+
+    // The next story carries the compound as a section-6 block, exactly as the
+    // section-reviewer writes it back out.
+    writeFileSync(join(rt, ".workaholic/stories/work-rt.md"),
+      `---\ntype: Story\nbranch: work-rt\n---\n\n## 6. Concerns\n\n### The rule binds on no path\n\n- **Severity:** urgent\n- **Description:** still open\n- **How to Fix:** fix it\n`);
+    execSync(`git add -A && git commit -q -m story`, { cwd: rt });
+
+    const e = JSON.parse(run(rt, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-rt 90 https://x/pr/90`).stdout);
+    assertEq("round trip: ship UPDATES the compound in place", e.updated, 1);
+    assertEq("round trip: ship does NOT clone it", e.created, 0);
+    // Exclude the OKF bundle index, which extract legitimately regenerates — the same
+    // reserved names migrate-concern-identity.sh skips (RESERVED = {README, index}).
+    const files = readdirSync(cdir)
+      .filter((f) => f.endsWith(".md") && !["index.md", "README.md"].includes(f)).sort();
+    assertEq("round trip: exactly one file for the concern", files, ["the-rule-binds-on-no-path.md"]);
+    // And the inherited origin survives the update — origin_* is never edited after creation.
+    const after = readFileSync(join(cdir, "the-rule-binds-on-no-path.md"), "utf8");
+    assertTrue("round trip: the compound keeps its inherited origin_pr (not the ship's PR 90)",
+      /^origin_pr:\s*50\s*$/m.test(after), after);
+  } finally { cleanup(rt); }
 
   // (2) Close archives with status + reason and drops from the active list.
   const repo2 = makeRepo("main");
@@ -2787,6 +3739,103 @@ function testValidateTicket() {
   assertEq("validate-ticket rejects nested todo/<user>/archive/", invoke(`.workaholic/tickets/todo/a-qmu-jp/archive/b/${TS}-x.md`), 2);
 }
 
+// ---------- hooks/validate-ticket.sh (mandatory body sections) ----------
+// create-ticket/SKILL.md calls `## Policies` and `## Quality Gate` mandatory and
+// never-empty, and until now nothing checked either -- a ticket written this week
+// reached the queue with neither and passed every gate. That was survivable only
+// because a human approves each ticket at /drive Step 2.2 against its gate. Once a
+// mission-authorized queue drives without that prompt, the gate becomes the only bar
+// the agent holds itself to, unattended, so it has to actually exist.
+//
+// The check is scoped to todo/<user>/ -- the finished location. History is never
+// retro-blocked, which is the row below that matters most for a 309-line hook.
+function testValidateTicketSections() {
+  const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh");
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  validate-ticket sections (jq not available)"); return; }
+
+  const dir = makeRepo("main");
+  try {
+    const FM = `---
+created_at: 2026-07-16T01:28:46+09:00
+author: a@qmu.jp
+type: enhancement
+layer: [Domain]
+effort:
+commit_hash:
+category:
+depends_on:
+---
+
+# T
+`;
+    const POLICIES = `
+## Policies
+
+- \`implementation/coding-standards\` — applies.
+`;
+    const GATE = `
+## Quality Gate
+
+Acceptance: it works. Verification: the suite. Gate: green.
+`;
+    // Returns {status, stderr} so we can assert the message names the section --
+    // a rejection that does not say WHICH section is missing is a bad rejection.
+    const invoke = (rel) => {
+      const payload = JSON.stringify({ tool_input: { file_path: rel } });
+      try {
+        execSync(`${POSIX_SH} ${HOOK}`, { cwd: dir, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+        return { status: 0, stderr: "" };
+      } catch (e) { return { status: e.status ?? 1, stderr: String(e.stderr ?? "") }; }
+    };
+    const write = (rel, body) => {
+      const abs = join(dir, rel);
+      mkdirSync(dirname(abs), { recursive: true });
+      writeFileSync(abs, body);
+      return rel;
+    };
+    const TODO = ".workaholic/tickets/todo/a-qmu-jp/20260716012846-t.md";
+
+    // (1) Both sections present and non-empty -> accepted.
+    write(TODO, FM + POLICIES + GATE);
+    assertEq("validate-ticket accepts a todo ticket with both sections", invoke(TODO).status, 0);
+
+    // (2) Missing ## Quality Gate -> rejected, and the message names it.
+    write(TODO, FM + POLICIES);
+    let r = invoke(TODO);
+    assertEq("validate-ticket rejects a todo ticket missing ## Quality Gate", r.status, 2);
+    assertTrue("the rejection names the Quality Gate section", r.stderr.includes("## Quality Gate"), r.stderr);
+
+    // (3) Missing ## Policies -> rejected.
+    write(TODO, FM + GATE);
+    r = invoke(TODO);
+    assertEq("validate-ticket rejects a todo ticket missing ## Policies", r.status, 2);
+    assertTrue("the rejection names the Policies section", r.stderr.includes("## Policies"), r.stderr);
+
+    // (4) Heading present but EMPTY -> rejected. An empty gate is the defect itself,
+    // not a technicality: it satisfies a grep for the heading while promising nothing.
+    write(TODO, FM + POLICIES + "\n## Quality Gate\n");
+    assertEq("validate-ticket rejects an empty ## Quality Gate heading", invoke(TODO).status, 2);
+    write(TODO, FM + GATE.replace("## Quality Gate", "## Quality Gate") + "\n## Policies\n\n");
+    assertEq("validate-ticket rejects an empty ## Policies heading", invoke(TODO).status, 2);
+
+    // (5) A section followed immediately by the next heading is still empty.
+    write(TODO, FM + "\n## Policies\n\n## Quality Gate\n\nreal gate\n");
+    assertEq("validate-ticket rejects ## Policies whose body is only the next heading", invoke(TODO).status, 2);
+
+    // (6) HISTORY IS NEVER RETRO-BLOCKED. The same section-less body under
+    // archive/<branch>/ must pass -- as must icebox/ and abandoned/, which are
+    // parking rather than a queue.
+    const ARCHIVED = write(".workaholic/tickets/archive/work-20260101-000000/20260716012846-t.md", FM);
+    assertEq("validate-ticket never retro-blocks an archived ticket", invoke(ARCHIVED).status, 0);
+    const ICEBOX = write(".workaholic/tickets/icebox/20260716012846-t.md", FM);
+    assertEq("validate-ticket does not judge an iceboxed ticket", invoke(ICEBOX).status, 0);
+    const ABANDONED = write(".workaholic/tickets/abandoned/20260716012846-t.md", FM);
+    assertEq("validate-ticket does not judge an abandoned ticket", invoke(ABANDONED).status, 0);
+  } finally { cleanup(dir); }
+}
+
 // ---------- hooks/validate-ticket.sh (optional mission: field passes) ----------
 // The mission relation is optional and must never cause a validation failure —
 // whether it carries a slug, is empty, or is absent entirely.
@@ -2813,6 +3862,14 @@ depends_on:
 ${missionLine}---
 
 # M
+
+## Policies
+
+- \`implementation/coding-standards\` — applies.
+
+## Quality Gate
+
+Acceptance: it works. Verification: the suite. Gate: green.
 `;
     const invoke = () => {
       const payload = JSON.stringify({ tool_input: { file_path: rel } });
@@ -3776,11 +4833,14 @@ const tests = [
   ["create-ticket/sweep-todo.sh", testSweepTodo],
   ["drive/list-todo.sh", testListTodo],
   ["create-ticket/summary.sh + mission/summary.sh (summary mode)", testSummaryMode],
+  ["mission/summary.sh surfaces unassigned missions", testMissionSummaryUnassigned],
+  ["hooks/mission-lens.sh surfaces unassigned missions", testMissionLensUnassigned],
   ["mission create branches on main", testMissionBranchOnCreate],
   ["branching mission worktree primitive", testMissionWorktreePrimitive],
   ["mission-lens worktree focus", testMissionLensWorktreeFocus],
   ["mission create worktree+kickoff spine", testMissionCreateWorktreeFlow],
   ["mission worktree ship reset", testMissionWorktreeShipReset],
+  ["mission/close.sh carried (carry the remainder forward)", testMissionCloseCarried],
   ["mission close removes worktree", testMissionCloseRemovesWorktree],
   ["mission worktree port assignment", testMissionWorktreePorts],
   ["mission quality gate", testMissionQualityGate],
@@ -3793,6 +4853,12 @@ const tests = [
   ["release-scan gate decision", testReleaseScanGateDecision],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
+  ["mission describes experience, gate is optional", testMissionExperienceSection],
+  ["mission/gate.sh resolves worktree ports", testMissionGateWorktreePorts],
+  ["mission creation interrogation protocol", testMissionInterrogationProtocol],
+  ["mission/drive-authorized.sh (approval relocation)", testDriveAuthorized],
+  ["drive mints tickets for mid-run problems", testDriveMintsTicketsForMidrunProblems],
+  ["mission position report at handoffs", testMissionPositionReport],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],
   ["mission layout migration + close.sh", testMissionLayoutMigrationAndClose],
   ["drive/archive.sh mission seam", testMissionDriveSeam],
@@ -3809,6 +4875,8 @@ const tests = [
   ["report/migrate-concern-identity.sh + update-in-place", testConcernIdentity],
   ["report/merge-concerns.sh + close-concern.sh (triage)", testConcernTriage],
   ["ship/extract-deferred-concerns.sh push", testExtractDeferredConcernsPush],
+  ["ship/commit-release-note.sh push", testCommitReleaseNotePush],
+  ["concern identity: slugify writers agree", testSlugifyWritersAgree],
   ["ship/extract-deferred-concerns.sh mission/tickets relation", testExtractConcernMissionRelation],
   ["report/doc-drift.sh", testDocDrift],
   ["hooks/policy-lens.sh", testPolicyLens],
@@ -3816,6 +4884,7 @@ const tests = [
   ["hooks/layout-doctor.sh", testLayoutDoctor],
   ["hooks/validate-ticket.sh", testValidateTicket],
   ["hooks/validate-ticket.sh mission field", testValidateTicketMission],
+  ["hooks/validate-ticket.sh mandatory body sections", testValidateTicketSections],
   ["hooks/guard-ticket-structure.sh", testGuardTicketStructure],
   ["hooks/posix-lint.sh", testPosixLint],
   ["hooks/hooks.json executable", testHooksExecutable],

@@ -49,6 +49,7 @@ fi
 mkdir -p .workaholic/concerns
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/lib/push-outcome.sh"
 
 # Living identity migration first: back-fill concern_id/first_seen/last_seen and
 # collapse any legacy carried-from clone chains, so the update-or-create below
@@ -234,7 +235,7 @@ total=$((count_created + count_updated))
 # invariant. `files` lists the newly-created files; `updated` counts in-place
 # refreshes. The commit still fires when anything changed (created or updated).
 if [ "$total" -eq 0 ]; then
-  echo "{\"status\":\"ok\",\"created\":0,\"updated\":0,\"extracted\":0,\"files\":[]}"
+  echo "{\"status\":\"ok\",\"created\":0,\"updated\":0,\"extracted\":0,\"pushed\":false,\"push_error\":\"not_attempted\",\"files\":[]}"
   exit 0
 fi
 
@@ -258,11 +259,19 @@ if [ -n "$story_missions" ] && [ "$count_created" -gt 0 ]; then
   done
 fi
 
+pushed=false
+push_error="not_attempted"
+
 if [ -z "${NO_COMMIT:-}" ]; then
   sh "${SCRIPT_DIR}/../../okf/scripts//refresh-index.sh" >/dev/null 2>&1 || true
   git add .workaholic/concerns/ .workaholic/missions/ >/dev/null 2>&1 || git add .workaholic/concerns/ >/dev/null
   git commit -m "Add deferred concerns from PR #${pr_number}" >/dev/null
-  git push >/dev/null 2>&1 || true
+  # Non-fatal by design (the PR has already merged), but no longer silent: the
+  # outcome rides out in the JSON so /ship can report a divergence instead of
+  # claiming a push that never happened. See lib/push-outcome.sh.
+  push_and_report
+  pushed="$PUSH_OK"
+  push_error="$PUSH_ERROR"
 fi
 
-echo "{\"status\":\"ok\",\"created\":${count_created},\"updated\":${count_updated},\"extracted\":${count_created},\"files\":${created_json}}"
+echo "{\"status\":\"ok\",\"created\":${count_created},\"updated\":${count_updated},\"extracted\":${count_created},\"pushed\":${pushed},\"push_error\":\"${push_error}\",\"files\":${created_json}}"

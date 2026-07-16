@@ -61,6 +61,8 @@ const SCRIPTS = {
   commitReleaseNote: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/commit-release-note.sh"),
   migrateConcernIdentity: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/migrate-concern-identity.sh"),
   listActiveConcerns: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/list-active-deferred-concerns.sh"),
+  reGrade: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/re-grade.sh"),
+  shrinkPrBody: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/shrink-pr-body.sh"),
   mergeConcerns: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/merge-concerns.sh"),
   closeConcern: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/close-concern.sh"),
   docDrift: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/doc-drift.sh"),
@@ -3690,9 +3692,11 @@ function testConcernTriage() {
     assertTrue("archived concern records status: accepted", /^status:\s*accepted\s*$/m.test(body), body);
     assertTrue("archived concern records the close reason", /^closed_reason:\s*deliberate, documented\s*$/m.test(body), body);
 
-    // Dropped from list-active.
+    // Dropped from list-active (which now emits the triage envelope).
     const listed = JSON.parse(run(repo2, `${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout);
-    assertEq("closed concern no longer listed as active", listed.length, 0);
+    assertEq("closed concern no longer listed as active",
+      { n: listed.active_count, c: listed.concerns.length, t: listed.should_triage },
+      { n: 0, c: 0, t: false });
 
     // Idempotent: closing again is a no-op.
     const r2 = JSON.parse(run(repo2, `${POSIX_SH} ${SCRIPTS.closeConcern} wontfix accepted "again"`).stdout);
@@ -3702,6 +3706,129 @@ function testConcernTriage() {
     const r3 = JSON.parse(run(repo2, `${POSIX_SH} ${SCRIPTS.closeConcern} anything bogus`).stdout);
     assertEq("close rejects an invalid status", r3.reason, "bad_status");
   } finally { cleanup(repo2); }
+
+  // (3) Re-grade: the standalone severity mutator (severity used to change only
+  // as a merge side effect, so an in-place re-grade meant a forbidden hand edit).
+  const repo3 = makeRepo("main");
+  try {
+    const cdir = join(repo3, ".workaholic/concerns");
+    mkdirSync(cdir, { recursive: true });
+    writeFileSync(join(cdir, "hot.md"), mkConcern("hot", "low", "Getting worse"));
+    execSync(`git add -A && git commit -q -m seed`, { cwd: repo3 });
+
+    const r = JSON.parse(run(repo3, `${POSIX_SH} ${SCRIPTS.reGrade} hot urgent "two incidents this week"`).stdout);
+    assertEq("re-grade rewrites severity in place",
+      { g: r.regraded, s: r.severity, p: r.previous }, { g: true, s: "urgent", p: "low" });
+    const body = readFileSync(join(cdir, "hot.md"), "utf8");
+    assertTrue("re-grade updated the frontmatter severity", /^severity:\s*urgent\s*$/m.test(body), body);
+    assertTrue("re-grade appended the auditable rationale",
+      /## Re-grade \(/.test(body) && body.includes("low -> urgent") && body.includes("two incidents this week"), body);
+    assertTrue("re-grade staged its change",
+      execSync(`git diff --cached --name-only`, { cwd: repo3, encoding: "utf8" }).includes(".workaholic/concerns/hot.md"),
+      "not staged");
+
+    // Idempotent: same severity again is a no-op with a named reason.
+    const r2 = JSON.parse(run(repo3, `${POSIX_SH} ${SCRIPTS.reGrade} hot urgent "again"`).stdout);
+    assertEq("re-grade to the current severity is a no-op", { g: r2.regraded, why: r2.reason }, { g: false, why: "unchanged" });
+
+    // Guard rails: bad severity and missing rationale are refused by name.
+    const bad = run(repo3, `${POSIX_SH} ${SCRIPTS.reGrade} hot catastrophic "x"`);
+    assertTrue("re-grade rejects an unknown severity",
+      bad.status !== 0 && bad.stdout.includes("bad_severity"), bad.stdout);
+    const noWhy = run(repo3, `${POSIX_SH} ${SCRIPTS.reGrade} hot moderate ""`);
+    assertTrue("re-grade requires a rationale",
+      noWhy.status !== 0 && noWhy.stdout.includes("no_rationale"), noWhy.stdout);
+  } finally { cleanup(repo3); }
+
+  // (4) Slug collision: two DIFFERENT titles sharing their first six words used
+  // to fold silently into one file. The second mint is refused by name; the
+  // same-title retry path (idempotent re-run, asserted in (1)) keeps working.
+  const repo4 = makeRepo("main");
+  try {
+    const cdir = join(repo4, ".workaholic/concerns");
+    mkdirSync(cdir, { recursive: true });
+    for (const id of ["a", "b", "c", "d"]) {
+      writeFileSync(join(cdir, `${id}.md`), mkConcern(id, "low", `Concern ${id.toUpperCase()}`));
+    }
+    execSync(`git add -A && git commit -q -m seed`, { cwd: repo4 });
+
+    const first = JSON.parse(run(repo4, `${POSIX_SH} ${SCRIPTS.mergeConcerns} --severity urgent --title "The rule binds on no path at dawn" - a b`).stdout);
+    assertEq("collision: first compound mints its six-word slug", first.target_id, "the-rule-binds-on-no-path");
+    const second = JSON.parse(run(repo4, `${POSIX_SH} ${SCRIPTS.mergeConcerns} --severity urgent --title "The rule binds on no path in tests" - c d`).stdout);
+    assertEq("collision: a different title behind the same slug is refused by name",
+      { m: second.merged, why: second.reason }, { m: false, why: "id_collision" });
+    assertTrue("collision: the refusal names the existing title",
+      second.existing_title === "The rule binds on no path at dawn", JSON.stringify(second));
+    assertTrue("collision: the refused members were NOT folded",
+      existsSync(join(cdir, "c.md")) && existsSync(join(cdir, "d.md")), "members disappeared");
+  } finally { cleanup(repo4); }
+}
+
+// ---------- report/list-active-deferred-concerns.sh (envelope + JSON escaping) ----------
+// The listing is one python3 json.dumps pass: a corpus whose fields carry
+// quotes, backslashes, and newlines must still emit parseable JSON (the old
+// per-field shell interpolation shipped raw values to consumer repos), and the
+// envelope carries the script-owned triage trigger.
+function testListActiveConcernsEnvelope() {
+  const dir = makeRepo("main");
+  try {
+    const cdir = join(dir, ".workaholic/concerns");
+    mkdirSync(cdir, { recursive: true });
+    // An UNMIGRATED, hostile fixture: no concern_id, a quote/backslash-laden
+    // title and body, an origin_pr that is not a number.
+    writeFileSync(join(cdir, "hostile.md"),
+      `---\ntype: Concern\nstatus: active\nseverity: low\norigin_pr: not-a-number\norigin_pr_url: https://x/pr/1?q="quo\\ted"\norigin_branch: work-1\norigin_commit: abc1\n---\n\n# He said "quote\\backslash"\n\nline one\nline "two" \\ three\n`);
+    writeFileSync(join(cdir, "plain.md"),
+      `---\ntype: Concern\nconcern_id: plain\nstatus: active\nseverity: moderate\norigin_pr: 7\n---\n\n# Plain\n\nok\n`);
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+
+    const out = run(dir, `${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout;
+    let j = null;
+    try { j = JSON.parse(out); } catch { /* leave null */ }
+    assertTrue("list-active emits parseable JSON over a hostile corpus", j !== null, out.slice(0, 300));
+    assertEq("list-active envelope counts the active set", j.active_count, 2);
+    assertEq("list-active should_triage is false under the threshold", j.should_triage, false);
+    // The listing runs the identity migration first, which may RENAME the file
+    // to its slugified title — so find the hostile fixture by provenance, not path.
+    const hostile = j.concerns.find((c) => c.origin_branch === "work-1");
+    assertTrue("list-active preserves quotes/backslashes in the body",
+      hostile.body.includes('line "two" \\ three'), JSON.stringify(hostile.body));
+    assertEq("list-active coerces a non-numeric origin_pr to 0", hostile.origin_pr, 0);
+
+    // The trigger flips when active_count exceeds the (env-overridden) threshold.
+    const t = JSON.parse(run(dir, `CONCERN_TRIAGE_THRESHOLD=1 ${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout);
+    assertEq("list-active should_triage flips over the threshold", t.should_triage, true);
+  } finally { cleanup(dir); }
+}
+
+// ---------- report/shrink-pr-body.sh (GitHub 65,536-char PR-body bound) ----------
+function testShrinkPrBody() {
+  const dir = makeRepo("main");
+  try {
+    // Under the limit: untouched.
+    const small = join(dir, "small.md");
+    writeFileSync(small, "## 1. Summary\n\nfine\n\n## 6. Concerns\n\n### A\n\nx\n\n## 9. Notes\n\nn\n");
+    const r0 = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.shrinkPrBody} ${small} work-x`).stdout);
+    assertEq("shrink leaves a small body untouched", r0.shrunk, false);
+    assertTrue("shrink did not modify the small body",
+      readFileSync(small, "utf8").includes("### A"), "small body changed");
+
+    // Over the limit via a bloated section 6: the section becomes a pointer to
+    // the committed story file, the neighbouring sections survive, and the
+    // result fits the limit.
+    const big = join(dir, "big.md");
+    writeFileSync(big,
+      `## 1. Summary\n\nfine\n\n## 6. Concerns\n\n${"### C\n\n" + "x".repeat(500) + "\n\n"}`.repeat(1) +
+      "### D\n\n" + "y".repeat(70000) + "\n\n## 9. Notes\n\nkeep me\n");
+    const r1 = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.shrinkPrBody} ${big} work-big`).stdout);
+    const shrunk = readFileSync(big, "utf8");
+    assertEq("shrink reports the shrink", r1.shrunk, true);
+    assertTrue("shrunk body fits the GitHub limit", shrunk.length <= 65536, `${shrunk.length} chars`);
+    assertTrue("section 6 became a pointer to the story file",
+      shrunk.includes(".workaholic/stories/work-big.md"), shrunk.slice(0, 400));
+    assertTrue("the bloated corpus is gone from the body", !shrunk.includes("yyyyyyyyyy"), "corpus still inline");
+    assertTrue("sections around 6 survive", shrunk.includes("## 1. Summary") && shrunk.includes("keep me"), shrunk.slice(0, 400));
+  } finally { cleanup(dir); }
 }
 
 // ---------- ship/extract-deferred-concerns.sh (mission/tickets relation propagation) ----------
@@ -5357,6 +5484,8 @@ const tests = [
   ["ship/extract-deferred-concerns.sh", testExtractDeferredConcerns],
   ["report/migrate-concern-identity.sh + update-in-place", testConcernIdentity],
   ["report/merge-concerns.sh + close-concern.sh (triage)", testConcernTriage],
+  ["report/list-active-deferred-concerns.sh envelope", testListActiveConcernsEnvelope],
+  ["report/shrink-pr-body.sh", testShrinkPrBody],
   ["ship/extract-deferred-concerns.sh push", testExtractDeferredConcernsPush],
   ["ship/commit-release-note.sh push", testCommitReleaseNotePush],
   ["concern identity: slugify writers agree", testSlugifyWritersAgree],

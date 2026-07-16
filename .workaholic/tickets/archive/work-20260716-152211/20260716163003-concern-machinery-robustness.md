@@ -3,9 +3,9 @@ created_at: 2026-07-16T16:30:03+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Domain]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -69,3 +69,14 @@ machinery itself (2026-07-16 triage-to-zero; verdicts verified against source):
 ## Considerations
 
 - The envelope change (step 3) alters `list-active`'s output shape — update every caller in the same commit (report SKILL.md Phase 1, triage prose, tests).
+
+## Final Report
+
+Development completed as planned. Step 5 chose the mint-time refusal over the hash suffix: a suffix would have had to change `slugify()` in all three byte-identical writers at once (and re-key every existing concern), while the refusal is local to `merge-concerns.sh` and preserves the idempotent same-title retry path — only a *different* title behind the same slug is refused (`id_collision`, naming the existing title). Step 4's shrink is a standalone `shrink-pr-body.sh` so it is hermetically testable without `gh`; `create-or-update.sh` calls it between strip and submit.
+
+### Discovered Insights
+
+- **Insight**: `list-active` runs the identity migration before listing, and the migration renames concern files to their slugified titles — so no consumer (or test) may key on a concern's *path*; only `concern_id` and provenance fields are stable.
+  **Context**: A test fixture written under an arbitrary filename was renamed mid-test and the lookup came back undefined; the fix (find by provenance) is the pattern for any future consumer of the listing.
+- **Insight**: The three `slugify()` copies (merge/extract/migrate) are a byte-identical contract pinned by `testSlugifyWritersAgree` — any collision-avoidance scheme that alters minted ids must either touch all three simultaneously or, better, live outside `slugify()` entirely, as the mint-time refusal does.
+  **Context**: This is why "append a hash suffix" — the ticket's first-listed option — was rejected: it looked local but was actually a three-writer migration.

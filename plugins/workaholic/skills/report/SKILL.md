@@ -130,7 +130,7 @@ Run before the parallel agent batch so the verdicts flow into section-reviewer's
 
 The corpus never re-clones (identity-keyed update-in-place; Phase 1's `list-active` already ran the collapsing migration), but it can still grow *many* real concerns, and two minor ones can combine into a bigger risk. Run a triage decision point **when either trigger fires**, else skip silently:
 
-- **Count trigger** — the number of `still_active` concerns after Phase 1 exceeds a threshold (default **20**).
+- **Count trigger** — Phase 1's `list-active` envelope reported `should_triage: true`. The threshold is **script-owned** (`active_count > CONCERN_TRIAGE_THRESHOLD`, default 20, inside `list-active-deferred-concerns.sh`), so the trigger fires from data rather than from a human remembering the number; when judging with post-Phase-1 counts, `active_count` minus the concerns just resolved is the number to compare.
 - **Compound trigger** — the judge returned a non-empty `compounds` list.
 
 The triage is **judge-proposes / developer-decides**, and every decision leaves an auditable trail. The command (main agent) issues the choice via `AskUserQuestion` (each question body prefixed `[<project label>]`) — a leaf subagent must not. Present the developer these buckets and apply each through the idempotent mutators (never hand-edit concern files):
@@ -147,7 +147,14 @@ The triage is **judge-proposes / developer-decides**, and every decision leaves 
   **Do not invent an id — pass `-`.** A new compound's id is *derived* from `--title` by the same `slugify()` the ship-time extractor uses, and the script returns the real one in `target_id`. This is what closes the round trip: when the compound reappears as a `###` block in the next story's section 6, `extract-deferred-concerns.sh` computes `slugify(title)`, finds it, and updates it **in place**. An earlier version of this step said `<new-compound-id>` and the model invented one; the extractor then missed and cloned the compound alongside itself (PR #86 produced two files for one concern). To fold members into an **existing** concern, pass that concern's id instead of `-` — that path takes the id as given.
 
   The compound inherits `origin_*` and `first_seen` from its **earliest-seen member** (a compound re-frames risks already on the books, so its origin is where the risk first surfaced), and stamps `created_at`/`last_seen` with the triage act.
-- **Merge duplicates** — same command, folding near-duplicate ids into one target id.
+- **Merge duplicates** — same command, folding near-duplicate ids into one target id. (A new compound whose slug collides with a **different** existing title is refused with `reason: id_collision` rather than silently folded — pass the existing concern's id explicitly if folding is really intended.)
+- **Re-grade** a concern whose severity no longer matches reality (either direction):
+
+  ```bash
+  bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/re-grade.sh <concern-id> <low|moderate|urgent> "<rationale>"
+  ```
+
+  Rewrites `severity` in place and appends the rationale to the concern body (`## Re-grade (<timestamp>)`), so the history of the grade stays auditable. Idempotent: re-grading to the current severity is a no-op.
 - **Close** a won't-fix or resolved concern:
 
   ```bash
@@ -157,7 +164,7 @@ The triage is **judge-proposes / developer-decides**, and every decision leaves 
   `resolved` = fixed / no longer applies; `accepted` = a deliberate, documented won't-fix. Moves it to `archive/` with the reason.
 - **Keep as-is** — no action.
 
-After applying, the still-active set reflected in the story's section 6 is the curated, fresh set. Both mutators git-stage their changes, so they ride the Phase 4 story commit. The threshold is a policy knob — never auto-merge without the developer's confirmation; the A+B severity call is the developer's.
+After applying, the still-active set reflected in the story's section 6 is the curated, fresh set. Every mutator (`merge-concerns.sh`, `re-grade.sh`, `close-concern.sh`) git-stages its changes, so they ride the Phase 4 story commit. The threshold is a policy knob (`CONCERN_TRIAGE_THRESHOLD`, read by `list-active`) — never auto-merge without the developer's confirmation; the A+B severity call is the developer's.
 
 #### Phase 2: Spawn Story Generation Workers
 
@@ -243,7 +250,7 @@ Run by the Phase 1 deferred-concern judge (a `general-purpose` subagent that pre
    bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/list-active-deferred-concerns.sh
    ```
 
-   This first runs the living identity migration (`migrate-concern-identity.sh`, best-effort, idempotent): it back-fills each concern's `concern_id`/`first_seen`/`last_seen` and collapses any legacy `carried-from` clone chains into one fresh file per concern, so the judge sees a deduplicated set. Each entry carries `concern_id` (the stable identity), `first_seen`/`last_seen`, `severity`, and provenance. If the JSON output is `[]`, return `{"verdicts": []}` and stop.
+   This first runs the living identity migration (`migrate-concern-identity.sh`, best-effort, idempotent): it back-fills each concern's `concern_id`/`first_seen`/`last_seen` and collapses any legacy `carried-from` clone chains into one fresh file per concern, so the judge sees a deduplicated set. The output is an envelope `{active_count, should_triage, concerns: [...]}`; each `concerns[]` entry carries `concern_id` (the stable identity), `first_seen`/`last_seen`, `severity`, and provenance. If `concerns` is empty, return `{"verdicts": []}` and stop.
 
 2. For each deferred concern in the list, judge whether the work that landed on the current branch (since the deferred concern's `origin_commit`) has resolved it.
 

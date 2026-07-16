@@ -574,6 +574,83 @@ concerns: []
   } finally { cleanup(dir); }
 }
 
+// ---------- mission/gate.sh resolves ports from INSIDE the mission's worktree ----------
+// The prescribed layout is: a mission lives in its own .worktrees/<slug>/ worktree, and
+// /drive auto-routes there -- so that is where gate.sh runs. It used
+// `git rev-parse --show-toplevel` to find the worktrees root, which inside a worktree
+// returns THE WORKTREE, making the lookup <worktree>/.worktrees/<slug>/.env: a path
+// nothing ever creates. Ports came back empty for every mission in the one layout the
+// gate is specified for, while `valid: true` still claimed the gate was fine.
+//
+// The bug reproduces ONLY with a genuine worktree -- a fixture that fakes the directory
+// resolves through show-toplevel by accident and proves nothing. So this builds one.
+function testMissionGateWorktreePorts() {
+  const dir = makeRepo("main");
+  try {
+    execSync(`git config user.email a@qmu.jp`, { cwd: dir });
+    const wt = join(dir, ".worktrees/portmission");
+    mkdirSync(join(dir, ".worktrees"), { recursive: true });
+    execSync(`git worktree add -q .worktrees/portmission -b work-20260716-110000`, { cwd: dir });
+    // The .env create-mission-worktree.sh writes: the port allocation lives with the dir.
+    writeFileSync(join(wt, ".env"), "WORKAHOLIC_PORT_BASE=4100\nWORKAHOLIC_DEV_PORT=4100\nWORKAHOLIC_DOCS_PORT=4101\n");
+    // The mission lives INSIDE the worktree, on the worktree's branch -- as created.
+    const md = join(wt, ".workaholic/missions/active/portmission");
+    mkdirSync(md, { recursive: true });
+    writeFileSync(join(md, "mission.md"),
+      `---\ntype: Mission\ntitle: Port mission\nslug: portmission\nstatus: active\nassignee: a@qmu.jp\ngate_type: live-app\ngate_target: /dashboard\ngate_assert: the chart renders\n---\n\n## Goal\n\ng\n\n## Acceptance\n\n- [ ] One\n`);
+
+    // THE case: from inside the mission's own worktree.
+    const g = JSON.parse(run(wt, `${POSIX_SH} ${SCRIPTS.missionGate} portmission`).stdout);
+    assertEq("gate.sh resolves dev_port from inside the mission's worktree", g.dev_port, "4100");
+    assertEq("gate.sh resolves docs_port from inside the mission's worktree", g.docs_port, "4101");
+    assertEq("gate.sh resolves port_base from inside the mission's worktree", g.port_base, "4100");
+    assertEq("a resolvable live-app gate is driveable", { d: g.driveable, r: g.reason }, { d: true, r: "" });
+    assertEq("the gate declaration is still reported", { t: g.type, tgt: g.target }, { t: "live-app", tgt: "/dashboard" });
+
+    // From a SUBDIR of the worktree: git returns --git-common-dir RELATIVE to cwd
+    // ("../../.git"), so this is the case string surgery would get wrong and `cd`+`pwd`
+    // gets right. The mission is addressed by absolute path here on purpose --
+    // mission_resolve looks under a CWD-relative .workaholic/, so a bare slug cannot
+    // resolve from a subdir. That is a separate, pre-existing property of every mission
+    // script; conflating it with port resolution would test the wrong thing.
+    const sub = join(wt, "deep/nested");
+    mkdirSync(sub, { recursive: true });
+    const g2 = JSON.parse(run(sub, `${POSIX_SH} ${SCRIPTS.missionGate} ${join(md, "mission.md")}`).stdout);
+    assertEq("gate.sh resolves ports from a subdir, where --git-common-dir is relative", g2.dev_port, "4100");
+  } finally { cleanup(dir); }
+
+  // A mission with NO worktree: empty ports, no error -- the legitimate case, which used
+  // to be indistinguishable from the bug (both returned empty, for opposite reasons).
+  const d2 = makeRepo("main");
+  try {
+    execSync(`git config user.email a@qmu.jp`, { cwd: d2 });
+    const md = join(d2, ".workaholic/missions/active/noworktree");
+    mkdirSync(md, { recursive: true });
+    writeFileSync(join(md, "mission.md"),
+      `---\ntype: Mission\ntitle: No worktree\nslug: noworktree\nstatus: active\nassignee: a@qmu.jp\ngate_type: live-app\ngate_target: /x\ngate_assert: it works\n---\n\n## Acceptance\n\n- [ ] One\n`);
+    const g = JSON.parse(run(d2, `${POSIX_SH} ${SCRIPTS.missionGate} noworktree`).stdout);
+    assertEq("a mission with no worktree still reports empty ports", g.dev_port, "");
+    // The point of `driveable`: a declared gate with no port is NOT fine, and valid:true
+    // used to be the only thing said about it.
+    assertEq("a live-app gate with no worktree is reported undriveable, with the reason",
+      { d: g.driveable, r: g.reason }, { d: false, r: "no_worktree" });
+    assertTrue("valid keeps its meaning: the declaration is well-formed", g.valid === true, JSON.stringify(g));
+  } finally { cleanup(d2); }
+
+  // No gate declared: the NORMAL case after 54e5ec65. Not an error, not driveable.
+  const d3 = makeRepo("main");
+  try {
+    execSync(`git config user.email a@qmu.jp`, { cwd: d3 });
+    const md = join(d3, ".workaholic/missions/active/nogate");
+    mkdirSync(md, { recursive: true });
+    writeFileSync(join(md, "mission.md"),
+      `---\ntype: Mission\ntitle: No gate\nslug: nogate\nstatus: active\nassignee: a@qmu.jp\ngate_type:\ngate_target:\ngate_assert:\n---\n\n## Acceptance\n\n- [ ] One\n`);
+    const g = JSON.parse(run(d3, `${POSIX_SH} ${SCRIPTS.missionGate} nogate`).stdout);
+    assertEq("a mission with no gate declared says so, and is not an error",
+      { v: g.valid, d: g.driveable, r: g.reason }, { v: true, d: false, r: "no_gate" });
+  } finally { cleanup(d3); }
+}
+
 // ---------- mission: substance is ## Experience; the gate is optional ----------
 // A gate declared at kickoff predicts work that does not exist yet: it goes stale as the
 // mission learns, but stays in the file and an agent keeps steering by it. The record
@@ -4461,6 +4538,7 @@ const tests = [
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission describes experience, gate is optional", testMissionExperienceSection],
+  ["mission/gate.sh resolves worktree ports", testMissionGateWorktreePorts],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],
   ["mission layout migration + close.sh", testMissionLayoutMigrationAndClose],
   ["drive/archive.sh mission seam", testMissionDriveSeam],

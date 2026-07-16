@@ -11,9 +11,10 @@ created_at: 2026-07-14T16:15:36+09:00
 first_seen: 2026-07-14T16:15:36+09:00
 last_seen: 2026-07-15T20:55:56+09:00
 severity: low
-status: active
+status: superseded
 resolved_by_pr: 
 resolved_by_commit: 
+superseded_by: a-mission-can-carry-no-machine
 ---
 
 # Mission quality gate: server-start and live verification are not hermetic

@@ -3,9 +3,9 @@ created_at: 2026-07-16T21:17:56+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
+effort: 4h
 commit_hash:
-category:
+category: Changed
 depends_on:
 ---
 
@@ -61,3 +61,14 @@ Work stopped cleanly between tickets: the tree is clean, the suite was green at 
 
 - The five commits on this branch are unpushed and un-PR'd; `/report` at the end is the seam that publishes them — nothing before that should push.
 - Interaction language: the developer asked for plain Japanese in prompts and summaries this session.
+
+## Final Report
+
+Development completed as planned: all seven themed tickets driven in the specified order (163001 → 163002 → 163005 → 163006 → 163003 → 163004 → 163007), each implemented, developer-approved, and archived through `archive.sh` in its own commit. Suite grew 853 → 946 assertions, all green; `build.mjs`/`verify.mjs`/`validate-metadata.mjs` clean at the final commit; nothing pushed (publication belongs to the `/report` that follows this archive).
+
+### Discovered Insights
+
+- **Insight**: The 163001 subject gate proved itself mid-session — `archive.sh` for 163006 was refused on a 51-character commit title by the very gate 163001 had just installed, and the recovery (move the ticket back to `todo/`, retitle, re-archive) worked cleanly through the sanctioned scripts.
+  **Context**: A gate shipped early in a batch starts protecting the rest of that same batch; ordering hardening tickets first is worth keeping as a prioritization habit.
+- **Insight**: 163007's Codex validation showed Codex executes (not merely parses) the plugin's hooks — `UserPromptSubmit` fired and completed on a live `codex exec` turn.
+  **Context**: Hook bodies are now effectively dual-runtime; keep them POSIX-clean and agent-neutral.

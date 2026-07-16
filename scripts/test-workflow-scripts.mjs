@@ -2895,6 +2895,10 @@ function testRecordEvidence() {
     assertTrue("record-evidence appended evidence block",
       body.includes("## Deployment Evidence") && body.includes("homepage shows v1.0.54") && body.includes("**Status:** pass"),
       "story is missing the Deployment Evidence block");
+    // The deployer is recorded as a fact (git user.email at ship time), so
+    // /catch never has to infer it from whoever last touched the story.
+    assertTrue("record-evidence stamps the deployer By: line",
+      body.includes("**By:** test@example.com"), "story is missing the By: deployer line");
   } finally { cleanup(withStory); }
 
   // A bypass status records an accepted-risk, production-unverified merge.
@@ -4130,6 +4134,11 @@ function testScanWindow() {
     const archDir = join(dir, ".workaholic/tickets/archive/work-x");
     mkdirSync(archDir, { recursive: true });
     writeFileSync(join(archDir, "20260101000001-arch-b.md"), "---\nauthor: bob@example.com\n---\n\n# Arch B\n");
+    // abandoned/ is a real ticket state (drive's Abandonment flow) and must be
+    // visible to the roster, attributed to its author.
+    const abanDir = join(dir, ".workaholic/tickets/abandoned");
+    mkdirSync(abanDir, { recursive: true });
+    writeFileSync(join(abanDir, "20260101000002-aban-c.md"), "---\nauthor: alice@example.com\n---\n\n# Aban C\n");
 
     // A story (and a README that must be excluded from stories[]).
     mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
@@ -4158,6 +4167,9 @@ function testScanWindow() {
       { a: todoT?.author, s: todoT?.scope, t: todoT?.title }, { a: "alice@example.com", s: "todo", t: "Todo A" });
     assertEq("scan-window tags archive ticket scope",
       tByPath[".workaholic/tickets/archive/work-x/20260101000001-arch-b.md"]?.scope, "archive");
+    const abanT = tByPath[".workaholic/tickets/abandoned/20260101000002-aban-c.md"];
+    assertEq("scan-window surfaces abandoned tickets with author+scope",
+      { a: abanT?.author, s: abanT?.scope }, { a: "alice@example.com", s: "abandoned" });
 
     assertEq("scan-window lists the story (README excluded)", j?.stories, [".workaholic/stories/work-x.md"]);
 
@@ -4217,6 +4229,76 @@ function testScanWindowRemote() {
       .map((b) => b.name).filter((n) => n.startsWith("origin/") || n === "HEAD");
     assertEq("scan-window leaks no origin/ or HEAD branch names", leaked, []);
   } finally { cleanup(remote); cleanup(pusher); cleanup(cloneParent); }
+}
+
+// ---------- catch/scan-window.sh (deployment attribution + bounded fetch) ----------
+// The deployer is the evidence block's recorded `By:` line; only legacy blocks
+// that predate the stamp fall back to the git author of the last story-touching
+// commit. And the startup fetch is bounded: a hung remote or the
+// CATCH_FETCH_TIMEOUT=0 opt-out must degrade to fetch_ok=false, never a stall.
+function testScanWindowDeployAttribution() {
+  const dir = makeRepo("main");
+  try {
+    const evidence = (by) => [
+      "", "## Deployment Evidence", "",
+      "- **When:** 2026-07-16T12:00:00+09:00",
+      ...(by ? [`- **By:** ${by}`] : []),
+      "- **Target:** Prod",
+      "- **Method:** browser",
+      "- **Status:** pass",
+      "- **Observed:** v1.0.99 live",
+      "",
+    ].join("\n");
+    mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
+    // Recorded block: shipped by alice, but the story commit is authored by bob.
+    writeFileSync(join(dir, ".workaholic/stories/work-rec.md"), `# rec story\n${evidence("alice@example.com")}`);
+    // Legacy block: no By: line -> fall back to the story-commit author (bob).
+    writeFileSync(join(dir, ".workaholic/stories/work-leg.md"), `# leg story\n${evidence(null)}`);
+    execSync(`git add .workaholic && git commit -q -m "Ship stories"`, {
+      cwd: dir,
+      env: { ...process.env, GIT_AUTHOR_EMAIL: "bob@example.com", GIT_AUTHOR_NAME: "Bob", GIT_COMMITTER_EMAIL: "bob@example.com", GIT_COMMITTER_NAME: "Bob" },
+    });
+    const j = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanWindow} "2 weeks ago"`).stdout);
+    const byBranch = Object.fromEntries((j.deployments || []).map((d) => [d.branch, d]));
+    assertEq("scan-window reports the RECORDED deployer, not the story-toucher",
+      byBranch["work-rec"]?.author, "alice@example.com");
+    assertEq("scan-window falls back to the story-commit author on legacy blocks",
+      byBranch["work-leg"]?.author, "bob@example.com");
+  } finally { cleanup(dir); }
+}
+
+function testScanWindowFetchBound() {
+  let hasTimeout = true;
+  try { execSync("command -v timeout", { stdio: "ignore" }); } catch { hasTimeout = false; }
+
+  // CATCH_FETCH_TIMEOUT=0 opts out of the fetch entirely: completes immediately
+  // and reports the (possibly) stale view via fetch_ok=false.
+  const optOut = makeRepo("main");
+  try {
+    execSync(`git remote add origin /nonexistent/nope.git`, { cwd: optOut });
+    const j = JSON.parse(run(optOut, `CATCH_FETCH_TIMEOUT=0 ${POSIX_SH} ${SCRIPTS.scanWindow} "2 weeks ago"`).stdout);
+    assertEq("scan-window CATCH_FETCH_TIMEOUT=0 skips the fetch (fetch_ok false)", j.fetch_ok, false);
+    assertTrue("scan-window opt-out still scans local refs",
+      (j.developers || []).length >= 1, JSON.stringify(j.developers));
+  } finally { cleanup(optOut); }
+
+  if (!hasTimeout) { console.log("  skip  scan-window fetch bound (timeout not available)"); return; }
+
+  // A remote that answers nothing (ext:: helper that swallows the protocol
+  // stream) would hang `git fetch` forever; the bound must cut it off. The
+  // helper talks only to git's own pipes and its stderr goes to /dev/null via
+  // the script's redirect, so nothing holds the test's output pipe open.
+  const hang = makeRepo("main");
+  try {
+    execSync(`git config protocol.ext.allow always`, { cwd: hang });
+    execSync(`git remote add origin "ext::sh -c 'cat >/dev/null'"`, { cwd: hang });
+    const t0 = Date.now();
+    const j = JSON.parse(run(hang, `CATCH_FETCH_TIMEOUT=2 ${POSIX_SH} ${SCRIPTS.scanWindow} "2 weeks ago"`).stdout);
+    const elapsed = Date.now() - t0;
+    assertEq("scan-window bounded fetch reports fetch_ok false on a hung remote", j.fetch_ok, false);
+    assertTrue("scan-window completes within the bound (not a stall)",
+      elapsed < 30000, `took ${elapsed}ms`);
+  } finally { cleanup(hang); }
 }
 
 // ---------- catch/scan-window.sh (mission join) ----------
@@ -5147,6 +5229,8 @@ const tests = [
   ["report/collect-commits.sh", testCollectCommits],
   ["catch/scan-window.sh", testScanWindow],
   ["catch/scan-window.sh remote fetch+scan", testScanWindowRemote],
+  ["catch/scan-window.sh deploy attribution + fetch bound", testScanWindowDeployAttribution],
+  ["catch/scan-window.sh fetch bound", testScanWindowFetchBound],
   ["catch/scan-window.sh mission join", testScanWindowMissions],
   ["hooks/guard-git-commit.sh", testGuardGitCommit],
   ["hooks/guard-git-branch.sh", testGuardGitBranch],

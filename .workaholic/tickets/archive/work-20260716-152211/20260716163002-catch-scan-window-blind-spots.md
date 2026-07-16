@@ -3,9 +3,9 @@ created_at: 2026-07-16T16:30:02+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Domain]
-effort:
+effort: 0.5h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -56,3 +56,14 @@ verdicts verified against source):
 ## Considerations
 
 - Keep fetch best-effort: a failed fetch degrades to local data, never a hard stop.
+
+## Final Report
+
+Development completed as planned. One adjacent defect surfaced by step 1 was fixed in the same change: the mission `in_flight` join selected `scope != "archive"`, so newly-visible abandoned tickets would have been reported as a mission's in-flight work; the filter now selects `todo`/`icebox` explicitly. The fetch bound is `CATCH_FETCH_TIMEOUT` seconds (default 20, `0` = skip the fetch), applied only where the `timeout` utility exists so the script stays POSIX with a graceful degradation, and every degraded path reports `fetch_ok: false` as before.
+
+### Discovered Insights
+
+- **Insight**: A hung remote can be reproduced hermetically with git's `ext::` transport (`remote add origin "ext::sh -c 'cat >/dev/null'"` plus `protocol.ext.allow always`) — the helper swallows the protocol stream and `git fetch` waits forever, without any network.
+  **Context**: This is the pattern for testing any timeout around a git remote operation; the helper's stdin/stdout connect to git's own pipes, so it cannot hold the test harness's output pipe open.
+- **Insight**: Adding a new scope to the ticket scanner is not roster-local — every downstream jq join keyed on scope (`in_flight`, the collector prompts in SKILL.md) encodes an assumption about the closed scope set.
+  **Context**: When widening an enum-like value, grep the consumers for both the old values and negations (`!= "archive"`) — the negation is where the widening silently changes semantics.

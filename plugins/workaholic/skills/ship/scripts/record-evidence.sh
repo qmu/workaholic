@@ -4,6 +4,10 @@
 # an accepted-risk merge WITHOUT confirmation) BEFORE the PR is merged. Reviewers
 # see the evidence on the PR; the merged story carries it permanently.
 #
+# The block records the deployer explicitly (`By:` = the configured git
+# user.email at ship time) so /catch attributes the deployment to a stated
+# fact instead of inferring it from whoever last touched the story file.
+#
 # Usage: bash record-evidence.sh <branch> <target> <method> <result> <status>
 #   <result> = a short, NON-SECRET observed result (status/version/hash/response).
 #              Never pass credentials, tokens, or cookies — the story is public.
@@ -51,10 +55,12 @@ if [ ! -f "$story" ]; then
 fi
 
 ts=$(date -Iseconds)
+deployer=$(git config user.email 2>/dev/null || true)
 
 {
   printf '\n## Deployment Evidence\n\n'
   printf -- '- **When:** %s\n' "$ts"
+  printf -- '- **By:** %s\n' "$deployer"
   printf -- '- **Target:** %s\n' "$target"
   printf -- '- **Method:** %s\n' "$method"
   printf -- '- **Status:** %s\n' "$status"

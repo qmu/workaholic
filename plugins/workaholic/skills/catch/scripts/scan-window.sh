@@ -28,9 +28,24 @@ SCRIPT_DIR=$(dirname "$0")
 # whatever refs are already local and report the staleness via fetch_ok downstream
 # rather than aborting the report. set -eu is active, so the `if` neutralizes a
 # non-zero fetch exit instead of letting it terminate the script.
+#
+# The refresh is BOUNDED: an unresponsive remote (hung ssh, filtering firewall)
+# must degrade to a stale-view report, never stall /catch indefinitely.
+# CATCH_FETCH_TIMEOUT seconds (default 20) caps it where the `timeout` utility
+# exists (coreutils/busybox — not POSIX, hence the graceful probe); 0 skips the
+# fetch entirely (offline opt-out). Either degradation surfaces as fetch_ok=false.
 FETCH_OK=false
-if git fetch --quiet --all --prune 2>/dev/null; then
-  FETCH_OK=true
+FETCH_TIMEOUT="${CATCH_FETCH_TIMEOUT:-20}"
+if [ "$FETCH_TIMEOUT" = "0" ]; then
+  : # opt-out: scan local refs only; fetch_ok stays false (view may be stale)
+elif command -v timeout >/dev/null 2>&1; then
+  if timeout "$FETCH_TIMEOUT" git fetch --quiet --all --prune 2>/dev/null; then
+    FETCH_OK=true
+  fi
+else
+  if git fetch --quiet --all --prune 2>/dev/null; then
+    FETCH_OK=true
+  fi
 fi
 
 # --- Time-bucket boundaries (epoch seconds) ---------------------------------
@@ -106,9 +121,12 @@ DEVELOPERS=$(
 )
 [ -n "$DEVELOPERS" ] || DEVELOPERS='[]'
 
-# --- Tickets across todo / archive / icebox ---------------------------------
+# --- Tickets across todo / archive / icebox / abandoned ----------------------
+# abandoned/ is a real ticket state (the drive Abandonment flow moves failed
+# tickets there with a Failure Analysis); omitting it made those tickets
+# invisible to /catch and attributable to no developer.
 TDIRS=""
-for d in todo archive icebox; do
+for d in todo archive icebox abandoned; do
   if [ -d ".workaholic/tickets/$d" ]; then
     TDIRS="$TDIRS .workaholic/tickets/$d"
   fi
@@ -131,6 +149,7 @@ emit_tickets() {
       *.workaholic/tickets/todo/*) scope=todo ;;
       *.workaholic/tickets/archive/*) scope=archive ;;
       *.workaholic/tickets/icebox/*) scope=icebox ;;
+      *.workaholic/tickets/abandoned/*) scope=abandoned ;;
       *) scope=unknown ;;
     esac
     # commit_hash ties an archived ticket to the commit that implemented it. Derive it
@@ -165,9 +184,10 @@ TICKETS=$(
 # anything:
 #   - window_events: the mission's append-only ## Changelog lines dated within the
 #     window (MERGED activity: ticket archived / story reported / concern events).
-#   - in_flight: UNMERGED tickets carrying `mission: <slug>` that are not yet
-#     archived (no commit_hash) -- progress toward the mission from work still on a
-#     branch, which the merge-time changelog cannot yet show.
+#   - in_flight: OPEN tickets (todo/icebox) carrying `mission: <slug>` -- progress
+#     toward the mission from work still on a branch, which the merge-time
+#     changelog cannot yet show. Archived tickets are merged, abandoned tickets
+#     are dead; neither is in flight.
 # Read-only: a /catch scan mutates no mission file content (no changelog append,
 # no tick). The one tree change it can trigger is the mission scripts' living
 # layout migration (flat -> active|archive), which the list.sh call below runs.
@@ -230,7 +250,7 @@ if [ -d ".workaholic/missions" ]; then
                 | map(select(.slug == $s and ($cutoff == "" or .date >= $cutoff)))
                 | map({date, event, artifact}) ),
               in_flight: ( $tickets
-                | map(select((.mission | index($s)) and .scope != "archive"))
+                | map(select((.mission | index($s)) and (.scope == "todo" or .scope == "icebox")))
                 | map({path, title, author, scope}) )
             }
         )'
@@ -252,10 +272,11 @@ fi
 
 # --- Deployments / releases this week ---------------------------------------
 # Read the ship-produced `## Deployment Evidence` block from each branch story
-# (record-evidence.sh writes When/Status/Observed) and join the release title from
-# the matching release-notes/<branch>.md (its H1). Stories and release-notes carry
-# no author, so a deployment is attributed to the git author of the commit that last
-# touched the story (the ship commit), keyed by branch. Filtered to this calendar
+# (record-evidence.sh writes When/By/Target/Method/Status/Observed) and join the
+# release title from the matching release-notes/<branch>.md (its H1). The deployer
+# is the RECORDED `By:` line (the fact, stamped at ship time); only legacy blocks
+# that predate the stamp fall back to inferring it from the git author of the
+# commit that last touched the story (the ship commit). Filtered to this calendar
 # week (ship-commit epoch >= WEEK_START). The confirmation comment is the `Observed:`
 # value; an empty one signals the /ship-can-capture-it fallback downstream.
 emit_deployments() {
@@ -267,7 +288,12 @@ emit_deployments() {
       [ -n "$epoch" ] || continue
       [ "$epoch" -ge "$WEEK_START" ] || continue
       branch=$(basename "$f" .md)
-      author=$(git log -1 --format=%ae -- "$f" 2>/dev/null)
+      # Recorded deployer first; infer from the last story-touching commit only
+      # for legacy blocks with no By: line.
+      author=$(sed -n 's/^- \*\*By:\*\*[[:space:]]*//p' "$f" | head -n1)
+      if [ -z "$author" ]; then
+        author=$(git log -1 --format=%ae -- "$f" 2>/dev/null)
+      fi
       when=$(sed -n 's/^- \*\*When:\*\*[[:space:]]*//p' "$f" | head -n1)
       status=$(sed -n 's/^- \*\*Status:\*\*[[:space:]]*//p' "$f" | head -n1)
       observed=$(sed -n 's/^- \*\*Observed:\*\*[[:space:]]*//p' "$f" | head -n1)

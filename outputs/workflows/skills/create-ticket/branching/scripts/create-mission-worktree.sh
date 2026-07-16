@@ -51,20 +51,11 @@ fi
 
 mkdir -p "${repo_root}/.worktrees"
 
-# git does NOT auto-ignore a linked worktree directory, so a stray `git add -A`
-# in the main tree would embed .worktrees/<slug> as a gitlink. And the per-worktree
-# .env (credentials + assigned ports) must not register as a "dirty" file that
-# blocks worktree reset/cleanup. Exclude both via the shared, untracked
-# .git/info/exclude (applies to every worktree of this repo, needs no commit).
-common_dir="$(git rev-parse --git-common-dir 2>/dev/null || echo "${repo_root}/.git")"
-case "$common_dir" in /*) : ;; *) common_dir="${repo_root}/${common_dir}" ;; esac
-exclude="${common_dir}/info/exclude"
-mkdir -p "${common_dir}/info"
-for pat in '.worktrees/' '.env'; do
-    if [ ! -f "$exclude" ] || ! grep -qxF "$pat" "$exclude"; then
-        printf '%s\n' "$pat" >> "$exclude"
-    fi
-done
+# Exclude .worktrees/ and .env via the shared .git/info/exclude (see
+# lib/ensure-git-excludes.sh — shared with ensure-worktree.sh so the two
+# creators cannot drift).
+. "${SCRIPT_DIR}/lib/ensure-git-excludes.sh"
+ensure_git_excludes "$repo_root"
 
 # Branch from the base (default main) so the worktree starts on a clean, merged
 # base — uncommitted work in the main tree stays in the main tree. Send git's

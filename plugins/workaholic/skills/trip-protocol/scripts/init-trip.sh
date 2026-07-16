@@ -43,6 +43,15 @@ mkdir -p "${trip_path}/directions" "${trip_path}/models" "${trip_path}/designs" 
 updated_at="$(date -Iseconds)"
 plan_file="${trip_path}/plan.md"
 
+# The recorded trip<->branch association (decided 2026-07-16): the trip's
+# plan.md names the branch it drives, stamped from the working directory's
+# checkout at init time. This is the single source detect-context.sh reads to
+# resolve a modern work-* branch back to its trip (legacy trip/* branches keep
+# the naming convention), which is what makes report's Trip Mode reachable
+# from the branches create.sh actually mints. Empty on a detached HEAD — the
+# association then simply stays unrecorded, the legacy state.
+trip_branch=$( (cd "$root" && git branch --show-current) 2>/dev/null || echo "")
+
 # Sanitize instruction for YAML: escape backslashes first, then double quotes
 # (POSIX sh has no ${var//pat/repl}; use sed).
 safe_instruction=$(printf '%s' "$instruction" | sed 's/\\/\\\\/g; s/"/\\"/g')
@@ -51,6 +60,7 @@ safe_instruction=$(printf '%s' "$instruction" | sed 's/\\/\\\\/g; s/"/\\"/g')
 {
   echo '---'
   printf 'instruction: "%s"\n' "$safe_instruction"
+  printf 'branch: %s\n' "$trip_branch"
   echo 'phase: planning'
   echo 'step: not-started'
   echo 'iteration: 0'

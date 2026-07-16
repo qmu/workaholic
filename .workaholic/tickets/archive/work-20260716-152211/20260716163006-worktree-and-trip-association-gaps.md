@@ -3,9 +3,9 @@ created_at: 2026-07-16T16:30:06+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Domain]
-effort:
+effort: 0.5h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -56,3 +56,12 @@ verdicts verified against source):
 ## Considerations
 
 - Step 2 may legitimately conclude "retire legacy Trip Mode" — the deliverable is the recorded decision and matching code, not necessarily a new association.
+
+## Final Report
+
+Development completed as planned. The exclude guard was extracted into `branching/scripts/lib/ensure-git-excludes.sh` (both creators source it — extraction rather than a verbatim copy, per the coding-standards policy note). For step 2 the decision is to **define** the association, not retire Trip Mode: a trip's `plan.md` names the branch it drives via a `branch:` frontmatter field, stamped by `init-trip.sh` from its working directory's checkout; `detect-context.sh` resolves `work-*` branches through that field and now emits `trip_name` alongside `mode`, making report's Trip Mode reachable end-to-end. Trips predating the field carry no `branch:` line and never match a `work-*` branch — the detector still refuses to guess. The decision and rationale are recorded in `trip-protocol/SKILL.md`'s Plan Document section.
+
+### Discovered Insights
+
+- **Insight**: The trip artifacts live inside the branch's own checkout, so the branch "contains" its trip dir — but containment is not an association: a trip dir inherited from main is indistinguishable from one authored on this branch without either a diff query or a recorded field. The recorded field is strictly simpler and survives merges.
+  **Context**: When relating a session artifact to a branch, record the relation in the artifact at creation time; deriving it later from git topology is where the previous repo-wide-find defect came from.

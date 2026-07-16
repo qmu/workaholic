@@ -146,7 +146,18 @@ Read an artifact's `mission:` relation; prints one slug per line, nothing when a
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/gate.sh <mission-slug-or-file>
 ```
 
-Read the mission's **quality-gate** declaration (`gate_type`/`gate_target`/`gate_assert`) and resolve the mission worktree's ports the gate is checked against. Emits `{type, target, assert, valid, slug, port_base, dev_port, docs_port}` — `valid` is `false` when `gate_type` is set but not `documentation`/`live-app`; the port fields are `""` when the mission has no worktree. `/drive` surfaces this for a missioned ticket so the work is judged against the mission's gate; the live check runs the project's server on `dev_port` and drives `target` with the Playwright plugin.
+Read the mission's **quality-gate** declaration (`gate_type`/`gate_target`/`gate_assert`) and resolve the mission worktree's ports the gate is checked against. Emits `{type, target, assert, valid, driveable, reason, slug, port_base, dev_port, docs_port}`.
+
+`valid` and `driveable` answer **different questions**, and the distinction is the point:
+
+- **`valid`** — the *declaration* is well-formed: `gate_type` is empty or one of `documentation`/`live-app`. It says nothing about whether the gate can be run.
+- **`driveable`** — the gate can actually be *exercised*: one is declared **and** its worktree ports resolved. `reason` names why not — `no_gate` (none declared: the **normal** case, not an error) or `no_worktree` (declared, but no port to serve its target on).
+
+`driveable` exists because `valid: true` with empty ports reported success for a gate that could not be addressed at all: a mission could declare a live gate, pass validation, and be silently unverifiable. The port fields are `""` when the mission has no worktree.
+
+The ports are resolved from the **main checkout** (`git rev-parse --git-common-dir`, whose dirname is the main root), **not** `--show-toplevel`: a mission lives in its own `.worktrees/<slug>/` and `/drive` auto-routes there, so `--show-toplevel` returns the worktree and the lookup becomes `<worktree>/.worktrees/<slug>/.env` — a path nothing creates. That returned empty ports for every mission in the prescribed layout.
+
+`/drive` surfaces this for a missioned ticket so the work is judged against the mission's gate when one is declared; the live check runs the project's server on `dev_port` and drives `target` with the Playwright plugin.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/progress.sh <mission-file-or-slug>

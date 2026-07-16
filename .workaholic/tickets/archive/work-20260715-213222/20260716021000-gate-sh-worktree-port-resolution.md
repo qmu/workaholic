@@ -1,6 +1,7 @@
 ---
 type: bugfix
 layer: [Domain]
+effort: 1h
 created_at: 2026-07-16T02:10:00+09:00
 author: a@qmu.jp
 depends_on: []
@@ -137,6 +138,27 @@ valid.
 **The gate:** every row; the `valid`-semantics decision recorded either way; full suite green, 0 failed; `posix-lint` conforming; `verify.mjs`, `validate-metadata.mjs` pass; rebuild clean (the mission skill is bundled **six times**).
 
 **Watch it fail first:** back up `gate.sh`, revert it alone (never `git stash`, and never revert uncommitted work — there is no HEAD to return to), confirm the inside-the-worktree assertion goes RED, restore from the backup.
+
+## Final Report
+
+Development completed as planned. Every gate row holds.
+
+**The fix is a primitive swap.** `git rev-parse --show-toplevel` answers "where am I", which inside a worktree is *the worktree*. The question this code actually asks is "where is the **main** checkout", and `--git-common-dir` is the primitive for it: inside a linked worktree it points at the main `.git` (while `--git-dir` points at `.git/worktrees/<name>`), so its dirname is the main root. Verified empirically from all three locations — inside a worktree, at the main root, and from a main-checkout subdir — before writing a line of the fix, because git returns that path **relative to CWD** when convenient (`.git` at the toplevel, `../../.git` from a subdir). That is why it is resolved through `cd`+`pwd` rather than string surgery, and why a subdir case is asserted.
+
+**The `valid`-semantics decision, recorded as the gate required.** `valid` keeps its existing meaning — *the declaration is well-formed* — because that is testable and callers already depend on it. The missing answer got its own field: **`driveable`**, with a `reason` (`no_gate` / `no_worktree`). This is why it matters: a mission could declare a `live-app` gate, pass validation with `valid: true`, and be **impossible to address** because the ports were empty. The gate degraded to unverifiable while reporting success. Overloading `valid` would have fixed the symptom by breaking a contract; adding `driveable` says the second thing without disturbing the first.
+
+**The main-checkout half is deliberately not fixed**, and this is the scope call the gate asked me to state. Running `gate.sh <slug>` from the main checkout for a mission created in a worktree still returns `not_found` — correctly: the mission genuinely is not there, since it lives on the worktree's branch. `not_found` already names the reason, satisfying the gate row's second clause. Resolving it would mean scanning every worktree for the mission, which is a different feature (cross-worktree mission discovery) and would change what `mission_resolve` means for every mission script, not just this one.
+
+### Discovered Insights
+
+- **Insight**: This bug was invisible because **the failure looked identical to the legitimate case**. A mission with no worktree correctly reports empty ports; a mission *in* its worktree reported empty ports too — the right answer for the wrong reason. Both read as "no worktree yet".
+  **Context**: The ticket called this out and it is the generalizable part: when a failure mode is indistinguishable from a valid state, no amount of looking at output finds it, and the only defence is a test that constructs the state where they must differ. That is why the test builds a **real** `git worktree` — a fixture that merely creates the directory resolves through `--show-toplevel` by accident and asserts nothing. `driveable`/`reason` also exist so the two cases stop looking alike at the API boundary.
+
+- **Insight**: My subdir assertion initially failed, and the cause was **not** this bug: `mission_resolve` looks under a **CWD-relative** `.workaholic/`, so a bare slug cannot resolve from any subdirectory — a pre-existing property of every mission script, unrelated to port resolution.
+  **Context**: I had conflated two lookups in one assertion, and the fix was to address the mission by absolute path so the test measures only what it names. Worth recording as a latent constraint: every mission script must be run from a checkout root. It is not a bug today because the workflows always run there, but it is a real edge for anyone invoking these scripts by hand, and it is invisible until you try.
+
+- **Insight**: The relationship to `54e5ec65` (which demoted the mission gate to optional) is worth stating plainly, because the two look contradictory: that ticket found this script's brokenness was *evidence the gate was inert*, and this ticket fixes the script anyway.
+  **Context**: They are consistent. Demoting the gate means a mission is not *required* to declare one — it does not mean a declared gate may silently fail. The `no_gate` reason encodes exactly that: an absent gate is the normal case and not an error, while a declared-but-unaddressable gate now says so. If the fields stay universally empty over the next few missions, the honest follow-up is to delete `gate_*` and this script outright rather than maintain a working reader nobody calls.
 
 ## Considerations
 

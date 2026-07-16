@@ -166,6 +166,30 @@ Write the tickets **in one pass**, not N serial `create-ticket` runs. Each carri
 
 **The split cap does not apply to a mission — a deliberate, scoped exception.** `create-ticket` §4 caps a split at "2–4 discrete tickets", which is right for one request that turns out to be several. A mission is the opposite case: a durable goal that spans *many* tickets by definition, and "a complete set to drive through one by one" is the requirement. Capping it at 4 would force either an incomplete plan or a fake ticket boundary. A mission decomposition is closer to `trip-protocol`'s Decomposition gate than to a `/ticket` split, and is governed by the same rule: **one ticket per genuinely separable unit of work, however many that is**. The cap still applies to `/ticket` itself; this exception is mission-scoped and stated here so it is not a silent violation.
 
+## Mission Position Report
+
+**The one definition of "where does the mission stand".** Every seam that hands work across a boundary states this; none re-states or re-derives it. It contains exactly three things:
+
+1. **How far** — `checked/total`, from `progress.sh`. Computed, never narrated.
+2. **What is next** — the next unchecked acceptance item, from `next-acceptance.sh`.
+3. **How far a fresh session can proceed** — what is ready to drive right now, and what is waiting on a decision or an external blocker. This is the part a later session cannot reconstruct, and the reason the report exists.
+
+Read every figure through those scripts (`workaholic:implementation` / `domain-layer-separation`); never parse `mission.md` to answer this. The relation is **many-valued** — read it with `read-relation.sh` and report **every** mission the work advances, not the first.
+
+**It is a report, never a prompt.** It states position and continues; it must not grow into a "shall I proceed?" — the whole direction is *less* confirmation.
+
+**An empty `## Acceptance` (`0/0`) is reported honestly, not silenced.** The mission lens deliberately stays quiet on a `0/0` mission (an always-on nudge with nothing to act on is noise). A handoff is the **opposite** case: *"this mission has no criteria written yet"* is precisely what the next session needs to know, because it is the difference between "drive the queue" and "the plan does not exist yet". Do not copy the lens's signal gate here — this divergence is deliberate, not drift.
+
+**Where it is stated:**
+
+| seam | when |
+| --- | --- |
+| `/carry` | in the resumption ticket, when the in-flight work carries a `mission:` relation. Say nothing when it carries none — never fabricate a mission-shaped frame around unrelated work. |
+| `/mission close` | before asking for the outcome, and again on a carry (what moved to the successor). |
+| `/report`, `/ship` | **not** stated — recorded decision, below. |
+
+`/report` and `/ship` roll missions but do **not** carry this report. Their audience is the PR reviewer, and the story's own sections already say what landed; adding mission position there would duplicate `/catch` and the lens for a reader who did not ask. The report exists for **continuity across a session boundary** — that is `/carry` and `/mission close`, where the context is otherwise lost. Decided rather than defaulted; revisit if a reviewer ever has to ask "which mission is this?".
+
 ## Progress Rule
 
 Progress toward achievement is **derived, never stored**: `checked ÷ total` over the `## Acceptance` checklist. No `progress:` percentage is persisted anywhere — a stored number would drift from the checklist. `scripts/progress.sh` computes `{checked, total}` from the file on demand.

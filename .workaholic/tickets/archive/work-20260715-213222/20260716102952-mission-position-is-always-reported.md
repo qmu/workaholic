@@ -3,9 +3,9 @@ created_at: 2026-07-16T10:29:52+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX, Domain]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -72,4 +72,25 @@ The lens already does this **continuously** and non-forcingly on every prompt. T
 - **The `0/0` row is the interesting one, and it inverts the lens's rule deliberately.** The lens stays silent on a mission with no acceptance criteria because an always-on nudge with nothing to act on is noise. A handoff is the opposite: "this mission has no criteria written yet" is precisely what the next session must know. Do not copy the lens's signal gate here — and say why in the skill, or someone will "fix" the inconsistency later.
 - **Do not turn a report into a prompt.** The developer asked for less confirmation. If stating position tempts a "shall I continue?", that is the ticket failing.
 - `/carry` is capture-only by design. This adds to what it captures; it must not make `/carry` do more.
+
+## Final Report
+
+Development completed as planned. The **Mission Position Report** is defined once in `mission/SKILL.md`; `/carry` and `/mission close` both source it rather than restating it.
+
+**Step 4's decision, made rather than defaulted: `/report` and `/ship` do NOT join.** Both roll missions, so including them was arguable — but the report exists for **continuity across a session boundary**, and neither crosses one. Their audience is the PR reviewer, the story's own sections already say what landed, and adding mission position there would duplicate `/catch` and the lens for a reader who did not ask. Recorded in the skill with the trigger to revisit: if a reviewer ever has to ask "which mission is this?", the decision was wrong.
+
+**The measurement that made this ticket obvious**: `carry/SKILL.md` mentioned missions **zero times**. The command whose entire purpose is answering *"in another session, how much can we proceed?"* had no mission dimension at all — it handed over a task. The resumption ticket now carries the `mission:` relation forward too, not just the prose: without it the next session cannot roll the mission either, and the relation would die at exactly the boundary this ticket exists to survive.
+
+**Step 6's footprint check paid off**: `carry` is **not** in `build.mjs`'s `DEFAULT_TARGETS`, so `carry/SKILL.md` has no `outputs/` footprint — verified rather than assumed, and the rebuild touched only the bundled `mission/SKILL.md`.
+
+### Discovered Insights
+
+- **Insight**: The `0/0` rule **inverts the lens's signal gate on purpose**, and that inconsistency is the most fragile thing in this change. The lens stays silent on a mission with no acceptance criteria because an always-on nudge with nothing to act on is noise; a handoff must say it loudly, because *"the plan does not exist yet"* is the difference between "drive the queue" and "there is no queue".
+  **Context**: Two readers of the same field, with deliberately opposite thresholds, is exactly the shape someone later "fixes" into consistency. So the skill states the divergence *and* the reason, and a test asserts the sentence is still there. The general lesson: when two consumers of one fact must disagree, the disagreement itself needs a home in the docs and a test — otherwise it reads as drift and gets normalised away. (This is the third such deliberate divergence in the mission model, alongside `/mission summary`'s lower assignee bar.)
+
+- **Insight**: The whole feature is prose, and prose that nobody asserts is prose that quietly disappears. There is no script to write here — every figure already had a reader (`progress.sh`, `next-acceptance.sh`, `read-relation.sh`), which is precisely why the gap was *an obligation*, not a capability.
+  **Context**: So the assertions pin the **rules** by regex against the skills: the definition exists, it answers the continuity question, it is a report and never a prompt, the `0/0` inversion is justified, the no-mission case fabricates nothing, and the template carries the relation. A future edit that quietly deletes any of them turns a test red. That is the honest ceiling for a prose feature — and it is worth more than the "watch it fail first" step the gate asked for, which does not apply when no script changed.
+
+- **Insight**: The failure being prevented is the same one that produced three other tickets in this batch: **context that lives only in a session dies with it**. A defect written into a story shipped anyway (`e81d561c`); a problem met mid-run reached only a Final Report (`2666cea9`); and a mission's position reached only the developer's head.
+  **Context**: Each was fixed by moving the fact into a structure that carries an obligation — a ticket, a queue entry, a resumption ticket. The mission model's value is entirely that it survives the session; every seam that does not state position is a place where it silently does not.
 - Related: `20260716102950` moves the mission's substance into `## Experience`. If that lands first, the position report should say whether the demanded experience is met — but do not couple the tickets; each stands alone.

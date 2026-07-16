@@ -1,6 +1,8 @@
 #!/bin/sh -eu
 # Read a mission's quality-gate declaration and resolve the worktree port the gate
-# is verified against. The gate is the mission-level "is the outcome good?" check,
+# is verified against. A mission gate is OPTIONAL and normally EMPTY -- a mission's
+# substance is its ## Experience section plus its ticket plan, not a check fixed at
+# kickoff before the work exists. This reads the gate when one is declared,
 # distinct from per-ticket gates:
 #   gate_type    documentation | live-app | (empty = no live gate)
 #   gate_target  a route served on the mission worktree's port to check (e.g. /docs)

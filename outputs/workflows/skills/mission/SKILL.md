@@ -49,7 +49,7 @@ assignee: <email>       # the user id / email that owns driving this mission (de
 tickets: []             # machine-readable member lists — reserved; populated by later work
 stories: []
 concerns: []
-gate_type:              # documentation | live-app | (empty = no live gate)
+gate_type:              # OPTIONAL and normally EMPTY — documentation | live-app
 gate_target:            # a route served on the mission worktree's port to check (e.g. /docs)
 gate_assert:            # one line: what must hold for the mission's outcome to pass
 ---
@@ -57,9 +57,17 @@ gate_assert:            # one line: what must hold for the mission's outcome to 
 
 The `tickets` / `stories` / `concerns` lists are reserved for the machine-readable relations that downstream artifacts emit; a freshly created mission leaves them empty.
 
-### Quality gate
+### Quality gate — optional, and normally empty
 
-The `gate_*` fields declare the mission's own quality gate — the objective "is the outcome good?" check, distinct from per-ticket gates. `gate_type` is `documentation` (the mission's docs render and read correctly) or `live-app` (the mission's feature works in the running app); `gate_target` is the route to check; `gate_assert` states what must hold. Because a mission runs in its own worktree with a unique port base (`WORKAHOLIC_DEV_PORT`), the gate is verified by driving that worktree's running server with the Playwright plugin — and, since every worktree serves on a different port, several missions' gates can be checked at once. workaholic declares the gate and supplies the port; the server-start command is the project's (declared once, e.g. in the project's `CLAUDE.md`). Read it with `gate.sh` (below); it stays **objective** (`implementation` / `objective-documentation`) — a named route plus an asserted condition, never "looks good".
+**The mission's substance is `## Experience` plus the ticket plan, not these fields.** `gate_*` is an *optional* declaration for the rare mission whose outcome has a stable, objective check that is knowable at kickoff. **Empty is the normal case, not a defect**, and nothing treats an absent gate as an error.
+
+This is a deliberate demotion. A gate declared at creation is a prediction about work that does not exist yet: as the mission learns, the gate goes stale — but it stays in the file, and an agent keeps steering by it. A `gate_target` route plus a one-line assert is also a thin proxy for what a mission is *for*; a route returning 200 is not evidence the demanded experience is right. The record supports the demotion rather than merely arguing it: **every mission created to date left all three fields empty**, and `gate.sh` cannot resolve ports for a mission living in its own worktree — the prescribed layout. The gate has been inert since it shipped and nothing broke.
+
+So do **not** interrogate these at mission creation, and do not treat a mission without them as incomplete. Write `## Experience` instead.
+
+When a mission *does* declare one: `gate_type` is `documentation` (the mission's docs render and read correctly) or `live-app` (the mission's feature works in the running app); `gate_target` is the route to check; `gate_assert` states what must hold. Because a mission runs in its own worktree with a unique port base (`WORKAHOLIC_DEV_PORT`), it is verified by driving that worktree's running server with the Playwright plugin, and since every worktree serves on a different port, several missions' gates can be checked at once. workaholic declares the gate and supplies the port; the server-start command is the project's (declared once, e.g. in the project's `CLAUDE.md`). Read it with `gate.sh` (below); a declared gate stays **objective** (`implementation` / `objective-documentation`) — a named route plus an asserted condition, never "looks good".
+
+**The objectivity requirement outlives the gate.** `## Experience` is prose, so it cannot be machine-checked the way a route-plus-assert could. That makes objectivity a convention here rather than a check — hold it anyway: describe behavior that can be observed, not qualities that cannot.
 
 ### Assignee
 
@@ -75,7 +83,8 @@ Body sections, in order:
 
 - `## Goal` — the information-rich "why": business grounding and the outcome the mission pursues.
 - `## Scope` — definition of done, and explicit out-of-scope notes.
-- `## Acceptance` — a checklist; **progress toward achievement is `checked ÷ total`, computed from this list, never a hand-set number** (`implementation` / `objective-documentation`).
+- `## Experience` — **the mission's substance**: the user experience, the demanded behavior, and/or the overall structure it pursues. Where `## Goal` says *why* the work is worth doing, this says *what the thing does*. Keep it observable (`implementation` / `objective-documentation`) — "the list reorders without a reload" is checkable; "feels fast" is not. This is the durable content a kickoff-time `gate_*` could never be, and it is what a later session reads to know what is actually demanded.
+- `## Acceptance` — a checklist, and **the mission's plan**: each item names the ticket expected to satisfy it, so the list doubles as the route to completion. **Progress toward achievement is `checked ÷ total`, computed from this list, never a hand-set number** (`implementation` / `objective-documentation`).
 - `## Changelog` — an append-only, dated, human-readable timeline (`design` / `history-structures`).
 
 ### Acceptance-checklist convention

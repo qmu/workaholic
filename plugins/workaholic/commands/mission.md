@@ -59,9 +59,19 @@ Note the returned `worktree_path`. On `"error": "worktree already exists"`, repo
 ( cd <worktree_path> && bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/create.sh "$ARGUMENT" )
 ```
 
-`create.sh` scaffolds `mission.md` (frontmatter + `## Goal`/`## Scope`/`## Acceptance`/`## Changelog` and the empty `gate_*` fields), stamps `created_at`/`author`/`assignee`, refreshes the OKF indexes, and git-stages — all inside the worktree. Then work with the developer to fill in `## Goal`, `## Scope`, and the `## Acceptance` checklist (each item naming the ticket/story that will satisfy it), **and the mission's quality gate**: set `gate_type` (`documentation` or `live-app`), `gate_target` (a route served on the worktree's port), and `gate_assert` (one line: what must hold) — the objective mission-level check that `/drive` reads via `mission/scripts/gate.sh` and verifies against the worktree's port with Playwright. On `reason: "exists"`, report the path and do not overwrite.
+`create.sh` scaffolds `mission.md` (frontmatter + `## Goal`/`## Scope`/`## Experience`/`## Acceptance`/`## Changelog` and the empty, optional `gate_*` fields), stamps `created_at`/`author`/`assignee`, refreshes the OKF indexes, and git-stages — all inside the worktree. On `reason: "exists"`, report the path and do not overwrite.
 
-**4. Create the ordered kickoff tickets inside the worktree.** With the worktree as the working directory, run the full `workaholic:create-ticket` **Workflow** (three-mode discovery + the mandatory Quality-Gate interrogation) once **per** kickoff ticket the developer wants to start the mission with — writing each to the worktree's `.workaholic/tickets/todo/<user>/`, stamping `mission: <slug>` in its frontmatter, and ordering them with `depends_on` so `/drive` runs them in sequence.
+**3b. Interrogate — mandatory, and not skippable.** Follow the skill's **Creation Interrogation** section (`workaholic:mission`) end to end. It defines the rounds (Direction → the demanded experience → the ticket set → per-ticket pre-answers → Acceptance), the ordering rule, and the emission rules; do not restate them here.
+
+Issue every question from **this command (main agent)** — a subagent cannot call `AskUserQuestion` (CLAUDE.md One-Level Fan-Out). "As many questions as necessary" therefore means **multiple sequential `AskUserQuestion` rounds**, not one prompt. A `general-purpose` leaf may *propose* the question set as JSON for you to ask; only the command asks. Prefix every `question` body with the `[<project label>]` from `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh` or `guard-askuserquestion-label.sh` rejects it (exit 2).
+
+Do **not** interrogate the mission gate: `gate_*` is optional and normally left empty (see the skill's *Quality gate*). Ask only if the developer volunteers a stable, objective outcome check.
+
+Then write `## Goal`, `## Scope` and `## Experience` into the mission from the answers.
+
+**4. Emit the whole ticket set inside the worktree, in one pass.** Per the skill's *Emitting the set*: write every ticket the interrogation determined — not just the ones the developer happened to name — to the worktree's `.workaholic/tickets/todo/<user>/`, each stamped `mission: <slug>`, carrying its mandatory `## Policies` and `## Quality Gate` (pre-answered in round 4, so no later interrogation is needed), and ordered by `depends_on`. The `create-ticket` "2–4" split cap does **not** apply to a mission — the skill records why. Then write `## Acceptance`, one item per criterion, each naming its ticket by `(#<filename>)`.
+
+By the end of this step the mission is **drive-ready**: a complete, ordered queue whose judgement calls are already answered.
 
 **5. Commit the mission statement and kickoff tickets inside the worktree** via the commit skill (policy-conformant subject, `Co-Authored-By` trailer kept):
 

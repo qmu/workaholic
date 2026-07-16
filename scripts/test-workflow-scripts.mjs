@@ -4587,6 +4587,36 @@ function testCommitFlagGuard() {
     assertTrue("index untouched by refused invocations",
       execSync(`git diff --cached --stat`, { cwd: dir, encoding: "utf8" }).trim() === "", "staged changes found");
 
+    // A flag AFTER the positional args is refused by name, not swallowed by
+    // the staging loop as a missing file (the trailing-`--category` case).
+    const trailing = run(dir, `${POSIX_SH} ${SCRIPTS.commit} "Update readme" "why" "changes" "" "" "verify" --category Added`);
+    assertTrue("commit.sh refuses a trailing flag", trailing.status !== 0, `status ${trailing.status}`);
+    assertTrue("commit.sh names the trailing flag", /unknown option: --category/.test(trailing.stdout + trailing.stderr), trailing.stdout);
+    assertEq("trailing flag makes no commit", commitCount(), before);
+
+    // --category without a value is refused by name, not a cryptic shift error.
+    const noval = run(dir, `${POSIX_SH} ${SCRIPTS.commit} --category`);
+    assertTrue("commit.sh refuses --category without a value", noval.status !== 0, `status ${noval.status}`);
+    assertTrue("commit.sh names the missing value", /--category requires a value/.test(noval.stdout + noval.stderr), noval.stdout);
+
+    // Under-supplied positional args are refused: the unconsumed fields must
+    // never fall through into the staging loop as file paths.
+    const short = run(dir, `${POSIX_SH} ${SCRIPTS.commit} "Update readme" "why"`);
+    assertTrue("commit.sh refuses fewer than six positional args", short.status !== 0, `status ${short.status}`);
+    assertTrue("commit.sh names the positional-arg floor", /six positional arguments/.test(short.stdout + short.stderr), short.stdout);
+    assertEq("under-supplied call makes no commit", commitCount(), before);
+
+    // The subject gate runs inside commit.sh itself, BEFORE staging: an
+    // off-policy subject fails with the shared validator's reason and the
+    // index untouched (this is the script-wrapped path the PreToolUse guard
+    // deliberately does not inspect).
+    const badSubject = run(dir, `${POSIX_SH} ${SCRIPTS.commit} "feat: add x" "why" "changes" "" "" "verify"`);
+    assertTrue("commit.sh rejects an off-policy subject", badSubject.status !== 0, `status ${badSubject.status}`);
+    assertTrue("commit.sh names the subject reason", /Conventional-Commit prefix/.test(badSubject.stdout + badSubject.stderr), badSubject.stdout);
+    assertEq("off-policy subject makes no commit", commitCount(), before);
+    assertTrue("off-policy subject stages nothing",
+      execSync(`git diff --cached --stat`, { cwd: dir, encoding: "utf8" }).trim() === "", "staged changes found");
+
     // The happy path still commits (the guard must not over-tighten).
     const ok = run(dir, `${POSIX_SH} ${SCRIPTS.commit} "Update readme" "why" "changes" "" "" "verify"`);
     assertEq("commit.sh happy path still commits", ok.status, 0);
@@ -4896,6 +4926,14 @@ function testCheckSubject() {
   assertEq("check-subject blocks [bracket] tag", invoke("[wip] y").status, 1);
   assertEq("check-subject blocks >50 chars", invoke("A".repeat(60)).status, 1);
   assertTrue("check-subject names the reason", /Conventional-Commit prefix/.test(invoke("feat: x").out), invoke("feat: x").out);
+  // Multibyte subjects are measured by character count on every host: the
+  // validator pins LC_ALL to a UTF-8 locale itself, so 45 Japanese characters
+  // (135 UTF-8 bytes) pass and 51 fail as exactly 51 — byte-counting would
+  // report 153.
+  assertEq("check-subject allows a 45-char multibyte subject", invoke("あ".repeat(45)).status, 0);
+  const mb = invoke("あ".repeat(51));
+  assertEq("check-subject blocks a 51-char multibyte subject", mb.status, 1);
+  assertTrue("check-subject counts multibyte by characters", /subject is 51 characters/.test(mb.out), mb.out);
   // stdin form works too.
   const r = run(REPO_ROOT, `printf '%s' "docs: x" | ${POSIX_SH} ${SCRIPTS.checkSubject}`);
   assertEq("check-subject reads subject from stdin", r.status, 1);

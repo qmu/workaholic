@@ -21,9 +21,11 @@
 
 set -eu
 
-# Shared subject validator (lib/check-subject.sh) -- the single source of the
-# subject rules, also used by the git commit-msg hook so the two layers cannot
-# drift. Resolve it relative to this hook's own directory.
+# Shared subject validator (lib/check-subject.sh, a stable delegator to the
+# canonical skills/commit/scripts/check-subject.sh) -- the single source of
+# the subject rules, also used by the git commit-msg hook and by commit.sh
+# itself so the layers cannot drift. Resolve it relative to this hook's own
+# directory.
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 LIB="${SCRIPT_DIR}/lib/check-subject.sh"
 

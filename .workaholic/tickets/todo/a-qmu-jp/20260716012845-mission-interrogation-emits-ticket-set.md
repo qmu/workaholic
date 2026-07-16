@@ -6,7 +6,7 @@ layer: [Domain]
 effort:
 commit_hash:
 category:
-depends_on:
+depends_on: [20260716102950-mission-describes-experience-not-gate.md]
 mission:
 ---
 
@@ -37,8 +37,8 @@ This ticket builds that interrogation. It is independently valuable: a fully-int
 
 1. **Write the interrogation protocol into `skills/mission/SKILL.md`** (not the command — `commands/mission.md` is already 99 lines and the Design Principle caps it at orchestration). Model it on `create-ticket` §4b: mandatory, explicitly non-skippable, "grill, don't tick a box". Define the rounds it must cover:
    - **Direction** — the business "why", the outcome, what is explicitly out of scope. (`## Goal`, `## Scope`)
-   - **The mission gate** — `gate_type` (`documentation`|`live-app`), `gate_target`, `gate_assert`. These are empty on every mission created to date.
-   - **The ticket set** — how many tickets, what each covers, the `depends_on` order. This is the question nobody asks today.
+   - **The demanded experience** — the user experience, the behavior required, and/or the overall structure the mission pursues. (`## Experience`, added by `20260716102950`.) **This replaces the mission-gate round** — see the amendment below.
+   - **The ticket set** — how many tickets, what each covers, the `depends_on` order. This is the question nobody asks today, and it is the round that matters most.
    - **Per-ticket pre-answers** — everything `create-ticket` §4b would have asked later, asked now, per ticket in the set.
    - **Acceptance** — one checklist item per criterion, each naming the ticket that satisfies it.
 2. **Have `commands/mission.md` issue the rounds.** All `AskUserQuestion` must be at command/main-agent level (CLAUDE.md One-Level Fan-Out: a subagent cannot ask). "As many questions as necessary" therefore means **multiple sequential rounds** — which §4b already sanctions. A `general-purpose` leaf may *propose* the question set as JSON; only the command may ask. Every question body needs the `[<project label>]` prefix or `guard-askuserquestion-label.sh` rejects it (exit 2).
@@ -48,13 +48,28 @@ This ticket builds that interrogation. It is independently valuable: a fully-int
 6. **Docs in the same change**: CLAUDE.md's `/mission` row and mission-model prose, `README.md`, `.workaholic/README.md`, and `mission/SKILL.md`'s note that "`create.sh` scaffolds `## Acceptance` empty … the fix belongs in `create.sh`" — which this ticket makes stale.
 7. `node scripts/build-plugins/build.mjs` — `mission/SKILL.md` and `create.sh` are bundled (**six copies** of the scripts, one per DEFAULT_TARGET). `commands/mission.md` is Claude-only and has no `outputs/` footprint. Then `verify.mjs`, `validate-metadata.mjs`, `posix-lint.sh`.
 
+## Amendment (2026-07-16) — re-aimed off the mission gate
+
+This ticket was written against the old model, in which a mission declared a quality gate at kickoff. The developer has since ruled that model out, verbatim:
+
+> *"Claude Code has a tendency to stick with the quality gate defined at the very beginning of the mission … during the course of a mission, we often change the quality gate, making a heavy upfront quality gate somewhat nonsensical. Instead, what we should describe in a mission is the user experience, the demanded behavior, or the overall structure. We need fewer quality gates and more of a plan or tickets to make the mission complete."*
+
+So this ticket's **interrogation drops the mission-gate round entirely** and asks instead about the **demanded experience/behavior/structure** and the **ticket plan**. Concretely:
+
+- The `gate_*` round is **removed**, not softened. `20260716102950` demotes those fields to optional-and-normally-empty; an interrogation that demanded all three would contradict the schema it writes into — exactly the code-versus-doc drift this repo keeps paying for.
+- The `## Experience` round is **added** (the section `20260716102950` introduces).
+- **Gate row 1 below is amended** accordingly: non-empty `## Goal` / `## Scope` / `## Experience` / `## Acceptance` (≥1 item). The `gate_*` clause is struck.
+- Everything else stands. The ticket's core value — *interrogate once, then emit the whole drive-ready ticket set* — is unchanged and is what the developer asked for ("more of a plan or tickets"). The per-ticket `## Quality Gate` in each emitted ticket (row 3) is **unaffected and stays mandatory**: it is written when the work is understood, and it is the bar `20260716012847`'s unattended drive holds itself to. Mission gate and ticket gate are different things; do not conflate them while implementing.
+
+**Depends on `20260716102950`** for the `## Experience` section it interrogates into.
+
 ## Quality Gate
 
 **Acceptance criteria:**
 
 | # | must hold |
 | --- | --- |
-| 1 | A mission created through the new flow has **non-empty** `## Goal`, `## Scope`, `## Acceptance` (≥1 item), and non-empty `gate_type`/`gate_target`/`gate_assert`. No HTML-comment placeholders survive. |
+| 1 | A mission created through the new flow has **non-empty** `## Goal`, `## Scope`, `## Experience`, and `## Acceptance` (≥1 item). No HTML-comment placeholders survive. (**Amended**: the original clause requiring non-empty `gate_type`/`gate_target`/`gate_assert` is struck — see the Amendment above.) |
 | 2 | Every `## Acceptance` item names the ticket that satisfies it, in the `(#<filename>)` form `tick-acceptance.sh` already matches on. |
 | 3 | The emitted tickets exist in the worktree's `todo/<user>/`, each carrying `mission: <slug>`, a `## Policies` section, and a **non-empty `## Quality Gate`**. |
 | 4 | `depends_on` forms a valid order — the foundation ticket has none; the drive Navigator topologically sorts the set with `cycle_warning: null`. |

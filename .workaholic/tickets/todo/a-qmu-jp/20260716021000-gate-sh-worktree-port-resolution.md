@@ -63,6 +63,15 @@ the correct answer for the wrong reason. Creating a mission properly, with a
 worktree, produces the *same* empty ports. That is what makes this worth a
 ticket rather than a note: the failure looks identical to the legitimate case.
 
+## Policies
+
+- `workaholic:implementation` / `policies/directory-structure.md` — the resolution stays in `mission/scripts/gate.sh`; a worktree's location is derived, never guessed by a caller.
+- `workaholic:implementation` / `policies/coding-standards.md` — the reader keeps its contract: `gate.sh` answers "where does this mission's server run", and must not report `valid: true` for a gate it cannot address.
+- `workaholic:implementation` / `policies/domain-layer-separation.md` — "where is the main checkout from here" is domain logic with one answer; `git rev-parse --show-toplevel` is the wrong primitive inside a worktree and the right one must live in a single place.
+- `workaholic:implementation` / `policies/objective-documentation.md` — `SKILL.md` states the gate is driven on `WORKAHOLIC_DEV_PORT`; code and documented contract are reconciled in the same change.
+- `workaholic:implementation` / `policies/test.md` — the boundary condition to target deliberately: a mission **inside its own worktree** (the prescribed layout), which is the exact case with no coverage today.
+- `workaholic:implementation` / `policies/observability.md` — a gate that cannot be driven must say so, rather than degrading silently to unverifiable while reporting success.
+
 ## Scope
 
 `gate.sh` returns the mission worktree's real ports when run from inside that
@@ -110,6 +119,24 @@ valid.
 - `plugins/workaholic/commands/mission.md` (create path, step 3) — instructs the
   author to set `gate_target` to "a route served on the worktree's port", which is
   the contract this breaks.
+
+## Quality Gate
+
+**Acceptance criteria** (hermetic assertions in `scripts/test-workflow-scripts.mjs`, real worktrees in temp repos, no network):
+
+| case | must hold |
+| --- | --- |
+| `gate.sh <slug>` run **inside** the mission's own worktree (the prescribed layout) | resolves `port_base` / `dev_port` / `docs_port` from that worktree's `.env` — non-empty. This is today's bug and the case with no coverage. |
+| `gate.sh <slug>` run from the **main checkout** for a mission created in a worktree | resolves the mission and its ports rather than returning `not_found` — or, if that is judged out of scope, returns an error that **names** the reason, never a silent empty. Decide and record which. |
+| A mission with **no** worktree (the legacy case) | still reports empty ports without error — the correct answer for the right reason. No regression. |
+| A `live-app` gate whose ports cannot be resolved | does **not** report `valid: true` with empty ports. Either it reports the gate as undriveable, or `valid` stops meaning "the word is spelled right". State which. |
+| `gate.sh` on a mission with empty `gate_*` | unchanged — an absent gate is not an error (`20260716102950` makes empty the normal case). |
+
+**Verification method:** create a real worktree in a temp repo (`create-mission-worktree.sh` → `create.sh`), then drive the real `gate.sh` from both inside the worktree and from the main checkout, asserting on the JSON. The bug reproduces only with a genuine worktree, so a fixture that fakes the directory proves nothing.
+
+**The gate:** every row; the `valid`-semantics decision recorded either way; full suite green, 0 failed; `posix-lint` conforming; `verify.mjs`, `validate-metadata.mjs` pass; rebuild clean (the mission skill is bundled **six times**).
+
+**Watch it fail first:** back up `gate.sh`, revert it alone (never `git stash`, and never revert uncommitted work — there is no HEAD to return to), confirm the inside-the-worktree assertion goes RED, restore from the backup.
 
 ## Considerations
 

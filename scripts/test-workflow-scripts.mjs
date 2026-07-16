@@ -574,6 +574,106 @@ concerns: []
   } finally { cleanup(dir); }
 }
 
+// ---------- 8b-2. mission/summary.sh surfaces UNASSIGNED active missions ----------
+// summary.sh gated on an exact `assignee == git config user.email` match. fm_field
+// returns "" for an absent field, and "" matches no email that can exist, so an
+// unassigned mission was skipped for EVERYBODY -- not just for the caller. list.sh still
+// showed it, which is what made the gap silent rather than loud. Not one stale file
+// either: create.sh's self-assignment default is not the only way a mission.md is born,
+// so hand-authored missions keep arriving unassigned and keep vanishing from the summary.
+//
+// The gate is "not somebody else's", NOT "exactly mine": unclaimed work is closer to the
+// developer's business than a colleague's mission. Another developer's mission stays out.
+function testMissionSummaryUnassigned() {
+  const dir = makeRepo("main");
+  const ME = "me@example.com";
+  const OTHER = "other@example.com";
+  try {
+    const mission = (slug, assigneeLine) => {
+      const d = join(dir, `.workaholic/missions/active/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "mission.md"),
+        `---\ntype: Mission\ntitle: ${slug} title\nstatus: active\n${assigneeLine}---\n\n` +
+        `## Goal\n\ng\n\n## Acceptance\n\n- [x] First criterion\n- [ ] Second criterion\n`);
+    };
+    mission("mine", `assignee: ${ME}\n`);
+    mission("theirs", `assignee: ${OTHER}\n`);
+    mission("absent", "");                 // no assignee field at all
+    mission("empty", "assignee:\n");       // field present, no value
+    execSync(`git config user.email ${ME}`, { cwd: dir });
+
+    const out = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSummary}`).stdout);
+    const slugs = out.map((m) => m.slug);
+
+    // Another developer's mission is the ONE thing still excluded.
+    assertTrue("summary still excludes another developer's mission", !slugs.includes("theirs"), JSON.stringify(slugs));
+
+    // Absent and empty are the same thing -- the schema draws no distinction.
+    assertTrue("summary surfaces a mission with an ABSENT assignee", slugs.includes("absent"), JSON.stringify(slugs));
+    assertTrue("summary surfaces a mission with an EMPTY assignee", slugs.includes("empty"), JSON.stringify(slugs));
+
+    // Mine first, unassigned after: real assigned work is never crowded out by an offer.
+    assertEq("summary orders mine before unassigned, each by slug", slugs, ["mine", "absent", "empty"]);
+
+    // The payload carries the fact, so neither consumer re-derives it from frontmatter.
+    const by = Object.fromEntries(out.map((m) => [m.slug, m]));
+    assertEq("summary reports the assignee of a claimed mission", by.mine.assignee, ME);
+    assertEq("summary reports an absent assignee as empty", by.absent.assignee, "");
+    assertEq("summary reports an empty assignee as empty", by.empty.assignee, "");
+
+    // Progress is still computed, not stored, for an unassigned mission.
+    assertEq("summary computes progress for an unassigned mission",
+      { checked: by.absent.checked, total: by.absent.total }, { checked: 1, total: 2 });
+    assertEq("summary computes the next item for an unassigned mission", by.absent.next, "Second criterion");
+
+    // A developer with nothing of their own still sees the unclaimed work -- that IS the
+    // point. Before this, OTHER saw only their own and the unassigned ones vanished.
+    execSync(`git config user.email ${OTHER}`, { cwd: dir });
+    const asOther = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSummary}`).stdout).map((m) => m.slug);
+    assertEq("another developer sees their own first, then the same unclaimed work", asOther, ["theirs", "absent", "empty"]);
+  } finally { cleanup(dir); }
+}
+
+// ---------- 8b-3. mission-lens.sh follows the summary on unassigned missions ----------
+// The lens fires on every prompt, so what it says about unclaimed work gets said
+// constantly: it must read as an invitation, not an error. It follows summary.sh's
+// "not somebody else's" gate, while its OTHER two gates (location, signal) are untouched.
+function testMissionLensUnassigned() {
+  const dir = makeRepo("main");
+  const ME = "me@example.com";
+  try {
+    const mission = (slug, assigneeLine, acceptance) => {
+      const d = join(dir, `.workaholic/missions/active/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "mission.md"),
+        `---\ntype: Mission\ntitle: ${slug} title\nstatus: active\n${assigneeLine}---\n\n` +
+        `## Goal\n\ng\n\n## Acceptance\n\n${acceptance}`);
+    };
+    mission("mine", `assignee: ${ME}\n`, "- [x] A\n- [ ] B\n");
+    mission("unclaimed", "", "- [ ] Claim me\n");
+    mission("theirs", "assignee: other@example.com\n", "- [ ] Not yours\n");
+    // Signal gate: no acceptance criteria -> silent even though it is unassigned.
+    mission("no-signal", "", "");
+    execSync(`git config user.email ${ME}`, { cwd: dir });
+
+    const env = { ...process.env, CLAUDE_PLUGIN_ROOT: join(REPO_ROOT, "plugins/workaholic") };
+    const out = execSync(`${POSIX_SH} ${SCRIPTS.missionLens}`, {
+      cwd: dir, input: JSON.stringify({ hook_event_name: "UserPromptSubmit" }), encoding: "utf8", env,
+    });
+
+    assertTrue("lens surfaces the developer's own mission", out.includes("mine title"), out);
+    assertTrue("lens surfaces an UNASSIGNED mission", out.includes("unclaimed title"), out);
+    assertTrue("lens still stays silent about another developer's mission", !out.includes("theirs title"), out);
+    assertTrue("lens signal gate still holds: an unassigned 0/0 mission stays silent",
+      !out.includes("no-signal title"), out);
+    // An offer, not a defect -- this is printed above every answer.
+    assertTrue("lens marks unclaimed work as claimable, not as an error",
+      out.includes("unclaimed — yours to take") || out.includes("unclaimed \\u2014 yours to take"), out);
+    assertTrue("lens shows mine before the unclaimed offer",
+      out.indexOf("mine title") < out.indexOf("unclaimed title"), out);
+  } finally { cleanup(dir); }
+}
+
 // ---------- 8c. /mission create branches on main (branch-if-on-main orchestration) ----------
 // /mission "<title>" starts a topic branch when on main, like /ticket. The command
 // orchestrates check.sh -> (on_main) create.sh before mission/create.sh; list and
@@ -4143,6 +4243,8 @@ const tests = [
   ["create-ticket/sweep-todo.sh", testSweepTodo],
   ["drive/list-todo.sh", testListTodo],
   ["create-ticket/summary.sh + mission/summary.sh (summary mode)", testSummaryMode],
+  ["mission/summary.sh surfaces unassigned missions", testMissionSummaryUnassigned],
+  ["hooks/mission-lens.sh surfaces unassigned missions", testMissionLensUnassigned],
   ["mission create branches on main", testMissionBranchOnCreate],
   ["branching mission worktree primitive", testMissionWorktreePrimitive],
   ["mission-lens worktree focus", testMissionLensWorktreeFocus],

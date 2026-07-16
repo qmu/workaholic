@@ -65,7 +65,13 @@ The `gate_*` fields declare the mission's own quality gate — the objective "is
 
 ### Assignee
 
-`assignee` names the user responsible for driving the mission to completion — a git user id / email. `create.sh` self-assigns it to the creator (`git config user.email`) by default; pass an explicit second argument to assign it to someone else. It is the key the **mission lens** gates on: a Claude Code session re-surfaces an active mission's roadmap only to the developer whose `git config user.email` matches this field (see *Read-only consumers*). This is per-worktree by construction — each worktree checks out its own `.workaholic/missions/`, so the lens that fires there reflects the missions assigned to whoever is working that tree.
+`assignee` names the user responsible for driving the mission to completion — a git user id / email. `create.sh` self-assigns it to the creator (`git config user.email`) by default; pass an explicit second argument to assign it to someone else.
+
+**Absent or empty means unclaimed, not hidden.** Both `summary.sh` and the **mission lens** gate on "is this mission my business", which is *not somebody else's* — not *exactly mine*. A mission whose `assignee` matches your `git config user.email` is yours; one with no `assignee` is **unassigned** and is surfaced to everyone as claimable, after your own; one assigned to another developer stays silent. Absent and empty are the same thing — the schema draws no distinction, so neither does any reader.
+
+The earlier rule was an exact email match, which meant an unassigned mission matched nobody and was silently skipped for *everybody* — invisible in the summary and the lens while `list.sh` showed it plainly. `create.sh`'s self-assignment default does not close that on its own, because it is not the only way a `mission.md` comes into existence (hand-authored ones arrive without it).
+
+This is per-worktree by construction — each worktree checks out its own `.workaholic/missions/`, so the lens that fires there reflects the missions that are the business of whoever is working that tree.
 
 Body sections, in order:
 

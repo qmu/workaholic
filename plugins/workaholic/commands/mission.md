@@ -19,15 +19,19 @@ This command (main agent) runs the preloaded `workaholic:mission` skill. A **mis
 
 `$ARGUMENT` selects the mode. Match `summary` **first** (before the title branch, so the literal word `summary` reports rather than becoming a mission title), then the empty and `close` branches, then any other non-empty value as a title.
 
-## `summary` — my assigned missions
+## `summary` — the missions that are my business
 
-When `$ARGUMENT` is exactly `summary`, report the current user's **assigned active** missions and stop — a read-only view that creates nothing:
+When `$ARGUMENT` is exactly `summary`, report the **active** missions that are the current user's business and stop — a read-only view that creates nothing:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/summary.sh
 ```
 
-The script lists only missions whose `assignee` matches your `git config user.email` and whose `status` is `active` (the same gate the mission lens uses), each with computed `checked/total` progress and its next unchecked acceptance item. Present the returned array as one line per mission — `title` (`slug`) — `checked/total`, then `next: <item>`. If the array is empty, tell the user no active mission is assigned to them and that `/mission` (bare) lists everyone's missions and `/mission "<title>"` starts one.
+The script reports every `active` mission that is **not somebody else's** (the same gate the mission lens uses): those whose `assignee` matches your `git config user.email`, followed by **unassigned** ones — unclaimed work is closer to your business than a colleague's mission, so it is offered rather than hidden. Missions assigned to another developer are excluded. Each entry carries computed `checked/total` progress, its next unchecked acceptance item, and its `assignee` (empty when unassigned).
+
+Present the returned array as one line per mission — `title` (`slug`) — `checked/total`, then `next: <item>`. **Render an unassigned mission distinguishably** — read the entry's `assignee` field (do not re-derive it from the file) and mark an empty one as unclaimed and claimable, so it never reads as work the developer has already taken on. The array is ordered for you: yours first, unassigned after.
+
+If the array is empty, tell the user no active mission is theirs or unclaimed, and that `/mission` (bare) lists everyone's missions and `/mission "<title>"` starts one.
 
 ## With a title — create a mission
 

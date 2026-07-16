@@ -1,6 +1,7 @@
 ---
 type: enhancement
 layer: [Domain]
+effort: 1h
 created_at: 2026-07-15T21:50:08+09:00
 author: a@qmu.jp
 depends_on: []
@@ -132,3 +133,31 @@ fields, which the summary gap hides but does not cause.
 - Absent versus empty (`assignee:` with no value) should behave identically.
   `fm_field` already collapses them; keep it that way rather than growing a
   distinction the schema does not have.
+
+## Final Report
+
+Development completed as planned, against a gate that was **backfilled by the driving ticket `20260716012846`** — this ticket originally had no `## Policies` and no `## Quality Gate`, and was the live offender that ticket's new hook rejects. Both were written before implementation, with the two design forks elicited from the developer rather than chosen unilaterally.
+
+**The developer's two decisions, and why they hold:**
+
+- **The JSON gained an `assignee` field** (empty = unassigned) rather than an `unassigned` boolean or per-caller re-reads. One payload, so `commands/mission.md` and `hooks/mission-lens.sh` read the fact from one place instead of each re-deriving it from frontmatter — the duplication pattern this repo keeps paying for (three `slugify()` copies, two enforcement layers encoding one path rule).
+- **The lens follows the summary.** Its assignee gate now reads "not somebody else's"; its **other two gates are untouched** — worktree focus and the at-least-one-acceptance-criterion signal gate still apply, so an unassigned `0/0` mission stays silent in the lens while `/mission summary` still shows it. That deliberate threshold divergence survives intact.
+
+**Ordering** is two passes rather than a sort key: mine first, unassigned after, each already slug-sorted by `$DIRS`. A developer with real assigned work is never crowded out by an offer, in both the summary and the lens.
+
+**Docs reconciled in the same commit**, all three places that stated the old rule: `mission/SKILL.md` (the schema's `assignee` semantics), `commands/mission.md` (the `summary` presentation contract, which now tells the command to render an unassigned mission distinguishably by reading the payload field rather than the file), and `CLAUDE.md` (which documented the lens's assignee gate as a strict email match, twice).
+
+**Gate results.** Watched it fail first — 8 assertions red across both scripts, backing the files up before reverting. Full suite 721 passed / 0 failed. `posix-lint` conforming; `verify.mjs`, `validate-metadata.mjs` pass; the rebuild touched the six bundled `summary.sh` copies plus the bundled `mission/SKILL.md` (the lens is a hook and has no `outputs/` footprint).
+
+**Gate step 4 was approximated, and that is worth stating plainly.** It asked to run `/mission summary` in a repo holding an unassigned active mission. This repository has **no missions at all**, and the two real ones live in a consumer repo that repository-confinement forbids me from entering. So I reproduced the exact reported shape in a throwaway repo — both documented routes (a pre-`a7166555` legacy mission and a hand-authored one), plus a claimed mission and a colleague's — and confirmed the claimed one lists first, both unassigned ones surface marked `[unclaimed — yours to take]`, and the colleague's stays hidden. That is the closest honest check available here; it is a faithful reproduction, not the literal repository the ticket observed.
+
+### Discovered Insights
+
+- **Insight**: My first attempt at that real-shape probe was **silently wrong, and it took a known-positive to catch it**. `printf '%s'` does not expand `\n`, so every fixture carried literal backslash-n: the claimed mission's frontmatter was malformed and it vanished from the output, while `next` read `Claim me\n`. Had I only asserted "the unassigned missions appear", the probe would have passed while measuring garbage.
+  **Context**: The tell was the *known-positive* — the claimed mission was missing when it had every reason to be there. This repo's own story (`work-20260715-112717.md` §7) already records this exact lesson twice: "assert a known-positive and a known-negative before trusting a probe", after a harness silently reported no-hit for every input. It is the same failure mode as an empty `## Quality Gate` heading and the `leak` rule that matched nothing: a check that passes vacuously. The suite's fixtures were never affected — JS template literals interpolate properly — so this only ever threatened the ad-hoc verification, which is precisely where nobody is watching.
+
+- **Insight**: The bug's shape is worth naming: an equality test against a field that can be **empty** is not a filter, it is a **disappearance**. `"" == $EMAIL` is false for every developer who could ever run the command, so the mission was excluded universally rather than merely "not matched for you".
+  **Context**: The asymmetry with `list.sh` is what kept it invisible — the mission was plainly there when listed and simply absent when summarized, so nothing ever looked broken. Any predicate keyed on an optional field should answer "is this excluded *from someone*" and be tested with the field absent, which is exactly the boundary the new tests target. The same reading applies to the `gate_*` fields the ticket notes are missing from that hand-authored mission.
+
+- **Insight**: `create.sh`'s self-assignment default was a real fix that could not close this, because **it is not the only writer**. The second real mission was hand-authored two days *after* that default shipped and still arrived unassigned.
+  **Context**: This is the same structural lesson as the `## Quality Gate` hook driven immediately before it: a default on the sanctioned creation path does not constrain the other paths, so the *read* side has to tolerate what the write side failed to guarantee. The ticket scoped a mission frontmatter validator out, deliberately, and that remains the open follow-up — it would also recover the missing `gate_*` fields, which this change does not address.

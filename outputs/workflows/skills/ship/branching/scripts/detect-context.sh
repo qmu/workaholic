@@ -17,11 +17,14 @@ fi
 
 # Resolve the trip directory belonging to THIS branch, or empty when the branch owns none.
 #
-# The ONLY trip<->branch association this repository records is the legacy naming
-# convention: branch trip/<name> owns .workaholic/trips/<name>. A modern work-* branch
-# stores no link to any trip -- init-trip.sh records no branch, plan.md carries no branch
-# field, and a trip's branch is an independent work-YYYYMMDD-HHMMSS minted by create.sh.
-# So a work-* branch cannot truthfully claim a trip, and this returns empty for it.
+# TWO trip<->branch associations are recorded, and only these:
+#
+#   * legacy naming: branch trip/<name> owns .workaholic/trips/<name>.
+#   * the recorded field (decided 2026-07-16): a trip's plan.md carries
+#     `branch: <name>`, stamped by init-trip.sh from its working directory's
+#     checkout. A modern work-* branch owns exactly the trip whose plan.md
+#     names it. Trips that predate the field have no `branch:` line and match
+#     no work-* branch — the honest legacy state, never guessed at.
 #
 # This replaced a repo-wide `find` for ANY trip directory, which made has_trips a property
 # of the repository instead of the branch: once .workaholic/trips/trip-20260319-040153/
@@ -29,14 +32,22 @@ fi
 # The asymmetry was inside one function -- the ticket half three lines below was already
 # scoped to USER_SLUG, deliberately and with a comment.
 #
-# Giving work-* branches a real association is a deliberate, separate decision, not a
-# thing to infer here: detect-context.sh also emits trip_name only for trip/* branches, so
-# report/SKILL.md's Trip Mode step 3 cannot resolve <trip-name> on a work-* branch either.
-# The association must answer both, and inventing one inside a bugfix would make the
-# detector wrong in a NEW way -- worse than wrong in a known one.
+# Both halves of the contract answer together: this function finds the dir, and the
+# work-* emitter below carries its basename out as trip_name, so report/SKILL.md's
+# Trip Mode resolves <trip-name> on every branch the flow actually creates.
 branch_trip_dir() {
   case "$branch" in
     trip/*) printf '%s' "${root}/.workaholic/trips/${branch#trip/}" ;;
+    work-*)
+      for _plan in "${root}"/.workaholic/trips/*/plan.md; do
+        [ -f "$_plan" ] || continue
+        if grep -qx "branch: ${branch}" "$_plan" 2>/dev/null; then
+          printf '%s' "${_plan%/plan.md}"
+          return 0
+        fi
+      done
+      printf ''
+      ;;
     *) printf '' ;;
   esac
 }
@@ -70,11 +81,18 @@ detect_mode() {
   fi
 }
 
-# Work context: branch matches work-*
+# Work context: branch matches work-*. When the branch owns a trip (via the
+# recorded plan.md `branch:` field), emit trip_name too — report's Trip Mode
+# needs the name, not just the mode.
 case "$branch" in
   work-*)
     mode=$(detect_mode)
-    echo "{\"context\": \"work\", \"branch\": \"${branch}\", \"mode\": \"${mode}\"}"
+    trip_dir=$(branch_trip_dir)
+    if [ -n "$trip_dir" ] && [ -d "$trip_dir" ]; then
+      echo "{\"context\": \"work\", \"branch\": \"${branch}\", \"mode\": \"${mode}\", \"trip_name\": \"$(basename "$trip_dir")\"}"
+    else
+      echo "{\"context\": \"work\", \"branch\": \"${branch}\", \"mode\": \"${mode}\"}"
+    fi
     exit 0
     ;;
 esac

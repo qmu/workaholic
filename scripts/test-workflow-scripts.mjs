@@ -83,6 +83,7 @@ const SCRIPTS = {
   auditClaudeMd: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/audit-claude-md.sh"),
   checkDeps: join(REPO_ROOT, "plugins/workaholic/skills/check-deps/scripts/check.sh"),
   ensureWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/ensure-worktree.sh"),
+  initTrip: join(REPO_ROOT, "plugins/workaholic/skills/trip-protocol/scripts/init-trip.sh"),
   checkSubject: join(REPO_ROOT, "plugins/workaholic/hooks/lib/check-subject.sh"),
   commitMsgHook: join(REPO_ROOT, "plugins/workaholic/hooks/git/commit-msg"),
   installGitHooks: join(REPO_ROOT, "plugins/workaholic/hooks/install-git-hooks.sh"),
@@ -249,6 +250,24 @@ function testDetectContext() {
       context: "work", branch: "work-20260528-foo", mode: "drive",
     });
     writeFileSync(join(dir, `.workaholic/tickets/todo/${TEST_SLUG}/x.md`), "---\n---\n");
+
+    // The RECORDED association: a trip whose plan.md carries `branch: <this branch>`
+    // (stamped by init-trip.sh) belongs to this work-* branch — mode flips and
+    // trip_name is emitted, so report's Trip Mode is reachable from a work-* branch.
+    writeFileSync(join(dir, ".workaholic/trips/some-trip/plan.md"),
+      "---\ninstruction: \"x\"\nbranch: work-20260528-foo\nphase: planning\n---\n# Trip Plan\n");
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.detectContext}`);
+    assertEq("detectContext on work-* owning a trip via plan.md branch -> hybrid + trip_name", JSON.parse(r.stdout), {
+      context: "work", branch: "work-20260528-foo", mode: "hybrid", trip_name: "some-trip",
+    });
+
+    // A plan.md naming a DIFFERENT branch is not this branch's trip.
+    writeFileSync(join(dir, ".workaholic/trips/some-trip/plan.md"),
+      "---\ninstruction: \"x\"\nbranch: work-20990101-000000\nphase: planning\n---\n# Trip Plan\n");
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.detectContext}`);
+    assertEq("detectContext on work-* ignores a trip recorded for another branch", JSON.parse(r.stdout), {
+      context: "work", branch: "work-20260528-foo", mode: "drive",
+    });
 
     // The real trip case still detects, via the one association that exists: trip/<name>
     // owns trips/<name>. With this user's ticket present too, that is hybrid.
@@ -5078,6 +5097,42 @@ function testEnsureWorktreeGuard() {
       !existsSync(join(dir, ".worktrees/feature-x")));
     // Empty arg still errors (pre-existing behavior preserved).
     assertTrue("ensure-worktree still requires a name", run(dir, `${POSIX_SH} ${SCRIPTS.ensureWorktree}`).status === 1);
+
+    // The exclude guard (shared with create-mission-worktree.sh): after a
+    // successful creation, a stray `git add -A` in the MAIN tree must stage
+    // nothing under .worktrees/ — without .git/info/exclude the linked worktree
+    // registers as a gitlink. The root .env must stay unstaged for the same reason.
+    writeFileSync(join(dir, ".env"), "PORT=3000\n");
+    const ok = run(dir, `${POSIX_SH} ${SCRIPTS.ensureWorktree} work-20260716-000001`);
+    assertEq("ensure-worktree creates a canonical worktree", ok.status, 0);
+    assertTrue("ensure-worktree copied the root .env into the worktree",
+      existsSync(join(dir, ".worktrees/work-20260716-000001/.env")), "worktree .env missing");
+    execSync(`git add -A`, { cwd: dir });
+    const staged = execSync(`git diff --cached --name-only`, { cwd: dir, encoding: "utf8" });
+    assertTrue("stray git add -A stages no gitlink under .worktrees/",
+      !staged.split("\n").some((f) => f.startsWith(".worktrees")), staged);
+    assertTrue("stray git add -A stages no .env",
+      !staged.split("\n").includes(".env"), staged);
+  } finally { cleanup(dir); }
+}
+
+// ---------- trip-protocol/init-trip.sh records the trip<->branch association ----------
+// The recorded decision (2026-07-16): plan.md names the branch the trip drives,
+// stamped at init from the working directory's checkout, and detect-context.sh
+// resolves a work-* branch back to its trip through that field. This pins the
+// round trip end-to-end: stamp -> resolve -> trip_name.
+function testInitTripBranchStamp() {
+  const dir = makeRepo("main");
+  try {
+    execSync(`git checkout -q -b work-20260716-121212`, { cwd: dir });
+    const j = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.initTrip} my-trip "do the thing" ${dir}`).stdout);
+    assertTrue("init-trip created the plan", !!j.plan_path, JSON.stringify(j));
+    const plan = readFileSync(join(dir, ".workaholic/trips/my-trip/plan.md"), "utf8");
+    assertTrue("init-trip stamps the driving branch into plan.md",
+      plan.includes("branch: work-20260716-121212"), plan.slice(0, 200));
+    const ctx = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.detectContext}`).stdout);
+    assertEq("detect-context resolves the stamped trip end-to-end",
+      { mode: ctx.mode, trip: ctx.trip_name }, { mode: "trip", trip: "my-trip" });
   } finally { cleanup(dir); }
 }
 
@@ -5333,6 +5388,7 @@ const tests = [
   ["check-deps/check.sh", testCheckDeps],
   ["catch/scan-window.sh buckets+branches", testScanWindowBuckets],
   ["branching/ensure-worktree.sh", testEnsureWorktreeGuard],
+  ["trip-protocol/init-trip.sh branch stamp", testInitTripBranchStamp],
   ["hooks/lib/check-subject.sh", testCheckSubject],
   ["hooks/git/commit-msg", testCommitMsgHook],
   ["hooks/install-git-hooks.sh", testInstallGitHooks],

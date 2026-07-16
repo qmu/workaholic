@@ -8,9 +8,10 @@ last_seen: 2026-07-15T20:55:56+09:00
 first_seen: 2026-06-29T13:18:46+09:00
 concern_id: 50-char-cap-is-byte-based
 severity: low
-status: active
+status: superseded
 resolved_by_pr: 
 resolved_by_commit: 
+superseded_by: closing-the-default-commit-path-routes
 ---
 
 # 50-char cap is byte-based outside a UTF-8 locale

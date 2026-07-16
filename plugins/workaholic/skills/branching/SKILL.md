@@ -27,13 +27,17 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/detect-context.sh
 
 ### Mode Detection
 
-The `mode` field distinguishes workflow style within the `work` context:
+The `mode` field distinguishes workflow style within the `work` context. Both predicates are **scoped to the caller**, never to the repository: trips to *this branch*, tickets to *this user*.
 
 | Mode | Condition | Routing |
 | ---- | --------- | ------- |
-| `drive` | No trip artifacts, or tickets in todo | Story generation, version bump, drive-style PR |
-| `trip` | Trip artifacts exist, no tickets in todo | Artifact gathering, journey report, worktree cleanup |
-| `hybrid` | Both trip artifacts and tickets exist | Offer choice between drive and trip workflows |
+| `drive` | No trip artifacts **for this branch** (with or without tickets in todo) | Story generation, version bump, drive-style PR |
+| `trip` | Trip artifacts **for this branch**, no tickets in this user's todo | Artifact gathering, journey report, worktree cleanup |
+| `hybrid` | Both this branch's trip artifacts and this user's tickets exist | Offer choice between drive and trip workflows |
+
+**"For this branch" is narrow, and deliberately so.** The only trip↔branch association this repository records is the legacy naming convention — branch `trip/<name>` owns `.workaholic/trips/<name>`. A modern `work-*` branch stores no link to any trip: `init-trip.sh` records no branch, `plan.md` carries no branch field, and a trip's branch is an independent `work-YYYYMMDD-HHMMSS` from `create.sh`. **A `work-*`/`drive-*` branch therefore never reports `trip` or `hybrid`**, regardless of what exists under `.workaholic/trips/`.
+
+Before this, `has_trips` was a repo-wide `find` for *any* trip directory, so one March 2026 trip dir on `main` made every branch after it report `trip` or `hybrid` forever. Restoring a real mode for modern trips requires *deciding* the association, which is its own change — `trip_name` is likewise emitted only for `trip/*` branches, so `report/SKILL.md`'s Trip Mode step 3 cannot resolve `<trip-name>` on a `work-*` branch either. Both must be answered together.
 
 ### Context Routing
 

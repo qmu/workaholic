@@ -3,9 +3,9 @@ created_at: 2026-07-16T01:28:46+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Infrastructure]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -67,3 +67,30 @@ That is why this ships **before** the approval-free drive, not after. `developme
 - **This hook is `PostToolUse`, so it speaks after the file exists.** It cannot prevent the write, only reject it loudly. That is the same posture it already has for frontmatter, so it is consistent — but it means the check is a *review*, not a *guard*. Do not over-claim it in the docs.
 - **Do not grow it toward judging gate quality.** "Present and non-empty" is syntax and a hook does that well. Whether a gate is *good* is semantic and belongs to the interrogation (§4b) and the developer. The repo already learned this distinction the hard way with the `leak` rule's deleted internal-hostname pattern.
 - Related but distinct: `two-enforcement-layers-encode-one-rule` (active) warns that `validate-ticket.sh` and `guard-ticket-structure.sh` re-encode the ticket path rules independently. This change adds no path logic, so it does not worsen that — but if it grows a path component, extract the shared helper that concern asks for.
+
+## Final Report
+
+Development completed as planned. All six gate rows hold, plus a seventh case the ticket did not anticipate.
+
+**Step 2's blast radius, decided and recorded** (the ticket required both answers explicitly):
+
+- **It blocks (exit 2), not warns.** A warning is what the prose already is, and the reason this ships before `20260716012847` is that the gate becomes the only bar an unattended drive holds itself to. A warning would leave that bar optional.
+- **Scoped to `todo/<user>/`** — the finished location, where a ticket must be complete before `/drive` reads it. `archive/<branch>/` is history and is never retro-blocked; `icebox/` and `abandoned/` are parking rather than a queue, so a ticket already there is not re-judged (it must pass again on its way back into `todo/` via promote). All three are asserted, because "no regression in a 309-line hook" is the row most likely to bite.
+
+**Step 4, the live offender, backfilled rather than exempted.** `20260715215008-summary-unassigned-missions.md` is a real ticket that will be driven next, so exempting it would have been an excuse. Its `## Quality Gate` is **developer-elicited, not invented**: the two design forks its own Considerations posed went back to the developer, who chose the `assignee` field in the JSON (one payload, so neither consumer re-derives it) and the lens following the summary. The queue is now green under the new gate.
+
+**Step 5's concern is closable.** `quality-gate-is-prose-mandated-not` (moderate, active, origin PR #63) says: *"if hard enforcement is wanted, add a body-section grep to `validate-ticket.sh` plus a smoke test."* That is exactly what landed — grep plus seven assertions. It should be closed at the next `/report` triage. `create-ticket/SKILL.md` and `CLAUDE.md` now say machine-checked rather than prose-mandated, in this commit.
+
+### Discovered Insights
+
+- **Insight**: The gap is minting offenders **in real time**, and the proof arrived mid-session. Verifying the hook against the live queue rejected `20260716021000-gate-sh-worktree-port-resolution.md` — an **untracked** ticket stamped 02:10 today, written outside this session while this session fixed the gap, carrying the identical offender shape (Motivation/Scope/Key Files/Considerations, no `## Policies`, no `## Quality Gate`).
+  **Context**: Two tickets in one week from the same authoring path, one of them *during the fix*, retires the "one stale file" reading. It also falsifies the assumption I used to justify blocking — that `create-ticket` writes a complete ticket in a single Write (SKILL.md l.460), so the hook could never fire mid-authoring. That is the sanctioned path, not the only one; hand-authored tickets reach `todo/` too, and for them this hook *is* a mid-authoring block. The developer weighed that and kept blocking, on the ground that an unattended drive with an optional gate is the worse failure. Left untouched deliberately — it belongs to another session.
+
+- **Insight**: An **empty** heading is the interesting case, not a missing one. A ticket with `## Quality Gate` and nothing under it satisfies any grep for the heading while promising nothing at all — it is strictly worse than an absent section, because it looks compliant to a reader skimming for the heading.
+  **Context**: This is why the check tests for a non-blank line before the next `## `, and why three of the seven assertions target emptiness rather than absence. The same shape recurs across this repo's gates: the `leak` rule that matched nothing, the round-trip assertion that was never written. A check that can pass vacuously is the failure mode to design against, not the missing check.
+
+- **Insight**: The hook is `PostToolUse`, so it is a **review that rejects loudly, not a guard that prevents**. It cannot stop the file existing; the ticket is already written when it speaks.
+  **Context**: That posture is consistent with what the hook already does for frontmatter, so it is not new — but it must not be over-claimed in the docs, and the docs now say so. The distinction matters for the deferred question of whether an unattended drive should *also* check the gate before starting, rather than trusting that a write-time review was never bypassed.
+
+- **Insight**: The check deliberately stops at "present and non-empty" — syntax, which a hook does well. Whether a gate is *good* is semantic and stays with the §4b interrogation and the developer.
+  **Context**: The repo already paid for this lesson once: the `leak` rule's internal-hostname pattern was deleted after it was measured to catch none of five real leaks while misfiring on `metadata.internal`. A matcher that reaches for semantics fails quietly and expensively. The honest division is that the hook proves a gate *exists*; only a person can say it is worth anything.

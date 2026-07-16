@@ -73,6 +73,14 @@ gate_assert:
 
 <!-- Definition of done, plus explicit out-of-scope notes. -->
 
+## Experience
+
+<!-- The mission's substance: the user experience, the demanded behavior, and/or the overall
+     structure this mission pursues. Describe what the thing DOES (## Goal is why it is worth
+     doing). Keep it observable -- "the list reorders without a reload" is checkable, "feels
+     fast" is not. This is what a later session reads to know what is actually demanded, and
+     it is the durable content a kickoff-time quality gate could never be. -->
+
 ## Acceptance
 
 <!-- One checklist item per criterion, each naming the ticket/story expected to satisfy it

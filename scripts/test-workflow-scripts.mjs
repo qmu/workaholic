@@ -574,6 +574,65 @@ concerns: []
   } finally { cleanup(dir); }
 }
 
+// ---------- mission: substance is ## Experience; the gate is optional ----------
+// A gate declared at kickoff predicts work that does not exist yet: it goes stale as the
+// mission learns, but stays in the file and an agent keeps steering by it. The record
+// backs this rather than merely arguing it -- every mission created to date left all
+// three gate_* fields empty, and gate.sh cannot resolve ports in the prescribed
+// worktree layout. So the mission's substance moved to ## Experience (the demanded
+// behavior) and gate_* is optional-and-normally-empty.
+//
+// The load-bearing assertions are the "empty gate is fully functional" ones: if an
+// absent gate broke any reader, "optional" would be a lie.
+function testMissionExperienceSection() {
+  const dir = makeRepo("main");
+  try {
+    execSync(`git config user.email a@qmu.jp`, { cwd: dir });
+    run(dir, `${POSIX_SH} ${SCRIPTS.missionCreate} "Reorder the dashboard"`);
+    const path = ".workaholic/missions/active/reorder-the-dashboard/mission.md";
+    const m = readFileSync(join(dir, path), "utf8");
+
+    assertTrue("scaffold has an ## Experience section", /^## Experience$/m.test(m), m);
+    // Position matters: it is the mission's substance, between the why and the plan.
+    const iScope = m.indexOf("## Scope");
+    const iExp = m.indexOf("## Experience");
+    const iAcc = m.indexOf("## Acceptance");
+    assertTrue("## Experience sits between ## Scope and ## Acceptance",
+      iScope < iExp && iExp < iAcc, `scope=${iScope} exp=${iExp} acc=${iAcc}`);
+
+    // Demoted, not removed: gate.sh and the `carried` inheritance still read these.
+    assertTrue("scaffold still carries gate_type", /^gate_type:\s*$/m.test(m), m);
+    assertTrue("scaffold still carries gate_target", /^gate_target:\s*$/m.test(m), m);
+    assertTrue("scaffold still carries gate_assert", /^gate_assert:\s*$/m.test(m), m);
+
+    // An empty gate is the NORMAL case -- every reader must work without one.
+    const g = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionGate} reorder-the-dashboard`).stdout);
+    assertEq("gate.sh on an empty gate reports no type rather than erroring", g.type ?? "", "");
+    assertTrue("gate.sh does not error on a mission with no gate", !g.error, JSON.stringify(g));
+
+    const p = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${path}`).stdout);
+    assertEq("progress computes on a mission with no gate", p, { checked: 0, total: 0 });
+
+    const s = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSummary}`).stdout);
+    assertEq("summary reports a mission with no gate", s.map((x) => x.slug), ["reorder-the-dashboard"]);
+  } finally { cleanup(dir); }
+
+  // A mission written BEFORE this change (no ## Experience) must not be retro-broken.
+  const old = makeRepo("main");
+  try {
+    execSync(`git config user.email a@qmu.jp`, { cwd: old });
+    const d = join(old, ".workaholic/missions/active/legacy");
+    mkdirSync(d, { recursive: true });
+    writeFileSync(join(d, "mission.md"),
+      `---\ntype: Mission\ntitle: Legacy\nslug: legacy\nstatus: active\nassignee: a@qmu.jp\ngate_type:\ngate_target:\ngate_assert:\n---\n\n## Goal\n\ng\n\n## Acceptance\n\n- [x] One\n- [ ] Two\n`);
+    execSync(`git add -A && git commit -q -m seed`, { cwd: old });
+    const p = JSON.parse(run(old, `${POSIX_SH} ${SCRIPTS.missionProgress} .workaholic/missions/active/legacy/mission.md`).stdout);
+    assertEq("a mission with no ## Experience still computes progress", p, { checked: 1, total: 2 });
+    const s = JSON.parse(run(old, `${POSIX_SH} ${SCRIPTS.missionSummary}`).stdout);
+    assertEq("a mission with no ## Experience still summarizes", s.map((x) => x.slug), ["legacy"]);
+  } finally { cleanup(old); }
+}
+
 // ---------- 8b-2. mission/summary.sh surfaces UNASSIGNED active missions ----------
 // summary.sh gated on an exact `assignee == git config user.email` match. fm_field
 // returns "" for an absent field, and "" matches no email that can exist, so an
@@ -4401,6 +4460,7 @@ const tests = [
   ["release-scan gate decision", testReleaseScanGateDecision],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
+  ["mission describes experience, gate is optional", testMissionExperienceSection],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],
   ["mission layout migration + close.sh", testMissionLayoutMigrationAndClose],
   ["drive/archive.sh mission seam", testMissionDriveSeam],

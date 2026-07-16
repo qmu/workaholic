@@ -3,9 +3,9 @@ created_at: 2026-07-16T10:29:50+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Domain]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -70,3 +70,26 @@ This is deliberately **not** a change to per-ticket `## Quality Gate` sections, 
 - **`## Experience` must not become a second Goal.** `## Goal` is the business "why"; `## Experience` is the demanded behavior/structure — what the thing does, not why it is worth doing. If the distinction cannot be held in the SKILL's own wording, say so rather than shipping two sections nobody can tell apart.
 - The mission gate's one real virtue was that it was **objective** — a named route and an asserted condition, never "looks good". `## Experience` is prose and loses that enforcement automatically. Do not pretend otherwise: state the objectivity requirement in the SKILL and accept that it is a convention, not a check.
 - Related and separate: `20260716021000` fixes `gate.sh`'s port resolution. That bug is real whether or not gates are de-emphasised, and this ticket does not close it.
+
+## Final Report
+
+Development completed as planned. Every gate row holds.
+
+`## Experience` is scaffolded between `## Scope` and `## Acceptance` and documented as the mission's substance; `gate_*` is demoted to optional-and-normally-empty in the schema, with the reasoning recorded rather than asserted. The **Considerations' distinction was holdable**: `## Goal` says *why the work is worth doing*, `## Experience` says *what the thing does*. That sentence is now in the SKILL, because a distinction that cannot be stated in one line ships as two sections nobody can tell apart.
+
+**The gate is demoted, not deleted** — deliberately. `gate.sh` still reads the fields, the `carried` inheritance path (`a027cd1b`) still copies them to a successor, and a mission with a genuinely stale-proof outcome check can still declare one. What changed is where the weight sits.
+
+**Four docs stated the old rule and all four moved in this commit**: `mission/SKILL.md` (schema block, body sections, and the *Quality gate* section, retitled to say optional), `drive/SKILL.md` (which told the implementer the gate was "the mission-level 'is the outcome good?' check on top of the per-ticket gate"), and `gate.sh`'s own header. CLAUDE.md turned out **not** to carry the claim — I grepped rather than assumed, which is why it is not in the diff.
+
+The `drive/SKILL.md` change is the one that matters most in practice: it is what an implementing session actually reads per ticket. It now says that when a mission declares no gate — the common case — the implementer reads the mission's `## Experience` and judges the change against the behavior it demands. Without that, demoting the gate would have left `/drive` with *nothing* to check a mission-related change against, which would have been strictly worse than a stale gate.
+
+### Discovered Insights
+
+- **Insight**: The strongest argument for this change was already in the corpus and nobody had read it as an argument. **Every mission ever created left all three `gate_*` fields empty**, and `gate.sh` cannot resolve ports in the one layout the gate is specified to run in (`20260716021000`). The gate has been inert since it shipped and nothing broke.
+  **Context**: That is not a side note — it is the measurement. A feature that is universally unfilled and structurally unrunnable, in a repo that otherwise notices everything, is telling you what it is worth. The lesson generalizes: before defending a mechanism on design grounds, check whether anyone has ever used it. Two independent tickets had each recorded half of this and neither drew the conclusion.
+
+- **Insight**: Demoting a check is only safe if something replaces what it was checking. The gate's one real virtue was **objectivity** — a named route plus an asserted condition, never "looks good" — and `## Experience` is prose, which loses that automatically.
+  **Context**: The honest position, now written into the SKILL, is that objectivity survives as a **convention rather than a check**: describe behavior that can be observed. Pretending prose is enforceable would be the failure; so would dropping the requirement silently because it is no longer machine-checked. Note the asymmetry with the per-ticket `## Quality Gate`, which went the other way this same session (`e12448d4`) — it became *more* enforced, because a ticket gate is written when the work is understood.
+
+- **Insight**: The gate lived in more places than the schema. The claim "this is the mission-level 'is the outcome good?' check" appeared in `drive/SKILL.md` and in `gate.sh`'s header — neither of which the ticket's step 4 listed, and one of which is the file an implementing session actually reads.
+  **Context**: A demotion that updates the schema but leaves the consumer's prose intact changes nothing where it counts: `/drive` would have kept steering by a gate the schema now calls optional. When changing what a field *means*, grep for the sentence rather than the field name — the assertion travels further than the identifier.

@@ -3,7 +3,7 @@ created_at: 2026-07-16T12:41:41+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
+effort: 0.5h
 commit_hash:
 category: Changed
 depends_on:
@@ -172,3 +172,22 @@ Owned by this repository. What would close it from the requester's side:
 - **Issue 1 is trivially fixable; issue 2 is a judgement.** They are
   filed together only because one long session hit both, and the second
   is what stopped the first from being written down.
+
+## Final Report
+
+Development completed as planned. Issue 1: `-h`/`--help` print usage and exit 1
+before the index is touched, and any unknown `-*` argument is refused by name.
+Issue 2 decided as **exempt**: `guard-repo-confinement.sh` now allows writes
+under `~/.claude/projects/<slug>/memory/`, with the rationale in the hook
+comment and CLAUDE.md's Repository confinement section.
+
+### Discovered Insights
+
+- **Insight**: The exemption had to be matcher-shaped (`$HOME`-prefixed case
+  pattern) rather than slug-derived: a PreToolUse hook cannot reliably compute
+  the harness's project slug from cwd (worktree sessions get different slugs),
+  so the guard exempts any project's memory dir instead of only the current
+  one's. Cross-project memory writes remain theoretical — the harness only
+  points an agent at its own store.
+  **Context**: Anyone narrowing this exemption later should know the slug
+  derivation was considered and rejected as brittle, not overlooked.

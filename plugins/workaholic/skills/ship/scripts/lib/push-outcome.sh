@@ -7,17 +7,18 @@
 #
 #     git push >/dev/null 2>&1 || true
 #
-# and then print `{"status":"ok"}` regardless. The `|| true` is deliberate and is kept
-# here: these pushes run AFTER the PR has already merged, so a push failure is not worth
-# aborting a ship over. The defect was the `2>&1` — it threw away the diagnosis, leaving a
-# silent no-op indistinguishable from a success. Measured on the ship of PR #86
-# (2026-07-15): the push did not run (local `main` had no upstream), the script reported
-# `status:ok`, and local `main` sat two commits ahead of `origin/main` — exactly the
-# divergence extract-deferred-concerns.sh's header says the push prevents.
+# and then print `{"status":"ok"}` regardless. The defect was the `2>&1` — it threw away
+# the diagnosis, leaving a silent no-op indistinguishable from a success. Measured on the
+# ship of PR #86 (2026-07-15): the push did not run (local `main` had no upstream), the
+# script reported `status:ok`, and local `main` sat two commits ahead of `origin/main` —
+# exactly the divergence extract-deferred-concerns.sh's header says the push prevents.
 #
-# So: still non-fatal, but no longer silent. The caller adds `pushed` (and `push_error`
-# when it failed) to its JSON line, which is how every script in this codebase surfaces a
-# soft failure — a new field, not a new exit status.
+# THIS HELPER never fails the caller; the caller decides what the outcome is worth.
+# extract-deferred-concerns.sh keeps it non-fatal (it pushes AFTER the PR has merged,
+# where aborting buys nothing) and surfaces `pushed`/`push_error` in its JSON.
+# commit-release-note.sh pushes BEFORE the merge and turns any failure except
+# no_remote into a hard stop — a note that is not on the remote is a PR about to
+# merge without its release note, and pre-merge is when stopping is still cheap.
 #
 # The failure this guards against in NORMAL use is not a missing upstream: `git clone`
 # writes `branch.<name>.remote`, so a fresh clone pushes fine. It is a REJECTED push —

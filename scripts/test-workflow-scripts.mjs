@@ -2102,6 +2102,32 @@ function testReleaseScanAllowlist() {
     assertTrue("secret in an allowlisted path is NOT flagged", !files.includes("test/fixtures/sample.txt"), JSON.stringify(files));
     assertTrue("secret outside the allowlist is still flagged", files.includes("real.txt"), JSON.stringify(files));
   } finally { cleanup(dir); }
+
+  // The scanner-ticket prefix convention: ONE glob covers every `-scan-rule-`
+  // ticket through its whole todo -> archive life, replacing the per-ticket
+  // allowlist lines that hard-blocked a ship whenever one was forgotten.
+  // Ordinary tickets stay scanned — a ticket can carry a real pasted credential.
+  const pfx = makeRepo("main");
+  try {
+    mkdirSync(join(pfx, ".workaholic"), { recursive: true });
+    writeFileSync(join(pfx, ".workaholic/scan-allow"), ".workaholic/tickets/**/*-scan-rule-*.md\n");
+    execSync(`git add -A && git commit -q -m allow`, { cwd: pfx });
+    execSync(`git checkout -q -b work-20260716-000011`, { cwd: pfx });
+    mkdirSync(join(pfx, ".workaholic/tickets/todo/u"), { recursive: true });
+    mkdirSync(join(pfx, ".workaholic/tickets/archive/work-x"), { recursive: true });
+    writeFileSync(join(pfx, ".workaholic/tickets/todo/u/20260716000000-scan-rule-example.md"), "token=supersecretvalue123\n");
+    writeFileSync(join(pfx, ".workaholic/tickets/archive/work-x/20260716000001-scan-rule-archived.md"), "token=supersecretvalue123\n");
+    writeFileSync(join(pfx, ".workaholic/tickets/todo/u/20260716000002-ordinary.md"), "token=supersecretvalue123\n");
+    execSync(`git add -A && git commit -q -m x`, { cwd: pfx });
+    const hits = JSON.parse(run(pfx, `${POSIX_SH} ${SCRIPTS.scanBranchSafety} main`).stdout)
+      .findings.filter((f) => f.category === "secret").map((f) => f.file);
+    assertTrue("scan-rule- ticket in todo is exempt via the prefix glob",
+      !hits.some((f) => f.includes("scan-rule-example")), JSON.stringify(hits));
+    assertTrue("scan-rule- ticket in archive is exempt via the same glob",
+      !hits.some((f) => f.includes("scan-rule-archived")), JSON.stringify(hits));
+    assertTrue("an ordinary ticket is still scanned",
+      hits.some((f) => f.includes("ordinary")), JSON.stringify(hits));
+  } finally { cleanup(pfx); }
 }
 
 // ---------- 8l. release-scan gate decision (ship tier enforcement) ----------
@@ -2938,6 +2964,36 @@ function testRecordEvidence() {
   } finally { cleanup(cleanHash); }
 }
 
+// ---------- ship/record-evidence.sh shares the scanner's key group + pass 1 ----------
+// The evidence guard used to carry an inline copy of the secret rules that silently
+// drifted: it missed every suffixed keyword (SECRET_KEY, aws_secret_access_key, ...)
+// and access_key entirely. It now sources release-scan's secret-patterns.sh for the
+// key group and pass-1 shapes, so this fixture list pins the shared coverage — every
+// shape the scanner's pass 1 / _SP_KEY flags must be refused by the evidence guard.
+function testRecordEvidenceSharedRules() {
+  const fixtures = [
+    'SECRET_KEY = "abcdef123456"',                // suffixed keyword — the measured drift
+    "aws_secret_access_key: deadbeef99",          // the exact key name AWS config uses
+    "refresh_token_value=abc123def456",           // keyword + suffix, .env style
+    "access_key_id: verysecretval1",              // access_key was absent from the old copy
+    "deploy used key AKIAABCDEFGHIJKLMNOP ok",    // pass-1 AWS key id
+    "auth ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123 ok", // pass-1 GitHub token
+  ];
+  const dir = makeRepo("main");
+  try {
+    mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
+    const sp = join(dir, ".workaholic/stories/work-x.md");
+    for (const shape of fixtures) {
+      writeFileSync(sp, "---\nbranch: work-x\n---\n# story\n");
+      const r = run(dir, `${POSIX_SH} ${SCRIPTS.recordEvidence} work-x Prod probe ${JSON.stringify(shape)} pass`);
+      assertTrue(`record-evidence refuses shared shape: ${shape.slice(0, 28)}...`,
+        r.status !== 0 && r.stdout.includes("possible_secret"), `status ${r.status}: ${r.stdout}`);
+      assertTrue(`record-evidence wrote nothing for: ${shape.slice(0, 28)}...`,
+        !readFileSync(sp, "utf8").includes("Deployment Evidence"), "evidence block written despite refusal");
+    }
+  } finally { cleanup(dir); }
+}
+
 // Build a bare "origin" whose main and a behind-branch both change `file` from a
 // shared base, so `catchup-main.sh main` hits a conflict on exactly that path.
 // Returns the checked-out work-branch clone (behind main) and the origin, for cleanup.
@@ -3371,9 +3427,11 @@ function testExtractDeferredConcernsPush() {
   } finally { cleanup(noUp); }
 }
 
-// ---------- ship/commit-release-note.sh: the push outcome is reported ----------
-// Same swallow as extract-deferred-concerns.sh, and it had NO push test at all. A note
-// committed but not pushed is a note the merged PR does not carry.
+// ---------- ship/commit-release-note.sh: the push outcome decides the exit ----------
+// This runs BEFORE the merge, so a failed/rejected push is a hard stop (exit 1,
+// fatal: release_note_not_on_remote) with the local note commit left intact; only
+// no_remote stays a soft pushed:false. A note not on the remote is a note the
+// merged PR does not carry.
 function testCommitReleaseNotePush() {
   const origin = mkdtempSync(join(tmpdir(), "wh-rn-origin-"));
   const clone = mkdtempSync(join(tmpdir(), "wh-rn-clone-"));
@@ -3404,6 +3462,37 @@ function testCommitReleaseNotePush() {
     assertEq("commit-release-note reports pushed:false with no remote", j.pushed, false);
     assertEq("commit-release-note names the no-remote cause", j.push_error, "no_remote");
   } finally { cleanup(noRemote); }
+
+  // A REJECTED push (origin/main moved while the ship ran) is the pre-merge hard
+  // stop: exit 1 with the fatal marker, the rejection classified, and the local
+  // note commit intact for the caller to reconcile and retry.
+  const rejOrigin = mkdtempSync(join(tmpdir(), "wh-rn-rejo-"));
+  const rejClone = mkdtempSync(join(tmpdir(), "wh-rn-rejc-"));
+  const mover = mkdtempSync(join(tmpdir(), "wh-rn-mover-"));
+  try {
+    execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: rejOrigin });
+    execSync(`git clone -q ${rejOrigin} .`, { cwd: rejClone });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: rejClone });
+    execSync(`git commit -q --allow-empty -m seed && git push -q origin main`, { cwd: rejClone });
+    execSync(`git clone -q ${rejOrigin} .`, { cwd: mover });
+    execSync(`git config user.email o@example.com && git config user.name O && git config commit.gpgsign false`, { cwd: mover });
+    execSync(`git commit -q --allow-empty -m moved && git push -q origin main`, { cwd: mover });
+
+    mkdirSync(join(rejClone, ".workaholic/release-notes"), { recursive: true });
+    writeFileSync(join(rejClone, ".workaholic/release-notes/work-x.md"), "# Note\n");
+    const before = execSync(`git rev-parse main`, { cwd: rejClone, encoding: "utf8" }).trim();
+    const res = run(rejClone, `${POSIX_SH} ${SCRIPTS.commitReleaseNote} work-x`);
+    assertTrue("commit-release-note hard-stops on a rejected push", res.status !== 0, `status ${res.status}`);
+    const j = JSON.parse(res.stdout);
+    assertEq("rejected push is classified", j.push_error, "rejected_non_fast_forward");
+    assertEq("rejected push carries the fatal marker", j.fatal, "release_note_not_on_remote");
+    const after = execSync(`git rev-parse main`, { cwd: rejClone, encoding: "utf8" }).trim();
+    const subject = execSync(`git log -1 --format=%s`, { cwd: rejClone, encoding: "utf8" }).trim();
+    assertTrue("the local note commit survives the stop",
+      after !== before && subject === "Add release notes for work-x", subject);
+    assertTrue("the worktree is clean after the stop",
+      execSync(`git status --porcelain`, { cwd: rejClone, encoding: "utf8" }).trim() === "", "dirty worktree");
+  } finally { cleanup(rejOrigin); cleanup(rejClone); cleanup(mover); }
 }
 
 // ---------- concern identity: the three slugify() writers must agree ----------
@@ -5207,6 +5296,7 @@ const tests = [
   ["ship/check-confirmation-capability.sh", testCheckCapability],
   ["ship/read-deployments.sh", testReadDeployments],
   ["ship/record-evidence.sh", testRecordEvidence],
+  ["ship/record-evidence.sh shared secret rules", testRecordEvidenceSharedRules],
   ["ship/catchup-main.sh", testCatchupMain],
   ["report/apply-deferred-concern-verdicts.sh", testApplyVerdicts],
   ["ship/extract-deferred-concerns.sh", testExtractDeferredConcerns],

@@ -29,16 +29,25 @@ method="$3"
 result="$4"
 status="$5"
 
+# The credential KEY GROUP (_SP_KEY) and the pass-1 unmistakable shapes
+# (secret_pass1_grep) come from the branch scanner's shared rule source, so the
+# two guards cannot drift — the previous inline copy silently lacked the
+# suffixed keywords (SECRET_KEY, aws_secret_access_key, ...) the scanner had
+# gained. Pass 2's value judgment (secret_grep) is deliberately NOT used here:
+# this guard reads a few lines of free-text deploy evidence bound for a PUBLIC
+# story, where a false positive costs a rephrase and a false negative publishes
+# a credential, so a generic assignment is flagged on the key name alone,
+# whatever its right-hand side looks like.
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/../../release-scan/scripts/lib/secret-patterns.sh"
+
 # Returns 0 (match) if any argument looks like a secret.
 scan_secrets() {
-  printf '%s\n' "$@" | grep -Eiq \
-    -e 'AKIA[0-9A-Z]{16}' \
-    -e 'gh[pousr]_[A-Za-z0-9]{20,}' \
-    -e 'github_pat_[A-Za-z0-9_]{20,}' \
-    -e 'xox[baprs]-[A-Za-z0-9-]{10,}' \
-    -e '(bearer|basic)[[:space:]]+[A-Za-z0-9._~+/=-]{16,}' \
-    -e '-----BEGIN[ A-Z]*PRIVATE KEY-----' \
-    -e '(password|passwd|secret|token|api[_-]?key)[[:space:]]*[:=][[:space:]]*[^[:space:]]{6,}'
+  _re_in=$(printf '%s\n' "$@")
+  if printf '%s\n' "$_re_in" | secret_pass1_grep >/dev/null 2>&1; then
+    return 0
+  fi
+  printf '%s\n' "$_re_in" | grep -Eiq "${_SP_KEY}[[:space:]]*[:=][[:space:]]*[^[:space:]]{6,}"
 }
 
 if scan_secrets "$result" "$method" "$target"; then

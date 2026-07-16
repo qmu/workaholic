@@ -249,7 +249,9 @@ Read an artifact's `mission:` relation; prints one slug per line, nothing when a
 bash mission/scripts/drive-authorized.sh <ticket-file>
 ```
 
-Answer, for one ticket: **may `/drive` implement this without the per-ticket approval prompt?** Emits `{authorized, reason, missions}` — `reason` is `""` (authorized), `no_ticket`, `no_mission` (nothing authorized it), `mission_not_found`, or `not_authorized` (a claimed mission is not stamped). Reads the relation through `read-relation.sh`, so `mission: [a, b]` and a bare `mission: a` behave identically.
+Answer, for one ticket: **may `/drive` implement this without the per-ticket approval prompt?** Emits `{authorized, reason, missions}` — `reason` is `""` (authorized), `no_ticket`, `no_mission` (nothing authorized it), `mission_not_found`, `not_authorized` (a claimed mission is not stamped), or `no_plan` (a claimed mission is stamped but its `## Acceptance` is empty — a stamp with no plan authorizes nothing; the floor is `progress.sh`'s `total > 0`). Reads the relation through `read-relation.sh`, so `mission: [a, b]` and a bare `mission: a` behave identically.
+
+Missions get a write-time floor too: `hooks/validate-mission.sh` (PostToolUse `Write|Edit`, the mission analogue of `validate-ticket.sh`) lets `create.sh`'s empty scaffold pass, requires the `assignee:` key to exist (empty = deliberately unclaimed), and — once a mission claims `drive_authorized: true` — rejects a missing owner, a comment-only `## Experience`, or an empty `## Acceptance` at the write, where the author can still fix it. `archive/` missions are history and are never retro-blocked.
 
 **Conservative by construction**: a ticket claiming several missions is authorized only if **every** one of them is stamped. Naming a mission is a commitment, not a label — the same reason `/drive` holds a ticket to the gate of every mission it names ("all of them must pass, not the most convenient one"). One unauthorized mission means ask.
 

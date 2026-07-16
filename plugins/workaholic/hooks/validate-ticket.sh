@@ -358,6 +358,57 @@ if printf '%s' "$tickets_path" | grep -qE '^todo/[^/]+/[^/]+$'; then
     print_skill_reference
     exit 2
   fi
+
+  # --- mission: relation must resolve (todo/<user>/ only) --------------------
+  # A typo'd slug silently detaches a ticket from its mission's gates -- worse,
+  # a wrong-but-resolving slug borrows ANOTHER mission's drive authorization.
+  # Read through the mission skill's single reader (never re-parse the shape)
+  # and resolve each slug through the mission resolver. Scoped to the todo
+  # queue: archive/ is history and is never retro-blocked, and the resolver
+  # accepts a mission in either area (an archived mission still resolves --
+  # what is rejected is a slug that resolves NOWHERE).
+  read_relation="${hook_dir}/../skills/mission/scripts/read-relation.sh"
+  resolve_lib="${hook_dir}/../skills/mission/scripts/lib/resolve.sh"
+  if [ -f "$read_relation" ] && [ -f "$resolve_lib" ]; then
+    mission_slugs=$(sh "$read_relation" "$file_path" 2>/dev/null || true)
+    if [ -n "$mission_slugs" ]; then
+      . "$resolve_lib"
+      for mission_slug in $mission_slugs; do
+        mission_file=$(mission_resolve "$mission_slug")
+        if [ ! -f "$mission_file" ]; then
+          echo "Error: mission relation does not resolve: '$mission_slug'" >&2
+          echo "Got: $tickets_path" >&2
+          echo "(no .workaholic/missions/{active,archive}/${mission_slug}/mission.md exists -- a typo here detaches the ticket from its mission's gates, or borrows another mission's drive authorization)" >&2
+          print_skill_reference
+          exit 2
+        fi
+      done
+    fi
+  fi
+
+  # --- resumption tickets list REMAINING work only (todo/<user>/ only) -------
+  # A /carry resumption ticket's ## Implementation Steps drive verbatim: /drive
+  # has no notion of "already done", so a completed step left in the list is
+  # re-run -- and on a mission-authorized queue no human gate remains to catch
+  # it. The prose rule (carry/SKILL.md: "only remaining work -- never re-list
+  # completed steps") gets the machine-checkable floor here: no checked
+  # checkboxes and no struck-through steps inside Implementation Steps.
+  # Completed work belongs in ## Overview, marked do-not-redo.
+  case "$filename" in
+    [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-resume-*.md)
+      done_step=$(printf '%s\n' "$content" | awk '
+        /^## / { in_s = ($0 ~ /^##[ \t]+Implementation Steps[ \t]*$/); next }
+        in_s && (/^[ \t]*-[ \t]+\[(x|X)\]/ || /~~/) { print; exit }
+      ')
+      if [ -n "$done_step" ]; then
+        echo "Error: a resumption ticket's ## Implementation Steps must list REMAINING work only" >&2
+        echo "Got: $done_step" >&2
+        echo "(a checked/struck-through step would be re-run by /drive -- record completed work in ## Overview as do-not-redo context instead; see carry/SKILL.md)" >&2
+        print_skill_reference
+        exit 2
+      fi
+      ;;
+  esac
 fi
 
 # All validations passed

@@ -9,7 +9,7 @@ origin_branch: work-20260713-144839
 origin_commit: fbceaaa
 created_at: 2026-07-13T23:39:50+09:00
 first_seen: 2026-07-13T23:39:50+09:00
-last_seen: 2026-07-15T20:55:56+09:00
+last_seen: 2026-07-16T12:06:03+09:00
 severity: low
 status: active
 resolved_by_pr: 
@@ -20,7 +20,7 @@ resolved_by_commit:
 
 ## Description
 
-The count threshold (20) and the compound trigger live in `report/SKILL.md` prose; `list-active-deferred-concerns.sh` emits neither an active count nor a `should_triage` flag, so the gate is skippable. It fired on this branch only because a human ran the triage.
+The count threshold (20) and the compound trigger live in `report/SKILL.md` prose; `list-active-deferred-concerns.sh` emits neither an active count nor a `should_triage` flag, so the gate is skippable. It fired on PR #83's branch only because a human ran the triage — and it fired again on this branch the same way, with 29 active concerns well past the threshold.
 
 ## How to Fix
 

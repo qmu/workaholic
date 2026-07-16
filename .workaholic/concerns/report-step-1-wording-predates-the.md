@@ -9,7 +9,7 @@ origin_branch: work-20260714-000543
 origin_commit: a1bb87a
 created_at: 2026-07-14T16:15:36+09:00
 first_seen: 2026-07-14T16:15:36+09:00
-last_seen: 2026-07-15T20:55:56+09:00
+last_seen: 2026-07-16T12:06:03+09:00
 severity: low
 status: active
 resolved_by_pr: 

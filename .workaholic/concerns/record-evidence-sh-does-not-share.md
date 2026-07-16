@@ -9,7 +9,7 @@ origin_branch: work-20260715-112717
 origin_commit: 12320d10
 created_at: 2026-07-15T20:55:56+09:00
 first_seen: 2026-07-15T20:55:56+09:00
-last_seen: 2026-07-15T20:55:56+09:00
+last_seen: 2026-07-16T12:06:03+09:00
 severity: moderate
 status: active
 resolved_by_pr: 
@@ -24,4 +24,5 @@ resolved_by_commit:
 
 ## How to Fix
 
-Share the **key group and pass 1 only** — do not unify. The two guards read different material and want opposite bars: this file scans code, where a reference is ordinary and a false positive hard-blocks `/ship`; `record-evidence.sh` scans free-text deploy evidence entering a public story, where a false positive costs a rephrase and a false negative publishes a credential. Pass 2's value judgment is code-shaped and would weaken it — `token: abc123def,` is a reference in TypeScript and a pasted JSON fragment in prose.
+Share the **key group and pass 1 only** — do not unify. The two guards read different material and want opposite bars: the scanner reads code, where a reference is ordinary and a false positive hard-blocks `/ship`; `record-evidence.sh` reads free-text deploy evidence entering a public story, where a false positive costs a rephrase and a false negative publishes a credential. Pass 2's value judgment is code-shaped and would weaken it.
+

@@ -9,7 +9,7 @@ origin_branch: work-20260715-112717
 origin_commit: 12320d10
 created_at: 2026-07-15T20:55:56+09:00
 first_seen: 2026-07-15T20:55:56+09:00
-last_seen: 2026-07-15T20:55:56+09:00
+last_seen: 2026-07-16T12:06:03+09:00
 severity: moderate
 status: active
 resolved_by_pr: 
@@ -20,8 +20,9 @@ resolved_by_commit:
 
 ## Description
 
-`guard-repo-confinement.sh` is a `PreToolUse(Write|Edit)` hook, so a Bash redirect crosses a repository boundary freely (it is how `file-request.sh` itself writes), and MCP writes are likewise unseen — which is what keeps `/explain`'s browser-printed PDF working ([ef80cd64](https://github.com/qmu/workaholic/commit/ef80cd64)). The threat model is deliberate, but `rules/general.md` still reads "never target a path outside `git rev-parse --show-toplevel`", describing the Write surface as if it were universal.
+`guard-repo-confinement.sh` is a `PreToolUse(Write|Edit)` hook, so a Bash redirect crosses a repository boundary freely (it is how `file-request.sh` itself writes), and MCP writes are likewise unseen — which is what keeps `/explain`'s browser-printed PDF working ([ef80cd64](https://github.com/qmu/workaholic/commit/ef80cd64)). The threat model is deliberate, but `rules/general.md` still reads "never target a path outside `git rev-parse --show-toplevel`", describing the Write surface as if it were universal. Re-observed while generating this very report: the guard refused a `Write` to the session scratchpad and a Bash heredoc to the identical path succeeded unremarked.
 
 ## How to Fix
 
 State the asymmetry in `rules/general.md` and the hook header — the guard covers Write/Edit, the rule covers intent, neither claims Bash or MCP. Do **not** grow the hook toward content matching.
+

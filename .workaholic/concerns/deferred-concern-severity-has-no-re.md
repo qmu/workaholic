@@ -9,7 +9,7 @@ origin_branch: work-20260715-112717
 origin_commit: 12320d10
 created_at: 2026-07-15T20:55:56+09:00
 first_seen: 2026-07-15T20:55:56+09:00
-last_seen: 2026-07-15T20:55:56+09:00
+last_seen: 2026-07-16T12:06:03+09:00
 severity: low
 status: active
 resolved_by_pr: 
@@ -20,10 +20,9 @@ resolved_by_commit:
 
 ## Description
 
-`merge-concerns.sh` escalates severity only when forming a compound and `close-concern.sh` archives; nothing edits severity in place, so this branch's urgent → moderate re-grade had to be a hand edit against the README's never-hand-edit rule ([9d81dd3a](https://github.com/qmu/workaholic/commit/9d81dd3a)).
-
-**Correction (2026-07-16).** This concern originally added that the same triage found `commit-subject-rule-lacks-unbypassable-enforcement` carrying no provenance — empty `origin_pr`/`branch`/`commit`, no `created_at` — and dismissed it as "a data defect from before identity collapse". That dismissal was wrong on the record. The file carries `compound: true`, a field **only `merge-concerns.sh` writes**, so it postdates the collapse and was produced by the triage itself; its sibling `commit-subject-rule-binds-on-no-path` has the identical signature. The script reproduced the defect on every run. Fixed at source: a compound now inherits `origin_*`/`first_seen` from its earliest-seen member and stamps `created_at`/`last_seen`. The two archived files remain as historical evidence and are not back-filled.
+`merge-concerns.sh` escalates severity only when forming a compound and `close-concern.sh` archives; nothing edits severity in place, so PR #86's urgent → moderate re-grade had to be a hand edit against the README's never-hand-edit rule ([9d81dd3a](https://github.com/qmu/workaholic/commit/9d81dd3a)). This concern also carries a self-correction on its own record: an earlier dismissal of a provenance-less compound as "a data defect from before identity collapse" was falsified by `compound: true` — a field only `merge-concerns.sh` writes — proving the file postdated the collapse and was produced by the triage itself. Fixed at source on this branch by [43c75292](https://github.com/qmu/workaholic/commit/43c75292); the two archived files remain as historical evidence and are not back-filled.
 
 ## How to Fix
 
 Add a `re-grade` mutator that rewrites `severity` in place and appends the rationale, so a re-grade is a scripted, staged change like every other concern mutation.
+

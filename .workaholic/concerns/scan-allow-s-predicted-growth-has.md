@@ -9,7 +9,7 @@ origin_branch: work-20260715-112717
 origin_commit: 12320d10
 created_at: 2026-07-15T20:55:56+09:00
 first_seen: 2026-07-15T20:55:56+09:00
-last_seen: 2026-07-15T20:55:56+09:00
+last_seen: 2026-07-16T12:06:03+09:00
 severity: moderate
 status: active
 resolved_by_pr: 
@@ -25,3 +25,4 @@ Writing about the `secret` gate trips the gate, and `.workaholic/scan-allow` war
 ## How to Fix
 
 Adopt the convention the file names — a fixed filename prefix for scanner tickets, exempted as a pattern. Keep it prefix-scoped rather than widening to `tickets/**`: a ticket can legitimately carry a pasted credential.
+

@@ -9,7 +9,7 @@ origin_branch: work-20260713-144839
 origin_commit: fbceaaa
 created_at: 2026-07-13T23:39:50+09:00
 first_seen: 2026-07-13T23:39:50+09:00
-last_seen: 2026-07-15T20:55:56+09:00
+last_seen: 2026-07-16T12:06:03+09:00
 severity: moderate
 status: active
 resolved_by_pr: 

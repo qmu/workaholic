@@ -9,7 +9,7 @@ origin_branch: work-20260715-112717
 origin_commit: 12320d10
 created_at: 2026-07-15T20:55:56+09:00
 first_seen: 2026-07-15T20:55:56+09:00
-last_seen: 2026-07-15T20:55:56+09:00
+last_seen: 2026-07-16T12:06:03+09:00
 severity: low
 status: active
 resolved_by_pr: 
@@ -25,3 +25,4 @@ Pass 2's subtractions drop the whole line (`grep -v`), so a real secret sharing 
 ## How to Fix
 
 Correct the header to describe line-granular behavior (honest today), or move pass 2 to match-granular scanning (the real fix, worth its own ticket).
+

@@ -761,6 +761,10 @@ function testDriveMintsTicketsForMidrunProblems() {
       } catch (e) { return e.status ?? 1; }
     };
     const FM = `---\ncreated_at: 2026-07-16T12:00:00+09:00\nauthor: a@qmu.jp\ntype: bugfix\nlayer: [Domain]\neffort:\ncommit_hash:\ncategory:\ndepends_on:\nmission: some-mission\n---\n\n# A problem the run actually hit\n`;
+    // The inherited mission relation must RESOLVE (validate-ticket checks it now).
+    mkdirSync(join(dir, ".workaholic/missions/active/some-mission"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/missions/active/some-mission/mission.md"),
+      "---\ntype: Mission\ntitle: Some\nslug: some-mission\nstatus: active\nassignee: a@qmu.jp\ndrive_authorized:\n---\n\n## Acceptance\n\n- [ ] x\n");
 
     // A well-formed minted ticket passes.
     writeFileSync(abs, FM + `\n## Policies\n\n- \`implementation/coding-standards\` — applies.\n\n## Quality Gate\n\nAcceptance: the observed failure stops. Verification: the suite. Gate: green.\n`);
@@ -842,6 +846,16 @@ function testDriveAuthorized() {
     assertEq("bare `mission: a` and `mission: [a]` resolve identically",
       { a: bare.authorized, m: bare.missions }, { a: list.authorized, m: list.missions });
 
+    // THE FLOOR: a stamp with no plan does not authorize. A hand-stamped 0/0
+    // mission (no Acceptance items) is refused with its own named reason.
+    const emptyD = join(dir, ".workaholic/missions/active/stamped-empty");
+    mkdirSync(emptyD, { recursive: true });
+    writeFileSync(join(emptyD, "mission.md"),
+      "---\ntype: Mission\ntitle: stamped-empty\nslug: stamped-empty\nstatus: active\nassignee: a@qmu.jp\ndrive_authorized: true\n---\n\n## Experience\n\nx\n\n## Acceptance\n\n## Changelog\n");
+    r = ask(ticket("20260716110008-i.md", "mission: stamped-empty\n"));
+    assertEq("a stamped mission with an empty Acceptance is refused (no_plan)",
+      { a: r.authorized, reason: r.reason }, { a: false, reason: "no_plan" });
+
     // A missing file never crashes the drive loop.
     const missing = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.driveAuthorized} .workaholic/tickets/todo/a-qmu-jp/nope.md`).stdout);
     assertEq("a missing ticket file is NOT authorized, and does not crash",
@@ -913,6 +927,10 @@ function testMissionInterrogationProtocol() {
     const rel = ".workaholic/tickets/todo/a-qmu-jp/20260716110000-emitted.md";
     const abs = join(dir, rel);
     mkdirSync(dirname(abs), { recursive: true });
+    // The emitted ticket's mission relation must RESOLVE (validate-ticket checks it now).
+    mkdirSync(join(dir, ".workaholic/missions/active/some-mission"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/missions/active/some-mission/mission.md"),
+      "---\ntype: Mission\ntitle: Some\nslug: some-mission\nstatus: active\nassignee: a@qmu.jp\ndrive_authorized:\n---\n\n## Acceptance\n\n- [ ] x\n");
     writeFileSync(abs, `---
 created_at: 2026-07-16T11:00:00+09:00
 author: a@qmu.jp
@@ -4274,12 +4292,148 @@ Acceptance: it works. Verification: the suite. Gate: green.
       try { execSync(`${POSIX_SH} ${HOOK}`, { cwd: dir, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return 0; }
       catch (e) { return e.status ?? 1; }
     };
+    // The relation must RESOLVE now — a todo ticket's mission slug is checked
+    // against the mission tree at write time.
+    mkdirSync(join(dir, ".workaholic/missions/active/real-time-notifications"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/missions/active/real-time-notifications/mission.md"),
+      "---\ntype: Mission\ntitle: RTN\nslug: real-time-notifications\nstatus: active\nassignee: a@qmu.jp\ndrive_authorized:\n---\n\n## Acceptance\n\n- [ ] x\n");
     writeFileSync(abs, ticket("mission: real-time-notifications\n"));
-    assertEq("validate-ticket accepts a ticket with mission: <slug>", invoke(), 0);
+    assertEq("validate-ticket accepts a ticket whose mission resolves", invoke(), 0);
     writeFileSync(abs, ticket("mission:\n"));
     assertEq("validate-ticket accepts a ticket with an empty mission:", invoke(), 0);
     writeFileSync(abs, ticket(""));
     assertEq("validate-ticket accepts a ticket with no mission field", invoke(), 0);
+
+    // A typo'd slug is rejected at write time: it silently detaches the ticket
+    // from its mission's gates — or borrows another mission's authorization.
+    writeFileSync(abs, ticket("mission: real-time-notifcations\n"));
+    assertEq("validate-ticket rejects an unresolvable mission slug", invoke(), 2);
+
+    // A mission in archive/ still resolves (history is never retro-blocked; the
+    // hard check is only that the slug resolves SOMEWHERE).
+    mkdirSync(join(dir, ".workaholic/missions/archive/old-one"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/missions/archive/old-one/mission.md"),
+      "---\ntype: Mission\ntitle: Old\nslug: old-one\nstatus: achieved\nassignee: a@qmu.jp\n---\n\n## Acceptance\n\n- [x] x\n");
+    writeFileSync(abs, ticket("mission: old-one\n"));
+    assertEq("validate-ticket accepts a mission that resolves in archive/", invoke(), 0);
+  } finally { cleanup(dir); }
+}
+
+// ---------- hooks/validate-ticket.sh (resumption tickets: remaining-only) ----------
+// A /carry resumption ticket's Implementation Steps drive verbatim, and on a
+// mission-authorized queue no human gate remains to catch a completed step left
+// in the list. The prose rule gets a machine floor: no checked/struck steps.
+function testValidateTicketResume() {
+  const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh");
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  validate-ticket resume (jq not available)"); return; }
+
+  const dir = makeRepo("main");
+  try {
+    const body = (steps) => `---
+created_at: 2026-07-16T12:00:00+09:00
+author: a@qmu.jp
+type: housekeeping
+layer: [Config]
+effort:
+---
+
+# Resume: continue
+
+## Overview
+
+**Carry Origin:** session handoff. Steps 1-2 were completed (do not redo).
+
+## Policies
+
+- \`implementation/objective-documentation\` — applies.
+
+## Implementation Steps
+
+${steps}
+
+## Quality Gate
+
+Queue empty.
+`;
+    const invoke = (rel) => {
+      const payload = JSON.stringify({ tool_input: { file_path: rel } });
+      try { execSync(`${POSIX_SH} ${HOOK}`, { cwd: dir, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return 0; }
+      catch (e) { return e.status ?? 1; }
+    };
+    const rel = ".workaholic/tickets/todo/a-qmu-jp/20260716120000-resume-the-work.md";
+    mkdirSync(join(dir, ".workaholic/tickets/todo/a-qmu-jp"), { recursive: true });
+
+    writeFileSync(join(dir, rel), body("1. Do the remaining thing\n2. Then report"));
+    assertEq("resume lint accepts remaining-only steps", invoke(rel), 0);
+
+    writeFileSync(join(dir, rel), body("- [x] Already done thing\n- [ ] Remaining thing"));
+    assertEq("resume lint rejects a checked step in Implementation Steps", invoke(rel), 2);
+
+    writeFileSync(join(dir, rel), body("1. ~~Finished this~~\n2. Remaining thing"));
+    assertEq("resume lint rejects a struck-through step", invoke(rel), 2);
+
+    // Scoped to resume-* tickets: an ordinary ticket may use checkboxes freely.
+    const plain = ".workaholic/tickets/todo/a-qmu-jp/20260716120001-ordinary-work.md";
+    writeFileSync(join(dir, plain), body("- [x] a checklist the author likes\n- [ ] more"));
+    assertEq("the lint does not touch non-resume tickets", invoke(plain), 0);
+  } finally { cleanup(dir); }
+}
+
+// ---------- hooks/validate-mission.sh (mission floor at write time) ----------
+// A mission stamped drive_authorized: true is the one artifact that authorizes
+// UNATTENDED work; the validator rejects the finished-but-empty states while
+// letting create.sh's deliberately empty scaffold pass.
+function testValidateMission() {
+  const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-mission.sh");
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  validate-mission (jq not available)"); return; }
+
+  const dir = makeRepo("main");
+  try {
+    const rel = ".workaholic/missions/active/m-x/mission.md";
+    mkdirSync(join(dir, ".workaholic/missions/active/m-x"), { recursive: true });
+    const mission = ({ assignee = "assignee: a@qmu.jp", stamp = "", exp = "", acc = "" } = {}) =>
+      `---\ntype: Mission\ntitle: X\nslug: m-x\nstatus: active\n${assignee}\ndrive_authorized:${stamp}\n---\n\n## Experience\n${exp}\n## Acceptance\n${acc}\n## Changelog\n`;
+    const invoke = (p = rel) => {
+      const payload = JSON.stringify({ tool_input: { file_path: p } });
+      try { execSync(`${POSIX_SH} ${HOOK}`, { cwd: dir, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return 0; }
+      catch (e) { return e.status ?? 1; }
+    };
+
+    // The scaffold moment passes: empty sections, unstamped (create.sh's shape).
+    writeFileSync(join(dir, rel), mission());
+    assertEq("validate-mission lets the empty scaffold pass", invoke(), 0);
+    writeFileSync(join(dir, rel), mission({ exp: "\n<!-- what behavior does this mission demand? -->\n" }));
+    assertEq("validate-mission treats an HTML-comment-only Experience as scaffold", invoke(), 0);
+    writeFileSync(join(dir, rel), mission({ assignee: "assignee:" }));
+    assertEq("validate-mission allows an EMPTY assignee (unclaimed is legal)", invoke(), 0);
+
+    // The assignee KEY itself must exist, even unstamped.
+    writeFileSync(join(dir, rel), mission({ assignee: "title2: no-assignee-key" }));
+    assertEq("validate-mission rejects a mission missing the assignee key", invoke(), 2);
+
+    // drive_authorized: true — the full floor.
+    const full = { stamp: " true", exp: "\nUsers see the thing happen.\n", acc: "\n- [ ] One\n" };
+    writeFileSync(join(dir, rel), mission(full));
+    assertEq("validate-mission accepts a complete authorized mission", invoke(), 0);
+    writeFileSync(join(dir, rel), mission({ ...full, assignee: "assignee:" }));
+    assertEq("validate-mission rejects an authorized mission with no owner", invoke(), 2);
+    writeFileSync(join(dir, rel), mission({ ...full, exp: "\n<!-- fill me -->\n" }));
+    assertEq("validate-mission rejects an authorized mission with comment-only Experience", invoke(), 2);
+    writeFileSync(join(dir, rel), mission({ ...full, acc: "\n" }));
+    assertEq("validate-mission rejects an authorized 0/0 mission", invoke(), 2);
+
+    // archive/ is history: never retro-blocked, however broken.
+    const arel = ".workaholic/missions/archive/m-old/mission.md";
+    mkdirSync(join(dir, ".workaholic/missions/archive/m-old"), { recursive: true });
+    writeFileSync(join(dir, arel), "---\ntitle: broken\ndrive_authorized: true\n---\n");
+    assertEq("validate-mission never blocks archive/ missions", invoke(arel), 0);
+
+    // Non-mission paths are ignored.
+    assertEq("validate-mission ignores unrelated files", invoke("src/app.ts"), 0);
   } finally { cleanup(dir); }
 }
 
@@ -5496,6 +5650,8 @@ const tests = [
   ["hooks/layout-doctor.sh", testLayoutDoctor],
   ["hooks/validate-ticket.sh", testValidateTicket],
   ["hooks/validate-ticket.sh mission field", testValidateTicketMission],
+  ["hooks/validate-ticket.sh resumption remaining-only", testValidateTicketResume],
+  ["hooks/validate-mission.sh", testValidateMission],
   ["hooks/validate-ticket.sh mandatory body sections", testValidateTicketSections],
   ["hooks/guard-ticket-structure.sh", testGuardTicketStructure],
   ["hooks/posix-lint.sh", testPosixLint],

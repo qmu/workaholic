@@ -101,7 +101,7 @@ Explicit approval is **relocated, never removed**. The gate is skipped exactly w
   bash mission/scripts/drive-authorized.sh <ticket-path>
   ```
 
-  When `authorized` is `true`, **do not issue the Step 2.2 the agent's selection prompt at all** — go straight to Step 2.3's approve path (update effort, append the Final Report, `archive.sh`, continue). When it is `false`, ask exactly as before; `reason` says why (`no_mission`, `mission_not_found`, `not_authorized`).
+  When `authorized` is `true`, **do not issue the Step 2.2 the agent's selection prompt at all** — go straight to Step 2.3's approve path (update effort, append the Final Report, `archive.sh`, continue). When it is `false`, ask exactly as before; `reason` says why (`no_mission`, `mission_not_found`, `not_authorized`, or `no_plan` — a stamped mission whose `## Acceptance` is empty does not authorize: a stamp with no plan is no authorization at all).
 
 **Skip it; never auto-answer it.** The prompt is not issued, and the implementer does not "answer" it on the developer's behalf — the Workflow-level `NEVER use the agent's selection prompt` boundary stays intact. This is night mode's accepted mechanism; do not regress it.
 

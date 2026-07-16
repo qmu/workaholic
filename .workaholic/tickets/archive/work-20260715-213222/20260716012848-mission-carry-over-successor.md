@@ -3,9 +3,9 @@ created_at: 2026-07-16T01:28:48+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Domain]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -72,3 +72,29 @@ There is **no prior art anywhere in the corpus** — every "carry-over" hit refe
 - **`progress.sh` computes, never stores.** The successor's progress must fall out of its own Acceptance list. Do not carry a number across.
 - The `## Acceptance` items name tickets by `(#<filename>)`. An unmet item may point at a ticket that was never written, or one that was archived without satisfying it — carry the marker as-is rather than trying to repair it; the successor's own interrogation is where that gets resolved.
 - Independent of the other three tickets in this batch (they touch `/mission` create and `/drive`; this touches `close`). It can ship in any order.
+
+## Final Report
+
+Development completed. Every gate row holds, but **two of this ticket's own premises were false** and were corrected rather than followed.
+
+**Premise 1 — "close.sh today tears the mission's worktree down via `cleanup-mission-worktree.sh`" (step 4).** It does not. `close.sh` never mentioned a worktree at all; `commands/mission.md` orchestrates the teardown *after* `close.sh` succeeds. So the "sharpest design call here" was never a `close.sh` call — it is a command-layer one, which made it considerably less sharp than the ticket feared.
+
+**Premise 2 — that keeping the worktree only risked "breaking the 1:1 naming".** The real consequence is worse and was measured, not argued: a successor living in the predecessor's `.worktrees/<old-slug>` **silences the mission lens inside that very worktree**. The lens reads a worktree whose basename names no active mission as a `/drive` worktree and exits saying nothing — so the mission you are working on becomes the one mission you cannot see. Verified with a known-positive control (the correctly-named worktree prints the line). The 1:1 slug↔worktree naming is load-bearing, not cosmetic.
+
+**The developer's two decisions:**
+
+- **Carry without the worktree.** The ticket's own fallback, and the measurement above is why. A rename (`git worktree move`) was costed as the alternative and is genuinely clean — the port lives in `.worktrees/<slug>/.env` and allocation scans live worktrees rather than a slug-keyed registry, so a rename would carry it automatically — but it needs a new primitive (none exists; `git worktree move` is unused repo-wide) and widens a ticket that is otherwise independent. In-flight state and the port do not carry; the command says so rather than letting the developer assume otherwise.
+- **Goal/Scope carried verbatim.** A carry-over *is* a continuation: done as framed, remainder pursuing the same outcome. A genuine re-framing is a new mission, not a carry. This also kept the ticket independent of the interrogation flow (`20260716012845`), exactly as its Considerations claimed.
+
+**Mid-run direction from the developer, folded in.** The `/mission close` branch must now **state where the mission stands before asking anything** — progress, unmet criteria, and on a carry exactly what moves to the successor and how far a fresh session could take it. This came from the developer mid-drive ("always mention where we are at in the mission and what to carry; in another session, how much can we proceed") and is the mission-centralized behavior the model is for. It is command-layer prose, not script logic, because it is a reporting obligation rather than a mutation.
+
+### Discovered Insights
+
+- **Insight**: A ticket that names its own escape hatch is worth more than one that is merely correct. Both design forks here — the worktree and Goal/Scope — were resolved by the Considerations' instruction to *record the finding and propose the association as its own decision rather than invent a fragile one*. The same clause resolved `20260715213322` earlier in this drive.
+  **Context**: The pattern generalizes: the valuable part of a ticket is not its proposed solution but its statement of what to do when the proposal turns out wrong. Two of this batch's tickets were mis-premised about the code they described, and both were still drivable because they said so in advance.
+
+- **Insight**: The order of operations in `close.sh` is load-bearing and non-obvious: the successor is built **before** the predecessor is archived. The predecessor's Acceptance list is then read from a stable `active/` path, and a failure to build the successor exits without having half-closed anything.
+  **Context**: The mirror of this is the idempotence path — a re-run finds the predecessor already archived and returns `already_closed` *before* reaching the successor logic, which is exactly why an existing successor is never rebuilt (rebuilding would re-inherit items the developer may have since ticked). It also bit the test: an assertion about a nonexistent successor had to run while the predecessor was still active, or it short-circuited on `already_closed` and measured nothing.
+
+- **Insight**: `carried` is the outcome that lets the progress model stay honest. The model's whole claim is that progress is computed from unchecked items and never hand-set — but with only `achieved`/`abandoned`, the common verdict "most of this landed, the rest is worth doing" had to be forced into a status that contradicted the computation.
+  **Context**: A closed status set is a schema, and a schema that cannot express a routine real outcome does not prevent that outcome — it pushes people into recording a false one. The guard against `carried` becoming a soft `abandoned` is not a check but a surface: `/mission summary` and the lens now show an unclaimed successor, so a carry nobody drives is visible rather than quietly filed away.

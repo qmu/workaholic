@@ -83,14 +83,28 @@ Present the returned array as a readable summary — one line per mission showin
 
 ## `close <slug>` — end a mission
 
-When `$ARGUMENT` starts with `close`, end the named mission. If the outcome is not stated in the argument, ask with `AskUserQuestion` (prefix the `question` body with the `[<project label>]` from `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`): was the mission **achieved** (its goal reached) or **abandoned** (ended without reaching it)? If the mission's `## Acceptance` progress (from `list.sh`) is not `total/total`, say so in the question body — unfinished criteria usually mean `abandoned`, but the developer decides. Then run the shared mutator (never hand-edit `status:` or `mv` the directory):
+When `$ARGUMENT` starts with `close`, end the named mission.
+
+**State where the mission stands first — always, before asking anything.** Read its progress and next unchecked item (`list.sh` / `progress.sh` / `next-acceptance.sh`) and tell the developer, in plain terms: how far the mission got (`checked/total`), which criteria are still unmet, and — when carrying — exactly what would move to the successor. A mission is the unit the developer reasons in; ending one without saying where it stands asks them to decide blind.
+
+If the outcome is not stated in the argument, ask with `AskUserQuestion` (prefix the `question` body with the `[<project label>]` from `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`) — the outcome is **three-way**:
+
+- **achieved** — the goal was reached.
+- **abandoned** — ended without reaching it, and the remainder is not worth doing.
+- **carried** — done **as framed**, with the remainder still worth doing: it becomes a successor mission that inherits the unmet criteria. Requires a successor (a title to mint one, or an existing slug).
+
+If the mission's `## Acceptance` progress is not `total/total`, say so in the question body — unfinished criteria mean `abandoned` **or** `carried`, and the difference is whether the remainder is still worth doing. Do not let `carried` become a way to avoid saying `abandoned`: a successor nobody drives is an abandoned mission with a longer name. The developer decides.
+
+Then run the shared mutator (never hand-edit `status:` or `mv` the directory):
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/close.sh "<slug>" <achieved|abandoned>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/close.sh "<slug>" <achieved|abandoned|carried> \
+  [--successor-title "<title>" | --successor <slug>]
 ```
 
 The script flips `status`, appends a closing `## Changelog` line, moves the mission dir to `.workaholic/missions/archive/<slug>/`, refreshes the OKF indexes, and git-stages. Report the JSON result:
 
+- `closed: true` with `status: "carried"` — the JSON carries `successor` and `successor_path`. **Report where the mission landed and what carried**: the predecessor's final `checked/total`, the successor's slug and its computed progress (`0/<n unmet>`, from `progress.sh` — never a carried-across number), and the unmet criteria that moved. Say plainly how far a fresh session could take the successor from here: its Goal, Scope and gate came along, so the successor is drive-ready once it has tickets. The successor gets **no worktree** from the predecessor (see the skill's *Outcomes*); it is created through the normal `/mission` worktree flow, so say so rather than letting the developer assume in-flight state carried. Then tear down the predecessor's worktree exactly as below.
 - `closed: true` — tell the user the mission is ended, its final status, and its archived path. Then **tear down the mission's persistent worktree** — closing a mission is the only sanctioned point that removes it:
 
   ```bash

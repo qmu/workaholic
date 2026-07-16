@@ -575,6 +575,67 @@ concerns: []
   } finally { cleanup(dir); }
 }
 
+// ---------- the Mission Position Report: one definition, stated at every handoff ----------
+// The pieces to say "where does the mission stand" already existed and were already
+// computed (progress.sh, next-acceptance.sh). What was missing was the OBLIGATION to say
+// it at the moments that decide continuity -- the handoffs. /carry's whole purpose is
+// handing work to a fresh session and it mentioned missions ZERO times, so a resumption
+// ticket handed over a task, not a mission.
+//
+// The lens already does this continuously; the gap is the discontinuity, which is exactly
+// when the lens's context is lost.
+function testMissionPositionReport() {
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/SKILL.md"), "utf8");
+  const carry = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/carry/SKILL.md"), "utf8");
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/mission.md"), "utf8");
+
+  // One definition, in one place.
+  assertTrue("the mission skill defines the Mission Position Report",
+    /^## Mission Position Report$/m.test(skill), "no definition section");
+  assertTrue("the report answers how far a fresh session can proceed",
+    /How far a fresh session can proceed/.test(skill), "the continuity question is missing");
+  assertTrue("figures are read through the scripts, never by parsing mission.md",
+    /never parse `mission\.md` to answer this/.test(skill), "domain-layer rule missing");
+  assertTrue("the relation is read as many-valued",
+    /report \*\*every\*\* mission the work advances, not the first/.test(skill), "many-valued rule missing");
+  // The developer asked for LESS confirmation; a report that grows into a prompt is this
+  // ticket failing.
+  assertTrue("the report is explicitly a report, never a prompt",
+    /It is a report, never a prompt/.test(skill), "prompt ban missing");
+
+  // The inversion of the lens's signal gate -- deliberate, and it must say so or someone
+  // will "fix" the inconsistency later.
+  assertTrue("a 0/0 mission is reported honestly at a handoff, not silenced like in the lens",
+    /An empty `## Acceptance` \(`0\/0`\) is reported honestly, not silenced/.test(skill), "0/0 rule missing");
+  assertTrue("the divergence from the lens is marked deliberate",
+    /this divergence is deliberate, not drift/.test(skill), "divergence not justified");
+
+  // The /report + /ship decision was made rather than left to default.
+  assertTrue("the /report + /ship decision is recorded either way",
+    /Decided rather than defaulted/.test(skill), "the decision was left to default");
+
+  // /carry states it -- the seam whose purpose IS the handoff.
+  assertTrue("carry reports where the mission stands", /Where the MISSION stands/.test(carry), "carry omits mission position");
+  assertTrue("carry asks the developer's actual question",
+    /in another session, how much can we proceed with the mission\?/.test(carry), "the driving question is missing");
+  assertTrue("carry routes to the shared definition rather than restating it",
+    /do not restate it here/.test(carry), "carry restates the definition");
+  assertTrue("carry reads the relation through read-relation.sh", /read-relation\.sh/.test(carry), "carry re-derives the relation");
+  // The negative case: no mission -> say nothing. Never invent a frame.
+  assertTrue("carry says nothing about missions when the work carries none",
+    /do not fabricate a mission-shaped frame around unrelated work/.test(carry), "no-mission case missing");
+  // The resumption ticket must actually carry the relation forward, or the next session
+  // cannot roll the mission either.
+  assertTrue("the resumption ticket template carries the mission relation forward",
+    /mission: <carried from the origin ticket's relation/.test(carry), "template drops the relation");
+  assertTrue("the resumption ticket template has a Mission Position line",
+    /\*\*Mission Position:\*\*/.test(carry), "template has no position line");
+
+  // /mission close sources the shared definition (a027cd1b's behaviour, de-duplicated).
+  assertTrue("the close branch sources the shared definition",
+    /Give the \*\*Mission Position Report\*\*/.test(cmd), "close restates instead of sourcing");
+}
+
 // ---------- drive: an unqueued problem becomes a ticket, not a stop ----------
 // Removing the approval prompt answers "stop asking me to approve each ticket". It does
 // not answer what happens when the run meets something the queue does not cover. /drive
@@ -4797,6 +4858,7 @@ const tests = [
   ["mission creation interrogation protocol", testMissionInterrogationProtocol],
   ["mission/drive-authorized.sh (approval relocation)", testDriveAuthorized],
   ["drive mints tickets for mid-run problems", testDriveMintsTicketsForMidrunProblems],
+  ["mission position report at handoffs", testMissionPositionReport],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],
   ["mission layout migration + close.sh", testMissionLayoutMigrationAndClose],
   ["drive/archive.sh mission seam", testMissionDriveSeam],

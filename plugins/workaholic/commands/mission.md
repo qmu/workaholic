@@ -97,7 +97,7 @@ Present the returned array as a readable summary — one line per mission showin
 
 When `$ARGUMENT` starts with `close`, end the named mission.
 
-**State where the mission stands first — always, before asking anything.** Read its progress and next unchecked item (`list.sh` / `progress.sh` / `next-acceptance.sh`) and tell the developer, in plain terms: how far the mission got (`checked/total`), which criteria are still unmet, and — when carrying — exactly what would move to the successor. A mission is the unit the developer reasons in; ending one without saying where it stands asks them to decide blind.
+**State where the mission stands first — always, before asking anything.** Give the **Mission Position Report** (defined once in `workaholic:mission`; do not restate it here), plus — when carrying — exactly what would move to the successor. A mission is the unit the developer reasons in; ending one without saying where it stands asks them to decide blind.
 
 If the outcome is not stated in the argument, ask with `AskUserQuestion` (prefix the `question` body with the `[<project label>]` from `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`) — the outcome is **three-way**:
 

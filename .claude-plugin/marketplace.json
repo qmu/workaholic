@@ -1,6 +1,6 @@
 {
   "name": "workaholic",
-  "version": "1.0.95",
+  "version": "1.0.96",
   "description": "Standard Claude Code Configuration in qmu",
   "owner": {
     "name": "tamurayoshiya",
@@ -10,7 +10,7 @@
     {
       "name": "workaholic",
       "description": "Structured development workflows and engineering standards in one plugin: ticket/drive/commit/report/ship/mission commands, the /trip Agent Teams, hooks, and the 設計 / 実装 / 運用 policy skills (design, implementation, operation) mirrored from qmu.co.jp.",
-      "version": "1.0.95",
+      "version": "1.0.96",
       "author": {
         "name": "tamurayoshiya",
         "email": "a@qmu.jp"
@@ -26,7 +26,7 @@
     {
       "name": "workflows",
       "description": "Portable cross-agent build of the ticket/drive/report/ship/catch/mission workflow skills (self-contained, generated). For Codex, OpenCode, and other agents; Claude Code users install the workaholic plugin instead.",
-      "version": "1.0.95",
+      "version": "1.0.96",
       "author": {
         "name": "tamurayoshiya",
         "email": "a@qmu.jp"

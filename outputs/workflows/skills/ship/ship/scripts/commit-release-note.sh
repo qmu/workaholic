@@ -3,12 +3,18 @@
 # included in the merge to main. Run AFTER workaholic:write-release-note has written the
 # note file(s) under .workaholic/release-notes/ and BEFORE merge-pr.sh.
 # Usage: bash commit-release-note.sh <branch>
-# Output: JSON {committed, branch, pushed, push_error} or {committed:false, reason}
+# Output: JSON {committed, branch, pushed, push_error[, fatal]} or {committed:false, reason}
 #
-# The push is best-effort and NEVER fails this script, but its outcome is reported
-# rather than swallowed: `pushed` is true/false and `push_error` carries a short,
-# non-secret cause when it failed. A note committed but not pushed is a note the PR
-# does not carry, so the caller must be able to see it. See lib/push-outcome.sh.
+# The push outcome decides the exit. This script runs BEFORE merge-pr.sh, so a
+# note that fails to reach the remote is a PR about to merge WITHOUT its release
+# note — a pre-merge failure while nothing has landed yet, which is exactly when
+# stopping is cheap. A failed or rejected push (including no-upstream in a repo
+# that has a remote) therefore exits 1 with `fatal: "release_note_not_on_remote"`;
+# the local note commit is left intact for the caller to push and retry. The one
+# soft outcome is `no_remote`: with nothing to push to there is no remote PR the
+# note could miss, so the script still exits 0 and reports pushed:false. (This is
+# deliberately harder than extract-deferred-concerns.sh's post-merge best-effort
+# push — that one runs after the PR has merged, where aborting buys nothing.)
 
 set -eu
 
@@ -36,8 +42,12 @@ sh "${SCRIPT_DIR}/../../okf/scripts//refresh-index.sh" >/dev/null 2>&1 || true
 
 git add "$notes_dir"
 git commit -m "Add release notes for $branch" >/dev/null
-# Non-fatal, but reported: a note committed and not pushed is a note the PR does
-# not carry, and the caller cannot see that from `committed` alone.
+# Pre-merge hard stop on a failed push (see header): only no_remote stays soft.
 push_and_report
+
+if [ "$PUSH_OK" != "true" ] && [ "$PUSH_ERROR" != "no_remote" ]; then
+  echo '{"committed": true, "branch": "'"$branch"'", "pushed": false, "push_error": "'"$PUSH_ERROR"'", "fatal": "release_note_not_on_remote"}'
+  exit 1
+fi
 
 echo '{"committed": true, "branch": "'"$branch"'", "pushed": '"$PUSH_OK"', "push_error": "'"$PUSH_ERROR"'"}'

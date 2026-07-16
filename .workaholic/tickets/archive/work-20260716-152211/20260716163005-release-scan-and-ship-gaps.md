@@ -3,9 +3,9 @@ created_at: 2026-07-16T16:30:05+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Domain]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -66,3 +66,14 @@ verdicts verified against source):
 ## Considerations
 
 - Step 2 must not let the shared snippet drift into pass-2 territory: the evidence guard scans command *output*, where reference-shaped subtraction rules do not apply.
+
+## Final Report
+
+Development completed as planned. The shared snippet is `secret-patterns.sh` itself rather than a new file: pass 1 was factored into a named `secret_pass1_grep()` function and `record-evidence.sh` sources the library for that plus `_SP_KEY`, keeping its own key-name-only bar for generic assignments (pass 2 stays scanner-only, per the Consideration). The scan-allow collapse adopted the `scan-rule-` slug-prefix convention (documented in release-scan/SKILL.md's Allowlist section); the four archived legacy scanner tickets keep their names (immutable in practice), and the one icebox legacy ticket is exempted by exact path with a rename-on-promotion note. The push hard stop exempts `no_remote` deliberately — with nothing to push to there is no remote PR the note could miss, and local-only repos must keep working.
+
+### Discovered Insights
+
+- **Insight**: A POSIX script sourced by another script cannot locate its own file (no `BASH_SOURCE`), so a shared shell library must either be sourced by executables that know their own `dirname "$0"` or export everything through functions/variables defined at source time.
+  **Context**: This is why the sharing runs record-evidence.sh → secret-patterns.sh (executable sources library) rather than secret-patterns.sh → a new common file.
+- **Insight**: The live branch itself demonstrated fix 1 during development: this branch's scan reports exactly one override-tier finding (101 files > 100), which under the old binary rule would have marked the whole triage branch not releasable.
+  **Context**: When /report runs on this branch, expect `releasable: true` with the size warning recorded — that is the new intended behavior, not a missed finding.

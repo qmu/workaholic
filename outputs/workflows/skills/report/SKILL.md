@@ -671,7 +671,7 @@ Analyze a branch to determine if it's ready for release.
    bash release-scan/scripts/scan-branch-safety.sh
    ```
 
-   If `verdict` is `block`, list every finding (category, `file:line`, rule — the secret value is redacted) in the release-readiness output and force `releasable: false`, so the assessment cannot report "ready" over a real finding. A `secret` finding especially means the branch must not ship until it is removed. If `verdict` is `pass`, note the scan is clean.
+   If `verdict` is `block`, list every finding (category, **severity**, `file:line`, rule — the secret value is redacted) in the release-readiness output, and key releasability off the finding **severity**, not the binary verdict: any `hard` (secret) or `confirm` (leak) finding forces `releasable: false` — a `secret` finding especially means the branch must not ship until it is removed. When the **only** findings are `override`-tier (size), report `releasable: true` with each finding recorded as a concern and a `pre_release` instruction saying `/ship` will ask the developer to consciously accept the size override — an oversized-but-legitimate change is exactly what that tier exists for, and forcing `releasable: false` over it made the assessment cry wolf. If `verdict` is `pass`, note the scan is clean.
 
 2. **Review code changes**: Check `git diff main..HEAD` for:
    - Incomplete work (TODO, FIXME, XXX comments in new code)

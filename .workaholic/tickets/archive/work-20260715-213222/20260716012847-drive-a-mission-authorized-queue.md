@@ -3,9 +3,9 @@ created_at: 2026-07-16T01:28:47+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on: [20260716012845-mission-interrogation-emits-ticket-set.md, 20260716012846-enforce-quality-gate-section.md]
 mission:
 ---
@@ -70,6 +70,31 @@ Criterion 7, and the one that actually proves the feature: **one live end-to-end
 **The gate:** criteria 1–6 green; the live run shows zero prompts and a reconciling report; full suite green; `posix-lint` conforming; `verify.mjs`, `validate-metadata.mjs` pass; `git status --porcelain outputs/` empty after a rebuild.
 
 **Watch it fail first:** revert the resolver alone via `git checkout HEAD -- <path>` (never `git stash`), confirm criteria 1–3 go red, restore.
+
+## Final Report
+
+Development completed as planned. Criteria 1–6 hold; **criterion 7 was not run, and that is stated rather than papered over** (below).
+
+**Step 2's script seam is the substance, and it delivered exactly what the ticket predicted.** The approval gate was prose in `drive/SKILL.md` with nothing behind it — which is precisely why neither it nor night mode ever carried a single assertion. `drive-authorized.sh` makes the rule callable, and criteria 1–3 became assertable for the first time. The proof that the assertions are real, not decorative: flipping the resolver's rule from *every mission must be stamped* to *any* turns the conservative rows RED. Night mode inherits the coverage as a side effect, as predicted.
+
+**Criterion 2 — the conservative direction — is the row that matters.** A ticket claiming two missions where only one is stamped resolves to **not authorized**. This mirrors `/drive`'s existing "all of them must pass, not the most convenient one": naming a mission is a commitment, not a label, so one unauthorized mission means ask.
+
+**Step 6's false sentence is gone from source and from the built copy.** *"Night mode is the ONLY mode that skips the per-ticket approval gate"* became untrue the moment this landed, and the rule is now stated once, positively: the gate is skipped exactly when a **prior explicit batch authorization** covers the ticket — `/drive night`'s invocation or a mission's `drive_authorized: true` — and never otherwise. A third place said the same thing implicitly (the Critical Rules' "except in night mode"), and it moved too.
+
+**What is removed is only the completeness check inside the drive loop** — the distinction the ticket called "the whole legitimacy of this ticket". The qualitative looking-through relocates to the PR (`/report` writes the story, `/ship` gates the merge on evidence) rather than being deleted. That sentence is now in `drive/SKILL.md` next to the skip, not just in this ticket, because the person who blurs it later will be reading the skill.
+
+**Criterion 7 (the live end-to-end run) was NOT performed.** The gate asks for a real `/mission` followed by a `/drive` of its queue, observing zero prompts and a reconciling report. That needs a model-driven session against a real mission worktree; this drive is running under a different authorization (`/goal`), so a run here would prove nothing about the *mission* path — it would demonstrate the goal's authorization, not the stamp's. The ticket is explicit that the suite "cannot assert 'it drove without asking' — it never runs a model", so this remains the outstanding acceptance evidence. **The feature should be considered unproven end-to-end until someone runs it.**
+
+### Discovered Insights
+
+- **Insight**: The ticket's own framing — *"without the script seam, criteria 1–3 are unassertable and this ticket would be prose-for-prose"* — turned out to be the most valuable sentence in it. The seam is what let me falsify my own implementation: I broke the every→any rule deliberately and watched the conservative rows go red.
+  **Context**: This is the general defence against prose-shaped features. `/drive`'s approval gate had existed for months as an untested paragraph; the moment it became a script it acquired a contract that can be checked and a failure that can be demonstrated. Any rule that decides whether to ask a human for permission belongs behind a script for exactly this reason — the alternative is a policy nobody can prove is in force.
+
+- **Insight**: Authorization had to live on the **mission**, and the two rejected alternatives are worth keeping rejected. Keying off the `mission:` relation alone would let a ticket hand-added later inherit an authorization nobody granted; a `/drive mission` argument would let whoever runs `/drive` authorize work they never interrogated.
+  **Context**: The principle underneath: **the authorization must be stamped on the thing that was actually interrogated**, by the act that did the interrogating. That is why `/mission` stamps `drive_authorized: true` only *after* the full set is emitted, and why the command explicitly forbids stamping a mission whose interrogation was cut short. An unearned stamp silently removes a gate nobody agreed to remove — and unlike a missing stamp, nothing would ever surface it.
+
+- **Insight**: This ticket removes a prompt, but the risk it introduces is not at the prompt — it is in the **failure contract**, which is why the authorized mode inherits night mode's §3/§5 wholesale (attempt every ticket; skip only as `failed` or `blocked`; stash the partial work; a closed three-outcome report that reconciles).
+  **Context**: An unattended run leaks where it decides to *stop*, not where it decides not to ask. Night mode learned this the expensive way — its §3 exists because "size, complexity, and this-looks-like-it-needs-a-human" were being used as skip reasons. Inheriting the contract rather than writing a parallel one is what keeps the two modes from drifting into two different definitions of "failed".
 
 ## Considerations
 

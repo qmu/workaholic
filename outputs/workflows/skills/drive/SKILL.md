@@ -88,7 +88,33 @@ Follow the **Workflow** section below. Implementation context is preserved in th
 
 Follow the **Approval** section below to present the approval dialog. **CRITICAL**: You MUST use the `title` and `overview` fields from the Step 2.1 workflow result to populate the approval prompt header and question (the `question` body opens with the `[project]` label — see the Approval section). If these fields are unavailable, re-read the ticket file to obtain them. Never present an approval prompt without the ticket title and summary.
 
-**CRITICAL**: Use the agent's selection prompt. NEVER proceed without explicit user approval. (In **night mode** this gate is auto-resolved as "Approve" — the user authorized the batch by invoking `/drive night`, optionally narrowed by the §1b group choice; see **Night Mode**.)
+**CRITICAL**: Use the agent's selection prompt. NEVER proceed without explicit user approval — **unless a prior explicit batch authorization already covers this ticket**, in which case the gate is *skipped, not auto-answered* (see below).
+
+##### When the gate is skipped
+
+Explicit approval is **relocated, never removed**. The gate is skipped exactly when the developer has already authorized this exact work, in one of two ways — and never otherwise:
+
+- **Night mode** — `/drive night` is the authorization for the whole prioritized batch (see **Night Mode**).
+- **A mission-authorized queue** — the ticket's mission was interrogated at `/mission` time and stamped `drive_authorized: true`. Do not decide this in prose; ask the resolver:
+
+  ```bash
+  bash mission/scripts/drive-authorized.sh <ticket-path>
+  ```
+
+  When `authorized` is `true`, **do not issue the Step 2.2 the agent's selection prompt at all** — go straight to Step 2.3's approve path (update effort, append the Final Report, `archive.sh`, continue). When it is `false`, ask exactly as before; `reason` says why (`no_mission`, `mission_not_found`, `not_authorized`).
+
+**Skip it; never auto-answer it.** The prompt is not issued, and the implementer does not "answer" it on the developer's behalf — the Workflow-level `NEVER use the agent's selection prompt` boundary stays intact. This is night mode's accepted mechanism; do not regress it.
+
+**What is removed is the completeness check inside the drive loop — nothing else.** The question "did it do the thing?" was already answered by the developer, at mission time, about these exact tickets, against gates they co-authored. The qualitative **looking-through** that `development` / `qa-engineering` makes non-delegable is **not** eliminated: it relocates to the PR, which is what `development` / `review` prescribes — `/report` still writes the story and `/ship` still gates the merge on evidence. Eliminate the completeness check and you are on policy; eliminate the looking-through and you are in the state three policies exist to prevent.
+
+**An authorized queue inherits night mode's failure contract** (see **Night Mode** §3/§5), because that is where an autonomous run actually leaks — not at the approval gate:
+
+- **Attempt every ticket.** Size, complexity, "all-or-nothing", and "this looks like it needs a human" are **not** skip reasons.
+- A skip is legitimate only after a real attempt, and only as **`failed`** (implemented, checks red) or **`blocked`** (a **named** hard external blocker).
+- **Safety floor**: `git stash` a failed ticket's partial work so it cannot contaminate the next commit; leave the ticket in `todo`; **never** auto-icebox, auto-abandon, or run destructive git.
+- **Report a closed three-outcome set** (implemented / failed / blocked) whose totals **reconcile to the authorized set size**. There is no "declined" category.
+
+**No group question here.** Night mode's §1b group-inclusion prompt is vacuous for a mission queue: it is one cohesive topic group by construction, and asking whether to include "group B" of a set the developer just designed is noise.
 
 #### Step 2.3: Handle User Response
 
@@ -184,7 +210,7 @@ In either case, apply the safety floor and continue to the next authorized ticke
 - Totals: implemented / failed / blocked counts, which **must reconcile to the authorized batch size**, plus all commit hashes.
 - Any stashed partial work and where to find it.
 
-**Critical Rule exception (scoped).** Night mode is the ONLY mode that skips the per-ticket "explicit user approval" gate — and only because invoking `/drive night` is itself the explicit authorization for the batch (optionally narrowed by the §1b group choice). Every other Critical Rule below remains in force.
+**Critical Rule exception (scoped).** The per-ticket "explicit user approval" gate is skipped exactly when a **prior explicit batch authorization** covers the ticket, and never otherwise. There are two such authorizations, and no others: invoking **`/drive night`** (this mode — the batch, optionally narrowed by the §1b group choice), and a **mission stamped `drive_authorized: true`** by its Creation Interrogation (see Step 2.2's *When the gate is skipped*). Both are the same shape: the developer authorized this exact work in advance. Every other Critical Rule below remains in force in both modes.
 
 ### Critical Rules
 
@@ -192,7 +218,7 @@ In either case, apply the safety floor and continue to the next authorized ticke
 
 If a ticket cannot be implemented **after a genuine attempt** — its type-check/tests fail, or a **named** hard external blocker (missing credential, unreachable external service/dependency) stops it. A ticket's size, complexity, or "all-or-nothing" scope is **never** a reason to not attempt it:
 
-1. **Stop and ask the developer** using the agent's selection prompt — **except in night mode**, which is unattended and follows the attempt-first policy in **Night Mode** §3 (attempt every ticket; on a demonstrated failure or named hard blocker, stash + record + continue); never auto-icebox or use destructive git.
+1. **Stop and ask the developer** using the agent's selection prompt — **except when a prior batch authorization covers the ticket** (night mode, or a mission stamped `drive_authorized: true`). Those runs are unattended and follow the attempt-first policy in **Night Mode** §3 (attempt every ticket; on a demonstrated failure or named hard blocker, stash + record + continue); never auto-icebox or use destructive git.
 2. Explain why implementation cannot proceed
 3. Use selectable options (NEVER open-ended text questions):
    - "Move to icebox" - Move ticket to `.workaholic/tickets/icebox/` and continue to next

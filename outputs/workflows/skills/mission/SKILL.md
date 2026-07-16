@@ -46,6 +46,7 @@ carried_from:           # only on a successor: the slug of the mission whose rem
 created_at: <ISO-8601>
 author: <email>
 assignee: <email>       # the user id / email that owns driving this mission (defaults to author)
+drive_authorized:       # `true` once the Creation Interrogation emitted the full ticket set
 tickets: []             # machine-readable member lists — reserved; populated by later work
 stories: []
 concerns: []
@@ -68,6 +69,19 @@ So do **not** interrogate these at mission creation, and do not treat a mission 
 When a mission *does* declare one: `gate_type` is `documentation` (the mission's docs render and read correctly) or `live-app` (the mission's feature works in the running app); `gate_target` is the route to check; `gate_assert` states what must hold. Because a mission runs in its own worktree with a unique port base (`WORKAHOLIC_DEV_PORT`), it is verified by driving that worktree's running server with the Playwright plugin, and since every worktree serves on a different port, several missions' gates can be checked at once. workaholic declares the gate and supplies the port; the server-start command is the project's (declared once, e.g. in the project's `CLAUDE.md`). Read it with `gate.sh` (below); a declared gate stays **objective** (`implementation` / `objective-documentation`) — a named route plus an asserted condition, never "looks good".
 
 **The objectivity requirement outlives the gate.** `## Experience` is prose, so it cannot be machine-checked the way a route-plus-assert could. That makes objectivity a convention here rather than a check — hold it anyway: describe behavior that can be observed, not qualities that cannot.
+
+### Drive authorization
+
+`drive_authorized: true` records that this mission's ticket set was **interrogated and pre-authorized** by the developer: `/drive` may then drain its queue **without the per-ticket approval prompt**. Empty (the scaffold default) means ask, as always.
+
+**Authorization lives here, on the mission, because this is the thing that was actually interrogated.** The Creation Interrogation is where the developer answered every judgement call and co-authored each ticket's `## Quality Gate`; stamping the mission is stamping that act. Two alternatives were considered and rejected, recorded so they are not re-litigated:
+
+- **Keying off the ticket's `mission:` relation alone** — a ticket hand-added to the mission later would inherit an authorization nobody granted.
+- **An explicit `/drive mission` argument** — mirrors night mode, but makes authorization an act by whoever runs `/drive`, who may not be the person who ran the interrogation.
+
+**Explicit approval is relocated, never removed.** The gate is skipped exactly when a prior explicit batch authorization covers the ticket — `/drive night`'s invocation, or this stamp — and never otherwise. What is removed is the *completeness check inside the drive loop*; the qualitative looking-through `development` / `qa-engineering` makes non-delegable **relocates to the PR** (`/report` still writes the story, `/ship` still gates the merge on evidence). Do not blur those two: eliminate the completeness check and you are on policy; eliminate the looking-through and you are in the state three policies exist to prevent.
+
+Read it with `drive-authorized.sh` — never by grepping the field yourself.
 
 ### Assignee
 
@@ -172,6 +186,16 @@ bash mission/scripts/read-relation.sh <artifact-file>
 ```
 
 Read an artifact's `mission:` relation; prints one slug per line, nothing when absent or empty. The **single source of the relation's shape** — every seam reads through this rather than parsing frontmatter itself. Accepts `mission: [a, b]` and a bare `mission: a` alike, and only ever looks inside the frontmatter block (a body line starting `mission:` is not the relation). Never fails: a missing file, a file with no frontmatter, and an empty field all print nothing. Note this reads a relation **on** an artifact — `mission.md`'s own fields (`title`/`status`/`assignee`/`gate_*`) are read by `list.sh`, `progress.sh`, and `gate.sh` instead.
+
+```bash
+bash mission/scripts/drive-authorized.sh <ticket-file>
+```
+
+Answer, for one ticket: **may `/drive` implement this without the per-ticket approval prompt?** Emits `{authorized, reason, missions}` — `reason` is `""` (authorized), `no_ticket`, `no_mission` (nothing authorized it), `mission_not_found`, or `not_authorized` (a claimed mission is not stamped). Reads the relation through `read-relation.sh`, so `mission: [a, b]` and a bare `mission: a` behave identically.
+
+**Conservative by construction**: a ticket claiming several missions is authorized only if **every** one of them is stamped. Naming a mission is a commitment, not a label — the same reason `/drive` holds a ticket to the gate of every mission it names ("all of them must pass, not the most convenient one"). One unauthorized mission means ask.
+
+This is a **script, not prose**, on purpose: the approval gate lived entirely in `drive/SKILL.md` prose, which is why neither it nor night mode ever carried a single assertion. A rule that decides whether to ask a human for permission has to be reproducible and testable.
 
 ```bash
 bash mission/scripts/gate.sh <mission-slug-or-file>

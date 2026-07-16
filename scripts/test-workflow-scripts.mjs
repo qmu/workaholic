@@ -1718,12 +1718,28 @@ function testMissionQualityGate() {
     assertEq("invalid gate_type flagged",
       JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionGate} docs-site`).stdout).valid, false);
 
+    // A `check` gate (the command-shaped type for projects with no browser-drivable
+    // surface): valid, but undriveable until the mission worktree exists to run it in.
+    writeFileSync(mfile, readFileSync(mfile, "utf8")
+      .replace(/^gate_type:.*$/m, "gate_type: check")
+      .replace(/^gate_target:.*$/m, "gate_target: npm test"));
+    g = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionGate} docs-site`).stdout);
+    assertEq("check gate valid but undriveable without a worktree",
+      { valid: g.valid, driveable: g.driveable, reason: g.reason },
+      { valid: true, driveable: false, reason: "no_worktree" });
+
     // With a worktree, the gate resolves against the worktree's assigned dev port.
     writeFileSync(mfile, readFileSync(mfile, "utf8").replace(/^gate_type:.*$/m, "gate_type: live-app"));
     execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
     const wt = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} docs-site`).stdout);
     g = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionGate} docs-site`).stdout);
     assertEq("gate resolves the worktree's dev port", g.dev_port, String(wt.dev_port));
+
+    // A check gate needs no port — the worktree's existence alone makes it driveable.
+    writeFileSync(mfile, readFileSync(mfile, "utf8").replace(/^gate_type:.*$/m, "gate_type: check"));
+    g = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionGate} docs-site`).stdout);
+    assertEq("check gate driveable with a worktree",
+      { driveable: g.driveable, reason: g.reason }, { driveable: true, reason: "" });
 
     run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} docs-site`);
   } finally { cleanup(dir); }

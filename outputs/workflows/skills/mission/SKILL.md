@@ -165,6 +165,38 @@ Write the tickets **in one pass**, not N serial `create-ticket` runs. Each carri
 
 **The split cap does not apply to a mission — a deliberate, scoped exception.** `create-ticket` §4 caps a split at "2–4 discrete tickets", which is right for one request that turns out to be several. A mission is the opposite case: a durable goal that spans *many* tickets by definition, and "a complete set to drive through one by one" is the requirement. Capping it at 4 would force either an incomplete plan or a fake ticket boundary. A mission decomposition is closer to `trip-protocol`'s Decomposition gate than to a `/ticket` split, and is governed by the same rule: **one ticket per genuinely separable unit of work, however many that is**. The cap still applies to `/ticket` itself; this exception is mission-scoped and stated here so it is not a silent violation.
 
+## Replan (re-entering the interrogation)
+
+The sanctioned path to **reopen an existing active mission's plan** — reached without a subcommand: `/mission <instruction referencing the mission>` (the command owns the dispatch judgment and its written criteria). It exists because three legitimate states previously had no route back into the interrogation: a thin hand-authored `0/0` mission, a mid-flight mission whose scope grew, and a `carried` successor minted by `close.sh` with no worktree and no tickets — while the create flow dead-ends on an existing slug. Only `active` missions are replan targets; the archive is immutable history.
+
+**Scoped re-interrogation.** Re-run the Creation Interrogation rounds the instruction touches — nothing more, nothing less:
+
+| the instruction changes | rounds re-run |
+| --- | --- |
+| direction (goal, scope) | 1–2 |
+| the plan (more/changed work) | 3–5, for the delta tickets |
+| a thin mission (`0/0`, empty sections) | all five |
+
+The bar equals creation's: a structured **delta model** — what changes, which tickets, in what order — not a Q&A transcript (`planning` / `modeling-centric-design`), grilled until the delta is drive-ready. `gate_*` is never interrogated, exactly as at creation.
+
+**What the delta may touch** — everything the Creation Interrogation produces, applied as a delta: rewrite `## Goal` / `## Scope` / `## Experience`; append `## Acceptance` items (observable, ticket-linked by `(#<filename>)`); emit delta tickets in one pass (the same emission rules, including the mission-scoped split-cap exception); re-stamp `drive_authorized` under the conditions below.
+
+**What a replan must never touch:**
+
+- `status` — only `close.sh` flips it.
+- the checked state of existing `## Acceptance` items — only `tick-acceptance.sh` flips those.
+- existing `## Changelog` lines — append-only, always (`design` / `history-structures`).
+
+An existing **unchecked** acceptance item may be reworded or dropped **only** when the developer explicitly says the criterion no longer holds — and the drop is recorded as its own changelog line (`acceptance dropped — <the item's (#filename) artifact>`), so the plan's shrinkage is history rather than a silent rewrite.
+
+**History.** A replan lands as idempotent changelog lines through `append-changelog.sh`, never as edits: `ticket added — <filename>` per emitted ticket, plus one `mission replanned — <artifact>` line marking the event (both in the standard-events list below). Re-running the same replan appends nothing — the `(event, artifact)` key already exists.
+
+**`drive_authorized` re-stamp.** The stamp asserts that every judgement call about *these exact tickets* was answered by the developer:
+
+- already stamped `true` + a fully interrogated delta → the stamp stays / is re-set `true` (the original set was interrogated at creation, the delta now).
+- never stamped (a hand-authored mission) → stamp only if the replan interrogated the **entire current set**, not just the delta.
+- interrogation cut short → no stamp, ever.
+
 ## Mission Position Report
 
 **The one definition of "where does the mission stand".** Every seam that hands work across a boundary states this; none re-states or re-derives it. It contains exactly three things:
@@ -268,7 +300,7 @@ Emit the display text of the mission's **first unchecked** `## Acceptance` item 
 bash mission/scripts/append-changelog.sh <mission-slug-or-file> <event> <artifact-filename> [date]
 ```
 
-Append one dated line to a mission's `## Changelog`. **The single writer of changelog lines** — every workflow seam calls it rather than hand-editing `mission.md`. Append-only and **idempotent**: the `(event, artifact)` pair is the stable event id, so re-running for the same event never duplicates a line. Git-stages the mission file. Standard events: `ticket archived` (drive), `story reported` (report), `concern deferred (stuck)` (ship), `concern resolved (unstuck)` (report), `mission achieved` / `mission abandoned` / `mission carried into <successor-slug>` (close.sh).
+Append one dated line to a mission's `## Changelog`. **The single writer of changelog lines** — every workflow seam calls it rather than hand-editing `mission.md`. Append-only and **idempotent**: the `(event, artifact)` pair is the stable event id, so re-running for the same event never duplicates a line. Git-stages the mission file. Standard events: `ticket archived` (drive), `story reported` (report), `concern deferred (stuck)` (ship), `concern resolved (unstuck)` (report), `mission achieved` / `mission abandoned` / `mission carried into <successor-slug>` (close.sh), `ticket added` / `mission replanned` / `acceptance dropped` (replan).
 
 ```bash
 bash mission/scripts/tick-acceptance.sh <mission-slug-or-file> <artifact-filename>

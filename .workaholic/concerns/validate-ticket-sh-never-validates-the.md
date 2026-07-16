@@ -9,7 +9,7 @@ origin_branch: work-20260715-112717
 origin_commit: 12320d10
 created_at: 2026-07-15T20:55:56+09:00
 first_seen: 2026-07-15T20:55:56+09:00
-last_seen: 2026-07-15T20:55:56+09:00
+last_seen: 2026-07-16T12:06:03+09:00
 severity: low
 status: active
 resolved_by_pr: 
@@ -20,8 +20,9 @@ resolved_by_commit:
 
 ## Description
 
-`validate-ticket.sh` has zero `mission` references, so both a typo'd slug and a bare `mission:` pass. The relation now carries more weight: `/drive` reads every named mission's quality gate, so a mistyped slug silently drops a gate rather than erroring ([83b88ff6](https://github.com/qmu/workaholic/commit/83b88ff6)).
+`validate-ticket.sh` has zero `mission` references, so both a typo'd slug and a bare `mission:` pass. The relation now carries more weight: `/drive` reads every named mission's quality gate, so a mistyped slug silently drops a gate rather than erroring ([83b88ff6](https://github.com/qmu/workaholic/commit/83b88ff6)). This branch raised the stakes further — [b9d893e6](https://github.com/qmu/workaholic/commit/b9d893e6) keys the approval-prompt skip off the same unvalidated relation, so a typo'd slug now reads as `mission_not_found` and the ticket falls back to prompting, but the inverse (a slug resolving to the wrong mission) would silently borrow that mission's authorization.
 
 ## How to Fix
 
 Resolve each slug against `.workaholic/missions/active/<slug>/mission.md` and fail on an unresolvable one.
+

@@ -9,7 +9,7 @@ origin_branch: work-20260715-112717
 origin_commit: 12320d10
 created_at: 2026-07-15T20:55:56+09:00
 first_seen: 2026-07-15T20:55:56+09:00
-last_seen: 2026-07-15T20:55:56+09:00
+last_seen: 2026-07-16T12:06:03+09:00
 severity: moderate
 status: active
 resolved_by_pr: 
@@ -25,3 +25,4 @@ resolved_by_commit:
 ## How to Fix
 
 Keep the verbatim-body confirmation non-skippable and treat any erosion as a design regression. The test asserting the four real leaks pass is a green-to-red tripwire: if it flips, the confirmation has been quietly demoted.
+

@@ -2332,6 +2332,113 @@ concerns: []
   } finally { cleanup(dir); }
 }
 
+// ---------- mission replan seams ----------
+// /mission routes a natural-language instruction about an existing active mission
+// to a REPLAN flow (the dispatch judgment lives in commands/mission.md prose);
+// these pin the script seams that flow stands on: the new changelog events stay
+// idempotent, a worktree-less mission (the carried-successor shape) gains its
+// worktree through the sanctioned creator while the create flow still dead-ends
+// on the existing mission.md, and a replan-emitted delta ticket answers to the
+// same validation bar as a hand-written one.
+function testMissionReplanSeams() {
+  const dir = makeRepo("main");
+  try {
+    // An active mission WITHOUT a worktree — how close.sh mints a carried successor.
+    const mdir = join(dir, ".workaholic/missions/active/replan-me");
+    mkdirSync(mdir, { recursive: true });
+    writeFileSync(join(mdir, "mission.md"), `---
+type: Mission
+title: Replan Me
+slug: replan-me
+status: active
+assignee: a@qmu.jp
+tickets: []
+stories: []
+concerns: []
+gate_type:
+gate_target:
+gate_assert:
+---
+
+# Replan Me
+
+## Goal
+
+Why.
+
+## Acceptance
+
+- [ ] Old item (#t0.md)
+
+## Changelog
+
+- 2026-07-10 — mission created — mission.md
+`);
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+
+    // The replan changelog events are idempotent like every other event.
+    for (const [ev, art] of [["ticket added", "t1.md"], ["mission replanned", "mission.md"], ["acceptance dropped", "t0.md"]]) {
+      let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.appendChangelog} replan-me "${ev}" ${art} 2026-07-16`).stdout);
+      assertEq(`replan event "${ev}" appends`, r.appended, true);
+      r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.appendChangelog} replan-me "${ev}" ${art} 2026-07-17`).stdout);
+      assertEq(`replan event "${ev}" is idempotent`, r.appended, false);
+    }
+
+    // Replan step 2: the worktree-less mission gains its worktree through the
+    // sanctioned creator...
+    const wt = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} replan-me`).stdout);
+    assertTrue("replan creates the missing worktree", existsSync(join(dir, ".worktrees/replan-me")), JSON.stringify(wt));
+    assertTrue("the replan worktree got a port .env", existsSync(join(dir, ".worktrees/replan-me/.env")));
+    // ...while the create flow still dead-ends on the existing mission.md — the
+    // measured reason replan, not create, is the successor's flesh-out path.
+    const cr = JSON.parse(run(join(dir, ".worktrees/replan-me"), `${POSIX_SH} ${SCRIPTS.missionCreate} "Replan Me"`).stdout);
+    assertEq("create.sh still refuses the existing mission", cr.reason, "exists");
+
+    // A replan-emitted delta ticket passes the same validate-ticket.sh bar as a
+    // hand-written one: canonical todo/<user>/ path, mission: stamp, non-empty
+    // ## Policies and ## Quality Gate.
+    let hasJq = true;
+    try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+    if (hasJq) {
+      const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh");
+      const rel = ".workaholic/tickets/todo/a-qmu-jp/20260716160000-replan-delta.md";
+      const abs = join(dir, rel);
+      mkdirSync(dirname(abs), { recursive: true });
+      writeFileSync(abs, `---
+created_at: 2026-07-16T16:00:00+09:00
+author: a@qmu.jp
+type: enhancement
+layer: [Domain]
+effort:
+commit_hash:
+category:
+depends_on:
+mission: replan-me
+---
+
+# Delta ticket from a replan
+
+## Policies
+
+- \`implementation/coding-standards\` — applies.
+
+## Quality Gate
+
+Acceptance: the delta lands. Verification: the suite. Gate: green.
+`);
+      const payload = JSON.stringify({ tool_input: { file_path: rel } });
+      let status = 0;
+      try { execSync(`${POSIX_SH} ${HOOK}`, { cwd: dir, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); }
+      catch (e) { status = e.status ?? 1; }
+      assertEq("a replan-emitted delta ticket passes validate-ticket.sh", status, 0);
+    } else {
+      console.log("  skip  replan delta-ticket validation (jq not available)");
+    }
+
+    run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} replan-me`);
+  } finally { cleanup(dir); }
+}
+
 // ---------- mission layout: living migration + close.sh (end a mission) ----------
 function testMissionLayoutMigrationAndClose() {
   const dir = makeRepo("main");
@@ -4951,6 +5058,7 @@ const tests = [
   ["mission create worktree+kickoff spine", testMissionCreateWorktreeFlow],
   ["mission worktree ship reset", testMissionWorktreeShipReset],
   ["mission/close.sh carried (carry the remainder forward)", testMissionCloseCarried],
+  ["mission replan seams", testMissionReplanSeams],
   ["mission close removes worktree", testMissionCloseRemovesWorktree],
   ["mission worktree port assignment", testMissionWorktreePorts],
   ["mission quality gate", testMissionQualityGate],

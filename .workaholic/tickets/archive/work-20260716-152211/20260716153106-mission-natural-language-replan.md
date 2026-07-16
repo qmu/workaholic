@@ -3,9 +3,9 @@ created_at: 2026-07-16T15:31:06+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -96,3 +96,41 @@ How the outcome's quality is assured, captured from the developer at ticket time
 - The mission lens needs no change: a replanned mission that gains its first acceptance items simply starts passing the signal gate — the replan flow is exactly the "sanctioned path to enrich a `0/0` mission" the lens documentation says is missing (`plugins/workaholic/hooks/mission-lens.sh`).
 - Keep the replan interrogation's bar equal to creation's: with `drive_authorized` skipping per-ticket approval downstream, an under-interrogated delta is concretized across the whole mission unchecked (`plugins/workaholic/skills/mission/SKILL.md`).
 - `outputs/` rebuild is mandatory in the same commit — the `Outputs Freshness` CI workflow fails on any drift (`.github/workflows/outputs-freshness.yml`).
+
+## Final Report
+
+Development completed as planned, with one recorded gate deviation.
+
+The dispatch judgment (written criteria: verbatim slug, clear title substring,
+instruction-about-a-mission phrasing; active-only targets; the ambiguity
+`AskUserQuestion`; archived → pointer, never a write) landed in
+`commands/mission.md` as a new *Referencing an existing mission — replan*
+section, with the dispatch paragraph rewritten to route by content. The replan
+protocol (scoped rounds table, what the delta may/must-never touch, the
+`acceptance dropped` drop-record rule, the three `drive_authorized` re-stamp
+conditions) landed in `skills/mission/SKILL.md`, and the standard changelog
+events grew `ticket added` / `mission replanned` / `acceptance dropped` —
+`append-changelog.sh` itself unchanged, as planned. The `close carried`
+successor paragraph now points at replan instead of the dead-ended create flow.
+Docs updated in the same change: `CLAUDE.md` `/mission` row and
+`.workaholic/README.md`'s one-shot framing.
+
+**Gate deviation (developer-decided):** the live in-session exercise of both
+dispatch routes could not run — the repository has no mission to replan, and the
+developer chose to exercise the flow in first real use and return feedback as a
+new ticket, rather than manufacture a throwaway mission. The hermetic half of
+the gate is fully met (853/853, including the three new replan-seam pins:
+idempotent replan events, the worktree-less mission gaining `.worktrees/<slug>`
+through the sanctioned creator while `create.sh` still refuses `exists`, and a
+replan-emitted delta ticket passing `validate-ticket.sh`).
+
+### Discovered Insights
+
+- **Insight**: A mission fixture whose directory slug does not equal
+  `slug.sh(title)` is unrealistic and produces false test verdicts — the first
+  version of the seam test seeded `replanme` with title "Replan Me", and
+  `create.sh` "failed to refuse" simply because it derived `replan-me` and
+  created a sibling.
+  **Context**: `slug.sh` being the single source of the slug rule means test
+  fixtures must honor it too; any hand-built mission dir in a test should be
+  named exactly `slug.sh(title)`.

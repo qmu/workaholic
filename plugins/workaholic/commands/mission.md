@@ -17,7 +17,7 @@ skills:
 
 This command (main agent) runs the preloaded `workaholic:mission` skill. A **mission** is a first-class knowledge artifact: a long-lived, information-rich goal that spans many tickets, drives, reports, and PRs — distinct from a `trip` (a short design/build session) and from a generic "epic/milestone" (see the skill's opening section). It lives at `.workaholic/missions/active/<slug>/mission.md` while in progress, and moves to `.workaholic/missions/archive/<slug>/mission.md` when ended (see the skill's Allowed Location section).
 
-`$ARGUMENT` selects the mode. Match `summary` **first** (before the title branch, so the literal word `summary` reports rather than becoming a mission title), then the empty and `close` branches, then any other non-empty value as a title.
+`$ARGUMENT` selects the mode — by **content**, not by subcommand (`workaholic:design` / `modeless-design`: the argument's meaning routes the flow, mirroring `/report`/`/ship` context-awareness). Match `summary` **first** (before the title branch, so the literal word `summary` reports rather than becoming a mission title), then the `close` and empty branches. Any other non-empty argument is judged against the existing missions (see *Referencing an existing mission*, below): a clear reference to an active mission routes to the **replan flow**, an ambiguous argument is **asked**, and an argument referencing nothing is a **title** for the create flow.
 
 ## `summary` — the missions that are my business
 
@@ -33,9 +33,43 @@ Present the returned array as one line per mission — `title` (`slug`) — `che
 
 If the array is empty, tell the user no active mission is theirs or unclaimed, and that `/mission` (bare) lists everyone's missions and `/mission "<title>"` starts one.
 
+## Referencing an existing mission — replan
+
+A non-`summary`, non-`close`, non-empty argument may be an instruction **about a mission that already exists** — "extend the alpha mission to cover exports", "〜のミッションの受け入れ基準を見直す", or just an existing slug or title. That routes to a **replan** of that mission, not to creating a duplicate. The judgment is yours (natural-language understanding is the main agent's job — a resolver script cannot read "〜する感じに", and an instruction must never silently become a garbage mission title), but the **criteria are fixed and written here** so a routing decision can be audited afterwards.
+
+**1. Judge the reference.** Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list.sh` and compare the argument against every mission's `slug` and `title`. The argument **references** a mission when any of these hold:
+
+- it contains the mission's **slug verbatim**;
+- it contains the mission's **title verbatim, or as a clear substring** (a fragment long and specific enough that it cannot plausibly be a fresh title);
+- it is **phrased as an instruction about a mission** — "…のミッションの…を…する", "update/extend/replan the <name> mission", an imperative that presupposes the mission exists.
+
+Three outcomes:
+
+- **Clearly references one active mission** → the replan flow below.
+- **Ambiguous** — it could plausibly be a fresh title, or it matches more than one mission → ask with `AskUserQuestion` (body prefixed with the `[<project label>]` from `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`): one "update mission <slug>" option per candidate, plus "create a new mission with this title". Never route silently on an ambiguous argument.
+- **References nothing** → the create flow (next section), unchanged.
+
+**Only `status: active` missions are replan targets.** An argument referencing an **archived** mission gets a short report instead: the archive is immutable history — point at the mission's `carried` successor if one exists (`carried_from` links it), or at creating a new mission.
+
+**2. Locate the mission and ensure its worktree.** Resolve `mission.md` via the `list.sh` entry's `path`. If `.worktrees/<slug>` does not exist (a `carried` successor, or a hand-authored mission), create it now:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create-mission-worktree.sh "<slug>"
+```
+
+This is how a carried successor — minted by `close.sh` with no worktree and no tickets — gets fleshed out; the create flow dead-ends on its existing `mission.md` (`create.sh` `reason: "exists"`), and replan is the sanctioned path instead. All writes happen in the worktree via `( cd <worktree_path> && … )` subshells, exactly as in the create flow.
+
+**3. Re-interrogate — scoped by the instruction.** Follow the skill's **Replan** section (`workaholic:mission`): it defines which Creation Interrogation rounds re-run (Direction changes → rounds 1–2; plan growth → rounds 3–5 for the delta; a thin `0/0` mission → all five), what the delta may touch, and what it must never touch. The bar equals creation's — a structured delta model, grilled until drive-ready — because `drive_authorized` skips per-ticket approval downstream, so an under-interrogated delta is concretized across the whole mission unchecked. Issue every question from this command with the `[<project label>]` prefix; `gate_*` is never interrogated.
+
+**4. Apply the delta in the worktree.** Rewrite `## Goal` / `## Scope` / `## Experience` from the answers (body-section writes are the command's job, at creation and here alike — no new mutator script). Emit the delta tickets **in one pass** into the worktree's `.workaholic/tickets/todo/<user>/`, each stamped `mission: <slug>` with its mandatory `## Policies` and `## Quality Gate` pre-answered and `depends_on` ordered (unique timestamps; the mission-scoped split-cap exception applies). Append one `## Acceptance` item per new criterion with its `(#<filename>)` marker.
+
+**5. Record the history and the re-stamp.** Append changelog lines through the shared mutator — `ticket added — <filename>` per emitted ticket, plus one `mission replanned — <artifact>` line — and re-stamp `drive_authorized` only under the skill's Replan re-stamp conditions (a cut-short interrogation leaves it unset). Then commit inside the worktree via the commit skill, subject `Replan mission <slug>`.
+
+**6. Report.** Summarize what changed (sections rewritten, criteria appended, tickets emitted with filenames) and where — the mission's worktree, ready to `/drive`.
+
 ## With a title — create a mission
 
-When `$ARGUMENT` is a non-empty title, create a new mission **in its own dedicated worktree**, and leave it drive-ready. A mission runs in a persistent `.worktrees/<mission-slug>/` worktree so several missions develop in parallel without stepping on each other; the mission worktree outlives the branches driven inside it (it is removed only at `/mission close`). This worktree flow is the create path **only** — the list and `close` modes below never touch worktrees.
+When `$ARGUMENT` is a non-empty title that references no existing mission (per the judgment above), create a new mission **in its own dedicated worktree**, and leave it drive-ready. A mission runs in a persistent `.worktrees/<mission-slug>/` worktree so several missions develop in parallel without stepping on each other; the mission worktree outlives the branches driven inside it (it is removed only at `/mission close`). This worktree flow is the create path **only** — the list and `close` modes below never touch worktrees.
 
 **1. Derive the mission slug** (the descriptive worktree directory name):
 
@@ -116,7 +150,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/close.sh "<slug>" <achieved|ab
 
 The script flips `status`, appends a closing `## Changelog` line, moves the mission dir to `.workaholic/missions/archive/<slug>/`, refreshes the OKF indexes, and git-stages. Report the JSON result:
 
-- `closed: true` with `status: "carried"` — the JSON carries `successor` and `successor_path`. **Report where the mission landed and what carried**: the predecessor's final `checked/total`, the successor's slug and its computed progress (`0/<n unmet>`, from `progress.sh` — never a carried-across number), and the unmet criteria that moved. Say plainly how far a fresh session could take the successor from here: its Goal, Scope and gate came along, so the successor is drive-ready once it has tickets. The successor gets **no worktree** from the predecessor (see the skill's *Outcomes*); it is created through the normal `/mission` worktree flow, so say so rather than letting the developer assume in-flight state carried. Then tear down the predecessor's worktree exactly as below.
+- `closed: true` with `status: "carried"` — the JSON carries `successor` and `successor_path`. **Report where the mission landed and what carried**: the predecessor's final `checked/total`, the successor's slug and its computed progress (`0/<n unmet>`, from `progress.sh` — never a carried-across number), and the unmet criteria that moved. Say plainly how far a fresh session could take the successor from here: its Goal, Scope and gate came along, so the successor is drive-ready once it has tickets. The successor gets **no worktree** from the predecessor (see the skill's *Outcomes*); it is fleshed out through the **replan flow** — `/mission <instruction referencing the successor>` creates its worktree and emits its tickets (the create flow dead-ends on the successor's existing `mission.md`) — so say so rather than letting the developer assume in-flight state carried. Then tear down the predecessor's worktree exactly as below.
 - `closed: true` — tell the user the mission is ended, its final status, and its archived path. Then **tear down the mission's persistent worktree** — closing a mission is the only sanctioned point that removes it:
 
   ```bash

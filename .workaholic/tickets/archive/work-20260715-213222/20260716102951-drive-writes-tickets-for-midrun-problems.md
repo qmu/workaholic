@@ -3,9 +3,9 @@ created_at: 2026-07-16T10:29:51+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Domain]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on: [20260716012847-drive-a-mission-authorized-queue.md]
 mission:
 ---
@@ -67,6 +67,29 @@ So "take the initiative" is not licence to fix whatever it likes — it is the r
 **The gate:** every row; full suite green, 0 failed; `posix-lint` conforming; `verify.mjs`, `validate-metadata.mjs` pass; rebuild clean.
 
 **Watch it fail first:** back up the touched script(s), revert alone, confirm the minting assertions go red, restore from the backup.
+
+## Final Report
+
+Development completed as planned. The `deferred` outcome, the three-way boundary, the anti-junk threshold, the mission inheritance, and the report line are all in `drive/SKILL.md`; the batch report and Night Mode §3/§5 name minted tickets so the two modes share one contract rather than drifting into two.
+
+**The open question in the Considerations is answered, and answered "no".** A minted ticket does **not** append an acceptance item to the mission. `## Acceptance` is the plan the developer *agreed to* at interrogation time and its `checked ÷ total` **is** the mission's progress — so auto-appending would silently move the goalposts: every minted ticket would lower the mission's completion against criteria nobody accepted, and a long run could make a mission *recede as it works*. The consequence is accepted knowingly and written into the skill: a mission's ticket set can drift from its `## Acceptance` list. That is the honest state — **the queue reflects reality, the acceptance list reflects the agreement** — and promoting a minted ticket into the definition of done stays the developer's call.
+
+**Which rows are asserted, and which are not** (the gate asked for this explicitly rather than implying all seven are hermetic):
+
+- **Script-asserted**: the minted ticket passes the real `validate-ticket.sh`, **and a shell is rejected**. That negative row is the one with teeth — it is what stops "write a ticket" degrading into "write a heading".
+- **Prose-asserted**: the boundary (in-scope / outside / blocking), the observed-only threshold, the over-minting risk, the quoted policy limit, the mission inheritance, and the report line — each pinned by a regex against the skill, so a future edit that quietly deletes the rule turns a test red.
+- **Not run**: the live end-to-end row ("a run meets an out-of-scope problem and mints"). No script decides "is this in scope?" — a model does, and the suite never runs one. Same outstanding evidence as `20260716012847`'s criterion 7.
+
+### Discovered Insights
+
+- **Insight**: The dangerous half of this feature is not the minting — it is the **not-fixing**. The natural instinct on finding an out-of-scope defect mid-run is to fix it, because it is right there and small. That fix then rides into a commit whose message describes something else, which is precisely `overnight-ai`'s *"unverified inferences pile up in the code"*.
+  **Context**: So the skill states the ban explicitly next to the rule, rather than relying on the boundary being obvious. The three-way split exists for the same reason: without naming the in-scope case, "defer it" becomes a way to avoid work, and the feature turns into a queue-growing machine that never finishes a ticket.
+
+- **Insight**: Auto-appending to `## Acceptance` looked like the obviously-right integration and is a trap. Progress is `checked ÷ total` **computed**, so appending criteria mid-run means the denominator grows as the run works — a mission would visibly recede while being advanced, and against criteria the developer never agreed to.
+  **Context**: The general shape: when a number is *derived* from a list, anything that writes to that list is writing to the number. The mission model's core claim is that progress is computed and never hand-set; a run that edits the acceptance list is hand-setting progress by the back door, just with extra steps. Keeping the queue and the acceptance list allowed to diverge is less tidy and more truthful.
+
+- **Insight**: This ticket exists because of a failure this very session demonstrated **twice** — and the second instance was mine. `e81d561c`'s defect was recorded verbatim in a story and shipped anyway; and the drive that shipped `e12448d4` found a live section-less ticket mid-run whose only durable trace was a Final Report paragraph and a sentence in a commit body.
+  **Context**: That second one is the exact scenario this rule now covers: an observed problem, outside the current ticket's scope, met mid-run. Under this change it would have become a ticket. The lesson is not "write better reports" — it is that the queue is the only structure in this repo that carries an obligation forward, and everything else is commentary.
 
 ## Considerations
 

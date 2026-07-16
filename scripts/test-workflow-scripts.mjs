@@ -575,6 +575,86 @@ concerns: []
   } finally { cleanup(dir); }
 }
 
+// ---------- drive: an unqueued problem becomes a ticket, not a stop ----------
+// Removing the approval prompt answers "stop asking me to approve each ticket". It does
+// not answer what happens when the run meets something the queue does not cover. /drive
+// had two moves and both stopped; night mode could record a `failed`/`blocked` and
+// continue, which keeps the run alive but DISCARDS the finding into a report.
+//
+// This repo has measured that cost twice: a defect recorded verbatim in a story shipped
+// anyway ("no ticket, no concern -- so the corpus never carried it") and resurfaced two
+// days later. An observation is not an obligation; only a ticket is.
+//
+// The rule is skill prose (no script decides "is this in scope?"), so what is asserted is
+// the contract at its boundary: the rule is stated with its threshold, and a minted
+// ticket must pass the real validate-ticket.sh -- which is what stops "mint a ticket"
+// degrading into "mint a shell".
+function testDriveMintsTicketsForMidrunProblems() {
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+
+  assertTrue("drive states the deferred outcome for an unqueued problem",
+    /\*\*`deferred`\*\*/.test(skill), "no deferred outcome");
+  assertTrue("drive states why prose is not enough: an observation is not an obligation",
+    /An observation is not an obligation\. Only a ticket is\./.test(skill), "rationale missing");
+
+  // The three-way boundary. Each half matters: the in-scope half stops this becoming a
+  // way to avoid work; the outside half stops opportunistic fixes riding into a commit
+  // that describes something else.
+  assertTrue("in-scope work is implemented, not deferred",
+    /\*\*Inside the current ticket's scope\*\* → \*\*implement it\.\*\*/.test(skill), "in-scope rule missing");
+  assertTrue("out-of-scope work is minted and the run continues",
+    /\*\*Outside it\*\* → \*\*write a ticket, continue\.\*\*/.test(skill), "outside rule missing");
+  assertTrue("drive forbids fixing an out-of-scope problem opportunistically",
+    /Do \*\*not\*\* fix it opportunistically/.test(skill), "opportunistic-fix ban missing");
+  assertTrue("a blocking problem is minted THEN recorded blocked, naming the new ticket",
+    /\*\*Blocks the current ticket\*\* → write the ticket, then record the current one \*\*`blocked`\*\*/.test(skill),
+    "blocking rule missing");
+
+  // The failure mode is over-minting: a queue of auto-written tickets nobody asked for
+  // looks like a plan. The threshold has to be in the skill, not just the ticket.
+  assertTrue("drive mints only for an OBSERVED problem, never a speculative one",
+    /Mint only for an observed problem — never a passing thought/.test(skill), "threshold missing");
+  assertTrue("drive names the over-minting failure mode explicitly",
+    /turns the queue into a diary/.test(skill), "over-minting risk not stated");
+
+  // Initiative to record, not a licence to redesign -- overnight-ai's explicit limit,
+  // quoted where the implementer will read it rather than only cited in the ticket.
+  assertTrue("drive quotes overnight-ai's blank-cheque limit at the point of use",
+    /unverified inferences pile up in the code/.test(skill), "policy limit not quoted");
+  assertTrue("a minted ticket inherits the provoking ticket's mission relation",
+    /inherits the provoking ticket's `mission:` relation/.test(skill), "mission inheritance missing");
+  assertTrue("every minted ticket is named in the batch report",
+    /Tickets minted mid-run/.test(skill), "report line missing");
+
+  // The row with teeth: a minted ticket answers to the same bar as a hand-written one.
+  const dir = makeRepo("main");
+  try {
+    const rel = ".workaholic/tickets/todo/a-qmu-jp/20260716120000-minted.md";
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh");
+    const check = () => {
+      try {
+        execSync(`${POSIX_SH} ${HOOK}`, {
+          cwd: dir, input: JSON.stringify({ tool_input: { file_path: rel } }),
+          encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
+        });
+        return 0;
+      } catch (e) { return e.status ?? 1; }
+    };
+    const FM = `---\ncreated_at: 2026-07-16T12:00:00+09:00\nauthor: a@qmu.jp\ntype: bugfix\nlayer: [Domain]\neffort:\ncommit_hash:\ncategory:\ndepends_on:\nmission: some-mission\n---\n\n# A problem the run actually hit\n`;
+
+    // A well-formed minted ticket passes.
+    writeFileSync(abs, FM + `\n## Policies\n\n- \`implementation/coding-standards\` — applies.\n\n## Quality Gate\n\nAcceptance: the observed failure stops. Verification: the suite. Gate: green.\n`);
+    assertEq("a well-formed minted ticket passes validate-ticket.sh", check(), 0);
+
+    // A shell does NOT. This is the assertion that keeps "write a ticket" honest: an
+    // auto-minted ticket cannot skip the bar a hand-written one answers to.
+    writeFileSync(abs, FM);
+    assertEq("a minted ticket with no Policies/Quality Gate is rejected, like any other", check(), 2);
+  } finally { cleanup(dir); }
+}
+
 // ---------- mission/drive-authorized.sh: is this ticket's queue pre-authorized? ----------
 // The /drive approval gate was prose in drive/SKILL.md with no script behind it, which is
 // why neither it nor night mode ever carried a single assertion -- there was nothing to
@@ -4716,6 +4796,7 @@ const tests = [
   ["mission/gate.sh resolves worktree ports", testMissionGateWorktreePorts],
   ["mission creation interrogation protocol", testMissionInterrogationProtocol],
   ["mission/drive-authorized.sh (approval relocation)", testDriveAuthorized],
+  ["drive mints tickets for mid-run problems", testDriveMintsTicketsForMidrunProblems],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],
   ["mission layout migration + close.sh", testMissionLayoutMigrationAndClose],
   ["drive/archive.sh mission seam", testMissionDriveSeam],

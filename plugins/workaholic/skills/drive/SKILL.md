@@ -125,6 +125,28 @@ Explicit approval is **relocated, never removed**. The gate is skipped exactly w
 
 **No group question here.** Night mode's §1b group-inclusion prompt is vacuous for a mission queue: it is one cohesive topic group by construction, and asking whether to include "group B" of a set the developer just designed is noise.
 
+##### Take the initiative: an unqueued problem becomes a ticket
+
+When an unattended run meets a problem the queue does not cover — a defect found while implementing, a missing prerequisite, an assumption that proves false — there is a **third outcome** alongside `failed` and `blocked`: **`deferred`** — write a ticket for it and continue.
+
+**An observation is not an obligation. Only a ticket is.** A run that notices a problem and writes prose about it has, in practice, discarded it: this repo shipped a known defect that was recorded verbatim in a story because *"no ticket, no concern — so the corpus never carried it"*, and it resurfaced two days later. Recording the finding in a report a human reads later is the failure mode, not the fix.
+
+The boundary decides everything, so hold it exactly:
+
+- **Inside the current ticket's scope** → **implement it.** Not new, and not a defer. This must never become a way to avoid work.
+- **Outside it** → **write a ticket, continue.** Do **not** fix it opportunistically: an unqueued fix rides into a commit whose message describes something else, and it is the "unverified inferences pile up in the code" that `workaholic:development` / `overnight-ai` names as the explicit limit on a blank cheque.
+- **Blocks the current ticket** → write the ticket, then record the current one **`blocked`**, naming the minted ticket as what would unblock it. Reuse the contract above; do not invent a parallel one.
+
+**Mint only for an observed problem — never a passing thought.** A ticket per speculative improvement turns the queue into a diary and buries the real ones, which is worse than a report paragraph because it looks like a plan. The threshold: the run **actually hit** it (a failure, a false assumption, a missing prerequisite). A refactor idea, a "we might also want", a thing you noticed but did not run into — **not a ticket**.
+
+The minted ticket goes through the sanctioned path: the `create-ticket` structure, written to `todo/<user>/`, with its mandatory `## Policies` and `## Quality Gate` (`validate-ticket.sh` rejects it otherwise — an auto-minted ticket answers to the same bar as a hand-written one), and it inherits the provoking ticket's `mission:` relation (read via `mission/scripts/read-relation.sh`, never re-parsed) so the mission's own plan absorbs the problem.
+
+**Report every minted ticket** in the batch report, as its own line: what was found, which ticket provoked it, and the new filename. A run that quietly mints tickets is a run that quietly changes the plan (`workaholic:implementation` / `observability`).
+
+**This is initiative to *record*, not a licence to redesign.** `overnight-ai`'s Responsibility is the governing sentence: *"if AI is given a blank check to avoid stopping it, unverified inferences pile up in the code."* Minting a ticket defers a problem; it does not resolve it, and the developer's looking-through still happens at the PR (`workaholic:development` / `qa-engineering`).
+
+**Do not append an acceptance item to the mission for a minted ticket.** The `mission:` relation is inherited so the ticket is traceable, but `## Acceptance` is the plan **the developer agreed to** at interrogation time, and its `checked ÷ total` is the mission's progress. Auto-appending would silently move the goalposts — every minted ticket would lower the mission's completion percentage against criteria nobody accepted, and a run could make a mission recede as it works. The minted ticket surfaces in the batch report and in the queue; promoting it into the mission's definition of done is the developer's call at the next `/report` or `/mission` touch. (Consequence, accepted knowingly: a mission's ticket set can drift from its `## Acceptance` list. That is the honest state — the queue reflects reality, the acceptance list reflects the agreement.)
+
 #### Step 2.3: Handle User Response
 
 **"Approve" or "Approve and stop"**:
@@ -205,6 +227,8 @@ Autonomous, unattended overnight run for morning review, triggered when `$ARGUME
 - **Failed** — the ticket was implemented but its type-check/tests are red (or its frontmatter update fails). Record it as `failed` with the reason for the night report.
 - **Blocked** — implementation is stopped by a **named hard external blocker** (a missing credential, an unreachable external service or dependency). Record the specific blocker and what would unblock it. A vague "too complex" or "any other reason" is **not** a blocker.
 
+**Take the initiative on an unqueued problem: write a ticket, do not stop.** A problem the queue does not cover — met while implementing — gets a **ticket**, not a paragraph in this report, and the run continues (**`deferred`**). An observation is not an obligation; only a ticket is. See Step 2.2's *Take the initiative* for the boundary (implement what is in the current ticket's scope; mint-and-continue for what is outside it; mint-then-`blocked` when it blocks), the mint-only-for-an-observed-problem threshold, and the requirement that a minted ticket carry its own `## Policies` and `## Quality Gate`. Initiative here is to **record**, never to redesign mid-run.
+
 In either case, apply the safety floor and continue to the next authorized ticket (this floor is unchanged — only the *entry condition to skipping* is tightened):
 - **Isolate partial changes** so a failed ticket's uncommitted work cannot contaminate the next ticket's commit: `git stash` the failed ticket's changes (recoverable; only `git stash drop` is prohibited) before continuing, and note the stash in the report.
 - Leave the ticket in `todo`; a failing type-check/test means **failed → skipped + recorded**, never force-committed.
@@ -217,6 +241,7 @@ In either case, apply the safety floor and continue to the next authorized ticke
 - **failed** — attempted, but its checks/tests went red; reason + stash location.
 - **blocked** — a **named** hard external blocker; what would unblock it.
 - Totals: implemented / failed / blocked counts, which **must reconcile to the authorized batch size**, plus all commit hashes.
+- **Tickets minted mid-run** (`deferred`), one line each: what was found, which ticket provoked it, and the new filename. These are *additional* to the authorized batch and do not affect its reconciliation — but a run that quietly mints tickets is a run that quietly changes the plan, so they are never silent.
 - Any stashed partial work and where to find it.
 
 **Critical Rule exception (scoped).** The per-ticket "explicit user approval" gate is skipped exactly when a **prior explicit batch authorization** covers the ticket, and never otherwise. There are two such authorizations, and no others: invoking **`/drive night`** (this mode — the batch, optionally narrowed by the §1b group choice), and a **mission stamped `drive_authorized: true`** by its Creation Interrogation (see Step 2.2's *When the gate is skipped*). Both are the same shape: the developer authorized this exact work in advance. Every other Critical Rule below remains in force in both modes.

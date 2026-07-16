@@ -192,7 +192,7 @@ If a skill you expect is not in context, ask the user which plugins are loaded â
 | -------------------------------- | ------------------------------------------------ |
 | `/ticket <description>`          | Write implementation spec for a feature **in this repository** (bare `/ticket` or `/ticket summary` reports your assigned todo tickets instead of creating one) |
 | `/request <description>`         | File a ticket in **another** repository â€” the only sanctioned way to cross a repo boundary. Masks this project's customer context and requires the developer to confirm the exact body before writing (non-skippable) |
-| `/drive`                         | Implement queued specs one by one                |
+| `/drive`                         | Implement queued specs one by one (a mission-authorized queue drives without the per-ticket prompt; an unqueued problem met mid-run becomes a ticket rather than a stop) |
 | `/commit`                        | Commit working changes with a policy-conformant message (small non-ticketed changes; prefer `/drive` for ticketed work) |
 | `/report`                        | Context-aware: generate story or journey report and create PR (warns on the branch-safety scan) |
 | `/ship`                          | Context-aware: merge PR, deploy, and verify (blocks pre-merge on the branch-safety scan; secrets non-overridable) |

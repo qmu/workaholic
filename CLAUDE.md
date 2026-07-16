@@ -239,7 +239,7 @@ The commit-subject rule (present-tense, ≤50 chars, no `feat:`/`[bracket]` pref
   sh ${CLAUDE_PLUGIN_ROOT}/hooks/install-git-hooks.sh   # sets core.hooksPath; refuses to clobber an existing one / classic .git/hooks without --force
   ```
 
-  Bypass a single commit with `git commit --no-verify`; undo with `git config --unset core.hooksPath`. Both layers share one rule source (`hooks/lib/check-subject.sh`) so they cannot drift. These hooks are Claude-Code-only / git-native and have **no `outputs/` footprint** (not bundled, no rebuild). `commit-msg` is exempt from `posix-lint` only because git requires that exact extensionless name; it is POSIX `#!/bin/sh -eu` by construction.
+  Bypass a single commit with `git commit --no-verify`; undo with `git config --unset core.hooksPath`. All layers share one rule source — the canonical validator is `skills/commit/scripts/check-subject.sh` (it pins `LC_ALL` to a UTF-8 locale so a multibyte subject measures identically on every host), which `commit.sh` runs itself before staging anything (closing the script-wrapped path the `PreToolUse` gate deliberately does not inspect) and which both hooks reach through the stable `hooks/lib/check-subject.sh` delegator — so the layers cannot drift. Because the validator lives in the commit skill's `scripts/`, the generated `outputs/workflows` bundle carries the gate too (rebuild on change); the hooks themselves remain Claude-Code-only / git-native with no `outputs/` footprint. `commit-msg` is exempt from `posix-lint` only because git requires that exact extensionless name; it is POSIX `#!/bin/sh -eu` by construction.
 
 ### AskUserQuestion project-label enforcement
 

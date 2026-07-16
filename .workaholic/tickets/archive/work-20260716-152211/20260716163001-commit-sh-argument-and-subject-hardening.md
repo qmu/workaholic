@@ -3,9 +3,9 @@ created_at: 2026-07-16T16:30:01+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Domain]
-effort:
+effort: 0.5h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -56,3 +56,14 @@ verdicts verified against source):
 ## Considerations
 
 - Keep the commit-guard hooks subject-only; the fix is in the script layer, not the hooks.
+
+## Final Report
+
+Development completed as planned, with one structural addition the ticket's steps implied but did not spell out: the canonical validator moved from `hooks/lib/check-subject.sh` into `skills/commit/scripts/check-subject.sh`, and `hooks/lib/check-subject.sh` became a stable delegator. This is what lets `commit.sh` call the gate as a same-dir sibling AND ships the gate inside the self-contained `outputs/workflows` bundle (the build closure copies whole skill `scripts/` dirs but never `hooks/`). Both hook layers work unmodified through the delegator. Two adjacent boundary gaps of the same class were closed alongside the trailing-flag fix: `--category` with no value (previously a cryptic `shift` failure) and fewer than six positional args (previously the unconsumed fields fell into the staging loop as file paths).
+
+### Discovered Insights
+
+- **Insight**: The `outputs/workflows` build closure is blind to everything outside `skills/*/scripts/` — `computeClosure` scans only skill scripts and SKILL.md for cross-skill refs, and `hooks/` is never copied.
+  **Context**: Any logic a bundled script depends on must live inside some skill's `scripts/` dir; sharing from `hooks/lib` silently breaks the cross-agent bundle. The delegator-in-hooks / canonical-in-skill split is the pattern to reuse.
+- **Insight**: `C.UTF-8` and `C.utf8` differ by a hyphen, not just case, so a case-insensitive locale probe must list both spellings (glibc lists `C.utf8`; other systems list `C.UTF-8`).
+  **Context**: The validator probes `C.UTF-8 C.utf8 en_US.UTF-8 en_US.utf8` in order; on hosts with no UTF-8 locale at all (bare musl has no `locale -a`) it leaves the environment alone, which on musl still decodes UTF-8 correctly and on glibc degrades to byte counting — stricter, never looser.

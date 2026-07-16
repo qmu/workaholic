@@ -962,6 +962,144 @@ function testMissionWorktreeShipReset() {
 }
 
 // ---------- 8h. /mission close removes the mission worktree ----------
+// ---------- mission/close.sh `carried`: close by carrying the remainder forward ----------
+// A mission ended in one of two ways, and neither fit the common verdict "most of this
+// landed, the rest is still worth doing": `achieved` lies to a progress model whose whole
+// claim is that progress is COMPUTED from unchecked items and never hand-set, and
+// `abandoned` is false too. `carried` says the mission is done AS FRAMED and its remainder
+// becomes a successor that inherits what was not finished.
+//
+// The load-bearing assertion is the progress one: the successor must start at 0/<n unmet>,
+// falling out of its OWN list. Carrying a number across is exactly what the model forbids.
+function testMissionCloseCarried() {
+  const PRED = `---
+type: Mission
+title: Predecessor mission
+slug: predecessor
+status: active
+created_at: 2026-07-01T00:00:00+09:00
+author: a@qmu.jp
+assignee: a@qmu.jp
+tickets: []
+stories: []
+concerns: []
+gate_type: live-app
+gate_target: /dashboard
+gate_assert: the chart renders
+---
+
+# Predecessor mission
+
+## Goal
+
+The original information-rich why.
+
+## Scope
+
+In: the dashboard. Out: the API.
+
+## Acceptance
+
+- [x] Landed criterion (#20260101120000-done.md)
+- [ ] Unmet criterion one (#20260101120001-todo.md)
+- [x] Another landed one
+- [ ] Unmet criterion two (#20260101120002-todo.md)
+
+## Changelog
+
+- 2026-07-01 — mission created — mission.md
+`;
+  const seed = (dir) => {
+    mkdirSync(join(dir, ".workaholic/missions/active/predecessor"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/missions/active/predecessor/mission.md"), PRED);
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+  };
+
+  const dir = makeRepo("main");
+  try {
+    seed(dir);
+    const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} predecessor carried --successor-title "Successor mission" 2026-07-16`).stdout);
+    assertEq("carried closes the predecessor and names the successor",
+      { closed: r.closed, status: r.status, successor: r.successor }, { closed: true, status: "carried", successor: "successor-mission" });
+
+    // Predecessor: archived, status carried, and its OWN history says where the
+    // remainder went (design/history-structures -- half of the two-way lineage).
+    const pred = readFileSync(join(dir, ".workaholic/missions/archive/predecessor/mission.md"), "utf8");
+    assertTrue("predecessor is archived with status: carried", /^status:\s*carried\s*$/m.test(pred), pred);
+    assertTrue("predecessor's changelog names the successor",
+      /^- 2026-07-16 — mission carried into successor-mission — mission\.md$/m.test(pred), pred);
+    // Checked items were achieved THERE and stay there.
+    const pprog = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} .workaholic/missions/archive/predecessor/mission.md`).stdout);
+    assertEq("predecessor keeps its full acceptance list", pprog, { checked: 2, total: 4 });
+
+    const succPath = ".workaholic/missions/active/successor-mission/mission.md";
+    const succ = readFileSync(join(dir, succPath), "utf8");
+
+    // Exactly the unchecked items, markers intact -- and NONE of the checked ones.
+    assertTrue("successor carries unmet item one verbatim, marker intact",
+      /^- \[ \] Unmet criterion one \(#20260101120001-todo\.md\)$/m.test(succ), succ);
+    assertTrue("successor carries unmet item two verbatim, marker intact",
+      /^- \[ \] Unmet criterion two \(#20260101120002-todo\.md\)$/m.test(succ), succ);
+    assertTrue("successor does NOT inherit a checked item", !succ.includes("Landed criterion"), succ);
+    assertTrue("successor does NOT inherit the other checked item", !succ.includes("Another landed one"), succ);
+
+    // THE assertion: progress falls out of the successor's own list.
+    const sprog = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${succPath}`).stdout);
+    assertEq("successor's computed progress is 0/<n unmet>, not the predecessor's count", sprog, { checked: 0, total: 2 });
+
+    // Lineage the other way, so the archive does not show two unrelated missions.
+    assertTrue("successor records carried_from", /^carried_from:\s*predecessor\s*$/m.test(succ), succ);
+    // A carry is a continuation: goal, scope and the gate come along.
+    assertTrue("successor inherits the Goal verbatim", succ.includes("The original information-rich why."), succ);
+    assertTrue("successor inherits the Scope verbatim", succ.includes("In: the dashboard. Out: the API."), succ);
+    assertTrue("successor inherits gate_type", /^gate_type:\s*live-app\s*$/m.test(succ), succ);
+    assertTrue("successor inherits gate_target", /^gate_target:\s*\/dashboard\s*$/m.test(succ), succ);
+    assertTrue("successor inherits gate_assert", /^gate_assert:\s*the chart renders\s*$/m.test(succ), succ);
+    assertTrue("successor is active", /^status:\s*active\s*$/m.test(succ), succ);
+
+    // Idempotent, like every other mission mutator.
+    const again = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} predecessor carried --successor-title "Successor mission" 2026-07-16`).stdout);
+    assertEq("re-running the same carry is a no-op", { closed: again.closed, reason: again.reason }, { closed: false, reason: "already_closed" });
+  } finally { cleanup(dir); }
+
+  // A carry with nowhere to carry to is an abandon wearing a nicer name -> rejected.
+  const d2 = makeRepo("main");
+  try {
+    seed(d2);
+    const r = run(d2, `${POSIX_SH} ${SCRIPTS.missionClose} predecessor carried 2026-07-16`);
+    assertTrue("carried without a successor is rejected", r.stderr.includes("carried_needs_successor"), r.stderr);
+    assertTrue("the rejected carry left the mission active",
+      existsSync(join(d2, ".workaholic/missions/active/predecessor/mission.md")), "predecessor moved");
+    // The status set stays closed and validated -- just larger by one.
+    const bad = run(d2, `${POSIX_SH} ${SCRIPTS.missionClose} predecessor finished 2026-07-16`);
+    assertTrue("an unknown status is still invalid_status", bad.stderr.includes("invalid_status"), bad.stderr);
+  } finally { cleanup(d2); }
+
+  // Carry into an EXISTING active mission, rather than minting one.
+  const d3 = makeRepo("main");
+  try {
+    seed(d3);
+    mkdirSync(join(d3, ".workaholic/missions/active/existing"), { recursive: true });
+    writeFileSync(join(d3, ".workaholic/missions/active/existing/mission.md"),
+      `---\ntype: Mission\ntitle: Existing\nslug: existing\nstatus: active\nassignee: a@qmu.jp\n---\n\n## Acceptance\n\n- [ ] Its own item\n`);
+    execSync(`git add -A && git commit -q -m seed2`, { cwd: d3 });
+
+    // An unknown successor is rejected rather than silently minted. This must run while
+    // the predecessor is still ACTIVE -- once it is archived, close.sh short-circuits on
+    // already_closed and never reaches the successor check.
+    const bad = run(d3, `${POSIX_SH} ${SCRIPTS.missionClose} predecessor carried --successor nope 2026-07-16`);
+    assertTrue("carrying into a nonexistent mission is rejected", bad.stderr.includes("successor_not_found"), bad.stderr);
+    assertTrue("the rejected carry left the predecessor active",
+      existsSync(join(d3, ".workaholic/missions/active/predecessor/mission.md")), "predecessor moved");
+
+    const r = JSON.parse(run(d3, `${POSIX_SH} ${SCRIPTS.missionClose} predecessor carried --successor existing 2026-07-16`).stdout);
+    assertEq("carrying into an existing mission names it", { closed: r.closed, successor: r.successor }, { closed: true, successor: "existing" });
+    const pred = readFileSync(join(d3, ".workaholic/missions/archive/predecessor/mission.md"), "utf8");
+    assertTrue("predecessor's changelog names the existing successor",
+      /mission carried into existing/.test(pred), pred);
+  } finally { cleanup(d3); }
+}
+
 function testMissionCloseRemovesWorktree() {
   const seedMission = (dir, slug, title, checked) => {
     const mdir = join(dir, `.workaholic/missions/active/${slug}`);
@@ -4250,6 +4388,7 @@ const tests = [
   ["mission-lens worktree focus", testMissionLensWorktreeFocus],
   ["mission create worktree+kickoff spine", testMissionCreateWorktreeFlow],
   ["mission worktree ship reset", testMissionWorktreeShipReset],
+  ["mission/close.sh carried (carry the remainder forward)", testMissionCloseCarried],
   ["mission close removes worktree", testMissionCloseRemovesWorktree],
   ["mission worktree port assignment", testMissionWorktreePorts],
   ["mission quality gate", testMissionQualityGate],

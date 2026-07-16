@@ -1,6 +1,7 @@
 ---
 type: enhancement
 layer: [Domain]
+effort: 1h
 created_at: 2026-07-16T10:30:00+09:00
 author: a@qmu.jp
 depends_on: []
@@ -145,3 +146,48 @@ Concretely, up for decision:
   a blocker. It is filed because reaching for "no gate" one day after the flow
   demanded one is a signal about the menu, and because the acceptance-inventory
   finding in §4 is measured rather than argued.
+
+## Policies
+
+- `workaholic:implementation` / `policies/objective-documentation.md` — the gate
+  must state what actually holds, not aspiration: `valid: true` for a gate that
+  cannot run, and acceptance items presented as specification, are both the same
+  documentation defect.
+- `workaholic:planning` / `policies/verify-before-building.md` — §4's finding is
+  this policy applied to planning artifacts: detail specified before the source
+  is read is unverified inventory, and the fix is to state where the bar is and
+  prove it where the knowledge exists (the ticket's gate).
+- `workaholic:implementation` / `policies/test.md` — the new `check` gate type
+  reuses the project's own declared verification rather than inventing a
+  parallel one.
+
+## Quality Gate
+
+- Scope items already satisfied by prior commits are verified as present, not
+  re-implemented: gate optional at creation, `## Experience` carries the north
+  star, `gate.sh` reports `driveable`/`reason` instead of a bare `valid`.
+- The `gate_type` menu accommodates a project with no browser-drivable surface
+  via a command-shaped type; `gate.sh` accepts it, reports it driveable exactly
+  when the mission worktree exists, and the smoke tests pin both states.
+- The mission skill states, where the checklist convention is defined, that
+  unchecked acceptance items are headings to re-check against the source, never
+  to paraphrase into tickets.
+
+## Final Report
+
+Development completed as planned. Scope items 1–3 were found already implemented
+(commits `3ead50ae`, `b9d893e6`, `1d1bc5bb`: the Experience split, the mandatory
+Creation Interrogation with the gate demoted to optional, and `gate.sh`'s
+`driveable`/`reason` reporting), so this ticket delivered the remaining delta:
+the `check` gate type (item 4) and the headings-until-checked convention
+(item 5).
+
+### Discovered Insights
+
+- **Insight**: The `check` gate's `driveable` deliberately keys on the worktree
+  directory's existence, not on `.env` ports — a command needs a place to run,
+  not a port to address. Anyone adding a fourth gate type should decide its
+  driveability predicate explicitly rather than inheriting the port test.
+  **Context**: The port test silently reported every mission undriveable for a
+  day because the predicate was inherited rather than chosen; the per-type
+  branch in `gate.sh` is the record of that lesson.

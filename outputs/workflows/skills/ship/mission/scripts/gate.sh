@@ -4,11 +4,17 @@
 # substance is its ## Experience section plus its ticket plan, not a check fixed at
 # kickoff before the work exists. This reads the gate when one is declared,
 # distinct from per-ticket gates:
-#   gate_type    documentation | live-app | (empty = no live gate)
-#   gate_target  a route served on the mission worktree's port to check (e.g. /docs)
+#   gate_type    documentation | live-app | check | (empty = no live gate)
+#   gate_target  what to exercise: a route served on the mission worktree's port
+#                (documentation/live-app, e.g. /docs), or the project's own
+#                verification command (check, e.g. "npm test")
 #   gate_assert  one line: what must hold for the mission to pass
 # A live check runs the project's dev/docs server on the worktree's assigned port
-# (see .worktrees/<slug>/.env) and drives gate_target with Playwright.
+# (see .worktrees/<slug>/.env) and drives gate_target with Playwright. A `check`
+# gate runs gate_target as a command in the mission's worktree and passes on exit 0
+# -- the type for projects with no browser-drivable surface (a CLI, a daemon, a
+# library), whose stable objective check is the verification command they already
+# declare in CLAUDE.md.
 #
 # Usage: gate.sh <mission-slug-or-file>
 # Output: {"type","target","assert","valid","driveable","reason","slug",
@@ -53,7 +59,7 @@ slug=$(basename "$(dirname "$f")")
 
 valid=true
 case "$gtype" in
-    ""|documentation|live-app) : ;;
+    ""|documentation|live-app|check) : ;;
     *) valid=false ;;
 esac
 
@@ -96,6 +102,13 @@ driveable=false
 reason=""
 if [ -z "$gtype" ]; then
     reason="no_gate"          # the NORMAL case: nothing to drive, not an error
+elif [ "$gtype" = "check" ]; then
+    # A check gate needs no port -- only the mission's worktree to run its command in.
+    if [ -d "${repo_root}/.worktrees/${slug}" ]; then
+        driveable=true
+    else
+        reason="no_worktree"
+    fi
 elif [ -z "$dev_port" ]; then
     reason="no_worktree"      # a gate is declared but has no port to serve its target on
 else

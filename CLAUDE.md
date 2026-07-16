@@ -22,7 +22,7 @@ plugins/                 # Plugin source directory
     skills/              # workflow skills (branching, carry, catch, check-deps, commit, create-ticket, discover, drive, explain, gather, mission, okf, report, review-sections, ship, system-safety, trip-protocol, validate-writer-output, workaholify, write-release-note) + policy skills (planning, design, implementation, operation, each linking English hard copies under its policies/ dir)
     commands/            # ticket, drive, trip, report, ship, catch, carry, explain, commit, mission, workaholify (Claude-only; ignored by other agents)
     agents/              # Agent Teams members only: planner, architect, constructor (launched by /trip)
-    hooks/               # ticket validation (validate-ticket.sh, PostToolUse Write|Edit) + structural move guard (guard-ticket-structure.sh, PreToolUse Bash — blocks non-canonical ticket moves like done/ or todo/<user>/archive/) + always-on policy lens (policy-lens.sh) + always-on mission lens (mission-lens.sh, UserPromptSubmit + Stop) + generated policy-index.md
+    hooks/               # ticket validation (validate-ticket.sh, PostToolUse Write|Edit — frontmatter, location, and the mandatory `## Policies` / `## Quality Gate` body sections, present and non-empty, on `todo/<user>/` only) + structural move guard (guard-ticket-structure.sh, PreToolUse Bash — blocks non-canonical ticket moves like done/ or todo/<user>/archive/) + always-on policy lens (policy-lens.sh) + always-on mission lens (mission-lens.sh, UserPromptSubmit + Stop) + generated policy-index.md
     rules/               # diagrams, general, shell, typescript, workaholic
 scripts/                 # Repo tooling
   claude.sh              # Launcher

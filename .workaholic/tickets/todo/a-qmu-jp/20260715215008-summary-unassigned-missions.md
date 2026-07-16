@@ -65,6 +65,40 @@ but this ticket is about the read path not hiding what exists. A validator is
 worth its own ticket — the hand-authored mission above also lost its `gate_*`
 fields, which the summary gap hides but does not cause.
 
+## Policies
+
+- `workaholic:implementation` / `policies/directory-structure.md` — the read path stays in the mission skill's `scripts/`; no parsing leaks into the hook or the command.
+- `workaholic:implementation` / `policies/coding-standards.md` — the predicate keeps its contract: `summary.sh` answers "is this mission not somebody else's", not "does this mission's assignee string equal mine".
+- `workaholic:implementation` / `policies/domain-layer-separation.md` — "who may see this mission" is domain logic and belongs in one reader both the command and the lens call, rather than being re-derived by each.
+- `workaholic:implementation` / `policies/objective-documentation.md` — `summary.sh`'s header defines "assigned to me" and documents `[]`; the code and its documented contract are reconciled in the same change.
+- `workaholic:implementation` / `policies/test.md` — the boundary condition to target deliberately: absent and empty `assignee` must behave identically, and another developer's mission must still be excluded.
+- `workaholic:design` / `policies/history-structures.md` — the lens speaks on every prompt; what it says about unclaimed work must invite claiming rather than read as an error.
+
+## Quality Gate
+
+**Developer decisions (elicited 2026-07-16):** the JSON gains an **`assignee` field** (empty = unassigned) so both consumers read one payload and neither re-derives it from frontmatter; and the **lens follows the summary**, surfacing unassigned missions phrased as claimable, still subject to its existing location and signal gates.
+
+**Acceptance criteria** (assertions in `scripts/test-workflow-scripts.mjs`, hermetic temp repos):
+
+| case | must hold |
+| --- | --- |
+| Active mission with **absent** `assignee` | appears in `summary.sh` output, carrying `assignee: ""` |
+| Active mission with **empty** `assignee:` (field present, no value) | identical behaviour to absent — no distinction the schema does not have |
+| Active mission assigned to **another** developer | still **excluded**. This half of the gate works and must not regress |
+| Active mission assigned to **the current user** | appears, carrying their email, and **sorts before** unassigned ones |
+| Ordering | a developer with real assigned work sees it first; unassigned missions never crowd it out |
+| Mission lens | surfaces an unassigned mission subject to its **existing** location and signal gates (worktree focus and at-least-one-acceptance-criterion are unchanged), worded as an invitation to claim |
+| `list.sh` | unchanged — it already reported every mission; the contrast with `summary.sh` was the bug |
+
+**Verification method:** hermetic temp repos, no network, driving the real `summary.sh` and the real lens with fixture missions covering absent / empty / mine / another's.
+
+**The gate:**
+
+1. **Watch it fail first.** Back the file up, then `git checkout HEAD -- plugins/workaholic/skills/mission/scripts/summary.sh` (never `git stash` — it takes the tests away and the check passes vacuously), confirm the unassigned assertions go RED, restore from the backup.
+2. Full suite green, 0 failed; `posix-lint.sh` conforming; `verify.mjs`, `validate-metadata.mjs` pass.
+3. `node scripts/build-plugins/build.mjs` — the mission skill **is** bundled — then `git status --porcelain outputs/` shows only this change's intended diff.
+4. **Drive the real thing:** run `/mission summary` in a repo holding an unassigned active mission and confirm it is reported, distinguishably from a claimed one.
+
 ## Key Files
 
 - `plugins/workaholic/skills/mission/scripts/summary.sh:47` — the equality gate.

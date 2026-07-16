@@ -3049,6 +3049,103 @@ function testValidateTicket() {
   assertEq("validate-ticket rejects nested todo/<user>/archive/", invoke(`.workaholic/tickets/todo/a-qmu-jp/archive/b/${TS}-x.md`), 2);
 }
 
+// ---------- hooks/validate-ticket.sh (mandatory body sections) ----------
+// create-ticket/SKILL.md calls `## Policies` and `## Quality Gate` mandatory and
+// never-empty, and until now nothing checked either -- a ticket written this week
+// reached the queue with neither and passed every gate. That was survivable only
+// because a human approves each ticket at /drive Step 2.2 against its gate. Once a
+// mission-authorized queue drives without that prompt, the gate becomes the only bar
+// the agent holds itself to, unattended, so it has to actually exist.
+//
+// The check is scoped to todo/<user>/ -- the finished location. History is never
+// retro-blocked, which is the row below that matters most for a 309-line hook.
+function testValidateTicketSections() {
+  const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh");
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  validate-ticket sections (jq not available)"); return; }
+
+  const dir = makeRepo("main");
+  try {
+    const FM = `---
+created_at: 2026-07-16T01:28:46+09:00
+author: a@qmu.jp
+type: enhancement
+layer: [Domain]
+effort:
+commit_hash:
+category:
+depends_on:
+---
+
+# T
+`;
+    const POLICIES = `
+## Policies
+
+- \`implementation/coding-standards\` — applies.
+`;
+    const GATE = `
+## Quality Gate
+
+Acceptance: it works. Verification: the suite. Gate: green.
+`;
+    // Returns {status, stderr} so we can assert the message names the section --
+    // a rejection that does not say WHICH section is missing is a bad rejection.
+    const invoke = (rel) => {
+      const payload = JSON.stringify({ tool_input: { file_path: rel } });
+      try {
+        execSync(`${POSIX_SH} ${HOOK}`, { cwd: dir, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+        return { status: 0, stderr: "" };
+      } catch (e) { return { status: e.status ?? 1, stderr: String(e.stderr ?? "") }; }
+    };
+    const write = (rel, body) => {
+      const abs = join(dir, rel);
+      mkdirSync(dirname(abs), { recursive: true });
+      writeFileSync(abs, body);
+      return rel;
+    };
+    const TODO = ".workaholic/tickets/todo/a-qmu-jp/20260716012846-t.md";
+
+    // (1) Both sections present and non-empty -> accepted.
+    write(TODO, FM + POLICIES + GATE);
+    assertEq("validate-ticket accepts a todo ticket with both sections", invoke(TODO).status, 0);
+
+    // (2) Missing ## Quality Gate -> rejected, and the message names it.
+    write(TODO, FM + POLICIES);
+    let r = invoke(TODO);
+    assertEq("validate-ticket rejects a todo ticket missing ## Quality Gate", r.status, 2);
+    assertTrue("the rejection names the Quality Gate section", r.stderr.includes("## Quality Gate"), r.stderr);
+
+    // (3) Missing ## Policies -> rejected.
+    write(TODO, FM + GATE);
+    r = invoke(TODO);
+    assertEq("validate-ticket rejects a todo ticket missing ## Policies", r.status, 2);
+    assertTrue("the rejection names the Policies section", r.stderr.includes("## Policies"), r.stderr);
+
+    // (4) Heading present but EMPTY -> rejected. An empty gate is the defect itself,
+    // not a technicality: it satisfies a grep for the heading while promising nothing.
+    write(TODO, FM + POLICIES + "\n## Quality Gate\n");
+    assertEq("validate-ticket rejects an empty ## Quality Gate heading", invoke(TODO).status, 2);
+    write(TODO, FM + GATE.replace("## Quality Gate", "## Quality Gate") + "\n## Policies\n\n");
+    assertEq("validate-ticket rejects an empty ## Policies heading", invoke(TODO).status, 2);
+
+    // (5) A section followed immediately by the next heading is still empty.
+    write(TODO, FM + "\n## Policies\n\n## Quality Gate\n\nreal gate\n");
+    assertEq("validate-ticket rejects ## Policies whose body is only the next heading", invoke(TODO).status, 2);
+
+    // (6) HISTORY IS NEVER RETRO-BLOCKED. The same section-less body under
+    // archive/<branch>/ must pass -- as must icebox/ and abandoned/, which are
+    // parking rather than a queue.
+    const ARCHIVED = write(".workaholic/tickets/archive/work-20260101-000000/20260716012846-t.md", FM);
+    assertEq("validate-ticket never retro-blocks an archived ticket", invoke(ARCHIVED).status, 0);
+    const ICEBOX = write(".workaholic/tickets/icebox/20260716012846-t.md", FM);
+    assertEq("validate-ticket does not judge an iceboxed ticket", invoke(ICEBOX).status, 0);
+    const ABANDONED = write(".workaholic/tickets/abandoned/20260716012846-t.md", FM);
+    assertEq("validate-ticket does not judge an abandoned ticket", invoke(ABANDONED).status, 0);
+  } finally { cleanup(dir); }
+}
+
 // ---------- hooks/validate-ticket.sh (optional mission: field passes) ----------
 // The mission relation is optional and must never cause a validation failure —
 // whether it carries a slug, is empty, or is absent entirely.
@@ -3075,6 +3172,14 @@ depends_on:
 ${missionLine}---
 
 # M
+
+## Policies
+
+- \`implementation/coding-standards\` — applies.
+
+## Quality Gate
+
+Acceptance: it works. Verification: the suite. Gate: green.
 `;
     const invoke = () => {
       const payload = JSON.stringify({ tool_input: { file_path: rel } });
@@ -4080,6 +4185,7 @@ const tests = [
   ["hooks/layout-doctor.sh", testLayoutDoctor],
   ["hooks/validate-ticket.sh", testValidateTicket],
   ["hooks/validate-ticket.sh mission field", testValidateTicketMission],
+  ["hooks/validate-ticket.sh mandatory body sections", testValidateTicketSections],
   ["hooks/guard-ticket-structure.sh", testGuardTicketStructure],
   ["hooks/posix-lint.sh", testPosixLint],
   ["hooks/hooks.json executable", testHooksExecutable],

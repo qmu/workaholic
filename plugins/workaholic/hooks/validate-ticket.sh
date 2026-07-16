@@ -305,5 +305,60 @@ if [ -n "$depends_on_line" ]; then
   fi
 fi
 
+# --- Mandatory body sections (todo/<user>/ only) -----------------------------
+# create-ticket/SKILL.md makes two body sections mandatory and never-empty:
+# `## Policies` (l.310, the recorded policy list /drive and /trip open before writing
+# code) and `## Quality Gate` (§4b, whose interrogation "always runs -- it is not
+# skippable"). Nothing checked either, and the gap was not theoretical: a ticket
+# written this week reached the queue carrying neither and passed every gate.
+#
+# This BLOCKS (exit 2) rather than warns. A warning is what the prose already is, and
+# the reason the check exists is that /drive is about to stop asking a human per
+# ticket: unattended, the Quality Gate stops being what a developer approves against
+# and becomes the only bar the agent holds itself to. An omitted gate would then mean
+# a ticket that drives itself unjudged, silently.
+#
+# SCOPED TO todo/<user>/ DELIBERATELY -- it is the finished location, where a ticket
+# must be complete before /drive reads it:
+#   - archive/<branch>/ is history and is never retro-blocked;
+#   - icebox/ and abandoned/ are parking, not a queue, so a ticket already there is
+#     not re-judged (it must pass again on its way back into todo/ via promote);
+#   - the mid-authoring path stays clear because create-ticket writes a complete
+#     ticket in a single Write (SKILL.md l.460), so the sections exist when this fires.
+#
+# Do NOT grow this toward judging whether a gate is GOOD. "Present and non-empty" is
+# syntax, which a hook does well; quality is semantic and belongs to the §4b
+# interrogation and the developer. This hook is PostToolUse, so it speaks after the
+# file exists: it is a review that rejects loudly, not a guard that prevents.
+#
+# A heading with nothing under it is the same defect as no heading, so both are
+# rejected. "Non-empty" means at least one non-blank line before the next `## `.
+has_section_body() {
+  printf '%s\n' "$content" | awk -v want="## $1" '
+    { line = $0; sub(/[[:space:]]+$/, "", line) }
+    line == want { inside = 1; next }
+    inside && /^##[[:space:]]/ { exit }
+    inside && NF { found = 1; exit }
+    END { exit(found ? 0 : 1) }
+  '
+}
+
+if printf '%s' "$tickets_path" | grep -qE '^todo/[^/]+/[^/]+$'; then
+  if ! has_section_body "Policies"; then
+    echo "Error: ## Policies section is required and must not be empty" >&2
+    echo "Got: $tickets_path" >&2
+    echo "(list the policy hard copies this ticket answers to -- /drive and /trip read this section before writing code)" >&2
+    print_skill_reference
+    exit 2
+  fi
+  if ! has_section_body "Quality Gate"; then
+    echo "Error: ## Quality Gate section is required and must not be empty" >&2
+    echo "Got: $tickets_path" >&2
+    echo "(record the Step 4b interrogation: acceptance criteria, verification method, and the gate that must pass)" >&2
+    print_skill_reference
+    exit 2
+  fi
+fi
+
 # All validations passed
 exit 0

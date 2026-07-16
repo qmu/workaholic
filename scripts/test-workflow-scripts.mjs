@@ -28,6 +28,8 @@ const SCRIPTS = {
   resetMissionWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/reset-mission-worktree.sh"),
   allocateWorktreePort: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/allocate-worktree-port.sh"),
   listAllWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/list-all-worktrees.sh"),
+  listWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/list-worktrees.sh"),
+  checkWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check-worktrees.sh"),
   missionLens: join(REPO_ROOT, "plugins/workaholic/hooks/mission-lens.sh"),
   detectContext: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/detect-context.sh"),
   checkWorkspace: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check-workspace.sh"),
@@ -164,6 +166,40 @@ function testBranchCheck() {
     execSync(`git checkout -q -b work-20260528-foo`, { cwd: dir });
     r = run(dir, `${POSIX_SH} ${SCRIPTS.branchCheck}`);
     assertEq("branchCheck on work-*", JSON.parse(r.stdout), { on_main: false, branch: "work-20260528-foo" });
+  } finally { cleanup(dir); }
+}
+
+// ---------- 1b. branching worktree counters see the LAST porcelain block ----------
+// `git worktree list --porcelain` separates blocks with a blank line, but command
+// substitution strips trailing newlines, so a parser that only flushes on a blank
+// separator silently drops the final block. With one worktree that read as
+// "no worktrees exist" — the guards in /drive Phase 0 and /ticket Step 0 never
+// fired — so the single-worktree case is THE regression case, not an edge.
+function testWorktreeCountersLastBlock() {
+  const dir = makeRepo("main");
+  try {
+    // No worktrees: still reports none.
+    let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.checkWorktrees}`).stdout);
+    assertEq("checkWorktrees with no worktrees", r, { has_worktrees: false, count: 0, work_count: 0 });
+
+    // Exactly one worktree — previously reported zero.
+    execSync(`git worktree add -q .wt-one -b work-20260716-000001`, { cwd: dir });
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.checkWorktrees}`).stdout);
+    assertEq("checkWorktrees counts the single (last) worktree", r, { has_worktrees: true, count: 1, work_count: 1 });
+
+    const lw = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listWorktrees}`).stdout);
+    assertEq("listWorktrees lists the single (last) worktree", lw.count, 1);
+    assertEq("listWorktrees entry carries the branch", lw.worktrees[0]?.branch, "work-20260716-000001");
+
+    const la = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listAllWorktrees}`).stdout);
+    assertEq("listAllWorktrees lists the single (last) worktree", la.count, 1);
+
+    // Two worktrees: both counted (previously N-1).
+    execSync(`git worktree add -q .wt-two -b work-20260716-000002`, { cwd: dir });
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.checkWorktrees}`).stdout);
+    assertEq("checkWorktrees counts both worktrees", r, { has_worktrees: true, count: 2, work_count: 2 });
+    const la2 = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listAllWorktrees}`).stdout);
+    assertEq("listAllWorktrees lists both worktrees", la2.count, 2);
   } finally { cleanup(dir); }
 }
 
@@ -4823,6 +4859,7 @@ function testResolveExportPath() {
 
 const tests = [
   ["branching/check.sh", testBranchCheck],
+  ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
   ["carry/carry-checkpoint.sh", testCarryCheckpoint],
   ["explain/resolve-export-path.sh", testResolveExportPath],
   ["branching/detect-context.sh", testDetectContext],

@@ -3,9 +3,9 @@ created_at: 2026-07-16T01:28:45+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Domain]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on: [20260716102950-mission-describes-experience-not-gate.md]
 mission:
 ---
@@ -81,6 +81,27 @@ So this ticket's **interrogation drops the mission-gate round entirely** and ask
 **The gate:** criteria 1–6 hold; one live run produces a set that `/drive` prioritizes without a cycle warning; full suite green; `posix-lint`, `verify.mjs`, `validate-metadata.mjs` pass; `git status --porcelain outputs/` empty after a rebuild.
 
 **Watch it fail first** on the script-checkable half: revert `create.sh` alone via `git checkout HEAD -- <path>` (never `git stash`), confirm the new assertions go red, restore.
+
+## Final Report
+
+Development completed, **as amended**. The ticket was written against the old heavy-gate model; the Amendment above re-aimed it mid-queue and the implementation followed the amendment, not the original.
+
+**Step 5's split-cap decision, made deliberately and recorded** (the ticket forbade a silent violation): the `create-ticket` "2–4 discrete tickets" cap is **carved out for missions**, and the exception is stated in the skill. The cap is right for one request that turns out to be several; a mission is the opposite case — a durable goal that spans *many* tickets **by definition**, where "a complete set to drive through one by one" is the requirement. Capping at 4 would force either an incomplete plan or a fake ticket boundary. A mission decomposition is closer to `trip-protocol`'s Decomposition gate and takes the same rule: one ticket per genuinely separable unit of work, however many that is. The cap still binds `/ticket` itself.
+
+**Step 3's ordering constraint held without compromise.** "All questions before any ticket is created" and "`## Acceptance` names tickets by `(#<filename>)`" look contradictory but are not: the **asking** order and the **writing** order differ — ask everything → decide the set → write the tickets → write Acceptance naming them. That sentence is now in the skill, because the reading "Acceptance first" is the natural misreading and it would be unimplementable.
+
+**The concern this closes.** `missions-are-born-matching-the-lens` prescribed exactly this fix — *"the fix belongs in `create.sh` — require or prompt for a first acceptance criterion at creation time"* — and the lens prose that recorded the accepted consequence has been reconciled in this commit. It should be closed at the next `/report` triage. But the closure is **partial, and the SKILL now says so**: `create.sh` is a POSIX scaffold and still cannot interrogate, so a hand-authored `mission.md` that bypasses `/mission` still arrives at `0/0` and stays invisible to the lens. That residue is the *same shape* as the unassigned-mission gap fixed earlier today (`b75b83c0`): **a default on the sanctioned path does not constrain the other paths.** Claiming the concern is fully closed would have repeated the mistake it documents.
+
+### Discovered Insights
+
+- **Insight**: This ticket's own premise — that a fully-interrogated mission is *"gate-bearing"* — was invalidated by a ticket driven three hours later in the same queue. The Amendment exists because the developer's direction landed mid-drive, and the honest move was to strike the gate round rather than implement a mandatory interrogation for fields the schema now calls optional-and-normally-empty.
+  **Context**: A ticket and the schema it writes into must agree, or the interrogation becomes the thing that keeps a demoted field alive. This is the third ticket in this batch whose premise was falsified between writing and driving — the pattern is strong enough to name: **a ticket is a hypothesis with a timestamp**, and the queue's value depends on re-reading its premises against the code at drive time rather than trusting them.
+
+- **Insight**: The interrogation is prose and cannot be unit-tested, which makes it tempting to assert nothing and call the ticket done. What *is* assertable is the seam: the protocol exists and is marked non-skippable, the command routes to it rather than restating it (Thin commands, comprehensive skills), the gate round is gone, and — the row with actual teeth — **a ticket the interrogation emits passes the real `validate-ticket.sh`**.
+  **Context**: That last row is what ties this ticket to `e12448d4`: the emitted tickets must carry non-empty `## Policies` and `## Quality Gate` or the hook rejects them, so "emit the whole set" cannot degrade into emitting shells. The general rule: when the behavior is prose, assert the *contract at its boundary* rather than pretending the prose is testable — and say plainly which rows are driven rather than hermetic.
+
+- **Insight**: The `0/0` invisibility this closes is a **two-sided** problem and only one side was ever recorded. The concern blamed `create.sh` for scaffolding `## Acceptance` empty; the real cause is that nothing *required* the section to be filled before the mission was considered created. Fixing `create.sh` alone was impossible — it is `allowed-tools: Bash` and cannot ask a question.
+  **Context**: This is why the fix lives in the interrogation rather than the scaffold, and why the concern's own prescribed remedy ("fix `create.sh`") was not followed literally. A prescribed fix in a concern is a hypothesis too; the concern correctly identified *where the symptom appeared* and misidentified *what could act on it*.
 
 ## Considerations
 

@@ -574,6 +574,90 @@ concerns: []
   } finally { cleanup(dir); }
 }
 
+// ---------- mission Creation Interrogation: the protocol is stated, and its output validates ----------
+// /mission produced an empty shell and asked nothing: create.sh scaffolds the sections as
+// HTML comments, and the only elicitation was one prose sentence with no question protocol
+// and no stop condition. The ticket set was whatever the developer happened to name.
+//
+// The interrogation itself is skill prose driven by the command (a script cannot ask), so
+// what is asserted here is what CAN be: that the protocol exists and is mandatory in the
+// skill, that the command routes to it rather than restating it, that the gate round is
+// gone, and -- the part that actually bites -- that a ticket the interrogation emits must
+// pass the real validate-ticket.sh. Rows the suite cannot reach are driven, not implied.
+function testMissionInterrogationProtocol() {
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/SKILL.md"), "utf8");
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/mission.md"), "utf8");
+
+  assertTrue("the skill states the Creation Interrogation protocol",
+    /^## Creation Interrogation \(mandatory — always run\)$/m.test(skill), "no protocol section");
+  assertTrue("the interrogation is explicitly non-skippable",
+    /always runs — it is not skippable/.test(skill), "not marked non-skippable");
+  // The round nobody asked before, and the reason the mission ends up drive-ready.
+  assertTrue("the protocol includes the ticket-set round",
+    /\*\*The ticket set\*\*/.test(skill), "no ticket-set round");
+  assertTrue("the protocol includes the demanded-experience round",
+    /\*\*The demanded experience\*\*/.test(skill), "no experience round");
+  // Re-aimed off the gate: a mandatory gate round would contradict the schema, which now
+  // calls gate_* optional-and-normally-empty (54e5ec65).
+  assertTrue("the protocol tells the interrogation NOT to ask for the mission gate",
+    /Do not interrogate the mission gate/.test(skill), "gate round not removed");
+  // The ordering rule that reconciles "ask everything first" with "Acceptance names tickets".
+  assertTrue("the protocol records the ask-vs-write ordering rule",
+    /ask everything → decide the ticket set → write the tickets → write `## Acceptance` naming them/.test(skill),
+    "no ordering rule");
+  // The 2-4 split cap conflicts with "a complete set" for a mission-sized goal; the
+  // exception must be stated rather than silently violated.
+  assertTrue("the mission-scoped split-cap exception is stated, not silently taken",
+    /The split cap does not apply to a mission/.test(skill), "cap exception not recorded");
+
+  // Thin commands, comprehensive skills: the command routes to the protocol.
+  assertTrue("the command routes to the skill's interrogation rather than restating it",
+    /Creation Interrogation/.test(cmd), "command does not reference the protocol");
+  assertTrue("the command keeps AskUserQuestion at main-agent level",
+    /a subagent cannot call `AskUserQuestion`/.test(cmd), "One-Level Fan-Out not stated");
+  assertTrue("the command no longer tells the developer to fill in the mission gate",
+    !/set `gate_type` \(`documentation` or `live-app`\)/.test(cmd), "command still interrogates the gate");
+
+  // The part with teeth: a ticket the interrogation emits answers to the real hook.
+  const dir = makeRepo("main");
+  try {
+    const rel = ".workaholic/tickets/todo/a-qmu-jp/20260716110000-emitted.md";
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, `---
+created_at: 2026-07-16T11:00:00+09:00
+author: a@qmu.jp
+type: enhancement
+layer: [Domain]
+effort:
+commit_hash:
+category:
+depends_on:
+mission: some-mission
+---
+
+# An emitted ticket
+
+## Policies
+
+- \`implementation/coding-standards\` — applies.
+
+## Quality Gate
+
+Acceptance: pre-answered at mission time. Verification: the suite. Gate: green.
+`);
+    const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh");
+    let status = 0;
+    try {
+      execSync(`${POSIX_SH} ${HOOK}`, {
+        cwd: dir, input: JSON.stringify({ tool_input: { file_path: rel } }),
+        encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
+      });
+    } catch (e) { status = e.status ?? 1; }
+    assertEq("a ticket emitted by the interrogation passes validate-ticket.sh", status, 0);
+  } finally { cleanup(dir); }
+}
+
 // ---------- mission/gate.sh resolves ports from INSIDE the mission's worktree ----------
 // The prescribed layout is: a mission lives in its own .worktrees/<slug>/ worktree, and
 // /drive auto-routes there -- so that is where gate.sh runs. It used
@@ -4539,6 +4623,7 @@ const tests = [
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission describes experience, gate is optional", testMissionExperienceSection],
   ["mission/gate.sh resolves worktree ports", testMissionGateWorktreePorts],
+  ["mission creation interrogation protocol", testMissionInterrogationProtocol],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],
   ["mission layout migration + close.sh", testMissionLayoutMigrationAndClose],
   ["drive/archive.sh mission seam", testMissionDriveSeam],

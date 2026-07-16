@@ -118,6 +118,40 @@ for example:
 
 The `<event>` phrase plus the `<artifact-filename>` together form a stable event id, so an append is idempotent (the same event never adds a second line). Never rewrite or reorder past lines — the changelog is append-only history.
 
+## Creation Interrogation (mandatory — always run)
+
+When `/mission "<title>"` creates a mission, **interrogate the developer until the mission is drive-ready**, then emit the whole ticket set in one pass. This step **always runs — it is not skippable**, and it is not gated on the request "seeming obvious".
+
+`create.sh` is a POSIX scaffold: it writes the sections as HTML comments and cannot ask anything (`allowed-tools: Bash`), and it must not. The interrogation is the command's job, and this section is the protocol it follows.
+
+**Why it is mandatory.** A mission's whole value is that judgement is answered *before* the work starts. `workaholic:development` / `overnight-ai`: *"identify in advance the points where AI would want to ask for judgment and write the answers to those questions into the ticket. We eliminate the causes of stopping in the night before the run starts."* A mission scaffolded with empty sections is an empty shell that stops the first time it meets a decision — and, because the mission lens's signal gate silences a `0/0` mission, it is an empty shell **nobody can see**.
+
+**Grill; do not tick a box.** The bar is a *structured model* — the demanded behavior, the ticket plan, the order — not a question count and not a Q&A transcript pasted into a file (`workaholic:planning` / `modeling-centric-design`). Ask as many rounds as it takes. Where uncertainty is high, prove it small before emitting the set (`workaholic:planning` / `verify-before-building`): with no per-ticket approval downstream, an unverified premise is not caught at ticket 3 — it is concretized across the whole mission.
+
+### The rounds
+
+1. **Direction** — the business "why", the outcome pursued, and what is explicitly out of scope. → `## Goal`, `## Scope`
+2. **The demanded experience** — the user experience, the behavior required, and/or the overall structure. This is the mission's substance: what the thing *does*. Keep it observable. → `## Experience`
+3. **The ticket set** — how many tickets, what each covers, and the `depends_on` order. **This is the round nobody asked before, and it is the one that matters most**: "more of a plan or tickets" is what makes a mission complete.
+4. **Per-ticket pre-answers** — everything `create-ticket` §4b would ask later, asked now, per ticket in the set: acceptance criteria, verification method, the gate that must pass.
+5. **Acceptance** — one `## Acceptance` item per criterion, each naming the ticket that satisfies it.
+
+**Do not interrogate the mission gate.** `gate_*` is optional and normally empty (see *Quality gate*). Ask only if the developer volunteers a stable, objective outcome check; never treat its absence as an unfinished mission.
+
+### Ordering
+
+The requirement is *all questions before any ticket is created* — and `## Acceptance` items link tickets by `(#<filename>)`, which cannot exist until the tickets do. Both hold, because the **writing** order differs from the **asking** order:
+
+> ask everything → decide the ticket set → write the tickets → write `## Acceptance` naming them.
+
+Do not read the requirement as "Acceptance first".
+
+### Emitting the set
+
+Write the tickets **in one pass**, not N serial `create-ticket` runs. Each carries its mandatory `## Policies` and `## Quality Gate` (`validate-ticket.sh` rejects it otherwise), is stamped `mission: <slug>`, and is ordered by `depends_on` — foundation first, dependencies only where genuinely ordered, unique timestamps (`+1s` per ticket). Reuse `create-ticket`'s split mechanics rather than re-deriving them.
+
+**The split cap does not apply to a mission — a deliberate, scoped exception.** `create-ticket` §4 caps a split at "2–4 discrete tickets", which is right for one request that turns out to be several. A mission is the opposite case: a durable goal that spans *many* tickets by definition, and "a complete set to drive through one by one" is the requirement. Capping it at 4 would force either an incomplete plan or a fake ticket boundary. A mission decomposition is closer to `trip-protocol`'s Decomposition gate than to a `/ticket` split, and is governed by the same rule: **one ticket per genuinely separable unit of work, however many that is**. The cap still applies to `/ticket` itself; this exception is mission-scoped and stated here so it is not a silent violation.
+
 ## Progress Rule
 
 Progress toward achievement is **derived, never stored**: `checked ÷ total` over the `## Acceptance` checklist. No `progress:` percentage is persisted anywhere — a stored number would drift from the checklist. `scripts/progress.sh` computes `{checked, total}` from the file on demand.
@@ -250,4 +284,4 @@ The **mission lens** (`hooks/mission-lens.sh`) is the other read-only consumer, 
 2. **location** — worktree focus: inside a mission's own `.worktrees/<slug>`, only that mission; inside a worktree that owns **no** mission (a `/drive` worktree), nothing at all; in the main tree, only missions that own no worktree.
 3. **signal** — the mission has at least one acceptance criterion. A mission whose `## Acceptance` is empty would render as `0/0` with no next step — a technical condition with nothing to act on — so it stays silent.
 
-It keeps the agent oriented to the roadmap without hijacking the turn — it never blocks a stop (informs, does not force). Silent no-op when nothing passes all three. Note the consequence accepted knowingly: `create.sh` scaffolds `## Acceptance` empty, so a mission whose criteria are never written is invisible to the lens and can stay unfilled indefinitely (`/mission summary` and `/catch` still show it). If unfilled missions accumulate, the fix belongs in `create.sh`, not in more lens rules. Like `/catch` it mutates nothing, so it is in no seam table. (Because a Stop hook cannot inject model-visible context without `decision: block`, the model-facing half deliberately rides `UserPromptSubmit`; the `Stop` half is the user-facing nudge only.)
+It keeps the agent oriented to the roadmap without hijacking the turn — it never blocks a stop (informs, does not force). Silent no-op when nothing passes all three. The gap that made this matter is now closed upstream: the **Creation Interrogation** is mandatory and a mission is not finished being created until `## Acceptance` names at least one criterion, so a mission is no longer *born* matching the silence gate. `create.sh` still scaffolds the section empty — it is a POSIX scaffold and cannot interrogate — so a hand-authored `mission.md` that bypasses `/mission` can still arrive at `0/0` and stay invisible here (`/mission summary` and `/catch` keep the lower assignee-only bar and still show it). That residue is the same shape as the unassigned-mission gap: a default on the sanctioned path does not constrain the other paths. Like `/catch` it mutates nothing, so it is in no seam table. (Because a Stop hook cannot inject model-visible context without `decision: block`, the model-facing half deliberately rides `UserPromptSubmit`; the `Stop` half is the user-facing nudge only.)

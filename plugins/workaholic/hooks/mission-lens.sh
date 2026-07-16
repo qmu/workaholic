@@ -11,8 +11,14 @@
 # orientation aid, not a nag, so a line that cannot tell the developer what to do next
 # does not get printed above the agent's answer:
 #
-#   1. assignee -- `assignee` matches the current `git config user.email` (strict:
-#      unassigned or others' missions stay silent).
+#   1. assignee -- the mission is the developer's business: `assignee` matches the
+#      current `git config user.email` (shown as theirs), or the mission is UNASSIGNED
+#      (shown as claimable). Only a mission assigned to SOMEONE ELSE stays silent.
+#      Unassigned missions used to be silent too, which meant unclaimed work was
+#      invisible to everybody -- the lens skipped it and only `list.sh` ever showed it.
+#      This follows summary.sh, which makes the same "not somebody else's" judgement.
+#      The line invites claiming rather than reporting an error: it is printed on every
+#      prompt, so it has to read as an offer, not a defect.
 #   2. location -- see the worktree-focus rule below. Inside a mission's own worktree,
 #      only that mission. Inside a worktree that owns NO mission (a /drive worktree),
 #      nothing at all. In the main tree, only missions that own no worktree.
@@ -71,10 +77,16 @@ esac
 WT_SLUGS=$(git worktree list --porcelain 2>/dev/null | sed -n 's|^worktree .*/\.worktrees/\(.*\)$|\1|p' || true)
 
 LINES=""
+FREE_LINES=""
 for f in "$ACTIVE_DIR"/*/mission.md; do
     [ -f "$f" ] || continue
+    # Mine, or unclaimed. Someone else's stays silent. ($ME is non-empty, guarded
+    # above, so an unassigned mission cannot match it by accident.) Absent and empty
+    # assignee are the same thing, as they are everywhere else in the schema.
     assignee=$(grep -m1 '^assignee:' "$f" 2>/dev/null | sed -e 's/^assignee:[ \t]*//' -e 's/[ \t]*$//' || true)
-    [ "$assignee" = "$ME" ] || continue
+    if [ -n "$assignee" ] && [ "$assignee" != "$ME" ]; then
+        continue
+    fi
 
     slug=$(basename "$(dirname "$f")")
     if [ -n "$CURRENT_MISSION" ]; then
@@ -108,7 +120,17 @@ for f in "$ACTIVE_DIR"/*/mission.md; do
     line="- ${title} — ${checked}/${total} acceptance criteria met"
     [ -z "$next" ] || line="${line}; next: ${next}"
 
-    if [ -n "$LINES" ]; then
+    # An unassigned mission is an offer, not a defect: say it is unclaimed and how to
+    # take it, rather than reporting a missing field at someone every single prompt.
+    if [ -z "$assignee" ]; then
+        line="${line} [unclaimed — yours to take]"
+        if [ -n "$FREE_LINES" ]; then
+            FREE_LINES="${FREE_LINES}
+${line}"
+        else
+            FREE_LINES="$line"
+        fi
+    elif [ -n "$LINES" ]; then
         LINES="${LINES}
 ${line}"
     else
@@ -116,9 +138,18 @@ ${line}"
     fi
 done
 
+# Mine first, unclaimed after — the developer's own work is never crowded out by an
+# offer. Same ordering summary.sh makes, for the same reason.
+if [ -n "$LINES" ] && [ -n "$FREE_LINES" ]; then
+    LINES="${LINES}
+${FREE_LINES}"
+elif [ -n "$FREE_LINES" ]; then
+    LINES="$FREE_LINES"
+fi
+
 [ -n "$LINES" ] || exit 0
 
-MSG="Active mission(s) assigned to you — stay oriented to the roadmap and steer toward completion:
+MSG="Active mission(s) that are your business — stay oriented to the roadmap and steer toward completion:
 ${LINES}"
 
 # JSON-escape MSG: backslash, double-quote, and newlines -> \n (POSIX awk).

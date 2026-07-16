@@ -3,7 +3,26 @@
 
 set -eu
 
-# Parse flags
+usage() {
+    echo "Usage: commit.sh [--skip-staging] [--category <Added|Changed|Removed>] <title> <why> <changes> <concerns> <insights> <verify> [files...]"
+    echo ""
+    echo "Options:"
+    echo "  --skip-staging        Skip staging step (use when files are already staged)"
+    echo "  --category <value>    Emit a 'Category: <Added|Changed|Removed>' git trailer for /report grouping"
+    echo ""
+    echo "Parameters:"
+    echo "  title     - Commit title (present-tense verb, 50 chars max)"
+    echo "  why       - Why this change was needed: problem, trigger, approach (feeds /report Motivation; can be empty)"
+    echo "  changes   - What users experience differently, before->after (or 'None')"
+    echo "  concerns  - Risks, follow-ups, deferred work surfaced by this change (feeds /report Concerns; 'None' or empty to omit)"
+    echo "  insights  - Non-obvious patterns or gotchas worth preserving (feeds /report Patterns; 'None' or empty to omit)"
+    echo "  verify    - Verification done or needed (or 'None')"
+    echo "  files...  - Optional: specific files to stage (ignored with --skip-staging)"
+}
+
+# Parse flags. Unknown -* arguments are refused rather than falling through to
+# become the title: a typo'd flag (or --help itself) must never silently turn
+# into a commit whose message is that flag.
 SKIP_STAGING=false
 CATEGORY=""
 while [ $# -gt 0 ]; do
@@ -15,6 +34,16 @@ while [ $# -gt 0 ]; do
         --category)
             CATEGORY="${2:-}"
             shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 1
+            ;;
+        -*)
+            echo "Error: unknown option: $1"
+            echo ""
+            usage
+            exit 1
             ;;
         *)
             break
@@ -43,20 +72,7 @@ VERIFY="${6:-None}"
 shift 6 2>/dev/null || true
 
 if [ -z "$TITLE" ]; then
-    echo "Usage: commit.sh [--skip-staging] [--category <Added|Changed|Removed>] <title> <why> <changes> <concerns> <insights> <verify> [files...]"
-    echo ""
-    echo "Options:"
-    echo "  --skip-staging        Skip staging step (use when files are already staged)"
-    echo "  --category <value>    Emit a 'Category: <Added|Changed|Removed>' git trailer for /report grouping"
-    echo ""
-    echo "Parameters:"
-    echo "  title     - Commit title (present-tense verb, 50 chars max)"
-    echo "  why       - Why this change was needed: problem, trigger, approach (feeds /report Motivation; can be empty)"
-    echo "  changes   - What users experience differently, before->after (or 'None')"
-    echo "  concerns  - Risks, follow-ups, deferred work surfaced by this change (feeds /report Concerns; 'None' or empty to omit)"
-    echo "  insights  - Non-obvious patterns or gotchas worth preserving (feeds /report Patterns; 'None' or empty to omit)"
-    echo "  verify    - Verification done or needed (or 'None')"
-    echo "  files...  - Optional: specific files to stage (ignored with --skip-staging)"
+    usage
     exit 1
 fi
 

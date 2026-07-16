@@ -13,7 +13,7 @@
 // state, and cleans up. No network, no real remotes, no GitHub token, no
 // mutation of the developer's working tree. Run with `node scripts/test-workflow-scripts.mjs`.
 
-import { cpSync, mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync, existsSync, statSync, chmodSync, readdirSync } from "node:fs";
+import { cpSync, mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync, existsSync, statSync, chmodSync, readdirSync, realpathSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join, resolve, dirname, basename } from "node:path";
 import { tmpdir } from "node:os";
@@ -4435,6 +4435,42 @@ function testRequestScripts() {
   rmSync(tmp, { recursive: true, force: true });
 }
 
+// ---------- commit/commit.sh refuses flag-shaped titles ----------
+// `--help` used to fall through the flag loop, become the title, and COMMIT with
+// the message `--help` — the one input a user types to avoid doing something was
+// the input that did it. Same for any typo'd flag. Usage must be reachable by
+// asking for it, and an unknown -* argument must be refused, never reinterpreted
+// as data.
+function testCommitFlagGuard() {
+  const dir = makeRepo("main");
+  try {
+    execSync(`git checkout -q -b work-20260716-000003`, { cwd: dir });
+    writeFileSync(join(dir, "README.md"), "changed\n");
+    const commitCount = () => execSync(`git rev-list --count HEAD`, { cwd: dir, encoding: "utf8" }).trim();
+    const before = commitCount();
+
+    for (const flag of ["--help", "-h"]) {
+      const r = run(dir, `${POSIX_SH} ${SCRIPTS.commit} ${flag}`);
+      assertTrue(`commit.sh ${flag} exits non-zero`, r.status !== 0, `status ${r.status}`);
+      assertTrue(`commit.sh ${flag} prints usage`, /Usage: commit\.sh/.test(r.stdout + r.stderr), r.stdout);
+      assertEq(`commit.sh ${flag} makes no commit`, commitCount(), before);
+    }
+
+    // A typo'd flag is refused instead of silently becoming the commit title.
+    const typo = run(dir, `${POSIX_SH} ${SCRIPTS.commit} --skip-stage "Title" "why" "changes" "" "" "verify"`);
+    assertTrue("commit.sh refuses an unknown flag", typo.status !== 0, `status ${typo.status}`);
+    assertTrue("commit.sh names the unknown flag", /unknown option: --skip-stage/.test(typo.stdout + typo.stderr), typo.stdout);
+    assertEq("unknown flag makes no commit", commitCount(), before);
+    assertTrue("index untouched by refused invocations",
+      execSync(`git diff --cached --stat`, { cwd: dir, encoding: "utf8" }).trim() === "", "staged changes found");
+
+    // The happy path still commits (the guard must not over-tighten).
+    const ok = run(dir, `${POSIX_SH} ${SCRIPTS.commit} "Update readme" "why" "changes" "" "" "verify"`);
+    assertEq("commit.sh happy path still commits", ok.status, 0);
+    assertTrue("happy path advanced HEAD", commitCount() !== before, "no commit created");
+  } finally { cleanup(dir); }
+}
+
 function testGuardRepoConfinement() {
   const HOOK = SCRIPTS.guardRepoConfinement;
   let hasJq = true;
@@ -4502,6 +4538,27 @@ function testGuardRepoConfinement() {
   const bare = join(tmp, "bare");
   mkdirSync(bare, { recursive: true });
   assertEq("confine fails open outside a repo", invoke(bare, join(bare, "x.md")).status, 0);
+
+  // Exempt: the agent's per-project memory store (~/.claude/projects/<slug>/memory/).
+  // It is the harness's own store, not another repository — the harness directs the
+  // agent to write memories there, and a stale memory's only correction path is a
+  // write. HOME is overridden (realpath'd, since the hook resolves symlinks) so the
+  // test owns the matched prefix.
+  const homeDir = join(tmp, "home");
+  mkdirSync(join(homeDir, ".claude/projects/-x-repoA/memory"), { recursive: true });
+  const realHome = realpathSync(homeDir);
+  const invokeHome = (cwd, file_path) => {
+    const payload = JSON.stringify({ tool_input: { file_path } });
+    try {
+      execSync(`${POSIX_SH} ${HOOK}`, { cwd, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], env: { ...process.env, HOME: realHome } });
+      return { status: 0, err: "" };
+    } catch (e) { return { status: e.status ?? 1, err: e.stderr?.toString() || "" }; }
+  };
+  assertEq("confine exempts the agent memory dir",
+    invokeHome(repoA, join(realHome, ".claude/projects/-x-repoA/memory/note.md")).status, 0);
+  // The exemption is the memory dir ONLY — a sibling ~/.claude path is still refused.
+  assertEq("confine still blocks non-memory ~/.claude paths",
+    invokeHome(repoA, join(realHome, ".claude/projects/-x-repoA/settings.json")).status, 2);
 
   rmSync(tmp, { recursive: true, force: true });
 }
@@ -4932,6 +4989,7 @@ const tests = [
   ["hooks/guard-git-commit.sh", testGuardGitCommit],
   ["hooks/guard-git-branch.sh", testGuardGitBranch],
   ["hooks/guard-repo-confinement.sh", testGuardRepoConfinement],
+  ["commit/commit.sh flag guard", testCommitFlagGuard],
   ["request/scripts", testRequestScripts],
   ["hooks/guard-askuserquestion-label.sh", testGuardAskUserQuestionLabel],
   ["workaholify/audit-claude-md.sh", testAuditClaudeMd],

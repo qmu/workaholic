@@ -41,6 +41,7 @@ const SCRIPTS = {
   missionCreate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"),
   missionSlug: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/slug.sh"),
   missionGate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/gate.sh"),
+  driveAuthorized: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/drive-authorized.sh"),
   commit: join(REPO_ROOT, "plugins/workaholic/skills/commit/scripts/commit.sh"),
   missionProgress: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/progress.sh"),
   missionList: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list.sh"),
@@ -572,6 +573,96 @@ concerns: []
     assertEq("mission summary empty for a user with no assigned mission",
       JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSummary}`).stdout), []);
   } finally { cleanup(dir); }
+}
+
+// ---------- mission/drive-authorized.sh: is this ticket's queue pre-authorized? ----------
+// The /drive approval gate was prose in drive/SKILL.md with no script behind it, which is
+// why neither it nor night mode ever carried a single assertion -- there was nothing to
+// call. A rule that decides whether to ask a human for permission must be reproducible,
+// so it is a script, and these are the assertions that were impossible before.
+//
+// Explicit approval is RELOCATED, never removed: a ticket is gate-free only when the
+// developer interrogated the mission and it was stamped drive_authorized: true.
+function testDriveAuthorized() {
+  const dir = makeRepo("main");
+  try {
+    const mission = (slug, stamp) => {
+      const d = join(dir, `.workaholic/missions/active/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "mission.md"),
+        `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\nassignee: a@qmu.jp\ndrive_authorized:${stamp ? " true" : ""}\n---\n\n## Acceptance\n\n- [ ] One\n`);
+    };
+    const ticket = (name, missionLine) => {
+      const rel = `.workaholic/tickets/todo/a-qmu-jp/${name}`;
+      const abs = join(dir, rel);
+      mkdirSync(dirname(abs), { recursive: true });
+      writeFileSync(abs, `---\ncreated_at: 2026-07-16T11:00:00+09:00\nauthor: a@qmu.jp\ntype: enhancement\nlayer: [Domain]\neffort:\ncommit_hash:\ncategory:\ndepends_on:\n${missionLine}---\n\n# T\n\n## Policies\n\n- x\n\n## Quality Gate\n\ng\n`);
+      return rel;
+    };
+    const ask = (rel) => JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.driveAuthorized} ${rel}`).stdout);
+
+    mission("authorized-one", true);
+    mission("authorized-two", true);
+    mission("unstamped", false);
+
+    // Authorized: the mission was interrogated and stamped.
+    let r = ask(ticket("20260716110000-a.md", "mission: authorized-one\n"));
+    assertEq("a ticket whose mission is stamped is authorized",
+      { a: r.authorized, reason: r.reason, m: r.missions }, { a: true, reason: "", m: ["authorized-one"] });
+
+    // No mission relation -> nothing authorized it. This is the common /ticket case.
+    r = ask(ticket("20260716110001-b.md", "mission:\n"));
+    assertEq("a ticket with no mission is NOT authorized",
+      { a: r.authorized, reason: r.reason }, { a: false, reason: "no_mission" });
+
+    // A mission that exists but was never stamped -> ask.
+    r = ask(ticket("20260716110002-c.md", "mission: unstamped\n"));
+    assertEq("a ticket whose mission is unstamped is NOT authorized",
+      { a: r.authorized, reason: r.reason }, { a: false, reason: "not_authorized" });
+
+    // A slug that does not resolve -> ask. Never fail open.
+    r = ask(ticket("20260716110003-d.md", "mission: ghost\n"));
+    assertEq("a ticket naming a nonexistent mission is NOT authorized",
+      { a: r.authorized, reason: r.reason }, { a: false, reason: "mission_not_found" });
+
+    // THE conservative row: two missions, one unauthorized -> ask. A ticket is gate-free
+    // only if EVERY mission it claims says so. Naming a mission is a commitment.
+    r = ask(ticket("20260716110004-e.md", "mission: [authorized-one, unstamped]\n"));
+    assertEq("a ticket authorized by only ONE of its two missions is NOT authorized",
+      { a: r.authorized, reason: r.reason }, { a: false, reason: "not_authorized" });
+    assertEq("the refusal still reports both claimed missions", r.missions, ["authorized-one", "unstamped"]);
+
+    // Both stamped -> authorized.
+    r = ask(ticket("20260716110005-f.md", "mission: [authorized-one, authorized-two]\n"));
+    assertEq("a ticket whose two missions are both stamped is authorized",
+      { a: r.authorized, m: r.missions }, { a: true, m: ["authorized-one", "authorized-two"] });
+
+    // The list form and the bare scalar must behave identically -- read-relation.sh is
+    // the single reader, so this is really asserting nothing re-parses frontmatter.
+    const bare = ask(ticket("20260716110006-g.md", "mission: authorized-one\n"));
+    const list = ask(ticket("20260716110007-h.md", "mission: [authorized-one]\n"));
+    assertEq("bare `mission: a` and `mission: [a]` resolve identically",
+      { a: bare.authorized, m: bare.missions }, { a: list.authorized, m: list.missions });
+
+    // A missing file never crashes the drive loop.
+    const missing = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.driveAuthorized} .workaholic/tickets/todo/a-qmu-jp/nope.md`).stdout);
+    assertEq("a missing ticket file is NOT authorized, and does not crash",
+      { a: missing.authorized, reason: missing.reason }, { a: false, reason: "no_ticket" });
+  } finally { cleanup(dir); }
+
+  // The prose contract this ticket had to correct: night mode was documented as the ONLY
+  // gate-skipping mode, which stops being true the moment a mission queue can skip it.
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  assertTrue("drive/SKILL.md no longer claims night mode is the only gate-skipping mode",
+    !/ONLY mode that skips/.test(skill), "the false sentence survives");
+  assertTrue("drive/SKILL.md states the rule as a prior batch authorization",
+    /prior explicit batch authorization/.test(skill), "rule not restated");
+  assertTrue("drive/SKILL.md tells the loop to consult the resolver, not decide in prose",
+    /drive-authorized\.sh/.test(skill), "resolver not wired in");
+  assertTrue("the gate is skipped, never auto-answered",
+    /Skip it; never auto-answer it/.test(skill), "auto-answer boundary not stated");
+  assertTrue("the authorized mode inherits the attempt-every failure contract",
+    /Attempt every ticket/.test(skill), "failure contract not stated");
 }
 
 // ---------- mission Creation Interrogation: the protocol is stated, and its output validates ----------
@@ -4624,6 +4715,7 @@ const tests = [
   ["mission describes experience, gate is optional", testMissionExperienceSection],
   ["mission/gate.sh resolves worktree ports", testMissionGateWorktreePorts],
   ["mission creation interrogation protocol", testMissionInterrogationProtocol],
+  ["mission/drive-authorized.sh (approval relocation)", testDriveAuthorized],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],
   ["mission layout migration + close.sh", testMissionLayoutMigrationAndClose],
   ["drive/archive.sh mission seam", testMissionDriveSeam],

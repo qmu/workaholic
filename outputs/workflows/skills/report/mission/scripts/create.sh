@@ -55,6 +55,7 @@ status: active
 created_at: ${CREATED_AT}
 author: ${AUTHOR}
 assignee: ${ASSIGNEE}
+drive_authorized:
 tickets: []
 stories: []
 concerns: []

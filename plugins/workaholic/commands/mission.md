@@ -73,6 +73,8 @@ Then write `## Goal`, `## Scope` and `## Experience` into the mission from the a
 
 By the end of this step the mission is **drive-ready**: a complete, ordered queue whose judgement calls are already answered.
 
+**4b. Stamp the authorization.** Set `drive_authorized: true` in the mission's frontmatter — **only now**, once the interrogation is complete and the whole set is written. That stamp is what lets `/drive` drain this queue without the per-ticket approval prompt (`mission/scripts/drive-authorized.sh` reads it; see the skill's *Drive authorization*). Do **not** stamp a mission whose interrogation was cut short or whose set is partial: the stamp asserts that the developer answered every judgement call about these exact tickets, and an unearned stamp removes a gate nobody agreed to remove.
+
 **5. Commit the mission statement and kickoff tickets inside the worktree** via the commit skill (policy-conformant subject, `Co-Authored-By` trailer kept):
 
 ```bash

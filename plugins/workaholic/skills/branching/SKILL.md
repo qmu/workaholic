@@ -190,13 +190,13 @@ Output: `{"cleaned": true, "worktree_path": "<path>", "branch": "<branch-name>",
 
 A **mission** runs in a dedicated, persistent worktree keyed by a **descriptive slug directory** — `.worktrees/<mission-slug>/` (e.g. `.worktrees/real-time-notifications/`), *not* a `work-*` directory. The branch checked out inside is still an ordinary `work-YYYYMMDD-HHMMSS` branch (the branch-name invariant is preserved); only the directory carries the mission's name. The worktree persists across many branches (each cut from `main`, merged, and re-cut) and is removed only when the mission is closed.
 
-Create a mission worktree — cuts a fresh `work-*` branch off the base (default `main`) into `.worktrees/<slug>/` and copies the root `.env` in:
+Create a mission worktree — cuts a fresh `work-*` branch off the base (default `main`) into `.worktrees/<slug>/` and copies the root `.env` in. The base is **resolved to a concrete commit SHA** (local ref, else `origin/<base>`) before it reaches `git worktree add`, so git's remote-tracking DWIM can never silently discard the `-b` and land the worktree on the base branch itself (the desk / fresh-clone state where no local `main` exists); the reported `branch` is then **read back from the worktree's real HEAD**, so it is an observation, not a restatement of intent:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create-mission-worktree.sh <slug> [base-branch]
 ```
 
-Output: `{"worktree_path": "<path>", "branch": "work-YYYYMMDD-HHMMSS", "slug": "<slug>", "port_base": N, "dev_port": N, "docs_port": N+1}`. Errors on a missing/invalid slug, a non-git dir, or an existing worktree.
+Output: `{"worktree_path": "<path>", "branch": "work-YYYYMMDD-HHMMSS", "slug": "<slug>", "port_base": N, "dev_port": N, "docs_port": N+1}`. Errors on a missing/invalid slug, a non-git dir, an existing worktree, a base that resolves to no commit, or a created worktree whose HEAD disagrees with the minted branch (never an exit-0 JSON on a wrong-branch worktree).
 
 Each mission worktree is assigned a **unique local port base** (via `allocate-worktree-port.sh` below) written into its `.env` as `WORKAHOLIC_PORT_BASE`/`WORKAHOLIC_DEV_PORT`/`WORKAHOLIC_DOCS_PORT`, so several worktrees can run dev/docs servers at once without colliding on `localhost` (and each can be driven/verified independently, e.g. via Playwright). A project's serve scripts read these variables with their own env precedence; workaholic supplies the unique numbers and the convention, not the servers.
 

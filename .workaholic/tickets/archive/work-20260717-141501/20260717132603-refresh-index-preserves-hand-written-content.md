@@ -3,9 +3,9 @@ created_at: 2026-07-17T13:26:14+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Domain]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -113,3 +113,17 @@ git clone                              => ls: .../concerns/archive: No such file
 - **The header comment is part of the defect.** "Deterministic: same tree in, same bytes out — so it is idempotent and safe before any commit" is the sentence that licensed calling this on every `/report`. Idempotence was proven and read as safety; they are unrelated properties. Whatever lands, the comment must stop implying that.
 - **`archive.sh:78` masks this** (`>/dev/null 2>&1 || true`), which is why a destructive rewrite never announced itself. That mask has its own ticket; do not couple the two, but do not assume the mask will be gone either — this script must be safe when called silently, because it is.
 - **Restoring the qfs-viewer content is not this ticket.** Fix the generator here; the content restoration is a `/request` to that repo once the generator can hold it.
+
+## Final Report
+
+**Ownership model chosen: marked generated region** (`<!-- okf:generated:begin/end -->`) for the flat knowledge areas. The refresh script owns only the bytes between the markers; prose outside survives verbatim. Three first-touch cases, all decided rather than left to fall through: a marked index → region regenerated in place; a legacy index whose body is purely the old generated shape (H1 + `* [...]` bullets only) → migrated once into the marked form (lossless, keeps updating); a legacy index carrying any hand-authored prose → preserved verbatim, untouched (a human adds markers to opt back into generation). Per-entry descriptions are sourced from the entry file's `description:` frontmatter, falling back to the description the prior region held for that link — so a hand-written description is never degraded to a bare link.
+
+**Dead-link fix:** the flat-area subdir block now lists a directory only when `git ls-files` shows ≥1 tracked file under it, so empty/untracked/ignored-only directories (the `concerns/archive/` case) are never indexed and a fresh clone never 404s. Step 3's upstream half (lazy `mkdir` in `apply-deferred-concern-verdicts.sh`) had already landed on this branch; regression tests now pin both halves.
+
+**Header comment + docs:** the script header no longer implies "idempotent ⇒ safe"; it states the ownership model and that safety comes from preserving what it does not own. `okf/SKILL.md` gained an *Ownership model* section. CLAUDE.md's `.workaholic/` OKF paragraph stays true (refresh still regenerates the hierarchy before each knowledge commit) so it was left unchanged.
+
+**Scope note:** the tracked-directory filter is applied to the flat-area subdir block (the observed defect, per step 2). The trips/missions directory listings are the same defect class but weren't in the observed scope and always carry a `plan.md`/`mission.md`; left unchanged to avoid perturbing the mission idempotence tests.
+
+**Discovered insight:** in this repo the migration path fires immediately — every flat-area `index.md` is purely-generated and will migrate to the marked form on the first refresh (i.e. this very archive commit), so downstream pure-generated repos migrate silently on their next `/report` without freezing.
+
+**Verification:** `build.mjs` clean, `verify.mjs` (48 files fresh, 213 links resolve) pass, `validate-metadata.mjs` pass, `posix-lint` conforming, `test-workflow-scripts.mjs` **866 passed, 0 failed** (new `testRefreshIndexPreservesContent`: preservation-verbatim, description fallback, new/removed file, migration, dead-link exclusion incl. a real `git clone`, and the applyVerdicts archive-dir rows).

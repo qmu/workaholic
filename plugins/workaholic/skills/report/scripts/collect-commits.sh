@@ -9,7 +9,16 @@
 
 set -eu
 
-BASE_BRANCH="${1:-main}"
+# Base ref: an explicit arg wins; otherwise the single resolver decides it (prefers
+# origin/<default>, immune to a stale local `main`). We never re-derive an in-script
+# default that silently falls back to `main` — that stale fallback is the bug this closes.
+SCRIPT_DIR=$(dirname "$0")
+if [ "$#" -ge 1 ] && [ -n "$1" ]; then
+    BASE_BRANCH="$1"
+elif ! BASE_BRANCH=$("${SCRIPT_DIR}/../../gather/scripts/base-ref.sh"); then
+    echo "collect-commits: could not resolve a base ref" >&2
+    exit 1
+fi
 
 # Get commit count
 COUNT=$(git rev-list --count "${BASE_BRANCH}..HEAD")

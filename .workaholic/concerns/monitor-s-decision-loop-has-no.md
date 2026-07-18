@@ -12,8 +12,8 @@ first_seen: 2026-07-18T20:46:34+09:00
 last_seen: 2026-07-18T20:46:34+09:00
 severity: moderate
 status: active
-resolved_by_pr:
-resolved_by_commit:
+resolved_by_pr: 
+resolved_by_commit: 
 ---
 
 # Monitor's decision loop has no cross-run deferral memory

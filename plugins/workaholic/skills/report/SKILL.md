@@ -118,10 +118,10 @@ Gather all context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/
 Run before the parallel agent batch so the verdicts flow into section-reviewer's input. Skip silently if `.workaholic/concerns/` is empty or absent.
 
 1. **Spawn a deferred-concern judge** as `subagent_type: "general-purpose"` (`model: "opus"`) in a single Task call. The prompt instructs it to preload `workaholic:report`, follow the `### Judge Deferred Concerns` section with the given branch name and base branch, and return `{verdicts: [...], compounds: [...]}` (compounds are candidate A+B combinations — see that section).
-2. **Apply verdicts**: Write the judge's returned JSON to `/tmp/deferred-concern-verdicts.json`. `apply-deferred-concern-verdicts.sh` accepts both the full `{"verdicts": [...]}` object (the judge's natural output) and a bare `[...]` array, so either form works — prefer writing the object verbatim. Then run:
+2. **Apply verdicts**: Establish one **private per-run artifact directory** for this `/report` and reuse it for every intermediate file — `RUN_DIR=$(mktemp -d)`. Never park artifacts at a constant `/tmp/...` path: concurrent `/report`s across desks (different repos, by design) would share it, and a stale or foreign payload left there is read silently instead of loudly. Write the judge's returned JSON to `$RUN_DIR/deferred-concern-verdicts.json`. `apply-deferred-concern-verdicts.sh` accepts both the full `{"verdicts": [...]}` object (the judge's natural output) and a bare `[...]` array, so either form works — prefer writing the object verbatim. **Pass the expected concern count** — the number of active deferred concerns `list-active-deferred-concerns.sh` returned — as the script's first argument, so a stale/foreign `{"verdicts": []}` fails loud (non-zero exit) instead of silently reporting `still_active: 0`. Then run:
 
    ```bash
-   cat /tmp/deferred-concern-verdicts.json | bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/apply-deferred-concern-verdicts.sh
+   cat "$RUN_DIR/deferred-concern-verdicts.json" | bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/apply-deferred-concern-verdicts.sh "$EXPECTED_CONCERN_COUNT"
    ```
 
    Files marked `resolved` have `status:` flipped to `resolved`, `resolved_by_pr` / `resolved_by_commit` recorded, and are then moved to `.workaholic/concerns/archive/`. Files marked `still_active` stay in `.workaholic/concerns/`.
@@ -172,7 +172,7 @@ Spawn 3 `subagent_type: "general-purpose"` leaf subagents in parallel (single me
 
 - **release-readiness** (`model: "opus"`): preload `workaholic:report`, run `## Assess Release Readiness`, return the releasability JSON. Pass archived tickets list and branch name.
 - **overview-writer** (`model: "haiku"`): preload `workaholic:report`, run `### Overview Generation`, return the overview JSON. Pass branch name and base branch.
-- **section-reviewer** (`model: "haiku"`): preload `workaholic:review-sections`, run it, return the sections 4-7 JSON (Outcome, Historical Analysis, Concerns, Successful Development Patterns). Pass branch name, archived tickets list, the deferred concern verdicts file path `/tmp/deferred-concern-verdicts.json`, **and the collected commit bodies** (`collect-commits.sh` output). The section-reviewer prepends `still_active` verdicts to section 6, then folds in any `Concerns:` keys from the commit bodies (§6) and `Insights:` keys (§7) so a concern or pattern recorded in a commit is not lost when a ticket is sparse or absent.
+- **section-reviewer** (`model: "haiku"`): preload `workaholic:review-sections`, run it, return the sections 4-7 JSON (Outcome, Historical Analysis, Concerns, Successful Development Patterns). Pass branch name, archived tickets list, the deferred concern verdicts file path `$RUN_DIR/deferred-concern-verdicts.json` (the per-run path from Phase 1, not a constant `/tmp/...`), **and the collected commit bodies** (`collect-commits.sh` output). The section-reviewer prepends `still_active` verdicts to section 6, then folds in any `Concerns:` keys from the commit bodies (§6) and `Insights:` keys (§7) so a concern or pattern recorded in a commit is not lost when a ticket is sparse or absent.
 
 Wait for all 3 to complete. Track which succeeded and which failed.
 
@@ -328,7 +328,10 @@ Run the bundled script to collect commit information:
 bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/collect-commits.sh [base-branch]
 ```
 
-Default base branch is `main`. The `body` field carries the full structured commit message
+With no `[base-branch]` arg the base is resolved by `gather/base-ref.sh`, which prefers
+`origin/<default>` (the remote-tracking ref) — so the story is measured against what the
+PR is diffed against and is immune to a local `main` a primary checkout has pinned stale.
+An unresolvable base fails loudly rather than defaulting to a stale `main`. The `body` field carries the full structured commit message
 (`Why:` / `Changes:` / `Concerns:` / `Insights:` / `Verify:`). Read those keys: `Why` informs
 the Motivation, `Changes` the highlights/journey. (Historically this script dropped the body;
 it now emits it, so the structured commit content actually reaches this role.) The `category`
@@ -646,7 +649,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/create-or-update.sh <branch-nam
 #### What the Script Does
 
 1. Strips YAML frontmatter via `strip-frontmatter.sh` from `.workaholic/stories/<branch-name>.md`
-2. Writes clean content to `/tmp/pr-body.md`
+2. Writes clean content to a private per-run temp file (`mktemp`, removed on exit) — never a constant path two concurrent runs could share
 3. Checks if PR exists for the branch
 4. Creates new PR or updates existing one
 5. Outputs the result in required format

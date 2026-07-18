@@ -11,7 +11,7 @@ Guidelines for generating story sections 4-7 (Outcome, Historical Analysis, Conc
 
 - Branch name
 - List of archived ticket paths
-- Deferred concern verdicts file path (`/tmp/deferred-concern-verdicts.json`, optional — empty/missing if no active deferred concerns)
+- Deferred concern verdicts file path — a per-run path the report workflow supplies (e.g. `$RUN_DIR/deferred-concern-verdicts.json`, under a `mktemp -d` dir unique to that run; optional — empty/missing if no active deferred concerns). Never a constant `/tmp/...` path shared across runs.
 - Collected commit bodies (the `collect-commits.sh` output): each commit's structured body may carry `Concerns:` and `Insights:` keys recorded at commit time. These are a resilient secondary source for sections 6 and 7 — they survive even when a ticket is sparse or has been pruned.
 
 ## Analysis Process

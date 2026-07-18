@@ -3,9 +3,9 @@ created_at: 2026-07-17T13:26:14+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Domain]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -93,3 +93,11 @@ The same pattern sits at `:78` for `refresh-index.sh`. It is in scope: identical
 - **Do not make mission problems block archiving.** The `:66` comment is correct and the temptation, having found silence, is to over-correct into `set -e` on the mutators. That would make an unrelated mission-file problem strand a finished ticket outside the archive — strictly worse than today. Non-blocking is not the bug.
 - **Watch the noise budget.** `/drive` archives many tickets in a run; if every archive prints three mission lines, the signal drowns and the next reader learns to skim past exactly the line this ticket exists to surface. Report the interesting cases (no-op, failure) loudly and the ordinary success briefly.
 - **Worth asking why the marker was missing at all.** `tick-acceptance.sh` matches on a `(#<artifact>)` marker the Acceptance item must carry; the reproduction's mission lacked it and the tick silently found nothing. That may be a mission-authoring gap (`/mission` writing Acceptance items without markers) rather than an `archive.sh` gap. This ticket makes the mismatch *visible*, which is the prerequisite for judging it; if the marker turns out to be routinely absent, that is a second ticket and this one's reporting is how it gets noticed.
+
+## Final Report
+
+`archive.sh` now separates "does not block" from "is not reported". A `report_mission_roll` helper classifies each mutator's captured stdout + exit code into three volumes — failure (non-zero exit → loud, names mission/mutator/reason), clean no-op (exit 0, `"ticked"/"appended": false` → prints the JSON `reason`, the case that bit us since `|| true` never fires on it), and success (one terse line). The `printf | while` subshell became a here-doc so the loop runs in-shell (matching `apply-deferred-concern-verdicts.sh`) and its reports reach `archive.sh`'s own stdout. The mission-relation reader dropped its `2>/dev/null || true`: a non-zero exit is now reported as "could not read the relation" rather than collapsed into "no mission". `refresh-index.sh` at the index seam got the same treatment (silent on success — it runs every archive — loud on failure). Archiving still always completes (exit 0, ticket committed) on any mission/index problem.
+
+**Verification:** all five Quality-Gate behavior rows exercised end-to-end in a new `testArchiveMissionReporting` (5 hermetic temp repos) asserting on `archive.sh`'s **stdout**; rows 5 (reader-failure) and 8 (no mask) pinned at the source, since `read-relation.sh` is contractually non-failing. Watch-it-fail confirmed: the pre-change `archive.sh` emits 0 reporting lines while 5/5 archives still complete at exit 0 — the reporting rows go red, the archive rows stay green. Full chain green: build, verify, validate-metadata, posix-lint conforming, `901 passed, 0 failed`. Docs updated: `mission/SKILL.md` now states "non-blocking is not silent" for the seams.
+
+- **Discovered-Insight:** `read-relation.sh` cannot be driven to fail through content — it swallows its own awk/pipe errors and always exits 0 — so the reader-failure path is genuinely defensive plumbing. The `index.md`-is-a-directory trick, by contrast, induces a *real* `refresh-index.sh` failure hermetically, which is how row 7 is driven end-to-end rather than source-pinned.

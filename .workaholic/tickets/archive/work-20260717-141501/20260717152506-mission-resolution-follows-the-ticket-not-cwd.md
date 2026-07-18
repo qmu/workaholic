@@ -3,9 +3,9 @@ created_at: 2026-07-17T15:25:06+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Domain]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -142,3 +142,15 @@ This was filed as `hooks/validate-ticket.sh:370-387` reporting *"mission relatio
 - **`:54`'s path fast-path is the accidental escape hatch and should not be mistaken for the design.** It is why `mission-lens.sh` works and why this bug looks intermittent rather than total — the callers divide cleanly into "passes a path, correct" and "passes a slug, cwd-dependent", with no middle ground. The fix is to make the slug path as root-explicit as the path path already is, not to push every caller into passing paths (`create.sh` and `close.sh` genuinely have only a slug).
 - **Related but distinct: `20260717132602`** covers `archive.sh:70-74` **discarding** what the mission mutators reported. Same lines, different defect: that one is about silence, this one about the mutators being pointed at the wrong tree. They compound — a wrong-cwd `tick-acceptance.sh` returns `{"ticked": false, "reason": "no_unchecked_match"}`, which `:73` throws away — so fixing `132602` alone would make **this** bug newly visible without fixing it, and fixing this alone leaves the silence. Neither subsumes the other; note both when either is triaged.
 - **The worktree-per-mission model makes this structural rather than incidental.** `.worktrees/<slug>` is keyed 1:1 to a mission and each worktree checks out its own `.workaholic/`, so **every mission tree is a sibling of every other mission tree** and a bare slug is ambiguous across all of them by design. This is not a bug that surfaces when someone is careless with `cd`; it is one the layout guarantees will keep surfacing until resolution takes a root.
+
+## Final Report
+
+`lib/resolve.sh` was rebuilt so resolution is a function of **(root, arg)** with no ambient input. New helpers `missions_root_from_artifact` (derives the `.workaholic` root from an artifact's own path, mirroring `validate-ticket.sh`'s `${file_path%%.workaholic/*}.workaholic`), `missions_root_default` (the repo/worktree root via `git rev-parse`, for callers holding only a slug), and `missions_root_for_arg` (path→artifact-root, slug→repo-root) choose the root; `mission_resolve <root> <arg>` and `missions_migrate_layout <root>` both take it explicitly and `mission_resolve` returns an **absolute** path, so two same-slug missions in two trees never yield the same string.
+
+All eleven call sites pass an explicit root: `drive-authorized.sh` and `drive/archive.sh` derive it **from the ticket** (resolution follows the ticket, not the cwd); the archive seam now resolves each slug to an absolute mission.md before the mutators run, and is guarded on a non-empty relation so an un-missioned ticket still runs no mission script and no migration. `create.sh`/`close.sh` root on the repo they run in; `gate.sh`/`progress.sh`/`next-acceptance.sh`/`append-changelog.sh`/`tick-acceptance.sh` use `missions_root_for_arg`; `list.sh`/`summary.sh` pass their cwd-relative root to migration only (their find/output stay relative). `mission-lens.sh` (the absolute-path caller) is untouched and pinned. The always-echo contract survives (`create.sh` resolves a not-yet-existing slug).
+
+Regression `testMissionResolutionFollowsTicket` builds a real linked worktree holding both a mission and its ticket, plus a same-slug **unauthorized** mission in the main tree, and exercises three cwds (worktree, main, unrelated `/tmp`): `drive-authorized` returns `{authorized:true}` from every cwd, `mission_resolve` returns the worktree's absolute path from every cwd and the two trees resolve to different strings, migration and the archive seam act only on the caller-named tree, and the resolver library carries no bare `.workaholic/missions` literal.
+
+Full chain green from the worktree: `build.mjs`, `verify.mjs`, `validate-metadata.mjs`, `posix-lint` (conforming), `test-workflow-scripts.mjs` (**881 passed, 0 failed**).
+
+- **Discovered-Insight**: the ticket's cross-reference to the open concern `.workaholic/concerns/validate-ticket-sh-never-validates-the.md` is load-bearing — that concern's `## How to Fix` ("resolve each slug against `.workaholic/missions/active/<slug>/mission.md`") is written as a **cwd-relative** path; implemented on the pre-fix resolver it would have built a blocking `PostToolUse` gate on a cwd-dependent foundation and manufactured the exact false rejection this bug was reported as. This ticket had to land first. Whoever picks up that concern should read this ticket and resolve through `mission_resolve <root>`.

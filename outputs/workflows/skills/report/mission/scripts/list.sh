@@ -19,7 +19,9 @@ if [ ! -d "$ROOT" ]; then
 fi
 
 . "${SCRIPT_DIR}/lib/resolve.sh"
-missions_migrate_layout
+# list.sh enumerates "the missions in this repo" and reports each mission.md's location
+# relative to the cwd (below), so it migrates the same cwd-relative tree it lists.
+missions_migrate_layout ".workaholic"
 
 # JSON-escape a value (backslash and double-quote only; titles are plain text).
 json_escape() {

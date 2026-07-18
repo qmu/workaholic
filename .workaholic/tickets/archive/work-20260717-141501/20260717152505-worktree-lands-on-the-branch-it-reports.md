@@ -3,9 +3,9 @@ created_at: 2026-07-17T15:25:05+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Infrastructure, Domain]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -107,3 +107,15 @@ ACTUAL worktree branch: work-20260717-152302     <- correct; nothing to see
 - **Step 2 is the durable half and will look redundant after step 1.** Once the start-point is unambiguous, reading back HEAD catches nothing — which is exactly the argument that will be made for dropping it. It is worth keeping for the same reason `:47-50`'s precheck was worth writing: the script's output is consumed as fact by `/mission` and by ~10 test call sites, and a report that is an observation cannot lie, while a report that is a restatement of intent can only be as true as its assumptions. The assumption failed here.
 - **This ticket and `20260717132605` are adjacent but distinct, and the direction matters.** That one is about the local `main` ref being structurally *stale* as a diff base; this one is about a bare `main` being silently *resolved elsewhere* as a start-point — different failure, different script, different fix. The link is causal and one-way: this bug **creates** a local `main` on a desk that had none, which is the ref that one then reads. Fixing this one does not fix that one. Note both when either is triaged.
 - **The stderr detail deserves weight when designing the fix.** git was not quiet — it printed `Preparing worktree (new branch 'main')`. The failure was not a lack of information but a structural decision at `:73` to route git's chatter to stderr so stdout stays clean JSON, which is a good decision that happened to discard the one line that mattered. A fix that only tightens the start-point leaves that structure intact; step 2 is what makes the script *look* at what it did.
+
+## Final Report
+
+Both halves shipped together. `create-mission-worktree.sh` now (1) **resolves the base to a concrete commit SHA** before `git worktree add` — `git rev-parse --verify --quiet "${base}^{commit}"`, then `origin/${base}^{commit}`, else a loud error naming the base — so git's remote-tracking DWIM can never discard the `-b`, never lands the worktree on `main`, and never manufactures a stray local `main`; and (2) **reads the worktree's real HEAD back** (`git -C <wt> rev-parse --abbrev-ref HEAD`), fails loudly on any mismatch, and reports that observation in the JSON instead of the minted `${branch}` variable. Reproduced the bug against the real script first (no-local-`main` clone: JSON `work-*` vs actual `main` + stray `main` created), then confirmed the fix flips all three facts.
+
+Regression test `testMissionWorktreeNoLocalMain` added with a dedicated `makeNoLocalMainClone()` fixture (bare origin + clone + checked-out `work-*` + `git branch -D main`), carrying an in-fixture comment forbidding a `makeRepo()` "simplification" (which would silently test the dormant case). Covers: no-local-`main` lands on the reported `work-*` (asserted against git), no stray `main`, unresolvable base fails loudly with no worktree left, local-`main` path unchanged, explicit base honoured by the same rule and cut from that base's tip.
+
+Docs updated in the same change: script header + output-contract comment, `branching/SKILL.md`, `commands/mission.md`. `outputs/` regenerated.
+
+**Quality Gate:** all rows covered except the "HEAD disagrees, however caused" row, which the SHA-resolution fix makes structurally unreachable without mocking git (the step-2 guard exists in code); every other row has a passing assertion. Full chain green: `build.mjs`/`verify.mjs`/`validate-metadata.mjs` pass, `posix-lint` conforming (0 findings), `test-workflow-scripts.mjs` **912 passed, 0 failed**.
+
+- Discovered-Insight: the two sibling worktree scripts (`ensure-worktree.sh` uses `HEAD`, `adopt-worktree.sh` passes an existing branch with no `-b`) are unaffected — `create-mission-worktree.sh` was the only site handing git a bare branch **name** to resolve. This bug also **manufactures the precondition** for `20260717132605` (a stray local `main` on a desk that had none); fixing this one removes that side effect but does not fix that ticket.

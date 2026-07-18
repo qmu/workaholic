@@ -3,9 +3,9 @@ created_at: 2026-07-17T13:26:14+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Infrastructure, Domain]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -114,3 +114,19 @@ The HQ has a documented manual workaround (`.workaholic/hq-desk-rules.md` § "/r
 - **The false-negative direction deserves a moment.** Everything observed was a false *alarm* — noisy but self-announcing. The same staleness in the other direction is quieter: if `main` were somehow *ahead*, real branch content could fall outside the diff and a genuine secret would go unscanned. Not observed and possibly unreachable under this layout, but it is the same defect and worth a sentence in the fix's reasoning rather than an assumption.
 - **`catchup-main.sh` (step 3) could reasonably be its own ticket.** It is a different script with a different failure (a false claim rather than a stale default). It is folded in because it is the same *fact* — the local `main` ref is not what these scripts think — and because someone hitting the symptom will reach for catch-up first and be told everything is current. Split it if that makes the fix land sooner; do not drop it.
 - **Related but distinct**: the `secret` rule's own false positives (`icebox/20260715172302-secret-rule-reads-a-call-as-a-literal.md`, superseded and delivered via `e3366bfd`) were about the *pattern* matching a function call. This is not that: the patterns are right, the **input** is wrong. Two independent sources of false `secret` findings — worth knowing when the next one is triaged, so the pattern is not blamed again.
+
+## Final Report
+
+Development completed as planned. Steps 1–6 shipped together; step 7 is a deliberate cross-boundary follow-up (below).
+
+- Added `gather/scripts/base-ref.sh` as the **single** base resolver: prefers `origin/<default>` (the remote-tracking ref), resolves with **no network call** (`git symbolic-ref refs/remotes/origin/HEAD`, then a probe of `origin/main`/`origin/master`), and fails **loudly** — exit 3 (origin present, no tracking ref), exit 4 (nothing resolvable), and a stderr NOTE on the local-only fallback so a local base is never taken silently.
+- Rewired `git-context.sh`, `report/collect-commits.sh`, `release-scan/scan-branch-safety.sh` to that one resolver. Each now fails loud instead of degrading to a stale `main`; the bare `${1:-main}` and the silent `|| BASE=main` are gone.
+- `catchup-main.sh`: renamed `already_current` → `branch_up_to_date` (an honest claim about the work branch, not the local `main` ref it never checked). Updated the ship SKILL consumer.
+- Regression fixture in `test-workflow-scripts.mjs` is structurally faithful (real bare origin, local `main` genuinely pinned N behind, branch cut from fresh `origin/main`), and pins both the fix and the demonstrated bug (count 6 / phantom block when forced against stale `main`), plus the non-laundering negative case.
+
+### Discovered Insights
+
+- **Insight**: Making the base the remote-tracking ref (`origin/main`) doesn't just fix the stale-`main` symptom — it makes the whole class *unreachable*, because `origin/main` has no local upstream to fall behind. The step-2 "fail loud on a stale base" check therefore becomes defensive rather than load-bearing in the happy path; the real closure is the choice of ref, not a staleness probe.
+  **Context**: A future reader may wonder why there's no explicit `rev-list base..base@{upstream}` guard. There doesn't need to be one while the base is a remote-tracking ref; the guard would only matter if a variant reintroduced a local base.
+- **Insight**: `run()` in the smoke harness only captures stderr on a **non-zero** exit; a script that writes a deliberate NOTE to stderr and exits 0 needs a `2>file` redirect in the test to be observed.
+  **Context**: Bit me writing the loud-fallback assertion; anyone testing a "warn-but-succeed" script will hit the same blind spot.

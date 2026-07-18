@@ -19,7 +19,9 @@
 # verdict never means "no client context here".
 #
 # Usage: scan-branch-safety.sh [base-branch]
-#   base defaults to gather/git-context.sh's base_branch, else main.
+#   base defaults to gather/base-ref.sh (origin/<default>, resolved without a network
+#   call so this gate stays offline). If the base cannot be resolved the scan FAILS
+#   LOUDLY rather than defaulting to a stale local `main` and scanning phantom history.
 # Output: {"verdict": "pass"|"block", "findings": [ {category, severity, file, line,
 #          rule, evidence} ]}. verdict is "block" iff findings is non-empty.
 
@@ -34,12 +36,16 @@ MAX_FILES=100
 MAX_FILE_ADDED_LINES=3000
 MAX_FILE_BYTES=524288   # 512 KB
 
+# Resolve the base from the single resolver — never re-derive a `${1:-main}` default
+# here. base-ref.sh is offline (no network), so the gate's verdict cannot depend on
+# connectivity, and it fails loudly instead of silently scanning against a stale `main`.
 BASE="${1:-}"
 if [ -z "$BASE" ]; then
-    ctx=$(sh "${SCRIPT_DIR}/../../gather/scripts//git-context.sh" 2>/dev/null || true)
-    BASE=$(printf '%s' "$ctx" | sed -n 's/.*"base_branch":[ ]*"\([^"]*\)".*/\1/p')
+    if ! BASE=$("${SCRIPT_DIR}/../../gather/scripts//base-ref.sh"); then
+        echo "scan-branch-safety: could not resolve a base ref; refusing to scan against an unknown base" >&2
+        exit 1
+    fi
 fi
-[ -n "$BASE" ] || BASE=main
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 TAB=$(printf '\t')

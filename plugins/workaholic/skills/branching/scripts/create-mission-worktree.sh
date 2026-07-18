@@ -5,6 +5,13 @@
 # work-* branch (the branch-name invariant is preserved). Copies the root .env
 # into the worktree (as ensure-worktree.sh does).
 #
+# The base is resolved to a concrete commit SHA (local ref, else origin/<base>)
+# before it reaches `git worktree add`, so git's remote-tracking DWIM can never
+# discard the -b and land the worktree on the base branch itself; and the
+# reported "branch" is read back from the worktree's real HEAD, so the output is
+# an observation, not a restatement of intent. Fails loudly if the base resolves
+# to no commit, or if the created worktree's HEAD ever disagrees with the branch.
+#
 # Usage: create-mission-worktree.sh <slug> [base-branch]
 # Output: {"worktree_path": "...", "branch": "work-YYYYMMDD-HHMMSS", "slug": "..."}
 
@@ -57,11 +64,41 @@ mkdir -p "${repo_root}/.worktrees"
 . "${SCRIPT_DIR}/lib/ensure-git-excludes.sh"
 ensure_git_excludes "$repo_root"
 
-# Branch from the base (default main) so the worktree starts on a clean, merged
-# base — uncommitted work in the main tree stays in the main tree. Send git's
-# progress chatter ("Preparing worktree", "HEAD is now at ...") to stderr so
-# stdout carries only the JSON result.
-git worktree add -b "${branch}" "${worktree_path}" "${base}" >&2
+# Resolve the base to a concrete commit SHA that git cannot re-interpret. A bare
+# NAME handed to `git worktree add` is resolved by git itself: with no local
+# branch of that name but a matching remote-tracking ref, git's DWIM silently
+# creates a local branch tracking the remote, DISCARDS the explicit -b, and
+# checks THAT out — so a `main` base on a desk/fresh-clone with no local `main`
+# lands the worktree on `main` while the JSON still claims the minted work-*
+# branch (and manufactures a stray local `main`). Pin it to a SHA up front so -b
+# always takes effect and no stray branch is created. Prefer the local ref, then
+# the remote-tracking ref; fail loudly, naming the base, when neither resolves —
+# never fall back to the bare name (that is the bug).
+if base_sha="$(git rev-parse --verify --quiet "${base}^{commit}")"; then
+  :
+elif base_sha="$(git rev-parse --verify --quiet "origin/${base}^{commit}")"; then
+  :
+else
+  echo '{"error": "base does not resolve to a commit (no local branch, no origin ref)", "base": "'"${base}"'"}' >&2
+  exit 1
+fi
+
+# Branch from the resolved base so the worktree starts on a clean, merged base —
+# uncommitted work in the main tree stays in the main tree. Send git's progress
+# chatter ("Preparing worktree", "HEAD is now at ...") to stderr so stdout
+# carries only the JSON result.
+git worktree add -b "${branch}" "${worktree_path}" "${base_sha}" >&2
+
+# Report an OBSERVATION, not the minted name. git said what it did on stderr,
+# where the JSON-parsing caller never looks; read the worktree's real HEAD and
+# reconcile it with the branch we asked for. A mission worktree that landed on
+# the wrong branch is not a result to hand back with exit 0 — fail loudly,
+# reporting both names.
+actual_branch="$(git -C "${worktree_path}" rev-parse --abbrev-ref HEAD)"
+if [ "${actual_branch}" != "${branch}" ]; then
+  echo '{"error": "worktree HEAD disagrees with the minted branch", "expected": "'"${branch}"'", "actual": "'"${actual_branch}"'", "worktree_path": "'"${worktree_path}"'"}' >&2
+  exit 1
+fi
 
 # Carry the single-source root .env into the worktree (a copy, skipped when absent).
 if [ -f "${repo_root}/.env" ]; then
@@ -81,4 +118,6 @@ docs_port="$(printf '%s' "$ports" | sed -n 's/.*"docs_port":[ ]*\([0-9][0-9]*\).
   printf 'WORKAHOLIC_DOCS_PORT=%s\n' "$docs_port"
 } >> "${worktree_path}/.env"
 
-echo '{"worktree_path": "'"${worktree_path}"'", "branch": "'"${branch}"'", "slug": "'"${slug}"'", "port_base": '"${port_base}"', "dev_port": '"${dev_port}"', "docs_port": '"${docs_port}"'}'
+# Report the OBSERVED branch (verified above to equal the minted name), so the
+# contract is an observation of the worktree's HEAD, not a restatement of intent.
+echo '{"worktree_path": "'"${worktree_path}"'", "branch": "'"${actual_branch}"'", "slug": "'"${slug}"'", "port_base": '"${port_base}"', "dev_port": '"${dev_port}"', "docs_port": '"${docs_port}"'}'

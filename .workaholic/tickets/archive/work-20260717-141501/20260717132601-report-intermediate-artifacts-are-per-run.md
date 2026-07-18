@@ -3,9 +3,9 @@ created_at: 2026-07-17T13:26:14+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Infrastructure, Domain]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -90,3 +90,14 @@ The correct pattern already exists in this repo — `doc-drift.sh:70` and `publi
 - **Ordering:** `create-or-update.sh` (step 2) is the only site that reaches GitHub, and a wrong PR body is published and irreversible where a wrong verdict is local and re-runnable. If this ticket is split under time pressure, step 2 ships first.
 - **`collect-commits.sh` itself is not defective** — it writes to stdout and hardcodes no path. Incident 2's `commits.json` was an *agent-chosen* filename in a shared scratchpad, which is the same defect one level up: the SKILL tells the agent to run the script but never says where to put the output, so each run invents a path and they collide. A per-run artifact dir (step 1) is what closes this; a change to `collect-commits.sh` is not.
 - Related: `.workaholic/concerns/` may already carry a concern on the shared-scratchpad hazard. Check before filing a duplicate; if one exists, this ticket resolves it and should say so at report time.
+
+## Final Report
+
+Both root causes fixed together:
+
+- **`create-or-update.sh`** now writes the PR body to a private per-run file (`BODY_FILE=$(mktemp "${TMPDIR:-/tmp}/workaholic-pr-body.XXXXXX")`), reads it back with plain `>` (the `>|` noclobber-defeating redirect is gone), and cleans it up with an `EXIT` trap that removes only what this run created. Two concurrent `/report`s can no longer race between the write and the read-back.
+- **`apply-deferred-concern-verdicts.sh`** now takes an optional `[expected-count]` and honors a fail-loud contract: malformed / non-list / object-without-`verdicts` payloads exit non-zero with a message (no more silent normalize-to-`[]`), and `expected-count >0` with a payload naming 0 verdicts (the incident-1 stale `{"verdicts":[]}` signature) also fails loud. Genuinely-empty stays zeros/exit-0, and the archive dir is created lazily.
+- Docs moved off the constant paths: `report/SKILL.md` Phase 1 establishes `RUN_DIR=$(mktemp -d)` and passes the expected count; the section-reviewer brief and "What the Script Does" reference the per-run paths; `review-sections/SKILL.md` describes the verdicts path as a per-run value.
+- Tests: extended `testApplyVerdicts` with the fail-loud rows and added `testReportArtifacts` (source assertions). `node scripts/test-workflow-scripts.mjs` → 850 passed, 0 failed; `build.mjs`/`verify.mjs`/`validate-metadata.mjs`/`posix-lint` all clean.
+
+**Discovered insight:** the Quality-Gate regex `create-or-update.sh contains no /tmp/pr-body.md` also catches a *comment* that names the old path — the gate is deliberately literal, so historical references to a banned constant must be reworded, not just the live code paths.

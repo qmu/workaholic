@@ -3,9 +3,9 @@ created_at: 2026-07-18T18:54:10+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX, Domain, Config]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Added
 depends_on:
 mission:
 ---
@@ -118,3 +118,14 @@ Past tickets that touched similar areas:
 - **Every AskUserQuestion body needs the `[<project label>]` prefix** or `guard-askuserquestion-label.sh` blocks it; note `commands/mission.md` lacks the policy-lens sentinel while drive/catch/trip carry it — `monitor.md` must carry it (`plugins/workaholic/hooks/`)
 - **Mission state is never hand-edited**: acceptance ticking/changelog/OKF refresh all happen at drive's `archive.sh` seam inside each worktree; progress is always derived (`plugins/workaholic/skills/mission/scripts/`)
 - **PRs unchanged**: each mission's PR flows through `/report` and `/ship` (with its catch-up-main and scan gates); `/monitor` never merges anything itself
+
+## Final Report
+
+Development completed as planned. Live E2E: two throwaway missions (own worktrees, `drive_authorized`, 1 ticket each) driven by two parallel leaves in one wave; both reached `complete: true` (1/1), leaf reports reconciled, worktrees mutually clean, fixtures torn down via `close.sh` + `cleanup-mission-worktree.sh`.
+
+### Discovered Insights
+
+- **Insight**: A mission's `mission.md` is invisible to the main tree until its branch merges, so any main-session mission enumeration must read each mission worktree's own checkout — `summary.sh` alone cannot power a cross-worktree pre-flight.
+  **Context**: This is why `preflight.sh` discovers missions in two places (worktree checkouts first, then main-tree missions owning no worktree) and why `status.sh` takes a worktree path, not a slug lookup.
+- **Insight**: `validate-ticket.sh` resolves a ticket's `mission:` relation relative to the hook's cwd, so a missioned ticket written into a mission worktree from a main-tree session false-flags as unresolvable (found live during E2E fixture setup; deferred as ticket `20260718191500-validate-ticket-resolves-mission-in-tickets-checkout.md`).
+  **Context**: Every `/monitor` leaf that mints a `deferred` ticket inside a worktree crosses this exact seam — the hook fix directly protects the monitor flow.

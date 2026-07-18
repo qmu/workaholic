@@ -40,6 +40,8 @@ const SCRIPTS = {
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
   ticketSummary: join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/scripts/summary.sh"),
   missionSummary: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/summary.sh"),
+  monitorPreflight: join(REPO_ROOT, "plugins/workaholic/skills/monitor/scripts/preflight.sh"),
+  monitorStatus: join(REPO_ROOT, "plugins/workaholic/skills/monitor/scripts/status.sh"),
   missionCreate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"),
   missionSlug: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/slug.sh"),
   missionGate: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/gate.sh"),
@@ -5582,6 +5584,108 @@ function testResolveExportPath() {
   } finally { cleanup(home); }
 }
 
+// ---------- monitor/preflight.sh: the /monitor mission set + eligibility ----------
+// /monitor drives missions in parallel, one leaf per mission worktree, and its leaves
+// cannot ask a human anything (one-level fan-out). So the pre-flight's eligibility
+// verdict is the safety property: a mission that was never interrogated to a
+// drive-ready state (unstamped, or stamped with no plan) must be surfaced as
+// undriveable, not handed to an unattended leaf. Missions are discovered in BOTH
+// checkouts a mission can live in: each mission worktree's own tree (invisible to
+// main until merged) and the main tree (needs a worktree before it can run).
+function testMonitorPreflight() {
+  const dir = makeRepo("main");
+  try {
+    const wtMission = (slug, { stamp = true, acceptance = "- [x] One\n- [ ] Two\n", assignee = "test@example.com" } = {}) => {
+      execSync(`git worktree add -q .worktrees/${slug} -b work-20260718000001-${slug}`, { cwd: dir });
+      const d = join(dir, `.worktrees/${slug}/.workaholic/missions/active/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "mission.md"),
+        `---\ntype: Mission\ntitle: ${slug} title\nslug: ${slug}\nstatus: active\nassignee: ${assignee}\ndrive_authorized:${stamp ? " true" : ""}\n---\n\n## Acceptance\n\n${acceptance}\n## Changelog\n`);
+    };
+    const mainMission = (slug, { stamp = true, acceptance = "- [ ] One\n", assignee = "test@example.com" } = {}) => {
+      const d = join(dir, `.workaholic/missions/active/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "mission.md"),
+        `---\ntype: Mission\ntitle: ${slug} title\nslug: ${slug}\nstatus: active\nassignee: ${assignee}\ndrive_authorized:${stamp ? " true" : ""}\n---\n\n## Acceptance\n\n${acceptance}\n## Changelog\n`);
+    };
+
+    wtMission("alpha");                                          // eligible: stamped, 1/2, own worktree
+    wtMission("beta", { stamp: false });                         // undriveable: never stamped
+    wtMission("gamma", { acceptance: "" });                      // undriveable: stamped but no plan
+    execSync(`git worktree add -q .worktrees/orphan -b work-20260718000099-orphan`, { cwd: dir });
+    // .worktrees/orphan holds no mission.md -> reported as an orphan, never guessed at.
+    mainMission("delta");                                        // authorized but needs a worktree first
+    mainMission("unassigned-m", { assignee: "" });               // claimable: listed after mine
+    mainMission("theirs", { assignee: "other@example.com" });    // somebody else's: excluded entirely
+
+    const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.monitorPreflight}`).stdout);
+    assertEq("preflight orders mine (worktree, then main) before unassigned",
+      r.missions.map((m) => m.slug), ["alpha", "beta", "gamma", "delta", "unassigned-m"]);
+    const by = Object.fromEntries(r.missions.map((m) => [m.slug, m]));
+    assertEq("a stamped mission with a plan and a worktree is authorized",
+      { a: by.alpha.authorized, reason: by.alpha.reason }, { a: true, reason: "" });
+    assertEq("preflight derives progress and the next acceptance item",
+      { c: by.alpha.checked, t: by.alpha.total, next: by.alpha.next }, { c: 1, t: 2, next: "Two" });
+    assertTrue("the eligible mission carries its worktree path",
+      by.alpha.worktree_path.endsWith(".worktrees/alpha"), by.alpha.worktree_path);
+    assertEq("an unstamped mission is undriveable (not_authorized)",
+      { a: by.beta.authorized, reason: by.beta.reason }, { a: false, reason: "not_authorized" });
+    assertEq("a stamped mission with an empty Acceptance is undriveable (no_plan)",
+      { a: by.gamma.authorized, reason: by.gamma.reason }, { a: false, reason: "no_plan" });
+    assertEq("a main-tree mission without a worktree is not yet driveable (no_worktree)",
+      { a: by.delta.authorized, reason: by.delta.reason }, { a: false, reason: "no_worktree" });
+    assertEq("an unassigned mission is offered as claimable, not mine",
+      { mine: by["unassigned-m"].mine, assignee: by["unassigned-m"].assignee }, { mine: false, assignee: "" });
+    assertTrue("another developer's mission is excluded entirely", !("theirs" in by), JSON.stringify(r.missions));
+    assertEq("a mission-type worktree without a mission.md is an orphan",
+      r.orphan_worktrees.map((o) => o.slug), ["orphan"]);
+  } finally { cleanup(dir); }
+}
+
+// ---------- monitor/status.sh: the terminal-state truth table ----------
+// "Complete" must be derived, never narrated: Acceptance non-empty and fully checked.
+// The 0/0 row is the one that would lie — a mission with no plan has nothing to have
+// finished, so it is NOT complete (the same floor drive-authorized.sh holds).
+function testMonitorStatus() {
+  const dir = makeRepo("main");
+  try {
+    execSync(`git worktree add -q .worktrees/alpha -b work-20260718000101-alpha`, { cwd: dir });
+    const wt = join(dir, ".worktrees/alpha");
+    const md = join(wt, ".workaholic/missions/active/alpha");
+    mkdirSync(md, { recursive: true });
+    const mission = (acceptance, gate = "") => writeFileSync(join(md, "mission.md"),
+      `---\ntype: Mission\ntitle: alpha\nslug: alpha\nstatus: active\nassignee: test@example.com\ndrive_authorized: true\ngate_type: ${gate}\n---\n\n## Acceptance\n\n${acceptance}\n## Changelog\n`);
+    const status = () => JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.monitorStatus} ${wt}`).stdout);
+
+    mission("- [x] One\n- [x] Two\n");
+    let s = status();
+    assertEq("fully checked non-empty Acceptance is complete",
+      { c: s.checked, t: s.total, complete: s.complete, todo: s.todo_count }, { c: 2, t: 2, complete: true, todo: 0 });
+
+    mission("- [x] One\n- [ ] Two\n");
+    assertEq("a remaining unchecked item is not complete", status().complete, false);
+
+    mission("");
+    assertEq("an empty Acceptance (0/0) is NOT complete — no plan is not a finished plan",
+      status().complete, false);
+
+    mission("- [x] One\n", "check");
+    s = status();
+    assertEq("a declared gate is reported so the caller knows completion needs a gate run",
+      { complete: s.complete, gate: s.gate_type }, { complete: true, gate: "check" });
+
+    // The worktree's own queue is the remainder the loop re-drives.
+    mkdirSync(join(wt, `.workaholic/tickets/todo/${TEST_SLUG}`), { recursive: true });
+    writeFileSync(join(wt, `.workaholic/tickets/todo/${TEST_SLUG}/20260718000102-x.md`), "---\n---\n# T\n");
+    assertEq("todo_count counts the worktree's own user queue", status().todo_count, 1);
+
+    // A worktree holding no mission.md never crashes the loop.
+    execSync(`git worktree add -q .worktrees/bare -b work-20260718000103-bare`, { cwd: dir });
+    const bare = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.monitorStatus} ${join(dir, ".worktrees/bare")}`).stdout);
+    assertEq("a missionless worktree reports no_mission instead of crashing", bare.error, "no_mission");
+  } finally { cleanup(dir); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -5677,6 +5781,8 @@ const tests = [
   ["hooks/lib/check-subject.sh", testCheckSubject],
   ["hooks/git/commit-msg", testCommitMsgHook],
   ["hooks/install-git-hooks.sh", testInstallGitHooks],
+  ["monitor/preflight.sh (mission set + eligibility)", testMonitorPreflight],
+  ["monitor/status.sh (terminal truth table)", testMonitorStatus],
 ];
 
 for (const [label, fn] of tests) {

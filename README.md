@@ -55,6 +55,7 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 | `/report`  | Context-aware: generate story or journey report and create PR (warns on the branch-safety scan — credentials/oversize/leakage) |
 | `/ship`    | Context-aware: merge PR, deploy, verify, and publish the GitHub Release (blocks pre-merge on the branch-safety scan; secrets are non-overridable) |
 | `/mission` | Track a long-lived goal spanning many tickets: create one (interrogates you to a drive-ready state, then spins up a dedicated `.worktrees/<slug>/` worktree holding the mission statement and the **whole** ordered ticket set it emitted), list missions with computed progress, show just **your** assigned active missions (`/mission summary`), or close one (achieved / abandoned / **carried** — done as framed, with the unmet criteria carried into a successor mission) into the archive area (tearing down its worktree) |
+| `/monitor` | Run your missions in parallel: a confirmed pre-flight (mission set, position, unattended-drive eligibility, interference), then one autonomous drive per mission worktree, looping until every mission completes or only escalation-blocked items remain (final line `ok`/`pending` for caller-side loops) |
 | `/trip`    | Agent Teams session: collaborative design, decomposed into tickets and driven (`/trip summary` reports trips + the todo queue, read-only) |
 
 > [!NOTE]

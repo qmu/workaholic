@@ -35,7 +35,12 @@ TICKET="${1:-}"
 
 SCRIPT_DIR=$(dirname "$0")
 . "${SCRIPT_DIR}/lib/resolve.sh"
-missions_migrate_layout
+# Resolution follows the TICKET, not the process cwd: the mission tree is the one the
+# ticket lives in (its own worktree), so a bare slug resolves against that tree from any
+# cwd. Deriving the root from anything ambient would let a same-slug mission in a sibling
+# tree silently lend or withhold its authorization depending on where this ran.
+MISSION_ROOT=$(missions_root_from_artifact "$TICKET")
+missions_migrate_layout "$MISSION_ROOT"
 
 # The relation is many-valued and is read through the single reader, never re-parsed
 # here -- `mission: [a, b]` and a bare `mission: a` must behave identically, and that
@@ -53,7 +58,7 @@ for slug in $SLUGS; do
     [ -z "$json_list" ] && json_list="\"${slug}\"" || json_list="${json_list}, \"${slug}\""
     [ -n "$reason" ] && continue   # already refused; keep collecting slugs for the report
 
-    f=$(mission_resolve "$slug")
+    f=$(mission_resolve "$MISSION_ROOT" "$slug")
     if [ ! -f "$f" ]; then
         reason="mission_not_found"
         continue

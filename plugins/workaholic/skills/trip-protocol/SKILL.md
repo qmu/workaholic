@@ -75,7 +75,9 @@ Each revision is a new file (e.g., `direction-v2.md`), preserving history. Only 
 
 ## Plan Document
 
-`plan.md` tracks trip lifecycle state with YAML frontmatter (`type: Trip Plan`, `instruction`, `phase`, `step`, `iteration`, `updated_at`) and three sections: Initial Idea, Plan Amendments (leader decision log), and Progress (checklist with agent attribution). Update frontmatter at phase transitions; agents append progress entries bundled with artifact commits.
+`plan.md` tracks trip lifecycle state with YAML frontmatter (`type: Trip Plan`, `instruction`, `branch`, `phase`, `step`, `iteration`, `updated_at`) and three sections: Initial Idea, Plan Amendments (leader decision log), and Progress (checklist with agent attribution). Update frontmatter at phase transitions; agents append progress entries bundled with artifact commits.
+
+**`branch` is the recorded trip↔branch association** (decided 2026-07-16): `init-trip.sh` stamps the working directory's checked-out branch at init time, so the trip's own state file names the branch it drives — a modern trip runs on a `work-YYYYMMDD-HHMMSS` branch minted by `create.sh`, whose name carries no trip reference of its own. `detect-context.sh` resolves a `work-*` branch back to its trip through this field (and legacy `trip/<name>` branches through the naming convention), which is what makes `/report`'s Trip Mode reachable end-to-end from the branches the flow actually creates. Trips that predate the field simply have no `branch:` line and match no `work-*` branch — the detector never guesses an association that was not recorded.
 
 Step identifiers: `planning/not-started`, `planning/artifact-generation`, `planning/one-turn-review`, `planning/respond-to-feedback`, `planning/moderation`, `planning/decomposition`, `coding/concurrent-launch`, `coding/review-and-testing`, `coding/iteration-N`, `complete/done`, `complete/followup`.
 

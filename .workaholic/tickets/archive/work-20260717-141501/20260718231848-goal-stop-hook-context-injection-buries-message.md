@@ -3,9 +3,9 @@ created_at: 2026-07-18T23:18:48+09:00
 author: a-qmu-jp
 type: enhancement
 layer: [Config, UX]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 ---
 
@@ -91,3 +91,31 @@ with a `/goal` condition set and a large mission roster:
   the next action.
 - The Stop-hook gating behavior of `/goal` is unchanged (it still blocks
   stopping until the condition holds).
+
+## Final Report
+
+`/goal` is a Claude Code harness feature, not a workaholic command — the only
+lever this repo owns over the per-turn volume is `hooks/mission-lens.sh`, which
+injects the active-mission roster on every `UserPromptSubmit`/`Stop`. Fixed
+there with **summarize-on-change** (options 1+2 combined from the Request):
+
+- The **full** roster is emitted only when it *changed* since the last turn of
+  the session (or on the first turn, or when `session_id` is absent — the
+  bare-harness/test path, kept backward-compatible so it never dedupes).
+- An **unchanged** turn — the common case under a long `/goal` run — collapses
+  to a compact one-liner: the count, the single next action, and a
+  `/mission summary` pointer. The active goal and next step stay visible; the
+  redundant per-mission block does not reappear every turn.
+- The change-detector is keyed per session **and** per event (`UserPromptSubmit`
+  and `Stop` dedupe apart), cksum-compared under
+  `${TMPDIR:-/tmp}/workaholic-mission-lens/`, and fails open to the full roster.
+  It never sets `decision: block`, so `/goal`'s Stop-gating is untouched.
+
+Quality Gate: message visibility restored (volume materially reduced on the
+common turn) ✓; per-turn text reduced without losing the active goal/next
+action ✓; `/goal` gating unchanged ✓.
+
+- **Discovered-Insights**: the recently-shipped unassigned-mission-visibility
+  feature is preserved intact — the compact form only *summarizes* an unchanged
+  roster, it never drops a mission from the surfaced set, so unclaimed work
+  still appears (in full) whenever the roster changes.

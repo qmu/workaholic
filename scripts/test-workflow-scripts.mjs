@@ -1497,6 +1497,78 @@ function testMissionLensUnassigned() {
   } finally { cleanup(dir); }
 }
 
+// ---------- 8b-4. mission-lens.sh summarizes on change (buries no message under redundant context) ----------
+// Under a long /goal Stop condition the hook re-fires on essentially every turn. Re-injecting
+// the whole roster each time buries the developer's own message. So the FULL block is emitted
+// only when the roster CHANGED since the last turn of this session; an unchanged turn collapses
+// to a compact one-liner (count + the single next action + a /mission summary pointer). Keyed by
+// session_id AND event; absent session_id cannot dedupe and stays full (backward compatible).
+function testMissionLensOnChange() {
+  const dir = makeRepo("main");
+  const ME = "me@example.com";
+  try {
+    // Isolate the change-detector's state under a repo-local TMPDIR (cleaned with the repo).
+    const stateDir = join(dir, ".lens-tmp");
+    mkdirSync(stateDir, { recursive: true });
+    const env = { ...process.env, CLAUDE_PLUGIN_ROOT: join(REPO_ROOT, "plugins/workaholic"), TMPDIR: stateDir };
+
+    const mission = (slug, acceptance) => {
+      const d = join(dir, `.workaholic/missions/active/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "mission.md"),
+        `---\ntype: Mission\ntitle: ${slug} title\nstatus: active\nassignee: ${ME}\n---\n\n` +
+        `## Goal\n\ng\n\n## Acceptance\n\n${acceptance}`);
+    };
+    mission("aaa", "- [ ] alpha step\n- [ ] alpha two\n");
+    mission("bbb", "- [ ] beta step\n");
+    execSync(`git config user.email ${ME}`, { cwd: dir });
+
+    const SID = "sess-onchange-1";
+    const lens = (event = "UserPromptSubmit", session = SID) => execSync(`${POSIX_SH} ${SCRIPTS.missionLens}`, {
+      cwd: dir, input: JSON.stringify(session ? { hook_event_name: event, session_id: session } : { hook_event_name: event }),
+      encoding: "utf8", env,
+    });
+
+    // Turn 1: first sight -> FULL block, every qualifying mission enumerated.
+    const first = lens();
+    assertTrue("first turn emits the full roster (aaa)", first.includes("aaa title"), first);
+    assertTrue("first turn emits the full roster (bbb)", first.includes("bbb title"), first);
+    assertTrue("first turn is not the compact form", !first.includes("Roadmap unchanged"), first);
+
+    // Turn 2: roster unchanged -> COMPACT one-liner. Lead's next action stays visible; the
+    // rest is folded into a count, materially shrinking the per-turn injection.
+    const second = lens();
+    assertTrue("unchanged turn collapses to the compact reminder", second.includes("Roadmap unchanged"), second);
+    assertTrue("compact keeps the single next action visible", second.includes("aaa title"), second);
+    assertTrue("compact does NOT re-enumerate the rest of the roster", !second.includes("bbb title"), second);
+    assertTrue("compact points at /mission summary for the detail", second.includes("/mission summary"), second);
+    assertTrue("compact is materially shorter than the full roster", second.length < first.length, `${first} || ${second}`);
+
+    // Turn 3: roster CHANGES (tick an acceptance item) -> FULL block returns, so a real
+    // change is never hidden behind the compact form.
+    writeFileSync(join(dir, ".workaholic/missions/active/aaa/mission.md"),
+      `---\ntype: Mission\ntitle: aaa title\nstatus: active\nassignee: ${ME}\n---\n\n` +
+      `## Goal\n\ng\n\n## Acceptance\n\n- [x] alpha step\n- [ ] alpha two\n`);
+    const third = lens();
+    assertTrue("a changed roster re-emits the full block", third.includes("bbb title"), third);
+    assertTrue("changed roster is not the compact form", !third.includes("Roadmap unchanged"), third);
+
+    // Turn 4: settled again -> compact again.
+    assertTrue("returns to compact after the change settles", lens().includes("Roadmap unchanged"));
+
+    // The Stop event dedupes independently of UserPromptSubmit: its first sight is full.
+    const stopFirst = lens("Stop");
+    assertTrue("Stop's first emit is full, independent of UserPromptSubmit state",
+      stopFirst.includes("bbb title") && !stopFirst.includes("Roadmap unchanged"), stopFirst);
+
+    // Without a session_id the hook cannot dedupe -> always full (backward compatible).
+    assertTrue("no session_id: first call full", lens("UserPromptSubmit", null).includes("bbb title"));
+    const repeat = lens("UserPromptSubmit", null);
+    assertTrue("no session_id: still full on repeat (never deduped)",
+      repeat.includes("bbb title") && !repeat.includes("Roadmap unchanged"), repeat);
+  } finally { cleanup(dir); }
+}
+
 // ---------- 8c. /mission create branches on main (branch-if-on-main orchestration) ----------
 // /mission "<title>" starts a topic branch when on main, like /ticket. The command
 // orchestrates check.sh -> (on_main) create.sh before mission/create.sh; list and
@@ -6678,6 +6750,7 @@ const tests = [
   ["create-ticket/summary.sh + mission/summary.sh (summary mode)", testSummaryMode],
   ["mission/summary.sh surfaces unassigned missions", testMissionSummaryUnassigned],
   ["hooks/mission-lens.sh surfaces unassigned missions", testMissionLensUnassigned],
+  ["hooks/mission-lens.sh summarizes on change", testMissionLensOnChange],
   ["mission create branches on main", testMissionBranchOnCreate],
   ["branching mission worktree primitive", testMissionWorktreePrimitive],
   ["mission worktree lands on the branch it reports", testMissionWorktreeNoLocalMain],

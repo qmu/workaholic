@@ -55,6 +55,32 @@ echo "    ${ARCHIVED_TICKET}"
 
 SCRIPT_DIR=$(dirname "$0")
 
+# Report one mission mutator's outcome without ever blocking the archive. The boundary,
+# stated here so the next reader does not re-collapse it: archiving never FAILS on a
+# mission problem (a finished ticket must not be stranded outside the archive by an
+# unrelated mission-file issue), and archiving never HIDES one either. Routing the outcome
+# to /dev/null (the old shape) conflated those two decisions and let a mission that was
+# never rolled pass under "Archive complete!". Three volumes, so a normal archive stays
+# readable while the interesting cases stand out:
+#   failure (mutator exits non-zero)   -> loud: name the mission, the mutator, the reason
+#   clean no-op (exit 0, changed none) -> the `reason` the mutator already returns in JSON
+#                                         (this is the case that bit us: exit 0, did nothing)
+#   success (exit 0, did the work)     -> one terse line
+report_mission_roll() {
+    _rmr_slug="$1"
+    _rmr_what="$2"
+    _rmr_rc="$3"
+    _rmr_out="$4"
+    _rmr_reason=$(printf '%s' "$_rmr_out" | sed -n 's/.*"reason"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    if [ "$_rmr_rc" -ne 0 ]; then
+        echo "    ! mission ${_rmr_slug}: ${_rmr_what} NOT rolled (${_rmr_reason:-exit ${_rmr_rc}}); archive proceeds"
+    elif printf '%s' "$_rmr_out" | grep -Eq '"(ticked|appended)"[[:space:]]*:[[:space:]]*true'; then
+        echo "    mission ${_rmr_slug}: ${_rmr_what} rolled"
+    else
+        echo "    ~ mission ${_rmr_slug}: ${_rmr_what} changed nothing (${_rmr_reason:-no reason given})"
+    fi
+}
+
 # Roll every related mission: a ticket carrying `mission: [a, b]` appends a "ticket
 # archived" changelog line and ticks its acceptance item on EACH mission it names, via
 # the mission skill's shared, idempotent mutators. The relation is read by the mission
@@ -63,9 +89,9 @@ SCRIPT_DIR=$(dirname "$0")
 # Looping is safe without dedup: append-changelog.sh keys on the (event, artifact) pair
 # and tick-acceptance.sh on the artifact basename, so both no-op on a repeat and
 # tick-acceptance simply finds nothing on a mission whose Acceptance does not list this
-# ticket. Best-effort throughout — a mission update must never block archiving. The
-# mutators git-stage the mission file, so it rides along in the archive commit's
-# `git add -A` below.
+# ticket. Non-blocking but NOT silent (see report_mission_roll above) — each roll's
+# outcome is captured and reported instead of discarded. The mutators git-stage the
+# mission file, so it rides along in the archive commit's `git add -A` below.
 MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts"
 # Resolution follows the TICKET, not the process cwd: the mission the archived ticket
 # names lives in the ticket's own .workaholic tree, so its root is derived from the
@@ -73,25 +99,45 @@ MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts"
 # mutators run. Passing a bare slug would let the mutators re-resolve against the cwd and,
 # with a same-slug mission in a sibling worktree, roll the wrong tree's mission.
 #
-# Guarded on a non-empty relation: an un-missioned ticket runs NO mission script at all
-# (no changelog, no tick, and no living migration), so archiving it leaves every mission
-# — even a legacy flat dir — byte-for-byte untouched.
-MISSION_SLUGS=$(sh "${MISSION_SCRIPTS}/read-relation.sh" "$ARCHIVED_TICKET" 2>/dev/null || true)
-if [ -n "$MISSION_SLUGS" ]; then
+# The reader is read with its exit code captured, not masked: a ticket that names NO
+# mission is the common case and stays silent, but a relation that could NOT be read
+# (read-relation.sh exits non-zero) is a distinct event and is reported rather than
+# collapsed into "no mission". Guarded on a non-empty relation: an un-missioned ticket
+# runs NO mission script at all (no changelog, no tick, no living migration), so archiving
+# it leaves every mission — even a legacy flat dir — byte-for-byte untouched.
+MISSION_SLUGS=$(sh "${MISSION_SCRIPTS}/read-relation.sh" "$ARCHIVED_TICKET") && REL_RC=0 || REL_RC=$?
+if [ "$REL_RC" -ne 0 ]; then
+    echo "    ! could not read the ticket's mission relation (read-relation.sh exit ${REL_RC}); archive proceeds, no mission rolled"
+elif [ -n "$MISSION_SLUGS" ]; then
     . "${MISSION_SCRIPTS}/lib/resolve.sh"
     MISSION_ROOT=$(missions_root_from_artifact "$ARCHIVED_TICKET")
     missions_migrate_layout "$MISSION_ROOT"
-    printf '%s\n' "$MISSION_SLUGS" | while IFS= read -r MISSION_SLUG; do
+    # A here-doc, not `printf | while`: the loop runs in THIS shell rather than a pipe
+    # subshell, so its reporting reaches archive.sh's own stdout (the same reason
+    # apply-deferred-concern-verdicts.sh keeps its counters in-shell). Reporting is a
+    # per-mission echo with no accumulated state, but the here-doc keeps it robust if a
+    # future edit ever does accumulate across missions.
+    while IFS= read -r MISSION_SLUG; do
         [ -n "$MISSION_SLUG" ] || continue
         MISSION_FILE=$(mission_resolve "$MISSION_ROOT" "$MISSION_SLUG")
-        sh "${MISSION_SCRIPTS}/append-changelog.sh" "$MISSION_FILE" "ticket archived" "$TICKET_FILENAME" >/dev/null 2>&1 || true
-        sh "${MISSION_SCRIPTS}/tick-acceptance.sh" "$MISSION_FILE" "$TICKET_FILENAME" >/dev/null 2>&1 || true
-    done
+        CL_OUT=$(sh "${MISSION_SCRIPTS}/append-changelog.sh" "$MISSION_FILE" "ticket archived" "$TICKET_FILENAME" 2>&1) && CL_RC=0 || CL_RC=$?
+        report_mission_roll "$MISSION_SLUG" changelog "$CL_RC" "$CL_OUT"
+        TK_OUT=$(sh "${MISSION_SCRIPTS}/tick-acceptance.sh" "$MISSION_FILE" "$TICKET_FILENAME" 2>&1) && TK_RC=0 || TK_RC=$?
+        report_mission_roll "$MISSION_SLUG" acceptance "$TK_RC" "$TK_OUT"
+    done <<EOF
+$MISSION_SLUGS
+EOF
 fi
 
-# Refresh the .workaholic OKF bundle indexes so the archive commit ships with a
-# fresh hierarchy (best-effort: an index problem must not block the archive).
-sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
+# Refresh the .workaholic OKF bundle indexes so the archive commit ships with a fresh
+# hierarchy. Non-blocking but not silent, same boundary as the mission roll: an index
+# refresh that fails must not strand the archive, and must not vanish either (discarding
+# both its output and its exit code did both). Silent on success — it runs on every
+# archive, so a success line each time would be pure noise.
+IDX_OUT=$(sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" 2>&1) && IDX_RC=0 || IDX_RC=$?
+if [ "$IDX_RC" -ne 0 ]; then
+    echo "    ! OKF index refresh failed (exit ${IDX_RC}); archive proceeds. refresh-index.sh said: ${IDX_OUT}"
+fi
 
 # Stage all changes including the archived ticket
 echo "==> Staging changes..."

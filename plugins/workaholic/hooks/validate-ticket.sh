@@ -372,25 +372,21 @@ if printf '%s' "$tickets_path" | grep -qE '^todo/[^/]+/[^/]+$'; then
   if [ -f "$read_relation" ] && [ -f "$resolve_lib" ]; then
     mission_slugs=$(sh "$read_relation" "$file_path" 2>/dev/null || true)
     if [ -n "$mission_slugs" ]; then
-      # Resolve each slug in the TICKET'S OWN checkout, never the hook's cwd.
-      # The mission layout keeps a mission's mission.md inside its own
-      # .worktrees/<slug>/ checkout until that branch merges, so a missioned
-      # ticket written into a mission worktree from a main-tree session used to
-      # be resolved against the MAIN tree's missions and false-flagged as
-      # unresolvable. mission_resolve reads relative paths by design, so the
-      # resolution runs in a subshell cd'd to the ticket's repo root (the
-      # worktree root for a worktree-resident ticket); the subshell only
-      # answers, the hook keeps ownership of the exit.
-      ticket_root=$(git -C "$(dirname -- "$file_path")" rev-parse --show-toplevel 2>/dev/null || pwd)
+      # Resolve each slug against the TICKET'S OWN mission tree, derived from the
+      # ticket's own path -- never the hook's cwd. The mission layout keeps a
+      # mission's mission.md inside its own .worktrees/<slug>/ checkout until that
+      # branch merges, so a missioned ticket written into a mission worktree from a
+      # main-tree session must resolve against THAT worktree's .workaholic, not the
+      # main tree's. missions_root_from_artifact derives that root from file_path
+      # (the ${path%%.workaholic/*}.workaholic segment) and mission_resolve returns
+      # an absolute path under it -- the root-based API, so there is no cwd
+      # dependency and no cd subshell.
+      . "$resolve_lib"
+      mission_root=$(missions_root_from_artifact "$file_path")
       for mission_slug in $mission_slugs; do
-        if ! (
-          cd "$ticket_root" 2>/dev/null || exit 1
-          . "$resolve_lib"
-          mission_file=$(mission_resolve "$mission_slug")
-          [ -f "$mission_file" ]
-        ); then
+        mission_file=$(mission_resolve "$mission_root" "$mission_slug")
+        if [ ! -f "$mission_file" ]; then
           echo "Error: mission relation does not resolve: '$mission_slug'" >&2
-          echo "Got: $tickets_path" >&2
           echo "(no .workaholic/missions/{active,archive}/${mission_slug}/mission.md exists in the ticket's own checkout -- a typo here detaches the ticket from its mission's gates, or borrows another mission's drive authorization)" >&2
           print_skill_reference
           exit 2

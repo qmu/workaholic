@@ -391,6 +391,151 @@ Development completed as planned.
   } finally { cleanup(dir); }
 }
 
+// ---------- 5b. commit/commit.sh staging never silently omits a file ----------
+// The defect this pins: commit.sh reported a commit as done while a file the caller
+// meant to include was missing from it. Two holes — an explicitly-named path that
+// could not be staged was skipped with a warning and the commit proceeded without it
+// (exit 0); and with no file args, `git add -u` silently dropped untracked files with
+// no mention. Every assertion here is on ACTUAL commit contents (`git show --stat`,
+// `git ls-files`) or the exit code, NEVER on the script's own success message — the
+// whole defect is that the message and reality disagreed.
+function testCommitStaging() {
+  // Helper: files (by path) present in HEAD's own diff.
+  const committedFiles = (dir) =>
+    execSync(`git show --stat --name-only --format= HEAD`, { cwd: dir, encoding: "utf8" })
+      .split("\n").map((s) => s.trim()).filter(Boolean);
+  const headSubject = (dir) =>
+    execSync(`git log -1 --format=%s`, { cwd: dir, encoding: "utf8" }).trim();
+
+  // Row: an explicitly-named path that does not exist -> non-zero exit, path named,
+  // NO commit created. The reproduced RAW EXIT 0 must be unreproducible.
+  {
+    const dir = makeRepo("main");
+    try {
+      const headBefore = execSync(`git rev-parse HEAD`, { cwd: dir, encoding: "utf8" }).trim();
+      writeFileSync(join(dir, "real.md"), "real\n");
+      const r = run(dir, `${POSIX_SH} ${SCRIPTS.commit} "Add real" "" "None" "None" "None" "None" real.md typoo.md`);
+      assertTrue("named missing path: non-zero exit (RAW EXIT 0 unreproducible)", r.status !== 0, `status=${r.status}`);
+      assertTrue("named missing path: the missing path is named", (r.stdout + r.stderr).includes("typoo.md"), r.stdout + r.stderr);
+      const headAfter = execSync(`git rev-parse HEAD`, { cwd: dir, encoding: "utf8" }).trim();
+      assertEq("named missing path: no commit was created", headAfter, headBefore);
+      // And nothing was left staged behind for a later accidental commit.
+      const staged = execSync(`git diff --cached --name-only`, { cwd: dir, encoding: "utf8" }).trim();
+      assertEq("named missing path: nothing left staged", staged, "");
+    } finally { cleanup(dir); }
+  }
+
+  // Row: an explicitly-named path that is untracked but EXISTS -> staged and committed
+  // (this already worked and must keep working — `git add <path>` stages untracked).
+  {
+    const dir = makeRepo("main");
+    try {
+      writeFileSync(join(dir, "index.md"), "see article\n");
+      writeFileSync(join(dir, "article.md"), "body\n");
+      const r = run(dir, `${POSIX_SH} ${SCRIPTS.commit} "Add article" "" "None" "None" "None" "None" index.md article.md`);
+      assertEq("named untracked exists: exit 0", r.status, 0);
+      const files = committedFiles(dir);
+      assertTrue("named untracked exists: article.md IS in the commit", files.includes("article.md"), files.join(","));
+      assertTrue("named untracked exists: index.md IS in the commit", files.includes("index.md"), files.join(","));
+      assertEq("named untracked exists: nothing left untracked", execSync(`git ls-files --others --exclude-standard`, { cwd: dir, encoding: "utf8" }).trim(), "");
+    } finally { cleanup(dir); }
+  }
+
+  // Row: an explicitly-named DELETED path -> staged as a deletion (the
+  // `git ls-files --deleted` branch must survive the fix).
+  {
+    const dir = makeRepo("main");
+    try {
+      writeFileSync(join(dir, "gone.md"), "temp\n");
+      execSync(`git add gone.md && git commit -q -m "add gone"`, { cwd: dir });
+      rmSync(join(dir, "gone.md"));
+      const r = run(dir, `${POSIX_SH} ${SCRIPTS.commit} "Remove gone" "" "None" "None" "None" "None" gone.md`);
+      assertEq("named deleted path: exit 0", r.status, 0);
+      assertEq("named deleted path: gone.md is no longer tracked", execSync(`git ls-files gone.md`, { cwd: dir, encoding: "utf8" }).trim(), "");
+      assertTrue("named deleted path: deletion is in the commit", committedFiles(dir).includes("gone.md"));
+    } finally { cleanup(dir); }
+  }
+
+  // Row: no file args, untracked files present -> the run stages tracked changes but
+  // NAMES every untracked file (may not silently omit them). The reproduced scenario:
+  // index.md edited to link a NEW article.md, committed with no file args.
+  {
+    const dir = makeRepo("main");
+    try {
+      writeFileSync(join(dir, "index.md"), "start\n");
+      execSync(`git add index.md && git commit -q -m "seed index"`, { cwd: dir });
+      writeFileSync(join(dir, "index.md"), "start\nlink -> article.md\n"); // tracked modification
+      writeFileSync(join(dir, "article.md"), "the article\n");             // untracked, referenced
+      const r = run(dir, `${POSIX_SH} ${SCRIPTS.commit} "Add article link" "" "None" "None" "None" "None"`);
+      assertEq("no-args untracked: exit 0", r.status, 0);
+      assertTrue("no-args untracked: article.md named before committing", r.stdout.includes("article.md"), r.stdout);
+      const files = committedFiles(dir);
+      assertTrue("no-args untracked: tracked modification committed", files.includes("index.md"), files.join(","));
+      // article.md is NOT committed by -u (that is the deliberate safety of -u), but it
+      // is still present in the tree and was named — not silently dropped.
+      assertTrue("no-args untracked: article.md left untracked, not swept", existsSync(join(dir, "article.md")));
+    } finally { cleanup(dir); }
+  }
+
+  // Negative row: no file args, ONLY tracked modifications -> commits them with no new
+  // noise. The untracked warning must NOT fire on a clean ordinary commit.
+  {
+    const dir = makeRepo("main");
+    try {
+      writeFileSync(join(dir, "README.md"), "changed\n"); // tracked modification, nothing untracked
+      const r = run(dir, `${POSIX_SH} ${SCRIPTS.commit} "Update readme" "" "None" "None" "None" "None"`);
+      assertEq("no-args clean: exit 0", r.status, 0);
+      assertTrue("no-args clean: no untracked warning fired", !/untracked files/i.test(r.stdout), r.stdout);
+      assertTrue("no-args clean: README.md committed", committedFiles(dir).includes("README.md"));
+    } finally { cleanup(dir); }
+  }
+
+  // Row: nothing staged at all -> current behaviour preserved (warns, exits 0).
+  {
+    const dir = makeRepo("main");
+    try {
+      const headBefore = execSync(`git rev-parse HEAD`, { cwd: dir, encoding: "utf8" }).trim();
+      const r = run(dir, `${POSIX_SH} ${SCRIPTS.commit} "Nothing here" "" "None" "None" "None" "None"`);
+      assertEq("nothing staged: exit 0 preserved", r.status, 0);
+      assertTrue("nothing staged: warns", /Nothing staged/i.test(r.stdout), r.stdout);
+      assertEq("nothing staged: no commit created", execSync(`git rev-parse HEAD`, { cwd: dir, encoding: "utf8" }).trim(), headBefore);
+    } finally { cleanup(dir); }
+  }
+
+  // Row: --skip-staging (the archive.sh path) -> wholly unaffected. Untracked files are
+  // present but staging logic is skipped, so no new checks fire and the pre-staged
+  // content commits exactly as before.
+  {
+    const dir = makeRepo("main");
+    try {
+      writeFileSync(join(dir, "staged.md"), "pre-staged\n");
+      writeFileSync(join(dir, "stray.md"), "untracked stray\n"); // present but should be ignored under --skip-staging
+      execSync(`git add staged.md`, { cwd: dir }); // caller stages, exactly like archive.sh's git add -A
+      const r = run(dir, `${POSIX_SH} ${SCRIPTS.commit} --skip-staging "Commit pre-staged" "" "None" "None" "None" "None"`);
+      assertEq("--skip-staging: exit 0", r.status, 0);
+      assertTrue("--skip-staging: no untracked warning fired", !/untracked files/i.test(r.stdout), r.stdout);
+      const files = committedFiles(dir);
+      assertTrue("--skip-staging: pre-staged file committed", files.includes("staged.md"), files.join(","));
+      assertTrue("--skip-staging: stray untracked file NOT committed", !files.includes("stray.md"), files.join(","));
+    } finally { cleanup(dir); }
+  }
+
+  // Row: --category survives alongside the new staging checks (archive.sh depends on the
+  // `--skip-staging --category` contract).
+  {
+    const dir = makeRepo("main");
+    try {
+      writeFileSync(join(dir, "c.md"), "x\n");
+      execSync(`git add c.md`, { cwd: dir });
+      const r = run(dir, `${POSIX_SH} ${SCRIPTS.commit} --skip-staging --category Added "Add c" "" "None" "None" "None" "None"`);
+      assertEq("--category: exit 0", r.status, 0);
+      assertEq("--category: Category trailer emitted", headSubject(dir), "Add c");
+      const trailer = execSync("git log -1 --format='%(trailers:key=Category,valueonly)'", { cwd: dir, encoding: "utf8" }).trim();
+      assertEq("--category: git parses Category: Added", trailer, "Added");
+    } finally { cleanup(dir); }
+  }
+}
+
 // ---------- 6. gather/user-slug.sh ----------
 function testUserSlug() {
   const dir = makeRepo("main");
@@ -5538,6 +5683,7 @@ const tests = [
   ["branching/check-workspace.sh", testCheckWorkspace],
   ["drive/update.sh", testUpdate],
   ["drive/archive.sh", testArchive],
+  ["commit/commit.sh never silently omits a file", testCommitStaging],
   ["gather/user-slug.sh", testUserSlug],
   ["create-ticket/sweep-todo.sh", testSweepTodo],
   ["drive/list-todo.sh", testListTodo],

@@ -3,9 +3,9 @@ created_at: 2026-07-17T13:26:14+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Domain]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -117,3 +117,17 @@ An explicitly-named path is the caller's strongest possible statement of intent.
 - **Step 1 is not a judgement call.** Silently committing without an explicitly-named file is indefensible under any staging default and should not wait on step 2's design.
 - **`archive.sh:82`'s `git add -A` is the counter-evidence worth weighing.** The archive path already accepts the sweep-everything risk and has not caused trouble — which is an argument for `-A` in step 2. It is also not the same situation: `archive.sh` runs inside `/drive`'s controlled sequence, while `commit.sh` is called by hand from arbitrary tree states. Note the difference before treating `archive.sh` as precedent.
 - **This is the sanctioned path, which raises the stakes.** `hooks/guard-git-commit.sh` blocks off-policy direct `git commit` and routes callers here. Everyone is funnelled through this script precisely so the rules are enforced in one place — so a silent omission in it is not one agent's bad commit, it is a hole under every commit the house makes.
+
+## Final Report
+
+Both staging holes in `commit.sh` are closed:
+
+- **Path 2 (explicit files):** a named path that cannot be staged is now a **fatal error**. A first pass collects every unresolvable path; if any is missing, the run names them all, stages nothing, and exits non-zero. The reproduced `RAW EXIT: 0` (verified live before the fix) is now `RAW EXIT: 1` with `HEAD` unchanged. The `git ls-files --deleted` branch survives, so an explicitly-named deletion still stages.
+- **Path 1 (`git add -u` default):** `-u` is deliberately **kept** (Step 2's `git add -A` switch is a human judgement call, not a bugfix side-effect). The omission is made non-silent: after staging, every untracked-non-ignored file (`git ls-files --others --exclude-standard`) is listed by name with a warning. `/commit` then decides whether to name it explicitly.
+- **`--skip-staging` / `--category` (the `archive.sh` seam) untouched:** the whole staging block is gated on `SKIP_STAGING=false`, so the archive path skips both new checks. Pinned by regression rows and confirmed by dogfooding — this very ticket is archived through the modified `commit.sh`.
+
+Docs updated in the same change: `commit.sh` usage text, `commit/SKILL.md` Staging Behavior, `commands/commit.md` Stage-safely step.
+
+**Verification:** 28 new regression rows in `test-workflow-scripts.mjs` (asserting on `git show --stat` / `git ls-files` / exit code, never on stdout); watched path 2 fail first (`RAW EXIT: 0`) then pass. Full chain green: `build.mjs`, `verify.mjs`, `validate-metadata.mjs`, `posix-lint` (0 findings), `test-workflow-scripts.mjs` (940 passed, 0 failed).
+
+- **Discovered-Insight:** `outputs/workflows` bundles `commit.sh` into the `create-ticket` and `drive` skill closures (`.../commit/scripts/commit.sh`), so any `commit.sh` edit requires a `build.mjs` rebuild or the `Outputs Freshness` CI diff fails — even though `commit` is an internal, non-exposed skill.

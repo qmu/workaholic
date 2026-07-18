@@ -21,8 +21,9 @@ Do **not** re-implement staging or message assembly here — `commit.sh` owns mu
 1. **Inspect the working tree.** Run `git status` and review the staged diff (`git diff --cached`) and the unstaged diff (`git diff`) to understand exactly what would be committed.
 
 2. **Stage safely.**
-   - `commit.sh` stages all **tracked** changes by default (`git add -u`); it **never** uses `git add -A`.
+   - `commit.sh` stages all **tracked** changes by default (`git add -u`); it **never** uses `git add -A`. When it stages this way it **lists any untracked files by name** and leaves them out — the omission is reported, never silent, so watch that output for a file that should have been included.
    - If there are **untracked** files that belong in this commit, list them and **ask the user** (`AskUserQuestion`, selectable options) before staging them, then pass those files explicitly to `commit.sh` as trailing `[files...]` arguments. Never stage untracked files without confirmation — they may belong to another contributor. Prefix that prompt's `question` body with `[<project label>]` — run `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh` and use its `project` value — so a developer with several sessions open across tmux panes can see which repository is asking.
+   - When you pass `[files...]`, every path must resolve: `commit.sh` treats a named path it cannot stage as a **fatal error** (it names the path, stages nothing, and exits non-zero), so a typo in a filename fails the commit rather than committing without it. Pass the exact path.
    - If nothing is staged and there are no tracked changes, tell the user there is nothing to commit and stop.
 
 3. **Derive a conformant message** (see `workaholic:commit` → Message Format):

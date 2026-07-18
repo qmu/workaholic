@@ -3070,6 +3070,136 @@ function testApplyVerdicts() {
   }
 }
 
+// ---------- okf/refresh-index.sh: preserve hand-written content, prune dead links ----------
+// The refresh script owns only the bytes between the generated-region markers;
+// prose outside survives, empty/untracked directories are never linked, and a
+// per-entry description is never degraded to a bare link.
+function testRefreshIndexPreservesContent() {
+  const R = SCRIPTS.refreshIndex;
+
+  // Row: an index of hand-written prose, rules, and sections (no markers)
+  // survives refresh verbatim — the reproduced three-section deletion is gone.
+  {
+    const dir = makeRepo("main");
+    try {
+      mkdirSync(join(dir, ".workaholic/deployments"), { recursive: true });
+      const idx = join(dir, ".workaholic/deployments/index.md");
+      const hand = "# deployments\n\nHand-written: the strategy book target.\n\n"
+        + "* [strategy.qmu.dev](strategy-qmu-dev.md) - the container target\n\n"
+        + "## Shippability rule\n\nA target without an executable `## Confirmation` is not shippable.\n\n"
+        + "## No production target yet\n\nNothing is in production.\n";
+      writeFileSync(idx, hand);
+      writeFileSync(join(dir, ".workaholic/deployments/strategy-qmu-dev.md"),
+        "---\ntitle: strategy.qmu.dev\n---\n# strategy.qmu.dev\n");
+      execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+      run(dir, `${POSIX_SH} ${R}`);
+      assertEq("refresh preserves a hand-authored index verbatim (three sections intact)",
+        readFileSync(idx, "utf8"), hand);
+    } finally { cleanup(dir); }
+  }
+
+  // Rows: within a marked index, a hand-written description survives (no bare
+  // link), a NEW file gains its entry, a REMOVED file loses it, prose outside
+  // the markers is preserved, and the whole thing is idempotent.
+  {
+    const dir = makeRepo("main");
+    try {
+      mkdirSync(join(dir, ".workaholic/specs"), { recursive: true });
+      const idx = join(dir, ".workaholic/specs/index.md");
+      writeFileSync(idx, "# specs\n\nIntro a human wrote.\n\n"
+        + "<!-- okf:generated:begin -->\n* [Alpha](alpha.md) - hand alpha desc\n<!-- okf:generated:end -->\n\n"
+        + "## Footer\n\nHuman notes.\n");
+      // alpha.md carries NO description frontmatter: the region's description must
+      // be preserved from the prior line, not degraded to a bare link.
+      writeFileSync(join(dir, ".workaholic/specs/alpha.md"), "---\ntitle: Alpha\n---\n# Alpha\n");
+      writeFileSync(join(dir, ".workaholic/specs/beta.md"),
+        "---\ntitle: Beta\ndescription: beta fm desc\n---\n# Beta\n");
+      execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+      run(dir, `${POSIX_SH} ${R}`);
+      let body = readFileSync(idx, "utf8");
+      assertTrue("marked region keeps a hand-written description (no frontmatter to source it)",
+        body.includes("* [Alpha](alpha.md) - hand alpha desc"), body);
+      assertTrue("a new file gains its entry in the region",
+        body.includes("* [Beta](beta.md) - beta fm desc"), body);
+      assertTrue("prose before the markers is preserved", body.includes("Intro a human wrote."), body);
+      assertTrue("prose after the markers is preserved",
+        body.includes("## Footer") && body.includes("Human notes."), body);
+
+      execSync(`git rm -q .workaholic/specs/beta.md`, { cwd: dir });
+      run(dir, `${POSIX_SH} ${R}`);
+      body = readFileSync(idx, "utf8");
+      assertTrue("a removed file leaves the region", !body.includes("](beta.md)"), body);
+      assertTrue("the retained entry and the human prose stay",
+        body.includes("](alpha.md)") && body.includes("## Footer"), body);
+
+      execSync(`git add -A && git commit -q -m r`, { cwd: dir });
+      run(dir, `${POSIX_SH} ${R}`);
+      assertEq("refresh idempotent over a marked index",
+        execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim(), "");
+    } finally { cleanup(dir); }
+  }
+
+  // Rows: a legacy purely-generated index migrates to the marked form (keeping
+  // its entries); an empty untracked dir and an ignored-only dir are NOT indexed
+  // while a tracked subdir IS; and a real `git clone` resolves every link.
+  {
+    const dir = makeRepo("main");
+    try {
+      mkdirSync(join(dir, ".workaholic/concerns"), { recursive: true });
+      const idx = join(dir, ".workaholic/concerns/index.md");
+      writeFileSync(idx, "# concerns\n\n* [Foo](foo.md)\n");
+      writeFileSync(join(dir, ".workaholic/concerns/foo.md"), "---\ntitle: Foo\n---\n# Foo\n");
+      mkdirSync(join(dir, ".workaholic/concerns/archive"), { recursive: true }); // empty, untracked
+      mkdirSync(join(dir, ".workaholic/concerns/ignoredonly"), { recursive: true });
+      writeFileSync(join(dir, ".gitignore"), "ignoredonly/\n");
+      writeFileSync(join(dir, ".workaholic/concerns/ignoredonly/x.md"), "x\n"); // only ignored file
+      mkdirSync(join(dir, ".workaholic/concerns/sub"), { recursive: true });
+      writeFileSync(join(dir, ".workaholic/concerns/sub/doc.md"), "---\ntitle: Sub\n---\n# Sub\n"); // tracked
+      execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+      run(dir, `${POSIX_SH} ${R}`);
+      const body = readFileSync(idx, "utf8");
+      assertTrue("a purely-generated legacy index migrates to the marked form",
+        body.includes("<!-- okf:generated:begin -->") && body.includes("<!-- okf:generated:end -->"), body);
+      assertTrue("migration keeps the existing entry", body.includes("](foo.md)"), body);
+      assertTrue("an empty untracked archive/ is NOT indexed", !body.includes("](archive/)"), body);
+      assertTrue("an ignored-only dir is NOT indexed", !body.includes("](ignoredonly/)"), body);
+      assertTrue("a tracked subdir IS indexed", body.includes("[sub/](sub/)"), body);
+
+      execSync(`git add -A && git commit -q -m migrated`, { cwd: dir });
+      const clone = mkdtempSync(join(tmpdir(), "workaholic-clone-"));
+      try {
+        execSync(`git clone -q ${dir} ${clone}`, { stdio: "ignore" });
+        const cbody = readFileSync(join(clone, ".workaholic/concerns/index.md"), "utf8");
+        const links = [...cbody.matchAll(/\]\(([^)]+)\)/g)].map((m) => m[1]);
+        const dead = links.filter((l) => !existsSync(join(clone, ".workaholic/concerns", l)));
+        assertEq("every generated link resolves in a fresh clone", dead, []);
+      } finally { cleanup(clone); }
+    } finally { cleanup(dir); }
+  }
+
+  // Upstream half (apply-deferred-concern-verdicts.sh): a run that resolves
+  // nothing creates NO concerns/archive dir; a resolved verdict creates it and
+  // moves the file in — so the generator has no empty dir to index in the first place.
+  {
+    const dir = makeRepo("main");
+    try {
+      mkdirSync(join(dir, ".workaholic/concerns"), { recursive: true });
+      writeFileSync(join(dir, ".workaholic/concerns/1-a.md"),
+        "---\nseverity: low\nstatus: active\nresolved_by_pr:\nresolved_by_commit:\n---\n# A\n");
+      execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+      const sa = JSON.stringify([{ path: ".workaholic/concerns/1-a.md", verdict: "still_active" }]);
+      run(dir, `printf '%s' '${sa}' | ${POSIX_SH} ${SCRIPTS.applyVerdicts}`);
+      assertTrue("still_active-only verdicts create no concerns/archive dir",
+        !existsSync(join(dir, ".workaholic/concerns/archive")), "archive dir was created");
+      const rs = JSON.stringify([{ path: ".workaholic/concerns/1-a.md", verdict: "resolved", resolved_by_pr: 9, resolved_by_commit: "abc1234" }]);
+      run(dir, `printf '%s' '${rs}' | ${POSIX_SH} ${SCRIPTS.applyVerdicts}`);
+      assertTrue("a resolved verdict creates archive/ and moves the file in",
+        existsSync(join(dir, ".workaholic/concerns/archive/1-a.md"))
+          && !existsSync(join(dir, ".workaholic/concerns/1-a.md")), "resolved concern not moved");
+    } finally { cleanup(dir); }
+  }
+}
+
 // ---------- report per-run artifacts (no shared constant /tmp paths) ----------
 // Source assertions pinning the fixed-path hazard shut: a future edit that
 // reintroduces a constant /tmp artifact path (the collision that fed one run
@@ -5084,6 +5214,7 @@ const tests = [
   ["ship/record-evidence.sh", testRecordEvidence],
   ["ship/catchup-main.sh", testCatchupMain],
   ["report/apply-deferred-concern-verdicts.sh", testApplyVerdicts],
+  ["okf/refresh-index.sh preserves content + prunes dead links", testRefreshIndexPreservesContent],
   ["report per-run artifacts (no shared /tmp paths)", testReportArtifacts],
   ["ship/extract-deferred-concerns.sh", testExtractDeferredConcerns],
   ["report/migrate-concern-identity.sh + update-in-place", testConcernIdentity],

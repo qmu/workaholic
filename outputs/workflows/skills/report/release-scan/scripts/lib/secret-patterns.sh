@@ -5,20 +5,21 @@
 # Deliberately excludes bare hex/base64 so commit hashes, versions, and blob ids never
 # false-positive.
 #
-# NOT SHARED with ship/scripts/record-evidence.sh, despite what this header used to claim.
-# That script still carries its own inline `scan_secrets()`: the regexes were copied out of
-# it into this file and it was never switched over to source the result, so the two have
-# drifted (measured 2026-07-15: the evidence guard misses all five suffixed-keyword shapes —
-# `SECRET_KEY`, `aws_secret_access_key`, … — that this file has caught since 84d238d9).
+# SHARED with ship/scripts/record-evidence.sh — partially, and the boundary is deliberate.
+# That script sources this file for the credential KEY GROUP (`_SP_KEY`) and the pass-1
+# unmistakable shapes (`secret_pass1_grep`), so those can never drift again (they had:
+# measured 2026-07-15, the evidence guard's inline copy missed all five suffixed-keyword
+# shapes — `SECRET_KEY`, `aws_secret_access_key`, … — that this file had caught since
+# 84d238d9).
 #
-# Do not "fix" that by pointing it at secret_grep. The two guards read different material
-# and want different bars. This file scans CODE, where a reference is ordinary and a false
-# positive hard-blocks /ship with no bypass. record-evidence.sh scans a few lines of
-# free-text deploy evidence on their way into a PUBLIC story, where a false positive costs
-# a rephrase and a false negative publishes a credential — so it should stay paranoid.
-# Pass 2's reference reasoning is code-shaped and would weaken it: `token: abc123def,` is a
-# reference in TypeScript, and a pasted JSON fragment in prose. Sharing the KEY GROUP and
-# pass 1 would be sound; sharing the value judgment would not.
+# What is NOT shared is pass 2's value judgment (`secret_grep` stays scanner-only). The
+# two guards read different material and want different bars. This file scans CODE, where
+# a reference is ordinary and a false positive hard-blocks /ship with no bypass.
+# record-evidence.sh scans a few lines of free-text deploy evidence on their way into a
+# PUBLIC story, where a false positive costs a rephrase and a false negative publishes a
+# credential — so it stays paranoid and flags a generic assignment on the key name alone.
+# Pass 2's reference reasoning is code-shaped and would weaken it: `token: abc123def,` is
+# a reference in TypeScript, and a pasted JSON fragment in prose.
 #
 # Two passes, because the two rule families need opposite treatment:
 #
@@ -137,20 +138,27 @@ _SP_ANNOT='[]A-Za-z0-9_$<>|&,.[[:space:]-]*'
 # See the header: an unknown bare word is a literal, not a type.
 _SP_PRIM='(string|number|boolean|bigint|symbol|undefined|null|any|unknown|never|void|object|date)'
 
+# ---- pass 1: unmistakable key shapes (never subtracted) ----
+# The value itself is unmistakably a credential, so these match unconditionally.
+# Shared: record-evidence.sh sources this file and calls this same function, so
+# the evidence guard and the branch scanner flag identical pass-1 shapes by
+# construction. Reads stdin, prints matching lines; grep's status (1 = none).
+secret_pass1_grep() {
+    grep -Ei \
+        -e 'AKIA[0-9A-Z]{16}' \
+        -e 'gh[pousr]_[A-Za-z0-9]{20,}' \
+        -e 'github_pat_[A-Za-z0-9_]{20,}' \
+        -e 'xox[baprs]-[A-Za-z0-9-]{10,}' \
+        -e '(bearer|basic)[[:space:]]+[A-Za-z0-9._~+/=-]{16,}' \
+        -e '-----BEGIN[ A-Z]*PRIVATE KEY-----'
+}
+
 # Reads stdin, prints matching lines, returns 1 when nothing matched.
 secret_grep() {
     _sp_input=$(cat)
     _sp_hits=$(
         {
-            # ---- pass 1: unmistakable key shapes (never subtracted) ----
-            printf '%s\n' "$_sp_input" | grep -Ei \
-                -e 'AKIA[0-9A-Z]{16}' \
-                -e 'gh[pousr]_[A-Za-z0-9]{20,}' \
-                -e 'github_pat_[A-Za-z0-9_]{20,}' \
-                -e 'xox[baprs]-[A-Za-z0-9-]{10,}' \
-                -e '(bearer|basic)[[:space:]]+[A-Za-z0-9._~+/=-]{16,}' \
-                -e '-----BEGIN[ A-Z]*PRIVATE KEY-----' \
-                || true
+            printf '%s\n' "$_sp_input" | secret_pass1_grep || true
 
             # ---- pass 2: generic assignments whose VALUE looks like a literal ----
             # First -e: `key = <literal>` / `key: <literal>`.

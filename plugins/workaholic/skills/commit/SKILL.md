@@ -78,6 +78,8 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 Present-tense verb, what changed (50 chars max). No prefixes like `feat:` or `[fix]`.
 
+`commit.sh` enforces this rule itself: it runs the shared subject validator (`scripts/check-subject.sh` in this skill — the same rule source the commit-guard hooks delegate to) before staging anything, so an off-policy title fails fast with the index untouched. The 50-character limit counts characters, not bytes (the validator pins a UTF-8 locale), so a Japanese title measures the same on every host.
+
 Examples:
 - Add session-based authentication
 - Fix Mermaid slash character in labels

@@ -48,6 +48,19 @@ real_dir=$(cd -- "$dir" 2>/dev/null && pwd -P || true)
 [ -z "$real_dir" ] && exit 0
 abs="${real_dir}/${base}"
 
+# The agent's per-project memory store (~/.claude/projects/<slug>/memory/) is exempt.
+# It is not another repository — it is the harness's own store, which the harness
+# directs the agent to write to, and a stale memory's only correction path is a write
+# here. Blocking it once closed the loop the wrong way round: a memory contradicting
+# the current design kept firing every session and could not be repaired. The
+# exemption is matcher-shaped and does not weaken "never modify another repository":
+# the store is per-project, never committed, never published.
+if [ -n "${HOME:-}" ]; then
+    case "$abs" in
+        "${HOME}/.claude/projects/"*"/memory/"*) exit 0 ;;
+    esac
+fi
+
 # Allowed roots: this repo's toplevel plus every worktree of the SAME repository.
 # Worktrees are not optional — missions run in .worktrees/<slug>, and a naive
 # "must be under the toplevel" test would break the mission model.

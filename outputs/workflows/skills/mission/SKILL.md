@@ -50,8 +50,8 @@ drive_authorized:       # `true` once the Creation Interrogation emitted the ful
 tickets: []             # machine-readable member lists — reserved; populated by later work
 stories: []
 concerns: []
-gate_type:              # OPTIONAL and normally EMPTY — documentation | live-app
-gate_target:            # a route served on the mission worktree's port to check (e.g. /docs)
+gate_type:              # OPTIONAL and normally EMPTY — documentation | live-app | check
+gate_target:            # what to exercise: a route on the mission worktree's port (e.g. /docs), or the verification command for `check` (e.g. npm test)
 gate_assert:            # one line: what must hold for the mission's outcome to pass
 ---
 ```
@@ -66,7 +66,7 @@ This is a deliberate demotion. A gate declared at creation is a prediction about
 
 So do **not** interrogate these at mission creation, and do not treat a mission without them as incomplete. Write `## Experience` instead.
 
-When a mission *does* declare one: `gate_type` is `documentation` (the mission's docs render and read correctly) or `live-app` (the mission's feature works in the running app); `gate_target` is the route to check; `gate_assert` states what must hold. Because a mission runs in its own worktree with a unique port base (`WORKAHOLIC_DEV_PORT`), it is verified by driving that worktree's running server with the Playwright plugin, and since every worktree serves on a different port, several missions' gates can be checked at once. workaholic declares the gate and supplies the port; the server-start command is the project's (declared once, e.g. in the project's `CLAUDE.md`). Read it with `gate.sh` (below); a declared gate stays **objective** (`implementation` / `objective-documentation`) — a named route plus an asserted condition, never "looks good".
+When a mission *does* declare one: `gate_type` is `documentation` (the mission's docs render and read correctly), `live-app` (the mission's feature works in the running app), or `check` (the project's own verification command passes); `gate_target` is the route to check — or, for `check`, the command to run; `gate_assert` states what must hold. The browser-shaped types are verified by driving the mission worktree's running server (unique port base, `WORKAHOLIC_DEV_PORT`) with the Playwright plugin, so several missions' gates can be checked at once; workaholic declares the gate and supplies the port, while the server-start command is the project's (declared once, e.g. in the project's `CLAUDE.md`). A `check` gate is verified by running `gate_target` in the mission's worktree and passes on exit 0 — the type for projects with no browser-drivable surface (a CLI, a daemon, a library, a compiler), whose stable objective check is the verification command their `CLAUDE.md` already declares. Two cautions on `check`: it certifies **the project's checks**, not the demanded experience — `## Experience` still carries the substance — and its command must be the project's *own* declared verification, never a bespoke one-liner invented at mission creation (that would be the inert-gate problem in a new spelling). Read a gate with `gate.sh` (below); a declared gate stays **objective** (`implementation` / `objective-documentation`) — a named route or command plus an asserted condition, never "looks good".
 
 **The objectivity requirement outlives the gate.** `## Experience` is prose, so it cannot be machine-checked the way a route-plus-assert could. That makes objectivity a convention here rather than a check — hold it anyway: describe behavior that can be observed, not qualities that cannot.
 
@@ -98,7 +98,7 @@ Body sections, in order:
 - `## Goal` — the information-rich "why": business grounding and the outcome the mission pursues.
 - `## Scope` — definition of done, and explicit out-of-scope notes.
 - `## Experience` — **the mission's substance**: the user experience, the demanded behavior, and/or the overall structure it pursues. Where `## Goal` says *why* the work is worth doing, this says *what the thing does*. Keep it observable (`implementation` / `objective-documentation`) — "the list reorders without a reload" is checkable; "feels fast" is not. This is the durable content a kickoff-time `gate_*` could never be, and it is what a later session reads to know what is actually demanded.
-- `## Acceptance` — a checklist, and **the mission's plan**: each item names the ticket expected to satisfy it, so the list doubles as the route to completion. **Progress toward achievement is `checked ÷ total`, computed from this list, never a hand-set number** (`implementation` / `objective-documentation`).
+- `## Acceptance` — a checklist, and **the mission's plan**: each item names the ticket expected to satisfy it, so the list doubles as the route to completion. **Progress toward achievement is `checked ÷ total`, computed from this list, never a hand-set number** (`implementation` / `objective-documentation`). An unchecked item is a **heading, not a specification** — re-check it against the source before cutting its ticket (see the checklist convention below).
 - `## Changelog` — an append-only, dated, human-readable timeline (`design` / `history-structures`).
 
 ### Acceptance-checklist convention
@@ -111,6 +111,8 @@ Each acceptance item is a Markdown checklist entry that names the ticket or stor
 ```
 
 The `(#<filename>)` marker is the **stable link** from an acceptance item to the artifact that satisfies it. Progress computation counts `[x]` against the total; the marker lets a completed ticket/story flip exactly its own item to `[x]` (that flip is owned by the mission update scripts, not by hand-editing).
+
+**An unchecked item is a heading, not a specification.** Acceptance items are written at creation — the moment of least knowledge in a mission's life, from a directive and prior records rather than from the source. Measured on real use: of seven items written up front from concern records, **three were wrong when finally checked against the code** (one named a component that had no defect, one called a working counter-example an unfinished placeholder, and a *correction* over-credited a component whose verbatim reuse would have broken every fixture) — and the same item was mis-stated four times in two days, every time by paraphrasing a summary instead of reading the code. So before cutting or driving a ticket from an unchecked item, **re-check the item against the source** — and write the ticket from what the source says, never by paraphrasing the item into it. Detail specified up front is inventory that decays; the item's job is to say *where the bar is*, and the ticket's `## Quality Gate` — written with the code open — is where the bar becomes proof.
 
 ### Changelog line format
 
@@ -162,6 +164,38 @@ Do not read the requirement as "Acceptance first".
 Write the tickets **in one pass**, not N serial `create-ticket` runs. Each carries its mandatory `## Policies` and `## Quality Gate` (`validate-ticket.sh` rejects it otherwise), is stamped `mission: <slug>`, and is ordered by `depends_on` — foundation first, dependencies only where genuinely ordered, unique timestamps (`+1s` per ticket). Reuse `create-ticket`'s split mechanics rather than re-deriving them.
 
 **The split cap does not apply to a mission — a deliberate, scoped exception.** `create-ticket` §4 caps a split at "2–4 discrete tickets", which is right for one request that turns out to be several. A mission is the opposite case: a durable goal that spans *many* tickets by definition, and "a complete set to drive through one by one" is the requirement. Capping it at 4 would force either an incomplete plan or a fake ticket boundary. A mission decomposition is closer to `trip-protocol`'s Decomposition gate than to a `/ticket` split, and is governed by the same rule: **one ticket per genuinely separable unit of work, however many that is**. The cap still applies to `/ticket` itself; this exception is mission-scoped and stated here so it is not a silent violation.
+
+## Replan (re-entering the interrogation)
+
+The sanctioned path to **reopen an existing active mission's plan** — reached without a subcommand: `/mission <instruction referencing the mission>` (the command owns the dispatch judgment and its written criteria). It exists because three legitimate states previously had no route back into the interrogation: a thin hand-authored `0/0` mission, a mid-flight mission whose scope grew, and a `carried` successor minted by `close.sh` with no worktree and no tickets — while the create flow dead-ends on an existing slug. Only `active` missions are replan targets; the archive is immutable history.
+
+**Scoped re-interrogation.** Re-run the Creation Interrogation rounds the instruction touches — nothing more, nothing less:
+
+| the instruction changes | rounds re-run |
+| --- | --- |
+| direction (goal, scope) | 1–2 |
+| the plan (more/changed work) | 3–5, for the delta tickets |
+| a thin mission (`0/0`, empty sections) | all five |
+
+The bar equals creation's: a structured **delta model** — what changes, which tickets, in what order — not a Q&A transcript (`planning` / `modeling-centric-design`), grilled until the delta is drive-ready. `gate_*` is never interrogated, exactly as at creation.
+
+**What the delta may touch** — everything the Creation Interrogation produces, applied as a delta: rewrite `## Goal` / `## Scope` / `## Experience`; append `## Acceptance` items (observable, ticket-linked by `(#<filename>)`); emit delta tickets in one pass (the same emission rules, including the mission-scoped split-cap exception); re-stamp `drive_authorized` under the conditions below.
+
+**What a replan must never touch:**
+
+- `status` — only `close.sh` flips it.
+- the checked state of existing `## Acceptance` items — only `tick-acceptance.sh` flips those.
+- existing `## Changelog` lines — append-only, always (`design` / `history-structures`).
+
+An existing **unchecked** acceptance item may be reworded or dropped **only** when the developer explicitly says the criterion no longer holds — and the drop is recorded as its own changelog line (`acceptance dropped — <the item's (#filename) artifact>`), so the plan's shrinkage is history rather than a silent rewrite.
+
+**History.** A replan lands as idempotent changelog lines through `append-changelog.sh`, never as edits: `ticket added — <filename>` per emitted ticket, plus one `mission replanned — <artifact>` line marking the event (both in the standard-events list below). Re-running the same replan appends nothing — the `(event, artifact)` key already exists.
+
+**`drive_authorized` re-stamp.** The stamp asserts that every judgement call about *these exact tickets* was answered by the developer:
+
+- already stamped `true` + a fully interrogated delta → the stamp stays / is re-set `true` (the original set was interrogated at creation, the delta now).
+- never stamped (a hand-authored mission) → stamp only if the replan interrogated the **entire current set**, not just the delta.
+- interrogation cut short → no stamp, ever.
 
 ## Mission Position Report
 
@@ -215,7 +249,9 @@ Read an artifact's `mission:` relation; prints one slug per line, nothing when a
 bash mission/scripts/drive-authorized.sh <ticket-file>
 ```
 
-Answer, for one ticket: **may `/drive` implement this without the per-ticket approval prompt?** Emits `{authorized, reason, missions}` — `reason` is `""` (authorized), `no_ticket`, `no_mission` (nothing authorized it), `mission_not_found`, or `not_authorized` (a claimed mission is not stamped). Reads the relation through `read-relation.sh`, so `mission: [a, b]` and a bare `mission: a` behave identically.
+Answer, for one ticket: **may `/drive` implement this without the per-ticket approval prompt?** Emits `{authorized, reason, missions}` — `reason` is `""` (authorized), `no_ticket`, `no_mission` (nothing authorized it), `mission_not_found`, `not_authorized` (a claimed mission is not stamped), or `no_plan` (a claimed mission is stamped but its `## Acceptance` is empty — a stamp with no plan authorizes nothing; the floor is `progress.sh`'s `total > 0`). Reads the relation through `read-relation.sh`, so `mission: [a, b]` and a bare `mission: a` behave identically.
+
+Missions get a write-time floor too: `hooks/validate-mission.sh` (PostToolUse `Write|Edit`, the mission analogue of `validate-ticket.sh`) lets `create.sh`'s empty scaffold pass, requires the `assignee:` key to exist (empty = deliberately unclaimed), and — once a mission claims `drive_authorized: true` — rejects a missing owner, a comment-only `## Experience`, or an empty `## Acceptance` at the write, where the author can still fix it. `archive/` missions are history and are never retro-blocked.
 
 **Conservative by construction**: a ticket claiming several missions is authorized only if **every** one of them is stamped. Naming a mission is a commitment, not a label — the same reason `/drive` holds a ticket to the gate of every mission it names ("all of them must pass, not the most convenient one"). One unauthorized mission means ask.
 
@@ -229,8 +265,8 @@ Read the mission's **quality-gate** declaration (`gate_type`/`gate_target`/`gate
 
 `valid` and `driveable` answer **different questions**, and the distinction is the point:
 
-- **`valid`** — the *declaration* is well-formed: `gate_type` is empty or one of `documentation`/`live-app`. It says nothing about whether the gate can be run.
-- **`driveable`** — the gate can actually be *exercised*: one is declared **and** its worktree ports resolved. `reason` names why not — `no_gate` (none declared: the **normal** case, not an error) or `no_worktree` (declared, but no port to serve its target on).
+- **`valid`** — the *declaration* is well-formed: `gate_type` is empty or one of `documentation`/`live-app`/`check`. It says nothing about whether the gate can be run.
+- **`driveable`** — the gate can actually be *exercised*: one is declared **and** its worktree ports resolved (for `check`, the worktree itself exists — no port is involved). `reason` names why not — `no_gate` (none declared: the **normal** case, not an error) or `no_worktree` (declared, but no worktree to serve or run its target in).
 
 `driveable` exists because `valid: true` with empty ports reported success for a gate that could not be addressed at all: a mission could declare a live gate, pass validation, and be silently unverifiable. The port fields are `""` when the mission has no worktree.
 
@@ -266,7 +302,7 @@ Emit the display text of the mission's **first unchecked** `## Acceptance` item 
 bash mission/scripts/append-changelog.sh <mission-slug-or-file> <event> <artifact-filename> [date]
 ```
 
-Append one dated line to a mission's `## Changelog`. **The single writer of changelog lines** — every workflow seam calls it rather than hand-editing `mission.md`. Append-only and **idempotent**: the `(event, artifact)` pair is the stable event id, so re-running for the same event never duplicates a line. Git-stages the mission file. Standard events: `ticket archived` (drive), `story reported` (report), `concern deferred (stuck)` (ship), `concern resolved (unstuck)` (report), `mission achieved` / `mission abandoned` / `mission carried into <successor-slug>` (close.sh).
+Append one dated line to a mission's `## Changelog`. **The single writer of changelog lines** — every workflow seam calls it rather than hand-editing `mission.md`. Append-only and **idempotent**: the `(event, artifact)` pair is the stable event id, so re-running for the same event never duplicates a line. Git-stages the mission file. Standard events: `ticket archived` (drive), `story reported` (report), `concern deferred (stuck)` (ship), `concern resolved (unstuck)` (report), `mission achieved` / `mission abandoned` / `mission carried into <successor-slug>` (close.sh), `ticket added` / `mission replanned` / `acceptance dropped` (replan).
 
 ```bash
 bash mission/scripts/tick-acceptance.sh <mission-slug-or-file> <artifact-filename>

@@ -18,7 +18,8 @@ set -eu
 msgfile="${1:?commit-msg: message file path required}"
 
 # Resolve the shared validator relative to this hook (hooks/git/commit-msg ->
-# hooks/lib/check-subject.sh), so the same rules drive both enforcement layers.
+# hooks/lib/check-subject.sh, a stable delegator to the canonical copy in
+# skills/commit/scripts/), so the same rules drive every enforcement layer.
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 LIB="${SCRIPT_DIR}/../lib/check-subject.sh"
 

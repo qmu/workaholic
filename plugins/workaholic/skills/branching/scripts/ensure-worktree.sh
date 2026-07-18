@@ -43,6 +43,14 @@ fi
 
 mkdir -p "${repo_root}/.worktrees"
 
+# Exclude .worktrees/ and .env via the shared .git/info/exclude BEFORE creating
+# the worktree, so a stray `git add -A` in the main tree can never embed the
+# linked worktree as a gitlink (see lib/ensure-git-excludes.sh — shared with
+# create-mission-worktree.sh so the two creators cannot drift).
+SCRIPT_DIR=$(dirname "$0")
+. "${SCRIPT_DIR}/lib/ensure-git-excludes.sh"
+ensure_git_excludes "$repo_root"
+
 git worktree add -b "${branch_name}" "${worktree_path}" HEAD
 
 # Credentials protocol (2026-07-13): development credentials live in ONE

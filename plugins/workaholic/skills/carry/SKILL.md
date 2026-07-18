@@ -44,7 +44,7 @@ Pick a short kebab-case `<slug>` for the resumption ticket filename (e.g. `resum
 Distil, factually (catch-style — name files, paths, step numbers, commit hashes):
 
 - **What is already done** — the completed steps / landed commits, as *context* (this becomes Overview background, NOT steps to re-run).
-- **What remains** — the concrete outstanding actions, in order. These become the resumption ticket's `## Implementation Steps`. **Only remaining work** goes here: `/drive` implements every listed step with no notion of "already done", so any completed step left in the list is re-run.
+- **What remains** — the concrete outstanding actions, in order. These become the resumption ticket's `## Implementation Steps`. **Only remaining work** goes here: `/drive` implements every listed step with no notion of "already done", so any completed step left in the list is re-run. This rule has a machine floor: `validate-ticket.sh` rejects a `resume-*` ticket whose Implementation Steps carry a checked (`- [x]`) or struck-through (`~~`) step — completed work belongs in `## Overview`, marked do-not-redo.
 - **Where we are** — the exact current position (mid-step N of ticket X; trip at `coding/iteration-2`; etc.).
 - **Where the MISSION stands** — if the in-flight work carries a `mission:` relation, the **Mission Position Report** (`workaholic:mission` defines it; do not restate it here). It answers the question this whole command exists for: *in another session, how much can we proceed with the mission?* A resumption ticket that says what to do next but not where it sits in the mission hands over a task, not a mission.
 

@@ -156,6 +156,21 @@ if _is_new:
     if not target_id:
         print(json.dumps({"merged": False, "reason": "title_yields_empty_id"}))
         sys.exit(0)
+    # Slug collision guard: the slug is truncated (6 words / 60 chars), so two
+    # DIFFERENT titles can mint the same id — without this check the second
+    # compound would silently fold into the first. Same-title matches fall
+    # through (that is the idempotent retry / update-in-place path); only a
+    # different title behind the same slug is refused. To fold members into
+    # that existing concern deliberately, pass its id instead of `-`.
+    _existing = path_of(target_id)
+    if os.path.exists(_existing):
+        with open(_existing) as _h:
+            _em = re.search(r'^#\s+(.*)$', _h.read(), re.MULTILINE)
+        _etitle = strip_carried(_em.group(1).strip()) if _em else ''
+        if _etitle != strip_carried(title):
+            print(json.dumps({"merged": False, "reason": "id_collision",
+                              "target_id": target_id, "existing_title": _etitle}))
+            sys.exit(0)
 
 # Gather member files (active only; skip the target itself and anything missing).
 members = []

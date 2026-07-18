@@ -32,6 +32,12 @@ BODY_FILE=$(mktemp "${TMPDIR:-/tmp}/workaholic-pr-body.XXXXXX")
 trap 'rm -f "$BODY_FILE"' EXIT
 "${SCRIPT_DIR}/strip-frontmatter.sh" "$STORY_FILE" > "$BODY_FILE"
 
+# Bound the body under GitHub's 65,536-char PR-body limit (a large carried
+# concern corpus used to hard-stop this script at gh time). Over the limit,
+# section 6 is replaced with a link to the committed story file — the ship-time
+# extractor reads the file, not the PR body, so extraction is unchanged.
+"${SCRIPT_DIR}/shrink-pr-body.sh" /tmp/pr-body.md "$BRANCH" >/dev/null
+
 # Check if PR exists
 PR_INFO=$(gh pr list --head "$BRANCH" --json number,url --jq '.[0]' 2>/dev/null || echo "")
 

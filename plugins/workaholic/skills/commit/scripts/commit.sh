@@ -3,7 +3,26 @@
 
 set -eu
 
-# Parse flags
+usage() {
+    echo "Usage: commit.sh [--skip-staging] [--category <Added|Changed|Removed>] <title> <why> <changes> <concerns> <insights> <verify> [files...]"
+    echo ""
+    echo "Options:"
+    echo "  --skip-staging        Skip staging step (use when files are already staged)"
+    echo "  --category <value>    Emit a 'Category: <Added|Changed|Removed>' git trailer for /report grouping"
+    echo ""
+    echo "Parameters:"
+    echo "  title     - Commit title (present-tense verb, 50 chars max)"
+    echo "  why       - Why this change was needed: problem, trigger, approach (feeds /report Motivation; can be empty)"
+    echo "  changes   - What users experience differently, before->after (or 'None')"
+    echo "  concerns  - Risks, follow-ups, deferred work surfaced by this change (feeds /report Concerns; 'None' or empty to omit)"
+    echo "  insights  - Non-obvious patterns or gotchas worth preserving (feeds /report Patterns; 'None' or empty to omit)"
+    echo "  verify    - Verification done or needed (or 'None')"
+    echo "  files...  - Optional: specific files to stage (ignored with --skip-staging)"
+}
+
+# Parse flags. Unknown -* arguments are refused rather than falling through to
+# become the title: a typo'd flag (or --help itself) must never silently turn
+# into a commit whose message is that flag.
 SKIP_STAGING=false
 CATEGORY=""
 while [ $# -gt 0 ]; do
@@ -13,8 +32,24 @@ while [ $# -gt 0 ]; do
             shift
             ;;
         --category)
-            CATEGORY="${2:-}"
+            if [ $# -lt 2 ]; then
+                echo "Error: --category requires a value"
+                echo ""
+                usage
+                exit 1
+            fi
+            CATEGORY="$2"
             shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 1
+            ;;
+        -*)
+            echo "Error: unknown option: $1"
+            echo ""
+            usage
+            exit 1
             ;;
         *)
             break
@@ -34,32 +69,61 @@ if [ -n "$CATEGORY" ]; then
     esac
 fi
 
-TITLE="${1:-}"
-WHY="${2:-}"
+# All six positional fields are required (empty strings are fine -- optional
+# sections default below). Without this floor, an under-supplied call would
+# leave the unconsumed fields in "$@" and the staging loop would try to stage
+# them as file paths -- the same silently-reinterpreted-input defect as a
+# trailing flag.
+if [ $# -lt 6 ]; then
+    echo "Error: expected six positional arguments (title why changes concerns insights verify), got $#"
+    echo ""
+    usage
+    exit 1
+fi
+
+TITLE="$1"
+WHY="$2"
 CHANGES="${3:-None}"
-CONCERNS="${4:-}"
-INSIGHTS="${5:-}"
+CONCERNS="$4"
+INSIGHTS="$5"
 VERIFY="${6:-None}"
-shift 6 2>/dev/null || true
+shift 6
 
 if [ -z "$TITLE" ]; then
-    echo "Usage: commit.sh [--skip-staging] [--category <Added|Changed|Removed>] <title> <why> <changes> <concerns> <insights> <verify> [files...]"
+    usage
+    exit 1
+fi
+
+# Anything left in "$@" is the optional files list. Refuse any flag trailing
+# the positional args by name: it would otherwise fall into the staging loop
+# and be skipped as a missing file, silently dropping e.g. a --category.
+for arg in "$@"; do
+    case "$arg" in
+        -*)
+            echo "Error: unknown option: $arg (options must precede the positional arguments)"
+            echo ""
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+# Subject gate -- MUST run before the staging section below so a refused
+# subject never mutates the index. commit.sh is the script-wrapped path the
+# PreToolUse commit guard deliberately does not inspect, so the script runs
+# the shared subject rule itself; the validator is the same-dir canonical copy
+# (the git hooks reach it via the hooks/lib delegator).
+SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+if reason=$(sh "${SCRIPT_DIR}/check-subject.sh" "$TITLE"); then
+    :
+else
+    echo "Error: rejected off-policy subject (${reason})."
+    echo "  Subject: \"${TITLE}\""
     echo ""
-    echo "Options:"
-    echo "  --skip-staging        Skip staging step (use when files are already staged)"
-    echo "  --category <value>    Emit a 'Category: <Added|Changed|Removed>' git trailer for /report grouping"
-    echo ""
-    echo "Parameters:"
-    echo "  title     - Commit title (present-tense verb, 50 chars max)"
-    echo "  why       - Why this change was needed: problem, trigger, approach (feeds /report Motivation; can be empty)"
-    echo "  changes   - What users experience differently, before->after (or 'None')"
-    echo "  concerns  - Risks, follow-ups, deferred work surfaced by this change (feeds /report Concerns; 'None' or empty to omit)"
-    echo "  insights  - Non-obvious patterns or gotchas worth preserving (feeds /report Patterns; 'None' or empty to omit)"
-    echo "  verify    - Verification done or needed (or 'None')"
-    echo "  files...  - Optional: specific files to stage (ignored with --skip-staging)."
-    echo "              A named path that cannot be staged is a fatal error: nothing is committed."
-    echo "              With no files, only tracked changes are staged (git add -u); any untracked"
-    echo "              file is excluded and listed by name, never silently dropped."
+    echo "Subject policy (plugins/workaholic/skills/commit/SKILL.md):"
+    echo "  - present-tense, 50 characters or fewer"
+    echo "  - no Conventional-Commit prefix (feat:/fix:/docs: ...)"
+    echo "  - no leading [bracket] tag"
     exit 1
 fi
 

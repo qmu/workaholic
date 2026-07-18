@@ -67,3 +67,4 @@
 * [Summary mode, mission worktrees, and a release-safety scan](work-20260714-000543.md)
 * [Write confinement, /request, and a secret rule that judges the value](work-20260715-112717.md)
 * [Report whether the ship flow actually pushed etc](work-20260715-213222.md)
+* [Add /monitor parallel mission driver etc](work-20260716-152211.md)

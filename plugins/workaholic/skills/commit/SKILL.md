@@ -42,9 +42,11 @@ Each section (except title) should be a short paragraph of 3-5 sentences. See th
 
 ### Staging Behavior
 
-- If files are specified: stages only those files
-- If no files specified: stages all modified tracked files (`git add -u`)
-- **Never uses `git add -A`** to avoid accidentally staging untracked files from other contributors
+- If files are specified: stages only those files. **A named path that cannot be staged is a fatal error** — the script names every unresolved path, stages nothing, and exits non-zero, so a typo'd or moved path can never be committed-around in silence. (A named path that is untracked-but-exists stages normally; a named deleted path stages as a deletion.)
+- If no files specified: stages all modified tracked files (`git add -u`). Untracked files are **not** swept in, but they are **listed by name** before the commit — the omission is reported, never silent. Re-run naming an untracked file explicitly if it belongs in the commit.
+- **Never uses `git add -A`** to avoid accidentally staging untracked files from other contributors.
+
+A commit this script reports as created always contains every file the caller named; it never reports success while quietly leaving a named or untracked file out.
 
 ## Pre-Commit Checks
 

@@ -166,17 +166,16 @@ Based on the history discovery subagent's `moderation` field:
 
 Before writing the ticket, **interrogate the developer about how the outcome's quality will be assured**, and record the answers as the ticket's mandatory `## Quality Gate` section. This step **always runs** — it is not skippable and is not gated on the request "seeming obvious." The point is to make the eventual `/drive` approval concrete: the developer should approve the implementation against a gate they pre-agreed, not a vague description.
 
-**Grill, don't tick a box.** Ask enough focused questions (one or several the agent's selection prompt rounds, issued by the command/main agent — leaves cannot ask) to pin down a gate that is **objective and checkable**, converting vague intent ("make it robust") into verifiable criteria ("`node scripts/test-workflow-scripts.mjs` green; returns 422 on a missing email"). Cover:
+**Ask decisions; derive the rest.** The interrogation's content splits into two kinds, and only one of them becomes a question:
 
-- **Verification method** — which automated tests, type-checks, CI checks, manual steps, or production probes will prove the outcome.
-- **Acceptance criteria** — the specific, checkable conditions that must hold for the work to be correct (each phrased as a verifiable statement, per `implementation` / `objective-documentation`).
-- **The gate** — exactly which checks/commands must be green before the developer approves at `/drive`.
-- **Edge cases / failure modes** — what must be covered, not just the happy path.
-- **Division of assurance** — what Claude verifies during implementation vs. what the developer confirms at the approval gate.
+- **Developer-owned decisions** — anything with a real cost/benefit choice or information only the developer has: **verification depth and method** (e.g. smoke tests only vs a live end-to-end run; which environment counts as proof), scope calls, risk tradeoffs, edge cases whose importance is a judgment. These are asked, thoroughly — as many the agent's selection prompt rounds as it takes (issued by the command/main agent — leaves cannot ask), converting vague intent ("make it robust") into verifiable criteria ("`node scripts/test-workflow-scripts.mjs` green; returns 422 on a missing email").
+- **Agent-derivable criteria** — acceptance items that follow from discovery, repo conventions, and standing rules (the suite stays green, lint conformance, docs updated in the same change, isolation/reconciliation properties the design implies). **Draft these yourself, write them into the ticket's `## Quality Gate`, and present them as part of the written ticket** — never pose them as a select-which-apply question. The developer reviews them at the ticket presentation or trims them at the `/drive` approval gate.
 
-Keep asking until the gate is concrete enough to drive an approval prompt. Seed proposals from discovery's `source.test_coverage` and any existing CI checks so the questions are specific, but the developer's answers are authoritative. Prefer machine-checkable substance (tests / type-checks / CI gates) over manual sign-off (`implementation` / `test`, `operation` / `ci-cd`).
+**Anti-pattern — do not do this:** offering the derivable criteria back to the developer as a multi-select menu ("which of these acceptance criteria should we check?"). Every offered item was derivable, so the question adds a decision the developer never needed to make; measured on real use (2026-07-18), the developer's response was to ask why the question existed at all. If you can derive it, it goes in the ticket, not in a prompt.
 
-> **Do not soften this step.** A "minimal-friction / skip if it seems obvious" escape hatch is explicitly **not** wanted here — thorough interrogation is the goal, not a cost. Issue these questions through the same `needs_clarification` channel the command relays via the agent's selection prompt.
+Keep asking until the gate is concrete enough to drive an approval prompt. Seed the decision questions from discovery's `source.test_coverage` and any existing CI checks so they are specific, but the developer's answers are authoritative. Prefer machine-checkable substance (tests / type-checks / CI gates) over manual sign-off (`implementation` / `test`, `operation` / `ci-cd`).
+
+> **Do not soften this step.** A "minimal-friction / skip if it seems obvious" escape hatch is explicitly **not** wanted here — thorough interrogation of the **decision questions** is the goal, not a cost, and this step still always runs. The decision/derivable split narrows *what qualifies as a question*; it is never a licence to stop asking. Issue the questions through the same `needs_clarification` channel the command relays via the agent's selection prompt.
 
 ### 4c. Offer Mission Association (optional)
 

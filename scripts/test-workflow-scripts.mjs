@@ -68,6 +68,8 @@ const SCRIPTS = {
   scanBranchSafety: join(REPO_ROOT, "plugins/workaholic/skills/release-scan/scripts/scan-branch-safety.sh"),
   gateDecision: join(REPO_ROOT, "plugins/workaholic/skills/release-scan/scripts/gate-decision.sh"),
   collectCommits: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/collect-commits.sh"),
+  baseRef: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/base-ref.sh"),
+  gitContext: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/git-context.sh"),
   scanWindow: join(REPO_ROOT, "plugins/workaholic/skills/catch/scripts/scan-window.sh"),
   carryCheckpoint: join(REPO_ROOT, "plugins/workaholic/skills/carry/scripts/carry-checkpoint.sh"),
   resolveExportPath: join(REPO_ROOT, "plugins/workaholic/skills/explain/scripts/resolve-export-path.sh"),
@@ -2924,7 +2926,8 @@ function testCatchupMain() {
     execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: clone });
     execSync(`git checkout -q -b work-20260617-x HEAD~1`, { cwd: clone });
     const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.catchupMain} main`).stdout);
-    assertEq("catchup-main merges upstream cleanly", { c: r.caught_up, cur: r.already_current }, { c: true, cur: false });
+    assertEq("catchup-main merges upstream cleanly", { c: r.caught_up, cur: r.branch_up_to_date }, { c: true, cur: false });
+    assertTrue("catchup-main drops the misleading already_current field", !("already_current" in r), JSON.stringify(r));
     assertTrue("catchup-main brought upstream file into branch", existsSync(join(clone, "upstream.txt")),
       "upstream.txt was not merged in");
   } finally {
@@ -3917,6 +3920,119 @@ function testGuardTicketStructure() {
   assertEq("guard ignores unrelated command", invoke("git status"), 0);
 }
 
+// Build the structurally-faithful stale-base fixture from the ticket: a bare `origin`
+// with N+1 commits on main, a clone whose LOCAL `main` is pinned N behind origin/main
+// (the desk pin — a worktree can't move the `main` another worktree holds), and a work
+// branch cut from the FRESH origin/main carrying exactly one real commit. If `opts.mergedSecret`
+// is set, one of the already-merged commits carries a credential-shaped line; if
+// `opts.branchSecret`, the branch's one real commit does. Returns { origin, clone }.
+function makeStaleBaseClone(opts = {}) {
+  const { nBehind = 5, mergedSecret = false, branchSecret = false } = opts;
+  const origin = mkdtempSync(join(tmpdir(), "wh-sborigin-"));
+  const clone = mkdtempSync(join(tmpdir(), "wh-sbclone-"));
+  const seed = mkdtempSync(join(tmpdir(), "wh-sbseed-"));
+  execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
+  execSync(`git clone -q ${origin} .`, { cwd: seed });
+  execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: seed });
+  writeFileSync(join(seed, "base.txt"), "base\n");
+  execSync(`git add -A && git commit -q -m "seed base" && git push -q origin main`, { cwd: seed });
+  // N commits merged to origin/main — the "already merged" history a stale local base
+  // would wrongly narrate/scan. One optionally carries a secret (to prove the false BLOCK).
+  for (let i = 1; i <= nBehind; i++) {
+    writeFileSync(join(seed, `merged-${i}.txt`),
+      mergedSecret && i === 1 ? "aws = AKIA1234567890ABCDEF\n" : `merged work ${i}\n`);
+    execSync(`git add -A && git commit -q -m "merged work ${i}" && git push -q origin main`, { cwd: seed });
+  }
+  rmSync(seed, { recursive: true, force: true });
+  // Clone — origin/main is fresh (N+1 commits). Cut the work branch from FRESH origin/main.
+  execSync(`git clone -q ${origin} .`, { cwd: clone });
+  execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: clone });
+  execSync(`git checkout -q -b work-20260717-x origin/main`, { cwd: clone });
+  writeFileSync(join(clone, "real.txt"),
+    branchSecret ? "token = AKIAREALBRANCHSECRET99\n" : "the one real change\n");
+  execSync(`git add -A && git commit -q -m "Add my one real change"`, { cwd: clone });
+  // Pin LOCAL main N behind origin/main (we're off main, so the force-move is allowed —
+  // on a real desk the primary checkout is what pins it and no move is possible at all).
+  execSync(`git branch -f main main~${nBehind}`, { cwd: clone });
+  return { origin, clone };
+}
+
+// ---------- gather/base-ref.sh + base resolution across the report/scan pipeline ----------
+// The base ref must come from origin/<default>, never a local `main` a primary checkout
+// has pinned stale. Structurally-faithful fixture (real bare origin, real stale local main).
+function testBaseRefResolution() {
+  // 1. Happy path: resolver returns origin/main; the whole pipeline measures against it.
+  {
+    const { origin, clone } = makeStaleBaseClone({ nBehind: 5 });
+    try {
+      const baseRef = run(clone, `${POSIX_SH} ${SCRIPTS.baseRef}`).stdout.trim();
+      assertEq("base-ref resolves to origin/main (not stale local main)", baseRef, "origin/main");
+
+      // collect-commits with NO arg -> resolver -> 1, not N+1. The reproduced count:6 is dead.
+      const cc = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.collectCommits}`).stdout);
+      assertEq("collect-commits (default base) counts only the branch's real commit", cc.count, 1);
+      assertEq("collect-commits (default base) reports base origin/main", cc.base_branch, "origin/main");
+      // Forcing the stale local main reproduces the bug — proof the fixture bites.
+      const ccStale = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.collectCommits} main`).stdout);
+      assertEq("collect-commits against stale local main still over-counts (fixture is faithful)", ccStale.count, 6);
+
+      // git-context names origin/main and its git_log carries only the real commit.
+      const ctx = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.gitContext}`).stdout);
+      assertEq("git-context base_branch is origin/main", ctx.base_branch, "origin/main");
+      assertTrue("git-context git_log has only the branch's real commit",
+        /Add my one real change/.test(ctx.git_log) && !/merged work/.test(ctx.git_log), ctx.git_log);
+    } finally { cleanup(origin); cleanup(clone); }
+  }
+
+  // 2. False BLOCK direction: a secret sits in already-MERGED history, none on the branch.
+  //    Default base (origin/main) -> pass; forcing stale local main -> phantom block.
+  {
+    const { origin, clone } = makeStaleBaseClone({ nBehind: 5, mergedSecret: true });
+    try {
+      const good = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.scanBranchSafety}`).stdout);
+      assertEq("scan (default base) does not scan already-merged secrets", good.verdict, "pass");
+      const stale = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.scanBranchSafety} main`).stdout);
+      assertEq("scan against stale local main raises a PHANTOM block (fixture is faithful)", stale.verdict, "block");
+    } finally { cleanup(origin); cleanup(clone); }
+  }
+
+  // 3. Negative case (the fix must NOT launder a real finding): a genuine secret ON the
+  //    branch still blocks under the correct base — resolving the base doesn't relax the diff.
+  {
+    const { origin, clone } = makeStaleBaseClone({ nBehind: 5, branchSecret: true });
+    try {
+      const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.scanBranchSafety}`).stdout);
+      const sec = r.findings.filter((f) => f.category === "secret");
+      assertEq("scan (default base) still BLOCKS a real secret on the branch", r.verdict, "block");
+      assertTrue("the blocking secret is the branch file, non-overridable hard",
+        sec.some((f) => f.file === "real.txt" && f.severity === "hard"), JSON.stringify(sec));
+    } finally { cleanup(origin); cleanup(clone); }
+  }
+
+  // 4. No-origin fallback is LOUD (stderr note), not the old silent BASE=main.
+  {
+    const dir = makeRepo("main");
+    try {
+      // base-ref exits 0 in this path, so run()'s success branch reports no stderr —
+      // redirect stderr to a file to observe the (deliberately loud) fallback NOTE.
+      const errFile = join(dir, "base-ref.err");
+      const out = run(dir, `${POSIX_SH} ${SCRIPTS.baseRef} 2>${errFile}`).stdout.trim();
+      const err = readFileSync(errFile, "utf8");
+      assertEq("base-ref falls back to local main when there is no origin", out, "main");
+      assertTrue("base-ref announces the local-only fallback on stderr (not silent)",
+        /no 'origin' remote/.test(err), err);
+    } finally { cleanup(dir); }
+  }
+
+  // 5. Single source: neither consumer re-derives a bare `${1:-main}` / `|| BASE=main` default.
+  {
+    const cc = readFileSync(SCRIPTS.collectCommits, "utf8");
+    const scan = readFileSync(SCRIPTS.scanBranchSafety, "utf8");
+    assertTrue("collect-commits carries no bare ${1:-main} default", !/\$\{1:-main\}/.test(cc), "found ${1:-main} in collect-commits.sh");
+    assertTrue("scan-branch-safety carries no silent `|| BASE=main` fallback", !/\|\|\s*BASE=main/.test(scan), "found || BASE=main in scan-branch-safety.sh");
+  }
+}
+
 // ---------- report/collect-commits.sh (commit body is emitted, not dropped) ----------
 // Regression guard for the historical bug where the script computed the body then
 // dropped it, starving /report of the structured commit content.
@@ -4888,6 +5004,7 @@ const tests = [
   ["hooks/guard-ticket-structure.sh", testGuardTicketStructure],
   ["hooks/posix-lint.sh", testPosixLint],
   ["hooks/hooks.json executable", testHooksExecutable],
+  ["gather/base-ref.sh base resolution (report/scan pipeline)", testBaseRefResolution],
   ["report/collect-commits.sh", testCollectCommits],
   ["catch/scan-window.sh", testScanWindow],
   ["catch/scan-window.sh remote fetch+scan", testScanWindowRemote],

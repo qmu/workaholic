@@ -5,9 +5,17 @@
 
 set -eu
 
+SCRIPT_DIR=$(dirname "$0")
 BRANCH=$(git branch --show-current)
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-BASE_BRANCH=$(git remote show origin 2>/dev/null | grep 'HEAD branch' | sed 's/.*: //')
+# Base ref: the single resolver decides it (prefers origin/<default>, so it is immune
+# to a local `main` a primary checkout has pinned stale, and needs no network). Do NOT
+# swallow its failure — an empty base_branch would degrade `git log "${BASE_BRANCH}..HEAD"`
+# below into `git log HEAD` (all history, silently), which is exactly the bug. Fail loud.
+if ! BASE_BRANCH=$("${SCRIPT_DIR}/base-ref.sh"); then
+    echo "git-context: could not resolve a base ref; refusing to emit an empty base_branch" >&2
+    exit 1
+fi
 REPO_URL_RAW=$(git remote get-url origin 2>/dev/null || true)
 
 # Transform SSH URL to HTTPS format

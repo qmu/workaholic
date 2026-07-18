@@ -43,9 +43,11 @@ if [ ! -d "$ROOT" ] || [ -z "$EMAIL" ]; then
     exit 0
 fi
 
-# Heal any legacy flat layout first so active missions surface under active/.
+# Heal any legacy flat layout first so active missions surface under active/. summary.sh
+# enumerates this repo's active missions from the cwd-relative tree, so it migrates that
+# same tree.
 . "${SCRIPT_DIR}/lib/resolve.sh"
-missions_migrate_layout
+missions_migrate_layout ".workaholic"
 
 # JSON-escape a value (backslash and double-quote only; titles are plain text).
 json_escape() {

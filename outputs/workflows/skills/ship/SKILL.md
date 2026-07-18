@@ -171,7 +171,7 @@ bash ship/scripts/catchup-main.sh "<base-branch>"
 
 Fetches origin and merges `origin/<base>` (default `main`) into the current work branch so the artifact that gets deployed and confirmed equals what will land on merge. This step is **mandatory before any deploy step** — never skip it. Returns:
 
-- `{caught_up:true, already_current:bool}` — merged cleanly (or already current). Proceed.
+- `{caught_up:true, branch_up_to_date:bool}` — merged cleanly (`branch_up_to_date:true` means merging `origin/<base>` into the work branch was a no-op; it is a claim about the **work branch**, not about the local `main` ref, which catch-up does not touch). Proceed.
 - `{caught_up:false, conflict:true, conflict_class:"mechanical", conflicted_files:[...]}` — every conflict is a version/lockstep manifest (`.claude-plugin/marketplace.json`, either `plugin.json`) or under `outputs/`. **The agent reconciles this itself, as routine ship hygiene — do not ask the developer whether to reconcile.** Merge `origin/main`, resolve the manifest conflicts (take `main`'s side of the version, then re-bump to the next free version), regenerate `outputs/` (`node scripts/build-plugins/build.mjs`), re-run the pre-merge proof (build/verify/tests), and continue. This is the same reconcile-and-re-bump the version-collision guard requires (see below).
 - `{caught_up:false, conflict:true, conflict_class:"content", conflicted_files:[...]}` — a non-manifest path conflicts and needs human judgment. **Halt the Ship Flow and ask the developer to resolve it** before continuing.
 

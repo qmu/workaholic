@@ -19,7 +19,9 @@ ASSIGNEE_ARG="${2:-}"
 
 SCRIPT_DIR=$(dirname "$0")
 . "${SCRIPT_DIR}/lib/resolve.sh"
-missions_migrate_layout
+# No artifact to key off -- a mission is being created, so the root is "this repo".
+ROOT=$(missions_root_default)
+missions_migrate_layout "$ROOT"
 
 # Slug rule lives in slug.sh (the single source), so the mission directory name
 # and the /mission worktree directory name always agree.
@@ -29,7 +31,7 @@ SLUG=$(sh "${SCRIPT_DIR}/slug.sh" "$TITLE")
 MISSION_DIR=".workaholic/missions/active/${SLUG}"
 MISSION_FILE="${MISSION_DIR}/mission.md"
 
-EXISTING=$(mission_resolve "$SLUG")
+EXISTING=$(mission_resolve "$ROOT" "$SLUG")
 if [ -f "$EXISTING" ]; then
     printf '{"created": false, "reason": "exists", "slug": "%s", "path": "%s"}\n' "$SLUG" "$EXISTING"
     exit 1

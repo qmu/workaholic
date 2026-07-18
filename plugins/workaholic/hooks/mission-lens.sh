@@ -32,6 +32,14 @@
 # next unchecked item. Silent no-op when nothing passes all three, so it usually costs
 # only a few greps per turn.
 #
+# SUMMARIZE ON CHANGE: the full roster is injected only when it CHANGED since the last
+# turn of this session (or on the first turn, or when session_id is absent). On an
+# unchanged turn — the common case under a long /goal run — it emits a single compact
+# line (count + the one next action + a `/mission summary` pointer) instead of the whole
+# block, so the developer's own message is not buried under redundant context every turn.
+# The change-detector is per session and per event, cksum-compared under TMPDIR, and
+# fails open to the full roster. It never blocks a stop; /goal's gating is untouched.
+#
 # Claude-Code-only, POSIX sh, no outputs/ footprint (lives in hooks/, not built).
 
 set -eu
@@ -43,6 +51,10 @@ PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
 # plain stdout print, which is harmless.
 INPUT=$(cat 2>/dev/null || true)
 EVENT=$(printf '%s' "$INPUT" | grep -o '"hook_event_name"[[:space:]]*:[[:space:]]*"[^"]*"' | sed -e 's/.*"\([^"]*\)"$/\1/' || true)
+# session_id keys the per-session change-detector below (SUMMARIZE-ON-CHANGE). It is
+# always present in a real Claude Code hook invocation; when absent (e.g. a bare test
+# harness) we simply cannot dedupe, so the full roster is emitted every time.
+SID=$(printf '%s' "$INPUT" | grep -o '"session_id"[[:space:]]*:[[:space:]]*"[^"]*"' | sed -e 's/.*"\([^"]*\)"$/\1/' || true)
 
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
 [ -n "$ROOT" ] || exit 0
@@ -149,8 +161,39 @@ fi
 
 [ -n "$LINES" ] || exit 0
 
-MSG="Active mission(s) that are your business — stay oriented to the roadmap and steer toward completion:
+MSG_FULL="Active mission(s) that are your business — stay oriented to the roadmap and steer toward completion:
 ${LINES}"
+
+# SUMMARIZE ON CHANGE. The roster rarely changes within a session, yet a /goal Stop
+# condition re-fires this hook on essentially every turn; re-injecting the full block
+# each time buries the developer's own message under many lines that carry no new
+# information. So the FULL roster is emitted only when it CHANGED since the last turn
+# (or on the first turn, or when we cannot tell — no session_id); on an unchanged turn
+# we emit a compact one-liner instead — the count plus the single next action, with a
+# pointer to `/mission summary` — so the active goal and next step stay visible without
+# the volume. State is per session AND per event (UserPromptSubmit vs Stop dedupe apart),
+# keyed under TMPDIR and cksum-compared; it is best-effort and fails open to the full
+# roster. Gating behavior of /goal is untouched — this hook never blocks a stop.
+MSG="$MSG_FULL"
+if [ -n "$SID" ]; then
+    STATE_DIR="${TMPDIR:-/tmp}/workaholic-mission-lens"
+    mkdir -p "$STATE_DIR" 2>/dev/null || true
+    SAFE_SID=$(printf '%s' "$SID" | sed 's/[^A-Za-z0-9._-]/_/g')
+    STATE_FILE="${STATE_DIR}/${SAFE_SID}.${EVENT:-none}"
+    SIG=$(printf '%s' "$MSG_FULL" | cksum | sed 's/ .*//')
+    PREV=$(cat "$STATE_FILE" 2>/dev/null || true)
+    printf '%s' "$SIG" > "$STATE_FILE" 2>/dev/null || true
+    if [ -n "$PREV" ] && [ "$PREV" = "$SIG" ]; then
+        # Roster unchanged since last turn: compact reminder rather than the full block.
+        COUNT=$(printf '%s\n' "$LINES" | grep -c '^- ' || true)
+        LEAD=$(printf '%s\n' "$LINES" | sed -n '1s/^- //p')
+        if [ "$COUNT" -le 1 ]; then
+            MSG="Roadmap unchanged — 1 active mission is your business: ${LEAD}"
+        else
+            MSG="Roadmap unchanged — ${COUNT} active missions are your business; next: ${LEAD} (+ $((COUNT - 1)) more — /mission summary for the full list)"
+        fi
+    fi
+fi
 
 # JSON-escape MSG: backslash, double-quote, and newlines -> \n (POSIX awk).
 ESCAPED=$(printf '%s' "$MSG" | awk 'BEGIN{ORS=""} { gsub(/\\/,"\\\\"); gsub(/"/,"\\\""); if (NR>1) printf "\\n"; printf "%s", $0 }')

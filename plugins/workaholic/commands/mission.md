@@ -79,7 +79,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/slug.sh "$ARGUMENT"
 
 If the slug is empty, ask the user for a title with letters/digits and stop.
 
-**2. Create the dedicated worktree** — `.worktrees/<slug>/` on a fresh `work-*` branch off `main`, root `.env` carried in:
+**2. Create the dedicated worktree** — `.worktrees/<slug>/` on a fresh `work-*` branch cut from `main` (resolved to a concrete commit before creation, and the reported branch read back from the worktree's real HEAD — so the worktree always lands on the `work-*` branch it reports, even on a fresh clone with no local `main`), root `.env` carried in:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create-mission-worktree.sh "<slug>"

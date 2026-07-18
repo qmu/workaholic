@@ -2714,6 +2714,120 @@ Development completed as planned.
   } finally { cleanup(dir2); }
 }
 
+// ---------- drive/archive.sh reports what the mission mutators did ----------
+// The archive seam rolls each related mission through the mutators and must REPORT each
+// roll's outcome, never discard it. Non-blocking is not silent: a mutator that failed,
+// and (the case that bit us) a mutator that ran and changed NOTHING while exiting 0, must
+// both surface in archive.sh's OWN stdout — while archiving always completes (exit 0,
+// ticket committed). Asserts on stdout, since the whole defect is that the outcome was not
+// there; the filesystem effects were already correct, so filesystem-only assertions passed
+// against the broken script.
+function testArchiveMissionReporting() {
+  const ticketName = "20260719120000-t.md";
+  const seed = (dir, { missionVal, acceptance, changelog }) => {
+    execSync(`git checkout -q -b work-20260719-arep`, { cwd: dir });
+    if (acceptance !== null) {
+      const mdir = join(dir, `.workaholic/missions/active/mm`);
+      mkdirSync(mdir, { recursive: true });
+      writeFileSync(join(mdir, "mission.md"),
+        `---\ntype: Mission\ntitle: M\nslug: mm\nstatus: active\ncreated_at: 2026-07-19T00:00:00+09:00\nauthor: test@example.com\ntickets: []\nstories: []\nconcerns: []\n---\n\n# M\n\n## Acceptance\n\n${acceptance}\n${changelog}`);
+    }
+    const todoDir = join(dir, `.workaholic/tickets/todo/${TEST_SLUG}`);
+    mkdirSync(todoDir, { recursive: true });
+    writeFileSync(join(todoDir, ticketName),
+      `---\ncreated_at: 2026-07-19T12:00:00+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Domain]\neffort: 0.5h\ncommit_hash:\ncategory:\ndepends_on:\nmission: ${missionVal}\n---\n\n# T\n\n## Final Report\n\ndone.\n`);
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+  };
+  const env = { ...process.env, GIT_AUTHOR_DATE: "2026-07-19T12:00:00+09:00", GIT_COMMITTER_DATE: "2026-07-19T12:00:00+09:00" };
+  const archiveCmd = (dir) => run(dir, `${POSIX_SH} ${SCRIPTS.archive} .workaholic/tickets/todo/${TEST_SLUG}/${ticketName} "Add thing" https://x/repo "why" "changes" "None" "None" "verify"`, { env });
+  const archivedPath = (dir) => join(dir, `.workaholic/tickets/archive/work-20260719-arep/${ticketName}`);
+
+  // Case A: the acceptance item LACKS the (#ticket) marker. tick-acceptance exits 0 having
+  // done nothing — the exact silent no-op the ticket reproduced live. Archive still
+  // completes, and its stdout names the mission and the reason it changed nothing.
+  const dirA = makeRepo("main");
+  try {
+    seed(dirA, { missionVal: "mm", acceptance: "- [ ] Ship the thing", changelog: "## Changelog\n" });
+    const r = archiveCmd(dirA);
+    assertEq("no-op case: archive.sh exits 0", r.status, 0);
+    assertTrue("no-op case: ticket still archived", existsSync(archivedPath(dirA)));
+    assertTrue("no-op case: reports the mission and the no_unchecked_match reason (silent case now unreproducible)",
+      /mission mm:.*changed nothing.*no_unchecked_match/.test(r.stdout), r.stdout);
+  } finally { cleanup(dirA); }
+
+  // Case B: the mission has NO changelog section, so append-changelog exits 1. The failure
+  // is reported with its reason, and archiving still completes (exit 0, ticket committed).
+  const dirB = makeRepo("main");
+  try {
+    seed(dirB, { missionVal: "mm", acceptance: `- [ ] Ship it (#${ticketName})`, changelog: "" });
+    const r = archiveCmd(dirB);
+    assertEq("failure case: archive.sh exits 0", r.status, 0);
+    assertTrue("failure case: ticket archived despite the mutator failure", existsSync(archivedPath(dirB)));
+    assertTrue("failure case: reports the mutator failure and the no_changelog_section reason",
+      /mission mm:.*NOT rolled.*no_changelog_section/.test(r.stdout), r.stdout);
+    assertEq("failure case: never prevented the archive commit (workspace clean)",
+      execSync(`git status --porcelain`, { cwd: dirB, encoding: "utf8" }).trim(), "");
+  } finally { cleanup(dirB); }
+
+  // Case C: full success — marker present, changelog present. Both roll, reported as done,
+  // and the output stays QUIET: no failure/no-op markers (the negative case — a normal
+  // archive must not become a wall of noise the next reader learns to skim past).
+  const dirC = makeRepo("main");
+  try {
+    seed(dirC, { missionVal: "mm", acceptance: `- [ ] Ship it (#${ticketName})`, changelog: "## Changelog\n" });
+    const r = archiveCmd(dirC);
+    assertEq("success case: archive.sh exits 0", r.status, 0);
+    const mbody = readFileSync(join(dirC, ".workaholic/missions/active/mm/mission.md"), "utf8");
+    assertTrue("success case: acceptance ticked",
+      new RegExp(`- \\[x\\] Ship it \\(#${ticketName.replace(/\./g, "\\.")}\\)`).test(mbody), mbody);
+    assertTrue("success case: changelog appended",
+      new RegExp(`ticket archived — ${ticketName.replace(/\./g, "\\.")}`).test(mbody), mbody);
+    assertTrue("success case: reports both rolls as done",
+      /mission mm: changelog rolled/.test(r.stdout) && /mission mm: acceptance rolled/.test(r.stdout), r.stdout);
+    assertTrue("success case: output stays quiet (no failure/no-op noise)",
+      !/NOT rolled|changed nothing|could not read|refresh failed/.test(r.stdout), r.stdout);
+  } finally { cleanup(dirC); }
+
+  // Case D: the ticket names NO mission — no mission output at all (silence is correct).
+  const dirD = makeRepo("main");
+  try {
+    seed(dirD, { missionVal: "", acceptance: null, changelog: "" });
+    const r = archiveCmd(dirD);
+    assertEq("no-mission case: archive.sh exits 0", r.status, 0);
+    assertTrue("no-mission case: says nothing about missions",
+      !/mission mm:|could not read the ticket's mission relation/.test(r.stdout), r.stdout);
+  } finally { cleanup(dirD); }
+
+  // Case E: refresh-index.sh FAILS (index.md is a directory it cannot write into). The
+  // same boundary as the mission roll: non-blocking (archive completes, exit 0, committed)
+  // and reported (the failure surfaces in stdout, not swallowed).
+  const dirE = makeRepo("main");
+  try {
+    seed(dirE, { missionVal: "", acceptance: null, changelog: "" });
+    mkdirSync(join(dirE, ".workaholic/index.md"), { recursive: true });
+    const r = archiveCmd(dirE);
+    assertEq("refresh-index failure: archive.sh exits 0", r.status, 0);
+    assertTrue("refresh-index failure: ticket still archived", existsSync(archivedPath(dirE)));
+    assertTrue("refresh-index failure: reports the index refresh failure",
+      /OKF index refresh failed/.test(r.stdout), r.stdout);
+  } finally { cleanup(dirE); }
+
+  // Source-pinned plumbing (rows 5 & 8): the mask that caused the defect must not reappear,
+  // and the reader must stay unmasked with its report branch intact. read-relation.sh is
+  // contractually non-failing (it swallows its own errors and always exits 0), so the
+  // reader-failure branch cannot be driven end-to-end and is pinned at the source instead —
+  // a future edit reintroducing either mask goes red here.
+  const src = readFileSync(SCRIPTS.archive, "utf8");
+  assertTrue("archive.sh carries no `>/dev/null 2>&1 || true` mutator mask (rows 1-3,8)",
+    !/>\/dev\/null 2>&1 \|\| true/.test(src),
+    src.split("\n").filter((l) => /dev\/null/.test(l)).join("\n"));
+  assertTrue("archive.sh reports an unreadable mission relation instead of collapsing it into 'no mission' (row 5)",
+    /could not read the ticket's mission relation/.test(src));
+  assertTrue("archive.sh does not mask the mission-relation reader with 2>/dev/null (row 5)",
+    !/read-relation\.sh"[^\n]*2>\/dev\/null/.test(src),
+    src.split("\n").filter((l) => /read-relation/.test(l)).join("\n"));
+}
+
 // ---------- ship/extract-deferred-concerns.sh mission seam ("stuck") ----------
 function testMissionShipSeam() {
   const dir = makeRepo("main");
@@ -5355,6 +5469,7 @@ const tests = [
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],
   ["mission layout migration + close.sh", testMissionLayoutMigrationAndClose],
   ["drive/archive.sh mission seam", testMissionDriveSeam],
+  ["drive/archive.sh reports the mission roll (non-blocking, not silent)", testArchiveMissionReporting],
   ["ship/extract-deferred-concerns.sh mission seam", testMissionShipSeam],
   ["report/apply-deferred-concern-verdicts.sh mission seam", testMissionReportSeam],
   ["drive/promote-icebox.sh", testPromoteIcebox],

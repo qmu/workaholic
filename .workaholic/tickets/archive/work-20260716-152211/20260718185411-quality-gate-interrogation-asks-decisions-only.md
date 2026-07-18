@@ -3,9 +3,9 @@ created_at: 2026-07-18T18:54:11+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Domain]
-effort:
+effort: 0.5h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -75,3 +75,12 @@ The interrogation step was added deliberately as a hard, non-skippable gate (wit
 - Do not weaken the machine-checks: `hooks/validate-ticket.sh` presence-check of `## Quality Gate` is untouched (`plugins/workaholic/hooks/validate-ticket.sh`)
 - The revision must not be interpretable as "skip asking when obvious" — that escape hatch was explicitly rejected before; the change only reclassifies derivable checklist items out of question-space (`plugins/workaholic/skills/create-ticket/SKILL.md` Step 4b)
 - `create-ticket` ships in the generated `outputs/workflows` bundle; forgetting the rebuild fails the Outputs Freshness CI (`scripts/build-plugins/build.mjs`)
+
+## Final Report
+
+Development completed as planned. The dry-run acceptance item was satisfied by construction rather than a separate workflow launch: the very interrogation that provoked this ticket was re-run in-session under the corrected contract (the verification-depth choice was asked as a decision; the four derivable criteria were written straight into the /monitor ticket's `## Quality Gate`), and the built `outputs/workflows/skills/create-ticket/SKILL.md` carries the revised wording.
+
+### Discovered Insights
+
+- **Insight**: The "do not soften" clause and the decision/derivable split are not in tension — the first governs whether to ask, the second what qualifies as a question. Keeping both in the same paragraph prevents the split from being read as the escape hatch the clause forbids.
+  **Context**: Two prior feedback rounds pulled in opposite directions (ask more / ask less); the resolution is a type distinction, not a dial.

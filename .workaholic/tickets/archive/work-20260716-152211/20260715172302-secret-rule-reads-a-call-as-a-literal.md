@@ -1,6 +1,7 @@
 ---
 type: bugfix
 layer: [Infrastructure]
+effort: 0.1h
 created_at: 2026-07-15T17:23:02+09:00
 author: a@qmu.jp
 depends_on: []
@@ -27,6 +28,21 @@ mission:
 > have drifted), and the inversion does **not** eliminate enumeration — `apiKey: string` and
 > `password: mysecret123` are the same shape, so a bounded primitive list survives by
 > necessity. See the successor's Findings and Final Report.
+
+## Policies
+
+Added at close (this ticket predates the mandatory section; it entered `todo/` only for its verification close):
+
+- `workaholic:implementation` / `policies/objective-documentation.md` — every verdict here is measured against the real regexes, never reasoned about
+- `workaholic:operation` / `policies/ci-cd.md` — the rule under test is a non-overridable `/ship` merge gate; its credibility budget is the ticket's whole argument
+
+## Quality Gate
+
+**Acceptance criteria**: the 12-shape regression bar in *How to Fix* holds against the current `lib/secret-patterns.sh` — all five guilty shapes flag, all seven innocent shapes subtract — and `record-evidence.sh` reaches the rules through the shared source, not an inline copy.
+
+**Verification method**: pipe the shapes through `secret_grep` directly; confirm the suite's release-scan and record-evidence assertions are green.
+
+**Gate**: the measured run and the green suite, recorded in the Final Report.
 
 ## Motivation
 
@@ -129,3 +145,28 @@ plus the two above. `secret_grep` is a pure stdin→stdout filter, so each case 
   Whatever regression list is written should run against both callers.
 - Observed on a TypeScript monorepo whose `/ship` was blocked. The shapes above are
   ordinary TypeScript and carry nothing project-specific.
+
+## Final Report
+
+Closed as **verified delivered** (2026-07-18, no code change). Every demand was measured
+against the current tree rather than trusted from the icebox note:
+
+- Both reported shapes subtract: `apiKey: keyOption(),` and
+  `const htmlToken: Parser<Inline, null> = map<` pass `secret_grep` silently.
+- The full regression bar (12 shapes from How to Fix) holds: all five guilty shapes flag
+  (`TOKEN=value123…`, quoted and bare `sk-…`, `SECRET_KEY=…`, `aws_secret_access_key = …`),
+  all seven innocent shapes subtract (`Token::Path`, both annotations, call, generic call,
+  identifier, `process.env` read).
+- The drift this ticket's icebox note reported is also gone: `record-evidence.sh` now
+  sources the shared `lib/secret-patterns.sh` and reuses `secret_pass1_grep`; its
+  deliberate non-use of pass 2 is documented in its header.
+- The regression list exists as suite assertions (literal-vs-reference, suffixed keywords,
+  value inversion, record-evidence shared rules) — 964 tests green.
+
+### Discovered Insights
+
+- **Insight**: The bounded-allowlist-of-guilt argument held in practice — no fifth
+  subtraction was ever needed after the inversion; the two shapes this ticket reported were
+  covered by the value rule without any new enumeration.
+  **Context**: Re-read this ticket's Motivation before proposing any keyword-side
+  subtraction to `secret-patterns.sh`; the argument is the reason the rule matches values.

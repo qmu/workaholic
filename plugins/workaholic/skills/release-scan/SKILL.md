@@ -34,7 +34,7 @@ Output:
                   "evidence": "<redacted for secrets; the term/threshold otherwise>" } ] }
 ```
 
-`verdict` is `block` iff there is any finding. Secret evidence is **redacted** so the scan output does not itself leak the secret. The **severity** tells the consumer how hard to block — `/ship` enforces the tiers (secret = non-overridable, size/leak = overridable); `/report` surfaces all findings and marks the branch not releasable.
+`verdict` is `block` iff there is any finding. Secret evidence is **redacted** so the scan output does not itself leak the secret. The **severity** tells the consumer how hard to block, and both consumers key on it — never on the binary verdict alone: `/ship` enforces the tiers (secret = non-overridable, leak = confirm, size = overridable), and `/report` surfaces all findings but marks the branch not releasable only for `hard`/`confirm` findings — a branch whose only findings are `override`-tier stays releasable, with the findings recorded as warnings the developer will consciously accept at `/ship`.
 
 ## Leak denylist
 
@@ -47,6 +47,8 @@ Output:
 ## Allowlist (false positives)
 
 `.workaholic/scan-allow` is a **committed, reviewed** file of git pathspec globs (one per line, `#` comments) that the scan excludes from the diff entirely — for paths that legitimately contain secret-shaped or pattern-describing content but no real secret: **test fixtures** (hermetic tests embed fake keys), the **scanner's own source/docs** (they contain the very regexes matched), and **tickets** that document the patterns. It is committed (unlike the git-ignored `leak-denylist`) precisely so a reviewer sees which paths are exempt from secret scanning. Keep it **surgical** — only internal, non-shipped paths known to hold fixtures or pattern documentation; never allowlist product code or a real secrets file. This keeps secret findings **non-overridable at ship time** (there is no click-through) while letting a repo pre-declare its known-safe paths in review.
+
+**Scanner-ticket naming convention.** A ticket *about* the secret/leak rules must quote the very shapes it argues about, so writing about the gate trips the gate — and a per-ticket allowlist line does not fail loudly when forgotten; it hard-blocks that ticket's own `/ship` with no bypass. So the exemption is a **naming convention, not a growing list**: name any scanner-rule ticket with the slug prefix `scan-rule-` right after the timestamp (`<YYYYMMDDHHMMSS>-scan-rule-<topic>.md`) and the single glob `.workaholic/tickets/**/*-scan-rule-*.md` covers it through its whole todo → archive life. Never widen the exemption to `tickets/**` — an ordinary ticket can carry a genuinely pasted credential and must stay scanned.
 
 ## Thresholds
 

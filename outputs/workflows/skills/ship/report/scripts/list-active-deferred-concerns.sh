@@ -1,7 +1,19 @@
 #!/bin/sh -eu
 # List all deferred concern files under .workaholic/concerns/ with status: active.
-# Output: JSON array of {path, status, severity, origin_pr, origin_pr_url,
-#                       origin_branch, origin_commit, body}
+# Output: JSON envelope {active_count, should_triage, concerns: [...]}, each
+# concern being {path, concern_id, status, severity, first_seen, last_seen,
+#                origin_pr, origin_pr_url, origin_branch, origin_commit, body}.
+#
+# should_triage is the machine half of report's Phase 1b count trigger:
+# active_count > CONCERN_TRIAGE_THRESHOLD (default 20). The threshold lives
+# HERE, not in prose, so the trigger fires from data rather than from a human
+# remembering the number.
+#
+# The whole array is assembled in ONE python3 pass with json.dumps doing every
+# escape. The previous per-field shell interpolation emitted raw values into
+# the JSON stream (origin_pr unquoted and unvalidated, per-field escapes easy
+# to miss), and this script ships to consumer repos via outputs/workflows —
+# a corpus with a quote or backslash in any field must still parse.
 #
 # Used by /report to feed the deferred-concern judge (general-purpose) subagent.
 
@@ -10,7 +22,7 @@ set -eu
 dir=".workaholic/concerns"
 
 if [ ! -d "$dir" ]; then
-  echo "[]"
+  printf '{"active_count": 0, "should_triage": false, "concerns": []}\n'
   exit 0
 fi
 
@@ -21,80 +33,47 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 # sees one fresh file per concern. Best-effort — never blocks the listing.
 sh "${SCRIPT_DIR}/migrate-concern-identity.sh" >/dev/null 2>&1 || true
 
-# Read a frontmatter field from a file. Strips surrounding whitespace.
-# ($1 = file, $2 = field) — POSIX functions have no `local`.
-read_field() {
-  awk -v f="$2" '
-    /^---$/ { c++; next }
-    c==1 && $0 ~ "^"f":" {
-      sub("^"f":[[:space:]]*", "")
-      sub(/[[:space:]]+$/, "")
-      print
-      exit
-    }
-  ' "$1"
-}
+python3 - "$dir" "${CONCERN_TRIAGE_THRESHOLD:-20}" <<'PY'
+import json, os, re, sys
 
-# Read the body (everything after the second ---) verbatim. ($1 = file)
-read_body() {
-  awk '
-    /^---$/ { c++; next }
-    c>=2 { print }
-  ' "$1" | head -c 4000
-}
+d, threshold = sys.argv[1], int(sys.argv[2])
+concerns = []
+for name in sorted(os.listdir(d)):
+    if not name.endswith('.md') or name in ('README.md', 'index.md'):
+        continue
+    path = os.path.join(d, name)
+    if not os.path.isfile(path):
+        continue
+    with open(path, encoding='utf-8', errors='replace') as h:
+        text = h.read()
+    m = re.match(r'^---\n(.*?)\n---\n?(.*)$', text, re.DOTALL)
+    fm_text = m.group(1) if m else ''
+    body = (m.group(2) if m else text)[:4000]
 
-# JSON-escape a string.
-escape_json() {
-  python3 -c 'import json, sys; sys.stdout.write(json.dumps(sys.stdin.read()))' 2>/dev/null \
-    || node -e 'process.stdout.write(JSON.stringify(require("fs").readFileSync(0,"utf8")))' 2>/dev/null \
-    || perl -e 'use JSON::PP; print encode_json(do { local $/; <STDIN> })'
-}
+    def get(key, default=''):
+        km = re.search(r'^' + re.escape(key) + r':[ \t]*(.*)$', fm_text, re.MULTILINE)
+        return km.group(1).strip() if km else default
 
-first=1
-printf '%s' "["
-for file in "$dir"/*.md; do
-  [ -e "$file" ] || continue
-  [ "$(basename "$file")" = "README.md" ] && continue
+    if get('status') != 'active':
+        continue
+    pr = get('origin_pr')
+    concerns.append({
+        'path': path,
+        'concern_id': get('concern_id'),
+        'status': 'active',
+        'severity': get('severity') or 'moderate',
+        'first_seen': get('first_seen'),
+        'last_seen': get('last_seen'),
+        'origin_pr': int(pr) if pr.isdigit() else 0,
+        'origin_pr_url': get('origin_pr_url'),
+        'origin_branch': get('origin_branch'),
+        'origin_commit': get('origin_commit'),
+        'body': body,
+    })
 
-  status=$(read_field "$file" "status")
-  [ "$status" != "active" ] && continue
-
-  severity=$(read_field "$file" "severity")
-  concern_id=$(read_field "$file" "concern_id")
-  first_seen=$(read_field "$file" "first_seen")
-  last_seen=$(read_field "$file" "last_seen")
-  origin_pr=$(read_field "$file" "origin_pr")
-  origin_pr_url=$(read_field "$file" "origin_pr_url")
-  origin_branch=$(read_field "$file" "origin_branch")
-  origin_commit=$(read_field "$file" "origin_commit")
-  body=$(read_body "$file")
-
-  body_json=$(printf '%s' "$body" | escape_json)
-  path_json=$(printf '%s' "$file" | escape_json)
-  cid_json=$(printf '%s' "$concern_id" | escape_json)
-  first_seen_json=$(printf '%s' "$first_seen" | escape_json)
-  last_seen_json=$(printf '%s' "$last_seen" | escape_json)
-  severity_json=$(printf '%s' "${severity:-moderate}" | escape_json)
-  url_json=$(printf '%s' "$origin_pr_url" | escape_json)
-  branch_json=$(printf '%s' "$origin_branch" | escape_json)
-  commit_json=$(printf '%s' "$origin_commit" | escape_json)
-
-  if [ "$first" -eq 0 ]; then
-    printf '%s' ","
-  fi
-  first=0
-  printf '%s' "{"
-  printf '%s' "\"path\":$path_json,"
-  printf '%s' "\"concern_id\":$cid_json,"
-  printf '%s' "\"status\":\"active\","
-  printf '%s' "\"severity\":$severity_json,"
-  printf '%s' "\"first_seen\":$first_seen_json,"
-  printf '%s' "\"last_seen\":$last_seen_json,"
-  printf '%s' "\"origin_pr\":${origin_pr:-0},"
-  printf '%s' "\"origin_pr_url\":$url_json,"
-  printf '%s' "\"origin_branch\":$branch_json,"
-  printf '%s' "\"origin_commit\":$commit_json,"
-  printf '%s' "\"body\":$body_json"
-  printf '%s' "}"
-done
-echo "]"
+print(json.dumps({
+    'active_count': len(concerns),
+    'should_triage': len(concerns) > threshold,
+    'concerns': concerns,
+}))
+PY

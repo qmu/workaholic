@@ -22,25 +22,23 @@ outputs/workflows/skills/*/release-scan/**
 .workaholic/tickets/**/*release-scan*
 
 # Tickets about the scanner itself have the same problem in a sharper form: a ticket
-# arguing that `SECRET_KEY = "..."` is missed must SHOW the line it is missed on, and the
+# arguing that a key-shaped line is missed must SHOW the line it is missed on, and the
 # whole point of the fix is that the line now matches. Writing about the gate trips the
-# gate. Matched by name, not by an exact path, so the exemption survives the todo ->
-# archive move; kept narrow rather than `tickets/**` because a ticket can legitimately
-# carry a pasted credential and those must stay scanned.
-.workaholic/tickets/**/*secret-pattern-misses*
-.workaholic/tickets/**/*secret-scan-flags*
-.workaholic/tickets/**/*secret-rule-reads*
-.workaholic/tickets/**/*remove-dead-leak-rule*
-.workaholic/tickets/**/*invert-secret-pass2*
+# gate. The CONVENTION (release-scan/SKILL.md, Allowlist section): any ticket about the
+# secret/leak scanner rules is named with the slug prefix `scan-rule-` right after its
+# timestamp — `<YYYYMMDDHHMMSS>-scan-rule-<topic>.md` — and this one glob exempts them
+# all. This replaced five per-ticket globs that each cost a line here (a scanner ticket
+# that forgot its line did not fail loudly — it hard-blocked its own /ship with no
+# bypass). Matched by name, not exact path, so the exemption survives the todo ->
+# archive move; kept prefix-scoped rather than `tickets/**` because a ticket can
+# legitimately carry a pasted credential and those must stay scanned.
+.workaholic/tickets/**/*-scan-rule-*.md
 
-# FIVE entries here in one day is itself a finding: every ticket that argues about the
-# secret rule must quote the shapes it argues about, so writing about the gate trips the
-# gate. Resist widening this to `tickets/**` — a ticket can legitimately carry a pasted
-# credential and those must stay scanned. The list HAS kept growing (the fifth entry was
-# added the same day this note predicted it), so the answer it names is now due: adopt a
-# fixed filename prefix for scanner tickets and collapse these five into one glob. Until
-# then, each new scanner ticket costs a line here — and a ticket that forgets one does not
-# fail loudly, it hard-blocks its own /ship with no bypass.
+# Legacy scanner tickets predate the prefix convention. The four archived ones are
+# immutable in practice (they re-enter a diff only if deliberately edited — rename them
+# to the scan-rule- prefix in that same change). The last icebox holdout was promoted,
+# verified, and renamed to the scan-rule- prefix on archive (2026-07-18), so the glob
+# above covers it and its exact-path line is gone.
 
 # Same reason, for the story that narrates the false-positive fix: prose describing the
 # rule cannot avoid the rule -- even ordinary English phrasing parses as an assignment,

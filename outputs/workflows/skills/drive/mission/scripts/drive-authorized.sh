@@ -19,6 +19,13 @@
 # the same reason /drive holds a ticket to the gate of every mission it names, "all of
 # them must pass, not the most convenient one". One unauthorized mission means ask.
 #
+# THE FLOOR. A stamp alone is not a plan: a hand-stamped mission with an empty
+# ## Acceptance (0/0) would authorize unattended work with no bar at all — the
+# exact state the interrogation exists to prevent. So authorization additionally
+# requires every claimed mission to carry at least one acceptance item
+# (progress.sh's total > 0). The floor lands HERE, at the authorization
+# decision, where a test can reach it.
+#
 # Usage: drive-authorized.sh <ticket-file>
 # Output: {"authorized": <bool>, "reason": "<why>", "missions": ["<slug>", ...]}
 #   reason: ""                  authorized
@@ -26,6 +33,7 @@
 #           "no_mission"        the ticket claims no mission -- nothing authorized it
 #           "mission_not_found" a claimed mission does not resolve
 #           "not_authorized"    a claimed mission is not stamped drive_authorized: true
+#           "no_plan"           a claimed mission is stamped but has an empty ## Acceptance
 
 set -eu
 
@@ -64,7 +72,14 @@ for slug in $SLUGS; do
         continue
     fi
     stamp=$(grep -m1 '^drive_authorized:' "$f" 2>/dev/null | sed -e 's/^drive_authorized:[ \t]*//' -e 's/[ \t]*$//' || true)
-    [ "$stamp" = "true" ] || reason="not_authorized"
+    if [ "$stamp" != "true" ]; then
+        reason="not_authorized"
+        continue
+    fi
+    # The floor: a stamped mission must have a plan. total comes from the one
+    # progress reader (derived, never stored).
+    total=$(sh "${SCRIPT_DIR}/progress.sh" "$f" 2>/dev/null | sed -n 's/.*"total": *\([0-9][0-9]*\).*/\1/p' || true)
+    [ "${total:-0}" -gt 0 ] || reason="no_plan"
 done
 
 if [ -n "$reason" ]; then

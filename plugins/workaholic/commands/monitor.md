@@ -30,17 +30,23 @@ If `ok` is `false`, display the `message` and stop. If `missing_guards` is non-e
 
 ### Step 1: Pre-flight review (skill §1)
 
-Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/monitor/scripts/preflight.sh` and present the four-part review from the skill: mission set with progress, current position per worktree (including unmerged work), eligibility (`not_authorized`/`no_plan` → route to `/mission` replan, never drive; `no_worktree` → offer `create-mission-worktree.sh`), and the interference/destination assessment. Then confirm the run with **one** `AskUserQuestion` (`multiSelect`, body prefixed with the `[<project label>]` from `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`): each eligible mission as an option (unassigned ones labeled claim-and-drive), plus none-of-these to stop. Zero drivable missions → report why (empty set, all ineligible, or orphan worktrees) and stop.
+Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/monitor/scripts/preflight.sh` and present the four-part review from the skill: mission set with progress, current position per worktree (including unmerged work), eligibility, and the interference/destination assessment. Then confirm the run with **one** `AskUserQuestion` (`multiSelect`, body prefixed with the `[<project label>]` from `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`): each eligible mission as an option (unassigned ones labeled claim-and-drive), plus none-of-these to stop.
+
+**Blockers become decisions (skill §1) — never "report why and stop".** When the pre-flight finds nothing drivable — or leaves ineligible missions behind — push each blocker to the developer as its own labeled `AskUserQuestion`, **one decision at a time**: no missions → offer to start `/mission` creation now; `not_authorized`/`no_plan` → offer to run that mission's replan interrogation now; `no_worktree` → offer `create-mission-worktree.sh` now; unassigned → the claim question. Proceed with whatever each answer unlocks; only an explicit decline ends the run early, and only an explicitly deferred decision counts as escalation-blocked later.
 
 **Unattended invocation** (the run arrives from a caller-side loop such as `/goal /monitor ok`, or the invocation contains "night"): the invocation is the authorization — log the pre-flight instead of prompting, drive only already-assigned eligible missions, and never claim unassigned work.
 
 ### Step 2: Fan-out (skill §2)
 
-Spawn one `general-purpose` leaf per confirmed mission **in a single message**, each with the skill's §2 prompt: preload `workaholic:drive`, work only in `( cd <worktree_path> && … )`, prioritize inline, consult `drive-authorized.sh` per ticket, inherit Night Mode §3/§5 (attempt-first, closed outcomes, mint `deferred` tickets, safety floor), return the §2 JSON report.
+Spawn one `general-purpose` leaf per confirmed mission **in a single message, in the background**, each with the skill's §2 prompt: preload `workaholic:drive`, work only in `( cd <worktree_path> && … )`, prioritize inline, consult `drive-authorized.sh` per ticket, inherit Night Mode §3/§5 (attempt-first, closed outcomes, mint `deferred` tickets, safety floor), return the §2 JSON report.
+
+**This command is a non-blocking dispatcher** (skill §2): it interprets, lightly investigates, and directs — it never implements inline, never edits inside a mission worktree, and never freezes the session waiting synchronously on the slowest leaf. Collect leaf reports as they arrive; between dispatches keep answering the developer's instructions and progress questions from `status.sh` and the reports already in.
+
+**Boot the dev environments at dispatch** (skill §2): for each driven mission, start the project's declared dev/start command in the background inside `( cd <worktree_path> && … )` on the worktree's allocated ports (`.env` port base; the ports `gate.sh` reports), so leaves and declared gates run against a live environment. Skip silently when the project declares no dev command; at the terminal state stop whatever this run itself started and note it in the final report.
 
 ### Step 3: Loop until terminal (skill §3)
 
-After each wave, run `status.sh` per mission and classify: complete (gate included when declared) / still driveable / escalation-blocked. Surface a wave's escalations in **one** labeled `AskUserQuestion` (interactive) or record them (unattended). Re-drive driveable missions — at most 3 waves per invocation, and stop early on a zero-archive wave. Plan-changing answers route through `/mission` replan, never ad-hoc edits.
+After each wave, run `status.sh` per mission and classify: complete (gate included when declared) / still driveable / escalation-blocked. Interactive: ask each escalation as **its own** labeled `AskUserQuestion`, one decision at a time — never one summary prompt, never a report in place of the questions; only an explicit "defer" moves an item to escalation-blocked. Unattended: record them. Re-drive driveable missions — at most 3 waves per invocation, and stop early on a zero-archive wave. Plan-changing answers route through `/mission` replan, never ad-hoc edits. An interactive run never emits `ok` over a decision it did not ask (skill §3).
 
 ### Step 4: Final report (skill §5)
 

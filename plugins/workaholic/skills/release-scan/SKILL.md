@@ -17,7 +17,7 @@ A deterministic, script-only guard that scans a branch's changes for content tha
 bash ${CLAUDE_PLUGIN_ROOT}/skills/release-scan/scripts/scan-branch-safety.sh [base-branch]
 ```
 
-Scans the **added** lines of `git diff <base>..HEAD` (base from `gather/git-context.sh`, else `main`) and `git diff --numstat` for three classes:
+Scans the **added** lines of `git diff <base>..HEAD` (base from `gather/base-ref.sh` — `origin/<default>`, resolved offline; an unresolvable base fails the scan loudly rather than defaulting to a stale `main`) and `git diff --numstat` for three classes:
 
 | category | severity | what it catches |
 | -------- | -------- | --------------- |

@@ -12,9 +12,17 @@
 #   - "content": some other path conflicts — a human must judge it; halt and ask.
 # The merge is aborted either way so the caller acts from a clean tree.
 #
+# What this reports is HONEST about scope: it reconciles the current WORK BRANCH with
+# origin/<base>. It does NOT touch — and makes no claim about — the local `main` ref
+# (on the desk layout a worktree cannot move the `main` another worktree pins, and
+# catch-up does not try to). So the "already up to date" answer below is named for the
+# work branch, not for `main`: `branch_up_to_date` is true iff merging origin/<base>
+# into the branch was a no-op. It deliberately does NOT say "main is current" — an
+# earlier `already_current` field did, and read as a currency it never verified.
+#
 # Usage: bash catchup-main.sh [base-branch]   (default base: main)
 # Output: JSON
-#   {"caught_up": true,  "base": "main", "already_current": true|false}
+#   {"caught_up": true,  "base": "main", "branch_up_to_date": true|false}
 #   {"caught_up": false, "base": "main", "conflict": true,
 #    "conflict_class": "mechanical"|"content", "conflicted_files": ["..."]}
 
@@ -29,9 +37,9 @@ before=$(git rev-parse HEAD)
 if git merge --no-edit "origin/${base}" >/dev/null 2>&1; then
   after=$(git rev-parse HEAD)
   if [ "$before" = "$after" ]; then
-    printf '{"caught_up": true, "base": "%s", "already_current": true}\n' "$base"
+    printf '{"caught_up": true, "base": "%s", "branch_up_to_date": true}\n' "$base"
   else
-    printf '{"caught_up": true, "base": "%s", "already_current": false}\n' "$base"
+    printf '{"caught_up": true, "base": "%s", "branch_up_to_date": false}\n' "$base"
   fi
 else
   # Capture the unmerged paths BEFORE aborting the merge.

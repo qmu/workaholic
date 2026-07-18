@@ -321,7 +321,10 @@ Run the bundled script to collect commit information:
 bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/collect-commits.sh [base-branch]
 ```
 
-Default base branch is `main`. The `body` field carries the full structured commit message
+With no `[base-branch]` arg the base is resolved by `gather/base-ref.sh`, which prefers
+`origin/<default>` (the remote-tracking ref) — so the story is measured against what the
+PR is diffed against and is immune to a local `main` a primary checkout has pinned stale.
+An unresolvable base fails loudly rather than defaulting to a stale `main`. The `body` field carries the full structured commit message
 (`Why:` / `Changes:` / `Concerns:` / `Insights:` / `Verify:`). Read those keys: `Why` informs
 the Motivation, `Changes` the highlights/journey. (Historically this script dropped the body;
 it now emits it, so the structured commit content actually reaches this role.) The `category`

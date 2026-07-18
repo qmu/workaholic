@@ -36,7 +36,7 @@ trap 'rm -f "$BODY_FILE"' EXIT
 # concern corpus used to hard-stop this script at gh time). Over the limit,
 # section 6 is replaced with a link to the committed story file — the ship-time
 # extractor reads the file, not the PR body, so extraction is unchanged.
-"${SCRIPT_DIR}/shrink-pr-body.sh" /tmp/pr-body.md "$BRANCH" >/dev/null
+"${SCRIPT_DIR}/shrink-pr-body.sh" "$BODY_FILE" "$BRANCH" >/dev/null
 
 # Check if PR exists
 PR_INFO=$(gh pr list --head "$BRANCH" --json number,url --jq '.[0]' 2>/dev/null || echo "")

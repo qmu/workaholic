@@ -1,7 +1,7 @@
 ---
 type: enhancement
 layer: [Domain]
-effort:
+effort: 2h
 created_at: 2026-07-18T20:40:00+09:00
 author: a@qmu.jp
 depends_on: []
@@ -86,3 +86,45 @@ the main agent and only fanning out the drive.
   re-prompt), so the main agent's prompt results become part of the leaf's dispatch payload.
 - Filed from a downstream consumer of the plugin; the reporter has no write access to this repo
   and defers the exact shape of the fix (new section vs amended §2) to the maintainer.
+
+## Final Report
+
+Amended `skills/monitor/SKILL.md` §1/§2 and `commands/monitor.md` (no renumbering, to keep
+cross-references stable) so the whole of a worktree's work — **replan application included** —
+is leaf work:
+
+- **QG1** — §1 now splits a `not_authorized`/`no_plan` mission across the fan-out boundary:
+  *"the interrogation is main-agent work, the application is leaf work"*. The interrogation
+  (every `AskUserQuestion`) runs in the main agent at pre-flight; a §2 leaf-prompt clause has the
+  mission's own leaf apply the collected rulings **inside its worktree** (delta tickets, body
+  sections, `drive_authorized`, commit) through the mission skill's own mutators, then drive.
+- **QG2** — the §2 dispatcher boundary was strengthened: the main agent *"never performs a
+  replan's bookkeeping … inside a worktree"*, and the boundary *"covers the replan phase exactly
+  as it covers the drive phase"*.
+- **QG3** — a new §1 ordering paragraph: *"collect every ruling first, then dispatch"*; a leaf is
+  *"never spawned to wait on an answer it cannot ask for"*.
+- **Governing principle 2** (developer directive) — a new §2 paragraph makes the dispatcher
+  *"Actively control the degree of concurrency"*: the *"wave size is a dial the main agent tunes
+  down"* for cross-worktree Key-File interference and for booted-dev-env resource load, revised
+  between waves.
+
+Regression test `testMonitorReplanIsLeafWork` added and registered (12 assertions over the skill
+and command). Docs updated in the same change: `CLAUDE.md` (executor bullet + command table +
+dispatcher line) and `README.md`.
+
+**Divergence from ticket text:** none of substance. The ticket deferred "new section vs amended
+§2" to the maintainer; per governing principle 1 (thin dispatcher) I amended §1/§2 in place rather
+than renumbering, and added governing principle 2's concurrency-control prose, which the ticket
+did not itself request.
+
+**Note (out of scope):** this worktree branch was 28 commits behind `main` and lacked the
+`/monitor` files entirely, so `main` was merged in first. That merge surfaced two pre-existing
+semantic conflicts between this branch's stale ahead-work and `main`, both reconciled toward the
+merged tree's dominant design and committed separately from the ticket: (1) `create-or-update.sh`
+was a broken hybrid — mktemp per-run body file everywhere except the `shrink-pr-body.sh` call,
+which still passed `/tmp/pr-body.md`; (2) `validate-ticket.sh` (main's newly-added mission-relation
+check) called the 1-arg `mission_resolve`, but this branch's refactor made every other caller and
+`resolve.sh` 2-arg (`<root> <arg>`). Both fixed; full suite green (1113 → with the merge fixes).
+
+Verification: `build.mjs`, `verify.mjs`, `validate-metadata.mjs`, `posix-lint.sh` (conforming),
+`test-workflow-scripts.mjs` — all pass; `/monitor` stays excluded from `outputs/workflows`.

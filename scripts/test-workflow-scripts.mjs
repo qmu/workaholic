@@ -6608,6 +6608,60 @@ function testMonitorPushesDecisions() {
     /Boot the dev environments at dispatch/.test(cmd), "command lost the env-boot duty");
 }
 
+// ---------- monitor: the whole of a worktree's work — replan included — is leaf work ----------
+// A downstream /monitor run did the replan bookkeeping (emit tickets, write body sections,
+// stamp drive_authorized, commit inside each worktree) SERIALLY in the main agent, then only
+// fanned out the drive. That is exactly what §2's dispatcher boundary forbids, and it
+// serializes independent worktrees behind one another. The fix: one leaf per worktree owns
+// the WHOLE of that worktree's work — replan application and drive — while the main agent
+// keeps only the developer prompts a leaf cannot issue (one-level fan-out), collected before
+// any leaf is spawned. It also tunes the degree of concurrency rather than racing everything.
+function testMonitorReplanIsLeafWork() {
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/monitor/SKILL.md"), "utf8");
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/monitor.md"), "utf8");
+
+  // Quality Gate 1: a mission needing a replan is handled by a per-worktree leaf; the main
+  // agent is restricted to the developer prompts the leaf cannot issue.
+  assertTrue("the skill splits replan across the fan-out boundary",
+    /the interrogation is main-agent work, the application is leaf work/.test(skill),
+    "interrogation/application split missing");
+  assertTrue("the leaf applies a flagged replan in its own worktree before driving",
+    /flagged for replan at pre-flight, apply it first/.test(skill), "leaf replan-application clause missing");
+  assertTrue("the leaf stamps authorization through the mission skill's own mutators",
+    /through the mission skill's own mutators/.test(skill), "mutator routing missing");
+
+  // Quality Gate 2: the "never edits inside a mission worktree / never implements inline"
+  // boundary covers the replan phase, not just the drive phase.
+  assertTrue("the main agent performs no replan bookkeeping inside a worktree",
+    /never performs a \*\*replan's\*\* bookkeeping/.test(skill), "replan-bookkeeping ban missing");
+  assertTrue("the boundary covers the replan phase exactly as the drive phase",
+    /replan phase exactly as it covers the drive phase/.test(skill), "boundary-parity statement missing");
+
+  // Quality Gate 3: collect every ruling first, then dispatch; a leaf never blocks on a prompt.
+  assertTrue("the skill collects every ruling before dispatch",
+    /collect every ruling first, then dispatch/.test(skill), "ordering rule missing from skill");
+  assertTrue("a leaf is never spawned to wait on a prompt it cannot issue",
+    /never spawned to wait on an answer it cannot ask for/.test(skill), "leaf-never-blocks rule missing");
+
+  // Governing principle 2: actively control the degree of concurrency.
+  assertTrue("the skill actively controls the degree of concurrency",
+    /Actively control the degree of concurrency/.test(skill), "concurrency-control rule missing");
+  assertTrue("the wave size is a dial the dispatcher tunes down",
+    /wave size is a dial the main agent tunes down/.test(skill), "wave-size dial missing");
+
+  // The command mirrors all four.
+  assertTrue("the command defers replan application to the leaf",
+    /applying the replan is the leaf's job/.test(cmd), "command still implies main-agent replan");
+  assertTrue("the command has the leaf apply a flagged replan first",
+    /its leaf applies the collected rulings in its own worktree first/.test(cmd), "command leaf replan clause missing");
+  assertTrue("the command extends the no-edit boundary to the replan phase",
+    /replan phase included/.test(cmd), "command boundary-parity missing");
+  assertTrue("the command collects every ruling before dispatch",
+    /Collect every ruling first, then dispatch/.test(cmd), "command ordering rule missing");
+  assertTrue("the command controls the degree of concurrency",
+    /Control the degree of concurrency/.test(cmd), "command concurrency-control missing");
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -6713,6 +6767,7 @@ const tests = [
   ["monitor/preflight.sh (mission set + eligibility)", testMonitorPreflight],
   ["monitor/status.sh (terminal truth table)", testMonitorStatus],
   ["monitor pushes decisions one by one", testMonitorPushesDecisions],
+  ["monitor: replan is leaf work, not main-agent work", testMonitorReplanIsLeafWork],
 ];
 
 for (const [label, fn] of tests) {

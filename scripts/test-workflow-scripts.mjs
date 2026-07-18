@@ -5710,6 +5710,50 @@ function testMonitorStatus() {
   } finally { cleanup(dir); }
 }
 
+// ---------- monitor SKILL/command: blockers are pushed as decisions ----------
+// First-use feedback (2026-07-18): a /monitor that finds nothing drivable and says
+// "nothing to do until you decide" has satisfied the report contract and defeated its
+// purpose. The contract is prose (orchestration, not a script), so it gets the suite's
+// prose-sentinel treatment: the sentences that carry the rule must keep existing.
+function testMonitorPushesDecisions() {
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/monitor/SKILL.md"), "utf8");
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/monitor.md"), "utf8");
+  assertTrue("monitor skill pushes blockers one decision at a time",
+    /one decision at a time/.test(skill), "one-at-a-time rule missing from skill");
+  assertTrue("monitor skill forbids stopping at describing blockers",
+    /never stop at describing them/.test(skill), "describe-and-stop still allowed");
+  assertTrue("escalation-blocked means asked and explicitly deferred",
+    /asked and explicitly deferred/.test(skill), "strict deferral definition missing");
+  assertTrue("an interactive run never emits ok over an unasked decision",
+    /never reaches `ok` over a decision it did not ask/.test(skill), "unasked-terminal loophole open");
+  assertTrue("the unattended path still records instead of asking",
+    /Unattended run: record them/.test(skill), "unattended exception lost");
+  assertTrue("the command bans the report-why-and-stop shape",
+    /never "report why and stop"/.test(cmd), "command still allows terminal report");
+  assertTrue("the command asks escalations one decision at a time",
+    /one decision at a time/.test(cmd), "command lost the one-at-a-time rule");
+  // Second feedback round: the main agent interprets, investigates lightly, and
+  // dispatches — it must never block itself while leaves work in their worktrees.
+  assertTrue("monitor skill declares the main agent a non-blocking dispatcher",
+    /non-blocking dispatcher/.test(skill), "dispatcher rule missing from skill");
+  assertTrue("monitor skill forbids inline implementation by the main agent",
+    /No inline implementation/.test(skill), "inline-implementation ban missing");
+  assertTrue("monitor skill collects background leaf reports as they arrive",
+    /background and collect reports as they arrive/.test(skill), "background collection rule missing");
+  assertTrue("the command spawns leaves in the background",
+    /in the background/.test(cmd), "command lost background spawning");
+  assertTrue("the command never freezes on the slowest leaf",
+    /never freezes the session waiting synchronously/.test(cmd), "synchronous-wait ban missing");
+  // Third feedback round: dev environments boot at dispatch, inside each worktree,
+  // on the worktree's allocated ports — and only what the run started is stopped.
+  assertTrue("monitor skill boots each mission's dev environment at dispatch",
+    /development environment at dispatch — inside its own worktree/.test(skill), "env-boot duty missing from skill");
+  assertTrue("monitor skill stops only environments the run itself started",
+    /this run itself started/.test(skill), "env teardown scope missing");
+  assertTrue("the command boots dev environments at dispatch",
+    /Boot the dev environments at dispatch/.test(cmd), "command lost the env-boot duty");
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -5807,6 +5851,7 @@ const tests = [
   ["hooks/install-git-hooks.sh", testInstallGitHooks],
   ["monitor/preflight.sh (mission set + eligibility)", testMonitorPreflight],
   ["monitor/status.sh (terminal truth table)", testMonitorStatus],
+  ["monitor pushes decisions one by one", testMonitorPushesDecisions],
 ];
 
 for (const [label, fn] of tests) {

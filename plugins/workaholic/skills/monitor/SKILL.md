@@ -45,7 +45,16 @@ Present the review to the developer — this is the roadmap conversation, and it
    - `no_worktree` — authorized but not yet materialized; offer to run `branching/scripts/create-mission-worktree.sh "<slug>"` as part of the run.
 4. **Interference and destination** — where each mission is intended to land this run, and the cross-mission interference assessment (below).
 
-Confirm with **one** `AskUserQuestion` (the command issues it, body prefixed `[<project label>]`): which eligible missions to drive (multiSelect; unassigned ones labeled as claim-and-drive). The confirmation is the batch authorization for this run — the same shape as `/drive night`'s §1: approval is **relocated to here**, not removed. In an unattended invocation (a caller-side loop such as `/goal /monitor ok`, where the invocation itself is the authorization), print the pre-flight content into the run log instead of prompting, and drive only missions that are already assigned to the current developer and eligible — an unattended run never claims unassigned work.
+Confirm with **one** `AskUserQuestion` (the command issues it, body prefixed `[<project label>]`): which eligible missions to drive (multiSelect; unassigned ones labeled as claim-and-drive). The confirmation is the batch authorization for this run — the same shape as `/drive night`'s §1: approval is **relocated to here**, not removed. In an unattended invocation (a caller-side loop such as `/goal /monitor ok` where nobody can answer, or a "night" token), print the pre-flight content into the run log instead of prompting, and drive only missions that are already assigned to the current developer and eligible — an unattended run never claims unassigned work.
+
+**Blockers become decisions — push them one by one; never stop at describing them.** In an interactive session, a pre-flight that finds nothing drivable is the **start** of the run, not its end: "nothing to do until you decide" is exactly the answer the developer rejected on first use ("don't just get enough by saying it, push me work for it"). Convert every blocker into its own `AskUserQuestion`, asked **one decision at a time**, and proceed with whatever each answer unlocks:
+
+- **No missions at all** → offer to start a `/mission` creation interrogation now (the answer routes into that flow), or to stop.
+- **A mission failing eligibility** (`not_authorized` / `no_plan`) → offer to run its replan interrogation now — the `/mission` replan flow, right here — versus leaving it out of this run.
+- **A missing worktree** (`no_worktree`) → offer to run `create-mission-worktree.sh` now.
+- **An unassigned mission** → the claim-and-drive question.
+
+An explicit decline ("stop", "leave it for later") is the only thing that ends the run early — and a decision the developer explicitly deferred is what the terminal contract later counts as *escalation-blocked*. A decision that was never pushed to them justifies nothing.
 
 ## 2. Fan-out: one drive leaf per mission
 
@@ -58,6 +67,14 @@ After confirmation, spawn **one `general-purpose` subagent per chosen mission, i
 - Return JSON only: `{"slug", "outcomes": [{"ticket", "outcome": "implemented|failed|blocked", "commit_or_reason"}], "minted": [...], "escalations": ["<judgment call a human must answer>", ...]}` — outcomes reconciling to the queue it was handed.
 
 One leaf per worktree, never two (**data plural, placement singular**: a ticket is driven in exactly one worktree). Leaves run concurrently across worktrees; port contention is already handled by the per-worktree port allocation.
+
+**The main agent is a non-blocking dispatcher.** Its whole job is to interpret the developer's instructions, do **light** investigation (the pre-flight scripts, `status.sh`, reading reports), and direct the leaves — nothing more:
+
+- **No inline implementation.** The main agent never implements a ticket, never edits inside a mission worktree, never runs a mission's verification itself — that is leaf work, in the leaf's worktree.
+- **Spawn leaves in the background and collect reports as they arrive.** Never freeze the session in a synchronous wait on the slowest leaf: while leaves work, the main agent keeps interpreting new developer instructions, answers progress questions from the facts it has (`status.sh`, arrived reports), and runs the one-at-a-time decision prompts of §1/§3. Waves still order the loop — a wave's classification happens when its reports are in — but waiting is something the dispatcher schedules around, not something it becomes.
+- **Stay interruptible.** The developer can redirect or stop the run at any point between dispatches (`workaholic:planning` / `ai-native-future`); a dispatcher that is itself deep in a blocking task cannot honor that.
+
+**Boot each mission's development environment at dispatch — inside its own worktree.** Before (or alongside) spawning a mission's leaf, start the project's **declared** dev/start command (the project's own `CLAUDE.md` declares it; workaholic never invents one) as a background process inside `( cd <worktree_path> && … )`, on the worktree's allocated ports — the `.env` port base `create-mission-worktree.sh` assigned, the same `dev_port`/`docs_port` that `mission/scripts/gate.sh` reports — so leaves verify, and declared gates run, against a **live environment**, and several missions' environments serve side by side without colliding. When the project declares no dev command, skip silently — that is the normal case for a library or CLI. At the terminal state, stop whatever processes **this run itself started** (never environments it found already running), and note in the final report which environments ran where.
 
 ## 3. The loop, and the terminal state
 
@@ -72,11 +89,11 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/monitor/scripts/status.sh <worktree_path> [slu
 Classify each incomplete mission:
 
 - **Still driveable** — tickets remain that are not escalation-blocked → include it in the next wave.
-- **Escalation-blocked** — every remaining item waits on a judgment in some leaf's `escalations` (or a `blocked` with no in-repo unblock). Interactive run: surface all of a wave's escalations in **one** labeled `AskUserQuestion` between waves; answers feed the next wave (an answer that changes a mission's plan routes through `/mission` replan, not ad-hoc edits). Unattended run: record them — an escalation nobody is there to answer **is** the "ignored" of the terminal contract.
+- **Escalation-blocked** — every remaining item waits on a judgment the developer **was asked and explicitly deferred**. Interactive run: between waves, ask each leaf escalation as **its own** labeled `AskUserQuestion`, one decision at a time — never one summary prompt listing them all, and never a report in place of the questions. Each answer feeds the next wave (an answer that changes a mission's plan routes through `/mission` replan, not ad-hoc edits); only an explicit "defer this" moves the item into the escalation-blocked set. Unattended run: record them — an escalation nobody is there to answer is the unattended reading of "deferred".
 
 **Bounded run**: at most **3 waves per invocation**, and a wave that archives nothing terminates the loop (no spinning on the same blockers). The caller's loop (`/goal`) provides the long horizon; one invocation provides bounded progress plus an honest report.
 
-**Terminal state** — every driven mission `complete` (gate included, when declared), **or** every incomplete one is escalation-blocked with its escalations surfaced-and-unanswered. In the terminal state the run's **final output line is exactly `ok`** — the deterministic token a caller-side convention like `/goal /monitor ok` waits for (`/goal` itself is not a command of this plugin; the token is the whole contract). Not terminal → the final line is `pending`, with the report saying what the next invocation will do.
+**Terminal state** — every driven mission `complete` (gate included, when declared), **or** every incomplete one is escalation-blocked in the strict sense above: its decisions were **pushed to the developer one by one and explicitly deferred** (or the run is genuinely unattended and recorded them). An interactive run never reaches `ok` over a decision it did not ask. In the terminal state the run's **final output line is exactly `ok`** — the deterministic token a caller-side convention like `/goal /monitor ok` waits for (`/goal` itself is not a command of this plugin; the token is the whole contract). Not terminal → the final line is `pending`, with the report saying what the next invocation will do.
 
 ## 4. Cross-mission interference (the bird's-eye judgment)
 

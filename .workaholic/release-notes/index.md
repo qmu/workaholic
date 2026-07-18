@@ -1,5 +1,6 @@
 # release-notes
 
+<!-- okf:generated:begin -->
 * [Release Notes](README.md)
 * [Developer Experience Hardening](drive-20260131-223656.md)
 * [Architecture Simplification and Release Fix](drive-20260201-112920.md)
@@ -67,3 +68,4 @@
 * [Summary mode, mission worktrees, and a release-safety scan](work-20260714-000543.md)
 * [Write confinement, /request, and a secret rule that judges the value](work-20260715-112717.md)
 * [Report whether the ship flow actually pushed etc](work-20260715-213222.md)
+<!-- okf:generated:end -->

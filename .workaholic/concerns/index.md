@@ -1,5 +1,6 @@
 # concerns
 
+<!-- okf:generated:begin -->
 * [Concerns](README.md)
 * [A mission can carry no machine-checkable bar at all, and may now drive unattended](a-mission-can-carry-no-machine.md)
 * [A PreToolUse hook cannot know its caller, so per-skill exceptions are unimplementable](a-pretooluse-hook-cannot-know-its.md)
@@ -44,3 +45,4 @@
 * [validate-ticket.sh never validates the mission relation](validate-ticket-sh-never-validates-the.md)
 
 * [archive/](archive/)
+<!-- okf:generated:end -->

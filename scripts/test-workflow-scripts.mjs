@@ -2993,6 +2993,103 @@ function testApplyVerdicts() {
     const r = JSON.parse(run(repo2, `printf '%s' '${arr}' | ${POSIX_SH} ${SCRIPTS.applyVerdicts}`).stdout);
     assertEq("apply-verdicts still accepts a bare array", r.resolved, 1);
   } finally { cleanup(repo2); }
+
+  // --- Fail-loud contract (the incident this ticket closes) ---------------
+
+  // Honest-empty: empty stdin, no expected arg -> zeros, exit 0. The correct
+  // empty answer must stay cheap and MUST NOT trip the fail-loud path.
+  {
+    const repo = makeRepo("main");
+    try {
+      const r = run(repo, `printf '%s' '' | ${POSIX_SH} ${SCRIPTS.applyVerdicts}`);
+      assertEq("apply-verdicts honest-empty (empty stdin) exits 0", r.status, 0);
+      assertEq("apply-verdicts honest-empty returns zeros", JSON.parse(r.stdout),
+        { resolved: 0, still_active: 0, files_resolved: [] });
+    } finally { cleanup(repo); }
+  }
+
+  // Honest-empty: [] with expected 0 -> zeros, exit 0.
+  {
+    const repo = makeRepo("main");
+    try {
+      const r = run(repo, `printf '%s' '[]' | ${POSIX_SH} ${SCRIPTS.applyVerdicts} 0`);
+      assertEq("apply-verdicts [] expected 0 exits 0", r.status, 0);
+      assertEq("apply-verdicts [] expected 0 returns zeros", JSON.parse(r.stdout),
+        { resolved: 0, still_active: 0, files_resolved: [] });
+    } finally { cleanup(repo); }
+  }
+
+  // Incident-1 signature: a stale/foreign {"verdicts":[]} while the caller
+  // expected 1 -> fail loud (non-zero exit), never a silent still_active: 0.
+  {
+    const repo = makeRepo("main");
+    try {
+      const r = run(repo, `printf '%s' '{"verdicts":[]}' | ${POSIX_SH} ${SCRIPTS.applyVerdicts} 1`);
+      assertTrue("apply-verdicts stale {verdicts:[]} vs expected 1 exits non-zero", r.status !== 0,
+        `expected non-zero exit, got status=${r.status} stdout=${r.stdout}`);
+    } finally { cleanup(repo); }
+  }
+
+  // Malformed JSON -> fail loud, NOT normalized to zeros-and-exit-0.
+  {
+    const repo = makeRepo("main");
+    try {
+      const r = run(repo, `printf '%s' '{not json' | ${POSIX_SH} ${SCRIPTS.applyVerdicts}`);
+      assertTrue("apply-verdicts malformed payload exits non-zero", r.status !== 0,
+        `expected non-zero exit, got status=${r.status} stdout=${r.stdout}`);
+    } finally { cleanup(repo); }
+  }
+
+  // Wrong-shape object (no "verdicts" key) -> fail loud, not treated as empty.
+  {
+    const repo = makeRepo("main");
+    try {
+      const r = run(repo, `printf '%s' '{"foo":1}' | ${POSIX_SH} ${SCRIPTS.applyVerdicts}`);
+      assertTrue("apply-verdicts object without verdicts key exits non-zero", r.status !== 0,
+        `expected non-zero exit, got status=${r.status} stdout=${r.stdout}`);
+    } finally { cleanup(repo); }
+  }
+
+  // A genuine resolved verdict WITH expected 1 still archives and exits 0 —
+  // the expected-count guard must not fire on a matching, well-formed payload.
+  {
+    const repo = makeRepo("main");
+    try {
+      mkdirSync(join(repo, ".workaholic/concerns"), { recursive: true });
+      writeFileSync(join(repo, ".workaholic/concerns/99-baz.md"),
+        "---\nseverity: low\nstatus: active\nresolved_by_pr:\nresolved_by_commit:\n---\n\n# Baz\n");
+      execSync(`git add -A && git commit -q -m concern`, { cwd: repo });
+      const obj = JSON.stringify({ verdicts: [{ path: ".workaholic/concerns/99-baz.md", verdict: "resolved", resolved_by_pr: 7, resolved_by_commit: "abc1234" }] });
+      const r = run(repo, `printf '%s' '${obj}' | ${POSIX_SH} ${SCRIPTS.applyVerdicts} 1`);
+      assertEq("apply-verdicts resolved verdict with expected 1 exits 0", r.status, 0);
+      assertEq("apply-verdicts resolved verdict with expected 1 archives it", JSON.parse(r.stdout).resolved, 1);
+      assertTrue("apply-verdicts expected-1 moved the file to archive",
+        existsSync(join(repo, ".workaholic/concerns/archive/99-baz.md")),
+        "resolved concern not moved to archive");
+    } finally { cleanup(repo); }
+  }
+}
+
+// ---------- report per-run artifacts (no shared constant /tmp paths) ----------
+// Source assertions pinning the fixed-path hazard shut: a future edit that
+// reintroduces a constant /tmp artifact path (the collision that fed one run
+// another repo's data) goes red here.
+function testReportArtifacts() {
+  const createOrUpdate = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/create-or-update.sh"), "utf8");
+  assertTrue("create-or-update.sh has no constant /tmp/pr-body.md",
+    !/\/tmp\/pr-body\.md/.test(createOrUpdate), "found /tmp/pr-body.md in create-or-update.sh");
+  assertTrue("create-or-update.sh derives a per-run body file via mktemp",
+    /mktemp/.test(createOrUpdate), "no mktemp in create-or-update.sh");
+  assertTrue("create-or-update.sh drops the >| noclobber-defeating redirect",
+    !/>\|/.test(createOrUpdate), "found a >| redirect in create-or-update.sh");
+
+  const constVerdicts = /\/tmp\/[^\s`)]*deferred-concern-verdicts\.json/;
+  const reportSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/report/SKILL.md"), "utf8");
+  const reviewSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/review-sections/SKILL.md"), "utf8");
+  assertTrue("report/SKILL.md names no constant /tmp deferred-concern-verdicts.json",
+    !constVerdicts.test(reportSkill), "report/SKILL.md still names a constant /tmp verdicts path");
+  assertTrue("review-sections/SKILL.md names no constant /tmp deferred-concern-verdicts.json",
+    !constVerdicts.test(reviewSkill), "review-sections/SKILL.md still names a constant /tmp verdicts path");
 }
 
 // ---------- ship/extract-deferred-concerns.sh (Bug 2: canonical dedup across PR prefixes) ----------
@@ -4987,6 +5084,7 @@ const tests = [
   ["ship/record-evidence.sh", testRecordEvidence],
   ["ship/catchup-main.sh", testCatchupMain],
   ["report/apply-deferred-concern-verdicts.sh", testApplyVerdicts],
+  ["report per-run artifacts (no shared /tmp paths)", testReportArtifacts],
   ["ship/extract-deferred-concerns.sh", testExtractDeferredConcerns],
   ["report/migrate-concern-identity.sh + update-in-place", testConcernIdentity],
   ["report/merge-concerns.sh + close-concern.sh (triage)", testConcernTriage],

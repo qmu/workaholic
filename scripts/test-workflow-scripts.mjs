@@ -4318,6 +4318,30 @@ Acceptance: it works. Verification: the suite. Gate: green.
       "---\ntype: Mission\ntitle: Old\nslug: old-one\nstatus: achieved\nassignee: a@qmu.jp\n---\n\n## Acceptance\n\n- [x] x\n");
     writeFileSync(abs, ticket("mission: old-one\n"));
     assertEq("validate-ticket accepts a mission that resolves in archive/", invoke(), 0);
+
+    // THE WORKTREE ROW (2026-07-18 reproduction): a mission's mission.md lives
+    // inside its own .worktrees/<slug>/ checkout until that branch merges, so a
+    // missioned ticket written into the worktree from a MAIN-TREE session (hook
+    // cwd = main root) must be resolved against the ticket's own checkout, not
+    // the cwd. Before the fix this false-flagged every such write.
+    execSync(`git worktree add -q .worktrees/wt-mission -b work-20260718000201`, { cwd: dir });
+    const wtMissionDir = join(dir, ".worktrees/wt-mission/.workaholic/missions/active/wt-mission");
+    mkdirSync(wtMissionDir, { recursive: true });
+    writeFileSync(join(wtMissionDir, "mission.md"),
+      "---\ntype: Mission\ntitle: WT\nslug: wt-mission\nstatus: active\nassignee: a@qmu.jp\ndrive_authorized: true\n---\n\n## Acceptance\n\n- [ ] x\n");
+    const wtTicket = join(dir, ".worktrees/wt-mission/.workaholic/tickets/todo/a-qmu-jp/20260718000202-w.md");
+    mkdirSync(dirname(wtTicket), { recursive: true });
+    const invokeAbs = (p) => {
+      const payload = JSON.stringify({ tool_input: { file_path: p } });
+      try { execSync(`${POSIX_SH} ${HOOK}`, { cwd: dir, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return 0; }
+      catch (e) { return e.status ?? 1; }
+    };
+    writeFileSync(wtTicket, ticket("mission: wt-mission\n"));
+    assertEq("validate-ticket resolves a worktree ticket's mission in the ticket's own checkout",
+      invokeAbs(wtTicket), 0);
+    // A genuinely dangling slug still fails — in the worktree checkout too.
+    writeFileSync(wtTicket, ticket("mission: nowhere-at-all\n"));
+    assertEq("validate-ticket still rejects a slug resolving in no checkout", invokeAbs(wtTicket), 2);
   } finally { cleanup(dir); }
 }
 

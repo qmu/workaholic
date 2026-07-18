@@ -26,8 +26,9 @@ fi
 
 SCRIPT_DIR=$(dirname "$0")
 . "${SCRIPT_DIR}/lib/resolve.sh"
-missions_migrate_layout
-FILE=$(mission_resolve "$ARG")
+ROOT=$(missions_root_for_arg "$ARG")
+missions_migrate_layout "$ROOT"
+FILE=$(mission_resolve "$ROOT" "$ARG")
 [ -f "$FILE" ] || { printf '{"appended": false, "reason": "not_found", "path": "%s"}\n' "$FILE" >&2; exit 1; }
 
 # Stable event id = "<event> — <artifact>" (date excluded, so a re-run on any day

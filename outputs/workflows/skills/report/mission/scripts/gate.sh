@@ -34,13 +34,10 @@ ARG="${1:-}"
 
 SCRIPT_DIR=$(dirname "$0")
 . "${SCRIPT_DIR}/lib/resolve.sh"
-missions_migrate_layout
+ROOT=$(missions_root_for_arg "$ARG")
+missions_migrate_layout "$ROOT"
 
-if [ -f "$ARG" ]; then
-    f="$ARG"
-else
-    f=$(mission_resolve "$ARG")
-fi
+f=$(mission_resolve "$ROOT" "$ARG")
 [ -f "$f" ] || { echo '{"error": "not_found"}' >&2; exit 1; }
 
 json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }

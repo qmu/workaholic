@@ -97,8 +97,9 @@ esac
 
 SCRIPT_DIR=$(dirname "$0")
 . "${SCRIPT_DIR}/lib/resolve.sh"
-missions_migrate_layout
-FILE=$(mission_resolve "$ARG")
+ROOT=$(missions_root_for_arg "$ARG")
+missions_migrate_layout "$ROOT"
+FILE=$(mission_resolve "$ROOT" "$ARG")
 [ -f "$FILE" ] || { printf '{"closed": false, "reason": "not_found", "path": "%s"}\n' "$FILE" >&2; exit 1; }
 
 MISSION_DIR=$(dirname "$FILE")
@@ -119,7 +120,7 @@ SUCCESSOR=""
 SUCCESSOR_PATH=""
 if [ "$TARGET" = "carried" ]; then
     if [ -n "$SUCCESSOR_SLUG" ]; then
-        SUCCESSOR_PATH=$(mission_resolve "$SUCCESSOR_SLUG")
+        SUCCESSOR_PATH=$(mission_resolve "$ROOT" "$SUCCESSOR_SLUG")
         [ -f "$SUCCESSOR_PATH" ] || {
             printf '{"closed": false, "reason": "successor_not_found", "successor": "%s"}\n' "$SUCCESSOR_SLUG" >&2
             exit 1
@@ -128,7 +129,7 @@ if [ "$TARGET" = "carried" ]; then
     else
         SUCCESSOR=$(sh "${SCRIPT_DIR}/slug.sh" "$SUCCESSOR_TITLE")
         [ -n "$SUCCESSOR" ] || { echo '{"closed": false, "reason": "empty_successor_slug"}' >&2; exit 1; }
-        EXISTING_SUCC=$(mission_resolve "$SUCCESSOR")
+        EXISTING_SUCC=$(mission_resolve "$ROOT" "$SUCCESSOR")
         if [ -f "$EXISTING_SUCC" ]; then
             # Re-running the same carry: the successor is already there. Do not rebuild
             # it -- that would re-inherit items the developer may have since ticked.
@@ -137,7 +138,7 @@ if [ "$TARGET" = "carried" ]; then
             # Mint it through create.sh, the single scaffold writer, so the successor is
             # a normal mission (frontmatter, assignee default, OKF index, staging).
             sh "${SCRIPT_DIR}/create.sh" "$SUCCESSOR_TITLE" >/dev/null
-            SUCCESSOR_PATH=$(mission_resolve "$SUCCESSOR")
+            SUCCESSOR_PATH=$(mission_resolve "$ROOT" "$SUCCESSOR")
             [ -f "$SUCCESSOR_PATH" ] || {
                 printf '{"closed": false, "reason": "successor_create_failed", "successor": "%s"}\n' "$SUCCESSOR" >&2
                 exit 1

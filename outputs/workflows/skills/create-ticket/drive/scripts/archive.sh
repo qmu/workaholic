@@ -67,11 +67,27 @@ SCRIPT_DIR=$(dirname "$0")
 # mutators git-stage the mission file, so it rides along in the archive commit's
 # `git add -A` below.
 MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts/"
-sh "${MISSION_SCRIPTS}/read-relation.sh" "$ARCHIVED_TICKET" 2>/dev/null | while IFS= read -r MISSION_SLUG; do
-    [ -n "$MISSION_SLUG" ] || continue
-    sh "${MISSION_SCRIPTS}/append-changelog.sh" "$MISSION_SLUG" "ticket archived" "$TICKET_FILENAME" >/dev/null 2>&1 || true
-    sh "${MISSION_SCRIPTS}/tick-acceptance.sh" "$MISSION_SLUG" "$TICKET_FILENAME" >/dev/null 2>&1 || true
-done
+# Resolution follows the TICKET, not the process cwd: the mission the archived ticket
+# names lives in the ticket's own .workaholic tree, so its root is derived from the
+# ticket's path and each slug is resolved to an ABSOLUTE mission.md under it before the
+# mutators run. Passing a bare slug would let the mutators re-resolve against the cwd and,
+# with a same-slug mission in a sibling worktree, roll the wrong tree's mission.
+#
+# Guarded on a non-empty relation: an un-missioned ticket runs NO mission script at all
+# (no changelog, no tick, and no living migration), so archiving it leaves every mission
+# — even a legacy flat dir — byte-for-byte untouched.
+MISSION_SLUGS=$(sh "${MISSION_SCRIPTS}/read-relation.sh" "$ARCHIVED_TICKET" 2>/dev/null || true)
+if [ -n "$MISSION_SLUGS" ]; then
+    . "${MISSION_SCRIPTS}/lib/resolve.sh"
+    MISSION_ROOT=$(missions_root_from_artifact "$ARCHIVED_TICKET")
+    missions_migrate_layout "$MISSION_ROOT"
+    printf '%s\n' "$MISSION_SLUGS" | while IFS= read -r MISSION_SLUG; do
+        [ -n "$MISSION_SLUG" ] || continue
+        MISSION_FILE=$(mission_resolve "$MISSION_ROOT" "$MISSION_SLUG")
+        sh "${MISSION_SCRIPTS}/append-changelog.sh" "$MISSION_FILE" "ticket archived" "$TICKET_FILENAME" >/dev/null 2>&1 || true
+        sh "${MISSION_SCRIPTS}/tick-acceptance.sh" "$MISSION_FILE" "$TICKET_FILENAME" >/dev/null 2>&1 || true
+    done
+fi
 
 # Refresh the .workaholic OKF bundle indexes so the archive commit ships with a
 # fresh hierarchy (best-effort: an index problem must not block the archive).

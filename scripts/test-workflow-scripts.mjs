@@ -808,6 +808,153 @@ function testDriveAuthorized() {
     /Attempt every ticket/.test(skill), "failure contract not stated");
 }
 
+// ---------- mission resolution follows the TICKET, not the process cwd ----------
+// mission_resolve resolved a bare slug against a CWD-relative .workaholic/, so the same
+// ticket read a different mission.md from a different cwd and -- with a same-slug mission
+// in a sibling worktree -- silently borrowed the wrong mission's authorization, all at
+// exit 0. The returned path was relative, so nothing in the output revealed which file
+// was read. The fix makes resolution a function of (root, slug) where the root is derived
+// from the artifact's own location, returning an ABSOLUTE path.
+//
+// The fixture is the load-bearing part: a REAL linked worktree holding BOTH the mission
+// and the ticket, exercised from more than one cwd, with a same-slug mission in the main
+// tree. The existing mission tests all run from one cwd, which is exactly why they never
+// saw this. A test asserting only `authorized: true` from inside the worktree would pass
+// while the bug is live -- so the main-tree and unrelated-dir cwds, and the same-slug
+// row, are the ones with teeth.
+function testMissionResolutionFollowsTicket() {
+  const RESOLVE = join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/lib/resolve.sh");
+  // Invoke the resolver library directly ($0 is the lib, $1 the root, $2 the slug), so the
+  // "which mission.md was read" row can assert on the resolved path itself, not just a
+  // downstream verdict. Temp dirs from mkdtemp carry no spaces, so bare interpolation is safe.
+  const resolveWith = (cwd, root, slug) =>
+    run(cwd, `${POSIX_SH} -c '. "$0"; mission_resolve "$1" "$2"' ${RESOLVE} ${root} ${slug}`).stdout;
+  const migrateWith = (cwd, root) =>
+    run(cwd, `${POSIX_SH} -c '. "$0"; missions_migrate_layout "$1"' ${RESOLVE} ${root}`);
+  const missionMd = (slug, stamp, assignee) =>
+    `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\nassignee: ${assignee}\ndrive_authorized:${stamp ? " true" : ""}\n---\n\n## Acceptance\n\n- [ ] One (#t.md)\n\n## Changelog\n`;
+
+  // The resolver library builds every path under an explicit root -- no cwd-relative
+  // `.workaholic/missions` literal may survive, or the cwd-dependence is back.
+  assertTrue("lib/resolve.sh contains no bare .workaholic/missions relative literal",
+    !/\.workaholic\/missions/.test(readFileSync(RESOLVE, "utf8")), "a cwd-relative missions literal is present");
+
+  const dir = makeRepo("main");
+  const elsewhere = mkdtempSync(join(tmpdir(), "workaholic-elsewhere-"));
+  try {
+    execSync(`git config user.email a@qmu.jp`, { cwd: dir });
+    // A genuine linked worktree, on its own branch -- as /mission creates one.
+    execSync(`git worktree add -q .worktrees/alpha -b work-20260717-141501`, { cwd: dir });
+    const wt = join(dir, ".worktrees/alpha");
+
+    // The mission the ticket names lives in the worktree, AUTHORIZED. A DIFFERENT mission,
+    // same slug, sits in the main tree UNAUTHORIZED -- the dangerous collision.
+    const wtMd = join(wt, ".workaholic/missions/active/alpha/mission.md");
+    mkdirSync(dirname(wtMd), { recursive: true });
+    writeFileSync(wtMd, missionMd("alpha", true, "a@qmu.jp"));
+    const mainMd = join(dir, ".workaholic/missions/active/alpha/mission.md");
+    mkdirSync(dirname(mainMd), { recursive: true });
+    writeFileSync(mainMd, missionMd("alpha", false, "a@qmu.jp"));
+
+    // The ticket lives in the same worktree as its mission, carrying `mission: alpha`.
+    const ticketAbs = join(wt, ".workaholic/tickets/todo/a-qmu-jp/t.md");
+    mkdirSync(dirname(ticketAbs), { recursive: true });
+    writeFileSync(ticketAbs,
+      `---\ncreated_at: 2026-07-17T11:00:00+09:00\nauthor: a@qmu.jp\ntype: enhancement\nlayer: [Domain]\neffort:\ncommit_hash:\ncategory:\ndepends_on:\nmission: alpha\n---\n\n# T\n\n## Policies\n\n- x\n\n## Quality Gate\n\ng\n`);
+
+    const cwds = { worktree: wt, mainTree: dir, unrelated: elsewhere };
+
+    // Row 1+2: authorized from EVERY cwd -- one ticket, one answer. The reproduced
+    // main-tree `mission_not_found` / `not_authorized` (reading the wrong alpha) must be
+    // unreproducible. The ticket is addressed by ABSOLUTE path so it resolves from /tmp too.
+    for (const [where, cwd] of Object.entries(cwds)) {
+      const r = JSON.parse(run(cwd, `${POSIX_SH} ${SCRIPTS.driveAuthorized} ${ticketAbs}`).stdout);
+      assertEq(`drive-authorized reads the worktree's mission from the ${where} cwd`,
+        { a: r.authorized, reason: r.reason, m: r.missions }, { a: true, reason: "", m: ["alpha"] });
+    }
+
+    // Row: the resolved path identifies WHICH mission.md was read, is absolute, and the two
+    // trees' same-slug missions never collapse to the same string -- from any cwd.
+    const wtRoot = join(wt, ".workaholic");
+    const mainRoot = join(dir, ".workaholic");
+    for (const [where, cwd] of Object.entries(cwds)) {
+      assertEq(`mission_resolve returns the worktree's absolute path from the ${where} cwd`,
+        resolveWith(cwd, wtRoot, "alpha"), wtMd);
+    }
+    assertTrue("the two same-slug trees resolve to DIFFERENT absolute paths",
+      resolveWith(dir, wtRoot, "alpha") !== resolveWith(dir, mainRoot, "alpha") &&
+      resolveWith(dir, mainRoot, "alpha") === mainMd, `${resolveWith(dir, wtRoot, "alpha")} vs ${resolveWith(dir, mainRoot, "alpha")}`);
+    assertTrue("the resolved path is absolute", resolveWith(elsewhere, wtRoot, "alpha").startsWith("/"),
+      resolveWith(elsewhere, wtRoot, "alpha"));
+
+    // Row: mission-lens.sh (an absolute-path caller) is unaffected -- pin it. Inside the
+    // worktree it surfaces only that worktree's mission, reading progress via the absolute
+    // fast path.
+    const lensEnv = { ...process.env, CLAUDE_PLUGIN_ROOT: join(REPO_ROOT, "plugins/workaholic") };
+    const lens = run(wt, `printf '%s' '{"hook_event_name":"UserPromptSubmit"}' | ${POSIX_SH} ${SCRIPTS.missionLens}`, { env: lensEnv }).stdout;
+    assertTrue("mission-lens still surfaces the worktree mission (absolute-path caller intact)",
+      /alpha/.test(lens), lens);
+  } finally { cleanup(dir); cleanup(elsewhere); }
+
+  // Row: missions_migrate_layout moves the tree the CALLER named, not the cwd's tree. A
+  // legacy flat mission in a worktree, migrated from the MAIN cwd, must migrate the
+  // WORKTREE's tree -- and leave a same-cwd flat mission in the main tree untouched. The
+  // old cwd-relative migration did the opposite, silently.
+  const d2 = makeRepo("main");
+  try {
+    execSync(`git config user.email a@qmu.jp`, { cwd: d2 });
+    execSync(`git worktree add -q .worktrees/beta -b work-20260717-150000`, { cwd: d2 });
+    const wt = join(d2, ".worktrees/beta");
+    const flatBody = `---\ntype: Mission\ntitle: L\nslug: legacy\nstatus: active\nassignee: a@qmu.jp\n---\n\n## Acceptance\n\n- [ ] x\n`;
+    // Legacy flat dir in the worktree, and a different legacy flat dir in the main tree.
+    const wtFlat = join(wt, ".workaholic/missions/legacy/mission.md");
+    mkdirSync(dirname(wtFlat), { recursive: true });
+    writeFileSync(wtFlat, flatBody);
+    const mainFlat = join(d2, ".workaholic/missions/mainlegacy/mission.md");
+    mkdirSync(dirname(mainFlat), { recursive: true });
+    writeFileSync(mainFlat, flatBody.replace("slug: legacy", "slug: mainlegacy"));
+
+    migrateWith(d2, join(wt, ".workaholic"));   // cwd = main tree, root = the worktree
+
+    assertTrue("migration moved the WORKTREE's flat mission into active/",
+      existsSync(join(wt, ".workaholic/missions/active/legacy/mission.md")) &&
+      !existsSync(join(wt, ".workaholic/missions/legacy")), "worktree legacy not migrated");
+    assertTrue("migration left the MAIN tree's same-cwd flat mission untouched",
+      existsSync(mainFlat) && !existsSync(join(d2, ".workaholic/missions/active/mainlegacy")),
+      "main tree mission was migrated by a foreign-root call");
+  } finally { cleanup(d2); }
+
+  // Row: the archive seam rolls the mission the TICKET names (its worktree's), not a
+  // same-slug main-tree mission. Run from inside the worktree, as /drive does.
+  const d3 = makeRepo("main");
+  try {
+    execSync(`git config user.email a@qmu.jp`, { cwd: d3 });
+    execSync(`git worktree add -q .worktrees/gamma -b work-20260717-160000`, { cwd: d3 });
+    const wt = join(d3, ".worktrees/gamma");
+    const ticketName = "20260717160000-feat.md";
+    const acc = (slug) => `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\nassignee: a@qmu.jp\ntickets: []\nstories: []\nconcerns: []\n---\n\n# ${slug}\n\n## Acceptance\n\n- [ ] Ship it (#${ticketName})\n\n## Changelog\n`;
+    const wtMd = join(wt, ".workaholic/missions/active/rt/mission.md");
+    mkdirSync(dirname(wtMd), { recursive: true });
+    writeFileSync(wtMd, acc("rt"));
+    const mainMd = join(d3, ".workaholic/missions/active/rt/mission.md");
+    mkdirSync(dirname(mainMd), { recursive: true });
+    writeFileSync(mainMd, acc("rt"));
+    const todoDir = join(wt, ".workaholic/tickets/todo/a-qmu-jp");
+    mkdirSync(todoDir, { recursive: true });
+    writeFileSync(join(todoDir, ticketName),
+      `---\ncreated_at: 2026-07-17T16:00:00+09:00\nauthor: a@qmu.jp\ntype: enhancement\nlayer: [Domain]\neffort: 0.5h\ncommit_hash:\ncategory:\ndepends_on:\nmission: rt\n---\n\n# Feat\n\n## Final Report\n\nDone.\n`);
+    execSync(`git add -A && git commit -q -m seed`, { cwd: wt });
+
+    const env = { ...process.env, GIT_AUTHOR_DATE: "2026-07-17T16:00:00+09:00", GIT_COMMITTER_DATE: "2026-07-17T16:00:00+09:00" };
+    const r = run(wt, `${POSIX_SH} ${SCRIPTS.archive} .workaholic/tickets/todo/a-qmu-jp/${ticketName} "Add feat" https://x/repo "why" "changes" "None" "None" "verify"`, { env });
+    assertEq("archive.sh (worktree ticket) exits 0", r.status, 0);
+    assertTrue("archive rolled the WORKTREE's mission (acceptance ticked)",
+      /- \[x\] Ship it/.test(readFileSync(wtMd, "utf8")), readFileSync(wtMd, "utf8"));
+    assertTrue("archive left the same-slug MAIN mission untouched",
+      /- \[ \] Ship it/.test(readFileSync(mainMd, "utf8")), readFileSync(mainMd, "utf8"));
+  } finally { cleanup(d3); }
+}
+
 // ---------- mission Creation Interrogation: the protocol is stated, and its output validates ----------
 // /mission produced an empty shell and asked nothing: create.sh scaffolds the sections as
 // HTML comments, and the only elicitation was one prose sentence with no question protocol
@@ -2353,8 +2500,10 @@ concerns: []
     // close.sh ends the active mission: status flipped, closing changelog line
     // appended, dir moved to archive/, pre-existing changelog preserved.
     r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} alpha achieved 2026-07-03`).stdout);
+    // mission_resolve now returns an ABSOLUTE, root-qualified path (so two same-slug
+    // missions in two trees can never yield the same string). close.sh echoes it verbatim.
     assertEq("close.sh closes", { closed: r.closed, slug: r.slug, status: r.status, path: r.path },
-      { closed: true, slug: "alpha", status: "achieved", path: ".workaholic/missions/archive/alpha/mission.md" });
+      { closed: true, slug: "alpha", status: "achieved", path: join(dir, ".workaholic/missions/archive/alpha/mission.md") });
     const closedBody = readFileSync(join(dir, ".workaholic/missions/archive/alpha/mission.md"), "utf8");
     assertTrue("close.sh flipped status in frontmatter", /^status:\s*achieved\s*$/m.test(closedBody), closedBody);
     assertTrue("close.sh appended the closing changelog line",
@@ -5200,6 +5349,7 @@ const tests = [
   ["mission/gate.sh resolves worktree ports", testMissionGateWorktreePorts],
   ["mission creation interrogation protocol", testMissionInterrogationProtocol],
   ["mission/drive-authorized.sh (approval relocation)", testDriveAuthorized],
+  ["mission resolution follows the ticket, not the cwd", testMissionResolutionFollowsTicket],
   ["drive mints tickets for mid-run problems", testDriveMintsTicketsForMidrunProblems],
   ["mission position report at handoffs", testMissionPositionReport],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],

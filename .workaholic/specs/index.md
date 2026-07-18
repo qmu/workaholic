@@ -1,5 +1,6 @@
 # specs
 
+<!-- okf:generated:begin -->
 * [Technical Specifications](README.md) - Viewpoint-based architecture specifications for the Workaholic plugin system
 * [Application Viewpoint](application.md) - Runtime behavior, agent orchestration, and data flow
 * [Component Viewpoint](component.md) - Internal structure, module boundaries, and decomposition
@@ -10,3 +11,4 @@
 * [Stakeholder Viewpoint](stakeholder.md) - Who uses the system, their goals, and interaction patterns
 * [Use Case Viewpoint](usecase.md) - User workflows, command sequences, and input/output contracts
 * [UX Viewpoint](ux.md) - User experience design, interaction patterns, user journeys, and onboarding paths
+<!-- okf:generated:end -->

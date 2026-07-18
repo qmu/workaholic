@@ -1395,6 +1395,109 @@ function testMissionWorktreePrimitive() {
   } finally { cleanup(dir2); }
 }
 
+// Build a clone whose ONLY local branch is a checked-out work-* branch and whose
+// local `main` is genuinely ABSENT (only origin/main survives, as a remote-tracking
+// ref). This is the desk / fresh-clone state in which create-mission-worktree.sh's
+// bug fires: a bare positional `main` handed to `git worktree add` is resolved by
+// git's remote-tracking DWIM, which discards the -b, creates a stray local `main`
+// tracking origin/main, and checks THAT out — landing the worktree on `main` while
+// the JSON still reports the minted work-* branch.
+//
+// CRITICAL — DO NOT "simplify" this onto makeRepo(): makeRepo() leaves a local
+// `main` checked out, which is the DORMANT case where the bug cannot reproduce.
+// The bug also self-conceals after its first firing (it CREATES the local `main`
+// it was missing), so each case that needs the absent-main state must build a
+// FRESH clone. A fixture with a local `main` tests the path that already works and
+// would go green while the bug returns.
+function makeNoLocalMainClone() {
+  const origin = mkdtempSync(join(tmpdir(), "wh-nlm-origin-"));
+  const seed = mkdtempSync(join(tmpdir(), "wh-nlm-seed-"));
+  const clone = mkdtempSync(join(tmpdir(), "wh-nlm-clone-"));
+  execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
+  execSync(`git clone -q ${origin} .`, { cwd: seed });
+  execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: seed });
+  writeFileSync(join(seed, "README.md"), "seed\n");
+  execSync(`git add -A && git commit -q -m base && git push -q origin main`, { cwd: seed });
+  rmSync(seed, { recursive: true, force: true });
+  execSync(`git clone -q ${origin} .`, { cwd: clone });
+  execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: clone });
+  // Cut and check out a work-* branch, then delete local main so ONLY the
+  // remote-tracking origin/main remains resolvable. `git branch -D main` requires
+  // being off main first, which the checkout above satisfies.
+  execSync(`git checkout -q -b work-20260101-000000`, { cwd: clone });
+  execSync(`git branch -D main`, { cwd: clone });
+  return { origin, clone };
+}
+
+// ---------- 8d-bis. create-mission-worktree lands on the branch it reports ----------
+// Regression for "worktree puts itself on the branch it reports": with no local
+// `main`, the worktree must still land on the minted work-* branch (asserted
+// against GIT, never the script's stdout), leave no stray local `main`, and fail
+// loudly when the base resolves to nothing.
+function testMissionWorktreeNoLocalMain() {
+  // Row: no local `main`, only a work-* branch (the desk / fresh-clone state).
+  {
+    const { origin, clone } = makeNoLocalMainClone();
+    try {
+      assertEq("fixture has no local main",
+        run(clone, `git rev-parse --verify --quiet refs/heads/main`).status, 1);
+      const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} nolocal`).stdout);
+      // Assert against GIT's view of the worktree HEAD, not the script's stdout.
+      const actual = execSync(`git -C ${join(clone, ".worktrees/nolocal")} rev-parse --abbrev-ref HEAD`,
+        { encoding: "utf8" }).trim();
+      assertTrue("reported branch matches work-YYYYMMDD-HHMMSS", /^work-\d{8}-\d{6}$/.test(r.branch), r.branch);
+      assertEq("worktree ACTUAL branch is the reported work-* (not main)", actual, r.branch);
+      assertTrue("actual branch is not main", actual !== "main", actual);
+      // No stray local `main` manufactured as a side effect.
+      assertEq("no stray local main created",
+        run(clone, `git rev-parse --verify --quiet refs/heads/main`).status, 1);
+      run(clone, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} nolocal`);
+    } finally { cleanup(origin); cleanup(clone); }
+  }
+
+  // Row: base that resolves to nothing -> fails loudly, no worktree left behind.
+  {
+    const { origin, clone } = makeNoLocalMainClone();
+    try {
+      const c = run(clone, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} bogusbase no-such-base`);
+      assertTrue("unresolvable base fails loudly (non-zero exit)", c.status !== 0, `status ${c.status}`);
+      assertTrue("error names the base", /no-such-base/.test(c.stderr), c.stderr);
+      assertTrue("no worktree left behind on failure", !existsSync(join(clone, ".worktrees/bogusbase")));
+    } finally { cleanup(origin); cleanup(clone); }
+  }
+
+  // Negative row: local `main` present -> unchanged, still lands on work-*.
+  {
+    const dir = makeRepo("main");
+    try {
+      const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} haslocal`).stdout);
+      const actual = execSync(`git -C ${join(dir, ".worktrees/haslocal")} rev-parse --abbrev-ref HEAD`,
+        { encoding: "utf8" }).trim();
+      assertEq("local-main path unchanged: worktree on work-*", actual, r.branch);
+      run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} haslocal`);
+    } finally { cleanup(dir); }
+  }
+
+  // Row: explicit base argument honoured, resolved by the SAME rule as the default.
+  {
+    const dir = makeRepo("main");
+    try {
+      execSync(`git checkout -q -b feature`, { cwd: dir });
+      writeFileSync(join(dir, "feat.txt"), "feature\n");
+      execSync(`git add -A && git commit -q -m feat`, { cwd: dir });
+      const featTip = execSync(`git rev-parse feature`, { cwd: dir, encoding: "utf8" }).trim();
+      execSync(`git checkout -q main`, { cwd: dir });
+      const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} withbase feature`).stdout);
+      const actual = execSync(`git -C ${join(dir, ".worktrees/withbase")} rev-parse --abbrev-ref HEAD`,
+        { encoding: "utf8" }).trim();
+      assertEq("explicit base: worktree on the minted work-*", actual, r.branch);
+      const wtTip = execSync(`git -C ${join(dir, ".worktrees/withbase")} rev-parse HEAD`, { encoding: "utf8" }).trim();
+      assertEq("explicit base honoured: cut from that base's tip", wtTip, featTip);
+      run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} withbase`);
+    } finally { cleanup(dir); }
+  }
+}
+
 // ---------- 8e. mission-lens worktree focus ----------
 // Inside a mission's worktree the lens surfaces only that mission; in the main
 // tree it hides missions that own a worktree and shows only worktree-less ones.
@@ -5443,6 +5546,7 @@ const tests = [
   ["hooks/mission-lens.sh surfaces unassigned missions", testMissionLensUnassigned],
   ["mission create branches on main", testMissionBranchOnCreate],
   ["branching mission worktree primitive", testMissionWorktreePrimitive],
+  ["mission worktree lands on the branch it reports", testMissionWorktreeNoLocalMain],
   ["mission-lens worktree focus", testMissionLensWorktreeFocus],
   ["mission create worktree+kickoff spine", testMissionCreateWorktreeFlow],
   ["mission worktree ship reset", testMissionWorktreeShipReset],

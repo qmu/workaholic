@@ -3,9 +3,9 @@ created_at: 2026-07-18T19:15:00+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
+effort: 0.5h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -59,3 +59,12 @@ The mission-worktree layout (mission.md living inside `.worktrees/<slug>/` until
 
 - The hook is Claude-Code-only with no `outputs/` footprint; no rebuild needed (`plugins/workaholic/hooks/`)
 - `/monitor`'s drive leaves mint `deferred` tickets inside mission worktrees from sessions whose cwd may be the main root — this defect would false-flag every one of them, so it directly protects the monitor flow (`plugins/workaholic/skills/monitor/SKILL.md` §2)
+
+## Final Report
+
+Development completed as planned. The new smoke assertions reproduce the exact 2026-07-18 failure shape (worktree-resident missioned ticket, hook cwd = main root) and pass; the dangling-slug rejection row still exits 2.
+
+### Discovered Insights
+
+- **Insight**: The subshell owns only the answer, never the exit — the hook keeps `exit 2` at top level because an `exit` inside `( cd … && … )` exits the subshell, not the hook.
+  **Context**: Any future cwd-sensitive check in a PostToolUse hook should copy this shape: resolve the file's own root with `git -C`, test inside the subshell, decide outside it.

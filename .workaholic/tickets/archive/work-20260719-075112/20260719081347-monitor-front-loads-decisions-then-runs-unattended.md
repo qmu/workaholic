@@ -3,9 +3,9 @@ created_at: 2026-07-19T08:13:47+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [UX, Infrastructure]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -83,3 +83,13 @@ Concretely, `/monitor` should:
 - **Relationship to `20260719000021` (false-`ok` / hollow completion).** Q4 folds the `/monitor` terminal-honesty into this change. The `/goal`-gate side of that ticket (a gate satisfiable by the agent self-emitting the token) is broader than `/monitor` and stays separate — but once this lands, `/monitor`'s `ok` is derived from `status.sh`, which is the `/monitor` half. Reconcile the two at drive time: if this fully covers the `/monitor` path, `20260719000021` should scope down to the `/goal` gate rather than both claiming it.
 - **The deferred-decision memory concern (`monitor-s-decision-loop-has-no`) is adjacent.** Front-loading changes the seam it worries about: instead of re-litigating deferred decisions each loop, decisions are resolved up front and mid-run items are recorded once. Confirm this change does not leave a mid-run deferral that gets re-recorded every wave — a deferral is recorded once and not re-asked/re-logged.
 - **"Enumerate every foreseeable escalation" has a ceiling.** The pre-flight can only foresee what `preflight.sh` surfaces; a truly novel mid-run blocker (a destructive action, an external outage) cannot be pre-asked. Q3's rule is that such an item is **deferred and the mission left short of that step** — never guessed — so the autonomy contract never silently takes an irreversible action it would normally have asked about.
+
+## Final Report
+
+Development completed as planned, to the Q1–Q4 decisions recorded in the Quality Gate. All changes are Claude-only `/monitor` orchestration prose (`skills/monitor/SKILL.md`, `commands/monitor.md`) plus docs (`CLAUDE.md`, `README.md`) and the `/monitor` sentinel suite in `scripts/test-workflow-scripts.mjs`. Full chain green: 1159 tests / 0 failed, `build.mjs` clean with zero `outputs/` drift (`/monitor` stays excluded from `outputs/workflows`), `verify.mjs` / `validate-metadata.mjs` pass, `posix-lint` conforming.
+
+### Discovered Insights
+
+- **Insight**: The pivot is a *deliberate reversal* of `edf246a4`'s during-run one-at-a-time push, scoped to the mission run. The docs now state this explicitly so a future reader doesn't read it as a contradiction of the shipped contract; a distinct *interactive* `/monitor` mode (where the old push model would still fit) is left as an explicit follow-up.
+  **Context**: `/monitor`'s contract lives in prose, and its sentinel tests are brittle by design (`monitor-s-contract-lives-in-prose`) — three obsolete interactive-vs-unattended assertions were retired intentionally and a `testMonitorFrontLoads` added, including a hermetic `status.sh` check for the honest `ok`/`pending` derivation.
+- **Insight**: This ticket owns only the `/monitor` half of the honest-terminal-signal fix; `20260719000021` (the `/goal`-gate self-emitted-token) is broader and stays separate. The docs say that ticket should scope down to the `/goal` gate once this lands, rather than both claiming the fix — worth honoring when `20260719000021` is driven next.

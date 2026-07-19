@@ -1,6 +1,6 @@
 ---
 created_at: 2026-07-19T00:00:21+09:00
-author: a-qmu-jp
+author: a@qmu.jp
 type: bugfix
 layer: [Config, UX]
 effort:
@@ -109,3 +109,12 @@ objectives:
   many objectives actually completed vs. remained blocked.
 - The existing Stop-gating (blocking premature stop until the condition holds)
   is unchanged.
+
+## Resolution
+
+Archived as **resolved**, without a dedicated implementation, after investigation (2026-07-19):
+
+- **The repo-actionable half shipped in `06a58f37`** (this branch). `/monitor`'s terminal token is now derived from `status.sh` — `ok` only when every driven mission genuinely reached `complete`; any incomplete/escalation-blocked mission yields `pending`; a reconciliation line (`N/M complete, K escalation-blocked`) is always printed above it. That is the only caller-gateable completion token any workflow in this repo emits, so it satisfies the "success-shaped signal must imply genuine completion / honest reconciliation" bullets for the surface the repo owns.
+- **The residual is not actionable in this repo.** `/goal` is a **Claude Code harness feature**, not a workaholic command (`find plugins -iname '*goal*'` → nothing; `mission-lens.sh` treats `/goal` gating as external). Making a token-based Stop gate corroborate against observable state before clearing lives in the harness's `/goal` implementation, which workaholic does not own. No other repo-side self-assertable completion token exists (`/report`'s output is a PR URL, not a gate).
+
+Recommended follow-up (outside this repo): raise the token-vs-observable-state Stop-gate corroboration with the Claude Code harness. Nothing further is actionable here.

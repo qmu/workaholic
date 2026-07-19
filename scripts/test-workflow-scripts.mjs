@@ -6482,6 +6482,9 @@ function testCarryCheckpoint() {
       `got ${j.ticket_path}`);
     assertEq("carryCheckpoint no trips -> trips_present false", j.trips_present, false);
     assertEq("carryCheckpoint no trips -> empty trips", j.trips, []);
+    // No mission worktrees -> missions_present false (the drive/trip case).
+    assertEq("carryCheckpoint no missions -> missions_present false", j.missions_present, false);
+    assertEq("carryCheckpoint no missions -> empty missions", j.missions, []);
 
     // With a trip directory present -> trips_present true and the trip listed.
     mkdirSync(join(dir, ".workaholic/trips/trip-20260101-000000"), { recursive: true });
@@ -6489,6 +6492,26 @@ function testCarryCheckpoint() {
     j = JSON.parse(r.stdout);
     assertEq("carryCheckpoint trips_present true", j.trips_present, true);
     assertEq("carryCheckpoint lists the trip", j.trips, ["trip-20260101-000000"]);
+
+    // A mission worktree is a .worktrees/<slug>/ that checks out its own active
+    // mission.md -> it is enumerated for the /monitor carry case. A .worktrees
+    // dir WITHOUT its own mission.md (a plain /drive worktree) is not a mission.
+    mkdirSync(join(dir, ".worktrees/alpha/.workaholic/missions/active/alpha"), { recursive: true });
+    writeFileSync(join(dir, ".worktrees/alpha/.workaholic/missions/active/alpha/mission.md"), "---\ntype: Mission\n---\n");
+    mkdirSync(join(dir, ".worktrees/work-20260101-000000"), { recursive: true });
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.carryCheckpoint} resume-baz`);
+    j = JSON.parse(r.stdout);
+    assertEq("carryCheckpoint missions_present true", j.missions_present, true);
+    assertEq("carryCheckpoint enumerates only the mission worktree", j.missions,
+      [{ slug: "alpha", worktree_path: ".worktrees/alpha" }]);
+
+    // The optional worktree_path arg scopes ticket_path INTO that worktree's
+    // queue -- the /monitor placement (each mission carries into its own tree).
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.carryCheckpoint} resume-monitor-alpha .worktrees/alpha`);
+    j = JSON.parse(r.stdout);
+    assertTrue("carryCheckpoint worktree-scoped ticket_path routes into the worktree",
+      new RegExp(`^\\.worktrees/alpha/\\.workaholic/tickets/todo/${TEST_SLUG}/\\d{14}-resume-monitor-alpha\\.md$`).test(j.ticket_path),
+      `got ${j.ticket_path}`);
 
     // Missing slug -> non-zero exit (capture-only helper must not guess a name).
     r = run(dir, `${POSIX_SH} ${SCRIPTS.carryCheckpoint}`);

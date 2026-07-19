@@ -1,6 +1,6 @@
 ---
 name: carry
-description: Hand off in-progress work to a fresh Claude Code session by writing durable resume state (a resumption ticket, and/or a trip checkpoint) that a later /drive continues, instead of relying on in-session compaction.
+description: Hand off in-progress work to a fresh Claude Code session by writing durable resume state (a resumption ticket, a trip checkpoint, and/or a per-mission checkpoint for a parallel /monitor run) that a later /drive or /monitor continues, instead of relying on in-session compaction.
 allowed-tools: Bash, Read, Write, Glob, Grep
 user-invocable: false
 skills:
@@ -15,7 +15,13 @@ metadata:
 
 # Carry
 
-Checkpoint the current session's in-progress work to durable disk state so a **fresh** Claude Code session can continue it via `/drive`, instead of letting the context window fill and compaction degrade fidelity. `/carry` writes where the executors already look: a **resumption ticket** under `.workaholic/tickets/todo/<user>/`, and — when a trip is in progress — a **checkpoint** in the trip's `plan.md` / `event-log.md`. It is **capture-only**: it never implements, commits, or archives.
+Checkpoint the current session's in-progress work to durable disk state so a **fresh** Claude Code session can continue it via `/drive` (or `/monitor`), instead of letting the context window fill and compaction degrade fidelity. `/carry` writes where the executors already look — three contexts, each converging on the resumption-ticket channel the matching executor already drains:
+
+- **Drive / general** — a **resumption ticket** under the main tree's `.workaholic/tickets/todo/<user>/`, continued by `/drive`.
+- **Trip** — the above, **plus** a **checkpoint** in the in-progress trip's `plan.md` / `event-log.md`.
+- **Mission-monitor** — a parallel `/monitor` run in flight across many mission worktrees: **one resumption ticket per in-flight mission, written into that mission's own `.worktrees/<slug>/` queue** (not the main tree), continued by `/monitor`. The run resumes as a parallel run: a fresh `/monitor` re-runs its pre-flight, and each mission's leaf finds its own worktree's resumption ticket.
+
+It is **capture-only**: it never implements, commits, or archives.
 
 ## 1. Agent Compatibility
 
@@ -35,9 +41,10 @@ From the live conversation, determine what is in flight:
 
 - **Which ticket** (if any) is being driven right now — its path under `.workaholic/tickets/todo/<user>/`, and which of its `## Implementation Steps` are already done vs. remaining.
 - **Whether a trip is in progress** — the script reports this; a trip also has a `plan.md` position (phase/step) and remaining decomposed tickets.
+- **Whether a `/monitor` run is in flight** — a parallel-missions run driving several mission worktrees at once. The conversation is the signal (are you dispatching leaves across worktrees, tracking waves, collecting escalations?); the script enumerates the mission worktrees that exist (`missions_present` / `missions`). When it is, this is the **mission-monitor case** (Phase 2), which carries **per-mission** into each in-flight worktree, not one ticket into the main tree.
 - **Any uncommitted working-tree changes** and what they represent (run `git status --porcelain` through your normal reading; do not discard anything).
 
-Pick a short kebab-case `<slug>` for the resumption ticket filename (e.g. `resume-explain-pdf-export`).
+Pick a short kebab-case `<slug>` for the resumption ticket filename (e.g. `resume-explain-pdf-export`). For the mission-monitor case, each mission's ticket uses `resume-monitor-<mission-slug>`.
 
 ### 2-3. Phase 1: Summarize Remaining Work + Position
 
@@ -66,7 +73,7 @@ Run the checkpoint script to get the resumption-ticket path, dynamic frontmatter
 bash ${CLAUDE_PLUGIN_ROOT}/skills/carry/scripts/carry-checkpoint.sh "<slug>"
 ```
 
-It returns `{ created_at, author, filename_timestamp, user_slug, slug, ticket_path, trips_present, trips }`.
+It returns `{ created_at, author, filename_timestamp, user_slug, slug, ticket_path, trips_present, trips, missions_present, missions }`. Pass an optional second argument — a mission `worktree_path` — to scope `ticket_path` into that worktree's queue (the mission-monitor case); omit it for the drive/trip case, which routes to the main tree.
 
 **Drive / general case — write the resumption ticket** at the returned `ticket_path` using the **Resumption Ticket Template** (section 3). It must satisfy `validate-ticket.sh` (correct `todo/<user>/` location, `YYYYMMDDHHmmss-*.md` filename, full frontmatter). Carry forward the interrupted ticket's `## Policies` and `## Quality Gate` (or derive them from the `layer` if none), list **only remaining** steps, and add a `**Carry Origin:**` line under `## Overview`. If the remaining work belongs to an existing todo ticket that is still queued, say so in the Carry Origin line and note that this resumption ticket **supersedes** that ticket's remaining work — then tell the developer (Phase 3) so they can drop the superseded original (`/carry` never moves it — that is a developer decision). Set `depends_on` only when another queued ticket must genuinely land first.
 
@@ -80,9 +87,29 @@ It returns `{ created_at, author, filename_timestamp, user_slug, slug, ticket_pa
 
 Coding-phase remainders already live as tickets under `todo/<user>/`, so mid-implementation trip carry converges on the same resumption-ticket channel as a drive carry.
 
+**Mission-monitor case (`missions_present: true` and the session is a `/monitor` run)** — a `/monitor` run resumes by simply re-running `/monitor`: its pre-flight recomputes every mission's progress, queue, and eligibility from disk, so each mission's *drive* state is already durable. What a session death would lose is the **cross-mission state that lives only in the conversation** — and all of it is per-mission. So carry it **per in-flight mission, into that mission's own worktree**, where the next `/monitor` leaf drains the queue (**placement stays singular**: one worktree per mission, exactly as the mission model requires).
+
+For **each mission being driven this run**, get its worktree-scoped resumption-ticket path:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/carry/scripts/carry-checkpoint.sh "resume-monitor-<mission-slug>" "<worktree_path>"
+```
+
+(`<worktree_path>` is the mission's `.worktrees/<slug>` from the `missions` list.) Write the resumption ticket at the returned `ticket_path` using the **Resumption Ticket Template** (section 3), stamped `mission: <mission-slug>` so it satisfies `validate-ticket.sh`'s resolvable-relation check and flows through the mission seams. Beyond the general Phase 1 summary, the mission-monitor ticket must carry the three things a fresh pre-flight **cannot** reconstruct — the reason this case exists:
+
+- **In-flight drive state** — a leaf caught mid-drive: implemented-but-not-archived tickets, the exact stop point, and **where any partial work was stashed** (the stash is durable; the record of what and why is not). → `## Considerations` / `## Findings`.
+- **Escalations the run deferred** for this mission — the mid-run judgment calls the monitor loop collected for the morning review but has not yet emitted in a final report. Record them so the next run's report can surface them rather than losing them. → `## Findings` (each an objective "waiting on <decision>, because <blocker>").
+- **Replan rulings already decided but not yet applied** — a replan the developer ruled on at pre-flight whose leaf had not yet applied it (delta tickets, body sections, the authorizing commit). Record the ruling so the next `/monitor` re-applies it without re-asking a settled decision. → `## Decisions`.
+
+List **only remaining** drive work as `## Implementation Steps` (the mission's outstanding tickets / next acceptance items), and state the **Mission Position Report** for that mission (Phase 1) in `## Overview`. Do **not** also write a main-tree resumption ticket for these missions — the per-worktree tickets are the whole handoff; a monitor run has no single main-tree unit of work.
+
+A mission with **no in-flight state to preserve** (its queue is untouched and nothing was deferred or ruled) needs **no** resumption ticket: a fresh `/monitor` picks it up from its own durable queue. Only carry a mission that has conversation-only state to lose.
+
 ### 2-5. Phase 3: Report
 
 Print what was written — the resumption ticket path (and the trip checkpoint, if any) — and the one instruction the developer needs: **start a fresh Claude Code session and run `/drive`**; it will find the resumption ticket, order it, and continue the remaining work. If the resumption ticket supersedes a still-queued original, name that original so the developer can remove it.
+
+**Mission-monitor case** — print **each per-mission resumption ticket** and the worktree it landed in, then the one instruction: **start a fresh Claude Code session and run `/monitor`**; its pre-flight re-discovers every mission, and each mission's leaf drains its own worktree queue including its resumption ticket. The resume path is `/monitor`, not `/drive` — a parallel run resumes as a parallel run.
 
 ## 3. Resumption Ticket Template
 

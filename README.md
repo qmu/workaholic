@@ -152,9 +152,141 @@ The tree is also an [Open Knowledge Format](https://github.com/GoogleCloudPlatfo
 | `specs/*.md` | manual (hand-edited reference) | Current-state documentation of how things work today | committed | n/a — not branch-scoped | superseded when manually rewritten |
 | `guides/*.md` `policies/*.md` `terms/*.md` | manual | Persistent reference material (user docs, policies, glossary) | committed | n/a | superseded when manually rewritten |
 
-### The full command ⇄ artifact map
+### Command ⇄ artifact maps, by development style
 
-Every command in the plugin communicates with the others **only through the documents it writes to `.workaholic/`** — no command calls another directly. A command *generates* an artifact (solid arrow) that a later command *reads* (dashed arrow); that shared file is the entire interface. The flowchart below covers all fourteen commands and every generated artifact, so the whole web of who-writes-what and who-reads-it is visible at once. **Node style carries the kind**: rounded **blue** nodes are commands; rectangular **grey** nodes are the artifacts they generate (a dashed border marks the few that land *outside* `.workaholic/`). The linear diagram in the next section is the happy-path slice of this same graph.
+The plugin has one spine — the **ticket** — but the work reaches it through different front doors depending on how it starts. Each map below is one **development style**, and all of them converge on the same tail: `/report` writes the branch story and opens the PR, then `/ship` writes the release note, merges, and deploys. Node style is constant across every map — rounded **blue** = a command, rectangular **grey** = an artifact it writes, **green** = a completed/permanent state, **amber** = carried forward, **red** = dropped. Solid arrow = writes / drives; dashed arrow = reads.
+
+#### Use case 1 — Everyday development: `/ticket` → `/drive`
+
+The unit of work is a single ticket, and it is really *one file that changes state* as commands act on it. `/ticket` writes it into the queue; `/drive` reads the queue, implements it, and moves it to the permanent archive (or, if the attempt is dropped, to `abandoned/`). Then the shared tail turns the archived work into a merged, deployed PR.
+
+```mermaid
+flowchart LR
+  ticket(["/ticket"])
+  drive(["/drive"])
+  report(["/report"])
+  ship(["/ship"])
+
+  subgraph TICKET["A ticket — one file, four states"]
+    direction TB
+    todo["todo/<br/>queued for work"]
+    icebox["icebox/<br/>parked for later"]
+    archived["archive/&lt;branch&gt;/<br/>implemented · permanent"]
+    abandoned["abandoned/<br/>attempted · dropped"]
+    icebox -.->|promote| todo
+    todo ==>|"/drive: implement, approve, archive"| archived
+    todo -.->|"/drive: abandon"| abandoned
+  end
+
+  story["stories/&lt;branch&gt;.md + PR"]
+  relnote["release-notes/&lt;branch&gt;.md"]
+
+  ticket ==>|writes new| todo
+  ticket -.->|"--icebox"| icebox
+  drive -.->|reads the queue| todo
+  archived ==>|read by| report
+  report ==>|writes story, opens PR| story
+  report ==> ship
+  ship ==>|writes note, merges, deploys| relnote
+
+  classDef cmd fill:#dbeafe,stroke:#1e40af,stroke-width:1.5px,color:#1e3a8a;
+  classDef state fill:#eef1f6,stroke:#6b7280,color:#111827;
+  classDef done fill:#dcfce7,stroke:#15803d,color:#14532d;
+  classDef drop fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d;
+  classDef art fill:#f3f4f6,stroke:#6b7280,color:#111827;
+  class ticket,drive,report,ship cmd;
+  class todo,icebox state;
+  class archived done;
+  class abandoned drop;
+  class story,relnote art;
+```
+
+The ticket's resting places **are** its states: `todo/` (queued), `icebox/` (parked until promoted), `archive/<branch>/` (implemented, permanent history), and `abandoned/` (attempted then dropped). `/ticket` only ever writes into `todo/` or `icebox/`; `/drive` is the only command that moves a ticket *out* of `todo/`, into exactly one terminal state — then hands the archived work to `/report` → `/ship`.
+
+#### Use case 2 — Mission-centric: `/mission` → `/monitor`
+
+When the work is a long-lived goal spanning many tickets, `/mission` is the front door: it interrogates the goal to a drive-ready state and emits the **whole** ticket set into a dedicated worktree. `/monitor` then drives every mission worktree in parallel. The mission itself is the state object — its progress is **computed** as checked ÷ total over the acceptance checklist, ticking up as each ticket archives, until it is achieved, carried into a successor (direction changed), or abandoned.
+
+```mermaid
+flowchart LR
+  mission(["/mission"])
+  monitor(["/monitor"])
+  report(["/report"])
+  ship(["/ship"])
+
+  subgraph MISSION["A mission — progress = checked ÷ total, computed"]
+    direction TB
+    created["created<br/>0 / N · authorized"]
+    inprogress["in progress<br/>checked / N rising"]
+    achieved["achieved<br/>all criteria met"]
+    carried["carried → successor<br/>(direction changed)"]
+    abandoned["abandoned"]
+    created ==>|acceptance ticks as tickets land| inprogress
+    inprogress ==>|all checked| achieved
+    inprogress -.->|"/mission close: carried"| carried
+    inprogress -.->|"/mission close: abandoned"| abandoned
+  end
+
+  queue["its worktree · tickets/todo/ → archive/"]
+
+  mission ==>|creates goal + whole ticket set| created
+  mission ==>|emits into| queue
+  mission -.->|replan: delta tickets| inprogress
+  monitor ==>|drives every mission worktree in parallel| queue
+  queue -.->|each archived ticket rolls acceptance| inprogress
+  monitor ==>|per PR, per mission| report
+  report ==> ship
+
+  classDef cmd fill:#dbeafe,stroke:#1e40af,stroke-width:1.5px,color:#1e3a8a;
+  classDef state fill:#eef1f6,stroke:#6b7280,color:#111827;
+  classDef done fill:#dcfce7,stroke:#15803d,color:#14532d;
+  classDef carry fill:#fef3c7,stroke:#b45309,color:#7c2d12;
+  classDef drop fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d;
+  classDef art fill:#f3f4f6,stroke:#6b7280,color:#111827;
+  class mission,monitor,report,ship cmd;
+  class created,inprogress state;
+  class achieved done;
+  class carried carry;
+  class abandoned drop;
+  class queue art;
+```
+
+`/monitor` is the parallel-missions counterpart to `/drive`: one autonomous drive per mission worktree, rolling each mission's acceptance as its tickets archive, then `/report` → `/ship` per mission's PR. A mission whose direction changed mid-flight is closed **carried** — reorganized, its remainder inherited by a successor — rather than force-completed.
+
+#### Use case 3 — Trip-centric: `/trip`
+
+When the work needs design before build, `/trip` runs an Agent-Teams session (Planner · Architect · Constructor) as one continuous run: it produces the design rationale under `trips/<name>/`, decomposes it into tickets, and drives them — Planning → Decomposition → Coding — before the same shared tail.
+
+```mermaid
+flowchart LR
+  trip(["/trip"])
+  report(["/report"])
+  ship(["/ship"])
+
+  subgraph TRIP["A trip — one design → build session"]
+    direction TB
+    planning["Planning<br/>Planner · Architect · Constructor<br/>→ trips/&lt;name&gt;/ designs"]
+    decomp["Decomposition<br/>→ tickets/todo/"]
+    coding["Coding<br/>drive tickets → archive/"]
+    planning ==> decomp ==> coding
+  end
+
+  trip ==>|design, decompose, build — one run| planning
+  coding ==>|read by| report
+  report ==>|story + PR| ship
+
+  classDef cmd fill:#dbeafe,stroke:#1e40af,stroke-width:1.5px,color:#1e3a8a;
+  classDef state fill:#eef1f6,stroke:#6b7280,color:#111827;
+  class trip,report,ship cmd;
+  class planning,decomp,coding state;
+```
+
+A trip's phases live in `trips/<name>/plan.md`; a populated `todo/` queue lets `/trip` skip design and act as an executor instead (it drains the queue like `/drive`). Either way it converges on `/report` → `/ship`.
+
+<details>
+<summary><strong>The full map</strong> — every command and every artifact in one graph</summary>
+
+Every command communicates with the others **only through the documents it writes to `.workaholic/`** — no command calls another directly. The single flowchart below covers all fourteen commands at once (rounded **blue** = command, rectangular **grey** = artifact, dashed grey border = an artifact that lands *outside* `.workaholic/`). It is dense on purpose — the per-use-case maps above are the readable slices.
 
 ```mermaid
 flowchart LR
@@ -263,6 +395,8 @@ Reading the map:
 - **The ticket is the spine.** `/ticket`, `/mission`, `/trip`, and `/carry` all *fill* `tickets/todo/`; `/drive`, `/monitor`, and `/trip` all *drain* it to `tickets/archive/` (`/monitor` and `/trip` reuse `/drive`'s archive path). Everything downstream reads the archive.
 - **`concerns/` is the only loop.** `/ship` extracts a shipped story's open concerns into `concerns/`; the *next* `/report` re-reads them, judges each, and either carries it into the new story or archives it resolved. Every other artifact is written once and becomes permanent history.
 - **Not shown** (to keep the graph legible): `specs/`, `guides/`, `policies/`, `terms/` are hand-maintained reference material, not command-generated; and the OKF `index.md` hierarchy is regenerated automatically by the same commit seams (`/drive`, `/report`, `/ship`) whenever they write knowledge, not by a command of its own.
+
+</details>
 
 ### When, Where, and How Changes Occur
 

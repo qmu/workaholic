@@ -3,9 +3,9 @@ created_at: 2026-07-21T02:57:16+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Domain, Config]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on: [20260721025715-add-strategy-artifact-and-skill.md]
 mission: reorganize-missions-under-strategies
 ---
@@ -76,3 +76,16 @@ Interrogated at mission creation (2026-07-21); verification depth ruling: hermet
 - `/monitor`'s unattended runs never create or link strategies — an unlinked authorized legacy mission is a pre-flight replan item resolved in the up-front batch (`plugins/workaholic/skills/monitor/scripts/preflight.sh`).
 - Keep the relation single-valued in prose but parse-tolerant of list form via the reader, so a future many-valued turn needs no migration (`plugins/workaholic/skills/strategy/scripts/read-strategy-relation.sh`).
 - Do not add a strategy-side mission list — rollups stay computed (`strategy/scripts/list.sh`), or archives dangle.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The strategy skill enters the cross-agent `outputs/workflows` bundle automatically the moment the mission SKILL.md references `strategy/scripts/...` — the build reports `built mission: closure=[gather, mission, okf, strategy]`. No build.mjs edit was needed; the reference in the Strategy resolution prose is what pulls it in.
+  **Context**: `scripts/build-plugins/build.mjs` `computeClosure` follows SKILL_REF patterns in SKILL.md, so documenting the resolution step with real script paths is also what makes the scripts ship.
+- **Insight**: `validate-mission.sh` reads `strategy:` tolerantly of the inline-list form (`strategy: []` is treated as empty and rejected on an authorized mission), matching the reader's contract, so a malformed empty-list value cannot slip past the floor.
+  **Context**: `plugins/workaholic/hooks/validate-mission.sh` — the sed strips `[ ]` before the emptiness test.
+- **Insight**: This mission is now the live demo: `strategy: agent-orchestrated-development` is stamped on its own mission.md and `strategy/scripts/list.sh` shows the rollup containing `reorganize-missions-under-strategies`.
+  **Context**: `.workaholic/missions/active/reorganize-missions-under-strategies/mission.md`.

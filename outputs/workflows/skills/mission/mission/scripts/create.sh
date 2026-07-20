@@ -57,6 +57,7 @@ status: active
 created_at: ${CREATED_AT}
 author: ${AUTHOR}
 assignee: ${ASSIGNEE}
+strategy:
 drive_authorized:
 tickets: []
 stories: []

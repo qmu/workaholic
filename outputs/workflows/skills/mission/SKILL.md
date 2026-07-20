@@ -48,6 +48,7 @@ carried_from:           # only on a successor: the slug of the mission whose rem
 created_at: <ISO-8601>
 author: <email>
 assignee: <email>       # the user id / email that owns driving this mission (defaults to author)
+strategy: <slug>        # the ONE strategy this mission executes; resolved in the interrogation, read only via strategy/scripts/read-strategy-relation.sh. Empty on the scaffold; non-empty is required once drive_authorized: true
 drive_authorized:       # `true` once the Creation Interrogation emitted the full ticket set
 tickets: []             # machine-readable member lists — reserved; populated by later work
 stories: []
@@ -94,6 +95,12 @@ Read it with `drive-authorized.sh` — never by grepping the field yourself.
 The earlier rule was an exact email match, which meant an unassigned mission matched nobody and was silently skipped for *everybody* — invisible in the summary and the lens while `list.sh` showed it plainly. `create.sh`'s self-assignment default does not close that on its own, because it is not the only way a `mission.md` comes into existence (hand-authored ones arrive without it).
 
 This is per-worktree by construction — each worktree checks out its own `.workaholic/missions/`, so the lens that fires there reflects the missions that are the business of whoever is working that tree.
+
+### Strategy
+
+`strategy` names the **one strategy this mission executes** — a mission is the execution plan of a strategy (`strategy`). The value is a strategy slug, single-valued by convention (one plan, one strategy), and it is read **only** through `strategy/scripts/read-strategy-relation.sh`, never by parsing frontmatter directly. It is the mission→strategy direction of the model, mirroring ticket→mission (`mission:` on a ticket).
+
+Empty is the **scaffold** state; the link is resolved during the Creation Interrogation (see *Strategy resolution* below). Once a mission is stamped `drive_authorized: true`, a non-empty `strategy:` is **required** — `validate-mission.sh` refuses an authorized mission with no strategy at write time, the same floor that requires an owner, `## Experience`, and `## Acceptance`. Nothing is stored on the strategy side, so per-strategy mission rollups are always computed (`strategy/scripts/list.sh`).
 
 Body sections, in order:
 
@@ -143,6 +150,16 @@ When `/mission "<title>"` creates a mission, **interrogate the developer until t
 
 **Grill; do not tick a box.** The bar is a *structured model* — the demanded behavior, the ticket plan, the order — not a question count and not a Q&A transcript pasted into a file (`planning` / `modeling-centric-design`). Ask as many rounds as it takes. Where uncertainty is high, prove it small before emitting the set (`planning` / `verify-before-building`): with no per-ticket approval downstream, an unverified premise is not caught at ticket 3 — it is concretized across the whole mission.
 
+### Strategy resolution (before the rounds)
+
+Every mission executes **one strategy** (`strategy`), so the first thing the interrogation resolves — before round 1's `## Goal`/`## Scope` output is written — is which strategy this mission executes. Resolve it by **inference from context** (the request, the repo, and the existing strategies via `bash strategy/scripts/list.sh`), following the decide-and-record doctrine — **do not ask a question you can answer**:
+
+- **Link silently** when exactly one active strategy plausibly covers the mission. Stamp `strategy: <slug>` and record it — `strategy linked — <slug>` — via `append-changelog.sh`. No question.
+- **Create on the spot** when no active strategy fits: mint one with `bash strategy/scripts/create.sh "<title>"`, deriving its `## Direction` from the mission's own `## Goal` **one level more general and end-condition-free**, then link and record `strategy created — <slug>`. No question.
+- **Ask only** when several active strategies genuinely compete and no recommendation is honest — the sole unrecommendable case. The command issues one the agent's selection prompt (`[<project label>]` prefix, one option per candidate strategy plus "create new"), then records the chosen link.
+
+The link is `strategy: <slug>` on `mission.md`, read back only through `strategy/scripts/read-strategy-relation.sh`. Both changelog events (`strategy linked` / `strategy created`) are in the standard-events list below. A mission is not drive-ready — and `validate-mission.sh` will not let it be stamped `drive_authorized: true` — until this link is resolved.
+
 ### The rounds
 
 1. **Direction** — the business "why", the outcome pursued, and what is explicitly out of scope. → `## Goal`, `## Scope`
@@ -182,6 +199,8 @@ The sanctioned path to **reopen an existing active mission's plan** — reached 
 The bar equals creation's: a structured **delta model** — what changes, which tickets, in what order — not a Q&A transcript (`planning` / `modeling-centric-design`), grilled until the delta is drive-ready. `gate_*` is never interrogated, exactly as at creation.
 
 **What the delta may touch** — everything the Creation Interrogation produces, applied as a delta: rewrite `## Goal` / `## Scope` / `## Experience`; append `## Acceptance` items (observable, ticket-linked by `(#<filename>)`); emit delta tickets in one pass (the same emission rules, including the mission-scoped split-cap exception); re-stamp `drive_authorized` under the conditions below.
+
+**Strategy link on replan.** An active mission whose `strategy:` is still empty (a legacy or thin hand-authored mission that predates the link, or one that reached `/monitor`'s pre-flight as a replan item) gets the same **Strategy resolution** as at creation on its next replan — infer/create/ask, recorded as a `strategy linked` / `strategy created` changelog line. Re-stamping `drive_authorized: true` requires the link resolved, exactly as at creation.
 
 **What a replan must never touch:**
 
@@ -253,7 +272,7 @@ bash mission/scripts/drive-authorized.sh <ticket-file>
 
 Answer, for one ticket: **may `/drive` implement this without the per-ticket approval prompt?** Emits `{authorized, reason, missions}` — `reason` is `""` (authorized), `no_ticket`, `no_mission` (nothing authorized it), `mission_not_found`, `not_authorized` (a claimed mission is not stamped), or `no_plan` (a claimed mission is stamped but its `## Acceptance` is empty — a stamp with no plan authorizes nothing; the floor is `progress.sh`'s `total > 0`). Reads the relation through `read-relation.sh`, so `mission: [a, b]` and a bare `mission: a` behave identically.
 
-Missions get a write-time floor too: `hooks/validate-mission.sh` (PostToolUse `Write|Edit`, the mission analogue of `validate-ticket.sh`) lets `create.sh`'s empty scaffold pass, requires the `assignee:` key to exist (empty = deliberately unclaimed), and — once a mission claims `drive_authorized: true` — rejects a missing owner, a comment-only `## Experience`, or an empty `## Acceptance` at the write, where the author can still fix it. `archive/` missions are history and are never retro-blocked.
+Missions get a write-time floor too: `hooks/validate-mission.sh` (PostToolUse `Write|Edit`, the mission analogue of `validate-ticket.sh`) lets `create.sh`'s empty scaffold pass, requires the `assignee:` key to exist (empty = deliberately unclaimed), and — once a mission claims `drive_authorized: true` — rejects a missing owner, an empty `strategy:` link, a comment-only `## Experience`, or an empty `## Acceptance` at the write, where the author can still fix it. `archive/` missions are history and are never retro-blocked.
 
 **Conservative by construction**: a ticket claiming several missions is authorized only if **every** one of them is stamped. Naming a mission is a commitment, not a label — the same reason `/drive` holds a ticket to the gate of every mission it names ("all of them must pass, not the most convenient one"). One unauthorized mission means ask.
 
@@ -304,7 +323,7 @@ Emit the display text of the mission's **first unchecked** `## Acceptance` item 
 bash mission/scripts/append-changelog.sh <mission-slug-or-file> <event> <artifact-filename> [date]
 ```
 
-Append one dated line to a mission's `## Changelog`. **The single writer of changelog lines** — every workflow seam calls it rather than hand-editing `mission.md`. Append-only and **idempotent**: the `(event, artifact)` pair is the stable event id, so re-running for the same event never duplicates a line. Git-stages the mission file. Standard events: `ticket archived` (drive), `story reported` (report), `concern deferred (stuck)` (ship), `concern resolved (unstuck)` (report), `mission achieved` / `mission abandoned` / `mission carried into <successor-slug>` (close.sh), `ticket added` / `mission replanned` / `acceptance dropped` (replan).
+Append one dated line to a mission's `## Changelog`. **The single writer of changelog lines** — every workflow seam calls it rather than hand-editing `mission.md`. Append-only and **idempotent**: the `(event, artifact)` pair is the stable event id, so re-running for the same event never duplicates a line. Git-stages the mission file. Standard events: `ticket archived` (drive), `story reported` (report), `concern deferred (stuck)` (ship), `concern resolved (unstuck)` (report), `mission achieved` / `mission abandoned` / `mission carried into <successor-slug>` (close.sh), `ticket added` / `mission replanned` / `acceptance dropped` (replan), `strategy linked — <slug>` / `strategy created — <slug>` (Strategy resolution, creation or replan).
 
 ```bash
 bash mission/scripts/tick-acceptance.sh <mission-slug-or-file> <artifact-filename>

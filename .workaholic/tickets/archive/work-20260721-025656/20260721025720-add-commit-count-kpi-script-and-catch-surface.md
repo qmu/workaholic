@@ -3,9 +3,9 @@ created_at: 2026-07-21T02:57:20+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Domain, Config]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Added
 depends_on:
 mission: reorganize-missions-under-strategies
 ---
@@ -69,3 +69,16 @@ Interrogated at mission creation (2026-07-21); verification depth ruling: hermet
 - Windowed medians on small repos are noisy; the script reports counts honestly and leaves interpretation to the reader — no smoothing, no targets encoded (`skills/gather/scripts/commit-kpi.sh`).
 - Cross-repo aggregation (the fleet view over many projects) is deliberately out of scope here — per-repo numbers first; an aggregator would live outside any single repo's plugin instance.
 - If ticket `20260721020759` renames its constant, this script's single-source read is the only coupling point to update (`scan-branch-safety.sh`).
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: `git log --since` applies a monotonic-date pruning optimization: it stops walking ancestors at the first commit older than the window. A hermetic test that dates a commit in the past must place it as an ANCESTOR (commit it first), not as HEAD — an old HEAD prunes the entire walk to zero, and an old middle-commit prunes everything behind it too. This shaped the test fixture ordering.
+  **Context**: `scripts/test-workflow-scripts.mjs` testCommitKpi — the 2010 commit is committed first so the recent window cleanly bounds at the 4 commits after it.
+- **Insight**: The only cross-script coupling is the threshold constant, read from scan-branch-safety.sh; commit-kpi.sh exposes `COMMIT_KPI_SCAN` purely as a test seam so the pre-gate `oversize_commits: null` path is exercisable now that the gate constant exists in-repo. Production never sets it.
+  **Context**: `plugins/workaholic/skills/gather/scripts/commit-kpi.sh`.
+- **Insight**: On this repository right now the KPI reads ~76% agent-authored commits over a week, median 250.5 / p90 1112 changed lines, 33 oversize — a live baseline for the orchestration-throughput signal the mission is building toward.
+  **Context**: in-session `commit-kpi.sh "1 week"` demo.

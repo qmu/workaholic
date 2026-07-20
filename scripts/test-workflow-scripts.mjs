@@ -93,6 +93,7 @@ const SCRIPTS = {
   checkSubject: join(REPO_ROOT, "plugins/workaholic/hooks/lib/check-subject.sh"),
   commitMsgHook: join(REPO_ROOT, "plugins/workaholic/hooks/git/commit-msg"),
   installGitHooks: join(REPO_ROOT, "plugins/workaholic/hooks/install-git-hooks.sh"),
+  commitKpi: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/commit-kpi.sh"),
   predictDuration: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/predict-duration.sh"),
   recordRunHours: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/record-run-hours.sh"),
   appendReflection: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/append-reflection.sh"),
@@ -2744,6 +2745,52 @@ function testReleaseScanGateDecision() {
     execSync(`git add -A && git commit -q -m x`, { cwd: dir });
     const e2e = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanBranchSafety} main | ${POSIX_SH} ${SCRIPTS.gateDecision}`).stdout);
     assertEq("scan | gate-decision on a real secret -> non-overridable block", { decision: e2e.decision, overridable: e2e.overridable }, { decision: "block", overridable: false });
+  } finally { cleanup(dir); }
+}
+
+// ---------- gather/commit-kpi.sh (orchestration-throughput KPI) ----------
+function testCommitKpi() {
+  const dir = makeRepo("main");
+  try {
+    const lines = (n) => Array.from({ length: n }, (_, i) => `l${i}`).join("\n") + "\n";
+    // Add a file of N lines and commit; agent=true stamps the Anthropic trailer; date optional.
+    const commit = (file, n, { agent = false, date = null } = {}) => {
+      writeFileSync(join(dir, file), lines(n));
+      execSync(`git add -A`, { cwd: dir });
+      const msg = agent ? `c ${file}\n\nCo-Authored-By: Claude <noreply@anthropic.com>` : `c ${file}`;
+      const env = { ...process.env };
+      if (date) { env.GIT_AUTHOR_DATE = date; env.GIT_COMMITTER_DATE = date; }
+      execSync(`git commit -q -F -`, { cwd: dir, input: msg, env });
+    };
+    const kpi = (window, extraEnv = {}) =>
+      JSON.parse(execSync(`${POSIX_SH} ${SCRIPTS.commitKpi} "${window}"`, { cwd: dir, encoding: "utf8", env: { ...process.env, ...extraEnv } }));
+
+    // The old commit is committed FIRST (an ancestor), so git log --since's monotonic
+    // pruning cleanly bounds the recent window at the 4 commits after it — the initial
+    // README commit is pruned behind the old one along with old itself.
+    commit("old.txt", 50, { agent: true, date: "2010-01-01T00:00:00" }); // old, outside a recent window
+    commit("a.txt", 10, { agent: false });                 // human, 10 lines
+    commit("b.txt", 100, { agent: true });                 // agent, 100 lines
+    commit("c.txt", 600, { agent: true });                 // agent, 600 lines -> oversize
+    commit("package-lock.json", 700, { agent: false });    // lockfile -> excluded (0 changed)
+
+    // Recent window ("5 years") excludes the 2010 commit (and the initial behind it).
+    const r = kpi("5 years");
+    assertEq("total_commits over the recent window", r.total_commits, 4);
+    assertEq("agent_commits counts the Anthropic trailer", r.agent_commits, 2);
+    assertEq("agent_share is agent/total", r.agent_share, 0.5);
+    // changed lines: [10, 100, 600, 0(lockfile)] -> sorted [0,10,100,600], median (10+100)/2=55, p90=600.
+    assertEq("median_changed_lines excludes lockfiles/binary", r.median_changed_lines, 55);
+    assertEq("p90_changed_lines", r.p90_changed_lines, 600);
+    // Gate constant exists in this repo -> oversize counts the 600-line commit.
+    assertEq("oversize_commits counts commits over the per-commit cap", r.oversize_commits, 1);
+
+    // Wider window includes the 2010 commit and the initial: 6 total.
+    assertEq("wider window includes the old commit and the initial", kpi("30 years").total_commits, 6);
+
+    // Pre-gate: a scan script without the constant -> oversize null (never fabricated).
+    assertEq("oversize is null when the gate constant is absent",
+      kpi("5 years", { COMMIT_KPI_SCAN: "/nonexistent-scan.sh" }).oversize_commits, null);
   } finally { cleanup(dir); }
 }
 
@@ -7048,6 +7095,7 @@ const tests = [
   ["release-scan secret value inversion", testReleaseScanSecretValueInversion],
   ["release-scan allowlist", testReleaseScanAllowlist],
   ["release-scan gate decision", testReleaseScanGateDecision],
+  ["gather/commit-kpi.sh orchestration throughput", testCommitKpi],
   ["mission reflection append + list", testMissionReflection],
   ["mission duration predict + record", testMissionDuration],
   ["strategy artifact + skill (create/list/reader/retire/index)", testStrategyArtifact],

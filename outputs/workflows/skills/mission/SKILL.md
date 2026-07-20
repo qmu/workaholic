@@ -50,6 +50,8 @@ author: <email>
 assignee: <email>       # the user id / email that owns driving this mission (defaults to author)
 strategy: <slug>        # the ONE strategy this mission executes; resolved in the interrogation, read only via strategy/scripts/read-strategy-relation.sh. Empty on the scaffold; non-empty is required once drive_authorized: true
 drive_authorized:       # `true` once the Creation Interrogation emitted the full ticket set
+predicted_hours:        # decimal agent-hours, stamped ONCE at creation from archived-mission trend (predict-duration.sh); empty when basis 0
+actual_hours:           # decimal agent-hours accumulated by /monitor across runs (record-run-hours.sh is its only writer); empty until a run records
 tickets: []             # machine-readable member lists — reserved; populated by later work
 stories: []
 concerns: []
@@ -101,6 +103,15 @@ This is per-worktree by construction — each worktree checks out its own `.work
 `strategy` names the **one strategy this mission executes** — a mission is the execution plan of a strategy (`strategy`). The value is a strategy slug, single-valued by convention (one plan, one strategy), and it is read **only** through `strategy/scripts/read-strategy-relation.sh`, never by parsing frontmatter directly. It is the mission→strategy direction of the model, mirroring ticket→mission (`mission:` on a ticket).
 
 Empty is the **scaffold** state; the link is resolved during the Creation Interrogation (see *Strategy resolution* below). Once a mission is stamped `drive_authorized: true`, a non-empty `strategy:` is **required** — `validate-mission.sh` refuses an authorized mission with no strategy at write time, the same floor that requires an owner, `## Experience`, and `## Acceptance`. Nothing is stored on the strategy side, so per-strategy mission rollups are always computed (`strategy/scripts/list.sh`).
+
+### Duration (predicted / actual)
+
+`predicted_hours` and `actual_hours` record, in decimal **agent-hours**, how long a mission's implementation is expected to take a coding agent and how long it actually consumed — so archived missions accumulate a trend the next planning reads.
+
+- **`predicted_hours`** is stamped **once at creation**, deterministically, by `predict-duration.sh`: `median(actual_hours ÷ acceptance-item total)` across archived missions that carry both, times this mission's planned item count. With **no archived basis** it reports `basis: 0` and the field stays **empty** with a changelog note — never a fabricated number. It is a **report line to the developer, never a question** (`development` / `overnight-ai`: pre-answer, don't ask).
+- **`actual_hours`** is accumulated by `/monitor`, whose dispatcher sums each leaf's dispatch→completion wall-clock per mission across waves and nights, and calls `record-run-hours.sh` once per mission per run-id. That recorder is `actual_hours`'s **only writer** (same doctrine as `tick-acceptance.sh` — never hand-edited), idempotent per run-id, and it carries each increment in a `run recorded (+Xh) — <run-id>` changelog line so the sum reconstructs from history.
+
+**The actual is agent time under `/monitor` only** — a deliberate, documented limitation, not a gap to close silently. Solo `/drive` outside `/monitor` is not counted: the prediction answers "how long will the *agents* need", and the monitor run is where agents run at scale. Calendar span and commit-timestamp heuristics were rejected (idle pollution / estimation logic).
 
 Body sections, in order:
 
@@ -183,6 +194,8 @@ Do not read the requirement as "Acceptance first".
 Write the tickets **in one pass**, not N serial `create-ticket` runs. Each carries its mandatory `## Policies` and `## Quality Gate` (`validate-ticket.sh` rejects it otherwise), is stamped `mission: <slug>`, and is ordered by `depends_on` — foundation first, dependencies only where genuinely ordered, unique timestamps (`+1s` per ticket). Reuse `create-ticket`'s split mechanics rather than re-deriving them.
 
 **The split cap does not apply to a mission — a deliberate, scoped exception.** `create-ticket` §4 caps a split at "2–4 discrete tickets", which is right for one request that turns out to be several. A mission is the opposite case: a durable goal that spans *many* tickets by definition, and "a complete set to drive through one by one" is the requirement. Capping it at 4 would force either an incomplete plan or a fake ticket boundary. A mission decomposition is closer to `trip-protocol`'s Decomposition gate than to a `/ticket` split, and is governed by the same rule: **one ticket per genuinely separable unit of work, however many that is**. The cap still applies to `/ticket` itself; this exception is mission-scoped and stated here so it is not a silent violation.
+
+**Stamp the duration prediction at the end of emission — as a report line, never a question.** Once the ticket set and `## Acceptance` are written, run `predict-duration.sh <acceptance-item-count>`: when `basis > 0`, stamp `predicted_hours` and state the number and its basis to the developer honestly ("predicted 6.0h from 2 archived missions"); when `basis: 0` (today's state, no archive), leave `predicted_hours` empty and record a `duration predicted (archive basis 0)` changelog note rather than dressing a guess as data (`planning` / `verify-before-building`). Never ask the developer for an estimate — the predictor answers this, and `actual_hours` is filled later by `/monitor`.
 
 ## Replan (re-entering the interrogation)
 
@@ -305,7 +318,7 @@ Compute `{checked, total}` over a mission's `## Acceptance` checklist. Accepts e
 bash mission/scripts/list.sh
 ```
 
-List every mission — across both `active/` and `archive/` — with its `status`, `assignee`, and computed progress: a JSON array of `{slug, title, status, assignee, checked, total, path}`, sorted by slug (`path` is the resolved `mission.md` location, so consumers never rebuild it by hand). Emits `[]` when there are no missions.
+List every mission — across both `active/` and `archive/` — with its `status`, `assignee`, computed progress, and its `predicted_hours`/`actual_hours`: a JSON array of `{slug, title, status, assignee, checked, total, predicted_hours, actual_hours, path}`, sorted by slug (`path` is the resolved `mission.md` location, so consumers never rebuild it by hand). Emits `[]` when there are no missions.
 
 ```bash
 bash mission/scripts/summary.sh
@@ -330,6 +343,18 @@ bash mission/scripts/tick-acceptance.sh <mission-slug-or-file> <artifact-filenam
 ```
 
 Flip the `## Acceptance` item whose `(#<artifact-filename>)` marker matches from `- [ ]` to `- [x]`. Idempotent (an already-checked or unmatched item is a no-op) and scoped to the `## Acceptance` section. Progress stays derived — this changes only checklist state; `progress.sh` recomputes `checked/total`. Git-stages the mission file.
+
+```bash
+bash mission/scripts/predict-duration.sh <planned-item-count>
+```
+
+Predict a mission's agent-hours **deterministically** from archived-mission trend: `median(actual_hours ÷ acceptance-item total)` across archived missions carrying both, times the planned item count. Emits `{predicted_hours, basis, per_item_median}` — `predicted_hours: null` and `basis: 0` when no archived mission has both fields, so the create flow states confidence honestly instead of dressing a guess as data. **Pure read; writes nothing.** Called once at the end of the Creation Interrogation's emission.
+
+```bash
+bash mission/scripts/record-run-hours.sh <mission-slug-or-file> <hours> <run-id>
+```
+
+Accumulate a `/monitor` run's agent-hours into `actual_hours` (float add), **idempotently per run-id** — a run already recorded (its `run recorded (+Xh) — <run-id>` changelog line present) adds nothing, so a crash-recovery re-run is safe. The changelog line carries the increment so the sum reconstructs from history. **This is the only writer of `actual_hours`** (same doctrine as `tick-acceptance.sh`; never hand-edited). Emits `{recorded, actual_hours, run_id, path}`.
 
 ```bash
 bash mission/scripts/close.sh <mission-slug-or-file> <achieved|abandoned|carried> [date] \

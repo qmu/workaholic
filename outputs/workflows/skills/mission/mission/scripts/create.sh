@@ -59,6 +59,8 @@ author: ${AUTHOR}
 assignee: ${ASSIGNEE}
 strategy:
 drive_authorized:
+predicted_hours:
+actual_hours:
 tickets: []
 stories: []
 concerns: []

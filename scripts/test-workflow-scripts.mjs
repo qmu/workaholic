@@ -95,6 +95,9 @@ const SCRIPTS = {
   installGitHooks: join(REPO_ROOT, "plugins/workaholic/hooks/install-git-hooks.sh"),
   predictDuration: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/predict-duration.sh"),
   recordRunHours: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/record-run-hours.sh"),
+  appendReflection: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/append-reflection.sh"),
+  listReflections: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list-reflections.sh"),
+  nextAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/next-acceptance.sh"),
   strategyCreate: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/create.sh"),
   strategyList: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/list.sh"),
   strategyReadRelation: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/read-strategy-relation.sh"),
@@ -2741,6 +2744,64 @@ function testReleaseScanGateDecision() {
     execSync(`git add -A && git commit -q -m x`, { cwd: dir });
     const e2e = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanBranchSafety} main | ${POSIX_SH} ${SCRIPTS.gateDecision}`).stdout);
     assertEq("scan | gate-decision on a real secret -> non-overridable block", { decision: e2e.decision, overridable: e2e.overridable }, { decision: "block", overridable: false });
+  } finally { cleanup(dir); }
+}
+
+// ---------- mission reflection: append-reflection.sh + list-reflections.sh ----------
+function testMissionReflection() {
+  const dir = makeRepo("main");
+  try {
+    const mk = (area, slug, acceptance = "- [ ] real one\n") => {
+      const d = join(dir, `.workaholic/missions/${area}/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "mission.md"),
+        `---\ntype: Mission\nslug: ${slug}\nstatus: ${area === "archive" ? "achieved" : "active"}\n---\n\n## Acceptance\n\n${acceptance}\n## Changelog\n- 2026-07-20 — created — mission.md\n`);
+      return join(d, "mission.md");
+    };
+    const rel = (mp) => `.workaholic/missions/${mp}`;
+    const appendR = (slug, runId, date, body) =>
+      JSON.parse(execSync(`${POSIX_SH} ${SCRIPTS.appendReflection} ${slug} ${runId} ${date}`,
+        { cwd: dir, input: body, encoding: "utf8" }));
+
+    const p = mk("active", "alpha");
+    const body1 = "- blocked: none\n- leaked questions: sequence alpha before beta?\n- front-load next: ask merge order\n";
+    // 1. First append creates the ## Reflection section and the entry.
+    let r = appendR("alpha", "20260721-0500", "2026-07-21", body1);
+    assertEq("reflection first append succeeds", r.appended, true);
+    let body = readFileSync(p, "utf8");
+    assertTrue("## Reflection section created", body.includes("\n## Reflection\n"), body);
+    assertTrue("entry heading carries date + run-id", body.includes("### 2026-07-21 run 20260721-0500"), body);
+
+    // 2. Idempotent per run-id: same run-id adds nothing, existing lines untouched.
+    r = appendR("alpha", "20260721-0500", "2026-07-21", "- blocked: DIFFERENT\n");
+    assertEq("reflection re-append same run-id is a no-op", r.appended, false);
+    assertTrue("existing entry not altered", !readFileSync(p, "utf8").includes("DIFFERENT"), readFileSync(p, "utf8"));
+
+    // 3. A second run-id appends a second entry (append-only).
+    const body2 = "- blocked: missing FOO\n- leaked questions: none\n- front-load next: pre-provision FOO\n";
+    appendR("alpha", "20260722-0600", "2026-07-22", body2);
+    body = readFileSync(p, "utf8");
+    assertTrue("both entries present", body.includes("20260721-0500") && body.includes("20260722-0600"), body);
+
+    // 4. A [ ]-shaped line inside ## Reflection changes NOTHING about progress/next.
+    const p2 = mk("active", "beta", "- [x] done\n- [ ] pending\n");
+    execSync(`${POSIX_SH} ${SCRIPTS.appendReflection} beta 20260721-0700 2026-07-21`,
+      { cwd: dir, input: "- blocked: none\n- leaked questions: none\n- front-load next: - [ ] a checklist-shaped decoy\n", encoding: "utf8" });
+    const prog = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${rel("active/beta/mission.md")}`).stdout);
+    assertEq("reflection checklist-shaped line does not change progress", { c: prog.checked, t: prog.total }, { c: 1, t: 2 });
+    assertEq("reflection checklist-shaped line does not change next-acceptance",
+      run(dir, `${POSIX_SH} ${SCRIPTS.nextAcceptance} ${rel("active/beta/mission.md")}`).stdout.trim(), "pending");
+
+    // 5. list-reflections: across active+archive, newest first, bullets parsed.
+    const pa = mk("archive", "gamma");
+    execSync(`${POSIX_SH} ${SCRIPTS.appendReflection} gamma 20260719-0400 2026-07-19`,
+      { cwd: dir, input: "- blocked: archived cause\n- leaked questions: none\n- front-load next: nothing\n", encoding: "utf8" });
+    const lst = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listReflections}`).stdout);
+    assertTrue("list-reflections spans active + archive", lst.some((e) => e.slug === "gamma") && lst.some((e) => e.slug === "alpha"), JSON.stringify(lst));
+    assertEq("list-reflections is newest-first", lst[0].date, "2026-07-22");
+    const g = lst.find((e) => e.slug === "gamma");
+    assertEq("list-reflections parses the three bullets",
+      { b: g.blocked, l: g.leaked, f: g.front_load }, { b: "archived cause", l: "none", f: "nothing" });
   } finally { cleanup(dir); }
 }
 
@@ -6982,6 +7043,7 @@ const tests = [
   ["release-scan secret value inversion", testReleaseScanSecretValueInversion],
   ["release-scan allowlist", testReleaseScanAllowlist],
   ["release-scan gate decision", testReleaseScanGateDecision],
+  ["mission reflection append + list", testMissionReflection],
   ["mission duration predict + record", testMissionDuration],
   ["strategy artifact + skill (create/list/reader/retire/index)", testStrategyArtifact],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],

@@ -25,3 +25,7 @@ resolved_by_commit:
 ## How to Fix
 
 Add hermetic fixtures for boot-with-conflict, no-declaration (skip), and stop-only-what-we-started; exercise once against a real project with a declared dev command.
+
+## Re-judgment (2026-07-21, mission reorganize-missions-under-strategies)
+
+Reviewed while adding the `/monitor` completion report and per-mission `## Reflection` (ticket 20260721025718). **Still active — re-deferred.** This ticket adds hermetic coverage for the reflection mutator/reader and the completion-report vocabulary, but touches none of the dev-environment lifecycle (boot-with-conflict, no-declaration skip, stop-only-what-we-started) — that coverage is still absent and out of this ticket's scope. Reason unchanged.

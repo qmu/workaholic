@@ -123,6 +123,7 @@ Body sections, in order:
 - `## Experience` — **the mission's substance**: the user experience, the demanded behavior, and/or the overall structure it pursues. Where `## Goal` says *why* the work is worth doing, this says *what the thing does*. Keep it observable (`workaholic:implementation` / `objective-documentation`) — "the list reorders without a reload" is checkable; "feels fast" is not. This is the durable content a kickoff-time `gate_*` could never be, and it is what a later session reads to know what is actually demanded.
 - `## Acceptance` — a checklist, and **the mission's plan**: each item names the ticket expected to satisfy it, so the list doubles as the route to completion. **Progress toward achievement is `checked ÷ total`, computed from this list, never a hand-set number** (`workaholic:implementation` / `objective-documentation`). An unchecked item is a **heading, not a specification** — re-check it against the source before cutting its ticket (see the checklist convention below).
 - `## Changelog` — an append-only, dated, human-readable timeline (`workaholic:design` / `history-structures`).
+- `## Reflection` — **optional**, appended by `/monitor` after each run (`append-reflection.sh`): one dated `### <date> run <run-id>` entry per run, carrying three fixed bullets — `blocked:` (what stopped autonomy, or none), `leaked questions:` (judgment calls that surfaced mid-run, or none), `front-load next:` (what the next planning should pre-answer). It is the feedback loop of the overnight model: the next Creation Interrogation reads recent reflections back (`list-reflections.sh`) so recurring leaks become pre-answered questions. **Explicitly outside `progress.sh` / `next-acceptance.sh` scope** — any `## ` heading ends `## Acceptance`, so a `- [ ]`-shaped line here never counts toward progress. It records **causes**, never pending decisions (the escalation list owns those — do not blur them).
 
 ### Acceptance-checklist convention
 
@@ -173,6 +174,10 @@ Every mission executes **one strategy** (`workaholic:strategy`), so the first th
 - **Ask only** when several active strategies genuinely compete and no recommendation is honest — the sole unrecommendable case. The command issues one `AskUserQuestion` (`[<project label>]` prefix, one option per candidate strategy plus "create new"), then records the chosen link.
 
 The link is `strategy: <slug>` on `mission.md`, read back only through `strategy/scripts/read-strategy-relation.sh`. Both changelog events (`strategy linked` / `strategy created`) are in the standard-events list below. A mission is not drive-ready — and `validate-mission.sh` will not let it be stamped `drive_authorized: true` — until this link is resolved.
+
+### Read recent reflections (before the rounds)
+
+Before interrogating, read back what recent runs learned: `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list-reflections.sh` returns recent `## Reflection` entries across active and archived missions, newest first, each with its `blocked` / `leaked` / `front_load` bullets. Fold recurring **`front-load next:`** items into round 4's per-ticket pre-answers — a judgment call that leaked into a past night is exactly the question the next mission should pre-answer rather than meet again in the dark (`workaholic:development` / `overnight-ai`). This closes the loop: planning quality is measured by how few judgment calls leak into the night, and the reflections are the record of which ones did.
 
 ### The rounds
 
@@ -358,6 +363,18 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/record-run-hours.sh <mission-s
 ```
 
 Accumulate a `/monitor` run's agent-hours into `actual_hours` (float add), **idempotently per run-id** — a run already recorded (its `run recorded (+Xh) — <run-id>` changelog line present) adds nothing, so a crash-recovery re-run is safe. The changelog line carries the increment so the sum reconstructs from history. **This is the only writer of `actual_hours`** (same doctrine as `tick-acceptance.sh`; never hand-edited). Emits `{recorded, actual_hours, run_id, path}`.
+
+```bash
+printf '%s' "<three-bullet body>" | bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/append-reflection.sh <mission-slug-or-file> <run-id> [date]
+```
+
+Append one dated `### <date> run <run-id>` reflection entry (body — the three fixed bullets — on stdin) under `## Reflection`, creating the section after `## Changelog` if absent. **Idempotent per run-id** and append-only (existing entries are never altered). The model composes the bullets; the script owns placement and idempotency, so the section stays machine-readable. Emits `{appended, run_id, path}`.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list-reflections.sh [limit]
+```
+
+List recent reflection entries across active and archived missions, newest first, bounded (default 20): a JSON array of `{slug, date, run_id, blocked, leaked, front_load}` parsed from each entry's three bullets. **Read-only.** The Creation Interrogation reads this back before composing round 4, so recurring `front-load next:` items become pre-answered questions.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/close.sh <mission-slug-or-file> <achieved|abandoned|carried> [date] \

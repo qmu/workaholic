@@ -3,9 +3,9 @@ created_at: 2026-07-21T02:07:59+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure, Config]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Added
 depends_on:
 mission: reorganize-missions-under-strategies
 ---
@@ -69,3 +69,14 @@ The standard engineering policies that govern this ticket. The implementing sess
 - The threshold value (~500) and the generated-file classification are policy calls; expose the threshold as a named constant next to `MAX_FILE_ADDED_LINES` so it is trivially tunable and reviewable.
 - This gate standardizes commit *size*; commit *count* as a throughput signal is ticket `20260721025720` — a size cap shifts volume into count (a large change becomes several commits), a property to document, not a defect.
 - Severity choice: keeping it `override` avoids blocking legitimate large-but-reviewed commits while still surfacing them; a hard block would be the wrong tier for a granularity heuristic.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The generated/bulk exemption is best expressed through `.gitattributes linguist-generated` rather than hard-coded path globs, because it lets each repo mark its own generated trees while keeping `scan-branch-safety.sh` generic. This repo now carries `.gitattributes` marking `outputs/**` linguist-generated, which both exempts bulk regenerations from the per-commit gate and collapses them in GitHub diffs.
+  **Context**: A future contributor tempted to hard-code `outputs/` into the scanner should instead extend `.gitattributes` — the scanner's `is_generated_path` deliberately keeps only lockfile/minified globs plus the attr check.
+- **Insight**: The per-commit walk reuses the existing per-file `MAX_FILE_ADDED_LINES` ceiling as a bulk cut-off (a file already flagged `large-added-lines` is excluded from the commit sum), so the two size rules never double-count the same bulk file.
+  **Context**: `skills/release-scan/scripts/scan-branch-safety.sh` — the coupling is intentional; changing one ceiling shifts the other's exemption boundary.

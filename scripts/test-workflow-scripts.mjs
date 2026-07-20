@@ -2311,6 +2311,71 @@ function testReleaseScanEngine() {
   } finally { cleanup(dir); }
 }
 
+// ---------- 8k1. release-scan per-commit changed-lines gate (too-large-commit) ----------
+function testReleaseScanPerCommit() {
+  const dir = makeRepo("main");
+  try {
+    const bigLines = (n) => Array.from({ length: n }, (_, i) => `line ${i}`).join("\n") + "\n";
+    const scanMain = () => JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanBranchSafety} main`).stdout);
+    const branch = (name) => { execSync(`git checkout -q main`, { cwd: dir }); execSync(`git checkout -q -b ${name}`, { cwd: dir }); };
+    const tlc = (r) => r.findings.filter((f) => f.rule === "too-large-commit");
+
+    // 1. An over-threshold hand-authored commit is flagged (size/override).
+    branch("work-20260721-000001");
+    writeFileSync(join(dir, "code.txt"), bigLines(600));
+    execSync(`git add -A && git commit -q -m big`, { cwd: dir });
+    let r = scanMain();
+    assertTrue("over-threshold hand-authored commit is flagged too-large-commit",
+      tlc(r).length === 1 && tlc(r)[0].category === "size" && tlc(r)[0].severity === "override",
+      JSON.stringify(r.findings));
+
+    // 2. A purely-generated (lockfile) commit is NOT flagged, regardless of size.
+    branch("work-20260721-000002");
+    writeFileSync(join(dir, "package-lock.json"), bigLines(700));
+    execSync(`git add -A && git commit -q -m lock`, { cwd: dir });
+    r = scanMain();
+    assertTrue("purely-generated (lockfile) commit is not flagged regardless of size",
+      tlc(r).length === 0, JSON.stringify(r.findings));
+
+    // 2b. A linguist-generated path (.gitattributes) is exempt too.
+    branch("work-20260721-000003");
+    writeFileSync(join(dir, ".gitattributes"), "gen/** linguist-generated\n");
+    mkdirSync(join(dir, "gen"), { recursive: true });
+    writeFileSync(join(dir, "gen/out.txt"), bigLines(700));
+    execSync(`git add -A && git commit -q -m gen`, { cwd: dir });
+    r = scanMain();
+    assertTrue("linguist-generated path is exempt from the per-commit gate",
+      tlc(r).length === 0, JSON.stringify(r.findings));
+
+    // 3. Threshold boundary: a commit at the cap is not flagged (strictly greater).
+    branch("work-20260721-000004");
+    writeFileSync(join(dir, "atcap.txt"), bigLines(500));
+    execSync(`git add -A && git commit -q -m atcap`, { cwd: dir });
+    assertTrue("a commit exactly at the cap is not flagged", tlc(scanMain()).length === 0, "at-cap flagged");
+
+    branch("work-20260721-000005");
+    writeFileSync(join(dir, "overcap.txt"), bigLines(501));
+    execSync(`git add -A && git commit -q -m overcap`, { cwd: dir });
+    assertTrue("a commit one line over the cap is flagged", tlc(scanMain()).length === 1, "over-cap not flagged");
+
+    // 4. Deletions count toward the total (added + deleted). Seed on main, delete on branch.
+    execSync(`git checkout -q main`, { cwd: dir });
+    writeFileSync(join(dir, "seed.txt"), bigLines(600));
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+    execSync(`git checkout -q -b work-20260721-000006`, { cwd: dir });
+    rmSync(join(dir, "seed.txt"));
+    execSync(`git add -A && git commit -q -m rm`, { cwd: dir });
+    assertTrue("deletions count toward the per-commit total", tlc(scanMain()).length === 1, "deletions not counted");
+
+    // 5. Existing size/secret contract preserved: a small clean commit passes.
+    branch("work-20260721-000007");
+    writeFileSync(join(dir, "small.txt"), bigLines(10));
+    execSync(`git add -A && git commit -q -m small`, { cwd: dir });
+    r = scanMain();
+    assertEq("a small clean commit still passes", r.verdict, "pass");
+  } finally { cleanup(dir); }
+}
+
 // ---------- 8j2. report/ticket-commits.sh: the derived hash must be REACHABLE ----------
 // A commit cannot carry its own hash, so archive.sh no longer stamps commit_hash: the old
 // stamp-then-amend recorded a pre-amend commit that is orphaned and never pushed, which made
@@ -6764,6 +6829,7 @@ const tests = [
   ["mission quality gate", testMissionQualityGate],
   ["report/ticket-commits.sh derivation", testTicketCommitsDerivation],
   ["release-scan branch-safety engine", testReleaseScanEngine],
+  ["release-scan per-commit changed-lines gate", testReleaseScanPerCommit],
   ["release-scan secret literal vs reference", testReleaseScanSecretLiteralVsReference],
   ["release-scan secret suffixed keywords", testReleaseScanSecretSuffixedKeywords],
   ["release-scan secret value inversion", testReleaseScanSecretValueInversion],

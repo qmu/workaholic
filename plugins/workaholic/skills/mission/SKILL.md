@@ -1,6 +1,6 @@
 ---
 name: mission
-description: Use when the user runs `/mission`, asks to "start a mission", "track an epic/milestone", "show mission progress", or "what long-lived goals are in flight". A mission is a durable, information-rich goal that spans many tickets, drives, reports, and PRs; this skill creates one, lists missions with computed progress, and defines the mission schema every workflow reads.
+description: Use when the user runs `/mission`, asks to "start a mission", "plan a batch of work", "show mission progress", or "what missions are in flight". A mission is the overnight-executable execution plan of a strategy — a bounded, information-rich batch of tickets an agent fleet drives in a night; this skill creates one, lists missions with computed progress, and defines the mission schema every workflow reads.
 allowed-tools: Bash
 user-invocable: false
 metadata:
@@ -9,13 +9,40 @@ metadata:
 
 # Mission
 
-A **mission** is a first-class knowledge artifact: a long-lived, information-rich goal that spans many tickets, drives, reports, and PRs. It is the durable narrative of *where a body of work is heading* and *how far it has come*, with a machine-readable web of relations to the tickets, stories, and concerns that advance it.
+A **mission** is a first-class knowledge artifact: the **overnight-executable execution plan of a strategy** — a fairly immediate developer request, interrogated to question-free drive-readiness, that bundles the ordered ticket set an agent fleet drives through in a night. It carries the information-rich statement of *what this batch of tickets accomplishes* and *how far it has come*, with a machine-readable web of relations to the tickets, stories, and concerns that advance it. **Longevity lives one level up, in the [strategy](../strategy/SKILL.md)** the mission executes; the mission is bounded, not long-lived.
 
-A mission is **not** a trip. Distinguish the three terms and never conflate them (`workaholic:planning` / `terminology`):
+Distinguish the terms and never conflate them (`workaholic:planning` / `terminology`):
 
-- **mission** — a durable goal spanning *many* tickets/trips over a long horizon, with acceptance criteria and an append-only changelog. It outlives any single branch or session.
-- **trip** — a short, bounded design/build *session* (Planner/Architect/Constructor) that produces design rationale and decomposes into tickets. A trip finishes; a mission persists.
-- **epic / milestone** — generic project-management words this repo deliberately does **not** use as artifact names. "Mission" is the one word for this concept.
+- **strategy** — long-lived **direction** (戦略) with no completion conditions. It answers *why these missions are being launched* and outlives every one of them. Missions are its execution plans (`workaholic:strategy`).
+- **mission** — the **execution plan** of one strategy: a bounded, overnight-executable batch of tickets with acceptance criteria and an append-only changelog. It answers *what does this batch of tickets accomplish tonight*. A mission finishes; the strategy persists.
+- **trip** — a short, bounded design/build *session* (Planner/Architect/Constructor) that produces design rationale and decomposes into tickets.
+- **epic / milestone** — generic project-management words this repo deliberately does **not** use as artifact names. "Strategy" and "mission" are the words for these two levels.
+
+See the **Granularity** section below for the full commit → ticket → mission → strategy discipline and the record of why "mission" was narrowed from its earlier long-lived meaning.
+
+## Granularity
+
+The **single home** of the granularity discipline (`workaholic:planning` / `modeling-centric-design`). Four description layers each describe code change and its planning at *their own* level, and **no artifact restates a lower level's detail**:
+
+| Layer | Answers | Size | Normalized by |
+| --- | --- | --- | --- |
+| **commit** | *what is this one normalized change* | ~a few hundred lines, one reviewable unit | the release-scan per-commit changed-lines gate (ticket `20260721020759`) |
+| **ticket** | *what is this one change* (a single drive-able unit) | one `/drive` pass, with its own `## Quality Gate` | its `## Policies` / `## Quality Gate` |
+| **mission** | *what does this batch of tickets accomplish tonight* | hours of agent time; a fairly immediate request interrogated to question-free readiness | the Creation Interrogation |
+| **strategy** | *why are these missions being launched* | long-lived direction, no completion conditions | — |
+
+**The balance test cuts both ways.** A mission that re-narrates its tickets' specifics is **over-written** — trust the ticket to hold the detail. A ticket that says essentially what its mission says means the **mission is under-sized** — a mission must be bigger than any one ticket; surface that and merge, do not write the duplicate. Neither is "add more words"; both are "put each fact at exactly one level".
+
+### Redefinition record
+
+Recorded here so it is not re-litigated (`workaholic:planning` / `terminology`):
+
+- **Old meaning** (before 2026-07-21): "mission" was the long-lived container — "a durable goal spanning many tickets over a long horizon; it outlives any single branch or session".
+- **New meaning**: "mission" is the **overnight-executable execution plan of a strategy** — bounded, not long-lived. **Longevity moved up to the new `strategy` artifact.**
+- **Reason**: the mission was playing two roles at once — the executable unit *and* the long-lived goal container. Splitting them lets the developer plan by day (missions, front-loading every judgment call) and let agents execute by night, while direction persists above in a strategy.
+- **Provenance**: mission `reorganize-missions-under-strategies`, 2026-07-21.
+
+Every other place that touches granularity **links here** rather than restating it (`workaholic:strategy`, `workaholic:create-ticket`, `workaholic:commit`).
 
 ## Agent Compatibility
 
@@ -120,7 +147,7 @@ Body sections, in order:
 
 - `## Goal` — the information-rich "why": business grounding and the outcome the mission pursues.
 - `## Scope` — definition of done, and explicit out-of-scope notes.
-- `## Experience` — **the mission's substance**: the user experience, the demanded behavior, and/or the overall structure it pursues. Where `## Goal` says *why* the work is worth doing, this says *what the thing does*. Keep it observable (`workaholic:implementation` / `objective-documentation`) — "the list reorders without a reload" is checkable; "feels fast" is not. This is the durable content a kickoff-time `gate_*` could never be, and it is what a later session reads to know what is actually demanded.
+- `## Experience` — **the mission's substance**: the user experience, the demanded behavior, and/or the overall structure it pursues. Where `## Goal` says *why* the work is worth doing, this says *what the thing does*. Keep it observable (`workaholic:implementation` / `objective-documentation`) — "the list reorders without a reload" is checkable; "feels fast" is not. This is the persistent content a kickoff-time `gate_*` could never be, and it is what a later session reads to know what is actually demanded.
 - `## Acceptance` — a checklist, and **the mission's plan**: each item names the ticket expected to satisfy it, so the list doubles as the route to completion. **Progress toward achievement is `checked ÷ total`, computed from this list, never a hand-set number** (`workaholic:implementation` / `objective-documentation`). An unchecked item is a **heading, not a specification** — re-check it against the source before cutting its ticket (see the checklist convention below).
 - `## Changelog` — an append-only, dated, human-readable timeline (`workaholic:design` / `history-structures`).
 - `## Reflection` — **optional**, appended by `/monitor` after each run (`append-reflection.sh`): one dated `### <date> run <run-id>` entry per run, carrying three fixed bullets — `blocked:` (what stopped autonomy, or none), `leaked questions:` (judgment calls that surfaced mid-run, or none), `front-load next:` (what the next planning should pre-answer). It is the feedback loop of the overnight model: the next Creation Interrogation reads recent reflections back (`list-reflections.sh`) so recurring leaks become pre-answered questions. **Explicitly outside `progress.sh` / `next-acceptance.sh` scope** — any `## ` heading ends `## Acceptance`, so a `- [ ]`-shaped line here never counts toward progress. It records **causes**, never pending decisions (the escalation list owns those — do not blur them).
@@ -201,7 +228,7 @@ Do not read the requirement as "Acceptance first".
 
 Write the tickets **in one pass**, not N serial `create-ticket` runs. Each carries its mandatory `## Policies` and `## Quality Gate` (`validate-ticket.sh` rejects it otherwise), is stamped `mission: <slug>`, and is ordered by `depends_on` — foundation first, dependencies only where genuinely ordered, unique timestamps (`+1s` per ticket). Reuse `create-ticket`'s split mechanics rather than re-deriving them.
 
-**The split cap does not apply to a mission — a deliberate, scoped exception.** `create-ticket` §4 caps a split at "2–4 discrete tickets", which is right for one request that turns out to be several. A mission is the opposite case: a durable goal that spans *many* tickets by definition, and "a complete set to drive through one by one" is the requirement. Capping it at 4 would force either an incomplete plan or a fake ticket boundary. A mission decomposition is closer to `trip-protocol`'s Decomposition gate than to a `/ticket` split, and is governed by the same rule: **one ticket per genuinely separable unit of work, however many that is**. The cap still applies to `/ticket` itself; this exception is mission-scoped and stated here so it is not a silent violation.
+**The split cap does not apply to a mission — a deliberate, scoped exception.** `create-ticket` §4 caps a split at "2–4 discrete tickets", which is right for one request that turns out to be several. A mission is the opposite case: an execution plan that bundles *many* tickets by definition, and "a complete set to drive through one by one" is the requirement. Capping it at 4 would force either an incomplete plan or a fake ticket boundary. A mission decomposition is closer to `trip-protocol`'s Decomposition gate than to a `/ticket` split, and is governed by the same rule: **one ticket per genuinely separable unit of work, however many that is**. The cap still applies to `/ticket` itself; this exception is mission-scoped and stated here so it is not a silent violation.
 
 **Stamp the duration prediction at the end of emission — as a report line, never a question.** Once the ticket set and `## Acceptance` are written, run `predict-duration.sh <acceptance-item-count>`: when `basis > 0`, stamp `predicted_hours` and state the number and its basis to the developer honestly ("predicted 6.0h from 2 archived missions"); when `basis: 0` (today's state, no archive), leave `predicted_hours` empty and record a `duration predicted (archive basis 0)` changelog note rather than dressing a guess as data (`workaholic:planning` / `verify-before-building`). Never ask the developer for an estimate — the predictor answers this, and `actual_hours` is filled later by `/monitor`.
 

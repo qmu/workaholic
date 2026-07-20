@@ -56,6 +56,10 @@ The commit script performs safety checks:
 2. **Check for staged changes** - Warns if nothing to commit
 3. **Review what will be committed** - Shows diff summary before proceeding
 
+## The commit as a unit
+
+A commit is the smallest description layer: **one normalized change**, kept to a reviewable size so commit *count* is a comparable throughput unit. That size is enforced by the release-scan per-commit changed-lines gate (ticket `20260721020759`) — do not restate its thresholds here. The full commit → ticket → mission → strategy granularity discipline lives in `workaholic:mission`'s **Granularity** section.
+
 ## Message Format
 
 Each section should be a short paragraph (3-5 sentences). The keys map onto the report's narrative sections so `git log` alone gives a reviewer — and the `/report` overview-writer — enough signal without reading the diff. `Why`, `Concerns`, and `Insights` are omitted when empty or "None"; `Changes` and `Verify` always render.

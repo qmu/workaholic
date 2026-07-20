@@ -286,7 +286,7 @@ A trip's phases live in `trips/<name>/plan.md`; a populated `todo/` queue lets `
 <details>
 <summary><strong>The full map</strong> — every command and every artifact in one graph</summary>
 
-Every command communicates with the others **only through the documents it writes to `.workaholic/`** — no command calls another directly. The single flowchart below covers all fourteen commands at once (rounded **blue** = command, rectangular **grey** = artifact, dashed grey border = an artifact that lands *outside* `.workaholic/`). It is dense on purpose — the per-use-case maps above are the readable slices.
+Every command communicates with the others **only through the documents it writes to `.workaholic/`** — no command calls another directly. The single flowchart below covers all thirteen commands at once (rounded **blue** = command, rectangular **grey** = artifact, dashed grey border = an artifact that lands *outside* `.workaholic/`). It is dense on purpose — the per-use-case maps above are the readable slices.
 
 ```mermaid
 flowchart LR
@@ -303,7 +303,6 @@ flowchart LR
   catch(["/catch"])
   commit(["/commit"])
   explain(["/explain"])
-  release(["/release"])
   workaholify(["/workaholify"])
 
   %% ---------- artifacts under .workaholic/ (grey) ----------
@@ -321,7 +320,6 @@ flowchart LR
   %% ---------- artifacts that land outside .workaholic/ (grey, dashed border) ----------
   EXT["ticket in ANOTHER repo"]
   PDF["PDF report"]
-  VER["version files"]
   WT["git commit"]
   CFG["CLAUDE.md + hooks wiring"]
 
@@ -347,7 +345,6 @@ flowchart LR
   ship --> DEP
   commit --> WT
   explain --> PDF
-  release --> VER
   workaholify --> CFG
 
   %% ========== reference: dashed arrow = reads / refers ==========
@@ -382,15 +379,15 @@ flowchart LR
   classDef cmd fill:#dbeafe,stroke:#1e40af,stroke-width:1.5px,color:#1e3a8a;
   classDef art fill:#f3f4f6,stroke:#6b7280,color:#111827;
   classDef ext fill:#f3f4f6,stroke:#9aa0aa,stroke-dasharray:4 3,color:#374151;
-  class ticket,request,mission,monitor,trip,carry,drive,report,ship,catch,commit,explain,release,workaholify cmd;
+  class ticket,request,mission,monitor,trip,carry,drive,report,ship,catch,commit,explain,workaholify cmd;
   class TODO,ICE,ARCH,ABD,MIS,TRIPA,STORY,CON,REL,DEP art;
-  class EXT,PDF,VER,WT,CFG ext;
+  class EXT,PDF,WT,CFG ext;
 ```
 
 Reading the map:
 
 - **Solid arrow** = the command *generates* that artifact. **Dashed arrow** = the command *reads / refers to* it. `rolls` = the command updates a named mission's `## Changelog` and `## Acceptance` checklist (via the `mission:` relation any ticket/story/concern carries).
-- **Node style tells the kind apart.** Rounded **blue** = the fourteen commands; rectangular **grey** = the artifacts they generate. A **dashed grey border** marks the artifacts that land *outside* `.workaholic/` — a cross-repo ticket via `/request`, a printed PDF via `/explain`, marketplace version files via `/release`, a plain working-tree commit via `/commit`, and repo wiring via `/workaholify`.
+- **Node style tells the kind apart.** Rounded **blue** = the thirteen commands; rectangular **grey** = the artifacts they generate. A **dashed grey border** marks the artifacts that land *outside* `.workaholic/` — a cross-repo ticket via `/request`, a printed PDF via `/explain`, a plain working-tree commit via `/commit`, and repo wiring via `/workaholify`.
 - **`/mission` and `/monitor` are first-class here.** `/mission` writes `missions/…` and the kickoff/delta tickets into `tickets/todo/`; `/monitor` reads the mission set and each worktree's `todo/`, drains them to `tickets/archive/`, and rolls each mission it advances — the parallel-missions counterpart to `/drive`.
 - **The ticket is the spine.** `/ticket`, `/mission`, `/trip`, and `/carry` all *fill* `tickets/todo/`; `/drive`, `/monitor`, and `/trip` all *drain* it to `tickets/archive/` (`/monitor` and `/trip` reuse `/drive`'s archive path). Everything downstream reads the archive.
 - **`concerns/` is the only loop.** `/ship` extracts a shipped story's open concerns into `concerns/`; the *next* `/report` re-reads them, judges each, and either carries it into the new story or archives it resolved. Every other artifact is written once and becomes permanent history.

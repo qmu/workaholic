@@ -3,9 +3,9 @@ created_at: 2026-07-20T15:45:14+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -55,3 +55,27 @@ No behavioural logic changes: `resolve-target.sh` is untouched, `release-scan` s
 - **Do not add visibility branching.** All four visibility combinations get the *same* single confirmation; visibility is displayed, never a decision fork or an extra gate.
 - **The script rename is mechanical but on the critical path.** The writer is the only sanctioned cross-repo write; the rename must update every reference and keep the test that proves the four real leaked sentences pass it unchanged. If "submit" is not the developer's preferred verb, substitute their choice consistently (script name included).
 - **Reordering compose-before-confirm** wastes a little composition effort if the resolved target was not intended, but the developer still catches it at the single prompt (nothing is written first) — the accepted trade for one confirmation.
+
+## Final Report
+
+Development completed as planned. `/request` §4 now runs resolve → compose → mask →
+**one** combined confirmation (destination + verbatim body) → scan → submit → report;
+the confirmation stays non-skippable and identical across all four visibility
+combinations. Swept the verb "file" → "submit" across `commands/request.md`,
+`skills/request/SKILL.md`, and CLAUDE.md (kept "file" as a noun), and renamed
+`file-request.sh` → `submit-request.sh` with every reference and test updated.
+Verified: exactly one `AskUserQuestion` in the workflow, `grep -r file-request` empty,
+`resolve-target.sh` unchanged, and `test-workflow-scripts.mjs` at 1164 passed.
+
+### Discovered Insights
+
+- **Insight**: The two prompts merged cleanly because the target confirmation carried
+  no information the body confirmation could not also show — folding `name`/`remote`/
+  `visibility` into the verbatim-body prompt loses nothing and removes a gate.
+  **Context**: The visibility distinction is preserved as *displayed text*, not as a
+  branch — there was never per-visibility logic, so "one confirmation for all four
+  combinations" required removing a prompt, not simplifying a conditional.
+- **Insight**: The renamed script's contract is asserted by name in
+  `test-workflow-scripts.mjs` (`SCRIPTS.submitRequest`, label strings), so the rename
+  had to move in lockstep with the tests — the four-real-leaks case still passes,
+  which is the guardrail that the human confirmation, not the script, is the masker.

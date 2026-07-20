@@ -1,6 +1,6 @@
 ---
 name: request
-description: File a ticket in another repository, with this project's customer context masked and confirmed first.
+description: Submit a ticket to another repository, with this project's customer context masked and the destination plus exact body confirmed first — in one confirmation.
 skills:
   - workaholic:request
   - workaholic:create-ticket
@@ -22,7 +22,7 @@ Run the skill's **Workflow** end to end. The skill owns the knowledge; this comm
 
 ## The one rule this command exists to enforce
 
-**Step 5 — showing the developer the exact body and having them confirm it — cannot be skipped.** Not for a body that looks clean, not on a re-run, not because approval was given earlier in the session. Show the text verbatim, as it will be filed.
+**The single confirmation — showing the developer the destination and the exact body, and having them confirm it — cannot be skipped.** Not for a body that looks clean, not on a re-run, not because approval was given earlier in the session. Show the text verbatim, as it will be submitted. The destination (with visibility) is folded into this one prompt so there is exactly one confirmation, but the surviving gate is the verbatim body — never drop it.
 
 Masking is a **judgement**, not a pattern match. The terms that have actually leaked from this organisation were a component name, a document filename, a mail label, a hostname, and cloud resource names — none of them enumerable in advance, so no scan could have seen them. `release-scan` runs in step 6 as a second layer beneath the judgement and catches only what someone already listed; a `pass` from it is not permission to skip step 5. If you ever find yourself reasoning that the confirmation is unnecessary this time, that is the failure mode, not an optimisation.
 
@@ -31,12 +31,11 @@ Masking is a **judgement**, not a pattern match. The terms that have actually le
 Follow `workaholic:request`'s Workflow §4:
 
 1. Resolve the target — `bash ${CLAUDE_PLUGIN_ROOT}/skills/request/scripts/resolve-target.sh <path-or-name>`. On `ok: false`, show the error and stop. Never guess a target.
-2. Confirm the target via `AskUserQuestion`, quoting `name`, `remote`, and **`visibility`** — filing into a public repo is a different decision from a private one, and the developer must see which they are making.
-3. Compose the body as a conforming ticket, built from the **target's** vocabulary (skill §3).
-4. Mask it (skill §2).
-5. **Confirm the exact body** via `AskUserQuestion`. Non-skippable.
-6. Scan it — `bash ${CLAUDE_PLUGIN_ROOT}/skills/release-scan/scripts/scan-branch-safety.sh`.
-7. File it — `bash ${CLAUDE_PLUGIN_ROOT}/skills/request/scripts/file-request.sh <target-root> <filename> <body-file>`.
-8. Report the filed path. **Do not commit in the target repo** — that is its owner's decision.
+2. Compose the body as a conforming ticket, built from the **target's** vocabulary (skill §3).
+3. Mask it (skill §2).
+4. **Confirm — one prompt, and the only one** via `AskUserQuestion`: show **both** the destination (`name`, `remote`, **`visibility`**) **and** the exact body verbatim, confirmed together. **Non-skippable.** Exactly one confirmation for every visibility combination — visibility is shown, never a second prompt.
+5. Scan it — `bash ${CLAUDE_PLUGIN_ROOT}/skills/release-scan/scripts/scan-branch-safety.sh`.
+6. Submit it — `bash ${CLAUDE_PLUGIN_ROOT}/skills/request/scripts/submit-request.sh <target-root> <filename> <body-file>`.
+7. Report the submitted path. **Do not commit in the target repo** — that is its owner's decision.
 
-**Project label in every prompt:** prefix each `AskUserQuestion` body with `[<project label>]` — run `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh` once and reuse its `project` value. `hooks/guard-askuserquestion-label.sh` blocks otherwise. For the two prompts here, name **both** repositories: the developer is deciding about a boundary, so both sides must be on screen.
+**Project label in the prompt:** prefix the `AskUserQuestion` body with `[<project label>]` — run `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh` once and reuse its `project` value. `hooks/guard-askuserquestion-label.sh` blocks otherwise. In the one prompt, name **both** repositories: the developer is deciding about a boundary, so both sides must be on screen.

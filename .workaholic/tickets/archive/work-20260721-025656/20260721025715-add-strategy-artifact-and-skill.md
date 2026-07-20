@@ -3,9 +3,9 @@ created_at: 2026-07-21T02:57:15+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Domain, Config]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Added
 depends_on:
 mission: reorganize-missions-under-strategies
 ---
@@ -86,3 +86,16 @@ Interrogated at mission creation (2026-07-21); verification depth ruling: hermet
 - The relation direction is mission→strategy (a field on `mission.md`), matching ticket→mission; nothing is stored on the strategy side, so archives never dangle (`skills/strategy/scripts/read-strategy-relation.sh`).
 - `metadata.internal: true` is mandatory — the skill is script-bearing (CLAUDE.md Cross-Agent Skill Exposure).
 - Keep `retire.sh` rare-path simple: no successor/carry semantics — a strategy that changed is *rewritten* (its changelog records the turn); only a strategy that is genuinely over is retired (`skills/strategy/SKILL.md`).
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The build closure is automatic — because `computeClosure` in `build.mjs` follows `${SCRIPT_DIR}/../../<x>/scripts/` cross-references, the strategy skill needs no manual entry in `build.mjs`. It will be pulled into `outputs/workflows` the moment ticket 20260721025716 makes the mission skill reference `strategy/scripts/read-strategy-relation.sh`. No build.mjs edit was required in this ticket.
+  **Context**: `scripts/build-plugins/build.mjs` `computeClosure` — a new script-bearing skill becomes cross-agent-shipped purely by being referenced from a built skill; the closure is a set keyed on the reference patterns.
+- **Insight**: `retire.sh` reuses `mission/scripts/append-changelog.sh` by passing the full strategy.md path, which the mission resolver's `[ -f "$arg" ]` fast-path returns as-is. This keeps the changelog format and idempotency rule in one writer across both artifacts rather than forking a strategy-specific appender.
+  **Context**: `skills/strategy/scripts/retire.sh` — the cross-skill dependency is intentional and mirrors the slug.sh reuse in create.sh.
+- **Insight**: The real bootstrap strategy `agent-orchestrated-development` now exists in this repo; ticket 20260721025716 links this mission to it by stamping `strategy:` on mission.md (create.sh will refuse to recreate it, so 025716 only stamps).
+  **Context**: `.workaholic/strategies/active/agent-orchestrated-development/strategy.md`.

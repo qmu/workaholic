@@ -17,6 +17,7 @@ This is the working artifacts hub for the `workaholic` plugin. The tree is an [O
 - [release-notes/](release-notes/index.md) - Per-ship release records
 - [specs/](specs/index.md) - Technical specifications
 - [stories/](stories/index.md) - Development narratives and PR descriptions per branch
+- [strategies/](strategies/index.md) - Long-lived **direction** (戦略) with no completion conditions, sitting above missions: a strategy answers *why these missions are being launched*, and outlives every one of them. Active strategies live under `strategies/active/`, retired ones under `strategies/archive/` (moved by the `strategy` skill's `retire.sh`; retirement is rare — a strategy whose direction changed is rewritten in place). A strategy has no worktree, tickets, assignee, or acceptance checklist — it is direction, not work. Each mission records the one strategy it executes as `strategy: <slug>`; the missions rolling up to a strategy are **computed**, never stored on the strategy side
 - [terms/](terms/index.md) - Consistent term definitions across the project
 - [tickets/](tickets/) - Implementation work queue and archives (`todo/`, `archive/`, `icebox/`, `abandoned/`)
 - [trips/](trips/index.md) - Trip design/decision artifacts per trip

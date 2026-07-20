@@ -6887,10 +6887,15 @@ function testMonitorStatus() {
 
     mission("- [x] One\n- [ ] Two\n");
     assertEq("a remaining unchecked item is not complete", status().complete, false);
+    // status.sh's `complete` flag IS the /monitor §5 PR-phase gate: a PR is opened for a
+    // mission iff it is complete. An incomplete mission gets no PR attempt (no-network
+    // boundary — the gh call itself is exercised the first real night, per the ticket gate).
+    assertEq("the PR-phase gate keys on status.sh complete (incomplete -> no PR)", status().complete, false);
 
     mission("");
     assertEq("an empty Acceptance (0/0) is NOT complete — no plan is not a finished plan",
       status().complete, false);
+    assertEq("a 0/0 mission is not PR-eligible either (no plan is not a finished plan)", status().complete, false);
 
     mission("- [x] One\n", "check");
     s = status();

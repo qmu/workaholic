@@ -383,6 +383,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/close.sh <mission-slug-or-file
 
 End a mission — the only sanctioned way. Flips `status`, appends the closing changelog line through `append-changelog.sh` so the transition itself becomes history (`workaholic:design` / `history-structures`), moves the mission dir into `archive/`, refreshes the OKF indexes, and git-stages. Idempotent: re-closing with the same status is a no-op (`{closed: false, reason: "already_closed"}`); re-closing with another status flips it in place and appends its own line. Emits `{closed, slug, status, path}` JSON (plus `successor` / `successor_path` on a carry).
 
+**Completion lifecycle — "merge and clean up" is a chain, not an auto-merge.** When a mission's tickets are all done, it moves through four stages, each with a distinct owner: **complete** (derived by `status.sh` — `## Acceptance` fully checked, gate exercised when declared) → **PR** (opened by `/monitor`'s §5 PR phase from the mission worktree's branch — auto-*creation*, so the morning starts at review) → **`/ship`** (the human, deploy-evidence-gated merge — full auto-merge was rejected: it would bypass PR review and the deploy-before-merge doctrine) → **`/mission close`** (archives the mission and tears down its worktree). Auto-merge is deliberately **not** part of this chain; the PR is where a night's work becomes reviewable, and the merge stays a human decision on evidence.
+
 #### Outcomes
 
 The status set is closed and validated — anything else is `invalid_status`:

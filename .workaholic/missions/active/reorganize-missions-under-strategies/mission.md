@@ -7,6 +7,8 @@ created_at: 2026-07-21T02:57:09+09:00
 author: a@qmu.jp
 assignee: a@qmu.jp
 drive_authorized: true
+predicted_hours: 8
+actual_hours:
 tickets: []
 stories: []
 concerns: []
@@ -54,3 +56,4 @@ Positioning note: this worktree is cut from `main` @ `e22fe89a`; the `work-20260
 <!-- Append-only, dated timeline relating this mission's tickets and reports over time.
      One line per event ("- YYYY-MM-DD — event — filename"); never rewrite past lines. -->
 - 2026-07-21 — ticket added — 20260721020759-add-per-commit-changed-lines-gate.md
+- 2026-07-21 — duration predicted (hand estimate 8h, archive basis 0) — mission.md

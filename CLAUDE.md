@@ -202,7 +202,6 @@ If a skill you expect is not in context, ask the user which plugins are loaded �
 | `/carry`                         | Hand off in-progress work to a fresh session (capture-only): write a resumption ticket / trip checkpoint a later `/drive` continues, instead of relying on compaction. Three contexts, each converging on the resumption-ticket channel the matching executor drains: a **drive/general** carry writes one ticket to the main-tree `todo/<user>/`; a **trip** carry adds the `plan.md`/`event-log.md` checkpoint; a **mission-monitor** carry (a parallel `/monitor` run in flight) writes **one resumption ticket per in-flight mission into that mission's own `.worktrees/<slug>/` queue** and resumes via `/monitor`, not `/drive` — carrying the cross-mission state a fresh pre-flight cannot reconstruct (mid-drive stop point + stash, deferred escalations, and replan rulings decided-but-unapplied), and recording the **reorganize-and-carry** recommendation when a mission's direction changed (capture-only — `/carry` never reorganizes). States the **Mission Position Report** for every mission the work advances — how far it stands, what is next, and how much a fresh session can proceed with |
 | `/explain <question> [dir]`      | Answer a repo question and export a printer-ready PDF report (HTML printed by a real browser); exports to `dir`, else Desktop→Home (Home write asks permission) |
 | `/workaholify`                   | Wire the current repo to the standards: refer to the `workaholify` gateway skill (reaches the `policies/`), audit `CLAUDE.md` against the documentation standard, and confirm the working-directory advisory hook is active — rules stay in the skill, not copied into `CLAUDE.md` |
-| `/release [major\|minor\|patch]` | Release new marketplace version                  |
 
 ## Development Workflow
 
@@ -210,7 +209,6 @@ If a skill you expect is not in context, ask the user which plugins are loaded �
 2. **Implement specs**: Use `/drive` to implement and commit each spec
 3. **Create PR**: Use `/report` to generate story and create PR
 4. **Ship**: Use `/ship` to merge PR, deploy, and verify
-5. **Release**: Use `/release` to bump version and publish
 
 ## Type Checking
 
@@ -293,6 +291,8 @@ The `release-scan` skill (`skills/release-scan/scan-branch-safety.sh`) is a **de
 **Read the scope of the `leak` rule literally.** It matches listed terms in the branch diff, nothing more. It is blind to content already on `main`, and because the denylist is git-ignored it is a silent no-op in any repo where nobody created the file. It does **not** enforce "keep motivation generic, never name other repos/clients" — that rule is enforced by confining every workflow's writes to the current repo and by `/request`'s masking confirmation, which is a judgement a person makes when content crosses a repository boundary. A `pass` verdict means "no listed term was re-introduced", never "no client context here". An earlier version of this paragraph claimed the scan machine-enforced the convention; a structured internal-hostname pattern that backed that claim was removed after it was measured to detect none of five real leaks while misfiring on `metadata.internal`.
 
 ## Version Management
+
+Version bumps are **manual** — there is no `/release` command. After bumping the files below and pushing to `main`, CI (`.github/workflows/release.yml`) publishes the GitHub Release automatically (it reads the version and the latest `.workaholic/release-notes/` note).
 
 Version files (all must stay at the same semver):
 - `.claude-plugin/marketplace.json` - root `version` AND every `plugins[].version` entry (workaholic, workflows)

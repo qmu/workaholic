@@ -120,7 +120,19 @@ Leaves run in isolated worktrees off `main` and cannot see each other's uncommit
 
 ## 5. The final report (the deliverable)
 
-Always emitted, terminal or not — the morning-review artifact (`workaholic:implementation` / `observability`). After the reconciliation line is computed, and before the terminal token, do two things **per driven mission**:
+Always emitted, terminal or not — the morning-review artifact (`workaholic:implementation` / `observability`). After the reconciliation line is computed, and before the terminal token, do three things **per driven mission**:
+
+**(0) Open a PR for each genuinely complete mission.** "Merge the worktree and clean up when all tickets are done" is implemented as **PR auto-creation, not auto-merge**. For each mission classified `complete` per `status.sh` (gate included when declared) — and **only** those; incomplete/blocked missions get no PR — carry its worktree through the report flow's story+PR seam, so the morning starts at "review and `/ship`" rather than "run `/report` N times":
+
+```bash
+( cd <worktree_path> && … generate the story via workaholic:report's Write Story flow,
+  run release-scan (warn tier — fold any findings into the PR body, never a prompt),
+  then create the PR: bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/create-or-update.sh <branch> "<title>" )
+```
+
+This runs in the **main agent (dispatcher)**, sequentially per completed mission — a `general-purpose` leaf cannot invoke the report flow, and sequential `gh` calls avoid interleaved auth/rate issues. **Reuse, do not fork** the report flow; if its context detection mis-reads inside a mission worktree, scope it explicitly by branch. **No `AskUserQuestion` anywhere in this phase** (decide-and-record: warn-tier scan findings are recorded in the PR body, not asked). Collect `{mission, pr_url | pr_error}` per completed mission.
+
+**Merge stays `/ship`** (deploy-evidence-gated — full auto-merge was explicitly rejected: it would bypass PR review and the deploy-before-merge doctrine), and worktree teardown stays `/mission close` after ship. A **PR-creation failure is its own report item and changes nothing else**: it never alters a mission's completion classification, the reconciliation counts, or the terminal token — `ok` keeps meaning "every driven mission complete", with PR status stated separately and honestly. Secrets remain non-overridable at `/ship`; this phase only relocates *when* the warn-tier scan runs, never weakens a tier.
 
 **(1) State completed-as-planned, or the categorized reason it was not.** Derive it from `status.sh` + the leaf reports, using the **fixed reason vocabulary**: `complete` (achieved as planned), `escalation-blocked` (every remaining item waits on a deferred decision — name the blocking decision), `deferred` (a mid-run item the pre-flight did not foresee, recorded for the morning), `gate-failed` (a ticket's `## Quality Gate` went red), or `wave-exhausted` (the 3-wave budget ran out with N tickets remaining). Never narrate a reason outside this set.
 
@@ -137,6 +149,7 @@ The reflection records **causes**; it is **never a fourth escalation channel** �
 Then the report body:
 
 - Per mission: `checked/total` before → after, its completed/reason (fixed vocabulary above), outcome counts (implemented / failed / blocked) reconciling to its handed queue, commits, gate result when one was declared, and **predicted vs accumulated actual hours** (`predicted_hours` from the mission, `actual_hours` after this run's `record-run-hours.sh`) so the estimate can be judged against reality over time.
+- **PR per completed mission** — the `pr_url` opened this run, or the `pr_error` if creation failed (its own item, never affecting the completion counts or the token).
 - **Escalations left for the developer** — every unanswered judgment call, one line each, never silent. This list is the QA seam `workaholic:development` / `qa-engineering` requires; the looking-through happens here and at each mission's PR.
 - Minted tickets (`deferred`), one line each: what was found, which ticket provoked it, the new filename.
 - Excluded missions and why (`not_authorized` → replan pointer; orphan worktrees).

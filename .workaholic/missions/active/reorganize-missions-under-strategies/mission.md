@@ -46,7 +46,7 @@ Positioning note: this worktree is cut from `main` @ `e22fe89a`; the `work-20260
 - [x] Mission creation/replan resolves a strategy link (propose-or-create, decide-and-record) and `validate-mission.sh` enforces it at the `drive_authorized` floor; this mission itself is linked as the live demo (#20260721025716-link-missions-to-strategies-at-creation.md)
 - [x] Missions record `predicted_hours`/`actual_hours`; prediction derives deterministically from archived-mission trends; `/monitor` accumulates leaf agent-time idempotently (#20260721025717-record-predicted-and-actual-mission-duration.md)
 - [x] `/monitor`'s final report states per-mission completed-as-planned/reasons and appends a dated `## Reflection` entry that the next mission planning reads back (#20260721025718-add-monitor-completion-report-and-reflection.md)
-- [ ] `/monitor` auto-creates the PR for each genuinely complete mission; merge stays `/ship`; terminal-token semantics stay honest (#20260721025719-auto-create-pr-for-completed-missions.md)
+- [x] `/monitor` auto-creates the PR for each genuinely complete mission; merge stays `/ship`; terminal-token semantics stay honest (#20260721025719-auto-create-pr-for-completed-missions.md)
 - [ ] The commit-count KPI is computable by a deterministic script and surfaced in `/catch` (#20260721025720-add-commit-count-kpi-script-and-catch-surface.md)
 - [x] release-scan gains the per-commit changed-lines gate with the generated/bulk exemption (#20260721020759-add-per-commit-changed-lines-gate.md)
 - [ ] The commit → ticket → mission → strategy granularity discipline and the mission/strategy redefinition are documented across the skills and repo docs (#20260721025721-document-granularity-discipline-across-artifacts.md)
@@ -64,3 +64,4 @@ Positioning note: this worktree is cut from `main` @ `e22fe89a`; the `work-20260
 - 2026-07-21 — ticket archived — 20260721025716-link-missions-to-strategies-at-creation.md
 - 2026-07-21 — ticket archived — 20260721025717-record-predicted-and-actual-mission-duration.md
 - 2026-07-21 — ticket archived — 20260721025718-add-monitor-completion-report-and-reflection.md
+- 2026-07-21 — ticket archived — 20260721025719-auto-create-pr-for-completed-missions.md

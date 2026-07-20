@@ -3,9 +3,9 @@ created_at: 2026-07-21T02:57:19+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Domain, Config]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: reorganize-missions-under-strategies
 ---
@@ -71,3 +71,14 @@ Interrogated at mission creation (2026-07-21); verification depth ruling: hermet
 - Story quality overnight is acceptable-by-design: the PR is reviewed in the morning; a weak story is amended then, cheaply (decide-and-record doctrine).
 - Sequential PR creation avoids interleaved `gh` auth/rate issues across many missions; revisit only if morning latency measurably matters (`commands/monitor.md`).
 - If the report flow's context detection (journey vs story) mis-detects inside a mission worktree, scope it explicitly by branch — do not fork the flow (`skills/report/SKILL.md`).
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: No new script was needed — the report flow's `create-or-update.sh` is already non-interactive, so the monitor PR phase reuses the Write Story + create-or-update seam inside a `( cd <worktree_path> && … )` subshell scoped by branch. The only report-side change is a documentation note; forking the flow was avoided.
+  **Context**: `plugins/workaholic/skills/report/scripts/create-or-update.sh` never prompts; interactivity in `/report` is context-detection and concern triage, both bypassed by scoping to the mission worktree's known branch.
+- **Insight**: The PR-phase trigger is exactly `status.sh`'s `complete` flag, already covered by testMonitorStatus — so the hermetic boundary for this ticket is that decision table, and the gh-touching step is exercised the first real night (per the ticket's own gate). A PR failure is deliberately decoupled from the terminal token so `ok` never over-reports.
+  **Context**: `plugins/workaholic/skills/monitor/scripts/status.sh` complete-derivation; monitor SKILL §5 keeps token computation after and independent of the PR phase.

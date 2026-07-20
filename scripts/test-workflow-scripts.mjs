@@ -2880,6 +2880,7 @@ function testMission() {
     assertTrue("mission has type: Mission", /^type:\s*Mission\s*$/m.test(body), body.split("\n").slice(0, 12).join("\n"));
     assertTrue("mission has slug", /^slug:\s*real-time-notifications\s*$/m.test(body));
     assertTrue("mission has status active", /^status:\s*active\s*$/m.test(body));
+    assertTrue("mission scaffold carries an empty strategy: key", /^strategy:\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
     assertTrue("mission reserves empty tickets list", /^tickets:\s*\[\]\s*$/m.test(body));
     for (const sec of ["## Goal", "## Scope", "## Acceptance", "## Changelog"]) {
       assertTrue(`mission has ${sec}`, body.includes(`\n${sec}\n`), sec);
@@ -5383,8 +5384,8 @@ function testValidateMission() {
   try {
     const rel = ".workaholic/missions/active/m-x/mission.md";
     mkdirSync(join(dir, ".workaholic/missions/active/m-x"), { recursive: true });
-    const mission = ({ assignee = "assignee: a@qmu.jp", stamp = "", exp = "", acc = "" } = {}) =>
-      `---\ntype: Mission\ntitle: X\nslug: m-x\nstatus: active\n${assignee}\ndrive_authorized:${stamp}\n---\n\n## Experience\n${exp}\n## Acceptance\n${acc}\n## Changelog\n`;
+    const mission = ({ assignee = "assignee: a@qmu.jp", strategy = "strategy:", stamp = "", exp = "", acc = "" } = {}) =>
+      `---\ntype: Mission\ntitle: X\nslug: m-x\nstatus: active\n${assignee}\n${strategy}\ndrive_authorized:${stamp}\n---\n\n## Experience\n${exp}\n## Acceptance\n${acc}\n## Changelog\n`;
     const invoke = (p = rel) => {
       const payload = JSON.stringify({ tool_input: { file_path: p } });
       try { execSync(`${POSIX_SH} ${HOOK}`, { cwd: dir, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return 0; }
@@ -5403,12 +5404,20 @@ function testValidateMission() {
     writeFileSync(join(dir, rel), mission({ assignee: "title2: no-assignee-key" }));
     assertEq("validate-mission rejects a mission missing the assignee key", invoke(), 2);
 
-    // drive_authorized: true — the full floor.
-    const full = { stamp: " true", exp: "\nUsers see the thing happen.\n", acc: "\n- [ ] One\n" };
+    // An UNSTAMPED scaffold with an empty strategy passes (link resolved later).
+    writeFileSync(join(dir, rel), mission({ strategy: "strategy:" }));
+    assertEq("validate-mission lets an unstamped mission with empty strategy pass", invoke(), 0);
+
+    // drive_authorized: true — the full floor (now includes a non-empty strategy link).
+    const full = { stamp: " true", strategy: "strategy: agent-orchestrated-development", exp: "\nUsers see the thing happen.\n", acc: "\n- [ ] One\n" };
     writeFileSync(join(dir, rel), mission(full));
     assertEq("validate-mission accepts a complete authorized mission", invoke(), 0);
     writeFileSync(join(dir, rel), mission({ ...full, assignee: "assignee:" }));
     assertEq("validate-mission rejects an authorized mission with no owner", invoke(), 2);
+    writeFileSync(join(dir, rel), mission({ ...full, strategy: "strategy:" }));
+    assertEq("validate-mission rejects an authorized mission with no strategy link", invoke(), 2);
+    writeFileSync(join(dir, rel), mission({ ...full, strategy: "strategy: []" }));
+    assertEq("validate-mission rejects an authorized mission with empty-list strategy", invoke(), 2);
     writeFileSync(join(dir, rel), mission({ ...full, exp: "\n<!-- fill me -->\n" }));
     assertEq("validate-mission rejects an authorized mission with comment-only Experience", invoke(), 2);
     writeFileSync(join(dir, rel), mission({ ...full, acc: "\n" }));
@@ -6694,12 +6703,12 @@ function testResolveExportPath() {
 function testMonitorPreflight() {
   const dir = makeRepo("main");
   try {
-    const wtMission = (slug, { stamp = true, acceptance = "- [x] One\n- [ ] Two\n", assignee = "test@example.com" } = {}) => {
+    const wtMission = (slug, { stamp = true, acceptance = "- [x] One\n- [ ] Two\n", assignee = "test@example.com", strategy = "" } = {}) => {
       execSync(`git worktree add -q .worktrees/${slug} -b work-20260718000001-${slug}`, { cwd: dir });
       const d = join(dir, `.worktrees/${slug}/.workaholic/missions/active/${slug}`);
       mkdirSync(d, { recursive: true });
       writeFileSync(join(d, "mission.md"),
-        `---\ntype: Mission\ntitle: ${slug} title\nslug: ${slug}\nstatus: active\nassignee: ${assignee}\ndrive_authorized:${stamp ? " true" : ""}\n---\n\n## Acceptance\n\n${acceptance}\n## Changelog\n`);
+        `---\ntype: Mission\ntitle: ${slug} title\nslug: ${slug}\nstatus: active\nassignee: ${assignee}\nstrategy: ${strategy}\ndrive_authorized:${stamp ? " true" : ""}\n---\n\n## Acceptance\n\n${acceptance}\n## Changelog\n`);
     };
     const mainMission = (slug, { stamp = true, acceptance = "- [ ] One\n", assignee = "test@example.com" } = {}) => {
       const d = join(dir, `.workaholic/missions/active/${slug}`);
@@ -6708,8 +6717,8 @@ function testMonitorPreflight() {
         `---\ntype: Mission\ntitle: ${slug} title\nslug: ${slug}\nstatus: active\nassignee: ${assignee}\ndrive_authorized:${stamp ? " true" : ""}\n---\n\n## Acceptance\n\n${acceptance}\n## Changelog\n`);
     };
 
-    wtMission("alpha");                                          // eligible: stamped, 1/2, own worktree
-    wtMission("beta", { stamp: false });                         // undriveable: never stamped
+    wtMission("alpha", { strategy: "agent-orchestrated-development" }); // eligible: stamped, 1/2, own worktree, linked
+    wtMission("beta", { stamp: false });                         // undriveable: never stamped (and unlinked strategy)
     wtMission("gamma", { acceptance: "" });                      // undriveable: stamped but no plan
     execSync(`git worktree add -q .worktrees/orphan -b work-20260718000099-orphan`, { cwd: dir });
     // .worktrees/orphan holds no mission.md -> reported as an orphan, never guessed at.
@@ -6727,6 +6736,9 @@ function testMonitorPreflight() {
       { c: by.alpha.checked, t: by.alpha.total, next: by.alpha.next }, { c: 1, t: 2, next: "Two" });
     assertTrue("the eligible mission carries its worktree path",
       by.alpha.worktree_path.endsWith(".worktrees/alpha"), by.alpha.worktree_path);
+    assertEq("preflight surfaces the mission's strategy slug", by.alpha.strategy, "agent-orchestrated-development");
+    assertEq("an unlinked mission surfaces an empty strategy (a replan item, not a blocker)",
+      { s: by.beta.strategy, a: by.beta.authorized }, { s: "", a: false });
     assertEq("an unstamped mission is undriveable (not_authorized)",
       { a: by.beta.authorized, reason: by.beta.reason }, { a: false, reason: "not_authorized" });
     assertEq("a stamped mission with an empty Acceptance is undriveable (no_plan)",

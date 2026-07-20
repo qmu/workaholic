@@ -74,6 +74,19 @@ if [ -z "$assignee" ]; then
   exit 2
 fi
 
+# A drive_authorized mission must link the strategy it executes. Every mission is an
+# execution plan of a strategy; the link is resolved during the Creation Interrogation
+# (infer / create / ask), so by the time the mission is stamped authorized it must
+# carry a non-empty strategy:. An unauthorized scaffold may leave it empty (passes),
+# and archive/ is never retro-blocked (handled above).
+strategy=$(printf '%s\n' "$frontmatter" | grep -m1 '^strategy:' | sed -e 's/^strategy:[ \t]*//' -e 's/[ \t]*$//' -e 's/^\[//' -e 's/\]$//' -e 's/^[ \t]*//' -e 's/[ \t]*$//' || true)
+if [ -z "$strategy" ]; then
+  echo "Error: a drive_authorized mission must link a strategy (strategy: <slug>) — every mission executes one; resolve it in the Creation Interrogation" >&2
+  echo "Got: $file_path" >&2
+  print_skill_reference
+  exit 2
+fi
+
 # ## Experience must have non-comment content (HTML-comment-only is scaffold).
 if ! printf '%s\n' "$content" | awk '
     /^## /   { in_s = ($0 ~ /^##[ \t]+Experience[ \t]*$/); next }

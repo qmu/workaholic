@@ -3,9 +3,9 @@ created_at: 2026-07-21T02:57:21+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on: [20260721025715-add-strategy-artifact-and-skill.md, 20260721025716-link-missions-to-strategies-at-creation.md]
 mission: reorganize-missions-under-strategies
 ---
@@ -71,3 +71,14 @@ Interrogated at mission creation (2026-07-21); verification depth ruling: hermet
 - This is the last ticket in dependency order on purpose: it documents what the others built; writing it first would document intentions (`depends_on`).
 - Do not edit the qmu.co.jp policy hard copies under `skills/<pillar>/policies/` — the granularity rule is repo doctrine, not a corporate policy rewrite (mission Scope).
 - The `work-20260719-075112` merge will touch overlapping prose (monitor/mission rows); surgical, definition-scoped edits minimize the conflict surface (Implementation Step 2).
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: After the sweep, every remaining `long-lived`/`durable`/`epic` hit in the mission skill and command is legitimate: strategy carrying the longevity language, the redefinition-record's "Old meaning" context, or the explicit "mission is NOT long-lived" framing. No live definitional use of the old meaning survives — the acceptance grep passes by construction, not by deletion.
+  **Context**: `plugins/workaholic/skills/mission/SKILL.md` Granularity + redefinition record is the single home; strategy/create-ticket/commit link rather than restate.
+- **Insight**: The four-layer table places the normalizer of each level in its own column (commit → release-scan gate; ticket → its Quality Gate; mission → the Creation Interrogation; strategy → none), which makes the both-ways balance test concrete: over-writing is restating a lower level's detail, under-sizing is a ticket that restates its mission.
+  **Context**: mission SKILL Granularity section.

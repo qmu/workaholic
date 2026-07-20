@@ -1,6 +1,6 @@
 ---
 name: mission
-description: Create a mission (a durable, information-rich goal spanning many tickets), list existing missions with computed progress, or close one (achieved/abandoned) into the archive area.
+description: Create a mission (the overnight-executable execution plan of a strategy — a bounded, information-rich batch of tickets), list existing missions with computed progress, or close one (achieved/abandoned) into the archive area.
 skills:
   - workaholic:mission
   - workaholic:gather
@@ -15,7 +15,7 @@ skills:
 
 **Plugin boundary — do not spelunk:** The skills this command needs are already loaded via its `skills:` frontmatter and resolved through `${CLAUDE_PLUGIN_ROOT}`. Invoke them by their loaded namespace (`workaholic:`); never search the filesystem for skill content, never read or run anything under `~/.claude/plugins/marketplaces/` or any other global install, and never guess a namespace — `drivin`, `trippin`, `core`, `standards`, and `work` are obsolete names long since merged into the single `workaholic` plugin. If a skill you expect is missing, ask the user which plugins are loaded; do not hunt for it on disk.
 
-This command (main agent) runs the preloaded `workaholic:mission` skill. A **mission** is a first-class knowledge artifact: a long-lived, information-rich goal that spans many tickets, drives, reports, and PRs — distinct from a `trip` (a short design/build session) and from a generic "epic/milestone" (see the skill's opening section). It lives at `.workaholic/missions/active/<slug>/mission.md` while in progress, and moves to `.workaholic/missions/archive/<slug>/mission.md` when ended (see the skill's Allowed Location section).
+This command (main agent) runs the preloaded `workaholic:mission` skill. A **mission** is a first-class knowledge artifact: the **overnight-executable execution plan of a strategy** — a bounded, information-rich batch of tickets an agent fleet drives in a night — distinct from a `strategy` (the long-lived direction it executes), a `trip` (a short design/build session), and a generic "epic/milestone" (see the skill's opening section and its **Granularity** record). It lives at `.workaholic/missions/active/<slug>/mission.md` while in progress, and moves to `.workaholic/missions/archive/<slug>/mission.md` when ended (see the skill's Allowed Location section).
 
 `$ARGUMENT` selects the mode — by **content**, not by subcommand (`workaholic:design` / `modeless-design`: the argument's meaning routes the flow, mirroring `/report`/`/ship` context-awareness). Match `summary` **first** (before the title branch, so the literal word `summary` reports rather than becoming a mission title), then the `close` and empty branches. Any other non-empty argument is judged against the existing missions (see *Referencing an existing mission*, below): a clear reference to an active mission routes to the **replan flow**, an ambiguous argument is **asked**, and an argument referencing nothing is a **title** for the create flow.
 

@@ -162,6 +162,8 @@ Based on the history discovery subagent's `moderation` field:
 - **Keep single when**: tightly coupled, shared context, small enough for one commit.
 - If splitting: 2-4 discrete tickets, each independently implementable.
 
+**Granularity note.** A ticket answers *what is this one change*; if a ticket you are about to write would essentially restate its **mission's** statement, that is the signal the mission is **under-sized** (a mission must be bigger than any one ticket) — surface that at creation rather than writing the duplicate. The full commit → ticket → mission → strategy discipline and its both-ways balance test live in `mission`'s **Granularity** section; do not restate it here.
+
 ### 4b. Quality Gate Interrogation (mandatory — always run)
 
 Before writing the ticket, **interrogate the developer about how the outcome's quality will be assured**, and record the answers as the ticket's mandatory `## Quality Gate` section. This step **always runs** — it is not skippable and is not gated on the request "seeming obvious." The point is to make the eventual `/drive` approval concrete: the developer should approve the implementation against a gate they pre-agreed, not a vague description.

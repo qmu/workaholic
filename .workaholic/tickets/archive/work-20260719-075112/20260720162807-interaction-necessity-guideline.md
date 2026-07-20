@@ -3,9 +3,9 @@ created_at: 2026-07-20T16:28:07+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 0.5h
 commit_hash:
-category:
+category: Added
 depends_on:
 mission:
 ---
@@ -49,3 +49,28 @@ The change is **policy-only — no new hook.** Whether a question is *necessary*
 - **This ticket is itself an instance of the rule.** It was written without a clarifying prompt because the placement (a `rules/` file), the policy-only scope, and the test's wording were all derivable — exactly the act-and-report default the rule prescribes.
 - **Necessity is not machine-checkable**, so resist any later urge to "enforce" it with a hook that inspects prompt text; that would re-create the matcher-for-a-judgement mistake `/request`'s masking warns against. The control is the rule plus the model's judgement.
 - **Do not over-correct into never asking.** The rule narrows *what* qualifies as a prompt; it does not remove the genuine forks (a real design decision, an irreversible action, an unsignalled preference among diverging options). Under-asking on those is as wrong as over-asking on the rest — pair this with the existing "push genuine decisions, don't stall" guidance.
+
+## Final Report
+
+Development completed as planned, with one scope refinement. Added always-loaded
+`plugins/workaholic/rules/interaction.md` (the three-part necessity test + act-and-report
+default + don't-under-ask guard + the "necessity is judgement, not a hook" point),
+cross-referenced it from `create-ticket` §4b's "ask decisions, derive the rest" anti-pattern
+(its QA-specific instance), and added it to CLAUDE.md's rules inventory plus a short pointer
+in the AskUserQuestion section. No hook was added or changed. Also folded in a disclosed
+doc-truthfulness correction: CLAUDE.md still described `guard-working-directory.sh` as
+"non-blocking" after the prior ticket's opt-in blocking mode.
+
+### Discovered Insights
+
+- **Insight**: Step 2 named seven command files to cross-reference, but the rule is
+  `paths: ['**/*']` (always loaded) and CLAUDE.md's AskUserQuestion section is the central
+  interaction-doc hub, so the cross-references were consolidated into `create-ticket` §4b +
+  the CLAUDE.md pointer rather than sprayed as seven identical one-liners.
+  **Context**: Spraying redundant one-liners is exactly the noise the new rule discourages —
+  the implementation was scoped by its own principle (act-and-report; consolidate the
+  derivable), and the choice was surfaced at the approval gate rather than asked.
+- **Insight**: `create-ticket` is built into `outputs/workflows`, so its §4b edit required a
+  `build.mjs` rebuild; the rule file and CLAUDE.md are not built.
+  **Context**: A prose edit to a *built* skill still needs the outputs-freshness rebuild —
+  easy to miss for a one-line cross-reference.

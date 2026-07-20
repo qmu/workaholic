@@ -47,7 +47,7 @@ Positioning note: this worktree is cut from `main` @ `e22fe89a`; the `work-20260
 - [x] Missions record `predicted_hours`/`actual_hours`; prediction derives deterministically from archived-mission trends; `/monitor` accumulates leaf agent-time idempotently (#20260721025717-record-predicted-and-actual-mission-duration.md)
 - [x] `/monitor`'s final report states per-mission completed-as-planned/reasons and appends a dated `## Reflection` entry that the next mission planning reads back (#20260721025718-add-monitor-completion-report-and-reflection.md)
 - [x] `/monitor` auto-creates the PR for each genuinely complete mission; merge stays `/ship`; terminal-token semantics stay honest (#20260721025719-auto-create-pr-for-completed-missions.md)
-- [ ] The commit-count KPI is computable by a deterministic script and surfaced in `/catch` (#20260721025720-add-commit-count-kpi-script-and-catch-surface.md)
+- [x] The commit-count KPI is computable by a deterministic script and surfaced in `/catch` (#20260721025720-add-commit-count-kpi-script-and-catch-surface.md)
 - [x] release-scan gains the per-commit changed-lines gate with the generated/bulk exemption (#20260721020759-add-per-commit-changed-lines-gate.md)
 - [ ] The commit → ticket → mission → strategy granularity discipline and the mission/strategy redefinition are documented across the skills and repo docs (#20260721025721-document-granularity-discipline-across-artifacts.md)
 - [ ] The interrogation protocols ask only unrecommendable questions — anything with a recommendable option is decided and recorded in the artifact instead of asked (#20260721025722-raise-ask-bar-decide-and-record.md)
@@ -65,3 +65,4 @@ Positioning note: this worktree is cut from `main` @ `e22fe89a`; the `work-20260
 - 2026-07-21 — ticket archived — 20260721025717-record-predicted-and-actual-mission-duration.md
 - 2026-07-21 — ticket archived — 20260721025718-add-monitor-completion-report-and-reflection.md
 - 2026-07-21 — ticket archived — 20260721025719-auto-create-pr-for-completed-missions.md
+- 2026-07-21 — ticket archived — 20260721025720-add-commit-count-kpi-script-and-catch-surface.md

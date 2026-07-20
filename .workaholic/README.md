@@ -24,6 +24,10 @@ This is the working artifacts hub for the `workaholic` plugin. The tree is an [O
 
 For the full per-artifact lifecycle (who writes it, when, and how it survives or is eliminated through the ship process), see the **Artifacts under `.workaholic/`** section of the [root README](../README.md).
 
+## Orchestration Throughput KPI
+
+`/catch` surfaces a commit-count **orchestration-throughput KPI** (`gather/scripts/commit-kpi.sh`), derived from git history on demand — there is no stored metrics file. It measures how well a fleet of coding agents is orchestrated and kept running (agent-authored commit count and share, median/p90 changed lines, and how many commits exceed the per-commit granularity cap), **not** any person's output. The commit is a comparable unit only because the release-scan changed-lines gate normalizes per-commit size. Two guards are part of the definition: quota consumed only to raise the number is worthless (`development/weekly-quota`), and history is never reshaped to improve it — no squash/rebase grooming (`development/commit-change-history`).
+
 ## Design Policy
 
 ### Cultivating Semantics

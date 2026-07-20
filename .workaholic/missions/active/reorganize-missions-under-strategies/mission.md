@@ -41,7 +41,7 @@ Positioning note: this worktree is cut from `main` @ `e22fe89a`; the `work-20260
 
 ## Acceptance
 
-- [ ] A strategy artifact (`type: Strategy`, active/archive areas, create/list/reader scripts, OKF-indexed) exists as an internal skill (#20260721025715-add-strategy-artifact-and-skill.md)
+- [x] A strategy artifact (`type: Strategy`, active/archive areas, create/list/reader scripts, OKF-indexed) exists as an internal skill (#20260721025715-add-strategy-artifact-and-skill.md)
 - [ ] Mission creation/replan resolves a strategy link (propose-or-create, decide-and-record) and `validate-mission.sh` enforces it at the `drive_authorized` floor; this mission itself is linked as the live demo (#20260721025716-link-missions-to-strategies-at-creation.md)
 - [ ] Missions record `predicted_hours`/`actual_hours`; prediction derives deterministically from archived-mission trends; `/monitor` accumulates leaf agent-time idempotently (#20260721025717-record-predicted-and-actual-mission-duration.md)
 - [ ] `/monitor`'s final report states per-mission completed-as-planned/reasons and appends a dated `## Reflection` entry that the next mission planning reads back (#20260721025718-add-monitor-completion-report-and-reflection.md)
@@ -58,3 +58,4 @@ Positioning note: this worktree is cut from `main` @ `e22fe89a`; the `work-20260
 - 2026-07-21 — ticket added — 20260721020759-add-per-commit-changed-lines-gate.md
 - 2026-07-21 — duration predicted (hand estimate 8h, archive basis 0) — mission.md
 - 2026-07-21 — ticket archived — 20260721020759-add-per-commit-changed-lines-gate.md
+- 2026-07-21 — ticket archived — 20260721025715-add-strategy-artifact-and-skill.md

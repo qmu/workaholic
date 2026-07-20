@@ -93,6 +93,10 @@ const SCRIPTS = {
   checkSubject: join(REPO_ROOT, "plugins/workaholic/hooks/lib/check-subject.sh"),
   commitMsgHook: join(REPO_ROOT, "plugins/workaholic/hooks/git/commit-msg"),
   installGitHooks: join(REPO_ROOT, "plugins/workaholic/hooks/install-git-hooks.sh"),
+  strategyCreate: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/create.sh"),
+  strategyList: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/list.sh"),
+  strategyReadRelation: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/read-strategy-relation.sh"),
+  strategyRetire: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/retire.sh"),
 };
 
 // rules/shell.md mandates POSIX sh. Exercise the scripts under the strictest
@@ -2735,6 +2739,86 @@ function testReleaseScanGateDecision() {
     execSync(`git add -A && git commit -q -m x`, { cwd: dir });
     const e2e = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanBranchSafety} main | ${POSIX_SH} ${SCRIPTS.gateDecision}`).stdout);
     assertEq("scan | gate-decision on a real secret -> non-overridable block", { decision: e2e.decision, overridable: e2e.overridable }, { decision: "block", overridable: false });
+  } finally { cleanup(dir); }
+}
+
+// ---------- strategy: artifact + skill (create/list/reader/retire/index) ----------
+function testStrategyArtifact() {
+  const dir = makeRepo("main");
+  try {
+    // create.sh scaffolds a conformant strategy.md in active/, deriving the slug.
+    let r = run(dir, `${POSIX_SH} ${SCRIPTS.strategyCreate} "Agent Orchestrated Development"`);
+    assertEq("strategy create exits 0", r.status, 0);
+    const created = JSON.parse(r.stdout);
+    assertEq("strategy create slug", created.slug, "agent-orchestrated-development");
+    assertEq("strategy create flag", created.created, true);
+    const spath = join(dir, ".workaholic/strategies/active/agent-orchestrated-development/strategy.md");
+    assertTrue("strategy.md written into active/", existsSync(spath), created.path);
+    const body = readFileSync(spath, "utf8");
+    assertTrue("strategy has type: Strategy", /^type:\s*Strategy\s*$/m.test(body), body.split("\n").slice(0, 10).join("\n"));
+    assertTrue("strategy has status active", /^status:\s*active\s*$/m.test(body));
+    assertTrue("strategy has ## Direction", body.includes("\n## Direction\n"));
+    assertTrue("strategy has ## Changelog", body.includes("\n## Changelog\n"));
+    assertTrue("strategy has NO acceptance/worktree machinery",
+      !/^drive_authorized:/m.test(body) && !/^assignee:/m.test(body) && !body.includes("## Acceptance"), body);
+
+    // create.sh refuses an existing slug (either area).
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.strategyCreate} "Agent Orchestrated Development"`);
+    assertEq("strategy create refuses duplicate", JSON.parse(r.stdout).created, false);
+
+    // A second strategy so list ordering is exercised.
+    run(dir, `${POSIX_SH} ${SCRIPTS.strategyCreate} "Zebra Direction"`);
+
+    // Missions linking to strategies via the `strategy:` relation.
+    const mkMission = (slug, strategyLine) => {
+      const md = join(dir, `.workaholic/missions/active/${slug}/mission.md`);
+      mkdirSync(dirname(md), { recursive: true });
+      writeFileSync(md, `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\n${strategyLine}\n---\n\n# ${slug}\n`);
+    };
+    mkMission("mission-a", "strategy: agent-orchestrated-development");
+    mkMission("mission-b", "strategy: [agent-orchestrated-development]");   // list form
+    mkMission("mission-c", "strategy: zebra-direction");
+    mkMission("mission-d", "strategy:");                                    // unlinked
+
+    // read-strategy-relation.sh: bare, list, absent, no-frontmatter.
+    const rel = (slug) => run(dir, `${POSIX_SH} ${SCRIPTS.strategyReadRelation} .workaholic/missions/active/${slug}/mission.md`).stdout.trim();
+    assertEq("reader: bare scalar", rel("mission-a"), "agent-orchestrated-development");
+    assertEq("reader: inline list", rel("mission-b"), "agent-orchestrated-development");
+    assertEq("reader: absent value -> nothing", rel("mission-d"), "");
+    writeFileSync(join(dir, "nofm.md"), "no frontmatter here\nstrategy: x\n");
+    assertEq("reader: no frontmatter -> nothing",
+      run(dir, `${POSIX_SH} ${SCRIPTS.strategyReadRelation} nofm.md`).stdout.trim(), "");
+
+    // list.sh: both strategies, computed missions rollup, sorted.
+    const list = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyList}`).stdout);
+    assertEq("list reports both strategies", list.map((s) => s.slug), ["agent-orchestrated-development", "zebra-direction"]);
+    const aod = list.find((s) => s.slug === "agent-orchestrated-development");
+    assertEq("rollup computes missions for the strategy", aod.missions.sort(), ["mission-a", "mission-b"]);
+    assertEq("zebra rollup has its one mission", list.find((s) => s.slug === "zebra-direction").missions, ["mission-c"]);
+
+    // OKF index: strategies/index.md with area section; bundle root links strategies.
+    assertTrue("strategies index written", existsSync(join(dir, ".workaholic/strategies/index.md")));
+    assertTrue("strategies index has ## active",
+      readFileSync(join(dir, ".workaholic/strategies/index.md"), "utf8").includes("\n## active\n"));
+    assertTrue("bundle root links strategies",
+      readFileSync(join(dir, ".workaholic/index.md"), "utf8").includes("(strategies/index.md)"));
+
+    // retire.sh: moves to archive/, flips status, idempotent re-retire.
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.strategyRetire} zebra-direction 2026-07-21`);
+    assertEq("retire exits 0", r.status, 0);
+    const retired = JSON.parse(r.stdout);
+    assertEq("retire flag", retired.retired, true);
+    assertTrue("strategy moved to archive/",
+      existsSync(join(dir, ".workaholic/strategies/archive/zebra-direction/strategy.md")));
+    const arch = readFileSync(join(dir, ".workaholic/strategies/archive/zebra-direction/strategy.md"), "utf8");
+    assertTrue("retired status flipped", /^status:\s*retired\s*$/m.test(arch), arch);
+    assertTrue("retire appended a changelog line", /- 2026-07-21 .* strategy retired/.test(arch), arch);
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.strategyRetire} zebra-direction 2026-07-21`);
+    assertEq("re-retire is idempotent no-op", JSON.parse(r.stdout).retired, false);
+
+    // retired strategy still lists (archive area) with its computed rollup.
+    const list2 = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyList}`).stdout);
+    assertEq("retired strategy still enumerated", list2.find((s) => s.slug === "zebra-direction").status, "retired");
   } finally { cleanup(dir); }
 }
 
@@ -6835,6 +6919,7 @@ const tests = [
   ["release-scan secret value inversion", testReleaseScanSecretValueInversion],
   ["release-scan allowlist", testReleaseScanAllowlist],
   ["release-scan gate decision", testReleaseScanGateDecision],
+  ["strategy artifact + skill (create/list/reader/retire/index)", testStrategyArtifact],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission describes experience, gate is optional", testMissionExperienceSection],

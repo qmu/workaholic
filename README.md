@@ -152,6 +152,138 @@ The tree is also an [Open Knowledge Format](https://github.com/GoogleCloudPlatfo
 | `specs/*.md` | manual (hand-edited reference) | Current-state documentation of how things work today | committed | n/a — not branch-scoped | superseded when manually rewritten |
 | `guides/*.md` `policies/*.md` `terms/*.md` | manual | Persistent reference material (user docs, policies, glossary) | committed | n/a | superseded when manually rewritten |
 
+### The full command ⇄ artifact map
+
+Every command in the plugin communicates with the others **only through the documents it writes to `.workaholic/`** — no command calls another directly. A command *generates* an artifact (solid `-->`, "writes") that a later command *reads* (dashed `..>`, "reads"); that shared file is the entire interface. The object diagram below covers all fourteen commands and every generated artifact, so the whole web of who-writes-what and who-reads-it is visible at once. Each box is typed by its **stereotype** — `«command»`, `«artifact»` (a document under `.workaholic/`), or `«external»` (an output that lands outside it) — so the two kinds of node are told apart at a glance. The linear diagram in the next section is the happy-path slice of this same graph.
+
+```mermaid
+classDiagram
+  direction LR
+
+  %% ---------- commands (stereotype «command») ----------
+  class ticket["/ticket"]
+  class request["/request"]
+  class mission["/mission"]
+  class monitor["/monitor"]
+  class trip["/trip"]
+  class carry["/carry"]
+  class drive["/drive"]
+  class report["/report"]
+  class ship["/ship"]
+  class catch["/catch"]
+  class commit["/commit"]
+  class explain["/explain"]
+  class release["/release"]
+  class workaholify["/workaholify"]
+  <<command>> ticket
+  <<command>> request
+  <<command>> mission
+  <<command>> monitor
+  <<command>> trip
+  <<command>> carry
+  <<command>> drive
+  <<command>> report
+  <<command>> ship
+  <<command>> catch
+  <<command>> commit
+  <<command>> explain
+  <<command>> release
+  <<command>> workaholify
+
+  %% ---------- artifacts under .workaholic/ (stereotype «artifact») ----------
+  class todo["tickets/todo/"]
+  class icebox["tickets/icebox/"]
+  class archive["tickets/archive/"]
+  class abandoned["tickets/abandoned/"]
+  class missions["missions/active + archive/"]
+  class trips["trips/"]
+  class stories["stories/"]
+  class concerns["concerns/"]
+  class relnotes["release-notes/"]
+  class deployments["deployments/"]
+  <<artifact>> todo
+  <<artifact>> icebox
+  <<artifact>> archive
+  <<artifact>> abandoned
+  <<artifact>> missions
+  <<artifact>> trips
+  <<artifact>> stories
+  <<artifact>> concerns
+  <<artifact>> relnotes
+  <<artifact>> deployments
+
+  %% ---------- outputs outside .workaholic/ (stereotype «external») ----------
+  class extrepo["ticket in ANOTHER repo"]
+  class pdf["PDF report"]
+  class versionfiles["version files"]
+  class worktree["git commit"]
+  class config["CLAUDE.md + hooks"]
+  <<external>> extrepo
+  <<external>> pdf
+  <<external>> versionfiles
+  <<external>> worktree
+  <<external>> config
+
+  %% ========== generation: solid --> = writes ==========
+  ticket --> todo : writes
+  ticket --> icebox : writes
+  request --> extrepo : writes
+  mission --> missions : writes
+  mission --> todo : writes
+  trip --> trips : writes
+  trip --> todo : writes
+  trip --> archive : writes
+  carry --> todo : writes
+  carry --> trips : writes
+  drive --> archive : writes
+  drive --> abandoned : writes
+  drive --> todo : writes
+  monitor --> archive : writes
+  report --> stories : writes
+  report --> concerns : writes
+  ship --> relnotes : writes
+  ship --> concerns : writes
+  ship --> deployments : writes
+  commit --> worktree : writes
+  explain --> pdf : writes
+  release --> versionfiles : writes
+  workaholify --> config : writes
+
+  %% ========== reference: dashed ..> = reads / rolls ==========
+  drive ..> todo : reads
+  monitor ..> missions : reads, rolls
+  monitor ..> todo : reads
+  report ..> archive : reads
+  report ..> concerns : reads
+  ship ..> stories : reads
+  ship ..> todo : reads
+  carry ..> todo : reads
+  carry ..> missions : reads
+  carry ..> trips : reads
+  mission ..> missions : reads
+  trip ..> todo : reads
+  catch ..> archive : reads
+  catch ..> stories : reads
+  catch ..> missions : reads
+  catch ..> deployments : reads
+  explain ..> archive : reads
+  drive ..> missions : rolls
+  report ..> missions : rolls
+  ship ..> missions : rolls
+
+  %% ========== the one living loop: concerns cross PRs ==========
+  concerns ..> report : re-read each cycle
+```
+
+Reading the map:
+
+- **Solid arrow** (`-->`, "writes") = the command *generates* that artifact. **Dashed arrow** (`..>`, "reads") = the command *reads / refers to* it. `rolls` = the command updates a named mission's `## Changelog` and `## Acceptance` checklist (via the `mission:` relation any ticket/story/concern carries).
+- **The stereotype tells the kind apart.** `«command»` boxes are the fourteen commands; `«artifact»` boxes are the documents under `.workaholic/`; `«external»` boxes are the outputs that land *outside* it (a cross-repo ticket via `/request`, a printed PDF via `/explain`, marketplace version files via `/release`, a plain working-tree commit via `/commit`, and repo wiring via `/workaholify`).
+- **`/mission` and `/monitor` are first-class here.** `/mission` writes `missions/…` and the kickoff/delta tickets into `tickets/todo/`; `/monitor` reads the mission set and each worktree's `todo/`, drains them to `tickets/archive/`, and rolls each mission it advances — the parallel-missions counterpart to `/drive`.
+- **The ticket is the spine.** `/ticket`, `/mission`, `/trip`, and `/carry` all *fill* `tickets/todo/`; `/drive`, `/monitor`, and `/trip` all *drain* it to `tickets/archive/` (`/monitor` and `/trip` reuse `/drive`'s archive path). Everything downstream reads the archive.
+- **`concerns/` is the only loop.** `/ship` extracts a shipped story's open concerns into `concerns/`; the *next* `/report` re-reads them, judges each, and either carries it into the new story or archives it resolved. Every other artifact is written once and becomes permanent history.
+- **Not shown** (to keep the graph legible): `specs/`, `guides/`, `policies/`, `terms/` are hand-maintained reference material, not command-generated; and the OKF `index.md` hierarchy is regenerated automatically by the same commit seams (`/drive`, `/report`, `/ship`) whenever they write knowledge, not by a command of its own.
+
 ### When, Where, and How Changes Occur
 
 The branch lifecycle traverses these artifacts in a fixed order:

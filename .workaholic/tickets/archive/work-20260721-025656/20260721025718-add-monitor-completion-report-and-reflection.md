@@ -3,9 +3,9 @@ created_at: 2026-07-21T02:57:18+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Domain, Config]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Added
 depends_on:
 mission: reorganize-missions-under-strategies
 ---
@@ -77,3 +77,14 @@ Interrogated at mission creation (2026-07-21); verification depth ruling: hermet
 - Reflection must never become a fourth escalation channel: it records causes, the escalation list records pending decisions; do not blur them (`skills/monitor/SKILL.md` §5).
 - Bound `list-reflections.sh` (e.g. latest N entries) so the interrogation read-back stays cheap as archives grow.
 - An interrupted run that never reaches §5 writes no reflection — acceptable; `/carry`'s mission-monitor context already captures mid-run state, and the next completed run reflects over its own evidence.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: `## Reflection` is naturally outside `progress.sh`/`next-acceptance.sh` scope because any `## ` heading ends the `## Acceptance` section — so a `- [ ]`-shaped decoy inside a reflection bullet never counts. No guard code was needed; the existing section-scoping already isolates it, and a test now pins that.
+  **Context**: `plugins/workaholic/skills/mission/scripts/progress.sh` scopes to `## Acceptance`; the reflection test asserts a checklist-shaped reflection line leaves 1/2 progress and next-acceptance unchanged.
+- **Insight**: The two open monitor concerns were re-judged and both **re-deferred**, not resolved: reflection records *causes* and feeds the next interrogation, but the ticket's own doctrine forbids blurring that with the escalation list's *pending decisions* — so cross-run deferral memory (concern monitor-s-decision-loop) stays open, and the dev-environment lifecycle test gap (concern monitor-s-dev-environment-lifecycle) is untouched by this ticket.
+  **Context**: `.workaholic/concerns/monitor-s-decision-loop-has-no.md` and `.workaholic/concerns/monitor-s-dev-environment-lifecycle-has.md` carry dated re-judgment notes.

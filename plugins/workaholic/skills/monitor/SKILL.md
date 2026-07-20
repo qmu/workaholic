@@ -120,9 +120,23 @@ Leaves run in isolated worktrees off `main` and cannot see each other's uncommit
 
 ## 5. The final report (the deliverable)
 
-Always emitted, terminal or not — the morning-review artifact (`workaholic:implementation` / `observability`):
+Always emitted, terminal or not — the morning-review artifact (`workaholic:implementation` / `observability`). After the reconciliation line is computed, and before the terminal token, do two things **per driven mission**:
 
-- Per mission: `checked/total` before → after, outcome counts (implemented / failed / blocked) reconciling to its handed queue, commits, gate result when one was declared, and **predicted vs accumulated actual hours** (`predicted_hours` from the mission, `actual_hours` after this run's `record-run-hours.sh`) so the estimate can be judged against reality over time.
+**(1) State completed-as-planned, or the categorized reason it was not.** Derive it from `status.sh` + the leaf reports, using the **fixed reason vocabulary**: `complete` (achieved as planned), `escalation-blocked` (every remaining item waits on a deferred decision — name the blocking decision), `deferred` (a mid-run item the pre-flight did not foresee, recorded for the morning), `gate-failed` (a ticket's `## Quality Gate` went red), or `wave-exhausted` (the 3-wave budget ran out with N tickets remaining). Never narrate a reason outside this set.
+
+**(2) Write a recorded reflection.** Compose the three bullets from the run's **own evidence** (leaf reports, the deferred-escalation list, `status.sh`) and write them via `append-reflection.sh` — the model composes the prose, the script owns placement and idempotency:
+
+```bash
+printf '%s' "- blocked: <what stopped autonomy, or none>
+- leaked questions: <judgment calls that surfaced mid-run, or none>
+- front-load next: <what the next planning should pre-answer>" | bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/append-reflection.sh "<slug>" "<run-id>" "<date>"
+```
+
+The reflection records **causes**; it is **never a fourth escalation channel** — pending decisions stay on the escalation list below, causes go here, and the two must not blur. The terminal-token computation is untouched and emitted **after** this, so a reflection never softens the `ok`/`pending` result.
+
+Then the report body:
+
+- Per mission: `checked/total` before → after, its completed/reason (fixed vocabulary above), outcome counts (implemented / failed / blocked) reconciling to its handed queue, commits, gate result when one was declared, and **predicted vs accumulated actual hours** (`predicted_hours` from the mission, `actual_hours` after this run's `record-run-hours.sh`) so the estimate can be judged against reality over time.
 - **Escalations left for the developer** — every unanswered judgment call, one line each, never silent. This list is the QA seam `workaholic:development` / `qa-engineering` requires; the looking-through happens here and at each mission's PR.
 - Minted tickets (`deferred`), one line each: what was found, which ticket provoked it, the new filename.
 - Excluded missions and why (`not_authorized` → replan pointer; orphan worktrees).

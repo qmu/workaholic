@@ -38,6 +38,8 @@ Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/monitor/scripts/preflight.sh` and present
 
 **Unattended invocation** (the run arrives from a caller-side loop such as `/goal /monitor ok`, or the invocation contains "night"): the invocation is the authorization — log the pre-flight instead of prompting, drive only already-assigned eligible missions, and never claim unassigned work.
 
+**Mint the run-id here (skill §1):** a single branch-safe timestamp for the whole invocation, reused across every wave. It is the idempotency key for the agent-hours accumulation (Step 2).
+
 ### Step 2: Fan-out (skill §2)
 
 Spawn one `general-purpose` leaf per confirmed mission **in a single message, in the background**, each with the skill's §2 prompt: preload `workaholic:drive`, work only in `( cd <worktree_path> && … )`, prioritize inline, consult `drive-authorized.sh` per ticket, inherit Night Mode §3/§5 (attempt-first, closed outcomes, mint `deferred` tickets, safety floor), return the §2 JSON report. **A mission flagged for replan at pre-flight:** its leaf applies the collected rulings in its own worktree first — emit the delta tickets, write `## Experience`/`## Goal`/`## Scope`, stamp `drive_authorized` through the mission skill's mutators, commit — and only then drives (skill §2).
@@ -48,10 +50,12 @@ Spawn one `general-purpose` leaf per confirmed mission **in a single message, in
 
 **Boot the dev environments at dispatch** (skill §2): for each driven mission, start the project's declared dev/start command in the background inside `( cd <worktree_path> && … )` on the worktree's allocated ports (`.env` port base; the ports `gate.sh` reports), so leaves and declared gates run against a live environment. Skip silently when the project declares no dev command; at the terminal state stop whatever this run itself started and note it in the final report.
 
+**Accumulate agent-hours (skill §2):** note each leaf's dispatch and completion timestamps; when a mission reaches its terminal classification, record its summed leaf wall-clock **once** with `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/record-run-hours.sh "<slug>" "<hours>" "<run-id>"` (idempotent per run-id, the only writer of `actual_hours`).
+
 ### Step 3: Loop until terminal (skill §3)
 
 After each wave, run `status.sh` per mission and classify: complete (gate included when declared) / still driveable / escalation-blocked. Interactive: ask each escalation as **its own** labeled `AskUserQuestion`, one decision at a time — never one summary prompt, never a report in place of the questions; only an explicit "defer" moves an item to escalation-blocked. Unattended: record them. Re-drive driveable missions — at most 3 waves per invocation, and stop early on a zero-archive wave. Plan-changing answers route through `/mission` replan, never ad-hoc edits. An interactive run never emits `ok` over a decision it did not ask (skill §3).
 
 ### Step 4: Final report (skill §5)
 
-Emit the report — per-mission progress deltas and reconciled outcome counts, the escalation list (never silent), minted tickets, exclusions, stashes — and end with the terminal token on its own final line: `ok` (terminal state reached) or `pending` (work remains for the next invocation). PRs for finished missions are the developer's next step via `/report` / `/ship`, per mission worktree.
+Emit the report — per-mission progress deltas and reconciled outcome counts, **predicted vs accumulated actual hours** per mission (skill §5), the escalation list (never silent), minted tickets, exclusions, stashes — and end with the terminal token on its own final line: `ok` (terminal state reached) or `pending` (work remains for the next invocation). PRs for finished missions are the developer's next step via `/report` / `/ship`, per mission worktree.

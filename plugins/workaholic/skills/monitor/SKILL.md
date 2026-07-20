@@ -47,6 +47,8 @@ Present the review to the developer — this is the roadmap conversation, and it
 
 Confirm with **one** `AskUserQuestion` (the command issues it, body prefixed `[<project label>]`): which eligible missions to drive (multiSelect; unassigned ones labeled as claim-and-drive). The confirmation is the batch authorization for this run — the same shape as `/drive night`'s §1: approval is **relocated to here**, not removed. In an unattended invocation (a caller-side loop such as `/goal /monitor ok` where nobody can answer, or a "night" token), print the pre-flight content into the run log instead of prompting, and drive only missions that are already assigned to the current developer and eligible — an unattended run never claims unassigned work.
 
+**Mint the run-id once, here.** The run has a single **run-id** — a branch-safe timestamp (e.g. `20260721-034500`) minted at pre-flight and reused for the whole invocation across every wave. It is the idempotency key for `record-run-hours.sh` (§2/§3): accumulating a mission's agent-hours is keyed on `(mission, run-id)`, so a mission driven across several waves of the same invocation records its time exactly once, and a crash-recovery re-run of the same invocation adds nothing.
+
 **Blockers become decisions — push them one by one; never stop at describing them.** In an interactive session, a pre-flight that finds nothing drivable is the **start** of the run, not its end: "nothing to do until you decide" is exactly the answer the developer rejected on first use ("don't just get enough by saying it, push me work for it"). Convert every blocker into its own `AskUserQuestion`, asked **one decision at a time**, and proceed with whatever each answer unlocks:
 
 - **No missions at all** → offer to start a `/mission` creation interrogation now (the answer routes into that flow), or to stop.
@@ -81,6 +83,14 @@ One leaf per worktree, never two (**data plural, placement singular**: a ticket 
 
 **Boot each mission's development environment at dispatch — inside its own worktree.** Before (or alongside) spawning a mission's leaf, start the project's **declared** dev/start command (the project's own `CLAUDE.md` declares it; workaholic never invents one) as a background process inside `( cd <worktree_path> && … )`, on the worktree's allocated ports — the `.env` port base `create-mission-worktree.sh` assigned, the same `dev_port`/`docs_port` that `mission/scripts/gate.sh` reports — so leaves verify, and declared gates run, against a **live environment**, and several missions' environments serve side by side without colliding. When the project declares no dev command, skip silently — that is the normal case for a library or CLI. At the terminal state, stop whatever processes **this run itself started** (never environments it found already running), and note in the final report which environments ran where.
 
+**Accumulate each mission's agent-hours.** The dispatcher notes each leaf's **dispatch** timestamp when it spawns it and its **completion** timestamp when the leaf's report arrives; the difference is that leaf's wall-clock. When a mission reaches its terminal classification this run (§3), sum its leaf wall-clock across every wave of this invocation and record it **once**, keyed on the run-id:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/record-run-hours.sh "<slug>" "<hours>" "<run-id>"
+```
+
+The recorder is idempotent per run-id, so calling it again for a mission already recorded this run is a safe no-op — the leaf's wall-clock includes tool waits, which is correct: the question is "how long must the orchestration run", not CPU seconds. This is the only writer of `actual_hours`; the dispatcher never hand-edits it.
+
 ## 3. The loop, and the terminal state
 
 After each wave, read every driven mission:
@@ -112,7 +122,7 @@ Leaves run in isolated worktrees off `main` and cannot see each other's uncommit
 
 Always emitted, terminal or not — the morning-review artifact (`workaholic:implementation` / `observability`):
 
-- Per mission: `checked/total` before → after, outcome counts (implemented / failed / blocked) reconciling to its handed queue, commits, gate result when one was declared.
+- Per mission: `checked/total` before → after, outcome counts (implemented / failed / blocked) reconciling to its handed queue, commits, gate result when one was declared, and **predicted vs accumulated actual hours** (`predicted_hours` from the mission, `actual_hours` after this run's `record-run-hours.sh`) so the estimate can be judged against reality over time.
 - **Escalations left for the developer** — every unanswered judgment call, one line each, never silent. This list is the QA seam `workaholic:development` / `qa-engineering` requires; the looking-through happens here and at each mission's PR.
 - Minted tickets (`deferred`), one line each: what was found, which ticket provoked it, the new filename.
 - Excluded missions and why (`not_authorized` → replan pointer; orphan worktrees).

@@ -93,6 +93,8 @@ const SCRIPTS = {
   checkSubject: join(REPO_ROOT, "plugins/workaholic/hooks/lib/check-subject.sh"),
   commitMsgHook: join(REPO_ROOT, "plugins/workaholic/hooks/git/commit-msg"),
   installGitHooks: join(REPO_ROOT, "plugins/workaholic/hooks/install-git-hooks.sh"),
+  predictDuration: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/predict-duration.sh"),
+  recordRunHours: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/record-run-hours.sh"),
   strategyCreate: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/create.sh"),
   strategyList: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/list.sh"),
   strategyReadRelation: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/read-strategy-relation.sh"),
@@ -2742,6 +2744,53 @@ function testReleaseScanGateDecision() {
   } finally { cleanup(dir); }
 }
 
+// ---------- mission duration: predict-duration.sh + record-run-hours.sh ----------
+function testMissionDuration() {
+  const dir = makeRepo("main");
+  try {
+    const archMission = (slug, actual, items) => {
+      const d = join(dir, `.workaholic/missions/archive/${slug}`);
+      mkdirSync(d, { recursive: true });
+      const acc = items.map((_, i) => `- [x] item ${i}`).join("\n");
+      writeFileSync(join(d, "mission.md"),
+        `---\ntype: Mission\nslug: ${slug}\nstatus: achieved\nactual_hours: ${actual}\n---\n\n## Acceptance\n\n${acc}\n\n## Changelog\n`);
+    };
+    const predict = (count) => JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.predictDuration} ${count}`).stdout);
+
+    // Empty archive -> honest basis 0, null prediction (never fabricated).
+    let p = predict(4);
+    assertEq("predict with no archived basis is honest (basis 0, null)",
+      { ph: p.predicted_hours, b: p.basis, m: p.per_item_median }, { ph: null, b: 0, m: null });
+
+    // Two archived missions: m1 = 4h/2 items = 2.0/item; m2 = 9h/3 items = 3.0/item.
+    // median(2.0, 3.0) = 2.5; predicted for 4 items = 10.0.
+    archMission("m1", 4, [0, 1]);
+    archMission("m2", 9, [0, 1, 2]);
+    p = predict(4);
+    assertEq("predict basis counts contributing archived missions", p.basis, 2);
+    assertEq("predict median-per-item × count", { ph: p.predicted_hours, m: p.per_item_median }, { ph: 10.00, m: 2.500000 });
+
+    // A third with no actual_hours does not contribute (basis stays 2).
+    archMission("m3-noactual", "", [0, 1]);
+    // archMission writes "actual_hours: " (empty) -> not numeric -> excluded.
+    assertEq("predict excludes an archived mission with no actual_hours", predict(4).basis, 2);
+
+    // record-run-hours: accumulation + idempotency per run-id.
+    const active = join(dir, ".workaholic/missions/active/live");
+    mkdirSync(active, { recursive: true });
+    writeFileSync(join(active, "mission.md"), `---\ntype: Mission\nslug: live\nstatus: active\nactual_hours:\n---\n\n## Changelog\n`);
+    const mpath = ".workaholic/missions/active/live/mission.md";
+    const rec = (h, id) => JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.recordRunHours} ${mpath} ${h} ${id}`).stdout);
+    assertEq("record first run accumulates from empty", rec(2.4, "run-a").actual_hours, 2.4);
+    assertEq("record same run-id again is a no-op", rec(2.4, "run-a").recorded, false);
+    assertEq("record a second run-id accumulates", rec(1.6, "run-b").actual_hours, 4);
+    const body = readFileSync(join(dir, mpath), "utf8");
+    assertTrue("actual_hours reflects the sum", /^actual_hours:\s*4\s*$/m.test(body), body);
+    assertTrue("each run's increment is carried in a changelog line",
+      /run recorded \(\+2\.4h\) — run-a/.test(body) && /run recorded \(\+1\.6h\) — run-b/.test(body), body);
+  } finally { cleanup(dir); }
+}
+
 // ---------- strategy: artifact + skill (create/list/reader/retire/index) ----------
 function testStrategyArtifact() {
   const dir = makeRepo("main");
@@ -2880,7 +2929,9 @@ function testMission() {
     assertTrue("mission has type: Mission", /^type:\s*Mission\s*$/m.test(body), body.split("\n").slice(0, 12).join("\n"));
     assertTrue("mission has slug", /^slug:\s*real-time-notifications\s*$/m.test(body));
     assertTrue("mission has status active", /^status:\s*active\s*$/m.test(body));
-    assertTrue("mission scaffold carries an empty strategy: key", /^strategy:\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
+    assertTrue("mission scaffold carries an empty strategy: key", /^strategy:\s*$/m.test(body), body.split("\n").slice(0, 16).join("\n"));
+    assertTrue("mission scaffold carries empty predicted_hours/actual_hours keys",
+      /^predicted_hours:\s*$/m.test(body) && /^actual_hours:\s*$/m.test(body), body.split("\n").slice(0, 16).join("\n"));
     assertTrue("mission reserves empty tickets list", /^tickets:\s*\[\]\s*$/m.test(body));
     for (const sec of ["## Goal", "## Scope", "## Acceptance", "## Changelog"]) {
       assertTrue(`mission has ${sec}`, body.includes(`\n${sec}\n`), sec);
@@ -6931,6 +6982,7 @@ const tests = [
   ["release-scan secret value inversion", testReleaseScanSecretValueInversion],
   ["release-scan allowlist", testReleaseScanAllowlist],
   ["release-scan gate decision", testReleaseScanGateDecision],
+  ["mission duration predict + record", testMissionDuration],
   ["strategy artifact + skill (create/list/reader/retire/index)", testStrategyArtifact],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],

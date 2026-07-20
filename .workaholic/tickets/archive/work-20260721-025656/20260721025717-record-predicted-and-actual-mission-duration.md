@@ -3,9 +3,9 @@ created_at: 2026-07-21T02:57:17+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Domain, Config]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: reorganize-missions-under-strategies
 ---
@@ -74,3 +74,14 @@ Interrogated at mission creation (2026-07-21); verification depth ruling: hermet
 - Leaf wall-clock includes tool waits; that is fine — the question is "how long must the orchestration run", not CPU seconds (`skills/monitor/SKILL.md`).
 - Do not let `actual_hours` become hand-edited: the recorder is its only writer, same doctrine as `tick-acceptance.sh` (`skills/mission/SKILL.md`).
 - This mission itself predates the fields; its own drive may backfill them via the recorder as the live demo's second half — worthwhile but optional, and if done, recorded as a normal run line.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: `record-run-hours.sh` emits `actual_hours` as an unquoted JSON number, so consumers (and tests) read it as a number, not a string. The idempotency key is the run-id alone (grepped from the changelog), decoupled from the hours value, so a crash-recovery re-run with slightly different measured hours still adds nothing.
+  **Context**: `plugins/workaholic/skills/mission/scripts/record-run-hours.sh` — the run-id gate precedes the float add, which is why append-changelog's own event-based dedup is redundant here.
+- **Insight**: `actual_hours` is deliberately NOT backfilled during this `/drive` run — the measurement rule counts `/monitor` agent-time only, and a solo drive is out of scope by design. The mission keeps its kickoff `predicted_hours: 8` and an empty `actual_hours` until a real `/monitor` run records against it.
+  **Context**: `.workaholic/missions/active/reorganize-missions-under-strategies/mission.md` and the mission SKILL Duration section (documented limitation, not a gap).

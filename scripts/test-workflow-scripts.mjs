@@ -1687,6 +1687,27 @@ function testMissionWorktreePrimitive() {
     execSync(`rm -f .worktrees/dirty-mission/uncommitted.txt`, { cwd: dir2 });
     run(dir2, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} dirty-mission`);
   } finally { cleanup(dir2); }
+
+  // Cleanup never deletes a non-ephemeral branch. A /ship run inside a mission
+  // worktree ends with merge-pr.sh checking `main` out THERE; teardown must then
+  // remove the worktree but keep the branch (observed 2026-07-22: local main was
+  // deleted). Only work-YYYYMMDD-HHMMSS branches are cleanup's to delete.
+  const dir3 = makeRepo("main");
+  try {
+    // Main tree moves off main (the incident's desk state), freeing main for the worktree.
+    execSync(`git checkout -q -b work-20260101-000000`, { cwd: dir3 });
+    JSON.parse(run(dir3, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} parked-mission`).stdout);
+    execSync(`git checkout -q main`, { cwd: join(dir3, ".worktrees/parked-mission") });
+
+    const c = JSON.parse(run(dir3, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} parked-mission`).stdout);
+    assertEq("cleanup removes a worktree parked on main", c.worktree_removed, true);
+    assertEq("cleanup keeps the non-work branch and says why",
+      { branch: c.branch, branchRemoved: c.branch_removed, reason: c.branch_kept_reason },
+      { branch: "main", branchRemoved: false, reason: "not-work-branch" });
+    assertTrue("worktree dir gone (parked-on-main case)", !existsSync(join(dir3, ".worktrees/parked-mission")));
+    assertEq("local main survives the teardown",
+      run(dir3, `git rev-parse --verify --quiet main`).status, 0);
+  } finally { cleanup(dir3); }
 }
 
 // Build a clone whose ONLY local branch is a checked-out work-* branch and whose

@@ -83,7 +83,7 @@ const SCRIPTS = {
   guardGitBranch: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-branch.sh"),
   guardRepoConfinement: join(REPO_ROOT, "plugins/workaholic/hooks/guard-repo-confinement.sh"),
   resolveTarget: join(REPO_ROOT, "plugins/workaholic/skills/request/scripts/resolve-target.sh"),
-  fileRequest: join(REPO_ROOT, "plugins/workaholic/skills/request/scripts/file-request.sh"),
+  submitRequest: join(REPO_ROOT, "plugins/workaholic/skills/request/scripts/submit-request.sh"),
   guardAskLabel: join(REPO_ROOT, "plugins/workaholic/hooks/guard-askuserquestion-label.sh"),
   guardWorkingDir: join(REPO_ROOT, "plugins/workaholic/hooks/guard-working-directory.sh"),
   auditClaudeMd: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/audit-claude-md.sh"),
@@ -5946,23 +5946,23 @@ function testRequestScripts() {
   const clean = body("clean.md", "---\ntype: enhancement\n---\n\n# Request\n\nA consumer repo needs the guard.\n");
 
   // Mechanical refusals.
-  assertEq("file-request refuses an empty body", json(src, SCRIPTS.fileRequest, `${q(tgt)} 20260715130000-x.md ${q(body("empty.md", ""))}`).ok, false);
-  assertEq("file-request refuses a malformed filename", json(src, SCRIPTS.fileRequest, `${q(tgt)} notaticket.md ${q(clean)}`).ok, false);
-  assertEq("file-request refuses the source repo as target", json(src, SCRIPTS.fileRequest, `${q(src)} 20260715130000-x.md ${q(clean)}`).ok, false);
+  assertEq("submit-request refuses an empty body", json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715130000-x.md ${q(body("empty.md", ""))}`).ok, false);
+  assertEq("submit-request refuses a malformed filename", json(src, SCRIPTS.submitRequest, `${q(tgt)} notaticket.md ${q(clean)}`).ok, false);
+  assertEq("submit-request refuses the source repo as target", json(src, SCRIPTS.submitRequest, `${q(src)} 20260715130000-x.md ${q(clean)}`).ok, false);
 
   // The backstop knows only this repo's own name and path.
   const named = body("named.md", `A ticket that still says ${basename(src)} in the text.\n`);
-  assertEq("file-request refuses a body naming the source repo", json(src, SCRIPTS.fileRequest, `${q(tgt)} 20260715130000-x.md ${q(named)}`).ok, false);
+  assertEq("submit-request refuses a body naming the source repo", json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715130000-x.md ${q(named)}`).ok, false);
 
-  // Happy path, and no double-file.
-  const filed = json(src, SCRIPTS.fileRequest, `${q(tgt)} 20260715130000-x.md ${q(clean)}`);
-  assertEq("file-request files a clean body", filed.ok, true);
-  assertTrue("file-request lands in the target's todo queue",
+  // Happy path, and no double-submit.
+  const filed = json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715130000-x.md ${q(clean)}`);
+  assertEq("submit-request submits a clean body", filed.ok, true);
+  assertTrue("submit-request lands in the target's todo queue",
     filed.path.startsWith(join(tgt, ".workaholic/tickets/todo/")), `landed at ${filed.path}`);
-  assertEq("file-request refuses a duplicate", json(src, SCRIPTS.fileRequest, `${q(tgt)} 20260715130000-x.md ${q(clean)}`).ok, false);
+  assertEq("submit-request refuses a duplicate", json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715130000-x.md ${q(clean)}`).ok, false);
 
   // THE POINT. Real leaked sentences from the incident carry no reference to this repo,
-  // so the mechanical backstop cannot see them and files them without complaint. This is
+  // so the mechanical backstop cannot see them and submits them without complaint. This is
   // asserted, not lamented: it is why the developer confirmation in the /request workflow
   // is non-skippable. If a future change makes these fail here, the confirmation has
   // probably been quietly demoted to a pattern match — read request/SKILL.md §1 first.
@@ -5974,8 +5974,8 @@ function testRequestScripts() {
   ];
   realLeaks.forEach((text, i) => {
     const p = body(`leak-${i}.md`, `---\ntype: bugfix\n---\n\n# Request\n\n${text}\n`);
-    const r = json(src, SCRIPTS.fileRequest, `${q(tgt)} 2026071513100${i}-x.md ${q(p)}`);
-    assertEq(`file-request cannot detect leak #${i + 1} (by design — the human gate does)`, r.ok, true);
+    const r = json(src, SCRIPTS.submitRequest, `${q(tgt)} 2026071513100${i}-x.md ${q(p)}`);
+    assertEq(`submit-request cannot detect leak #${i + 1} (by design — the human gate does)`, r.ok, true);
   });
 
   rmSync(tmp, { recursive: true, force: true });
@@ -6482,6 +6482,9 @@ function testCarryCheckpoint() {
       `got ${j.ticket_path}`);
     assertEq("carryCheckpoint no trips -> trips_present false", j.trips_present, false);
     assertEq("carryCheckpoint no trips -> empty trips", j.trips, []);
+    // No mission worktrees -> missions_present false (the drive/trip case).
+    assertEq("carryCheckpoint no missions -> missions_present false", j.missions_present, false);
+    assertEq("carryCheckpoint no missions -> empty missions", j.missions, []);
 
     // With a trip directory present -> trips_present true and the trip listed.
     mkdirSync(join(dir, ".workaholic/trips/trip-20260101-000000"), { recursive: true });
@@ -6489,6 +6492,26 @@ function testCarryCheckpoint() {
     j = JSON.parse(r.stdout);
     assertEq("carryCheckpoint trips_present true", j.trips_present, true);
     assertEq("carryCheckpoint lists the trip", j.trips, ["trip-20260101-000000"]);
+
+    // A mission worktree is a .worktrees/<slug>/ that checks out its own active
+    // mission.md -> it is enumerated for the /monitor carry case. A .worktrees
+    // dir WITHOUT its own mission.md (a plain /drive worktree) is not a mission.
+    mkdirSync(join(dir, ".worktrees/alpha/.workaholic/missions/active/alpha"), { recursive: true });
+    writeFileSync(join(dir, ".worktrees/alpha/.workaholic/missions/active/alpha/mission.md"), "---\ntype: Mission\n---\n");
+    mkdirSync(join(dir, ".worktrees/work-20260101-000000"), { recursive: true });
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.carryCheckpoint} resume-baz`);
+    j = JSON.parse(r.stdout);
+    assertEq("carryCheckpoint missions_present true", j.missions_present, true);
+    assertEq("carryCheckpoint enumerates only the mission worktree", j.missions,
+      [{ slug: "alpha", worktree_path: ".worktrees/alpha" }]);
+
+    // The optional worktree_path arg scopes ticket_path INTO that worktree's
+    // queue -- the /monitor placement (each mission carries into its own tree).
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.carryCheckpoint} resume-monitor-alpha .worktrees/alpha`);
+    j = JSON.parse(r.stdout);
+    assertTrue("carryCheckpoint worktree-scoped ticket_path routes into the worktree",
+      new RegExp(`^\\.worktrees/alpha/\\.workaholic/tickets/todo/${TEST_SLUG}/\\d{14}-resume-monitor-alpha\\.md$`).test(j.ticket_path),
+      `got ${j.ticket_path}`);
 
     // Missing slug -> non-zero exit (capture-only helper must not guess a name).
     r = run(dir, `${POSIX_SH} ${SCRIPTS.carryCheckpoint}`);
@@ -6648,12 +6671,12 @@ function testMonitorPushesDecisions() {
     /one decision at a time/.test(skill), "one-at-a-time rule missing from skill");
   assertTrue("monitor skill forbids stopping at describing blockers",
     /never stop at describing them/.test(skill), "describe-and-stop still allowed");
-  assertTrue("escalation-blocked means asked and explicitly deferred",
-    /asked and explicitly deferred/.test(skill), "strict deferral definition missing");
-  assertTrue("an interactive run never emits ok over an unasked decision",
-    /never reaches `ok` over a decision it did not ask/.test(skill), "unasked-terminal loophole open");
-  assertTrue("the unattended path still records instead of asking",
-    /Unattended run: record them/.test(skill), "unattended exception lost");
+  // NOTE (2026-07-19, ticket 20260719...front-loads): the "asked and explicitly
+  // deferred", "never reaches ok over a decision it did not ask", and "Unattended
+  // run: record them" sentinels were DELIBERATELY retired here — the mission run no
+  // longer asks between waves at all, so the interactive-vs-unattended split they
+  // guarded is gone. The new front-load-then-unattended contract is asserted in
+  // testMonitorFrontLoads below.
   assertTrue("the command bans the report-why-and-stop shape",
     /never "report why and stop"/.test(cmd), "command still allows terminal report");
   assertTrue("the command asks escalations one decision at a time",
@@ -6732,6 +6755,123 @@ function testMonitorReplanIsLeafWork() {
     /Collect every ruling first, then dispatch/.test(cmd), "command ordering rule missing");
   assertTrue("the command controls the degree of concurrency",
     /Control the degree of concurrency/.test(cmd), "command concurrency-control missing");
+}
+
+// ---------- monitor: front-load every decision, then run unattended ----------
+// Ticket 20260719...front-loads-decisions-then-runs-unattended: /monitor is
+// reframed as an overnight autonomous job (development/overnight-ai). The human
+// checkpoint moves BEFORE the autonomy — one up-front batch enumerating every
+// foreseeable escalation — and after dispatch nothing is asked. This deliberately
+// reverses edf246a4's during-run push model for the mission run, and makes the
+// terminal token honest (ok only on genuine status.sh completion; pending
+// otherwise) — the /monitor half of 20260719000021. The contract is orchestration
+// prose, so it gets the suite's prose-sentinel treatment, updated deliberately.
+//
+// "Watch it fail first": the negative assertions below FAIL against the pre-ticket
+// prose — "which eligible missions to drive", the between-wave "ask each ... as its
+// own AskUserQuestion", and the monitor multiSelect all existed there. Their
+// absence is the demonstrable flip.
+function testMonitorFrontLoads() {
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/monitor/SKILL.md"), "utf8");
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/monitor.md"), "utf8");
+
+  // (a) The "which missions to drive" selection is gone; all assigned+eligible is the run.
+  assertTrue("the skill drops the which-missions-to-drive selection",
+    !/which eligible missions to drive/.test(skill), "drive-selection sentinel still present in skill");
+  assertTrue("the skill has no monitor multiSelect drive-selection prompt",
+    !/multiSelect/.test(skill), "skill still multiSelects missions to drive");
+  assertTrue("the command has no monitor multiSelect drive-selection prompt",
+    !/multiSelect/.test(cmd), "command still multiSelects missions to drive");
+  assertTrue("the skill declares default scope is the whole roadmap, never asking which to drive",
+    /never asks \*which\* missions to drive/.test(skill), "default-scope statement missing from skill");
+  assertTrue("the skill bans the which-to-drive prompt outright",
+    /no "which missions to drive" prompt/.test(skill), "no-drive-prompt statement missing from skill");
+  assertTrue("the command bans asking which missions to drive",
+    /Do not ask which missions to drive/.test(cmd), "command still asks which to drive");
+
+  // (b) Whole-roadmap progress pass — aggregate across all assigned missions, existing readers, no new artifact.
+  assertTrue("the skill leads the pre-flight with a whole-roadmap progress headline",
+    /Whole-roadmap progress \(the headline\)/.test(skill), "roadmap headline missing from skill");
+  assertTrue("the roadmap view aggregates across all assigned missions via the existing readers",
+    /aggregate the derived `checked\/total` across \*\*all\*\*/.test(skill), "roadmap aggregation missing");
+  assertTrue("the roadmap view mints no new artifact",
+    /No new `\.workaholic\/` artifact/.test(skill), "no-new-artifact guarantee missing");
+  assertTrue("the command presents the whole-roadmap progress headline",
+    /whole-roadmap progress headline/.test(cmd), "command roadmap headline missing");
+
+  // (c) Reevaluate + replan all assigned missions: mechanical replans auto-apply silently; only design rulings asked.
+  assertTrue("the skill auto-applies mechanical replans silently, without a prompt",
+    /applied silently, without a developer prompt/.test(skill), "auto-mechanical-replan rule missing from skill");
+  assertTrue("the skill surfaces only genuine design rulings into the batch",
+    /Only a genuine \*\*design ruling\*\*/.test(skill), "design-ruling-only rule missing from skill");
+  assertTrue("the command auto-applies mechanical replans silently",
+    /auto-apply mechanical replans silently/.test(cmd), "command auto-mechanical-replan missing");
+
+  // (d) One up-front blocking batch is the run's only interaction point; nothing asked after dispatch.
+  assertTrue("the skill front-loads one blocking batch as the only interaction point",
+    /Front-load one blocking batch — the run's only interaction point/.test(skill), "one-batch rule missing from skill");
+  assertTrue("the skill closes all prompting after dispatch",
+    /no `AskUserQuestion` fires again for the rest of the run/.test(skill), "post-dispatch silence missing from skill");
+  assertTrue("the command front-loads one blocking batch",
+    /Front-load one blocking batch/.test(cmd), "command one-batch rule missing");
+  assertTrue("the command closes all prompting after dispatch",
+    /no `AskUserQuestion` fires for the rest of the run/.test(cmd), "command post-dispatch silence missing");
+
+  // (e) Defer-and-record mid-run — the between-wave interactive escalation prompt is removed.
+  assertTrue("the skill drops the between-wave interactive escalation prompt",
+    !/ask each leaf escalation as/.test(skill), "between-wave interactive prompt still in skill");
+  assertTrue("the command drops the between-wave interactive escalation prompt",
+    !/ask each escalation as/.test(cmd), "between-wave interactive prompt still in command");
+  assertTrue("the skill defers and records unforeseen mid-run items, never asks",
+    /deferred and recorded in the final report/.test(skill), "defer-and-record rule missing from skill");
+  assertTrue("the skill records a deferral once, not re-logged each wave",
+    /not re-asked or re-logged/.test(skill), "record-once rule missing from skill");
+  assertTrue("the command defers and records mid-run items, never asks",
+    /deferred and recorded in the final report, never asked/.test(cmd), "command defer-and-record missing");
+
+  // (f) Honest terminal reconciliation — ok only on genuine status.sh completion; pending otherwise.
+  assertTrue("the skill derives the terminal token from status.sh, never self-asserts it",
+    /derived from `status\.sh`, never self-asserted/.test(skill), "derived-token rule missing from skill");
+  assertTrue("the skill emits ok only on genuine completion of every mission",
+    /only when every driven mission genuinely reached `complete`/.test(skill), "genuine-completion rule missing from skill");
+  assertTrue("the skill makes escalation-blocked pending, not ok",
+    /escalation-blocked is `pending`, not `ok`/.test(skill), "escalation-blocked-is-pending rule missing from skill");
+  assertTrue("the skill prints an N/M-complete, K-blocked reconciliation",
+    /N\/M missions complete, K escalation-blocked/.test(skill), "reconciliation line missing from skill");
+  assertTrue("the command makes escalation-blocked pending, not ok",
+    /escalation-blocked is `pending`, not `ok`/.test(cmd), "command escalation-blocked-is-pending missing");
+  assertTrue("the command prints an N/M-complete, K-blocked reconciliation",
+    /N\/M missions complete, K escalation-blocked/.test(cmd), "command reconciliation line missing");
+
+  // (g) The reversal of edf246a4 is stated explicitly, and the 20260719000021 coordination noted.
+  assertTrue("the skill states front-loading supersedes the during-run push model",
+    /Front-loading supersedes the during-run push model/.test(skill), "reversal statement missing from skill");
+  assertTrue("the skill names the superseded commit",
+    /edf246a4/.test(skill), "superseded-commit reference missing from skill");
+  assertTrue("the skill claims only the /monitor half of 20260719000021, leaving /goal separate",
+    /20260719000021/.test(skill) && /stays separate/.test(skill), "20260719000021 coordination missing from skill");
+  assertTrue("the command states front-loading supersedes the during-run push model",
+    /Front-loading supersedes the during-run push model/.test(cmd), "reversal statement missing from command");
+  assertTrue("the command notes the 20260719000021 coordination, /goal side separate",
+    /20260719000021/.test(cmd) && /stays separate/.test(cmd), "20260719000021 coordination missing from command");
+
+  // (c-behavioral) The honest terminal token is derivable from real status.sh output: a fully
+  // checked mission is `complete:true` (the basis for `ok`), an incomplete one `complete:false`
+  // (the basis for `pending`). Exercised in a hermetic worktree, no network, no gh.
+  const dir = makeRepo("main");
+  try {
+    execSync(`git worktree add -q .worktrees/alpha -b work-20260719000201-alpha`, { cwd: dir });
+    const wt = join(dir, ".worktrees/alpha");
+    const md = join(wt, ".workaholic/missions/active/alpha");
+    mkdirSync(md, { recursive: true });
+    const mission = (acceptance) => writeFileSync(join(md, "mission.md"),
+      `---\ntype: Mission\ntitle: alpha\nslug: alpha\nstatus: active\nassignee: test@example.com\ndrive_authorized: true\ngate_type: \n---\n\n## Acceptance\n\n${acceptance}\n## Changelog\n`);
+    const status = () => JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.monitorStatus} ${wt}`).stdout);
+    mission("- [x] One\n- [x] Two\n");
+    assertEq("terminal ok is derivable: a fully checked mission reports complete:true", status().complete, true);
+    mission("- [x] One\n- [ ] Two\n");
+    assertEq("terminal pending is derivable: an incomplete mission reports complete:false", status().complete, false);
+  } finally { cleanup(dir); }
 }
 
 const tests = [
@@ -6841,6 +6981,7 @@ const tests = [
   ["monitor/status.sh (terminal truth table)", testMonitorStatus],
   ["monitor pushes decisions one by one", testMonitorPushesDecisions],
   ["monitor: replan is leaf work, not main-agent work", testMonitorReplanIsLeafWork],
+  ["monitor: front-load every decision, then run unattended", testMonitorFrontLoads],
 ];
 
 for (const [label, fn] of tests) {

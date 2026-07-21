@@ -1,6 +1,6 @@
 ---
 name: request
-description: File a ticket in ANOTHER repository — the only sanctioned way to cross a repository boundary. Masks this project's customer context and requires the developer to confirm the exact body before anything is written.
+description: Submit a ticket to ANOTHER repository — the only sanctioned way to cross a repository boundary. Masks this project's customer context and requires the developer to confirm the destination and the exact body — in one confirmation — before anything is written.
 allowed-tools: Bash, Read, Write, Glob, Grep
 user-invocable: false
 metadata:
@@ -9,7 +9,7 @@ metadata:
 
 # Request
 
-Files a ticket in a **different** repository. Every other route out of this repo is
+Submits a ticket to a **different** repository. Every other route out of this repo is
 refused by `hooks/guard-repo-confinement.sh`; this is the sanctioned one, and it exists
 so the rule in `rules/general.md` ("Never modify another repository") never has to be
 broken to get legitimate work raised elsewhere.
@@ -71,23 +71,27 @@ The command owns every `AskUserQuestion` (one-level fan-out; subagents cannot pr
    Returns `{ok, path, name, remote, visibility, user_slug, todo_dir, source_repo}`.
    On `ok: false`, show `error` and stop. Never guess a target.
 
-2. **Confirm the target with the developer**, quoting `name`, `remote`, and
-   **`visibility`**. Public and private are different decisions and the developer must
-   see which one they are making.
-
-3. **Compose the body** as a conforming ticket (`workaholic:create-ticket`'s frontmatter
+2. **Compose the body** as a conforming ticket (`workaholic:create-ticket`'s frontmatter
    and section shape — the target's `/drive` must consume it unmodified). Build it from
    the target's vocabulary; see §3.
 
-4. **Mask it** per §2.
+3. **Mask it** per §2.
 
-5. **Confirm the exact body. This step cannot be skipped.** Show the developer the body
-   verbatim, as it will be filed, and ask them to confirm. Not a summary, not a diff, not
-   "I have masked it" — the text. There is no fast path: not for a body that looks clean,
-   not for a re-run, not because the developer approved something earlier in the session.
-   An optional confirmation is a convention, and a convention is exactly what failed here.
+4. **Confirm — one prompt, and the only one. This confirmation cannot be skipped.** In a
+   single `AskUserQuestion`, show the developer **both** the destination — `name`,
+   `remote`, and **`visibility`** — **and** the body verbatim, as it will be submitted,
+   and ask them to confirm the two together. Not a summary, not a diff, not "I have masked
+   it" — the actual text. There is no fast path: not for a body that looks clean, not for
+   a re-run, not because the developer approved something earlier in the session. There is
+   **exactly one** confirmation, identical for every visibility combination
+   (public→private, private→public, public→public, private→private): visibility is
+   **shown** as a material fact — submitting to a public repo is a different decision from a
+   private one — but it is never a second prompt. The destination is folded into the body
+   confirmation precisely so the surviving gate stays the one that matters: the verbatim
+   body. An optional confirmation is a convention, and a convention is exactly what failed
+   here.
 
-6. **Scan it** as an independent second layer:
+5. **Scan it** as an independent second layer:
    ```bash
    bash ${CLAUDE_PLUGIN_ROOT}/skills/release-scan/scripts/scan-branch-safety.sh
    ```
@@ -95,18 +99,18 @@ The command owns every `AskUserQuestion` (one-level fan-out; subagents cannot pr
    underneath the judgement, never instead of it — a `pass` means only "nothing listed
    was found".
 
-7. **File it.**
+6. **Submit it.**
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/request/scripts/file-request.sh <target-root> <filename> <body-file>
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/request/scripts/submit-request.sh <target-root> <filename> <body-file>
    ```
    Returns `{ok, path}`. The script backstops on this repo's own name and path; that is
    mechanics, not assurance.
 
-8. **Report** the filed path and tell the developer the target's `/drive` will pick it up.
+7. **Report** the submitted path and tell the developer the target's `/drive` will pick it up.
 
 ## 5. Do not commit in the target
 
-`file-request.sh` writes the file and stops. Committing in another repository is that
+`submit-request.sh` writes the file and stops. Committing in another repository is that
 repository's decision, made by whoever works there. Tell the developer where it landed
 and let them commit it.
 
@@ -116,5 +120,5 @@ and let them commit it.
   not seen — that is how this skill's own script writes, and it means the guard closes the
   path an agent takes by habit, not one taken deliberately. The threat model here is an
   agent doing the natural thing, not one evading a gate.
-- The backstop in `file-request.sh` knows only this repo's own name and path. Everything
+- The backstop in `submit-request.sh` knows only this repo's own name and path. Everything
   else rests on step 5.

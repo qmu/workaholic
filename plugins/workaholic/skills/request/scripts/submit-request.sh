@@ -1,13 +1,13 @@
 #!/bin/sh -eu
-# File a confirmed, masked request as a ticket in ANOTHER repository.
+# Submit a confirmed, masked request as a ticket to ANOTHER repository.
 #
-# Usage: file-request.sh <target-repo-root> <ticket-filename> <body-file>
+# Usage: submit-request.sh <target-repo-root> <ticket-filename> <body-file>
 #
 # This is the ONLY sanctioned writer of a cross-repository artifact. Everything else is
 # refused by hooks/guard-repo-confinement.sh. That guard watches the Write/Edit tools and
 # does not see a script like this one — which is the point: the casual path is closed and
 # the deliberate path runs here, where the caller has already shown the developer exactly
-# what will be filed and had them confirm it.
+# what will be submitted and had them confirm it.
 #
 # This script does NOT mask and does NOT judge. By the time it runs, the body is already
 # masked and confirmed. It refuses only the mechanical mistakes: a target that is not a
@@ -32,7 +32,7 @@ body_file="${3:-}"
 [ -n "$filename" ]  || emit_err "no filename given"
 [ -n "$body_file" ] || emit_err "no body file given"
 [ -f "$body_file" ] || emit_err "body file not found: ${body_file}"
-[ -s "$body_file" ] || emit_err "body is empty — nothing to file"
+[ -s "$body_file" ] || emit_err "body is empty — nothing to submit"
 
 printf '%s' "$filename" | grep -qE '^[0-9]{14}-[a-z0-9-]+\.md$' \
     || emit_err "filename must be YYYYMMDDHHmmss-kebab-slug.md, got: ${filename}"

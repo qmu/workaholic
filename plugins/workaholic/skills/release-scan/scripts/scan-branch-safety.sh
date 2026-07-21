@@ -4,8 +4,10 @@
 #
 # Three checks over `git diff <base>..HEAD`:
 #   secret  (severity hard)     — a known credential shape in an added line
-#   size    (severity override) — too many changed files, or an oversized / very
-#                                 large-diff file
+#   size    (severity override) — too many changed files, an oversized / very
+#                                 large-diff file, or a single commit whose
+#                                 non-generated changed lines exceed the per-commit
+#                                 cap (generated/bulk files exempted)
 #   leak    (severity confirm)  — an added line contains a term from the git-ignored
 #                                 .workaholic/leak-denylist. Listed terms only; absent
 #                                 file means this check does nothing at all.
@@ -35,6 +37,7 @@ SCRIPT_DIR=$(dirname "$0")
 MAX_FILES=100
 MAX_FILE_ADDED_LINES=3000
 MAX_FILE_BYTES=524288   # 512 KB
+MAX_COMMIT_CHANGED_LINES=500   # per-commit added+deleted, generated/bulk excluded
 
 # Resolve the base from the single resolver — never re-derive a `${1:-main}` default
 # here. base-ref.sh is offline (no network), so the gate's verdict cannot depend on
@@ -75,6 +78,22 @@ add_finding() {
     if [ -n "$findings" ]; then findings="${findings}${NL}${entry}"; else findings="$entry"; fi
 }
 
+# A path is "generated / bulk" — exempt from the per-commit changed-lines gate — if
+# it is a lockfile, a minified/sourcemap artifact, or is declared linguist-generated
+# in .gitattributes (how a repo marks its own generated trees, e.g. outputs/). This is
+# what keeps the giant generated commits that motivate the per-commit tail from ever
+# tripping the gate. Keep the glob list small and generic; per-repo generated dirs
+# belong in .gitattributes, not hard-coded here.
+is_generated_path() {
+    case "$1" in
+        *.lock|*-lock.json|package-lock.json|yarn.lock|pnpm-lock.yaml|Cargo.lock|poetry.lock|composer.lock|Gemfile.lock|go.sum|flake.lock) return 0 ;;
+        *.min.js|*.min.css|*.map) return 0 ;;
+    esac
+    attr=$(git check-attr linguist-generated -- "$1" 2>/dev/null || true)
+    case "$attr" in *": set") return 0 ;; esac
+    return 1
+}
+
 # ---- size / count ----
 numstat=$(git diff --numstat "$@" 2>/dev/null || true)
 filecount=$(printf '%s\n' "$numstat" | grep -c . || true)
@@ -96,6 +115,34 @@ while IFS="$TAB" read -r added removed path; do
 done <<EOF
 $numstat
 EOF
+
+# ---- per-commit changed lines (size / override) ----
+# Standardize the commit as a reviewable unit: for each commit in base..HEAD, sum
+# added+deleted lines EXCLUDING generated/bulk files (binary rows, lockfiles,
+# minified/sourcemap/linguist-generated paths, and any single file already over the
+# per-file added-line ceiling — it is flagged separately and must not also inflate the
+# commit total). A commit whose remaining total exceeds MAX_COMMIT_CHANGED_LINES yields
+# one `too-large-commit` finding. Deterministic per-commit walk; override severity so a
+# large-but-reviewed commit can be consciously accepted at /ship.
+for sha in $(git rev-list "${BASE}..HEAD" 2>/dev/null || true); do
+    commit_total=0
+    commit_numstat=$(git show --numstat --format= "$sha" 2>/dev/null || true)
+    while IFS="$TAB" read -r cadded cremoved cpath; do
+        [ -n "$cpath" ] || continue
+        # binary rows carry '-' for both counts: generated/bulk, skip.
+        case "$cadded" in ''|*[!0-9]*) continue ;; esac
+        case "$cremoved" in ''|*[!0-9]*) cremoved=0 ;; esac
+        if is_generated_path "$cpath"; then continue; fi
+        if [ "$cadded" -gt "$MAX_FILE_ADDED_LINES" ]; then continue; fi
+        commit_total=$((commit_total + cadded + cremoved))
+    done <<INNER
+$commit_numstat
+INNER
+    if [ "$commit_total" -gt "$MAX_COMMIT_CHANGED_LINES" ]; then
+        short=$(git rev-parse --short "$sha" 2>/dev/null || echo "$sha")
+        add_finding size override "$short" 0 "too-large-commit" "${commit_total} non-generated changed lines > ${MAX_COMMIT_CHANGED_LINES}"
+    fi
+done
 
 # ---- added lines, tagged file<TAB>line<TAB>content (via -U0 so only + lines) ----
 # The denylist file itself is excluded — it legitimately contains the very terms

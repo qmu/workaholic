@@ -93,6 +93,16 @@ const SCRIPTS = {
   checkSubject: join(REPO_ROOT, "plugins/workaholic/hooks/lib/check-subject.sh"),
   commitMsgHook: join(REPO_ROOT, "plugins/workaholic/hooks/git/commit-msg"),
   installGitHooks: join(REPO_ROOT, "plugins/workaholic/hooks/install-git-hooks.sh"),
+  commitKpi: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/commit-kpi.sh"),
+  predictDuration: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/predict-duration.sh"),
+  recordRunHours: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/record-run-hours.sh"),
+  appendReflection: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/append-reflection.sh"),
+  listReflections: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list-reflections.sh"),
+  nextAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/next-acceptance.sh"),
+  strategyCreate: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/create.sh"),
+  strategyList: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/list.sh"),
+  strategyReadRelation: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/read-strategy-relation.sh"),
+  strategyRetire: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/retire.sh"),
 };
 
 // rules/shell.md mandates POSIX sh. Exercise the scripts under the strictest
@@ -2311,6 +2321,71 @@ function testReleaseScanEngine() {
   } finally { cleanup(dir); }
 }
 
+// ---------- 8k1. release-scan per-commit changed-lines gate (too-large-commit) ----------
+function testReleaseScanPerCommit() {
+  const dir = makeRepo("main");
+  try {
+    const bigLines = (n) => Array.from({ length: n }, (_, i) => `line ${i}`).join("\n") + "\n";
+    const scanMain = () => JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanBranchSafety} main`).stdout);
+    const branch = (name) => { execSync(`git checkout -q main`, { cwd: dir }); execSync(`git checkout -q -b ${name}`, { cwd: dir }); };
+    const tlc = (r) => r.findings.filter((f) => f.rule === "too-large-commit");
+
+    // 1. An over-threshold hand-authored commit is flagged (size/override).
+    branch("work-20260721-000001");
+    writeFileSync(join(dir, "code.txt"), bigLines(600));
+    execSync(`git add -A && git commit -q -m big`, { cwd: dir });
+    let r = scanMain();
+    assertTrue("over-threshold hand-authored commit is flagged too-large-commit",
+      tlc(r).length === 1 && tlc(r)[0].category === "size" && tlc(r)[0].severity === "override",
+      JSON.stringify(r.findings));
+
+    // 2. A purely-generated (lockfile) commit is NOT flagged, regardless of size.
+    branch("work-20260721-000002");
+    writeFileSync(join(dir, "package-lock.json"), bigLines(700));
+    execSync(`git add -A && git commit -q -m lock`, { cwd: dir });
+    r = scanMain();
+    assertTrue("purely-generated (lockfile) commit is not flagged regardless of size",
+      tlc(r).length === 0, JSON.stringify(r.findings));
+
+    // 2b. A linguist-generated path (.gitattributes) is exempt too.
+    branch("work-20260721-000003");
+    writeFileSync(join(dir, ".gitattributes"), "gen/** linguist-generated\n");
+    mkdirSync(join(dir, "gen"), { recursive: true });
+    writeFileSync(join(dir, "gen/out.txt"), bigLines(700));
+    execSync(`git add -A && git commit -q -m gen`, { cwd: dir });
+    r = scanMain();
+    assertTrue("linguist-generated path is exempt from the per-commit gate",
+      tlc(r).length === 0, JSON.stringify(r.findings));
+
+    // 3. Threshold boundary: a commit at the cap is not flagged (strictly greater).
+    branch("work-20260721-000004");
+    writeFileSync(join(dir, "atcap.txt"), bigLines(500));
+    execSync(`git add -A && git commit -q -m atcap`, { cwd: dir });
+    assertTrue("a commit exactly at the cap is not flagged", tlc(scanMain()).length === 0, "at-cap flagged");
+
+    branch("work-20260721-000005");
+    writeFileSync(join(dir, "overcap.txt"), bigLines(501));
+    execSync(`git add -A && git commit -q -m overcap`, { cwd: dir });
+    assertTrue("a commit one line over the cap is flagged", tlc(scanMain()).length === 1, "over-cap not flagged");
+
+    // 4. Deletions count toward the total (added + deleted). Seed on main, delete on branch.
+    execSync(`git checkout -q main`, { cwd: dir });
+    writeFileSync(join(dir, "seed.txt"), bigLines(600));
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+    execSync(`git checkout -q -b work-20260721-000006`, { cwd: dir });
+    rmSync(join(dir, "seed.txt"));
+    execSync(`git add -A && git commit -q -m rm`, { cwd: dir });
+    assertTrue("deletions count toward the per-commit total", tlc(scanMain()).length === 1, "deletions not counted");
+
+    // 5. Existing size/secret contract preserved: a small clean commit passes.
+    branch("work-20260721-000007");
+    writeFileSync(join(dir, "small.txt"), bigLines(10));
+    execSync(`git add -A && git commit -q -m small`, { cwd: dir });
+    r = scanMain();
+    assertEq("a small clean commit still passes", r.verdict, "pass");
+  } finally { cleanup(dir); }
+}
+
 // ---------- 8j2. report/ticket-commits.sh: the derived hash must be REACHABLE ----------
 // A commit cannot carry its own hash, so archive.sh no longer stamps commit_hash: the old
 // stamp-then-amend recorded a pre-amend commit that is orphaned and never pushed, which made
@@ -2673,6 +2748,237 @@ function testReleaseScanGateDecision() {
   } finally { cleanup(dir); }
 }
 
+// ---------- gather/commit-kpi.sh (orchestration-throughput KPI) ----------
+function testCommitKpi() {
+  const dir = makeRepo("main");
+  try {
+    const lines = (n) => Array.from({ length: n }, (_, i) => `l${i}`).join("\n") + "\n";
+    // Add a file of N lines and commit; agent=true stamps the Anthropic trailer; date optional.
+    const commit = (file, n, { agent = false, date = null } = {}) => {
+      writeFileSync(join(dir, file), lines(n));
+      execSync(`git add -A`, { cwd: dir });
+      const msg = agent ? `c ${file}\n\nCo-Authored-By: Claude <noreply@anthropic.com>` : `c ${file}`;
+      const env = { ...process.env };
+      if (date) { env.GIT_AUTHOR_DATE = date; env.GIT_COMMITTER_DATE = date; }
+      execSync(`git commit -q -F -`, { cwd: dir, input: msg, env });
+    };
+    const kpi = (window, extraEnv = {}) =>
+      JSON.parse(execSync(`${POSIX_SH} ${SCRIPTS.commitKpi} "${window}"`, { cwd: dir, encoding: "utf8", env: { ...process.env, ...extraEnv } }));
+
+    // The old commit is committed FIRST (an ancestor), so git log --since's monotonic
+    // pruning cleanly bounds the recent window at the 4 commits after it — the initial
+    // README commit is pruned behind the old one along with old itself.
+    commit("old.txt", 50, { agent: true, date: "2010-01-01T00:00:00" }); // old, outside a recent window
+    commit("a.txt", 10, { agent: false });                 // human, 10 lines
+    commit("b.txt", 100, { agent: true });                 // agent, 100 lines
+    commit("c.txt", 600, { agent: true });                 // agent, 600 lines -> oversize
+    commit("package-lock.json", 700, { agent: false });    // lockfile -> excluded (0 changed)
+
+    // Recent window ("5 years") excludes the 2010 commit (and the initial behind it).
+    const r = kpi("5 years");
+    assertEq("total_commits over the recent window", r.total_commits, 4);
+    assertEq("agent_commits counts the Anthropic trailer", r.agent_commits, 2);
+    assertEq("agent_share is agent/total", r.agent_share, 0.5);
+    // changed lines: [10, 100, 600, 0(lockfile)] -> sorted [0,10,100,600], median (10+100)/2=55, p90=600.
+    assertEq("median_changed_lines excludes lockfiles/binary", r.median_changed_lines, 55);
+    assertEq("p90_changed_lines", r.p90_changed_lines, 600);
+    // Gate constant exists in this repo -> oversize counts the 600-line commit.
+    assertEq("oversize_commits counts commits over the per-commit cap", r.oversize_commits, 1);
+
+    // Wider window includes the 2010 commit and the initial: 6 total.
+    assertEq("wider window includes the old commit and the initial", kpi("30 years").total_commits, 6);
+
+    // Pre-gate: a scan script without the constant -> oversize null (never fabricated).
+    assertEq("oversize is null when the gate constant is absent",
+      kpi("5 years", { COMMIT_KPI_SCAN: "/nonexistent-scan.sh" }).oversize_commits, null);
+  } finally { cleanup(dir); }
+}
+
+// ---------- mission reflection: append-reflection.sh + list-reflections.sh ----------
+function testMissionReflection() {
+  const dir = makeRepo("main");
+  try {
+    const mk = (area, slug, acceptance = "- [ ] real one\n") => {
+      const d = join(dir, `.workaholic/missions/${area}/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "mission.md"),
+        `---\ntype: Mission\nslug: ${slug}\nstatus: ${area === "archive" ? "achieved" : "active"}\n---\n\n## Acceptance\n\n${acceptance}\n## Changelog\n- 2026-07-20 — created — mission.md\n`);
+      return join(d, "mission.md");
+    };
+    const rel = (mp) => `.workaholic/missions/${mp}`;
+    const appendR = (slug, runId, date, body) =>
+      JSON.parse(execSync(`${POSIX_SH} ${SCRIPTS.appendReflection} ${slug} ${runId} ${date}`,
+        { cwd: dir, input: body, encoding: "utf8" }));
+
+    const p = mk("active", "alpha");
+    const body1 = "- blocked: none\n- leaked questions: sequence alpha before beta?\n- front-load next: ask merge order\n";
+    // 1. First append creates the ## Reflection section and the entry.
+    let r = appendR("alpha", "20260721-0500", "2026-07-21", body1);
+    assertEq("reflection first append succeeds", r.appended, true);
+    let body = readFileSync(p, "utf8");
+    assertTrue("## Reflection section created", body.includes("\n## Reflection\n"), body);
+    assertTrue("entry heading carries date + run-id", body.includes("### 2026-07-21 run 20260721-0500"), body);
+
+    // 2. Idempotent per run-id: same run-id adds nothing, existing lines untouched.
+    r = appendR("alpha", "20260721-0500", "2026-07-21", "- blocked: DIFFERENT\n");
+    assertEq("reflection re-append same run-id is a no-op", r.appended, false);
+    assertTrue("existing entry not altered", !readFileSync(p, "utf8").includes("DIFFERENT"), readFileSync(p, "utf8"));
+
+    // 3. A second run-id appends a second entry (append-only).
+    const body2 = "- blocked: missing FOO\n- leaked questions: none\n- front-load next: pre-provision FOO\n";
+    appendR("alpha", "20260722-0600", "2026-07-22", body2);
+    body = readFileSync(p, "utf8");
+    assertTrue("both entries present", body.includes("20260721-0500") && body.includes("20260722-0600"), body);
+
+    // 4. A [ ]-shaped line inside ## Reflection changes NOTHING about progress/next.
+    const p2 = mk("active", "beta", "- [x] done\n- [ ] pending\n");
+    execSync(`${POSIX_SH} ${SCRIPTS.appendReflection} beta 20260721-0700 2026-07-21`,
+      { cwd: dir, input: "- blocked: none\n- leaked questions: none\n- front-load next: - [ ] a checklist-shaped decoy\n", encoding: "utf8" });
+    const prog = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${rel("active/beta/mission.md")}`).stdout);
+    assertEq("reflection checklist-shaped line does not change progress", { c: prog.checked, t: prog.total }, { c: 1, t: 2 });
+    assertEq("reflection checklist-shaped line does not change next-acceptance",
+      run(dir, `${POSIX_SH} ${SCRIPTS.nextAcceptance} ${rel("active/beta/mission.md")}`).stdout.trim(), "pending");
+
+    // 5. list-reflections: across active+archive, newest first, bullets parsed.
+    const pa = mk("archive", "gamma");
+    execSync(`${POSIX_SH} ${SCRIPTS.appendReflection} gamma 20260719-0400 2026-07-19`,
+      { cwd: dir, input: "- blocked: archived cause\n- leaked questions: none\n- front-load next: nothing\n", encoding: "utf8" });
+    const lst = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listReflections}`).stdout);
+    assertTrue("list-reflections spans active + archive", lst.some((e) => e.slug === "gamma") && lst.some((e) => e.slug === "alpha"), JSON.stringify(lst));
+    assertEq("list-reflections is newest-first", lst[0].date, "2026-07-22");
+    const g = lst.find((e) => e.slug === "gamma");
+    assertEq("list-reflections parses the three bullets",
+      { b: g.blocked, l: g.leaked, f: g.front_load }, { b: "archived cause", l: "none", f: "nothing" });
+  } finally { cleanup(dir); }
+}
+
+// ---------- mission duration: predict-duration.sh + record-run-hours.sh ----------
+function testMissionDuration() {
+  const dir = makeRepo("main");
+  try {
+    const archMission = (slug, actual, items) => {
+      const d = join(dir, `.workaholic/missions/archive/${slug}`);
+      mkdirSync(d, { recursive: true });
+      const acc = items.map((_, i) => `- [x] item ${i}`).join("\n");
+      writeFileSync(join(d, "mission.md"),
+        `---\ntype: Mission\nslug: ${slug}\nstatus: achieved\nactual_hours: ${actual}\n---\n\n## Acceptance\n\n${acc}\n\n## Changelog\n`);
+    };
+    const predict = (count) => JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.predictDuration} ${count}`).stdout);
+
+    // Empty archive -> honest basis 0, null prediction (never fabricated).
+    let p = predict(4);
+    assertEq("predict with no archived basis is honest (basis 0, null)",
+      { ph: p.predicted_hours, b: p.basis, m: p.per_item_median }, { ph: null, b: 0, m: null });
+
+    // Two archived missions: m1 = 4h/2 items = 2.0/item; m2 = 9h/3 items = 3.0/item.
+    // median(2.0, 3.0) = 2.5; predicted for 4 items = 10.0.
+    archMission("m1", 4, [0, 1]);
+    archMission("m2", 9, [0, 1, 2]);
+    p = predict(4);
+    assertEq("predict basis counts contributing archived missions", p.basis, 2);
+    assertEq("predict median-per-item × count", { ph: p.predicted_hours, m: p.per_item_median }, { ph: 10.00, m: 2.500000 });
+
+    // A third with no actual_hours does not contribute (basis stays 2).
+    archMission("m3-noactual", "", [0, 1]);
+    // archMission writes "actual_hours: " (empty) -> not numeric -> excluded.
+    assertEq("predict excludes an archived mission with no actual_hours", predict(4).basis, 2);
+
+    // record-run-hours: accumulation + idempotency per run-id.
+    const active = join(dir, ".workaholic/missions/active/live");
+    mkdirSync(active, { recursive: true });
+    writeFileSync(join(active, "mission.md"), `---\ntype: Mission\nslug: live\nstatus: active\nactual_hours:\n---\n\n## Changelog\n`);
+    const mpath = ".workaholic/missions/active/live/mission.md";
+    const rec = (h, id) => JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.recordRunHours} ${mpath} ${h} ${id}`).stdout);
+    assertEq("record first run accumulates from empty", rec(2.4, "run-a").actual_hours, 2.4);
+    assertEq("record same run-id again is a no-op", rec(2.4, "run-a").recorded, false);
+    assertEq("record a second run-id accumulates", rec(1.6, "run-b").actual_hours, 4);
+    const body = readFileSync(join(dir, mpath), "utf8");
+    assertTrue("actual_hours reflects the sum", /^actual_hours:\s*4\s*$/m.test(body), body);
+    assertTrue("each run's increment is carried in a changelog line",
+      /run recorded \(\+2\.4h\) — run-a/.test(body) && /run recorded \(\+1\.6h\) — run-b/.test(body), body);
+  } finally { cleanup(dir); }
+}
+
+// ---------- strategy: artifact + skill (create/list/reader/retire/index) ----------
+function testStrategyArtifact() {
+  const dir = makeRepo("main");
+  try {
+    // create.sh scaffolds a conformant strategy.md in active/, deriving the slug.
+    let r = run(dir, `${POSIX_SH} ${SCRIPTS.strategyCreate} "Agent Orchestrated Development"`);
+    assertEq("strategy create exits 0", r.status, 0);
+    const created = JSON.parse(r.stdout);
+    assertEq("strategy create slug", created.slug, "agent-orchestrated-development");
+    assertEq("strategy create flag", created.created, true);
+    const spath = join(dir, ".workaholic/strategies/active/agent-orchestrated-development/strategy.md");
+    assertTrue("strategy.md written into active/", existsSync(spath), created.path);
+    const body = readFileSync(spath, "utf8");
+    assertTrue("strategy has type: Strategy", /^type:\s*Strategy\s*$/m.test(body), body.split("\n").slice(0, 10).join("\n"));
+    assertTrue("strategy has status active", /^status:\s*active\s*$/m.test(body));
+    assertTrue("strategy has ## Direction", body.includes("\n## Direction\n"));
+    assertTrue("strategy has ## Changelog", body.includes("\n## Changelog\n"));
+    assertTrue("strategy has NO acceptance/worktree machinery",
+      !/^drive_authorized:/m.test(body) && !/^assignee:/m.test(body) && !body.includes("## Acceptance"), body);
+
+    // create.sh refuses an existing slug (either area).
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.strategyCreate} "Agent Orchestrated Development"`);
+    assertEq("strategy create refuses duplicate", JSON.parse(r.stdout).created, false);
+
+    // A second strategy so list ordering is exercised.
+    run(dir, `${POSIX_SH} ${SCRIPTS.strategyCreate} "Zebra Direction"`);
+
+    // Missions linking to strategies via the `strategy:` relation.
+    const mkMission = (slug, strategyLine) => {
+      const md = join(dir, `.workaholic/missions/active/${slug}/mission.md`);
+      mkdirSync(dirname(md), { recursive: true });
+      writeFileSync(md, `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\n${strategyLine}\n---\n\n# ${slug}\n`);
+    };
+    mkMission("mission-a", "strategy: agent-orchestrated-development");
+    mkMission("mission-b", "strategy: [agent-orchestrated-development]");   // list form
+    mkMission("mission-c", "strategy: zebra-direction");
+    mkMission("mission-d", "strategy:");                                    // unlinked
+
+    // read-strategy-relation.sh: bare, list, absent, no-frontmatter.
+    const rel = (slug) => run(dir, `${POSIX_SH} ${SCRIPTS.strategyReadRelation} .workaholic/missions/active/${slug}/mission.md`).stdout.trim();
+    assertEq("reader: bare scalar", rel("mission-a"), "agent-orchestrated-development");
+    assertEq("reader: inline list", rel("mission-b"), "agent-orchestrated-development");
+    assertEq("reader: absent value -> nothing", rel("mission-d"), "");
+    writeFileSync(join(dir, "nofm.md"), "no frontmatter here\nstrategy: x\n");
+    assertEq("reader: no frontmatter -> nothing",
+      run(dir, `${POSIX_SH} ${SCRIPTS.strategyReadRelation} nofm.md`).stdout.trim(), "");
+
+    // list.sh: both strategies, computed missions rollup, sorted.
+    const list = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyList}`).stdout);
+    assertEq("list reports both strategies", list.map((s) => s.slug), ["agent-orchestrated-development", "zebra-direction"]);
+    const aod = list.find((s) => s.slug === "agent-orchestrated-development");
+    assertEq("rollup computes missions for the strategy", aod.missions.sort(), ["mission-a", "mission-b"]);
+    assertEq("zebra rollup has its one mission", list.find((s) => s.slug === "zebra-direction").missions, ["mission-c"]);
+
+    // OKF index: strategies/index.md with area section; bundle root links strategies.
+    assertTrue("strategies index written", existsSync(join(dir, ".workaholic/strategies/index.md")));
+    assertTrue("strategies index has ## active",
+      readFileSync(join(dir, ".workaholic/strategies/index.md"), "utf8").includes("\n## active\n"));
+    assertTrue("bundle root links strategies",
+      readFileSync(join(dir, ".workaholic/index.md"), "utf8").includes("(strategies/index.md)"));
+
+    // retire.sh: moves to archive/, flips status, idempotent re-retire.
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.strategyRetire} zebra-direction 2026-07-21`);
+    assertEq("retire exits 0", r.status, 0);
+    const retired = JSON.parse(r.stdout);
+    assertEq("retire flag", retired.retired, true);
+    assertTrue("strategy moved to archive/",
+      existsSync(join(dir, ".workaholic/strategies/archive/zebra-direction/strategy.md")));
+    const arch = readFileSync(join(dir, ".workaholic/strategies/archive/zebra-direction/strategy.md"), "utf8");
+    assertTrue("retired status flipped", /^status:\s*retired\s*$/m.test(arch), arch);
+    assertTrue("retire appended a changelog line", /- 2026-07-21 .* strategy retired/.test(arch), arch);
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.strategyRetire} zebra-direction 2026-07-21`);
+    assertEq("re-retire is idempotent no-op", JSON.parse(r.stdout).retired, false);
+
+    // retired strategy still lists (archive area) with its computed rollup.
+    const list2 = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyList}`).stdout);
+    assertEq("retired strategy still enumerated", list2.find((s) => s.slug === "zebra-direction").status, "retired");
+  } finally { cleanup(dir); }
+}
+
 // ---------- 9. installed plugin helper resolution ----------
 function testInstalledPluginHelperResolution() {
   const dir = makeRepo("main");
@@ -2731,6 +3037,9 @@ function testMission() {
     assertTrue("mission has type: Mission", /^type:\s*Mission\s*$/m.test(body), body.split("\n").slice(0, 12).join("\n"));
     assertTrue("mission has slug", /^slug:\s*real-time-notifications\s*$/m.test(body));
     assertTrue("mission has status active", /^status:\s*active\s*$/m.test(body));
+    assertTrue("mission scaffold carries an empty strategy: key", /^strategy:\s*$/m.test(body), body.split("\n").slice(0, 16).join("\n"));
+    assertTrue("mission scaffold carries empty predicted_hours/actual_hours keys",
+      /^predicted_hours:\s*$/m.test(body) && /^actual_hours:\s*$/m.test(body), body.split("\n").slice(0, 16).join("\n"));
     assertTrue("mission reserves empty tickets list", /^tickets:\s*\[\]\s*$/m.test(body));
     for (const sec of ["## Goal", "## Scope", "## Acceptance", "## Changelog"]) {
       assertTrue(`mission has ${sec}`, body.includes(`\n${sec}\n`), sec);
@@ -5234,8 +5543,8 @@ function testValidateMission() {
   try {
     const rel = ".workaholic/missions/active/m-x/mission.md";
     mkdirSync(join(dir, ".workaholic/missions/active/m-x"), { recursive: true });
-    const mission = ({ assignee = "assignee: a@qmu.jp", stamp = "", exp = "", acc = "" } = {}) =>
-      `---\ntype: Mission\ntitle: X\nslug: m-x\nstatus: active\n${assignee}\ndrive_authorized:${stamp}\n---\n\n## Experience\n${exp}\n## Acceptance\n${acc}\n## Changelog\n`;
+    const mission = ({ assignee = "assignee: a@qmu.jp", strategy = "strategy:", stamp = "", exp = "", acc = "" } = {}) =>
+      `---\ntype: Mission\ntitle: X\nslug: m-x\nstatus: active\n${assignee}\n${strategy}\ndrive_authorized:${stamp}\n---\n\n## Experience\n${exp}\n## Acceptance\n${acc}\n## Changelog\n`;
     const invoke = (p = rel) => {
       const payload = JSON.stringify({ tool_input: { file_path: p } });
       try { execSync(`${POSIX_SH} ${HOOK}`, { cwd: dir, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return 0; }
@@ -5254,12 +5563,20 @@ function testValidateMission() {
     writeFileSync(join(dir, rel), mission({ assignee: "title2: no-assignee-key" }));
     assertEq("validate-mission rejects a mission missing the assignee key", invoke(), 2);
 
-    // drive_authorized: true — the full floor.
-    const full = { stamp: " true", exp: "\nUsers see the thing happen.\n", acc: "\n- [ ] One\n" };
+    // An UNSTAMPED scaffold with an empty strategy passes (link resolved later).
+    writeFileSync(join(dir, rel), mission({ strategy: "strategy:" }));
+    assertEq("validate-mission lets an unstamped mission with empty strategy pass", invoke(), 0);
+
+    // drive_authorized: true — the full floor (now includes a non-empty strategy link).
+    const full = { stamp: " true", strategy: "strategy: agent-orchestrated-development", exp: "\nUsers see the thing happen.\n", acc: "\n- [ ] One\n" };
     writeFileSync(join(dir, rel), mission(full));
     assertEq("validate-mission accepts a complete authorized mission", invoke(), 0);
     writeFileSync(join(dir, rel), mission({ ...full, assignee: "assignee:" }));
     assertEq("validate-mission rejects an authorized mission with no owner", invoke(), 2);
+    writeFileSync(join(dir, rel), mission({ ...full, strategy: "strategy:" }));
+    assertEq("validate-mission rejects an authorized mission with no strategy link", invoke(), 2);
+    writeFileSync(join(dir, rel), mission({ ...full, strategy: "strategy: []" }));
+    assertEq("validate-mission rejects an authorized mission with empty-list strategy", invoke(), 2);
     writeFileSync(join(dir, rel), mission({ ...full, exp: "\n<!-- fill me -->\n" }));
     assertEq("validate-mission rejects an authorized mission with comment-only Experience", invoke(), 2);
     writeFileSync(join(dir, rel), mission({ ...full, acc: "\n" }));
@@ -6568,12 +6885,12 @@ function testResolveExportPath() {
 function testMonitorPreflight() {
   const dir = makeRepo("main");
   try {
-    const wtMission = (slug, { stamp = true, acceptance = "- [x] One\n- [ ] Two\n", assignee = "test@example.com" } = {}) => {
+    const wtMission = (slug, { stamp = true, acceptance = "- [x] One\n- [ ] Two\n", assignee = "test@example.com", strategy = "" } = {}) => {
       execSync(`git worktree add -q .worktrees/${slug} -b work-20260718000001-${slug}`, { cwd: dir });
       const d = join(dir, `.worktrees/${slug}/.workaholic/missions/active/${slug}`);
       mkdirSync(d, { recursive: true });
       writeFileSync(join(d, "mission.md"),
-        `---\ntype: Mission\ntitle: ${slug} title\nslug: ${slug}\nstatus: active\nassignee: ${assignee}\ndrive_authorized:${stamp ? " true" : ""}\n---\n\n## Acceptance\n\n${acceptance}\n## Changelog\n`);
+        `---\ntype: Mission\ntitle: ${slug} title\nslug: ${slug}\nstatus: active\nassignee: ${assignee}\nstrategy: ${strategy}\ndrive_authorized:${stamp ? " true" : ""}\n---\n\n## Acceptance\n\n${acceptance}\n## Changelog\n`);
     };
     const mainMission = (slug, { stamp = true, acceptance = "- [ ] One\n", assignee = "test@example.com" } = {}) => {
       const d = join(dir, `.workaholic/missions/active/${slug}`);
@@ -6582,8 +6899,8 @@ function testMonitorPreflight() {
         `---\ntype: Mission\ntitle: ${slug} title\nslug: ${slug}\nstatus: active\nassignee: ${assignee}\ndrive_authorized:${stamp ? " true" : ""}\n---\n\n## Acceptance\n\n${acceptance}\n## Changelog\n`);
     };
 
-    wtMission("alpha");                                          // eligible: stamped, 1/2, own worktree
-    wtMission("beta", { stamp: false });                         // undriveable: never stamped
+    wtMission("alpha", { strategy: "agent-orchestrated-development" }); // eligible: stamped, 1/2, own worktree, linked
+    wtMission("beta", { stamp: false });                         // undriveable: never stamped (and unlinked strategy)
     wtMission("gamma", { acceptance: "" });                      // undriveable: stamped but no plan
     execSync(`git worktree add -q .worktrees/orphan -b work-20260718000099-orphan`, { cwd: dir });
     // .worktrees/orphan holds no mission.md -> reported as an orphan, never guessed at.
@@ -6601,6 +6918,9 @@ function testMonitorPreflight() {
       { c: by.alpha.checked, t: by.alpha.total, next: by.alpha.next }, { c: 1, t: 2, next: "Two" });
     assertTrue("the eligible mission carries its worktree path",
       by.alpha.worktree_path.endsWith(".worktrees/alpha"), by.alpha.worktree_path);
+    assertEq("preflight surfaces the mission's strategy slug", by.alpha.strategy, "agent-orchestrated-development");
+    assertEq("an unlinked mission surfaces an empty strategy (a replan item, not a blocker)",
+      { s: by.beta.strategy, a: by.beta.authorized }, { s: "", a: false });
     assertEq("an unstamped mission is undriveable (not_authorized)",
       { a: by.beta.authorized, reason: by.beta.reason }, { a: false, reason: "not_authorized" });
     assertEq("a stamped mission with an empty Acceptance is undriveable (no_plan)",
@@ -6637,10 +6957,15 @@ function testMonitorStatus() {
 
     mission("- [x] One\n- [ ] Two\n");
     assertEq("a remaining unchecked item is not complete", status().complete, false);
+    // status.sh's `complete` flag IS the /monitor §5 PR-phase gate: a PR is opened for a
+    // mission iff it is complete. An incomplete mission gets no PR attempt (no-network
+    // boundary — the gh call itself is exercised the first real night, per the ticket gate).
+    assertEq("the PR-phase gate keys on status.sh complete (incomplete -> no PR)", status().complete, false);
 
     mission("");
     assertEq("an empty Acceptance (0/0) is NOT complete — no plan is not a finished plan",
       status().complete, false);
+    assertEq("a 0/0 mission is not PR-eligible either (no plan is not a finished plan)", status().complete, false);
 
     mission("- [x] One\n", "check");
     s = status();
@@ -6904,11 +7229,16 @@ const tests = [
   ["mission quality gate", testMissionQualityGate],
   ["report/ticket-commits.sh derivation", testTicketCommitsDerivation],
   ["release-scan branch-safety engine", testReleaseScanEngine],
+  ["release-scan per-commit changed-lines gate", testReleaseScanPerCommit],
   ["release-scan secret literal vs reference", testReleaseScanSecretLiteralVsReference],
   ["release-scan secret suffixed keywords", testReleaseScanSecretSuffixedKeywords],
   ["release-scan secret value inversion", testReleaseScanSecretValueInversion],
   ["release-scan allowlist", testReleaseScanAllowlist],
   ["release-scan gate decision", testReleaseScanGateDecision],
+  ["gather/commit-kpi.sh orchestration throughput", testCommitKpi],
+  ["mission reflection append + list", testMissionReflection],
+  ["mission duration predict + record", testMissionDuration],
+  ["strategy artifact + skill (create/list/reader/retire/index)", testStrategyArtifact],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission describes experience, gate is optional", testMissionExperienceSection],

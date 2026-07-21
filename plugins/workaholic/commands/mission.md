@@ -17,21 +17,11 @@ skills:
 
 This command (main agent) runs the preloaded `workaholic:mission` skill. A **mission** is a first-class knowledge artifact: the **overnight-executable execution plan of a strategy** — a bounded, information-rich batch of tickets an agent fleet drives in a night — distinct from a `strategy` (the long-lived direction it executes), a `trip` (a short design/build session), and a generic "epic/milestone" (see the skill's opening section and its **Granularity** record). It lives at `.workaholic/missions/active/<slug>/mission.md` while in progress, and moves to `.workaholic/missions/archive/<slug>/mission.md` when ended (see the skill's Allowed Location section).
 
-`$ARGUMENT` selects the mode — by **content**, not by subcommand (`workaholic:design` / `modeless-design`: the argument's meaning routes the flow, mirroring `/report`/`/ship` context-awareness). Match `summary` **first** (before the title branch, so the literal word `summary` reports rather than becoming a mission title), then the `close` and empty branches. Any other non-empty argument is judged against the existing missions (see *Referencing an existing mission*, below): a clear reference to an active mission routes to the **replan flow**, an ambiguous argument is **asked**, and an argument referencing nothing is a **title** for the create flow.
+`$ARGUMENT` selects the mode — by **content**, not by subcommand (`workaholic:design` / `modeless-design`: the argument's meaning routes the flow, mirroring `/report`/`/ship` context-awareness). Match the retired literal `summary` **first** (a short deprecation note, below — never a mission title), then the `close` and empty branches. Any other non-empty argument is judged against the existing missions (see *Referencing an existing mission*, below): a clear reference to an active mission routes to the **replan flow**, an ambiguous argument is **asked**, and an argument referencing nothing is a **title** for the create flow.
 
-## `summary` — the missions that are my business
+## `summary` — retired (developer decision, 2026-07-22)
 
-When `$ARGUMENT` is exactly `summary`, report the **active** missions that are the current user's business and stop — a read-only view that creates nothing:
-
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/summary.sh
-```
-
-The script reports every `active` mission that is **not somebody else's** (the same gate the mission lens uses): those whose `assignee` matches your `git config user.email`, followed by **unassigned** ones — unclaimed work is closer to your business than a colleague's mission, so it is offered rather than hidden. Missions assigned to another developer are excluded. Each entry carries computed `checked/total` progress, its next unchecked acceptance item, and its `assignee` (empty when unassigned).
-
-Present the returned array as one line per mission — `title` (`slug`) — `checked/total`, then `next: <item>`. **Render an unassigned mission distinguishably** — read the entry's `assignee` field (do not re-derive it from the file) and mark an empty one as unclaimed and claimable, so it never reads as work the developer has already taken on. The array is ordered for you: yours first, unassigned after.
-
-If the array is empty, tell the user no active mission is theirs or unclaimed, and that `/mission` (bare) lists everyone's missions and `/mission "<title>"` starts one.
+The `summary` mode is **retired**: the bare `/mission` view (below) is developer-centric, so a separate my-business-only mode would differ only by hiding others' missions — a near-duplicate (one concept, one word). When `$ARGUMENT` is exactly `summary`, do not create anything and do not treat it as a title: tell the user the mode was folded into bare `/mission` and render the bare view instead. (`mission/scripts/summary.sh` remains — it is the shared assignee-gate reference the monitor skill's Scope section reads; only the command mode is gone.)
 
 ## Referencing an existing mission — replan
 
@@ -121,15 +111,20 @@ By the end of this step the mission is **drive-ready**: a complete, ordered queu
 
 **6. Report and hand off.** Tell the developer the mission is set up in `<worktree_path>` with its statement and an ordered, ready-to-drive kickoff queue. **Do not instruct them to `cd`** — `/drive` auto-routes into an existing worktree, so they just open that worktree and drive. Summarize the mission slug, the worktree path, and the kickoff tickets.
 
-## Without a title — list missions
+## Without a title — the developer-centric view
 
-When `$ARGUMENT` is empty, list existing missions with their computed progress:
+When `$ARGUMENT` is empty, show the whole roadmap **weighted toward the caller** (developer decision, 2026-07-22: most of the output is about the missions that are the caller's business; other developers' work stays visible but compact — de-emphasized, never hidden):
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list.sh
 ```
 
-Present the returned array as a readable summary — one line per mission showing `title` (`slug`), `status`, and progress as `checked/total` (progress is **computed** from the `## Acceptance` checklist, never a stored number). For each mission, read the tail of its `## Changelog` at the entry's `path` (list.sh resolves each mission's location across `active/` and `archive/`) and show the most recent few lines, so the user sees where each mission stands and how it has moved. Group `active` missions before `achieved`/`abandoned` ones. If the array is empty, tell the user there are no missions yet and that `/mission "<title>"` creates the first one.
+Partition the returned array on each entry's `relation` field (computed by the script — do **not** re-derive it from `assignee` in prose) and render two tiers:
+
+- **Full treatment — `mine` and `unassigned` entries with `status: active`** (mine first, then unassigned, matching the shared ordering): for each, show `title` (`slug`) — `checked/total`, its `next` item (from the entry — the next unchecked acceptance criterion), and the most recent few `## Changelog` lines read from the entry's `path`, so the caller sees where their work stands and how it has moved. **Mark an `unassigned` entry as unclaimed and claimable** — it must never read as work the caller has already taken on.
+- **One line each — everything else** (`others`, and any archived mission regardless of relation): `title` (`slug`) — `status` — `checked/total`. No changelog narration, no paragraphs — a closed mission has no next step, and a colleague's mission is their business; the roster line keeps the whole picture visible without burying the caller's own missions.
+
+Group `active` before `achieved`/`abandoned`/`carried` within each tier. Progress is always the computed `checked/total`, never a stored number. If the array is empty, tell the user there are no missions yet and that `/mission "<title>"` creates the first one; if only the compact tier has entries, say plainly that no active mission is the caller's or unclaimed.
 
 ## `close <slug>` — end a mission
 

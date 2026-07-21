@@ -3,9 +3,9 @@ created_at: 2026-07-21T02:57:22+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: reorganize-missions-under-strategies
 ---
@@ -72,3 +72,20 @@ Interrogated at mission creation (2026-07-21); verification depth ruling: hermet
 - The genuinely unrecommendable question is still pushed promptly and one-at-a-time — this ticket lowers question *count*, never decision *latency* (`rules/interaction.md`).
 - Guard the failure mode where "decide-and-record" erodes into silent assumptions: the record seam is mandatory, and a veto that arrives later is cheap by the same economics that justify deciding (`## Quality Gate` `Decided:` lines).
 - This session itself is the first live application: four asked questions would have been zero under the test; the mission changelog records the rulings they produced.
+
+## Final Report
+
+Development completed as planned. The Recommended-label test now lives once in full in `plugins/workaholic/rules/interaction.md` (two new bullets: the test itself plus its economics/record rationale, and a clause in the "necessity is a judgement" bullet noting recommendability is likewise unhookable). Every other surface references it by name (`rules/interaction.md`) and applies it without restating the canonical statement, each naming a concrete record seam:
+
+- **create-ticket §4b** — the developer-owned-decision category is narrowed by the test; a recommendable verification-depth/scope/risk answer is decided and written into `## Quality Gate` as a `Decided: <choice> — <why> (developer may override at /drive).` line, with a worked example. The "do not soften" warning was strengthened to say the test narrows prompt *count*, never the gate's thoroughness.
+- **mission Creation Interrogation ("Grill; do not tick a box") and Replan** — same test; "as many rounds as it takes" now means as many *unrecommendable* rounds; recorded decisions land in the mission `## Changelog` or the ticket's `## Quality Gate`.
+- **monitor §1** — each foreseeable escalation (and each design ruling) passes the test first; recommendable ones are decided-and-recorded in a new pre-flight-summary **"decisions taken"** block (item 5), only unrecommendable forks become the blocking batch.
+- **commands/ticket.md, commands/mission.md** — thin echoes aligned; the record format/example stays in the skill.
+- **CLAUDE.md** — the AskUserQuestion enforcement section notes the sharpened form stays judgment-not-hook.
+
+Built targets (create-ticket, mission) regenerated via the argument-less build; `outputs/workflows` and the OKF bundle are in sync (idempotent rebuild produces no further diff).
+
+### Discovered Insights
+
+- **Insight**: `scripts/test-workflow-scripts.mjs:7131` pins the literal doctrine string `Only a genuine **design ruling**` in monitor's reevaluate paragraph. Refining that paragraph for the Recommended-label test must **preserve that exact phrase** (an unrecommendable design ruling still "is collected into the up-front batch"), not paraphrase it away.
+  **Context**: The monitor skill has a dense band of string-pinned assertions (tests 7128–7143) that treat specific sentences as the contract; edits there should be checked against those regexes, and monitor is *not* a built target, so its edits need no `outputs/` rebuild while create-ticket/mission do.

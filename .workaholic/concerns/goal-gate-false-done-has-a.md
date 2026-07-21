@@ -9,7 +9,7 @@ origin_branch: work-20260719-075112
 origin_commit: 01fa6815
 created_at: 2026-07-21T11:26:01+09:00
 first_seen: 2026-07-21T11:26:01+09:00
-last_seen: 2026-07-21T11:26:01+09:00
+last_seen: 2026-07-21T16:30:28+09:00
 severity: moderate
 status: active
 resolved_by_pr: 
@@ -20,8 +20,9 @@ resolved_by_commit:
 
 ## Description
 
-The `/goal <token>` Stop hook is satisfied the moment the agent emits a token, even when the underlying objective is materially incomplete. The repo-side half (honest /monitor terminal signals derived from status.sh) shipped in this branch; the `/goal` harness-side corroboration (gate must not clear on a self-emitted token alone) remains (ticket 20260719000021).
+The `/goal <token>` Stop hook is satisfied the moment the agent emits a token, even when the underlying objective is materially incomplete. The repo-side half (honest /monitor terminal signals derived from status.sh) has shipped; the `/goal` harness-side corroboration (gate must not clear on a self-emitted token alone) remains.
 
 ## How to Fix
 
 Raise token-vs-observable-state Stop-gate corroboration with the Claude Code harness; workaholic has no further repo-side actionable work.
+

@@ -1,0 +1,5 @@
+# Generated, committed cross-agent artifacts (rebuilt by scripts/build-plugins).
+# Marking them linguist-generated collapses them in GitHub diffs/language stats and
+# exempts them from release-scan's per-commit changed-lines gate (a bulk regeneration
+# is not a granularity problem). Source lives under plugins/; never hand-edit outputs/.
+outputs/** linguist-generated

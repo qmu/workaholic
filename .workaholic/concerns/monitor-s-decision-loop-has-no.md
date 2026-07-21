@@ -26,3 +26,6 @@ The front-loaded batch asks blockers one batch in one run, but nothing makes a d
 
 Record deferred decisions in the run report and have the next invocation re-ask only when the underlying state changed (or after N runs), so deferral is remembered rather than re-litigated every loop.
 
+## Re-judgment (2026-07-21, mission reorganize-missions-under-strategies)
+
+Reviewed while adding the `/monitor` completion report and per-mission `## Reflection` (ticket 20260721025718). **Still active — re-deferred.** The new reflection mechanism records the *causes* that stopped or would have stopped autonomy (`blocked` / `leaked questions` / `front-load next:`) and feeds them into the next Creation Interrogation, which sharpens planning — but it deliberately does **not** make a deferred *decision* sticky across `/monitor` invocations (the ticket's own Considerations forbid blurring reflection-causes with the escalation list of pending decisions). Cross-run deferral memory for escalations remains unaddressed; this concern's fix is a distinct mechanism.

@@ -18,6 +18,8 @@ metadata:
 
 Answer a developer's question about the repository and export the answer as a **printer-ready PDF report**. The report is generated as semantic HTML and printed to PDF by a **real browser process** driven over MCP, then written to an explicit destination directory or, by default, to the Desktop (falling back to Home). The answer is technical documentation: verifiable, source-cited, and free of speculation.
 
+**It is a formal business document.** These reports are submitted to clients and circulated among colleagues to explain a situation or a design, so every one follows the company house style: **monochrome** (black on white, no colour), **no decoration** (normal font weight throughout — headings included — and no rules, borders, boxes, or underlines), **numbered hierarchical headings**, **prose as the primary unit** (lists only in support), and **self-explaining** (every term introduced in the sentences before it is used; a glossary only as a last resort). Comfort is achieved through **consistent spacing**, not ornament. The full rules are §3 (template) and §4 (guidelines); hold every report to them.
+
 ## 1. Agent Compatibility
 
 `/explain` depends on a **session-provided browser MCP** — the Claude Code **Playwright plugin** (`mcp__plugin_playwright_playwright__*`) or the **Chrome DevTools MCP**. The workaholic plugin bundles no browser tooling and declares no MCP server, so the browser is an external dependency this skill *checks for* at runtime and never bundles. Because of that dependency it is **Claude-Code-only** (like `/trip`): the script-bearing skill carries `metadata.internal: true`, is excluded from the cross-agent `outputs/` build, and its command is never built. The one `AskUserQuestion` (the Home-directory consent gate) is issued by the command at the main-agent level; any discovery fan-out uses non-interactive `general-purpose` leaves.
@@ -45,6 +47,8 @@ Answer the question from the actual repository, **inline first**: read and grep 
 ### 2-4. Phase 2: Render the HTML Report
 
 Write a **printer-ready HTML file** (see the **HTML Report Template**, section 3) to **`.explain/<slug>.html`, inside this repository** (git-ignored; create the directory if absent). Use semantic HTML with a proper heading hierarchy so the PDF is structurally sound and machine-readable (`workaholic:planning` / `accessibility-first`). The body carries the question, the sourced answer, and an evidence list of the files/paths consulted.
+
+**Write it to the house style (§3–§4), not as a bare Q&A dump.** The answer is a business report: open with a paragraph that states the purpose and the conclusion, then develop it in **numbered sections** of **connected prose**; introduce every term in the sentence where it first appears (define before use); keep the page **monochrome, normal-weight, and free of rules/boxes**; and let the template's spacing scale carry the hierarchy. For a Japanese report, write natural business Japanese — kanji where a word is normally kanji, no casual or question-form phrasing.
 
 > **The HTML staging path is in-repo on purpose — do not write it to `chosen_dir`.** `hooks/guard-repo-confinement.sh` is a blocking `PreToolUse(Write|Edit)` gate: **every** `Write` outside this repository is refused, and `chosen_dir` (Desktop, Home, or an explicit destination) is outside it by definition. An earlier version of this step offered `<chosen_dir>/<slug>.html` as an option; that path is now dead on arrival and would halt the run. The gate cannot carve out an exception for this skill — a `PreToolUse` hook sees only `tool_input.file_path`, never which skill is asking, so an `.html` bound for Home is indistinguishable from any other write there.
 >
@@ -84,49 +88,117 @@ Drive whichever is present, expressing the same one step (open the HTML `file://
 
 Print the concrete outcome: the written **PDF path** (or, on the no-MCP halt, the in-repo `.explain/<slug>.html` path plus the enable-a-browser-MCP instruction; or the unwritable-destination blocker). Name the primary files the answer drew from so the developer can verify it.
 
-## 3. HTML Report Template (printer-ready)
+## 3. HTML Report Template (printer-ready, house style)
 
-A minimal, self-contained, print-optimized skeleton (no external assets, so the browser renders it offline). Fill the bracketed slots; keep one coherent print rule set.
+A self-contained, print-optimized skeleton (no external assets, so the browser renders it offline). The visual identity is **monochrome and quiet**: black text on white, **no colour**; **normal weight everywhere**, headings included (never bold); **no rules, borders, boxes, or underlines**. Hierarchy and comfort come from **type size and one consistent spacing scale** — a single unit `--u`, and every gap a multiple of it (never special-case a gap). Headings are **numbered hierarchically** (`1.` / `1-1.` / `1-1-1.`) by CSS counters, so the numbering cannot drift; the document title is separate and unnumbered. Paragraphs are the body; lists are supportive only.
+
+Fill the bracketed slots. Do **not** add colour, weight, or dividers — the calm read is the design.
 
 ```html
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>[Question] — [repo name]</title>
+<title>[報告書タイトル]</title>
 <style>
-  @page { size: A4; margin: 18mm; }
+  @page { size: A4; margin: 24mm 22mm; }
   * { box-sizing: border-box; }
-  body { font: 12pt/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; color: #1a1a1a; }
-  header { border-bottom: 2px solid #1a1a1a; padding-bottom: 8px; margin-bottom: 18px; }
-  h1 { font-size: 18pt; margin: 0 0 4px; }
-  .meta { font-size: 9pt; color: #666; }
-  h2 { font-size: 13pt; margin: 18px 0 6px; border-bottom: 1px solid #ddd; padding-bottom: 2px; }
-  code, pre { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 10pt; }
-  pre { background: #f5f5f5; padding: 8px; border-radius: 4px; overflow-wrap: anywhere; white-space: pre-wrap; }
-  ul.evidence { font-size: 10pt; }
-  footer { margin-top: 24px; border-top: 1px solid #ddd; padding-top: 6px; font-size: 9pt; color: #666; }
+  :root {
+    --ink: #000;   /* 本文・見出しは黒のみ */
+    --sub: #555;   /* 補助情報だけに使う無彩色グレー（色ではなく濃淡） */
+    --u: 1.7rem;   /* 基準スペーシング単位。すべての余白はこの倍数 */
+  }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    font-family: "Noto Sans CJK JP","Hiragino Kaku Gothic ProN",-apple-system,sans-serif;
+    color: var(--ink); background: #fff;
+    font-weight: 400; font-size: 10.5pt; line-height: 1.9; margin: 0;
+  }
+  .doc { max-width: 40em; margin: 0 auto; }   /* 快適な行長（およそ40字） */
+
+  /* 装飾なし・全て標準ウェイト。階層は文字サイズと余白だけで表す */
+  h1, h2, h3, p, ul, ol, dl { margin: 0; font-weight: 400; }
+  h1 { font-size: 15pt; line-height: 1.6; }
+  h2 { font-size: 12.5pt; line-height: 1.6; }
+  h3 { font-size: 11pt; line-height: 1.6; }
+
+  /* 見出し番号は CSS カウンタで自動採番（1. / 1-1. / 1-1-1.） */
+  .doc { counter-reset: h1; }
+  h1 { counter-reset: h2; counter-increment: h1; }
+  h2 { counter-reset: h3; counter-increment: h2; }
+  h3 { counter-increment: h3; }
+  h1::before { content: counter(h1) ". "; }
+  h2::before { content: counter(h1) "-" counter(h2) ". "; }
+  h3::before { content: counter(h1) "-" counter(h2) "-" counter(h3) ". "; }
+
+  /* 一貫した縦のリズム。間隔はすべて --u の倍数 */
+  * + h1 { margin-top: calc(var(--u) * 2); }
+  * + h2 { margin-top: calc(var(--u) * 1.4); }
+  * + h3 { margin-top: calc(var(--u) * 1); }
+  :is(h1,h2,h3) + * { margin-top: calc(var(--u) * 0.6); }
+  p + p { margin-top: calc(var(--u) * 0.75); }
+  p + :is(ul,ol,dl) { margin-top: calc(var(--u) * 0.5); }
+  li { margin-top: 0.5rem; }
+  ul, ol { padding-left: 1.4em; }
+
+  .title-block { margin-bottom: calc(var(--u) * 2.2); }
+  .title-block .t { font-size: 17pt; line-height: 1.6; }
+  .title-block .meta { color: var(--sub); font-size: 9pt; margin-top: calc(var(--u) * 0.5); }
+
+  /* 用語集は最終手段（本文で説明できない語だけ） */
+  dl.glossary dt { margin-top: calc(var(--u) * 0.5); }
+  dl.glossary dd { margin: 0.3rem 0 0 1.4em; }
+
+  footer { color: var(--sub); font-size: 8.5pt; margin-top: calc(var(--u) * 2.2); }
+  code { font-family: "Noto Sans Mono CJK JP","SF Mono",monospace; font-size: 0.92em; }
 </style>
 </head>
 <body>
-  <header>
-    <h1>[Question]</h1>
-    <div class="meta">[repo name] · [branch] · generated [ISO date]</div>
-  </header>
-  <main>
-    <h2>Answer</h2>
-    <!-- The sourced answer. Use <h2>/<h3>, <p>, <pre><code> for snippets. -->
-    <h2>Evidence</h2>
-    <ul class="evidence">
-      <!-- One <li> per file/path/commit the answer rests on. -->
-    </ul>
-  </main>
-  <footer>Generated by /explain · workaholic</footer>
+<div class="doc">
+  <div class="title-block">
+    <div class="t">[報告書タイトル：体言で簡潔に。くだけた表現・疑問形は避ける]</div>
+    <div class="meta">[提出先／作成者] ・ [対象] ・ [YYYY-MM-DD]</div>
+  </div>
+
+  <!-- 導入：目的と結論を先に、段落で述べる -->
+  <p>[本資料が何を説明するか、結論を先に述べる導入段落。]</p>
+
+  <h1>[節見出し]</h1>
+  <p>[段落で説明する。未定義の語は、使う前にその文中で説明する。]</p>
+
+  <h2>[小見出し]</h2>
+  <p>[段落が主体。箇条書きは補助にとどめる。]</p>
+
+  <!-- 必要な場合のみ、末尾に用語集（最終手段）
+  <h1>用語</h1>
+  <dl class="glossary">
+    <dt>[用語]</dt><dd>[定義]</dd>
+  </dl>
+  -->
+
+  <footer>[出典：参照した具体的なファイル・パス] ・ Generated by /explain</footer>
+</div>
 </body>
 </html>
 ```
 
-## 4. Writing Guidelines
+## 4. Writing & House-Style Guidelines
+
+The report is submitted to clients and read by colleagues, so it carries a business register and the company's visual identity. Hold every report to these:
+
+**House style (visual):**
+
+- **Monochrome, no decoration.** Black text on white, **no colour anywhere**. **Normal font weight throughout — headings included**; never bold, never emphasis-by-weight, never coloured, boxed, ruled, or underlined. The only permitted non-black tone is a restrained grey for de-emphasised metadata (the title's meta line, the footer) — a shade of black, not a hue.
+- **Comfort through spacing, not ornament.** One spacing unit; every gap a consistent multiple of it; generous line-height and a comfortable measure (~40 Japanese characters per line). Aim past mere accessibility for a calm, comfortable read achieved through spacing alone. Keep the rhythm uniform — do not special-case gaps.
+- **Numbered headings.** Sections are numbered hierarchically — `1.`, `1-1.`, `1-1-1.` — prepended to the heading (the template's CSS counters do this). The document title is separate and unnumbered.
+
+**House style (writing):**
+
+- **Prose first; lists are supportive only.** The default unit is the paragraph — sentences that connect ideas into an argument. Reach for a list only when the material genuinely is an enumeration, and never as the primary structure of a section.
+- **Self-explaining; define before use.** Never use a term the reader has not been given. Introduce each concept **in prose, in the sentence or paragraph where it first appears**, before relying on it. A glossary at the end is a **last resort** — only for a term that cannot be explained inline, never a substitute for explaining in the body. Do not assume shared vocabulary that was not established in the document.
+- **Natural business Japanese** (for Japanese reports). Write each word in its normal form — **kanji where the word is normally written in kanji** (e.g. 普段・通常, never spelled ふだん); do not render kanji words in hiragana. Avoid casual or childish phrasing and question-form titles (not「Workaholicって何？」); title with a noun phrase (e.g.「Workaholic 概要」). Formal, plain, and natural — neither jargon-dense nor colloquial.
+
+**Operational:**
 
 - **Objective and source-cited.** Every claim names the file, path, or commit it rests on; unknowns are stated as unknown. No evaluative adjectives (`workaholic:implementation` / `objective-documentation`).
 - **Consent before the Home write.** The Home prompt is asked before rendering-to-disk-at-Home, at command level, symmetric agree/decline, no default-yes; declining writes nothing.

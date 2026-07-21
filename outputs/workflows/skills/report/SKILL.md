@@ -615,6 +615,8 @@ Update `.workaholic/stories/index.md` to include the new story:
 
 Create or update a GitHub pull request using the story file as PR content.
 
+**Reused non-interactively by `/monitor`.** `/monitor`'s §5 PR phase opens a PR for each genuinely complete mission by calling this same seam — the Write Story flow plus `create-or-update.sh <branch> "<title>"` — from inside the mission worktree (`( cd <worktree_path> && … )`), scoped explicitly to that branch so the context detection above is bypassed. That path is **non-interactive by design**: `create-or-update.sh` never prompts, and any warn-tier release-scan finding is **recorded in the PR body**, not asked (decide-and-record). The story flow's mission roll (`story reported` changelog line) fires on this path exactly as on a manual `/report`. Do not fork the flow for monitor's use; scope it by branch.
+
 ### Derive PR Title
 
 Extract the first item from the Summary section of the story file:

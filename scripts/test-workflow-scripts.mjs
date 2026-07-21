@@ -788,6 +788,30 @@ concerns: []
       JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.ticketSummary}`).stdout), []);
     assertEq("mission summary empty for a user with no assigned mission",
       JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSummary}`).stdout), []);
+
+    // ---- bare-list partition: list.sh computes relation + next (additive) ----
+    // The bare /mission view renders two tiers from `relation`; the partition is
+    // computed HERE, once, so no consumer re-derives the assignee gate in prose.
+    mkMission("mission-free", "Mission Free", "active", "", "Free criterion");
+    setEmail(A);
+    const lA = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
+    assertEq("list.sh relation partitions mine/others/unassigned for the caller",
+      Object.fromEntries(lA.map((m) => [m.slug, m.relation])),
+      { "mission-a": "mine", "mission-b": "others", "mission-free": "unassigned", "mission-old": "mine" });
+    const la = lA.find((m) => m.slug === "mission-a");
+    assertEq("list.sh carries next for the full-treatment tier", la.next, "Second criterion");
+    assertEq("list.sh existing keys unchanged (additive enrichment)",
+      { status: la.status, assignee: la.assignee, checked: la.checked, total: la.total },
+      { status: "active", assignee: A, checked: 1, total: 2 });
+
+    // Empty git email degrades: nothing is "mine", everyone still listed, no error
+    // (unlike summary.sh, the bare list must not require an identity).
+    execSync(`git config user.email ""`, { cwd: dir });
+    const lNone = run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`);
+    assertEq("list.sh succeeds with an empty git email", lNone.status, 0);
+    const relNone = Object.fromEntries(JSON.parse(lNone.stdout).map((m) => [m.slug, m.relation]));
+    assertEq("empty email: assigned missions classify as others, unassigned stays unassigned",
+      relNone, { "mission-a": "others", "mission-b": "others", "mission-free": "unassigned", "mission-old": "others" });
   } finally { cleanup(dir); }
 }
 
@@ -1551,7 +1575,9 @@ function testMissionLensOnChange() {
     assertTrue("unchanged turn collapses to the compact reminder", second.includes("Roadmap unchanged"), second);
     assertTrue("compact keeps the single next action visible", second.includes("aaa title"), second);
     assertTrue("compact does NOT re-enumerate the rest of the roster", !second.includes("bbb title"), second);
-    assertTrue("compact points at /mission summary for the detail", second.includes("/mission summary"), second);
+    // `summary` mode retired 2026-07-22: the compact pointer now names bare /mission,
+    // whose full tier carries the on-demand detail the summary mode used to hold.
+    assertTrue("compact points at bare /mission for the detail", second.includes("/mission for the full list"), second);
     assertTrue("compact is materially shorter than the full roster", second.length < first.length, `${first} || ${second}`);
 
     // Turn 3: roster CHANGES (tick an acceptance item) -> FULL block returns, so a real

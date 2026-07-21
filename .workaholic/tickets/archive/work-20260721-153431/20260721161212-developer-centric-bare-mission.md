@@ -65,3 +65,14 @@ Pre-answered at ticket time; `/drive` verifies against these:
 
 - The assignee gate stays a small shared rule inlined per reader (repo precedent accepts the duplication); factoring a shared lib is optional, not required.
 - The user intent behind this change: make `/mission` the habitual team check of current position and direction — output should read in seconds, with the caller's own work first.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: `summary.sh` could not simply be deleted with its command mode — the monitor skill's Scope section and the mission lens both cite it as the canonical statement of the "not somebody else's" gate. Retiring a mode and retiring its script are separate decisions; the script survived as the gate's single home.
+  **Context**: When a command mode is folded away, grep for *script* consumers before removing the engine — this repo's single-source pattern means a script often outlives the surface that introduced it.
+- **Insight**: The lens's compact pointer (`/mission summary for the full list`) was pinned by a prose sentinel in the test suite; the retirement required updating hook text and sentinel in the same change — exactly the deliberate-sentinel-update practice the "monitor's contract lives in prose" concern prescribes.
+  **Context**: Sentinel tests make prose contracts breakable on purpose; a red sentinel on a rename is the mechanism working, not test noise.

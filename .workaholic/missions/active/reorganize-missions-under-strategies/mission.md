@@ -50,7 +50,7 @@ Positioning note: this worktree is cut from `main` @ `e22fe89a`; the `work-20260
 - [x] The commit-count KPI is computable by a deterministic script and surfaced in `/catch` (#20260721025720-add-commit-count-kpi-script-and-catch-surface.md)
 - [x] release-scan gains the per-commit changed-lines gate with the generated/bulk exemption (#20260721020759-add-per-commit-changed-lines-gate.md)
 - [x] The commit → ticket → mission → strategy granularity discipline and the mission/strategy redefinition are documented across the skills and repo docs (#20260721025721-document-granularity-discipline-across-artifacts.md)
-- [ ] The interrogation protocols ask only unrecommendable questions — anything with a recommendable option is decided and recorded in the artifact instead of asked (#20260721025722-raise-ask-bar-decide-and-record.md)
+- [x] The interrogation protocols ask only unrecommendable questions — anything with a recommendable option is decided and recorded in the artifact instead of asked (#20260721025722-raise-ask-bar-decide-and-record.md)
 
 ## Changelog
 
@@ -67,3 +67,4 @@ Positioning note: this worktree is cut from `main` @ `e22fe89a`; the `work-20260
 - 2026-07-21 — ticket archived — 20260721025719-auto-create-pr-for-completed-missions.md
 - 2026-07-21 — ticket archived — 20260721025720-add-commit-count-kpi-script-and-catch-surface.md
 - 2026-07-21 — ticket archived — 20260721025721-document-granularity-discipline-across-artifacts.md
+- 2026-07-21 — ticket archived — 20260721025722-raise-ask-bar-decide-and-record.md

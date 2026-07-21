@@ -9,7 +9,7 @@ origin_branch: work-20260716-152211
 origin_commit: 70e5f3fb
 created_at: 2026-07-18T20:46:34+09:00
 first_seen: 2026-07-18T20:46:34+09:00
-last_seen: 2026-07-18T20:46:34+09:00
+last_seen: 2026-07-21T11:26:01+09:00
 severity: moderate
 status: active
 resolved_by_pr: 
@@ -20,8 +20,9 @@ resolved_by_commit:
 
 ## Description
 
-The push-decisions contract asks blockers one at a time until answered or explicitly deferred (see [edf246a4](https://github.com/qmu/workaholic/commit/edf246a4) in `plugins/workaholic/skills/monitor/SKILL.md` §1/§3). The wave cap bounds driving, but nothing makes a deferral sticky across invocations — a caller-side loop would re-ask the same deferred decisions every cycle.
+The front-loaded batch asks blockers one batch in one run, but nothing makes a deferral sticky across invocations; a caller-side loop (e.g. `/goal /monitor ok`) would re-ask the same deferred decisions every cycle (see [edf246a4](https://github.com/qmu/workaholic/commit/edf246a4) in `plugins/workaholic/skills/monitor/SKILL.md` §1–§3).
 
 ## How to Fix
 
 Record deferred decisions in the run report and have the next invocation re-ask only when the underlying state changed (or after N runs), so deferral is remembered rather than re-litigated every loop.
+

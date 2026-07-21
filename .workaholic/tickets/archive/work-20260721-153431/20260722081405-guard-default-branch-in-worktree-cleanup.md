@@ -48,3 +48,12 @@ Decided at ticket time (decide-and-record): the guard belongs in the **cleanup s
 ## Considerations
 
 - Possible follow-up (not this ticket): have `/ship` re-branch a mission worktree after merge instead of leaving it parked on `main`, mirroring the trip flow's worktree re-branching.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The dirty-worktree refusal and the branch deletion sit in the same script but guard different things — the refusal protects *uncommitted work*, the new pattern gate protects *shared refs*. A worktree can be perfectly clean and still be dangerous to tear down when it is parked on a shared branch.
+  **Context**: Any future worktree-lifecycle script should treat "what branch is this on" as part of the safety check, not just "is it dirty" — the incident commit trail (merge-pr.sh checkout → cleanup delete) shows two individually-safe steps composing into ref loss.

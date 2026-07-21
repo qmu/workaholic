@@ -70,4 +70,5 @@
 * [Report whether the ship flow actually pushed etc](work-20260715-213222.md)
 * [Add /monitor parallel mission driver etc](work-20260716-152211.md)
 * [Close silent-success bugs across the workflow scripts etc](work-20260717-141501.md)
+* [/monitor front-loads decisions and runs unattended with honest completion signals etc](work-20260719-075112.md)
 <!-- okf:generated:end -->

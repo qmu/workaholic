@@ -12,8 +12,8 @@ first_seen: 2026-07-21T11:26:01+09:00
 last_seen: 2026-07-21T11:26:01+09:00
 severity: moderate
 status: active
-resolved_by_pr:
-resolved_by_commit:
+resolved_by_pr: 
+resolved_by_commit: 
 ---
 
 # Goal-gate false-done has a harness-side residual

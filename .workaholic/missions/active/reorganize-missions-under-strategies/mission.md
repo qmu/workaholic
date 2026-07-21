@@ -68,3 +68,4 @@ Positioning note: this worktree is cut from `main` @ `e22fe89a`; the `work-20260
 - 2026-07-21 — ticket archived — 20260721025720-add-commit-count-kpi-script-and-catch-surface.md
 - 2026-07-21 — ticket archived — 20260721025721-document-granularity-discipline-across-artifacts.md
 - 2026-07-21 — ticket archived — 20260721025722-raise-ask-bar-decide-and-record.md
+- 2026-07-21 — story reported — work-20260721-025656.md

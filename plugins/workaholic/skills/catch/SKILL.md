@@ -54,6 +54,13 @@ Before judging development direction, load the project's engineering policies as
    - `deployments[]` — **this week's** deployments/releases, one per branch story carrying a `## Deployment Evidence` block (written by `/ship`): `branch`, `author` (the join key — the evidence block's recorded `By:` deployer; only legacy blocks that predate the stamp fall back to the git author of the ship commit), `timestamp` (the evidence `When:`), `release_title` (the matching `release-notes/<branch>.md` H1, or the story H1), `status` (`pass`/`fail`/`bypassed`), and `confirmation` (the evidence `Observed:` line — empty when none was recorded). Filtered to the current calendar week.
    - `missions[]` — every mission (from the mission skill's own `list.sh`, so progress stays derived, never stored): `slug`, `title`, `status` (`active`/`achieved`/`abandoned`), `checked`, `total` (merged acceptance progress, `checked ÷ total`), plus two window-scoped views. `window_events[]` — the mission's `## Changelog` lines dated within the window (`{date, event, artifact}` — **merged** activity: `ticket archived` / `story reported` / `concern deferred|resolved`). `in_flight[]` — **open** tickets (`todo`/`icebox` — archived tickets are merged, abandoned tickets are dead; neither is in flight) whose `mission:` list contains this slug (a ticket advancing two missions appears under both — that is the point of the relation being many-valued) (`{path, title, author, scope}`): progress toward the mission from work still on a branch, which the merge-time changelog and `checked/total` cannot yet reflect. The scan reads missions **read-only** — it mutates no `mission.md` content (no changelog append, no acceptance tick); the one tree change it can trigger is the mission scripts' living layout migration (a legacy flat `missions/<slug>/` dir relocating into `active/` or `archive/` by its `status`, bytes untouched). Missions are enumerated across both areas.
 3. Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/git-context.sh` to get `repo_url` (used to render commit links) and `branch`.
+3b. Compute the **orchestration-throughput KPI** over the same window:
+
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/commit-kpi.sh "<window>"
+   ```
+
+   It returns `{window, total_commits, agent_commits, agent_share, median_changed_lines, p90_changed_lines, oversize_commits}`. Render it verbatim into the **Orchestration Throughput** table — do **not** recompute any of it inline. `oversize_commits` is `null` until the release-scan per-commit gate constant exists (it reads `MAX_COMMIT_CHANGED_LINES` from that gate as the single source); render `null` as "n/a".
 4. **Empty window**: if `developers[]` is empty, print "No commits in the last `<window>`." and suggest a wider window (e.g. `/catch 1 month`). Stop — there is nothing to summarize.
 5. **Stale-view note**: if `fetch_ok` is `false`, the remote could not be refreshed, so pushed work by others may be missing. Add a short note to the report (a line under the report title) stating the remote was not reachable and the view may be stale — do not present a local-only scan as an up-to-date remote view (`workaholic:implementation` / `objective-documentation`). When `fetch_ok` is `true`, add nothing.
 
@@ -163,6 +170,21 @@ The printed report (Markdown):
 concentrated, how the individual threads fit together.>
 
 **Active this window:** <N> developer(s), <total> commits.
+
+## Orchestration Throughput
+
+<A compact one-table block from `commit-kpi.sh` (below). Prose kept minimal — the
+numbers speak. This measures how well the agent fleet is orchestrated, NOT human
+performance.>
+
+| metric | value |
+| --- | --- |
+| agent commits / total | <agent_commits> / <total_commits> (<agent_share×100>%) |
+| median changed lines | <median_changed_lines> |
+| p90 changed lines | <p90_changed_lines> |
+| oversize commits (> per-commit cap) | <oversize_commits, or "n/a" when null> |
+
+**What this KPI is, and its two guards.** It counts, over the window, how many commits an agent fleet produced (agent commits = those bearing an Anthropic `Co-Authored-By` trailer, the same identification the ~8,600-commit study used), how large those commits run (median/p90 changed lines over non-binary rows), and how many exceed the per-commit granularity cap — a measure of *how well the fleet is orchestrated and kept running*, not of any person's output. The commit is a comparable unit only because the release-scan changed-lines gate (ticket `20260721020759`) normalizes per-commit size; this block does not restate that gate's thresholds. Two guards travel with the number: **quota consumed only to raise it is explicitly worthless** (`workaholic:development` / `weekly-quota` — the KPI measures value throughput of orchestration, never activity for its own sake), and **history is never reshaped to improve it** — no squash/rebase grooming; agent-authored incremental commits stay as they are (`workaholic:development` / `commit-change-history`). The KPI reads history; it must never motivate rewriting it.
 
 ## Missions
 

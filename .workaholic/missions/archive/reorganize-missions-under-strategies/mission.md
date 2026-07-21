@@ -2,7 +2,7 @@
 type: Mission
 title: Reorganize missions under strategies
 slug: reorganize-missions-under-strategies
-status: active
+status: achieved
 created_at: 2026-07-21T02:57:09+09:00
 author: a@qmu.jp
 assignee: a@qmu.jp
@@ -69,3 +69,4 @@ Positioning note: this worktree is cut from `main` @ `e22fe89a`; the `work-20260
 - 2026-07-21 — ticket archived — 20260721025721-document-granularity-discipline-across-artifacts.md
 - 2026-07-21 — ticket archived — 20260721025722-raise-ask-bar-decide-and-record.md
 - 2026-07-21 — story reported — work-20260721-025656.md
+- 2026-07-22 — mission achieved — mission.md

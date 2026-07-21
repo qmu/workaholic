@@ -433,6 +433,23 @@ The status set is closed and validated — anything else is `invalid_status`:
 
 **The successor gets no worktree from the predecessor.** `close.sh` never managed worktrees (the `/mission` command tears the mission worktree down *after* `close.sh` succeeds), and a carry deliberately does not hand one over: `.worktrees/<slug>` is keyed 1:1 to the mission slug by `slug.sh`, and a successor living in the predecessor's directory **silences the mission lens inside that very worktree** — the lens reads a worktree whose basename names no active mission as a `/drive` worktree and says nothing at all. The successor gets a fresh worktree through the normal `/mission` flow; in-flight state and the port allocation do not carry.
 
+#### When the direction changes — reorganize and carry (the encouraged answer)
+
+A mission is **sticky to finish**: `achieved` demands every `## Acceptance` item checked, which is the right bar for a mission whose direction held. But a mission's direction often **changes mid-flight**, and then grinding to check the original criteria is effort spent against a plan that no longer describes the work. The **encouraged, positive** response in that case is **reorganize and carry** — not grind to `achieved`, not `abandoned`. Reach for it on any of three signals:
+
+- **A different class of issue surfaced** — the work uncovered a problem the mission was not framed around, and the remaining criteria no longer point at what now matters.
+- **The remaining criteria became contradictory or moot** — progress made the original plan internally inconsistent, or answered a criterion by making it irrelevant.
+- **The remainder belongs to another active mission** — the leftover work is really that mission's, so it should **merge** there rather than persist as a parallel goal.
+
+Why carry rather than the alternatives: forcing `achieved` **fabricates completion** the computed-progress model exists to prevent (progress is counted from unchecked items, never hand-set), and `abandoned` **discards real progress**. `carried` is the honest verdict — *"this landed as framed; the rest, reorganized, is still worth doing"* — and it **preserves** what was done while re-pointing the remainder.
+
+**Reorganizing is a replan, then a carry — and it deliberately does not grind quality gates.** The mechanism is the existing **Replan** flow plus `close.sh`, used together and recorded, never hand-editing:
+
+1. **Reorganize** via `/mission <instruction>` (the Replan flow): rewrite `## Goal`/`## Scope`/`## Experience` to the changed direction, and **drop the now-moot unchecked acceptance criteria** — do **not** force them checked. A dropped item is recorded as its own `acceptance dropped — <the item's (#filename) artifact>` changelog line (Replan already owns this), so the plan's shrinkage is history, not a silent rewrite. This is what *"skip filling quality gates"* means here: **stop grinding to check criteria the new direction made obsolete** — it is **not** a relaxation of the write-time floor (`hooks/validate-mission.sh` still requires a non-empty `## Acceptance` and `## Experience` once `drive_authorized`).
+2. **Carry** the still-valid remainder with `close.sh … carried`: mint a fresh successor (`--successor-title "<t>"`) for a genuinely new heading, or — for the **mergeable** case — **`--successor <existing-slug>`** to carry the unchecked criteria into an existing active mission. Merging needs no new operation: `--successor <slug>` already carries the unmet items and shared goal/scope into the named mission, and lineage is recorded both directions (above).
+
+The three checked-vs-unchecked, inherit, and lineage rules above are unchanged — reorganize-and-carry is those mechanics used *deliberately and early* when the direction turns, framed as the normal move rather than a last resort.
+
 ## Automatic Updates (the workflow seams)
 
 The mutators above are called automatically as missioned work moves through the pipeline, so a mission's progress and changelog stay current without hand-editing. Each seam reads the artifact's `mission:` relation through the single reader — `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/read-relation.sh <artifact>`, which prints one slug per line — and calls the shared scripts **once per slug**:

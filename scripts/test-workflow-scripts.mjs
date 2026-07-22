@@ -67,6 +67,8 @@ const SCRIPTS = {
   shrinkPrBody: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/shrink-pr-body.sh"),
   mergeConcerns: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/merge-concerns.sh"),
   closeConcern: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/close-concern.sh"),
+  proposeDemotions: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/propose-demotions.sh"),
+  demoteConcern: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/demote-concern.sh"),
   docDrift: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/doc-drift.sh"),
   checkCapability: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/check-confirmation-capability.sh"),
   posixLint: join(REPO_ROOT, "plugins/workaholic/hooks/posix-lint.sh"),
@@ -4997,6 +4999,64 @@ function testConcernTriage() {
   } finally { cleanup(repo4); }
 }
 
+// ---------- report/propose-demotions.sh + demote-concern.sh (developer-confirmed shrink) ----------
+// Shrinking an already-bloated corpus: propose (read-only) the at/below-floor
+// active concerns, then demote confirmed ones to archive/ as status: demoted --
+// reversible, excluded from the active set, never resurrected by extraction.
+function testConcernDemotion() {
+  const mkConcern = (id, sev) =>
+    `---\ntype: Concern\nconcern_id: ${id}\norigin_pr: 1\norigin_pr_url: https://x/pr/1\norigin_branch: work-1\norigin_commit: abc\ncreated_at: 2026-07-01T00:00:00+09:00\nfirst_seen: 2026-07-01T00:00:00+09:00\nlast_seen: 2026-07-01T00:00:00+09:00\nseverity: ${sev}\nstatus: active\nresolved_by_pr:\nresolved_by_commit:\n---\n\n# ${id}\n\n## Description\n\nd\n\n## How to Fix\n\nf\n`;
+  const dir = makeRepo("main");
+  try {
+    const cdir = join(dir, ".workaholic/concerns");
+    mkdirSync(cdir, { recursive: true });
+    writeFileSync(join(cdir, "low1.md"), mkConcern("low1", "low"));
+    writeFileSync(join(cdir, "low2.md"), mkConcern("low2", "low"));
+    writeFileSync(join(cdir, "mod1.md"), mkConcern("mod1", "moderate"));
+    writeFileSync(join(cdir, "urg1.md"), mkConcern("urg1", "urgent"));
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+
+    // propose (default floor low): only the two low concerns, read-only.
+    const prop = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeDemotions}`).stdout);
+    assertEq("propose lists exactly the at/below-floor (low) concerns",
+      prop.map((c) => c.concern_id).sort(), ["low1", "low2"]);
+    assertTrue("propose is read-only (nothing moved)",
+      existsSync(join(cdir, "low1.md")) && !existsSync(join(cdir, "archive")), "propose mutated");
+    // floor=moderate proposes low AND moderate, never the urgent.
+    const propM = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeDemotions} moderate`).stdout);
+    assertEq("floor=moderate proposes low+moderate, not urgent",
+      propM.map((c) => c.concern_id).sort(), ["low1", "low2", "mod1"]);
+
+    // demote a confirmed concern -> archive/ as status: demoted, reversible.
+    const d = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.demoteConcern} low1 "not worth tracking"`).stdout);
+    assertEq("demote returns demoted:true with status", { d: d.demoted, s: d.status }, { d: true, s: "demoted" });
+    assertTrue("demoted concern left the active dir for archive/",
+      !existsSync(join(cdir, "low1.md")) && existsSync(join(cdir, "archive/low1.md")), "not archived");
+    const body = readFileSync(join(cdir, "archive/low1.md"), "utf8");
+    assertTrue("archived concern records status: demoted", /^status:\s*demoted\s*$/m.test(body), body);
+    assertTrue("archived concern records the demote reason", /^demoted_reason:\s*not worth tracking\s*$/m.test(body), body);
+
+    // demoted concern is gone from the active listing, like a closed one.
+    const listed = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout);
+    assertTrue("demoted concern no longer active-listed",
+      !listed.concerns.some((c) => c.concern_id === "low1"), JSON.stringify(listed.concerns.map((c) => c.concern_id)));
+
+    // a demoted concern is never resurrected by extraction (id in archived_ids).
+    mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/stories/work-r.md"),
+      `---\ntype: Story\nbranch: work-r\n---\n## 6. Concerns\n\n### low1\n\n- **Severity:** moderate\n- **Description:** d\n- **How to Fix:** f\n\n## 7. Next\n`);
+    execSync(`git add -A && git commit -q -m story`, { cwd: dir });
+    const ex = JSON.parse(run(dir, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-r 2 https://x/2`).stdout);
+    assertEq("extraction never resurrects a demoted concern", ex.created, 0);
+    assertTrue("the demoted concern stays in archive/, not re-created active",
+      existsSync(join(cdir, "archive/low1.md")) && !existsSync(join(cdir, "low1.md")), "resurrected");
+
+    // idempotent: demoting an already-archived concern is a reported no-op.
+    const again = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.demoteConcern} low1 "again"`).stdout);
+    assertEq("re-demote is an idempotent no-op", { d: again.demoted, r: again.reason }, { d: false, r: "already_archived" });
+  } finally { cleanup(dir); }
+}
+
 // ---------- report/list-active-deferred-concerns.sh (envelope + JSON escaping) ----------
 // The listing is one python3 json.dumps pass: a corpus whose fields carry
 // quotes, backslashes, and newlines must still emit parseable JSON (the old
@@ -7515,6 +7575,7 @@ const tests = [
   ["concern identity: slugify writers agree", testSlugifyWritersAgree],
   ["ship/extract-deferred-concerns.sh mission/tickets relation", testExtractConcernMissionRelation],
   ["ship/extract-deferred-concerns.sh promotion floor", testExtractPromotionFloor],
+  ["report/propose-demotions.sh + demote-concern.sh", testConcernDemotion],
   ["report/doc-drift.sh", testDocDrift],
   ["hooks/policy-lens.sh", testPolicyLens],
   ["hooks/validate-ticket.sh", testValidateLayout],

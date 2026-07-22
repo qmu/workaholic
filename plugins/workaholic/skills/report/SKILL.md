@@ -162,9 +162,17 @@ The triage is **judge-proposes / developer-decides**, and every decision leaves 
   ```
 
   `resolved` = fixed / no longer applies; `accepted` = a deliberate, documented won't-fix. Moves it to `archive/` with the reason.
+- **Demote** an already-tracked concern that is not worth *tracking* (distinct from closing — it is neither fixed nor a won't-fix, just re-shelved out of the active set, reversibly). This is how an **already-bloated** corpus is shrunk toward the curated set the promotion floor holds going forward. It is **judge/script-proposes, developer-decides**: get the candidates read-only, then apply each only on the developer's confirmation.
+
+  ```bash
+  bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/propose-demotions.sh [floor]    # READ-ONLY: active concerns at/below the floor (default low)
+  bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/demote-concern.sh <concern-id> "<reason>"   # apply, only on confirmation
+  ```
+
+  `propose-demotions.sh` mutates nothing — it lists `{concern_id, severity, last_seen, path}` for active concerns at or below the floor. Present them and let the developer pick which to demote (an `AskUserQuestion` at the command level, like the compound-merge confirmation — the demotion set is never applied without an explicit go). `demote-concern.sh` then moves each confirmed concern to `archive/` with `status: demoted` and the reason. Demotion is **reversible** (move the file back and flip `status` to `active`) and preserved in git history — that reversibility is why it is safe to offer, unlike `resolved`/`accepted` which assert something about the work. A demoted concern is excluded from `list-active` and never resurrected by extraction (its id is in `archived_ids`), exactly like a closed one.
 - **Keep as-is** — no action.
 
-After applying, the still-active set reflected in the story's section 6 is the curated, fresh set. Every mutator (`merge-concerns.sh`, `re-grade.sh`, `close-concern.sh`) git-stages its changes, so they ride the Phase 4 story commit. The threshold is a policy knob (`CONCERN_TRIAGE_THRESHOLD`, read by `list-active`) — never auto-merge without the developer's confirmation; the A+B severity call is the developer's.
+After applying, the still-active set reflected in the story's section 6 is the curated, fresh set. Every mutator (`merge-concerns.sh`, `re-grade.sh`, `close-concern.sh`, `demote-concern.sh`) git-stages its changes, so they ride the Phase 4 story commit. The threshold is a policy knob (`CONCERN_TRIAGE_THRESHOLD`, read by `list-active`) — never auto-merge or auto-demote without the developer's confirmation; the A+B severity call and the demotion set are the developer's.
 
 #### Phase 2: Spawn Story Generation Workers
 

@@ -50,3 +50,14 @@ The promotion floor (`20260722122105`, shipped) stops the tracked concern corpus
 - **Reversibility is the safety property**: because a demoted concern is archived (not deleted) and reversible, an over-eager demotion is cheap to undo — unlike `resolved`/`accepted`, which assert something about the work. Keep the two dispositions distinct: demotion is "not worth *tracking*", resolution is "no longer *applies*".
 - The demotion floor (default `low`) is a knob; a repo that wants a tighter active set can raise it, but demoting `moderate` should stay deliberate — that is real risk leaving the active view.
 - This pass is a one-time-ish cleanup lever; steady state is held by the promotion floor. A repo that has always had the floor may never need to run it.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: Demotion is `close-concern.sh`'s shape but with a different meaning — reversible re-shelving, not resolution. Keeping `demoted` a distinct status (not folding into `accepted`) is what lets the archive stay honest: `accepted` asserts a won't-fix decision about the work, `demoted` asserts only "not worth tracking", and the two must not blur.
+  **Context**: The reversibility is the safety property that makes a developer-confirmed demotion safe to offer where an auto-close would not be.
+- **Insight**: No wiring was needed to exclude demoted concerns from extraction — `extract-deferred-concerns.sh` already builds `archived_ids` from everything under `concerns/archive/`, so a demoted file's id is skipped for free. Reusing the archive/ location instead of a new "demoted/" dir inherited that exclusion.
+  **Context**: When adding a disposition, prefer the existing archive/ sink so the no-resurrection invariant holds without touching the extractor.

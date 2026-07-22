@@ -36,3 +36,7 @@ Split off from `20260722004500` (mechanism 3). ~13% of an audited corpus were ag
 ## Considerations
 
 - Match the aggregate shape conservatively (a clear "N items"/"N件" carry title), so a legitimately-titled concern is never mistaken for debris.
+
+## Abandonment
+
+Abandoned 2026-07-22 by developer decision. These four mechanisms attacked the deferred-concern pile-up from the **disposal** side (auto-close / auto-verify / auto-shelve an already-large corpus). The correct fix proved to be **prevention** — the concern promotion floor (commit `856bf9e1`, ticket `20260722122105`): the story keeps every concern, but only `moderate`+/`Keep` ones enter the tracked corpus, so the pile never grows to need this machinery. The `verify_command` mechanism was additionally a code-execution surface we chose not to build. Shrinking an *existing* bloated corpus is handled by a separate developer-confirmed demotion ticket, not by these.

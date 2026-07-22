@@ -44,20 +44,21 @@ case "$file_path" in
 esac
 
 # --- Canonical .workaholic/ layout gate -------------------------------------
-# Reject (strict) or warn about a file written into an undesignated .workaholic/
-# subdirectory. The allowed top-level set is the single source of truth in
+# Block (exit 2) a file written into an undesignated .workaholic/ subdirectory. The
+# allowed top-level set is the single source of truth in
 # hooks/workaholic-layout-allowlist.txt (kept in lockstep with rules/workaholic.md).
-# Default is non-blocking (warn -> exit 0); strict blocking (exit 2) is opt-in per
-# repo via the WORKAHOLIC_STRICT_LAYOUT env var or a committed
-# .workaholic/.strict-layout marker. The ticket-shape (above) and ticket-location
-# (below) rules stay hard-blocking regardless of this toggle. If the allowlist
-# file is missing, the gate is skipped (we never enforce a list we cannot read).
+# Enforcement is unconditional in the plugin code — "plugin installed = gate active",
+# with no env-var/marker opt-out. An injectable opt-out fails open exactly when it is
+# not set (a fresh clone, another machine, a differently-launched session), which is
+# when the gate is needed; the ticket-shape (above) and ticket-location (below) rules
+# were always hard blocks, and the layout gate now matches them. If the allowlist file
+# is missing, the gate is skipped (we never enforce a list we cannot read — an
+# availability safeguard, not an opt-out).
 hook_dir="$(cd -- "$(dirname -- "$0")" && pwd)"
 allowlist_file="${hook_dir}/workaholic-layout-allowlist.txt"
 case "$file_path" in
   *.workaholic/*)
     if [ -f "$allowlist_file" ]; then
-      wh_root="${file_path%%.workaholic/*}.workaholic"
       wh_rel="${file_path#*.workaholic/}"
       first_seg="${wh_rel%%/*}"
 
@@ -71,36 +72,31 @@ case "$file_path" in
           fi
           ;;
         *)
-          # A root-level file: only README.md / README_ja.md and index.md (the OKF
-          # bundle entry point, maintained by okf/refresh-index.sh) are allowed.
+          # A root-level file: README.md / README_ja.md and index.md (the OKF bundle
+          # entry point, maintained by okf/refresh-index.sh), plus the release-scan
+          # config files scan-branch-safety.sh reads (scan-allow, leak-denylist), are
+          # allowed. All are plugin-grounded root files a developer legitimately edits.
           case "$first_seg" in
-            README.md|README_ja.md|index.md) : ;;
+            README.md|README_ja.md|index.md|scan-allow|leak-denylist) : ;;
             *)
               layout_ok=false
-              layout_reason="root-level file (only README.md and index.md are allowed at the .workaholic/ root)"
+              layout_reason="root-level file (only README.md, index.md, scan-allow, and leak-denylist are allowed at the .workaholic/ root)"
               ;;
           esac
           ;;
       esac
 
       if [ "$layout_ok" = false ]; then
-        strict=false
-        if [ -n "${WORKAHOLIC_STRICT_LAYOUT:-}" ] || [ -f "${wh_root}/.strict-layout" ]; then
-          strict=true
-        fi
         allowed_list="$(grep -vE '^[[:space:]]*(#|$)' "$allowlist_file" | paste -sd' ' - || true)"
         {
           echo "Workaholic layout: ${layout_reason}."
           echo "Got: $file_path"
-          echo "Allowed .workaholic/ subdirectories: ${allowed_list} (plus README.md and index.md at the root)."
+          echo "Allowed .workaholic/ subdirectories: ${allowed_list} (plus README.md, index.md, scan-allow, and leak-denylist at the root)."
           echo "If you meant a ticket, write it under .workaholic/tickets/todo/<user>/."
         } >&2
         print_skill_reference
-        if [ "$strict" = true ]; then
-          echo "(strict layout enforcement is ON — blocking this write)" >&2
-          exit 2
-        fi
-        echo "(layout enforcement is in warn mode — allowing; set WORKAHOLIC_STRICT_LAYOUT=1 or add .workaholic/.strict-layout to block)" >&2
+        echo "(the .workaholic/ layout is a closed structure — register a new artifact directory in hooks/workaholic-layout-allowlist.txt and the rules/workaholic.md table before writing to it)" >&2
+        exit 2
       fi
     fi
     ;;

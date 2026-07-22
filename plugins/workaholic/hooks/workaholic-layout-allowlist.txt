@@ -3,17 +3,27 @@
 # Read by hooks/validate-ticket.sh (the layout gate) and by the layout-doctor
 # audit. One directory name per line; blank lines and lines starting with # are
 # ignored. Keep this list in lockstep with the table in
-# plugins/workaholic/rules/workaholic.md (README.md is allowed at the root).
+# plugins/workaholic/rules/workaholic.md (README.md, index.md, scan-allow, and
+# leak-denylist are allowed at the root).
 #
-# Grounded in code: every entry is created or read by a live plugin/script
-# (grep -rhoE '\.workaholic/<dir>' plugins/ scripts/). Adding a directory here is
-# a deliberate amendment to the closed `.workaholic/` structure, not an ad-hoc mkdir.
+# Most entries are grounded in code: created or read by a live plugin/script
+# (grep -rhoE '\.workaholic/<dir>' plugins/ scripts/). The exceptions are the
+# project-local documentation areas guides/ (user documentation) and policies/
+# (project-local policy documentation) — conventional, model-written areas a
+# consuming repo may keep under .workaholic/. The allowlist is permissive (it
+# permits, it does not require), so a repo without them is unaffected. Adding a
+# directory here is a deliberate amendment to the closed `.workaholic/` structure,
+# not an ad-hoc mkdir: register it here AND in the rules/workaholic.md table in the
+# same change (see CLAUDE.md's closed-layout policy).
 concerns
 deployments
+guides
 missions
+policies
 release-notes
 specs
 stories
+strategies
 terms
 tickets
 trips

@@ -11,24 +11,27 @@ The `.workaholic/` directory has a fixed structure. Only these subdirectories ar
 | ---------------- | ------------------------------------------ |
 | `concerns/`      | Deferred concerns/ideas (and `concerns/archive/`) |
 | `deployments/`   | Deployment/release procedures and their success-confirmation methods |
+| `guides/`        | User documentation (project-local docs area) |
 | `missions/`      | Long-lived goals spanning many tickets (`active/`, `archive/`) |
+| `policies/`      | Project-local policy documentation         |
 | `release-notes/` | Per-branch release notes                   |
 | `specs/`         | Current state reference documentation      |
 | `stories/`       | Development narratives per branch          |
+| `strategies/`    | Long-lived direction above missions (`active/`, `archive/`) |
 | `terms/`         | Term definitions                           |
 | `tickets/`       | Implementation work queue and archives (`todo/`, `archive/`, `icebox/`, `abandoned/`) |
 | `trips/`         | Trip design/decision artifacts per trip    |
 
-This list is the single source of truth in `plugins/workaholic/hooks/workaholic-layout-allowlist.txt` (one directory per line), which `hooks/validate-ticket.sh` reads to enforce the layout on every `Write`/`Edit`. Keep the table and that file in lockstep when amending the structure.
+This list is the single source of truth in `plugins/workaholic/hooks/workaholic-layout-allowlist.txt` (one directory per line), which `hooks/validate-ticket.sh` reads to enforce the layout on every `Write`/`Edit`. Keep the table and that file in lockstep when amending the structure — introducing a new top-level artifact directory is a deliberate amendment that must update **both** in the same change (see CLAUDE.md's closed-layout / lockstep-registration policy). Most entries are plugin-generated; `guides/` and `policies/` are conventional project-local documentation areas.
 
 The `tickets/` queue is partitioned per developer: active tickets live under `tickets/todo/<user>/`, where `<user>` is the slug of `git config user.email` (e.g. `a-qmu-jp`). The icebox (`tickets/icebox/`) and archive (`tickets/archive/<branch>/`) stay as-is.
 
 The `missions/` tree mirrors that working-vs-archived split: an in-progress mission lives at `missions/active/<slug>/mission.md` and an ended one (status `achieved` or `abandoned`) at `missions/archive/<slug>/mission.md`. The mission skill's scripts own the placement — `close.sh` performs the move, and a living migration relocates any legacy flat `missions/<slug>/` dir by its `status` on the next mission-script touch. Never `mv` a mission dir or hand-edit its `status:` field.
 
-Two root-level files are allowed: `README.md`, and `index.md` — the [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) bundle entry point, regenerated together with each area's `index.md` by `okf/scripts/refresh-index.sh` whenever a workflow commits knowledge documents.
+Root-level files allowed at the `.workaholic/` root: `README.md`; `index.md` — the [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) bundle entry point, regenerated together with each area's `index.md` by `okf/scripts/refresh-index.sh` whenever a workflow commits knowledge documents; and the release-scan config files `scan-allow` and `leak-denylist` that `release-scan/scripts/scan-branch-safety.sh` reads.
 
 **Guidelines:**
-- Never create directories outside the allowed list. Enforcement is **warn by default** (a `Write`/`Edit` into an undesignated `.workaholic/` subdirectory is allowed but flagged on stderr by `validate-ticket.sh`). To make it **blocking** for a repo, set `WORKAHOLIC_STRICT_LAYOUT=1` or commit an empty `.workaholic/.strict-layout` marker. The ticket-shape and ticket-location rules are always blocking, regardless of this toggle.
+- Never create directories outside the allowed list. Enforcement is **blocking and unconditional** — a `Write`/`Edit` into an undesignated `.workaholic/` subdirectory is denied (exit 2) by `validate-ticket.sh` whenever the plugin is installed, with no env-var or marker opt-out (an injectable opt-out fails open exactly when it is not set). The ticket-shape and ticket-location rules are always blocking too. This is why registering a new artifact directory in both sources of truth *before* writing to it is mandatory: a stale allowlist hard-blocks a legitimate write.
 - To audit an existing tree for drift without changing anything, run `bash ${CLAUDE_PLUGIN_ROOT}/hooks/layout-doctor.sh [path]` — it reports undesignated directories and misplaced ticket states (with suggested `git mv`s) against this same allowlist, and never mutates the tree. `[path]` defaults to the current repo; pass a repo root to audit another.
 - If a user requests a new directory, explain the structure and suggest the appropriate existing directory
 - Map common requests: "docs" → `specs/`, "archive" → `tickets/archive/`, "changelog" → use ticket frontmatter, "deploy steps" / "release procedure" / "how to verify a deploy" → `deployments/`

@@ -186,6 +186,16 @@ A command's skills are already loaded via its `skills:` frontmatter and resolved
 
 If a skill you expect is not in context, ask the user which plugins are loaded — do not search the filesystem for it. The five `workaholic` command `**Notice:**` headers carry a short echo of this rule.
 
+### Closed `.workaholic/` layout (lockstep registration)
+
+The `.workaholic/` tree is a **closed structure**: the set of permitted top-level artifact directories is fixed and defined in **two sources of truth that MUST stay in lockstep** — `hooks/workaholic-layout-allowlist.txt` (one directory per line) and the table in `plugins/workaholic/rules/workaholic.md`. Introducing a new top-level artifact directory (as `strategies/` was) is a **deliberate amendment**, not an ad-hoc `mkdir`, and it is subject to a verifiable rule an auditor can check:
+
+- **Register in the same change.** A new artifact directory MUST be added to **both** `hooks/workaholic-layout-allowlist.txt` **and** the `rules/workaholic.md` table — plus any skill/docs that name the artifact — **in the same commit** that first writes to it. A new artifact type is not shipped until its directory is registered. (Concretely: `git show <commit>` for any commit that introduces `.workaholic/<newdir>/…` must also touch both sources of truth.)
+- **The guards are load-bearing, not advisory.** The working-directory and `.workaholic/` layout guards **block by construction** whenever the plugin is installed — enforcement is built into the plugin code with **no env-var toggle** (see `hooks/guard-working-directory.sh` and `hooks/validate-ticket.sh`). So the layout source of truth is enforced, not decorative: a **stale allowlist becomes a correctness bug** — it hard-blocks a legitimate write into the unregistered directory — which is exactly why registration must ride in the same change.
+- **Named anti-drift audit.** `hooks/layout-doctor.sh [path]` reports undesignated directories against the allowlist without mutating the tree (read-only). Run it when amending the structure; it is wired into the **`## Local Verification`** commands and the **`Validate Plugins`** CI workflow, which **fails the merge** on `conforming: false` — so a drifted allowlist is caught before merge rather than surfacing as a guard block later.
+
+This policy exists because `strategies/` shipped live (its skill and `create.sh` writing `.workaholic/strategies/active/`) while both sources of truth stayed stale — the class of drift the lockstep rule and its gate now prevent.
+
 ## Commands
 
 | Command                          | Description                                      |
@@ -223,9 +233,12 @@ node scripts/build-plugins/build.mjs              # regenerate outputs/ AND hook
 node scripts/build-plugins/verify.mjs             # assert generated skills are self-contained AND the policy index is in sync
 node scripts/build-plugins/validate-metadata.mjs  # assert Codex manifests are well-formed and version-aligned
 node scripts/test-workflow-scripts.mjs            # hermetic smoke tests for branching + drive scripts
+bash plugins/workaholic/hooks/layout-doctor.sh .  # audit this repo's .workaholic/ for an unregistered artifact directory (see the closed-layout policy)
 ```
 
 The smoke tests create throwaway repositories under the OS temp dir, exercise the scripts there, assert on JSON output and filesystem state, and clean up. They never touch the working tree or call `gh`/network — safe to run anywhere.
+
+`layout-doctor.sh .` audits this repo's own `.workaholic/` tree (read-only) against the canonical allowlist; `conforming: false` means a live directory is unregistered — the drift the closed-layout policy exists to catch. The `Validate Plugins` CI workflow runs the same audit and **fails the merge** on `conforming: false`, so a stale allowlist is caught before it surfaces as a guard block.
 
 ### Commit-subject and branch-name enforcement
 
@@ -246,7 +259,7 @@ The `[<project label>]` prompt-prefix convention (each `AskUserQuestion` questio
 
 **Whether a prompt should fire at all** — a separate question from its label — is governed by `rules/interaction.md` (always-loaded): ask only for genuine decisions, else **act and report** and let the developer correct. Its sharpened form is the **Recommended-label test** — if you could honestly mark an option "(Recommended)", do not ask; decide it, record the decision and its reason where the work is written, and let the developer veto. This stays deliberately **not** hooked, and the sharpening does not change that: necessity — and *a fortiori* whether an option was recommendable — is a judgement a `PreToolUse(AskUserQuestion)` hook cannot read (it sees only the prompt text), the same reason `/request`'s masking is a judgement, not a matcher. The label hook checks a prompt's shape; the rule governs its necessity. The interrogation surfaces (`/ticket` §4b, `/mission` Creation Interrogation and replan, `/monitor` §1) all reference the one canonical statement in `rules/interaction.md` rather than restating it.
 
-A companion `hooks/guard-working-directory.sh` (`PreToolUse(Bash)`, shipped active) has **two modes**, selected by the `WORKAHOLIC_ENFORCE_CWD` switch: **advisory by default** — it reminds and steers a top-level cwd-moving `cd` toward an absolute path or a `( cd … )` subshell but never blocks, so a deliberate one-off `cd` still runs — and **opt-in enforcing** (`WORKAHOLIC_ENFORCE_CWD` non-empty), where a matched top-level `cd` is denied via `permissionDecision: "deny"` naming the offending command and the sanctioned alternatives. The switch changes only the action on a match, never the match set (a `( cd … )` subshell, an absolute path, and a `--prefix`-style command always pass silently). It is the machine-surfaced half of the `workaholify` working-directory ground rules (`skills/workaholify/`); like the other guards it is Claude-Code-only, POSIX `#!/bin/sh -eu`, with no `outputs/` footprint.
+A companion `hooks/guard-working-directory.sh` (`PreToolUse(Bash)`, shipped active) **denies** a top-level cwd-moving `cd` via `permissionDecision: "deny"` naming the offending command and the sanctioned alternatives — **unconditionally, with no env-var toggle**: enforcement is built into the plugin code, so "plugin installed = guard active", identical on every machine and fresh clone (an injectable opt-in switch fails open exactly when it is not set, which is when the guard is needed, and an advisory reminder is text an agent ignores). The match set is unchanged (a `( cd … )` subshell, an absolute path, and a `--prefix`-style command always pass silently). It is the machine-enforced half of the `workaholify` working-directory ground rules (`skills/workaholify/`); like the other guards it is Claude-Code-only, POSIX `#!/bin/sh -eu`, with no `outputs/` footprint.
 
 ### Repository confinement
 

@@ -59,10 +59,10 @@ sh "${SCRIPT_DIR}/../../report/scripts/migrate-concern-identity.sh" >/dev/null 2
 origin_commit=$(git rev-parse --short HEAD)
 created_at=$(date -Iseconds)
 
-result=$(python3 - "$story_file" "$pr_number" "$pr_url" "$branch" "$origin_commit" "$created_at" <<'PY'
+result=$(python3 - "$story_file" "$pr_number" "$pr_url" "$branch" "$origin_commit" "$created_at" "${CONCERN_PROMOTE_MIN:-moderate}" <<'PY'
 import sys, re, os, json, glob
 
-story_file, pr_number, pr_url, branch, origin_commit, created_at = sys.argv[1:7]
+story_file, pr_number, pr_url, branch, origin_commit, created_at, promote_min = sys.argv[1:8]
 
 with open(story_file) as h:
     text = h.read()
@@ -162,7 +162,17 @@ for p in glob.glob('.workaholic/concerns/archive/*.md'):
     if fmv and fmv.get('concern_id'):
         archived_ids.add(fmv['concern_id'])
 
-created, updated = [], []
+# Promotion floor: a NEW concern joins the tracked corpus only when its severity
+# is at or above this floor (default 'moderate'), OR it is explicitly kept. This
+# is the balance dial: the story keeps EVERY concern (section 6 is unchanged);
+# the durable corpus — the set that accumulates across branches and drives
+# triage — promotes only what clears the bar, so it stays a curated ~20-30, not
+# an append-only 100. `low` is recorded in the story and left there. An
+# already-tracked concern still updates (we never demote here — that is a
+# developer decision, not an extraction side effect).
+promote_rank = SEV_RANK.get(promote_min, 1)
+
+created, updated, story_only = [], [], []
 seen_this_run = set()
 
 for block in blocks:
@@ -175,6 +185,7 @@ for block in blocks:
         severity = 'moderate'
     description = field(block, 'Description')
     fix = field(block, 'How to Fix') or field(block, 'How To Fix') or field(block, 'Fix')
+    keep = field(block, 'Keep').lower() in ('true', 'yes', '1')
 
     concern_id = slugify(strip_carried(title)) or 'concern'
     if concern_id in seen_this_run:
@@ -204,6 +215,14 @@ for block in blocks:
         with open(path, 'w') as h:
             h.write(content)
         updated.append(path)
+        continue
+
+    # PROMOTION GATE: a new concern below the floor and not explicitly kept
+    # stays in the story only — it is NOT written to the durable corpus. This is
+    # the "don't grow the pile" half of the balance; the story already records
+    # it, so nothing is lost.
+    if not keep and SEV_RANK.get(severity, 1) > promote_rank:
+        story_only.append(concern_id)
         continue
 
     # CREATE fresh <concern_id>.md
@@ -246,7 +265,7 @@ for block in blocks:
     created.append(path)
     active_by_id[concern_id] = path
 
-print(json.dumps({"created": created, "updated": updated}))
+print(json.dumps({"created": created, "updated": updated, "story_only": story_only}))
 PY
 )
 
@@ -254,14 +273,18 @@ created_files=$(printf '%s' "$result" | python3 -c "import json,sys; print('\n'.
 created_json=$(printf '%s' "$result" | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin)['created']))")
 count_created=$(printf '%s' "$result" | python3 -c "import json,sys; print(len(json.load(sys.stdin)['created']))")
 count_updated=$(printf '%s' "$result" | python3 -c "import json,sys; print(len(json.load(sys.stdin)['updated']))")
+count_story_only=$(printf '%s' "$result" | python3 -c "import json,sys; print(len(json.load(sys.stdin).get('story_only', [])))")
 total=$((count_created + count_updated))
 
 # `extracted` counts NEW files only (created), so a re-extracted still-active
 # concern that is merely refreshed in place reports extracted:0 — the no-clone
 # invariant. `files` lists the newly-created files; `updated` counts in-place
-# refreshes. The commit still fires when anything changed (created or updated).
+# refreshes; `story_only` counts concerns left in the story (below the promotion
+# floor, not promoted to the corpus). The commit still fires when anything
+# changed (created or updated); a run that only left concerns story-only makes
+# no corpus change and reports total 0 with story_only recorded.
 if [ "$total" -eq 0 ]; then
-  echo "{\"status\":\"ok\",\"created\":0,\"updated\":0,\"extracted\":0,\"pushed\":false,\"push_error\":\"not_attempted\",\"files\":[]}"
+  echo "{\"status\":\"ok\",\"created\":0,\"updated\":0,\"extracted\":0,\"story_only\":${count_story_only},\"pushed\":false,\"push_error\":\"not_attempted\",\"files\":[]}"
   exit 0
 fi
 
@@ -300,4 +323,4 @@ if [ -z "${NO_COMMIT:-}" ]; then
   push_error="$PUSH_ERROR"
 fi
 
-echo "{\"status\":\"ok\",\"created\":${count_created},\"updated\":${count_updated},\"extracted\":${count_created},\"pushed\":${pushed},\"push_error\":\"${push_error}\",\"files\":${created_json}}"
+echo "{\"status\":\"ok\",\"created\":${count_created},\"updated\":${count_updated},\"extracted\":${count_created},\"story_only\":${count_story_only},\"pushed\":${pushed},\"push_error\":\"${push_error}\",\"files\":${created_json}}"

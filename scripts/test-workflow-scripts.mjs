@@ -5682,6 +5682,61 @@ function testValidateMission() {
   } finally { cleanup(dir); }
 }
 
+// ---------- hooks/validate-story.sh + validate-trip.sh (OKF type floor) ----------
+// New writes must carry the OKF `type`; history (already-tracked files) is
+// grandfathered so a validator never fires on artifacts predating the convention.
+function testValidateStoryTrip() {
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  validate-story/trip (jq not available)"); return; }
+
+  const STORY = join(REPO_ROOT, "plugins/workaholic/hooks/validate-story.sh");
+  const TRIP = join(REPO_ROOT, "plugins/workaholic/hooks/validate-trip.sh");
+  const dir = makeRepo("main");
+  const invoke = (hook, p) => {
+    try { execSync(`${POSIX_SH} ${hook}`, { cwd: dir, input: JSON.stringify({ tool_input: { file_path: p } }), encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return 0; }
+    catch (e) { return e.status ?? 1; }
+  };
+  const put = (rel, body) => { const abs = join(dir, rel); mkdirSync(dirname(abs), { recursive: true }); writeFileSync(abs, body); return rel; };
+  try {
+    // --- story: a NEW (untracked) write is held to type: Story ---
+    let s = put(".workaholic/stories/work-x.md", "---\ntype: Story\nbranch: work-x\n---\n\n## 1. Overview\n");
+    assertEq("validate-story passes a new story with type: Story", invoke(STORY, s), 0);
+    put(".workaholic/stories/work-x.md", "---\nbranch: work-x\n---\n\n## 1. Overview\n");
+    assertEq("validate-story blocks a new story with no type", invoke(STORY, s), 2);
+    put(".workaholic/stories/work-x.md", "---\ntype: story\n---\n");
+    assertEq("validate-story blocks a lowercase type: story", invoke(STORY, s), 2);
+    // index.md / README are navigation, never judged.
+    assertEq("validate-story ignores stories/index.md",
+      invoke(STORY, put(".workaholic/stories/index.md", "# Stories\n")), 0);
+
+    // Grandfathering: a story already TRACKED in git is history, never retro-blocked.
+    const old = put(".workaholic/stories/work-old.md", "---\nbranch: work-old\n---\n"); // no type
+    execSync(`git add .workaholic/stories/work-old.md && git commit -q -m "old story"`, { cwd: dir });
+    assertEq("validate-story grandfathers an already-tracked typeless story", invoke(STORY, old), 0);
+
+    // --- trip: a NEW artifact needs a non-empty type from the allowed set ---
+    let t = put(".workaholic/trips/alpha/designs/design.md", "---\ntype: Design\n---\n# D\n");
+    assertEq("validate-trip passes a new artifact with an allowed type", invoke(TRIP, t), 0);
+    put(".workaholic/trips/alpha/designs/design.md", "# D\n");
+    assertEq("validate-trip blocks a new artifact with no frontmatter/type", invoke(TRIP, t), 2);
+    put(".workaholic/trips/alpha/designs/design.md", "---\ntype: Nonsense\n---\n");
+    assertEq("validate-trip blocks a type outside the allowed trip set", invoke(TRIP, t), 2);
+    // multi-word allowed types resolve.
+    assertEq("validate-trip accepts 'Event Log'",
+      invoke(TRIP, put(".workaholic/trips/alpha/event-log.md", "---\ntype: Event Log\n---\n")), 0);
+
+    // Grandfather a tracked trip artifact.
+    const otrip = put(".workaholic/trips/alpha/old.md", "no frontmatter\n");
+    execSync(`git add .workaholic/trips/alpha/old.md && git commit -q -m "old trip"`, { cwd: dir });
+    assertEq("validate-trip grandfathers an already-tracked frontmatter-less artifact", invoke(TRIP, otrip), 0);
+
+    // Neither validator touches unrelated files.
+    assertEq("validate-story ignores non-story paths", invoke(STORY, "src/app.ts"), 0);
+    assertEq("validate-trip ignores non-trip paths", invoke(TRIP, ".workaholic/stories/work-x.md"), 0);
+  } finally { cleanup(dir); }
+}
+
 // ---------- hooks/guard-ticket-structure.sh (PreToolUse Bash move guard) ----------
 // REAL, non-mock: runs the ACTUAL PreToolUse guard with a crafted tool_input.command.
 // Asserts it BLOCKS (exit 2) mutating commands that place a ticket in a non-canonical
@@ -7370,6 +7425,7 @@ const tests = [
   ["hooks/validate-ticket.sh mission field", testValidateTicketMission],
   ["hooks/validate-ticket.sh resumption remaining-only", testValidateTicketResume],
   ["hooks/validate-mission.sh", testValidateMission],
+  ["hooks/validate-story.sh + validate-trip.sh", testValidateStoryTrip],
   ["hooks/validate-ticket.sh mandatory body sections", testValidateTicketSections],
   ["hooks/guard-ticket-structure.sh", testGuardTicketStructure],
   ["hooks/posix-lint.sh", testPosixLint],

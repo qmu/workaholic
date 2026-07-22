@@ -3,9 +3,9 @@ created_at: 2026-07-21T02:07:59+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure, Config]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Added
 depends_on:
 mission:
 ---
@@ -84,3 +84,17 @@ The standard engineering policies that govern this ticket. The implementing sess
 - **Severity choice** per artifact: a hard block may be too strong for a trip event-log; consider warn-mode with an opt-in strict toggle (as the `.workaholic/` layout gate already does) so adoption is gradual.
 - **Enforcement only reaches repos that enable the plugin.** The audit found conformance gaps concentrated in repos on an older/un-updated plugin; the validators help only where `workaholic@workaholic` is enabled (ideally user-level), a limitation to state, not solve here.
 - The mission always-on change interacts with the mission-lens signal gate — a `0/0` mission is deliberately surfaced-but-not-blocked; keep those two behaviors coherent.
+
+## Final Report
+
+Development completed as planned. Recorded decisions on the ticket's open design points:
+
+- **Grandfathering (the crux) — by git-tracked-ness.** Stories/trips have no todo/-vs-archive split to key newness on, so `validate-story.sh`/`validate-trip.sh` read newness from git: an already-tracked file is history (never retro-blocked, even an Edit to fix it); only an untracked (freshly written) artifact is held to the `type` floor. Fails open outside a git repo.
+- **Severity — blocking, but only new writes.** Because grandfathering already scopes enforcement to new artifacts, a hard block cannot fire on history, so no warn-mode toggle was needed. The floor is `type: Story` for stories and a non-empty `type` from the allowed set (Direction/Model/Design/Review/Rollback/Trip Plan/Event Log) for trips — presence, never quality.
+- **Writers already emit `type`.** The story writer emits `type: Story`, `write-release-note` emits `type: Release Note`, and both concern writers (`merge-concerns.sh`, `extract-deferred-concerns.sh`) emit `type: Concern`. So step 4 needed no writer change; the release-note/concern gap the audit found is an adopting-repo artifact, closed at the source in this repo.
+- **Mission floor — graduated, kept intentionally; no template drift here.** The current `create.sh` template and `validate-mission.sh` both use `## Experience`, so the drift the audit reported (18/32 missions on `## Goal`/`## Scope`) is an older adopting-repo artifact, not present in this template. The graduated floor (assignee key always; full Experience/Acceptance/owner/strategy floor at `drive_authorized: true`) is intentional and documented in the validator header: a mission is a draft the interrogation fills in, so requiring a full plan on every scratch write would block the interrogation itself. Left as-is rather than forcing always-on and breaking drafts across repos.
+
+### Discovered Insights
+
+- **Insight**: `git ls-files --error-unmatch` is a clean, stateless grandfathering primitive for artifacts with no location-based newness signal — but it must run from the file's own directory matching the basename, or a `-C dirname` + full-path split silently never matches.
+  **Context**: The story/trip validators reuse this; any future artifact validator without a todo/archive split should follow the same git-tracked pattern.

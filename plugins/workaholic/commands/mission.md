@@ -49,6 +49,14 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create-mission-worktree.sh "
 
 This is how a carried successor — minted by `close.sh` with no worktree and no tickets — gets fleshed out; the create flow dead-ends on its existing `mission.md` (`create.sh` `reason: "exists"`), and replan is the sanctioned path instead. All writes happen in the worktree via `( cd <worktree_path> && … )` subshells, exactly as in the create flow.
 
+**2b. Surface sibling PRs.** Before re-interrogating, list open PRs that already reference this mission slug so the delta does not duplicate a sibling lane's in-flight, not-yet-merged work:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list-related-prs.sh "<slug>"
+```
+
+If `prs` is non-empty, tell the developer which open PRs touch this mission and factor them into the delta — do **not** emit tickets duplicating acceptance a sibling PR already implements. `available: false` means the check could not run (no `gh`/auth/remote); note that rather than treating it as "no siblings". This pairs with `create-mission-worktree.sh`'s fetch-first base resolution: the fetch keeps a new worktree off a stale merged base, this keeps a replan off a sibling's unmerged work.
+
 **3. Re-interrogate — scoped by the instruction.** Follow the skill's **Replan** section (`workaholic:mission`): it defines which Creation Interrogation rounds re-run (Direction changes → rounds 1–2; plan growth → rounds 3–5 for the delta; a thin `0/0` mission → all five), what the delta may touch, and what it must never touch. The bar equals creation's — a structured delta model, grilled until drive-ready — because `drive_authorized` skips per-ticket approval downstream, so an under-interrogated delta is concretized across the whole mission unchecked. Issue every question from this command with the `[<project label>]` prefix; `gate_*` is never interrogated.
 
 **If the mission's `strategy:` is still empty** (a legacy/thin mission, or one flagged as a replan item by `/monitor`'s pre-flight), run the **Strategy resolution** step now — the same infer/create/ask as the create flow's step 3a — and stamp the link, recorded as a `strategy linked` / `strategy created` changelog line. Re-stamping `drive_authorized: true` requires it resolved.

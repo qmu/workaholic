@@ -1882,6 +1882,61 @@ function testMissionWorktreeNoLocalMain() {
   }
 }
 
+// ---------- 8d-ter. create-mission-worktree starts from the MERGED base ----------
+// The base must be origin/<base>, freshened by a fetch, not a stale local ref: a desk
+// whose local main trails origin would otherwise cut the worktree from a stale commit,
+// blind to already-merged PRs and to the rulings in origin's mission.md. And a
+// configured-but-unreachable origin must FAIL LOUD rather than silently fall back to that
+// stale local base (the ticket's quality gate: never resolve a base older than
+// origin/<base> without loudly reporting why).
+function testMissionWorktreeFetchFirst() {
+  // Row A: local main behind origin/main -> worktree cut from the FRESH origin/main.
+  {
+    const { origin, clone } = makeStaleBaseClone({ nBehind: 3 });
+    try {
+      const originMainTip = execSync(`git -C ${clone} rev-parse origin/main`, { encoding: "utf8" }).trim();
+      const localMainTip = execSync(`git -C ${clone} rev-parse main`, { encoding: "utf8" }).trim();
+      assertTrue("fixture: local main trails origin/main", originMainTip !== localMainTip, `${originMainTip} vs ${localMainTip}`);
+      const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} freshbase`).stdout);
+      assertTrue("reported branch is a work-*", /^work-\d{8}-\d{6}$/.test(r.branch), r.branch);
+      const wtDir = join(clone, ".worktrees/freshbase");
+      // The worktree parents off origin/main's tip -> it sees the already-merged commits.
+      assertTrue("worktree cut from origin/main (sees origin-only merged commits)",
+        run(clone, `git -C ${wtDir} merge-base --is-ancestor ${originMainTip} HEAD`).status === 0,
+        "origin/main tip must be reachable from the worktree HEAD");
+      // Proof the fixture bites: the stale local main lacks those merged commits.
+      assertTrue("NOT cut from the stale local main",
+        run(clone, `git merge-base --is-ancestor ${originMainTip} ${localMainTip}`).status !== 0,
+        "stale local main must lack the merged commits");
+      run(clone, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} freshbase`);
+    } finally { cleanup(origin); cleanup(clone); }
+  }
+
+  // Row B: configured but UNREACHABLE origin -> fail loud, no worktree, no stale fallback.
+  {
+    const dir = makeRepo("main");
+    try {
+      execSync(`git remote add origin /nonexistent/nope.git`, { cwd: dir });
+      const c = run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} unreachable`);
+      assertTrue("unreachable origin fails loudly (non-zero exit)", c.status !== 0, `status ${c.status}`);
+      assertTrue("error reports the unreachable origin", /unreachable/i.test(c.stderr), c.stderr);
+      assertTrue("no worktree cut from a stale local base", !existsSync(join(dir, ".worktrees/unreachable")));
+    } finally { cleanup(dir); }
+  }
+
+  // Row C: no origin remote at all (a purely local project) -> local base, no failure.
+  {
+    const dir = makeRepo("main");
+    try {
+      const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} localonly`).stdout);
+      const actual = execSync(`git -C ${join(dir, ".worktrees/localonly")} rev-parse --abbrev-ref HEAD`,
+        { encoding: "utf8" }).trim();
+      assertEq("no-origin local project still creates the worktree on work-*", actual, r.branch);
+      run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} localonly`);
+    } finally { cleanup(dir); }
+  }
+}
+
 // ---------- 8e. mission-lens worktree focus ----------
 // Inside a mission's worktree the lens surfaces only that mission; in the main
 // tree it hides missions that own a worktree and shows only worktree-less ones.
@@ -7515,6 +7570,7 @@ const tests = [
   ["mission create branches on main", testMissionBranchOnCreate],
   ["branching mission worktree primitive", testMissionWorktreePrimitive],
   ["mission worktree lands on the branch it reports", testMissionWorktreeNoLocalMain],
+  ["mission worktree starts from the merged base (fetch-first)", testMissionWorktreeFetchFirst],
   ["mission-lens worktree focus", testMissionLensWorktreeFocus],
   ["mission create worktree+kickoff spine", testMissionCreateWorktreeFlow],
   ["mission worktree ship reset", testMissionWorktreeShipReset],

@@ -233,6 +233,8 @@ Write the tickets **in one pass**, not N serial `create-ticket` runs. Each carri
 
 The sanctioned path to **reopen an existing active mission's plan** — reached without a subcommand: `/mission <instruction referencing the mission>` (the command owns the dispatch judgment and its written criteria). It exists because three legitimate states previously had no route back into the interrogation: a thin hand-authored `0/0` mission, a mid-flight mission whose scope grew, and a `carried` successor minted by `close.sh` with no worktree and no tickets — while the create flow dead-ends on an existing slug. Only `active` missions are replan targets; the archive is immutable history.
 
+**Surface sibling PRs before re-interrogating.** A replan grows the plan, so it must first see whether another lane is already implementing the same acceptance. Run `list-related-prs.sh <slug>` (below) and, when it returns open PRs referencing the mission, factor them into the delta rather than emitting tickets that duplicate a sibling's unmerged work. The check is best-effort — `available: false` means it could not run (no `gh`/auth/remote), which is *unknown*, not *no siblings*. This is the replan-side complement to `create-mission-worktree.sh`'s fetch-first base resolution: the fetch keeps a new worktree off a stale *merged* base; this keeps a replan off a sibling's *unmerged* work.
+
 **Scoped re-interrogation.** Re-run the Creation Interrogation rounds the instruction touches — nothing more, nothing less:
 
 | the instruction changes | rounds re-run |
@@ -399,6 +401,12 @@ bash mission/scripts/list-reflections.sh [limit]
 ```
 
 List recent reflection entries across active and archived missions, newest first, bounded (default 20): a JSON array of `{slug, date, run_id, blocked, leaked, front_load}` parsed from each entry's three bullets. **Read-only.** The Creation Interrogation reads this back before composing round 4, so recurring `front-load next:` items become pre-answered questions.
+
+```bash
+bash mission/scripts/list-related-prs.sh <slug>
+```
+
+List OPEN pull requests referencing a mission slug (slug present in a PR's title or body — a mission-linked story names the mission; `work-*` branch names do not), so the **Replan** flow can see a sibling lane's in-flight, not-yet-merged work before emitting duplicate delta tickets. Emits `{slug, available, prs:[{number, title, url, headRefName}]}`. **Read-only, best-effort**: `available: false` (empty `prs`) when `gh` is missing/unauthenticated or the repo has no usable remote — *unknown*, not *no siblings*, so a replan is never blocked by tooling. Complements `create-mission-worktree.sh`'s fetch-first base resolution (that guards a new worktree's *merged* base; this guards a replan against a sibling's *unmerged* work).
 
 ```bash
 bash mission/scripts/close.sh <mission-slug-or-file> <achieved|abandoned|carried> [date] \

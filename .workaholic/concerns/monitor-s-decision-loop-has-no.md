@@ -9,7 +9,7 @@ origin_branch: work-20260716-152211
 origin_commit: 70e5f3fb
 created_at: 2026-07-18T20:46:34+09:00
 first_seen: 2026-07-18T20:46:34+09:00
-last_seen: 2026-07-22T17:15:01+09:00
+last_seen: 2026-07-22T20:53:38+09:00
 severity: moderate
 status: active
 resolved_by_pr: 
@@ -20,9 +20,9 @@ resolved_by_commit:
 
 ## Description
 
-The front-loaded batch asks blockers one batch in one run, but nothing makes a deferral sticky across invocations; a caller-side loop (e.g. `/goal /monitor ok`) would re-ask the same deferred decisions every cycle. The reflection mechanism records causes but deliberately does not make a deferred decision sticky — cross-run deferral memory for escalations remains unaddressed.
+The front-loaded batch asks blockers once per run, but nothing makes a deferral sticky across invocations, so a caller-side loop (e.g. `/goal /monitor ok`) would re-ask the same deferred decisions every cycle. Untouched by this branch.
 
 ## How to Fix
 
-Record deferred decisions in the run report and have the next invocation re-ask only when the underlying state changed (or after N runs), so deferral is remembered rather than re-litigated every loop.
+Record deferred decisions in the run report and have the next invocation re-ask only when the underlying state changed (or after N runs).
 

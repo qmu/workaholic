@@ -4090,22 +4090,22 @@ function testGuardWorkingDirectory() {
   try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
   if (!hasJq) { console.log("  skip  guard-working-directory (jq not available)"); return; }
 
-  // Non-blocking: always exit 0. Returns a reminder (additionalContext) only when
-  // the command moves the persistent cwd.
+  // Single enforced mode: always exit 0, but emits a permissionDecision "deny" (no
+  // env-var toggle) when the command moves the persistent cwd; silent otherwise.
   const invoke = (command) => {
     const payload = JSON.stringify({ tool_name: "Bash", tool_input: { command } });
     const out = execSync(`${POSIX_SH} ${HOOK}`, { cwd: REPO_ROOT, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
     return out; // never throws — hook always exits 0
   };
-  const warns = (command) => /additionalContext/.test(invoke(command)) && /repository root/.test(invoke(command));
+  const denies = (command) => /"permissionDecision":\s*"deny"/.test(invoke(command)) && /repository root/.test(invoke(command));
 
-  assertTrue("guard-workdir warns on a leading cd", warns("cd /tmp && ls"), invoke("cd /tmp && ls"));
-  assertTrue("guard-workdir warns on a chained cd", warns("ls && cd /var"), invoke("ls && cd /var"));
+  assertTrue("guard-workdir denies a leading cd", denies("cd /tmp && ls"), invoke("cd /tmp && ls"));
+  assertTrue("guard-workdir denies a chained cd", denies("ls && cd /var"), invoke("ls && cd /var"));
   assertTrue("guard-workdir stays silent on a ( cd ... ) subshell",
-    !warns("( cd /tmp && ls )"), invoke("( cd /tmp && ls )"));
+    !denies("( cd /tmp && ls )"), invoke("( cd /tmp && ls )"));
   assertTrue("guard-workdir stays silent on an absolute-path command",
-    !warns("cat /etc/hostname"), invoke("cat /etc/hostname"));
-  assertTrue("guard-workdir stays silent on a plain command", !warns("git status"), invoke("git status"));
+    !denies("cat /etc/hostname"), invoke("cat /etc/hostname"));
+  assertTrue("guard-workdir stays silent on a plain command", !denies("git status"), invoke("git status"));
 }
 
 // ---------- hooks/guard-askuserquestion-label.sh (PreToolUse AskUserQuestion) ----------
@@ -5404,54 +5404,45 @@ function testValidateLayout() {
   try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
   if (!hasJq) { console.log("  skip  validate-layout (jq not available)"); return; }
 
-  const invoke = (filePath, strict = false) => {
+  const invoke = (filePath) => {
     const payload = JSON.stringify({ tool_input: { file_path: filePath } });
-    const env = { ...process.env };
-    if (strict) env.WORKAHOLIC_STRICT_LAYOUT = "1"; else delete env.WORKAHOLIC_STRICT_LAYOUT;
     try {
-      // 2>&1 so the warn-mode message (stderr, exit 0) is captured too.
-      const out = execSync(`${POSIX_SH} ${HOOK} 2>&1`, { cwd: REPO_ROOT, input: payload, encoding: "utf8", env });
+      // 2>&1 so the block message (stderr) is captured too.
+      const out = execSync(`${POSIX_SH} ${HOOK} 2>&1`, { cwd: REPO_ROOT, input: payload, encoding: "utf8" });
       return { status: 0, out };
     } catch (e) {
       return { status: e.status ?? 1, out: (e.stdout?.toString() || "") + (e.stderr?.toString() || "") };
     }
   };
 
-  // Strict mode: undesignated subdirectories are blocked (exit 2).
+  // Enforcement is unconditional (no env var, no marker): undesignated subdirectories
+  // are blocked (exit 2).
   for (const p of [".workaholic/proposals/notes.md", ".workaholic/research/r.md", ".workaholic/.trips/x.md"]) {
-    assertEq(`layout strict blocks ${p}`, invoke(p, true).status, 2);
+    assertEq(`layout blocks undesignated ${p}`, invoke(p).status, 2);
   }
-  // The ticket-location rule (tickets/done/) is a HARD block regardless of the toggle.
-  assertEq("layout blocks tickets/done/ in strict", invoke(".workaholic/tickets/done/y.md", true).status, 2);
-  assertEq("layout blocks tickets/done/ in warn too (hard rule)", invoke(".workaholic/tickets/done/y.md", false).status, 2);
+  // An undesignated root-level file is blocked too.
+  assertEq("layout blocks an undesignated root file", invoke(".workaholic/notes.txt").status, 2);
+  // The ticket-location rule (tickets/done/) is a HARD block.
+  assertEq("layout blocks tickets/done/", invoke(".workaholic/tickets/done/y.md").status, 2);
 
-  // Allowed locations pass cleanly (exit 0), even under strict mode.
+  // The block message names the closed-structure registration path (both sources of truth).
+  const blocked = invoke(".workaholic/proposals/notes.md");
+  assertTrue("layout block names the closed-structure registration path",
+    blocked.out.includes("Workaholic layout") && blocked.out.includes("closed structure"),
+    `expected a closed-structure message, got: ${blocked.out.slice(0, 300)}`);
+
+  // Allowed locations pass cleanly (exit 0) — including the newly-registered
+  // strategies/guides/policies dirs and the release-scan root files.
   for (const p of [
     ".workaholic/stories/s.md", ".workaholic/deployments/prod.md", ".workaholic/concerns/42-foo.md",
     ".workaholic/release-notes/work-x.md", ".workaholic/trips/work-x/designs/design-v1.md",
-    ".workaholic/README.md", ".workaholic/tickets/todo/test-example-com/20260101000000-t.md",
+    ".workaholic/strategies/active/x/strategy.md", ".workaholic/guides/getting-started.md",
+    ".workaholic/policies/security.md",
+    ".workaholic/README.md", ".workaholic/index.md", ".workaholic/scan-allow", ".workaholic/leak-denylist",
+    ".workaholic/tickets/todo/test-example-com/20260101000000-t.md",
   ]) {
-    assertEq(`layout strict allows ${p}`, invoke(p, true).status, 0);
+    assertEq(`layout allows ${p}`, invoke(p).status, 0);
   }
-
-  // Warn mode (default): an undesignated path is allowed (exit 0) but flagged on stderr.
-  const warned = invoke(".workaholic/proposals/notes.md", false);
-  assertEq("layout warn allows undesignated path", warned.status, 0);
-  assertTrue("layout warn writes a warning to stderr",
-    warned.out.includes("Workaholic layout") && warned.out.includes("warn mode"),
-    `expected a warn-mode message, got: ${warned.out.slice(0, 200)}`);
-
-  // A committed .workaholic/.strict-layout marker flips warn -> block without the env var.
-  const markerRepo = makeRepo("main");
-  try {
-    mkdirSync(join(markerRepo, ".workaholic"), { recursive: true });
-    writeFileSync(join(markerRepo, ".workaholic/.strict-layout"), "");
-    const payload = JSON.stringify({ tool_input: { file_path: ".workaholic/proposals/notes.md" } });
-    let status = 0;
-    try { execSync(`${POSIX_SH} ${HOOK}`, { cwd: markerRepo, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); }
-    catch (e) { status = e.status ?? 1; }
-    assertEq("layout .strict-layout marker blocks (exit 2)", status, 2);
-  } finally { cleanup(markerRepo); }
 }
 
 // ---------- hooks/layout-doctor.sh (one-shot .workaholic/ layout audit) ----------
@@ -5485,13 +5476,18 @@ function testLayoutDoctor() {
     assertTrue("doctor: no false positive on concerns/", !paths.includes(".workaholic/concerns"));
   } finally { cleanup(dir); }
 
-  // A clean tree conforms with zero findings.
+  // A clean tree conforms with zero findings — including the registered
+  // strategies/guides/policies dirs and the release-scan root files.
   const clean = mkdtempSync(join(tmpdir(), "workaholic-doctor-"));
   try {
-    mkdirSync(join(clean, ".workaholic/stories"), { recursive: true });
-    mkdirSync(join(clean, ".workaholic/tickets/todo"), { recursive: true });
+    for (const d of ["stories", "tickets/todo", "strategies/active", "guides", "policies"]) {
+      mkdirSync(join(clean, ".workaholic", d), { recursive: true });
+    }
+    writeFileSync(join(clean, ".workaholic/scan-allow"), "");
+    writeFileSync(join(clean, ".workaholic/leak-denylist"), "");
     const r = JSON.parse(run(clean, `${POSIX_SH} ${DOCTOR} ${clean}`).stdout);
-    assertTrue("doctor passes a clean tree", r.conforming === true && r.findings.length === 0);
+    assertTrue("doctor passes a clean tree", r.conforming === true && r.findings.length === 0,
+      JSON.stringify(r.findings));
   } finally { cleanup(clean); }
 }
 

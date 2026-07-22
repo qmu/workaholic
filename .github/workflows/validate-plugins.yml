@@ -103,3 +103,21 @@ jobs:
 
       - name: Smoke-test workflow scripts
         run: node scripts/test-workflow-scripts.mjs
+
+      - name: Audit .workaholic/ layout conformance
+        run: |
+          echo "Auditing .workaholic/ against the canonical layout allowlist..."
+          # The closed-layout / lockstep-registration policy (CLAUDE.md): a new
+          # top-level artifact directory must be registered in BOTH sources of truth
+          # (hooks/workaholic-layout-allowlist.txt and the rules/workaholic.md table)
+          # in the same change. Under the enforced-by-default layout gate a stale
+          # allowlist is a correctness bug — it hard-blocks a legitimate write — so
+          # this fails the merge before that surfaces at a guard block later.
+          report=$(bash plugins/workaholic/hooks/layout-doctor.sh .)
+          echo "$report" | jq .
+          if [ "$(echo "$report" | jq -r '.conforming')" != "true" ]; then
+            echo "Error: .workaholic/ has undesignated directories — register them in"
+            echo "hooks/workaholic-layout-allowlist.txt AND the rules/workaholic.md table."
+            exit 1
+          fi
+          echo ".workaholic/ layout conforms."

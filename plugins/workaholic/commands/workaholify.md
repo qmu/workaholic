@@ -25,6 +25,6 @@ Run this workflow:
 
    Report the returned checklist self-explanatorily. When `conformant` is `false`, name each `missing` check and offer to add the missing content — a **reference to the `workaholify` gateway**, never a copy of the rules. Do not bloat `CLAUDE.md`; keep it pointing at the skill.
 
-3. **Confirm the working-directory guard is active.** `hooks/guard-working-directory.sh` is a non-blocking `PreToolUse(Bash)` advisory registered in `hooks.json`; note whether it is present so the ground rule is machine-surfaced (not just documented). If a stale/partial install is loaded and the guard is not registered, tell the user to update the plugin.
+3. **Confirm the working-directory guard is active.** `hooks/guard-working-directory.sh` is a blocking `PreToolUse(Bash)` guard registered in `hooks.json` that denies a top-level cwd-moving `cd` unconditionally (no env-var toggle); note whether it is present so the ground rule is machine-enforced (not just documented). If a stale/partial install is loaded and the guard is not registered, tell the user to update the plugin.
 
 Report what was checked, what conforms, and what (if anything) needs fixing.

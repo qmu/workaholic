@@ -59,3 +59,14 @@ The dependency ticket (`20260721161212`) already turns the bare listing into the
 
 - A deferred mission stays deferred for the session only — the next `/mission` run surfaces it again (no cross-session deferral memory; that concern is tracked separately for `/monitor`).
 - This session is the daytime-planning half of the overnight model: `/mission` makes everything drive-ready, `/monitor` executes it unattended.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: Readiness is fully derivable from three existing signals (status, computed total, drive_authorized), so it went into list.sh as `ready`/`ready_reason` rather than needing a monitor-shaped preflight reader in the mission command — the command reads a field, never computes a conditional.
+  **Context**: The Shell Script Principle is satisfied by pushing the boolean into the reader, keeping the command pure orchestration; preflight.sh stays monitor-scoped.
+- **Insight**: The `/goal /monitor ok` hand-off (never /drive) is the concrete expression of the root-worktree ambiguity — a bare /drive from root reads as a main-tree drive. The session's whole point is to make mission *worktrees* ready, which only /monitor drives per-worktree.
+  **Context**: This is why the daytime-plan / overnight-execute split lands on two different commands rather than one.

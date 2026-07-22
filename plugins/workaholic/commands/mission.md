@@ -111,20 +111,38 @@ By the end of this step the mission is **drive-ready**: a complete, ordered queu
 
 **6. Report and hand off.** Tell the developer the mission is set up in `<worktree_path>` with its statement and an ordered, ready-to-drive kickoff queue. **Do not instruct them to `cd`** — `/drive` auto-routes into an existing worktree, so they just open that worktree and drive. Summarize the mission slug, the worktree path, and the kickoff tickets.
 
-## Without a title — the developer-centric view
+## Without a title — the developer's planning session
 
-When `$ARGUMENT` is empty, show the whole roadmap **weighted toward the caller** (developer decision, 2026-07-22: most of the output is about the missions that are the caller's business; other developers' work stays visible but compact — de-emphasized, never hidden):
+When `$ARGUMENT` is empty, bare `/mission` opens a **working planning session**, not just a report (developer intent, 2026-07-22). Its arc is fixed: explain where the caller's missions stand → walk the not-ready ones through replan until every assigned mission is drive-ready → reconcile → discuss strategy gaps → hand off to `/goal /monitor ok`. This is the daytime half of the overnight model: `/mission` makes everything drive-ready, `/monitor` executes it unattended. Read the whole roadmap once:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list.sh
 ```
 
-Partition the returned array on each entry's `relation` field (computed by the script — do **not** re-derive it from `assignee` in prose) and render two tiers:
+Every entry carries the fields the session needs — computed, so no logic lives in this prose: `relation` (`mine`/`unassigned`/`others`), `next` (the next unchecked acceptance item), `ready` (drive-ready: active, has a plan, `drive_authorized`) and `ready_reason` (`no_plan`/`not_authorized` when not). Do **not** re-derive any of these from `assignee`/`drive_authorized`/`checked` yourself.
 
-- **Full treatment — `mine` and `unassigned` entries with `status: active`** (mine first, then unassigned, matching the shared ordering): for each, show `title` (`slug`) — `checked/total`, its `next` item (from the entry — the next unchecked acceptance criterion), and the most recent few `## Changelog` lines read from the entry's `path`, so the caller sees where their work stands and how it has moved. **Mark an `unassigned` entry as unclaimed and claimable** — it must never read as work the caller has already taken on.
-- **One line each — everything else** (`others`, and any archived mission regardless of relation): `title` (`slug`) — `status` — `checked/total`. No changelog narration, no paragraphs — a closed mission has no next step, and a colleague's mission is their business; the roster line keeps the whole picture visible without burying the caller's own missions.
+### Step 1 — Status: where the caller's missions stand
 
-Group `active` before `achieved`/`abandoned`/`carried` within each tier. Progress is always the computed `checked/total`, never a stored number. If the array is empty, tell the user there are no missions yet and that `/mission "<title>"` creates the first one; if only the compact tier has entries, say plainly that no active mission is the caller's or unclaimed.
+Render the roadmap **weighted toward the caller** (most of the output is the caller's business; others' work stays visible but compact — de-emphasized, never hidden):
+
+- **Full treatment — `mine` and `unassigned` entries with `status: active`** (mine first, then unassigned): `title` (`slug`) — `checked/total`, the `next` item, the drive-ready state (ready, or the `ready_reason` blocker), and the most recent few `## Changelog` lines from the entry's `path`. **Mark an `unassigned` entry as unclaimed and claimable.**
+- **One line each — everything else** (`others`, and any archived mission): `title` (`slug`) — `status` — `checked/total`. No changelog, no paragraphs.
+
+If no mission is `mine` or `unassigned`, say so plainly (only colleagues'/archived work exists) and that `/mission "<title>"` starts one; if the array is empty, there are no missions yet.
+
+### Step 2 — Replan loop: make every assigned mission drive-ready
+
+For each `mine`/`unassigned` active mission whose `ready` is `false`, run its **existing replan flow** now (the *Referencing an existing mission — replan* section above), one mission at a time, in the mission's own worktree — creating it with `create-mission-worktree.sh` when absent. The `ready_reason` says what the replan must fix (`no_plan` → the interrogation must produce a plan and Acceptance; `not_authorized` → it was interrogated but never stamped). Interrogation asks **only genuine design rulings** (the decide-and-record bar); mechanical fixes are decided and recorded, not asked. The developer may **defer** a mission ("leave it") — record that and move on; do not re-raise it this session.
+
+An already-`ready` mission needs nothing here — say so and skip it.
+
+### Step 3 — Reconciliation
+
+Close the session with one honest line derived from the readers (never asserted): **`N/M assigned missions drive-ready`**, naming each mission left short and why — deferred by the developer, or blocked on a named ruling. This mirrors `/monitor`'s honest-terminal shape.
+
+### Step 4 — Execution hand-off: `/goal /monitor ok`, never `/drive`
+
+End by recommending **`/goal /monitor ok`** as the way to execute the readied missions — long, unattended, per-worktree, in parallel, at any hour. Do **not** recommend `/drive`: this session runs from the **root** worktree, where a bare `/drive` ambiguously reads as a drive of the main tree, not of the mission worktrees just made ready. `/goal /monitor ok` is the unambiguous signal; the closing prose names it and only it.
 
 ## `close <slug>` — end a mission
 

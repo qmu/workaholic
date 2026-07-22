@@ -153,15 +153,18 @@ Reads the just-shipped story (`.workaholic/stories/<branch>.md`) and parses each
 
 - an **active** concern with that id → **updated in place** (bumps `last_seen`, escalates `severity` to the most severe, refreshes text) — no new file;
 - an **archived** (resolved/superseded) one → skipped (never resurfaces);
-- otherwise → a fresh `<concern_id>.md` is written (`type: Concern`, `concern_id`, `first_seen`, `last_seen`, `severity`, provenance, and a Title/Description/How-to-Fix body).
+- a **new** concern that clears the **promotion floor** → a fresh `<concern_id>.md` is written (`type: Concern`, `concern_id`, `first_seen`, `last_seen`, `severity`, provenance, and a Title/Description/How-to-Fix body);
+- a **new** concern **below** the floor → left in the story only (**not** promoted to the corpus), counted as `story_only`.
 
-This is what keeps the corpus **fresh** instead of accumulating `NN-carried-from-…` clones. Before parsing, it runs the living identity migration (`report/scripts/migrate-concern-identity.sh`, best-effort, idempotent), which back-fills identity fields on legacy files and collapses existing carry chains into one file per concern. Returns JSON:
+**The promotion floor is the balance dial.** The story's section 6 keeps **every** concern (the branch's immutable record — nothing is lost), but the durable corpus — the set that accumulates across branches and drives triage — promotes only concerns at or above `CONCERN_PROMOTE_MIN` (default `moderate`), **or** a block that explicitly opts in with `- **Keep:** true`. So `low` concerns are recorded in the story and left there, keeping the tracked corpus a curated ~20-30 instead of an append-only 100. This is the *don't-grow-the-pile* half; **demotion of already-tracked concerns is never an extraction side effect** — an existing active concern still updates in place, and re-shelving the existing pile is a developer decision, not something ship does silently.
+
+This also keeps the corpus **fresh** instead of accumulating `NN-carried-from-…` clones. Before parsing, it runs the living identity migration (`report/scripts/migrate-concern-identity.sh`, best-effort, idempotent), which back-fills identity fields on legacy files and collapses existing carry chains into one file per concern. Returns JSON:
 
 ```json
-{"status":"ok","created":2,"updated":8,"extracted":2,"files":["..."]}
+{"status":"ok","created":2,"updated":8,"extracted":2,"story_only":5,"files":["..."]}
 ```
 
-`extracted` counts **new** files (`created`); `updated` counts in-place refreshes; `files` lists the newly-created files. Commits with message `Add deferred concerns from PR #<pr-number>` (whenever anything was created or updated) so the corpus stays under version control, then **pushes**. Because this runs post-merge, the commit lands on local `main` (the merge already checked it out); the push keeps local `main` level with `origin/main`. Skips silently when no story file exists or section 6 is empty.
+`extracted` counts **new** files (`created`); `updated` counts in-place refreshes; `story_only` counts new concerns left in the story below the floor; `files` lists the newly-created files. Commits with message `Add deferred concerns from PR #<pr-number>` (whenever anything was created or updated) so the corpus stays under version control, then **pushes**. Because this runs post-merge, the commit lands on local `main` (the merge already checked it out); the push keeps local `main` level with `origin/main`. Skips silently when no story file exists or section 6 is empty.
 
 ### 2-5b. Catch Up With main
 

@@ -3783,7 +3783,7 @@ function testMissionShipSeam() {
     writeFileSync(mfile, `---\ntype: Mission\ntitle: RT\nslug: ${slug}\nstatus: active\ncreated_at: 2026-07-06T00:00:00+09:00\nauthor: test@example.com\ntickets: []\nstories: []\nconcerns: []\n---\n\n# RT\n\n## Acceptance\n\n## Changelog\n`);
     mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
     writeFileSync(join(dir, ".workaholic/stories/work-s.md"),
-      `---\ntype: Story\nbranch: work-s\nmission: ${slug}\ntickets: [20260706120000-a.md]\n---\n## 6. Concerns\n\n### A deferred thing\n\n- **Severity:** low\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n`);
+      `---\ntype: Story\nbranch: work-s\nmission: ${slug}\ntickets: [20260706120000-a.md]\n---\n## 6. Concerns\n\n### A deferred thing\n\n- **Severity:** moderate\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n`);
     execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
     const r = JSON.parse(run(dir, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-s 30 https://x/pr/30`).stdout);
     assertEq("ship seam extracted one concern", r.extracted, 1);
@@ -4529,7 +4529,9 @@ function testConcernIdentity() {
     const story = (title, sev, desc) =>
       `---\ntype: Story\nbranch: work-x\n---\n## 6. Concerns\n\n### ${title}\n\n- **Severity:** ${sev}\n- **Description:** ${desc}\n- **How to Fix:** fix\n\n## 7. Next\n`;
     const spath = join(repo2, ".workaholic/stories/work-x.md");
-    writeFileSync(spath, story("Compound login risk", "low", "first desc"));
+    // Start at moderate so it clears the promotion floor; the low re-extract below
+    // still exercises no-downgrade because updates are severity-gate-agnostic.
+    writeFileSync(spath, story("Compound login risk", "moderate", "first desc"));
     execSync(`git add -A && git commit -q -m story`, { cwd: repo2 });
     const c1 = JSON.parse(run(repo2, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/10`).stdout);
     assertEq("first extract creates the concern", c1.created, 1);
@@ -4563,7 +4565,7 @@ function testConcernIdentity() {
     writeFileSync(join(repo3, ".workaholic/concerns/archive/already-resolved-thing.md"),
       `---\ntype: Concern\nconcern_id: already-resolved-thing\nseverity: low\nstatus: resolved\n---\n\n# Already resolved thing\n\n## Description\n\nd\n\n## How to Fix\n\nf\n`);
     writeFileSync(join(repo3, ".workaholic/stories/work-x.md"),
-      `---\ntype: Story\nbranch: work-x\n---\n## 6. Concerns\n\n### Already resolved thing\n\n- **Severity:** low\n- **Description:** d\n- **How to Fix:** f\n\n## 7. Next\n`);
+      `---\ntype: Story\nbranch: work-x\n---\n## 6. Concerns\n\n### Already resolved thing\n\n- **Severity:** moderate\n- **Description:** d\n- **How to Fix:** f\n\n## 7. Next\n`);
     execSync(`git add -A && git commit -q -m seed`, { cwd: repo3 });
     const c = JSON.parse(run(repo3, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/10`).stdout);
     assertEq("archived concern does not resurface", c.created, 0);
@@ -5118,7 +5120,7 @@ function testExtractConcernMissionRelation() {
     writeFileSync(join(repo, ".workaholic/missions/active/real-time-notifications/mission.md"),
       "---\ntype: Mission\ntitle: RTN\nslug: real-time-notifications\nstatus: active\nassignee: owner@qmu.jp\n---\n\n# RTN\n");
     writeFileSync(join(repo, ".workaholic/stories/work-m.md"),
-      "---\ntype: Story\nbranch: work-m\nmission: real-time-notifications\ntickets: [20260706120000-a.md, 20260706120001-b.md]\n---\n## 6. Concerns\n\n### A carried concern\n\n- **Severity:** low\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n");
+      "---\ntype: Story\nbranch: work-m\nmission: real-time-notifications\ntickets: [20260706120000-a.md, 20260706120001-b.md]\n---\n## 6. Concerns\n\n### A carried concern\n\n- **Severity:** moderate\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n");
     execSync(`git add -A && git commit -q -m story`, { cwd: repo });
     const r = JSON.parse(run(repo, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-m 20 https://x/pr/20`).stdout);
     assertEq("extract with relations -> one concern", r.extracted, 1);
@@ -5137,7 +5139,7 @@ function testExtractConcernMissionRelation() {
   try {
     mkdirSync(join(repo2, ".workaholic/stories"), { recursive: true });
     writeFileSync(join(repo2, ".workaholic/stories/work-n.md"),
-      "---\ntype: Story\nbranch: work-n\n---\n## 6. Concerns\n\n### Another concern\n\n- **Severity:** low\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n");
+      "---\ntype: Story\nbranch: work-n\n---\n## 6. Concerns\n\n### Another concern\n\n- **Severity:** moderate\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n");
     execSync(`git add -A && git commit -q -m story`, { cwd: repo2 });
     const r = JSON.parse(run(repo2, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-n 21 https://x/pr/21`).stdout);
     const body = readFileSync(join(repo2, r.files[0]), "utf8");
@@ -5148,6 +5150,49 @@ function testExtractConcernMissionRelation() {
     assertTrue("concern from a mission-less story -> empty owner: (unowned)",
       /^owner:\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
   } finally { cleanup(repo2); }
+}
+
+// ---------- ship/extract-deferred-concerns.sh: promotion floor (balance dial) ----------
+// The story keeps EVERY concern (section 6); the durable corpus promotes only
+// moderate+ (or explicitly kept), so low concerns don't grow the tracked pile.
+function testExtractPromotionFloor() {
+  const dir = makeRepo("main");
+  try {
+    const cdir = join(dir, ".workaholic/concerns");
+    mkdirSync(cdir, { recursive: true });
+    mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
+    const block = (title, sev, extra = "") =>
+      `### ${title}\n\n- **Severity:** ${sev}\n${extra}- **Description:** d\n- **How to Fix:** f\n\n`;
+    writeFileSync(join(dir, ".workaholic/stories/work-p.md"),
+      `---\ntype: Story\nbranch: work-p\n---\n## 6. Concerns\n\n` +
+      block("An urgent risk", "urgent") +
+      block("A moderate risk", "moderate") +
+      block("A low nicety", "low") +
+      block("A kept low note", "low", "- **Keep:** true\n") +
+      `## 7. Next\n`);
+    execSync(`git add -A && git commit -q -m story`, { cwd: dir });
+
+    const r = JSON.parse(run(dir, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-p 30 https://x/pr/30`).stdout);
+    // urgent + moderate + kept-low promote (3); the plain low stays in the story (1).
+    assertEq("promotion floor: 3 concerns promoted (urgent/moderate/kept-low)", r.created, 3);
+    assertEq("promotion floor: 1 concern left story-only (plain low)", r.story_only, 1);
+    const files = fs_readdirSafe(cdir).filter((f) => f.endsWith(".md") && !["index.md", "README.md"].includes(f));
+    assertTrue("the plain low concern was NOT written to the corpus",
+      !files.some((f) => f.startsWith("a-low-nicety")), files.join(","));
+    assertTrue("the kept low concern WAS written to the corpus (Keep: true override)",
+      files.some((f) => f.startsWith("a-kept-low-note")), files.join(","));
+
+    // The knob lowers the floor: CONCERN_PROMOTE_MIN=low promotes everything.
+    execSync(`rm -f ${cdir}/*.md`, { cwd: dir });
+    const rAll = JSON.parse(run(dir, `NO_COMMIT=1 CONCERN_PROMOTE_MIN=low ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-p 30 https://x/pr/30`).stdout);
+    assertEq("floor=low promotes every concern", rAll.created, 4);
+    assertEq("floor=low leaves nothing story-only", rAll.story_only, 0);
+  } finally { cleanup(dir); }
+}
+
+// Small helper: readdir that tolerates a missing dir (returns []).
+function fs_readdirSafe(d) {
+  try { return readdirSync(d); } catch { return []; }
 }
 
 // ---------- report/doc-drift.sh (documentation-drift fact emitter) ----------
@@ -7469,6 +7514,7 @@ const tests = [
   ["ship/commit-release-note.sh push", testCommitReleaseNotePush],
   ["concern identity: slugify writers agree", testSlugifyWritersAgree],
   ["ship/extract-deferred-concerns.sh mission/tickets relation", testExtractConcernMissionRelation],
+  ["ship/extract-deferred-concerns.sh promotion floor", testExtractPromotionFloor],
   ["report/doc-drift.sh", testDocDrift],
   ["hooks/policy-lens.sh", testPolicyLens],
   ["hooks/validate-ticket.sh", testValidateLayout],

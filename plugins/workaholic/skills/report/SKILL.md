@@ -513,7 +513,7 @@ One subsection per ticket, in chronological order:
 ```
 
 **Guidelines**:
-- **Severity** is a label, not a number: `urgent` (act now), `moderate` (should fix), or `low` (nice-to-have). Default `moderate`.
+- **Severity is the balance dial — set it honestly, because it decides what becomes durable.** `urgent` (act now) and `moderate` (a real risk you hit or clearly foresee will bite) are **promoted to the tracked concern corpus** at ship time; `low` (a nice-to-have, a speculative "we might also want", a thing noticed but not run into) is **recorded in this story and left there** — it does not join the corpus. This mirrors `/drive`'s ticket-minting bar (an observation is not an obligation): a genuine risk earns `moderate`+, a passing thought stays `low`. Do **not** inflate severity to force a low-value note into the corpus, and do **not** drop a real risk to `low` to keep it out — the story keeps everything either way; severity only decides what is tracked. If a `low` concern genuinely must be tracked, add `- **Keep:** true` to its block. Default `moderate` only when the risk is real; otherwise say `low`.
 - Reference the commit hash from section 3 and the file path where readers should investigate, inside the Description.
 - Keep Description and How to Fix to one paragraph each.
 - Deferred concerns (from `still_active` verdicts) are prepended here as `###` blocks, with their title prefixed `(carried from PR #N)` and their original severity preserved.

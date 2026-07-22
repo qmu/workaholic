@@ -5026,9 +5026,52 @@ function testListActiveConcernsEnvelope() {
       hostile.body.includes('line "two" \\ three'), JSON.stringify(hostile.body));
     assertEq("list-active coerces a non-numeric origin_pr to 0", hostile.origin_pr, 0);
 
-    // The trigger flips when active_count exceeds the (env-overridden) threshold.
+    // The trigger flips when the lane count exceeds the (env-overridden) threshold.
+    // Both fixtures are unowned (everyone's lane), so my_lane_count == active_count.
     const t = JSON.parse(run(dir, `CONCERN_TRIAGE_THRESHOLD=1 ${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout);
     assertEq("list-active should_triage flips over the threshold", t.should_triage, true);
+  } finally { cleanup(dir); }
+}
+
+// ---------- report/list-active-deferred-concerns.sh: lane-aware triage ----------
+// One developer's mission-lane concerns must not fire the triage prompt on
+// another developer. should_triage is scoped to the actor's own lane (owned +
+// unowned); active_count and owner_counts stay global.
+function testListActiveConcernsLanes() {
+  const dir = makeRepo("main");
+  try {
+    const cdir = join(dir, ".workaholic/concerns");
+    mkdirSync(cdir, { recursive: true });
+    const A = "a@qmu.jp", B = "b@qmu.jp";
+    const mk = (name, owner, id) =>
+      writeFileSync(join(cdir, name),
+        `---\ntype: Concern\nconcern_id: ${id}\nstatus: active\nseverity: low\nowner: ${owner}\norigin_pr: 1\n---\n\n# ${id}\n\nx\n`);
+    mk("a1.md", A, "a1"); mk("a2.md", A, "a2");
+    mk("b1.md", B, "b1"); mk("b2.md", B, "b2"); mk("b3.md", B, "b3");
+    mk("free.md", "", "free");            // unowned — everyone's lane
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+
+    // As A: lane = A's 2 + 1 unowned = 3. As B: 3 + 1 = 4. Global active = 6.
+    execSync(`git config user.email ${A}`, { cwd: dir });
+    const asA = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout);
+    assertEq("global active_count is everyone's total", asA.active_count, 6);
+    assertEq("owner_counts breaks the corpus down by lane",
+      asA.owner_counts, { "a@qmu.jp": 2, "b@qmu.jp": 3, "(unowned)": 1 });
+    assertEq("my_lane_count for A = owned + unowned", asA.my_lane_count, 3);
+
+    // Threshold 3: A's lane (3) does not exceed it; B's lane (4) does. Same corpus,
+    // different actor -> the prompt fires for B, not A. This is the whole point.
+    const aT = JSON.parse(run(dir, `CONCERN_TRIAGE_THRESHOLD=3 ${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout);
+    assertEq("A is not prompted: lane 3 not over threshold 3", aT.should_triage, false);
+    execSync(`git config user.email ${B}`, { cwd: dir });
+    const bT = JSON.parse(run(dir, `CONCERN_TRIAGE_THRESHOLD=3 ${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout);
+    assertEq("B IS prompted on the same corpus: lane 4 over threshold 3", bT.should_triage, true);
+
+    // No git identity -> cannot scope -> falls back to the global count.
+    execSync(`git config user.email ""`, { cwd: dir });
+    const none = JSON.parse(run(dir, `CONCERN_TRIAGE_THRESHOLD=5 ${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout);
+    assertEq("no identity: my_lane_count falls back to global", none.my_lane_count, 6);
+    assertEq("no identity: should_triage uses the global count", none.should_triage, true);
   } finally { cleanup(dir); }
 }
 
@@ -5070,6 +5113,10 @@ function testExtractConcernMissionRelation() {
   const repo = makeRepo("main");
   try {
     mkdirSync(join(repo, ".workaholic/stories"), { recursive: true });
+    // A mission with an assignee so the concern inherits its lane owner.
+    mkdirSync(join(repo, ".workaholic/missions/active/real-time-notifications"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/missions/active/real-time-notifications/mission.md"),
+      "---\ntype: Mission\ntitle: RTN\nslug: real-time-notifications\nstatus: active\nassignee: owner@qmu.jp\n---\n\n# RTN\n");
     writeFileSync(join(repo, ".workaholic/stories/work-m.md"),
       "---\ntype: Story\nbranch: work-m\nmission: real-time-notifications\ntickets: [20260706120000-a.md, 20260706120001-b.md]\n---\n## 6. Concerns\n\n### A carried concern\n\n- **Severity:** low\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n");
     execSync(`git add -A && git commit -q -m story`, { cwd: repo });
@@ -5078,6 +5125,8 @@ function testExtractConcernMissionRelation() {
     const body = readFileSync(join(repo, r.files[0]), "utf8");
     assertTrue("concern inherits mission slug from the story",
       /^mission:\s*real-time-notifications\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
+    assertTrue("concern inherits its lane owner from the mission assignee",
+      /^owner:\s*owner@qmu\.jp\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
     assertTrue("concern inherits the tickets list from the story",
       /^tickets:\s*\[20260706120000-a\.md, 20260706120001-b\.md\]\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
     assertTrue("concern still records its origin provenance", /^origin_pr:\s*20\s*$/m.test(body), body);
@@ -5096,6 +5145,8 @@ function testExtractConcernMissionRelation() {
       /^mission:\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
     assertTrue("concern from a mission-less story -> tickets: []",
       /^tickets:\s*\[\]\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
+    assertTrue("concern from a mission-less story -> empty owner: (unowned)",
+      /^owner:\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
   } finally { cleanup(repo2); }
 }
 
@@ -7412,6 +7463,7 @@ const tests = [
   ["report/migrate-concern-identity.sh + update-in-place", testConcernIdentity],
   ["report/merge-concerns.sh + close-concern.sh (triage)", testConcernTriage],
   ["report/list-active-deferred-concerns.sh envelope", testListActiveConcernsEnvelope],
+  ["report/list-active-deferred-concerns.sh lane-aware triage", testListActiveConcernsLanes],
   ["report/shrink-pr-body.sh", testShrinkPrBody],
   ["ship/extract-deferred-concerns.sh push", testExtractDeferredConcernsPush],
   ["ship/commit-release-note.sh push", testCommitReleaseNotePush],

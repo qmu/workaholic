@@ -3,9 +3,9 @@ created_at: 2026-07-22T00:45:00+09:00
 author: a@qmu.jp
 type: feature
 layer: [Application]
-effort: M
+effort: 4h
 commit_hash:
-category:
+category: Changed
 depends_on:
 ---
 
@@ -48,3 +48,23 @@ Observed tendencies (from a full manual triage of ~100 active concerns):
 - Keep "judge proposes / developer decides" for anything irreversible: `accepted` closures and severity re-grades stay behind explicit confirmation; only evidence-backed stale/verified closures may be auto-applied, and even those must write their rationale.
 - The corpus-wide judge is the highest-value single change: it converts the corpus from append-only to self-cleaning, and tendencies 2/3/5 all become cheaper once it exists.
 - Lane scoping should not hide risk: global counts remain available (e.g. `--all`), only the *prompting* becomes lane-aware.
+
+## Final Report
+
+**This ticket was mission-sized — five distinct mechanisms, one of them a code-execution surface.** Rather than half-build all five unattended, the one safe, self-contained, high-value mechanism was implemented in full with tests, and the other four were decomposed into tracked follow-up tickets (drive Night Mode: mint-and-continue; a novel dangerous capability is deferred, never guessed).
+
+**Shipped — mechanism 4, lane/owner scoping:**
+- `extract-deferred-concerns.sh` now stamps `owner:` on each new concern, resolved from the assignee of the first mission its story advances (denormalized so listing stays fast). Empty = unowned = everyone's lane.
+- `list-active-deferred-concerns.sh` is now **lane-aware**: the envelope gains `my_lane_count` and `owner_counts`, and `should_triage` fires on the *actor's own lane* (owned + unowned) exceeding the threshold, not the global total — so one developer's mission-lane concerns no longer fire the triage prompt on people who cannot act on them. `active_count` (global) is preserved; only the prompting is lane-scoped; no git identity falls back to the global count.
+- Report SKILL Phase 1b prose updated to describe the lane-aware trigger.
+
+**Deferred — filed as follow-up tickets:**
+- `20260722091809` — corpus-wide judge (mechanism 1): a whole new `/triage` surface judging against default-branch HEAD; the ticket's own note calls it the highest-value change, but it is a large new command, filed for a deliberate build.
+- `20260722091810` — executable `verify_command` (mechanism 2): **SECURITY** — running a command read from a repo file is RCE; filed as a design discussion, explicitly not to be auto-built.
+- `20260722091811` — aggregate extraction hygiene (mechanism 3): safe and self-contained, filed to keep this change focused.
+- `20260722091812` — staleness decay proposal (mechanism 5): depends on the corpus-wide judge for path-existence, so it follows `20260722091809`.
+
+### Discovered Insights
+
+- **Insight**: The extractor already inherited `mission:` onto concerns; lane scoping only needed the denormalized `owner:` (mission assignee) so the hot listing path never resolves a mission per concern.
+  **Context**: Denormalize the owner at write time, compare at read time — the same shape as the mission lens reading `assignee` rather than re-deriving ownership.

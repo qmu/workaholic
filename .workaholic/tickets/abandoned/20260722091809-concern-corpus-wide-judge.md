@@ -43,3 +43,7 @@ Split off from `20260722004500` (mechanism 1). Today the deferred-concern judge 
 ## Considerations
 
 - The judging itself is a model task (a `general-purpose` leaf), so the hermetic test pins the *plumbing* (set selection, verdict application, audit trail), not the model's judgement.
+
+## Abandonment
+
+Abandoned 2026-07-22 by developer decision. These four mechanisms attacked the deferred-concern pile-up from the **disposal** side (auto-close / auto-verify / auto-shelve an already-large corpus). The correct fix proved to be **prevention** — the concern promotion floor (commit `856bf9e1`, ticket `20260722122105`): the story keeps every concern, but only `moderate`+/`Keep` ones enter the tracked corpus, so the pile never grows to need this machinery. The `verify_command` mechanism was additionally a code-execution surface we chose not to build. Shrinking an *existing* bloated corpus is handled by a separate developer-confirmed demotion ticket, not by these.

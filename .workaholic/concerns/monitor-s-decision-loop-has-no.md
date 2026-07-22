@@ -9,7 +9,7 @@ origin_branch: work-20260716-152211
 origin_commit: 70e5f3fb
 created_at: 2026-07-18T20:46:34+09:00
 first_seen: 2026-07-18T20:46:34+09:00
-last_seen: 2026-07-22T20:53:38+09:00
+last_seen: 2026-07-23T02:27:01+09:00
 severity: moderate
 status: active
 resolved_by_pr: 
@@ -20,7 +20,7 @@ resolved_by_commit:
 
 ## Description
 
-The front-loaded batch asks blockers once per run, but nothing makes a deferral sticky across invocations, so a caller-side loop (e.g. `/goal /monitor ok`) would re-ask the same deferred decisions every cycle. Untouched by this branch.
+The front-loaded batch asks blockers once per run, but nothing makes a deferral sticky across invocations, so a caller-side loop (e.g. `/goal /monitor ok`) would re-ask the same deferred decisions every cycle. Untouched by this branch. (See PR #88)
 
 ## How to Fix
 

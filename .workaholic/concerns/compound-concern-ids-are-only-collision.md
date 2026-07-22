@@ -9,7 +9,7 @@ origin_branch: work-20260716-152211
 origin_commit: 70e5f3fb
 created_at: 2026-07-18T20:46:34+09:00
 first_seen: 2026-07-18T20:46:34+09:00
-last_seen: 2026-07-22T20:53:38+09:00
+last_seen: 2026-07-23T02:27:01+09:00
 severity: low
 status: active
 resolved_by_pr: 
@@ -20,7 +20,7 @@ resolved_by_commit:
 
 ## Description
 
-`merge-concerns.sh` refuses a compound-id collision when minting, but hand-authored or hand-edited concern files are never re-checked, so a manually created duplicate id would go unnoticed until it misroutes an update. Untouched by this branch.
+`merge-concerns.sh` refuses a compound-id collision when minting, but hand-authored or hand-edited concern files are never re-checked, so a manually created duplicate id would go unnoticed until it misroutes an update. (See PR #88)
 
 ## How to Fix
 

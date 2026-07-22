@@ -9,7 +9,7 @@ origin_branch: work-20260719-075112
 origin_commit: 01fa6815
 created_at: 2026-07-21T11:26:01+09:00
 first_seen: 2026-07-21T11:26:01+09:00
-last_seen: 2026-07-22T20:53:38+09:00
+last_seen: 2026-07-23T02:27:01+09:00
 severity: moderate
 status: active
 resolved_by_pr: 
@@ -20,7 +20,7 @@ resolved_by_commit:
 
 ## Description
 
-The `/goal <token>` Stop hook is satisfied the moment the agent emits a token, even when the underlying objective is materially incomplete. The repo-side half has shipped; the harness-side corroboration remains and is outside workaholic's repo-side reach.
+The `/goal <token>` Stop hook is satisfied the moment the agent emits a token, even when the underlying objective is materially incomplete. The repo-side half has shipped; the harness-side corroboration remains and is outside workaholic's repo-side reach. (See PR #91)
 
 ## How to Fix
 

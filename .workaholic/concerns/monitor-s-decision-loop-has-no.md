@@ -9,7 +9,7 @@ origin_branch: work-20260716-152211
 origin_commit: 70e5f3fb
 created_at: 2026-07-18T20:46:34+09:00
 first_seen: 2026-07-18T20:46:34+09:00
-last_seen: 2026-07-21T16:30:28+09:00
+last_seen: 2026-07-22T17:15:01+09:00
 severity: moderate
 status: active
 resolved_by_pr: 
@@ -20,7 +20,7 @@ resolved_by_commit:
 
 ## Description
 
-The front-loaded batch asks blockers one batch in one run, but nothing makes a deferral sticky across invocations; a caller-side loop (e.g. `/goal /monitor ok`) would re-ask the same deferred decisions every cycle. Re-judged on this mission (2026-07-21): the new reflection mechanism records causes but deliberately does not make a deferred decision sticky — cross-run deferral memory for escalations remains unaddressed.
+The front-loaded batch asks blockers one batch in one run, but nothing makes a deferral sticky across invocations; a caller-side loop (e.g. `/goal /monitor ok`) would re-ask the same deferred decisions every cycle. The reflection mechanism records causes but deliberately does not make a deferred decision sticky — cross-run deferral memory for escalations remains unaddressed.
 
 ## How to Fix
 

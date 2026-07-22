@@ -812,6 +812,37 @@ concerns: []
     const relNone = Object.fromEntries(JSON.parse(lNone.stdout).map((m) => [m.slug, m.relation]));
     assertEq("empty email: assigned missions classify as others, unassigned stays unassigned",
       relNone, { "mission-a": "others", "mission-b": "others", "mission-free": "unassigned", "mission-old": "others" });
+
+    // ---- planning-session readiness: ready / ready_reason (additive) ----
+    // The bare /mission planning session drives its replan loop off `ready`.
+    // mission-a is active with a plan but never stamped -> not_authorized.
+    // mission-old is achieved -> not_active. A stamped+planned mission is ready.
+    setEmail(A);
+    const readyOf = (arr, slug) => arr.find((m) => m.slug === slug);
+    const lR = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
+    assertEq("unstamped active mission is not ready (not_authorized)",
+      { ready: readyOf(lR, "mission-a").ready, reason: readyOf(lR, "mission-a").ready_reason },
+      { ready: false, reason: "not_authorized" });
+    assertEq("archived mission is not ready (not_active)",
+      { ready: readyOf(lR, "mission-old").ready, reason: readyOf(lR, "mission-old").ready_reason },
+      { ready: false, reason: "not_active" });
+
+    // Stamp mission-a drive_authorized: true -> it becomes ready with no reason.
+    const maPath = join(dir, ".workaholic/missions/active/mission-a/mission.md");
+    writeFileSync(maPath, readFileSync(maPath, "utf8").replace("status: active", "status: active\ndrive_authorized: true"));
+    const lReady = readyOf(JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout), "mission-a");
+    assertEq("stamped, planned, active mission is drive-ready",
+      { ready: lReady.ready, reason: lReady.ready_reason, auth: lReady.drive_authorized },
+      { ready: true, reason: "", auth: "true" });
+
+    // A stamped mission with an EMPTY plan is still not ready (no_plan beats the stamp).
+    const mkEmpty = join(dir, ".workaholic/missions/active/mission-empty");
+    mkdirSync(mkEmpty, { recursive: true });
+    writeFileSync(join(mkEmpty, "mission.md"),
+      `---\ntype: Mission\ntitle: Empty\nslug: mission-empty\nstatus: active\nauthor: ${A}\nassignee: ${A}\ndrive_authorized: true\n---\n\n# Empty\n\n## Acceptance\n\n## Changelog\n`);
+    const lEmpty = readyOf(JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout), "mission-empty");
+    assertEq("stamped but planless mission is not ready (no_plan)",
+      { ready: lEmpty.ready, reason: lEmpty.ready_reason }, { ready: false, reason: "no_plan" });
   } finally { cleanup(dir); }
 }
 

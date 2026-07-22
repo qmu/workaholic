@@ -9,7 +9,7 @@ origin_branch: work-20260716-152211
 origin_commit: 70e5f3fb
 created_at: 2026-07-18T20:46:34+09:00
 first_seen: 2026-07-18T20:46:34+09:00
-last_seen: 2026-07-21T16:30:28+09:00
+last_seen: 2026-07-22T17:15:01+09:00
 severity: low
 status: active
 resolved_by_pr: 

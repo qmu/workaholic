@@ -9,7 +9,7 @@ origin_branch: work-20260719-075112
 origin_commit: 01fa6815
 created_at: 2026-07-21T11:26:01+09:00
 first_seen: 2026-07-21T11:26:01+09:00
-last_seen: 2026-07-21T16:30:28+09:00
+last_seen: 2026-07-22T17:15:01+09:00
 severity: moderate
 status: active
 resolved_by_pr: 

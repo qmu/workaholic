@@ -140,7 +140,19 @@ An already-`ready` mission needs nothing here — say so and skip it.
 
 Close the session with one honest line derived from the readers (never asserted): **`N/M assigned missions drive-ready`**, naming each mission left short and why — deferred by the developer, or blocked on a named ruling. This mirrors `/monitor`'s honest-terminal shape.
 
-### Step 4 — Execution hand-off: `/goal /monitor ok`, never `/drive`
+### Step 4 — Strategy gap discussion: are the missions sufficient?
+
+Once every assigned mission is drive-ready, turn **upward**: are the missions *sufficient* for the active strategies? A strategy is direction with no completion conditions — what keeps it moving is a stream of missions executing it. Survey the gaps:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/list.sh
+```
+
+An **active** strategy whose `active_missions` is empty is a **gap** — direction with nothing currently advancing it (its only missions, if any, are archived). This survey is act-and-report: run it unasked, and if every active strategy has an active mission, say so in one sentence and move on — never pad the session.
+
+For each gap (or when the developer says the plan feels thin), open a short **discussion**, not automation: ground candidate next missions in the strategy's `## Direction` (read from its `path`), the recent mission `## Reflection` entries (`bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list-reflections.sh` — what the last runs said to front-load), and the archived missions' outcomes. Propose concretely ("a mission that …"), and let the developer shape or reject. An agreed candidate flows straight into the **create flow** (the *With a title* section below — worktree, interrogation, ticket set, `strategy:` stamp) without leaving the conversation. **Never auto-create** a mission or ticket from the survey; creation happens only through the agreed hand-off. An unassigned-but-active mission is *not* a gap — the signal is "no active mission", not "no mine".
+
+### Step 5 — Execution hand-off: `/goal /monitor ok`, never `/drive`
 
 End by recommending **`/goal /monitor ok`** as the way to execute the readied missions — long, unattended, per-worktree, in parallel, at any hour. Do **not** recommend `/drive`: this session runs from the **root** worktree, where a bare `/drive` ambiguously reads as a drive of the main tree, not of the mission worktrees just made ready. `/goal /monitor ok` is the unambiguous signal; the closing prose names it and only it.
 

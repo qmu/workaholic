@@ -72,4 +72,5 @@
 * [Close silent-success bugs across the workflow scripts etc](work-20260717-141501.md)
 * [/monitor front-loads decisions and runs unattended with honest completion signals etc](work-20260719-075112.md)
 * [Introduce strategy layer above missions etc](work-20260721-025656.md)
+* [Harden the mission and concern lifecycles etc](work-20260721-153431.md)
 <!-- okf:generated:end -->

@@ -73,4 +73,5 @@
 * [/monitor front-loads decisions and runs unattended with honest completion signals etc](work-20260719-075112.md)
 * [Introduce strategy layer above missions etc](work-20260721-025656.md)
 * [Harden the mission and concern lifecycles etc](work-20260721-153431.md)
+* [Enforce the working-directory and layout guards by default etc](work-20260722-191036.md)
 <!-- okf:generated:end -->

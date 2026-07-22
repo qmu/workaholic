@@ -67,6 +67,8 @@ const SCRIPTS = {
   shrinkPrBody: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/shrink-pr-body.sh"),
   mergeConcerns: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/merge-concerns.sh"),
   closeConcern: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/close-concern.sh"),
+  proposeDemotions: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/propose-demotions.sh"),
+  demoteConcern: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/demote-concern.sh"),
   docDrift: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/doc-drift.sh"),
   checkCapability: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/check-confirmation-capability.sh"),
   posixLint: join(REPO_ROOT, "plugins/workaholic/hooks/posix-lint.sh"),
@@ -788,6 +790,61 @@ concerns: []
       JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.ticketSummary}`).stdout), []);
     assertEq("mission summary empty for a user with no assigned mission",
       JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSummary}`).stdout), []);
+
+    // ---- bare-list partition: list.sh computes relation + next (additive) ----
+    // The bare /mission view renders two tiers from `relation`; the partition is
+    // computed HERE, once, so no consumer re-derives the assignee gate in prose.
+    mkMission("mission-free", "Mission Free", "active", "", "Free criterion");
+    setEmail(A);
+    const lA = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
+    assertEq("list.sh relation partitions mine/others/unassigned for the caller",
+      Object.fromEntries(lA.map((m) => [m.slug, m.relation])),
+      { "mission-a": "mine", "mission-b": "others", "mission-free": "unassigned", "mission-old": "mine" });
+    const la = lA.find((m) => m.slug === "mission-a");
+    assertEq("list.sh carries next for the full-treatment tier", la.next, "Second criterion");
+    assertEq("list.sh existing keys unchanged (additive enrichment)",
+      { status: la.status, assignee: la.assignee, checked: la.checked, total: la.total },
+      { status: "active", assignee: A, checked: 1, total: 2 });
+
+    // Empty git email degrades: nothing is "mine", everyone still listed, no error
+    // (unlike summary.sh, the bare list must not require an identity).
+    execSync(`git config user.email ""`, { cwd: dir });
+    const lNone = run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`);
+    assertEq("list.sh succeeds with an empty git email", lNone.status, 0);
+    const relNone = Object.fromEntries(JSON.parse(lNone.stdout).map((m) => [m.slug, m.relation]));
+    assertEq("empty email: assigned missions classify as others, unassigned stays unassigned",
+      relNone, { "mission-a": "others", "mission-b": "others", "mission-free": "unassigned", "mission-old": "others" });
+
+    // ---- planning-session readiness: ready / ready_reason (additive) ----
+    // The bare /mission planning session drives its replan loop off `ready`.
+    // mission-a is active with a plan but never stamped -> not_authorized.
+    // mission-old is achieved -> not_active. A stamped+planned mission is ready.
+    setEmail(A);
+    const readyOf = (arr, slug) => arr.find((m) => m.slug === slug);
+    const lR = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
+    assertEq("unstamped active mission is not ready (not_authorized)",
+      { ready: readyOf(lR, "mission-a").ready, reason: readyOf(lR, "mission-a").ready_reason },
+      { ready: false, reason: "not_authorized" });
+    assertEq("archived mission is not ready (not_active)",
+      { ready: readyOf(lR, "mission-old").ready, reason: readyOf(lR, "mission-old").ready_reason },
+      { ready: false, reason: "not_active" });
+
+    // Stamp mission-a drive_authorized: true -> it becomes ready with no reason.
+    const maPath = join(dir, ".workaholic/missions/active/mission-a/mission.md");
+    writeFileSync(maPath, readFileSync(maPath, "utf8").replace("status: active", "status: active\ndrive_authorized: true"));
+    const lReady = readyOf(JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout), "mission-a");
+    assertEq("stamped, planned, active mission is drive-ready",
+      { ready: lReady.ready, reason: lReady.ready_reason, auth: lReady.drive_authorized },
+      { ready: true, reason: "", auth: "true" });
+
+    // A stamped mission with an EMPTY plan is still not ready (no_plan beats the stamp).
+    const mkEmpty = join(dir, ".workaholic/missions/active/mission-empty");
+    mkdirSync(mkEmpty, { recursive: true });
+    writeFileSync(join(mkEmpty, "mission.md"),
+      `---\ntype: Mission\ntitle: Empty\nslug: mission-empty\nstatus: active\nauthor: ${A}\nassignee: ${A}\ndrive_authorized: true\n---\n\n# Empty\n\n## Acceptance\n\n## Changelog\n`);
+    const lEmpty = readyOf(JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout), "mission-empty");
+    assertEq("stamped but planless mission is not ready (no_plan)",
+      { ready: lEmpty.ready, reason: lEmpty.ready_reason }, { ready: false, reason: "no_plan" });
   } finally { cleanup(dir); }
 }
 
@@ -1551,7 +1608,9 @@ function testMissionLensOnChange() {
     assertTrue("unchanged turn collapses to the compact reminder", second.includes("Roadmap unchanged"), second);
     assertTrue("compact keeps the single next action visible", second.includes("aaa title"), second);
     assertTrue("compact does NOT re-enumerate the rest of the roster", !second.includes("bbb title"), second);
-    assertTrue("compact points at /mission summary for the detail", second.includes("/mission summary"), second);
+    // `summary` mode retired 2026-07-22: the compact pointer now names bare /mission,
+    // whose full tier carries the on-demand detail the summary mode used to hold.
+    assertTrue("compact points at bare /mission for the detail", second.includes("/mission for the full list"), second);
     assertTrue("compact is materially shorter than the full roster", second.length < first.length, `${first} || ${second}`);
 
     // Turn 3: roster CHANGES (tick an acceptance item) -> FULL block returns, so a real
@@ -1697,6 +1756,27 @@ function testMissionWorktreePrimitive() {
     execSync(`rm -f .worktrees/dirty-mission/uncommitted.txt`, { cwd: dir2 });
     run(dir2, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} dirty-mission`);
   } finally { cleanup(dir2); }
+
+  // Cleanup never deletes a non-ephemeral branch. A /ship run inside a mission
+  // worktree ends with merge-pr.sh checking `main` out THERE; teardown must then
+  // remove the worktree but keep the branch (observed 2026-07-22: local main was
+  // deleted). Only work-YYYYMMDD-HHMMSS branches are cleanup's to delete.
+  const dir3 = makeRepo("main");
+  try {
+    // Main tree moves off main (the incident's desk state), freeing main for the worktree.
+    execSync(`git checkout -q -b work-20260101-000000`, { cwd: dir3 });
+    JSON.parse(run(dir3, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} parked-mission`).stdout);
+    execSync(`git checkout -q main`, { cwd: join(dir3, ".worktrees/parked-mission") });
+
+    const c = JSON.parse(run(dir3, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} parked-mission`).stdout);
+    assertEq("cleanup removes a worktree parked on main", c.worktree_removed, true);
+    assertEq("cleanup keeps the non-work branch and says why",
+      { branch: c.branch, branchRemoved: c.branch_removed, reason: c.branch_kept_reason },
+      { branch: "main", branchRemoved: false, reason: "not-work-branch" });
+    assertTrue("worktree dir gone (parked-on-main case)", !existsSync(join(dir3, ".worktrees/parked-mission")));
+    assertEq("local main survives the teardown",
+      run(dir3, `git rev-parse --verify --quiet main`).status, 0);
+  } finally { cleanup(dir3); }
 }
 
 // Build a clone whose ONLY local branch is a checked-out work-* branch and whose
@@ -2953,6 +3033,17 @@ function testStrategyArtifact() {
     assertEq("rollup computes missions for the strategy", aod.missions.sort(), ["mission-a", "mission-b"]);
     assertEq("zebra rollup has its one mission", list.find((s) => s.slug === "zebra-direction").missions, ["mission-c"]);
 
+    // active_missions: the /mission gap signal. Archive mission-c; zebra keeps it in
+    // `missions` (all) but drops it from `active_missions` -> zebra is now a gap.
+    mkdirSync(join(dir, ".workaholic/missions/archive/mission-c"), { recursive: true });
+    execSync(`git mv .workaholic/missions/active/mission-c .workaholic/missions/archive/mission-c 2>/dev/null || mv .workaholic/missions/active/mission-c/mission.md .workaholic/missions/archive/mission-c/mission.md`, { cwd: dir });
+    const listG = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyList}`).stdout);
+    const zebra = listG.find((s) => s.slug === "zebra-direction");
+    assertEq("archived mission stays in the all-missions rollup", zebra.missions, ["mission-c"]);
+    assertEq("gap signal: zebra has no active mission", zebra.active_missions, []);
+    assertEq("non-gap: aod still has active missions",
+      listG.find((s) => s.slug === "agent-orchestrated-development").active_missions.sort(), ["mission-a", "mission-b"]);
+
     // OKF index: strategies/index.md with area section; bundle root links strategies.
     assertTrue("strategies index written", existsSync(join(dir, ".workaholic/strategies/index.md")));
     assertTrue("strategies index has ## active",
@@ -3694,7 +3785,7 @@ function testMissionShipSeam() {
     writeFileSync(mfile, `---\ntype: Mission\ntitle: RT\nslug: ${slug}\nstatus: active\ncreated_at: 2026-07-06T00:00:00+09:00\nauthor: test@example.com\ntickets: []\nstories: []\nconcerns: []\n---\n\n# RT\n\n## Acceptance\n\n## Changelog\n`);
     mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
     writeFileSync(join(dir, ".workaholic/stories/work-s.md"),
-      `---\ntype: Story\nbranch: work-s\nmission: ${slug}\ntickets: [20260706120000-a.md]\n---\n## 6. Concerns\n\n### A deferred thing\n\n- **Severity:** low\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n`);
+      `---\ntype: Story\nbranch: work-s\nmission: ${slug}\ntickets: [20260706120000-a.md]\n---\n## 6. Concerns\n\n### A deferred thing\n\n- **Severity:** moderate\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n`);
     execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
     const r = JSON.parse(run(dir, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-s 30 https://x/pr/30`).stdout);
     assertEq("ship seam extracted one concern", r.extracted, 1);
@@ -4440,7 +4531,9 @@ function testConcernIdentity() {
     const story = (title, sev, desc) =>
       `---\ntype: Story\nbranch: work-x\n---\n## 6. Concerns\n\n### ${title}\n\n- **Severity:** ${sev}\n- **Description:** ${desc}\n- **How to Fix:** fix\n\n## 7. Next\n`;
     const spath = join(repo2, ".workaholic/stories/work-x.md");
-    writeFileSync(spath, story("Compound login risk", "low", "first desc"));
+    // Start at moderate so it clears the promotion floor; the low re-extract below
+    // still exercises no-downgrade because updates are severity-gate-agnostic.
+    writeFileSync(spath, story("Compound login risk", "moderate", "first desc"));
     execSync(`git add -A && git commit -q -m story`, { cwd: repo2 });
     const c1 = JSON.parse(run(repo2, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/10`).stdout);
     assertEq("first extract creates the concern", c1.created, 1);
@@ -4474,7 +4567,7 @@ function testConcernIdentity() {
     writeFileSync(join(repo3, ".workaholic/concerns/archive/already-resolved-thing.md"),
       `---\ntype: Concern\nconcern_id: already-resolved-thing\nseverity: low\nstatus: resolved\n---\n\n# Already resolved thing\n\n## Description\n\nd\n\n## How to Fix\n\nf\n`);
     writeFileSync(join(repo3, ".workaholic/stories/work-x.md"),
-      `---\ntype: Story\nbranch: work-x\n---\n## 6. Concerns\n\n### Already resolved thing\n\n- **Severity:** low\n- **Description:** d\n- **How to Fix:** f\n\n## 7. Next\n`);
+      `---\ntype: Story\nbranch: work-x\n---\n## 6. Concerns\n\n### Already resolved thing\n\n- **Severity:** moderate\n- **Description:** d\n- **How to Fix:** f\n\n## 7. Next\n`);
     execSync(`git add -A && git commit -q -m seed`, { cwd: repo3 });
     const c = JSON.parse(run(repo3, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/10`).stdout);
     assertEq("archived concern does not resurface", c.created, 0);
@@ -4906,6 +4999,64 @@ function testConcernTriage() {
   } finally { cleanup(repo4); }
 }
 
+// ---------- report/propose-demotions.sh + demote-concern.sh (developer-confirmed shrink) ----------
+// Shrinking an already-bloated corpus: propose (read-only) the at/below-floor
+// active concerns, then demote confirmed ones to archive/ as status: demoted --
+// reversible, excluded from the active set, never resurrected by extraction.
+function testConcernDemotion() {
+  const mkConcern = (id, sev) =>
+    `---\ntype: Concern\nconcern_id: ${id}\norigin_pr: 1\norigin_pr_url: https://x/pr/1\norigin_branch: work-1\norigin_commit: abc\ncreated_at: 2026-07-01T00:00:00+09:00\nfirst_seen: 2026-07-01T00:00:00+09:00\nlast_seen: 2026-07-01T00:00:00+09:00\nseverity: ${sev}\nstatus: active\nresolved_by_pr:\nresolved_by_commit:\n---\n\n# ${id}\n\n## Description\n\nd\n\n## How to Fix\n\nf\n`;
+  const dir = makeRepo("main");
+  try {
+    const cdir = join(dir, ".workaholic/concerns");
+    mkdirSync(cdir, { recursive: true });
+    writeFileSync(join(cdir, "low1.md"), mkConcern("low1", "low"));
+    writeFileSync(join(cdir, "low2.md"), mkConcern("low2", "low"));
+    writeFileSync(join(cdir, "mod1.md"), mkConcern("mod1", "moderate"));
+    writeFileSync(join(cdir, "urg1.md"), mkConcern("urg1", "urgent"));
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+
+    // propose (default floor low): only the two low concerns, read-only.
+    const prop = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeDemotions}`).stdout);
+    assertEq("propose lists exactly the at/below-floor (low) concerns",
+      prop.map((c) => c.concern_id).sort(), ["low1", "low2"]);
+    assertTrue("propose is read-only (nothing moved)",
+      existsSync(join(cdir, "low1.md")) && !existsSync(join(cdir, "archive")), "propose mutated");
+    // floor=moderate proposes low AND moderate, never the urgent.
+    const propM = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeDemotions} moderate`).stdout);
+    assertEq("floor=moderate proposes low+moderate, not urgent",
+      propM.map((c) => c.concern_id).sort(), ["low1", "low2", "mod1"]);
+
+    // demote a confirmed concern -> archive/ as status: demoted, reversible.
+    const d = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.demoteConcern} low1 "not worth tracking"`).stdout);
+    assertEq("demote returns demoted:true with status", { d: d.demoted, s: d.status }, { d: true, s: "demoted" });
+    assertTrue("demoted concern left the active dir for archive/",
+      !existsSync(join(cdir, "low1.md")) && existsSync(join(cdir, "archive/low1.md")), "not archived");
+    const body = readFileSync(join(cdir, "archive/low1.md"), "utf8");
+    assertTrue("archived concern records status: demoted", /^status:\s*demoted\s*$/m.test(body), body);
+    assertTrue("archived concern records the demote reason", /^demoted_reason:\s*not worth tracking\s*$/m.test(body), body);
+
+    // demoted concern is gone from the active listing, like a closed one.
+    const listed = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout);
+    assertTrue("demoted concern no longer active-listed",
+      !listed.concerns.some((c) => c.concern_id === "low1"), JSON.stringify(listed.concerns.map((c) => c.concern_id)));
+
+    // a demoted concern is never resurrected by extraction (id in archived_ids).
+    mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/stories/work-r.md"),
+      `---\ntype: Story\nbranch: work-r\n---\n## 6. Concerns\n\n### low1\n\n- **Severity:** moderate\n- **Description:** d\n- **How to Fix:** f\n\n## 7. Next\n`);
+    execSync(`git add -A && git commit -q -m story`, { cwd: dir });
+    const ex = JSON.parse(run(dir, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-r 2 https://x/2`).stdout);
+    assertEq("extraction never resurrects a demoted concern", ex.created, 0);
+    assertTrue("the demoted concern stays in archive/, not re-created active",
+      existsSync(join(cdir, "archive/low1.md")) && !existsSync(join(cdir, "low1.md")), "resurrected");
+
+    // idempotent: demoting an already-archived concern is a reported no-op.
+    const again = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.demoteConcern} low1 "again"`).stdout);
+    assertEq("re-demote is an idempotent no-op", { d: again.demoted, r: again.reason }, { d: false, r: "already_archived" });
+  } finally { cleanup(dir); }
+}
+
 // ---------- report/list-active-deferred-concerns.sh (envelope + JSON escaping) ----------
 // The listing is one python3 json.dumps pass: a corpus whose fields carry
 // quotes, backslashes, and newlines must still emit parseable JSON (the old
@@ -4937,9 +5088,52 @@ function testListActiveConcernsEnvelope() {
       hostile.body.includes('line "two" \\ three'), JSON.stringify(hostile.body));
     assertEq("list-active coerces a non-numeric origin_pr to 0", hostile.origin_pr, 0);
 
-    // The trigger flips when active_count exceeds the (env-overridden) threshold.
+    // The trigger flips when the lane count exceeds the (env-overridden) threshold.
+    // Both fixtures are unowned (everyone's lane), so my_lane_count == active_count.
     const t = JSON.parse(run(dir, `CONCERN_TRIAGE_THRESHOLD=1 ${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout);
     assertEq("list-active should_triage flips over the threshold", t.should_triage, true);
+  } finally { cleanup(dir); }
+}
+
+// ---------- report/list-active-deferred-concerns.sh: lane-aware triage ----------
+// One developer's mission-lane concerns must not fire the triage prompt on
+// another developer. should_triage is scoped to the actor's own lane (owned +
+// unowned); active_count and owner_counts stay global.
+function testListActiveConcernsLanes() {
+  const dir = makeRepo("main");
+  try {
+    const cdir = join(dir, ".workaholic/concerns");
+    mkdirSync(cdir, { recursive: true });
+    const A = "a@qmu.jp", B = "b@qmu.jp";
+    const mk = (name, owner, id) =>
+      writeFileSync(join(cdir, name),
+        `---\ntype: Concern\nconcern_id: ${id}\nstatus: active\nseverity: low\nowner: ${owner}\norigin_pr: 1\n---\n\n# ${id}\n\nx\n`);
+    mk("a1.md", A, "a1"); mk("a2.md", A, "a2");
+    mk("b1.md", B, "b1"); mk("b2.md", B, "b2"); mk("b3.md", B, "b3");
+    mk("free.md", "", "free");            // unowned — everyone's lane
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+
+    // As A: lane = A's 2 + 1 unowned = 3. As B: 3 + 1 = 4. Global active = 6.
+    execSync(`git config user.email ${A}`, { cwd: dir });
+    const asA = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout);
+    assertEq("global active_count is everyone's total", asA.active_count, 6);
+    assertEq("owner_counts breaks the corpus down by lane",
+      asA.owner_counts, { "a@qmu.jp": 2, "b@qmu.jp": 3, "(unowned)": 1 });
+    assertEq("my_lane_count for A = owned + unowned", asA.my_lane_count, 3);
+
+    // Threshold 3: A's lane (3) does not exceed it; B's lane (4) does. Same corpus,
+    // different actor -> the prompt fires for B, not A. This is the whole point.
+    const aT = JSON.parse(run(dir, `CONCERN_TRIAGE_THRESHOLD=3 ${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout);
+    assertEq("A is not prompted: lane 3 not over threshold 3", aT.should_triage, false);
+    execSync(`git config user.email ${B}`, { cwd: dir });
+    const bT = JSON.parse(run(dir, `CONCERN_TRIAGE_THRESHOLD=3 ${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout);
+    assertEq("B IS prompted on the same corpus: lane 4 over threshold 3", bT.should_triage, true);
+
+    // No git identity -> cannot scope -> falls back to the global count.
+    execSync(`git config user.email ""`, { cwd: dir });
+    const none = JSON.parse(run(dir, `CONCERN_TRIAGE_THRESHOLD=5 ${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout);
+    assertEq("no identity: my_lane_count falls back to global", none.my_lane_count, 6);
+    assertEq("no identity: should_triage uses the global count", none.should_triage, true);
   } finally { cleanup(dir); }
 }
 
@@ -4981,14 +5175,20 @@ function testExtractConcernMissionRelation() {
   const repo = makeRepo("main");
   try {
     mkdirSync(join(repo, ".workaholic/stories"), { recursive: true });
+    // A mission with an assignee so the concern inherits its lane owner.
+    mkdirSync(join(repo, ".workaholic/missions/active/real-time-notifications"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/missions/active/real-time-notifications/mission.md"),
+      "---\ntype: Mission\ntitle: RTN\nslug: real-time-notifications\nstatus: active\nassignee: owner@qmu.jp\n---\n\n# RTN\n");
     writeFileSync(join(repo, ".workaholic/stories/work-m.md"),
-      "---\ntype: Story\nbranch: work-m\nmission: real-time-notifications\ntickets: [20260706120000-a.md, 20260706120001-b.md]\n---\n## 6. Concerns\n\n### A carried concern\n\n- **Severity:** low\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n");
+      "---\ntype: Story\nbranch: work-m\nmission: real-time-notifications\ntickets: [20260706120000-a.md, 20260706120001-b.md]\n---\n## 6. Concerns\n\n### A carried concern\n\n- **Severity:** moderate\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n");
     execSync(`git add -A && git commit -q -m story`, { cwd: repo });
     const r = JSON.parse(run(repo, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-m 20 https://x/pr/20`).stdout);
     assertEq("extract with relations -> one concern", r.extracted, 1);
     const body = readFileSync(join(repo, r.files[0]), "utf8");
     assertTrue("concern inherits mission slug from the story",
       /^mission:\s*real-time-notifications\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
+    assertTrue("concern inherits its lane owner from the mission assignee",
+      /^owner:\s*owner@qmu\.jp\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
     assertTrue("concern inherits the tickets list from the story",
       /^tickets:\s*\[20260706120000-a\.md, 20260706120001-b\.md\]\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
     assertTrue("concern still records its origin provenance", /^origin_pr:\s*20\s*$/m.test(body), body);
@@ -4999,7 +5199,7 @@ function testExtractConcernMissionRelation() {
   try {
     mkdirSync(join(repo2, ".workaholic/stories"), { recursive: true });
     writeFileSync(join(repo2, ".workaholic/stories/work-n.md"),
-      "---\ntype: Story\nbranch: work-n\n---\n## 6. Concerns\n\n### Another concern\n\n- **Severity:** low\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n");
+      "---\ntype: Story\nbranch: work-n\n---\n## 6. Concerns\n\n### Another concern\n\n- **Severity:** moderate\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n");
     execSync(`git add -A && git commit -q -m story`, { cwd: repo2 });
     const r = JSON.parse(run(repo2, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-n 21 https://x/pr/21`).stdout);
     const body = readFileSync(join(repo2, r.files[0]), "utf8");
@@ -5007,7 +5207,52 @@ function testExtractConcernMissionRelation() {
       /^mission:\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
     assertTrue("concern from a mission-less story -> tickets: []",
       /^tickets:\s*\[\]\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
+    assertTrue("concern from a mission-less story -> empty owner: (unowned)",
+      /^owner:\s*$/m.test(body), body.split("\n").slice(0, 14).join("\n"));
   } finally { cleanup(repo2); }
+}
+
+// ---------- ship/extract-deferred-concerns.sh: promotion floor (balance dial) ----------
+// The story keeps EVERY concern (section 6); the durable corpus promotes only
+// moderate+ (or explicitly kept), so low concerns don't grow the tracked pile.
+function testExtractPromotionFloor() {
+  const dir = makeRepo("main");
+  try {
+    const cdir = join(dir, ".workaholic/concerns");
+    mkdirSync(cdir, { recursive: true });
+    mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
+    const block = (title, sev, extra = "") =>
+      `### ${title}\n\n- **Severity:** ${sev}\n${extra}- **Description:** d\n- **How to Fix:** f\n\n`;
+    writeFileSync(join(dir, ".workaholic/stories/work-p.md"),
+      `---\ntype: Story\nbranch: work-p\n---\n## 6. Concerns\n\n` +
+      block("An urgent risk", "urgent") +
+      block("A moderate risk", "moderate") +
+      block("A low nicety", "low") +
+      block("A kept low note", "low", "- **Keep:** true\n") +
+      `## 7. Next\n`);
+    execSync(`git add -A && git commit -q -m story`, { cwd: dir });
+
+    const r = JSON.parse(run(dir, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-p 30 https://x/pr/30`).stdout);
+    // urgent + moderate + kept-low promote (3); the plain low stays in the story (1).
+    assertEq("promotion floor: 3 concerns promoted (urgent/moderate/kept-low)", r.created, 3);
+    assertEq("promotion floor: 1 concern left story-only (plain low)", r.story_only, 1);
+    const files = fs_readdirSafe(cdir).filter((f) => f.endsWith(".md") && !["index.md", "README.md"].includes(f));
+    assertTrue("the plain low concern was NOT written to the corpus",
+      !files.some((f) => f.startsWith("a-low-nicety")), files.join(","));
+    assertTrue("the kept low concern WAS written to the corpus (Keep: true override)",
+      files.some((f) => f.startsWith("a-kept-low-note")), files.join(","));
+
+    // The knob lowers the floor: CONCERN_PROMOTE_MIN=low promotes everything.
+    execSync(`rm -f ${cdir}/*.md`, { cwd: dir });
+    const rAll = JSON.parse(run(dir, `NO_COMMIT=1 CONCERN_PROMOTE_MIN=low ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-p 30 https://x/pr/30`).stdout);
+    assertEq("floor=low promotes every concern", rAll.created, 4);
+    assertEq("floor=low leaves nothing story-only", rAll.story_only, 0);
+  } finally { cleanup(dir); }
+}
+
+// Small helper: readdir that tolerates a missing dir (returns []).
+function fs_readdirSafe(d) {
+  try { return readdirSync(d); } catch { return []; }
 }
 
 // ---------- report/doc-drift.sh (documentation-drift fact emitter) ----------
@@ -5590,6 +5835,61 @@ function testValidateMission() {
 
     // Non-mission paths are ignored.
     assertEq("validate-mission ignores unrelated files", invoke("src/app.ts"), 0);
+  } finally { cleanup(dir); }
+}
+
+// ---------- hooks/validate-story.sh + validate-trip.sh (OKF type floor) ----------
+// New writes must carry the OKF `type`; history (already-tracked files) is
+// grandfathered so a validator never fires on artifacts predating the convention.
+function testValidateStoryTrip() {
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  validate-story/trip (jq not available)"); return; }
+
+  const STORY = join(REPO_ROOT, "plugins/workaholic/hooks/validate-story.sh");
+  const TRIP = join(REPO_ROOT, "plugins/workaholic/hooks/validate-trip.sh");
+  const dir = makeRepo("main");
+  const invoke = (hook, p) => {
+    try { execSync(`${POSIX_SH} ${hook}`, { cwd: dir, input: JSON.stringify({ tool_input: { file_path: p } }), encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return 0; }
+    catch (e) { return e.status ?? 1; }
+  };
+  const put = (rel, body) => { const abs = join(dir, rel); mkdirSync(dirname(abs), { recursive: true }); writeFileSync(abs, body); return rel; };
+  try {
+    // --- story: a NEW (untracked) write is held to type: Story ---
+    let s = put(".workaholic/stories/work-x.md", "---\ntype: Story\nbranch: work-x\n---\n\n## 1. Overview\n");
+    assertEq("validate-story passes a new story with type: Story", invoke(STORY, s), 0);
+    put(".workaholic/stories/work-x.md", "---\nbranch: work-x\n---\n\n## 1. Overview\n");
+    assertEq("validate-story blocks a new story with no type", invoke(STORY, s), 2);
+    put(".workaholic/stories/work-x.md", "---\ntype: story\n---\n");
+    assertEq("validate-story blocks a lowercase type: story", invoke(STORY, s), 2);
+    // index.md / README are navigation, never judged.
+    assertEq("validate-story ignores stories/index.md",
+      invoke(STORY, put(".workaholic/stories/index.md", "# Stories\n")), 0);
+
+    // Grandfathering: a story already TRACKED in git is history, never retro-blocked.
+    const old = put(".workaholic/stories/work-old.md", "---\nbranch: work-old\n---\n"); // no type
+    execSync(`git add .workaholic/stories/work-old.md && git commit -q -m "old story"`, { cwd: dir });
+    assertEq("validate-story grandfathers an already-tracked typeless story", invoke(STORY, old), 0);
+
+    // --- trip: a NEW artifact needs a non-empty type from the allowed set ---
+    let t = put(".workaholic/trips/alpha/designs/design.md", "---\ntype: Design\n---\n# D\n");
+    assertEq("validate-trip passes a new artifact with an allowed type", invoke(TRIP, t), 0);
+    put(".workaholic/trips/alpha/designs/design.md", "# D\n");
+    assertEq("validate-trip blocks a new artifact with no frontmatter/type", invoke(TRIP, t), 2);
+    put(".workaholic/trips/alpha/designs/design.md", "---\ntype: Nonsense\n---\n");
+    assertEq("validate-trip blocks a type outside the allowed trip set", invoke(TRIP, t), 2);
+    // multi-word allowed types resolve.
+    assertEq("validate-trip accepts 'Event Log'",
+      invoke(TRIP, put(".workaholic/trips/alpha/event-log.md", "---\ntype: Event Log\n---\n")), 0);
+
+    // Grandfather a tracked trip artifact.
+    const otrip = put(".workaholic/trips/alpha/old.md", "no frontmatter\n");
+    execSync(`git add .workaholic/trips/alpha/old.md && git commit -q -m "old trip"`, { cwd: dir });
+    assertEq("validate-trip grandfathers an already-tracked frontmatter-less artifact", invoke(TRIP, otrip), 0);
+
+    // Neither validator touches unrelated files.
+    assertEq("validate-story ignores non-story paths", invoke(STORY, "src/app.ts"), 0);
+    assertEq("validate-trip ignores non-trip paths", invoke(TRIP, ".workaholic/stories/work-x.md"), 0);
   } finally { cleanup(dir); }
 }
 
@@ -7268,11 +7568,14 @@ const tests = [
   ["report/migrate-concern-identity.sh + update-in-place", testConcernIdentity],
   ["report/merge-concerns.sh + close-concern.sh (triage)", testConcernTriage],
   ["report/list-active-deferred-concerns.sh envelope", testListActiveConcernsEnvelope],
+  ["report/list-active-deferred-concerns.sh lane-aware triage", testListActiveConcernsLanes],
   ["report/shrink-pr-body.sh", testShrinkPrBody],
   ["ship/extract-deferred-concerns.sh push", testExtractDeferredConcernsPush],
   ["ship/commit-release-note.sh push", testCommitReleaseNotePush],
   ["concern identity: slugify writers agree", testSlugifyWritersAgree],
   ["ship/extract-deferred-concerns.sh mission/tickets relation", testExtractConcernMissionRelation],
+  ["ship/extract-deferred-concerns.sh promotion floor", testExtractPromotionFloor],
+  ["report/propose-demotions.sh + demote-concern.sh", testConcernDemotion],
   ["report/doc-drift.sh", testDocDrift],
   ["hooks/policy-lens.sh", testPolicyLens],
   ["hooks/validate-ticket.sh", testValidateLayout],
@@ -7281,6 +7584,7 @@ const tests = [
   ["hooks/validate-ticket.sh mission field", testValidateTicketMission],
   ["hooks/validate-ticket.sh resumption remaining-only", testValidateTicketResume],
   ["hooks/validate-mission.sh", testValidateMission],
+  ["hooks/validate-story.sh + validate-trip.sh", testValidateStoryTrip],
   ["hooks/validate-ticket.sh mandatory body sections", testValidateTicketSections],
   ["hooks/guard-ticket-structure.sh", testGuardTicketStructure],
   ["hooks/posix-lint.sh", testPosixLint],

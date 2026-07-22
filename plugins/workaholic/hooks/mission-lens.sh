@@ -24,7 +24,7 @@
 #      nothing at all. In the main tree, only missions that own no worktree.
 #   3. signal -- the mission has at least one acceptance criterion. A mission whose
 #      ## Acceptance is empty renders as `0/0` with no next step: a technical condition
-#      reported with nothing to act on. It stays silent here; `/mission summary` is the
+#      reported with nothing to act on. It stays silent here; the bare `/mission` view is the
 #      on-demand view that still shows it. The two thresholds differ on purpose -- an
 #      always-on nudge and a list you asked for should not have the same bar.
 #
@@ -35,7 +35,7 @@
 # SUMMARIZE ON CHANGE: the full roster is injected only when it CHANGED since the last
 # turn of this session (or on the first turn, or when session_id is absent). On an
 # unchanged turn — the common case under a long /goal run — it emits a single compact
-# line (count + the one next action + a `/mission summary` pointer) instead of the whole
+# line (count + the one next action + a bare `/mission` pointer) instead of the whole
 # block, so the developer's own message is not buried under redundant context every turn.
 # The change-detector is per session and per event, cksum-compared under TMPDIR, and
 # fails open to the full roster. It never blocks a stop; /goal's gating is untouched.
@@ -122,7 +122,7 @@ for f in "$ACTIVE_DIR"/*/mission.md; do
     # nothing to offer, so the line would report a technical condition — the section was
     # never filled in — with no next step and nothing to act on. Say nothing; a line that
     # cannot tell the developer what to do next has not earned its place above the
-    # agent's answer. `/mission summary` is the on-demand view where an unfilled mission
+    # agent's answer. the bare `/mission` view is the on-demand view where an unfilled mission
     # is still visible (deliberately a different threshold from this always-on nudge).
     # Checked before next-acceptance.sh so a silenced mission costs one subshell, not two.
     [ "$total" -gt 0 ] || continue
@@ -170,7 +170,7 @@ ${LINES}"
 # information. So the FULL roster is emitted only when it CHANGED since the last turn
 # (or on the first turn, or when we cannot tell — no session_id); on an unchanged turn
 # we emit a compact one-liner instead — the count plus the single next action, with a
-# pointer to `/mission summary` — so the active goal and next step stay visible without
+# pointer to bare `/mission` — so the active goal and next step stay visible without
 # the volume. State is per session AND per event (UserPromptSubmit vs Stop dedupe apart),
 # keyed under TMPDIR and cksum-compared; it is best-effort and fails open to the full
 # roster. Gating behavior of /goal is untouched — this hook never blocks a stop.
@@ -190,7 +190,7 @@ if [ -n "$SID" ]; then
         if [ "$COUNT" -le 1 ]; then
             MSG="Roadmap unchanged — 1 active mission is your business: ${LEAD}"
         else
-            MSG="Roadmap unchanged — ${COUNT} active missions are your business; next: ${LEAD} (+ $((COUNT - 1)) more — /mission summary for the full list)"
+            MSG="Roadmap unchanged — ${COUNT} active missions are your business; next: ${LEAD} (+ $((COUNT - 1)) more — /mission for the full list)"
         fi
     fi
 fi

@@ -119,7 +119,7 @@ Run before the parallel agent batch so the verdicts flow into section-reviewer's
 
 The corpus never re-clones (identity-keyed update-in-place; Phase 1's `list-active` already ran the collapsing migration), but it can still grow *many* real concerns, and two minor ones can combine into a bigger risk. Run a triage decision point **when either trigger fires**, else skip silently:
 
-- **Count trigger** — Phase 1's `list-active` envelope reported `should_triage: true`. The threshold is **script-owned** (`active_count > CONCERN_TRIAGE_THRESHOLD`, default 20, inside `list-active-deferred-concerns.sh`), so the trigger fires from data rather than from a human remembering the number; when judging with post-Phase-1 counts, `active_count` minus the concerns just resolved is the number to compare.
+- **Count trigger** — Phase 1's `list-active` envelope reported `should_triage: true`. The threshold is **script-owned** (`CONCERN_TRIAGE_THRESHOLD`, default 20, inside `list-active-deferred-concerns.sh`) and the trigger is **lane-aware**: it fires on the actor's own-lane count (`my_lane_count` — concerns the actor owns, plus unowned ones) exceeding the threshold, not the global `active_count`, so one developer's mission-lane concerns don't fire the prompt on people who cannot act on them. The envelope still carries `active_count` (global) and `owner_counts` (per-lane) for visibility; only the *prompting* is lane-scoped. When the actor has no git email, the lane cannot be resolved and the trigger falls back to the global count. When judging with post-Phase-1 counts, subtract the concerns just resolved from the relevant count.
 - **Compound trigger** — the judge returned a non-empty `compounds` list.
 
 The triage is **judge-proposes / developer-decides**, and every decision leaves an auditable trail. The command (main agent) issues the choice via the agent's selection prompt (each question body prefixed `[<project label>]`) — a leaf subagent must not. Present the developer these buckets and apply each through the idempotent mutators (never hand-edit concern files):
@@ -151,9 +151,17 @@ The triage is **judge-proposes / developer-decides**, and every decision leaves 
   ```
 
   `resolved` = fixed / no longer applies; `accepted` = a deliberate, documented won't-fix. Moves it to `archive/` with the reason.
+- **Demote** an already-tracked concern that is not worth *tracking* (distinct from closing — it is neither fixed nor a won't-fix, just re-shelved out of the active set, reversibly). This is how an **already-bloated** corpus is shrunk toward the curated set the promotion floor holds going forward. It is **judge/script-proposes, developer-decides**: get the candidates read-only, then apply each only on the developer's confirmation.
+
+  ```bash
+  bash report/scripts/propose-demotions.sh [floor]    # READ-ONLY: active concerns at/below the floor (default low)
+  bash report/scripts/demote-concern.sh <concern-id> "<reason>"   # apply, only on confirmation
+  ```
+
+  `propose-demotions.sh` mutates nothing — it lists `{concern_id, severity, last_seen, path}` for active concerns at or below the floor. Present them and let the developer pick which to demote (an the agent's selection prompt at the command level, like the compound-merge confirmation — the demotion set is never applied without an explicit go). `demote-concern.sh` then moves each confirmed concern to `archive/` with `status: demoted` and the reason. Demotion is **reversible** (move the file back and flip `status` to `active`) and preserved in git history — that reversibility is why it is safe to offer, unlike `resolved`/`accepted` which assert something about the work. A demoted concern is excluded from `list-active` and never resurrected by extraction (its id is in `archived_ids`), exactly like a closed one.
 - **Keep as-is** — no action.
 
-After applying, the still-active set reflected in the story's section 6 is the curated, fresh set. Every mutator (`merge-concerns.sh`, `re-grade.sh`, `close-concern.sh`) git-stages its changes, so they ride the Phase 4 story commit. The threshold is a policy knob (`CONCERN_TRIAGE_THRESHOLD`, read by `list-active`) — never auto-merge without the developer's confirmation; the A+B severity call is the developer's.
+After applying, the still-active set reflected in the story's section 6 is the curated, fresh set. Every mutator (`merge-concerns.sh`, `re-grade.sh`, `close-concern.sh`, `demote-concern.sh`) git-stages its changes, so they ride the Phase 4 story commit. The threshold is a policy knob (`CONCERN_TRIAGE_THRESHOLD`, read by `list-active`) — never auto-merge or auto-demote without the developer's confirmation; the A+B severity call and the demotion set are the developer's.
 
 #### Phase 2: Spawn Story Generation Workers
 
@@ -239,7 +247,7 @@ Run by the Phase 1 deferred-concern judge (a parallel workers that preloads this
    bash report/scripts/list-active-deferred-concerns.sh
    ```
 
-   This first runs the living identity migration (`migrate-concern-identity.sh`, best-effort, idempotent): it back-fills each concern's `concern_id`/`first_seen`/`last_seen` and collapses any legacy `carried-from` clone chains into one fresh file per concern, so the judge sees a deduplicated set. The output is an envelope `{active_count, should_triage, concerns: [...]}`; each `concerns[]` entry carries `concern_id` (the stable identity), `first_seen`/`last_seen`, `severity`, and provenance. If `concerns` is empty, return `{"verdicts": []}` and stop.
+   This first runs the living identity migration (`migrate-concern-identity.sh`, best-effort, idempotent): it back-fills each concern's `concern_id`/`first_seen`/`last_seen` and collapses any legacy `carried-from` clone chains into one fresh file per concern, so the judge sees a deduplicated set. The output is an envelope `{active_count, my_lane_count, owner_counts, should_triage, concerns: [...]}`; each `concerns[]` entry carries `concern_id` (the stable identity), `first_seen`/`last_seen`, `severity`, `owner` (the lane it belongs to, inherited from the story's mission assignee at extraction; empty = unowned), and provenance. If `concerns` is empty, return `{"verdicts": []}` and stop.
 
 2. For each deferred concern in the list, judge whether the work that landed on the current branch (since the deferred concern's `origin_commit`) has resolved it.
 
@@ -502,7 +510,7 @@ One subsection per ticket, in chronological order:
 ```
 
 **Guidelines**:
-- **Severity** is a label, not a number: `urgent` (act now), `moderate` (should fix), or `low` (nice-to-have). Default `moderate`.
+- **Severity is the balance dial — set it honestly, because it decides what becomes durable.** `urgent` (act now) and `moderate` (a real risk you hit or clearly foresee will bite) are **promoted to the tracked concern corpus** at ship time; `low` (a nice-to-have, a speculative "we might also want", a thing noticed but not run into) is **recorded in this story and left there** — it does not join the corpus. This mirrors `/drive`'s ticket-minting bar (an observation is not an obligation): a genuine risk earns `moderate`+, a passing thought stays `low`. Do **not** inflate severity to force a low-value note into the corpus, and do **not** drop a real risk to `low` to keep it out — the story keeps everything either way; severity only decides what is tracked. If a `low` concern genuinely must be tracked, add `- **Keep:** true` to its block. Default `moderate` only when the risk is real; otherwise say `low`.
 - Reference the commit hash from section 3 and the file path where readers should investigate, inside the Description.
 - Keep Description and How to Fix to one paragraph each.
 - Deferred concerns (from `still_active` verdicts) are prepended here as `###` blocks, with their title prefixed `(carried from PR #N)` and their original severity preserved.

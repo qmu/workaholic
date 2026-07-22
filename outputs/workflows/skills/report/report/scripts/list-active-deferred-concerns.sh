@@ -1,13 +1,20 @@
 #!/bin/sh -eu
 # List all deferred concern files under .workaholic/concerns/ with status: active.
-# Output: JSON envelope {active_count, should_triage, concerns: [...]}, each
-# concern being {path, concern_id, status, severity, first_seen, last_seen,
-#                origin_pr, origin_pr_url, origin_branch, origin_commit, body}.
+# Output: JSON envelope {active_count, my_lane_count, owner_counts, should_triage,
+#                        concerns: [...]}, each concern being
+#                {path, concern_id, status, severity, owner, first_seen, last_seen,
+#                 origin_pr, origin_pr_url, origin_branch, origin_commit, body}.
 #
-# should_triage is the machine half of report's Phase 1b count trigger:
-# active_count > CONCERN_TRIAGE_THRESHOLD (default 20). The threshold lives
-# HERE, not in prose, so the trigger fires from data rather than from a human
-# remembering the number.
+# should_triage is the machine half of report's Phase 1b count trigger. It is
+# LANE-AWARE: it fires on the current actor's own-lane count (concerns owned by
+# the actor's git email, PLUS unowned concerns visible to everyone) exceeding
+# CONCERN_TRIAGE_THRESHOLD (default 20) — not the global total. This stops one
+# developer's mission-lane concerns from firing the triage prompt on people who
+# cannot act on them. `active_count` (global) and `owner_counts` (per-lane) stay
+# in the envelope, so global visibility is preserved; only the prompting is
+# lane-scoped. When the actor has no git email, the lane cannot be resolved and
+# should_triage falls back to the global count. The threshold lives HERE, not in
+# prose, so the trigger fires from data rather than from a human remembering it.
 #
 # The whole array is assembled in ONE python3 pass with json.dumps doing every
 # escape. The previous per-field shell interpolation emitted raw values into
@@ -33,10 +40,12 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 # sees one fresh file per concern. Best-effort — never blocks the listing.
 sh "${SCRIPT_DIR}/migrate-concern-identity.sh" >/dev/null 2>&1 || true
 
-python3 - "$dir" "${CONCERN_TRIAGE_THRESHOLD:-20}" <<'PY'
+actor_email=$(git config user.email 2>/dev/null || true)
+
+python3 - "$dir" "${CONCERN_TRIAGE_THRESHOLD:-20}" "${actor_email}" <<'PY'
 import json, os, re, sys
 
-d, threshold = sys.argv[1], int(sys.argv[2])
+d, threshold, actor = sys.argv[1], int(sys.argv[2]), sys.argv[3].strip()
 concerns = []
 for name in sorted(os.listdir(d)):
     if not name.endswith('.md') or name in ('README.md', 'index.md'):
@@ -62,6 +71,7 @@ for name in sorted(os.listdir(d)):
         'concern_id': get('concern_id'),
         'status': 'active',
         'severity': get('severity') or 'moderate',
+        'owner': get('owner'),
         'first_seen': get('first_seen'),
         'last_seen': get('last_seen'),
         'origin_pr': int(pr) if pr.isdigit() else 0,
@@ -71,9 +81,24 @@ for name in sorted(os.listdir(d)):
         'body': body,
     })
 
+# Per-lane counts. An unowned concern ('') is everyone's business, keyed
+# '(unowned)' in the map. The actor's lane = concerns they own PLUS unowned.
+owner_counts = {}
+for c in concerns:
+    key = c['owner'] or '(unowned)'
+    owner_counts[key] = owner_counts.get(key, 0) + 1
+
+if actor:
+    my_lane_count = sum(1 for c in concerns if c['owner'] == actor or not c['owner'])
+else:
+    # No identity to scope by — fall back to the global total (prior behavior).
+    my_lane_count = len(concerns)
+
 print(json.dumps({
     'active_count': len(concerns),
-    'should_triage': len(concerns) > threshold,
+    'my_lane_count': my_lane_count,
+    'owner_counts': owner_counts,
+    'should_triage': my_lane_count > threshold,
     'concerns': concerns,
 }))
 PY

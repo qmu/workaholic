@@ -17,21 +17,11 @@ skills:
 
 This command (main agent) runs the preloaded `workaholic:mission` skill. A **mission** is a first-class knowledge artifact: the **overnight-executable execution plan of a strategy** — a bounded, information-rich batch of tickets an agent fleet drives in a night — distinct from a `strategy` (the long-lived direction it executes), a `trip` (a short design/build session), and a generic "epic/milestone" (see the skill's opening section and its **Granularity** record). It lives at `.workaholic/missions/active/<slug>/mission.md` while in progress, and moves to `.workaholic/missions/archive/<slug>/mission.md` when ended (see the skill's Allowed Location section).
 
-`$ARGUMENT` selects the mode — by **content**, not by subcommand (`workaholic:design` / `modeless-design`: the argument's meaning routes the flow, mirroring `/report`/`/ship` context-awareness). Match `summary` **first** (before the title branch, so the literal word `summary` reports rather than becoming a mission title), then the `close` and empty branches. Any other non-empty argument is judged against the existing missions (see *Referencing an existing mission*, below): a clear reference to an active mission routes to the **replan flow**, an ambiguous argument is **asked**, and an argument referencing nothing is a **title** for the create flow.
+`$ARGUMENT` selects the mode — by **content**, not by subcommand (`workaholic:design` / `modeless-design`: the argument's meaning routes the flow, mirroring `/report`/`/ship` context-awareness). Match the retired literal `summary` **first** (a short deprecation note, below — never a mission title), then the `close` and empty branches. Any other non-empty argument is judged against the existing missions (see *Referencing an existing mission*, below): a clear reference to an active mission routes to the **replan flow**, an ambiguous argument is **asked**, and an argument referencing nothing is a **title** for the create flow.
 
-## `summary` — the missions that are my business
+## `summary` — retired (developer decision, 2026-07-22)
 
-When `$ARGUMENT` is exactly `summary`, report the **active** missions that are the current user's business and stop — a read-only view that creates nothing:
-
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/summary.sh
-```
-
-The script reports every `active` mission that is **not somebody else's** (the same gate the mission lens uses): those whose `assignee` matches your `git config user.email`, followed by **unassigned** ones — unclaimed work is closer to your business than a colleague's mission, so it is offered rather than hidden. Missions assigned to another developer are excluded. Each entry carries computed `checked/total` progress, its next unchecked acceptance item, and its `assignee` (empty when unassigned).
-
-Present the returned array as one line per mission — `title` (`slug`) — `checked/total`, then `next: <item>`. **Render an unassigned mission distinguishably** — read the entry's `assignee` field (do not re-derive it from the file) and mark an empty one as unclaimed and claimable, so it never reads as work the developer has already taken on. The array is ordered for you: yours first, unassigned after.
-
-If the array is empty, tell the user no active mission is theirs or unclaimed, and that `/mission` (bare) lists everyone's missions and `/mission "<title>"` starts one.
+The `summary` mode is **retired**: the bare `/mission` view (below) is developer-centric, so a separate my-business-only mode would differ only by hiding others' missions — a near-duplicate (one concept, one word). When `$ARGUMENT` is exactly `summary`, do not create anything and do not treat it as a title: tell the user the mode was folded into bare `/mission` and render the bare view instead. (`mission/scripts/summary.sh` remains — it is the shared assignee-gate reference the monitor skill's Scope section reads; only the command mode is gone.)
 
 ## Referencing an existing mission — replan
 
@@ -121,15 +111,50 @@ By the end of this step the mission is **drive-ready**: a complete, ordered queu
 
 **6. Report and hand off.** Tell the developer the mission is set up in `<worktree_path>` with its statement and an ordered, ready-to-drive kickoff queue. **Do not instruct them to `cd`** — `/drive` auto-routes into an existing worktree, so they just open that worktree and drive. Summarize the mission slug, the worktree path, and the kickoff tickets.
 
-## Without a title — list missions
+## Without a title — the developer's planning session
 
-When `$ARGUMENT` is empty, list existing missions with their computed progress:
+When `$ARGUMENT` is empty, bare `/mission` opens a **working planning session**, not just a report (developer intent, 2026-07-22). Its arc is fixed: explain where the caller's missions stand → walk the not-ready ones through replan until every assigned mission is drive-ready → reconcile → discuss strategy gaps → hand off to `/goal /monitor ok`. This is the daytime half of the overnight model: `/mission` makes everything drive-ready, `/monitor` executes it unattended. Read the whole roadmap once:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list.sh
 ```
 
-Present the returned array as a readable summary — one line per mission showing `title` (`slug`), `status`, and progress as `checked/total` (progress is **computed** from the `## Acceptance` checklist, never a stored number). For each mission, read the tail of its `## Changelog` at the entry's `path` (list.sh resolves each mission's location across `active/` and `archive/`) and show the most recent few lines, so the user sees where each mission stands and how it has moved. Group `active` missions before `achieved`/`abandoned` ones. If the array is empty, tell the user there are no missions yet and that `/mission "<title>"` creates the first one.
+Every entry carries the fields the session needs — computed, so no logic lives in this prose: `relation` (`mine`/`unassigned`/`others`), `next` (the next unchecked acceptance item), `ready` (drive-ready: active, has a plan, `drive_authorized`) and `ready_reason` (`no_plan`/`not_authorized` when not). Do **not** re-derive any of these from `assignee`/`drive_authorized`/`checked` yourself.
+
+### Step 1 — Status: where the caller's missions stand
+
+Render the roadmap **weighted toward the caller** (most of the output is the caller's business; others' work stays visible but compact — de-emphasized, never hidden):
+
+- **Full treatment — `mine` and `unassigned` entries with `status: active`** (mine first, then unassigned): `title` (`slug`) — `checked/total`, the `next` item, the drive-ready state (ready, or the `ready_reason` blocker), and the most recent few `## Changelog` lines from the entry's `path`. **Mark an `unassigned` entry as unclaimed and claimable.**
+- **One line each — everything else** (`others`, and any archived mission): `title` (`slug`) — `status` — `checked/total`. No changelog, no paragraphs.
+
+If no mission is `mine` or `unassigned`, say so plainly (only colleagues'/archived work exists) and that `/mission "<title>"` starts one; if the array is empty, there are no missions yet.
+
+### Step 2 — Replan loop: make every assigned mission drive-ready
+
+For each `mine`/`unassigned` active mission whose `ready` is `false`, run its **existing replan flow** now (the *Referencing an existing mission — replan* section above), one mission at a time, in the mission's own worktree — creating it with `create-mission-worktree.sh` when absent. The `ready_reason` says what the replan must fix (`no_plan` → the interrogation must produce a plan and Acceptance; `not_authorized` → it was interrogated but never stamped). Interrogation asks **only genuine design rulings** (the decide-and-record bar); mechanical fixes are decided and recorded, not asked. The developer may **defer** a mission ("leave it") — record that and move on; do not re-raise it this session.
+
+An already-`ready` mission needs nothing here — say so and skip it.
+
+### Step 3 — Reconciliation
+
+Close the session with one honest line derived from the readers (never asserted): **`N/M assigned missions drive-ready`**, naming each mission left short and why — deferred by the developer, or blocked on a named ruling. This mirrors `/monitor`'s honest-terminal shape.
+
+### Step 4 — Strategy gap discussion: are the missions sufficient?
+
+Once every assigned mission is drive-ready, turn **upward**: are the missions *sufficient* for the active strategies? A strategy is direction with no completion conditions — what keeps it moving is a stream of missions executing it. Survey the gaps:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/list.sh
+```
+
+An **active** strategy whose `active_missions` is empty is a **gap** — direction with nothing currently advancing it (its only missions, if any, are archived). This survey is act-and-report: run it unasked, and if every active strategy has an active mission, say so in one sentence and move on — never pad the session.
+
+For each gap (or when the developer says the plan feels thin), open a short **discussion**, not automation: ground candidate next missions in the strategy's `## Direction` (read from its `path`), the recent mission `## Reflection` entries (`bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list-reflections.sh` — what the last runs said to front-load), and the archived missions' outcomes. Propose concretely ("a mission that …"), and let the developer shape or reject. An agreed candidate flows straight into the **create flow** (the *With a title* section below — worktree, interrogation, ticket set, `strategy:` stamp) without leaving the conversation. **Never auto-create** a mission or ticket from the survey; creation happens only through the agreed hand-off. An unassigned-but-active mission is *not* a gap — the signal is "no active mission", not "no mine".
+
+### Step 5 — Execution hand-off: `/goal /monitor ok`, never `/drive`
+
+End by recommending **`/goal /monitor ok`** as the way to execute the readied missions — long, unattended, per-worktree, in parallel, at any hour. Do **not** recommend `/drive`: this session runs from the **root** worktree, where a bare `/drive` ambiguously reads as a drive of the main tree, not of the mission worktrees just made ready. `/goal /monitor ok` is the unambiguous signal; the closing prose names it and only it.
 
 ## `close <slug>` — end a mission
 

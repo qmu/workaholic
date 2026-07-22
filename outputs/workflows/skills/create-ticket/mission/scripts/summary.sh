@@ -1,6 +1,13 @@
 #!/bin/sh -eu
 # Summarize the ACTIVE missions that are the current user's business (read-only).
 #
+# ROLE NOTE (2026-07-22): the `/mission summary` command mode this powered is
+# retired — the bare /mission view now renders the developer-centric partition
+# from list.sh's `relation` field. This script stays as the canonical statement
+# of the shared assignee gate ("not somebody else's") that the monitor skill's
+# Scope section and the mission lens reference, and as the business-set reader
+# for programmatic callers.
+#
 # That means "not somebody else's", NOT "matches my email exactly". Two readings of
 # "assigned to me" were possible and this is the one that matches what the summary is
 # for: an UNASSIGNED mission is unclaimed work, which is closer to the developer's

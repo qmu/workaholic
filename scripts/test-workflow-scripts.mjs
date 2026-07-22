@@ -3031,6 +3031,17 @@ function testStrategyArtifact() {
     assertEq("rollup computes missions for the strategy", aod.missions.sort(), ["mission-a", "mission-b"]);
     assertEq("zebra rollup has its one mission", list.find((s) => s.slug === "zebra-direction").missions, ["mission-c"]);
 
+    // active_missions: the /mission gap signal. Archive mission-c; zebra keeps it in
+    // `missions` (all) but drops it from `active_missions` -> zebra is now a gap.
+    mkdirSync(join(dir, ".workaholic/missions/archive/mission-c"), { recursive: true });
+    execSync(`git mv .workaholic/missions/active/mission-c .workaholic/missions/archive/mission-c 2>/dev/null || mv .workaholic/missions/active/mission-c/mission.md .workaholic/missions/archive/mission-c/mission.md`, { cwd: dir });
+    const listG = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyList}`).stdout);
+    const zebra = listG.find((s) => s.slug === "zebra-direction");
+    assertEq("archived mission stays in the all-missions rollup", zebra.missions, ["mission-c"]);
+    assertEq("gap signal: zebra has no active mission", zebra.active_missions, []);
+    assertEq("non-gap: aod still has active missions",
+      listG.find((s) => s.slug === "agent-orchestrated-development").active_missions.sort(), ["mission-a", "mission-b"]);
+
     // OKF index: strategies/index.md with area section; bundle root links strategies.
     assertTrue("strategies index written", existsSync(join(dir, ".workaholic/strategies/index.md")));
     assertTrue("strategies index has ## active",

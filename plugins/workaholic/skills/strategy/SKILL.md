@@ -64,9 +64,13 @@ All POSIX `#!/bin/sh -eu`, JSON out, git-staging their writes; slug and layout h
 
 - `scripts/lib/resolve.sh` — the single source of slug-to-path resolution (root from a domain fact, absolute paths). Modeled on `mission/scripts/lib/resolve.sh` at smaller scale; **no living migration** (strategies have no legacy layout).
 - `scripts/create.sh` `"<title>"` — scaffold `strategies/active/<slug>/strategy.md`, stamp metadata via the gather skill, refresh OKF indexes, git-stage. Reuses `mission/scripts/slug.sh` (single slug source). Refuses an existing slug in either area. Emits `{created, slug, path}`.
-- `scripts/list.sh` — JSON array `{slug, title, status, path, missions: [<mission-slug>]}` across both areas; the `missions` rollup is **computed** by scanning missions' `strategy:` field through the reader, never stored.
+- `scripts/list.sh` — JSON array `{slug, title, status, path, missions: [<mission-slug>], active_missions: [<mission-slug>]}` across both areas; both rollups are **computed** by scanning missions' `strategy:` field through the reader, never stored. `active_missions` (the subset under `missions/active/`) is the **sufficiency signal**: an active strategy whose `active_missions` is empty is direction with nothing currently advancing it.
 - `scripts/read-strategy-relation.sh` `<mission-file>` — the single reader of a mission's `strategy:` frontmatter field (mirror of `mission/scripts/read-relation.sh`: frontmatter-only, tolerates bare value and `[a]` list form, one slug per line, never fails). Convention is **one strategy per mission**; the list tolerance keeps a future many-valued turn migration-free.
 - `scripts/retire.sh` `<slug-or-file> [date]` — flip `status` to `retired`, append the changelog line (via `mission/scripts/append-changelog.sh`, the single changelog writer), move to `archive/`, refresh indexes, git-stage. The `close.sh` analogue with **no** worktree/successor/carry semantics.
+
+## Sufficiency is examined in `/mission`, never here
+
+A strategy is never interrogated itself — it is direction, not work. Whether its missions are **sufficient** is examined in the bare `/mission` planning session: after every assigned mission is drive-ready, that session surveys `list.sh` for active strategies whose `active_missions` is empty (a gap), grounds candidate next missions in the strategy's `## Direction` and the recent mission `## Reflection` entries, and — only on the developer's agreement — flows into mission creation. The survey is act-and-report; creating a mission is always the developer's call.
 
 ## Retirement is rare
 

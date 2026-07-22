@@ -56,3 +56,12 @@ Second half of the developer's stated `/mission` expectation (2026-07-22): once 
 
 - An unassigned-but-active mission advancing a strategy is not a gap — the gap signal is "no *active* mission", not "no *mine*"; claiming unassigned work is the readiness session's territory.
 - If every strategy is covered and the developer has nothing to add, the step is one sentence ("all strategies have active missions") — it must never pad the session.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The gap signal is "no *active* mission", which the existing `missions` rollup (active + archived merged) could not express — a strategy whose only missions are archived looked covered. The fix was an additive `active_missions` field, keeping `missions` for backward compat.
+  **Context**: A strategy is "covered" only while something is currently advancing it; a computed active-subset rollup is the honest sufficiency measure, and it stays computed (never stored) like everything else on the strategy side.

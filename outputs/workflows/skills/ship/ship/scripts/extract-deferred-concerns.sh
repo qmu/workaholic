@@ -82,6 +82,31 @@ if fm:
         if tm and tm.group(1).strip():
             story_tickets = tm.group(1).strip()
 
+# Lane owner: a concern inherits the assignee of the first mission its story
+# advances, denormalized as `owner:` so list-active can scope triage per lane
+# without resolving the mission at list time. Empty when the story names no
+# mission or the mission has no assignee (unowned — visible to everyone, same
+# spirit as an unassigned mission in the lens).
+def _first_slug(v):
+    v = v.strip()
+    if v.startswith('['):
+        v = v.strip('[]').split(',')[0]
+    return v.strip().strip('"').strip("'")
+
+story_owner = ""
+_slug = _first_slug(story_mission) if story_mission else ""
+if _slug:
+    for area in ('active', 'archive'):
+        mpath = f'.workaholic/missions/{area}/{_slug}/mission.md'
+        if os.path.isfile(mpath):
+            with open(mpath, encoding='utf-8', errors='replace') as mh:
+                mfm = re.match(r'^---\n(.*?)\n---', mh.read(), re.DOTALL)
+            if mfm:
+                am = re.search(r'^assignee:[ \t]*(.*)$', mfm.group(1), re.MULTILINE)
+                if am:
+                    story_owner = am.group(1).strip()
+            break
+
 # Isolate section 6 (## 6. ...) up to the next top-level "## " heading.
 m = re.search(r'^##\s+6\.\s.*?$(.*?)(?=^##\s+\d+\.\s|\Z)', text, re.MULTILINE | re.DOTALL)
 section = m.group(1) if m else ""
@@ -190,6 +215,7 @@ for block in blocks:
         'type: Concern',
         f'concern_id: {concern_id}',
         f'mission: {story_mission}',
+        f'owner: {story_owner}',
         f'tickets: {story_tickets}',
         f'origin_pr: {pr_number}',
         f'origin_pr_url: {pr_url}',

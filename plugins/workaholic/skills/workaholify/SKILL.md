@@ -36,10 +36,7 @@ Two operational rules a session keeps while working in a repository:
 - **Stay at the repository root.** Do not move the working directory away from the repo root; treat the root as home.
 - **If you must `cd`, return immediately.** Prefer an **absolute path** or a `( cd <dir> && … )` **subshell** (which never changes the persistent working directory) over a bare `cd` that strands the session outside the root.
 
-These are surfaced by `hooks/guard-working-directory.sh` (a `PreToolUse(Bash)` guard that detects a top-level `cd` moving the persistent cwd; a `( cd <dir> && … )` subshell, an absolute-path command, and a tool prefix like `npm --prefix <dir>` are not flagged). It has **two modes**, selected by the `WORKAHOLIC_ENFORCE_CWD` switch — the switch changes only the *action* on a match, never the match set:
-
-- **Advisory (default, switch unset/empty):** the hook reminds and steers toward an absolute path or a subshell, but **does not block** — a deliberate one-off `cd` still runs. This is the original intent.
-- **Enforce (opt-in, `WORKAHOLIC_ENFORCE_CWD` non-empty):** a matched top-level `cd` is **denied** (`permissionDecision: "deny"`), with a reason naming the offending command and the sanctioned alternatives. A stricter operator sets this to get a hard backstop instead of a reminder the agent can ignore; the subshell / absolute-path / `--prefix` patterns still pass silently, so correct usage is never blocked in either mode.
+These are enforced by `hooks/guard-working-directory.sh` (a `PreToolUse(Bash)` guard that detects a top-level `cd` moving the persistent cwd; a `( cd <dir> && … )` subshell, an absolute-path command, and a tool prefix like `npm --prefix <dir>` are not flagged). A matched top-level `cd` is **denied** (`permissionDecision: "deny"`), with a reason naming the offending command and the sanctioned alternatives — **unconditionally, with no env-var toggle**: enforcement is built into the plugin code, so "plugin installed = guard active", identical on every machine and fresh clone. (An injectable opt-in switch fails open exactly when it is not set, which is when the guard is needed, and an advisory reminder is text an agent ignores.) The subshell / absolute-path / `--prefix` patterns still pass silently, so correct usage is never blocked.
 
 ## 3. CLAUDE.md audit
 

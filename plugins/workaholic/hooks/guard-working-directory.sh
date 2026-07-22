@@ -4,17 +4,22 @@
 # cwd is detected; a ( ... ) subshell, an absolute-path command, and a tool prefix
 # (npm --prefix <dir>, ...) do NOT move the persistent cwd, so they are not flagged.
 #
-# Two modes, selected by the WORKAHOLIC_ENFORCE_CWD switch — the ACTION on a match is
-# configurable, the match set is not:
-#   - unset / empty (DEFAULT): ADVISORY. Emit a PreToolUse additionalContext reminder
-#     and exit 0. The command is never blocked, so a deliberate one-off `cd` still runs
-#     — the original, intentional design.
-#   - non-empty (opt-in): ENFORCE. Emit a PreToolUse permissionDecision "deny" whose
-#     reason names the offending command and the sanctioned alternatives, so a stricter
-#     operator gets a hard backstop instead of a reminder the model can ignore.
+# Single enforced mode — no env-var toggle. A matched top-level `cd` is DENIED
+# (PreToolUse permissionDecision "deny") whose reason names the offending command and
+# the sanctioned alternatives. Enforcement is unconditional in the plugin code, so
+# "plugin installed = guard active": zero per-machine/per-shell prerequisite, identical
+# on every machine and fresh clone. There is no injectable opt-out, by design — an
+# env-var switch fails open exactly when it is not set (a fresh clone, another machine,
+# a differently-launched session, a forgotten export), which is precisely when the
+# guard is needed, and an advisory reminder is text an LLM agent ignores.
+#
+# The MATCH SET is unchanged from the former advisory design: a ( cd <dir> && ... )
+# subshell, an absolute-path command, and a tool prefix (npm --prefix <dir>) still pass
+# silently, so correct usage is never blocked.
 #
 # Mirrors guard-git-commit.sh: read .tool_input.command from stdin JSON. Fails open
-# (exit 0) when jq is unavailable, so a guard error never blocks unrelated Bash.
+# (exit 0) when jq is unavailable, so a guard error never blocks unrelated Bash. This
+# is an availability safeguard, not an opt-out — no cwd relaxation rides on it.
 
 set -eu
 
@@ -37,16 +42,8 @@ case "$cmd" in
   *) exit 0 ;;
 esac
 
-# Matched a top-level cd. Enforce (block) when the switch is set; otherwise advise.
-if [ -n "${WORKAHOLIC_ENFORCE_CWD:-}" ]; then
-  reason="workaholify ground rule (enforced): keep the working directory at the repository root. This command moves the persistent cwd: ${cmd} — run it without moving the top-level cwd instead: a ( cd <dir> && ... ) subshell, an absolute path, or a tool prefix (e.g. npm --prefix <dir>). Blocked by WORKAHOLIC_ENFORCE_CWD; unset it to return to advisory mode."
-  printf '{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": %s}}\n' \
-    "$(printf '%s' "$reason" | jq -Rs .)"
-  exit 0
-fi
-
-msg='workaholify ground rule: keep the working directory at the repository root. This command moves the persistent cwd — prefer an absolute path or a ( cd <dir> && ... ) subshell, and if you must cd, return to the repo root immediately after. (This is an advisory reminder; the command was not blocked.)'
-
-printf '{"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": %s}}\n' \
-  "$(printf '%s' "$msg" | jq -Rs .)"
+# Matched a top-level cd. Deny it, unconditionally.
+reason="workaholify ground rule: keep the working directory at the repository root. This command moves the persistent cwd: ${cmd} — run it without moving the top-level cwd instead: a ( cd <dir> && ... ) subshell, an absolute path, or a tool prefix (e.g. npm --prefix <dir>)."
+printf '{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": %s}}\n' \
+  "$(printf '%s' "$reason" | jq -Rs .)"
 exit 0

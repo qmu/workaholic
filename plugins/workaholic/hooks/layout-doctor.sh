@@ -66,16 +66,18 @@ add_advisory() {
 for entry in "$WH"/* "$WH"/.*; do
   [ -e "$entry" ] || continue
   name=$(basename "$entry")
-  # Skip the . / .. self-references and the strict-layout marker.
+  # Skip the . / .. self-references.
   case "$name" in
-    .|..|.strict-layout) continue ;;
+    .|..) continue ;;
   esac
 
   if [ -f "$entry" ]; then
+    # README.md / index.md plus the release-scan config files (scan-allow,
+    # leak-denylist) are the allowed root files — same set the layout gate allows.
     case "$name" in
-      README.md|README_ja.md|index.md) : ;;
+      README.md|README_ja.md|index.md|scan-allow|leak-denylist) : ;;
       *) add_finding ".workaholic/${name}" "undesignated-root-file" \
-           "only README.md and index.md are allowed at the .workaholic/ root" "owner decision required" ;;
+           "only README.md, index.md, scan-allow, and leak-denylist are allowed at the .workaholic/ root" "owner decision required" ;;
     esac
     continue
   fi

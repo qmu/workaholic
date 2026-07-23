@@ -19,7 +19,7 @@ An [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-cata
 * [Industry Research and Market Survey](planning/market-research.md) - Studying the client's industry, market structure, and actual business operations before starting a project, to ground design and implementation in verified understanding rather than assumed requirements.
 * [Requirements Analysis through Modeling](planning/modeling-centric-design.md) - Analyzing requirements by abstracting reality into models that capture stakeholders, events, data, demands, pain points, and solutions, placing this shared model as the foundation for all subsequent design and implementation.
 * [Codifying Domain Terminology](planning/terminology.md) - Collecting established project terms into a dictionary with one word per concept, used consistently across code, documents, commits, diagrams, and conversation to keep the codebase self-explanatory for humans and AI agents alike.
-* [Verify Before Building](planning/verify-before-building.md) - Reducing uncertainty around investment, requirements, experience, and technical feasibility before full development by verifying small with the real thing — through PoC, working prototypes, and in-repository labs.
+* [Verifying Before Building Out](planning/verify-before-building.md) - Before committing to full development, verify small against real artifacts — PoCs, working prototypes, and internal labs — to reduce uncertainty around investment, requirements, experience, and technical feasibility.
 
 ## Design (設計)
 
@@ -43,7 +43,7 @@ An [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-cata
 
 ## Implementation (実装)
 
-* [Anti-Corruption Structure](implementation/anti-corruption-structure.md) - Dividing each package's interior by domain and into three responsibilities — model, service, and dependency implementation — so that external libraries, I/O, and entry point wiring cannot corrupt the domain's own vocabulary.
+* [Using Anti-Corruption Structures](implementation/anti-corruption-structure.md) - Keeping an anti-corruption structure inside packages: dividing internals by domain into model, service, and dependency-implementation responsibilities, directing dependencies toward the domain, and structurally preventing external libraries, I/O, and entry-point wiring from corrupting the domain.
 * [Coding Standards (TypeScript)](implementation/coding-standards.md) - Defaulting to TypeScript language features where type checking and declarative guarantees apply, and avoiding features where those guarantees fall away, so the compiler detects as much as possible in AI-produced code.
 * [Command Scripts for Development Tasks](implementation/command-scripts.md) - Consolidating common development operations into runnable scripts so that any team member or AI agent can perform them consistently, and CI invokes the same commands as developers.
 * [Containerization](implementation/containerization.md) - Using containers to make the local development environment match production and to make the deployment unit reproducible, with multi-stage builds, pinned base image versions, and non-root runtime users.

@@ -2,8 +2,8 @@
 created_at: 2026-07-24T08:43:42+09:00
 author: a@qmu.jp
 type: enhancement
-layer: [Docs]
-effort: 2h
+layer: [Domain]
+effort: 0.5h
 commit_hash:
 category: Changed
 depends_on:
@@ -48,17 +48,49 @@ The standard engineering policies — synced from the corporate site into the `w
 - `plugins/workaholic/commands/monitor.md` — mirror the §2/§3 wording so the command's dispatch instructions match the skill.
 - `plugins/workaholic/skills/drive/SKILL.md` — leaf side: a leaf that backgrounds a job must surface its **outcome either way** (failure as well as success) back to its caller; a leaf may not go idle on an unreported terminal result.
 
-## Acceptance Criteria
+## Quality Gate
 
-- [ ] The `monitor` guidance requires a bounded fallback wake-up whenever the dispatcher hands off a long/background task and stops actively driving it, sized to the job's longest expected step.
-- [ ] The guidance requires **active liveness verification on wake** (inspect the declared artifact / log / process or container state) rather than inferring progress from the absence of a completion message.
-- [ ] The guidance states plainly that prolonged leaf silence is a **suspected fault to investigate**, never "still running," and that the dispatcher must not disable its own oversight of an unfinished task.
-- [ ] The `drive` leaf guidance requires a background-job launcher to report its outcome either way (failure included) and forbids idling on an unreported terminal result.
-- [ ] A brief note captures that detached/background jobs must be given an explicit self-contained environment (they do not inherit the interactive PATH), with early exit being exactly what the watchdog catches.
-- [ ] `commands/monitor.md` and `skills/monitor/SKILL.md` agree on the reworded §2/§3 guidance.
+This ticket predates the mandatory `## Quality Gate` section; its original `## Acceptance Criteria` list is preserved verbatim below as the acceptance criteria, with the verification method and gate recorded at drive time (2026-07-24).
+
+Decided: documentation-only verification — the change mandates no runtime scheduler and alters no script, so the hermetic suite plus the build/verify/metadata trio is the whole provable surface (developer may override at /drive).
+Decided: the watchdog is stated as guidance for the dispatcher's existing wake-up mechanism rather than a new script — the ticket's Considerations call for a fallback, not a polling loop, and a bundled poller would be the tight loop it warns against (developer may override at /drive).
+
+**Acceptance criteria** — the checkable conditions that must hold:
+
+- [x] The `monitor` guidance requires a bounded fallback wake-up whenever the dispatcher hands off a long/background task and stops actively driving it, sized to the job's longest expected step.
+- [x] The guidance requires **active liveness verification on wake** (inspect the declared artifact / log / process or container state) rather than inferring progress from the absence of a completion message.
+- [x] The guidance states plainly that prolonged leaf silence is a **suspected fault to investigate**, never "still running," and that the dispatcher must not disable its own oversight of an unfinished task.
+- [x] The `drive` leaf guidance requires a background-job launcher to report its outcome either way (failure included) and forbids idling on an unreported terminal result.
+- [x] A brief note captures that detached/background jobs must be given an explicit self-contained environment (they do not inherit the interactive PATH), with early exit being exactly what the watchdog catches.
+- [x] `commands/monitor.md` and `skills/monitor/SKILL.md` agree on the reworded §2/§3 guidance.
+
+**Verification method** — the commands/tests/probes that prove them:
+
+- `node scripts/test-workflow-scripts.mjs` — the hermetic suite, including the existing monitor/drive contract assertions that read these sections.
+- `node scripts/build-plugins/build.mjs` then `node scripts/build-plugins/verify.mjs` — `drive` is a built skill, so `outputs/workflows/skills/drive/SKILL.md` must regenerate and stay self-contained (`monitor` is Claude-only and not built).
+- `node scripts/build-plugins/validate-metadata.mjs` and `bash plugins/workaholic/hooks/layout-doctor.sh .`
+
+**Gate** — what must pass before approval:
+
+- Suite green, outputs/ rebuilt and fresh, metadata valid, layout conforming, and the three touched documents agreeing on the watchdog rule.
+
+**Result (2026-07-24):** all six criteria met — see the run output recorded in the Final Report below.
 
 ## Considerations
 
 - Guidance/documentation change only — no runtime scheduler is being mandated; the fallback wake-up uses the existing wake-up mechanism available to the dispatcher.
 - Keep this proportionate: the watchdog is a *fallback*, not a tight polling loop — one bounded check that fires only if the completion signal is absent, so a healthy run pays almost nothing.
 - Complements the sibling attempt-before-defer change: together they make both the "gave up too early" and the "waited forever" failure modes explicit.
+
+## Final Report
+
+Development completed as planned. The watchdog landed as a named block in `monitor/SKILL.md` §2 (bounded fallback wake-up → active liveness verification on wake → honest classification of silence), a fourth **Silent** case in the §3 classification, and a leaf-side counterpart at `drive/SKILL.md` §3c; `commands/monitor.md` mirrors both sections. Verified with `node scripts/test-workflow-scripts.mjs` (1301 passed / 0 failed), a clean `build.mjs` + `verify.mjs` regenerating `outputs/workflows/skills/drive/SKILL.md`, valid `validate-metadata.mjs`, and a conforming `layout-doctor.sh`.
+
+### Discovered Insights
+
+- **Insight**: The dispatcher contract already said "never freeze the session in a synchronous wait on the slowest leaf", and that instruction — read alone — is what permitted the six-and-a-half-hour stall.
+  **Context**: Non-blocking and unwatched are different properties, but the §2 prose only asserted the first. The watchdog had to be written as the *other half* of that same paragraph, immediately after it, or a future reader draws the same conclusion: that not-waiting is the whole duty. Being non-blocking is what makes the fallback wake-up cheap, not what replaces it.
+- **Insight**: The fix needed both a dispatcher-side and a leaf-side rule, because either one alone still leaves a hole.
+  **Context**: A well-behaved leaf reporting failures (drive §3c) does nothing when the leaf dies outright; a dispatcher watchdog alone still burns the full bound when the leaf simply forgot to report. The dispatcher rule is deliberately phrased not to depend on leaves being well-behaved — that is precisely what makes the run robust to one that isn't.
+- **Insight**: The wave loop's classification trigger was an unstated assumption worth making explicit.
+  **Context**: §3 previously classified a wave "when its reports are in", which has no defined behavior when a report never arrives. Stating that a wave classifies on reports-in **or** bound-elapsed-and-verified closes that gap, and the "never let a second bound elapse on the same unverified silence" clause stops a verify step from itself becoming a new wait loop.

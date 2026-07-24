@@ -118,8 +118,8 @@ Explicit approval is **relocated, never removed**. The gate is skipped exactly w
 
 **An authorized queue inherits night mode's failure contract** (see **Night Mode** §3/§5), because that is where an autonomous run actually leaks — not at the approval gate:
 
-- **Attempt every ticket.** Size, complexity, "all-or-nothing", and "this looks like it needs a human" are **not** skip reasons.
-- A skip is legitimate only after a real attempt, and only as **`failed`** (implemented, checks red) or **`blocked`** (a **named** hard external blocker).
+- **Attempt every ticket.** Size, complexity, "all-or-nothing", and "this looks like it needs a human" are **not** skip reasons. Nor is a run being long, heavy, or wanting exclusive use of a local service — that is *preferred* overnight work (§3b).
+- A skip is legitimate only after a real attempt, and only as **`failed`** (implemented, checks red) or **`blocked`** (a **named** hard external blocker, with the attempted command and its raw output recorded — §3a). The only deferrals that need no attempt are §3a's two buckets: the safety floor, and a concretely-stated external blocker.
 - **Safety floor**: `git stash` a failed ticket's partial work so it cannot contaminate the next commit; leave the ticket in `todo`; **never** auto-icebox, auto-abandon, or run destructive git.
 - **Report a closed three-outcome set** (implemented / failed / blocked) whose totals **reconcile to the authorized set size**. There is no "declined" category.
 
@@ -227,6 +227,17 @@ Autonomous, unattended overnight run for morning review, triggered when `$ARGUME
 - **Failed** — the ticket was implemented but its type-check/tests are red (or its frontmatter update fails). Record it as `failed` with the reason for the night report.
 - **Blocked** — implementation is stopped by a **named hard external blocker** (a missing credential, an unreachable external service or dependency). Record the specific blocker and what would unblock it. A vague "too complex" or "any other reason" is **not** a blocker.
 
+**3a. Attempt before defer — a classification needs a captured error, not a prediction.** "Blocked" is a **finding**, not a forecast. Before any ticket is recorded `blocked`, run the thing: start the service, invoke the command, call the tool. Record the **command you ran and its raw output**. An abstract verdict reached without executing anything — "this needs a human", "the credentials probably aren't here", "this can't run unattended" — is **not a blocker and must not be recorded as one**; it is an unattempted ticket, and the report must say so. The morning review can act on `deploy.sh → exit 127: gh: command not found`; it can do nothing with "deployment seemed human-only."
+
+Exactly two buckets may be deferred **without** an attempt, and nothing else:
+
+- **Safety floor** — genuinely irreversible outward actions an unattended run must never take: production sends to third parties, force-push, destructive data operations. Deferred by policy, always, and this ticket's tightening does not widen it.
+- **Genuinely external blocker** — the work waits on something no local attempt can produce: a credential or approval a **third party** must issue, or a decision requiring a named human's professional judgement. State it **concretely** — what is missing and who must provide it. "Human-only" with no name and no missing artifact is not this bucket.
+
+**3b. Heavy, exclusive, long-running work is what the night is for.** A verification that takes thirty minutes, needs exclusive use of a shared local service, or loads the machine hard is **preferred** overnight work, not work to avoid — the unattended window is precisely when contention is lowest and nobody is waiting on the machine. "It would take a long time", "it wants the port to itself", "I would have to start a service first", and "better in a daytime exclusive window" are reasons to **do it now**, not to defer it. A leaf that skips its own authorized heavy live run has defeated the reason the ticket was prepared for overnight execution (`workaholic:development` / `overnight-ai`: the run exists to *complete* prepared work while humans rest).
+
+Resource contention bounds **how many things run at once** — it is a dispatcher's dial (`workaholic:monitor` §2), never an individual run's licence to skip its own authorized work. If contention is real, the answer is to run the heavy thing with less beside it, not to leave it for the morning.
+
 **Take the initiative on an unqueued problem: write a ticket, do not stop.** A problem the queue does not cover — met while implementing — gets a **ticket**, not a paragraph in this report, and the run continues (**`deferred`**). An observation is not an obligation; only a ticket is. See Step 2.2's *Take the initiative* for the boundary (implement what is in the current ticket's scope; mint-and-continue for what is outside it; mint-then-`blocked` when it blocks), the mint-only-for-an-observed-problem threshold, and the requirement that a minted ticket carry its own `## Policies` and `## Quality Gate`. Initiative here is to **record**, never to redesign mid-run.
 
 In either case, apply the safety floor and continue to the next authorized ticket (this floor is unchanged — only the *entry condition to skipping* is tightened):
@@ -239,7 +250,7 @@ In either case, apply the safety floor and continue to the next authorized ticke
 **5. Whole-night report (the deliverable).** At the end (Phase 4), print a complete, skimmable stdout report for morning review. Every authorized ticket appears as exactly one of a **closed set of three outcomes** — there is **no** "declined / did not force / too large / needs a human" category:
 - **implemented** — commit hash.
 - **failed** — attempted, but its checks/tests went red; reason + stash location.
-- **blocked** — a **named** hard external blocker; what would unblock it.
+- **blocked** — a **named** hard external blocker; the **command that was attempted and its raw output**, and what would unblock it. A `blocked` line with no attempted command is only admissible for the two no-attempt buckets of §3a (safety floor; a concretely-stated external blocker), and must say which.
 - Totals: implemented / failed / blocked counts, which **must reconcile to the authorized batch size**, plus all commit hashes.
 - **Tickets minted mid-run** (`deferred`), one line each: what was found, which ticket provoked it, and the new filename. These are *additional* to the authorized batch and do not affect its reconciliation — but a run that quietly mints tickets is a run that quietly changes the plan, so they are never silent.
 - Any stashed partial work and where to find it.

@@ -5,9 +5,9 @@
 # via progress.sh, never read from a stored number.
 #
 # Usage: list.sh
-# Output: JSON array [{slug, title, status, assignee, relation, next, checked, total,
-#         drive_authorized, ready, ready_reason, predicted_hours, actual_hours, path}],
-#         sorted by slug. Emits [] when there are no missions. predicted_hours/
+# Output: JSON array [{slug, title, status, assignee, relation, strategy, next, checked,
+#         total, drive_authorized, ready, ready_reason, predicted_hours, actual_hours,
+#         path}], sorted by slug. Emits [] when there are no missions. predicted_hours/
 #         actual_hours are the raw frontmatter values ("" when unset) — the trend
 #         surface predict-duration.sh and /catch read.
 #
@@ -22,6 +22,12 @@
 # still shows everyone: an empty email just means nothing is "mine".
 # next is the first unchecked ## Acceptance item (next-acceptance.sh; "" when
 # none) so the full-treatment tier can state each mission's next step.
+# strategy is the slug of the strategy this mission executes, read through the
+# single reader strategy/scripts/read-strategy-relation.sh (first slug; the
+# relation is single-valued by convention) — "" when the mission is unlinked, so
+# the bare /mission roadmap can group by strategy and surface an "unlinked"
+# bucket. Read through the reader, never parsed inline, so the field's shape
+# lives in one place.
 # drive_authorized is the raw frontmatter value; ready is the /mission planning
 # session's drive-readiness verdict (active AND has a plan AND drive_authorized);
 # ready_reason names the blocker (no_plan / not_authorized / not_active) so the
@@ -85,6 +91,8 @@ for d in $DIRS; do
         relation="others"
     fi
     next=$(json_escape "$(sh "${SCRIPT_DIR}/next-acceptance.sh" "$f" 2>/dev/null || true)")
+    # Strategy slug via the single reader (first line; convention is one per mission).
+    strategy=$(json_escape "$(sh "${SCRIPT_DIR}/../../strategy/scripts/read-strategy-relation.sh" "$f" 2>/dev/null | head -n 1 || true)")
     predicted=$(json_escape "$(fm_field "$f" predicted_hours)")
     actual=$(json_escape "$(fm_field "$f" actual_hours)")
     prog=$(sh "${SCRIPT_DIR}/progress.sh" "$f")
@@ -109,7 +117,7 @@ for d in $DIRS; do
     fi
     [ "$FIRST" -eq 1 ] || OUT="${OUT},"
     FIRST=0
-    OUT="${OUT}{\"slug\":\"${slug}\",\"title\":\"${title}\",\"status\":\"${status}\",\"assignee\":\"${assignee}\",\"relation\":\"${relation}\",\"next\":\"${next}\",\"checked\":${checked},\"total\":${total},\"drive_authorized\":\"$(json_escape "$drive_auth")\",\"ready\":${ready},\"ready_reason\":\"${ready_reason}\",\"predicted_hours\":\"${predicted}\",\"actual_hours\":\"${actual}\",\"path\":\"${f}\"}"
+    OUT="${OUT}{\"slug\":\"${slug}\",\"title\":\"${title}\",\"status\":\"${status}\",\"assignee\":\"${assignee}\",\"relation\":\"${relation}\",\"strategy\":\"${strategy}\",\"next\":\"${next}\",\"checked\":${checked},\"total\":${total},\"drive_authorized\":\"$(json_escape "$drive_auth")\",\"ready\":${ready},\"ready_reason\":\"${ready_reason}\",\"predicted_hours\":\"${predicted}\",\"actual_hours\":\"${actual}\",\"path\":\"${f}\"}"
 done
 OUT="${OUT}]"
 printf '%s\n' "$OUT"

@@ -3,9 +3,9 @@ created_at: 2026-07-24T09:30:36+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Domain]
-effort:
+effort: 0.5h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 ---
@@ -81,3 +81,14 @@ Decided: `strategy` is emitted as the FIRST slug only (mirroring `preflight.sh`)
 - The cross-skill call must be the build-detectable `${SCRIPT_DIR}/../../strategy/scripts/` form, or `outputs/workflows` ships a broken mission skill (`scripts/build-plugins/script-ref-patterns.mjs`).
 - Grouping is computed, never asked: no new AskUserQuestion is introduced by the grouped rendering (`plugins/workaholic/rules/interaction.md`).
 - Follow-up ticket `20260724093037-move-ownership-to-strategy-assignees.md` re-keys the `relation` partition onto strategy-level ownership; keep this change minimal so that ticket's diff stays reviewable.
+
+## Final Report
+
+Development completed as planned. `mission/scripts/list.sh` gained a `strategy` field resolved through the single reader `strategy/scripts/read-strategy-relation.sh` (first slug via `head -n 1`, mirroring `preflight.sh`), `commands/mission.md` Step 1 now groups the full-treatment tier by strategy with an "unlinked" trailing bucket, and `mission/SKILL.md`'s `list.sh` output doc records the field. Verified with `node scripts/test-workflow-scripts.mjs` (1304 passed / 0 failed, including three new strategy-field assertions), a clean `build.mjs` + `verify.mjs` (the strategy scripts already sit in the mission skill's closure, so `outputs/` regenerated self-contained), valid `validate-metadata.mjs`, and a conforming `layout-doctor.sh`.
+
+### Discovered Insights
+
+- **Insight**: `strategy` was already in the mission skill's build closure before this change, so adding the cross-skill call pulled in no new closure and needed no `script-ref-patterns.mjs` touch.
+  **Context**: The mission `list.sh` was the first mission script to call a strategy script, but `strategy/list.sh` is reached elsewhere in the closure graph already — the build output `built mission: closure=[gather, mission, okf, release-scan, strategy]` confirms strategy was resolved. The `${SCRIPT_DIR}/../../strategy/scripts/` form was still required for verify.mjs's cross-ref lint, but no closure expansion resulted.
+- **Insight**: The test's deep-equal is key-order-sensitive because it compares JSON serializations, and `list.sh` emits slug-sorted, so a new fixture must be placed in the expected object at its slug-sorted position.
+  **Context**: `mission-linked` sorts before `mission-old`; putting it last in the expectation failed the empty-email assertion even though the set was correct. Any future bare-list fixture has to respect the slug ordering in every order-sensitive expectation in that block.

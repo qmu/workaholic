@@ -127,14 +127,16 @@ When `$ARGUMENT` is empty, bare `/mission` opens a **working planning session**,
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list.sh
 ```
 
-Every entry carries the fields the session needs — computed, so no logic lives in this prose: `relation` (`mine`/`unassigned`/`others`), `next` (the next unchecked acceptance item), `ready` (drive-ready: active, has a plan, `drive_authorized`) and `ready_reason` (`no_plan`/`not_authorized` when not). Do **not** re-derive any of these from `assignee`/`drive_authorized`/`checked` yourself.
+Every entry carries the fields the session needs — computed, so no logic lives in this prose: `relation` (`mine`/`unassigned`/`others`), `strategy` (the slug of the strategy the mission executes, or `""` when unlinked), `next` (the next unchecked acceptance item), `ready` (drive-ready: active, has a plan, `drive_authorized`) and `ready_reason` (`no_plan`/`not_authorized` when not). Do **not** re-derive any of these from `assignee`/`strategy:`/`drive_authorized`/`checked` yourself.
 
-### Step 1 — Status: where the caller's missions stand
+### Step 1 — Status: where the caller's missions stand, grouped by strategy
 
-Render the roadmap **weighted toward the caller** (most of the output is the caller's business; others' work stays visible but compact — de-emphasized, never hidden):
+Render the roadmap **weighted toward the caller** (most of the output is the caller's business; others' work stays visible but compact — de-emphasized, never hidden), and **grouped by the strategy each mission executes** — a mission is the execution plan of a strategy, so the roadmap reads as "here is each direction, and the missions advancing it." Read the strategies once for their titles (`bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/list.sh`) and group the full-treatment tier by the entry's `strategy` field:
 
-- **Full treatment — `mine` and `unassigned` entries with `status: active`** (mine first, then unassigned): `title` (`slug`) — `checked/total`, the `next` item, the drive-ready state (ready, or the `ready_reason` blocker), and the most recent few `## Changelog` lines from the entry's `path`. **Mark an `unassigned` entry as unclaimed and claimable.**
-- **One line each — everything else** (`others`, and any archived mission): `title` (`slug`) — `status` — `checked/total`. No changelog, no paragraphs.
+- **One block per strategy** (title `(slug)` as the heading), containing that strategy's **`mine` and `unassigned` `status: active`** missions in full treatment (mine first, then unassigned). Order strategy blocks with the caller's own strategies (those holding at least one `mine` mission) first.
+- **An "Unlinked" block last** for full-treatment missions whose `strategy` is `""` — active `mine`/`unassigned` missions executing no strategy. Note them as unlinked: the Step 2 replan loop resolves the missing `strategy:` link (its Strategy-resolution step), so surfacing them here is also the signal for that fix.
+- **Full treatment per mission**: `title` (`slug`) — `checked/total`, the `next` item, the drive-ready state (ready, or the `ready_reason` blocker), and the most recent few `## Changelog` lines from the entry's `path`. **Mark an `unassigned` entry as unclaimed and claimable.**
+- **One line each — everything else** (`others`, and any archived mission), gathered under a compact trailing section, **not** grouped by strategy: `title` (`slug`) — `status` — `checked/total`. No changelog, no paragraphs.
 
 If no mission is `mine` or `unassigned`, say so plainly (only colleagues'/archived work exists) and that `/mission "<title>"` starts one; if the array is empty, there are no missions yet.
 

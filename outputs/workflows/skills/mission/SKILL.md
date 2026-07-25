@@ -74,8 +74,8 @@ status: active          # active | achieved | abandoned | carried — selects th
 carried_from:           # only on a successor: the slug of the mission whose remainder it inherited
 created_at: <ISO-8601>
 author: <email>
-assignee: <email>       # the user id / email that owns driving this mission (defaults to author)
-strategy: <slug>        # the ONE strategy this mission executes; resolved in the interrogation, read only via strategy/scripts/read-strategy-relation.sh. Empty on the scaffold; non-empty is required once drive_authorized: true
+assignee: <email>       # LEGACY FALLBACK only — ownership is DERIVED from the strategy's `assignees` (2026-07-24). Empty on new missions; read ownership via mission-owners.sh, never this field directly
+strategy: <slug>        # the ONE strategy this mission executes; resolved in the interrogation, read only via strategy/scripts/read-strategy-relation.sh. Empty on the scaffold; non-empty is required once drive_authorized: true. Also the source of the mission's OWNER (its `assignees`)
 drive_authorized:       # `true` once the Creation Interrogation emitted the full ticket set
 predicted_hours:        # decimal agent-hours, stamped ONCE at creation from archived-mission trend (predict-duration.sh); empty when basis 0
 actual_hours:           # decimal agent-hours accumulated by /monitor across runs (record-run-hours.sh is its only writer); empty until a run records
@@ -115,15 +115,22 @@ When a mission *does* declare one: `gate_type` is `documentation` (the mission's
 
 Read it with `drive-authorized.sh` — never by grepping the field yourself.
 
-### Assignee
+### Ownership — derived from the strategy (2026-07-24)
 
-`assignee` names the user responsible for driving the mission to completion — a git user id / email. `create.sh` self-assigns it to the creator (`git config user.email`) by default; pass an explicit second argument to assign it to someone else.
+**A mission's owner is not stored on the mission; it is derived from the `assignees` of the strategy it executes.** Ownership moved up to the strategy layer (`strategy` — a direction is what a set of people own, and each of its missions is theirs). The mission's own `assignee` field is now a **legacy fallback only**: `create.sh` leaves it empty, and new work is owned through the strategy link.
 
-**Absent or empty means unclaimed, not hidden.** Both `summary.sh` and the **mission lens** gate on "is this mission my business", which is *not somebody else's* — not *exactly mine*. A mission whose `assignee` matches your `git config user.email` is yours; one with no `assignee` is **unassigned** and is surfaced to everyone as claimable, after your own; one assigned to another developer stays silent. Absent and empty are the same thing — the schema draws no distinction, so neither does any reader.
+Read a mission's owner(s) **only** through `mission/scripts/mission-owners.sh` — never by grepping `assignee` or `assignees`. It is the single ownership oracle and resolves two hops with a fallback:
 
-The earlier rule was an exact email match, which meant an unassigned mission matched nobody and was silently skipped for *everybody* — invisible in the summary and the lens while `list.sh` showed it plainly. `create.sh`'s self-assignment default does not close that on its own, because it is not the only way a `mission.md` comes into existence (hand-authored ones arrive without it).
+1. the mission's `strategy:` (via `read-strategy-relation.sh`) → the strategy's `assignees` (via `strategy/scripts/read-assignees.sh`) — the owners, when present;
+2. otherwise the mission's own legacy `assignee` — so a mission in a repo that predates `assignees`, or an unlinked mission, is never orphaned.
 
-This is per-worktree by construction — each worktree checks out its own `.workaholic/missions/`, so the lens that fires there reflects the missions that are the business of whoever is working that tree.
+Prints one owner per line; **empty output means unowned** — unclaimed work, surfaced to everyone as claimable. A strategy may be **co-owned**, so a mission can have several owners; "mine" means the caller is **among** them, not the sole one.
+
+**Not somebody else's, not exactly mine.** `summary.sh`, the **mission lens**, `list.sh`'s `relation`, and `/monitor`'s pre-flight all gate on "is this mission my business" — the caller is among the owners (mine, shown first), or there are no owners (unassigned, shown as claimable, after your own); a mission owned only by others stays silent. All four read through `mission-owners.sh`, so the gate is defined once.
+
+**Claiming a mission = joining its strategy's `assignees`.** Because ownership is strategy-level, taking an unowned mission means adding yourself to the strategy it executes — which claims that strategy's other missions too. That is the direct, intended consequence of ownership being a property of the direction rather than the individual plan.
+
+This is per-worktree by construction — each worktree checks out its own `.workaholic/`, so the lens that fires there reflects the missions that are the business of whoever is working that tree.
 
 ### Strategy
 
@@ -311,7 +318,13 @@ Derive a mission slug from a title (lowercase, non-`[a-z0-9]` runs → single hy
 bash mission/scripts/read-relation.sh <artifact-file>
 ```
 
-Read an artifact's `mission:` relation; prints one slug per line, nothing when absent or empty. The **single source of the relation's shape** — every seam reads through this rather than parsing frontmatter itself. Accepts `mission: [a, b]` and a bare `mission: a` alike, and only ever looks inside the frontmatter block (a body line starting `mission:` is not the relation). Never fails: a missing file, a file with no frontmatter, and an empty field all print nothing. Note this reads a relation **on** an artifact — `mission.md`'s own fields (`title`/`status`/`assignee`/`gate_*`) are read by `list.sh`, `progress.sh`, and `gate.sh` instead.
+Read an artifact's `mission:` relation; prints one slug per line, nothing when absent or empty. The **single source of the relation's shape** — every seam reads through this rather than parsing frontmatter itself. Accepts `mission: [a, b]` and a bare `mission: a` alike, and only ever looks inside the frontmatter block (a body line starting `mission:` is not the relation). Never fails: a missing file, a file with no frontmatter, and an empty field all print nothing. Note this reads a relation **on** an artifact — `mission.md`'s own fields (`title`/`status`/`gate_*`) are read by `list.sh`, `progress.sh`, and `gate.sh` instead.
+
+```bash
+bash mission/scripts/mission-owners.sh <mission-file>
+```
+
+Resolve **who owns a mission** — the single ownership oracle (2026-07-24). Ownership is derived two hops: the mission's `strategy:` (via `read-strategy-relation.sh`) → the strategy's `assignees` (via `strategy/scripts/read-assignees.sh`), with a **legacy fallback** to the mission's own `assignee` when that yields nothing (no strategy linked, unresolvable, or no assignees) so a mission predating `assignees` is never orphaned. Prints one owner per line; **empty output means unowned** (claimable). Searches `strategies/active/` then `archive/` so an archived strategy never dangles a mission's ownership. Every ownership consumer — `list.sh`'s `relation`, `summary.sh`, `hooks/mission-lens.sh`, `/monitor`'s pre-flight, `hooks/validate-mission.sh`'s authorized-owner floor, and `ship`'s concern-lane owner — reads through this, never by parsing the fields itself.
 
 ```bash
 bash mission/scripts/drive-authorized.sh <ticket-file>
@@ -319,7 +332,7 @@ bash mission/scripts/drive-authorized.sh <ticket-file>
 
 Answer, for one ticket: **may `/drive` implement this without the per-ticket approval prompt?** Emits `{authorized, reason, missions}` — `reason` is `""` (authorized), `no_ticket`, `no_mission` (nothing authorized it), `mission_not_found`, `not_authorized` (a claimed mission is not stamped), or `no_plan` (a claimed mission is stamped but its `## Acceptance` is empty — a stamp with no plan authorizes nothing; the floor is `progress.sh`'s `total > 0`). Reads the relation through `read-relation.sh`, so `mission: [a, b]` and a bare `mission: a` behave identically.
 
-Missions get a write-time floor too: `hooks/validate-mission.sh` (PostToolUse `Write|Edit`, the mission analogue of `validate-ticket.sh`) lets `create.sh`'s empty scaffold pass, requires the `assignee:` key to exist (empty = deliberately unclaimed), and — once a mission claims `drive_authorized: true` — rejects a missing owner, an empty `strategy:` link, a comment-only `## Experience`, or an empty `## Acceptance` at the write, where the author can still fix it. `archive/` missions are history and are never retro-blocked.
+Missions get a write-time floor too: `hooks/validate-mission.sh` (PostToolUse `Write|Edit`, the mission analogue of `validate-ticket.sh`) lets `create.sh`'s empty scaffold pass with **nothing required** (ownership no longer lives on the mission, so there is no mandatory `assignee:` key), and — once a mission claims `drive_authorized: true` — rejects an empty `strategy:` link, a **missing owner** (`mission-owners.sh` empty: the linked strategy carries no `assignees` and there is no legacy `assignee` fallback — unattended work needs an owner), a comment-only `## Experience`, or an empty `## Acceptance` at the write, where the author can still fix it. `archive/` missions are history and are never retro-blocked.
 
 **Conservative by construction**: a ticket claiming several missions is authorized only if **every** one of them is stamped. Naming a mission is a commitment, not a label — the same reason `/drive` holds a ticket to the gate of every mission it names ("all of them must pass, not the most convenient one"). One unauthorized mission means ask.
 
@@ -352,7 +365,7 @@ Compute `{checked, total}` over a mission's `## Acceptance` checklist. Accepts e
 bash mission/scripts/list.sh
 ```
 
-List every mission — across both `active/` and `archive/` — with its `status`, `assignee`, computed progress, and its `predicted_hours`/`actual_hours`: a JSON array of `{slug, title, status, assignee, relation, strategy, next, checked, total, drive_authorized, ready, ready_reason, predicted_hours, actual_hours, path}`, sorted by slug (`path` is the resolved `mission.md` location, so consumers never rebuild it by hand). Emits `[]` when there are no missions. `relation` is the caller-centric partition (`mine` / `unassigned` / `others` — the same "not somebody else's" gate `summary.sh` and the lens inline, computed once here so consumers never re-derive it; a missing git email degrades to nothing-`mine`, never an error) and `next` is the first unchecked acceptance item via `next-acceptance.sh`. `strategy` is the slug of the strategy the mission executes, read through the single reader `strategy/scripts/read-strategy-relation.sh` (first slug; single-valued by convention) — `""` when unlinked, so the bare `/mission` view can group the roadmap by strategy and surface an "unlinked" bucket that its replan loop then resolves. `ready`/`ready_reason` are the **planning-session drive-readiness verdict**: `ready: true` when the mission is `active`, has a plan (`total > 0`), and is stamped `drive_authorized: true`; otherwise `ready: false` with `ready_reason` naming the blocker (`no_plan` / `not_authorized` / `not_active`) so the bare `/mission` session can explain what a replan must fix. Together these let the bare `/mission` view render its two tiers and drive its replan loop with **no inline logic**. All keys are additive; older consumers parse a subset and are unaffected.
+List every mission — across both `active/` and `archive/` — with its `status`, derived ownership, computed progress, and its `predicted_hours`/`actual_hours`: a JSON array of `{slug, title, status, assignee, owners, relation, strategy, next, checked, total, drive_authorized, ready, ready_reason, predicted_hours, actual_hours, path}`, sorted by slug (`path` is the resolved `mission.md` location, so consumers never rebuild it by hand). Emits `[]` when there are no missions. `owners` is the full derived owner set (`mission-owners.sh` — the strategy's `assignees`, legacy `assignee` fallback), `assignee` aliases the first owner for back-compat, and `relation` is the caller-centric partition (`mine` / `unassigned` / `others` — the same "not somebody else's" gate `summary.sh`, the lens, and `/monitor` read, all through `mission-owners.sh`, computed once here so consumers never re-derive it; a missing git email degrades to nothing-`mine`, never an error). `next` is the first unchecked acceptance item via `next-acceptance.sh`. `strategy` is the slug of the strategy the mission executes, read through the single reader `strategy/scripts/read-strategy-relation.sh` (first slug; single-valued by convention) — `""` when unlinked, so the bare `/mission` view can group the roadmap by strategy and surface an "unlinked" bucket that its replan loop then resolves. `ready`/`ready_reason` are the **planning-session drive-readiness verdict**: `ready: true` when the mission is `active`, has a plan (`total > 0`), and is stamped `drive_authorized: true`; otherwise `ready: false` with `ready_reason` naming the blocker (`no_plan` / `not_authorized` / `not_active`) so the bare `/mission` session can explain what a replan must fix. Together these let the bare `/mission` view render its two tiers and drive its replan loop with **no inline logic**. All keys are additive; older consumers parse a subset and are unaffected.
 
 ```bash
 bash mission/scripts/summary.sh
@@ -480,7 +493,7 @@ Separately from the mutating seams above, a workflow may **read** missions witho
 
 The **mission lens** (`hooks/mission-lens.sh`) is the other read-only consumer, and an always-on one. On every `UserPromptSubmit` it injects a model-visible `additionalContext` line, and on every `Stop` a user-visible `systemMessage`, naming each **active** mission that passes all three of its gates, with derived `checked/total` and the next unchecked acceptance item (via `progress.sh` + `next-acceptance.sh`):
 
-1. **assignee** — matches the current `git config user.email`.
+1. **ownership** — the current `git config user.email` is among the mission's derived owners (`mission-owners.sh` — the strategy's `assignees`, legacy `assignee` fallback), or the mission is unowned (surfaced as claimable). Only a mission owned solely by others stays silent.
 2. **location** — worktree focus: inside a mission's own `.worktrees/<slug>`, only that mission; inside a worktree that owns **no** mission (a `/drive` worktree), nothing at all; in the main tree, only missions that own no worktree.
 3. **signal** — the mission has at least one acceptance criterion. A mission whose `## Acceptance` is empty would render as `0/0` with no next step — a technical condition with nothing to act on — so it stays silent.
 

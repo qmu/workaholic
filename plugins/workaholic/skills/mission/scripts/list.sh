@@ -5,21 +5,24 @@
 # via progress.sh, never read from a stored number.
 #
 # Usage: list.sh
-# Output: JSON array [{slug, title, status, assignee, relation, strategy, next, checked,
-#         total, drive_authorized, ready, ready_reason, predicted_hours, actual_hours,
-#         path}], sorted by slug. Emits [] when there are no missions. predicted_hours/
-#         actual_hours are the raw frontmatter values ("" when unset) — the trend
-#         surface predict-duration.sh and /catch read.
+# Output: JSON array [{slug, title, status, assignee, owners, relation, strategy, next,
+#         checked, total, drive_authorized, ready, ready_reason, predicted_hours,
+#         actual_hours, path}], sorted by slug. Emits [] when there are no missions.
+#         predicted_hours/actual_hours are the raw frontmatter values ("" when unset) —
+#         the trend surface predict-duration.sh and /catch read.
 #
 # relation is the caller-centric partition the bare /mission view renders on:
-#   mine       — assignee equals the current git user.email (and the email is set)
-#   unassigned — assignee is empty (unclaimed; closer to the caller's business
-#                than a colleague's mission, so it shares the full treatment)
-#   others     — assigned to somebody else
-# It applies the same "not somebody else's" gate summary.sh and mission-lens.sh
-# inline, computed here so consumers partition without re-deriving it. Unlike
-# summary.sh this script never exits on a missing git email — the bare list
-# still shows everyone: an empty email just means nothing is "mine".
+#   mine       — the caller is among the mission's owners (and the email is set)
+#   unassigned — the mission has no owners (unclaimed; closer to the caller's
+#                business than a colleague's mission, so it shares the full treatment)
+#   others     — owned by somebody else (owners present, caller not among them)
+# Ownership is DERIVED through mission-owners.sh (the strategy's `assignees`, with
+# a legacy fallback to the mission's own `assignee`) — not read from the mission's
+# frontmatter here — so the same two-hop lives in exactly one place. `assignee` is
+# the FIRST derived owner ("" when unowned), aliased for back-compat; `owners` is
+# the full derived set. Unlike summary.sh this script never exits on a missing git
+# email — the bare list still shows everyone: an empty email just means nothing is
+# "mine".
 # next is the first unchecked ## Acceptance item (next-acceptance.sh; "" when
 # none) so the full-treatment tier can state each mission's next step.
 # strategy is the slug of the strategy this mission executes, read through the
@@ -81,11 +84,26 @@ for d in $DIRS; do
     slug=$(basename "$d")
     title=$(json_escape "$(fm_field "$f" title)")
     status=$(json_escape "$(fm_field "$f" status)")
-    raw_assignee=$(fm_field "$f" assignee)
-    assignee=$(json_escape "$raw_assignee")
-    if [ -z "$raw_assignee" ]; then
+    # Derived ownership (strategy assignees, legacy mission-assignee fallback) via the
+    # single oracle — never parsed here. owners is the full set; assignee aliases the
+    # first for back-compat; relation is the caller-centric partition.
+    owners_raw=$(sh "${SCRIPT_DIR}/mission-owners.sh" "$f" 2>/dev/null || true)
+    owners_json=""
+    first_owner=""
+    is_mine=0
+    for o in $owners_raw; do
+        [ -n "$first_owner" ] || first_owner="$o"
+        [ -n "$EMAIL" ] && [ "$o" = "$EMAIL" ] && is_mine=1
+        if [ -n "$owners_json" ]; then
+            owners_json="${owners_json},\"$(json_escape "$o")\""
+        else
+            owners_json="\"$(json_escape "$o")\""
+        fi
+    done
+    assignee=$(json_escape "$first_owner")
+    if [ -z "$owners_raw" ]; then
         relation="unassigned"
-    elif [ -n "$EMAIL" ] && [ "$raw_assignee" = "$EMAIL" ]; then
+    elif [ "$is_mine" -eq 1 ]; then
         relation="mine"
     else
         relation="others"
@@ -117,7 +135,7 @@ for d in $DIRS; do
     fi
     [ "$FIRST" -eq 1 ] || OUT="${OUT},"
     FIRST=0
-    OUT="${OUT}{\"slug\":\"${slug}\",\"title\":\"${title}\",\"status\":\"${status}\",\"assignee\":\"${assignee}\",\"relation\":\"${relation}\",\"strategy\":\"${strategy}\",\"next\":\"${next}\",\"checked\":${checked},\"total\":${total},\"drive_authorized\":\"$(json_escape "$drive_auth")\",\"ready\":${ready},\"ready_reason\":\"${ready_reason}\",\"predicted_hours\":\"${predicted}\",\"actual_hours\":\"${actual}\",\"path\":\"${f}\"}"
+    OUT="${OUT}{\"slug\":\"${slug}\",\"title\":\"${title}\",\"status\":\"${status}\",\"assignee\":\"${assignee}\",\"owners\":[${owners_json}],\"relation\":\"${relation}\",\"strategy\":\"${strategy}\",\"next\":\"${next}\",\"checked\":${checked},\"total\":${total},\"drive_authorized\":\"$(json_escape "$drive_auth")\",\"ready\":${ready},\"ready_reason\":\"${ready_reason}\",\"predicted_hours\":\"${predicted}\",\"actual_hours\":\"${actual}\",\"path\":\"${f}\"}"
 done
 OUT="${OUT}]"
 printf '%s\n' "$OUT"

@@ -49,6 +49,8 @@ const SCRIPTS = {
   commit: join(REPO_ROOT, "plugins/workaholic/skills/commit/scripts/commit.sh"),
   missionProgress: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/progress.sh"),
   missionList: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list.sh"),
+  missionOwners: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/mission-owners.sh"),
+  strategyReadAssignees: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/read-assignees.sh"),
   missionClose: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/close.sh"),
   appendChangelog: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/append-changelog.sh"),
   tickAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/tick-acceptance.sh"),
@@ -5872,20 +5874,31 @@ function testValidateMission() {
     writeFileSync(join(dir, rel), mission({ assignee: "assignee:" }));
     assertEq("validate-mission allows an EMPTY assignee (unclaimed is legal)", invoke(), 0);
 
-    // The assignee KEY itself must exist, even unstamped.
+    // Ownership no longer lives on the mission (2026-07-24): a scaffold with NO assignee
+    // key is legal — ownership is derived from the strategy the mission executes.
     writeFileSync(join(dir, rel), mission({ assignee: "title2: no-assignee-key" }));
-    assertEq("validate-mission rejects a mission missing the assignee key", invoke(), 2);
+    assertEq("validate-mission allows a scaffold with no assignee key (ownership is on the strategy)", invoke(), 0);
 
     // An UNSTAMPED scaffold with an empty strategy passes (link resolved later).
     writeFileSync(join(dir, rel), mission({ strategy: "strategy:" }));
     assertEq("validate-mission lets an unstamped mission with empty strategy pass", invoke(), 0);
 
     // drive_authorized: true — the full floor (now includes a non-empty strategy link).
+    // The strategy `agent-orchestrated-development` is unresolvable in this bare repo, so
+    // the authorized-owner floor falls back to the mission's own legacy `assignee`.
     const full = { stamp: " true", strategy: "strategy: agent-orchestrated-development", exp: "\nUsers see the thing happen.\n", acc: "\n- [ ] One\n" };
     writeFileSync(join(dir, rel), mission(full));
-    assertEq("validate-mission accepts a complete authorized mission", invoke(), 0);
+    assertEq("validate-mission accepts a complete authorized mission (legacy assignee is the owner)", invoke(), 0);
     writeFileSync(join(dir, rel), mission({ ...full, assignee: "assignee:" }));
-    assertEq("validate-mission rejects an authorized mission with no owner", invoke(), 2);
+    assertEq("validate-mission rejects an authorized mission with no owner (no strategy assignees, no legacy assignee)", invoke(), 2);
+
+    // Strategy-DERIVED ownership satisfies the floor even with an empty mission assignee:
+    // seed the linked strategy with an assignee and the authorized mission passes.
+    mkdirSync(join(dir, ".workaholic/strategies/active/agent-orchestrated-development"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/strategies/active/agent-orchestrated-development/strategy.md"),
+      "---\ntype: Strategy\nslug: agent-orchestrated-development\nstatus: active\nassignees: [owner@qmu.jp]\n---\n\n## Direction\n\n## Changelog\n");
+    writeFileSync(join(dir, rel), mission({ ...full, assignee: "assignee:" }));
+    assertEq("validate-mission accepts an authorized mission owned via its strategy's assignees", invoke(), 0);
     writeFileSync(join(dir, rel), mission({ ...full, strategy: "strategy:" }));
     assertEq("validate-mission rejects an authorized mission with no strategy link", invoke(), 2);
     writeFileSync(join(dir, rel), mission({ ...full, strategy: "strategy: []" }));
@@ -7567,6 +7580,65 @@ function testMonitorFrontLoads() {
   } finally { cleanup(dir); }
 }
 
+// ---------- strategy-level ownership: read-assignees + mission-owners (derived) ----------
+// Ownership moved to the strategy layer (2026-07-24). read-assignees.sh reads a strategy's
+// `assignees` (bare + list); mission-owners.sh derives a mission's owner two hops (strategy
+// assignees) with a legacy fallback to the mission's own `assignee`. list.sh's relation and
+// summary.sh's gate both read through mission-owners.sh, so the partition tracks the strategy.
+function testStrategyOwnership() {
+  const dir = makeRepo("main");
+  try {
+    execSync(`git checkout -q -b work-20260724-ownership`, { cwd: dir });
+    const A = "a@qmu.jp", B = "b@qmu.jp";
+    const wk = (p, body) => { mkdirSync(dirname(join(dir, p)), { recursive: true }); writeFileSync(join(dir, p), body); };
+    const owners = (mpath) => run(dir, `${POSIX_SH} ${SCRIPTS.missionOwners} ${mpath}`).stdout.split("\n").filter(Boolean);
+
+    // read-assignees.sh: list, bare, empty.
+    wk(".workaholic/strategies/active/dir-a/strategy.md", `---\ntype: Strategy\nslug: dir-a\nstatus: active\nassignees: [${A}, ${B}]\n---\n\n## Direction\n\n## Changelog\n`);
+    assertEq("read-assignees reads a list form",
+      run(dir, `${POSIX_SH} ${SCRIPTS.strategyReadAssignees} ${join(dir, ".workaholic/strategies/active/dir-a/strategy.md")}`).stdout.split("\n").filter(Boolean),
+      [A, B]);
+    wk(".workaholic/strategies/active/dir-solo/strategy.md", `---\ntype: Strategy\nslug: dir-solo\nstatus: active\nassignees: ${A}\n---\n\n## Direction\n\n## Changelog\n`);
+    assertEq("read-assignees reads a bare form",
+      run(dir, `${POSIX_SH} ${SCRIPTS.strategyReadAssignees} ${join(dir, ".workaholic/strategies/active/dir-solo/strategy.md")}`).stdout.split("\n").filter(Boolean),
+      [A]);
+    wk(".workaholic/strategies/active/dir-empty/strategy.md", `---\ntype: Strategy\nslug: dir-empty\nstatus: active\nassignees:\n---\n\n## Direction\n\n## Changelog\n`);
+    assertEq("read-assignees on an empty field yields nothing",
+      run(dir, `${POSIX_SH} ${SCRIPTS.strategyReadAssignees} ${join(dir, ".workaholic/strategies/active/dir-empty/strategy.md")}`).stdout.trim(), "");
+
+    // An archived strategy is still resolvable (ownership never dangles).
+    wk(".workaholic/strategies/archive/dir-arch/strategy.md", `---\ntype: Strategy\nslug: dir-arch\nstatus: retired\nassignees: [${B}]\n---\n\n## Direction\n\n## Changelog\n`);
+
+    // mission-owners.sh: strategy-derived, archived-strategy, no-assignees fallback, unlinked.
+    wk(".workaholic/missions/active/m-derived/mission.md", `---\ntype: Mission\nslug: m-derived\nstatus: active\nassignee:\nstrategy: dir-a\n---\n\n## Acceptance\n\n- [ ] X\n`);
+    assertEq("mission-owners derives owners from the linked strategy",
+      owners(join(dir, ".workaholic/missions/active/m-derived/mission.md")), [A, B]);
+    wk(".workaholic/missions/active/m-arch/mission.md", `---\ntype: Mission\nslug: m-arch\nstatus: active\nassignee:\nstrategy: dir-arch\n---\n\n## Acceptance\n\n- [ ] X\n`);
+    assertEq("mission-owners resolves an archived strategy (never dangles)",
+      owners(join(dir, ".workaholic/missions/active/m-arch/mission.md")), [B]);
+    wk(".workaholic/missions/active/m-fallback/mission.md", `---\ntype: Mission\nslug: m-fallback\nstatus: active\nassignee: ${A}\nstrategy: dir-empty\n---\n\n## Acceptance\n\n- [ ] X\n`);
+    assertEq("mission-owners falls back to the legacy assignee when the strategy has none",
+      owners(join(dir, ".workaholic/missions/active/m-fallback/mission.md")), [A]);
+    wk(".workaholic/missions/active/m-unowned/mission.md", `---\ntype: Mission\nslug: m-unowned\nstatus: active\nassignee:\nstrategy:\n---\n\n## Acceptance\n\n- [ ] X\n`);
+    assertEq("mission-owners yields nothing for an unlinked, unassigned mission",
+      owners(join(dir, ".workaholic/missions/active/m-unowned/mission.md")).length, 0);
+
+    // list.sh relation reads through mission-owners.sh: m-derived is B's business, not
+    // through any mission-local field — it has an empty assignee and B is a strategy co-owner.
+    execSync(`git config user.email ${B}`, { cwd: dir });
+    const lst = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
+    const byslug = Object.fromEntries(lst.map((m) => [m.slug, m]));
+    assertEq("list.sh relation: strategy co-owner sees the mission as mine",
+      byslug["m-derived"].relation, "mine");
+    assertEq("list.sh owners carries the full derived set",
+      byslug["m-derived"].owners, [A, B]);
+    assertEq("list.sh relation: unowned mission is unassigned",
+      byslug["m-unowned"].relation, "unassigned");
+    assertEq("list.sh relation: mission owned only by others",
+      byslug["m-fallback"].relation, "others");
+  } finally { cleanup(dir); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -7608,6 +7680,7 @@ const tests = [
   ["mission reflection append + list", testMissionReflection],
   ["mission duration predict + record", testMissionDuration],
   ["strategy artifact + skill (create/list/reader/retire/index)", testStrategyArtifact],
+  ["strategy-level ownership (read-assignees + mission-owners derived)", testStrategyOwnership],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission describes experience, gate is optional", testMissionExperienceSection],

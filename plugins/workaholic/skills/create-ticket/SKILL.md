@@ -173,6 +173,16 @@ Based on the history discovery subagent's `moderation` field:
 
 **Granularity note.** A ticket answers *what is this one change*; if a ticket you are about to write would essentially restate its **mission's** statement, that is the signal the mission is **under-sized** (a mission must be bigger than any one ticket) — surface that at creation rather than writing the duplicate. The full commit → ticket → mission → strategy discipline and its both-ways balance test live in `workaholic:mission`'s **Granularity** section; do not restate it here.
 
+### 4a. Requirements Elicitation — the *what*, before the plan (mandatory for user-facing work)
+
+Before scoping the ticket's Quality Gate (the *how*), make sure you actually understand **what** is being built. For a **user-facing** feature the developer holds requirements you cannot derive from the code or the ticket title — what a user must be able to *do*, what a **correct/good output looks like (ask for a concrete example)**, and the **real end-to-end workflow**. Elicit them with specific questions, not a generic "any feedback?". Three hard gates:
+
+- **A developer's invitation to ask is a hard gate.** If the developer signalled "ask me what you need", skipping the questions is a **planning defect**, not efficiency.
+- **A user-facing feature may not be spec'd from a title.** The ticket must encode what *usable* means for a real person — the agent's own later checks (artifact exists, tests pass) cannot see usability — so at least one acceptance criterion is phrased at the **user-experience level**.
+- **If the goal is not understood well enough to write verifiable, user-experience-level acceptance, the ticket is not ready** — keep eliciting; do not write a plan on a shallow understanding.
+
+This is **distinct from, and not silenced by, the decide-don't-ask rule** the execution phase follows (`rules/interaction.md`; `workaholic:drive`'s *When the gate is skipped*): that rule is about *how* to execute already-planned work and rightly says decide, do not offload. Requirements are the *what*, which the developer holds and you cannot derive — **decide the *how*, never assume the *what*.** A genuine requirements question is exactly the "developer holds information you cannot derive" fork the Recommended-label test never silences. For a purely internal/mechanical change with no user-facing surface, this step is usually a quick confirmation; for a user-facing one it is the highest-leverage part of the ticket.
+
 ### 4b. Quality Gate Interrogation (mandatory — always run)
 
 Before writing the ticket, **interrogate the developer about how the outcome's quality will be assured**, and record the answers as the ticket's mandatory `## Quality Gate` section. This step **always runs** — it is not skippable and is not gated on the request "seeming obvious." The point is to make the eventual `/drive` approval concrete: the developer should approve the implementation against a gate they pre-agreed, not a vague description.

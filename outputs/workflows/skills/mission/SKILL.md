@@ -210,13 +210,27 @@ The link is `strategy: <slug>` on `mission.md`, read back only through `strategy
 
 Before interrogating, read back what recent runs learned: `bash mission/scripts/list-reflections.sh` returns recent `## Reflection` entries across active and archived missions, newest first, each with its `blocked` / `leaked` / `front_load` bullets. Fold recurring **`front-load next:`** items into round 4's per-ticket pre-answers — a judgment call that leaked into a past night is exactly the question the next mission should pre-answer rather than meet again in the dark (`development` / `overnight-ai`). This closes the loop: planning quality is measured by how few judgment calls leak into the night, and the reflections are the record of which ones did.
 
+### Elicit the requirements first — the *what*, before any plan (the highest-leverage gate)
+
+**Plan quality gates everything. No amount of downstream verification rescues a plan built on a wrong understanding of the goal** — an unattended run faithfully amplifies a shallow plan into hours of unusable output, and "the artifact exists / the tests pass" cannot see whether the *thing itself* was the wrong thing. So the first job of the interrogation is not the ticket set; it is to **draw out of the developer the requirements the agent cannot derive** from the code, the ticket title, or the repo: what a user must actually be able to *do*, what a **correct/good output looks like (ask for a concrete example)**, and the **real end-to-end workflow**. Ask specific, concrete questions about the actual unknowns the plan depends on — never a generic "any feedback?".
+
+This is a distinct discipline from the **decide-don't-ask** rule the execution phase follows (`drive`'s *When the gate is skipped*, `monitor` §1): that rule governs **execution-time decidable choices** (which fixable failure to retry, finalize-now vs. push) — the *how* — and rightly says decide, do not offload. **Requirements elicitation is the opposite case: the *what*, which the developer holds and the agent cannot derive.** Decide the *how*; never assume the *what*. The two do not conflict once separated, and the decide-don't-ask rule must not be over-read into "don't elicit requirements."
+
+Three hard gates on this step:
+
+- **A developer's invitation to ask is a hard gate.** If the developer signals "ask me what you need to firm this up", failing to ask is a **planning defect**, not efficiency — the one time the elicitation is most owed is exactly when it was invited.
+- **A user-facing feature may not be planned from a title.** The plan must encode what *usable* means for a real person, because the agent's own checks cannot see usability. For user-facing work, require an **example of a good output** and a **walked end-to-end workflow** before the plan is committed.
+- **If the goal is not yet understood well enough to write verifiable, user-experience-level `## Acceptance` criteria, the plan is not ready** — keep eliciting; do not start building. Long autonomous execution on an un-elicited plan is the anti-pattern this gate exists to prevent (`planning`; `development` / `overnight-ai`).
+
+Every genuine requirements question is a legitimate the agent's selection prompt — it is precisely the "developer holds information you cannot derive" fork the Recommended-label test never silences (`rules/interaction.md`).
+
 ### The rounds
 
 1. **Direction** — the business "why", the outcome pursued, and what is explicitly out of scope. → `## Goal`, `## Scope`
-2. **The demanded experience** — the user experience, the behavior required, and/or the overall structure. This is the mission's substance: what the thing *does*. Keep it observable. → `## Experience`
+2. **The demanded experience** — the user experience, the behavior required, and/or the overall structure, **elicited per the gate above** (for user-facing work: the concrete example of a good output and the walked workflow, not a title-level guess). This is the mission's substance: what the thing *does*. Keep it observable, at the user-experience level. → `## Experience`
 3. **The ticket set** — how many tickets, what each covers, and the `depends_on` order. **This is the round nobody asked before, and it is the one that matters most**: "more of a plan or tickets" is what makes a mission complete.
 4. **Per-ticket pre-answers** — everything `create-ticket` §4b would ask later, asked now, per ticket in the set: acceptance criteria, verification method, the gate that must pass.
-5. **Acceptance** — one `## Acceptance` item per criterion, each naming the ticket that satisfies it.
+5. **Acceptance** — one `## Acceptance` item per criterion, each naming the ticket that satisfies it. **For user-facing work, at least one criterion must be phrased at the user-experience level** (what a person can do / what the output looks like), not only "artifact exists / tests pass".
 
 **Do not interrogate the mission gate.** `gate_*` is optional and normally empty (see *Quality gate*). Ask only if the developer volunteers a stable, objective outcome check; never treat its absence as an unfinished mission.
 

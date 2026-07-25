@@ -3,9 +3,9 @@ created_at: 2026-07-24T09:30:37+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Domain]
-effort:
+effort: 4h
 commit_hash:
-category:
+category: Changed
 depends_on: [20260724093036-group-mission-roadmap-by-strategy.md]
 mission:
 ---
@@ -101,3 +101,20 @@ Decided: hermetic suite only — every touched surface is scripts/hooks/prose wi
 - Hooks (`mission-lens.sh`, `validate-mission.sh`) have no outputs/ footprint — do not expect them in the rebuild; mission and ship skills DO rebuild (`scripts/build-plugins/build.mjs` DEFAULT_TARGETS).
 - The strategy skill becomes part of two built closures; its scripts must stay self-containable (no `${CLAUDE_PLUGIN_ROOT}` inside scripts, `${SCRIPT_DIR}` relative refs only) (`scripts/build-plugins/script-ref-patterns.mjs`).
 - `retire.sh` moves a strategy to `archive/` with its `assignees` intact; `mission-owners.sh` must search both `strategies/active/` and `strategies/archive/` so archived strategies never dangle ownership (`plugins/workaholic/skills/strategy/scripts/retire.sh`).
+
+## Final Report
+
+Development completed as planned, with one recorded deviation. Ownership now lives on the strategy (`assignees`, a co-ownable list) and every consumer derives a mission's owner through the new single oracle `mission-owners.sh` (strategy `assignees` via `read-assignees.sh`, with a legacy fallback to the mission's own `assignee`). All six consumers were re-keyed (`list.sh` relation + new `owners` array, `summary.sh`, `mission-lens.sh`, `preflight.sh`, `validate-mission.sh`'s authorized floor, and `ship`'s concern-lane owner via a Python subprocess call), the live strategy was seeded, and every doctrine document was rewritten. Verified: `node scripts/test-workflow-scripts.mjs` 1316 passed / 0 failed (12 new assertions covering read-assignees, the four mission-owners derivation cases, the list.sh relation partition, and the validate-mission floor including the strategy-derived-owner path); `build.mjs` + `verify.mjs` clean with the mission/ship/report closures regenerated self-contained; `validate-metadata.mjs` valid; posix-lint conforming on all ten touched/new scripts; layout-doctor conforming.
+
+**Decided (deviation from Key Files' "create.sh writes no assignee"):** `mission/scripts/create.sh` writes an **empty** `assignee:` value rather than omitting the key. The key stays as the schema's legacy-fallback slot (an unlinked or pre-`assignees` mission can still carry an explicit owner there), and an empty value derives exactly the same "no mission-stored owner" as an absent key would. Functionally identical to the acceptance criterion; the choice preserves schema stability. Recorded per decide-and-record (`rules/interaction.md`).
+
+### Discovered Insights
+
+- **Insight**: The legacy fallback made the migration almost entirely non-breaking — every pre-existing mission/summary/lens test kept passing untouched.
+  **Context**: Those fixtures carry `assignee: X` and no strategy link, so `mission-owners.sh` falls through to the legacy field and reproduces the old classification exactly. Only the one test that asserted the *removed* assignee-key floor needed changing. A hard cutover would have forced a rewrite of dozens of fixtures and orphaned every other repo's missions; the fallback is what keeps the change safe to ship.
+- **Insight**: The two-hop resolver derives its `.workaholic` root from the mission file path (`${FILE%%/missions/*}`), which is what lets one script serve main-tree relative paths, absolute worktree paths, and the `/monitor` pre-flight's cross-worktree reads without any caller passing a root.
+  **Context**: Ownership consumers run in wildly different cwd contexts (repo root, a mission worktree, a `/drive` worktree, the hook sandbox). Anchoring the strategy lookup to the mission's own tree means a mission always resolves its strategy in the same checkout it lives in, so a worktree that hasn't merged its strategy still resolves ownership correctly.
+- **Insight**: A prose mention of `monitor/scripts/preflight.sh` in a *built* skill's SKILL.md tripped `verify.mjs`, because the build's script-ref detector cannot tell a runnable path from a doc reference, and `monitor` is Claude-only (never bundled).
+  **Context**: Any built skill (mission, ship, report, drive, catch, create-ticket) must refer to non-bundled skills like `monitor` by name (`/monitor`), never by their `<skill>/scripts/<file>.sh` path, or the outputs-freshness verifier fails. This is a standing constraint on documentation inside built skills, not a one-off.
+- **Insight**: This is a genuine granularity change, not just a field move — ownership is now **per-strategy**, so a strategy's co-owners each see all of its missions as theirs, and claiming one mission (joining the strategy's `assignees`) claims the strategy's other missions too.
+  **Context**: This is the intended consequence of the developer's ruling that ownership is a property of *direction*, not of an individual plan. It is documented plainly in the mission skill's *Ownership* section and the `/monitor` Scope so a future reader does not mistake it for a bug. Per-mission assignment is no longer expressible; that is by design.

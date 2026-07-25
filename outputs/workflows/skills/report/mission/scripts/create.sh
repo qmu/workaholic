@@ -7,8 +7,12 @@
 # existing mission in either area (active/ or archive/).
 #
 # Usage: create.sh "<title>" [assignee]
-#   assignee defaults to the creator's git user.email (self-assignment). Pass a
-#   second argument to assign the mission to a different user id / email.
+#   Ownership is NOT stored on the mission any more (2026-07-24) — it is DERIVED from the
+#   `assignees` of the strategy this mission executes (mission/scripts/mission-owners.sh),
+#   resolved in the Creation Interrogation's Strategy step. So the scaffold leaves
+#   `assignee:` EMPTY. The optional second argument still seeds the mission's own
+#   `assignee` when a caller wants an explicit legacy fallback (e.g. an unlinked mission),
+#   but the default is unowned-until-strategy-linked, not self-assigned.
 # Output: JSON {created, slug, path[, reason]}
 
 set -eu
@@ -42,10 +46,10 @@ META=$(sh "${SCRIPT_DIR}/../../gather/scripts//ticket-metadata.sh")
 CREATED_AT=$(printf '%s\n' "$META" | grep '"created_at"' | sed -e 's/.*: *"//' -e 's/".*//')
 AUTHOR=$(printf '%s\n' "$META" | grep '"author"' | sed -e 's/.*: *"//' -e 's/".*//')
 
-# Self-assignment by default: the assignee is the creator unless an explicit one
-# was passed. The mission lens (hooks/mission-lens.sh) surfaces a mission only to
-# the git user whose email matches this field.
-ASSIGNEE="${ASSIGNEE_ARG:-$AUTHOR}"
+# No self-assignment: ownership is derived from the strategy this mission executes
+# (resolved in the interrogation), so the scaffold leaves `assignee` EMPTY unless a
+# caller explicitly seeds a legacy fallback via the optional second argument.
+ASSIGNEE="${ASSIGNEE_ARG:-}"
 
 mkdir -p "$MISSION_DIR"
 cat > "$MISSION_FILE" <<EOF

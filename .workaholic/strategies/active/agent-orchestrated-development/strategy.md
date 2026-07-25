@@ -5,6 +5,7 @@ slug: agent-orchestrated-development
 status: active
 created_at: 2026-07-21T03:35:56+09:00
 author: a@qmu.jp
+assignees: [a@qmu.jp]
 ---
 
 # Agent-orchestrated development
@@ -22,3 +23,4 @@ This is direction, not a finish line: there is no state in which "agent-orchestr
 ## Changelog
 
 - 2026-07-21 — strategy created — strategy.md
+- 2026-07-24 — assignees seeded (ownership moved to the strategy layer) — strategy.md

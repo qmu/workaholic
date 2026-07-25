@@ -2,7 +2,7 @@
 created_at: 2026-07-24T09:43:04+09:00
 author: a@qmu.jp
 type: enhancement
-layer: [Docs]
+layer: [Config]
 effort: 2h
 commit_hash:
 depends_on:
@@ -52,6 +52,41 @@ repository rather than being decided ad hoc in each consumer.
   plugin distributes) that flags a build target or script which starts a
   long-running server bound to a **non-loopback** interface without a container,
   so violations are caught mechanically rather than only in review.
+
+## Status — BLOCKED on external authoring (developer ruling, 2026-07-26)
+
+Triaged during a `/drive` on 2026-07-26. The developer ruled that this is **real company engineering policy** whose canonical home is a **qmu.co.jp article**: the operation policies in this repo (`plugins/workaholic/skills/operation/policies/`) are **English hard copies mirrored from qmu.co.jp** — "the published article is the source of truth; the local copy is how this platform and our website share the same knowledge" (operation `SKILL.md`) — and a standards-sync controller refreshes them. Authoring a new ruling directly in `policies/` here would be clobbered by sync and would carry a `source:` link to an article that does not exist.
+
+**Therefore the substantive ruling must be authored as a canonical qmu.co.jp article first, then synced into this repo.** That authoring is outside this repository and outside an in-repo agent's reach, so the ticket is **blocked** here — it is not abandoned, and stays queued. Once the canonical article exists and syncs, the local hard copy lands automatically; the *optional* mechanical guard (a hook flagging a long-running server bound to a non-loopback interface without a container) can then be specced as its own follow-up ticket against the published rule.
+
+Do **not** re-attempt authoring the policy prose in `policies/` from this repo — that path was considered and rejected (the mirror model). The next action is external: write the qmu.co.jp article.
+
+## Policies
+
+The standard engineering policies that govern this ticket. Because the deliverable *is* an operation-policy ruling, the relevant pillar is operation itself — but see the Status above: the canonical text is authored at qmu.co.jp, not in these hard copies.
+
+- `workaholic:operation` — the ruling clarifies operation/runtime policy (which server classes must run in a container vs. an allowed loopback-only ephemeral developer preview); this repo carries the synced hard copy, not the authoring surface
+- `workaholic:implementation` / `policies/objective-documentation.md` — whatever text lands (canonically, then here) must state the rule and its carve-out in verifiable terms (bound interface, longevity, external traffic), not aspirationally
+
+## Quality Gate
+
+**Blocked — not implementable in this repository (see Status).** The acceptance below is recorded for whoever picks this up after the canonical article exists; it is not satisfiable by an in-repo change now.
+
+Decided: authored at qmu.co.jp first, then synced — the developer's ruling (2026-07-26). Editing the synced mirror or minting a local policy file was rejected as it contradicts the source-of-truth model (developer's choice; not overridable here without re-opening that ruling).
+
+**Acceptance criteria** — the checkable conditions that must hold (post-authoring):
+
+- [ ] The operation policy states, in writing, which long-running / traffic-serving server classes must run in a container (or equivalent isolation boundary), and the explicit loopback-only, ephemeral developer-preview carve-out.
+- [ ] The line is stated in verifiable terms — bound interface (loopback vs. non-loopback / publicly reachable), longevity (ephemeral vs. persistent), and whether real/external traffic is served.
+- [ ] (Optional follow-up) A mechanical guard flags a build target/script that starts a long-running server bound to a non-loopback interface without a container, without blocking a harmless loopback preview.
+
+**Verification method** — the commands/tests/probes that prove them:
+
+- Once synced: the operation `policies/` hard copy carries the rule and its `source:` links to the published qmu.co.jp article; the optional guard (if built) has hermetic tests in `scripts/test-workflow-scripts.mjs`.
+
+**Gate** — what must pass before approval:
+
+- The canonical qmu.co.jp article exists and has synced into this repo; only then is the local change reviewable. Until then this ticket stays queued, blocked.
 
 ## Considerations
 

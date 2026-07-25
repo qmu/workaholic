@@ -2,8 +2,8 @@
 created_at: 2026-07-24T17:11:59+09:00
 author: a@qmu.jp
 type: enhancement
-layer: [Docs]
-effort: 2h
+layer: [Domain]
+effort: 1h
 commit_hash:
 category: Changed
 depends_on:
@@ -54,16 +54,46 @@ The standard engineering policies — synced from the corporate site into the `w
 - `plugins/workaholic/skills/monitor/SKILL.md` and `plugins/workaholic/commands/monitor.md` — the "front-load decisions / don't ask mid-run" language must explicitly carve out that planning-time requirements elicitation is mandatory and separate from execution-time decidable choices; an unattended run must not begin on a plan that was never elicited.
 - The sibling guidance on not offloading decidable choices — cross-reference it so the distinction (decide the *how*, never assume the *what*) is stated in both places.
 
-## Acceptance Criteria
+## Quality Gate
 
-- [ ] The planning guidance requires the agent to actively elicit the developer's requirements (what a user must do, an example of a good output, the real workflow) before a plan/ticket is committed — with concrete questions, not a generic "any feedback?".
-- [ ] Guidance states plainly that a developer's invitation to ask questions is a hard gate: not asking is a planning defect.
-- [ ] Guidance forbids committing a plan for a user-facing feature whose acceptance cannot be written at the user-experience level; if the goal is not understood well enough for that, elicitation continues and building does not start.
-- [ ] The monitor/execution guidance carves out planning-time elicitation as mandatory and distinct from execution-time decidable choices, cross-referencing the sibling ticket so "don't ask" is not read to mean "don't elicit requirements."
-- [ ] `commands/monitor.md` and `skills/monitor/SKILL.md` agree, and the mission/create-ticket skills agree with them.
+This ticket predates the mandatory `## Quality Gate` section; its original `## Acceptance Criteria` list is preserved verbatim below as the acceptance criteria, with the verification method and gate recorded at drive time (2026-07-26).
+
+Decided: documentation-only verification — the change is guidance across the planning/execution skills with no runtime script, so the hermetic suite plus build/verify/metadata is the whole provable surface (developer may override at /drive).
+Decided: the elicitation gate is placed in the mission Creation Interrogation (a new *Elicit the requirements first* subsection), a new create-ticket §4a, and the drive/monitor decide-don't-ask blocks — reusing the sibling ticket's own anchors so "decide the *how*, never assume the *what*" is stated at every seam that carries the "don't offload" rule (developer may override at /drive).
+
+**Acceptance criteria** — the checkable conditions that must hold:
+
+- [x] The planning guidance requires the agent to actively elicit the developer's requirements (what a user must do, an example of a good output, the real workflow) before a plan/ticket is committed — with concrete questions, not a generic "any feedback?".
+- [x] Guidance states plainly that a developer's invitation to ask questions is a hard gate: not asking is a planning defect.
+- [x] Guidance forbids committing a plan for a user-facing feature whose acceptance cannot be written at the user-experience level; if the goal is not understood well enough for that, elicitation continues and building does not start.
+- [x] The monitor/execution guidance carves out planning-time elicitation as mandatory and distinct from execution-time decidable choices, cross-referencing the sibling ticket so "don't ask" is not read to mean "don't elicit requirements."
+- [x] `commands/monitor.md` and `skills/monitor/SKILL.md` agree, and the mission/create-ticket skills agree with them.
+
+**Verification method** — the commands/tests/probes that prove them:
+
+- `node scripts/test-workflow-scripts.mjs` — the hermetic suite (the mission/create-ticket/drive skills are built, so their regeneration is exercised).
+- `node scripts/build-plugins/build.mjs` then `node scripts/build-plugins/verify.mjs` — mission and create-ticket are built skills and must regenerate self-contained.
+- `node scripts/build-plugins/validate-metadata.mjs` and `bash plugins/workaholic/hooks/layout-doctor.sh .`
+
+**Gate** — what must pass before approval:
+
+- Suite green, outputs/ rebuilt and fresh, metadata valid, layout conforming, and the planning (mission/create-ticket) and execution (drive/monitor) guidance agreeing that the *what* is elicited and the *how* is decided.
+
+**Result (2026-07-26):** all five criteria met — see the Final Report below.
 
 ## Considerations
 
 - This narrows and corrects, it does not reverse, the sibling "don't offload decidable choices" change: decide the *how* autonomously, but never assume the *what* — elicit it.
 - Keep the mandatory gates intact (the single verbatim confirmation before writing to another repo; authorization before irreversible outward actions).
 - The concrete symptom that motivated this — hours of autonomous work producing an unusable user-facing result — is downstream of an un-elicited plan; the durable fix is at planning, not at post-hoc verification (though verifying real user-facing content, not artifact existence, remains its own necessary discipline).
+
+## Final Report
+
+Development completed as planned. The *what*-vs-*how* line is now stated at every seam that carries the sibling "don't offload decidable choices" rule: a new **Elicit the requirements first** gate opens the mission Creation Interrogation (three hard gates — an invitation to ask is a hard gate; no planning a user-facing feature from a title; keep eliciting until UX-level acceptance is writable), a new **§4a Requirements Elicitation** precedes create-ticket's Quality-Gate interrogation, and the decide-don't-ask blocks in `drive/SKILL.md`, `monitor/SKILL.md`, and `commands/monitor.md` each carve out that they govern execution-time choices only. Round 2 and the Acceptance round of the mission interrogation now require a user-experience-level criterion for user-facing work. Verified: `node scripts/test-workflow-scripts.mjs` 1316 passed / 0 failed; `build.mjs` + `verify.mjs` clean (mission and create-ticket are built skills and regenerated self-contained); `validate-metadata.mjs` valid; layout conforming.
+
+### Discovered Insights
+
+- **Insight**: This ticket and its sibling (reserve prompts for developer-only rulings) are two halves of one rule that reads as a contradiction unless both name the *what*/*how* axis explicitly.
+  **Context**: "Don't offload decidable choices" and "always elicit requirements" collide precisely because both are about *when to ask the developer*. The reconciliation is not a priority ordering but a domain split: execution-time *how* (decide) vs. planning-time *what* (elicit). Stating that axis at every anchor that carries the "don't offload" rule is what stops a future reader from over-reading either one — the sibling had already over-rotated into skipping requirements once.
+- **Insight**: The elicitation gate belongs at the *top* of the interrogation, before the ticket-set round, because the failure it prevents is a plan whose ticket set was already wrong.
+  **Context**: The mission interrogation's most-valued round is the ticket set (round 3), but a ticket set decomposed from an un-elicited goal is confidently wrong at scale. Placing the requirements gate ahead of the rounds — not inside the QA interrogation (§4b, which is about the *how*) — is what makes "plan quality gates everything" structural rather than aspirational.

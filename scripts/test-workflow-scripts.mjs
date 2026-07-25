@@ -806,6 +806,23 @@ concerns: []
       { status: la.status, assignee: la.assignee, checked: la.checked, total: la.total },
       { status: "active", assignee: A, checked: 1, total: 2 });
 
+    // ---- strategy field: grouped bare-/mission view reads it, not inline parse ----
+    // list.sh must carry each mission's strategy slug (via read-strategy-relation.sh),
+    // "" when unlinked, so the bare view groups by strategy with an "unlinked" bucket.
+    assertEq("list.sh reports \"\" strategy for an unlinked mission", la.strategy, "");
+    mkdirSync(join(dir, ".workaholic/strategies/active/roadmap-direction"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/strategies/active/roadmap-direction/strategy.md"),
+      `---\ntype: Strategy\ntitle: Roadmap Direction\nslug: roadmap-direction\nstatus: active\n---\n\n# Roadmap Direction\n\n## Direction\n\n## Changelog\n`);
+    const mLinkedDir = join(dir, ".workaholic/missions/active/mission-linked");
+    mkdirSync(mLinkedDir, { recursive: true });
+    writeFileSync(join(mLinkedDir, "mission.md"),
+      `---\ntype: Mission\ntitle: Mission Linked\nslug: mission-linked\nstatus: active\nauthor: ${A}\nassignee: ${A}\nstrategy: roadmap-direction\n---\n\n# Mission Linked\n\n## Acceptance\n\n- [ ] Linked criterion (#x.md)\n\n## Changelog\n`);
+    const lLinked = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
+    assertEq("list.sh reports the strategy slug for a linked mission",
+      lLinked.find((m) => m.slug === "mission-linked").strategy, "roadmap-direction");
+    assertEq("list.sh strategy stays \"\" for still-unlinked missions",
+      lLinked.find((m) => m.slug === "mission-a").strategy, "");
+
     // Empty git email degrades: nothing is "mine", everyone still listed, no error
     // (unlike summary.sh, the bare list must not require an identity).
     execSync(`git config user.email ""`, { cwd: dir });
@@ -813,7 +830,7 @@ concerns: []
     assertEq("list.sh succeeds with an empty git email", lNone.status, 0);
     const relNone = Object.fromEntries(JSON.parse(lNone.stdout).map((m) => [m.slug, m.relation]));
     assertEq("empty email: assigned missions classify as others, unassigned stays unassigned",
-      relNone, { "mission-a": "others", "mission-b": "others", "mission-free": "unassigned", "mission-old": "others" });
+      relNone, { "mission-a": "others", "mission-b": "others", "mission-free": "unassigned", "mission-linked": "others", "mission-old": "others" });
 
     // ---- planning-session readiness: ready / ready_reason (additive) ----
     // The bare /mission planning session drives its replan loop off `ready`.

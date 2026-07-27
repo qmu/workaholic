@@ -81,15 +81,15 @@ if [ -n "$common_dir" ] && [ -d "$common_dir" ]; then
 else
     repo_root="$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
 fi
-env_file="${repo_root}/.worktrees/${slug}/.env"
-port_base=""
-dev_port=""
-docs_port=""
-if [ -f "$env_file" ]; then
-    port_base=$(grep -m1 '^WORKAHOLIC_PORT_BASE=' "$env_file" | sed -e 's/^WORKAHOLIC_PORT_BASE=//' || true)
-    dev_port=$(grep -m1 '^WORKAHOLIC_DEV_PORT=' "$env_file" | sed -e 's/^WORKAHOLIC_DEV_PORT=//' || true)
-    docs_port=$(grep -m1 '^WORKAHOLIC_DOCS_PORT=' "$env_file" | sed -e 's/^WORKAHOLIC_DOCS_PORT=//' || true)
-fi
+# The WORKAHOLIC_* port vars live in the worktree's root .env (root-env projects) OR in a
+# separate .env.worktree (subdir-env / no-env projects, where the creator writes them apart
+# rather than fabricating a root .env — see create-mission-worktree.sh). Read from both, so
+# the port resolves regardless of the project's env layout; grep -h across both files and
+# take the first match of each var.
+wt_dir="${repo_root}/.worktrees/${slug}"
+port_base=$(grep -hm1 '^WORKAHOLIC_PORT_BASE=' "${wt_dir}/.env" "${wt_dir}/.env.worktree" 2>/dev/null | head -n1 | sed -e 's/^WORKAHOLIC_PORT_BASE=//' || true)
+dev_port=$(grep -hm1 '^WORKAHOLIC_DEV_PORT=' "${wt_dir}/.env" "${wt_dir}/.env.worktree" 2>/dev/null | head -n1 | sed -e 's/^WORKAHOLIC_DEV_PORT=//' || true)
+docs_port=$(grep -hm1 '^WORKAHOLIC_DOCS_PORT=' "${wt_dir}/.env" "${wt_dir}/.env.worktree" 2>/dev/null | head -n1 | sed -e 's/^WORKAHOLIC_DOCS_PORT=//' || true)
 
 # Can the gate actually be exercised? `valid` only ever meant "the declaration is
 # well-formed", so a live-app gate with no resolvable port reported valid: true while

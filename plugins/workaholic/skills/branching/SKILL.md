@@ -190,15 +190,15 @@ Output: `{"cleaned": true, "worktree_path": "<path>", "branch": "<branch-name>",
 
 A **mission** runs in a dedicated, persistent worktree keyed by a **descriptive slug directory** — `.worktrees/<mission-slug>/` (e.g. `.worktrees/real-time-notifications/`), *not* a `work-*` directory. The branch checked out inside is still an ordinary `work-YYYYMMDD-HHMMSS` branch (the branch-name invariant is preserved); only the directory carries the mission's name. The worktree persists across many branches (each cut from `main`, merged, and re-cut) and is removed only when the mission is closed.
 
-Create a mission worktree — cuts a fresh `work-*` branch off the base (default `main`) into `.worktrees/<slug>/` and copies the root `.env` in. The base is **resolved to a concrete commit SHA** (local ref, else `origin/<base>`) before it reaches `git worktree add`, so git's remote-tracking DWIM can never silently discard the `-b` and land the worktree on the base branch itself (the desk / fresh-clone state where no local `main` exists); the reported `branch` is then **read back from the worktree's real HEAD**, so it is an observation, not a restatement of intent:
+Create a mission worktree — cuts a fresh `work-*` branch off the base (default `main`) into `.worktrees/<slug>/` and carries **every env file the project reads** in (see *Credentials* below — not the root `.env` by assumption). The base is **resolved to a concrete commit SHA** (local ref, else `origin/<base>`) before it reaches `git worktree add`, so git's remote-tracking DWIM can never silently discard the `-b` and land the worktree on the base branch itself (the desk / fresh-clone state where no local `main` exists); the reported `branch` is then **read back from the worktree's real HEAD**, so it is an observation, not a restatement of intent:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create-mission-worktree.sh <slug> [base-branch]
 ```
 
-Output: `{"worktree_path": "<path>", "branch": "work-YYYYMMDD-HHMMSS", "slug": "<slug>", "port_base": N, "dev_port": N, "docs_port": N+1}`. Errors on a missing/invalid slug, a non-git dir, an existing worktree, a base that resolves to no commit, or a created worktree whose HEAD disagrees with the minted branch (never an exit-0 JSON on a wrong-branch worktree).
+Output: `{"worktree_path": "<path>", "branch": "work-YYYYMMDD-HHMMSS", "slug": "<slug>", "port_base": N, "dev_port": N, "docs_port": N+1, "env_files_carried": ["<rel path>", …], "port_env_file": ".env"|".env.worktree"}`. `env_files_carried` names every env file copied in (an **empty** array says "no project env file was found" explicitly — the provisioning tell a caller reads at creation time rather than inferring hours later from a failed run); `port_env_file` names where the port vars landed. Errors on a missing/invalid slug, a non-git dir, an existing worktree, a base that resolves to no commit, or a created worktree whose HEAD disagrees with the minted branch (never an exit-0 JSON on a wrong-branch worktree).
 
-Each mission worktree is assigned a **unique local port base** (via `allocate-worktree-port.sh` below) written into its `.env` as `WORKAHOLIC_PORT_BASE`/`WORKAHOLIC_DEV_PORT`/`WORKAHOLIC_DOCS_PORT`, so several worktrees can run dev/docs servers at once without colliding on `localhost` (and each can be driven/verified independently, e.g. via Playwright). A project's serve scripts read these variables with their own env precedence; workaholic supplies the unique numbers and the convention, not the servers.
+Each mission worktree is assigned a **unique local port base** (via `allocate-worktree-port.sh` below) written as `WORKAHOLIC_PORT_BASE`/`WORKAHOLIC_DEV_PORT`/`WORKAHOLIC_DOCS_PORT`, so several worktrees can run dev/docs servers at once without colliding on `localhost` (and each can be driven/verified independently, e.g. via Playwright). The port vars go into the carried **root** `.env` when the project has one (so its serve scripts read them with their own env precedence, as before); when the project keeps **no** root `.env`, they go into a separate `.env.worktree` — **never** a fabricated bare root `.env`, which is the artifact that once made a credential-less worktree look provisioned. A project's serve scripts read these variables; workaholic supplies the unique numbers and the convention, not the servers.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/allocate-worktree-port.sh
@@ -220,12 +220,21 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/reset-mission-worktree.sh <s
 
 `list-all-worktrees.sh` tags a `.worktrees/<slug>` worktree with `"type": "mission"` (ordinary `work-*` dirs stay `"type": "work"`), so `/ship` and the mission lens can distinguish a mission worktree from a drive/trip one. `create-mission-worktree.sh` also adds `.worktrees/` to `.git/info/exclude` so a linked worktree is never accidentally embedded as a gitlink by a main-tree `git add -A`.
 
-## Credentials — root `.env`
+## Credentials — carry every env file the project reads
 
-Development credentials live in **one** git-ignored `.env` at the repository root — the single credential source (not per-package, not per-worktree-authored). When working with worktrees, treat the `.env` as something to carry along:
+Development credentials live in git-ignored env file(s). **Do not assume they live only at the repository root** — many projects keep the runnable unit in a subdirectory whose tooling loads `<package>/.env` *relative to that package*, so the file the project actually reads is not `<repo-root>/.env`. Worktree creation must carry the files the project reads, because `git worktree add` alone never brings a git-ignored file along, and env loaders (e.g. `node --env-file-if-exists`) **fail silently** on a missing file — a worktree missing the real env file looks fine and reports "no credentials" as a plausible, durable, wrong finding.
 
-- **New worktrees carry it automatically.** `ensure-worktree.sh` **copies** the root `.env` into each worktree it creates (a *copy*, not a symlink — so worktrees diverge credentials independently), and silently skips the copy when the root has no `.env`. A branch created in the main tree via `create.sh` already sits beside the root `.env`, so no copy is needed there.
-- **Pre-existing / externally-created worktrees need a manual copy.** A worktree that predates this convention, or was created outside `ensure-worktree.sh`, has **no** `.env` — before it can serve or authenticate, copy it in: `cp <repo-root>/.env .env`. Bring the `.env` along as a matter of judgment, not only when `ensure-worktree.sh` happens to run.
+**A project declares its env layout in a repo-root `.worktree-env` file** — one repo-relative path per line (blank lines and `#` comments ignored). When present it is authoritative (a declaration cannot be wrong the way a heuristic can). When **absent**, the default is backward-compatible: the root `.env` **plus** any git-ignored file basenamed `.env` in a subdirectory (discovered so a subdir-env project works without a declaration). Example `.worktree-env`:
+
+```
+# the env files this project actually reads
+app/.env
+config/secrets.env
+```
+
+- **New worktrees carry them automatically.** Both creators — `create-mission-worktree.sh` (mission worktrees) and `ensure-worktree.sh` (drive/trip worktrees) — call the **one shared carrier** (`lib/carry-worktree-env.sh`, so they cannot drift), which **copies** each declared/discovered env file to the same relative path in the new worktree (a *copy*, not a symlink — worktrees diverge credentials independently) and reports `env_files_carried`. A branch created in the main tree via `create.sh` already sits beside the project's env files, so no copy is needed there.
+- **An empty carry is a provisioning finding, not a fact.** When `env_files_carried` is empty, the worktree holds none of the project's credentials — before recording any "missing credentials" conclusion, confirm the env files exist where the project reads them (declare them in `.worktree-env` if the default did not find them). A credential-shortfall claim from inside a worktree that was never provisioned is the false finding this convention exists to prevent (`workaholic:drive` §3a, `workaholic:development` / `overnight-ai`).
+- **Pre-existing / externally-created worktrees may need a manual copy.** A worktree that predates this convention, or was created outside the creators, may hold none of the env files — before it can serve or authenticate, copy the project's env file(s) in as a matter of judgment.
 
 The cleanup side is symmetric: `/trip`'s worktree teardown **preserves** git-ignored files like `.env` when syncing a worktree back (see `workaholic:trip-protocol`).
 

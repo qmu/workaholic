@@ -1798,6 +1798,73 @@ function testMissionWorktreePrimitive() {
   } finally { cleanup(dir3); }
 }
 
+// ---------- worktree env-file carrying (root / subdir / none / declaration) ----------
+// Worktree creation must carry EVERY env file the project reads, not the root one by
+// assumption -- a subdir-env project got a credential-less worktree that failed silently
+// and disguised itself as a "no credentials" finding. Cover all three layouts plus a
+// `.worktree-env` declaration, asserting on the reported JSON as well as the files.
+function testWorktreeEnvCarry() {
+  const dir = makeRepo("main");
+  try {
+    writeFileSync(join(dir, ".gitignore"), ".env\napp/.env\nconfig/secrets.env\n");
+    execSync(`git add .gitignore && git commit -q -m gitignore`, { cwd: dir });
+    // Space creates by 1s: the branch name is work-YYYYMMDD-HHMMSS, so two creates in the
+    // same second collide on the branch name (as the sibling port test also handles).
+    let firstCreate = true;
+    const create = (slug) => {
+      if (!firstCreate) execSync(`sleep 1`, { cwd: dir });
+      firstCreate = false;
+      return JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} ${slug}`).stdout);
+    };
+    const wtfile = (slug, rel) => join(dir, ".worktrees", slug, rel);
+
+    // --- 1. SUBDIR layout: app/.env is what the project reads; no root .env ---
+    mkdirSync(join(dir, "app"), { recursive: true });
+    writeFileSync(join(dir, "app/.env"), "API_KEY=realkey\n");
+    const sub = create("sub-mission");
+    assertEq("subdir: env_files_carried names the package env file", sub.env_files_carried, ["app/.env"]);
+    assertTrue("subdir: app/.env carried with contents intact",
+      existsSync(wtfile("sub-mission", "app/.env")) && readFileSync(wtfile("sub-mission", "app/.env"), "utf8").includes("API_KEY=realkey"));
+    assertTrue("subdir: NO fabricated root .env (the misleading artifact)", !existsSync(wtfile("sub-mission", ".env")));
+    assertEq("subdir: port vars land in a separate .env.worktree", sub.port_env_file, ".env.worktree");
+    assertTrue("subdir: .env.worktree holds the port vars",
+      readFileSync(wtfile("sub-mission", ".env.worktree"), "utf8").includes("WORKAHOLIC_PORT_BASE="));
+
+    // --- 2. NONE layout: no env file anywhere -> nothing fabricated, reported empty ---
+    rmSync(join(dir, "app/.env"));
+    const none = create("none-mission");
+    assertEq("none: env_files_carried is reported empty (not by omission)", none.env_files_carried, []);
+    assertTrue("none: no root .env fabricated", !existsSync(wtfile("none-mission", ".env")));
+    assertEq("none: port vars in .env.worktree", none.port_env_file, ".env.worktree");
+
+    // --- 3. DECLARATION: .worktree-env points at config/secrets.env ---
+    mkdirSync(join(dir, "config"), { recursive: true });
+    writeFileSync(join(dir, "config/secrets.env"), "TOKEN=abc\n");
+    writeFileSync(join(dir, ".worktree-env"), "# the env this project reads\nconfig/secrets.env\n");
+    const decl = create("decl-mission");
+    assertEq("declaration: only the declared file is carried", decl.env_files_carried, ["config/secrets.env"]);
+    assertTrue("declaration: declared file carried with contents",
+      readFileSync(wtfile("decl-mission", "config/secrets.env"), "utf8").includes("TOKEN=abc"));
+
+    // --- 4. ROOT layout: unchanged from historical behavior (no regression) ---
+    rmSync(join(dir, ".worktree-env"));
+    writeFileSync(join(dir, ".env"), "SECRET=1\n");
+    const root = create("root-mission");
+    assertEq("root: env_files_carried is the root .env", root.env_files_carried, [".env"]);
+    assertEq("root: port vars append to the carried root .env (as before)", root.port_env_file, ".env");
+    const rootEnv = readFileSync(wtfile("root-mission", ".env"), "utf8");
+    assertTrue("root: .env keeps its secret AND gains the port vars",
+      rootEnv.includes("SECRET=1") && rootEnv.includes("WORKAHOLIC_PORT_BASE="));
+    assertTrue("root: no separate .env.worktree", !existsSync(wtfile("root-mission", ".env.worktree")));
+
+    // Port bases stay distinct across the subdir(.env.worktree) and root(.env) worktrees,
+    // proving the allocator reads both files.
+    const subBase = sub.port_base, rootBase = root.port_base;
+    assertTrue("allocator gives distinct bases across .env and .env.worktree worktrees",
+      subBase !== rootBase, `sub=${subBase} root=${rootBase}`);
+  } finally { cleanup(dir); }
+}
+
 // Build a clone whose ONLY local branch is a checked-out work-* branch and whose
 // local `main` is genuinely ABSENT (only origin/main survives, as a remote-tracking
 // ref). This is the desk / fresh-clone state in which create-mission-worktree.sh's
@@ -2330,14 +2397,16 @@ concerns: []
 function testMissionWorktreePorts() {
   const dir = makeRepo("main");
   try {
-    // First worktree gets a base; it is recorded in the worktree's .env.
+    // First worktree gets a base; this repo has no root .env, so it is recorded in the
+    // separate .env.worktree (never a fabricated bare root .env), reported as port_env_file.
     const a = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} mission-a`).stdout);
     assertTrue("first worktree has a numeric port base >= 4100",
       typeof a.port_base === "number" && a.port_base >= 4100, JSON.stringify(a));
     assertEq("derived docs port is base+1", a.docs_port, a.port_base + 1);
-    assertTrue("worktree .env carries WORKAHOLIC_PORT_BASE",
-      readFileSync(join(dir, ".worktrees/mission-a/.env"), "utf8").includes(`WORKAHOLIC_PORT_BASE=${a.port_base}`),
-      readFileSync(join(dir, ".worktrees/mission-a/.env"), "utf8"));
+    assertEq("no root .env -> port vars go to .env.worktree", a.port_env_file, ".env.worktree");
+    assertTrue("worktree .env.worktree carries WORKAHOLIC_PORT_BASE",
+      readFileSync(join(dir, ".worktrees/mission-a/.env.worktree"), "utf8").includes(`WORKAHOLIC_PORT_BASE=${a.port_base}`),
+      readFileSync(join(dir, ".worktrees/mission-a/.env.worktree"), "utf8"));
 
     // Second worktree gets a DISTINCT base (collision-free). Space by 1s so the
     // work-* branch names differ.
@@ -3398,7 +3467,10 @@ Why.
     // sanctioned creator...
     const wt = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} replan-me`).stdout);
     assertTrue("replan creates the missing worktree", existsSync(join(dir, ".worktrees/replan-me")), JSON.stringify(wt));
-    assertTrue("the replan worktree got a port .env", existsSync(join(dir, ".worktrees/replan-me/.env")));
+    // No root .env in this repo, so the port vars land in the separate .env.worktree
+    // (never a fabricated bare root .env — the misleading artifact the carrier avoids).
+    assertTrue("the replan worktree got its port vars (.env.worktree, no root .env)",
+      existsSync(join(dir, ".worktrees/replan-me/.env.worktree")) && !existsSync(join(dir, ".worktrees/replan-me/.env")));
     // ...while the create flow still dead-ends on the existing mission.md — the
     // measured reason replan, not create, is the successor's flesh-out path.
     const cr = JSON.parse(run(join(dir, ".worktrees/replan-me"), `${POSIX_SH} ${SCRIPTS.missionCreate} "Replan Me"`).stdout);
@@ -7658,6 +7730,7 @@ const tests = [
   ["hooks/mission-lens.sh summarizes on change", testMissionLensOnChange],
   ["mission create branches on main", testMissionBranchOnCreate],
   ["branching mission worktree primitive", testMissionWorktreePrimitive],
+  ["worktree env-file carrying (root/subdir/none/declaration)", testWorktreeEnvCarry],
   ["mission worktree lands on the branch it reports", testMissionWorktreeNoLocalMain],
   ["mission worktree starts from the merged base (fetch-first)", testMissionWorktreeFetchFirst],
   ["mission-lens worktree focus", testMissionLensWorktreeFocus],

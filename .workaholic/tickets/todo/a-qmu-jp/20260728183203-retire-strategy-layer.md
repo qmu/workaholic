@@ -18,6 +18,8 @@ Remove **strategy** as an artifact layer. Decision B3 of `docs/loop-engineering-
 
 This inverts the 2026-07-21 decision that introduced strategies (mission `reorganize-missions-under-strategies`). Record the inversion honestly in the mission SKILL.md's redefinition records: what strategies were for (direction above bounded missions), why they are retired (direction now accretes as feedback; two direction homes would drift), and the provenance (this mission + the decision record). The granularity ladder becomes commit → ticket → mission, with "why are these missions launched" answered by the feedback corpus.
 
+The mission's definition is rewritten at the same time (decision B5 of the record): a mission is the **epic-equivalent, optional grouping** of a batch of tickets for management and efficiency — typically pre-built as a set and executed together (often overnight) — **never a required parent**. The ticket stays the first-class standalone unit: `/ticket` → `/drive` with an empty `mission:` is a fully sanctioned path, exactly as the mechanism already behaves (`create-ticket`'s optional field, `validate-ticket.sh`'s present-value-only check, `/drive`'s per-ticket prompt). The 2026-07-21 phrase "overnight-executable execution plan of a strategy" is superseded on both ends — strategy (B3) and the mandatory-sounding framing (B5). Sweep for prose that implies every ticket belongs to a mission or that overnight-mission execution is *the* model rather than one of two modes.
+
 Migration principle: **nothing is deleted from knowledge, only from structure.** Each live strategy's `## Direction` prose survives verbatim as a `source: discussion` feedback entry (authored by the strategy's author), and its `assignees` fold down into each linked active mission's `assignees` where empty.
 
 ## Policies
@@ -61,7 +63,7 @@ Interrogated at mission creation (2026-07-28, decision record `docs/loop-enginee
 - No strategy step remains in mission creation/replan; `validate-mission.sh` authorizes a mission with owner + Experience + Acceptance and no `strategy:` value; legacy `strategy:` keys on archived missions are tolerated.
 - `migrate-strategies.sh` is idempotent and converts Direction → feedback + folds assignees before removing the directory; a repo without `strategies/` is untouched.
 - `.workaholic/strategies/` is absent from this repo, the allowlist, and the rules table — all in the same commit; `layout-doctor.sh .` reports `conforming: true`.
-- `grep -r` for `strategy/scripts`, `read-strategy-relation`, `workaholic:strategy` over `plugins/` returns nothing; the redefinition record and three-layer Granularity table are in place.
+- `grep -r` for `strategy/scripts`, `read-strategy-relation`, `workaholic:strategy` over `plugins/` returns nothing; the redefinition record (including the B5 optional-grouping repositioning) and three-layer Granularity table are in place, and no remaining prose implies a ticket requires a mission.
 - Docs sweep complete in the same change.
 
 **Verification method**

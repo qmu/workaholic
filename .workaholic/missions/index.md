@@ -1,5 +1,9 @@
 # missions
 
+## active
+
+* [loop-engineering-unified-drive](active/loop-engineering-unified-drive/mission.md) - Loop engineering unified drive
+
 ## archive
 
 * [loop-engineering-foundation](archive/loop-engineering-foundation/mission.md) - Loop engineering foundation

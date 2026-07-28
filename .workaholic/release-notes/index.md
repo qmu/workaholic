@@ -76,4 +76,5 @@
 * [Enforce the working-directory and layout guards by default etc](work-20260722-191036.md)
 * [Mission-worktree base resolution now fetches origin and prefers origin/&lt;base&gt; etc](work-20260723-000846.md)
 * [Add the feedback stream and retire the strategy layer](work-20260728-183130.md)
+* [Merge concerns into feedback and add the proposal loop](work-20260728-210259.md)
 <!-- okf:generated:end -->

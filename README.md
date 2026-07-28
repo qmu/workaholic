@@ -56,6 +56,7 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 | `/drive`   | Implement queued tickets one by one (add "night" for an autonomous overnight run with a morning report) |
 | `/report`  | Context-aware: generate story or journey report and create PR (warns on the branch-safety scan — credentials/oversize/leakage) |
 | `/ship`    | Context-aware: merge PR, deploy, verify, and publish the GitHub Release (blocks pre-merge on the branch-safety scan; secrets are non-overridable) |
+| `/propose` | Headless proposal batch: read feedback newly merged to main (runner-local cursor) and either stay silent or register **draft** missions with `feedback:` traceability, pushed to main and announced to Slack (bot token optional). The 15-minute cron entry of the loop-engineering model |
 | `/mission` | Plan an **optional, epic-equivalent grouping** — a bounded batch of tickets an agent fleet drives together, typically overnight (never a required parent; single tickets drive fine without one): create one (interrogates you to a drive-ready state, then spins up a dedicated `.worktrees/<slug>/` worktree holding the mission statement and the **whole** ordered ticket set it emitted), show the **developer-centric roadmap** (bare `/mission`: full treatment — progress, next step, recent movement — for your and unclaimed active missions, one-liners for colleagues' and archived ones; the former `summary` mode is folded into this view), or close one (achieved / abandoned / **carried** — done as framed, with the unmet criteria carried into a successor mission) into the archive area (tearing down its worktree). When a mission's **direction changes** mid-flight, **reorganize-and-carry** is the encouraged move — replan to drop the now-moot criteria, then `carried` into a fresh or existing successor — over grinding to `achieved` or `abandoned` |
 | `/monitor` | Run your missions in parallel, front-loaded then unattended: a confirmed pre-flight over **all** your assigned missions by default (no "which to drive" prompt) — a whole-roadmap progress headline, position, eligibility, interference, and a reevaluation that auto-applies mechanical replans silently and asks only genuine design rulings — with every foreseeable escalation resolved in **one up-front batch** (the run's only interaction point). Then it runs long and unattended: one leaf per mission worktree owning the whole of that worktree's work — a mission needing a replan has it *applied* by its own leaf, not the main agent, then drives — while the main agent stays a thin dispatcher (only the up-front prompts a leaf cannot issue, tuning wave size down for interference/resource load), looping until every mission completes or only escalation-blocked items remain; after dispatch nothing is asked — mid-run items are deferred and recorded for the morning, and a mission whose **direction changed** is flagged for **reorganize-and-carry** (replan, then `carried`) rather than presented to grind. It accumulates each mission's agent-hours, writes a per-mission `## Reflection` the next planning reads back, and **auto-creates a PR for each genuinely complete mission** (merge stays `/ship`). Terminal line is honest and derived from `status.sh`: `ok` only on genuine completion, else `pending` with an N/M-complete/K-blocked reconciliation (for caller-side loops like `/goal /monitor ok`) |
 | `/trip`    | Agent Teams session: collaborative design, decomposed into tickets and driven (`/trip summary` reports trips + the todo queue, read-only) |
@@ -148,10 +149,9 @@ The tree is also an [Open Knowledge Format](https://github.com/GoogleCloudPlatfo
 | `tickets/abandoned/*.md` | `/drive` (abandon flow) | Attempted-then-abandoned change with failure analysis | committed, permanent | no | never |
 | `stories/<branch>.md` | `/report` | PR description: overview, journey, outcome, concerns, ideas, release readiness | committed before PR creation | concerns/ideas sections only (extracted by `/ship`) | never (per-branch permanent record) |
 | `release-notes/<branch>.md` | `/ship` (before merging) | Concise release narrative for GitHub Releases | committed before merge | no | never |
-| `concerns/<pr>-<slug>-<kind>.md` | `/ship` (extract from story) | Unresolved concern or idea surfaced in a past PR | committed during ship | **yes — this is the deferred-concerns corpus**; remains `status: active` until `/report` judges it resolved | judge marks `status: resolved` (file preserved, audit trail intact) |
 | `trips/<branch>/*` | `/trip` | Multi-agent collaborative design output (planner/architect/constructor) | committed inside trip worktree | no | never |
 | `missions/active/<slug>/mission.md` | `/mission` | Optional epic-equivalent grouping bundling many tickets: goal, scope, acceptance checklist (progress = checked/total), `predicted_hours`/`actual_hours` (predicted at creation from the archived trend, actual accumulated by `/monitor`), append-only changelog | committed, updated as related work lands | n/a — outlives any branch | `/mission close` flips `status` to `achieved` or `abandoned` and moves the dir to `missions/archive/<slug>/` (file and changelog preserved) |
-| `feedbacks/<ts>-<slug>.md` | `/feedback` (via the feedback skill's `create.sh` — the only sanctioned writer) | One **immutable** inbound record of project context: a conclusion (`kind: insight`), an instruction, a development-born concern, or customer material — the raw material later planning reads | committed when registered | **yes — the stream accumulates forever**; consumers track "new" by commit cursor | never (resolution/mootness is a *new* record naming the old one via `supersedes`, not an edit) |
+| `feedbacks/<ts>-<slug>.md` | `/feedback` (conclusions/instructions), `/ship` (`kind: concern` records extracted from a shipped story's section 6), `/report` (superseding resolution records) — all through the feedback skill's writers | One **immutable** inbound record of project context: a conclusion (`kind: insight`), an instruction, a development-born concern, or customer material — the raw material later planning reads | committed when registered | **yes — the stream accumulates forever**; consumers track "new" by commit cursor, and the open concern set is computed as "not superseded" | never (resolution/mootness is a *new* record naming the old one via `supersedes`, not an edit) |
 | `specs/*.md` | manual (hand-edited reference) | Current-state documentation of how things work today | committed | n/a — not branch-scoped | superseded when manually rewritten |
 | `guides/*.md` `policies/*.md` `terms/*.md` | manual | Persistent reference material (user docs, policies, glossary) | committed | n/a | superseded when manually rewritten |
 
@@ -316,7 +316,7 @@ flowchart LR
   MIS["missions/active + archive/"]
   TRIPA["trips/&lt;name&gt;/"]
   STORY["stories/&lt;branch&gt;.md"]
-  CON["concerns/"]
+  FBK["feedbacks/"]
   REL["release-notes/&lt;branch&gt;.md"]
   DEP["deployments/"]
 
@@ -376,14 +376,14 @@ flowchart LR
   ship -. rolls .-> MIS
 
   %% ========== the one living loop: concerns cross PRs ==========
-  CON -. re-read each cycle .-> report
+  FBK -. open concerns re-read each cycle .-> report
 
   %% ========== node styles: command vs artifact ==========
   classDef cmd fill:#dbeafe,stroke:#1e40af,stroke-width:1.5px,color:#1e3a8a;
   classDef art fill:#f3f4f6,stroke:#6b7280,color:#111827;
   classDef ext fill:#f3f4f6,stroke:#9aa0aa,stroke-dasharray:4 3,color:#374151;
   class ticket,request,mission,monitor,trip,carry,drive,report,ship,catch,commit,explain,workaholify cmd;
-  class TODO,ICE,ARCH,ABD,MIS,TRIPA,STORY,CON,REL,DEP art;
+  class TODO,ICE,ARCH,ABD,MIS,TRIPA,STORY,FBK,REL,DEP art;
   class EXT,PDF,WT,CFG ext;
 ```
 
@@ -393,7 +393,7 @@ Reading the map:
 - **Node style tells the kind apart.** Rounded **blue** = the thirteen commands; rectangular **grey** = the artifacts they generate. A **dashed grey border** marks the artifacts that land *outside* `.workaholic/` — a cross-repo ticket via `/request`, a printed PDF via `/explain`, a plain working-tree commit via `/commit`, and repo wiring via `/workaholify`.
 - **`/mission` and `/monitor` are first-class here.** `/mission` writes `missions/…` and the kickoff/delta tickets into `tickets/todo/`; `/monitor` reads the mission set and each worktree's `todo/`, drains them to `tickets/archive/`, and rolls each mission it advances — the parallel-missions counterpart to `/drive`.
 - **The ticket is the spine.** `/ticket`, `/mission`, `/trip`, and `/carry` all *fill* `tickets/todo/`; `/drive`, `/monitor`, and `/trip` all *drain* it to `tickets/archive/` (`/monitor` and `/trip` reuse `/drive`'s archive path). Everything downstream reads the archive.
-- **`concerns/` is the only loop.** `/ship` extracts a shipped story's open concerns into `concerns/`; the *next* `/report` re-reads them, judges each, and either carries it into the new story or archives it resolved. Every other artifact is written once and becomes permanent history.
+- **The feedback stream is the only loop.** `/ship` extracts a shipped story's section-6 concerns into `feedbacks/` as `kind: concern` records; the *next* `/report` re-reads the open set (records nobody superseded) and, for each one this branch resolved, appends a superseding record. Every record is written once and becomes permanent history — the "loop" is reading, never rewriting.
 - **Not shown** (to keep the graph legible): `specs/`, `guides/`, `policies/`, `terms/` are hand-maintained reference material, not command-generated; and the OKF `index.md` hierarchy is regenerated automatically by the same commit seams (`/drive`, `/report`, `/ship`) whenever they write knowledge, not by a command of its own.
 
 </details>
@@ -416,12 +416,12 @@ flowchart LR
     direction TB
     c1["/report"] --> c2["stories/&lt;branch&gt;.md"]
     c1 --> c3["release-notes/&lt;branch&gt;.md"]
-    c1 -.judge.-> c4["concerns/"]
+    c1 -.judge open concerns.-> c4["feedbacks/"]
   end
   subgraph ship[Ship]
     direction TB
     d1["/ship"] --> d2["merge PR"]
-    d2 --> d3["extract deferred concerns<br/>to concerns/"]
+    d2 --> d3["extract deferred concerns<br/>to feedbacks/"]
   end
   plan --> implement --> report --> ship
   d3 -."next /report reads".-> c1
@@ -432,22 +432,16 @@ flowchart LR
 **Implement** — `/drive` reads `tickets/todo/`, implements one ticket at a time, and on approval moves the file to `tickets/archive/<branch>/`. The archive subdirectory is named after the current branch so all of a branch's tickets cluster under one folder. Final reports and the resolving `commit_hash` are written into the ticket frontmatter at archive time.
 
 **Report** — `/report` runs after all tickets on a branch are archived. It does four writes in order:
-1. Judges every active file in `concerns/` (deferred concerns from past PRs) via a `general-purpose` deferred-concern-judge subagent. Resolved items are moved to `concerns/archive/`; still-active items are passed to the section-reviewer.
-2. Writes `stories/<branch>.md` — the full PR description including section 6 (Concerns), each item prefixed with `(carried from PR #N)` if surfaced from the corpus.
-3. Commits the story together with any `concerns/` status changes (including moves to `archive/`), so the audit history is coherent.
+1. Judges every **open** `kind: concern` record in the feedback stream (`feedback/scripts/list-open-concerns.sh`) via a `general-purpose` deferred-concern-judge subagent. Each resolved one gets a **superseding record** appended (`supersedes: <filename>`, naming the resolving PR/commit); still-open ones simply stay open.
+2. Writes `stories/<branch>.md` — the full PR description; section 6 records **this branch's** concerns only (the stream itself is the durable memory).
+3. Commits the story together with any superseding records, so the audit history is coherent.
 4. Opens the GitHub PR (`release-notes/<branch>.md` is written later, by `/ship`, just before merging).
 
-**Ship** — `/ship` merges the PR, then immediately extracts section 6 (Concerns) from the just-shipped story into `concerns/`, one file per item. Filenames use `<pr-number>-<slug>.md` (sidestepping the ticket validation hook); each file carries a `severity` label (`urgent`/`moderate`/`low`) in frontmatter and a Title / Description / How to Fix body. From that point on, those concerns are read on every subsequent `/report` until they are judged resolved and moved to `concerns/archive/`.
+**Ship** — `/ship` merges the PR, then immediately extracts section 6 (Concerns) from the just-shipped story into the feedback stream, one `kind: concern` record per item (`feedbacks/<ts>-<concern_id>.md`, every severity — the stream is append-only and id-keyed, so a known `concern_id` is never re-emitted). Each record carries `severity`, provenance (`origin_pr`/branch/commit), and the story's mission/ticket relations. From that point on, the open set is read on every subsequent `/report` until a superseding record resolves each one.
 
 ### What "Carried Over" Means
 
-Most artifacts are written once and never revisited — they form the permanent history of the codebase. The exception is `concerns/`: it is the **only** living corpus, deliberately persistent across PR cycles so that risks and improvement ideas raised in one PR cannot silently vanish when the PR merges. Three forces keep the corpus from growing unbounded:
-
-1. **Judge** — each `/report` re-evaluates active items and marks resolved ones.
-2. **Promote** — items that survive judgement become housekeeping tickets after one cycle.
-3. **Mark, don't delete** — resolved items remain on disk with `status: resolved` so the audit trail survives misclassification.
-
-See [`.workaholic/concerns/README.md`](.workaholic/concerns/README.md) for the file format, frontmatter schema, and lifecycle script references.
+Most artifacts are written once and never revisited — they form the permanent history of the codebase. The feedback stream is written once **per record** and read forever: risks and improvement ideas raised in one PR cannot silently vanish when it merges, because the `kind: concern` records persist and the **open set is computed** — a concern is open until some later record names it in `supersedes`. Each `/report` judges the open set and appends superseding records for what the branch resolved; nothing is ever rewritten, moved, or deleted, so the audit trail survives misclassification by construction. Curation is the reader's judgment over the stream (the retired promote/triage/demote machinery has no successor on purpose — `docs/loop-engineering-workflow.md` H2).
 
 ## Author
 

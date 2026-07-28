@@ -22,7 +22,7 @@ Guidelines for generating story sections 4-7 (Outcome, Historical Analysis, Conc
    - Related History section for patterns
    - Considerations section for concerns
    - Final Report section (if present) for outcomes
-3. **Read deferred concern verdicts** from the verdicts file path. Filter to entries with `verdict: still_active`. These deferred concerns were judged active by the deferred-concern judge subagent (the `### Judge Deferred Concerns` step in `report`) and must be re-surfaced in this story's section 6 (Concerns).
+3. **Read deferred concern verdicts** from the verdicts file path (context only — resolved verdicts tell you what this branch fixed, which often belongs in section 4/5 prose). Open stream concerns are **not** re-surfaced in section 6: the feedback stream itself is the durable memory, and section 6 records this branch's own concerns only (the `(carried from PR #N)` convention retired with the concern→feedback merger, 2026-07-28).
 
 ## Section Guidelines
 
@@ -58,7 +58,6 @@ Risks, trade-offs, limitations, and forward-looking suggestions discovered durin
 
 Compose the section from three sources, in this order:
 
-1. **Deferred concerns** — entries in the verdicts file where `verdict: still_active`. Render each as a block above; prefix the title with `(carried from PR #N)` using `origin_pr`, and preserve the deferred concern's existing `severity`. These carried concerns are **identity-keyed**: on the next `/ship`, `extract-deferred-concerns.sh` strips the `(carried from …)` prefix, computes the concern's `concern_id`, and **updates the existing file in place** rather than cloning a new one — so re-surfacing a still-active concern never grows the corpus. When the carried set is large, you may render the low-severity carried concerns as a single compact summary line (count + ids) instead of one verbatim block each; they persist as their own fresh files regardless, so nothing is lost.
 2. **New concerns** — extracted from the Considerations sections of this branch's tickets **and** the `Concerns:` keys of the collected commit bodies. Deduplicate where a ticket Consideration and a commit Concern describe the same issue.
 3. **Confirmed documentation drift** — drift the release-readiness role confirmed while assessing release readiness (its `doc-drift.sh` candidates judged real in `report`'s `## Assess Release Readiness`). Render each as a block above: title the concern after the stale doc (e.g. `Documentation drift: CLAUDE.md skill index`), set Description to which structural change landed without the doc being updated, and How to Fix to the specific edit the doc needs. Default `severity: moderate`. Use only the drift the release-readiness role already confirmed — do **not** re-run or re-judge the script here (this skill stays script-free so it keeps resolving cross-agent via the `skills` CLI).
 

@@ -62,16 +62,11 @@ const SCRIPTS = {
   recordEvidence: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/record-evidence.sh"),
   catchupMain: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/catchup-main.sh"),
   applyVerdicts: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/apply-deferred-concern-verdicts.sh"),
+  listOpenConcerns: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/list-open-concerns.sh"),
+  migrateConcerns: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/migrate-concerns.sh"),
   extractDeferredConcerns: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/extract-deferred-concerns.sh"),
   commitReleaseNote: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/commit-release-note.sh"),
-  migrateConcernIdentity: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/migrate-concern-identity.sh"),
-  listActiveConcerns: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/list-active-deferred-concerns.sh"),
-  reGrade: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/re-grade.sh"),
   shrinkPrBody: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/shrink-pr-body.sh"),
-  mergeConcerns: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/merge-concerns.sh"),
-  closeConcern: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/close-concern.sh"),
-  proposeDemotions: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/propose-demotions.sh"),
-  demoteConcern: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/demote-concern.sh"),
   docDrift: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/doc-drift.sh"),
   checkCapability: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/check-confirmation-capability.sh"),
   posixLint: join(REPO_ROOT, "plugins/workaholic/hooks/posix-lint.sh"),
@@ -105,6 +100,12 @@ const SCRIPTS = {
   listReflections: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list-reflections.sh"),
   nextAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/next-acceptance.sh"),
   feedbackCreate: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/create.sh"),
+  proposeCursor: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/cursor.sh"),
+  proposeNewFeedback: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/new-feedback.sh"),
+  proposeReadFeedbackRelation: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/read-feedback-relation.sh"),
+  proposeListRefs: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/list-proposed-refs.sh"),
+  proposeScaffoldDraft: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-draft.sh"),
+  proposeNotifySlack: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/notify-slack.sh"),
   feedbackList: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/list.sh"),
 };
 
@@ -3871,6 +3872,8 @@ function testMissionShipSeam() {
     execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
     const r = JSON.parse(run(dir, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-s 30 https://x/pr/30`).stdout);
     assertEq("ship seam extracted one concern", r.extracted, 1);
+    assertTrue("ship seam writes the record into the feedback stream",
+      r.files[0].includes(".workaholic/feedbacks/"), r.files[0]);
     const cbase = r.files[0].split("/").pop();
     assertTrue("ship seam appended a 'concern deferred (stuck)' changelog line",
       new RegExp(`concern deferred \\(stuck\\) — ${cbase.replace(/\./g, "\\.")}`).test(readFileSync(mfile, "utf8")),
@@ -3887,16 +3890,23 @@ function testMissionReportSeam() {
     mkdirSync(mdir, { recursive: true });
     const mfile = join(mdir, "mission.md");
     writeFileSync(mfile, `---\ntype: Mission\ntitle: RT\nslug: ${slug}\nstatus: active\ncreated_at: 2026-07-06T00:00:00+09:00\nauthor: test@example.com\ntickets: []\nstories: []\nconcerns: []\n---\n\n# RT\n\n## Acceptance\n\n## Changelog\n`);
-    mkdirSync(join(dir, ".workaholic/concerns"), { recursive: true });
-    const cpath = ".workaholic/concerns/30-a-thing.md";
+    mkdirSync(join(dir, ".workaholic/feedbacks"), { recursive: true });
+    const cpath = ".workaholic/feedbacks/20260706000000-a-thing.md";
     writeFileSync(join(dir, cpath),
-      `---\ntype: Concern\nmission: ${slug}\ntickets: [20260706120000-a.md]\norigin_pr: 30\norigin_pr_url: https://x/pr/30\norigin_branch: work-s\norigin_commit: abc1234\ncreated_at: 2026-07-06T00:00:00+09:00\nseverity: low\nstatus: active\nresolved_by_pr:\nresolved_by_commit:\n---\n\n# A thing\n`);
+      `---\ntype: Feedback\ntitle: A thing\nkind: concern\nsource: development\ncreated_at: 2026-07-06T00:00:00+09:00\nauthor: test@example.com\nsupersedes:\nseverity: low\nconcern_id: a-thing\nmission: ${slug}\ntickets: [20260706120000-a.md]\norigin_pr: 30\n---\n\n# A thing\n`);
     execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
     const verdicts = JSON.stringify({ verdicts: [{ path: cpath, verdict: "resolved", resolved_by_pr: 31, resolved_by_commit: "def5678" }] });
     const r = JSON.parse(run(dir, `printf '%s' '${verdicts}' | ${POSIX_SH} ${SCRIPTS.applyVerdicts}`).stdout);
     assertEq("report seam resolved one concern", r.resolved, 1);
+    assertTrue("resolution wrote a superseding record naming the resolved one",
+      /^supersedes: 20260706000000-a-thing\.md$/m.test(readFileSync(join(dir, r.files_resolved[0]), "utf8")),
+      readFileSync(join(dir, r.files_resolved[0]), "utf8"));
+    assertTrue("the resolved record itself is untouched (immutable)",
+      readFileSync(join(dir, cpath), "utf8").includes("supersedes:\n"), "record was edited");
+    assertTrue("the superseded record leaves the open set",
+      !JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listOpenConcerns}`).stdout).concerns.some((c) => c.concern_id === "a-thing"));
     assertTrue("report seam appended a 'concern resolved (unstuck)' changelog line",
-      /concern resolved \(unstuck\) — 30-a-thing\.md/.test(readFileSync(mfile, "utf8")), readFileSync(mfile, "utf8"));
+      /concern resolved \(unstuck\) — 20260706000000-a-thing\.md/.test(readFileSync(mfile, "utf8")), readFileSync(mfile, "utf8"));
   } finally { cleanup(dir); }
 }
 
@@ -4292,29 +4302,34 @@ function testCatchupMain() {
 
 // ---------- report/apply-deferred-concern-verdicts.sh (Bug 1: accept object + array) ----------
 function testApplyVerdicts() {
-  // {"verdicts":[...]} object form must archive a resolved concern.
+  // {"verdicts":[...]} object form must write a superseding record for a resolved concern.
   const repo = makeRepo("main");
   try {
-    mkdirSync(join(repo, ".workaholic/concerns"), { recursive: true });
-    writeFileSync(join(repo, ".workaholic/concerns/99-foo.md"),
-      "---\nseverity: low\nstatus: active\nresolved_by_pr:\nresolved_by_commit:\n---\n\n# Foo\n");
+    mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260101000000-foo.md"),
+      "---\ntype: Feedback\ntitle: Foo\nkind: concern\nsource: development\ncreated_at: 2026-01-01T00:00:00+09:00\nauthor: test@example.com\nsupersedes:\nseverity: low\nconcern_id: foo\n---\n\n# Foo\n");
     execSync(`git add -A && git commit -q -m concern`, { cwd: repo });
-    const obj = JSON.stringify({ verdicts: [{ path: ".workaholic/concerns/99-foo.md", verdict: "resolved", resolved_by_pr: 5, resolved_by_commit: "abc1234" }] });
+    const obj = JSON.stringify({ verdicts: [{ path: ".workaholic/feedbacks/20260101000000-foo.md", verdict: "resolved", resolved_by_pr: 5, resolved_by_commit: "abc1234" }] });
     const r = JSON.parse(run(repo, `printf '%s' '${obj}' | ${POSIX_SH} ${SCRIPTS.applyVerdicts}`).stdout);
     assertEq("apply-verdicts accepts {verdicts:...} object", { res: r.resolved, sa: r.still_active }, { res: 1, sa: 0 });
-    assertTrue("apply-verdicts archived the resolved file",
-      existsSync(join(repo, ".workaholic/concerns/archive/99-foo.md")) && !existsSync(join(repo, ".workaholic/concerns/99-foo.md")),
-      "resolved concern not moved to archive");
+    assertTrue("apply-verdicts wrote a superseding record (resolved record untouched)",
+      existsSync(join(repo, r.files_resolved[0])) && existsSync(join(repo, ".workaholic/feedbacks/20260101000000-foo.md")),
+      JSON.stringify(r));
+    const sup = readFileSync(join(repo, r.files_resolved[0]), "utf8");
+    assertTrue("superseding record names the resolved record + PR/commit",
+      /^supersedes: 20260101000000-foo\.md$/m.test(sup) && /^resolved_by_pr: 5$/m.test(sup) && /^resolved_by_commit: abc1234$/m.test(sup), sup);
+    assertEq("the superseded concern leaves the open set",
+      JSON.parse(run(repo, `${POSIX_SH} ${SCRIPTS.listOpenConcerns}`).stdout).active_count, 0);
   } finally { cleanup(repo); }
 
   // Bare array form still works (back-compat).
   const repo2 = makeRepo("main");
   try {
-    mkdirSync(join(repo2, ".workaholic/concerns"), { recursive: true });
-    writeFileSync(join(repo2, ".workaholic/concerns/99-bar.md"),
-      "---\nseverity: low\nstatus: active\nresolved_by_pr:\nresolved_by_commit:\n---\n\n# Bar\n");
+    mkdirSync(join(repo2, ".workaholic/feedbacks"), { recursive: true });
+    writeFileSync(join(repo2, ".workaholic/feedbacks/20260101000000-bar.md"),
+      "---\ntype: Feedback\ntitle: Bar\nkind: concern\nsource: development\ncreated_at: 2026-01-01T00:00:00+09:00\nauthor: test@example.com\nsupersedes:\nseverity: low\nconcern_id: bar\n---\n\n# Bar\n");
     execSync(`git add -A && git commit -q -m concern`, { cwd: repo2 });
-    const arr = JSON.stringify([{ path: ".workaholic/concerns/99-bar.md", verdict: "resolved", resolved_by_pr: 5, resolved_by_commit: "abc1234" }]);
+    const arr = JSON.stringify([{ path: ".workaholic/feedbacks/20260101000000-bar.md", verdict: "resolved", resolved_by_pr: 5, resolved_by_commit: "abc1234" }]);
     const r = JSON.parse(run(repo2, `printf '%s' '${arr}' | ${POSIX_SH} ${SCRIPTS.applyVerdicts}`).stdout);
     assertEq("apply-verdicts still accepts a bare array", r.resolved, 1);
   } finally { cleanup(repo2); }
@@ -4375,22 +4390,22 @@ function testApplyVerdicts() {
     } finally { cleanup(repo); }
   }
 
-  // A genuine resolved verdict WITH expected 1 still archives and exits 0 —
+  // A genuine resolved verdict WITH expected 1 still resolves and exits 0 —
   // the expected-count guard must not fire on a matching, well-formed payload.
   {
     const repo = makeRepo("main");
     try {
-      mkdirSync(join(repo, ".workaholic/concerns"), { recursive: true });
-      writeFileSync(join(repo, ".workaholic/concerns/99-baz.md"),
-        "---\nseverity: low\nstatus: active\nresolved_by_pr:\nresolved_by_commit:\n---\n\n# Baz\n");
+      mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
+      writeFileSync(join(repo, ".workaholic/feedbacks/20260101000000-baz.md"),
+        "---\ntype: Feedback\ntitle: Baz\nkind: concern\nsource: development\ncreated_at: 2026-01-01T00:00:00+09:00\nauthor: test@example.com\nsupersedes:\nseverity: low\nconcern_id: baz\n---\n\n# Baz\n");
       execSync(`git add -A && git commit -q -m concern`, { cwd: repo });
-      const obj = JSON.stringify({ verdicts: [{ path: ".workaholic/concerns/99-baz.md", verdict: "resolved", resolved_by_pr: 7, resolved_by_commit: "abc1234" }] });
+      const obj = JSON.stringify({ verdicts: [{ path: ".workaholic/feedbacks/20260101000000-baz.md", verdict: "resolved", resolved_by_pr: 7, resolved_by_commit: "abc1234" }] });
       const r = run(repo, `printf '%s' '${obj}' | ${POSIX_SH} ${SCRIPTS.applyVerdicts} 1`);
       assertEq("apply-verdicts resolved verdict with expected 1 exits 0", r.status, 0);
-      assertEq("apply-verdicts resolved verdict with expected 1 archives it", JSON.parse(r.stdout).resolved, 1);
-      assertTrue("apply-verdicts expected-1 moved the file to archive",
-        existsSync(join(repo, ".workaholic/concerns/archive/99-baz.md")),
-        "resolved concern not moved to archive");
+      assertEq("apply-verdicts resolved verdict with expected 1 resolves it", JSON.parse(r.stdout).resolved, 1);
+      assertTrue("apply-verdicts expected-1 wrote the superseding record",
+        JSON.parse(r.stdout).files_resolved.length === 1 && existsSync(join(repo, JSON.parse(r.stdout).files_resolved[0])),
+        "superseding record missing");
     } finally { cleanup(repo); }
   }
 }
@@ -4470,16 +4485,16 @@ function testRefreshIndexPreservesContent() {
   {
     const dir = makeRepo("main");
     try {
-      mkdirSync(join(dir, ".workaholic/concerns"), { recursive: true });
-      const idx = join(dir, ".workaholic/concerns/index.md");
-      writeFileSync(idx, "# concerns\n\n* [Foo](foo.md)\n");
-      writeFileSync(join(dir, ".workaholic/concerns/foo.md"), "---\ntitle: Foo\n---\n# Foo\n");
-      mkdirSync(join(dir, ".workaholic/concerns/archive"), { recursive: true }); // empty, untracked
-      mkdirSync(join(dir, ".workaholic/concerns/ignoredonly"), { recursive: true });
+      mkdirSync(join(dir, ".workaholic/deployments"), { recursive: true });
+      const idx = join(dir, ".workaholic/deployments/index.md");
+      writeFileSync(idx, "# deployments\n\n* [Foo](foo.md)\n");
+      writeFileSync(join(dir, ".workaholic/deployments/foo.md"), "---\ntitle: Foo\n---\n# Foo\n");
+      mkdirSync(join(dir, ".workaholic/deployments/archive"), { recursive: true }); // empty, untracked
+      mkdirSync(join(dir, ".workaholic/deployments/ignoredonly"), { recursive: true });
       writeFileSync(join(dir, ".gitignore"), "ignoredonly/\n");
-      writeFileSync(join(dir, ".workaholic/concerns/ignoredonly/x.md"), "x\n"); // only ignored file
-      mkdirSync(join(dir, ".workaholic/concerns/sub"), { recursive: true });
-      writeFileSync(join(dir, ".workaholic/concerns/sub/doc.md"), "---\ntitle: Sub\n---\n# Sub\n"); // tracked
+      writeFileSync(join(dir, ".workaholic/deployments/ignoredonly/x.md"), "x\n"); // only ignored file
+      mkdirSync(join(dir, ".workaholic/deployments/sub"), { recursive: true });
+      writeFileSync(join(dir, ".workaholic/deployments/sub/doc.md"), "---\ntitle: Sub\n---\n# Sub\n"); // tracked
       execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
       run(dir, `${POSIX_SH} ${R}`);
       const body = readFileSync(idx, "utf8");
@@ -4494,35 +4509,14 @@ function testRefreshIndexPreservesContent() {
       const clone = mkdtempSync(join(tmpdir(), "workaholic-clone-"));
       try {
         execSync(`git clone -q ${dir} ${clone}`, { stdio: "ignore" });
-        const cbody = readFileSync(join(clone, ".workaholic/concerns/index.md"), "utf8");
+        const cbody = readFileSync(join(clone, ".workaholic/deployments/index.md"), "utf8");
         const links = [...cbody.matchAll(/\]\(([^)]+)\)/g)].map((m) => m[1]);
-        const dead = links.filter((l) => !existsSync(join(clone, ".workaholic/concerns", l)));
+        const dead = links.filter((l) => !existsSync(join(clone, ".workaholic/deployments", l)));
         assertEq("every generated link resolves in a fresh clone", dead, []);
       } finally { cleanup(clone); }
     } finally { cleanup(dir); }
   }
 
-  // Upstream half (apply-deferred-concern-verdicts.sh): a run that resolves
-  // nothing creates NO concerns/archive dir; a resolved verdict creates it and
-  // moves the file in — so the generator has no empty dir to index in the first place.
-  {
-    const dir = makeRepo("main");
-    try {
-      mkdirSync(join(dir, ".workaholic/concerns"), { recursive: true });
-      writeFileSync(join(dir, ".workaholic/concerns/1-a.md"),
-        "---\nseverity: low\nstatus: active\nresolved_by_pr:\nresolved_by_commit:\n---\n# A\n");
-      execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
-      const sa = JSON.stringify([{ path: ".workaholic/concerns/1-a.md", verdict: "still_active" }]);
-      run(dir, `printf '%s' '${sa}' | ${POSIX_SH} ${SCRIPTS.applyVerdicts}`);
-      assertTrue("still_active-only verdicts create no concerns/archive dir",
-        !existsSync(join(dir, ".workaholic/concerns/archive")), "archive dir was created");
-      const rs = JSON.stringify([{ path: ".workaholic/concerns/1-a.md", verdict: "resolved", resolved_by_pr: 9, resolved_by_commit: "abc1234" }]);
-      run(dir, `printf '%s' '${rs}' | ${POSIX_SH} ${SCRIPTS.applyVerdicts}`);
-      assertTrue("a resolved verdict creates archive/ and moves the file in",
-        existsSync(join(dir, ".workaholic/concerns/archive/1-a.md"))
-          && !existsSync(join(dir, ".workaholic/concerns/1-a.md")), "resolved concern not moved");
-    } finally { cleanup(dir); }
-  }
 }
 
 // ---------- report per-run artifacts (no shared constant /tmp paths) ----------
@@ -4557,105 +4551,51 @@ function testExtractDeferredConcerns() {
     execSync(`git add -A && git commit -q -m story`, { cwd: repo });
     const r1 = JSON.parse(run(repo, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/pr/10`).stdout);
     assertEq("extract-deferred-concerns first run extracts the concern", r1.extracted, 1);
-    // Same concern, different PR number -> must NOT re-emit (canonical dedup).
+    assertTrue("the record is a kind: concern feedback record",
+      /^kind: concern$/m.test(readFileSync(join(repo, r1.files[0]), "utf8")), r1.files[0]);
+    assertTrue("the record filename carries the stable concern_id",
+      r1.files[0].endsWith("-some-real-concern.md"), r1.files[0]);
+    // Same concern, different PR number -> must NOT re-emit (append-only, id-keyed).
     const r2 = JSON.parse(run(repo, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 11 https://x/pr/11`).stdout);
-    assertEq("extract-deferred-concerns dedups same concern across PR prefixes", r2.extracted, 0);
-    // Freshness invariant: re-extracting a still-active concern creates NO new
-    // file — the concern set stays flat instead of accumulating carried-from clones.
-    const activeFiles = readdirSync(join(repo, ".workaholic/concerns")).filter((f) => f.endsWith(".md"));
-    assertEq("re-extract leaves exactly one concern file (no clone)", activeFiles.length, 1);
-    assertEq("concern file is named by its stable concern_id", activeFiles[0], "some-real-concern.md");
-    assertEq("re-extract reports it as an in-place update", r2.updated, 1);
+    assertEq("extract-deferred-concerns dedups the same concern_id", r2.extracted, 0);
+    const records = readdirSync(join(repo, ".workaholic/feedbacks")).filter((f) => f.endsWith("-some-real-concern.md"));
+    assertEq("re-extract appends NO second record for the same id", records.length, 1);
   } finally { cleanup(repo); }
 }
 
-// ---------- report/migrate-concern-identity.sh + extract update-in-place ----------
-// The freshness engine: a still-active concern is UPDATED in place (never cloned),
-// legacy carried-from chains collapse to one file, and severity escalates but
-// never downgrades.
-function testConcernIdentity() {
-  // (1) Migration collapses a 3-file carried-from chain into one fresh file with
-  //     the earliest first_seen, latest last_seen, and most-severe severity.
-  const repo = makeRepo("main");
+// ---------- feedback/migrate-concerns.sh (concern-corpus living migration) ----------
+// The H2 merger: active concerns/ files become open kind: concern records,
+// archived ones become closed:-stamped records, and the directory is removed.
+function testMigrateConcerns() {
+  const dir = makeRepo("main");
   try {
-    const cdir = join(repo, ".workaholic/concerns");
-    mkdirSync(cdir, { recursive: true });
-    const chain = (pr, title, sev, when) =>
-      `---\ntype: Concern\norigin_pr: ${pr}\norigin_pr_url: https://x/${pr}\norigin_branch: b${pr}\norigin_commit: c${pr}\ncreated_at: ${when}\nseverity: ${sev}\nstatus: active\nresolved_by_pr:\nresolved_by_commit:\n---\n\n# ${title}\n\n## Description\n\nd\n\n## How to Fix\n\nf\n`;
-    writeFileSync(join(cdir, "54-trip-unproven.md"), chain(54, "Trip unproven by a live run", "low", "2026-05-01T00:00:00+09:00"));
-    writeFileSync(join(cdir, "58-carried-from-pr-54-trip-unproven.md"), chain(58, "(carried from PR #54) Trip unproven by a live run", "moderate", "2026-06-01T00:00:00+09:00"));
-    writeFileSync(join(cdir, "80-carried-from-pr-58-54-trip.md"), chain(80, "(carried from PR #58 → #54) Trip unproven by a live run", "low", "2026-07-01T00:00:00+09:00"));
-    execSync(`git add -A && git commit -q -m concerns`, { cwd: repo });
+    const wk = (rel, body) => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), body); };
+    wk(".workaholic/concerns/live-risk.md",
+      "---\ntype: Concern\nconcern_id: live-risk\nmission: alpha\nowner: a@qmu.jp\ntickets: [t.md]\norigin_pr: 9\ncreated_at: 2026-06-01T00:00:00+09:00\nfirst_seen: 2026-06-01T00:00:00+09:00\nlast_seen: 2026-06-02T00:00:00+09:00\nseverity: urgent\nstatus: active\n---\n\n# Live risk\n\n## Description\n\nstill real\n\n## How to Fix\n\ndo it\n");
+    wk(".workaholic/concerns/archive/old-one.md",
+      "---\ntype: Concern\nconcern_id: old-one\nfirst_seen: 2026-05-01T00:00:00+09:00\nseverity: low\nstatus: resolved\nresolved_by_pr: 42\n---\n\n# Old one\n");
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
 
-    run(repo, `${POSIX_SH} ${SCRIPTS.migrateConcernIdentity}`);
-    const active = readdirSync(cdir).filter((f) => f.endsWith(".md"));
-    assertEq("migration collapses a 3-file chain to one active file", active.length, 1);
-    const keeper = readFileSync(join(cdir, active[0]), "utf8");
-    assertTrue("keeper severity escalated to the most-severe (moderate)", /^severity:\s*moderate\s*$/m.test(keeper), keeper);
-    assertTrue("keeper first_seen is the earliest", /^first_seen:\s*2026-05-01/m.test(keeper), keeper);
-    assertTrue("keeper last_seen is the latest", /^last_seen:\s*2026-07-01/m.test(keeper), keeper);
-    assertTrue("keeper carries a concern_id", /^concern_id:\s*\S/m.test(keeper), keeper);
-    const archived = readdirSync(join(cdir, "archive")).filter((f) => f.endsWith(".md"));
-    assertEq("the two redundant clones are archived as superseded", archived.length, 2);
-    const supersededBody = readFileSync(join(cdir, "archive", archived[0]), "utf8");
-    assertTrue("archived clone records superseded_by", /^superseded_by:\s*\S/m.test(supersededBody), supersededBody);
-    assertTrue("archived clone is marked status: superseded", /^status:\s*superseded\s*$/m.test(supersededBody), supersededBody);
+    let r = run(dir, `${POSIX_SH} ${SCRIPTS.migrateConcerns}`);
+    assertEq("migrate-concerns exits 0", r.status, 0);
+    const live = join(dir, ".workaholic/feedbacks/20260601000000-live-risk.md");
+    assertTrue("an active concern becomes an open record", existsSync(live));
+    const body = readFileSync(live, "utf8");
+    assertTrue("the record keeps kind/severity/relations/provenance",
+      /^kind: concern$/m.test(body) && /^severity: urgent$/m.test(body) && /^mission: alpha$/m.test(body) && /^origin_pr: 9$/m.test(body), body);
+    assertTrue("the record preserves the Description prose", body.includes("still real"), body);
+    const old = readFileSync(join(dir, ".workaholic/feedbacks/20260501000000-old-one.md"), "utf8");
+    assertTrue("an archived concern is stamped closed:", /^closed: resolved$/m.test(old), old);
+    assertTrue("the concerns directory is removed", !existsSync(join(dir, ".workaholic/concerns")));
 
-    // Idempotent: a second migration is a no-op.
-    run(repo, `${POSIX_SH} ${SCRIPTS.migrateConcernIdentity}`);
-    assertEq("migration is idempotent", readdirSync(cdir).filter((f) => f.endsWith(".md")).length, 1);
-  } finally { cleanup(repo); }
+    const open = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listOpenConcerns}`).stdout);
+    assertEq("list-open-concerns sees the live one and not the closed one",
+      open.concerns.map((c) => c.concern_id), ["live-risk"]);
+    assertEq("lane fields survive the migration", open.concerns[0].owner, "a@qmu.jp");
 
-  // (2) Update-in-place with severity escalation on re-extract; no downgrade.
-  const repo2 = makeRepo("main");
-  try {
-    mkdirSync(join(repo2, ".workaholic/stories"), { recursive: true });
-    const story = (title, sev, desc) =>
-      `---\ntype: Story\nbranch: work-x\n---\n## 6. Concerns\n\n### ${title}\n\n- **Severity:** ${sev}\n- **Description:** ${desc}\n- **How to Fix:** fix\n\n## 7. Next\n`;
-    const spath = join(repo2, ".workaholic/stories/work-x.md");
-    // Start at moderate so it clears the promotion floor; the low re-extract below
-    // still exercises no-downgrade because updates are severity-gate-agnostic.
-    writeFileSync(spath, story("Compound login risk", "moderate", "first desc"));
-    execSync(`git add -A && git commit -q -m story`, { cwd: repo2 });
-    const c1 = JSON.parse(run(repo2, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/10`).stdout);
-    assertEq("first extract creates the concern", c1.created, 1);
-    const cfile = join(repo2, ".workaholic/concerns/compound-login-risk.md");
-    const first = readFileSync(cfile, "utf8");
-    const firstSeen = first.match(/^first_seen:\s*(.*)$/m)[1];
-
-    // Re-extract the SAME concern at higher severity + new text -> update in place.
-    writeFileSync(spath, story("Compound login risk", "urgent", "SECOND desc"));
-    const c2 = JSON.parse(run(repo2, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 11 https://x/11`).stdout);
-    assertEq("re-extract creates no new file", c2.created, 0);
-    assertEq("re-extract reports an update", c2.updated, 1);
-    const files = readdirSync(join(repo2, ".workaholic/concerns")).filter((f) => f.endsWith(".md"));
-    assertEq("still exactly one concern file after re-extract", files.length, 1);
-    const upd = readFileSync(cfile, "utf8");
-    assertTrue("severity escalated to urgent", /^severity:\s*urgent\s*$/m.test(upd), upd);
-    assertTrue("first_seen preserved across update", upd.includes(`first_seen: ${firstSeen}`), upd);
-    assertTrue("description refreshed in place", /SECOND desc/.test(upd), upd);
-
-    // Re-extract at LOWER severity -> no downgrade (stays urgent).
-    writeFileSync(spath, story("Compound login risk", "low", "third"));
-    run(repo2, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 12 https://x/12`);
-    assertTrue("severity never downgrades", /^severity:\s*urgent\s*$/m.test(readFileSync(cfile, "utf8")), "downgraded");
-  } finally { cleanup(repo2); }
-
-  // (3) A resolved/archived concern must never resurface on re-extract.
-  const repo3 = makeRepo("main");
-  try {
-    mkdirSync(join(repo3, ".workaholic/stories"), { recursive: true });
-    mkdirSync(join(repo3, ".workaholic/concerns/archive"), { recursive: true });
-    writeFileSync(join(repo3, ".workaholic/concerns/archive/already-resolved-thing.md"),
-      `---\ntype: Concern\nconcern_id: already-resolved-thing\nseverity: low\nstatus: resolved\n---\n\n# Already resolved thing\n\n## Description\n\nd\n\n## How to Fix\n\nf\n`);
-    writeFileSync(join(repo3, ".workaholic/stories/work-x.md"),
-      `---\ntype: Story\nbranch: work-x\n---\n## 6. Concerns\n\n### Already resolved thing\n\n- **Severity:** moderate\n- **Description:** d\n- **How to Fix:** f\n\n## 7. Next\n`);
-    execSync(`git add -A && git commit -q -m seed`, { cwd: repo3 });
-    const c = JSON.parse(run(repo3, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/10`).stdout);
-    assertEq("archived concern does not resurface", c.created, 0);
-    assertTrue("no active file recreated for the resolved concern",
-      !existsSync(join(repo3, ".workaholic/concerns/already-resolved-thing.md")), "resurfaced");
-  } finally { cleanup(repo3); }
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.migrateConcerns}`);
+    assertEq("a second run is a clean no-op (idempotent)", r.status, 0);
+  } finally { cleanup(dir); }
 }
 
 // The script runs post-merge (main is checked out), so its concern commit lands
@@ -4833,389 +4773,43 @@ function testCommitReleaseNotePush() {
   } finally { cleanup(rejOrigin); cleanup(rejClone); cleanup(mover); }
 }
 
-// ---------- concern identity: the three slugify() writers must agree ----------
-// concern_id is derived from the title by THREE scripts: extract-deferred-concerns.sh
-// mints it on ship, merge-concerns.sh mints a triage compound, migrate-concern-identity.sh
-// back-fills and renames files to it. If any two disagree, the round trip silently breaks —
-// the extractor computes an id it cannot find and writes a SECOND file for the same
-// concern. That is not hypothetical: PR #86 produced `commit-subject-rule-binds-on-no-path`
-// (triage) and `the-commit-subject-rule-binds-on` (ship) for one concern, because
-// merge-concerns.sh had no slugify at all and took the id from the caller's hand.
-//
-// They live in python heredocs in three shell scripts, so they cannot be imported from one
-// place without a module-loading pattern this codebase does not use. Equivalence is
-// therefore asserted BEHAVIOURALLY, which is the property that actually matters: a text
-// diff would flag quote style, and would miss a real divergence written to look the same.
-function testSlugifyWritersAgree() {
-  const paths = {
-    extract: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/extract-deferred-concerns.sh"),
-    migrate: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/migrate-concern-identity.sh"),
-    merge: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/merge-concerns.sh"),
-  };
-  const cases = [
-    "The commit-subject rule binds on no path — including the sanctioned one",
-    "Compound risk",
-    "`merge-concerns.sh` writes [a link](http://x) and CAPS_UNDER_scores",
-    "50-char cap is byte-based outside a UTF-8 locale",
-    "one two three four five six seven eight",   // 6-word truncation
-    "A".repeat(200),                              // 60-char truncation
-    "(carried from PR #59) Concern that was carried",
-  ];
-  // Cases go in on STDIN, never as an argv string. execSync runs its command through an
-  // outer shell, which would evaluate the backticks in "`merge-concerns.sh`" as command
-  // substitution and silently hand python a mangled case — all three writers would then
-  // agree on garbage and the assertion would pass while measuring nothing. This is the
-  // same trap the secret-pattern work hit twice; the fix is always stdin.
-  const driver = `
-import re, sys, json
-srcs = ${JSON.stringify(paths)}
-fns = {}
-for name, path in srcs.items():
-    text = open(path).read()
-    m = re.search(r'^def slugify\\(s\\):\\n(?:(?:[ \\t]+.*)?\\n)+?(?=\\n*\\S)', text, re.M)
-    if not m:
-        print(json.dumps({"error": "no slugify in " + name})); sys.exit(0)
-    ns = {"re": re}
-    exec(m.group(0), ns)
-    fns[name] = ns["slugify"]
-cases = json.loads(sys.stdin.read())
-print(json.dumps([{n: f(c) for n, f in fns.items()} for c in cases]))
-`;
-  const tmp = mkdtempSync(join(tmpdir(), "slug-"));
-  try {
-    const drv = join(tmp, "d.py");
-    writeFileSync(drv, driver);
-    const out = execSync(`python3 ${drv}`, { input: JSON.stringify(cases), encoding: "utf8" });
-    const rows = JSON.parse(out);
-    assertTrue("all three scripts define a slugify()", !rows.error, JSON.stringify(rows));
-    rows.forEach((r, i) => {
-      const distinct = [...new Set(Object.values(r))];
-      assertEq(`slugify agrees across writers: ${cases[i].slice(0, 34)}`, distinct.length, 1);
-    });
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
-}
-
-// ---------- report/merge-concerns.sh + close-concern.sh (triage mutators) ----------
-// The triage step's apply mutators: merge folds members into a compound that
-// supersedes its parts (severity escalated), close archives with a reason. Both
-// idempotent.
-function testConcernTriage() {
-  // Members carry provenance, as extract-deferred-concerns.sh stamps it. `b` is the
-  // EARLIEST-seen member, so a compound folding these must inherit b's origin, not a's.
-  const mkConcern = (id, sev, title, seen = "2026-07-01T00:00:00+09:00", pr = "50") =>
-    `---\ntype: Concern\nconcern_id: ${id}\norigin_pr: ${pr}\norigin_pr_url: https://x/pr/${pr}\norigin_branch: work-${pr}\norigin_commit: abc${pr}\ncreated_at: ${seen}\nfirst_seen: ${seen}\nlast_seen: ${seen}\nseverity: ${sev}\nstatus: active\nresolved_by_pr:\nresolved_by_commit:\n---\n\n# ${title}\n\n## Description\n\ndesc ${id}\n\n## How to Fix\n\nfix\n`;
-
-  // (1) Merge 3 members into a new compound: 1 active compound, 3 superseded.
-  // The compound's id is DERIVED from --title, not taken from the positional argument:
-  // slugify("Compound risk") == "compound-risk". This test used to pass `abc` and assert
-  // `abc.md`, which encoded the very bug that cloned a compound on the next ship — the
-  // extractor computes slugify(title) and would never have found `abc`.
-  const repo = makeRepo("main");
-  try {
-    const cdir = join(repo, ".workaholic/concerns");
-    mkdirSync(cdir, { recursive: true });
-    writeFileSync(join(cdir, "a.md"), mkConcern("a", "low", "Concern A", "2026-07-05T00:00:00+09:00", "55"));
-    writeFileSync(join(cdir, "b.md"), mkConcern("b", "low", "Concern B", "2026-07-01T00:00:00+09:00", "50"));
-    writeFileSync(join(cdir, "c.md"), mkConcern("c", "moderate", "Concern C", "2026-07-09T00:00:00+09:00", "59"));
-    execSync(`git add -A && git commit -q -m seed`, { cwd: repo });
-
-    const r = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPTS.mergeConcerns} --severity urgent --title "Compound risk" - a b c`).stdout);
-    assertEq("merge reports the target and superseded members", { m: r.merged, n: r.superseded.length }, { m: true, n: 3 });
-    assertEq("new compound's id is derived from its title", r.target_id, "compound-risk");
-    const active = readdirSync(cdir).filter((f) => f.endsWith(".md"));
-    assertEq("merge leaves exactly one active file (the compound)", active, ["compound-risk.md"]);
-    const compound = readFileSync(join(cdir, "compound-risk.md"), "utf8");
-    assertTrue("compound severity is the confirmed escalation (urgent)", /^severity:\s*urgent\s*$/m.test(compound), compound);
-    assertTrue("compound is flagged compound: true", /^compound:\s*true\s*$/m.test(compound), compound);
-
-    // Provenance: a compound re-frames risks already on the books, so its origin is its
-    // EARLIEST-seen member's (b, 2026-07-01, PR 50) — not the triage act's, which would
-    // restart the clock on a weeks-old risk. created_at/last_seen ARE the triage act's.
-    assertTrue("compound inherits the earliest member's origin_pr", /^origin_pr:\s*50\s*$/m.test(compound), compound);
-    assertTrue("compound inherits the earliest member's origin_branch", /^origin_branch:\s*work-50\s*$/m.test(compound), compound);
-    assertTrue("compound inherits the earliest member's origin_commit", /^origin_commit:\s*abc50\s*$/m.test(compound), compound);
-    assertTrue("compound inherits the earliest member's first_seen",
-      /^first_seen:\s*2026-07-01T00:00:00\+09:00\s*$/m.test(compound), compound);
-    assertTrue("compound stamps created_at (the triage act)", /^created_at:\s*\S+/m.test(compound), compound);
-    assertTrue("compound stamps last_seen (the triage act)", /^last_seen:\s*\S+/m.test(compound), compound);
-    assertTrue("compound's created_at is NOT the inherited first_seen",
-      !/^created_at:\s*2026-07-01T00:00:00\+09:00\s*$/m.test(compound), compound);
-
-    const archived = readdirSync(join(cdir, "archive")).filter((f) => f.endsWith(".md")).sort();
-    assertEq("all three members archived", archived, ["a.md", "b.md", "c.md"]);
-    assertTrue("archived member records superseded_by the compound",
-      /^superseded_by:\s*compound-risk\s*$/m.test(readFileSync(join(cdir, "archive/a.md"), "utf8")), "no superseded_by");
-
-    // Idempotent: re-running the same merge supersedes nothing new.
-    const r2 = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPTS.mergeConcerns} --severity urgent --title "Compound risk" - a b c`).stdout);
-    assertEq("merge is idempotent (no members left to supersede)", r2.superseded.length, 0);
-
-    // Folding into an EXISTING target still takes its id as given — that path was never
-    // broken and must not regress.
-    writeFileSync(join(cdir, "d.md"), mkConcern("d", "low", "Concern D", "2026-07-11T00:00:00+09:00", "60"));
-    const r3 = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPTS.mergeConcerns} --title "Compound risk" compound-risk d`).stdout);
-    assertEq("folding into an existing target keeps its id", r3.target_id, "compound-risk");
-    assertEq("folding into an existing target supersedes the new member", r3.superseded.length, 1);
-  } finally { cleanup(repo); }
-
-  // (1b) THE ROUND TRIP — the assertion whose absence let a compound clone itself.
-  // A triage-minted compound, then a story whose section-6 title IS that compound:
-  // ship's extractor must compute the same id, find it, and UPDATE IN PLACE.
-  const rt = makeRepo("main");
-  try {
-    const cdir = join(rt, ".workaholic/concerns");
-    mkdirSync(cdir, { recursive: true });
-    mkdirSync(join(rt, ".workaholic/stories"), { recursive: true });
-    writeFileSync(join(cdir, "a.md"), mkConcern("a", "low", "Concern A", "2026-07-05T00:00:00+09:00", "55"));
-    writeFileSync(join(cdir, "b.md"), mkConcern("b", "low", "Concern B", "2026-07-01T00:00:00+09:00", "50"));
-    execSync(`git add -A && git commit -q -m seed`, { cwd: rt });
-
-    const m = JSON.parse(run(rt, `${POSIX_SH} ${SCRIPTS.mergeConcerns} --severity urgent --title "The rule binds on no path" - a b`).stdout);
-    assertEq("round trip: compound minted with a derived id", m.target_id, "the-rule-binds-on-no-path");
-
-    // The next story carries the compound as a section-6 block, exactly as the
-    // section-reviewer writes it back out.
-    writeFileSync(join(rt, ".workaholic/stories/work-rt.md"),
-      `---\ntype: Story\nbranch: work-rt\n---\n\n## 6. Concerns\n\n### The rule binds on no path\n\n- **Severity:** urgent\n- **Description:** still open\n- **How to Fix:** fix it\n`);
-    execSync(`git add -A && git commit -q -m story`, { cwd: rt });
-
-    const e = JSON.parse(run(rt, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-rt 90 https://x/pr/90`).stdout);
-    assertEq("round trip: ship UPDATES the compound in place", e.updated, 1);
-    assertEq("round trip: ship does NOT clone it", e.created, 0);
-    // Exclude the OKF bundle index, which extract legitimately regenerates — the same
-    // reserved names migrate-concern-identity.sh skips (RESERVED = {README, index}).
-    const files = readdirSync(cdir)
-      .filter((f) => f.endsWith(".md") && !["index.md", "README.md"].includes(f)).sort();
-    assertEq("round trip: exactly one file for the concern", files, ["the-rule-binds-on-no-path.md"]);
-    // And the inherited origin survives the update — origin_* is never edited after creation.
-    const after = readFileSync(join(cdir, "the-rule-binds-on-no-path.md"), "utf8");
-    assertTrue("round trip: the compound keeps its inherited origin_pr (not the ship's PR 90)",
-      /^origin_pr:\s*50\s*$/m.test(after), after);
-  } finally { cleanup(rt); }
-
-  // (2) Close archives with status + reason and drops from the active list.
-  const repo2 = makeRepo("main");
-  try {
-    const cdir = join(repo2, ".workaholic/concerns");
-    mkdirSync(cdir, { recursive: true });
-    writeFileSync(join(cdir, "wontfix.md"), mkConcern("wontfix", "low", "Inherent trade-off"));
-    execSync(`git add -A && git commit -q -m seed`, { cwd: repo2 });
-
-    const r = JSON.parse(run(repo2, `${POSIX_SH} ${SCRIPTS.closeConcern} wontfix accepted "deliberate, documented"`).stdout);
-    assertEq("close returns closed:true with the status", { c: r.closed, s: r.status }, { c: true, s: "accepted" });
-    assertTrue("closed concern left the active dir",
-      !existsSync(join(cdir, "wontfix.md")) && existsSync(join(cdir, "archive/wontfix.md")), "not archived");
-    const body = readFileSync(join(cdir, "archive/wontfix.md"), "utf8");
-    assertTrue("archived concern records status: accepted", /^status:\s*accepted\s*$/m.test(body), body);
-    assertTrue("archived concern records the close reason", /^closed_reason:\s*deliberate, documented\s*$/m.test(body), body);
-
-    // Dropped from list-active (which now emits the triage envelope).
-    const listed = JSON.parse(run(repo2, `${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout);
-    assertEq("closed concern no longer listed as active",
-      { n: listed.active_count, c: listed.concerns.length, t: listed.should_triage },
-      { n: 0, c: 0, t: false });
-
-    // Idempotent: closing again is a no-op.
-    const r2 = JSON.parse(run(repo2, `${POSIX_SH} ${SCRIPTS.closeConcern} wontfix accepted "again"`).stdout);
-    assertEq("close is idempotent (already_closed)", { c: r2.closed, why: r2.reason }, { c: false, why: "already_closed" });
-
-    // Bad status is rejected.
-    const r3 = JSON.parse(run(repo2, `${POSIX_SH} ${SCRIPTS.closeConcern} anything bogus`).stdout);
-    assertEq("close rejects an invalid status", r3.reason, "bad_status");
-  } finally { cleanup(repo2); }
-
-  // (3) Re-grade: the standalone severity mutator (severity used to change only
-  // as a merge side effect, so an in-place re-grade meant a forbidden hand edit).
-  const repo3 = makeRepo("main");
-  try {
-    const cdir = join(repo3, ".workaholic/concerns");
-    mkdirSync(cdir, { recursive: true });
-    writeFileSync(join(cdir, "hot.md"), mkConcern("hot", "low", "Getting worse"));
-    execSync(`git add -A && git commit -q -m seed`, { cwd: repo3 });
-
-    const r = JSON.parse(run(repo3, `${POSIX_SH} ${SCRIPTS.reGrade} hot urgent "two incidents this week"`).stdout);
-    assertEq("re-grade rewrites severity in place",
-      { g: r.regraded, s: r.severity, p: r.previous }, { g: true, s: "urgent", p: "low" });
-    const body = readFileSync(join(cdir, "hot.md"), "utf8");
-    assertTrue("re-grade updated the frontmatter severity", /^severity:\s*urgent\s*$/m.test(body), body);
-    assertTrue("re-grade appended the auditable rationale",
-      /## Re-grade \(/.test(body) && body.includes("low -> urgent") && body.includes("two incidents this week"), body);
-    assertTrue("re-grade staged its change",
-      execSync(`git diff --cached --name-only`, { cwd: repo3, encoding: "utf8" }).includes(".workaholic/concerns/hot.md"),
-      "not staged");
-
-    // Idempotent: same severity again is a no-op with a named reason.
-    const r2 = JSON.parse(run(repo3, `${POSIX_SH} ${SCRIPTS.reGrade} hot urgent "again"`).stdout);
-    assertEq("re-grade to the current severity is a no-op", { g: r2.regraded, why: r2.reason }, { g: false, why: "unchanged" });
-
-    // Guard rails: bad severity and missing rationale are refused by name.
-    const bad = run(repo3, `${POSIX_SH} ${SCRIPTS.reGrade} hot catastrophic "x"`);
-    assertTrue("re-grade rejects an unknown severity",
-      bad.status !== 0 && bad.stdout.includes("bad_severity"), bad.stdout);
-    const noWhy = run(repo3, `${POSIX_SH} ${SCRIPTS.reGrade} hot moderate ""`);
-    assertTrue("re-grade requires a rationale",
-      noWhy.status !== 0 && noWhy.stdout.includes("no_rationale"), noWhy.stdout);
-  } finally { cleanup(repo3); }
-
-  // (4) Slug collision: two DIFFERENT titles sharing their first six words used
-  // to fold silently into one file. The second mint is refused by name; the
-  // same-title retry path (idempotent re-run, asserted in (1)) keeps working.
-  const repo4 = makeRepo("main");
-  try {
-    const cdir = join(repo4, ".workaholic/concerns");
-    mkdirSync(cdir, { recursive: true });
-    for (const id of ["a", "b", "c", "d"]) {
-      writeFileSync(join(cdir, `${id}.md`), mkConcern(id, "low", `Concern ${id.toUpperCase()}`));
-    }
-    execSync(`git add -A && git commit -q -m seed`, { cwd: repo4 });
-
-    const first = JSON.parse(run(repo4, `${POSIX_SH} ${SCRIPTS.mergeConcerns} --severity urgent --title "The rule binds on no path at dawn" - a b`).stdout);
-    assertEq("collision: first compound mints its six-word slug", first.target_id, "the-rule-binds-on-no-path");
-    const second = JSON.parse(run(repo4, `${POSIX_SH} ${SCRIPTS.mergeConcerns} --severity urgent --title "The rule binds on no path in tests" - c d`).stdout);
-    assertEq("collision: a different title behind the same slug is refused by name",
-      { m: second.merged, why: second.reason }, { m: false, why: "id_collision" });
-    assertTrue("collision: the refusal names the existing title",
-      second.existing_title === "The rule binds on no path at dawn", JSON.stringify(second));
-    assertTrue("collision: the refused members were NOT folded",
-      existsSync(join(cdir, "c.md")) && existsSync(join(cdir, "d.md")), "members disappeared");
-  } finally { cleanup(repo4); }
-}
-
-// ---------- report/propose-demotions.sh + demote-concern.sh (developer-confirmed shrink) ----------
-// Shrinking an already-bloated corpus: propose (read-only) the at/below-floor
-// active concerns, then demote confirmed ones to archive/ as status: demoted --
-// reversible, excluded from the active set, never resurrected by extraction.
-function testConcernDemotion() {
-  const mkConcern = (id, sev) =>
-    `---\ntype: Concern\nconcern_id: ${id}\norigin_pr: 1\norigin_pr_url: https://x/pr/1\norigin_branch: work-1\norigin_commit: abc\ncreated_at: 2026-07-01T00:00:00+09:00\nfirst_seen: 2026-07-01T00:00:00+09:00\nlast_seen: 2026-07-01T00:00:00+09:00\nseverity: ${sev}\nstatus: active\nresolved_by_pr:\nresolved_by_commit:\n---\n\n# ${id}\n\n## Description\n\nd\n\n## How to Fix\n\nf\n`;
+// ---------- feedback/list-open-concerns.sh (open set + lanes) ----------
+// The single reader of the open concern set: kind: concern records minus
+// superseded minus migration-closed. Envelope keys match the retired
+// list-active-deferred-concerns.sh; should_triage is permanently false.
+function testListOpenConcerns() {
   const dir = makeRepo("main");
   try {
-    const cdir = join(dir, ".workaholic/concerns");
-    mkdirSync(cdir, { recursive: true });
-    writeFileSync(join(cdir, "low1.md"), mkConcern("low1", "low"));
-    writeFileSync(join(cdir, "low2.md"), mkConcern("low2", "low"));
-    writeFileSync(join(cdir, "mod1.md"), mkConcern("mod1", "moderate"));
-    writeFileSync(join(cdir, "urg1.md"), mkConcern("urg1", "urgent"));
-    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
-
-    // propose (default floor low): only the two low concerns, read-only.
-    const prop = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeDemotions}`).stdout);
-    assertEq("propose lists exactly the at/below-floor (low) concerns",
-      prop.map((c) => c.concern_id).sort(), ["low1", "low2"]);
-    assertTrue("propose is read-only (nothing moved)",
-      existsSync(join(cdir, "low1.md")) && !existsSync(join(cdir, "archive")), "propose mutated");
-    // floor=moderate proposes low AND moderate, never the urgent.
-    const propM = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeDemotions} moderate`).stdout);
-    assertEq("floor=moderate proposes low+moderate, not urgent",
-      propM.map((c) => c.concern_id).sort(), ["low1", "low2", "mod1"]);
-
-    // demote a confirmed concern -> archive/ as status: demoted, reversible.
-    const d = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.demoteConcern} low1 "not worth tracking"`).stdout);
-    assertEq("demote returns demoted:true with status", { d: d.demoted, s: d.status }, { d: true, s: "demoted" });
-    assertTrue("demoted concern left the active dir for archive/",
-      !existsSync(join(cdir, "low1.md")) && existsSync(join(cdir, "archive/low1.md")), "not archived");
-    const body = readFileSync(join(cdir, "archive/low1.md"), "utf8");
-    assertTrue("archived concern records status: demoted", /^status:\s*demoted\s*$/m.test(body), body);
-    assertTrue("archived concern records the demote reason", /^demoted_reason:\s*not worth tracking\s*$/m.test(body), body);
-
-    // demoted concern is gone from the active listing, like a closed one.
-    const listed = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout);
-    assertTrue("demoted concern no longer active-listed",
-      !listed.concerns.some((c) => c.concern_id === "low1"), JSON.stringify(listed.concerns.map((c) => c.concern_id)));
-
-    // a demoted concern is never resurrected by extraction (id in archived_ids).
-    mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
-    writeFileSync(join(dir, ".workaholic/stories/work-r.md"),
-      `---\ntype: Story\nbranch: work-r\n---\n## 6. Concerns\n\n### low1\n\n- **Severity:** moderate\n- **Description:** d\n- **How to Fix:** f\n\n## 7. Next\n`);
-    execSync(`git add -A && git commit -q -m story`, { cwd: dir });
-    const ex = JSON.parse(run(dir, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-r 2 https://x/2`).stdout);
-    assertEq("extraction never resurrects a demoted concern", ex.created, 0);
-    assertTrue("the demoted concern stays in archive/, not re-created active",
-      existsSync(join(cdir, "archive/low1.md")) && !existsSync(join(cdir, "low1.md")), "resurrected");
-
-    // idempotent: demoting an already-archived concern is a reported no-op.
-    const again = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.demoteConcern} low1 "again"`).stdout);
-    assertEq("re-demote is an idempotent no-op", { d: again.demoted, r: again.reason }, { d: false, r: "already_archived" });
-  } finally { cleanup(dir); }
-}
-
-// ---------- report/list-active-deferred-concerns.sh (envelope + JSON escaping) ----------
-// The listing is one python3 json.dumps pass: a corpus whose fields carry
-// quotes, backslashes, and newlines must still emit parseable JSON (the old
-// per-field shell interpolation shipped raw values to consumer repos), and the
-// envelope carries the script-owned triage trigger.
-function testListActiveConcernsEnvelope() {
-  const dir = makeRepo("main");
-  try {
-    const cdir = join(dir, ".workaholic/concerns");
-    mkdirSync(cdir, { recursive: true });
-    // An UNMIGRATED, hostile fixture: no concern_id, a quote/backslash-laden
-    // title and body, an origin_pr that is not a number.
-    writeFileSync(join(cdir, "hostile.md"),
-      `---\ntype: Concern\nstatus: active\nseverity: low\norigin_pr: not-a-number\norigin_pr_url: https://x/pr/1?q="quo\\ted"\norigin_branch: work-1\norigin_commit: abc1\n---\n\n# He said "quote\\backslash"\n\nline one\nline "two" \\ three\n`);
-    writeFileSync(join(cdir, "plain.md"),
-      `---\ntype: Concern\nconcern_id: plain\nstatus: active\nseverity: moderate\norigin_pr: 7\n---\n\n# Plain\n\nok\n`);
-    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
-
-    const out = run(dir, `${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout;
-    let j = null;
-    try { j = JSON.parse(out); } catch { /* leave null */ }
-    assertTrue("list-active emits parseable JSON over a hostile corpus", j !== null, out.slice(0, 300));
-    assertEq("list-active envelope counts the active set", j.active_count, 2);
-    assertEq("list-active should_triage is false under the threshold", j.should_triage, false);
-    // The listing runs the identity migration first, which may RENAME the file
-    // to its slugified title — so find the hostile fixture by provenance, not path.
-    const hostile = j.concerns.find((c) => c.origin_branch === "work-1");
-    assertTrue("list-active preserves quotes/backslashes in the body",
-      hostile.body.includes('line "two" \\ three'), JSON.stringify(hostile.body));
-    assertEq("list-active coerces a non-numeric origin_pr to 0", hostile.origin_pr, 0);
-
-    // The trigger flips when the lane count exceeds the (env-overridden) threshold.
-    // Both fixtures are unowned (everyone's lane), so my_lane_count == active_count.
-    const t = JSON.parse(run(dir, `CONCERN_TRIAGE_THRESHOLD=1 ${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout);
-    assertEq("list-active should_triage flips over the threshold", t.should_triage, true);
-  } finally { cleanup(dir); }
-}
-
-// ---------- report/list-active-deferred-concerns.sh: lane-aware triage ----------
-// One developer's mission-lane concerns must not fire the triage prompt on
-// another developer. should_triage is scoped to the actor's own lane (owned +
-// unowned); active_count and owner_counts stay global.
-function testListActiveConcernsLanes() {
-  const dir = makeRepo("main");
-  try {
-    const cdir = join(dir, ".workaholic/concerns");
-    mkdirSync(cdir, { recursive: true });
+    const fdir = join(dir, ".workaholic/feedbacks");
+    mkdirSync(fdir, { recursive: true });
     const A = "a@qmu.jp", B = "b@qmu.jp";
-    const mk = (name, owner, id) =>
-      writeFileSync(join(cdir, name),
-        `---\ntype: Concern\nconcern_id: ${id}\nstatus: active\nseverity: low\nowner: ${owner}\norigin_pr: 1\n---\n\n# ${id}\n\nx\n`);
-    mk("a1.md", A, "a1"); mk("a2.md", A, "a2");
-    mk("b1.md", B, "b1"); mk("b2.md", B, "b2"); mk("b3.md", B, "b3");
-    mk("free.md", "", "free");            // unowned — everyone's lane
+    const rec = (name, id, owner, extra = "") =>
+      writeFileSync(join(fdir, name),
+        `---\ntype: Feedback\ntitle: ${id}\nkind: concern\nsource: development\ncreated_at: 2026-01-01T00:00:00+09:00\nauthor: test@example.com\nsupersedes:\nseverity: low\nconcern_id: ${id}\nowner: ${owner}\norigin_pr: 7\n${extra}---\n\n# ${id}\n\nline "two" \\ three\n`);
+    rec("20260101000001-a1.md", "a1", A);
+    rec("20260101000002-b1.md", "b1", B);
+    rec("20260101000003-free.md", "free", "");                    // unowned — everyone's lane
+    rec("20260101000004-closed.md", "closed-one", "", "closed: resolved\n"); // migration-closed
+    rec("20260101000005-gone.md", "gone", "");
+    // A superseding record moots "gone" and is itself excluded (it names a target).
+    writeFileSync(join(fdir, "20260102000000-resolved-gone.md"),
+      `---\ntype: Feedback\ntitle: Resolved: gone\nkind: concern\nsource: development\ncreated_at: 2026-01-02T00:00:00+09:00\nauthor: test@example.com\nsupersedes: 20260101000005-gone.md\nseverity: low\nconcern_id: gone\n---\n\n# Resolved: gone\n`);
+    // A non-concern record never appears.
+    writeFileSync(join(fdir, "20260101000006-note.md"),
+      `---\ntype: Feedback\ntitle: Note\nkind: insight\nsource: discussion\ncreated_at: 2026-01-01T00:00:06+09:00\nauthor: test@example.com\nsupersedes:\n---\n\n# Note\n`);
     execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
 
-    // As A: lane = A's 2 + 1 unowned = 3. As B: 3 + 1 = 4. Global active = 6.
     execSync(`git config user.email ${A}`, { cwd: dir });
-    const asA = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout);
-    assertEq("global active_count is everyone's total", asA.active_count, 6);
-    assertEq("owner_counts breaks the corpus down by lane",
-      asA.owner_counts, { "a@qmu.jp": 2, "b@qmu.jp": 3, "(unowned)": 1 });
-    assertEq("my_lane_count for A = owned + unowned", asA.my_lane_count, 3);
-
-    // Threshold 3: A's lane (3) does not exceed it; B's lane (4) does. Same corpus,
-    // different actor -> the prompt fires for B, not A. This is the whole point.
-    const aT = JSON.parse(run(dir, `CONCERN_TRIAGE_THRESHOLD=3 ${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout);
-    assertEq("A is not prompted: lane 3 not over threshold 3", aT.should_triage, false);
-    execSync(`git config user.email ${B}`, { cwd: dir });
-    const bT = JSON.parse(run(dir, `CONCERN_TRIAGE_THRESHOLD=3 ${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout);
-    assertEq("B IS prompted on the same corpus: lane 4 over threshold 3", bT.should_triage, true);
-
-    // No git identity -> cannot scope -> falls back to the global count.
-    execSync(`git config user.email ""`, { cwd: dir });
-    const none = JSON.parse(run(dir, `CONCERN_TRIAGE_THRESHOLD=5 ${POSIX_SH} ${SCRIPTS.listActiveConcerns}`).stdout);
-    assertEq("no identity: my_lane_count falls back to global", none.my_lane_count, 6);
-    assertEq("no identity: should_triage uses the global count", none.should_triage, true);
+    const j = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listOpenConcerns}`).stdout);
+    assertEq("open set excludes closed, superseded, superseding, and non-concern records",
+      j.concerns.map((c) => c.concern_id).sort(), ["a1", "b1", "free"]);
+    assertEq("active_count matches the open set", j.active_count, 3);
+    assertEq("owner_counts breaks the set down by lane",
+      j.owner_counts, { "a@qmu.jp": 1, "b@qmu.jp": 1, "(unowned)": 1 });
+    assertEq("my_lane_count for A = owned + unowned", j.my_lane_count, 2);
+    assertEq("should_triage is permanently false (triage retired)", j.should_triage, false);
+    assertTrue("body survives quotes/backslashes",
+      j.concerns[0].body.includes('line "two" \\ three'), JSON.stringify(j.concerns[0].body));
   } finally { cleanup(dir); }
 }
 
@@ -5294,14 +4888,12 @@ function testExtractConcernMissionRelation() {
   } finally { cleanup(repo2); }
 }
 
-// ---------- ship/extract-deferred-concerns.sh: promotion floor (balance dial) ----------
-// The story keeps EVERY concern (section 6); the durable corpus promotes only
-// moderate+ (or explicitly kept), so low concerns don't grow the tracked pile.
-function testExtractPromotionFloor() {
+// ---------- ship/extract-deferred-concerns.sh: every severity is recorded ----------
+// The promotion floor retired with the concern merger (H2): the stream records
+// every section-6 concern regardless of severity; Keep: is tolerated and ignored.
+function testExtractAllSeverities() {
   const dir = makeRepo("main");
   try {
-    const cdir = join(dir, ".workaholic/concerns");
-    mkdirSync(cdir, { recursive: true });
     mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
     const block = (title, sev, extra = "") =>
       `### ${title}\n\n- **Severity:** ${sev}\n${extra}- **Description:** d\n- **How to Fix:** f\n\n`;
@@ -5315,20 +4907,14 @@ function testExtractPromotionFloor() {
     execSync(`git add -A && git commit -q -m story`, { cwd: dir });
 
     const r = JSON.parse(run(dir, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-p 30 https://x/pr/30`).stdout);
-    // urgent + moderate + kept-low promote (3); the plain low stays in the story (1).
-    assertEq("promotion floor: 3 concerns promoted (urgent/moderate/kept-low)", r.created, 3);
-    assertEq("promotion floor: 1 concern left story-only (plain low)", r.story_only, 1);
-    const files = fs_readdirSafe(cdir).filter((f) => f.endsWith(".md") && !["index.md", "README.md"].includes(f));
-    assertTrue("the plain low concern was NOT written to the corpus",
-      !files.some((f) => f.startsWith("a-low-nicety")), files.join(","));
-    assertTrue("the kept low concern WAS written to the corpus (Keep: true override)",
-      files.some((f) => f.startsWith("a-kept-low-note")), files.join(","));
-
-    // The knob lowers the floor: CONCERN_PROMOTE_MIN=low promotes everything.
-    execSync(`rm -f ${cdir}/*.md`, { cwd: dir });
-    const rAll = JSON.parse(run(dir, `NO_COMMIT=1 CONCERN_PROMOTE_MIN=low ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-p 30 https://x/pr/30`).stdout);
-    assertEq("floor=low promotes every concern", rAll.created, 4);
-    assertEq("floor=low leaves nothing story-only", rAll.story_only, 0);
+    assertEq("every severity is recorded (floor retired)", r.created, 4);
+    assertEq("story_only is always 0 now", r.story_only, 0);
+    const files = fs_readdirSafe(join(dir, ".workaholic/feedbacks")).filter((f) => f.endsWith(".md") && !["index.md", "README.md"].includes(f));
+    assertTrue("the plain low concern IS in the stream",
+      files.some((f) => f.endsWith("-a-low-nicety.md")), files.join(","));
+    const low = files.find((f) => f.endsWith("-a-low-nicety.md"));
+    assertTrue("severity rides on the record as a producer field",
+      /^severity: low$/m.test(readFileSync(join(dir, ".workaholic/feedbacks", low), "utf8")));
   } finally { cleanup(dir); }
 }
 
@@ -5516,7 +5102,7 @@ function testValidateLayout() {
   // Allowed locations pass cleanly (exit 0) — including the newly-registered
   // feedbacks/guides/policies dirs and the release-scan root files.
   for (const p of [
-    ".workaholic/stories/s.md", ".workaholic/deployments/prod.md", ".workaholic/concerns/42-foo.md",
+    ".workaholic/stories/s.md", ".workaholic/deployments/prod.md",
     ".workaholic/release-notes/work-x.md", ".workaholic/trips/work-x/designs/design-v1.md",
     ".workaholic/feedbacks/20260728000000-note.md", ".workaholic/guides/getting-started.md",
     ".workaholic/policies/security.md",
@@ -5536,7 +5122,7 @@ function testLayoutDoctor() {
   try {
     for (const d of [".workaholic/.trips/trip-x", ".workaholic/proposals", ".workaholic/research",
       ".workaholic/tickets/done", ".workaholic/tickets/todo", ".workaholic/stories",
-      ".workaholic/concerns/archive", ".workaholic/trips/work-1/designs/reviews", ".workaholic/trips/trip-legacy"]) {
+      ".workaholic/feedbacks", ".workaholic/trips/work-1/designs/reviews", ".workaholic/trips/trip-legacy"]) {
       mkdirSync(join(dir, d), { recursive: true });
     }
     writeFileSync(join(dir, ".workaholic/README.md"), "x");
@@ -5555,7 +5141,7 @@ function testLayoutDoctor() {
     assertTrue("doctor advises on legacy trip-* naming", advPaths.includes(".workaholic/trips/trip-legacy"));
     assertTrue("doctor advises on nested designs/reviews", advPaths.includes(".workaholic/trips/work-1/designs/reviews"));
     assertTrue("doctor: no false positive on stories/", !paths.includes(".workaholic/stories"));
-    assertTrue("doctor: no false positive on concerns/", !paths.includes(".workaholic/concerns"));
+    assertTrue("doctor: no false positive on feedbacks/", !paths.includes(".workaholic/concerns"));
   } finally { cleanup(dir); }
 
   // A clean tree conforms with zero findings — including the registered
@@ -7696,6 +7282,103 @@ function testFeedback() {
   } finally { cleanup(dir); }
 }
 
+// ---------- propose skill: cursor / window / dedup / draft scaffold ----------
+// The proposal batch's mechanics (docs/loop-engineering-workflow.md C2-C4, B1):
+// runner-local cursor with safe cold start, exact added-records window, the
+// mission->feedback dedup set, and the unowned/unauthorized draft scaffold.
+function testProposeBatch() {
+  const dir = makeRepo("main");
+  try {
+    const wk = (rel, body) => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), body); };
+    const fb = (name, kind) =>
+      wk(`.workaholic/feedbacks/${name}`,
+        `---\ntype: Feedback\ntitle: ${name}\nkind: ${kind}\nsource: slack\ncreated_at: 2026-07-28T00:00:00+09:00\nauthor: test@example.com\nsupersedes:\n---\n\n# ${name}\n\nbody\n`);
+
+    // Cold start: no cursor -> bootstrap to the tip, initialized: true; pre-existing
+    // feedback is already-seen.
+    fb("20260728000001-old-note.md", "insight");
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+    let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeCursor} read`).stdout);
+    assertEq("cursor bootstraps to the current tip", r.initialized, true);
+    const c0 = r.commit;
+    assertEq("a bootstrapped cursor reads back stable", JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeCursor} read`).stdout), { commit: c0, initialized: false });
+    assertEq("pre-existing feedback is already-seen (empty window)",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeNewFeedback} ${c0}`).stdout), []);
+    assertTrue("the cursor file is git-ignored (runner-local state)",
+      execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim() === "", "cursor dirtied the tree");
+
+    // New records after the cursor appear in the window; index.md never does.
+    fb("20260728000002-build-x.md", "instruction");
+    fb("20260728000003-note.md", "insight");
+    wk(".workaholic/feedbacks/index.md", "# feedbacks\n");
+    execSync(`git add -A && git commit -q -m more`, { cwd: dir });
+    const win = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeNewFeedback} ${c0}`).stdout);
+    assertEq("the window lists exactly the records added since the cursor",
+      win.map((w) => w.path).sort(),
+      [".workaholic/feedbacks/20260728000002-build-x.md", ".workaholic/feedbacks/20260728000003-note.md"]);
+    assertEq("the window carries the frontmatter summary", win[0].kind, "instruction");
+
+    // advance refuses garbage, accepts a commit.
+    assertTrue("advance refuses a non-commit", run(dir, `${POSIX_SH} ${SCRIPTS.proposeCursor} advance nonsense`).status !== 0);
+    const tip = execSync(`git rev-parse HEAD`, { cwd: dir, encoding: "utf8" }).trim();
+    assertEq("advance accepts the tip", JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeCursor} advance ${tip}`).stdout).advanced, true);
+
+    // Draft scaffold: unowned, unauthorized, draft status in active/, feedback refs.
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeScaffoldDraft} "Build X" 20260728000002-build-x.md 20260728000003-note.md`).stdout);
+    assertEq("scaffold-draft creates the draft", r.created, true);
+    const dpath = join(dir, ".workaholic/missions/active/build-x/mission.md");
+    assertTrue("the draft lands in the active area", existsSync(dpath));
+    const body = readFileSync(dpath, "utf8");
+    assertTrue("the draft is status: draft, unowned, unauthorized",
+      /^status: draft$/m.test(body) && /^assignees: \[\]$/m.test(body) && /^drive_authorized:\s*$/m.test(body), body.split("\n").slice(0, 16).join("\n"));
+    assertEq("read-feedback-relation reads the refs back",
+      run(dir, `${POSIX_SH} ${SCRIPTS.proposeReadFeedbackRelation} ${dpath}`).stdout.split("\n").filter(Boolean),
+      ["20260728000002-build-x.md", "20260728000003-note.md"]);
+    assertTrue("scaffold-draft refuses an existing slug",
+      run(dir, `${POSIX_SH} ${SCRIPTS.proposeScaffoldDraft} "Build X" x.md`).status !== 0);
+
+    // Dedup set: the union of feedback refs across missions.
+    assertEq("list-proposed-refs unions the referenced records",
+      run(dir, `${POSIX_SH} ${SCRIPTS.proposeListRefs}`).stdout.split("\n").filter(Boolean),
+      ["20260728000002-build-x.md", "20260728000003-note.md"]);
+
+    // list.sh reports the draft distinctly (awaiting approval, not a replan target).
+    const lst = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
+    const d = lst.find((m) => m.slug === "build-x");
+    assertEq("list.sh reports the draft with ready_reason draft",
+      { status: d.status, ready: d.ready, reason: d.ready_reason }, { status: "draft", ready: false, reason: "draft" });
+    assertEq("a draft is unowned (relation unassigned)", d.relation, "unassigned");
+  } finally { cleanup(dir); }
+}
+
+// ---------- propose/notify-slack.sh (env-driven, never load-bearing, secret-safe) ----------
+// Network-free: the success/error paths run against a local file:// stub via
+// WORKAHOLIC_SLACK_API_URL — the suite never calls Slack.
+function testNotifySlack() {
+  const dir = makeRepo("main");
+  try {
+    // No token -> graceful recorded no-op, exit 0.
+    let r = run(dir, `${POSIX_SH} ${SCRIPTS.proposeNotifySlack} "hello"`, { env: { ...process.env, SLACK_BOT_TOKEN: "", WORKAHOLIC_SLACK_CHANNEL: "" } });
+    assertEq("no token is a no-op exit 0", r.status, 0);
+    assertEq("no token reports the reason", JSON.parse(r.stdout), { notified: false, reason: "no_token" });
+    // Token but no channel.
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.proposeNotifySlack} "hello"`, { env: { ...process.env, SLACK_BOT_TOKEN: "xoxb-test", WORKAHOLIC_SLACK_CHANNEL: "" } });
+    assertEq("no channel reports the reason", JSON.parse(r.stdout), { notified: false, reason: "no_channel" });
+    // Missing text is the one malformed-invocation error.
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.proposeNotifySlack} ""`);
+    assertTrue("empty text is a non-zero malformed invocation", r.status !== 0);
+
+    // Stubbed endpoint: an unreachable URL is curl_failed, still exit 0, and the
+    // token never appears in any output.
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.proposeNotifySlack} "hello"`, { env: { ...process.env, SLACK_BOT_TOKEN: "xoxb-supersecret-token", WORKAHOLIC_SLACK_CHANNEL: "C123", WORKAHOLIC_SLACK_API_URL: "http://127.0.0.1:9/unreachable" } });
+    assertEq("unreachable endpoint is a recorded no-op exit 0", r.status, 0);
+    assertTrue("failure reason is machine-readable",
+      ["curl_failed"].includes(JSON.parse(r.stdout).reason) || JSON.parse(r.stdout).reason.startsWith("http_"), r.stdout);
+    assertTrue("the token never leaks into stdout/stderr",
+      !r.stdout.includes("supersecret") && !r.stderr.includes("supersecret"), r.stdout + r.stderr);
+  } finally { cleanup(dir); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -7754,6 +7437,8 @@ const tests = [
   ["drive/archive.sh reports the mission roll (non-blocking, not silent)", testArchiveMissionReporting],
   ["ship/extract-deferred-concerns.sh mission seam", testMissionShipSeam],
   ["report/apply-deferred-concern-verdicts.sh mission seam", testMissionReportSeam],
+  ["feedback/migrate-concerns.sh (H2 merger)", testMigrateConcerns],
+  ["feedback/list-open-concerns.sh", testListOpenConcerns],
   ["drive/promote-icebox.sh", testPromoteIcebox],
   ["ship/publish-release.sh", testPublishRelease],
   ["ship/check-confirmation-capability.sh", testCheckCapability],
@@ -7765,17 +7450,11 @@ const tests = [
   ["okf/refresh-index.sh preserves content + prunes dead links", testRefreshIndexPreservesContent],
   ["report per-run artifacts (no shared /tmp paths)", testReportArtifacts],
   ["ship/extract-deferred-concerns.sh", testExtractDeferredConcerns],
-  ["report/migrate-concern-identity.sh + update-in-place", testConcernIdentity],
-  ["report/merge-concerns.sh + close-concern.sh (triage)", testConcernTriage],
-  ["report/list-active-deferred-concerns.sh envelope", testListActiveConcernsEnvelope],
-  ["report/list-active-deferred-concerns.sh lane-aware triage", testListActiveConcernsLanes],
   ["report/shrink-pr-body.sh", testShrinkPrBody],
   ["ship/extract-deferred-concerns.sh push", testExtractDeferredConcernsPush],
   ["ship/commit-release-note.sh push", testCommitReleaseNotePush],
-  ["concern identity: slugify writers agree", testSlugifyWritersAgree],
   ["ship/extract-deferred-concerns.sh mission/tickets relation", testExtractConcernMissionRelation],
-  ["ship/extract-deferred-concerns.sh promotion floor", testExtractPromotionFloor],
-  ["report/propose-demotions.sh + demote-concern.sh", testConcernDemotion],
+  ["ship/extract-deferred-concerns.sh all severities", testExtractAllSeverities],
   ["report/doc-drift.sh", testDocDrift],
   ["hooks/policy-lens.sh", testPolicyLens],
   ["hooks/validate-ticket.sh", testValidateLayout],
@@ -7817,6 +7496,8 @@ const tests = [
   ["monitor: replan is leaf work, not main-agent work", testMonitorReplanIsLeafWork],
   ["monitor: front-load every decision, then run unattended", testMonitorFrontLoads],
   ["feedback/create.sh + list.sh + hooks/validate-feedback.sh", testFeedback],
+  ["propose: cursor/window/dedup/draft scaffold", testProposeBatch],
+  ["propose/notify-slack.sh", testNotifySlack],
 ];
 
 for (const [label, fn] of tests) {

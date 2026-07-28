@@ -1,5 +1,6 @@
 #!/bin/sh -eu
-# Backfill .workaholic/concerns/ from every story file in .workaholic/stories/.
+# Backfill the feedback stream's kind: concern records from every story file in
+# .workaholic/stories/.
 # Matches each story's branch to a merged PR via the GitHub CLI, then runs
 # extract-deferred-concerns.sh per story with commits suppressed. Stages and commits
 # everything in one batch at the end.
@@ -65,10 +66,10 @@ for story in "$stories_dir"/*.md; do
 done
 
 # Count files written.
-files_total=$(find .workaholic/concerns -maxdepth 1 -name '*.md' ! -name 'README.md' | wc -l | tr -d ' ')
+files_total=$(find .workaholic/feedbacks -maxdepth 1 -name '*.md' ! -name 'index.md' | wc -l | tr -d ' ')
 
 if [ "$processed" -gt 0 ]; then
-  git add .workaholic/concerns/ >/dev/null
+  git add .workaholic/feedbacks/ >/dev/null
   if ! git diff --cached --quiet; then
     git commit -m "Backfill deferred concerns from stories" >/dev/null
   fi

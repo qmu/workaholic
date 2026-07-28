@@ -20,7 +20,7 @@ This inverts the 2026-07-21 decision that introduced strategies (mission `reorga
 
 The mission's definition is rewritten at the same time (decision B5 of the record): a mission is the **epic-equivalent, optional grouping** of a batch of tickets for management and efficiency — typically pre-built as a set and executed together (often overnight) — **never a required parent**. The ticket stays the first-class standalone unit: `/ticket` → `/drive` with an empty `mission:` is a fully sanctioned path, exactly as the mechanism already behaves (`create-ticket`'s optional field, `validate-ticket.sh`'s present-value-only check, `/drive`'s per-ticket prompt). The 2026-07-21 phrase "overnight-executable execution plan of a strategy" is superseded on both ends — strategy (B3) and the mandatory-sounding framing (B5). Sweep for prose that implies every ticket belongs to a mission or that overnight-mission execution is *the* model rather than one of two modes.
 
-Migration principle: **nothing is deleted from knowledge, only from structure.** Each live strategy's `## Direction` prose survives verbatim as a `source: discussion` feedback entry (authored by the strategy's author), and its `assignees` fold down into each linked active mission's `assignees` where empty.
+Migration principle: **nothing is deleted from knowledge, only from structure.** Each live strategy's `## Direction` prose survives verbatim as a feedback entry (`kind: insight`, `source: discussion`, authored by the strategy's author), and its `assignees` fold down into each linked active mission's `assignees` where empty.
 
 ## Policies
 

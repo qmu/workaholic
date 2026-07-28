@@ -34,7 +34,7 @@ Positioning note: this worktree is cut from `main` @ `41abd793`. The ownership-t
 
 ## Experience
 
-- Any session — a Slack-backed one later, a local one today — registers a feedback: a conformant `type: Feedback` file (source `meeting`/`slack`/`discussion`, author, timestamp slug) lands under `.workaholic/feedbacks/`, the area index refreshes, and `layout-doctor.sh` stays `conforming: true`. Feedback files are immutable records: consumers track "new" by commit cursor, never by mutating them.
+- Any session — a Slack-backed one later, a local one today — registers a feedback: a conformant `type: Feedback` file (a `kind` + `source` pair, author, timestamp slug) lands under `.workaholic/feedbacks/`, the area index refreshes, and `layout-doctor.sh` stays `conforming: true`. Feedback files are immutable records: consumers track "new" by commit cursor, never by mutating them; resolution/mootness is a new `supersedes` entry.
 - A hand-edit that violates the feedback floor (wrong location, missing `type`/`source`, bad filename) is blocked at write time by a PostToolUse validator, exactly as tickets and missions are.
 - A mission's owners are read from its own `assignees` (plural; creator-seeded at scaffold) through `mission-owners.sh`; the mission lens, bare `/mission`, `/monitor` scope, and `ship`'s concern lane behave exactly as before for owned missions, and a mission with no assignees surfaces as claimable. Claiming a mission is a one-line edit to that mission, not to any other artifact.
 - `/mission` creation and replan no longer resolve or interrogate a strategy; `validate-mission.sh`'s authorized floor requires owner + Experience + Acceptance only. Legacy `strategy:` frontmatter on archived missions is tolerated, never retro-blocked.
@@ -56,3 +56,4 @@ Positioning note: this worktree is cut from `main` @ `41abd793`. The ownership-t
 - 2026-07-28 — ticket added — 20260728183201-add-feedback-artifact-and-capture-skill.md
 - 2026-07-28 — ticket added — 20260728183202-carry-mission-ownership-on-assignees.md
 - 2026-07-28 — ticket added — 20260728183203-retire-strategy-layer.md
+- 2026-07-28 — mission replanned (feedback kind axis; concern merger recorded ahead) — mission.md

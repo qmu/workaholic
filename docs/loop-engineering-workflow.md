@@ -93,9 +93,9 @@ Defaults decided without asking (veto anytime):
 
 | # | Default |
 | - | ------- |
-| A2 | Feedback frontmatter: `type: Feedback` plus `source` (meeting/slack/discussion), `author`, date-derived slug. Details fixed at ticket time. |
+| A2 | Feedback frontmatter: `type: Feedback` plus `source` (meeting/slack/discussion), `author`, date-derived slug. Details fixed at ticket time. *(Third round: H2 adds the `kind` axis.)* |
 | A3 | Feedback files are **immutable records**; the proposal batch tracks "new" via a processed-cursor (last-processed commit), never by mutating feedback frontmatter. |
-| A4 | `concerns/` stays separate: concerns are issues surfacing *from work*, feedback is input *from humans*. |
+| A4 | ~~`concerns/` stays separate: concerns are issues surfacing *from work*, feedback is input *from humans*.~~ **Superseded by H2** — concern becomes a `kind` of feedback; the distinction survives as the axis value, not as a separate artifact. |
 | B1 | Draft is `status: draft` in mission frontmatter; approval sets `drive_authorized: true` (+ `merge_policy`). The `validate-mission.sh` floor keeps firing only once authorized. |
 | B2 | The approval flip is committed and merged by the Slack conversation session itself. |
 | C2 | Detection is cursor + `git log` polling on main; webhooks later. |
@@ -118,6 +118,15 @@ Defaults decided without asking (veto anytime):
 | G3 | **Claim protocol over pushed branches.** Before driving a unit the runner: (1) creates the worktree and flips the status of the claimed mission/ticket files, (2) commits and pushes that claim to a new branch. Every runner fetches and scans **unmerged remote branches** for claimed artifacts before picking, so a 5-minute tick — or a runner on another machine — never double-picks work already in flight. Replaces run-locks entirely; the repository itself is the coordination medium. |
 | G4 | **"Drive Every 5 Minutes."** A scheduled routine invokes `/drive` continuously; newly approved missions and newly created tickets are detected, claimed, implemented, reported, and shipped per policy — the standing loop the whole model runs on. |
 | G5 | **Merge policy is recorded per artifact at creation** (revises D3's mission-only placement). Every ticket- and mission-creation flow asks the developer whether the work may merge automatically, and stores the answer explicitly in frontmatter. At drive time the unit's effective policy is derived: all members auto-mergeable → ship automatically (deploy + verify evidence before merge, as always); any member review-flagged — or auto-mergeable work depending on review-flagged work — → stop at the PR and feed its URL back to Slack via the bot (E2). |
+
+### Third round — feedback as the unified information stream (2026-07-28, later session)
+
+| # | Decision |
+| - | -------- |
+| H1 | **The primary-source principle is unchanged by the Slack/GitHub surface.** Every piece of decision-bearing information — missions, tickets, stories, feedback, AI-generated or not — keeps its primary source as a file under `.workaholic/`. The Slack conversation itself is **not** recorded verbatim; what must materialize in the repository is its **agreements** (as missions/tickets), the development outcome (as stories/reports), and the leftovers and learnings (as feedback). Slack and GitHub are surfaces over the repository record, never the record. |
+| H2 | **Concern merges into Feedback** (supersedes A4). Feedback gains a **`kind` axis** — `concern` (born from the development process), `insight` (knowledge/conclusions shared in discussion), customer-material kinds ("received file X from the customer", "customer answered Y"), … enum finalized at ticket time — making "feedback" the single concept for all project-context information that accrues over time. `.workaholic/concerns/` merges into `feedbacks/` (a migration like the strategy one, in a later ticket); the concern-specific lifecycle machinery (promotion floor, demotion, active/archive curation) retires with it — curation becomes the proposal batch's *reading* of the stream, and resolution/mootness is recorded as a **new superseding feedback** referencing the old, upholding A3 immutability. A story's section 6 remains the immutable in-branch record it is today. |
+| H3 | **Timing: drive-born feedback is written when a carry-over decision is made** — never immediately at drive end, where a pre-merge fix could moot the entry. The concrete seams are exactly the existing carry-over decision points: `/ship`'s extraction step, `/carry`, and `/mission close` with `carried`. |
+| H4 | **Customer materials flow through the same stream.** Files received from a customer land in the repository and are analyzed; the analysis results — and the questions that must be asked of, or answers received from, the customer — are recorded as feedback, so "what do we need to ask/answer" is always derivable from the corpus. |
 
 ## 5. Strategy-layer removal — migration inventory
 
@@ -198,7 +207,7 @@ design (`mission-owners.sh`) contains the blast radius:
 | Phase | Content |
 | ----- | ------- |
 | 1 — Foundation | Strategy-layer removal + `assignees` restoration; `feedbacks/` artifact type + capture skill + validators + allowlist registration. Fully useful standalone (feedback works from local sessions too). |
-| 2 — Proposal loop | Cursor detection, proposal judgment, draft missions, Slack bot notifications, dedup. Server cron. |
+| 2 — Proposal loop | Cursor detection, proposal judgment, draft missions, Slack bot notifications, dedup. Server cron. Plus the concerns→feedback merger (H2: migration, lifecycle-machinery retirement, carry-over-seam extraction per H3). |
 | 3 — Approval & autonomous `/drive` | Approval flip flow from Slack sessions; per-artifact `merge_policy` at creation (G5); `/drive` unification with claim protocol and PR-unit partitioning (G1–G3); `/monitor` retirement; the 5-minute routine (G4); automated `/ship` for all-auto units. |
 | 4 — Platform | Claude Code Web port of both batches, kioku transcript ingestion, multi-repo rollout of per-repo channels. |
 
@@ -209,5 +218,7 @@ design (`mission-owners.sh`) contains the blast radius:
 - Channel↔repo mapping config placement (E3).
 - Replan proposals driven by feedback (C3 second stage).
 - Stale-claim reclamation rule and the claim reader's exact mechanics (G3).
+- The feedback `kind` enum's final vocabulary (H2) and the customer-material
+  intake flow's mechanics (H4).
 - How the batch-unit claim records its grouping (which tickets share the PR)
   so a later tick reads the same unit boundaries.

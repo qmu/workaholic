@@ -100,6 +100,11 @@ const SCRIPTS = {
   listReflections: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list-reflections.sh"),
   nextAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/next-acceptance.sh"),
   feedbackCreate: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/create.sh"),
+  proposeCursor: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/cursor.sh"),
+  proposeNewFeedback: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/new-feedback.sh"),
+  proposeReadFeedbackRelation: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/read-feedback-relation.sh"),
+  proposeListRefs: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/list-proposed-refs.sh"),
+  proposeScaffoldDraft: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-draft.sh"),
   feedbackList: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/list.sh"),
 };
 
@@ -7276,6 +7281,75 @@ function testFeedback() {
   } finally { cleanup(dir); }
 }
 
+// ---------- propose skill: cursor / window / dedup / draft scaffold ----------
+// The proposal batch's mechanics (docs/loop-engineering-workflow.md C2-C4, B1):
+// runner-local cursor with safe cold start, exact added-records window, the
+// mission->feedback dedup set, and the unowned/unauthorized draft scaffold.
+function testProposeBatch() {
+  const dir = makeRepo("main");
+  try {
+    const wk = (rel, body) => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), body); };
+    const fb = (name, kind) =>
+      wk(`.workaholic/feedbacks/${name}`,
+        `---\ntype: Feedback\ntitle: ${name}\nkind: ${kind}\nsource: slack\ncreated_at: 2026-07-28T00:00:00+09:00\nauthor: test@example.com\nsupersedes:\n---\n\n# ${name}\n\nbody\n`);
+
+    // Cold start: no cursor -> bootstrap to the tip, initialized: true; pre-existing
+    // feedback is already-seen.
+    fb("20260728000001-old-note.md", "insight");
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+    let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeCursor} read`).stdout);
+    assertEq("cursor bootstraps to the current tip", r.initialized, true);
+    const c0 = r.commit;
+    assertEq("a bootstrapped cursor reads back stable", JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeCursor} read`).stdout), { commit: c0, initialized: false });
+    assertEq("pre-existing feedback is already-seen (empty window)",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeNewFeedback} ${c0}`).stdout), []);
+    assertTrue("the cursor file is git-ignored (runner-local state)",
+      execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim() === "", "cursor dirtied the tree");
+
+    // New records after the cursor appear in the window; index.md never does.
+    fb("20260728000002-build-x.md", "instruction");
+    fb("20260728000003-note.md", "insight");
+    wk(".workaholic/feedbacks/index.md", "# feedbacks\n");
+    execSync(`git add -A && git commit -q -m more`, { cwd: dir });
+    const win = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeNewFeedback} ${c0}`).stdout);
+    assertEq("the window lists exactly the records added since the cursor",
+      win.map((w) => w.path).sort(),
+      [".workaholic/feedbacks/20260728000002-build-x.md", ".workaholic/feedbacks/20260728000003-note.md"]);
+    assertEq("the window carries the frontmatter summary", win[0].kind, "instruction");
+
+    // advance refuses garbage, accepts a commit.
+    assertTrue("advance refuses a non-commit", run(dir, `${POSIX_SH} ${SCRIPTS.proposeCursor} advance nonsense`).status !== 0);
+    const tip = execSync(`git rev-parse HEAD`, { cwd: dir, encoding: "utf8" }).trim();
+    assertEq("advance accepts the tip", JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeCursor} advance ${tip}`).stdout).advanced, true);
+
+    // Draft scaffold: unowned, unauthorized, draft status in active/, feedback refs.
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeScaffoldDraft} "Build X" 20260728000002-build-x.md 20260728000003-note.md`).stdout);
+    assertEq("scaffold-draft creates the draft", r.created, true);
+    const dpath = join(dir, ".workaholic/missions/active/build-x/mission.md");
+    assertTrue("the draft lands in the active area", existsSync(dpath));
+    const body = readFileSync(dpath, "utf8");
+    assertTrue("the draft is status: draft, unowned, unauthorized",
+      /^status: draft$/m.test(body) && /^assignees: \[\]$/m.test(body) && /^drive_authorized:\s*$/m.test(body), body.split("\n").slice(0, 16).join("\n"));
+    assertEq("read-feedback-relation reads the refs back",
+      run(dir, `${POSIX_SH} ${SCRIPTS.proposeReadFeedbackRelation} ${dpath}`).stdout.split("\n").filter(Boolean),
+      ["20260728000002-build-x.md", "20260728000003-note.md"]);
+    assertTrue("scaffold-draft refuses an existing slug",
+      run(dir, `${POSIX_SH} ${SCRIPTS.proposeScaffoldDraft} "Build X" x.md`).status !== 0);
+
+    // Dedup set: the union of feedback refs across missions.
+    assertEq("list-proposed-refs unions the referenced records",
+      run(dir, `${POSIX_SH} ${SCRIPTS.proposeListRefs}`).stdout.split("\n").filter(Boolean),
+      ["20260728000002-build-x.md", "20260728000003-note.md"]);
+
+    // list.sh reports the draft distinctly (awaiting approval, not a replan target).
+    const lst = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
+    const d = lst.find((m) => m.slug === "build-x");
+    assertEq("list.sh reports the draft with ready_reason draft",
+      { status: d.status, ready: d.ready, reason: d.ready_reason }, { status: "draft", ready: false, reason: "draft" });
+    assertEq("a draft is unowned (relation unassigned)", d.relation, "unassigned");
+  } finally { cleanup(dir); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -7393,6 +7467,7 @@ const tests = [
   ["monitor: replan is leaf work, not main-agent work", testMonitorReplanIsLeafWork],
   ["monitor: front-load every decision, then run unattended", testMonitorFrontLoads],
   ["feedback/create.sh + list.sh + hooks/validate-feedback.sh", testFeedback],
+  ["propose: cursor/window/dedup/draft scaffold", testProposeBatch],
 ];
 
 for (const [label, fn] of tests) {

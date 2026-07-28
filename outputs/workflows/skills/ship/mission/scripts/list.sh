@@ -27,7 +27,7 @@
 # none) so the full-treatment tier can state each mission's next step.
 # drive_authorized is the raw frontmatter value; ready is the /mission planning
 # session's drive-readiness verdict (active AND has a plan AND drive_authorized);
-# ready_reason names the blocker (no_plan / not_authorized / not_active) so the
+# ready_reason names the blocker (no_plan / not_authorized / not_active / draft) so the
 # session can explain what a replan must fix. All additive — existing consumers
 # (catch/scan-window.sh, the command's replan judge) parse a subset and are
 # unaffected.
@@ -112,11 +112,16 @@ for d in $DIRS; do
     # ready when it has a plan (total > 0) AND is stamped drive_authorized: true.
     # ready_reason names the blocker so the session can explain what a replan must
     # fix — no_plan (empty ## Acceptance) or not_authorized (unstamped). Only an
-    # active mission can be "ready"; archived ones report ready:false, done.
+    # active mission can be "ready"; a DRAFT (an unapproved proposal from the
+    # /propose batch) reports its own distinct reason so the roadmap can show it
+    # as awaiting approval, not as a replan target; archived ones report
+    # ready:false, done.
     drive_auth=$(fm_field "$f" drive_authorized)
     ready=false
     ready_reason=""
-    if [ "$status" != "active" ]; then
+    if [ "$status" = "draft" ]; then
+        ready_reason="draft"
+    elif [ "$status" != "active" ]; then
         ready_reason="not_active"
     elif [ "${total:-0}" -eq 0 ]; then
         ready_reason="no_plan"

@@ -85,3 +85,16 @@ Interrogated at mission creation (2026-07-28, decision record C2–C4/B1/F2); ve
 - The judgment bar errs toward silence: a false negative costs one cron cycle (humans can always `/mission` by hand); a false positive spams Slack and erodes trust in the loop. Write that asymmetry into the SKILL.
 - Do not touch `/monitor`/`/drive` eligibility: a draft is invisible to executors until phase 3's approval flip — only `drive_authorized` runs unattended, and drafts never carry it.
 
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The cursor's git-ignore rides `.git/info/exclude` written by `cursor.sh` itself (idempotent, like the worktree creators' shared exclude guard) — so any repo the batch runs in is protected without a committed `.gitignore` change; this repo also carries the `.gitignore` line for visibility. Runner-local state needs runner-local ignoring.
+  **Context**: `plugins/workaholic/skills/propose/scripts/cursor.sh`.
+- **Insight**: `verify.mjs` treats any `<skill>/scripts/<name>.sh` string in a built SKILL.md as a reference to resolve — a cross-skill *documentation* mention (mission SKILL naming the propose reader) broke self-containment until reworded to prose. Path-shaped strings in built skills are load-bearing; name scripts without the path form when merely citing them.
+  **Context**: `plugins/workaholic/skills/mission/SKILL.md` draft paragraph.
+- **Insight**: `list.sh` needed only a four-line branch for `ready_reason: "draft"` because status was already the first gate — the draft state slots into every consumer (lens signal gate hides 0/0 drafts, relation reports `unassigned`, executors read only `drive_authorized`) with no further changes, confirming the draft design rides existing gates rather than adding new ones.
+  **Context**: `plugins/workaholic/skills/mission/scripts/list.sh`; testProposeBatch assertions.
+

@@ -7,8 +7,15 @@
 # existing mission in either area (active/ or archive/).
 #
 # Usage: create.sh "<title>" [assignee]
-#   assignee defaults to the creator's git user.email (self-assignment). Pass a
-#   second argument to assign the mission to a different user id / email.
+#   Ownership is CARRIED ON THE MISSION as the plural `assignees` list (2026-07-28 —
+#   returned from the 2026-07-24 strategy-layer model; see mission/SKILL.md Ownership
+#   and mission-owners.sh). The scaffold seeds `assignees` with the CREATOR — the
+#   interactive creator is the approver, and the approver is the default owner. The
+#   optional second argument seeds a different single owner instead; co-owners are
+#   added by editing the list. The singular `assignee:` key stays emitted but EMPTY
+#   (legacy readers only). An unowned mission is scaffolded by passing "" explicitly
+#   is NOT supported here — batch writers that need an unowned draft write their own
+#   scaffold (the drafts predate approval, so they have no approver yet).
 # Output: JSON {created, slug, path[, reason]}
 
 set -eu
@@ -42,9 +49,9 @@ META=$(sh "${SCRIPT_DIR}/../../gather/scripts//ticket-metadata.sh")
 CREATED_AT=$(printf '%s\n' "$META" | grep '"created_at"' | sed -e 's/.*: *"//' -e 's/".*//')
 AUTHOR=$(printf '%s\n' "$META" | grep '"author"' | sed -e 's/.*: *"//' -e 's/".*//')
 
-# Self-assignment by default: the assignee is the creator unless an explicit one
-# was passed. The mission lens (hooks/mission-lens.sh) surfaces a mission only to
-# the git user whose email matches this field.
+# Self-ownership by default: the creator is the approver and the approver is the
+# default owner (docs/loop-engineering-workflow.md decision B4). The optional second
+# argument seeds a different single owner.
 ASSIGNEE="${ASSIGNEE_ARG:-$AUTHOR}"
 
 mkdir -p "$MISSION_DIR"
@@ -56,8 +63,8 @@ slug: ${SLUG}
 status: active
 created_at: ${CREATED_AT}
 author: ${AUTHOR}
-assignee: ${ASSIGNEE}
-strategy:
+assignees: [${ASSIGNEE}]
+assignee:
 drive_authorized:
 predicted_hours:
 actual_hours:

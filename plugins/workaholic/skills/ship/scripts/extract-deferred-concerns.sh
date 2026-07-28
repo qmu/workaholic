@@ -59,10 +59,12 @@ sh "${SCRIPT_DIR}/../../report/scripts/migrate-concern-identity.sh" >/dev/null 2
 origin_commit=$(git rev-parse --short HEAD)
 created_at=$(date -Iseconds)
 
-result=$(python3 - "$story_file" "$pr_number" "$pr_url" "$branch" "$origin_commit" "$created_at" "${CONCERN_PROMOTE_MIN:-moderate}" <<'PY'
-import sys, re, os, json, glob
+owners_script="${SCRIPT_DIR}/../../mission/scripts/mission-owners.sh"
 
-story_file, pr_number, pr_url, branch, origin_commit, created_at, promote_min = sys.argv[1:8]
+result=$(python3 - "$story_file" "$pr_number" "$pr_url" "$branch" "$origin_commit" "$created_at" "${CONCERN_PROMOTE_MIN:-moderate}" "$owners_script" <<'PY'
+import sys, re, os, json, glob, subprocess
+
+story_file, pr_number, pr_url, branch, origin_commit, created_at, promote_min, owners_script = sys.argv[1:9]
 
 with open(story_file) as h:
     text = h.read()
@@ -82,11 +84,13 @@ if fm:
         if tm and tm.group(1).strip():
             story_tickets = tm.group(1).strip()
 
-# Lane owner: a concern inherits the assignee of the first mission its story
-# advances, denormalized as `owner:` so list-active can scope triage per lane
-# without resolving the mission at list time. Empty when the story names no
-# mission or the mission has no assignee (unowned — visible to everyone, same
-# spirit as an unassigned mission in the lens).
+# Lane owner: a concern inherits the owner of the first mission its story advances,
+# denormalized as `owner:` so list-active can scope triage per lane without resolving
+# the mission at list time. Ownership is DERIVED (2026-07-24): the first owner from
+# mission-owners.sh — the mission's own `assignees`, with a legacy `assignee`
+# fallback — so a concern's lane owner tracks the same source as the lens and monitor.
+# Empty when the story names no mission, the mission is unresolvable, or the mission is
+# unowned (visible to everyone, same spirit as an unassigned mission in the lens).
 def _first_slug(v):
     v = v.strip()
     if v.startswith('['):
@@ -99,12 +103,16 @@ if _slug:
     for area in ('active', 'archive'):
         mpath = f'.workaholic/missions/{area}/{_slug}/mission.md'
         if os.path.isfile(mpath):
-            with open(mpath, encoding='utf-8', errors='replace') as mh:
-                mfm = re.match(r'^---\n(.*?)\n---', mh.read(), re.DOTALL)
-            if mfm:
-                am = re.search(r'^assignee:[ \t]*(.*)$', mfm.group(1), re.MULTILINE)
-                if am:
-                    story_owner = am.group(1).strip()
+            try:
+                _out = subprocess.run(
+                    ['sh', owners_script, mpath],
+                    capture_output=True, text=True, timeout=10,
+                ).stdout
+                _owners = [ln.strip() for ln in _out.splitlines() if ln.strip()]
+                if _owners:
+                    story_owner = _owners[0]
+            except Exception:
+                pass
             break
 
 # Isolate section 6 (## 6. ...) up to the next top-level "## " heading.

@@ -14,15 +14,19 @@
 # Scope: active/<slug>/mission.md and a legacy flat missions/<slug>/mission.md.
 # archive/ is history and is never retro-blocked.
 #
-# Two tiers, because create.sh scaffolds EMPTY sections by design and the
-# Creation Interrogation fills them afterwards — the scaffold moment must pass:
-#   - always: the `assignee:` KEY must be present. Empty is legal (an
-#     explicitly unclaimed mission — the lens surfaces those as claimable), but
-#     a MISSING key is a hand-authored file that never met the schema.
-#   - when the file claims `drive_authorized: true` (the finished, dangerous
-#     state): `assignee` must be non-empty (an unattended run needs an owner),
-#     `## Experience` must carry non-comment content, and `## Acceptance` must
-#     hold at least one checklist item. A 0/0 authorized mission is refused at
+# One tier for the scaffold moment (which must always pass), one for the finished,
+# dangerous `drive_authorized: true` state. create.sh scaffolds EMPTY sections by
+# design and the Creation Interrogation fills them afterwards:
+#   - always: nothing is required. Ownership is carried on the mission's own plural
+#     `assignees` (2026-07-28 — returned from the 2026-07-24 strategy model; see
+#     mission/SKILL.md's Ownership section), but the scaffold moment mandates no key.
+#   - when the file claims `drive_authorized: true`: the mission must have an OWNER
+#     (mission-owners.sh non-empty — its own `assignees`, or the legacy singular
+#     `assignee` — an unattended run needs an owner), `## Experience` with
+#     non-comment content, and `## Acceptance` with at least one checklist item.
+#     The strategy-link requirement is GONE with the strategy layer's retirement
+#     (2026-07-28 — docs/loop-engineering-workflow.md B3); a legacy `strategy:`
+#     key is tolerated, never required. A 0/0 authorized mission is refused at
 #     the drive seam too (drive-authorized.sh, reason no_plan) — defense in
 #     depth, but this hook says it at write time, where the author can fix it.
 #
@@ -53,35 +57,21 @@ content=$(cat "$file_path")
 
 frontmatter=$(printf '%s\n' "$content" | awk '/^---$/{if(++c==2)exit}c==1')
 
-# The assignee KEY must exist (its value may be empty = unclaimed).
-if ! printf '%s\n' "$frontmatter" | grep -q '^assignee:'; then
-  echo "Error: mission.md must carry an assignee: field (empty means unclaimed; missing means the schema was never met)" >&2
-  echo "Got: $file_path" >&2
-  print_skill_reference
-  exit 2
-fi
+# Nothing is required at the scaffold moment.
 
 stamp=$(printf '%s\n' "$frontmatter" | grep -m1 '^drive_authorized:' | sed -e 's/^drive_authorized:[ \t]*//' -e 's/[ \t]*$//' || true)
 [ "$stamp" = "true" ] || exit 0
 
 # --- drive_authorized: true — the full floor ---------------------------------
+# (A legacy `strategy:` key from the retired strategy layer is tolerated and ignored.)
 
-assignee=$(printf '%s\n' "$frontmatter" | grep -m1 '^assignee:' | sed -e 's/^assignee:[ \t]*//' -e 's/[ \t]*$//' || true)
-if [ -z "$assignee" ]; then
-  echo "Error: a drive_authorized mission must have a non-empty assignee — unattended work needs an owner" >&2
-  echo "Got: $file_path" >&2
-  print_skill_reference
-  exit 2
-fi
-
-# A drive_authorized mission must link the strategy it executes. Every mission is an
-# execution plan of a strategy; the link is resolved during the Creation Interrogation
-# (infer / create / ask), so by the time the mission is stamped authorized it must
-# carry a non-empty strategy:. An unauthorized scaffold may leave it empty (passes),
-# and archive/ is never retro-blocked (handled above).
-strategy=$(printf '%s\n' "$frontmatter" | grep -m1 '^strategy:' | sed -e 's/^strategy:[ \t]*//' -e 's/[ \t]*$//' -e 's/^\[//' -e 's/\]$//' -e 's/^[ \t]*//' -e 's/[ \t]*$//' || true)
-if [ -z "$strategy" ]; then
-  echo "Error: a drive_authorized mission must link a strategy (strategy: <slug>) — every mission executes one; resolve it in the Creation Interrogation" >&2
+# The mission must have an OWNER. Ownership resolves through mission-owners.sh: the
+# mission's own plural `assignees` first, then the legacy singular `assignee`. An
+# unattended run needs someone who owns it, so an authorized mission with no owner
+# is refused here — seed its assignees.
+owners=$(sh "$(dirname "$0")/../skills/mission/scripts/mission-owners.sh" "$file_path" 2>/dev/null || true)
+if [ -z "$owners" ]; then
+  echo "Error: a drive_authorized mission must have an owner — seed the mission's own assignees (or a legacy assignee); unattended work needs an owner" >&2
   echo "Got: $file_path" >&2
   print_skill_reference
   exit 2

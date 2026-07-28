@@ -11,21 +11,18 @@
 # That means "not somebody else's", NOT "matches my email exactly". Two readings of
 # "assigned to me" were possible and this is the one that matches what the summary is
 # for: an UNASSIGNED mission is unclaimed work, which is closer to the developer's
-# business than a mission explicitly assigned to a colleague. So:
+# business than a mission explicitly owned by a colleague. So:
 #
-#   - assignee == my `git config user.email`  -> reported (mine, listed FIRST)
-#   - assignee absent or empty                -> reported as unassigned (claimable)
-#   - assignee == someone else                -> excluded (that gate works as intended)
+#   - I am among the mission's owners       -> reported (mine, listed FIRST)
+#   - the mission has no owners             -> reported as unassigned (claimable)
+#   - owned only by someone else            -> excluded (that gate works as intended)
 #
-# Previously this required an exact email match. `fm_field` returns "" for an absent
-# field, and "" matches no email that could ever exist, so an unassigned mission was
-# skipped for EVERYBODY -- not just for the developer running the command. `list.sh`
-# still reported it, which is what made the gap silent rather than loud. It was not one
-# stale file: missions keep arriving unassigned because create.sh's self-assignment
-# default is not the only way a mission.md comes into existence.
-#
-# Absent and empty behave identically -- `fm_field` already collapses them and the
-# schema draws no distinction, so neither does this.
+# OWNERSHIP IS DERIVED, not read from the mission's own frontmatter (2026-07-24): a
+# mission's owners come from its own plural `assignees`, with a legacy
+# fallback to the mission's own `assignee` — resolved through mission-owners.sh, the
+# single oracle. A mission may be co-owned, so it can have several owners; "mine"
+# means the caller is one of them. An unowned mission (no assignees and no
+# legacy assignee) is unclaimed work, surfaced to everyone as claimable.
 #
 # Only `active` missions are reported. Progress is computed on demand via progress.sh
 # and the next step via next-acceptance.sh (never a stored number). Creates nothing.
@@ -79,16 +76,18 @@ for pass in mine unassigned; do
         [ -f "$f" ] || continue
         [ "$(fm_field "$f" status)" = "active" ] || continue
 
-        assignee=$(fm_field "$f" assignee)
+        # Owners (the mission's own assignees, legacy singular fallback) via the
+        # single oracle. `assignee` in the output is the first owner, aliased for callers.
+        owners=$(sh "${SCRIPT_DIR}/mission-owners.sh" "$f" 2>/dev/null || true)
+        assignee=$(printf '%s\n' "$owners" | sed -n '1p')
         case "$pass" in
             mine)
-                # $EMAIL is non-empty (guarded above), so an unassigned mission can
-                # never fall through this branch by matching "".
-                [ "$assignee" = "$EMAIL" ] || continue
+                # $EMAIL is non-empty (guarded above). Caller must be AMONG the owners.
+                printf '%s\n' "$owners" | grep -Fxq "$EMAIL" || continue
                 ;;
             unassigned)
-                # Absent and empty are the same thing here, deliberately.
-                [ -z "$assignee" ] || continue
+                # No owners at all — unclaimed work, surfaced to everyone.
+                [ -z "$owners" ] || continue
                 ;;
         esac
 

@@ -27,10 +27,13 @@ filename=$(basename "$file_path")
 # Reject ticket-shaped files (YYYYMMDDHHmmss-*.md) written under .workaholic/
 # but outside .workaholic/tickets/. Catches misplacements like
 # .workaholic/RFDs/<ts>-foo.md that would otherwise silently pass.
+# feedbacks/ is exempt: feedback records deliberately share the chronological
+# <ts>-<slug>.md shape and carry their own write-time floor (validate-feedback.sh).
 case "$file_path" in
   *.workaholic/*)
     case "$file_path" in
       *.workaholic/tickets/*) : ;;
+      *.workaholic/feedbacks/*) : ;;
       *)
         if printf '%s' "$filename" | grep -qE '^[0-9]{14}-.*\.md$'; then
           echo "Error: Ticket files must be under .workaholic/tickets/ (todo/<user>/, icebox/, or archive/<branch>/)" >&2

@@ -87,7 +87,7 @@ if fm:
 # Lane owner: a concern inherits the owner of the first mission its story advances,
 # denormalized as `owner:` so list-active can scope triage per lane without resolving
 # the mission at list time. Ownership is DERIVED (2026-07-24): the first owner from
-# mission-owners.sh — the mission's strategy `assignees`, with a legacy `assignee`
+# mission-owners.sh — the mission's own `assignees`, with a legacy `assignee`
 # fallback — so a concern's lane owner tracks the same source as the lens and monitor.
 # Empty when the story names no mission, the mission is unresolvable, or the mission is
 # unowned (visible to everyone, same spirit as an unassigned mission in the lens).

@@ -18,10 +18,10 @@
 #   - owned only by someone else            -> excluded (that gate works as intended)
 #
 # OWNERSHIP IS DERIVED, not read from the mission's own frontmatter (2026-07-24): a
-# mission's owners come from the `assignees` of the strategy it executes, with a legacy
+# mission's owners come from its own plural `assignees`, with a legacy
 # fallback to the mission's own `assignee` — resolved through mission-owners.sh, the
-# single oracle. A strategy may be co-owned, so a mission can have several owners; "mine"
-# means the caller is one of them. An unowned mission (no strategy assignees and no
+# single oracle. A mission may be co-owned, so it can have several owners; "mine"
+# means the caller is one of them. An unowned mission (no assignees and no
 # legacy assignee) is unclaimed work, surfaced to everyone as claimable.
 #
 # Only `active` missions are reported. Progress is computed on demand via progress.sh
@@ -76,7 +76,7 @@ for pass in mine unassigned; do
         [ -f "$f" ] || continue
         [ "$(fm_field "$f" status)" = "active" ] || continue
 
-        # Derived owners (strategy assignees, legacy mission-assignee fallback) via the
+        # Owners (the mission's own assignees, legacy singular fallback) via the
         # single oracle. `assignee` in the output is the first owner, aliased for callers.
         owners=$(sh "${SCRIPT_DIR}/mission-owners.sh" "$f" 2>/dev/null || true)
         assignee=$(printf '%s\n' "$owners" | sed -n '1p')

@@ -50,7 +50,8 @@ const SCRIPTS = {
   missionProgress: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/progress.sh"),
   missionList: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list.sh"),
   missionOwners: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/mission-owners.sh"),
-  strategyReadAssignees: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/read-assignees.sh"),
+  readAssignees: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/read-assignees.sh"),
+  migrateStrategies: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/migrate-strategies.sh"),
   missionClose: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/close.sh"),
   appendChangelog: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/append-changelog.sh"),
   tickAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/tick-acceptance.sh"),
@@ -103,10 +104,6 @@ const SCRIPTS = {
   appendReflection: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/append-reflection.sh"),
   listReflections: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list-reflections.sh"),
   nextAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/next-acceptance.sh"),
-  strategyCreate: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/create.sh"),
-  strategyList: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/list.sh"),
-  strategyReadRelation: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/read-strategy-relation.sh"),
-  strategyRetire: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/retire.sh"),
   feedbackCreate: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/create.sh"),
   feedbackList: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/list.sh"),
 };
@@ -810,23 +807,6 @@ concerns: []
       { status: la.status, assignee: la.assignee, checked: la.checked, total: la.total },
       { status: "active", assignee: A, checked: 1, total: 2 });
 
-    // ---- strategy field: grouped bare-/mission view reads it, not inline parse ----
-    // list.sh must carry each mission's strategy slug (via read-strategy-relation.sh),
-    // "" when unlinked, so the bare view groups by strategy with an "unlinked" bucket.
-    assertEq("list.sh reports \"\" strategy for an unlinked mission", la.strategy, "");
-    mkdirSync(join(dir, ".workaholic/strategies/active/roadmap-direction"), { recursive: true });
-    writeFileSync(join(dir, ".workaholic/strategies/active/roadmap-direction/strategy.md"),
-      `---\ntype: Strategy\ntitle: Roadmap Direction\nslug: roadmap-direction\nstatus: active\n---\n\n# Roadmap Direction\n\n## Direction\n\n## Changelog\n`);
-    const mLinkedDir = join(dir, ".workaholic/missions/active/mission-linked");
-    mkdirSync(mLinkedDir, { recursive: true });
-    writeFileSync(join(mLinkedDir, "mission.md"),
-      `---\ntype: Mission\ntitle: Mission Linked\nslug: mission-linked\nstatus: active\nauthor: ${A}\nassignee: ${A}\nstrategy: roadmap-direction\n---\n\n# Mission Linked\n\n## Acceptance\n\n- [ ] Linked criterion (#x.md)\n\n## Changelog\n`);
-    const lLinked = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
-    assertEq("list.sh reports the strategy slug for a linked mission",
-      lLinked.find((m) => m.slug === "mission-linked").strategy, "roadmap-direction");
-    assertEq("list.sh strategy stays \"\" for still-unlinked missions",
-      lLinked.find((m) => m.slug === "mission-a").strategy, "");
-
     // Empty git email degrades: nothing is "mine", everyone still listed, no error
     // (unlike summary.sh, the bare list must not require an identity).
     execSync(`git config user.email ""`, { cwd: dir });
@@ -834,7 +814,7 @@ concerns: []
     assertEq("list.sh succeeds with an empty git email", lNone.status, 0);
     const relNone = Object.fromEntries(JSON.parse(lNone.stdout).map((m) => [m.slug, m.relation]));
     assertEq("empty email: assigned missions classify as others, unassigned stays unassigned",
-      relNone, { "mission-a": "others", "mission-b": "others", "mission-free": "unassigned", "mission-linked": "others", "mission-old": "others" });
+      relNone, { "mission-a": "others", "mission-b": "others", "mission-free": "unassigned", "mission-old": "others" });
 
     // ---- planning-session readiness: ready / ready_reason (additive) ----
     // The bare /mission planning session drives its replan loop off `ready`.
@@ -3124,94 +3104,47 @@ function testMissionDuration() {
   } finally { cleanup(dir); }
 }
 
-// ---------- strategy: artifact + skill (create/list/reader/retire/index) ----------
-function testStrategyArtifact() {
+// ---------- mission/migrate-strategies.sh (strategy-layer retirement) ----------
+// The living migration: a lingering strategies/ tree folds into feedbacks + mission
+// assignees and is removed — nothing deleted from knowledge, only from structure.
+// Runs standalone here AND through lib/resolve.sh's seam on any mission-script touch.
+function testMigrateStrategies() {
   const dir = makeRepo("main");
   try {
-    // create.sh scaffolds a conformant strategy.md in active/, deriving the slug.
-    let r = run(dir, `${POSIX_SH} ${SCRIPTS.strategyCreate} "Agent Orchestrated Development"`);
-    assertEq("strategy create exits 0", r.status, 0);
-    const created = JSON.parse(r.stdout);
-    assertEq("strategy create slug", created.slug, "agent-orchestrated-development");
-    assertEq("strategy create flag", created.created, true);
-    const spath = join(dir, ".workaholic/strategies/active/agent-orchestrated-development/strategy.md");
-    assertTrue("strategy.md written into active/", existsSync(spath), created.path);
-    const body = readFileSync(spath, "utf8");
-    assertTrue("strategy has type: Strategy", /^type:\s*Strategy\s*$/m.test(body), body.split("\n").slice(0, 10).join("\n"));
-    assertTrue("strategy has status active", /^status:\s*active\s*$/m.test(body));
-    assertTrue("strategy has ## Direction", body.includes("\n## Direction\n"));
-    assertTrue("strategy has ## Changelog", body.includes("\n## Changelog\n"));
-    assertTrue("strategy has NO acceptance/worktree machinery",
-      !/^drive_authorized:/m.test(body) && !/^assignee:/m.test(body) && !body.includes("## Acceptance"), body);
+    const wk = (rel, body) => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), body); };
+    wk(".workaholic/strategies/active/dir-a/strategy.md",
+      "---\ntype: Strategy\ntitle: Direction A\nslug: dir-a\nstatus: active\ncreated_at: 2026-07-21T03:35:56+09:00\nauthor: a@qmu.jp\nassignees: [a@qmu.jp, b@qmu.jp]\n---\n\n# Direction A\n\n## Direction\n\nGo somewhere good.\n\n## Changelog\n");
+    wk(".workaholic/missions/active/m-linked/mission.md",
+      "---\ntype: Mission\ntitle: L\nslug: m-linked\nstatus: active\nassignees: []\nassignee:\nstrategy: dir-a\n---\n\n## Acceptance\n\n- [ ] x\n");
+    wk(".workaholic/missions/active/m-owned/mission.md",
+      "---\ntype: Mission\ntitle: O\nslug: m-owned\nstatus: active\nassignees: [c@qmu.jp]\nassignee:\nstrategy: dir-a\n---\n\n## Acceptance\n\n- [ ] x\n");
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
 
-    // create.sh refuses an existing slug (either area).
-    r = run(dir, `${POSIX_SH} ${SCRIPTS.strategyCreate} "Agent Orchestrated Development"`);
-    assertEq("strategy create refuses duplicate", JSON.parse(r.stdout).created, false);
+    let r = run(dir, `${POSIX_SH} ${SCRIPTS.migrateStrategies}`);
+    assertEq("migrate-strategies exits 0", r.status, 0);
+    const fb = join(dir, ".workaholic/feedbacks/20260721033556-strategy-dir-a.md");
+    assertTrue("the strategy survives as a feedback record", existsSync(fb));
+    const body = readFileSync(fb, "utf8");
+    assertTrue("the feedback preserves the Direction prose verbatim", body.includes("Go somewhere good."), body);
+    assertTrue("the feedback keeps kind/author/created_at from the strategy",
+      body.includes("kind: insight") && body.includes("author: a@qmu.jp") && body.includes("created_at: 2026-07-21T03:35:56+09:00"), body);
+    assertTrue("strategy assignees fold into the empty linked mission",
+      /^assignees: \[a@qmu\.jp, b@qmu\.jp\]$/m.test(readFileSync(join(dir, ".workaholic/missions/active/m-linked/mission.md"), "utf8")));
+    assertTrue("an already-owned mission is untouched",
+      /^assignees: \[c@qmu\.jp\]$/m.test(readFileSync(join(dir, ".workaholic/missions/active/m-owned/mission.md"), "utf8")));
+    assertTrue("the strategies directory is removed", !existsSync(join(dir, ".workaholic/strategies")));
+    assertEq("mission-owners resolves the folded owners with no strategy hop",
+      run(dir, `${POSIX_SH} ${SCRIPTS.missionOwners} ${join(dir, ".workaholic/missions/active/m-linked/mission.md")}`).stdout.split("\n").filter(Boolean),
+      ["a@qmu.jp", "b@qmu.jp"]);
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.migrateStrategies}`);
+    assertEq("a second run is a clean no-op (idempotent)", r.status, 0);
 
-    // A second strategy so list ordering is exercised.
-    run(dir, `${POSIX_SH} ${SCRIPTS.strategyCreate} "Zebra Direction"`);
-
-    // Missions linking to strategies via the `strategy:` relation.
-    const mkMission = (slug, strategyLine) => {
-      const md = join(dir, `.workaholic/missions/active/${slug}/mission.md`);
-      mkdirSync(dirname(md), { recursive: true });
-      writeFileSync(md, `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\n${strategyLine}\n---\n\n# ${slug}\n`);
-    };
-    mkMission("mission-a", "strategy: agent-orchestrated-development");
-    mkMission("mission-b", "strategy: [agent-orchestrated-development]");   // list form
-    mkMission("mission-c", "strategy: zebra-direction");
-    mkMission("mission-d", "strategy:");                                    // unlinked
-
-    // read-strategy-relation.sh: bare, list, absent, no-frontmatter.
-    const rel = (slug) => run(dir, `${POSIX_SH} ${SCRIPTS.strategyReadRelation} .workaholic/missions/active/${slug}/mission.md`).stdout.trim();
-    assertEq("reader: bare scalar", rel("mission-a"), "agent-orchestrated-development");
-    assertEq("reader: inline list", rel("mission-b"), "agent-orchestrated-development");
-    assertEq("reader: absent value -> nothing", rel("mission-d"), "");
-    writeFileSync(join(dir, "nofm.md"), "no frontmatter here\nstrategy: x\n");
-    assertEq("reader: no frontmatter -> nothing",
-      run(dir, `${POSIX_SH} ${SCRIPTS.strategyReadRelation} nofm.md`).stdout.trim(), "");
-
-    // list.sh: both strategies, computed missions rollup, sorted.
-    const list = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyList}`).stdout);
-    assertEq("list reports both strategies", list.map((s) => s.slug), ["agent-orchestrated-development", "zebra-direction"]);
-    const aod = list.find((s) => s.slug === "agent-orchestrated-development");
-    assertEq("rollup computes missions for the strategy", aod.missions.sort(), ["mission-a", "mission-b"]);
-    assertEq("zebra rollup has its one mission", list.find((s) => s.slug === "zebra-direction").missions, ["mission-c"]);
-
-    // active_missions: the /mission gap signal. Archive mission-c; zebra keeps it in
-    // `missions` (all) but drops it from `active_missions` -> zebra is now a gap.
-    mkdirSync(join(dir, ".workaholic/missions/archive/mission-c"), { recursive: true });
-    execSync(`git mv .workaholic/missions/active/mission-c .workaholic/missions/archive/mission-c 2>/dev/null || mv .workaholic/missions/active/mission-c/mission.md .workaholic/missions/archive/mission-c/mission.md`, { cwd: dir });
-    const listG = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyList}`).stdout);
-    const zebra = listG.find((s) => s.slug === "zebra-direction");
-    assertEq("archived mission stays in the all-missions rollup", zebra.missions, ["mission-c"]);
-    assertEq("gap signal: zebra has no active mission", zebra.active_missions, []);
-    assertEq("non-gap: aod still has active missions",
-      listG.find((s) => s.slug === "agent-orchestrated-development").active_missions.sort(), ["mission-a", "mission-b"]);
-
-    // OKF index: strategies/index.md with area section; bundle root links strategies.
-    assertTrue("strategies index written", existsSync(join(dir, ".workaholic/strategies/index.md")));
-    assertTrue("strategies index has ## active",
-      readFileSync(join(dir, ".workaholic/strategies/index.md"), "utf8").includes("\n## active\n"));
-    assertTrue("bundle root links strategies",
-      readFileSync(join(dir, ".workaholic/index.md"), "utf8").includes("(strategies/index.md)"));
-
-    // retire.sh: moves to archive/, flips status, idempotent re-retire.
-    r = run(dir, `${POSIX_SH} ${SCRIPTS.strategyRetire} zebra-direction 2026-07-21`);
-    assertEq("retire exits 0", r.status, 0);
-    const retired = JSON.parse(r.stdout);
-    assertEq("retire flag", retired.retired, true);
-    assertTrue("strategy moved to archive/",
-      existsSync(join(dir, ".workaholic/strategies/archive/zebra-direction/strategy.md")));
-    const arch = readFileSync(join(dir, ".workaholic/strategies/archive/zebra-direction/strategy.md"), "utf8");
-    assertTrue("retired status flipped", /^status:\s*retired\s*$/m.test(arch), arch);
-    assertTrue("retire appended a changelog line", /- 2026-07-21 .* strategy retired/.test(arch), arch);
-    r = run(dir, `${POSIX_SH} ${SCRIPTS.strategyRetire} zebra-direction 2026-07-21`);
-    assertEq("re-retire is idempotent no-op", JSON.parse(r.stdout).retired, false);
-
-    // retired strategy still lists (archive area) with its computed rollup.
-    const list2 = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyList}`).stdout);
-    assertEq("retired strategy still enumerated", list2.find((s) => s.slug === "zebra-direction").status, "retired");
+    // The resolve.sh seam: any mission-script touch migrates a tree that reappears.
+    wk(".workaholic/strategies/active/dir-b/strategy.md",
+      "---\ntype: Strategy\ntitle: B\nslug: dir-b\nstatus: active\ncreated_at: 2026-07-22T00:00:00+09:00\nauthor: a@qmu.jp\nassignees: [a@qmu.jp]\n---\n\n## Direction\n\nB.\n\n## Changelog\n");
+    run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`);
+    assertTrue("the resolve.sh seam migrates on the next mission-script touch",
+      !existsSync(join(dir, ".workaholic/strategies")) && existsSync(join(dir, ".workaholic/feedbacks/20260722000000-strategy-dir-b.md")));
   } finally { cleanup(dir); }
 }
 
@@ -3273,7 +3206,6 @@ function testMission() {
     assertTrue("mission has type: Mission", /^type:\s*Mission\s*$/m.test(body), body.split("\n").slice(0, 12).join("\n"));
     assertTrue("mission has slug", /^slug:\s*real-time-notifications\s*$/m.test(body));
     assertTrue("mission has status active", /^status:\s*active\s*$/m.test(body));
-    assertTrue("mission scaffold carries an empty strategy: key", /^strategy:\s*$/m.test(body), body.split("\n").slice(0, 16).join("\n"));
     assertTrue("mission scaffold seeds assignees with the creator (the approver is the default owner)",
       /^assignees:\s*\[test@example\.com\]\s*$/m.test(body) && /^assignee:\s*$/m.test(body), body.split("\n").slice(0, 16).join("\n"));
     assertTrue("mission scaffold carries empty predicted_hours/actual_hours keys",
@@ -5582,11 +5514,11 @@ function testValidateLayout() {
     `expected a closed-structure message, got: ${blocked.out.slice(0, 300)}`);
 
   // Allowed locations pass cleanly (exit 0) — including the newly-registered
-  // strategies/guides/policies dirs and the release-scan root files.
+  // feedbacks/guides/policies dirs and the release-scan root files.
   for (const p of [
     ".workaholic/stories/s.md", ".workaholic/deployments/prod.md", ".workaholic/concerns/42-foo.md",
     ".workaholic/release-notes/work-x.md", ".workaholic/trips/work-x/designs/design-v1.md",
-    ".workaholic/strategies/active/x/strategy.md", ".workaholic/guides/getting-started.md",
+    ".workaholic/feedbacks/20260728000000-note.md", ".workaholic/guides/getting-started.md",
     ".workaholic/policies/security.md",
     ".workaholic/README.md", ".workaholic/index.md", ".workaholic/scan-allow", ".workaholic/leak-denylist",
     ".workaholic/tickets/todo/test-example-com/20260101000000-t.md",
@@ -5627,10 +5559,10 @@ function testLayoutDoctor() {
   } finally { cleanup(dir); }
 
   // A clean tree conforms with zero findings — including the registered
-  // strategies/guides/policies dirs and the release-scan root files.
+  // feedbacks/guides/policies dirs and the release-scan root files.
   const clean = mkdtempSync(join(tmpdir(), "workaholic-doctor-"));
   try {
-    for (const d of ["stories", "tickets/todo", "strategies/active", "guides", "policies"]) {
+    for (const d of ["stories", "tickets/todo", "feedbacks", "guides", "policies"]) {
       mkdirSync(join(clean, ".workaholic", d), { recursive: true });
     }
     writeFileSync(join(clean, ".workaholic/scan-allow"), "");
@@ -5950,35 +5882,24 @@ function testValidateMission() {
     writeFileSync(join(dir, rel), mission({ assignee: "assignee:" }));
     assertEq("validate-mission allows an EMPTY assignee (unclaimed is legal)", invoke(), 0);
 
-    // Ownership no longer lives on the mission (2026-07-24): a scaffold with NO assignee
-    // key is legal — ownership is derived from the strategy the mission executes.
+    // A scaffold with NO assignee key is legal (nothing is required at the scaffold moment).
     writeFileSync(join(dir, rel), mission({ assignee: "title2: no-assignee-key" }));
-    assertEq("validate-mission allows a scaffold with no assignee key (ownership is on the strategy)", invoke(), 0);
+    assertEq("validate-mission allows a scaffold with no assignee key", invoke(), 0);
 
-    // An UNSTAMPED scaffold with an empty strategy passes (link resolved later).
-    writeFileSync(join(dir, rel), mission({ strategy: "strategy:" }));
-    assertEq("validate-mission lets an unstamped mission with empty strategy pass", invoke(), 0);
-
-    // drive_authorized: true — the full floor (now includes a non-empty strategy link).
-    // The strategy `agent-orchestrated-development` is unresolvable in this bare repo, so
-    // the authorized-owner floor falls back to the mission's own legacy `assignee`.
+    // drive_authorized: true — the full floor (owner + Experience + Acceptance).
+    // A legacy `strategy:` key from the retired strategy layer is tolerated and ignored.
     const full = { stamp: " true", strategy: "strategy: agent-orchestrated-development", exp: "\nUsers see the thing happen.\n", acc: "\n- [ ] One\n" };
     writeFileSync(join(dir, rel), mission(full));
     assertEq("validate-mission accepts a complete authorized mission (legacy assignee is the owner)", invoke(), 0);
     writeFileSync(join(dir, rel), mission({ ...full, assignee: "assignee:" }));
-    assertEq("validate-mission rejects an authorized mission with no owner (no strategy assignees, no legacy assignee)", invoke(), 2);
+    assertEq("validate-mission rejects an authorized mission with no owner (no assignees, no legacy assignee)", invoke(), 2);
 
-    // Strategy-DERIVED ownership satisfies the floor even with an empty mission assignee:
-    // seed the linked strategy with an assignee and the authorized mission passes.
-    mkdirSync(join(dir, ".workaholic/strategies/active/agent-orchestrated-development"), { recursive: true });
-    writeFileSync(join(dir, ".workaholic/strategies/active/agent-orchestrated-development/strategy.md"),
-      "---\ntype: Strategy\nslug: agent-orchestrated-development\nstatus: active\nassignees: [owner@qmu.jp]\n---\n\n## Direction\n\n## Changelog\n");
-    writeFileSync(join(dir, rel), mission({ ...full, assignee: "assignee:" }));
-    assertEq("validate-mission accepts an authorized mission owned via its strategy's assignees", invoke(), 0);
+    // The mission's own plural assignees satisfy the floor with an empty legacy assignee.
+    writeFileSync(join(dir, rel), mission({ ...full, assignee: "assignees: [owner@qmu.jp]\nassignee:" }));
+    assertEq("validate-mission accepts an authorized mission owned via its own assignees", invoke(), 0);
+    // No strategy link is required any more (the layer is retired); an empty key passes.
     writeFileSync(join(dir, rel), mission({ ...full, strategy: "strategy:" }));
-    assertEq("validate-mission rejects an authorized mission with no strategy link", invoke(), 2);
-    writeFileSync(join(dir, rel), mission({ ...full, strategy: "strategy: []" }));
-    assertEq("validate-mission rejects an authorized mission with empty-list strategy", invoke(), 2);
+    assertEq("validate-mission accepts an authorized mission with no strategy value", invoke(), 0);
     writeFileSync(join(dir, rel), mission({ ...full, exp: "\n<!-- fill me -->\n" }));
     assertEq("validate-mission rejects an authorized mission with comment-only Experience", invoke(), 2);
     writeFileSync(join(dir, rel), mission({ ...full, acc: "\n" }));
@@ -7356,8 +7277,8 @@ function testMonitorPreflight() {
         `---\ntype: Mission\ntitle: ${slug} title\nslug: ${slug}\nstatus: active\nassignee: ${assignee}\ndrive_authorized:${stamp ? " true" : ""}\n---\n\n## Acceptance\n\n${acceptance}\n## Changelog\n`);
     };
 
-    wtMission("alpha", { strategy: "agent-orchestrated-development" }); // eligible: stamped, 1/2, own worktree, linked
-    wtMission("beta", { stamp: false });                         // undriveable: never stamped (and unlinked strategy)
+    wtMission("alpha");                                          // eligible: stamped, 1/2, own worktree
+    wtMission("beta", { stamp: false });                         // undriveable: never stamped
     wtMission("gamma", { acceptance: "" });                      // undriveable: stamped but no plan
     execSync(`git worktree add -q .worktrees/orphan -b work-20260718000099-orphan`, { cwd: dir });
     // .worktrees/orphan holds no mission.md -> reported as an orphan, never guessed at.
@@ -7375,9 +7296,6 @@ function testMonitorPreflight() {
       { c: by.alpha.checked, t: by.alpha.total, next: by.alpha.next }, { c: 1, t: 2, next: "Two" });
     assertTrue("the eligible mission carries its worktree path",
       by.alpha.worktree_path.endsWith(".worktrees/alpha"), by.alpha.worktree_path);
-    assertEq("preflight surfaces the mission's strategy slug", by.alpha.strategy, "agent-orchestrated-development");
-    assertEq("an unlinked mission surfaces an empty strategy (a replan item, not a blocker)",
-      { s: by.beta.strategy, a: by.beta.authorized }, { s: "", a: false });
     assertEq("an unstamped mission is undriveable (not_authorized)",
       { a: by.beta.authorized, reason: by.beta.reason }, { a: false, reason: "not_authorized" });
     assertEq("a stamped mission with an empty Acceptance is undriveable (no_plan)",
@@ -7657,72 +7575,53 @@ function testMonitorFrontLoads() {
 }
 
 // ---------- ownership: read-assignees + mission-owners (mission-first, 2026-07-28) ----------
-// Ownership is carried on the mission's own plural `assignees` (returned from the 2026-07-24
-// strategy-layer model). mission-owners.sh resolves: (1) the mission's own assignees, (2) the
-// strategy transition fallback (link -> strategy assignees), (3) the legacy singular assignee.
-// list.sh's relation and summary.sh's gate both read through mission-owners.sh.
-function testStrategyOwnership() {
+// Ownership is carried on the mission's own plural `assignees`. read-assignees.sh is the
+// single parser of the field shape (bare + list); mission-owners.sh resolves the mission's
+// own assignees with a legacy fallback to the singular assignee. list.sh's relation and
+// summary.sh's gate both read through mission-owners.sh.
+function testMissionOwnership() {
   const dir = makeRepo("main");
   try {
-    execSync(`git checkout -q -b work-20260724-ownership`, { cwd: dir });
+    execSync(`git checkout -q -b work-20260728-ownership`, { cwd: dir });
     const A = "a@qmu.jp", B = "b@qmu.jp";
     const wk = (p, body) => { mkdirSync(dirname(join(dir, p)), { recursive: true }); writeFileSync(join(dir, p), body); };
     const owners = (mpath) => run(dir, `${POSIX_SH} ${SCRIPTS.missionOwners} ${mpath}`).stdout.split("\n").filter(Boolean);
 
-    // read-assignees.sh: list, bare, empty.
-    wk(".workaholic/strategies/active/dir-a/strategy.md", `---\ntype: Strategy\nslug: dir-a\nstatus: active\nassignees: [${A}, ${B}]\n---\n\n## Direction\n\n## Changelog\n`);
+    // read-assignees.sh: list, bare, empty — the single parser of the field shape.
+    wk(".workaholic/missions/active/m-co/mission.md", `---\ntype: Mission\nslug: m-co\nstatus: active\nassignees: [${A}, ${B}]\nassignee:\n---\n\n## Acceptance\n\n- [ ] X\n`);
     assertEq("read-assignees reads a list form",
-      run(dir, `${POSIX_SH} ${SCRIPTS.strategyReadAssignees} ${join(dir, ".workaholic/strategies/active/dir-a/strategy.md")}`).stdout.split("\n").filter(Boolean),
+      run(dir, `${POSIX_SH} ${SCRIPTS.readAssignees} ${join(dir, ".workaholic/missions/active/m-co/mission.md")}`).stdout.split("\n").filter(Boolean),
       [A, B]);
-    wk(".workaholic/strategies/active/dir-solo/strategy.md", `---\ntype: Strategy\nslug: dir-solo\nstatus: active\nassignees: ${A}\n---\n\n## Direction\n\n## Changelog\n`);
+    wk(".workaholic/missions/active/m-solo/mission.md", `---\ntype: Mission\nslug: m-solo\nstatus: active\nassignees: ${A}\nassignee:\n---\n\n## Acceptance\n\n- [ ] X\n`);
     assertEq("read-assignees reads a bare form",
-      run(dir, `${POSIX_SH} ${SCRIPTS.strategyReadAssignees} ${join(dir, ".workaholic/strategies/active/dir-solo/strategy.md")}`).stdout.split("\n").filter(Boolean),
+      run(dir, `${POSIX_SH} ${SCRIPTS.readAssignees} ${join(dir, ".workaholic/missions/active/m-solo/mission.md")}`).stdout.split("\n").filter(Boolean),
       [A]);
-    wk(".workaholic/strategies/active/dir-empty/strategy.md", `---\ntype: Strategy\nslug: dir-empty\nstatus: active\nassignees:\n---\n\n## Direction\n\n## Changelog\n`);
-    assertEq("read-assignees on an empty field yields nothing",
-      run(dir, `${POSIX_SH} ${SCRIPTS.strategyReadAssignees} ${join(dir, ".workaholic/strategies/active/dir-empty/strategy.md")}`).stdout.trim(), "");
 
-    // An archived strategy is still resolvable (ownership never dangles).
-    wk(".workaholic/strategies/archive/dir-arch/strategy.md", `---\ntype: Strategy\nslug: dir-arch\nstatus: retired\nassignees: [${B}]\n---\n\n## Direction\n\n## Changelog\n`);
-
-    // mission-owners.sh: strategy-derived, archived-strategy, no-assignees fallback, unlinked.
-    wk(".workaholic/missions/active/m-derived/mission.md", `---\ntype: Mission\nslug: m-derived\nstatus: active\nassignee:\nstrategy: dir-a\n---\n\n## Acceptance\n\n- [ ] X\n`);
-    assertEq("mission-owners derives owners from the linked strategy",
-      owners(join(dir, ".workaholic/missions/active/m-derived/mission.md")), [A, B]);
-    wk(".workaholic/missions/active/m-arch/mission.md", `---\ntype: Mission\nslug: m-arch\nstatus: active\nassignee:\nstrategy: dir-arch\n---\n\n## Acceptance\n\n- [ ] X\n`);
-    assertEq("mission-owners resolves an archived strategy (never dangles)",
-      owners(join(dir, ".workaholic/missions/active/m-arch/mission.md")), [B]);
-    wk(".workaholic/missions/active/m-fallback/mission.md", `---\ntype: Mission\nslug: m-fallback\nstatus: active\nassignee: ${A}\nstrategy: dir-empty\n---\n\n## Acceptance\n\n- [ ] X\n`);
-    assertEq("mission-owners falls back to the legacy assignee when the strategy has none",
-      owners(join(dir, ".workaholic/missions/active/m-fallback/mission.md")), [A]);
-    wk(".workaholic/missions/active/m-unowned/mission.md", `---\ntype: Mission\nslug: m-unowned\nstatus: active\nassignee:\nstrategy:\n---\n\n## Acceptance\n\n- [ ] X\n`);
-    assertEq("mission-owners yields nothing for an unlinked, unassigned mission",
-      owners(join(dir, ".workaholic/missions/active/m-unowned/mission.md")).length, 0);
-
-    // 2026-07-28: the mission's OWN plural assignees are the primary tier.
-    wk(".workaholic/missions/active/m-own/mission.md", `---\ntype: Mission\nslug: m-own\nstatus: active\nassignees: [${B}]\nassignee:\nstrategy: dir-a\n---\n\n## Acceptance\n\n- [ ] X\n`);
-    assertEq("mission-owners: the mission's own assignees win over the strategy",
-      owners(join(dir, ".workaholic/missions/active/m-own/mission.md")), [B]);
-    wk(".workaholic/missions/active/m-own-bare/mission.md", `---\ntype: Mission\nslug: m-own-bare\nstatus: active\nassignees: ${A}\nassignee:\nstrategy:\n---\n\n## Acceptance\n\n- [ ] X\n`);
-    assertEq("mission-owners: bare-form mission assignees resolve with no strategy",
-      owners(join(dir, ".workaholic/missions/active/m-own-bare/mission.md")), [A]);
-    wk(".workaholic/missions/active/m-own-empty/mission.md", `---\ntype: Mission\nslug: m-own-empty\nstatus: active\nassignees: []\nassignee: ${A}\nstrategy:\n---\n\n## Acceptance\n\n- [ ] X\n`);
+    // mission-owners.sh: own assignees win; legacy fallback; unowned; legacy strategy key ignored.
+    assertEq("mission-owners reads the mission's own assignees (co-owned)",
+      owners(join(dir, ".workaholic/missions/active/m-co/mission.md")), [A, B]);
+    wk(".workaholic/missions/active/m-legacy/mission.md", `---\ntype: Mission\nslug: m-legacy\nstatus: active\nassignees: []\nassignee: ${A}\n---\n\n## Acceptance\n\n- [ ] X\n`);
     assertEq("mission-owners: empty assignees falls through to the legacy assignee",
-      owners(join(dir, ".workaholic/missions/active/m-own-empty/mission.md")), [A]);
+      owners(join(dir, ".workaholic/missions/active/m-legacy/mission.md")), [A]);
+    wk(".workaholic/missions/active/m-unowned/mission.md", `---\ntype: Mission\nslug: m-unowned\nstatus: active\nassignees: []\nassignee:\n---\n\n## Acceptance\n\n- [ ] X\n`);
+    assertEq("mission-owners yields nothing for an unowned mission",
+      owners(join(dir, ".workaholic/missions/active/m-unowned/mission.md")).length, 0);
+    wk(".workaholic/missions/active/m-oldkey/mission.md", `---\ntype: Mission\nslug: m-oldkey\nstatus: active\nassignees: [${B}]\nassignee:\nstrategy: some-retired-direction\n---\n\n## Acceptance\n\n- [ ] X\n`);
+    assertEq("a legacy strategy key is tolerated and ignored by the oracle",
+      owners(join(dir, ".workaholic/missions/active/m-oldkey/mission.md")), [B]);
 
-    // list.sh relation reads through mission-owners.sh: m-derived is B's business, not
-    // through any mission-local field — it has an empty assignee and B is a strategy co-owner.
+    // list.sh relation reads through mission-owners.sh.
     execSync(`git config user.email ${B}`, { cwd: dir });
     const lst = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
     const byslug = Object.fromEntries(lst.map((m) => [m.slug, m]));
-    assertEq("list.sh relation: strategy co-owner sees the mission as mine",
-      byslug["m-derived"].relation, "mine");
-    assertEq("list.sh owners carries the full derived set",
-      byslug["m-derived"].owners, [A, B]);
+    assertEq("list.sh relation: a co-owner sees the mission as mine",
+      byslug["m-co"].relation, "mine");
+    assertEq("list.sh owners carries the full set",
+      byslug["m-co"].owners, [A, B]);
     assertEq("list.sh relation: unowned mission is unassigned",
       byslug["m-unowned"].relation, "unassigned");
     assertEq("list.sh relation: mission owned only by others",
-      byslug["m-fallback"].relation, "others");
+      byslug["m-legacy"].relation, "others");
   } finally { cleanup(dir); }
 }
 
@@ -7838,8 +7737,8 @@ const tests = [
   ["gather/commit-kpi.sh orchestration throughput", testCommitKpi],
   ["mission reflection append + list", testMissionReflection],
   ["mission duration predict + record", testMissionDuration],
-  ["strategy artifact + skill (create/list/reader/retire/index)", testStrategyArtifact],
-  ["strategy-level ownership (read-assignees + mission-owners derived)", testStrategyOwnership],
+  ["mission/migrate-strategies.sh (strategy-layer retirement)", testMigrateStrategies],
+  ["mission ownership (read-assignees + mission-owners)", testMissionOwnership],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission describes experience, gate is optional", testMissionExperienceSection],

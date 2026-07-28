@@ -171,7 +171,7 @@ Based on the history discovery subagent's `moderation` field:
 - **Keep single when**: tightly coupled, shared context, small enough for one commit.
 - If splitting: 2-4 discrete tickets, each independently implementable.
 
-**Granularity note.** A ticket answers *what is this one change*; if a ticket you are about to write would essentially restate its **mission's** statement, that is the signal the mission is **under-sized** (a mission must be bigger than any one ticket) — surface that at creation rather than writing the duplicate. The full commit → ticket → mission → strategy discipline and its both-ways balance test live in `workaholic:mission`'s **Granularity** section; do not restate it here.
+**Granularity note.** A ticket answers *what is this one change*; if a ticket you are about to write would essentially restate its **mission's** statement, that is the signal the mission is **under-sized** (a mission must be bigger than any one ticket) — surface that at creation rather than writing the duplicate. The full commit → ticket → mission discipline and its both-ways balance test live in `workaholic:mission`'s **Granularity** section; do not restate it here.
 
 ### 4a. Requirements Elicitation — the *what*, before the plan (mandatory for user-facing work)
 
@@ -202,7 +202,7 @@ Keep asking until the gate is concrete enough to drive an approval prompt. Seed 
 
 ### 4c. Offer Mission Association (optional)
 
-Before writing, offer to associate the ticket(s) with an existing **mission** — a long-lived goal spanning many tickets (see `workaholic:mission`). List the missions:
+Before writing, offer to associate the ticket(s) with an existing **mission** — an optional, epic-equivalent grouping of tickets (see `workaholic:mission`). List the missions:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list.sh

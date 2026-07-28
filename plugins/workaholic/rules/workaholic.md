@@ -18,7 +18,6 @@ The `.workaholic/` directory has a fixed structure. Only these subdirectories ar
 | `release-notes/` | Per-branch release notes                   |
 | `specs/`         | Current state reference documentation      |
 | `stories/`       | Development narratives per branch          |
-| `strategies/`    | Long-lived direction above missions (`active/`, `archive/`) |
 | `terms/`         | Term definitions                           |
 | `tickets/`       | Implementation work queue and archives (`todo/`, `archive/`, `icebox/`, `abandoned/`) |
 | `trips/`         | Trip design/decision artifacts per trip    |

@@ -24,7 +24,6 @@ policies
 release-notes
 specs
 stories
-strategies
 terms
 tickets
 trips

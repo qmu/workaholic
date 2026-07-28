@@ -72,12 +72,14 @@ for entry in "$WH"/* "$WH"/.*; do
   esac
 
   if [ -f "$entry" ]; then
-    # README.md / index.md plus the release-scan config files (scan-allow,
-    # leak-denylist) are the allowed root files — same set the layout gate allows.
+    # README.md / index.md, the release-scan config files (scan-allow,
+    # leak-denylist), and the proposal batch's runner-local cursor
+    # (proposal-cursor, git-ignored) are the allowed root files — same set the
+    # layout gate allows.
     case "$name" in
-      README.md|README_ja.md|index.md|scan-allow|leak-denylist) : ;;
+      README.md|README_ja.md|index.md|scan-allow|leak-denylist|proposal-cursor) : ;;
       *) add_finding ".workaholic/${name}" "undesignated-root-file" \
-           "only README.md, index.md, scan-allow, and leak-denylist are allowed at the .workaholic/ root" "owner decision required" ;;
+           "only README.md, index.md, scan-allow, leak-denylist, and proposal-cursor are allowed at the .workaholic/ root" "owner decision required" ;;
     esac
     continue
   fi

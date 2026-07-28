@@ -1,13 +1,17 @@
 #!/bin/sh -eu
-# Apply deferred-concern judge verdicts to the corresponding files. Verdicts arrive
-# on stdin as a JSON array of {path, verdict, resolved_by_pr?, resolved_by_commit?}.
-# For "resolved" verdicts, flips status, records the resolving PR/commit, and
-# moves the file into .workaholic/concerns/archive/. For "still_active"
-# verdicts, leaves the file untouched.
+# Apply deferred-concern judge verdicts to the FEEDBACK STREAM. Verdicts arrive
+# on stdin as a JSON array of {path, verdict, resolved_by_pr?, resolved_by_commit?},
+# where each path is an open kind: concern feedback record (from
+# feedback/scripts/list-open-concerns.sh). For "resolved" verdicts, a
+# SUPERSEDING record is appended to the stream (kind: concern, supersedes:
+# <record filename>, body naming the resolving PR/commit) — the resolved record
+# itself is IMMUTABLE and never edited or moved (docs/loop-engineering-workflow.md
+# H2/H3: resolution is a new record, and the open set is computed as
+# "not superseded"). For "still_active" verdicts, nothing is written.
 #
 # Usage: apply-deferred-concern-verdicts.sh [expected-count] < verdicts.json
-#   expected-count (optional, default 0): the number of active deferred concerns
-#   the caller expected the payload to cover (from list-active-deferred-concerns.sh).
+#   expected-count (optional, default 0): the number of open concerns
+#   the caller expected the payload to cover (from list-open-concerns.sh).
 #   When >0 and the payload names 0 verdicts, the script FAILS LOUD instead of
 #   reporting zero — that mismatch is the signature of a stale or foreign payload
 #   silently consumed at a shared path (the incident this contract exists to stop).
@@ -20,7 +24,7 @@
 #     -> {"resolved":0,"still_active":0,"files_resolved":[]}, exit 0 (honest empty).
 #
 # Output: JSON summary {resolved: N, still_active: N, files_resolved: [...]}.
-# The returned paths point to the new archive locations.
+# The returned paths point to the newly written SUPERSEDING records.
 
 set -eu
 
@@ -31,9 +35,8 @@ input=$(cat)
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 # NOTE: no living migration here on purpose. Verdicts arrive from
-# list-active-deferred-concerns.sh, which already migrated the tree and returned
-# post-migration paths; migrating again would rename files out from under those
-# paths. Apply operates on the paths it is given.
+# feedback/scripts/list-open-concerns.sh, which already migrated the tree and
+# returned post-migration paths. Apply operates on the paths it is given.
 
 # Parse and VALIDATE the payload. Emits tab-delimited verdict lines on stdout;
 # exits non-zero with a message on malformed / wrong-shape input. Empty stdin is
@@ -86,14 +89,16 @@ if [ "$EXPECTED" -gt 0 ] && [ -z "$parsed" ]; then
   exit 1
 fi
 
-archive_dir=".workaholic/concerns/archive"
-
 resolved_count=0
 still_active_count=0
 files_json="["
 first=1
 
 tab=$(printf '\t')
+
+created_at=$(date -Iseconds)
+author_email=$(git config user.email 2>/dev/null || echo "unknown@unknown.invalid")
+ts=$(printf '%s' "$created_at" | tr -dc '0-9' | cut -c1-14)
 
 # Capture the parsed lines and iterate via a here-doc so the counters persist in
 # the current shell (POSIX has no `< <(...)`; a pipe would lose them).
@@ -102,25 +107,50 @@ while IFS="$tab" read -r path verdict rpr rcommit; do
   [ ! -f "$path" ] && continue
 
   if [ "$verdict" = "resolved" ]; then
-    # Create the archive dir lazily — only when something is actually resolved,
-    # so the honest-empty path stays cheap and touches nothing.
-    mkdir -p "$archive_dir"
-
-    # Read the mission relation before moving (concern frontmatter carries mission:).
-    # Many-valued: a concern can have blocked more than one mission.
-    concern_missions=$(sh "${SCRIPT_DIR}/../../mission/scripts/read-relation.sh" "$path" 2>/dev/null || true)
     concern_base=$(basename "$path")
 
-    awk -v rpr="$rpr" -v rcommit="$rcommit" '
-      /^---$/ { c++ }
-      c==1 && /^status:/ { print "status: resolved"; next }
-      c==1 && /^resolved_by_pr:/ { print "resolved_by_pr: " rpr; next }
-      c==1 && /^resolved_by_commit:/ { print "resolved_by_commit: " rcommit; next }
-      { print }
-    ' "$path" > "${path}.tmp" && mv "${path}.tmp" "$path"
+    # Frontmatter facts of the record being superseded (title/severity/id/mission).
+    fm_get() {
+      awk -v key="$1" '
+        NR == 1 { if ($0 != "---") exit; next }
+        /^---[ \t]*$/ { exit }
+        index($0, key ":") == 1 { sub("^" key ":[ \t]*", ""); sub("[ \t]+$", ""); print; exit }
+      ' "$path" 2>/dev/null || true
+    }
+    c_title=$(fm_get title)
+    [ -n "$c_title" ] || c_title="$concern_base"
+    c_sev=$(fm_get severity)
+    [ -n "$c_sev" ] || c_sev="moderate"
+    c_id=$(fm_get concern_id)
+    c_mission=$(fm_get mission)
 
-    dest="${archive_dir}/${concern_base}"
-    git mv "$path" "$dest" 2>/dev/null || mv "$path" "$dest"
+    # Many-valued mission relation, read through the single reader for the roll.
+    concern_missions=$(sh "${SCRIPT_DIR}/../../mission/scripts/read-relation.sh" "$path" 2>/dev/null || true)
+
+    dest=".workaholic/feedbacks/${ts}-resolved-${c_id:-${concern_base%.md}}.md"
+    if [ ! -e "$dest" ]; then
+      {
+        printf -- '---\n'
+        printf 'type: Feedback\n'
+        printf 'title: Resolved: %s\n' "$c_title"
+        printf 'kind: concern\n'
+        printf 'source: development\n'
+        printf 'created_at: %s\n' "$created_at"
+        printf 'author: %s\n' "$author_email"
+        printf 'supersedes: %s\n' "$concern_base"
+        printf 'severity: %s\n' "$c_sev"
+        printf 'concern_id: %s\n' "${c_id:-}"
+        printf 'mission: %s\n' "${c_mission:-}"
+        printf 'resolved_by_pr: %s\n' "${rpr:-}"
+        printf 'resolved_by_commit: %s\n' "${rcommit:-}"
+        printf -- '---\n\n'
+        printf '# Resolved: %s\n\n' "$c_title"
+        printf 'Judged resolved by the /report deferred-concern judge'
+        if [ -n "${rpr:-}" ]; then printf ' (PR #%s' "$rpr"; [ -n "${rcommit:-}" ] && printf ', %s' "$rcommit"; printf ')'; elif [ -n "${rcommit:-}" ]; then printf ' (%s)' "$rcommit"; fi
+        printf '. Supersedes %s.\n' "$concern_base"
+      } > "$dest"
+      git add "$dest" >/dev/null 2>&1 || true
+    fi
 
     # A resolved concern records a "concern resolved (unstuck)" line on EVERY mission it
     # blocked (idempotent; the mutator git-stages the mission file). Best-effort — never

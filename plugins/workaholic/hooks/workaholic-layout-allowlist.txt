@@ -15,7 +15,6 @@
 # directory here is a deliberate amendment to the closed `.workaholic/` structure,
 # not an ad-hoc mkdir: register it here AND in the rules/workaholic.md table in the
 # same change (see CLAUDE.md's closed-layout policy).
-concerns
 deployments
 feedbacks
 guides

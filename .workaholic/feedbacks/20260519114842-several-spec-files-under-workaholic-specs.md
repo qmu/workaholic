@@ -1,0 +1,22 @@
+---
+type: Feedback
+title: several-spec-files-under-workaholic-specs
+kind: concern
+source: development
+created_at: 2026-05-19T11:48:42+09:00
+author: a@qmu.jp
+supersedes:
+severity: moderate
+concern_id: several-spec-files-under-workaholic-specs
+owner: 
+mission: 
+tickets: []
+origin_pr: 39
+origin_pr_url: https://github.com/qmu/workaholic/pull/39
+origin_branch: work-20260417-092936
+origin_commit: cc5de17
+last_seen: 2026-05-19T11:48:42+09:00
+closed: resolved
+---
+
+- Several spec files under `.workaholic/specs/` still reference legacy plugin names (`drivin`, `trippin`, `scanner subagent`) that were outside the prohibited-term grep for the documentation sweep (see [78278c2](https://github.com/qmu/workaholic/commit/78278c2) in `.workaholic/specs/`)

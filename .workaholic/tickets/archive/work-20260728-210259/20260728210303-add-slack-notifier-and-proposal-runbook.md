@@ -74,3 +74,16 @@ Interrogated at mission creation (2026-07-28, decision record E2/C1); verificati
 - Environment-only config is deliberate for phase 2 (decided at mission creation): a committed channel-mapping file becomes worthwhile only at multi-repo rollout (phase 4) — resist adding it now.
 - Keep the message body free of customer context by construction: it names this repo, the mission title, and the path — nothing else (repository-confinement doctrine applies to outbound text as much as files).
 
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The token's only exposure surface is the one `curl` Authorization header with stderr discarded — every failure path (unreachable endpoint, non-200, unparseable body, Slack error) maps to a machine-readable `reason` with the token provably absent from stdout/stderr, which the hermetic suite asserts against a `supersecret` marker token rather than trusting inspection.
+  **Context**: `plugins/workaholic/skills/propose/scripts/notify-slack.sh`; testNotifySlack.
+- **Insight**: The runbook's failure-mode table doubles as the notifier's error vocabulary spec (`slack_token_revoked`, `slack_channel_not_found`, …) — writing the ops page and the script against the same reason strings keeps "what the log says" and "what the runbook explains" from drifting.
+  **Context**: `docs/proposal-loop-runbook.md` §6.
+- **Insight**: The release-scan's secret rules stay quiet on the runbook because its token examples are ellipsis placeholders (`xoxb-…`), not literal alphanumeric runs — the value-shape rule working as designed; keep placeholders non-literal in ops docs.
+  **Context**: `scan-branch-safety.sh` over this branch (size findings only).
+

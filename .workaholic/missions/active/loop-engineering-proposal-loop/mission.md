@@ -44,7 +44,7 @@ Positioning note: legacy `assignee`/`strategy` keys are carried in this frontmat
 ## Acceptance
 
 - [x] The concern corpus is merged into the feedback stream: ship-time extraction writes `kind: concern` records, `/report` resolves by superseding record, the triage/demote/merge/re-grade machinery is retired, the live corpus is migrated, and `concerns/` is removed from allowlist + rules in the same commit (#20260728210301-merge-concern-corpus-into-feedback-stream.md)
-- [ ] A headless `/propose` command and internal `propose` skill exist: commit-cursor detection over main, new-feedback reading, draft-mission scaffolding with `feedback:` refs and dedup, commit + push, silence valid (#20260728210302-add-proposal-batch-command-and-skill.md)
+- [x] A headless `/propose` command and internal `propose` skill exist: commit-cursor detection over main, new-feedback reading, draft-mission scaffolding with `feedback:` refs and dedup, commit + push, silence valid (#20260728210302-add-proposal-batch-command-and-skill.md)
 - [ ] A Slack bot notifier (env-driven, graceful no-op) is wired into `/propose` and the 15-minute cron runbook is documented (#20260728210303-add-slack-notifier-and-proposal-runbook.md)
 
 ## Changelog
@@ -57,3 +57,4 @@ Positioning note: legacy `assignee`/`strategy` keys are carried in this frontmat
 - 2026-07-28 — ticket added — 20260728210302-add-proposal-batch-command-and-skill.md
 - 2026-07-28 — ticket added — 20260728210303-add-slack-notifier-and-proposal-runbook.md
 - 2026-07-28 — ticket archived — 20260728210301-merge-concern-corpus-into-feedback-stream.md
+- 2026-07-28 — ticket archived — 20260728210302-add-proposal-batch-command-and-skill.md

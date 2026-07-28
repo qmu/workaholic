@@ -80,10 +80,10 @@ case "$file_path" in
           # config files scan-branch-safety.sh reads (scan-allow, leak-denylist), are
           # allowed. All are plugin-grounded root files a developer legitimately edits.
           case "$first_seg" in
-            README.md|README_ja.md|index.md|scan-allow|leak-denylist) : ;;
+            README.md|README_ja.md|index.md|scan-allow|leak-denylist|proposal-cursor) : ;;
             *)
               layout_ok=false
-              layout_reason="root-level file (only README.md, index.md, scan-allow, and leak-denylist are allowed at the .workaholic/ root)"
+              layout_reason="root-level file (only README.md, index.md, scan-allow, leak-denylist, and proposal-cursor are allowed at the .workaholic/ root)"
               ;;
           esac
           ;;
@@ -94,7 +94,7 @@ case "$file_path" in
         {
           echo "Workaholic layout: ${layout_reason}."
           echo "Got: $file_path"
-          echo "Allowed .workaholic/ subdirectories: ${allowed_list} (plus README.md, index.md, scan-allow, and leak-denylist at the root)."
+          echo "Allowed .workaholic/ subdirectories: ${allowed_list} (plus README.md, index.md, scan-allow, leak-denylist, and proposal-cursor at the root)."
           echo "If you meant a ticket, write it under .workaholic/tickets/todo/<user>/."
         } >&2
         print_skill_reference

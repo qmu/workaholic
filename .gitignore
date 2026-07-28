@@ -12,3 +12,6 @@
 
 # Developer-maintained leak denylist for release-scan (client names must never ship)
 .workaholic/leak-denylist
+
+# Proposal batch's runner-local processed-commit cursor (/propose; never shared state)
+.workaholic/proposal-cursor

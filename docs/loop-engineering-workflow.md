@@ -32,7 +32,10 @@ Target workflow:
 
 Local interactive use survives unchanged: the same plugin keeps working in a
 terminal session. The loop is an additional, headless driver over the same
-`.workaholic/` artifacts, not a replacement surface.
+`.workaholic/` artifacts, not a replacement surface. Likewise the standalone
+ticket survives unchanged: a mission is an optional, epic-equivalent grouping,
+never a required parent (decision B5) — `/ticket` → `/drive` with no mission
+remains a fully sanctioned path.
 
 ## 2. What the current implementation already provides
 
@@ -80,6 +83,7 @@ Asked and answered:
 | D3 | **The merge gate is a per-mission choice**, confirmed at approval time and recorded in mission frontmatter (working name `merge_policy: auto \| review`). `review` stops at the PR for human check-then-merge; `auto` proceeds to merge — still through the `/ship` doctrine (deploy + verify **before** merge, evidence-gated). Mission approval itself always stays human. |
 | E2 | **Outbound Slack via a dedicated bot token.** AI proposals appear as the bot, distinct from human speech. Inbound stays Claude Tag. |
 | A5 | **Meeting-transcript ingestion is out of scope for now.** The first loop is Slack-origin feedback only; the kioku (minutes MCP) pathway is a later phase. |
+| B5 | **Mission membership is optional — the ticket stays the first-class standalone unit** (decided 2026-07-28, after phase-1 kickoff). This confirms what the mechanism already does (`mission:` on a ticket is optional at every layer: `/ticket` offers "None", `validate-ticket.sh` checks only a present value, `/drive` runs unmissioned tickets with the per-ticket prompt) and revises the *framing*: a mission is the **epic-equivalent, optional grouping** of a batch of tickets for management and efficiency — typically pre-built as a dozen-odd tickets and executed together overnight — never a required parent. Two equally sanctioned modes: (1) build a mission's ticket set and run it as a batch; (2) create and drive single tickets with no mission at all. The 2026-07-21 "overnight-executable execution plan of a strategy" definition is superseded on both ends — the strategy end by B3, the mandatory-sounding end by this row; ticket `20260728183203`'s docs sweep records the redefinition in the mission skill. |
 
 Defaults decided without asking (veto anytime):
 

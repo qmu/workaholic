@@ -62,3 +62,4 @@ Positioning note: this worktree is cut from `main` @ `41abd793`. The ownership-t
 - 2026-07-28 — ticket archived — 20260728183202-carry-mission-ownership-on-assignees.md
 - 2026-07-28 — ticket archived — 20260728183203-retire-strategy-layer.md
 - 2026-07-28 — story reported — work-20260728-183130.md
+- 2026-07-28 — concern deferred (stuck) — installed-plugin-lag-makes-new-validators.md

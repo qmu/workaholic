@@ -1,6 +1,6 @@
 ---
 name: mission
-description: Create a mission (the overnight-executable execution plan of a strategy — a bounded, information-rich batch of tickets), list existing missions with computed progress, or close one (achieved/abandoned) into the archive area.
+description: Create a mission (an optional, epic-equivalent grouping — a bounded, information-rich batch of tickets), list existing missions with computed progress, or close one (achieved/abandoned) into the archive area.
 skills:
   - workaholic:mission
   - workaholic:gather
@@ -15,7 +15,7 @@ skills:
 
 **Plugin boundary — do not spelunk:** The skills this command needs are already loaded via its `skills:` frontmatter and resolved through `${CLAUDE_PLUGIN_ROOT}`. Invoke them by their loaded namespace (`workaholic:`); never search the filesystem for skill content, never read or run anything under `~/.claude/plugins/marketplaces/` or any other global install, and never guess a namespace — `drivin`, `trippin`, `core`, `standards`, and `work` are obsolete names long since merged into the single `workaholic` plugin. If a skill you expect is missing, ask the user which plugins are loaded; do not hunt for it on disk.
 
-This command (main agent) runs the preloaded `workaholic:mission` skill. A **mission** is a first-class knowledge artifact: the **overnight-executable execution plan of a strategy** — a bounded, information-rich batch of tickets an agent fleet drives in a night — distinct from a `strategy` (the long-lived direction it executes), a `trip` (a short design/build session), and a generic "epic/milestone" (see the skill's opening section and its **Granularity** record). It lives at `.workaholic/missions/active/<slug>/mission.md` while in progress, and moves to `.workaholic/missions/archive/<slug>/mission.md` when ended (see the skill's Allowed Location section).
+This command (main agent) runs the preloaded `workaholic:mission` skill. A **mission** is a first-class knowledge artifact: an **optional, epic-equivalent grouping** — a bounded, information-rich batch of tickets an agent fleet drives together (typically overnight), never a required parent of any ticket — distinct from a `trip` (a short design/build session) and a generic "epic/milestone" (see the skill's opening section and its **Granularity** record). It lives at `.workaholic/missions/active/<slug>/mission.md` while in progress, and moves to `.workaholic/missions/archive/<slug>/mission.md` when ended (see the skill's Allowed Location section).
 
 `$ARGUMENT` selects the mode — by **content**, not by subcommand (`workaholic:design` / `modeless-design`: the argument's meaning routes the flow, mirroring `/report`/`/ship` context-awareness). Match the retired literal `summary` **first** (a short deprecation note, below — never a mission title), then the `close` and empty branches. Any other non-empty argument is judged against the existing missions (see *Referencing an existing mission*, below): a clear reference to an active mission routes to the **replan flow**, an ambiguous argument is **asked**, and an argument referencing nothing is a **title** for the create flow.
 
@@ -59,8 +59,6 @@ If `prs` is non-empty, tell the developer which open PRs touch this mission and 
 
 **3. Re-interrogate — scoped by the instruction.** Follow the skill's **Replan** section (`workaholic:mission`): it defines which Creation Interrogation rounds re-run (Direction changes → rounds 1–2; plan growth → rounds 3–5 for the delta; a thin `0/0` mission → all five), what the delta may touch, and what it must never touch. The bar equals creation's — a structured delta model, grilled until drive-ready — because `drive_authorized` skips per-ticket approval downstream, so an under-interrogated delta is concretized across the whole mission unchecked. Issue every question from this command with the `[<project label>]` prefix; `gate_*` is never interrogated.
 
-**If the mission's `strategy:` is still empty** (a legacy/thin mission, or one flagged as a replan item by `/monitor`'s pre-flight), run the **Strategy resolution** step now — the same infer/create/ask as the create flow's step 3a — and stamp the link, recorded as a `strategy linked` / `strategy created` changelog line. Re-stamping `drive_authorized: true` requires it resolved.
-
 **4. Apply the delta in the worktree.** Rewrite `## Goal` / `## Scope` / `## Experience` from the answers (body-section writes are the command's job, at creation and here alike — no new mutator script). Emit the delta tickets **in one pass** into the worktree's `.workaholic/tickets/todo/<user>/`, each stamped `mission: <slug>` with its mandatory `## Policies` and `## Quality Gate` pre-answered and `depends_on` ordered (unique timestamps; the mission-scoped split-cap exception applies). Append one `## Acceptance` item per new criterion with its `(#<filename>)` marker.
 
 **5. Record the history and the re-stamp.** Append changelog lines through the shared mutator — `ticket added — <filename>` per emitted ticket, plus one `mission replanned — <artifact>` line — and re-stamp `drive_authorized` only under the skill's Replan re-stamp conditions (a cut-short interrogation leaves it unset). Then commit inside the worktree via the commit skill, subject `Replan mission <slug>`.
@@ -93,11 +91,7 @@ Note the returned `worktree_path`. On `"error": "worktree already exists"`, repo
 ( cd <worktree_path> && bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/create.sh "$ARGUMENT" )
 ```
 
-`create.sh` scaffolds `mission.md` (frontmatter including an empty `strategy:` key + `## Goal`/`## Scope`/`## Experience`/`## Acceptance`/`## Changelog` and the empty, optional `gate_*` fields), stamps `created_at`/`author`, leaves `assignee` **empty** (ownership is derived from the strategy — resolved in step 3a below — not self-assigned on the mission), refreshes the OKF indexes, and git-stages — all inside the worktree. On `reason: "exists"`, report the path and do not overwrite.
-
-**3a. Resolve the strategy link.** Follow the skill's **Strategy resolution** step (`workaholic:mission`) before writing the rounds' output: every mission executes one strategy. **Decide, do not ask, whenever you can** — infer from the request + existing strategies (`( cd <worktree_path> && bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/list.sh )`) and link silently when one active strategy fits (record `strategy linked — <slug>`); create one on the spot when none fits (`strategy/scripts/create.sh`, `## Direction` derived from the mission's Goal one level more general, record `strategy created — <slug>`); and ask **only** when several active strategies genuinely compete — one `AskUserQuestion` (`[<project label>]` prefix from `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`), one option per candidate strategy plus "create new". Stamp `strategy: <slug>` into `mission.md` and record the outcome via `append-changelog.sh`. The mission cannot be stamped `drive_authorized: true` (step 4b) until this link exists — `validate-mission.sh` enforces it.
-
-**Ownership follows the link.** The mission's owner is **derived** from the strategy's `assignees` (`mission-owners.sh`), not stamped on the mission. A strategy created on the spot is seeded with the creator (so a new mission under it is theirs). When linking to an **existing** strategy the creator does not yet own, add the creator to that strategy's `assignees` if they intend to own the work (a one-line edit inside the worktree; record `assignee added — <email>` on the strategy changelog) — otherwise the mission belongs to whoever owns that direction, which is the intended semantics. `validate-mission.sh`'s authorized floor requires the mission to have an owner (derived), so an authorized mission whose strategy has no assignees is refused.
+`create.sh` scaffolds `mission.md` (frontmatter + `## Goal`/`## Scope`/`## Experience`/`## Acceptance`/`## Changelog` and the empty, optional `gate_*` fields), stamps `created_at`/`author`, seeds **`assignees` with the creator** (the interactive creator is the approver, and the approver is the default owner — the mission skill's *Ownership* section), refreshes the OKF indexes, and git-stages — all inside the worktree. On `reason: "exists"`, report the path and do not overwrite. `validate-mission.sh`'s authorized floor requires an owner, so keep the seeded `assignees` (or a deliberate replacement) in place.
 
 **3b. Interrogate — mandatory, and not skippable.** Follow the skill's **Creation Interrogation** section (`workaholic:mission`) end to end. It defines the rounds (Direction → the demanded experience → the ticket set → per-ticket pre-answers → Acceptance), the ordering rule, and the emission rules; do not restate them here.
 
@@ -123,22 +117,20 @@ By the end of this step the mission is **drive-ready**: a complete, ordered queu
 
 ## Without a title — the developer's planning session
 
-When `$ARGUMENT` is empty, bare `/mission` opens a **working planning session**, not just a report (developer intent, 2026-07-22). Its arc is fixed: explain where the caller's missions stand → walk the not-ready ones through replan until every assigned mission is drive-ready → reconcile → discuss strategy gaps → hand off to `/goal /monitor ok`. This is the daytime half of the overnight model: `/mission` makes everything drive-ready, `/monitor` executes it unattended. Read the whole roadmap once:
+When `$ARGUMENT` is empty, bare `/mission` opens a **working planning session**, not just a report (developer intent, 2026-07-22). Its arc is fixed: explain where the caller's missions stand → walk the not-ready ones through replan until every assigned mission is drive-ready → reconcile → discuss roadmap gaps → hand off to `/goal /monitor ok`. This is the daytime half of the overnight model: `/mission` makes everything drive-ready, `/monitor` executes it unattended. Read the whole roadmap once:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list.sh
 ```
 
-Every entry carries the fields the session needs — computed, so no logic lives in this prose: `relation` (`mine`/`unassigned`/`others`), `strategy` (the slug of the strategy the mission executes, or `""` when unlinked), `next` (the next unchecked acceptance item), `ready` (drive-ready: active, has a plan, `drive_authorized`) and `ready_reason` (`no_plan`/`not_authorized` when not). Do **not** re-derive any of these from `assignee`/`strategy:`/`drive_authorized`/`checked` yourself.
+Every entry carries the fields the session needs — computed, so no logic lives in this prose: `relation` (`mine`/`unassigned`/`others`), `next` (the next unchecked acceptance item), `ready` (drive-ready: active, has a plan, `drive_authorized`) and `ready_reason` (`no_plan`/`not_authorized` when not). Do **not** re-derive any of these from `assignees`/`drive_authorized`/`checked` yourself.
 
-### Step 1 — Status: where the caller's missions stand, grouped by strategy
+### Step 1 — Status: where the caller's missions stand
 
-Render the roadmap **weighted toward the caller** (most of the output is the caller's business; others' work stays visible but compact — de-emphasized, never hidden), and **grouped by the strategy each mission executes** — a mission is the execution plan of a strategy, so the roadmap reads as "here is each direction, and the missions advancing it." Read the strategies once for their titles (`bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/list.sh`) and group the full-treatment tier by the entry's `strategy` field:
+Render the roadmap **weighted toward the caller** (most of the output is the caller's business; others' work stays visible but compact — de-emphasized, never hidden):
 
-- **One block per strategy** (title `(slug)` as the heading), containing that strategy's **`mine` and `unassigned` `status: active`** missions in full treatment (mine first, then unassigned). Order strategy blocks with the caller's own strategies (those holding at least one `mine` mission) first.
-- **An "Unlinked" block last** for full-treatment missions whose `strategy` is `""` — active `mine`/`unassigned` missions executing no strategy. Note them as unlinked: the Step 2 replan loop resolves the missing `strategy:` link (its Strategy-resolution step), so surfacing them here is also the signal for that fix.
-- **Full treatment per mission**: `title` (`slug`) — `checked/total`, the `next` item, the drive-ready state (ready, or the `ready_reason` blocker), and the most recent few `## Changelog` lines from the entry's `path`. **Mark an `unassigned` entry as unclaimed and claimable.**
-- **One line each — everything else** (`others`, and any archived mission), gathered under a compact trailing section, **not** grouped by strategy: `title` (`slug`) — `status` — `checked/total`. No changelog, no paragraphs.
+- **Full treatment** for the caller's **`mine` and `unassigned` `status: active`** missions (mine first, then unassigned): `title` (`slug`) — `checked/total`, the `next` item, the drive-ready state (ready, or the `ready_reason` blocker), and the most recent few `## Changelog` lines from the entry's `path`. **Mark an `unassigned` entry as unclaimed and claimable.**
+- **One line each — everything else** (`others`, and any archived mission), gathered under a compact trailing section: `title` (`slug`) — `status` — `checked/total`. No changelog, no paragraphs.
 
 If no mission is `mine` or `unassigned`, say so plainly (only colleagues'/archived work exists) and that `/mission "<title>"` starts one; if the array is empty, there are no missions yet.
 
@@ -152,17 +144,11 @@ An already-`ready` mission needs nothing here — say so and skip it.
 
 Close the session with one honest line derived from the readers (never asserted): **`N/M assigned missions drive-ready`**, naming each mission left short and why — deferred by the developer, or blocked on a named ruling. This mirrors `/monitor`'s honest-terminal shape.
 
-### Step 4 — Strategy gap discussion: are the missions sufficient?
+### Step 4 — Roadmap gap discussion: are the missions sufficient?
 
-Once every assigned mission is drive-ready, turn **upward**: are the missions *sufficient* for the active strategies? A strategy is direction with no completion conditions — what keeps it moving is a stream of missions executing it. Survey the gaps:
+Once every assigned mission is drive-ready, turn **upward**: does the roadmap cover what the accumulated direction asks for? Direction lives in the **feedback stream** (`.workaholic/feedbacks/` — read it via `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/list.sh`): unaddressed instructions and insights with no active mission or ticket advancing them are the gaps. This survey is act-and-report: run it unasked, and if nothing is unaddressed, say so in one sentence and move on — never pad the session.
 
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/list.sh
-```
-
-An **active** strategy whose `active_missions` is empty is a **gap** — direction with nothing currently advancing it (its only missions, if any, are archived). This survey is act-and-report: run it unasked, and if every active strategy has an active mission, say so in one sentence and move on — never pad the session.
-
-For each gap (or when the developer says the plan feels thin), open a short **discussion**, not automation: ground candidate next missions in the strategy's `## Direction` (read from its `path`), the recent mission `## Reflection` entries (`bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list-reflections.sh` — what the last runs said to front-load), and the archived missions' outcomes. Propose concretely ("a mission that …"), and let the developer shape or reject. An agreed candidate flows straight into the **create flow** (the *With a title* section below — worktree, interrogation, ticket set, `strategy:` stamp) without leaving the conversation. **Never auto-create** a mission or ticket from the survey; creation happens only through the agreed hand-off. An unassigned-but-active mission is *not* a gap — the signal is "no active mission", not "no mine".
+For each gap (or when the developer says the plan feels thin), open a short **discussion**, not automation: ground candidate next missions in the relevant feedback entries, the recent mission `## Reflection` entries (`bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list-reflections.sh` — what the last runs said to front-load), and the archived missions' outcomes. Propose concretely ("a mission that …"), and let the developer shape or reject. An agreed candidate flows straight into the **create flow** (the *With a title* section below — worktree, interrogation, ticket set) without leaving the conversation. **Never auto-create** a mission or ticket from the survey; creation happens only through the agreed hand-off. An unassigned-but-active mission is *not* a gap — the signal is "nothing advancing it", not "no mine".
 
 ### Step 5 — Execution hand-off: `/goal /monitor ok`, never `/drive`
 

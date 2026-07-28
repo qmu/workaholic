@@ -1,6 +1,6 @@
 ---
 name: mission
-description: Use when the user runs `/mission`, asks to "start a mission", "plan a batch of work", "show mission progress", or "what missions are in flight". A mission is the overnight-executable execution plan of a strategy — a bounded, information-rich batch of tickets an agent fleet drives in a night; this skill creates one, lists missions with computed progress, and defines the mission schema every workflow reads.
+description: Use when the user runs `/mission`, asks to "start a mission", "plan a batch of work", "show mission progress", or "what missions are in flight". A mission is an optional, epic-equivalent grouping — a bounded, information-rich batch of tickets an agent fleet drives together, never a required parent of any ticket; this skill creates one, lists missions with computed progress, and defines the mission schema every workflow reads.
 allowed-tools: Bash
 user-invocable: false
 metadata:
@@ -9,16 +9,16 @@ metadata:
 
 # Mission
 
-A **mission** is a first-class knowledge artifact: the **overnight-executable execution plan of a strategy** — a fairly immediate developer request, interrogated to question-free drive-readiness, that bundles the ordered ticket set an agent fleet drives through in a night. It carries the information-rich statement of *what this batch of tickets accomplishes* and *how far it has come*, with a machine-readable web of relations to the tickets, stories, and concerns that advance it. **Longevity lives one level up, in the [strategy](../strategy/SKILL.md)** the mission executes; the mission is bounded, not long-lived.
+A **mission** is a first-class knowledge artifact: an **optional, epic-equivalent grouping of tickets** — a fairly immediate developer request, interrogated to question-free drive-readiness, that bundles the ordered ticket set an agent fleet drives through together (typically overnight). It carries the information-rich statement of *what this batch of tickets accomplishes* and *how far it has come*, with a machine-readable web of relations to the tickets, stories, and concerns that advance it. The mission is bounded, not long-lived — and **never a required parent**: the ticket stays the first-class standalone unit, and `/ticket` → `/drive` with no mission is a fully sanctioned path. Long-lived *direction* accretes in the [feedback stream](../feedback/SKILL.md) (`docs/loop-engineering-workflow.md`, decisions B3/B5).
 
 Distinguish the terms and never conflate them (`workaholic:planning` / `terminology`):
 
-- **strategy** — long-lived **direction** (戦略) with no completion conditions. It answers *why these missions are being launched* and outlives every one of them. Missions are its execution plans (`workaholic:strategy`).
-- **mission** — the **execution plan** of one strategy: a bounded, overnight-executable batch of tickets with acceptance criteria and an append-only changelog. It answers *what does this batch of tickets accomplish tonight*. A mission finishes; the strategy persists.
+- **feedback** — the inbound stream of project context (`workaholic:feedback`); long-lived **direction** lives here, as accumulated insights and instructions. It answers *why is this work being launched*.
+- **mission** — an **optional, epic-equivalent grouping**: a bounded batch of tickets with acceptance criteria and an append-only changelog. It answers *what does this batch of tickets accomplish together*. A mission finishes; the stream persists.
 - **trip** — a short, bounded design/build *session* (Planner/Architect/Constructor) that produces design rationale and decomposes into tickets.
-- **epic / milestone** — generic project-management words this repo deliberately does **not** use as artifact names. "Strategy" and "mission" are the words for these two levels.
+- **epic / milestone** — generic project-management words this repo deliberately does **not** use as artifact names. "Mission" is the word for this level.
 
-See the **Granularity** section below for the full commit → ticket → mission → strategy discipline and the record of why "mission" was narrowed from its earlier long-lived meaning.
+See the **Granularity** section below for the full commit → ticket → mission discipline and the record of how "mission" was redefined twice.
 
 ## Granularity
 
@@ -28,8 +28,9 @@ The **single home** of the granularity discipline (`workaholic:planning` / `mode
 | --- | --- | --- | --- |
 | **commit** | *what is this one normalized change* | ~a few hundred lines, one reviewable unit | the release-scan per-commit changed-lines gate (ticket `20260721020759`) |
 | **ticket** | *what is this one change* (a single drive-able unit) | one `/drive` pass, with its own `## Quality Gate` | its `## Policies` / `## Quality Gate` |
-| **mission** | *what does this batch of tickets accomplish tonight* | hours of agent time; a fairly immediate request interrogated to question-free readiness | the Creation Interrogation |
-| **strategy** | *why are these missions being launched* | long-lived direction, no completion conditions | — |
+| **mission** | *what does this batch of tickets accomplish together* (optional — a ticket needs no mission) | hours of agent time; a fairly immediate request interrogated to question-free readiness | the Creation Interrogation |
+
+"Why is this work being launched" is answered one level up by the **feedback stream** (`workaholic:feedback`) — accumulated direction, not an artifact layer of its own.
 
 **The balance test cuts both ways.** A mission that re-narrates its tickets' specifics is **over-written** — trust the ticket to hold the detail. A ticket that says essentially what its mission says means the **mission is under-sized** — a mission must be bigger than any one ticket; surface that and merge, do not write the duplicate. Neither is "add more words"; both are "put each fact at exactly one level".
 
@@ -37,12 +38,11 @@ The **single home** of the granularity discipline (`workaholic:planning` / `mode
 
 Recorded here so it is not re-litigated (`workaholic:planning` / `terminology`):
 
-- **Old meaning** (before 2026-07-21): "mission" was the long-lived container — "a durable goal spanning many tickets over a long horizon; it outlives any single branch or session".
-- **New meaning**: "mission" is the **overnight-executable execution plan of a strategy** — bounded, not long-lived. **Longevity moved up to the new `strategy` artifact.**
-- **Reason**: the mission was playing two roles at once — the executable unit *and* the long-lived goal container. Splitting them lets the developer plan by day (missions, front-loading every judgment call) and let agents execute by night, while direction persists above in a strategy.
-- **Provenance**: mission `reorganize-missions-under-strategies`, 2026-07-21.
+- **First meaning** (before 2026-07-21): "mission" was the long-lived container — "a durable goal spanning many tickets over a long horizon; it outlives any single branch or session".
+- **Second meaning** (2026-07-21): "the overnight-executable execution plan of a strategy" — bounded, with longevity moved up to a new `strategy` artifact. Reason: the mission was playing two roles at once — the executable unit *and* the long-lived goal container. Provenance: mission `reorganize-missions-under-strategies`.
+- **Current meaning** (2026-07-28): an **optional, epic-equivalent grouping of tickets** — bounded, never a required parent. The strategy layer is **retired**: direction accretes in the feedback stream instead of a second direction artifact (two homes would drift), and mission ownership returned to the mission itself. The 2026-07-21 phrase is superseded on both ends — the strategy end and the mandatory-sounding framing (`docs/loop-engineering-workflow.md`, decisions B3/B5; provenance: mission `loop-engineering-foundation`). Retired strategies survive verbatim as feedback records (`migrate-strategies.sh`).
 
-Every other place that touches granularity **links here** rather than restating it (`workaholic:strategy`, `workaholic:create-ticket`, `workaholic:commit`).
+Every other place that touches granularity **links here** rather than restating it (`workaholic:create-ticket`, `workaholic:commit`).
 
 ## Agent Compatibility
 
@@ -79,7 +79,6 @@ created_at: <ISO-8601>
 author: <email>
 assignees: [<email>]    # the mission's OWNERS (plural — a mission can be co-owned). Creator-seeded by create.sh (the approver is the default owner); empty = team-owned/claimable. Read ONLY via mission-owners.sh
 assignee: <email>       # LEGACY FALLBACK only (missions predating `assignees`). Empty on new missions; never read directly
-strategy: <slug>        # the ONE strategy this mission executes; resolved in the interrogation, read only via strategy/scripts/read-strategy-relation.sh. Empty on the scaffold; non-empty is required once drive_authorized: true. Its `assignees` remain a TRANSITION ownership fallback (mission-owners.sh tier 2)
 drive_authorized:       # `true` once the Creation Interrogation emitted the full ticket set
 predicted_hours:        # decimal agent-hours, stamped ONCE at creation from archived-mission trend (predict-duration.sh); empty when basis 0
 actual_hours:           # decimal agent-hours accumulated by /monitor across runs (record-run-hours.sh is its only writer); empty until a run records
@@ -123,27 +122,20 @@ Read it with `drive-authorized.sh` — never by grepping the field yourself.
 
 **A mission's owners are its own plural `assignees` list.** The creator/approver is the default owner (`create.sh` seeds the list with the creator); an empty list means the mission is **team-owned** — unclaimed work, surfaced to everyone as claimable.
 
-Redefinition record, so the moves are not re-litigated: ownership lived on the mission (`assignee`, singular) → moved to the strategy's `assignees` (2026-07-24 — "a direction is what a set of people own") → **returned to the mission, plural, 2026-07-28**: the loop-engineering reorganization retires the strategy layer (direction now accretes in the feedback stream — `docs/loop-engineering-workflow.md` decisions B3/B4), and in the team + AI-proposal model the approver of a mission, not the owner of a direction, is who answers for it. The single-oracle design is what made both moves cheap.
+Redefinition record, so the moves are not re-litigated: ownership lived on the mission (`assignee`, singular) → moved to the strategy's `assignees` (2026-07-24 — "a direction is what a set of people own") → **returned to the mission, plural, 2026-07-28**: the loop-engineering reorganization retired the strategy layer (direction now accretes in the feedback stream — `docs/loop-engineering-workflow.md` decisions B3/B4), and in the team + AI-proposal model the approver of a mission, not the owner of a direction, is who answers for it. The single-oracle design is what made both moves cheap; the living migration (`migrate-strategies.sh`) folded strategy assignees down into their missions so the strategy hop could go without orphaning anything.
 
 Read a mission's owner(s) **only** through `mission/scripts/mission-owners.sh` — never by grepping `assignee` or `assignees`. It is the single ownership oracle; first non-empty tier wins:
 
-1. the mission's own `assignees` (via `strategy/scripts/read-assignees.sh`, the single parser of the field shape — list and bare forms);
-2. **transition fallback**: the mission's `strategy:` → that strategy's `assignees` — kept so missions created under the 2026-07-24 model keep their owners until the strategy layer's retirement migrates them down;
-3. **legacy fallback**: the mission's own singular `assignee`, so missions predating every ownership model are never orphaned.
+1. the mission's own `assignees` (via `mission/scripts/read-assignees.sh`, the single parser of the field shape — list and bare forms);
+2. **legacy fallback**: the mission's own singular `assignee`, so missions predating the plural field are never orphaned.
 
 Prints one owner per line; **empty output means unowned** — unclaimed work, surfaced to everyone as claimable. A mission may be **co-owned**; "mine" means the caller is **among** the owners, not the sole one.
 
 **Not somebody else's, not exactly mine.** `summary.sh`, the **mission lens**, `list.sh`'s `relation`, and `/monitor`'s pre-flight all gate on "is this mission my business" — the caller is among the owners (mine, shown first), or there are no owners (unassigned, shown as claimable, after your own); a mission owned only by others stays silent. All four read through `mission-owners.sh`, so the gate is defined once.
 
-**Claiming a mission = a one-line edit to that mission** — add yourself to its `assignees`. The claim is mission-local: it commits you to this plan and nothing else (under the 2026-07-24 model a claim joined the strategy and swept in its other missions; that coupling is gone with the return of ownership to the mission).
+**Claiming a mission = a one-line edit to that mission** — add yourself to its `assignees`. The claim is mission-local: it commits you to this plan and nothing else.
 
 This is per-worktree by construction — each worktree checks out its own `.workaholic/`, so the lens that fires there reflects the missions that are the business of whoever is working that tree.
-
-### Strategy
-
-`strategy` names the **one strategy this mission executes** — a mission is the execution plan of a strategy (`workaholic:strategy`). The value is a strategy slug, single-valued by convention (one plan, one strategy), and it is read **only** through `strategy/scripts/read-strategy-relation.sh`, never by parsing frontmatter directly. It is the mission→strategy direction of the model, mirroring ticket→mission (`mission:` on a ticket).
-
-Empty is the **scaffold** state; the link is resolved during the Creation Interrogation (see *Strategy resolution* below). Once a mission is stamped `drive_authorized: true`, a non-empty `strategy:` is **required** — `validate-mission.sh` refuses an authorized mission with no strategy at write time, the same floor that requires an owner, `## Experience`, and `## Acceptance`. Nothing is stored on the strategy side, so per-strategy mission rollups are always computed (`strategy/scripts/list.sh`).
 
 ### Duration (predicted / actual)
 
@@ -201,17 +193,7 @@ When `/mission "<title>"` creates a mission, **interrogate the developer until t
 
 **Why it is mandatory.** A mission's whole value is that judgement is answered *before* the work starts. `workaholic:development` / `overnight-ai`: *"identify in advance the points where AI would want to ask for judgment and write the answers to those questions into the ticket. We eliminate the causes of stopping in the night before the run starts."* A mission scaffolded with empty sections is an empty shell that stops the first time it meets a decision — and, because the mission lens's signal gate silences a `0/0` mission, it is an empty shell **nobody can see**.
 
-**Grill; do not tick a box.** The bar is a *structured model* — the demanded behavior, the ticket plan, the order — not a question count and not a Q&A transcript pasted into a file (`workaholic:planning` / `modeling-centric-design`). Ask as many rounds as it takes — but apply the **Recommended-label test** (`rules/interaction.md`) to every round: if you could honestly recommend an answer, **do not ask it** — decide it, record the decision where the plan is written (the mission `## Changelog`, or the relevant ticket's `## Quality Gate`), and let the developer veto it. "As many rounds as it takes" therefore means as many *unrecommendable* rounds as it takes: the grilling is undiminished on the genuine forks, and silent on the calls you could already make. Where uncertainty is high, prove it small before emitting the set (`workaholic:planning` / `verify-before-building`): with no per-ticket approval downstream, an unverified premise is not caught at ticket 3 — it is concretized across the whole mission. (Note the strategy-resolution step above already runs this test explicitly — infer/create silently, ask only the unrecommendable multi-strategy fork.)
-
-### Strategy resolution (before the rounds)
-
-Every mission executes **one strategy** (`workaholic:strategy`), so the first thing the interrogation resolves — before round 1's `## Goal`/`## Scope` output is written — is which strategy this mission executes. Resolve it by **inference from context** (the request, the repo, and the existing strategies via `bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/list.sh`), following the decide-and-record doctrine — **do not ask a question you can answer**:
-
-- **Link silently** when exactly one active strategy plausibly covers the mission. Stamp `strategy: <slug>` and record it — `strategy linked — <slug>` — via `append-changelog.sh`. No question.
-- **Create on the spot** when no active strategy fits: mint one with `bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/create.sh "<title>"`, deriving its `## Direction` from the mission's own `## Goal` **one level more general and end-condition-free**, then link and record `strategy created — <slug>`. No question.
-- **Ask only** when several active strategies genuinely compete and no recommendation is honest — the sole unrecommendable case. The command issues one `AskUserQuestion` (`[<project label>]` prefix, one option per candidate strategy plus "create new"), then records the chosen link.
-
-The link is `strategy: <slug>` on `mission.md`, read back only through `strategy/scripts/read-strategy-relation.sh`. Both changelog events (`strategy linked` / `strategy created`) are in the standard-events list below. A mission is not drive-ready — and `validate-mission.sh` will not let it be stamped `drive_authorized: true` — until this link is resolved.
+**Grill; do not tick a box.** The bar is a *structured model* — the demanded behavior, the ticket plan, the order — not a question count and not a Q&A transcript pasted into a file (`workaholic:planning` / `modeling-centric-design`). Ask as many rounds as it takes — but apply the **Recommended-label test** (`rules/interaction.md`) to every round: if you could honestly recommend an answer, **do not ask it** — decide it, record the decision where the plan is written (the mission `## Changelog`, or the relevant ticket's `## Quality Gate`), and let the developer veto it. "As many rounds as it takes" therefore means as many *unrecommendable* rounds as it takes: the grilling is undiminished on the genuine forks, and silent on the calls you could already make. Where uncertainty is high, prove it small before emitting the set (`workaholic:planning` / `verify-before-building`): with no per-ticket approval downstream, an unverified premise is not caught at ticket 3 — it is concretized across the whole mission.
 
 ### Read recent reflections (before the rounds)
 
@@ -274,8 +256,6 @@ The sanctioned path to **reopen an existing active mission's plan** — reached 
 The bar equals creation's: a structured **delta model** — what changes, which tickets, in what order — not a Q&A transcript (`workaholic:planning` / `modeling-centric-design`), grilled until the delta is drive-ready. The **Recommended-label test** applies exactly as at creation (`rules/interaction.md`): a delta decision you could honestly recommend is decided-and-recorded (a `## Changelog` line or the delta ticket's `## Quality Gate`), not asked; only the unrecommendable forks reach an `AskUserQuestion`. `gate_*` is never interrogated, exactly as at creation.
 
 **What the delta may touch** — everything the Creation Interrogation produces, applied as a delta: rewrite `## Goal` / `## Scope` / `## Experience`; append `## Acceptance` items (observable, ticket-linked by `(#<filename>)`); emit delta tickets in one pass (the same emission rules, including the mission-scoped split-cap exception); re-stamp `drive_authorized` under the conditions below.
-
-**Strategy link on replan.** An active mission whose `strategy:` is still empty (a legacy or thin hand-authored mission that predates the link, or one that reached `/monitor`'s pre-flight as a replan item) gets the same **Strategy resolution** as at creation on its next replan — infer/create/ask, recorded as a `strategy linked` / `strategy created` changelog line. Re-stamping `drive_authorized: true` requires the link resolved, exactly as at creation.
 
 **What a replan must never touch:**
 
@@ -345,7 +325,19 @@ Read an artifact's `mission:` relation; prints one slug per line, nothing when a
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/mission-owners.sh <mission-file>
 ```
 
-Resolve **who owns a mission** — the single ownership oracle (2026-07-28). First non-empty tier wins: the mission's **own plural `assignees`** (via `strategy/scripts/read-assignees.sh`, the single parser of the field shape); a **transition fallback** through the mission's `strategy:` link to that strategy's `assignees` (searching `strategies/active/` then `archive/` so an archived strategy never dangles ownership); and a **legacy fallback** to the mission's own singular `assignee`, so a mission predating every ownership model is never orphaned. Prints one owner per line; **empty output means unowned** (claimable). Every ownership consumer — `list.sh`'s `relation`, `summary.sh`, `hooks/mission-lens.sh`, `/monitor`'s pre-flight, `hooks/validate-mission.sh`'s authorized-owner floor, and `ship`'s concern-lane owner — reads through this, never by parsing the fields itself.
+Resolve **who owns a mission** — the single ownership oracle (2026-07-28). First non-empty tier wins: the mission's **own plural `assignees`** (via `mission/scripts/read-assignees.sh`, the single parser of the field shape), then a **legacy fallback** to the mission's own singular `assignee`, so a mission predating the plural field is never orphaned. Prints one owner per line; **empty output means unowned** (claimable). Every ownership consumer — `list.sh`'s `relation`, `summary.sh`, `hooks/mission-lens.sh`, `/monitor`'s pre-flight, `hooks/validate-mission.sh`'s authorized-owner floor, and `ship`'s concern-lane owner — reads through this, never by parsing the fields itself.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/read-assignees.sh <file>
+```
+
+Read a file's `assignees:` frontmatter field, one owner per line — **the single parser of the field shape** (inline-list `[a, b]` and bare-scalar forms; empty/absent prints nothing). Born on the strategy side (2026-07-24) and relocated here when ownership returned to the mission; `mission-owners.sh`'s primary tier reads through it.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/migrate-strategies.sh [workaholic-root]
+```
+
+Retire a lingering `.workaholic/strategies/` tree — the direct/test entry to the living migration every mission script also runs through `lib/resolve.sh`'s seam (`missions_migrate_strategies`; the logic lives there so the two entries cannot drift). Each strategy document survives **verbatim** as a feedback record (`feedbacks/<ts>-strategy-<slug>.md`, `kind: insight`, `source: discussion`, original author/`created_at` preserved; the timestamp derives from `created_at`, so the migration is deterministic and idempotent), its `assignees` fold down into each linked active mission whose own `assignees` is still empty, and then the directory is removed (`git rm` when tracked). Best-effort: a failure never blocks the calling seam. Nothing is deleted from knowledge, only from structure.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/drive-authorized.sh <ticket-file>
@@ -353,7 +345,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/drive-authorized.sh <ticket-fi
 
 Answer, for one ticket: **may `/drive` implement this without the per-ticket approval prompt?** Emits `{authorized, reason, missions}` — `reason` is `""` (authorized), `no_ticket`, `no_mission` (nothing authorized it), `mission_not_found`, `not_authorized` (a claimed mission is not stamped), or `no_plan` (a claimed mission is stamped but its `## Acceptance` is empty — a stamp with no plan authorizes nothing; the floor is `progress.sh`'s `total > 0`). Reads the relation through `read-relation.sh`, so `mission: [a, b]` and a bare `mission: a` behave identically.
 
-Missions get a write-time floor too: `hooks/validate-mission.sh` (PostToolUse `Write|Edit`, the mission analogue of `validate-ticket.sh`) lets `create.sh`'s scaffold pass with **nothing required**, and — once a mission claims `drive_authorized: true` — rejects an empty `strategy:` link, a **missing owner** (`mission-owners.sh` empty across all three tiers — its own `assignees`, the strategy fallback, the legacy `assignee` — unattended work needs an owner), a comment-only `## Experience`, or an empty `## Acceptance` at the write, where the author can still fix it. `archive/` missions are history and are never retro-blocked.
+Missions get a write-time floor too: `hooks/validate-mission.sh` (PostToolUse `Write|Edit`, the mission analogue of `validate-ticket.sh`) lets `create.sh`'s scaffold pass with **nothing required**, and — once a mission claims `drive_authorized: true` — rejects a **missing owner** (`mission-owners.sh` empty — its own `assignees` and the legacy `assignee` both empty; unattended work needs an owner), a comment-only `## Experience`, or an empty `## Acceptance` at the write, where the author can still fix it. (A legacy `strategy:` key from the retired strategy layer is tolerated and ignored.) `archive/` missions are history and are never retro-blocked.
 
 **Conservative by construction**: a ticket claiming several missions is authorized only if **every** one of them is stamped. Naming a mission is a commitment, not a label — the same reason `/drive` holds a ticket to the gate of every mission it names ("all of them must pass, not the most convenient one"). One unauthorized mission means ask.
 
@@ -386,7 +378,7 @@ Compute `{checked, total}` over a mission's `## Acceptance` checklist. Accepts e
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list.sh
 ```
 
-List every mission — across both `active/` and `archive/` — with its `status`, derived ownership, computed progress, and its `predicted_hours`/`actual_hours`: a JSON array of `{slug, title, status, assignee, owners, relation, strategy, next, checked, total, drive_authorized, ready, ready_reason, predicted_hours, actual_hours, path}`, sorted by slug (`path` is the resolved `mission.md` location, so consumers never rebuild it by hand). Emits `[]` when there are no missions. `owners` is the full owner set (`mission-owners.sh` — the mission's own `assignees` first, then the strategy transition fallback, then the legacy `assignee`), `assignee` aliases the first owner for back-compat, and `relation` is the caller-centric partition (`mine` / `unassigned` / `others` — the same "not somebody else's" gate `summary.sh`, the lens, and `/monitor` read, all through `mission-owners.sh`, computed once here so consumers never re-derive it; a missing git email degrades to nothing-`mine`, never an error). `next` is the first unchecked acceptance item via `next-acceptance.sh`. `strategy` is the slug of the strategy the mission executes, read through the single reader `strategy/scripts/read-strategy-relation.sh` (first slug; single-valued by convention) — `""` when unlinked, so the bare `/mission` view can group the roadmap by strategy and surface an "unlinked" bucket that its replan loop then resolves. `ready`/`ready_reason` are the **planning-session drive-readiness verdict**: `ready: true` when the mission is `active`, has a plan (`total > 0`), and is stamped `drive_authorized: true`; otherwise `ready: false` with `ready_reason` naming the blocker (`no_plan` / `not_authorized` / `not_active`) so the bare `/mission` session can explain what a replan must fix. Together these let the bare `/mission` view render its two tiers and drive its replan loop with **no inline logic**. All keys are additive; older consumers parse a subset and are unaffected.
+List every mission — across both `active/` and `archive/` — with its `status`, derived ownership, computed progress, and its `predicted_hours`/`actual_hours`: a JSON array of `{slug, title, status, assignee, owners, relation, next, checked, total, drive_authorized, ready, ready_reason, predicted_hours, actual_hours, path}`, sorted by slug (`path` is the resolved `mission.md` location, so consumers never rebuild it by hand). Emits `[]` when there are no missions. `owners` is the full owner set (`mission-owners.sh` — the mission's own `assignees` first, then the legacy `assignee`), `assignee` aliases the first owner for back-compat, and `relation` is the caller-centric partition (`mine` / `unassigned` / `others` — the same "not somebody else's" gate `summary.sh`, the lens, and `/monitor` read, all through `mission-owners.sh`, computed once here so consumers never re-derive it; a missing git email degrades to nothing-`mine`, never an error). `next` is the first unchecked acceptance item via `next-acceptance.sh`. `ready`/`ready_reason` are the **planning-session drive-readiness verdict**: `ready: true` when the mission is `active`, has a plan (`total > 0`), and is stamped `drive_authorized: true`; otherwise `ready: false` with `ready_reason` naming the blocker (`no_plan` / `not_authorized` / `not_active`) so the bare `/mission` session can explain what a replan must fix. Together these let the bare `/mission` view render its two tiers and drive its replan loop with **no inline logic**. All keys are additive; older consumers parse a subset and are unaffected.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/summary.sh
@@ -404,7 +396,7 @@ Emit the display text of the mission's **first unchecked** `## Acceptance` item 
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/append-changelog.sh <mission-slug-or-file> <event> <artifact-filename> [date]
 ```
 
-Append one dated line to a mission's `## Changelog`. **The single writer of changelog lines** — every workflow seam calls it rather than hand-editing `mission.md`. Append-only and **idempotent**: the `(event, artifact)` pair is the stable event id, so re-running for the same event never duplicates a line. Git-stages the mission file. Standard events: `ticket archived` (drive), `story reported` (report), `concern deferred (stuck)` (ship), `concern resolved (unstuck)` (report), `mission achieved` / `mission abandoned` / `mission carried into <successor-slug>` (close.sh), `ticket added` / `mission replanned` / `acceptance dropped` (replan), `strategy linked — <slug>` / `strategy created — <slug>` (Strategy resolution, creation or replan).
+Append one dated line to a mission's `## Changelog`. **The single writer of changelog lines** — every workflow seam calls it rather than hand-editing `mission.md`. Append-only and **idempotent**: the `(event, artifact)` pair is the stable event id, so re-running for the same event never duplicates a line. Git-stages the mission file. Standard events: `ticket archived` (drive), `story reported` (report), `concern deferred (stuck)` (ship), `concern resolved (unstuck)` (report), `mission achieved` / `mission abandoned` / `mission carried into <successor-slug>` (close.sh), `ticket added` / `mission replanned` / `acceptance dropped` (replan).
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/tick-acceptance.sh <mission-slug-or-file> <artifact-filename>
@@ -514,7 +506,7 @@ Separately from the mutating seams above, a workflow may **read** missions witho
 
 The **mission lens** (`hooks/mission-lens.sh`) is the other read-only consumer, and an always-on one. On every `UserPromptSubmit` it injects a model-visible `additionalContext` line, and on every `Stop` a user-visible `systemMessage`, naming each **active** mission that passes all three of its gates, with derived `checked/total` and the next unchecked acceptance item (via `progress.sh` + `next-acceptance.sh`):
 
-1. **ownership** — the current `git config user.email` is among the mission's owners (`mission-owners.sh` — the mission's own `assignees` first, then the strategy transition fallback, then the legacy `assignee`), or the mission is unowned (surfaced as claimable). Only a mission owned solely by others stays silent.
+1. **ownership** — the current `git config user.email` is among the mission's owners (`mission-owners.sh` — the mission's own `assignees` first, then the legacy `assignee`), or the mission is unowned (surfaced as claimable). Only a mission owned solely by others stays silent.
 2. **location** — worktree focus: inside a mission's own `.worktrees/<slug>`, only that mission; inside a worktree that owns **no** mission (a `/drive` worktree), nothing at all; in the main tree, only missions that own no worktree.
 3. **signal** — the mission has at least one acceptance criterion. A mission whose `## Acceptance` is empty would render as `0/0` with no next step — a technical condition with nothing to act on — so it stays silent.
 

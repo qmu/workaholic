@@ -24,7 +24,7 @@ Claude-Code-only, like `/trip`: the parallel fan-out below is the command's subs
 
 ## Scope: whose missions
 
-The run covers missions that are **the current developer's business** — the `mission/scripts/summary.sh` gate, now reading **derived** ownership (`mission-owners.sh`): the developer is among the mission's owners (its strategy's `assignees`, with a legacy `assignee` fallback), or the mission is **unowned** (unclaimed). Another developer's missions are never touched. An unowned mission is offered at pre-flight as **claimable**: because ownership is strategy-level, claiming it means **adding the developer to the strategy's `assignees`** (in its own worktree's checkout) before any leaf is spawned — which claims that strategy's other missions too. Never claim silently — inclusion is a pre-flight decision, not a default.
+The run covers missions that are **the current developer's business** — the `mission/scripts/summary.sh` gate, reading ownership through the single oracle (`mission-owners.sh`): the developer is among the mission's owners (its own plural `assignees`, with a legacy `assignee` fallback), or the mission is **unowned** (unclaimed). Another developer's missions are never touched. An unowned mission is offered at pre-flight as **claimable**: claiming it means **adding the developer to that mission's own `assignees`** (in its own worktree's checkout, a mission-local edit) before any leaf is spawned. Never claim silently — inclusion is a pre-flight decision, not a default.
 
 ## 1. Pre-flight (mandatory — every foreseeable decision resolved before anything drives)
 

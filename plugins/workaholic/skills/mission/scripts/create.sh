@@ -65,7 +65,6 @@ created_at: ${CREATED_AT}
 author: ${AUTHOR}
 assignees: [${ASSIGNEE}]
 assignee:
-strategy:
 drive_authorized:
 predicted_hours:
 actual_hours:

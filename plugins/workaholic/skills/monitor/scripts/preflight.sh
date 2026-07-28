@@ -30,19 +30,16 @@
 # Output (JSON):
 #   {"email": "<me>",
 #    "missions": [{"slug", "title", "assignee", "mine", "checked", "total",
-#                  "next", "worktree_path", "strategy", "authorized", "reason"}],
+#                  "next", "worktree_path", "authorized", "reason"}],
 #    "orphan_worktrees": [{"path", "slug"}]}
 #   missions: the developer's own first, then unassigned; reason is "" when
-#   authorized, else not_authorized | no_plan | no_worktree. strategy is the slug of
-#   the strategy the mission executes ("" when unlinked — a replan item on an
-#   authorized mission, never a blocker).
+#   authorized, else not_authorized | no_plan | no_worktree.
 
 set -eu
 
 SCRIPT_DIR=$(dirname "$0")
 MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts"
 BRANCH_SCRIPTS="${SCRIPT_DIR}/../../branching/scripts"
-STRATEGY_SCRIPTS="${SCRIPT_DIR}/../../strategy/scripts"
 
 EMAIL=$(git config user.email 2>/dev/null || true)
 if [ -z "$EMAIL" ]; then
@@ -102,8 +99,8 @@ EOF
 consider() {
     cf="$1"; cwt="$2"; cslug="$3"
     [ "$(fm_field "$cf" status)" = "active" ] || return 0
-    # Derived owners (strategy assignees, legacy mission-assignee fallback) via the single
-    # oracle — not the mission's own frontmatter. mine = $EMAIL among owners; unassigned =
+    # Owners (the mission's own assignees, legacy singular fallback) via the single
+    # oracle — not parsed here. mine = $EMAIL among owners; unassigned =
     # no owners. cassignee (the output field) aliases the first owner for back-compat.
     cowners=$(sh "${MISSION_SCRIPTS}/mission-owners.sh" "$cf" 2>/dev/null || true)
     cassignee=$(printf '%s\n' "$cowners" | sed -n '1p')
@@ -116,10 +113,6 @@ consider() {
     ctotal=$(printf '%s' "$cprog" | sed -e 's/.*"total": *//' -e 's/[,}].*//')
     cnext=$(json_escape "$(sh "${MISSION_SCRIPTS}/next-acceptance.sh" "$cf" 2>/dev/null || true)")
     cstamp=$(fm_field "$cf" drive_authorized)
-    # The strategy this mission executes (single reader; "" when unlinked). An empty
-    # strategy on an AUTHORIZED mission is a replan item (resolve the link), NOT a
-    # blocker — it never flips `authorized`, only surfaces in the pre-flight facts.
-    cstrategy=$(json_escape "$(sh "${STRATEGY_SCRIPTS}/read-strategy-relation.sh" "$cf" 2>/dev/null | head -n 1 || true)")
     creason=""
     if [ "$cstamp" != "true" ]; then
         creason="not_authorized"
@@ -132,7 +125,7 @@ consider() {
     cmine=false
     [ "$PASS" = "mine" ] && cmine=true
     ctitle=$(json_escape "$(fm_field "$cf" title)")
-    entry="{\"slug\":\"$(json_escape "$cslug")\",\"title\":\"${ctitle}\",\"assignee\":\"$(json_escape "$cassignee")\",\"mine\":${cmine},\"checked\":${cchecked},\"total\":${ctotal},\"next\":\"${cnext}\",\"worktree_path\":\"$(json_escape "$cwt")\",\"strategy\":\"${cstrategy}\",\"authorized\":${cauth},\"reason\":\"${creason}\"}"
+    entry="{\"slug\":\"$(json_escape "$cslug")\",\"title\":\"${ctitle}\",\"assignee\":\"$(json_escape "$cassignee")\",\"mine\":${cmine},\"checked\":${cchecked},\"total\":${ctotal},\"next\":\"${cnext}\",\"worktree_path\":\"$(json_escape "$cwt")\",\"authorized\":${cauth},\"reason\":\"${creason}\"}"
     [ "$FIRST_M" -eq 1 ] || MISSIONS="${MISSIONS},"
     FIRST_M=0
     MISSIONS="${MISSIONS}${entry}"

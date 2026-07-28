@@ -26,9 +26,11 @@ Target workflow:
 3. **Discussion & approval** — the draft is proposed back in Slack ("here is the
    mission I intend to run — thoughts?"). The team discusses; approval flips the
    mission from draft to implementable.
-4. **Unattended implementation** — a separately scheduled worker detects
-   approved missions and drives them to completion (`/goal` + `/monitor`),
-   creating tickets as needed, producing PRs, and — per mission policy — merging.
+4. **Unattended implementation** — a scheduled routine ("Drive Every 5
+   Minutes") invokes `/drive`, which autonomously partitions all approved
+   missions and backlog tickets into PR-worthy units, claims each unit on a
+   pushed branch, implements it in its own worktree, reports, and — per the
+   artifacts' recorded merge policy — ships or feeds the PR URL back to Slack.
 
 Local interactive use survives unchanged: the same plugin keeps working in a
 terminal session. The loop is an additional, headless driver over the same
@@ -46,6 +48,8 @@ already exists:
   missions long and unattended: front-loaded escalations, one leaf per mission
   worktree, bounded waves, PR auto-creation, reflection write-back, and an
   honest terminal token designed exactly for a `/goal /monitor ok` caller loop.
+  (Second round: this machinery is **absorbed into the unified `/drive`** and
+  `/monitor` itself is retired — G1.)
 - **The approval concept exists** as `drive_authorized` — the draft→approved
   transition is a generalization of it, not a new idea.
 - **The elicitation machinery exists** (`/mission` Creation Interrogation); in
@@ -97,13 +101,23 @@ Defaults decided without asking (veto anytime):
 | C2 | Detection is cursor + `git log` polling on main; webhooks later. |
 | C3 | The batch proposes **new missions only** at first; replan proposals for existing missions are a second stage. |
 | C4 | Dedup via the cursor plus a `feedback:` reference list on proposed missions (doubling as traceability from mission back to its source feedback). |
-| D1 | The worker is a cron job that detects approved-and-incomplete missions and fires the `/goal /monitor ok` loop — reusing the existing machinery. |
-| D2 | Single worker + run-lock first; multi-worker claiming later if ever needed. |
+| D1 | ~~The worker is a cron job that detects approved-and-incomplete missions and fires the `/goal /monitor ok` loop.~~ **Superseded by G4** (2026-07-28, second round). |
+| D2 | ~~Single worker + run-lock first; multi-worker claiming later if ever needed.~~ **Superseded by G3** — the claim protocol makes concurrent runners the design, not a later option. |
 | E3 | Channel↔repository mapping config placement is a ticket-time decision. |
 | F1 | **One plugin.** The `workaholic` plugin gains feedback/proposal skills and commands; all interactive commands remain, preserving local use. |
 | F2 | Batch entry points are non-interactive commands designed on the `/monitor` model: front-load everything, never prompt mid-run. |
 | F3 | The loop components are Claude-Code-only — no `outputs/` footprint. |
 | F4 | This document is the decision record; phases below become missions/tickets. |
+
+### Second round — `/drive` unification (2026-07-28, later session)
+
+| # | Decision |
+| - | -------- |
+| G1 | **`/monitor` is retired; `/drive` becomes the sole executor.** One command picks up work whether invoked interactively or by the routine, identically on server and client. `/monitor`'s machinery is absorbed, not discarded: worktree-per-mission execution, honest completion reporting, PR auto-creation, and reflections move into `/drive`; its front-loaded pre-flight is replaced by creation-time policy frontmatter (G5) and the claim protocol (G3). |
+| G2 | **No drive-time confirmation.** `/drive` autonomously partitions **all** current work — approved (`drive_authorized`) missions and backlog tickets alike — into **PR-worthy units**: a mission is one unit driven in its own worktree through to the report; related backlog tickets are batched into one unit sharing a single PR. The unit of selection is "what deserves one merge", and the selection is the agent's, not asked of a human. |
+| G3 | **Claim protocol over pushed branches.** Before driving a unit the runner: (1) creates the worktree and flips the status of the claimed mission/ticket files, (2) commits and pushes that claim to a new branch. Every runner fetches and scans **unmerged remote branches** for claimed artifacts before picking, so a 5-minute tick — or a runner on another machine — never double-picks work already in flight. Replaces run-locks entirely; the repository itself is the coordination medium. |
+| G4 | **"Drive Every 5 Minutes."** A scheduled routine invokes `/drive` continuously; newly approved missions and newly created tickets are detected, claimed, implemented, reported, and shipped per policy — the standing loop the whole model runs on. |
+| G5 | **Merge policy is recorded per artifact at creation** (revises D3's mission-only placement). Every ticket- and mission-creation flow asks the developer whether the work may merge automatically, and stores the answer explicitly in frontmatter. At drive time the unit's effective policy is derived: all members auto-mergeable → ship automatically (deploy + verify evidence before merge, as always); any member review-flagged — or auto-mergeable work depending on review-flagged work — → stop at the PR and feed its URL back to Slack via the bot (E2). |
 
 ## 5. Strategy-layer removal — migration inventory
 
@@ -155,14 +169,23 @@ design (`mission-owners.sh`) contains the blast radius:
   the draft (commit + merge), notify Slack via the bot, record the cursor.
 - Silence is a valid outcome; the batch never prompts.
 
-### 6.4 Implementation worker
+### 6.4 Unified `/drive` and the routine (second round, G1–G5)
 
-- Cron job with a run-lock: find `drive_authorized` missions with unmet
-  acceptance, fire the `/goal /monitor ok` loop.
-- `merge_policy: review` → stop at the auto-created PR (today's `/monitor`
-  endpoint). `merge_policy: auto` → continue through an automated `/ship`
-  (deploy + verify before merge, evidence-gated; auto-merge without deploy
-  evidence stays rejected).
+- `/drive` scans the repository state: approved missions, backlog tickets, and
+  — via fetch + unmerged-branch scan — the claims already in flight (G3).
+- It partitions the unclaimed remainder into PR-worthy units (mission = one
+  unit; related backlog tickets batched into one), claims each unit (status
+  flip + commit + push on a fresh branch), then drives each in its own
+  worktree through implementation and report.
+- Unit outcome per the artifacts' recorded merge policy (G5): all-auto →
+  automated `/ship` (deploy + verify evidence before merge); otherwise → PR
+  created and its URL posted to Slack.
+- The "Drive Every 5 Minutes" routine (G4) is simply this command on a
+  schedule; interactive invocation behaves identically.
+- Needed pieces: a deterministic claim reader (enumerate unmerged remote
+  branches, extract claimed artifact IDs), a stale-claim reclamation rule
+  (an abandoned claim branch must not block its work forever), and the
+  `/monitor` retirement sweep (command, docs, `/goal` loop references).
 
 ### 6.5 Slack integration
 
@@ -176,7 +199,7 @@ design (`mission-owners.sh`) contains the blast radius:
 | ----- | ------- |
 | 1 — Foundation | Strategy-layer removal + `assignees` restoration; `feedbacks/` artifact type + capture skill + validators + allowlist registration. Fully useful standalone (feedback works from local sessions too). |
 | 2 — Proposal loop | Cursor detection, proposal judgment, draft missions, Slack bot notifications, dedup. Server cron. |
-| 3 — Approval & worker | Approval flip flow from Slack sessions, `merge_policy`, cron worker with run-lock, automated `/ship` for `auto` missions. |
+| 3 — Approval & autonomous `/drive` | Approval flip flow from Slack sessions; per-artifact `merge_policy` at creation (G5); `/drive` unification with claim protocol and PR-unit partitioning (G1–G3); `/monitor` retirement; the 5-minute routine (G4); automated `/ship` for all-auto units. |
 | 4 — Platform | Claude Code Web port of both batches, kioku transcript ingestion, multi-repo rollout of per-repo channels. |
 
 ## 8. Open items (deferred, recorded here so they are not lost)
@@ -185,4 +208,6 @@ design (`mission-owners.sh`) contains the blast radius:
 - Claude Code Web scheduling specifics for the two batches.
 - Channel↔repo mapping config placement (E3).
 - Replan proposals driven by feedback (C3 second stage).
-- Multi-worker concurrency/claiming (D2 second stage).
+- Stale-claim reclamation rule and the claim reader's exact mechanics (G3).
+- How the batch-unit claim records its grouping (which tickets share the PR)
+  so a later tick reads the same unit boundaries.

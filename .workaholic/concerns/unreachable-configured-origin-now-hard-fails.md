@@ -10,7 +10,7 @@ origin_branch: work-20260723-000846
 origin_commit: 2d6215be
 created_at: 2026-07-23T02:27:01+09:00
 first_seen: 2026-07-23T02:27:01+09:00
-last_seen: 2026-07-23T02:27:01+09:00
+last_seen: 2026-07-28T20:58:24+09:00
 severity: moderate
 status: active
 resolved_by_pr: 
@@ -21,8 +21,9 @@ resolved_by_commit:
 
 ## Description
 
-When origin is configured but unreachable, `create-mission-worktree.sh` hard-fails with a JSON error, giving no offline escape hatch for a developer working offline with a remote configured (see [dd5335a1](https://github.com/qmu/workaholic/commit/dd5335a1) in `plugins/workaholic/skills/branching/scripts/create-mission-worktree.sh`). The ticket explicitly mandates fail-loud over silent-stale, but this is a real usability trade-off.
+`create-mission-worktree.sh` hard-fails when origin is configured but unreachable, leaving no offline escape hatch. Fail-loud was the mandated trade-off. (See PR #95)
 
 ## How to Fix
 
-If this bites in practice, relax to a loud local fallback (stderr note + proceed) rather than a hard failure, which still satisfies the quality gate's "without loudly reporting why" clause.
+If this bites in practice, relax to a loud local fallback (stderr note + proceed) rather than a hard failure.
+

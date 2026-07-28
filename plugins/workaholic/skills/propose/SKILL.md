@@ -90,7 +90,15 @@ Writes the draft `mission.md` (schema above; slug via `mission/scripts/slug.sh`;
 
 ## Notifier contract
 
-After each successful draft push, the batch calls `notify-slack.sh` (this skill's `scripts/`) with the proposal message. The notifier is **environment-driven and never load-bearing**: no token → `{"notified": false, "reason": "no_token"}`, exit 0 — a proposal that pushed is a success whether or not anyone was told, and the run report records `notified` per draft rather than retrying in-loop.
+After each successful draft push, the batch calls `notify-slack.sh` (this skill's `scripts/`) with the proposal message — posted **as the bot** (decision E2). The notifier is **environment-driven and never load-bearing**:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/notify-slack.sh "<text>"
+```
+
+- Config: `SLACK_BOT_TOKEN` (xoxb, `chat:write`) + `WORKAHOLIC_SLACK_CHANNEL` (channel id); `WORKAHOLIC_SLACK_API_URL` overrides the endpoint for tests (the hermetic suite never calls Slack). The token is read at call time and never persisted, logged, or echoed.
+- No token/channel → `{"notified": false, "reason": "no_token"|"no_channel"}`, exit 0 — a proposal that pushed is a success whether or not anyone was told; the run report records `notified` per draft rather than retrying in-loop. Endpoint/API failures are recorded the same way (`http_<code>`/`slack_<error>`/`curl_failed`), never fatal.
+- Provisioning, the cron entry, and failure modes live in `docs/proposal-loop-runbook.md` — the runbook is the developer's page; agents never install the crontab themselves.
 
 ## Agent Compatibility
 

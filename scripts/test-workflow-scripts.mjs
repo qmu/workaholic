@@ -105,6 +105,7 @@ const SCRIPTS = {
   proposeReadFeedbackRelation: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/read-feedback-relation.sh"),
   proposeListRefs: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/list-proposed-refs.sh"),
   proposeScaffoldDraft: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-draft.sh"),
+  proposeNotifySlack: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/notify-slack.sh"),
   feedbackList: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/list.sh"),
 };
 
@@ -7350,6 +7351,34 @@ function testProposeBatch() {
   } finally { cleanup(dir); }
 }
 
+// ---------- propose/notify-slack.sh (env-driven, never load-bearing, secret-safe) ----------
+// Network-free: the success/error paths run against a local file:// stub via
+// WORKAHOLIC_SLACK_API_URL — the suite never calls Slack.
+function testNotifySlack() {
+  const dir = makeRepo("main");
+  try {
+    // No token -> graceful recorded no-op, exit 0.
+    let r = run(dir, `${POSIX_SH} ${SCRIPTS.proposeNotifySlack} "hello"`, { env: { ...process.env, SLACK_BOT_TOKEN: "", WORKAHOLIC_SLACK_CHANNEL: "" } });
+    assertEq("no token is a no-op exit 0", r.status, 0);
+    assertEq("no token reports the reason", JSON.parse(r.stdout), { notified: false, reason: "no_token" });
+    // Token but no channel.
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.proposeNotifySlack} "hello"`, { env: { ...process.env, SLACK_BOT_TOKEN: "xoxb-test", WORKAHOLIC_SLACK_CHANNEL: "" } });
+    assertEq("no channel reports the reason", JSON.parse(r.stdout), { notified: false, reason: "no_channel" });
+    // Missing text is the one malformed-invocation error.
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.proposeNotifySlack} ""`);
+    assertTrue("empty text is a non-zero malformed invocation", r.status !== 0);
+
+    // Stubbed endpoint: an unreachable URL is curl_failed, still exit 0, and the
+    // token never appears in any output.
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.proposeNotifySlack} "hello"`, { env: { ...process.env, SLACK_BOT_TOKEN: "xoxb-supersecret-token", WORKAHOLIC_SLACK_CHANNEL: "C123", WORKAHOLIC_SLACK_API_URL: "http://127.0.0.1:9/unreachable" } });
+    assertEq("unreachable endpoint is a recorded no-op exit 0", r.status, 0);
+    assertTrue("failure reason is machine-readable",
+      ["curl_failed"].includes(JSON.parse(r.stdout).reason) || JSON.parse(r.stdout).reason.startsWith("http_"), r.stdout);
+    assertTrue("the token never leaks into stdout/stderr",
+      !r.stdout.includes("supersecret") && !r.stderr.includes("supersecret"), r.stdout + r.stderr);
+  } finally { cleanup(dir); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -7468,6 +7497,7 @@ const tests = [
   ["monitor: front-load every decision, then run unattended", testMonitorFrontLoads],
   ["feedback/create.sh + list.sh + hooks/validate-feedback.sh", testFeedback],
   ["propose: cursor/window/dedup/draft scaffold", testProposeBatch],
+  ["propose/notify-slack.sh", testNotifySlack],
 ];
 
 for (const [label, fn] of tests) {

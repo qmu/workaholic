@@ -102,10 +102,14 @@ EOF
 consider() {
     cf="$1"; cwt="$2"; cslug="$3"
     [ "$(fm_field "$cf" status)" = "active" ] || return 0
-    cassignee=$(fm_field "$cf" assignee)
+    # Derived owners (strategy assignees, legacy mission-assignee fallback) via the single
+    # oracle — not the mission's own frontmatter. mine = $EMAIL among owners; unassigned =
+    # no owners. cassignee (the output field) aliases the first owner for back-compat.
+    cowners=$(sh "${MISSION_SCRIPTS}/mission-owners.sh" "$cf" 2>/dev/null || true)
+    cassignee=$(printf '%s\n' "$cowners" | sed -n '1p')
     case "$PASS" in
-        mine)       [ "$cassignee" = "$EMAIL" ] || return 0 ;;
-        unassigned) [ -z "$cassignee" ] || return 0 ;;
+        mine)       printf '%s\n' "$cowners" | grep -Fxq "$EMAIL" || return 0 ;;
+        unassigned) [ -z "$cowners" ] || return 0 ;;
     esac
     cprog=$(sh "${MISSION_SCRIPTS}/progress.sh" "$cf" 2>/dev/null || printf '{"checked": 0, "total": 0}')
     cchecked=$(printf '%s' "$cprog" | sed -e 's/.*"checked": *//' -e 's/[,}].*//')

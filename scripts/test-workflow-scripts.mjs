@@ -49,6 +49,8 @@ const SCRIPTS = {
   commit: join(REPO_ROOT, "plugins/workaholic/skills/commit/scripts/commit.sh"),
   missionProgress: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/progress.sh"),
   missionList: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list.sh"),
+  missionOwners: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/mission-owners.sh"),
+  strategyReadAssignees: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/read-assignees.sh"),
   missionClose: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/close.sh"),
   appendChangelog: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/append-changelog.sh"),
   tickAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/tick-acceptance.sh"),
@@ -806,6 +808,23 @@ concerns: []
       { status: la.status, assignee: la.assignee, checked: la.checked, total: la.total },
       { status: "active", assignee: A, checked: 1, total: 2 });
 
+    // ---- strategy field: grouped bare-/mission view reads it, not inline parse ----
+    // list.sh must carry each mission's strategy slug (via read-strategy-relation.sh),
+    // "" when unlinked, so the bare view groups by strategy with an "unlinked" bucket.
+    assertEq("list.sh reports \"\" strategy for an unlinked mission", la.strategy, "");
+    mkdirSync(join(dir, ".workaholic/strategies/active/roadmap-direction"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/strategies/active/roadmap-direction/strategy.md"),
+      `---\ntype: Strategy\ntitle: Roadmap Direction\nslug: roadmap-direction\nstatus: active\n---\n\n# Roadmap Direction\n\n## Direction\n\n## Changelog\n`);
+    const mLinkedDir = join(dir, ".workaholic/missions/active/mission-linked");
+    mkdirSync(mLinkedDir, { recursive: true });
+    writeFileSync(join(mLinkedDir, "mission.md"),
+      `---\ntype: Mission\ntitle: Mission Linked\nslug: mission-linked\nstatus: active\nauthor: ${A}\nassignee: ${A}\nstrategy: roadmap-direction\n---\n\n# Mission Linked\n\n## Acceptance\n\n- [ ] Linked criterion (#x.md)\n\n## Changelog\n`);
+    const lLinked = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
+    assertEq("list.sh reports the strategy slug for a linked mission",
+      lLinked.find((m) => m.slug === "mission-linked").strategy, "roadmap-direction");
+    assertEq("list.sh strategy stays \"\" for still-unlinked missions",
+      lLinked.find((m) => m.slug === "mission-a").strategy, "");
+
     // Empty git email degrades: nothing is "mine", everyone still listed, no error
     // (unlike summary.sh, the bare list must not require an identity).
     execSync(`git config user.email ""`, { cwd: dir });
@@ -813,7 +832,7 @@ concerns: []
     assertEq("list.sh succeeds with an empty git email", lNone.status, 0);
     const relNone = Object.fromEntries(JSON.parse(lNone.stdout).map((m) => [m.slug, m.relation]));
     assertEq("empty email: assigned missions classify as others, unassigned stays unassigned",
-      relNone, { "mission-a": "others", "mission-b": "others", "mission-free": "unassigned", "mission-old": "others" });
+      relNone, { "mission-a": "others", "mission-b": "others", "mission-free": "unassigned", "mission-linked": "others", "mission-old": "others" });
 
     // ---- planning-session readiness: ready / ready_reason (additive) ----
     // The bare /mission planning session drives its replan loop off `ready`.
@@ -1779,6 +1798,73 @@ function testMissionWorktreePrimitive() {
   } finally { cleanup(dir3); }
 }
 
+// ---------- worktree env-file carrying (root / subdir / none / declaration) ----------
+// Worktree creation must carry EVERY env file the project reads, not the root one by
+// assumption -- a subdir-env project got a credential-less worktree that failed silently
+// and disguised itself as a "no credentials" finding. Cover all three layouts plus a
+// `.worktree-env` declaration, asserting on the reported JSON as well as the files.
+function testWorktreeEnvCarry() {
+  const dir = makeRepo("main");
+  try {
+    writeFileSync(join(dir, ".gitignore"), ".env\napp/.env\nconfig/secrets.env\n");
+    execSync(`git add .gitignore && git commit -q -m gitignore`, { cwd: dir });
+    // Space creates by 1s: the branch name is work-YYYYMMDD-HHMMSS, so two creates in the
+    // same second collide on the branch name (as the sibling port test also handles).
+    let firstCreate = true;
+    const create = (slug) => {
+      if (!firstCreate) execSync(`sleep 1`, { cwd: dir });
+      firstCreate = false;
+      return JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} ${slug}`).stdout);
+    };
+    const wtfile = (slug, rel) => join(dir, ".worktrees", slug, rel);
+
+    // --- 1. SUBDIR layout: app/.env is what the project reads; no root .env ---
+    mkdirSync(join(dir, "app"), { recursive: true });
+    writeFileSync(join(dir, "app/.env"), "API_KEY=realkey\n");
+    const sub = create("sub-mission");
+    assertEq("subdir: env_files_carried names the package env file", sub.env_files_carried, ["app/.env"]);
+    assertTrue("subdir: app/.env carried with contents intact",
+      existsSync(wtfile("sub-mission", "app/.env")) && readFileSync(wtfile("sub-mission", "app/.env"), "utf8").includes("API_KEY=realkey"));
+    assertTrue("subdir: NO fabricated root .env (the misleading artifact)", !existsSync(wtfile("sub-mission", ".env")));
+    assertEq("subdir: port vars land in a separate .env.worktree", sub.port_env_file, ".env.worktree");
+    assertTrue("subdir: .env.worktree holds the port vars",
+      readFileSync(wtfile("sub-mission", ".env.worktree"), "utf8").includes("WORKAHOLIC_PORT_BASE="));
+
+    // --- 2. NONE layout: no env file anywhere -> nothing fabricated, reported empty ---
+    rmSync(join(dir, "app/.env"));
+    const none = create("none-mission");
+    assertEq("none: env_files_carried is reported empty (not by omission)", none.env_files_carried, []);
+    assertTrue("none: no root .env fabricated", !existsSync(wtfile("none-mission", ".env")));
+    assertEq("none: port vars in .env.worktree", none.port_env_file, ".env.worktree");
+
+    // --- 3. DECLARATION: .worktree-env points at config/secrets.env ---
+    mkdirSync(join(dir, "config"), { recursive: true });
+    writeFileSync(join(dir, "config/secrets.env"), "TOKEN=abc\n");
+    writeFileSync(join(dir, ".worktree-env"), "# the env this project reads\nconfig/secrets.env\n");
+    const decl = create("decl-mission");
+    assertEq("declaration: only the declared file is carried", decl.env_files_carried, ["config/secrets.env"]);
+    assertTrue("declaration: declared file carried with contents",
+      readFileSync(wtfile("decl-mission", "config/secrets.env"), "utf8").includes("TOKEN=abc"));
+
+    // --- 4. ROOT layout: unchanged from historical behavior (no regression) ---
+    rmSync(join(dir, ".worktree-env"));
+    writeFileSync(join(dir, ".env"), "SECRET=1\n");
+    const root = create("root-mission");
+    assertEq("root: env_files_carried is the root .env", root.env_files_carried, [".env"]);
+    assertEq("root: port vars append to the carried root .env (as before)", root.port_env_file, ".env");
+    const rootEnv = readFileSync(wtfile("root-mission", ".env"), "utf8");
+    assertTrue("root: .env keeps its secret AND gains the port vars",
+      rootEnv.includes("SECRET=1") && rootEnv.includes("WORKAHOLIC_PORT_BASE="));
+    assertTrue("root: no separate .env.worktree", !existsSync(wtfile("root-mission", ".env.worktree")));
+
+    // Port bases stay distinct across the subdir(.env.worktree) and root(.env) worktrees,
+    // proving the allocator reads both files.
+    const subBase = sub.port_base, rootBase = root.port_base;
+    assertTrue("allocator gives distinct bases across .env and .env.worktree worktrees",
+      subBase !== rootBase, `sub=${subBase} root=${rootBase}`);
+  } finally { cleanup(dir); }
+}
+
 // Build a clone whose ONLY local branch is a checked-out work-* branch and whose
 // local `main` is genuinely ABSENT (only origin/main survives, as a remote-tracking
 // ref). This is the desk / fresh-clone state in which create-mission-worktree.sh's
@@ -2311,14 +2397,16 @@ concerns: []
 function testMissionWorktreePorts() {
   const dir = makeRepo("main");
   try {
-    // First worktree gets a base; it is recorded in the worktree's .env.
+    // First worktree gets a base; this repo has no root .env, so it is recorded in the
+    // separate .env.worktree (never a fabricated bare root .env), reported as port_env_file.
     const a = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} mission-a`).stdout);
     assertTrue("first worktree has a numeric port base >= 4100",
       typeof a.port_base === "number" && a.port_base >= 4100, JSON.stringify(a));
     assertEq("derived docs port is base+1", a.docs_port, a.port_base + 1);
-    assertTrue("worktree .env carries WORKAHOLIC_PORT_BASE",
-      readFileSync(join(dir, ".worktrees/mission-a/.env"), "utf8").includes(`WORKAHOLIC_PORT_BASE=${a.port_base}`),
-      readFileSync(join(dir, ".worktrees/mission-a/.env"), "utf8"));
+    assertEq("no root .env -> port vars go to .env.worktree", a.port_env_file, ".env.worktree");
+    assertTrue("worktree .env.worktree carries WORKAHOLIC_PORT_BASE",
+      readFileSync(join(dir, ".worktrees/mission-a/.env.worktree"), "utf8").includes(`WORKAHOLIC_PORT_BASE=${a.port_base}`),
+      readFileSync(join(dir, ".worktrees/mission-a/.env.worktree"), "utf8"));
 
     // Second worktree gets a DISTINCT base (collision-free). Space by 1s so the
     // work-* branch names differ.
@@ -3379,7 +3467,10 @@ Why.
     // sanctioned creator...
     const wt = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} replan-me`).stdout);
     assertTrue("replan creates the missing worktree", existsSync(join(dir, ".worktrees/replan-me")), JSON.stringify(wt));
-    assertTrue("the replan worktree got a port .env", existsSync(join(dir, ".worktrees/replan-me/.env")));
+    // No root .env in this repo, so the port vars land in the separate .env.worktree
+    // (never a fabricated bare root .env — the misleading artifact the carrier avoids).
+    assertTrue("the replan worktree got its port vars (.env.worktree, no root .env)",
+      existsSync(join(dir, ".worktrees/replan-me/.env.worktree")) && !existsSync(join(dir, ".worktrees/replan-me/.env")));
     // ...while the create flow still dead-ends on the existing mission.md — the
     // measured reason replan, not create, is the successor's flesh-out path.
     const cr = JSON.parse(run(join(dir, ".worktrees/replan-me"), `${POSIX_SH} ${SCRIPTS.missionCreate} "Replan Me"`).stdout);
@@ -5855,20 +5946,31 @@ function testValidateMission() {
     writeFileSync(join(dir, rel), mission({ assignee: "assignee:" }));
     assertEq("validate-mission allows an EMPTY assignee (unclaimed is legal)", invoke(), 0);
 
-    // The assignee KEY itself must exist, even unstamped.
+    // Ownership no longer lives on the mission (2026-07-24): a scaffold with NO assignee
+    // key is legal — ownership is derived from the strategy the mission executes.
     writeFileSync(join(dir, rel), mission({ assignee: "title2: no-assignee-key" }));
-    assertEq("validate-mission rejects a mission missing the assignee key", invoke(), 2);
+    assertEq("validate-mission allows a scaffold with no assignee key (ownership is on the strategy)", invoke(), 0);
 
     // An UNSTAMPED scaffold with an empty strategy passes (link resolved later).
     writeFileSync(join(dir, rel), mission({ strategy: "strategy:" }));
     assertEq("validate-mission lets an unstamped mission with empty strategy pass", invoke(), 0);
 
     // drive_authorized: true — the full floor (now includes a non-empty strategy link).
+    // The strategy `agent-orchestrated-development` is unresolvable in this bare repo, so
+    // the authorized-owner floor falls back to the mission's own legacy `assignee`.
     const full = { stamp: " true", strategy: "strategy: agent-orchestrated-development", exp: "\nUsers see the thing happen.\n", acc: "\n- [ ] One\n" };
     writeFileSync(join(dir, rel), mission(full));
-    assertEq("validate-mission accepts a complete authorized mission", invoke(), 0);
+    assertEq("validate-mission accepts a complete authorized mission (legacy assignee is the owner)", invoke(), 0);
     writeFileSync(join(dir, rel), mission({ ...full, assignee: "assignee:" }));
-    assertEq("validate-mission rejects an authorized mission with no owner", invoke(), 2);
+    assertEq("validate-mission rejects an authorized mission with no owner (no strategy assignees, no legacy assignee)", invoke(), 2);
+
+    // Strategy-DERIVED ownership satisfies the floor even with an empty mission assignee:
+    // seed the linked strategy with an assignee and the authorized mission passes.
+    mkdirSync(join(dir, ".workaholic/strategies/active/agent-orchestrated-development"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/strategies/active/agent-orchestrated-development/strategy.md"),
+      "---\ntype: Strategy\nslug: agent-orchestrated-development\nstatus: active\nassignees: [owner@qmu.jp]\n---\n\n## Direction\n\n## Changelog\n");
+    writeFileSync(join(dir, rel), mission({ ...full, assignee: "assignee:" }));
+    assertEq("validate-mission accepts an authorized mission owned via its strategy's assignees", invoke(), 0);
     writeFileSync(join(dir, rel), mission({ ...full, strategy: "strategy:" }));
     assertEq("validate-mission rejects an authorized mission with no strategy link", invoke(), 2);
     writeFileSync(join(dir, rel), mission({ ...full, strategy: "strategy: []" }));
@@ -7550,6 +7652,65 @@ function testMonitorFrontLoads() {
   } finally { cleanup(dir); }
 }
 
+// ---------- strategy-level ownership: read-assignees + mission-owners (derived) ----------
+// Ownership moved to the strategy layer (2026-07-24). read-assignees.sh reads a strategy's
+// `assignees` (bare + list); mission-owners.sh derives a mission's owner two hops (strategy
+// assignees) with a legacy fallback to the mission's own `assignee`. list.sh's relation and
+// summary.sh's gate both read through mission-owners.sh, so the partition tracks the strategy.
+function testStrategyOwnership() {
+  const dir = makeRepo("main");
+  try {
+    execSync(`git checkout -q -b work-20260724-ownership`, { cwd: dir });
+    const A = "a@qmu.jp", B = "b@qmu.jp";
+    const wk = (p, body) => { mkdirSync(dirname(join(dir, p)), { recursive: true }); writeFileSync(join(dir, p), body); };
+    const owners = (mpath) => run(dir, `${POSIX_SH} ${SCRIPTS.missionOwners} ${mpath}`).stdout.split("\n").filter(Boolean);
+
+    // read-assignees.sh: list, bare, empty.
+    wk(".workaholic/strategies/active/dir-a/strategy.md", `---\ntype: Strategy\nslug: dir-a\nstatus: active\nassignees: [${A}, ${B}]\n---\n\n## Direction\n\n## Changelog\n`);
+    assertEq("read-assignees reads a list form",
+      run(dir, `${POSIX_SH} ${SCRIPTS.strategyReadAssignees} ${join(dir, ".workaholic/strategies/active/dir-a/strategy.md")}`).stdout.split("\n").filter(Boolean),
+      [A, B]);
+    wk(".workaholic/strategies/active/dir-solo/strategy.md", `---\ntype: Strategy\nslug: dir-solo\nstatus: active\nassignees: ${A}\n---\n\n## Direction\n\n## Changelog\n`);
+    assertEq("read-assignees reads a bare form",
+      run(dir, `${POSIX_SH} ${SCRIPTS.strategyReadAssignees} ${join(dir, ".workaholic/strategies/active/dir-solo/strategy.md")}`).stdout.split("\n").filter(Boolean),
+      [A]);
+    wk(".workaholic/strategies/active/dir-empty/strategy.md", `---\ntype: Strategy\nslug: dir-empty\nstatus: active\nassignees:\n---\n\n## Direction\n\n## Changelog\n`);
+    assertEq("read-assignees on an empty field yields nothing",
+      run(dir, `${POSIX_SH} ${SCRIPTS.strategyReadAssignees} ${join(dir, ".workaholic/strategies/active/dir-empty/strategy.md")}`).stdout.trim(), "");
+
+    // An archived strategy is still resolvable (ownership never dangles).
+    wk(".workaholic/strategies/archive/dir-arch/strategy.md", `---\ntype: Strategy\nslug: dir-arch\nstatus: retired\nassignees: [${B}]\n---\n\n## Direction\n\n## Changelog\n`);
+
+    // mission-owners.sh: strategy-derived, archived-strategy, no-assignees fallback, unlinked.
+    wk(".workaholic/missions/active/m-derived/mission.md", `---\ntype: Mission\nslug: m-derived\nstatus: active\nassignee:\nstrategy: dir-a\n---\n\n## Acceptance\n\n- [ ] X\n`);
+    assertEq("mission-owners derives owners from the linked strategy",
+      owners(join(dir, ".workaholic/missions/active/m-derived/mission.md")), [A, B]);
+    wk(".workaholic/missions/active/m-arch/mission.md", `---\ntype: Mission\nslug: m-arch\nstatus: active\nassignee:\nstrategy: dir-arch\n---\n\n## Acceptance\n\n- [ ] X\n`);
+    assertEq("mission-owners resolves an archived strategy (never dangles)",
+      owners(join(dir, ".workaholic/missions/active/m-arch/mission.md")), [B]);
+    wk(".workaholic/missions/active/m-fallback/mission.md", `---\ntype: Mission\nslug: m-fallback\nstatus: active\nassignee: ${A}\nstrategy: dir-empty\n---\n\n## Acceptance\n\n- [ ] X\n`);
+    assertEq("mission-owners falls back to the legacy assignee when the strategy has none",
+      owners(join(dir, ".workaholic/missions/active/m-fallback/mission.md")), [A]);
+    wk(".workaholic/missions/active/m-unowned/mission.md", `---\ntype: Mission\nslug: m-unowned\nstatus: active\nassignee:\nstrategy:\n---\n\n## Acceptance\n\n- [ ] X\n`);
+    assertEq("mission-owners yields nothing for an unlinked, unassigned mission",
+      owners(join(dir, ".workaholic/missions/active/m-unowned/mission.md")).length, 0);
+
+    // list.sh relation reads through mission-owners.sh: m-derived is B's business, not
+    // through any mission-local field — it has an empty assignee and B is a strategy co-owner.
+    execSync(`git config user.email ${B}`, { cwd: dir });
+    const lst = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
+    const byslug = Object.fromEntries(lst.map((m) => [m.slug, m]));
+    assertEq("list.sh relation: strategy co-owner sees the mission as mine",
+      byslug["m-derived"].relation, "mine");
+    assertEq("list.sh owners carries the full derived set",
+      byslug["m-derived"].owners, [A, B]);
+    assertEq("list.sh relation: unowned mission is unassigned",
+      byslug["m-unowned"].relation, "unassigned");
+    assertEq("list.sh relation: mission owned only by others",
+      byslug["m-fallback"].relation, "others");
+  } finally { cleanup(dir); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -7569,6 +7730,7 @@ const tests = [
   ["hooks/mission-lens.sh summarizes on change", testMissionLensOnChange],
   ["mission create branches on main", testMissionBranchOnCreate],
   ["branching mission worktree primitive", testMissionWorktreePrimitive],
+  ["worktree env-file carrying (root/subdir/none/declaration)", testWorktreeEnvCarry],
   ["mission worktree lands on the branch it reports", testMissionWorktreeNoLocalMain],
   ["mission worktree starts from the merged base (fetch-first)", testMissionWorktreeFetchFirst],
   ["mission-lens worktree focus", testMissionLensWorktreeFocus],
@@ -7591,6 +7753,7 @@ const tests = [
   ["mission reflection append + list", testMissionReflection],
   ["mission duration predict + record", testMissionDuration],
   ["strategy artifact + skill (create/list/reader/retire/index)", testStrategyArtifact],
+  ["strategy-level ownership (read-assignees + mission-owners derived)", testStrategyOwnership],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission describes experience, gate is optional", testMissionExperienceSection],

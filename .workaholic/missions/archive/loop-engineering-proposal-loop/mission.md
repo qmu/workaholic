@@ -2,7 +2,7 @@
 type: Mission
 title: Loop engineering proposal loop
 slug: loop-engineering-proposal-loop
-status: active
+status: achieved
 created_at: 2026-07-28T21:03:01+09:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
@@ -63,3 +63,4 @@ Positioning note: legacy `assignee`/`strategy` keys are carried in this frontmat
 - 2026-07-28 — concern deferred (stuck) — 20260728215635-the-proposal-judgment-bar-is-unproven.md
 - 2026-07-28 — concern deferred (stuck) — 20260728215635-the-feedback-stream-has-no-reader.md
 - 2026-07-28 — concern deferred (stuck) — 20260728215635-draft-acceptance-sketches-could-be-mistaken.md
+- 2026-07-28 — mission achieved — mission.md

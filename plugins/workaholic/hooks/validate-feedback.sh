@@ -97,9 +97,9 @@ esac
 
 source_val=$(fm_value source)
 case "$source_val" in
-  meeting|slack|discussion) : ;;
+  meeting|slack|discussion|development) : ;;
   *)
-    echo "Error: feedback source must be one of: meeting, slack, discussion; got '${source_val:-<absent>}'" >&2
+    echo "Error: feedback source must be one of: meeting, slack, discussion, development; got '${source_val:-<absent>}'" >&2
     echo "Got: $file_path" >&2
     print_skill_reference
     exit 2

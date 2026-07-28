@@ -9,7 +9,6 @@ The `.workaholic/` directory has a fixed structure. Only these subdirectories ar
 
 | Directory        | Purpose                                    |
 | ---------------- | ------------------------------------------ |
-| `concerns/`      | Deferred concerns/ideas (and `concerns/archive/`) |
 | `deployments/`   | Deployment/release procedures and their success-confirmation methods |
 | `feedbacks/`     | The inbound feedback stream — one immutable record per entry (`kind`: insight/instruction/concern/material/answer) |
 | `guides/`        | User documentation (project-local docs area) |

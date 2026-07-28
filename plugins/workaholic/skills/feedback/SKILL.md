@@ -15,7 +15,7 @@ Distinguish the terms and never conflate them (`workaholic:planning` / `terminol
 
 - **feedback** — inbound **information**: what humans said, concluded, supplied, or learned. It proposes nothing by itself and is never a work item.
 - **ticket** — a single drive-able **change**. A ticket may cite feedback; feedback never contains implementation steps.
-- **concern** — historically a separate artifact (`concerns/`); now understood as feedback of `kind: concern` (the merger is staged work — until it lands, `concerns/` continues to operate unchanged).
+- **concern** — feedback of `kind: concern`: a risk or leftover born from development work, written at the carry-over seams (ship-time extraction, `docs/loop-engineering-workflow.md` H3). The former separate `concerns/` artifact merged into this stream (H2, 2026-07-28); `migrate-concerns.sh` retires a lingering tree.
 
 Why "feedback": the word covers the whole inbound stream — technical or not, solicited or not — where "note"/"memo" implies triviality and "knowledge" implies curation. Rejected: *inbox* (a place, not a record), *log* (implies machine events), *insight* (one kind, not the stream).
 
@@ -35,7 +35,7 @@ Flat on purpose: there is no `active/`/`archive/` split because a feedback never
 type: Feedback            # OKF conformance floor — exact string
 title: <human title>
 kind: insight | instruction | concern | material | answer
-source: meeting | slack | discussion
+source: meeting | slack | discussion | development
 created_at: <ISO-8601>
 author: <email>
 supersedes:               # OPTIONAL: filename of an earlier feedback this entry moots/resolves
@@ -43,10 +43,14 @@ supersedes:               # OPTIONAL: filename of an earlier feedback this entry
 ```
 
 - **`kind`** is the nature of the entry: `insight` (knowledge or a conclusion worth keeping), `instruction` (a developer told the AI to do or prefer something), `concern` (a worry or leftover born from development work), `material` (something arrived — e.g. a customer supplied files now in the repository), `answer` (a question was answered — e.g. by the customer).
-- **`source`** is the channel it arrived through: `meeting` (a meeting/transcript), `slack` (chat), `discussion` (a working session with the AI, or any other origin).
+- **`source`** is the channel it arrived through: `meeting` (a meeting/transcript), `slack` (chat), `discussion` (a working session with the AI, or any other origin), `development` (born from development work itself — the source every `kind: concern` record extracted at ship time carries).
 - **`supersedes`** is the immutable alternative to a status flip: to record that an earlier feedback is resolved, obsolete, or overtaken, write a **new** entry naming the old one here. Consumers treat a superseded entry as historical context, not current signal.
 
 Body: free prose in the contributor's own words — the excerpt, the instruction, the conclusion. A leading `# <title>` and nothing else is mandated. Record what was said or learned faithfully; do not editorialize.
+
+**`kind: concern` producer fields.** A concern record carries extra frontmatter that rides along as OKF producer extensions: `severity` (`low|moderate|urgent`), `concern_id` (the stable identity the ship-time extractor dedups on), `owner` (the lane owner denormalized from the story's mission at extraction), `mission`/`tickets` (relations inherited from the story), `origin_pr`/`origin_pr_url`/`origin_branch`/`origin_commit`, `last_seen`, and — **on migrated records only** — `closed: <resolved|accepted|demoted|superseded>` (a one-time stamp from the retired `concerns/` corpus; post-migration closures are superseding records, never a field).
+
+**The open concern set is computed, never stored**: a concern is open iff no record names it in `supersedes` and it carries no migration-only `closed:` field. Read it only through `list-open-concerns.sh` (below).
 
 ## Immutability
 
@@ -61,6 +65,22 @@ printf '%s\n' "<body prose>" | bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/script
 ```
 
 Reads the body from stdin; stamps `created_at`/`author` from the gather skill; derives the filename from the timestamp + slug; refuses an existing filename and unknown `kind`/`source` values; refreshes the OKF indexes; git-stages the file. Output: JSON `{created, path[, reason]}`.
+
+### list-open-concerns.sh — the open concern set
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/list-open-concerns.sh
+```
+
+The single reader of the **open** concern set: `kind: concern` records minus every record named in some `supersedes` field, minus migration-`closed:` records. JSON envelope `{active_count, my_lane_count, owner_counts, should_triage: false, concerns: [...]}` — the same keys the retired `report/scripts/list-active-deferred-concerns.sh` carried, so `/report`'s judge flow reads it unchanged (`should_triage` is permanently `false`: the triage machinery retired with the merger). Runs `migrate-concerns.sh` first (best-effort), so a not-yet-migrated repo heals on first read.
+
+### migrate-concerns.sh — retire a lingering concerns/ tree
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/migrate-concerns.sh [workaholic-root]
+```
+
+The living migration for the H2 merger, modeled on the strategy retirement: each active `concerns/*.md` becomes an **open** `kind: concern` record (`feedbacks/<ts-from-first_seen>-<concern_id>.md`, Description/How-to-Fix body preserved), each `concerns/archive/*.md` becomes a record stamped `closed: <status>` (one-time; new closures are superseding records), then the `concerns/` directory is removed (`git rm` when tracked). Deterministic filenames make it idempotent; best-effort, never blocks a calling seam. Wired into the extraction and report seams, plus this direct entry.
 
 ### list.sh — read the stream
 

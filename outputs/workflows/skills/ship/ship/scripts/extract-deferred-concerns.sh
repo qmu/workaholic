@@ -1,7 +1,8 @@
 #!/bin/sh -eu
-# Extract concerns from a shipped story's section 6 and persist them under
-# .workaholic/concerns/, one file per concern, keyed on a STABLE concern
-# identity so a still-active concern is UPDATED in place rather than re-cloned.
+# Extract concerns from a shipped story's section 6 and persist them into the
+# FEEDBACK STREAM as kind: concern records (docs/loop-engineering-workflow.md
+# H2/H3 — the carry-over seam is where drive-born feedback is written), one
+# immutable record per concern, keyed on the STABLE concern_id.
 #
 # Section 6 is expected to use this structure (or "None"):
 #
@@ -16,17 +17,23 @@
 #   ### <Next Title>
 #   ...
 #
-# A concern's identity is `concern_id` — the slug of its title with any leading
-# "(carried from …)" parenthetical stripped. On extraction:
-#   - if an ACTIVE concern with that id exists  -> update it in place (bump
-#     last_seen, escalate severity to the most-severe, refresh text); no new file.
-#   - if an ARCHIVED (resolved/superseded) one exists -> skip (never resurface).
-#   - otherwise -> create a fresh <concern_id>.md (first_seen = last_seen = now).
-# This kills the NN-carried-from-... accumulation at the source; freshness is the
-# invariant (see also migrate-concern-identity.sh, which collapses legacy chains).
+# The stream is APPEND-ONLY:
+#   - a concern_id that already exists anywhere in the stream (open, closed, or
+#     superseded) is SKIPPED — records are never rewritten, resurfaced, or
+#     "refreshed in place"; a resolved concern that genuinely recurs is judged
+#     from history by the reader, not resurrected by the writer;
+#   - EVERY severity is recorded (the promotion floor retired with the concern
+#     lifecycle machinery — the stream accumulates by design and curation is
+#     the reader's judgment; a legacy `Keep:` field is tolerated and ignored);
+#   - resolution is a SUPERSEDING record written by /report's judge seam
+#     (apply-deferred-concern-verdicts.sh), never an edit here.
+#
+# Runs the concern-corpus living migration first, so a repo with a legacy
+# concerns/ tree heals on its next ship.
 #
 # Usage: extract-deferred-concerns.sh <branch> <pr-number> <pr-url>
-# Output: single JSON line summarizing what was extracted.
+# Output: single JSON line summarizing what was extracted. `updated` and
+# `story_only` are always 0 (kept for consumer stability across the merger).
 
 set -eu
 
@@ -46,32 +53,31 @@ if [ ! -f "$story_file" ]; then
   exit 0
 fi
 
-mkdir -p .workaholic/concerns
+mkdir -p .workaholic/feedbacks
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "${SCRIPT_DIR}/lib/push-outcome.sh"
 
-# Living identity migration first: back-fill concern_id/first_seen/last_seen and
-# collapse any legacy carried-from clone chains, so the update-or-create below
-# sees one file per concern. Best-effort — never blocks extraction.
-sh "${SCRIPT_DIR}/../../report/scripts//migrate-concern-identity.sh" >/dev/null 2>&1 || true
+# Living migration first: a legacy concerns/ corpus folds into the feedback
+# stream before we index existing ids. Best-effort — never blocks extraction.
+sh "${SCRIPT_DIR}/../../feedback/scripts//migrate-concerns.sh" >/dev/null 2>&1 || true
 
 origin_commit=$(git rev-parse --short HEAD)
 created_at=$(date -Iseconds)
+author_email=$(git config user.email 2>/dev/null || echo "unknown@unknown.invalid")
 
 owners_script="${SCRIPT_DIR}/../../mission/scripts//mission-owners.sh"
 
-result=$(python3 - "$story_file" "$pr_number" "$pr_url" "$branch" "$origin_commit" "$created_at" "${CONCERN_PROMOTE_MIN:-moderate}" "$owners_script" <<'PY'
+result=$(python3 - "$story_file" "$pr_number" "$pr_url" "$branch" "$origin_commit" "$created_at" "$author_email" "$owners_script" <<'PY'
 import sys, re, os, json, glob, subprocess
 
-story_file, pr_number, pr_url, branch, origin_commit, created_at, promote_min, owners_script = sys.argv[1:9]
+story_file, pr_number, pr_url, branch, origin_commit, created_at, author_email, owners_script = sys.argv[1:9]
 
 with open(story_file) as h:
     text = h.read()
 
-# Parse the shipped story's frontmatter for the machine-readable relations it
-# carries (both optional): the mission slug and the tickets: list the story
-# covers. Each extracted concern inherits them.
+# Story frontmatter relations (both optional): mission + tickets, inherited by
+# each extracted record.
 story_mission = ""
 story_tickets = "[]"
 fm = re.match(r'^---\n(.*?)\n---\n', text, re.DOTALL)
@@ -84,13 +90,9 @@ if fm:
         if tm and tm.group(1).strip():
             story_tickets = tm.group(1).strip()
 
-# Lane owner: a concern inherits the owner of the first mission its story advances,
-# denormalized as `owner:` so list-active can scope triage per lane without resolving
-# the mission at list time. Ownership is DERIVED (2026-07-24): the first owner from
-# mission-owners.sh — the mission's own `assignees`, with a legacy `assignee`
-# fallback — so a concern's lane owner tracks the same source as the lens and monitor.
-# Empty when the story names no mission, the mission is unresolvable, or the mission is
-# unowned (visible to everyone, same spirit as an unassigned mission in the lens).
+# Lane owner: the first owner of the first mission the story advances
+# (mission-owners.sh — the mission's own assignees, legacy fallback), denormalized
+# as `owner:` so list-open-concerns.sh can scope lanes without resolving missions.
 def _first_slug(v):
     v = v.strip()
     if v.startswith('['):
@@ -120,8 +122,6 @@ m = re.search(r'^##\s+6\.\s.*?$(.*?)(?=^##\s+\d+\.\s|\Z)', text, re.MULTILINE | 
 section = m.group(1) if m else ""
 blocks = re.split(r'^###\s+', section, flags=re.MULTILINE)[1:]
 
-SEV_RANK = {"urgent": 0, "moderate": 1, "low": 2}
-
 
 def field(block, label):
     pat = re.compile(r'^\s*-?\s*\*\*' + re.escape(label) + r':\*\*\s*(.*)$', re.MULTILINE)
@@ -142,45 +142,26 @@ def slugify(s):
     return '-'.join(words)[:60].strip('-')
 
 
-def read_fm(path):
-    with open(path) as h:
-        t = h.read()
-    mm = re.match(r'^---\n(.*?)\n---\n?(.*)$', t, re.DOTALL)
-    if not mm:
-        return None, t
-    fmv = {}
-    for line in mm.group(1).split('\n'):
-        km = re.match(r'^([A-Za-z0-9_]+):(.*)$', line)
-        if km:
-            fmv[km.group(1)] = km.group(2).strip()
-    return fmv, mm.group(2)
-
-
-# Index existing concerns by concern_id: active (updatable) and archived (skip).
-active_by_id = {}
-archived_ids = set()
-for p in glob.glob('.workaholic/concerns/*.md'):
-    if os.path.basename(p)[:-3] in ('README', 'index'):
+# Index every concern_id already in the stream (open, closed, superseded alike):
+# the stream is append-only, so an existing id is never touched again here.
+existing_ids = set()
+for p in glob.glob('.workaholic/feedbacks/*.md'):
+    base = os.path.basename(p)
+    if base in ('README.md', 'index.md'):
         continue
-    fmv, _ = read_fm(p)
-    if fmv and fmv.get('concern_id'):
-        active_by_id[fmv['concern_id']] = p
-for p in glob.glob('.workaholic/concerns/archive/*.md'):
-    fmv, _ = read_fm(p)
-    if fmv and fmv.get('concern_id'):
-        archived_ids.add(fmv['concern_id'])
+    with open(p, encoding='utf-8', errors='replace') as h:
+        t = h.read()
+    mm = re.match(r'^---\n(.*?)\n---\n', t, re.DOTALL)
+    if not mm:
+        continue
+    if re.search(r'^kind:[ \t]*concern[ \t]*$', mm.group(1), re.MULTILINE):
+        km = re.search(r'^concern_id:[ \t]*(.*)$', mm.group(1), re.MULTILINE)
+        if km and km.group(1).strip():
+            existing_ids.add(km.group(1).strip())
 
-# Promotion floor: a NEW concern joins the tracked corpus only when its severity
-# is at or above this floor (default 'moderate'), OR it is explicitly kept. This
-# is the balance dial: the story keeps EVERY concern (section 6 is unchanged);
-# the durable corpus — the set that accumulates across branches and drives
-# triage — promotes only what clears the bar, so it stays a curated ~20-30, not
-# an append-only 100. `low` is recorded in the story and left there. An
-# already-tracked concern still updates (we never demote here — that is a
-# developer decision, not an extraction side effect).
-promote_rank = SEV_RANK.get(promote_min, 1)
+ts = re.sub(r'[^0-9]', '', created_at)[:14] or '00000000000000'
 
-created, updated, story_only = [], [], []
+created = []
 seen_this_run = set()
 
 for block in blocks:
@@ -193,71 +174,37 @@ for block in blocks:
         severity = 'moderate'
     description = field(block, 'Description')
     fix = field(block, 'How to Fix') or field(block, 'How To Fix') or field(block, 'Fix')
-    keep = field(block, 'Keep').lower() in ('true', 'yes', '1')
 
     concern_id = slugify(strip_carried(title)) or 'concern'
-    if concern_id in seen_this_run:
+    if concern_id in seen_this_run or concern_id in existing_ids:
         continue
     seen_this_run.add(concern_id)
 
-    # Archived (resolved/superseded) -> never resurface.
-    if concern_id in archived_ids:
-        continue
-
-    if concern_id in active_by_id:
-        # UPDATE IN PLACE: bump last_seen, escalate severity, refresh text.
-        path = active_by_id[concern_id]
-        fmv, _ = read_fm(path)
-        existing_sev = fmv.get('severity', 'moderate')
-        merged_sev = severity if SEV_RANK.get(severity, 1) < SEV_RANK.get(existing_sev, 1) else existing_sev
-        with open(path) as h:
-            content = h.read()
-        content = re.sub(r'(?m)^last_seen:.*$', f'last_seen: {created_at}', content)
-        content = re.sub(r'(?m)^severity:.*$', f'severity: {merged_sev}', content)
-        if description:
-            content = re.sub(r'(?s)(## Description\n\n).*?(\n\n## How to Fix)',
-                             lambda mm: mm.group(1) + description + mm.group(2), content)
-        if fix:
-            content = re.sub(r'(?s)(## How to Fix\n\n).*?$',
-                             lambda mm: mm.group(1) + fix + '\n', content)
-        with open(path, 'w') as h:
-            h.write(content)
-        updated.append(path)
-        continue
-
-    # PROMOTION GATE: a new concern below the floor and not explicitly kept
-    # stays in the story only — it is NOT written to the durable corpus. This is
-    # the "don't grow the pile" half of the balance; the story already records
-    # it, so nothing is lost.
-    if not keep and SEV_RANK.get(severity, 1) > promote_rank:
-        story_only.append(concern_id)
-        continue
-
-    # CREATE fresh <concern_id>.md
-    path = f'.workaholic/concerns/{concern_id}.md'
+    path = f'.workaholic/feedbacks/{ts}-{concern_id}.md'
     if os.path.exists(path):
         continue
     body = [
         '---',
-        'type: Concern',
+        'type: Feedback',
+        f'title: {strip_carried(title)}',
+        'kind: concern',
+        'source: development',
+        f'created_at: {created_at}',
+        f'author: {author_email}',
+        'supersedes:',
+        f'severity: {severity}',
         f'concern_id: {concern_id}',
-        f'mission: {story_mission}',
         f'owner: {story_owner}',
+        f'mission: {story_mission}',
         f'tickets: {story_tickets}',
         f'origin_pr: {pr_number}',
         f'origin_pr_url: {pr_url}',
         f'origin_branch: {branch}',
         f'origin_commit: {origin_commit}',
-        f'created_at: {created_at}',
-        f'first_seen: {created_at}',
         f'last_seen: {created_at}',
-        f'severity: {severity}',
-        'status: active',
-        'resolved_by_pr:',
-        'resolved_by_commit:',
         '---',
         '',
-        f'# {title}',
+        f'# {strip_carried(title)}',
         '',
         '## Description',
         '',
@@ -271,41 +218,24 @@ for block in blocks:
     with open(path, 'w') as h:
         h.write('\n'.join(body))
     created.append(path)
-    active_by_id[concern_id] = path
 
-print(json.dumps({"created": created, "updated": updated, "story_only": story_only}))
+print(json.dumps({"created": created}))
 PY
 )
 
 created_files=$(printf '%s' "$result" | python3 -c "import json,sys; print('\n'.join(json.load(sys.stdin)['created']))")
 created_json=$(printf '%s' "$result" | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin)['created']))")
 count_created=$(printf '%s' "$result" | python3 -c "import json,sys; print(len(json.load(sys.stdin)['created']))")
-count_updated=$(printf '%s' "$result" | python3 -c "import json,sys; print(len(json.load(sys.stdin)['updated']))")
-count_story_only=$(printf '%s' "$result" | python3 -c "import json,sys; print(len(json.load(sys.stdin).get('story_only', [])))")
-total=$((count_created + count_updated))
 
-# `extracted` counts NEW files only (created), so a re-extracted still-active
-# concern that is merely refreshed in place reports extracted:0 — the no-clone
-# invariant. `files` lists the newly-created files; `updated` counts in-place
-# refreshes; `story_only` counts concerns left in the story (below the promotion
-# floor, not promoted to the corpus). The commit still fires when anything
-# changed (created or updated); a run that only left concerns story-only makes
-# no corpus change and reports total 0 with story_only recorded.
-if [ "$total" -eq 0 ]; then
-  echo "{\"status\":\"ok\",\"created\":0,\"updated\":0,\"extracted\":0,\"story_only\":${count_story_only},\"pushed\":false,\"push_error\":\"not_attempted\",\"files\":[]}"
+if [ "$count_created" -eq 0 ]; then
+  echo "{\"status\":\"ok\",\"created\":0,\"updated\":0,\"extracted\":0,\"story_only\":0,\"pushed\":false,\"push_error\":\"not_attempted\",\"files\":[]}"
   exit 0
 fi
 
-# Mission changelog: a NEWLY-deferred concern records a "concern deferred (stuck)" line
-# on EVERY mission the story advances (idempotent). Updated (already deferred) concerns
-# add no new line. Best-effort — never blocks extraction.
-#
-# Note the python block above needs no equivalent change: it copies the story's raw
-# `mission:` value verbatim into each concern's frontmatter, so an inline list round-trips
-# as an inline list. Here the value is used as a SLUG, so it must be split first — passing
-# the literal `[a, b]` would resolve to no mission and silently roll nothing.
+# Mission changelog: a newly-deferred concern records a "concern deferred (stuck)"
+# line on EVERY mission the story advances (idempotent). Best-effort.
 story_missions=$(sh "${SCRIPT_DIR}/../../mission/scripts//read-relation.sh" "$story_file" 2>/dev/null || true)
-if [ -n "$story_missions" ] && [ "$count_created" -gt 0 ]; then
+if [ -n "$story_missions" ]; then
   printf '%s\n' "$created_files" | while IFS= read -r cfile; do
     [ -n "$cfile" ] || continue
     printf '%s\n' "$story_missions" | while IFS= read -r sm; do
@@ -321,14 +251,13 @@ push_error="not_attempted"
 
 if [ -z "${NO_COMMIT:-}" ]; then
   sh "${SCRIPT_DIR}/../../okf/scripts//refresh-index.sh" >/dev/null 2>&1 || true
-  git add .workaholic/concerns/ .workaholic/missions/ >/dev/null 2>&1 || git add .workaholic/concerns/ >/dev/null
+  git add .workaholic/feedbacks/ .workaholic/missions/ >/dev/null 2>&1 || git add .workaholic/feedbacks/ >/dev/null
   git commit -m "Add deferred concerns from PR #${pr_number}" >/dev/null
-  # Non-fatal by design (the PR has already merged), but no longer silent: the
-  # outcome rides out in the JSON so /ship can report a divergence instead of
-  # claiming a push that never happened. See lib/push-outcome.sh.
+  # Non-fatal by design (the PR has already merged), but never silent: the
+  # outcome rides out in the JSON. See lib/push-outcome.sh.
   push_and_report
   pushed="$PUSH_OK"
   push_error="$PUSH_ERROR"
 fi
 
-echo "{\"status\":\"ok\",\"created\":${count_created},\"updated\":${count_updated},\"extracted\":${count_created},\"story_only\":${count_story_only},\"pushed\":${pushed},\"push_error\":\"${push_error}\",\"files\":${created_json}}"
+echo "{\"status\":\"ok\",\"created\":${count_created},\"updated\":0,\"extracted\":${count_created},\"story_only\":0,\"pushed\":${pushed},\"push_error\":\"${push_error}\",\"files\":${created_json}}"

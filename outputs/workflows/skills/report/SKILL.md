@@ -102,66 +102,18 @@ Generate the story file, then create the PR. The `/report` command (main agent) 
 
 Gather all context by running `bash gather/scripts/git-context.sh`. Returns: branch, base_branch, repo_url, archived_tickets, git_log.
 
-#### Phase 1: Judge Active Deferred Concerns
+#### Phase 1: Judge Open Deferred Concerns
 
-Run before the parallel agent batch so the verdicts flow into section-reviewer's input. Skip silently if `.workaholic/concerns/` is empty or absent.
+Run before the parallel agent batch. Skip silently when `list-open-concerns.sh` reports zero open concerns.
 
 1. **Spawn a deferred-concern judge** as parallel worker in a single Task call. The prompt instructs it to preload `report`, follow the `### Judge Deferred Concerns` section with the given branch name and base branch, and return `{verdicts: [...], compounds: [...]}` (compounds are candidate A+B combinations — see that section).
-2. **Apply verdicts**: Establish one **private per-run artifact directory** for this `/report` and reuse it for every intermediate file — `RUN_DIR=$(mktemp -d)`. Never park artifacts at a constant `/tmp/...` path: concurrent `/report`s across desks (different repos, by design) would share it, and a stale or foreign payload left there is read silently instead of loudly. Write the judge's returned JSON to `$RUN_DIR/deferred-concern-verdicts.json`. `apply-deferred-concern-verdicts.sh` accepts both the full `{"verdicts": [...]}` object (the judge's natural output) and a bare `[...]` array, so either form works — prefer writing the object verbatim. **Pass the expected concern count** — the number of active deferred concerns `list-active-deferred-concerns.sh` returned — as the script's first argument, so a stale/foreign `{"verdicts": []}` fails loud (non-zero exit) instead of silently reporting `still_active: 0`. Then run:
+2. **Apply verdicts**: Establish one **private per-run artifact directory** for this `/report` and reuse it for every intermediate file — `RUN_DIR=$(mktemp -d)`. Never park artifacts at a constant `/tmp/...` path: concurrent `/report`s across desks (different repos, by design) would share it, and a stale or foreign payload left there is read silently instead of loudly. Write the judge's returned JSON to `$RUN_DIR/deferred-concern-verdicts.json`. `apply-deferred-concern-verdicts.sh` accepts both the full `{"verdicts": [...]}` object (the judge's natural output) and a bare `[...]` array, so either form works — prefer writing the object verbatim. **Pass the expected concern count** — the number of open concerns `feedback/scripts/list-open-concerns.sh` returned — as the script's first argument, so a stale/foreign `{"verdicts": []}` fails loud (non-zero exit) instead of silently reporting `still_active: 0`. Then run:
 
    ```bash
    cat "$RUN_DIR/deferred-concern-verdicts.json" | bash report/scripts/apply-deferred-concern-verdicts.sh "$EXPECTED_CONCERN_COUNT"
    ```
 
-   Files marked `resolved` have `status:` flipped to `resolved`, `resolved_by_pr` / `resolved_by_commit` recorded, and are then moved to `.workaholic/concerns/archive/`. Files marked `still_active` stay in `.workaholic/concerns/`.
-
-#### Phase 1b: Triage Concerns (keep the set fresh)
-
-The corpus never re-clones (identity-keyed update-in-place; Phase 1's `list-active` already ran the collapsing migration), but it can still grow *many* real concerns, and two minor ones can combine into a bigger risk. Run a triage decision point **when either trigger fires**, else skip silently:
-
-- **Count trigger** — Phase 1's `list-active` envelope reported `should_triage: true`. The threshold is **script-owned** (`CONCERN_TRIAGE_THRESHOLD`, default 20, inside `list-active-deferred-concerns.sh`) and the trigger is **lane-aware**: it fires on the actor's own-lane count (`my_lane_count` — concerns the actor owns, plus unowned ones) exceeding the threshold, not the global `active_count`, so one developer's mission-lane concerns don't fire the prompt on people who cannot act on them. The envelope still carries `active_count` (global) and `owner_counts` (per-lane) for visibility; only the *prompting* is lane-scoped. When the actor has no git email, the lane cannot be resolved and the trigger falls back to the global count. When judging with post-Phase-1 counts, subtract the concerns just resolved from the relevant count.
-- **Compound trigger** — the judge returned a non-empty `compounds` list.
-
-The triage is **judge-proposes / developer-decides**, and every decision leaves an auditable trail. The command (main agent) issues the choice via the agent's selection prompt (each question body prefixed `[<project label>]`) — a leaf subagent must not. Present the developer these buckets and apply each through the idempotent mutators (never hand-edit concern files):
-
-- **Combine A+B → compound** (from a `compounds` proposal the developer confirms/edits the severity and title of):
-
-  ```bash
-  bash report/scripts/merge-concerns.sh \
-    --severity <confirmed> --title "<compound title>" - <member-id> <member-id>...
-  ```
-
-  Creates the compound (or updates an existing target), escalates severity to the confirmed value, and archives each member as `status: superseded, superseded_by: <compound-id>`.
-
-  **Do not invent an id — pass `-`.** A new compound's id is *derived* from `--title` by the same `slugify()` the ship-time extractor uses, and the script returns the real one in `target_id`. This is what closes the round trip: when the compound reappears as a `###` block in the next story's section 6, `extract-deferred-concerns.sh` computes `slugify(title)`, finds it, and updates it **in place**. An earlier version of this step said `<new-compound-id>` and the model invented one; the extractor then missed and cloned the compound alongside itself (PR #86 produced two files for one concern). To fold members into an **existing** concern, pass that concern's id instead of `-` — that path takes the id as given.
-
-  The compound inherits `origin_*` and `first_seen` from its **earliest-seen member** (a compound re-frames risks already on the books, so its origin is where the risk first surfaced), and stamps `created_at`/`last_seen` with the triage act.
-- **Merge duplicates** — same command, folding near-duplicate ids into one target id. (A new compound whose slug collides with a **different** existing title is refused with `reason: id_collision` rather than silently folded — pass the existing concern's id explicitly if folding is really intended.)
-- **Re-grade** a concern whose severity no longer matches reality (either direction):
-
-  ```bash
-  bash report/scripts/re-grade.sh <concern-id> <low|moderate|urgent> "<rationale>"
-  ```
-
-  Rewrites `severity` in place and appends the rationale to the concern body (`## Re-grade (<timestamp>)`), so the history of the grade stays auditable. Idempotent: re-grading to the current severity is a no-op.
-- **Close** a won't-fix or resolved concern:
-
-  ```bash
-  bash report/scripts/close-concern.sh <concern-id> <resolved|accepted> "<reason>"
-  ```
-
-  `resolved` = fixed / no longer applies; `accepted` = a deliberate, documented won't-fix. Moves it to `archive/` with the reason.
-- **Demote** an already-tracked concern that is not worth *tracking* (distinct from closing — it is neither fixed nor a won't-fix, just re-shelved out of the active set, reversibly). This is how an **already-bloated** corpus is shrunk toward the curated set the promotion floor holds going forward. It is **judge/script-proposes, developer-decides**: get the candidates read-only, then apply each only on the developer's confirmation.
-
-  ```bash
-  bash report/scripts/propose-demotions.sh [floor]    # READ-ONLY: active concerns at/below the floor (default low)
-  bash report/scripts/demote-concern.sh <concern-id> "<reason>"   # apply, only on confirmation
-  ```
-
-  `propose-demotions.sh` mutates nothing — it lists `{concern_id, severity, last_seen, path}` for active concerns at or below the floor. Present them and let the developer pick which to demote (an the agent's selection prompt at the command level, like the compound-merge confirmation — the demotion set is never applied without an explicit go). `demote-concern.sh` then moves each confirmed concern to `archive/` with `status: demoted` and the reason. Demotion is **reversible** (move the file back and flip `status` to `active`) and preserved in git history — that reversibility is why it is safe to offer, unlike `resolved`/`accepted` which assert something about the work. A demoted concern is excluded from `list-active` and never resurrected by extraction (its id is in `archived_ids`), exactly like a closed one.
-- **Keep as-is** — no action.
-
-After applying, the still-active set reflected in the story's section 6 is the curated, fresh set. Every mutator (`merge-concerns.sh`, `re-grade.sh`, `close-concern.sh`, `demote-concern.sh`) git-stages its changes, so they ride the Phase 4 story commit. The threshold is a policy knob (`CONCERN_TRIAGE_THRESHOLD`, read by `list-active`) — never auto-merge or auto-demote without the developer's confirmation; the A+B severity call and the demotion set are the developer's.
+   Each `resolved` verdict appends a **superseding feedback record** to the stream (`kind: concern`, `supersedes: <record filename>`, `resolved_by_pr`/`resolved_by_commit` recorded) — the resolved record itself is immutable and never edited or moved; `list-open-concerns.sh` excludes it from the open set from then on. `still_active` verdicts write nothing.
 
 #### Phase 2: Spawn Story Generation Workers
 
@@ -169,7 +121,7 @@ Spawn 3 parallel worker leaf subagents in parallel (single message with 3 Task c
 
 - **release-readiness**: preload `report`, run `## Assess Release Readiness`, return the releasability JSON. Pass archived tickets list and branch name.
 - **overview-writer**: preload `report`, run `### Overview Generation`, return the overview JSON. Pass branch name and base branch.
-- **section-reviewer**: preload `review-sections`, run it, return the sections 4-7 JSON (Outcome, Historical Analysis, Concerns, Successful Development Patterns). Pass branch name, archived tickets list, the deferred concern verdicts file path `$RUN_DIR/deferred-concern-verdicts.json` (the per-run path from Phase 1, not a constant `/tmp/...`), **and the collected commit bodies** (`collect-commits.sh` output). The section-reviewer prepends `still_active` verdicts to section 6, then folds in any `Concerns:` keys from the commit bodies (§6) and `Insights:` keys (§7) so a concern or pattern recorded in a commit is not lost when a ticket is sparse or absent.
+- **section-reviewer**: preload `review-sections`, run it, return the sections 4-7 JSON (Outcome, Historical Analysis, Concerns, Successful Development Patterns). Pass branch name, archived tickets list, the deferred concern verdicts file path `$RUN_DIR/deferred-concern-verdicts.json` (the per-run path from Phase 1, not a constant `/tmp/...`), **and the collected commit bodies** (`collect-commits.sh` output). Section 6 records **this branch's** concerns only — open stream concerns are NOT prepended (the `(carried from PR #N)` convention retired with the concern merger; the stream itself is the durable memory). The section-reviewer folds in any `Concerns:` keys from the commit bodies (§6) and `Insights:` keys (§7) so a concern or pattern recorded in a commit is not lost when a ticket is sparse or absent.
 
 Wait for all 3 to complete. Track which succeeded and which failed.
 
@@ -241,13 +193,13 @@ Section 3 (Changes) comes from archived tickets, prefaced by journey content fro
 
 Run by the Phase 1 deferred-concern judge (a parallel workers that preloads this skill). Inputs: branch name and base branch (usually `main`).
 
-1. List active deferred concerns:
+1. List the open concerns from the feedback stream:
 
    ```bash
-   bash report/scripts/list-active-deferred-concerns.sh
+   bash feedback/scripts/list-open-concerns.sh
    ```
 
-   This first runs the living identity migration (`migrate-concern-identity.sh`, best-effort, idempotent): it back-fills each concern's `concern_id`/`first_seen`/`last_seen` and collapses any legacy `carried-from` clone chains into one fresh file per concern, so the judge sees a deduplicated set. The output is an envelope `{active_count, my_lane_count, owner_counts, should_triage, concerns: [...]}`; each `concerns[]` entry carries `concern_id` (the stable identity), `first_seen`/`last_seen`, `severity`, `owner` (the lane it belongs to, the first owner of the story's mission at extraction — `mission-owners.sh`, the mission's own `assignees` with a legacy `assignee` fallback; empty = unowned), and provenance. If `concerns` is empty, return `{"verdicts": []}` and stop.
+   Concerns live in the feedback stream as `kind: concern` records (`docs/loop-engineering-workflow.md` H2); a record is **open** iff no record supersedes it and it carries no migration-only `closed:` stamp. The script first runs the concern-corpus living migration (`feedback/scripts/migrate-concerns.sh`, best-effort, idempotent), so a legacy `concerns/` tree heals on first read. The output is an envelope `{active_count, my_lane_count, owner_counts, should_triage, concerns: [...]}` (`should_triage` is permanently `false` — the triage machinery retired with the merger); each `concerns[]` entry carries `concern_id` (the stable identity), `first_seen`/`last_seen`, `severity`, `owner` (the lane it belongs to, the first owner of the story's mission at extraction — `mission-owners.sh`, the mission's own `assignees` with a legacy `assignee` fallback; empty = unowned), and provenance. If `concerns` is empty, return `{"verdicts": []}` and stop.
 
 2. For each deferred concern in the list, judge whether the work that landed on the current branch (since the deferred concern's `origin_commit`) has resolved it.
 
@@ -280,38 +232,28 @@ The corpus can grow large (a backfill from N historical stories produces O(N × 
 2. **Within a cluster, deduplicate by referenced file path.** Many bullets reference the same file from different angles; one `cat` plus one `git log -- <path>` is enough evidence for every bullet that points at that path.
 3. **Use `git log --oneline <origin_commit>..HEAD` once per cluster**, not per item — the commit list is the same for every bullet that shares an origin commit.
 4. **Batch the verdicts.** Emit verdicts incrementally if helpful, but the final response must be one combined `{verdicts: [...]}` JSON object.
-5. **First-run backfill caveat.** When the corpus is populated all at once by `backfill-deferred-concerns.sh`, expect a high proportion of `resolved` verdicts — the items predate the codebase's current structure significantly. This is normal; still-active items remain in `.workaholic/concerns/` as passive notes for future judging.
-
-Return a JSON object with the verdicts array **and** a `compounds` array of candidate combinations:
+Return a JSON object with the verdicts array:
 
 ```json
 {
   "verdicts": [
     {
-      "path": ".workaholic/concerns/42-foo.md",
+      "path": ".workaholic/feedbacks/20260101000000-foo.md",
       "verdict": "resolved",
       "resolved_by_pr": 47,
       "resolved_by_commit": "abc1234",
       "rationale": "Commit abc1234 removed the inline shell logic this concern flagged."
     },
     {
-      "path": ".workaholic/concerns/42-bar.md",
+      "path": ".workaholic/feedbacks/20260102000000-bar.md",
       "verdict": "still_active",
       "rationale": "No commits modified the area this deferred concern targets."
-    }
-  ],
-  "compounds": [
-    {
-      "members": ["auth-token-logged-plaintext", "verbose-error-leaks-stack"],
-      "suggested_severity": "urgent",
-      "suggested_title": "Plaintext token logging + verbose errors together expose credentials",
-      "rationale": "Individually low, but a logged token plus a stack-trace endpoint is a credential-exfiltration path."
     }
   ]
 }
 ```
 
-Include `resolved_by_pr` and `resolved_by_commit` only for `resolved` verdicts. **Compounds** are the judge's *proposals only* — where two or more `still_active` concerns interact so their combined risk exceeds the parts (A + B = a bigger risk); each names its `members` (by `concern_id`), a `suggested_severity` (usually escalated), a `suggested_title`, and the `rationale`. Emit `"compounds": []` when none apply; **prefer few, high-confidence proposals** over speculative ones. The orchestrator feeds `verdicts` to `apply-deferred-concern-verdicts.sh` (Phase 1) and to the section-reviewer, and surfaces `compounds` in the Phase 1b triage where the developer confirms or edits each before `merge-concerns.sh` applies it — the judge never merges anything itself.
+Include `resolved_by_pr` and `resolved_by_commit` only for `resolved` verdicts. The orchestrator feeds `verdicts` to `apply-deferred-concern-verdicts.sh` (Phase 1), which writes one **superseding feedback record** per resolution (`kind: concern`, `supersedes: <record filename>`, naming the resolving PR/commit) — the resolved record itself is immutable and never edited or moved. Two `still_active` concerns that interact into a bigger combined risk are simply worth a sentence in the new story's section 6 (a fresh concern in its own right); there is no separate compound machinery any more.
 
 ### Overview Generation
 
@@ -510,10 +452,9 @@ One subsection per ticket, in chronological order:
 ```
 
 **Guidelines**:
-- **Severity is the balance dial — set it honestly, because it decides what becomes durable.** `urgent` (act now) and `moderate` (a real risk you hit or clearly foresee will bite) are **promoted to the tracked concern corpus** at ship time; `low` (a nice-to-have, a speculative "we might also want", a thing noticed but not run into) is **recorded in this story and left there** — it does not join the corpus. This mirrors `/drive`'s ticket-minting bar (an observation is not an obligation): a genuine risk earns `moderate`+, a passing thought stays `low`. Do **not** inflate severity to force a low-value note into the corpus, and do **not** drop a real risk to `low` to keep it out — the story keeps everything either way; severity only decides what is tracked. If a `low` concern genuinely must be tracked, add `- **Keep:** true` to its block. Default `moderate` only when the risk is real; otherwise say `low`.
+- **Severity is an honest signal, not a gate.** Every concern is extracted into the feedback stream at ship time regardless of severity (the promotion floor retired with the concern merger — curation is the reader's judgment over the stream). `urgent` = act now; `moderate` = a real risk you hit or clearly foresee will bite; `low` = a nice-to-have or a passing observation. Do not inflate or deflate — the severity rides on the record and shapes how later readers (the proposal batch, a planning session) weigh it. A legacy `- **Keep:** true` line is tolerated and ignored.
 - Reference the commit hash from section 3 and the file path where readers should investigate, inside the Description.
 - Keep Description and How to Fix to one paragraph each.
-- Deferred concerns (from `still_active` verdicts) are prepended here as `###` blocks, with their title prefixed `(carried from PR #N)` and their original severity preserved.
 - Write "None" if nothing to report.
 
 ## 7. Successful Development Patterns

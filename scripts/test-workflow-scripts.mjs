@@ -107,6 +107,8 @@ const SCRIPTS = {
   strategyList: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/list.sh"),
   strategyReadRelation: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/read-strategy-relation.sh"),
   strategyRetire: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/retire.sh"),
+  feedbackCreate: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/create.sh"),
+  feedbackList: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/list.sh"),
 };
 
 // rules/shell.md mandates POSIX sh. Exercise the scripts under the strictest
@@ -7711,6 +7713,77 @@ function testStrategyOwnership() {
   } finally { cleanup(dir); }
 }
 
+// ---------- feedback/create.sh + list.sh + hooks/validate-feedback.sh ----------
+// The feedback stream: immutable inbound records (see feedback/SKILL.md). create.sh
+// is the only sanctioned writer; the validator holds NEW writes to the schema floor
+// and grandfathers tracked history exactly like validate-story.sh.
+function testFeedback() {
+  const dir = makeRepo("main");
+  try {
+    // --- create: a conformant, staged, indexed record ---
+    let r = run(dir, `printf 'We decided the loop model.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "Loop model decided" insight discussion`);
+    assertEq("feedback create exits 0", r.status, 0);
+    const created = JSON.parse(r.stdout);
+    assertTrue("feedback create reports created", created.created === true, r.stdout);
+    assertTrue("feedback filename is <ts>-<slug>.md",
+      /\.workaholic\/feedbacks\/\d{14}-loop-model-decided\.md$/.test(created.path), created.path);
+    const body = readFileSync(join(dir, created.path), "utf8");
+    assertTrue("feedback carries type: Feedback", body.includes("type: Feedback"), body);
+    assertTrue("feedback carries kind + source", body.includes("kind: insight") && body.includes("source: discussion"), body);
+    assertTrue("feedback body is the stdin prose", body.includes("We decided the loop model."), body);
+    assertTrue("feedback area index generated", existsSync(join(dir, ".workaholic/feedbacks/index.md")));
+    const staged = run(dir, `git diff --cached --name-only`).stdout;
+    assertTrue("feedback file is git-staged", staged.includes("feedbacks/"), staged);
+
+    // --- enum + body floors are refused at the writer ---
+    r = run(dir, `printf 'x\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "T" bogus discussion`);
+    assertTrue("feedback create refuses unknown kind", r.status !== 0 && r.stdout.includes("bad_kind"), r.stdout);
+    r = run(dir, `printf 'x\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "T" insight carrier-pigeon`);
+    assertTrue("feedback create refuses unknown source", r.status !== 0 && r.stdout.includes("bad_source"), r.stdout);
+    r = run(dir, `printf '' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "T" insight slack`);
+    assertTrue("feedback create refuses an empty body", r.status !== 0 && r.stdout.includes("empty_body"), r.stdout);
+
+    // --- supersedes: resolution is a NEW record naming the old one ---
+    r = run(dir, `printf 'Overtaken by the new design.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "Loop model superseded" insight discussion "${basename(created.path)}"`);
+    const second = JSON.parse(r.stdout);
+    assertTrue("superseding feedback records the old filename",
+      readFileSync(join(dir, second.path), "utf8").includes(`supersedes: ${basename(created.path)}`));
+
+    // --- list: every record with its frontmatter fields ---
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.feedbackList}`);
+    const listed = JSON.parse(r.stdout);
+    assertEq("feedback list reports both records", listed.length, 2);
+    assertTrue("feedback list carries kind/source/author fields",
+      listed.every((e) => e.kind === "insight" && e.source === "discussion" && e.author.includes("@")), r.stdout);
+
+    // --- validator: NEW writes are held to the floor; history is grandfathered ---
+    let hasJq = true;
+    try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+    if (!hasJq) { console.log("  skip  validate-feedback (jq not available)"); return; }
+    const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-feedback.sh");
+    const invoke = (p) => {
+      try { execSync(`${POSIX_SH} ${HOOK}`, { cwd: dir, input: JSON.stringify({ tool_input: { file_path: p } }), encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return 0; }
+      catch (e) { return e.status ?? 1; }
+    };
+    const put = (rel, content) => { const abs = join(dir, rel); mkdirSync(dirname(abs), { recursive: true }); writeFileSync(abs, content); return rel; };
+    assertEq("validate-feedback passes a conformant record", invoke(created.path), 0);
+    const bad = put(".workaholic/feedbacks/20260728190000-bad-kind.md",
+      "---\ntype: Feedback\ntitle: Bad\nkind: vibe\nsource: slack\ncreated_at: 2026-07-28T19:00:00+09:00\nauthor: test@example.com\nsupersedes:\n---\n\n# Bad\n");
+    assertEq("validate-feedback blocks an unknown kind", invoke(bad), 2);
+    const noType = put(".workaholic/feedbacks/20260728190001-no-type.md",
+      "---\ntitle: NoType\nkind: insight\nsource: slack\ncreated_at: 2026-07-28T19:00:01+09:00\nauthor: test@example.com\n---\n\n# NoType\n");
+    assertEq("validate-feedback blocks a missing type", invoke(noType), 2);
+    const badName = put(".workaholic/feedbacks/free-form-name.md",
+      "---\ntype: Feedback\ntitle: X\nkind: insight\nsource: slack\ncreated_at: 2026-07-28T19:00:02+09:00\nauthor: test@example.com\n---\n\n# X\n");
+    assertEq("validate-feedback blocks an off-pattern filename", invoke(badName), 2);
+    assertEq("validate-feedback ignores feedbacks/index.md", invoke(".workaholic/feedbacks/index.md"), 0);
+    assertEq("validate-feedback ignores non-feedback paths", invoke("src/app.ts"), 0);
+    const old = put(".workaholic/feedbacks/20260101000000-legacy.md", "no frontmatter\n");
+    execSync(`git add .workaholic/feedbacks/20260101000000-legacy.md && git commit -q -m "legacy"`, { cwd: dir });
+    assertEq("validate-feedback grandfathers a tracked legacy file", invoke(old), 0);
+  } finally { cleanup(dir); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -7831,6 +7904,7 @@ const tests = [
   ["monitor pushes decisions one by one", testMonitorPushesDecisions],
   ["monitor: replan is leaf work, not main-agent work", testMonitorReplanIsLeafWork],
   ["monitor: front-load every decision, then run unattended", testMonitorFrontLoads],
+  ["feedback/create.sh + list.sh + hooks/validate-feedback.sh", testFeedback],
 ];
 
 for (const [label, fn] of tests) {

@@ -92,11 +92,13 @@ LINES=""
 FREE_LINES=""
 for f in "$ACTIVE_DIR"/*/mission.md; do
     [ -f "$f" ] || continue
-    # Mine, or unclaimed. Someone else's stays silent. ($ME is non-empty, guarded
-    # above, so an unassigned mission cannot match it by accident.) Absent and empty
-    # assignee are the same thing, as they are everywhere else in the schema.
-    assignee=$(grep -m1 '^assignee:' "$f" 2>/dev/null | sed -e 's/^assignee:[ \t]*//' -e 's/[ \t]*$//' || true)
-    if [ -n "$assignee" ] && [ "$assignee" != "$ME" ]; then
+    # Mine, or unclaimed. Someone else's stays silent. Ownership is DERIVED through
+    # mission-owners.sh (the strategy's `assignees`, legacy fallback to the mission's own
+    # `assignee`) — never parsed inline — so the two-hop lives in one place. A strategy
+    # may be co-owned, so "mine" means $ME is AMONG the owners; no owners at all means
+    # unclaimed (surfaced as claimable). ($ME is non-empty, guarded above.)
+    owners=$(sh "${PLUGIN_ROOT}/skills/mission/scripts/mission-owners.sh" "$f" 2>/dev/null || true)
+    if [ -n "$owners" ] && ! printf '%s\n' "$owners" | grep -Fxq "$ME"; then
         continue
     fi
 
@@ -134,7 +136,7 @@ for f in "$ACTIVE_DIR"/*/mission.md; do
 
     # An unassigned mission is an offer, not a defect: say it is unclaimed and how to
     # take it, rather than reporting a missing field at someone every single prompt.
-    if [ -z "$assignee" ]; then
+    if [ -z "$owners" ]; then
         line="${line} [unclaimed — yours to take]"
         if [ -n "$FREE_LINES" ]; then
             FREE_LINES="${FREE_LINES}

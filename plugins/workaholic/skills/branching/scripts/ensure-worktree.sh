@@ -53,13 +53,16 @@ ensure_git_excludes "$repo_root"
 
 git worktree add -b "${branch_name}" "${worktree_path}" HEAD
 
-# Credentials protocol (2026-07-13): development credentials live in ONE
-# git-ignored .env at the repository root, and worktree creation carries it
-# into the new worktree — git worktree add alone never brings an ignored
-# file along. A COPY, not a symlink, so worktrees can diverge credentials
-# independently; silently skipped when the root has no .env.
-if [ -f "${repo_root}/.env" ]; then
-  cp "${repo_root}/.env" "${worktree_path}/.env"
-fi
+# Credentials protocol (2026-07-13, generalized 2026-07-26): development credentials live
+# in git-ignored env file(s) the project reads, and worktree creation carries them into
+# the new worktree — git worktree add alone never brings an ignored file along. Carry
+# EVERY env file the project reads (not the root one by assumption) via the shared carrier
+# — the same one create-mission-worktree.sh uses, so the two creators cannot drift — so a
+# subdirectory-env project is genuinely provisioned rather than getting a credential-less
+# worktree that fails silently. Copies, not symlinks, so worktrees diverge independently.
+. "${SCRIPT_DIR}/lib/carry-worktree-env.sh"
+carried="$(carry_worktree_env "$repo_root" "$worktree_path")"
+env_json="$(carry_worktree_env_json "$carried")"
 
-echo '{"worktree_path": "'"${worktree_path}"'", "branch": "'"${branch_name}"'"}'
+# Report what was carried (empty array = no project env file found, stated explicitly).
+echo '{"worktree_path": "'"${worktree_path}"'", "branch": "'"${branch_name}"'", "env_files_carried": '"${env_json}"'}'

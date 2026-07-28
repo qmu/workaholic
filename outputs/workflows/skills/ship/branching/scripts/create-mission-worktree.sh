@@ -2,8 +2,11 @@
 # Create a mission-named, persistent worktree at .worktrees/<slug>/ on a fresh
 # work-YYYYMMDD-HHMMSS branch cut from the base branch (default: main). The
 # DIRECTORY is the descriptive mission slug; the BRANCH inside is an ordinary
-# work-* branch (the branch-name invariant is preserved). Copies the root .env
-# into the worktree (as ensure-worktree.sh does).
+# work-* branch (the branch-name invariant is preserved). Carries every env file
+# the project actually reads into the worktree via the shared carrier
+# (lib/carry-worktree-env.sh, also used by ensure-worktree.sh so they cannot drift)
+# and reports what was carried; the WORKAHOLIC_* port vars go into the carried root
+# .env when present, else a separate .env.worktree (never a fake root .env).
 #
 # When an origin remote is configured, origin/<base> is fetched first so the
 # worktree starts from the merged tip, not a stale local ref (a configured but
@@ -129,24 +132,39 @@ if [ "${actual_branch}" != "${branch}" ]; then
   exit 1
 fi
 
-# Carry the single-source root .env into the worktree (a copy, skipped when absent).
-if [ -f "${repo_root}/.env" ]; then
-  cp "${repo_root}/.env" "${worktree_path}/.env"
-fi
+# Carry EVERY env file the project reads into the worktree (not the root one by
+# assumption) via the shared carrier, so a subdirectory-env project is actually
+# provisioned instead of getting a credential-less worktree that only looks provisioned.
+# `carried` is a newline list of the repo-relative env files copied ("" when none).
+. "${SCRIPT_DIR}/lib/carry-worktree-env.sh"
+carried="$(carry_worktree_env "$repo_root" "$worktree_path")"
 
 # Assign a unique local port base so concurrent worktrees' dev/docs servers do not
-# collide on localhost, and record it in the worktree's .env for the project's
-# serve scripts to read (with the project's own env precedence).
+# collide on localhost. Where the WORKAHOLIC_* port vars go is decided by whether a root
+# .env was actually carried: append them to that .env only if the project reads it.
+# Otherwise write them to a clearly-separate .env.worktree -- NEVER fabricate a bare root
+# .env whose only content is port vars, which is exactly the artifact that made the
+# provisioning gap look like success and disguised itself as a "no credentials" finding.
 ports="$(sh "${SCRIPT_DIR}/allocate-worktree-port.sh")"
 port_base="$(printf '%s' "$ports" | sed -n 's/.*"port_base":[ ]*\([0-9][0-9]*\).*/\1/p')"
 dev_port="$(printf '%s' "$ports" | sed -n 's/.*"dev_port":[ ]*\([0-9][0-9]*\).*/\1/p')"
 docs_port="$(printf '%s' "$ports" | sed -n 's/.*"docs_port":[ ]*\([0-9][0-9]*\).*/\1/p')"
+if printf '%s\n' "$carried" | grep -Fxq ".env"; then
+  port_env_file=".env"
+else
+  port_env_file=".env.worktree"
+fi
 {
   printf 'WORKAHOLIC_PORT_BASE=%s\n' "$port_base"
   printf 'WORKAHOLIC_DEV_PORT=%s\n' "$dev_port"
   printf 'WORKAHOLIC_DOCS_PORT=%s\n' "$docs_port"
-} >> "${worktree_path}/.env"
+} >> "${worktree_path}/${port_env_file}"
+
+# Report what was carried, plainly, so the provisioning gap is visible at CREATION time --
+# an empty env_files_carried says "no project env file was found" explicitly (not by
+# omission), and port_env_file names where the port vars landed.
+env_json="$(carry_worktree_env_json "$carried")"
 
 # Report the OBSERVED branch (verified above to equal the minted name), so the
 # contract is an observation of the worktree's HEAD, not a restatement of intent.
-echo '{"worktree_path": "'"${worktree_path}"'", "branch": "'"${actual_branch}"'", "slug": "'"${slug}"'", "port_base": '"${port_base}"', "dev_port": '"${dev_port}"', "docs_port": '"${docs_port}"'}'
+echo '{"worktree_path": "'"${worktree_path}"'", "branch": "'"${actual_branch}"'", "slug": "'"${slug}"'", "port_base": '"${port_base}"', "dev_port": '"${dev_port}"', "docs_port": '"${docs_port}"', "env_files_carried": '"${env_json}"', "port_env_file": "'"${port_env_file}"'"}'

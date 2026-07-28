@@ -7,16 +7,25 @@
 # area (active/ or archive/).
 #
 # A strategy is long-lived DIRECTION with no completion conditions -- it has no worktree,
-# no tickets, no assignee, no acceptance checklist, no drive_authorized. Adding execution
-# machinery here would collapse the granularity split this artifact exists to create.
+# no tickets, no acceptance checklist, no drive_authorized. It DOES carry ownership:
+# `assignees` names who owns this direction (2026-07-24 -- a deliberate amendment of the
+# earlier "a strategy has no assignee" rule; see strategy/SKILL.md's Terminology record).
+# Ownership is not execution machinery -- worktree/tickets/acceptance/drive_authorized all
+# stay on the mission -- so putting it here does NOT collapse the granularity split: a
+# strategy is a direction some set of people own, and its missions DERIVE their owner from
+# it (mission/scripts/mission-owners.sh). `assignees` is a LIST because a direction can be
+# co-owned; it is seeded with the creator by default.
 #
-# Usage: create.sh "<title>"
+# Usage: create.sh "<title>" [assignee]
+#   assignee defaults to the creator's git user.email (self-ownership). Pass a second
+#   argument to seed a different single owner; co-owners are added by editing the list.
 # Output: JSON {created, slug, path[, reason]}
 
 set -eu
 
 TITLE="${1:-}"
 [ -n "$TITLE" ] || { echo '{"created": false, "reason": "no_title"}'; exit 1; }
+ASSIGNEE_ARG="${2:-}"
 
 SCRIPT_DIR=$(dirname "$0")
 . "${SCRIPT_DIR}/lib/resolve.sh"
@@ -41,6 +50,12 @@ META=$(sh "${SCRIPT_DIR}/../../gather/scripts/ticket-metadata.sh")
 CREATED_AT=$(printf '%s\n' "$META" | grep '"created_at"' | sed -e 's/.*: *"//' -e 's/".*//')
 AUTHOR=$(printf '%s\n' "$META" | grep '"author"' | sed -e 's/.*: *"//' -e 's/".*//')
 
+# Self-ownership by default: the strategy is owned by its creator unless an explicit
+# owner was passed. Seeded as a one-element list (`assignees` is a list because a
+# direction can be co-owned). A mission executing this strategy derives its owner(s)
+# from here (mission/scripts/mission-owners.sh).
+ASSIGNEE="${ASSIGNEE_ARG:-$AUTHOR}"
+
 mkdir -p "$STRATEGY_DIR"
 cat > "$STRATEGY_FILE" <<EOF
 ---
@@ -50,6 +65,7 @@ slug: ${SLUG}
 status: active
 created_at: ${CREATED_AT}
 author: ${AUTHOR}
+assignees: [${ASSIGNEE}]
 ---
 
 # ${TITLE}

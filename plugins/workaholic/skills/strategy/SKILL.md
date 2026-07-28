@@ -27,9 +27,11 @@ The hierarchy is a **model first** (`workaholic:planning` / `modeling-centric-de
 
 "Strategy" matches the developer's own vocabulary and the execution-plan relation (a mission *executes a strategy*), so it is the one word for this concept.
 
+**`assignees` (plural) — ownership lives on the strategy** (2026-07-24). The mission's ownership field was singular `assignee` (one driver per plan); the strategy's is plural `assignees`, because a **direction can be co-owned** — several developers own one strategy, and each of its missions is theirs. This is a deliberate terminology decision (`workaholic:planning` / `terminology`), not accidental drift from the mission's spelling: the number differs because the thing owned differs (one execution plan vs. a shared direction). It also **amends the earlier doctrine** that a strategy has *no* assignee. That doctrine's fear — that adding execution machinery would collapse the strategy/mission granularity split — does not apply to ownership: **ownership is not execution machinery.** The worktree, tickets, acceptance checklist, and `drive_authorized` all stay on the mission (they are *how* the work happens); *who owns the direction* is a property of the direction itself, and a mission simply **derives** its owner from the strategy it executes (`mission/scripts/mission-owners.sh`). The split survives because ownership moved up a level, not the machinery.
+
 ## Schema
 
-`strategy.md` frontmatter — a strategy is **direction, not work**, so it has none of the mission's execution machinery (no worktree, no tickets, no assignee, no acceptance checklist, no `drive_authorized`). Adding any of those would collapse the granularity split this artifact exists to create.
+`strategy.md` frontmatter — a strategy is **direction, not work**, so it has none of the mission's *execution* machinery (no worktree, no tickets, no acceptance checklist, no `drive_authorized`). It **does** carry ownership (`assignees`), because ownership is a property of the direction, not execution machinery — see the Terminology record above. Adding the execution machinery would collapse the granularity split this artifact exists to create; adding ownership does not.
 
 ```yaml
 ---
@@ -39,6 +41,9 @@ slug: <derived slug>    # mission/scripts/slug.sh, the single slug source
 status: active          # active | retired
 created_at: <ISO8601>
 author: <id/email>
+assignees: [<id/email>] # who OWNS this direction; a list (co-ownership). Seeded with
+                        # the creator by create.sh. Missions DERIVE their owner from
+                        # here (mission-owners.sh); read only via read-assignees.sh.
 ---
 ```
 
@@ -63,9 +68,10 @@ Two areas keyed off `status` — the same active/archive split as missions and t
 All POSIX `#!/bin/sh -eu`, JSON out, git-staging their writes; slug and layout helpers are reused, never copied.
 
 - `scripts/lib/resolve.sh` — the single source of slug-to-path resolution (root from a domain fact, absolute paths). Modeled on `mission/scripts/lib/resolve.sh` at smaller scale; **no living migration** (strategies have no legacy layout).
-- `scripts/create.sh` `"<title>"` — scaffold `strategies/active/<slug>/strategy.md`, stamp metadata via the gather skill, refresh OKF indexes, git-stage. Reuses `mission/scripts/slug.sh` (single slug source). Refuses an existing slug in either area. Emits `{created, slug, path}`.
+- `scripts/create.sh` `"<title>" [assignee]` — scaffold `strategies/active/<slug>/strategy.md`, stamp metadata via the gather skill, refresh OKF indexes, git-stage. Seeds `assignees: [<creator>]` (or the optional explicit owner) — the strategy is owned by its creator by default. Reuses `mission/scripts/slug.sh` (single slug source). Refuses an existing slug in either area. Emits `{created, slug, path}`.
 - `scripts/list.sh` — JSON array `{slug, title, status, path, missions: [<mission-slug>], active_missions: [<mission-slug>]}` across both areas; both rollups are **computed** by scanning missions' `strategy:` field through the reader, never stored. `active_missions` (the subset under `missions/active/`) is the **sufficiency signal**: an active strategy whose `active_missions` is empty is direction with nothing currently advancing it.
 - `scripts/read-strategy-relation.sh` `<mission-file>` — the single reader of a mission's `strategy:` frontmatter field (mirror of `mission/scripts/read-relation.sh`: frontmatter-only, tolerates bare value and `[a]` list form, one slug per line, never fails). Convention is **one strategy per mission**; the list tolerance keeps a future many-valued turn migration-free.
+- `scripts/read-assignees.sh` `<strategy-file>` — the single reader of a strategy's `assignees` field (mirror of `read-strategy-relation.sh`: frontmatter-only, tolerates bare value and `[a, b]` list form, one owner per line, never fails). The **one place** a strategy's ownership shape lives; `mission/scripts/mission-owners.sh` calls it to derive a mission's owner.
 - `scripts/retire.sh` `<slug-or-file> [date]` — flip `status` to `retired`, append the changelog line (via `mission/scripts/append-changelog.sh`, the single changelog writer), move to `archive/`, refresh indexes, git-stage. The `close.sh` analogue with **no** worktree/successor/carry semantics.
 
 ## Sufficiency is examined in `/mission`, never here

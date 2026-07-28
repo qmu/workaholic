@@ -93,9 +93,11 @@ Note the returned `worktree_path`. On `"error": "worktree already exists"`, repo
 ( cd <worktree_path> && bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/create.sh "$ARGUMENT" )
 ```
 
-`create.sh` scaffolds `mission.md` (frontmatter including an empty `strategy:` key + `## Goal`/`## Scope`/`## Experience`/`## Acceptance`/`## Changelog` and the empty, optional `gate_*` fields), stamps `created_at`/`author`/`assignee`, refreshes the OKF indexes, and git-stages — all inside the worktree. On `reason: "exists"`, report the path and do not overwrite.
+`create.sh` scaffolds `mission.md` (frontmatter including an empty `strategy:` key + `## Goal`/`## Scope`/`## Experience`/`## Acceptance`/`## Changelog` and the empty, optional `gate_*` fields), stamps `created_at`/`author`, leaves `assignee` **empty** (ownership is derived from the strategy — resolved in step 3a below — not self-assigned on the mission), refreshes the OKF indexes, and git-stages — all inside the worktree. On `reason: "exists"`, report the path and do not overwrite.
 
 **3a. Resolve the strategy link.** Follow the skill's **Strategy resolution** step (`workaholic:mission`) before writing the rounds' output: every mission executes one strategy. **Decide, do not ask, whenever you can** — infer from the request + existing strategies (`( cd <worktree_path> && bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/list.sh )`) and link silently when one active strategy fits (record `strategy linked — <slug>`); create one on the spot when none fits (`strategy/scripts/create.sh`, `## Direction` derived from the mission's Goal one level more general, record `strategy created — <slug>`); and ask **only** when several active strategies genuinely compete — one `AskUserQuestion` (`[<project label>]` prefix from `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`), one option per candidate strategy plus "create new". Stamp `strategy: <slug>` into `mission.md` and record the outcome via `append-changelog.sh`. The mission cannot be stamped `drive_authorized: true` (step 4b) until this link exists — `validate-mission.sh` enforces it.
+
+**Ownership follows the link.** The mission's owner is **derived** from the strategy's `assignees` (`mission-owners.sh`), not stamped on the mission. A strategy created on the spot is seeded with the creator (so a new mission under it is theirs). When linking to an **existing** strategy the creator does not yet own, add the creator to that strategy's `assignees` if they intend to own the work (a one-line edit inside the worktree; record `assignee added — <email>` on the strategy changelog) — otherwise the mission belongs to whoever owns that direction, which is the intended semantics. `validate-mission.sh`'s authorized floor requires the mission to have an owner (derived), so an authorized mission whose strategy has no assignees is refused.
 
 **3b. Interrogate — mandatory, and not skippable.** Follow the skill's **Creation Interrogation** section (`workaholic:mission`) end to end. It defines the rounds (Direction → the demanded experience → the ticket set → per-ticket pre-answers → Acceptance), the ordering rule, and the emission rules; do not restate them here.
 
@@ -127,14 +129,16 @@ When `$ARGUMENT` is empty, bare `/mission` opens a **working planning session**,
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list.sh
 ```
 
-Every entry carries the fields the session needs — computed, so no logic lives in this prose: `relation` (`mine`/`unassigned`/`others`), `next` (the next unchecked acceptance item), `ready` (drive-ready: active, has a plan, `drive_authorized`) and `ready_reason` (`no_plan`/`not_authorized` when not). Do **not** re-derive any of these from `assignee`/`drive_authorized`/`checked` yourself.
+Every entry carries the fields the session needs — computed, so no logic lives in this prose: `relation` (`mine`/`unassigned`/`others`), `strategy` (the slug of the strategy the mission executes, or `""` when unlinked), `next` (the next unchecked acceptance item), `ready` (drive-ready: active, has a plan, `drive_authorized`) and `ready_reason` (`no_plan`/`not_authorized` when not). Do **not** re-derive any of these from `assignee`/`strategy:`/`drive_authorized`/`checked` yourself.
 
-### Step 1 — Status: where the caller's missions stand
+### Step 1 — Status: where the caller's missions stand, grouped by strategy
 
-Render the roadmap **weighted toward the caller** (most of the output is the caller's business; others' work stays visible but compact — de-emphasized, never hidden):
+Render the roadmap **weighted toward the caller** (most of the output is the caller's business; others' work stays visible but compact — de-emphasized, never hidden), and **grouped by the strategy each mission executes** — a mission is the execution plan of a strategy, so the roadmap reads as "here is each direction, and the missions advancing it." Read the strategies once for their titles (`bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/list.sh`) and group the full-treatment tier by the entry's `strategy` field:
 
-- **Full treatment — `mine` and `unassigned` entries with `status: active`** (mine first, then unassigned): `title` (`slug`) — `checked/total`, the `next` item, the drive-ready state (ready, or the `ready_reason` blocker), and the most recent few `## Changelog` lines from the entry's `path`. **Mark an `unassigned` entry as unclaimed and claimable.**
-- **One line each — everything else** (`others`, and any archived mission): `title` (`slug`) — `status` — `checked/total`. No changelog, no paragraphs.
+- **One block per strategy** (title `(slug)` as the heading), containing that strategy's **`mine` and `unassigned` `status: active`** missions in full treatment (mine first, then unassigned). Order strategy blocks with the caller's own strategies (those holding at least one `mine` mission) first.
+- **An "Unlinked" block last** for full-treatment missions whose `strategy` is `""` — active `mine`/`unassigned` missions executing no strategy. Note them as unlinked: the Step 2 replan loop resolves the missing `strategy:` link (its Strategy-resolution step), so surfacing them here is also the signal for that fix.
+- **Full treatment per mission**: `title` (`slug`) — `checked/total`, the `next` item, the drive-ready state (ready, or the `ready_reason` blocker), and the most recent few `## Changelog` lines from the entry's `path`. **Mark an `unassigned` entry as unclaimed and claimable.**
+- **One line each — everything else** (`others`, and any archived mission), gathered under a compact trailing section, **not** grouped by strategy: `title` (`slug`) — `status` — `checked/total`. No changelog, no paragraphs.
 
 If no mission is `mine` or `unassigned`, say so plainly (only colleagues'/archived work exists) and that `/mission "<title>"` starts one; if the array is empty, there are no missions yet.
 

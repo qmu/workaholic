@@ -60,3 +60,6 @@ Positioning note: legacy `assignee`/`strategy` keys are carried in this frontmat
 - 2026-07-28 — ticket archived — 20260728210302-add-proposal-batch-command-and-skill.md
 - 2026-07-28 — ticket archived — 20260728210303-add-slack-notifier-and-proposal-runbook.md
 - 2026-07-28 — story reported — work-20260728-210259.md
+- 2026-07-28 — concern deferred (stuck) — 20260728215635-the-proposal-judgment-bar-is-unproven.md
+- 2026-07-28 — concern deferred (stuck) — 20260728215635-the-feedback-stream-has-no-reader.md
+- 2026-07-28 — concern deferred (stuck) — 20260728215635-draft-acceptance-sketches-could-be-mistaken.md

@@ -254,4 +254,7 @@
 * [Unreachable configured origin now hard-fails mission-worktree creation](20260723022701-unreachable-configured-origin-now-hard-fails.md)
 * [Loop engineering reorganization decided](20260728202017-loop-engineering-reorganization-decided.md)
 * [Installed-plugin lag makes new validators inert until this branch merges](20260728205824-installed-plugin-lag-makes-new-validators.md)
+* [Draft Acceptance sketches could be mistaken for plans](20260728215635-draft-acceptance-sketches-could-be-mistaken.md)
+* [The feedback stream has no reader-side scale valve yet](20260728215635-the-feedback-stream-has-no-reader.md)
+* [The proposal judgment bar is unproven against live feedback](20260728215635-the-proposal-judgment-bar-is-unproven.md)
 <!-- okf:generated:end -->

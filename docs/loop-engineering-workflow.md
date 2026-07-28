@@ -106,7 +106,7 @@ Defaults decided without asking (veto anytime):
 | E3 | Channel↔repository mapping config placement is a ticket-time decision. |
 | F1 | **One plugin.** The `workaholic` plugin gains feedback/proposal skills and commands; all interactive commands remain, preserving local use. |
 | F2 | Batch entry points are non-interactive commands designed on the `/monitor` model: front-load everything, never prompt mid-run. |
-| F3 | The loop components are Claude-Code-only — no `outputs/` footprint. |
+| F3 | ~~The loop components are Claude-Code-only — no `outputs/` footprint.~~ **Corrected by I8** — the workflow skills stay cross-agent through `outputs/workflows`; only hooks/commands are structurally Claude-native. |
 | F4 | This document is the decision record; phases below become missions/tickets. |
 
 ### Second round — `/drive` unification (2026-07-28, later session)
@@ -127,6 +127,20 @@ Defaults decided without asking (veto anytime):
 | H2 | **Concern merges into Feedback** (supersedes A4). Feedback gains a **`kind` axis** — `concern` (born from the development process), `insight` (knowledge/conclusions shared in discussion), customer-material kinds ("received file X from the customer", "customer answered Y"), … enum finalized at ticket time — making "feedback" the single concept for all project-context information that accrues over time. `.workaholic/concerns/` merges into `feedbacks/` (a migration like the strategy one, in a later ticket); the concern-specific lifecycle machinery (promotion floor, demotion, active/archive curation) retires with it — curation becomes the proposal batch's *reading* of the stream, and resolution/mootness is recorded as a **new superseding feedback** referencing the old, upholding A3 immutability. A story's section 6 remains the immutable in-branch record it is today. |
 | H3 | **Timing: drive-born feedback is written when a carry-over decision is made** — never immediately at drive end, where a pre-merge fix could moot the entry. The concrete seams are exactly the existing carry-over decision points: `/ship`'s extraction step, `/carry`, and `/mission close` with `carried`. |
 | H4 | **Customer materials flow through the same stream.** Files received from a customer land in the repository and are analyzed; the analysis results — and the questions that must be asked of, or answers received from, the customer — are recorded as feedback, so "what do we need to ask/answer" is always derivable from the corpus. |
+
+### Fourth round — consistency sweep rulings (2026-07-28, later session)
+
+| # | Ruling |
+| - | ------ |
+| I1 | **`/trip` is retired.** Its three roles are fully covered by the new model — design discussion by Slack, decomposition by the proposal batch (or `/ticket`), execution by the unified `/drive` — so the Agent Teams machinery goes with it: the `planner`/`architect`/`constructor` agent files, `trip-protocol`, the `trips/` area, and every trip mode in other commands. The executor surface becomes `/drive` alone. |
+| I2 | **One mission state axis.** `status: draft \| approved \| achieved \| abandoned \| carried` becomes the single lifecycle; **`drive_authorized` is retired into `status: approved`** (approved = implementable, exactly the approval flow's vocabulary). `merge_policy` stays a separate, orthogonal axis (G5). The `carried`/reorganize-and-carry ceremony simplifies accordingly: replanning is something the proposal batch proposes from feedback, not a hand ritual. |
+| I3 | **Mission `## Reflection` merges into feedback.** Drive-born learnings are `kind: concern`/`insight` feedback written at the carry-over seams (H3); the `append-reflection.sh`/`list-reflections.sh` channel and the reserved `concerns: []` mission key retire with the merger. One learning channel: the proposal batch reads the same stream the planners do. |
+| I4 | **Rejected: removing the `/goal` dependency.** `/goal` stays part of the model; the honest terminal token keeps its `/goal`-caller design, and the 5-minute routine coexists with `/goal`-style in-session looping rather than replacing it. |
+| I5 | **`/carry` is retired entirely** (not merely reduced). In-flight state lives on the claim branch by construction (G3) — the next tick re-claims and resumes from what is pushed; carry-over learnings are H3 feedback; resumption tickets as a dedicated command surface are no longer needed. |
+| I6 | **Worktree lifecycle unifies with the claim.** A worktree is born at claim time and torn down when its PR-unit ships; an unfinished mission is simply re-claimed by a later tick, which recreates the worktree from the pushed branch. `/mission close` loses its teardown role, and closure itself becomes automatic (or batch-proposed) once acceptance is fully met and merged. Detail design belongs to the phase-3 ticket. |
+| I7 | **Agent-hours/KPI recording moves to `/drive`** with the rest of the absorbed `/monitor` machinery (`record-run-hours.sh` seam; G1 absorption list). |
+| I8 | **Cross-agent compatibility is retained** (corrects the F3 default). The workflow skills — the unified `/drive` machinery included — keep shipping cross-agent through the generated `outputs/workflows` bundle; only the structurally Claude-native surfaces (hooks, commands, Agent-Teams remnants until I1 lands) stay Claude-only, as they always have. |
+| I9 | **H4 presupposes a private repository.** Customer-material intake is only enabled where the repository is private; the constraint is recorded next to the intake flow, and the release-scan/leak-denylist relationship is documented with it (a public repo disables the H4 path). |
 
 ## 5. Strategy-layer removal — migration inventory
 
@@ -194,7 +208,8 @@ design (`mission-owners.sh`) contains the blast radius:
 - Needed pieces: a deterministic claim reader (enumerate unmerged remote
   branches, extract claimed artifact IDs), a stale-claim reclamation rule
   (an abandoned claim branch must not block its work forever), and the
-  `/monitor` retirement sweep (command, docs, `/goal` loop references).
+  retirement sweep for `/monitor`, `/trip` (I1), and `/carry` (I5) — commands,
+  agents, docs. `/goal` compatibility stays (I4).
 
 ### 6.5 Slack integration
 
@@ -208,7 +223,7 @@ design (`mission-owners.sh`) contains the blast radius:
 | ----- | ------- |
 | 1 — Foundation | Strategy-layer removal + `assignees` restoration; `feedbacks/` artifact type + capture skill + validators + allowlist registration. Fully useful standalone (feedback works from local sessions too). |
 | 2 — Proposal loop | Cursor detection, proposal judgment, draft missions, Slack bot notifications, dedup. Server cron. Plus the concerns→feedback merger (H2: migration, lifecycle-machinery retirement, carry-over-seam extraction per H3). |
-| 3 — Approval & autonomous `/drive` | Approval flip flow from Slack sessions; per-artifact `merge_policy` at creation (G5); `/drive` unification with claim protocol and PR-unit partitioning (G1–G3); `/monitor` retirement; the 5-minute routine (G4); automated `/ship` for all-auto units. |
+| 3 — Approval & autonomous `/drive` | Approval flip flow from Slack sessions; the `status` unification incl. `drive_authorized` retirement (I2); per-artifact `merge_policy` at creation (G5); `/drive` unification with claim protocol, PR-unit partitioning, and claim-born worktree lifecycle (G1–G3, I6); retirement of `/monitor`, `/trip`, `/carry` and the reflection channel (I1, I3, I5, I7); the 5-minute routine (G4); automated `/ship` for all-auto units. |
 | 4 — Platform | Claude Code Web port of both batches, kioku transcript ingestion, multi-repo rollout of per-repo channels. |
 
 ## 8. Open items (deferred, recorded here so they are not lost)

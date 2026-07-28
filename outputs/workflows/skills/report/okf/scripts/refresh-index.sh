@@ -184,7 +184,7 @@ write_index() {
 # around it survives; the region carries only directories git will actually ship.
 region_tmp=$(mktemp)
 trap 'rm -f "$region_tmp"' EXIT
-for area in concerns deployments release-notes specs terms; do
+for area in concerns deployments feedbacks release-notes specs terms; do
   dir="$ROOT/$area"
   [ -d "$dir" ] || continue
   index="$dir/index.md"
@@ -343,7 +343,7 @@ The development knowledge this project's workaholic workflows generate and maint
 organized as an Open Knowledge Format bundle. Enter any area through its index.
 
 "
-for area in tickets stories strategies missions concerns deployments release-notes specs terms trips; do
+for area in tickets stories strategies missions feedbacks concerns deployments release-notes specs terms trips; do
   dir="$ROOT/$area"
   [ -d "$dir" ] || continue
   case "$area" in
@@ -354,6 +354,8 @@ for area in tickets stories strategies missions concerns deployments release-not
     strategies)    root_body="$root_body* [strategies](strategies/index.md) - long-lived direction (戦略) with no completion conditions; missions are its execution plans
 " ;;
     missions)      root_body="$root_body* [missions](missions/index.md) - overnight-executable execution plans of a strategy, with acceptance progress and an append-only changelog
+" ;;
+    feedbacks)     root_body="$root_body* [feedbacks](feedbacks/index.md) - the inbound feedback stream: immutable records of insights, instructions, concerns, and customer material
 " ;;
     concerns)      root_body="$root_body* [concerns](concerns/index.md) - deferred concerns extracted at ship time, judged on later reports
 " ;;

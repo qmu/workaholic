@@ -88,3 +88,16 @@ Interrogated at mission creation (2026-07-28, decision record `docs/loop-enginee
 - `metadata.internal: true` is mandatory — the skill is script-bearing (CLAUDE.md Cross-Agent Skill Exposure); the loop components are Claude-Code-only by decision F3.
 - Keep the `/feedback` command honest about voice: it records what the human said/concluded, in summary or verbatim — it must not editorialize the content it captures.
 
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The build closure correctly excludes the feedback skill from `outputs/workflows` — no built skill references `feedback/scripts/` yet, so the argument-less build's skill list is unchanged (create-ticket, drive, report, ship, catch, mission, review-sections, write-release-note). Cross-agent exposure (decision I8) will happen automatically the moment a built skill (e.g. the phase-2 `/drive` machinery) references a feedback script, exactly as the strategy skill entered the bundle in `20260721025715`.
+  **Context**: `scripts/build-plugins/build.mjs` `computeClosure`.
+- **Insight**: The validator grandfathers tracked files not only for legacy tolerance but because immutability itself is unhookable — a PostToolUse hook cannot distinguish a forbidden mutation from a legitimate correction, so the convention (never edit; write a `supersedes` entry) lives in the SKILL.md and the hook judges only new writes. Same split as the release-scan's "the rule is primary, the hook is a syntactic backstop".
+  **Context**: `plugins/workaholic/hooks/validate-feedback.sh` header comment.
+- **Insight**: The first real feedback entry is live: `.workaholic/feedbacks/20260728202017-loop-engineering-reorganization-decided.md` (`kind: insight`, `source: discussion`) — the 2026-07-28 reorganization conclusion, registered through `create.sh` as the in-session gate demo.
+  **Context**: `.workaholic/feedbacks/`.
+

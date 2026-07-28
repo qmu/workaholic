@@ -82,3 +82,16 @@ Interrogated at mission creation (2026-07-28, decision record `docs/loop-enginee
 - Do not touch `.worktrees/<slug>` keying, `/drive`'s multi-mission commitment, or any placement rule — data moves, placement stays singular (CLAUDE.md runtime-OKF section).
 - The phase-2 proposal batch depends on "unassigned = claimable/team-owned" surviving exactly as `summary.sh` states it today; do not tighten that gate here.
 
+## Final Report
+
+Development completed as planned. The reconcile-at-drive-time note resolved cleanly: `origin/work-20260724-092537` was merged into this worktree before driving, so the oracle (`mission-owners.sh`) and the strategy-side `assignees` existed and only the resolution order changed.
+
+### Discovered Insights
+
+- **Insight**: `read-assignees.sh` is already a generic `assignees:`-field parser (frontmatter-only, list + bare forms), so the mission's own `assignees` tier reuses it on the mission file directly — the field shape stays defined in exactly one place and no new parser was written. The singular `assignee:` key cannot false-match its `^assignees:` anchor.
+  **Context**: `plugins/workaholic/skills/mission/scripts/mission-owners.sh` tier 1.
+- **Insight**: No consumer needed any change — mission-lens, `/monitor` preflight, `summary.sh`, `list.sh`, `validate-mission.sh`, and `ship`'s concern lane all read through the oracle, so reordering its tiers was invisible to them (asserted by the existing partition tests passing unchanged). The single-oracle design absorbed its second ownership move.
+  **Context**: `grep -rln mission-owners plugins/` — consumers verified, none forked.
+- **Insight**: `create.sh` seeds `assignees: [<creator>]` but deliberately keeps no "scaffold unowned" flag — the phase-2 proposal batch writes draft missions through its own scaffold (drafts predate approval, so they have no approver yet), recorded in the script header so the batch work does not retrofit a flag here.
+  **Context**: `plugins/workaholic/skills/mission/scripts/create.sh` usage comment.
+

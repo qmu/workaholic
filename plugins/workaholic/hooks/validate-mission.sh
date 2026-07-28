@@ -17,11 +17,12 @@
 # One tier for the scaffold moment (which must always pass), one for the finished,
 # dangerous `drive_authorized: true` state. create.sh scaffolds EMPTY sections by
 # design and the Creation Interrogation fills them afterwards:
-#   - always: nothing is required. Ownership no longer lives on the mission
-#     (2026-07-24 — it is DERIVED from the strategy's `assignees`; see mission/SKILL.md
-#     and strategy/SKILL.md), so there is no mandatory `assignee:` key any more.
+#   - always: nothing is required. Ownership is carried on the mission's own plural
+#     `assignees` (2026-07-28 — returned from the 2026-07-24 strategy model; see
+#     mission/SKILL.md's Ownership section), but the scaffold moment mandates no key.
 #   - when the file claims `drive_authorized: true`: the mission must have an OWNER
-#     (mission-owners.sh non-empty — the linked strategy carries at least one assignee,
+#     (mission-owners.sh non-empty — its own assignees, else the strategy transition
+#     fallback carries at least one assignee,
 #     or the mission a legacy `assignee` fallback — an unattended run needs an owner), a
 #     non-empty `strategy:` link, `## Experience` with non-comment content, and
 #     `## Acceptance` with at least one checklist item. A 0/0 authorized mission is
@@ -76,13 +77,13 @@ if [ -z "$strategy" ]; then
   exit 2
 fi
 
-# The mission must have an OWNER. Ownership is derived (mission-owners.sh): the linked
-# strategy's assignees, or a legacy `assignee` fallback on the mission. An unattended run
-# needs someone who owns it, so an authorized mission whose strategy carries no assignee
-# (and which has no legacy assignee) is refused here — add an owner to the strategy.
+# The mission must have an OWNER. Ownership resolves through mission-owners.sh: the
+# mission's own plural `assignees` first, then the strategy transition fallback, then
+# the legacy singular `assignee`. An unattended run needs someone who owns it, so an
+# authorized mission with no owner in any tier is refused here — seed its assignees.
 owners=$(sh "$(dirname "$0")/../skills/mission/scripts/mission-owners.sh" "$file_path" 2>/dev/null || true)
 if [ -z "$owners" ]; then
-  echo "Error: a drive_authorized mission must have an owner — its strategy (${strategy}) needs at least one assignee (or the mission a legacy assignee); unattended work needs an owner" >&2
+  echo "Error: a drive_authorized mission must have an owner — seed the mission's own assignees (or its strategy ${strategy} an assignee, or the mission a legacy assignee); unattended work needs an owner" >&2
   echo "Got: $file_path" >&2
   print_skill_reference
   exit 2

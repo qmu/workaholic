@@ -7,12 +7,15 @@
 # existing mission in either area (active/ or archive/).
 #
 # Usage: create.sh "<title>" [assignee]
-#   Ownership is NOT stored on the mission any more (2026-07-24) — it is DERIVED from the
-#   `assignees` of the strategy this mission executes (mission/scripts/mission-owners.sh),
-#   resolved in the Creation Interrogation's Strategy step. So the scaffold leaves
-#   `assignee:` EMPTY. The optional second argument still seeds the mission's own
-#   `assignee` when a caller wants an explicit legacy fallback (e.g. an unlinked mission),
-#   but the default is unowned-until-strategy-linked, not self-assigned.
+#   Ownership is CARRIED ON THE MISSION as the plural `assignees` list (2026-07-28 —
+#   returned from the 2026-07-24 strategy-layer model; see mission/SKILL.md Ownership
+#   and mission-owners.sh). The scaffold seeds `assignees` with the CREATOR — the
+#   interactive creator is the approver, and the approver is the default owner. The
+#   optional second argument seeds a different single owner instead; co-owners are
+#   added by editing the list. The singular `assignee:` key stays emitted but EMPTY
+#   (legacy readers only). An unowned mission is scaffolded by passing "" explicitly
+#   is NOT supported here — batch writers that need an unowned draft write their own
+#   scaffold (the drafts predate approval, so they have no approver yet).
 # Output: JSON {created, slug, path[, reason]}
 
 set -eu
@@ -46,10 +49,10 @@ META=$(sh "${SCRIPT_DIR}/../../gather/scripts//ticket-metadata.sh")
 CREATED_AT=$(printf '%s\n' "$META" | grep '"created_at"' | sed -e 's/.*: *"//' -e 's/".*//')
 AUTHOR=$(printf '%s\n' "$META" | grep '"author"' | sed -e 's/.*: *"//' -e 's/".*//')
 
-# No self-assignment: ownership is derived from the strategy this mission executes
-# (resolved in the interrogation), so the scaffold leaves `assignee` EMPTY unless a
-# caller explicitly seeds a legacy fallback via the optional second argument.
-ASSIGNEE="${ASSIGNEE_ARG:-}"
+# Self-ownership by default: the creator is the approver and the approver is the
+# default owner (docs/loop-engineering-workflow.md decision B4). The optional second
+# argument seeds a different single owner.
+ASSIGNEE="${ASSIGNEE_ARG:-$AUTHOR}"
 
 mkdir -p "$MISSION_DIR"
 cat > "$MISSION_FILE" <<EOF
@@ -60,7 +63,8 @@ slug: ${SLUG}
 status: active
 created_at: ${CREATED_AT}
 author: ${AUTHOR}
-assignee: ${ASSIGNEE}
+assignees: [${ASSIGNEE}]
+assignee:
 strategy:
 drive_authorized:
 predicted_hours:

@@ -26,8 +26,8 @@ The notifier reads its config from the environment at call time — nothing is
 persisted in the repository:
 
 ```sh
-export SLACK_BOT_TOKEN="xoxb-…"           # chat:write bot token
-export WORKAHOLIC_SLACK_CHANNEL="C0123456789"
+export SLACK_BOT_TOKEN=<your bot token>   # chat:write scope
+export WORKAHOLIC_SLACK_CHANNEL=<channel id>
 ```
 
 Both unset is valid: the loop runs identically and records

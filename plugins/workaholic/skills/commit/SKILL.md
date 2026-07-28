@@ -58,7 +58,7 @@ The commit script performs safety checks:
 
 ## The commit as a unit
 
-A commit is the smallest description layer: **one normalized change**, kept to a reviewable size so commit *count* is a comparable throughput unit. That size is enforced by the release-scan per-commit changed-lines gate (ticket `20260721020759`) — do not restate its thresholds here. The full commit → ticket → mission → strategy granularity discipline lives in `workaholic:mission`'s **Granularity** section.
+A commit is the smallest description layer: **one normalized change**, kept to a reviewable size so commit *count* is a comparable throughput unit. That size is enforced by the release-scan per-commit changed-lines gate (ticket `20260721020759`) — do not restate its thresholds here. The full commit → ticket → mission granularity discipline lives in `workaholic:mission`'s **Granularity** section.
 
 ## Message Format
 

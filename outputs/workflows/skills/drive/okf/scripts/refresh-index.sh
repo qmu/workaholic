@@ -184,7 +184,7 @@ write_index() {
 # around it survives; the region carries only directories git will actually ship.
 region_tmp=$(mktemp)
 trap 'rm -f "$region_tmp"' EXIT
-for area in concerns deployments release-notes specs terms; do
+for area in concerns deployments feedbacks release-notes specs terms; do
   dir="$ROOT/$area"
   [ -d "$dir" ] || continue
   index="$dir/index.md"
@@ -297,41 +297,6 @@ if [ -d "$ROOT/missions" ]; then
   write_index "$ROOT/missions/index.md" "$body"
 fi
 
-# --- Strategies ----------------------------------------------------------------
-# Two-area artifact (active/ and archive/, keyed off each strategy's status by
-# strategy/scripts/retire.sh): one `## <area>` section per non-empty area, one entry
-# per strategy linking its strategy.md, described by the frontmatter title. There is
-# no legacy flat layout for strategies (a new artifact), so no top-level fallback.
-if [ -d "$ROOT/strategies" ]; then
-  body="# strategies
-"
-  for area in active archive; do
-    strategies=$(find "$ROOT/strategies/$area" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | LC_ALL=C sort)
-    [ -n "$strategies" ] || continue
-    body="$body
-## ${area}
-
-"
-    for d in $strategies; do
-      strategy=$(basename "$d")
-      if [ -f "$d/strategy.md" ]; then
-        desc=$(fm_field "$d/strategy.md" title)
-        if [ -n "$desc" ]; then
-          body="$body* [${strategy}](${area}/${strategy}/strategy.md) - ${desc}
-"
-        else
-          body="$body* [${strategy}](${area}/${strategy}/strategy.md)
-"
-        fi
-      else
-        body="$body* [${strategy}/](${area}/${strategy}/)
-"
-      fi
-    done
-  done
-  write_index "$ROOT/strategies/index.md" "$body"
-fi
-
 # --- Bundle root -----------------------------------------------------------------
 root_body="---
 okf_version: \"0.1\"
@@ -343,7 +308,7 @@ The development knowledge this project's workaholic workflows generate and maint
 organized as an Open Knowledge Format bundle. Enter any area through its index.
 
 "
-for area in tickets stories strategies missions concerns deployments release-notes specs terms trips; do
+for area in tickets stories missions feedbacks concerns deployments release-notes specs terms trips; do
   dir="$ROOT/$area"
   [ -d "$dir" ] || continue
   case "$area" in
@@ -351,9 +316,9 @@ for area in tickets stories strategies missions concerns deployments release-not
 " ;;
     stories)       root_body="$root_body* [stories](stories/index.md) - branch development narratives (PR descriptions and historical record)
 " ;;
-    strategies)    root_body="$root_body* [strategies](strategies/index.md) - long-lived direction (戦略) with no completion conditions; missions are its execution plans
+    missions)      root_body="$root_body* [missions](missions/index.md) - optional epic-equivalent batches of tickets, with acceptance progress and an append-only changelog
 " ;;
-    missions)      root_body="$root_body* [missions](missions/index.md) - overnight-executable execution plans of a strategy, with acceptance progress and an append-only changelog
+    feedbacks)     root_body="$root_body* [feedbacks](feedbacks/index.md) - the inbound feedback stream: immutable records of insights, instructions, concerns, and customer material
 " ;;
     concerns)      root_body="$root_body* [concerns](concerns/index.md) - deferred concerns extracted at ship time, judged on later reports
 " ;;

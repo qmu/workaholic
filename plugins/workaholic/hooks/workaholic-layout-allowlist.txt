@@ -17,13 +17,13 @@
 # same change (see CLAUDE.md's closed-layout policy).
 concerns
 deployments
+feedbacks
 guides
 missions
 policies
 release-notes
 specs
 stories
-strategies
 terms
 tickets
 trips

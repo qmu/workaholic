@@ -11,13 +11,13 @@ The `.workaholic/` directory has a fixed structure. Only these subdirectories ar
 | ---------------- | ------------------------------------------ |
 | `concerns/`      | Deferred concerns/ideas (and `concerns/archive/`) |
 | `deployments/`   | Deployment/release procedures and their success-confirmation methods |
+| `feedbacks/`     | The inbound feedback stream — one immutable record per entry (`kind`: insight/instruction/concern/material/answer) |
 | `guides/`        | User documentation (project-local docs area) |
 | `missions/`      | Long-lived goals spanning many tickets (`active/`, `archive/`) |
 | `policies/`      | Project-local policy documentation         |
 | `release-notes/` | Per-branch release notes                   |
 | `specs/`         | Current state reference documentation      |
 | `stories/`       | Development narratives per branch          |
-| `strategies/`    | Long-lived direction above missions (`active/`, `archive/`) |
 | `terms/`         | Term definitions                           |
 | `tickets/`       | Implementation work queue and archives (`todo/`, `archive/`, `icebox/`, `abandoned/`) |
 | `trips/`         | Trip design/decision artifacts per trip    |
@@ -58,6 +58,7 @@ modified_at: <ISO 8601 timestamp>
 
 | Directory       | Additional Fields                                      |
 | --------------- | ------------------------------------------------------ |
+| `feedbacks/`    | `title`, `kind`, `source`, optional `supersedes`       |
 | `specs/`        | `title`, `description`, `category`, `commit_hash`      |
 | `stories/`      | `branch`, `started_at`, `ended_at`, metrics fields     |
 | `terms/`  | `title`, `description`, `category`                     |

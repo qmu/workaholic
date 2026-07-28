@@ -49,6 +49,9 @@ const SCRIPTS = {
   commit: join(REPO_ROOT, "plugins/workaholic/skills/commit/scripts/commit.sh"),
   missionProgress: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/progress.sh"),
   missionList: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list.sh"),
+  missionOwners: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/mission-owners.sh"),
+  readAssignees: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/read-assignees.sh"),
+  migrateStrategies: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/migrate-strategies.sh"),
   missionClose: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/close.sh"),
   appendChangelog: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/append-changelog.sh"),
   tickAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/tick-acceptance.sh"),
@@ -101,10 +104,8 @@ const SCRIPTS = {
   appendReflection: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/append-reflection.sh"),
   listReflections: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/list-reflections.sh"),
   nextAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/next-acceptance.sh"),
-  strategyCreate: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/create.sh"),
-  strategyList: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/list.sh"),
-  strategyReadRelation: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/read-strategy-relation.sh"),
-  strategyRetire: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/retire.sh"),
+  feedbackCreate: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/create.sh"),
+  feedbackList: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/list.sh"),
 };
 
 // rules/shell.md mandates POSIX sh. Exercise the scripts under the strictest
@@ -1779,6 +1780,73 @@ function testMissionWorktreePrimitive() {
   } finally { cleanup(dir3); }
 }
 
+// ---------- worktree env-file carrying (root / subdir / none / declaration) ----------
+// Worktree creation must carry EVERY env file the project reads, not the root one by
+// assumption -- a subdir-env project got a credential-less worktree that failed silently
+// and disguised itself as a "no credentials" finding. Cover all three layouts plus a
+// `.worktree-env` declaration, asserting on the reported JSON as well as the files.
+function testWorktreeEnvCarry() {
+  const dir = makeRepo("main");
+  try {
+    writeFileSync(join(dir, ".gitignore"), ".env\napp/.env\nconfig/secrets.env\n");
+    execSync(`git add .gitignore && git commit -q -m gitignore`, { cwd: dir });
+    // Space creates by 1s: the branch name is work-YYYYMMDD-HHMMSS, so two creates in the
+    // same second collide on the branch name (as the sibling port test also handles).
+    let firstCreate = true;
+    const create = (slug) => {
+      if (!firstCreate) execSync(`sleep 1`, { cwd: dir });
+      firstCreate = false;
+      return JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} ${slug}`).stdout);
+    };
+    const wtfile = (slug, rel) => join(dir, ".worktrees", slug, rel);
+
+    // --- 1. SUBDIR layout: app/.env is what the project reads; no root .env ---
+    mkdirSync(join(dir, "app"), { recursive: true });
+    writeFileSync(join(dir, "app/.env"), "API_KEY=realkey\n");
+    const sub = create("sub-mission");
+    assertEq("subdir: env_files_carried names the package env file", sub.env_files_carried, ["app/.env"]);
+    assertTrue("subdir: app/.env carried with contents intact",
+      existsSync(wtfile("sub-mission", "app/.env")) && readFileSync(wtfile("sub-mission", "app/.env"), "utf8").includes("API_KEY=realkey"));
+    assertTrue("subdir: NO fabricated root .env (the misleading artifact)", !existsSync(wtfile("sub-mission", ".env")));
+    assertEq("subdir: port vars land in a separate .env.worktree", sub.port_env_file, ".env.worktree");
+    assertTrue("subdir: .env.worktree holds the port vars",
+      readFileSync(wtfile("sub-mission", ".env.worktree"), "utf8").includes("WORKAHOLIC_PORT_BASE="));
+
+    // --- 2. NONE layout: no env file anywhere -> nothing fabricated, reported empty ---
+    rmSync(join(dir, "app/.env"));
+    const none = create("none-mission");
+    assertEq("none: env_files_carried is reported empty (not by omission)", none.env_files_carried, []);
+    assertTrue("none: no root .env fabricated", !existsSync(wtfile("none-mission", ".env")));
+    assertEq("none: port vars in .env.worktree", none.port_env_file, ".env.worktree");
+
+    // --- 3. DECLARATION: .worktree-env points at config/secrets.env ---
+    mkdirSync(join(dir, "config"), { recursive: true });
+    writeFileSync(join(dir, "config/secrets.env"), "TOKEN=abc\n");
+    writeFileSync(join(dir, ".worktree-env"), "# the env this project reads\nconfig/secrets.env\n");
+    const decl = create("decl-mission");
+    assertEq("declaration: only the declared file is carried", decl.env_files_carried, ["config/secrets.env"]);
+    assertTrue("declaration: declared file carried with contents",
+      readFileSync(wtfile("decl-mission", "config/secrets.env"), "utf8").includes("TOKEN=abc"));
+
+    // --- 4. ROOT layout: unchanged from historical behavior (no regression) ---
+    rmSync(join(dir, ".worktree-env"));
+    writeFileSync(join(dir, ".env"), "SECRET=1\n");
+    const root = create("root-mission");
+    assertEq("root: env_files_carried is the root .env", root.env_files_carried, [".env"]);
+    assertEq("root: port vars append to the carried root .env (as before)", root.port_env_file, ".env");
+    const rootEnv = readFileSync(wtfile("root-mission", ".env"), "utf8");
+    assertTrue("root: .env keeps its secret AND gains the port vars",
+      rootEnv.includes("SECRET=1") && rootEnv.includes("WORKAHOLIC_PORT_BASE="));
+    assertTrue("root: no separate .env.worktree", !existsSync(wtfile("root-mission", ".env.worktree")));
+
+    // Port bases stay distinct across the subdir(.env.worktree) and root(.env) worktrees,
+    // proving the allocator reads both files.
+    const subBase = sub.port_base, rootBase = root.port_base;
+    assertTrue("allocator gives distinct bases across .env and .env.worktree worktrees",
+      subBase !== rootBase, `sub=${subBase} root=${rootBase}`);
+  } finally { cleanup(dir); }
+}
+
 // Build a clone whose ONLY local branch is a checked-out work-* branch and whose
 // local `main` is genuinely ABSENT (only origin/main survives, as a remote-tracking
 // ref). This is the desk / fresh-clone state in which create-mission-worktree.sh's
@@ -2311,14 +2379,16 @@ concerns: []
 function testMissionWorktreePorts() {
   const dir = makeRepo("main");
   try {
-    // First worktree gets a base; it is recorded in the worktree's .env.
+    // First worktree gets a base; this repo has no root .env, so it is recorded in the
+    // separate .env.worktree (never a fabricated bare root .env), reported as port_env_file.
     const a = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} mission-a`).stdout);
     assertTrue("first worktree has a numeric port base >= 4100",
       typeof a.port_base === "number" && a.port_base >= 4100, JSON.stringify(a));
     assertEq("derived docs port is base+1", a.docs_port, a.port_base + 1);
-    assertTrue("worktree .env carries WORKAHOLIC_PORT_BASE",
-      readFileSync(join(dir, ".worktrees/mission-a/.env"), "utf8").includes(`WORKAHOLIC_PORT_BASE=${a.port_base}`),
-      readFileSync(join(dir, ".worktrees/mission-a/.env"), "utf8"));
+    assertEq("no root .env -> port vars go to .env.worktree", a.port_env_file, ".env.worktree");
+    assertTrue("worktree .env.worktree carries WORKAHOLIC_PORT_BASE",
+      readFileSync(join(dir, ".worktrees/mission-a/.env.worktree"), "utf8").includes(`WORKAHOLIC_PORT_BASE=${a.port_base}`),
+      readFileSync(join(dir, ".worktrees/mission-a/.env.worktree"), "utf8"));
 
     // Second worktree gets a DISTINCT base (collision-free). Space by 1s so the
     // work-* branch names differ.
@@ -3034,94 +3104,47 @@ function testMissionDuration() {
   } finally { cleanup(dir); }
 }
 
-// ---------- strategy: artifact + skill (create/list/reader/retire/index) ----------
-function testStrategyArtifact() {
+// ---------- mission/migrate-strategies.sh (strategy-layer retirement) ----------
+// The living migration: a lingering strategies/ tree folds into feedbacks + mission
+// assignees and is removed — nothing deleted from knowledge, only from structure.
+// Runs standalone here AND through lib/resolve.sh's seam on any mission-script touch.
+function testMigrateStrategies() {
   const dir = makeRepo("main");
   try {
-    // create.sh scaffolds a conformant strategy.md in active/, deriving the slug.
-    let r = run(dir, `${POSIX_SH} ${SCRIPTS.strategyCreate} "Agent Orchestrated Development"`);
-    assertEq("strategy create exits 0", r.status, 0);
-    const created = JSON.parse(r.stdout);
-    assertEq("strategy create slug", created.slug, "agent-orchestrated-development");
-    assertEq("strategy create flag", created.created, true);
-    const spath = join(dir, ".workaholic/strategies/active/agent-orchestrated-development/strategy.md");
-    assertTrue("strategy.md written into active/", existsSync(spath), created.path);
-    const body = readFileSync(spath, "utf8");
-    assertTrue("strategy has type: Strategy", /^type:\s*Strategy\s*$/m.test(body), body.split("\n").slice(0, 10).join("\n"));
-    assertTrue("strategy has status active", /^status:\s*active\s*$/m.test(body));
-    assertTrue("strategy has ## Direction", body.includes("\n## Direction\n"));
-    assertTrue("strategy has ## Changelog", body.includes("\n## Changelog\n"));
-    assertTrue("strategy has NO acceptance/worktree machinery",
-      !/^drive_authorized:/m.test(body) && !/^assignee:/m.test(body) && !body.includes("## Acceptance"), body);
+    const wk = (rel, body) => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), body); };
+    wk(".workaholic/strategies/active/dir-a/strategy.md",
+      "---\ntype: Strategy\ntitle: Direction A\nslug: dir-a\nstatus: active\ncreated_at: 2026-07-21T03:35:56+09:00\nauthor: a@qmu.jp\nassignees: [a@qmu.jp, b@qmu.jp]\n---\n\n# Direction A\n\n## Direction\n\nGo somewhere good.\n\n## Changelog\n");
+    wk(".workaholic/missions/active/m-linked/mission.md",
+      "---\ntype: Mission\ntitle: L\nslug: m-linked\nstatus: active\nassignees: []\nassignee:\nstrategy: dir-a\n---\n\n## Acceptance\n\n- [ ] x\n");
+    wk(".workaholic/missions/active/m-owned/mission.md",
+      "---\ntype: Mission\ntitle: O\nslug: m-owned\nstatus: active\nassignees: [c@qmu.jp]\nassignee:\nstrategy: dir-a\n---\n\n## Acceptance\n\n- [ ] x\n");
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
 
-    // create.sh refuses an existing slug (either area).
-    r = run(dir, `${POSIX_SH} ${SCRIPTS.strategyCreate} "Agent Orchestrated Development"`);
-    assertEq("strategy create refuses duplicate", JSON.parse(r.stdout).created, false);
+    let r = run(dir, `${POSIX_SH} ${SCRIPTS.migrateStrategies}`);
+    assertEq("migrate-strategies exits 0", r.status, 0);
+    const fb = join(dir, ".workaholic/feedbacks/20260721033556-strategy-dir-a.md");
+    assertTrue("the strategy survives as a feedback record", existsSync(fb));
+    const body = readFileSync(fb, "utf8");
+    assertTrue("the feedback preserves the Direction prose verbatim", body.includes("Go somewhere good."), body);
+    assertTrue("the feedback keeps kind/author/created_at from the strategy",
+      body.includes("kind: insight") && body.includes("author: a@qmu.jp") && body.includes("created_at: 2026-07-21T03:35:56+09:00"), body);
+    assertTrue("strategy assignees fold into the empty linked mission",
+      /^assignees: \[a@qmu\.jp, b@qmu\.jp\]$/m.test(readFileSync(join(dir, ".workaholic/missions/active/m-linked/mission.md"), "utf8")));
+    assertTrue("an already-owned mission is untouched",
+      /^assignees: \[c@qmu\.jp\]$/m.test(readFileSync(join(dir, ".workaholic/missions/active/m-owned/mission.md"), "utf8")));
+    assertTrue("the strategies directory is removed", !existsSync(join(dir, ".workaholic/strategies")));
+    assertEq("mission-owners resolves the folded owners with no strategy hop",
+      run(dir, `${POSIX_SH} ${SCRIPTS.missionOwners} ${join(dir, ".workaholic/missions/active/m-linked/mission.md")}`).stdout.split("\n").filter(Boolean),
+      ["a@qmu.jp", "b@qmu.jp"]);
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.migrateStrategies}`);
+    assertEq("a second run is a clean no-op (idempotent)", r.status, 0);
 
-    // A second strategy so list ordering is exercised.
-    run(dir, `${POSIX_SH} ${SCRIPTS.strategyCreate} "Zebra Direction"`);
-
-    // Missions linking to strategies via the `strategy:` relation.
-    const mkMission = (slug, strategyLine) => {
-      const md = join(dir, `.workaholic/missions/active/${slug}/mission.md`);
-      mkdirSync(dirname(md), { recursive: true });
-      writeFileSync(md, `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\n${strategyLine}\n---\n\n# ${slug}\n`);
-    };
-    mkMission("mission-a", "strategy: agent-orchestrated-development");
-    mkMission("mission-b", "strategy: [agent-orchestrated-development]");   // list form
-    mkMission("mission-c", "strategy: zebra-direction");
-    mkMission("mission-d", "strategy:");                                    // unlinked
-
-    // read-strategy-relation.sh: bare, list, absent, no-frontmatter.
-    const rel = (slug) => run(dir, `${POSIX_SH} ${SCRIPTS.strategyReadRelation} .workaholic/missions/active/${slug}/mission.md`).stdout.trim();
-    assertEq("reader: bare scalar", rel("mission-a"), "agent-orchestrated-development");
-    assertEq("reader: inline list", rel("mission-b"), "agent-orchestrated-development");
-    assertEq("reader: absent value -> nothing", rel("mission-d"), "");
-    writeFileSync(join(dir, "nofm.md"), "no frontmatter here\nstrategy: x\n");
-    assertEq("reader: no frontmatter -> nothing",
-      run(dir, `${POSIX_SH} ${SCRIPTS.strategyReadRelation} nofm.md`).stdout.trim(), "");
-
-    // list.sh: both strategies, computed missions rollup, sorted.
-    const list = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyList}`).stdout);
-    assertEq("list reports both strategies", list.map((s) => s.slug), ["agent-orchestrated-development", "zebra-direction"]);
-    const aod = list.find((s) => s.slug === "agent-orchestrated-development");
-    assertEq("rollup computes missions for the strategy", aod.missions.sort(), ["mission-a", "mission-b"]);
-    assertEq("zebra rollup has its one mission", list.find((s) => s.slug === "zebra-direction").missions, ["mission-c"]);
-
-    // active_missions: the /mission gap signal. Archive mission-c; zebra keeps it in
-    // `missions` (all) but drops it from `active_missions` -> zebra is now a gap.
-    mkdirSync(join(dir, ".workaholic/missions/archive/mission-c"), { recursive: true });
-    execSync(`git mv .workaholic/missions/active/mission-c .workaholic/missions/archive/mission-c 2>/dev/null || mv .workaholic/missions/active/mission-c/mission.md .workaholic/missions/archive/mission-c/mission.md`, { cwd: dir });
-    const listG = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyList}`).stdout);
-    const zebra = listG.find((s) => s.slug === "zebra-direction");
-    assertEq("archived mission stays in the all-missions rollup", zebra.missions, ["mission-c"]);
-    assertEq("gap signal: zebra has no active mission", zebra.active_missions, []);
-    assertEq("non-gap: aod still has active missions",
-      listG.find((s) => s.slug === "agent-orchestrated-development").active_missions.sort(), ["mission-a", "mission-b"]);
-
-    // OKF index: strategies/index.md with area section; bundle root links strategies.
-    assertTrue("strategies index written", existsSync(join(dir, ".workaholic/strategies/index.md")));
-    assertTrue("strategies index has ## active",
-      readFileSync(join(dir, ".workaholic/strategies/index.md"), "utf8").includes("\n## active\n"));
-    assertTrue("bundle root links strategies",
-      readFileSync(join(dir, ".workaholic/index.md"), "utf8").includes("(strategies/index.md)"));
-
-    // retire.sh: moves to archive/, flips status, idempotent re-retire.
-    r = run(dir, `${POSIX_SH} ${SCRIPTS.strategyRetire} zebra-direction 2026-07-21`);
-    assertEq("retire exits 0", r.status, 0);
-    const retired = JSON.parse(r.stdout);
-    assertEq("retire flag", retired.retired, true);
-    assertTrue("strategy moved to archive/",
-      existsSync(join(dir, ".workaholic/strategies/archive/zebra-direction/strategy.md")));
-    const arch = readFileSync(join(dir, ".workaholic/strategies/archive/zebra-direction/strategy.md"), "utf8");
-    assertTrue("retired status flipped", /^status:\s*retired\s*$/m.test(arch), arch);
-    assertTrue("retire appended a changelog line", /- 2026-07-21 .* strategy retired/.test(arch), arch);
-    r = run(dir, `${POSIX_SH} ${SCRIPTS.strategyRetire} zebra-direction 2026-07-21`);
-    assertEq("re-retire is idempotent no-op", JSON.parse(r.stdout).retired, false);
-
-    // retired strategy still lists (archive area) with its computed rollup.
-    const list2 = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.strategyList}`).stdout);
-    assertEq("retired strategy still enumerated", list2.find((s) => s.slug === "zebra-direction").status, "retired");
+    // The resolve.sh seam: any mission-script touch migrates a tree that reappears.
+    wk(".workaholic/strategies/active/dir-b/strategy.md",
+      "---\ntype: Strategy\ntitle: B\nslug: dir-b\nstatus: active\ncreated_at: 2026-07-22T00:00:00+09:00\nauthor: a@qmu.jp\nassignees: [a@qmu.jp]\n---\n\n## Direction\n\nB.\n\n## Changelog\n");
+    run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`);
+    assertTrue("the resolve.sh seam migrates on the next mission-script touch",
+      !existsSync(join(dir, ".workaholic/strategies")) && existsSync(join(dir, ".workaholic/feedbacks/20260722000000-strategy-dir-b.md")));
   } finally { cleanup(dir); }
 }
 
@@ -3183,7 +3206,8 @@ function testMission() {
     assertTrue("mission has type: Mission", /^type:\s*Mission\s*$/m.test(body), body.split("\n").slice(0, 12).join("\n"));
     assertTrue("mission has slug", /^slug:\s*real-time-notifications\s*$/m.test(body));
     assertTrue("mission has status active", /^status:\s*active\s*$/m.test(body));
-    assertTrue("mission scaffold carries an empty strategy: key", /^strategy:\s*$/m.test(body), body.split("\n").slice(0, 16).join("\n"));
+    assertTrue("mission scaffold seeds assignees with the creator (the approver is the default owner)",
+      /^assignees:\s*\[test@example\.com\]\s*$/m.test(body) && /^assignee:\s*$/m.test(body), body.split("\n").slice(0, 16).join("\n"));
     assertTrue("mission scaffold carries empty predicted_hours/actual_hours keys",
       /^predicted_hours:\s*$/m.test(body) && /^actual_hours:\s*$/m.test(body), body.split("\n").slice(0, 16).join("\n"));
     assertTrue("mission reserves empty tickets list", /^tickets:\s*\[\]\s*$/m.test(body));
@@ -3379,7 +3403,10 @@ Why.
     // sanctioned creator...
     const wt = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} replan-me`).stdout);
     assertTrue("replan creates the missing worktree", existsSync(join(dir, ".worktrees/replan-me")), JSON.stringify(wt));
-    assertTrue("the replan worktree got a port .env", existsSync(join(dir, ".worktrees/replan-me/.env")));
+    // No root .env in this repo, so the port vars land in the separate .env.worktree
+    // (never a fabricated bare root .env — the misleading artifact the carrier avoids).
+    assertTrue("the replan worktree got its port vars (.env.worktree, no root .env)",
+      existsSync(join(dir, ".worktrees/replan-me/.env.worktree")) && !existsSync(join(dir, ".worktrees/replan-me/.env")));
     // ...while the create flow still dead-ends on the existing mission.md — the
     // measured reason replan, not create, is the successor's flesh-out path.
     const cr = JSON.parse(run(join(dir, ".worktrees/replan-me"), `${POSIX_SH} ${SCRIPTS.missionCreate} "Replan Me"`).stdout);
@@ -5487,11 +5514,11 @@ function testValidateLayout() {
     `expected a closed-structure message, got: ${blocked.out.slice(0, 300)}`);
 
   // Allowed locations pass cleanly (exit 0) — including the newly-registered
-  // strategies/guides/policies dirs and the release-scan root files.
+  // feedbacks/guides/policies dirs and the release-scan root files.
   for (const p of [
     ".workaholic/stories/s.md", ".workaholic/deployments/prod.md", ".workaholic/concerns/42-foo.md",
     ".workaholic/release-notes/work-x.md", ".workaholic/trips/work-x/designs/design-v1.md",
-    ".workaholic/strategies/active/x/strategy.md", ".workaholic/guides/getting-started.md",
+    ".workaholic/feedbacks/20260728000000-note.md", ".workaholic/guides/getting-started.md",
     ".workaholic/policies/security.md",
     ".workaholic/README.md", ".workaholic/index.md", ".workaholic/scan-allow", ".workaholic/leak-denylist",
     ".workaholic/tickets/todo/test-example-com/20260101000000-t.md",
@@ -5532,10 +5559,10 @@ function testLayoutDoctor() {
   } finally { cleanup(dir); }
 
   // A clean tree conforms with zero findings — including the registered
-  // strategies/guides/policies dirs and the release-scan root files.
+  // feedbacks/guides/policies dirs and the release-scan root files.
   const clean = mkdtempSync(join(tmpdir(), "workaholic-doctor-"));
   try {
-    for (const d of ["stories", "tickets/todo", "strategies/active", "guides", "policies"]) {
+    for (const d of ["stories", "tickets/todo", "feedbacks", "guides", "policies"]) {
       mkdirSync(join(clean, ".workaholic", d), { recursive: true });
     }
     writeFileSync(join(clean, ".workaholic/scan-allow"), "");
@@ -5855,24 +5882,24 @@ function testValidateMission() {
     writeFileSync(join(dir, rel), mission({ assignee: "assignee:" }));
     assertEq("validate-mission allows an EMPTY assignee (unclaimed is legal)", invoke(), 0);
 
-    // The assignee KEY itself must exist, even unstamped.
+    // A scaffold with NO assignee key is legal (nothing is required at the scaffold moment).
     writeFileSync(join(dir, rel), mission({ assignee: "title2: no-assignee-key" }));
-    assertEq("validate-mission rejects a mission missing the assignee key", invoke(), 2);
+    assertEq("validate-mission allows a scaffold with no assignee key", invoke(), 0);
 
-    // An UNSTAMPED scaffold with an empty strategy passes (link resolved later).
-    writeFileSync(join(dir, rel), mission({ strategy: "strategy:" }));
-    assertEq("validate-mission lets an unstamped mission with empty strategy pass", invoke(), 0);
-
-    // drive_authorized: true — the full floor (now includes a non-empty strategy link).
+    // drive_authorized: true — the full floor (owner + Experience + Acceptance).
+    // A legacy `strategy:` key from the retired strategy layer is tolerated and ignored.
     const full = { stamp: " true", strategy: "strategy: agent-orchestrated-development", exp: "\nUsers see the thing happen.\n", acc: "\n- [ ] One\n" };
     writeFileSync(join(dir, rel), mission(full));
-    assertEq("validate-mission accepts a complete authorized mission", invoke(), 0);
+    assertEq("validate-mission accepts a complete authorized mission (legacy assignee is the owner)", invoke(), 0);
     writeFileSync(join(dir, rel), mission({ ...full, assignee: "assignee:" }));
-    assertEq("validate-mission rejects an authorized mission with no owner", invoke(), 2);
+    assertEq("validate-mission rejects an authorized mission with no owner (no assignees, no legacy assignee)", invoke(), 2);
+
+    // The mission's own plural assignees satisfy the floor with an empty legacy assignee.
+    writeFileSync(join(dir, rel), mission({ ...full, assignee: "assignees: [owner@qmu.jp]\nassignee:" }));
+    assertEq("validate-mission accepts an authorized mission owned via its own assignees", invoke(), 0);
+    // No strategy link is required any more (the layer is retired); an empty key passes.
     writeFileSync(join(dir, rel), mission({ ...full, strategy: "strategy:" }));
-    assertEq("validate-mission rejects an authorized mission with no strategy link", invoke(), 2);
-    writeFileSync(join(dir, rel), mission({ ...full, strategy: "strategy: []" }));
-    assertEq("validate-mission rejects an authorized mission with empty-list strategy", invoke(), 2);
+    assertEq("validate-mission accepts an authorized mission with no strategy value", invoke(), 0);
     writeFileSync(join(dir, rel), mission({ ...full, exp: "\n<!-- fill me -->\n" }));
     assertEq("validate-mission rejects an authorized mission with comment-only Experience", invoke(), 2);
     writeFileSync(join(dir, rel), mission({ ...full, acc: "\n" }));
@@ -7250,8 +7277,8 @@ function testMonitorPreflight() {
         `---\ntype: Mission\ntitle: ${slug} title\nslug: ${slug}\nstatus: active\nassignee: ${assignee}\ndrive_authorized:${stamp ? " true" : ""}\n---\n\n## Acceptance\n\n${acceptance}\n## Changelog\n`);
     };
 
-    wtMission("alpha", { strategy: "agent-orchestrated-development" }); // eligible: stamped, 1/2, own worktree, linked
-    wtMission("beta", { stamp: false });                         // undriveable: never stamped (and unlinked strategy)
+    wtMission("alpha");                                          // eligible: stamped, 1/2, own worktree
+    wtMission("beta", { stamp: false });                         // undriveable: never stamped
     wtMission("gamma", { acceptance: "" });                      // undriveable: stamped but no plan
     execSync(`git worktree add -q .worktrees/orphan -b work-20260718000099-orphan`, { cwd: dir });
     // .worktrees/orphan holds no mission.md -> reported as an orphan, never guessed at.
@@ -7269,9 +7296,6 @@ function testMonitorPreflight() {
       { c: by.alpha.checked, t: by.alpha.total, next: by.alpha.next }, { c: 1, t: 2, next: "Two" });
     assertTrue("the eligible mission carries its worktree path",
       by.alpha.worktree_path.endsWith(".worktrees/alpha"), by.alpha.worktree_path);
-    assertEq("preflight surfaces the mission's strategy slug", by.alpha.strategy, "agent-orchestrated-development");
-    assertEq("an unlinked mission surfaces an empty strategy (a replan item, not a blocker)",
-      { s: by.beta.strategy, a: by.beta.authorized }, { s: "", a: false });
     assertEq("an unstamped mission is undriveable (not_authorized)",
       { a: by.beta.authorized, reason: by.beta.reason }, { a: false, reason: "not_authorized" });
     assertEq("a stamped mission with an empty Acceptance is undriveable (no_plan)",
@@ -7550,6 +7574,128 @@ function testMonitorFrontLoads() {
   } finally { cleanup(dir); }
 }
 
+// ---------- ownership: read-assignees + mission-owners (mission-first, 2026-07-28) ----------
+// Ownership is carried on the mission's own plural `assignees`. read-assignees.sh is the
+// single parser of the field shape (bare + list); mission-owners.sh resolves the mission's
+// own assignees with a legacy fallback to the singular assignee. list.sh's relation and
+// summary.sh's gate both read through mission-owners.sh.
+function testMissionOwnership() {
+  const dir = makeRepo("main");
+  try {
+    execSync(`git checkout -q -b work-20260728-ownership`, { cwd: dir });
+    const A = "a@qmu.jp", B = "b@qmu.jp";
+    const wk = (p, body) => { mkdirSync(dirname(join(dir, p)), { recursive: true }); writeFileSync(join(dir, p), body); };
+    const owners = (mpath) => run(dir, `${POSIX_SH} ${SCRIPTS.missionOwners} ${mpath}`).stdout.split("\n").filter(Boolean);
+
+    // read-assignees.sh: list, bare, empty — the single parser of the field shape.
+    wk(".workaholic/missions/active/m-co/mission.md", `---\ntype: Mission\nslug: m-co\nstatus: active\nassignees: [${A}, ${B}]\nassignee:\n---\n\n## Acceptance\n\n- [ ] X\n`);
+    assertEq("read-assignees reads a list form",
+      run(dir, `${POSIX_SH} ${SCRIPTS.readAssignees} ${join(dir, ".workaholic/missions/active/m-co/mission.md")}`).stdout.split("\n").filter(Boolean),
+      [A, B]);
+    wk(".workaholic/missions/active/m-solo/mission.md", `---\ntype: Mission\nslug: m-solo\nstatus: active\nassignees: ${A}\nassignee:\n---\n\n## Acceptance\n\n- [ ] X\n`);
+    assertEq("read-assignees reads a bare form",
+      run(dir, `${POSIX_SH} ${SCRIPTS.readAssignees} ${join(dir, ".workaholic/missions/active/m-solo/mission.md")}`).stdout.split("\n").filter(Boolean),
+      [A]);
+
+    // mission-owners.sh: own assignees win; legacy fallback; unowned; legacy strategy key ignored.
+    assertEq("mission-owners reads the mission's own assignees (co-owned)",
+      owners(join(dir, ".workaholic/missions/active/m-co/mission.md")), [A, B]);
+    wk(".workaholic/missions/active/m-legacy/mission.md", `---\ntype: Mission\nslug: m-legacy\nstatus: active\nassignees: []\nassignee: ${A}\n---\n\n## Acceptance\n\n- [ ] X\n`);
+    assertEq("mission-owners: empty assignees falls through to the legacy assignee",
+      owners(join(dir, ".workaholic/missions/active/m-legacy/mission.md")), [A]);
+    wk(".workaholic/missions/active/m-unowned/mission.md", `---\ntype: Mission\nslug: m-unowned\nstatus: active\nassignees: []\nassignee:\n---\n\n## Acceptance\n\n- [ ] X\n`);
+    assertEq("mission-owners yields nothing for an unowned mission",
+      owners(join(dir, ".workaholic/missions/active/m-unowned/mission.md")).length, 0);
+    wk(".workaholic/missions/active/m-oldkey/mission.md", `---\ntype: Mission\nslug: m-oldkey\nstatus: active\nassignees: [${B}]\nassignee:\nstrategy: some-retired-direction\n---\n\n## Acceptance\n\n- [ ] X\n`);
+    assertEq("a legacy strategy key is tolerated and ignored by the oracle",
+      owners(join(dir, ".workaholic/missions/active/m-oldkey/mission.md")), [B]);
+
+    // list.sh relation reads through mission-owners.sh.
+    execSync(`git config user.email ${B}`, { cwd: dir });
+    const lst = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
+    const byslug = Object.fromEntries(lst.map((m) => [m.slug, m]));
+    assertEq("list.sh relation: a co-owner sees the mission as mine",
+      byslug["m-co"].relation, "mine");
+    assertEq("list.sh owners carries the full set",
+      byslug["m-co"].owners, [A, B]);
+    assertEq("list.sh relation: unowned mission is unassigned",
+      byslug["m-unowned"].relation, "unassigned");
+    assertEq("list.sh relation: mission owned only by others",
+      byslug["m-legacy"].relation, "others");
+  } finally { cleanup(dir); }
+}
+
+// ---------- feedback/create.sh + list.sh + hooks/validate-feedback.sh ----------
+// The feedback stream: immutable inbound records (see feedback/SKILL.md). create.sh
+// is the only sanctioned writer; the validator holds NEW writes to the schema floor
+// and grandfathers tracked history exactly like validate-story.sh.
+function testFeedback() {
+  const dir = makeRepo("main");
+  try {
+    // --- create: a conformant, staged, indexed record ---
+    let r = run(dir, `printf 'We decided the loop model.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "Loop model decided" insight discussion`);
+    assertEq("feedback create exits 0", r.status, 0);
+    const created = JSON.parse(r.stdout);
+    assertTrue("feedback create reports created", created.created === true, r.stdout);
+    assertTrue("feedback filename is <ts>-<slug>.md",
+      /\.workaholic\/feedbacks\/\d{14}-loop-model-decided\.md$/.test(created.path), created.path);
+    const body = readFileSync(join(dir, created.path), "utf8");
+    assertTrue("feedback carries type: Feedback", body.includes("type: Feedback"), body);
+    assertTrue("feedback carries kind + source", body.includes("kind: insight") && body.includes("source: discussion"), body);
+    assertTrue("feedback body is the stdin prose", body.includes("We decided the loop model."), body);
+    assertTrue("feedback area index generated", existsSync(join(dir, ".workaholic/feedbacks/index.md")));
+    const staged = run(dir, `git diff --cached --name-only`).stdout;
+    assertTrue("feedback file is git-staged", staged.includes("feedbacks/"), staged);
+
+    // --- enum + body floors are refused at the writer ---
+    r = run(dir, `printf 'x\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "T" bogus discussion`);
+    assertTrue("feedback create refuses unknown kind", r.status !== 0 && r.stdout.includes("bad_kind"), r.stdout);
+    r = run(dir, `printf 'x\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "T" insight carrier-pigeon`);
+    assertTrue("feedback create refuses unknown source", r.status !== 0 && r.stdout.includes("bad_source"), r.stdout);
+    r = run(dir, `printf '' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "T" insight slack`);
+    assertTrue("feedback create refuses an empty body", r.status !== 0 && r.stdout.includes("empty_body"), r.stdout);
+
+    // --- supersedes: resolution is a NEW record naming the old one ---
+    r = run(dir, `printf 'Overtaken by the new design.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "Loop model superseded" insight discussion "${basename(created.path)}"`);
+    const second = JSON.parse(r.stdout);
+    assertTrue("superseding feedback records the old filename",
+      readFileSync(join(dir, second.path), "utf8").includes(`supersedes: ${basename(created.path)}`));
+
+    // --- list: every record with its frontmatter fields ---
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.feedbackList}`);
+    const listed = JSON.parse(r.stdout);
+    assertEq("feedback list reports both records", listed.length, 2);
+    assertTrue("feedback list carries kind/source/author fields",
+      listed.every((e) => e.kind === "insight" && e.source === "discussion" && e.author.includes("@")), r.stdout);
+
+    // --- validator: NEW writes are held to the floor; history is grandfathered ---
+    let hasJq = true;
+    try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+    if (!hasJq) { console.log("  skip  validate-feedback (jq not available)"); return; }
+    const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-feedback.sh");
+    const invoke = (p) => {
+      try { execSync(`${POSIX_SH} ${HOOK}`, { cwd: dir, input: JSON.stringify({ tool_input: { file_path: p } }), encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return 0; }
+      catch (e) { return e.status ?? 1; }
+    };
+    const put = (rel, content) => { const abs = join(dir, rel); mkdirSync(dirname(abs), { recursive: true }); writeFileSync(abs, content); return rel; };
+    assertEq("validate-feedback passes a conformant record", invoke(created.path), 0);
+    const bad = put(".workaholic/feedbacks/20260728190000-bad-kind.md",
+      "---\ntype: Feedback\ntitle: Bad\nkind: vibe\nsource: slack\ncreated_at: 2026-07-28T19:00:00+09:00\nauthor: test@example.com\nsupersedes:\n---\n\n# Bad\n");
+    assertEq("validate-feedback blocks an unknown kind", invoke(bad), 2);
+    const noType = put(".workaholic/feedbacks/20260728190001-no-type.md",
+      "---\ntitle: NoType\nkind: insight\nsource: slack\ncreated_at: 2026-07-28T19:00:01+09:00\nauthor: test@example.com\n---\n\n# NoType\n");
+    assertEq("validate-feedback blocks a missing type", invoke(noType), 2);
+    const badName = put(".workaholic/feedbacks/free-form-name.md",
+      "---\ntype: Feedback\ntitle: X\nkind: insight\nsource: slack\ncreated_at: 2026-07-28T19:00:02+09:00\nauthor: test@example.com\n---\n\n# X\n");
+    assertEq("validate-feedback blocks an off-pattern filename", invoke(badName), 2);
+    assertEq("validate-feedback ignores feedbacks/index.md", invoke(".workaholic/feedbacks/index.md"), 0);
+    assertEq("validate-feedback ignores non-feedback paths", invoke("src/app.ts"), 0);
+    const old = put(".workaholic/feedbacks/20260101000000-legacy.md", "no frontmatter\n");
+    execSync(`git add .workaholic/feedbacks/20260101000000-legacy.md && git commit -q -m "legacy"`, { cwd: dir });
+    assertEq("validate-feedback grandfathers a tracked legacy file", invoke(old), 0);
+  } finally { cleanup(dir); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -7569,6 +7715,7 @@ const tests = [
   ["hooks/mission-lens.sh summarizes on change", testMissionLensOnChange],
   ["mission create branches on main", testMissionBranchOnCreate],
   ["branching mission worktree primitive", testMissionWorktreePrimitive],
+  ["worktree env-file carrying (root/subdir/none/declaration)", testWorktreeEnvCarry],
   ["mission worktree lands on the branch it reports", testMissionWorktreeNoLocalMain],
   ["mission worktree starts from the merged base (fetch-first)", testMissionWorktreeFetchFirst],
   ["mission-lens worktree focus", testMissionLensWorktreeFocus],
@@ -7590,7 +7737,8 @@ const tests = [
   ["gather/commit-kpi.sh orchestration throughput", testCommitKpi],
   ["mission reflection append + list", testMissionReflection],
   ["mission duration predict + record", testMissionDuration],
-  ["strategy artifact + skill (create/list/reader/retire/index)", testStrategyArtifact],
+  ["mission/migrate-strategies.sh (strategy-layer retirement)", testMigrateStrategies],
+  ["mission ownership (read-assignees + mission-owners)", testMissionOwnership],
   ["installed plugin helper resolution", testInstalledPluginHelperResolution],
   ["mission/create.sh + progress.sh + list.sh", testMission],
   ["mission describes experience, gate is optional", testMissionExperienceSection],
@@ -7668,6 +7816,7 @@ const tests = [
   ["monitor pushes decisions one by one", testMonitorPushesDecisions],
   ["monitor: replan is leaf work, not main-agent work", testMonitorReplanIsLeafWork],
   ["monitor: front-load every decision, then run unattended", testMonitorFrontLoads],
+  ["feedback/create.sh + list.sh + hooks/validate-feedback.sh", testFeedback],
 ];
 
 for (const [label, fn] of tests) {

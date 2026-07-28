@@ -75,4 +75,5 @@
 * [Harden the mission and concern lifecycles etc](work-20260721-153431.md)
 * [Enforce the working-directory and layout guards by default etc](work-20260722-191036.md)
 * [Mission-worktree base resolution now fetches origin and prefers origin/&lt;base&gt; etc](work-20260723-000846.md)
+* [Add the feedback stream and retire the strategy layer](work-20260728-183130.md)
 <!-- okf:generated:end -->

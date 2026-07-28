@@ -3274,6 +3274,8 @@ function testMission() {
     assertTrue("mission has slug", /^slug:\s*real-time-notifications\s*$/m.test(body));
     assertTrue("mission has status active", /^status:\s*active\s*$/m.test(body));
     assertTrue("mission scaffold carries an empty strategy: key", /^strategy:\s*$/m.test(body), body.split("\n").slice(0, 16).join("\n"));
+    assertTrue("mission scaffold seeds assignees with the creator (the approver is the default owner)",
+      /^assignees:\s*\[test@example\.com\]\s*$/m.test(body) && /^assignee:\s*$/m.test(body), body.split("\n").slice(0, 16).join("\n"));
     assertTrue("mission scaffold carries empty predicted_hours/actual_hours keys",
       /^predicted_hours:\s*$/m.test(body) && /^actual_hours:\s*$/m.test(body), body.split("\n").slice(0, 16).join("\n"));
     assertTrue("mission reserves empty tickets list", /^tickets:\s*\[\]\s*$/m.test(body));
@@ -7654,11 +7656,11 @@ function testMonitorFrontLoads() {
   } finally { cleanup(dir); }
 }
 
-// ---------- strategy-level ownership: read-assignees + mission-owners (derived) ----------
-// Ownership moved to the strategy layer (2026-07-24). read-assignees.sh reads a strategy's
-// `assignees` (bare + list); mission-owners.sh derives a mission's owner two hops (strategy
-// assignees) with a legacy fallback to the mission's own `assignee`. list.sh's relation and
-// summary.sh's gate both read through mission-owners.sh, so the partition tracks the strategy.
+// ---------- ownership: read-assignees + mission-owners (mission-first, 2026-07-28) ----------
+// Ownership is carried on the mission's own plural `assignees` (returned from the 2026-07-24
+// strategy-layer model). mission-owners.sh resolves: (1) the mission's own assignees, (2) the
+// strategy transition fallback (link -> strategy assignees), (3) the legacy singular assignee.
+// list.sh's relation and summary.sh's gate both read through mission-owners.sh.
 function testStrategyOwnership() {
   const dir = makeRepo("main");
   try {
@@ -7696,6 +7698,17 @@ function testStrategyOwnership() {
     wk(".workaholic/missions/active/m-unowned/mission.md", `---\ntype: Mission\nslug: m-unowned\nstatus: active\nassignee:\nstrategy:\n---\n\n## Acceptance\n\n- [ ] X\n`);
     assertEq("mission-owners yields nothing for an unlinked, unassigned mission",
       owners(join(dir, ".workaholic/missions/active/m-unowned/mission.md")).length, 0);
+
+    // 2026-07-28: the mission's OWN plural assignees are the primary tier.
+    wk(".workaholic/missions/active/m-own/mission.md", `---\ntype: Mission\nslug: m-own\nstatus: active\nassignees: [${B}]\nassignee:\nstrategy: dir-a\n---\n\n## Acceptance\n\n- [ ] X\n`);
+    assertEq("mission-owners: the mission's own assignees win over the strategy",
+      owners(join(dir, ".workaholic/missions/active/m-own/mission.md")), [B]);
+    wk(".workaholic/missions/active/m-own-bare/mission.md", `---\ntype: Mission\nslug: m-own-bare\nstatus: active\nassignees: ${A}\nassignee:\nstrategy:\n---\n\n## Acceptance\n\n- [ ] X\n`);
+    assertEq("mission-owners: bare-form mission assignees resolve with no strategy",
+      owners(join(dir, ".workaholic/missions/active/m-own-bare/mission.md")), [A]);
+    wk(".workaholic/missions/active/m-own-empty/mission.md", `---\ntype: Mission\nslug: m-own-empty\nstatus: active\nassignees: []\nassignee: ${A}\nstrategy:\n---\n\n## Acceptance\n\n- [ ] X\n`);
+    assertEq("mission-owners: empty assignees falls through to the legacy assignee",
+      owners(join(dir, ".workaholic/missions/active/m-own-empty/mission.md")), [A]);
 
     // list.sh relation reads through mission-owners.sh: m-derived is B's business, not
     // through any mission-local field — it has an empty assignee and B is a strategy co-owner.

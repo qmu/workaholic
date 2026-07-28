@@ -5,6 +5,7 @@ slug: loop-engineering-foundation
 status: active
 created_at: 2026-07-28T18:31:48+09:00
 author: a@qmu.jp
+assignees: [a@qmu.jp]
 assignee: a@qmu.jp
 strategy: agent-orchestrated-development
 drive_authorized: true
@@ -43,7 +44,7 @@ Positioning note: this worktree is cut from `main` @ `41abd793`. The ownership-t
 ## Acceptance
 
 - [x] `feedbacks/` exists as a first-class OKF artifact — one immutable file per feedback with `type: Feedback` frontmatter, an internal `feedback` skill with create/list scripts, a thin `/feedback` command, a PostToolUse validator, area indexing, and same-commit allowlist + rules registration (#20260728183201-add-feedback-artifact-and-capture-skill.md)
-- [ ] Mission ownership is carried on the mission's own plural `assignees` (creator-seeded), read through `mission-owners.sh` ahead of any strategy fallback, with every consumer behaviorally unchanged (#20260728183202-carry-mission-ownership-on-assignees.md)
+- [x] Mission ownership is carried on the mission's own plural `assignees` (creator-seeded), read through `mission-owners.sh` ahead of any strategy fallback, with every consumer behaviorally unchanged (#20260728183202-carry-mission-ownership-on-assignees.md)
 - [ ] The strategy layer is retired: no strategy step at mission creation/replan, validator floor updated, strategy skill removed, live strategies migrated (Direction preserved as feedback, assignees folded down), allowlist + rules updated in the same commit, docs swept (#20260728183203-retire-strategy-layer.md)
 
 ## Changelog
@@ -58,3 +59,4 @@ Positioning note: this worktree is cut from `main` @ `41abd793`. The ownership-t
 - 2026-07-28 — ticket added — 20260728183203-retire-strategy-layer.md
 - 2026-07-28 — mission replanned (feedback kind axis; concern merger recorded ahead) — mission.md
 - 2026-07-28 — ticket archived — 20260728183201-add-feedback-artifact-and-capture-skill.md
+- 2026-07-28 — ticket archived — 20260728183202-carry-mission-ownership-on-assignees.md

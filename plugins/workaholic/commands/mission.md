@@ -25,7 +25,7 @@ The `summary` mode is **retired**: the bare `/mission` view (below) is developer
 
 ## `approve <slug>` — turn a draft into drive-ready work
 
-When `$ARGUMENT` starts with `approve`, approve the named mission: the flip from `status: draft` to `status: approved` that lets `/drive` drain its queue without the per-ticket prompt (the mission skill's *Lifecycle* and *Approval* sections define the model; do not restate them here).
+When `$ARGUMENT` starts with `approve`, approve the named mission: the flip from `status: draft` to `status: approved` that makes the mission claimable — `/drive`'s survey offers only approved missions as PR-units (the mission skill's *Lifecycle* and *Approval* sections define the model; do not restate them here).
 
 **1. State where the mission stands — always, before asking anything.** Give the **Mission Position Report** (defined once in `workaholic:mission`). Approving is granting authority over a plan; the developer must see the plan before granting it.
 
@@ -77,7 +77,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list-related-prs.sh "<slug>"
 
 If `prs` is non-empty, tell the developer which open PRs touch this mission and factor them into the delta — do **not** emit tickets duplicating acceptance a sibling PR already implements. `available: false` means the check could not run (no `gh`/auth/remote); note that rather than treating it as "no siblings". This pairs with `create-mission-worktree.sh`'s fetch-first base resolution: the fetch keeps a new worktree off a stale merged base, this keeps a replan off a sibling's unmerged work.
 
-**3. Re-interrogate — scoped by the instruction.** Follow the skill's **Replan** section (`workaholic:mission`): it defines which Creation Interrogation rounds re-run (Direction changes → rounds 1–2; plan growth → rounds 3–5 for the delta; a thin `0/0` mission → all five), what the delta may touch, and what it must never touch. The bar equals creation's — a structured delta model, grilled until drive-ready — because approval skips per-ticket approval downstream, so an under-interrogated delta is concretized across the whole mission unchecked. Issue every question from this command with the `[<project label>]` prefix; `gate_*` is never interrogated.
+**3. Re-interrogate — scoped by the instruction.** Follow the skill's **Replan** section (`workaholic:mission`): it defines which Creation Interrogation rounds re-run (Direction changes → rounds 1–2; plan growth → rounds 3–5 for the delta; a thin `0/0` mission → all five), what the delta may touch, and what it must never touch. The bar equals creation's — a structured delta model, grilled until drive-ready — because approval is the last human gate before an unattended run, so an under-interrogated delta is concretized across the whole mission unchecked. Issue every question from this command with the `[<project label>]` prefix; `gate_*` is never interrogated.
 
 **4. Apply the delta in the worktree.** Rewrite `## Goal` / `## Scope` / `## Experience` from the answers (body-section writes are the command's job, at creation and here alike — no new mutator script). Emit the delta tickets **in one pass** into the worktree's `.workaholic/tickets/todo/<user>/`, each stamped `mission: <slug>` with its mandatory `## Policies` and `## Quality Gate` pre-answered and `depends_on` ordered (unique timestamps; the mission-scoped split-cap exception applies). Append one `## Acceptance` item per new criterion with its `(#<filename>)` marker.
 

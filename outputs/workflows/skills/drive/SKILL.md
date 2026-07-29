@@ -1,19 +1,254 @@
 ---
 name: drive
-description: Use when the user runs `/drive`, asks to "implement the queued tickets", "work through the todo list", or "drive the backlog". Reads tickets from `.workaholic/tickets/todo/`, prioritizes them by dependency and severity, implements each one with a per-ticket approval gate, then archives the ticket and commits with a structured message.
+description: Use when the user runs `/drive`, asks to "implement the queued tickets", "work through the todo list", or "drive the backlog". Surveys the approved missions and the unclaimed backlog, partitions them into PR-units, claims each unit on a pushed branch, implements it in the claim's own worktree, reports, and routes it by the unit's effective merge policy — identically in an interactive session and on the every-5-minutes routine.
 allowed-tools: Bash
 ---
 
 # Drive
 
-Complete drive session skill covering the `/drive` command workflow, ticket navigation and prioritization, per-ticket implementation, approval, reporting, archiving, and frontmatter updates.
+`/drive` is the project's **sole executor**. One command picks the work up, whether a developer typed it or a cron tick invoked it, and behaves the same either way: it surveys what is claimable, partitions it into units that each deserve one merge, claims each unit on a pushed branch, implements it in that claim's worktree, reports it as a PR, and routes it by the merge policy the artifacts already recorded.
+
+**There is no drive-time confirmation** (`docs/loop-engineering-workflow.md` G1–G2). The interactive run *reports* its partition; it never asks the developer to approve it, and it never asks per ticket. Approval did not disappear — it moved to where the work was decided (see *Where the per-ticket approval prompt went*). What an interactive invocation adds is narration, not decisions.
 
 ## Agent Compatibility
 
-This skill works on any Agent-Skills-compatible agent. The two Claude-Code mechanisms used below are **enhancements, not requirements**:
+This skill works on any Agent-Skills-compatible agent. **The unified run issues no the agent's selection prompt at any point** — that is the contract, not an accommodation, so the only Claude-Code mechanism below is an optimization:
 
-- **Parallel fan-out** — where a step spawns a parallel workers (e.g. the ticket prioritizer), that is the Claude Code optimization. On other agents, perform that work **inline/sequentially** in the same session; the inputs and outputs are identical.
-- **User interaction** — where a step uses the agent's selection prompt (order confirmation, per-ticket approval, icebox/abandon choices), use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies. Prefix each interactive prompt's (the agent's selection prompt) `question` body with `[<project label>]` — run `bash gather/scripts/project-label.sh` once and reuse its `project` value — so a developer with several sessions open across tmux panes can see which repository is asking; leave the `header` as the decision/topic label.
+- **Parallel fan-out** — a run may drive several claimed units at once by spawning one parallel workers per unit worktree. On other agents (and by default), drive the claimed units **sequentially**; the outcome is identical. Real throughput comes from the claim protocol rather than from in-run fan-out: several runners, or several ticks, take different units and never collide.
+- The interactive and headless shapes are **one shape**. `/drive night` is a synonym retained for muscle memory: the unified run *is* the unattended shape, so the token changes nothing.
+
+## The Unified Run
+
+**The model first, because the steps only implement it.** Work arrives as artifacts (approved missions, queued tickets). A unit of *execution* is not an artifact but a question — **what deserves one merge** — so the run's whole job is to turn the artifact stream into merge-sized units, take each one visibly, finish it, and route it by a policy the artifacts already carry:
+
+```
+survey → partition → claim → drive → report → route → account
+```
+
+Each arrow crosses a boundary worth naming. **Survey → partition** crosses from derivation into judgment (a script says what is available; the executor says what belongs together). **Partition → claim** crosses from private intent into published fact (until the claim is pushed, no other runner can see the decision). **Report → route** crosses from "the work is done" into "who may merge it", which is the one thing the run is never allowed to decide for itself.
+
+### 1. Survey
+
+First, confirm the plugin install the run is about to trust:
+
+```bash
+bash check-deps/scripts/check.sh
+```
+
+If `ok` is `false`, print the `message` and stop — a run on a broken install produces damage, not work. If `missing_guards` is non-empty, **warn and continue**: a stale or partial build is loaded and the listed `PreToolUse` guards are not registered, which matters more here than anywhere else because this run commits, pushes, and may merge without a human in the loop. Record the warning in the run report rather than only printing it.
+
+Then survey what is claimable:
+
+```bash
+bash drive/scripts/plan-units.sh
+```
+
+Emits `{fetched, base, claimed[], missions[], backlog[], excluded[]}` — the approved, unclaimed missions and this developer's unclaimed todo tickets, with everything a claim already holds subtracted through the shared reader (*Claims*). `excluded[]` names every mission and ticket it dropped and why (`claimed`, `not_approved`, `no_plan`, `mission_member`), so nothing leaves the offer silently.
+
+`fetched: false` means origin was unreachable and the claim set is the last-known one. Survey anyway, but expect the claim step to refuse: **the reader degrades offline, the writer does not.**
+
+If `missions` and `backlog` are both empty, there is nothing claimable — report that plainly, print the reconciliation line and the terminal token (§7), and stop. An empty queue is a normal tick outcome, not a failure and not a reason to ask the developer for something to do.
+
+### 2. Partition into PR-units
+
+A **PR-unit** is one merge: one unit ↔ one claim ↔ one branch ↔ one worktree ↔ one PR.
+
+- **Each approved mission is exactly one unit** (unit id = the mission slug). Its ticket set was designed together and its acceptance list is the bar for the whole batch; splitting it across PRs splits the plan.
+- **Related backlog tickets group into one batch unit** (unit id minted by `claim.sh` as `batch-<YYYYMMDDHHMMSS>`). Relatedness is *this run's judgment*, from the signals the survey already carries: the same subsystem or overlapping Key Files, the same `layer`, a `depends_on` chain.
+
+**Group conservatively — when unsure, one ticket per unit.** The failure mode is asymmetric and reviewers pay for it: a PR that bundles unrelated changes cannot be reviewed as one thing, and its reviewer has to reconstruct which diff belongs to which motivation. Splitting too finely costs one extra PR. So group only on a reason you could state in one sentence in the PR body; a hunch that two tickets "feel adjacent" is not one. `depends_on` is the one signal strong enough to group on by itself — a dependent ticket in a separate PR is a PR that cannot merge.
+
+**Never mix merge policies to force a route.** Batching an `auto` ticket with a `review` one does not make the review ticket merge; it makes the auto ticket wait (§6). Policy is not a grouping input — group on relatedness and let the route fall out.
+
+**Report the partition, never ask it.** State each unit, its members, and the reason it is one unit. An interactive developer reads that and can stop the run; the same text goes to the log on a cron tick.
+
+### 3. Claim
+
+```bash
+bash drive/scripts/claim.sh mission <slug>
+bash drive/scripts/claim.sh batch <ticket-file>...
+```
+
+Claim **before** driving, one unit at a time, and read the refusal rather than working around it. `already_claimed` means another runner got there between the survey and now — drop that unit and continue with the rest; that race is the protocol working, not an error. `branch_collision` means two runners minted the same second's branch name: nothing was claimed, and the next tick succeeds. `origin_unreachable`/`no_origin` end the run's claiming entirely (an unpublished claim is not a claim).
+
+The claim creates `.worktrees/<unit-id>/`. **All of the unit's work happens there** — every command wrapped `( cd <worktree_path> && … )` or absolute-pathed, every write confined to it.
+
+### 4. Drive the unit
+
+Inside the unit's worktree, run each ticket through the **Workflow** section: read the ticket (including its `## Policies` and `## Quality Gate`, and the gate of every mission it names), implement, verify against the gate, update effort, append the Final Report, and `archive.sh`. Order the tickets with *Ordering within a unit* below.
+
+There is **no per-ticket prompt** and no gate-skipping decision to make: the unit was claimable because its artifacts were already authorized. The failure contract below governs everything that can go wrong from here.
+
+**The per-ticket authorization floor did not disappear — it moved up to the unit.** `mission/scripts/drive-authorized.sh` answered, per ticket, "is this ticket's queue pre-authorized?", and its floor was `status: approved` **plus** a non-empty `## Acceptance`. The survey applies that same floor to the mission before it is ever offered (`no_plan` is one of its exclusion reasons), so every ticket in a claimed mission unit passes it by construction. The resolver remains the authority for any caller that needs a per-ticket answer; the unified run does not need one, because it never assembles a queue whose authorization it has not already established.
+
+A mission unit's dev environment, when the project declares one, is started inside that worktree on its allocated ports (`mission/scripts/gate.sh` reports `dev_port`), so declared gates run against something live, and is stopped at run end **if this run started it** — never one it found already running.
+
+### 5. Report
+
+Compose the branch story and open the PR, scoped to the claim branch, from inside the worktree:
+
+```bash
+( cd <worktree_path> && … generate the story per report's Write Story flow,
+  run the branch-safety scan (warn tier — fold findings into the PR body, never a prompt),
+  then: bash report/scripts/create-or-update.sh <branch> "<title>" )
+```
+
+**Compose `/report`; never fork or absorb it.** The report flow stays independently usable on a hand-driven branch, and this step is the same flow called non-interactively. If its context detection misreads inside a claim worktree, scope it explicitly by branch — do not write a second story generator.
+
+A PR-creation failure is **its own report item**. It never changes a unit's outcome classification, the reconciliation counts, or the terminal token.
+
+### 6. Route by effective merge policy
+
+```bash
+bash drive/scripts/effective-policy.sh mission <slug>
+bash drive/scripts/effective-policy.sh tickets <ticket-file>...
+```
+
+The derivation is a script, not prose, because the answer decides whether machinery merges to `main` (decision G5):
+
+| Unit | Policy source | Effective policy |
+| ---- | ------------- | ---------------- |
+| Mission unit | the mission's `merge_policy`, recorded by `approve.sh` at approval | `auto` iff the mission says `auto` |
+| Batch unit | each member ticket's own `merge_policy`, recorded at ticket creation | `auto` iff **every** member says `auto` |
+| Any member says `review` | — | `review` (any review member wins — the unit is one merge) |
+| Any member records nothing | — | `review` (**absent means review**) |
+
+**Absent means review, and the asymmetry is deliberate.** Defaulting to review costs a human one look at a PR; defaulting to auto merges work nobody authorized merging. Every artifact predating the field lands on the reviewable side.
+
+**`review` → stop at the PR** and post its URL to Slack so the human loop picks it up:
+
+```bash
+bash propose/scripts/notify-slack.sh "<message with the PR URL>"
+```
+
+The notifier is never load-bearing: without a token it records `{"notified": false, "reason": "no_token"}` and the run continues identically. The worktree and the claim **stay** — the unit is unfinished until its PR merges.
+
+**`auto` → ship it** through `ship`'s Ship Flow with no prompts (ship's *Unattended routing* section factors each interactive seam), which means the full evidence-gated doctrine and not a shortcut around it: catch up with `main`, prove the deploy contract, confirm in production, record the evidence, **then** merge, then release and extract concerns.
+
+**An unattended run never overrides a gate.** `auto` means "no *approval* needed"; it never means "no *gate* applies". So:
+
+| Gate outcome on an `auto` unit | What the run does |
+| ------------------------------ | ----------------- |
+| `secret` finding (non-overridable) | **Hard stop.** No merge, and no laundering it into the PR path as if it were routine. Report the finding, mark the unit `blocked`, leave the claim in place. |
+| `size`/`leak` finding (overridable interactively) | **Demote to the PR path.** The override is a human ruling; an unattended caller does not have one. |
+| No confirmation method (ship §1-4) | **Demote to the PR path.** The accepted-risk bypass is explicitly a developer's conscious choice — never an unattended default. |
+| A confirmation that ran and **failed** | **Hard stop**, unit `blocked`. The branch staying unmerged is the rollback. |
+| A `content` conflict catching up with `main` | **Demote to the PR path.** (A `mechanical` conflict is routine reconciliation — ship resolves it itself and continues.) |
+| Dirty workspace in the claim worktree | **Demote to the PR path** and report it; something left work behind. |
+
+A demotion is reported as a demotion, with the gate that caused it — "shipped" and "demoted to PR because the size gate blocked" are different outcomes and the report must not blur them.
+
+**After an `auto` unit merges, tear the claim down** (decision I6 — the worktree is claim-born and ship-torn), from the **main checkout**, because git cannot remove the worktree you are standing in:
+
+```bash
+bash branching/scripts/cleanup-mission-worktree.sh <unit-id>
+git push origin --delete <claim-branch>
+```
+
+The cleaner refuses a dirty worktree and never discards uncommitted work; if it refuses, leave the claim alone and report it. The remote claim branch is deleted after the merge for hygiene only — the merge already released the claim by definition (its commits are on the base), so a failure to delete the branch is a note, not a blocker.
+
+### 7. Account, reconcile, and the terminal token
+
+**Agent-hours.** For each **mission** unit, record the run's wall-clock once (decision I7 — the seam absorbed from the retired parallel-mission executor). Mint one **run-id** per invocation (a branch-safe timestamp, e.g. `20260729-034500`) and reuse it, so a mission driven across several passes of one invocation records its time exactly once:
+
+```bash
+bash mission/scripts/record-run-hours.sh "<slug>" "<hours>" "<run-id>"
+```
+
+The recorder is idempotent per run-id and is the **only** writer of `actual_hours` — never hand-edit the field. Report predicted vs actual per mission unit so the estimate can be judged against reality over time.
+
+**The run report is the deliverable** — always emitted, terminal or not, because a run nobody can read is a run nobody can trust (`implementation` / `observability`). Before the reconciliation line, state:
+
+- **Per unit**: its members, its effective policy and the route it took (shipped / at a PR / **demoted to PR, with the gate that caused it** / blocked), its ticket outcomes (implemented / failed / blocked) **reconciling to the queue it was handed**, and the commits.
+- **PR per unit** — the URL, or the `pr_error` if creation failed (its own item, affecting nothing else).
+- **Tickets minted mid-run** (`deferred`), one line each: what was found, which ticket provoked it, and the new filename. These are *additional* to the unit's queue and do not affect its reconciliation — but a run that quietly mints tickets is a run that quietly changes the plan, so they are never silent.
+- **Deferred decisions** — every judgment call the run met and recorded instead of asking, one line each. This list is the QA seam `development` / `qa-engineering` requires: the developer's looking-through relocates to this report and to each unit's PR, never to a mid-run prompt.
+- **Units another runner holds**, and units the survey excluded with their reasons.
+- **Stashed partial work** and where to find it.
+- **Predicted vs actual hours** per mission unit.
+
+**Then the reconciliation line, then the token — in that order, as the last two lines of the run.**
+
+```
+N units: X shipped, Y PR'd, Z blocked
+ok
+```
+
+The token is **derived, never self-asserted**:
+
+| State at the end of the run | Final line |
+| --------------------------- | ---------- |
+| Every unit this run claimed reached its routed end (`auto` merged, `review` at an open PR) **and** a fresh survey offers nothing claimable | `ok` |
+| Any claimed unit is `blocked` (hard-stopped gate, failed confirmation, unrecovered failure) | `pending` |
+| Any claimed unit was **demoted** and is waiting at a PR it was meant to ship | `pending` |
+| Any unit was left with tickets undriven (failed/blocked tickets remain in its queue) | `pending` |
+| The survey still offers a claimable mission or ticket (including a unit another runner holds) | `pending` |
+| Nothing was claimable at all and nothing is in flight | `ok` |
+
+"I stopped" is not "it's done": a blocked unit is `pending`, not `ok`. This is verbatim the contract a caller-side loop such as `/goal /drive ok` waits on (decision I4 — `/goal` is a harness feature, not a command of this plugin; the token is the whole contract). A confident `ok` over an incomplete run is the masked failure `implementation` / `observability` forbids, which is why the reconciliation line always precedes it: the outcome must be graspable from outside without a debugger.
+
+## The failure contract
+
+Everything below is what an unattended unit may and may not do when a ticket goes wrong. It is the contract the overnight run always had; it now applies to every run, because every run is this shape.
+
+**Attempt every ticket.** Size, complexity, "all-or-nothing" scope, and "this looks like it needs a human" are **not** skip reasons. Neither is a run being long, heavy, or wanting exclusive use of a local service — that is *preferred* unattended work (below). A skip is legitimate only after a real attempt, and only as one of the outcomes below.
+
+**A closed set of four outcomes.** Every ticket handed to a unit ends as exactly one, and the totals reconcile to the unit's queue. There is no "declined" category:
+
+- **implemented** — verified against its `## Quality Gate`, archived, commit hash recorded.
+- **failed** — implemented, but its checks went red (or its frontmatter update failed). `git stash` the partial work so it cannot contaminate the next commit, leave the ticket in `todo`, record the reason and the stash.
+- **blocked** — a **named** hard external blocker, with **the command that was attempted and its raw output** recorded.
+- **`deferred`** — an unqueued problem was met and became a ticket (below); the run continued.
+
+**"Blocked" is a finding, not a forecast.** Before recording it, run the thing: start the service, invoke the command, call the tool, and record what came back. An abstract verdict reached without executing anything — "this needs a human", "the credentials probably aren't here" — is **not** a blocker; it is an unattempted ticket, and the report must say so. The morning review can act on `deploy.sh → exit 127: gh: command not found`; it can do nothing with "deployment seemed human-only."
+
+Exactly two buckets may be deferred **without** an attempt:
+
+- **Safety floor** — genuinely irreversible outward actions an unattended run must never take: production sends to third parties, force-push, destructive data operations.
+- **A genuinely external blocker** — work waiting on something no local attempt can produce: a credential or approval a **third party** must issue, or a decision requiring a named human's professional judgement. State **concretely** what is missing and who must provide it.
+
+**"Missing credentials" is a checked claim, not an observation.** An env loader fails *silently* on a missing file (`node --env-file-if-exists` sets nothing, no warning, no non-zero exit), so "the variables are unset" is equally consistent with "no credentials exist" and "this worktree never carried the file that holds them" — a provisioning gap that reads as a durable, plausible, wrong finding. The worktree creator reports `env_files_carried` (`branching` / `create-mission-worktree.sh`; a project declares its layout in a repo-root `.worktree-env`), and an empty carry is the tell. Confirm the files are present *and still hold no usable credential*, and name the file you checked.
+
+**Heavy, exclusive, long-running work is what an unattended window is for.** A verification that takes thirty minutes, needs exclusive use of a shared local service, or loads the machine hard is **preferred** unattended work, not work to avoid. "It would take a long time", "it wants the port to itself", "better in a daytime window" are reasons to do it **now**. Resource contention bounds **how many units run at once** — it is the run's dial, never a unit's licence to skip its own work.
+
+**If you background a job, you own reporting its outcome — either way.** "I'll report when it's done" must fire on **failure** exactly as on success, and a run may not go idle while a terminal result sits unreported: a caller that hears nothing cannot tell a job still working from one that died in the first seconds. Before reporting yourself finished, read every background job's declared output artifact and exit state. Give a detached job an **explicit, self-contained environment** (a background process does not inherit an interactive shell's PATH, so a command that works when typed can exit instantly when detached, unable to find a CLI) — and treat that early exit as a real `failed` with the captured error.
+
+**Safety floor on any failure** — never negotiable:
+
+- Stash the failed ticket's partial work before continuing, and note the stash in the report.
+- Leave the ticket in `todo`. A red check means **failed → recorded**, never force-committed.
+- **NEVER** auto-move a ticket to icebox, auto-abandon it, or run destructive git (`git restore .` / `git clean` / `git reset --hard` / `git stash drop`). Those need a human.
+
+### Take the initiative: an unqueued problem becomes a ticket
+
+When the run meets a problem the queue does not cover — a defect found while implementing, a missing prerequisite, an assumption that proves false — write a **ticket** for it and continue (`deferred`).
+
+**An observation is not an obligation. Only a ticket is.** A run that notices a problem and writes prose about it has, in practice, discarded it: this repo shipped a known defect that was recorded verbatim in a story because *"no ticket, no concern — so the corpus never carried it"*, and it resurfaced two days later.
+
+The boundary decides everything, so hold it exactly:
+
+- **Inside the current ticket's scope** → **implement it.** Not new, and not a defer. This must never become a way to avoid work.
+- **Outside it** → **write a ticket, continue.** Do **not** fix it opportunistically: an unqueued fix rides into a commit whose message describes something else, and that is the "unverified inferences pile up in the code" that `development` / `overnight-ai` names as the limit on a blank cheque.
+- **Blocks the current ticket** → write the ticket, then record the current one **`blocked`**, naming the minted ticket as what would unblock it.
+
+**Mint only for an observed problem — never a passing thought.** A ticket per speculative improvement turns the queue into a diary and buries the real ones, which is worse than a report paragraph because it looks like a plan. The threshold: the run **actually hit** it. A refactor idea, a "we might also want", a thing you noticed but did not run into — **not a ticket**.
+
+The minted ticket goes through the sanctioned path: the `create-ticket` structure, written to `todo/<user>/`, with its mandatory `## Policies` and `## Quality Gate` (`validate-ticket.sh` rejects it otherwise), and it inherits the provoking ticket's `mission:` relation (read via `mission/scripts/read-relation.sh`, never re-parsed). **Report every minted ticket** as its own line: what was found, which ticket provoked it, and the new filename — a run that quietly mints tickets is a run that quietly changes the plan.
+
+**Do not append an acceptance item to the mission for a minted ticket.** `## Acceptance` is the plan the developer agreed to, and its `checked ÷ total` is the mission's progress; auto-appending would move the goalposts so that every minted ticket lowers completion against criteria nobody accepted — a mission could recede as it works. Promoting a minted ticket into the definition of done is the developer's call. (Consequence, accepted knowingly: a mission's ticket set can drift from its `## Acceptance`. That is the honest state — the queue reflects reality, the acceptance list reflects the agreement.)
+
+### Where the per-ticket approval prompt went
+
+This is where `/drive` used to stop and ask "Approve this implementation?" after every ticket. **The prompt is retired, and approval is relocated, not removed** (`docs/loop-engineering-workflow.md` G2/G5, phase 3):
+
+- **A mission unit** was authorized when the developer approved the mission — `approve.sh` flips `status: draft` to `status: approved` only over a floor it checks at that moment (an owner, a real `## Experience`, at least one `## Acceptance` item) and records the `merge_policy` in the same act. The developer approved *these tickets*, against gates they co-authored.
+- **A batch unit** was authorized when each ticket was created: `/ticket` records the ticket's own `merge_policy`, and writing a ticket is the instruction to implement it.
+
+**What is removed is the completeness check inside the drive loop — nothing else.** "Did it do the thing?" was already answered, about this exact work, against a stated gate. The qualitative **looking-through** that `development` / `qa-engineering` makes non-delegable is **not** eliminated: it relocates to the PR, which is what `development` / `review` prescribes — the story is still written, and a `review` unit still stops there for a human. Eliminate the completeness check and you are on policy; eliminate the looking-through and you are in the state three policies exist to prevent.
+
+**And the run does not relay decisions upward either.** A unit that turns an evidence-resolvable choice — which fixable failure to retry, whether to finalize now or push one step further, how to recover a stale environment — into a developer question has not honored the no-prompt contract; it has moved the offloading one level up. Decide it from the evidence and the stated intent, record the decision in one line, and proceed. A genuine developer-only ruling that surfaces mid-run (authorization for an irreversible outward action, a security-boundary value, an unfabricatable secret, a true evidence-free fork) is **deferred and recorded** in the final report — once — never asked. If you cannot name which of those you are missing, you are not blocked on the developer; you are declining to decide (`rules/interaction.md`).
+
+**This governs execution-time choices only — never planning-time requirements.** Drawing out the developer's requirements *before* a plan is committed — what a user must be able to do, what a good output looks like, the real workflow — is **mandatory** and is the opposite of offloading: the developer holds the *what*, and the agent cannot derive it (`mission`'s *Elicit the requirements first* gate). Decide the *how*; never assume the *what*. A plan built without the invited questions cannot be rescued by any amount of downstream verification, and an unattended run will faithfully amplify it into hours of unusable output.
 
 ## Claims
 
@@ -26,7 +261,7 @@ State the model before the scripts, because the scripts only implement it:
 - **Reader.** Fetch, enumerate the `origin/*` branches carrying commits not on `origin/main`, and for each read the unit from its newest `Claim …` subject and the claimed artifacts from the branch tip's `claim: <branch>` stamps.
 - **Release = merge or branch deletion.** A merged branch's commits are on the base, so its claim leaves the unmerged set *by definition* — the normal path needs no script at all. Deliberately discarding an unfinished unit is the other path, and that one is explicit.
 - **Staleness is reported, never auto-broken.** A claim whose branch tip is older than `WORKAHOLIC_CLAIM_STALE_HOURS` (default 24) is marked `stale: true`. Nothing acts on that. A runner that reclaims on its own verdict is a runner that can silently duplicate a colleague's in-flight work over a long lunch; reclaiming is a human/dispatcher decision.
-- **Worktree lifecycle.** A worktree is **claim-born and ship-torn**: `claim.sh` creates `.worktrees/<unit-id>/`, and it is removed when the unit ships or when its claim is released. `/mission close` no longer tears worktrees down — a lingering worktree is an in-flight or stale *claim*, which is the reader's business.
+- **Worktree lifecycle.** A worktree is **claim-born and ship-torn**: `claim.sh` creates `.worktrees/<unit-id>/`, and it is removed when the unit ships (§6) or when its claim is released. `/mission close` no longer tears worktrees down — a lingering worktree is an in-flight or stale *claim*, which is the reader's business.
 
 **The reader degrades offline; the writer does not.** With origin unreachable, `list-claims.sh` reports `fetched: false` and answers from the last-known remote-tracking refs, while `claim.sh` refuses to claim at all. The asymmetry is deliberate: a stale reader over-reports claims, which merely makes a runner wait, but a claim nobody else can see is not a claim, and driving on one is the double-pick the protocol exists to prevent.
 
@@ -36,7 +271,7 @@ State the model before the scripts, because the scripts only implement it:
 bash drive/scripts/list-claims.sh
 ```
 
-Pure read. Emits `{fetched, stale_hours, base, claims: [{unit, branch, artifacts, last_commit_at, stale}]}`.
+Pure read. Emits `{fetched, stale_hours, base, claims: [{unit, branch, artifacts, last_commit_at, stale}]}`. The unified run's survey (`plan-units.sh`) reads the **same scan** through the shared library rather than re-parsing this output, so the surveyor can never offer a unit the writer would refuse.
 
 ### Claim a unit
 
@@ -57,412 +292,47 @@ bash drive/scripts/release-claim.sh <unit-id>
 
 For a unit that will **not** be finished. Tears the worktree down first (the cleaner refuses a dirty worktree and never discards uncommitted work), then deletes the remote claim branch — that order matters: dropping the claim first would publish "this unit is free" while the worktree still holds unpushed work. Emits `{released, unit, branch, worktree_removed, remote_branch_deleted, local_branch_deleted}`. Run it from the main checkout; git cannot remove the worktree you are standing in.
 
-## Command Workflow
+## Ordering within a unit
 
-End-to-end orchestration for `/drive`. The thin `/drive` command preloads this skill and follows this section.
+Once a unit is claimed, its tickets are driven in a considered order. This is derivation, not a decision to confirm — the order is **reported, never asked**.
 
-### Pre-check: Dependencies
-
-```bash
-bash check-deps/scripts/check.sh
-```
-
-If `ok` is `false`, display the `message` to the user and stop. Otherwise note the
-reported `version`, and if `missing_guards` is non-empty, **warn** the user that a
-stale or partial plugin install is loaded (the listed PreToolUse guards are not
-registered in this build) before proceeding — do not block on it.
-
-### Phase 0: Worktree Guard
-
-Check if trip worktrees exist before proceeding:
-
-```bash
-bash branching/scripts/check-worktrees.sh
-```
-
-If `has_worktrees` is `true`, present the user with a choice using the agent's selection prompt:
-- **"Continue here"** - Proceed with drive on the current branch
-- **"Switch to worktree"** - Run `bash branching/scripts/list-all-worktrees.sh`, display the worktree list, and inform the user to navigate to the selected worktree to run `/drive` there
-
-If `has_worktrees` is `false`, proceed silently to Phase 1.
-
-**Rationale**: Prevents accidental development on a drive branch when trip worktrees with in-progress work may be the intended target.
-
-**Trip branch compatibility**: The drive workflow operates on any non-main topic branch, including `trip/*` branches. When running on a trip branch after a trip session completes, tickets are read from `.workaholic/tickets/todo/` and archived normally. Use `/ticket` to add refinement tickets, then `/drive` to implement them.
-
-### Phase 1: Navigate Tickets
-
-The command (main agent) runs the **Navigator** section below. Navigation splits into non-interactive prioritization (delegated to a leaf subagent) and user confirmation (issued by the command), because subagents cannot call the agent's selection prompt.
-
-Determine mode from `$ARGUMENT`:
-- If `$ARGUMENT` contains "night": mode = "night" (autonomous overnight run — see **Night Mode** below; it overrides the per-ticket approval gate and Phase 3/4)
-- If `$ARGUMENT` contains "icebox": mode = "icebox"
-- Otherwise: mode = "normal"
-
-**Normal mode:**
-
-0. Sweep stray tickets into per-user subdirectories first, so root-level strays are routed even when `/drive` runs before any `/ticket`:
-   ```bash
-   bash create-ticket/scripts/sweep-todo.sh
-   ```
-   The sweep routes each root-level `todo/*.md` into `todo/<author-slug>/` by the stray's own `author:` frontmatter, git-staging each move (these staged moves ride along into the next archive commit, which runs `git add -A`). It never moves a ticket to the icebox.
-1. Run `bash drive/scripts/list-todo.sh` — it lists only the current user's `todo/<user>/` queue. If it prints nothing, follow the Navigator section's empty-queue handling (offer icebox/stop via the agent's selection prompt).
-2. If todo tickets exist, spawn a parallel worker whose prompt instructs it to preload `drive`, run the Navigator section's **list / analyze / prioritize** logic (read frontmatter, dependency topo-sort, severity ranking, context grouping), and return the proposed ordered ticket list with tier grouping as JSON. This subagent does NOT call the agent's selection prompt.
-3. The command presents the prioritized list and confirms the order with the user via the agent's selection prompt (Navigator section, "Confirm Order with User"), then proceeds to Phase 2 with the resolved order.
-
-**Icebox mode:** the command runs the Navigator section's Icebox Mode steps directly (list via script, select via the agent's selection prompt, promote via script).
-
-Outcomes:
-- No tickets in todo or icebox - Inform user: "No tickets in queue or icebox."
-- User chooses to stop - End the drive session
-- User chooses icebox - Run icebox mode
-- Order confirmed - Proceed to Phase 2 with the ordered ticket list
-
-### Phase 2: Implement Tickets
-
-For each ticket in the ordered list:
-
-#### Step 2.1: Implement Ticket
-
-Follow the **Workflow** section below. Implementation context is preserved in the main conversation, providing full visibility of changes made. Apply the policies, practices, and standards from the relevant preloaded `workaholic:*` policy skill(s) — see the Policy Lens table in the `create-ticket` skill for the layer-to-skill mapping.
-
-#### Step 2.2: Request Approval
-
-Follow the **Approval** section below to present the approval dialog. **CRITICAL**: You MUST use the `title` and `overview` fields from the Step 2.1 workflow result to populate the approval prompt header and question (the `question` body opens with the `[project]` label — see the Approval section). If these fields are unavailable, re-read the ticket file to obtain them. Never present an approval prompt without the ticket title and summary.
-
-**CRITICAL**: Use the agent's selection prompt. NEVER proceed without explicit user approval — **unless a prior explicit batch authorization already covers this ticket**, in which case the gate is *skipped, not auto-answered* (see below).
-
-##### When the gate is skipped
-
-Explicit approval is **relocated, never removed**. The gate is skipped exactly when the developer has already authorized this exact work, in one of two ways — and never otherwise:
-
-- **Night mode** — `/drive night` is the authorization for the whole prioritized batch (see **Night Mode**).
-- **A mission-authorized queue** — the ticket's mission was interrogated at `/mission` time and **approved** (`status: approved`). Do not decide this in prose; ask the resolver:
-
-  ```bash
-  bash mission/scripts/drive-authorized.sh <ticket-path>
-  ```
-
-  When `authorized` is `true`, **do not issue the Step 2.2 the agent's selection prompt at all** — go straight to Step 2.3's approve path (update effort, append the Final Report, `archive.sh`, continue). When it is `false`, ask exactly as before; `reason` says why (`no_mission`, `mission_not_found`, `not_authorized`, or `no_plan` — a stamped mission whose `## Acceptance` is empty does not authorize: a stamp with no plan is no authorization at all).
-
-**Skip it; never auto-answer it.** The prompt is not issued, and the implementer does not "answer" it on the developer's behalf — the Workflow-level `NEVER use the agent's selection prompt` boundary stays intact. This is night mode's accepted mechanism; do not regress it.
-
-**And a caller must not prompt on a leaf's behalf either.** A leaf never asks (one-level fan-out), but that constraint is satisfied by the leaf *deciding*, not by its caller relaying the question upward. A dispatcher that turns an evidence-resolvable choice — which fixable failure to retry, whether to finalize now or push one more step, how to recover a stale environment — into a developer prompt has not honored the boundary; it has moved the offloading one level up. Decide it from the evidence and the developer's stated intent, record the decision in one line, and proceed. A prompt is admissible only for a ruling the agent must not make at all — authorization for an irreversible outward action, a security-boundary value, an unfabricatable secret, or a true evidence-free fork (`rules/interaction.md`; `monitor` §1 enumerates the four kinds and the litmus test). If you cannot name which of those you are missing, you are not blocked on the developer — you are declining to decide.
-
-**This governs execution-time choices only — never planning-time requirements.** The rule above is about *how* to execute work already planned; it says nothing about eliciting *what* to build. Drawing out the developer's requirements before a plan is committed — what a user must be able to do, what a good output looks like, the real workflow — is **mandatory** and is the opposite of offloading: the developer holds the *what*, and the agent cannot derive it (`mission`'s *Elicit the requirements first* gate). Decide the *how*; never assume the *what*. Do not read "don't offload decidable choices" as "don't ask for requirements" — a plan built without the invited questions cannot be rescued by any amount of downstream verification.
-
-**What is removed is the completeness check inside the drive loop — nothing else.** The question "did it do the thing?" was already answered by the developer, at mission time, about these exact tickets, against gates they co-authored. The qualitative **looking-through** that `development` / `qa-engineering` makes non-delegable is **not** eliminated: it relocates to the PR, which is what `development` / `review` prescribes — `/report` still writes the story and `/ship` still gates the merge on evidence. Eliminate the completeness check and you are on policy; eliminate the looking-through and you are in the state three policies exist to prevent.
-
-**An authorized queue inherits night mode's failure contract** (see **Night Mode** §3/§5), because that is where an autonomous run actually leaks — not at the approval gate:
-
-- **Attempt every ticket.** Size, complexity, "all-or-nothing", and "this looks like it needs a human" are **not** skip reasons. Nor is a run being long, heavy, or wanting exclusive use of a local service — that is *preferred* overnight work (§3b).
-- A skip is legitimate only after a real attempt, and only as **`failed`** (implemented, checks red) or **`blocked`** (a **named** hard external blocker, with the attempted command and its raw output recorded — §3a). The only deferrals that need no attempt are §3a's two buckets: the safety floor, and a concretely-stated external blocker.
-- **Safety floor**: `git stash` a failed ticket's partial work so it cannot contaminate the next commit; leave the ticket in `todo`; **never** auto-icebox, auto-abandon, or run destructive git.
-- **Report a closed three-outcome set** (implemented / failed / blocked) whose totals **reconcile to the authorized set size**. There is no "declined" category.
-
-**No group question here.** Night mode's §1b group-inclusion prompt is vacuous for a mission queue: it is one cohesive topic group by construction, and asking whether to include "group B" of a set the developer just designed is noise.
-
-##### Take the initiative: an unqueued problem becomes a ticket
-
-When an unattended run meets a problem the queue does not cover — a defect found while implementing, a missing prerequisite, an assumption that proves false — there is a **third outcome** alongside `failed` and `blocked`: **`deferred`** — write a ticket for it and continue.
-
-**An observation is not an obligation. Only a ticket is.** A run that notices a problem and writes prose about it has, in practice, discarded it: this repo shipped a known defect that was recorded verbatim in a story because *"no ticket, no concern — so the corpus never carried it"*, and it resurfaced two days later. Recording the finding in a report a human reads later is the failure mode, not the fix.
-
-The boundary decides everything, so hold it exactly:
-
-- **Inside the current ticket's scope** → **implement it.** Not new, and not a defer. This must never become a way to avoid work.
-- **Outside it** → **write a ticket, continue.** Do **not** fix it opportunistically: an unqueued fix rides into a commit whose message describes something else, and it is the "unverified inferences pile up in the code" that `development` / `overnight-ai` names as the explicit limit on a blank cheque.
-- **Blocks the current ticket** → write the ticket, then record the current one **`blocked`**, naming the minted ticket as what would unblock it. Reuse the contract above; do not invent a parallel one.
-
-**Mint only for an observed problem — never a passing thought.** A ticket per speculative improvement turns the queue into a diary and buries the real ones, which is worse than a report paragraph because it looks like a plan. The threshold: the run **actually hit** it (a failure, a false assumption, a missing prerequisite). A refactor idea, a "we might also want", a thing you noticed but did not run into — **not a ticket**.
-
-The minted ticket goes through the sanctioned path: the `create-ticket` structure, written to `todo/<user>/`, with its mandatory `## Policies` and `## Quality Gate` (`validate-ticket.sh` rejects it otherwise — an auto-minted ticket answers to the same bar as a hand-written one), and it inherits the provoking ticket's `mission:` relation (read via `mission/scripts/read-relation.sh`, never re-parsed) so the mission's own plan absorbs the problem.
-
-**Report every minted ticket** in the batch report, as its own line: what was found, which ticket provoked it, and the new filename. A run that quietly mints tickets is a run that quietly changes the plan (`implementation` / `observability`).
-
-**This is initiative to *record*, not a licence to redesign.** `overnight-ai`'s Responsibility is the governing sentence: *"if AI is given a blank check to avoid stopping it, unverified inferences pile up in the code."* Minting a ticket defers a problem; it does not resolve it, and the developer's looking-through still happens at the PR (`development` / `qa-engineering`).
-
-**Do not append an acceptance item to the mission for a minted ticket.** The `mission:` relation is inherited so the ticket is traceable, but `## Acceptance` is the plan **the developer agreed to** at interrogation time, and its `checked ÷ total` is the mission's progress. Auto-appending would silently move the goalposts — every minted ticket would lower the mission's completion percentage against criteria nobody accepted, and a run could make a mission recede as it works. The minted ticket surfaces in the batch report and in the queue; promoting it into the mission's definition of done is the developer's call at the next `/report` or `/mission` touch. (Consequence, accepted knowingly: a mission's ticket set can drift from its `## Acceptance` list. That is the honest state — the queue reflects reality, the acceptance list reflects the agreement.)
-
-#### Step 2.3: Handle User Response
-
-**"Approve" or "Approve and stop"**:
-1. Follow the **Final Report** section below to update ticket effort and append the Final Report section
-2. **Verify update succeeded**: If Edit tool fails, halt and report the error to user. DO NOT proceed to archive.
-3. Archive and commit by calling the archive script directly:
-   ```bash
-   bash drive/scripts/archive.sh \
-     <ticket-path> "<title>" <repo-url> "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"
-   ```
-   Where `<ticket-path>` is the current ticket file path in `todo/`, `<title>` is the commit title,
-   and `<repo-url>` comes from the gather skill's `git-context.sh` output. Map the ticket and your
-   Final Report into the body args: `<why>` from the ticket Overview/motivation, `<changes>` from
-   what changed for users, `<concerns>` from the ticket Considerations (or "None"), `<insights>`
-   from your Discovered Insights (or "None"), `<verify>` from the verification you ran. These keys
-   feed `/report` (Motivation / Changes / Concerns / Successful Development Patterns).
-   **NEVER manually move tickets** with `mv` + `git add` -- always use the archive script.
-4. If "Approve and stop": break loop, skip Phase 3, go directly to Phase 4
-5. Otherwise: continue to next ticket
-
-**Free-form feedback** (user selects "Other" and provides text):
-
-> **CRITICAL**: Update the ticket file FIRST. Do NOT re-implement until the ticket reflects the user's feedback.
-
-1. Follow the **Approval** section below (Handle Feedback) — this updates the ticket
-2. **Verify** the ticket file was updated (re-read it)
-3. Re-implement changes based on the updated ticket
-4. Return to Step 2.2
-
-**"Abandon"**:
-1. Follow the **Approval** section below (Handle Abandonment)
-2. Break loop, skip Phase 3, go directly to Phase 4 (same as "Approve and stop")
-
-### Phase 3: Re-check and Continue
-
-**Night mode skips this phase** — it runs only the batch authorized at session start and does not absorb tickets added during the run (see **Night Mode**). Proceed directly to Phase 4.
-
-After all tickets from the navigator's list are processed:
-
-1. **Re-check todo directory**:
-   ```bash
-   bash drive/scripts/list-todo.sh
-   ```
-
-2. **If new tickets found**:
-   - Inform user: "Found N new ticket(s) added during this session."
-   - Re-run Phase 1 navigation (mode = "normal")
-   - Continue to Phase 2 with the new ticket list
-
-3. **If no new tickets**:
-   - Check icebox (existing behavior from navigator)
-   - If user declines icebox or icebox empty, proceed to Phase 4
-
-### Phase 4: Completion
-
-After todo is truly empty (and user declines icebox):
-- Summarize what was done across all batches
-- List all commits created during the session
-
-**Session-wide tracking**: Maintain counters across multiple navigator batches:
-- Total tickets implemented
-- Total commits created
-- List of all commit hashes
-
-**In night mode**, Phase 4 emits the **whole-night report** to stdout (see **Night Mode** §5): per-ticket outcome from the closed set (implemented / failed / blocked — no "declined" category), commit hashes, failure/blocker reasons, totals reconciled to the authorized batch size, and any stashed partial work — the deliverable the developer reviews in the morning.
-
-### Night Mode (mode = "night")
-
-Autonomous, unattended overnight run for morning review, triggered when `$ARGUMENT` contains "night" (e.g. "go night /drive"). Night mode overrides parts of the normal flow:
-
-**1. Authorization is the `/drive night` invocation itself — no per-ticket checkbox.** Invoking `/drive night` over the queue authorizes an autonomous run of the **whole** prioritized batch (the current user's `todo/<user>/` queue, kept in dependency/priority order). Night mode does **not** present a `multiSelect` checklist asking the developer to tick which tickets to run — that is not what "night drive" means. The full prioritized list IS the night's batch.
-
-**1b. One question only on distinct topic groups.** The single exception: if the prioritizer's `groups` field (see Navigator → Determine Priority Order) reports the queued tickets span **two or more clearly distinct topic groups**, the command issues exactly **one** the agent's selection prompt (selectable options, never a per-ticket checklist) — while working on Group A, should Group B (and any further groups) be included too? The chosen groups, in dependency/priority order, become the night's batch. If the queue forms a single cohesive group, **no question is asked** and the whole batch runs. The heuristic is conservative (prefer one group when in doubt), so a cohesive queue never triggers a prompt.
-
-**2. Autonomous loop (skip the per-ticket gate).** For each authorized ticket, run Step 2.1 (implement, including the type-check/test verification). Then **auto-approve without issuing the Step 2.2 the agent's selection prompt**: update effort, append Final Report, run `archive.sh`, commit, continue. The per-ticket approval is satisfied by the `/drive night` batch authorization (§1, optionally narrowed by the §1b group choice), so it is *skipped*, not invoked (the Workflow "NEVER use the agent's selection prompt" boundary stays intact).
-
-**3. Attempt every ticket — skip only on a demonstrated failure or a named hard blocker.** Every authorized ticket **must be attempted** (run Step 2.1 in full). A ticket's **size, complexity, "all-or-nothing" scope, and "this looks like it needs a human" are NOT skip reasons** — a large or all-or-nothing ticket is implemented in full, then verified; you do not get to decline it because it looks big. A skip is legitimate in exactly two cases, and **only after a real attempt**:
-- **Failed** — the ticket was implemented but its type-check/tests are red (or its frontmatter update fails). Record it as `failed` with the reason for the night report.
-- **Blocked** — implementation is stopped by a **named hard external blocker** (a missing credential, an unreachable external service or dependency). Record the specific blocker and what would unblock it. A vague "too complex" or "any other reason" is **not** a blocker.
-
-**3a. Attempt before defer — a classification needs a captured error, not a prediction.** "Blocked" is a **finding**, not a forecast. Before any ticket is recorded `blocked`, run the thing: start the service, invoke the command, call the tool. Record the **command you ran and its raw output**. An abstract verdict reached without executing anything — "this needs a human", "the credentials probably aren't here", "this can't run unattended" — is **not a blocker and must not be recorded as one**; it is an unattempted ticket, and the report must say so. The morning review can act on `deploy.sh → exit 127: gh: command not found`; it can do nothing with "deployment seemed human-only."
-
-Exactly two buckets may be deferred **without** an attempt, and nothing else:
-
-- **Safety floor** — genuinely irreversible outward actions an unattended run must never take: production sends to third parties, force-push, destructive data operations. Deferred by policy, always, and this ticket's tightening does not widen it.
-- **Genuinely external blocker** — the work waits on something no local attempt can produce: a credential or approval a **third party** must issue, or a decision requiring a named human's professional judgement. State it **concretely** — what is missing and who must provide it. "Human-only" with no name and no missing artifact is not this bucket.
-
-**"Missing credentials" is a checked claim, not an observation.** Before recording a credential-shortfall deferral, confirm the **provisioning** state, not just your own process environment: an env loader fails *silently* on a missing file (`node --env-file-if-exists` sets nothing, no warning, no non-zero exit), so "the variables are unset" is consistent with both "no credentials exist" and "they exist but this worktree never carried the file that holds them." The second is a provisioning gap that reads as a plausible, durable, wrong finding. So check that the env files the project reads are actually present in the worktree where it reads them — the worktree creator now reports `env_files_carried` at creation (`branching` / `create-mission-worktree.sh`; a project declares its env layout in a repo-root `.worktree-env`), and an empty carry is the tell. Only after confirming the files are present *and still hold no usable credential* may you record the shortfall — and name the file you checked. A deferral that never inspected the provisioning is the failure mode this guard exists to prevent (`development` / `overnight-ai`: eliminate the causes of stopping *before* the run, and a silently half-provisioned tree is exactly such a cause).
-
-**3b. Heavy, exclusive, long-running work is what the night is for.** A verification that takes thirty minutes, needs exclusive use of a shared local service, or loads the machine hard is **preferred** overnight work, not work to avoid — the unattended window is precisely when contention is lowest and nobody is waiting on the machine. "It would take a long time", "it wants the port to itself", "I would have to start a service first", and "better in a daytime exclusive window" are reasons to **do it now**, not to defer it. A leaf that skips its own authorized heavy live run has defeated the reason the ticket was prepared for overnight execution (`development` / `overnight-ai`: the run exists to *complete* prepared work while humans rest).
-
-Resource contention bounds **how many things run at once** — it is a dispatcher's dial (`monitor` §2), never an individual run's licence to skip its own authorized work. If contention is real, the answer is to run the heavy thing with less beside it, not to leave it for the morning.
-
-**3c. If you background a job, you own reporting its outcome — either way.** Running a long verification as a detached job is fine; going quiet about how it ended is not. "I'll report when it's done" must fire on **failure** exactly as it fires on success, and a run may **not** go idle while a terminal result sits unreported — a caller that hears nothing has no way to distinguish a job still working from one that died in the first seconds. Before reporting yourself idle or available, check every background job you launched: read its declared output artifact and exit state, and surface the outcome.
-
-Give a detached job an **explicit, self-contained environment**: a background process does not inherit an interactive shell's PATH, so a command that works when typed can exit immediately when detached, unable to find a CLI the interactive shell resolves fine. Pass the environment explicitly and use absolute paths. That early exit is a real `failed` — record it with the captured error per §3a, never let it pass as work still in flight.
-
-**Take the initiative on an unqueued problem: write a ticket, do not stop.** A problem the queue does not cover — met while implementing — gets a **ticket**, not a paragraph in this report, and the run continues (**`deferred`**). An observation is not an obligation; only a ticket is. See Step 2.2's *Take the initiative* for the boundary (implement what is in the current ticket's scope; mint-and-continue for what is outside it; mint-then-`blocked` when it blocks), the mint-only-for-an-observed-problem threshold, and the requirement that a minted ticket carry its own `## Policies` and `## Quality Gate`. Initiative here is to **record**, never to redesign mid-run.
-
-In either case, apply the safety floor and continue to the next authorized ticket (this floor is unchanged — only the *entry condition to skipping* is tightened):
-- **Isolate partial changes** so a failed ticket's uncommitted work cannot contaminate the next ticket's commit: `git stash` the failed ticket's changes (recoverable; only `git stash drop` is prohibited) before continuing, and note the stash in the report.
-- Leave the ticket in `todo`; a failing type-check/test means **failed → skipped + recorded**, never force-committed.
-- **NEVER** auto-move it to icebox, auto-abandon it, or run destructive git (`git restore .` / `git clean` / `git reset --hard` / `git stash drop`) — those require a human.
-
-**4. Bounded run.** Night mode runs ONLY the batch fixed at session start (the whole prioritized queue, or the groups chosen in §1b). Do NOT pick up tickets added during the run (skip Phase 3's re-check). The run terminates when the authorized batch is exhausted.
-
-**5. Whole-night report (the deliverable).** At the end (Phase 4), print a complete, skimmable stdout report for morning review. Every authorized ticket appears as exactly one of a **closed set of three outcomes** — there is **no** "declined / did not force / too large / needs a human" category:
-- **implemented** — commit hash.
-- **failed** — attempted, but its checks/tests went red; reason + stash location.
-- **blocked** — a **named** hard external blocker; the **command that was attempted and its raw output**, and what would unblock it. A `blocked` line with no attempted command is only admissible for the two no-attempt buckets of §3a (safety floor; a concretely-stated external blocker), and must say which.
-- Totals: implemented / failed / blocked counts, which **must reconcile to the authorized batch size**, plus all commit hashes.
-- **Tickets minted mid-run** (`deferred`), one line each: what was found, which ticket provoked it, and the new filename. These are *additional* to the authorized batch and do not affect its reconciliation — but a run that quietly mints tickets is a run that quietly changes the plan, so they are never silent.
-- Any stashed partial work and where to find it.
-
-**Critical Rule exception (scoped).** The per-ticket "explicit user approval" gate is skipped exactly when a **prior explicit batch authorization** covers the ticket, and never otherwise. There are two such authorizations, and no others: invoking **`/drive night`** (this mode — the batch, optionally narrowed by the §1b group choice), and a **mission approved** (`status: approved`) after its Creation Interrogation (see Step 2.2's *When the gate is skipped*). Both are the same shape: the developer authorized this exact work in advance. Every other Critical Rule below remains in force in both modes.
-
-### Critical Rules
-
-**NEVER autonomously move tickets to icebox.** Moving tickets is a developer decision, not an AI decision.
-
-If a ticket cannot be implemented **after a genuine attempt** — its type-check/tests fail, or a **named** hard external blocker (missing credential, unreachable external service/dependency) stops it. A ticket's size, complexity, or "all-or-nothing" scope is **never** a reason to not attempt it:
-
-1. **Stop and ask the developer** using the agent's selection prompt — **except when a prior batch authorization covers the ticket** (night mode, or an approved mission). Those runs are unattended and follow the attempt-first policy in **Night Mode** §3 (attempt every ticket; on a demonstrated failure or named hard blocker, stash + record + continue); never auto-icebox or use destructive git.
-2. Explain why implementation cannot proceed
-3. Use selectable options (NEVER open-ended text questions):
-   - "Move to icebox" - Move ticket to `.workaholic/tickets/icebox/` and continue to next
-   - "Skip for now" - Leave ticket in queue, move to next ticket
-   - "Abort drive" - Stop the drive session entirely
-
-**Never commit ticket moves without explicit developer approval.**
-
-## Navigator
-
-Navigate tickets for the `/drive` command: list, analyze, prioritize, and confirm execution order. Responsibilities split across two contexts because subagents cannot call the agent's selection prompt:
-
-- **Prioritization (leaf parallel workers, or inline at command level)** — the non-interactive logic: list todo tickets, read frontmatter, build the dependency graph and topologically sort it, apply severity ranking and context grouping, and return the proposed ordered ticket list with tier grouping as JSON. This runs with `drive` preloaded and issues NO the agent's selection prompt.
-- **User interaction (command / main agent only)** — every the agent's selection prompt: the order-confirmation dialog, the empty-queue "work on icebox / stop" choice, and the icebox ticket selection. The command spawns the prioritizer subagent, then presents its result for confirmation.
-
-The recommended flow is: command spawns the prioritizer subagent → subagent returns the ordered list JSON → command presents it and confirms via the agent's selection prompt → command resolves the final order.
-
-### Input
-
-The prioritizer receives:
-
-- `mode`: Either "normal" or "icebox"
-
-### Icebox Mode (mode = "icebox")
-
-Run by the command (main agent), since steps 3–4 need the agent's selection prompt:
-
-1. List icebox tickets:
-   ```bash
-   bash drive/scripts/list-icebox.sh
-   ```
-2. If no tickets, inform the user the icebox is empty and stop.
-3. If tickets found, use the agent's selection prompt listing each ticket.
-4. Promote the selected ticket to todo (moves the file and stages both paths):
-   ```bash
-   bash drive/scripts/promote-icebox.sh <selected-icebox-path>
-   ```
-5. Proceed to Phase 2 with the promoted ticket.
-
-### Normal Mode (mode = "normal")
-
-#### 1. List and Analyze Tickets
-
-List all tickets in the todo queue:
+List the unit's queue from inside its worktree:
 
 ```bash
 bash drive/scripts/list-todo.sh
 ```
 
-**If no tickets found** (handled by the command, since it needs the agent's selection prompt):
+For each ticket read the frontmatter — `type` (bugfix > enhancement > refactoring > housekeeping), `layer`, `depends_on` — and order by, in precedence:
 
-1. Check whether the icebox has tickets:
-   ```bash
-   bash drive/scripts/list-icebox.sh
-   ```
-2. If the icebox has tickets, the command uses the agent's selection prompt:
-   - "Work on icebox" - Run icebox mode
-   - "Stop" - End the drive session
-3. If the icebox is also empty, inform the user: "No tickets in queue or icebox."
+1. **Dependency ordering** — build the graph from `depends_on` and topologically sort it. On a cycle, warn in the report and fall back to type priority for the cycled tickets.
+2. **Severity** — within a dependency tier, bugfixes precede enhancements.
+3. **Context grouping** — tickets touching the same layer/files run together.
+4. **Implicit dependencies** — if A modifies files B reads, A first.
 
-**If tickets found** (prioritizer logic — no the agent's selection prompt):
+Handle missing metadata gracefully: absent fields mean normal priority, and an empty `depends_on` means no dependencies.
 
-For each ticket, read and extract YAML frontmatter to get:
-- `type`: bugfix > enhancement > refactoring > housekeeping (priority ranking)
-- `layer`: Group related layers for context efficiency
-- `depends_on`: List of ticket filenames this ticket depends on (optional)
+On Claude Code this ordering may be delegated to a parallel workers (preloading `drive`, returning `{tickets[], tiers{}, cycle_warning}`); inline is equally correct and is the default elsewhere. That subagent issues no the agent's selection prompt — nothing in this run does.
 
-#### 2. Determine Priority Order
+**Sweep strays first**, so root-level tickets are routed even when `/drive` runs before any `/ticket`:
 
-Consider these factors (in order of precedence):
-
-1. **Dependency ordering**: Build a dependency graph from `depends_on` fields and perform topological sort. Tickets with no dependencies come first, then tickets whose dependencies are satisfied. If a cycle is detected, warn in the output and fall back to type-based priority for the cycled tickets.
-2. **Severity**: Within the same dependency tier, bugfixes take precedence over enhancements
-3. **Context grouping**: Process tickets affecting same layer/files together
-4. **Implicit dependencies**: If ticket A modifies files that ticket B reads, process A first
-
-Handle missing metadata gracefully - default to normal priority when fields are absent. Treat empty or missing `depends_on` as no dependencies.
-
-Priority ranking by type (used within same dependency tier):
-1. `bugfix` - High priority
-2. `enhancement` - Normal priority
-3. `refactoring` - Normal priority
-4. `housekeeping` - Low priority
-
-#### 2b. Detect Topic Groups (for night mode's group question)
-
-Cluster the queued tickets into **topic groups** so night mode can decide whether to ask its one group-inclusion question (Night Mode §1b). A topic group is a set of tickets that belong together; clearly unrelated clusters are separate groups.
-
-Derive groups from signals already read above, in this order:
-
-1. **Dependency components** — tickets connected (directly or transitively) through `depends_on` belong to the same group.
-2. **Shared layer / key files** — tickets in the same `layer` or touching overlapping Key Files reinforce membership in one group.
-
-Be **conservative: prefer a single group when in doubt.** Only split into separate groups when clusters are clearly unrelated (disjoint dependency components AND non-overlapping layers/files). The goal is to avoid prompting on a cohesive queue — a single group means night mode asks nothing. Label each group by its dominant theme (e.g. its shared layer or a short phrase from the tickets' titles).
-
-#### 3. Present Prioritized List
-
-Show tickets grouped by priority tier:
-
-```
-Found 4 tickets to implement:
-
-**High Priority (bugfix)**
-1. 20260131-fix-login-error.md
-
-**Normal Priority (enhancement)**
-2. 20260131-add-dark-mode.md [layer: UX]
-3. 20260131-add-api-endpoint.md [layer: Infrastructure]
-
-**Low Priority (housekeeping)**
-4. 20260131-cleanup-unused-imports.md [depends on: 20260131-add-api-endpoint.md]
-
-Proposed order considers dependencies, severity, and context grouping.
+```bash
+bash create-ticket/scripts/sweep-todo.sh
 ```
 
-#### 4. Confirm Order with User
+The sweep routes each root-level `todo/*.md` into `todo/<author-slug>/` by the stray's own `author:` frontmatter, git-staging each move (these staged moves ride into the next archive commit, which runs `git add -A`). It never moves a ticket to the icebox.
 
-**Runs at command level** (the prioritizer subagent returns the proposed order; the command presents it). **ALWAYS use the agent's selection prompt parameter. NEVER ask open-ended text questions.**
+### The icebox is developer-curated
 
-Use selectable options:
-- **Proceed** - Execute in proposed order
-- **Pick one** - Let user select a specific ticket to start with
-- **Original order** - Use chronological/alphabetical order instead
-
-If user selects "Pick one", present a follow-up question with each ticket as an option.
-
-### Prioritizer Output
-
-The prioritizer subagent returns a JSON object with the proposed order (steps 1–3); the command then runs the step-4 confirmation:
-
-```json
-{
-  "tickets": [
-    ".workaholic/tickets/todo/20260131-fix-login-error.md",
-    ".workaholic/tickets/todo/20260131-add-dark-mode.md"
-  ],
-  "tiers": {
-    "high": [".workaholic/tickets/todo/20260131-fix-login-error.md"],
-    "normal": [".workaholic/tickets/todo/20260131-add-dark-mode.md"],
-    "low": []
-  },
-  "groups": [
-    {"label": "auth", "tickets": [".workaholic/tickets/todo/20260131-fix-login-error.md"]},
-    {"label": "UX / dark mode", "tickets": [".workaholic/tickets/todo/20260131-add-dark-mode.md"]}
-  ],
-  "cycle_warning": null
-}
+```bash
+bash drive/scripts/list-icebox.sh
+bash drive/scripts/promote-icebox.sh <icebox-path>
 ```
 
-`tickets` is the proposed ordered list; `tiers` groups them by severity for the display; `groups` is the topic-group clustering from step 2b (one entry when the queue is cohesive — the common case); `cycle_warning` is a message string if a dependency cycle was detected, otherwise null. In **normal mode** the command resolves the final order after the step-4 confirmation. In **night mode** the command uses `groups`: one entry → run the whole batch with no question; two or more → issue the single §1b group-inclusion the agent's selection prompt. Then it proceeds to Phase 2.
+The unified run **never** reads the icebox for work, never promotes from it, and never moves anything into it. A ticket is in the icebox because a developer put it there; promotion is their act, and these scripts serve it on request. Automating either direction would let a run quietly change what the project has decided to defer.
 
 ## Workflow
 
-Step-by-step workflow for implementing a single ticket during `/drive`. This skill is preloaded directly by the drive command.
-
-**IMPORTANT**: This workflow implements changes only. Approval and commit are handled by the `/drive` command after implementation.
+Step-by-step workflow for implementing a single ticket. Implementation only: archiving and the unit's routing are handled by the Unified Run around it.
 
 ### Steps
 
@@ -472,12 +342,12 @@ Step-by-step workflow for implementing a single ticket during `/drive`. This ski
 - Identify key files mentioned in the ticket
 - Understand the implementation steps outlined
 - **Read the ticket's `## Policies` section.** It is the recorded list of standard engineering policies (synced from qmu.co.jp) this ticket answers to. Note every `workaholic:<pillar>` / `policies/<slug>.md` entry — Step 3 opens each one before writing code.
-- **Read the ticket's `## Quality Gate` section** (if present). It is the developer-agreed acceptance criteria, verification method, and the gate that must pass before approval — captured at `/ticket` time. Implement *to* this gate, and run its verification before requesting approval. Carry its acceptance criteria into the Step 4 return so the approval prompt can state them, and into the archive `<verify>` arg so the commit `Verify:` key records what cleared the gate.
-- **If the ticket carries a `mission:` relation, also read the quality gate of EVERY mission it names** — `bash mission/scripts/gate.sh <mission-slug>`, once per slug (the relation is a list; a bare scalar is one). A mission gate is **optional and normally absent** — a mission's substance is its `## Experience` section (the demanded behavior) plus its ticket plan, not a check fixed at kickoff before the work existed. When a mission *does* declare `type: documentation` or `live-app`, the change must move it toward passing: run the project's dev/docs server on the mission worktree's `dev_port` (from the gate reader) and drive `target` with the Playwright plugin to check `assert`. When it declares `type: check`, run `target` as a command in the mission's worktree — it must exit 0. When it declares none — the common case — **read the mission's `## Experience` and judge the change against the behavior it demands** instead; there is no mission-level check to run, and that is not a defect.
+- **Read the ticket's `## Quality Gate` section** (if present). It is the developer-agreed acceptance criteria, verification method, and the gate that must pass before the ticket is archived — captured at `/ticket` time. Implement *to* this gate, and run its verification before archiving. Carry its acceptance criteria into the Step 4 return, and into the archive `<verify>` arg so the commit `Verify:` key records what cleared the gate.
+- **If the ticket carries a `mission:` relation, also read the quality gate of EVERY mission it names** — `bash mission/scripts/gate.sh <mission-slug>`, once per slug (the relation is a list; a bare scalar is one). A mission gate is **optional and normally absent** — a mission's substance is its `## Experience` section (the demanded behavior) plus its ticket plan, not a check fixed at kickoff before the work existed. When a mission *does* declare `type: documentation` or `live-app`, the change must move it toward passing: run the project's dev/docs server on the worktree's `dev_port` (from the gate reader) and drive `target` with the Playwright plugin to check `assert`. When it declares `type: check`, run `target` as a command in the worktree — it must exit 0. When it declares none — the common case — **read the mission's `## Experience` and judge the change against the behavior it demands** instead; there is no mission-level check to run, and that is not a defect.
 
   **All of them must pass, not the most convenient one.** A ticket naming two missions claims to advance both, so it answers to both bars — naming a mission is a commitment, not a label. If the change cannot meet one mission's gate, the fix is to drop that mission from the ticket's relation, not to skip its gate.
 
-  Note this is about **gates**, not placement: the relation is many-valued, execution stays single-homed. A ticket is still driven in exactly one worktree, and `.worktrees/<slug>` remains keyed 1:1 to a mission. "Which missions does this advance" and "where does this work happen" are separate questions.
+  Note this is about **gates**, not placement: the relation is many-valued, execution stays single-homed. A ticket is still driven in exactly one worktree, and a claim's worktree is keyed 1:1 to its unit. "Which missions does this advance" and "where does this work happen" are separate questions.
 
 #### 2. Apply Patches (if present)
 
@@ -504,11 +374,11 @@ If no Patches section exists, skip to step 3.
 
 #### 4. Return Summary (DO NOT COMMIT)
 
-After implementation is complete, return a summary to the parent command:
+After implementation is complete, return a summary:
 
 ```json
 {
-  "status": "pending_approval",
+  "status": "implemented",
   "ticket_path": "<path to ticket>",
   "title": "<Title from H1>",
   "overview": "<Summary from Overview section>",
@@ -518,13 +388,15 @@ After implementation is complete, return a summary to the parent command:
 }
 ```
 
+Then update effort, append the Final Report, and archive (below).
+
 ### Critical Rules
 
-- **NEVER commit** - drive command handles commit after user approval
-- **NEVER use the agent's selection prompt** - drive command handles approval dialog
-- **NEVER archive tickets** - drive command handles archiving
-- **NEVER spawn the `/trip` Agent Teams members** (`planner`/`architect`/`constructor`) — they are trip-only. Implement in the main agent, or fan out to parallel workers only.
-- After implementation, proceed to approval flow
+- **NEVER commit outside the sanctioned scripts** — `archive.sh` and `commit.sh` own the commit seam.
+- **NEVER use the agent's selection prompt** — the unified run has no interaction point at all.
+- **NEVER archive tickets manually** — `archive.sh` is the only authorized method.
+- **NEVER autonomously move tickets to icebox.** Moving tickets is a developer decision.
+- After implementation, proceed to Final Report and Archive.
 
 ### Prohibited Operations
 
@@ -536,13 +408,13 @@ The following destructive git commands are **NEVER** allowed during implementati
 |---------|------|-------------|
 | `git clean` | Deletes untracked files that may belong to other contributors | Do not use |
 | `git checkout .` | Discards all uncommitted changes including others' work | Use targeted checkout for specific files |
-| `git restore .` | Discards all uncommitted changes including others' work | Reserved for abandonment flow only |
+| `git restore .` | Discards all uncommitted changes including others' work | Do not use |
 | `git reset --hard` | Discards all uncommitted changes and resets HEAD | Do not use |
 | `git stash drop` | Permanently deletes stashed changes | Only with explicit user request |
 
 **Rationale**: You are not the only one working in this repository. Destructive operations affect everyone's uncommitted work, not just your own implementation. Always check `git status` before any operation that discards changes, and be considerate of work that may not be yours.
 
-If an implementation requires discarding changes, use targeted commands that affect only specific files you modified, or request user approval first.
+If an implementation requires discarding changes, use targeted commands that affect only specific files you modified.
 
 ### System Safety
 
@@ -552,156 +424,14 @@ Before implementation, check whether the repository authorizes system-wide confi
 bash system-safety/scripts/detect.sh
 ```
 
-
 - If `system_changes_authorized` is `false`: the prohibited operations list in the system-safety skill applies unconditionally. Do not install global packages, edit shell profiles, modify `/etc/` files, manage system services, or use `sudo`.
 - If `system_changes_authorized` is `true`: system-wide changes are permitted because the repository is a provisioning repository.
 
-When an implementation step requires a prohibited operation, propose a safe project-local alternative (see the system-safety skill's Safe Alternatives table). If no alternative exists, report the blocker to the user.
-
-## Approval
-
-User approval flow for `/drive` implementation review.
-
-### 1. Request Approval
-
-Present approval dialog after implementing a ticket.
-
-#### Format
-
-```
-**Ticket: <title from ticket H1>**
-<overview from ticket Overview section>
-
-Implementation complete. Changes made:
-- <change 1>
-- <change 2>
-
-[the agent's selection prompt with selectable options]
-```
-
-#### Options
-
-**CRITICAL**: The `header` and `question` fields below are templates that MUST be replaced with actual values before presenting to the user. The `header` is the ticket **title** (from the H1). The `question` body begins with the **project label** as a `[<project>]` prefix (`project` from `bash gather/scripts/project-label.sh`), so a developer with several sessions across tmux panes sees which repository is asking, followed by `overview`. Use `title` and `overview` from the workflow result JSON. If those values are not available in context, re-read the ticket file to obtain the H1 title and Overview section. Presenting an approval prompt with missing, empty, or literal angle-bracket placeholder values is a failure condition -- the user cannot make an informed decision without knowing what ticket was implemented and in which project.
-
-**Surface the quality gate.** If the ticket has a `## Quality Gate` (and the Step 4 result carries `quality_gate`), include the agreed acceptance criteria and what you verified against them in the question body, so the developer approves against the concrete, pre-agreed gate rather than a vague summary. This is the payoff of the `/ticket`-time interrogation — never drop it from the prompt when it exists.
-
-```json
-{
-  "questions": [{
-    "question": "[<project label from project-label.sh>] <overview from ticket Overview section>\n\nQuality gate: <acceptance criteria from the ticket's ## Quality Gate, and what you verified against them>\n\nApprove this implementation?",
-    "header": "<title from ticket H1>",
-    "options": [
-      {"label": "Approve", "description": "Commit and archive this ticket, continue to next"},
-      {"label": "Approve and stop", "description": "Commit and archive this ticket, then stop driving"},
-      {"label": "Abandon", "description": "Write failure analysis, discard changes, stop session"}
-    ],
-    "multiSelect": false
-  }]
-}
-```
-
-Users can also select "Other" to provide free-form feedback.
-
-### 2. Handle Approval
-
-When user selects "Approve" or "Approve and stop":
-
-1. Update ticket with effort and Final Report (see **Final Report** section below)
-2. Archive and commit (see **Archive** section below)
-3. For "Approve": continue to next ticket
-4. For "Approve and stop": end drive session
-
-### 3. Handle Feedback
-
-When user selects "Other" and provides feedback:
-
-**CRITICAL: Update the ticket file BEFORE making ANY code changes. Do NOT skip this step. Do NOT write code until steps 1-2 are verified complete.**
-
-1. **Update Implementation Steps** in the ticket file:
-   - Add new steps for requested functionality
-   - Modify existing steps that need adjustment
-
-2. **Append Discussion section** (before Final Report if exists):
-
-```markdown
-## Discussion
-
-### Revision 1 - <YYYY-MM-DDTHH:MM:SS+TZ>
-
-**User feedback**: <verbatim feedback>
-
-**Ticket updates**: <list of Implementation Steps added/modified>
-
-**Direction change**: <interpretation of how to change approach>
-```
-
-For subsequent revisions, append as "### Revision 2", etc.
-
-3. **Verify ticket update**: Re-read the ticket file to confirm both Implementation Steps and Discussion section were written successfully. If the update failed, retry before proceeding.
-
-4. **Re-implement** following the updated ticket's Implementation Steps
-5. Return to approval flow (Section 1). **CRITICAL**: Before presenting the approval prompt again, ensure you have the ticket title (H1 heading) and overview available. Re-read the ticket file if needed -- the feedback loop must not lose ticket context.
-
-### 4. Handle Abandonment
-
-When user selects "Abandon":
-
-#### Discard Changes
-
-Check for other contributors' work before discarding:
-
-```bash
-git status --porcelain
-```
-
-Discard only your implementation changes:
-
-```bash
-git restore <file1> <file2> ...
-```
-
-#### Record Failure
-
-Append to ticket:
-
-```markdown
-## Failure Analysis
-
-### What Was Attempted
-- <implementation approach>
-
-### Why It Failed
-- <reason abandoned>
-
-### Insights for Future Attempts
-- <learnings>
-```
-
-#### Archive Abandoned Ticket
-
-```bash
-mkdir -p .workaholic/tickets/abandoned
-mv <ticket-path> .workaholic/tickets/abandoned/
-```
-
-Commit using **commit** skill:
-
-```bash
-bash commit/scripts/commit.sh \
-  "Abandon: <ticket-title>" \
-  "Implementation proved unworkable" \
-  "Ticket moved to abandoned with failure analysis" \
-  "None" \
-  "<why it failed / what to retry, from the Failure Analysis, or None>" \
-  "None" \
-  .workaholic/tickets/
-```
-
-Stop the drive session. Return control to the drive command to present the completion summary.
+When an implementation step requires a prohibited operation, use a safe project-local alternative (see the system-safety skill's Safe Alternatives table). If no alternative exists, record the ticket `blocked` with the named operation.
 
 ## Final Report
 
-After user approves implementation, update the ticket with effort and final report.
+After a ticket's implementation passes its gate, update the ticket with effort and final report.
 
 ### Update Effort Field
 
@@ -780,7 +510,7 @@ Include insights that fall into these categories:
 
 ## Archive
 
-Complete commit workflow after user approves implementation. Always use this script - never manually move tickets.
+Complete commit workflow after a ticket clears its gate. Always use this script - never manually move tickets.
 
 > **CRITICAL: NEVER manually archive tickets.** Do not use `mv` + `git add` + `git commit` to move
 > tickets from `todo/` to `archive/`. The `archive.sh` script is the ONLY authorized method.
@@ -791,8 +521,7 @@ Complete commit workflow after user approves implementation. Always use this scr
 **CRITICAL**: Before calling the archive script, verify that all required frontmatter fields have been successfully updated:
 
 1. **Verify effort field**: The ticket MUST have a valid `effort:` value (e.g., `0.1h`, `0.25h`, `0.5h`, `1h`, `2h`, `4h`)
-2. **Abort on failure**: If frontmatter update failed (e.g., Edit tool error), **DO NOT proceed with archiving**
-3. **Report the error**: Inform the user that frontmatter update failed and the ticket cannot be archived
+2. **Abort on failure**: If the frontmatter update failed, **DO NOT proceed with archiving** — record the ticket `failed` with the error instead.
 
 **Never archive a ticket without all required frontmatter fields.**
 
@@ -802,6 +531,13 @@ Complete commit workflow after user approves implementation. Always use this scr
 bash drive/scripts/archive.sh \
   <ticket-path> "<title>" <repo-url> "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"
 ```
+
+Where `<ticket-path>` is the current ticket file path in `todo/`, `<title>` is the commit title, and
+`<repo-url>` comes from the gather skill's `git-context.sh` output. Map the ticket and your Final
+Report into the body args: `<why>` from the ticket Overview/motivation, `<changes>` from what changed
+for users, `<concerns>` from the ticket Considerations (or "None"), `<insights>` from your Discovered
+Insights (or "None"), `<verify>` from the verification you ran. These keys feed `/report`
+(Motivation / Changes / Concerns / Successful Development Patterns).
 
 Follow the **commit** skill's Message Format section for message format.
 
@@ -848,6 +584,10 @@ Update when: After implementation, before archiving.
 #### commit_hash
 
 **Not written — derived from git.** `archive.sh` deliberately does not stamp this field: a commit cannot carry its own hash, so writing it and amending the ticket into that same commit changes the hash, leaving a value that points at an orphaned, never-pushed commit (and no stamping order fixes it — re-stamping after the amend regresses forever). `/report` derives the hash from the commit that *added* the archived ticket (its `ticket-commits.sh` script). Do not re-introduce a stamp here, and do not read this field: tickets archived before the fix still carry dead values.
+
+#### merge_policy
+
+**Recorded at ticket creation, read at route time — never written here.** `auto` lets the unit this ticket lands in merge without a human; anything else, including absence, routes to a PR (§6). `/drive` reads it through `effective-policy.sh` and never edits it: changing a ticket's merge policy mid-run would let the run grant itself permission to merge.
 
 #### category
 

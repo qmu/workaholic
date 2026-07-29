@@ -48,7 +48,7 @@ Every other place that touches granularity **links here** rather than restating 
 | state | area | meaning |
 | --- | --- | --- |
 | `draft` | `active/` | proposed, not yet answered for. Written by `create.sh` (before its interrogation) and by the `/propose` batch (`scaffold-draft.sh`). Invisible to executors. |
-| `approved` | `active/` | a human answered every judgment call about **this exact plan**, and recorded whether its completed units may merge automatically. `/drive` may drain its queue without the per-ticket prompt. |
+| `approved` | `active/` | a human answered every judgment call about **this exact plan**, and recorded whether its completed units may merge automatically. The mission is now **claimable**: `/drive`'s survey offers it as a PR-unit. |
 | `achieved` | `archive/` | the goal was reached. |
 | `abandoned` | `archive/` | ended without reaching it, and the remainder is not worth doing. |
 | `carried` | `archive/` | done **as framed**; the remainder became a successor mission. |
@@ -119,7 +119,7 @@ author: <email>
 assignees: [<email>]    # the mission's OWNERS (plural — a mission can be co-owned). Creator-seeded by create.sh (the approver is the default owner); empty = team-owned/claimable. Read ONLY via mission-owners.sh
 assignee: <email>       # LEGACY FALLBACK only (missions predating `assignees`). Empty on new missions; never read directly
 predicted_hours:        # decimal agent-hours, stamped ONCE at creation from archived-mission trend (predict-duration.sh); empty when basis 0
-actual_hours:           # decimal agent-hours accumulated by /monitor across runs (record-run-hours.sh is its only writer); empty until a run records
+actual_hours:           # decimal agent-hours accumulated by /drive across runs (record-run-hours.sh is its only writer); empty until a run records
 tickets: []             # machine-readable member lists — reserved; populated by later work
 stories: []
 concerns: []
@@ -145,15 +145,15 @@ When a mission *does* declare one: `gate_type` is `documentation` (the mission's
 
 ### Approval — the drive authorization
 
-`status: approved` records that this mission's ticket set was **interrogated and approved** by a human: `/drive` may then drain its queue **without the per-ticket approval prompt**. `draft` (the scaffold default) means ask, as always. The flip is performed only by `approve.sh` (below), which also records the `merge_policy` ruling and seeds the approver as owner.
+`status: approved` records that this mission's ticket set was **interrogated and approved** by a human: `/drive`'s survey then offers the mission as a **claimable PR-unit** and drives its whole queue. `draft` (the scaffold default) is invisible to the executor — a proposal nobody has answered for yet. The flip is performed only by `approve.sh` (below), which also records the `merge_policy` ruling and seeds the approver as owner.
 
 **Authorization lives here, on the mission, because this is the thing that was actually interrogated.** The Creation Interrogation is where the developer answered every judgement call and co-authored each ticket's `## Quality Gate`; approving the mission is approving that act. Two alternatives were considered and rejected, recorded so they are not re-litigated:
 
 - **Keying off the ticket's `mission:` relation alone** — a ticket hand-added to the mission later would inherit an authorization nobody granted.
-- **An explicit `/drive mission` argument** — mirrors night mode, but makes authorization an act by whoever runs `/drive`, who may not be the person who ran the interrogation.
+- **An explicit `/drive mission` argument** — makes authorization an act by whoever runs `/drive`, who may not be the person who ran the interrogation (and on the routine, is nobody at all).
 - **A separate `drive_authorized` boolean beside the status** — the original spelling, retired 2026-07-28 (see the *Redefinition record* above): two fields for one concept, free to disagree.
 
-**Explicit approval is relocated, never removed.** The gate is skipped exactly when a prior explicit batch authorization covers the ticket — `/drive night`'s invocation, or this approval — and never otherwise. What is removed is the *completeness check inside the drive loop*; the qualitative looking-through `development` / `qa-engineering` makes non-delegable **relocates to the PR** (`/report` still writes the story, `/ship` still gates the merge on evidence). Do not blur those two: eliminate the completeness check and you are on policy; eliminate the looking-through and you are in the state three policies exist to prevent.
+**Explicit approval is relocated, never removed.** `/drive` has no per-ticket prompt at all (retired 2026-07-28); this approval — or, for an unmissioned ticket, its creation — is the authorization that took its place. What is removed is the *completeness check inside the drive loop*; the qualitative looking-through `development` / `qa-engineering` makes non-delegable **relocates to the PR** (`/report` still writes the story, `/ship` still gates the merge on evidence). Do not blur those two: eliminate the completeness check and you are on policy; eliminate the looking-through and you are in the state three policies exist to prevent.
 
 Read it with `drive-authorized.sh` — never by grepping the field yourself.
 
@@ -181,9 +181,9 @@ This is per-worktree by construction — each worktree checks out its own `.work
 `predicted_hours` and `actual_hours` record, in decimal **agent-hours**, how long a mission's implementation is expected to take a coding agent and how long it actually consumed — so archived missions accumulate a trend the next planning reads.
 
 - **`predicted_hours`** is stamped **once at creation**, deterministically, by `predict-duration.sh`: `median(actual_hours ÷ acceptance-item total)` across archived missions that carry both, times this mission's planned item count. With **no archived basis** it reports `basis: 0` and the field stays **empty** with a changelog note — never a fabricated number. It is a **report line to the developer, never a question** (`development` / `overnight-ai`: pre-answer, don't ask).
-- **`actual_hours`** is accumulated by `/monitor`, whose dispatcher sums each leaf's dispatch→completion wall-clock per mission across waves and nights, and calls `record-run-hours.sh` once per mission per run-id. That recorder is `actual_hours`'s **only writer** (same doctrine as `tick-acceptance.sh` — never hand-edited), idempotent per run-id, and it carries each increment in a `run recorded (+Xh) — <run-id>` changelog line so the sum reconstructs from history.
+- **`actual_hours`** is accumulated by `/drive` (decision I7), which sums the wall-clock its run spent on that mission's PR-unit and calls `record-run-hours.sh` once per mission per run-id. That recorder is `actual_hours`'s **only writer** (same doctrine as `tick-acceptance.sh` — never hand-edited), idempotent per run-id, and it carries each increment in a `run recorded (+Xh) — <run-id>` changelog line so the sum reconstructs from history.
 
-**The actual is agent time under `/monitor` only** — a deliberate, documented limitation, not a gap to close silently. Solo `/drive` outside `/monitor` is not counted: the prediction answers "how long will the *agents* need", and the monitor run is where agents run at scale. Calendar span and commit-timestamp heuristics were rejected (idle pollution / estimation logic).
+**The actual is agent time on mission units only** — a deliberate, documented limitation, not a gap to close silently. A batch unit of unmissioned backlog tickets has no mission to accumulate into, so it records nothing: the prediction answers "how long will the *agents* need on this mission", and only a mission has a plan to measure against. Calendar span and commit-timestamp heuristics were rejected (idle pollution / estimation logic).
 
 Body sections, in order:
 
@@ -232,7 +232,7 @@ When `/mission "<title>"` creates a mission, **interrogate the developer until t
 
 **Why it is mandatory.** A mission's whole value is that judgement is answered *before* the work starts. `development` / `overnight-ai`: *"identify in advance the points where AI would want to ask for judgment and write the answers to those questions into the ticket. We eliminate the causes of stopping in the night before the run starts."* A mission scaffolded with empty sections is an empty shell that stops the first time it meets a decision — and, because the mission lens's signal gate silences a `0/0` mission, it is an empty shell **nobody can see**.
 
-**Grill; do not tick a box.** The bar is a *structured model* — the demanded behavior, the ticket plan, the order — not a question count and not a Q&A transcript pasted into a file (`planning` / `modeling-centric-design`). Ask as many rounds as it takes — but apply the **Recommended-label test** (`rules/interaction.md`) to every round: if you could honestly recommend an answer, **do not ask it** — decide it, record the decision where the plan is written (the mission `## Changelog`, or the relevant ticket's `## Quality Gate`), and let the developer veto it. "As many rounds as it takes" therefore means as many *unrecommendable* rounds as it takes: the grilling is undiminished on the genuine forks, and silent on the calls you could already make. Where uncertainty is high, prove it small before emitting the set (`planning` / `verify-before-building`): with no per-ticket approval downstream, an unverified premise is not caught at ticket 3 — it is concretized across the whole mission.
+**Grill; do not tick a box.** The bar is a *structured model* — the demanded behavior, the ticket plan, the order — not a question count and not a Q&A transcript pasted into a file (`planning` / `modeling-centric-design`). Ask as many rounds as it takes — but apply the **Recommended-label test** (`rules/interaction.md`) to every round: if you could honestly recommend an answer, **do not ask it** — decide it, record the decision where the plan is written (the mission `## Changelog`, or the relevant ticket's `## Quality Gate`), and let the developer veto it. "As many rounds as it takes" therefore means as many *unrecommendable* rounds as it takes: the grilling is undiminished on the genuine forks, and silent on the calls you could already make. Where uncertainty is high, prove it small before emitting the set (`planning` / `verify-before-building`): with no human gate downstream of approval, an unverified premise is not caught at ticket 3 — it is concretized across the whole mission.
 
 ### Read recent reflections (before the rounds)
 
@@ -392,13 +392,13 @@ The `merge_policy` argument is **required** and enum-validated (`auto` | `review
 bash mission/scripts/drive-authorized.sh <ticket-file>
 ```
 
-Answer, for one ticket: **may `/drive` implement this without the per-ticket approval prompt?** Emits `{authorized, reason, missions}` — `reason` is `""` (authorized), `no_ticket`, `no_mission` (nothing authorized it), `mission_not_found`, `not_authorized` (a claimed mission is not `status: approved` — a draft, or an ended mission), or `no_plan` (a claimed mission is approved but its `## Acceptance` is empty — approval with no plan authorizes nothing; the floor is `progress.sh`'s `total > 0`). Reads the relation through `read-relation.sh`, so `mission: [a, b]` and a bare `mission: a` behave identically. A legacy `drive_authorized: true` stamp is still honored for the transition window, so a mission in a checkout the living migration has not touched is not de-authorized mid-drive; the JSON contract (including the `not_authorized` key) is unchanged, so `/drive` callers needed no change.
+Answer, for one ticket: **is this ticket's queue pre-authorized?** (The unified `/drive` run applies this same floor one level up, to the mission it offers as a unit; the resolver stays the authority for any caller that needs a per-ticket answer.) Emits `{authorized, reason, missions}` — `reason` is `""` (authorized), `no_ticket`, `no_mission` (nothing authorized it), `mission_not_found`, `not_authorized` (a claimed mission is not `status: approved` — a draft, or an ended mission), or `no_plan` (a claimed mission is approved but its `## Acceptance` is empty — approval with no plan authorizes nothing; the floor is `progress.sh`'s `total > 0`). Reads the relation through `read-relation.sh`, so `mission: [a, b]` and a bare `mission: a` behave identically. A legacy `drive_authorized: true` stamp is still honored for the transition window, so a mission in a checkout the living migration has not touched is not de-authorized mid-drive; the JSON contract (including the `not_authorized` key) is unchanged, so `/drive` callers needed no change.
 
 Missions get a write-time floor too: `hooks/validate-mission.sh` (PostToolUse `Write|Edit`, the mission analogue of `validate-ticket.sh`) lets a **draft** pass with **nothing required** (that is the scaffold moment, and `create.sh` scaffolds a draft by design), and — once a mission claims `status: approved` (or a legacy `drive_authorized: true`) — rejects a **missing owner** (`mission-owners.sh` empty — its own `assignees` and the legacy `assignee` both empty; unattended work needs an owner), a comment-only `## Experience`, or an empty `## Acceptance` at the write, where the author can still fix it. (A legacy `strategy:` key from the retired strategy layer is tolerated and ignored.) `archive/` missions are history and are never retro-blocked.
 
 **Conservative by construction**: a ticket claiming several missions is authorized only if **every** one of them is approved. Naming a mission is a commitment, not a label — the same reason `/drive` holds a ticket to the gate of every mission it names ("all of them must pass, not the most convenient one"). One unapproved mission means ask.
 
-This is a **script, not prose**, on purpose: the approval gate lived entirely in `drive/SKILL.md` prose, which is why neither it nor night mode ever carried a single assertion. A rule that decides whether to ask a human for permission has to be reproducible and testable.
+This is a **script, not prose**, on purpose: the approval gate lived entirely in `drive/SKILL.md` prose, which is why it never carried a single assertion. A rule that decides whether work may run without a human has to be reproducible and testable.
 
 ```bash
 bash mission/scripts/gate.sh <mission-slug-or-file>
@@ -463,7 +463,7 @@ Predict a mission's agent-hours **deterministically** from archived-mission tren
 bash mission/scripts/record-run-hours.sh <mission-slug-or-file> <hours> <run-id>
 ```
 
-Accumulate a `/monitor` run's agent-hours into `actual_hours` (float add), **idempotently per run-id** — a run already recorded (its `run recorded (+Xh) — <run-id>` changelog line present) adds nothing, so a crash-recovery re-run is safe. The changelog line carries the increment so the sum reconstructs from history. **This is the only writer of `actual_hours`** (same doctrine as `tick-acceptance.sh`; never hand-edited). Emits `{recorded, actual_hours, run_id, path}`.
+Accumulate a `/drive` run's agent-hours into `actual_hours` (float add), **idempotently per run-id** — a run already recorded (its `run recorded (+Xh) — <run-id>` changelog line present) adds nothing, so a crash-recovery re-run is safe. The changelog line carries the increment so the sum reconstructs from history. **This is the only writer of `actual_hours`** (same doctrine as `tick-acceptance.sh`; never hand-edited). Emits `{recorded, actual_hours, run_id, path}`.
 
 ```bash
 printf '%s' "<three-bullet body>" | bash mission/scripts/append-reflection.sh <mission-slug-or-file> <run-id> [date]

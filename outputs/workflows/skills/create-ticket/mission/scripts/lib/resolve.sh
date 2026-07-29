@@ -18,8 +18,8 @@
 # Layout: missions live under one of two areas, keyed off the `status` frontmatter
 # field (mirroring the tickets todo/archive split), where <root> is a `.workaholic`
 # directory:
-#   <root>/missions/active/<slug>/mission.md    status: active
-#   <root>/missions/archive/<slug>/mission.md   status: achieved | abandoned
+#   <root>/missions/active/<slug>/mission.md    status: draft | approved (in flight)
+#   <root>/missions/archive/<slug>/mission.md   status: achieved | abandoned | carried
 #
 # Usage (from a mission script, with SCRIPT_DIR its own scripts/ dir):
 #   . "<scripts-dir>/lib/resolve.sh"
@@ -103,8 +103,8 @@ missions_migrate_layout() {
         [ -f "$_mdir/mission.md" ] || continue
         _mstatus=$(grep -m1 '^status:' "$_mdir/mission.md" 2>/dev/null | sed -e 's/^status:[ \t]*//' -e 's/[ \t]*$//' || true)
         case "$_mstatus" in
-            achieved|abandoned) _marea="archive" ;;
-            *)                  _marea="active" ;;
+            achieved|abandoned|carried) _marea="archive" ;;
+            *)                          _marea="active" ;;
         esac
         mkdir -p "$_mroot/$_marea" 2>/dev/null || continue
         [ -e "$_mroot/$_marea/$_mslug" ] && continue
@@ -114,6 +114,69 @@ missions_migrate_layout() {
             mv "$_mdir" "$_mroot/$_marea/$_mslug" 2>/dev/null || continue
             git add -A "$_mroot" >/dev/null 2>&1 || true
         fi
+    done
+    # The status-axis unification rides the same seam: a legacy `status: active`
+    # mission is normalized to draft/approved on the next mission-script touch
+    # (see missions_migrate_status below), after the area relocation above has put
+    # every mission in the area its status selects.
+    missions_migrate_status "${1:-}" || true
+    return 0
+}
+
+# Living migration: unify the mission lifecycle onto ONE axis (2026-07-28 --
+# docs/loop-engineering-workflow.md I2). `drive_authorized` is retired INTO the
+# status: "approved" is exactly what the stamp asserted -- a human answered every
+# judgment call about this exact plan -- so one concept keeps one word
+# (workaholic:planning / terminology).
+#
+#   status: active + drive_authorized: true  ->  status: approved
+#   status: active without the stamp         ->  status: draft
+#
+# and the retired `drive_authorized:` key line is DROPPED from the rewritten file,
+# so the field stops existing rather than lingering as a second, stale authority.
+# Area keying is untouched: draft|approved live in active/, the three end states in
+# archive/, so nothing moves here. Archived missions are history and are never
+# rewritten.
+#
+# Idempotent (a migrated file no longer says `active`, so a re-run matches nothing)
+# and best-effort: every failure is swallowed so a calling seam is never blocked --
+# an unmigrated mission is still read correctly, because every reader keeps a
+# legacy-tolerance branch for the pre-migration shape until the touch lands.
+missions_migrate_status() {
+    _msroot="${1:-}"
+    [ -n "$_msroot" ] || return 0
+    _msroot="${_msroot}/missions"
+    [ -d "$_msroot" ] || return 0
+    # active/ plus any legacy flat dir the relocation above could not move.
+    for _msf in "$_msroot"/active/*/mission.md "$_msroot"/*/mission.md; do
+        [ -f "$_msf" ] || continue
+        _msfm() {
+            awk -v key="$1" '
+                NR==1 { if ($0 != "---") exit; next }
+                /^---[ \t]*$/ { exit }
+                index($0, key ":") == 1 {
+                    sub(/^[^:]*:[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit
+                }
+            ' "$_msf" 2>/dev/null || true
+        }
+        [ "$(_msfm status)" = "active" ] || continue
+        if [ "$(_msfm drive_authorized)" = "true" ]; then
+            _msnew="approved"
+        else
+            _msnew="draft"
+        fi
+        _mstmp="${_msf}.status.$$"
+        awk -v new="$_msnew" '
+            NR == 1 && $0 == "---" { in_fm = 1; print; next }
+            in_fm && /^---[ \t]*$/ { in_fm = 0; print; next }
+            in_fm && /^status:/ { print "status: " new; next }
+            in_fm && /^drive_authorized:/ { next }
+            { print }
+        ' "$_msf" > "$_mstmp" 2>/dev/null && mv "$_mstmp" "$_msf" 2>/dev/null || {
+            rm -f "$_mstmp" 2>/dev/null || true
+            continue
+        }
+        git add "$_msf" >/dev/null 2>&1 || true
     done
     return 0
 }

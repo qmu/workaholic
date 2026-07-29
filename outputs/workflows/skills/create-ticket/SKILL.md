@@ -89,6 +89,7 @@ commit_hash:
 category:
 depends_on:
 mission:                           # optional: every mission this ticket advances — `[slug-a, slug-b]`, or a bare slug for one (empty when none)
+merge_policy:                      # optional: auto | review — may this work merge automatically? ABSENT MEANS review
 ---
 ```
 
@@ -97,6 +98,7 @@ mission:                           # optional: every mission this ticket advance
 - **Lines 1-4**: Fill with actual values (never placeholders)
 - **Lines 5-8** (`effort`/`commit_hash`/`category`/`depends_on`): Must be present but leave empty (filled after implementation, or during creation when a request is split)
 - **`mission`**: Optional. Present but empty unless the developer associates the ticket with an existing mission at `/ticket` time (see Workflow Step 4c) — then it holds that mission's `slug`. Machine-readable, never required; the pipeline tolerates its absence.
+- **`merge_policy`**: Optional, `auto` or `review`, captured at creation (Workflow Step 4d). **Absent means `review`** — the conservative default, stated here because this is where the field is defined. Every ticket written before the field existed carries no value, and the one reading that must never produce is "merge this without a human looking". `hooks/validate-ticket.sh` enforces the enum **only when a value is present**: an empty field is legal, a typo'd one is not (`merge_policy: atuo` would otherwise read as `review` while its author believed they had asked for automatic merging).
 
 ## Common Mistakes
 
@@ -199,9 +201,19 @@ Before writing, offer to associate the ticket(s) with an existing **mission** �
 bash mission/scripts/list.sh
 ```
 
-If the array contains missions with `status: active`, the command issues one **`multiSelect: true`** the agent's selection prompt offering each **active** mission (by `title` + `slug`) plus a **"None"** option, and writes **every** chosen `slug` into each written ticket's `mission:` field — `mission: [alpha, beta]` for two, a bare `mission: alpha` for one (ended — `achieved`/`abandoned` — missions live in the archive area and are never offered: new work does not advance a closed mission). If no active mission exists, or the developer picks "None", leave `mission:` empty. Because the choices are drawn from the list of existing missions, the written slugs are valid by construction — no separate slug validation is applied (the field is optional and the pipeline tolerates its absence). Skip this step silently when there are no missions.
+If the array contains **in-flight** missions (`status: draft` or `approved` — the active area), the command issues one **`multiSelect: true`** the agent's selection prompt offering each in-flight mission (by `title` + `slug`) plus a **"None"** option, and writes **every** chosen `slug` into each written ticket's `mission:` field — `mission: [alpha, beta]` for two, a bare `mission: alpha` for one (ended — `achieved`/`abandoned`/`carried` — missions live in the archive area and are never offered: new work does not advance a closed mission). If no in-flight mission exists, or the developer picks "None", leave `mission:` empty. Because the choices are drawn from the list of existing missions, the written slugs are valid by construction — no separate slug validation is applied (the field is optional and the pipeline tolerates its absence). Skip this step silently when there are no missions.
 
 The select is multi because a ticket can genuinely advance more than one mission, and the relation should record that rather than force a choice. Naming a mission is a **commitment, not a label**: `/drive` reads the quality gate of **every** mission a ticket names and the change must satisfy all of them. If the work cannot meet a mission's bar, do not name that mission.
+
+### 4d. Record the merge policy
+
+Ask, once per `/ticket` run, **may this work merge automatically once it is done and verified, or must a human review the PR?** — and write the answer into every ticket written by this run as `merge_policy: auto | review` (decision G5, `docs/loop-engineering-workflow.md`). One the agent's selection prompt at the command level, `question` body prefixed with the `[<project label>]`, two options: *auto — merge on green deploy evidence* / *review — stop at the PR for a human*.
+
+**This is one of the few genuinely unrecommendable forks** (`rules/interaction.md`), which is why it is asked rather than decided: the answer depends on how much the developer trusts this particular change to land unattended, which is information you do not hold. Do not derive it from the ticket's `type` or size.
+
+**Inheritance from a mission.** When the ticket is emitted as part of a mission's ticket set (the mission Creation Interrogation / Replan flows, `mission`), it **inherits the mission's `merge_policy`** and this question is not asked per ticket — the mission's approval already decided it for the batch. The interrogation may still rule otherwise for a specific ticket (a risky one inside an `auto` mission is written `review`); when it does, record the divergence and its reason in that ticket's `## Quality Gate` as a `Decided:` line, so the exception is visible where the gate is read.
+
+**Leaving it empty is legal and reads as `review`** — the conservative default (see *Field Requirements*). Never write `auto` because nobody answered.
 
 ### 5. Write Ticket(s)
 
@@ -299,6 +311,7 @@ commit_hash:
 category:
 depends_on:
 mission:
+merge_policy: review
 ---
 
 # <Title>
@@ -413,6 +426,7 @@ These fields are updated by the `drive` skill (Update Frontmatter section) durin
 
 - **depends_on**: List of ticket filenames that must be implemented before this ticket. Populated automatically when the `/ticket` command splits a request. Format: YAML list of filenames (e.g., `[20260410002111-foundation.md]`). Leave empty for standalone tickets.
 - **mission**: The `slug` of an existing mission this ticket advances (see `mission`). Chosen at `/ticket` time from the list of existing missions (Workflow Step 4c), or left empty. This is the machine-readable ticket→mission relation a mission rolls up from; it is never required and the whole pipeline works with it absent.
+- **merge_policy**: `auto` or `review` — whether this work may merge automatically once it is done and verified. Captured at `/ticket` time (Workflow Step 4d), inherited from the mission for a mission-emitted ticket. **Absent means `review`**, so no legacy or unanswered ticket ever merges by omission; the enum is validated only when a value is present.
 
 ## Policy Lens
 

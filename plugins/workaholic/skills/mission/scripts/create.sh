@@ -1,8 +1,11 @@
 #!/bin/sh -eu
 # Create a new mission: scaffold .workaholic/missions/active/<slug>/mission.md from a
 # title, stamp created_at/author from the gather skill, refresh the OKF bundle indexes,
-# and git-stage. A new mission is active by definition, so it always lands in the
-# active/ area. The slug is derived from the title (lowercased, every run of
+# and git-stage. A new mission is a DRAFT: the scaffold predates the interrogation, so
+# nothing about the plan has been approved yet (approve.sh performs that flip once the
+# interrogation completes, and it is the only path that does). Drafts are in flight, so
+# the mission still lands in the active/ area. The slug is derived from the title
+# (lowercased, every run of
 # non-[a-z0-9] collapsed to a single hyphen, ends trimmed). Refuses to overwrite an
 # existing mission in either area (active/ or archive/).
 #
@@ -60,12 +63,12 @@ cat > "$MISSION_FILE" <<EOF
 type: Mission
 title: ${TITLE}
 slug: ${SLUG}
-status: active
+status: draft
+merge_policy:
 created_at: ${CREATED_AT}
 author: ${AUTHOR}
 assignees: [${ASSIGNEE}]
 assignee:
-drive_authorized:
 predicted_hours:
 actual_hours:
 tickets: []

@@ -104,7 +104,7 @@ Follow the **Approval** section below to present the approval dialog. **CRITICAL
 Explicit approval is **relocated, never removed**. The gate is skipped exactly when the developer has already authorized this exact work, in one of two ways — and never otherwise:
 
 - **Night mode** — `/drive night` is the authorization for the whole prioritized batch (see **Night Mode**).
-- **A mission-authorized queue** — the ticket's mission was interrogated at `/mission` time and stamped `drive_authorized: true`. Do not decide this in prose; ask the resolver:
+- **A mission-authorized queue** — the ticket's mission was interrogated at `/mission` time and **approved** (`status: approved`). Do not decide this in prose; ask the resolver:
 
   ```bash
   bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/drive-authorized.sh <ticket-path>
@@ -265,7 +265,7 @@ In either case, apply the safety floor and continue to the next authorized ticke
 - **Tickets minted mid-run** (`deferred`), one line each: what was found, which ticket provoked it, and the new filename. These are *additional* to the authorized batch and do not affect its reconciliation — but a run that quietly mints tickets is a run that quietly changes the plan, so they are never silent.
 - Any stashed partial work and where to find it.
 
-**Critical Rule exception (scoped).** The per-ticket "explicit user approval" gate is skipped exactly when a **prior explicit batch authorization** covers the ticket, and never otherwise. There are two such authorizations, and no others: invoking **`/drive night`** (this mode — the batch, optionally narrowed by the §1b group choice), and a **mission stamped `drive_authorized: true`** by its Creation Interrogation (see Step 2.2's *When the gate is skipped*). Both are the same shape: the developer authorized this exact work in advance. Every other Critical Rule below remains in force in both modes.
+**Critical Rule exception (scoped).** The per-ticket "explicit user approval" gate is skipped exactly when a **prior explicit batch authorization** covers the ticket, and never otherwise. There are two such authorizations, and no others: invoking **`/drive night`** (this mode — the batch, optionally narrowed by the §1b group choice), and a **mission approved** (`status: approved`) after its Creation Interrogation (see Step 2.2's *When the gate is skipped*). Both are the same shape: the developer authorized this exact work in advance. Every other Critical Rule below remains in force in both modes.
 
 ### Critical Rules
 
@@ -273,7 +273,7 @@ In either case, apply the safety floor and continue to the next authorized ticke
 
 If a ticket cannot be implemented **after a genuine attempt** — its type-check/tests fail, or a **named** hard external blocker (missing credential, unreachable external service/dependency) stops it. A ticket's size, complexity, or "all-or-nothing" scope is **never** a reason to not attempt it:
 
-1. **Stop and ask the developer** using `AskUserQuestion` with selectable `options` — **except when a prior batch authorization covers the ticket** (night mode, or a mission stamped `drive_authorized: true`). Those runs are unattended and follow the attempt-first policy in **Night Mode** §3 (attempt every ticket; on a demonstrated failure or named hard blocker, stash + record + continue); never auto-icebox or use destructive git.
+1. **Stop and ask the developer** using `AskUserQuestion` with selectable `options` — **except when a prior batch authorization covers the ticket** (night mode, or an approved mission). Those runs are unattended and follow the attempt-first policy in **Night Mode** §3 (attempt every ticket; on a demonstrated failure or named hard blocker, stash + record + continue); never auto-icebox or use destructive git.
 2. Explain why implementation cannot proceed
 3. Use selectable options (NEVER open-ended text questions):
    - "Move to icebox" - Move ticket to `.workaholic/tickets/icebox/` and continue to next

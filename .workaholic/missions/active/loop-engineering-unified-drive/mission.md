@@ -58,3 +58,4 @@ Out of scope: phase 4 (Claude Code Web port, kioku ingestion, multi-repo rollout
 - 2026-07-29 — ticket archived — 20260728221802-add-claim-protocol-scripts.md
 - 2026-07-29 — ticket archived — 20260728221803-unify-drive-executor.md
 - 2026-07-29 — ticket archived — 20260728221804-retire-monitor-trip-carry.md
+- 2026-07-29 — story reported — work-20260728-221717.md

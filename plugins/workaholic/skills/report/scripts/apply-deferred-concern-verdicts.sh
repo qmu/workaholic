@@ -72,7 +72,12 @@ for item in data:
     rpr = item.get("resolved_by_pr") or ""
     rcommit = item.get("resolved_by_commit") or ""
     # Tab-delimited so paths with spaces survive; paths shouldn't have tabs.
-    print(f"{path}\t{verdict}\t{rpr}\t{rcommit}")
+    # An absent field is emitted as "-", never as an empty run: tab is IFS
+    # *whitespace*, so `read` collapses consecutive tabs into one delimiter and
+    # a verdict carrying only resolved_by_commit would shift that hash into the
+    # resolved_by_pr column -- writing "PR #<commit-hash>" into an append-only
+    # record. The reader maps "-" back to empty.
+    print(f"{path}\t{verdict}\t{rpr or '-'}\t{rcommit or '-'}")
 PY
 }
 
@@ -105,6 +110,10 @@ ts=$(printf '%s' "$created_at" | tr -dc '0-9' | cut -c1-14)
 while IFS="$tab" read -r path verdict rpr rcommit; do
   [ -z "$path" ] && continue
   [ ! -f "$path" ] && continue
+
+  # "-" is the absent-field sentinel the parser emits (see the note there).
+  [ "$rpr" = "-" ] && rpr=""
+  [ "$rcommit" = "-" ] && rcommit=""
 
   if [ "$verdict" = "resolved" ]; then
     concern_base=$(basename "$path")

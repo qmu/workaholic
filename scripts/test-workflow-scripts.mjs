@@ -4291,6 +4291,45 @@ function testApplyVerdicts() {
     assertEq("apply-verdicts still accepts a bare array", r.resolved, 1);
   } finally { cleanup(repo2); }
 
+  // A verdict carrying ONLY resolved_by_commit must not shift that hash into
+  // the resolved_by_pr column. Tab is IFS *whitespace*, so `read` collapses the
+  // empty PR field's delimiter unless the parser emits an absent-field
+  // sentinel -- the bug wrote "PR #<commit-hash>" into an append-only record.
+  {
+    const repo = makeRepo("main");
+    try {
+      mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
+      writeFileSync(join(repo, ".workaholic/feedbacks/20260101000000-baz.md"),
+        "---\ntype: Feedback\ntitle: Baz\nkind: concern\nsource: development\ncreated_at: 2026-01-01T00:00:00+09:00\nauthor: test@example.com\nsupersedes:\nseverity: low\nconcern_id: baz\n---\n\n# Baz\n");
+      execSync(`git add -A && git commit -q -m concern`, { cwd: repo });
+      const obj = JSON.stringify({ verdicts: [{ path: ".workaholic/feedbacks/20260101000000-baz.md", verdict: "resolved", resolved_by_commit: "abc1234" }] });
+      const r = JSON.parse(run(repo, `printf '%s' '${obj}' | ${POSIX_SH} ${SCRIPTS.applyVerdicts}`).stdout);
+      const sup = readFileSync(join(repo, r.files_resolved[0]), "utf8");
+      assertTrue("commit-only verdict keeps the hash in resolved_by_commit",
+        /^resolved_by_commit: abc1234$/m.test(sup), sup);
+      assertTrue("commit-only verdict leaves resolved_by_pr empty",
+        /^resolved_by_pr:[ \t]*$/m.test(sup), sup);
+      assertTrue("commit-only verdict never renders a PR number",
+        !/PR #/.test(sup), sup);
+    } finally { cleanup(repo); }
+  }
+
+  // The absent-field sentinel must not leak when BOTH fields are absent.
+  {
+    const repo = makeRepo("main");
+    try {
+      mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
+      writeFileSync(join(repo, ".workaholic/feedbacks/20260101000000-qux.md"),
+        "---\ntype: Feedback\ntitle: Qux\nkind: concern\nsource: development\ncreated_at: 2026-01-01T00:00:00+09:00\nauthor: test@example.com\nsupersedes:\nseverity: low\nconcern_id: qux\n---\n\n# Qux\n");
+      execSync(`git add -A && git commit -q -m concern`, { cwd: repo });
+      const obj = JSON.stringify({ verdicts: [{ path: ".workaholic/feedbacks/20260101000000-qux.md", verdict: "resolved" }] });
+      const r = JSON.parse(run(repo, `printf '%s' '${obj}' | ${POSIX_SH} ${SCRIPTS.applyVerdicts}`).stdout);
+      const sup = readFileSync(join(repo, r.files_resolved[0]), "utf8");
+      assertTrue("both-absent verdict writes neither field nor the sentinel",
+        /^resolved_by_pr:[ \t]*$/m.test(sup) && /^resolved_by_commit:[ \t]*$/m.test(sup) && !/-$/m.test(sup.split("---")[1] || ""), sup);
+    } finally { cleanup(repo); }
+  }
+
   // --- Fail-loud contract (the incident this ticket closes) ---------------
 
   // Honest-empty: empty stdin, no expected arg -> zeros, exit 0. The correct

@@ -58,6 +58,9 @@ const SCRIPTS = {
   tickAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/tick-acceptance.sh"),
   refreshIndex: join(REPO_ROOT, "plugins/workaholic/skills/okf/scripts/refresh-index.sh"),
   promoteIcebox: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/promote-icebox.sh"),
+  claim: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/claim.sh"),
+  listClaims: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-claims.sh"),
+  releaseClaim: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/release-claim.sh"),
   publishRelease: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/publish-release.sh"),
   readDeployments: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/read-deployments.sh"),
   recordEvidence: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/record-evidence.sh"),
@@ -5373,6 +5376,15 @@ Acceptance: it works. Verification: the suite. Gate: green.
     assertEq("validate-ticket accepts a ticket whose mission resolves", invoke(), 0);
     writeFileSync(abs, ticket("mission:\n"));
     assertEq("validate-ticket accepts a ticket with an empty mission:", invoke(), 0);
+
+    // The claim protocol stamps `claim: <branch>` into a claimed ticket on the claim
+    // branch, so a queue ticket legitimately carries the key. It is tolerated and
+    // NEVER validated: the key is branch-local and its truth lives in git (answered
+    // by list-claims.sh), not in the file a hook can read.
+    writeFileSync(abs, ticket("claim: work-20260729-120000\n"));
+    assertEq("validate-ticket tolerates a claim: stamp", invoke(), 0);
+    writeFileSync(abs, ticket("claim: anything-at-all\nmission: real-time-notifications\n"));
+    assertEq("validate-ticket does not police the claim: value", invoke(), 0);
     writeFileSync(abs, ticket(""));
     assertEq("validate-ticket accepts a ticket with no mission field", invoke(), 0);
 
@@ -7575,6 +7587,225 @@ function testMissionStatusAxis() {
   } finally { cleanup(dir); }
 }
 
+// ---------- the claim protocol: two clones coordinating through the repo ----------
+// G3 (docs/loop-engineering-workflow.md): the repository IS the coordination medium.
+// The claim is a pushed branch, the reader is an unmerged-remote-branch scan, and
+// release is a merge or a branch deletion. What must be proven is not that each
+// script prints the right JSON in isolation but that TWO INDEPENDENT CLONES cannot
+// both take one unit — so the fixture is a bare origin with clone A and clone B, and
+// every assertion below is made from the clone that did NOT do the writing.
+//
+// Deliberately hermetic: no GitHub, no network, no live remote. The bare-origin
+// pattern is this repo's precedent for exactly this (see the extraction push tests).
+function makeClaimFixture() {
+  const origin = mkdtempSync(join(tmpdir(), "wh-claim-origin-"));
+  const seed = mkdtempSync(join(tmpdir(), "wh-claim-seed-"));
+  execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
+  execSync(`git clone -q ${origin} .`, { cwd: seed });
+  execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: seed });
+  mkdirSync(join(seed, ".workaholic/missions/active/m1"), { recursive: true });
+  writeFileSync(join(seed, ".workaholic/missions/active/m1/mission.md"),
+    `---\ntype: Mission\ntitle: M1\nslug: m1\nstatus: approved\nassignees: [test@example.com]\n---\n\n# M1\n\n## Acceptance\n\n- [ ] x\n`);
+  const ticketDir = join(seed, `.workaholic/tickets/todo/${TEST_SLUG}`);
+  mkdirSync(ticketDir, { recursive: true });
+  for (const n of [1, 2]) {
+    writeFileSync(join(ticketDir, `2026072900000${n}-t${n}.md`),
+      `---\ncreated_at: 2026-07-29T00:00:0${n}+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Domain]\n---\n\n# T${n}\n`);
+  }
+  execSync(`git add -A && git commit -q -m seed && git push -q origin main`, { cwd: seed });
+  rmSync(seed, { recursive: true, force: true });
+
+  const clones = {};
+  for (const name of ["A", "B"]) {
+    const c = mkdtempSync(join(tmpdir(), `wh-claim-${name}-`));
+    execSync(`git clone -q ${origin} .`, { cwd: c });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: c });
+    clones[name] = c;
+  }
+  return { origin, A: clones.A, B: clones.B };
+}
+
+// The claim branch name is minted from the clock TO THE SECOND
+// (create-mission-worktree.sh), so two claims inside one second collide on the name.
+// In production that is a rejected push reported as `branch_collision` and retried on
+// the next tick; in a test it is just nondeterminism, so step off the second boundary
+// between claims. (The collision itself is asserted explicitly below.)
+function tickSecond() { execSync("sleep 1.1"); }
+
+function testClaimProtocol() {
+  const { origin, A, B } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const LIST = `${POSIX_SH} ${SCRIPTS.listClaims}`;
+  const RELEASE = `${POSIX_SH} ${SCRIPTS.releaseClaim}`;
+  try {
+    // Nothing in flight yet.
+    let r = JSON.parse(run(A, LIST).stdout);
+    assertEq("list-claims on a clean origin reports no claims", { f: r.fetched, n: r.claims.length }, { f: true, n: 0 });
+
+    // ---- A claims mission m1 ----
+    const claimed = JSON.parse(run(A, `${CLAIM} mission m1`).stdout);
+    assertEq("claim.sh mission claims the unit", { c: claimed.claimed, u: claimed.unit }, { c: true, u: "m1" });
+    assertTrue("claim.sh mints a canonical work-* branch", /^work-\d{8}-\d{6}$/.test(claimed.branch), claimed.branch);
+    assertEq("claim.sh names the worktree after the unit", claimed.worktree_path, join(A, ".worktrees/m1"));
+    assertEq("claim.sh stamps the mission as the claimed artifact",
+      claimed.artifacts, [".workaholic/missions/active/m1/mission.md"]);
+
+    // THE STAMP RIDES THE WORKTREE, NEVER THE MAIN TREE. The runner's main checkout
+    // must stay clean between ticks — /propose commits on main and depends on it.
+    assertEq("claiming leaves the main checkout clean",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+    assertTrue("the claim stamp is absent from the main tree's mission.md",
+      !readFileSync(join(A, ".workaholic/missions/active/m1/mission.md"), "utf8").includes("claim:"));
+    assertTrue("the claim stamp is present in the worktree's mission.md",
+      readFileSync(join(A, ".worktrees/m1/.workaholic/missions/active/m1/mission.md"), "utf8")
+        .includes(`claim: ${claimed.branch}`));
+
+    // ---- B, an independent clone, sees the claim purely from git state ----
+    r = JSON.parse(run(B, LIST).stdout);
+    assertEq("the other clone's reader sees the claim", r.claims.length, 1);
+    assertEq("the reader reports the unit, branch and staleness", {
+      unit: r.claims[0].unit, branch: r.claims[0].branch, stale: r.claims[0].stale,
+      artifacts: r.claims[0].artifacts,
+    }, {
+      unit: "m1", branch: claimed.branch, stale: false,
+      artifacts: [".workaholic/missions/active/m1/mission.md"],
+    });
+
+    // ---- and cannot take the same unit ----
+    const refused = run(B, `${CLAIM} mission m1`);
+    assertTrue("a second claim of the same unit exits non-zero", refused.status !== 0, `status ${refused.status}`);
+    const rj = JSON.parse(refused.stderr.trim().split("\n").pop());
+    assertEq("the second claim is refused as already_claimed",
+      { c: rj.claimed, r: rj.reason, h: rj.holder_branch }, { c: false, r: "already_claimed", h: claimed.branch });
+    assertTrue("the refused claim leaves no worktree behind", !existsSync(join(B, ".worktrees/m1")));
+
+    // ---- a batch claim stamps EVERY ticket in the batch ----
+    tickSecond();
+    const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const t2 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`;
+    const batch = JSON.parse(run(B, `${CLAIM} batch ${t1} ${t2}`).stdout);
+    assertTrue("a batch unit id is minted with a timestamp", /^batch-\d{14}$/.test(batch.unit), batch.unit);
+    assertEq("the batch claims every ticket handed to it", batch.artifacts, [t1, t2]);
+    for (const t of [t1, t2]) {
+      assertTrue(`the batch stamps ${basename(t)} in the worktree`,
+        readFileSync(join(B, ".worktrees", batch.unit, t), "utf8").includes(`claim: ${batch.branch}`));
+    }
+    r = JSON.parse(run(A, LIST).stdout);
+    assertEq("both units are in flight, seen from the third party", r.claims.length, 2);
+    const batchRow = r.claims.find((c) => c.unit === batch.unit);
+    assertEq("the reader lists every artifact of a batch claim", batchRow.artifacts, [t1, t2]);
+
+    // An artifact already claimed cannot be scooped into another batch, even under a
+    // fresh batch id — the unit-id check alone would not catch this.
+    tickSecond();
+    const overlap = run(A, `${CLAIM} batch ${t1}`);
+    const oj = JSON.parse(overlap.stderr.trim().split("\n").pop());
+    assertEq("a batch overlapping a claimed artifact is refused",
+      { r: oj.reason, a: oj.artifact, h: oj.holder_unit }, { r: "already_claimed", a: t1, h: batch.unit });
+
+    // ---- staleness is REPORTED, never acted on ----
+    const staleRead = JSON.parse(run(A, LIST, { env: { ...process.env, WORKAHOLIC_CLAIM_STALE_HOURS: "0" } }).stdout);
+    assertEq("a zero-hour threshold marks every claim stale", staleRead.claims.map((c) => c.stale), [true, true]);
+    assertEq("marking stale does not release anything", staleRead.claims.length, 2);
+
+    // ---- MERGE IS RELEASE. Fast-forward origin/main onto the claim branch: the
+    // claim's commits are now on the base, so it leaves the unmerged set with no
+    // bookkeeping at all.
+    execSync(`git update-ref refs/heads/main refs/heads/${claimed.branch}`, { cwd: origin });
+    r = JSON.parse(run(A, LIST).stdout);
+    assertEq("a merged claim leaves the reader by definition", r.claims.map((c) => c.unit), [batch.unit]);
+
+    // ---- explicit release: branch deleted, worktree torn down ----
+    const rel = JSON.parse(run(B, `${RELEASE} ${batch.unit}`).stdout);
+    assertEq("release-claim reports the release",
+      { r: rel.released, u: rel.unit, b: rel.branch, w: rel.worktree_removed, d: rel.remote_branch_deleted },
+      { r: true, u: batch.unit, b: batch.branch, w: true, d: true });
+    assertTrue("release-claim removes the worktree", !existsSync(join(B, ".worktrees", batch.unit)));
+    assertEq("the released branch is gone from origin",
+      run(origin, `git rev-parse --verify --quiet refs/heads/${batch.branch}`).status, 1);
+    assertEq("the reader is empty once every claim is merged or released",
+      JSON.parse(run(A, LIST).stdout).claims.length, 0);
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
+// The reader DEGRADES offline; the writer FAILS. False "unclaimed" is the dangerous
+// error — it double-picks work — so a runner that cannot see origin must still be
+// told what it last knew, and must not be allowed to claim on that knowledge.
+function testClaimOfflineAsymmetry() {
+  const { origin, A, B } = makeClaimFixture();
+  try {
+    const claimed = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.claim} mission m1`).stdout);
+    // B learns the claim while online, then loses origin.
+    run(B, `${POSIX_SH} ${SCRIPTS.listClaims}`);
+    execSync(`git remote set-url origin /nonexistent/nope.git`, { cwd: B });
+
+    const r = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout);
+    assertEq("the offline reader reports fetched:false", r.fetched, false);
+    assertEq("the offline reader still reports the last-known claim",
+      { n: r.claims.length, u: r.claims[0]?.unit, b: r.claims[0]?.branch },
+      { n: 1, u: "m1", b: claimed.branch });
+
+    const w = run(B, `${POSIX_SH} ${SCRIPTS.claim} mission m1`);
+    assertTrue("the offline writer exits non-zero", w.status !== 0, `status ${w.status}`);
+    assertEq("the offline writer refuses with origin_unreachable",
+      JSON.parse(w.stderr.trim().split("\n").pop()).reason, "origin_unreachable");
+    assertTrue("the refused offline claim creates no worktree", !existsSync(join(B, ".worktrees/m1")));
+
+    // No origin at all is its own refusal — a purely local repo cannot publish a claim.
+    const local = makeRepo("main");
+    try {
+      mkdirSync(join(local, ".workaholic/missions/active/solo"), { recursive: true });
+      writeFileSync(join(local, ".workaholic/missions/active/solo/mission.md"),
+        `---\ntype: Mission\ntitle: Solo\nslug: solo\nstatus: approved\n---\n\n# Solo\n`);
+      const n = run(local, `${POSIX_SH} ${SCRIPTS.claim} mission solo`);
+      assertEq("a repo with no origin cannot claim",
+        JSON.parse(n.stderr.trim().split("\n").pop()).reason, "no_origin");
+      // The reader stays usable there — it simply has nothing to report.
+      const lr = JSON.parse(run(local, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout);
+      assertEq("the reader works in a repo with no origin", { f: lr.fetched, n: lr.claims.length }, { f: false, n: 0 });
+    } finally { cleanup(local); }
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
+// Two runners claiming DIFFERENT units in the same second mint the same work-*
+// branch name (the creator's name is second-resolution). The push rejection is the
+// protocol working: without it the loser's claim commit would land on the winner's
+// branch and one unit would silently vanish from the reader, which reports only a
+// branch's newest `Claim` subject. It must be named, not reported as a dead remote.
+function testClaimBranchCollision() {
+  const { origin, A, B } = makeClaimFixture();
+  try {
+    // Same second, two clones, two different units.
+    const a = run(A, `${POSIX_SH} ${SCRIPTS.claim} mission m1`);
+    const b = run(B, `${POSIX_SH} ${SCRIPTS.claim} batch .workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`);
+    assertEq("the first same-second claim succeeds", a.status, 0);
+
+    // Whether the clock ticked between the two calls is not ours to control, so the
+    // assertions below are written on the invariant that must hold EITHER WAY: a
+    // claim either publishes cleanly under its own branch name, or it is refused as
+    // `branch_collision` having left nothing behind. What must never happen is a
+    // claim that reports success while its commit rode someone else's branch.
+    const collided = b.status !== 0;
+    if (collided) {
+      const lj = JSON.parse(b.stderr.trim().split("\n").pop());
+      assertEq("a colliding claim is named branch_collision, not a dead remote",
+        { reason: lj.reason, claimed: lj.claimed }, { reason: "branch_collision", claimed: false });
+      assertTrue("a refused claim leaves no worktree behind",
+        !existsSync(join(B, ".worktrees")) || readdirSync(join(B, ".worktrees")).length === 0);
+      assertEq("only the successful claim is in flight",
+        JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout).claims.length, 1);
+    } else {
+      const bj = JSON.parse(b.stdout);
+      assertTrue("two non-colliding claims take distinct branches",
+        bj.branch !== JSON.parse(a.stdout).branch, bj.branch);
+      assertTrue("the second claim published its own worktree",
+        existsSync(join(B, ".worktrees", bj.unit)));
+      assertEq("both claims are in flight",
+        JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout).claims.length, 2);
+    }
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -7695,6 +7926,9 @@ const tests = [
   ["feedback/create.sh + list.sh + hooks/validate-feedback.sh", testFeedback],
   ["propose: cursor/window/dedup/draft scaffold", testProposeBatch],
   ["propose/notify-slack.sh", testNotifySlack],
+  ["drive claim protocol: two clones, one unit", testClaimProtocol],
+  ["drive claim protocol: offline reader/writer asymmetry", testClaimOfflineAsymmetry],
+  ["drive claim protocol: same-second branch collision", testClaimBranchCollision],
 ];
 
 for (const [label, fn] of tests) {

@@ -87,7 +87,7 @@ If `prs` is non-empty, tell the developer which open PRs touch this mission and 
 
 ## With a title — create a mission
 
-When `$ARGUMENT` is a non-empty title that references no existing mission (per the judgment above), create a new mission **in its own dedicated worktree**, and leave it drive-ready. A mission runs in a persistent `.worktrees/<mission-slug>/` worktree so several missions develop in parallel without stepping on each other; the mission worktree outlives the branches driven inside it (it is removed only at `/mission close`). This worktree flow is the create path **only** — the list and `close` modes below never touch worktrees.
+When `$ARGUMENT` is a non-empty title that references no existing mission (per the judgment above), create a new mission **in its own dedicated worktree**, and leave it drive-ready. A mission runs in a persistent `.worktrees/<mission-slug>/` worktree so several missions develop in parallel without stepping on each other; the mission worktree outlives the branches driven inside it, and is **claim-born and ship-torn** — removed when its unit ships or its claim is released, never by `close` (`workaholic:mission`'s *Worktree lifecycle*). This worktree flow is the create path **only** — the list and `close` modes below never touch worktrees.
 
 **1. Derive the mission slug** (the descriptive worktree directory name):
 
@@ -203,13 +203,9 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/close.sh "<slug>" <achieved|ab
 
 The script flips `status`, appends a closing `## Changelog` line, moves the mission dir to `.workaholic/missions/archive/<slug>/`, refreshes the OKF indexes, and git-stages. Report the JSON result:
 
-- `closed: true` with `status: "carried"` — the JSON carries `successor` and `successor_path`. **Report where the mission landed and what carried**: the predecessor's final `checked/total`, the successor's slug and its computed progress (`0/<n unmet>`, from `progress.sh` — never a carried-across number), and the unmet criteria that moved. Say plainly how far a fresh session could take the successor from here: its Goal, Scope and gate came along, so the successor is drive-ready once it has tickets. The successor gets **no worktree** from the predecessor (see the skill's *Outcomes*); it is fleshed out through the **replan flow** — `/mission <instruction referencing the successor>` creates its worktree and emits its tickets (the create flow dead-ends on the successor's existing `mission.md`) — so say so rather than letting the developer assume in-flight state carried. Then tear down the predecessor's worktree exactly as below.
-- `closed: true` — tell the user the mission is ended, its final status, and its archived path. Then **tear down the mission's persistent worktree** — closing a mission is the only sanctioned point that removes it:
+- `closed: true` with `status: "carried"` — the JSON carries `successor` and `successor_path`. **Report where the mission landed and what carried**: the predecessor's final `checked/total`, the successor's slug and its computed progress (`0/<n unmet>`, from `progress.sh` — never a carried-across number), and the unmet criteria that moved. Say plainly how far a fresh session could take the successor from here: its Goal, Scope and gate came along, so the successor is drive-ready once it has tickets. The successor gets **no worktree** from the predecessor (see the skill's *Outcomes*); it is fleshed out through the **replan flow** — `/mission <instruction referencing the successor>` emits its tickets (the create flow dead-ends on the successor's existing `mission.md`) — so say so rather than letting the developer assume in-flight state carried.
+- `closed: true` — tell the user the mission is ended, its final status, and its archived path.
+- `closed: false` with `reason: "already_closed"` — the mission was already archived with that status; nothing changed.
+- `closed: false` with `reason: "not_found"` — no such mission; run `list.sh` and show the available slugs.
 
-  ```bash
-  bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cleanup-mission-worktree.sh "<slug>"
-  ```
-
-  Do this **after** `close.sh` succeeds, so a teardown problem never leaves a half-closed mission. The teardown never discards uncommitted work: on `"error": "worktree has uncommitted changes"`, report that the worktree was kept (unshipped work remains) — the mission is still closed. When the worktree is already gone, the teardown is a reported no-op.
-- `closed: false` with `reason: "already_closed"` — the mission was already archived with that status; nothing changed (no worktree teardown).
-- `closed: false` with `reason: "not_found"` — no such mission; run `list.sh` and show the available slugs (no worktree teardown).
+**Close touches no worktree.** Worktrees are **claim-born and ship-torn** (`docs/loop-engineering-workflow.md` I6; the doctrine is stated once in `workaholic:mission`'s *Worktree lifecycle* and `workaholic:drive`'s *Claims*): a runner's `claim.sh` creates one and ship — or an explicit `release-claim.sh` — removes it. If `.worktrees/<slug>` is still standing after a close, that is an in-flight or stale **claim**, which `list-claims.sh` surfaces and a human decides about; say so rather than removing it here. Closing a mission is a statement about the record, and a bookkeeping action must not double as a destructive one.

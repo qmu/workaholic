@@ -24,6 +24,48 @@ This skill works on any Agent-Skills-compatible agent. The two Claude-Code mecha
 - **Parallel fan-out** — where a step spawns a `general-purpose` subagent (e.g. the ticket prioritizer), that is the Claude Code optimization. On other agents, perform that work **inline/sequentially** in the same session; the inputs and outputs are identical.
 - **User interaction** — where a step uses `AskUserQuestion` (order confirmation, per-ticket approval, icebox/abandon choices), use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies. Prefix each interactive prompt's (`AskUserQuestion`) `question` body with `[<project label>]` — run `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh` once and reuse its `project` value — so a developer with several sessions open across tmux panes can see which repository is asking; leave the `header` as the decision/topic label.
 
+## Claims
+
+**The repository is the coordination medium.** Before driving a unit, a runner *claims* it on a pushed branch; every runner reads the claims in flight from the unmerged remote branches. There is no run-lock, no lock file, and no server — so nothing leaks when a runner dies mid-run, and a runner on another machine coordinates through exactly the same artifact a runner on this one does.
+
+State the model before the scripts, because the scripts only implement it:
+
+- **PR-unit.** The thing a runner takes. It is either one approved **mission** (unit id = the mission slug) or one **batch** of related backlog tickets (unit id = `batch-<YYYYMMDDHHMMSS>`, minted at claim time). One unit ↔ one branch ↔ one worktree ↔ one PR.
+- **Claim.** A commit whose subject is `Claim <unit-id>`, on a fresh `work-*` branch cut from `origin/main` by the standard creator, whose content stamps `claim: <branch>` into the claimed artifacts' frontmatter — the mission's `mission.md`, or each batched ticket file — **pushed immediately**. The stamp lives on the branch only: `main` never shows a claim, so no merge ever has to un-stamp one.
+- **Reader.** Fetch, enumerate the `origin/*` branches carrying commits not on `origin/main`, and for each read the unit from its newest `Claim …` subject and the claimed artifacts from the branch tip's `claim: <branch>` stamps.
+- **Release = merge or branch deletion.** A merged branch's commits are on the base, so its claim leaves the unmerged set *by definition* — the normal path needs no script at all. Deliberately discarding an unfinished unit is the other path, and that one is explicit.
+- **Staleness is reported, never auto-broken.** A claim whose branch tip is older than `WORKAHOLIC_CLAIM_STALE_HOURS` (default 24) is marked `stale: true`. Nothing acts on that. A runner that reclaims on its own verdict is a runner that can silently duplicate a colleague's in-flight work over a long lunch; reclaiming is a human/dispatcher decision.
+- **Worktree lifecycle.** A worktree is **claim-born and ship-torn**: `claim.sh` creates `.worktrees/<unit-id>/`, and it is removed when the unit ships or when its claim is released. `/mission close` no longer tears worktrees down — a lingering worktree is an in-flight or stale *claim*, which is the reader's business.
+
+**The reader degrades offline; the writer does not.** With origin unreachable, `list-claims.sh` reports `fetched: false` and answers from the last-known remote-tracking refs, while `claim.sh` refuses to claim at all. The asymmetry is deliberate: a stale reader over-reports claims, which merely makes a runner wait, but a claim nobody else can see is not a claim, and driving on one is the double-pick the protocol exists to prevent.
+
+### Read the claims in flight
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-claims.sh
+```
+
+Pure read. Emits `{fetched, stale_hours, base, claims: [{unit, branch, artifacts, last_commit_at, stale}]}`.
+
+### Claim a unit
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/claim.sh mission <slug>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/claim.sh batch <ticket-file>...
+```
+
+Never prompts. Verifies the unit is unclaimed **through the reader's own scan** (`scripts/lib/claims.sh`, which `list-claims.sh` merely renders — a writer carrying its own scan would be free to disagree with the reader, which is the one state a coordination protocol must not have), then creates the worktree, stamps, commits, and pushes. Emits `{claimed, unit, branch, worktree_path, artifacts}`, or refuses with a `reason`: `already_claimed` (naming the holding branch and unit), `no_origin`, `origin_unreachable`, `branch_collision`, `push_failed`, `artifact_missing`, `no_frontmatter`.
+
+The stamp rides the **worktree** checkout, never the main tree — the runner's main checkout stays clean between ticks, which the `/propose` batch depends on. A refused claim leaves nothing behind: the half-made worktree and its branch are removed, because an unpublished claim is not a claim.
+
+### Release a claim deliberately
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/release-claim.sh <unit-id>
+```
+
+For a unit that will **not** be finished. Tears the worktree down first (the cleaner refuses a dirty worktree and never discards uncommitted work), then deletes the remote claim branch — that order matters: dropping the claim first would publish "this unit is free" while the worktree still holds unpushed work. Emits `{released, unit, branch, worktree_removed, remote_branch_deleted, local_branch_deleted}`. Run it from the main checkout; git cannot remove the worktree you are standing in.
+
 ## Command Workflow
 
 End-to-end orchestration for `/drive`. The thin `/drive` command preloads this skill and follows this section.

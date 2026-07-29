@@ -73,7 +73,6 @@ predicted_hours:
 actual_hours:
 tickets: []
 stories: []
-concerns: []
 gate_type:
 gate_target:
 gate_assert:

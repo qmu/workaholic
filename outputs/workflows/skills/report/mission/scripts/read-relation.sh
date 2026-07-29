@@ -25,7 +25,7 @@
 # hold one. `report` resolved that by asking the developer to pick a mission and discard
 # the rest, which made the mission graph depend on which option someone clicked and
 # under-counted the mission that lost. Every other relation in the model was already
-# plural (`tickets: []`, `stories: []`, `concerns: []`); this one was the odd one out.
+# plural (`tickets: []`, `stories: []`); this one was the odd one out.
 #
 # Note this reads a relation ON an artifact. It is NOT for mission.md's own fields
 # (title/status/assignee/gate_*) — those are read by list.sh and friends.

@@ -27,27 +27,25 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/detect-context.sh
 
 ### Mode Detection
 
-The `mode` field distinguishes workflow style within the `work` context. Both predicates are **scoped to the caller**, never to the repository: trips to *this branch*, tickets to *this user*.
+The `mode` field is **legacy**, and every value routes the same way today. It distinguished two workflow styles inside the `work` context until the design/build session workflow was retired (2026-07-28); `detect-context.sh` still computes it so branches created before then keep reporting what they are.
 
 | Mode | Condition | Routing |
 | ---- | --------- | ------- |
-| `drive` | No trip artifacts **for this branch** (with or without tickets in todo) | Story generation, version bump, drive-style PR |
-| `trip` | Trip artifacts **for this branch**, no tickets in this user's todo | Artifact gathering, journey report, worktree cleanup |
-| `hybrid` | Both this branch's trip artifacts and this user's tickets exist | Offer choice between drive and trip workflows |
+| `drive` | No trip artifacts **for this branch** — every branch created since the retirement | Story generation, version bump, PR |
+| `trip` | Trip artifacts **for this branch**, no tickets in this user's todo | Same flow, plus the rationale link to `.workaholic/trips/<name>/designs/` |
+| `hybrid` | Both this branch's trip artifacts and this user's tickets exist | Same flow (`workaholic:report` collapses all three) |
 
-**"For this branch" is narrow, and deliberately so.** The only trip↔branch association this repository records is the legacy naming convention — branch `trip/<name>` owns `.workaholic/trips/<name>`. A modern `work-*` branch stores no link to any trip: `init-trip.sh` records no branch, `plan.md` carries no branch field, and a trip's branch is an independent `work-YYYYMMDD-HHMMSS` from `create.sh`. **A `work-*`/`drive-*` branch therefore never reports `trip` or `hybrid`**, regardless of what exists under `.workaholic/trips/`.
-
-Before this, `has_trips` was a repo-wide `find` for *any* trip directory, so one March 2026 trip dir on `main` made every branch after it report `trip` or `hybrid` forever. Restoring a real mode for modern trips requires *deciding* the association, which is its own change — `trip_name` is likewise emitted only for `trip/*` branches, so `report/SKILL.md`'s Trip Mode step 3 cannot resolve `<trip-name>` on a `work-*` branch either. Both must be answered together.
+**"For this branch" is narrow, and deliberately so.** Only two trip↔branch associations were ever recorded, and `branch_trip_dir()` in `detect-context.sh` reads exactly those: the legacy naming convention (branch `trip/<name>` owns `.workaholic/trips/<name>`) and the `branch:` field a trip's `plan.md` carries. Anything else reports `drive`, whatever exists under `.workaholic/trips/`. Before that narrowing, `has_trips` was a repo-wide `find` for *any* trip directory, so one March 2026 trip dir on `main` made every branch after it report `trip` or `hybrid` forever — a property of the repository masquerading as a property of the branch. Nothing writes a new association now; `trips/` is read-only history.
 
 ### Context Routing
 
-- **work**: Route to the appropriate workflow based on `mode` (drive, trip, or hybrid)
-- **worktree**: Not on a work branch, but worktrees exist. List worktrees and let the user choose.
-- **unknown**: Cannot determine context. Ask the user which workflow to use.
+- **work**: Run the branch flow (`workaholic:report` / `workaholic:ship`). The `mode` value does not change the route.
+- **worktree**: Not on a work branch, but worktrees exist — each is a claim worktree. List them and let the user choose which claim to act on.
+- **unknown**: Neither a work branch nor a resolvable worktree. Say which branch was detected and stop; do not guess.
 
 ### Backward Compatibility
 
-Legacy `drive-*` and `trip/*` branches are **detected** as `work` context with the appropriate mode. They are recognized for backward compatibility only — **never created**. New branches are always `work-<timestamp>` (see Create Topic Branch).
+Legacy `drive-*` and `trip/*` branches are **detected** as `work` context. They are recognized for backward compatibility only — **never created**. New branches are always `work-<timestamp>` (see Create Topic Branch).
 
 ## Worktree Guard
 
@@ -218,7 +216,7 @@ Reset a mission worktree for its next batch after a merge — cuts a fresh `work
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/reset-mission-worktree.sh <slug> [base-branch]
 ```
 
-`list-all-worktrees.sh` tags a `.worktrees/<slug>` worktree with `"type": "mission"` (ordinary `work-*` dirs stay `"type": "work"`), so `/ship` and the mission lens can distinguish a mission worktree from a drive/trip one. `create-mission-worktree.sh` also adds `.worktrees/` to `.git/info/exclude` so a linked worktree is never accidentally embedded as a gitlink by a main-tree `git add -A`.
+`list-all-worktrees.sh` tags a `.worktrees/<slug>` worktree with `"type": "mission"` (ordinary `work-*` dirs stay `"type": "work"`), so `/ship` and the mission lens can distinguish a mission's claim worktree from an ordinary branch worktree. `create-mission-worktree.sh` also adds `.worktrees/` to `.git/info/exclude` so a linked worktree is never accidentally embedded as a gitlink by a main-tree `git add -A`.
 
 ## Credentials — carry every env file the project reads
 
@@ -232,11 +230,11 @@ app/.env
 config/secrets.env
 ```
 
-- **New worktrees carry them automatically.** Both creators — `create-mission-worktree.sh` (mission worktrees) and `ensure-worktree.sh` (drive/trip worktrees) — call the **one shared carrier** (`lib/carry-worktree-env.sh`, so they cannot drift), which **copies** each declared/discovered env file to the same relative path in the new worktree (a *copy*, not a symlink — worktrees diverge credentials independently) and reports `env_files_carried`. A branch created in the main tree via `create.sh` already sits beside the project's env files, so no copy is needed there.
+- **New worktrees carry them automatically.** Both creators — `create-mission-worktree.sh` (a claim's `.worktrees/<unit-id>/`) and `ensure-worktree.sh` (any other branch worktree) — call the **one shared carrier** (`lib/carry-worktree-env.sh`, so they cannot drift), which **copies** each declared/discovered env file to the same relative path in the new worktree (a *copy*, not a symlink — worktrees diverge credentials independently) and reports `env_files_carried`. A branch created in the main tree via `create.sh` already sits beside the project's env files, so no copy is needed there.
 - **An empty carry is a provisioning finding, not a fact.** When `env_files_carried` is empty, the worktree holds none of the project's credentials — before recording any "missing credentials" conclusion, confirm the env files exist where the project reads them (declare them in `.worktree-env` if the default did not find them). A credential-shortfall claim from inside a worktree that was never provisioned is the false finding this convention exists to prevent (`workaholic:drive` §3a, `workaholic:development` / `overnight-ai`).
 - **Pre-existing / externally-created worktrees may need a manual copy.** A worktree that predates this convention, or was created outside the creators, may hold none of the env files — before it can serve or authenticate, copy the project's env file(s) in as a matter of judgment.
 
-The cleanup side is symmetric: `/trip`'s worktree teardown **preserves** git-ignored files like `.env` when syncing a worktree back (see `workaholic:trip-protocol`).
+The cleanup side is symmetric: `cleanup-mission-worktree.sh` refuses a dirty worktree and never discards uncommitted work, so a teardown cannot take a git-ignored `.env` with it (`workaholic:drive` §6).
 
 ## Branch State Check
 

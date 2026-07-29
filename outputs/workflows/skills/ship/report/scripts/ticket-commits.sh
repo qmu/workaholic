@@ -10,7 +10,7 @@
 #
 # The commit that ADDED `.workaholic/tickets/archive/<branch>/<ticket>.md` IS the commit
 # that archived — i.e. implemented — that ticket. `--diff-filter=A` picks exactly that one
-# and ignores later edits to the file (a /report or /carry touch-up must not re-point the
+# and ignores later edits to the file (a later /report touch-up must not re-point the
 # link). Because it is read from git, tickets carrying a stale `commit_hash` from the old
 # buggy archive script resolve correctly too — no backfill migration needed.
 #

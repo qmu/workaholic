@@ -52,7 +52,7 @@ Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-worktrees.sh`. If
 - **"Continue here"** — Proceed with ticket creation on the current branch.
 - **"Switch to worktree"** — Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/list-all-worktrees.sh`, display the worktree list, and inform the user to navigate to the selected worktree to run `/ticket` there.
 
-Rationale: prevents creating tickets on a drive branch when the user may intend to work within a trip worktree.
+Rationale: prevents creating tickets against the main tree when the user may intend to work within a claim worktree.
 
 ### Step 1: Run the Create-Ticket Workflow
 

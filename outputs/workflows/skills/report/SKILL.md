@@ -17,7 +17,7 @@ This skill works on any Agent-Skills-compatible agent. The two Claude-Code mecha
 
 ## Run Workflow
 
-Context-aware report orchestration. Auto-detects whether the caller is in a drive or trip workflow and routes accordingly.
+Context-aware report orchestration. Auto-detects which branch or worktree the caller means and routes accordingly.
 
 ### Policy Lens (read first)
 
@@ -51,32 +51,19 @@ Parse the JSON output. Route to the appropriate workflow based on `context`.
 
 #### Work Context (`context: "work"`)
 
-Route by `mode` from detect-context output:
+**One mode, and the legacy values collapse into it.** `detect-context.sh` still reports `mode` as `drive`, `trip`, or `hybrid`, because it recognizes branches this repository created before the trip workflow was retired (2026-07-28). All three run the identical flow below — a trip decomposed its design into tickets and drove them, so its archived tickets populate the story's Changes section exactly like any other branch. The only thing a legacy `trip`/`hybrid` branch adds is the **rationale link** in step 3.
 
-##### Drive Mode (`mode: "drive"`)
-
-1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
-2. **Run the Write Story orchestration** (`## Write Story → ### Orchestration`, Phases 0–5) directly in this command (main-agent) context. The command itself spawns the leaf parallel workers — there is no intermediate story-writer subagent.
-3. **Display story content**: Read the story file at `.workaholic/stories/<branch-name>.md` and output the entire Markdown content so the developer can review inline.
-4. **Display PR URL** captured from Phase 5 (mandatory).
-
-##### Trip Mode (`mode: "trip"`)
-
-A trip now decomposes its design into tickets and drives them (trip-protocol Decomposition gate + Per-Ticket Drive Loop), so its archived tickets populate the story's Changes section exactly like a drive — no special-casing needed. The only trip addition is the **rationale link** (step 3): the design artifacts under `.workaholic/trips/<trip-name>/` are the *why* behind those tickets.
+##### Write the story (every `mode`)
 
 1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
 2. **Run the Write Story orchestration** (`## Write Story → ### Orchestration`, Phases 0–5) directly in this command (main-agent) context. The command itself spawns the leaf parallel workers — there is no intermediate story-writer subagent.
-3. **Link the trip rationale**: if a `.workaholic/trips/<trip-name>/` directory exists for this branch, add a short note to the story's section 9 (Notes) linking the trip's design artifacts (`.workaholic/trips/<trip-name>/designs/`) as the rationale behind the ticket-based Changes, so a reviewer can trace each ticket's **Trip Origin** back to the design that justified it. Do not duplicate the design into the story — link it.
+3. **Link the rationale, on a legacy branch that has one**: when `detect-context.sh` returned a `trip_name` and `.workaholic/trips/<trip-name>/` exists, add a short note to the story's section 9 (Notes) linking that directory's design artifacts as the *why* behind the ticket-based Changes, so a reviewer can trace each ticket's **Trip Origin** back to the design that justified it. Do not duplicate the design into the story — link it. `trips/` is read-only history with no writer; a branch created since the retirement has no `trip_name` and skips this step.
 4. **Display story content**: Read the story file at `.workaholic/stories/<branch-name>.md` and output the entire Markdown content so the developer can review inline.
 5. **Display PR URL** captured from Phase 5 (mandatory).
 
-##### Hybrid Mode (`mode: "hybrid"`)
-
-Both trip artifacts and drive-style tickets exist on this branch. Drive Mode and Trip Mode run the identical Write Story orchestration, so follow Drive Mode. The orchestration captures the full narrative including any trip origin.
-
 #### Worktree Context (`context: "worktree"`)
 
-Not on a work branch, but worktrees exist.
+Not on a work branch, but worktrees exist. Each is a **claim worktree** (`drive`'s *Claims*), so selecting one selects the unit to report.
 
 1. Run `bash branching/scripts/list-worktrees.sh`
 2. Filter to worktrees where `has_pr` is `false` (unreported work)
@@ -88,7 +75,7 @@ Not on a work branch, but worktrees exist.
 
 #### Unknown Context (`context: "unknown"`)
 
-Ask the user: "Could not determine development context from branch '<branch>'. Are you working on a drive or trip?" using the agent's selection prompt with options "Drive" and "Trip". Route accordingly.
+The branch is neither `main` nor a recognized work branch, and no worktree resolved it. Tell the user which branch was detected and that `/report` needs a work branch or a claim worktree to scope the story to, then stop. Do not guess a branch to report on — a story written against the wrong diff is worse than no story.
 
 ## Write Story
 
@@ -143,7 +130,7 @@ Wait for all 3 to complete. Track which succeeded and which failed.
 
 1. **Roll every related mission** (skip this whole step if the story's `mission:` is empty). Run the two steps below **once per slug** in the story's `mission:` list — a branch advancing two missions rolls both. Update each through the shared, idempotent mutators — never hand-edit `mission.md`:
    - `bash mission/scripts/append-changelog.sh <mission-slug> "story reported" <branch-name>.md` — records that this branch's story advanced the mission.
-   - for **each** ticket filename in the story's `tickets:` list: `bash mission/scripts/tick-acceptance.sh <mission-slug> <ticket-filename>` — reconciles the mission's acceptance checklist for the tickets this story covers. Drive's `archive.sh` already ticks per ticket; this idempotent catch-up covers tickets archived outside the mission-aware path (e.g. a trip).
+   - for **each** ticket filename in the story's `tickets:` list: `bash mission/scripts/tick-acceptance.sh <mission-slug> <ticket-filename>` — reconciles the mission's acceptance checklist for the tickets this story covers. Drive's `archive.sh` already ticks per ticket; this idempotent catch-up covers tickets archived outside the mission-aware path.
 
    Looping needs no de-duplication: both mutators are keyed and idempotent, and `tick-acceptance.sh` simply finds nothing on a mission whose Acceptance does not list that ticket — so each mission ticks only what it actually claims.
    Resolved deferred concerns judged in Phase 1 already recorded their `concern resolved (unstuck)` line via `apply-deferred-concern-verdicts.sh`, so nothing extra is needed for those here.
@@ -564,7 +551,7 @@ Update `.workaholic/stories/index.md` to include the new story:
 
 Create or update a GitHub pull request using the story file as PR content.
 
-**Reused non-interactively by `/monitor`.** `/monitor`'s §5 PR phase opens a PR for each genuinely complete mission by calling this same seam — the Write Story flow plus `create-or-update.sh <branch> "<title>"` — from inside the mission worktree (`( cd <worktree_path> && … )`), scoped explicitly to that branch so the context detection above is bypassed. That path is **non-interactive by design**: `create-or-update.sh` never prompts, and any warn-tier release-scan finding is **recorded in the PR body**, not asked (decide-and-record). The story flow's mission roll (`story reported` changelog line) fires on this path exactly as on a manual `/report`. Do not fork the flow for monitor's use; scope it by branch.
+**Reused non-interactively by `/drive`.** The unified run's §5 opens a PR for each claimed unit by calling this same seam — the Write Story flow plus `create-or-update.sh <branch> "<title>"` — from inside the claim's worktree (`( cd <worktree_path> && … )`), scoped explicitly to that branch so the context detection above is bypassed. That path is **non-interactive by design**: `create-or-update.sh` never prompts, and any warn-tier release-scan finding is **recorded in the PR body**, not asked (decide-and-record). The story flow's mission roll (`story reported` changelog line) fires on this path exactly as on a manual `/report`. Do not fork the flow for the executor's use; scope it by branch.
 
 ### Derive PR Title
 

@@ -48,9 +48,9 @@ Archive paths (`.workaholic/tickets/archive/<branch>/`) are written by the drive
 
 **Rationale**: The drive workflow, archive script, navigator, report skill, and validation hook all scan `.workaholic/tickets/` exclusively. A ticket placed in a sibling directory becomes invisible to the rest of the pipeline. The `plugins/workaholic/hooks/validate-ticket.sh` hook enforces this and rejects ticket-shaped files (filename matching `YYYYMMDDHHmmss-*.md`) written outside `.workaholic/tickets/`.
 
-### Trip Origin (trip-emitted tickets)
+### Trip Origin — a legacy line, never written anew
 
-A `/trip` produces its tickets through the trip-protocol **Decomposition gate** (Planning Phase Step 5), where the Constructor decomposes the agreed `designs/design-v<N>.md` into implementation tickets. Those tickets follow this skill's File Structure and the same location rule above — they are written under `.workaholic/tickets/todo/<user>/`, **never** under `.workaholic/trips/`. The only addition is a **Trip Origin** reference: a line linking the ticket back to the section of `.workaholic/trips/<trip-name>/designs/design-v<N>.md` that justifies it, so the rationale (in `trips/`) stays one link from the contract (the ticket). Add it as a short note under the `## Overview`, e.g. `**Trip Origin:** .workaholic/trips/<name>/designs/design-v2.md § "Data layer"`. Drive-created tickets (via `/ticket`) omit it.
+Archived tickets from before 2026-07-28 may carry a `**Trip Origin:** .workaholic/trips/<name>/designs/design-v2.md § "Data layer"` note under their `## Overview`, linking back to the design that justified them. Read it as history: the workflow that emitted those tickets is retired and `trips/` has no writer. **Never add the line to a new ticket.** The rationale behind a ticket now lives in the feedback stream and, for a mission's ticket set, in the mission's `## Goal` / `## Experience`.
 
 ## Step 1: Capture Dynamic Values
 
@@ -234,7 +234,7 @@ Populate sections from the three discovery JSONs:
 - **source → Key Files**: `files` array provides paths and relevance descriptions.
 - **source → Implementation Steps**: reference `code_flow`.
 - **source.snippets → Patches**: generate unified diffs from snippets. Follow the patch guidelines in this skill. Mark patches as speculative if based on interpretation rather than explicit requirements. Omit the Patches section if changes cannot be expressed as concrete diffs.
-- **policy → Policies**: write the mandatory `## Policies` section. Always list the two universal implementation policies (`directory-structure`, `coding-standards`), then add the pillar policies the ticket's `layer` selects via the Policy Lens table, plus any specific policy the policy-mode discovery surfaced. Each entry is `workaholic:<pillar>` / `policies/<slug>.md` followed by one line on why it applies. This is the recorded list `/drive` and `/trip` read before implementing — never leave it empty for a code-touching ticket.
+- **policy → Policies**: write the mandatory `## Policies` section. Always list the two universal implementation policies (`directory-structure`, `coding-standards`), then add the pillar policies the ticket's `layer` selects via the Policy Lens table, plus any specific policy the policy-mode discovery surfaced. Each entry is `workaholic:<pillar>` / `policies/<slug>.md` followed by one line on why it applies. This is the recorded list `/drive` reads before implementing — never leave it empty for a code-touching ticket.
 - **interrogation → Quality Gate**: write the mandatory `## Quality Gate` section from the Step 4b interrogation answers (unlike the other sections, this content is **developer-elicited**, not discovery-fed). Structure it as **Acceptance Criteria** (checkable bullets), **Verification Method** (the commands/tests/probes that prove them), and **Gate** (what must pass before approval). Keep every line objective and verifiable. This is the recorded gate `/drive` surfaces in its approval prompt and forwards into the commit `Verify:` key — never leave it empty.
 - **policy → Considerations**: reference relevant `policies` that the implementation must follow; note `architecture.principles` and `architecture.dependency_rules` that constrain the design.
 
@@ -331,7 +331,7 @@ merge_policy: review
 
 ## Policies
 
-The standard engineering policies — synced from the corporate site (qmu.co.jp) into the `workaholic` policy skills — that govern this ticket. The implementing session **MUST** read each linked policy hard copy before writing code and keep every change defensible against that policy's Goal (目標), Responsibility (責務), and Practices (実践). `/drive` and `/trip` both consume this section verbatim — it is the recorded, confirmable list of which standard policies the implementation answers to.
+The standard engineering policies — synced from the corporate site (qmu.co.jp) into the `workaholic` policy skills — that govern this ticket. The implementing session **MUST** read each linked policy hard copy before writing code and keep every change defensible against that policy's Goal (目標), Responsibility (責務), and Practices (実践). `/drive` consumes this section verbatim — it is the recorded, confirmable list of which standard policies the implementation answers to.
 
 This section is **mandatory and never empty**, and that is now **machine-checked**, not merely prose: `hooks/validate-ticket.sh` rejects a ticket written to `todo/<user>/` whose `## Policies` heading is absent or has nothing under it. A code-touching ticket always lists at least the two universal implementation policies; add the pillar policies the `layer` field selects (see the Policy Lens table) plus any specific policy the policy-mode discovery surfaced.
 
@@ -453,7 +453,7 @@ Two implementation policies apply across **every** layer when a ticket touches c
 
 When writing Implementation Steps, Considerations, and Patches, ensure they respect the policies and practices of every applicable skill. The four policy indexes (`workaholic:planning`, `workaholic:design`, `workaholic:implementation`, `workaholic:operation`) are the lens — on Claude Code they are preloaded and the `policy-lens.sh` hook injects the reminder on every `/ticket` run; this section documents the layer→pillar mapping for human readers and future agents.
 
-Use this mapping to fill the ticket's mandatory **`## Policies`** section. That section is the durable, in-ticket record of which standard policies (synced from qmu.co.jp) the work answers to: the policy lens is preloaded *while the ticket is written*, but `/drive` and `/trip` implement the ticket later — they read the recorded `## Policies` list to know exactly which policy hard copies to open before writing code. Keeping the list explicit in the ticket is what lets a developer confirm, after the fact, that the implementation referred to the corporate standard policies.
+Use this mapping to fill the ticket's mandatory **`## Policies`** section. That section is the durable, in-ticket record of which standard policies (synced from qmu.co.jp) the work answers to: the policy lens is preloaded *while the ticket is written*, but `/drive` implements the ticket later — it reads the recorded `## Policies` list to know exactly which policy hard copies to open before writing code. Keeping the list explicit in the ticket is what lets a developer confirm, after the fact, that the implementation referred to the corporate standard policies.
 
 ## Patch Guidelines
 

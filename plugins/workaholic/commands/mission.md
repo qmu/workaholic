@@ -15,13 +15,13 @@ skills:
 
 **Plugin boundary — do not spelunk:** The skills this command needs are already loaded via its `skills:` frontmatter and resolved through `${CLAUDE_PLUGIN_ROOT}`. Invoke them by their loaded namespace (`workaholic:`); never search the filesystem for skill content, never read or run anything under `~/.claude/plugins/marketplaces/` or any other global install, and never guess a namespace — `drivin`, `trippin`, `core`, `standards`, and `work` are obsolete names long since merged into the single `workaholic` plugin. If a skill you expect is missing, ask the user which plugins are loaded; do not hunt for it on disk.
 
-This command (main agent) runs the preloaded `workaholic:mission` skill. A **mission** is a first-class knowledge artifact: an **optional, epic-equivalent grouping** — a bounded, information-rich batch of tickets an agent fleet drives together (typically overnight), never a required parent of any ticket — distinct from a `trip` (a short design/build session) and a generic "epic/milestone" (see the skill's opening section and its **Granularity** record). It lives at `.workaholic/missions/active/<slug>/mission.md` while in progress, and moves to `.workaholic/missions/archive/<slug>/mission.md` when ended (see the skill's Allowed Location section).
+This command (main agent) runs the preloaded `workaholic:mission` skill. A **mission** is a first-class knowledge artifact: an **optional, epic-equivalent grouping** — a bounded, information-rich batch of tickets an agent fleet drives together (typically overnight), never a required parent of any ticket — and deliberately not a generic "epic/milestone" (see the skill's opening section and its **Granularity** record). It lives at `.workaholic/missions/active/<slug>/mission.md` while in progress, and moves to `.workaholic/missions/archive/<slug>/mission.md` when ended (see the skill's Allowed Location section).
 
 `$ARGUMENT` selects the mode — by **content**, not by subcommand (`workaholic:design` / `modeless-design`: the argument's meaning routes the flow, mirroring `/report`/`/ship` context-awareness). Match the retired literal `summary` **first** (a short deprecation note, below — never a mission title), then the `approve`, `close` and empty branches. Any other non-empty argument is judged against the existing missions (see *Referencing an existing mission*, below): a clear reference to an in-flight mission routes to the **replan flow**, an ambiguous argument is **asked**, and an argument referencing nothing is a **title** for the create flow.
 
 ## `summary` — retired (developer decision, 2026-07-22)
 
-The `summary` mode is **retired**: the bare `/mission` view (below) is developer-centric, so a separate my-business-only mode would differ only by hiding others' missions — a near-duplicate (one concept, one word). When `$ARGUMENT` is exactly `summary`, do not create anything and do not treat it as a title: tell the user the mode was folded into bare `/mission` and render the bare view instead. (`mission/scripts/summary.sh` remains — it is the shared assignee-gate reference the monitor skill's Scope section reads; only the command mode is gone.)
+The `summary` mode is **retired**: the bare `/mission` view (below) is developer-centric, so a separate my-business-only mode would differ only by hiding others' missions — a near-duplicate (one concept, one word). When `$ARGUMENT` is exactly `summary`, do not create anything and do not treat it as a title: tell the user the mode was folded into bare `/mission` and render the bare view instead. (`mission/scripts/summary.sh` remains — it is the canonical statement of the shared assignee gate the mission lens and `/drive`'s survey answer to; only the command mode is gone.)
 
 ## `approve <slug>` — turn a draft into drive-ready work
 
@@ -143,7 +143,7 @@ By the end of this step the mission is **drive-ready**: a complete, ordered queu
 
 ## Without a title — the developer's planning session
 
-When `$ARGUMENT` is empty, bare `/mission` opens a **working planning session**, not just a report (developer intent, 2026-07-22). Its arc is fixed: explain where the caller's missions stand → walk the not-ready ones through replan until every assigned mission is drive-ready → reconcile → discuss roadmap gaps → hand off to `/goal /monitor ok`. This is the daytime half of the overnight model: `/mission` makes everything drive-ready, `/monitor` executes it unattended. Read the whole roadmap once:
+When `$ARGUMENT` is empty, bare `/mission` opens a **working planning session**, not just a report (developer intent, 2026-07-22). Its arc is fixed: explain where the caller's missions stand → walk the not-ready ones through replan until every assigned mission is drive-ready → reconcile → discuss roadmap gaps → hand off to `/goal /drive ok`. This is the daytime half of the overnight model: `/mission` makes everything drive-ready, `/drive` executes it unattended. Read the whole roadmap once:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list.sh
@@ -168,17 +168,17 @@ An already-`ready` mission needs nothing here — say so and skip it.
 
 ### Step 3 — Reconciliation
 
-Close the session with one honest line derived from the readers (never asserted): **`N/M assigned missions drive-ready`**, naming each mission left short and why — deferred by the developer, or blocked on a named ruling. This mirrors `/monitor`'s honest-terminal shape.
+Close the session with one honest line derived from the readers (never asserted): **`N/M assigned missions drive-ready`**, naming each mission left short and why — deferred by the developer, or blocked on a named ruling. This mirrors `/drive`'s honest-terminal shape.
 
 ### Step 4 — Roadmap gap discussion: are the missions sufficient?
 
 Once every assigned mission is drive-ready, turn **upward**: does the roadmap cover what the accumulated direction asks for? Direction lives in the **feedback stream** (`.workaholic/feedbacks/` — read it via `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/list.sh`): unaddressed instructions and insights with no active mission or ticket advancing them are the gaps. This survey is act-and-report: run it unasked, and if nothing is unaddressed, say so in one sentence and move on — never pad the session.
 
-For each gap (or when the developer says the plan feels thin), open a short **discussion**, not automation: ground candidate next missions in the relevant feedback entries, the recent mission `## Reflection` entries (`bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list-reflections.sh` — what the last runs said to front-load), and the archived missions' outcomes. Propose concretely ("a mission that …"), and let the developer shape or reject. An agreed candidate flows straight into the **create flow** (the *With a title* section below — worktree, interrogation, ticket set) without leaving the conversation. **Never auto-create** a mission or ticket from the survey; creation happens only through the agreed hand-off. An unassigned-but-active mission is *not* a gap — the signal is "nothing advancing it", not "no mine".
+For each gap (or when the developer says the plan feels thin), open a short **discussion**, not automation: ground candidate next missions in the relevant feedback entries — including the `kind: concern` / `kind: insight` records an unattended `/drive` deferred, which are what the last runs said to front-load — and in the archived missions' outcomes. Propose concretely ("a mission that …"), and let the developer shape or reject. An agreed candidate flows straight into the **create flow** (the *With a title* section below — worktree, interrogation, ticket set) without leaving the conversation. **Never auto-create** a mission or ticket from the survey; creation happens only through the agreed hand-off. An unassigned-but-active mission is *not* a gap — the signal is "nothing advancing it", not "no mine".
 
-### Step 5 — Execution hand-off: `/goal /monitor ok`, never `/drive`
+### Step 5 — Execution hand-off: `/goal /drive ok`
 
-End by recommending **`/goal /monitor ok`** as the way to execute the readied missions — long, unattended, per-worktree, in parallel, at any hour. Do **not** recommend `/drive`: this session runs from the **root** worktree, where a bare `/drive` ambiguously reads as a drive of the main tree, not of the mission worktrees just made ready. `/goal /monitor ok` is the unambiguous signal; the closing prose names it and only it.
+End by recommending **`/goal /drive ok`** as the way to execute the readied missions — long, unattended, at any hour. Running it from this root worktree is unambiguous now that `/drive` is the sole executor: it surveys the approved, unclaimed missions, claims each as a PR-unit, and drives it in the claim's own worktree, so there is nothing to point it at by hand. The `ok` token is what makes it loopable — `/drive` emits it only when every unit it claimed genuinely reached its routed end (`workaholic:drive` §7).
 
 ## `close <slug>` — end a mission
 

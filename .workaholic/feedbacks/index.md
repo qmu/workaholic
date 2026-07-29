@@ -260,4 +260,9 @@
 * [Resolved: Draft Acceptance sketches could be mistaken for plans](20260729142304-resolved-draft-acceptance-sketches-could-be-mistaken.md)
 * [Resolved: Monitor's contract is verified only by prose sentinels while its side-effecting dev-env lifecycle has no functional coverage](20260729142304-resolved-monitor-s-contract-is-verified-only.md)
 * [Resolved: Monitor's decision loop has no cross-run deferral memory](20260729142304-resolved-monitor-s-decision-loop-has-no.md)
+* [Installed-plugin lag now includes commands that no longer exist, not just schema drift](20260729143259-installed-plugin-lag-now-includes-commands.md)
+* [Orphan git tag `v1.1.0` risks a silent non-release on the next minor bump](20260729143259-orphan-git-tag-v1-1-0.md)
+* [PR-unit batch partitioning is unverified model judgment](20260729143259-pr-unit-batch-partitioning-is-unverified.md)
+* [The full unattended chain (claim → drive → auto-ship → teardown) has never run end to end](20260729143259-the-full-unattended-chain-claim-drive.md)
+* [The tab-IFS interior-empty-field hazard recurs across the skill scripts, untested](20260729143259-the-tab-ifs-interior-empty-field.md)
 <!-- okf:generated:end -->

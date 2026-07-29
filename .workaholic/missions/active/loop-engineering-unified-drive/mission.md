@@ -59,3 +59,8 @@ Out of scope: phase 4 (Claude Code Web port, kioku ingestion, multi-repo rollout
 - 2026-07-29 — ticket archived — 20260728221803-unify-drive-executor.md
 - 2026-07-29 — ticket archived — 20260728221804-retire-monitor-trip-carry.md
 - 2026-07-29 — story reported — work-20260728-221717.md
+- 2026-07-29 — concern deferred (stuck) — 20260729143259-orphan-git-tag-v1-1-0.md
+- 2026-07-29 — concern deferred (stuck) — 20260729143259-pr-unit-batch-partitioning-is-unverified.md
+- 2026-07-29 — concern deferred (stuck) — 20260729143259-the-full-unattended-chain-claim-drive.md
+- 2026-07-29 — concern deferred (stuck) — 20260729143259-installed-plugin-lag-now-includes-commands.md
+- 2026-07-29 — concern deferred (stuck) — 20260729143259-the-tab-ifs-interior-empty-field.md

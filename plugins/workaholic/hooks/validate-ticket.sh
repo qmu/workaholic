@@ -290,6 +290,40 @@ if [ -n "$category" ]; then
   esac
 fi
 
+# merge_policy: optional, one of auto | review.
+#
+# ABSENT MEANS `review` — the conservative default, and the reason this is validated
+# only WHEN PRESENT. Every ticket predating the field (the whole archive, plus any
+# queue written by an older plugin copy) carries no value, and the one reading that
+# must never produce is "merge this without a human looking". So an empty/missing
+# field is legal and reads as review at drive time; only a present value is held to
+# the enum, because a typo'd `merge_policy: atuo` would otherwise read as review
+# while its author believed they had asked for automatic merging.
+merge_policy=$(validate_field "merge_policy")
+if [ -n "$merge_policy" ]; then
+  case "$merge_policy" in
+    auto|review) : ;;
+    *)
+      echo "Error: merge_policy must be one of: auto, review (or empty, which reads as review)" >&2
+      echo "Got: $merge_policy" >&2
+      print_skill_reference
+      exit 2
+      ;;
+  esac
+fi
+
+# claim: optional, and DELIBERATELY UNVALIDATED.
+#
+# The claim protocol (docs/loop-engineering-workflow.md G3; workaholic:drive's *Claims*)
+# stamps `claim: <branch>` into a claimed ticket's frontmatter on the claim branch, so a
+# queue ticket legitimately carries this key while its unit is in flight. Nothing here
+# checks it, on purpose: the key is BRANCH-LOCAL BY CONVENTION and its truth lives in git,
+# not in the file. Whether a stamp is real is answered by drive/scripts/list-claims.sh --
+# does an unmerged remote branch of that name still carry this artifact? -- and a hook
+# reading one file cannot answer that. A regex here would only assert the shape of a value
+# whose meaning it cannot see, and would reject a stamp written by a newer plugin copy.
+# So: tolerated, never validated. Do not add a rule.
+
 # depends_on: optional, YAML list of ticket filenames
 depends_on_line=$(printf '%s\n' "$frontmatter" | grep "^depends_on:" || true)
 if [ -n "$depends_on_line" ]; then
@@ -306,7 +340,7 @@ fi
 
 # --- Mandatory body sections (todo/<user>/ only) -----------------------------
 # create-ticket/SKILL.md makes two body sections mandatory and never-empty:
-# `## Policies` (l.310, the recorded policy list /drive and /trip open before writing
+# `## Policies` (l.310, the recorded policy list /drive opens before writing
 # code) and `## Quality Gate` (§4b, whose interrogation "always runs -- it is not
 # skippable"). Nothing checked either, and the gap was not theoretical: a ticket
 # written this week reached the queue carrying neither and passed every gate.
@@ -346,7 +380,7 @@ if printf '%s' "$tickets_path" | grep -qE '^todo/[^/]+/[^/]+$'; then
   if ! has_section_body "Policies"; then
     echo "Error: ## Policies section is required and must not be empty" >&2
     echo "Got: $tickets_path" >&2
-    echo "(list the policy hard copies this ticket answers to -- /drive and /trip read this section before writing code)" >&2
+    echo "(list the policy hard copies this ticket answers to -- /drive reads this section before writing code)" >&2
     print_skill_reference
     exit 2
   fi
@@ -395,13 +429,13 @@ if printf '%s' "$tickets_path" | grep -qE '^todo/[^/]+/[^/]+$'; then
   fi
 
   # --- resumption tickets list REMAINING work only (todo/<user>/ only) -------
-  # A /carry resumption ticket's ## Implementation Steps drive verbatim: /drive
-  # has no notion of "already done", so a completed step left in the list is
-  # re-run -- and on a mission-authorized queue no human gate remains to catch
-  # it. The prose rule (carry/SKILL.md: "only remaining work -- never re-list
-  # completed steps") gets the machine-checkable floor here: no checked
-  # checkboxes and no struck-through steps inside Implementation Steps.
-  # Completed work belongs in ## Overview, marked do-not-redo.
+  # A resumption ticket's ## Implementation Steps drive verbatim: /drive has no
+  # notion of "already done", so a completed step left in the list is re-run --
+  # and the unified run has no human gate left to catch it. The dedicated
+  # hand-off command that once wrote these is retired (in-flight state lives on
+  # the claim branch now), but a hand-written resume-* ticket is still possible,
+  # so the floor stays: no checked checkboxes and no struck-through steps inside
+  # Implementation Steps. Completed work belongs in ## Overview, do-not-redo.
   case "$filename" in
     [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-resume-*.md)
       done_step=$(printf '%s\n' "$content" | awk '
@@ -411,7 +445,7 @@ if printf '%s' "$tickets_path" | grep -qE '^todo/[^/]+/[^/]+$'; then
       if [ -n "$done_step" ]; then
         echo "Error: a resumption ticket's ## Implementation Steps must list REMAINING work only" >&2
         echo "Got: $done_step" >&2
-        echo "(a checked/struck-through step would be re-run by /drive -- record completed work in ## Overview as do-not-redo context instead; see carry/SKILL.md)" >&2
+        echo "(a checked/struck-through step would be re-run by /drive -- record completed work in ## Overview as do-not-redo context instead)" >&2
         print_skill_reference
         exit 2
       fi

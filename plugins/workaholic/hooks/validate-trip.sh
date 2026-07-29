@@ -20,7 +20,7 @@
 set -eu
 
 print_skill_reference() {
-  echo "See: plugins/workaholic/skills/trip-protocol/SKILL.md" >&2
+  echo "See: plugins/workaholic/rules/workaholic.md (trips/ is legacy, read-only history)" >&2
 }
 
 input=$(cat)

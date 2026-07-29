@@ -257,4 +257,7 @@
 * [Draft Acceptance sketches could be mistaken for plans](20260728215635-draft-acceptance-sketches-could-be-mistaken.md)
 * [The feedback stream has no reader-side scale valve yet](20260728215635-the-feedback-stream-has-no-reader.md)
 * [The proposal judgment bar is unproven against live feedback](20260728215635-the-proposal-judgment-bar-is-unproven.md)
+* [Resolved: Draft Acceptance sketches could be mistaken for plans](20260729142304-resolved-draft-acceptance-sketches-could-be-mistaken.md)
+* [Resolved: Monitor's contract is verified only by prose sentinels while its side-effecting dev-env lifecycle has no functional coverage](20260729142304-resolved-monitor-s-contract-is-verified-only.md)
+* [Resolved: Monitor's decision loop has no cross-run deferral memory](20260729142304-resolved-monitor-s-decision-loop-has-no.md)
 <!-- okf:generated:end -->

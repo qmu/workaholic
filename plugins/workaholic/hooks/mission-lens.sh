@@ -7,7 +7,9 @@
 #   - Stop             -> user-visible `systemMessage`, a nudge at the moment the
 #     agent finishes a turn.
 #
-# It surfaces an ACTIVE mission only when it passes THREE gates -- the lens is an
+# Its scope is the ACTIVE AREA's working set -- the two in-flight states of the one
+# status axis, `draft` and `approved` (a legacy `active` is tolerated pre-migration).
+# Within that set it surfaces a mission only when it passes THREE gates -- the lens is an
 # orientation aid, not a nag, so a line that cannot tell the developer what to do next
 # does not get printed above the agent's answer:
 #
@@ -92,6 +94,17 @@ LINES=""
 FREE_LINES=""
 for f in "$ACTIVE_DIR"/*/mission.md; do
     [ -f "$f" ] || continue
+    # In flight on the single status axis (2026-07-28 --
+    # docs/loop-engineering-workflow.md I2): `draft` (proposed, awaiting approval)
+    # or `approved`. Legacy `active` is tolerated for a checkout the living
+    # migration has not rewritten yet; anything else has ended and only reaches
+    # this directory as a half-finished close, which the lens should not narrate.
+    # The hook reads files directly (it never sources the mission scripts), so it
+    # states the axis itself rather than inheriting a migration.
+    case "$(grep -m1 '^status:' "$f" 2>/dev/null | sed -e 's/^status:[ \t]*//' -e 's/[ \t]*$//' || true)" in
+        draft|approved|active) : ;;
+        *) continue ;;
+    esac
     # Mine, or unclaimed. Someone else's stays silent. Ownership is DERIVED through
     # mission-owners.sh (the mission's own `assignees`, legacy fallback to its singular
     # `assignee`) — never parsed inline — so the shape lives in one place. A mission

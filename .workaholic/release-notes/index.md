@@ -77,4 +77,5 @@
 * [Mission-worktree base resolution now fetches origin and prefers origin/&lt;base&gt; etc](work-20260723-000846.md)
 * [Add the feedback stream and retire the strategy layer](work-20260728-183130.md)
 * [Merge concerns into feedback and add the proposal loop](work-20260728-210259.md)
+* [Collapse execution to one autonomous /drive with pushed-branch claims etc](work-20260728-221717.md)
 <!-- okf:generated:end -->

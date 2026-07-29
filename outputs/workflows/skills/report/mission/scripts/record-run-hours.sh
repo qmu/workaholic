@@ -1,9 +1,9 @@
 #!/bin/sh -eu
-# Accumulate a /monitor run's agent-hours into a mission's actual_hours, idempotently
-# per run-id. A run's leaf-time (dispatch→completion wall-clock, summed across waves) is
-# added into the mission's running actual_hours, and the increment is carried in a
-# ## Changelog line so the sum reconstructs from history — actual_hours is never a bare
-# mutable counter alone (`workaholic:design` / `history-structures`).
+# Accumulate a /drive run's agent-hours into a mission's actual_hours, idempotently
+# per run-id. The run's wall-clock on that mission's PR-unit (summed across passes of
+# one invocation) is added into the mission's running actual_hours, and the increment is
+# carried in a ## Changelog line so the sum reconstructs from history — actual_hours is
+# never a bare mutable counter alone (`workaholic:design` / `history-structures`).
 #
 # THE RECORDER IS THE ONLY WRITER of actual_hours — same doctrine as tick-acceptance.sh:
 # the field is never hand-edited.

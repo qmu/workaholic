@@ -59,6 +59,8 @@ const SCRIPTS = {
   refreshIndex: join(REPO_ROOT, "plugins/workaholic/skills/okf/scripts/refresh-index.sh"),
   promoteIcebox: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/promote-icebox.sh"),
   claim: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/claim.sh"),
+  planUnits: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/plan-units.sh"),
+  effectivePolicy: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/effective-policy.sh"),
   listClaims: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-claims.sh"),
   releaseClaim: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/release-claim.sh"),
   publishRelease: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/publish-release.sh"),
@@ -1089,18 +1091,22 @@ function testDriveAuthorized() {
       { a: missing.authorized, reason: missing.reason }, { a: false, reason: "no_ticket" });
   } finally { cleanup(dir); }
 
-  // The prose contract this ticket had to correct: night mode was documented as the ONLY
-  // gate-skipping mode, which stops being true the moment a mission queue can skip it.
+  // The prose contract has moved twice. It first had to stop calling night mode the ONLY
+  // gate-skipping mode (a mission queue skipped it too); phase 3 then retired the
+  // per-ticket prompt outright (ticket 20260728221803), so the assertions below pin the
+  // RETIREMENT rather than the skip rule. The resolver itself is untouched and still
+  // authoritative for a per-ticket caller — what changed is that /drive no longer needs
+  // one, because the survey applies the resolver's own floor at the unit level.
   const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
   assertTrue("drive/SKILL.md no longer claims night mode is the only gate-skipping mode",
     !/ONLY mode that skips/.test(skill), "the false sentence survives");
-  assertTrue("drive/SKILL.md states the rule as a prior batch authorization",
-    /prior explicit batch authorization/.test(skill), "rule not restated");
-  assertTrue("drive/SKILL.md tells the loop to consult the resolver, not decide in prose",
-    /drive-authorized\.sh/.test(skill), "resolver not wired in");
-  assertTrue("the gate is skipped, never auto-answered",
-    /Skip it; never auto-answer it/.test(skill), "auto-answer boundary not stated");
-  assertTrue("the authorized mode inherits the attempt-every failure contract",
+  assertTrue("drive/SKILL.md records the per-ticket prompt's retirement where it stood",
+    /Where the per-ticket approval prompt went/.test(skill), "retirement not recorded");
+  assertTrue("drive/SKILL.md keeps approval relocated, not removed",
+    /approval is relocated, not removed/i.test(skill), "relocation not stated");
+  assertTrue("drive/SKILL.md still names the resolver's floor as the unit-level floor",
+    /drive-authorized\.sh/.test(skill) && /moved up to the unit/.test(skill), "resolver floor not accounted for");
+  assertTrue("the unattended run inherits the attempt-every failure contract",
     /Attempt every ticket/.test(skill), "failure contract not stated");
 }
 
@@ -7806,6 +7812,285 @@ function testClaimBranchCollision() {
   } finally { cleanup(origin); cleanup(A); cleanup(B); }
 }
 
+// ---------- drive/effective-policy.sh: the G5 merge-policy truth table ----------
+// This script decides whether machinery merges to main without a human, so every row
+// of decision G5 is asserted rather than described. The asymmetry under test is the
+// point: `auto` needs unanimous, explicit consent; every other state — a review
+// member, a silent one, a missing one — is `review`.
+function testEffectivePolicy() {
+  const dir = makeRepo("main");
+  const POLICY = `${POSIX_SH} ${SCRIPTS.effectivePolicy}`;
+  const mission = (slug, policy) => {
+    mkdirSync(join(dir, `.workaholic/missions/active/${slug}`), { recursive: true });
+    writeFileSync(join(dir, `.workaholic/missions/active/${slug}/mission.md`),
+      `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: approved\n` +
+      (policy === null ? "" : `merge_policy: ${policy}\n`) +
+      `assignees: [test@example.com]\n---\n\n# ${slug}\n\n## Acceptance\n\n- [ ] a\n`);
+  };
+  const ticket = (name, policy) => {
+    const d = join(dir, `.workaholic/tickets/todo/${TEST_SLUG}`);
+    mkdirSync(d, { recursive: true });
+    const rel = `.workaholic/tickets/todo/${TEST_SLUG}/${name}.md`;
+    writeFileSync(join(dir, rel),
+      `---\ncreated_at: 2026-07-29T00:00:00+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Domain]\n` +
+      (policy === null ? "" : `merge_policy: ${policy}\n`) + `---\n\n# ${name}\n`);
+    return rel;
+  };
+  try {
+    mission("m-auto", "auto");
+    mission("m-review", "review");
+    mission("m-silent", null);
+    const tAuto1 = ticket("20260729000001-a1", "auto");
+    const tAuto2 = ticket("20260729000002-a2", "auto");
+    const tReview = ticket("20260729000003-r1", "review");
+    const tSilent = ticket("20260729000004-s1", null);
+
+    const p = (cmd) => JSON.parse(run(dir, `${POLICY} ${cmd}`).stdout);
+
+    // --- mission units: the mission's own recorded policy is the unit's policy ---
+    assertEq("a mission recorded auto routes auto", p("mission m-auto").policy, "auto");
+    assertEq("a mission recorded review routes review",
+      { policy: p("mission m-review").policy, reason: p("mission m-review").reason },
+      { policy: "review", reason: "review_member" });
+    assertEq("a mission recording nothing routes review (absent = review)",
+      { policy: p("mission m-silent").policy, reason: p("mission m-silent").reason },
+      { policy: "review", reason: "absent" });
+
+    // --- batch units: unanimity, and only unanimity, buys auto ---
+    assertEq("a batch of all-auto tickets routes auto", p(`tickets ${tAuto1} ${tAuto2}`).policy, "auto");
+    const mixed = p(`tickets ${tAuto1} ${tReview}`);
+    assertEq("one review member turns the whole batch review",
+      { policy: mixed.policy, reason: mixed.reason, member: mixed.member },
+      { policy: "review", reason: "review_member", member: tReview });
+    const silent = p(`tickets ${tAuto1} ${tSilent}`);
+    assertEq("one silent member turns the whole batch review",
+      { policy: silent.policy, reason: silent.reason, member: silent.member },
+      { policy: "review", reason: "absent", member: tSilent });
+
+    // Every member is still listed even after the first refusal — a report that
+    // stopped at the first offender would hide the second.
+    assertEq("the refusing unit still reports every member",
+      mixed.members.map((m) => m.merge_policy), ["auto", "review"]);
+
+    // A member that does not exist is conservative-and-reported, never auto.
+    const missing = p("tickets .workaholic/tickets/todo/nope.md");
+    assertEq("a missing member routes review with not_found",
+      { policy: missing.policy, reason: missing.reason }, { policy: "review", reason: "not_found" });
+    const noMission = p("mission does-not-exist");
+    assertEq("an unresolvable mission routes review", noMission.policy, "review");
+
+    // Malformed invocation is the only hard error: a caller that mistyped the kind
+    // must not receive a plausible-looking `review`.
+    assertTrue("a bad unit kind exits non-zero", run(dir, `${POLICY} bogus x`).status !== 0);
+    assertTrue("a kind with no members exits non-zero", run(dir, `${POLICY} tickets`).status !== 0);
+  } finally { cleanup(dir); }
+}
+
+// ---------- drive/plan-units.sh: the survey half of the partition ----------
+// The unified run's offer must equal "everything claimable, minus what a claim holds",
+// computed identically on every machine. The hermetic dry demo the ticket's Gate names
+// lives here: an approved mission + two backlog tickets, surveyed and routed, showing
+// the partition a run would take.
+function testPlanUnits() {
+  const { origin, A, B } = makeClaimFixture();
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  try {
+    // The fixture seeds one approved mission (m1) and two todo tickets (t1, t2).
+    let plan = JSON.parse(run(A, PLAN).stdout);
+    assertEq("the survey offers the approved mission as a unit",
+      plan.missions.map((m) => m.slug), ["m1"]);
+    assertEq("the mission carries its derived progress and next step",
+      { checked: plan.missions[0].checked, total: plan.missions[0].total, next: plan.missions[0].next },
+      { checked: 0, total: 1, next: "x" });
+    assertEq("the survey offers the unclaimed backlog",
+      plan.backlog.map((t) => basename(t.path)),
+      ["20260729000001-t1.md", "20260729000002-t2.md"]);
+    assertEq("the backlog summary carries what grouping needs",
+      { type: plan.backlog[0].type, layer: plan.backlog[0].layer }, { type: "enhancement", layer: "[Domain]" });
+    assertEq("a reachable origin reports a live claim read", plan.fetched, true);
+
+    // --- a claimed unit leaves the offer, and says why ---
+    const claimed = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.claim} mission m1`).stdout);
+    plan = JSON.parse(run(A, PLAN).stdout);
+    assertEq("a claimed mission is no longer offered", plan.missions.length, 0);
+    assertEq("the claimed mission is reported as excluded, with its reason",
+      plan.excluded.find((e) => e.id === "m1")?.reason, "claimed");
+    assertEq("the in-flight claim is reported alongside the offer",
+      plan.claimed.map((c) => c.unit), [claimed.unit]);
+    assertEq("the backlog is untouched by a mission claim", plan.backlog.length, 2);
+
+    // A claimed TICKET drops out too — the artifact overlap, not just the unit id.
+    tickSecond();
+    const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    run(B, `${POSIX_SH} ${SCRIPTS.claim} batch ${t1}`);
+    plan = JSON.parse(run(A, PLAN).stdout);
+    assertEq("a claimed ticket leaves the backlog", plan.backlog.map((t) => t.path),
+      [`.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`]);
+    assertEq("the claimed ticket is reported as excluded", plan.excluded.find((e) => e.id === t1)?.reason, "claimed");
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
+// A local repo (no origin) exercises the exclusion reasons the claim fixture cannot:
+// a draft mission, a planless approved one, and a ticket a mission already owns.
+// Every drop is REPORTED — a queue item that vanishes from an unattended run's offer
+// with no trace is indistinguishable from one that was never there.
+function testPlanUnitsExclusions() {
+  const dir = makeRepo("main");
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  const mission = (slug, status, acceptance) => {
+    mkdirSync(join(dir, `.workaholic/missions/active/${slug}`), { recursive: true });
+    writeFileSync(join(dir, `.workaholic/missions/active/${slug}/mission.md`),
+      `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: ${status}\nmerge_policy: auto\n` +
+      `assignees: [test@example.com]\n---\n\n# ${slug}\n\n## Acceptance\n\n${acceptance}`);
+  };
+  try {
+    mission("m-approved", "approved", "- [ ] ship it\n");
+    mission("m-draft", "draft", "- [ ] ship it\n");
+    mission("m-planless", "approved", "\n");
+    const tdir = join(dir, `.workaholic/tickets/todo/${TEST_SLUG}`);
+    mkdirSync(tdir, { recursive: true });
+    writeFileSync(join(tdir, "20260729000001-free.md"),
+      `---\ncreated_at: 2026-07-29T00:00:01+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Domain]\nmerge_policy: auto\n---\n\n# Free\n`);
+    writeFileSync(join(tdir, "20260729000002-owned.md"),
+      `---\ncreated_at: 2026-07-29T00:00:02+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Domain]\nmission: m-approved\n---\n\n# Owned\n`);
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    const plan = JSON.parse(run(dir, PLAN).stdout);
+    assertEq("only the approved, planned mission is offered", plan.missions.map((m) => m.slug), ["m-approved"]);
+    const why = (id) => plan.excluded.find((e) => e.id === id)?.reason;
+    assertEq("a draft mission is excluded as not_approved", why("m-draft"), "not_approved");
+    assertEq("an approved mission with no plan is excluded as no_plan", why("m-planless"), "no_plan");
+    assertEq("a missioned ticket is not offered as backlog",
+      plan.backlog.map((t) => basename(t.path)), ["20260729000001-free.md"]);
+    assertEq("the missioned ticket is excluded as a mission member",
+      why(`.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-owned.md`), "mission_member");
+    assertEq("an unreachable origin degrades the read, never fails it", plan.fetched, false);
+
+    // --- the dry demo: partition + routing, end to end on the survey's own output ---
+    // One approved mission (auto) and one backlog ticket (auto) => two units, both
+    // routed to the ship path; the run would open two PRs and merge both.
+    const missionRoute = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.effectivePolicy} mission ${plan.missions[0].slug}`).stdout);
+    const batchRoute = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.effectivePolicy} tickets ${plan.backlog[0].path}`).stdout);
+    assertEq("the dry demo routes the mission unit and the batch unit",
+      { units: plan.missions.length + 1, mission: missionRoute.policy, batch: batchRoute.policy },
+      { units: 2, mission: "auto", batch: "auto" });
+
+    // Flip the backlog ticket to review and the same partition routes differently —
+    // proving the route is read off the artifacts, not off the run's mood.
+    const owned = join(tdir, "20260729000001-free.md");
+    writeFileSync(owned, readFileSync(owned, "utf8").replace("merge_policy: auto", "merge_policy: review"));
+    assertEq("the same unit routes to the PR path once its ticket says review",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.effectivePolicy} tickets ${plan.backlog[0].path}`).stdout).policy,
+      "review");
+  } finally { cleanup(dir); }
+}
+
+// ---------- the unified run's contract (prose-verified, like the monitor contract) ----------
+// The run pipeline is orchestration, not a script, so its load-bearing promises are
+// pinned as sentinels — the same method the /monitor front-loading contract used. Each
+// assertion below corresponds to a Gate line of ticket 20260728221803: a regression
+// that quietly reintroduces a prompt, an auto-override, or a self-graded token would
+// otherwise be invisible to every mechanical check in the repo.
+function testUnifiedDriveContract() {
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/drive.md"), "utf8");
+  const ship = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/ship/SKILL.md"), "utf8");
+
+  // --- one executor, one shape, zero prompts ---
+  assertTrue("the drive skill states the survey→route pipeline as a model",
+    /survey → partition → claim → drive → report → route → account/.test(skill));
+  assertTrue("the drive skill declares the run has no interaction point",
+    /NEVER use AskUserQuestion.*no interaction point/is.test(skill));
+  assertTrue("the command declares itself prompt-free in every invocation",
+    /issues no `AskUserQuestion` — anywhere, in any invocation/.test(cmd));
+  assertTrue("the partition is reported, never asked",
+    /Report the partition, never ask it/.test(skill) && /Report the partition; never ask it/.test(cmd));
+  assertTrue("night mode is folded in as a synonym, not a second mode",
+    /`\/drive night`.*synonym/is.test(skill) && /`\/drive night`\*\* is a synonym/.test(cmd));
+
+  // No AskUserQuestion may survive anywhere in the drive surface — the old per-ticket
+  // approval prompt, the order confirmation, and the icebox picker all lived here.
+  assertTrue("no AskUserQuestion invocation remains in the drive skill",
+    !/use `AskUserQuestion`|Use `AskUserQuestion`|issues? every `AskUserQuestion`/.test(skill));
+  assertTrue("no AskUserQuestion invocation remains in the drive command",
+    !/use `AskUserQuestion`|Use `AskUserQuestion`/.test(cmd));
+  assertTrue("the retired per-ticket approval prompt is recorded where it used to be",
+    /Where the per-ticket approval prompt went/.test(skill)
+    && /approval is relocated, not removed/i.test(skill));
+  assertTrue("the relocation names both artifact-level authorizations",
+    /approve\.sh` flips `status: draft`/.test(skill) && /each ticket was created/.test(skill));
+  assertTrue("the looking-through is explicitly NOT what was removed",
+    /completeness check inside the drive loop — nothing else/.test(skill));
+
+  // --- the effective-policy table and the conservative default ---
+  assertTrue("the skill states the effective-merge-policy derivation as a table",
+    /\| Unit \| Policy source \| Effective policy \|/.test(skill));
+  assertTrue("absent means review is stated where the policy is derived",
+    /\*\*absent means review\*\*/i.test(skill));
+  assertTrue("any review member wins", /any review member wins/.test(skill));
+
+  // --- an unattended run never overrides a gate ---
+  assertTrue("the skill states auto is about approval, never about gates",
+    /`auto` means "no \*approval\* needed"; it never means "no \*gate\* applies"/.test(skill));
+  assertTrue("a secret finding hard-stops rather than demoting",
+    /`secret` finding \(non-overridable\) \| \*\*Hard stop\.\*\*/.test(skill));
+  assertTrue("a size block demotes an auto unit to the PR path",
+    /`size`\/`leak` finding \(overridable interactively\) \| \*\*Demote to the PR path\.\*\*/.test(skill));
+  assertTrue("a missing confirmation method demotes rather than taking the bypass",
+    /No confirmation method \(ship §1-4\) \| \*\*Demote to the PR path\.\*\*/.test(skill));
+
+  // --- ship factors its prompts for the unattended caller, without forking ---
+  assertTrue("ship documents unattended routing", /## 0\. Unattended routing/.test(ship));
+  assertTrue("ship's unattended routing is a table over the existing seams, not a second flow",
+    /routing table over the existing seams, not a second flow/.test(ship));
+  assertTrue("ship keeps the secret tier non-overridable for the unattended caller",
+    /Hard stop\*\*, exactly as interactively — non-overridable is non-overridable/.test(ship));
+  assertTrue("ship stays independently usable interactively",
+    /remains independently usable on a hand-driven branch with every prompt intact/.test(ship));
+  assertTrue("teardown belongs to the caller, not to ship",
+    /Teardown belongs to the caller, not here/.test(ship));
+
+  // --- composed, never absorbed ---
+  assertTrue("the report flow is composed, never forked",
+    /Compose `\/report`; never fork or absorb it/.test(skill));
+  assertTrue("the run calls report's own PR seam",
+    /report\/scripts\/create-or-update\.sh/.test(skill));
+  assertTrue("a review unit's PR URL is posted through the propose notifier",
+    /propose\/scripts\/notify-slack\.sh/.test(skill) && /never load-bearing/.test(skill));
+
+  // --- the honest terminal, verbatim the /goal-compatible contract ---
+  assertTrue("the skill prints the reconciliation line before the token",
+    /N units: X shipped, Y PR'd, Z blocked/.test(skill));
+  assertTrue("the terminal token is a derived truth table",
+    /\| State at the end of the run \| Final line \|/.test(skill));
+  assertTrue("ok requires nothing claimable left undone",
+    /derived, never self-asserted/.test(skill) && /a blocked unit is `pending`, not `ok`/.test(skill));
+  assertTrue("the command restates the terminal contract for its caller loop",
+    /`ok` \*\*only\*\* when nothing claimable remains undone/.test(cmd));
+  assertTrue("the /goal caller-side loop is named as the contract's consumer",
+    /\/goal \/drive ok/.test(skill) && /\/goal \/drive ok/.test(cmd));
+
+  // --- the claim-born, ship-torn worktree ---
+  assertTrue("the skill wires teardown to the merge, not to /mission close",
+    /claim-born and ship-torn/.test(skill) && /cleanup-mission-worktree\.sh <unit-id>/.test(skill));
+
+  // --- agent-hours moved here with the rest of the absorbed machinery ---
+  assertTrue("mission units record agent-hours through the absorbed seam",
+    /mission\/scripts\/record-run-hours\.sh/.test(skill) && /idempotent per run-id/.test(skill));
+
+  // --- the runbook exists and mirrors the proposal runbook's shape ---
+  const runbook = readFileSync(join(REPO_ROOT, "docs/drive-loop-runbook.md"), "utf8");
+  assertTrue("the runbook is the 5-minute cron entry", /\*\/5 \* \* \* \*/.test(runbook));
+  assertTrue("the runbook mirrors the proposal runbook's env-file pattern",
+    /\.workaholic-drive\.env/.test(runbook) && /0600/.test(runbook));
+  assertTrue("the runbook documents multi-runner as safe via claims",
+    /Several runners are safe, and that is the point/.test(runbook));
+  assertTrue("the runbook states its observables and failure modes",
+    /## 5\. Observability/.test(runbook) && /## 6\. Failure modes/.test(runbook));
+  assertTrue("the runbook names the stale-claim, demotion and secret failure modes",
+    /stale/.test(runbook) && /demoted to PR/.test(runbook) && /`secret` finding/.test(runbook));
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -7929,6 +8214,10 @@ const tests = [
   ["drive claim protocol: two clones, one unit", testClaimProtocol],
   ["drive claim protocol: offline reader/writer asymmetry", testClaimOfflineAsymmetry],
   ["drive claim protocol: same-second branch collision", testClaimBranchCollision],
+  ["drive/effective-policy.sh (G5 truth table)", testEffectivePolicy],
+  ["drive/plan-units.sh (survey minus claims)", testPlanUnits],
+  ["drive/plan-units.sh (exclusions + the dry demo)", testPlanUnitsExclusions],
+  ["drive: the unified run's contract", testUnifiedDriveContract],
 ];
 
 for (const [label, fn] of tests) {

@@ -19,7 +19,31 @@ This skill is the **trip-independent ship essence**: it operates on the current 
 
 ## Agent Compatibility
 
-This skill works on any Agent-Skills-compatible agent. Where a step uses `AskUserQuestion` (workspace/ticket guards, deploy confirmation, the §1-4 no-confirmation-method halt), use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The confirmations are mandatory; only the prompt mechanism varies. (This skill has no subagent fan-out.) Prefix each interactive prompt's (`AskUserQuestion`) `question` body with `[<project label>]` — run `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh` once and reuse its `project` value — so a developer with several sessions open across tmux panes can see which repository is asking; leave the `header` as the decision/topic label.
+This skill works on any Agent-Skills-compatible agent. Where a step uses `AskUserQuestion` (workspace/ticket guards, deploy confirmation, the §1-4 no-confirmation-method halt), use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The confirmations are mandatory for an interactive caller; only the prompt mechanism varies. A caller that **cannot** prompt at all — the unified `/drive` run shipping an `auto` unit — takes §0's routing instead of asking. (This skill has no subagent fan-out.) Prefix each interactive prompt's (`AskUserQuestion`) `question` body with `[<project label>]` — run `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh` once and reuse its `project` value — so a developer with several sessions open across tmux panes can see which repository is asking; leave the `header` as the decision/topic label.
+
+## 0. Unattended routing (when the caller cannot prompt)
+
+`/ship` is called two ways: by a developer in a session, and by the unified `/drive` run for a PR-unit whose effective merge policy is `auto` (`workaholic:drive`, *Unified Run* §6). The second caller **cannot prompt at all** — there is nobody to answer.
+
+**This is a routing table over the existing seams, not a second flow.** Every step below runs exactly as written; only what happens *at each `AskUserQuestion`* differs, and in every case the unattended answer is the conservative one — the ship stops or hands the unit back to the PR path, never proceeds on an assumption:
+
+| Interactive seam | Unattended caller |
+| ---------------- | ----------------- |
+| §3 Workspace Guard, dirty tree | **Demote to PR.** Something left uncommitted work in the claim worktree; that is a finding, not a thing to ignore-and-proceed. |
+| §4 Ticket Guard | Unchanged — it is already informational and non-blocking. |
+| §1-3 confirm-before-deploy | **Proceed.** `merge_policy: auto`, recorded at approval or ticket creation, *is* that authorization; re-asking it is the settled question the policy exists to pre-answer. |
+| §1-4 no confirmation method | **Demote to PR.** Never take the accepted-risk bypass: it is explicitly a developer's conscious choice, and an agent choosing it for them is exactly what "never the default" forbids. |
+| Step 2 catch-up, `content` conflict | **Demote to PR.** (A `mechanical` conflict is routine reconciliation the agent already resolves itself — unchanged.) |
+| Step 2b scan, `overridable: true` (`size`/`leak`) | **Demote to PR.** An override is a human ruling. |
+| Step 2b scan, `overridable: false` (`secret`) | **Hard stop**, exactly as interactively — non-overridable is non-overridable, and demoting it to a PR would launder a credential-bearing branch into "routine review". |
+| Step 4 confirmation ran and **failed** | **Hard stop**, exactly as interactively. The unmerged branch is the rollback. |
+| Step 7 release publish, no CI to defer to | **Skip and report** `release_pending`. Publishing is an outward action nobody authorized in this run. |
+
+**Demote to PR** means: stop before the merge, leave the PR open and the branch pushed, and report the unit as demoted **with the gate that caused it**. The work is not lost and not merged — it is waiting for the human the gate asked for.
+
+**`auto` means no *approval* is needed; it never means no *gate* applies.** A gate an unattended run may skip is a gate that does not exist, so nothing here weakens a tier — the tiers are identical, and only the *override* path (which requires a human) is unavailable. `/ship` remains independently usable on a hand-driven branch with every prompt intact.
+
+**Teardown belongs to the caller, not here.** After a successful merge, the unified run removes the unit's claim worktree and deletes its remote claim branch (`workaholic:drive` §6). `/ship` does not tear worktrees down: it may itself be running *inside* the worktree in question, and a merge that cleans up its own working directory is a merge that cannot report its result.
 
 ## 1. Deployment Contract
 

@@ -32,6 +32,7 @@
         "email": "a@qmu.jp"
       },
       "source": "./outputs/workflows",
+      "strict": false,
       "category": "development",
       "skills": [
         "./skills/create-ticket",

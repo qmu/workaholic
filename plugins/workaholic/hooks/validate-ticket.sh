@@ -312,6 +312,18 @@ if [ -n "$merge_policy" ]; then
   esac
 fi
 
+# claim: optional, and DELIBERATELY UNVALIDATED.
+#
+# The claim protocol (docs/loop-engineering-workflow.md G3; workaholic:drive's *Claims*)
+# stamps `claim: <branch>` into a claimed ticket's frontmatter on the claim branch, so a
+# queue ticket legitimately carries this key while its unit is in flight. Nothing here
+# checks it, on purpose: the key is BRANCH-LOCAL BY CONVENTION and its truth lives in git,
+# not in the file. Whether a stamp is real is answered by drive/scripts/list-claims.sh --
+# does an unmerged remote branch of that name still carry this artifact? -- and a hook
+# reading one file cannot answer that. A regex here would only assert the shape of a value
+# whose meaning it cannot see, and would reject a stamp written by a newer plugin copy.
+# So: tolerated, never validated. Do not add a rule.
+
 # depends_on: optional, YAML list of ticket filenames
 depends_on_line=$(printf '%s\n' "$frontmatter" | grep "^depends_on:" || true)
 if [ -n "$depends_on_line" ]; then

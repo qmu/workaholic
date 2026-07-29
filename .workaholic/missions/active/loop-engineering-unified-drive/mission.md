@@ -40,7 +40,7 @@ Out of scope: phase 4 (Claude Code Web port, kioku ingestion, multi-repo rollout
 ## Acceptance
 
 - [x] The mission lifecycle is one `status` axis with an executable approval flip and per-artifact `merge_policy`; `drive_authorized` is retired via living migration and every reader keys on status (#20260728221801-unify-mission-status-and-merge-policy.md)
-- [ ] The claim protocol scripts exist and are hermetically tested: claim writer, unmerged-branch claim reader, stale-claim reporting, claim-born worktree lifecycle (#20260728221802-add-claim-protocol-scripts.md)
+- [x] The claim protocol scripts exist and are hermetically tested: claim writer, unmerged-branch claim reader, stale-claim reporting, claim-born worktree lifecycle (#20260728221802-add-claim-protocol-scripts.md)
 - [ ] `/drive` is the unified executor: autonomous PR-unit partitioning, per-unit claim → drive → report, merge-policy routing with automated `/ship` for all-auto units and PR + Slack for the rest, agent-hours absorbed, 5-minute routine documented (#20260728221803-unify-drive-executor.md)
 - [ ] `/monitor`, `/trip`, `/carry`, the Agent Teams members, and the reflection channel are retired with docs and tests swept (#20260728221804-retire-monitor-trip-carry.md)
 
@@ -55,3 +55,4 @@ Out of scope: phase 4 (Claude Code Web port, kioku ingestion, multi-repo rollout
 - 2026-07-28 — ticket added — 20260728221803-unify-drive-executor.md
 - 2026-07-28 — ticket added — 20260728221804-retire-monitor-trip-carry.md
 - 2026-07-29 — ticket archived — 20260728221801-unify-mission-status-and-merge-policy.md
+- 2026-07-29 — ticket archived — 20260728221802-add-claim-protocol-scripts.md

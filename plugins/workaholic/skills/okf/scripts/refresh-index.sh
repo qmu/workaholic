@@ -328,7 +328,7 @@ for area in tickets stories missions feedbacks deployments release-notes specs t
 " ;;
     terms)         root_body="$root_body* [terms](terms/index.md) - domain terminology
 " ;;
-    trips)         root_body="$root_body* [trips](trips/index.md) - trip rationale (directions, models, designs) per trip
+    trips)         root_body="$root_body* [trips](trips/index.md) - legacy, read-only: design rationale from the retired trip workflow
 " ;;
   esac
 done

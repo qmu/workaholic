@@ -22,7 +22,7 @@ Answer a developer's question about the repository and export the answer as a **
 
 ## 1. Agent Compatibility
 
-`/explain` depends on a **session-provided browser MCP** — the Claude Code **Playwright plugin** (`mcp__plugin_playwright_playwright__*`) or the **Chrome DevTools MCP**. The workaholic plugin bundles no browser tooling and declares no MCP server, so the browser is an external dependency this skill *checks for* at runtime and never bundles. Because of that dependency it is **Claude-Code-only** (like `/trip`): the script-bearing skill carries `metadata.internal: true`, is excluded from the cross-agent `outputs/` build, and its command is never built. The one `AskUserQuestion` (the Home-directory consent gate) is issued by the command at the main-agent level; any discovery fan-out uses non-interactive `general-purpose` leaves.
+`/explain` depends on a **session-provided browser MCP** — the Claude Code **Playwright plugin** (`mcp__plugin_playwright_playwright__*`) or the **Chrome DevTools MCP**. The workaholic plugin bundles no browser tooling and declares no MCP server, so the browser is an external dependency this skill *checks for* at runtime and never bundles. Because of that dependency it is **Claude-Code-only**: the script-bearing skill carries `metadata.internal: true`, is excluded from the cross-agent `outputs/` build, and its command is never built. The one `AskUserQuestion` (the Home-directory consent gate) is issued by the command at the main-agent level; any discovery fan-out uses non-interactive `general-purpose` leaves.
 
 ## 2. Run Workflow
 

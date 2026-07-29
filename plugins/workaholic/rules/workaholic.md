@@ -19,7 +19,7 @@ The `.workaholic/` directory has a fixed structure. Only these subdirectories ar
 | `stories/`       | Development narratives per branch          |
 | `terms/`         | Term definitions                           |
 | `tickets/`       | Implementation work queue and archives (`todo/`, `archive/`, `icebox/`, `abandoned/`) |
-| `trips/`         | Trip design/decision artifacts per trip    |
+| `trips/`         | **Legacy, read-only history** — design/decision artifacts from the retired trip workflow; no writer since 2026-07-28 |
 
 This list is the single source of truth in `plugins/workaholic/hooks/workaholic-layout-allowlist.txt` (one directory per line), which `hooks/validate-ticket.sh` reads to enforce the layout on every `Write`/`Edit`. Keep the table and that file in lockstep when amending the structure — introducing a new top-level artifact directory is a deliberate amendment that must update **both** in the same change (see CLAUDE.md's closed-layout / lockstep-registration policy). Most entries are plugin-generated; `guides/` and `policies/` are conventional project-local documentation areas.
 

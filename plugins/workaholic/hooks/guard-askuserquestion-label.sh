@@ -4,7 +4,7 @@
 # many parallel Claude sessions can always tell WHICH repository is asking.
 #
 # Why this exists: the [project]-prefix convention lives only as prose in the
-# create-ticket / drive / report / ship / catch / trip-protocol / explain skills
+# create-ticket / drive / report / ship / catch / mission / explain skills
 # and their commands (deferred concerns #67 / #69: "prompt phrasing is prose, not
 # machine-checked"). Nothing rejected an unlabeled prompt, so the label was
 # repeatedly dropped and parallel-session prompts became unidentifiable. This

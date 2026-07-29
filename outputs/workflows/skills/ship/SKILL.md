@@ -12,7 +12,7 @@ Merge a pull request, deploy to production, and **confirm the deployment actuall
 
 **Catching up with `main` is mandatory before any deploy step, and reconciling with `main` is standard ship behavior — never an optional "your call."** A branch that is behind `main` and deploys anyway either reverts merged work (a deploy-from-branch target pushes stale code over newer `main`) or **silently no-ops the release** (a deploy-on-merge release is idempotent, so if the branch's version is already taken on `main` the colliding merge ships nothing). So ship *always* catches up first (Ship Flow step 2), and when catch-up surfaces a **mechanical** conflict — the version/lockstep manifests or regenerated `outputs/` — the agent **reconciles it as routine**: merge `origin/main`, resolve the manifests, re-run the pre-merge proof, and re-bump the version past the collision. Only a genuinely ambiguous **content** conflict a human must judge is a halt-and-ask. The agent does not ask "should I reconcile with `main` at all?" — reconciliation is what ship does. If no documented confirmation method exists (neither a `.workaholic/deployments/` entry nor a `CLAUDE.md` `## Verify` section), ship does **not** silently skip and does **not** merge — it **halts** and asks the user to provide a verification path or credentials to confirm the change reached production, or to author a `.workaholic/deployments/` entry. The confirmation is **executed** and its evidence recorded into the story/PR before merge; a failed confirmation is a failed ship and the branch stays unmerged (that is the rollback). The one deliberate exception is an **explicit, recorded override**: when a confirmation method cannot be established or executed at all, the developer may consciously choose to merge without production confirmation — that choice is recorded into the story/PR as an accepted-risk, production-unverified merge (never silent, never the default). A confirmation that *ran and returned a failing result* is never overridable this way.
 
-This skill is the **trip-independent ship essence**: it operates on the current branch's PR. Worktree handling and drive/trip context routing are not part of this skill — in Claude Code they are handled separately by the trip workflow and the `/ship` command. Any agent can run this skill directly to ship the current branch.
+This skill is the **worktree-independent ship essence**: it operates on the current branch's PR. Worktree handling and context routing are not part of this skill — the `/ship` command resolves which claim to ship, and `drive` owns the claim lifecycle around it. Any agent can run this skill directly to ship the current branch.
 
 ## Agent Compatibility
 
@@ -250,7 +250,7 @@ The queued tickets are future/unstarted work, unrelated to this branch's PR. A b
 
 ## 5. Ship Flow
 
-Ship the current branch's PR. (Worktree sync/cleanup and drive/trip routing are not here; in Claude Code those are handled by the trip workflow.)
+Ship the current branch's PR. (Claim-worktree selection and teardown are not here; the `/ship` command resolves the branch, and `drive` §6 owns the teardown.)
 
 **Merge is the LAST step, gated on a passing production confirmation.** Deploy and confirm happen from the work branch *before* the merge, so an unconfirmable change never reaches `main` — if confirmation fails, the branch simply isn't merged (that is the rollback). This order is the whole point of the deployment-confirmation gate; never merge first.
 

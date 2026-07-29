@@ -15,4 +15,4 @@ organized as an Open Knowledge Format bundle. Enter any area through its index.
 * [release-notes](release-notes/index.md) - per-ship release records
 * [specs](specs/index.md) - specification documents
 * [terms](terms/index.md) - domain terminology
-* [trips](trips/index.md) - trip rationale (directions, models, designs) per trip
+* [trips](trips/index.md) - legacy, read-only: design rationale from the retired trip workflow

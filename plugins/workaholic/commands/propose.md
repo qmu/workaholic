@@ -31,7 +31,7 @@ This command is **headless by contract** (`workaholic:propose` — read its Head
 
 6. **Draft** each warranted proposal:
    - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-draft.sh "<title>" <feedback-filename>...`
-   - Fill `## Goal` / `## Scope` / `## Experience` and a **proposed** `## Acceptance` sketch from the feedback content (Edit on the scaffold; clearly provisional — approval replans, never this batch). Never stamp `drive_authorized` and never seed `assignees`.
+   - Fill `## Goal` / `## Scope` / `## Experience` and a **proposed** `## Acceptance` sketch from the feedback content (Edit on the scaffold; clearly provisional — `/mission approve <slug>` interrogates it to drive-ready, never this batch). Never flip `status` and never seed `assignees` or `merge_policy`.
 
 7. **Commit and push** via the commit skill — subject `Propose mission <slug>` (one commit per draft), then `git push`. A failed push aborts the run **without advancing the cursor** (the next tick re-reads the same window; the drafts stay local and the retry's scaffold finds them via `reason: "exists"` — resolve by hand if it persists).
 

@@ -1,6 +1,7 @@
 #!/bin/sh -eu
 # Reset a mission worktree for its next batch after a merge. A mission worktree
-# PERSISTS across many branches (it is removed only at /mission close); after the
+# PERSISTS across many branches (it is claim-born and ship-torn -- removed when its
+# unit ships or its claim is released, never by /mission close); after the
 # current branch merges, this cuts a FRESH work-YYYYMMDD-HHMMSS branch off the
 # base (default main) inside the same worktree, so it is immediately drive-ready
 # again. Never discards uncommitted work (refuses a dirty worktree).

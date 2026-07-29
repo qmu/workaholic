@@ -5,8 +5,13 @@
 # has no approver yet. A draft is unowned, unauthorized, and carries the
 # mission->feedback relation the proposal grew from:
 #
-#   status: draft, assignees: [], drive_authorized: (empty),
+#   status: draft, merge_policy: (empty), assignees: [],
 #   feedback: [<record filenames>]
+#
+# `status: draft` IS the "not yet authorized" state on the single status axis
+# (2026-07-28 -- docs/loop-engineering-workflow.md I2): the retired
+# `drive_authorized` key is not written at all. Only mission/scripts/approve.sh
+# flips a draft to `approved`, and it is what records the merge policy.
 #
 # Lands in missions/active/ (a draft is in flight, not history; the area split
 # keys archive on achieved|abandoned|carried only). Refuses an existing slug in
@@ -56,11 +61,11 @@ type: Mission
 title: ${TITLE}
 slug: ${SLUG}
 status: draft
+merge_policy:
 created_at: ${CREATED_AT}
 author: ${AUTHOR}
 assignees: []
 assignee:
-drive_authorized:
 predicted_hours:
 actual_hours:
 feedback: [${REFS}]

@@ -64,3 +64,4 @@ Positioning note: legacy `assignee`/`strategy` keys are carried in this frontmat
 - 2026-07-28 — concern deferred (stuck) — 20260728215635-the-feedback-stream-has-no-reader.md
 - 2026-07-28 — concern deferred (stuck) — 20260728215635-draft-acceptance-sketches-could-be-mistaken.md
 - 2026-07-28 — mission achieved — mission.md
+- 2026-07-29 — concern resolved (unstuck) — 20260728215635-draft-acceptance-sketches-could-be-mistaken.md

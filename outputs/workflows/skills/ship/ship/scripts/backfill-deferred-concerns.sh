@@ -46,8 +46,11 @@ for story in "$stories_dir"/*.md; do
   base=$(basename "$story" .md)
   [ "$base" = "README" ] && continue
 
-  # Trip stories like "trip-trip-20260319-squashed" need branch normalization;
-  # the gh PR list uses the actual ref name (e.g. "trip/trip-20260319-squashed").
+  # Historical only: stories from the retired trip workflow are named
+  # "trip-trip-20260319-squashed" and need branch normalization, because the gh
+  # PR list uses the actual ref name (e.g. "trip/trip-20260319-squashed"). No
+  # writer produces this shape any more; the case survives so the backfill can
+  # still resolve PRs for stories already on disk.
   branch="$base"
   case "$base" in
     trip-trip-*) branch="trip/${base#trip-}" ;;

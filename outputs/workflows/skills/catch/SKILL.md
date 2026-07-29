@@ -10,7 +10,7 @@ Generate a **by-developer catch-up report** over a recent time window (default: 
 
 ## Agent Compatibility
 
-This skill works on any Agent-Skills-compatible agent. Unlike `/trip` (which depends on Claude Code Agent Teams), `/catch` is a portable skill — the two Claude-Code mechanisms it uses are **enhancements, not requirements**:
+This skill works on any Agent-Skills-compatible agent — `/catch` is a portable skill, and the two Claude-Code mechanisms it uses are **enhancements, not requirements**:
 
 - **Parallel fan-out** — Phase 1 spawns one `general-purpose` collector subagent per active developer so the per-developer summaries run concurrently and cheaply. On agents without subagents, run the **Collect Developer** section **sequentially** in the same session, once per developer — the inputs and outputs are identical.
 - **Model routing** —  is a Claude-Code cost/speed hint for the collectors. On other agents it is ignored; use whatever model is available.

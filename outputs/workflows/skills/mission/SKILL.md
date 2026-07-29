@@ -12,8 +12,9 @@ Distinguish the terms and never conflate them (`planning` / `terminology`):
 
 - **feedback** — the inbound stream of project context (`feedback`); long-lived **direction** lives here, as accumulated insights and instructions. It answers *why is this work being launched*.
 - **mission** — an **optional, epic-equivalent grouping**: a bounded batch of tickets with acceptance criteria and an append-only changelog. It answers *what does this batch of tickets accomplish together*. A mission finishes; the stream persists.
-- **trip** — a short, bounded design/build *session* (Planner/Architect/Constructor) that produces design rationale and decomposes into tickets.
 - **epic / milestone** — generic project-management words this repo deliberately does **not** use as artifact names. "Mission" is the word for this level.
+
+The vocabulary lost a word on 2026-07-28: **trip** — a design/build *session* run by a three-agent team — is retired along with its command (`docs/loop-engineering-workflow.md` decision I1). Design discussion is now feedback, decomposition is `/mission` and `/propose`, and execution is `/drive`. The `.workaholic/trips/` tree stays on disk as read-only history with no writer.
 
 See the **Granularity** section below for the full commit → ticket → mission discipline and the record of how "mission" was redefined twice.
 
@@ -41,6 +42,45 @@ Recorded here so it is not re-litigated (`planning` / `terminology`):
 
 Every other place that touches granularity **links here** rather than restating it (`create-ticket`, `commit`).
 
+## Lifecycle — one status axis
+
+**A mission has exactly one lifecycle field.** `status` carries the whole state, and every reader keys on it:
+
+| state | area | meaning |
+| --- | --- | --- |
+| `draft` | `active/` | proposed, not yet answered for. Written by `create.sh` (before its interrogation) and by the `/propose` batch (`scaffold-draft.sh`). Invisible to executors. |
+| `approved` | `active/` | a human answered every judgment call about **this exact plan**, and recorded whether its completed units may merge automatically. The mission is now **claimable**: `/drive`'s survey offers it as a PR-unit. |
+| `achieved` | `archive/` | the goal was reached. |
+| `abandoned` | `archive/` | ended without reaching it, and the remainder is not worth doing. |
+| `carried` | `archive/` | done **as framed**; the remainder became a successor mission. |
+
+Transitions, and **who** performs each — every flip is a script, never a hand-edit:
+
+```
+(create.sh | scaffold-draft.sh) ──▶ draft ──approve.sh──▶ approved
+                                      │                      │
+                                      └──────close.sh────────┴──▶ achieved | abandoned | carried
+```
+
+- **`/propose` and `/mission "<title>"` mint drafts.** A scaffold predates its interrogation, so nothing about it has been approved.
+- **`approve.sh` is the only path to `approved`.** It clears the floor (owner + `## Experience` + `## Acceptance`), records `merge_policy`, seeds the approver as owner, and writes the transition to the `## Changelog`.
+- **`close.sh` is the only path to an end state**, from *either* in-flight state — an approved mission that ran, or a draft nobody approved.
+
+### Redefinition record — `drive_authorized` → `status: approved`
+
+Recorded here so it is not re-litigated (`planning` / `terminology`): the separate `drive_authorized: true` stamp is **retired into the status** (2026-07-28 — `docs/loop-engineering-workflow.md` decision I2). "Approved" is precisely what the stamp asserted — a human answered every judgment call about this exact plan — so carrying both a `status` and a boolean meant **one concept wearing two words**, in two fields that could disagree (a mission could be `active` and unstamped, `active` and stamped, or, after a hand-edit, stamped and archived). One concept, one word.
+
+Consequences, stated so no reader has to infer them:
+
+- **New missions never carry the key.** Neither scaffold writes it.
+- **Legacy files migrate on the next mission-script touch** (`lib/resolve.sh`): `status: active` + `drive_authorized: true` → `approved`; `status: active` without the stamp → `draft`; the retired key line is dropped from the rewritten file.
+- **Readers keep a legacy-tolerance branch** — `drive-authorized.sh`, `hooks/validate-mission.sh` and the pre-flight still honor a `drive_authorized: true` stamp — only for the transition window, so a mission in an untouched checkout is not silently de-authorized mid-drive.
+- **"Active" is now the name of an *area*, not a state.** Prose saying "active missions" means the active area — drafts plus approved. Do not reintroduce `active` as a status word.
+
+### Merge policy — the orthogonal axis
+
+`merge_policy: auto | review` is a **separate** axis from the lifecycle (decision G5), and the one genuinely human ruling the approval flow owns: **may this mission's completed units merge automatically, or must a human review the PR?** It is recorded at **approval**, not creation — a draft has no approver yet — and `approve.sh` **requires** it: there is no default, because `auto` by default grants unattended merging nobody asked for and `review` by default silently discards the question. Tickets carry the same field, asked at their creation (the human is present); on a ticket, **absent means `review`** — see `create-ticket`.
+
 ## Agent Compatibility
 
 This skill works on any Agent-Skills-compatible agent. Where a step uses the agent's selection prompt (the `/mission` command's create/list choice), use the agent's native selection prompt; only the mechanism varies. All logic lives in the bundled POSIX scripts, which run identically everywhere.
@@ -50,18 +90,18 @@ This skill works on any Agent-Skills-compatible agent. Where a step uses the age
 A mission lives in one of two areas — mirroring the tickets `todo/`-vs-`archive/` split — selected by its `status`:
 
 ```
-.workaholic/missions/active/<slug>/mission.md    # status: active (in progress)
+.workaholic/missions/active/<slug>/mission.md    # status: draft | approved (in flight)
 .workaholic/missions/archive/<slug>/mission.md   # status: achieved | abandoned | carried (ended)
 .workaholic/missions/index.md                    # regenerated by okf/refresh-index.sh, one entry per mission per area
 ```
 
-A **draft** (`status: draft`) is an unapproved proposal written by the `/propose` batch (`propose` — `scaffold-draft.sh`, not `create.sh`): unowned (`assignees: []`), never `drive_authorized`, carrying a `feedback:` list naming the records it grew from (read via the propose skill's single reader, `read-feedback-relation.sh`). It lives in `active/` (in flight, not history), is invisible to executors (only authorized work runs), and reports `ready_reason: "draft"` in `list.sh`.
+A **draft** (`status: draft`) is a mission nobody has approved yet — written either by `create.sh` (before its Creation Interrogation completes) or by the `/propose` batch (`propose` — `scaffold-draft.sh`, which additionally leaves it unowned, `assignees: []`, and carries a `feedback:` list naming the records it grew from, read via the propose skill's single reader `read-feedback-relation.sh`). A draft lives in `active/` (in flight, not history), is invisible to executors (only approved work runs), and reports `ready_reason: "draft"` in `list.sh`.
 
 `<slug>` is derived from the title: lowercased, every run of non-`[a-z0-9]` characters collapsed to a single hyphen, leading/trailing hyphens trimmed (e.g. `"Real-time Notifications"` → `real-time-notifications`). One directory per mission; the directory name **is** the slug and is the stable key other artifacts reference (`mission: <slug>`). The area is **never** part of that key — seams pass bare slugs and the scripts resolve the location, so a mission's move to `archive/` breaks no relation.
 
 Resolution takes an explicit **root** (a `.workaholic` directory), never the process cwd. A seam that holds an artifact (a ticket, a `mission.md`) derives the root from *that artifact's own path* — the mission tree is fixed by where the ticket lives (its worktree), so `mission: <slug>` on a worktree ticket resolves to *that* worktree's mission from any cwd. A caller with only a slug and no artifact (`create.sh`, `close.sh`) roots on the repository it runs in (via `git rev-parse`). `lib/resolve.sh` is the single source of this: `missions_root_from_artifact` / `missions_root_default` / `missions_root_for_arg` choose the root, and `mission_resolve <root> <arg>` returns an **absolute** `mission.md` path — so two same-slug missions in two worktrees never yield the same string, and which file was read is visible in the output rather than hidden behind a cwd-relative path.
 
-The scripts own all placement: `create.sh` writes into `active/`, `close.sh` moves to `archive/`, and every script runs a **living migration** first — a legacy flat `missions/<slug>/` dir (the pre-split layout) is relocated into the area its `status` selects (`git mv`, preserving history) on the next touch. The migration is idempotent and best-effort (a failure never blocks the calling seam; the resolver still finds an unmovable flat mission). Never `mv` a mission dir or hand-edit `status:` yourself.
+The scripts own all placement: `create.sh` writes into `active/`, `close.sh` moves to `archive/`, and every script runs the **living migrations** first — a legacy flat `missions/<slug>/` dir (the pre-split layout) is relocated into the area its `status` selects (`git mv`, preserving history), and a legacy `status: active` mission is normalized onto the one status axis (`approved` when it carried `drive_authorized: true`, else `draft`, with the retired key line dropped). Both are idempotent and best-effort (a failure never blocks the calling seam; the resolver still finds an unmovable flat mission, and every reader tolerates the pre-migration shape). Never `mv` a mission dir or hand-edit `status:` yourself.
 
 ## Schema
 
@@ -72,25 +112,24 @@ The scripts own all placement: `create.sh` writes into `active/`, `close.sh` mov
 type: Mission
 title: <human title>
 slug: <slug>
-status: active          # draft | active | achieved | abandoned | carried — selects the area (draft/active in active/, the rest in archive/); draft is a /propose proposal awaiting approval (unowned, never authorized); flipped only by close.sh (and, for draft→active, by the phase-3 approval flip)
+status: draft           # draft | approved | achieved | abandoned | carried — the ONE lifecycle axis, and it selects the area (draft/approved in active/, the rest in archive/). Flipped only by approve.sh (draft → approved) and close.sh (either → an end state); never by hand
+merge_policy:           # auto | review — the orthogonal merge axis (G5), recorded by approve.sh at approval. Empty on a draft; never defaulted to auto
 carried_from:           # only on a successor: the slug of the mission whose remainder it inherited
 created_at: <ISO-8601>
 author: <email>
 assignees: [<email>]    # the mission's OWNERS (plural — a mission can be co-owned). Creator-seeded by create.sh (the approver is the default owner); empty = team-owned/claimable. Read ONLY via mission-owners.sh
 assignee: <email>       # LEGACY FALLBACK only (missions predating `assignees`). Empty on new missions; never read directly
-drive_authorized:       # `true` once the Creation Interrogation emitted the full ticket set
 predicted_hours:        # decimal agent-hours, stamped ONCE at creation from archived-mission trend (predict-duration.sh); empty when basis 0
-actual_hours:           # decimal agent-hours accumulated by /monitor across runs (record-run-hours.sh is its only writer); empty until a run records
+actual_hours:           # decimal agent-hours accumulated by /drive across runs (record-run-hours.sh is its only writer); empty until a run records
 tickets: []             # machine-readable member lists — reserved; populated by later work
 stories: []
-concerns: []
 gate_type:              # OPTIONAL and normally EMPTY — documentation | live-app | check
 gate_target:            # what to exercise: a route on the mission worktree's port (e.g. /docs), or the verification command for `check` (e.g. npm test)
 gate_assert:            # one line: what must hold for the mission's outcome to pass
 ---
 ```
 
-The `tickets` / `stories` / `concerns` lists are reserved for the machine-readable relations that downstream artifacts emit; a freshly created mission leaves them empty.
+The `tickets` / `stories` lists are reserved for the machine-readable relations that downstream artifacts emit; a freshly created mission leaves them empty. A `concerns: []` key is no longer scaffolded — deferred concerns live in the feedback stream (`docs/loop-engineering-workflow.md` H2), so a reserved slot on the mission would have been a second, always-empty home for them. Missions predating 2026-07-28 still carry the key; it is tolerated and read by nothing.
 
 ### Quality gate — optional, and normally empty
 
@@ -104,16 +143,17 @@ When a mission *does* declare one: `gate_type` is `documentation` (the mission's
 
 **The objectivity requirement outlives the gate.** `## Experience` is prose, so it cannot be machine-checked the way a route-plus-assert could. That makes objectivity a convention here rather than a check — hold it anyway: describe behavior that can be observed, not qualities that cannot.
 
-### Drive authorization
+### Approval — the drive authorization
 
-`drive_authorized: true` records that this mission's ticket set was **interrogated and pre-authorized** by the developer: `/drive` may then drain its queue **without the per-ticket approval prompt**. Empty (the scaffold default) means ask, as always.
+`status: approved` records that this mission's ticket set was **interrogated and approved** by a human: `/drive`'s survey then offers the mission as a **claimable PR-unit** and drives its whole queue. `draft` (the scaffold default) is invisible to the executor — a proposal nobody has answered for yet. The flip is performed only by `approve.sh` (below), which also records the `merge_policy` ruling and seeds the approver as owner.
 
-**Authorization lives here, on the mission, because this is the thing that was actually interrogated.** The Creation Interrogation is where the developer answered every judgement call and co-authored each ticket's `## Quality Gate`; stamping the mission is stamping that act. Two alternatives were considered and rejected, recorded so they are not re-litigated:
+**Authorization lives here, on the mission, because this is the thing that was actually interrogated.** The Creation Interrogation is where the developer answered every judgement call and co-authored each ticket's `## Quality Gate`; approving the mission is approving that act. Two alternatives were considered and rejected, recorded so they are not re-litigated:
 
 - **Keying off the ticket's `mission:` relation alone** — a ticket hand-added to the mission later would inherit an authorization nobody granted.
-- **An explicit `/drive mission` argument** — mirrors night mode, but makes authorization an act by whoever runs `/drive`, who may not be the person who ran the interrogation.
+- **An explicit `/drive mission` argument** — makes authorization an act by whoever runs `/drive`, who may not be the person who ran the interrogation (and on the routine, is nobody at all).
+- **A separate `drive_authorized` boolean beside the status** — the original spelling, retired 2026-07-28 (see the *Redefinition record* above): two fields for one concept, free to disagree.
 
-**Explicit approval is relocated, never removed.** The gate is skipped exactly when a prior explicit batch authorization covers the ticket — `/drive night`'s invocation, or this stamp — and never otherwise. What is removed is the *completeness check inside the drive loop*; the qualitative looking-through `development` / `qa-engineering` makes non-delegable **relocates to the PR** (`/report` still writes the story, `/ship` still gates the merge on evidence). Do not blur those two: eliminate the completeness check and you are on policy; eliminate the looking-through and you are in the state three policies exist to prevent.
+**Explicit approval is relocated, never removed.** `/drive` has no per-ticket prompt at all (retired 2026-07-28); this approval — or, for an unmissioned ticket, its creation — is the authorization that took its place. What is removed is the *completeness check inside the drive loop*; the qualitative looking-through `development` / `qa-engineering` makes non-delegable **relocates to the PR** (`/report` still writes the story, `/ship` still gates the merge on evidence). Do not blur those two: eliminate the completeness check and you are on policy; eliminate the looking-through and you are in the state three policies exist to prevent.
 
 Read it with `drive-authorized.sh` — never by grepping the field yourself.
 
@@ -130,7 +170,7 @@ Read a mission's owner(s) **only** through `mission/scripts/mission-owners.sh` �
 
 Prints one owner per line; **empty output means unowned** — unclaimed work, surfaced to everyone as claimable. A mission may be **co-owned**; "mine" means the caller is **among** the owners, not the sole one.
 
-**Not somebody else's, not exactly mine.** `summary.sh`, the **mission lens**, `list.sh`'s `relation`, and `/monitor`'s pre-flight all gate on "is this mission my business" — the caller is among the owners (mine, shown first), or there are no owners (unassigned, shown as claimable, after your own); a mission owned only by others stays silent. All four read through `mission-owners.sh`, so the gate is defined once.
+**Not somebody else's, not exactly mine.** `summary.sh`, the **mission lens**, `list.sh`'s `relation`, and `/drive`'s survey all gate on "is this mission my business" — the caller is among the owners (mine, shown first), or there are no owners (unassigned, shown as claimable, after your own); a mission owned only by others stays silent. All four read through `mission-owners.sh`, so the gate is defined once.
 
 **Claiming a mission = a one-line edit to that mission** — add yourself to its `assignees`. The claim is mission-local: it commits you to this plan and nothing else.
 
@@ -141,9 +181,9 @@ This is per-worktree by construction — each worktree checks out its own `.work
 `predicted_hours` and `actual_hours` record, in decimal **agent-hours**, how long a mission's implementation is expected to take a coding agent and how long it actually consumed — so archived missions accumulate a trend the next planning reads.
 
 - **`predicted_hours`** is stamped **once at creation**, deterministically, by `predict-duration.sh`: `median(actual_hours ÷ acceptance-item total)` across archived missions that carry both, times this mission's planned item count. With **no archived basis** it reports `basis: 0` and the field stays **empty** with a changelog note — never a fabricated number. It is a **report line to the developer, never a question** (`development` / `overnight-ai`: pre-answer, don't ask).
-- **`actual_hours`** is accumulated by `/monitor`, whose dispatcher sums each leaf's dispatch→completion wall-clock per mission across waves and nights, and calls `record-run-hours.sh` once per mission per run-id. That recorder is `actual_hours`'s **only writer** (same doctrine as `tick-acceptance.sh` — never hand-edited), idempotent per run-id, and it carries each increment in a `run recorded (+Xh) — <run-id>` changelog line so the sum reconstructs from history.
+- **`actual_hours`** is accumulated by `/drive` (decision I7), which sums the wall-clock its run spent on that mission's PR-unit and calls `record-run-hours.sh` once per mission per run-id. That recorder is `actual_hours`'s **only writer** (same doctrine as `tick-acceptance.sh` — never hand-edited), idempotent per run-id, and it carries each increment in a `run recorded (+Xh) — <run-id>` changelog line so the sum reconstructs from history.
 
-**The actual is agent time under `/monitor` only** — a deliberate, documented limitation, not a gap to close silently. Solo `/drive` outside `/monitor` is not counted: the prediction answers "how long will the *agents* need", and the monitor run is where agents run at scale. Calendar span and commit-timestamp heuristics were rejected (idle pollution / estimation logic).
+**The actual is agent time on mission units only** — a deliberate, documented limitation, not a gap to close silently. A batch unit of unmissioned backlog tickets has no mission to accumulate into, so it records nothing: the prediction answers "how long will the *agents* need on this mission", and only a mission has a plan to measure against. Calendar span and commit-timestamp heuristics were rejected (idle pollution / estimation logic).
 
 Body sections, in order:
 
@@ -152,7 +192,8 @@ Body sections, in order:
 - `## Experience` — **the mission's substance**: the user experience, the demanded behavior, and/or the overall structure it pursues. Where `## Goal` says *why* the work is worth doing, this says *what the thing does*. Keep it observable (`implementation` / `objective-documentation`) — "the list reorders without a reload" is checkable; "feels fast" is not. This is the persistent content a kickoff-time `gate_*` could never be, and it is what a later session reads to know what is actually demanded.
 - `## Acceptance` — a checklist, and **the mission's plan**: each item names the ticket expected to satisfy it, so the list doubles as the route to completion. **Progress toward achievement is `checked ÷ total`, computed from this list, never a hand-set number** (`implementation` / `objective-documentation`). An unchecked item is a **heading, not a specification** — re-check it against the source before cutting its ticket (see the checklist convention below).
 - `## Changelog` — an append-only, dated, human-readable timeline (`design` / `history-structures`).
-- `## Reflection` — **optional**, appended by `/monitor` after each run (`append-reflection.sh`): one dated `### <date> run <run-id>` entry per run, carrying three fixed bullets — `blocked:` (what stopped autonomy, or none), `leaked questions:` (judgment calls that surfaced mid-run, or none), `front-load next:` (what the next planning should pre-answer). It is the feedback loop of the overnight model: the next Creation Interrogation reads recent reflections back (`list-reflections.sh`) so recurring leaks become pre-answered questions. **Explicitly outside `progress.sh` / `next-acceptance.sh` scope** — any `## ` heading ends `## Acceptance`, so a `- [ ]`-shaped line here never counts toward progress. It records **causes**, never pending decisions (the escalation list owns those — do not blur them).
+
+A mission carries **no `## Reflection` section**. The per-run reflection channel retired with the parallel-mission executor (`docs/loop-engineering-workflow.md` decision I3): what a run learned — what stopped autonomy, which judgment call leaked, what the next plan should pre-answer — is written as a `kind: concern` or `kind: insight` **feedback record** instead of a section only mission-planning ever read. That is the seam `/drive` already uses for everything else it defers, and it reaches `/propose` and the next interrogation alike. Missions closed before 2026-07-28 still carry the section; it is history and is left verbatim (any `## ` heading ends `## Acceptance`, so its checklist-shaped lines never counted toward progress and still do not).
 
 ### Acceptance-checklist convention
 
@@ -192,17 +233,17 @@ When `/mission "<title>"` creates a mission, **interrogate the developer until t
 
 **Why it is mandatory.** A mission's whole value is that judgement is answered *before* the work starts. `development` / `overnight-ai`: *"identify in advance the points where AI would want to ask for judgment and write the answers to those questions into the ticket. We eliminate the causes of stopping in the night before the run starts."* A mission scaffolded with empty sections is an empty shell that stops the first time it meets a decision — and, because the mission lens's signal gate silences a `0/0` mission, it is an empty shell **nobody can see**.
 
-**Grill; do not tick a box.** The bar is a *structured model* — the demanded behavior, the ticket plan, the order — not a question count and not a Q&A transcript pasted into a file (`planning` / `modeling-centric-design`). Ask as many rounds as it takes — but apply the **Recommended-label test** (`rules/interaction.md`) to every round: if you could honestly recommend an answer, **do not ask it** — decide it, record the decision where the plan is written (the mission `## Changelog`, or the relevant ticket's `## Quality Gate`), and let the developer veto it. "As many rounds as it takes" therefore means as many *unrecommendable* rounds as it takes: the grilling is undiminished on the genuine forks, and silent on the calls you could already make. Where uncertainty is high, prove it small before emitting the set (`planning` / `verify-before-building`): with no per-ticket approval downstream, an unverified premise is not caught at ticket 3 — it is concretized across the whole mission.
+**Grill; do not tick a box.** The bar is a *structured model* — the demanded behavior, the ticket plan, the order — not a question count and not a Q&A transcript pasted into a file (`planning` / `modeling-centric-design`). Ask as many rounds as it takes — but apply the **Recommended-label test** (`rules/interaction.md`) to every round: if you could honestly recommend an answer, **do not ask it** — decide it, record the decision where the plan is written (the mission `## Changelog`, or the relevant ticket's `## Quality Gate`), and let the developer veto it. "As many rounds as it takes" therefore means as many *unrecommendable* rounds as it takes: the grilling is undiminished on the genuine forks, and silent on the calls you could already make. Where uncertainty is high, prove it small before emitting the set (`planning` / `verify-before-building`): with no human gate downstream of approval, an unverified premise is not caught at ticket 3 — it is concretized across the whole mission.
 
-### Read recent reflections (before the rounds)
+### Read the recent feedback stream (before the rounds)
 
-Before interrogating, read back what recent runs learned: `bash mission/scripts/list-reflections.sh` returns recent `## Reflection` entries across active and archived missions, newest first, each with its `blocked` / `leaked` / `front_load` bullets. Fold recurring **`front-load next:`** items into round 4's per-ticket pre-answers — a judgment call that leaked into a past night is exactly the question the next mission should pre-answer rather than meet again in the dark (`development` / `overnight-ai`). This closes the loop: planning quality is measured by how few judgment calls leak into the night, and the reflections are the record of which ones did.
+Before interrogating, read back what recent runs learned: `bash feedback/scripts/list.sh` returns the feedback stream newest-first. Read the `kind: concern` and `kind: insight` records an unattended `/drive` deferred — every judgment call it met and recorded instead of asking lands there — and fold the recurring ones into round 4's per-ticket pre-answers: a decision that leaked into a past night is exactly the question the next mission should pre-answer rather than meet again in the dark (`development` / `overnight-ai`). This closes the loop: planning quality is measured by how few judgment calls leak into the night, and the stream is the record of which ones did.
 
 ### Elicit the requirements first — the *what*, before any plan (the highest-leverage gate)
 
 **Plan quality gates everything. No amount of downstream verification rescues a plan built on a wrong understanding of the goal** — an unattended run faithfully amplifies a shallow plan into hours of unusable output, and "the artifact exists / the tests pass" cannot see whether the *thing itself* was the wrong thing. So the first job of the interrogation is not the ticket set; it is to **draw out of the developer the requirements the agent cannot derive** from the code, the ticket title, or the repo: what a user must actually be able to *do*, what a **correct/good output looks like (ask for a concrete example)**, and the **real end-to-end workflow**. Ask specific, concrete questions about the actual unknowns the plan depends on — never a generic "any feedback?".
 
-This is a distinct discipline from the **decide-don't-ask** rule the execution phase follows (`drive`'s *When the gate is skipped*, `monitor` §1): that rule governs **execution-time decidable choices** (which fixable failure to retry, finalize-now vs. push) — the *how* — and rightly says decide, do not offload. **Requirements elicitation is the opposite case: the *what*, which the developer holds and the agent cannot derive.** Decide the *how*; never assume the *what*. The two do not conflict once separated, and the decide-don't-ask rule must not be over-read into "don't elicit requirements."
+This is a distinct discipline from the **decide-don't-ask** rule the execution phase follows (`drive`'s *Where the per-ticket approval prompt went*): that rule governs **execution-time decidable choices** (which fixable failure to retry, finalize-now vs. push) — the *how* — and rightly says decide, do not offload. **Requirements elicitation is the opposite case: the *what*, which the developer holds and the agent cannot derive.** Decide the *how*; never assume the *what*. The two do not conflict once separated, and the decide-don't-ask rule must not be over-read into "don't elicit requirements."
 
 Three hard gates on this step:
 
@@ -234,13 +275,13 @@ Do not read the requirement as "Acceptance first".
 
 Write the tickets **in one pass**, not N serial `create-ticket` runs. Each carries its mandatory `## Policies` and `## Quality Gate` (`validate-ticket.sh` rejects it otherwise), is stamped `mission: <slug>`, and is ordered by `depends_on` — foundation first, dependencies only where genuinely ordered, unique timestamps (`+1s` per ticket). Reuse `create-ticket`'s split mechanics rather than re-deriving them.
 
-**The split cap does not apply to a mission — a deliberate, scoped exception.** `create-ticket` §4 caps a split at "2–4 discrete tickets", which is right for one request that turns out to be several. A mission is the opposite case: an execution plan that bundles *many* tickets by definition, and "a complete set to drive through one by one" is the requirement. Capping it at 4 would force either an incomplete plan or a fake ticket boundary. A mission decomposition is closer to `trip-protocol`'s Decomposition gate than to a `/ticket` split, and is governed by the same rule: **one ticket per genuinely separable unit of work, however many that is**. The cap still applies to `/ticket` itself; this exception is mission-scoped and stated here so it is not a silent violation.
+**The split cap does not apply to a mission — a deliberate, scoped exception.** `create-ticket` §4 caps a split at "2–4 discrete tickets", which is right for one request that turns out to be several. A mission is the opposite case: an execution plan that bundles *many* tickets by definition, and "a complete set to drive through one by one" is the requirement. Capping it at 4 would force either an incomplete plan or a fake ticket boundary. A mission decomposition answers to its own rule: **one ticket per genuinely separable unit of work, however many that is**. The cap still applies to `/ticket` itself; this exception is mission-scoped and stated here so it is not a silent violation.
 
-**Stamp the duration prediction at the end of emission — as a report line, never a question.** Once the ticket set and `## Acceptance` are written, run `predict-duration.sh <acceptance-item-count>`: when `basis > 0`, stamp `predicted_hours` and state the number and its basis to the developer honestly ("predicted 6.0h from 2 archived missions"); when `basis: 0` (today's state, no archive), leave `predicted_hours` empty and record a `duration predicted (archive basis 0)` changelog note rather than dressing a guess as data (`planning` / `verify-before-building`). Never ask the developer for an estimate — the predictor answers this, and `actual_hours` is filled later by `/monitor`.
+**Stamp the duration prediction at the end of emission — as a report line, never a question.** Once the ticket set and `## Acceptance` are written, run `predict-duration.sh <acceptance-item-count>`: when `basis > 0`, stamp `predicted_hours` and state the number and its basis to the developer honestly ("predicted 6.0h from 2 archived missions"); when `basis: 0` (today's state, no archive), leave `predicted_hours` empty and record a `duration predicted (archive basis 0)` changelog note rather than dressing a guess as data (`planning` / `verify-before-building`). Never ask the developer for an estimate — the predictor answers this, and `actual_hours` is filled later by `/drive` (`record-run-hours.sh`).
 
 ## Replan (re-entering the interrogation)
 
-The sanctioned path to **reopen an existing active mission's plan** — reached without a subcommand: `/mission <instruction referencing the mission>` (the command owns the dispatch judgment and its written criteria). It exists because three legitimate states previously had no route back into the interrogation: a thin hand-authored `0/0` mission, a mid-flight mission whose scope grew, and a `carried` successor minted by `close.sh` with no worktree and no tickets — while the create flow dead-ends on an existing slug. Only `active` missions are replan targets; the archive is immutable history.
+The sanctioned path to **reopen an existing active mission's plan** — reached without a subcommand: `/mission <instruction referencing the mission>` (the command owns the dispatch judgment and its written criteria). It exists because three legitimate states previously had no route back into the interrogation: a thin hand-authored `0/0` mission, a mid-flight mission whose scope grew, and a `carried` successor minted by `close.sh` with no worktree and no tickets — while the create flow dead-ends on an existing slug. Only **in-flight** missions (`draft` or `approved` — the active area) are replan targets; the archive is immutable history.
 
 **Surface sibling PRs before re-interrogating.** A replan grows the plan, so it must first see whether another lane is already implementing the same acceptance. Run `list-related-prs.sh <slug>` (below) and, when it returns open PRs referencing the mission, factor them into the delta rather than emitting tickets that duplicate a sibling's unmerged work. The check is best-effort — `available: false` means it could not run (no `gh`/auth/remote), which is *unknown*, not *no siblings*. This is the replan-side complement to `create-mission-worktree.sh`'s fetch-first base resolution: the fetch keeps a new worktree off a stale *merged* base; this keeps a replan off a sibling's *unmerged* work.
 
@@ -254,11 +295,11 @@ The sanctioned path to **reopen an existing active mission's plan** — reached 
 
 The bar equals creation's: a structured **delta model** — what changes, which tickets, in what order — not a Q&A transcript (`planning` / `modeling-centric-design`), grilled until the delta is drive-ready. The **Recommended-label test** applies exactly as at creation (`rules/interaction.md`): a delta decision you could honestly recommend is decided-and-recorded (a `## Changelog` line or the delta ticket's `## Quality Gate`), not asked; only the unrecommendable forks reach an the agent's selection prompt. `gate_*` is never interrogated, exactly as at creation.
 
-**What the delta may touch** — everything the Creation Interrogation produces, applied as a delta: rewrite `## Goal` / `## Scope` / `## Experience`; append `## Acceptance` items (observable, ticket-linked by `(#<filename>)`); emit delta tickets in one pass (the same emission rules, including the mission-scoped split-cap exception); re-stamp `drive_authorized` under the conditions below.
+**What the delta may touch** — everything the Creation Interrogation produces, applied as a delta: rewrite `## Goal` / `## Scope` / `## Experience`; append `## Acceptance` items (observable, ticket-linked by `(#<filename>)`); emit delta tickets in one pass (the same emission rules, including the mission-scoped split-cap exception); run the approval under the conditions below.
 
 **What a replan must never touch:**
 
-- `status` — only `close.sh` flips it.
+- `status` — only `approve.sh` (draft → approved) and `close.sh` (→ an end state) flip it.
 - the checked state of existing `## Acceptance` items — only `tick-acceptance.sh` flips those.
 - existing `## Changelog` lines — append-only, always (`design` / `history-structures`).
 
@@ -266,11 +307,11 @@ An existing **unchecked** acceptance item may be reworded or dropped **only** wh
 
 **History.** A replan lands as idempotent changelog lines through `append-changelog.sh`, never as edits: `ticket added — <filename>` per emitted ticket, plus one `mission replanned — <artifact>` line marking the event (both in the standard-events list below). Re-running the same replan appends nothing — the `(event, artifact)` key already exists.
 
-**`drive_authorized` re-stamp.** The stamp asserts that every judgement call about *these exact tickets* was answered by the developer:
+**Approval after a replan.** `approved` asserts that every judgement call about *these exact tickets* was answered by a human, so a replan that changes the ticket set re-opens that question:
 
-- already stamped `true` + a fully interrogated delta → the stamp stays / is re-set `true` (the original set was interrogated at creation, the delta now).
-- never stamped (a hand-authored mission) → stamp only if the replan interrogated the **entire current set**, not just the delta.
-- interrogation cut short → no stamp, ever.
+- already `approved` + a fully interrogated delta → it stays approved (the original set was interrogated at creation, the delta now). Re-running `approve.sh` with the same `merge_policy` is a no-op success; passing a different one records the policy change as its own changelog line.
+- still a `draft` (a hand-authored mission, a `/propose` proposal, a `carried` successor) → run `approve.sh` only if the replan interrogated the **entire current set**, not just the delta. This is the sanctioned path from proposal to drive-ready.
+- interrogation cut short → no approval, ever; the mission stays a draft.
 
 ## Mission Position Report
 
@@ -290,11 +331,13 @@ Read every figure through those scripts (`implementation` / `domain-layer-separa
 
 | seam | when |
 | --- | --- |
-| `/carry` | in the resumption ticket, when the in-flight work carries a `mission:` relation. Say nothing when it carries none — never fabricate a mission-shaped frame around unrelated work. |
 | `/mission close` | before asking for the outcome, and again on a carry (what moved to the successor). |
+| `/drive` | in the run report, for each mission unit the run left unfinished — the position a later run or a reader picks the work up from. Say nothing for a batch unit whose tickets carry no `mission:` relation — never fabricate a mission-shaped frame around unrelated work. |
 | `/report`, `/ship` | **not** stated — recorded decision, below. |
 
-`/report` and `/ship` roll missions but do **not** carry this report. Their audience is the PR reviewer, and the story's own sections already say what landed; adding mission position there would duplicate `/catch` and the lens for a reader who did not ask. The report exists for **continuity across a session boundary** — that is `/carry` and `/mission close`, where the context is otherwise lost. Decided rather than defaulted; revisit if a reviewer ever has to ask "which mission is this?".
+`/report` and `/ship` roll missions but do **not** carry this report. Their audience is the PR reviewer, and the story's own sections already say what landed; adding mission position there would duplicate `/catch` and the lens for a reader who did not ask. The report exists for **continuity across a session boundary** — that is `/mission close` and an unfinished `/drive` unit, where the context is otherwise lost. Decided rather than defaulted; revisit if a reviewer ever has to ask "which mission is this?".
+
+The dedicated hand-off command that once owned the first row is retired (`docs/loop-engineering-workflow.md` decision I5): in-flight state now lives on the **claim branch** by construction — the next run re-claims the unit and resumes from the pushed work — so a resumption ticket written by hand would restate what the branch already holds.
 
 ## Progress Rule
 
@@ -324,7 +367,7 @@ Read an artifact's `mission:` relation; prints one slug per line, nothing when a
 bash mission/scripts/mission-owners.sh <mission-file>
 ```
 
-Resolve **who owns a mission** — the single ownership oracle (2026-07-28). First non-empty tier wins: the mission's **own plural `assignees`** (via `mission/scripts/read-assignees.sh`, the single parser of the field shape), then a **legacy fallback** to the mission's own singular `assignee`, so a mission predating the plural field is never orphaned. Prints one owner per line; **empty output means unowned** (claimable). Every ownership consumer — `list.sh`'s `relation`, `summary.sh`, `hooks/mission-lens.sh`, `/monitor`'s pre-flight, `hooks/validate-mission.sh`'s authorized-owner floor, and `ship`'s concern-lane owner — reads through this, never by parsing the fields itself.
+Resolve **who owns a mission** — the single ownership oracle (2026-07-28). First non-empty tier wins: the mission's **own plural `assignees`** (via `mission/scripts/read-assignees.sh`, the single parser of the field shape), then a **legacy fallback** to the mission's own singular `assignee`, so a mission predating the plural field is never orphaned. Prints one owner per line; **empty output means unowned** (claimable). Every ownership consumer — `list.sh`'s `relation`, `summary.sh`, `hooks/mission-lens.sh`, `/drive`'s survey, `hooks/validate-mission.sh`'s authorized-owner floor, and `ship`'s concern-lane owner — reads through this, never by parsing the fields itself.
 
 ```bash
 bash mission/scripts/read-assignees.sh <file>
@@ -339,16 +382,26 @@ bash mission/scripts/migrate-strategies.sh [workaholic-root]
 Retire a lingering `.workaholic/strategies/` tree — the direct/test entry to the living migration every mission script also runs through `lib/resolve.sh`'s seam (`missions_migrate_strategies`; the logic lives there so the two entries cannot drift). Each strategy document survives **verbatim** as a feedback record (`feedbacks/<ts>-strategy-<slug>.md`, `kind: insight`, `source: discussion`, original author/`created_at` preserved; the timestamp derives from `created_at`, so the migration is deterministic and idempotent), its `assignees` fold down into each linked active mission whose own `assignees` is still empty, and then the directory is removed (`git rm` when tracked). Best-effort: a failure never blocks the calling seam. Nothing is deleted from knowledge, only from structure.
 
 ```bash
+bash mission/scripts/approve.sh <mission-slug-or-file> <auto|review> [date]
+```
+
+**Approve a mission — the only sanctioned path to `status: approved`.** It clears the floor first, mutates only after: `## Experience` must carry non-comment content and `## Acceptance` at least one checklist item (the same floor `hooks/validate-mission.sh` enforces at write time, asserted here at the moment the authority is granted), and the mission must have an owner — an unowned one is **seeded with the approver** (`git config user.email`; decision B4: the approver is the default owner), refused only when there is no identity to seed. Then it sets `status: approved` and `merge_policy`, drops any legacy `drive_authorized` key still present, appends `mission approved — merge_policy: <p>` to the `## Changelog`, refreshes the OKF indexes, and git-stages. It never commits — the calling flow owns the commit seam.
+
+The `merge_policy` argument is **required** and enum-validated (`auto` | `review`): it is the one genuinely human ruling this flow owns (decision G5), and neither default is honest (see *Merge policy* above). The history is appended **before** the status flip, so a mission that cannot record its own approval is refused rather than approved untraceably.
+
+**Idempotent**: re-approving with the same policy is a no-op success (`reason: "already_approved"`); re-approving with a *different* policy records the change as its own changelog line, because the policy rides in the event id. Emits `{approved, slug, status, merge_policy, owners, path, reason}`; a refusal exits non-zero with `reason` one of `missing_args`, `invalid_merge_policy`, `not_found`, `not_in_flight` (the mission has ended — history is immutable), `no_owner`, `no_experience`, `no_plan`, `no_changelog_section`.
+
+```bash
 bash mission/scripts/drive-authorized.sh <ticket-file>
 ```
 
-Answer, for one ticket: **may `/drive` implement this without the per-ticket approval prompt?** Emits `{authorized, reason, missions}` — `reason` is `""` (authorized), `no_ticket`, `no_mission` (nothing authorized it), `mission_not_found`, `not_authorized` (a claimed mission is not stamped), or `no_plan` (a claimed mission is stamped but its `## Acceptance` is empty — a stamp with no plan authorizes nothing; the floor is `progress.sh`'s `total > 0`). Reads the relation through `read-relation.sh`, so `mission: [a, b]` and a bare `mission: a` behave identically.
+Answer, for one ticket: **is this ticket's queue pre-authorized?** (The unified `/drive` run applies this same floor one level up, to the mission it offers as a unit; the resolver stays the authority for any caller that needs a per-ticket answer.) Emits `{authorized, reason, missions}` — `reason` is `""` (authorized), `no_ticket`, `no_mission` (nothing authorized it), `mission_not_found`, `not_authorized` (a claimed mission is not `status: approved` — a draft, or an ended mission), or `no_plan` (a claimed mission is approved but its `## Acceptance` is empty — approval with no plan authorizes nothing; the floor is `progress.sh`'s `total > 0`). Reads the relation through `read-relation.sh`, so `mission: [a, b]` and a bare `mission: a` behave identically. A legacy `drive_authorized: true` stamp is still honored for the transition window, so a mission in a checkout the living migration has not touched is not de-authorized mid-drive; the JSON contract (including the `not_authorized` key) is unchanged, so `/drive` callers needed no change.
 
-Missions get a write-time floor too: `hooks/validate-mission.sh` (PostToolUse `Write|Edit`, the mission analogue of `validate-ticket.sh`) lets `create.sh`'s scaffold pass with **nothing required**, and — once a mission claims `drive_authorized: true` — rejects a **missing owner** (`mission-owners.sh` empty — its own `assignees` and the legacy `assignee` both empty; unattended work needs an owner), a comment-only `## Experience`, or an empty `## Acceptance` at the write, where the author can still fix it. (A legacy `strategy:` key from the retired strategy layer is tolerated and ignored.) `archive/` missions are history and are never retro-blocked.
+Missions get a write-time floor too: `hooks/validate-mission.sh` (PostToolUse `Write|Edit`, the mission analogue of `validate-ticket.sh`) lets a **draft** pass with **nothing required** (that is the scaffold moment, and `create.sh` scaffolds a draft by design), and — once a mission claims `status: approved` (or a legacy `drive_authorized: true`) — rejects a **missing owner** (`mission-owners.sh` empty — its own `assignees` and the legacy `assignee` both empty; unattended work needs an owner), a comment-only `## Experience`, or an empty `## Acceptance` at the write, where the author can still fix it. (A legacy `strategy:` key from the retired strategy layer is tolerated and ignored.) `archive/` missions are history and are never retro-blocked.
 
-**Conservative by construction**: a ticket claiming several missions is authorized only if **every** one of them is stamped. Naming a mission is a commitment, not a label — the same reason `/drive` holds a ticket to the gate of every mission it names ("all of them must pass, not the most convenient one"). One unauthorized mission means ask.
+**Conservative by construction**: a ticket claiming several missions is authorized only if **every** one of them is approved. Naming a mission is a commitment, not a label — the same reason `/drive` holds a ticket to the gate of every mission it names ("all of them must pass, not the most convenient one"). One unapproved mission means ask.
 
-This is a **script, not prose**, on purpose: the approval gate lived entirely in `drive/SKILL.md` prose, which is why neither it nor night mode ever carried a single assertion. A rule that decides whether to ask a human for permission has to be reproducible and testable.
+This is a **script, not prose**, on purpose: the approval gate lived entirely in `drive/SKILL.md` prose, which is why it never carried a single assertion. A rule that decides whether work may run without a human has to be reproducible and testable.
 
 ```bash
 bash mission/scripts/gate.sh <mission-slug-or-file>
@@ -377,13 +430,13 @@ Compute `{checked, total}` over a mission's `## Acceptance` checklist. Accepts e
 bash mission/scripts/list.sh
 ```
 
-List every mission — across both `active/` and `archive/` — with its `status`, derived ownership, computed progress, and its `predicted_hours`/`actual_hours`: a JSON array of `{slug, title, status, assignee, owners, relation, next, checked, total, drive_authorized, ready, ready_reason, predicted_hours, actual_hours, path}`, sorted by slug (`path` is the resolved `mission.md` location, so consumers never rebuild it by hand). Emits `[]` when there are no missions. `owners` is the full owner set (`mission-owners.sh` — the mission's own `assignees` first, then the legacy `assignee`), `assignee` aliases the first owner for back-compat, and `relation` is the caller-centric partition (`mine` / `unassigned` / `others` — the same "not somebody else's" gate `summary.sh`, the lens, and `/monitor` read, all through `mission-owners.sh`, computed once here so consumers never re-derive it; a missing git email degrades to nothing-`mine`, never an error). `next` is the first unchecked acceptance item via `next-acceptance.sh`. `ready`/`ready_reason` are the **planning-session drive-readiness verdict**: `ready: true` when the mission is `active`, has a plan (`total > 0`), and is stamped `drive_authorized: true`; otherwise `ready: false` with `ready_reason` naming the blocker (`no_plan` / `not_authorized` / `not_active`) so the bare `/mission` session can explain what a replan must fix. Together these let the bare `/mission` view render its two tiers and drive its replan loop with **no inline logic**. All keys are additive; older consumers parse a subset and are unaffected.
+List every mission — across both `active/` and `archive/` — with its `status`, recorded `merge_policy`, derived ownership, computed progress, and its `predicted_hours`/`actual_hours`: a JSON array of `{slug, title, status, merge_policy, assignee, owners, relation, next, checked, total, ready, ready_reason, predicted_hours, actual_hours, path}`, sorted by slug (`path` is the resolved `mission.md` location, so consumers never rebuild it by hand). Emits `[]` when there are no missions. `owners` is the full owner set (`mission-owners.sh` — the mission's own `assignees` first, then the legacy `assignee`), `assignee` aliases the first owner for back-compat, and `relation` is the caller-centric partition (`mine` / `unassigned` / `others` — the same "not somebody else's" gate `summary.sh`, the lens, and `/drive`'s survey read, all through `mission-owners.sh`, computed once here so consumers never re-derive it; a missing git email degrades to nothing-`mine`, never an error). `next` is the first unchecked acceptance item via `next-acceptance.sh`. `ready`/`ready_reason` are the **planning-session drive-readiness verdict**, keyed on the one status axis: `ready: true` when the mission is `approved` and has a plan (`total > 0`); otherwise `ready: false` with `ready_reason` naming the blocker — `draft` (awaiting approval: an approval target, not a replan target), `no_plan` (empty `## Acceptance`), or `not_active` (an ended mission) — so the bare `/mission` session can explain what is missing. The retired `not_authorized` reason is gone: an unapproved mission *is* a draft. Together these let the bare `/mission` view render its two tiers and drive its replan loop with **no inline logic**. All keys are additive; older consumers parse a subset and are unaffected.
 
 ```bash
 bash mission/scripts/summary.sh
 ```
 
-Summarize the **current user's assigned active** missions (read-only). The `/mission summary` command mode this once powered is **retired** (2026-07-22 — the bare `/mission` view is developer-centric now, rendered from `list.sh`'s `relation` partition, so a my-business-only mode became a near-duplicate); the script stays because it is the **canonical statement of the shared assignee gate** — "not somebody else's": mine first, then unassigned/claimable, colleagues excluded — which the monitor skill's *Scope: whose missions* section and the mission lens both reference, and its business-set output still serves programmatic callers. **Its bar is deliberately lower than the mission lens's** (assignee alone — no location or signal gate), because the lens speaks unasked while this output is read on request: an unfilled `0/0` mission shows here (and in the bare view's full tier) that the lens stays silent about. Emits a JSON array `[{slug, title, checked, total, next, path}]` sorted by slug, or `[]` when no active mission is assigned to the current user. Reuses `progress.sh` and `next-acceptance.sh`, so the ownership and progress rules stay defined once. Mutates nothing.
+Summarize the **current user's assigned active** missions (read-only). The `/mission summary` command mode this once powered is **retired** (2026-07-22 — the bare `/mission` view is developer-centric now, rendered from `list.sh`'s `relation` partition, so a my-business-only mode became a near-duplicate); the script stays because it is the **canonical statement of the shared assignee gate** — "not somebody else's": mine first, then unassigned/claimable, colleagues excluded — which the mission lens and `/drive`'s survey both answer to, and its business-set output still serves programmatic callers. **Its bar is deliberately lower than the mission lens's** (assignee alone — no location or signal gate), because the lens speaks unasked while this output is read on request: an unfilled `0/0` mission shows here (and in the bare view's full tier) that the lens stays silent about. Emits a JSON array `[{slug, title, checked, total, next, path}]` sorted by slug, or `[]` when no active mission is assigned to the current user. Reuses `progress.sh` and `next-acceptance.sh`, so the ownership and progress rules stay defined once. Mutates nothing.
 
 ```bash
 bash mission/scripts/next-acceptance.sh <mission-slug-or-file>
@@ -413,19 +466,7 @@ Predict a mission's agent-hours **deterministically** from archived-mission tren
 bash mission/scripts/record-run-hours.sh <mission-slug-or-file> <hours> <run-id>
 ```
 
-Accumulate a `/monitor` run's agent-hours into `actual_hours` (float add), **idempotently per run-id** — a run already recorded (its `run recorded (+Xh) — <run-id>` changelog line present) adds nothing, so a crash-recovery re-run is safe. The changelog line carries the increment so the sum reconstructs from history. **This is the only writer of `actual_hours`** (same doctrine as `tick-acceptance.sh`; never hand-edited). Emits `{recorded, actual_hours, run_id, path}`.
-
-```bash
-printf '%s' "<three-bullet body>" | bash mission/scripts/append-reflection.sh <mission-slug-or-file> <run-id> [date]
-```
-
-Append one dated `### <date> run <run-id>` reflection entry (body — the three fixed bullets — on stdin) under `## Reflection`, creating the section after `## Changelog` if absent. **Idempotent per run-id** and append-only (existing entries are never altered). The model composes the bullets; the script owns placement and idempotency, so the section stays machine-readable. Emits `{appended, run_id, path}`.
-
-```bash
-bash mission/scripts/list-reflections.sh [limit]
-```
-
-List recent reflection entries across active and archived missions, newest first, bounded (default 20): a JSON array of `{slug, date, run_id, blocked, leaked, front_load}` parsed from each entry's three bullets. **Read-only.** The Creation Interrogation reads this back before composing round 4, so recurring `front-load next:` items become pre-answered questions.
+Accumulate a `/drive` run's agent-hours into `actual_hours` (float add), **idempotently per run-id** — a run already recorded (its `run recorded (+Xh) — <run-id>` changelog line present) adds nothing, so a crash-recovery re-run is safe. The changelog line carries the increment so the sum reconstructs from history. **This is the only writer of `actual_hours`** (same doctrine as `tick-acceptance.sh`; never hand-edited). Emits `{recorded, actual_hours, run_id, path}`.
 
 ```bash
 bash mission/scripts/list-related-prs.sh <slug>
@@ -440,7 +481,13 @@ bash mission/scripts/close.sh <mission-slug-or-file> <achieved|abandoned|carried
 
 End a mission — the only sanctioned way. Flips `status`, appends the closing changelog line through `append-changelog.sh` so the transition itself becomes history (`design` / `history-structures`), moves the mission dir into `archive/`, refreshes the OKF indexes, and git-stages. Idempotent: re-closing with the same status is a no-op (`{closed: false, reason: "already_closed"}`); re-closing with another status flips it in place and appends its own line. Emits `{closed, slug, status, path}` JSON (plus `successor` / `successor_path` on a carry).
 
-**Completion lifecycle — "merge and clean up" is a chain, not an auto-merge.** When a mission's tickets are all done, it moves through four stages, each with a distinct owner: **complete** (derived by `status.sh` — `## Acceptance` fully checked, gate exercised when declared) → **PR** (opened by `/monitor`'s §5 PR phase from the mission worktree's branch — auto-*creation*, so the morning starts at review) → **`/ship`** (the human, deploy-evidence-gated merge — full auto-merge was rejected: it would bypass PR review and the deploy-before-merge doctrine) → **`/mission close`** (archives the mission and tears down its worktree). Auto-merge is deliberately **not** part of this chain; the PR is where a night's work becomes reviewable, and the merge stays a human decision on evidence.
+**Completion lifecycle — "merge and clean up" is a chain, and only one link may be automatic.** When a mission's tickets are all done, it moves through four stages, each with a distinct owner: **complete** (`## Acceptance` fully checked per `progress.sh`, gate exercised when declared) → **PR** (opened by `/drive` §5 from the claim worktree's branch — auto-*creation*, so the morning starts at review) → **merge** (`/ship`, deploy-evidence-gated) → **`/mission close`** (archives the mission). The merge is automatic only where the mission's `merge_policy` says `auto`, which a human recorded at approval; absent that ruling it stays a human decision on evidence, and the PR is where a night's work becomes reviewable. A blanket auto-merge was rejected outright — it would bypass PR review and the deploy-before-merge doctrine.
+
+#### Worktree lifecycle — claim-born and ship-torn
+
+A mission's `.worktrees/<slug>/` worktree belongs to the **claim**, not to the mission record (`docs/loop-engineering-workflow.md` I6). It is created when a runner claims the unit (`drive`'s *Claims* section — `claim.sh` cuts the worktree and its `work-*` branch together) and removed when that unit **ships**, or when its claim is explicitly released (`release-claim.sh`). An unfinished mission is simply re-claimed by a later tick, which recreates the worktree from the pushed branch.
+
+**So `close.sh` and `/mission close` keep only the archive move.** Closing a mission is a statement about the *record* — this goal is reached, abandoned, or carried — and it says nothing about whether a worktree is still in use. A worktree still standing at close time is an in-flight or stale **claim**, which the claim reader already surfaces and a human already decides about; having `close` tear it down instead made a bookkeeping action quietly destructive, and hid the one signal (`list-claims.sh`) that says whether anyone is still working there. `cleanup-mission-worktree.sh` is unchanged and still the sanctioned cleaner — it is now called from the claim-release and ship paths rather than from close.
 
 #### Outcomes
 
@@ -461,7 +508,7 @@ The status set is closed and validated — anything else is `invalid_status`:
 
 **Lineage is recorded in both directions** (`design` / `history-structures`): the predecessor's changelog gets `mission carried into <successor-slug>`, and the successor records `carried_from: <predecessor-slug>`. Without both, the archive shows a mission that stopped and a mission that started, with nothing joining them.
 
-**The successor gets no worktree from the predecessor.** `close.sh` never managed worktrees (the `/mission` command tears the mission worktree down *after* `close.sh` succeeds), and a carry deliberately does not hand one over: `.worktrees/<slug>` is keyed 1:1 to the mission slug by `slug.sh`, and a successor living in the predecessor's directory **silences the mission lens inside that very worktree** — the lens reads a worktree whose basename names no active mission as a `/drive` worktree and says nothing at all. The successor gets a fresh worktree through the normal `/mission` flow; in-flight state and the port allocation do not carry.
+**The successor gets no worktree from the predecessor.** Closing manages no worktrees at all (see *Worktree lifecycle* above — they are claim-born and ship-torn), and a carry deliberately does not hand one over: `.worktrees/<slug>` is keyed 1:1 to the unit slug by `slug.sh`, and a successor living in the predecessor's directory **silences the mission lens inside that very worktree** — the lens reads a worktree whose basename names no active mission as a `/drive` worktree and says nothing at all. The successor gets its own worktree when it is claimed; in-flight state and the port allocation do not carry.
 
 #### When the direction changes — reorganize and carry (the encouraged answer)
 
@@ -475,7 +522,7 @@ Why carry rather than the alternatives: forcing `achieved` **fabricates completi
 
 **Reorganizing is a replan, then a carry — and it deliberately does not grind quality gates.** The mechanism is the existing **Replan** flow plus `close.sh`, used together and recorded, never hand-editing:
 
-1. **Reorganize** via `/mission <instruction>` (the Replan flow): rewrite `## Goal`/`## Scope`/`## Experience` to the changed direction, and **drop the now-moot unchecked acceptance criteria** — do **not** force them checked. A dropped item is recorded as its own `acceptance dropped — <the item's (#filename) artifact>` changelog line (Replan already owns this), so the plan's shrinkage is history, not a silent rewrite. This is what *"skip filling quality gates"* means here: **stop grinding to check criteria the new direction made obsolete** — it is **not** a relaxation of the write-time floor (`hooks/validate-mission.sh` still requires a non-empty `## Acceptance` and `## Experience` once `drive_authorized`).
+1. **Reorganize** via `/mission <instruction>` (the Replan flow): rewrite `## Goal`/`## Scope`/`## Experience` to the changed direction, and **drop the now-moot unchecked acceptance criteria** — do **not** force them checked. A dropped item is recorded as its own `acceptance dropped — <the item's (#filename) artifact>` changelog line (Replan already owns this), so the plan's shrinkage is history, not a silent rewrite. This is what *"skip filling quality gates"* means here: **stop grinding to check criteria the new direction made obsolete** — it is **not** a relaxation of the write-time floor (`hooks/validate-mission.sh` still requires a non-empty `## Acceptance` and `## Experience` once the mission is `approved`).
 2. **Carry** the still-valid remainder with `close.sh … carried`: mint a fresh successor (`--successor-title "<t>"`) for a genuinely new heading, or — for the **mergeable** case — **`--successor <existing-slug>`** to carry the unchecked criteria into an existing active mission. Merging needs no new operation: `--successor <slug>` already carries the unmet items and shared goal/scope into the named mission, and lineage is recorded both directions (above).
 
 The three checked-vs-unchecked, inherit, and lineage rules above are unchanged — reorganize-and-carry is those mechanics used *deliberately and early* when the direction turns, framed as the normal move rather than a last resort.

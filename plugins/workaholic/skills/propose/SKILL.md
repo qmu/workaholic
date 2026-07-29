@@ -37,13 +37,15 @@ A draft is scaffolded by `scaffold-draft.sh` (NOT `mission/scripts/create.sh` �
 ```yaml
 type: Mission
 status: draft            # in the ACTIVE area — a draft is in flight, not history
+merge_policy:            # empty — the approval records it, never this batch
 assignees: []            # unowned until a human approves
 assignee:
-drive_authorized:        # empty — only approval (phase 3) may authorize
 feedback: [<record filenames>]   # the mission→feedback relation
 ```
 
-`status: draft` is a first-class mission status living in `missions/active/` (the area split keys archive on `achieved|abandoned|carried` only). A draft is invisible to executors — `/drive`/`/monitor` run only `drive_authorized` work, and drafts never carry the stamp — and `list.sh` reports it with `ready_reason: "draft"`. The batch fills `## Goal`/`## Scope`/`## Experience` and a **proposed** `## Acceptance` sketch (clearly provisional — approval replans it to drive-ready; the write-time floor stays untouched because a draft is never authorized).
+`status: draft` is the **unapproved** state of the one mission lifecycle axis (`workaholic:mission`'s *Lifecycle*), living in `missions/active/` (the area split keys archive on `achieved|abandoned|carried` only). A draft is invisible to executors — they run only `status: approved` work — and `list.sh` reports it with `ready_reason: "draft"`. The batch fills `## Goal`/`## Scope`/`## Experience` and a **proposed** `## Acceptance` sketch (clearly provisional; the write-time floor stays untouched because that floor fires on `approved`, never on a draft).
+
+**Approval is a real, human flow, not a phase label**: `/mission approve <slug>` interrogates the draft to drive-ready, asks the one merge-policy ruling (`auto` | `review`), and runs `mission/scripts/approve.sh` — the only path to `status: approved`. This batch never approves, never seeds `assignees`, and never records a merge policy.
 
 ## Scripts
 

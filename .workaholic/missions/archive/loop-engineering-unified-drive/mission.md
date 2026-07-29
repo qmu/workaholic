@@ -2,7 +2,7 @@
 type: Mission
 title: Loop engineering unified drive
 slug: loop-engineering-unified-drive
-status: approved
+status: achieved
 created_at: 2026-07-28T22:17:19+09:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
@@ -64,3 +64,4 @@ Out of scope: phase 4 (Claude Code Web port, kioku ingestion, multi-repo rollout
 - 2026-07-29 — concern deferred (stuck) — 20260729143259-the-full-unattended-chain-claim-drive.md
 - 2026-07-29 — concern deferred (stuck) — 20260729143259-installed-plugin-lag-now-includes-commands.md
 - 2026-07-29 — concern deferred (stuck) — 20260729143259-the-tab-ifs-interior-empty-field.md
+- 2026-07-29 — mission achieved — mission.md

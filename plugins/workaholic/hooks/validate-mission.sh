@@ -3,7 +3,7 @@
 # of validate-ticket.sh. Exit codes: 0 = success/not a mission, 2 = validation
 # failed (blocks the operation).
 #
-# Why: a mission stamped `drive_authorized: true` skips the per-ticket approval
+# Why: an APPROVED mission (`status: approved`) skips the per-ticket approval
 # prompt, so a hand-authored mission is the one artifact that can authorize
 # UNATTENDED work. Nothing validated it (validate-ticket.sh sees only tickets),
 # so a mission with no assignee, no Experience, and an empty Acceptance could
@@ -15,18 +15,22 @@
 # archive/ is history and is never retro-blocked.
 #
 # One tier for the scaffold moment (which must always pass), one for the finished,
-# dangerous `drive_authorized: true` state. create.sh scaffolds EMPTY sections by
+# dangerous approved state. create.sh scaffolds a DRAFT with EMPTY sections by
 # design and the Creation Interrogation fills them afterwards:
-#   - always: nothing is required. Ownership is carried on the mission's own plural
+#   - always: nothing is required — and a `draft` never fires the floor at all. A
+#     draft is a proposal in progress (the /propose batch writes them, and every
+#     interactively created mission starts as one); blocking it would block the
+#     scaffold moment itself. Ownership is carried on the mission's own plural
 #     `assignees` (2026-07-28 — returned from the 2026-07-24 strategy model; see
 #     mission/SKILL.md's Ownership section), but the scaffold moment mandates no key.
-#   - when the file claims `drive_authorized: true`: the mission must have an OWNER
+#   - when the file claims `status: approved` (or, for the transition window, a
+#     legacy `drive_authorized: true` stamp): the mission must have an OWNER
 #     (mission-owners.sh non-empty — its own `assignees`, or the legacy singular
 #     `assignee` — an unattended run needs an owner), `## Experience` with
 #     non-comment content, and `## Acceptance` with at least one checklist item.
 #     The strategy-link requirement is GONE with the strategy layer's retirement
 #     (2026-07-28 — docs/loop-engineering-workflow.md B3); a legacy `strategy:`
-#     key is tolerated, never required. A 0/0 authorized mission is refused at
+#     key is tolerated, never required. A 0/0 approved mission is refused at
 #     the drive seam too (drive-authorized.sh, reason no_plan) — defense in
 #     depth, but this hook says it at write time, where the author can fix it.
 #
@@ -57,12 +61,16 @@ content=$(cat "$file_path")
 
 frontmatter=$(printf '%s\n' "$content" | awk '/^---$/{if(++c==2)exit}c==1')
 
-# Nothing is required at the scaffold moment.
+# Nothing is required at the scaffold moment, and a draft never fires the floor.
 
+status=$(printf '%s\n' "$frontmatter" | grep -m1 '^status:' | sed -e 's/^status:[ \t]*//' -e 's/[ \t]*$//' || true)
+# The legacy stamp stays a trigger for the transition window: a session running a
+# pre-unification plugin copy may still write `drive_authorized: true`, and that
+# write must meet the same floor rather than slip through unvalidated.
 stamp=$(printf '%s\n' "$frontmatter" | grep -m1 '^drive_authorized:' | sed -e 's/^drive_authorized:[ \t]*//' -e 's/[ \t]*$//' || true)
-[ "$stamp" = "true" ] || exit 0
+[ "$status" = "approved" ] || [ "$stamp" = "true" ] || exit 0
 
-# --- drive_authorized: true — the full floor ---------------------------------
+# --- status: approved — the full floor ---------------------------------------
 # (A legacy `strategy:` key from the retired strategy layer is tolerated and ignored.)
 
 # The mission must have an OWNER. Ownership resolves through mission-owners.sh: the
@@ -71,7 +79,7 @@ stamp=$(printf '%s\n' "$frontmatter" | grep -m1 '^drive_authorized:' | sed -e 's
 # is refused here — seed its assignees.
 owners=$(sh "$(dirname "$0")/../skills/mission/scripts/mission-owners.sh" "$file_path" 2>/dev/null || true)
 if [ -z "$owners" ]; then
-  echo "Error: a drive_authorized mission must have an owner — seed the mission's own assignees (or a legacy assignee); unattended work needs an owner" >&2
+  echo "Error: an approved mission must have an owner — seed the mission's own assignees (or a legacy assignee); unattended work needs an owner" >&2
   echo "Got: $file_path" >&2
   print_skill_reference
   exit 2
@@ -90,7 +98,7 @@ if ! printf '%s\n' "$content" | awk '
     }
     END { exit(found ? 0 : 1) }
   '; then
-  echo "Error: a drive_authorized mission must describe the demanded behavior in ## Experience (non-comment content) — it is what /drive judges changes against" >&2
+  echo "Error: an approved mission must describe the demanded behavior in ## Experience (non-comment content) — it is what /drive judges changes against" >&2
   echo "Got: $file_path" >&2
   print_skill_reference
   exit 2
@@ -103,7 +111,7 @@ if ! printf '%s\n' "$content" | awk '
     in_s && /^[ \t]*-[ \t]+\[( |x|X)\]/ { found = 1; exit }
     END { exit(found ? 0 : 1) }
   '; then
-  echo "Error: a drive_authorized mission must carry at least one ## Acceptance checklist item — an empty plan cannot authorize unattended work" >&2
+  echo "Error: an approved mission must carry at least one ## Acceptance checklist item — an empty plan cannot authorize unattended work" >&2
   echo "Got: $file_path" >&2
   print_skill_reference
   exit 2

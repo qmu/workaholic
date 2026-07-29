@@ -21,7 +21,8 @@
 # worktree holding no mission.md is reported as an orphan, never guessed at.
 #
 # THE AUTHORIZATION RULE MIRRORS drive-authorized.sh's per-mission floor
-# (stamped drive_authorized: true AND a non-empty ## Acceptance). This is the
+# (`status: approved` AND a non-empty ## Acceptance; a legacy `drive_authorized:
+# true` stamp is honored until the living migration rewrites it). This is the
 # mission-side reading of the same rule — advisory, for the pre-flight; the
 # ticket-scoped resolver remains the authority at drive time, and every leaf
 # still consults drive-authorized.sh per ticket before skipping the gate.
@@ -98,7 +99,12 @@ EOF
 # so a skip never trips set -e in the caller.
 consider() {
     cf="$1"; cwt="$2"; cslug="$3"
-    [ "$(fm_field "$cf" status)" = "active" ] || return 0
+    # In flight on the single status axis: draft or approved (legacy `active`
+    # tolerated for a worktree checkout the living migration has not touched).
+    case "$(fm_field "$cf" status)" in
+        draft|approved|active) : ;;
+        *) return 0 ;;
+    esac
     # Owners (the mission's own assignees, legacy singular fallback) via the single
     # oracle — not parsed here. mine = $EMAIL among owners; unassigned =
     # no owners. cassignee (the output field) aliases the first owner for back-compat.
@@ -112,9 +118,10 @@ consider() {
     cchecked=$(printf '%s' "$cprog" | sed -e 's/.*"checked": *//' -e 's/[,}].*//')
     ctotal=$(printf '%s' "$cprog" | sed -e 's/.*"total": *//' -e 's/[,}].*//')
     cnext=$(json_escape "$(sh "${MISSION_SCRIPTS}/next-acceptance.sh" "$cf" 2>/dev/null || true)")
+    cstatus=$(fm_field "$cf" status)
     cstamp=$(fm_field "$cf" drive_authorized)
     creason=""
-    if [ "$cstamp" != "true" ]; then
+    if [ "$cstatus" != "approved" ] && [ "$cstamp" != "true" ]; then
         creason="not_authorized"
     elif [ "${ctotal:-0}" -eq 0 ]; then
         creason="no_plan"

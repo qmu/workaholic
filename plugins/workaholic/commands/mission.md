@@ -1,6 +1,6 @@
 ---
 name: mission
-description: Create a mission (an optional, epic-equivalent grouping — a bounded, information-rich batch of tickets), list existing missions with computed progress, or close one (achieved/abandoned) into the archive area.
+description: Create a mission (an optional, epic-equivalent grouping — a bounded, information-rich batch of tickets), approve a draft into drive-ready work, list existing missions with computed progress, or close one (achieved/abandoned/carried) into the archive area.
 skills:
   - workaholic:mission
   - workaholic:gather
@@ -11,17 +11,37 @@ skills:
 
 # Mission
 
-**Notice:** When user input contains `/mission` - whether "run /mission", "start a mission", "new mission", "show missions", "mission progress", "close the mission", "end a mission", or similar - they likely want this command.
+**Notice:** When user input contains `/mission` - whether "run /mission", "start a mission", "new mission", "approve the mission", "show missions", "mission progress", "close the mission", "end a mission", or similar - they likely want this command.
 
 **Plugin boundary — do not spelunk:** The skills this command needs are already loaded via its `skills:` frontmatter and resolved through `${CLAUDE_PLUGIN_ROOT}`. Invoke them by their loaded namespace (`workaholic:`); never search the filesystem for skill content, never read or run anything under `~/.claude/plugins/marketplaces/` or any other global install, and never guess a namespace — `drivin`, `trippin`, `core`, `standards`, and `work` are obsolete names long since merged into the single `workaholic` plugin. If a skill you expect is missing, ask the user which plugins are loaded; do not hunt for it on disk.
 
 This command (main agent) runs the preloaded `workaholic:mission` skill. A **mission** is a first-class knowledge artifact: an **optional, epic-equivalent grouping** — a bounded, information-rich batch of tickets an agent fleet drives together (typically overnight), never a required parent of any ticket — distinct from a `trip` (a short design/build session) and a generic "epic/milestone" (see the skill's opening section and its **Granularity** record). It lives at `.workaholic/missions/active/<slug>/mission.md` while in progress, and moves to `.workaholic/missions/archive/<slug>/mission.md` when ended (see the skill's Allowed Location section).
 
-`$ARGUMENT` selects the mode — by **content**, not by subcommand (`workaholic:design` / `modeless-design`: the argument's meaning routes the flow, mirroring `/report`/`/ship` context-awareness). Match the retired literal `summary` **first** (a short deprecation note, below — never a mission title), then the `close` and empty branches. Any other non-empty argument is judged against the existing missions (see *Referencing an existing mission*, below): a clear reference to an active mission routes to the **replan flow**, an ambiguous argument is **asked**, and an argument referencing nothing is a **title** for the create flow.
+`$ARGUMENT` selects the mode — by **content**, not by subcommand (`workaholic:design` / `modeless-design`: the argument's meaning routes the flow, mirroring `/report`/`/ship` context-awareness). Match the retired literal `summary` **first** (a short deprecation note, below — never a mission title), then the `approve`, `close` and empty branches. Any other non-empty argument is judged against the existing missions (see *Referencing an existing mission*, below): a clear reference to an in-flight mission routes to the **replan flow**, an ambiguous argument is **asked**, and an argument referencing nothing is a **title** for the create flow.
 
 ## `summary` — retired (developer decision, 2026-07-22)
 
 The `summary` mode is **retired**: the bare `/mission` view (below) is developer-centric, so a separate my-business-only mode would differ only by hiding others' missions — a near-duplicate (one concept, one word). When `$ARGUMENT` is exactly `summary`, do not create anything and do not treat it as a title: tell the user the mode was folded into bare `/mission` and render the bare view instead. (`mission/scripts/summary.sh` remains — it is the shared assignee-gate reference the monitor skill's Scope section reads; only the command mode is gone.)
+
+## `approve <slug>` — turn a draft into drive-ready work
+
+When `$ARGUMENT` starts with `approve`, approve the named mission: the flip from `status: draft` to `status: approved` that lets `/drive` drain its queue without the per-ticket prompt (the mission skill's *Lifecycle* and *Approval* sections define the model; do not restate them here).
+
+**1. State where the mission stands — always, before asking anything.** Give the **Mission Position Report** (defined once in `workaholic:mission`). Approving is granting authority over a plan; the developer must see the plan before granting it.
+
+**2. Interrogate to drive-ready, if it is not already.** Read the mission's `ready`/`ready_reason` from `list.sh`. A draft written by the `/propose` batch — or any mission whose `## Acceptance`, `## Experience`, or ticket set is incomplete — goes through the **replan flow** above first (its worktree included): approval asserts that every judgement call about *these exact tickets* was answered, and there is nothing to assert about a plan that does not exist. A mission already carrying a complete, interrogated set needs no rounds here.
+
+**3. Ask the merge-policy ruling.** One `AskUserQuestion` (`question` body prefixed with the `[<project label>]` from `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`): **may this mission's completed units merge automatically, or must a human review each PR?** — options `auto` and `review`. This is the one genuinely human ruling the approval owns (decision G5) and it is **never** decided for the developer: `auto` by default grants unattended merging nobody asked for, and `review` by default silently discards the question.
+
+**4. Run the approval mutator** — never hand-edit `status:`:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/approve.sh "<slug>" <auto|review>
+```
+
+It clears the floor (owner + `## Experience` + `## Acceptance`), sets `status: approved` and `merge_policy`, seeds `assignees` with the approver when the mission is unowned, appends the `mission approved — merge_policy: <p>` changelog line, refreshes the OKF indexes, and git-stages. On a refusal (`no_experience` / `no_plan` / `no_owner`) report what is missing and route back to step 2 — do not work around the floor. On `reason: "already_approved"` say so plainly; nothing changed.
+
+**5. Commit and report** inside the mission's worktree via the commit skill (subject `Approve mission <slug>`), then tell the developer the mission is drive-ready, with its merge policy and its queue.
 
 ## Referencing an existing mission — replan
 
@@ -35,11 +55,11 @@ A non-`summary`, non-`close`, non-empty argument may be an instruction **about a
 
 Three outcomes:
 
-- **Clearly references one active mission** → the replan flow below.
+- **Clearly references one in-flight mission** (`draft` or `approved`) → the replan flow below.
 - **Ambiguous** — it could plausibly be a fresh title, or it matches more than one mission → ask with `AskUserQuestion` (body prefixed with the `[<project label>]` from `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`): one "update mission <slug>" option per candidate, plus "create a new mission with this title". Never route silently on an ambiguous argument.
 - **References nothing** → the create flow (next section), unchanged.
 
-**Only `status: active` missions are replan targets.** An argument referencing an **archived** mission gets a short report instead: the archive is immutable history — point at the mission's `carried` successor if one exists (`carried_from` links it), or at creating a new mission.
+**Only in-flight missions (`status: draft` or `approved`) are replan targets.** An argument referencing an **archived** mission gets a short report instead: the archive is immutable history — point at the mission's `carried` successor if one exists (`carried_from` links it), or at creating a new mission.
 
 **2. Locate the mission and ensure its worktree.** Resolve `mission.md` via the `list.sh` entry's `path`. If `.worktrees/<slug>` does not exist (a `carried` successor, or a hand-authored mission), create it now:
 
@@ -57,11 +77,11 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list-related-prs.sh "<slug>"
 
 If `prs` is non-empty, tell the developer which open PRs touch this mission and factor them into the delta — do **not** emit tickets duplicating acceptance a sibling PR already implements. `available: false` means the check could not run (no `gh`/auth/remote); note that rather than treating it as "no siblings". This pairs with `create-mission-worktree.sh`'s fetch-first base resolution: the fetch keeps a new worktree off a stale merged base, this keeps a replan off a sibling's unmerged work.
 
-**3. Re-interrogate — scoped by the instruction.** Follow the skill's **Replan** section (`workaholic:mission`): it defines which Creation Interrogation rounds re-run (Direction changes → rounds 1–2; plan growth → rounds 3–5 for the delta; a thin `0/0` mission → all five), what the delta may touch, and what it must never touch. The bar equals creation's — a structured delta model, grilled until drive-ready — because `drive_authorized` skips per-ticket approval downstream, so an under-interrogated delta is concretized across the whole mission unchecked. Issue every question from this command with the `[<project label>]` prefix; `gate_*` is never interrogated.
+**3. Re-interrogate — scoped by the instruction.** Follow the skill's **Replan** section (`workaholic:mission`): it defines which Creation Interrogation rounds re-run (Direction changes → rounds 1–2; plan growth → rounds 3–5 for the delta; a thin `0/0` mission → all five), what the delta may touch, and what it must never touch. The bar equals creation's — a structured delta model, grilled until drive-ready — because approval skips per-ticket approval downstream, so an under-interrogated delta is concretized across the whole mission unchecked. Issue every question from this command with the `[<project label>]` prefix; `gate_*` is never interrogated.
 
 **4. Apply the delta in the worktree.** Rewrite `## Goal` / `## Scope` / `## Experience` from the answers (body-section writes are the command's job, at creation and here alike — no new mutator script). Emit the delta tickets **in one pass** into the worktree's `.workaholic/tickets/todo/<user>/`, each stamped `mission: <slug>` with its mandatory `## Policies` and `## Quality Gate` pre-answered and `depends_on` ordered (unique timestamps; the mission-scoped split-cap exception applies). Append one `## Acceptance` item per new criterion with its `(#<filename>)` marker.
 
-**5. Record the history and the re-stamp.** Append changelog lines through the shared mutator — `ticket added — <filename>` per emitted ticket, plus one `mission replanned — <artifact>` line — and re-stamp `drive_authorized` only under the skill's Replan re-stamp conditions (a cut-short interrogation leaves it unset). Then commit inside the worktree via the commit skill, subject `Replan mission <slug>`.
+**5. Record the history and the approval.** Append changelog lines through the shared mutator — `ticket added — <filename>` per emitted ticket, plus one `mission replanned — <artifact>` line — and run `approve.sh` only under the skill's *Approval after a replan* conditions (a cut-short interrogation leaves the mission a draft; a draft reaching drive-readiness here is approved through the `approve` route's steps 3–4, merge-policy question included). Then commit inside the worktree via the commit skill, subject `Replan mission <slug>`.
 
 **6. Report.** Summarize what changed (sections rewritten, criteria appended, tickets emitted with filenames) and where — the mission's worktree, ready to `/drive`.
 
@@ -105,7 +125,13 @@ Then write `## Goal`, `## Scope` and `## Experience` into the mission from the a
 
 By the end of this step the mission is **drive-ready**: a complete, ordered queue whose judgement calls are already answered.
 
-**4b. Stamp the authorization.** Set `drive_authorized: true` in the mission's frontmatter — **only now**, once the interrogation is complete and the whole set is written. That stamp is what lets `/drive` drain this queue without the per-ticket approval prompt (`mission/scripts/drive-authorized.sh` reads it; see the skill's *Drive authorization*). Do **not** stamp a mission whose interrogation was cut short or whose set is partial: the stamp asserts that the developer answered every judgement call about these exact tickets, and an unearned stamp removes a gate nobody agreed to remove.
+**4b. Run the approval flip.** `create.sh` scaffolded a **draft**; approving it is what makes the queue drive-ready. Ask the merge-policy ruling exactly as the `approve` route's step 3 does (one `AskUserQuestion`, `auto` | `review`, `[<project label>]` prefix — never decided for the developer), then run the mutator inside the worktree:
+
+```bash
+( cd <worktree_path> && bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/approve.sh "<slug>" <auto|review> )
+```
+
+**Only now**, once the interrogation is complete and the whole set is written. Do **not** approve a mission whose interrogation was cut short or whose set is partial: `approved` asserts that the developer answered every judgement call about these exact tickets, and an unearned approval removes a gate nobody agreed to remove — leave it a draft. A refusal (`no_experience` / `no_plan`) means the interrogation's output never reached the file; fix that rather than working around the floor.
 
 **5. Commit the mission statement and kickoff tickets inside the worktree** via the commit skill (policy-conformant subject, `Co-Authored-By` trailer kept):
 
@@ -123,20 +149,20 @@ When `$ARGUMENT` is empty, bare `/mission` opens a **working planning session**,
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list.sh
 ```
 
-Every entry carries the fields the session needs — computed, so no logic lives in this prose: `relation` (`mine`/`unassigned`/`others`), `next` (the next unchecked acceptance item), `ready` (drive-ready: active, has a plan, `drive_authorized`) and `ready_reason` (`no_plan`/`not_authorized` when not). Do **not** re-derive any of these from `assignees`/`drive_authorized`/`checked` yourself.
+Every entry carries the fields the session needs — computed, so no logic lives in this prose: `relation` (`mine`/`unassigned`/`others`), `next` (the next unchecked acceptance item), `merge_policy` (the recorded merge ruling), `ready` (drive-ready: `status: approved` with a plan) and `ready_reason` (`draft`/`no_plan`/`not_active` when not). Do **not** re-derive any of these from `assignees`/`status`/`checked` yourself.
 
 ### Step 1 — Status: where the caller's missions stand
 
 Render the roadmap **weighted toward the caller** (most of the output is the caller's business; others' work stays visible but compact — de-emphasized, never hidden):
 
-- **Full treatment** for the caller's **`mine` and `unassigned` `status: active`** missions (mine first, then unassigned): `title` (`slug`) — `checked/total`, the `next` item, the drive-ready state (ready, or the `ready_reason` blocker), and the most recent few `## Changelog` lines from the entry's `path`. **Mark an `unassigned` entry as unclaimed and claimable.**
+- **Full treatment** for the caller's **`mine` and `unassigned` in-flight** missions (`draft` or `approved`) (mine first, then unassigned): `title` (`slug`) — `checked/total`, the `next` item, the drive-ready state (ready, or the `ready_reason` blocker), and the most recent few `## Changelog` lines from the entry's `path`. **Mark an `unassigned` entry as unclaimed and claimable.**
 - **One line each — everything else** (`others`, and any archived mission), gathered under a compact trailing section: `title` (`slug`) — `status` — `checked/total`. No changelog, no paragraphs.
 
 If no mission is `mine` or `unassigned`, say so plainly (only colleagues'/archived work exists) and that `/mission "<title>"` starts one; if the array is empty, there are no missions yet.
 
 ### Step 2 — Replan loop: make every assigned mission drive-ready
 
-For each `mine`/`unassigned` active mission whose `ready` is `false`, run its **existing replan flow** now (the *Referencing an existing mission — replan* section above), one mission at a time, in the mission's own worktree — creating it with `create-mission-worktree.sh` when absent. The `ready_reason` says what the replan must fix (`no_plan` → the interrogation must produce a plan and Acceptance; `not_authorized` → it was interrogated but never stamped). Interrogation asks **only genuine design rulings** (the decide-and-record bar); mechanical fixes are decided and recorded, not asked. The developer may **defer** a mission ("leave it") — record that and move on; do not re-raise it this session.
+For each `mine`/`unassigned` in-flight mission whose `ready` is `false`, run its **existing replan flow** now (the *Referencing an existing mission — replan* section above), one mission at a time, in the mission's own worktree — creating it with `create-mission-worktree.sh` when absent. The `ready_reason` says what is missing (`no_plan` → the interrogation must produce a plan and Acceptance; `draft` → it may already be interrogated and simply awaiting approval, which is the `approve` route above, not a replan). Interrogation asks **only genuine design rulings** (the decide-and-record bar); mechanical fixes are decided and recorded, not asked. The developer may **defer** a mission ("leave it") — record that and move on; do not re-raise it this session.
 
 An already-`ready` mission needs nothing here — say so and skip it.
 

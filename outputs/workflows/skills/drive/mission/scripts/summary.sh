@@ -24,7 +24,11 @@
 # means the caller is one of them. An unowned mission (no assignees and no
 # legacy assignee) is unclaimed work, surfaced to everyone as claimable.
 #
-# Only `active` missions are reported. Progress is computed on demand via progress.sh
+# Only IN-FLIGHT missions are reported — the active area's working set, which on the
+# single status axis (2026-07-28, docs/loop-engineering-workflow.md I2) means `draft`
+# or `approved`. A legacy `active` is tolerated for a mission the living migration has
+# not rewritten yet; the ended states live in archive/ and never appear here.
+# Progress is computed on demand via progress.sh
 # and the next step via next-acceptance.sh (never a stored number). Creates nothing.
 #
 # Usage: summary.sh
@@ -74,7 +78,12 @@ for pass in mine unassigned; do
     for d in $DIRS; do
         f="$d/mission.md"
         [ -f "$f" ] || continue
-        [ "$(fm_field "$f" status)" = "active" ] || continue
+        # In-flight = the status axis's two open states (legacy `active` tolerated
+        # pre-migration). Everything else has ended and lives in archive/.
+        case "$(fm_field "$f" status)" in
+            draft|approved|active) : ;;
+            *) continue ;;
+        esac
 
         # Owners (the mission's own assignees, legacy singular fallback) via the
         # single oracle. `assignee` in the output is the first owner, aliased for callers.

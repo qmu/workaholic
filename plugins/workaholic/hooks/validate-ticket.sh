@@ -290,6 +290,28 @@ if [ -n "$category" ]; then
   esac
 fi
 
+# merge_policy: optional, one of auto | review.
+#
+# ABSENT MEANS `review` — the conservative default, and the reason this is validated
+# only WHEN PRESENT. Every ticket predating the field (the whole archive, plus any
+# queue written by an older plugin copy) carries no value, and the one reading that
+# must never produce is "merge this without a human looking". So an empty/missing
+# field is legal and reads as review at drive time; only a present value is held to
+# the enum, because a typo'd `merge_policy: atuo` would otherwise read as review
+# while its author believed they had asked for automatic merging.
+merge_policy=$(validate_field "merge_policy")
+if [ -n "$merge_policy" ]; then
+  case "$merge_policy" in
+    auto|review) : ;;
+    *)
+      echo "Error: merge_policy must be one of: auto, review (or empty, which reads as review)" >&2
+      echo "Got: $merge_policy" >&2
+      print_skill_reference
+      exit 2
+      ;;
+  esac
+fi
+
 # depends_on: optional, YAML list of ticket filenames
 depends_on_line=$(printf '%s\n' "$frontmatter" | grep "^depends_on:" || true)
 if [ -n "$depends_on_line" ]; then

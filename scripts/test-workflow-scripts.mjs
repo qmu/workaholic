@@ -53,6 +53,7 @@ const SCRIPTS = {
   readAssignees: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/read-assignees.sh"),
   migrateStrategies: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/migrate-strategies.sh"),
   missionClose: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/close.sh"),
+  missionApprove: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/approve.sh"),
   appendChangelog: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/append-changelog.sh"),
   tickAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/tick-acceptance.sh"),
   refreshIndex: join(REPO_ROOT, "plugins/workaholic/skills/okf/scripts/refresh-index.sh"),
@@ -806,7 +807,9 @@ concerns: []
     assertEq("list.sh carries next for the full-treatment tier", la.next, "Second criterion");
     assertEq("list.sh existing keys unchanged (additive enrichment)",
       { status: la.status, assignee: la.assignee, checked: la.checked, total: la.total },
-      { status: "active", assignee: A, checked: 1, total: 2 });
+      // The fixtures are written `status: active`; the living migration normalizes
+      // an unstamped one to `draft` on the first list.sh touch.
+      { status: "draft", assignee: A, checked: 1, total: 2 });
 
     // Empty git email degrades: nothing is "mine", everyone still listed, no error
     // (unlike summary.sh, the bare list must not require an identity).
@@ -818,34 +821,37 @@ concerns: []
       relNone, { "mission-a": "others", "mission-b": "others", "mission-free": "unassigned", "mission-old": "others" });
 
     // ---- planning-session readiness: ready / ready_reason (additive) ----
-    // The bare /mission planning session drives its replan loop off `ready`.
-    // mission-a is active with a plan but never stamped -> not_authorized.
-    // mission-old is achieved -> not_active. A stamped+planned mission is ready.
+    // The bare /mission planning session drives its loop off `ready`, keyed on the
+    // ONE status axis: an unapproved mission is a `draft` (awaiting approval, not a
+    // replan target); mission-old is achieved -> not_active; approved + planned is ready.
     setEmail(A);
     const readyOf = (arr, slug) => arr.find((m) => m.slug === slug);
     const lR = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
-    assertEq("unstamped active mission is not ready (not_authorized)",
+    assertEq("unapproved mission is not ready (draft — awaiting approval)",
       { ready: readyOf(lR, "mission-a").ready, reason: readyOf(lR, "mission-a").ready_reason },
-      { ready: false, reason: "not_authorized" });
+      { ready: false, reason: "draft" });
     assertEq("archived mission is not ready (not_active)",
       { ready: readyOf(lR, "mission-old").ready, reason: readyOf(lR, "mission-old").ready_reason },
       { ready: false, reason: "not_active" });
 
-    // Stamp mission-a drive_authorized: true -> it becomes ready with no reason.
+    // Approve mission-a through the only sanctioned approver -> it becomes ready,
+    // and its merge policy is what the approval recorded.
     const maPath = join(dir, ".workaholic/missions/active/mission-a/mission.md");
-    writeFileSync(maPath, readFileSync(maPath, "utf8").replace("status: active", "status: active\ndrive_authorized: true"));
+    writeFileSync(maPath, readFileSync(maPath, "utf8").replace("## Acceptance", "## Experience\n\nThe thing does the thing.\n\n## Acceptance"));
+    run(dir, `${POSIX_SH} ${SCRIPTS.missionApprove} mission-a auto`);
     const lReady = readyOf(JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout), "mission-a");
-    assertEq("stamped, planned, active mission is drive-ready",
-      { ready: lReady.ready, reason: lReady.ready_reason, auth: lReady.drive_authorized },
-      { ready: true, reason: "", auth: "true" });
+    assertEq("approved, planned mission is drive-ready and carries its merge policy",
+      { ready: lReady.ready, reason: lReady.ready_reason, status: lReady.status, policy: lReady.merge_policy },
+      { ready: true, reason: "", status: "approved", policy: "auto" });
 
-    // A stamped mission with an EMPTY plan is still not ready (no_plan beats the stamp).
+    // An approved mission with an EMPTY plan is still not ready (no_plan). It is
+    // written by hand here because approve.sh refuses to create this state at all.
     const mkEmpty = join(dir, ".workaholic/missions/active/mission-empty");
     mkdirSync(mkEmpty, { recursive: true });
     writeFileSync(join(mkEmpty, "mission.md"),
-      `---\ntype: Mission\ntitle: Empty\nslug: mission-empty\nstatus: active\nauthor: ${A}\nassignee: ${A}\ndrive_authorized: true\n---\n\n# Empty\n\n## Acceptance\n\n## Changelog\n`);
+      `---\ntype: Mission\ntitle: Empty\nslug: mission-empty\nstatus: approved\nauthor: ${A}\nassignee: ${A}\n---\n\n# Empty\n\n## Acceptance\n\n## Changelog\n`);
     const lEmpty = readyOf(JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout), "mission-empty");
-    assertEq("stamped but planless mission is not ready (no_plan)",
+    assertEq("approved but planless mission is not ready (no_plan)",
       { ready: lEmpty.ready, reason: lEmpty.ready_reason }, { ready: false, reason: "no_plan" });
   } finally { cleanup(dir); }
 }
@@ -2267,7 +2273,9 @@ In: the dashboard. Out: the API.
     assertTrue("successor inherits gate_type", /^gate_type:\s*live-app\s*$/m.test(succ), succ);
     assertTrue("successor inherits gate_target", /^gate_target:\s*\/dashboard\s*$/m.test(succ), succ);
     assertTrue("successor inherits gate_assert", /^gate_assert:\s*the chart renders\s*$/m.test(succ), succ);
-    assertTrue("successor is active", /^status:\s*active\s*$/m.test(succ), succ);
+    // A minted successor is a DRAFT: create.sh scaffolds one, and nobody has
+    // approved the inherited plan yet (the successor is fleshed out by a replan).
+    assertTrue("successor is a draft", /^status:\s*draft\s*$/m.test(succ), succ);
 
     // Idempotent, like every other mission mutator.
     const again = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} predecessor carried --successor-title "Successor mission" 2026-07-16`).stdout);
@@ -3206,7 +3214,9 @@ function testMission() {
     const body = readFileSync(mpath, "utf8");
     assertTrue("mission has type: Mission", /^type:\s*Mission\s*$/m.test(body), body.split("\n").slice(0, 12).join("\n"));
     assertTrue("mission has slug", /^slug:\s*real-time-notifications\s*$/m.test(body));
-    assertTrue("mission has status active", /^status:\s*active\s*$/m.test(body));
+    assertTrue("mission scaffolds as a draft", /^status:\s*draft\s*$/m.test(body));
+    assertTrue("mission scaffold carries an empty merge_policy and no retired stamp",
+      /^merge_policy:\s*$/m.test(body) && !/drive_authorized/.test(body), body.split("\n").slice(0, 16).join("\n"));
     assertTrue("mission scaffold seeds assignees with the creator (the approver is the default owner)",
       /^assignees:\s*\[test@example\.com\]\s*$/m.test(body) && /^assignee:\s*$/m.test(body), body.split("\n").slice(0, 16).join("\n"));
     assertTrue("mission scaffold carries empty predicted_hours/actual_hours keys",
@@ -3276,7 +3286,7 @@ concerns: []
     assertEq("mission list length", list.length, 1);
     assertEq("mission list entry",
       { slug: list[0].slug, title: list[0].title, status: list[0].status, checked: list[0].checked, total: list[0].total },
-      { slug: "real-time-notifications", title: "Fixture Mission", status: "active", checked: 2, total: 3 });
+      { slug: "real-time-notifications", title: "Fixture Mission", status: "draft", checked: 2, total: 3 });
 
     // refresh-index.sh is deterministic with a mission present: commit a fresh
     // tree, run it again, and assert no working-tree change.
@@ -3506,11 +3516,14 @@ concerns: []
     assertEq("list.sh spans both areas after migration",
       list.map((m) => ({ slug: m.slug, status: m.status, path: m.path })),
       [
-        { slug: "alpha", status: "active", path: ".workaholic/missions/active/alpha/mission.md" },
+        // The same touch runs the STATUS migration: an unstamped legacy `active`
+        // mission normalizes to `draft` on the one lifecycle axis.
+        { slug: "alpha", status: "draft", path: ".workaholic/missions/active/alpha/mission.md" },
         { slug: "omega", status: "achieved", path: ".workaholic/missions/archive/omega/mission.md" },
       ]);
-    assertTrue("migrated mission content is byte-identical",
-      readFileSync(join(dir, ".workaholic/missions/active/alpha/mission.md"), "utf8") === missionBody("alpha", "Alpha", "active"));
+    assertTrue("migrated mission content is unchanged apart from the status line",
+      readFileSync(join(dir, ".workaholic/missions/active/alpha/mission.md"), "utf8")
+        === missionBody("alpha", "Alpha", "active").replace("status: active", "status: draft"));
 
     // Idempotent: with the migrated tree committed, a re-run changes nothing.
     execSync(`git add -A && git commit -q -m migrated`, { cwd: dir });
@@ -5185,6 +5198,32 @@ function testValidateTicket() {
   // Non-canonical locations -> exit 2.
   assertEq("validate-ticket rejects root-level todo/ stray", invoke(`.workaholic/tickets/todo/${TS}-x.md`), 2);
   assertEq("validate-ticket rejects invented done/", invoke(`.workaholic/tickets/done/${TS}-x.md`), 2);
+
+  // merge_policy: optional, enum-validated ONLY when present. Absent reads as
+  // `review` (the conservative default), which is why the empty field must pass --
+  // every ticket predating the field carries one, and the reading that must never
+  // be produced is "merge without a human looking". A typo'd value would read as
+  // `review` while its author believed they asked for `auto`, so it is rejected.
+  const dir = makeRepo("main");
+  try {
+    const ticket = (policy) => {
+      const rel = `.workaholic/tickets/todo/a-qmu-jp/${TS}-m.md`;
+      const abs = join(dir, rel);
+      mkdirSync(dirname(abs), { recursive: true });
+      writeFileSync(abs, `---\ncreated_at: 2026-06-24T14:02:07+09:00\nauthor: a@qmu.jp\ntype: enhancement\nlayer: [Domain]\neffort:\ncommit_hash:\ncategory:\ndepends_on:\nmerge_policy:${policy}\n---\n\n# T\n\n## Policies\n\n- x\n\n## Quality Gate\n\ng\n`);
+      return rel;
+    };
+    const check = (rel) => {
+      const payload = JSON.stringify({ tool_input: { file_path: rel } });
+      try { execSync(`${POSIX_SH} ${HOOK}`, { cwd: dir, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return 0; }
+      catch (e) { return e.status ?? 1; }
+    };
+    assertEq("validate-ticket accepts merge_policy: auto", check(ticket(" auto")), 0);
+    assertEq("validate-ticket accepts merge_policy: review", check(ticket(" review")), 0);
+    assertEq("validate-ticket accepts an EMPTY merge_policy (absent reads as review)", check(ticket("")), 0);
+    assertEq("validate-ticket rejects a merge_policy outside the enum", check(ticket(" atuo")), 2);
+  } finally { cleanup(dir); }
+
   assertEq("validate-ticket rejects nested todo/<user>/archive/", invoke(`.workaholic/tickets/todo/a-qmu-jp/archive/b/${TS}-x.md`), 2);
 }
 
@@ -5490,6 +5529,24 @@ function testValidateMission() {
     assertEq("validate-mission rejects an authorized mission with comment-only Experience", invoke(), 2);
     writeFileSync(join(dir, rel), mission({ ...full, acc: "\n" }));
     assertEq("validate-mission rejects an authorized 0/0 mission", invoke(), 2);
+
+    // THE TRIGGER MOVED (I2): the floor now fires on `status: approved`, and a
+    // `draft` never fires it at all -- that is the scaffold moment, and every
+    // interactively created mission starts there. The legacy stamp stays a trigger
+    // only so a pre-unification plugin copy's write is still validated.
+    const approved = ({ st = "approved", assignee = "assignee: a@qmu.jp", exp = "\nUsers see the thing happen.\n", acc = "\n- [ ] One\n" } = {}) =>
+      `---\ntype: Mission\ntitle: X\nslug: m-x\nstatus: ${st}\n${assignee}\nmerge_policy: review\n---\n\n## Experience\n${exp}\n## Acceptance\n${acc}\n## Changelog\n`;
+    writeFileSync(join(dir, rel), approved());
+    assertEq("validate-mission accepts a complete approved mission", invoke(), 0);
+    writeFileSync(join(dir, rel), approved({ exp: "\n<!-- fill me -->\n" }));
+    assertEq("validate-mission rejects an approved mission with comment-only Experience", invoke(), 2);
+    writeFileSync(join(dir, rel), approved({ acc: "\n" }));
+    assertEq("validate-mission rejects an approved 0/0 mission", invoke(), 2);
+    writeFileSync(join(dir, rel), approved({ assignee: "assignee:" }));
+    assertEq("validate-mission rejects an approved mission with no owner", invoke(), 2);
+    // A DRAFT in exactly the state that would be refused when approved: it passes.
+    writeFileSync(join(dir, rel), approved({ st: "draft", assignee: "assignee:", exp: "\n<!-- fill me -->\n", acc: "\n" }));
+    assertEq("validate-mission never fires the floor on a draft", invoke(), 0);
 
     // archive/ is history: never retro-blocked, however broken.
     const arel = ".workaholic/missions/archive/m-old/mission.md";
@@ -6018,7 +6075,9 @@ mission: ${slug}
     const m = j.missions[0];
     assertEq("scan-window mission slug/progress",
       { slug: m.slug, checked: m.checked, total: m.total, status: m.status },
-      { slug, checked: 1, total: 2, status: "active" });
+      // The scan touches the mission scripts, so the legacy `active` fixture has
+      // migrated onto the status axis by the time it is read back.
+      { slug, checked: 1, total: 2, status: "draft" });
 
     // (b) a matching 'ticket archived' window event exists for the merged ticket.
     assertTrue("scan-window mission window_events has the archived event",
@@ -7329,8 +7388,10 @@ function testProposeBatch() {
     const dpath = join(dir, ".workaholic/missions/active/build-x/mission.md");
     assertTrue("the draft lands in the active area", existsSync(dpath));
     const body = readFileSync(dpath, "utf8");
-    assertTrue("the draft is status: draft, unowned, unauthorized",
-      /^status: draft$/m.test(body) && /^assignees: \[\]$/m.test(body) && /^drive_authorized:\s*$/m.test(body), body.split("\n").slice(0, 16).join("\n"));
+    assertTrue("the draft is status: draft, unowned, with no recorded merge policy",
+      /^status: draft$/m.test(body) && /^assignees: \[\]$/m.test(body) && /^merge_policy:\s*$/m.test(body), body.split("\n").slice(0, 16).join("\n"));
+    assertTrue("the draft never writes the retired drive_authorized key",
+      !/drive_authorized/.test(body), body.split("\n").slice(0, 16).join("\n"));
     assertEq("read-feedback-relation reads the refs back",
       run(dir, `${POSIX_SH} ${SCRIPTS.proposeReadFeedbackRelation} ${dpath}`).stdout.split("\n").filter(Boolean),
       ["20260728000002-build-x.md", "20260728000003-note.md"]);
@@ -7376,6 +7437,141 @@ function testNotifySlack() {
       ["curl_failed"].includes(JSON.parse(r.stdout).reason) || JSON.parse(r.stdout).reason.startsWith("http_"), r.stdout);
     assertTrue("the token never leaks into stdout/stderr",
       !r.stdout.includes("supersecret") && !r.stderr.includes("supersecret"), r.stdout + r.stderr);
+  } finally { cleanup(dir); }
+}
+
+// ---------- the ONE mission status axis: migration, approve.sh, re-keyed readers ----------
+// The lifecycle was two fields that could disagree -- `status` plus a
+// `drive_authorized` boolean -- so "approved" had two spellings and a hand-edit
+// could produce a stamped-but-archived mission. I2 unifies them: `status:
+// draft | approved | achieved | abandoned | carried`, with approve.sh the only path
+// into `approved`. These are the assertions that pin the transform, the floor, and
+// the legacy-tolerance window that keeps an untouched checkout drivable.
+function testMissionStatusAxis() {
+  const dir = makeRepo("main");
+  try {
+    const A = "test@example.com";
+    const write = (slug, fm, body) => {
+      const d = join(dir, `.workaholic/missions/active/${slug}`);
+      mkdirSync(d, { recursive: true });
+      const abs = join(d, "mission.md");
+      writeFileSync(abs, `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\n${fm}---\n${body}`);
+      return abs;
+    };
+    const PLAN = "\n## Experience\n\nThe list reorders without a reload.\n\n## Acceptance\n\n- [ ] One (#t.md)\n\n## Changelog\n";
+    const read = (slug, area = "active") =>
+      readFileSync(join(dir, `.workaholic/missions/${area}/${slug}/mission.md`), "utf8");
+
+    // --- the living migration ------------------------------------------------
+    write("stamped", `status: active\nassignees: [${A}]\ndrive_authorized: true\n`, PLAN);
+    write("bare", `status: active\nassignees: [${A}]\ndrive_authorized:\n`, PLAN);
+    const arch = join(dir, ".workaholic/missions/archive/ended");
+    mkdirSync(arch, { recursive: true });
+    writeFileSync(join(arch, "mission.md"), `---\ntype: Mission\ntitle: ended\nslug: ended\nstatus: achieved\ndrive_authorized: true\n---\n${PLAN}`);
+
+    run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`);   // any mission-script touch migrates
+    assertTrue("legacy active + stamp migrates to approved", /^status: approved$/m.test(read("stamped")), read("stamped"));
+    assertTrue("legacy active without the stamp migrates to draft", /^status: draft$/m.test(read("bare")), read("bare"));
+    assertTrue("the retired drive_authorized key line is dropped on rewrite",
+      !/drive_authorized/.test(read("stamped")) && !/drive_authorized/.test(read("bare")), read("stamped"));
+    assertTrue("an archived mission is never rewritten (history is immutable)",
+      /^status: achieved$/m.test(read("ended", "archive")) && /drive_authorized: true/.test(read("ended", "archive")),
+      read("ended", "archive"));
+
+    execSync(`git add -A && git commit -q -m migrated`, { cwd: dir });
+    run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`);
+    assertEq("the status migration is idempotent",
+      execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim(), "");
+
+    // --- approve.sh: the floor, checked BEFORE anything is written ------------
+    const noExp = write("no-experience", `status: draft\nmerge_policy:\nassignees: [${A}]\n`,
+      "\n## Experience\n\n<!-- fill me -->\n\n## Acceptance\n\n- [ ] One\n\n## Changelog\n");
+    let r = run(dir, `${POSIX_SH} ${SCRIPTS.missionApprove} no-experience review`);
+    assertEq("approve refuses a comment-only Experience",
+      { status: r.status, reason: JSON.parse(r.stderr).reason }, { status: 1, reason: "no_experience" });
+    assertTrue("a refused approval leaves the mission untouched",
+      /^status: draft$/m.test(readFileSync(noExp, "utf8")), readFileSync(noExp, "utf8"));
+
+    write("no-plan", `status: draft\nmerge_policy:\nassignees: [${A}]\n`,
+      "\n## Experience\n\nIt works.\n\n## Acceptance\n\n## Changelog\n");
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.missionApprove} no-plan review`);
+    assertEq("approve refuses a 0/0 mission (no plan to answer for)",
+      { status: r.status, reason: JSON.parse(r.stderr).reason }, { status: 1, reason: "no_plan" });
+
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.missionApprove} bare sometimes`);
+    assertEq("approve refuses a merge policy outside the enum",
+      { status: r.status, reason: JSON.parse(r.stderr).reason }, { status: 1, reason: "invalid_merge_policy" });
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.missionApprove} bare`);
+    assertEq("approve requires the merge policy — there is no default",
+      { status: r.status, reason: JSON.parse(r.stderr).reason }, { status: 1, reason: "missing_args" });
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.missionApprove} ended achieved`);
+    assertEq("approve refuses an ended mission before looking at the policy",
+      { status: r.status, reason: JSON.parse(r.stderr).reason }, { status: 1, reason: "invalid_merge_policy" });
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.missionApprove} ended review`);
+    assertEq("approve refuses an ended mission (the archive is immutable)",
+      { status: r.status, reason: JSON.parse(r.stderr).reason }, { status: 1, reason: "not_in_flight" });
+
+    // --- approve.sh: the happy path -----------------------------------------
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.missionApprove} bare auto 2026-07-29`);
+    const ok = JSON.parse(r.stdout);
+    assertEq("approve flips a draft to approved and records the policy",
+      { approved: ok.approved, status: ok.status, policy: ok.merge_policy, reason: ok.reason },
+      { approved: true, status: "approved", policy: "auto", reason: "" });
+    const bareBody = read("bare");
+    assertTrue("the approved mission carries merge_policy in its frontmatter",
+      /^merge_policy: auto$/m.test(bareBody), bareBody);
+    assertTrue("the approval is recorded as history, not just state",
+      bareBody.includes("- 2026-07-29 — mission approved — merge_policy: auto — mission.md"), bareBody);
+
+    // Idempotent: re-approving with the same policy changes nothing.
+    execSync(`git add -A && git commit -q -m approved`, { cwd: dir });
+    const again = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionApprove} bare auto 2026-07-30`).stdout);
+    assertEq("re-approving with the same policy is a no-op success",
+      { approved: again.approved, reason: again.reason }, { approved: true, reason: "already_approved" });
+    assertEq("the no-op writes nothing",
+      execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim(), "");
+
+    // A genuine policy CHANGE is a change, and it records its own line.
+    const changed = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionApprove} bare review 2026-07-31`).stdout);
+    assertEq("re-approving with a different policy records it", changed.merge_policy, "review");
+    assertTrue("the policy change is its own changelog line",
+      read("bare").includes("- 2026-07-31 — mission approved — merge_policy: review — mission.md"), read("bare"));
+
+    // Unowned mission: the approver becomes the owner (decision B4).
+    write("unowned", "status: draft\nmerge_policy:\nassignees: []\nassignee:\n", PLAN);
+    const seeded = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionApprove} unowned review`).stdout);
+    assertEq("approving an unowned mission seeds the approver as owner", seeded.owners, [A]);
+    assertTrue("the seeded owner is written to assignees",
+      new RegExp(`^assignees: \\[${A}\\]$`, "m").test(read("unowned")), read("unowned"));
+
+    // --- drive-authorized.sh reads the axis, and still honors the legacy shape --
+    const ticket = (name, slug) => {
+      const rel = `.workaholic/tickets/todo/a-qmu-jp/${name}`;
+      const abs = join(dir, rel);
+      mkdirSync(dirname(abs), { recursive: true });
+      writeFileSync(abs, `---\ncreated_at: 2026-07-29T11:00:00+09:00\nauthor: a@qmu.jp\ntype: enhancement\nlayer: [Domain]\neffort:\ncommit_hash:\ncategory:\ndepends_on:\nmission: ${slug}\n---\n\n# T\n\n## Policies\n\n- x\n\n## Quality Gate\n\ng\n`);
+      return rel;
+    };
+    const ask = (rel) => JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.driveAuthorized} ${rel}`).stdout);
+    assertEq("a ticket whose mission is approved is authorized",
+      ask(ticket("20260729110000-a.md", "unowned")).authorized, true);
+    assertEq("a ticket whose mission is still a draft is not authorized",
+      { a: ask(ticket("20260729110001-b.md", "no-plan")).authorized, r: ask(ticket("20260729110001-b.md", "no-plan")).reason },
+      { a: false, r: "not_authorized" });
+
+    // The legacy shape, read from a checkout the migration has NOT touched: the
+    // resolver derives the mission root from the TICKET, so a mission.md under a
+    // sibling tree is read as-is. This is the transition window that keeps an
+    // in-flight overnight run from losing its authorization mid-drive.
+    const other = join(dir, "other/.workaholic/missions/active/legacy");
+    mkdirSync(other, { recursive: true });
+    writeFileSync(join(other, "mission.md"),
+      `---\ntype: Mission\ntitle: legacy\nslug: legacy\nstatus: active\nassignees: [${A}]\ndrive_authorized: true\n---\n${PLAN}`);
+    const otherTicket = "other/.workaholic/tickets/todo/a-qmu-jp/20260729110002-c.md";
+    mkdirSync(dirname(join(dir, otherTicket)), { recursive: true });
+    writeFileSync(join(dir, otherTicket), `---\ncreated_at: 2026-07-29T11:00:02+09:00\nauthor: a@qmu.jp\ntype: enhancement\nlayer: [Domain]\neffort:\ncommit_hash:\ncategory:\ndepends_on:\nmission: legacy\n---\n\n# T\n\n## Policies\n\n- x\n\n## Quality Gate\n\ng\n`);
+    assertEq("a legacy drive_authorized stamp still authorizes during the transition window",
+      ask(otherTicket).authorized, true);
   } finally { cleanup(dir); }
 }
 
@@ -7428,6 +7624,7 @@ const tests = [
   ["mission/gate.sh resolves worktree ports", testMissionGateWorktreePorts],
   ["mission creation interrogation protocol", testMissionInterrogationProtocol],
   ["mission/drive-authorized.sh (approval relocation)", testDriveAuthorized],
+  ["mission status axis (migration + approve.sh + re-keyed readers)", testMissionStatusAxis],
   ["mission resolution follows the ticket, not the cwd", testMissionResolutionFollowsTicket],
   ["drive mints tickets for mid-run problems", testDriveMintsTicketsForMidrunProblems],
   ["mission position report at handoffs", testMissionPositionReport],

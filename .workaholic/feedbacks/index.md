@@ -283,4 +283,8 @@
 * [Every other long skill still has the old shape, and nothing points them at the new one](20260730190749-every-other-long-skill-still-has.md)
 * [The mission skill is still 380 lines, well above the guideline it was measured against](20260730190749-the-mission-skill-is-still-380.md)
 * [The new link check is deliberately narrow, and the obvious "improvement" would break it](20260730190749-the-new-link-check-is-deliberately.md)
+* [An empty artifact list is now anomalous and still renders as `[]`](20260730194751-an-empty-artifact-list-is-now.md)
+* [`queue-size.sh` walks both ticket areas per mission, per survey](20260730194751-queue-size-sh-walks-both-ticket.md)
+* [The pathological mission is still approved, and only the survey now declines it](20260730194751-the-pathological-mission-is-still-approved.md)
+* [The scan cost grew by one diff per claim, on the five-minute path](20260730194751-the-scan-cost-grew-by-one.md)
 <!-- okf:generated:end -->

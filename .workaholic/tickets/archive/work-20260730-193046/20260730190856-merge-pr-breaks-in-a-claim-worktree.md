@@ -3,12 +3,13 @@ created_at: 2026-07-30T19:08:56+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Domain, Infrastructure]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260730-193046
 ---
 
 # merge-pr.sh fails inside a claim worktree after the merge has landed, and extract-deferred-concerns.sh then pushes the concerns to a dead branch
@@ -108,3 +109,69 @@ Both are one causal chain, and the chain is on `/drive`'s unattended `auto` path
 - **`pushed: true` was not a lie, and that is the lesson.** The push succeeded; the destination was wrong. A boolean that answers "did the network call work" reads as "did the knowledge arrive". Naming the destination is cheaper than making the caller infer it.
 - **The teardown depends on where the checkout lands.** `cleanup-mission-worktree.sh` must run from the primary tree (git cannot remove the worktree you are standing in), so whichever option step 2 picks, `/drive` §6's teardown still needs a defined cwd afterwards — state it wherever the ruling is recorded.
 - **Consider whether `commit-release-note.sh` shares the assumption.** It pushes to the current branch, which is correct pre-merge (the note must ride into the merge). Confirm it is genuinely pre-merge in every path before leaving it alone.
+
+## Final Report
+
+Development completed as planned. `merge-pr.sh` now separates the merge's outcome from the
+bookkeeping's: it emits its JSON and exits 0 whenever `gh pr merge` succeeded, reporting
+the post-merge base checkout as `checked_out` plus a `checkout_reason`
+(`base_checked_out_elsewhere` / `checkout_failed` / `pull_failed`), and it skips the
+checkout outright when another worktree holds the base — the normal `/drive` layout, not
+an error. `extract-deferred-concerns.sh` takes the base explicitly, reports the
+`destination` it pushed to, and when it is not already on the base it extracts and
+publishes **through a publish tree**, which also makes its dedup scan read the base's
+records rather than the branch's. The step-2 ruling (the checkout stays best-effort and is
+never load-bearing) is recorded in `ship/SKILL.md` step 6, and step 8 now says to pass the
+base and read `destination`.
+
+Verification: suite green at **1505 passed / 0 failed** with two new cases. The
+coverage gap the ticket named is closed without touching `gh`:
+`testShipWorksFromAClaimWorktree` builds a real linked worktree with the primary tree
+holding `main`, proves a bare checkout of the base genuinely fails there (the original
+defect), then runs the extraction from that worktree and asserts the record lands on
+`origin/main`, is **absent** from the claim branch, leaves the claim worktree clean, tears
+the publish tree down, and is idempotent on a second run.
+`testShipExtractionOnBaseIsDirect` pins that the on-base path stays direct with no publish
+tree involved. `posix-lint` conforming; `build.mjs` / `verify.mjs` /
+`validate-metadata.mjs` clean; `layout-doctor` conforming.
+
+Step 5 (recover the strays): a scan of every `Add deferred concerns from PR #…` commit in
+the repository found **no remaining strays** — all 21 are reachable from `origin/main`.
+PR #108's four records reached main through the by-hand recovery commit `f4c6f15d` before
+this work began, which is why its extraction commit is not among them.
+
+### Discovered Insights
+
+- **Insight**: The publish tree turned out to be the right answer for a reason the ticket
+  did not anticipate. Its step 3 offered "take the target branch as an argument and refuse
+  to push anywhere else" as the simpler option — but that cannot work here: after the
+  merge, `origin/main` contains a merge commit that is *not* an ancestor of the claim
+  branch's HEAD, so `git push origin HEAD:main` is correctly rejected non-fast-forward.
+  The only way to write to the base from a merged branch's checkout is a checkout **of the
+  base**, which is precisely what a publish tree is.
+  **Context**: The two options were not equivalent-but-different; one was impossible. Worth
+  knowing before the next script needs to write to the base from elsewhere.
+
+- **Insight**: Routing by re-entering the same script inside the publish tree (guarded by
+  one env var) avoided restructuring the extractor at all — the Python half already uses
+  paths relative to cwd, so running it *in* the publish tree makes both its dedup scan and
+  its writes land there for free. The only thing that had to cross the boundary was the
+  story's absolute path.
+  **Context**: When a script is already cwd-relative, changing *where it runs* is cheaper
+  and less risky than teaching it about a second root.
+
+- **Insight**: The re-entry initially skipped silently, and the cause was ordering, not
+  logic: the pre-existing `if [ ! -f "$story_file" ]` check sat *above* the point where the
+  re-entered run learns the story's real location, so it looked for the story inside the
+  publish tree and reported `no_story_file`. The fix was to resolve the override
+  immediately after `story_file` is assigned.
+  **Context**: When adding a parameter that changes what an early guard tests, the
+  parameter has to be resolved before that guard — not merely before its first use.
+
+- **Insight**: One test assertion was wrong rather than the code: the concern's filename
+  slug truncates, so matching the full title (`…-reach-the-base`) failed against the real
+  `…-reach-the`. It looked exactly like the destination bug it was written to catch, which
+  is the hazard — an assertion that fails for a cosmetic reason in the same place a real
+  defect would.
+  **Context**: Match a stable prefix, not a full generated name, when the generator is
+  allowed to truncate.

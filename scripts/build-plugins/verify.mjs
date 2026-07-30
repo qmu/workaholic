@@ -4,7 +4,7 @@
 // ${CLAUDE_PLUGIN_ROOT} token survives. Run after build.mjs.
 
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generatePolicyIndex, POLICY_INDEX_REL } from "./policy-index.mjs";
 import { generateOkfBundle, OKF_BUNDLE_REL } from "./okf.mjs";
@@ -15,6 +15,9 @@ const OUTPUTS_ROOT = join(REPO_ROOT, "outputs");
 const SOURCE_SKILLS = join(REPO_ROOT, "plugins/workaholic/skills");
 const read = (p) => readFileSync(p, "utf8");
 
+// Relative markdown links inside the bundle: [text](path.md) / [text](dir/path.md).
+// Only relative ones matter -- an http(s) link is not a bundle-containment question.
+const MD_LINK = /\]\(([^)\s]+\.md(?:#[^)\s]*)?)\)/g;
 // SKILL.md relative refs: "<x>/scripts/<f>.sh"
 const MD_REF = /\b([a-z-]+\/scripts\/[a-z._-]+\.sh)\b/g;
 // script SCRIPT_DIR refs: ${SCRIPT_DIR}/<rest>.sh  (intra-dir or ../../<x>/scripts/<f>)
@@ -55,6 +58,37 @@ for (const [target, skillRoot] of skillRoots) {
   for (const m of md.matchAll(MD_REF)) {
     refs++;
     check(`${target} SKILL.md`, existsSync(join(skillRoot, m[1])), m[1]);
+  }
+
+  // 2b. every intra-bundle markdown link resolves. A SKILL.md that relocates detail
+  // into a companion reference/ file is only self-contained if that file actually
+  // shipped -- and "every script reference resolved" says nothing about a doc link,
+  // so without this a bundle whose SKILL.md links 404 would verify clean. Checked
+  // both ways: from the SKILL.md, and from each reference file back.
+  const mdFiles = [join(skillRoot, "SKILL.md")];
+  const refRoot = join(skillRoot, "reference");
+  if (existsSync(refRoot)) {
+    for (const e of readdirSync(refRoot)) {
+      const fp = join(refRoot, e);
+      if (statSync(fp).isFile() && e.endsWith(".md")) mdFiles.push(fp);
+    }
+  }
+  //
+  // DELIBERATELY NARROW: only links into or out of a `reference/` dir are checked.
+  // A skill's prose is full of relative-looking paths that are NOT bundle files --
+  // runtime artifact paths in the consuming project (`.workaholic/stories/<branch>.md`)
+  // and `<placeholder>` templates. Checking every link would flag those forever, and a
+  // containment check that cries wolf gets deleted. The relocation seam is the thing
+  // that can silently break, so that is what this pins.
+  for (const fp of mdFiles) {
+    for (const m of read(fp).matchAll(MD_LINK)) {
+      const dest = m[1].split("#")[0];
+      if (!dest || /^[a-z]+:/.test(dest)) continue;   // external / anchor-only
+      const isBundleLink = dest.includes("reference/") || /(^|\/)SKILL\.md$/.test(dest);
+      if (!isBundleLink) continue;
+      refs++;
+      check(`${target} ${basename(fp)} link`, existsSync(resolve(dirname(fp), dest)), dest);
+    }
   }
 
   // 3. script-internal ${SCRIPT_DIR}/... refs resolve from each script's own dir

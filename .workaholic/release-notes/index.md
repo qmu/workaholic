@@ -82,4 +82,5 @@
 * [v1.0.109 — Artifacts publish to main; /drive surveys a current main](work-20260730-171125.md)
 * [v1.0.110 — The mission skill loads lighter](work-20260730-180928.md)
 * [v1.0.111 — /drive stops offering work it cannot or should not take](work-20260730-191139.md)
+* [v1.0.112 — The ship path works from a claim worktree](work-20260730-193046.md)
 <!-- okf:generated:end -->

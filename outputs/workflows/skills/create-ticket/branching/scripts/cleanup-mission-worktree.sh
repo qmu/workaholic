@@ -1,9 +1,18 @@
 #!/bin/sh -eu
-# Remove a mission worktree (.worktrees/<slug>/) and its current branch. Unlike
+# Remove a CLAIM worktree (.worktrees/<unit-id>/) and its current branch. Unlike
 # cleanup-worktree.sh (which force-removes a merged branch worktree), this NEVER
 # discards uncommitted work: it refuses a dirty worktree and reports it, so a
-# /mission close cannot silently destroy unshipped changes. Idempotent when the
-# worktree is already gone.
+# teardown cannot silently destroy unshipped changes. Idempotent when the worktree
+# is already gone.
+#
+# ITS CALLERS ARE THE CLAIM PATHS: ship (after an auto unit merges) and
+# release-claim.sh (a unit deliberately dropped). `/mission close` does NOT call it --
+# closing is a statement about the record, and a lingering worktree is an in-flight or
+# stale claim for a human to decide about (docs/loop-engineering-workflow.md I6).
+#
+# The name says "mission" for history: a mission slug is one kind of unit id, and this
+# script is claim-side only. See open-publish-tree.sh for the OTHER kind of extra
+# checkout -- a publish tree, which this script must never be pointed at.
 #
 # The branch is deleted ONLY when it matches the sanctioned ephemeral pattern
 # work-YYYYMMDD-HHMMSS. Any other name is kept and reported: a /ship run inside

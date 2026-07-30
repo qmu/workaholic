@@ -116,7 +116,7 @@ Once tickets are queued, `/drive` groups them into PR-units, claims each on its 
 
 Everything converges on the same unit of work — a ticket. The shorthand: **sources fill the queue, one executor drains it.**
 
-- **Sources** write tickets into `todo/`: `/ticket` (you, with discovery) and `/mission` (a whole ordered ticket set emitted at once, plus delta tickets on replan). `/propose` sits upstream of both, turning newly merged feedback into **draft** missions a human then approves.
+- **Sources** write tickets into `todo/`: `/ticket` (you, with discovery) and `/mission` (a whole ordered ticket set emitted at once, plus delta tickets on replan). Both publish straight to `main` from whatever branch you are on, and neither creates a branch or a worktree. `/propose` sits upstream of both, turning newly merged feedback into **draft** missions a human then approves.
 - **The executor** drains `todo/ → archive/`: **`/drive`**, and there is exactly one of it. It takes work in PR-units, drives each in its own claim worktree, opens the PR, and routes it by merge policy — the same run whether you typed it or a cron tick did. Approval is not asked per ticket; it was already given where the work was decided (a mission's approval, or the ticket's own merge policy at creation), and the qualitative review relocates to the PR.
 
 **Where the design conversation went.** Until 2026-07-28 this section described `/trip`, an Agent Teams session in which a Planner, an Architect, and a Constructor designed a concept together, decomposed it into tickets, and drove them. That command, along with `/monitor` (parallel mission execution) and `/carry` (handing in-progress work to a fresh session), has been retired and its ideas absorbed:

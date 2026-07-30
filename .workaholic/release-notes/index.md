@@ -79,4 +79,5 @@
 * [Merge concerns into feedback and add the proposal loop](work-20260728-210259.md)
 * [Collapse execution to one autonomous /drive with pushed-branch claims etc](work-20260728-221717.md)
 * [Rename the feedback command to /fb and spec publishing artifacts to main etc](work-20260729-193859.md)
+* [v1.0.109 — Artifacts publish to main; /drive surveys a current main](work-20260730-171125.md)
 <!-- okf:generated:end -->

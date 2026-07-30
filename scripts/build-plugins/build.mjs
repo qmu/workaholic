@@ -78,6 +78,18 @@ function computeClosure(target) {
     const sources = [];
     const md = join(skillDir, "SKILL.md");
     if (existsSync(md)) sources.push(readText(md));
+    // A companion reference/ file documents the same script paths the SKILL.md does,
+    // so a cross-skill reference can appear there too and must pull that skill into
+    // the closure -- otherwise the built bundle would rewrite the path and copy no
+    // scripts for it, and neither the leftover-token scan nor verify.mjs's SKILL.md
+    // check would notice.
+    const refSrc = join(skillDir, "reference");
+    if (existsSync(refSrc)) {
+      for (const f of readdirSync(refSrc)) {
+        const fp = join(refSrc, f);
+        if (statSync(fp).isFile()) sources.push(readText(fp));
+      }
+    }
     const scriptsDir = join(skillDir, "scripts");
     if (existsSync(scriptsDir)) {
       for (const f of readdirSync(scriptsDir)) {
@@ -111,6 +123,25 @@ function buildTarget(target) {
   // SKILL.md (rewrite plugin-root script refs to skill-root-relative)
   const md = readText(join(srcDir, "SKILL.md")).replace(SKILL_REF, "$1/scripts/");
   writeFileSync(join(outDir, "SKILL.md"), md);
+
+  // A target skill's OWN companion markdown -- a `reference/` dir holding detail the
+  // SKILL.md links to rather than carries (see mission/reference/). Without this the
+  // built bundle would ship a SKILL.md whose links 404, which is not self-contained
+  // in any useful sense even though every SCRIPT reference resolved. Copied with the
+  // same SKILL_REF rewrite, because a reference file documents the same script paths
+  // the skill does; `verify.mjs` asserts the links resolve in the built bundle.
+  const refDir = join(srcDir, "reference");
+  if (existsSync(refDir)) {
+    const dRef = join(outDir, "reference");
+    cpSync(refDir, dRef, { recursive: true });
+    for (const f of readdirSync(dRef)) {
+      const fp = join(dRef, f);
+      if (!statSync(fp).isFile()) continue;
+      // `../` because a reference file sits one level BELOW the skill root that
+      // SKILL.md's rewritten `<x>/scripts/` form is relative to.
+      writeFileSync(fp, readText(fp).replace(SKILL_REF, "../$1/scripts/"));
+    }
+  }
 
   // Copy each closure skill's scripts/ and rewrite cross-skill refs inside them.
   for (const skill of closure) {
@@ -206,9 +237,17 @@ function assembleWorkflowsPlugin(builtTargets) {
   // workflow skills come from scratch (self-contained); extras are pure prose from source.
   for (const name of builtTargets) cpSync(join(SCRATCH, name), join(skillsOut, name), { recursive: true });
   for (const name of EXTRA_SKILLS) cpSync(join(CORE_SKILLS, name), join(skillsOut, name), { recursive: true });
-  // publicize every shipped SKILL.md
+  // publicize every shipped SKILL.md, and every companion reference/ file beside it:
+  // a reference file carries the same `workaholic:` namespace prefixes and
+  // Claude-mechanism wording, and it ships to the same non-Claude agents.
   for (const name of [...builtTargets, ...EXTRA_SKILLS]) {
     publicizeSkillMd(join(skillsOut, name, "SKILL.md"));
+    const refOut = join(skillsOut, name, "reference");
+    if (!existsSync(refOut)) continue;
+    for (const f of readdirSync(refOut)) {
+      const fp = join(refOut, f);
+      if (statSync(fp).isFile() && f.endsWith(".md")) publicizeSkillMd(fp);
+    }
   }
 
   const manifest = {

@@ -3,12 +3,13 @@ created_at: 2026-07-29T21:15:02+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260730-180928
 ---
 
 # Shrink the Mission Skill File
@@ -72,3 +73,71 @@ No prior ticket in `.workaholic/tickets/archive/` specifically shrank a skill fi
 - This is a **documentation/structure-only** change; no script behavior, schema shape, or workflow logic should change as a side effect. If the review turns up a genuine inconsistency in the current file while shrinking it, record it as a `kind: concern` feedback record rather than silently "fixing" scope beyond the shrink (`workaholic:feedback`).
 - `outputs/workflows/` is generated and CI-guarded (`Outputs Freshness`) — any restructuring of `plugins/workaholic/skills/mission/` must be followed by a rebuild in the same change, or CI will fail the diff.
 - The six-pillar/28-skill count and the "third-longest" framing in the originating issue were measured 2026-07-29; if this ticket is picked up much later, re-measure rather than trusting the stale figures.
+
+## Final Report
+
+Development completed as planned. `plugins/workaholic/skills/mission/SKILL.md` went from
+**562 to 380 lines (−32%)** with nothing deleted: the per-script contracts moved verbatim to
+`reference/scripts.md` (144 lines) and the six schema subsections to `reference/schema.md`
+(93 lines), each linked from an index that stayed inline. The three `####` closing-doctrine
+subsections that had accreted *inside* `## Scripts` were promoted to their own `## Ending a
+mission` section, and the body-section list was lifted out of `### Duration`, where it had been
+misfiled.
+
+Verification: `wc -l` 562 → 380. Suite green at **1360 passed / 0 failed**, including a new
+`testSkillReferenceFilesShip` that asserts over the committed artifacts that every source
+reference file ships, carries no `${CLAUDE_PLUGIN_ROOT}`, has its script paths rewritten with the
+extra `../`, resolves them in the bundle, is publicized, and is actually linked from `SKILL.md`.
+`build.mjs` / `verify.mjs` / `validate-metadata.mjs` clean with no residual `outputs/` diff;
+`posix-lint` conforming; `layout-doctor` `conforming: true`. Fact preservation was checked
+mechanically rather than by eye: every substantive line (>40 chars) of the original file was
+diffed against the union of the new three, leaving four differences — two intentional heading-level
+promotions, one line I had edited, and one genuinely dropped bullet, which the check caught and
+which was restored.
+
+### Discovered Insights
+
+- **Insight**: The build did **not** carry a companion file, and the ticket's step 6 was right to
+  ask. `build.mjs` copies a target skill's `SKILL.md` plus each closure skill's `scripts/` and
+  nothing else, so relocating content into `reference/` would have shipped a public bundle whose
+  `SKILL.md` links 404 — "self-contained" would have been true of every *script* reference and
+  false of the skill. Three seams needed extending, not one: the copy (with an extra `../` on the
+  rewrite, because a reference file sits one level below the skill root the `SKILL.md` form is
+  relative to), `publicizeSkillMd` (a reference file carries the same `workaholic:` prefixes and
+  ships to the same non-Claude agents), and `computeClosure` (a cross-skill reference appearing
+  only in a reference file must still pull that skill's `scripts/` in, or nothing would notice).
+  **Context**: "Self-contained" was implemented as "no unresolved script token". Relocation
+  introduces a second containment axis — doc links — and the guard had to grow to match.
+
+- **Insight**: The new link check immediately found a **pre-existing** broken link in the shipped
+  bundle: `mission/SKILL.md` linked to `../feedback/SKILL.md`, which resolves in the source tree
+  (sibling skill directories) but not in the bundle, where `feedback` appears only as
+  `mission/feedback/scripts/`. It had been 404-ing for every non-Claude consumer. Fixed by
+  referencing the skill by namespace (`workaholic:feedback`) as the surrounding prose already does.
+  **Context**: A source tree and a bundled tree have different shapes, so a relative link that
+  works in one is not evidence about the other. This is the first check that could tell them apart.
+
+- **Insight**: The link check had to be **narrowed to earn its place.** Checking every relative
+  `.md` link flagged six paths that are not bundle files at all — runtime artifact paths in the
+  consuming project (`.workaholic/stories/<branch-name>.md`) and `<placeholder>` templates. It now
+  checks only links into or out of a `reference/` dir, which is exactly the seam that can silently
+  break. A containment check that cries wolf on correct prose gets deleted, and then it guards
+  nothing.
+  **Context**: The narrowing is written into the code as a comment, because the obvious
+  "improvement" is to broaden it back.
+
+- **Insight**: Mechanical fact-preservation beats reading. The relocation was done by extracting
+  line spans verbatim rather than re-typing, which preserves wording by construction — but an
+  off-by-three in one slice still silently dropped the `## Goal` bullet. A set-difference of every
+  substantive original line against the union of the new files found it in one pass; no amount of
+  re-reading 562 lines reliably would have.
+  **Context**: The ticket's gate says a reviewer must confirm no fact was dropped because a line
+  count and a test suite cannot. A line-level diff can, and it is cheap.
+
+- **Insight**: Two of the file's sections were **misfiled**, and shrinking is what exposed it. The
+  closing doctrine (worktree lifecycle, outcomes, reorganize-and-carry) sat at `####` depth inside
+  `## Scripts` because it had been appended after `close.sh`'s entry; the body-section list sat at
+  the end of `### Duration`. Neither is a behaviour change to fix, but both were invisible while
+  the file was too long to hold in view.
+  **Context**: A structural refactor's real yield is often the misplacement it surfaces, not the
+  line count.

@@ -80,4 +80,5 @@
 * [Collapse execution to one autonomous /drive with pushed-branch claims etc](work-20260728-221717.md)
 * [Rename the feedback command to /fb and spec publishing artifacts to main etc](work-20260729-193859.md)
 * [v1.0.109 — Artifacts publish to main; /drive surveys a current main](work-20260730-171125.md)
+* [v1.0.110 — The mission skill loads lighter](work-20260730-180928.md)
 <!-- okf:generated:end -->

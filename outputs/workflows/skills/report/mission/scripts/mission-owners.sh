@@ -2,7 +2,7 @@
 # Resolve who owns a mission — the ownership oracle every consumer reads through.
 #
 # Ownership is CARRIED ON THE MISSION (2026-07-28 — the loop-engineering
-# reorganization; see mission/SKILL.md's Ownership section and
+# reorganization; see mission/reference/schema.md's Ownership section and
 # docs/loop-engineering-workflow.md decisions B3/B4). A mission's own plural
 # `assignees:` is the primary source; the approver/creator is the default owner,
 # and an empty list means the mission is team-owned — unclaimed work, surfaced to

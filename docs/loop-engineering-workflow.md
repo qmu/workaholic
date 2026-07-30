@@ -142,6 +142,14 @@ Defaults decided without asking (veto anytime):
 | I8 | **Cross-agent compatibility is retained** (corrects the F3 default). The workflow skills — the unified `/drive` machinery included — keep shipping cross-agent through the generated `outputs/workflows` bundle; only the structurally Claude-native surfaces (hooks, commands, Agent-Teams remnants until I1 lands) stay Claude-only, as they always have. |
 | I9 | **H4 presupposes a private repository.** Customer-material intake is only enabled where the repository is private; the constraint is recorded next to the intake flow, and the release-scan/leak-denylist relationship is documented with it (a public repo disables the H4 path). |
 
+### Fifth round — publication to main (2026-07-30)
+
+| # | Ruling |
+| - | ------ |
+| J1 | **Artifact creation publishes to `main`; the claim is the only creator of a branch or a worktree.** This completes I6. `/ticket` cutting a `work-*` branch and `/mission` building `.worktrees/<slug>/` before anything is written are the surviving remnants of the pre-claim design, and they strand the artifact on a local unpushed ref that no other runner, machine, or fresh clone can see — the concrete failure `docs/drive-loop-runbook.md` §6 documents. `/propose` is the working proof that a source needs neither: it scaffolds into the main checkout, commits, pushes. Every source follows it. |
+| J2 | **The publish tree is the mechanism, and publication never depends on or disturbs the caller's checkout.** `/propose` can guard on "on `main`, clean tree, else abort" because it is a headless batch; `/ticket` and `/mission` cannot — a developer types them mid-work on a dirty branch, and aborting there would make the sources unusable exactly when they are most useful. So the artifact is written, committed, and pushed inside a dedicated, git-ignored **publish tree** (`.publish/`, on a fixed local `publish-main` branch, reset to `origin/main` on each open), and the caller's branch and uncommitted work are left byte-identical. A publish tree is **not** a claim worktree: it holds no unit, is never pushed as a branch, and is disposable at any moment. |
+| J3 | **Publishing to `main` is necessary but not sufficient — the executor must survey a current `main`.** `plan-units.sh` reads claims from git refs but artifacts from the local working tree, and nothing in `/drive` fast-forwards it. A runner whose `main` trails `origin/main` silently surveys yesterday's queue, which on a 5-minute tick looks healthy and does nothing. `/drive` fast-forwards before surveying (`sync-main.sh`), reports every reason it could not, and may emit `ok` only over a survey it knows was current. |
+
 ## 5. Strategy-layer removal — migration inventory
 
 Abolishing `strategies/` touches every ownership consumer. The single-reader

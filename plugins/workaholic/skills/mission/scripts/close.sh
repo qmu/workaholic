@@ -40,15 +40,17 @@
 # Without both, the archive shows a mission that stopped and a mission that started with
 # nothing joining them.
 #
-# THE WORKTREE IS NOT TOUCHED HERE, and that is not an omission: close.sh never managed
-# worktrees -- commands/mission.md tears the mission worktree down AFTER close.sh
-# succeeds. A carry deliberately does NOT hand its worktree to the successor. The
-# successor has a new slug, and .worktrees/<slug> is keyed 1:1 to the mission slug by
-# slug.sh; a successor living in the predecessor's directory silently SILENCES the
-# mission lens inside that very worktree (the lens reads a worktree whose basename names
-# no active mission as a /drive worktree and says nothing at all). The successor gets a
-# fresh worktree through the normal /mission flow instead; in-flight state and the port
-# are not carried.
+# THE WORKTREE IS NOT TOUCHED HERE, and NOTHING tears one down after this script either.
+# A worktree is claim-born and ship-torn (docs/loop-engineering-workflow.md I6): claim.sh
+# creates it, and ship or release-claim.sh removes it. One still standing at close time is
+# an in-flight or stale CLAIM, which list-claims.sh surfaces and a human decides about --
+# so closing a mission never doubles as a destructive action. A carry likewise does NOT
+# hand a worktree to the successor. The successor has a new slug, and .worktrees/<slug> is
+# keyed 1:1 to the unit slug by slug.sh; a successor living in the predecessor's directory
+# silently SILENCES the mission lens inside that very worktree (the lens reads a worktree
+# whose basename names no active mission as a /drive worktree and says nothing at all).
+# The successor gets its own worktree when it is CLAIMED; in-flight state and the port are
+# not carried.
 #
 # Idempotent: closing an already-archived mission with the same status is a
 # no-op ({closed: false, reason: "already_closed"}); the changelog append is

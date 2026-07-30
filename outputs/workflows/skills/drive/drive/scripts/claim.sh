@@ -16,7 +16,7 @@
 # Output: {"claimed": true, "unit": "...", "branch": "work-...", "worktree_path": "..."}
 #     or: {"claimed": false, "reason": "...", ...} on stderr with a non-zero exit.
 # Refusal reasons: already_claimed (names the holding branch and unit), no_origin,
-# origin_unreachable, artifact_missing, no_frontmatter, push_failed.
+# origin_unreachable, mission_missing, artifact_missing, no_frontmatter, push_failed.
 #
 # NEVER PROMPTS. It is the coordination step of an unattended runner.
 #
@@ -77,9 +77,14 @@ case "$kind" in
         unit="$1"
         . "${SCRIPT_DIR}/../../mission/scripts//lib/resolve.sh"
         mission_file=$(mission_resolve "${repo_root}/.workaholic" "$unit")
-        # A mission living in its own unmerged worktree has no mission.md in the main
-        # tree; that is normal and not an error -- the artifact is resolved again
-        # inside the worktree below, which is the checkout the stamp belongs to.
+        # A MISSING mission.md IS AN ERROR NOW (decision J1/J3). It used to be normal:
+        # a mission could live on an unmerged branch in its own worktree, so absence
+        # from the main tree said nothing. Missions are published to main, so absence
+        # means one of two real problems -- no such mission, or this checkout is behind
+        # origin/main (the freshness step in commands/drive.md exists to rule the second
+        # one out before claiming). Both are worth reporting; swallowing them would
+        # claim a unit whose plan the runner has never read.
+        [ -f "$mission_file" ] || fail "mission_missing" ', "unit": "'"${unit}"'", "resolved": "'"${mission_file}"'", "detail": "no mission.md at that path in this checkout -- either the slug is wrong or this checkout is behind the base; run branching/scripts/sync-main.sh"'
         case "$mission_file" in
             "${repo_root}/"*) artifact_rels="${mission_file#"${repo_root}/"}" ;;
         esac
@@ -151,9 +156,15 @@ abort_claim() {
 }
 
 # --- 5. Stamp the claim in the WORKTREE checkout ---------------------------
-# For a mission, resolve again against the worktree's own .workaholic: that is where
-# an unmerged mission.md actually lives, and the resolver takes an explicit root
-# precisely so this is not a cwd guess.
+# For a mission, resolve again against the WORKTREE's own .workaholic -- verified as
+# still load-bearing, for a reason unrelated to the retired stranded-artifact one.
+# The stamp belongs to the worktree checkout, and that checkout was cut from the
+# FETCHED origin/<base>, which the main tree need not match: a mission created or
+# archived on the base since this checkout last advanced resolves to a different path
+# there. Resolving against the checkout being written is therefore the correct
+# reading, not a duplicate of step 2 -- and the resolver takes an explicit root
+# precisely so this is not a cwd guess. Absence here is a genuine failure, which
+# abort_claim already reports.
 if [ "$kind" = "mission" ]; then
     artifact_rels=""
     wt_mission=$(mission_resolve "${worktree_path}/.workaholic" "$unit")

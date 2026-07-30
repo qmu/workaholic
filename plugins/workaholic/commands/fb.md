@@ -1,5 +1,5 @@
 ---
-name: feedback
+name: fb
 description: Register a piece of feedback — a design conclusion, an instruction, a concern, or customer material — as an immutable record in the repository's feedback stream.
 skills:
   - workaholic:feedback
@@ -9,7 +9,9 @@ skills:
 
 # Feedback
 
-**Notice:** When user input contains `/feedback` — whether "run /feedback", "record this as feedback", "register the conclusion", "この議論をフィードバックに残して", or similar — they likely want this command.
+**Notice:** When user input contains `/fb` — whether "run /fb", "record this as feedback", "register the conclusion", "この議論をフィードバックに残して", or similar — they likely want this command.
+
+**Why `/fb` and not `/feedback`:** Claude Code ships a **built-in `/feedback`** ("Send feedback to Anthropic or report a bug"), so the bare name is taken and typing it would send the developer's project context to Anthropic instead of registering a record — a silent wrong action, not a missing one. The command is therefore triggered as `/fb`; **only the trigger is abbreviated.** The artifact is still a *feedback*, the skill is still `workaholic:feedback`, the records still live in `.workaholic/feedbacks/` with `type: Feedback`, and every document still calls the corpus the **feedback stream**. Do not propagate `fb` into the vocabulary.
 
 **Plugin boundary — do not spelunk:** The skills this command needs are already loaded via its `skills:` frontmatter and resolved through `${CLAUDE_PLUGIN_ROOT}`. Invoke them by their loaded namespace (`workaholic:`); never search the filesystem for skill content, never read or run anything under `~/.claude/plugins/marketplaces/` or any other global install, and never guess a namespace — `drivin`, `trippin`, `core`, `standards`, and `work` are obsolete names long since merged into the single `workaholic` plugin. If a skill you expect is missing, ask the user which plugins are loaded; do not hunt for it on disk.
 

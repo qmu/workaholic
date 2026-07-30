@@ -9,6 +9,7 @@ category:
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260730-191139
 ---
 
 # The claim reader loses a batch unit's artifacts once its tickets are archived, so another runner can re-claim completed work

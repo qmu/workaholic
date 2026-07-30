@@ -9,6 +9,7 @@ category:
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260730-191139
 ---
 
 # "Has a plan" is measured by acceptance-item count, so a proposal sketch can be approved and offered as a drivable unit with an empty queue

@@ -34,6 +34,8 @@
 #           "no_owner"             unowned, and no git identity to seed the approver from
 #           "no_experience"        ## Experience is absent or comment-only
 #           "no_plan"              ## Acceptance holds no checklist item
+#           "no_tickets"           no ticket names this mission -- an acceptance sketch
+#                                  is not a plan (see the floor below)
 #           "no_changelog_section" the approval could not be recorded as history
 
 set -eu
@@ -130,6 +132,31 @@ if ! awk '
     END { exit(found ? 0 : 1) }
   ' "$FILE"; then
     printf '{"approved": false, "reason": "no_plan", "slug": "%s", "path": "%s"}\n' "$SLUG" "$FILE" >&2
+    exit 1
+fi
+
+# AND AT LEAST ONE TICKET MUST NAME THE MISSION. An acceptance list is not a plan:
+# /propose writes a provisional acceptance SKETCH, so the check above passes with zero
+# tickets, and approving that grants a runner authority over an empty queue (observed
+# 2026-07-30 -- an approved `merge_policy: auto` mission with `tickets: []` whose
+# acceptance block read "PROPOSED sketch -- not a plan"). Approval asserts that every
+# judgement call about THESE EXACT TICKETS was answered, which is vacuous when there
+# are none.
+#
+# The count is `total` (todo + archive), not `todo`: this floor asks "does a plan
+# exist", so a mission whose tickets are all driven is still approvable. Whether there
+# is anything to drive RIGHT NOW is the survey's question, and plan-units.sh asks it
+# against `todo` (reason `no_tickets`). Both read the one counter.
+#
+# The create flow is unaffected: commands/mission.md emits the whole ticket set BEFORE
+# calling this, in the same publish tree, so the tickets are present. A developer
+# approving a hand-authored mission in two sittings is routed through the approve
+# route's step 2 (interrogate to drive-ready first), which is exactly what emits them.
+QUEUE=$(sh "${SCRIPT_DIR}/queue-size.sh" "$SLUG" 2>/dev/null || true)
+QUEUE_TOTAL=$(printf '%s' "$QUEUE" | sed -n 's/.*"total": *\([0-9][0-9]*\).*/\1/p')
+[ -n "$QUEUE_TOTAL" ] || QUEUE_TOTAL=0
+if [ "$QUEUE_TOTAL" -eq 0 ]; then
+    printf '{"approved": false, "reason": "no_tickets", "slug": "%s", "path": "%s"}\n' "$SLUG" "$FILE" >&2
     exit 1
 fi
 

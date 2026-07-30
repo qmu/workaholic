@@ -273,4 +273,8 @@
 * [The `depends_on` chain will batch all four tickets into one PR-unit](20260730111600-the-depends-on-chain-will-batch.md)
 * [The ticket-batch convention structurally collides with the per-commit size ceiling](20260730111600-the-ticket-batch-convention-structurally-collides.md)
 * [The draft-gate proposal's replacement gate is the one this repo just measured as broken](20260730182436-the-draft-gate-proposal-s-replacement-gate-is-the-one-this-repo-just-measured-as-broken.md)
+* [The foundation commit is 772 changed lines, over the per-commit ceiling](20260730185714-the-foundation-commit-is-772-changed.md)
+* [The four tickets merged as one PR-unit, as an open stream concern predicted](20260730185714-the-four-tickets-merged-as-one.md)
+* [The publish tree is a new recoverable-state location nothing garbage-collects](20260730185714-the-publish-tree-is-a-new.md)
+* [The rebase-and-retry bound is untested under real contention](20260730185714-the-rebase-and-retry-bound-is.md)
 <!-- okf:generated:end -->

@@ -7672,6 +7672,51 @@ function testUnifiedDriveContract() {
     /stale/.test(runbook) && /demoted to PR/.test(runbook) && /`secret` finding/.test(runbook));
 }
 
+// ---------------------------------------------------------------------------
+// A skill may relocate detail into a companion `reference/` file. The build has to
+// carry those files into the generated bundle, or the shipped SKILL.md links 404 --
+// "self-contained" would be true of every script reference and false of the skill.
+// These assertions run over the COMMITTED artifacts, so they pin the seam without
+// re-running the build.
+function testSkillReferenceFilesShip() {
+  const src = join(REPO_ROOT, "plugins/workaholic/skills/mission/reference");
+  const out = join(REPO_ROOT, "outputs/workflows/skills/mission/reference");
+  assertTrue("the mission skill has companion reference files", existsSync(src));
+
+  const srcFiles = readdirSync(src).filter((f) => f.endsWith(".md")).sort();
+  assertTrue("the built bundle carries a reference dir", existsSync(out), out);
+  assertEq("every source reference file ships",
+    readdirSync(out).filter((f) => f.endsWith(".md")).sort(), srcFiles);
+
+  for (const f of srcFiles) {
+    const built = readFileSync(join(out, f), "utf8");
+    assertTrue(`${f}: no plugin-root token survives the build`,
+      !built.includes("${CLAUDE_PLUGIN_ROOT}"), f);
+    // A reference file sits one level BELOW the skill root the SKILL.md form is
+    // relative to, so its rewritten script paths must carry the extra `../`.
+    for (const m of built.matchAll(/bash (\S*mission\/scripts\/[a-z-]+\.sh)/g)) {
+      assertTrue(`${f}: script path is skill-root-relative from reference/`,
+        m[1].startsWith("../mission/scripts/"), m[1]);
+      assertTrue(`${f}: ${m[1]} resolves in the bundle`,
+        existsSync(join(out, m[1])), m[1]);
+    }
+    assertTrue(`${f}: publicized (no workaholic: namespace prefix survives)`,
+      !built.includes("workaholic:"), f);
+  }
+
+  // The SKILL.md must actually point at them — a relocated file nobody links to is
+  // knowledge deleted from the reader's path.
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/SKILL.md"), "utf8");
+  for (const f of srcFiles) {
+    assertTrue(`SKILL.md links to reference/${f}`, skill.includes(`reference/${f}`), f);
+  }
+
+  // And the shrink itself: the skill got materially smaller without losing content.
+  const lines = skill.split("\n").length;
+  assertTrue(`mission SKILL.md is materially shorter than its 562-line original (now ${lines})`,
+    lines < 420, String(lines));
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -7759,6 +7804,7 @@ const tests = [
   ["hooks/validate-ticket.sh mandatory body sections", testValidateTicketSections],
   ["hooks/guard-ticket-structure.sh", testGuardTicketStructure],
   ["hooks/posix-lint.sh", testPosixLint],
+  ["build: skill reference/ companion files ship", testSkillReferenceFilesShip],
   ["hooks/hooks.json executable", testHooksExecutable],
   ["gather/base-ref.sh base resolution (report/scan pipeline)", testBaseRefResolution],
   ["report/collect-commits.sh", testCollectCommits],

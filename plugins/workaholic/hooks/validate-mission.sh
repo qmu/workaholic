@@ -22,7 +22,7 @@
 #     interactively created mission starts as one); blocking it would block the
 #     scaffold moment itself. Ownership is carried on the mission's own plural
 #     `assignees` (2026-07-28 — returned from the 2026-07-24 strategy model; see
-#     mission/SKILL.md's Ownership section), but the scaffold moment mandates no key.
+#     mission/reference/schema.md's Ownership section), but the scaffold moment mandates no key.
 #   - when the file claims `status: approved` (or, for the transition window, a
 #     legacy `drive_authorized: true` stamp): the mission must have an OWNER
 #     (mission-owners.sh non-empty — its own `assignees`, or the legacy singular

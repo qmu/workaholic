@@ -11,7 +11,7 @@
 #
 # Usage: create.sh "<title>" [assignee]
 #   Ownership is CARRIED ON THE MISSION as the plural `assignees` list (2026-07-28 —
-#   returned from the 2026-07-24 strategy-layer model; see mission/SKILL.md Ownership
+#   returned from the 2026-07-24 strategy-layer model; see mission/reference/schema.md Ownership
 #   and mission-owners.sh). The scaffold seeds `assignees` with the CREATOR — the
 #   interactive creator is the approver, and the approver is the default owner. The
 #   optional second argument seeds a different single owner instead; co-owners are

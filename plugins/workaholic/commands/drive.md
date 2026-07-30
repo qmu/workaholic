@@ -17,7 +17,16 @@ skills:
 
 `/drive` is the sole executor. Run the preloaded `workaholic:drive` skill's **Unified Run** section end to end:
 
-1. **Survey** — `plan-units.sh` (approved missions + this developer's unclaimed backlog, with the in-flight claims subtracted).
+0. **Freshen** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/sync-main.sh`, **before** the survey. Artifacts are published to `main`, and the survey reads this working tree, so a checkout behind `origin/main` surveys a stale queue and reports it confidently — the worst shape an unattended tick can take. Same step interactively and on cron: one code path. Handle each `ok: false` as a **reported decision** (this command asks nothing):
+
+   | reason | what the run does |
+   | ------ | ----------------- |
+   | `no_origin` | Survey the local tree, **say so**, and continue. The terminal token may not be `ok`: a survey that could not consult the remote has not established that nothing claimable remains. |
+   | `not_on_main` / `dirty_workspace` | The runner is not in a surveyable state. Report the reason and **terminate `pending`** — never silently survey a branch. |
+   | `origin_unreachable` | Like `no_origin`: survey locally, say so, and the token may not be `ok`. |
+   | `diverged` | A human's decision (the `detail` says `local_ahead` or `both_diverged`). Report and **terminate `pending`**. Never merge or reset. |
+
+1. **Survey** — `plan-units.sh` (approved missions + this developer's unclaimed backlog, with the in-flight claims subtracted). It reports the freshness it observed rather than repairing it: `surveyed_sha`, `base_sha`, and `current`. **`current: false` forbids `ok`** — carry it into step 7.
 2. **Partition** — group the remainder into PR-units, conservatively. **Report the partition; never ask it.**
 3. **Claim** — `claim.sh` per unit, before any of its work starts. Read refusals as facts (`already_claimed` means another runner has it — move on).
 4. **Drive** — implement the unit's tickets in its claim worktree, per the skill's Workflow and its failure contract.
@@ -29,6 +38,6 @@ skills:
 
 **`/drive night`** is a synonym kept for muscle memory. The unified run *is* the unattended shape, so the token selects nothing.
 
-**Terminal contract:** the last two lines are always the `N units: X shipped, Y PR'd, Z blocked` reconciliation and then `ok` or `pending` — `ok` **only** when nothing claimable remains undone. A caller-side loop (`/goal /drive ok`) waits on that token, so it must never be self-graded.
+**Terminal contract:** the last two lines are always the `N units: X shipped, Y PR'd, Z blocked` reconciliation and then `ok` or `pending` — `ok` **only** when nothing claimable remains undone, **and only over a survey known current with the base** (step 0/1). A caller-side loop (`/goal /drive ok`) waits on that token, so it must never be self-graded.
 
 **Policy Lens**: The `hooks/policy-lens.sh` UserPromptSubmit hook injects the engineering-policy lens on every `/drive` run (via the marker above), including the always-loaded four-pillar policy index. `/drive` is where most code is actually written, so judge each ticket's implementation against the policies the change touches — read the relevant `workaholic:design`/`implementation`/`operation` policy bodies (the index links them) per the ticket's `## Policies` section, exactly as the `workaholic:drive` Workflow's "load the policy lens first" step directs.

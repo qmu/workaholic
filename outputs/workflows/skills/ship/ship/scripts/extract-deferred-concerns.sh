@@ -31,15 +31,33 @@
 # Runs the concern-corpus living migration first, so a repo with a legacy
 # concerns/ tree heals on its next ship.
 #
-# Usage: extract-deferred-concerns.sh <branch> <pr-number> <pr-url>
-# Output: single JSON line summarizing what was extracted. `updated` and
-# `story_only` are always 0 (kept for consumer stability across the merger).
+# Usage: extract-deferred-concerns.sh <branch> <pr-number> <pr-url> [base-branch]
+# Output: single JSON line summarizing what was extracted, INCLUDING the `destination`
+# branch the records were pushed to. `updated` and `story_only` are always 0 (kept for
+# consumer stability across the merger).
+#
+# THE DESTINATION IS EXPLICIT, NEVER INFERRED. The open-concern set is computed from
+# records on the BASE, so a record pushed anywhere else is invisible to /report's judge
+# and to /propose. This script used to commit and push on whatever branch it happened to
+# be standing on, with a header that assumed merge-pr.sh had already checked the base
+# out. On 2026-07-30 that assumption broke -- merge-pr.sh cannot check `main` out from
+# inside a claim worktree -- so PR #108's four concerns were committed and pushed to the
+# ALREADY-MERGED claim branch, and the script truthfully reported `pushed: true`. The
+# push had worked; the destination was wrong. `pushed` alone is not an actionable signal,
+# which is why `destination` now rides beside it.
+#
+# When this runs somewhere other than the base, the extraction happens inside a PUBLISH
+# TREE (a checkout of origin/<base>; workaholic:branching) and is pushed from there --
+# the same route a source uses to publish an artifact from any checkout. That also makes
+# the dedup scan read the base's records rather than the branch's, which is the correct
+# set to dedup against.
 
 set -eu
 
 branch="${1:-}"
 pr_number="${2:-}"
 pr_url="${3:-}"
+base="${4:-main}"
 
 if [ -z "$branch" ] || [ -z "$pr_number" ] || [ -z "$pr_url" ]; then
   echo '{"status":"error","reason":"missing_args","extracted":0}'
@@ -47,16 +65,65 @@ if [ -z "$branch" ] || [ -z "$pr_number" ] || [ -z "$pr_url" ]; then
 fi
 
 story_file=".workaholic/stories/${branch}.md"
+# A publish-tree re-entry (below) carries the story's ABSOLUTE path as $5, because
+# the story lives in the caller's checkout and not in the base it publishes to.
+# This must precede the existence check: resolving it later meant the re-entered run
+# looked for the story inside the publish tree and skipped.
+if [ -n "${5:-}" ]; then
+  story_file="$5"
+fi
 
 if [ ! -f "$story_file" ]; then
   echo "{\"status\":\"skipped\",\"reason\":\"no_story_file\",\"path\":\"$story_file\",\"extracted\":0}"
   exit 0
 fi
 
-mkdir -p .workaholic/feedbacks
-
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "${SCRIPT_DIR}/lib/push-outcome.sh"
+
+# --- Route to the base when we are not on it ------------------------------------------
+# WH_EDC_IN_PUBLISH_TREE marks the re-entered run so this never recurses. The re-entry
+# carries an ABSOLUTE story path, because the story lives in the caller's checkout.
+current_branch=$(git branch --show-current 2>/dev/null || true)
+if [ "$current_branch" != "$base" ] && [ -z "${WH_EDC_IN_PUBLISH_TREE:-}" ] && [ -z "${NO_COMMIT:-}" ]; then
+  story_abs=$(CDPATH= cd -- "$(dirname -- "$story_file")" && pwd)/$(basename -- "$story_file")
+  open_out=$(sh "${SCRIPT_DIR}/../../branching/scripts//open-publish-tree.sh" "$base" 2>/dev/null || true)
+  publish_path=$(printf '%s' "$open_out" | sed -n 's/.*"path": *"\([^"]*\)".*/\1/p')
+  if [ -z "$publish_path" ]; then
+    reason=$(printf '%s' "$open_out" | sed -n 's/.*"reason": *"\([^"]*\)".*/\1/p')
+    [ -n "$reason" ] || reason="open_publish_tree_failed"
+    echo "{\"status\":\"error\",\"reason\":\"${reason}\",\"extracted\":0,\"pushed\":false,\"destination\":\"${base}\"}"
+    exit 1
+  fi
+  # Extract INSIDE the publish tree (NO_COMMIT: the publish seam owns the commit), then
+  # publish the whole batch to the base in one commit and tear the tree down.
+  inner=$( cd "$publish_path" && NO_COMMIT=1 WH_EDC_IN_PUBLISH_TREE=1 sh "$0" "$branch" "$pr_number" "$pr_url" "$base" "$story_abs" )
+  created=$(printf '%s' "$inner" | sed -n 's/.*"created":\([0-9][0-9]*\).*/\1/p')
+  [ -n "$created" ] || created=0
+  if [ "$created" -eq 0 ]; then
+    sh "${SCRIPT_DIR}/../../branching/scripts//close-publish-tree.sh" "$base" >/dev/null 2>&1 || true
+    printf '%s\n' "$inner" | sed "s/\"pushed\":false/\"pushed\":false,\"destination\":\"${base}\"/"
+    exit 0
+  fi
+  pub=$(sh "${SCRIPT_DIR}/../../branching/scripts//publish-tree-commit.sh" \
+    "Add deferred concerns from PR #${pr_number}" \
+    "The just-merged story's section-6 concerns become kind: concern feedback records; the open set is computed from records on the base, so they are published there rather than to whatever branch the ship ran from" \
+    "None -- knowledge records" "None" "None" \
+    "list-open-concerns.sh sees them from a fresh clone of the base" \
+    .workaholic/ 2>/dev/null || true)
+  ok=$(printf '%s' "$pub" | sed -n 's/.*"ok": *\([a-z]*\).*/\1/p')
+  if [ "$ok" = "true" ]; then
+    sh "${SCRIPT_DIR}/../../branching/scripts//close-publish-tree.sh" "$base" >/dev/null 2>&1 || true
+    printf '%s\n' "$inner" | sed "s/\"pushed\":false,\"push_error\":\"[^\"]*\"/\"pushed\":true,\"push_error\":\"\",\"destination\":\"${base}\"/"
+  else
+    perr=$(printf '%s' "$pub" | sed -n 's/.*"reason": *"\([^"]*\)".*/\1/p')
+    [ -n "$perr" ] || perr="publish_failed"
+    printf '%s\n' "$inner" | sed "s/\"push_error\":\"[^\"]*\"/\"push_error\":\"${perr}\",\"destination\":\"${base}\"/"
+  fi
+  exit 0
+fi
+
+mkdir -p .workaholic/feedbacks
 
 # Living migration first: a legacy concerns/ corpus folds into the feedback
 # stream before we index existing ids. Best-effort — never blocks extraction.
@@ -260,4 +327,4 @@ if [ -z "${NO_COMMIT:-}" ]; then
   push_error="$PUSH_ERROR"
 fi
 
-echo "{\"status\":\"ok\",\"created\":${count_created},\"updated\":0,\"extracted\":${count_created},\"story_only\":0,\"pushed\":${pushed},\"push_error\":\"${push_error}\",\"files\":${created_json}}"
+echo "{\"status\":\"ok\",\"created\":${count_created},\"updated\":0,\"extracted\":${count_created},\"story_only\":0,\"pushed\":${pushed},\"push_error\":\"${push_error}\",\"destination\":\"${base}\",\"files\":${created_json}}"

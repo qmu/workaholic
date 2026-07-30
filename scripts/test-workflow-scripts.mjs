@@ -8305,6 +8305,105 @@ function testSkillReferenceFilesShip() {
     lines < 420, String(lines));
 }
 
+// ---------------------------------------------------------------------------
+// The ship path must work FROM A CLAIM WORKTREE, which is where /drive ships every
+// `auto` unit -- and where it used to break twice over:
+//
+//   1. merge-pr.sh ended with `git checkout main`, which git refuses inside a linked
+//      worktree while the primary tree holds `main`. It exited non-zero AFTER the merge
+//      had landed, so a caller could not tell success from failure.
+//   2. extract-deferred-concerns.sh then committed and pushed on whatever branch it was
+//      standing on, reporting `pushed: true` while the records went to the already-merged
+//      claim branch -- invisible to the computed open set.
+//
+// The merge itself needs `gh`, so it is not exercised here. Everything below is the
+// non-network half, which is exactly the part that was never covered.
+function testShipWorksFromAClaimWorktree() {
+  const { origin, A } = makePublishFixture();
+  try {
+    // A real linked worktree, with `main` held by the primary tree -- the /drive layout.
+    execSync("git worktree add -q -b work-20260730-999999 .worktrees/unit-x", { cwd: A });
+    const wt = join(A, ".worktrees/unit-x");
+    assertEq("the primary tree holds main",
+      execSync("git branch --show-current", { cwd: A, encoding: "utf8" }).trim(), "main");
+
+    // --- merge-pr.sh's post-merge half: the checkout must not fail the script -------
+    // Drive the same decision merge-pr.sh makes, from the worktree.
+    const heldElsewhere = execSync("git worktree list --porcelain", { cwd: wt, encoding: "utf8" })
+      .split("\n").some((l) => l === "branch refs/heads/main");
+    assertTrue("the script can detect that the base is checked out elsewhere", heldElsewhere);
+    const raw = run(wt, "git checkout main");
+    assertTrue("a bare checkout of the base genuinely fails here (the original defect)",
+      raw.status !== 0, `status ${raw.status}`);
+    assertTrue("and git says why", /already used by worktree/.test(raw.stderr), raw.stderr);
+
+    const src = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/merge-pr.sh"), "utf8");
+    assertTrue("merge-pr.sh reports the checkout outcome as a field",
+      /"checked_out":/.test(src) && /"checkout_reason":/.test(src), src.slice(0, 200));
+    assertTrue("merge-pr.sh skips the checkout when the base is held elsewhere",
+      /base_checked_out_elsewhere/.test(src));
+    assertTrue("nothing after the merge may exit non-zero",
+      /Nothing below may fail the script/.test(src));
+    assertTrue("only a failed merge fails the script",
+      /\{"merged": false, "error": "merge failed"\}/.test(src));
+    assertTrue("merge-pr.sh takes the base as an argument", /base="\$\{2:-main\}"/.test(src));
+
+    // --- extract-deferred-concerns.sh: an explicit destination ---------------------
+    // A story with one concern, on the worktree's branch. Extraction from there must
+    // land the record on the BASE, not on the branch.
+    const story = join(wt, ".workaholic/stories/work-20260730-999999.md");
+    mkdirSync(join(wt, ".workaholic/stories"), { recursive: true });
+    writeFileSync(story, `---\ntype: Story\nbranch: work-20260730-999999\ntickets_completed: 0\nmission: []\ntickets: []\n---\n\n## 6. Concerns\n\n### A concern that must reach the base\n\n- **Severity:** moderate\n- **Description:** the record has to land on main, not on the claim branch\n- **How to Fix:** publish it through the publish tree\n\n## 7. Successful Development Patterns\n\nNone\n`);
+    execSync("git add -A && git commit -q -m 'Add a story with a concern' && git push -q -u origin work-20260730-999999", { cwd: wt });
+
+    const r = JSON.parse(run(wt, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-20260730-999999 42 https://example.com/pr/42 main`).stdout);
+    assertEq("extraction from a worktree reports what it created", r.created, 1);
+    assertEq("and names the destination it pushed to", r.destination, "main");
+    assertEq("and reports the push honestly", r.pushed, true);
+
+    // The record is on the BASE, from a clone that did none of this.
+    execSync("git fetch -q origin", { cwd: A });
+    const onBase = execSync("git ls-tree -r --name-only origin/main -- .workaholic/feedbacks", { cwd: A, encoding: "utf8" });
+    // The slug rule truncates, so match the stable prefix rather than the full title.
+    assertTrue("the concern record is on the base branch",
+      /\.workaholic\/feedbacks\/\d+-a-concern-that-must-reach-the.*\.md/.test(onBase), onBase);
+
+    // And NOT on the claim branch -- the destination was explicit, not inherited.
+    const onBranch = execSync("git ls-tree -r --name-only origin/work-20260730-999999 -- .workaholic/feedbacks", { cwd: A, encoding: "utf8" });
+    assertTrue("the record did not go to the claim branch instead",
+      !/a-concern-that-must-reach-the/.test(onBranch), onBranch);
+
+    // The claim worktree is left clean: the publish tree carried the write, not this tree.
+    assertEq("extraction leaves the claim worktree clean",
+      execSync("git status --porcelain", { cwd: wt, encoding: "utf8" }).trim(), "");
+    assertTrue("and the publish tree is torn down", !existsSync(join(A, ".publish")));
+
+    // Idempotent: a second run finds the id already present on the base and creates none.
+    const again = JSON.parse(run(wt, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-20260730-999999 42 https://example.com/pr/42 main`).stdout);
+    assertEq("a known concern_id is never re-emitted", again.created, 0);
+    assertEq("and the destination is still reported", again.destination, "main");
+  } finally {
+    for (const d of [origin, A]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
+// On the base itself, the direct path is unchanged -- no publish tree involved.
+function testShipExtractionOnBaseIsDirect() {
+  const { origin, A } = makePublishFixture();
+  try {
+    mkdirSync(join(A, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(A, ".workaholic/stories/work-20260730-888888.md"),
+      `---\ntype: Story\nbranch: work-20260730-888888\ntickets_completed: 0\nmission: []\ntickets: []\n---\n\n## 6. Concerns\n\n### A concern extracted on the base\n\n- **Severity:** low\n- **Description:** the direct path stays direct\n- **How to Fix:** nothing\n\n## 7. Successful Development Patterns\n\nNone\n`);
+    execSync("git add -A && git commit -q -m 'Add a story on the base'", { cwd: A });
+    const r = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-20260730-888888 43 https://example.com/pr/43 main`).stdout);
+    assertEq("extraction on the base creates the record", r.created, 1);
+    assertEq("and reports the base as its destination", r.destination, "main");
+    assertTrue("no publish tree was opened for the direct path", !existsSync(join(A, ".publish")));
+  } finally {
+    for (const d of [origin, A]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -8377,6 +8476,8 @@ const tests = [
   ["ship/extract-deferred-concerns.sh", testExtractDeferredConcerns],
   ["report/shrink-pr-body.sh", testShrinkPrBody],
   ["ship/extract-deferred-concerns.sh push", testExtractDeferredConcernsPush],
+  ["ship: works from a claim worktree (merge + extraction destination)", testShipWorksFromAClaimWorktree],
+  ["ship: extraction on the base stays direct", testShipExtractionOnBaseIsDirect],
   ["ship/commit-release-note.sh push", testCommitReleaseNotePush],
   ["ship/extract-deferred-concerns.sh mission/tickets relation", testExtractConcernMissionRelation],
   ["ship/extract-deferred-concerns.sh all severities", testExtractAllSeverities],

@@ -216,7 +216,7 @@ This policy exists because `strategies/` shipped live (its skill and `create.sh`
 
 | Command                          | Description                                      |
 | -------------------------------- | ------------------------------------------------ |
-| `/ticket <description>`          | Write implementation spec for a feature **in this repository**, recording its `merge_policy` (`auto` \| `review`; absent reads as `review`) at creation — bare `/ticket` or `/ticket summary` reports your assigned todo tickets instead of creating one |
+| `/ticket <description>`          | Write implementation spec for a feature **in this repository**, recording its `merge_policy` (`auto` \| `review`; absent reads as `review`) at creation, and **publish it to `main`** through a publish tree so the next `/drive` tick can claim it — from any branch, with the caller's checkout and uncommitted work untouched. It creates **no branch** and asks nothing about one (the worktree guard is retired with the branch, decision J1). Bare `/ticket` or `/ticket summary` reports your assigned todo tickets from *your* checkout instead of creating one |
 | `/request <description>`         | Submit a ticket to **another** repository — the only sanctioned way to cross a repo boundary. Masks this project's customer context and requires the developer to confirm the destination and the exact body — in **one** confirmation, non-skippable — before writing |
 | `/drive`                         | **The sole executor.** Survey what is claimable (approved missions + the unclaimed backlog, minus the claims in flight), partition it into **PR-units** ("what deserves one merge" — a mission is one unit; related backlog tickets batch into one, conservatively), claim each on a pushed branch, implement it in the claim's own worktree, report it as a PR, and route it by the unit's **effective merge policy** (`auto` → the full evidence-gated `/ship` doctrine, then claim teardown; `review` → stop at the PR and post its URL to Slack; **absent = review**). **No drive-time confirmation and no `AskUserQuestion` anywhere** — interactive and cron invocations take the identical path, and `/drive night` is a synonym. An unattended run **never overrides a gate**: a secret hard-stops, a size/leak block or a missing confirmation method demotes the unit to the PR path. An unqueued problem met mid-run becomes a ticket rather than a stop. Ends with an `N units: X shipped, Y PR'd, Z blocked` reconciliation and an honest terminal token (`ok` only when nothing claimable remains undone), the `/goal /drive ok` contract |
 | `/commit`                        | Commit working changes with a policy-conformant message (small non-ticketed changes; prefer `/drive` for ticketed work) |
@@ -231,7 +231,7 @@ This policy exists because `strategies/` shipped live (its skill and `create.sh`
 
 ## Development Workflow
 
-1. **Create specs**: Use `/ticket` to write implementation specs
+1. **Create specs**: Use `/ticket` to write implementation specs — published straight to `main`, from whatever branch you are on
 2. **Implement specs**: Use `/drive` to implement and commit each spec
 3. **Create PR**: Use `/report` to generate story and create PR
 4. **Ship**: Use `/ship` to merge PR, deploy, and verify

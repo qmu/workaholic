@@ -16,7 +16,7 @@ This skill works on any Agent-Skills-compatible agent. The two Claude-Code mecha
 
 ## Summary Mode
 
-`/ticket` has a read-only **summary** mode, triggered by a bare invocation (empty `$ARGUMENT`) or the explicit argument `summary`. It reports the current user's assigned todo tickets and creates nothing — the discovery workflow, worktree guard, and every the agent's selection prompt are skipped.
+`/ticket` has a read-only **summary** mode, triggered by a bare invocation (empty `$ARGUMENT`) or the explicit argument `summary`. It reports the current user's assigned todo tickets and creates nothing — the discovery workflow and every the agent's selection prompt are skipped.
 
 ```bash
 bash create-ticket/scripts/summary.sh
@@ -24,13 +24,15 @@ bash create-ticket/scripts/summary.sh
 
 `summary.sh` reuses `drive/list-todo.sh` for the current-user scoping (`todo/<user-slug>/`, from `git config user.email`), so "assigned to me" stays defined in one place, then enriches each ticket with its H1 title and frontmatter `type`/`layer`/`depends_on`. Output is a JSON array `[{path, title, type, layer, depends_on}]` (sorted by path), or `[]` when the queue is empty. This is the create-only guardrail's one read-only exception: it lists work, it never writes.
 
+**Summary mode reads the CALLER's checkout, and opens no publish tree.** This is a deliberate divergence from the create path (which writes into a publish tree at `origin/main`), not an oversight to be "fixed" later: bare `/ticket` answers *"what is assigned to me"*, which is a question about the developer's own working state. Forcing a fetch would make a read-only listing fail offline and slow down the cheapest thing the command does. It writes nothing, so it needs no publication.
+
 ## Allowed Locations
 
 **In THIS repository, always.** Both paths below are relative to the current repository's root (`git rev-parse --show-toplevel`) or one of its worktrees. Never resolve them against another checkout: not by absolute path, not by `../sibling-repo/`, not by `cd`-ing elsewhere first. A ticket that belongs to a different repository is filed with `/request`, which is the only sanctioned route and which masks this project's customer context before filing. `hooks/guard-repo-confinement.sh` refuses an out-of-repo write before it happens, but the rule stands on its own — see `rules/general.md` ("Never modify another repository"). The same rule bars carrying this repository's customer context *into* a ticket you file elsewhere.
 
-Tickets are written to ONE of these two directories — never anywhere else:
+Tickets are written to ONE of these two directories — never anywhere else. **Both resolve inside the publish tree** opened in Workflow Step 1 (`<publish_path>/.workaholic/tickets/…`), which is a registered worktree of this repository and therefore inside it by definition:
 
-- `.workaholic/tickets/todo/<user>/` — Active queue (default for new tickets). `<user>` is the filesystem-safe slug of `git config user.email` (the `user_slug` from Step 1). Partitioning the queue per developer stops one developer's unarchived tickets from leaking onto another's branch and being re-driven. The flat `todo/` root is never a write target for new tickets; any strays already sitting there are swept into a user subdirectory (see Step 1.5).
+- `.workaholic/tickets/todo/<user>/` — Active queue (default for new tickets). `<user>` is the filesystem-safe slug of `git config user.email` (the `user_slug` from Step 1). **The partition expresses assignment**: `list-todo.sh` and `plan-units.sh` scope a developer's queue by it, and `/drive`'s survey offers a developer their own backlog. (It was introduced to stop one developer's unarchived tickets leaking onto another's branch; with every ticket published to `main` there are no branches to leak between, so assignment is the whole of the reason now.) The flat `todo/` root is never a write target for new tickets; any strays already sitting there are swept into a user subdirectory (see Step 1.5).
 - `.workaholic/tickets/icebox/` — Deferred, and stays flat (only when the request explicitly targets the icebox).
 
 Archive paths (`.workaholic/tickets/archive/<branch>/`) are written by the drive archive script, never by this skill.
@@ -66,10 +68,10 @@ Use `created_at`/`author` for frontmatter fields, `filename_timestamp` for the f
 
 ## Step 1.5: Sweep Stray Tickets
 
-Before writing the new ticket, route any leftover tickets sitting directly at the `todo/` root into per-user subdirectories:
+Before writing the new ticket, route any leftover tickets sitting directly at the `todo/` root into per-user subdirectories — **inside the publish tree**, since that is the checkout `todo/` is being written into and whose moves will ride the publish commit:
 
 ```bash
-bash create-ticket/scripts/sweep-todo.sh
+( cd <publish_path> && bash create-ticket/scripts/sweep-todo.sh )
 ```
 
 The sweep moves each root-level `todo/*.md` into `todo/<author-slug>/`, routing by the stray ticket's own `author:` frontmatter (falling back to the current user's slug when missing). It git-stages every move and **never** moves a ticket to the icebox. Report the `moved` count from its JSON output if any tickets were relocated.
@@ -132,13 +134,17 @@ These policies are the lens you judge the work against. Every proposal you put i
 
 If a policy index is somehow not in context, load it with the Skill tool and proceed; the rest of the workflow does not depend on the hook having fired.
 
-### 1. Check Branch
+### 1. Open the Publish Tree
 
-Run `bash branching/scripts/check.sh`. If `on_main` is true, create a topic branch **only** by running `bash branching/scripts/create.sh`, and record the returned branch name as `branch_created` for the output JSON.
+```bash
+bash branching/scripts/open-publish-tree.sh
+```
 
-**Branch-name rule (mandatory):** the branch name is **always** exactly `work-<YYYYMMDD-HHMMSS>`, produced by `create.sh`. Do **not** name a branch yourself, do **not** append a feature/description suffix, and do **not** use any other prefix (`drive-`, `trip/`, a feature name, etc.). `create.sh` is the only branch-creation path.
+Take the returned `path` and treat it as **the root every subsequent write in this workflow resolves against**. On `ok: false`, report the reason and stop before writing anything — an artifact written into a checkout that cannot publish is an artifact the developer believes is queued and is not.
 
-Already-on-a-topic-branch returns `on_main: false` and skips creation (including legacy `drive-*`/`trip/*` branches, which are still recognized but never created anew); tickets go to `.workaholic/tickets/todo/` regardless of branch type.
+**`/ticket` never creates a branch.** A ticket is published to `main` and the executor's claim is the only creator of a branch or a worktree (decision J1, `docs/loop-engineering-workflow.md`). `create.sh` is not called anywhere in this path; the branch-name rule it enforces belongs to the claim side and is stated once in `branching`. The developer's own branch and uncommitted work are untouched by the whole flow — that is the publish tree's entire purpose, and it is why this step replaced a branch cut rather than being added beside one.
+
+Tickets go to `.workaholic/tickets/todo/<user>/` **inside the publish tree**, whatever branch the developer is standing on.
 
 ### 2. Parallel Discovery
 
@@ -250,7 +256,6 @@ Return one of:
 ```json
 {
   "status": "success",
-  "branch_created": "work-20260202-181910",
   "tickets": [
     {
       "path": ".workaholic/tickets/todo/developer-company-com/20260131-feature.md",
@@ -261,7 +266,7 @@ Return one of:
 }
 ```
 
-Note: `branch_created` is optional — only included if a new branch was created in step 1.
+Ticket `path`s are reported **repo-relative**, as they will appear on `main` — not prefixed with the publish tree, which is an implementation detail the caller has already torn down by the time it reads this. There is no branch field of any kind, because nothing in this workflow creates a branch; the contract carried one until decision J1 retired the branch cut.
 
 Or if duplicate:
 

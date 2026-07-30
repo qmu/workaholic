@@ -77,6 +77,18 @@ claims_blob_field() {
     ' 2>/dev/null || true
 }
 
+# Map a path the claim commit touched to where that file lives NOW at the branch tip.
+# $1 = the newline/tab rename map (old<TAB>new rows), $2 = the original path.
+# Echoes $2 unchanged when it was never renamed (including when it was deleted --
+# `git show <ref>:<gone>` then fails and the caller drops the artifact, which is the
+# intended reading: a deleted artifact is not claimed).
+claims_current_path() {
+    printf '%s\n' "$1" | awk -F'\t' -v p="$2" '
+        $1 == p { print $2; found = 1; exit }
+        END { if (!found) print p }
+    '
+}
+
 # Scan the remote branches for claims. $1 = base ref (from claims_base).
 claims_scan() {
     _cs_base="${1:-}"
@@ -113,9 +125,27 @@ claims_scan() {
         # The claimed artifacts are the files the claim commit touched that STILL
         # carry `claim: <branch>` at the tip -- so a later commit that removes a
         # stamp drops that artifact from the claim without any bookkeeping.
+        #
+        # THE STAMP IS READ AT THE FILE'S CURRENT PATH, NOT THE CLAIMED ONE. `archive.sh`
+        # RENAMES a driven ticket (todo/<user>/X.md -> archive/<branch>/X.md) carrying its
+        # stamp along, and looking the old path up at the tip finds nothing -- so every
+        # batch unit silently lost its whole artifact list the moment its first ticket was
+        # archived, and the survey then offered tickets that were already in flight. That
+        # is the double-pick the protocol exists to prevent; it was observed live on
+        # 2026-07-30. One tree-to-tree diff per claim gives the net old->new mapping
+        # (chained renames collapse to a single row, so no walk is needed).
+        _cs_renames=$(git diff --find-renames --name-status "$_cs_sha" "$_cs_ref" 2>/dev/null \
+            | awk -F'\t' '$1 ~ /^R/ { print $2 "\t" $3 }' || true)
+
+        # WHAT IS REPORTED IS THE BASE-SIDE PATH -- the one the claim commit stamped, which
+        # is where the artifact still sits on the base. That is the coordinate space both
+        # consumers work in: plan-units.sh compares against list-todo.sh's view of the
+        # working tree, and claim.sh against paths it resolved in the main tree. Reporting
+        # the archived path instead would be the useless half of the pair.
         _cs_artifacts=""
         for _cs_file in $(git diff-tree --no-commit-id --name-only -r "$_cs_sha" 2>/dev/null || true); do
-            [ "$(claims_blob_field "$_cs_ref" "$_cs_file" claim)" = "$_cs_branch" ] || continue
+            _cs_at_tip=$(claims_current_path "$_cs_renames" "$_cs_file")
+            [ "$(claims_blob_field "$_cs_ref" "$_cs_at_tip" claim)" = "$_cs_branch" ] || continue
             if [ -z "$_cs_artifacts" ]; then
                 _cs_artifacts="$_cs_file"
             else

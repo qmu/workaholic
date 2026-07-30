@@ -107,6 +107,7 @@ const SCRIPTS = {
   proposeScaffoldDraft: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-draft.sh"),
   proposeNotifySlack: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/notify-slack.sh"),
   feedbackList: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/list.sh"),
+  missionQueueSize: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/queue-size.sh"),
   syncMain: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/sync-main.sh"),
   openPublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/open-publish-tree.sh"),
   publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
@@ -153,6 +154,19 @@ function run(cwd, cmd, opts = {}) {
   } catch (e) {
     return { stdout: e.stdout?.toString() || "", stderr: e.stderr?.toString() || "", status: e.status ?? 1 };
   }
+}
+
+// Write a ticket that NAMES a mission, so a mission under test has a real queue.
+// approve.sh and plan-units.sh both now measure drivability against the TICKET queue
+// (mission/scripts/queue-size.sh) rather than against `## Acceptance` item count -- an
+// acceptance sketch is not a plan. A fixture that approves a mission therefore has to
+// give it a ticket, exactly as a real one does.
+function seedMissionTicket(root, slug, stamp = "20260729000009", userSlug = TEST_SLUG) {
+  const dir = join(root, `.workaholic/tickets/todo/${userSlug}`);
+  mkdirSync(dir, { recursive: true });
+  const p = join(dir, `${stamp}-${slug}-step.md`);
+  writeFileSync(p, `---\ncreated_at: 2026-07-29T00:00:09+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Domain]\nmission: ${slug}\n---\n\n# ${slug} step\n`);
+  return p;
 }
 
 // Create a throwaway git repo with an initial commit on `main`. Returns its path.
@@ -843,6 +857,7 @@ concerns: []
     // and its merge policy is what the approval recorded.
     const maPath = join(dir, ".workaholic/missions/active/mission-a/mission.md");
     writeFileSync(maPath, readFileSync(maPath, "utf8").replace("## Acceptance", "## Experience\n\nThe thing does the thing.\n\n## Acceptance"));
+    seedMissionTicket(dir, "mission-a");
     run(dir, `${POSIX_SH} ${SCRIPTS.missionApprove} mission-a auto`);
     const lReady = readyOf(JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout), "mission-a");
     assertEq("approved, planned mission is drive-ready and carries its merge policy",
@@ -7206,7 +7221,15 @@ function testMissionStatusAxis() {
     assertEq("approve refuses an ended mission (the archive is immutable)",
       { status: r.status, reason: JSON.parse(r.stderr).reason }, { status: 1, reason: "not_in_flight" });
 
-    // --- approve.sh: the happy path -----------------------------------------
+    // --- approve.sh: the no_tickets floor -----------------------------------
+    // An acceptance sketch is not a plan: approving a mission no ticket names would
+    // grant a runner authority over an empty queue (observed 2026-07-30).
+    r = run(dir, `${POSIX_SH} ${SCRIPTS.missionApprove} bare auto 2026-07-29`);
+    assertEq("approve refuses a mission no ticket names",
+      { status: r.status, reason: JSON.parse(r.stderr).reason }, { status: 1, reason: "no_tickets" });
+
+    // --- approve.sh: the happy path (now with a real queue) -----------------
+    seedMissionTicket(dir, "bare");
     r = run(dir, `${POSIX_SH} ${SCRIPTS.missionApprove} bare auto 2026-07-29`);
     const ok = JSON.parse(r.stdout);
     assertEq("approve flips a draft to approved and records the policy",
@@ -7234,6 +7257,7 @@ function testMissionStatusAxis() {
 
     // Unowned mission: the approver becomes the owner (decision B4).
     write("unowned", "status: draft\nmerge_policy:\nassignees: []\nassignee:\n", PLAN);
+    seedMissionTicket(dir, "unowned", "20260729000010");
     const seeded = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionApprove} unowned review`).stdout);
     assertEq("approving an unowned mission seeds the approver as owner", seeded.owners, [A]);
     assertTrue("the seeded owner is written to assignees",
@@ -7295,6 +7319,9 @@ function makeClaimFixture() {
     writeFileSync(join(ticketDir, `2026072900000${n}-t${n}.md`),
       `---\ncreated_at: 2026-07-29T00:00:0${n}+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Domain]\n---\n\n# T${n}\n`);
   }
+  // m1 needs a ticket of its own to be drivable at all (see seedMissionTicket); t1/t2
+  // stay unmissioned so they remain plain backlog for the batch cases.
+  seedMissionTicket(seed, "m1");
   execSync(`git add -A && git commit -q -m seed && git push -q origin main`, { cwd: seed });
   rmSync(seed, { recursive: true, force: true });
 
@@ -8305,6 +8332,179 @@ function testSkillReferenceFilesShip() {
     lines < 420, String(lines));
 }
 
+// ---------------------------------------------------------------------------
+// A claim must survive its own tickets being ARCHIVED (the rename `archive.sh` performs).
+//
+// The existing claim fixture claims and asserts immediately, so no test could express
+// this: the moment a batch's first ticket moved from todo/<user>/ to archive/<branch>/,
+// claims_scan looked the OLD path up at the tip, found nothing, and reported an empty
+// artifact list -- after which the survey offered tickets that were already in flight,
+// and a second runner could re-drive finished work. Observed live on 2026-07-30 against
+// this repository's own PR #108.
+//
+// Every assertion below is made from clone B, which did none of the writing.
+function testClaimSurvivesArchive() {
+  const { origin, A, B } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const LIST = `${POSIX_SH} ${SCRIPTS.listClaims}`;
+  const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+  const t2 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`;
+  try {
+    const claimed = JSON.parse(run(A, `${CLAIM} batch ${t1} ${t2}`).stdout);
+    assertEq("the batch claims both tickets", claimed.artifacts.length, 2);
+    const wt = claimed.worktree_path;
+    const br = claimed.branch;
+
+    // --- MID-DRIVE: one ticket archived, one still queued ---
+    const archDir = `.workaholic/tickets/archive/${br}`;
+    execSync(`mkdir -p ${archDir} && git mv ${t1} ${archDir}/20260729000001-t1.md`, { cwd: wt });
+    execSync(`git commit -q -m "Archive the first ticket" && git push -q origin ${br}`, { cwd: wt });
+
+    let r = JSON.parse(run(B, LIST).stdout);
+    assertEq("mid-drive: the claim still reports BOTH artifacts",
+      r.claims[0].artifacts.slice().sort(), [t1, t2].sort());
+    assertTrue("mid-drive: the archived ticket is reported at its BASE-side path",
+      r.claims[0].artifacts.includes(t1), JSON.stringify(r.claims[0].artifacts));
+
+    // --- FULLY ARCHIVED: the state that lost everything ---
+    execSync(`git mv ${t2} ${archDir}/20260729000002-t2.md`, { cwd: wt });
+    execSync(`git commit -q -m "Archive the second ticket" && git push -q origin ${br}`, { cwd: wt });
+
+    r = JSON.parse(run(B, LIST).stdout);
+    assertEq("fully archived: the claim STILL reports both artifacts",
+      r.claims[0].artifacts.slice().sort(), [t1, t2].sort());
+    assertEq("and still reports the unit and branch", { u: r.claims[0].unit, b: r.claims[0].branch },
+      { u: claimed.unit, b: br });
+
+    // The survey must keep them out of the offer, with the reason stated.
+    const plan = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    for (const t of [t1, t2]) {
+      assertTrue(`the survey does not offer the in-flight ${t.split("/").pop()}`,
+        !plan.backlog.some((x) => x.path === t), JSON.stringify(plan.backlog));
+      assertTrue(`and states it was dropped as claimed: ${t.split("/").pop()}`,
+        plan.excluded.some((e) => e.id === t && e.reason === "claimed"), JSON.stringify(plan.excluded));
+    }
+
+    // And a second claim over the same tickets is still refused.
+    const lost = run(B, `${CLAIM} batch ${t1}`);
+    assertTrue("a second claim over an archived-but-in-flight ticket is refused",
+      lost.status !== 0, `status ${lost.status}`);
+    assertEq("refused as already_claimed, naming the holder",
+      { reason: JSON.parse(lost.stderr.trim()).reason, holder: JSON.parse(lost.stderr.trim()).holder_branch },
+      { reason: "already_claimed", holder: br });
+
+    // --- A GENUINE UNSTAMP still drops the artifact (deliberate, and preserved) ---
+    const arch1 = join(wt, `${archDir}/20260729000001-t1.md`);
+    writeFileSync(arch1, readFileSync(arch1, "utf8").replace(/^claim:.*\n/m, ""));
+    execSync(`git add -A && git commit -q -m "Drop a claim stamp" && git push -q origin ${br}`, { cwd: wt });
+    r = JSON.parse(run(B, LIST).stdout);
+    assertEq("an unstamped artifact leaves the claim (unchanged semantics)",
+      r.claims[0].artifacts, [t2]);
+
+    // --- A DELETED artifact is not claimed ---
+    execSync(`git rm -q ${archDir}/20260729000002-t2.md && git commit -q -m "Remove a ticket" && git push -q origin ${br}`, { cwd: wt });
+    r = JSON.parse(run(B, LIST).stdout);
+    assertEq("a deleted artifact drops from the claim", r.claims[0].artifacts, []);
+    assertEq("but the unit itself is still reported as in flight", r.claims[0].unit, claimed.unit);
+  } finally {
+    for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
+// A MISSION unit's mission.md is not moved by archive.sh, so its artifact list was never
+// hit by this defect -- asserted rather than assumed, because the unit-id check would
+// mask an artifact-list regression there.
+function testMissionClaimArtifactsUnaffected() {
+  const { origin, A, B } = makeClaimFixture();
+  try {
+    const claimed = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.claim} mission m1`).stdout);
+    assertEq("the mission claim reports its mission.md",
+      claimed.artifacts, [".workaholic/missions/active/m1/mission.md"]);
+    // Drive it: archive a ticket on the branch, which must not disturb the mission artifact.
+    const wt = claimed.worktree_path, br = claimed.branch;
+    execSync(`mkdir -p .workaholic/tickets/archive/${br} && git mv .workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md .workaholic/tickets/archive/${br}/ && git commit -q -m "Archive a ticket" && git push -q origin ${br}`, { cwd: wt });
+    const r = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout);
+    assertEq("a mission claim's artifact survives driving",
+      r.claims[0].artifacts, [".workaholic/missions/active/m1/mission.md"]);
+  } finally {
+    for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// "Has a plan" means "has a ticket queue", not "has acceptance items".
+//
+// /propose writes a provisional acceptance SKETCH, so an item count is satisfied with
+// zero tickets: on 2026-07-30 an approved mission carrying `merge_policy: auto`,
+// `tickets: []` and an acceptance block whose first line read "PROPOSED sketch -- not a
+// plan" was offered to /drive as claimable. The old fixtures could only express `0/0`
+// (`no_plan`), never `0/N`-with-no-tickets, which is why it shipped.
+function testPlanFloorCountsQueue() {
+  const { origin, A } = makePublishFixture();
+  const QUEUE = `${POSIX_SH} ${SCRIPTS.missionQueueSize}`;
+  // The two floors need different states, which is the point: the SURVEY's no_tickets
+  // only reaches an `approved` mission (a draft is dropped `not_approved` first), and
+  // APPROVE's only reaches a `draft` (an approved one short-circuits already_approved).
+  const mk = (slug, acceptance, status = "approved") => {
+    const d = join(A, `.workaholic/missions/active/${slug}`);
+    mkdirSync(d, { recursive: true });
+    writeFileSync(join(d, "mission.md"),
+      `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: ${status}\nmerge_policy: ${status === "approved" ? "auto" : ""}\nassignees: [test@example.com]\n---\n\n# ${slug}\n\n## Experience\n\nIt does the thing.\n\n## Acceptance\n${acceptance}\n\n## Changelog\n`);
+  };
+  try {
+    mk("sketch-only", "\n- [ ] a criterion (#nothing.md)\n- [ ] another (#nothing2.md)");  // 0/2, no tickets
+    mk("really-planned", "\n- [ ] a criterion (#20260729000011-really-planned-step.md)");    // 0/1, one ticket
+    mk("empty", "");                                                                          // 0/0
+    mk("sketch-draft", "\n- [ ] a criterion (#nothing3.md)", "draft");   // draft, no tickets
+    mk("driven-draft", "\n- [ ] a criterion (#20260729000012-driven-draft-step.md)", "draft");
+    seedMissionTicket(A, "really-planned", "20260729000011");
+    execSync("git add -A && git commit -q -m 'Add three missions' && git push -q origin main", { cwd: A });
+
+    // queue-size.sh is the single counter both floors read.
+    let q = JSON.parse(run(A, `${QUEUE} sketch-only`).stdout);
+    assertEq("queue-size counts zero for an acceptance sketch", { t: q.todo, tot: q.total }, { t: 0, tot: 0 });
+    q = JSON.parse(run(A, `${QUEUE} really-planned`).stdout);
+    assertEq("queue-size counts the ticket that names the mission", { t: q.todo, tot: q.total }, { t: 1, tot: 1 });
+
+    const plan = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    const offered = plan.missions.map((m) => m.slug);
+    const reason = (slug) => (plan.excluded.find((e) => e.id === slug) || {}).reason;
+
+    assertTrue("a mission with a real ticket queue is still offered",
+      offered.includes("really-planned"), JSON.stringify(offered));
+    assertTrue("a mission with acceptance items but NO tickets is not offered",
+      !offered.includes("sketch-only"), JSON.stringify(offered));
+    assertEq("and it is excluded as no_tickets, distinctly from no_plan",
+      reason("sketch-only"), "no_tickets");
+    assertEq("a 0/0 mission is still excluded as no_plan", reason("empty"), "no_plan");
+    assertTrue("the two reasons never collapse into one",
+      reason("sketch-only") !== reason("empty"));
+
+    // Both floors read the same counter, so approve refuses the same shape the survey drops.
+    const refused = run(A, `${POSIX_SH} ${SCRIPTS.missionApprove} sketch-draft review`);
+    assertEq("approve.sh refuses a draft no ticket names",
+      { status: refused.status, reason: JSON.parse(refused.stderr.trim()).reason },
+      { status: 1, reason: "no_tickets" });
+
+    // A mission whose tickets are all DRIVEN keeps a plan (approvable) but has nothing
+    // to offer a runner -- which is why the two consumers read different fields.
+    seedMissionTicket(A, "driven-draft", "20260729000012");
+    mkdirSync(join(A, ".workaholic/tickets/archive/work-20260729-000000"), { recursive: true });
+    execSync(`git add -A && git mv .workaholic/tickets/todo/${TEST_SLUG}/20260729000012-driven-draft-step.md .workaholic/tickets/archive/work-20260729-000000/`, { cwd: A });
+    q = JSON.parse(run(A, `${QUEUE} driven-draft`).stdout);
+    assertEq("a driven mission has an empty todo but a non-empty total",
+      { t: q.todo, a: q.archive, tot: q.total }, { t: 0, a: 1, tot: 1 });
+    const stillOk = run(A, `${POSIX_SH} ${SCRIPTS.missionApprove} driven-draft review`);
+    assertTrue("approve.sh accepts a mission whose plan is fully driven — a plan exists",
+      stillOk.status === 0, stillOk.stderr || stillOk.stdout);
+    const after = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    assertEq("but the survey does not offer it — nothing left to drive",
+      (after.excluded.find((e) => e.id === "driven-draft") || {}).reason, "no_tickets");
+  } finally {
+    for (const d of [origin, A]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -8419,11 +8619,14 @@ const tests = [
   ["propose: cursor/window/dedup/draft scaffold", testProposeBatch],
   ["propose/notify-slack.sh", testNotifySlack],
   ["drive claim protocol: two clones, one unit", testClaimProtocol],
+  ["drive claim protocol: a claim survives its tickets being archived", testClaimSurvivesArchive],
+  ["drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected],
   ["drive claim protocol: offline reader/writer asymmetry", testClaimOfflineAsymmetry],
   ["drive claim protocol: same-second branch collision", testClaimBranchCollision],
   ["drive/effective-policy.sh (G5 truth table)", testEffectivePolicy],
   ["drive/plan-units.sh (survey minus claims)", testPlanUnits],
   ["drive/plan-units.sh (exclusions + the dry demo)", testPlanUnitsExclusions],
+  ["drive: the plan floor counts the ticket queue, not acceptance items", testPlanFloorCountsQueue],
   ["drive: the unified run's contract", testUnifiedDriveContract],
   ["branching/sync-main.sh (J3 freshness)", testSyncMain],
   ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],

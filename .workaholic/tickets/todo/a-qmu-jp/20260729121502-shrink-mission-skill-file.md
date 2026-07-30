@@ -9,6 +9,7 @@ category:
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260730-180928
 ---
 
 # Shrink the Mission Skill File

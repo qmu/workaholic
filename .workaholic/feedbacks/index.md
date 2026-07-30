@@ -296,4 +296,5 @@
 * [`commit-release-note.sh` shares the location assumption, correctly for now](20260730195439-commit-release-note-sh-shares-the.md)
 * [Re-entry through an env-var guard is invisible in a stack trace](20260730195439-re-entry-through-an-env-var.md)
 * [The off-base extraction now costs a fetch and a worktree](20260730195439-the-off-base-extraction-now-costs.md)
+* [An externally-blocked ticket is re-picked on every drive tick](20260730204610-an-externally-blocked-ticket-is-re.md)
 <!-- okf:generated:end -->

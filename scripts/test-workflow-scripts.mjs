@@ -8113,6 +8113,153 @@ function testCheckWorktreesIgnoresPublishTree() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// /drive surveys a CURRENT main (decision J3).
+//
+// The coverage gap this closes is a property of the old fixture design, not of the code:
+// makeClaimFixture clones both runners fresh from origin, so a stale checkout is
+// impossible by construction and the survey's local artifact read was never
+// distinguished from an origin/main read. Here clone A is deliberately held BEHIND, and
+// the assertions are: the stale survey misses the artifact and says so (`current: false`),
+// the freshness step fixes it, and every sync failure is a distinct visible reason.
+function testDriveSurveysCurrentMain() {
+  const { origin, A, B } = makePublishFixture();
+  const SYNC = `${POSIX_SH} ${SCRIPTS.syncMain}`;
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  const REL = `.workaholic/tickets/todo/${TEST_SLUG}/20260730170000-published-late.md`;
+  try {
+    // B publishes a ticket to origin/main. A never pulls.
+    mkdirSync(join(B, `.workaholic/tickets/todo/${TEST_SLUG}`), { recursive: true });
+    writeFileSync(join(B, REL),
+      `---\ncreated_at: 2026-07-30T17:00:00+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Domain]\nmerge_policy: review\n---\n\n# Published late\n`);
+    execSync("git add -A && git commit -q -m 'Add a late ticket' && git push -q origin main", { cwd: B });
+
+    // THE BUG, reproduced: a stale checkout surveys a queue that does not exist any more.
+    let plan = JSON.parse(run(A, PLAN).stdout);
+    assertTrue("a stale checkout's survey misses the published ticket",
+      !plan.backlog.some((t) => t.path === REL), JSON.stringify(plan.backlog));
+    assertEq("and the survey says so rather than reporting confidently", plan.current, false);
+    assertTrue("it names both shas so the gap is inspectable",
+      plan.surveyed_sha !== plan.base_sha && /^[0-9a-f]{40}$/.test(plan.base_sha), JSON.stringify(plan));
+
+    // plan-units.sh is a PURE reader: running it twice changes nothing.
+    const statusBefore = execSync("git status --porcelain", { cwd: A, encoding: "utf8" });
+    const headBefore = execSync("git rev-parse HEAD", { cwd: A, encoding: "utf8" });
+    run(A, PLAN);
+    assertEq("plan-units.sh mutates no working tree state",
+      { s: execSync("git status --porcelain", { cwd: A, encoding: "utf8" }), h: execSync("git rev-parse HEAD", { cwd: A, encoding: "utf8" }) },
+      { s: statusBefore, h: headBefore });
+
+    // THE FIX: the freshness step, then the same survey.
+    const synced = JSON.parse(run(A, SYNC).stdout);
+    assertEq("the freshness step fast-forwards the runner", { ok: synced.ok, advanced: synced.advanced }, { ok: true, advanced: true });
+    plan = JSON.parse(run(A, PLAN).stdout);
+    assertTrue("the survey now sees the ticket published by the other clone",
+      plan.backlog.some((t) => t.path === REL), JSON.stringify(plan.backlog));
+    assertEq("and reports itself current", plan.current, true);
+    assertEq("current means the surveyed sha IS the base sha", plan.surveyed_sha, plan.base_sha);
+
+    // Concurrent tick over a FRESHLY PUBLISHED unit: exactly one claim, the loser
+    // reporting already_claimed rather than double-picking.
+    const won = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.claim} batch ${REL}`).stdout);
+    assertEq("the first runner claims the freshly published ticket", won.claimed, true);
+    execSync("git fetch -q origin && git merge --ff-only -q origin/main", { cwd: B });
+    const lost = run(B, `${POSIX_SH} ${SCRIPTS.claim} batch ${REL}`);
+    assertTrue("the second runner is refused", lost.status !== 0, `status ${lost.status}`);
+    assertEq("and refused as already_claimed, naming the holder",
+      { reason: JSON.parse(lost.stderr.trim()).reason, holder: JSON.parse(lost.stderr.trim()).holder_branch },
+      { reason: "already_claimed", holder: won.branch });
+    // The claimed ticket leaves the offer for BOTH runners, with its reason stated.
+    for (const [name, clone] of [["claimer", A], ["other runner", B]]) {
+      const after = JSON.parse(run(clone, PLAN).stdout);
+      assertTrue(`the ${name}'s survey no longer offers the claimed ticket`,
+        !after.backlog.some((t) => t.path === REL), JSON.stringify(after.backlog));
+      assertTrue(`the ${name}'s survey states why it was dropped`,
+        after.excluded.some((e) => e.id === REL && e.reason === "claimed"), JSON.stringify(after.excluded));
+    }
+    run(A, `${POSIX_SH} ${SCRIPTS.releaseClaim} ${won.unit}`);
+
+    // Each sync failure is a distinct, visible reason — none of them may report ok.
+    execSync("git checkout -q -b work-20260730-170000", { cwd: A });
+    assertEq("off main: a distinct reason", JSON.parse(run(A, SYNC).stdout).reason, "not_on_main");
+    execSync("git checkout -q main", { cwd: A });
+    writeFileSync(join(A, "dirty.txt"), "x\n");
+    assertEq("dirty: a distinct reason", JSON.parse(run(A, SYNC).stdout).reason, "dirty_workspace");
+    rmSync(join(A, "dirty.txt"));
+    writeFileSync(join(A, "local.txt"), "l\n");
+    execSync("git add -A && git commit -q -m 'Add a local only commit'", { cwd: A });
+    assertEq("diverged: a distinct reason", JSON.parse(run(A, SYNC).stdout).reason, "diverged");
+    execSync("git reset -q --hard origin/main", { cwd: A });
+
+    // Offline the reader still degrades and never invents an unclaimed unit.
+    execSync("git remote set-url origin /nonexistent/nope.git", { cwd: A });
+    assertEq("origin unreachable is its own reason, not a false ok",
+      JSON.parse(run(A, SYNC).stdout).reason, "origin_unreachable");
+    const offline = JSON.parse(run(A, PLAN).stdout);
+    assertEq("the survey reports fetched:false offline", offline.fetched, false);
+    assertEq("and cannot claim to be current", offline.current, false);
+  } finally {
+    for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
+// claim.sh's stranded-artifact tolerance is gone: after J1 a missing mission.md is a
+// real error, and the invariants most at risk from that change (the stamp is branch-only,
+// the main checkout stays clean) must still hold.
+function testClaimNoStrandedTolerance() {
+  const { origin, A } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  try {
+    const missing = run(A, `${CLAIM} mission does-not-exist`);
+    assertTrue("claiming an absent mission fails", missing.status !== 0, `status ${missing.status}`);
+    const r = JSON.parse(missing.stderr.trim());
+    assertEq("and names the failure rather than proceeding", r.reason, "mission_missing");
+    assertTrue("the refusal points at the two real causes", /sync-main\.sh/.test(r.detail), r.detail);
+    assertTrue("nothing was created by the refused claim", !existsSync(join(A, ".worktrees/does-not-exist")));
+
+    // The invariants the change is most likely to break, re-asserted here.
+    const claimed = JSON.parse(run(A, `${CLAIM} mission m1`).stdout);
+    assertEq("a present mission still claims", claimed.claimed, true);
+    assertEq("claiming still leaves the main checkout clean",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+    assertTrue("the claim stamp is still absent from the main tree's mission.md",
+      !readFileSync(join(A, ".workaholic/missions/active/m1/mission.md"), "utf8").includes("claim:"));
+
+    const src = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/claim.sh"), "utf8");
+    assertTrue("the retired stranded-artifact comment is gone",
+      !/that is normal and not an error/.test(src));
+    assertTrue("the retained in-worktree re-resolution states its REAL reason",
+      /verified as\n# still load-bearing/.test(src) && /cut from the\n# FETCHED origin/.test(src));
+  } finally {
+    for (const d of [origin, A]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
+function testDriveFreshnessContract() {
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/drive.md"), "utf8");
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  const runbook = readFileSync(join(REPO_ROOT, "docs/drive-loop-runbook.md"), "utf8");
+
+  assertTrue("the command runs the freshness step before the survey",
+    cmd.indexOf("sync-main.sh") > 0 && cmd.indexOf("sync-main.sh") < cmd.indexOf("plan-units.sh"));
+  assertTrue("one code path: the step is not cron-only",
+    /Same step interactively and on cron: one code path/.test(cmd));
+  for (const reason of ["no_origin", "not_on_main", "dirty_workspace", "origin_unreachable", "diverged"]) {
+    assertTrue(`the command decides ${reason} explicitly`, cmd.includes(`\`${reason}\``), reason);
+  }
+  assertTrue("the freshness paths add no prompt",
+    !/AskUserQuestion/.test(cmd.split("1. **Survey**")[0].split("0. **Freshen**")[1]));
+  assertTrue("a stale survey forbids ok in the token table",
+    /not\*\* known current with the base/.test(skill));
+  assertTrue("the skill keeps plan-units.sh a pure reader, with the reason",
+    /states its freshness and does not repair it/.test(skill));
+  assertTrue("the runbook no longer cites the unmerged-worktree cause",
+    !/its tickets live in an unmerged worktree \| check/.test(runbook)
+    && /cannot occur any more/.test(runbook));
+  assertTrue("the runbook documents the stale-checkout symptom instead",
+    /the runner's checkout is behind `origin\/main`/.test(runbook));
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -8238,6 +8385,9 @@ const tests = [
   ["/ticket publishes to main end to end (J1)", testTicketPublishesToMain],
   ["hooks/validate-ticket.sh resolves a mission in the publish tree", testValidateTicketResolvesInPublishTree],
   ["/ticket publish contract (no branch, no guard, no branch_created)", testTicketPublishContract],
+  ["/drive surveys a current main (J3)", testDriveSurveysCurrentMain],
+  ["drive/claim.sh drops its stranded-artifact tolerance", testClaimNoStrandedTolerance],
+  ["/drive freshness contract (one code path, every reason visible)", testDriveFreshnessContract],
 ];
 
 for (const [label, fn] of tests) {

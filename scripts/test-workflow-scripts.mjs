@@ -107,6 +107,10 @@ const SCRIPTS = {
   proposeScaffoldDraft: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-draft.sh"),
   proposeNotifySlack: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/notify-slack.sh"),
   feedbackList: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/list.sh"),
+  syncMain: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/sync-main.sh"),
+  openPublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/open-publish-tree.sh"),
+  publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
+  closePublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/close-publish-tree.sh"),
 };
 
 // rules/shell.md mandates POSIX sh. Exercise the scripts under the strictest
@@ -1652,40 +1656,38 @@ function testMissionLensOnChange() {
 // /mission "<title>" starts a topic branch when on main, like /ticket. The command
 // orchestrates check.sh -> (on_main) create.sh before mission/create.sh; list and
 // close never branch. This test drives that exact sequence in throwaway repos.
-function testMissionBranchOnCreate() {
-  // On main: check.sh reports on_main -> create.sh makes a work-* branch -> mission
-  // lands on it, off main.
+// ---------- 8c. mission creation NEVER branches (decision J1) ----------
+// This test used to assert the opposite: that /mission cut a work-* branch on main and
+// that the mission was ABSENT from main afterwards. J1 inverted the invariant — a mission
+// is published TO main and the claim is the only thing that ever cuts a branch — so the
+// assertions are inverted rather than deleted.
+function testMissionCreateNeverBranches() {
+  // create.sh itself never branches, from any checkout — it is cwd-relative and was not
+  // touched by J1. On main, the mission lands on main.
   const dir = makeRepo("main");
   try {
     const chk = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.branchCheck}`).stdout);
     assertEq("mission-create on main: check.sh reports on_main", chk.on_main, true);
 
-    const created = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.branchCreate}`).stdout);
-    assertTrue("branch matches work-YYYYMMDD-HHMMSS", /^work-\d{8}-\d{6}$/.test(created.branch), created.branch);
-    assertEq("HEAD moved onto the new work branch",
-      execSync(`git branch --show-current`, { cwd: dir, encoding: "utf8" }).trim(), created.branch);
-
     const m = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionCreate} "Ship It"`).stdout);
-    assertEq("mission created after branching", m.created, true);
-    assertTrue("mission.md written on the work branch",
+    assertEq("mission created without any branch step", m.created, true);
+    assertTrue("mission.md is written into the checkout it ran in",
       existsSync(join(dir, ".workaholic/missions/active/ship-it/mission.md")), m.path);
-    // The mission does not exist on main (it was created on the work branch).
-    execSync(`git add -A && git commit -q -m "mission on work branch"`, { cwd: dir });
-    execSync(`git checkout -q main`, { cwd: dir });
-    assertTrue("mission is absent on main",
-      !existsSync(join(dir, ".workaholic/missions/active/ship-it/mission.md")));
+    assertEq("still on main — create.sh cut no branch",
+      execSync(`git branch --show-current`, { cwd: dir, encoding: "utf8" }).trim(), "main");
+    assertEq("no work-* branch exists anywhere",
+      execSync(`git branch --format='%(refname:short)'`, { cwd: dir, encoding: "utf8" })
+        .split("\n").filter(Boolean), ["main"]);
+    assertTrue("no .worktrees entry was created", !existsSync(join(dir, ".worktrees")));
   } finally { cleanup(dir); }
 
-  // On an existing work branch: check.sh reports not on_main -> command skips
-  // create.sh; mission is created on the current branch, no new branch appears.
+  // On an existing work branch the behaviour is identical — the flow no longer asks
+  // which branch it is on at all, because it publishes to main either way.
   const dir2 = makeRepo("main");
   try {
     execSync(`git checkout -q -b work-20260714-existing`, { cwd: dir2 });
-    const chk = JSON.parse(run(dir2, `${POSIX_SH} ${SCRIPTS.branchCheck}`).stdout);
-    assertEq("on a work branch: check.sh reports not on_main", chk.on_main, false);
-
     const m = JSON.parse(run(dir2, `${POSIX_SH} ${SCRIPTS.missionCreate} "Ship It"`).stdout);
-    assertEq("mission created without branching", m.created, true);
+    assertEq("mission created from a work branch too", m.created, true);
     assertEq("branch unchanged — no new work-* created",
       execSync(`git branch --show-current`, { cwd: dir2, encoding: "utf8" }).trim(), "work-20260714-existing");
     const branches = execSync(`git branch --format='%(refname:short)'`, { cwd: dir2, encoding: "utf8" })
@@ -1693,7 +1695,7 @@ function testMissionBranchOnCreate() {
     assertEq("only main + the pre-existing work branch exist", branches, ["main", "work-20260714-existing"]);
   } finally { cleanup(dir2); }
 
-  // The list and close modes never branch: list.sh on main creates no branch.
+  // The list and close modes never branch either.
   const dir3 = makeRepo("main");
   try {
     run(dir3, `${POSIX_SH} ${SCRIPTS.missionList}`);
@@ -1701,6 +1703,52 @@ function testMissionBranchOnCreate() {
       execSync(`git branch --format='%(refname:short)'`, { cwd: dir3, encoding: "utf8" }).split("\n").filter(Boolean),
       ["main"]);
   } finally { cleanup(dir3); }
+
+  // The command markdown must keep saying so — the create path is markdown, so the
+  // contract is asserted where it lives.
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/mission.md"), "utf8");
+  assertTrue("the create path opens a publish tree, not a worktree",
+    /open-publish-tree\.sh/.test(cmd) && !/create-mission-worktree\.sh/.test(cmd));
+  assertTrue("creation states plainly that it makes no worktree and no branch",
+    /Creation makes no worktree and no branch/.test(cmd));
+  assertTrue("the creation batch is one commit, with the reason",
+    /One commit, because the batch is one act/.test(cmd));
+  assertTrue("the publish names .workaholic/ so untracked tickets are staged",
+    /Pass `\.workaholic\/` as the file argument — it is load-bearing/.test(cmd));
+  assertTrue("a half-formed mission publishes nothing",
+    /Never publish a half-formed mission/.test(cmd));
+  assertTrue("the report does not hand back a path the developer cannot cd into",
+    /Do \*\*not\*\* report a worktree path/.test(cmd));
+  assertTrue("close publishes through the publish tree too",
+    /publish the result with subject `Close mission <slug>`/.test(cmd));
+  assertTrue("close still touches no worktree", /\*\*Close touches no worktree\.\*\*/.test(cmd));
+
+  // Stale prose: no comment may claim a close-time worktree teardown.
+  const closeSh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/close.sh"), "utf8");
+  const cleanupSh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/cleanup-mission-worktree.sh"), "utf8");
+  assertTrue("close.sh no longer claims the command tears the worktree down after it",
+    !/tears the mission worktree down AFTER/.test(closeSh));
+  assertTrue("close.sh states the claim-born rule instead",
+    /claim-born and ship-torn/.test(closeSh));
+  assertTrue("cleanup-mission-worktree.sh no longer cites a /mission close teardown",
+    !/a\n# \/mission close cannot/.test(cleanupSh) && !/\/mission close cannot silently destroy/.test(cleanupSh));
+  assertTrue("cleanup-mission-worktree.sh names its real callers",
+    /ITS CALLERS ARE THE CLAIM PATHS/.test(cleanupSh));
+
+  // create-mission-worktree.sh has exactly one INVOKER in the tree: claim.sh. Grep for
+  // an actual `sh …/create-mission-worktree.sh` call on a non-comment line — a plain
+  // filename grep also catches the several files that merely mention it in prose or
+  // comments, which is documentation, not a caller.
+  const invokers = run(REPO_ROOT,
+    "grep -rlE '^[^#]*(sh|bash) [^ ]*create-mission-worktree\\.sh' --include='*.sh' plugins/workaholic || true")
+    .stdout.trim().split("\n").filter(Boolean).filter((f) => !f.endsWith("create-mission-worktree.sh")).sort();
+  assertEq("create-mission-worktree.sh is invoked only by claim.sh", invokers, [
+    "plugins/workaholic/skills/drive/scripts/claim.sh",
+  ]);
+  // No command markdown may invoke it any more — the create path was its other caller.
+  // (branching/SKILL.md still documents its usage; documenting a primitive is not calling it.)
+  assertEq("no command invokes the claim worktree creator",
+    run(REPO_ROOT, "grep -rl create-mission-worktree plugins/workaholic/commands || true").stdout.trim(), "");
 }
 
 // ---------- 8d. branching mission worktree primitive (create/cleanup/type) ----------
@@ -2017,6 +2065,12 @@ function testMissionWorktreeFetchFirst() {
 // ---------- 8e. mission-lens worktree focus ----------
 // Inside a mission's worktree the lens surfaces only that mission; in the main
 // tree it hides missions that own a worktree and shows only worktree-less ones.
+//
+// RE-PINNED FOR J1. The rule is unchanged, but what a worktree MEANS changed: creation
+// no longer makes one, so owning `.worktrees/<slug>` now means "a runner has CLAIMED
+// this mission". The common case therefore inverted — an ordinary unclaimed mission is
+// worktree-less and is surfaced in the main tree, which is what a developer wants to see
+// on every turn. `alpha` below models a claimed mission and `gamma` an unclaimed one.
 function testMissionLensWorktreeFocus() {
   const dir = makeRepo("main");
   const PLUGIN_ROOT = join(REPO_ROOT, "plugins/workaholic");
@@ -2050,7 +2104,8 @@ concerns: []
     mk("gamma", "Gamma Mission");
     execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
 
-    // alpha gets a dedicated worktree; gamma does not.
+    // alpha is CLAIMED (a claim worktree exists for it); gamma is unclaimed, which
+    // after J1 is the state every mission is in until /drive picks it up.
     JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} alpha`).stdout);
 
     const env = { ...process.env, CLAUDE_PLUGIN_ROOT: PLUGIN_ROOT };
@@ -2058,8 +2113,9 @@ concerns: []
 
     // Main tree: only gamma (alpha is worktree-owned and stays silent here).
     const mainOut = runLens(dir);
-    assertTrue("main-tree lens shows the worktree-less mission (gamma)", mainOut.includes("Gamma Mission"), mainOut);
-    assertTrue("main-tree lens hides the worktree-owned mission (alpha)", !mainOut.includes("Alpha Mission"), mainOut);
+    assertTrue("main-tree lens surfaces an UNCLAIMED mission (gamma) — the J1 common case",
+      mainOut.includes("Gamma Mission"), mainOut);
+    assertTrue("main-tree lens still hides a CLAIMED mission (alpha)", !mainOut.includes("Alpha Mission"), mainOut);
 
     // Inside .worktrees/alpha: only alpha.
     const alphaOut = runLens(join(dir, ".worktrees/alpha"));
@@ -2104,53 +2160,93 @@ concerns: []
 // The create flow's scriptable core: slug -> mission worktree -> mission.md inside
 // -> a mission-linked kickoff ticket -> commit inside the worktree, leaving an
 // in-worktree drive-ready queue and the main tree untouched.
-function testMissionCreateWorktreeFlow() {
-  const dir = makeRepo("main");
+// ---------- 8f. mission creation spine: publish to main, no worktree (J1) ----------
+// The inverse of what this test asserted before J1. It used to prove the whole batch
+// landed INSIDE .worktrees/<slug> and was absent from main; it now proves the batch
+// lands ON main, in ONE commit, visible to another clone, with no worktree and no
+// work-* branch anywhere and the caller's checkout untouched.
+function testMissionCreatePublishFlow() {
+  const { origin, A, B } = makePublishFixture();
   try {
-    writeFileSync(join(dir, ".gitignore"), ".env\n");
-    execSync(`git add .gitignore && git commit -q -m gitignore`, { cwd: dir });
-
-    // 1. slug rule (single source, shared with create.sh)
-    const slug = run(dir, `${POSIX_SH} ${SCRIPTS.missionSlug} "Real-time Notifications"`).stdout.trim();
+    // 1. slug rule (single source, shared with create.sh and the claim worktree name)
+    const slug = run(A, `${POSIX_SH} ${SCRIPTS.missionSlug} "Real-time Notifications"`).stdout.trim();
     assertEq("mission slug derived from title", slug, "real-time-notifications");
 
-    // 2. dedicated worktree named by the slug
-    const wt = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} ${slug}`).stdout);
-    const wtPath = wt.worktree_path;
-    assertTrue("mission worktree dir matches the slug", wtPath.endsWith("/.worktrees/real-time-notifications"), wtPath);
+    // The developer is mid-work on a dirty feature branch.
+    execSync("git checkout -q -b work-20260730-160000", { cwd: A });
+    writeFileSync(join(A, "README.md"), "seed\nmid-edit\n");
+    const before = snapshotCheckout(A);
 
-    // 3. mission.md scaffolded INSIDE the worktree
-    const cr = JSON.parse(run(wtPath, `${POSIX_SH} ${SCRIPTS.missionCreate} "Real-time Notifications"`).stdout);
-    assertEq("mission created inside worktree", cr.created, true);
-    assertTrue("mission.md lives inside the worktree",
-      existsSync(join(wtPath, ".workaholic/missions/active/real-time-notifications/mission.md")));
+    // 2. a publish tree, NOT a worktree
+    const pub = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.openPublishTree}`).stdout);
+    assertEq("the create flow opens a publish tree", pub.ok, true);
 
-    // 4. an ordered kickoff ticket, mission-linked, in the worktree's todo/<user>/
-    const todoDir = join(wtPath, `.workaholic/tickets/todo/${TEST_SLUG}`);
+    // 3. mission.md scaffolded INSIDE the publish tree by the untouched script
+    const cr = JSON.parse(run(pub.path, `${POSIX_SH} ${SCRIPTS.missionCreate} "Real-time Notifications"`).stdout);
+    assertEq("mission created inside the publish tree", cr.created, true);
+    assertTrue("mission.md lives inside the publish tree",
+      existsSync(join(pub.path, `.workaholic/missions/active/${slug}/mission.md`)));
+
+    // 4. the whole ordered ticket set, mission-linked, in the publish tree's todo/<user>/
+    const todoDir = join(pub.path, `.workaholic/tickets/todo/${TEST_SLUG}`);
     mkdirSync(todoDir, { recursive: true });
-    writeFileSync(join(todoDir, "20260714120000-first-step.md"),
-      `---\ncreated_at: 2026-07-14T12:00:00+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Infrastructure]\neffort:\ncommit_hash:\ncategory:\ndepends_on:\nmission: ${slug}\n---\n\n# First Step\n`);
+    for (const [n, name] of [[1, "first-step"], [2, "second-step"]]) {
+      writeFileSync(join(todoDir, `2026073016000${n}-${name}.md`),
+        `---\ncreated_at: 2026-07-30T16:00:0${n}+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Infrastructure]\neffort:\ncommit_hash:\ncategory:\ndepends_on:\nmission: ${slug}\nmerge_policy: review\n---\n\n# ${name}\n\n## Policies\n\n- none\n\n## Quality Gate\n\nnone\n`);
+    }
 
-    // 5. commit the statement + kickoff ticket INSIDE the worktree
-    const cm = run(wtPath, `${POSIX_SH} ${SCRIPTS.commit} "Kick off mission ${slug}" "why" "changes" "None" "None" "verify" .workaholic/`);
-    assertEq("commit inside worktree exits 0", cm.status, 0);
-    assertTrue("worktree kickoff commit present",
-      /Kick off mission real-time-notifications/.test(execSync(`git log --oneline -1`, { cwd: wtPath, encoding: "utf8" })));
-    assertEq("worktree branch clean after commit",
-      execSync(`git status --porcelain`, { cwd: wtPath, encoding: "utf8" }).trim(), "");
+    // 4b. the approval flip, inside the publish tree — the only path to approved
+    const mission = join(pub.path, `.workaholic/missions/active/${slug}/mission.md`);
+    let body = readFileSync(mission, "utf8")
+      .replace("## Experience\n", "## Experience\n\nA developer sees notifications arrive without reloading.\n")
+      .replace("## Acceptance\n", "## Acceptance\n\n- [ ] first step lands (#20260730160001-first-step.md)\n- [ ] second step lands (#20260730160002-second-step.md)\n");
+    writeFileSync(mission, body);
+    const appr = JSON.parse(run(pub.path, `${POSIX_SH} ${SCRIPTS.missionApprove} ${slug} review`).stdout);
+    assertEq("the approval flip runs in the publish tree", appr.approved, true);
 
-    // 6. in-worktree list-todo returns exactly the kickoff set (drive-ready)
-    assertEq("in-worktree list-todo returns the kickoff ticket",
-      run(wtPath, `${POSIX_SH} ${SCRIPTS.listTodo}`).stdout.split("\n").filter(Boolean),
-      [`.workaholic/tickets/todo/${TEST_SLUG}/20260714120000-first-step.md`]);
+    // 5. ONE commit for the whole batch, pushed to main
+    const published = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.publishTreeCommit} "Kick off mission ${slug}" "why" "changes" "None" "None" "verify" .workaholic/`).stdout);
+    assertEq("the creation batch publishes as one commit", published.ok, true);
+    run(A, `${POSIX_SH} ${SCRIPTS.closePublishTree}`);
+    assertEq("the whole batch is exactly one commit on the base",
+      execSync(`git log --format=%s origin/main -1`, { cwd: A, encoding: "utf8" }).trim(),
+      `Kick off mission ${slug}`);
 
-    // 7. the main tree is untouched (still on main, mission not present there)
-    assertEq("main tree still on main", execSync(`git branch --show-current`, { cwd: dir, encoding: "utf8" }).trim(), "main");
-    assertTrue("mission absent from the main tree checkout",
-      !existsSync(join(dir, ".workaholic/missions/active/real-time-notifications/mission.md")));
+    // 6. another clone surveys it as a claimable PR-unit — the end-to-end point
+    execSync("git fetch -q origin && git merge --ff-only -q origin/main", { cwd: B });
+    assertTrue("the mission statement reached main",
+      existsSync(join(B, `.workaholic/missions/active/${slug}/mission.md`)));
+    // The ticket files are UNTRACKED when written, and commit.sh's default staging is
+    // `git add -u` (tracked modifications only). Without the `.workaholic/` path above,
+    // the mission statement would land on main with an empty queue — the half-formed
+    // mission the create flow forbids. This assertion is what pins that.
+    assertTrue("its whole ticket set reached main in the same commit",
+      existsSync(join(B, `.workaholic/tickets/todo/${TEST_SLUG}/20260730160001-first-step.md`))
+      && existsSync(join(B, `.workaholic/tickets/todo/${TEST_SLUG}/20260730160002-second-step.md`)));
+    const planned = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    assertTrue("the published mission is surveyed as claimable by another runner",
+      planned.missions.some((m) => m.slug === slug), JSON.stringify(planned));
+    assertTrue("its member tickets are not also offered as loose backlog",
+      !planned.backlog.some((t) => t.path.includes("first-step")), JSON.stringify(planned.backlog));
 
-    run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} ${slug}`);
-  } finally { cleanup(dir); }
+    // 7. validate-mission's approved floor holds on the published file
+    const HOOK = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/hooks/validate-mission.sh")}`;
+    const target = join(B, `.workaholic/missions/active/${slug}/mission.md`);
+    assertEq("validate-mission passes on the published, approved mission",
+      run(B, `printf '{"tool_name":"Write","tool_input":{"file_path":"${target}"}}' | ${HOOK}`, { shell: "/bin/sh" }).status, 0);
+
+    // 8. nothing was branched or worktree'd, and the caller is untouched
+    assertTrue("no .worktrees/<slug> was created by the create flow",
+      !existsSync(join(A, ".worktrees")));
+    assertTrue("no extra work-* branch was created",
+      execSync("git branch --list", { cwd: A, encoding: "utf8" })
+        .replace("work-20260730-160000", "").match(/work-\d{8}-\d{6}/) === null);
+    assertEq("creating a mission leaves the caller's checkout untouched", snapshotCheckout(A), before);
+    assertTrue("the mission is absent from the caller's own checkout",
+      !existsSync(join(A, `.workaholic/missions/active/${slug}/mission.md`)));
+  } finally {
+    for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
+  }
 }
 
 // ---------- 8g. /ship resets a mission worktree instead of deleting it ----------
@@ -7672,6 +7768,498 @@ function testUnifiedDriveContract() {
     /stale/.test(runbook) && /demoted to PR/.test(runbook) && /`secret` finding/.test(runbook));
 }
 
+// ---------------------------------------------------------------------------
+// The publish tree (decision J2) and sync-main.sh (J3).
+//
+// The central invariant is NOT that each script prints the right JSON — it is that
+// PUBLICATION NEVER TOUCHES THE CALLER'S CHECKOUT. So the fixture puts clone A on a
+// DIRTY FEATURE BRANCH, snapshots its branch / porcelain status / file contents, and
+// asserts them byte-identical after a full open → write → publish → close cycle,
+// with the artifact proven present on origin/main and absent from A's own tree.
+//
+// The concurrent case needs two independent clones for the same reason the claim
+// fixture does: A opens at origin/main, B pushes, A publishes — the rebase-and-retry
+// is only real when the second writer is genuinely a different clone.
+function makePublishFixture() {
+  const origin = mkdtempSync(join(tmpdir(), "wh-publish-origin-"));
+  execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
+  const seed = mkdtempSync(join(tmpdir(), "wh-publish-seed-"));
+  execSync(`git clone -q ${origin} .`, { cwd: seed });
+  execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: seed });
+  mkdirSync(join(seed, `.workaholic/tickets/todo/${TEST_SLUG}`), { recursive: true });
+  writeFileSync(join(seed, ".workaholic/tickets/todo/.keep"), "");
+  writeFileSync(join(seed, "README.md"), "seed\n");
+  execSync(`git add -A && git commit -q -m seed && git push -q origin main`, { cwd: seed });
+  rmSync(seed, { recursive: true, force: true });
+
+  const clones = {};
+  for (const name of ["A", "B"]) {
+    const c = mkdtempSync(join(tmpdir(), `wh-publish-${name}-`));
+    execSync(`git clone -q ${origin} .`, { cwd: c });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: c });
+    clones[name] = c;
+  }
+  return { origin, A: clones.A, B: clones.B };
+}
+
+function snapshotCheckout(dir) {
+  return {
+    branch: execSync("git branch --show-current", { cwd: dir, encoding: "utf8" }).trim(),
+    status: execSync("git status --porcelain", { cwd: dir, encoding: "utf8" }).trim(),
+    readme: readFileSync(join(dir, "README.md"), "utf8"),
+  };
+}
+
+function testPublishTree() {
+  const { origin, A, B } = makePublishFixture();
+  const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
+  const PUBLISH = `${POSIX_SH} ${SCRIPTS.publishTreeCommit}`;
+  const CLOSE = `${POSIX_SH} ${SCRIPTS.closePublishTree}`;
+  const TICKET_REL = `.workaholic/tickets/todo/${TEST_SLUG}/20260730120000-published.md`;
+  try {
+    // Put A on a dirty feature branch — the state a developer types /ticket from.
+    execSync("git checkout -q -b work-20260730-120000", { cwd: A });
+    writeFileSync(join(A, "README.md"), "seed\nlocal edit\n");
+    writeFileSync(join(A, "scratch.txt"), "untracked\n");
+    execSync("git add README.md", { cwd: A });
+    const before = snapshotCheckout(A);
+
+    let r = JSON.parse(run(A, OPEN).stdout);
+    assertEq("open-publish-tree reports the fixed path and branch",
+      { ok: r.ok, path: r.path, branch: r.branch }, { ok: true, path: join(A, ".publish"), branch: "publish-main" });
+    assertTrue("open-publish-tree resolves origin/main to a sha", /^[0-9a-f]{40}$/.test(r.sha), r.sha);
+
+    // Idempotent: a second open yields ONE worktree at the current base, not two.
+    const openAgain = JSON.parse(run(A, OPEN).stdout);
+    assertEq("open-publish-tree is idempotent", { ok: openAgain.ok, path: openAgain.path }, { ok: true, path: r.path });
+    const wtCount = execSync("git worktree list --porcelain", { cwd: A, encoding: "utf8" })
+      .split("\n").filter((l) => l.startsWith("worktree ")).length;
+    assertEq("two opens leave exactly one publish worktree (plus the main tree)", wtCount, 2);
+
+    // .publish/ is excluded — it must never appear in the primary tree's status.
+    assertEq("the publish tree is git-ignored in the caller's checkout", snapshotCheckout(A).status, before.status);
+
+    // Write the artifact INSIDE the publish tree and publish it.
+    mkdirSync(join(A, ".publish", `.workaholic/tickets/todo/${TEST_SLUG}`), { recursive: true });
+    writeFileSync(join(A, ".publish", TICKET_REL), "---\ntype: enhancement\n---\n\n# Published\n");
+    r = JSON.parse(run(A, `${PUBLISH} "Add ticket for publishing" "why" "None" "None" "None" "verify" ${TICKET_REL}`).stdout);
+    assertEq("publish-tree-commit lands the commit on the base",
+      { ok: r.ok, retried: r.retried, base: r.base }, { ok: true, retried: false, base: "main" });
+
+    // On origin. Absent from the caller's tree. Both halves matter.
+    const onOrigin = execSync(`git ls-tree -r --name-only main`, { cwd: origin, encoding: "utf8" });
+    assertTrue("the published artifact is on origin/main", onOrigin.includes(TICKET_REL), onOrigin);
+    assertTrue("the published artifact is absent from the caller's checkout", !existsSync(join(A, TICKET_REL)));
+
+    // It went through commit.sh: the subject passes the gate and the trailer is present.
+    const logLine = execSync(`git log -1 '--format=%s%n%(trailers:key=Co-Authored-By,valueonly)' main`, { cwd: origin, encoding: "utf8" }).trim().split("\n");
+    assertEq("the publish commit's subject is the caller's", logLine[0], "Add ticket for publishing");
+    assertEq("the publish commit carries the Co-Authored-By trailer", logLine[1], "Claude <noreply@anthropic.com>");
+    assertEq("the publish commit's subject passes the shared subject gate",
+      run(A, `${POSIX_SH} ${SCRIPTS.checkSubject} "Add ticket for publishing"`).status, 0);
+
+    // THE CENTRAL INVARIANT: the caller's checkout is byte-identical.
+    assertEq("publishing leaves the caller's checkout untouched", snapshotCheckout(A), before);
+
+    // No claim vocabulary was minted anywhere.
+    const branches = execSync("git branch --list", { cwd: A, encoding: "utf8" });
+    assertTrue("no work-* branch was created by the publish path",
+      !/work-\d{8}-\d{6}/.test(branches.replace("work-20260730-120000", "")), branches);
+    assertTrue("no .worktrees entry was created by the publish path", !existsSync(join(A, ".worktrees")));
+
+    // Close: the worktree and the local publish branch both go.
+    r = JSON.parse(run(A, CLOSE).stdout);
+    assertEq("close-publish-tree removes the tree and the branch",
+      { ok: r.ok, removed: r.removed, branch_deleted: r.branch_deleted }, { ok: true, removed: true, branch_deleted: true });
+    assertTrue("close-publish-tree leaves no publish-main ref",
+      run(A, "git show-ref --verify --quiet refs/heads/publish-main").status !== 0);
+    assertEq("close-publish-tree is idempotent",
+      JSON.parse(run(A, CLOSE).stdout).removed, false);
+
+    // publish-tree-commit with no publish tree is a named refusal, not a crash.
+    assertEq("publish-tree-commit refuses without an open publish tree",
+      JSON.parse(run(A, `${PUBLISH} "Add nothing here" "w" "None" "None" "None" "v"`).stdout).reason, "no_publish_tree");
+
+    // ---- Concurrent publish: A opens, B pushes, A publishes ----
+    run(A, OPEN);
+    writeFileSync(join(B, "b.txt"), "b\n");
+    execSync("git fetch -q origin && git merge --ff-only -q origin/main", { cwd: B });
+    execSync("git add -A && git commit -q -m 'Add b file' && git push -q origin main", { cwd: B });
+    writeFileSync(join(A, ".publish/second.md"), "# second\n");
+    r = JSON.parse(run(A, `${PUBLISH} "Add second artifact" "why" "None" "None" "None" "verify" second.md`).stdout);
+    assertEq("a concurrent push is answered by one rebase-and-retry",
+      { ok: r.ok, retried: r.retried }, { ok: true, retried: true });
+    const subjects = execSync("git log --format=%s main", { cwd: origin, encoding: "utf8" });
+    assertTrue("neither concurrent commit is lost",
+      subjects.includes("Add second artifact") && subjects.includes("Add b file"), subjects);
+    run(A, CLOSE);
+
+    // ---- Nothing staged is a refusal, never a false success ----
+    run(A, OPEN);
+    assertEq("publish-tree-commit refuses when the caller wrote nothing",
+      JSON.parse(run(A, `${PUBLISH} "Add nothing at all" "w" "None" "None" "None" "v"`).stdout).reason, "nothing_to_commit");
+
+    // ---- Recoverable state is never destroyed ----
+    writeFileSync(join(A, ".publish/half-written.md"), "# interrupted\n");
+    assertEq("open-publish-tree refuses a dirty publish tree",
+      JSON.parse(run(A, OPEN).stdout).reason, "dirty_publish_tree");
+    assertEq("close-publish-tree refuses a dirty publish tree",
+      JSON.parse(run(A, CLOSE).stdout).reason, "dirty_publish_tree");
+    assertTrue("the half-written artifact still exists after both refusals",
+      existsSync(join(A, ".publish/half-written.md")));
+
+    // A CLEAN tree holding an unpushed commit is the dangerous case: it looks tidy.
+    execSync("git add -A && git commit -q -m 'Add half written artifact'", { cwd: join(A, ".publish") });
+    r = JSON.parse(run(A, CLOSE).stdout);
+    assertEq("close-publish-tree refuses to delete unpublished commits", r.reason, "unpublished_commits");
+    assertTrue("the unpublished commit survives the refusal",
+      execSync("git log -1 --format=%s publish-main", { cwd: A, encoding: "utf8" }).includes("Add half written artifact"));
+
+    // ---- No origin: the writer fails loudly rather than writing locally ----
+    const lonely = makeRepo();
+    assertEq("open-publish-tree refuses without an origin remote",
+      JSON.parse(run(lonely, OPEN).stdout).reason, "no_origin");
+    assertTrue("no publish tree is created without an origin", !existsSync(join(lonely, ".publish")));
+    rmSync(lonely, { recursive: true, force: true });
+  } finally {
+    for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
+function testSyncMain() {
+  const { origin, A, B } = makePublishFixture();
+  const SYNC = `${POSIX_SH} ${SCRIPTS.syncMain}`;
+  try {
+    // Already current.
+    let r = JSON.parse(run(A, SYNC).stdout);
+    assertEq("sync-main on a current main reports advanced:false",
+      { ok: r.ok, advanced: r.advanced, base: r.base }, { ok: true, advanced: false, base: "origin/main" });
+    assertEq("sync-main mutates nothing when already current",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+
+    // B pushes; A is now behind and must fast-forward.
+    writeFileSync(join(B, "b.txt"), "b\n");
+    execSync("git add -A && git commit -q -m 'Add b file' && git push -q origin main", { cwd: B });
+    r = JSON.parse(run(A, SYNC).stdout);
+    assertEq("sync-main fast-forwards a stale main", { ok: r.ok, advanced: r.advanced }, { ok: true, advanced: true });
+    assertTrue("the fast-forward actually brought the commit in", existsSync(join(A, "b.txt")));
+
+    // Not on main.
+    execSync("git checkout -q -b work-20260730-130000", { cwd: A });
+    assertEq("sync-main refuses off main", JSON.parse(run(A, SYNC).stdout).reason, "not_on_main");
+
+    // Dirty tree on main.
+    execSync("git checkout -q main", { cwd: A });
+    writeFileSync(join(A, "dirty.txt"), "x\n");
+    r = JSON.parse(run(A, SYNC).stdout);
+    assertEq("sync-main refuses a dirty workspace", r.reason, "dirty_workspace");
+    assertTrue("the dirty-workspace refusal names what is dirty", r.summary.includes("untracked"), r.summary);
+    rmSync(join(A, "dirty.txt"));
+
+    // Local ahead is reported as diverged with a detail that says WHICH.
+    writeFileSync(join(A, "local.txt"), "local\n");
+    execSync("git add -A && git commit -q -m 'Add local only commit'", { cwd: A });
+    r = JSON.parse(run(A, SYNC).stdout);
+    assertEq("sync-main reports a local-ahead main as diverged",
+      { reason: r.reason, detail: r.detail }, { reason: "diverged", detail: "local_ahead" });
+    assertEq("sync-main never resets a diverged main",
+      execSync("git log -1 --format=%s", { cwd: A, encoding: "utf8" }).trim(), "Add local only commit");
+
+    // Genuine divergence.
+    writeFileSync(join(B, "b2.txt"), "b2\n");
+    execSync("git add -A && git commit -q -m 'Add b2 file' && git push -q origin main", { cwd: B });
+    assertEq("sync-main distinguishes genuine divergence",
+      JSON.parse(run(A, SYNC).stdout).detail, "both_diverged");
+
+    // No origin.
+    const lonely = makeRepo();
+    assertEq("sync-main reports no_origin", JSON.parse(run(lonely, SYNC).stdout).reason, "no_origin");
+    rmSync(lonely, { recursive: true, force: true });
+  } finally {
+    for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// /ticket publishes to main (decision J1). The command's orchestration is markdown,
+// so this covers it from both sides: the mechanical end-to-end (a ticket written into
+// a publish tree, with the stray sweep, reaches origin/main and never the caller's
+// checkout — and validate-ticket.sh resolves its mission relation against the publish
+// tree, not the caller's) and the contract the markdown must keep stating (no branch,
+// no worktree guard, no branch_created).
+function testTicketPublishesToMain() {
+  const { origin, A, B } = makePublishFixture();
+  const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
+  const PUBLISH = `${POSIX_SH} ${SCRIPTS.publishTreeCommit}`;
+  const CLOSE = `${POSIX_SH} ${SCRIPTS.closePublishTree}`;
+  const NEW_REL = `.workaholic/tickets/todo/${TEST_SLUG}/20260730140000-new.md`;
+  try {
+    // A stray ticket at the todo/ ROOT on main, so the sweep has something to route.
+    execSync("git checkout -q main", { cwd: A });
+    mkdirSync(join(A, ".workaholic/tickets/todo"), { recursive: true });
+    writeFileSync(join(A, ".workaholic/tickets/todo/20260729010101-stray.md"),
+      `---\ncreated_at: 2026-07-29T01:01:01+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Domain]\n---\n\n# Stray\n`);
+    execSync("git add -A && git commit -q -m 'Add stray ticket' && git push -q origin main", { cwd: A });
+
+    // Now stand on a dirty feature branch — the state /ticket is typed from.
+    execSync("git checkout -q -b work-20260730-140000", { cwd: A });
+    writeFileSync(join(A, "README.md"), "seed\nmid-edit\n");
+    const before = snapshotCheckout(A);
+
+    const pub = JSON.parse(run(A, OPEN).stdout);
+    assertEq("the ticket flow opens a publish tree", pub.ok, true);
+
+    // Step 1.5 runs INSIDE the publish tree — that is the checkout todo/ is written to.
+    const swept = JSON.parse(run(pub.path, `${POSIX_SH} ${SCRIPTS.sweepTodo}`).stdout);
+    assertEq("the stray sweep runs in the publish tree and routes the stray", swept.moved, 1);
+
+    mkdirSync(join(pub.path, `.workaholic/tickets/todo/${TEST_SLUG}`), { recursive: true });
+    writeFileSync(join(pub.path, NEW_REL),
+      `---\ncreated_at: 2026-07-30T14:00:00+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Domain]\nmerge_policy: review\n---\n\n# New\n\n## Policies\n\n- none\n\n## Quality Gate\n\nnone\n`);
+    const published = JSON.parse(run(A, `${PUBLISH} "Add ticket for the new thing" "why" "None" "None" "None" "verify" ${NEW_REL}`).stdout);
+    assertEq("the ticket batch publishes as one commit", published.ok, true);
+    run(A, CLOSE);
+
+    // On main, from a DIFFERENT clone — the end-to-end point of the change.
+    execSync("git fetch -q origin && git merge --ff-only -q origin/main", { cwd: B });
+    assertTrue("another clone sees the published ticket after fetching", existsSync(join(B, NEW_REL)));
+    assertTrue("the sweep's move rode the same publish commit",
+      existsSync(join(B, `.workaholic/tickets/todo/${TEST_SLUG}/20260729010101-stray.md`))
+      && !existsSync(join(B, ".workaholic/tickets/todo/20260729010101-stray.md")));
+    const planned = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    assertTrue("a published ticket is claimable by another runner's survey",
+      planned.backlog.some((t) => t.path === NEW_REL), JSON.stringify(planned.backlog));
+    assertEq("an unanswered merge_policy on a published ticket still reads as review",
+      JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.effectivePolicy} tickets ${NEW_REL}`).stdout).policy, "review");
+
+    // The caller's checkout never saw any of it.
+    assertEq("publishing a ticket leaves the caller's checkout untouched", snapshotCheckout(A), before);
+    assertTrue("the published ticket is absent from the caller's checkout", !existsSync(join(A, NEW_REL)));
+    assertTrue("no work-* branch beyond the developer's own was created",
+      execSync("git branch --list", { cwd: A, encoding: "utf8" }).replace("work-20260730-140000", "").match(/work-\d{8}-\d{6}/) === null);
+
+    // Summary mode answers about the CALLER's checkout, and needs no remote.
+    execSync("git remote remove origin", { cwd: A });
+    const summary = run(A, `${POSIX_SH} ${SCRIPTS.ticketSummary}`);
+    assertEq("summary mode works with no remote at all", summary.status, 0);
+    assertTrue("summary mode reports the caller's own queue, not origin's",
+      !summary.stdout.includes("20260730140000-new.md"), summary.stdout);
+  } finally {
+    for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
+// validate-ticket.sh fires PostToolUse on the WRITE, so a ticket written into the
+// publish tree must have its `mission:` relation resolved against the publish tree's
+// own .workaholic — not the caller's checkout, where the mission may not exist yet.
+function testValidateTicketResolvesInPublishTree() {
+  const repo = makeRepo();
+  const HOOK = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh")}`;
+  try {
+    // The mission exists ONLY in the simulated publish tree.
+    const pub = join(repo, ".publish");
+    mkdirSync(join(pub, ".workaholic/missions/active/only-here"), { recursive: true });
+    writeFileSync(join(pub, ".workaholic/missions/active/only-here/mission.md"),
+      `---\ntype: Mission\ntitle: Only Here\nslug: only-here\nstatus: draft\n---\n\n# Only Here\n`);
+    const ticket = join(pub, `.workaholic/tickets/todo/${TEST_SLUG}/20260730150000-missioned.md`);
+    mkdirSync(join(pub, `.workaholic/tickets/todo/${TEST_SLUG}`), { recursive: true });
+    writeFileSync(ticket,
+      `---\ncreated_at: 2026-07-30T15:00:00+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Domain]\nmission: only-here\n---\n\n# Missioned\n\n## Policies\n\n- none\n\n## Quality Gate\n\nnone\n`);
+    const r = run(repo, `printf '{"tool_name":"Write","tool_input":{"file_path":"${ticket}"}}' | ${HOOK}`, { shell: "/bin/sh" });
+    assertEq("validate-ticket resolves a mission that exists only in the publish tree", r.status, 0);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+}
+
+function testTicketPublishContract() {
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/ticket.md"), "utf8");
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/SKILL.md"), "utf8");
+
+  assertTrue("the ticket command opens a publish tree instead of cutting a branch",
+    /open-publish-tree\.sh/.test(cmd) && !/branching\/scripts\/create\.sh/.test(cmd));
+  assertTrue("the skill states plainly that /ticket never creates a branch",
+    /`\/ticket` never creates a branch/.test(skill));
+  assertTrue("the retired worktree guard records why it must not come back",
+    /The worktree guard is gone, and must not come back/.test(cmd));
+  assertTrue("the removed guard's reason is stated, not just its absence",
+    /every answer is the same is worse than no prompt/.test(cmd));
+  assertTrue("the /drive-invoked carve-out survives",
+    /Skip publishing if invoked during `\/drive`/.test(cmd));
+  assertTrue("a publish failure is surfaced as not-yet-on-main",
+    /\*\*not yet on `main`\*\*/.test(cmd));
+  assertTrue("summary mode's divergence is recorded so it is not 'fixed' later",
+    /reads the CALLER's checkout, and opens no publish tree/.test(skill));
+
+  // branch_created left the vocabulary entirely — source AND generated artifacts.
+  for (const dir of ["plugins", "outputs"]) {
+    const hits = run(REPO_ROOT, `grep -rl branch_created ${dir} || true`).stdout.trim();
+    assertEq(`branch_created appears nowhere in ${dir}/`, hits, "");
+  }
+}
+
+function testCheckWorktreesIgnoresPublishTree() {
+  const { origin, A } = makePublishFixture();
+  try {
+    const CHECK = `${POSIX_SH} ${SCRIPTS.checkWorktrees}`;
+    assertEq("no worktrees to begin with",
+      JSON.parse(run(A, CHECK).stdout).has_worktrees, false);
+    run(A, `${POSIX_SH} ${SCRIPTS.openPublishTree}`);
+    const r = JSON.parse(run(A, CHECK).stdout);
+    assertEq("the publish tree is not counted as a worktree",
+      { has: r.has_worktrees, count: r.count }, { has: false, count: 0 });
+  } finally {
+    for (const d of [origin, A]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// /drive surveys a CURRENT main (decision J3).
+//
+// The coverage gap this closes is a property of the old fixture design, not of the code:
+// makeClaimFixture clones both runners fresh from origin, so a stale checkout is
+// impossible by construction and the survey's local artifact read was never
+// distinguished from an origin/main read. Here clone A is deliberately held BEHIND, and
+// the assertions are: the stale survey misses the artifact and says so (`current: false`),
+// the freshness step fixes it, and every sync failure is a distinct visible reason.
+function testDriveSurveysCurrentMain() {
+  const { origin, A, B } = makePublishFixture();
+  const SYNC = `${POSIX_SH} ${SCRIPTS.syncMain}`;
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  const REL = `.workaholic/tickets/todo/${TEST_SLUG}/20260730170000-published-late.md`;
+  try {
+    // B publishes a ticket to origin/main. A never pulls.
+    mkdirSync(join(B, `.workaholic/tickets/todo/${TEST_SLUG}`), { recursive: true });
+    writeFileSync(join(B, REL),
+      `---\ncreated_at: 2026-07-30T17:00:00+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Domain]\nmerge_policy: review\n---\n\n# Published late\n`);
+    execSync("git add -A && git commit -q -m 'Add a late ticket' && git push -q origin main", { cwd: B });
+
+    // THE BUG, reproduced: a stale checkout surveys a queue that does not exist any more.
+    let plan = JSON.parse(run(A, PLAN).stdout);
+    assertTrue("a stale checkout's survey misses the published ticket",
+      !plan.backlog.some((t) => t.path === REL), JSON.stringify(plan.backlog));
+    assertEq("and the survey says so rather than reporting confidently", plan.current, false);
+    assertTrue("it names both shas so the gap is inspectable",
+      plan.surveyed_sha !== plan.base_sha && /^[0-9a-f]{40}$/.test(plan.base_sha), JSON.stringify(plan));
+
+    // plan-units.sh is a PURE reader: running it twice changes nothing.
+    const statusBefore = execSync("git status --porcelain", { cwd: A, encoding: "utf8" });
+    const headBefore = execSync("git rev-parse HEAD", { cwd: A, encoding: "utf8" });
+    run(A, PLAN);
+    assertEq("plan-units.sh mutates no working tree state",
+      { s: execSync("git status --porcelain", { cwd: A, encoding: "utf8" }), h: execSync("git rev-parse HEAD", { cwd: A, encoding: "utf8" }) },
+      { s: statusBefore, h: headBefore });
+
+    // THE FIX: the freshness step, then the same survey.
+    const synced = JSON.parse(run(A, SYNC).stdout);
+    assertEq("the freshness step fast-forwards the runner", { ok: synced.ok, advanced: synced.advanced }, { ok: true, advanced: true });
+    plan = JSON.parse(run(A, PLAN).stdout);
+    assertTrue("the survey now sees the ticket published by the other clone",
+      plan.backlog.some((t) => t.path === REL), JSON.stringify(plan.backlog));
+    assertEq("and reports itself current", plan.current, true);
+    assertEq("current means the surveyed sha IS the base sha", plan.surveyed_sha, plan.base_sha);
+
+    // Concurrent tick over a FRESHLY PUBLISHED unit: exactly one claim, the loser
+    // reporting already_claimed rather than double-picking.
+    const won = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.claim} batch ${REL}`).stdout);
+    assertEq("the first runner claims the freshly published ticket", won.claimed, true);
+    execSync("git fetch -q origin && git merge --ff-only -q origin/main", { cwd: B });
+    const lost = run(B, `${POSIX_SH} ${SCRIPTS.claim} batch ${REL}`);
+    assertTrue("the second runner is refused", lost.status !== 0, `status ${lost.status}`);
+    assertEq("and refused as already_claimed, naming the holder",
+      { reason: JSON.parse(lost.stderr.trim()).reason, holder: JSON.parse(lost.stderr.trim()).holder_branch },
+      { reason: "already_claimed", holder: won.branch });
+    // The claimed ticket leaves the offer for BOTH runners, with its reason stated.
+    for (const [name, clone] of [["claimer", A], ["other runner", B]]) {
+      const after = JSON.parse(run(clone, PLAN).stdout);
+      assertTrue(`the ${name}'s survey no longer offers the claimed ticket`,
+        !after.backlog.some((t) => t.path === REL), JSON.stringify(after.backlog));
+      assertTrue(`the ${name}'s survey states why it was dropped`,
+        after.excluded.some((e) => e.id === REL && e.reason === "claimed"), JSON.stringify(after.excluded));
+    }
+    run(A, `${POSIX_SH} ${SCRIPTS.releaseClaim} ${won.unit}`);
+
+    // Each sync failure is a distinct, visible reason — none of them may report ok.
+    execSync("git checkout -q -b work-20260730-170000", { cwd: A });
+    assertEq("off main: a distinct reason", JSON.parse(run(A, SYNC).stdout).reason, "not_on_main");
+    execSync("git checkout -q main", { cwd: A });
+    writeFileSync(join(A, "dirty.txt"), "x\n");
+    assertEq("dirty: a distinct reason", JSON.parse(run(A, SYNC).stdout).reason, "dirty_workspace");
+    rmSync(join(A, "dirty.txt"));
+    writeFileSync(join(A, "local.txt"), "l\n");
+    execSync("git add -A && git commit -q -m 'Add a local only commit'", { cwd: A });
+    assertEq("diverged: a distinct reason", JSON.parse(run(A, SYNC).stdout).reason, "diverged");
+    execSync("git reset -q --hard origin/main", { cwd: A });
+
+    // Offline the reader still degrades and never invents an unclaimed unit.
+    execSync("git remote set-url origin /nonexistent/nope.git", { cwd: A });
+    assertEq("origin unreachable is its own reason, not a false ok",
+      JSON.parse(run(A, SYNC).stdout).reason, "origin_unreachable");
+    const offline = JSON.parse(run(A, PLAN).stdout);
+    assertEq("the survey reports fetched:false offline", offline.fetched, false);
+    assertEq("and cannot claim to be current", offline.current, false);
+  } finally {
+    for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
+// claim.sh's stranded-artifact tolerance is gone: after J1 a missing mission.md is a
+// real error, and the invariants most at risk from that change (the stamp is branch-only,
+// the main checkout stays clean) must still hold.
+function testClaimNoStrandedTolerance() {
+  const { origin, A } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  try {
+    const missing = run(A, `${CLAIM} mission does-not-exist`);
+    assertTrue("claiming an absent mission fails", missing.status !== 0, `status ${missing.status}`);
+    const r = JSON.parse(missing.stderr.trim());
+    assertEq("and names the failure rather than proceeding", r.reason, "mission_missing");
+    assertTrue("the refusal points at the two real causes", /sync-main\.sh/.test(r.detail), r.detail);
+    assertTrue("nothing was created by the refused claim", !existsSync(join(A, ".worktrees/does-not-exist")));
+
+    // The invariants the change is most likely to break, re-asserted here.
+    const claimed = JSON.parse(run(A, `${CLAIM} mission m1`).stdout);
+    assertEq("a present mission still claims", claimed.claimed, true);
+    assertEq("claiming still leaves the main checkout clean",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+    assertTrue("the claim stamp is still absent from the main tree's mission.md",
+      !readFileSync(join(A, ".workaholic/missions/active/m1/mission.md"), "utf8").includes("claim:"));
+
+    const src = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/claim.sh"), "utf8");
+    assertTrue("the retired stranded-artifact comment is gone",
+      !/that is normal and not an error/.test(src));
+    assertTrue("the retained in-worktree re-resolution states its REAL reason",
+      /verified as\n# still load-bearing/.test(src) && /cut from the\n# FETCHED origin/.test(src));
+  } finally {
+    for (const d of [origin, A]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
+function testDriveFreshnessContract() {
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/drive.md"), "utf8");
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  const runbook = readFileSync(join(REPO_ROOT, "docs/drive-loop-runbook.md"), "utf8");
+
+  assertTrue("the command runs the freshness step before the survey",
+    cmd.indexOf("sync-main.sh") > 0 && cmd.indexOf("sync-main.sh") < cmd.indexOf("plan-units.sh"));
+  assertTrue("one code path: the step is not cron-only",
+    /Same step interactively and on cron: one code path/.test(cmd));
+  for (const reason of ["no_origin", "not_on_main", "dirty_workspace", "origin_unreachable", "diverged"]) {
+    assertTrue(`the command decides ${reason} explicitly`, cmd.includes(`\`${reason}\``), reason);
+  }
+  assertTrue("the freshness paths add no prompt",
+    !/AskUserQuestion/.test(cmd.split("1. **Survey**")[0].split("0. **Freshen**")[1]));
+  assertTrue("a stale survey forbids ok in the token table",
+    /not\*\* known current with the base/.test(skill));
+  assertTrue("the skill keeps plan-units.sh a pure reader, with the reason",
+    /states its freshness and does not repair it/.test(skill));
+  assertTrue("the runbook no longer cites the unmerged-worktree cause",
+    !/its tickets live in an unmerged worktree \| check/.test(runbook)
+    && /cannot occur any more/.test(runbook));
+  assertTrue("the runbook documents the stale-checkout symptom instead",
+    /the runner's checkout is behind `origin\/main`/.test(runbook));
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -7688,13 +8276,13 @@ const tests = [
   ["mission/summary.sh surfaces unassigned missions", testMissionSummaryUnassigned],
   ["hooks/mission-lens.sh surfaces unassigned missions", testMissionLensUnassigned],
   ["hooks/mission-lens.sh summarizes on change", testMissionLensOnChange],
-  ["mission create branches on main", testMissionBranchOnCreate],
+  ["mission create never branches (J1)", testMissionCreateNeverBranches],
   ["branching mission worktree primitive", testMissionWorktreePrimitive],
   ["worktree env-file carrying (root/subdir/none/declaration)", testWorktreeEnvCarry],
   ["mission worktree lands on the branch it reports", testMissionWorktreeNoLocalMain],
   ["mission worktree starts from the merged base (fetch-first)", testMissionWorktreeFetchFirst],
   ["mission-lens worktree focus", testMissionLensWorktreeFocus],
-  ["mission create worktree+kickoff spine", testMissionCreateWorktreeFlow],
+  ["mission create publish spine: batch to main, no worktree (J1)", testMissionCreatePublishFlow],
   ["mission worktree ship reset", testMissionWorktreeShipReset],
   ["mission/close.sh carried (carry the remainder forward)", testMissionCloseCarried],
   ["mission replan seams", testMissionReplanSeams],
@@ -7791,6 +8379,15 @@ const tests = [
   ["drive/plan-units.sh (survey minus claims)", testPlanUnits],
   ["drive/plan-units.sh (exclusions + the dry demo)", testPlanUnitsExclusions],
   ["drive: the unified run's contract", testUnifiedDriveContract],
+  ["branching/sync-main.sh (J3 freshness)", testSyncMain],
+  ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
+  ["branching/check-worktrees.sh ignores the publish tree", testCheckWorktreesIgnoresPublishTree],
+  ["/ticket publishes to main end to end (J1)", testTicketPublishesToMain],
+  ["hooks/validate-ticket.sh resolves a mission in the publish tree", testValidateTicketResolvesInPublishTree],
+  ["/ticket publish contract (no branch, no guard, no branch_created)", testTicketPublishContract],
+  ["/drive surveys a current main (J3)", testDriveSurveysCurrentMain],
+  ["drive/claim.sh drops its stranded-artifact tolerance", testClaimNoStrandedTolerance],
+  ["/drive freshness contract (one code path, every reason visible)", testDriveFreshnessContract],
 ];
 
 for (const [label, fn] of tests) {

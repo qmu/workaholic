@@ -1,7 +1,7 @@
 #!/bin/sh
-# Shared exclude guard for the two worktree creators (ensure-worktree.sh and
-# create-mission-worktree.sh). Source this file and call `ensure_git_excludes
-# <repo_root>` BEFORE `git worktree add`.
+# Shared exclude guard for the worktree creators (ensure-worktree.sh,
+# create-mission-worktree.sh, open-publish-tree.sh). Source this file and call
+# `ensure_git_excludes <repo_root>` BEFORE `git worktree add`.
 #
 # Why: git does NOT auto-ignore a linked worktree directory, so a stray
 # `git add -A` in the main tree would embed .worktrees/<name> as a gitlink. And
@@ -16,6 +16,11 @@
 # (never a fabricated root `.env`); it needs its own line since `.env` does not
 # match it.
 #
+# `.publish/` is the publish tree (open-publish-tree.sh) — a linked worktree at a
+# fixed path, excluded for the same gitlink reason as `.worktrees/`. It is listed
+# here rather than in `.gitignore` because it is a coordination directory of the
+# plugin, not of any consuming project's source tree.
+#
 # Extracted from create-mission-worktree.sh so the guard cannot drift between
 # the creators — ensure-worktree.sh (trip/drive worktrees) used to lack it
 # entirely, leaving the gitlink risk latent for non-mission worktrees.
@@ -27,7 +32,7 @@ ensure_git_excludes() {
     case "$_ege_common" in /*) : ;; *) _ege_common="${_ege_root}/${_ege_common}" ;; esac
     _ege_exclude="${_ege_common}/info/exclude"
     mkdir -p "${_ege_common}/info"
-    for _ege_pat in '.worktrees/' '.env' '.env.worktree'; do
+    for _ege_pat in '.worktrees/' '.publish/' '.env' '.env.worktree'; do
         if [ ! -f "$_ege_exclude" ] || ! grep -qxF "$_ege_pat" "$_ege_exclude"; then
             printf '%s\n' "$_ege_pat" >> "$_ege_exclude"
         fi

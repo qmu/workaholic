@@ -51,9 +51,15 @@
 #
 # NOTHING IS EXCLUDED SILENTLY. Every mission and ticket the survey drops is
 # reported in `excluded` with its reason (`claimed`, `not_approved`, `no_plan`,
-# `mission_member`), because a queue item that vanishes from an unattended run's
-# offer with no trace is indistinguishable from one that was never there
-# (`workaholic:implementation` / observability).
+# `no_tickets`, `mission_member`), because a queue item that vanishes from an
+# unattended run's offer with no trace is indistinguishable from one that was never
+# there (`workaholic:implementation` / observability).
+#
+# `no_plan` and `no_tickets` are DELIBERATELY DISTINCT, because they call for
+# different developer actions: `no_plan` means write the acceptance criteria,
+# `no_tickets` means emit the ticket set (`/mission <instruction>` replans it). The
+# reason vocabulary is read straight out of cron logs, so collapsing them would make
+# the log less actionable.
 #
 # Pure read: it fetches (through the shared reader) and inspects, and writes nothing.
 
@@ -154,8 +160,16 @@ exclude() {
 # --- approved missions --------------------------------------------------------
 # The status IS the authorization (docs/loop-engineering-workflow.md I2), and an
 # approved mission with an empty ## Acceptance authorizes work against no bar at
-# all -- the same floor drive-authorized.sh applies per ticket, applied here to
-# the offer so a planless mission is never handed to an unattended run.
+# all, so the offer applies that floor too -- a planless mission is never handed to
+# an unattended run.
+#
+# BUT ACCEPTANCE ITEMS ARE NOT A QUEUE, and the offer needs both floors. `/propose`
+# writes a provisional acceptance SKETCH, which satisfies an item count with zero
+# tickets: on 2026-07-30 an approved mission with `merge_policy: auto`, `tickets: []`
+# and an acceptance block reading "PROPOSED sketch -- not a plan" was offered here as
+# claimable. So drivability is also checked against the ticket queue itself
+# (`mission/scripts/queue-size.sh`, the single reader both floors call), and a mission
+# with nothing left in todo/ is excluded `no_tickets`.
 MISSIONS=""
 m_sep=""
 if [ -d ".workaholic/missions/active" ]; then
@@ -179,6 +193,16 @@ if [ -d ".workaholic/missions/active" ]; then
         [ -n "$total" ] || total=0
         if [ "$total" -eq 0 ]; then
             exclude mission "$slug" "no_plan"
+            continue
+        fi
+        # Nothing left to drive: the acceptance list may be full, but no ticket in
+        # todo/ names this mission, so a claim would create a branch and a worktree
+        # for an empty queue.
+        qs=$(sh "${MISSION_SCRIPTS}/queue-size.sh" "$slug" 2>/dev/null || true)
+        queued=$(printf '%s' "$qs" | sed -n 's/.*"todo": *\([0-9][0-9]*\).*/\1/p')
+        [ -n "$queued" ] || queued=0
+        if [ "$queued" -eq 0 ]; then
+            exclude mission "$slug" "no_tickets"
             continue
         fi
         title=$(json_escape "$(fm_field "$f" title)")

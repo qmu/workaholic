@@ -9,6 +9,7 @@ category:
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260730-193046
 ---
 
 # merge-pr.sh fails inside a claim worktree after the merge has landed, and extract-deferred-concerns.sh then pushes the concerns to a dead branch

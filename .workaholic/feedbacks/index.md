@@ -277,4 +277,8 @@
 * [The four tickets merged as one PR-unit, as an open stream concern predicted](20260730185714-the-four-tickets-merged-as-one.md)
 * [The publish tree is a new recoverable-state location nothing garbage-collects](20260730185714-the-publish-tree-is-a-new.md)
 * [The rebase-and-retry bound is untested under real contention](20260730185714-the-rebase-and-retry-bound-is.md)
+* [A pure relocation cannot fit under the per-commit size ceiling by construction](20260730190749-a-pure-relocation-cannot-fit-under.md)
+* [Every other long skill still has the old shape, and nothing points them at the new one](20260730190749-every-other-long-skill-still-has.md)
+* [The mission skill is still 380 lines, well above the guideline it was measured against](20260730190749-the-mission-skill-is-still-380.md)
+* [The new link check is deliberately narrow, and the obvious "improvement" would break it](20260730190749-the-new-link-check-is-deliberately.md)
 <!-- okf:generated:end -->

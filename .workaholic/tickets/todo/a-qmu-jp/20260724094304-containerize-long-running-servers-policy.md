@@ -62,6 +62,16 @@ Triaged during a `/drive` on 2026-07-26. The developer ruled that this is **real
 
 Do **not** re-attempt authoring the policy prose in `policies/` from this repo — that path was considered and rejected (the mirror model). The next action is external: write the qmu.co.jp article.
 
+### Re-verified 2026-07-30 — still blocked, article not published
+
+Checked rather than assumed, so the block is a finding and not a forecast:
+
+- `plugins/workaholic/skills/implementation/policies/containerization.md` — the nearest existing hard copy — was last touched by `513cd1d3` (2026-06-17, `Sync standards from qmu.co.jp`). It covers multi-stage builds, pinned base images, non-root runtime, and Compose for local dependencies; it says nothing about whether a long-running / traffic-serving server may run as a bare host process, and nothing about a loopback-only preview carve-out.
+- `curl -sSL https://qmu.co.jp/implementation` → `HTTP 200`, 685 lines, and **zero** matches for `127.0.0.1 | localhost | loopback | ループバック | プレビュー | 常駐 | ホストプロセス | 直接起動`. The published article set does not yet carry the ruling.
+- `curl -sSL https://qmu.co.jp/operation` → `HTTP 404` (every pillar's articles serve under `/implementation`), so there is no separate operation-side page holding it either.
+
+The blocker is unchanged and external: a named human must publish the canonical article. Re-verification costs three commands, so a future driver should re-run the two `curl` checks above before assuming this is still true.
+
 ## Policies
 
 The standard engineering policies that govern this ticket. Because the deliverable *is* an operation-policy ruling, the relevant pillar is operation itself — but see the Status above: the canonical text is authored at qmu.co.jp, not in these hard copies.

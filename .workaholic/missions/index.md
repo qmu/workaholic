@@ -2,7 +2,7 @@
 
 ## active
 
-* [adopt-a-git-flow-branching-model-with-durable-ship-records](active/adopt-a-git-flow-branching-model-with-durable-ship-records/mission.md) - Adopt a Git Flow branching model with durable ship records
+* [adopt-a-git-flow-branching-model-with-durable-ship-records](active/adopt-a-git-flow-branching-model-with-durable-ship-records/mission.md) - Adopt a release-branch staging tier with durable ship records
 
 ## archive
 

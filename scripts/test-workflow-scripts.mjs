@@ -8305,6 +8305,105 @@ function testSkillReferenceFilesShip() {
     lines < 420, String(lines));
 }
 
+// ---------------------------------------------------------------------------
+// A claim must survive its own tickets being ARCHIVED (the rename `archive.sh` performs).
+//
+// The existing claim fixture claims and asserts immediately, so no test could express
+// this: the moment a batch's first ticket moved from todo/<user>/ to archive/<branch>/,
+// claims_scan looked the OLD path up at the tip, found nothing, and reported an empty
+// artifact list -- after which the survey offered tickets that were already in flight,
+// and a second runner could re-drive finished work. Observed live on 2026-07-30 against
+// this repository's own PR #108.
+//
+// Every assertion below is made from clone B, which did none of the writing.
+function testClaimSurvivesArchive() {
+  const { origin, A, B } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const LIST = `${POSIX_SH} ${SCRIPTS.listClaims}`;
+  const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+  const t2 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`;
+  try {
+    const claimed = JSON.parse(run(A, `${CLAIM} batch ${t1} ${t2}`).stdout);
+    assertEq("the batch claims both tickets", claimed.artifacts.length, 2);
+    const wt = claimed.worktree_path;
+    const br = claimed.branch;
+
+    // --- MID-DRIVE: one ticket archived, one still queued ---
+    const archDir = `.workaholic/tickets/archive/${br}`;
+    execSync(`mkdir -p ${archDir} && git mv ${t1} ${archDir}/20260729000001-t1.md`, { cwd: wt });
+    execSync(`git commit -q -m "Archive the first ticket" && git push -q origin ${br}`, { cwd: wt });
+
+    let r = JSON.parse(run(B, LIST).stdout);
+    assertEq("mid-drive: the claim still reports BOTH artifacts",
+      r.claims[0].artifacts.slice().sort(), [t1, t2].sort());
+    assertTrue("mid-drive: the archived ticket is reported at its BASE-side path",
+      r.claims[0].artifacts.includes(t1), JSON.stringify(r.claims[0].artifacts));
+
+    // --- FULLY ARCHIVED: the state that lost everything ---
+    execSync(`git mv ${t2} ${archDir}/20260729000002-t2.md`, { cwd: wt });
+    execSync(`git commit -q -m "Archive the second ticket" && git push -q origin ${br}`, { cwd: wt });
+
+    r = JSON.parse(run(B, LIST).stdout);
+    assertEq("fully archived: the claim STILL reports both artifacts",
+      r.claims[0].artifacts.slice().sort(), [t1, t2].sort());
+    assertEq("and still reports the unit and branch", { u: r.claims[0].unit, b: r.claims[0].branch },
+      { u: claimed.unit, b: br });
+
+    // The survey must keep them out of the offer, with the reason stated.
+    const plan = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    for (const t of [t1, t2]) {
+      assertTrue(`the survey does not offer the in-flight ${t.split("/").pop()}`,
+        !plan.backlog.some((x) => x.path === t), JSON.stringify(plan.backlog));
+      assertTrue(`and states it was dropped as claimed: ${t.split("/").pop()}`,
+        plan.excluded.some((e) => e.id === t && e.reason === "claimed"), JSON.stringify(plan.excluded));
+    }
+
+    // And a second claim over the same tickets is still refused.
+    const lost = run(B, `${CLAIM} batch ${t1}`);
+    assertTrue("a second claim over an archived-but-in-flight ticket is refused",
+      lost.status !== 0, `status ${lost.status}`);
+    assertEq("refused as already_claimed, naming the holder",
+      { reason: JSON.parse(lost.stderr.trim()).reason, holder: JSON.parse(lost.stderr.trim()).holder_branch },
+      { reason: "already_claimed", holder: br });
+
+    // --- A GENUINE UNSTAMP still drops the artifact (deliberate, and preserved) ---
+    const arch1 = join(wt, `${archDir}/20260729000001-t1.md`);
+    writeFileSync(arch1, readFileSync(arch1, "utf8").replace(/^claim:.*\n/m, ""));
+    execSync(`git add -A && git commit -q -m "Drop a claim stamp" && git push -q origin ${br}`, { cwd: wt });
+    r = JSON.parse(run(B, LIST).stdout);
+    assertEq("an unstamped artifact leaves the claim (unchanged semantics)",
+      r.claims[0].artifacts, [t2]);
+
+    // --- A DELETED artifact is not claimed ---
+    execSync(`git rm -q ${archDir}/20260729000002-t2.md && git commit -q -m "Remove a ticket" && git push -q origin ${br}`, { cwd: wt });
+    r = JSON.parse(run(B, LIST).stdout);
+    assertEq("a deleted artifact drops from the claim", r.claims[0].artifacts, []);
+    assertEq("but the unit itself is still reported as in flight", r.claims[0].unit, claimed.unit);
+  } finally {
+    for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
+// A MISSION unit's mission.md is not moved by archive.sh, so its artifact list was never
+// hit by this defect -- asserted rather than assumed, because the unit-id check would
+// mask an artifact-list regression there.
+function testMissionClaimArtifactsUnaffected() {
+  const { origin, A, B } = makeClaimFixture();
+  try {
+    const claimed = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.claim} mission m1`).stdout);
+    assertEq("the mission claim reports its mission.md",
+      claimed.artifacts, [".workaholic/missions/active/m1/mission.md"]);
+    // Drive it: archive a ticket on the branch, which must not disturb the mission artifact.
+    const wt = claimed.worktree_path, br = claimed.branch;
+    execSync(`mkdir -p .workaholic/tickets/archive/${br} && git mv .workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md .workaholic/tickets/archive/${br}/ && git commit -q -m "Archive a ticket" && git push -q origin ${br}`, { cwd: wt });
+    const r = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout);
+    assertEq("a mission claim's artifact survives driving",
+      r.claims[0].artifacts, [".workaholic/missions/active/m1/mission.md"]);
+  } finally {
+    for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -8419,6 +8518,8 @@ const tests = [
   ["propose: cursor/window/dedup/draft scaffold", testProposeBatch],
   ["propose/notify-slack.sh", testNotifySlack],
   ["drive claim protocol: two clones, one unit", testClaimProtocol],
+  ["drive claim protocol: a claim survives its tickets being archived", testClaimSurvivesArchive],
+  ["drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected],
   ["drive claim protocol: offline reader/writer asymmetry", testClaimOfflineAsymmetry],
   ["drive claim protocol: same-second branch collision", testClaimBranchCollision],
   ["drive/effective-policy.sh (G5 truth table)", testEffectivePolicy],

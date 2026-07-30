@@ -9,6 +9,7 @@ category:
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260730-171125
 ---
 
 # Publish-tree primitive: write an artifact to main without touching the working tree

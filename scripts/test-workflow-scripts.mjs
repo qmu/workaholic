@@ -107,6 +107,10 @@ const SCRIPTS = {
   proposeScaffoldDraft: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-draft.sh"),
   proposeNotifySlack: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/notify-slack.sh"),
   feedbackList: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/list.sh"),
+  syncMain: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/sync-main.sh"),
+  openPublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/open-publish-tree.sh"),
+  publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
+  closePublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/close-publish-tree.sh"),
 };
 
 // rules/shell.md mandates POSIX sh. Exercise the scripts under the strictest
@@ -7672,6 +7676,218 @@ function testUnifiedDriveContract() {
     /stale/.test(runbook) && /demoted to PR/.test(runbook) && /`secret` finding/.test(runbook));
 }
 
+// ---------------------------------------------------------------------------
+// The publish tree (decision J2) and sync-main.sh (J3).
+//
+// The central invariant is NOT that each script prints the right JSON — it is that
+// PUBLICATION NEVER TOUCHES THE CALLER'S CHECKOUT. So the fixture puts clone A on a
+// DIRTY FEATURE BRANCH, snapshots its branch / porcelain status / file contents, and
+// asserts them byte-identical after a full open → write → publish → close cycle,
+// with the artifact proven present on origin/main and absent from A's own tree.
+//
+// The concurrent case needs two independent clones for the same reason the claim
+// fixture does: A opens at origin/main, B pushes, A publishes — the rebase-and-retry
+// is only real when the second writer is genuinely a different clone.
+function makePublishFixture() {
+  const origin = mkdtempSync(join(tmpdir(), "wh-publish-origin-"));
+  execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
+  const seed = mkdtempSync(join(tmpdir(), "wh-publish-seed-"));
+  execSync(`git clone -q ${origin} .`, { cwd: seed });
+  execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: seed });
+  mkdirSync(join(seed, `.workaholic/tickets/todo/${TEST_SLUG}`), { recursive: true });
+  writeFileSync(join(seed, ".workaholic/tickets/todo/.keep"), "");
+  writeFileSync(join(seed, "README.md"), "seed\n");
+  execSync(`git add -A && git commit -q -m seed && git push -q origin main`, { cwd: seed });
+  rmSync(seed, { recursive: true, force: true });
+
+  const clones = {};
+  for (const name of ["A", "B"]) {
+    const c = mkdtempSync(join(tmpdir(), `wh-publish-${name}-`));
+    execSync(`git clone -q ${origin} .`, { cwd: c });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: c });
+    clones[name] = c;
+  }
+  return { origin, A: clones.A, B: clones.B };
+}
+
+function snapshotCheckout(dir) {
+  return {
+    branch: execSync("git branch --show-current", { cwd: dir, encoding: "utf8" }).trim(),
+    status: execSync("git status --porcelain", { cwd: dir, encoding: "utf8" }).trim(),
+    readme: readFileSync(join(dir, "README.md"), "utf8"),
+  };
+}
+
+function testPublishTree() {
+  const { origin, A, B } = makePublishFixture();
+  const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
+  const PUBLISH = `${POSIX_SH} ${SCRIPTS.publishTreeCommit}`;
+  const CLOSE = `${POSIX_SH} ${SCRIPTS.closePublishTree}`;
+  const TICKET_REL = `.workaholic/tickets/todo/${TEST_SLUG}/20260730120000-published.md`;
+  try {
+    // Put A on a dirty feature branch — the state a developer types /ticket from.
+    execSync("git checkout -q -b work-20260730-120000", { cwd: A });
+    writeFileSync(join(A, "README.md"), "seed\nlocal edit\n");
+    writeFileSync(join(A, "scratch.txt"), "untracked\n");
+    execSync("git add README.md", { cwd: A });
+    const before = snapshotCheckout(A);
+
+    let r = JSON.parse(run(A, OPEN).stdout);
+    assertEq("open-publish-tree reports the fixed path and branch",
+      { ok: r.ok, path: r.path, branch: r.branch }, { ok: true, path: join(A, ".publish"), branch: "publish-main" });
+    assertTrue("open-publish-tree resolves origin/main to a sha", /^[0-9a-f]{40}$/.test(r.sha), r.sha);
+
+    // Idempotent: a second open yields ONE worktree at the current base, not two.
+    const openAgain = JSON.parse(run(A, OPEN).stdout);
+    assertEq("open-publish-tree is idempotent", { ok: openAgain.ok, path: openAgain.path }, { ok: true, path: r.path });
+    const wtCount = execSync("git worktree list --porcelain", { cwd: A, encoding: "utf8" })
+      .split("\n").filter((l) => l.startsWith("worktree ")).length;
+    assertEq("two opens leave exactly one publish worktree (plus the main tree)", wtCount, 2);
+
+    // .publish/ is excluded — it must never appear in the primary tree's status.
+    assertEq("the publish tree is git-ignored in the caller's checkout", snapshotCheckout(A).status, before.status);
+
+    // Write the artifact INSIDE the publish tree and publish it.
+    mkdirSync(join(A, ".publish", `.workaholic/tickets/todo/${TEST_SLUG}`), { recursive: true });
+    writeFileSync(join(A, ".publish", TICKET_REL), "---\ntype: enhancement\n---\n\n# Published\n");
+    r = JSON.parse(run(A, `${PUBLISH} "Add ticket for publishing" "why" "None" "None" "None" "verify" ${TICKET_REL}`).stdout);
+    assertEq("publish-tree-commit lands the commit on the base",
+      { ok: r.ok, retried: r.retried, base: r.base }, { ok: true, retried: false, base: "main" });
+
+    // On origin. Absent from the caller's tree. Both halves matter.
+    const onOrigin = execSync(`git ls-tree -r --name-only main`, { cwd: origin, encoding: "utf8" });
+    assertTrue("the published artifact is on origin/main", onOrigin.includes(TICKET_REL), onOrigin);
+    assertTrue("the published artifact is absent from the caller's checkout", !existsSync(join(A, TICKET_REL)));
+
+    // It went through commit.sh: the subject passes the gate and the trailer is present.
+    const logLine = execSync(`git log -1 '--format=%s%n%(trailers:key=Co-Authored-By,valueonly)' main`, { cwd: origin, encoding: "utf8" }).trim().split("\n");
+    assertEq("the publish commit's subject is the caller's", logLine[0], "Add ticket for publishing");
+    assertEq("the publish commit carries the Co-Authored-By trailer", logLine[1], "Claude <noreply@anthropic.com>");
+    assertEq("the publish commit's subject passes the shared subject gate",
+      run(A, `${POSIX_SH} ${SCRIPTS.checkSubject} "Add ticket for publishing"`).status, 0);
+
+    // THE CENTRAL INVARIANT: the caller's checkout is byte-identical.
+    assertEq("publishing leaves the caller's checkout untouched", snapshotCheckout(A), before);
+
+    // No claim vocabulary was minted anywhere.
+    const branches = execSync("git branch --list", { cwd: A, encoding: "utf8" });
+    assertTrue("no work-* branch was created by the publish path",
+      !/work-\d{8}-\d{6}/.test(branches.replace("work-20260730-120000", "")), branches);
+    assertTrue("no .worktrees entry was created by the publish path", !existsSync(join(A, ".worktrees")));
+
+    // Close: the worktree and the local publish branch both go.
+    r = JSON.parse(run(A, CLOSE).stdout);
+    assertEq("close-publish-tree removes the tree and the branch",
+      { ok: r.ok, removed: r.removed, branch_deleted: r.branch_deleted }, { ok: true, removed: true, branch_deleted: true });
+    assertTrue("close-publish-tree leaves no publish-main ref",
+      run(A, "git show-ref --verify --quiet refs/heads/publish-main").status !== 0);
+    assertEq("close-publish-tree is idempotent",
+      JSON.parse(run(A, CLOSE).stdout).removed, false);
+
+    // publish-tree-commit with no publish tree is a named refusal, not a crash.
+    assertEq("publish-tree-commit refuses without an open publish tree",
+      JSON.parse(run(A, `${PUBLISH} "Add nothing here" "w" "None" "None" "None" "v"`).stdout).reason, "no_publish_tree");
+
+    // ---- Concurrent publish: A opens, B pushes, A publishes ----
+    run(A, OPEN);
+    writeFileSync(join(B, "b.txt"), "b\n");
+    execSync("git fetch -q origin && git merge --ff-only -q origin/main", { cwd: B });
+    execSync("git add -A && git commit -q -m 'Add b file' && git push -q origin main", { cwd: B });
+    writeFileSync(join(A, ".publish/second.md"), "# second\n");
+    r = JSON.parse(run(A, `${PUBLISH} "Add second artifact" "why" "None" "None" "None" "verify" second.md`).stdout);
+    assertEq("a concurrent push is answered by one rebase-and-retry",
+      { ok: r.ok, retried: r.retried }, { ok: true, retried: true });
+    const subjects = execSync("git log --format=%s main", { cwd: origin, encoding: "utf8" });
+    assertTrue("neither concurrent commit is lost",
+      subjects.includes("Add second artifact") && subjects.includes("Add b file"), subjects);
+    run(A, CLOSE);
+
+    // ---- Nothing staged is a refusal, never a false success ----
+    run(A, OPEN);
+    assertEq("publish-tree-commit refuses when the caller wrote nothing",
+      JSON.parse(run(A, `${PUBLISH} "Add nothing at all" "w" "None" "None" "None" "v"`).stdout).reason, "nothing_to_commit");
+
+    // ---- Recoverable state is never destroyed ----
+    writeFileSync(join(A, ".publish/half-written.md"), "# interrupted\n");
+    assertEq("open-publish-tree refuses a dirty publish tree",
+      JSON.parse(run(A, OPEN).stdout).reason, "dirty_publish_tree");
+    assertEq("close-publish-tree refuses a dirty publish tree",
+      JSON.parse(run(A, CLOSE).stdout).reason, "dirty_publish_tree");
+    assertTrue("the half-written artifact still exists after both refusals",
+      existsSync(join(A, ".publish/half-written.md")));
+
+    // A CLEAN tree holding an unpushed commit is the dangerous case: it looks tidy.
+    execSync("git add -A && git commit -q -m 'Add half written artifact'", { cwd: join(A, ".publish") });
+    r = JSON.parse(run(A, CLOSE).stdout);
+    assertEq("close-publish-tree refuses to delete unpublished commits", r.reason, "unpublished_commits");
+    assertTrue("the unpublished commit survives the refusal",
+      execSync("git log -1 --format=%s publish-main", { cwd: A, encoding: "utf8" }).includes("Add half written artifact"));
+
+    // ---- No origin: the writer fails loudly rather than writing locally ----
+    const lonely = makeRepo();
+    assertEq("open-publish-tree refuses without an origin remote",
+      JSON.parse(run(lonely, OPEN).stdout).reason, "no_origin");
+    assertTrue("no publish tree is created without an origin", !existsSync(join(lonely, ".publish")));
+    rmSync(lonely, { recursive: true, force: true });
+  } finally {
+    for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
+function testSyncMain() {
+  const { origin, A, B } = makePublishFixture();
+  const SYNC = `${POSIX_SH} ${SCRIPTS.syncMain}`;
+  try {
+    // Already current.
+    let r = JSON.parse(run(A, SYNC).stdout);
+    assertEq("sync-main on a current main reports advanced:false",
+      { ok: r.ok, advanced: r.advanced, base: r.base }, { ok: true, advanced: false, base: "origin/main" });
+    assertEq("sync-main mutates nothing when already current",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+
+    // B pushes; A is now behind and must fast-forward.
+    writeFileSync(join(B, "b.txt"), "b\n");
+    execSync("git add -A && git commit -q -m 'Add b file' && git push -q origin main", { cwd: B });
+    r = JSON.parse(run(A, SYNC).stdout);
+    assertEq("sync-main fast-forwards a stale main", { ok: r.ok, advanced: r.advanced }, { ok: true, advanced: true });
+    assertTrue("the fast-forward actually brought the commit in", existsSync(join(A, "b.txt")));
+
+    // Not on main.
+    execSync("git checkout -q -b work-20260730-130000", { cwd: A });
+    assertEq("sync-main refuses off main", JSON.parse(run(A, SYNC).stdout).reason, "not_on_main");
+
+    // Dirty tree on main.
+    execSync("git checkout -q main", { cwd: A });
+    writeFileSync(join(A, "dirty.txt"), "x\n");
+    r = JSON.parse(run(A, SYNC).stdout);
+    assertEq("sync-main refuses a dirty workspace", r.reason, "dirty_workspace");
+    assertTrue("the dirty-workspace refusal names what is dirty", r.summary.includes("untracked"), r.summary);
+    rmSync(join(A, "dirty.txt"));
+
+    // Local ahead is reported as diverged with a detail that says WHICH.
+    writeFileSync(join(A, "local.txt"), "local\n");
+    execSync("git add -A && git commit -q -m 'Add local only commit'", { cwd: A });
+    r = JSON.parse(run(A, SYNC).stdout);
+    assertEq("sync-main reports a local-ahead main as diverged",
+      { reason: r.reason, detail: r.detail }, { reason: "diverged", detail: "local_ahead" });
+    assertEq("sync-main never resets a diverged main",
+      execSync("git log -1 --format=%s", { cwd: A, encoding: "utf8" }).trim(), "Add local only commit");
+
+    // Genuine divergence.
+    writeFileSync(join(B, "b2.txt"), "b2\n");
+    execSync("git add -A && git commit -q -m 'Add b2 file' && git push -q origin main", { cwd: B });
+    assertEq("sync-main distinguishes genuine divergence",
+      JSON.parse(run(A, SYNC).stdout).detail, "both_diverged");
+
+    // No origin.
+    const lonely = makeRepo();
+    assertEq("sync-main reports no_origin", JSON.parse(run(lonely, SYNC).stdout).reason, "no_origin");
+    rmSync(lonely, { recursive: true, force: true });
+  } finally {
+    for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -7791,6 +8007,8 @@ const tests = [
   ["drive/plan-units.sh (survey minus claims)", testPlanUnits],
   ["drive/plan-units.sh (exclusions + the dry demo)", testPlanUnitsExclusions],
   ["drive: the unified run's contract", testUnifiedDriveContract],
+  ["branching/sync-main.sh (J3 freshness)", testSyncMain],
+  ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
 ];
 
 for (const [label, fn] of tests) {

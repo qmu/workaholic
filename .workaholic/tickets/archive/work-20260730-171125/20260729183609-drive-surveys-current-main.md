@@ -3,12 +3,13 @@ created_at: 2026-07-29T18:36:09+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Domain, Infrastructure]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on: [20260729183607-ticket-publishes-to-main.md, 20260729183608-mission-publishes-to-main.md]
 mission:
 merge_policy: review
+claim: work-20260730-171125
 ---
 
 # /drive surveys a current main, and claim.sh drops its stranded-artifact workarounds
@@ -119,3 +120,76 @@ This ticket closes that gap and then removes the workarounds the old model requi
 - **`/propose` and `/drive` now both fast-forward the same `main`** (`plugins/workaholic/commands/propose.md`, `plugins/workaholic/commands/drive.md`). Two crons on 15- and 5-minute schedules against one checkout was already true, but each gains a mutation. The failure to look for is one tick fast-forwarding while the other is mid-write; both guard on a clean tree, which should be sufficient, but it deserves a stated argument rather than an assumption.
 - **`list-todo.sh` stays cwd-relative and that is correct** (`plugins/workaholic/skills/drive/scripts/list-todo.sh`). It reports the checkout it runs in; the freshness step makes that checkout current. Do not make it read refs — inside a claim worktree it must report the worktree's queue.
 - **The `excluded[]` vocabulary is a user-facing contract** (`plugins/workaholic/skills/drive/scripts/plan-units.sh`). Any new reason added here appears in cron output and in the runbook, so it is named once and used identically in both, per the terminology policy.
+
+## Final Report
+
+Development completed as planned. `commands/drive.md` gained step 0 — `sync-main.sh`
+before the survey, with a table deciding all five `ok: false` reasons as reported
+decisions and no prompt; `plan-units.sh` stayed a pure reader and now *states* its
+freshness (`surveyed_sha`, `base_sha`, `current`); `current: false` forbids `ok` in the
+terminal-token table; `claim.sh`'s stranded-artifact tolerance became a named
+`mission_missing` refusal while its in-worktree re-resolution was **verified and kept**
+with its real reason written down; and runbook §6's impossible cause was replaced by the
+five that can now occur.
+
+Verification: the hermetic suite is green at 1436 passed / 0 failed. The fixture gap the
+ticket names is closed by `testDriveSurveysCurrentMain`, which holds clone A deliberately
+behind and asserts the bug *first* (the stale survey misses the ticket and reports
+`current: false` with both shas), then the fix, then that `plan-units.sh` mutates nothing
+across two runs, then each sync failure as a distinct reason, then the offline degrade,
+then a concurrent claim over the freshly published unit — one claim, the loser
+`already_claimed`, and the ticket dropped from *both* runners' offers with reason
+`claimed`. The at-risk claim invariants ("claiming leaves the main checkout clean", "the
+stamp is absent from the main tree's mission.md") are re-asserted in
+`testClaimNoStrandedTolerance`. `build.mjs` / `verify.mjs` / `validate-metadata.mjs`
+clean, `posix-lint` conforming, `layout-doctor` `conforming: true`. Live rehearsal against
+a throwaway clone: a ticket published to the mirror's `main` was invisible to a
+deliberately-behind runner (`current: False`, differing shas), visible after
+`sync-main.sh` (`advanced: true`, `current: True`), then claimed and released with the
+runner's main checkout clean throughout — and `claim.sh` refused a bogus slug with
+`mission_missing`.
+
+### Discovered Insights
+
+- **Insight**: This ticket's defect reproduced **in the very run that fixed it**. The
+  opening `/drive` survey ran against a main checkout nine commits behind
+  `origin/main`, and silently missed two claimable units — a backlog ticket and an
+  approved mission with `merge_policy: auto`. Neither appeared in `excluded[]`, because a
+  stale checkout does not *drop* a named item; it never learns the item exists. That is
+  why the freshness signal had to be a property of the **survey** (`current`) rather than
+  a new `excluded` reason.
+  **Context**: The strongest evidence for a bug's severity is finding it in your own
+  telemetry while writing the fix. It also explains why the cron shape is the dangerous
+  one: a five-minute tick reporting "nothing to do" looks exactly like a healthy loop.
+
+- **Insight**: A test caught a real semantic error in `current`. The first version was
+  `surveyed_sha == base_sha`, which reports `true` for an **offline** runner whose HEAD
+  matches its own last-known `origin/main` ref — establishing nothing about the base and
+  letting a disconnected runner emit `ok`. `current` now requires `fetched` as well, so
+  it means *known* current rather than *believed* current. The assertion that caught it
+  ("and cannot claim to be current") was written from the doc wording, before the code.
+  **Context**: The reader is allowed to degrade offline; a *freshness claim* is not. The
+  asymmetry that governs `list-claims.sh` versus `claim.sh` applies to this field too.
+
+- **Insight**: `claim.sh`'s in-worktree mission re-resolution is **still load-bearing**,
+  for a reason unrelated to the retired one, and was kept rather than deleted on sight.
+  The worktree is cut from the *fetched* `origin/<base>`, which the main tree need not
+  match — a mission created or archived on the base since this checkout last advanced
+  resolves to a different path there. Resolving against the checkout being stamped is the
+  correct reading, not a duplicate of step 2. Its comment now says that instead of citing
+  a case that can no longer occur.
+  **Context**: The ticket asked for verify-before-removal precisely because a correct
+  behaviour with an obsolete justification looks like dead code. The comment was stale;
+  the code was not.
+
+- **Insight**: The freshness step introduces `/drive`'s first checkout mutation, and it
+  coexists safely with the 15-minute `/propose` tick by construction rather than by luck:
+  both guard on a clean tree, `sync-main.sh` refuses anything but a fast-forward, and
+  neither writes to `main` in the caller's checkout any more — `/propose` and both
+  sources publish through a publish tree, whose commits never touch the runner's working
+  tree. The dangerous interleaving the ticket asked about (one tick fast-forwarding while
+  the other is mid-write) cannot arise, because the other tick's write is not in this
+  checkout.
+  **Context**: The J1 publish-tree work removed the shared-mutation hazard before this
+  step could create one. Worth knowing that the two decisions are load-bearing for each
+  other, not merely adjacent.

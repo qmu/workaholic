@@ -37,13 +37,23 @@ bash check-deps/scripts/check.sh
 
 If `ok` is `false`, print the `message` and stop — a run on a broken install produces damage, not work. If `missing_guards` is non-empty, **warn and continue**: a stale or partial build is loaded and the listed `PreToolUse` guards are not registered, which matters more here than anywhere else because this run commits, pushes, and may merge without a human in the loop. Record the warning in the run report rather than only printing it.
 
+Then **freshen the checkout before reading it** (decision J3):
+
+```bash
+bash branching/scripts/sync-main.sh
+```
+
+Artifacts are published to `main` (J1) but the survey reads *this working tree*, and nothing else in the run fast-forwards it — `claims_fetch` updates remote-tracking refs only. A runner behind `origin/main` therefore surveys yesterday's queue and reports it confidently, which on a five-minute tick looks healthy and does nothing. The step runs identically interactively and on cron: one code path. Each `ok: false` is a reported decision, never a prompt — `commands/drive.md` step 0 holds the table; `not_on_main`, `dirty_workspace` and `diverged` terminate `pending`, while `no_origin` and `origin_unreachable` survey locally and forbid `ok`.
+
 Then survey what is claimable:
 
 ```bash
 bash drive/scripts/plan-units.sh
 ```
 
-Emits `{fetched, base, claimed[], missions[], backlog[], excluded[]}` — the approved, unclaimed missions and this developer's unclaimed todo tickets, with everything a claim already holds subtracted through the shared reader (*Claims*). `excluded[]` names every mission and ticket it dropped and why (`claimed`, `not_approved`, `no_plan`, `mission_member`), so nothing leaves the offer silently.
+Emits `{fetched, base, surveyed_sha, base_sha, current, claimed[], missions[], backlog[], excluded[]}` — the approved, unclaimed missions and this developer's unclaimed todo tickets, with everything a claim already holds subtracted through the shared reader (*Claims*). `excluded[]` names every mission and ticket it dropped and why (`claimed`, `not_approved`, `no_plan`, `mission_member`), so nothing leaves the offer silently.
+
+**The survey states its freshness and does not repair it.** `current` is whether the surveyed checkout matches the base; `current: false` means the survey could not see everything on the base, and **`ok` is then forbidden** (§7). The repair belongs to the caller because a script named "plan units" that mutated the checkout would surprise every other caller, and this one must stay side-effect-free — it is called inside claim worktrees too. Note there is no `excluded` reason for staleness: a stale checkout does not drop a *named* item, it never learns the item exists, so the condition is a property of the survey rather than of an artifact.
 
 `fetched: false` means origin was unreachable and the claim set is the last-known one. Survey anyway, but expect the claim step to refuse: **the reader degrades offline, the writer does not.**
 
@@ -183,7 +193,8 @@ The token is **derived, never self-asserted**:
 | Any claimed unit was **demoted** and is waiting at a PR it was meant to ship | `pending` |
 | Any unit was left with tickets undriven (failed/blocked tickets remain in its queue) | `pending` |
 | The survey still offers a claimable mission or ticket (including a unit another runner holds) | `pending` |
-| Nothing was claimable at all and nothing is in flight | `ok` |
+| The survey ran against a checkout **not** known current with the base (`current: false`, or `sync-main.sh` reported `no_origin`/`origin_unreachable`) | `pending` |
+| Nothing was claimable at all and nothing is in flight, over a **current** survey | `ok` |
 
 "I stopped" is not "it's done": a blocked unit is `pending`, not `ok`. This is verbatim the contract a caller-side loop such as `/goal /drive ok` waits on (decision I4 — `/goal` is a harness feature, not a command of this plugin; the token is the whole contract). A confident `ok` over an incomplete run is the masked failure `implementation` / `observability` forbids, which is why the reconciliation line always precedes it: the outcome must be graspable from outside without a debugger.
 
@@ -257,7 +268,7 @@ This is where `/drive` used to stop and ask "Approve this implementation?" after
 State the model before the scripts, because the scripts only implement it:
 
 - **PR-unit.** The thing a runner takes. It is either one approved **mission** (unit id = the mission slug) or one **batch** of related backlog tickets (unit id = `batch-<YYYYMMDDHHMMSS>`, minted at claim time). One unit ↔ one branch ↔ one worktree ↔ one PR.
-- **Claim.** A commit whose subject is `Claim <unit-id>`, on a fresh `work-*` branch cut from `origin/main` by the standard creator, whose content stamps `claim: <branch>` into the claimed artifacts' frontmatter — the mission's `mission.md`, or each batched ticket file — **pushed immediately**. The stamp lives on the branch only: `main` never shows a claim, so no merge ever has to un-stamp one.
+- **Claim.** A commit whose subject is `Claim <unit-id>`, on a fresh `work-*` branch cut from `origin/main` by the standard creator, whose content stamps `claim: <branch>` into the claimed artifacts' frontmatter — the mission's `mission.md`, or each batched ticket file — **pushed immediately**. The stamp lives on the branch only: `main` never shows a claim, so no merge ever has to un-stamp one. The artifact must actually be present in the claiming checkout: a mission with no `mission.md` is refused as `mission_missing`, since after J1 absence means either a wrong slug or a checkout behind the base — never the "it lives on an unmerged branch" case the claim writer used to tolerate.
 - **Reader.** Fetch, enumerate the `origin/*` branches carrying commits not on `origin/main`, and for each read the unit from its newest `Claim …` subject and the claimed artifacts from the branch tip's `claim: <branch>` stamps.
 - **Release = merge or branch deletion.** A merged branch's commits are on the base, so its claim leaves the unmerged set *by definition* — the normal path needs no script at all. Deliberately discarding an unfinished unit is the other path, and that one is explicit.
 - **Staleness is reported, never auto-broken.** A claim whose branch tip is older than `WORKAHOLIC_CLAIM_STALE_HOURS` (default 24) is marked `stale: true`. Nothing acts on that. A runner that reclaims on its own verdict is a runner that can silently duplicate a colleague's in-flight work over a long lunch; reclaiming is a human/dispatcher decision.

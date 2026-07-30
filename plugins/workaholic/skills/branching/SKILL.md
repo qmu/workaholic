@@ -218,6 +218,56 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/reset-mission-worktree.sh <s
 
 `list-all-worktrees.sh` tags a `.worktrees/<slug>` worktree with `"type": "mission"` (ordinary `work-*` dirs stay `"type": "work"`), so `/ship` and the mission lens can distinguish a mission's claim worktree from an ordinary branch worktree. `create-mission-worktree.sh` also adds `.worktrees/` to `.git/info/exclude` so a linked worktree is never accidentally embedded as a gitlink by a main-tree `git add -A`.
 
+## The Publish Tree
+
+A **publish tree** is a checkout of `origin/main` that is independent of the caller's working tree, so an artifact can be written and pushed to `main` without depending on — or disturbing — whatever the developer is doing. It is the mechanism behind decision J2 (`docs/loop-engineering-workflow.md`): `/ticket` and `/mission` are typed at any moment, most often mid-work on a dirty feature branch, so a source that guarded on "be on a clean `main` first" would be unusable exactly when it is most useful.
+
+**A publish tree is not a claim worktree.** It holds no unit, is never pushed as a branch, and is disposable at any moment. `.worktrees/<unit-id>/` is claim-born and ship-torn and belongs to exactly one PR-unit; `.publish/` belongs to nobody and is reset on every open. If the two ever shared a directory or a branch prefix, `list-claims.sh` and `release-claim.sh` would become ambiguous — hence the fixed, distinct path and the deliberately non-`work-*` branch name.
+
+`create.sh` and `create-mission-worktree.sh` remain the branch and worktree creators **for claims only**. Nothing in the publish-tree lifecycle creates a `work-*` branch or a `.worktrees/` entry.
+
+### Lifecycle: open → write → publish-tree-commit → close
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/open-publish-tree.sh [base]
+# write the artifact under <path>/…
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-commit.sh <title> <why> <changes> <concerns> <insights> <verify> [files...]
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh [base]
+```
+
+**Open** fetches `origin/<base>`, materializes a worktree at the fixed, git-ignored `<repo_root>/.publish/` on the fixed local branch `publish-main`, and re-points it at the resolved SHA. Output: `{"ok": true, "path": "<abs>", "branch": "publish-main", "base": "origin/<base>", "sha": "<sha>"}`. Refusals: `no_origin`, `origin_unreachable`, `base_unresolved`, `dirty_publish_tree`.
+
+**Publish** runs `commit.sh` inside the publish tree (a `( cd … && … )` subshell) and pushes `publish-main:<base>` — the *commit* reaches `main`; the branch name never leaves the machine. Output: `{"ok": true, "sha": "<pushed sha>", "retried": <bool>, "base": "<base>"}`. Refusals: `no_publish_tree`, `nothing_to_commit`, `commit_failed`, `diverged`, `push_failed`.
+
+**Close** removes the worktree and deletes the local `publish-main`. Output: `{"ok": true, "removed": <bool>, "branch_deleted": <bool>, "path": "<abs>"}`. Refusals: `dirty_publish_tree`, `unpublished_commits`.
+
+Every write in between resolves against the reported `path`, not the caller's cwd. All writes belong to one publication: the caller writes the whole batch, then publishes once.
+
+### Why it is shaped this way
+
+- **A fixed path on a fixed named branch**, reset per open, rather than a per-invocation throwaway. One predictable location is inspectable and recoverable after a crash, and reset-per-open makes staleness impossible.
+- **The branch is named, not detached, and that is load-bearing.** `commit.sh` refuses a detached HEAD, and the publish commit must go through `commit.sh` so it inherits the subject gate and the `Co-Authored-By` trailer. `publish-main` is deliberately not `work-*`: that prefix is the claim vocabulary the claim scan keys on.
+- **The writer fails loudly with no origin.** A publication nobody else can see is not a publication — the same stance `claim.sh` takes.
+- **Non-fast-forward is expected, not exceptional**, and is answered by one rebase-and-retry. Another session or a cron tick may push between the open and the publish. The bound is deliberate: an unbounded loop would hide sustained divergence a human should see. A surviving rejection reports `diverged` and leaves the commit intact in the publish tree.
+- **Nothing recoverable is ever destroyed by a bookkeeping call.** `open` and `close` both refuse a `dirty_publish_tree`; `close` additionally refuses `unpublished_commits` — a *clean* tree whose `publish-main` carries commits not yet on `origin/<base>`, which is exactly what a `diverged` publish leaves behind and is the more dangerous case because the tree looks tidy.
+- **Reported outcomes ride stdout with exit 0.** These scripts are driven by command markdown that cannot branch, so every enumerated outcome is one uniform JSON contract the orchestrator reads the same way. Genuine misuse (not a git repository, missing arguments) still exits non-zero.
+
+`.publish/` is added to the shared `.git/info/exclude` through the same `lib/ensure-git-excludes.sh` seam as `.worktrees/`, so it never appears in `git status` and can never be embedded as a gitlink by a main-tree `git add -A`.
+
+## Sync Main
+
+Bring the current checkout's base branch up to date with origin's, **fast-forward only**.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/sync-main.sh [base]
+```
+
+Output: `{"ok": true, "base": "origin/<base>", "sha": "<sha>", "advanced": <bool>}`, or `{"ok": false, "reason": "not_on_main" | "dirty_workspace" | "no_origin" | "origin_unreachable" | "diverged", …}`.
+
+It never merges, rebases, stashes, or resets — a fast-forward is the only mutation it will perform, and every state in which it cannot fast-forward is reported rather than resolved. `diverged` carries a `detail` of `local_ahead` or `both_diverged`, because "you have unpushed commits on `main`" and "the histories have parted" are different things for a human to act on. Composed from `check.sh` and `check-workspace.sh` so "am I on main" and "is the tree clean" keep one implementation each.
+
+Two callers: `/propose`'s guard step, and `/drive`'s freshness step before the survey — the latter is what stops a runner silently surveying yesterday's queue (decision J3).
+
 ## Credentials — carry every env file the project reads
 
 Development credentials live in git-ignored env file(s). **Do not assume they live only at the repository root** — many projects keep the runnable unit in a subdirectory whose tooling loads `<package>/.env` *relative to that package*, so the file the project actually reads is not `<repo-root>/.env`. Worktree creation must carry the files the project reads, because `git worktree add` alone never brings a git-ignored file along, and env loaders (e.g. `node --env-file-if-exists`) **fail silently** on a missing file — a worktree missing the real env file looks fine and reports "no credentials" as a plausible, durable, wrong finding.

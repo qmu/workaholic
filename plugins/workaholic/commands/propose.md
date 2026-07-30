@@ -19,7 +19,7 @@ This command is **headless by contract** (`workaholic:propose` — read its Head
 
 ## Workflow
 
-1. **Guard.** Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check.sh` and `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-workspace.sh`. Abort (report `{"proposed": 0, "reason": "not_on_main"}` / `"dirty_workspace"`) unless on `main` with a clean tree. Then bring main current: `git fetch origin main` and fast-forward only — a non-ff state aborts with `"diverged"` (never merge or prompt here).
+1. **Guard.** Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/sync-main.sh`. It composes the on-main and clean-tree readers, fetches, and fast-forwards — never merging, rebasing, or prompting. On `ok: false`, abort reporting `{"proposed": 0, "reason": "<its reason>"}`: `not_on_main`, `dirty_workspace`, `diverged`, `no_origin`, or `origin_unreachable`.
 
 2. **Cursor.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/cursor.sh read`. On `initialized: true`, report the bootstrap and stop — pre-existing feedback is already-seen by design (skill: Cursor contract).
 

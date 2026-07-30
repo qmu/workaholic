@@ -272,4 +272,5 @@
 * [`/fb` still commits without pushing, so its records never reach `/propose`](20260730111600-fb-still-commits-without-pushing-so.md)
 * [The `depends_on` chain will batch all four tickets into one PR-unit](20260730111600-the-depends-on-chain-will-batch.md)
 * [The ticket-batch convention structurally collides with the per-commit size ceiling](20260730111600-the-ticket-batch-convention-structurally-collides.md)
+* [The draft-gate proposal's replacement gate is the one this repo just measured as broken](20260730182436-the-draft-gate-proposal-s-replacement-gate-is-the-one-this-repo-just-measured-as-broken.md)
 <!-- okf:generated:end -->

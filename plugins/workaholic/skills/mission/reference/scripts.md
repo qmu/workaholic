@@ -9,13 +9,13 @@ running it; the table alone is a locator, not a contract.
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/create.sh "<title>" [assignee]
 ```
 
-Create a new mission: derive the slug from the title (via `slug.sh`), scaffold `.workaholic/missions/active/<slug>/mission.md` (frontmatter + the four empty sections), stamp `created_at`/`author` from the `gather` skill, seed `assignees` with the optional second argument or (default) the creator's `git config user.email` (the approver is the default owner), refresh the OKF bundle indexes, and git-stage. Refuses to overwrite an existing mission in either area. Emits `{created, slug, path}` JSON. (The `/mission` command runs this with a mission worktree as the working directory, so `mission.md` lands inside `.worktrees/<slug>/` — see the command's create flow.)
+Create a new mission: derive the slug from the title (via `slug.sh`), scaffold `.workaholic/missions/active/<slug>/mission.md` (frontmatter + the four empty sections), stamp `created_at`/`author` from the `gather` skill, seed `assignees` with the optional second argument or (default) the creator's `git config user.email` (the approver is the default owner), refresh the OKF bundle indexes, and git-stage. Refuses to overwrite an existing mission in either area. Emits `{created, slug, path}` JSON. (The `/mission` command runs this with a **publish tree** as the working directory, so `mission.md` lands there and is pushed to `main` in the creation batch's single commit — see the command's create flow. Nothing about the script changes; only the caller's `cd` target does.)
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/slug.sh "<title>"
 ```
 
-Derive a mission slug from a title (lowercase, non-`[a-z0-9]` runs → single hyphen, ends trimmed). The **single source of the slug rule** — both `create.sh` (the mission directory name) and the `/mission` worktree flow (the `.worktrees/<slug>` directory name) derive the slug here, so the worktree directory always matches the mission slug. Emits the slug on stdout (empty when the title has no `[a-z0-9]`).
+Derive a mission slug from a title (lowercase, non-`[a-z0-9]` runs → single hyphen, ends trimmed). The **single source of the slug rule** — both `create.sh` (the mission directory name) and the claim protocol (the `.worktrees/<slug>` directory name, minted by `claim.sh`) derive the slug here, so a mission's claim worktree always matches its mission slug. Emits the slug on stdout (empty when the title has no `[a-z0-9]`).
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/read-relation.sh <artifact-file>
@@ -72,7 +72,7 @@ Read the mission's **quality-gate** declaration (`gate_type`/`gate_target`/`gate
 `valid` and `driveable` answer **different questions**, and the distinction is the point:
 
 - **`valid`** — the *declaration* is well-formed: `gate_type` is empty or one of `documentation`/`live-app`/`check`. It says nothing about whether the gate can be run.
-- **`driveable`** — the gate can actually be *exercised*: one is declared **and** its worktree ports resolved (for `check`, the worktree itself exists — no port is involved). `reason` names why not — `no_gate` (none declared: the **normal** case, not an error) or `no_worktree` (declared, but no worktree to serve or run its target in).
+- **`driveable`** — the gate can actually be *exercised*: one is declared **and** its worktree ports resolved (for `check`, the worktree itself exists — no port is involved). `reason` names why not — `no_gate` (none declared: the **normal** case, not an error) or `no_worktree` (declared, but no worktree to serve or run its target in). Since J1 an *unclaimed* mission owns no worktree at all, so `no_worktree` is the expected answer until `/drive` claims it — the gate becomes driveable inside the claim, which is where it is exercised anyway.
 
 `driveable` exists because `valid: true` with empty ports reported success for a gate that could not be addressed at all: a mission could declare a live gate, pass validation, and be silently unverifiable. The port fields are `""` when the mission has no worktree.
 
@@ -132,7 +132,7 @@ Accumulate a `/drive` run's agent-hours into `actual_hours` (float add), **idemp
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list-related-prs.sh <slug>
 ```
 
-List OPEN pull requests referencing a mission slug (slug present in a PR's title or body — a mission-linked story names the mission; `work-*` branch names do not), so the **Replan** flow can see a sibling lane's in-flight, not-yet-merged work before emitting duplicate delta tickets. Emits `{slug, available, prs:[{number, title, url, headRefName}]}`. **Read-only, best-effort**: `available: false` (empty `prs`) when `gh` is missing/unauthenticated or the repo has no usable remote — *unknown*, not *no siblings*, so a replan is never blocked by tooling. Complements `create-mission-worktree.sh`'s fetch-first base resolution (that guards a new worktree's *merged* base; this guards a replan against a sibling's *unmerged* work).
+List OPEN pull requests referencing a mission slug (slug present in a PR's title or body — a mission-linked story names the mission; `work-*` branch names do not), so the **Replan** flow can see a sibling lane's in-flight, not-yet-merged work before emitting duplicate delta tickets. Emits `{slug, available, prs:[{number, title, url, headRefName}]}`. **Read-only, best-effort**: `available: false` (empty `prs`) when `gh` is missing/unauthenticated or the repo has no usable remote — *unknown*, not *no siblings*, so a replan is never blocked by tooling. Complements the publish tree's fetch-first base (that guards a replan against a stale `main`; this guards it against a sibling's *unmerged* work).
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/close.sh <mission-slug-or-file> <achieved|abandoned|carried> [date] \

@@ -3,6 +3,12 @@
 # Usage: sh check-worktrees.sh
 # Output: JSON with has_worktrees (boolean), count, work_count
 # Unlike list-worktrees.sh, this script does not query GitHub API.
+#
+# THE PUBLISH TREE IS NOT COUNTED. `.publish/` is a registered linked worktree,
+# but it is not a worktree in the sense this guard means: it holds no unit, no
+# branch a caller could act on, and it lives only for the duration of one
+# publication. Counting it would make `has_worktrees` true in every repository
+# that has ever published an artifact.
 
 set -eu
 
@@ -19,8 +25,8 @@ current_branch=""
 # is what silently dropped the last worktree).
 flush_block() {
   if [ -n "$current_branch" ] && [ -n "$current_path" ]; then
-    # Skip main working tree
-    if [ "$current_path" != "$repo_root" ]; then
+    # Skip the main working tree and the publish tree (see the header).
+    if [ "$current_path" != "$repo_root" ] && [ "$current_path" != "${repo_root}/.publish" ]; then
       count=$((count + 1))
       # Match work-*, drive-* (legacy), trip/* (legacy)
       case "$current_branch" in

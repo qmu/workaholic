@@ -5,10 +5,30 @@
 # Usage: plan-units.sh
 # Output: JSON
 #   {"fetched": bool, "base": "<ref>",
+#    "surveyed_sha": "<sha of the checkout's HEAD>", "base_sha": "<sha of <base>>",
+#    "current": bool,
 #    "claimed": [{"unit": "...", "branch": "...", "stale": bool}],
 #    "missions": [{"slug", "title", "merge_policy", "checked", "total", "next", "path"}],
 #    "backlog":  [{"path", "title", "type", "layer", "merge_policy", "depends_on"}],
 #    "excluded": [{"kind": "mission"|"ticket", "id": "...", "reason": "..."}]}
+#
+# IT STATES ITS OWN FRESHNESS, AND STILL DOES NOT FIX IT (decision J3). Claims come
+# from git refs, but the ARTIFACTS come from the working tree this runs in -- so a
+# checkout behind <base> surveys a stale queue and reports it confidently. That
+# defect is closed by the CALLER (commands/drive.md runs branching/sync-main.sh
+# before surveying), not here: a script named "plan units" that mutated the checkout
+# would surprise every other caller, and this one is deliberately callable where
+# reading must be side-effect-free (including inside a claim worktree).
+#
+# What it owes the caller instead is the FACT: `surveyed_sha` is what the working
+# tree actually holds, `base_sha` is where <base> points, and `current` is whether
+# the survey is KNOWN current -- the shas agree AND the fetch succeeded, since an
+# offline runner matching its own last-known ref has established nothing about the
+# base. `current: false` means this survey could not see everything on the base, and
+# the run's terminal token may not be `ok` on the strength of it. There is
+# no `excluded` reason for staleness because a stale checkout does not drop a NAMED
+# item -- it never learns the item exists, which is exactly why the condition has to
+# be reported as a property of the survey rather than of an artifact.
 #
 # THE SPLIT IS THE POINT (docs/loop-engineering-workflow.md G2). Partitioning the
 # work into PR-units is two different jobs, and only one of them is mechanical:
@@ -76,6 +96,23 @@ doc_title() {
 FETCHED=$(claims_fetch)
 BASE=$(claims_base)
 ROWS=$(claims_scan "$BASE")
+
+# --- freshness, reported never repaired (see the header) -----------------------
+# `claims_fetch` above updated the remote-tracking refs, so BASE reflects the remote
+# when it succeeded. Comparing the two shas is most of the check --
+#
+# -- but `current` requires FETCHED too, and that conjunction is the honest part.
+# Offline, BASE is only the last-known ref, so "my HEAD equals origin/main" means
+# "I match what I remember", not "I match the base". Reporting `current: true` there
+# would let a runner that cannot reach the remote at all emit `ok`, which is the
+# confident-stale-survey this field exists to make impossible.
+SURVEYED_SHA=$(git rev-parse HEAD 2>/dev/null || printf '')
+BASE_SHA=$(git rev-parse --verify --quiet "${BASE}^{commit}" 2>/dev/null || printf '')
+if [ "$FETCHED" = "true" ] && [ -n "$SURVEYED_SHA" ] && [ "$SURVEYED_SHA" = "$BASE_SHA" ]; then
+    CURRENT=true
+else
+    CURRENT=false
+fi
 
 CLAIMED_UNITS=""
 CLAIMED_ARTIFACTS=""
@@ -179,5 +216,5 @@ for t in $(sh "${SCRIPT_DIR}/list-todo.sh" 2>/dev/null || true); do
     b_sep=", "
 done
 
-printf '{"fetched": %s, "base": "%s", "claimed": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s]}\n' \
-    "$FETCHED" "$BASE" "$CLAIMED_JSON" "$MISSIONS" "$BACKLOG" "$EXCLUDED"
+printf '{"fetched": %s, "base": "%s", "surveyed_sha": "%s", "base_sha": "%s", "current": %s, "claimed": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s]}\n' \
+    "$FETCHED" "$BASE" "$SURVEYED_SHA" "$BASE_SHA" "$CURRENT" "$CLAIMED_JSON" "$MISSIONS" "$BACKLOG" "$EXCLUDED"

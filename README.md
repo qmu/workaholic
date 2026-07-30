@@ -52,7 +52,7 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 
 | Command    | What it does                                          |
 | ---------- | ----------------------------------------------------- |
-| `/ticket`  | Plan a change with context and steps (bare `/ticket` or `/ticket summary` reports your assigned todo tickets instead) |
+| `/ticket`  | Plan a change with context and steps, then **publish it straight to `main`** so the next `/drive` tick can claim it — run it from any branch, mid-edit; your checkout is left untouched and no branch is created (bare `/ticket` or `/ticket summary` reports your assigned todo tickets instead) |
 | `/request` | Submit a ticket to **another** repository — the only sanctioned way to cross a repo boundary. Masks this project's customer context and requires you to confirm the destination and the exact body, verbatim, in one non-skippable confirmation |
 | `/drive`   | **The sole executor.** Surveys what is claimable (approved missions + your unclaimed backlog), partitions it into **PR-units** — "what deserves one merge" — claims each on a pushed branch, implements it in the claim's own worktree, opens its PR via `/report`'s seam, and routes it by the unit's recorded **merge policy**: `auto` ships through the full deploy-and-confirm-then-merge doctrine and cleans the claim up, anything else stops at the PR and posts its URL to Slack (a policy nobody recorded counts as review). Then it accounts for the run: a reconciliation line plus an **honest derived terminal token** — `ok` only when every claimed unit reached its routed end *and* a fresh survey offers nothing claimable, else `pending`, which is what a caller-side loop like `/goal /drive ok` waits on. **It never asks anything** — the same run, interactively or on a 5-minute cron (`docs/drive-loop-runbook.md`); `/drive night` is a synonym. Approval is not a per-ticket prompt: it was given where the work was decided, at mission approval or ticket creation. Work is coordinated by the **claim protocol** — every runner reads the claims in flight from the unmerged remote branches, so two runners (or two machines) never pick the same work. There is no lock file and no server; the repository itself is the coordination medium |
 | `/commit`  | Commit the working changes with a policy-conformant message (for small non-ticketed changes; ticketed work belongs to `/drive`) |
@@ -96,7 +96,7 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 
 ### Ticket-Driven Development
 
-A ticket is a markdown file describing a change you want to make — the context, plan, and rationale. Run `/ticket your change request` and a coding agent explores both codebase and history, then writes the ticket for you. Committed alongside the code, tickets become searchable history for future coding agents.
+A ticket is a markdown file describing a change you want to make — the context, plan, and rationale. Run `/ticket your change request` and a coding agent explores both codebase and history, then writes the ticket for you. It is committed and pushed to `main` immediately — from whatever branch you happen to be on, without disturbing your working tree — so it is visible to every runner, machine, and fresh clone the moment it exists. Committed alongside the code, tickets become searchable history for future coding agents.
 
 Once tickets are queued, `/drive` groups them into PR-units, claims each on its own pushed branch, and implements them in that claim's worktree — no confirmation prompt, because the approval already happened when the work was decided. While one runner drives a claim, others can keep creating tickets or claim a different unit; the unmerged remote branches are what keeps them from colliding.
 
@@ -138,7 +138,7 @@ The tree is also an [Open Knowledge Format](https://github.com/GoogleCloudPlatfo
 
 | Artifact | Written by | Snapshot of | Diffed on ship? | Carried over? | Eliminated when |
 | -------- | ---------- | ----------- | --------------- | ------------- | --------------- |
-| `tickets/todo/<ts>-*.md` | `/ticket` | Intended change (not yet implemented) | committed as a normal file | no | `/drive` claims it into a PR-unit and archives it once implemented |
+| `tickets/todo/<ts>-*.md` | `/ticket` | Intended change (not yet implemented) | committed **and pushed to `main`** at creation | no | `/drive` claims it into a PR-unit and archives it once implemented |
 | `tickets/archive/<branch>/*.md` | `/drive` (archive) | Implemented change with final report and commit hash | committed, permanent | no — permanent record | never (institutional history) |
 | `tickets/icebox/*.md` | `/ticket --icebox` (or manual move) | Deferred change | committed | yes (survives across PRs until promoted) | `/drive` (after user promotes from icebox) |
 | `tickets/abandoned/*.md` | `/drive` (abandon flow) | Attempted-then-abandoned change with failure analysis | committed, permanent | no | never |
@@ -415,7 +415,7 @@ flowchart LR
   d3 -."next /report reads".-> c1
 ```
 
-**Plan** — `/ticket` writes a new file under `tickets/todo/` describing the intended change. This is the only artifact created before code exists.
+**Plan** — `/ticket` writes a new file under `tickets/todo/` describing the intended change, and publishes it to `main` in one commit. This is the only artifact created before code exists. It creates no branch: the executor's claim is the only thing that ever cuts one.
 
 **Implement** — `/drive` reads `tickets/todo/`, claims a PR-unit's tickets onto its own branch, implements them there, and moves each file to `tickets/archive/<branch>/` as it lands. The archive subdirectory is named after the claim branch so all of a unit's tickets cluster under one folder. Final reports and the resolving `commit_hash` are written into the ticket frontmatter at archive time.
 

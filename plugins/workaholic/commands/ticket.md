@@ -21,7 +21,7 @@ skills:
 
 This command (main agent) runs the `workaholic:create-ticket` **Workflow** directly: it spawns the three discovery subagents as `general-purpose` Task calls and issues every AskUserQuestion itself — there is no `ticket-organizer` subagent.
 
-**Project label in every prompt:** for each `AskUserQuestion` this command issues (worktree guard, moderation merge/split, Quality-Gate interrogation, mission association, merge policy, ambiguity), prefix the `question` body with `[<project label>]` — run `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh` once and reuse its `project` value — so a developer with several sessions open across tmux panes can see which repository is asking; leave the `header` as the decision/topic label.
+**Project label in every prompt:** for each `AskUserQuestion` this command issues (moderation merge/split, Quality-Gate interrogation, mission association, merge policy, ambiguity), prefix the `question` body with `[<project label>]` — run `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh` once and reuse its `project` value — so a developer with several sessions open across tmux panes can see which repository is asking; leave the `header` as the decision/topic label.
 
 ## Instructions
 
@@ -46,31 +46,38 @@ reported `version`, and if `missing_guards` is non-empty, **warn** the user that
 stale or partial plugin install is loaded (the listed PreToolUse guards are not
 registered in this build) before proceeding — do not block on it.
 
-### Step 0: Worktree Guard
+### The worktree guard is gone, and must not come back
 
-Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-worktrees.sh`. If `has_worktrees` is `true`, present an `AskUserQuestion` with selectable options:
-- **"Continue here"** — Proceed with ticket creation on the current branch.
-- **"Switch to worktree"** — Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/list-all-worktrees.sh`, display the worktree list, and inform the user to navigate to the selected worktree to run `/ticket` there.
-
-Rationale: prevents creating tickets against the main tree when the user may intend to work within a claim worktree.
+There was a Step 0 here that asked "Continue here" vs "Switch to worktree" when worktrees existed. Its stated rationale was to stop a ticket being written against the main tree when the developer meant to be inside a claim worktree — and that is exactly the concern decision J1 eliminates: **every ticket is published to `main` by construction**, from whatever checkout the developer happens to be standing in, so both answers now produce the identical outcome. A prompt whose every answer is the same is worse than no prompt (`rules/interaction.md`), so it was removed rather than reworded. `/ticket` never creates a branch and never asks about one.
 
 ### Step 1: Run the Create-Ticket Workflow
 
 Follow the **Workflow** section of the preloaded `workaholic:create-ticket` skill end-to-end, with `$ARGUMENT` as the request description and the target directory (`todo` or `icebox`, based on the argument):
 
-1. **Check branch** (skill Step 1) — create a topic branch if on main; record `branch_created`.
+1. **Open the publish tree** (skill Step 1) — `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/open-publish-tree.sh`; take its `path` and treat it as the root every subsequent write resolves against. On `ok: false`, report the reason and stop before writing anything.
 2. **Parallel discovery** (skill Step 2) — spawn three `subagent_type: "general-purpose"` subagents in a single message (`model: "opus"`), one per mode (history/source/policy), each preloading `workaholic:discover`. These are leaf subagents: they discover and return each mode's JSON per skill Step 2 (history's includes the `moderation` field that step 3 below branches on) — never AskUserQuestion. Wait for all three.
 3. **Handle moderation** (skill Step 3) — on `duplicate`, inform the user and show the existing path (done); on `needs_decision`, present the merge/split options via `AskUserQuestion` and act on the choice; on `clear`, proceed.
 4. **Quality Gate interrogation** (skill Step 4b — **mandatory, always run**) — before writing, interrogate the developer about how the outcome's quality will be assured. **Ask decisions; derive the rest**, and run each decision through the **Recommended-label test** (`rules/interaction.md`): question only what is genuinely the developer's call (verification depth/method, scope, risk tradeoffs) **and unrecommendable** — a decision whose answer you could honestly recommend is decided-and-recorded as a `## Quality Gate` `Decided:` line, not asked. Unrecommendable forks are issued as `AskUserQuestion`(s) at this command level and grilled until objective and checkable; acceptance criteria that follow from discovery and repo conventions are **drafted by you directly into the ticket's mandatory `## Quality Gate` section**, never posed as a select-which-apply menu. **Do not soften or skip the modeling** on "obvious" requests — the test narrows the prompt *count*, never the gate's thoroughness; every recommendable call is still decided and written down, and the recorded gate is what makes the later `/drive` approval concrete. The `Decided:` record format and a worked example live in skill Step 4b — do not restate them here.
 5. **Offer mission association** (skill Step 4c — optional) — run `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list.sh`; if any **in-flight** missions exist (`status: draft` or `approved` — the active area), issue one **`multiSelect: true`** `AskUserQuestion` (options = each in-flight mission by title+slug, plus "None") and write **every** chosen `slug` into each written ticket's `mission:` frontmatter — `[alpha, beta]` for several, a bare slug for one (closed missions are never offered). Skip silently when there are no in-flight missions. The choices are drawn from existing missions, so the slugs are valid by construction — no extra validation. A ticket can advance more than one mission; `/drive` will hold it to **every** named mission's quality gate, so a mission named here is a commitment, not a label.
 6. **Record the merge policy** (skill Step 4d) — issue **one** `AskUserQuestion`: may this work merge automatically once it is done and verified (`auto`), or must a human review the PR (`review`)? Write the answer as `merge_policy:` into every ticket this run writes. This is a genuinely unrecommendable fork — the developer's trust in *this* change landing unattended is information you cannot derive — so it is asked, not decided. A **mission-emitted** ticket inherits its mission's policy instead and this question is skipped; an empty field is legal and reads as `review`.
-7. **Evaluate complexity and write ticket(s)** (skill Steps 4–5) — run the stray-ticket sweep (skill Step 1.5) first, then split when warranted, populate `depends_on`, and write files (including the `## Quality Gate` section) under `.workaholic/tickets/todo/<user>/` (or `.workaholic/tickets/icebox/`, which stays flat) only.
+7. **Evaluate complexity and write ticket(s)** (skill Steps 4–5) — run the stray-ticket sweep (skill Step 1.5) first, then split when warranted, populate `depends_on`, and write files (including the `## Quality Gate` section) under `.workaholic/tickets/todo/<user>/` (or `.workaholic/tickets/icebox/`, which stays flat) only. Both the sweep and the writes resolve **inside the publish tree**: run the scripts as `( cd <publish_path> && … )` and give every Write an absolute path under `<publish_path>/`.
 8. **Handle ambiguity** (skill Step 6) — if the request is ambiguous, present the questions via `AskUserQuestion` and incorporate the answers.
 
 **CRITICAL guardrails** (from `workaholic:create-ticket`): never implement code, never commit (Step 2 below handles commit), discovery subagents never call AskUserQuestion, and tickets are written ONLY under `.workaholic/tickets/todo/<user>/` or `.workaholic/tickets/icebox/` — never the flat `todo/` root and never any other `.workaholic/` subdirectory. See the skill's Allowed Locations section.
 
-### Step 2: Commit and Present
+### Step 2: Publish and Present
 
-**Skip commit if invoked during `/drive`** — the archive script handles it.
+**Skip publishing if invoked during `/drive`** — the archive script commits on the claim branch, and that is correct: a ticket minted mid-run belongs to the PR that discovered it and reaches `main` when that PR merges. Do not open a publish tree in this case.
 
-Otherwise: stage ticket(s) with `git add <paths>`, commit `"Add ticket for <short-description>"`, present the ticket location and summary, and tell the user to run `/drive` to implement.
+Otherwise, publish the batch as one commit and tear the publish tree down:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-commit.sh "Add ticket for <short-description>" "<why>" "None" "None" "None" "<verify>" <ticket-path>...
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh
+```
+
+Then present the ticket path, the pushed commit, and the fact that it is **already on `main`** and claimable by the next `/drive` tick.
+
+**Name only the tickets this run wrote.** The Step 1.5 sweep has already git-staged its moves inside the publish tree, and they ride the same commit through the index — but naming a swept ticket's *old* path here refuses the entire publish (`commit.sh` treats an unstageable named path as fatal, correctly), leaving the batch unpublished. So pass the newly written paths and nothing else.
+
+**A publish failure is never swallowed.** On `no_origin`, `diverged`, `push_failed`, or `nothing_to_commit`, tell the developer plainly that the ticket is **not yet on `main`**, name the reason, and say that the body is intact in the publish tree (do **not** close it — closing refuses unpublished commits, and the tree is how the work is recovered). A developer who believes work is queued when it is not is the worst outcome available here.

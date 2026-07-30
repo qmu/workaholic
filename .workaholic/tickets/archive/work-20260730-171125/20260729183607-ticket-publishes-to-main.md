@@ -3,9 +3,9 @@ created_at: 2026-07-29T18:36:07+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config, Domain]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on: [20260729183606-publish-tree-primitive.md]
 mission:
 merge_policy: review
@@ -115,3 +115,70 @@ Two prompts disappear with the branch. `/ticket`'s Step 0 worktree guard ("Conti
 - **`check-worktrees.sh` may become caller-less** (`plugins/workaholic/skills/branching/scripts/check-worktrees.sh`). Check before deleting: `/mission` and other flows may still use it, and the publish tree itself will now appear in its output. If it survives, confirm nothing treats the publish tree as a claim worktree.
 - **Two `/ticket` runs in quick succession share one publish tree** (`plugins/workaholic/skills/branching/scripts/open-publish-tree.sh`). The primitive resets on open and refuses a dirty publish tree, so the second run either publishes cleanly or refuses loudly — but the interleaving deserves a test rather than an assumption, since two agent sessions on this server is the normal case, not an edge one.
 - **`validate-ticket.sh` resolves a ticket's `mission:` relation in the ticket's own checkout** (`plugins/workaholic/hooks/validate-ticket.sh`). With tickets written into the publish tree and missions also published to `main` (the sibling ticket), that resolution now succeeds in the common case for the first time — but the hook fires `PostToolUse` on the *write*, so confirm it resolves against the publish tree and not the caller's checkout.
+
+## Final Report
+
+Development completed as planned. Step 0's worktree guard is deleted with its reason
+recorded in its place, Workflow Step 1 is now "Open the Publish Tree", the sweep and the
+ticket writes resolve inside that tree, Step 2 publishes and closes, summary mode's
+divergence is written down as deliberate, and the branch field left the output contract.
+`check-worktrees.sh` gained one behavioural change — it no longer counts the publish
+tree.
+
+Verification: the hermetic suite is green at 1375 passed / 0 failed with four new cases —
+an end-to-end publish (stray sweep inside the publish tree, batch published as one
+commit, seen by a *second* clone's `plan-units.sh`, caller checkout byte-identical, no
+`work-*` branch, summary mode working with the remote removed entirely), the
+publish-tree mission resolution in `validate-ticket.sh`, the `check-worktrees.sh`
+exclusion, and the markdown contract (no `create.sh` in the path, the guard's reason
+recorded, the `/drive` carve-out intact, `branch_created` absent from both `plugins/`
+and `outputs/`). `build.mjs` / `verify.mjs` clean, `posix-lint` conforming,
+`layout-doctor` `conforming: true`. Live rehearsal against a throwaway clone (origin
+re-pointed at a local bare mirror): from a dirty feature branch, a stray was swept and a
+new ticket written and published in one commit, both landed on the mirror's `main`, the
+caller's branch and porcelain status were identical before and after, and a
+deliberately-behind runner clone surveyed both after `sync-main.sh`.
+
+### Discovered Insights
+
+- **Insight**: The rehearsal caught an orchestration trap the spec did not anticipate.
+  Step 1.5's sweep git-stages its moves *inside the publish tree*, and those staged
+  moves ride the publish commit through the index — but if the caller names a swept
+  ticket's **old** path in the `publish-tree-commit.sh` file list, `commit.sh` correctly
+  treats the unstageable path as fatal and refuses the entire batch. The first rehearsal
+  did exactly that and reported `commit_failed` with the tickets left intact in the
+  publish tree. The command now says: name only the paths this run wrote. Worth noting
+  the failure path behaved perfectly — clean reason, nothing lost, and `close` then
+  refused because the tree was dirty.
+  **Context**: Any step that *moves* files before a commit changes what the next step
+  may name. The interaction only appears when both run in the same checkout, which is
+  new here.
+
+- **Insight**: `check-worktrees.sh` lost its last in-plugin caller with the Step 0 guard,
+  and the decision was to **keep it and fix it** rather than delete it. It is a pure
+  reader that ships in the `outputs/workflows` bundle, so deleting it is a breaking
+  change to cross-agent consumers for no gain; but it would have started reporting
+  `has_worktrees: true` in every repository that had ever published an artifact, so the
+  publish tree is now excluded by path. The ticket-1 consideration prescribed exactly
+  this ordering ("exclude the publish tree from the count rather than re-tune the
+  guard").
+  **Context**: A caller-less script in a distributed bundle is not dead code — it is
+  public API. Correctness first, deletion only with a consumer census.
+
+- **Insight**: `validate-ticket.sh` needed no change to work in the publish tree, and
+  the reason is worth knowing: it derives the missions root from `file_path` itself
+  (`missions_root_from_artifact`), not from cwd or `show-toplevel`. So a ticket written
+  at `<publish>/.workaholic/…` resolves its `mission:` relation against
+  `<publish>/.workaholic` by construction — which is why a mission published to `main`
+  in the same batch resolves for the first time. Pinned by a named test so a future
+  "simplification" to `show-toplevel` cannot pass silently.
+  **Context**: The cross-checkout resolution that looked like worktree-era complexity
+  turns out to be exactly what makes the publish tree work.
+
+- **Insight**: The `todo/<user>/` partition's *stated* rationale was falsified by this
+  change while its function survived intact. It was introduced to stop one developer's
+  unarchived tickets leaking onto another's branch; with every ticket on `main` there
+  are no branches to leak between. The prose now says "assignment", which is what
+  `list-todo.sh` and `plan-units.sh` actually use it for.
+  **Context**: A rationale that has become false is a defect even when the code it
+  justifies is still right — the next reader will draw the wrong conclusion from it.

@@ -281,7 +281,7 @@ Every script lives at `mission/scripts/<name>`. **This table is a locator, not a
 | ------ | ------------ |
 | `create.sh` | Scaffold a new mission (slug, frontmatter, empty sections, creator-seeded `assignees`); refuses to overwrite |
 | `slug.sh` | Derive a mission slug from a title — the single source of the slug rule |
-| `approve.sh` | The **only** path to `status: approved`: clears the owner/Experience/Acceptance floor and records the `merge_policy` ruling |
+| `approve.sh` | The **only** path to `status: approved`: clears the owner / Experience / Acceptance / **ticket-queue** floor and records the `merge_policy` ruling |
 | `close.sh` | The **only** sanctioned way to end a mission: flips `status`, appends the closing line, moves the dir to `archive/` |
 | `list.sh` | The whole roadmap, with computed `relation`, `next`, `ready`/`ready_reason`, `merge_policy` |
 | `summary.sh` | The canonical statement of the shared owner gate the lens and `/drive`'s survey answer to |
@@ -297,6 +297,7 @@ Every script lives at `mission/scripts/<name>`. **This table is a locator, not a
 | `predict-duration.sh` | Stamp `predicted_hours` once at creation from the archived-mission trend; empty when the basis is 0 |
 | `record-run-hours.sh` | The only writer of `actual_hours`; idempotent per run-id |
 | `list-related-prs.sh` | Open PRs referencing a slug, so a replan sees a sibling lane's unmerged work (best-effort) |
+| `queue-size.sh` | How many tickets name the mission (`todo` / `archive` / `total`) — the single counter both drivability floors read |
 | `migrate-strategies.sh` | Living migration folding a legacy `strategies/` tree into feedback records |
 
 ## Ending a mission — outcomes, worktrees, and the carry doctrine

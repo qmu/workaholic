@@ -3,9 +3,9 @@ created_at: 2026-07-30T18:15:00+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Domain]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 merge_policy: review
@@ -113,3 +113,63 @@ The gap between the two states matters. A mission with `0/0` acceptance is *corr
 - **This is the other route to the state ticket 20260729183608 closed.** That ticket made the mission creation batch one commit so a statement could never reach `main` without its tickets. The same end state is reachable through `/propose` plus an approval, and closing this is what makes that invariant hold from both directions.
 - **The `0/N`-with-tickets case must stay offered, and it is the common one.** Every legitimately planned mission starts at `0/N` with a full queue; a fix that keys on `checked == 0` instead of on the queue count would exclude every mission at the moment it becomes drivable.
 - **Step 3 is a genuine order-of-operations question, not a formality.** `commands/mission.md`'s create flow already approves *after* emitting the set, so refusing at approval costs nothing there — but a developer approving a hand-authored mission in two sittings would hit it. The `/mission approve` route's step 2 (replan to drive-ready first) is the answer, and the ruling should say so rather than leaving the interaction to be rediscovered.
+
+## Final Report
+
+Development completed as planned. `mission/scripts/queue-size.sh` is the single counter
+both floors now read; `plan-units.sh` excludes a mission with nothing in `todo/` as
+`no_tickets` (distinct from `no_plan`), and `approve.sh` refuses a mission no ticket names
+at all. The two falsified claims — `plan-units.sh`'s "the same floor drive-authorized.sh
+applies" comment and `drive/SKILL.md`'s "passes it by construction" — now describe the
+floor as implemented, and the runbook carries the new reason with the action it implies.
+`/propose` was not changed.
+
+Verification: suite green at **1512 passed / 0 failed**. `testPlanFloorCountsQueue` covers
+every criterion: the `0/N`-with-no-tickets exclusion the old fixtures could not express,
+the `0/N`-with-tickets mission still offered, `0/0` still `no_plan`, the two reasons never
+collapsing, and `approve.sh` refusing the same shape. `posix-lint` conforming; `build.mjs`
+/ `verify.mjs` / `validate-metadata.mjs` clean; `layout-doctor` conforming.
+
+Live check against this repository, side by side over identical state: the unfixed survey
+offers `adopt-a-git-flow-branching-model-with-durable-ship-records` (`auto`, `0/8`,
+`tickets: []`); the fixed one excludes it `no_tickets`, and `queue-size.sh` reports
+`todo: 0, archive: 0, total: 0`. Per step 5 the mission is **reported, not demoted** —
+flipping another actor's approved mission back to `draft` from inside a drive would be a
+run overriding a human ruling. It needs a replan to emit its ticket set.
+
+### Discovered Insights
+
+- **Insight**: The two floors had to ask **different** questions, which is why
+  `queue-size.sh` reports three numbers instead of a boolean. `approve.sh` asks *"does a
+  plan exist?"* and must therefore count `todo + archive` — otherwise approving a mission
+  whose work is already driven would be refused, which would be absurd. `plan-units.sh`
+  asks *"is there anything to drive right now?"* and counts `todo` alone. A single
+  `has_plan` flag would have forced one of them to be wrong, and the pathological case
+  would have been replaced by a different one.
+  **Context**: The ticket framed this as one floor with one fix. Implementing it revealed
+  two questions wearing the same name — the same shape as the sibling ticket's "one wrong
+  coordinate space".
+
+- **Insight**: Four existing tests failed the moment the floor landed, and every one was a
+  fixture that approved a mission no ticket named. That is not test breakage — it is the
+  measure of how normal the defect had become: the repository's own fixtures modelled the
+  pathological state as the default. Fixing them (a shared `seedMissionTicket` helper)
+  made them *more* realistic, not weaker.
+  **Context**: When a new floor breaks several fixtures at once, read the fixtures before
+  reading the floor. Here they were all wrong in the same direction.
+
+- **Insight**: The two floors are unreachable in the same fixture state, and the test had
+  to be split to prove either. The survey's `no_tickets` only reaches an **approved**
+  mission (a draft is dropped `not_approved` first), while `approve.sh`'s only reaches a
+  **draft** (an approved one short-circuits `already_approved`). The first version of the
+  test asserted both against one approved mission and failed with an empty stderr — the
+  short-circuit, not the floor.
+  **Context**: An ordering-dependent guard needs a fixture per branch. An empty stderr
+  where a reason was expected is the tell that an earlier guard answered first.
+
+- **Insight**: `/propose` writing a provisional acceptance sketch is **right**, and it was
+  tempting to change it instead. The sketch is what a human replans *from*; the defect was
+  entirely downstream, in a floor that counted it as a plan. Leaving the producer alone and
+  moving the floor keeps the proposal loop useful.
+  **Context**: When a downstream check misreads an upstream artifact, the artifact is
+  usually not the thing to change — especially when it is the input to a human decision.

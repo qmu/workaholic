@@ -265,4 +265,9 @@
 * [PR-unit batch partitioning is unverified model judgment](20260729143259-pr-unit-batch-partitioning-is-unverified.md)
 * [The full unattended chain (claim → drive → auto-ship → teardown) has never run end to end](20260729143259-the-full-unattended-chain-claim-drive.md)
 * [The tab-IFS interior-empty-field hazard recurs across the skill scripts, untested](20260729143259-the-tab-ifs-interior-empty-field.md)
+* [A design record still names `/feedback` as the capture command](20260730111600-a-design-record-still-names-feedback.md)
+* [A stale installed plugin now offers a command name that no longer exists in source](20260730111600-a-stale-installed-plugin-now-offers.md)
+* [`/fb` still commits without pushing, so its records never reach `/propose`](20260730111600-fb-still-commits-without-pushing-so.md)
+* [The `depends_on` chain will batch all four tickets into one PR-unit](20260730111600-the-depends-on-chain-will-batch.md)
+* [The ticket-batch convention structurally collides with the per-commit size ceiling](20260730111600-the-ticket-batch-convention-structurally-collides.md)
 <!-- okf:generated:end -->

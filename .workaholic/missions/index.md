@@ -4,6 +4,7 @@
 
 * [adopt-a-git-flow-branching-model-with-durable-ship-records](active/adopt-a-git-flow-branching-model-with-durable-ship-records/mission.md) - Adopt a release-branch staging tier with durable ship records
 * [drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main](active/drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main/mission.md) - Drop the draft gate and make /drive own its worktree from refreshed main
+* [make-the-per-commit-changed-lines-ceiling-a-rule-that-holds](active/make-the-per-commit-changed-lines-ceiling-a-rule-that-holds/mission.md) - Make the per-commit changed-lines ceiling a rule that holds
 
 ## archive
 

@@ -9,6 +9,7 @@ category:
 depends_on: [20260729183606-publish-tree-primitive.md]
 mission:
 merge_policy: review
+claim: work-20260730-171125
 ---
 
 # /ticket publishes to main instead of cutting a work branch

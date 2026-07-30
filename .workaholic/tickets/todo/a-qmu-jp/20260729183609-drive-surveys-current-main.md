@@ -9,6 +9,7 @@ category:
 depends_on: [20260729183607-ticket-publishes-to-main.md, 20260729183608-mission-publishes-to-main.md]
 mission:
 merge_policy: review
+claim: work-20260730-171125
 ---
 
 # /drive surveys a current main, and claim.sh drops its stranded-artifact workarounds

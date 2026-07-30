@@ -9,6 +9,7 @@ category:
 depends_on: [20260729183606-publish-tree-primitive.md]
 mission:
 merge_policy: review
+claim: work-20260730-171125
 ---
 
 # /mission publishes to main and stops creating a worktree at creation

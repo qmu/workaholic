@@ -8,7 +8,7 @@ commit_hash:
 category:
 depends_on: [20260729183607-ticket-publishes-to-main.md, 20260729183608-mission-publishes-to-main.md]
 mission:
-merge_policy: auto
+merge_policy: review
 ---
 
 # /drive surveys a current main, and claim.sh drops its stranded-artifact workarounds
@@ -97,7 +97,7 @@ This ticket closes that gap and then removes the workarounds the old model requi
 - Existing claim-protocol assertions still pass unchanged — in particular "claiming leaves the main checkout clean" and "the claim stamp is absent from the main tree's mission.md" (~L7240-7247), which are the invariants most at risk from this change.
 - `node scripts/build-plugins/build.mjs && node scripts/build-plugins/verify.mjs && node scripts/build-plugins/validate-metadata.mjs` clean with no residual `outputs/` diff.
 - `bash plugins/workaholic/hooks/posix-lint.sh` conforming; `bash plugins/workaholic/hooks/layout-doctor.sh .` reports `conforming: true`.
-- A live in-session rehearsal in this repository: publish a throwaway ticket to `origin/main`, confirm a `/drive` survey in a deliberately-behind checkout picks it up and reports the base SHA it surveyed, then release the claim.
+- A live rehearsal against a **throwaway clone** (never this repository itself — an unattended run must not push scratch commits to its `origin/main`): publish a throwaway ticket to `origin/main`, confirm a `/drive` survey in a deliberately-behind checkout picks it up and reports the base SHA it surveyed, then release the claim.
 
 **Gate**
 
@@ -111,7 +111,7 @@ This ticket closes that gap and then removes the workarounds the old model requi
 - `Decided:` a fast-forward failure **terminates with `pending`, never merges or resets** — this matches the repository's standing stance that staleness is reported and never auto-broken, and a reset would discard a developer's local commits on `main`.
 - `Decided:` `no_origin` **surveys locally but cannot report `ok`** — a single-machine repository should still be drivable, but a survey that could not consult the remote has not established that nothing claimable remains.
 - `Decided:` `claim.sh`'s in-worktree re-resolution is **verified before removal, not removed on sight** — it may still be load-bearing for stamping the worktree's own copy, and deleting a correct behaviour because its comment cited a retired reason would be a regression.
-- `Decided:` verification is the **hermetic suite plus one live rehearsal in this repository**, matching the sibling tickets.
+- `Decided:` verification is the **hermetic suite plus one live rehearsal against a throwaway clone**, matching the sibling tickets.
 
 ## Considerations
 

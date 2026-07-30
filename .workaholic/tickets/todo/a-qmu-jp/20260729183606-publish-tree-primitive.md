@@ -8,7 +8,7 @@ commit_hash:
 category:
 depends_on:
 mission:
-merge_policy: auto
+merge_policy: review
 ---
 
 # Publish-tree primitive: write an artifact to main without touching the working tree
@@ -117,7 +117,7 @@ The repository has already run this argument once and settled it on the executor
 - `bash plugins/workaholic/hooks/posix-lint.sh` conforming over the new scripts; the suite additionally runs under `dash` where available.
 - `node scripts/build-plugins/build.mjs && node scripts/build-plugins/verify.mjs && node scripts/build-plugins/validate-metadata.mjs` all clean, with no uncommitted `outputs/` diff afterwards (the `Outputs Freshness` workflow fails on any).
 - `bash plugins/workaholic/hooks/layout-doctor.sh .` reports `conforming: true`.
-- A live in-session rehearsal in this repository: from a dirty feature branch, open a publish tree, write a scratch file, publish it, and confirm both that it reached `origin/main` and that the feature branch's diff is untouched — then revert the scratch commit.
+- A live rehearsal against a **throwaway clone** (never this repository itself — an unattended run must not push scratch commits to its `origin/main`): from a dirty feature branch, open a publish tree, write a scratch file, publish it, and confirm both that it reached `origin/main` and that the feature branch's diff is untouched — then revert the scratch commit.
 
 **Gate**
 
@@ -129,7 +129,7 @@ The repository has already run this argument once and settled it on the executor
 
 - `Decided:` the publish tree is a **fixed path (`.publish/`) on a fixed local branch (`publish-main`)**, reset per open, rather than a per-invocation throwaway — one predictable location is inspectable and recoverable after a crash, and reset-per-open makes staleness impossible.
 - `Decided:` the publish branch is **named `publish-main`, never `work-*`** — `work-*` is the claim vocabulary that `claims_scan` keys on, and an ambiguous name here would let a publish tree be misread as an in-flight claim.
-- `Decided:` verification is the **hermetic suite plus one live self-hosting rehearsal in this repository** — the change alters the cron loop's own plumbing, so proving it against a throwaway fixture alone would leave the real path untested; a rehearsal here is cheap because the repository is its own consumer.
+- `Decided:` verification is the **hermetic suite plus one live rehearsal against a throwaway clone** — the change alters the cron loop's own plumbing, so proving it against a throwaway fixture alone would leave the real path untested; a rehearsal here is cheap because the repository is its own consumer.
 - `Decided:` `create.sh` and `create-mission-worktree.sh` are **left unchanged** — they remain the claim-side creators; this ticket adds a parallel primitive rather than overloading the claim vocabulary.
 
 ## Considerations

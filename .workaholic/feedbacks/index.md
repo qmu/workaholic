@@ -272,6 +272,8 @@
 * [The proposal cursor cannot survive an ephemeral runner](20260730110659-the-proposal-cursor-cannot-survive-an-ephemeral-runner.md)
 * [The sanctioned feedback writer rejects the source 97% of records use](20260730110715-the-sanctioned-feedback-writer-rejects-the-source-97-of-records-use.md)
 * [The proposal batch has no review-gated delivery mode](20260730110730-the-proposal-batch-has-no-review-gated-delivery-mode.md)
+* [/propose should pick ticket vs mission by cardinality](20260730111041-propose-should-pick-ticket-vs-mission-by-cardinality.md)
+* [A ticket-count floor at emission has nothing to count](20260730111101-a-ticket-count-floor-at-emission-has-nothing-to-count.md)
 * [A design record still names `/feedback` as the capture command](20260730111600-a-design-record-still-names-feedback.md)
 * [A stale installed plugin now offers a command name that no longer exists in source](20260730111600-a-stale-installed-plugin-now-offers.md)
 * [`/fb` still commits without pushing, so its records never reach `/propose`](20260730111600-fb-still-commits-without-pushing-so.md)

@@ -1,5 +1,9 @@
 # missions
 
+## active
+
+* [adopt-a-git-flow-branching-model-with-durable-ship-records](active/adopt-a-git-flow-branching-model-with-durable-ship-records/mission.md) - Adopt a release-branch staging tier with durable ship records
+
 ## archive
 
 * [loop-engineering-foundation](archive/loop-engineering-foundation/mission.md) - Loop engineering foundation

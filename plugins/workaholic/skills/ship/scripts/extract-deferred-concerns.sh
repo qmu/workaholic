@@ -74,7 +74,7 @@ if [ -n "${5:-}" ]; then
 fi
 
 if [ ! -f "$story_file" ]; then
-  echo "{\"status\":\"skipped\",\"reason\":\"no_story_file\",\"path\":\"$story_file\",\"extracted\":0}"
+  echo "{\"status\":\"skipped\",\"reason\":\"no_story_file\",\"path\":\"$story_file\",\"extracted\":0,\"destination\":\"${base}\"}"
   exit 0
 fi
 
@@ -95,6 +95,10 @@ if [ "$current_branch" != "$base" ] && [ -z "${WH_EDC_IN_PUBLISH_TREE:-}" ] && [
     echo "{\"status\":\"error\",\"reason\":\"${reason}\",\"extracted\":0,\"pushed\":false,\"destination\":\"${base}\"}"
     exit 1
   fi
+  # The inner run receives the same base, so ITS json already carries `destination`;
+  # only `pushed`/`push_error` are rewritten here (a second destination key would be
+  # duplicate JSON -- tolerated by parsers, sloppy from a script whose point is honest
+  # reporting).
   # Extract INSIDE the publish tree (NO_COMMIT: the publish seam owns the commit), then
   # publish the whole batch to the base in one commit and tear the tree down.
   inner=$( cd "$publish_path" && NO_COMMIT=1 WH_EDC_IN_PUBLISH_TREE=1 sh "$0" "$branch" "$pr_number" "$pr_url" "$base" "$story_abs" )
@@ -102,7 +106,7 @@ if [ "$current_branch" != "$base" ] && [ -z "${WH_EDC_IN_PUBLISH_TREE:-}" ] && [
   [ -n "$created" ] || created=0
   if [ "$created" -eq 0 ]; then
     sh "${SCRIPT_DIR}/../../branching/scripts/close-publish-tree.sh" "$base" >/dev/null 2>&1 || true
-    printf '%s\n' "$inner" | sed "s/\"pushed\":false/\"pushed\":false,\"destination\":\"${base}\"/"
+    printf '%s\n' "$inner"
     exit 0
   fi
   pub=$(sh "${SCRIPT_DIR}/../../branching/scripts/publish-tree-commit.sh" \
@@ -114,11 +118,11 @@ if [ "$current_branch" != "$base" ] && [ -z "${WH_EDC_IN_PUBLISH_TREE:-}" ] && [
   ok=$(printf '%s' "$pub" | sed -n 's/.*"ok": *\([a-z]*\).*/\1/p')
   if [ "$ok" = "true" ]; then
     sh "${SCRIPT_DIR}/../../branching/scripts/close-publish-tree.sh" "$base" >/dev/null 2>&1 || true
-    printf '%s\n' "$inner" | sed "s/\"pushed\":false,\"push_error\":\"[^\"]*\"/\"pushed\":true,\"push_error\":\"\",\"destination\":\"${base}\"/"
+    printf '%s\n' "$inner" | sed 's/"pushed":false,"push_error":"[^"]*"/"pushed":true,"push_error":""/'
   else
     perr=$(printf '%s' "$pub" | sed -n 's/.*"reason": *"\([^"]*\)".*/\1/p')
     [ -n "$perr" ] || perr="publish_failed"
-    printf '%s\n' "$inner" | sed "s/\"push_error\":\"[^\"]*\"/\"push_error\":\"${perr}\",\"destination\":\"${base}\"/"
+    printf '%s\n' "$inner" | sed "s/\"push_error\":\"[^\"]*\"/\"push_error\":\"${perr}\"/"
   fi
   exit 0
 fi
@@ -295,7 +299,9 @@ created_json=$(printf '%s' "$result" | python3 -c "import json,sys; print(json.d
 count_created=$(printf '%s' "$result" | python3 -c "import json,sys; print(len(json.load(sys.stdin)['created']))")
 
 if [ "$count_created" -eq 0 ]; then
-  echo "{\"status\":\"ok\",\"created\":0,\"updated\":0,\"extracted\":0,\"story_only\":0,\"pushed\":false,\"push_error\":\"not_attempted\",\"files\":[]}"
+  # `destination` rides EVERY exit, including this one: a caller reading the JSON must
+  # never have to infer where records would have gone.
+  echo "{\"status\":\"ok\",\"created\":0,\"updated\":0,\"extracted\":0,\"story_only\":0,\"pushed\":false,\"push_error\":\"not_attempted\",\"destination\":\"${base}\",\"files\":[]}"
   exit 0
 fi
 

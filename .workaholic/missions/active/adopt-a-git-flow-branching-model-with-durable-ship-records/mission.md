@@ -2,11 +2,11 @@
 type: Mission
 title: Adopt a release-branch staging tier with durable ship records
 slug: adopt-a-git-flow-branching-model-with-durable-ship-records
-status: draft
-merge_policy:
+status: approved
+merge_policy: auto
 created_at: 2026-07-30T05:13:37+00:00
 author: noreply@anthropic.com
-assignees: []
+assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
 actual_hours:
@@ -148,3 +148,4 @@ Provisional (see Scope). The demanded, observable behavior:
   separate from the existing per-unit release-notes mechanism. Still draft and unowned:
   `/mission approve adopt-a-git-flow-branching-model-with-durable-ship-records` is still the next
   step.
+- 2026-07-30 — mission approved — merge_policy: auto — mission.md

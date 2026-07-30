@@ -7,6 +7,7 @@ effort: 2h
 commit_hash:
 depends_on:
 mission:
+claim: work-20260730-202601
 ---
 
 # Clarify the operation policy on running long-running / "major" servers: container (or isolation boundary) required, with an explicit developer-preview carve-out
@@ -60,6 +61,16 @@ Triaged during a `/drive` on 2026-07-26. The developer ruled that this is **real
 **Therefore the substantive ruling must be authored as a canonical qmu.co.jp article first, then synced into this repo.** That authoring is outside this repository and outside an in-repo agent's reach, so the ticket is **blocked** here — it is not abandoned, and stays queued. Once the canonical article exists and syncs, the local hard copy lands automatically; the *optional* mechanical guard (a hook flagging a long-running server bound to a non-loopback interface without a container) can then be specced as its own follow-up ticket against the published rule.
 
 Do **not** re-attempt authoring the policy prose in `policies/` from this repo — that path was considered and rejected (the mirror model). The next action is external: write the qmu.co.jp article.
+
+### Re-verified 2026-07-30 — still blocked, article not published
+
+Checked rather than assumed, so the block is a finding and not a forecast:
+
+- `plugins/workaholic/skills/implementation/policies/containerization.md` — the nearest existing hard copy — was last touched by `513cd1d3` (2026-06-17, `Sync standards from qmu.co.jp`). It covers multi-stage builds, pinned base images, non-root runtime, and Compose for local dependencies; it says nothing about whether a long-running / traffic-serving server may run as a bare host process, and nothing about a loopback-only preview carve-out.
+- `curl -sSL https://qmu.co.jp/implementation` → `HTTP 200`, 685 lines, and **zero** matches for `127.0.0.1 | localhost | loopback | ループバック | プレビュー | 常駐 | ホストプロセス | 直接起動`. The published article set does not yet carry the ruling.
+- `curl -sSL https://qmu.co.jp/operation` → `HTTP 404` (every pillar's articles serve under `/implementation`), so there is no separate operation-side page holding it either.
+
+The blocker is unchanged and external: a named human must publish the canonical article. Re-verification costs three commands, so a future driver should re-run the two `curl` checks above before assuming this is still true.
 
 ## Policies
 

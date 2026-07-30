@@ -3,9 +3,9 @@ created_at: 2026-07-29T18:36:08+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config, Domain]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on: [20260729183606-publish-tree-primitive.md]
 mission:
 merge_policy: review
@@ -123,3 +123,75 @@ This ticket makes `/mission` a pure **source**, matching `/propose` — which al
 - **The mission lens's worktree-focus rule loses its most common trigger** (`plugins/workaholic/hooks/mission-lens.sh`). Today an active mission usually owns a worktree and is therefore silent in the main tree; after this change an unclaimed mission owns none and surfaces in the main tree, which is the intent — but it changes what a developer sees on every turn, so pin the new behaviour in a test rather than discovering it in use.
 - **`/mission` close and `/drive`'s archive both write mission state** (`plugins/workaholic/skills/drive/scripts/archive.sh` L94). Archive runs inside a claim worktree and mutates that checkout's `mission.md`, reaching `main` when the PR merges; close publishes directly. Both paths are correct, but a mission closed while a claim is in flight can produce a merge conflict on `mission.md`. Worth a note in the runbook.
 - **`/fb` still commits without pushing and without a main guard** (`plugins/workaholic/commands/fb.md`). A feedback recorded on a work branch never reaches `/propose`'s cursor, which reads records merged to `main`. Out of scope here — the request was tickets and missions — but it is the same defect and the primitive now exists to fix it.
+
+## Final Report
+
+Development completed as planned. All four mission write paths — create, replan, approve,
+close — now open a publish tree and push to `main`; the create path publishes the
+statement, the whole ticket set, and the approval as one commit; an abandoned
+interrogation publishes nothing; step 6 reports the mission's path on `main` instead of a
+worktree the developer cannot enter; the bare-view planning loop no longer creates a
+worktree; and the stale close-time-teardown prose in `close.sh` and
+`cleanup-mission-worktree.sh` is corrected. The mission scripts themselves were not
+modified, exactly as the ticket required.
+
+Verification: the hermetic suite is green at 1394 passed / 0 failed. §8c and §8f are
+**inverted, not deleted** — `testMissionCreateNeverBranches` now asserts that no branch
+and no worktree appear and that the command markdown says so, and
+`testMissionCreatePublishFlow` asserts the whole batch reaches `origin/main` in one
+commit, is surveyed as a claimable PR-unit by a *second* clone, passes
+`validate-mission.sh`'s approved floor there, and leaves the caller's checkout
+byte-identical. §8e is re-pinned with the new meaning of a worktree (claimed vs
+unclaimed). A named assertion proves `claim.sh` is the only invoker of
+`create-mission-worktree.sh` and that no command invokes it. `build.mjs` / `verify.mjs` /
+`validate-metadata.mjs` clean, `posix-lint` conforming, `layout-doctor`
+`conforming: true`. Live rehearsal against a throwaway clone (origin re-pointed at a
+local bare mirror): from a dirty feature branch, a mission plus its ticket plus its
+approval published to the mirror's `main` in **one** commit, no `.worktrees/` entry and no
+extra `work-*` branch appeared, a deliberately-behind runner clone surveyed it as
+claimable with `merge_policy: review`, the close published its archive move, and the
+developer's branch and porcelain status were identical throughout.
+
+### Discovered Insights
+
+- **Insight**: The rehearsal caught a defect that would have shipped the exact failure
+  this ticket exists to prevent. `publish-tree-commit.sh` forwards to `commit.sh`, whose
+  default staging is `git add -u` — **tracked modifications only**. `create.sh` and
+  `approve.sh` stage their own writes, but the ticket files are written with the editor
+  and are therefore untracked, so the first version published the mission statement to
+  `main` with an **empty queue** — a mission `/drive` would survey as approved with
+  nothing to do. All three mission publishes now pass `.workaholic/` as the file
+  argument, which is safe precisely because the publish tree was reset to `origin/main`
+  on open and contains nothing else. A test assertion pins it with the reason written
+  down.
+  **Context**: `/ticket`'s publish names explicit paths and is correct; `/mission`'s
+  cannot, because part of its batch is written by scripts and part by the editor. The
+  staging argument is not boilerplate — it is the difference between a half-formed
+  mission and a whole one.
+
+- **Insight**: `create-mission-worktree.sh` **keeps its name**, and the reasoning is
+  recorded rather than left to the next reader. Its only caller is now `claim.sh` and
+  what it builds is a claim worktree keyed on a unit id (a mission slug is one kind; a
+  batch id is the other), so `create-claim-worktree.sh` would be the accurate name — but
+  the script ships in the generated `outputs/workflows` bundle, making the name public
+  API to cross-agent consumers, and a rename would touch `claim.sh`, the tests, several
+  documents, and the generated closure for no behavioural gain. The misnomer is retired
+  by one sentence in the skill plus the script's own header.
+  **Context**: The same census that kept `check-worktrees.sh` alive in the sibling
+  ticket. Inside a distributed bundle, a name is an interface.
+
+- **Insight**: The mission lens's behaviour did not need changing, but its *meaning*
+  flipped, and only the test could record that. Owning `.worktrees/<slug>` used to mean
+  "this mission exists"; it now means "a runner has claimed it". So the common case
+  inverted: an ordinary unclaimed mission is worktree-less and is surfaced in the main
+  tree, which is what a developer wants on every turn. The rule ("in the main tree, only
+  missions that own no worktree") was already written to produce that outcome.
+  **Context**: A rule can survive a model change while every instance of it changes
+  sides. Re-pinning the test was the only way to make that visible.
+
+- **Insight**: `gate.sh` now answers `no_worktree` for every unclaimed mission, and that
+  is correct rather than a regression. A mission gate is exercised inside the claim,
+  which is the only place a port exists — so "not driveable until claimed" is the honest
+  report, and the skill says so where `driveable` is defined.
+  **Context**: A field whose meaning depends on the worktree model needs re-reading
+  whenever that model moves, even when its code is untouched.

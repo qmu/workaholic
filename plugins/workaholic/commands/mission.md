@@ -29,7 +29,7 @@ When `$ARGUMENT` starts with `approve`, approve the named mission: the flip from
 
 **1. State where the mission stands — always, before asking anything.** Give the **Mission Position Report** (defined once in `workaholic:mission`). Approving is granting authority over a plan; the developer must see the plan before granting it.
 
-**2. Interrogate to drive-ready, if it is not already.** Read the mission's `ready`/`ready_reason` from `list.sh`. A draft written by the `/propose` batch — or any mission whose `## Acceptance`, `## Experience`, or ticket set is incomplete — goes through the **replan flow** above first (its worktree included): approval asserts that every judgement call about *these exact tickets* was answered, and there is nothing to assert about a plan that does not exist. A mission already carrying a complete, interrogated set needs no rounds here.
+**2. Interrogate to drive-ready, if it is not already.** Read the mission's `ready`/`ready_reason` from `list.sh`. A draft written by the `/propose` batch — or any mission whose `## Acceptance`, `## Experience`, or ticket set is incomplete — goes through the **replan flow** above first: approval asserts that every judgement call about *these exact tickets* was answered, and there is nothing to assert about a plan that does not exist. A mission already carrying a complete, interrogated set needs no rounds here.
 
 **3. Ask the merge-policy ruling.** One `AskUserQuestion` (`question` body prefixed with the `[<project label>]` from `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`): **may this mission's completed units merge automatically, or must a human review each PR?** — options `auto` and `review`. This is the one genuinely human ruling the approval owns (decision G5) and it is **never** decided for the developer: `auto` by default grants unattended merging nobody asked for, and `review` by default silently discards the question.
 
@@ -41,7 +41,14 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/approve.sh "<slug>" <auto|revi
 
 It clears the floor (owner + `## Experience` + `## Acceptance`), sets `status: approved` and `merge_policy`, seeds `assignees` with the approver when the mission is unowned, appends the `mission approved — merge_policy: <p>` changelog line, refreshes the OKF indexes, and git-stages. On a refusal (`no_experience` / `no_plan` / `no_owner`) report what is missing and route back to step 2 — do not work around the floor. On `reason: "already_approved"` say so plainly; nothing changed.
 
-**5. Commit and report** inside the mission's worktree via the commit skill (subject `Approve mission <slug>`), then tell the developer the mission is drive-ready, with its merge policy and its queue.
+**5. Publish and report.** The approval is a mission write like any other, so it goes to `main` through a publish tree: open one before step 4 and run `approve.sh` inside it (`( cd <publish_path> && … )`), then
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-commit.sh "Approve mission <slug>" "<why>" "<changes>" "None" "None" "<verify>" .workaholic/
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh
+```
+
+Then tell the developer the mission is drive-ready on `main`, with its merge policy and its queue. An approval that never reaches `main` is invisible to `/drive`'s survey, which is the whole reason the flip exists — so a publish failure is reported as "still a draft as far as any runner can see".
 
 ## Referencing an existing mission — replan
 
@@ -61,13 +68,13 @@ Three outcomes:
 
 **Only in-flight missions (`status: draft` or `approved`) are replan targets.** An argument referencing an **archived** mission gets a short report instead: the archive is immutable history — point at the mission's `carried` successor if one exists (`carried_from` links it), or at creating a new mission.
 
-**2. Locate the mission and ensure its worktree.** Resolve `mission.md` via the `list.sh` entry's `path`. If `.worktrees/<slug>` does not exist (a `carried` successor, or a hand-authored mission), create it now:
+**2. Locate the mission and open a publish tree.** Resolve `mission.md` via the `list.sh` entry's `path`, then:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create-mission-worktree.sh "<slug>"
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/open-publish-tree.sh
 ```
 
-This is how a carried successor — minted by `close.sh` with no worktree and no tickets — gets fleshed out; the create flow dead-ends on its existing `mission.md` (`create.sh` `reason: "exists"`), and replan is the sanctioned path instead. All writes happen in the worktree via `( cd <worktree_path> && … )` subshells, exactly as in the create flow.
+Replan re-enters the interrogation against the mission **as published on `main`**, applies the delta there, emits the delta tickets, and publishes them. It creates **no worktree**. This is how a carried successor — minted by `close.sh` with no tickets — gets fleshed out; the create flow dead-ends on its existing `mission.md` (`create.sh` `reason: "exists"`), and replan is the sanctioned path instead. All writes happen in the publish tree via `( cd <publish_path> && … )` subshells, exactly as in the create flow.
 
 **2b. Surface sibling PRs.** Before re-interrogating, list open PRs that already reference this mission slug so the delta does not duplicate a sibling lane's in-flight, not-yet-merged work:
 
@@ -75,21 +82,32 @@ This is how a carried successor — minted by `close.sh` with no worktree and no
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list-related-prs.sh "<slug>"
 ```
 
-If `prs` is non-empty, tell the developer which open PRs touch this mission and factor them into the delta — do **not** emit tickets duplicating acceptance a sibling PR already implements. `available: false` means the check could not run (no `gh`/auth/remote); note that rather than treating it as "no siblings". This pairs with `create-mission-worktree.sh`'s fetch-first base resolution: the fetch keeps a new worktree off a stale merged base, this keeps a replan off a sibling's unmerged work.
+If `prs` is non-empty, tell the developer which open PRs touch this mission and factor them into the delta — do **not** emit tickets duplicating acceptance a sibling PR already implements. `available: false` means the check could not run (no `gh`/auth/remote); note that rather than treating it as "no siblings". This pairs with the publish tree's fetch-first base: the fetch keeps the replan off a stale `main`, this keeps it off a sibling's unmerged work.
 
 **3. Re-interrogate — scoped by the instruction.** Follow the skill's **Replan** section (`workaholic:mission`): it defines which Creation Interrogation rounds re-run (Direction changes → rounds 1–2; plan growth → rounds 3–5 for the delta; a thin `0/0` mission → all five), what the delta may touch, and what it must never touch. The bar equals creation's — a structured delta model, grilled until drive-ready — because approval is the last human gate before an unattended run, so an under-interrogated delta is concretized across the whole mission unchecked. Issue every question from this command with the `[<project label>]` prefix; `gate_*` is never interrogated.
 
-**4. Apply the delta in the worktree.** Rewrite `## Goal` / `## Scope` / `## Experience` from the answers (body-section writes are the command's job, at creation and here alike — no new mutator script). Emit the delta tickets **in one pass** into the worktree's `.workaholic/tickets/todo/<user>/`, each stamped `mission: <slug>` with its mandatory `## Policies` and `## Quality Gate` pre-answered and `depends_on` ordered (unique timestamps; the mission-scoped split-cap exception applies). Append one `## Acceptance` item per new criterion with its `(#<filename>)` marker.
+**4. Apply the delta in the publish tree.** Rewrite `## Goal` / `## Scope` / `## Experience` from the answers (body-section writes are the command's job, at creation and here alike — no new mutator script). Emit the delta tickets **in one pass** into the publish tree's `.workaholic/tickets/todo/<user>/`, each stamped `mission: <slug>` with its mandatory `## Policies` and `## Quality Gate` pre-answered and `depends_on` ordered (unique timestamps; the mission-scoped split-cap exception applies). Append one `## Acceptance` item per new criterion with its `(#<filename>)` marker.
 
-**5. Record the history and the approval.** Append changelog lines through the shared mutator — `ticket added — <filename>` per emitted ticket, plus one `mission replanned — <artifact>` line — and run `approve.sh` only under the skill's *Approval after a replan* conditions (a cut-short interrogation leaves the mission a draft; a draft reaching drive-readiness here is approved through the `approve` route's steps 3–4, merge-policy question included). Then commit inside the worktree via the commit skill, subject `Replan mission <slug>`.
+**5. Record the history and the approval.** Append changelog lines through the shared mutator — `ticket added — <filename>` per emitted ticket, plus one `mission replanned — <artifact>` line — and run `approve.sh` only under the skill's *Approval after a replan* conditions (a cut-short interrogation leaves the mission a draft; a draft reaching drive-readiness here is approved through the `approve` route's steps 3–4, merge-policy question included). Then publish the delta as one commit and close the tree:
 
-**6. Report.** Summarize what changed (sections rewritten, criteria appended, tickets emitted with filenames) and where — the mission's worktree, ready to `/drive`.
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-commit.sh "Replan mission <slug>" "<why>" "<changes>" "None" "None" "<verify>" .workaholic/
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh
+```
+
+`.workaholic/` for the same reason as the create flow's step 5: the delta tickets are untracked, and `git add -u` alone would publish the rewritten mission sections without the tickets that implement them.
+
+An abandoned replan publishes **nothing** and says so, exactly as the create flow's step 5 requires.
+
+**6. Report.** Summarize what changed (sections rewritten, criteria appended, tickets emitted with filenames) and where — on `main`, ready for the next `/drive` tick to claim.
 
 ## With a title — create a mission
 
-When `$ARGUMENT` is a non-empty title that references no existing mission (per the judgment above), create a new mission **in its own dedicated worktree**, and leave it drive-ready. A mission runs in a persistent `.worktrees/<mission-slug>/` worktree so several missions develop in parallel without stepping on each other; the mission worktree outlives the branches driven inside it, and is **claim-born and ship-torn** — removed when its unit ships or its claim is released, never by `close` (`workaholic:mission`'s *Worktree lifecycle*). This worktree flow is the create path **only** — the list and `close` modes below never touch worktrees.
+When `$ARGUMENT` is a non-empty title that references no existing mission (per the judgment above), create a new mission, **publish it to `main`**, and leave it drive-ready.
 
-**1. Derive the mission slug** (the descriptive worktree directory name):
+**Creation makes no worktree and no branch** (decision J1, `docs/loop-engineering-workflow.md`). A worktree is claim-born and ship-torn — `/drive`'s `claim.sh` creates `.worktrees/<slug>/` when it claims the mission, and ship or `release-claim.sh` removes it (`workaholic:mission`'s *Worktree lifecycle*). A mission approved inside an unmerged worktree was invisible to `plan-units.sh`, which is exactly the failure `docs/drive-loop-runbook.md` §6 documented. So every mission write — the statement, the whole ticket set, the approval, and `close` — goes into a **publish tree** and is pushed to `main`, leaving the developer's branch and uncommitted work untouched. This matches `/propose`, which already scaffolds a draft mission into the main checkout and pushes it.
+
+**1. Derive the mission slug** (which names the mission directory, and later its claim worktree):
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/slug.sh "$ARGUMENT"
@@ -97,21 +115,21 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/slug.sh "$ARGUMENT"
 
 If the slug is empty, ask the user for a title with letters/digits and stop.
 
-**2. Create the dedicated worktree** — `.worktrees/<slug>/` on a fresh `work-*` branch cut from `main` (resolved to a concrete commit before creation, and the reported branch read back from the worktree's real HEAD — so the worktree always lands on the `work-*` branch it reports, even on a fresh clone with no local `main`), root `.env` carried in:
+**2. Open the publish tree** — a checkout of `origin/main` independent of the caller's:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create-mission-worktree.sh "<slug>"
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/open-publish-tree.sh
 ```
 
-Note the returned `worktree_path`. On `"error": "worktree already exists"`, report the existing worktree and stop (do not clobber). This is the sanctioned worktree creator — never hand-roll `git worktree`, and never name the branch yourself.
+Note the returned `path`; every write below resolves against it. On `ok: false`, report the reason and stop before writing anything. The fetch-first rationale that used to hang on worktree creation lives here now: the publish tree is cut from a freshly fetched `origin/main` by construction, so a mission is never planned against a stale base.
 
-**3. Write the mission statement inside the worktree.** Run the scaffold with the mission worktree as the working directory (use a `( cd <worktree_path> && … )` subshell so the persistent cwd stays at the repo root):
+**3. Write the mission statement inside the publish tree.** Run the scaffold with the publish tree as the working directory (use a `( cd <path> && … )` subshell so the persistent cwd stays at the repo root):
 
 ```bash
-( cd <worktree_path> && bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/create.sh "$ARGUMENT" )
+( cd <publish_path> && bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/create.sh "$ARGUMENT" )
 ```
 
-`create.sh` scaffolds `mission.md` (frontmatter + `## Goal`/`## Scope`/`## Experience`/`## Acceptance`/`## Changelog` and the empty, optional `gate_*` fields), stamps `created_at`/`author`, seeds **`assignees` with the creator** (the interactive creator is the approver, and the approver is the default owner — the mission skill's *Ownership* section), refreshes the OKF indexes, and git-stages — all inside the worktree. On `reason: "exists"`, report the path and do not overwrite. `validate-mission.sh`'s authorized floor requires an owner, so keep the seeded `assignees` (or a deliberate replacement) in place.
+`create.sh` scaffolds `mission.md` (frontmatter + `## Goal`/`## Scope`/`## Experience`/`## Acceptance`/`## Changelog` and the empty, optional `gate_*` fields), stamps `created_at`/`author`, seeds **`assignees` with the creator** (the interactive creator is the approver, and the approver is the default owner — the mission skill's *Ownership* section), refreshes the OKF indexes, and git-stages — all inside the publish tree. The mission scripts are unchanged by this flow: they are cwd-relative and never branch or commit, so only the `cd` target moved. On `reason: "exists"`, report the path and do not overwrite. `validate-mission.sh`'s authorized floor requires an owner, so keep the seeded `assignees` (or a deliberate replacement) in place.
 
 **3b. Interrogate — mandatory, and not skippable.** Follow the skill's **Creation Interrogation** section (`workaholic:mission`) end to end. It defines the rounds (Direction → the demanded experience → the ticket set → per-ticket pre-answers → Acceptance), the ordering rule, and the emission rules; do not restate them here.
 
@@ -121,25 +139,32 @@ Do **not** interrogate the mission gate: `gate_*` is optional and normally left 
 
 Then write `## Goal`, `## Scope` and `## Experience` into the mission from the answers.
 
-**4. Emit the whole ticket set inside the worktree, in one pass.** Per the skill's *Emitting the set*: write every ticket the interrogation determined — not just the ones the developer happened to name — to the worktree's `.workaholic/tickets/todo/<user>/`, each stamped `mission: <slug>`, carrying its mandatory `## Policies` and `## Quality Gate` (pre-answered in round 4, so no later interrogation is needed), and ordered by `depends_on`. The `create-ticket` "2–4" split cap does **not** apply to a mission — the skill records why. Then write `## Acceptance`, one item per criterion, each naming its ticket by `(#<filename>)`.
+**4. Emit the whole ticket set inside the publish tree, in one pass.** Per the skill's *Emitting the set*: write every ticket the interrogation determined — not just the ones the developer happened to name — to the publish tree's `.workaholic/tickets/todo/<user>/`, each stamped `mission: <slug>`, carrying its mandatory `## Policies` and `## Quality Gate` (pre-answered in round 4, so no later interrogation is needed), and ordered by `depends_on`. Each ticket **inherits the mission's `merge_policy`**; a deliberate per-ticket divergence carries its `Decided:` line. The `create-ticket` "2–4" split cap does **not** apply to a mission — the skill records why. Then write `## Acceptance`, one item per criterion, each naming its ticket by `(#<filename>)`.
 
 By the end of this step the mission is **drive-ready**: a complete, ordered queue whose judgement calls are already answered.
 
 **4b. Run the approval flip.** `create.sh` scaffolded a **draft**; approving it is what makes the queue drive-ready. Ask the merge-policy ruling exactly as the `approve` route's step 3 does (one `AskUserQuestion`, `auto` | `review`, `[<project label>]` prefix — never decided for the developer), then run the mutator inside the worktree:
 
 ```bash
-( cd <worktree_path> && bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/approve.sh "<slug>" <auto|review> )
+( cd <publish_path> && bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/approve.sh "<slug>" <auto|review> )
 ```
 
 **Only now**, once the interrogation is complete and the whole set is written. Do **not** approve a mission whose interrogation was cut short or whose set is partial: `approved` asserts that the developer answered every judgement call about these exact tickets, and an unearned approval removes a gate nobody agreed to remove — leave it a draft. A refusal (`no_experience` / `no_plan`) means the interrogation's output never reached the file; fix that rather than working around the floor.
 
-**5. Commit the mission statement and kickoff tickets inside the worktree** via the commit skill (policy-conformant subject, `Co-Authored-By` trailer kept):
+**5. Publish the whole creation batch as ONE commit**, then close the publish tree:
 
 ```bash
-( cd <worktree_path> && bash ${CLAUDE_PLUGIN_ROOT}/skills/commit/scripts/commit.sh "Kick off mission <slug>" "<why>" "<changes>" "None" "None" "<verify>" )
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-commit.sh "Kick off mission <slug>" "<why>" "<changes>" "None" "None" "<verify>" .workaholic/
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh
 ```
 
-**6. Report and hand off.** Tell the developer the mission is set up in `<worktree_path>` with its statement and an ordered, ready-to-drive kickoff queue. **Do not instruct them to `cd`** — `/drive` auto-routes into an existing worktree, so they just open that worktree and drive. Summarize the mission slug, the worktree path, and the kickoff tickets.
+**One commit, because the batch is one act.** A mission whose statement reached `main` without its tickets is a mission `/drive` would survey as approved with an empty queue.
+
+**Pass `.workaholic/` as the file argument — it is load-bearing, not decoration.** `create.sh` and `approve.sh` stage their own writes, but the ticket files are written with the editor and are therefore **untracked**, and `commit.sh`'s default staging is `git add -u`, which stages tracked modifications only. Without the path the mission statement would land on `main` with an empty queue — precisely the half-formed mission this step forbids. The publish tree was reset to `origin/main` on open, so `.workaholic/` there contains exactly this batch and nothing else.
+
+**Never publish a half-formed mission.** If the interrogation is abandoned before the ticket set is emitted — the developer walks away, the session is interrupted, a round is left unanswered — commit **nothing** and push **nothing**. Tell the developer plainly that the mission is **not on `main`** and that the partial work is intact in the publish tree (leave it open; `close` refuses unpublished commits, and the tree is how the work is recovered). A runner claiming an approved mission with no tickets is a worse outcome than losing an unfinished draft the publish tree still holds. The same applies to a publish failure (`no_origin`, `diverged`, `push_failed`): name the reason and say the mission is not yet on `main`.
+
+**6. Report and hand off — honestly about location.** Tell the developer the mission is on `main` at `.workaholic/missions/active/<slug>/mission.md`, name the pushed commit, and summarize the slug and the kickoff tickets. Do **not** report a worktree path: none exists yet, and reporting a directory the developer cannot `cd` into is worse than reporting none. Say that `/drive` creates the worktree when it claims the mission, and that `/goal /drive ok` is how to execute it.
 
 ## Without a title — the developer's planning session
 
@@ -162,7 +187,7 @@ If no mission is `mine` or `unassigned`, say so plainly (only colleagues'/archiv
 
 ### Step 2 — Replan loop: make every assigned mission drive-ready
 
-For each `mine`/`unassigned` in-flight mission whose `ready` is `false`, run its **existing replan flow** now (the *Referencing an existing mission — replan* section above), one mission at a time, in the mission's own worktree — creating it with `create-mission-worktree.sh` when absent. The `ready_reason` says what is missing (`no_plan` → the interrogation must produce a plan and Acceptance; `draft` → it may already be interrogated and simply awaiting approval, which is the `approve` route above, not a replan). Interrogation asks **only genuine design rulings** (the decide-and-record bar); mechanical fixes are decided and recorded, not asked. The developer may **defer** a mission ("leave it") — record that and move on; do not re-raise it this session.
+For each `mine`/`unassigned` in-flight mission whose `ready` is `false`, run its **existing replan flow** now (the *Referencing an existing mission — replan* section above), one mission at a time, through a publish tree — never a worktree. The `ready_reason` says what is missing (`no_plan` → the interrogation must produce a plan and Acceptance; `draft` → it may already be interrogated and simply awaiting approval, which is the `approve` route above, not a replan). Interrogation asks **only genuine design rulings** (the decide-and-record bar); mechanical fixes are decided and recorded, not asked. The developer may **defer** a mission ("leave it") — record that and move on; do not re-raise it this session.
 
 An already-`ready` mission needs nothing here — say so and skip it.
 
@@ -200,6 +225,8 @@ Then run the shared mutator (never hand-edit `status:` or `mv` the directory):
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/close.sh "<slug>" <achieved|abandoned|carried> \
   [--successor-title "<title>" | --successor <slug>]
 ```
+
+Run it **inside a publish tree** (`open-publish-tree.sh`, then `( cd <publish_path> && … )`) and publish the result with subject `Close mission <slug>`, closing the tree afterwards. The archive move is a mission write like any other; leaving it on the caller's checkout would reintroduce exactly the invisibility this model removes.
 
 The script flips `status`, appends a closing `## Changelog` line, moves the mission dir to `.workaholic/missions/archive/<slug>/`, refreshes the OKF indexes, and git-stages. Report the JSON result:
 

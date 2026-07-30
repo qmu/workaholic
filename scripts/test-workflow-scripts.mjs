@@ -1656,40 +1656,38 @@ function testMissionLensOnChange() {
 // /mission "<title>" starts a topic branch when on main, like /ticket. The command
 // orchestrates check.sh -> (on_main) create.sh before mission/create.sh; list and
 // close never branch. This test drives that exact sequence in throwaway repos.
-function testMissionBranchOnCreate() {
-  // On main: check.sh reports on_main -> create.sh makes a work-* branch -> mission
-  // lands on it, off main.
+// ---------- 8c. mission creation NEVER branches (decision J1) ----------
+// This test used to assert the opposite: that /mission cut a work-* branch on main and
+// that the mission was ABSENT from main afterwards. J1 inverted the invariant — a mission
+// is published TO main and the claim is the only thing that ever cuts a branch — so the
+// assertions are inverted rather than deleted.
+function testMissionCreateNeverBranches() {
+  // create.sh itself never branches, from any checkout — it is cwd-relative and was not
+  // touched by J1. On main, the mission lands on main.
   const dir = makeRepo("main");
   try {
     const chk = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.branchCheck}`).stdout);
     assertEq("mission-create on main: check.sh reports on_main", chk.on_main, true);
 
-    const created = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.branchCreate}`).stdout);
-    assertTrue("branch matches work-YYYYMMDD-HHMMSS", /^work-\d{8}-\d{6}$/.test(created.branch), created.branch);
-    assertEq("HEAD moved onto the new work branch",
-      execSync(`git branch --show-current`, { cwd: dir, encoding: "utf8" }).trim(), created.branch);
-
     const m = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionCreate} "Ship It"`).stdout);
-    assertEq("mission created after branching", m.created, true);
-    assertTrue("mission.md written on the work branch",
+    assertEq("mission created without any branch step", m.created, true);
+    assertTrue("mission.md is written into the checkout it ran in",
       existsSync(join(dir, ".workaholic/missions/active/ship-it/mission.md")), m.path);
-    // The mission does not exist on main (it was created on the work branch).
-    execSync(`git add -A && git commit -q -m "mission on work branch"`, { cwd: dir });
-    execSync(`git checkout -q main`, { cwd: dir });
-    assertTrue("mission is absent on main",
-      !existsSync(join(dir, ".workaholic/missions/active/ship-it/mission.md")));
+    assertEq("still on main — create.sh cut no branch",
+      execSync(`git branch --show-current`, { cwd: dir, encoding: "utf8" }).trim(), "main");
+    assertEq("no work-* branch exists anywhere",
+      execSync(`git branch --format='%(refname:short)'`, { cwd: dir, encoding: "utf8" })
+        .split("\n").filter(Boolean), ["main"]);
+    assertTrue("no .worktrees entry was created", !existsSync(join(dir, ".worktrees")));
   } finally { cleanup(dir); }
 
-  // On an existing work branch: check.sh reports not on_main -> command skips
-  // create.sh; mission is created on the current branch, no new branch appears.
+  // On an existing work branch the behaviour is identical — the flow no longer asks
+  // which branch it is on at all, because it publishes to main either way.
   const dir2 = makeRepo("main");
   try {
     execSync(`git checkout -q -b work-20260714-existing`, { cwd: dir2 });
-    const chk = JSON.parse(run(dir2, `${POSIX_SH} ${SCRIPTS.branchCheck}`).stdout);
-    assertEq("on a work branch: check.sh reports not on_main", chk.on_main, false);
-
     const m = JSON.parse(run(dir2, `${POSIX_SH} ${SCRIPTS.missionCreate} "Ship It"`).stdout);
-    assertEq("mission created without branching", m.created, true);
+    assertEq("mission created from a work branch too", m.created, true);
     assertEq("branch unchanged — no new work-* created",
       execSync(`git branch --show-current`, { cwd: dir2, encoding: "utf8" }).trim(), "work-20260714-existing");
     const branches = execSync(`git branch --format='%(refname:short)'`, { cwd: dir2, encoding: "utf8" })
@@ -1697,7 +1695,7 @@ function testMissionBranchOnCreate() {
     assertEq("only main + the pre-existing work branch exist", branches, ["main", "work-20260714-existing"]);
   } finally { cleanup(dir2); }
 
-  // The list and close modes never branch: list.sh on main creates no branch.
+  // The list and close modes never branch either.
   const dir3 = makeRepo("main");
   try {
     run(dir3, `${POSIX_SH} ${SCRIPTS.missionList}`);
@@ -1705,6 +1703,52 @@ function testMissionBranchOnCreate() {
       execSync(`git branch --format='%(refname:short)'`, { cwd: dir3, encoding: "utf8" }).split("\n").filter(Boolean),
       ["main"]);
   } finally { cleanup(dir3); }
+
+  // The command markdown must keep saying so — the create path is markdown, so the
+  // contract is asserted where it lives.
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/mission.md"), "utf8");
+  assertTrue("the create path opens a publish tree, not a worktree",
+    /open-publish-tree\.sh/.test(cmd) && !/create-mission-worktree\.sh/.test(cmd));
+  assertTrue("creation states plainly that it makes no worktree and no branch",
+    /Creation makes no worktree and no branch/.test(cmd));
+  assertTrue("the creation batch is one commit, with the reason",
+    /One commit, because the batch is one act/.test(cmd));
+  assertTrue("the publish names .workaholic/ so untracked tickets are staged",
+    /Pass `\.workaholic\/` as the file argument — it is load-bearing/.test(cmd));
+  assertTrue("a half-formed mission publishes nothing",
+    /Never publish a half-formed mission/.test(cmd));
+  assertTrue("the report does not hand back a path the developer cannot cd into",
+    /Do \*\*not\*\* report a worktree path/.test(cmd));
+  assertTrue("close publishes through the publish tree too",
+    /publish the result with subject `Close mission <slug>`/.test(cmd));
+  assertTrue("close still touches no worktree", /\*\*Close touches no worktree\.\*\*/.test(cmd));
+
+  // Stale prose: no comment may claim a close-time worktree teardown.
+  const closeSh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/close.sh"), "utf8");
+  const cleanupSh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/cleanup-mission-worktree.sh"), "utf8");
+  assertTrue("close.sh no longer claims the command tears the worktree down after it",
+    !/tears the mission worktree down AFTER/.test(closeSh));
+  assertTrue("close.sh states the claim-born rule instead",
+    /claim-born and ship-torn/.test(closeSh));
+  assertTrue("cleanup-mission-worktree.sh no longer cites a /mission close teardown",
+    !/a\n# \/mission close cannot/.test(cleanupSh) && !/\/mission close cannot silently destroy/.test(cleanupSh));
+  assertTrue("cleanup-mission-worktree.sh names its real callers",
+    /ITS CALLERS ARE THE CLAIM PATHS/.test(cleanupSh));
+
+  // create-mission-worktree.sh has exactly one INVOKER in the tree: claim.sh. Grep for
+  // an actual `sh …/create-mission-worktree.sh` call on a non-comment line — a plain
+  // filename grep also catches the several files that merely mention it in prose or
+  // comments, which is documentation, not a caller.
+  const invokers = run(REPO_ROOT,
+    "grep -rlE '^[^#]*(sh|bash) [^ ]*create-mission-worktree\\.sh' --include='*.sh' plugins/workaholic || true")
+    .stdout.trim().split("\n").filter(Boolean).filter((f) => !f.endsWith("create-mission-worktree.sh")).sort();
+  assertEq("create-mission-worktree.sh is invoked only by claim.sh", invokers, [
+    "plugins/workaholic/skills/drive/scripts/claim.sh",
+  ]);
+  // No command markdown may invoke it any more — the create path was its other caller.
+  // (branching/SKILL.md still documents its usage; documenting a primitive is not calling it.)
+  assertEq("no command invokes the claim worktree creator",
+    run(REPO_ROOT, "grep -rl create-mission-worktree plugins/workaholic/commands || true").stdout.trim(), "");
 }
 
 // ---------- 8d. branching mission worktree primitive (create/cleanup/type) ----------
@@ -2021,6 +2065,12 @@ function testMissionWorktreeFetchFirst() {
 // ---------- 8e. mission-lens worktree focus ----------
 // Inside a mission's worktree the lens surfaces only that mission; in the main
 // tree it hides missions that own a worktree and shows only worktree-less ones.
+//
+// RE-PINNED FOR J1. The rule is unchanged, but what a worktree MEANS changed: creation
+// no longer makes one, so owning `.worktrees/<slug>` now means "a runner has CLAIMED
+// this mission". The common case therefore inverted — an ordinary unclaimed mission is
+// worktree-less and is surfaced in the main tree, which is what a developer wants to see
+// on every turn. `alpha` below models a claimed mission and `gamma` an unclaimed one.
 function testMissionLensWorktreeFocus() {
   const dir = makeRepo("main");
   const PLUGIN_ROOT = join(REPO_ROOT, "plugins/workaholic");
@@ -2054,7 +2104,8 @@ concerns: []
     mk("gamma", "Gamma Mission");
     execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
 
-    // alpha gets a dedicated worktree; gamma does not.
+    // alpha is CLAIMED (a claim worktree exists for it); gamma is unclaimed, which
+    // after J1 is the state every mission is in until /drive picks it up.
     JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} alpha`).stdout);
 
     const env = { ...process.env, CLAUDE_PLUGIN_ROOT: PLUGIN_ROOT };
@@ -2062,8 +2113,9 @@ concerns: []
 
     // Main tree: only gamma (alpha is worktree-owned and stays silent here).
     const mainOut = runLens(dir);
-    assertTrue("main-tree lens shows the worktree-less mission (gamma)", mainOut.includes("Gamma Mission"), mainOut);
-    assertTrue("main-tree lens hides the worktree-owned mission (alpha)", !mainOut.includes("Alpha Mission"), mainOut);
+    assertTrue("main-tree lens surfaces an UNCLAIMED mission (gamma) — the J1 common case",
+      mainOut.includes("Gamma Mission"), mainOut);
+    assertTrue("main-tree lens still hides a CLAIMED mission (alpha)", !mainOut.includes("Alpha Mission"), mainOut);
 
     // Inside .worktrees/alpha: only alpha.
     const alphaOut = runLens(join(dir, ".worktrees/alpha"));
@@ -2108,53 +2160,93 @@ concerns: []
 // The create flow's scriptable core: slug -> mission worktree -> mission.md inside
 // -> a mission-linked kickoff ticket -> commit inside the worktree, leaving an
 // in-worktree drive-ready queue and the main tree untouched.
-function testMissionCreateWorktreeFlow() {
-  const dir = makeRepo("main");
+// ---------- 8f. mission creation spine: publish to main, no worktree (J1) ----------
+// The inverse of what this test asserted before J1. It used to prove the whole batch
+// landed INSIDE .worktrees/<slug> and was absent from main; it now proves the batch
+// lands ON main, in ONE commit, visible to another clone, with no worktree and no
+// work-* branch anywhere and the caller's checkout untouched.
+function testMissionCreatePublishFlow() {
+  const { origin, A, B } = makePublishFixture();
   try {
-    writeFileSync(join(dir, ".gitignore"), ".env\n");
-    execSync(`git add .gitignore && git commit -q -m gitignore`, { cwd: dir });
-
-    // 1. slug rule (single source, shared with create.sh)
-    const slug = run(dir, `${POSIX_SH} ${SCRIPTS.missionSlug} "Real-time Notifications"`).stdout.trim();
+    // 1. slug rule (single source, shared with create.sh and the claim worktree name)
+    const slug = run(A, `${POSIX_SH} ${SCRIPTS.missionSlug} "Real-time Notifications"`).stdout.trim();
     assertEq("mission slug derived from title", slug, "real-time-notifications");
 
-    // 2. dedicated worktree named by the slug
-    const wt = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.createMissionWorktree} ${slug}`).stdout);
-    const wtPath = wt.worktree_path;
-    assertTrue("mission worktree dir matches the slug", wtPath.endsWith("/.worktrees/real-time-notifications"), wtPath);
+    // The developer is mid-work on a dirty feature branch.
+    execSync("git checkout -q -b work-20260730-160000", { cwd: A });
+    writeFileSync(join(A, "README.md"), "seed\nmid-edit\n");
+    const before = snapshotCheckout(A);
 
-    // 3. mission.md scaffolded INSIDE the worktree
-    const cr = JSON.parse(run(wtPath, `${POSIX_SH} ${SCRIPTS.missionCreate} "Real-time Notifications"`).stdout);
-    assertEq("mission created inside worktree", cr.created, true);
-    assertTrue("mission.md lives inside the worktree",
-      existsSync(join(wtPath, ".workaholic/missions/active/real-time-notifications/mission.md")));
+    // 2. a publish tree, NOT a worktree
+    const pub = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.openPublishTree}`).stdout);
+    assertEq("the create flow opens a publish tree", pub.ok, true);
 
-    // 4. an ordered kickoff ticket, mission-linked, in the worktree's todo/<user>/
-    const todoDir = join(wtPath, `.workaholic/tickets/todo/${TEST_SLUG}`);
+    // 3. mission.md scaffolded INSIDE the publish tree by the untouched script
+    const cr = JSON.parse(run(pub.path, `${POSIX_SH} ${SCRIPTS.missionCreate} "Real-time Notifications"`).stdout);
+    assertEq("mission created inside the publish tree", cr.created, true);
+    assertTrue("mission.md lives inside the publish tree",
+      existsSync(join(pub.path, `.workaholic/missions/active/${slug}/mission.md`)));
+
+    // 4. the whole ordered ticket set, mission-linked, in the publish tree's todo/<user>/
+    const todoDir = join(pub.path, `.workaholic/tickets/todo/${TEST_SLUG}`);
     mkdirSync(todoDir, { recursive: true });
-    writeFileSync(join(todoDir, "20260714120000-first-step.md"),
-      `---\ncreated_at: 2026-07-14T12:00:00+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Infrastructure]\neffort:\ncommit_hash:\ncategory:\ndepends_on:\nmission: ${slug}\n---\n\n# First Step\n`);
+    for (const [n, name] of [[1, "first-step"], [2, "second-step"]]) {
+      writeFileSync(join(todoDir, `2026073016000${n}-${name}.md`),
+        `---\ncreated_at: 2026-07-30T16:00:0${n}+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Infrastructure]\neffort:\ncommit_hash:\ncategory:\ndepends_on:\nmission: ${slug}\nmerge_policy: review\n---\n\n# ${name}\n\n## Policies\n\n- none\n\n## Quality Gate\n\nnone\n`);
+    }
 
-    // 5. commit the statement + kickoff ticket INSIDE the worktree
-    const cm = run(wtPath, `${POSIX_SH} ${SCRIPTS.commit} "Kick off mission ${slug}" "why" "changes" "None" "None" "verify" .workaholic/`);
-    assertEq("commit inside worktree exits 0", cm.status, 0);
-    assertTrue("worktree kickoff commit present",
-      /Kick off mission real-time-notifications/.test(execSync(`git log --oneline -1`, { cwd: wtPath, encoding: "utf8" })));
-    assertEq("worktree branch clean after commit",
-      execSync(`git status --porcelain`, { cwd: wtPath, encoding: "utf8" }).trim(), "");
+    // 4b. the approval flip, inside the publish tree — the only path to approved
+    const mission = join(pub.path, `.workaholic/missions/active/${slug}/mission.md`);
+    let body = readFileSync(mission, "utf8")
+      .replace("## Experience\n", "## Experience\n\nA developer sees notifications arrive without reloading.\n")
+      .replace("## Acceptance\n", "## Acceptance\n\n- [ ] first step lands (#20260730160001-first-step.md)\n- [ ] second step lands (#20260730160002-second-step.md)\n");
+    writeFileSync(mission, body);
+    const appr = JSON.parse(run(pub.path, `${POSIX_SH} ${SCRIPTS.missionApprove} ${slug} review`).stdout);
+    assertEq("the approval flip runs in the publish tree", appr.approved, true);
 
-    // 6. in-worktree list-todo returns exactly the kickoff set (drive-ready)
-    assertEq("in-worktree list-todo returns the kickoff ticket",
-      run(wtPath, `${POSIX_SH} ${SCRIPTS.listTodo}`).stdout.split("\n").filter(Boolean),
-      [`.workaholic/tickets/todo/${TEST_SLUG}/20260714120000-first-step.md`]);
+    // 5. ONE commit for the whole batch, pushed to main
+    const published = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.publishTreeCommit} "Kick off mission ${slug}" "why" "changes" "None" "None" "verify" .workaholic/`).stdout);
+    assertEq("the creation batch publishes as one commit", published.ok, true);
+    run(A, `${POSIX_SH} ${SCRIPTS.closePublishTree}`);
+    assertEq("the whole batch is exactly one commit on the base",
+      execSync(`git log --format=%s origin/main -1`, { cwd: A, encoding: "utf8" }).trim(),
+      `Kick off mission ${slug}`);
 
-    // 7. the main tree is untouched (still on main, mission not present there)
-    assertEq("main tree still on main", execSync(`git branch --show-current`, { cwd: dir, encoding: "utf8" }).trim(), "main");
-    assertTrue("mission absent from the main tree checkout",
-      !existsSync(join(dir, ".workaholic/missions/active/real-time-notifications/mission.md")));
+    // 6. another clone surveys it as a claimable PR-unit — the end-to-end point
+    execSync("git fetch -q origin && git merge --ff-only -q origin/main", { cwd: B });
+    assertTrue("the mission statement reached main",
+      existsSync(join(B, `.workaholic/missions/active/${slug}/mission.md`)));
+    // The ticket files are UNTRACKED when written, and commit.sh's default staging is
+    // `git add -u` (tracked modifications only). Without the `.workaholic/` path above,
+    // the mission statement would land on main with an empty queue — the half-formed
+    // mission the create flow forbids. This assertion is what pins that.
+    assertTrue("its whole ticket set reached main in the same commit",
+      existsSync(join(B, `.workaholic/tickets/todo/${TEST_SLUG}/20260730160001-first-step.md`))
+      && existsSync(join(B, `.workaholic/tickets/todo/${TEST_SLUG}/20260730160002-second-step.md`)));
+    const planned = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    assertTrue("the published mission is surveyed as claimable by another runner",
+      planned.missions.some((m) => m.slug === slug), JSON.stringify(planned));
+    assertTrue("its member tickets are not also offered as loose backlog",
+      !planned.backlog.some((t) => t.path.includes("first-step")), JSON.stringify(planned.backlog));
 
-    run(dir, `${POSIX_SH} ${SCRIPTS.cleanupMissionWorktree} ${slug}`);
-  } finally { cleanup(dir); }
+    // 7. validate-mission's approved floor holds on the published file
+    const HOOK = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/hooks/validate-mission.sh")}`;
+    const target = join(B, `.workaholic/missions/active/${slug}/mission.md`);
+    assertEq("validate-mission passes on the published, approved mission",
+      run(B, `printf '{"tool_name":"Write","tool_input":{"file_path":"${target}"}}' | ${HOOK}`, { shell: "/bin/sh" }).status, 0);
+
+    // 8. nothing was branched or worktree'd, and the caller is untouched
+    assertTrue("no .worktrees/<slug> was created by the create flow",
+      !existsSync(join(A, ".worktrees")));
+    assertTrue("no extra work-* branch was created",
+      execSync("git branch --list", { cwd: A, encoding: "utf8" })
+        .replace("work-20260730-160000", "").match(/work-\d{8}-\d{6}/) === null);
+    assertEq("creating a mission leaves the caller's checkout untouched", snapshotCheckout(A), before);
+    assertTrue("the mission is absent from the caller's own checkout",
+      !existsSync(join(A, `.workaholic/missions/active/${slug}/mission.md`)));
+  } finally {
+    for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
+  }
 }
 
 // ---------- 8g. /ship resets a mission worktree instead of deleting it ----------
@@ -8037,13 +8129,13 @@ const tests = [
   ["mission/summary.sh surfaces unassigned missions", testMissionSummaryUnassigned],
   ["hooks/mission-lens.sh surfaces unassigned missions", testMissionLensUnassigned],
   ["hooks/mission-lens.sh summarizes on change", testMissionLensOnChange],
-  ["mission create branches on main", testMissionBranchOnCreate],
+  ["mission create never branches (J1)", testMissionCreateNeverBranches],
   ["branching mission worktree primitive", testMissionWorktreePrimitive],
   ["worktree env-file carrying (root/subdir/none/declaration)", testWorktreeEnvCarry],
   ["mission worktree lands on the branch it reports", testMissionWorktreeNoLocalMain],
   ["mission worktree starts from the merged base (fetch-first)", testMissionWorktreeFetchFirst],
   ["mission-lens worktree focus", testMissionLensWorktreeFocus],
-  ["mission create worktree+kickoff spine", testMissionCreateWorktreeFlow],
+  ["mission create publish spine: batch to main, no worktree (J1)", testMissionCreatePublishFlow],
   ["mission worktree ship reset", testMissionWorktreeShipReset],
   ["mission/close.sh carried (carry the remainder forward)", testMissionCloseCarried],
   ["mission replan seams", testMissionReplanSeams],

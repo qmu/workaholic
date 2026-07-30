@@ -8,7 +8,7 @@ commit_hash:
 category:
 depends_on: [20260729183606-publish-tree-primitive.md]
 mission:
-merge_policy: auto
+merge_policy: review
 ---
 
 # /ticket publishes to main instead of cutting a work branch
@@ -93,7 +93,7 @@ Two prompts disappear with the branch. `/ticket`'s Step 0 worktree guard ("Conti
 - `node scripts/build-plugins/build.mjs && node scripts/build-plugins/verify.mjs && node scripts/build-plugins/validate-metadata.mjs` clean with no residual `outputs/` diff.
 - `bash plugins/workaholic/hooks/layout-doctor.sh .` reports `conforming: true`.
 - `grep -rn 'branch_created' plugins/ outputs/` returns nothing.
-- A live in-session rehearsal in this repository: from a dirty feature branch, run `/ticket` end to end, confirm the ticket is on `origin/main`, confirm `git status` on the feature branch is unchanged, then remove the rehearsal ticket.
+- A live rehearsal against a **throwaway clone** (never this repository itself — an unattended run must not push scratch commits to its `origin/main`): from a dirty feature branch, run `/ticket` end to end, confirm the ticket is on `origin/main`, confirm `git status` on the feature branch is unchanged, then remove the rehearsal ticket.
 
 **Gate**
 
@@ -106,7 +106,7 @@ Two prompts disappear with the branch. `/ticket`'s Step 0 worktree guard ("Conti
 - `Decided:` the Step 0 worktree guard is **removed, not reworded** — its stated rationale ("prevents creating tickets against the main tree when the user may intend to work within a claim worktree") is exactly the concern this change eliminates, and a prompt whose every answer produces the same outcome is worse than no prompt.
 - `Decided:` **summary mode keeps reading the caller's checkout** — it answers a question about the developer's own working state, and forcing a fetch would make a read-only listing fail offline.
 - `Decided:` the `/drive`-invoked carve-out is **kept** — a deferred ticket minted mid-run belongs in the PR that discovered it, and routing it to `main` separately would split one unit of work across two merges.
-- `Decided:` verification is the **hermetic suite plus one live rehearsal in this repository**, matching the dependency's gate; the repository is its own consumer, so the real path is cheap to exercise.
+- `Decided:` verification is the **hermetic suite plus one live rehearsal against a throwaway clone**, matching the dependency's gate; the repository is its own consumer, so the real path is cheap to exercise.
 
 ## Considerations
 

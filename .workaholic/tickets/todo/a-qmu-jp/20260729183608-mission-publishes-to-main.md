@@ -8,7 +8,7 @@ commit_hash:
 category:
 depends_on: [20260729183606-publish-tree-primitive.md]
 mission:
-merge_policy: auto
+merge_policy: review
 ---
 
 # /mission publishes to main and stops creating a worktree at creation
@@ -99,7 +99,7 @@ This ticket makes `/mission` a pure **source**, matching `/propose` — which al
 - `node scripts/build-plugins/build.mjs && node scripts/build-plugins/verify.mjs && node scripts/build-plugins/validate-metadata.mjs` clean with no residual `outputs/` diff.
 - `bash plugins/workaholic/hooks/layout-doctor.sh .` reports `conforming: true`; `bash plugins/workaholic/hooks/posix-lint.sh` conforming.
 - `grep -rn 'create-mission-worktree' plugins/` shows `claim.sh` as the only caller (plus documentation).
-- A live in-session rehearsal in this repository: create a throwaway mission from a dirty feature branch, confirm it is on `origin/main` with its tickets, confirm no `.worktrees/` entry appeared, confirm the feature branch is untouched, then close and archive it.
+- A live rehearsal against a **throwaway clone** (never this repository itself — an unattended run must not push scratch commits to its `origin/main`): create a throwaway mission from a dirty feature branch, confirm it is on `origin/main` with its tickets, confirm no `.worktrees/` entry appeared, confirm the feature branch is untouched, then close and archive it.
 
 **Gate**
 
@@ -113,7 +113,7 @@ This ticket makes `/mission` a pure **source**, matching `/propose` — which al
 - `Decided:` an abandoned interrogation **publishes nothing** — a half-formed mission on `main` is claimable, and a runner claiming a mission with no tickets is a worse outcome than losing an unfinished draft that the publish tree still holds.
 - `Decided:` `close` also publishes through the publish tree — the archive move is a mission write like any other, and leaving it on the caller's checkout would reintroduce the exact invisibility this change removes.
 - `Decided:` the mission scripts (`create.sh`, `approve.sh`, `close.sh`) are **not modified** — they are already ref-agnostic and cwd-relative; pushing git logic into them would duplicate the publish sequence and break the single-implementation rule.
-- `Decided:` verification is the **hermetic suite plus one live rehearsal in this repository**, matching the sibling tickets.
+- `Decided:` verification is the **hermetic suite plus one live rehearsal against a throwaway clone**, matching the sibling tickets.
 
 ## Considerations
 

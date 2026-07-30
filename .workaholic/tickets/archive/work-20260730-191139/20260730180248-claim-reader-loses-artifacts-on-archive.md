@@ -3,9 +3,9 @@ created_at: 2026-07-30T18:02:48+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Domain, Infrastructure]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 merge_policy: review
@@ -118,3 +118,62 @@ All four tickets were reported as **claimable backlog while their claim was in f
 - **`git log --follow` is single-path and can be slow.** If rename-following is the chosen resolution, prefer a single `git diff --find-renames` between the claim commit and the tip over a per-file `--follow`, and measure it against a branch with a large archive: the scan runs on every survey, i.e. every five minutes.
 - **The basename shortcut is tempting and nearly right.** Ticket filenames are timestamp-prefixed and unique, so comparing basenames would fix the survey without any rename detection. It is worth considering explicitly rather than dismissing — but it silently stops working for any artifact type whose basename is not unique (`mission.md` is the obvious one), so if it is chosen it must be scoped to tickets and said so.
 - **This interacts with staleness reporting.** A claim whose artifacts have gone empty currently looks like a claim over nothing, which is indistinguishable from a `Claim` commit that stamped nothing (`claims.sh` already tolerates that case). After the fix, an empty artifact list becomes a genuinely anomalous state worth surfacing rather than rendering as `[]`.
+
+## Final Report
+
+Development completed as planned. `claims_scan` now resolves each claimed path to its
+current location at the branch tip (one `git diff --find-renames` per claim, so chained
+renames collapse to a single row) before reading the stamp, and reports the **base-side**
+path — the coordinate space both consumers compare in. The resolution and its reason are
+recorded in `drive/SKILL.md`'s Claims section. `archive.sh` was not touched, and neither
+`plan-units.sh` nor `claim.sh` grew its own resolution: the single-scan rule holds.
+
+Verification: suite green at **1500 passed / 0 failed** with two new cases. The
+coverage gap the ticket named is closed by `testClaimSurvivesArchive`, which claims a
+two-ticket batch and then archives its tickets on the claim branch, asserting from the
+clone that did none of the writing: mid-drive (one archived, one queued) both artifacts
+still reported; fully archived both still reported; the survey excludes both with reason
+`claimed`; a second claim is refused `already_claimed` naming the holder. The two
+deliberate behaviours are pinned alongside — a genuine stamp removal still drops the
+artifact, and a deleted artifact is not claimed. `testMissionClaimArtifactsUnaffected`
+proves the mission case rather than assuming it. `posix-lint` conforming; `build.mjs` and
+`verify.mjs` clean.
+
+Live check against this repository: the reader reported both of this unit's own tickets
+while they sat in `todo/`, and the archive-time behaviour is what the ship of this branch
+will exercise end to end.
+
+### Discovered Insights
+
+- **Insight**: The defect was one wrong *coordinate space*, not a missing feature. The
+  scan already had both halves right — "the files the claim commit touched" and "still
+  stamped at the tip" — but those two facts live in different path spaces once a rename
+  happens, and the code silently assumed they were the same space. The fix reads the stamp
+  in the tip's space and reports in the base's space, which is what each consumer actually
+  needs.
+  **Context**: The original comment ("a later commit that removes a stamp drops that
+  artifact") describes a real intended behaviour, which is why the bug survived review —
+  the code did exactly what the comment said, and the comment was silent about renames.
+
+- **Insight**: `git diff --find-renames <claim-sha> <tip>` compares the two **trees**, so a
+  file renamed twice (todo → archive, then moved again) reports as one net `R old new`
+  row. No rename chain needs walking, and the cost is one diff per claim rather than one
+  per file — which matters because the scan runs on every survey, i.e. every five minutes.
+  **Context**: The obvious implementation (`git log --follow` per file) is both slower and
+  single-path; the tree diff is the cheaper and more correct primitive here.
+
+- **Insight**: Reporting *both* paths was the ticket's suggestion and turned out to be the
+  wrong shape. The archived path is useless to every caller: `plan-units.sh` compares
+  against the working tree's queue and `claim.sh` against paths resolved in the main tree
+  — both base-side. Widening the TSV to carry a second path would have changed a contract
+  three consumers parse, for a field none of them would read.
+  **Context**: A ticket's implementation suggestions are hypotheses. This one was worth
+  discarding, and saying so is cheaper than carrying a dead field forever.
+
+- **Insight**: The fixture design was the root cause of the gap, exactly as the ticket
+  said. `makeClaimFixture` claims and asserts in the same breath, so the entire second
+  half of a drive's lifetime — everything after the first archive — was unreachable by any
+  test. The new case is only ~40 lines because the fixture was already right; what was
+  missing was *time*.
+  **Context**: When a defect lives in a lifecycle's later phase, look at whether the
+  fixture can reach that phase at all before concluding the code was under-tested.

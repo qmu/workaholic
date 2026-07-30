@@ -267,6 +267,7 @@
 * [The tab-IFS interior-empty-field hazard recurs across the skill scripts, untested](20260729143259-the-tab-ifs-interior-empty-field.md)
 * [Move branching model from GitHub Flow to Git Flow for QA and ship traceability](20260730051313-move-branching-model-from-github-flow-to-git-flow-for-qa-and-ship-traceability.md)
 * [Drop draft as the drive gate and have /drive create its own worktree from refreshed main](20260730062852-drop-draft-as-the-drive-gate-and-have-drive-create-its-own-worktree-from-refreshed-main.md)
+* [The proposal cursor is runner-local, so an ephemeral runner cold-starts every tick and proposes nothing](20260730101911-the-proposal-cursor-is-runner-local-so-an-ephemeral-runner-cold-starts-every-tick-and-proposes-nothing.md)
 * [A design record still names `/feedback` as the capture command](20260730111600-a-design-record-still-names-feedback.md)
 * [A stale installed plugin now offers a command name that no longer exists in source](20260730111600-a-stale-installed-plugin-now-offers.md)
 * [`/fb` still commits without pushing, so its records never reach `/propose`](20260730111600-fb-still-commits-without-pushing-so.md)

@@ -3,12 +3,13 @@ created_at: 2026-07-29T18:36:06+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config, Infrastructure]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Added
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260730-171125
 ---
 
 # Publish-tree primitive: write an artifact to main without touching the working tree
@@ -139,3 +140,64 @@ The repository has already run this argument once and settled it on the executor
 - **The mission lens keys on worktree basename** (`plugins/workaholic/hooks/mission-lens.sh`). A session whose cwd is inside `.publish/` would be treated as "a worktree owning no mission" and surface nothing — correct by accident, but worth an explicit check, since publish trees are short-lived and no session should ever live in one.
 - **`/fb` has the same latent invisibility** (`plugins/workaholic/commands/fb.md` step 4 commits without pushing, and never guards on `main`). A feedback recorded on a work branch never reaches `/propose`'s cursor, which reads records *merged to main*. This is deliberately **out of scope** — the request was tickets and missions — but the primitive built here is what a follow-up would use, and the gap should be raised rather than silently inherited.
 - **Rebase-and-retry-once is a bounded answer to a rare race** (step 4). A busier repository may need a retry loop; a loop was not chosen now because an unbounded retry hides sustained divergence that a human should see. If `diverged` starts appearing in practice, revisit the bound rather than raising it blindly.
+
+## Final Report
+
+Development completed as planned. The five scripts landed as specced (`sync-main.sh`,
+`open-publish-tree.sh`, `publish-tree-commit.sh`, `close-publish-tree.sh`, plus the
+`.publish/` line in the shared `lib/ensure-git-excludes.sh` seam), the decision is
+recorded as round five J1-J3 in `docs/loop-engineering-workflow.md`, `branching/SKILL.md`
+defines the term, and `commands/propose.md` step 1 now calls `sync-main.sh` instead of
+carrying inline git.
+
+Verification: the hermetic suite is green at 1351 passed / 0 failed with two new cases
+(`testSyncMain`, `testPublishTree`) covering every acceptance criterion, including the
+central caller-checkout-untouched invariant as a named assertion and the two-clone
+concurrent-publish rebase-and-retry. `posix-lint` conforming; `build.mjs` / `verify.mjs`
+/ `validate-metadata.mjs` clean with no residual `outputs/` diff; `layout-doctor`
+`conforming: true`. The live rehearsal ran against a throwaway clone of this repository
+whose `origin` was re-pointed at a local bare mirror (never the real remote): from a
+dirty feature branch with both a staged modification and an untracked file, a ticket was
+published to the mirror's `main`, `validate-ticket.sh` passed on the published path, and
+the caller's branch and porcelain status were identical before and after.
+
+### Discovered Insights
+
+- **Insight**: Three decisions the spec left implicit had to be settled, and each was
+  settled the same way — by asking what the caller can actually do with the answer.
+  (1) The enumerated outcomes ride **stdout with exit 0**, because the callers are
+  command markdown that cannot branch; a non-zero exit would read as tool breakage
+  inside an unattended run. Genuine misuse still exits non-zero. (2) `sync-main.sh`
+  needed a fifth reason, `origin_unreachable`, distinct from `no_origin`: answering
+  `ok: true` off a stale remote-tracking ref would be exactly the silent
+  yesterday's-queue survey the change exists to prevent. (3) `diverged` carries a
+  `detail` of `local_ahead` or `both_diverged`, because "you have unpushed commits on
+  main" and "the histories have parted" call for different human actions.
+  **Context**: A JSON contract for an agent-driven caller is a different artifact from
+  one for a shell pipeline; conflating them is what produces reasons nobody can act on.
+
+- **Insight**: `close-publish-tree.sh` needed a **second** refusal the spec did not
+  name. The spec's `dirty_publish_tree` covers uncommitted work, but a `diverged`
+  publish leaves a *clean* tree whose `publish-main` holds the only copy of the
+  artifact — and that is the more dangerous state precisely because it looks tidy.
+  Hence `unpublished_commits`, checked against `origin/<base>` reachability. The first
+  implementation also removed the worktree before evaluating that refusal, which left
+  the caller half-closed; both refusals are now decided before anything is removed.
+  **Context**: "Refuses a dirty tree" is a proxy for "never destroys recoverable
+  state". Implement the invariant, not the proxy.
+
+- **Insight**: `git branch -d` is the wrong guard for deleting `publish-main`. It asks
+  "is this merged into HEAD or its upstream", and the caller's HEAD is whatever branch
+  they happen to be on — so it refuses a fully published commit. The script proves the
+  stronger, correct condition itself (every commit reachable from `origin/<base>`) and
+  then uses `-D`.
+  **Context**: Git's built-in safety checks are relative to the current checkout. A
+  script whose whole point is to be independent of the caller's checkout cannot inherit
+  them.
+
+- **Insight**: `git worktree add -B <branch> <path> <sha>` collapses create-or-reset
+  into one call, which is what makes the open idempotent without a branch-existence
+  check; on the reuse path `git checkout -B` both re-points the branch and syncs the
+  tree, so no separate `reset --hard` is needed at all.
+  **Context**: Keeps the prohibited-operations surface at zero on a script that must
+  reset a checkout every time it runs.

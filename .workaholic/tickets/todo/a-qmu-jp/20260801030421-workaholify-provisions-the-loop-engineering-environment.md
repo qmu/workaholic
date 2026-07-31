@@ -9,6 +9,7 @@ category:
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260801-030703
 ---
 
 # Make `/workaholify` provision a developer's loop-engineering environment, and nudge them to re-run it

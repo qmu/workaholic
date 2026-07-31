@@ -12,19 +12,19 @@ mcp: [Slack]
 
 Event-driven (no cron): it fires on the inbound report, not on a clock.
 
+Its announcement names a PR this session created, so the ambiguity that broke `merged-pr`
+does not arise — the scoping is stated anyway, because "the pull request" reads the same
+in both and the next editor should not have to work out which case they are in.
+
 ## Prompt
 
 - Use qmu/workaholic skills, don't proceed without workaholic
 - /fb and /propose via pull request
 - Brief PR description, detail in file, and refer FB issue number to close when merged
-- Notify Slack channel `dev-[repo name]` when PR created by the format below:
+- Notify Slack channel `dev-[repo name]` when PR created by the format below. Announce **only the pull request you just created in this session**, exactly once; never announce another session's PR, and post nothing if you created none:
 
 ------------
 🟢 PR opened - [#123 Issue Title](https://github.com/org-name/repo-name/pull/123)
 `from-branch` → `to-branch`, one sentence, max 40 words, what the PR does only.
 
-{{#if blocker}}
-⚠️ Attention
-- One line, max 25 words.
-{{/if}}
 ------

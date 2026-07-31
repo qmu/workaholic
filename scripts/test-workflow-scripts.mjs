@@ -9223,9 +9223,21 @@ function testWorkaholifyRoutines() {
     // them sends a developer to create a channel that is already there.
     const slackChk = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.checkSlackChannel} workaholic`).stdout);
     assertEq("the channel probe derives dev-<repo>", slackChk.channel, "dev-workaholic");
-    assertTrue("an unreachable Slack reports checked:false, never exists:false",
-      slackChk.checked === false ? !("exists" in slackChk) : typeof slackChk.exists === "boolean",
+    // `exists` IS ONLY EVER TRUE. Slack answers "not found" for a channel the calling token
+    // cannot SEE, so an absent channel and an invisible one are the same response. This
+    // script shipped with the weaker rule and immediately reported `dev-workaholic` --
+    // a channel the routines demonstrably post to -- as `exists: false`.
+    assertTrue("the probe never claims a channel is absent",
+      slackChk.exists !== false, JSON.stringify(slackChk));
+    assertTrue("an unreachable Slack reports checked:false with no exists claim",
+      slackChk.checked === false ? !("exists" in slackChk) : slackChk.exists === true,
       JSON.stringify(slackChk));
+    const src = readFileSync(SCRIPTS.checkSlackChannel, "utf8");
+    assertTrue("a not-found or missing-scope answer is treated as not-visible, not absent",
+      /slack_missing_scope\*\|\*slack_channel_name_not_found/.test(src) &&
+      /channel_not_visible/.test(src), "invisible-vs-absent conflation returned");
+    assertTrue("an unrecognised failure is not a verdict either",
+      /probe_failed[\s\S]*does not recognise/.test(src), "unknown error still ruled on");
     assertTrue("and it names why it could not check",
       slackChk.checked === true || typeof slackChk.reason === "string", JSON.stringify(slackChk));
 

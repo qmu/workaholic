@@ -124,7 +124,7 @@ Everything converges on the same unit of work — a ticket. The shorthand: **sou
 - **Design discussion** is now the **feedback stream** — `/fb` records each conclusion, instruction, concern, or piece of customer material as an immutable entry that later planning reads.
 - **Decomposition** is `/mission` (interrogate a goal into its whole ticket set) and `/propose` (read merged feedback, register draft missions).
 - **Execution — including parallel, unattended, many-mission execution — is `/drive`.** What `/monitor` did across mission worktrees, `/drive` now does as its normal survey-and-claim behavior, coordinated through the claim branches instead of a dispatcher.
-- **Handing off in-flight work** needs no command: the work lives on a pushed claim branch by construction, so the next run re-claims the unit and resumes from it. What a hand-off used to capture in prose — the learnings, the deferred concerns — is written at the ship seam as `kind: concern` / `kind: insight` feedback records.
+- **Handing off in-flight work** needs no command: the work lives on a pushed claim branch by construction, so the next run re-claims the unit (`claim.sh resume <unit-id>`, once the claim's heartbeat lapses and only for its own identity) and continues from the branch tip. A run that knowingly leaves a unit unfinished says so in the PR body's `## Handoff` section. What a hand-off used to capture in prose — the learnings, the deferred concerns — is written at the ship seam as `kind: concern` / `kind: insight` feedback records.
 
 `.workaholic/trips/` remains on disk as **legacy, read-only history**: no command has written to it since 2026-07-28, and nothing deletes it. Knowledge is never deleted.
 

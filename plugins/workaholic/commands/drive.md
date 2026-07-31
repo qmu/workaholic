@@ -26,7 +26,14 @@ skills:
    | `origin_unreachable` | Like `no_origin`: survey locally, say so, and the token may not be `ok`. |
    | `diverged` | A human's decision (the `detail` says `local_ahead` or `both_diverged`). Report and **terminate `pending`**. Never merge or reset. |
 
-1. **Survey** — `plan-units.sh` (approved missions + this developer's unclaimed backlog, with the in-flight claims subtracted). It reports the freshness it observed rather than repairing it: `surveyed_sha`, `base_sha`, and `current`. **`current: false` forbids `ok`** — carry it into step 7.
+1. **Survey** — `plan-units.sh` (the approved missions this runner may take + this developer's unclaimed backlog, with the in-flight claims subtracted). A mission owned solely by another developer is dropped as `owned_by_other`; unowned means claimable. It reports what it observed rather than repairing it:
+
+   | field | what the run does |
+   | ----- | ----------------- |
+   | `current: false` | The survey could not see everything on the base. **Forbids `ok`** — carry it into step 7. |
+   | `backlog_error` non-empty | The queue was not read at all (`identity_unresolved` = the runner has no `git config user.email`). An empty `backlog[]` here means *unknown*, not *empty*: report the reason and **terminate `pending`**. Never repair the identity — the plugin cannot invent an email. |
+   | `user_slug` | Whose queue was surveyed. Report it whenever `backlog_error` is set, so the operator can see what the runner thought it was. |
+
 2. **Partition** — group the remainder into PR-units, conservatively. **Report the partition; never ask it.**
 3. **Claim** — `claim.sh` per unit, before any of its work starts. Read refusals as facts (`already_claimed` means another runner has it — move on).
 4. **Drive** — implement the unit's tickets in its claim worktree, per the skill's Workflow and its failure contract.

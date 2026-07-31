@@ -4,10 +4,11 @@
 set -eu
 
 usage() {
-    echo "Usage: commit.sh [--skip-staging] [--category <Added|Changed|Removed>] <title> <why> <changes> <concerns> <insights> <verify> [files...]"
+    echo "Usage: commit.sh [--skip-staging] [--allow-empty] [--category <Added|Changed|Removed>] <title> <why> <changes> <concerns> <insights> <verify> [files...]"
     echo ""
     echo "Options:"
     echo "  --skip-staging        Skip staging step (use when files are already staged)"
+    echo "  --allow-empty         Record a commit that changes no file (coordination markers only)"
     echo "  --category <value>    Emit a 'Category: <Added|Changed|Removed>' git trailer for /report grouping"
     echo ""
     echo "Parameters:"
@@ -24,11 +25,22 @@ usage() {
 # become the title: a typo'd flag (or --help itself) must never silently turn
 # into a commit whose message is that flag.
 SKIP_STAGING=false
+ALLOW_EMPTY=false
 CATEGORY=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --skip-staging)
             SKIP_STAGING=true
+            shift
+            ;;
+        # A commit that changes NO FILE, for the claim protocol's coordination markers
+        # (a takeover, a heartbeat): the fact being recorded is who is driving and when,
+        # not a change to the tree, so it must not appear in the PR diff. Opt-in and
+        # narrow -- without the flag, "nothing staged" stays the warning it has always
+        # been, so an ordinary commit whose staging silently failed can never masquerade
+        # as a successful empty one.
+        --allow-empty)
+            ALLOW_EMPTY=true
             shift
             ;;
         --category)
@@ -142,7 +154,7 @@ echo "==> Pre-commit check on branch: ${BRANCH}"
 # could vanish while the run still reported success. Both are closed here: a named path
 # that cannot be staged is a fatal error, and an untracked file excluded by `git add -u`
 # is named rather than silently dropped.
-if [ "$SKIP_STAGING" = "false" ]; then
+if [ "$SKIP_STAGING" = "false" ] && [ "$ALLOW_EMPTY" = "false" ]; then
     if [ $# -gt 0 ]; then
         echo "==> Staging specified files..."
         # An explicitly-named path is the caller's strongest statement of intent. If ANY
@@ -193,7 +205,7 @@ fi
 
 # Check if anything is staged
 STAGED=$(git diff --cached --stat)
-if [ -z "$STAGED" ]; then
+if [ -z "$STAGED" ] && [ "$ALLOW_EMPTY" = "false" ]; then
     echo ""
     echo "Warning: Nothing staged for commit"
     echo "Run 'git status' to see working tree state"
@@ -201,8 +213,12 @@ if [ -z "$STAGED" ]; then
 fi
 
 echo ""
-echo "==> Changes to be committed:"
-git diff --cached --stat
+if [ -z "$STAGED" ]; then
+    echo "==> Recording an empty commit (no file changes, by --allow-empty)"
+else
+    echo "==> Changes to be committed:"
+    git diff --cached --stat
+fi
 echo ""
 
 # Build the structured body section by section. Each present section is followed
@@ -236,9 +252,15 @@ COMMIT_BODY="${COMMIT_BODY}${TRAILERS}"
 
 # Commit
 echo "==> Committing..."
-git commit -m "${TITLE}
+if [ "$ALLOW_EMPTY" = "true" ]; then
+    git commit --allow-empty -m "${TITLE}
 
 ${COMMIT_BODY}"
+else
+    git commit -m "${TITLE}
+
+${COMMIT_BODY}"
+fi
 
 COMMIT_HASH=$(git rev-parse --short HEAD)
 echo ""

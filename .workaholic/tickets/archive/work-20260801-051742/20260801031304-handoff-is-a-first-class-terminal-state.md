@@ -3,12 +3,13 @@ created_at: 2026-08-01T03:13:04+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Domain]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on: [20260801031301-resume-a-claimed-but-unfinished-unit.md]
 mission:
 merge_policy: auto
+claim: work-20260801-051742
 ---
 
 # There is no sanctioned way for a run to hand unfinished work to a person
@@ -98,3 +99,37 @@ Decided: hermetic suite with `gh` stubbed — the acceptance criteria are about 
 - Making a section non-droppable narrows what `shrink-pr-body.sh` can shed; if both a large concern corpus and a handoff are present the body could still exceed the limit, so confirm the shedding order still terminates (`plugins/workaholic/skills/report/scripts/shrink-pr-body.sh`).
 - `handoff` must not become the soft landing for work the run simply did not want to attempt. The failure contract's "attempt every ticket" rule governs first, and the boundary test in step 1 is what keeps that true (`plugins/workaholic/skills/drive/SKILL.md`, *The failure contract*).
 - Depends on `20260801031301-resume-a-claimed-but-unfinished-unit.md`: the Handoff section's "next step" wording differs depending on whether a later run can resume the unit automatically or a person must check the branch out by hand.
+
+## Final Report
+
+Development completed as planned. `handoff` is a unit-level state with a boundary test,
+the ticket-outcome contract is still four-valued, and the Handoff story section is
+retained by `shrink-pr-body.sh` under every bounding path.
+
+### Discovered Insights
+
+- **Insight**: Placing the Handoff section first makes head-truncation preserve it *by
+  accident*, and an accident is not a guarantee — one template edit that moved it below
+  section 1 would have silently reintroduced the exact failure. Retention is therefore
+  explicit: the block is lifted out, the remainder is bounded, and the block is put
+  back. The test that proves this is the second one, which forces the *hard-truncation*
+  path with an oversized section 1 rather than an oversized section 6; the first test
+  would pass on positional luck alone.
+  **Context**: When a rule is "X must survive", assert it on the path where X's survival
+  is not already implied by the layout.
+
+- **Insight**: The boundary between `handoff` and `blocked` reduces to one question —
+  *could this be continued?* A blocked unit hit a named external blocker and nothing
+  further is possible; a handoff unit could be continued by anyone who picks up the
+  branch. That single question also keeps `handoff` from becoming the soft landing for
+  work a run simply did not want to attempt, because "I could continue this" is exactly
+  what "attempt every ticket" already obliges the run to do.
+  **Context**: The three-row contrast table in `drive/SKILL.md` §7 is written so a
+  future reader can apply the test without re-deriving it.
+
+- **Insight**: `handoff` and the resumption path from `20260801031301` are one story
+  told at two moments, not two mechanisms: a handoff unit is precisely the shape a later
+  run resumes. Documenting them apart would have produced two recovery narratives that
+  drift; the runbook now states them in the same place.
+  **Context**: They landed in the same PR-unit for this reason, and the `## Handoff`
+  section's "next step" wording depends on resumption existing.

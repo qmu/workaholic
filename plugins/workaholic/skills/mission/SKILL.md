@@ -286,7 +286,7 @@ Read every figure through those scripts (`workaholic:implementation` / `domain-l
 
 `/report` and `/ship` roll missions but do **not** carry this report. Their audience is the PR reviewer, and the story's own sections already say what landed; adding mission position there would duplicate `/catch` and the lens for a reader who did not ask. The report exists for **continuity across a session boundary** — that is `/mission close` and an unfinished `/drive` unit, where the context is otherwise lost. Decided rather than defaulted; revisit if a reviewer ever has to ask "which mission is this?".
 
-The dedicated hand-off command that once owned the first row is retired (`docs/loop-engineering-workflow.md` decision I5): in-flight state now lives on the **claim branch** by construction — the next run re-claims the unit and resumes from the pushed work — so a resumption ticket written by hand would restate what the branch already holds.
+The dedicated hand-off command that once owned the first row is retired (`docs/loop-engineering-workflow.md` decision I5): in-flight state now lives on the **claim branch** by construction — the next run re-claims the unit with `claim.sh resume <unit-id>` and continues from the pushed work — so a resumption ticket written by hand would restate what the branch already holds. Resumption is scoped to the claim's **own** identity and fires once its heartbeat lapses; a colleague's claim is never taken over (`workaholic:drive`, *Claims*).
 
 ## Progress Rule
 
@@ -323,7 +323,7 @@ Every script lives at `${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/<name>`. **T
 
 ### Worktree lifecycle — claim-born and ship-torn
 
-A mission's `.worktrees/<slug>/` worktree belongs to the **claim**, not to the mission record (`docs/loop-engineering-workflow.md` I6). It is created when a runner claims the unit (`workaholic:drive`'s *Claims* section — `claim.sh` cuts the worktree and its `work-*` branch together) and removed when that unit **ships**, or when its claim is explicitly released (`release-claim.sh`). An unfinished mission is simply re-claimed by a later tick, which recreates the worktree from the pushed branch.
+A mission's `.worktrees/<slug>/` worktree belongs to the **claim**, not to the mission record (`docs/loop-engineering-workflow.md` I6). It is created when a runner claims the unit (`workaholic:drive`'s *Claims* section — `claim.sh` cuts the worktree and its `work-*` branch together) and removed when that unit **ships**, or when its claim is explicitly **discarded** (`release-claim.sh`, which deletes the remote branch and is therefore not a recovery path). An unfinished mission is re-claimed by a later tick through `claim.sh resume <slug>`, which recreates the worktree **at the pushed branch tip** so the earlier run's commits and archived tickets survive.
 
 **And creation makes none either** (decision J1, 2026-07-30 — the completion of I6). `/mission` once built the worktree before writing anything and committed inside it without pushing, which left an approved mission invisible to `plan-units.sh` — the failure `docs/drive-loop-runbook.md` §6 documented and `claim.sh` carried a tolerance comment for. Every mission write now goes into a **publish tree** and is pushed to `main`: creation, replan, approval, and close alike (`workaholic:branching`'s *The Publish Tree*). `claim.sh` is the only creator of a branch or a worktree anywhere in the plugin. The mission scripts themselves were not touched — they are cwd-relative and never branch or commit, so only the caller's `cd` target moved.
 

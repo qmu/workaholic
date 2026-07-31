@@ -51,11 +51,18 @@ loop's bot (`docs/proposal-loop-runbook.md` §1) — one bot per workspace is en
 Optional knob:
 
 ```sh
-export WORKAHOLIC_CLAIM_STALE_HOURS=24    # when a claim is *reported* stale (default 24)
+export WORKAHOLIC_CLAIM_STALE_HOURS=24              # when a claim is *reported* stale (default 24)
+export WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=30  # when a claim of YOUR OWN becomes resumable (default 30)
 ```
 
-Staleness is **reported, never auto-broken**. Nothing in the loop reclaims a stale
-unit; see *Failure modes*.
+These two look alike and do opposite things. **Staleness is reported, never
+auto-broken**: nothing in the loop reclaims a stale unit, because a runner that
+reclaims on its own verdict can silently duplicate a *colleague's* in-flight work.
+**Resumability acts**, and is deliberately narrower — it applies only to a claim
+whose author is this runner's own `git config user.email`, and only once its
+heartbeat has lapsed. Keep the heartbeat window well under the tick interval you
+care about recovering within: at the default 30 minutes an hourly routine reclaims
+its own dropped unit on the next tick. See *Failure modes*.
 
 ## 3. The cron entry (every 5 minutes)
 
@@ -112,9 +119,21 @@ says so (`backlog_error: identity_unresolved`; see *Failure modes*).
   bash plugins/workaholic/skills/drive/scripts/list-claims.sh
   ```
 
-  Each entry names the unit, its branch, the claimed artifacts, and whether the
-  branch tip has gone stale. `Claim <unit-id>` commits on unmerged branches are the
-  loop's ledger — `git log --oneline --all --grep='^Claim '` reads it from git alone.
+  Each entry names the unit, its branch, the claimed artifacts, whether the branch
+  tip has gone stale, and whether the unit is **resumable** (with `resume_reason`:
+  `claim_active` / `foreign_identity` / `identity_unresolved`). `Claim <unit-id>`
+  commits on unmerged branches are the loop's ledger — `git log --oneline --all
+  --grep='^Claim '` reads it from git alone.
+- **Claim notices** are the loop's *first* signal, minutes ahead of any PR: `claim.sh`
+  posts one Slack line naming the unit and branch the moment the claim is pushed. It
+  is never load-bearing, so its absence proves nothing on its own — check
+  `announced` / `announce_reason` in the tick's own output before concluding the
+  runner is dead.
+- **Handoffs** are units a run half-drove and could not finish. They are readable
+  where a person actually looks: the PR body's `## Handoff` section states what is
+  done, what is not, the next step, and any command attempted with its raw output.
+  A handoff tick terminates `pending`, and the unit is exactly the shape a later run
+  resumes (below) — one story, not two mechanisms.
 - **PRs** are the loop's output: one per unit. A `review` unit stops there and its
   URL is posted to Slack; an `auto` unit's PR is merged by the same tick that opened
   it, and its worktree and claim branch are removed afterwards.
@@ -130,14 +149,17 @@ says so (`backlog_error: identity_unresolved`; see *Failure modes*).
 | Symptom | Cause | Fix |
 | ------- | ----- | --- |
 | every tick refuses with `origin_unreachable` / `no_origin` | the runner cannot reach the remote | a claim must be pushed to exist; fix the remote/credentials — the loop correctly does nothing until then |
-| a unit sits claimed for days, `stale: true` | the runner died mid-run, or the work genuinely stalled | nothing auto-breaks a claim (reclaiming can silently duplicate a colleague's work). Inspect the branch, then either resume it or `release-claim.sh <unit-id>` from the main checkout |
+| a unit sits claimed for days, `stale: true` | the runner died mid-run, or the work genuinely stalled | nothing auto-breaks a claim on staleness alone — reclaiming a *colleague's* work can silently duplicate it. If the claim is **yours**, the loop already recovers it: once the heartbeat lapses the survey offers it in `resumable[]` and the next tick takes it over with `claim.sh resume <unit-id>`, continuing from the pushed branch tip. Otherwise inspect the branch and leave it to its owner |
+| a unit is **not** offered as resumable although its run is clearly gone | its `resume_reason` says which of the three conditions failed | `claim_active` = the tip is still inside the heartbeat window (wait it out, or shorten `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES`); `foreign_identity` = the claim is another developer's and is never resumable here at any age; `identity_unresolved` = this checkout has no `git config user.email` |
+| `resume_race_lost` in the log | two runners saw the same unit as resumable and both pushed a takeover | expected; git rejected the loser's push and it took nothing. The winner is driving the unit |
+| `release-claim.sh` used to "recover" an interrupted unit | it is the **discard** path, not the recovery path — it deletes the remote branch | use `claim.sh resume <unit-id>` to continue an interrupted unit. Reserve `release-claim.sh` for a unit that will genuinely not be finished |
 | `already_claimed` in the log | another runner or tick took the unit first | expected; no action |
 | `branch_collision` | two runners minted the same second's `work-*` branch name | nothing was claimed; the next tick succeeds |
 | a unit reported **demoted to PR** | an `auto` unit hit an overridable gate (size/leak block, no confirmation method, content conflict with `main`) | the demotion is the design — review and merge the PR, or fix the diff and let the next tick re-drive |
 | a unit reported **blocked** on a `secret` finding | a credential reached the branch diff | non-overridable: remove the credential from the diff. The branch is already pushed, so treat it as an exposure, not just a gate failure |
 | a unit reported **blocked** on a failed production confirmation | the deploy did not verify | the unmerged branch is the rollback; diagnose the deploy, do not force the merge |
 | every tick reports 0 units / `ok` but the queue is full | the runner has no `git config user.email`, so there is no `todo/<user>/` to resolve and the survey never learned any ticket exists | `plan-units.sh` reports `backlog_error: identity_unresolved` with an empty `user_slug`, and the tick terminates `pending` rather than `ok`. Configure the runner's identity — the plugin cannot invent one, and it deliberately does not fall back to scanning every developer's queue |
-| approved missions exist but nothing is claimed | the mission has an empty `## Acceptance` (`no_plan`), **no ticket names it** (`no_tickets` — an acceptance sketch is not a plan; emit the set with `/mission <instruction>`), a claim already holds it (`claimed`), the mission is still `draft` (`not_approved`), or its `assignees` name only another developer (`owned_by_other`) | check `plan-units.sh`'s `excluded[]` — every drop states its reason. `owned_by_other` means nothing to do here: the mission is a colleague's, and their runner will take it. The old cause here — "its tickets live in an unmerged worktree" — cannot occur any more: missions and tickets are published to `main` (decision J1) |
+| approved missions exist but nothing is claimed | the mission has an empty `## Acceptance` (`no_plan`), **no ticket names it** (`no_tickets` — an acceptance sketch is not a plan; emit the set with `/mission <instruction>`), a claim already holds it (`claimed_active` / `claimed_by_other`, or `claimed_resumable` if it is yours to take over), the mission is still `draft` (`not_approved`), or its `assignees` name only another developer (`owned_by_other`) | check `plan-units.sh`'s `excluded[]` — every drop states its reason. `owned_by_other` means nothing to do here: the mission is a colleague's, and their runner will take it. The old cause here — "its tickets live in an unmerged worktree" — cannot occur any more: missions and tickets are published to `main` (decision J1) |
 | the tick reports nothing to do, but you can see a queued ticket on GitHub | the runner's checkout is behind `origin/main`, so the survey never learned the artifact exists | the freshness step (`sync-main.sh`, `commands/drive.md` step 0) fast-forwards before surveying, and `plan-units.sh` reports `current: false` when it could not. If it keeps reporting `not_on_main` / `dirty_workspace` / `diverged`, the runner checkout is being used for other work — keep it dedicated and reconcile by hand |
 | a tick terminates `pending` with `not_on_main` or `dirty_workspace` | the runner checkout is on a branch, or holds uncommitted work | the run refuses to survey a branch rather than surveying the wrong queue. Return the checkout to a clean `main` |
 | a tick terminates `pending` with `diverged` | the runner's local `main` has commits the base does not, or the histories parted | a human's call; nothing is merged or reset. `detail` says `local_ahead` or `both_diverged` |

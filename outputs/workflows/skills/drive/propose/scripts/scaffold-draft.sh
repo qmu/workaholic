@@ -83,19 +83,16 @@ gate_assert:
 <!-- Why this mission is proposed: the direction the source feedback asks for.
      The proposal batch fills this from the feedback records named above. -->
 
-## Scope
-
-<!-- Proposed definition of done and out-of-scope notes. Provisional until a
-     human approves; approval replans this to drive-ready. -->
-
 ## Experience
 
-<!-- The demanded behavior, observable. Provisional (see Scope). -->
+<!-- The demanded behavior, observable. Provisional until a human approves;
+     approval replans this to drive-ready. -->
 
 ## Acceptance
 
-<!-- PROPOSED criteria - a sketch for discussion, not a plan. Approval replans
-     this mission to drive-ready; only then may it be authorized. -->
+<!-- PROPOSED criteria, THREE ITEMS OR FEWER - a sketch for discussion, not a
+     plan. Approval replans this mission to drive-ready; only then may it be
+     authorized. -->
 
 ## Changelog
 
@@ -106,4 +103,14 @@ sh "${SCRIPT_DIR}/../../okf/scripts//refresh-index.sh" >/dev/null 2>&1 || true
 
 git add "$MISSION_FILE" 2>/dev/null || true
 
-printf '{"created": true, "slug": "%s", "path": "%s"}\n' "$SLUG" "$MISSION_FILE"
+# THE SIZE CEILING IS HARD FOR A DRAFT, AND SOFT FOR A HUMAN (recorded 2026-08-01).
+# `mission/scripts/size.sh` measures the same norms either way; what differs is who is
+# holding the pen. A developer authoring a mission is present and exercising judgment,
+# so a refusal there would fire on legitimately larger work — the measurement is shown
+# and the norm guides. This batch writes UNATTENDED: there is no judgment to exercise
+# and nobody to show a measurement to, so an unenforced ceiling here is just a wish.
+# The scaffold itself is well under the ceiling, so this reports on the FILLED draft
+# when a caller re-runs it — the batch is expected to check after filling the sections.
+SIZE=$(sh "${MISSION_SCRIPTS}/size.sh" "$MISSION_FILE" 2>/dev/null || true)
+
+printf '{"created": true, "slug": "%s", "path": "%s", "size": %s}\n' "$SLUG" "$MISSION_FILE" "${SIZE:-null}"

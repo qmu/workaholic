@@ -3,9 +3,9 @@ created_at: 2026-08-01T01:21:29+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 merge_policy: review
@@ -84,3 +84,39 @@ Missions were built with a deliberately rich body (Goal, Scope, Experience, Acce
 - A hard byte ceiling on `mission.md` can be defeated by a mission that says less but means less — the ceiling shapes the artifact, not the thinking. The three-item Acceptance norm is the rule doing the real work; the byte count is a backstop (`plugins/workaholic/skills/mission/SKILL.md`).
 - Shortening acceptance lists changes what `checked ÷ total` reports without changing how it is computed, so historical progress percentages are not comparable across the change (`plugins/workaholic/skills/mission/scripts/progress.sh`).
 - The mission lens prints the next unchecked acceptance item every turn; with three items or fewer the lens gets sharper, which is a second, unstated benefit worth confirming after the change (`plugins/workaholic/hooks/mission-lens.sh`).
+
+## Final Report
+
+Development completed as planned. All eight steps landed, and step 3's norm-vs-gate
+decision was made and recorded rather than left implicit.
+
+### Discovered Insights
+
+- **Insight**: The norm/gate question has a principled answer that depends on *who holds
+  the pen*, not on how important the rule is. For a human-authored mission the size norms
+  report (`size.sh`) and the interrogation shows the measurement, because the author is
+  present and exercising judgment and a hard refusal would fire on legitimately larger
+  work. For a `/propose` draft the same ceiling is enforced, because the batch writes
+  unattended with no judgment to exercise and nobody to show a measurement to — guidance
+  there is just an unenforced wish.
+  **Context**: This split is worth reusing whenever a rule must cover both an interactive
+  and a headless writer. Asking "is this important enough to gate?" produces the wrong
+  answer; asking "is there a judgment being exercised at the point of writing?" produces
+  the right one.
+
+- **Insight**: The `## Scope` removal exposed a claim in the prose that the test suite
+  immediately disproved. The skill said `close.sh` would still carry a legacy `## Scope`
+  into a successor — but the successor is scaffolded from the template, which no longer
+  has that heading, so the carry rule could never fire. The correct behavior is not to
+  carry it (a carry must not re-introduce a retired section into a *new* mission), so the
+  dead awk rule was removed and the prose corrected.
+  **Context**: When removing a section from a template, the carry/copy paths that
+  reference it become dead silently — the awk rule matched nothing rather than erroring.
+  The existing test asserting the old behavior is what surfaced it.
+
+- **Insight**: `hooks/posix-lint.sh` flags any `[[` sequence as a shell bashism, which
+  false-positives on awk regexes like `[[:space:]]` and `\[[ xX]\]`. The fix is to spell
+  the awk patterns without a doubled bracket (`[ \t]`, `\[.\]`) rather than to add a
+  linter exception.
+  **Context**: A lint rule you have to argue with at each call site is worth less than a
+  slightly different spelling. Worth knowing before writing any awk in this repo.

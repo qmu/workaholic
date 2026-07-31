@@ -310,4 +310,8 @@
 * [Filtering low concerns out of the story deletes them from the stream](20260731165740-filtering-low-concerns-out-of-the-story-deletes-them-from-the-stream.md)
 * [Review of the draft session-start bootstrap hook](20260731170144-review-of-the-draft-session-start-bootstrap-hook.md)
 * [Missions are too heavy to close: cap their size instead of loosening their gates](20260801012120-missions-are-too-heavy-to-close-cap-their-size-instead-of-loosening-their-gates.md)
+* [A publication branch is a work-* branch that no claim owns](20260801021156-a-publication-branch-is-a-work.md)
+* [An unmerged proposal blocks its own mission's replan](20260801021156-an-unmerged-proposal-blocks-its-own.md)
+* [Nothing yet watches for the merge event the standard depends on](20260801021156-nothing-yet-watches-for-the-merge.md)
+* [The archive commit exceeds the per-commit changed-lines ceiling](20260801021156-the-archive-commit-exceeds-the-per.md)
 <!-- okf:generated:end -->

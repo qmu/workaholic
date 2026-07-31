@@ -300,4 +300,7 @@
 * [Quality gates must assist delivery, not block well-done work](20260731062209-quality-gates-must-assist-delivery-not-block-well-done-work.md)
 * [Every markerless acceptance item in this repo belongs to a proposed draft](20260731062305-every-markerless-acceptance-item-in-this-repo-belongs-to-a-proposed-draft.md)
 * [Make /propose survey the whole repository state and propose a mission with its tickets on a branch](20260731161650-make-propose-survey-the-whole-repository-state-and-propose-a-mission-with-its-tickets-on-a-branch.md)
+* [A merged PR notifies Slack only if something watches for the merge](20260731165549-a-merged-pr-notifies-slack-only.md)
+* [The J1 reversal leaves two contradictory statements in the repository](20260731165549-the-j1-reversal-leaves-two-contradictory.md)
+* [The publish tree exists to protect a dirty checkout](20260731165549-the-publish-tree-exists-to-protect.md)
 <!-- okf:generated:end -->

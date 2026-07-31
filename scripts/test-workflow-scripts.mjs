@@ -7639,8 +7639,12 @@ function testPlanUnits() {
     const claimed = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.claim} mission m1`).stdout);
     plan = JSON.parse(run(A, PLAN).stdout);
     assertEq("a claimed mission is no longer offered", plan.missions.length, 0);
+    // `claimed_active`, not a bare `claimed`: the claim was just pushed, so its branch
+    // tip is inside the heartbeat window and a run is presumed to be on it. The three
+    // claimed-* reasons each imply a different next action (wait / never / resume).
     assertEq("the claimed mission is reported as excluded, with its reason",
-      plan.excluded.find((e) => e.id === "m1")?.reason, "claimed");
+      plan.excluded.find((e) => e.id === "m1")?.reason, "claimed_active");
+    assertEq("a freshly claimed unit is not offered as resumable", plan.resumable.length, 0);
     assertEq("the in-flight claim is reported alongside the offer",
       plan.claimed.map((c) => c.unit), [claimed.unit]);
     assertEq("the backlog is untouched by a mission claim", plan.backlog.length, 2);
@@ -7652,7 +7656,7 @@ function testPlanUnits() {
     plan = JSON.parse(run(A, PLAN).stdout);
     assertEq("a claimed ticket leaves the backlog", plan.backlog.map((t) => t.path),
       [`.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`]);
-    assertEq("the claimed ticket is reported as excluded", plan.excluded.find((e) => e.id === t1)?.reason, "claimed");
+    assertEq("the claimed ticket is reported as excluded", plan.excluded.find((e) => e.id === t1)?.reason, "claimed_active");
   } finally { cleanup(origin); cleanup(A); cleanup(B); }
 }
 
@@ -8344,7 +8348,7 @@ function testDriveSurveysCurrentMain() {
       assertTrue(`the ${name}'s survey no longer offers the claimed ticket`,
         !after.backlog.some((t) => t.path === REL), JSON.stringify(after.backlog));
       assertTrue(`the ${name}'s survey states why it was dropped`,
-        after.excluded.some((e) => e.id === REL && e.reason === "claimed"), JSON.stringify(after.excluded));
+        after.excluded.some((e) => e.id === REL && e.reason === "claimed_active"), JSON.stringify(after.excluded));
     }
     run(A, `${POSIX_SH} ${SCRIPTS.releaseClaim} ${won.unit}`);
 
@@ -8524,7 +8528,7 @@ function testClaimSurvivesArchive() {
       assertTrue(`the survey does not offer the in-flight ${t.split("/").pop()}`,
         !plan.backlog.some((x) => x.path === t), JSON.stringify(plan.backlog));
       assertTrue(`and states it was dropped as claimed: ${t.split("/").pop()}`,
-        plan.excluded.some((e) => e.id === t && e.reason === "claimed"), JSON.stringify(plan.excluded));
+        plan.excluded.some((e) => e.id === t && e.reason === "claimed_active"), JSON.stringify(plan.excluded));
     }
 
     // And a second claim over the same tickets is still refused.
@@ -8828,6 +8832,201 @@ function testClaimAnnounces() {
   } finally { cleanup(origin); cleanup(A); cleanup(B); cleanup(stubDir); }
 }
 
+// ---------- a dropped claim is RESUMED, not stranded forever ----------
+// The design record said "the next tick re-claims and resumes from what is pushed"
+// (loop-engineering-workflow I5) while the code did the exact opposite: plan-units.sh
+// dropped every claimed unit and claim.sh refused it, so no survey ever offered it
+// again. Survivable for a local runner whose worktree is still on disk; fatal for a
+// cloud runner whose worktree dies with its sandbox. The FIRST case below is the one
+// this feature must never get wrong -- taking over a unit that is still being driven
+// trades a recoverable stall for concurrent writes to one branch.
+function testClaimResume() {
+  const { origin, A, B } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const LIST = `${POSIX_SH} ${SCRIPTS.listClaims}`;
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  // Heartbeat window 0 => the tip is always older than it, i.e. "the run is gone".
+  const lapsed = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0" };
+  try {
+    const claimed = JSON.parse(run(A, `${CLAIM} mission m1`).stdout);
+
+    // ---- 1. A FRESH heartbeat is never resumable, and resume refuses ----
+    let r = JSON.parse(run(B, LIST).stdout);
+    assertEq("the reader reports the default heartbeat window", r.heartbeat_stale_minutes, 30);
+    assertEq("a claim whose tip is fresh is not resumable",
+      { res: r.claims[0].resumable, why: r.claims[0].resume_reason }, { res: false, why: "claim_active" });
+    const active = run(B, `${CLAIM} resume m1`);
+    assertTrue("resuming an active claim exits non-zero", active.status !== 0, `status ${active.status}`);
+    const aj = JSON.parse(active.stderr.trim().split("\n").pop());
+    assertEq("and is refused as claim_active, naming the branch it is active on",
+      { r: aj.reason, b: aj.branch, c: aj.claimed }, { r: "claim_active", b: claimed.branch, c: false });
+    assertTrue("the refused resume built no worktree", !existsSync(join(B, ".worktrees/m1")));
+    assertEq("a fresh claim is never offered as resumable",
+      JSON.parse(run(B, PLAN, { env: process.env }).stdout).resumable.length, 0);
+
+    // ---- 2. A FOREIGN identity is never resumable, at any age ----
+    execSync(`git config user.email other@example.com`, { cwd: B });
+    r = JSON.parse(run(B, LIST, { env: lapsed }).stdout);
+    assertEq("a lapsed claim authored by someone else is still not resumable",
+      { res: r.claims[0].resumable, why: r.claims[0].resume_reason },
+      { res: false, why: "foreign_identity" });
+    assertEq("the reader names the claim's author", r.claims[0].author, "test@example.com");
+    const foreign = run(B, `${CLAIM} resume m1`, { env: lapsed });
+    assertEq("resuming another identity's claim is refused",
+      JSON.parse(foreign.stderr.trim().split("\n").pop()).reason, "foreign_identity");
+    assertEq("and it is never offered to them either",
+      JSON.parse(run(B, PLAN, { env: lapsed }).stdout).resumable.length, 0);
+    execSync(`git config user.email test@example.com`, { cwd: B });
+
+    // ---- 3. Same identity + lapsed heartbeat = offered, and takeable ----
+    // A's run also pushed real work before dying; the resumed worktree must start there.
+    const wtA = join(A, ".worktrees/m1");
+    writeFileSync(join(wtA, "progress.txt"), "work the first run finished\n");
+    execSync(`git add -A && git commit -q -m "Add first run progress" && git push -q origin ${claimed.branch}`, { cwd: wtA });
+    const tip = execSync(`git rev-parse HEAD`, { cwd: wtA, encoding: "utf8" }).trim();
+
+    const plan = JSON.parse(run(B, PLAN, { env: lapsed }).stdout);
+    assertEq("a lapsed claim of one's own is offered as resumable",
+      plan.resumable.map((u) => u.unit), ["m1"]);
+    assertEq("the resumable offer carries the branch and the claimed artifacts",
+      { b: plan.resumable[0].branch, a: plan.resumable[0].artifacts },
+      { b: claimed.branch, a: [".workaholic/missions/active/m1/mission.md"] });
+    assertTrue("it is still excluded from the fresh-claim offer",
+      !plan.missions.some((m) => m.slug === "m1"), JSON.stringify(plan.missions));
+    assertEq("and its exclusion reason says it is resumable, not merely claimed",
+      plan.excluded.find((e) => e.id === "m1")?.reason, "claimed_resumable");
+
+    const resumed = JSON.parse(run(B, `${CLAIM} resume m1`, { env: lapsed }).stdout);
+    assertEq("the takeover reports itself as a resume of the same unit and branch",
+      { c: resumed.claimed, res: resumed.resumed, u: resumed.unit, b: resumed.branch },
+      { c: true, res: true, u: "m1", b: claimed.branch });
+
+    // THE POINT OF THE WHOLE FEATURE: the resumed worktree starts at the PUSHED TIP,
+    // so the earlier run's work survives instead of being silently redone.
+    assertTrue("the resumed worktree carries the earlier run's file",
+      existsSync(join(B, ".worktrees/m1/progress.txt")));
+    assertTrue("the resumed worktree contains the earlier run's commit",
+      execSync(`git log --format=%H`, { cwd: join(B, ".worktrees/m1"), encoding: "utf8" }).includes(tip));
+    assertEq("the takeover is published on the same branch",
+      execSync(`git rev-parse --abbrev-ref HEAD`, { cwd: join(B, ".worktrees/m1"), encoding: "utf8" }).trim(),
+      claimed.branch);
+    // The takeover marker changes no file, so it can never pollute the PR diff.
+    assertEq("the takeover commit is empty",
+      execSync(`git show --stat --format= HEAD`, { cwd: join(B, ".worktrees/m1"), encoding: "utf8" }).trim(), "");
+    assertTrue("the takeover is on origin",
+      execSync(`git log --format=%s -3 refs/heads/${claimed.branch}`, { cwd: origin, encoding: "utf8" })
+        .includes("Resume m1"));
+    // The unit stays ONE claim -- a takeover must not mint a second one.
+    assertEq("the unit is still exactly one claim in flight",
+      JSON.parse(run(A, LIST).stdout).claims.map((c) => c.unit), ["m1"]);
+
+    // ---- 4. Not claimed at all is its own refusal, not a silent fresh claim ----
+    const none = run(B, `${CLAIM} resume nonesuch`, { env: lapsed });
+    assertEq("resuming a unit nobody claimed is refused",
+      JSON.parse(none.stderr.trim().split("\n").pop()).reason, "not_claimed");
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
+// Two runners can see one unit as resumable in the same instant. Exactly one takeover
+// may land: the loser must take NOTHING and report a retryable reason. Nothing here may
+// be decided by comparing clocks -- a local runner and a cloud one have skewed ones --
+// so the arbiter is git, in two layers (the pinned-tip check, then the non-ff push).
+function testResumeRace() {
+  const { origin, A, B } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  // A REALISTIC window with an AGED claim, not a zero-minute one. With a 0-minute
+  // window every tip is instantly "abandoned", so a second attempt made *after* the
+  // first takeover would legitimately re-resume — the fixture would be asserting the
+  // absence of a property the configuration does not ask for. Backdating the claim
+  // commit two hours under a 60-minute window makes the ONLY thing that can keep the
+  // second runner out the first runner's takeover, which is exactly the property.
+  const window60 = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "60" };
+  const aged = {
+    ...process.env,
+    GIT_COMMITTER_DATE: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+    GIT_AUTHOR_DATE: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+  };
+  const racers = [];
+  try {
+    const claimed = JSON.parse(run(A, `${CLAIM} mission m1`, { env: aged }).stdout);
+    // Two FRESH clones: neither holds the original worktree, so both can genuinely
+    // attempt the takeover (A cannot — its .worktrees/m1 already exists).
+    for (const name of ["C", "D"]) {
+      const c = mkdtempSync(join(tmpdir(), `wh-race-${name}-`));
+      execSync(`git clone -q ${origin} .`, { cwd: c });
+      execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: c });
+      racers.push(c);
+    }
+    const [C, D] = racers;
+    assertTrue("the aged claim is offered as resumable to a fresh runner",
+      JSON.parse(run(C, `${POSIX_SH} ${SCRIPTS.planUnits}`, { env: window60 }).stdout)
+        .resumable.map((u) => u.unit).includes("m1"));
+
+    const first = run(C, `${CLAIM} resume m1`, { env: window60 });
+    const second = run(D, `${CLAIM} resume m1`, { env: window60 });
+
+    assertEq("the first takeover wins", first.status, 0);
+    assertTrue("the second takeover is refused", second.status !== 0, `status ${second.status}`);
+    const sj = JSON.parse(second.stderr.trim().split("\n").pop());
+    // Either arbiter is a correct answer, and which one fires depends on whether the
+    // loser's scan ran before or after the winner's push. What must NEVER happen is a
+    // second runner driving the same unit, so both accepted reasons are refusals that
+    // leave nothing behind: `claim_active` (it saw the fresh takeover) or
+    // `resume_race_lost` (it decided first, and git rejected it).
+    assertTrue("the loser reports a named, retryable refusal",
+      ["resume_race_lost", "claim_active"].includes(sj.reason), JSON.stringify(sj));
+    assertEq("and took nothing", sj.claimed, false);
+    assertTrue("the loser left no worktree behind", !existsSync(join(D, ".worktrees/m1")));
+    assertEq("exactly one Resume commit reached the branch",
+      execSync(`git log --format=%s refs/heads/${claimed.branch}`, { cwd: origin, encoding: "utf8" })
+        .split("\n").filter((l) => l === "Resume m1").length, 1);
+    // And the unit is still ONE claim: a takeover never mints a second.
+    assertEq("the unit remains a single claim in flight",
+      JSON.parse(run(C, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout).claims.map((c) => c.unit), ["m1"]);
+  } finally { cleanup(origin); cleanup(A); cleanup(B); racers.forEach(cleanup); }
+}
+
+// heartbeat.sh keeps a WORKING unit out of the resumable offer. Without it a run that
+// spends an hour on one ticket looks abandoned and gets taken over underneath itself.
+function testHeartbeat() {
+  const { origin, A, B } = makeClaimFixture();
+  const HEARTBEAT = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/heartbeat.sh")}`;
+  // A window of 0 minutes makes ANY tip lapsed, so the only thing that can keep the
+  // unit out of the offer is a beat landing after the reader looked -- which is
+  // precisely the property under test, expressed without sleeping for 30 minutes.
+  const lapsed = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0" };
+  const oneMinute = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "1" };
+  try {
+    const claimed = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.claim} mission m1`).stdout);
+    const before = execSync(`git rev-parse HEAD`, { cwd: join(A, ".worktrees/m1"), encoding: "utf8" }).trim();
+
+    const beat = JSON.parse(run(A, `${HEARTBEAT} m1`).stdout);
+    assertEq("the beat reports success and the branch it advanced",
+      { b: beat.beat, br: beat.branch }, { b: true, br: claimed.branch });
+    const after = execSync(`git rev-parse HEAD`, { cwd: join(A, ".worktrees/m1"), encoding: "utf8" }).trim();
+    assertTrue("the beat advanced the claim branch tip", after !== before, `${before} -> ${after}`);
+    assertEq("the beat changed no file — it can never reach the PR diff",
+      execSync(`git show --stat --format= HEAD`, { cwd: join(A, ".worktrees/m1"), encoding: "utf8" }).trim(), "");
+    assertTrue("the beat is pushed, so other runners can see it",
+      execSync(`git rev-parse refs/heads/${claimed.branch}`, { cwd: origin, encoding: "utf8" }).trim() === after);
+    // A beaten claim reads as ACTIVE within a real window.
+    const r = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.listClaims}`, { env: oneMinute }).stdout);
+    assertEq("a just-beaten claim is active, not resumable",
+      { res: r.claims[0].resumable, why: r.claims[0].resume_reason }, { res: false, why: "claim_active" });
+    // The beat must not be mistaken for the claim itself.
+    assertEq("the unit is still read from its Claim commit", r.claims[0].unit, "m1");
+    assertEq("and it is still exactly one claim",
+      JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.listClaims}`, { env: lapsed }).stdout).claims.length, 1);
+
+    // NEVER LOAD-BEARING: an unknown unit is reported, not thrown.
+    const missing = run(A, `${HEARTBEAT} no-such-unit`);
+    assertEq("beating a unit with no worktree exits 0", missing.status, 0);
+    assertEq("and reports why it did not beat",
+      { b: JSON.parse(missing.stdout).beat, r: JSON.parse(missing.stdout).reason },
+      { b: false, r: "no_worktree" });
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -8972,6 +9171,9 @@ const tests = [
   ["drive/claim.sh drops its stranded-artifact tolerance", testClaimNoStrandedTolerance],
   ["/drive freshness contract (one code path, every reason visible)", testDriveFreshnessContract],
   ["drive/claim.sh announces the claim, never load-bearing", testClaimAnnounces],
+  ["drive claim protocol: a dropped unit is resumed, not stranded", testClaimResume],
+  ["drive claim protocol: two runners racing to resume, one takeover", testResumeRace],
+  ["drive/heartbeat.sh keeps a working unit out of the resumable offer", testHeartbeat],
 ];
 
 for (const [label, fn] of tests) {

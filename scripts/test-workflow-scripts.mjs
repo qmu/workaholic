@@ -8762,6 +8762,7 @@ const tests = [
   ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
   ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
+  ["routine announcements: exactly one subject, or nothing at all", testRoutineAnnouncementScoping],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
   ["branching worktree reclamation: merged AND clean, every skip named", testWorktreeReclamation],
   ["mission size norms: a ceiling on what a mission may say, and the floor it must not touch", testMissionSizeNorms],
@@ -9334,5 +9335,66 @@ function testWorkaholifyBootstrap() {
     assertEq("workaholic itself is bootstrapped", [self.ok, self.problems], [true, []]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// ---------- routine templates: an announcement names exactly one subject ----------
+// Two PRs merged four seconds apart produced FOUR Slack messages (2026-08-01 04:19 JST,
+// #135 and #137): one routine, two sessions, and a prompt whose subject was "the pull
+// request" without saying which. A stateless session looked at recent merges, found two,
+// and announced both.
+//
+// THESE ASSERT THE INSTRUCTION, NOT THE BEHAVIOUR. A test cannot make a model obey a
+// prompt; the acceptance criterion for that is a live two-PR merge producing exactly two
+// messages. What a test CAN do is stop the ambiguity from silently returning, which is
+// what these do.
+function testRoutineAnnouncementScoping() {
+  const dir = join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines");
+  const read = (f) => readFileSync(join(dir, f), "utf8");
+  // Assertions about what the ROUTINE says read only the prompt -- everything below
+  // `## Prompt`. A template's header explains the defect it was corrected for, quoting the
+  // old wording verbatim, so checking the whole file flags the explanation as the bug.
+  const prompt = (f) => { const b = read(f); const i = b.indexOf("## Prompt"); return i < 0 ? b : b.slice(i); };
+  const merged = prompt("merged-pr.md"), fb = prompt("fb.md"), drive = prompt("drive.md");
+
+  // The subject must be identified. "about the pull request" with no antecedent is the
+  // exact wording that produced the duplicates.
+  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive]]) {
+    assertTrue(`${name} never says "about the pull request" without saying which`,
+      !/about the pull request\b(?![^\n]*(this session|you just|THIS session))/i.test(body),
+      body.slice(0, 400));
+  }
+
+  assertTrue("merged-pr announces exactly one pull request",
+    /exactly one\b[^\n]*pull request/i.test(merged), "one-PR scoping missing");
+  assertTrue("and identifies it as the one that started this session",
+    /whose merge started this session/i.test(merged), "triggering-merge scoping missing");
+  // SILENCE IS THE CORRECT FAILURE MODE. "Announce whatever merged most recently" is the
+  // fallback that IS the bug, so the prompt has to forbid it by name.
+  assertTrue("merged-pr posts nothing when it cannot identify the trigger",
+    /cannot identify[^\n]*post nothing/i.test(merged), "post-nothing fallback missing");
+  assertTrue("and forbids the recency fallback explicitly",
+    /most recently/i.test(merged) && /fallback is exactly the defect/i.test(merged),
+    "recency fallback not forbidden");
+  assertTrue("merged-pr forbids announcing more than one even when several merged",
+    /Never announce more than one/i.test(merged), "multi-report not forbidden");
+
+  // The other two announce their OWN output, so they have no ambiguity -- but say so,
+  // because "the pull request" reads identically in all three.
+  assertTrue("fb announces only the PR this session created",
+    /only the pull request you just created in this session/i.test(fb), "fb scoping missing");
+  assertTrue("drive announces only the PR this session opened",
+    /only the pull request THIS session just opened/i.test(drive), "drive scoping missing");
+  assertTrue("drive forbids reporting activity it did not produce",
+    /did not itself produce/i.test(drive), "drive hard rule missing");
+
+  // NO "Attention" BLOCK IN ANY ANNOUNCEMENT (developer's ruling, 2026-08-01). The
+  // conditional concern block is gone from both the PR-opened and PR-merged formats; a
+  // notification carries the fact, and concerns live in the story and the feedback stream
+  // where they are read deliberately rather than skimmed in a channel.
+  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive]]) {
+    assertTrue(`${name} carries no Attention block`, !/Attention/.test(body), body.slice(0, 300));
+    assertTrue(`${name} carries no concern conditional`,
+      !/\{\{#if [a-z_]*concern/i.test(body), body.slice(0, 300));
   }
 }

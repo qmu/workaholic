@@ -333,4 +333,5 @@
 * [A legitimate per-repository difference now reads as drift forever](20260801044631-a-legitimate-per-repository-difference-now.md)
 * [Sibling sessions still cannot see each other](20260801044631-sibling-sessions-still-cannot-see-each.md)
 * [The fix is unproven until two PRs merge close together](20260801044631-the-fix-is-unproven-until-two.md)
+* [Verified: two near-simultaneous merges now produce exactly two messages](20260801045223-verified-two-near-simultaneous-merges-now-produce-exactly-two-messages.md)
 <!-- okf:generated:end -->

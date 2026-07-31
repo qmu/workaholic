@@ -137,10 +137,26 @@ The `tickets` / `stories` lists are reserved for the machine-readable relations 
 ### Body sections, in order
 
 - `## Goal` — the information-rich "why": business grounding and the outcome the mission pursues.
-- `## Scope` — definition of done, and explicit out-of-scope notes.
 - `## Experience` — **the mission's substance**: the user experience, the demanded behavior, and/or the overall structure it pursues. Where `## Goal` says *why* the work is worth doing, this says *what the thing does*. Keep it observable (`workaholic:implementation` / `objective-documentation`) — "the list reorders without a reload" is checkable; "feels fast" is not. This is the persistent content a kickoff-time `gate_*` could never be, and it is what a later session reads to know what is actually demanded.
-- `## Acceptance` — a checklist, and **the mission's plan**: each item names the ticket expected to satisfy it, so the list doubles as the route to completion. **Progress toward achievement is `checked ÷ total`, computed from this list, never a hand-set number** (`workaholic:implementation` / `objective-documentation`). An unchecked item is a **heading, not a specification** — re-check it against the source before cutting its ticket (see the checklist convention below).
+- `## Acceptance` — a checklist, and **the mission's plan**: each item names the ticket expected to satisfy it, so the list doubles as the route to completion. **Three items or fewer** — see *Size norms* below. **Progress toward achievement is `checked ÷ total`, computed from this list, never a hand-set number** (`workaholic:implementation` / `objective-documentation`). An unchecked item is a **heading, not a specification** — re-check it against the source before cutting its ticket (see the checklist convention below).
 - `## Changelog` — an append-only, dated, human-readable timeline (`workaholic:design` / `history-structures`).
+
+**`## Scope` was removed from the template on 2026-08-01**, deleted rather than made optional: no validator, script, or hook ever read it, so it was pure authoring cost, and `## Goal` (why) plus `## Experience` (what) already carry what it was reaching for. Missions written before that date still have the section — it is left verbatim as history and read by nothing. **A carried successor does not inherit it**: the successor is scaffolded from the template, so there is no `## Scope` heading for a carry to land in, and copying one would re-introduce a retired section into a *new* mission — the opposite of the removal's point. The predecessor keeps its own section as history.
+
+### Size norms
+
+Missions became hard to *finish*, and the diagnosis matters: the gates were not too strict — **nothing bounded how much a mission may say**. An unbounded `## Acceptance` grows into an exhaustive audit list, and a mission whose acceptance list is an audit list can never be honestly closed. The measurement at adoption: six active missions, every one at 0 of 3–9 criteria.
+
+| Norm | Value | Measured by |
+| ---- | ----- | ----------- |
+| `## Acceptance` items | **3 or fewer** | `scripts/size.sh` |
+| Whole `mission.md` | **60 lines / 2 KB** | `scripts/size.sh` |
+
+**The three-item rule is the one doing the real work.** Write only the minimum conditions under which the work can be called done. Exhaustive coverage, per-file checklists, and future audit items do not belong in a mission — they belong in tickets and the feedback stream. The line and byte ceiling is a **backstop**: a mission can meet 2 KB by saying less and meaning less, so it shapes the artifact rather than the thinking.
+
+**Norm for a human, gate for the batch** — the asymmetry is deliberate. A developer authoring a mission is present and exercising judgment, so `size.sh` *reports* and the interrogation shows the measurement; a hard refusal would fire on legitimately larger work, and a gate that refuses good work is worse than a norm that guides it. `/propose` writes **unattended**, with no judgment to exercise and nobody to show a measurement to, so the same ceiling is enforced on its drafts — its scaffold reports the measurement on every draft it writes (`workaholic:propose`).
+
+**This is a ceiling, and lowering a ceiling is not loosening a floor.** The approved floor is untouched: `hooks/validate-mission.sh` still requires an owner, a non-empty `## Experience`, and **at least one** `## Acceptance` item before a mission may be `approved`. A later reader must not mistake this change for a relaxation — it is the opposite.
 
 A mission carries **no `## Reflection` section**. The per-run reflection channel retired with the parallel-mission executor (`docs/loop-engineering-workflow.md` decision I3): what a run learned — what stopped autonomy, which judgment call leaked, what the next plan should pre-answer — is written as a `kind: concern` or `kind: insight` **feedback record** instead of a section only mission-planning ever read. That is the seam `/drive` already uses for everything else it defers, and it reaches `/propose` and the next interrogation alike. Missions closed before 2026-07-28 still carry the section; it is history and is left verbatim (any `## ` heading ends `## Acceptance`, so its checklist-shaped lines never counted toward progress and still do not).
 
@@ -188,7 +204,7 @@ Every genuine requirements question is a legitimate `AskUserQuestion` — it is 
 
 ### The rounds
 
-1. **Direction** — the business "why", the outcome pursued, and what is explicitly out of scope. → `## Goal`, `## Scope`
+1. **Direction** — the business "why", the outcome pursued, and what is explicitly out of scope. → `## Goal` (the out-of-scope notes belong in the same section now that `## Scope` is gone; state them in a sentence, not a second list)
 2. **The demanded experience** — the user experience, the behavior required, and/or the overall structure, **elicited per the gate above** (for user-facing work: the concrete example of a good output and the walked workflow, not a title-level guess). This is the mission's substance: what the thing *does*. Keep it observable, at the user-experience level. → `## Experience`
 3. **The ticket set** — how many tickets, what each covers, and the `depends_on` order. **This is the round nobody asked before, and it is the one that matters most**: "more of a plan or tickets" is what makes a mission complete.
 4. **Per-ticket pre-answers** — everything `create-ticket` §4b would ask later, asked now, per ticket in the set: acceptance criteria, verification method, the gate that must pass.
@@ -228,7 +244,7 @@ The sanctioned path to **reopen an existing active mission's plan** — reached 
 
 The bar equals creation's: a structured **delta model** — what changes, which tickets, in what order — not a Q&A transcript (`workaholic:planning` / `modeling-centric-design`), grilled until the delta is drive-ready. The **Recommended-label test** applies exactly as at creation (`rules/interaction.md`): a delta decision you could honestly recommend is decided-and-recorded (a `## Changelog` line or the delta ticket's `## Quality Gate`), not asked; only the unrecommendable forks reach an `AskUserQuestion`. `gate_*` is never interrogated, exactly as at creation.
 
-**What the delta may touch** — everything the Creation Interrogation produces, applied as a delta: rewrite `## Goal` / `## Scope` / `## Experience`; append `## Acceptance` items (observable, ticket-linked by `(#<filename>)`); emit delta tickets in one pass (the same emission rules, including the mission-scoped split-cap exception); run the approval under the conditions below.
+**What the delta may touch** — everything the Creation Interrogation produces, applied as a delta: rewrite `## Goal` / `## Experience` (and a legacy `## Scope` if the mission still carries one); append `## Acceptance` items (observable, ticket-linked by `(#<filename>)`); emit delta tickets in one pass (the same emission rules, including the mission-scoped split-cap exception); run the approval under the conditions below.
 
 **What a replan must never touch:**
 
@@ -332,7 +348,7 @@ The status set is closed and validated — anything else is `invalid_status`:
 **What the successor inherits, and why:**
 
 - The **unchecked** `## Acceptance` items, verbatim, with their `(#<filename>)` markers intact. Checked items stay with the predecessor — they were achieved *there*, and re-listing them would make the successor's computed progress claim work it did not do. The successor starts at `0/<n unmet>`, which falls out of its own list; **no number is ever carried across**.
-- `## Goal`, `## Scope` and the `gate_*` fields, verbatim. A carry-over is a **continuation** by definition — the mission is done as framed and the remainder pursues the same outcome — so the goal is shared and the gate still applies. A genuine *re-framing* is a new mission, not a carry.
+- `## Goal` and the `gate_*` fields, verbatim (**not** `## Scope` — see above). A carry-over is a **continuation** by definition — the mission is done as framed and the remainder pursues the same outcome — so the goal is shared and the gate still applies. A genuine *re-framing* is a new mission, not a carry.
 
 **Lineage is recorded in both directions** (`workaholic:design` / `history-structures`): the predecessor's changelog gets `mission carried into <successor-slug>`, and the successor records `carried_from: <predecessor-slug>`. Without both, the archive shows a mission that stopped and a mission that started, with nothing joining them.
 
@@ -350,7 +366,7 @@ Why carry rather than the alternatives: forcing `achieved` **fabricates completi
 
 **Reorganizing is a replan, then a carry — and it deliberately does not grind quality gates.** The mechanism is the existing **Replan** flow plus `close.sh`, used together and recorded, never hand-editing:
 
-1. **Reorganize** via `/mission <instruction>` (the Replan flow): rewrite `## Goal`/`## Scope`/`## Experience` to the changed direction, and **drop the now-moot unchecked acceptance criteria** — do **not** force them checked. A dropped item is recorded as its own `acceptance dropped — <the item's (#filename) artifact>` changelog line (Replan already owns this), so the plan's shrinkage is history, not a silent rewrite. This is what *"skip filling quality gates"* means here: **stop grinding to check criteria the new direction made obsolete** — it is **not** a relaxation of the write-time floor (`hooks/validate-mission.sh` still requires a non-empty `## Acceptance` and `## Experience` once the mission is `approved`).
+1. **Reorganize** via `/mission <instruction>` (the Replan flow): rewrite `## Goal`/`## Experience` (and a legacy `## Scope`) to the changed direction, and **drop the now-moot unchecked acceptance criteria** — do **not** force them checked. A dropped item is recorded as its own `acceptance dropped — <the item's (#filename) artifact>` changelog line (Replan already owns this), so the plan's shrinkage is history, not a silent rewrite. This is what *"skip filling quality gates"* means here: **stop grinding to check criteria the new direction made obsolete** — it is **not** a relaxation of the write-time floor (`hooks/validate-mission.sh` still requires a non-empty `## Acceptance` and `## Experience` once the mission is `approved`).
 2. **Carry** the still-valid remainder with `close.sh … carried`: mint a fresh successor (`--successor-title "<t>"`) for a genuinely new heading, or — for the **mergeable** case — **`--successor <existing-slug>`** to carry the unchecked criteria into an existing active mission. Merging needs no new operation: `--successor <slug>` already carries the unmet items and shared goal/scope into the named mission, and lineage is recorded both directions (above).
 
 The three checked-vs-unchecked, inherit, and lineage rules above are unchanged — reorganize-and-carry is those mechanics used *deliberately and early* when the direction turns, framed as the normal move rather than a last resort.

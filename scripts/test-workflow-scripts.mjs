@@ -116,6 +116,8 @@ const SCRIPTS = {
   renderRoutine: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/render-routine.sh"),
   compareRoutines: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/compare-routines.sh"),
   checkSlackChannel: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-slack-channel.sh"),
+  checkBootstrap: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-bootstrap.sh"),
+  bootstrapHook: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/bootstrap/session-start.sh"),
   surveyWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/survey-worktrees.sh"),
   reapWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/reap-worktrees.sh"),
   pruneWorktreeArtifacts: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/prune-worktree-artifacts.sh"),
@@ -8760,6 +8762,7 @@ const tests = [
   ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
   ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
+  ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
   ["branching worktree reclamation: merged AND clean, every skip named", testWorktreeReclamation],
   ["mission size norms: a ceiling on what a mission may say, and the floor it must not touch", testMissionSizeNorms],
   ["propose: widened inputs, emitted tickets, and the mission_member safety property (J4)", testProposeWidenedBatch],
@@ -9239,6 +9242,96 @@ function testWorkaholifyRoutines() {
     const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/workaholify.md"), "utf8");
     assertTrue("the command confirms each routine verbatim before creating or updating",
       /confirm/i.test(cmd) && /AskUserQuestion/.test(cmd), "confirmation step missing");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// ---------- workaholify: the Claude Code Web bootstrap ----------
+// A CONFIGURED ROUTINE AND A WORKING ROUTINE ARE DIFFERENT STATES. The web starts each
+// session in a fresh container where `enabledPlugins` alone installs nothing, so an
+// unbootstrapped repository schedules its routines, fires them on time, and stops at the
+// prompt's own "the workaholic plugin must be loaded" precondition -- doing nothing, while
+// looking healthy from the routines list and leaving no trace in git.
+function testWorkaholifyBootstrap() {
+  const dir = makeRepo("main");
+  const CHECK = `${POSIX_SH} ${SCRIPTS.checkBootstrap}`;
+  const canonical = readFileSync(SCRIPTS.bootstrapHook, "utf8");
+  // The header documents each corrected defect BY NAME, so a naive grep for the defect
+  // matches its own explanation. Assertions about what the script DOES read this instead.
+  const code = canonical.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  const settings = (obj) => {
+    mkdirSync(join(dir, ".claude"), { recursive: true });
+    writeFileSync(join(dir, ".claude/settings.json"), JSON.stringify(obj, null, 2));
+  };
+  const wired = {
+    enabledPlugins: { "workaholic@workaholic": true },
+    extraKnownMarketplaces: { workaholic: { source: { source: "github", repo: "qmu/workaholic" } } },
+    hooks: { SessionStart: [{ matcher: "startup", hooks: [
+      { type: "command", command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/session-start.sh', timeout: 120 },
+    ] }] },
+  };
+  const installHook = (body = canonical) => {
+    mkdirSync(join(dir, ".claude/hooks"), { recursive: true });
+    writeFileSync(join(dir, ".claude/hooks/session-start.sh"), body);
+  };
+  try {
+    // Nothing at all: every problem named separately, because each needs a different fix.
+    settings({});
+    let r = JSON.parse(run(dir, `${CHECK} ${dir}`).stdout);
+    assertEq("an unbootstrapped repository is not ok", r.ok, false);
+    for (const key of ["hook_missing", "not_registered", "enabled_plugin", "marketplace"]) {
+      assertTrue(`${key} is named as its own problem`,
+        r.problems.some((p) => p.startsWith(key)), JSON.stringify(r.problems));
+    }
+
+    // Fully wired.
+    installHook(); settings(wired);
+    r = JSON.parse(run(dir, `${CHECK} ${dir}`).stdout);
+    assertEq("a fully wired repository is ok", [r.ok, r.problems], [true, []]);
+    assertEq("and the installed hook matches the plugin's canonical copy", r.hook.matches_canonical, true);
+
+    // A STALE COPY MUST NOT PASS BECAUSE A FILE EXISTS AT THE PATH. The copy that shipped
+    // before qmu/workaholic#126 has a swallowed errexit that logs OK on total failure.
+    installHook("#!/bin/sh\nset -euo pipefail\nclaude plugin install workaholic@workaholic\n");
+    r = JSON.parse(run(dir, `${CHECK} ${dir}`).stdout);
+    assertEq("an outdated hook is reported as drift, not as present", r.ok, false);
+    assertTrue("named hook_stale", r.problems.some((p) => p.startsWith("hook_stale")), JSON.stringify(r.problems));
+
+    // SessionStart also fires on resume/clear/compact, so the matcher is load-bearing;
+    // and a marketplace clone plus install can exceed the default timeout.
+    installHook();
+    settings({ ...wired, hooks: { SessionStart: [{ matcher: "", hooks: [
+      { type: "command", command: ".claude/hooks/session-start.sh", timeout: 5 }] }] } });
+    r = JSON.parse(run(dir, `${CHECK} ${dir}`).stdout);
+    assertTrue("a wrong matcher is named", r.problems.some((p) => p.startsWith("matcher")), JSON.stringify(r.problems));
+    assertTrue("a too-short timeout is named", r.problems.some((p) => p.startsWith("timeout")), JSON.stringify(r.problems));
+
+    // ---- the canonical hook's own contract (qmu/workaholic#126) ----
+    assertTrue("the hook is POSIX sh, not bash", canonical.startsWith("#!/bin/sh\n"), canonical.slice(0, 40));
+    // FAIL OPEN: `set -e` would let a failed install block the session from starting.
+    assertTrue("it deliberately does not set -e", !/^set -[a-z]*e/m.test(code), "set -e present");
+    assertTrue("it gates on CLAUDE_CODE_REMOTE", code.includes('CLAUDE_CODE_REMOTE:-'), "gate missing");
+    // The bug the issue found: `{ ... } || echo FAILED` suppresses errexit inside the
+    // group, so the trailing echo made it exit 0 and the log said OK on total failure.
+    assertTrue("no self-defeating brace-group verification", !/\}\s*>>.*\|\|\s*echo/.test(code));
+    assertTrue("--scope is not passed to marketplace add",
+      !/marketplace add[^\n]*--scope/.test(code), "invalid flag present");
+    assertTrue("an already-registered marketplace is updated, not re-added",
+      /marketplace update/.test(code), "no update path");
+    assertTrue("an already-installed plugin short-circuits before any network call",
+      /plugin list[\s\S]*already installed/.test(code), "no early exit");
+    assertTrue("HOME is respected rather than imposed", /: "\$\{HOME:=/.test(code), "HOME hardcoded");
+    assertTrue("the log goes to TMPDIR, not /var/log",
+      code.includes("${TMPDIR:-/tmp}") && !code.includes("/var/log"), "log path wrong");
+
+    // Outside the web it is a no-op, and must exit 0.
+    assertEq("the hook is a no-op outside Claude Code Web",
+      run(dir, `CLAUDE_CODE_REMOTE= ${POSIX_SH} ${SCRIPTS.bootstrapHook}`).status, 0);
+
+    // THIS REPOSITORY BOOTSTRAPS ITSELF -- it is the one whose routines already run.
+    const self = JSON.parse(run(REPO_ROOT, `${CHECK} ${REPO_ROOT}`).stdout);
+    assertEq("workaholic itself is bootstrapped", [self.ok, self.problems], [true, []]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

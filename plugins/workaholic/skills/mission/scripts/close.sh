@@ -5,11 +5,13 @@
 # mission dir from active/ into archive/. This is the ONLY sanctioned way to end
 # a mission -- never hand-edit `status:` or `mv` a mission dir.
 #
-# It closes from EITHER in-flight state on the single status axis (2026-07-28 --
-# docs/loop-engineering-workflow.md I2): an approved mission that ran, and a `draft`
-# nobody ever approved, both end here. A draft is closed `abandoned` (or carried into
-# a successor); there is no separate "reject a proposal" operation, because ending a
-# mission is one concept and it already has a word.
+# It closes the ONE in-flight state (2026-07-31 --
+# docs/loop-engineering-workflow.md K1): a mission that ran and a proposal nobody
+# ever picked up both end here, because since the draft gate's retirement they are
+# the same state. An unwanted proposal is closed `abandoned` (or carried into a
+# successor); there is no separate "reject a proposal" operation, because ending a
+# mission is one concept and it already has a word. The retired `draft`/`approved`
+# spellings still close normally -- close.sh keys on the AREA, not the word.
 #
 # THE THREE OUTCOMES. `achieved` and `abandoned` were the whole set, which left no
 # honest answer for the common verdict "most of this landed, the rest is still worth

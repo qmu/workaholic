@@ -1,6 +1,6 @@
 ---
 name: propose
-description: Use when the proposal batch runs — headlessly (cron) or by hand via /propose — to survey the repository's recent state and either stay silent or propose a draft mission with its ticket set on a work branch behind a pull request. Defines the cursor contract, the judgment bar, the draft schema, and the batch's scripts.
+description: Use when the proposal batch runs — headlessly (cron) or by hand via /propose — to survey the repository's recent state and either stay silent or propose a mission with its ticket set on a work branch behind a pull request. Defines the cursor contract, the judgment bar, the proposal schema, and the batch's scripts.
 allowed-tools: Bash
 user-invocable: false
 metadata:
@@ -9,13 +9,13 @@ metadata:
 
 # Propose
 
-The AI half of "humans supply feedback, the AI proposes missions" (`docs/loop-engineering-workflow.md` §6.3, decisions C2–C4, B1): a batch that surveys the repository's recent state and either does nothing or proposes **a draft mission together with the ticket set it implies** — `status: draft`, unowned, `feedback:`-linked — on a `work-*` branch behind a pull request, for humans to discuss and approve.
+The AI half of "humans supply feedback, the AI proposes missions" (`docs/loop-engineering-workflow.md` §6.3, decisions C2–C4, B1): a batch that surveys the repository's recent state and either does nothing or proposes **a mission together with the ticket set it implies** — unowned, `feedback:`-linked, `merge_policy` empty — on a `work-*` branch behind a pull request, for humans to discuss and accept. **Merging that pull request is the approval** (2026-07-31, `docs/loop-engineering-workflow.md` K1); the batch marks nothing as unapproved, because the PR already is that state.
 
-**The model, stated before the mechanics** (`workaholic:planning` / `modeling-centric-design`): the relation direction is **mission → feedback** — a proposed mission records the feedback records it grew from in its `feedback:` frontmatter list; nothing is ever stored on the feedback side. The stream stays immutable, dedup reads the missions, and traceability is a walk from any draft back to the human words that caused it.
+**The model, stated before the mechanics** (`workaholic:planning` / `modeling-centric-design`): the relation direction is **mission → feedback** — a proposed mission records the feedback records it grew from in its `feedback:` frontmatter list; nothing is ever stored on the feedback side. The stream stays immutable, dedup reads the missions, and traceability is a walk from any proposal back to the human words that caused it.
 
 **What the batch answers.** Not "has anyone written feedback lately" but **what should be done next** — and that answer is constrained by more than the feedback stream. Three further signals shape it, and the batch reads all of them (`survey-state.sh`): what is already **planned** (the missions and their derived progress), what is already **queued** (the todo tickets), and what has just been **built** (the commits since the cursor). A proposer blind to those re-proposes work that is underway or already decided, which is the noise the judgment bar exists to prevent — so widening the inputs is what makes the bar's job possible, not a relaxation of it.
 
-**A proposal is a mission *and* its tickets.** A draft mission with a provisional acceptance sketch and no ticket set is a title and a hope, not something a developer can judge; `/drive`'s own survey says so mechanically by dropping such a mission as `no_tickets`. This is safe without inventing a gate: `drive/scripts/plan-units.sh` excludes **any** ticket carrying a `mission:` relation from the backlog offer (`mission_member`), whatever the mission's status — so a ticket proposed under a draft is unclaimable by construction, protected by the same draft gate as the mission. Re-check that property if the exclusion is ever narrowed.
+**A proposal is a mission *and* its tickets.** A mission with a provisional acceptance sketch and no ticket set is a title and a hope, not something a developer can judge; `/drive`'s own survey says so mechanically by dropping such a mission as `no_tickets`. Nothing here is claimable before the pull request merges — the proposal does not exist on `main` until then — and everything here is claimable after it, which is the intended contract. `drive/scripts/plan-units.sh` additionally excludes **any** ticket carrying a `mission:` relation from the *backlog* offer (`mission_member`), so a proposed ticket is never picked up loose, only as part of its mission's unit. Re-check that property if the exclusion is ever narrowed.
 
 **A proposal arrives as a pull request.** Every workaholic artifact — feedback, mission, ticket — is committed on a `work-*` branch and reaches `main` through a **merged** pull request, because the merge is the event that can be announced. The batch therefore writes through the **publish tree** and lands on a branch via `branching/scripts/publish-tree-pr.sh`, never straight to the base. Writing through the publish tree is what keeps this compatible with an interactive caller: `.publish/` is an independent checkout, so a developer's branch and uncommitted work are untouched (`workaholic:branching`, decision J2).
 
@@ -48,20 +48,20 @@ Whether the surveyed state warrants a proposal is a **model judgment with a cons
 
 ## Draft missions
 
-A draft is scaffolded by `scaffold-draft.sh` (NOT `mission/scripts/create.sh` — that scaffold seeds the creator as owner, and a draft **predates approval, so it has no approver yet**):
+A proposal is scaffolded by `scaffold-draft.sh` (NOT `mission/scripts/create.sh` — that scaffold seeds the creator as owner, and **this batch has no business owning what it proposes**):
 
 ```yaml
 type: Mission
-status: draft            # in the ACTIVE area — a draft is in flight, not history
+status: active           # the one in-flight state — in flight, not history
 merge_policy:            # empty — the approval records it, never this batch
-assignees: []            # unowned until a human approves
+assignees: []            # unowned — claimable by anyone once merged
 assignee:
 feedback: [<record filenames>]   # the mission→feedback relation
 ```
 
-`status: draft` is the **unapproved** state of the one mission lifecycle axis (`workaholic:mission`'s *Lifecycle*), living in `missions/active/` (the area split keys archive on `achieved|abandoned|carried` only). A draft is invisible to executors — they run only `status: approved` work — and `list.sh` reports it with `ready_reason: "draft"`. The batch fills `## Goal`/`## Scope`/`## Experience` and a **proposed** `## Acceptance` sketch (clearly provisional; the write-time floor stays untouched because that floor fires on `approved`, never on a draft).
+`status: active` is the one in-flight state of the mission lifecycle axis (`workaholic:mission`'s *Lifecycle*), living in `missions/active/` (the area split keys archive on `achieved|abandoned|carried` only). What keeps the proposal out of an executor's reach is not a status word but the **pull request**: it is not on `main`, so no survey can see it. The batch fills `## Goal`/`## Scope`/`## Experience` and a **proposed** `## Acceptance` sketch (clearly provisional). Note that `hooks/validate-mission.sh` now fires on any active mission, so the batch's Edit filling those sections must land a non-empty `## Experience` and at least one `## Acceptance` item in that write.
 
-**Approval is a real, human flow, not a phase label**: `/mission approve <slug>` interrogates the draft to drive-ready, asks the one merge-policy ruling (`auto` | `review`), and runs `mission/scripts/approve.sh` — the only path to `status: approved`. This batch never approves, never seeds `assignees`, and never records a merge policy.
+**Approval is a real, human act, and it is the merge**: a reviewer reads the proposal's pull request, interrogates it to drive-ready via `/mission <instruction referencing it>` if the sketch is thin, and merges — at which point `/drive` can claim it. This batch never seeds `assignees` and never records a merge policy, so its proposals arrive unowned with an empty `merge_policy`, which reads as `review`.
 
 ## Scripts
 
@@ -106,13 +106,13 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-proposed-refs.sh
 
 The union of `feedback:` refs across **every** mission (active + archive), one filename per line. Feedback already referenced by any mission never spawns a second proposal.
 
-### scaffold-draft.sh — the draft writer
+### scaffold-draft.sh — the proposal writer
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-draft.sh "<title>" <feedback-filename>...
 ```
 
-Writes the draft `mission.md` (schema above; slug via `mission/scripts/slug.sh`; the four body sections scaffolded), refreshes the OKF indexes, git-stages. Refuses an existing slug in either area. Emits `{created, slug, path}`.
+Writes the proposed `mission.md` (schema above; slug via `mission/scripts/slug.sh`; the four body sections scaffolded), refreshes the OKF indexes, git-stages. The script keeps its name — what it writes is still a *draft in the ordinary sense*, a proposal nobody has accepted — but that state lives in the pull request now, not in the file. Refuses an existing slug in either area. Emits `{created, slug, path}`.
 
 ### scaffold-proposed-ticket.sh — the ticket writer
 
@@ -120,7 +120,7 @@ Writes the draft `mission.md` (schema above; slug via `mission/scripts/slug.sh`;
 bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer]
 ```
 
-Writes one proposed ticket into `todo/<user>/` carrying `mission: <slug>` — the relation that makes it unclaimable until the mission is approved. Refuses a mission that does not resolve (`mission_missing`), because a dangling relation is exactly what `validate-ticket.sh` rejects. `merge_policy` is left **empty**, which reads as `review`: the batch has no authority to grant automatic merging, and that ruling belongs to `/mission approve`. The mandatory `## Policies` and `## Quality Gate` sections are scaffolded with guidance rather than omitted, so the artifact is valid the moment it is written. Emits `{created, path, slug, mission}`.
+Writes one proposed ticket into `todo/<user>/` carrying `mission: <slug>` — the relation that makes it driveable only as part of its mission's unit, never as loose backlog. Refuses a mission that does not resolve (`mission_missing`), because a dangling relation is exactly what `validate-ticket.sh` rejects. `merge_policy` is left **empty**, which reads as `review`: an unattended proposer must not decide that its own output may merge unattended. The mandatory `## Policies` and `## Quality Gate` sections are scaffolded with guidance rather than omitted, so the artifact is valid the moment it is written. Emits `{created, path, slug, mission}`.
 
 ### publish-tree-pr.sh — the destination
 
@@ -132,14 +132,14 @@ Lives in `workaholic:branching` because every artifact writer needs it, not just
 
 ## Notifier contract
 
-After each successful draft push, the batch calls `notify-slack.sh` (this skill's `scripts/`) with the proposal message — posted **as the bot** (decision E2). The notifier is **environment-driven and never load-bearing**:
+After each successful proposal push, the batch calls `notify-slack.sh` (this skill's `scripts/`) with the proposal message — posted **as the bot** (decision E2). The notifier is **environment-driven and never load-bearing**:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/notify-slack.sh "<text>"
 ```
 
 - Config: `SLACK_BOT_TOKEN` (xoxb, `chat:write`) + `WORKAHOLIC_SLACK_CHANNEL` (channel id); `WORKAHOLIC_SLACK_API_URL` overrides the endpoint for tests (the hermetic suite never calls Slack). The token is read at call time and never persisted, logged, or echoed.
-- No token/channel → `{"notified": false, "reason": "no_token"|"no_channel"}`, exit 0 — a proposal that pushed is a success whether or not anyone was told; the run report records `notified` per draft rather than retrying in-loop. Endpoint/API failures are recorded the same way (`http_<code>`/`slack_<error>`/`curl_failed`), never fatal.
+- No token/channel → `{"notified": false, "reason": "no_token"|"no_channel"}`, exit 0 — a proposal that pushed is a success whether or not anyone was told; the run report records `notified` per proposal rather than retrying in-loop. Endpoint/API failures are recorded the same way (`http_<code>`/`slack_<error>`/`curl_failed`), never fatal.
 - Provisioning, the cron entry, and failure modes live in `docs/proposal-loop-runbook.md` — the runbook is the developer's page; agents never install the crontab themselves.
 
 ## Agent Compatibility

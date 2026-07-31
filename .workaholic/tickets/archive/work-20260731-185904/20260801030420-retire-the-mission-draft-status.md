@@ -5,7 +5,7 @@ type: refactoring
 layer: [Config]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 merge_policy: review

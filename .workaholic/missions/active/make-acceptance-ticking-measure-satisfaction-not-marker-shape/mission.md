@@ -2,7 +2,7 @@
 type: Mission
 title: Make acceptance ticking measure satisfaction, not marker shape
 slug: make-acceptance-ticking-measure-satisfaction-not-marker-shape
-status: draft
+status: active
 merge_policy:
 created_at: 2026-07-31T06:23:49+00:00
 author: noreply@anthropic.com

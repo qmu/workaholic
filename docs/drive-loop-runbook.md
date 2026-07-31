@@ -1,7 +1,7 @@
 # Drive Loop Runbook
 
 How to stand up the **"Drive Every 5 Minutes"** routine on a server: the cron that
-runs `/drive` headlessly so approved missions and queued tickets are claimed,
+runs `/drive` headlessly so merged missions and queued tickets are claimed,
 implemented, reported, and — per the artifacts' recorded merge policy — shipped or
 handed to a human at a PR (`docs/loop-engineering-workflow.md` G4; decision C1 —
 server cron first, Claude Code Web later). It is the execution sibling of the
@@ -86,15 +86,16 @@ installed CLI):
 The routine consumes what other flows produce, and produces nothing to prime it
 with:
 
-- **Approved missions** — a mission becomes claimable when `approve.sh` flips it to
-  `status: approved` with a `merge_policy`. Drafts (including everything `/propose`
-  registers) are invisible to the executor until a human approves them.
+- **Missions on `main`** — a mission becomes claimable the moment its pull request
+  merges; there is no approval flip any more (decision K1). A proposal `/propose`
+  registers is invisible to the executor until a human merges its pull request —
+  the PR is the gate, and merging it is the approval.
 - **Backlog tickets** — anything in `.workaholic/tickets/todo/<user>/` with no
   `mission:` relation. A missioned ticket is driven inside its mission's unit.
 
-Both floors are enforced in the survey, not in prose: an approved mission with an
-empty `## Acceptance` is excluded as `no_plan`, because a stamp with no plan is no
-authorization at all.
+Both floors are enforced in the survey, not in prose: a mission with an
+empty `## Acceptance` is excluded as `no_plan`, because a merge with no plan behind
+it authorizes nothing concrete.
 
 ## 5. Observability
 
@@ -128,11 +129,11 @@ authorization at all.
 | a unit reported **demoted to PR** | an `auto` unit hit an overridable gate (size/leak block, no confirmation method, content conflict with `main`) | the demotion is the design — review and merge the PR, or fix the diff and let the next tick re-drive |
 | a unit reported **blocked** on a `secret` finding | a credential reached the branch diff | non-overridable: remove the credential from the diff. The branch is already pushed, so treat it as an exposure, not just a gate failure |
 | a unit reported **blocked** on a failed production confirmation | the deploy did not verify | the unmerged branch is the rollback; diagnose the deploy, do not force the merge |
-| approved missions exist but nothing is claimed | the mission has an empty `## Acceptance` (`no_plan`), **no ticket names it** (`no_tickets` — an acceptance sketch is not a plan; emit the set with `/mission <instruction>`), a claim already holds it (`claimed`), or the mission is still `draft` (`not_approved`) | check `plan-units.sh`'s `excluded[]` — every drop states its reason. The old cause here — "its tickets live in an unmerged worktree" — cannot occur any more: missions and tickets are published to `main` (decision J1) |
+| missions exist on `main` but nothing is claimed | the mission has an empty `## Acceptance` (`no_plan`), **no ticket names it** (`no_tickets` — an acceptance sketch is not a plan; emit the set with `/mission <instruction>`), or a claim already holds it (`claimed`) | check `plan-units.sh`'s `excluded[]` — every drop states its reason. Two old causes cannot occur any more: "its tickets live in an unmerged worktree" (missions and tickets are published for merge, decision J1/J4) and `not_approved` (the draft gate was retired, K1) |
 | the tick reports nothing to do, but you can see a queued ticket on GitHub | the runner's checkout is behind `origin/main`, so the survey never learned the artifact exists | the freshness step (`sync-main.sh`, `commands/drive.md` step 0) fast-forwards before surveying, and `plan-units.sh` reports `current: false` when it could not. If it keeps reporting `not_on_main` / `dirty_workspace` / `diverged`, the runner checkout is being used for other work — keep it dedicated and reconcile by hand |
 | a tick terminates `pending` with `not_on_main` or `dirty_workspace` | the runner checkout is on a branch, or holds uncommitted work | the run refuses to survey a branch rather than surveying the wrong queue. Return the checkout to a clean `main` |
 | a tick terminates `pending` with `diverged` | the runner's local `main` has commits the base does not, or the histories parted | a human's call; nothing is merged or reset. `detail` says `local_ahead` or `both_diverged` |
-| a `/propose` draft was approved and drives nothing | its `## Acceptance` is a provisional sketch with no tickets behind it | the survey reports `no_tickets` and the mission is not offered; `approve.sh` refuses the same shape. Replan it (`/mission <instruction referencing it>`) to emit the ticket set |
+| a merged `/propose` proposal drives nothing | its `## Acceptance` is a provisional sketch with no tickets behind it | the survey reports `no_tickets` and the mission is not offered. Replan it (`/mission <instruction referencing it>`) to emit the ticket set, and merge that delta |
 | `claim.sh` refuses with `mission_missing` | the slug is wrong, or the checkout is behind the base | absence is a real error since J1. Run `sync-main.sh`, then re-check the slug against `mission/scripts/list.sh` |
 | `{"notified": false, "reason": "no_token"}` on every review unit | env file missing/unsourced in cron | check the `. …/.workaholic-drive.env` prefix and file perms |
 | tickets pile up untouched | they carry a `mission:` relation whose mission is not approved | approve the mission, or drop the relation so they become backlog |

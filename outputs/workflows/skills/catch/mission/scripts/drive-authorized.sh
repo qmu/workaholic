@@ -9,27 +9,29 @@
 # script. /drive consults this instead of deciding in prose, and night mode gets coverage
 # as a side effect.
 #
-# THE RULE. Explicit approval is RELOCATED, never removed. A ticket is gate-free only
-# when a prior explicit authorization covers it: the developer interrogated the mission
-# (see the mission skill's Creation Interrogation), co-authored every ticket's quality
-# gate, and the mission was APPROVED (`status: approved`, set by approve.sh). Anything
-# else asks -- a `draft` is a proposal nobody has answered for yet.
+# THE RULE. Explicit approval is RELOCATED, never removed -- and since 2026-07-31 it
+# lives in the PULL REQUEST (docs/loop-engineering-workflow.md K1). A mission reaches
+# missions/active/ on `main` only by merging the PR it was published behind, and that
+# merge IS the project accepting it. So this script no longer reads a status word to
+# find authorization: a ticket is gate-free when every mission it names is IN FLIGHT
+# (not ended) and carries a plan. `status: approved` and `status: draft` are both
+# retired; a checkout still carrying either reads as an ordinary in-flight mission,
+# so nothing silently loses its authorization mid-drive while the living migration
+# has not yet touched it.
 #
-# ONE AXIS. The mission lifecycle is a single `status` field; the old
-# `drive_authorized: true` stamp is retired into `status: approved` (2026-07-28 --
-# docs/loop-engineering-workflow.md I2), because "approved" is exactly what the stamp
-# asserted. A legacy stamp is still honored here for the transition window: a mission
-# in a checkout the living migration has not touched yet reads correctly instead of
-# silently losing its authorization mid-drive.
+# The long-retired `drive_authorized: true` stamp (folded into `status: approved` by
+# I2, 2026-07-28) is no longer consulted at all -- it selected between two in-flight
+# states that no longer exist, so honoring it could only produce a distinction the
+# rest of the system cannot express.
 #
 # CONSERVATIVE BY CONSTRUCTION. A ticket relating to several missions is authorized only
 # if EVERY mission it claims says so. Naming a mission is a commitment, not a label --
 # the same reason /drive holds a ticket to the gate of every mission it names, "all of
 # them must pass, not the most convenient one". One unauthorized mission means ask.
 #
-# THE FLOOR. Approval alone is not a plan: a hand-edited mission with an empty
-# ## Acceptance (0/0) would authorize unattended work with no bar at all — the
-# exact state the interrogation exists to prevent. So authorization additionally
+# THE FLOOR. A merged mission is not automatically a plan: a hand-edited mission with
+# an empty ## Acceptance (0/0) would authorize unattended work with no bar at all --
+# the exact state the interrogation exists to prevent. So authorization additionally
 # requires every claimed mission to carry at least one acceptance item
 # (progress.sh's total > 0). The floor lands HERE, at the authorization
 # decision, where a test can reach it.
@@ -40,10 +42,12 @@
 #           "no_ticket"         the ticket file does not exist
 #           "no_mission"        the ticket claims no mission -- nothing authorized it
 #           "mission_not_found" a claimed mission does not resolve
-#           "not_authorized"    a claimed mission is not `status: approved` (a draft, or
-#                               an ended mission) -- the reason key is unchanged so
-#                               /drive callers keep reading the same contract
-#           "no_plan"           a claimed mission is approved but has an empty ## Acceptance
+#           "not_active"        a claimed mission has ENDED (achieved | abandoned |
+#                               carried) -- history authorizes nothing. This replaces
+#                               the retired `not_authorized`, which meant "not
+#                               `status: approved`" and could no longer be true of an
+#                               in-flight mission once `draft` was retired (K1)
+#           "no_plan"           a claimed mission is in flight but has an empty ## Acceptance
 
 set -eu
 
@@ -81,15 +85,18 @@ for slug in $SLUGS; do
         reason="mission_not_found"
         continue
     fi
-    # The status IS the authorization (one axis). The legacy stamp is honored only
-    # for a mission the living migration has not rewritten yet.
+    # BEING IN FLIGHT IS THE AUTHORIZATION (K1) -- the merge that put this mission on
+    # `main` was the approval. Only an ENDED mission refuses; every in-flight spelling
+    # (`active`, and the retired `draft`/`approved` in a checkout the living migration
+    # has not rewritten) passes, so nothing loses authorization mid-drive.
     status=$(grep -m1 '^status:' "$f" 2>/dev/null | sed -e 's/^status:[ \t]*//' -e 's/[ \t]*$//' || true)
-    stamp=$(grep -m1 '^drive_authorized:' "$f" 2>/dev/null | sed -e 's/^drive_authorized:[ \t]*//' -e 's/[ \t]*$//' || true)
-    if [ "$status" != "approved" ] && [ "$stamp" != "true" ]; then
-        reason="not_authorized"
-        continue
-    fi
-    # The floor: an approved mission must have a plan. total comes from the one
+    case "$status" in
+        achieved | abandoned | carried)
+            reason="not_active"
+            continue
+            ;;
+    esac
+    # The floor: an in-flight mission must have a plan. total comes from the one
     # progress reader (derived, never stored).
     total=$(sh "${SCRIPT_DIR}/progress.sh" "$f" 2>/dev/null | sed -n 's/.*"total": *\([0-9][0-9]*\).*/\1/p' || true)
     [ "${total:-0}" -gt 0 ] || reason="no_plan"

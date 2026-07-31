@@ -48,8 +48,7 @@ Every other place that touches granularity **links here** rather than restating 
 
 | state | area | meaning |
 | --- | --- | --- |
-| `draft` | `active/` | proposed, not yet answered for. Written by `create.sh` (before its interrogation) and by the `/propose` batch (`scaffold-draft.sh`). Invisible to executors. |
-| `approved` | `active/` | a human answered every judgment call about **this exact plan**, and recorded whether its completed units may merge automatically. The mission is now **claimable**: `/drive`'s survey offers it as a PR-unit. |
+| `active` | `active/` | in flight. The project accepted this mission by merging its pull request, so it is **claimable** as soon as it has a plan and a ticket queue: `/drive`'s survey offers it as a PR-unit. |
 | `achieved` | `archive/` | the goal was reached. |
 | `abandoned` | `archive/` | ended without reaching it, and the remainder is not worth doing. |
 | `carried` | `archive/` | done **as framed**; the remainder became a successor mission. |
@@ -57,29 +56,31 @@ Every other place that touches granularity **links here** rather than restating 
 Transitions, and **who** performs each — every flip is a script, never a hand-edit:
 
 ```
-(create.sh | scaffold-draft.sh) ──▶ draft ──approve.sh──▶ approved
-                                      │                      │
-                                      └──────close.sh────────┴──▶ achieved | abandoned | carried
+(create.sh | scaffold-draft.sh) ──▶ active ──close.sh──▶ achieved | abandoned | carried
 ```
 
-- **`/propose` and `/mission "<title>"` mint drafts.** A scaffold predates its interrogation, so nothing about it has been approved.
-- **`approve.sh` is the only path to `approved`.** It clears the floor (owner + `## Experience` + `## Acceptance`), records `merge_policy`, seeds the approver as owner, and writes the transition to the `## Changelog`.
-- **`close.sh` is the only path to an end state**, from *either* in-flight state — an approved mission that ran, or a draft nobody approved.
+- **`/propose` and `/mission "<title>"` mint active missions** — behind a pull request, which is where their necessity and content are judged.
+- **`close.sh` is the only path to an end state**, and the only status flip that exists.
 
-### Redefinition record — `drive_authorized` → `status: approved`
+### Redefinition record — `status: draft` retired; the merge is the approval
 
-Recorded here so it is not re-litigated (`planning` / `terminology`): the separate `drive_authorized: true` stamp is **retired into the status** (2026-07-28 — `docs/loop-engineering-workflow.md` decision I2). "Approved" is precisely what the stamp asserted — a human answered every judgment call about this exact plan — so carrying both a `status` and a boolean meant **one concept wearing two words**, in two fields that could disagree (a mission could be `active` and unstamped, `active` and stamped, or, after a hand-edit, stamped and archived). One concept, one word.
+Recorded here so it is not re-litigated (`planning` / `terminology`): **`draft` and `approved` are retired into the single in-flight state `active`** (2026-07-31 — `docs/loop-engineering-workflow.md` decision K1), and **merging a mission's pull request is its approval**.
+
+`draft` made sense in the world it was designed for: `/propose` pushed a mission straight to `main` (J1), so *something* had to stop `/drive` claiming work nobody had looked at. **J4 replaced that premise** — every artifact now arrives behind a PR — and the flag stayed, so a mission was reviewed once in its PR and then gated a second time by `/mission approve`, whose only remaining job was to undo the first gate. The observable cost was six active missions on `main`, every one unclaimable, and `/drive` reporting `pending` tick after tick.
+
+**Drivability is no longer a status word.** A mission is claimable when it is in the active area, has a plan (`## Acceptance` non-empty) and has at least one queued ticket naming it — the `no_plan` and `no_tickets` floors, both of which ask "is there anything to drive", never "did someone approve this".
 
 Consequences, stated so no reader has to infer them:
 
-- **New missions never carry the key.** Neither scaffold writes it.
-- **Legacy files migrate on the next mission-script touch** (`lib/resolve.sh`): `status: active` + `drive_authorized: true` → `approved`; `status: active` without the stamp → `draft`; the retired key line is dropped from the rewritten file.
-- **Readers keep a legacy-tolerance branch** — `drive-authorized.sh`, `hooks/validate-mission.sh` and the pre-flight still honor a `drive_authorized: true` stamp — only for the transition window, so a mission in an untouched checkout is not silently de-authorized mid-drive.
-- **"Active" is now the name of an *area*, not a state.** Prose saying "active missions" means the active area — drafts plus approved. Do not reintroduce `active` as a status word.
+- **`approve.sh` and `/mission approve` are gone** (K2). Their three payloads were redistributed, not dropped: `merge_policy` moved to creation, ownership seeding was dropped, and the write-time floor was kept and re-aimed (below).
+- **Legacy files migrate on the next mission-script touch** (`lib/resolve.sh`): `status: draft` → `active` and `status: approved` → `active`, with the long-retired `drive_authorized:` key line dropped from the rewritten file. Both spellings are tolerated by every reader for the transition window, so an untouched checkout keeps working.
+- **The floor moved from a status to an area.** `hooks/validate-mission.sh` fired on `status: approved`; it now fires on **any** mission written under `missions/active/`, because "the thing that can be claimed" is no longer marked by a word. Practically: an agent editing an active mission must land the `## Experience` and `## Acceptance` content in that write. The scaffold writers are unaffected — they write with a shell heredoc, which a `PostToolUse` hook never sees.
+- **Ownership is no longer a floor.** An unowned mission is claimable by anyone, which is already how `list.sh`, `summary.sh` and the lens treat it (`relation: unassigned`), and `/propose` writes unowned proposals by design.
+- **`active` is now both an area name and the status word**, and that is deliberate. I2's note said *"do not reintroduce `active` as a status word"* — because `active` was then ambiguous between `draft` and `approved`. With one in-flight state the ambiguity is gone and the two coincide by construction. **Rejected**: keeping `draft` as an *optional* marker — an optional gate that only some artifacts carry is a gate nobody can rely on, since a reader seeing no `draft` cannot distinguish "accepted" from "the writer never set it".
 
 ### Merge policy — the orthogonal axis
 
-`merge_policy: auto | review` is a **separate** axis from the lifecycle (decision G5), and the one genuinely human ruling the approval flow owns: **may this mission's completed units merge automatically, or must a human review the PR?** It is recorded at **approval**, not creation — a draft has no approver yet — and `approve.sh` **requires** it: there is no default, because `auto` by default grants unattended merging nobody asked for and `review` by default silently discards the question. Tickets carry the same field, asked at their creation (the human is present); on a ticket, **absent means `review`** — see `create-ticket`.
+`merge_policy: auto | review` is a **separate** axis from the lifecycle (decision G5): **may this mission's completed units merge automatically, or must a human review the PR?** It is recorded at **creation** (K2 — `create.sh`'s optional third argument, and empty from `scaffold-draft.sh`), adopting the ticket rule exactly: **absent means `review`**, the conservative default, so a mission that arrives with no policy routes to a PR. It used to be recorded at approval, which no longer exists; one creation-time rule now covers missions and tickets alike — see `create-ticket`.
 
 ## Agent Compatibility
 
@@ -90,18 +91,18 @@ This skill works on any Agent-Skills-compatible agent. Where a step uses the age
 A mission lives in one of two areas — mirroring the tickets `todo/`-vs-`archive/` split — selected by its `status`:
 
 ```
-.workaholic/missions/active/<slug>/mission.md    # status: draft | approved (in flight)
+.workaholic/missions/active/<slug>/mission.md    # status: active (in flight)
 .workaholic/missions/archive/<slug>/mission.md   # status: achieved | abandoned | carried (ended)
 .workaholic/missions/index.md                    # regenerated by okf/refresh-index.sh, one entry per mission per area
 ```
 
-A **draft** (`status: draft`) is a mission nobody has approved yet — written either by `create.sh` (before its Creation Interrogation completes) or by the `/propose` batch (`propose` — `scaffold-draft.sh`, which additionally leaves it unowned, `assignees: []`, and carries a `feedback:` list naming the records it grew from, read via the propose skill's single reader `read-feedback-relation.sh`). A draft lives in `active/` (in flight, not history), is invisible to executors (only approved work runs), and reports `ready_reason: "draft"` in `list.sh`.
+A mission is written either by `create.sh` (whose Creation Interrogation fills it before the publish commit) or by the `/propose` batch (`propose` — `scaffold-draft.sh`, which additionally leaves it unowned, `assignees: []`, and carries a `feedback:` list naming the records it grew from, read via the propose skill's single reader `read-feedback-relation.sh`). Either way it lands in `active/` and reaches `main` — and therefore every runner's survey — only when its pull request merges. A mission that is in flight but carries no acceptance items reports `ready_reason: "no_plan"` in `list.sh` and is excluded from `/drive`'s offer for the same reason.
 
 `<slug>` is derived from the title: lowercased, every run of non-`[a-z0-9]` characters collapsed to a single hyphen, leading/trailing hyphens trimmed (e.g. `"Real-time Notifications"` → `real-time-notifications`). One directory per mission; the directory name **is** the slug and is the stable key other artifacts reference (`mission: <slug>`). The area is **never** part of that key — seams pass bare slugs and the scripts resolve the location, so a mission's move to `archive/` breaks no relation.
 
 Resolution takes an explicit **root** (a `.workaholic` directory), never the process cwd. A seam that holds an artifact (a ticket, a `mission.md`) derives the root from *that artifact's own path* — the mission tree is fixed by where the ticket lives (its worktree), so `mission: <slug>` on a worktree ticket resolves to *that* worktree's mission from any cwd. A caller with only a slug and no artifact (`create.sh`, `close.sh`) roots on the repository it runs in (via `git rev-parse`). `lib/resolve.sh` is the single source of this: `missions_root_from_artifact` / `missions_root_default` / `missions_root_for_arg` choose the root, and `mission_resolve <root> <arg>` returns an **absolute** `mission.md` path — so two same-slug missions in two worktrees never yield the same string, and which file was read is visible in the output rather than hidden behind a cwd-relative path.
 
-The scripts own all placement: `create.sh` writes into `active/`, `close.sh` moves to `archive/`, and every script runs the **living migrations** first — a legacy flat `missions/<slug>/` dir (the pre-split layout) is relocated into the area its `status` selects (`git mv`, preserving history), and a legacy `status: active` mission is normalized onto the one status axis (`approved` when it carried `drive_authorized: true`, else `draft`, with the retired key line dropped). Both are idempotent and best-effort (a failure never blocks the calling seam; the resolver still finds an unmovable flat mission, and every reader tolerates the pre-migration shape). Never `mv` a mission dir or hand-edit `status:` yourself.
+The scripts own all placement: `create.sh` writes into `active/`, `close.sh` moves to `archive/`, and every script runs the **living migrations** first — a legacy flat `missions/<slug>/` dir (the pre-split layout) is relocated into the area its `status` selects (`git mv`, preserving history), and a retired `status: draft` or `status: approved` mission is folded onto the one in-flight state `active` (with the long-retired `drive_authorized:` key line dropped). Both are idempotent and best-effort (a failure never blocks the calling seam; the resolver still finds an unmovable flat mission, and every reader tolerates the pre-migration shape). Never `mv` a mission dir or hand-edit `status:` yourself.
 
 ## Schema
 
@@ -112,12 +113,12 @@ The scripts own all placement: `create.sh` writes into `active/`, `close.sh` mov
 type: Mission
 title: <human title>
 slug: <slug>
-status: draft           # draft | approved | achieved | abandoned | carried — the ONE lifecycle axis, and it selects the area (draft/approved in active/, the rest in archive/). Flipped only by approve.sh (draft → approved) and close.sh (either → an end state); never by hand
-merge_policy:           # auto | review — the orthogonal merge axis (G5), recorded by approve.sh at approval. Empty on a draft; never defaulted to auto
+status: active          # active | achieved | abandoned | carried — the ONE lifecycle axis, and it selects the area (active in active/, the rest in archive/). Flipped only by close.sh (→ an end state); never by hand. The retired `draft`/`approved` spellings fold to `active` on the next script touch
+merge_policy:           # auto | review — the orthogonal merge axis (G5), recorded at CREATION (K2). EMPTY MEANS `review`, exactly as on a ticket; never defaulted to auto
 carried_from:           # only on a successor: the slug of the mission whose remainder it inherited
 created_at: <ISO-8601>
 author: <email>
-assignees: [<email>]    # the mission's OWNERS (plural — a mission can be co-owned). Creator-seeded by create.sh (the approver is the default owner); empty = team-owned/claimable. Read ONLY via mission-owners.sh
+assignees: [<email>]    # the mission's OWNERS (plural — a mission can be co-owned). Creator-seeded by create.sh; empty = team-owned/claimable, and NEVER a floor (K2). Read ONLY via mission-owners.sh
 assignee: <email>       # LEGACY FALLBACK only (missions predating `assignees`). Empty on new missions; never read directly
 predicted_hours:        # decimal agent-hours, stamped ONCE at creation from archived-mission trend (predict-duration.sh); empty when basis 0
 actual_hours:           # decimal agent-hours accumulated by /drive across runs (record-run-hours.sh is its only writer); empty until a run records
@@ -151,9 +152,9 @@ Missions became hard to *finish*, and the diagnosis matters: the gates were not 
 
 **The three-item rule is the one doing the real work.** Write only the minimum conditions under which the work can be called done. Exhaustive coverage, per-file checklists, and future audit items do not belong in a mission — they belong in tickets and the feedback stream. The line and byte ceiling is a **backstop**: a mission can meet 2 KB by saying less and meaning less, so it shapes the artifact rather than the thinking.
 
-**Norm for a human, gate for the batch** — the asymmetry is deliberate. A developer authoring a mission is present and exercising judgment, so `size.sh` *reports* and the interrogation shows the measurement; a hard refusal would fire on legitimately larger work, and a gate that refuses good work is worse than a norm that guides it. `/propose` writes **unattended**, with no judgment to exercise and nobody to show a measurement to, so the same ceiling is enforced on its drafts — its scaffold reports the measurement on every draft it writes (`propose`).
+**Norm for a human, gate for the batch** — the asymmetry is deliberate. A developer authoring a mission is present and exercising judgment, so `size.sh` *reports* and the interrogation shows the measurement; a hard refusal would fire on legitimately larger work, and a gate that refuses good work is worse than a norm that guides it. `/propose` writes **unattended**, with no judgment to exercise and nobody to show a measurement to, so the same ceiling is enforced on its proposals — its scaffold reports the measurement on every mission it writes (`propose`).
 
-**This is a ceiling, and lowering a ceiling is not loosening a floor.** The approved floor is untouched: `hooks/validate-mission.sh` still requires an owner, a non-empty `## Experience`, and **at least one** `## Acceptance` item before a mission may be `approved`. A later reader must not mistake this change for a relaxation — it is the opposite.
+**This is a ceiling, and lowering a ceiling is not loosening a floor.** The write-time floor is untouched in substance: `hooks/validate-mission.sh` still requires a non-empty `## Experience` and **at least one** `## Acceptance` item — now on **any** active mission rather than on an approved one, since `draft` was retired (K1/K2). Its ownership half was dropped deliberately, on its own reasoning; a later reader must not mistake the size ceiling for that relaxation.
 
 A mission carries **no `## Reflection` section**. The per-run reflection channel retired with the parallel-mission executor (`docs/loop-engineering-workflow.md` decision I3): what a run learned — what stopped autonomy, which judgment call leaked, what the next plan should pre-answer — is written as a `kind: concern` or `kind: insight` **feedback record** instead of a section only mission-planning ever read. That is the seam `/drive` already uses for everything else it defers, and it reaches `/propose` and the next interrogation alike. Missions closed before 2026-07-28 still carry the section; it is history and is left verbatim (any `## ` heading ends `## Acceptance`, so its checklist-shaped lines never counted toward progress and still do not).
 
@@ -163,7 +164,7 @@ A mission carries **no `## Reflection` section**. The per-run reflection channel
 [`reference/schema.md`](reference/schema.md) carries the full detail for the fields above, and it is where the rulings live:
 
 - **Quality gate** (`gate_*`) — optional and normally empty, with the record of why it was demoted.
-- **Approval** — what `status: approved` asserts, and the three alternatives rejected.
+- **Drivability** — what being in the active area asserts, and the alternatives rejected with `draft`.
 - **Ownership** — the `mission-owners.sh` oracle, its legacy fallback, and the redefinition record.
 - **Duration** — how `predicted_hours` is derived once and `actual_hours` accumulated, and why the actual covers mission units only.
 - **Acceptance-checklist convention** — the `(#<filename>)` marker, and the measured reason an unchecked item is a heading rather than a specification.
@@ -227,7 +228,7 @@ Write the tickets **in one pass**, not N serial `create-ticket` runs. Each carri
 
 ## Replan (re-entering the interrogation)
 
-The sanctioned path to **reopen an existing active mission's plan** — reached without a subcommand: `/mission <instruction referencing the mission>` (the command owns the dispatch judgment and its written criteria). It exists because three legitimate states previously had no route back into the interrogation: a thin hand-authored `0/0` mission, a mid-flight mission whose scope grew, and a `carried` successor minted by `close.sh` with no worktree and no tickets — while the create flow dead-ends on an existing slug. Only **in-flight** missions (`draft` or `approved` — the active area) are replan targets; the archive is immutable history.
+The sanctioned path to **reopen an existing active mission's plan** — reached without a subcommand: `/mission <instruction referencing the mission>` (the command owns the dispatch judgment and its written criteria). It exists because three legitimate states previously had no route back into the interrogation: a thin hand-authored `0/0` mission, a mid-flight mission whose scope grew, and a `carried` successor minted by `close.sh` with no worktree and no tickets — while the create flow dead-ends on an existing slug. Only **in-flight** missions (`status: active` — the active area) are replan targets; the archive is immutable history.
 
 **Surface sibling PRs before re-interrogating.** A replan grows the plan, so it must first see whether another lane is already implementing the same acceptance. Run `list-related-prs.sh <slug>` (below) and, when it returns open PRs referencing the mission, factor them into the delta rather than emitting tickets that duplicate a sibling's unmerged work. The check is best-effort — `available: false` means it could not run (no `gh`/auth/remote), which is *unknown*, not *no siblings*. This is the replan-side complement to the publish tree's fetch-first base: the fetch keeps the replan off a stale `main`; this keeps it off a sibling's *unmerged* work.
 
@@ -245,7 +246,7 @@ The bar equals creation's: a structured **delta model** — what changes, which 
 
 **What a replan must never touch:**
 
-- `status` — only `approve.sh` (draft → approved) and `close.sh` (→ an end state) flip it.
+- `status` — only `close.sh` (→ an end state) flips it; there is no other transition left.
 - the checked state of existing `## Acceptance` items — only `tick-acceptance.sh` flips those.
 - existing `## Changelog` lines — append-only, always (`design` / `history-structures`).
 
@@ -253,11 +254,11 @@ An existing **unchecked** acceptance item may be reworded or dropped **only** wh
 
 **History.** A replan lands as idempotent changelog lines through `append-changelog.sh`, never as edits: `ticket added — <filename>` per emitted ticket, plus one `mission replanned — <artifact>` line marking the event (both in the standard-events list below). Re-running the same replan appends nothing — the `(event, artifact)` key already exists.
 
-**Approval after a replan.** `approved` asserts that every judgement call about *these exact tickets* was answered by a human, so a replan that changes the ticket set re-opens that question:
+**Review after a replan.** There is no approval step to re-run (K2) — but the *question* approval asked has not gone away, only moved: a replan that changes the ticket set changes what an unattended run will do, and that belongs in a pull request a human merges. So a replan publishes its delta the same way creation does, and **merging that pull request is the acceptance of the new set**.
 
-- already `approved` + a fully interrogated delta → it stays approved (the original set was interrogated at creation, the delta now). Re-running `approve.sh` with the same `merge_policy` is a no-op success; passing a different one records the policy change as its own changelog line.
-- still a `draft` (a hand-authored mission, a `/propose` proposal, a `carried` successor) → run `approve.sh` only if the replan interrogated the **entire current set**, not just the delta. This is the sanctioned path from proposal to drive-ready.
-- interrogation cut short → no approval, ever; the mission stays a draft.
+- A replan whose interrogation was **cut short** publishes nothing. The mission keeps its previous, already-merged plan rather than landing half a new one — an unattended runner reads whatever is on `main`, so a partially-applied delta is worse than no delta.
+- A thin hand-authored `0/0` mission, a `/propose` proposal, and a `carried` successor are all reached this way: replan them to a real `## Experience` and `## Acceptance`, publish, merge. That is the whole path from proposal to drive-ready.
+- `merge_policy` is recorded at creation and is **not** re-asked by a replan. Changing it is an ordinary edit to the mission, published and reviewed like any other.
 
 ## Mission Position Report
 
@@ -297,7 +298,6 @@ Every script lives at `mission/scripts/<name>`. **This table is a locator, not a
 | ------ | ------------ |
 | `create.sh` | Scaffold a new mission (slug, frontmatter, empty sections, creator-seeded `assignees`); refuses to overwrite |
 | `slug.sh` | Derive a mission slug from a title — the single source of the slug rule |
-| `approve.sh` | The **only** path to `status: approved`: clears the owner / Experience / Acceptance / **ticket-queue** floor and records the `merge_policy` ruling |
 | `close.sh` | The **only** sanctioned way to end a mission: flips `status`, appends the closing line, moves the dir to `archive/` |
 | `list.sh` | The whole roadmap, with computed `relation`, `next`, `ready`/`ready_reason`, `merge_policy` |
 | `summary.sh` | The canonical statement of the shared owner gate the lens and `/drive`'s survey answer to |
@@ -322,7 +322,7 @@ Every script lives at `mission/scripts/<name>`. **This table is a locator, not a
 
 A mission's `.worktrees/<slug>/` worktree belongs to the **claim**, not to the mission record (`docs/loop-engineering-workflow.md` I6). It is created when a runner claims the unit (`drive`'s *Claims* section — `claim.sh` cuts the worktree and its `work-*` branch together) and removed when that unit **ships**, or when its claim is explicitly released (`release-claim.sh`). An unfinished mission is simply re-claimed by a later tick, which recreates the worktree from the pushed branch.
 
-**And creation makes none either** (decision J1, 2026-07-30 — the completion of I6). `/mission` once built the worktree before writing anything and committed inside it without pushing, which left an approved mission invisible to `plan-units.sh` — the failure `docs/drive-loop-runbook.md` §6 documented and `claim.sh` carried a tolerance comment for. Every mission write now goes into a **publish tree** and is pushed to `main`: creation, replan, approval, and close alike (`branching`'s *The Publish Tree*). `claim.sh` is the only creator of a branch or a worktree anywhere in the plugin. The mission scripts themselves were not touched — they are cwd-relative and never branch or commit, so only the caller's `cd` target moved.
+**And creation makes none either** (decision J1, 2026-07-30 — the completion of I6). `/mission` once built the worktree before writing anything and committed inside it without pushing, which left a mission invisible to `plan-units.sh` — the failure `docs/drive-loop-runbook.md` §6 documented and `claim.sh` carried a tolerance comment for. Every mission write now goes into a **publish tree** and is published for merge: creation, replan, and close alike (`branching`'s *The Publish Tree*). `claim.sh` is the only creator of a branch or a worktree anywhere in the plugin. The mission scripts themselves were not touched — they are cwd-relative and never branch or commit, so only the caller's `cd` target moved.
 
 **A consequence worth expecting: an unclaimed mission owns no worktree**, so the mission lens surfaces it in the **main tree** (its location gate admits a mission that owns no worktree) rather than staying silent until you enter a directory that no longer exists at creation time. The worktree-focus rule itself is unchanged and still scopes a claim worktree's session to its own unit.
 
@@ -363,7 +363,7 @@ Why carry rather than the alternatives: forcing `achieved` **fabricates completi
 
 **Reorganizing is a replan, then a carry — and it deliberately does not grind quality gates.** The mechanism is the existing **Replan** flow plus `close.sh`, used together and recorded, never hand-editing:
 
-1. **Reorganize** via `/mission <instruction>` (the Replan flow): rewrite `## Goal`/`## Experience` (and a legacy `## Scope`) to the changed direction, and **drop the now-moot unchecked acceptance criteria** — do **not** force them checked. A dropped item is recorded as its own `acceptance dropped — <the item's (#filename) artifact>` changelog line (Replan already owns this), so the plan's shrinkage is history, not a silent rewrite. This is what *"skip filling quality gates"* means here: **stop grinding to check criteria the new direction made obsolete** — it is **not** a relaxation of the write-time floor (`hooks/validate-mission.sh` still requires a non-empty `## Acceptance` and `## Experience` once the mission is `approved`).
+1. **Reorganize** via `/mission <instruction>` (the Replan flow): rewrite `## Goal`/`## Experience` (and a legacy `## Scope`) to the changed direction, and **drop the now-moot unchecked acceptance criteria** — do **not** force them checked. A dropped item is recorded as its own `acceptance dropped — <the item's (#filename) artifact>` changelog line (Replan already owns this), so the plan's shrinkage is history, not a silent rewrite. This is what *"skip filling quality gates"* means here: **stop grinding to check criteria the new direction made obsolete** — it is **not** a relaxation of the write-time floor (`hooks/validate-mission.sh` requires a non-empty `## Acceptance` and `## Experience` on every active mission).
 2. **Carry** the still-valid remainder with `close.sh … carried`: mint a fresh successor (`--successor-title "<t>"`) for a genuinely new heading, or — for the **mergeable** case — **`--successor <existing-slug>`** to carry the unchecked criteria into an existing active mission. Merging needs no new operation: `--successor <slug>` already carries the unmet items and shared goal/scope into the named mission, and lineage is recorded both directions (above).
 
 The three checked-vs-unchecked, inherit, and lineage rules above are unchanged — reorganize-and-carry is those mechanics used *deliberately and early* when the direction turns, framed as the normal move rather than a last resort.

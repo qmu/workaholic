@@ -50,8 +50,9 @@
 # of the offer, and the ARTIFACT paths keep an already-batched ticket out of it.
 #
 # NOTHING IS EXCLUDED SILENTLY. Every mission and ticket the survey drops is
-# reported in `excluded` with its reason (`claimed`, `not_approved`, `no_plan`,
-# `no_tickets`, `mission_member`), because a queue item that vanishes from an
+# reported in `excluded` with its reason (`claimed`, `no_plan`, `no_tickets`,
+# `mission_member`; `not_approved` was retired with the draft gate -- K1),
+# because a queue item that vanishes from an
 # unattended run's offer with no trace is indistinguishable from one that was never
 # there (`workaholic:implementation` / observability).
 #
@@ -157,11 +158,18 @@ exclude() {
     exc_sep=", "
 }
 
-# --- approved missions --------------------------------------------------------
-# The status IS the authorization (docs/loop-engineering-workflow.md I2), and an
-# approved mission with an empty ## Acceptance authorizes work against no bar at
-# all, so the offer applies that floor too -- a planless mission is never handed to
-# an unattended run.
+# --- claimable missions -------------------------------------------------------
+# THE AREA IS THE AUTHORITY, NOT A STATUS WORD (2026-07-31 --
+# docs/loop-engineering-workflow.md K1). A mission reaches missions/active/ on
+# `main` only by merging its pull request, and that merge IS the approval: the
+# project accepted it. So this offer does not read `status` at all -- the
+# `not_approved` exclusion is gone, and with it the second gate that left six
+# missions unclaimable on main while this survey reported `pending` every tick.
+#
+# The two REAL floors stay, because neither is a re-ask of the PR's question -- both
+# are about whether there is anything to drive. A mission with an empty
+# ## Acceptance authorizes work against no bar at all, so the offer applies that
+# floor -- a planless mission is never handed to an unattended run.
 #
 # BUT ACCEPTANCE ITEMS ARE NOT A QUEUE, and the offer needs both floors. `/propose`
 # writes a provisional acceptance SKETCH, which satisfies an item count with zero
@@ -177,11 +185,6 @@ if [ -d ".workaholic/missions/active" ]; then
         f="${d}/mission.md"
         [ -f "$f" ] || continue
         slug=$(basename "$d")
-        status=$(fm_field "$f" status)
-        if [ "$status" != "approved" ]; then
-            exclude mission "$slug" "not_approved"
-            continue
-        fi
         if is_claimed_unit "$slug" || is_claimed_artifact "$f"; then
             exclude mission "$slug" "claimed"
             continue

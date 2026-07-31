@@ -2,7 +2,7 @@
 type: Mission
 title: Drop the draft gate and make /drive own its worktree from refreshed main
 slug: drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main
-status: draft
+status: abandoned
 merge_policy:
 created_at: 2026-07-30T06:29:21+00:00
 author: noreply@anthropic.com
@@ -167,3 +167,5 @@ drive-ready; only then may it be authorized.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 
 - 2026-07-30 — Proposed by the `/propose` batch from GitHub issue #106 / Slack `#dev-workaholic`.
+- 2026-07-31 — substance delivered outside the mission, by ticket — 20260801030420-retire-the-mission-draft-status.md
+- 2026-07-31 — mission abandoned — mission.md

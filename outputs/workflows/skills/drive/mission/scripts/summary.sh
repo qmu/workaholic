@@ -24,10 +24,11 @@
 # means the caller is one of them. An unowned mission (no assignees and no
 # legacy assignee) is unclaimed work, surfaced to everyone as claimable.
 #
-# Only IN-FLIGHT missions are reported — the active area's working set, which on the
-# single status axis (2026-07-28, docs/loop-engineering-workflow.md I2) means `draft`
-# or `approved`. A legacy `active` is tolerated for a mission the living migration has
-# not rewritten yet; the ended states live in archive/ and never appear here.
+# Only IN-FLIGHT missions are reported — the active area's working set, which since
+# the draft gate's retirement (2026-07-31, docs/loop-engineering-workflow.md K1) is
+# the single status `active`. The retired `draft`/`approved` spellings are tolerated
+# for a mission the living migration has not rewritten yet; the ended states live in
+# archive/ and never appear here.
 # Progress is computed on demand via progress.sh
 # and the next step via next-acceptance.sh (never a stored number). Creates nothing.
 #
@@ -78,10 +79,10 @@ for pass in mine unassigned; do
     for d in $DIRS; do
         f="$d/mission.md"
         [ -f "$f" ] || continue
-        # In-flight = the status axis's two open states (legacy `active` tolerated
-        # pre-migration). Everything else has ended and lives in archive/.
+        # In-flight = the one open state (the retired `draft`/`approved` spellings
+        # tolerated pre-migration). Everything else has ended and lives in archive/.
         case "$(fm_field "$f" status)" in
-            draft|approved|active) : ;;
+            active|draft|approved) : ;;
             *) continue ;;
         esac
 

@@ -38,9 +38,17 @@ Run this workflow:
    bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/compare-routines.sh <repo-url> < <live-json-file>
    ```
 
-   Report `missing`, `present` (with each one's per-field `drift`), and `unknown` self-explanatorily. Say that `unknown` entries are deliberate one-offs, not errors, and that nothing here can delete a routine — that is <https://claude.ai/code/routines>.
+   Report **`this_repo`** (`missing`, `present` with per-field `drift`, `unknown`) **and `other_repos`** — drift in every repository that already carries a workaholic routine, because the templates are one set applied to many repos and the drift is the same defect wherever you stand. Say that `unknown` entries are deliberate one-offs, not errors, and that nothing here can delete a routine — that is <https://claude.ai/code/routines>.
 
-4. **Offer to create or refresh, one routine at a time.** For each `missing` or drifted entry, render it and **show the developer the full prompt and schedule, then confirm** via `AskUserQuestion` (prefix the body with the `[<project label>]` from `gather/scripts/project-label.sh`):
+   Then check the preconditions every template depends on (skill §4). Report `slack_connector` from the comparison, and probe the channel:
+
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/check-slack-channel.sh <repo-name>
+   ```
+
+   **Report `checked: false` as "could not check", never as "the channel is missing"** — a locked credential store returns the same error as a nonexistent channel, and conflating them sends the developer to create a channel that already exists. Both preconditions are advisory: report them, and let the developer decide whether to proceed.
+
+4. **Offer to create or refresh, one routine at a time.** For each `missing` or drifted entry in `this_repo`, and each drifted entry in `other_repos`, render it and **show the developer the full prompt and schedule, then confirm** via `AskUserQuestion` (prefix the body with the `[<project label>]` from `gather/scripts/project-label.sh`):
 
    ```bash
    bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/render-routine.sh <template-id> <repo-url>

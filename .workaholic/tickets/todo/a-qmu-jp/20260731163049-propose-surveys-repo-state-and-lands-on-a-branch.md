@@ -9,6 +9,7 @@ category:
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260801-012313
 ---
 
 # Make /propose survey the whole repository state and land its proposal as a mission with tickets on a work branch

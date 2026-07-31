@@ -47,3 +47,44 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/audit-claude-md.sh
 ```
 
 It returns `{file, conformant, checks:{claude_md_present, refers_workaholify_gateway}, missing:[...]}`. When `conformant` is `false`, report the `missing` checks self-explanatorily (`workaholic:design` / `self-explanatory-ui`) and offer to add the missing content — a reference to this gateway, not a copy of the rules. The checklist is intentionally small and extends as the documentation standard grows; keep every check a **verifiable** condition (`workaholic:implementation` / `objective-documentation`).
+
+## 4. Scheduled routines
+
+Routines are how a project actually runs: a `[FB]` routine turns a Slack-reported issue into a feedback record and a PR, a `Merged PR` routine announces a merge, and a `[Drive]` routine runs the queue on a schedule. Wiring them up is part of *"wire this repository to the standards"*, which is why it lives here and not in a second setup command — the second setup command is the one nobody runs.
+
+**These are Claude Code Web routines, not cron jobs.** Each one is a scheduled or event-driven cloud session with its own checkout, reached through the `RemoteTrigger` tool (`list` / `get` / `create` / `update` / `run`). There is deliberately no local scheduler in this picture, and no crontab: a machine's crontab would be invisible to everyone but its owner, which is the problem this replaces rather than a mechanism to copy.
+
+### One set of templates, many repositories
+
+The templates live in **this skill** (`routines/*.md`), not in any repository's `.workaholic/`. That is the whole shape of the thing. Measured across the live account when this was written: the `[FB]` prompt is byte-identical across seven repositories, and so is `Merged PR` — what differs is only which repository the routine points at. A per-repository declaration would be one copy per repo of a file that is identical everywhere except its own URL, each copy free to drift, and none of them the source of truth (the routine itself lives in the cloud account, and `list` reads it back).
+
+| Template | Trigger | What it does |
+| -------- | ------- | ------------ |
+| `fb` | event | A reported issue becomes a `/fb` record and a PR |
+| `merged-pr` | event | A merge is announced to `dev-<repo>` |
+| `drive` | cron `56 * * * *` | The hourly unattended drive runner (still a pilot; bounded to 2 units/tick) |
+
+Everything below a template's `## Prompt` heading is the routine's prompt, verbatim. Three substitutions, each demanded by the live routines: `{repo}` (full URL, for the `…/pull/123` links), `{repo_slug}` (`org/repo`, how the Drive prompt names the repository in prose), and `{repo_name}` (bare name, the routine's own name and the `dev-<name>` Slack channel). **Anything else that differs between two repositories' routines is drift, not configuration.**
+
+Keeping the prompt as readable markdown rather than an embedded JSON string is deliberate: the prompt *is* the routine, template freshness is the entire point of the issue behind this, and a prompt nobody can read in a diff is a prompt nobody will keep current.
+
+### The scripts, and the split they enforce
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/list-routine-templates.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/render-routine.sh <template-id> <repo-url>
+<RemoteTrigger list JSON> | bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/compare-routines.sh <repo-url>
+```
+
+**Scripts own the templates and the comparison; the command owns the API and the confirmation.** A shell script cannot call `RemoteTrigger` — only the main agent can — so the command fetches the live list and pipes it in. That split is what keeps the logic out of markdown (the Shell Script Principle) *and* testable: `compare-routines.sh` is driven against fixtures in the suite without touching anyone's account.
+
+**A routine belongs to this repository when its `sources[].git_repository.url` matches**, compared after stripping a trailing slash and `.git` — never by name. Names are what drift; matching on them would report a renamed routine as both missing and unknown at once.
+
+**Drift is reported per field, not as a boolean.** Measured live: `Merged PR qmu-co-jp` and `[FB] coop-csnet` carry no `model` at all while every sibling pins `claude-opus-5`, and `[FB] data-platform` has one extra prompt line. "This routine differs" would not tell a developer which of those they are looking at.
+
+**`unknown` is information, not an error.** A routine pointing at this repository that matches no template is somebody's deliberate one-off. It is listed so nothing is invisible, and nothing here ever proposes removing it — the API has no delete at all, and that asymmetry is a feature: this flow can add and refresh, never destroy. Deletion is a human act at <https://claude.ai/code/routines>.
+
+### What the command does with all this
+
+Report the state, then **show the developer the rendered prompt and get an explicit confirmation before any `create` or `update`**. A routine is a standing, outward-facing process that will act on this repository unattended; that is the same class of commitment as `/request` crossing a repository boundary, and it gets the same treatment — the verbatim body, confirmed, every time. `environment_id` is an account-level fact with more than one valid answer, so it is asked rather than guessed.
+

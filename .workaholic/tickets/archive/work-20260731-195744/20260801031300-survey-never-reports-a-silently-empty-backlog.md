@@ -3,12 +3,13 @@ created_at: 2026-08-01T03:13:00+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Domain]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 merge_policy: auto
+claim: work-20260731-195744
 ---
 
 # A survey that cannot resolve the developer reports an empty backlog instead of a failure

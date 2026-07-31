@@ -12,6 +12,16 @@
 # is still over the limit after that (some other section is the culprit), it
 # is hard-truncated with a trailing pointer — a truncated PR body beats no PR.
 # A body already under the limit is returned untouched (shrunk: false).
+#
+# THE HANDOFF SECTION IS NEVER DROPPED. A handoff unit's PR body carries the one
+# thing the person picking the work up actually needs — what is done, what is not,
+# the exact next step — and it is written precisely when a run could not finish, so
+# it must survive every bounding path here. Relying on its position (it is written
+# at the very top, so a head-truncation happens to keep it) would be an accident one
+# template edit away from silently dropping it, so retention is explicit: the block
+# is lifted out, the remainder is bounded, and the block is put back. It is exempt
+# only from SHEDDING, not from arithmetic — a handoff that alone exceeds the limit
+# is still truncated, because no PR body at all helps nobody.
 
 set -eu
 
@@ -47,7 +57,20 @@ text = re.sub(r'^## 6\. Concerns\s*\n.*?(?=^## |\Z)', pointer, text,
 
 if len(text) > LIMIT:
     note = f"\n\n*(PR body truncated at the GitHub limit — full text: `{story}`)*\n"
-    text = text[:LIMIT - len(note)] + note
+    # Lift the Handoff block out before truncating, and put it back afterwards, so
+    # the section a person needs most survives a bound applied for reasons that have
+    # nothing to do with it. `## Handoff` is matched at the start of a line and runs
+    # to the next `## ` heading (or EOF), the same shape the section-6 rule uses.
+    m = re.search(r'^## Handoff\b.*?(?=^## |\Z)', text, flags=re.MULTILINE | re.DOTALL)
+    handoff = m.group(0) if m else ""
+    budget = LIMIT - len(note) - len(handoff)
+    if handoff and budget > 0:
+        rest = text[:m.start()] + text[m.end():]
+        text = handoff + rest[:budget] + note
+    else:
+        # No handoff, or one so large it leaves no room for anything else: fall back
+        # to the plain bound. A truncated body still beats a refused PR.
+        text = text[:LIMIT - len(note)] + note
 
 with open(path, 'w', encoding='utf-8') as h:
     h.write(text)

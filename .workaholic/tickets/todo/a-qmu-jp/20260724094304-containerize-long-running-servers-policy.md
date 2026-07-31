@@ -7,7 +7,7 @@ effort: 2h
 commit_hash:
 depends_on:
 mission:
-claim: work-20260730-202601
+claim: work-20260801-051756
 ---
 
 # Clarify the operation policy on running long-running / "major" servers: container (or isolation boundary) required, with an explicit developer-preview carve-out
@@ -71,6 +71,16 @@ Checked rather than assumed, so the block is a finding and not a forecast:
 - `curl -sSL https://qmu.co.jp/operation` → `HTTP 404` (every pillar's articles serve under `/implementation`), so there is no separate operation-side page holding it either.
 
 The blocker is unchanged and external: a named human must publish the canonical article. Re-verification costs three commands, so a future driver should re-run the two `curl` checks above before assuming this is still true.
+
+### Re-verified 2026-08-01 — still blocked, article still not published
+
+The three commands were re-run rather than assumed. Raw output:
+
+- `curl -sSL -w '%{http_code}' https://qmu.co.jp/implementation` → `200`, **696 lines** (up from 685 on 2026-07-30, so the article set *is* being edited — this is not a stale cache), and still **zero** matches for `127.0.0.1 | localhost | loopback | ループバック | プレビュー | 常駐 | ホストプロセス | 直接起動`. Its only headings remain `実装ポリシー` → `妥当性・論理的網羅性` / `可用性・運用継続性`; no server-isolation or preview-carve-out section has appeared.
+- `curl -sSL -w '%{http_code}' https://qmu.co.jp/operation` → `404`, unchanged.
+- `git log -1 -- plugins/workaholic/skills/implementation/policies/containerization.md` → still `513cd1d3` (2026-06-17, `Sync standards from qmu.co.jp`); zero matches in that hard copy for `127.0.0.1 | localhost | loopback | bare host | host process | preview`. The sync has brought nothing new down.
+
+**Ticket outcome: `blocked`** — a genuinely external blocker under `/drive`'s failure contract (a decision requiring a named human's professional judgement, which no local attempt can produce). It stays queued, not abandoned. The next action is unchanged and outside this repository: publish the canonical qmu.co.jp article. The 11-line growth in the published article is the signal worth re-checking next time — the page is live and maintained, so the ruling's absence is a real gap, not a dead site.
 
 ## Policies
 

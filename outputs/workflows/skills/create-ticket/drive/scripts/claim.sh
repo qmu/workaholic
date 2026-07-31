@@ -4,6 +4,8 @@
 #   claim.sh mission <slug>            -- claim one approved mission (unit id = the slug)
 #   claim.sh batch <ticket-file>...    -- claim one batch of backlog tickets
 #                                         (unit id = batch-<YYYYMMDDHHMMSS>, minted here)
+#   claim.sh resume <unit-id>          -- TAKE OVER an existing claim whose run stopped,
+#                                         continuing from its pushed branch tip
 #
 # One unit <-> one branch <-> one worktree <-> one PR. The sequence is fixed:
 #   1. fetch origin (a claim that cannot be pushed is not a claim -- see below);
@@ -13,12 +15,22 @@
 #   4. stamp `claim: <branch>` into the claimed artifacts IN THE WORKTREE CHECKOUT;
 #   5. commit `Claim <unit-id>` and push -u immediately.
 #
-# Output: {"claimed": true, "unit": "...", "branch": "work-...", "worktree_path": "..."}
+# Output: {"claimed": true, "unit": "...", "branch": "work-...", "worktree_path": "...",
+#          "artifacts": [...], "announced": bool, "announce_reason": "..."}
 #     or: {"claimed": false, "reason": "...", ...} on stderr with a non-zero exit.
 # Refusal reasons: already_claimed (names the holding branch and unit), no_origin,
 # origin_unreachable, mission_missing, artifact_missing, no_frontmatter, push_failed.
 #
 # NEVER PROMPTS. It is the coordination step of an unattended runner.
+#
+# CLAIMING ANNOUNCES (see step 7). The claim is the first published, irreversible-in-
+# practice commitment a run makes, and until this seam existed nothing told a PERSON:
+# the first human-visible artifact was the pull request, opened only after every
+# ticket in the unit had been driven. For an unattended fleet that silent window is
+# the difference between "the routine is working" and "the routine is dead", and an
+# operator could not tell which. The announcement lives HERE rather than in
+# commands/drive.md because this is where the fact becomes true, so every caller of
+# claim.sh -- including `resume` below -- announces through one seam.
 #
 # THE STAMP RIDES THE WORKTREE, NEVER THE MAIN TREE. The runner's main checkout must
 # stay clean between ticks (the /propose batch commits on main and depends on that),
@@ -39,17 +51,21 @@ fail() {
     exit 1
 }
 
+usage() {
+    echo 'Usage: claim.sh mission <slug> | claim.sh batch <ticket-file>... | claim.sh resume <unit-id>' >&2
+}
+
 kind="${1:-}"
 case "$kind" in
-    mission | batch) shift ;;
+    mission | batch | resume) shift ;;
     *)
-        echo 'Usage: claim.sh mission <slug> | claim.sh batch <ticket-file>...' >&2
+        usage
         exit 1
         ;;
 esac
 
 if [ "$#" -eq 0 ]; then
-    echo 'Usage: claim.sh mission <slug> | claim.sh batch <ticket-file>...' >&2
+    usage
     exit 1
 fi
 
@@ -66,6 +82,127 @@ git config --get remote.origin.url >/dev/null 2>&1 \
     || fail "origin_unreachable" ', "detail": "refusing to claim a unit without a reachable origin -- an unpushed claim is not a claim"'
 
 base=$(claims_base)
+
+# --- 1b. RESUME: take over a claim whose run stopped -----------------------
+# A whole separate path, because resuming inverts nearly every step of a fresh claim:
+# the unit is already claimed (that is the precondition, not the refusal), the
+# artifacts are already stamped, and the worktree must start at the PUBLISHED BRANCH
+# TIP rather than the base -- the earlier run's commits are the work being continued,
+# and cutting from the base would silently re-drive tickets that branch already
+# archived.
+#
+# THE RACE IS RESOLVED BY GIT, NOT BY A CLOCK READ LOCALLY. Two runners can both see a
+# unit as resumable in the same instant; both create a worktree at tip T and both push
+# a takeover commit. The first push wins and the second is rejected non-fast-forward --
+# exactly how `branch_collision` already resolves two fresh claims. The loser tears its
+# worktree down and reports a retryable reason, having taken nothing. Nothing anywhere
+# decides the winner by comparing timestamps, which is what makes this safe under clock
+# skew between a local runner and a cloud one.
+if [ "$kind" = "resume" ]; then
+    unit="$1"
+    resume_row=$(claims_scan "$base" | awk -F'\t' -v u="$unit" '$1 == u { print; exit }')
+    [ -n "$resume_row" ] \
+        || fail "not_claimed" ', "unit": "'"${unit}"'", "detail": "no claim in flight for that unit -- claim it fresh instead"'
+
+    r_branch=$(printf '%s' "$resume_row" | cut -f2)
+    r_at=$(printf '%s' "$resume_row" | cut -f3)
+    r_author=$(printf '%s' "$resume_row" | cut -f5)
+    r_resumable=$(printf '%s' "$resume_row" | cut -f6)
+    r_reason=$(printf '%s' "$resume_row" | cut -f7)
+    r_arts=$(printf '%s' "$resume_row" | cut -f8)
+
+    # The verdict is the SHARED scan's, never re-derived here. A writer that decided
+    # resumability for itself could take over a unit the reader still reports as
+    # active -- the concurrent-write corruption this whole feature must not create.
+    if [ "$r_resumable" != "true" ]; then
+        case "$r_reason" in
+            claim_active)
+                fail "claim_active" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "last_commit_at": "'"${r_at}"'", "detail": "a run is still working this unit (its branch tip is within the heartbeat window) -- resuming would double-drive it"'
+                ;;
+            foreign_identity)
+                fail "foreign_identity" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "author": "'"${r_author}"'", "detail": "another identity holds this claim; it is never resumable here, at any age"'
+                ;;
+            *)
+                fail "identity_unresolved" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this checkout has no git config user.email, so it cannot establish the claim is its own"'
+                ;;
+        esac
+    fi
+
+    # PIN THE TIP THE DECISION WAS MADE ON. The scan just fetched, so this is the tip
+    # that was judged resumable. The worktree creator fetches again, which is what
+    # would otherwise leave the race half-open: a runner that lost by a second would
+    # check out the WINNER'S new tip, and its takeover would then push as a clean
+    # fast-forward -- two runners driving one unit, each believing it won. Comparing
+    # the created HEAD against this sha below closes that window deterministically,
+    # and the non-fast-forward push rejection remains as the second layer.
+    r_observed_tip=$(git rev-parse --verify --quiet "refs/remotes/origin/${r_branch}^{commit}" 2>/dev/null || true)
+
+    if create_out=$(sh "${SCRIPT_DIR}/../../branching/scripts//create-mission-worktree.sh" --branch "$r_branch" "$unit"); then
+        :
+    else
+        fail "worktree_creation_failed" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "see the creator'"'"'s error above"'
+    fi
+    worktree_path=$(printf '%s' "$create_out" | sed -n 's/.*"worktree_path":[ ]*"\([^"]*\)".*/\1/p')
+    branch=$(printf '%s' "$create_out" | sed -n 's/.*"branch":[ ]*"\([^"]*\)".*/\1/p')
+    if [ -z "$worktree_path" ] || [ -z "$branch" ]; then
+        fail "worktree_creation_failed" ', "detail": "could not read worktree_path/branch from the creator"'
+    fi
+
+    abort_resume() {
+        ( cd "$repo_root" && sh "${SCRIPT_DIR}/../../branching/scripts//cleanup-mission-worktree.sh" "$unit" ) >/dev/null 2>&1 || true
+        fail "$1" "${2:-}"
+    }
+
+    # The pinned tip, checked (see above). A mismatch means the branch moved between
+    # the decision and the checkout -- another runner's takeover, or the original run
+    # waking up and committing. Either way this runner did not win, and it takes nothing.
+    r_actual_tip=$(git -C "$worktree_path" rev-parse HEAD 2>/dev/null || true)
+    if [ -n "$r_observed_tip" ] && [ "$r_actual_tip" != "$r_observed_tip" ]; then
+        abort_resume "resume_race_lost" ', "unit": "'"${unit}"'", "branch": "'"${branch}"'", "observed_tip": "'"${r_observed_tip}"'", "actual_tip": "'"${r_actual_tip}"'", "detail": "the claim branch moved between the resumability decision and the checkout; nothing was resumed -- retry"'
+    fi
+
+    # PUBLISH THE TAKEOVER, through the same commit seam as everything else -- an EMPTY
+    # commit, because the takeover is a fact about who is driving rather than a change
+    # to any file, and it must not show up in the PR diff. Its push is also the race's
+    # arbiter, which is why it happens before a single line of work.
+    ( cd "$worktree_path" && sh "${SCRIPT_DIR}/../../commit/scripts//commit.sh" --allow-empty \
+        "Resume ${unit}" \
+        "An earlier run claimed this unit and stopped without finishing it; its branch tip fell outside the heartbeat window, so the unit was offered as resumable and this runner took it over" \
+        "None -- coordination only; the takeover changes no file and never reaches the PR diff" \
+        "None" "None" \
+        "list-claims.sh reports this unit as claim_active again once the takeover is pushed" ) >&2 \
+        || abort_resume "commit_failed" ', "branch": "'"${branch}"'"'
+
+    if git -C "$worktree_path" push --quiet origin "$branch" >&2; then
+        :
+    else
+        # Rejected: someone else's takeover landed on this branch first. Nothing was
+        # taken -- retry on the next tick, when the scan reports the unit active again.
+        abort_resume "resume_race_lost" ', "unit": "'"${unit}"'", "branch": "'"${branch}"'", "detail": "another runner published its takeover of this unit first; nothing was resumed -- retry"'
+    fi
+
+    r_notify="${WORKAHOLIC_NOTIFIER:-${SCRIPT_DIR}/../../propose/scripts//notify-slack.sh}"
+    r_out=$(sh "$r_notify" "Resumed ${unit} on ${branch} — an earlier run left it unfinished; driving it now" 2>/dev/null) || r_out=''
+    case "$r_out" in
+        *'"notified": true'*) r_announced=true ;;
+        *) r_announced=false ;;
+    esac
+    r_announce_reason=$(printf '%s' "$r_out" | sed -n 's/.*"reason": *"\([^"]*\)".*/\1/p')
+    [ -n "$r_out" ] || r_announce_reason="notifier_failed"
+
+    printf '{"claimed": true, "resumed": true, "unit": "%s", "branch": "%s", "worktree_path": "%s", "announced": %s, "announce_reason": "%s", "artifacts": [' \
+        "$unit" "$branch" "$worktree_path" "$r_announced" "$r_announce_reason"
+    sep=""
+    old_ifs="$IFS"
+    IFS=','
+    for rel in $r_arts; do
+        printf '%s"%s"' "$sep" "$rel"
+        sep=", "
+    done
+    IFS="$old_ifs"
+    printf ']}\n'
+    exit 0
+fi
 
 # --- 2. Resolve the unit and the artifacts it claims -----------------------
 # `unit` is the id that rides the commit subject; `artifact_rels` are repo-relative
@@ -111,7 +248,7 @@ artifact_rels=$(printf '%s' "$artifact_rels" | grep -v '^$' || true)
 # already took under a different batch id.
 rows=$(claims_scan "$base")
 if [ -n "$rows" ]; then
-    while IFS='	' read -r held_unit held_branch _held_at _held_stale held_arts; do
+    while IFS='	' read -r held_unit held_branch _held_at _held_stale _held_author _held_resumable _held_reason held_arts; do
         [ -n "$held_unit" ] || continue
         if [ "$held_unit" = "$unit" ]; then
             fail "already_claimed" ', "unit": "'"${unit}"'", "holder_branch": "'"${held_branch}"'", "holder_unit": "'"${held_unit}"'"'
@@ -225,8 +362,48 @@ else
     abort_claim "push_failed" ', "branch": "'"${branch}"'", "detail": "the claim was not published; nothing was claimed"'
 fi
 
-printf '{"claimed": true, "unit": "%s", "branch": "%s", "worktree_path": "%s", "artifacts": [' \
-    "$unit" "$branch" "$worktree_path"
+# --- 7. Announce the claim -- AFTER the push, and NEVER load-bearing -------
+# Deliberately placed below every `abort_claim` call site and outside that error
+# path entirely. claim.sh treats each post-worktree failure as a reason to tear the
+# worktree down, so folding the notice into that path would make a Slack outage
+# start DISCARDING claims. A claim that succeeded and an announcement that did not
+# are two different facts, and only the first one gates the run -- so this cannot
+# change the exit status, the worktree, or the `claimed: true` contract. It reports
+# its own outcome instead, so a run report can say plainly that the claim landed and
+# the notice did not.
+announce_claim() {
+    _ac_count=$(printf '%s' "$artifact_rels" | grep -c . || true)
+    [ -n "$_ac_count" ] || _ac_count=0
+    _ac_text="Claimed ${unit} on ${branch} (${_ac_count} artifact(s)) — driving now"
+    # The notifier is reached AS A SCRIPT (the same one /drive's route step uses), never
+    # as an inline curl: one notifier, one place where the token is handled. The override
+    # is the house test seam (cf. WORKAHOLIC_SLACK_API_URL in notify-slack.sh) -- the
+    # hermetic suite must be able to make the notifier FAIL, which is the whole point of
+    # the never-load-bearing contract and is not reachable through a URL override.
+    _ac_script="${WORKAHOLIC_NOTIFIER:-${SCRIPT_DIR}/../../propose/scripts//notify-slack.sh}"
+    if _ac_out=$(sh "$_ac_script" "$_ac_text" 2>/dev/null); then
+        case "$_ac_out" in
+            *'"notified": true'*) printf 'true\t' ;;
+            *) printf 'false\t' ;;
+        esac
+        printf '%s' "$_ac_out" | sed -n 's/.*"reason": *"\([^"]*\)".*/\1/p'
+        printf '\n'
+    else
+        # A notifier that exits non-zero, or is missing outright, is still just a
+        # notice that did not happen.
+        printf 'false\tnotifier_failed\n'
+    fi
+}
+announced_row=$(announce_claim 2>/dev/null || printf 'false\tnotifier_failed\n')
+announced=$(printf '%s' "$announced_row" | cut -f1)
+announce_reason=$(printf '%s' "$announced_row" | cut -f2)
+case "$announced" in
+    true | false) ;;
+    *) announced=false; announce_reason="notifier_failed" ;;
+esac
+
+printf '{"claimed": true, "unit": "%s", "branch": "%s", "worktree_path": "%s", "announced": %s, "announce_reason": "%s", "artifacts": [' \
+    "$unit" "$branch" "$worktree_path" "$announced" "$announce_reason"
 sep=""
 for rel in $artifact_rels; do
     printf '%s"%s"' "$sep" "$rel"

@@ -51,13 +51,19 @@ Then survey what is claimable:
 bash drive/scripts/plan-units.sh
 ```
 
-Emits `{fetched, base, surveyed_sha, base_sha, current, claimed[], missions[], backlog[], excluded[]}` — the unclaimed active missions and this developer's unclaimed todo tickets, with everything a claim already holds subtracted through the shared reader (*Claims*). `excluded[]` names every mission and ticket it dropped and why (`claimed`, `no_plan`, `no_tickets`, `mission_member`), so nothing leaves the offer silently. It does **not** read `status` for the offer: a mission on `main` was accepted when its pull request merged (K1), so the *area* is the authority and the retired `not_approved` reason is gone. `no_plan` and `no_tickets` are deliberately distinct: the first means write the acceptance criteria, the second means emit the ticket set.
+Emits `{fetched, base, surveyed_sha, base_sha, current, user_slug, backlog_error, claimed[], resumable[], missions[], backlog[], excluded[]}` — the unclaimed active missions this runner may take and this developer's unclaimed todo tickets, with everything a claim already holds subtracted through the shared reader (*Claims*). `excluded[]` names every mission and ticket it dropped and why (`claimed_active`, `claimed_by_other`, `claimed_resumable`, `owned_by_other`, `no_plan`, `no_tickets`, `mission_member`), so nothing leaves the offer silently. It does **not** read `status` for the offer: a mission on `main` was accepted when its pull request merged (K1), so the *area* is the authority and the retired `not_approved` reason is gone. `no_plan` and `no_tickets` are deliberately distinct: the first means write the acceptance criteria, the second means emit the ticket set.
+
+**`resumable[]` is a third offer, not a report.** A claim whose run stopped is claimable work — take it over with `claim.sh resume <unit-id>` (see *Claims → Resume a dropped unit*) before claiming anything fresh, since finishing a half-driven unit beats starting another. Its members are already stamped and already partly driven, so it skips steps 2-3 entirely and enters at step 4 in the worktree the resume created. **A resumable unit left untaken forbids `ok`** (§7) exactly as an unclaimed ticket does.
+
+**Missions are offered by ownership.** A mission is claimable when the runner's `git config user.email` is among its owners, or when it has no owners at all (team-owned = claimable); one owned solely by others is dropped as `owned_by_other`. Ownership resolves through `mission/scripts/mission-owners.sh` — the same oracle the mission lens, `list.sh`'s `relation`, `summary.sh` and `ship`'s concern lane read — so the queue a runner drains and the roadmap a developer is shown cannot disagree about whose work it is.
+
+**An unreadable backlog is not an empty one.** `backlog_error` is `""` when the queue was genuinely read, and names the reason otherwise: `identity_unresolved` (no `git config user.email`, so there is no `todo/<user>/` to name — nothing at all is known about the backlog) or `unreadable`. `user_slug` reports *whose* queue was surveyed, empty when unresolvable. A non-empty `backlog_error` **forbids `ok`** (§7), exactly as `current: false` does: a run that never learned the queue's contents has established nothing about it. This is a property of the survey, not of an artifact, which is why it is a top-level key rather than an `excluded[]` entry — `excluded[]` names items the survey *saw and dropped*.
 
 **The survey states its freshness and does not repair it.** `current` is whether the surveyed checkout matches the base; `current: false` means the survey could not see everything on the base, and **`ok` is then forbidden** (§7). The repair belongs to the caller because a script named "plan units" that mutated the checkout would surprise every other caller, and this one must stay side-effect-free — it is called inside claim worktrees too. Note there is no `excluded` reason for staleness: a stale checkout does not drop a *named* item, it never learns the item exists, so the condition is a property of the survey rather than of an artifact.
 
 `fetched: false` means origin was unreachable and the claim set is the last-known one. Survey anyway, but expect the claim step to refuse: **the reader degrades offline, the writer does not.**
 
-If `missions` and `backlog` are both empty, there is nothing claimable — report that plainly, print the reconciliation line and the terminal token (§7), and stop. An empty queue is a normal tick outcome, not a failure and not a reason to ask the developer for something to do.
+If `missions` and `backlog` are both empty **and `backlog_error` is empty**, there is nothing claimable — report that plainly, print the reconciliation line and the terminal token (§7), and stop. An empty queue is a normal tick outcome, not a failure and not a reason to ask the developer for something to do. With a non-empty `backlog_error` the same two empty lists mean the opposite thing: report the reason, and terminate `pending`.
 
 ### 2. Partition into PR-units
 
@@ -83,9 +89,19 @@ Claim **before** driving, one unit at a time, and read the refusal rather than w
 
 The claim creates `.worktrees/<unit-id>/`. **All of the unit's work happens there** — every command wrapped `( cd <worktree_path> && … )` or absolute-pathed, every write confined to it.
 
+**Claiming announces.** `claim.sh` posts one line to Slack after its push succeeds — the unit id, the branch, the member count — and reports the outcome as `announced` / `announce_reason` in its JSON. This is the operator's first signal that a run started: before it existed the first human-visible artifact was the PR at step 5, leaving a window of tens of minutes in which a working fleet and a dead one looked identical. **The notice is never load-bearing**: a missing token, an unreachable Slack, or an outright broken notifier leaves the claim intact and the run unchanged, and only a *successful* claim announces — a refusal announces nothing. Report `announced: false` in the run report rather than treating it as a failure.
+
 ### 4. Drive the unit
 
 Inside the unit's worktree, run each ticket through the **Workflow** section: read the ticket (including its `## Policies` and `## Quality Gate`, and the gate of every mission it names), implement, verify against the gate, update effort, append the Final Report, and `archive.sh`. Order the tickets with *Ordering within a unit* below.
+
+**Keep the unit's heartbeat alive while driving it.** The claim branch tip is the liveness signal every other runner reads (*Claims*), so a long stretch with no commit makes a working unit look abandoned and eligible for takeover. Each `archive.sh` refreshes it for free; when a single ticket runs long without one, beat explicitly:
+
+```bash
+bash drive/scripts/heartbeat.sh <unit-id>
+```
+
+Roughly every ten minutes, or once per ticket, keeps it comfortably inside the default 30-minute window. The beat is an empty commit — no file changes, nothing in the PR diff — and it is **never load-bearing**: a failed beat is reported and the run continues, because the cost of a missed beat is bounded (a takeover race that git resolves) while the cost of aborting a working run is the whole run.
 
 There is **no per-ticket prompt** and no gate-skipping decision to make: the unit was claimable because its artifacts were already authorized. The failure contract below governs everything that can go wrong from here.
 
@@ -167,9 +183,23 @@ bash mission/scripts/record-run-hours.sh "<slug>" "<hours>" "<run-id>"
 
 The recorder is idempotent per run-id and is the **only** writer of `actual_hours` — never hand-edit the field. Report predicted vs actual per mission unit so the estimate can be judged against reality over time.
 
+**A unit may also end in `handoff`.** Beside shipped / at-a-PR / demoted / blocked, this is the state for a unit that was genuinely half-driven — the run left its window, or met something it decided not to decide. It used to have nowhere to go: it was reported as prose in the run report, which is a log nobody re-reads, and the PR body had no section for it either (section 6 is Concerns, section 9 is Notes; neither is "here is where this stands and what to do next"). That matters most for a cloud runner, whose worktree dies with its sandbox — the pushed branch and its PR are the entire inheritance, so recording the handoff in stdout is recording it nowhere.
+
+**The boundary test, so it cannot absorb the others.** A unit is `handoff` when **all three** hold: its queue is **not drained**, the work that exists is **pushed**, and continuing it **requires a person or another session**. Contrast:
+
+| Not `handoff` | Because |
+| ------------- | ------- |
+| `blocked` | A **named external blocker** was hit and *nothing further is possible* — the attempted command and its raw output are recorded. A handoff unit could be continued; a blocked one could not. |
+| A `review` unit at a PR | Its queue **is** drained. The work is *done* and awaiting a look, not awaiting continuation. |
+| A unit the run simply did not want to attempt | Not a state at all. *Attempt every ticket* governs first: size, complexity and "this looks like it needs a human" are never skip reasons, and `handoff` must never become their soft landing. |
+
+`handoff` is a property of the **unit**, computed from its tickets — **the four ticket outcomes stay four**. That arithmetic (every ticket ends as exactly one, and the totals reconcile to the unit's queue) is load-bearing here in §7, and "a person continues from here" is a statement about the unit, not a verdict on any one ticket.
+
+A handoff unit **writes the Handoff section** (`report`, *Story Content Structure*), **opens or updates its PR** through the ordinary `create-or-update.sh` with the partial work pushed — an unpublished handoff is not a handoff — and posts the PR URL through the same notifier the `review` route uses. The PR section is the **authoritative** record and the run report is the log; they overlap deliberately and neither is redundant. A later run resumes exactly this shape (*Claims → Resume a dropped unit*), so a handoff and a resumption are one story told at two moments, not two mechanisms.
+
 **The run report is the deliverable** — always emitted, terminal or not, because a run nobody can read is a run nobody can trust (`implementation` / `observability`). Before the reconciliation line, state:
 
-- **Per unit**: its members, its effective policy and the route it took (shipped / at a PR / **demoted to PR, with the gate that caused it** / blocked), its ticket outcomes (implemented / failed / blocked) **reconciling to the queue it was handed**, and the commits.
+- **Per unit**: its members, its effective policy and the route it took (shipped / at a PR / **demoted to PR, with the gate that caused it** / **handoff** / blocked), its ticket outcomes (implemented / failed / blocked) **reconciling to the queue it was handed**, and the commits.
 - **PR per unit** — the URL, or the `pr_error` if creation failed (its own item, affecting nothing else).
 - **Tickets minted mid-run** (`deferred`), one line each: what was found, which ticket provoked it, and the new filename. These are *additional* to the unit's queue and do not affect its reconciliation — but a run that quietly mints tickets is a run that quietly changes the plan, so they are never silent.
 - **Deferred decisions** — every judgment call the run met and recorded instead of asking, one line each. This list is the QA seam `development` / `qa-engineering` requires: the developer's looking-through relocates to this report and to each unit's PR, never to a mid-run prompt.
@@ -190,11 +220,14 @@ The token is **derived, never self-asserted**:
 | --------------------------- | ---------- |
 | Every unit this run claimed reached its routed end (`auto` merged, `review` at an open PR) **and** a fresh survey offers nothing claimable | `ok` |
 | Any claimed unit is `blocked` (hard-stopped gate, failed confirmation, unrecovered failure) | `pending` |
+| Any claimed unit ended in **`handoff`** — a person or another session must continue it | `pending` |
 | Any claimed unit was **demoted** and is waiting at a PR it was meant to ship | `pending` |
 | Any unit was left with tickets undriven (failed/blocked tickets remain in its queue) | `pending` |
 | The survey still offers a claimable mission or ticket (including a unit another runner holds) | `pending` |
+| The survey offers a **resumable** unit this run did not take over | `pending` |
 | The survey ran against a checkout **not** known current with the base (`current: false`, or `sync-main.sh` reported `no_origin`/`origin_unreachable`) | `pending` |
-| Nothing was claimable at all and nothing is in flight, over a **current** survey | `ok` |
+| The survey could not read the backlog at all (`backlog_error` non-empty — e.g. `identity_unresolved`) | `pending` |
+| Nothing was claimable at all and nothing is in flight, over a **current** survey that read the backlog | `ok` |
 
 "I stopped" is not "it's done": a blocked unit is `pending`, not `ok`. This is verbatim the contract a caller-side loop such as `/goal /drive ok` waits on (decision I4 — `/goal` is a harness feature, not a command of this plugin; the token is the whole contract). A confident `ok` over an incomplete run is the masked failure `implementation` / `observability` forbids, which is why the reconciliation line always precedes it: the outcome must be graspable from outside without a debugger.
 
@@ -270,8 +303,10 @@ State the model before the scripts, because the scripts only implement it:
 - **PR-unit.** The thing a runner takes. It is either one approved **mission** (unit id = the mission slug) or one **batch** of related backlog tickets (unit id = `batch-<YYYYMMDDHHMMSS>`, minted at claim time). One unit ↔ one branch ↔ one worktree ↔ one PR.
 - **Claim.** A commit whose subject is `Claim <unit-id>`, on a fresh `work-*` branch cut from `origin/main` by the standard creator, whose content stamps `claim: <branch>` into the claimed artifacts' frontmatter — the mission's `mission.md`, or each batched ticket file — **pushed immediately**. The stamp lives on the branch only: `main` never shows a claim, so no merge ever has to un-stamp one. The artifact must actually be present in the claiming checkout: a mission with no `mission.md` is refused as `mission_missing`, since after J1 absence means either a wrong slug or a checkout behind the base — never the "it lives on an unmerged branch" case the claim writer used to tolerate.
 - **Reader.** Fetch, enumerate the `origin/*` branches carrying commits not on `origin/main`, and for each read the unit from its newest `Claim …` subject and the claimed artifacts from the branch tip's `claim: <branch>` stamps — **reading each stamp at the file's current path, not the path the claim commit stamped.** `archive.sh` *renames* a driven ticket (`todo/<user>/X.md` → `archive/<branch>/X.md`) and carries the stamp along, so looking the old path up at the tip finds nothing: every batch unit silently lost its whole artifact list the moment its first ticket was archived, and the survey then offered tickets already in flight — the double-pick the protocol exists to prevent (observed live 2026-07-30). One tree-to-tree diff per claim gives the net old→new mapping, so chained renames need no walk. **What the reader reports is the base-side path** (the one the claim commit stamped), because that is the coordinate space both consumers compare in: `plan-units.sh` against the working tree's queue, `claim.sh` against paths it resolved in the main tree. A genuine stamp *removal* still drops the artifact, and a *deleted* artifact is not claimed — both deliberate, both pinned by tests.
-- **Release = merge or branch deletion.** A merged branch's commits are on the base, so its claim leaves the unmerged set *by definition* — the normal path needs no script at all. Deliberately discarding an unfinished unit is the other path, and that one is explicit.
-- **Staleness is reported, never auto-broken.** A claim whose branch tip is older than `WORKAHOLIC_CLAIM_STALE_HOURS` (default 24) is marked `stale: true`. Nothing acts on that. A runner that reclaims on its own verdict is a runner that can silently duplicate a colleague's in-flight work over a long lunch; reclaiming is a human/dispatcher decision.
+- **Release = merge or branch deletion.** A merged branch's commits are on the base, so its claim leaves the unmerged set *by definition* — the normal path needs no script at all. Deliberately **discarding** an unfinished unit is the other path, and that one is explicit. `release-claim.sh` is **not** how an interrupted unit is recovered — it deletes the remote branch, which is the opposite of recovery; resumption is below.
+- **Resumable ≠ stale, and only one of them acts.** A claim whose branch tip is older than `WORKAHOLIC_CLAIM_STALE_HOURS` (default 24) is marked `stale: true`, and **nothing acts on that** — a runner that reclaims a *colleague's* work on its own verdict can silently duplicate it over a long lunch. Resumption is the narrower, safe case: **your own** claim, whose **heartbeat** has lapsed. Both conditions are computed in the shared scan and reported by `list-claims.sh` as `resumable` + `resume_reason`.
+  - **Liveness is the branch tip**, refreshed by `heartbeat.sh` (an empty commit) and by every ordinary work commit. No lock file, no server, nothing to leak when a runner dies — the signal rides the branch a merge or a release already cleans up, and changes no file so it never reaches the PR diff. The window is `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES` (default 30): **minutes, not the 24-hour `stale`**, because an hourly routine that recovers its own dropped unit only after a day is not a recovery path.
+  - **Same identity only.** The claim commit's author must be this runner's `git config user.email`. The principle (developer, 2026-08-01): *a pushed claim is the loop's work* — merging to `main` means the runner implemented it, and work you mean to keep in your own hands should never have been pushed as a claim. A colleague's claim is `foreign_identity` and untouchable at any age; an unresolvable identity resumes nothing. **Note the consequence**: a runner configured with a developer's email inherits that developer's claims. That is the intended reading of "the runner is `a@qmu.jp`" — but it means a *shared* identity across people would let one person's runner take another's work, so never configure one.
 - **Worktree lifecycle.** A worktree is **claim-born and ship-torn**: `claim.sh` creates `.worktrees/<unit-id>/`, and it is removed when the unit ships (§6) or when its claim is released. `/mission close` no longer tears worktrees down — a lingering worktree is an in-flight or stale *claim*, which is the reader's business.
 
 **The reader degrades offline; the writer does not.** With origin unreachable, `list-claims.sh` reports `fetched: false` and answers from the last-known remote-tracking refs, while `claim.sh` refuses to claim at all. The asymmetry is deliberate: a stale reader over-reports claims, which merely makes a runner wait, but a claim nobody else can see is not a claim, and driving on one is the double-pick the protocol exists to prevent.
@@ -282,7 +317,7 @@ State the model before the scripts, because the scripts only implement it:
 bash drive/scripts/list-claims.sh
 ```
 
-Pure read. Emits `{fetched, stale_hours, base, claims: [{unit, branch, artifacts, last_commit_at, stale}]}`. The unified run's survey (`plan-units.sh`) reads the **same scan** through the shared library rather than re-parsing this output, so the surveyor can never offer a unit the writer would refuse.
+Pure read. Emits `{fetched, stale_hours, heartbeat_stale_minutes, base, claims: [{unit, branch, artifacts, last_commit_at, stale, author, resumable, resume_reason}]}`. The unified run's survey (`plan-units.sh`) reads the **same scan** through the shared library rather than re-parsing this output, so the surveyor can never offer a unit the writer would refuse — and the resumability verdict is computed there too, for the same reason: a writer free to decide it independently could take over a unit the reader still calls active. This script takes nothing over; it exists so the state is readable without running a survey.
 
 ### Claim a unit
 
@@ -294,6 +329,18 @@ bash drive/scripts/claim.sh batch <ticket-file>...
 Never prompts. Verifies the unit is unclaimed **through the reader's own scan** (`scripts/lib/claims.sh`, which `list-claims.sh` merely renders — a writer carrying its own scan would be free to disagree with the reader, which is the one state a coordination protocol must not have), then creates the worktree, stamps, commits, and pushes. Emits `{claimed, unit, branch, worktree_path, artifacts}`, or refuses with a `reason`: `already_claimed` (naming the holding branch and unit), `no_origin`, `origin_unreachable`, `branch_collision`, `push_failed`, `artifact_missing`, `no_frontmatter`.
 
 The stamp rides the **worktree** checkout, never the main tree — the runner's main checkout stays clean between ticks, which the `/propose` batch depends on. A refused claim leaves nothing behind: the half-made worktree and its branch are removed, because an unpublished claim is not a claim.
+
+### Resume a dropped unit
+
+```bash
+bash drive/scripts/claim.sh resume <unit-id>
+```
+
+Takes over a claim the survey reported in `resumable[]`. It re-creates `.worktrees/<unit-id>/` **at the pushed branch tip** — not from the base — so the resumed run sees the earlier run's commits and does not re-drive the tickets that branch already archived, then publishes the takeover as an empty `Resume <unit-id>` commit and pushes it. From there the unit re-enters the Unified Run at step 4: its remaining tickets are whatever is still in `todo/` **on that branch**, and step 5's `create-or-update.sh` updates the existing PR rather than opening a second one.
+
+Emits `{claimed, resumed, unit, branch, worktree_path, announced, announce_reason, artifacts}`, or refuses with `not_claimed`, `claim_active` (naming the tip time — a run is still on it), `foreign_identity`, `identity_unresolved`, or `resume_race_lost`.
+
+**The race is settled by git, never by a clock.** Two runners can both see a unit as resumable in the same instant, both build a worktree at tip *T*, and both push a takeover. The first push wins; the second is rejected non-fast-forward, tears its worktree down, and reports `resume_race_lost` having taken nothing — the same way `branch_collision` settles two fresh claims. Nothing compares timestamps to pick a winner, which is what keeps this correct across a local runner and a cloud one with skewed clocks.
 
 ### Release a claim deliberately
 

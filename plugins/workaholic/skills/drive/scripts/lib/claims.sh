@@ -23,11 +23,57 @@
 #   claims_scan "<base>"    # echoes one TSV row per claim
 #
 # `claims_scan` emits, tab-separated, one row per claim:
-#   unit <TAB> branch <TAB> last_commit_at <TAB> stale <TAB> artifact,artifact,...
+#   unit <TAB> branch <TAB> last_commit_at <TAB> stale <TAB> author <TAB>
+#   resumable <TAB> resume_reason <TAB> artifact,artifact,...
 # where `branch` is the SHORT name (no `origin/` prefix -- the name the stamp carries),
 # `stale` is true|false against WORKAHOLIC_CLAIM_STALE_HOURS (default 24), and the
 # artifact list is comma-separated repo-relative paths (empty when a claim commit
-# stamped nothing that survives at the tip).
+# stamped nothing that survives at the tip). The artifact list stays LAST because it
+# is the only variable-length field; every consumer reads it as the tail.
+#
+# RESUMABILITY: A CLAIM NOBODY FINISHES USED TO BE UNREACHABLE FOREVER.
+# The design record says in-flight state lives on the claim branch and "the next tick
+# re-claims and resumes from what is pushed" (docs/loop-engineering-workflow.md I5).
+# The implementation did the opposite, measured 2026-08-01: plan-units.sh dropped every
+# claimed unit as `claimed`, and claim.sh refused the same unit as `already_claimed`, so
+# NO survey ever offered it again -- not the same runner's next tick, not another runner,
+# not a developer typing /drive. That is survivable for a local runner whose worktree is
+# still on disk, and fatal for a cloud runner whose worktree dies with its sandbox: the
+# pushed branch is the sole surviving copy and nothing routed anyone to it.
+#
+# The verdict is computed HERE, in the one scan all three consumers read, for the same
+# reason the claim check is: a surveyor and a writer that each decided resumability for
+# themselves would be free to disagree, and this protocol's one intolerable state is the
+# reader and the writer disagreeing about what is in flight.
+#
+# Two conditions, and the ORDER matters -- identity is checked first because a foreign
+# claim is never resumable at ANY age:
+#
+#   1. SAME IDENTITY. The claim commit's author email must equal this runner's
+#      `git config user.email`. The governing principle (developer, 2026-08-01) is that
+#      a *pushed claim is the loop's work* -- merging to main means the runner
+#      implemented it, and work you mean to keep in your own hands should never have
+#      been pushed as a claim. That is what makes same-identity resumption safe rather
+#      than reckless: it never licenses taking over a colleague's claim. An unresolvable
+#      identity resumes nothing, the same conservative reading plan-units.sh applies to
+#      mission ownership.
+#   2. NOT ACTIVE. The branch tip must be older than
+#      WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES (default 30). THE BRANCH TIP *IS* THE
+#      HEARTBEAT: heartbeat.sh refreshes it with an empty commit at a bounded interval,
+#      and any ordinary work commit refreshes it too -- which is correct, since a run
+#      that is committing is a run that is alive. Deciding liveness this way needs no
+#      lock file and no server (the protocol forbids both), pollutes no PR diff (an
+#      empty commit changes no file), and leaks nothing when a runner dies: the signal
+#      lives on the very branch that a merge or a release already cleans up.
+#
+# The 24-hour `stale` flag keeps its separate meaning -- REPORTED, never acted on. It is
+# not the resumption trigger: an hourly routine that recovers its own dropped unit only
+# after a day is not a recovery path, which is why the heartbeat threshold is in minutes.
+#
+# `resume_reason` always answers "why is it in this state", and is NEVER empty (see the
+# no-empty-field rule below): `heartbeat_lapsed` when resumable, else `claim_active`,
+# `foreign_identity`, or `identity_unresolved`. It is reported rather than merely implied
+# so an operator can read WHY a unit is untouchable straight out of list-claims.sh.
 #
 # Paths are assumed free of tabs, commas, quotes and backslashes -- true of every
 # .workaholic/ artifact by construction (the ticket/mission filename rules), and the
@@ -101,6 +147,20 @@ claims_scan() {
     _cs_now=$(date +%s)
     _cs_threshold=$((_cs_hours * 3600))
 
+    # The liveness window, in MINUTES and deliberately short (see the header). A
+    # malformed value falls back to the default rather than failing the scan: the
+    # reader must keep answering, and a bad env var is not a reason to report no
+    # claims at all.
+    _cs_hb="${WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES:-30}"
+    case "$_cs_hb" in
+        '' | *[!0-9]*) _cs_hb=30 ;;
+    esac
+    _cs_hb_threshold=$((_cs_hb * 60))
+
+    # Resolved once: whose runner this is. Empty means unresolvable, and every claim
+    # is then somebody else's.
+    _cs_me=$(git config user.email 2>/dev/null || true)
+
     for _cs_ref in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin 2>/dev/null | sort); do
         [ "$_cs_ref" = "origin/HEAD" ] && continue
         [ "$_cs_ref" = "$_cs_base" ] && continue
@@ -166,7 +226,41 @@ claims_scan() {
             _cs_stale=false
         fi
 
-        printf '%s\t%s\t%s\t%s\t%s\n' \
-            "$_cs_unit" "$_cs_branch" "$_cs_at" "$_cs_stale" "$_cs_artifacts"
+        # WHO holds this claim: the author of the claim commit itself, not of the tip.
+        # A resumed unit gains a `Resume` commit by whoever took it over, but takeover
+        # is same-identity by construction, so the claim commit stays the honest answer
+        # to "whose loop is this" even after several hand-offs.
+        #
+        # NO FIELD OF THIS ROW MAY BE EMPTY EXCEPT THE LAST. A tab is an IFS *whitespace*
+        # character, so `read` with IFS=<tab> collapses a run of tabs into one delimiter
+        # -- an empty middle field silently vanishes and every field after it shifts left.
+        # That is not theoretical: it is what an empty `resume_reason` did on first
+        # implementation, handing plan-units.sh the artifact list in the reason slot and
+        # an empty artifact list, which would have let the survey offer a ticket a claim
+        # already held. The artifact list is last precisely because a trailing empty field
+        # is the one case `read` handles correctly.
+        _cs_author=$(git log -1 --format='%ae' "$_cs_sha" 2>/dev/null || true)
+        [ -n "$_cs_author" ] || _cs_author="unknown"
+        [ -n "$_cs_at" ] || _cs_at="unknown"
+
+        # The resumability verdict (see the header). Identity first: a foreign claim is
+        # untouchable at any age, so its liveness never even needs measuring.
+        if [ -z "$_cs_me" ]; then
+            _cs_resumable=false
+            _cs_reason=identity_unresolved
+        elif [ "$_cs_author" != "$_cs_me" ]; then
+            _cs_resumable=false
+            _cs_reason=foreign_identity
+        elif [ $((_cs_now - _cs_ct)) -lt "$_cs_hb_threshold" ]; then
+            _cs_resumable=false
+            _cs_reason=claim_active
+        else
+            _cs_resumable=true
+            _cs_reason=heartbeat_lapsed
+        fi
+
+        printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+            "$_cs_unit" "$_cs_branch" "$_cs_at" "$_cs_stale" \
+            "$_cs_author" "$_cs_resumable" "$_cs_reason" "$_cs_artifacts"
     done
 }

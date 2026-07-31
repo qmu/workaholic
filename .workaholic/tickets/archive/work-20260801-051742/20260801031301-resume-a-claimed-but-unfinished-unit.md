@@ -3,12 +3,13 @@ created_at: 2026-08-01T03:13:01+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Domain]
-effort:
+effort: 4h
 commit_hash:
-category:
+category: Changed
 depends_on: [20260801031300-survey-never-reports-a-silently-empty-backlog.md]
 mission:
 merge_policy: auto
+claim: work-20260801-051742
 ---
 
 # A claimed unit that is never finished cannot be resumed by anyone, though the design record says it can
@@ -110,3 +111,50 @@ Decided: a heartbeat threshold in minutes rather than reusing the 24-hour `stale
 - `archive.sh` renames a driven ticket and the reader already follows the rename to report a base-side path; a resumed unit exercises that path harder than any current flow, so the existing rename assertions must stay green (`plugins/workaholic/skills/drive/scripts/archive.sh`).
 - This ticket changes what `ok` can mean: a resumable unit left unclaimed is claimable work outstanding, so it must land on the `pending` side of the terminal-token table (`plugins/workaholic/skills/drive/SKILL.md` §7).
 - Depends on the survey contract change in `20260801031300-survey-never-reports-a-silently-empty-backlog.md`; both edit `plan-units.sh`'s emitted object.
+
+## Final Report
+
+Development completed as planned. Every acceptance bullet has a hermetic case, including
+the fresh-heartbeat refusal the Gate singles out.
+
+### Discovered Insights
+
+- **Insight**: A tab is an **IFS whitespace character**, so `read` with `IFS=<tab>`
+  collapses a run of tabs into one delimiter. Adding `resume_reason` as an empty
+  middle field therefore made the field vanish and shifted every later field left:
+  `plan-units.sh` received the artifact list in the reason slot and an *empty*
+  artifact list — which would have let the survey offer tickets a claim already held,
+  the exact double-pick the protocol exists to prevent. It was caught only because a
+  new assertion checked `resumable[].artifacts`, not because anything failed loudly.
+  The fix is a rule, now stated in `lib/claims.sh`: **no field of the row may be empty
+  except the last**, and the variable-length artifact list is last precisely because a
+  trailing empty field is the one case `read` handles correctly.
+  **Context**: Any future field added to this TSV faces the same trap, and it is
+  silent — the row still parses, just wrongly.
+
+- **Insight**: Re-fetching leaves a takeover race half-open. The worktree creator
+  fetches the claim branch, so a runner that lost by a second would check out the
+  *winner's* new tip and its takeover would push as a clean fast-forward — two runners
+  driving one unit, each believing it won. The push rejection alone does not cover it.
+  The close is to pin the tip the resumability decision was made on and compare it to
+  the created HEAD; a mismatch is `resume_race_lost`.
+  **Context**: The general shape — "decide on state A, then act on state B because
+  something re-read in between" — applies to any check-then-act across a fetch.
+
+- **Insight**: The heartbeat needed no new artifact at all. Making the **branch tip
+  itself** the liveness signal satisfies every constraint the protocol imposes (no lock
+  file, no server, nothing that leaks when a runner dies) because the signal rides the
+  one artifact a merge or a release already cleans up — and an empty commit changes no
+  file, so it never reaches the PR diff. It also makes ordinary work commits refresh
+  liveness for free, which is the correct semantics: a run that is committing is alive.
+  **Context**: The alternatives considered were a custom ref namespace (not fetched by
+  the default refspec) and a separate heartbeat branch (new cleanup obligation, i.e. a
+  new leak). Both were worse for reasons that are properties of git, not of taste.
+
+- **Insight**: `commit.sh --allow-empty` was added rather than calling `git commit`
+  directly, so the takeover and heartbeat markers still pass the subject gate and carry
+  the trailers. It is deliberately opt-in: without the flag "nothing staged" stays the
+  warning it always was, so an ordinary commit whose staging silently failed can never
+  masquerade as a successful empty one.
+  **Context**: This is the first non-file-changing commit the plugin writes, and the
+  two callers of it are both coordination markers.

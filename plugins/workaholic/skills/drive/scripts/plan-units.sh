@@ -7,7 +7,10 @@
 #   {"fetched": bool, "base": "<ref>",
 #    "surveyed_sha": "<sha of the checkout's HEAD>", "base_sha": "<sha of <base>>",
 #    "current": bool,
-#    "claimed": [{"unit": "...", "branch": "...", "stale": bool}],
+#    "user_slug": "<the surveyed developer's queue slug, "" when unresolvable>",
+#    "backlog_error": "<reason, "" when the queue was read>",
+#    "claimed": [{"unit", "branch", "stale", "resumable", "resume_reason"}],
+#    "resumable": [{"unit", "branch", "author", "last_commit_at", "stale", "artifacts"}],
 #    "missions": [{"slug", "title", "merge_policy", "checked", "total", "next", "path"}],
 #    "backlog":  [{"path", "title", "type", "layer", "merge_policy", "depends_on"}],
 #    "excluded": [{"kind": "mission"|"ticket", "id": "...", "reason": "..."}]}
@@ -33,7 +36,7 @@
 # THE SPLIT IS THE POINT (docs/loop-engineering-workflow.md G2). Partitioning the
 # work into PR-units is two different jobs, and only one of them is mechanical:
 #
-#   * WHAT IS AVAILABLE is derivable -- approved missions, this developer's todo
+#   * WHAT IS AVAILABLE is derivable -- the active missions, this developer's todo
 #     queue, minus whatever a claim already holds. That is this script, and it is
 #     deterministic so two runners on two machines survey the same world.
 #   * WHAT DESERVES ONE MERGE is judgment -- which backlog tickets are related
@@ -49,18 +52,54 @@
 # read one scan. Both subtractions matter: the UNIT id keeps a claimed mission out
 # of the offer, and the ARTIFACT paths keep an already-batched ticket out of it.
 #
-# NOTHING IS EXCLUDED SILENTLY. Every mission and ticket the survey drops is
-# reported in `excluded` with its reason (`claimed`, `no_plan`, `no_tickets`,
-# `mission_member`; `not_approved` was retired with the draft gate -- K1),
-# because a queue item that vanishes from an
-# unattended run's offer with no trace is indistinguishable from one that was never
-# there (`workaholic:implementation` / observability).
+# NOTHING IS EXCLUDED SILENTLY. Every mission and ticket the survey drops is reported
+# in `excluded` with its reason (`claimed_active`, `claimed_by_other`,
+# `claimed_resumable`, `owned_by_other`, `no_plan`, `no_tickets`, `mission_member`;
+# `not_approved` was retired with the draft gate -- K1), because a queue item that
+# vanishes from an unattended run's offer with no trace is indistinguishable from one
+# that was never there (`workaholic:implementation` / observability).
+#
+# A CLAIM IS NOT A DEAD END. The single `claimed` reason split into three, because it
+# was hiding the difference between work in progress and work abandoned mid-flight: a
+# unit whose runner died was excluded forever, and the design record's promise that
+# "the next tick re-claims and resumes" was false in code (see lib/claims.sh). Now
+# `claimed_active` means a run is on it, `claimed_by_other` means it is not this
+# runner's at any age, and `claimed_resumable` means the unit ALSO appears in
+# `resumable[]` and can be taken over. The three names are read straight out of cron
+# logs, so each one has to imply its own next action.
+#
+# `resumable[]` is a THIRD offer alongside `missions`/`backlog`, not a fourth kind of
+# exclusion: those two are claimed fresh from the base, a resumable unit is taken over
+# at its pushed branch tip. A resumable unit left untaken is claimable work outstanding
+# and therefore forbids `ok` (drive/SKILL.md §7), exactly as an unclaimed ticket does.
 #
 # `no_plan` and `no_tickets` are DELIBERATELY DISTINCT, because they call for
 # different developer actions: `no_plan` means write the acceptance criteria,
 # `no_tickets` means emit the ticket set (`/mission <instruction>` replans it). The
 # reason vocabulary is read straight out of cron logs, so collapsing them would make
 # the log less actionable.
+#
+# AN UNREADABLE QUEUE IS NOT AN EMPTY ONE. The backlog half is scoped to the current
+# developer, so it has a failure mode the mission half does not: with no
+# `git config user.email` there is no queue directory to name, and a survey that
+# discarded that status would emit `backlog: []` and let the run terminate `ok` over
+# a full queue. So the read's status is captured, not swallowed: `backlog_error` names
+# the reason (`identity_unresolved`, `unreadable`) and is `""` when the queue was
+# genuinely read, and `user_slug` reports WHOSE queue was surveyed. A non-empty
+# `backlog_error` forbids `ok` exactly as `current: false` does (drive/SKILL.md §7).
+# It is a top-level key rather than an `excluded[]` entry for the same reason `current`
+# is: `excluded[]` names artifacts the survey SAW and dropped, and this condition is
+# that it never learned any artifact exists.
+#
+# MISSIONS ARE FILTERED BY OWNERSHIP, through the one oracle every other consumer
+# already reads (mission/scripts/mission-owners.sh -- plural `assignees`, legacy
+# fallback to the singular `assignee`). The gate is the mission lens's, verbatim: a
+# mission is offerable when the runner's identity is AMONG its owners, or it has no
+# owners at all (team-owned = claimable); only a mission owned solely by others is
+# dropped, as `owned_by_other`. Without this the executor was the single ownership
+# consumer answering differently from the roadmap the developer is shown -- and an
+# unattended runner would claim a colleague's mission and, under
+# `merge_policy: auto`, drive it to `main`.
 #
 # Pure read: it fetches (through the shared reader) and inspects, and writes nothing.
 
@@ -124,21 +163,59 @@ fi
 CLAIMED_UNITS=""
 CLAIMED_ARTIFACTS=""
 CLAIMED_JSON=""
+RESUMABLE=""
+# Why each claimed unit/artifact is not freshly claimable, keyed by unit id AND by
+# artifact path, so the exclusion vocabulary below can stay specific.
+CLAIM_REASONS=""
 if [ -n "$ROWS" ]; then
     sep=""
-    while IFS='	' read -r c_unit c_branch _c_at c_stale c_arts; do
+    r_sep=""
+    while IFS='	' read -r c_unit c_branch c_at c_stale c_author c_resumable c_reason c_arts; do
         [ -n "$c_unit" ] || continue
         CLAIMED_UNITS="${CLAIMED_UNITS}${c_unit}
+"
+        # A bare `claimed` told a cron log nothing actionable. "Being driven right
+        # now", "a colleague's", and "yours, dropped, and recoverable" call for three
+        # different responses -- wait, never, resume -- so they get three names.
+        if [ "$c_resumable" = "true" ]; then
+            c_exc=claimed_resumable
+        elif [ "$c_reason" = "foreign_identity" ] || [ "$c_reason" = "identity_unresolved" ]; then
+            c_exc=claimed_by_other
+        else
+            c_exc=claimed_active
+        fi
+        CLAIM_REASONS="${CLAIM_REASONS}${c_unit}	${c_exc}
 "
         old_ifs="$IFS"
         IFS=','
         for art in $c_arts; do
             CLAIMED_ARTIFACTS="${CLAIMED_ARTIFACTS}${art}
 "
+            CLAIM_REASONS="${CLAIM_REASONS}${art}	${c_exc}
+"
         done
         IFS="$old_ifs"
-        CLAIMED_JSON="${CLAIMED_JSON}${sep}{\"unit\": \"${c_unit}\", \"branch\": \"${c_branch}\", \"stale\": ${c_stale}}"
+        CLAIMED_JSON="${CLAIMED_JSON}${sep}{\"unit\": \"${c_unit}\", \"branch\": \"${c_branch}\", \"stale\": ${c_stale}, \"resumable\": ${c_resumable}, \"resume_reason\": \"${c_reason}\"}"
         sep=", "
+        # A RESUMABLE UNIT IS CLAIMABLE WORK, so it is offered rather than dropped --
+        # in its own group, deliberately not merged into `missions`/`backlog`. Those
+        # are fresh units a runner claims from the base; this one is taken over with
+        # `claim.sh resume` and continues from the pushed branch tip, which is a
+        # different action. Keeping them apart lets the caller route each correctly
+        # without re-deriving the claim state it was just handed.
+        if [ "$c_resumable" = "true" ]; then
+            r_arts=""
+            a_sep=""
+            old_ifs="$IFS"
+            IFS=','
+            for art in $c_arts; do
+                r_arts="${r_arts}${a_sep}\"$(json_escape "$art")\""
+                a_sep=", "
+            done
+            IFS="$old_ifs"
+            RESUMABLE="${RESUMABLE}${r_sep}{\"unit\": \"${c_unit}\", \"branch\": \"${c_branch}\", \"author\": \"$(json_escape "$c_author")\", \"last_commit_at\": \"${c_at}\", \"stale\": ${c_stale}, \"artifacts\": [${r_arts}]}"
+            r_sep=", "
+        fi
     done <<EOF
 $ROWS
 EOF
@@ -149,6 +226,13 @@ is_claimed_unit() {
 }
 is_claimed_artifact() {
     printf '%s' "$CLAIMED_ARTIFACTS" | grep -qx -- "$1" 2>/dev/null
+}
+# The specific reason a claimed unit/artifact is excluded. `claimed_active` is the
+# fallback if a row is somehow missing: never offer, always report.
+claim_reason_for() {
+    _cr=$(printf '%s' "$CLAIM_REASONS" | awk -F'\t' -v k="$1" '$1 == k { print $2; exit }')
+    [ -n "$_cr" ] || _cr=claimed_active
+    printf '%s' "$_cr"
 }
 
 EXCLUDED=""
@@ -178,15 +262,39 @@ exclude() {
 # claimable. So drivability is also checked against the ticket queue itself
 # (`mission/scripts/queue-size.sh`, the single reader both floors call), and a mission
 # with nothing left in todo/ is excluded `no_tickets`.
+#
+# Ownership is applied FIRST among the mission checks, because "not my work"
+# is the cheapest true answer and the one an operator reading a cron log wants: a
+# colleague's mission that is also claimed is `owned_by_other` to this runner either
+# way, and no action of theirs follows from the claim.
 MISSIONS=""
 m_sep=""
+# The runner's identity, resolved once. Empty means unresolvable — the same condition
+# `backlog_error` reports below — and every OWNED mission is then someone else's,
+# which is the conservative reading: a runner that cannot say who it is must not
+# claim work on anyone's behalf. Unowned missions stay offerable, as everywhere else.
+ME=$(git config user.email 2>/dev/null || true)
 if [ -d ".workaholic/missions/active" ]; then
     for d in $(find .workaholic/missions/active -maxdepth 1 -mindepth 1 -type d 2>/dev/null | LC_ALL=C sort); do
         f="${d}/mission.md"
         [ -f "$f" ] || continue
         slug=$(basename "$d")
-        if is_claimed_unit "$slug" || is_claimed_artifact "$f"; then
-            exclude mission "$slug" "claimed"
+        # No status check: since K1 the AREA is the authority. A mission reaches
+        # `missions/active/` on `main` only by merging its pull request, and that merge
+        # IS the approval -- re-reading a status word here would re-ask the question the
+        # review already answered.
+        # Mine, or unclaimed. Someone else's is not this runner's to take.
+        owners=$(sh "${MISSION_SCRIPTS}/mission-owners.sh" "$f" 2>/dev/null || true)
+        if [ -n "$owners" ] && { [ -z "$ME" ] || ! printf '%s\n' "$owners" | grep -Fxq "$ME"; }; then
+            exclude mission "$slug" "owned_by_other"
+            continue
+        fi
+        if is_claimed_unit "$slug"; then
+            exclude mission "$slug" "$(claim_reason_for "$slug")"
+            continue
+        fi
+        if is_claimed_artifact "$f"; then
+            exclude mission "$slug" "$(claim_reason_for "$f")"
             continue
         fi
         progress=$(sh "${MISSION_SCRIPTS}/progress.sh" "$f" 2>/dev/null || true)
@@ -221,12 +329,26 @@ fi
 # anything a claim holds, minus anything a mission already owns: a missioned
 # ticket is driven as part of its mission's unit, in that mission's worktree, so
 # offering it here would split one plan across two PRs.
+#
+# The read's STATUS is captured rather than discarded (see the header): list-todo.sh
+# exits 3 when the developer's identity — and therefore the queue directory — cannot
+# be resolved at all, which is a different fact from an empty queue and must not
+# render identically.
 BACKLOG=""
 b_sep=""
-for t in $(sh "${SCRIPT_DIR}/list-todo.sh" 2>/dev/null || true); do
+USER_SLUG=$(sh "${SCRIPT_DIR}/../../gather/scripts/user-slug.sh" 2>/dev/null || true)
+BACKLOG_ERROR=""
+todo_status=0
+TODO_LIST=$(sh "${SCRIPT_DIR}/list-todo.sh" 2>/dev/null) || todo_status=$?
+case "$todo_status" in
+    0) ;;
+    3) BACKLOG_ERROR="identity_unresolved" ;;
+    *) BACKLOG_ERROR="unreadable" ;;
+esac
+for t in $TODO_LIST; do
     [ -f "$t" ] || continue
     if is_claimed_artifact "$t"; then
-        exclude ticket "$t" "claimed"
+        exclude ticket "$t" "$(claim_reason_for "$t")"
         continue
     fi
     relation=$(sh "${MISSION_SCRIPTS}/read-relation.sh" "$t" 2>/dev/null || true)
@@ -243,5 +365,6 @@ for t in $(sh "${SCRIPT_DIR}/list-todo.sh" 2>/dev/null || true); do
     b_sep=", "
 done
 
-printf '{"fetched": %s, "base": "%s", "surveyed_sha": "%s", "base_sha": "%s", "current": %s, "claimed": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s]}\n' \
-    "$FETCHED" "$BASE" "$SURVEYED_SHA" "$BASE_SHA" "$CURRENT" "$CLAIMED_JSON" "$MISSIONS" "$BACKLOG" "$EXCLUDED"
+printf '{"fetched": %s, "base": "%s", "surveyed_sha": "%s", "base_sha": "%s", "current": %s, "user_slug": "%s", "backlog_error": "%s", "claimed": [%s], "resumable": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s]}\n' \
+    "$FETCHED" "$BASE" "$SURVEYED_SHA" "$BASE_SHA" "$CURRENT" "$(json_escape "$USER_SLUG")" "$BACKLOG_ERROR" \
+    "$CLAIMED_JSON" "$RESUMABLE" "$MISSIONS" "$BACKLOG" "$EXCLUDED"

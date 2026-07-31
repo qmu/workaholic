@@ -309,6 +309,8 @@
 * [Make the branch story say less when there is less to say](20260731165727-make-the-branch-story-say-less-when-there-is-less-to-say.md)
 * [Filtering low concerns out of the story deletes them from the stream](20260731165740-filtering-low-concerns-out-of-the-story-deletes-them-from-the-stream.md)
 * [Review of the draft session-start bootstrap hook](20260731170144-review-of-the-draft-session-start-bootstrap-hook.md)
+* [Raise the too-large-commit ceiling by 1.5x to 750 lines](20260731171456-raise-the-too-large-commit-ceiling-by-1-5x-to-750-lines.md)
+* [A ceiling raise ticks three mission criteria without addressing the diagnosis](20260731171513-a-ceiling-raise-ticks-three-mission-criteria-without-addressing-the-diagnosis.md)
 * [Missions are too heavy to close: cap their size instead of loosening their gates](20260801012120-missions-are-too-heavy-to-close-cap-their-size-instead-of-loosening-their-gates.md)
 * [A publication branch is a work-* branch that no claim owns](20260801021156-a-publication-branch-is-a-work.md)
 * [An unmerged proposal blocks its own mission's replan](20260801021156-an-unmerged-proposal-blocks-its-own.md)

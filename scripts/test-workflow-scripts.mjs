@@ -7639,8 +7639,12 @@ function testPlanUnits() {
     const claimed = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.claim} mission m1`).stdout);
     plan = JSON.parse(run(A, PLAN).stdout);
     assertEq("a claimed mission is no longer offered", plan.missions.length, 0);
+    // `claimed_active`, not a bare `claimed`: the claim was just pushed, so its branch
+    // tip is inside the heartbeat window and a run is presumed to be on it. The three
+    // claimed-* reasons each imply a different next action (wait / never / resume).
     assertEq("the claimed mission is reported as excluded, with its reason",
-      plan.excluded.find((e) => e.id === "m1")?.reason, "claimed");
+      plan.excluded.find((e) => e.id === "m1")?.reason, "claimed_active");
+    assertEq("a freshly claimed unit is not offered as resumable", plan.resumable.length, 0);
     assertEq("the in-flight claim is reported alongside the offer",
       plan.claimed.map((c) => c.unit), [claimed.unit]);
     assertEq("the backlog is untouched by a mission claim", plan.backlog.length, 2);
@@ -7652,7 +7656,7 @@ function testPlanUnits() {
     plan = JSON.parse(run(A, PLAN).stdout);
     assertEq("a claimed ticket leaves the backlog", plan.backlog.map((t) => t.path),
       [`.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`]);
-    assertEq("the claimed ticket is reported as excluded", plan.excluded.find((e) => e.id === t1)?.reason, "claimed");
+    assertEq("the claimed ticket is reported as excluded", plan.excluded.find((e) => e.id === t1)?.reason, "claimed_active");
   } finally { cleanup(origin); cleanup(A); cleanup(B); }
 }
 
@@ -8344,7 +8348,7 @@ function testDriveSurveysCurrentMain() {
       assertTrue(`the ${name}'s survey no longer offers the claimed ticket`,
         !after.backlog.some((t) => t.path === REL), JSON.stringify(after.backlog));
       assertTrue(`the ${name}'s survey states why it was dropped`,
-        after.excluded.some((e) => e.id === REL && e.reason === "claimed"), JSON.stringify(after.excluded));
+        after.excluded.some((e) => e.id === REL && e.reason === "claimed_active"), JSON.stringify(after.excluded));
     }
     run(A, `${POSIX_SH} ${SCRIPTS.releaseClaim} ${won.unit}`);
 
@@ -8524,7 +8528,7 @@ function testClaimSurvivesArchive() {
       assertTrue(`the survey does not offer the in-flight ${t.split("/").pop()}`,
         !plan.backlog.some((x) => x.path === t), JSON.stringify(plan.backlog));
       assertTrue(`and states it was dropped as claimed: ${t.split("/").pop()}`,
-        plan.excluded.some((e) => e.id === t && e.reason === "claimed"), JSON.stringify(plan.excluded));
+        plan.excluded.some((e) => e.id === t && e.reason === "claimed_active"), JSON.stringify(plan.excluded));
     }
 
     // And a second claim over the same tickets is still refused.
@@ -8746,6 +8750,436 @@ function testShipExtractionOnBaseIsDirect() {
   }
 }
 
+// ---------- claiming ANNOUNCES, and the notice is never load-bearing ----------
+// The claim is the first published commitment a run makes, but until this seam existed
+// nothing told a PERSON: the first human-visible artifact was the PR, opened only after
+// every ticket in the unit had been driven. For an unattended fleet that silent window
+// made "working" and "dead" look identical. What every assertion below is really about
+// is the OTHER half of the contract: a claim must survive every way the notifier can
+// fail, because a Slack outage that starts discarding claims is far worse than silence.
+function testClaimAnnounces() {
+  const { origin, A, B } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const stubDir = mkdtempSync(join(tmpdir(), "wh-notify-"));
+  const capture = join(stubDir, "posted.txt");
+  const okStub = join(stubDir, "ok.sh");
+  const failStub = join(stubDir, "fail.sh");
+  writeFileSync(okStub, `#!/bin/sh\nprintf '%s\\n' "$1" >> ${capture}\necho '{"notified": true, "reason": ""}'\n`);
+  writeFileSync(failStub, `#!/bin/sh\necho boom >&2\nexit 1\n`);
+  chmodSync(okStub, 0o755);
+  chmodSync(failStub, 0o755);
+  // The real notifier must never be reached from a test, so the environment is stripped
+  // of Slack wiring for the default-notifier case below.
+  const bare = { ...process.env };
+  delete bare.SLACK_BOT_TOKEN;
+  delete bare.WORKAHOLIC_SLACK_CHANNEL;
+
+  try {
+    // ---- 1. No token: the real notifier no-ops, and the claim is untouched ----
+    const noTok = JSON.parse(run(A, `${CLAIM} mission m1`, { env: bare }).stdout);
+    assertEq("a claim with no Slack token still succeeds",
+      { c: noTok.claimed, u: noTok.unit }, { c: true, u: "m1" });
+    assertEq("and reports the notice did not go out, with the reason",
+      { a: noTok.announced, r: noTok.announce_reason }, { a: false, r: "no_token" });
+    assertTrue("the worktree is intact despite the missing notice",
+      existsSync(join(A, ".worktrees/m1")));
+    assertEq("the claim is genuinely in flight",
+      JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout).claims.length, 1);
+
+    // ---- 2. A notifier that EXITS NON-ZERO must not unwind the claim ----
+    tickSecond();
+    const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const broken = run(B, `${CLAIM} batch ${t1}`, { env: { ...bare, WORKAHOLIC_NOTIFIER: failStub } });
+    assertEq("a claim whose notifier fails still exits 0", broken.status, 0);
+    const bj = JSON.parse(broken.stdout);
+    assertEq("and still reports itself claimed", bj.claimed, true);
+    assertEq("and names the notifier failure rather than swallowing it",
+      { a: bj.announced, r: bj.announce_reason }, { a: false, r: "notifier_failed" });
+    assertTrue("a failed notice never tears the worktree down (no abort_claim)",
+      existsSync(join(B, ".worktrees", bj.unit)));
+    assertEq("the claim reached origin despite the failed notice",
+      JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout).claims.length, 2);
+
+    // ---- 3. The message: one line, naming the unit and the branch ----
+    tickSecond();
+    const t2 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`;
+    const posted = JSON.parse(run(A, `${CLAIM} batch ${t2}`,
+      { env: { ...bare, WORKAHOLIC_NOTIFIER: okStub } }).stdout);
+    assertEq("a successful notice is reported as such",
+      { a: posted.announced, r: posted.announce_reason }, { a: true, r: "" });
+    const lines = readFileSync(capture, "utf8").trim().split("\n");
+    assertEq("exactly one notice was posted", lines.length, 1);
+    assertTrue("the notice names the unit id", lines[0].includes(posted.unit), lines[0]);
+    assertTrue("the notice names the branch", lines[0].includes(posted.branch), lines[0]);
+    assertTrue("the notice is a single line", !lines[0].includes("\n"), lines[0]);
+
+    // ---- 4. A REFUSED claim announces nothing ----
+    // The announcement sits below every abort_claim call site precisely so this holds.
+    tickSecond();
+    const refused = run(B, `${CLAIM} batch ${t2}`, { env: { ...bare, WORKAHOLIC_NOTIFIER: okStub } });
+    assertTrue("the overlapping claim is refused", refused.status !== 0, `status ${refused.status}`);
+    assertEq("a refused claim announces nothing",
+      readFileSync(capture, "utf8").trim().split("\n").length, 1);
+
+    // ---- 5. One notifier, reached as a script ----
+    // Comment lines are stripped first: the rule forbids an inline network CALL, and
+    // prose explaining why the notifier is reached as a script is not one.
+    const code = readFileSync(SCRIPTS.claim, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("claim.sh makes no inline network call", !/\bcurl\b|\bwget\b/.test(code), "found curl/wget in claim.sh code");
+    const src = readFileSync(SCRIPTS.claim, "utf8");
+    assertTrue("claim.sh reaches the existing notifier script",
+      /propose\/scripts\/notify-slack\.sh/.test(src), "claim.sh does not reference notify-slack.sh");
+  } finally { cleanup(origin); cleanup(A); cleanup(B); cleanup(stubDir); }
+}
+
+// ---------- a dropped claim is RESUMED, not stranded forever ----------
+// The design record said "the next tick re-claims and resumes from what is pushed"
+// (loop-engineering-workflow I5) while the code did the exact opposite: plan-units.sh
+// dropped every claimed unit and claim.sh refused it, so no survey ever offered it
+// again. Survivable for a local runner whose worktree is still on disk; fatal for a
+// cloud runner whose worktree dies with its sandbox. The FIRST case below is the one
+// this feature must never get wrong -- taking over a unit that is still being driven
+// trades a recoverable stall for concurrent writes to one branch.
+function testClaimResume() {
+  const { origin, A, B } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const LIST = `${POSIX_SH} ${SCRIPTS.listClaims}`;
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  // Heartbeat window 0 => the tip is always older than it, i.e. "the run is gone".
+  const lapsed = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0" };
+  try {
+    const claimed = JSON.parse(run(A, `${CLAIM} mission m1`).stdout);
+
+    // ---- 1. A FRESH heartbeat is never resumable, and resume refuses ----
+    let r = JSON.parse(run(B, LIST).stdout);
+    assertEq("the reader reports the default heartbeat window", r.heartbeat_stale_minutes, 30);
+    assertEq("a claim whose tip is fresh is not resumable",
+      { res: r.claims[0].resumable, why: r.claims[0].resume_reason }, { res: false, why: "claim_active" });
+    const active = run(B, `${CLAIM} resume m1`);
+    assertTrue("resuming an active claim exits non-zero", active.status !== 0, `status ${active.status}`);
+    const aj = JSON.parse(active.stderr.trim().split("\n").pop());
+    assertEq("and is refused as claim_active, naming the branch it is active on",
+      { r: aj.reason, b: aj.branch, c: aj.claimed }, { r: "claim_active", b: claimed.branch, c: false });
+    assertTrue("the refused resume built no worktree", !existsSync(join(B, ".worktrees/m1")));
+    assertEq("a fresh claim is never offered as resumable",
+      JSON.parse(run(B, PLAN, { env: process.env }).stdout).resumable.length, 0);
+
+    // ---- 2. A FOREIGN identity is never resumable, at any age ----
+    execSync(`git config user.email other@example.com`, { cwd: B });
+    r = JSON.parse(run(B, LIST, { env: lapsed }).stdout);
+    assertEq("a lapsed claim authored by someone else is still not resumable",
+      { res: r.claims[0].resumable, why: r.claims[0].resume_reason },
+      { res: false, why: "foreign_identity" });
+    assertEq("the reader names the claim's author", r.claims[0].author, "test@example.com");
+    const foreign = run(B, `${CLAIM} resume m1`, { env: lapsed });
+    assertEq("resuming another identity's claim is refused",
+      JSON.parse(foreign.stderr.trim().split("\n").pop()).reason, "foreign_identity");
+    assertEq("and it is never offered to them either",
+      JSON.parse(run(B, PLAN, { env: lapsed }).stdout).resumable.length, 0);
+    execSync(`git config user.email test@example.com`, { cwd: B });
+
+    // ---- 3. Same identity + lapsed heartbeat = offered, and takeable ----
+    // A's run also pushed real work before dying; the resumed worktree must start there.
+    const wtA = join(A, ".worktrees/m1");
+    writeFileSync(join(wtA, "progress.txt"), "work the first run finished\n");
+    execSync(`git add -A && git commit -q -m "Add first run progress" && git push -q origin ${claimed.branch}`, { cwd: wtA });
+    const tip = execSync(`git rev-parse HEAD`, { cwd: wtA, encoding: "utf8" }).trim();
+
+    const plan = JSON.parse(run(B, PLAN, { env: lapsed }).stdout);
+    assertEq("a lapsed claim of one's own is offered as resumable",
+      plan.resumable.map((u) => u.unit), ["m1"]);
+    assertEq("the resumable offer carries the branch and the claimed artifacts",
+      { b: plan.resumable[0].branch, a: plan.resumable[0].artifacts },
+      { b: claimed.branch, a: [".workaholic/missions/active/m1/mission.md"] });
+    assertTrue("it is still excluded from the fresh-claim offer",
+      !plan.missions.some((m) => m.slug === "m1"), JSON.stringify(plan.missions));
+    assertEq("and its exclusion reason says it is resumable, not merely claimed",
+      plan.excluded.find((e) => e.id === "m1")?.reason, "claimed_resumable");
+
+    const resumed = JSON.parse(run(B, `${CLAIM} resume m1`, { env: lapsed }).stdout);
+    assertEq("the takeover reports itself as a resume of the same unit and branch",
+      { c: resumed.claimed, res: resumed.resumed, u: resumed.unit, b: resumed.branch },
+      { c: true, res: true, u: "m1", b: claimed.branch });
+
+    // THE POINT OF THE WHOLE FEATURE: the resumed worktree starts at the PUSHED TIP,
+    // so the earlier run's work survives instead of being silently redone.
+    assertTrue("the resumed worktree carries the earlier run's file",
+      existsSync(join(B, ".worktrees/m1/progress.txt")));
+    assertTrue("the resumed worktree contains the earlier run's commit",
+      execSync(`git log --format=%H`, { cwd: join(B, ".worktrees/m1"), encoding: "utf8" }).includes(tip));
+    assertEq("the takeover is published on the same branch",
+      execSync(`git rev-parse --abbrev-ref HEAD`, { cwd: join(B, ".worktrees/m1"), encoding: "utf8" }).trim(),
+      claimed.branch);
+    // The takeover marker changes no file, so it can never pollute the PR diff.
+    assertEq("the takeover commit is empty",
+      execSync(`git show --stat --format= HEAD`, { cwd: join(B, ".worktrees/m1"), encoding: "utf8" }).trim(), "");
+    assertTrue("the takeover is on origin",
+      execSync(`git log --format=%s -3 refs/heads/${claimed.branch}`, { cwd: origin, encoding: "utf8" })
+        .includes("Resume m1"));
+    // The unit stays ONE claim -- a takeover must not mint a second one.
+    assertEq("the unit is still exactly one claim in flight",
+      JSON.parse(run(A, LIST).stdout).claims.map((c) => c.unit), ["m1"]);
+
+    // ---- 4. Not claimed at all is its own refusal, not a silent fresh claim ----
+    const none = run(B, `${CLAIM} resume nonesuch`, { env: lapsed });
+    assertEq("resuming a unit nobody claimed is refused",
+      JSON.parse(none.stderr.trim().split("\n").pop()).reason, "not_claimed");
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
+// Two runners can see one unit as resumable in the same instant. Exactly one takeover
+// may land: the loser must take NOTHING and report a retryable reason. Nothing here may
+// be decided by comparing clocks -- a local runner and a cloud one have skewed ones --
+// so the arbiter is git, in two layers (the pinned-tip check, then the non-ff push).
+function testResumeRace() {
+  const { origin, A, B } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  // A REALISTIC window with an AGED claim, not a zero-minute one. With a 0-minute
+  // window every tip is instantly "abandoned", so a second attempt made *after* the
+  // first takeover would legitimately re-resume — the fixture would be asserting the
+  // absence of a property the configuration does not ask for. Backdating the claim
+  // commit two hours under a 60-minute window makes the ONLY thing that can keep the
+  // second runner out the first runner's takeover, which is exactly the property.
+  const window60 = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "60" };
+  const aged = {
+    ...process.env,
+    GIT_COMMITTER_DATE: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+    GIT_AUTHOR_DATE: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+  };
+  const racers = [];
+  try {
+    const claimed = JSON.parse(run(A, `${CLAIM} mission m1`, { env: aged }).stdout);
+    // Two FRESH clones: neither holds the original worktree, so both can genuinely
+    // attempt the takeover (A cannot — its .worktrees/m1 already exists).
+    for (const name of ["C", "D"]) {
+      const c = mkdtempSync(join(tmpdir(), `wh-race-${name}-`));
+      execSync(`git clone -q ${origin} .`, { cwd: c });
+      execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: c });
+      racers.push(c);
+    }
+    const [C, D] = racers;
+    assertTrue("the aged claim is offered as resumable to a fresh runner",
+      JSON.parse(run(C, `${POSIX_SH} ${SCRIPTS.planUnits}`, { env: window60 }).stdout)
+        .resumable.map((u) => u.unit).includes("m1"));
+
+    const first = run(C, `${CLAIM} resume m1`, { env: window60 });
+    const second = run(D, `${CLAIM} resume m1`, { env: window60 });
+
+    assertEq("the first takeover wins", first.status, 0);
+    assertTrue("the second takeover is refused", second.status !== 0, `status ${second.status}`);
+    const sj = JSON.parse(second.stderr.trim().split("\n").pop());
+    // Either arbiter is a correct answer, and which one fires depends on whether the
+    // loser's scan ran before or after the winner's push. What must NEVER happen is a
+    // second runner driving the same unit, so both accepted reasons are refusals that
+    // leave nothing behind: `claim_active` (it saw the fresh takeover) or
+    // `resume_race_lost` (it decided first, and git rejected it).
+    assertTrue("the loser reports a named, retryable refusal",
+      ["resume_race_lost", "claim_active"].includes(sj.reason), JSON.stringify(sj));
+    assertEq("and took nothing", sj.claimed, false);
+    assertTrue("the loser left no worktree behind", !existsSync(join(D, ".worktrees/m1")));
+    assertEq("exactly one Resume commit reached the branch",
+      execSync(`git log --format=%s refs/heads/${claimed.branch}`, { cwd: origin, encoding: "utf8" })
+        .split("\n").filter((l) => l === "Resume m1").length, 1);
+    // And the unit is still ONE claim: a takeover never mints a second.
+    assertEq("the unit remains a single claim in flight",
+      JSON.parse(run(C, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout).claims.map((c) => c.unit), ["m1"]);
+  } finally { cleanup(origin); cleanup(A); cleanup(B); racers.forEach(cleanup); }
+}
+
+// heartbeat.sh keeps a WORKING unit out of the resumable offer. Without it a run that
+// spends an hour on one ticket looks abandoned and gets taken over underneath itself.
+function testHeartbeat() {
+  const { origin, A, B } = makeClaimFixture();
+  const HEARTBEAT = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/heartbeat.sh")}`;
+  // A window of 0 minutes makes ANY tip lapsed, so the only thing that can keep the
+  // unit out of the offer is a beat landing after the reader looked -- which is
+  // precisely the property under test, expressed without sleeping for 30 minutes.
+  const lapsed = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0" };
+  const oneMinute = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "1" };
+  try {
+    const claimed = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.claim} mission m1`).stdout);
+    const before = execSync(`git rev-parse HEAD`, { cwd: join(A, ".worktrees/m1"), encoding: "utf8" }).trim();
+
+    const beat = JSON.parse(run(A, `${HEARTBEAT} m1`).stdout);
+    assertEq("the beat reports success and the branch it advanced",
+      { b: beat.beat, br: beat.branch }, { b: true, br: claimed.branch });
+    const after = execSync(`git rev-parse HEAD`, { cwd: join(A, ".worktrees/m1"), encoding: "utf8" }).trim();
+    assertTrue("the beat advanced the claim branch tip", after !== before, `${before} -> ${after}`);
+    assertEq("the beat changed no file — it can never reach the PR diff",
+      execSync(`git show --stat --format= HEAD`, { cwd: join(A, ".worktrees/m1"), encoding: "utf8" }).trim(), "");
+    assertTrue("the beat is pushed, so other runners can see it",
+      execSync(`git rev-parse refs/heads/${claimed.branch}`, { cwd: origin, encoding: "utf8" }).trim() === after);
+    // A beaten claim reads as ACTIVE within a real window.
+    const r = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.listClaims}`, { env: oneMinute }).stdout);
+    assertEq("a just-beaten claim is active, not resumable",
+      { res: r.claims[0].resumable, why: r.claims[0].resume_reason }, { res: false, why: "claim_active" });
+    // The beat must not be mistaken for the claim itself.
+    assertEq("the unit is still read from its Claim commit", r.claims[0].unit, "m1");
+    assertEq("and it is still exactly one claim",
+      JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.listClaims}`, { env: lapsed }).stdout).claims.length, 1);
+
+    // NEVER LOAD-BEARING: an unknown unit is reported, not thrown.
+    const missing = run(A, `${HEARTBEAT} no-such-unit`);
+    assertEq("beating a unit with no worktree exits 0", missing.status, 0);
+    assertEq("and reports why it did not beat",
+      { b: JSON.parse(missing.stdout).beat, r: JSON.parse(missing.stdout).reason },
+      { b: false, r: "no_worktree" });
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
+// ---------- `handoff`: a run that could not finish says so where a person looks ----------
+// The four ticket outcomes close over what happens to a TICKET; none of them says "a
+// person must pick this up from here, and this is where to start". That state used to
+// live only in the run report — stdout nobody re-reads — which for a cloud run means
+// nowhere at all, since the PR is the entire inheritance once the sandbox dies.
+function testHandoffState() {
+  const drive = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  const report = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/report/SKILL.md"), "utf8");
+
+  assertTrue("drive/SKILL.md defines a handoff unit state", /`handoff`/.test(drive));
+  assertTrue("the boundary test distinguishes handoff from blocked",
+    /queue is \*\*not drained\*\*/.test(drive) && /nothing further is possible/.test(drive), "no boundary test");
+  assertTrue("and from a review unit waiting at a PR",
+    /Its queue \*\*is\*\* drained/.test(drive), "no review-at-a-PR contrast");
+  assertTrue("handoff cannot be the soft landing for unattempted work",
+    /soft landing/.test(drive) && /Attempt every ticket/.test(drive), "no attempt-every-ticket guard");
+  assertTrue("the ticket-outcome contract stays four-valued",
+    /the four ticket outcomes stay four/i.test(drive), "no statement that the four outcomes are unchanged");
+  assertTrue("handoff lands on the pending side of the terminal token",
+    /ended in \*\*`handoff`\*\*[^|]*\|\s*`pending`/.test(drive), "handoff is not in the token table as pending");
+  assertTrue("an untaken resumable unit also forbids ok",
+    /\*\*resumable\*\* unit this run did not take over[^|]*\|\s*`pending`/.test(drive), "resumable is not pending");
+  assertTrue("the run report names handoff as a route",
+    /\/ \*\*handoff\*\* \//.test(drive), "handoff missing from the per-unit report line");
+
+  // The story section: written only for a handoff unit, first, with four elements.
+  assertTrue("report/SKILL.md defines a Handoff story section", /^## Handoff$/m.test(report));
+  assertTrue("it is written only for a handoff unit and omitted otherwise",
+    /written ONLY for a unit `\/drive` classified `handoff`/.test(report) && /Omit it entirely otherwise/.test(report),
+    "no omit-when-empty discipline stated");
+  // Scoped to the story template: the file also contains an earlier `##### 1. Overview`
+  // (the overview-writer's own contract) whose tail matches a naive `## 1. Overview`
+  // search, so an unscoped comparison would pass or fail by luck rather than by order.
+  const tmpl = report.slice(report.indexOf("### Story Content Structure"));
+  assertTrue("it comes before section 1 of the story template",
+    tmpl.indexOf("## Handoff") >= 0 && tmpl.indexOf("## Handoff") < tmpl.indexOf("## 1. Overview"),
+    `handoff@${tmpl.indexOf("## Handoff")} overview@${tmpl.indexOf("## 1. Overview")}`);
+  for (const el of ["**Done:**", "**Not done:**", "**Next step:**", "**Attempted:**"]) {
+    assertTrue(`the Handoff section requires ${el}`, report.includes(el), `missing ${el}`);
+  }
+  assertTrue("Attempted demands raw output, not a verdict",
+    /raw output, never a verdict/.test(report), "no raw-output rule");
+  assertTrue("the PR section is named authoritative over the run report",
+    /authoritative record; the run report is the log/.test(report), "authority between the two is unstated");
+}
+
+// shrink-pr-body.sh bounds an over-limit body by SHEDDING — and the one section a
+// handoff reader needs must never be what gets shed. Retention is explicit rather
+// than positional, so a template edit cannot silently drop it.
+function testShrinkKeepsHandoff() {
+  const dir = mkdtempSync(join(tmpdir(), "wh-shrink-"));
+  const SHRINK = `${POSIX_SH} ${SCRIPTS.shrinkPrBody}`;
+  try {
+    const handoff = [
+      "## Handoff",
+      "",
+      "**This branch is unfinished. Someone must continue it.**",
+      "",
+      "- **Done:** the parser rewrite is committed and pushed",
+      "- **Not done:** the migration ticket 20260801-migrate.md is untouched",
+      "- **Next step:** run the migration against a copy of staging, then re-run the suite",
+      "- **Attempted:** `npm run migrate` -> exit 127: `psql: command not found`",
+      "",
+    ].join("\n");
+    const huge = "x".repeat(70000);
+
+    // 1. Over the limit, with a concern corpus AND a handoff: the handoff survives.
+    const big = join(dir, "big.md");
+    writeFileSync(big, `${handoff}## 1. Overview\n\nsomething\n\n## 6. Concerns\n\n${huge}\n\n## 9. Notes\n\ntail\n`);
+    const out = JSON.parse(run(dir, `${SHRINK} ${big} work-20260801-000000`).stdout);
+    assertEq("an over-limit body is shrunk", out.shrunk, true);
+    const bounded = readFileSync(big, "utf8");
+    assertTrue("the bounded body is under the GitHub limit", bounded.length <= 65536, `${bounded.length}`);
+    assertTrue("the Handoff heading survived", bounded.includes("## Handoff"));
+    for (const el of ["**Done:**", "**Not done:**", "**Next step:**", "**Attempted:**"]) {
+      assertTrue(`the handoff kept its ${el} line`, bounded.includes(el), el);
+    }
+    assertTrue("the handoff's raw command output survived",
+      bounded.includes("psql: command not found"));
+
+    // 2. Still true when the OVERSIZE is not the concern section — i.e. when the
+    // hard-truncation path runs, which is where positional luck would have failed.
+    const big2 = join(dir, "big2.md");
+    writeFileSync(big2, `${handoff}## 1. Overview\n\n${huge}\n\n## 6. Concerns\n\nNone\n`);
+    run(dir, `${SHRINK} ${big2} work-20260801-000000`);
+    const bounded2 = readFileSync(big2, "utf8");
+    assertTrue("a hard-truncated body is still under the limit", bounded2.length <= 65536, `${bounded2.length}`);
+    assertTrue("and still opens with the Handoff section", bounded2.startsWith("## Handoff"));
+    assertTrue("with its next step intact", bounded2.includes("**Next step:**"));
+
+    // 3. A body with no handoff is untouched in that respect, and a small one is
+    // returned byte-identical — the section is never manufactured.
+    const small = join(dir, "small.md");
+    const body = "## 1. Overview\n\nfine\n\n## 6. Concerns\n\nNone\n";
+    writeFileSync(small, body);
+    const r = JSON.parse(run(dir, `${SHRINK} ${small} work-20260801-000000`).stdout);
+    assertEq("an under-limit body is left alone", r.shrunk, false);
+    assertEq("and is byte-identical", readFileSync(small, "utf8"), body);
+    assertTrue("no Handoff section is invented", !readFileSync(small, "utf8").includes("## Handoff"));
+  } finally { cleanup(dir); }
+}
+
+// create-or-update.sh must take the UPDATE path for an existing PR — a handoff unit
+// that opened a second PR would split the record a person is meant to read.
+function testCreateOrUpdatePaths() {
+  const repo = makeRepo("main");
+  const binDir = mkdtempSync(join(tmpdir(), "wh-gh-"));
+  const callLog = join(binDir, "calls.txt");
+  try {
+    mkdirSync(join(repo, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/stories/work-20260801-000000.md"),
+      `---\ntype: Story\n---\n\n## Handoff\n\n- **Next step:** continue the migration\n\n## 1. Overview\n\nunfinished\n`);
+
+    // `gh` and `jq` stubs on PATH: the suite never calls the network. The gh stub is
+    // switched by a file so one stub can play "no PR yet" and then "PR exists".
+    const state = join(binDir, "haspr");
+    writeFileSync(join(binDir, "gh"), `#!/bin/sh
+printf '%s\\n' "$*" >> ${callLog}
+case "$1 $2" in
+  "pr list") if [ -f ${state} ]; then echo '{"number":7,"url":"https://example.test/pr/7"}'; else echo ""; fi ;;
+  "pr create") echo "https://example.test/pr/7" ;;
+  "api "*) echo '{"url":"https://example.test/pr/7"}' ;;
+  *) echo "" ;;
+esac
+`);
+    writeFileSync(join(binDir, "jq"), `#!/bin/sh
+# Minimal stand-in: the script only ever asks for .number and .url here.
+input=$(cat)
+case "$*" in
+  *number*) echo 7 ;;
+  *url*) echo "https://example.test/pr/7" ;;
+  *) echo "$input" ;;
+esac
+`);
+    chmodSync(join(binDir, "gh"), 0o755);
+    chmodSync(join(binDir, "jq"), 0o755);
+    const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
+    const CMD = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/create-or-update.sh")} work-20260801-000000 "Unfinished work"`;
+
+    const created = run(repo, CMD, { env });
+    assertEq("with no PR yet, the create path runs", created.status, 0);
+    assertTrue("and reports a created PR", /PR created: https:\/\/example\.test\/pr\/7/.test(created.stdout), created.stdout);
+
+    writeFileSync(state, "yes");
+    const updated = run(repo, CMD, { env });
+    assertEq("with a PR already open, the script still succeeds", updated.status, 0);
+    assertTrue("and takes the UPDATE path rather than opening a second PR",
+      /PR updated: https:\/\/example\.test\/pr\/7/.test(updated.stdout), updated.stdout);
+    assertEq("gh pr create was called exactly once, for the first run",
+      readFileSync(callLog, "utf8").split("\n").filter((l) => l.startsWith("pr create")).length, 1);
+  } finally { cleanup(repo); cleanup(binDir); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -8890,6 +9324,13 @@ const tests = [
   ["/drive surveys a current main (J3)", testDriveSurveysCurrentMain],
   ["drive/claim.sh drops its stranded-artifact tolerance", testClaimNoStrandedTolerance],
   ["/drive freshness contract (one code path, every reason visible)", testDriveFreshnessContract],
+  ["drive/claim.sh announces the claim, never load-bearing", testClaimAnnounces],
+  ["drive claim protocol: a dropped unit is resumed, not stranded", testClaimResume],
+  ["drive claim protocol: two runners racing to resume, one takeover", testResumeRace],
+  ["drive/heartbeat.sh keeps a working unit out of the resumable offer", testHeartbeat],
+  ["drive: handoff is a first-class terminal state", testHandoffState],
+  ["report/shrink-pr-body.sh never drops the Handoff section", testShrinkKeepsHandoff],
+  ["report/create-or-update.sh takes the update path for an existing PR", testCreateOrUpdatePaths],
 ];
 
 for (const [label, fn] of tests) {

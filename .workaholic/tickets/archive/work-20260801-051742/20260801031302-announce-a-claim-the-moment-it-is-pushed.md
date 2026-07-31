@@ -3,12 +3,13 @@ created_at: 2026-08-01T03:13:02+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Domain]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 merge_policy: auto
+claim: work-20260801-051742
 ---
 
 # Taking a unit is invisible to people until the whole unit is driven
@@ -91,3 +92,30 @@ Decided: hermetic suite only, with the notifier stubbed — the acceptance crite
 - `claim.sh` currently treats every post-worktree failure as `abort_claim`, which tears the worktree down. The announcement must sit outside that error path entirely, or a Slack outage would start discarding claims (`plugins/workaholic/skills/drive/scripts/claim.sh` lines 152-226).
 - The notifier lives in the `propose` skill while the caller is `drive`; `computeClosure` must pull it into the workflows bundle. Check `node scripts/build-plugins/verify.mjs` after the build rather than assuming (`scripts/build-plugins/`).
 - If the resume path in `20260801031301-resume-a-claimed-but-unfinished-unit.md` lands first or second, the takeover should announce through the same seam rather than growing a second notice site.
+
+## Final Report
+
+Development completed as planned. The announcement fires from `claim.sh` after its
+push succeeds and reports itself as `announced` / `announce_reason` in the claim JSON.
+
+### Discovered Insights
+
+- **Insight**: The "never load-bearing" property is a placement property, not an
+  error-handling one. `claim.sh` routes every post-worktree failure through
+  `abort_claim`, which tears the worktree down — so a notifier called anywhere inside
+  that region would have made a Slack outage start *discarding claims*, no matter how
+  carefully its own errors were caught. The announcement is correct because it sits
+  below the last `abort_claim` call site, and the test that matters asserts the
+  worktree still exists after a notifier that exits non-zero.
+  **Context**: Anything else added to this script later faces the same question. The
+  region above the final `printf` is claim-critical; the region below it is not.
+
+- **Insight**: An injected script path (`WORKAHOLIC_NOTIFIER`) was needed because the
+  acceptance criteria are all about the notifier *failing*, and `notify-slack.sh` is
+  built never to fail — it exits 0 on a missing token, an unreachable host, and a
+  Slack error alike. A URL override (`WORKAHOLIC_SLACK_API_URL`, the existing seam)
+  can only produce `curl_failed`, never a non-zero exit, so it cannot reach the path
+  under test.
+  **Context**: The house pattern is that a test seam is a documented env override;
+  this is the second one in the notifier's call chain, and the two test different
+  layers (transport vs. the notifier itself).

@@ -9,7 +9,8 @@
 #    "current": bool,
 #    "user_slug": "<the surveyed developer's queue slug, "" when unresolvable>",
 #    "backlog_error": "<reason, "" when the queue was read>",
-#    "claimed": [{"unit": "...", "branch": "...", "stale": bool}],
+#    "claimed": [{"unit", "branch", "stale", "resumable", "resume_reason"}],
+#    "resumable": [{"unit", "branch", "author", "last_commit_at", "stale", "artifacts"}],
 #    "missions": [{"slug", "title", "merge_policy", "checked", "total", "next", "path"}],
 #    "backlog":  [{"path", "title", "type", "layer", "merge_policy", "depends_on"}],
 #    "excluded": [{"kind": "mission"|"ticket", "id": "...", "reason": "..."}]}
@@ -51,11 +52,26 @@
 # read one scan. Both subtractions matter: the UNIT id keeps a claimed mission out
 # of the offer, and the ARTIFACT paths keep an already-batched ticket out of it.
 #
-# NOTHING IS EXCLUDED SILENTLY. Every mission and ticket the survey drops is
-# reported in `excluded` with its reason (`claimed`, `not_approved`, `owned_by_other`,
-# `no_plan`, `no_tickets`, `mission_member`), because a queue item that vanishes from
-# an unattended run's offer with no trace is indistinguishable from one that was never
-# there (`workaholic:implementation` / observability).
+# NOTHING IS EXCLUDED SILENTLY. Every mission and ticket the survey drops is reported
+# in `excluded` with its reason (`claimed_active`, `claimed_by_other`,
+# `claimed_resumable`, `not_approved`, `owned_by_other`, `no_plan`, `no_tickets`,
+# `mission_member`), because a queue item that vanishes from an unattended run's offer
+# with no trace is indistinguishable from one that was never there
+# (`workaholic:implementation` / observability).
+#
+# A CLAIM IS NOT A DEAD END. The single `claimed` reason split into three, because it
+# was hiding the difference between work in progress and work abandoned mid-flight: a
+# unit whose runner died was excluded forever, and the design record's promise that
+# "the next tick re-claims and resumes" was false in code (see lib/claims.sh). Now
+# `claimed_active` means a run is on it, `claimed_by_other` means it is not this
+# runner's at any age, and `claimed_resumable` means the unit ALSO appears in
+# `resumable[]` and can be taken over. The three names are read straight out of cron
+# logs, so each one has to imply its own next action.
+#
+# `resumable[]` is a THIRD offer alongside `missions`/`backlog`, not a fourth kind of
+# exclusion: those two are claimed fresh from the base, a resumable unit is taken over
+# at its pushed branch tip. A resumable unit left untaken is claimable work outstanding
+# and therefore forbids `ok` (drive/SKILL.md §7), exactly as an unclaimed ticket does.
 #
 # `no_plan` and `no_tickets` are DELIBERATELY DISTINCT, because they call for
 # different developer actions: `no_plan` means write the acceptance criteria,
@@ -147,21 +163,59 @@ fi
 CLAIMED_UNITS=""
 CLAIMED_ARTIFACTS=""
 CLAIMED_JSON=""
+RESUMABLE=""
+# Why each claimed unit/artifact is not freshly claimable, keyed by unit id AND by
+# artifact path, so the exclusion vocabulary below can stay specific.
+CLAIM_REASONS=""
 if [ -n "$ROWS" ]; then
     sep=""
-    while IFS='	' read -r c_unit c_branch _c_at c_stale c_arts; do
+    r_sep=""
+    while IFS='	' read -r c_unit c_branch c_at c_stale c_author c_resumable c_reason c_arts; do
         [ -n "$c_unit" ] || continue
         CLAIMED_UNITS="${CLAIMED_UNITS}${c_unit}
+"
+        # A bare `claimed` told a cron log nothing actionable. "Being driven right
+        # now", "a colleague's", and "yours, dropped, and recoverable" call for three
+        # different responses -- wait, never, resume -- so they get three names.
+        if [ "$c_resumable" = "true" ]; then
+            c_exc=claimed_resumable
+        elif [ "$c_reason" = "foreign_identity" ] || [ "$c_reason" = "identity_unresolved" ]; then
+            c_exc=claimed_by_other
+        else
+            c_exc=claimed_active
+        fi
+        CLAIM_REASONS="${CLAIM_REASONS}${c_unit}	${c_exc}
 "
         old_ifs="$IFS"
         IFS=','
         for art in $c_arts; do
             CLAIMED_ARTIFACTS="${CLAIMED_ARTIFACTS}${art}
 "
+            CLAIM_REASONS="${CLAIM_REASONS}${art}	${c_exc}
+"
         done
         IFS="$old_ifs"
-        CLAIMED_JSON="${CLAIMED_JSON}${sep}{\"unit\": \"${c_unit}\", \"branch\": \"${c_branch}\", \"stale\": ${c_stale}}"
+        CLAIMED_JSON="${CLAIMED_JSON}${sep}{\"unit\": \"${c_unit}\", \"branch\": \"${c_branch}\", \"stale\": ${c_stale}, \"resumable\": ${c_resumable}, \"resume_reason\": \"${c_reason}\"}"
         sep=", "
+        # A RESUMABLE UNIT IS CLAIMABLE WORK, so it is offered rather than dropped --
+        # in its own group, deliberately not merged into `missions`/`backlog`. Those
+        # are fresh units a runner claims from the base; this one is taken over with
+        # `claim.sh resume` and continues from the pushed branch tip, which is a
+        # different action. Keeping them apart lets the caller route each correctly
+        # without re-deriving the claim state it was just handed.
+        if [ "$c_resumable" = "true" ]; then
+            r_arts=""
+            a_sep=""
+            old_ifs="$IFS"
+            IFS=','
+            for art in $c_arts; do
+                r_arts="${r_arts}${a_sep}\"$(json_escape "$art")\""
+                a_sep=", "
+            done
+            IFS="$old_ifs"
+            RESUMABLE="${RESUMABLE}${r_sep}{\"unit\": \"${c_unit}\", \"branch\": \"${c_branch}\", \"author\": \"$(json_escape "$c_author")\", \"last_commit_at\": \"${c_at}\", \"stale\": ${c_stale}, \"artifacts\": [${r_arts}]}"
+            r_sep=", "
+        fi
     done <<EOF
 $ROWS
 EOF
@@ -172,6 +226,13 @@ is_claimed_unit() {
 }
 is_claimed_artifact() {
     printf '%s' "$CLAIMED_ARTIFACTS" | grep -qx -- "$1" 2>/dev/null
+}
+# The specific reason a claimed unit/artifact is excluded. `claimed_active` is the
+# fallback if a row is somehow missing: never offer, always report.
+claim_reason_for() {
+    _cr=$(printf '%s' "$CLAIM_REASONS" | awk -F'\t' -v k="$1" '$1 == k { print $2; exit }')
+    [ -n "$_cr" ] || _cr=claimed_active
+    printf '%s' "$_cr"
 }
 
 EXCLUDED=""
@@ -222,8 +283,12 @@ if [ -d ".workaholic/missions/active" ]; then
             exclude mission "$slug" "owned_by_other"
             continue
         fi
-        if is_claimed_unit "$slug" || is_claimed_artifact "$f"; then
-            exclude mission "$slug" "claimed"
+        if is_claimed_unit "$slug"; then
+            exclude mission "$slug" "$(claim_reason_for "$slug")"
+            continue
+        fi
+        if is_claimed_artifact "$f"; then
+            exclude mission "$slug" "$(claim_reason_for "$f")"
             continue
         fi
         progress=$(sh "${MISSION_SCRIPTS}/progress.sh" "$f" 2>/dev/null || true)
@@ -277,7 +342,7 @@ esac
 for t in $TODO_LIST; do
     [ -f "$t" ] || continue
     if is_claimed_artifact "$t"; then
-        exclude ticket "$t" "claimed"
+        exclude ticket "$t" "$(claim_reason_for "$t")"
         continue
     fi
     relation=$(sh "${MISSION_SCRIPTS}/read-relation.sh" "$t" 2>/dev/null || true)
@@ -294,6 +359,6 @@ for t in $TODO_LIST; do
     b_sep=", "
 done
 
-printf '{"fetched": %s, "base": "%s", "surveyed_sha": "%s", "base_sha": "%s", "current": %s, "user_slug": "%s", "backlog_error": "%s", "claimed": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s]}\n' \
+printf '{"fetched": %s, "base": "%s", "surveyed_sha": "%s", "base_sha": "%s", "current": %s, "user_slug": "%s", "backlog_error": "%s", "claimed": [%s], "resumable": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s]}\n' \
     "$FETCHED" "$BASE" "$SURVEYED_SHA" "$BASE_SHA" "$CURRENT" "$(json_escape "$USER_SLUG")" "$BACKLOG_ERROR" \
-    "$CLAIMED_JSON" "$MISSIONS" "$BACKLOG" "$EXCLUDED"
+    "$CLAIMED_JSON" "$RESUMABLE" "$MISSIONS" "$BACKLOG" "$EXCLUDED"

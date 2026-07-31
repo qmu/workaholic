@@ -299,4 +299,5 @@
 * [An externally-blocked ticket is re-picked on every drive tick](20260730204610-an-externally-blocked-ticket-is-re.md)
 * [Quality gates must assist delivery, not block well-done work](20260731062209-quality-gates-must-assist-delivery-not-block-well-done-work.md)
 * [Every markerless acceptance item in this repo belongs to a proposed draft](20260731062305-every-markerless-acceptance-item-in-this-repo-belongs-to-a-proposed-draft.md)
+* [Make /propose survey the whole repository state and propose a mission with its tickets on a branch](20260731161650-make-propose-survey-the-whole-repository-state-and-propose-a-mission-with-its-tickets-on-a-branch.md)
 <!-- okf:generated:end -->

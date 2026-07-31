@@ -112,6 +112,9 @@ const SCRIPTS = {
   openPublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/open-publish-tree.sh"),
   publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
   publishTreePr: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh"),
+  listRoutineTemplates: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/list-routine-templates.sh"),
+  renderRoutine: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/render-routine.sh"),
+  compareRoutines: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/compare-routines.sh"),
   surveyWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/survey-worktrees.sh"),
   reapWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/reap-worktrees.sh"),
   pruneWorktreeArtifacts: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/prune-worktree-artifacts.sh"),
@@ -8755,6 +8758,7 @@ const tests = [
   ["branching/sync-main.sh (J3 freshness)", testSyncMain],
   ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
   ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
+  ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
   ["branching worktree reclamation: merged AND clean, every skip named", testWorktreeReclamation],
   ["mission size norms: a ceiling on what a mission may say, and the floor it must not touch", testMissionSizeNorms],
   ["propose: widened inputs, emitted tickets, and the mission_member safety property (J4)", testProposeWidenedBatch],
@@ -9084,6 +9088,103 @@ function testMissionSizeNorms() {
       "---\ntype: Mission\nslug: m-size\nstatus: draft\n---\n\n# Legacy\n\n## Goal\n\nWhy.\n\n## Scope\n\nOld section.\n\n## Acceptance\n\n- [ ] One\n");
     r = JSON.parse(run(dir, `${SIZE} ${rel}`).stdout);
     assertEq("a legacy mission carrying ## Scope is still measured, not rejected", r.acceptance_items, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// ---------- workaholify: routine templates, rendering, and drift ----------
+// Routines are Claude Code Web routines, NOT cron. The plugin holds ONE set of templates
+// and /workaholify applies them to whichever repository it runs in -- there is no
+// per-repository routine file, which is why no `.workaholic/` directory appears here.
+// NO TEST TOUCHES THE ACCOUNT: `compare-routines.sh` reads the live list on stdin, so the
+// suite drives it against a fixture built from the real routine shapes.
+function testWorkaholifyRoutines() {
+  const dir = makeRepo("main");
+  const LIST = `${POSIX_SH} ${SCRIPTS.listRoutineTemplates}`;
+  const RENDER = `${POSIX_SH} ${SCRIPTS.renderRoutine}`;
+  const COMPARE = `${POSIX_SH} ${SCRIPTS.compareRoutines}`;
+  const WH = "https://github.com/qmu/workaholic";
+  try {
+    const tpl = JSON.parse(run(dir, LIST).stdout);
+    assertEq("the plugin ships three routine templates", tpl.count, 3);
+    assertEq("and they are the three live patterns",
+      tpl.templates.map((t) => t.id).sort(), ["drive", "fb", "merged-pr"]);
+    assertEq("only the drive template is scheduled",
+      tpl.templates.filter((t) => t.trigger === "cron").map((t) => t.cron_expression), ["56 * * * *"]);
+
+    // ---- the three substitutions, each demanded by a real prompt ----
+    const drive = JSON.parse(run(dir, `${RENDER} drive ${WH}`).stdout);
+    assertEq("the routine name uses the BARE repo name, as the live routines do",
+      drive.name, "[Drive] workaholic (pilot)");
+    assertTrue("{repo_slug} renders org/repo in the prompt's prose",
+      drive.prompt.includes("drive runner for qmu/workaholic,"), drive.prompt.slice(0, 200));
+    assertTrue("{repo_name} renders the dev-<name> Slack channel",
+      drive.prompt.includes("dev-workaholic"), "missing channel");
+    assertTrue("{repo} renders the full URL in the PR links",
+      drive.prompt.includes(`${WH}/pull/123`), "missing pull link");
+    assertTrue("no placeholder survives rendering", !/\{repo(_name|_slug)?\}/.test(drive.prompt), drive.prompt);
+
+    const fb = JSON.parse(run(dir, `${RENDER} fb ${WH}`).stdout);
+    assertEq("the fb routine is event-driven, with no schedule", [fb.trigger, fb.cron_expression], ["event", ""]);
+    assertEq("an unknown template is refused by name",
+      JSON.parse(run(dir, `${RENDER} no-such ${WH}`).stdout).error, "unknown_template");
+
+    // ---- comparison against a fixture shaped like the live API response ----
+    const entry = (id, name, prompt, repo, cron = "", model = "claude-opus-5") => ({
+      id, name, cron_expression: cron, enabled: true,
+      job_config: { ccr: { session_context: { model, sources: [{ git_repository: { url: repo } }] },
+                           events: [{ data: { message: { content: prompt } } }] } },
+    });
+    const merged = JSON.parse(run(dir, `${RENDER} merged-pr ${WH}`).stdout);
+    const live = { data: [
+      entry("trig_drive", drive.name, drive.prompt, WH, "56 * * * *"),
+      // model unset -- the real drift on `Merged PR qmu-co-jp` and `[FB] coop-csnet`
+      entry("trig_merged", merged.name, merged.prompt, WH, "", ""),
+      // an untemplated one-off, and another repository's routine
+      entry("trig_oneoff", "seiho drive", "one-off", WH),
+      entry("trig_other", fb.name.replace("workaholic", "qfs"), fb.prompt, "https://github.com/qmu/qfs"),
+    ] };
+    const fixture = join(dir, "live.json");
+    writeFileSync(fixture, JSON.stringify(live));
+    const cmp = JSON.parse(run(dir, `${COMPARE} ${WH} < ${fixture}`).stdout);
+
+    // A ROUTINE BELONGS TO A REPO BY ITS SOURCE URL, NEVER BY NAME -- names are what drift.
+    assertEq("another repository's routine is excluded", [cmp.total_live, cmp.for_this_repo], [4, 3]);
+    // A rendered template must reproduce the live prompt EXACTLY; empty drift is the proof
+    // that the templates were captured verbatim rather than paraphrased.
+    assertEq("a routine matching its template reports no drift",
+      cmp.present.find((x) => x.id === "drive").drift, []);
+    // DRIFT IS PER FIELD. "This routine differs" would not say which of several problems.
+    assertEq("an unset model is named as the field that drifted",
+      cmp.present.find((x) => x.id === "merged-pr").drift, ["model (unset != claude-opus-5)"]);
+    assertEq("a template with no live routine is reported missing",
+      cmp.missing.map((m) => m.id), ["fb"]);
+    // `unknown` is information, never a deletion proposal -- the API has no delete at all.
+    assertEq("an untemplated routine is listed as unknown", cmp.unknown.length, 1);
+    assertEq("and it is the one-off", cmp.unknown[0].trigger_id, "trig_oneoff");
+
+    // A drifted PROMPT is caught, not just metadata.
+    const live2 = { data: [entry("trig_fb", fb.name, fb.prompt + "\n- Speak/Write Japanese\n", WH)] };
+    writeFileSync(fixture, JSON.stringify(live2));
+    const cmp2 = JSON.parse(run(dir, `${COMPARE} ${WH} < ${fixture}`).stdout);
+    assertTrue("an extra prompt line is reported as prompt drift",
+      cmp2.present.find((x) => x.id === "fb").drift.includes("prompt"), JSON.stringify(cmp2.present));
+
+    // NO PER-REPOSITORY ROUTINE FILE EXISTS. The withdrawn design added
+    // `.workaholic/routines/`; this one adds nothing to the closed layout.
+    const allowlist = readFileSync(join(REPO_ROOT, "plugins/workaholic/hooks/workaholic-layout-allowlist.txt"), "utf8");
+    assertTrue("no routines/ directory is registered in the closed layout",
+      !/^routines$/m.test(allowlist), allowlist);
+    // Only the command may reach the API; a script that wrote to the account would make
+    // the verbatim confirmation skippable.
+    for (const f of ["list-routine-templates.sh", "render-routine.sh", "compare-routines.sh"]) {
+      const src = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts", f), "utf8");
+      assertTrue(`${f} never calls the routines API itself`, !/RemoteTrigger\s*\(/.test(src));
+    }
+    const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/workaholify.md"), "utf8");
+    assertTrue("the command confirms each routine verbatim before creating or updating",
+      /confirm/i.test(cmd) && /AskUserQuestion/.test(cmd), "confirmation step missing");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

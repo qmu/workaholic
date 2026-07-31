@@ -9,6 +9,7 @@ category:
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260801-042633
 ---
 
 # The Merged PR routine announces every recent merge, so two merges close together produce four Slack messages

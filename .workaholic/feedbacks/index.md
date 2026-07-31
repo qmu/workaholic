@@ -306,4 +306,6 @@
 * [A merged PR notifies Slack only if something watches for the merge](20260731165549-a-merged-pr-notifies-slack-only.md)
 * [The J1 reversal leaves two contradictory statements in the repository](20260731165549-the-j1-reversal-leaves-two-contradictory.md)
 * [The publish tree exists to protect a dirty checkout](20260731165549-the-publish-tree-exists-to-protect.md)
+* [Make the branch story say less when there is less to say](20260731165727-make-the-branch-story-say-less-when-there-is-less-to-say.md)
+* [Filtering low concerns out of the story deletes them from the stream](20260731165740-filtering-low-concerns-out-of-the-story-deletes-them-from-the-stream.md)
 <!-- okf:generated:end -->

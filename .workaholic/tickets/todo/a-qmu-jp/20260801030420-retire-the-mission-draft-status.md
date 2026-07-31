@@ -28,7 +28,9 @@ The observable cost is on `main` right now: six active missions, every one `draf
 **Merging the pull request is the approval.** A mission on `main` is a mission the project accepted. What `approve.sh` carries today has to land somewhere else rather than disappear:
 
 - **`merge_policy`** — recorded at *creation* instead of at approval, adopting the ticket rule exactly: **absent means `review`**, the conservative default. A mission that arrives with no policy routes to a PR, which is the safe reading.
-- **Ownership** — **kept and required**, not dropped. A mission on `main` must name who will do it (developer's ruling, 2026-08-01). What changes is only *when* it is filled in: at approval before, in the pull request now. `/propose` writes an unowned mission, and **that mission cannot merge until its PR assigns one** — which is a reviewer's job, exactly like the rest of the PR's content.
+- **Ownership** — **kept and required**, not dropped. A mission on `main` must name who will do it (developer's ruling, 2026-08-01). What changes is only *when* it is filled in: at approval before, at proposal time now.
+
+  **`/propose` derives the owner rather than leaving it empty**, and it has the material to do so: the owner is **the original requester of the feedback the mission grew from** — the record's `author`, which is who reported it — **or whoever that requester named instead**, when the record says so. A mission's `feedback:` list already points at those records, so this is a lookup, not a guess. Only when neither can be resolved does the mission arrive unowned, and then it **cannot merge until its PR assigns one**.
 - **The floor** (`hooks/validate-mission.sh`: an owner, a real `## Experience`, at least one `## Acceptance` item) — **kept whole, and re-aimed**. It currently fires on `status: approved`; it must fire on **any mission in `missions/active/`**, because "the thing that can be claimed" is no longer marked by a status word. All three requirements survive, ownership included.
 
 ## Policies
@@ -57,7 +59,7 @@ The mission `drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-
 ## Implementation Steps
 
 1. **Decide and write down the surviving vocabulary** before touching code: `active` (in `missions/active/`, claimable when it has tickets) versus the three end states in `archive/`. Record the rejected alternative — keeping `draft` as an optional marker — and why it loses (an optional gate that only some artifacts carry is a gate nobody can rely on).
-2. **Record `merge_policy` at creation** in `create.sh` and `scaffold-draft.sh`, absent reading as `review`.
+2. **Record `merge_policy` at creation** in `create.sh` and `scaffold-draft.sh`, absent reading as `review`. In the same pass, **seed `assignees` in `scaffold-draft.sh` from the source feedback's `author`** (or the designee it names), leaving it empty only when neither resolves.
 3. **Remove the `not_approved` exclusion** from `plan-units.sh`; a mission with tickets is claimable.
 4. **Re-aim `validate-mission.sh`**: the owner / Experience / Acceptance floor applies to any mission in `missions/active/` — **all three**, ownership included. This is the load-bearing step: it is what stops the gate's removal from also removing the floor.
 5. **Retire `approve.sh` and the `/mission approve` subcommand**, leaving a migration note; `close.sh` is untouched.
@@ -88,6 +90,7 @@ The mission `drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-
 ## Considerations
 
 - **The floor is the thing that must not be lost.** Removing the gate is right; removing the *floor* would let a mission with an empty `## Experience`, or no owner at all, be claimed and driven. Step 4 is the load-bearing step, not step 3 (`plugins/workaholic/hooks/validate-mission.sh`).
-- **The owner requirement lands on `/propose`'s output as a merge precondition, not as a scaffold field.** The batch has no basis for choosing an owner and must not invent one; it writes `assignees: []`, and the reviewer fills it in before merging. That makes "who does this" a question the PR has to answer out loud, which is the point (`plugins/workaholic/skills/propose/scripts/scaffold-draft.sh`).
+- **`/propose` seeds the owner from the feedback it proposed from** — the record's `author` (the original requester), or the person that requester designated when the record names one. `scaffold-draft.sh` currently hardcodes `assignees: []`; it needs the derivation and a reader for it, alongside the existing `read-feedback-relation.sh` (`plugins/workaholic/skills/propose/scripts/scaffold-draft.sh`).
+- **Unowned survives only as the unresolvable case**, and then the PR must assign before merge — so "who does this" is still a question the pull request answers out loud rather than a state that can reach `main`.
 - Six missions on `main` are currently `draft`. The migration must be a fold, not a rewrite — the files stay, one key changes (`plugins/workaholic/skills/mission/scripts/lib/resolve.sh`).
 - `/propose` currently advances its cursor when the PR is *open*, not merged. With the PR as the sole approval, a proposal that is never merged is a proposal that was rejected — which is correct, but worth re-reading in `propose/SKILL.md` once `draft` is gone.

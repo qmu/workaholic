@@ -9,6 +9,7 @@ category:
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260801-022239
 ---
 
 # Cap mission size, drop the Scope section, and hold /propose's drafts to the same ceiling

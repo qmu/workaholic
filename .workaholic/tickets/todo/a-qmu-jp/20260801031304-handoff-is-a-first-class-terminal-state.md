@@ -9,6 +9,7 @@ category:
 depends_on: [20260801031301-resume-a-claimed-but-unfinished-unit.md]
 mission:
 merge_policy: auto
+claim: work-20260801-051742
 ---
 
 # There is no sanctioned way for a run to hand unfinished work to a person

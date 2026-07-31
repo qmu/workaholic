@@ -9,6 +9,7 @@ category:
 depends_on: [20260801031300-survey-never-reports-a-silently-empty-backlog.md]
 mission:
 merge_policy: auto
+claim: work-20260801-051742
 ---
 
 # A claimed unit that is never finished cannot be resumed by anyone, though the design record says it can

@@ -306,4 +306,6 @@
 * [A merged PR notifies Slack only if something watches for the merge](20260731165549-a-merged-pr-notifies-slack-only.md)
 * [The J1 reversal leaves two contradictory statements in the repository](20260731165549-the-j1-reversal-leaves-two-contradictory.md)
 * [The publish tree exists to protect a dirty checkout](20260731165549-the-publish-tree-exists-to-protect.md)
+* [Update the Pull Request Story format to say less when there is less to say](20260731170201-update-the-pull-request-story-format-to-say-less-when-there-is-less-to-say.md)
+* [The session-start bootstrap hook silently reports OK on total failure](20260731170209-the-session-start-bootstrap-hook-silently-reports-ok-on-total-failure.md)
 <!-- okf:generated:end -->

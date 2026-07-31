@@ -9,6 +9,7 @@ category:
 depends_on: [20260801031300-survey-never-reports-a-silently-empty-backlog.md]
 mission:
 merge_policy: auto
+claim: work-20260731-195744
 ---
 
 # The survey offers every approved mission regardless of who owns it

@@ -9,6 +9,7 @@ category:
 depends_on:
 mission:
 merge_policy: auto
+claim: work-20260731-195744
 ---
 
 # A survey that cannot resolve the developer reports an empty backlog instead of a failure

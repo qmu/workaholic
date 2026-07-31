@@ -338,4 +338,6 @@
 * [Handoff retention narrows what the PR-body bounder can shed](20260801060526-handoff-retention-narrows-what-the-pr.md)
 * [One commit exceeds the per-commit changed-lines ceiling](20260801060526-one-commit-exceeds-the-per-commit.md)
 * [The TSV row has no structural guard against a future empty field](20260801060526-the-tsv-row-has-no-structural.md)
+* [A blocked ticket with no owner outside this repository re-costs every drive](20260801060641-a-blocked-ticket-with-no-owner.md)
+* [The per-commit size rule counts a catch-up merge commit as authored work](20260801060641-the-per-commit-size-rule-counts.md)
 <!-- okf:generated:end -->

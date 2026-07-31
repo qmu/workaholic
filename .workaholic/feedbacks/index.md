@@ -324,4 +324,10 @@
 * [The sweep has no scheduled caller](20260801025526-the-sweep-has-no-scheduled-caller.md)
 * [Make the unattended cloud runner a shape the plugin assumes](20260801031110-make-the-unattended-cloud-runner-a-shape-the-plugin-assumes.md)
 * [A claimed unit that is never finished cannot be resumed by anyone](20260801031123-a-claimed-unit-that-is-never-finished-cannot-be-resumed-by-anyone.md)
+* [Nothing reconciles a routine that was deleted outside this flow](20260801042002-nothing-reconciles-a-routine-that-was.md)
+* [Only this repository is bootstrapped](20260801042002-only-this-repository-is-bootstrapped.md)
+* [Prompt comparison is exact, so reformatting a template flags every repository at once](20260801042002-prompt-comparison-is-exact-so-reformatting.md)
+* [The bootstrap has never been observed working on the web](20260801042002-the-bootstrap-has-never-been-observed.md)
+* [The channel check cannot run on a locked credential store](20260801042002-the-channel-check-cannot-run-on.md)
+* [The Drive template is still a pilot](20260801042002-the-drive-template-is-still-a.md)
 <!-- okf:generated:end -->

@@ -8746,6 +8746,88 @@ function testShipExtractionOnBaseIsDirect() {
   }
 }
 
+// ---------- claiming ANNOUNCES, and the notice is never load-bearing ----------
+// The claim is the first published commitment a run makes, but until this seam existed
+// nothing told a PERSON: the first human-visible artifact was the PR, opened only after
+// every ticket in the unit had been driven. For an unattended fleet that silent window
+// made "working" and "dead" look identical. What every assertion below is really about
+// is the OTHER half of the contract: a claim must survive every way the notifier can
+// fail, because a Slack outage that starts discarding claims is far worse than silence.
+function testClaimAnnounces() {
+  const { origin, A, B } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const stubDir = mkdtempSync(join(tmpdir(), "wh-notify-"));
+  const capture = join(stubDir, "posted.txt");
+  const okStub = join(stubDir, "ok.sh");
+  const failStub = join(stubDir, "fail.sh");
+  writeFileSync(okStub, `#!/bin/sh\nprintf '%s\\n' "$1" >> ${capture}\necho '{"notified": true, "reason": ""}'\n`);
+  writeFileSync(failStub, `#!/bin/sh\necho boom >&2\nexit 1\n`);
+  chmodSync(okStub, 0o755);
+  chmodSync(failStub, 0o755);
+  // The real notifier must never be reached from a test, so the environment is stripped
+  // of Slack wiring for the default-notifier case below.
+  const bare = { ...process.env };
+  delete bare.SLACK_BOT_TOKEN;
+  delete bare.WORKAHOLIC_SLACK_CHANNEL;
+
+  try {
+    // ---- 1. No token: the real notifier no-ops, and the claim is untouched ----
+    const noTok = JSON.parse(run(A, `${CLAIM} mission m1`, { env: bare }).stdout);
+    assertEq("a claim with no Slack token still succeeds",
+      { c: noTok.claimed, u: noTok.unit }, { c: true, u: "m1" });
+    assertEq("and reports the notice did not go out, with the reason",
+      { a: noTok.announced, r: noTok.announce_reason }, { a: false, r: "no_token" });
+    assertTrue("the worktree is intact despite the missing notice",
+      existsSync(join(A, ".worktrees/m1")));
+    assertEq("the claim is genuinely in flight",
+      JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout).claims.length, 1);
+
+    // ---- 2. A notifier that EXITS NON-ZERO must not unwind the claim ----
+    tickSecond();
+    const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const broken = run(B, `${CLAIM} batch ${t1}`, { env: { ...bare, WORKAHOLIC_NOTIFIER: failStub } });
+    assertEq("a claim whose notifier fails still exits 0", broken.status, 0);
+    const bj = JSON.parse(broken.stdout);
+    assertEq("and still reports itself claimed", bj.claimed, true);
+    assertEq("and names the notifier failure rather than swallowing it",
+      { a: bj.announced, r: bj.announce_reason }, { a: false, r: "notifier_failed" });
+    assertTrue("a failed notice never tears the worktree down (no abort_claim)",
+      existsSync(join(B, ".worktrees", bj.unit)));
+    assertEq("the claim reached origin despite the failed notice",
+      JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout).claims.length, 2);
+
+    // ---- 3. The message: one line, naming the unit and the branch ----
+    tickSecond();
+    const t2 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`;
+    const posted = JSON.parse(run(A, `${CLAIM} batch ${t2}`,
+      { env: { ...bare, WORKAHOLIC_NOTIFIER: okStub } }).stdout);
+    assertEq("a successful notice is reported as such",
+      { a: posted.announced, r: posted.announce_reason }, { a: true, r: "" });
+    const lines = readFileSync(capture, "utf8").trim().split("\n");
+    assertEq("exactly one notice was posted", lines.length, 1);
+    assertTrue("the notice names the unit id", lines[0].includes(posted.unit), lines[0]);
+    assertTrue("the notice names the branch", lines[0].includes(posted.branch), lines[0]);
+    assertTrue("the notice is a single line", !lines[0].includes("\n"), lines[0]);
+
+    // ---- 4. A REFUSED claim announces nothing ----
+    // The announcement sits below every abort_claim call site precisely so this holds.
+    tickSecond();
+    const refused = run(B, `${CLAIM} batch ${t2}`, { env: { ...bare, WORKAHOLIC_NOTIFIER: okStub } });
+    assertTrue("the overlapping claim is refused", refused.status !== 0, `status ${refused.status}`);
+    assertEq("a refused claim announces nothing",
+      readFileSync(capture, "utf8").trim().split("\n").length, 1);
+
+    // ---- 5. One notifier, reached as a script ----
+    // Comment lines are stripped first: the rule forbids an inline network CALL, and
+    // prose explaining why the notifier is reached as a script is not one.
+    const code = readFileSync(SCRIPTS.claim, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("claim.sh makes no inline network call", !/\bcurl\b|\bwget\b/.test(code), "found curl/wget in claim.sh code");
+    const src = readFileSync(SCRIPTS.claim, "utf8");
+    assertTrue("claim.sh reaches the existing notifier script",
+      /propose\/scripts\/notify-slack\.sh/.test(src), "claim.sh does not reference notify-slack.sh");
+  } finally { cleanup(origin); cleanup(A); cleanup(B); cleanup(stubDir); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -8889,6 +8971,7 @@ const tests = [
   ["/drive surveys a current main (J3)", testDriveSurveysCurrentMain],
   ["drive/claim.sh drops its stranded-artifact tolerance", testClaimNoStrandedTolerance],
   ["/drive freshness contract (one code path, every reason visible)", testDriveFreshnessContract],
+  ["drive/claim.sh announces the claim, never load-bearing", testClaimAnnounces],
 ];
 
 for (const [label, fn] of tests) {

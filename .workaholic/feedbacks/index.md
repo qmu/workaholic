@@ -309,4 +309,5 @@
 * [Make the branch story say less when there is less to say](20260731165727-make-the-branch-story-say-less-when-there-is-less-to-say.md)
 * [Filtering low concerns out of the story deletes them from the stream](20260731165740-filtering-low-concerns-out-of-the-story-deletes-them-from-the-stream.md)
 * [Review of the draft session-start bootstrap hook](20260731170144-review-of-the-draft-session-start-bootstrap-hook.md)
+* [Missions are too heavy to close: cap their size instead of loosening their gates](20260801012120-missions-are-too-heavy-to-close-cap-their-size-instead-of-loosening-their-gates.md)
 <!-- okf:generated:end -->

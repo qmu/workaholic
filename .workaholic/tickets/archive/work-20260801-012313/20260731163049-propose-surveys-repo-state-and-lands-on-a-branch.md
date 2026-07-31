@@ -3,9 +3,9 @@ created_at: 2026-07-31T16:30:49+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 merge_policy: review
@@ -90,3 +90,40 @@ Past work that touched this area:
 - The publish tree (`.publish/`, decision J2) exists so a developer typing `/ticket` mid-work on a dirty branch does not have their checkout disturbed. Moving the writers onto `work-*` branches must preserve that property — `create.sh` switches the current checkout's branch, which is exactly what the publish tree was built to avoid (`plugins/workaholic/skills/branching/SKILL.md`).
 - Broader inputs on a 15-minute cron will find *something* proposable most ticks unless the bar is genuinely tightened; the failure mode is a channel full of proposals nobody reads, which is the trust erosion the current bar's asymmetry argument was written to prevent (`plugins/workaholic/skills/propose/SKILL.md`, *The judgment bar*).
 - Slack notification on the merge event needs a source. A merged PR notifies only if something watches for it — a GitHub webhook/Action, or the merging path calling the notifier. `notify-slack.sh` announces when *called*, and nothing calls it on a merge performed by a human in the GitHub UI (`plugins/workaholic/skills/propose/scripts/notify-slack.sh`).
+
+## Final Report
+
+Development completed as planned. All eight implementation steps landed, including the
+generalization to `/ticket` and `/mission` (step 6) and the J1 amendment (step 7).
+
+### Discovered Insights
+
+- **Insight**: The publish tree already solved the hard half of this ticket. The
+  Considerations warned that `create.sh` switches the caller's checkout — which the
+  publish tree exists to avoid — and the resolution was not to work around it but to
+  keep writing through `.publish/` and change only the *destination* of the push
+  (`publish-main:refs/heads/work-*` instead of `publish-main:main`). The isolation
+  property is untouched; the test that asserts the caller's checkout is byte-identical
+  passes unchanged on the new path.
+  **Context**: When a new requirement appears to conflict with existing machinery, check
+  whether it conflicts with the machinery's *mechanism* or only with its *configuration*.
+  Here it was configuration, and the change was ten lines of push refspec rather than a
+  new publication model.
+
+- **Insight**: The claim protocol tolerates publication branches for a non-obvious
+  reason: `claims.sh` keys on a `Claim <unit-id>` **commit subject**, not on the `work-*`
+  branch name, despite the prose describing `work-*` as "the claim vocabulary". A
+  publication branch is therefore invisible to the claim scan while being an ordinary
+  branch to everything else.
+  **Context**: The `publish-main` branch was deliberately named non-`work-*` on the
+  assumption that the prefix itself was load-bearing. It is not, and the test
+  `a publication branch carries no Claim commit` now pins the real invariant — which
+  matters because the naming assumption would otherwise have blocked this change.
+
+- **Insight**: Emitting proposed tickets needed no new gate. `plan-units.sh` excludes any
+  ticket carrying a `mission:` relation as `mission_member` *regardless of the mission's
+  status*, so a ticket under a draft mission is unclaimable by construction. This was
+  verified live before the design was committed to, not assumed.
+  **Context**: The draft gate that protects a mission already protects its tickets. If
+  that exclusion is ever narrowed to approved missions only, proposed tickets become
+  claimable without approval — which is why the tripwire test exists.

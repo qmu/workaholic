@@ -226,18 +226,29 @@ A **publish tree** is a checkout of `origin/main` that is independent of the cal
 
 `create.sh` and `create-mission-worktree.sh` remain the branch and worktree creators **for claims only**. Nothing in the publish-tree lifecycle creates a `work-*` branch or a `.worktrees/` entry.
 
-### Lifecycle: open → write → publish-tree-commit → close
+### Lifecycle: open → write → publish → close
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/open-publish-tree.sh [base]
 # write the artifact under <path>/…
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-commit.sh <title> <why> <changes> <concerns> <insights> <verify> [files...]
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh <title> <why> <changes> <concerns> <insights> <verify> [files...]
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh [base]
 ```
 
 **Open** fetches `origin/<base>`, materializes a worktree at the fixed, git-ignored `<repo_root>/.publish/` on the fixed local branch `publish-main`, and re-points it at the resolved SHA. Output: `{"ok": true, "path": "<abs>", "branch": "publish-main", "base": "origin/<base>", "sha": "<sha>"}`. Refusals: `no_origin`, `origin_unreachable`, `base_unresolved`, `dirty_publish_tree`.
 
-**Publish** runs `commit.sh` inside the publish tree (a `( cd … && … )` subshell) and pushes `publish-main:<base>` — the *commit* reaches `main`; the branch name never leaves the machine. Output: `{"ok": true, "sha": "<pushed sha>", "retried": <bool>, "base": "<base>"}`. Refusals: `no_publish_tree`, `nothing_to_commit`, `commit_failed`, `diverged`, `push_failed`.
+**Publish has two destinations, and the branch one is the default.** Both run `commit.sh` inside the publish tree (a `( cd … && … )` subshell), so the caller's checkout is untouched either way — that isolation is what the publish tree is *for*, and it is unchanged by the choice:
+
+| Script | Destination | Use it for |
+| ------ | ----------- | ---------- |
+| `publish-tree-pr.sh` | a fresh `work-*` branch + an open pull request | **Every artifact a person should see land**: feedback, missions, tickets. The project standard — the *merge* is the event that can be announced, and a commit pushed straight to the base produces no such event. |
+| `publish-tree-commit.sh` | the base branch directly | Only seams **already downstream of a merge**, where a second pull request would be circular — concern extraction at ship time is the case. |
+
+**publish-tree-pr** pushes `publish-main:refs/heads/work-YYYYMMDD-HHMMSS`, then opens the PR. Output: `{"ok": true, "sha": "<sha>", "branch": "work-…", "pr_url": "<url>", "base": "<base>"}`. Refusals: `no_publish_tree`, `nothing_to_commit`, `commit_failed`, `branch_collision`, `push_failed`, `no_gh`, `pr_failed`. **`pr_failed` and `no_gh` still report `branch` and `sha`, because the artifact IS pushed** — recover by opening the PR by hand, never by re-publishing, which duplicates the artifact.
+
+**publish-tree-commit** pushes `publish-main:<base>` — the *commit* reaches the base; the branch name never leaves the machine. Output: `{"ok": true, "sha": "<pushed sha>", "retried": <bool>, "base": "<base>"}`. Refusals: `no_publish_tree`, `nothing_to_commit`, `commit_failed`, `diverged`, `push_failed`.
+
+**The local branch stays `publish-main` in both cases.** Only the *remote* ref differs, and the `work-*` name it takes on the branch path is safe for the claim protocol because the claim scan does not key on the name: it reads a `Claim <unit-id>` commit subject in the branch's unmerged range, and a publication branch carries none. A publication branch is therefore invisible as a claim while remaining an ordinary reviewable branch to everything else.
 
 **Close** removes the worktree and deletes the local `publish-main`. Output: `{"ok": true, "removed": <bool>, "branch_deleted": <bool>, "path": "<abs>"}`. Refusals: `dirty_publish_tree`, `unpublished_commits`.
 
@@ -246,7 +257,8 @@ Every write in between resolves against the reported `path`, not the caller's cw
 ### Why it is shaped this way
 
 - **A fixed path on a fixed named branch**, reset per open, rather than a per-invocation throwaway. One predictable location is inspectable and recoverable after a crash, and reset-per-open makes staleness impossible.
-- **The branch is named, not detached, and that is load-bearing.** `commit.sh` refuses a detached HEAD, and the publish commit must go through `commit.sh` so it inherits the subject gate and the `Co-Authored-By` trailer. `publish-main` is deliberately not `work-*`: that prefix is the claim vocabulary the claim scan keys on.
+- **The branch is named, not detached, and that is load-bearing.** `commit.sh` refuses a detached HEAD, and the publish commit must go through `commit.sh` so it inherits the subject gate and the `Co-Authored-By` trailer. The *local* branch stays `publish-main` even when the publication lands on a remote `work-*` branch, so a publish tree is never confusable with a claim worktree locally.
+- **A branch collision is reported, never resolved by overwriting.** Two publications in the same second would otherwise force-share a `work-*` name and one would silently lose its commit. `publish-tree-pr.sh` reports `branch_collision` and leaves the commit intact; the next call, one second later, succeeds. It needs no rebase-and-retry either — its destination is a brand-new branch, so there is nothing to be non-fast-forward against, and reconciling with the base is the pull request's job.
 - **The writer fails loudly with no origin.** A publication nobody else can see is not a publication — the same stance `claim.sh` takes.
 - **Non-fast-forward is expected, not exceptional**, and is answered by one rebase-and-retry. Another session or a cron tick may push between the open and the publish. The bound is deliberate: an unbounded loop would hide sustained divergence a human should see. A surviving rejection reports `diverged` and leaves the commit intact in the publish tree.
 - **Nothing recoverable is ever destroyed by a bookkeeping call.** `open` and `close` both refuse a `dirty_publish_tree`; `close` additionally refuses `unpublished_commits` — a *clean* tree whose `publish-main` carries commits not yet on `origin/<base>`, which is exactly what a `diverged` publish leaves behind and is the more dangerous case because the tree looks tidy.

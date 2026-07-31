@@ -297,4 +297,5 @@
 * [Re-entry through an env-var guard is invisible in a stack trace](20260730195439-re-entry-through-an-env-var.md)
 * [The off-base extraction now costs a fetch and a worktree](20260730195439-the-off-base-extraction-now-costs.md)
 * [An externally-blocked ticket is re-picked on every drive tick](20260730204610-an-externally-blocked-ticket-is-re.md)
+* [Make /propose survey the whole repository state and propose a mission with its tickets on a branch](20260731161650-make-propose-survey-the-whole-repository-state-and-propose-a-mission-with-its-tickets-on-a-branch.md)
 <!-- okf:generated:end -->

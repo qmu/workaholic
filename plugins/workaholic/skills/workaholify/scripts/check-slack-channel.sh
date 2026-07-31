@@ -4,9 +4,14 @@
 #   check-slack-channel.sh <repo-name> [channel-prefix]      # prefix defaults to dev-
 #
 # Output (one JSON line):
-#   {"channel": "dev-<repo>", "checked": true,  "exists": true|false}
+#   {"channel": "dev-<repo>", "checked": true,  "exists": true}
 #   {"channel": "dev-<repo>", "checked": false, "reason": "no_qfs"|"slack_locked"
-#                                                        |"slack_not_connected"|"probe_failed", ...}
+#                                                        |"slack_not_connected"
+#                                                        |"channel_not_visible"|"probe_failed", ...}
+#
+# `exists` is only ever `true`. There is no reliable negative: Slack answers "not found"
+# for a channel the calling token cannot see, so an absent channel and an invisible one are
+# the same response.
 #
 # ============ "CANNOT CHECK" IS NEVER REPORTED AS "DOES NOT EXIST" ============
 #
@@ -49,6 +54,23 @@ fi
 OUT=$(qfs run "/slack/${WORKSPACE}/${CHANNEL}/messages |> select text |> limit 1" --json 2>&1 || true)
 
 case "$OUT" in
+  *slack_missing_scope*|*slack_channel_name_not_found*)
+    # NEITHER OF THESE MEANS "THE CHANNEL DOES NOT EXIST", and treating them that way was
+    # this script's own bug -- caught on 2026-08-01 against `dev-workaholic`, a channel the
+    # routines demonstrably post to, which this reported as `exists: false`.
+    #
+    # Slack answers "not found" for a channel the calling token cannot SEE, which is
+    # indistinguishable from one that is not there: a private channel the token has not
+    # joined, or a workspace scope it was never granted, both look like absence. So the
+    # honest report is "could not check", and the caller is told which.
+    #
+    # THERE IS NO RELIABLE NEGATIVE HERE. `exists: true` is the only claim this script can
+    # make; a missing channel and an invisible one cannot be separated by a read. That is a
+    # stronger form of the rule this file was written for, learned the hard way by shipping
+    # the weaker one.
+    printf '{"channel": "%s", "checked": false, "reason": "channel_not_visible", "detail": "Slack answered not-found or missing-scope; the channel may exist and be invisible to this token (private, unjoined, or out of scope). This is NOT evidence that it is absent."}\n' "$CHANNEL"
+    exit 0
+    ;;
   *slack_auth*)
     printf '{"channel": "%s", "checked": false, "reason": "slack_locked", "detail": "the qfs credential store is locked or Slack needs re-consent; this says NOTHING about whether the channel exists"}\n' "$CHANNEL"
     exit 0
@@ -59,10 +81,10 @@ case "$OUT" in
     ;;
 esac
 
-# A read that came back without an error object reached Slack and found the channel.
+# Any other error is an unrecognised failure, and an unrecognised failure is not a verdict.
 case "$OUT" in
   *'"error"'*)
-    printf '{"channel": "%s", "checked": true, "exists": false, "detail": "Slack was reachable and the channel did not resolve"}\n' "$CHANNEL"
+    printf '{"channel": "%s", "checked": false, "reason": "probe_failed", "detail": "the read failed for a reason this script does not recognise; treat the channel as unverified"}\n' "$CHANNEL"
     exit 0
     ;;
 esac

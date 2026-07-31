@@ -330,4 +330,7 @@
 * [The bootstrap has never been observed working on the web](20260801042002-the-bootstrap-has-never-been-observed.md)
 * [The channel check cannot run on a locked credential store](20260801042002-the-channel-check-cannot-run-on.md)
 * [The Drive template is still a pilot](20260801042002-the-drive-template-is-still-a.md)
+* [A legitimate per-repository difference now reads as drift forever](20260801044631-a-legitimate-per-repository-difference-now.md)
+* [Sibling sessions still cannot see each other](20260801044631-sibling-sessions-still-cannot-see-each.md)
+* [The fix is unproven until two PRs merge close together](20260801044631-the-fix-is-unproven-until-two.md)
 <!-- okf:generated:end -->

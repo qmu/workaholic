@@ -272,6 +272,10 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh [base]
 
 **Close** removes the worktree and deletes the local `publish-main`. Output: `{"ok": true, "removed": <bool>, "branch_deleted": <bool>, "path": "<abs>"}`. Refusals: `dirty_publish_tree`, `unpublished_commits`.
 
+**`unpublished_commits` asks "is this pushed anywhere?", not "did this reach the base?"** — the tip must be contained in *some* remote-tracking ref of `origin`, the base for a direct publish or the pushed `work-*` branch for a PR publish. Both publish paths therefore close cleanly. The refusal survives for the state it was written for: a clean tree whose `publish-main` tip no remote ref contains (what a `diverged` publish leaves behind) still refuses and still removes nothing, because deleting that branch would destroy the only copy of the artifact. It was base-only ancestry until 2026-08-01, which meant the documented publish-then-close sequence *always* refused once `publish-tree-pr.sh` became the default — a refusal that fires on the happy path teaches its callers to ignore the one that matters.
+
+**Closing after a PR publish leaves the work on the remote `work-*` branch, and that is the intended end state.** The tree is disposable; the branch is the artifact, and it reaches `main` when its pull request merges. Nothing about a successful close implies the artifact was queued — those are different states (J4).
+
 Every write in between resolves against the reported `path`, not the caller's cwd. All writes belong to one publication: the caller writes the whole batch, then publishes once.
 
 ### Why it is shaped this way

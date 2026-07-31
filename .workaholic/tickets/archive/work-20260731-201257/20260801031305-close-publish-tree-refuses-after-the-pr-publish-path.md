@@ -3,9 +3,9 @@ created_at: 2026-08-01T03:13:05+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Domain]
-effort:
+effort: 0.5h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 merge_policy: auto

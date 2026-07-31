@@ -8876,6 +8876,7 @@ const tests = [
   ["branching/sync-main.sh (J3 freshness)", testSyncMain],
   ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
   ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
+  ["branching close-publish-tree: closes after either publish path, still guards the unpushed one", testClosePublishTreeReachability],
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
   ["routine announcements: exactly one subject, or nothing at all", testRoutineAnnouncementScoping],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
@@ -8962,6 +8963,95 @@ function testPublishTreePr() {
     assertEq("publishing via a pull request leaves the caller's checkout untouched",
       snapshotCheckout(A), before);
   } finally {
+    rmSync(origin, { recursive: true, force: true });
+    rmSync(A, { recursive: true, force: true });
+  }
+}
+
+// close-publish-tree.sh asks "is this tip pushed ANYWHERE?", not "did it reach the
+// base?". The two publish paths are a two-case matrix and covering only the direct one
+// is what let the defect ship: once publish-tree-pr.sh became the default (J4), the
+// documented publish-then-close sequence ALWAYS refused, because a PR-published commit
+// is on origin/work-* and — by construction, until a human merges — not on origin/main.
+// A refusal that fires on the happy path trains its callers to ignore the one that
+// matters, so the never-published case below is the assertion this fix is judged on.
+function testClosePublishTreeReachability() {
+  const { origin, A } = makePublishFixture();
+  const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
+  const PR = `${POSIX_SH} ${SCRIPTS.publishTreePr}`;
+  const COMMIT = `${POSIX_SH} ${SCRIPTS.publishTreeCommit}`;
+  const CLOSE = `${POSIX_SH} ${SCRIPTS.closePublishTree}`;
+
+  // Stub `gh` so the PR path reaches ok:true — the real client cannot open a PR
+  // against a bare local origin, and this test is about close, not about gh.
+  const stubDir = mkdtempSync(join(tmpdir(), "workaholic-ghstub-"));
+  writeFileSync(join(stubDir, "gh"), "#!/bin/sh\necho https://example.invalid/pull/1\n");
+  chmodSync(join(stubDir, "gh"), 0o755);
+  const withStub = { env: { ...process.env, PATH: `${stubDir}:${process.env.PATH}` } };
+
+  const publishTreePath = join(A, ".publish");
+  try {
+    // ---- 1. The PR path: the whole documented sequence, end to end ----
+    run(A, OPEN);
+    writeFileSync(join(publishTreePath, "via-pr.md"), "# via pr\n");
+    const pr = JSON.parse(run(A, `${PR} "Add artifact via pull request" "w" "None" "None" "None" "v" via-pr.md`, withStub).stdout);
+    assertTrue("the stubbed PR publish succeeds", pr.ok === true, JSON.stringify(pr));
+
+    // The tip is on origin/work-*, and deliberately NOT on origin/main — the exact
+    // state the old base-only ancestry test refused.
+    const onMain = execSync("git ls-tree -r --name-only main", { cwd: origin, encoding: "utf8" });
+    assertTrue("the PR-published artifact is not on the base yet", !onMain.includes("via-pr.md"), onMain);
+
+    let r = JSON.parse(run(A, CLOSE).stdout);
+    assertEq("close succeeds after the default PR publish path",
+      { ok: r.ok, removed: r.removed, branch_deleted: r.branch_deleted },
+      { ok: true, removed: true, branch_deleted: true });
+    assertTrue("the PR-path close leaves no publish tree", !existsSync(publishTreePath));
+
+    // ---- 2. The direct path: unchanged from before the fix ----
+    run(A, OPEN);
+    writeFileSync(join(publishTreePath, "via-commit.md"), "# via commit\n");
+    const direct = JSON.parse(run(A, `${COMMIT} "Add artifact directly" "w" "None" "None" "None" "v" via-commit.md`).stdout);
+    assertTrue("the direct publish succeeds", direct.ok === true, JSON.stringify(direct));
+    r = JSON.parse(run(A, CLOSE).stdout);
+    assertEq("close still succeeds after the direct-to-base publish path", r.ok, true);
+
+    // ---- 3. THE GUARD THIS FIX MUST NOT WIDEN AWAY ----
+    // A clean tree whose tip no remote ref contains. Deleting the branch here would
+    // destroy the only copy of the artifact, so it still refuses and removes nothing.
+    run(A, OPEN);
+    writeFileSync(join(publishTreePath, "never-pushed.md"), "# never pushed\n");
+    execSync("git add -A && git commit -q -m 'Add a never published artifact'", { cwd: publishTreePath });
+    r = JSON.parse(run(A, CLOSE).stdout);
+    assertEq("close still refuses a tip no remote ref contains", r.reason, "unpublished_commits");
+    assertTrue("the never-published tree is not removed", existsSync(publishTreePath));
+    assertTrue("the never-published branch is not deleted",
+      execSync("git branch --list publish-main", { cwd: A, encoding: "utf8" }).trim() !== "");
+    assertTrue("the never-published commit survives the refusal",
+      execSync("git log -1 --format=%s publish-main", { cwd: A, encoding: "utf8" })
+        .includes("Add a never published artifact"));
+
+    // The detail names what was actually looked for. An operator who read the old
+    // "not on origin/main" text after a successful PR publish reasonably concluded
+    // the publish had failed.
+    assertTrue("the refusal detail names that no remote ref contains the tip",
+      /no remote-tracking ref of origin contains/.test(r.detail || ""), r.detail);
+
+    // ---- 4. A dirty tree still refuses first, and removes nothing ----
+    writeFileSync(join(publishTreePath, "uncommitted.md"), "# half written\n");
+    r = JSON.parse(run(A, CLOSE).stdout);
+    assertEq("a dirty publish tree still refuses ahead of the reachability test",
+      r.reason, "dirty_publish_tree");
+    assertTrue("the half-written artifact survives", existsSync(join(publishTreePath, "uncommitted.md")));
+
+    // ---- 5. Idempotent once the tree is genuinely gone ----
+    execSync("git worktree remove --force .publish", { cwd: A });
+    execSync("git branch -D publish-main", { cwd: A });
+    r = JSON.parse(run(A, CLOSE).stdout);
+    assertEq("close is idempotent when the publish tree is already gone",
+      { ok: r.ok, removed: r.removed }, { ok: true, removed: false });
+  } finally {
+    rmSync(stubDir, { recursive: true, force: true });
     rmSync(origin, { recursive: true, force: true });
     rmSync(A, { recursive: true, force: true });
   }

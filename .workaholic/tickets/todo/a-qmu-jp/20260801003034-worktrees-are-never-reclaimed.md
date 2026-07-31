@@ -8,6 +8,7 @@ commit_hash:
 category: Added
 depends_on:
 mission:
+claim: work-20260801-023444
 ---
 
 # Worktrees are created by the workflow but never reclaimed, so a machine running it fills its disk until unrelated work breaks

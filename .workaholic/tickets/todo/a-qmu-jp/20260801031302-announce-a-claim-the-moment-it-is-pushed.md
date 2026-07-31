@@ -9,6 +9,7 @@ category:
 depends_on:
 mission:
 merge_policy: auto
+claim: work-20260801-051742
 ---
 
 # Taking a unit is invisible to people until the whole unit is driven

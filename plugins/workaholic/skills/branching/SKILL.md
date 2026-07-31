@@ -216,6 +216,26 @@ Reset a mission worktree for its next batch after a merge — cuts a fresh `work
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/reset-mission-worktree.sh <slug> [base-branch]
 ```
 
+## Reclaiming worktrees
+
+**A worktree is allocated storage, and a tool that allocates without ever reclaiming is not finished** (`workaholic:operation`). Teardown exists three times over — `/ship` after a merge, `/drive` after an auto unit, `/mission close` — and each is correct, but all three share a precondition: **somebody's run has to reach the end**. A mission open for weeks keeps its desk the whole time; an interrupted run, a hand-driven branch, or a batch whose caller died is nobody's teardown. Measured when this was written: **53 GB held across four repositories, 31 GB of it fully merged and clean**, one repository holding 29 worktrees of which 22 were merged. The sweep below does not replace those calls — it catches what they structurally cannot.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/survey-worktrees.sh [base]              # read-only
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/reap-worktrees.sh [--apply] [base]      # dry run by default
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/prune-worktree-artifacts.sh [--apply] <path>
+```
+
+**Survey** reports every worktree with `size_bytes`/`size_human`, `ahead`, `dirty`, `merged`, `reclaimable`, and a `skip_reason`, plus repository totals. It excludes the main tree and `.publish/`. Note it finds the main tree as the **first record of `git worktree list`**, never via `git rev-parse --show-toplevel` — inside a linked worktree that answers "the tree I am standing in", which once made the survey report the **main checkout as reclaimable**.
+
+**Reclaimable is two conditions and both are required**: `merged` (no commits the base lacks) **and** `clean` (nothing uncommitted, tracked or untracked). Either alone is not enough — six worktrees were correctly skipped on exactly these grounds in the incident above, and a reaper applying one condition would have destroyed real work. `skip_reason` names which condition failed (`unmerged`, `dirty`, `unmerged_and_dirty`, `current_worktree`, `base_unresolved`), because a skip nobody can explain is indistinguishable from a bug.
+
+**Reap** applies that predicate and nothing of its own — one rule, one implementation, so the reaper can never disagree with the reader a human just looked at. It is a **dry run by default**; `--apply` removes. Run it from the main checkout: a worktree cannot remove itself, and the current one is reported as `skipped` with `current_worktree` rather than failing the run.
+
+**Prune** reclaims build output *without* removing the worktree — a merged desk someone wants to keep still does not need the 13 GB of build output one of them held. Its safety rule is also two conditions: the directory must be **git-ignored** *and* its name must be in the artifact set (`WORKAHOLIC_ARTIFACT_DIRS`; `node_modules target dist build .next …` by default). Ignored-ness alone is emphatically not enough — `.env`, `.workaholic/leak-denylist`, and local credentials are all ignored and all precious, which is exactly what `git clean -Xdf` would take.
+
+**`.worktrees/` lives inside the repository root, and that has consequences worth stating.** Anything that treats the repo root as an input swallows every worktree with it: this is how a container build actually failed — with no ignore file its build context was the repository root, 6.2 GB of which 5.7 GB was `.worktrees/`, and it tried to copy all of it into an image layer. Backups, indexers, and any tool that walks the tree have the same exposure. A project using this workflow should add `.worktrees/` (and `.publish/`) to its `.dockerignore`, and to the ignore list of any archiver or indexer rooted at the repository. The scripts add both to `.git/info/exclude` — that covers **git**, and nothing else.
+
 `list-all-worktrees.sh` tags a `.worktrees/<slug>` worktree with `"type": "mission"` (ordinary `work-*` dirs stay `"type": "work"`), so `/ship` and the mission lens can distinguish a mission's claim worktree from an ordinary branch worktree. `create-mission-worktree.sh` also adds `.worktrees/` to `.git/info/exclude` so a linked worktree is never accidentally embedded as a gitlink by a main-tree `git add -A`.
 
 ## The Publish Tree

@@ -315,4 +315,9 @@
 * [Nothing yet watches for the merge event the standard depends on](20260801021156-nothing-yet-watches-for-the-merge.md)
 * [The archive commit exceeds the per-commit changed-lines ceiling](20260801021156-the-archive-commit-exceeds-the-per.md)
 * [The test suite feels like too much for what it protects](20260801024712-the-test-suite-feels-like-too-much-for-what-it-protects.md)
+* [Six existing missions are over the new ceiling](20260801025242-six-existing-missions-are-over-the.md)
+* [The size norms are unmeasured for human-authored missions until something calls size.sh](20260801025242-the-size-norms-are-unmeasured-for.md)
+* [Consuming projects must add the ignore entries themselves](20260801025526-consuming-projects-must-add-the-ignore.md)
+* [The archive commit is again over the changed-lines ceiling](20260801025526-the-archive-commit-is-again-over.md)
+* [The sweep has no scheduled caller](20260801025526-the-sweep-has-no-scheduled-caller.md)
 <!-- okf:generated:end -->

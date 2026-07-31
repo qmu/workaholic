@@ -29,11 +29,17 @@
 #     THERE, and re-listing them would make the successor's computed progress claim
 #     work it did not do. So the successor starts at 0/<n unmet>, which falls out of
 #     its own list; no number is ever carried across.
-#   - ## Goal / ## Scope and the gate_* fields, verbatim. A carry-over is a
-#     CONTINUATION by definition: the mission is done as framed and the remainder
-#     pursues the same outcome, so the goal is shared and the gate still applies. A
-#     genuine re-framing is a NEW mission, not a carry -- which is also what keeps this
-#     independent of the mission interrogation flow rather than duplicating it.
+#   - ## Goal and the gate_* fields, verbatim. A carry-over is a CONTINUATION by
+#     definition: the mission is done as framed and the remainder pursues the same
+#     outcome, so the goal is shared and the gate still applies. A genuine re-framing
+#     is a NEW mission, not a carry -- which is also what keeps this independent of the
+#     mission interrogation flow rather than duplicating it.
+#   - ## Scope is NOT carried, because it no longer exists (2026-08-01: dropped from
+#     create.sh's template, since nothing read it). The successor is scaffolded from
+#     that template, so it has no ## Scope heading for a carry to land in; a legacy
+#     predecessor's section simply stays with the predecessor as history. Carrying it
+#     would re-introduce a retired section into a NEW mission, which is the opposite
+#     of what the removal was for.
 #
 # LINEAGE IS RECORDED IN BOTH DIRECTIONS (design/history-structures): the predecessor
 # gets a changelog line naming the successor, and the successor records `carried_from`.
@@ -192,14 +198,12 @@ if [ "$TARGET" = "carried" ]; then
                 in_fm && /^gate_assert:/{ print "gate_assert: " gas; next }
                 in_fm { print; next }
                 /^## Goal$/       { print; printf "%s", goal_body; skip = 1; next }
-                /^## Scope$/      { print; printf "%s", scope_body; skip = 1; next }
                 /^## Acceptance$/ { print; printf "\n%s\n", acc_body; skip = 1; next }
                 /^## /            { skip = 0; print; next }
                 skip { next }
                 { print }
                 BEGIN {
                     goal_body  = emit_section(predfile, "Goal")
-                    scope_body = emit_section(predfile, "Scope")
                     acc_body   = unchecked(predfile)
                     while ((getline l < predfile) > 0) {
                         if (l ~ /^gate_type:/)   { gt  = substr(l, 11) }

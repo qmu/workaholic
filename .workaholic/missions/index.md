@@ -5,6 +5,7 @@
 * [adopt-a-git-flow-branching-model-with-durable-ship-records](active/adopt-a-git-flow-branching-model-with-durable-ship-records/mission.md) - Adopt a release-branch staging tier with durable ship records
 * [drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main](active/drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main/mission.md) - Drop the draft gate and make /drive own its worktree from refreshed main
 * [make-acceptance-ticking-measure-satisfaction-not-marker-shape](active/make-acceptance-ticking-measure-satisfaction-not-marker-shape/mission.md) - Make acceptance ticking measure satisfaction, not marker shape
+* [make-scheduled-routines-a-configurable-inspectable-part-of-a-repository](active/make-scheduled-routines-a-configurable-inspectable-part-of-a-repository/mission.md) - Make scheduled routines a configurable, inspectable part of a repository
 * [make-the-per-commit-changed-lines-ceiling-a-rule-that-holds](active/make-the-per-commit-changed-lines-ceiling-a-rule-that-holds/mission.md) - Make the per-commit changed-lines ceiling a rule that holds
 
 ## archive

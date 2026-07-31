@@ -44,11 +44,11 @@ It clears the floor (owner + `## Experience` + `## Acceptance`), sets `status: a
 **5. Publish and report.** The approval is a mission write like any other, so it goes to `main` through a publish tree: open one before step 4 and run `approve.sh` inside it (`( cd <publish_path> && … )`), then
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-commit.sh "Approve mission <slug>" "<why>" "<changes>" "None" "None" "<verify>" .workaholic/
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "Approve mission <slug>" "<why>" "<changes>" "None" "None" "<verify>" .workaholic/
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh
 ```
 
-Then tell the developer the mission is drive-ready on `main`, with its merge policy and its queue. An approval that never reaches `main` is invisible to `/drive`'s survey, which is the whole reason the flip exists — so a publish failure is reported as "still a draft as far as any runner can see".
+Then tell the developer the mission is approved and awaiting its pull request, naming the branch, the PR URL, its merge policy, and its queue. **It becomes drive-ready when that pull request merges**, not when it is opened: an approval that has not reached `main` is invisible to `/drive`'s survey, which is the whole reason the flip exists — so both a publish failure and an unmerged PR are reported as "still a draft as far as any runner can see".
 
 ## Referencing an existing mission — replan
 
@@ -74,7 +74,7 @@ Three outcomes:
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/open-publish-tree.sh
 ```
 
-Replan re-enters the interrogation against the mission **as published on `main`**, applies the delta there, emits the delta tickets, and publishes them. It creates **no worktree**. This is how a carried successor — minted by `close.sh` with no tickets — gets fleshed out; the create flow dead-ends on its existing `mission.md` (`create.sh` `reason: "exists"`), and replan is the sanctioned path instead. All writes happen in the publish tree via `( cd <publish_path> && … )` subshells, exactly as in the create flow.
+Replan re-enters the interrogation against the mission **as published on `main`** (a mission still sitting in an unmerged pull request is not yet replannable — merge it first), applies the delta there, emits the delta tickets, and publishes them. It creates **no worktree**. This is how a carried successor — minted by `close.sh` with no tickets — gets fleshed out; the create flow dead-ends on its existing `mission.md` (`create.sh` `reason: "exists"`), and replan is the sanctioned path instead. All writes happen in the publish tree via `( cd <publish_path> && … )` subshells, exactly as in the create flow.
 
 **2b. Surface sibling PRs.** Before re-interrogating, list open PRs that already reference this mission slug so the delta does not duplicate a sibling lane's in-flight, not-yet-merged work:
 
@@ -91,7 +91,7 @@ If `prs` is non-empty, tell the developer which open PRs touch this mission and 
 **5. Record the history and the approval.** Append changelog lines through the shared mutator — `ticket added — <filename>` per emitted ticket, plus one `mission replanned — <artifact>` line — and run `approve.sh` only under the skill's *Approval after a replan* conditions (a cut-short interrogation leaves the mission a draft; a draft reaching drive-readiness here is approved through the `approve` route's steps 3–4, merge-policy question included). Then publish the delta as one commit and close the tree:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-commit.sh "Replan mission <slug>" "<why>" "<changes>" "None" "None" "<verify>" .workaholic/
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "Replan mission <slug>" "<why>" "<changes>" "None" "None" "<verify>" .workaholic/
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh
 ```
 
@@ -99,7 +99,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh
 
 An abandoned replan publishes **nothing** and says so, exactly as the create flow's step 5 requires.
 
-**6. Report.** Summarize what changed (sections rewritten, criteria appended, tickets emitted with filenames) and where — on `main`, ready for the next `/drive` tick to claim.
+**6. Report.** Summarize what changed (sections rewritten, criteria appended, tickets emitted with filenames) and where — on the named branch, behind the pull request whose URL you report. The next `/drive` tick can claim it once that pull request merges.
 
 ## With a title — create a mission
 
@@ -154,17 +154,17 @@ By the end of this step the mission is **drive-ready**: a complete, ordered queu
 **5. Publish the whole creation batch as ONE commit**, then close the publish tree:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-commit.sh "Kick off mission <slug>" "<why>" "<changes>" "None" "None" "<verify>" .workaholic/
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "Kick off mission <slug>" "<why>" "<changes>" "None" "None" "<verify>" .workaholic/
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh
 ```
 
 **One commit, because the batch is one act.** A mission whose statement reached `main` without its tickets is a mission `/drive` would survey as approved with an empty queue.
 
-**Pass `.workaholic/` as the file argument — it is load-bearing, not decoration.** `create.sh` and `approve.sh` stage their own writes, but the ticket files are written with the editor and are therefore **untracked**, and `commit.sh`'s default staging is `git add -u`, which stages tracked modifications only. Without the path the mission statement would land on `main` with an empty queue — precisely the half-formed mission this step forbids. The publish tree was reset to `origin/main` on open, so `.workaholic/` there contains exactly this batch and nothing else.
+**Pass `.workaholic/` as the file argument — it is load-bearing, not decoration.** `create.sh` and `approve.sh` stage their own writes, but the ticket files are written with the editor and are therefore **untracked**, and `commit.sh`'s default staging is `git add -u`, which stages tracked modifications only. Without the path the mission statement would land with an empty queue — precisely the half-formed mission this step forbids. The publish tree was reset to `origin/main` on open, so `.workaholic/` there contains exactly this batch and nothing else.
 
-**Never publish a half-formed mission.** If the interrogation is abandoned before the ticket set is emitted — the developer walks away, the session is interrupted, a round is left unanswered — commit **nothing** and push **nothing**. Tell the developer plainly that the mission is **not on `main`** and that the partial work is intact in the publish tree (leave it open; `close` refuses unpublished commits, and the tree is how the work is recovered). A runner claiming an approved mission with no tickets is a worse outcome than losing an unfinished draft the publish tree still holds. The same applies to a publish failure (`no_origin`, `diverged`, `push_failed`): name the reason and say the mission is not yet on `main`.
+**Never publish a half-formed mission.** If the interrogation is abandoned before the ticket set is emitted — the developer walks away, the session is interrupted, a round is left unanswered — commit **nothing** and push **nothing**. Tell the developer plainly that the mission is **not published** and that the partial work is intact in the publish tree (leave it open; `close` refuses unpublished commits, and the tree is how the work is recovered). A runner claiming an approved mission with no tickets is a worse outcome than losing an unfinished draft the publish tree still holds. The same applies to a publish failure (`no_origin`, `branch_collision`, `push_failed`): name the reason and say the mission is not published. `pr_failed` is reported differently — the mission **is** on its branch and only the pull request is missing, so the recovery is to open it by hand, never to re-run the interrogation.
 
-**6. Report and hand off — honestly about location.** Tell the developer the mission is on `main` at `.workaholic/missions/active/<slug>/mission.md`, name the pushed commit, and summarize the slug and the kickoff tickets. Do **not** report a worktree path: none exists yet, and reporting a directory the developer cannot `cd` into is worse than reporting none. Say that `/drive` creates the worktree when it claims the mission, and that `/goal /drive ok` is how to execute it.
+**6. Report and hand off — honestly about location.** Tell the developer the mission is at `.workaholic/missions/active/<slug>/mission.md` on the named branch, give the pull-request URL, name the pushed commit, and summarize the slug and the kickoff tickets. It reaches `main` — and `/drive`'s survey — when that pull request merges. Do **not** report a worktree path: none exists yet, and reporting a directory the developer cannot `cd` into is worse than reporting none. Say that `/drive` creates the worktree when it claims the mission, and that `/goal /drive ok` is how to execute it.
 
 ## Without a title — the developer's planning session
 

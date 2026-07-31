@@ -72,12 +72,14 @@ Follow the **Workflow** section of the preloaded `workaholic:create-ticket` skil
 Otherwise, publish the batch as one commit and tear the publish tree down:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-commit.sh "Add ticket for <short-description>" "<why>" "None" "None" "None" "<verify>" <ticket-path>...
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "Add ticket for <short-description>" "<why>" "None" "None" "None" "<verify>" <ticket-path>...
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh
 ```
 
-Then present the ticket path, the pushed commit, and the fact that it is **already on `main`** and claimable by the next `/drive` tick.
+Then present the ticket path, the pushed commit, the **branch and pull-request URL**, and the fact that the ticket becomes claimable by `/drive` **when that pull request merges** — not before. Say that plainly: a developer who reads "published" as "queued" will wonder why the next tick ignored their ticket.
 
 **Name only the tickets this run wrote.** The Step 1.5 sweep has already git-staged its moves inside the publish tree, and they ride the same commit through the index — but naming a swept ticket's *old* path here refuses the entire publish (`commit.sh` treats an unstageable named path as fatal, correctly), leaving the batch unpublished. So pass the newly written paths and nothing else.
 
-**A publish failure is never swallowed.** On `no_origin`, `diverged`, `push_failed`, or `nothing_to_commit`, tell the developer plainly that the ticket is **not yet on `main`**, name the reason, and say that the body is intact in the publish tree (do **not** close it — closing refuses unpublished commits, and the tree is how the work is recovered). A developer who believes work is queued when it is not is the worst outcome available here.
+**A publish failure is never swallowed.** On `no_origin`, `branch_collision`, `push_failed`, or `nothing_to_commit`, tell the developer plainly that the ticket is **not published**, name the reason, and say that the body is intact in the publish tree (do **not** close it — closing refuses unpublished commits, and the tree is how the work is recovered). A developer who believes work is queued when it is not is the worst outcome available here.
+
+**`pr_failed` and `no_gh` are a different report, and must not be collapsed into the one above.** The ticket **is** pushed to the named branch; only the pull request is missing. Report the branch, and say the recovery is to open the PR by hand — re-running `/ticket` would write a second copy of the same ticket.

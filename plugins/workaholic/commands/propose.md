@@ -1,6 +1,6 @@
 ---
 name: propose
-description: Headless proposal batch — read feedback newly merged to main and either stay silent or register draft missions with feedback traceability, pushed to main and announced to Slack.
+description: Headless proposal batch — survey the repository state and either stay silent or propose a draft mission with its ticket set on a work branch behind a pull request, announced to Slack.
 skills:
   - workaholic:propose
   - workaholic:feedback
@@ -25,18 +25,28 @@ This command is **headless by contract** (`workaholic:propose` — read its Head
 
 3. **Window.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/new-feedback.sh <cursor-commit>`. Empty → advance the cursor to the current tip (`cursor.sh advance <tip>`) and report silence.
 
-4. **Dedup.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-proposed-refs.sh`; drop window records already referenced by any mission. Nothing left → advance + silence.
+4. **State.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/survey-state.sh <cursor-commit>` — the missions, the todo queue, and the commits since the cursor. These are **constraints on** the judgment, never triggers for it (skill: The judgment bar); a run whose feedback window is empty has already stopped at step 3, no matter what the state shows.
 
-5. **Judge** each remaining record (read it in full) against the skill's **judgment bar** — propose only actionable direction warranting a bounded batch; when unsure, stay silent. Group records that ask for one direction into one proposal.
+5. **Dedup.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-proposed-refs.sh`; drop window records already referenced by any mission. Nothing left → advance + silence.
 
-6. **Draft** each warranted proposal:
+6. **Judge** each remaining record (read it in full) against the skill's **judgment bar**, with the step-4 state in hand — propose only actionable direction warranting a bounded batch, and drop anything an active mission already covers, a queued ticket already specifies, or a recent commit already built. When unsure, stay silent. Group records that ask for one direction into one proposal.
+
+7. **Open the publish tree.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/open-publish-tree.sh`. On `ok: false`, abort reporting its reason without advancing the cursor. Everything in steps 8–9 is written **inside** the publish tree path it returns, so the caller's checkout is never touched.
+
+8. **Draft** each warranted proposal:
    - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-draft.sh "<title>" <feedback-filename>...`
    - Fill `## Goal` / `## Scope` / `## Experience` and a **proposed** `## Acceptance` sketch from the feedback content (Edit on the scaffold; clearly provisional — `/mission approve <slug>` interrogates it to drive-ready, never this batch). Never flip `status` and never seed `assignees` or `merge_policy`.
 
-7. **Commit and push** via the commit skill — subject `Propose mission <slug>` (one commit per draft), then `git push`. A failed push aborts the run **without advancing the cursor** (the next tick re-reads the same window; the drafts stay local and the retry's scaffold finds them via `reason: "exists"` — resolve by hand if it persists).
+9. **Emit the ticket set** for each draft — a proposal without one is a title, and `/drive` drops such a mission as `no_tickets`:
+   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer]`, once per ticket, in the order they would be driven.
+   - Fill each ticket's Overview, Key Files, Implementation Steps, and the provisional Quality Gate. Leave `merge_policy` empty (absent reads as `review`).
 
-8. **Notify** per draft: `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/notify-slack.sh "<message>"` — title, slug, this repo's label (`bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`), the mission path on main, and "review via `/mission <slug>`". Record each `notified` result; a no-op/failure never fails the run (skill: Notifier contract).
+10. **Publish as a pull request.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "Propose mission <slug>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"` — one call per proposal. It commits, pushes a fresh `work-*` branch, and opens the PR, emitting `{ok, branch, pr_url}`. On `ok: false`, abort **without advancing the cursor**; note that `pr_failed` means the artifact **is** pushed (open the PR by hand — never re-publish, which would duplicate it).
 
-9. **Advance** the cursor to the pushed tip (`cursor.sh advance <tip>`) — only now, after every draft is safely on main.
+11. **Close the publish tree.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh`. Run it whether or not the publish succeeded; it refuses rather than destroying recoverable state.
 
-10. **Report** one line per outcome: silence (with window size), or each draft's slug + path + notified flag.
+12. **Notify** per proposal: `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/notify-slack.sh "<message>"` — title, slug, this repo's label (`bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`), the **PR URL**, and "review via `/mission <slug>` once merged". Record each `notified` result; a no-op/failure never fails the run (skill: Notifier contract).
+
+13. **Advance** the cursor to the base tip the proposal was cut from (`cursor.sh advance <tip>`) — only now, after every proposal's pull request is open. Open, not merged: merging is a human act with no deadline, and a cursor waiting on it would re-propose what is already sitting in an open PR (skill: Headless).
+
+14. **Report** one line per outcome: silence (with window size), or each proposal's slug + PR URL + ticket count + notified flag.

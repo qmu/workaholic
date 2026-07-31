@@ -111,6 +111,9 @@ const SCRIPTS = {
   syncMain: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/sync-main.sh"),
   openPublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/open-publish-tree.sh"),
   publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
+  publishTreePr: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh"),
+  surveyState: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-state.sh"),
+  scaffoldProposedTicket: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-proposed-ticket.sh"),
   closePublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/close-publish-tree.sh"),
 };
 
@@ -8113,8 +8116,15 @@ function testTicketPublishContract() {
     /every answer is the same is worse than no prompt/.test(cmd));
   assertTrue("the /drive-invoked carve-out survives",
     /Skip publishing if invoked during `\/drive`/.test(cmd));
-  assertTrue("a publish failure is surfaced as not-yet-on-main",
-    /\*\*not yet on `main`\*\*/.test(cmd));
+  assertTrue("a publish failure is surfaced as not-published",
+    /\*\*not published\*\*/.test(cmd));
+  // The two failure kinds must not be collapsed. `pr_failed` means the ticket IS on its
+  // branch and only the PR is missing, so the recovery is to open it by hand -- re-running
+  // /ticket would write a second copy of the same ticket.
+  assertTrue("pr_failed is reported as pushed-but-unreviewed, not as unpublished",
+    /`pr_failed` and `no_gh` are a different report/.test(cmd));
+  assertTrue("and the report says re-running would duplicate the ticket",
+    /would write a second copy of the same ticket/.test(cmd));
   assertTrue("summary mode's divergence is recorded so it is not 'fixed' later",
     /reads the CALLER's checkout, and opens no publish tree/.test(skill));
 
@@ -8731,6 +8741,8 @@ const tests = [
   ["drive: the unified run's contract", testUnifiedDriveContract],
   ["branching/sync-main.sh (J3 freshness)", testSyncMain],
   ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
+  ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
+  ["propose: widened inputs, emitted tickets, and the mission_member safety property (J4)", testProposeWidenedBatch],
   ["branching/check-worktrees.sh ignores the publish tree", testCheckWorktreesIgnoresPublishTree],
   ["/ticket publishes to main end to end (J1)", testTicketPublishesToMain],
   ["hooks/validate-ticket.sh resolves a mission in the publish tree", testValidateTicketResolvesInPublishTree],
@@ -8748,3 +8760,120 @@ for (const [label, fn] of tests) {
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
+
+// ---------- branching/publish-tree-pr.sh + propose's widened batch (J4) ----------
+// The project standard: every workaholic artifact reaches the base through a MERGED
+// pull request, because the merge is the event that can be announced. J1's
+// direct-to-base publication survives only for seams already downstream of a merge.
+//
+// gh IS NEVER CALLED FOR REAL HERE. The fixture's origin is a bare local repo with no
+// GitHub behind it, so `gh pr create` cannot succeed — and that is deliberate rather
+// than a limitation: the property worth pinning is exactly what happens when the PR
+// step fails, namely that the ARTIFACT IS STILL PUSHED and the caller is told which
+// branch holds it. A recovery that re-publishes instead of opening the PR by hand
+// would duplicate the artifact, so this is the assertion that prevents it.
+function testPublishTreePr() {
+  const { origin, A } = makePublishFixture();
+  const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
+  const PR = `${POSIX_SH} ${SCRIPTS.publishTreePr}`;
+  const TICKET_REL = `.workaholic/tickets/todo/${TEST_SLUG}/20260801010000-pr-published.md`;
+  try {
+    // A dirty feature branch — the state a developer types /ticket from.
+    execSync("git checkout -q -b work-20260801-000000", { cwd: A });
+    writeFileSync(join(A, "README.md"), "seed\nlocal edit\n");
+    writeFileSync(join(A, "scratch.txt"), "untracked\n");
+    execSync("git add README.md", { cwd: A });
+    const before = snapshotCheckout(A);
+
+    // Refusal without a publish tree is named, not a crash.
+    assertEq("publish-tree-pr refuses without an open publish tree",
+      JSON.parse(run(A, `${PR} "Add nothing here" "w" "None" "None" "None" "v"`).stdout).reason, "no_publish_tree");
+
+    run(A, OPEN);
+    mkdirSync(join(A, ".publish", `.workaholic/tickets/todo/${TEST_SLUG}`), { recursive: true });
+    writeFileSync(join(A, ".publish", TICKET_REL), "---\ntype: enhancement\n---\n\n# PR published\n");
+    const r = JSON.parse(run(A, `${PR} "Add ticket via pull request" "why" "None" "None" "None" "verify" ${TICKET_REL}`).stdout);
+
+    // Whether gh is installed or not, the PR cannot be opened against a bare local
+    // origin — so the outcome is a reported failure that still names the branch.
+    assertTrue("publish-tree-pr reports a PR-step failure rather than claiming success",
+      r.ok === false && (r.reason === "pr_failed" || r.reason === "no_gh"), JSON.stringify(r));
+    assertTrue("a failed PR step still reports the branch the artifact landed on",
+      /^work-\d{8}-\d{6}$/.test(r.branch || ""), JSON.stringify(r));
+
+    // THE POINT: the artifact IS on the remote branch, and is NOT on the base.
+    const onBranch = execSync(`git ls-tree -r --name-only ${r.branch}`, { cwd: origin, encoding: "utf8" });
+    assertTrue("the artifact is pushed to the work-* branch", onBranch.includes(TICKET_REL), onBranch);
+    const onMain = execSync("git ls-tree -r --name-only main", { cwd: origin, encoding: "utf8" });
+    assertTrue("the artifact is NOT on the base until the pull request merges",
+      !onMain.includes(TICKET_REL), onMain);
+
+    // The claim protocol is untouched: a publication branch carries no Claim subject,
+    // which is what the claim scan keys on — never the branch name.
+    const subjects = execSync(`git log --format=%s main..${r.branch}`, { cwd: origin, encoding: "utf8" });
+    assertTrue("a publication branch carries no Claim commit, so the claim scan skips it",
+      !/^Claim /m.test(subjects), subjects);
+    assertEq("the publish commit's subject is the caller's", subjects.trim().split("\n")[0], "Add ticket via pull request");
+
+    // The local branch never becomes work-*: only the remote ref does.
+    const localBranches = execSync("git branch --list", { cwd: join(A, ".publish"), encoding: "utf8" });
+    assertTrue("the local publish branch stays publish-main", /publish-main/.test(localBranches), localBranches);
+
+    // THE CENTRAL INVARIANT, unchanged from the direct-publish path.
+    assertEq("publishing via a pull request leaves the caller's checkout untouched",
+      snapshotCheckout(A), before);
+  } finally {
+    rmSync(origin, { recursive: true, force: true });
+    rmSync(A, { recursive: true, force: true });
+  }
+}
+
+// The batch's widened inputs and its ticket emission. The safety property is the
+// interesting one: a ticket proposed under a DRAFT mission must be unclaimable, and it
+// is -- not by a new gate, but because plan-units.sh drops any mission-related ticket
+// as `mission_member` whatever the mission's status. If that exclusion is ever
+// narrowed, this test is the tripwire.
+function testProposeWidenedBatch() {
+  const root = makeRepo();
+  const SURVEY = `${POSIX_SH} ${SCRIPTS.surveyState}`;
+  const SCAFFOLD_TICKET = `${POSIX_SH} ${SCRIPTS.scaffoldProposedTicket}`;
+  try {
+    const slug = "a-proposed-direction";
+    mkdirSync(join(root, `.workaholic/missions/active/${slug}`), { recursive: true });
+    writeFileSync(join(root, `.workaholic/missions/active/${slug}/mission.md`),
+      `---\ntype: Mission\ntitle: A proposed direction\nslug: ${slug}\nstatus: draft\nmerge_policy:\nassignees: []\nassignee:\nfeedback: [20260801000000-some-record.md]\n---\n\n# A proposed direction\n\n## Acceptance\n\n- [ ] proposed criterion\n`);
+    execSync("git add -A && git commit -q -m 'Add draft mission'", { cwd: root });
+
+    // The survey carries all three constraint signals.
+    const survey = JSON.parse(run(root, `${SURVEY} HEAD main`).stdout);
+    assertTrue("survey-state reports the missions", Array.isArray(survey.missions) && survey.missions.length >= 1,
+      JSON.stringify(survey.missions));
+    assertTrue("survey-state reports the queue as an array", Array.isArray(survey.queue));
+    assertTrue("survey-state reports the commits as an array", Array.isArray(survey.commits));
+
+    // A dangling mission relation is refused rather than written.
+    assertEq("scaffold-proposed-ticket refuses a mission that does not resolve",
+      JSON.parse(run(root, `${SCAFFOLD_TICKET} "Some work" no-such-mission`).stdout).reason, "mission_missing");
+
+    // The happy path writes a valid ticket carrying the relation.
+    const t = JSON.parse(run(root, `${SCAFFOLD_TICKET} "Do the proposed work" ${slug}`).stdout);
+    assertEq("scaffold-proposed-ticket writes the ticket", t.created, true);
+    const body = readFileSync(join(root, t.path), "utf8");
+    assertTrue("the proposed ticket carries the mission relation", body.includes(`mission: ${slug}`), body.slice(0, 300));
+    assertTrue("the proposed ticket leaves merge_policy empty, which reads as review",
+      /^merge_policy:\s*$/m.test(body), body.slice(0, 300));
+    assertTrue("the proposed ticket carries a non-empty Policies section",
+      /## Policies\n\n[\s\S]*?workaholic:implementation/.test(body), body.slice(0, 1200));
+    assertTrue("the proposed ticket carries a non-empty Quality Gate section",
+      /## Quality Gate\n[\s\S]*Acceptance criteria/.test(body), body.slice(0, 2000));
+
+    // THE SAFETY PROPERTY: unclaimable while the mission is a draft.
+    const plan = JSON.parse(run(root, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    assertTrue("a ticket proposed under a draft mission is never offered as backlog",
+      !plan.backlog.some((b) => b.path === t.path), JSON.stringify(plan.backlog));
+    assertTrue("and it is excluded as mission_member, not silently dropped",
+      plan.excluded.some((e) => e.id === t.path && e.reason === "mission_member"), JSON.stringify(plan.excluded));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}

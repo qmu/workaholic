@@ -361,6 +361,40 @@ Return JSON:
 
 The story content (this IS the PR description):
 
+**Section 0 (Handoff) is written ONLY for a unit `/drive` classified `handoff`** — its
+queue is not drained, the work that exists is pushed, and continuing it needs a person
+or another session. Omit it entirely otherwise, exactly as the other optional sections
+omit rather than render "None" — a Handoff heading on finished work trains reviewers to
+skip the one section that must never be skipped.
+
+It comes **first**, before section 1, and it is not renumbered into the 1-9 sequence:
+those nine sections are the branch's *narrative*, and this is an *instruction to the
+reader*. A handoff a reviewer meets after eight sections has failed at its only job.
+`shrink-pr-body.sh` treats the block as non-droppable when it bounds an over-limit body.
+
+Its content is fixed and short — four elements, no more:
+
+```markdown
+## Handoff
+
+**This branch is unfinished. Someone must continue it.**
+
+- **Done:** <what is complete and pushed>
+- **Not done:** <what remains, named as tickets where they exist>
+- **Next step:** <the single concrete action for whoever takes this>
+- **Attempted:** <the exact command that was run and its raw output, or "Nothing was
+  attempted for the remaining work — the run ended first">
+```
+
+**"Attempted" is raw output, never a verdict.** `deploy.sh → exit 127: gh: command not
+found` is actionable; "deployment seemed human-only" is not (`workaholic:implementation`
+/ `objective-documentation`). If nothing was attempted, say so plainly rather than
+implying a finding that was never made.
+
+**This section is the authoritative record; the run report is the log.** The two overlap
+deliberately, and a future change must not delete one as redundant: the run report is
+stdout a caller sees once, and this is what survives in the artifact a person opens.
+
 ```markdown
 ## 1. Overview
 

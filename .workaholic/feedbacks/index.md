@@ -334,4 +334,8 @@
 * [Sibling sessions still cannot see each other](20260801044631-sibling-sessions-still-cannot-see-each.md)
 * [The fix is unproven until two PRs merge close together](20260801044631-the-fix-is-unproven-until-two.md)
 * [Verified: two near-simultaneous merges now produce exactly two messages](20260801045223-verified-two-near-simultaneous-merges-now-produce-exactly-two-messages.md)
+* [A shared identity across people would let one runner take another's claims](20260801060526-a-shared-identity-across-people-would.md)
+* [Handoff retention narrows what the PR-body bounder can shed](20260801060526-handoff-retention-narrows-what-the-pr.md)
+* [One commit exceeds the per-commit changed-lines ceiling](20260801060526-one-commit-exceeds-the-per-commit.md)
+* [The TSV row has no structural guard against a future empty field](20260801060526-the-tsv-row-has-no-structural.md)
 <!-- okf:generated:end -->

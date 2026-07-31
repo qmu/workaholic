@@ -7,7 +7,7 @@ effort: 2h
 commit_hash:
 depends_on:
 mission:
-claim: work-20260801-051756
+claim: work-20260731-221002
 ---
 
 # Clarify the operation policy on running long-running / "major" servers: container (or isolation boundary) required, with an explicit developer-preview carve-out

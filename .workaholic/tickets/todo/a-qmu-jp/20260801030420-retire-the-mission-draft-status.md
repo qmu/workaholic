@@ -9,6 +9,7 @@ category:
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260731-185904
 ---
 
 # Retire `status: draft` — a mission's necessity and content are settled in its pull request, before it reaches main

@@ -48,7 +48,25 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/audit-claude-md.sh
 
 It returns `{file, conformant, checks:{claude_md_present, refers_workaholify_gateway}, missing:[...]}`. When `conformant` is `false`, report the `missing` checks self-explanatorily (`workaholic:design` / `self-explanatory-ui`) and offer to add the missing content — a reference to this gateway, not a copy of the rules. The checklist is intentionally small and extends as the documentation standard grows; keep every check a **verifiable** condition (`workaholic:implementation` / `objective-documentation`).
 
-## 4. Scheduled routines
+## 4. The web bootstrap
+
+**A routine that is configured and a routine that works are different states**, and the difference is this hook.
+
+Claude Code on the web starts every session in a fresh, ephemeral container. `enabledPlugins` and `extraKnownMarketplaces` in `.claude/settings.json` are **not** enough there — the plugin is not fetched or installed automatically, it must be installed explicitly before the session's skill registry is built. A local session keeps a persistent `~/.claude`, so this is a no-op outside the web.
+
+Without it, every cloud routine for the repository stops at its own precondition. The `[Drive]` prompt says so in as many words: *"the workaholic plugin must be loaded … if it is not, post the failure and stop."* The routine fires on time and does nothing, which reads as healthy from the routines list and leaves no trace in git.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/check-bootstrap.sh [repo-root]
+```
+
+The canonical hook is `bootstrap/session-start.sh` — the plugin holds it, the repository installs it, the same shape as the routine templates below. `matches_canonical` compares the installed copy byte-for-byte, so an older copy is reported as drift rather than passing because a file exists at the path.
+
+**Every problem is named separately** (`hook_missing`, `hook_stale`, `not_registered`, `matcher`, `timeout`, `enabled_plugin`, `marketplace`) because they need different fixes. Two are worth knowing on sight: `SessionStart` also fires on `resume`, `clear` and `compact`, so the matcher must be `startup`; and a marketplace clone plus install can exceed the default timeout, so it is set to 120.
+
+The hook's own corrections (qmu/workaholic#126) are recorded in its header — it fails open by design, status-checks each step rather than wrapping them in a `{ … } || echo FAILED` group that silently reported success on total failure, drops the invalid `marketplace add --scope user`, and is idempotent.
+
+## 5. Scheduled routines
 
 Routines are how a project actually runs: a `[FB]` routine turns a Slack-reported issue into a feedback record and a PR, a `Merged PR` routine announces a merge, and a `[Drive]` routine runs the queue on a schedule. Wiring them up is part of *"wire this repository to the standards"*, which is why it lives here and not in a second setup command — the second setup command is the one nobody runs.
 
@@ -89,6 +107,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/render-routine.sh <templat
 **`unknown` is information, not an error.** A routine pointing at this repository that matches no template is somebody's deliberate one-off. It is listed so nothing is invisible, and nothing here ever proposes removing it — the API has no delete at all, and that asymmetry is a feature: this flow can add and refresh, never destroy. Deletion is a human act at <https://claude.ai/code/routines>.
 
 ### Preconditions, checked before anything is scheduled
+
+(The web bootstrap in §4 is the third, and the one without which nothing runs at all.)
 
 Every template posts to `dev-<repo_name>`, so two things must hold before a routine is worth creating. Both are **reported, never gates** — they are environment-dependent, and blocking on them would make `/workaholify` unusable on a machine without the tooling.
 

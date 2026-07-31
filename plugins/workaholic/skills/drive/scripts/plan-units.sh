@@ -7,6 +7,8 @@
 #   {"fetched": bool, "base": "<ref>",
 #    "surveyed_sha": "<sha of the checkout's HEAD>", "base_sha": "<sha of <base>>",
 #    "current": bool,
+#    "user_slug": "<the surveyed developer's queue slug, "" when unresolvable>",
+#    "backlog_error": "<reason, "" when the queue was read>",
 #    "claimed": [{"unit": "...", "branch": "...", "stale": bool}],
 #    "missions": [{"slug", "title", "merge_policy", "checked", "total", "next", "path"}],
 #    "backlog":  [{"path", "title", "type", "layer", "merge_policy", "depends_on"}],
@@ -50,9 +52,9 @@
 # of the offer, and the ARTIFACT paths keep an already-batched ticket out of it.
 #
 # NOTHING IS EXCLUDED SILENTLY. Every mission and ticket the survey drops is
-# reported in `excluded` with its reason (`claimed`, `not_approved`, `no_plan`,
-# `no_tickets`, `mission_member`), because a queue item that vanishes from an
-# unattended run's offer with no trace is indistinguishable from one that was never
+# reported in `excluded` with its reason (`claimed`, `not_approved`, `owned_by_other`,
+# `no_plan`, `no_tickets`, `mission_member`), because a queue item that vanishes from
+# an unattended run's offer with no trace is indistinguishable from one that was never
 # there (`workaholic:implementation` / observability).
 #
 # `no_plan` and `no_tickets` are DELIBERATELY DISTINCT, because they call for
@@ -60,6 +62,28 @@
 # `no_tickets` means emit the ticket set (`/mission <instruction>` replans it). The
 # reason vocabulary is read straight out of cron logs, so collapsing them would make
 # the log less actionable.
+#
+# AN UNREADABLE QUEUE IS NOT AN EMPTY ONE. The backlog half is scoped to the current
+# developer, so it has a failure mode the mission half does not: with no
+# `git config user.email` there is no queue directory to name, and a survey that
+# discarded that status would emit `backlog: []` and let the run terminate `ok` over
+# a full queue. So the read's status is captured, not swallowed: `backlog_error` names
+# the reason (`identity_unresolved`, `unreadable`) and is `""` when the queue was
+# genuinely read, and `user_slug` reports WHOSE queue was surveyed. A non-empty
+# `backlog_error` forbids `ok` exactly as `current: false` does (drive/SKILL.md §7).
+# It is a top-level key rather than an `excluded[]` entry for the same reason `current`
+# is: `excluded[]` names artifacts the survey SAW and dropped, and this condition is
+# that it never learned any artifact exists.
+#
+# MISSIONS ARE FILTERED BY OWNERSHIP, through the one oracle every other consumer
+# already reads (mission/scripts/mission-owners.sh -- plural `assignees`, legacy
+# fallback to the singular `assignee`). The gate is the mission lens's, verbatim: a
+# mission is offerable when the runner's identity is AMONG its owners, or it has no
+# owners at all (team-owned = claimable); only a mission owned solely by others is
+# dropped, as `owned_by_other`. Without this the executor was the single ownership
+# consumer answering differently from the roadmap the developer is shown -- and an
+# unattended runner would claim a colleague's approved mission and, under
+# `merge_policy: auto`, drive it to `main`.
 #
 # Pure read: it fetches (through the shared reader) and inspects, and writes nothing.
 
@@ -170,8 +194,18 @@ exclude() {
 # claimable. So drivability is also checked against the ticket queue itself
 # (`mission/scripts/queue-size.sh`, the single reader both floors call), and a mission
 # with nothing left in todo/ is excluded `no_tickets`.
+#
+# Ownership is applied FIRST among the approved-mission checks, because "not my work"
+# is the cheapest true answer and the one an operator reading a cron log wants: a
+# colleague's mission that is also claimed is `owned_by_other` to this runner either
+# way, and no action of theirs follows from the claim.
 MISSIONS=""
 m_sep=""
+# The runner's identity, resolved once. Empty means unresolvable — the same condition
+# `backlog_error` reports below — and every OWNED mission is then someone else's,
+# which is the conservative reading: a runner that cannot say who it is must not
+# claim work on anyone's behalf. Unowned missions stay offerable, as everywhere else.
+ME=$(git config user.email 2>/dev/null || true)
 if [ -d ".workaholic/missions/active" ]; then
     for d in $(find .workaholic/missions/active -maxdepth 1 -mindepth 1 -type d 2>/dev/null | LC_ALL=C sort); do
         f="${d}/mission.md"
@@ -180,6 +214,12 @@ if [ -d ".workaholic/missions/active" ]; then
         status=$(fm_field "$f" status)
         if [ "$status" != "approved" ]; then
             exclude mission "$slug" "not_approved"
+            continue
+        fi
+        # Mine, or unclaimed. Someone else's is not this runner's to take.
+        owners=$(sh "${MISSION_SCRIPTS}/mission-owners.sh" "$f" 2>/dev/null || true)
+        if [ -n "$owners" ] && { [ -z "$ME" ] || ! printf '%s\n' "$owners" | grep -Fxq "$ME"; }; then
+            exclude mission "$slug" "owned_by_other"
             continue
         fi
         if is_claimed_unit "$slug" || is_claimed_artifact "$f"; then
@@ -218,9 +258,23 @@ fi
 # anything a claim holds, minus anything a mission already owns: a missioned
 # ticket is driven as part of its mission's unit, in that mission's worktree, so
 # offering it here would split one plan across two PRs.
+#
+# The read's STATUS is captured rather than discarded (see the header): list-todo.sh
+# exits 3 when the developer's identity — and therefore the queue directory — cannot
+# be resolved at all, which is a different fact from an empty queue and must not
+# render identically.
 BACKLOG=""
 b_sep=""
-for t in $(sh "${SCRIPT_DIR}/list-todo.sh" 2>/dev/null || true); do
+USER_SLUG=$(sh "${SCRIPT_DIR}/../../gather/scripts/user-slug.sh" 2>/dev/null || true)
+BACKLOG_ERROR=""
+todo_status=0
+TODO_LIST=$(sh "${SCRIPT_DIR}/list-todo.sh" 2>/dev/null) || todo_status=$?
+case "$todo_status" in
+    0) ;;
+    3) BACKLOG_ERROR="identity_unresolved" ;;
+    *) BACKLOG_ERROR="unreadable" ;;
+esac
+for t in $TODO_LIST; do
     [ -f "$t" ] || continue
     if is_claimed_artifact "$t"; then
         exclude ticket "$t" "claimed"
@@ -240,5 +294,6 @@ for t in $(sh "${SCRIPT_DIR}/list-todo.sh" 2>/dev/null || true); do
     b_sep=", "
 done
 
-printf '{"fetched": %s, "base": "%s", "surveyed_sha": "%s", "base_sha": "%s", "current": %s, "claimed": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s]}\n' \
-    "$FETCHED" "$BASE" "$SURVEYED_SHA" "$BASE_SHA" "$CURRENT" "$CLAIMED_JSON" "$MISSIONS" "$BACKLOG" "$EXCLUDED"
+printf '{"fetched": %s, "base": "%s", "surveyed_sha": "%s", "base_sha": "%s", "current": %s, "user_slug": "%s", "backlog_error": "%s", "claimed": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s]}\n' \
+    "$FETCHED" "$BASE" "$SURVEYED_SHA" "$BASE_SHA" "$CURRENT" "$(json_escape "$USER_SLUG")" "$BACKLOG_ERROR" \
+    "$CLAIMED_JSON" "$MISSIONS" "$BACKLOG" "$EXCLUDED"

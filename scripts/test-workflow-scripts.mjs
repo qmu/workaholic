@@ -7711,6 +7711,119 @@ function testPlanUnitsExclusions() {
   } finally { cleanup(dir); }
 }
 
+// An UNREADABLE backlog must never render as an EMPTY one. The queue is scoped to
+// `todo/<user>/`, so with no `git config user.email` there is no directory to name and
+// the survey learns nothing at all — a state that used to be swallowed by a `|| true`
+// and reported as a healthy, empty queue (the masked failure `workaholic:implementation`
+// / observability forbids, and the worst shape an unattended tick can take: identical
+// in the log to a correct idle tick).
+function testPlanUnitsBacklogError() {
+  const dir = makeRepo("main");
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  const LIST_TODO = `${POSIX_SH} ${SCRIPTS.listTodo}`;
+  try {
+    // --- identity set, but no queue directory: genuinely empty, and it says so ---
+    let r = run(dir, PLAN);
+    assertEq("plan-units.sh exits 0 with an identity and no queue directory", r.status, 0);
+    let plan = JSON.parse(r.stdout);
+    assertEq("a genuinely empty queue reports no backlog_error and an empty backlog",
+      { backlog_error: plan.backlog_error, backlog: plan.backlog.length }, { backlog_error: "", backlog: 0 });
+    assertEq("the survey names whose queue it read", plan.user_slug, TEST_SLUG);
+
+    let lt = run(dir, LIST_TODO);
+    assertEq("list-todo.sh exits 0 with no output when the queue directory is absent",
+      { status: lt.status, stdout: lt.stdout.trim() }, { status: 0, stdout: "" });
+
+    // --- identity unresolvable: the SAME empty backlog, a different fact ---
+    execSync(`git config user.email ""`, { cwd: dir });
+    lt = run(dir, LIST_TODO);
+    assertTrue("list-todo.sh exits non-zero when the developer cannot be resolved", lt.status !== 0);
+    assertTrue("list-todo.sh names the reason on stderr", /identity_unresolved/.test(lt.stderr));
+
+    r = run(dir, PLAN);
+    assertEq("plan-units.sh still exits 0 — it reports the failure, never becomes one", r.status, 0);
+    plan = JSON.parse(r.stdout);
+    assertEq("an unresolvable identity is reported, not swallowed",
+      plan.backlog_error, "identity_unresolved");
+    assertEq("the unresolvable case reports an empty user_slug", plan.user_slug, "");
+    assertEq("the backlog is still empty — backlog_error is what makes the emptiness honest",
+      plan.backlog.length, 0);
+
+    // The two JSON shapes differ by that field ALONE. This is the whole point: a reader
+    // (or an operator grepping a cron log) can tell them apart without extra context.
+    execSync(`git config user.email test@example.com`, { cwd: dir });
+    const ok = JSON.parse(run(dir, PLAN).stdout);
+    assertTrue("the two shapes are distinguishable by backlog_error",
+      ok.backlog_error === "" && plan.backlog_error !== "");
+  } finally { cleanup(dir); }
+}
+
+// The survey filters missions by OWNERSHIP, through the one oracle every other
+// consumer already reads. Before this, `plan-units.sh` was the single ownership
+// consumer answering differently from the roadmap the developer is shown — so an
+// unattended runner would claim a colleague's approved mission and, under
+// `merge_policy: auto`, drive it to `main`.
+function testPlanUnitsOwnership() {
+  const dir = makeRepo("main");
+  const ME = "test@example.com";
+  const OTHER = "other@example.com";
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  // `ownership` is written verbatim into the frontmatter, so a fixture can exercise the
+  // plural field, the legacy singular one, and the empty case through the same helper.
+  const mission = (slug, ownership) => {
+    mkdirSync(join(dir, `.workaholic/missions/active/${slug}`), { recursive: true });
+    writeFileSync(join(dir, `.workaholic/missions/active/${slug}/mission.md`),
+      `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: approved\nmerge_policy: auto\n` +
+      `${ownership}---\n\n# ${slug}\n\n## Experience\n\nx\n\n## Acceptance\n\n- [ ] ship it\n`);
+    seedMissionTicket(dir, slug, `2026072900001${slug.length}`);
+  };
+  try {
+    mission("m-mine", `assignees: [${ME}]\n`);
+    mission("m-coowned", `assignees: [${OTHER}, ${ME}]\n`);
+    mission("m-unowned", `assignees: []\n`);
+    mission("m-theirs", `assignees: [${OTHER}]\n`);
+    mission("m-legacy-mine", `assignee: ${ME}\n`);
+    mission("m-legacy-theirs", `assignee: ${OTHER}\n`);
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    const plan = JSON.parse(run(dir, PLAN).stdout);
+    const offered = plan.missions.map((m) => m.slug).sort();
+    assertEq("only missions that are mine, co-owned, or unowned are offered",
+      offered, ["m-coowned", "m-legacy-mine", "m-mine", "m-unowned"]);
+
+    const why = (id) => plan.excluded.find((e) => e.id === id)?.reason;
+    assertEq("a mission owned solely by another developer is excluded, with its reason",
+      why("m-theirs"), "owned_by_other");
+    assertEq("the legacy singular assignee resolves identically — the fallback is exercised",
+      why("m-legacy-theirs"), "owned_by_other");
+
+    // THE ANTI-DIVERGENCE CHECK. Without it this is a COPY of the ownership rule rather
+    // than a single source of it: the offer set must equal what list.sh calls mine or
+    // unassigned for the same identity, over the same fixture.
+    const relations = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
+    const claimable = relations
+      .filter((m) => m.relation === "mine" || m.relation === "unassigned")
+      .map((m) => m.slug).sort();
+    assertEq("the survey's offer set equals list.sh's mine/unassigned partition",
+      offered, claimable);
+
+    // Ownership is DERIVED, never re-parsed. A second inline reader is exactly how the
+    // two answers drifted apart in the first place.
+    const src = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/plan-units.sh"), "utf8");
+    assertTrue("plan-units.sh resolves ownership through mission-owners.sh",
+      /mission-owners\.sh/.test(src));
+    assertTrue("plan-units.sh parses no assignees/assignee field of its own",
+      !/^[^#\n]*(fm_field[^\n]*assignees?\b|\^assignees?:)/m.test(src));
+
+    // The gate follows the identity, not the fixture: as the other developer, the
+    // complementary set is offered.
+    execSync(`git config user.email ${OTHER}`, { cwd: dir });
+    const theirs = JSON.parse(run(dir, PLAN).stdout).missions.map((m) => m.slug).sort();
+    assertEq("the same fixture offers the complementary set to the other developer",
+      theirs, ["m-coowned", "m-legacy-theirs", "m-theirs", "m-unowned"]);
+  } finally { cleanup(dir); }
+}
+
 // ---------- the unified run's contract (prose-verified) ----------
 // The run pipeline is orchestration, not a script, so its load-bearing promises are
 // pinned as sentinels — the method the retired parallel executor's contract used. Each
@@ -8756,6 +8869,8 @@ const tests = [
   ["drive/effective-policy.sh (G5 truth table)", testEffectivePolicy],
   ["drive/plan-units.sh (survey minus claims)", testPlanUnits],
   ["drive/plan-units.sh (exclusions + the dry demo)", testPlanUnitsExclusions],
+  ["drive/plan-units.sh (an unreadable backlog is not an empty one)", testPlanUnitsBacklogError],
+  ["drive/plan-units.sh (missions are filtered by ownership)", testPlanUnitsOwnership],
   ["drive: the plan floor counts the ticket queue, not acceptance items", testPlanFloorCountsQueue],
   ["drive: the unified run's contract", testUnifiedDriveContract],
   ["branching/sync-main.sh (J3 freshness)", testSyncMain],

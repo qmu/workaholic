@@ -5,7 +5,7 @@ type: enhancement
 layer: [Domain]
 effort: 4h
 commit_hash:
-category: Added
+category: Changed
 depends_on:
 mission:
 claim: work-20260801-023444
@@ -142,3 +142,40 @@ touching a real tree.
 - [ ] Documentation states that the worktree directory lives inside the repository
       and therefore enters any build context or archive rooted there, with the
       recommended ignore entry.
+
+## Final Report
+
+Development completed as planned. All six items under "What the change should provide"
+landed: a safe-by-construction reaper, a sweep independent of any one caller surviving,
+cost reported at creation and in the listing, build-output pruning separate from removal,
+and the in-repo-location warning documented.
+
+### Discovered Insights
+
+- **Insight**: The first smoke run against a real repository caught a bug that would have
+  been catastrophic. `survey-worktrees.sh` guarded the main tree with
+  `git rev-parse --show-toplevel`, which answers *"the tree I am standing in"* — so run
+  from inside a linked worktree (exactly where `/drive` runs it), it excluded the current
+  worktree from the survey **and reported the main checkout as `reclaimable: true`**. A
+  reaper acting on that output would have deleted the developer's primary tree. The fix
+  is to take the main tree from the first record of `git worktree list --porcelain`.
+  **Context**: Any script that reasons about "which worktree is which" must not use
+  `--show-toplevel` for the answer. The fixture test now pins it.
+
+- **Insight**: For the artifact pruner, "delete what git ignores" is the obvious rule and
+  the wrong one. `.env`, `.workaholic/leak-denylist`, and local credentials are all
+  ignored and all precious — `git clean -Xdf` takes every one. The safe rule is the
+  conjunction: **git-ignored AND a named build directory**. Each condition alone is
+  unsafe in a different direction (name alone would delete a repository that genuinely
+  tracks `dist/`).
+  **Context**: The test asserts the negative case directly — an ignored non-build file
+  survives a prune — because that is the assertion that would fail if someone later
+  "simplified" the rule to a single condition.
+
+- **Insight**: Teardown was not missing, it was *conditional*. Three separate teardowns
+  already existed and each was correct; what they shared was a precondition — some run
+  has to reach its end. That is why the answer is a sweep alongside them rather than a
+  fourth teardown call or a change to the existing three.
+  **Context**: When a resource leaks despite having a cleanup path, check whether the
+  cleanup is conditioned on an event that does not always arrive, before adding more
+  cleanup calls to the same conditional structure.

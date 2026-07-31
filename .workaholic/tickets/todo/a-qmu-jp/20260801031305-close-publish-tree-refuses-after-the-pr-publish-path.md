@@ -9,6 +9,7 @@ category:
 depends_on:
 mission:
 merge_policy: auto
+claim: work-20260731-201257
 ---
 
 # close-publish-tree.sh refuses to close after the standard PR publish path

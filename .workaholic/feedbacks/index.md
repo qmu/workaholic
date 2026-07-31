@@ -322,4 +322,6 @@
 * [Consuming projects must add the ignore entries themselves](20260801025526-consuming-projects-must-add-the-ignore.md)
 * [The archive commit is again over the changed-lines ceiling](20260801025526-the-archive-commit-is-again-over.md)
 * [The sweep has no scheduled caller](20260801025526-the-sweep-has-no-scheduled-caller.md)
+* [Make the unattended cloud runner a shape the plugin assumes](20260801031110-make-the-unattended-cloud-runner-a-shape-the-plugin-assumes.md)
+* [A claimed unit that is never finished cannot be resumed by anyone](20260801031123-a-claimed-unit-that-is-never-finished-cannot-be-resumed-by-anyone.md)
 <!-- okf:generated:end -->

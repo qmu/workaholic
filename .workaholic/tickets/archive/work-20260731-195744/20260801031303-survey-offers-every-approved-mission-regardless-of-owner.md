@@ -5,7 +5,7 @@ type: bugfix
 layer: [Domain]
 effort: 0.5h
 commit_hash:
-category:
+category: Changed
 depends_on: [20260801031300-survey-never-reports-a-silently-empty-backlog.md]
 mission:
 merge_policy: auto

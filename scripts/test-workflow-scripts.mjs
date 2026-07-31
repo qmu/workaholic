@@ -112,6 +112,7 @@ const SCRIPTS = {
   openPublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/open-publish-tree.sh"),
   publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
   publishTreePr: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh"),
+  missionSize: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/size.sh"),
   surveyState: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-state.sh"),
   scaffoldProposedTicket: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-proposed-ticket.sh"),
   closePublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/close-publish-tree.sh"),
@@ -1457,11 +1458,14 @@ function testMissionExperienceSection() {
 
     assertTrue("scaffold has an ## Experience section", /^## Experience$/m.test(m), m);
     // Position matters: it is the mission's substance, between the why and the plan.
-    const iScope = m.indexOf("## Scope");
+    // The anchor is ## Goal, not ## Scope -- Scope was dropped from the template on
+    // 2026-08-01 (nothing read it), so ## Experience now follows the why directly.
+    const iGoal = m.indexOf("## Goal");
     const iExp = m.indexOf("## Experience");
     const iAcc = m.indexOf("## Acceptance");
-    assertTrue("## Experience sits between ## Scope and ## Acceptance",
-      iScope < iExp && iExp < iAcc, `scope=${iScope} exp=${iExp} acc=${iAcc}`);
+    assertTrue("## Experience sits between ## Goal and ## Acceptance",
+      iGoal < iExp && iExp < iAcc, `goal=${iGoal} exp=${iExp} acc=${iAcc}`);
+    assertTrue("the scaffold carries no ## Scope section", !/^## Scope$/m.test(m), m);
 
     // Demoted, not removed: gate.sh and the `carried` inheritance still read these.
     assertTrue("scaffold still carries gate_type", /^gate_type:\s*$/m.test(m), m);
@@ -2383,9 +2387,15 @@ In: the dashboard. Out: the API.
 
     // Lineage the other way, so the archive does not show two unrelated missions.
     assertTrue("successor records carried_from", /^carried_from:\s*predecessor\s*$/m.test(succ), succ);
-    // A carry is a continuation: goal, scope and the gate come along.
+    // A carry is a continuation: the goal and the gate come along.
     assertTrue("successor inherits the Goal verbatim", succ.includes("The original information-rich why."), succ);
-    assertTrue("successor inherits the Scope verbatim", succ.includes("In: the dashboard. Out: the API."), succ);
+    // ## Scope does NOT come along. The successor is scaffolded from a template that no
+    // longer has the heading, so there is nowhere for a carry to land -- and copying it
+    // would re-introduce a retired section into a NEW mission, which is the opposite of
+    // what dropping it was for. The predecessor keeps its own section as history.
+    assertTrue("successor does NOT inherit a legacy ## Scope",
+      !succ.includes("In: the dashboard. Out: the API."), succ);
+    assertTrue("and carries no ## Scope heading at all", !/^## Scope$/m.test(succ), succ);
     assertTrue("successor inherits gate_type", /^gate_type:\s*live-app\s*$/m.test(succ), succ);
     assertTrue("successor inherits gate_target", /^gate_target:\s*\/dashboard\s*$/m.test(succ), succ);
     assertTrue("successor inherits gate_assert", /^gate_assert:\s*the chart renders\s*$/m.test(succ), succ);
@@ -3280,7 +3290,7 @@ function testMission() {
     assertTrue("mission scaffold carries empty predicted_hours/actual_hours keys",
       /^predicted_hours:\s*$/m.test(body) && /^actual_hours:\s*$/m.test(body), body.split("\n").slice(0, 16).join("\n"));
     assertTrue("mission reserves empty tickets list", /^tickets:\s*\[\]\s*$/m.test(body));
-    for (const sec of ["## Goal", "## Scope", "## Acceptance", "## Changelog"]) {
+    for (const sec of ["## Goal", "## Acceptance", "## Changelog"]) {
       assertTrue(`mission has ${sec}`, body.includes(`\n${sec}\n`), sec);
     }
 
@@ -8742,6 +8752,7 @@ const tests = [
   ["branching/sync-main.sh (J3 freshness)", testSyncMain],
   ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
   ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
+  ["mission size norms: a ceiling on what a mission may say, and the floor it must not touch", testMissionSizeNorms],
   ["propose: widened inputs, emitted tickets, and the mission_member safety property (J4)", testProposeWidenedBatch],
   ["branching/check-worktrees.sh ignores the publish tree", testCheckWorktreesIgnoresPublishTree],
   ["/ticket publishes to main end to end (J1)", testTicketPublishesToMain],
@@ -8875,5 +8886,85 @@ function testProposeWidenedBatch() {
       plan.excluded.some((e) => e.id === t.path && e.reason === "mission_member"), JSON.stringify(plan.excluded));
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+}
+
+// ---------- mission size norms (the ceiling, and the floor it must not touch) ----------
+// Missions became hard to FINISH because nothing bounded how much one may say: an
+// unbounded ## Acceptance grows into an audit list, and an audit list never gets ticked.
+// The fix is a ceiling. The failure mode this test guards is a later reader mistaking a
+// ceiling for a loosened floor -- so the floor assertions live here, next to the change.
+function testMissionSizeNorms() {
+  const dir = makeRepo("main");
+  const SIZE = `${POSIX_SH} ${SCRIPTS.missionSize}`;
+  try {
+    const rel = ".workaholic/missions/active/m-size/mission.md";
+    mkdirSync(join(dir, ".workaholic/missions/active/m-size"), { recursive: true });
+
+    // Within every norm.
+    writeFileSync(join(dir, rel),
+      "---\ntype: Mission\nslug: m-size\nstatus: draft\n---\n\n# Small\n\n## Goal\n\nWhy.\n\n## Experience\n\nWhat.\n\n## Acceptance\n\n- [ ] One\n- [x] Two\n\n## Changelog\n");
+    let r = JSON.parse(run(dir, `${SIZE} ${rel}`).stdout);
+    assertEq("size.sh counts acceptance items, checked and unchecked alike", r.acceptance_items, 2);
+    assertEq("size.sh reports a small mission as within the norms", r.within, true);
+    assertEq("the acceptance norm is three items", r.max_acceptance, 3);
+
+    // A fourth item breaks the acceptance norm without touching the others.
+    writeFileSync(join(dir, rel),
+      "---\ntype: Mission\nslug: m-size\nstatus: draft\n---\n\n# Small\n\n## Acceptance\n\n- [ ] One\n- [ ] Two\n- [ ] Three\n- [ ] Four\n");
+    r = JSON.parse(run(dir, `${SIZE} ${rel}`).stdout);
+    assertEq("a fourth acceptance item breaks the norm", r.within_acceptance, false);
+    assertEq("and it does so without tripping the line ceiling", r.within_lines, true);
+    assertEq("so the overall verdict is outside the norms", r.within, false);
+
+    // Checklist items OUTSIDE ## Acceptance are not criteria -- the same scoping every
+    // other mission reader uses. A Changelog full of dashes must not inflate the count.
+    writeFileSync(join(dir, rel),
+      "---\ntype: Mission\nslug: m-size\nstatus: draft\n---\n\n# Small\n\n## Acceptance\n\n- [ ] Only one\n\n## Changelog\n\n- [ ] not a criterion\n- [ ] nor this\n");
+    r = JSON.parse(run(dir, `${SIZE} ${rel}`).stdout);
+    assertEq("checklist lines outside ## Acceptance are not counted", r.acceptance_items, 1);
+
+    // THE CEILING IS NOT A LOOSENED FLOOR. validate-mission.sh must still reject an
+    // approved mission with zero acceptance items.
+    let hasJq = true;
+    try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+    if (hasJq) {
+      const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-mission.sh");
+      const invoke = () => {
+        const payload = JSON.stringify({ tool_input: { file_path: rel } });
+        try { execSync(`${POSIX_SH} ${HOOK}`, { cwd: dir, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return 0; }
+        catch (e) { return e.status ?? 1; }
+      };
+      const approved = (acc) =>
+        `---\ntype: Mission\ntitle: X\nslug: m-size\nstatus: approved\nassignees: [a@qmu.jp]\nassignee:\n---\n\n## Experience\n\nUsers see the thing happen.\n\n## Acceptance\n${acc}\n## Changelog\n`;
+      writeFileSync(join(dir, rel), approved("\n"));
+      assertTrue("the approved floor still rejects an EMPTY Acceptance (the ceiling did not loosen it)",
+        invoke() !== 0);
+      writeFileSync(join(dir, rel), approved("\n- [ ] One\n"));
+      assertEq("and still accepts a single-item Acceptance", invoke(), 0);
+    } else {
+      console.log("  skip  approved-floor half of mission size norms (jq not available)");
+    }
+
+    // The template no longer scaffolds ## Scope, and the removal is documented.
+    const createSrc = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"), "utf8");
+    assertTrue("create.sh no longer scaffolds a ## Scope section", !/^## Scope$/m.test(createSrc));
+    const draftSrc = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-draft.sh"), "utf8");
+    assertTrue("scaffold-draft.sh no longer scaffolds a ## Scope section", !/^## Scope$/m.test(draftSrc));
+    const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/SKILL.md"), "utf8");
+    assertTrue("the mission skill records WHY Scope was removed rather than just dropping it",
+      /`## Scope` was removed from the template/.test(skill));
+    assertTrue("the mission skill states the norm-for-a-human, gate-for-the-batch split",
+      /Norm for a human, gate for the batch/.test(skill));
+    assertTrue("the mission skill says plainly that the floor is untouched",
+      /lowering a ceiling is not loosening a floor/.test(skill));
+
+    // A legacy mission that still carries ## Scope is history, never retro-blocked.
+    writeFileSync(join(dir, rel),
+      "---\ntype: Mission\nslug: m-size\nstatus: draft\n---\n\n# Legacy\n\n## Goal\n\nWhy.\n\n## Scope\n\nOld section.\n\n## Acceptance\n\n- [ ] One\n");
+    r = JSON.parse(run(dir, `${SIZE} ${rel}`).stdout);
+    assertEq("a legacy mission carrying ## Scope is still measured, not rejected", r.acceptance_items, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 }

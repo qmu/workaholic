@@ -25,6 +25,22 @@ Run this workflow:
 
    Report the returned checklist self-explanatorily. When `conformant` is `false`, name each `missing` check and offer to add the missing content — a **reference to the `workaholify` gateway**, never a copy of the rules. Do not bloat `CLAUDE.md`; keep it pointing at the skill.
 
-3. **Confirm the working-directory guard is active.** `hooks/guard-working-directory.sh` is a blocking `PreToolUse(Bash)` guard registered in `hooks.json` that denies a top-level cwd-moving `cd` unconditionally (no env-var toggle); note whether it is present so the ground rule is machine-enforced (not just documented). If a stale/partial install is loaded and the guard is not registered, tell the user to update the plugin.
+3. **Survey the scheduled routines** (skill §4): run
 
-Report what was checked, what conforms, and what (if anything) needs fixing.
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/survey-routines.sh
+   ```
+
+   Report each declared routine and its true state — `installed`, and when it is not, which of `not_installed` / `schedule_drift` / `missing_env` applies. Say plainly that this reflects the **invoking user's** crontab on **this machine**.
+
+   For each routine that is not provisioned, render the exact line it would install:
+
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/install-routine.sh --dry-run <name>
+   ```
+
+   **Show that line verbatim and get an explicit confirmation before installing it** (`AskUserQuestion`, prefixed with the `[<project label>]` from `gather/scripts/project-label.sh`). A standing schedule is a durable outward action; the script refuses to write outside an interactive context, and this confirmation is the half the script cannot do. On confirmation, re-run without `--dry-run`. Never install a routine the developer did not confirm, and never install one from an unattended invocation.
+
+4. **Confirm the working-directory guard is active.** `hooks/guard-working-directory.sh` is a blocking `PreToolUse(Bash)` guard registered in `hooks.json` that denies a top-level cwd-moving `cd` unconditionally (no env-var toggle); note whether it is present so the ground rule is machine-enforced (not just documented). If a stale/partial install is loaded and the guard is not registered, tell the user to update the plugin.
+
+Report what was checked, what conforms, and what (if anything) needs fixing — including the routine state, since that is the part a developer cannot see from anywhere else.

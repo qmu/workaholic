@@ -48,6 +48,7 @@ installed CLI):
 - One runner per repository (decision C1): the cursor is **runner-local**
   state, and multi-runner coordination is deliberately the phase-3 claim
   protocol's job — do not point two crons at one repo.
+- **The schedule and command are declared in `.workaholic/routines/proposal-loop.md`**, which is the source of truth; this runbook explains the routine, it no longer defines it. `/workaholify` surveys whether it is installed for you on this machine and can install it after you confirm the exact line.
 - Do not install the crontab from an agent session — applying a standing
   outward-facing process is the developer's act; this page is the instruction.
 

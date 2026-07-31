@@ -112,6 +112,9 @@ const SCRIPTS = {
   openPublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/open-publish-tree.sh"),
   publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
   publishTreePr: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh"),
+  surveyRoutines: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/survey-routines.sh"),
+  installRoutine: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/install-routine.sh"),
+  routinesLens: join(REPO_ROOT, "plugins/workaholic/hooks/routines-lens.sh"),
   surveyWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/survey-worktrees.sh"),
   reapWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/reap-worktrees.sh"),
   pruneWorktreeArtifacts: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/prune-worktree-artifacts.sh"),
@@ -8755,6 +8758,7 @@ const tests = [
   ["branching/sync-main.sh (J3 freshness)", testSyncMain],
   ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
   ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
+  ["workaholify routines: declared in the repo, read from the machine, never installed unattended", testWorkaholifyRoutines],
   ["branching worktree reclamation: merged AND clean, every skip named", testWorktreeReclamation],
   ["mission size norms: a ceiling on what a mission may say, and the floor it must not touch", testMissionSizeNorms],
   ["propose: widened inputs, emitted tickets, and the mission_member safety property (J4)", testProposeWidenedBatch],
@@ -9084,6 +9088,97 @@ function testMissionSizeNorms() {
       "---\ntype: Mission\nslug: m-size\nstatus: draft\n---\n\n# Legacy\n\n## Goal\n\nWhy.\n\n## Scope\n\nOld section.\n\n## Acceptance\n\n- [ ] One\n");
     r = JSON.parse(run(dir, `${SIZE} ${rel}`).stdout);
     assertEq("a legacy mission carrying ## Scope is still measured, not rejected", r.acceptance_items, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// ---------- workaholify: routine declaration, survey, and the refusal ----------
+// Routine configuration had no source of truth in the repository, so "what runs against
+// this repo" could only be answered by asking one person. The repo now declares what it
+// wants; the machine holds what it has. NO TEST HERE TOUCHES THE REAL CRONTAB -- the
+// survey is driven against fixture declarations, and the installer is only ever exercised
+// on the paths that refuse or render.
+function testWorkaholifyRoutines() {
+  const dir = makeRepo("main");
+  const SURVEY = `${POSIX_SH} ${SCRIPTS.surveyRoutines}`;
+  const INSTALL = `${POSIX_SH} ${SCRIPTS.installRoutine}`;
+  try {
+    mkdirSync(join(dir, ".workaholic/routines"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/routines/demo-loop.md"),
+      '---\ntype: Routine\nname: demo-loop\nschedule: "*/5 * * * *"\ncommand: claude -p "/drive"\nenv_file: .demo-nonexistent.env\nlog_file: /tmp/demo.log\n---\n\n# Demo\n');
+
+    const d = JSON.parse(run(dir, `${SURVEY} ${dir}`).stdout);
+    assertEq("the survey finds the declared routine", d.count, 1);
+    // THE YAML QUOTES MUST BE STRIPPED. A cron schedule has to be quoted in YAML (it
+    // starts with *), and an unstripped quote would never match a crontab line -- every
+    // routine would read as schedule_drift forever, which is a lie that looks like data.
+    assertEq("the schedule is read without its YAML quotes", d.routines[0].schedule, "*/5 * * * *");
+    assertEq("an unprovisioned routine is reported as drift", d.drift, 1);
+    assertEq("and the reason is named, not collapsed", d.routines[0].drift_reason, "not_installed");
+    assertTrue("the survey reports which user's crontab it read", typeof d.user === "string" && d.user.length > 0, d.user);
+
+    // Rendering is safe and shows the developer the real line.
+    const dry = JSON.parse(run(dir, `${INSTALL} --dry-run demo-loop ${dir}`).stdout);
+    assertEq("dry run installs nothing", dry.installed, false);
+    assertTrue("the rendered line carries the schedule", dry.line.startsWith("*/5 * * * * "), dry.line);
+    assertTrue("the rendered line cds into the repo", dry.line.includes(`cd ${dir}`), dry.line);
+    // The env file is SOURCED, never expanded: `crontab -l` is not privileged, so a
+    // secret must stay in a file with its own permissions.
+    assertTrue("the env file is sourced rather than expanded into the line",
+      dry.line.includes(". $HOME/.demo-nonexistent.env"), dry.line);
+
+    // ======================= THE REFUSAL =======================
+    // Both runbooks: "do not install the crontab from an agent session". The rule is
+    // enforced HERE, not only in prose, so removing it means deleting this test too.
+    const r = JSON.parse(run(dir, `${INSTALL} demo-loop ${dir}`).stdout);
+    assertEq("install refuses outside an interactive context", r.installed, false);
+    assertEq("and names the reason", r.reason, "not_interactive");
+    assertTrue("the refusal still shows the line it would have written", r.line.length > 0, JSON.stringify(r));
+
+    assertEq("an unknown routine is refused by name",
+      JSON.parse(run(dir, `${INSTALL} --dry-run no-such-routine ${dir}`).stdout).reason, "no_declaration");
+
+    // A declaration missing schedule or command is incomplete, not silently installed.
+    writeFileSync(join(dir, ".workaholic/routines/broken.md"), "---\ntype: Routine\nname: broken\n---\n\n# Broken\n");
+    assertEq("an incomplete declaration is refused",
+      JSON.parse(run(dir, `${INSTALL} --dry-run broken ${dir}`).stdout).reason, "incomplete_declaration");
+
+    // ---- the nudge: fires on drift, silent without, deduped per session+event ----
+    // The dedupe marker lives under TMPDIR keyed by session id, so a FIXED id would be
+    // deduped by a PREVIOUS run of this suite and the nudge would look broken. Derive the
+    // ids from this fixture's unique temp dir instead.
+    const sid = dir.split("/").pop();
+    const lens = (payload) => run(dir, `printf '%s' '${payload}' | ${POSIX_SH} ${SCRIPTS.routinesLens}`).stdout.trim();
+    // A broken declaration is a REPOSITORY-side fault, and must not be reported as if the
+    // machine were missing something -- that would send a developer to their crontab to
+    // fix a committed file.
+    const withBroken = JSON.parse(run(dir, `${SURVEY} ${dir}`).stdout);
+    assertEq("a declaration missing schedule/command is named as such, not as not_installed",
+      withBroken.routines.find((x) => x.name === "broken").drift_reason, "incomplete_declaration");
+    assertEq("and the well-formed routine still reads not_installed",
+      withBroken.routines.find((x) => x.name === "demo-loop").drift_reason, "not_installed");
+
+    const out1 = lens('{"hook_event_name":"Stop","session_id":"${sid}-a"}');
+    assertTrue("the nudge fires when routines are unprovisioned", out1.includes("systemMessage"), out1);
+    assertTrue("and names a routine and its reason", /broken|demo-loop/.test(out1) && /incomplete_declaration|not_installed/.test(out1), out1);
+    assertEq("the nudge is deduped per session and event",
+      lens('{"hook_event_name":"Stop","session_id":"${sid}-a"}'), "");
+    assertTrue("a different event in the same session still fires once",
+      lens('{"hook_event_name":"UserPromptSubmit","session_id":"${sid}-a"}').includes("additionalContext"));
+
+    // SILENCE IS THE DEFAULT. No declarations at all -> nothing to act on -> say nothing.
+    rmSync(join(dir, ".workaholic/routines"), { recursive: true, force: true });
+    assertEq("the nudge is silent when the repository declares no routines",
+      lens('{"hook_event_name":"Stop","session_id":"${sid}-b"}'), "");
+    const empty = JSON.parse(run(dir, `${SURVEY} ${dir}`).stdout);
+    assertEq("and the survey reports zero rather than failing", empty.count, 0);
+
+    // The layout amendment rode in the same change as the first write.
+    const allowlist = readFileSync(join(REPO_ROOT, "plugins/workaholic/hooks/workaholic-layout-allowlist.txt"), "utf8");
+    assertTrue("routines/ is registered in the layout allowlist", /^routines$/m.test(allowlist));
+    const rules = readFileSync(join(REPO_ROOT, "plugins/workaholic/rules/workaholic.md"), "utf8");
+    assertTrue("routines/ is registered in the rules table", /\|\s*`routines\/`/.test(rules));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

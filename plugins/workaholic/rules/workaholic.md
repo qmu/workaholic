@@ -15,6 +15,7 @@ The `.workaholic/` directory has a fixed structure. Only these subdirectories ar
 | `missions/`      | Long-lived goals spanning many tickets (`active/`, `archive/`) |
 | `policies/`      | Project-local policy documentation         |
 | `release-notes/` | Per-branch release notes                   |
+| `routines/`      | Declared scheduled routines — what this repository wants running, on what schedule (the machine's crontab holds whether it *is* installed) |
 | `specs/`         | Current state reference documentation      |
 | `stories/`       | Development narratives per branch          |
 | `terms/`         | Term definitions                           |

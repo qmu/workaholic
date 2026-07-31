@@ -78,6 +78,7 @@ installed CLI):
   runner-local state.
 - A tick that overruns the 5-minute interval is fine: the next tick surveys, sees
   the in-flight claim, and works on something else or exits with nothing to do.
+- **The schedule and command are declared in `.workaholic/routines/drive-loop.md`**, which is the source of truth; this runbook explains the routine, it no longer defines it. `/workaholify` surveys whether it is installed for you on this machine and can install it after you confirm the exact line.
 - Do not install the crontab from an agent session — applying a standing
   outward-facing process is the developer's act; this page is the instruction.
 

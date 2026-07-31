@@ -93,6 +93,15 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/routines-lens.sh",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "Stop": [
@@ -101,6 +110,15 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/mission-lens.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/routines-lens.sh",
             "timeout": 10
           }
         ]

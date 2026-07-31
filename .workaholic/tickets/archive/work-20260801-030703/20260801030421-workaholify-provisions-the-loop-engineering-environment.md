@@ -3,9 +3,9 @@ created_at: 2026-08-01T03:04:21+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config, Infrastructure]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 merge_policy: review
@@ -97,3 +97,36 @@ The feedback records `20260731160449-support-a-setup-routines-skill-…` and `20
 - A crontab is per-user and per-machine, and the survey reads only the invoking user's. A routine installed under a different account is invisible to it — the survey must say "not installed **for this user**" rather than "not installed" (`survey-routines.sh`).
 - The nudge is printed unasked, so its silence condition is as important as its message. The mission lens's signal gate is the precedent: say nothing rather than say something with no action attached (`plugins/workaholic/hooks/mission-lens.sh`).
 - Routine declarations name a command and a schedule; they are close enough to executable that a reviewer must read them as such in a PR. Keeping them small and human-readable is what makes that review possible.
+
+## Final Report
+
+Development completed as planned. Both decisions the ticket was blocked on were settled and
+written down with their rejected alternatives, and all eight steps landed.
+
+### Discovered Insights
+
+- **Insight**: The "do not install a crontab from an agent session" rule did not need
+  weakening — it needed *reading precisely*. It is aimed at the **unattended** case, and
+  `/workaholify` is typed by a developer who is present. Encoding that as `[ ! -t 0 ]` in
+  `install-routine.sh` turns a prose prohibition into a boundary someone has to delete a
+  test to cross.
+  **Context**: This is the same shape as the mission-size norm decided earlier today —
+  *norm for a human, gate for the batch*. The question that resolves both is **who holds
+  the pen at the moment of writing**, not how important the rule is.
+
+- **Insight**: Naming *which* thing is wrong is worth more than a boolean, and the test
+  suite proved it mid-implementation. The nudge picked up a fixture whose declaration was
+  missing its `schedule`, and reported `not_installed` — pointing the developer at their
+  crontab for a fault in a committed file. `incomplete_declaration` was added as its own
+  reason.
+  **Context**: `missing_env` is the same class and the reason the survey exists at all:
+  the routine is scheduled, it fires, and it fails silently every tick — a state
+  `crontab -l` alone cannot show.
+
+- **Insight**: A hook that dedupes on `session_id` under `TMPDIR` is machine-global, so a
+  test using a fixed session id is deduped by the *previous run of the suite* and the
+  feature looks broken. Real session ids are UUIDs, so this is a test-isolation problem
+  rather than a product bug — the fix is to derive the id from the fixture's unique temp
+  dir.
+  **Context**: Worth knowing before writing any test against `mission-lens.sh`, which
+  uses the identical dedupe mechanism.

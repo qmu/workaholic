@@ -6,6 +6,7 @@
 * [drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main](active/drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main/mission.md) - Drop the draft gate and make /drive own its worktree from refreshed main
 * [make-acceptance-ticking-measure-satisfaction-not-marker-shape](active/make-acceptance-ticking-measure-satisfaction-not-marker-shape/mission.md) - Make acceptance ticking measure satisfaction, not marker shape
 * [make-scheduled-routines-a-configurable-inspectable-part-of-a-repository](active/make-scheduled-routines-a-configurable-inspectable-part-of-a-repository/mission.md) - Make scheduled routines a configurable, inspectable part of a repository
+* [make-the-branch-story-concise-by-default](active/make-the-branch-story-concise-by-default/mission.md) - Make the branch story concise by default
 * [make-the-per-commit-changed-lines-ceiling-a-rule-that-holds](active/make-the-per-commit-changed-lines-ceiling-a-rule-that-holds/mission.md) - Make the per-commit changed-lines ceiling a rule that holds
 
 ## archive

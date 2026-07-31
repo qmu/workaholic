@@ -84,10 +84,6 @@ gate_assert:
 
 <!-- The information-rich "why": business grounding and the outcome this mission pursues. -->
 
-## Scope
-
-<!-- Definition of done, plus explicit out-of-scope notes. -->
-
 ## Experience
 
 <!-- The mission's substance: the user experience, the demanded behavior, and/or the overall
@@ -98,7 +94,11 @@ gate_assert:
 
 ## Acceptance
 
-<!-- One checklist item per criterion, each naming the ticket/story expected to satisfy it
+<!-- THREE ITEMS OR FEWER. Write only the minimum conditions under which this mission can
+     be called done -- not an exhaustive coverage list, and not future audit items. An
+     acceptance list sized like an audit list never gets ticked, and a mission whose list
+     is never ticked can never be honestly closed.
+     One checklist item per criterion, each naming the ticket/story expected to satisfy it
      by filename, e.g. "criterion text (#20260101120000-some-ticket.md)". Progress toward
      achievement is checked over total, computed from this list, never a hand-set number. -->
 

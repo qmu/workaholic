@@ -83,4 +83,5 @@
 * [v1.0.110 — The mission skill loads lighter](work-20260730-180928.md)
 * [v1.0.111 — /drive stops offering work it cannot or should not take](work-20260730-191139.md)
 * [v1.0.112 — The ship path works from a claim worktree](work-20260730-193046.md)
+* [The proposal batch now reads the missions, the todo queue, and the commits since the cursor etc](work-20260801-012313.md)
 <!-- okf:generated:end -->

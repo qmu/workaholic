@@ -25,6 +25,45 @@ Run this workflow:
 
    Report the returned checklist self-explanatorily. When `conformant` is `false`, name each `missing` check and offer to add the missing content — a **reference to the `workaholify` gateway**, never a copy of the rules. Do not bloat `CLAUDE.md`; keep it pointing at the skill.
 
-3. **Confirm the working-directory guard is active.** `hooks/guard-working-directory.sh` is a blocking `PreToolUse(Bash)` guard registered in `hooks.json` that denies a top-level cwd-moving `cd` unconditionally (no env-var toggle); note whether it is present so the ground rule is machine-enforced (not just documented). If a stale/partial install is loaded and the guard is not registered, tell the user to update the plugin.
+3. **Check the web bootstrap** (skill §4) — do this *before* the routine survey, because a routine in an unbootstrapped repository is configured but cannot work:
 
-Report what was checked, what conforms, and what (if anything) needs fixing.
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/check-bootstrap.sh
+   ```
+
+   Report each entry of `problems` — they need different fixes (`hook_missing`, `hook_stale`, `not_registered`, `matcher`, `timeout`, `enabled_plugin`, `marketplace`). On anything but `ok: true`, offer to install: copy `${CLAUDE_PLUGIN_ROOT}/skills/workaholify/bootstrap/session-start.sh` to `.claude/hooks/session-start.sh`, and add the `SessionStart` entry (matcher `startup`, timeout 120) plus `enabledPlugins` / `extraKnownMarketplaces` to `.claude/settings.json`. Say plainly what this buys: without it, every Claude Code Web routine for this repository stops at its own "the workaholic plugin must be loaded" precondition and does nothing.
+
+4. **Survey the scheduled routines** (skill §4). Get this repository's URL from the gather skill, list what the plugin ships, fetch the live routines, and compare:
+
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/git-context.sh
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/list-routine-templates.sh
+   ```
+
+   Then call `RemoteTrigger` with `{action: "list"}` (load it via `ToolSearch select:RemoteTrigger`), write its raw JSON to a file under your scratch directory, and pipe it in:
+
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/compare-routines.sh <repo-url> < <live-json-file>
+   ```
+
+   Report **`this_repo`** (`missing`, `present` with per-field `drift`, `unknown`) **and `other_repos`** — drift in every repository that already carries a workaholic routine, because the templates are one set applied to many repos and the drift is the same defect wherever you stand. Say that `unknown` entries are deliberate one-offs, not errors, and that nothing here can delete a routine — that is <https://claude.ai/code/routines>.
+
+   Then check the preconditions every template depends on (skill §4). Report `slack_connector` from the comparison, and probe the channel:
+
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/check-slack-channel.sh <repo-name>
+   ```
+
+   **Report `checked: false` as "could not check", never as "the channel is missing"** — a locked credential store returns the same error as a nonexistent channel, and conflating them sends the developer to create a channel that already exists. Both preconditions are advisory: report them, and let the developer decide whether to proceed.
+
+5. **Offer to create or refresh, one routine at a time.** For each `missing` or drifted entry in `this_repo`, and each drifted entry in `other_repos`, render it and **show the developer the full prompt and schedule, then confirm** via `AskUserQuestion` (prefix the body with the `[<project label>]` from `gather/scripts/project-label.sh`):
+
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/render-routine.sh <template-id> <repo-url>
+   ```
+
+   A routine is a standing, outward-facing process that acts on this repository unattended, so the verbatim body is confirmed every time — never inferred, never batched into a single yes. Ask which `environment_id` to use (the account has more than one; the routines skill does not guess). On confirmation, call `RemoteTrigger` with `{action: "create", body: {...}}` for a missing routine or `{action: "update", trigger_id, body: {...}}` for a drifted one, and report the resulting routine URL.
+
+6. **Confirm the working-directory guard is active.** `hooks/guard-working-directory.sh` is a blocking `PreToolUse(Bash)` guard registered in `hooks.json` that denies a top-level cwd-moving `cd` unconditionally (no env-var toggle); note whether it is present so the ground rule is machine-enforced (not just documented). If a stale/partial install is loaded and the guard is not registered, tell the user to update the plugin.
+
+Report what was checked, what conforms, and what (if anything) needs fixing — including the routine state, which is the part a developer cannot see from the repository alone.

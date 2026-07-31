@@ -113,6 +113,12 @@ const SCRIPTS = {
   openPublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/open-publish-tree.sh"),
   publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
   publishTreePr: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh"),
+  listRoutineTemplates: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/list-routine-templates.sh"),
+  renderRoutine: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/render-routine.sh"),
+  compareRoutines: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/compare-routines.sh"),
+  checkSlackChannel: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-slack-channel.sh"),
+  checkBootstrap: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-bootstrap.sh"),
+  bootstrapHook: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/bootstrap/session-start.sh"),
   surveyWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/survey-worktrees.sh"),
   reapWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/reap-worktrees.sh"),
   pruneWorktreeArtifacts: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/prune-worktree-artifacts.sh"),
@@ -8742,6 +8748,8 @@ const tests = [
   ["branching/sync-main.sh (J3 freshness)", testSyncMain],
   ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
   ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
+  ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
+  ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
   ["branching worktree reclamation: merged AND clean, every skip named", testWorktreeReclamation],
   ["mission size norms: a ceiling on what a mission may say, and the floor it must not touch", testMissionSizeNorms],
   ["propose: widened inputs, emitted tickets, and the mission_member safety property (J4)", testProposeWidenedBatch],
@@ -9071,6 +9079,246 @@ function testMissionSizeNorms() {
       "---\ntype: Mission\nslug: m-size\nstatus: draft\n---\n\n# Legacy\n\n## Goal\n\nWhy.\n\n## Scope\n\nOld section.\n\n## Acceptance\n\n- [ ] One\n");
     r = JSON.parse(run(dir, `${SIZE} ${rel}`).stdout);
     assertEq("a legacy mission carrying ## Scope is still measured, not rejected", r.acceptance_items, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// ---------- workaholify: routine templates, rendering, and drift ----------
+// Routines are Claude Code Web routines, NOT cron. The plugin holds ONE set of templates
+// and /workaholify applies them to whichever repository it runs in -- there is no
+// per-repository routine file, which is why no `.workaholic/` directory appears here.
+// NO TEST TOUCHES THE ACCOUNT: `compare-routines.sh` reads the live list on stdin, so the
+// suite drives it against a fixture built from the real routine shapes.
+function testWorkaholifyRoutines() {
+  const dir = makeRepo("main");
+  const LIST = `${POSIX_SH} ${SCRIPTS.listRoutineTemplates}`;
+  const RENDER = `${POSIX_SH} ${SCRIPTS.renderRoutine}`;
+  const COMPARE = `${POSIX_SH} ${SCRIPTS.compareRoutines}`;
+  const WH = "https://github.com/qmu/workaholic";
+  try {
+    const tpl = JSON.parse(run(dir, LIST).stdout);
+    assertEq("the plugin ships three routine templates", tpl.count, 3);
+    assertEq("and they are the three live patterns",
+      tpl.templates.map((t) => t.id).sort(), ["drive", "fb", "merged-pr"]);
+    assertEq("only the drive template is scheduled",
+      tpl.templates.filter((t) => t.trigger === "cron").map((t) => t.cron_expression), ["56 * * * *"]);
+
+    // ---- the three substitutions, each demanded by a real prompt ----
+    const drive = JSON.parse(run(dir, `${RENDER} drive ${WH}`).stdout);
+    assertEq("the routine name uses the BARE repo name, as the live routines do",
+      drive.name, "[Drive] workaholic (pilot)");
+    assertTrue("{repo_slug} renders org/repo in the prompt's prose",
+      drive.prompt.includes("drive runner for qmu/workaholic,"), drive.prompt.slice(0, 200));
+    assertTrue("{repo_name} renders the dev-<name> Slack channel",
+      drive.prompt.includes("dev-workaholic"), "missing channel");
+    assertTrue("{repo} renders the full URL in the PR links",
+      drive.prompt.includes(`${WH}/pull/123`), "missing pull link");
+    assertTrue("no placeholder survives rendering", !/\{repo(_name|_slug)?\}/.test(drive.prompt), drive.prompt);
+
+    const fb = JSON.parse(run(dir, `${RENDER} fb ${WH}`).stdout);
+    assertEq("the fb routine is event-driven, with no schedule", [fb.trigger, fb.cron_expression], ["event", ""]);
+    assertEq("an unknown template is refused by name",
+      JSON.parse(run(dir, `${RENDER} no-such ${WH}`).stdout).error, "unknown_template");
+
+    // ---- comparison against a fixture shaped like the live API response ----
+    // Slack rides by default because every live routine has it; a routine WITHOUT the
+    // connector is the exceptional case, and the test that covers it says so explicitly.
+    const SLACK_MCP = [{ connector_uuid: "d83b7545", name: "Slack", url: "https://mcp.slack.com/mcp" }];
+    const entry = (id, name, prompt, repo, cron = "", model = "claude-opus-5", mcp = SLACK_MCP) => ({
+      id, name, cron_expression: cron, enabled: true, mcp_connections: mcp,
+      job_config: { ccr: { session_context: { model, sources: [{ git_repository: { url: repo } }] },
+                           events: [{ data: { message: { content: prompt } } }] } },
+    });
+    const merged = JSON.parse(run(dir, `${RENDER} merged-pr ${WH}`).stdout);
+    const live = { data: [
+      entry("trig_drive", drive.name, drive.prompt, WH, "56 * * * *"),
+      // model unset -- the real drift on `Merged PR qmu-co-jp` and `[FB] coop-csnet`
+      entry("trig_merged", merged.name, merged.prompt, WH, "", ""),
+      // an untemplated one-off, and another repository's routine
+      entry("trig_oneoff", "seiho drive", "one-off", WH),
+      entry("trig_other", fb.name.replace("workaholic", "qfs"), fb.prompt, "https://github.com/qmu/qfs"),
+    ] };
+    const fixture = join(dir, "live.json");
+    writeFileSync(fixture, JSON.stringify(live));
+    const cmp = JSON.parse(run(dir, `${COMPARE} ${WH} < ${fixture}`).stdout);
+
+    // A ROUTINE BELONGS TO A REPO BY ITS SOURCE URL, NEVER BY NAME -- names are what drift.
+    assertEq("this repository's routines are separated from the rest",
+      [cmp.total_live, cmp.this_repo.present.length], [4, 2]);
+    // A rendered template must reproduce the live prompt EXACTLY; empty drift is the proof
+    // that the templates were captured verbatim rather than paraphrased.
+    assertEq("a routine matching its template reports no drift",
+      cmp.this_repo.present.find((x) => x.id === "drive").drift, []);
+    // DRIFT IS PER FIELD. "This routine differs" would not say which of several problems.
+    assertEq("an unset model is named as the field that drifted",
+      cmp.this_repo.present.find((x) => x.id === "merged-pr").drift, ["model (unset != claude-opus-5)"]);
+    assertEq("a template with no live routine is reported missing",
+      cmp.this_repo.missing.map((m) => m.id), ["fb"]);
+    // `unknown` is information, never a deletion proposal -- the API has no delete at all.
+    assertEq("an untemplated routine is listed as unknown", cmp.this_repo.unknown.length, 1);
+    assertEq("and it is the one-off", cmp.this_repo.unknown[0].trigger_id, "trig_oneoff");
+
+    // DRIFT IS SURVEYED FLEET-WIDE. The templates are one set applied to many repos, so a
+    // survey scoped to the current checkout would need seven visits to find seven copies
+    // of one defect.
+    const QFS = "https://github.com/qmu/qfs";
+    const fbQfs = JSON.parse(run(dir, `${RENDER} fb ${QFS}`).stdout);
+    const mergedQfs = JSON.parse(run(dir, `${RENDER} merged-pr ${QFS}`).stdout);
+    const fleet = { data: [
+      entry("trig_fb", fb.name, fb.prompt, WH),
+      entry("trig_qfs_fb", fbQfs.name, fbQfs.prompt, QFS),
+      // another repo's routine, drifted -- must be reported even though we are not there
+      entry("trig_qfs_merged", mergedQfs.name, mergedQfs.prompt, QFS, "", ""),
+    ] };
+    writeFileSync(fixture, JSON.stringify(fleet));
+    const cf = JSON.parse(run(dir, `${COMPARE} ${WH} < ${fixture}`).stdout);
+    assertEq("another repository's drift is reported, not skipped",
+      cf.other_repos.find((r) => r.repo_name === "qfs").present.find((x) => x.id === "merged-pr").drift,
+      ["model (unset != claude-opus-5)"]);
+    assertEq("a clean routine elsewhere reports no drift",
+      cf.other_repos[0].present.find((x) => x.id === "fb").drift, []);
+    assertEq("the fleet-wide drift count spans repositories", cf.drifted_total, 1);
+    // OTHER REPOS GET DRIFT ONLY, NEVER "missing" -- proposing to create routines in a
+    // repository nobody is working in would invent policy out of a survey.
+    assertTrue("no repository other than this one is told what it is missing",
+      cf.other_repos.every((r) => !("missing" in r)), JSON.stringify(cf.other_repos));
+
+    // A drifted PROMPT is caught, not just metadata.
+    const live2 = { data: [entry("trig_fb", fb.name, fb.prompt + "\n- Speak/Write Japanese\n", WH)] };
+    writeFileSync(fixture, JSON.stringify(live2));
+    const cmp2 = JSON.parse(run(dir, `${COMPARE} ${WH} < ${fixture}`).stdout);
+    assertTrue("an extra prompt line is reported as prompt drift",
+      cmp2.this_repo.present.find((x) => x.id === "fb").drift.includes("prompt"), JSON.stringify(cmp2.this_repo.present));
+
+    // EVERY TEMPLATE POSTS TO SLACK, so a routine without the connector is broken in the
+    // most expensive way: it runs, works, and fails silently at the last step.
+    const noSlack = { data: [entry("trig_fb", fb.name, fb.prompt, WH, "", "claude-opus-5", [])] };
+    writeFileSync(fixture, JSON.stringify(noSlack));
+    const cmp3 = JSON.parse(run(dir, `${COMPARE} ${WH} < ${fixture}`).stdout);
+    assertTrue("a missing Slack connector is reported as drift",
+      cmp3.this_repo.present.find((x) => x.id === "fb").drift.includes("slack connector missing"),
+      JSON.stringify(cmp3.this_repo.present));
+    assertEq("and the account-level connector is reported absent", cmp3.slack_connector.present, false);
+    assertEq("while a fixture that has one reports it for reuse",
+      cmp.slack_connector.present, true);
+
+    // ---- the channel precondition ----
+    // THE POINT: "could not check" must never be reported as "does not exist". A locked
+    // credential store returns the SAME error as a nonexistent channel, and conflating
+    // them sends a developer to create a channel that is already there.
+    const slackChk = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.checkSlackChannel} workaholic`).stdout);
+    assertEq("the channel probe derives dev-<repo>", slackChk.channel, "dev-workaholic");
+    assertTrue("an unreachable Slack reports checked:false, never exists:false",
+      slackChk.checked === false ? !("exists" in slackChk) : typeof slackChk.exists === "boolean",
+      JSON.stringify(slackChk));
+    assertTrue("and it names why it could not check",
+      slackChk.checked === true || typeof slackChk.reason === "string", JSON.stringify(slackChk));
+
+    // NO PER-REPOSITORY ROUTINE FILE EXISTS. The withdrawn design added
+    // `.workaholic/routines/`; this one adds nothing to the closed layout.
+    const allowlist = readFileSync(join(REPO_ROOT, "plugins/workaholic/hooks/workaholic-layout-allowlist.txt"), "utf8");
+    assertTrue("no routines/ directory is registered in the closed layout",
+      !/^routines$/m.test(allowlist), allowlist);
+    // Only the command may reach the API; a script that wrote to the account would make
+    // the verbatim confirmation skippable.
+    for (const f of ["list-routine-templates.sh", "render-routine.sh", "compare-routines.sh"]) {
+      const src = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts", f), "utf8");
+      assertTrue(`${f} never calls the routines API itself`, !/RemoteTrigger\s*\(/.test(src));
+    }
+    const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/workaholify.md"), "utf8");
+    assertTrue("the command confirms each routine verbatim before creating or updating",
+      /confirm/i.test(cmd) && /AskUserQuestion/.test(cmd), "confirmation step missing");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// ---------- workaholify: the Claude Code Web bootstrap ----------
+// A CONFIGURED ROUTINE AND A WORKING ROUTINE ARE DIFFERENT STATES. The web starts each
+// session in a fresh container where `enabledPlugins` alone installs nothing, so an
+// unbootstrapped repository schedules its routines, fires them on time, and stops at the
+// prompt's own "the workaholic plugin must be loaded" precondition -- doing nothing, while
+// looking healthy from the routines list and leaving no trace in git.
+function testWorkaholifyBootstrap() {
+  const dir = makeRepo("main");
+  const CHECK = `${POSIX_SH} ${SCRIPTS.checkBootstrap}`;
+  const canonical = readFileSync(SCRIPTS.bootstrapHook, "utf8");
+  // The header documents each corrected defect BY NAME, so a naive grep for the defect
+  // matches its own explanation. Assertions about what the script DOES read this instead.
+  const code = canonical.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  const settings = (obj) => {
+    mkdirSync(join(dir, ".claude"), { recursive: true });
+    writeFileSync(join(dir, ".claude/settings.json"), JSON.stringify(obj, null, 2));
+  };
+  const wired = {
+    enabledPlugins: { "workaholic@workaholic": true },
+    extraKnownMarketplaces: { workaholic: { source: { source: "github", repo: "qmu/workaholic" } } },
+    hooks: { SessionStart: [{ matcher: "startup", hooks: [
+      { type: "command", command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/session-start.sh', timeout: 120 },
+    ] }] },
+  };
+  const installHook = (body = canonical) => {
+    mkdirSync(join(dir, ".claude/hooks"), { recursive: true });
+    writeFileSync(join(dir, ".claude/hooks/session-start.sh"), body);
+  };
+  try {
+    // Nothing at all: every problem named separately, because each needs a different fix.
+    settings({});
+    let r = JSON.parse(run(dir, `${CHECK} ${dir}`).stdout);
+    assertEq("an unbootstrapped repository is not ok", r.ok, false);
+    for (const key of ["hook_missing", "not_registered", "enabled_plugin", "marketplace"]) {
+      assertTrue(`${key} is named as its own problem`,
+        r.problems.some((p) => p.startsWith(key)), JSON.stringify(r.problems));
+    }
+
+    // Fully wired.
+    installHook(); settings(wired);
+    r = JSON.parse(run(dir, `${CHECK} ${dir}`).stdout);
+    assertEq("a fully wired repository is ok", [r.ok, r.problems], [true, []]);
+    assertEq("and the installed hook matches the plugin's canonical copy", r.hook.matches_canonical, true);
+
+    // A STALE COPY MUST NOT PASS BECAUSE A FILE EXISTS AT THE PATH. The copy that shipped
+    // before qmu/workaholic#126 has a swallowed errexit that logs OK on total failure.
+    installHook("#!/bin/sh\nset -euo pipefail\nclaude plugin install workaholic@workaholic\n");
+    r = JSON.parse(run(dir, `${CHECK} ${dir}`).stdout);
+    assertEq("an outdated hook is reported as drift, not as present", r.ok, false);
+    assertTrue("named hook_stale", r.problems.some((p) => p.startsWith("hook_stale")), JSON.stringify(r.problems));
+
+    // SessionStart also fires on resume/clear/compact, so the matcher is load-bearing;
+    // and a marketplace clone plus install can exceed the default timeout.
+    installHook();
+    settings({ ...wired, hooks: { SessionStart: [{ matcher: "", hooks: [
+      { type: "command", command: ".claude/hooks/session-start.sh", timeout: 5 }] }] } });
+    r = JSON.parse(run(dir, `${CHECK} ${dir}`).stdout);
+    assertTrue("a wrong matcher is named", r.problems.some((p) => p.startsWith("matcher")), JSON.stringify(r.problems));
+    assertTrue("a too-short timeout is named", r.problems.some((p) => p.startsWith("timeout")), JSON.stringify(r.problems));
+
+    // ---- the canonical hook's own contract (qmu/workaholic#126) ----
+    assertTrue("the hook is POSIX sh, not bash", canonical.startsWith("#!/bin/sh\n"), canonical.slice(0, 40));
+    // FAIL OPEN: `set -e` would let a failed install block the session from starting.
+    assertTrue("it deliberately does not set -e", !/^set -[a-z]*e/m.test(code), "set -e present");
+    assertTrue("it gates on CLAUDE_CODE_REMOTE", code.includes('CLAUDE_CODE_REMOTE:-'), "gate missing");
+    // The bug the issue found: `{ ... } || echo FAILED` suppresses errexit inside the
+    // group, so the trailing echo made it exit 0 and the log said OK on total failure.
+    assertTrue("no self-defeating brace-group verification", !/\}\s*>>.*\|\|\s*echo/.test(code));
+    assertTrue("--scope is not passed to marketplace add",
+      !/marketplace add[^\n]*--scope/.test(code), "invalid flag present");
+    assertTrue("an already-registered marketplace is updated, not re-added",
+      /marketplace update/.test(code), "no update path");
+    assertTrue("an already-installed plugin short-circuits before any network call",
+      /plugin list[\s\S]*already installed/.test(code), "no early exit");
+    assertTrue("HOME is respected rather than imposed", /: "\$\{HOME:=/.test(code), "HOME hardcoded");
+    assertTrue("the log goes to TMPDIR, not /var/log",
+      code.includes("${TMPDIR:-/tmp}") && !code.includes("/var/log"), "log path wrong");
+
+    // Outside the web it is a no-op, and must exit 0.
+    assertEq("the hook is a no-op outside Claude Code Web",
+      run(dir, `CLAUDE_CODE_REMOTE= ${POSIX_SH} ${SCRIPTS.bootstrapHook}`).status, 0);
+
+    // THIS REPOSITORY BOOTSTRAPS ITSELF -- it is the one whose routines already run.
+    const self = JSON.parse(run(REPO_ROOT, `${CHECK} ${REPO_ROOT}`).stdout);
+    assertEq("workaholic itself is bootstrapped", [self.ok, self.problems], [true, []]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

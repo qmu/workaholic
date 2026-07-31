@@ -10,9 +10,14 @@
 #
 # Usage: list-claims.sh
 # Env:   WORKAHOLIC_CLAIM_STALE_HOURS -- staleness threshold in hours (default 24)
-# Output: {"fetched": bool, "stale_hours": N, "base": "<ref>", "claims": [
+#        WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES -- liveness window (default 30)
+# Output: {"fetched": bool, "stale_hours": N, "heartbeat_stale_minutes": N,
+#          "base": "<ref>", "claims": [
 #            {"unit": "...", "branch": "work-...", "artifacts": ["..."],
-#             "last_commit_at": "2026-...", "stale": false}, ...]}
+#             "last_commit_at": "2026-...", "stale": false, "author": "...",
+#             "resumable": false, "resume_reason": "claim_active"}, ...]}
+# `resume_reason` is never empty: `heartbeat_lapsed` (resumable), `claim_active`,
+# `foreign_identity`, or `identity_unresolved`.
 #
 # `fetched: false` means origin could not be reached and the answer comes from the
 # last-known remote-tracking refs. That is a DEGRADED read, not a failure: the
@@ -20,6 +25,13 @@
 # without a reachable origin. See lib/claims.sh for why the asymmetry runs that way.
 #
 # `stale: true` is a REPORT, never an action. Nothing here breaks a claim.
+#
+# `resumable` IS ALSO A REPORT HERE -- this script takes nothing over. It exists so an
+# operator can read a unit's recoverability, and the reason it is not recoverable,
+# WITHOUT running a survey or a takeover: `claim_active` says a run is still working it,
+# `foreign_identity` says it is not this runner's to take at any age, and
+# `identity_unresolved` says this checkout cannot say who it is. Acting on the verdict is
+# claim.sh's `resume` path.
 
 set -eu
 
@@ -39,6 +51,18 @@ case "$stale_hours" in
         ;;
 esac
 
+# Reported so the verdict below can be read against the window that produced it. The
+# scan tolerates a malformed value (it must keep answering); this reader, whose whole
+# job is to state the operator's view accurately, refuses one instead -- the same
+# split the stale-hours check above already makes.
+heartbeat_minutes="${WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES:-30}"
+case "$heartbeat_minutes" in
+    '' | *[!0-9]*)
+        echo '{"error": "WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES must be a non-negative integer", "got": "'"${heartbeat_minutes}"'"}' >&2
+        exit 1
+        ;;
+esac
+
 fetched=$(claims_fetch)
 base=$(claims_base)
 
@@ -48,7 +72,7 @@ rows=$(claims_scan "$base")
 if [ -n "$rows" ]; then
     # Read the TSV the shared scan produced. `read -r` with a tab IFS keeps the
     # artifact list intact in the last field.
-    while IFS='	' read -r unit branch last_at stale artifacts; do
+    while IFS='	' read -r unit branch last_at stale author resumable resume_reason artifacts; do
         [ -n "$unit" ] || continue
         arts=""
         asep=""
@@ -60,12 +84,12 @@ if [ -n "$rows" ]; then
             asep=", "
         done
         IFS="$old_ifs"
-        claims="${claims}${sep}{\"unit\": \"${unit}\", \"branch\": \"${branch}\", \"artifacts\": [${arts}], \"last_commit_at\": \"${last_at}\", \"stale\": ${stale}}"
+        claims="${claims}${sep}{\"unit\": \"${unit}\", \"branch\": \"${branch}\", \"artifacts\": [${arts}], \"last_commit_at\": \"${last_at}\", \"stale\": ${stale}, \"author\": \"${author}\", \"resumable\": ${resumable}, \"resume_reason\": \"${resume_reason}\"}"
         sep=", "
     done <<EOF
 $rows
 EOF
 fi
 
-printf '{"fetched": %s, "stale_hours": %s, "base": "%s", "claims": [%s]}\n' \
-    "$fetched" "$stale_hours" "$base" "$claims"
+printf '{"fetched": %s, "stale_hours": %s, "heartbeat_stale_minutes": %s, "base": "%s", "claims": [%s]}\n' \
+    "$fetched" "$stale_hours" "$heartbeat_minutes" "$base" "$claims"

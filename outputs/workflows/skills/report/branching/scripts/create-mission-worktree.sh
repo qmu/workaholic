@@ -18,12 +18,33 @@
 # an observation, not a restatement of intent. Fails loudly if the base resolves
 # to no commit, or if the created worktree's HEAD ever disagrees with the branch.
 #
+# RESUME MODE (--branch <existing-work-branch>) attaches the worktree to a branch that
+# ALREADY EXISTS on origin instead of minting one from the base. It exists for
+# claim.sh's takeover path: a unit whose runner died is continued from the work that
+# SURVIVES -- the pushed branch tip -- and cutting a fresh worktree from origin/main
+# would silently restart it, re-driving tickets that branch already archived. The two
+# modes share everything below the checkout (env carry, port allocation, HEAD
+# reconciliation, size reporting), which is why this is a mode here rather than a
+# second creator free to drift from this one.
+#
 # Usage: create-mission-worktree.sh <slug> [base-branch]
+#        create-mission-worktree.sh --branch <existing-branch> <slug>
 # Output: {"worktree_path": "...", "branch": "work-YYYYMMDD-HHMMSS", "slug": "..."}
 
 set -eu
 
 SCRIPT_DIR=$(dirname "$0")
+
+existing_branch=""
+if [ "${1:-}" = "--branch" ]; then
+  existing_branch="${2:-}"
+  if [ -z "$existing_branch" ]; then
+    echo '{"error": "--branch requires a branch name"}' >&2
+    exit 1
+  fi
+  shift 2
+fi
+
 slug="${1:-}"
 base="${2:-main}"
 
@@ -56,10 +77,16 @@ fi
 
 # Mint a canonical work-YYYYMMDD-HHMMSS branch name (same format as create.sh);
 # the worktree branch stays policy-conformant even though the dir is mission-named.
-branch="work-$(date +%Y%m%d-%H%M%S)"
-if git show-ref --verify --quiet "refs/heads/${branch}"; then
-  echo '{"error": "branch already exists (retry in a moment)", "branch": "'"${branch}"'"}' >&2
-  exit 1
+# In resume mode the branch is GIVEN, not minted -- it is the claim's published branch,
+# and re-minting one would be the restart this mode exists to prevent.
+if [ -n "$existing_branch" ]; then
+  branch="$existing_branch"
+else
+  branch="work-$(date +%Y%m%d-%H%M%S)"
+  if git show-ref --verify --quiet "refs/heads/${branch}"; then
+    echo '{"error": "branch already exists (retry in a moment)", "branch": "'"${branch}"'"}' >&2
+    exit 1
+  fi
 fi
 
 mkdir -p "${repo_root}/.worktrees"
@@ -81,7 +108,15 @@ ensure_git_excludes "$repo_root"
 # A repo with no origin (a purely local project) keeps working from its local
 # ref, surfaced. Runs BEFORE `git worktree add`, so a fetch failure creates no
 # worktree.
-if git config --get remote.origin.url >/dev/null 2>&1; then
+#
+# Resume mode fetches the CLAIM branch instead: its tip is the surviving work, and the
+# base is irrelevant to where this worktree starts.
+if [ -n "$existing_branch" ]; then
+  git config --get remote.origin.url >/dev/null 2>&1 \
+    || { echo '{"error": "resuming a claim needs an origin remote — the branch tip is the surviving work", "branch": "'"${branch}"'"}' >&2; exit 1; }
+  git fetch origin "${branch}" 1>&2 \
+    || { echo '{"error": "could not fetch the claim branch from origin", "branch": "'"${branch}"'"}' >&2; exit 1; }
+elif git config --get remote.origin.url >/dev/null 2>&1; then
   if git fetch origin "${base}" 1>&2; then
     :
   elif git ls-remote --exit-code origin >/dev/null 2>&1; then
@@ -106,7 +141,12 @@ fi
 # (surfaced), and fail loudly, naming the base, when neither resolves. This
 # ordering is the fix: preferring the local ref first is what cut worktrees from
 # a stale base.
-if base_sha="$(git rev-parse --verify --quiet "origin/${base}^{commit}")"; then
+if [ -n "$existing_branch" ]; then
+  base_sha="$(git rev-parse --verify --quiet "origin/${branch}^{commit}")" || {
+    echo '{"error": "no origin ref for the claim branch — nothing to resume", "branch": "'"${branch}"'"}' >&2
+    exit 1
+  }
+elif base_sha="$(git rev-parse --verify --quiet "origin/${base}^{commit}")"; then
   :
 elif base_sha="$(git rev-parse --verify --quiet "${base}^{commit}")"; then
   echo "note: no origin/${base}; resolving base from the local '${base}' ref" >&2
@@ -119,7 +159,25 @@ fi
 # uncommitted work in the main tree stays in the main tree. Send git's progress
 # chatter ("Preparing worktree", "HEAD is now at ...") to stderr so stdout
 # carries only the JSON result.
-git worktree add -b "${branch}" "${worktree_path}" "${base_sha}" >&2
+#
+# Resume mode instead ATTACHES to the existing branch at origin's tip. `-B` resets a
+# stale local copy of that branch onto origin, which is the right reading (a published
+# claim's truth is origin) — but only after checking the local ref is not AHEAD.
+# Discarding unpushed local commits is exactly the destructive git the drive contract
+# forbids, so an ahead local branch is refused, not reset: a human decides what happens
+# to work that was never published.
+if [ -n "$existing_branch" ]; then
+  if git show-ref --verify --quiet "refs/heads/${branch}"; then
+    ahead="$(git rev-list --count "origin/${branch}..${branch}" 2>/dev/null || echo 0)"
+    if [ "${ahead}" -gt 0 ]; then
+      echo '{"error": "local branch is ahead of origin — refusing to reset it onto the published tip", "branch": "'"${branch}"'", "ahead": '"${ahead}"'}' >&2
+      exit 1
+    fi
+  fi
+  git worktree add -B "${branch}" "${worktree_path}" "${base_sha}" >&2
+else
+  git worktree add -b "${branch}" "${worktree_path}" "${base_sha}" >&2
+fi
 
 # Report an OBSERVATION, not the minted name. git said what it did on stderr,
 # where the JSON-parsing caller never looks; read the worktree's real HEAD and

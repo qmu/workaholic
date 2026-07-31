@@ -9027,6 +9027,159 @@ function testHeartbeat() {
   } finally { cleanup(origin); cleanup(A); cleanup(B); }
 }
 
+// ---------- `handoff`: a run that could not finish says so where a person looks ----------
+// The four ticket outcomes close over what happens to a TICKET; none of them says "a
+// person must pick this up from here, and this is where to start". That state used to
+// live only in the run report — stdout nobody re-reads — which for a cloud run means
+// nowhere at all, since the PR is the entire inheritance once the sandbox dies.
+function testHandoffState() {
+  const drive = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  const report = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/report/SKILL.md"), "utf8");
+
+  assertTrue("drive/SKILL.md defines a handoff unit state", /`handoff`/.test(drive));
+  assertTrue("the boundary test distinguishes handoff from blocked",
+    /queue is \*\*not drained\*\*/.test(drive) && /nothing further is possible/.test(drive), "no boundary test");
+  assertTrue("and from a review unit waiting at a PR",
+    /Its queue \*\*is\*\* drained/.test(drive), "no review-at-a-PR contrast");
+  assertTrue("handoff cannot be the soft landing for unattempted work",
+    /soft landing/.test(drive) && /Attempt every ticket/.test(drive), "no attempt-every-ticket guard");
+  assertTrue("the ticket-outcome contract stays four-valued",
+    /the four ticket outcomes stay four/i.test(drive), "no statement that the four outcomes are unchanged");
+  assertTrue("handoff lands on the pending side of the terminal token",
+    /ended in \*\*`handoff`\*\*[^|]*\|\s*`pending`/.test(drive), "handoff is not in the token table as pending");
+  assertTrue("an untaken resumable unit also forbids ok",
+    /\*\*resumable\*\* unit this run did not take over[^|]*\|\s*`pending`/.test(drive), "resumable is not pending");
+  assertTrue("the run report names handoff as a route",
+    /\/ \*\*handoff\*\* \//.test(drive), "handoff missing from the per-unit report line");
+
+  // The story section: written only for a handoff unit, first, with four elements.
+  assertTrue("report/SKILL.md defines a Handoff story section", /^## Handoff$/m.test(report));
+  assertTrue("it is written only for a handoff unit and omitted otherwise",
+    /written ONLY for a unit `\/drive` classified `handoff`/.test(report) && /Omit it entirely otherwise/.test(report),
+    "no omit-when-empty discipline stated");
+  // Scoped to the story template: the file also contains an earlier `##### 1. Overview`
+  // (the overview-writer's own contract) whose tail matches a naive `## 1. Overview`
+  // search, so an unscoped comparison would pass or fail by luck rather than by order.
+  const tmpl = report.slice(report.indexOf("### Story Content Structure"));
+  assertTrue("it comes before section 1 of the story template",
+    tmpl.indexOf("## Handoff") >= 0 && tmpl.indexOf("## Handoff") < tmpl.indexOf("## 1. Overview"),
+    `handoff@${tmpl.indexOf("## Handoff")} overview@${tmpl.indexOf("## 1. Overview")}`);
+  for (const el of ["**Done:**", "**Not done:**", "**Next step:**", "**Attempted:**"]) {
+    assertTrue(`the Handoff section requires ${el}`, report.includes(el), `missing ${el}`);
+  }
+  assertTrue("Attempted demands raw output, not a verdict",
+    /raw output, never a verdict/.test(report), "no raw-output rule");
+  assertTrue("the PR section is named authoritative over the run report",
+    /authoritative record; the run report is the log/.test(report), "authority between the two is unstated");
+}
+
+// shrink-pr-body.sh bounds an over-limit body by SHEDDING — and the one section a
+// handoff reader needs must never be what gets shed. Retention is explicit rather
+// than positional, so a template edit cannot silently drop it.
+function testShrinkKeepsHandoff() {
+  const dir = mkdtempSync(join(tmpdir(), "wh-shrink-"));
+  const SHRINK = `${POSIX_SH} ${SCRIPTS.shrinkPrBody}`;
+  try {
+    const handoff = [
+      "## Handoff",
+      "",
+      "**This branch is unfinished. Someone must continue it.**",
+      "",
+      "- **Done:** the parser rewrite is committed and pushed",
+      "- **Not done:** the migration ticket 20260801-migrate.md is untouched",
+      "- **Next step:** run the migration against a copy of staging, then re-run the suite",
+      "- **Attempted:** `npm run migrate` -> exit 127: `psql: command not found`",
+      "",
+    ].join("\n");
+    const huge = "x".repeat(70000);
+
+    // 1. Over the limit, with a concern corpus AND a handoff: the handoff survives.
+    const big = join(dir, "big.md");
+    writeFileSync(big, `${handoff}## 1. Overview\n\nsomething\n\n## 6. Concerns\n\n${huge}\n\n## 9. Notes\n\ntail\n`);
+    const out = JSON.parse(run(dir, `${SHRINK} ${big} work-20260801-000000`).stdout);
+    assertEq("an over-limit body is shrunk", out.shrunk, true);
+    const bounded = readFileSync(big, "utf8");
+    assertTrue("the bounded body is under the GitHub limit", bounded.length <= 65536, `${bounded.length}`);
+    assertTrue("the Handoff heading survived", bounded.includes("## Handoff"));
+    for (const el of ["**Done:**", "**Not done:**", "**Next step:**", "**Attempted:**"]) {
+      assertTrue(`the handoff kept its ${el} line`, bounded.includes(el), el);
+    }
+    assertTrue("the handoff's raw command output survived",
+      bounded.includes("psql: command not found"));
+
+    // 2. Still true when the OVERSIZE is not the concern section — i.e. when the
+    // hard-truncation path runs, which is where positional luck would have failed.
+    const big2 = join(dir, "big2.md");
+    writeFileSync(big2, `${handoff}## 1. Overview\n\n${huge}\n\n## 6. Concerns\n\nNone\n`);
+    run(dir, `${SHRINK} ${big2} work-20260801-000000`);
+    const bounded2 = readFileSync(big2, "utf8");
+    assertTrue("a hard-truncated body is still under the limit", bounded2.length <= 65536, `${bounded2.length}`);
+    assertTrue("and still opens with the Handoff section", bounded2.startsWith("## Handoff"));
+    assertTrue("with its next step intact", bounded2.includes("**Next step:**"));
+
+    // 3. A body with no handoff is untouched in that respect, and a small one is
+    // returned byte-identical — the section is never manufactured.
+    const small = join(dir, "small.md");
+    const body = "## 1. Overview\n\nfine\n\n## 6. Concerns\n\nNone\n";
+    writeFileSync(small, body);
+    const r = JSON.parse(run(dir, `${SHRINK} ${small} work-20260801-000000`).stdout);
+    assertEq("an under-limit body is left alone", r.shrunk, false);
+    assertEq("and is byte-identical", readFileSync(small, "utf8"), body);
+    assertTrue("no Handoff section is invented", !readFileSync(small, "utf8").includes("## Handoff"));
+  } finally { cleanup(dir); }
+}
+
+// create-or-update.sh must take the UPDATE path for an existing PR — a handoff unit
+// that opened a second PR would split the record a person is meant to read.
+function testCreateOrUpdatePaths() {
+  const repo = makeRepo("main");
+  const binDir = mkdtempSync(join(tmpdir(), "wh-gh-"));
+  const callLog = join(binDir, "calls.txt");
+  try {
+    mkdirSync(join(repo, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/stories/work-20260801-000000.md"),
+      `---\ntype: Story\n---\n\n## Handoff\n\n- **Next step:** continue the migration\n\n## 1. Overview\n\nunfinished\n`);
+
+    // `gh` and `jq` stubs on PATH: the suite never calls the network. The gh stub is
+    // switched by a file so one stub can play "no PR yet" and then "PR exists".
+    const state = join(binDir, "haspr");
+    writeFileSync(join(binDir, "gh"), `#!/bin/sh
+printf '%s\\n' "$*" >> ${callLog}
+case "$1 $2" in
+  "pr list") if [ -f ${state} ]; then echo '{"number":7,"url":"https://example.test/pr/7"}'; else echo ""; fi ;;
+  "pr create") echo "https://example.test/pr/7" ;;
+  "api "*) echo '{"url":"https://example.test/pr/7"}' ;;
+  *) echo "" ;;
+esac
+`);
+    writeFileSync(join(binDir, "jq"), `#!/bin/sh
+# Minimal stand-in: the script only ever asks for .number and .url here.
+input=$(cat)
+case "$*" in
+  *number*) echo 7 ;;
+  *url*) echo "https://example.test/pr/7" ;;
+  *) echo "$input" ;;
+esac
+`);
+    chmodSync(join(binDir, "gh"), 0o755);
+    chmodSync(join(binDir, "jq"), 0o755);
+    const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
+    const CMD = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/create-or-update.sh")} work-20260801-000000 "Unfinished work"`;
+
+    const created = run(repo, CMD, { env });
+    assertEq("with no PR yet, the create path runs", created.status, 0);
+    assertTrue("and reports a created PR", /PR created: https:\/\/example\.test\/pr\/7/.test(created.stdout), created.stdout);
+
+    writeFileSync(state, "yes");
+    const updated = run(repo, CMD, { env });
+    assertEq("with a PR already open, the script still succeeds", updated.status, 0);
+    assertTrue("and takes the UPDATE path rather than opening a second PR",
+      /PR updated: https:\/\/example\.test\/pr\/7/.test(updated.stdout), updated.stdout);
+    assertEq("gh pr create was called exactly once, for the first run",
+      readFileSync(callLog, "utf8").split("\n").filter((l) => l.startsWith("pr create")).length, 1);
+  } finally { cleanup(repo); cleanup(binDir); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -9174,6 +9327,9 @@ const tests = [
   ["drive claim protocol: a dropped unit is resumed, not stranded", testClaimResume],
   ["drive claim protocol: two runners racing to resume, one takeover", testResumeRace],
   ["drive/heartbeat.sh keeps a working unit out of the resumable offer", testHeartbeat],
+  ["drive: handoff is a first-class terminal state", testHandoffState],
+  ["report/shrink-pr-body.sh never drops the Handoff section", testShrinkKeepsHandoff],
+  ["report/create-or-update.sh takes the update path for an existing PR", testCreateOrUpdatePaths],
 ];
 
 for (const [label, fn] of tests) {

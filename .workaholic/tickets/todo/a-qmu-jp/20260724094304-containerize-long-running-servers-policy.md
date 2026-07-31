@@ -82,6 +82,34 @@ The three commands were re-run rather than assumed. Raw output:
 
 **Ticket outcome: `blocked`** — a genuinely external blocker under `/drive`'s failure contract (a decision requiring a named human's professional judgement, which no local attempt can produce). It stays queued, not abandoned. The next action is unchanged and outside this repository: publish the canonical qmu.co.jp article. The 11-line growth in the published article is the signal worth re-checking next time — the page is live and maintained, so the ruling's absence is a real gap, not a dead site.
 
+### Re-verified 2026-08-01 (cloud runner) — blocked, and **two of the three checks cannot be run from here**
+
+Re-run rather than assumed. The finding this time is different in kind, and it is about the *runner*, not the article:
+
+- `curl -sSL https://qmu.co.jp/implementation` → **`HTTP 000`**, `curl: (56) CONNECT tunnel failed, response 403`.
+- `curl -sSL https://qmu.co.jp/operation` → **`HTTP 000`**, same failure.
+- `curl -sS "$HTTPS_PROXY/__agentproxy/status"` → the environment's proxy names the denial explicitly:
+
+  ```json
+  {"ts":"2026-07-31T22:10:18.340Z","kind":"connect_rejected",
+   "detail":"gateway answered 403 to CONNECT (policy denial or upstream failure)",
+   "host":"qmu.co.jp:443"}
+  ```
+
+**This is a policy denial, not an outage.** The hourly unattended `/drive` runs in a Claude-Code-on-the-web container whose network policy does not allow `qmu.co.jp`, so the two `curl` probes this ticket names as its verification method are **unrunnable by the loop that keeps picking the ticket up**. A previous run on a networked machine could check; this one cannot, and reporting "still blocked" on the strength of a connection the proxy refused would be a forecast dressed as a finding.
+
+The one check that *is* local was run, and is unchanged:
+
+- `git log -1 -- plugins/workaholic/skills/implementation/policies/containerization.md` → `5866bcf3` (2026-07-28, `Close mission loop-engineering-proposal-loop` — a tree-wide touch, not a sync; the ticket previously recorded `513cd1d3`).
+- `grep -cE '127\.0\.0\.1|localhost|loopback|bare host|host process|preview'` on that hard copy → **0**.
+- `grep -rlE 'loopback|ループバック|ホストプロセス'` across **every** pillar's `policies/` → **no files**.
+
+So the local evidence is consistent with the previous two triages: the ruling has not synced down. What is *not* established this time is whether the upstream article now exists — the loop simply cannot see.
+
+**Ticket outcome: `blocked`, unchanged.** But note the structural problem, which is a developer's call and not this run's:
+
+> This ticket is **unverifiable by the unattended cloud loop**. Every tick surveys it, claims it, cannot check its blocker, and blocks — consuming a PR-unit each time and guaranteeing the run never reports `ok`. The two ways out are both the developer's: **ice it** until the article is published (`/drive` never touches the icebox — it is developer-curated by design, so the loop must not do this itself), or **allow `qmu.co.jp` in the cloud environment's network policy** so the probes this ticket specifies can actually run there.
+
 ## Policies
 
 The standard engineering policies that govern this ticket. Because the deliverable *is* an operation-policy ruling, the relevant pillar is operation itself — but see the Status above: the canonical text is authored at qmu.co.jp, not in these hard copies.

@@ -12,8 +12,10 @@ mcp: [Slack]
 # [Drive] — the hourly unattended drive runner
 
 The only scheduled template of the three. It runs `/drive` in an isolated cloud session
-every hour at :56 UTC. Still marked `(pilot)` in its name, and the prompt bounds it to two
-units per tick for that reason.
+every hour at :56 UTC. Still marked `(pilot)` in its name.
+
+Its Slack posts name a unit or a PR the session itself just produced, so it has no
+"which one?" ambiguity — unlike `merged-pr`, whose subject is an external event.
 
 ## Prompt
 
@@ -51,16 +53,12 @@ Let /drive work under its own failure contract -- every ticket ends as exactly o
 
 `auto` ships through the full evidence-gated /ship doctrine; `review`, and absence, stop at the PR. A `secret` finding hard-stops the unit. A `size`/`leak` block, a missing deployment-confirmation method, or a content conflict with main DEMOTES the unit to the PR path. "No approval needed" is never "no gate applies".
 
-On a PR, post to `dev-{repo_name}`:
+**Announce only the pull request THIS session just opened**, and only once. Post to `dev-{repo_name}`:
 
 ------------
 🟢 PR opened - [#123 Issue Title]({repo}/pull/123)
 `from-branch` → `to-branch`, one sentence, max 40 words, what the PR does only.
 
-{{#if blocker}}
-⚠️ Attention
-- One line, max 25 words.
-{{/if}}
 ------------
 
 ## 5. Hand off everything unfinished -- mandatory
@@ -95,3 +93,4 @@ If nothing was claimable, post nothing to Slack and just end -- a silent idle ti
 - Never modify another repository, and never carry another project's context into this one's artifacts.
 - In this repo, edit `plugins/`, never `.claude/`. `outputs/` is generated -- rebuild it with `node scripts/build-plugins/build.mjs`, never hand-edit.
 - Update the docs that describe anything you change, in the same commit.
+- **Never announce a pull request, merge, or unit that this session did not itself produce.** Recent activity in the repository is not this session's to report.

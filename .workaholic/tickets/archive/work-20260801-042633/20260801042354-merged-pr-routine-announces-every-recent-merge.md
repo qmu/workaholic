@@ -3,12 +3,13 @@ created_at: 2026-08-01T04:23:54+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260801-042633
 ---
 
 # The Merged PR routine announces every recent merge, so two merges close together produce four Slack messages
@@ -74,3 +75,45 @@ The three routine templates were captured verbatim from the live routines on 202
 - **The fix is prompt wording, so only a live run can confirm it.** A test can assert that the instruction is present and unambiguous; it cannot assert that a session obeys it. The two-PR reproduction is the acceptance criterion for that reason, and it must be re-run after any later edit to this prompt (`plugins/workaholic/skills/workaholify/routines/merged-pr.md`).
 - The routines were edited live at 19:12–19:14 UTC on 2026-07-31 (`{{#if blocker}}` became `{{#if high_severity_concerns}}`, and the Drive prompt was substantially rewritten). The committed templates predate that, so this change should re-capture from live first or it will overwrite those edits (`compare-routines.sh` reports the difference either way).
 - Whether the platform passes the triggering PR to the session at all is unverified. If it does not, "identify the triggering merge" may be unsatisfiable and the honest fallback — post nothing — becomes the normal path, which would make the routine useless rather than noisy. Confirm what the session can actually see before assuming step 1 is implementable.
+
+## Final Report
+
+Development completed as planned, plus two amendments the developer made mid-flight: the
+`⚠️ Attention` block is removed from **both** the PR-opened and PR-merged formats, and the
+corrected templates were applied to **every** routine in the account, not just this
+repository's.
+
+Applied live: 15 routines — 7 `[FB]`, 7 `Merged PR`, 1 `[Drive]`, across workaholic,
+research, qmu-co-jp, plgg, qfs, data-platform and coop-csnet. Two pre-existing drifts were
+corrected on the way: `Merged PR qmu-co-jp` and `[FB] coop-csnet` had no `model` set while
+every sibling pinned `claude-opus-5`.
+
+### Discovered Insights
+
+- **Insight**: The duplicate was not duplicate configuration — there is exactly one
+  `Merged PR workaholic` routine. Two merge events started two sessions, and each
+  announced **both** recent merges, because the prompt's subject was "the pull request"
+  with no antecedent. A stateless session cannot know which event started it unless the
+  prompt says so, and it cannot know what a *sibling* session already posted at all.
+  **Context**: The differing wording between the two message pairs is what identifies this
+  — identical duplicates would suggest one session retrying, different prose means two
+  sessions each composing independently. That distinction is worth checking first the next
+  time a notification doubles.
+
+- **Insight**: The failure scales as N², and only shows up under load. N merges landing
+  before their sessions run gives N sessions each reporting N merges. A single merge in
+  isolation looks perfectly correct, which is why this survived from the routine's
+  creation until a drive loop merged twice within four seconds.
+  **Context**: Any event-driven notification whose prompt does not name its triggering
+  event has this shape. `fb` and `drive` were checked for the same ambiguity and scoped
+  the same way, even though both announce their own output and could not actually
+  misfire — because "the pull request" reads identically in all three and the next editor
+  should not have to work out which case they are in.
+
+- **Insight**: `[FB] data-platform` carries `- Speak/Write Japanese`, which the template
+  comparison reports as drift. It was **kept**, not normalized away: a project's output
+  language is a property of that project, not a deviation to be corrected. Applying a
+  template must not silently overwrite a deliberate local choice.
+  **Context**: This is the first case where "one template set" met a legitimate per-repo
+  difference, and it shows the comparison cannot decide by itself — it reports, a human
+  decides which differences are drift and which are configuration.

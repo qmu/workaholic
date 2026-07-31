@@ -112,6 +112,10 @@ const SCRIPTS = {
   openPublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/open-publish-tree.sh"),
   publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
   publishTreePr: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh"),
+  surveyWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/survey-worktrees.sh"),
+  reapWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/reap-worktrees.sh"),
+  pruneWorktreeArtifacts: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/prune-worktree-artifacts.sh"),
+  missionSize: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/size.sh"),
   surveyState: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-state.sh"),
   scaffoldProposedTicket: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-proposed-ticket.sh"),
   closePublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/close-publish-tree.sh"),
@@ -1457,11 +1461,14 @@ function testMissionExperienceSection() {
 
     assertTrue("scaffold has an ## Experience section", /^## Experience$/m.test(m), m);
     // Position matters: it is the mission's substance, between the why and the plan.
-    const iScope = m.indexOf("## Scope");
+    // The anchor is ## Goal, not ## Scope -- Scope was dropped from the template on
+    // 2026-08-01 (nothing read it), so ## Experience now follows the why directly.
+    const iGoal = m.indexOf("## Goal");
     const iExp = m.indexOf("## Experience");
     const iAcc = m.indexOf("## Acceptance");
-    assertTrue("## Experience sits between ## Scope and ## Acceptance",
-      iScope < iExp && iExp < iAcc, `scope=${iScope} exp=${iExp} acc=${iAcc}`);
+    assertTrue("## Experience sits between ## Goal and ## Acceptance",
+      iGoal < iExp && iExp < iAcc, `goal=${iGoal} exp=${iExp} acc=${iAcc}`);
+    assertTrue("the scaffold carries no ## Scope section", !/^## Scope$/m.test(m), m);
 
     // Demoted, not removed: gate.sh and the `carried` inheritance still read these.
     assertTrue("scaffold still carries gate_type", /^gate_type:\s*$/m.test(m), m);
@@ -2383,9 +2390,15 @@ In: the dashboard. Out: the API.
 
     // Lineage the other way, so the archive does not show two unrelated missions.
     assertTrue("successor records carried_from", /^carried_from:\s*predecessor\s*$/m.test(succ), succ);
-    // A carry is a continuation: goal, scope and the gate come along.
+    // A carry is a continuation: the goal and the gate come along.
     assertTrue("successor inherits the Goal verbatim", succ.includes("The original information-rich why."), succ);
-    assertTrue("successor inherits the Scope verbatim", succ.includes("In: the dashboard. Out: the API."), succ);
+    // ## Scope does NOT come along. The successor is scaffolded from a template that no
+    // longer has the heading, so there is nowhere for a carry to land -- and copying it
+    // would re-introduce a retired section into a NEW mission, which is the opposite of
+    // what dropping it was for. The predecessor keeps its own section as history.
+    assertTrue("successor does NOT inherit a legacy ## Scope",
+      !succ.includes("In: the dashboard. Out: the API."), succ);
+    assertTrue("and carries no ## Scope heading at all", !/^## Scope$/m.test(succ), succ);
     assertTrue("successor inherits gate_type", /^gate_type:\s*live-app\s*$/m.test(succ), succ);
     assertTrue("successor inherits gate_target", /^gate_target:\s*\/dashboard\s*$/m.test(succ), succ);
     assertTrue("successor inherits gate_assert", /^gate_assert:\s*the chart renders\s*$/m.test(succ), succ);
@@ -3280,7 +3293,7 @@ function testMission() {
     assertTrue("mission scaffold carries empty predicted_hours/actual_hours keys",
       /^predicted_hours:\s*$/m.test(body) && /^actual_hours:\s*$/m.test(body), body.split("\n").slice(0, 16).join("\n"));
     assertTrue("mission reserves empty tickets list", /^tickets:\s*\[\]\s*$/m.test(body));
-    for (const sec of ["## Goal", "## Scope", "## Acceptance", "## Changelog"]) {
+    for (const sec of ["## Goal", "## Acceptance", "## Changelog"]) {
       assertTrue(`mission has ${sec}`, body.includes(`\n${sec}\n`), sec);
     }
 
@@ -8742,6 +8755,8 @@ const tests = [
   ["branching/sync-main.sh (J3 freshness)", testSyncMain],
   ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
   ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
+  ["branching worktree reclamation: merged AND clean, every skip named", testWorktreeReclamation],
+  ["mission size norms: a ceiling on what a mission may say, and the floor it must not touch", testMissionSizeNorms],
   ["propose: widened inputs, emitted tickets, and the mission_member safety property (J4)", testProposeWidenedBatch],
   ["branching/check-worktrees.sh ignores the publish tree", testCheckWorktreesIgnoresPublishTree],
   ["/ticket publishes to main end to end (J1)", testTicketPublishesToMain],
@@ -8875,5 +8890,201 @@ function testProposeWidenedBatch() {
       plan.excluded.some((e) => e.id === t.path && e.reason === "mission_member"), JSON.stringify(plan.excluded));
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+}
+
+// ---------- worktree reclamation (survey / reap / prune) ----------
+// A tool that allocates storage and never reclaims it is not finished: 53 GB was held
+// across four repositories, 31 GB of it fully merged and clean. The reaper's safety rule
+// is a predicate over git state, so it is exactly testable in fixtures -- and it MUST be,
+// because the failure mode is destroying work that was never committed anywhere.
+function testWorktreeReclamation() {
+  const origin = mkdtempSync(join(tmpdir(), "wh-reap-origin-"));
+  execSync("git -c init.defaultBranch=main init -q --bare", { cwd: origin });
+  const root = mkdtempSync(join(tmpdir(), "wh-reap-"));
+  execSync(`git clone -q ${origin} .`, { cwd: root });
+  execSync("git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false", { cwd: root });
+  writeFileSync(join(root, "README.md"), "seed\n");
+  execSync("git add -A && git commit -q -m seed && git push -q origin main", { cwd: root });
+
+  const SURVEY = `${POSIX_SH} ${SCRIPTS.surveyWorktrees}`;
+  const REAP = `${POSIX_SH} ${SCRIPTS.reapWorktrees}`;
+  const PRUNE = `${POSIX_SH} ${SCRIPTS.pruneWorktreeArtifacts}`;
+  const wt = (n) => join(root, ".worktrees", n);
+  const find = (d, name) => d.worktrees.find((w) => w.path === wt(name));
+
+  try {
+    mkdirSync(join(root, ".worktrees"), { recursive: true });
+
+    // (a) merged + clean  -> reclaimable
+    execSync(`git worktree add -q -b work-20260801-000001 ${wt("merged-clean")} main`, { cwd: root });
+    // (b) unmerged + clean -> skip: unmerged
+    execSync(`git worktree add -q -b work-20260801-000002 ${wt("unmerged-clean")} main`, { cwd: root });
+    writeFileSync(join(wt("unmerged-clean"), "extra.md"), "x\n");
+    execSync("git add -A && git commit -q -m 'Add extra file'", { cwd: wt("unmerged-clean") });
+    // (c) merged + dirty  -> skip: dirty
+    execSync(`git worktree add -q -b work-20260801-000003 ${wt("merged-dirty")} main`, { cwd: root });
+    writeFileSync(join(wt("merged-dirty"), "scratch.txt"), "uncommitted\n");
+    // (d) unmerged + dirty -> skip: unmerged_and_dirty
+    execSync(`git worktree add -q -b work-20260801-000004 ${wt("both")} main`, { cwd: root });
+    writeFileSync(join(wt("both"), "extra.md"), "y\n");
+    execSync("git add -A && git commit -q -m 'Add another file'", { cwd: wt("both") });
+    writeFileSync(join(wt("both"), "scratch.txt"), "uncommitted\n");
+
+    let d = JSON.parse(run(root, `${SURVEY} main`).stdout);
+
+    // THE MAIN TREE IS NEVER A CANDIDATE. Reported as reclaimable once, from a bug where
+    // the guard used `git rev-parse --show-toplevel`; a reaper on that output would have
+    // deleted the developer's primary checkout.
+    assertTrue("the survey never lists the main tree",
+      !d.worktrees.some((w) => w.path === root), JSON.stringify(d.worktrees.map((w) => w.path)));
+    assertEq("the survey lists every linked worktree", d.count, 4);
+
+    // Each skip reason, independently.
+    assertEq("merged + clean is reclaimable", find(d, "merged-clean").reclaimable, true);
+    assertEq("and carries no skip reason", find(d, "merged-clean").skip_reason, "");
+    assertEq("unmerged + clean is skipped as unmerged", find(d, "unmerged-clean").skip_reason, "unmerged");
+    assertEq("unmerged + clean is not reclaimable", find(d, "unmerged-clean").reclaimable, false);
+    assertEq("merged + dirty is skipped as dirty", find(d, "merged-dirty").skip_reason, "dirty");
+    assertEq("merged + dirty is not reclaimable", find(d, "merged-dirty").reclaimable, false);
+    assertEq("unmerged + dirty names BOTH failing conditions", find(d, "both").skip_reason, "unmerged_and_dirty");
+
+    // UNTRACKED COUNTS AS DIRTY -- a half-written artifact from an interrupted run is
+    // untracked by definition, and is precisely what must not be reaped.
+    assertEq("an untracked-only worktree is dirty", find(d, "merged-dirty").dirty, true);
+    assertTrue("the survey reports a size for every worktree",
+      d.worktrees.every((w) => typeof w.size_bytes === "number" && w.size_bytes > 0), JSON.stringify(d.worktrees));
+    assertTrue("and repository totals", d.total_bytes > 0 && d.reclaimable_bytes > 0, JSON.stringify(d));
+
+    // DRY RUN IS THE DEFAULT: nothing is removed without --apply.
+    let r = JSON.parse(run(root, `${REAP} main`).stdout);
+    assertEq("reap defaults to a dry run", r.applied, false);
+    assertEq("the dry run names the one reclaimable worktree", r.removed.length, 1);
+    assertEq("and it is the merged, clean one", r.removed[0].path, wt("merged-clean"));
+    assertEq("the dry run skips the other three", r.skipped.length, 3);
+    assertTrue("a dry run removes nothing from disk", existsSync(wt("merged-clean")));
+
+    // --apply removes exactly the reclaimable one, and nothing else.
+    r = JSON.parse(run(root, `${REAP} --apply main`).stdout);
+    assertEq("apply removes the reclaimable worktree", r.applied, true);
+    assertEq("exactly one worktree was removed", r.removed.length, 1);
+    assertTrue("the merged, clean worktree is gone", !existsSync(wt("merged-clean")));
+    assertTrue("the unmerged worktree survives", existsSync(wt("unmerged-clean")));
+    assertTrue("the dirty worktree survives -- its uncommitted file is still there",
+      existsSync(join(wt("merged-dirty"), "scratch.txt")));
+    assertTrue("the unmerged-and-dirty worktree survives", existsSync(wt("both")));
+    assertTrue("bytes reclaimed are reported", r.bytes_reclaimed > 0, JSON.stringify(r));
+    assertEq("every survivor is still named with its reason", r.skipped.length, 3);
+
+    // ---- prune: git-ignored AND a named build dir. Both required. ----
+    const keep = wt("unmerged-clean");
+    writeFileSync(join(keep, ".gitignore"), "node_modules/\nsecrets.env\n");
+    mkdirSync(join(keep, "node_modules"), { recursive: true });
+    writeFileSync(join(keep, "node_modules", "big.js"), "x".repeat(5000));
+    mkdirSync(join(keep, "dist"), { recursive: true });          // named, but NOT ignored
+    writeFileSync(join(keep, "dist", "out.js"), "y".repeat(5000));
+    writeFileSync(join(keep, "secrets.env"), "TOKEN=shhh\n");     // ignored, but NOT a build dir
+    execSync("git add -A && git commit -q -m 'Add ignore rules and a tracked dist'", { cwd: keep });
+
+    let pr = JSON.parse(run(root, `${PRUNE} ${keep}`).stdout);
+    assertEq("prune defaults to a dry run", pr.applied, false);
+    assertTrue("prune targets the ignored build directory",
+      pr.pruned.some((x) => x.dir === "node_modules"), JSON.stringify(pr));
+    assertTrue("prune skips a named directory git does NOT ignore (it is tracked content)",
+      pr.skipped.some((x) => x.dir === "dist" && x.reason === "not_ignored"), JSON.stringify(pr));
+    assertTrue("a dry run deletes nothing", existsSync(join(keep, "node_modules", "big.js")));
+
+    pr = JSON.parse(run(root, `${PRUNE} --apply ${keep}`).stdout);
+    assertEq("apply prunes", pr.applied, true);
+    assertTrue("the build directory is gone", !existsSync(join(keep, "node_modules")));
+    // THE HALF THAT MATTERS: an ignored file that is NOT a build directory is untouched.
+    // `git clean -Xdf` would have taken it, which is why ignored-ness alone is not the rule.
+    assertTrue("an ignored NON-build file survives (this is why ignored-ness alone is not the rule)",
+      existsSync(join(keep, "secrets.env")));
+    assertTrue("tracked content survives", existsSync(join(keep, "dist", "out.js")));
+    assertTrue("the worktree itself survives being pruned", existsSync(keep));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(origin, { recursive: true, force: true });
+  }
+}
+
+// ---------- mission size norms (the ceiling, and the floor it must not touch) ----------
+// Missions became hard to FINISH because nothing bounded how much one may say: an
+// unbounded ## Acceptance grows into an audit list, and an audit list never gets ticked.
+// The fix is a ceiling. The failure mode this test guards is a later reader mistaking a
+// ceiling for a loosened floor -- so the floor assertions live here, next to the change.
+function testMissionSizeNorms() {
+  const dir = makeRepo("main");
+  const SIZE = `${POSIX_SH} ${SCRIPTS.missionSize}`;
+  try {
+    const rel = ".workaholic/missions/active/m-size/mission.md";
+    mkdirSync(join(dir, ".workaholic/missions/active/m-size"), { recursive: true });
+
+    // Within every norm.
+    writeFileSync(join(dir, rel),
+      "---\ntype: Mission\nslug: m-size\nstatus: draft\n---\n\n# Small\n\n## Goal\n\nWhy.\n\n## Experience\n\nWhat.\n\n## Acceptance\n\n- [ ] One\n- [x] Two\n\n## Changelog\n");
+    let r = JSON.parse(run(dir, `${SIZE} ${rel}`).stdout);
+    assertEq("size.sh counts acceptance items, checked and unchecked alike", r.acceptance_items, 2);
+    assertEq("size.sh reports a small mission as within the norms", r.within, true);
+    assertEq("the acceptance norm is three items", r.max_acceptance, 3);
+
+    // A fourth item breaks the acceptance norm without touching the others.
+    writeFileSync(join(dir, rel),
+      "---\ntype: Mission\nslug: m-size\nstatus: draft\n---\n\n# Small\n\n## Acceptance\n\n- [ ] One\n- [ ] Two\n- [ ] Three\n- [ ] Four\n");
+    r = JSON.parse(run(dir, `${SIZE} ${rel}`).stdout);
+    assertEq("a fourth acceptance item breaks the norm", r.within_acceptance, false);
+    assertEq("and it does so without tripping the line ceiling", r.within_lines, true);
+    assertEq("so the overall verdict is outside the norms", r.within, false);
+
+    // Checklist items OUTSIDE ## Acceptance are not criteria -- the same scoping every
+    // other mission reader uses. A Changelog full of dashes must not inflate the count.
+    writeFileSync(join(dir, rel),
+      "---\ntype: Mission\nslug: m-size\nstatus: draft\n---\n\n# Small\n\n## Acceptance\n\n- [ ] Only one\n\n## Changelog\n\n- [ ] not a criterion\n- [ ] nor this\n");
+    r = JSON.parse(run(dir, `${SIZE} ${rel}`).stdout);
+    assertEq("checklist lines outside ## Acceptance are not counted", r.acceptance_items, 1);
+
+    // THE CEILING IS NOT A LOOSENED FLOOR. validate-mission.sh must still reject an
+    // approved mission with zero acceptance items.
+    let hasJq = true;
+    try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+    if (hasJq) {
+      const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-mission.sh");
+      const invoke = () => {
+        const payload = JSON.stringify({ tool_input: { file_path: rel } });
+        try { execSync(`${POSIX_SH} ${HOOK}`, { cwd: dir, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); return 0; }
+        catch (e) { return e.status ?? 1; }
+      };
+      const approved = (acc) =>
+        `---\ntype: Mission\ntitle: X\nslug: m-size\nstatus: approved\nassignees: [a@qmu.jp]\nassignee:\n---\n\n## Experience\n\nUsers see the thing happen.\n\n## Acceptance\n${acc}\n## Changelog\n`;
+      writeFileSync(join(dir, rel), approved("\n"));
+      assertTrue("the approved floor still rejects an EMPTY Acceptance (the ceiling did not loosen it)",
+        invoke() !== 0);
+      writeFileSync(join(dir, rel), approved("\n- [ ] One\n"));
+      assertEq("and still accepts a single-item Acceptance", invoke(), 0);
+    } else {
+      console.log("  skip  approved-floor half of mission size norms (jq not available)");
+    }
+
+    // The template no longer scaffolds ## Scope, and the removal is documented.
+    const createSrc = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"), "utf8");
+    assertTrue("create.sh no longer scaffolds a ## Scope section", !/^## Scope$/m.test(createSrc));
+    const draftSrc = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-draft.sh"), "utf8");
+    assertTrue("scaffold-draft.sh no longer scaffolds a ## Scope section", !/^## Scope$/m.test(draftSrc));
+    const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/SKILL.md"), "utf8");
+    assertTrue("the mission skill records WHY Scope was removed rather than just dropping it",
+      /`## Scope` was removed from the template/.test(skill));
+    assertTrue("the mission skill states the norm-for-a-human, gate-for-the-batch split",
+      /Norm for a human, gate for the batch/.test(skill));
+    assertTrue("the mission skill says plainly that the floor is untouched",
+      /lowering a ceiling is not loosening a floor/.test(skill));
+
+    // A legacy mission that still carries ## Scope is history, never retro-blocked.
+    writeFileSync(join(dir, rel),
+      "---\ntype: Mission\nslug: m-size\nstatus: draft\n---\n\n# Legacy\n\n## Goal\n\nWhy.\n\n## Scope\n\nOld section.\n\n## Acceptance\n\n- [ ] One\n");
+    r = JSON.parse(run(dir, `${SIZE} ${rel}`).stdout);
+    assertEq("a legacy mission carrying ## Scope is still measured, not rejected", r.acceptance_items, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 }

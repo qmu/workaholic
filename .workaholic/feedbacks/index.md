@@ -314,6 +314,9 @@
 * [An unmerged proposal blocks its own mission's replan](20260801021156-an-unmerged-proposal-blocks-its-own.md)
 * [Nothing yet watches for the merge event the standard depends on](20260801021156-nothing-yet-watches-for-the-merge.md)
 * [The archive commit exceeds the per-commit changed-lines ceiling](20260801021156-the-archive-commit-exceeds-the-per.md)
+<<<<<<< HEAD
+=======
 * [Six existing missions are over the new ceiling](20260801025242-six-existing-missions-are-over-the.md)
 * [The size norms are unmeasured for human-authored missions until something calls size.sh](20260801025242-the-size-norms-are-unmeasured-for.md)
+>>>>>>> origin/main
 <!-- okf:generated:end -->

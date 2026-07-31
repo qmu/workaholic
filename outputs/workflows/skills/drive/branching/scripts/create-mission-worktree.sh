@@ -165,6 +165,17 @@ fi
 # omission), and port_env_file names where the port vars landed.
 env_json="$(carry_worktree_env_json "$carried")"
 
+# REPORT THE COST AT CREATION. A worktree used to be created silently and its several
+# hundred megabytes never appeared in any output, so growth stayed invisible until a disk
+# filled -- 53 GB across four repositories, discovered by a container build failing on
+# "no space left on device". `workaholic:implementation` / objective-documentation: the
+# cost is an observable fact, and the moment it is allocated is the moment to state it.
+# This is the checkout only; a dependency install (250-620 MB observed) lands later, which
+# is why `survey-worktrees.sh` re-measures rather than trusting this number afterwards.
+size_kb=$(du -sk "$worktree_path" 2>/dev/null | awk '{print $1}')
+[ -n "$size_kb" ] || size_kb=0
+size_bytes=$((size_kb * 1024))
+
 # Report the OBSERVED branch (verified above to equal the minted name), so the
 # contract is an observation of the worktree's HEAD, not a restatement of intent.
-echo '{"worktree_path": "'"${worktree_path}"'", "branch": "'"${actual_branch}"'", "slug": "'"${slug}"'", "port_base": '"${port_base}"', "dev_port": '"${dev_port}"', "docs_port": '"${docs_port}"', "env_files_carried": '"${env_json}"', "port_env_file": "'"${port_env_file}"'"}'
+echo '{"worktree_path": "'"${worktree_path}"'", "branch": "'"${actual_branch}"'", "slug": "'"${slug}"'", "port_base": '"${port_base}"', "dev_port": '"${dev_port}"', "docs_port": '"${docs_port}"', "env_files_carried": '"${env_json}"', "port_env_file": "'"${port_env_file}"'", "size_bytes": '"${size_bytes}"'}'

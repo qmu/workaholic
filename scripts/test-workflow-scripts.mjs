@@ -112,6 +112,9 @@ const SCRIPTS = {
   openPublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/open-publish-tree.sh"),
   publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
   publishTreePr: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh"),
+  surveyWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/survey-worktrees.sh"),
+  reapWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/reap-worktrees.sh"),
+  pruneWorktreeArtifacts: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/prune-worktree-artifacts.sh"),
   missionSize: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/size.sh"),
   surveyState: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-state.sh"),
   scaffoldProposedTicket: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-proposed-ticket.sh"),
@@ -8752,6 +8755,7 @@ const tests = [
   ["branching/sync-main.sh (J3 freshness)", testSyncMain],
   ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
   ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
+  ["branching worktree reclamation: merged AND clean, every skip named", testWorktreeReclamation],
   ["mission size norms: a ceiling on what a mission may say, and the floor it must not touch", testMissionSizeNorms],
   ["propose: widened inputs, emitted tickets, and the mission_member safety property (J4)", testProposeWidenedBatch],
   ["branching/check-worktrees.sh ignores the publish tree", testCheckWorktreesIgnoresPublishTree],
@@ -8886,6 +8890,122 @@ function testProposeWidenedBatch() {
       plan.excluded.some((e) => e.id === t.path && e.reason === "mission_member"), JSON.stringify(plan.excluded));
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+}
+
+// ---------- worktree reclamation (survey / reap / prune) ----------
+// A tool that allocates storage and never reclaims it is not finished: 53 GB was held
+// across four repositories, 31 GB of it fully merged and clean. The reaper's safety rule
+// is a predicate over git state, so it is exactly testable in fixtures -- and it MUST be,
+// because the failure mode is destroying work that was never committed anywhere.
+function testWorktreeReclamation() {
+  const origin = mkdtempSync(join(tmpdir(), "wh-reap-origin-"));
+  execSync("git -c init.defaultBranch=main init -q --bare", { cwd: origin });
+  const root = mkdtempSync(join(tmpdir(), "wh-reap-"));
+  execSync(`git clone -q ${origin} .`, { cwd: root });
+  execSync("git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false", { cwd: root });
+  writeFileSync(join(root, "README.md"), "seed\n");
+  execSync("git add -A && git commit -q -m seed && git push -q origin main", { cwd: root });
+
+  const SURVEY = `${POSIX_SH} ${SCRIPTS.surveyWorktrees}`;
+  const REAP = `${POSIX_SH} ${SCRIPTS.reapWorktrees}`;
+  const PRUNE = `${POSIX_SH} ${SCRIPTS.pruneWorktreeArtifacts}`;
+  const wt = (n) => join(root, ".worktrees", n);
+  const find = (d, name) => d.worktrees.find((w) => w.path === wt(name));
+
+  try {
+    mkdirSync(join(root, ".worktrees"), { recursive: true });
+
+    // (a) merged + clean  -> reclaimable
+    execSync(`git worktree add -q -b work-20260801-000001 ${wt("merged-clean")} main`, { cwd: root });
+    // (b) unmerged + clean -> skip: unmerged
+    execSync(`git worktree add -q -b work-20260801-000002 ${wt("unmerged-clean")} main`, { cwd: root });
+    writeFileSync(join(wt("unmerged-clean"), "extra.md"), "x\n");
+    execSync("git add -A && git commit -q -m 'Add extra file'", { cwd: wt("unmerged-clean") });
+    // (c) merged + dirty  -> skip: dirty
+    execSync(`git worktree add -q -b work-20260801-000003 ${wt("merged-dirty")} main`, { cwd: root });
+    writeFileSync(join(wt("merged-dirty"), "scratch.txt"), "uncommitted\n");
+    // (d) unmerged + dirty -> skip: unmerged_and_dirty
+    execSync(`git worktree add -q -b work-20260801-000004 ${wt("both")} main`, { cwd: root });
+    writeFileSync(join(wt("both"), "extra.md"), "y\n");
+    execSync("git add -A && git commit -q -m 'Add another file'", { cwd: wt("both") });
+    writeFileSync(join(wt("both"), "scratch.txt"), "uncommitted\n");
+
+    let d = JSON.parse(run(root, `${SURVEY} main`).stdout);
+
+    // THE MAIN TREE IS NEVER A CANDIDATE. Reported as reclaimable once, from a bug where
+    // the guard used `git rev-parse --show-toplevel`; a reaper on that output would have
+    // deleted the developer's primary checkout.
+    assertTrue("the survey never lists the main tree",
+      !d.worktrees.some((w) => w.path === root), JSON.stringify(d.worktrees.map((w) => w.path)));
+    assertEq("the survey lists every linked worktree", d.count, 4);
+
+    // Each skip reason, independently.
+    assertEq("merged + clean is reclaimable", find(d, "merged-clean").reclaimable, true);
+    assertEq("and carries no skip reason", find(d, "merged-clean").skip_reason, "");
+    assertEq("unmerged + clean is skipped as unmerged", find(d, "unmerged-clean").skip_reason, "unmerged");
+    assertEq("unmerged + clean is not reclaimable", find(d, "unmerged-clean").reclaimable, false);
+    assertEq("merged + dirty is skipped as dirty", find(d, "merged-dirty").skip_reason, "dirty");
+    assertEq("merged + dirty is not reclaimable", find(d, "merged-dirty").reclaimable, false);
+    assertEq("unmerged + dirty names BOTH failing conditions", find(d, "both").skip_reason, "unmerged_and_dirty");
+
+    // UNTRACKED COUNTS AS DIRTY -- a half-written artifact from an interrupted run is
+    // untracked by definition, and is precisely what must not be reaped.
+    assertEq("an untracked-only worktree is dirty", find(d, "merged-dirty").dirty, true);
+    assertTrue("the survey reports a size for every worktree",
+      d.worktrees.every((w) => typeof w.size_bytes === "number" && w.size_bytes > 0), JSON.stringify(d.worktrees));
+    assertTrue("and repository totals", d.total_bytes > 0 && d.reclaimable_bytes > 0, JSON.stringify(d));
+
+    // DRY RUN IS THE DEFAULT: nothing is removed without --apply.
+    let r = JSON.parse(run(root, `${REAP} main`).stdout);
+    assertEq("reap defaults to a dry run", r.applied, false);
+    assertEq("the dry run names the one reclaimable worktree", r.removed.length, 1);
+    assertEq("and it is the merged, clean one", r.removed[0].path, wt("merged-clean"));
+    assertEq("the dry run skips the other three", r.skipped.length, 3);
+    assertTrue("a dry run removes nothing from disk", existsSync(wt("merged-clean")));
+
+    // --apply removes exactly the reclaimable one, and nothing else.
+    r = JSON.parse(run(root, `${REAP} --apply main`).stdout);
+    assertEq("apply removes the reclaimable worktree", r.applied, true);
+    assertEq("exactly one worktree was removed", r.removed.length, 1);
+    assertTrue("the merged, clean worktree is gone", !existsSync(wt("merged-clean")));
+    assertTrue("the unmerged worktree survives", existsSync(wt("unmerged-clean")));
+    assertTrue("the dirty worktree survives -- its uncommitted file is still there",
+      existsSync(join(wt("merged-dirty"), "scratch.txt")));
+    assertTrue("the unmerged-and-dirty worktree survives", existsSync(wt("both")));
+    assertTrue("bytes reclaimed are reported", r.bytes_reclaimed > 0, JSON.stringify(r));
+    assertEq("every survivor is still named with its reason", r.skipped.length, 3);
+
+    // ---- prune: git-ignored AND a named build dir. Both required. ----
+    const keep = wt("unmerged-clean");
+    writeFileSync(join(keep, ".gitignore"), "node_modules/\nsecrets.env\n");
+    mkdirSync(join(keep, "node_modules"), { recursive: true });
+    writeFileSync(join(keep, "node_modules", "big.js"), "x".repeat(5000));
+    mkdirSync(join(keep, "dist"), { recursive: true });          // named, but NOT ignored
+    writeFileSync(join(keep, "dist", "out.js"), "y".repeat(5000));
+    writeFileSync(join(keep, "secrets.env"), "TOKEN=shhh\n");     // ignored, but NOT a build dir
+    execSync("git add -A && git commit -q -m 'Add ignore rules and a tracked dist'", { cwd: keep });
+
+    let pr = JSON.parse(run(root, `${PRUNE} ${keep}`).stdout);
+    assertEq("prune defaults to a dry run", pr.applied, false);
+    assertTrue("prune targets the ignored build directory",
+      pr.pruned.some((x) => x.dir === "node_modules"), JSON.stringify(pr));
+    assertTrue("prune skips a named directory git does NOT ignore (it is tracked content)",
+      pr.skipped.some((x) => x.dir === "dist" && x.reason === "not_ignored"), JSON.stringify(pr));
+    assertTrue("a dry run deletes nothing", existsSync(join(keep, "node_modules", "big.js")));
+
+    pr = JSON.parse(run(root, `${PRUNE} --apply ${keep}`).stdout);
+    assertEq("apply prunes", pr.applied, true);
+    assertTrue("the build directory is gone", !existsSync(join(keep, "node_modules")));
+    // THE HALF THAT MATTERS: an ignored file that is NOT a build directory is untouched.
+    // `git clean -Xdf` would have taken it, which is why ignored-ness alone is not the rule.
+    assertTrue("an ignored NON-build file survives (this is why ignored-ness alone is not the rule)",
+      existsSync(join(keep, "secrets.env")));
+    assertTrue("tracked content survives", existsSync(join(keep, "dist", "out.js")));
+    assertTrue("the worktree itself survives being pruned", existsSync(keep));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(origin, { recursive: true, force: true });
   }
 }
 

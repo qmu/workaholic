@@ -60,13 +60,17 @@ Then survey what is claimable:
 bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/plan-units.sh
 ```
 
-Emits `{fetched, base, surveyed_sha, base_sha, current, claimed[], missions[], backlog[], excluded[]}` — the approved, unclaimed missions and this developer's unclaimed todo tickets, with everything a claim already holds subtracted through the shared reader (*Claims*). `excluded[]` names every mission and ticket it dropped and why (`claimed`, `not_approved`, `no_plan`, `no_tickets`, `mission_member`), so nothing leaves the offer silently. `no_plan` and `no_tickets` are deliberately distinct: the first means write the acceptance criteria, the second means emit the ticket set.
+Emits `{fetched, base, surveyed_sha, base_sha, current, user_slug, backlog_error, claimed[], missions[], backlog[], excluded[]}` — the approved, unclaimed missions this runner may take and this developer's unclaimed todo tickets, with everything a claim already holds subtracted through the shared reader (*Claims*). `excluded[]` names every mission and ticket it dropped and why (`claimed`, `not_approved`, `owned_by_other`, `no_plan`, `no_tickets`, `mission_member`), so nothing leaves the offer silently. `no_plan` and `no_tickets` are deliberately distinct: the first means write the acceptance criteria, the second means emit the ticket set.
+
+**Missions are offered by ownership, not by approval alone.** A mission is claimable when the runner's `git config user.email` is among its owners, or when it has no owners at all (team-owned = claimable); one owned solely by others is dropped as `owned_by_other`. Ownership resolves through `mission/scripts/mission-owners.sh` — the same oracle the mission lens, `list.sh`'s `relation`, `summary.sh`, `validate-mission.sh` and `ship`'s concern lane read — so the queue a runner drains and the roadmap a developer is shown cannot disagree about whose work it is.
+
+**An unreadable backlog is not an empty one.** `backlog_error` is `""` when the queue was genuinely read, and names the reason otherwise: `identity_unresolved` (no `git config user.email`, so there is no `todo/<user>/` to name — nothing at all is known about the backlog) or `unreadable`. `user_slug` reports *whose* queue was surveyed, empty when unresolvable. A non-empty `backlog_error` **forbids `ok`** (§7), exactly as `current: false` does: a run that never learned the queue's contents has established nothing about it. This is a property of the survey, not of an artifact, which is why it is a top-level key rather than an `excluded[]` entry — `excluded[]` names items the survey *saw and dropped*.
 
 **The survey states its freshness and does not repair it.** `current` is whether the surveyed checkout matches the base; `current: false` means the survey could not see everything on the base, and **`ok` is then forbidden** (§7). The repair belongs to the caller because a script named "plan units" that mutated the checkout would surprise every other caller, and this one must stay side-effect-free — it is called inside claim worktrees too. Note there is no `excluded` reason for staleness: a stale checkout does not drop a *named* item, it never learns the item exists, so the condition is a property of the survey rather than of an artifact.
 
 `fetched: false` means origin was unreachable and the claim set is the last-known one. Survey anyway, but expect the claim step to refuse: **the reader degrades offline, the writer does not.**
 
-If `missions` and `backlog` are both empty, there is nothing claimable — report that plainly, print the reconciliation line and the terminal token (§7), and stop. An empty queue is a normal tick outcome, not a failure and not a reason to ask the developer for something to do.
+If `missions` and `backlog` are both empty **and `backlog_error` is empty**, there is nothing claimable — report that plainly, print the reconciliation line and the terminal token (§7), and stop. An empty queue is a normal tick outcome, not a failure and not a reason to ask the developer for something to do. With a non-empty `backlog_error` the same two empty lists mean the opposite thing: report the reason, and terminate `pending`.
 
 ### 2. Partition into PR-units
 
@@ -203,7 +207,8 @@ The token is **derived, never self-asserted**:
 | Any unit was left with tickets undriven (failed/blocked tickets remain in its queue) | `pending` |
 | The survey still offers a claimable mission or ticket (including a unit another runner holds) | `pending` |
 | The survey ran against a checkout **not** known current with the base (`current: false`, or `sync-main.sh` reported `no_origin`/`origin_unreachable`) | `pending` |
-| Nothing was claimable at all and nothing is in flight, over a **current** survey | `ok` |
+| The survey could not read the backlog at all (`backlog_error` non-empty — e.g. `identity_unresolved`) | `pending` |
+| Nothing was claimable at all and nothing is in flight, over a **current** survey that read the backlog | `ok` |
 
 "I stopped" is not "it's done": a blocked unit is `pending`, not `ok`. This is verbatim the contract a caller-side loop such as `/goal /drive ok` waits on (decision I4 — `/goal` is a harness feature, not a command of this plugin; the token is the whole contract). A confident `ok` over an incomplete run is the masked failure `workaholic:implementation` / `observability` forbids, which is why the reconciliation line always precedes it: the outcome must be graspable from outside without a debugger.
 

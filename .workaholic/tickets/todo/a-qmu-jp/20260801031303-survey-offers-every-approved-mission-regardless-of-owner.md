@@ -3,7 +3,7 @@ created_at: 2026-08-01T03:13:03+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Domain]
-effort:
+effort: 0.5h
 commit_hash:
 category:
 depends_on: [20260801031300-survey-never-reports-a-silently-empty-backlog.md]

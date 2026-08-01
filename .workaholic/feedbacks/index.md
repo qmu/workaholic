@@ -348,4 +348,6 @@
 * [The write-time floor now refuses a half-filled intermediate edit](20260801134606-the-write-time-floor-now-refuses.md)
 * [The runner image still has no `gh`](20260801181923-the-runner-image-still-has-no.md)
 * [Three sibling scripts were guarded and three were not, with nothing to keep them aligned](20260801181923-three-sibling-scripts-were-guarded-and.md)
+* [A mission slug is still unbounded, and other consumers may have their own limits](20260801210418-a-mission-slug-is-still-unbounded.md)
+* [The legacy subject branch has no expiry](20260801210418-the-legacy-subject-branch-has-no.md)
 <!-- okf:generated:end -->

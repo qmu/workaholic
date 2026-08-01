@@ -63,6 +63,7 @@ const SCRIPTS = {
   listClaims: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-claims.sh"),
   releaseClaim: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/release-claim.sh"),
   publishRelease: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/publish-release.sh"),
+  shipPreCheck: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/pre-check.sh"),
   readDeployments: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/read-deployments.sh"),
   recordEvidence: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/record-evidence.sh"),
   catchupMain: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/catchup-main.sh"),
@@ -9232,6 +9233,71 @@ function testResumeSkipsDrainedUnit() {
   } finally { cleanup(origin); cleanup(A); cleanup(B); }
 }
 
+// ---------- the PR seams survive a runner with no `gh` ----------
+// The hourly routine runs in a Claude-Code-on-the-web container that has no GitHub CLI,
+// so on 2026-07-31 `/drive` step 5 died at exit 127 *after* the branch was pushed — the
+// worst place to fail. Three sibling scripts already guarded; three did not, and the
+// split was accidental rather than decided.
+//
+// THESE CASES REMOVE `gh` FROM PATH RATHER THAN STUBBING IT TO FAIL. The rest of the
+// suite stubs `gh`, which proves the happy path and would have stayed green straight
+// through this entire defect. Absence is the observed condition, so absence is what is
+// reproduced: a PATH containing only a directory of the few real binaries these scripts
+// need.
+function testGhAbsentDegrades() {
+  const repo = makeRepo("main");
+  const binDir = mkdtempSync(join(tmpdir(), "wh-nogh-"));
+  try {
+    // A PATH with everything the scripts legitimately need EXCEPT gh. Symlinking the
+    // real binaries keeps the scripts working normally right up to the GitHub call.
+    for (const tool of ["sh", "bash", "git", "jq", "python3", "sed", "awk", "grep", "cat",
+                        "mktemp", "rm", "cut", "tr", "wc", "date", "dirname", "basename",
+                        "printf", "env", "mv", "cp", "head", "tail", "sort", "uniq", "ls"]) {
+      const real = run(repo, `command -v ${tool}`).stdout.trim();
+      if (real) { try { execSync(`ln -sf ${real} ${join(binDir, tool)}`); } catch { /* optional */ } }
+    }
+    const noGh = { ...process.env, PATH: binDir };
+    assertEq("the fixture PATH really has no gh", run(repo, `command -v gh`, { env: noGh }).status !== 0, true);
+
+    mkdirSync(join(repo, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/stories/work-20260801-000000.md"),
+      `---\ntype: Story\n---\n\n## 1. Overview\n\nwork that is already pushed\n`);
+
+    // ---- report/create-or-update.sh: the seam that actually broke ----
+    const cou = run(repo, `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/create-or-update.sh")} work-20260801-000000 "T"`, { env: noGh });
+    assertEq("create-or-update exits 0 without gh instead of 127", cou.status, 0);
+    assertTrue("and emits no bare shell error", !/command not found/.test(cou.stderr + cou.stdout), cou.stderr);
+    const cj = JSON.parse(cou.stdout.trim());
+    assertEq("it names the reason and reports no PR",
+      { pr: cj.pr, r: cj.reason }, { pr: null, r: "gh_unavailable" });
+    assertTrue("and points at the branch whose work is already safe", cj.branch === "work-20260801-000000", cou.stdout);
+
+    // ---- ship/pre-check.sh: "no gh" must never read as "no PR" ----
+    const pc = run(repo, `${POSIX_SH} ${SCRIPTS.shipPreCheck} work-20260801-000000`, { env: noGh });
+    assertEq("pre-check exits 0 without gh", pc.status, 0);
+    const pj = JSON.parse(pc.stdout.trim());
+    assertEq("and distinguishes an unreadable PR state from an absent PR",
+      { f: pj.found, r: pj.reason }, { f: false, r: "gh_unavailable" });
+    assertTrue("the distinguishing field is present, not implied",
+      Object.prototype.hasOwnProperty.call(pj, "reason"), pc.stdout);
+
+    // ---- ship/merge-pr.sh: an irreversible action that did NOT happen must fail ----
+    const mp = run(repo, `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/merge-pr.sh")} 7 main`, { env: noGh });
+    assertTrue("merge-pr exits non-zero without gh — nothing was merged", mp.status !== 0, `status ${mp.status}`);
+    assertTrue("and emits no bare shell error", !/command not found/.test(mp.stderr), mp.stderr);
+    const mj = JSON.parse(mp.stderr.trim().split("\n").pop());
+    assertEq("reporting the reason rather than a merge that did not happen",
+      { m: mj.merged, r: mj.reason }, { m: false, r: "gh_unavailable" });
+
+    // The asymmetry is the point: the two READ-ONLY seams degrade to exit 0, the one
+    // that performs an irreversible action refuses. Reporting a merge that never
+    // happened is the one degradation that could lose work.
+    assertTrue("read seams degrade, the merge seam refuses",
+      cou.status === 0 && pc.status === 0 && mp.status !== 0,
+      `${cou.status}/${pc.status}/${mp.status}`);
+  } finally { cleanup(repo); cleanup(binDir); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -9381,6 +9447,7 @@ const tests = [
   ["drive claim protocol: two runners racing to resume, one takeover", testResumeRace],
   ["drive/heartbeat.sh keeps a working unit out of the resumable offer", testHeartbeat],
   ["drive claim protocol: a finished unit is not resumed again", testResumeSkipsDrainedUnit],
+  ["PR seams degrade when the runner has no gh", testGhAbsentDegrades],
   ["drive: handoff is a first-class terminal state", testHandoffState],
   ["report/shrink-pr-body.sh never drops the Handoff section", testShrinkKeepsHandoff],
   ["report/create-or-update.sh takes the update path for an existing PR", testCreateOrUpdatePaths],

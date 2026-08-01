@@ -4,6 +4,11 @@
 # Output: {"merged": true, "pr_number": N, "commit_hash": "...",
 #          "checked_out": true|false, "checkout_reason": "", "base": "main"}
 #     or: {"merged": false, "error": "merge failed"} on stderr, exit 1
+#     or: {"merged": false, "reason": "gh_unavailable"} on stderr, exit 1 -- the CLI is
+#         absent (the cloud runner's condition), so NOTHING was merged. This one still
+#         exits non-zero, unlike the read-only seams: the caller asked for an
+#         irreversible action that did not happen, and reporting that as success would
+#         be the worst possible degradation.
 #
 # THE EXIT STATUS REFLECTS THE MERGE, AND ONLY THE MERGE. The merge is irreversible, so
 # the caller's most important question is whether it happened -- and a non-zero exit
@@ -27,6 +32,11 @@ base="${2:-main}"
 
 if [ -z "$pr_number" ]; then
   echo '{"error": "PR number is required"}' >&2
+  exit 1
+fi
+
+if ! command -v gh >/dev/null 2>&1; then
+  echo '{"merged": false, "reason": "gh_unavailable", "pr_number": '"$pr_number"', "detail": "the GitHub CLI is not installed here; nothing was merged -- merge the pull request from an environment that has it"}' >&2
   exit 1
 fi
 

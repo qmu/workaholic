@@ -1,6 +1,18 @@
 #!/bin/sh -eu
 # Create or update GitHub PR from story file
 # Outputs "PR created: <URL>" or "PR updated: <URL>"
+#     or: {"pr": null, "reason": "gh_unavailable", ...} and exit 0 when the `gh` CLI is
+#         absent -- the hourly cloud runner's condition (observed 2026-07-31, where this
+#         script exited 127 at /drive step 5 *after* the branch was already pushed, the
+#         worst place to fail).
+#
+# REPORT AND DEGRADE, rather than falling back to the GitHub API over curl. The work is
+# pushed and safe either way, and `/drive`'s Unified Run already defines a PR-creation
+# failure as "its own report item, affecting nothing else" -- so the caller has a place
+# to put this. A second HTTP client inside the plugin would add an auth surface for a
+# case the caller can already handle, and the agent that runs this script can reach
+# GitHub through its MCP server, which no shell script can. (Rejected alternative,
+# recorded so it is not re-proposed blind.)
 
 set -eu
 
@@ -37,6 +49,15 @@ trap 'rm -f "$BODY_FILE"' EXIT
 # section 6 is replaced with a link to the committed story file — the ship-time
 # extractor reads the file, not the PR body, so extraction is unchanged.
 "${SCRIPT_DIR}/shrink-pr-body.sh" "$BODY_FILE" "$BRANCH" >/dev/null
+
+# The CLI must exist before anything is attempted against it. Checked here rather than
+# at the top so the story-file and body preparation above still run and still fail loudly
+# on their own terms -- only the GitHub half degrades.
+if ! command -v gh >/dev/null 2>&1; then
+    printf '{"pr": null, "reason": "gh_unavailable", "branch": "%s", "story": "%s", "detail": "the GitHub CLI is not installed here; the branch and its story are pushed -- open or update the pull request by hand"}\n' \
+        "$BRANCH" "$STORY_FILE"
+    exit 0
+fi
 
 # Check if PR exists
 PR_INFO=$(gh pr list --head "$BRANCH" --json number,url --jq '.[0]' 2>/dev/null || echo "")

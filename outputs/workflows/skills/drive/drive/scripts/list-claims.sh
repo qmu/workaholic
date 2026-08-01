@@ -17,7 +17,7 @@
 #             "last_commit_at": "2026-...", "stale": false, "author": "...",
 #             "resumable": false, "resume_reason": "claim_active"}, ...]}
 # `resume_reason` is never empty: `heartbeat_lapsed` (resumable), `claim_active`,
-# `foreign_identity`, or `identity_unresolved`.
+# `foreign_identity`, `identity_unresolved`, or `queue_drained`.
 #
 # `fetched: false` means origin could not be reached and the answer comes from the
 # last-known remote-tracking refs. That is a DEGRADED read, not a failure: the
@@ -29,7 +29,8 @@
 # `resumable` IS ALSO A REPORT HERE -- this script takes nothing over. It exists so an
 # operator can read a unit's recoverability, and the reason it is not recoverable,
 # WITHOUT running a survey or a takeover: `claim_active` says a run is still working it,
-# `foreign_identity` says it is not this runner's to take at any age, and
+# `queue_drained` says the unit FINISHED and is waiting on a human (its PR), not on a
+# runner, `foreign_identity` says it is not this runner's to take at any age, and
 # `identity_unresolved` says this checkout cannot say who it is. Acting on the verdict is
 # claim.sh's `resume` path.
 

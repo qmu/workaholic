@@ -342,4 +342,8 @@
 * [The per-commit size rule counts a catch-up merge commit as authored work](20260801060641-the-per-commit-size-rule-counts.md)
 * [A blocked ticket keeps its unit permanently resumable](20260801111551-a-blocked-ticket-keeps-its-unit.md)
 * [The mission half of the queue test is O(tickets) git calls per claim](20260801111551-the-mission-half-of-the-queue.md)
+* [`drive-authorized.sh` was kept where the superseded mission's sketch proposed removing it](20260801134606-drive-authorized-sh-was-kept-where.md)
+* [`gh` is absent in the cloud runner, so the sanctioned PR seam cannot run there](20260801134606-gh-is-absent-in-the-cloud.md)
+* [The commit exceeds the per-commit size ceiling](20260801134606-the-commit-exceeds-the-per-commit.md)
+* [The write-time floor now refuses a half-filled intermediate edit](20260801134606-the-write-time-floor-now-refuses.md)
 <!-- okf:generated:end -->

@@ -3,12 +3,13 @@ created_at: 2026-08-01T11:02:46+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Domain]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 merge_policy: auto
+claim: work-20260801-110823
 ---
 
 # A unit that finished and is waiting at its PR is resumed again every tick, forever
@@ -114,3 +115,38 @@ Decided: a distinct `resume_reason` rather than reusing `claim_active` — "noth
 - The empty `Resume` commits already on `work-20260731-185904` and `work-20260731-221002` are harmless but visible in PR #142's commit list; they need no cleanup, and force-pushing a branch under review to remove them would be worse than leaving them (`plugins/workaholic/skills/drive/scripts/claim.sh`).
 - This is the second defect in the same verdict within a day (the first was the empty-field TSV collapse). Both were invisible without a targeted assertion, which argues for asserting the *shape* of every scan row and the *set* of offered units, not just individual fields (`plugins/workaholic/skills/drive/scripts/lib/claims.sh`).
 - A blocked ticket that stays in `todo/` keeps its unit permanently non-drained, so it will remain resumable forever by this rule. That is correct as far as this ticket goes — the real answer there is the icebox, which is a developer act — but it means the two problems must not be conflated when reading a cron log (`plugins/workaholic/skills/drive/scripts/list-icebox.sh`).
+
+## Final Report
+
+Development completed as planned. The resumability verdict gained a third condition and
+a `queue_drained` reason; the survey reports such a unit as `claimed_reported`.
+
+### Discovered Insights
+
+- **Insight**: The two coordinate spaces the scan already juggles turned out to be
+  exactly what this needed. The row *reports* base-side artifact paths (the space both
+  consumers compare in), but "is this ticket still undriven?" is only answerable at the
+  **tip**, because driving a ticket *is* a rename out of `todo/`. Keeping the tip-side
+  paths alongside the reported ones made the check three lines instead of a second
+  rename walk.
+  **Context**: The rename-following added on 2026-07-30 already computed the mapping;
+  this change just stopped throwing half of it away.
+
+- **Insight**: A batch and a mission answer "what is left to drive" from opposite
+  directions, and no single path test covers both. A batch claims its *tickets*, so the
+  question is whether any artifact is still under `todo/`. A mission claims only
+  `mission.md`, which never lives there, so the question inverts: does any ticket at the
+  tip still *name* the mission. Writing one rule for both would have silently declared
+  every mission unit drained — the exact opposite failure, and a worse one, since it
+  would disable recovery rather than over-trigger it.
+  **Context**: `queue-size.sh` asks the mission half of this against the working tree;
+  this asks it against the branch, which is what keeps the verdict offline-capable.
+
+- **Insight**: `claimed_active` was the tempting place to fold the new state, and it
+  would have been wrong in the way that matters to an operator reading a cron log:
+  it says "a run is on it, wait", about a unit no run will ever touch again. The two
+  states call for opposite responses — wait versus go review the PR — so they get
+  different words.
+  **Context**: This is the second time the reason vocabulary has been split for this
+  reason (`claimed` → three names, now four). The pattern holds: a reason is worth its
+  own word exactly when it implies a different next action.

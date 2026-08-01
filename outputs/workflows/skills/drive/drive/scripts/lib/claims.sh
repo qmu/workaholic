@@ -46,8 +46,9 @@
 # themselves would be free to disagree, and this protocol's one intolerable state is the
 # reader and the writer disagreeing about what is in flight.
 #
-# Two conditions, and the ORDER matters -- identity is checked first because a foreign
-# claim is never resumable at ANY age:
+# THREE conditions, and the ORDER matters -- identity is checked first because a foreign
+# claim is never resumable at ANY age, and the queue check comes last because it is the
+# only one that costs git calls:
 #
 #   1. SAME IDENTITY. The claim commit's author email must equal this runner's
 #      `git config user.email`. The governing principle (developer, 2026-08-01) is that
@@ -65,6 +66,26 @@
 #      lock file and no server (the protocol forbids both), pollutes no PR diff (an
 #      empty commit changes no file), and leaks nothing when a runner dies: the signal
 #      lives on the very branch that a merge or a release already cleans up.
+#   3. SOMETHING LEFT TO DRIVE. At least one of the unit's tickets must still be
+#      undriven ON THAT BRANCH -- under `.workaholic/tickets/todo/` at the tip.
+#      Without this, resumability could not tell a run that DIED from a unit that
+#      FINISHED: a `review` unit stops at its PR by design and its branch correctly
+#      stays unmerged, so its tip stops advancing and its heartbeat lapses exactly like
+#      an abandoned one. Measured 2026-08-01, hours after resumption shipped: the hourly
+#      runner re-took `batch-20260731185901` at 21:57, 22:57 and 00:58, and only the
+#      first pass did any work -- the other two added an empty `Resume` commit to a
+#      branch a human was reviewing and stopped. It does not terminate; a review PR can
+#      sit for days. The unit-outcome vocabulary already drew this line for `handoff`
+#      versus "a review unit at a PR"; the resumability verdict simply had not learned
+#      it.
+#
+#      How "left to drive" is read differs by unit kind, because a claim stamps
+#      different things: a BATCH claims its ticket files, so the test is whether any of
+#      them is still under todo/ at the tip (archive.sh renames a driven ticket, and the
+#      reader already follows that rename). A MISSION claims only its `mission.md`,
+#      which never lives under todo/, so the test is whether any ticket at the tip still
+#      NAMES the mission -- the same question `queue-size.sh` asks of the working tree.
+#      Reading it from the branch keeps the whole verdict offline-capable.
 #
 # The 24-hour `stale` flag keeps its separate meaning -- REPORTED, never acted on. It is
 # not the resumption trigger: an hourly routine that recovers its own dropped unit only
@@ -72,7 +93,10 @@
 #
 # `resume_reason` always answers "why is it in this state", and is NEVER empty (see the
 # no-empty-field rule below): `heartbeat_lapsed` when resumable, else `claim_active`,
-# `foreign_identity`, or `identity_unresolved`. It is reported rather than merely implied
+# `foreign_identity`, `identity_unresolved`, or `queue_drained`. `queue_drained` gets its
+# own word rather than folding into `claim_active` because the two call for opposite
+# operator responses: `claim_active` means wait for the run, `queue_drained` means the
+# work is done and a human -- not a runner -- is what it is waiting for. It is reported rather than merely implied
 # so an operator can read WHY a unit is untouchable straight out of list-claims.sh.
 #
 # Paths are assumed free of tabs, commas, quotes and backslashes -- true of every
@@ -133,6 +157,59 @@ claims_current_path() {
         $1 == p { print $2; found = 1; exit }
         END { if (!found) print p }
     '
+}
+
+# Has this unit anything left to drive ON ITS OWN BRANCH? $1 = the branch ref,
+# $2 = the comma-separated TIP-side artifact paths. Echoes true|false.
+#
+# This is condition 3 of the resumability verdict (see the header) and the answer to
+# "did the run die, or did the unit finish?". Both unit kinds are handled, because a
+# claim stamps different things for each:
+#
+#   BATCH  -- the artifacts ARE the tickets. Any one still under `.workaholic/tickets/
+#             todo/` at the tip is undriven work, because archive.sh drives a ticket by
+#             renaming it out of todo/ into archive/<branch>/.
+#   MISSION -- the only artifact is `mission.md`, which never sits under todo/. So the
+#             tickets are found the other way round: any ticket at the tip whose
+#             `mission:` names this slug. Read at the branch tip, not the working tree,
+#             so the answer is about the unit's own branch and stays offline-capable.
+#
+# A claim with no surviving artifacts at all answers `true` -- unknown is not the same
+# as finished, and the conservative reading for a signal that GATES a takeover is to let
+# the other two conditions decide rather than to silently declare the unit done.
+claims_has_work() {
+    _chw_ref="$1"
+    _chw_arts="${2:-}"
+    [ -n "$_chw_arts" ] || { printf 'true'; return 0; }
+
+    _chw_mission=""
+    _chw_old_ifs="$IFS"
+    IFS=','
+    for _chw_p in $_chw_arts; do
+        case "$_chw_p" in
+            .workaholic/tickets/todo/*)
+                IFS="$_chw_old_ifs"
+                printf 'true'
+                return 0
+                ;;
+            */missions/*/mission.md)
+                # Strip to the directory name: .../missions/<area>/<slug>/mission.md
+                _chw_mission="${_chw_p%/mission.md}"
+                _chw_mission="${_chw_mission##*/}"
+                ;;
+        esac
+    done
+    IFS="$_chw_old_ifs"
+
+    [ -n "$_chw_mission" ] || { printf 'false'; return 0; }
+
+    for _chw_t in $(git ls-tree -r --name-only "$_chw_ref" -- .workaholic/tickets/todo 2>/dev/null || true); do
+        case "$(claims_blob_field "$_chw_ref" "$_chw_t" mission)" in
+            "") continue ;;
+            *"$_chw_mission"*) printf 'true'; return 0 ;;
+        esac
+    done
+    printf 'false'
 }
 
 # Scan the remote branches for claims. $1 = base ref (from claims_base).
@@ -202,14 +279,22 @@ claims_scan() {
         # consumers work in: plan-units.sh compares against list-todo.sh's view of the
         # working tree, and claim.sh against paths it resolved in the main tree. Reporting
         # the archived path instead would be the useless half of the pair.
+        # Both coordinate spaces are kept: `_cs_artifacts` is what the row REPORTS (the
+        # base-side paths both consumers compare in), while `_cs_artifacts_tip` is where
+        # those files actually live at the tip -- which is the only space in which
+        # "is this ticket still undriven?" can be asked, since driving a ticket is
+        # precisely a rename out of todo/.
         _cs_artifacts=""
+        _cs_artifacts_tip=""
         for _cs_file in $(git diff-tree --no-commit-id --name-only -r "$_cs_sha" 2>/dev/null || true); do
             _cs_at_tip=$(claims_current_path "$_cs_renames" "$_cs_file")
             [ "$(claims_blob_field "$_cs_ref" "$_cs_at_tip" claim)" = "$_cs_branch" ] || continue
             if [ -z "$_cs_artifacts" ]; then
                 _cs_artifacts="$_cs_file"
+                _cs_artifacts_tip="$_cs_at_tip"
             else
                 _cs_artifacts="${_cs_artifacts},${_cs_file}"
+                _cs_artifacts_tip="${_cs_artifacts_tip},${_cs_at_tip}"
             fi
         done
 
@@ -244,7 +329,8 @@ claims_scan() {
         [ -n "$_cs_at" ] || _cs_at="unknown"
 
         # The resumability verdict (see the header). Identity first: a foreign claim is
-        # untouchable at any age, so its liveness never even needs measuring.
+        # untouchable at any age, so its liveness never even needs measuring. The queue
+        # check runs last because it is the only one that costs git calls.
         if [ -z "$_cs_me" ]; then
             _cs_resumable=false
             _cs_reason=identity_unresolved
@@ -254,6 +340,9 @@ claims_scan() {
         elif [ $((_cs_now - _cs_ct)) -lt "$_cs_hb_threshold" ]; then
             _cs_resumable=false
             _cs_reason=claim_active
+        elif [ "$(claims_has_work "$_cs_ref" "$_cs_artifacts_tip")" = "false" ]; then
+            _cs_resumable=false
+            _cs_reason=queue_drained
         else
             _cs_resumable=true
             _cs_reason=heartbeat_lapsed

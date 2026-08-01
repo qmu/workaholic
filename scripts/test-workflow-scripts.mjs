@@ -7328,6 +7328,14 @@ function makeClaimFixture() {
   // m1 needs a ticket of its own to be drivable at all (see seedMissionTicket); t1/t2
   // stay unmissioned so they remain plain backlog for the batch cases.
   seedMissionTicket(seed, "m1");
+  // A mission whose slug is long enough that `Claim <slug>` would breach commit.sh's
+  // 50-character subject rule. It is seeded ALWAYS, so the whole claim suite runs against
+  // a repository that contains one -- the previous fixture knew only `m1`, which is why
+  // every claim test passed while four of five real missions were unclaimable.
+  mkdirSync(join(seed, `.workaholic/missions/active/${LONG_SLUG}`), { recursive: true });
+  writeFileSync(join(seed, `.workaholic/missions/active/${LONG_SLUG}/mission.md`),
+    `---\ntype: Mission\ntitle: Long\nslug: ${LONG_SLUG}\nstatus: active\nassignees: [test@example.com]\n---\n\n# Long\n\n## Acceptance\n\n- [ ] x\n`);
+  seedMissionTicket(seed, LONG_SLUG, "20260729000010");
   execSync(`git add -A && git commit -q -m seed && git push -q origin main`, { cwd: seed });
   rmSync(seed, { recursive: true, force: true });
 
@@ -7347,6 +7355,9 @@ function makeClaimFixture() {
 // the next tick; in a test it is just nondeterminism, so step off the second boundary
 // between claims. (The collision itself is asserted explicitly below.)
 function tickSecond() { execSync("sleep 1.1"); }
+
+// 59 characters, so `Claim <slug>` is 65 -- past commit.sh's 50-character subject cap.
+const LONG_SLUG = "make-the-per-commit-changed-lines-ceiling-a-rule-that-holds";
 
 function testClaimProtocol() {
   const { origin, A, B } = makeClaimFixture();
@@ -7607,8 +7618,11 @@ function testPlanUnits() {
   try {
     // The fixture seeds one approved mission (m1) and two todo tickets (t1, t2).
     let plan = JSON.parse(run(A, PLAN).stdout);
-    assertEq("the survey offers the approved mission as a unit",
-      plan.missions.map((m) => m.slug), ["m1"]);
+    // Two, since the shared fixture deliberately carries a long-slug mission as well
+    // (see makeClaimFixture): a suite whose only mission was `m1` stayed green while
+    // four of five real missions were unclaimable.
+    assertEq("the survey offers both approved missions as units",
+      plan.missions.map((m) => m.slug), ["m1", LONG_SLUG]);
     assertEq("the mission carries its derived progress and next step",
       { checked: plan.missions[0].checked, total: plan.missions[0].total, next: plan.missions[0].next },
       { checked: 0, total: 1, next: "x" });
@@ -7622,7 +7636,8 @@ function testPlanUnits() {
     // --- a claimed unit leaves the offer, and says why ---
     const claimed = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.claim} mission m1`).stdout);
     plan = JSON.parse(run(A, PLAN).stdout);
-    assertEq("a claimed mission is no longer offered", plan.missions.length, 0);
+    assertEq("a claimed mission is no longer offered, and only it drops out",
+      plan.missions.map((m) => m.slug), [LONG_SLUG]);
     // `claimed_active`, not a bare `claimed`: the claim was just pushed, so its branch
     // tip is inside the heartbeat window and a run is presumed to be on it. The three
     // claimed-* reasons each imply a different next action (wait / never / resume).
@@ -8901,9 +8916,10 @@ function testClaimResume() {
     // The takeover marker changes no file, so it can never pollute the PR diff.
     assertEq("the takeover commit is empty",
       execSync(`git show --stat --format= HEAD`, { cwd: join(B, ".worktrees/m1"), encoding: "utf8" }).trim(), "");
-    assertTrue("the takeover is on origin",
-      execSync(`git log --format=%s -3 refs/heads/${claimed.branch}`, { cwd: origin, encoding: "utf8" })
-        .includes("Resume m1"));
+    assertTrue("the takeover is on origin, carrying its unit in a trailer",
+      execSync(`git log --format='%s%x09%(trailers:key=Unit,valueonly)' -3 refs/heads/${claimed.branch}`,
+        { cwd: origin, encoding: "utf8" })
+        .split("\n").some((l) => l.startsWith("Resume a PR-unit\t") && l.endsWith("m1")));
     // The unit stays ONE claim -- a takeover must not mint a second one.
     assertEq("the unit is still exactly one claim in flight",
       JSON.parse(run(A, LIST).stdout).claims.map((c) => c.unit), ["m1"]);
@@ -8966,8 +8982,9 @@ function testResumeRace() {
     assertEq("and took nothing", sj.claimed, false);
     assertTrue("the loser left no worktree behind", !existsSync(join(D, ".worktrees/m1")));
     assertEq("exactly one Resume commit reached the branch",
-      execSync(`git log --format=%s refs/heads/${claimed.branch}`, { cwd: origin, encoding: "utf8" })
-        .split("\n").filter((l) => l === "Resume m1").length, 1);
+      execSync(`git log --format='%s%x09%(trailers:key=Unit,valueonly)' refs/heads/${claimed.branch}`,
+        { cwd: origin, encoding: "utf8" })
+        .split("\n").filter((l) => l === "Resume a PR-unit\tm1").length, 1);
     // And the unit is still ONE claim: a takeover never mints a second.
     assertEq("the unit remains a single claim in flight",
       JSON.parse(run(C, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout).claims.map((c) => c.unit), ["m1"]);
@@ -9311,6 +9328,103 @@ function testGhAbsentDegrades() {
   } finally { cleanup(repo); cleanup(binDir); }
 }
 
+// ---------- a long mission slug is claimable end to end ----------
+// The unit id used to BE the commit subject, so it inherited commit.sh's 50-character cap
+// — and a mission's unit id is its slug. Four of the five active missions had slugs long
+// enough to breach it (64-77 characters with the prefix), so `commit.sh` refused their
+// claim commits and 80% of the roadmap was permanently undrivable, reported to the runner
+// as nothing more informative than `commit_failed` (measured 2026-08-01).
+//
+// Every claim test passed throughout, because the fixture's only mission was `m1`.
+function testLongSlugClaimRoundTrip() {
+  const { origin, A, B } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const LIST = `${POSIX_SH} ${SCRIPTS.listClaims}`;
+  try {
+    // The premise, asserted rather than assumed: this slug really would break a subject.
+    const subj = `Claim ${LONG_SLUG}`;
+    assertTrue(`the fixture slug really is over the subject cap (${subj.length} chars)`,
+      run(A, `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/commit/scripts/check-subject.sh")} "${subj}"`).status !== 0,
+      `${subj.length} chars was accepted`);
+
+    // ---- claim ----
+    const c = run(A, `${CLAIM} mission ${LONG_SLUG}`);
+    assertEq("a long-slug mission can be claimed", c.status, 0, );
+    const cj = JSON.parse(c.stdout);
+    assertEq("the claim reports the full unit id, untruncated", cj.unit, LONG_SLUG);
+    assertEq("and stamps the mission", cj.artifacts, [`.workaholic/missions/active/${LONG_SLUG}/mission.md`]);
+
+    // The subject stayed inside the rule while the id survived in full — that pairing is
+    // the whole fix, so both halves are asserted together.
+    const head = execSync(`git log -1 --format='%s%x09%(trailers:key=Unit,valueonly)' refs/heads/${cj.branch}`,
+      { cwd: origin, encoding: "utf8" }).trim().split("\t");
+    assertTrue(`the published subject obeys the 50-char rule (${head[0].length})`, head[0].length <= 50, head[0]);
+    assertEq("and the unit id rides a trailer, in full", head[1], LONG_SLUG);
+
+    // ---- another clone reads it back, which is what makes it a claim ----
+    const r = JSON.parse(run(B, LIST).stdout);
+    const row = r.claims.find((x) => x.unit === LONG_SLUG);
+    assertTrue("the other clone sees the long-slug claim", !!row, JSON.stringify(r.claims));
+    assertEq("with its branch and artifacts intact",
+      { b: row.branch, a: row.artifacts },
+      { b: cj.branch, a: [`.workaholic/missions/active/${LONG_SLUG}/mission.md`] });
+
+    // ---- and cannot be double-claimed ----
+    tickSecond();
+    const dup = run(B, `${CLAIM} mission ${LONG_SLUG}`);
+    assertTrue("a second claim of it is refused", dup.status !== 0, `status ${dup.status}`);
+    assertEq("as already_claimed, not as a broken commit",
+      JSON.parse(dup.stderr.trim().split("\n").pop()).reason, "already_claimed");
+
+    // ---- released deliberately ----
+    const rel = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.releaseClaim} ${LONG_SLUG}`).stdout);
+    assertEq("and it can be released", { r: rel.released, u: rel.unit }, { r: true, u: LONG_SLUG });
+    assertTrue("leaving no claim behind",
+      !JSON.parse(run(B, LIST).stdout).claims.some((x) => x.unit === LONG_SLUG));
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
+// A claim that cannot be published must leave NOTHING behind — the contract already said
+// so, and was false for the commit-refusal path: the stamp is written before the commit,
+// so the worktree is dirty with claim.sh's own edit, the cleaner correctly refuses to
+// discard it, and the unit strands a worktree plus a local branch. The next attempt then
+// fails as `worktree_creation_failed` and buries the real cause.
+function testRefusedClaimLeavesNoDebris() {
+  const { origin, A, B } = makeClaimFixture();
+  try {
+    // Force the commit seam to refuse, by making the subject gate reject everything.
+    const binDir = mkdtempSync(join(tmpdir(), "wh-badsubj-"));
+    const stub = join(binDir, "check-subject.sh");
+    writeFileSync(stub, `#!/bin/sh\necho "subject rejected by the test stub"\nexit 1\n`);
+    chmodSync(stub, 0o755);
+    // Point claim.sh's commit at a copy of the commit skill whose validator always fails.
+    const skillCopy = mkdtempSync(join(tmpdir(), "wh-skills-"));
+    cpSync(join(REPO_ROOT, "plugins/workaholic"), join(skillCopy, "workaholic"), { recursive: true });
+    cpSync(stub, join(skillCopy, "workaholic/skills/commit/scripts/check-subject.sh"));
+    const claimCopy = join(skillCopy, "workaholic/skills/drive/scripts/claim.sh");
+
+    const worktreesOf = (d) => (existsSync(join(d, ".worktrees")) ? readdirSync(join(d, ".worktrees")) : []);
+    const before = worktreesOf(A);
+    const f = run(A, `${POSIX_SH} ${claimCopy} mission m1`);
+    assertTrue("the claim is refused", f.status !== 0, `status ${f.status}`);
+    const fj = JSON.parse(f.stderr.trim().split("\n").pop());
+    assertEq("as commit_failed", fj.reason, "commit_failed");
+    assertTrue("and the refusal NAMES the cause instead of only the seam",
+      typeof fj.detail === "string" && fj.detail.length > 0, JSON.stringify(fj));
+
+    // The contract: nothing left behind.
+    const after = worktreesOf(A);
+    assertEq("no worktree is stranded by the refused claim", after, before);
+    assertEq("and no local branch is left over",
+      execSync(`git branch --list 'work-*'`, { cwd: A, encoding: "utf8" }).trim(), "");
+    assertEq("the main checkout is still clean",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+    assertEq("and no claim reached origin",
+      JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout).claims.length, 0);
+    cleanup(binDir); cleanup(skillCopy);
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -9431,6 +9545,8 @@ const tests = [
   ["drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected],
   ["drive claim protocol: offline reader/writer asymmetry", testClaimOfflineAsymmetry],
   ["drive claim protocol: same-second branch collision", testClaimBranchCollision],
+  ["drive claim protocol: a long mission slug round-trips", testLongSlugClaimRoundTrip],
+  ["drive claim protocol: a refused claim leaves no debris", testRefusedClaimLeavesNoDebris],
   ["drive/effective-policy.sh (G5 truth table)", testEffectivePolicy],
   ["drive/plan-units.sh (survey minus claims)", testPlanUnits],
   ["drive/plan-units.sh (exclusions + the dry demo)", testPlanUnitsExclusions],

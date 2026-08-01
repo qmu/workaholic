@@ -3,9 +3,9 @@ created_at: 2026-08-01T20:51:01+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Domain]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 merge_policy: auto
@@ -48,7 +48,7 @@ contract otherwise forbids a run from performing.
 ## Policies
 
 - `workaholic:implementation` / `policies/observability.md` — `commit_failed` for a refused *subject* is a masked failure: the reported cause is not the actual one, and the actual one is knowable.
-- `workaholic:implementation` / `policies/error-handling.md` — a slug长 enough to breach the subject limit is a foreseeable input, not an exceptional one; it deserves a contract.
+- `workaholic:implementation` / `policies/error-handling.md` — a slug long enough to breach the subject limit is a foreseeable input, not an exceptional one; it deserves a contract.
 - `workaholic:development` / `policies/parallel-long-running-agents.md` — a claim that cannot be published is a unit no runner can ever take; the coordination protocol silently loses the work.
 - `workaholic:implementation` / `policies/coding-standards.md` — POSIX `#!/bin/sh -eu`.
 
@@ -109,3 +109,42 @@ Decided: the subject rule stays as it is. It is shared by three enforcement laye
 
 - The hermetic claim fixture uses `m1`. Every claim test passes today and would keep passing through this entire defect — the same shape as the `gh`-stub gap, where the fixture encoded the easy case. Add the long slug to the fixture, not just to one new test.
 - `create-mission-worktree.sh` bounds the slug to `^[a-z0-9][a-z0-9-]*$` but not its length, so the worktree is created successfully and only the commit fails — which is why the debris appears at the last possible moment.
+
+## Final Report
+
+Development completed as planned. The unit id moved from the commit subject to a `Unit:`
+trailer, the refused claim now names its cause, and the teardown can undo its own stamp.
+
+### Discovered Insights
+
+- **Insight**: The subject is the wrong place for any value a script must read back.
+  It is capped at 50 characters by a rule enforced in three layers through one shared
+  validator — correctly, and deliberately hard to relax — so a value that outgrows the cap
+  does not make the commit *ugly*, it makes it **unrepresentable**. A trailer has no length
+  limit and `git log --format='%(trailers:key=Unit,valueonly)'` reads it back exactly.
+  **Context**: The same trap waits for any future coordination value tempted onto a
+  subject line. `commit.sh --trailer` now exists as the sanctioned alternative.
+
+- **Insight**: The two defects compounded in a way that hid the first. `claim.sh` stamps
+  the artifact *before* committing, so a post-stamp failure leaves the worktree dirty with
+  the script's own edit — and `cleanup-mission-worktree.sh` correctly refuses to discard
+  uncommitted work. The result is a stranded worktree, and the **next** attempt fails as
+  `worktree_creation_failed`, which reads like a completely different problem. The first
+  error message a developer sees is therefore the wrong one.
+  **Context**: A teardown that calls a refuses-on-dirty cleaner must first revert what it
+  itself wrote. `abort_claim` now reverts the stamped paths by name, which is safe exactly
+  because it knows which paths it touched.
+
+- **Insight**: The fixture's only mission was `m1`, so every claim test passed while 80% of
+  the real roadmap was unclaimable. This is the **third** time today a fixture encoded the
+  easy case — after the `gh` stub that never tested absence, and the `command not found`
+  pattern that could not see dash. The shared fixture now carries a long-slug mission for
+  the whole suite, not just for the new test, because a fixture that only exercises the
+  convenient shape is how all three survived.
+  **Context**: When a value has a bound, the fixture should sit near the bound, not in the
+  comfortable middle.
+
+- **Insight**: `commit_failed` with no detail is what sent this run looking at the commit
+  machinery. `check-subject.sh` printed the exact reason — "subject is 65 characters (limit
+  50)" — and `claim.sh` discarded it. Capturing the seam's own output and lifting its
+  `Error:` line into the refusal costs a few lines and turns a dead end into a diagnosis.

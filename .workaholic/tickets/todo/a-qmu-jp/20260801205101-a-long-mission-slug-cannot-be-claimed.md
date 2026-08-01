@@ -9,6 +9,7 @@ category:
 depends_on:
 mission:
 merge_policy: auto
+claim: work-20260801-205224
 ---
 
 # A mission whose slug is long cannot be claimed at all, and the refusal says nothing

@@ -3,9 +3,9 @@ created_at: 2026-08-01T18:51:01+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: make-the-per-commit-changed-lines-ceiling-a-rule-that-holds
 merge_policy: auto
@@ -89,3 +89,48 @@ Decided: decide first in its own ticket, implement second — the mission's own 
 ## Considerations
 
 - The merge-commit case has a live example in the repository: the finding on PR #152's catch-up merge, recorded as a feedback record on 2026-08-01. Re-scan that branch rather than reasoning from the description.
+
+## Final Report
+
+Decision recorded in `release-scan/scripts/lib/commit-size.sh`. No behavior change; the
+predicates it defines are wired in by the implementation ticket.
+
+**The chosen semantics** — count **added lines only**, exclude **`.workaholic/` artifact
+prose**, and exempt **merge commits**. `MAX_COMMIT_CHANGED_LINES` stays 500 and no other
+sub-rule is touched.
+
+**The paper check, measured rather than reasoned** (non-`outputs/` totals):
+
+| commit | shape | a+d | added | a+d −`.workaholic/` | **added −`.workaholic/`** | expected |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `fa8033d3` | spec batch | 502 | 502 | 0 | **0** | pass |
+| `1179d916` | implementation | 772 | 765 | 707 | **702** | **fire** |
+| `044a3f8b` | relocation | 701 | 472 | 629 | **402** | pass |
+| PR #152 | catch-up merge | — | — | — | **exempt** | pass |
+| PR #142 | catch-up merge | — | — | — | **exempt** | pass |
+
+Only the combination answers all five correctly.
+
+### Discovered Insights
+
+- **Insight**: The ticket's leading candidate — discount pure renames, "which git already
+  detects" — does **not** fix the instance that motivated it. `044a3f8b` is a **split**,
+  not a rename: one file's content redistributed into two new files, and `git -M` matches
+  whole files only. Measuring it (701 → 701 with `-M`) is what showed this; the candidate
+  had been carried through three feedback records unchallenged.
+  **Context**: Rename detection is still enabled, because it costs nothing and helps a
+  true move. It is just not the answer here.
+
+- **Insight**: The single measurement that decided it is that a relocation's *added* count
+  is naturally small (472) while its *added+deleted* count is not (701) — because moving
+  content deletes as much as it adds. Counting both charges a refactor twice for improving
+  the codebase, which inverts the incentive the ceiling is supposed to create.
+  **Context**: The accepted consequence is that a delete-only commit of any size now
+  passes. That is the intended reading: removing code is cheap to review.
+
+- **Insight**: Two of the five instances (the merge commits) are commits the **tooling
+  creates on the author's behalf**. A rule that fires on those is not measuring the
+  author's work at all, and it gets *more* likely to fire the busier the base branch is —
+  so the rule degrades exactly as the project gets more active.
+  **Context**: This is why the merge exemption was judged separately and settled first; it
+  is the only one of the three levers with no trade-off to weigh.

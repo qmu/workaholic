@@ -122,6 +122,9 @@ if [ "$kind" = "resume" ]; then
             foreign_identity)
                 fail "foreign_identity" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "author": "'"${r_author}"'", "detail": "another identity holds this claim; it is never resumable here, at any age"'
                 ;;
+            queue_drained)
+                fail "queue_drained" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this unit has nothing left to drive -- it finished and is waiting on a human at its PR, not on a runner; resuming it would only add an empty takeover commit to a branch under review"'
+                ;;
             *)
                 fail "identity_unresolved" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this checkout has no git config user.email, so it cannot establish the claim is its own"'
                 ;;

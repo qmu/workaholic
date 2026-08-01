@@ -1,21 +1,27 @@
 #!/bin/sh -eu
-# Scaffold a DRAFT mission - the proposal batch's writer (docs/
+# Scaffold a PROPOSED mission - the proposal batch's writer (docs/
 # loop-engineering-workflow.md B1/B4). Deliberately NOT mission/scripts/create.sh:
-# that scaffold seeds the creator as owner, and a draft predates approval, so it
-# has no approver yet. A draft is unowned, unauthorized, and carries the
-# mission->feedback relation the proposal grew from:
+# that scaffold seeds the CREATOR as owner, and this batch has no business owning
+# what it proposes. What it writes is unowned and carries the mission->feedback
+# relation the proposal grew from:
 #
-#   status: draft, merge_policy: (empty), assignees: [],
+#   status: active, merge_policy: (empty -> review), assignees: [],
 #   feedback: [<record filenames>]
 #
-# `status: draft` IS the "not yet authorized" state on the single status axis
-# (2026-07-28 -- docs/loop-engineering-workflow.md I2): the retired
-# `drive_authorized` key is not written at all. Only mission/scripts/approve.sh
-# flips a draft to `approved`, and it is what records the merge policy.
+# THERE IS NO `draft` STATE ANY MORE (2026-07-31 --
+# docs/loop-engineering-workflow.md K1). The batch's output is reviewed as the pull
+# request it opens, and merging that pull request is the approval; a status word
+# would gate the same content a second time. The script name is kept because the
+# thing it writes is still a *draft in the ordinary sense* - a proposal nobody has
+# accepted yet - but that state now lives in the PR, not in the file.
 #
-# Lands in missions/active/ (a draft is in flight, not history; the area split
-# keys archive on achieved|abandoned|carried only). Refuses an existing slug in
-# either area. Refreshes the OKF indexes and git-stages.
+# `merge_policy` is left EMPTY, which reads as `review` (K2): this batch has no
+# authority to grant unattended merging, and empty-means-review is the same rule
+# tickets follow, so effective-policy.sh needs no special case.
+#
+# Lands in missions/active/ (in flight, not history; the area split keys archive on
+# achieved|abandoned|carried only). Refuses an existing slug in either area.
+# Refreshes the OKF indexes and git-stages.
 #
 # Usage: scaffold-draft.sh "<title>" <feedback-filename>...
 # Output: JSON {created, slug, path[, reason]}
@@ -60,7 +66,7 @@ cat > "$MISSION_FILE" <<EOMISSION
 type: Mission
 title: ${TITLE}
 slug: ${SLUG}
-status: draft
+status: active
 merge_policy:
 created_at: ${CREATED_AT}
 author: ${AUTHOR}

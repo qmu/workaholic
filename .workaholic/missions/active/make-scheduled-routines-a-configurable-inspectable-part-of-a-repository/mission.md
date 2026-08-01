@@ -2,7 +2,7 @@
 type: Mission
 title: Make scheduled routines a configurable, inspectable part of a repository
 slug: make-scheduled-routines-a-configurable-inspectable-part-of-a-repository
-status: draft
+status: active
 merge_policy:
 created_at: 2026-07-31T16:05:30+00:00
 author: noreply@anthropic.com

@@ -36,7 +36,7 @@
 # THE SPLIT IS THE POINT (docs/loop-engineering-workflow.md G2). Partitioning the
 # work into PR-units is two different jobs, and only one of them is mechanical:
 #
-#   * WHAT IS AVAILABLE is derivable -- approved missions, this developer's todo
+#   * WHAT IS AVAILABLE is derivable -- the active missions, this developer's todo
 #     queue, minus whatever a claim already holds. That is this script, and it is
 #     deterministic so two runners on two machines survey the same world.
 #   * WHAT DESERVES ONE MERGE is judgment -- which backlog tickets are related
@@ -54,10 +54,11 @@
 #
 # NOTHING IS EXCLUDED SILENTLY. Every mission and ticket the survey drops is reported
 # in `excluded` with its reason (`claimed_active`, `claimed_reported`,
-# `claimed_by_other`, `claimed_resumable`, `not_approved`, `owned_by_other`, `no_plan`,
-# `no_tickets`, `mission_member`), because a queue item that vanishes from an unattended
-# run's offer with no trace is indistinguishable from one that was never there
-# (`workaholic:implementation` / observability).
+# `claimed_by_other`, `claimed_resumable`, `owned_by_other`, `no_plan`, `no_tickets`,
+# `mission_member`; `not_approved` was retired with the draft gate -- K1), because a
+# queue item that vanishes from an unattended run's offer with no trace is
+# indistinguishable from one that was never there (`workaholic:implementation` /
+# observability).
 #
 # A CLAIM IS NOT A DEAD END. The single `claimed` reason split into three, because it
 # was hiding the difference between work in progress and work abandoned mid-flight: a
@@ -100,7 +101,7 @@
 # owners at all (team-owned = claimable); only a mission owned solely by others is
 # dropped, as `owned_by_other`. Without this the executor was the single ownership
 # consumer answering differently from the roadmap the developer is shown -- and an
-# unattended runner would claim a colleague's approved mission and, under
+# unattended runner would claim a colleague's mission and, under
 # `merge_policy: auto`, drive it to `main`.
 #
 # Pure read: it fetches (through the shared reader) and inspects, and writes nothing.
@@ -247,11 +248,18 @@ exclude() {
     exc_sep=", "
 }
 
-# --- approved missions --------------------------------------------------------
-# The status IS the authorization (docs/loop-engineering-workflow.md I2), and an
-# approved mission with an empty ## Acceptance authorizes work against no bar at
-# all, so the offer applies that floor too -- a planless mission is never handed to
-# an unattended run.
+# --- claimable missions -------------------------------------------------------
+# THE AREA IS THE AUTHORITY, NOT A STATUS WORD (2026-07-31 --
+# docs/loop-engineering-workflow.md K1). A mission reaches missions/active/ on
+# `main` only by merging its pull request, and that merge IS the approval: the
+# project accepted it. So this offer does not read `status` at all -- the
+# `not_approved` exclusion is gone, and with it the second gate that left six
+# missions unclaimable on main while this survey reported `pending` every tick.
+#
+# The two REAL floors stay, because neither is a re-ask of the PR's question -- both
+# are about whether there is anything to drive. A mission with an empty
+# ## Acceptance authorizes work against no bar at all, so the offer applies that
+# floor -- a planless mission is never handed to an unattended run.
 #
 # BUT ACCEPTANCE ITEMS ARE NOT A QUEUE, and the offer needs both floors. `/propose`
 # writes a provisional acceptance SKETCH, which satisfies an item count with zero
@@ -261,7 +269,7 @@ exclude() {
 # (`mission/scripts/queue-size.sh`, the single reader both floors call), and a mission
 # with nothing left in todo/ is excluded `no_tickets`.
 #
-# Ownership is applied FIRST among the approved-mission checks, because "not my work"
+# Ownership is applied FIRST among the mission checks, because "not my work"
 # is the cheapest true answer and the one an operator reading a cron log wants: a
 # colleague's mission that is also claimed is `owned_by_other` to this runner either
 # way, and no action of theirs follows from the claim.
@@ -277,11 +285,10 @@ if [ -d ".workaholic/missions/active" ]; then
         f="${d}/mission.md"
         [ -f "$f" ] || continue
         slug=$(basename "$d")
-        status=$(fm_field "$f" status)
-        if [ "$status" != "approved" ]; then
-            exclude mission "$slug" "not_approved"
-            continue
-        fi
+        # No status check: since K1 the AREA is the authority. A mission reaches
+        # `missions/active/` on `main` only by merging its pull request, and that merge
+        # IS the approval -- re-reading a status word here would re-ask the question the
+        # review already answered.
         # Mine, or unclaimed. Someone else's is not this runner's to take.
         owners=$(sh "${MISSION_SCRIPTS}/mission-owners.sh" "$f" 2>/dev/null || true)
         if [ -n "$owners" ] && { [ -z "$ME" ] || ! printf '%s\n' "$owners" | grep -Fxq "$ME"; }; then

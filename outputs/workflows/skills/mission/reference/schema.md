@@ -2,7 +2,7 @@
 
 Companion reference for [`../SKILL.md`](../SKILL.md)'s **Schema** section, which carries the
 frontmatter block itself and the body-section list. Everything below is the full detail behind
-those fields: the optional quality gate, what `status: approved` asserts, the ownership oracle,
+those fields: the optional quality gate, what makes a mission drivable, the ownership oracle,
 the duration record, and the two line formats. Nothing here is optional reading when you are
 actually writing or reading one of these fields — it is separated only so the skill itself stays
 loadable, per the ~50-150 line guideline in `CLAUDE.md`.
@@ -19,25 +19,26 @@ When a mission *does* declare one: `gate_type` is `documentation` (the mission's
 
 **The objectivity requirement outlives the gate.** `## Experience` is prose, so it cannot be machine-checked the way a route-plus-assert could. That makes objectivity a convention here rather than a check — hold it anyway: describe behavior that can be observed, not qualities that cannot.
 
-### Approval — the drive authorization
+### Drivability — what makes a mission claimable
 
-`status: approved` records that this mission's ticket set was **interrogated and approved** by a human: `/drive`'s survey then offers the mission as a **claimable PR-unit** and drives its whole queue. `draft` (the scaffold default) is invisible to the executor — a proposal nobody has answered for yet. The flip is performed only by `approve.sh` (below), which also records the `merge_policy` ruling and seeds the approver as owner.
+**Being in the active area is the authorization** (2026-07-31 — `docs/loop-engineering-workflow.md` K1). A mission reaches `missions/active/` on `main` only by merging the pull request it was published behind, and that merge *is* the project accepting it: `/drive`'s survey then offers the mission as a **claimable PR-unit** and drives its whole queue. Two floors still apply, and neither re-asks the PR's question — both ask whether there is anything to drive: a plan (`## Acceptance` non-empty, else `no_plan`) and a queue (at least one todo ticket naming it, else `no_tickets`).
 
-**Authorization lives here, on the mission, because this is the thing that was actually interrogated.** The Creation Interrogation is where the developer answered every judgement call and co-authored each ticket's `## Quality Gate`; approving the mission is approving that act. Two alternatives were considered and rejected, recorded so they are not re-litigated:
+**Drivability lives on the mission, because this is the thing that was actually interrogated.** The Creation Interrogation is where the developer answered every judgement call and co-authored each ticket's `## Quality Gate`; the pull request is where that act is reviewed. Alternatives considered and rejected, recorded so they are not re-litigated:
 
 - **Keying off the ticket's `mission:` relation alone** — a ticket hand-added to the mission later would inherit an authorization nobody granted.
 - **An explicit `/drive mission` argument** — makes authorization an act by whoever runs `/drive`, who may not be the person who ran the interrogation (and on the routine, is nobody at all).
-- **A separate `drive_authorized` boolean beside the status** — the original spelling, retired 2026-07-28 (see the *Redefinition record* above): two fields for one concept, free to disagree.
+- **A separate `drive_authorized` boolean beside the status** — the original spelling, retired 2026-07-28: two fields for one concept, free to disagree.
+- **A `status: draft` gate plus an `approve.sh` flip** — the spelling from 2026-07-28 to 2026-07-31, retired by K1: once every mission arrived behind a PR (J4) it gated the same content twice, and the second gate needed a manual command to undo the first. Keeping `draft` as an *optional* marker was rejected with it (K3).
 
-**Explicit approval is relocated, never removed.** `/drive` has no per-ticket prompt at all (retired 2026-07-28); this approval — or, for an unmissioned ticket, its creation — is the authorization that took its place. What is removed is the *completeness check inside the drive loop*; the qualitative looking-through `development` / `qa-engineering` makes non-delegable **relocates to the PR** (`/report` still writes the story, `/ship` still gates the merge on evidence). Do not blur those two: eliminate the completeness check and you are on policy; eliminate the looking-through and you are in the state three policies exist to prevent.
+**Explicit approval is relocated, never removed.** `/drive` has no per-ticket prompt at all (retired 2026-07-28); the merge of the mission's pull request — or, for an unmissioned ticket, its creation — is the authorization that took its place. What is removed is the *completeness check inside the drive loop*; the qualitative looking-through `development` / `qa-engineering` makes non-delegable **relocates to the PR** (`/report` still writes the story, `/ship` still gates the merge on evidence). Do not blur those two: eliminate the completeness check and you are on policy; eliminate the looking-through and you are in the state three policies exist to prevent.
 
 Read it with `drive-authorized.sh` — never by grepping the field yourself.
 
 ### Ownership — carried on the mission (2026-07-28)
 
-**A mission's owners are its own plural `assignees` list.** The creator/approver is the default owner (`create.sh` seeds the list with the creator); an empty list means the mission is **team-owned** — unclaimed work, surfaced to everyone as claimable.
+**A mission's owners are its own plural `assignees` list.** The creator is the default owner (`create.sh` seeds the list with the creator); an empty list means the mission is **team-owned** — unclaimed work, surfaced to everyone as claimable. Ownership is **never a floor**: an unowned mission is claimable and is not refused by any validator (K2).
 
-Redefinition record, so the moves are not re-litigated: ownership lived on the mission (`assignee`, singular) → moved to the strategy's `assignees` (2026-07-24 — "a direction is what a set of people own") → **returned to the mission, plural, 2026-07-28**: the loop-engineering reorganization retired the strategy layer (direction now accretes in the feedback stream — `docs/loop-engineering-workflow.md` decisions B3/B4), and in the team + AI-proposal model the approver of a mission, not the owner of a direction, is who answers for it. The single-oracle design is what made both moves cheap; the living migration (`migrate-strategies.sh`) folded strategy assignees down into their missions so the strategy hop could go without orphaning anything.
+Redefinition record, so the moves are not re-litigated: ownership lived on the mission (`assignee`, singular) → moved to the strategy's `assignees` (2026-07-24 — "a direction is what a set of people own") → **returned to the mission, plural, 2026-07-28**: the loop-engineering reorganization retired the strategy layer (direction now accretes in the feedback stream — `docs/loop-engineering-workflow.md` decisions B3/B4), and in the team + AI-proposal model whoever takes a mission on, not the owner of a direction, is who answers for it. The single-oracle design is what made both moves cheap; the living migration (`migrate-strategies.sh`) folded strategy assignees down into their missions so the strategy hop could go without orphaning anything.
 
 Read a mission's owner(s) **only** through `mission/scripts/mission-owners.sh` — never by grepping `assignee` or `assignees`. It is the single ownership oracle; first non-empty tier wins:
 

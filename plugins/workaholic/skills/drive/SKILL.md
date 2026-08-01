@@ -1,6 +1,6 @@
 ---
 name: drive
-description: Use when the user runs `/drive`, asks to "implement the queued tickets", "work through the todo list", or "drive the backlog". Surveys the approved missions and the unclaimed backlog, partitions them into PR-units, claims each unit on a pushed branch, implements it in the claim's own worktree, reports, and routes it by the unit's effective merge policy — identically in an interactive session and on the every-5-minutes routine.
+description: Use when the user runs `/drive`, asks to "implement the queued tickets", "work through the todo list", or "drive the backlog". Surveys the claimable missions and the unclaimed backlog, partitions them into PR-units, claims each unit on a pushed branch, implements it in the claim's own worktree, reports, and routes it by the unit's effective merge policy — identically in an interactive session and on the every-5-minutes routine.
 skills:
   - commit
   - system-safety
@@ -28,7 +28,7 @@ This skill works on any Agent-Skills-compatible agent. **The unified run issues 
 
 ## The Unified Run
 
-**The model first, because the steps only implement it.** Work arrives as artifacts (approved missions, queued tickets). A unit of *execution* is not an artifact but a question — **what deserves one merge** — so the run's whole job is to turn the artifact stream into merge-sized units, take each one visibly, finish it, and route it by a policy the artifacts already carry:
+**The model first, because the steps only implement it.** Work arrives as artifacts (missions merged to `main`, queued tickets). A unit of *execution* is not an artifact but a question — **what deserves one merge** — so the run's whole job is to turn the artifact stream into merge-sized units, take each one visibly, finish it, and route it by a policy the artifacts already carry:
 
 ```
 survey → partition → claim → drive → report → route → account
@@ -60,11 +60,11 @@ Then survey what is claimable:
 bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/plan-units.sh
 ```
 
-Emits `{fetched, base, surveyed_sha, base_sha, current, user_slug, backlog_error, claimed[], resumable[], missions[], backlog[], excluded[]}` — the approved, unclaimed missions this runner may take and this developer's unclaimed todo tickets, with everything a claim already holds subtracted through the shared reader (*Claims*). `excluded[]` names every mission and ticket it dropped and why (`claimed_active`, `claimed_reported`, `claimed_by_other`, `claimed_resumable`, `not_approved`, `owned_by_other`, `no_plan`, `no_tickets`, `mission_member`), so nothing leaves the offer silently. `no_plan` and `no_tickets` are deliberately distinct: the first means write the acceptance criteria, the second means emit the ticket set.
+Emits `{fetched, base, surveyed_sha, base_sha, current, user_slug, backlog_error, claimed[], resumable[], missions[], backlog[], excluded[]}` — the unclaimed active missions this runner may take and this developer's unclaimed todo tickets, with everything a claim already holds subtracted through the shared reader (*Claims*). `excluded[]` names every mission and ticket it dropped and why (`claimed_active`, `claimed_reported`, `claimed_by_other`, `claimed_resumable`, `owned_by_other`, `no_plan`, `no_tickets`, `mission_member`), so nothing leaves the offer silently. It does **not** read `status` for the offer: a mission on `main` was accepted when its pull request merged (K1), so the *area* is the authority and the retired `not_approved` reason is gone. `no_plan` and `no_tickets` are deliberately distinct: the first means write the acceptance criteria, the second means emit the ticket set.
 
 **`resumable[]` is a third offer, not a report.** A claim whose run stopped is claimable work — take it over with `claim.sh resume <unit-id>` (see *Claims → Resume a dropped unit*) before claiming anything fresh, since finishing a half-driven unit beats starting another. Its members are already stamped and already partly driven, so it skips steps 2-3 entirely and enters at step 4 in the worktree the resume created. **A resumable unit left untaken forbids `ok`** (§7) exactly as an unclaimed ticket does.
 
-**Missions are offered by ownership, not by approval alone.** A mission is claimable when the runner's `git config user.email` is among its owners, or when it has no owners at all (team-owned = claimable); one owned solely by others is dropped as `owned_by_other`. Ownership resolves through `mission/scripts/mission-owners.sh` — the same oracle the mission lens, `list.sh`'s `relation`, `summary.sh`, `validate-mission.sh` and `ship`'s concern lane read — so the queue a runner drains and the roadmap a developer is shown cannot disagree about whose work it is.
+**Missions are offered by ownership.** A mission is claimable when the runner's `git config user.email` is among its owners, or when it has no owners at all (team-owned = claimable); one owned solely by others is dropped as `owned_by_other`. Ownership resolves through `mission/scripts/mission-owners.sh` — the same oracle the mission lens, `list.sh`'s `relation`, `summary.sh` and `ship`'s concern lane read — so the queue a runner drains and the roadmap a developer is shown cannot disagree about whose work it is.
 
 **An unreadable backlog is not an empty one.** `backlog_error` is `""` when the queue was genuinely read, and names the reason otherwise: `identity_unresolved` (no `git config user.email`, so there is no `todo/<user>/` to name — nothing at all is known about the backlog) or `unreadable`. `user_slug` reports *whose* queue was surveyed, empty when unresolvable. A non-empty `backlog_error` **forbids `ok`** (§7), exactly as `current: false` does: a run that never learned the queue's contents has established nothing about it. This is a property of the survey, not of an artifact, which is why it is a top-level key rather than an `excluded[]` entry — `excluded[]` names items the survey *saw and dropped*.
 
@@ -78,7 +78,7 @@ If `missions` and `backlog` are both empty **and `backlog_error` is empty**, the
 
 A **PR-unit** is one merge: one unit ↔ one claim ↔ one branch ↔ one worktree ↔ one PR.
 
-- **Each approved mission is exactly one unit** (unit id = the mission slug). Its ticket set was designed together and its acceptance list is the bar for the whole batch; splitting it across PRs splits the plan.
+- **Each claimable mission is exactly one unit** (unit id = the mission slug). Its ticket set was designed together and its acceptance list is the bar for the whole batch; splitting it across PRs splits the plan.
 - **Related backlog tickets group into one batch unit** (unit id minted by `claim.sh` as `batch-<YYYYMMDDHHMMSS>`). Relatedness is *this run's judgment*, from the signals the survey already carries: the same subsystem or overlapping Key Files, the same `layer`, a `depends_on` chain.
 
 **Group conservatively — when unsure, one ticket per unit.** The failure mode is asymmetric and reviewers pay for it: a PR that bundles unrelated changes cannot be reviewed as one thing, and its reviewer has to reconstruct which diff belongs to which motivation. Splitting too finely costs one extra PR. So group only on a reason you could state in one sentence in the PR body; a hunch that two tickets "feel adjacent" is not one. `depends_on` is the one signal strong enough to group on by itself — a dependent ticket in a separate PR is a PR that cannot merge.
@@ -114,7 +114,7 @@ Roughly every ten minutes, or once per ticket, keeps it comfortably inside the d
 
 There is **no per-ticket prompt** and no gate-skipping decision to make: the unit was claimable because its artifacts were already authorized. The failure contract below governs everything that can go wrong from here.
 
-**The per-ticket authorization floor did not disappear — it moved up to the unit.** `mission/scripts/drive-authorized.sh` answered, per ticket, "is this ticket's queue pre-authorized?", and its floor was `status: approved` **plus** a non-empty `## Acceptance`. The survey applies that floor to the mission before it is ever offered — and a **second** one the acceptance count cannot express: at least one ticket must actually name the mission (`no_tickets`, from `mission/scripts/queue-size.sh`). Both are needed, because `/propose` writes a provisional acceptance *sketch*, so an item count is satisfied with zero tickets; a mission in that state was offered as claimable on 2026-07-30 under `merge_policy: auto`. With both floors, every ticket in a claimed mission unit passes the authorization floor by construction *and* the unit has something to drive. The resolver remains the authority for any caller that needs a per-ticket answer; the unified run does not need one, because it never assembles a queue whose authorization it has not already established.
+**The per-ticket authorization floor did not disappear — it moved up to the unit.** `mission/scripts/drive-authorized.sh` answered, per ticket, "is this ticket's queue pre-authorized?", and its floor is being in flight (not ended) **plus** a non-empty `## Acceptance` — it was `status: approved` plus that acceptance until the draft gate was retired (K1). The survey applies that floor to the mission before it is ever offered — and a **second** one the acceptance count cannot express: at least one ticket must actually name the mission (`no_tickets`, from `mission/scripts/queue-size.sh`). Both are needed, because `/propose` writes a provisional acceptance *sketch*, so an item count is satisfied with zero tickets; a mission in that state was offered as claimable on 2026-07-30 under `merge_policy: auto`. With both floors, every ticket in a claimed mission unit passes the authorization floor by construction *and* the unit has something to drive. The resolver remains the authority for any caller that needs a per-ticket answer; the unified run does not need one, because it never assembles a queue whose authorization it has not already established.
 
 A mission unit's dev environment, when the project declares one, is started inside that worktree on its allocated ports (`mission/scripts/gate.sh` reports `dev_port`), so declared gates run against something live, and is stopped at run end **if this run started it** — never one it found already running.
 
@@ -143,7 +143,7 @@ The derivation is a script, not prose, because the answer decides whether machin
 
 | Unit | Policy source | Effective policy |
 | ---- | ------------- | ---------------- |
-| Mission unit | the mission's `merge_policy`, recorded by `approve.sh` at approval | `auto` iff the mission says `auto` |
+| Mission unit | the mission's `merge_policy`, recorded at creation (K2) | `auto` iff the mission says `auto` |
 | Batch unit | each member ticket's own `merge_policy`, recorded at ticket creation | `auto` iff **every** member says `auto` |
 | Any member says `review` | — | `review` (any review member wins — the unit is one merge) |
 | Any member records nothing | — | `review` (**absent means review**) |
@@ -294,7 +294,7 @@ The minted ticket goes through the sanctioned path: the `create-ticket` structur
 
 This is where `/drive` used to stop and ask "Approve this implementation?" after every ticket. **The prompt is retired, and approval is relocated, not removed** (`docs/loop-engineering-workflow.md` G2/G5, phase 3):
 
-- **A mission unit** was authorized when the developer approved the mission — `approve.sh` flips `status: draft` to `status: approved` only over a floor it checks at that moment (an owner, a real `## Experience`, at least one `## Acceptance` item) and records the `merge_policy` in the same act. The developer approved *these tickets*, against gates they co-authored.
+- **A mission unit** was authorized when a human **merged the mission's pull request** (K1): a mission reaches `main` no other way, and the merge is the project accepting *these tickets*, against gates the developer co-authored. The write-time floor (`hooks/validate-mission.sh`: a real `## Experience`, at least one `## Acceptance` item) holds on every active mission, so what merged was never a blank plan.
 - **A batch unit** was authorized when each ticket was created: `/ticket` records the ticket's own `merge_policy`, and writing a ticket is the instruction to implement it.
 
 **What is removed is the completeness check inside the drive loop — nothing else.** "Did it do the thing?" was already answered, about this exact work, against a stated gate. The qualitative **looking-through** that `workaholic:development` / `qa-engineering` makes non-delegable is **not** eliminated: it relocates to the PR, which is what `workaholic:development` / `review` prescribes — the story is still written, and a `review` unit still stops there for a human. Eliminate the completeness check and you are on policy; eliminate the looking-through and you are in the state three policies exist to prevent.

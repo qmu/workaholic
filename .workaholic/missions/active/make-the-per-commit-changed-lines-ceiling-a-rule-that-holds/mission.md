@@ -98,3 +98,4 @@ PROPOSED sketch for discussion — not a plan. `/mission approve` replans this t
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-01 — ticket archived — 20260801185101-decide-what-too-large-commit-counts.md
+- 2026-08-01 — ticket archived — 20260801185102-implement-the-chosen-commit-size-semantics.md

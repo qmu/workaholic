@@ -346,4 +346,6 @@
 * [`gh` is absent in the cloud runner, so the sanctioned PR seam cannot run there](20260801134606-gh-is-absent-in-the-cloud.md)
 * [The commit exceeds the per-commit size ceiling](20260801134606-the-commit-exceeds-the-per-commit.md)
 * [The write-time floor now refuses a half-filled intermediate edit](20260801134606-the-write-time-floor-now-refuses.md)
+* [The runner image still has no `gh`](20260801181923-the-runner-image-still-has-no.md)
+* [Three sibling scripts were guarded and three were not, with nothing to keep them aligned](20260801181923-three-sibling-scripts-were-guarded-and.md)
 <!-- okf:generated:end -->

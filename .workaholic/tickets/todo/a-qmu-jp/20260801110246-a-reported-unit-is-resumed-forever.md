@@ -9,6 +9,7 @@ category:
 depends_on:
 mission:
 merge_policy: auto
+claim: work-20260801-110823
 ---
 
 # A unit that finished and is waiting at its PR is resumed again every tick, forever

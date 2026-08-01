@@ -53,20 +53,23 @@
 # of the offer, and the ARTIFACT paths keep an already-batched ticket out of it.
 #
 # NOTHING IS EXCLUDED SILENTLY. Every mission and ticket the survey drops is reported
-# in `excluded` with its reason (`claimed_active`, `claimed_by_other`,
-# `claimed_resumable`, `owned_by_other`, `no_plan`, `no_tickets`, `mission_member`;
-# `not_approved` was retired with the draft gate -- K1), because a queue item that
-# vanishes from an unattended run's offer with no trace is indistinguishable from one
-# that was never there (`workaholic:implementation` / observability).
+# in `excluded` with its reason (`claimed_active`, `claimed_reported`,
+# `claimed_by_other`, `claimed_resumable`, `owned_by_other`, `no_plan`, `no_tickets`,
+# `mission_member`; `not_approved` was retired with the draft gate -- K1), because a
+# queue item that vanishes from an unattended run's offer with no trace is
+# indistinguishable from one that was never there (`workaholic:implementation` /
+# observability).
 #
 # A CLAIM IS NOT A DEAD END. The single `claimed` reason split into three, because it
 # was hiding the difference between work in progress and work abandoned mid-flight: a
 # unit whose runner died was excluded forever, and the design record's promise that
 # "the next tick re-claims and resumes" was false in code (see lib/claims.sh). Now
-# `claimed_active` means a run is on it, `claimed_by_other` means it is not this
-# runner's at any age, and `claimed_resumable` means the unit ALSO appears in
-# `resumable[]` and can be taken over. The three names are read straight out of cron
-# logs, so each one has to imply its own next action.
+# `claimed_active` means a run is on it, `claimed_reported` means the unit FINISHED and
+# its PR is waiting on a human, `claimed_by_other` means it is not this runner's at any
+# age, and `claimed_resumable` means the unit ALSO appears in `resumable[]` and can be
+# taken over. The four names are read straight out of cron logs, so each one has to
+# imply its own next action -- and `claimed_reported` exists because folding it into
+# `claimed_active` said "a run is on it" about a unit no run will ever touch again.
 #
 # `resumable[]` is a THIRD offer alongside `missions`/`backlog`, not a fourth kind of
 # exclusion: those two are claimed fresh from the base, a resumable unit is taken over
@@ -175,12 +178,15 @@ if [ -n "$ROWS" ]; then
         CLAIMED_UNITS="${CLAIMED_UNITS}${c_unit}
 "
         # A bare `claimed` told a cron log nothing actionable. "Being driven right
-        # now", "a colleague's", and "yours, dropped, and recoverable" call for three
-        # different responses -- wait, never, resume -- so they get three names.
+        # now", "finished and waiting on a human", "a colleague's", and "yours,
+        # dropped, and recoverable" call for four different responses -- wait, review,
+        # never, resume -- so they get four names.
         if [ "$c_resumable" = "true" ]; then
             c_exc=claimed_resumable
         elif [ "$c_reason" = "foreign_identity" ] || [ "$c_reason" = "identity_unresolved" ]; then
             c_exc=claimed_by_other
+        elif [ "$c_reason" = "queue_drained" ]; then
+            c_exc=claimed_reported
         else
             c_exc=claimed_active
         fi

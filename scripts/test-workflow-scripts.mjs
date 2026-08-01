@@ -9167,6 +9167,71 @@ esac
   } finally { cleanup(repo); cleanup(binDir); }
 }
 
+// ---------- a unit that FINISHED is not "a run that died" ----------
+// Resumability shipped knowing only "is anyone working this?". A `review` unit stops at
+// its PR by design and its branch correctly stays unmerged, so its tip stops advancing
+// and its heartbeat lapses exactly like an abandoned run's — and the hourly runner then
+// re-took such a unit three times in one night, each pass adding an empty `Resume`
+// commit to a branch a human was reviewing and doing nothing else. It never terminates:
+// a review PR can sit for days. The third condition is what tells the two apart.
+function testResumeSkipsDrainedUnit() {
+  const { origin, A, B } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const LIST = `${POSIX_SH} ${SCRIPTS.listClaims}`;
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  const lapsed = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0" };
+  try {
+    const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const t2 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`;
+    const batch = JSON.parse(run(A, `${CLAIM} batch ${t1} ${t2}`).stdout);
+    const wt = join(A, ".worktrees", batch.unit);
+
+    // Still undriven: the recovery path this feature exists for must keep working.
+    let r = JSON.parse(run(B, LIST, { env: lapsed }).stdout);
+    assertEq("an undriven unit is resumable once its heartbeat lapses",
+      { res: r.claims[0].resumable, why: r.claims[0].resume_reason },
+      { res: true, why: "heartbeat_lapsed" });
+
+    // Drive ONE of the two tickets. A partly-driven unit still has work.
+    run(wt, `${POSIX_SH} ${SCRIPTS.update} ${t1} effort 0.1h`);
+    run(wt, `${POSIX_SH} ${SCRIPTS.archive} ${t1} "Drive t1" https://example.test/repo why changes None None verify`);
+    execSync(`git push -q origin ${batch.branch}`, { cwd: wt });
+    r = JSON.parse(run(B, LIST, { env: lapsed }).stdout);
+    assertEq("a PARTLY driven unit is still resumable — one ticket remains in todo/",
+      { res: r.claims[0].resumable, why: r.claims[0].resume_reason },
+      { res: true, why: "heartbeat_lapsed" });
+
+    // Drive the last one. Now the queue is drained: the unit is finished and whatever
+    // it is waiting for, it is not a runner.
+    run(wt, `${POSIX_SH} ${SCRIPTS.update} ${t2} effort 0.1h`);
+    run(wt, `${POSIX_SH} ${SCRIPTS.archive} ${t2} "Drive t2" https://example.test/repo why changes None None verify`);
+    execSync(`git push -q origin ${batch.branch}`, { cwd: wt });
+
+    r = JSON.parse(run(B, LIST, { env: lapsed }).stdout);
+    assertEq("a drained unit is NOT resumable, however old its tip",
+      { res: r.claims[0].resumable, why: r.claims[0].resume_reason },
+      { res: false, why: "queue_drained" });
+    assertTrue("it is still reported as a claim in flight — it is not released",
+      r.claims.length === 1 && r.claims[0].unit === batch.unit, JSON.stringify(r.claims));
+
+    const plan = JSON.parse(run(B, PLAN, { env: lapsed }).stdout);
+    assertEq("the survey does not offer it", plan.resumable.length, 0);
+    assertTrue("and says it finished rather than that a run is on it",
+      plan.excluded.some((e) => e.reason === "claimed_reported"), JSON.stringify(plan.excluded));
+
+    // THE ASSERTION THIS TICKET EXISTS FOR: no second takeover, so no empty Resume
+    // commit lands on a branch under review.
+    const before = execSync(`git log --format=%s ${batch.branch}`, { cwd: origin, encoding: "utf8" });
+    const refused = run(B, `${CLAIM} resume ${batch.unit}`, { env: lapsed });
+    assertTrue("resuming a drained unit exits non-zero", refused.status !== 0, `status ${refused.status}`);
+    assertEq("and is refused as queue_drained",
+      JSON.parse(refused.stderr.trim().split("\n").pop()).reason, "queue_drained");
+    assertTrue("the refused resume built no worktree", !existsSync(join(B, ".worktrees", batch.unit)));
+    assertEq("and added no commit to the branch under review",
+      execSync(`git log --format=%s ${batch.branch}`, { cwd: origin, encoding: "utf8" }), before);
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
 const tests = [
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
@@ -9315,6 +9380,7 @@ const tests = [
   ["drive claim protocol: a dropped unit is resumed, not stranded", testClaimResume],
   ["drive claim protocol: two runners racing to resume, one takeover", testResumeRace],
   ["drive/heartbeat.sh keeps a working unit out of the resumable offer", testHeartbeat],
+  ["drive claim protocol: a finished unit is not resumed again", testResumeSkipsDrainedUnit],
   ["drive: handoff is a first-class terminal state", testHandoffState],
   ["report/shrink-pr-body.sh never drops the Handoff section", testShrinkKeepsHandoff],
   ["report/create-or-update.sh takes the update path for an existing PR", testCreateOrUpdatePaths],

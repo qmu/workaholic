@@ -3,7 +3,7 @@ created_at: 2026-07-31T22:06:39+00:00
 author: a@qmu.jp
 type: bugfix
 layer: [Infrastructure]
-effort:
+effort: 1h
 commit_hash:
 category: Changed
 depends_on:
@@ -97,3 +97,37 @@ The Slack notifier settled the shape of this problem once already: `{"notified":
 - **Do not "fix" this by removing the scripts' `gh` use in favour of the MCP server.** A skill script is a shell script; it cannot call an MCP tool. The division is real — scripts get a degradation contract, and the *agent* reaches GitHub through MCP when a script reports it could not.
 - **The tests currently stub `gh`**, so they prove the happy path and would keep passing through this whole defect. The new cases must remove `gh` from `PATH` rather than stub a failure, or they test something other than what happened.
 - The three already-guarded scripts prove the convention exists in this repo. The work is to apply it uniformly, not to invent it.
+
+## Final Report
+
+Development completed as planned. Contract **(a) report-and-degrade** was taken, as the
+ticket recommends; **(b) a curl/API fallback is recorded as rejected** in
+`create-or-update.sh`'s header with its reason, so the next session does not re-propose
+it blind.
+
+### Discovered Insights
+
+- **Insight**: The three seams do **not** get the same treatment, and the asymmetry is
+  the design. The two read-only ones (`create-or-update.sh`, `pre-check.sh`) degrade to
+  exit 0 with a named reason, because the work is already pushed and the caller has a
+  place to put a `pr_error`. `merge-pr.sh` keeps failing non-zero, because the caller
+  asked for an **irreversible** action that did not happen — degrading that to a success
+  is the one variant that could lose work. A test asserts the split directly, so a later
+  "make them consistent" refactor has to argue with it.
+  **Context**: "Never load-bearing" is not a property to apply uniformly; it depends on
+  whether the caller can still be correct without the result.
+
+- **Insight**: `pre-check.sh`'s `|| echo ""` was the dangerous one precisely because it
+  *succeeded*. An exit 127 collapsed into the same empty string an unPR'd branch
+  produces, so a ship flow read "this environment has no GitHub CLI" as "this branch has
+  no pull request" and continued confidently on an answer its tooling had failed to
+  produce. The other two crashed, which is loud and therefore safer.
+  **Context**: A swallowing `||` around an external command is worth suspecting wherever
+  the fallback value is also a legitimate result.
+
+- **Insight**: The existing tests stub `gh` on `PATH`, which proves the happy path and
+  would have stayed green through this entire defect. The new cases build a `PATH`
+  containing symlinks to the real binaries the scripts need and **nothing named `gh`** —
+  reproducing absence rather than failure, which is the observed condition.
+  **Context**: A stub tests the contract you imagined; removing the dependency tests the
+  environment you actually run in.

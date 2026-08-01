@@ -132,6 +132,8 @@ Compose the branch story and open the PR, scoped to the claim branch, from insid
 
 A PR-creation failure is **its own report item**. It never changes a unit's outcome classification, the reconciliation counts, or the terminal token.
 
+**A missing `gh` is exactly that item, not a failure of the unit.** The Claude-Code-on-the-web container the hourly routine runs in has no GitHub CLI, so `create-or-update.sh` reports `{"pr": null, "reason": "gh_unavailable"}` and exits 0 rather than dying at exit 127 after the branch is already pushed. Record `pr_error: gh_unavailable` in the run report. The work itself is fine and pushed, so the unit is **never** `blocked` for this — but a unit that was going to ship is **demoted to the PR path** (§6), because `merge-pr.sh` cannot merge without the CLI either and a run must not report a merge it did not make. The agent can still reach GitHub through its MCP server; a shell script cannot, which is the whole reason the script degrades and hands the problem up.
+
 ### 6. Route by effective merge policy
 
 ```bash

@@ -340,4 +340,6 @@
 * [The TSV row has no structural guard against a future empty field](20260801060526-the-tsv-row-has-no-structural.md)
 * [A blocked ticket with no owner outside this repository re-costs every drive](20260801060641-a-blocked-ticket-with-no-owner.md)
 * [The per-commit size rule counts a catch-up merge commit as authored work](20260801060641-the-per-commit-size-rule-counts.md)
+* [A blocked ticket keeps its unit permanently resumable](20260801111551-a-blocked-ticket-keeps-its-unit.md)
+* [The mission half of the queue test is O(tickets) git calls per claim](20260801111551-the-mission-half-of-the-queue.md)
 <!-- okf:generated:end -->

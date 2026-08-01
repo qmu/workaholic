@@ -13,7 +13,7 @@
 #      list-claims.sh renders, so writer and reader can never disagree);
 #   3. create the unit's worktree + branch via the sanctioned creator;
 #   4. stamp `claim: <branch>` into the claimed artifacts IN THE WORKTREE CHECKOUT;
-#   5. commit `Claim <unit-id>` and push -u immediately.
+#   5. commit the claim (fixed subject, `Unit: <unit-id>` trailer) and push -u at once.
 #
 # Output: {"claimed": true, "unit": "...", "branch": "work-...", "worktree_path": "...",
 #          "artifacts": [...], "announced": bool, "announce_reason": "..."}
@@ -169,7 +169,8 @@ if [ "$kind" = "resume" ]; then
     # to any file, and it must not show up in the PR diff. Its push is also the race's
     # arbiter, which is why it happens before a single line of work.
     ( cd "$worktree_path" && sh "${SCRIPT_DIR}/../../commit/scripts//commit.sh" --allow-empty \
-        "Resume ${unit}" \
+        --trailer "Unit: ${unit}" \
+        "Resume a PR-unit" \
         "An earlier run claimed this unit and stopped without finishing it; its branch tip fell outside the heartbeat window, so the unit was offered as resumable and this runner took it over" \
         "None -- coordination only; the takeover changes no file and never reaches the PR diff" \
         "None" "None" \
@@ -290,7 +291,22 @@ fi
 
 # Undo a partial claim: the worktree and its branch exist only to hold a claim that
 # was never published, so removing them leaves no debris and no false "unclaimed".
+# Undo a partial claim COMPLETELY -- including the stamp this script wrote.
+#
+# The cleaner refuses a dirty worktree, correctly: it must never discard work it did not
+# write. But claim.sh stamps `claim: <branch>` into the artifacts BEFORE committing, so on
+# any post-stamp failure the worktree is dirty with exactly this script's own edit, the
+# cleaner refuses, and the claim strands a worktree and a local branch. The next attempt
+# then fails as `worktree_creation_failed` and buries the original cause -- observed
+# 2026-08-01. So the stamps are reverted by targeted path first, which is safe precisely
+# because this script knows which paths it touched and wrote them seconds ago; anything
+# else in the worktree still stops the cleaner, as it should.
 abort_claim() {
+    if [ -n "${worktree_path:-}" ] && [ -d "$worktree_path" ]; then
+        for _ac_rel in ${artifact_rels:-}; do
+            git -C "$worktree_path" checkout -- "$_ac_rel" >/dev/null 2>&1 || true
+        done
+    fi
     ( cd "$repo_root" && sh "${SCRIPT_DIR}/../../branching/scripts//cleanup-mission-worktree.sh" "$unit" ) >/dev/null 2>&1 || true
     fail "$1" "${2:-}"
 }
@@ -335,7 +351,12 @@ for rel in $artifact_rels; do
 done
 
 # --- 6. Commit and push -- immediately, in that order ----------------------
-set -- "Claim ${unit}" \
+# THE UNIT ID RIDES A TRAILER (see lib/claims.sh). It was the subject until 2026-08-01,
+# which capped it at the 50-character subject rule and made every mission with a slug
+# longer than 44 characters permanently unclaimable -- four of five active missions, each
+# refused as an unexplained `commit_failed`. The subject is now fixed and short; the id
+# goes where length does not matter and a script can read it back exactly.
+set -- --trailer "Unit: ${unit}" "Claim a PR-unit" \
     "The runner takes PR-unit ${unit} before driving it; the claim is published so every other runner's reader sees the unit in flight and never double-picks it" \
     "None -- coordination only; the stamp is branch-local and never reaches main" \
     "None" "None" \
@@ -343,8 +364,20 @@ set -- "Claim ${unit}" \
 for rel in $artifact_rels; do
     set -- "$@" "$rel"
 done
-( cd "$worktree_path" && sh "${SCRIPT_DIR}/../../commit/scripts//commit.sh" "$@" ) >&2 \
-    || abort_claim "commit_failed" ', "branch": "'"${branch}"'"'
+# Capture the commit seam's own output so a refusal can NAME its cause. A bare
+# `commit_failed` sent a live run looking at the commit machinery when the real answer was
+# a rejected subject, printed plainly by check-subject.sh and then thrown away.
+commit_log=$(mktemp "${TMPDIR:-/tmp}/workaholic-claim-commit.XXXXXX")
+if ( cd "$worktree_path" && sh "${SCRIPT_DIR}/../../commit/scripts//commit.sh" "$@" ) >"$commit_log" 2>&1; then
+    cat "$commit_log" >&2
+    rm -f "$commit_log"
+else
+    cat "$commit_log" >&2
+    commit_detail=$(sed -n 's/^Error: //p' "$commit_log" | head -1 | tr -d '"\\' | cut -c1-200)
+    rm -f "$commit_log"
+    [ -n "$commit_detail" ] || commit_detail="see the commit output above"
+    abort_claim "commit_failed" ', "branch": "'"${branch}"'", "detail": "'"${commit_detail}"'"'
+fi
 
 if git -C "$worktree_path" push -u --quiet origin "$branch" >&2; then
     :

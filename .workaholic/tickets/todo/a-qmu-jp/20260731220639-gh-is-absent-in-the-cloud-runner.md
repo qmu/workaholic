@@ -9,6 +9,7 @@ category: Changed
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260801-134910
 ---
 
 # `gh` is absent in the cloud runner, so the sanctioned PR and ship seams exit 127 there

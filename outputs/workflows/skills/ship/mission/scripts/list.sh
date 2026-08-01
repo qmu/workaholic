@@ -25,12 +25,13 @@
 # "mine".
 # next is the first unchecked ## Acceptance item (next-acceptance.sh; "" when
 # none) so the full-treatment tier can state each mission's next step.
-# merge_policy is the raw frontmatter value (auto | review | "" on a draft), recorded
-# at approval; ready is the /mission planning session's drive-readiness verdict
-# (status: approved AND has a plan); ready_reason names the blocker
-# (draft / no_plan / not_active) so the session can explain what is missing.
-# The retired drive_authorized key is gone from both the schema and this output —
-# `status: approved` IS the authorization now (docs/loop-engineering-workflow.md I2).
+# merge_policy is the raw frontmatter value (auto | review | "", where "" reads as
+# review), recorded at CREATION since the approval step was retired; ready is the
+# /mission planning session's drive-readiness verdict (in flight AND has a plan);
+# ready_reason names the blocker (no_plan / not_active) so the session can explain
+# what is missing. The retired `draft` and `not_authorized` reasons are gone with
+# the draft gate itself (docs/loop-engineering-workflow.md K1), as the
+# drive_authorized key went before them (I2).
 
 set -eu
 
@@ -108,27 +109,28 @@ for d in $DIRS; do
     prog=$(sh "${SCRIPT_DIR}/progress.sh" "$f")
     checked=$(printf '%s' "$prog" | sed -e 's/.*"checked": *//' -e 's/[,}].*//')
     total=$(printf '%s' "$prog" | sed -e 's/.*"total": *//' -e 's/[,}].*//')
-    # Drive-readiness for the /mission planning session, keyed on the ONE status
-    # axis: a mission is ready when it is `approved` and has a plan (total > 0).
-    # ready_reason names the blocker so the session can explain what is missing —
-    # `draft` (awaiting approval: the plan may be complete, but no human has
-    # answered for it yet, so this is an approval target, not a replan target),
-    # `no_plan` (empty ## Acceptance), or `not_active` (an ended mission in the
-    # archive area). The retired `not_authorized` reason is gone: an unapproved
-    # mission IS a draft, and one concept keeps one word. Legacy `active` (a
-    # mission the living migration has not rewritten yet) reads as a draft.
+    # Drive-readiness for the /mission planning session. With `draft` retired
+    # (2026-07-31 — docs/loop-engineering-workflow.md K1) there is exactly ONE
+    # in-flight state and readiness reduces to "in flight, with a plan": a mission
+    # is ready when it has not ended and `total > 0`. ready_reason names the
+    # blocker so the session can explain what is missing — `no_plan` (empty
+    # ## Acceptance) or `not_active` (an ended mission in the archive area). The
+    # retired `draft` reason is gone with the state, as `not_authorized` went
+    # before it; legacy `draft`/`approved` files (not yet rewritten by the living
+    # migration) read as ordinary in-flight missions.
     merge_policy=$(json_escape "$(fm_field "$f" merge_policy)")
     ready=false
     ready_reason=""
-    if [ "$status" = "draft" ] || [ "$status" = "active" ]; then
-        ready_reason="draft"
-    elif [ "$status" != "approved" ]; then
-        ready_reason="not_active"
-    elif [ "${total:-0}" -eq 0 ]; then
-        ready_reason="no_plan"
-    else
-        ready=true
-    fi
+    case "$status" in
+        achieved | abandoned | carried) ready_reason="not_active" ;;
+        *)
+            if [ "${total:-0}" -eq 0 ]; then
+                ready_reason="no_plan"
+            else
+                ready=true
+            fi
+            ;;
+    esac
     [ "$FIRST" -eq 1 ] || OUT="${OUT},"
     FIRST=0
     OUT="${OUT}{\"slug\":\"${slug}\",\"title\":\"${title}\",\"status\":\"${status}\",\"merge_policy\":\"${merge_policy}\",\"assignee\":\"${assignee}\",\"owners\":[${owners_json}],\"relation\":\"${relation}\",\"next\":\"${next}\",\"checked\":${checked},\"total\":${total},\"ready\":${ready},\"ready_reason\":\"${ready_reason}\",\"predicted_hours\":\"${predicted}\",\"actual_hours\":\"${actual}\",\"path\":\"${f}\"}"

@@ -14,10 +14,12 @@
 #           "not_found"         a member does not exist -- reported, and review
 #   The offending member is named in `member` alongside the reason.
 #
-# THE RULE (docs/loop-engineering-workflow.md G5). Merge policy is recorded per
-# artifact at creation: a mission's at approval (approve.sh, where it is a required
-# ruling), a ticket's at ticket time. A unit is auto ONLY when every member says
-# `auto`; any review member wins, and so does any member that says nothing.
+# THE RULE (docs/loop-engineering-workflow.md G5, amended by K2). Merge policy is
+# recorded per artifact AT CREATION -- a mission's by create.sh / scaffold-draft.sh,
+# a ticket's at ticket time. It used to be recorded at a mission's approval; that
+# step is retired, and one creation-time rule now covers both artifact kinds. A unit
+# is auto ONLY when every member says `auto`; any review member wins, and so does any
+# member that says nothing.
 #
 # ABSENT MEANS REVIEW, AND THAT ASYMMETRY IS THE WHOLE DESIGN. The two failure
 # directions are not comparable: defaulting to `review` costs a human a look at a
@@ -32,9 +34,9 @@
 # make it merge, it just delays it.)
 #
 # THIS SCRIPT ANSWERS "MAY IT MERGE", NEVER "MAY IT RUN". Authorization to
-# implement is the mission's `status` (drive-authorized.sh); merge policy is the
-# orthogonal axis, and conflating them would let an unapproved mission's `auto`
-# policy read as permission to drive it.
+# implement is whether the mission is in flight with a plan (drive-authorized.sh);
+# merge policy is the orthogonal axis, and conflating them would let an ended
+# mission's `auto` policy read as permission to drive it.
 #
 # Pure read: it inspects frontmatter and writes nothing.
 

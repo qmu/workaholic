@@ -1,24 +1,34 @@
 #!/bin/sh -eu
 # Create a new mission: scaffold .workaholic/missions/active/<slug>/mission.md from a
 # title, stamp created_at/author from the gather skill, refresh the OKF bundle indexes,
-# and git-stage. A new mission is a DRAFT: the scaffold predates the interrogation, so
-# nothing about the plan has been approved yet (approve.sh performs that flip once the
-# interrogation completes, and it is the only path that does). Drafts are in flight, so
-# the mission still lands in the active/ area. The slug is derived from the title
-# (lowercased, every run of
+# and git-stage. The slug is derived from the title (lowercased, every run of
 # non-[a-z0-9] collapsed to a single hyphen, ends trimmed). Refuses to overwrite an
 # existing mission in either area (active/ or archive/).
 #
-# Usage: create.sh "<title>" [assignee]
+# THE MISSION IS BORN `status: active` — there is no draft state (2026-07-31,
+# docs/loop-engineering-workflow.md K1). Every mission now reaches `main` behind a
+# pull request (J4), and MERGING THAT PULL REQUEST IS THE APPROVAL; a `draft` word
+# would gate the same content a second time and require a manual command to undo the
+# first gate. The scaffold still lands unfinished — the Creation Interrogation fills
+# ## Experience and ## Acceptance before the publish commit — but "unfinished" is a
+# property of the working tree, not a status a reader has to interpret.
+#
+# Usage: create.sh "<title>" [assignee] [merge_policy]
 #   Ownership is CARRIED ON THE MISSION as the plural `assignees` list (2026-07-28 —
 #   returned from the 2026-07-24 strategy-layer model; see mission/reference/schema.md Ownership
 #   and mission-owners.sh). The scaffold seeds `assignees` with the CREATOR — the
-#   interactive creator is the approver, and the approver is the default owner. The
-#   optional second argument seeds a different single owner instead; co-owners are
-#   added by editing the list. The singular `assignee:` key stays emitted but EMPTY
-#   (legacy readers only). An unowned mission is scaffolded by passing "" explicitly
-#   is NOT supported here — batch writers that need an unowned draft write their own
-#   scaffold (the drafts predate approval, so they have no approver yet).
+#   interactive creator is the mission's default owner. The optional second argument
+#   seeds a different single owner instead; co-owners are added by editing the list.
+#   The singular `assignee:` key stays emitted but EMPTY (legacy readers only).
+#   Batch writers that need an UNOWNED mission write their own scaffold
+#   (propose/scripts/scaffold-draft.sh) — passing "" here is not supported.
+#
+#   MERGE POLICY IS RECORDED AT CREATION (K2), adopting the ticket rule exactly: the
+#   optional third argument is `auto` or `review`, and ABSENT MEANS `review` — the
+#   conservative default, so a mission that arrives with no policy routes to a PR.
+#   It used to be recorded at approval, which no longer exists. An unrecognized value
+#   is refused rather than silently written, because `effective-policy.sh` reads this
+#   field to decide whether an unattended run may merge.
 # Output: JSON {created, slug, path[, reason]}
 
 set -eu
@@ -26,6 +36,16 @@ set -eu
 TITLE="${1:-}"
 [ -n "$TITLE" ] || { echo '{"created": false, "reason": "no_title"}'; exit 1; }
 ASSIGNEE_ARG="${2:-}"
+# Absent reads as `review` and is written as an EMPTY field, exactly as a ticket
+# records it -- one rule, one spelling, so effective-policy.sh needs no special case.
+MERGE_POLICY_ARG="${3:-}"
+case "$MERGE_POLICY_ARG" in
+    auto | review | "") : ;;
+    *)
+        printf '{"created": false, "reason": "bad_merge_policy", "got": "%s"}\n' "$MERGE_POLICY_ARG"
+        exit 1
+        ;;
+esac
 
 SCRIPT_DIR=$(dirname "$0")
 . "${SCRIPT_DIR}/lib/resolve.sh"
@@ -52,9 +72,10 @@ META=$(sh "${SCRIPT_DIR}/../../gather/scripts//ticket-metadata.sh")
 CREATED_AT=$(printf '%s\n' "$META" | grep '"created_at"' | sed -e 's/.*: *"//' -e 's/".*//')
 AUTHOR=$(printf '%s\n' "$META" | grep '"author"' | sed -e 's/.*: *"//' -e 's/".*//')
 
-# Self-ownership by default: the creator is the approver and the approver is the
-# default owner (docs/loop-engineering-workflow.md decision B4). The optional second
-# argument seeds a different single owner.
+# Self-ownership by default: whoever creates a mission interactively owns it
+# (docs/loop-engineering-workflow.md decision B4). The optional second argument seeds
+# a different single owner. Ownership is NOT a gate — an unowned mission is claimable
+# by anyone (K2) — so this is a convenience, not a floor.
 ASSIGNEE="${ASSIGNEE_ARG:-$AUTHOR}"
 
 mkdir -p "$MISSION_DIR"
@@ -63,8 +84,8 @@ cat > "$MISSION_FILE" <<EOF
 type: Mission
 title: ${TITLE}
 slug: ${SLUG}
-status: draft
-merge_policy:
+status: active
+merge_policy: ${MERGE_POLICY_ARG}
 created_at: ${CREATED_AT}
 author: ${AUTHOR}
 assignees: [${ASSIGNEE}]

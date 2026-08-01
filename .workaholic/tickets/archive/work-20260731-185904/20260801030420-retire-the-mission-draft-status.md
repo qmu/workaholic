@@ -5,10 +5,11 @@ type: refactoring
 layer: [Config]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260731-185904
 ---
 
 # Retire `status: draft` — the pull request *is* the draft, and a mission that reaches main has an owner

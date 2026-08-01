@@ -1,6 +1,6 @@
 ---
 name: propose
-description: Headless proposal batch — survey the repository state and either stay silent or propose a draft mission with its ticket set on a work branch behind a pull request, announced to Slack.
+description: Headless proposal batch — survey the repository state and either stay silent or propose a mission with its ticket set on a work branch behind a pull request, announced to Slack.
 skills:
   - workaholic:propose
   - workaholic:feedback
@@ -35,9 +35,9 @@ This command is **headless by contract** (`workaholic:propose` — read its Head
 
 8. **Draft** each warranted proposal:
    - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-draft.sh "<title>" <feedback-filename>...`
-   - Fill `## Goal` / `## Scope` / `## Experience` and a **proposed** `## Acceptance` sketch from the feedback content (Edit on the scaffold; clearly provisional — `/mission approve <slug>` interrogates it to drive-ready, never this batch). Never flip `status` and never seed `assignees` or `merge_policy`.
+   - Fill `## Goal` / `## Scope` / `## Experience` and a **proposed** `## Acceptance` sketch from the feedback content (Edit on the scaffold; clearly provisional — whoever reviews the pull request interrogates it to drive-ready via `/mission <instruction>`, never this batch). Never touch `status` and never seed `assignees` or `merge_policy` — an unowned mission with an empty policy reads as `review`, which is the safe default for anything an unattended batch wrote.
 
-9. **Emit the ticket set** for each draft — a proposal without one is a title, and `/drive` drops such a mission as `no_tickets`:
+9. **Emit the ticket set** for each proposal — a proposal without one is a title, and `/drive` drops such a mission as `no_tickets`:
    - `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer]`, once per ticket, in the order they would be driven.
    - Fill each ticket's Overview, Key Files, Implementation Steps, and the provisional Quality Gate. Leave `merge_policy` empty (absent reads as `review`).
 

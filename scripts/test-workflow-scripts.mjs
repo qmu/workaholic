@@ -13,7 +13,7 @@
 // state, and cleans up. No network, no real remotes, no GitHub token, no
 // mutation of the developer's working tree. Run with `node scripts/test-workflow-scripts.mjs`.
 
-import { cpSync, mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync, existsSync, statSync, chmodSync, readdirSync, realpathSync } from "node:fs";
+import { cpSync, mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync, existsSync, statSync, chmodSync, readdirSync, realpathSync, symlinkSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join, resolve, dirname, basename } from "node:path";
 import { tmpdir } from "node:os";
@@ -9248,13 +9248,22 @@ function testGhAbsentDegrades() {
   const repo = makeRepo("main");
   const binDir = mkdtempSync(join(tmpdir(), "wh-nogh-"));
   try {
-    // A PATH with everything the scripts legitimately need EXCEPT gh. Symlinking the
-    // real binaries keeps the scripts working normally right up to the GitHub call.
-    for (const tool of ["sh", "bash", "git", "jq", "python3", "sed", "awk", "grep", "cat",
-                        "mktemp", "rm", "cut", "tr", "wc", "date", "dirname", "basename",
-                        "printf", "env", "mv", "cp", "head", "tail", "sort", "uniq", "ls"]) {
-      const real = run(repo, `command -v ${tool}`).stdout.trim();
-      if (real) { try { execSync(`ln -sf ${real} ${join(binDir, tool)}`); } catch { /* optional */ } }
+    // A PATH holding EVERY executable the real environment provides, minus `gh`.
+    //
+    // A hand-written allowlist of "the tools these scripts need" was tried first and is
+    // wrong: it passed locally and failed on the CI runner at exit 127, because the
+    // scripts reach tools the list did not anticipate — including at EXIT-trap time,
+    // where `rm` cleaning up a mktemp file turns a correct `exit 0` into a 127 that looks
+    // exactly like the defect under test. Mirroring the whole PATH removes the guesswork:
+    // the ONLY difference from the real environment is the one thing being tested.
+    for (const dir of (process.env.PATH || "").split(":").filter(Boolean)) {
+      let entries = [];
+      try { entries = readdirSync(dir); } catch { continue; }
+      for (const name of entries) {
+        if (name === "gh") continue;                       // the one absence under test
+        if (existsSync(join(binDir, name))) continue;      // first PATH entry wins, as in a real lookup
+        try { symlinkSync(join(dir, name), join(binDir, name)); } catch { /* unreadable entry */ }
+      }
     }
     const noGh = { ...process.env, PATH: binDir };
     assertEq("the fixture PATH really has no gh", run(repo, `command -v gh`, { env: noGh }).status !== 0, true);
@@ -9265,8 +9274,12 @@ function testGhAbsentDegrades() {
 
     // ---- report/create-or-update.sh: the seam that actually broke ----
     const cou = run(repo, `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/create-or-update.sh")} work-20260801-000000 "T"`, { env: noGh });
-    assertEq("create-or-update exits 0 without gh instead of 127", cou.status, 0);
-    assertTrue("and emits no bare shell error", !/command not found/.test(cou.stderr + cou.stdout), cou.stderr);
+    assertEq(`create-or-update exits 0 without gh instead of 127 (stderr: ${cou.stderr.trim()})`, cou.status, 0);
+    // `/not found/`, not `/command not found/`: Ubuntu's /bin/sh is dash, which says
+    // `sh: 1: sed: not found`. The narrower pattern matched bash's phrasing only, so this
+    // assertion passed on CI while the script was in fact dying on a missing tool — the
+    // check meant to catch that exact failure was blind to the shell CI actually runs.
+    assertTrue("and emits no bare shell error", !/not found/.test(cou.stderr + cou.stdout), cou.stderr);
     const cj = JSON.parse(cou.stdout.trim());
     assertEq("it names the reason and reports no PR",
       { pr: cj.pr, r: cj.reason }, { pr: null, r: "gh_unavailable" });
@@ -9284,7 +9297,7 @@ function testGhAbsentDegrades() {
     // ---- ship/merge-pr.sh: an irreversible action that did NOT happen must fail ----
     const mp = run(repo, `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/merge-pr.sh")} 7 main`, { env: noGh });
     assertTrue("merge-pr exits non-zero without gh — nothing was merged", mp.status !== 0, `status ${mp.status}`);
-    assertTrue("and emits no bare shell error", !/command not found/.test(mp.stderr), mp.stderr);
+    assertTrue("and emits no bare shell error", !/not found/.test(mp.stderr), mp.stderr);
     const mj = JSON.parse(mp.stderr.trim().split("\n").pop());
     assertEq("reporting the reason rather than a merge that did not happen",
       { m: mj.merged, r: mj.reason }, { m: false, r: "gh_unavailable" });

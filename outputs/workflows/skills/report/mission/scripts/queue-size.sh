@@ -18,8 +18,10 @@
 # branch and a worktree for an empty queue, under a policy authorizing the run to merge.
 #
 # THE TWO CONSUMERS ASK DIFFERENT QUESTIONS, WHICH IS WHY BOTH NUMBERS ARE REPORTED:
-#   * approve.sh asks "does a plan exist?"       -> `total` (a fully-driven mission still
-#     has one, so approving it stays possible; only a plan-less proposal is refused).
+#   * a planning reader asks "does a plan exist?" -> `total` (a fully-driven mission
+#     still has one; only a plan-less proposal is empty). This was approve.sh's
+#     question before that step was retired (K1); the /mission replan session and
+#     list.sh's `no_plan` verdict ask it now.
 #   * plan-units.sh asks "is there work to do?"  -> `todo` (a mission whose tickets are
 #     all archived has nothing to offer a runner right now).
 # Counting acceptance items answers neither.

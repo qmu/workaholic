@@ -14,18 +14,19 @@
 # such a mission as `no_tickets`, because acceptance items are not work. The
 # proposal is only reviewable when it says what would actually be done.
 #
-# AND WHY THAT IS SAFE WITHOUT A NEW GATE. `drive/scripts/plan-units.sh` excludes
+# AND WHAT ACTUALLY HOLDS THE PROPOSAL BACK. `drive/scripts/plan-units.sh` excludes
 # ANY ticket carrying a `mission:` relation from the backlog offer, with reason
-# `mission_member`, REGARDLESS of the mission's status — a mission's tickets are
-# driven as part of its unit or not at all. So a ticket proposed under a draft
-# mission is unclaimable by construction: the draft gate that already protects
-# the mission protects its tickets too, and no second mechanism is needed. This
-# is the property that makes ticket emission a small change rather than a
-# dangerous one, and it must be re-checked if that exclusion is ever narrowed.
+# `mission_member` — a mission's tickets are driven as part of its unit or not at
+# all — so a proposed ticket is never picked up loose. What gates the UNIT is no
+# longer a draft status (retired 2026-07-31, K1) but the PULL REQUEST this batch
+# opens: the proposal is unreachable to every runner until a human merges it, and
+# merging it IS the approval. Nothing here is claimable before that merge, and
+# everything here is claimable after it — which is the intended contract, not a gap.
 #
 # merge_policy IS LEFT EMPTY, which reads as `review`. The batch has no authority
-# to grant automatic merging: that ruling belongs to `/mission approve`, in the
-# same act that authorizes the mission at all.
+# to grant automatic merging: an unattended proposer must not decide that its own
+# output may merge unattended. Whoever reviews the proposal's pull request records
+# the policy deliberately if `auto` is wanted (K2).
 #
 # THE MANDATORY BODY SECTIONS ARE WRITTEN AS HEADINGS WITH PLACEHOLDER GUIDANCE,
 # not omitted for the caller to remember. `hooks/validate-ticket.sh` rejects a

@@ -2,7 +2,7 @@
 type: Mission
 title: Make the per-commit changed-lines ceiling a rule that holds
 slug: make-the-per-commit-changed-lines-ceiling-a-rule-that-holds
-status: draft
+status: active
 merge_policy:
 created_at: 2026-07-30T10:19:42+00:00
 author: noreply@anthropic.com

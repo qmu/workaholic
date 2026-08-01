@@ -2,7 +2,7 @@
 type: Mission
 title: Make the branch story concise by default
 slug: make-the-branch-story-concise-by-default
-status: draft
+status: active
 merge_policy:
 created_at: 2026-07-31T16:58:22+00:00
 author: noreply@anthropic.com

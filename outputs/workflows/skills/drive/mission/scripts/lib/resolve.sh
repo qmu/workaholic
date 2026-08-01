@@ -18,7 +18,7 @@
 # Layout: missions live under one of two areas, keyed off the `status` frontmatter
 # field (mirroring the tickets todo/archive split), where <root> is a `.workaholic`
 # directory:
-#   <root>/missions/active/<slug>/mission.md    status: draft | approved (in flight)
+#   <root>/missions/active/<slug>/mission.md    status: active (in flight)
 #   <root>/missions/archive/<slug>/mission.md   status: achieved | abandoned | carried
 #
 # Usage (from a mission script, with SCRIPT_DIR its own scripts/ dir):
@@ -115,32 +115,35 @@ missions_migrate_layout() {
             git add -A "$_mroot" >/dev/null 2>&1 || true
         fi
     done
-    # The status-axis unification rides the same seam: a legacy `status: active`
-    # mission is normalized to draft/approved on the next mission-script touch
-    # (see missions_migrate_status below), after the area relocation above has put
-    # every mission in the area its status selects.
+    # The status-axis unification rides the same seam: a legacy `status: draft`
+    # or `status: approved` mission is normalized to `active` on the next
+    # mission-script touch (see missions_migrate_status below), after the area
+    # relocation above has put every mission in the area its status selects.
     missions_migrate_status "${1:-}" || true
     return 0
 }
 
-# Living migration: unify the mission lifecycle onto ONE axis (2026-07-28 --
-# docs/loop-engineering-workflow.md I2). `drive_authorized` is retired INTO the
-# status: "approved" is exactly what the stamp asserted -- a human answered every
-# judgment call about this exact plan -- so one concept keeps one word
-# (workaholic:planning / terminology).
+# Living migration: fold every in-flight mission onto the ONE in-flight status
+# (2026-07-31 -- docs/loop-engineering-workflow.md K1). `draft` is retired: J4 put
+# every mission behind a pull request, so the merge IS the approval, and a second
+# status-word gate only re-asks a question the PR already answered. `approved`
+# goes with it -- with nothing left to approve, the word names no distinction.
 #
-#   status: active + drive_authorized: true  ->  status: approved
-#   status: active without the stamp         ->  status: draft
+#   status: draft     ->  status: active
+#   status: approved  ->  status: active
 #
-# and the retired `drive_authorized:` key line is DROPPED from the rewritten file,
-# so the field stops existing rather than lingering as a second, stale authority.
-# Area keying is untouched: draft|approved live in active/, the three end states in
-# archive/, so nothing moves here. Archived missions are history and are never
-# rewritten.
+# and the long-retired `drive_authorized:` key line is DROPPED from the rewritten
+# file, so the field stops existing rather than lingering as a stale authority
+# (it was folded into `status: approved` by I2, 2026-07-28; a checkout old enough
+# to still carry it lands here in one hop).
 #
-# Idempotent (a migrated file no longer says `active`, so a re-run matches nothing)
-# and best-effort: every failure is swallowed so a calling seam is never blocked --
-# an unmigrated mission is still read correctly, because every reader keeps a
+# Area keying is untouched: the one in-flight state lives in active/, the three end
+# states in archive/, so nothing moves here. Archived missions are history and are
+# never rewritten.
+#
+# Idempotent (a migrated file says `active`, which matches nothing below) and
+# best-effort: every failure is swallowed so a calling seam is never blocked -- an
+# unmigrated mission is still read correctly, because every reader keeps a
 # legacy-tolerance branch for the pre-migration shape until the touch lands.
 missions_migrate_status() {
     _msroot="${1:-}"
@@ -159,17 +162,18 @@ missions_migrate_status() {
                 }
             ' "$_msf" 2>/dev/null || true
         }
-        [ "$(_msfm status)" = "active" ] || continue
-        if [ "$(_msfm drive_authorized)" = "true" ]; then
-            _msnew="approved"
-        else
-            _msnew="draft"
-        fi
+        _mscur=$(_msfm status)
+        # Only the two retired in-flight words are folded. An end state in active/
+        # is a placement problem, not a status problem, and is left alone.
+        case "$_mscur" in
+            draft | approved) : ;;
+            *) continue ;;
+        esac
         _mstmp="${_msf}.status.$$"
-        awk -v new="$_msnew" '
+        awk '
             NR == 1 && $0 == "---" { in_fm = 1; print; next }
             in_fm && /^---[ \t]*$/ { in_fm = 0; print; next }
-            in_fm && /^status:/ { print "status: " new; next }
+            in_fm && /^status:/ { print "status: active"; next }
             in_fm && /^drive_authorized:/ { next }
             { print }
         ' "$_msf" > "$_mstmp" 2>/dev/null && mv "$_mstmp" "$_msf" 2>/dev/null || {

@@ -9,6 +9,7 @@ usage() {
     echo "Options:"
     echo "  --skip-staging        Skip staging step (use when files are already staged)"
     echo "  --allow-empty         Record a commit that changes no file (coordination markers only)"
+    echo "  --trailer <Key: Val>  Emit an extra git trailer (repeatable); for machine-read metadata"
     echo "  --category <value>    Emit a 'Category: <Added|Changed|Removed>' git trailer for /report grouping"
     echo ""
     echo "Parameters:"
@@ -27,6 +28,7 @@ usage() {
 SKIP_STAGING=false
 ALLOW_EMPTY=false
 CATEGORY=""
+EXTRA_TRAILERS=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --skip-staging)
@@ -42,6 +44,24 @@ while [ $# -gt 0 ]; do
         --allow-empty)
             ALLOW_EMPTY=true
             shift
+            ;;
+        # An extra machine-readable trailer, repeatable. This exists because a value a
+        # script must read back cannot live in the SUBJECT: the subject is capped at 50
+        # characters, and a value that outgrows the cap makes the commit unrepresentable
+        # rather than merely ugly. `git log --format='%(trailers:key=X,valueonly)'` reads
+        # a trailer back exactly, with no length limit and no parsing by hand.
+        --trailer)
+            if [ $# -lt 2 ]; then
+                echo "Error: --trailer requires a value of the form 'Key: Value'"
+                exit 1
+            fi
+            case "$2" in
+                *": "*) : ;;
+                *) echo "Error: --trailer must be of the form 'Key: Value' (got: $2)"; exit 1 ;;
+            esac
+            EXTRA_TRAILERS="${EXTRA_TRAILERS}${2}
+"
+            shift 2
             ;;
         --category)
             if [ $# -lt 2 ]; then
@@ -247,6 +267,9 @@ TRAILERS="Co-Authored-By: Claude <noreply@anthropic.com>"
 if [ -n "$CATEGORY" ]; then
     TRAILERS="Category: ${CATEGORY}
 ${TRAILERS}"
+fi
+if [ -n "$EXTRA_TRAILERS" ]; then
+    TRAILERS="${EXTRA_TRAILERS}${TRAILERS}"
 fi
 COMMIT_BODY="${COMMIT_BODY}${TRAILERS}"
 

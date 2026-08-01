@@ -9,9 +9,22 @@
 #                   coordination protocol must not have).
 #
 # THE MODEL (docs/loop-engineering-workflow.md G3): the repository is the
-# coordination medium. A claim is a commit whose subject is `Claim <unit-id>` on a
-# fresh work-* branch, stamping `claim: <branch>` into the claimed artifacts'
-# frontmatter, pushed immediately. So the set of claims in flight is exactly the set
+# coordination medium. A claim is a commit carrying a `Unit: <unit-id>` trailer under the
+# fixed subject `Claim a PR-unit`, on a fresh work-* branch, stamping `claim: <branch>`
+# into the claimed artifacts' frontmatter, pushed immediately.
+#
+# THE UNIT ID RIDES A TRAILER, NOT THE SUBJECT, and that is a correctness requirement
+# rather than a style choice. It used to be the subject -- `Claim <unit-id>` -- which
+# meant the id had to fit inside the 50-character subject rule commit.sh enforces. A
+# mission's unit id is its slug, and four of the five active missions had slugs long
+# enough to blow the cap (64-77 characters with the prefix), so `commit.sh` refused the
+# claim commit and those missions were UNCLAIMABLE -- 80% of the roadmap, reported to the
+# runner only as `commit_failed` (measured 2026-08-01). A trailer has no length limit and
+# `git log --format='%(trailers:key=Unit,valueonly)'` reads it back exactly.
+#
+# The legacy subject form is still recognised, because claims pushed before this change
+# are in flight on real branches and a reader that stopped seeing them would report those
+# units as free -- the double-pick the protocol exists to prevent. So the set of claims in flight is exactly the set
 # of remote branches carrying commits not yet on the base -- no lock file, no server,
 # nothing to leak when a runner dies. A merge empties a claim by definition; deleting
 # the branch releases it explicitly.
@@ -247,11 +260,20 @@ claims_scan() {
         _cs_ahead=$(git rev-list --count "${_cs_base}..${_cs_ref}" 2>/dev/null || echo 0)
         [ "$_cs_ahead" -gt 0 ] || continue
 
-        # Fast filter: the newest `Claim <unit-id>` subject in the unmerged range.
-        # A branch with unmerged commits but no claim commit is ordinary in-flight
-        # work (someone's hand-made branch), not a claim, and is not reported.
-        _cs_row=$(git log --format='%H%x09%s' "${_cs_base}..${_cs_ref}" 2>/dev/null \
-            | awk -F'\t' '$2 ~ /^Claim [^ ]+$/ { print $1 "\t" substr($2, 7); exit }' || true)
+        # Fast filter: the newest claim commit in the unmerged range. A branch with
+        # unmerged commits but no claim commit is ordinary in-flight work (someone's
+        # hand-made branch), not a claim, and is not reported.
+        #
+        # TWO ACCEPTED FORMS. The current one is the fixed subject `Claim a PR-unit` with
+        # the id in a `Unit:` trailer; the legacy one is `Claim <unit-id>` as the whole
+        # subject. Both are read, and the trailer wins when both are present. Dropping the
+        # legacy form would make every claim pushed before this change invisible, and an
+        # invisible claim reads as free work.
+        _cs_row=$(git log --format='%H%x09%s%x09%(trailers:key=Unit,valueonly,separator=%x20)' "${_cs_base}..${_cs_ref}" 2>/dev/null \
+            | awk -F'\t' '
+                $2 == "Claim a PR-unit" && $3 != "" { print $1 "\t" $3; exit }
+                $2 ~ /^Claim [^ ]+$/ { print $1 "\t" substr($2, 7); exit }
+              ' || true)
         [ -n "$_cs_row" ] || continue
         _cs_sha=$(printf '%s' "$_cs_row" | cut -f1)
         _cs_unit=$(printf '%s' "$_cs_row" | cut -f2)

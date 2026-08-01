@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260801-210440
 ---
 
 # Make the per-commit changed-lines ceiling a rule that holds

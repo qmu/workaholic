@@ -350,4 +350,5 @@
 * [Three sibling scripts were guarded and three were not, with nothing to keep them aligned](20260801181923-three-sibling-scripts-were-guarded-and.md)
 * [A mission slug is still unbounded, and other consumers may have their own limits](20260801210418-a-mission-slug-is-still-unbounded.md)
 * [The legacy subject branch has no expiry](20260801210418-the-legacy-subject-branch-has-no.md)
+* [Throttle repeat drive-blocked notifications for the same unresolved condition](20260802140323-throttle-repeat-drive-blocked-notifications-for-the-same-unresolved-condition.md)
 <!-- okf:generated:end -->

@@ -351,6 +351,7 @@
 * [A mission slug is still unbounded, and other consumers may have their own limits](20260801210418-a-mission-slug-is-still-unbounded.md)
 * [The legacy subject branch has no expiry](20260801210418-the-legacy-subject-branch-has-no.md)
 * [Throttle repeat drive-blocked notifications for the same unresolved condition](20260802140323-throttle-repeat-drive-blocked-notifications-for-the-same-unresolved-condition.md)
+* [Restructure /workaholify's FB issue template into Motivation/Proposal/Notes sections with mission-ticket breakdown and a "Propose..." title prefix](20260803131441-restructure-workaholifys-fb-issue-template-into-motivation-proposal-notes-sections-with-mission-ticket-breakdown-and-a-propose-title-prefix.md)
 * [Low-severity concerns are filtered at render, kept at extract](20260803212853-low-severity-concerns-are-filtered-at-render-kept-at-extract.md)
 * [A pre-fix degenerate record keeps its degenerate id](20260803220438-a-pre-fix-degenerate-record-keeps.md)
 * [The ASCII 6-word truncation collision remains by design](20260803220438-the-ascii-6-word-truncation-collision.md)

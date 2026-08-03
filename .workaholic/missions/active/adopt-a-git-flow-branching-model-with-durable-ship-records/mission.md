@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260803-212310
 ---
 
 # Adopt a release-branch staging tier with durable ship records

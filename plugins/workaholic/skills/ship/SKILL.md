@@ -313,7 +313,20 @@ The tier is **one branch form and nothing else**: no `develop`, no `hotfix/*`, a
 
 ### 6-3. Recording it
 
-Every promotion writes its durable ship record — which base commits the branch carries, when it was cut, when it was confirmed or failed — as a `.workaholic/releases/` artifact. This is **additive**: `.workaholic/release-notes/<branch>.md` and the story's `## Deployment Evidence` block keep exactly the shape they have today.
+Every promotion writes its durable ship record — which base commits the branch carries, when it was cut, when it was confirmed or failed — as a `.workaholic/releases/<release-branch>.md` artifact. This is **additive**: `.workaholic/release-notes/<branch>.md` and the story's `## Deployment Evidence` block keep exactly the shape they have today. Two scripts, one per half of the record, and **both run on the base with a clean tree** (a promotion is a batch-level act over the base, and the record belongs there — a record on the release branch would be invisible to everyone until that branch merged somewhere):
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/record-release-cut.sh "<release-branch>" [since-ref] [base]
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/confirm-release.sh "<release-branch>" "<method>" "<non-secret result>" "pass"|"fail" [tag] [base]
+```
+
+**`record-release-cut.sh`** runs immediately after §6-1 step 1 and writes the record: `type: Release`, the release branch, `cut_at`/`cut_sha`, the carried commit range with `carried_count`, and a pending confirmation. Everything is **derived from git at cut time** — the question is about the release, and re-deriving it later from per-unit notes would make it a view rather than a record. The previous boundary is resolved in four steps, most specific first, and the choice is recorded as `since_reason` so a reader can see how the range was picked: an explicit `since-ref` (`given`), else the newest prior `.workaholic/releases/` record whose `cut_sha` still resolves (`prior_release`), else the latest tag reachable from the cut (`latest_tag:<tag>`), else the whole history (`full_history` — a first release genuinely carries everything). It commits (`Record release cut`) and pushes. Refusals: `unknown_release_branch`, `not_on_base`, `dirty_workspace`, `already_recorded` (one record per release branch, never rewritten), `commit_failed`.
+
+**`confirm-release.sh`** runs after §6-1 step 3 and closes the other half: it sets the record's `status` to `confirmed`/`failed` with `confirmed_at`, `confirmation_method`, `confirmation_status` and `tag`, and **appends** a dated block to the body. Body entries are append-only — several attempts against one branch each leave their own — while the frontmatter carries the latest verdict, which is what a reader greps for. It applies the **same secret guard as `record-evidence.sh`, from the same shared rule source**, and refuses (`possible_secret`) rather than writing a credential into a version-controlled record. Refusals: `bad_status`, `no_record`, `not_on_base`, `dirty_workspace`, `commit_failed`.
+
+**Both halves are on the base, so `grep` and `git log` answer the question alone**: `grep -l 'status: confirmed' .workaholic/releases/*.md` finds the releases that reached production, each record names its `cut_sha` and range, and `git log <since_ref>..<cut_sha>` replays exactly what it carried. The range is **literal** — every base commit between the boundaries, this pipeline's own record and confirmation commits included — precisely so that replay works; a filter that hid bookkeeping would have to recognise it by subject, and the first wrong guess would cost the record the one property it has.
+
+**The record and the branch find each other by name, in both directions, and that is deliberate.** The record's `release_branch` names the branch; the branch's record is at `.workaholic/releases/<branch with `/` → `-`>.md`, derived from the name with no lookup. A pointer *on* the branch is impossible by construction — a release branch carries no commits of its own, which is what makes its range replayable — so a deterministic filename is the only both-ways link that costs nothing to keep true.
 
 ### 6-4. No prompting
 

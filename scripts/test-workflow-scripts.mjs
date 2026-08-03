@@ -128,6 +128,8 @@ const SCRIPTS = {
   scaffoldProposedTicket: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-proposed-ticket.sh"),
   closePublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/close-publish-tree.sh"),
   cutReleaseBranch: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/cut-release-branch.sh"),
+  recordReleaseCut: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/record-release-cut.sh"),
+  confirmRelease: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/confirm-release.sh"),
 };
 
 // rules/shell.md mandates POSIX sh. Exercise the scripts under the strictest
@@ -6761,6 +6763,138 @@ function testCutReleaseBranch() {
   }
 }
 
+// ---------- ship/record-release-cut.sh + confirm-release.sh (the durable record, L3) ----------
+// THE ACCEPTANCE IS A QUESTION, NOT A SCHEMA: "what did this deploy carry, and when",
+// answerable with grep and git log alone. So these tests cut a real release branch,
+// record it, confirm it, and then ASK THAT QUESTION of the filesystem — asserting the
+// recorded range replays the commits actually carried, rather than asserting field names.
+function testReleaseRecord() {
+  const { origin, A, B } = makePublishFixture();
+  const CUT = `${POSIX_SH} ${SCRIPTS.cutReleaseBranch}`;
+  const RECORD = `${POSIX_SH} ${SCRIPTS.recordReleaseCut}`;
+  const CONFIRM = `${POSIX_SH} ${SCRIPTS.confirmRelease}`;
+  const fm = (body, key) => (body.match(new RegExp(`^${key}:[ \\t]*(.*)$`, "m")) || [, ""])[1].trim();
+  // Land a unit on the base from the OTHER clone. It fast-forwards first, because the
+  // promotion scripts push their records to the base and B would otherwise be behind.
+  const land = (msg, file) => {
+    execSync("git pull -q --ff-only", { cwd: B });
+    writeFileSync(join(B, file), `${msg}\n`);
+    execSync(`git add -A && git commit -q -m '${msg}' && git push -q origin main`, { cwd: B });
+  };
+  try {
+    // Two units land on main, then a promotion cuts the window over them.
+    land("Add first unit", "one.txt");
+    land("Add second unit", "two.txt");
+    execSync("git pull -q --ff-only", { cwd: A });
+
+    const cut1 = JSON.parse(run(A, CUT).stdout);
+    assertEq("the fixture's first cut succeeds", cut1.ok, true);
+    const rec1 = JSON.parse(run(A, `${RECORD} ${cut1.branch}`).stdout);
+    assertEq("record-release-cut writes the record", { ok: rec1.ok, committed: rec1.committed }, { ok: true, committed: true });
+    assertEq("and pushes it to the base", rec1.pushed, true);
+
+    const path1 = join(A, rec1.path);
+    assertTrue("the record lands under .workaholic/releases/", existsSync(path1), rec1.path);
+    let body = readFileSync(path1, "utf8");
+    assertEq("the record carries the OKF type", fm(body, "type"), "Release");
+    assertEq("a fresh cut is in the staging window, not in production", fm(body, "status"), "staging");
+    assertEq("the record names its release branch", fm(body, "release_branch"), cut1.branch);
+    assertEq("the record's cut_sha IS the branch tip", fm(body, "cut_sha"), cut1.sha);
+
+    // NO PRIOR RELEASE AND NO TAG: the release genuinely carries the whole history, and
+    // saying so beats inventing a boundary. The reason is recorded, not just the range.
+    assertEq("a first release records why its range has no lower bound", fm(body, "since_reason"), "full_history");
+    assertEq("and counts the whole history", Number(fm(body, "carried_count")),
+      Number(execSync(`git rev-list --count ${cut1.sha}`, { cwd: A, encoding: "utf8" }).trim()));
+    for (const subject of ["Add first unit", "Add second unit"]) {
+      assertTrue(`the body lists "${subject}"`, body.includes(subject), body.slice(0, 600));
+    }
+
+    // ---- the question, asked of the filesystem ----
+    // git log over the RECORDED range must replay exactly what the release carried.
+    const replay = execSync(`git log --no-merges --format=%s ${fm(body, "cut_sha")}`, { cwd: A, encoding: "utf8" });
+    assertTrue("git log over the recorded range replays the carried work",
+      replay.includes("Add first unit") && replay.includes("Add second unit"), replay);
+
+    // ---- one record per release branch, never rewritten ----
+    assertEq("a second recording of the same branch is refused",
+      JSON.parse(run(A, `${RECORD} ${cut1.branch}`).stdout).reason, "already_recorded");
+    assertEq("an unknown release branch is refused",
+      JSON.parse(run(A, `${RECORD} release/19700101-000000`).stdout).reason, "unknown_release_branch");
+
+    // ---- the preconditions: a promotion is a batch-level act ON the base ----
+    execSync("git checkout -q -b work-20260803-215500", { cwd: A });
+    assertEq("recording off the base is refused", JSON.parse(run(A, `${RECORD} ${cut1.branch}`).stdout).reason, "not_on_base");
+    execSync("git checkout -q main", { cwd: A });
+    writeFileSync(join(A, "dirty.txt"), "x\n");
+    assertEq("recording over a dirty tree is refused", JSON.parse(run(A, `${RECORD} ${cut1.branch}`).stdout).reason, "dirty_workspace");
+    rmSync(join(A, "dirty.txt"));
+
+    // ---- confirmation closes the other half ----
+    assertEq("confirm-release refuses an unrecorded branch",
+      JSON.parse(run(A, `${CONFIRM} release/19700101-000000 api-probe ok pass`).stdout).reason, "no_record");
+    assertEq("confirm-release refuses a status outside pass/fail",
+      JSON.parse(run(A, `${CONFIRM} ${cut1.branch} api-probe ok maybe`).stdout).reason, "bad_status");
+    // The record is version-controlled: a credential must be refused, not published.
+    const secret = run(A, `${CONFIRM} ${cut1.branch} api-probe "password=hunter2hunter2" pass`);
+    assertEq("confirm-release refuses a secret-shaped observed result",
+      JSON.parse(secret.stdout).reason, "possible_secret");
+
+    // A FAILED CONFIRMATION IS RECORDED, NOT ERASED, and deletes nothing.
+    const failed = JSON.parse(run(A, `${CONFIRM} ${cut1.branch} api-probe "HTTP 503 from the health endpoint" fail`).stdout);
+    assertEq("a failed confirmation is recorded as failed", { ok: failed.ok, status: failed.status }, { ok: true, status: "failed" });
+    body = readFileSync(path1, "utf8");
+    assertEq("the record's verdict is greppable in frontmatter", fm(body, "status"), "failed");
+    assertEq("and the executed method is recorded", fm(body, "confirmation_method"), "api-probe");
+    assertTrue("the observed failure survives in the body", body.includes("HTTP 503 from the health endpoint"), body.slice(-800));
+    assertTrue("the record states that the branch is the rollback boundary",
+      /rollback boundary/.test(body), body.slice(-800));
+    assertTrue("the failed release branch is NOT deleted",
+      execSync(`git ls-remote --heads ${origin} ${cut1.branch}`, { encoding: "utf8" }).includes(cut1.branch));
+
+    // A second attempt APPENDS: the frontmatter carries the latest verdict, the body the history.
+    const passed = JSON.parse(run(A, `${CONFIRM} ${cut1.branch} api-probe "HTTP 200, version v9.9.9" pass v9.9.9`).stdout);
+    assertEq("a later passing confirmation flips the verdict", passed.status, "confirmed");
+    body = readFileSync(path1, "utf8");
+    assertEq("frontmatter carries the latest verdict", fm(body, "status"), "confirmed");
+    assertEq("and the tag it published", fm(body, "tag"), "v9.9.9");
+    assertTrue("the earlier failure is still in the record", body.includes("HTTP 503 from the health endpoint"), body.slice(-1200));
+    assertEq("the confirmation history is append-only", (body.match(/^- \*\*Observed:\*\*/gm) || []).length, 2);
+
+    // ---- a second release measures from the first, not from the beginning ----
+    land("Add third unit", "three.txt");
+    execSync("git pull -q --ff-only", { cwd: A });
+    waitForNextSecond();
+    const cut2 = JSON.parse(run(A, CUT).stdout);
+    const rec2 = JSON.parse(run(A, `${RECORD} ${cut2.branch}`).stdout);
+    assertEq("the next release measures from the previous release record", rec2.since_reason, "prior_release");
+    assertEq("and its lower bound IS the previous cut", rec2.since_ref, cut1.sha);
+    // The range is LITERAL — every base commit between the two cuts, the promotion's own
+    // record and confirmation commits included. That is the property worth keeping: the
+    // recorded count is exactly what `git log since_ref..cut_sha` replays, so a reader can
+    // re-derive it. A filter that hid bookkeeping would have to identify it by subject,
+    // and the moment it guessed wrong the record would stop being verifiable.
+    assertEq("the recorded count is exactly what git log replays", rec2.carried_count,
+      Number(execSync(`git rev-list --count ${cut1.sha}..${cut2.sha}`, { cwd: A, encoding: "utf8" }).trim()));
+    assertTrue("and the work that landed since is named", readFileSync(join(A, rec2.path), "utf8").includes("Add third unit"));
+
+    // ---- "which releases reached production" is one grep ----
+    const confirmed = execSync(`grep -l '^status: confirmed' .workaholic/releases/*.md`, { cwd: A, encoding: "utf8" }).trim().split("\n");
+    assertEq("grep alone answers which releases reached production", confirmed, [rec1.path]);
+
+    // ---- the area is a first-class OKF area, like every other .workaholic/ tree ----
+    assertTrue("releases/ carries its own OKF index", existsSync(join(A, ".workaholic/releases/index.md")));
+    assertTrue("and the bundle root links it",
+      readFileSync(join(A, ".workaholic/index.md"), "utf8").includes("releases/index.md"));
+
+    // ---- the existing per-unit artifacts are untouched by all of this ----
+    assertTrue("the release tier adds nothing to release-notes/",
+      !existsSync(join(A, ".workaholic/release-notes")), "release-notes/ should not have been created");
+  } finally {
+    for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
 // ---------- check-deps/check.sh (dependency guard + stale-install diagnostics) ----------
 // The pre-check is trivially ok (single-plugin layout), but it also surfaces the
 // loaded version and asserts the three PreToolUse Bash guards are registered, so a
@@ -9693,6 +9827,7 @@ const tests = [
   ["report/shrink-pr-body.sh never drops the Handoff section", testShrinkKeepsHandoff],
   ["report/create-or-update.sh takes the update path for an existing PR", testCreateOrUpdatePaths],
   ["branching/cut-release-branch.sh (the release/* staging tier)", testCutReleaseBranch],
+  ["ship: a release branch's durable record answers what shipped, and when", testReleaseRecord],
 ];
 
 for (const [label, fn] of tests) {

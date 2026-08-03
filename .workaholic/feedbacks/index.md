@@ -354,4 +354,7 @@
 * [Low-severity concerns are filtered at render, kept at extract](20260803212853-low-severity-concerns-are-filtered-at-render-kept-at-extract.md)
 * [A pre-fix degenerate record keeps its degenerate id](20260803220438-a-pre-fix-degenerate-record-keeps.md)
 * [The ASCII 6-word truncation collision remains by design](20260803220438-the-ascii-6-word-truncation-collision.md)
+* [A mis-graded severity now hides a concern from review, not just from a sort order](20260803221121-a-mis-graded-severity-now-hides.md)
+* [Section numbers are now unstable, and nothing stops a future consumer keying on one](20260803221121-section-numbers-are-now-unstable-and.md)
+* [The Motivation fold is a prose contract with no machine check](20260803221121-the-motivation-fold-is-a-prose.md)
 <!-- okf:generated:end -->

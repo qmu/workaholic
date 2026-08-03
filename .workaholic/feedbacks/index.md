@@ -351,4 +351,5 @@
 * [A mission slug is still unbounded, and other consumers may have their own limits](20260801210418-a-mission-slug-is-still-unbounded.md)
 * [The legacy subject branch has no expiry](20260801210418-the-legacy-subject-branch-has-no.md)
 * [Throttle repeat drive-blocked notifications for the same unresolved condition](20260802140323-throttle-repeat-drive-blocked-notifications-for-the-same-unresolved-condition.md)
+* [Make `/workaholify` a per-developer setup with event-scoped routines and no fixed channel convention](20260803125843-make-workaholify-a-per-developer-setup-with-event-scoped-routines-and-no-fixed-channel-convention.md)
 <!-- okf:generated:end -->

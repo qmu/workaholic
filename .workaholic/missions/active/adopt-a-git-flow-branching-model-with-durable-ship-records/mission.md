@@ -155,3 +155,7 @@ Provisional (see Scope). The demanded, observable behavior:
 - 2026-08-03 — ticket archived — 20260801184803-record-what-a-release-branch-shipped.md
 - 2026-08-03 — story reported — work-20260803-212310.md
 - 2026-08-03 — run recorded (+0.7h) — work-20260803-212310
+- 2026-08-03 — concern deferred (stuck) — 20260803222459-a-mission-s-acceptance-cannot-be.md
+- 2026-08-03 — concern deferred (stuck) — 20260803222459-the-promotion-has-no-entry-point.md
+- 2026-08-03 — concern deferred (stuck) — 20260803222459-the-carried-range-includes-the-promotion.md
+- 2026-08-03 — concern deferred (stuck) — 20260803222459-the-record-s-confirmation-is-not.md

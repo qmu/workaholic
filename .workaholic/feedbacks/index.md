@@ -366,4 +366,8 @@
 * [README.md still describes the retired `/mission approve` flow](20260803221906-readme-md-still-describes-the-retired.md)
 * [The link-stamping step is prose, enforced only by tests over that prose](20260803221906-the-link-stamping-step-is-prose.md)
 * [v1.0.119 may collide with a concurrently driven sibling unit](20260803221906-v1-0-119-may-collide-with.md)
+* [A mission's acceptance cannot be ticked when its items carry no artifact marker](20260803222459-a-mission-s-acceptance-cannot-be.md)
+* [The carried range includes the promotion's own bookkeeping commits](20260803222459-the-carried-range-includes-the-promotion.md)
+* [The promotion has no entry point of its own](20260803222459-the-promotion-has-no-entry-point.md)
+* [The record's confirmation is not connected to the deployment contract's method list](20260803222459-the-record-s-confirmation-is-not.md)
 <!-- okf:generated:end -->

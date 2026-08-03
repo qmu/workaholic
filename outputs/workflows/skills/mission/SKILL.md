@@ -2,18 +2,15 @@
 name: mission
 description: Use when the user runs `/mission`, asks to "start a mission", "plan a batch of work", "show mission progress", or "what missions are in flight". A mission is an optional, epic-equivalent grouping — a bounded, information-rich batch of tickets an agent fleet drives together, never a required parent of any ticket; this skill creates one, lists missions with computed progress, and defines the mission schema every workflow reads.
 allowed-tools: Bash
-user-invocable: false
-metadata:
-  internal: true
 ---
 
 # Mission
 
-A **mission** is a first-class knowledge artifact: an **optional, epic-equivalent grouping of tickets** — a fairly immediate developer request, interrogated to question-free drive-readiness, that bundles the ordered ticket set an agent fleet drives through together (typically overnight). It carries the information-rich statement of *what this batch of tickets accomplishes* and *how far it has come*, with a machine-readable web of relations to the tickets, stories, and concerns that advance it. The mission is bounded, not long-lived — and **never a required parent**: the ticket stays the first-class standalone unit, and `/ticket` → `/drive` with no mission is a fully sanctioned path. Long-lived *direction* accretes in the feedback stream (`workaholic:feedback`; `docs/loop-engineering-workflow.md`, decisions B3/B5).
+A **mission** is a first-class knowledge artifact: an **optional, epic-equivalent grouping of tickets** — a fairly immediate developer request, interrogated to question-free drive-readiness, that bundles the ordered ticket set an agent fleet drives through together (typically overnight). It carries the information-rich statement of *what this batch of tickets accomplishes* and *how far it has come*, with a machine-readable web of relations to the tickets, stories, and concerns that advance it. The mission is bounded, not long-lived — and **never a required parent**: the ticket stays the first-class standalone unit, and `/ticket` → `/drive` with no mission is a fully sanctioned path. Long-lived *direction* accretes in the feedback stream (`feedback`; `docs/loop-engineering-workflow.md`, decisions B3/B5).
 
-Distinguish the terms and never conflate them (`workaholic:planning` / `terminology`):
+Distinguish the terms and never conflate them (`planning` / `terminology`):
 
-- **feedback** — the inbound stream of project context (`workaholic:feedback`); long-lived **direction** lives here, as accumulated insights and instructions. It answers *why is this work being launched*.
+- **feedback** — the inbound stream of project context (`feedback`); long-lived **direction** lives here, as accumulated insights and instructions. It answers *why is this work being launched*.
 - **mission** — an **optional, epic-equivalent grouping**: a bounded batch of tickets with acceptance criteria and an append-only changelog. It answers *what does this batch of tickets accomplish together*. A mission finishes; the stream persists.
 - **epic / milestone** — generic project-management words this repo deliberately does **not** use as artifact names. "Mission" is the word for this level.
 
@@ -23,7 +20,7 @@ See the **Granularity** section below for the full commit → ticket → mission
 
 ## Granularity
 
-The **single home** of the granularity discipline (`workaholic:planning` / `modeling-centric-design`). Four description layers each describe code change and its planning at *their own* level, and **no artifact restates a lower level's detail**:
+The **single home** of the granularity discipline (`planning` / `modeling-centric-design`). Four description layers each describe code change and its planning at *their own* level, and **no artifact restates a lower level's detail**:
 
 | Layer | Answers | Size | Normalized by |
 | --- | --- | --- | --- |
@@ -31,19 +28,19 @@ The **single home** of the granularity discipline (`workaholic:planning` / `mode
 | **ticket** | *what is this one change* (a single drive-able unit) | one `/drive` pass, with its own `## Quality Gate` | its `## Policies` / `## Quality Gate` |
 | **mission** | *what does this batch of tickets accomplish together* (optional — a ticket needs no mission) | hours of agent time; a fairly immediate request interrogated to question-free readiness | the Creation Interrogation |
 
-"Why is this work being launched" is answered one level up by the **feedback stream** (`workaholic:feedback`) — accumulated direction, not an artifact layer of its own.
+"Why is this work being launched" is answered one level up by the **feedback stream** (`feedback`) — accumulated direction, not an artifact layer of its own.
 
 **The balance test cuts both ways.** A mission that re-narrates its tickets' specifics is **over-written** — trust the ticket to hold the detail. A ticket that says essentially what its mission says means the **mission is under-sized** — a mission must be bigger than any one ticket; surface that and merge, do not write the duplicate. Neither is "add more words"; both are "put each fact at exactly one level".
 
 ### Redefinition record
 
-Recorded here so it is not re-litigated (`workaholic:planning` / `terminology`):
+Recorded here so it is not re-litigated (`planning` / `terminology`):
 
 - **First meaning** (before 2026-07-21): "mission" was the long-lived container — "a durable goal spanning many tickets over a long horizon; it outlives any single branch or session".
 - **Second meaning** (2026-07-21): "the overnight-executable execution plan of a strategy" — bounded, with longevity moved up to a new `strategy` artifact. Reason: the mission was playing two roles at once — the executable unit *and* the long-lived goal container. Provenance: mission `reorganize-missions-under-strategies`.
 - **Current meaning** (2026-07-28): an **optional, epic-equivalent grouping of tickets** — bounded, never a required parent. The strategy layer is **retired**: direction accretes in the feedback stream instead of a second direction artifact (two homes would drift), and mission ownership returned to the mission itself. The 2026-07-21 phrase is superseded on both ends — the strategy end and the mandatory-sounding framing (`docs/loop-engineering-workflow.md`, decisions B3/B5; provenance: mission `loop-engineering-foundation`). Retired strategies survive verbatim as feedback records (`migrate-strategies.sh`).
 
-Every other place that touches granularity **links here** rather than restating it (`workaholic:create-ticket`, `workaholic:commit`).
+Every other place that touches granularity **links here** rather than restating it (`create-ticket`, `commit`).
 
 ## Lifecycle — one status axis
 
@@ -67,7 +64,7 @@ Transitions, and **who** performs each — every flip is a script, never a hand-
 
 ### Redefinition record — `status: draft` retired; the merge is the approval
 
-Recorded here so it is not re-litigated (`workaholic:planning` / `terminology`): **`draft` and `approved` are retired into the single in-flight state `active`** (2026-07-31 — `docs/loop-engineering-workflow.md` decision K1), and **merging a mission's pull request is its approval**.
+Recorded here so it is not re-litigated (`planning` / `terminology`): **`draft` and `approved` are retired into the single in-flight state `active`** (2026-07-31 — `docs/loop-engineering-workflow.md` decision K1), and **merging a mission's pull request is its approval**.
 
 `draft` made sense in the world it was designed for: `/propose` pushed a mission straight to `main` (J1), so *something* had to stop `/drive` claiming work nobody had looked at. **J4 replaced that premise** — every artifact now arrives behind a PR — and the flag stayed, so a mission was reviewed once in its PR and then gated a second time by `/mission approve`, whose only remaining job was to undo the first gate. The observable cost was six active missions on `main`, every one unclaimable, and `/drive` reporting `pending` tick after tick.
 
@@ -83,11 +80,11 @@ Consequences, stated so no reader has to infer them:
 
 ### Merge policy — the orthogonal axis
 
-`merge_policy: auto | review` is a **separate** axis from the lifecycle (decision G5): **may this mission's completed units merge automatically, or must a human review the PR?** It is recorded at **creation** (K2 — `create.sh`'s optional third argument, and empty from `scaffold-draft.sh`), adopting the ticket rule exactly: **absent means `review`**, the conservative default, so a mission that arrives with no policy routes to a PR. It used to be recorded at approval, which no longer exists; one creation-time rule now covers missions and tickets alike — see `workaholic:create-ticket`.
+`merge_policy: auto | review` is a **separate** axis from the lifecycle (decision G5): **may this mission's completed units merge automatically, or must a human review the PR?** It is recorded at **creation** (K2 — `create.sh`'s optional third argument, and empty from `scaffold-draft.sh`), adopting the ticket rule exactly: **absent means `review`**, the conservative default, so a mission that arrives with no policy routes to a PR. It used to be recorded at approval, which no longer exists; one creation-time rule now covers missions and tickets alike — see `create-ticket`.
 
 ## Agent Compatibility
 
-This skill works on any Agent-Skills-compatible agent. Where a step uses `AskUserQuestion` (the `/mission` command's create/list choice), use the agent's native selection prompt; only the mechanism varies. All logic lives in the bundled POSIX scripts, which run identically everywhere.
+This skill works on any Agent-Skills-compatible agent. Where a step uses the agent's selection prompt (the `/mission` command's create/list choice), use the agent's native selection prompt; only the mechanism varies. All logic lives in the bundled POSIX scripts, which run identically everywhere.
 
 ## Allowed Location
 
@@ -99,7 +96,7 @@ A mission lives in one of two areas — mirroring the tickets `todo/`-vs-`archiv
 .workaholic/missions/index.md                    # regenerated by okf/refresh-index.sh, one entry per mission per area
 ```
 
-A mission is written either by `create.sh` (whose Creation Interrogation fills it before the publish commit) or by the `/propose` batch (`workaholic:propose` — `scaffold-draft.sh`, which additionally leaves it unowned, `assignees: []`, and carries a `feedback:` list naming the records it grew from, read via the propose skill's single reader `read-feedback-relation.sh`). Either way it lands in `active/` and reaches `main` — and therefore every runner's survey — only when its pull request merges. A mission that is in flight but carries no acceptance items reports `ready_reason: "no_plan"` in `list.sh` and is excluded from `/drive`'s offer for the same reason.
+A mission is written either by `create.sh` (whose Creation Interrogation fills it before the publish commit) or by the `/propose` batch (`propose` — `scaffold-draft.sh`, which additionally leaves it unowned, `assignees: []`, and carries a `feedback:` list naming the records it grew from, read via the propose skill's single reader `read-feedback-relation.sh`). Either way it lands in `active/` and reaches `main` — and therefore every runner's survey — only when its pull request merges. A mission that is in flight but carries no acceptance items reports `ready_reason: "no_plan"` in `list.sh` and is excluded from `/drive`'s offer for the same reason.
 
 `<slug>` is derived from the title: lowercased, every run of non-`[a-z0-9]` characters collapsed to a single hyphen, leading/trailing hyphens trimmed (e.g. `"Real-time Notifications"` → `real-time-notifications`). One directory per mission; the directory name **is** the slug and is the stable key other artifacts reference (`mission: <slug>`). The area is **never** part of that key — seams pass bare slugs and the scripts resolve the location, so a mission's move to `archive/` breaks no relation.
 
@@ -138,9 +135,9 @@ The `tickets` / `stories` lists are reserved for the machine-readable relations 
 ### Body sections, in order
 
 - `## Goal` — the information-rich "why": business grounding and the outcome the mission pursues.
-- `## Experience` — **the mission's substance**: the user experience, the demanded behavior, and/or the overall structure it pursues. Where `## Goal` says *why* the work is worth doing, this says *what the thing does*. Keep it observable (`workaholic:implementation` / `objective-documentation`) — "the list reorders without a reload" is checkable; "feels fast" is not. This is the persistent content a kickoff-time `gate_*` could never be, and it is what a later session reads to know what is actually demanded.
-- `## Acceptance` — a checklist, and **the mission's plan**: each item names the ticket expected to satisfy it — through a `(#<filename>)` link that the **emission seam stamps** rather than the author typing it (decided 2026-08-03; see the reference's *link contract*), so the list doubles as the route to completion. **Three items or fewer** — see *Size norms* below. **Progress toward achievement is `checked ÷ total`, computed from this list, never a hand-set number** (`workaholic:implementation` / `objective-documentation`). An unchecked item is a **heading, not a specification** — re-check it against the source before cutting its ticket (see the checklist convention below).
-- `## Changelog` — an append-only, dated, human-readable timeline (`workaholic:design` / `history-structures`).
+- `## Experience` — **the mission's substance**: the user experience, the demanded behavior, and/or the overall structure it pursues. Where `## Goal` says *why* the work is worth doing, this says *what the thing does*. Keep it observable (`implementation` / `objective-documentation`) — "the list reorders without a reload" is checkable; "feels fast" is not. This is the persistent content a kickoff-time `gate_*` could never be, and it is what a later session reads to know what is actually demanded.
+- `## Acceptance` — a checklist, and **the mission's plan**: each item names the ticket expected to satisfy it — through a `(#<filename>)` link that the **emission seam stamps** rather than the author typing it (decided 2026-08-03; see the reference's *link contract*), so the list doubles as the route to completion. **Three items or fewer** — see *Size norms* below. **Progress toward achievement is `checked ÷ total`, computed from this list, never a hand-set number** (`implementation` / `objective-documentation`). An unchecked item is a **heading, not a specification** — re-check it against the source before cutting its ticket (see the checklist convention below).
+- `## Changelog` — an append-only, dated, human-readable timeline (`design` / `history-structures`).
 
 **`## Scope` was removed from the template on 2026-08-01**, deleted rather than made optional: no validator, script, or hook ever read it, so it was pure authoring cost, and `## Goal` (why) plus `## Experience` (what) already carry what it was reaching for. Missions written before that date still have the section — it is left verbatim as history and read by nothing. **A carried successor does not inherit it**: the successor is scaffolded from the template, so there is no `## Scope` heading for a carry to land in, and copying one would re-introduce a retired section into a *new* mission — the opposite of the removal's point. The predecessor keeps its own section as history.
 
@@ -155,7 +152,7 @@ Missions became hard to *finish*, and the diagnosis matters: the gates were not 
 
 **The three-item rule is the one doing the real work.** Write only the minimum conditions under which the work can be called done. Exhaustive coverage, per-file checklists, and future audit items do not belong in a mission — they belong in tickets and the feedback stream. The line and byte ceiling is a **backstop**: a mission can meet 2 KB by saying less and meaning less, so it shapes the artifact rather than the thinking.
 
-**Norm for a human, gate for the batch** — the asymmetry is deliberate. A developer authoring a mission is present and exercising judgment, so `size.sh` *reports* and the interrogation shows the measurement; a hard refusal would fire on legitimately larger work, and a gate that refuses good work is worse than a norm that guides it. `/propose` writes **unattended**, with no judgment to exercise and nobody to show a measurement to, so the same ceiling is enforced on its proposals — its scaffold reports the measurement on every mission it writes (`workaholic:propose`).
+**Norm for a human, gate for the batch** — the asymmetry is deliberate. A developer authoring a mission is present and exercising judgment, so `size.sh` *reports* and the interrogation shows the measurement; a hard refusal would fire on legitimately larger work, and a gate that refuses good work is worse than a norm that guides it. `/propose` writes **unattended**, with no judgment to exercise and nobody to show a measurement to, so the same ceiling is enforced on its proposals — its scaffold reports the measurement on every mission it writes (`propose`).
 
 **This is a ceiling, and lowering a ceiling is not loosening a floor.** The write-time floor is untouched in substance: `hooks/validate-mission.sh` still requires a non-empty `## Experience` and **at least one** `## Acceptance` item — now on **any** active mission rather than on an approved one, since `draft` was retired (K1/K2). Its ownership half was dropped deliberately, on its own reasoning; a later reader must not mistake the size ceiling for that relaxation.
 
@@ -181,27 +178,27 @@ When `/mission "<title>"` creates a mission, **interrogate the developer until t
 
 `create.sh` is a POSIX scaffold: it writes the sections as HTML comments and cannot ask anything (`allowed-tools: Bash`), and it must not. The interrogation is the command's job, and this section is the protocol it follows.
 
-**Why it is mandatory.** A mission's whole value is that judgement is answered *before* the work starts. `workaholic:development` / `overnight-ai`: *"identify in advance the points where AI would want to ask for judgment and write the answers to those questions into the ticket. We eliminate the causes of stopping in the night before the run starts."* A mission scaffolded with empty sections is an empty shell that stops the first time it meets a decision — and, because the mission lens's signal gate silences a `0/0` mission, it is an empty shell **nobody can see**.
+**Why it is mandatory.** A mission's whole value is that judgement is answered *before* the work starts. `development` / `overnight-ai`: *"identify in advance the points where AI would want to ask for judgment and write the answers to those questions into the ticket. We eliminate the causes of stopping in the night before the run starts."* A mission scaffolded with empty sections is an empty shell that stops the first time it meets a decision — and, because the mission lens's signal gate silences a `0/0` mission, it is an empty shell **nobody can see**.
 
-**Grill; do not tick a box.** The bar is a *structured model* — the demanded behavior, the ticket plan, the order — not a question count and not a Q&A transcript pasted into a file (`workaholic:planning` / `modeling-centric-design`). Ask as many rounds as it takes — but apply the **Recommended-label test** (`rules/interaction.md`) to every round: if you could honestly recommend an answer, **do not ask it** — decide it, record the decision where the plan is written (the mission `## Changelog`, or the relevant ticket's `## Quality Gate`), and let the developer veto it. "As many rounds as it takes" therefore means as many *unrecommendable* rounds as it takes: the grilling is undiminished on the genuine forks, and silent on the calls you could already make. Where uncertainty is high, prove it small before emitting the set (`workaholic:planning` / `verify-before-building`): with no human gate downstream of approval, an unverified premise is not caught at ticket 3 — it is concretized across the whole mission.
+**Grill; do not tick a box.** The bar is a *structured model* — the demanded behavior, the ticket plan, the order — not a question count and not a Q&A transcript pasted into a file (`planning` / `modeling-centric-design`). Ask as many rounds as it takes — but apply the **Recommended-label test** (`rules/interaction.md`) to every round: if you could honestly recommend an answer, **do not ask it** — decide it, record the decision where the plan is written (the mission `## Changelog`, or the relevant ticket's `## Quality Gate`), and let the developer veto it. "As many rounds as it takes" therefore means as many *unrecommendable* rounds as it takes: the grilling is undiminished on the genuine forks, and silent on the calls you could already make. Where uncertainty is high, prove it small before emitting the set (`planning` / `verify-before-building`): with no human gate downstream of approval, an unverified premise is not caught at ticket 3 — it is concretized across the whole mission.
 
 ### Read the recent feedback stream (before the rounds)
 
-Before interrogating, read back what recent runs learned: `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/list.sh` returns the feedback stream newest-first. Read the `kind: concern` and `kind: insight` records an unattended `/drive` deferred — every judgment call it met and recorded instead of asking lands there — and fold the recurring ones into round 4's per-ticket pre-answers: a decision that leaked into a past night is exactly the question the next mission should pre-answer rather than meet again in the dark (`workaholic:development` / `overnight-ai`). This closes the loop: planning quality is measured by how few judgment calls leak into the night, and the stream is the record of which ones did.
+Before interrogating, read back what recent runs learned: `bash feedback/scripts/list.sh` returns the feedback stream newest-first. Read the `kind: concern` and `kind: insight` records an unattended `/drive` deferred — every judgment call it met and recorded instead of asking lands there — and fold the recurring ones into round 4's per-ticket pre-answers: a decision that leaked into a past night is exactly the question the next mission should pre-answer rather than meet again in the dark (`development` / `overnight-ai`). This closes the loop: planning quality is measured by how few judgment calls leak into the night, and the stream is the record of which ones did.
 
 ### Elicit the requirements first — the *what*, before any plan (the highest-leverage gate)
 
 **Plan quality gates everything. No amount of downstream verification rescues a plan built on a wrong understanding of the goal** — an unattended run faithfully amplifies a shallow plan into hours of unusable output, and "the artifact exists / the tests pass" cannot see whether the *thing itself* was the wrong thing. So the first job of the interrogation is not the ticket set; it is to **draw out of the developer the requirements the agent cannot derive** from the code, the ticket title, or the repo: what a user must actually be able to *do*, what a **correct/good output looks like (ask for a concrete example)**, and the **real end-to-end workflow**. Ask specific, concrete questions about the actual unknowns the plan depends on — never a generic "any feedback?".
 
-This is a distinct discipline from the **decide-don't-ask** rule the execution phase follows (`workaholic:drive`'s *Where the per-ticket approval prompt went*): that rule governs **execution-time decidable choices** (which fixable failure to retry, finalize-now vs. push) — the *how* — and rightly says decide, do not offload. **Requirements elicitation is the opposite case: the *what*, which the developer holds and the agent cannot derive.** Decide the *how*; never assume the *what*. The two do not conflict once separated, and the decide-don't-ask rule must not be over-read into "don't elicit requirements."
+This is a distinct discipline from the **decide-don't-ask** rule the execution phase follows (`drive`'s *Where the per-ticket approval prompt went*): that rule governs **execution-time decidable choices** (which fixable failure to retry, finalize-now vs. push) — the *how* — and rightly says decide, do not offload. **Requirements elicitation is the opposite case: the *what*, which the developer holds and the agent cannot derive.** Decide the *how*; never assume the *what*. The two do not conflict once separated, and the decide-don't-ask rule must not be over-read into "don't elicit requirements."
 
 Three hard gates on this step:
 
 - **A developer's invitation to ask is a hard gate.** If the developer signals "ask me what you need to firm this up", failing to ask is a **planning defect**, not efficiency — the one time the elicitation is most owed is exactly when it was invited.
 - **A user-facing feature may not be planned from a title.** The plan must encode what *usable* means for a real person, because the agent's own checks cannot see usability. For user-facing work, require an **example of a good output** and a **walked end-to-end workflow** before the plan is committed.
-- **If the goal is not yet understood well enough to write verifiable, user-experience-level `## Acceptance` criteria, the plan is not ready** — keep eliciting; do not start building. Long autonomous execution on an un-elicited plan is the anti-pattern this gate exists to prevent (`workaholic:planning`; `workaholic:development` / `overnight-ai`).
+- **If the goal is not yet understood well enough to write verifiable, user-experience-level `## Acceptance` criteria, the plan is not ready** — keep eliciting; do not start building. Long autonomous execution on an un-elicited plan is the anti-pattern this gate exists to prevent (`planning`; `development` / `overnight-ai`).
 
-Every genuine requirements question is a legitimate `AskUserQuestion` — it is precisely the "developer holds information you cannot derive" fork the Recommended-label test never silences (`rules/interaction.md`).
+Every genuine requirements question is a legitimate the agent's selection prompt — it is precisely the "developer holds information you cannot derive" fork the Recommended-label test never silences (`rules/interaction.md`).
 
 ### The rounds
 
@@ -229,7 +226,7 @@ Write the tickets **in one pass**, not N serial `create-ticket` runs. Each carri
 
 **The split cap does not apply to a mission — a deliberate, scoped exception.** `create-ticket` §4 caps a split at "2–4 discrete tickets", which is right for one request that turns out to be several. A mission is the opposite case: an execution plan that bundles *many* tickets by definition, and "a complete set to drive through one by one" is the requirement. Capping it at 4 would force either an incomplete plan or a fake ticket boundary. A mission decomposition answers to its own rule: **one ticket per genuinely separable unit of work, however many that is**. The cap still applies to `/ticket` itself; this exception is mission-scoped and stated here so it is not a silent violation.
 
-**Stamp the duration prediction at the end of emission — as a report line, never a question.** Once the ticket set and `## Acceptance` are written, run `predict-duration.sh <acceptance-item-count>`: when `basis > 0`, stamp `predicted_hours` and state the number and its basis to the developer honestly ("predicted 6.0h from 2 archived missions"); when `basis: 0` (today's state, no archive), leave `predicted_hours` empty and record a `duration predicted (archive basis 0)` changelog note rather than dressing a guess as data (`workaholic:planning` / `verify-before-building`). Never ask the developer for an estimate — the predictor answers this, and `actual_hours` is filled later by `/drive` (`record-run-hours.sh`).
+**Stamp the duration prediction at the end of emission — as a report line, never a question.** Once the ticket set and `## Acceptance` are written, run `predict-duration.sh <acceptance-item-count>`: when `basis > 0`, stamp `predicted_hours` and state the number and its basis to the developer honestly ("predicted 6.0h from 2 archived missions"); when `basis: 0` (today's state, no archive), leave `predicted_hours` empty and record a `duration predicted (archive basis 0)` changelog note rather than dressing a guess as data (`planning` / `verify-before-building`). Never ask the developer for an estimate — the predictor answers this, and `actual_hours` is filled later by `/drive` (`record-run-hours.sh`).
 
 ## Replan (re-entering the interrogation)
 
@@ -245,7 +242,7 @@ The sanctioned path to **reopen an existing active mission's plan** — reached 
 | the plan (more/changed work) | 3–5, for the delta tickets |
 | a thin mission (`0/0`, empty sections) | all five |
 
-The bar equals creation's: a structured **delta model** — what changes, which tickets, in what order — not a Q&A transcript (`workaholic:planning` / `modeling-centric-design`), grilled until the delta is drive-ready. The **Recommended-label test** applies exactly as at creation (`rules/interaction.md`): a delta decision you could honestly recommend is decided-and-recorded (a `## Changelog` line or the delta ticket's `## Quality Gate`), not asked; only the unrecommendable forks reach an `AskUserQuestion`. `gate_*` is never interrogated, exactly as at creation.
+The bar equals creation's: a structured **delta model** — what changes, which tickets, in what order — not a Q&A transcript (`planning` / `modeling-centric-design`), grilled until the delta is drive-ready. The **Recommended-label test** applies exactly as at creation (`rules/interaction.md`): a delta decision you could honestly recommend is decided-and-recorded (a `## Changelog` line or the delta ticket's `## Quality Gate`), not asked; only the unrecommendable forks reach an the agent's selection prompt. `gate_*` is never interrogated, exactly as at creation.
 
 **What the delta may touch** — everything the Creation Interrogation produces, applied as a delta: rewrite `## Goal` / `## Experience` (and a legacy `## Scope` if the mission still carries one); append `## Acceptance` items (observable); emit delta tickets in one pass (the same emission rules, including the mission-scoped split-cap exception **and the link-stamping step** — a replan is an emission seam, so it links its new items with `link-acceptance.sh`, and it is the sanctioned route by which a mission whose items predate this contract gets linked at all); run the approval under the conditions below.
 
@@ -253,7 +250,7 @@ The bar equals creation's: a structured **delta model** — what changes, which 
 
 - `status` — only `close.sh` (→ an end state) flips it; there is no other transition left.
 - the checked state of existing `## Acceptance` items — only `tick-acceptance.sh` flips those.
-- existing `## Changelog` lines — append-only, always (`workaholic:design` / `history-structures`).
+- existing `## Changelog` lines — append-only, always (`design` / `history-structures`).
 
 An existing **unchecked** acceptance item may be reworded or dropped **only** when the developer explicitly says the criterion no longer holds — and the drop is recorded as its own changelog line (`acceptance dropped — <the item's (#filename) artifact>`), so the plan's shrinkage is history rather than a silent rewrite.
 
@@ -273,7 +270,7 @@ An existing **unchecked** acceptance item may be reworded or dropped **only** wh
 2. **What is next** — the next unchecked acceptance item, from `next-acceptance.sh`.
 3. **How far a fresh session can proceed** — what is ready to drive right now, and what is waiting on a decision or an external blocker. This is the part a later session cannot reconstruct, and the reason the report exists.
 
-Read every figure through those scripts (`workaholic:implementation` / `domain-layer-separation`); never parse `mission.md` to answer this. The relation is **many-valued** — read it with `read-relation.sh` and report **every** mission the work advances, not the first.
+Read every figure through those scripts (`implementation` / `domain-layer-separation`); never parse `mission.md` to answer this. The relation is **many-valued** — read it with `read-relation.sh` and report **every** mission the work advances, not the first.
 
 **It is a report, never a prompt.** It states position and continues; it must not grow into a "shall I proceed?" — the whole direction is *less* confirmation.
 
@@ -289,7 +286,7 @@ Read every figure through those scripts (`workaholic:implementation` / `domain-l
 
 `/report` and `/ship` roll missions but do **not** carry this report. Their audience is the PR reviewer, and the story's own sections already say what landed; adding mission position there would duplicate `/catch` and the lens for a reader who did not ask. The report exists for **continuity across a session boundary** — that is `/mission close` and an unfinished `/drive` unit, where the context is otherwise lost. Decided rather than defaulted; revisit if a reviewer ever has to ask "which mission is this?".
 
-The dedicated hand-off command that once owned the first row is retired (`docs/loop-engineering-workflow.md` decision I5): in-flight state now lives on the **claim branch** by construction — the next run re-claims the unit with `claim.sh resume <unit-id>` and continues from the pushed work — so a resumption ticket written by hand would restate what the branch already holds. Resumption is scoped to the claim's **own** identity and fires once its heartbeat lapses; a colleague's claim is never taken over (`workaholic:drive`, *Claims*).
+The dedicated hand-off command that once owned the first row is retired (`docs/loop-engineering-workflow.md` decision I5): in-flight state now lives on the **claim branch** by construction — the next run re-claims the unit with `claim.sh resume <unit-id>` and continues from the pushed work — so a resumption ticket written by hand would restate what the branch already holds. Resumption is scoped to the claim's **own** identity and fires once its heartbeat lapses; a colleague's claim is never taken over (`drive`, *Claims*).
 
 ## Progress Rule
 
@@ -297,7 +294,7 @@ Progress toward achievement is **derived, never stored**: `checked ÷ total` ove
 
 ## Scripts
 
-Every script lives at `${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/<name>`. **This table is a locator, not a contract** — each script's arguments, emitted JSON keys, idempotence, and the rulings behind it are in [`reference/scripts.md`](reference/scripts.md). Read that entry before running one.
+Every script lives at `mission/scripts/<name>`. **This table is a locator, not a contract** — each script's arguments, emitted JSON keys, idempotence, and the rulings behind it are in [`reference/scripts.md`](reference/scripts.md). Read that entry before running one.
 
 | Script | What it does |
 | ------ | ------------ |
@@ -326,9 +323,9 @@ Every script lives at `${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/<name>`. **T
 
 ### Worktree lifecycle — claim-born and ship-torn
 
-A mission's `.worktrees/<slug>/` worktree belongs to the **claim**, not to the mission record (`docs/loop-engineering-workflow.md` I6). It is created when a runner claims the unit (`workaholic:drive`'s *Claims* section — `claim.sh` cuts the worktree and its `work-*` branch together) and removed when that unit **ships**, or when its claim is explicitly **discarded** (`release-claim.sh`, which deletes the remote branch and is therefore not a recovery path). An unfinished mission is re-claimed by a later tick through `claim.sh resume <slug>`, which recreates the worktree **at the pushed branch tip** so the earlier run's commits and archived tickets survive.
+A mission's `.worktrees/<slug>/` worktree belongs to the **claim**, not to the mission record (`docs/loop-engineering-workflow.md` I6). It is created when a runner claims the unit (`drive`'s *Claims* section — `claim.sh` cuts the worktree and its `work-*` branch together) and removed when that unit **ships**, or when its claim is explicitly **discarded** (`release-claim.sh`, which deletes the remote branch and is therefore not a recovery path). An unfinished mission is re-claimed by a later tick through `claim.sh resume <slug>`, which recreates the worktree **at the pushed branch tip** so the earlier run's commits and archived tickets survive.
 
-**And creation makes none either** (decision J1, 2026-07-30 — the completion of I6). `/mission` once built the worktree before writing anything and committed inside it without pushing, which left a mission invisible to `plan-units.sh` — the failure `docs/drive-loop-runbook.md` §6 documented and `claim.sh` carried a tolerance comment for. Every mission write now goes into a **publish tree** and is published for merge: creation, replan, and close alike (`workaholic:branching`'s *The Publish Tree*). `claim.sh` is the only creator of a branch or a worktree anywhere in the plugin. The mission scripts themselves were not touched — they are cwd-relative and never branch or commit, so only the caller's `cd` target moved.
+**And creation makes none either** (decision J1, 2026-07-30 — the completion of I6). `/mission` once built the worktree before writing anything and committed inside it without pushing, which left a mission invisible to `plan-units.sh` — the failure `docs/drive-loop-runbook.md` §6 documented and `claim.sh` carried a tolerance comment for. Every mission write now goes into a **publish tree** and is published for merge: creation, replan, and close alike (`branching`'s *The Publish Tree*). `claim.sh` is the only creator of a branch or a worktree anywhere in the plugin. The mission scripts themselves were not touched — they are cwd-relative and never branch or commit, so only the caller's `cd` target moved.
 
 **A consequence worth expecting: an unclaimed mission owns no worktree**, so the mission lens surfaces it in the **main tree** (its location gate admits a mission that owns no worktree) rather than staying silent until you enter a directory that no longer exists at creation time. The worktree-focus rule itself is unchanged and still scopes a claim worktree's session to its own unit.
 
@@ -353,7 +350,7 @@ The status set is closed and validated — anything else is `invalid_status`:
 - The **unchecked** `## Acceptance` items, verbatim, with their `(#<filename>)` markers intact. Checked items stay with the predecessor — they were achieved *there*, and re-listing them would make the successor's computed progress claim work it did not do. The successor starts at `0/<n unmet>`, which falls out of its own list; **no number is ever carried across**.
 - `## Goal` and the `gate_*` fields, verbatim (**not** `## Scope` — see above). A carry-over is a **continuation** by definition — the mission is done as framed and the remainder pursues the same outcome — so the goal is shared and the gate still applies. A genuine *re-framing* is a new mission, not a carry.
 
-**Lineage is recorded in both directions** (`workaholic:design` / `history-structures`): the predecessor's changelog gets `mission carried into <successor-slug>`, and the successor records `carried_from: <predecessor-slug>`. Without both, the archive shows a mission that stopped and a mission that started, with nothing joining them.
+**Lineage is recorded in both directions** (`design` / `history-structures`): the predecessor's changelog gets `mission carried into <successor-slug>`, and the successor records `carried_from: <predecessor-slug>`. Without both, the archive shows a mission that stopped and a mission that started, with nothing joining them.
 
 **The successor gets no worktree from the predecessor.** Closing manages no worktrees at all (see *Worktree lifecycle* above — they are claim-born and ship-torn), and a carry deliberately does not hand one over: `.worktrees/<slug>` is keyed 1:1 to the unit slug by `slug.sh`, and a successor living in the predecessor's directory **silences the mission lens inside that very worktree** — the lens reads a worktree whose basename names no active mission as a `/drive` worktree and says nothing at all. The successor gets its own worktree when it is claimed; in-flight state and the port allocation do not carry.
 
@@ -376,7 +373,7 @@ The three checked-vs-unchecked, inherit, and lineage rules above are unchanged �
 
 ## Automatic Updates (the workflow seams)
 
-The mutators above are called automatically as missioned work moves through the pipeline, so a mission's progress and changelog stay current without hand-editing. Each seam reads the artifact's `mission:` relation through the single reader — `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/read-relation.sh <artifact>`, which prints one slug per line — and calls the shared scripts **once per slug**:
+The mutators above are called automatically as missioned work moves through the pipeline, so a mission's progress and changelog stay current without hand-editing. Each seam reads the artifact's `mission:` relation through the single reader — `bash mission/scripts/read-relation.sh <artifact>`, which prints one slug per line — and calls the shared scripts **once per slug**:
 
 The relation is **many-valued**: an artifact records every mission it advances (`mission: [alpha, beta]`; a bare `mission: alpha` still reads as one, and is the right spelling for the common case). Looping needs no de-duplication — both mutators are keyed and idempotent, and `tick-acceptance.sh` finds nothing on a mission whose Acceptance does not list that artifact, so each mission reconciles only what it actually claims. Never re-implement the parse in a seam: the field's shape lives in `read-relation.sh` alone, and the four hand-rolled copies that used to exist all truncated a list to nothing **silently**, because every seam is best-effort (`|| true`).
 
@@ -395,7 +392,7 @@ An un-missioned artifact touches no mission. Because the appends are idempotent,
 
 ### Read-only consumers
 
-Separately from the mutating seams above, a workflow may **read** missions without writing them. `/catch` (`workaholic:catch`) is such a consumer: its scanner calls `list.sh`/`progress.sh` for the active-mission list and derived progress, window-filters each mission's `## Changelog` for merged activity, and reads the `mission:` relation on unarchived tickets to surface **in-flight** (unmerged) progress the merge-time seams cannot yet show. It appears in no seam table because a `/catch` run mutates no mission content — no changelog line, no acceptance tick. (The one tree change any reader can trigger is the living layout migration, which relocates a legacy flat mission dir without touching its bytes.)
+Separately from the mutating seams above, a workflow may **read** missions without writing them. `/catch` (`catch`) is such a consumer: its scanner calls `list.sh`/`progress.sh` for the active-mission list and derived progress, window-filters each mission's `## Changelog` for merged activity, and reads the `mission:` relation on unarchived tickets to surface **in-flight** (unmerged) progress the merge-time seams cannot yet show. It appears in no seam table because a `/catch` run mutates no mission content — no changelog line, no acceptance tick. (The one tree change any reader can trigger is the living layout migration, which relocates a legacy flat mission dir without touching its bytes.)
 
 The **mission lens** (`hooks/mission-lens.sh`) is the other read-only consumer, and an always-on one. On every `UserPromptSubmit` it injects a model-visible `additionalContext` line, and on every `Stop` a user-visible `systemMessage`, naming each **active** mission that passes all three of its gates, with derived `checked/total` and the next unchecked acceptance item (via `progress.sh` + `next-acceptance.sh`):
 

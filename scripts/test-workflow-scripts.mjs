@@ -73,6 +73,7 @@ const SCRIPTS = {
   extractDeferredConcerns: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/extract-deferred-concerns.sh"),
   commitReleaseNote: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/commit-release-note.sh"),
   shrinkPrBody: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/shrink-pr-body.sh"),
+  filterLowConcerns: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/filter-low-concerns.sh"),
   docDrift: join(REPO_ROOT, "plugins/workaholic/skills/report/scripts/doc-drift.sh"),
   checkCapability: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/check-confirmation-capability.sh"),
   posixLint: join(REPO_ROOT, "plugins/workaholic/hooks/posix-lint.sh"),
@@ -4687,6 +4688,180 @@ function testExtractDeferredConcerns() {
     const records = readdirSync(join(repo, ".workaholic/feedbacks")).filter((f) => f.endsWith("-some-real-concern.md"));
     assertEq("re-extract appends NO second record for the same id", records.length, 1);
   } finally { cleanup(repo); }
+}
+
+// ---------- the Concerns heading is matched BY NAME, never by number ----------
+// Story sections are numbered sequentially over the sections a story actually HAS,
+// and a section with nothing to report is omitted — so Concerns is section 5 on one
+// branch and 6 on the next. A consumer keyed on the number fails SILENTLY: no match
+// looks exactly like a branch that raised no concerns. Every numbering a real story
+// can present must parse, including the pre-2026-08 stories that say "## 6.".
+function testConcernsHeadingByName() {
+  const heads = ["## 5. Concerns", "## 6. Concerns", "## Concerns", "## 12. Concerns"];
+  for (const head of heads) {
+    const repo = makeRepo("main");
+    try {
+      mkdirSync(join(repo, ".workaholic/stories"), { recursive: true });
+      writeFileSync(join(repo, ".workaholic/stories/work-h.md"),
+        `---\nbranch: work-h\n---\n## 1. Overview\n\nx\n\n${head}\n\n` +
+        "### A heading-shaped concern\n\n- **Severity:** moderate\n- **Description:** desc\n- **How to Fix:** fix\n\n" +
+        "## 6. Successful Development Patterns\n\n- a pattern\n");
+      execSync(`git add -A && git commit -q -m story`, { cwd: repo });
+      const r = JSON.parse(run(repo, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-h 40 https://x/pr/40`).stdout);
+      assertEq(`extraction finds the concern under "${head}"`, r.extracted, 1);
+      assertTrue(`and does not swallow the following section under "${head}"`,
+        !readFileSync(join(repo, r.files[0]), "utf8").includes("a pattern"),
+        readFileSync(join(repo, r.files[0]), "utf8"));
+    } finally { cleanup(repo); }
+  }
+
+  // A story that OMITS the section entirely (the new normal for a clean branch)
+  // extracts nothing and does not error.
+  const repo = makeRepo("main");
+  try {
+    mkdirSync(join(repo, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/stories/work-q.md"),
+      "---\nbranch: work-q\n---\n## 1. Overview\n\nx\n\n## 2. Motivation\n\ny\n");
+    execSync(`git add -A && git commit -q -m story`, { cwd: repo });
+    const r = JSON.parse(run(repo, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-q 41 https://x/pr/41`).stdout);
+    assertEq("a story with no Concerns section extracts nothing", r.extracted, 0);
+    assertEq("and still reports ok", r.status, "ok");
+  } finally { cleanup(repo); }
+}
+
+// ---------- report/filter-low-concerns.sh (the render/extract split) ----------
+// THE DECISION THIS PINS: low-severity concerns are filtered at RENDER and kept at
+// EXTRACT. The PR body drops them; the story file — the extractor's only source —
+// keeps every severity. A test that only checked the body would pass just as well
+// for the variant that deletes knowledge, so the story file is asserted untouched
+// and re-extracted here.
+function testFilterLowConcerns() {
+  const dir = makeRepo("main");
+  const FILTER = `${POSIX_SH} ${SCRIPTS.filterLowConcerns}`;
+  try {
+    const block = (title, sev) =>
+      `### ${title}\n\n- **Severity:** ${sev}\n- **Description:** d\n- **How to Fix:** f\n\n`;
+    const storyBody =
+      "## 1. Overview\n\nfine\n\n## 5. Concerns\n\n" +
+      block("An urgent risk", "urgent") + block("A low nicety", "low") +
+      block("A moderate risk", "moderate") + block("Another low note", "low") +
+      "## 6. Notes\n\ntail\n";
+
+    const body = join(dir, "body.md");
+    writeFileSync(body, storyBody);
+    const r = JSON.parse(run(dir, `${FILTER} ${body} work-f`).stdout);
+    assertEq("the low blocks are dropped from the body", r.dropped, 2);
+    assertEq("the rest are kept", r.kept, 2);
+    const out = readFileSync(body, "utf8");
+    assertTrue("the urgent concern survives", out.includes("An urgent risk"), out);
+    assertTrue("the moderate concern survives", out.includes("A moderate risk"), out);
+    assertTrue("the low concerns are gone from the body", !out.includes("A low nicety") && !out.includes("Another low note"), out);
+    assertTrue("what was dropped is REPORTED, not silently absent",
+      out.includes("2 low-severity concerns"), out);
+    assertTrue("and the reader is pointed at the story file",
+      out.includes(".workaholic/stories/work-f.md"), out);
+    assertTrue("neighbouring sections are untouched",
+      out.includes("## 1. Overview") && out.includes("tail"), out);
+    assertTrue("the section heading keeps its own number",
+      out.includes("## 5. Concerns"), out);
+
+    // Nothing low -> byte-identical, and reported as unfiltered.
+    const clean = join(dir, "clean.md");
+    const cleanBody = "## 1. Overview\n\nfine\n\n## 5. Concerns\n\n" + block("A moderate risk", "moderate");
+    writeFileSync(clean, cleanBody);
+    const r2 = JSON.parse(run(dir, `${FILTER} ${clean} work-f`).stdout);
+    assertEq("a body with no low concerns is not filtered", r2.filtered, false);
+    assertEq("and is left byte-identical", readFileSync(clean, "utf8"), cleanBody);
+
+    // A body with no Concerns section at all is a no-op, not an error.
+    const none = join(dir, "none.md");
+    const noneBody = "## 1. Overview\n\nfine\n";
+    writeFileSync(none, noneBody);
+    const r3 = JSON.parse(run(dir, `${FILTER} ${none} work-f`).stdout);
+    assertEq("a body with no Concerns section is a no-op", r3.filtered, false);
+    assertEq("and is left byte-identical", readFileSync(none, "utf8"), noneBody);
+
+    // ALL concerns low: the section stays, with the count line, so the reviewer
+    // learns the records exist rather than seeing an empty heading.
+    const allLow = join(dir, "alllow.md");
+    writeFileSync(allLow, "## 5. Concerns\n\n" + block("Only a nicety", "low"));
+    run(dir, `${FILTER} ${allLow} work-f`);
+    const lowOut = readFileSync(allLow, "utf8");
+    assertTrue("an all-low section still says how many were dropped",
+      lowOut.includes("1 low-severity concern is recorded"), lowOut);
+  } finally { cleanup(dir); }
+
+  // THE HALF THAT MATTERS: the STORY FILE keeps every severity, so extraction is
+  // unchanged. Filtering the body cannot make a record go missing.
+  const repo = makeRepo("main");
+  try {
+    mkdirSync(join(repo, ".workaholic/stories"), { recursive: true });
+    const block = (title, sev) =>
+      `### ${title}\n\n- **Severity:** ${sev}\n- **Description:** d\n- **How to Fix:** f\n\n`;
+    const story = join(repo, ".workaholic/stories/work-g.md");
+    const storyText = "---\nbranch: work-g\n---\n## 5. Concerns\n\n" +
+      block("An urgent risk", "urgent") + block("A low nicety", "low");
+    writeFileSync(story, storyText);
+    execSync(`git add -A && git commit -q -m story`, { cwd: repo });
+
+    // Render the body from the story, filter it, and confirm the STORY is untouched.
+    const body = join(repo, "rendered.md");
+    writeFileSync(body, storyText);
+    run(repo, `${FILTER} ${body} work-g`);
+    assertEq("filtering the body never rewrites the story file",
+      readFileSync(story, "utf8"), storyText);
+
+    const r = JSON.parse(run(repo, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-g 42 https://x/pr/42`).stdout);
+    assertEq("extraction still records BOTH severities from the story file", r.extracted, 2);
+    const files = readdirSync(join(repo, ".workaholic/feedbacks")).filter((f) => f.endsWith(".md"));
+    assertTrue("including the low one the PR body dropped",
+      files.some((f) => f.endsWith("-a-low-nicety.md")), files.join(","));
+  } finally { cleanup(repo); }
+}
+
+// ---------- the story template's mirrors agree ----------
+// The template is stated in report/SKILL.md and mirrored in review-sections/SKILL.md.
+// A change applied to one mirror produces a story whose sections disagree with the
+// contract that generates them, which is invisible until a story is written.
+function testStoryTemplateMirrors() {
+  const report = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/report/SKILL.md"), "utf8");
+  const review = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/review-sections/SKILL.md"), "utf8");
+
+  // 1. Historical Analysis is folded into Motivation: no section, in either mirror.
+  assertTrue("report/SKILL.md has no Historical Analysis section",
+    !/^##+\s+(?:\d+[.)]\s*)?Historical Analysis/m.test(report), "section still present");
+  assertTrue("review-sections/SKILL.md has no Historical Analysis section",
+    !/^##+\s+(?:\d+[.)]\s*)?Historical Analysis/m.test(review), "section still present");
+  assertTrue("review-sections returns historical_context instead",
+    review.includes("historical_context"), "field missing");
+  assertTrue("and the retired historical_analysis field is gone from the contract",
+    !/"historical_analysis"\s*:/.test(review), "stale field still in the JSON contract");
+
+  // 2. Omit-when-empty: neither mirror still instructs the writer to render "None".
+  // Matched on the AFFIRMATIVE forms only — both files now carry the prohibition
+  // ("Never write \"None\""), and a blunter pattern would flag the fix as the bug.
+  for (const [name, src] of [["report", report], ["review-sections", review]]) {
+    assertTrue(`${name}/SKILL.md never instructs writing "None" for an empty section`,
+      !/[Ww]rite "None" if\b/.test(src) && !/^\s*-?\s*Or "None/m.test(src),
+      'still instructs writing "None"');
+  }
+  assertTrue("report/SKILL.md states the omit rule once, by name",
+    report.includes("Omit, never pad"), "rule heading missing");
+  assertTrue("review-sections/SKILL.md refers to that rule rather than restating it",
+    review.includes("Omit, never pad"), "reference missing");
+
+  // 3. Release Preparation is one flat list, not 8-1/8-2/8-3 sub-sections.
+  assertTrue("report/SKILL.md has no 8-1/8-2/8-3 sub-sections",
+    !/8-[123]\./.test(report), "flattening incomplete");
+
+  // 4. No consumer is told to key on a section NUMBER — the numbers move.
+  for (const [name, src] of [
+    ["shrink-pr-body.sh", readFileSync(SCRIPTS.shrinkPrBody, "utf8")],
+    ["extract-deferred-concerns.sh", readFileSync(SCRIPTS.extractDeferredConcerns, "utf8")],
+  ]) {
+    assertTrue(`${name} does not hard-code the Concerns section number`,
+      !/\^#\#\\s\+6\\\.|\^## 6\\\. Concerns/.test(src), "still keyed on section 6");
+  }
 }
 
 // ---------- ship/extract-deferred-concerns.sh (non-ASCII titles get stable hash ids) ----------
@@ -9535,6 +9710,9 @@ const tests = [
   ["ship/commit-release-note.sh push", testCommitReleaseNotePush],
   ["ship/extract-deferred-concerns.sh mission/tickets relation", testExtractConcernMissionRelation],
   ["ship/extract-deferred-concerns.sh all severities", testExtractAllSeverities],
+  ["story Concerns heading matched by name, not number", testConcernsHeadingByName],
+  ["report/filter-low-concerns.sh (render/extract split)", testFilterLowConcerns],
+  ["story template mirrors agree", testStoryTemplateMirrors],
   ["report/doc-drift.sh", testDocDrift],
   ["hooks/policy-lens.sh", testPolicyLens],
   ["hooks/validate-ticket.sh", testValidateLayout],

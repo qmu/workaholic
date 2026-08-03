@@ -9,13 +9,14 @@ author: noreply@anthropic.com
 assignees: []
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.4
 feedback: [20260731165727-make-the-branch-story-say-less-when-there-is-less-to-say.md, 20260731165740-filtering-low-concerns-out-of-the-story-deletes-them-from-the-stream.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260803-212338
 ---
 
 # Make the branch story concise by default
@@ -52,3 +53,7 @@ when something must be done.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-03 — ticket archived — 20260801185701-decide-the-fate-of-low-severity-concerns.md
+- 2026-08-03 — ticket archived — 20260801185702-make-the-story-short-by-default.md
+- 2026-08-03 — story reported — work-20260803-212338.md
+- 2026-08-03 — run recorded (+0.4h) — work-20260803-212338

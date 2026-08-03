@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260803-212338
 ---
 
 # Make the branch story concise by default

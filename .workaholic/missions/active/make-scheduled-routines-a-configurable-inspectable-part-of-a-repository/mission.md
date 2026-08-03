@@ -57,3 +57,4 @@ PROPOSED sketch, not a plan. `/mission approve` replans this to drive-ready.
 - 2026-08-03 — ticket archived — 20260801185501-decide-where-routine-config-lives.md
 - 2026-08-03 — ticket archived — 20260801185502-list-a-repositorys-routines.md
 - 2026-08-03 — ticket archived — 20260801185503-add-remove-and-refresh-a-routine.md
+- 2026-08-03 — story reported — work-20260803-212331.md

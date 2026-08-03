@@ -8,6 +8,7 @@ commit_hash:
 category:
 depends_on:
 mission:
+claim: work-20260803-210404
 ---
 
 # extract-deferred-concerns の slug 化が日本語タイトルの懸念を黙って捨てる

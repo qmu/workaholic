@@ -35,10 +35,24 @@
 # swallowed.
 #
 # IDEMPOTENT, because SessionStart also fires on resume/clear/compact even with the
-# `startup` matcher configured: an already-installed plugin exits before any network call,
-# an already-registered marketplace is UPDATED rather than re-added (re-adding errors), and
-# the update matters on its own -- `plugin install` does not refresh the local marketplace
-# clone before resolving a name, so a stale clone fails with a misleading "not found".
+# `startup` matcher configured: an already-installed, CURRENT plugin exits before any
+# network call, an already-registered marketplace is UPDATED rather than re-added
+# (re-adding errors), and the update matters on its own -- `plugin install` does not
+# refresh the local marketplace clone before resolving a name, so a stale clone fails
+# with a misleading "not found".
+#
+# THE FAST PATH IS VERSION-GATED, NOT PRESENCE-GATED (2026-08-04). Cloud container
+# images bake a marketplace clone in, so "installed" can mean v1.0.112 against a
+# v1.0.123 repository -- and presence-only skipping made that permanent: the stale
+# copy's pre-K1 mission migration ran K1 backwards on every prompt, dirtied the tree,
+# and aborted every hourly drive tick for two days while this hook logged "already
+# installed; skip". The wanted version is read from this checkout's own
+# .claude-plugin/marketplace.json (fresh by construction -- cloning the repo is how
+# the session started). In a consuming repository that manifest is absent, WANTED
+# stays empty, and an installed plugin is REFRESHED rather than trusted -- staleness
+# is just as real there and only the marketplace knows the current version, so the
+# resume/clear/compact refires pay one marketplace fetch instead of risking a
+# permanently stale install.
 #
 # HOME IS RESPECTED, NOT IMPOSED (`: "${HOME:=/root}"`): hardcoding /root breaks the moment
 # the hook runs as a non-root user, whose ~/.claude would be unwritable.
@@ -67,11 +81,15 @@ die() { echo "workaholic bootstrap: $1 (see $LOG)"; exit 0; }  # exit 0 = fail o
 
 log "=== bootstrap (claude $(claude --version 2>/dev/null || echo unknown)) ==="
 
-# Already installed: skip the network round-trip entirely.
-if claude plugin list 2>/dev/null | grep -q "$PLUGIN"; then
-  log "already installed; skip"
+# Already installed at the version this checkout wants: skip the network round-trip.
+# Presence alone never skips -- see the header on the version gate.
+WANTED=$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "${CLAUDE_PROJECT_DIR:-.}/.claude-plugin/marketplace.json" 2>/dev/null | head -n 1)
+INSTALLED=$(claude plugin list 2>/dev/null | grep -A 2 "$PLUGIN" | sed -n 's/^ *Version: *\([0-9][0-9.]*\).*/\1/p' | head -n 1)
+if [ -n "$INSTALLED" ] && [ -n "$WANTED" ] && [ "$INSTALLED" = "$WANTED" ]; then
+  log "already installed at $INSTALLED (matches wanted); skip"
   exit 0
 fi
+log "installed='${INSTALLED:-none}' wanted='${WANTED:-unknown}'; refreshing"
 
 # 1) Register the marketplace, or refresh it when already registered.
 if claude plugin marketplace list 2>/dev/null | grep -q "$MP"; then
@@ -80,8 +98,12 @@ else
   run claude plugin marketplace add qmu/workaholic || die "marketplace add failed"
 fi
 
-# 2) Install (user scope is the default).
-run claude plugin install "$PLUGIN" || die "install failed"
+# 2) Install, or update a stale install (user scope is the default).
+if [ -n "$INSTALLED" ]; then
+  run claude plugin update "$PLUGIN" || die "update failed"
+else
+  run claude plugin install "$PLUGIN" || die "install failed"
+fi
 
 # 3) Verify.
 run claude plugin list || true

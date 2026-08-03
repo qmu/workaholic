@@ -60,7 +60,7 @@ Without it, every cloud routine for the repository stops at its own precondition
 bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/check-bootstrap.sh [repo-root]
 ```
 
-The canonical hook is `bootstrap/session-start.sh` — the plugin holds it, the repository installs it, the same shape as the routine templates below. `matches_canonical` compares the installed copy byte-for-byte, so an older copy is reported as drift rather than passing because a file exists at the path.
+The canonical hook is `bootstrap/session-start.sh` — the plugin holds it, the repository installs it, the same shape as the routine templates below. `matches_canonical` compares the installed copy byte-for-byte, so an older copy is reported as drift rather than passing because a file exists at the path. The hook's already-installed fast path is **version-gated, not presence-gated** (2026-08-04): a cloud container image bakes a marketplace clone in, so "installed" can mean a version several releases behind the checkout, and skipping on presence made that permanent — the stale copy's retired mission migration dirtied the tree on every prompt and aborted every hourly drive tick. The skip now requires the installed version to match the checkout's `.claude-plugin/marketplace.json`; anything else refreshes the marketplace and runs `plugin update` (or `install`).
 
 **Every problem is named separately** (`hook_missing`, `hook_stale`, `not_registered`, `matcher`, `timeout`, `enabled_plugin`, `marketplace`) because they need different fixes. Two are worth knowing on sight: `SessionStart` also fires on `resume`, `clear` and `compact`, so the matcher must be `startup`; and a marketplace clone plus install can exceed the default timeout, so it is set to 120.
 

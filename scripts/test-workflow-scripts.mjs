@@ -10866,6 +10866,15 @@ function testWorkaholifyBootstrap() {
       /marketplace update/.test(code), "no update path");
     assertTrue("an already-installed plugin short-circuits before any network call",
       /plugin list[\s\S]*already installed/.test(code), "no early exit");
+    // THE FAST PATH IS VERSION-GATED (2026-08-04): cloud images bake a stale marketplace
+    // clone in, and a presence-only skip left every cloud session running v1.0.112 logic
+    // against a v1.0.123 repo -- the stale mission migration dirtied the tree each turn
+    // and every hourly drive tick aborted. The skip must compare the installed Version:
+    // against this checkout's manifest, and a stale install must be updated in place.
+    assertTrue("the early exit is version-gated, not presence-gated",
+      /Version:/.test(code) && /marketplace\.json/.test(code), "presence-only fast path");
+    assertTrue("a stale install takes plugin update, not a fresh install",
+      /plugin update/.test(code), "no update path for a stale install");
     assertTrue("HOME is respected rather than imposed", /: "\$\{HOME:=/.test(code), "HOME hardcoded");
     assertTrue("the log goes to TMPDIR, not /var/log",
       code.includes("${TMPDIR:-/tmp}") && !code.includes("/var/log"), "log path wrong");

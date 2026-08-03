@@ -9,13 +9,14 @@ author: noreply@anthropic.com
 assignees: []
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.56
 feedback: [20260731160449-support-a-setup-routines-skill-that-manages-a-repository-s-scheduled-routines.md, 20260731160517-routine-configuration-has-no-source-of-truth-in-the-repository.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260803-212331
 ---
 
 # Make scheduled routines a configurable, inspectable part of a repository
@@ -53,3 +54,8 @@ PROPOSED sketch, not a plan. `/mission approve` replans this to drive-ready.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-03 — ticket archived — 20260801185501-decide-where-routine-config-lives.md
+- 2026-08-03 — ticket archived — 20260801185502-list-a-repositorys-routines.md
+- 2026-08-03 — ticket archived — 20260801185503-add-remove-and-refresh-a-routine.md
+- 2026-08-03 — story reported — work-20260803-212331.md
+- 2026-08-03 — run recorded (+0.56h) — work-20260803-212331

@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260803-212324
 ---
 
 # Make acceptance ticking measure satisfaction, not marker shape

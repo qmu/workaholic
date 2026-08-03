@@ -9,13 +9,14 @@ author: noreply@anthropic.com
 assignees: []
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.7
 feedback: [20260731062209-quality-gates-must-assist-delivery-not-block-well-done-work.md, 20260731062305-every-markerless-acceptance-item-in-this-repo-belongs-to-a-proposed-draft.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260803-212324
 ---
 
 # Make acceptance ticking measure satisfaction, not marker shape
@@ -80,22 +81,31 @@ PROPOSED sketch for discussion, not a plan. `/mission approve` replans this to d
 Note that these items are themselves markerless — this batch has no tickets to link to yet,
 which is precisely the condition the mission exists to fix.
 
-- [ ] The chosen contract for the acceptance-to-artifact link is decided and written where the
+- [x] The chosen contract for the acceptance-to-artifact link is decided and written where the
       convention already lives (`mission/reference/schema.md` and `mission/SKILL.md`), with the
-      rejected alternatives named
-- [ ] The seam that emits a mission's ticket set also establishes the link for each acceptance
-      item, so a mission approved from a draft no longer starts unreachable
-- [ ] `tick-acceptance.sh` implements the chosen contract, and its `no_unchecked_match` result
-      means "not satisfied" rather than "not addressable"
-- [ ] The 24 stranded items across the three active missions are reachable by a sanctioned
-      script, with no checkbox hand-edited
-- [ ] A markerless acceptance item is either impossible to author or provably tickable — the
-      measured 0-of-24 split cannot recur silently
-- [ ] `node scripts/test-workflow-scripts.mjs` covers the new semantics hermetically, including
-      a mission whose acceptance items carry no marker
+      rejected alternatives named (#20260801185301-decide-the-acceptance-to-artifact-link.md)
+- [x] The seam that emits a mission's ticket set also establishes the link for each acceptance
+      item, so a mission approved from a draft no longer starts unreachable (#20260801185302-establish-the-link-when-tickets-are-emitted.md)
+- [x] `tick-acceptance.sh` implements the chosen contract, and its `no_unchecked_match` result
+      means "not satisfied" rather than "not addressable" (#20260801185303-make-the-ticker-measure-satisfaction.md)
+- [x] The 24 stranded items across the three active missions are reachable by a sanctioned
+      script, with no checkbox hand-edited (#20260801185303-make-the-ticker-measure-satisfaction.md)
+- [x] A markerless acceptance item is either impossible to author or provably tickable — the
+      measured 0-of-24 split cannot recur silently (#20260801185303-make-the-ticker-measure-satisfaction.md)
+- [x] `node scripts/test-workflow-scripts.mjs` covers the new semantics hermetically, including
+      a mission whose acceptance items carry no marker (#20260801185303-make-the-ticker-measure-satisfaction.md)
 - [ ] The gate audit (Scope unit 4) is either completed or split out as its own artifact, with
-      the decision recorded rather than left implicit
+      the decision recorded rather than left implicit (#20260803213000-audit-the-gates-for-shape-dependent-green.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-03 — ticket archived — 20260801185301-decide-the-acceptance-to-artifact-link.md
+- 2026-08-03 — ticket archived — 20260801185302-establish-the-link-when-tickets-are-emitted.md
+- 2026-08-03 — ticket archived — 20260801185303-make-the-ticker-measure-satisfaction.md
+- 2026-08-03 — story reported — work-20260803-212324.md
+- 2026-08-03 — run recorded (+0.7h) — work-20260803-212324
+- 2026-08-03 — concern deferred (stuck) — 20260803221906-21-acceptance-items-across-four-other.md
+- 2026-08-03 — concern deferred (stuck) — 20260803221906-the-link-stamping-step-is-prose.md
+- 2026-08-03 — concern deferred (stuck) — 20260803221906-v1-0-119-may-collide-with.md
+- 2026-08-03 — concern deferred (stuck) — 20260803221906-readme-md-still-describes-the-retired.md

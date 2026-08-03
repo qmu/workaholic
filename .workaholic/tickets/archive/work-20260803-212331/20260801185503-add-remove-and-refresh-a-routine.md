@@ -5,7 +5,7 @@ type: enhancement
 layer: [Infrastructure]
 effort:
 commit_hash:
-category:
+category: Added
 depends_on: [20260801185502-list-a-repositorys-routines.md]
 mission: make-scheduled-routines-a-configurable-inspectable-part-of-a-repository
 merge_policy: auto

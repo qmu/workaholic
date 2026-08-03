@@ -86,15 +86,44 @@ Everything below a template's `## Prompt` heading is the routine's prompt, verba
 
 Keeping the prompt as readable markdown rather than an embedded JSON string is deliberate: the prompt *is* the routine, template freshness is the entire point of the issue behind this, and a prompt nobody can read in a diff is a prompt nobody will keep current.
 
+### Where the configuration lives (decided 2026-08-03)
+
+Three places, one kind of fact each, and **the repository declares nothing**:
+
+| Holds | What it owns |
+| ----- | ------------ |
+| The **plugin** | What a routine *should* be — the templates above, one set for every repository |
+| The **account** | What a routine *is* — the live routine, reachable only through `RemoteTrigger` |
+| The **repository** | Nothing new. `{repo}`, `{repo_slug}` and `{repo_name}` all derive from its own git remote |
+
+A repository was never short of a config file; it was short of an **answer**. "What runs against this repo" was unanswerable because nothing read the account back to the developer — so the fix is a reader (`/setup-routines`), not a directory. **No `.workaholic/` area is introduced**, so no closed-layout amendment is involved.
+
+Three alternatives were rejected, and the reasons matter more than the verdict. *Per-repository declarations* would be one copy per repo of a file identical everywhere but its URL, each free to drift and none of them authoritative — the design this skill already refused. *A selection manifest* naming which templates a repo wants is the one genuinely per-repository fact, and the closest call; it was rejected because the selection is uniform across the fleet today except for `[Drive]`, which is a pilot, so the manifest would freeze an unsettled pilot into repository policy. *A committed snapshot of the live routines* would go stale silently, and a stale snapshot reading as healthy is exactly the failure §4 exists to catch. The full record with its rejected alternatives is in the feedback stream (`20260803213008-where-routine-configuration-lives-and-what-an-agent-may-apply-unattended.md`).
+
+### What may be applied unattended (decided 2026-08-03)
+
+The boundary is **read versus write**, not one command versus another:
+
+- **Reading is unattended-safe.** Listing, rendering, comparing, and reporting drift may run in any session — `/drive`, a cloud routine, anything. They reach nothing and change nothing.
+- **Every mutation needs a human looking at the exact body.** Create, refresh and remove are confirmed **verbatim, one routine at a time**, in an interactive session. Never batched into a single yes, never inferred from a drift report, never performed by an unattended run.
+
+Both loop runbooks say *"do not install the crontab from an agent session — applying a standing outward-facing process is the developer's act."* That rule survives intact; the crontab was incidental to it. Generalized: **an agent may not bring a standing outward-facing process into existence, or re-point one, without a human seeing exactly what it will be.** All that changed is the sanctioned path — the confirmation is now mediated by a script instead of done entirely by hand, which makes it checkable rather than merely instructed.
+
 ### The scripts, and the split they enforce
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/list-routine-templates.sh
 bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/render-routine.sh <template-id> <repo-url>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/resolve-repo-url.sh [name-or-url]
 <RemoteTrigger list JSON> | bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/compare-routines.sh <repo-url>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/list-routines.sh <repo-url> --live <file>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/plan-routine-change.sh <create|refresh|remove> <template-id> <repo-url> --live <file> [--enable]
+bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/authorize-routine-change.sh --plan <file> --digest <digest>
 ```
 
 **Scripts own the templates and the comparison; the command owns the API and the confirmation.** A shell script cannot call `RemoteTrigger` — only the main agent can — so the command fetches the live list and pipes it in. That split is what keeps the logic out of markdown (the Shell Script Principle) *and* testable: `compare-routines.sh` is driven against fixtures in the suite without touching anyone's account.
+
+**`list-routines.sh` is the developer-facing reader, and `/setup-routines` is its command.** `compare-routines.sh` answers "what has drifted, fleet-wide" for whoever is maintaining the templates; `list-routines.sh` answers "what runs against *this* repository" for somebody who has never seen it before — one block per routine with its trigger, schedule, target and template status, plus the fleet's drift as a summary rather than a drop. Its one hard rule: **`checked: false` carries no `routines` key at all.** An absent, empty, unparseable, errored or unrecognised response is *not* an empty account, and the two must never render the same — a developer told a live repository has no routines will believe it. Only a response that actually parsed as a routines list may set `checked: true`.
 
 **A routine belongs to a repository when its `sources[].git_repository.url` matches**, compared after stripping a trailing slash and `.git` — never by name. Names are what drift; matching on them would report a renamed routine as both missing and unknown at once.
 
@@ -122,6 +151,16 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/check-slack-channel.sh <re
 **"Cannot check" is never reported as "does not exist", and that distinction is the reason the script exists.** On a locked qfs credential store, an existing channel and a nonexistent one return the *identical* `slack_auth` error — so a naive "did the read succeed?" test marks every channel missing and sends a developer to create channels that are already there. Only a probe that actually reached Slack may set `exists`; everything else is `checked: false` with a named reason (`no_qfs`, `slack_locked`, `slack_not_connected`).
 
 That failure class has already cost this project twice: a survey concluded "no routines are installed" from an empty crontab, on a machine whose routines run in the cloud. Absence of evidence is not evidence of absence.
+
+### Changing a routine: the plan, the digest, and what "remove" means
+
+`plan-routine-change.sh` renders the exact content one change would carry and stamps it with a `confirm_digest`; `authorize-routine-change.sh` re-derives that digest and refuses anything that does not match. The command must pass through both — plan, show verbatim, confirm, authorize, then call the API with the returned `apply` block.
+
+**What the gate actually buys, stated precisely so it is not oversold.** It cannot prove a human was present; no script an agent runs can. What it closes are the two failures a standing outward-facing process cannot survive: **substitution** (`plan_tampered` — the plan no longer hashes to its own digest, so what was read and what would be sent differ) and **batching** (`digest_mismatch` — one confirmation carries exactly one digest, so a single yes can never cover a fleet). The digest covers only what a developer verifies by eye — action, repository, name, trigger, schedule, model, `enabled`, and the whole prompt — never the account plumbing nobody reads.
+
+**A noop is an answer and carries no digest**, so it cannot be forced through: refreshing an undrifted routine reports `no_drift` and changes nothing, and `already_exists`, `not_present`, `already_disabled` and `disabled_routine` each name what to do instead. `disabled_routine` exists because removal *is* disabling: a refresh that silently re-enabled a routine somebody switched off would undo a deliberate act, so it needs `--enable` to say that is what you mean.
+
+**"Remove" means disable, and says so.** The API has no delete, so removal is an update setting `enabled: false`; deleting the entry is a human act at <https://claude.ai/code/routines>. A removal's plan shows the **live** prompt rather than the template's — you are switching off what is actually there, which may have drifted.
 
 ### What the command does with all this
 

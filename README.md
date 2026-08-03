@@ -64,6 +64,7 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 | `/catch`   | Read-only catch-up report over a recent window (commits, tickets, stories, each active mission's derived progress and unmerged in-flight work) plus an orchestration-throughput block, then follow-up Q&A |
 | `/explain` | Answer a question about the repository and export a printer-ready PDF report, rendered from HTML by a real browser |
 | `/workaholify` | Wire the current repo to the standards: refer to the gateway skill, audit `CLAUDE.md` against the documentation standard, and confirm the working-directory hook is active |
+| `/setup-routines` | Answer what a repository could not answer about itself: **what runs against it** — each scheduled Claude Code Web routine with its trigger, schedule, target and whether it still matches the shipped template. The repository declares nothing; the templates live in the plugin and the live routines in the account, so the command asks the account and reports. An unreachable account reports **"could not check"**, never "nothing is configured". It also adds, refreshes and removes routines — each confirmed **verbatim, one at a time**, with the bar enforced by a digest gate rather than by prose, and "remove" meaning *disable* because the routines API has no delete |
 
 **Engineering-policy skills** (`planning` / `design` / `implementation` / `operation`): a catalog mirrored from qmu.co.jp giving each policy's title, one-line summary, and canonical link, organized into the 企画 (planning — grounding a project in business, market, and legal context before design begins), 設計 (design), 実装 (implementation, sub-grouped by 妥当性 / 可用性 / アクセシビリティ), and 運用 (operations) pillars. Pure prose, exposed on every Agent-Skills agent. Security (安全) and working-practice (執務) policies live elsewhere on qmu.co.jp and are out of scope.
 
@@ -144,6 +145,7 @@ The tree is also an [Open Knowledge Format](https://github.com/GoogleCloudPlatfo
 | `tickets/abandoned/*.md` | `/drive` (abandon flow) | Attempted-then-abandoned change with failure analysis | committed, permanent | no | never |
 | `stories/<branch>.md` | `/report` | PR description: overview, journey, outcome, concerns, ideas, release readiness | committed before PR creation | concerns/ideas sections only (extracted by `/ship`) | never (per-branch permanent record) |
 | `release-notes/<branch>.md` | `/ship` (before merging) | Concise release narrative for GitHub Releases | committed before merge | no | never |
+| `releases/release-<ts>.md` | `/ship` §6 promotion (`record-release-cut.sh` at the cut, `confirm-release.sh` at each confirmation) | Durable ship record for one `release/*` branch: which `main` commits it carried, when it was cut, when it was confirmed or failed. Derived from git, never hand-authored | committed to `main` at cut and at each confirmation | n/a — not branch-scoped | never (a failed confirmation is recorded, not erased) |
 | `trips/<name>/*` | nothing — **no writer since 2026-07-28** | Legacy multi-agent design output from the retired `/trip` command | already committed; read-only history | no | never (kept as history; knowledge is not deleted) |
 | `missions/active/<slug>/mission.md` | `/mission` | Optional epic-equivalent grouping bundling many tickets: goal, scope, acceptance checklist (progress = checked/total), one `status` lifecycle axis (`draft` → `approved`, then an end state) plus the orthogonal `merge_policy`, `predicted_hours`/`actual_hours` (predicted at creation from the archived trend, actual accumulated by `/drive`), append-only changelog | committed, updated as related work lands | n/a — outlives any branch | `/mission approve` flips `draft` → `approved`; `/mission close` flips `status` to `achieved`, `abandoned` or `carried` and moves the dir to `missions/archive/<slug>/` (file and changelog preserved) |
 | `feedbacks/<ts>-<slug>.md` | `/fb` (conclusions/instructions), `/ship` (`kind: concern` records extracted from a shipped story's section 6), `/report` (superseding resolution records) — all through the feedback skill's writers | One **immutable** inbound record of project context: a conclusion (`kind: insight`), an instruction, a development-born concern, or customer material — the raw material later planning reads | committed when registered | **yes — the stream accumulates forever**; consumers track "new" by commit cursor, and the open concern set is computed as "not superseded" | never (resolution/mootness is a *new* record naming the old one via `supersedes`, not an edit) |
@@ -305,6 +307,7 @@ flowchart LR
   commit(["/commit"])
   explain(["/explain"])
   workaholify(["/workaholify"])
+  setuproutines(["/setup-routines"])
 
   %% ---------- artifacts under .workaholic/ (grey) ----------
   TODO["tickets/todo/"]
@@ -322,6 +325,7 @@ flowchart LR
   PDF["PDF report"]
   WT["git commit"]
   CFG["CLAUDE.md + hooks wiring"]
+  ROUT["Claude Code Web routines"]
 
   %% ========== generation: solid arrow = writes ==========
   ticket --> TODO
@@ -342,6 +346,7 @@ flowchart LR
   commit --> WT
   explain --> PDF
   workaholify --> CFG
+  setuproutines --> ROUT
 
   %% ========== reference: dashed arrow = reads / refers ==========
   drive -.-> TODO
@@ -357,6 +362,7 @@ flowchart LR
   catch -.-> MIS
   catch -.-> DEP
   explain -.-> ARCH
+  setuproutines -.-> ROUT
 
   %% ========== mission rolls: dashed, labelled ==========
   drive -. rolls .-> MIS
@@ -370,15 +376,15 @@ flowchart LR
   classDef cmd fill:#dbeafe,stroke:#1e40af,stroke-width:1.5px,color:#1e3a8a;
   classDef art fill:#f3f4f6,stroke:#6b7280,color:#111827;
   classDef ext fill:#f3f4f6,stroke:#9aa0aa,stroke-dasharray:4 3,color:#374151;
-  class ticket,request,mission,propose,feedback,drive,report,ship,catch,commit,explain,workaholify cmd;
+  class ticket,request,mission,propose,feedback,drive,report,ship,catch,commit,explain,workaholify,setuproutines cmd;
   class TODO,ICE,ARCH,ABD,MIS,STORY,FBK,REL,DEP art;
-  class EXT,PDF,WT,CFG ext;
+  class EXT,PDF,WT,CFG,ROUT ext;
 ```
 
 Reading the map:
 
 - **Solid arrow** = the command *generates* that artifact. **Dashed arrow** = the command *reads / refers to* it. `rolls` = the command updates a named mission's `## Changelog` and `## Acceptance` checklist (via the `mission:` relation any ticket/story/concern carries).
-- **Node style tells the kind apart.** Rounded **blue** = the twelve commands; rectangular **grey** = the artifacts they generate. A **dashed grey border** marks the artifacts that land *outside* `.workaholic/` — a cross-repo ticket via `/request`, a printed PDF via `/explain`, a plain working-tree commit via `/commit`, and repo wiring via `/workaholify`.
+- **Node style tells the kind apart.** Rounded **blue** = the thirteen commands; rectangular **grey** = the artifacts they generate. A **dashed grey border** marks the artifacts that land *outside* `.workaholic/` — a cross-repo ticket via `/request`, a printed PDF via `/explain`, a plain working-tree commit via `/commit`, repo wiring via `/workaholify`, and the scheduled routines `/setup-routines` reads out of the Claude Code Web account.
 - **`/mission` and `/drive` are the two poles.** `/mission` writes `missions/…` and the kickoff/delta tickets into `tickets/todo/` (with `/propose` registering drafts upstream of it); `/drive` reads the mission set and each worktree's `todo/`, drains them to `tickets/archive/`, and rolls each mission it advances — in parallel across every claim it holds.
 - **The ticket is the spine.** `/ticket`, `/mission`, and (indirectly, through the missions it drafts) `/propose` all *fill* `tickets/todo/`; **`/drive` alone** drains it to `tickets/archive/`. Everything downstream reads the archive.
 - **The feedback stream is the only loop.** `/ship` extracts a shipped story's section-6 concerns into `feedbacks/` as `kind: concern` records; the *next* `/report` re-reads the open set (records nobody superseded) and, for each one this branch resolved, appends a superseding record. Every record is written once and becomes permanent history — the "loop" is reading, never rewriting.

@@ -109,10 +109,24 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/append-changelog.sh <mission-s
 Append one dated line to a mission's `## Changelog`. **The single writer of changelog lines** — every workflow seam calls it rather than hand-editing `mission.md`. Append-only and **idempotent**: the `(event, artifact)` pair is the stable event id, so re-running for the same event never duplicates a line. Git-stages the mission file. Standard events: `ticket archived` (drive), `story reported` (report), `concern deferred (stuck)` (ship), `concern resolved (unstuck)` (report), `mission achieved` / `mission abandoned` / `mission carried into <successor-slug>` (close.sh), `ticket added` / `mission replanned` / `acceptance dropped` (replan).
 
 ```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/link-acceptance.sh <mission-slug-or-file> <selector> <artifact-filename>
+```
+
+Stamp the `(#<artifact-filename>)` link onto one `## Acceptance` item — **the only writer of an acceptance link**, and the step every ticket-emitting seam runs (Creation Interrogation and replan alike). `<selector>` is the item's 1-based position in `## Acceptance`, or a substring matching exactly one item. **The pairing is the caller's and is never inferred**: a link guessed by title similarity or position would eventually check a box the work did not satisfy. Item text is preserved byte-for-byte and the marker lands at the end of the item's **last** line, so a wrapped criterion links exactly like a one-line one. Idempotent — re-linking the same item to the same artifact reports `already_linked` and exits 0. Emits `{linked, path, index, artifact[, reason]}`; the refusals (`no_match`, `ambiguous`, and `linked_to_other` — re-pointing a link is a plan change that belongs in a replan) print on stdout and exit 1. Git-stages the mission file.
+
+```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/tick-acceptance.sh <mission-slug-or-file> <artifact-filename>
 ```
 
-Flip the `## Acceptance` item whose `(#<artifact-filename>)` marker matches from `- [ ]` to `- [x]`. Idempotent (an already-checked or unmatched item is a no-op) and scoped to the `## Acceptance` section. Progress stays derived — this changes only checklist state; `progress.sh` recomputes `checked/total`. Git-stages the mission file.
+Flip the `## Acceptance` item whose `(#<artifact-filename>)` marker matches from `- [ ]` to `- [x]`. The match is **item-scoped**: the marker counts wherever it sits in the item, including a wrapped continuation line. Idempotent (an already-checked or unmatched item is a no-op) and scoped to the `## Acceptance` section. Progress stays derived — this changes only checklist state; `progress.sh` recomputes `checked/total`. Git-stages the mission file.
+
+Its `reason` separates the three answers a caller must not confuse: `already_checked` (an item this artifact links to is satisfied already), `unlinked_items` — **not addressable**, the board carries unchecked items with no link at all, so no artifact could tick them — and `no_unchecked_match`, which now means only **not satisfied** (the open items are linked; this artifact does not satisfy one). The JSON carries `unlinked` on every call, so a seam reports the stranded count without a second read.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/unlinked-acceptance.sh [<mission-slug-or-file>]
+```
+
+Name the **unchecked, unlinked** acceptance items — the ones no artifact can ever tick. Pure read. With a mission argument it reports that mission; with none it sweeps every mission in the active area, which is the repo-wide measurement (37 items across six missions on 2026-08-03, every one proposal-scaffolded). Emits `[{slug, path, items: [{index, text}]}]`, omitting missions with nothing unlinked — so `[]` means a clean tree. Each `index` is exactly `link-acceptance.sh`'s selector, which is what makes a stranded board repairable by script rather than by hand.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/predict-duration.sh <planned-item-count>

@@ -5,7 +5,7 @@ type: bugfix
 layer: [Domain]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on: [20260801185302-establish-the-link-when-tickets-are-emitted.md]
 mission: make-acceptance-ticking-measure-satisfaction-not-marker-shape
 merge_policy: auto

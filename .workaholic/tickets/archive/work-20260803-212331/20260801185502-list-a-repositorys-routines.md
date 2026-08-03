@@ -5,7 +5,7 @@ type: enhancement
 layer: [UX]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on: [20260801185501-decide-where-routine-config-lives.md]
 mission: make-scheduled-routines-a-configurable-inspectable-part-of-a-repository
 merge_policy: auto

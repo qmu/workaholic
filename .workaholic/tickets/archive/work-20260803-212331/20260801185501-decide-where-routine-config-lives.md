@@ -5,7 +5,7 @@ type: housekeeping
 layer: [Config]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: make-scheduled-routines-a-configurable-inspectable-part-of-a-repository
 merge_policy: auto

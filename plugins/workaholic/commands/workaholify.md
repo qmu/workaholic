@@ -40,13 +40,13 @@ Run this workflow:
    bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/list-routine-templates.sh
    ```
 
-   Then call `RemoteTrigger` with `{action: "list"}` (load it via `ToolSearch select:RemoteTrigger`), write its raw JSON to a file under your scratch directory, and pipe it in:
+   Then call `RemoteTrigger` with `{action: "list"}` (load it via `ToolSearch select:RemoteTrigger`), write its raw JSON to `.routines/live.json` (git-ignored, and **in-repo** because `guard-repo-confinement.sh` refuses every write outside the repository), and pipe it in:
 
    ```bash
    bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/compare-routines.sh <repo-url> < <live-json-file>
    ```
 
-   Report **`this_repo`** (`missing`, `present` with per-field `drift`, `unknown`) **and `other_repos`** — drift in every repository that already carries a workaholic routine, because the templates are one set applied to many repos and the drift is the same defect wherever you stand. Say that `unknown` entries are deliberate one-offs, not errors, and that nothing here can delete a routine — that is <https://claude.ai/code/routines>.
+   Report **`this_repo`** (`missing`, `present` with per-field `drift`, `unknown`) **and `other_repos`** — drift in every repository that already carries a workaholic routine, because the templates are one set applied to many repos and the drift is the same defect wherever you stand. Say that `unknown` entries are deliberate one-offs, not errors, and that nothing here can delete a routine — that is <https://claude.ai/code/routines>. (For the developer-facing question "what runs against this repository", point at `/setup-routines` — same scripts, read-only, legible to somebody who has never seen the repo.)
 
    Then check the preconditions every template depends on (skill §4). Report `slack_connector` from the comparison, and probe the channel:
 

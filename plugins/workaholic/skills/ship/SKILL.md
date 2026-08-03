@@ -293,3 +293,28 @@ Ship the current branch's PR. (Claim-worktree selection and teardown are not her
 
    **`pushed` alone is not the whole answer: read `destination` too.** The open-concern set is computed from records on the **base**, so a record pushed anywhere else is invisible to `/report`'s judge and to `/propose`. This script used to commit and push on whatever branch it was standing on, assuming step 6 had checked the base out — and when that assumption broke inside a claim worktree, PR #108's four concerns went to the *already-merged claim branch* while the script truthfully reported `pushed: true`. The push had worked; the destination was wrong. It now takes the base explicitly and, when it is not already on it, extracts and publishes **through a publish tree** (`workaholic:branching`) — the same route a source uses to publish from any checkout, which also makes the dedup scan read the base's records rather than the branch's.
 9. **Summarize**: catch-up result, **branch-safety scan result** (pass, or the blocking findings — and, if the developer overrode a size/leak block, the recorded accepted-risk override), deployment status, **confirmation result** (method used and pass/fail, with the recorded evidence, the unresolved-gate outcome if ship halted, or — distinctly — **merged WITHOUT production confirmation (accepted-risk bypass)** with the recorded bypass evidence), PR merge status (number, URL — emphasizing it merged only after confirmation passed), release-note status, GitHub Release status (published/deferred), and deferred concern extraction count **with its `destination`** (a count without a destination does not say whether the records became visible), plus the merge's `checked_out`/`checkout_reason` when the base was not checked out.
+
+## 6. Release Promotion — the `release/*` staging tier
+
+**A separate, explicitly-invoked phase over the base. Never a step of §5.** (Decisions L1-L3, `docs/loop-engineering-workflow.md`.) §5 lands *one unit* on the base; promotion takes *the units already landed there* to production. Running it is a deliberate act — a developer, or a scheduled promotion routine. `/drive` does not call it, and cutting a release branch never happens as a side effect of shipping a unit: if it did, every `auto` unit would open a release window, which is exactly the per-unit behaviour change this tier is defined not to make.
+
+The tier is **one branch form and nothing else**: no `develop`, no `hotfix/*`, and the base stays the default and production branch. A unit still claims, drives, reports and merges into the base exactly as today, so there is still exactly one merge target for a unit.
+
+### 6-1. The flow
+
+1. **Cut the window.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cut-release-branch.sh [base]` mints `release/YYYYMMDD-HHMMSS` at the base tip and pushes it. It carries no commits of its own and never checks itself out. On a refusal (`no_origin`, `origin_unreachable`, `base_unresolved`, `branch_collision`, `push_failed`) **stop**: nothing has changed and there is no window.
+2. **Hold it open for QA.** The window is the point of the tier: the batch is verified *together*, on a ref that will not move under it, before it is called a release. Nothing about the base is blocked meanwhile — later units keep merging there, and they simply belong to the next release.
+3. **Confirm it.** Run the target's `## Confirmation` from `.workaholic/deployments/` (or `CLAUDE.md`'s `## Verify`) against the release branch's tip, exactly as §5 step 4 runs it against a unit branch. **This is a second confirmation, not a re-run of the first**: the per-unit confirmation is proof about one branch before it lands; this is proof about a batch already on the base. It never defers or weakens the per-unit gate — inverting §5's evidence-before-merge rule is the one thing a promotion must not do.
+4. **Deploy/tag from the confirmed branch.** `publish-release.sh` already targets a commit, so the confirmed release branch's tip is simply what it targets: `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/publish-release.sh "<release-branch>" "<release tip sha>" "<tag>" "<notes-file>"`. It still defers to CI (`ci_publishes`) where a release workflow owns publishing — in a **deploy-on-merge** project the release is published from the merge commit on the base, and the release branch's role there is to be the recorded, confirmed identity of *what that release carried*, not a second publishing path.
+
+### 6-2. When confirmation fails
+
+**The release branch is not deleted.** It is the rollback boundary: the base is unaffected, because its units are already merged there and merging is what landed them — a failed promotion never un-lands anything. Record the failure (§6-3), leave the branch pushed as the durable evidence of what was tried, and cut a **fresh** release branch for the next attempt. Never re-point, force-push, or reuse a failed release branch: its identity is "the commits confirmed, or not, at that moment", and rewriting it destroys the only record of the attempt.
+
+### 6-3. Recording it
+
+Every promotion writes its durable ship record — which base commits the branch carries, when it was cut, when it was confirmed or failed — as a `.workaholic/releases/` artifact. This is **additive**: `.workaholic/release-notes/<branch>.md` and the story's `## Deployment Evidence` block keep exactly the shape they have today.
+
+### 6-4. No prompting
+
+Promotion issues **no `AskUserQuestion` anywhere**, like the rest of the unattended path. Every outcome is a reported JSON refusal or a recorded status; a decision the flow cannot make is a stop with its reason named, never a question.

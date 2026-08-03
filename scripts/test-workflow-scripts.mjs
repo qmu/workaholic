@@ -127,6 +127,7 @@ const SCRIPTS = {
   surveyState: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-state.sh"),
   scaffoldProposedTicket: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-proposed-ticket.sh"),
   closePublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/close-publish-tree.sh"),
+  cutReleaseBranch: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/cut-release-branch.sh"),
 };
 
 // rules/shell.md mandates POSIX sh. Exercise the scripts under the strictest
@@ -6647,6 +6648,117 @@ function testGuardGitBranch() {
   assertEq("guard-branch blocks create chained after &&", invoke(`git status && git switch -c nope`).status, 2);
   // A conformant create chained after a separator still passes.
   assertEq("guard-branch allows work-* create after &&", invoke(`git fetch && git checkout -b ${OK}`).status, 0);
+
+  // ---- the release tier (L1): a SECOND literal pattern, and only a second ----
+  // The gate must open exactly as wide as the tier and no wider: `release/` is not a
+  // prefix that licenses free-hand naming, it is one timestamped form like work-*.
+  const REL = "release/20260803-213000";
+  assertEq("guard-branch allows checkout -b release/*", invoke(`git checkout -b ${REL}`).status, 0);
+  assertEq("guard-branch allows switch -c release/*", invoke(`git switch -c ${REL}`).status, 0);
+  assertEq("guard-branch allows worktree add -b release/*", invoke(`git worktree add -b ${REL} /tmp/wt`).status, 0);
+  assertEq("guard-branch allows bare git branch release/*", invoke(`git branch ${REL}`).status, 0);
+  for (const bad of ["release/v1.0.119", "release/hotfix", "release/2026-08-03", "release/20260803", "releases/20260803-213000", "develop", "hotfix/urgent"]) {
+    assertEq(`guard-branch still blocks ${bad}`, invoke(`git checkout -b ${bad}`).status, 2);
+  }
+  assertTrue("the block message names both sanctioned creators",
+    /create\.sh/.test(invoke(`git checkout -b release/nope`).err) &&
+    /cut-release-branch\.sh/.test(invoke(`git checkout -b release/nope`).err),
+    invoke(`git checkout -b release/nope`).err.slice(0, 300));
+}
+
+// Busy-wait until the wall clock ticks over into the next second. A release branch's name
+// is minted from `date +%Y%m%d-%H%M%S`, so two cuts inside one second collide by design —
+// a test that wants the SECOND cut to reach a later step has to let the clock move.
+function waitForNextSecond() {
+  const start = Math.floor(Date.now() / 1000);
+  while (Math.floor(Date.now() / 1000) === start) { /* spin, < 1s */ }
+}
+
+// ---------- branching/cut-release-branch.sh (the release/* staging tier, L1-L2) ----------
+// The tier adds ONE branch form and changes nothing about how a unit lands. These assert
+// the three properties that make that true, because each is easy to lose in a later edit:
+// the branch carries no commits of its own, the cut never moves the caller's HEAD, and a
+// release branch is invisible to the claim protocol.
+function testCutReleaseBranch() {
+  const { origin, A, B } = makePublishFixture();
+  const CUT = `${POSIX_SH} ${SCRIPTS.cutReleaseBranch}`;
+  try {
+    // B lands a unit on the base; A promotes it. (A is deliberately NOT synced first —
+    // the cut reads origin, not the local checkout, exactly as a batch-level act should.)
+    writeFileSync(join(B, "landed.txt"), "landed\n");
+    execSync("git add -A && git commit -q -m 'Add landed unit' && git push -q origin main", { cwd: B });
+    const baseTip = execSync("git rev-parse main", { cwd: B, encoding: "utf8" }).trim();
+
+    const before = snapshotCheckout(A);
+    const r = JSON.parse(run(A, CUT).stdout);
+    assertEq("cut-release-branch reports ok and pushed", { ok: r.ok, pushed: r.pushed, base: r.base }, { ok: true, pushed: true, base: "main" });
+    assertTrue("the minted name is release/YYYYMMDD-HHMMSS", /^release\/\d{8}-\d{6}$/.test(r.branch), r.branch);
+    assertEq("the cut lands on the base TIP, read from origin", r.sha, baseTip);
+
+    // It is on the remote — a window nobody else can see is not a window.
+    const remote = execSync(`git ls-remote --heads ${origin} ${r.branch}`, { encoding: "utf8" }).trim();
+    assertTrue("the release branch is pushed to origin", remote.includes(r.branch), remote || "(no ref)");
+
+    // THE BRANCH CARRIES NO COMMITS OF ITS OWN. This is what keeps "which base commits
+    // did this release carry" answerable by `git log <previous>..<tip>` forever.
+    assertEq("the release branch adds no commits of its own",
+      execSync(`git rev-list origin/main..refs/heads/${r.branch} --count`, { cwd: A, encoding: "utf8" }).trim(), "0");
+
+    // THE CALLER'S CHECKOUT IS UNTOUCHED: promotion is batch-level and must not disturb
+    // whatever tree it was invoked from.
+    assertEq("the cut never moves the caller's HEAD", snapshotCheckout(A), before);
+
+    // A release branch is NOT a claim: claims_scan keys on a `Claim a PR-unit` subject /
+    // `Unit:` trailer, never on a branch name, and this branch carries no commit at all.
+    const claims = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout);
+    assertEq("a release branch is invisible to the claim reader", claims.claims.length, 0);
+
+    // ---- a push that fails leaves no local-only release branch behind ----
+    // A branch only this machine can see reads as a live release window to this runner
+    // and to nobody else, which is worse than no window at all. The wait matters: the
+    // name is minted from the clock, so a second cut inside the same second would refuse
+    // as a collision and never reach the push at all.
+    waitForNextSecond();
+    const headsBefore = execSync("git branch --list 'release/*'", { cwd: A, encoding: "utf8" }).trim();
+    execSync(`git remote set-url --push origin ${join(origin, "does-not-exist")}`, { cwd: A });
+    assertEq("cut-release-branch reports push_failed", JSON.parse(run(A, CUT).stdout).reason, "push_failed");
+    assertEq("and rolls its local ref back", execSync("git branch --list 'release/*'", { cwd: A, encoding: "utf8" }).trim(), headsBefore);
+    execSync(`git remote set-url --push origin ${origin}`, { cwd: A });
+
+    // ---- the refusals a promotion must stop on ----
+    // A failing fetch is origin_unreachable and a missing base is what the fetch fails
+    // on, exactly as sync-main.sh and open-publish-tree.sh classify them; base_unresolved
+    // is reserved for the ref being absent AFTER a successful fetch.
+    execSync(`git remote set-url origin ${join(origin, "gone")}`, { cwd: A });
+    assertEq("cut-release-branch reports an unreachable origin", JSON.parse(run(A, CUT).stdout).reason, "origin_unreachable");
+    execSync(`git remote set-url origin ${origin}`, { cwd: A });
+    assertEq("cut-release-branch stops on a base origin does not have",
+      JSON.parse(run(A, `${CUT} no-such-base`).stdout).reason, "origin_unreachable");
+
+    // ---- a name already taken is reported, never overwritten ----
+    // The name is minted from the clock, so the fixture pre-takes every name the script
+    // could mint in the next few seconds. That is the honest way to reach this branch
+    // deterministically without a clock stub, and it goes last because it leaves the
+    // next few seconds' worth of names spoken for.
+    waitForNextSecond();
+    const stamps = [];
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(Date.now() + i * 1000);
+      const p = (n) => String(n).padStart(2, "0");
+      stamps.push(`release/${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`);
+    }
+    const minted = stamps.filter((s) => s !== r.branch);
+    for (const s of minted) execSync(`git branch ${s} main`, { cwd: A });
+    assertEq("cut-release-branch reports a taken name instead of overwriting it",
+      JSON.parse(run(A, CUT).stdout).reason, "branch_collision");
+    for (const s of minted) execSync(`git branch -D ${s}`, { cwd: A });
+
+    const lonely = makeRepo();
+    assertEq("cut-release-branch fails loudly without an origin", JSON.parse(run(lonely, CUT).stdout).reason, "no_origin");
+    rmSync(lonely, { recursive: true, force: true });
+  } finally {
+    for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
+  }
 }
 
 // ---------- check-deps/check.sh (dependency guard + stale-install diagnostics) ----------
@@ -9580,6 +9692,7 @@ const tests = [
   ["drive: handoff is a first-class terminal state", testHandoffState],
   ["report/shrink-pr-body.sh never drops the Handoff section", testShrinkKeepsHandoff],
   ["report/create-or-update.sh takes the update path for an existing PR", testCreateOrUpdatePaths],
+  ["branching/cut-release-branch.sh (the release/* staging tier)", testCutReleaseBranch],
 ];
 
 for (const [label, fn] of tests) {

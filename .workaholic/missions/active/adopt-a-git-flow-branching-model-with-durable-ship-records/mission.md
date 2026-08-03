@@ -151,3 +151,4 @@ Provisional (see Scope). The demanded, observable behavior:
   step.
 - 2026-07-30 — mission approved — merge_policy: auto — mission.md
 - 2026-08-03 — ticket archived — 20260801184801-survey-ship-and-record-the-release-tier-decision.md
+- 2026-08-03 — ticket archived — 20260801184802-cut-and-promote-a-release-branch.md

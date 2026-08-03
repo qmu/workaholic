@@ -136,7 +136,7 @@ The `tickets` / `stories` lists are reserved for the machine-readable relations 
 
 - `## Goal` — the information-rich "why": business grounding and the outcome the mission pursues.
 - `## Experience` — **the mission's substance**: the user experience, the demanded behavior, and/or the overall structure it pursues. Where `## Goal` says *why* the work is worth doing, this says *what the thing does*. Keep it observable (`implementation` / `objective-documentation`) — "the list reorders without a reload" is checkable; "feels fast" is not. This is the persistent content a kickoff-time `gate_*` could never be, and it is what a later session reads to know what is actually demanded.
-- `## Acceptance` — a checklist, and **the mission's plan**: each item names the ticket expected to satisfy it, so the list doubles as the route to completion. **Three items or fewer** — see *Size norms* below. **Progress toward achievement is `checked ÷ total`, computed from this list, never a hand-set number** (`implementation` / `objective-documentation`). An unchecked item is a **heading, not a specification** — re-check it against the source before cutting its ticket (see the checklist convention below).
+- `## Acceptance` — a checklist, and **the mission's plan**: each item names the ticket expected to satisfy it — through a `(#<filename>)` link that the **emission seam stamps** rather than the author typing it (decided 2026-08-03; see the reference's *link contract*), so the list doubles as the route to completion. **Three items or fewer** — see *Size norms* below. **Progress toward achievement is `checked ÷ total`, computed from this list, never a hand-set number** (`implementation` / `objective-documentation`). An unchecked item is a **heading, not a specification** — re-check it against the source before cutting its ticket (see the checklist convention below).
 - `## Changelog` — an append-only, dated, human-readable timeline (`design` / `history-structures`).
 
 **`## Scope` was removed from the template on 2026-08-01**, deleted rather than made optional: no validator, script, or hook ever read it, so it was pure authoring cost, and `## Goal` (why) plus `## Experience` (what) already carry what it was reaching for. Missions written before that date still have the section — it is left verbatim as history and read by nothing. **A carried successor does not inherit it**: the successor is scaffolded from the template, so there is no `## Scope` heading for a carry to land in, and copying one would re-introduce a retired section into a *new* mission — the opposite of the removal's point. The predecessor keeps its own section as history.
@@ -167,7 +167,7 @@ A mission carries **no `## Reflection` section**. The per-run reflection channel
 - **Drivability** — what being in the active area asserts, and the alternatives rejected with `draft`.
 - **Ownership** — the `mission-owners.sh` oracle, its legacy fallback, and the redefinition record.
 - **Duration** — how `predicted_hours` is derived once and `actual_hours` accumulated, and why the actual covers mission units only.
-- **Acceptance-checklist convention** — the `(#<filename>)` marker, and the measured reason an unchecked item is a heading rather than a specification.
+- **Acceptance-checklist convention** — the `(#<filename>)` marker, **the link contract** (item-scoped, stamped at emission, unlinked-is-reported) with the alternatives it rejected, and the measured reason an unchecked item is a heading rather than a specification.
 - **Changelog line format** — the dated append-only line and its idempotent event id.
 
 Read it before writing or interpreting any of these fields; the block above names them, it does not define them.
@@ -214,13 +214,15 @@ Every genuine requirements question is a legitimate the agent's selection prompt
 
 The requirement is *all questions before any ticket is created* — and `## Acceptance` items link tickets by `(#<filename>)`, which cannot exist until the tickets do. Both hold, because the **writing** order differs from the **asking** order:
 
-> ask everything → decide the ticket set → write the tickets → write `## Acceptance` naming them.
+> ask everything → decide the ticket set → write the tickets → write `## Acceptance` → stamp each item's link.
 
-Do not read the requirement as "Acceptance first".
+Do not read the requirement as "Acceptance first". The last step is a script, not typing: the criteria are written as prose and `link-acceptance.sh` stamps each `(#<filename>)` once the ticket that satisfies it exists. **A mission whose items are written before its tickets — every `/propose` proposal — is therefore normal, not broken**; it is the *emission without the linking step* that strands the board.
 
 ### Emitting the set
 
 Write the tickets **in one pass**, not N serial `create-ticket` runs. Each carries its mandatory `## Policies` and `## Quality Gate` (`validate-ticket.sh` rejects it otherwise), is stamped `mission: <slug>`, and is ordered by `depends_on` — foundation first, dependencies only where genuinely ordered, unique timestamps (`+1s` per ticket). Reuse `create-ticket`'s split mechanics rather than re-deriving them.
+
+**Stamp the acceptance links in the same pass** — the step that closes the seam. Once the tickets are written, run `link-acceptance.sh <slug> <item-selector> <ticket-filename>` once per acceptance item, naming the pair explicitly (the interrogation just decided it; nothing infers it). An item that **no** emitted ticket satisfies stays unlinked and is **reported to the developer**, never linked to the nearest ticket — an unlinked item is an honest "no artifact claims this yet", and a guessed link is a checkbox that will one day flip on work that did not satisfy it. Skipping this step is what strands a board: the criteria are written, the tickets exist, and nothing joins them (`reference/schema.md`, *The link contract*).
 
 **The split cap does not apply to a mission — a deliberate, scoped exception.** `create-ticket` §4 caps a split at "2–4 discrete tickets", which is right for one request that turns out to be several. A mission is the opposite case: an execution plan that bundles *many* tickets by definition, and "a complete set to drive through one by one" is the requirement. Capping it at 4 would force either an incomplete plan or a fake ticket boundary. A mission decomposition answers to its own rule: **one ticket per genuinely separable unit of work, however many that is**. The cap still applies to `/ticket` itself; this exception is mission-scoped and stated here so it is not a silent violation.
 
@@ -242,7 +244,7 @@ The sanctioned path to **reopen an existing active mission's plan** — reached 
 
 The bar equals creation's: a structured **delta model** — what changes, which tickets, in what order — not a Q&A transcript (`planning` / `modeling-centric-design`), grilled until the delta is drive-ready. The **Recommended-label test** applies exactly as at creation (`rules/interaction.md`): a delta decision you could honestly recommend is decided-and-recorded (a `## Changelog` line or the delta ticket's `## Quality Gate`), not asked; only the unrecommendable forks reach an the agent's selection prompt. `gate_*` is never interrogated, exactly as at creation.
 
-**What the delta may touch** — everything the Creation Interrogation produces, applied as a delta: rewrite `## Goal` / `## Experience` (and a legacy `## Scope` if the mission still carries one); append `## Acceptance` items (observable, ticket-linked by `(#<filename>)`); emit delta tickets in one pass (the same emission rules, including the mission-scoped split-cap exception); run the approval under the conditions below.
+**What the delta may touch** — everything the Creation Interrogation produces, applied as a delta: rewrite `## Goal` / `## Experience` (and a legacy `## Scope` if the mission still carries one); append `## Acceptance` items (observable); emit delta tickets in one pass (the same emission rules, including the mission-scoped split-cap exception **and the link-stamping step** — a replan is an emission seam, so it links its new items with `link-acceptance.sh`, and it is the sanctioned route by which a mission whose items predate this contract gets linked at all); run the approval under the conditions below.
 
 **What a replan must never touch:**
 
@@ -309,6 +311,7 @@ Every script lives at `mission/scripts/<name>`. **This table is a locator, not a
 | `mission-owners.sh` | The single ownership oracle — `assignees`, then the legacy `assignee` |
 | `read-assignees.sh` | The single parser of the `assignees` field shape |
 | `append-changelog.sh` | The single changelog writer; idempotent on its (event, artifact) pair |
+| `link-acceptance.sh` | The only writer of an acceptance item's `(#<filename>)` link; the caller names the pair, nothing is inferred |
 | `tick-acceptance.sh` | The only writer of an acceptance `[x]`, keyed on the item's `(#<filename>)` marker |
 | `predict-duration.sh` | Stamp `predicted_hours` once at creation from the archived-mission trend; empty when the basis is 0 |
 | `record-run-hours.sh` | The only writer of `actual_hours`; idempotent per run-id |

@@ -4181,7 +4181,7 @@ function testRecordEvidenceSharedRules() {
     "aws_secret_access_key: deadbeef99",          // the exact key name AWS config uses
     "refresh_token_value=abc123def456",           // keyword + suffix, .env style
     "access_key_id: verysecretval1",              // access_key was absent from the old copy
-    "deploy used key AKIAABCDEFGHIJKLMNOP ok",    // pass-1 AWS key id
+    "deploy used key AKIAIOSFODNN7EXAMPLE ok",    // pass-1 AWS key id (AWS's documented example key — GitHub push protection ignores it; an invented AKIA run blocks the push)
     "auth ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123 ok", // pass-1 GitHub token
   ];
   const dir = makeRepo("main");
@@ -4686,6 +4686,38 @@ function testExtractDeferredConcerns() {
     assertEq("extract-deferred-concerns dedups the same concern_id", r2.extracted, 0);
     const records = readdirSync(join(repo, ".workaholic/feedbacks")).filter((f) => f.endsWith("-some-real-concern.md"));
     assertEq("re-extract appends NO second record for the same id", records.length, 1);
+  } finally { cleanup(repo); }
+}
+
+// ---------- ship/extract-deferred-concerns.sh (non-ASCII titles get stable hash ids) ----------
+// The ASCII word slug degenerates on a Japanese-only title ('' -> the old
+// 'concern' fallback), so the first such record occupied that id and every
+// later Japanese concern was silently dropped as a duplicate. Non-ASCII (and
+// word-less) titles now get a stable c-<hash> id, reported via fallback_ids;
+// the ASCII path stays byte-identical (ids are the stream's permanent keys).
+function testExtractDeferredConcernsUnicodeTitles() {
+  const repo = makeRepo("main");
+  try {
+    mkdirSync(join(repo, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/stories/work-jp.md"),
+      "---\nbranch: work-jp\n---\n## 6. Concerns\n\n" +
+      "### 日本語タイトルの懸念その一\n\n- **Severity:** moderate\n- **Description:** 一つ目\n- **How to Fix:** 直す\n\n" +
+      "### 日本語タイトルの concern その二\n\n- **Severity:** low\n- **Description:** 二つ目\n- **How to Fix:** 直す\n\n" +
+      "### Plain ascii title\n\n- **Severity:** moderate\n- **Description:** ascii\n- **How to Fix:** fix\n\n## 7. Next\n");
+    execSync(`git add -A && git commit -q -m story`, { cwd: repo });
+    const r1 = JSON.parse(run(repo, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-jp 20 https://x/pr/20`).stdout);
+    assertEq("both Japanese-titled concerns and the ascii one are created", r1.created, 3);
+    const ids = r1.files.map((f) => basename(f).replace(/^\d{14}-/, "").replace(/\.md$/, ""));
+    assertEq("two distinct non-empty hash ids (no degenerate collision)",
+      new Set(ids).size, 3);
+    assertTrue("Japanese titles use the c-<hash> fallback id",
+      ids.filter((i) => /^c-[0-9a-f]{8}$/.test(i)).length === 2, JSON.stringify(ids));
+    assertTrue("the ascii title keeps the historical word slug",
+      ids.includes("plain-ascii-title"), JSON.stringify(ids));
+    assertEq("fallback usage is reported, never silent", r1.fallback_ids.length, 2);
+    // Re-extract under a different PR: hash ids dedup exactly like word slugs.
+    const r2 = JSON.parse(run(repo, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-jp 21 https://x/pr/21`).stdout);
+    assertEq("hash ids dedup across PRs (append-only, id-keyed)", r2.extracted, 0);
   } finally { cleanup(repo); }
 }
 
@@ -9495,6 +9527,7 @@ const tests = [
   ["okf/refresh-index.sh preserves content + prunes dead links", testRefreshIndexPreservesContent],
   ["report per-run artifacts (no shared /tmp paths)", testReportArtifacts],
   ["ship/extract-deferred-concerns.sh", testExtractDeferredConcerns],
+  ["ship/extract-deferred-concerns.sh unicode titles", testExtractDeferredConcernsUnicodeTitles],
   ["report/shrink-pr-body.sh", testShrinkPrBody],
   ["ship/extract-deferred-concerns.sh push", testExtractDeferredConcernsPush],
   ["ship: works from a claim worktree (merge + extraction destination)", testShipWorksFromAClaimWorktree],

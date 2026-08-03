@@ -105,3 +105,7 @@ which is precisely the condition the mission exists to fix.
 - 2026-08-03 — ticket archived — 20260801185303-make-the-ticker-measure-satisfaction.md
 - 2026-08-03 — story reported — work-20260803-212324.md
 - 2026-08-03 — run recorded (+0.7h) — work-20260803-212324
+- 2026-08-03 — concern deferred (stuck) — 20260803221906-21-acceptance-items-across-four-other.md
+- 2026-08-03 — concern deferred (stuck) — 20260803221906-the-link-stamping-step-is-prose.md
+- 2026-08-03 — concern deferred (stuck) — 20260803221906-v1-0-119-may-collide-with.md
+- 2026-08-03 — concern deferred (stuck) — 20260803221906-readme-md-still-describes-the-retired.md

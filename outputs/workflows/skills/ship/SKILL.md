@@ -173,7 +173,7 @@ Stages, commits (`Add release notes for <branch>`), and pushes any note file(s) 
 bash ship/scripts/extract-deferred-concerns.sh "<branch>" "<pr-number>" "<pr-url>"
 ```
 
-Reads the just-shipped story (`.workaholic/stories/<branch>.md`) and parses each `###` concern block in section 6 (Concerns). Each concern is keyed on a **stable identity** — `concern_id`, the slug of its title with any leading `(carried from …)` prefix stripped — so the same logical concern is recognized across PRs. Extraction is **update-or-create**, not append:
+Reads the just-shipped story (`.workaholic/stories/<branch>.md`) and parses each `###` concern block in section 6 (Concerns). Each concern is keyed on a **stable identity** — `concern_id`, the slug of its title with any leading `(carried from …)` prefix stripped; a title carrying non-ASCII characters (e.g. Japanese) or yielding no slug words gets a stable `c-<hash>` id from its normalized title instead, reported in the output's `fallback_ids`, because the word slug degenerates and would silently collide — so the same logical concern is recognized across PRs. Extraction is **update-or-create**, not append:
 
 - an **active** concern with that id → **updated in place** (bumps `last_seen`, escalates `severity` to the most severe, refreshes text) — no new file;
 - an **archived** (resolved/superseded) one → skipped (never resurfaces);

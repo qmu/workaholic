@@ -361,4 +361,8 @@
 * [Nothing here has been run against the live account](20260803221452-nothing-here-has-been-run-against.md)
 * [The digest gate cannot prove a human was present](20260803221452-the-digest-gate-cannot-prove-a.md)
 * [Two commands now survey routines](20260803221452-two-commands-now-survey-routines.md)
+* [21 acceptance items across four other active missions are still unlinked](20260803221906-21-acceptance-items-across-four-other.md)
+* [README.md still describes the retired `/mission approve` flow](20260803221906-readme-md-still-describes-the-retired.md)
+* [The link-stamping step is prose, enforced only by tests over that prose](20260803221906-the-link-stamping-step-is-prose.md)
+* [v1.0.119 may collide with a concurrently driven sibling unit](20260803221906-v1-0-119-may-collide-with.md)
 <!-- okf:generated:end -->

@@ -1,6 +1,6 @@
 ---
 name: setup-routines
-description: List the scheduled Claude Code Web routines that run against a repository — what they do, on what schedule, and whether they still match the shipped template.
+description: List the scheduled Claude Code Web routines that run against a repository, and add, refresh or remove one — each confirmed verbatim, one at a time.
 skills:
   - workaholic:workaholify
 ---
@@ -11,7 +11,9 @@ skills:
 
 **Plugin boundary — do not spelunk:** The skills this command needs are already loaded via its `skills:` frontmatter and resolved through `${CLAUDE_PLUGIN_ROOT}`. Invoke them by their loaded namespace (`workaholic:`); never search the filesystem for skill content, never read or run anything under `~/.claude/plugins/marketplaces/` or any other global install, and never guess a namespace — `drivin`, `trippin`, `core`, `standards`, and `work` are obsolete names long since merged into the single `workaholic` plugin. If a skill you expect is missing, ask the user which plugins are loaded; do not hunt for it on disk.
 
-`/setup-routines [repository name]` answers a question a repository could not previously answer about itself: **what runs against it, on what schedule, and from which template.** The configuration lives in the plugin (the templates) and in the Claude Code Web account (the live routines) — the repository declares nothing, so the only way to answer is to ask the account and report what it says (`workaholic:workaholify` §5). This command is **read-only**: it creates, changes and deletes nothing.
+`/setup-routines [repository name]` answers a question a repository could not previously answer about itself: **what runs against it, on what schedule, and from which template.** The configuration lives in the plugin (the templates) and in the Claude Code Web account (the live routines) — the repository declares nothing, so the only way to answer is to ask the account and report what it says (`workaholic:workaholify` §5).
+
+**Reading is free; changing is not.** Steps 1-5 read and report, and are safe to run anywhere. A routine is a standing, outward-facing process that acts on a repository unattended, so **every create, refresh and removal is confirmed verbatim, one routine at a time** (step 6) — never batched into a single yes, never inferred from a drift report, and never in an unattended run.
 
 Run this workflow:
 
@@ -50,4 +52,23 @@ Run this workflow:
 
    **`checked: false` is "could not check", never "the channel is missing"** — a locked credential store returns the same error as a nonexistent channel, and conflating them sends a developer to create a channel that already exists.
 
-Close by saying plainly that this command changed nothing, and that creating or refreshing a routine is a separate, confirmed act.
+6. **Add, refresh or remove — one routine, one confirmation.** Do this only for what the developer asked for, or, when the listing found drift or an unused template, after asking once whether to change anything at all. Then, **per routine**:
+
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/plan-routine-change.sh <create|refresh|remove> <template-id> <repo-url> --live .routines/live.json
+   ```
+
+   Write the plan to `.routines/plan-<template-id>.json`, and then:
+
+   - **`noop: true` is an answer, not a failure.** Report its `reason` and move on without asking: `no_drift` means the routine already matches the template and refreshing it would change nothing; `already_exists`, `not_present`, `already_disabled` and `disabled_routine` each say what to do instead. Never re-plan a noop as a different action to force something through.
+   - Otherwise **show the developer the plan's `name`, `trigger`, `cron_expression`, `model`, `enabled` and the **whole** `prompt`, verbatim**, and confirm it with `AskUserQuestion` (one question, one routine, body prefixed with the `[<project label>]` from `gather/scripts/project-label.sh`). A batch confirmation is not this rule. Ask which `environment_id` to use — the account has more than one and nothing here guesses.
+   - On confirmation, pass the plan's own `confirm_digest` back through the gate:
+
+     ```bash
+     bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/authorize-routine-change.sh --plan .routines/plan-<template-id>.json --digest <confirm_digest>
+     ```
+
+     Call `RemoteTrigger` **only** on `authorized: true`, and send exactly the returned `apply` block (plus the `environment_id` and the `slack_connector` from step 4): `{action: "create", body}` for a create, `{action: "update", trigger_id, body}` for a refresh or a removal. On `authorized: false`, report the `reason` and stop for that routine — `digest_mismatch` and `plan_tampered` both mean the body about to be sent is not the body that was confirmed.
+   - **"Remove" means disable.** The routines API has no delete, so a removal is an update setting `enabled: false`. Say that plainly, and say that deleting the entry itself is a human act at <https://claude.ai/code/routines>. Never report a routine as gone when it is disabled.
+
+7. **Report what changed.** Name each routine that was created, refreshed or disabled with its resulting URL, and each one that was left alone with the reason. Close by re-stating what still requires a human: deleting a routine outright.

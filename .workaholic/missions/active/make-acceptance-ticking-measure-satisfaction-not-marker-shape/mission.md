@@ -81,10 +81,10 @@ PROPOSED sketch for discussion, not a plan. `/mission approve` replans this to d
 Note that these items are themselves markerless — this batch has no tickets to link to yet,
 which is precisely the condition the mission exists to fix.
 
-- [ ] The chosen contract for the acceptance-to-artifact link is decided and written where the
+- [x] The chosen contract for the acceptance-to-artifact link is decided and written where the
       convention already lives (`mission/reference/schema.md` and `mission/SKILL.md`), with the
       rejected alternatives named (#20260801185301-decide-the-acceptance-to-artifact-link.md)
-- [ ] The seam that emits a mission's ticket set also establishes the link for each acceptance
+- [x] The seam that emits a mission's ticket set also establishes the link for each acceptance
       item, so a mission approved from a draft no longer starts unreachable (#20260801185302-establish-the-link-when-tickets-are-emitted.md)
 - [x] `tick-acceptance.sh` implements the chosen contract, and its `no_unchecked_match` result
       means "not satisfied" rather than "not addressable" (#20260801185303-make-the-ticker-measure-satisfaction.md)
@@ -103,3 +103,4 @@ which is precisely the condition the mission exists to fix.
 - 2026-08-03 — ticket archived — 20260801185301-decide-the-acceptance-to-artifact-link.md
 - 2026-08-03 — ticket archived — 20260801185302-establish-the-link-when-tickets-are-emitted.md
 - 2026-08-03 — ticket archived — 20260801185303-make-the-ticker-measure-satisfaction.md
+- 2026-08-03 — story reported — work-20260803-212324.md

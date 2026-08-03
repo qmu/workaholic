@@ -85,4 +85,5 @@
 * [v1.0.112 — The ship path works from a claim worktree](work-20260730-193046.md)
 * [The proposal batch now reads the missions, the todo queue, and the commits since the cursor etc](work-20260801-012313.md)
 * [Non-ASCII concern titles get stable hash ids](work-20260803-210404.md)
+* [The branch story is concise by default](work-20260803-212338.md)
 <!-- okf:generated:end -->

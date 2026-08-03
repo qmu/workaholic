@@ -5,7 +5,7 @@ type: enhancement
 layer: [UX]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on: [20260801185701-decide-the-fate-of-low-severity-concerns.md]
 mission: make-the-branch-story-concise-by-default
 merge_policy: auto

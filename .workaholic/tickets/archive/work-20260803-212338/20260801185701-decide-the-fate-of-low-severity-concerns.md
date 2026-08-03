@@ -5,7 +5,7 @@ type: housekeeping
 layer: [Config]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: make-the-branch-story-concise-by-default
 merge_policy: auto

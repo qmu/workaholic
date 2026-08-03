@@ -87,6 +87,12 @@ installed CLI):
   the in-flight claim, and works on something else or exits with nothing to do.
 - Do not install the crontab from an agent session — applying a standing
   outward-facing process is the developer's act; this page is the instruction.
+  The rule generalized beyond cron on 2026-08-03: an agent may not bring a
+  standing outward-facing process into existence, or re-point one, without a
+  human seeing exactly what it will be. `/setup-routines` schedules Claude Code
+  Web routines under that same bar — it reads freely, and every create, refresh
+  or removal is confirmed verbatim, one routine at a time, in an interactive
+  session (`skills/workaholify/SKILL.md` §5).
 
 ## 4. What feeds the loop
 

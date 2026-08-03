@@ -115,12 +115,22 @@ def main():
         matched.add(hit.get("id"))
         d = drift_of(hit, want)
         drifted_total += 1 if d else 0
-        present.append(
-            {"id": tpl["id"], "name": want["name"], "trigger_id": hit.get("id"), "drift": d}
-        )
+        # The LIVE facts ride along beside the drift: a reader that only learns "this
+        # routine differs in `schedule`" still cannot tell a developer what the routine
+        # actually does today. `list-routines.sh` presents these; nothing else reads the
+        # raw API response, so surfacing them here keeps the API shape in one file.
+        present.append({
+            "id": tpl["id"], "name": want["name"], "trigger_id": hit.get("id"), "drift": d,
+            "trigger": want["trigger"], "schedule": hit.get("cron_expression") or "",
+            "enabled": bool(hit.get("enabled", True)), "target_repo": repo,
+        })
 
     unknown = [
-        {"name": t.get("name"), "trigger_id": t.get("id")}
+        {
+            "name": t.get("name"), "trigger_id": t.get("id"),
+            "schedule": t.get("cron_expression") or "",
+            "enabled": bool(t.get("enabled", True)), "target_repo": repo,
+        }
         for t in mine
         if t.get("id") not in matched
     ]

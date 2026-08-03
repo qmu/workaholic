@@ -118,6 +118,8 @@ const SCRIPTS = {
   renderRoutine: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/render-routine.sh"),
   compareRoutines: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/compare-routines.sh"),
   checkSlackChannel: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-slack-channel.sh"),
+  listRoutines: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/list-routines.sh"),
+  resolveRepoUrl: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/resolve-repo-url.sh"),
   checkBootstrap: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-bootstrap.sh"),
   bootstrapHook: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/bootstrap/session-start.sh"),
   surveyWorktrees: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/survey-worktrees.sh"),
@@ -9561,6 +9563,7 @@ const tests = [
   ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
   ["routine announcements: exactly one subject, or nothing at all", testRoutineAnnouncementScoping],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
+  ["/setup-routines listing: could-not-check is never an empty account", testSetupRoutinesListing],
   ["branching worktree reclamation: merged AND clean, every skip named", testWorktreeReclamation],
   ["mission size norms: a ceiling on what a mission may say, and the floor it must not touch", testMissionSizeNorms],
   ["propose: widened inputs, emitted tickets, and the mission_member safety property (J4)", testProposeWidenedBatch],
@@ -10303,5 +10306,131 @@ function testRoutineAnnouncementScoping() {
     assertTrue(`${name} carries no Attention block`, !/Attention/.test(body), body.slice(0, 300));
     assertTrue(`${name} carries no concern conditional`,
       !/\{\{#if [a-z_]*concern/i.test(body), body.slice(0, 300));
+  }
+}
+
+// ---------- /setup-routines: what runs against a repository, or an honest "I could not look"
+// THE PROPERTY UNDER TEST is that three outcomes stay three outcomes: routines exist, no
+// routines exist, and the account could not be reached. The third collapsing into the
+// second is the defect this command was written to prevent -- its audience is a developer
+// who has just joined and cannot tell a wrong answer from a right one, so being told "no
+// routines run against this repository" about a live repo is believed.
+// NO TEST TOUCHES THE ACCOUNT: the live response is a fixture on stdin or in a file.
+function testSetupRoutinesListing() {
+  const dir = makeRepo("main");
+  const LIST = `${POSIX_SH} ${SCRIPTS.listRoutines}`;
+  const RENDER = `${POSIX_SH} ${SCRIPTS.renderRoutine}`;
+  const RESOLVE = `${POSIX_SH} ${SCRIPTS.resolveRepoUrl}`;
+  const WH = "https://github.com/qmu/workaholic";
+  const QFS = "https://github.com/qmu/qfs";
+  try {
+    const render = (id, repo) => JSON.parse(run(dir, `${RENDER} ${id} ${repo}`).stdout);
+    const SLACK_MCP = [{ connector_uuid: "d83b7545", name: "Slack", url: "https://mcp.slack.com/mcp" }];
+    const entry = (id, name, prompt, repo, cron = "", model = "claude-opus-5",
+                   enabled = true, mcp = SLACK_MCP) => ({
+      id, name, cron_expression: cron, enabled, mcp_connections: mcp,
+      job_config: { ccr: { session_context: { model, sources: [{ git_repository: { url: repo } }] },
+                           events: [{ data: { message: { content: prompt } } }] } },
+    });
+    const fixture = join(dir, "live.json");
+    const listFrom = (payload) => {
+      writeFileSync(fixture, JSON.stringify(payload));
+      return JSON.parse(run(dir, `${LIST} ${WH} --live ${fixture}`).stdout);
+    };
+
+    const drive = render("drive", WH);
+    const fb = render("fb", WH);
+    const fbQfs = render("fb", QFS);
+
+    // ---- 1. a repository that has routines ----
+    const populated = listFrom({ data: [
+      entry("t_drive", drive.name, drive.prompt, WH, "56 * * * *"),
+      // model unset -- the real drift measured on two live routines
+      entry("t_fb", fb.name, fb.prompt, WH, "", ""),
+      entry("t_oneoff", "nightly docs sweep", "a one-off", WH),
+      // another repository's routine, drifted: summarised, never dropped
+      entry("t_qfs", fbQfs.name, `${fbQfs.prompt}\nextra line\n`, QFS),
+    ] });
+    assertEq("a reachable account reports that it was checked", populated.checked, true);
+    const byName = (n) => populated.routines.find((r) => r.name === n);
+    // A NEWCOMER MUST BE ABLE TO READ THIS: what runs, when, against what, from which template.
+    assertEq("a routine is reported with its schedule, target and template",
+      (({ template, status, trigger, schedule, target_repo, enabled }) =>
+        ({ template, status, trigger, schedule, target_repo, enabled }))(byName(drive.name)),
+      { template: "drive", status: "current", trigger: "cron", schedule: "56 * * * *",
+        target_repo: WH, enabled: true });
+    assertEq("an event-driven routine reports no schedule rather than a fake one",
+      [byName(fb.name).trigger, byName(fb.name).schedule], ["event", null]);
+    // DRIFT IS PER FIELD, carried through from the comparison rather than flattened.
+    assertEq("a drifted routine names the field that drifted",
+      [byName(fb.name).status, byName(fb.name).drift],
+      ["drifted", ["model (unset != claude-opus-5)"]]);
+    // `unknown` IS INFORMATION: listed so nothing is invisible, never a problem.
+    assertEq("an untemplated routine is listed as a deliberate one-off",
+      [byName("nightly docs sweep").status, byName("nightly docs sweep").template],
+      ["unknown", null]);
+    assertTrue("and it is labelled as not-a-problem",
+      /one-off, not a problem/.test(byName("nightly docs sweep").note), byName("nightly docs sweep").note);
+    assertEq("a template with no live routine is offered, not faulted",
+      populated.missing.map((m) => m.id), ["merged-pr"]);
+    // The template set has a version; a LIVE routine does not, and nothing claims one.
+    assertTrue("the template set reports the version it compared against",
+      /^\d+\.\d+\.\d+$/.test(populated.template_set_version), String(populated.template_set_version));
+    // Scope is presentation, not a narrower survey -- one defect replicated is still one defect.
+    assertEq("drift elsewhere in the fleet is summarised, not dropped",
+      populated.elsewhere, { repos: 1, drifted: 1 });
+    assertEq("the account-level Slack connector is reported for reuse",
+      populated.slack_connector.present, true);
+
+    // ---- 2. a repository with no routines ----
+    const empty = listFrom({ data: [] });
+    assertEq("an empty account is a CHECKED answer with an empty list",
+      [empty.checked, empty.routines.length], [true, 0]);
+    assertEq("and every template is reported as available", empty.missing.length, 3);
+
+    // ---- 3. an account that could not be reached ----
+    // EACH OF THESE MUST BE DISTINGUISHABLE FROM CASE 2. `checked: false` carries no
+    // `routines` key AT ALL, so there is nothing for a caller to misread as "none".
+    const unreachable = {
+      no_live_input: JSON.parse(run(dir, `printf '' | ${LIST} ${WH}`).stdout),
+      api_error: JSON.parse(run(dir, `printf '{"error":{"type":"overloaded"}}' | ${LIST} ${WH}`).stdout),
+      unparseable_live_input: JSON.parse(run(dir, `printf 'not json' | ${LIST} ${WH}`).stdout),
+      unrecognised_live_shape: JSON.parse(run(dir, `printf '{"ok":true}' | ${LIST} ${WH}`).stdout),
+      unreadable_live_input: JSON.parse(run(dir, `${LIST} ${WH} --live ${join(dir, "absent.json")}`).stdout),
+    };
+    for (const [reason, out] of Object.entries(unreachable)) {
+      assertEq(`an unreachable account (${reason}) is not a checked answer`, out.checked, false);
+      assertEq(`and it names why (${reason})`, out.reason, reason);
+      assertTrue(`and it lists NOTHING -- an empty list would read as "none" (${reason})`,
+        !("routines" in out) && !("missing" in out), JSON.stringify(out));
+    }
+    // The distinction stated as the assertion the ticket asked for.
+    assertTrue("'could not check' and 'no routines' are never the same output",
+      unreachable.api_error.checked !== empty.checked, JSON.stringify(unreachable.api_error));
+    // An object with no `data` list is NOT an empty account -- that inference is the bug.
+    assertTrue("an unrecognised response is refused rather than read as empty",
+      /NOT evidence/.test(unreachable.unrecognised_live_shape.detail),
+      unreachable.unrecognised_live_shape.detail);
+
+    // ---- 4. read-only ----
+    // The listing writes nothing: the fixture is the only file the test itself created.
+    assertEq("listing leaves the working tree untouched",
+      run(dir, "git status --porcelain -- . ':!live.json'").stdout.trim(), "");
+
+    // ---- 5. which repository the question is about ----
+    run(dir, `git remote add origin ${WH}`);
+    assertEq("no argument means this checkout",
+      (({ repo, source }) => ({ repo, source }))(JSON.parse(run(dir, RESOLVE).stdout)),
+      { repo: WH, source: "current_checkout" });
+    // A BARE NAME IS A GUESS, and says so: answering confidently about another
+    // organisation's repository would be worse than not answering.
+    assertEq("a bare name resolves inside this checkout's organisation",
+      (({ repo, source }) => ({ repo, source }))(JSON.parse(run(dir, `${RESOLVE} qfs`).stdout)),
+      { repo: QFS, source: "same_org_as_checkout" });
+    assertEq("a full URL is taken verbatim, trailing .git stripped",
+      JSON.parse(run(dir, `${RESOLVE} https://github.com/qmu/other.git`).stdout).repo,
+      "https://github.com/qmu/other");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 }

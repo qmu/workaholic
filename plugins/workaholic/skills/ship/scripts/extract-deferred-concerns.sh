@@ -4,9 +4,10 @@
 # H2/H3 — the carry-over seam is where drive-born feedback is written), one
 # immutable record per concern, keyed on the STABLE concern_id.
 #
-# Section 6 is expected to use this structure (or "None"):
+# The Concerns section is expected to use this structure (the section is omitted
+# entirely when the branch raised no concerns):
 #
-#   ## 6. Concerns
+#   ## 5. Concerns          <- matched BY NAME; the number varies per story
 #
 #   ### <Title>
 #
@@ -188,8 +189,18 @@ if _slug:
                 pass
             break
 
-# Isolate section 6 (## 6. ...) up to the next top-level "## " heading.
-m = re.search(r'^##\s+6\.\s.*?$(.*?)(?=^##\s+\d+\.\s|\Z)', text, re.MULTILINE | re.DOTALL)
+# Isolate the Concerns section, up to the next top-level "## " heading.
+#
+# MATCH THE HEADING BY NAME, NEVER BY NUMBER. Story sections are numbered
+# sequentially over the sections a story actually has, and a section with nothing
+# to report is omitted -- so Concerns is "## 5. Concerns" on one branch and
+# "## 6. Concerns" on the next, and both are correct. Keying on a number would
+# make extraction depend on which OTHER sections happened to be written, and it
+# would fail SILENTLY: no heading match means an empty section, which is
+# indistinguishable from a branch that raised no concerns. The optional numeric
+# prefix is tolerated precisely so every story ever written still parses.
+m = re.search(r'^##\s+(?:\d+[.)]\s*)?Concerns\s*$(.*?)(?=^##\s|\Z)',
+              text, re.MULTILINE | re.DOTALL)
 section = m.group(1) if m else ""
 blocks = re.split(r'^###\s+', section, flags=re.MULTILINE)[1:]
 

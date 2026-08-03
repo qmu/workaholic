@@ -44,10 +44,15 @@ BODY_FILE=$(mktemp "${TMPDIR:-/tmp}/workaholic-pr-body.XXXXXX")
 trap 'rm -f "$BODY_FILE"' EXIT
 "${SCRIPT_DIR}/strip-frontmatter.sh" "$STORY_FILE" > "$BODY_FILE"
 
+# Drop the low-severity concern blocks from the BODY only. The committed story file
+# keeps every severity and is the sole source the ship-time extractor parses, so this
+# changes what the reviewer is asked to read and nothing about what gets recorded.
+"${SCRIPT_DIR}/filter-low-concerns.sh" "$BODY_FILE" "$BRANCH" >/dev/null
+
 # Bound the body under GitHub's 65,536-char PR-body limit (a large carried
-# concern corpus used to hard-stop this script at gh time). Over the limit,
-# section 6 is replaced with a link to the committed story file — the ship-time
-# extractor reads the file, not the PR body, so extraction is unchanged.
+# concern corpus used to hard-stop this script at gh time). Over the limit, the
+# Concerns section is replaced with a link to the committed story file — the
+# ship-time extractor reads the file, not the PR body, so extraction is unchanged.
 "${SCRIPT_DIR}/shrink-pr-body.sh" "$BODY_FILE" "$BRANCH" >/dev/null
 
 # The CLI must exist before anything is attempted against it. Checked here rather than

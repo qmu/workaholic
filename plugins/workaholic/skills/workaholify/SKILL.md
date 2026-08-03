@@ -86,6 +86,29 @@ Everything below a template's `## Prompt` heading is the routine's prompt, verba
 
 Keeping the prompt as readable markdown rather than an embedded JSON string is deliberate: the prompt *is* the routine, template freshness is the entire point of the issue behind this, and a prompt nobody can read in a diff is a prompt nobody will keep current.
 
+### Where the configuration lives (decided 2026-08-03)
+
+Three places, one kind of fact each, and **the repository declares nothing**:
+
+| Holds | What it owns |
+| ----- | ------------ |
+| The **plugin** | What a routine *should* be — the templates above, one set for every repository |
+| The **account** | What a routine *is* — the live routine, reachable only through `RemoteTrigger` |
+| The **repository** | Nothing new. `{repo}`, `{repo_slug}` and `{repo_name}` all derive from its own git remote |
+
+A repository was never short of a config file; it was short of an **answer**. "What runs against this repo" was unanswerable because nothing read the account back to the developer — so the fix is a reader (`/setup-routines`), not a directory. **No `.workaholic/` area is introduced**, so no closed-layout amendment is involved.
+
+Three alternatives were rejected, and the reasons matter more than the verdict. *Per-repository declarations* would be one copy per repo of a file identical everywhere but its URL, each free to drift and none of them authoritative — the design this skill already refused. *A selection manifest* naming which templates a repo wants is the one genuinely per-repository fact, and the closest call; it was rejected because the selection is uniform across the fleet today except for `[Drive]`, which is a pilot, so the manifest would freeze an unsettled pilot into repository policy. *A committed snapshot of the live routines* would go stale silently, and a stale snapshot reading as healthy is exactly the failure §4 exists to catch. The full record with its rejected alternatives is in the feedback stream (`20260803213008-where-routine-configuration-lives-and-what-an-agent-may-apply-unattended.md`).
+
+### What may be applied unattended (decided 2026-08-03)
+
+The boundary is **read versus write**, not one command versus another:
+
+- **Reading is unattended-safe.** Listing, rendering, comparing, and reporting drift may run in any session — `/drive`, a cloud routine, anything. They reach nothing and change nothing.
+- **Every mutation needs a human looking at the exact body.** Create, refresh and remove are confirmed **verbatim, one routine at a time**, in an interactive session. Never batched into a single yes, never inferred from a drift report, never performed by an unattended run.
+
+Both loop runbooks say *"do not install the crontab from an agent session — applying a standing outward-facing process is the developer's act."* That rule survives intact; the crontab was incidental to it. Generalized: **an agent may not bring a standing outward-facing process into existence, or re-point one, without a human seeing exactly what it will be.** All that changed is the sanctioned path — the confirmation is now mediated by a script instead of done entirely by hand, which makes it checkable rather than merely instructed.
+
 ### The scripts, and the split they enforce
 
 ```bash

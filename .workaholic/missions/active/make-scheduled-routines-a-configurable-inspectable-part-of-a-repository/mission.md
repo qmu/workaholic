@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260803-212331
 ---
 
 # Make scheduled routines a configurable, inspectable part of a repository

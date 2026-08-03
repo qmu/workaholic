@@ -64,7 +64,7 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 | `/catch`   | Read-only catch-up report over a recent window (commits, tickets, stories, each active mission's derived progress and unmerged in-flight work) plus an orchestration-throughput block, then follow-up Q&A |
 | `/explain` | Answer a question about the repository and export a printer-ready PDF report, rendered from HTML by a real browser |
 | `/workaholify` | Wire the current repo to the standards: refer to the gateway skill, audit `CLAUDE.md` against the documentation standard, and confirm the working-directory hook is active |
-| `/setup-routines` | Answer what a repository could not answer about itself: **what runs against it** — each scheduled Claude Code Web routine with its trigger, schedule, target and whether it still matches the shipped template. The repository declares nothing; the templates live in the plugin and the live routines in the account, so the command asks the account and reports. Read-only, and an unreachable account reports **"could not check"**, never "nothing is configured" |
+| `/setup-routines` | Answer what a repository could not answer about itself: **what runs against it** — each scheduled Claude Code Web routine with its trigger, schedule, target and whether it still matches the shipped template. The repository declares nothing; the templates live in the plugin and the live routines in the account, so the command asks the account and reports. An unreachable account reports **"could not check"**, never "nothing is configured". It also adds, refreshes and removes routines — each confirmed **verbatim, one at a time**, with the bar enforced by a digest gate rather than by prose, and "remove" meaning *disable* because the routines API has no delete |
 
 **Engineering-policy skills** (`planning` / `design` / `implementation` / `operation`): a catalog mirrored from qmu.co.jp giving each policy's title, one-line summary, and canonical link, organized into the 企画 (planning — grounding a project in business, market, and legal context before design begins), 設計 (design), 実装 (implementation, sub-grouped by 妥当性 / 可用性 / アクセシビリティ), and 運用 (operations) pillars. Pure prose, exposed on every Agent-Skills agent. Security (安全) and working-practice (執務) policies live elsewhere on qmu.co.jp and are out of scope.
 
@@ -345,6 +345,7 @@ flowchart LR
   commit --> WT
   explain --> PDF
   workaholify --> CFG
+  setuproutines --> ROUT
 
   %% ========== reference: dashed arrow = reads / refers ==========
   drive -.-> TODO

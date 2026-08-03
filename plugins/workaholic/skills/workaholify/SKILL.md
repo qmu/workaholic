@@ -117,6 +117,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/render-routine.sh <templat
 bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/resolve-repo-url.sh [name-or-url]
 <RemoteTrigger list JSON> | bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/compare-routines.sh <repo-url>
 bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/list-routines.sh <repo-url> --live <file>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/plan-routine-change.sh <create|refresh|remove> <template-id> <repo-url> --live <file> [--enable]
+bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/authorize-routine-change.sh --plan <file> --digest <digest>
 ```
 
 **Scripts own the templates and the comparison; the command owns the API and the confirmation.** A shell script cannot call `RemoteTrigger` — only the main agent can — so the command fetches the live list and pipes it in. That split is what keeps the logic out of markdown (the Shell Script Principle) *and* testable: `compare-routines.sh` is driven against fixtures in the suite without touching anyone's account.
@@ -149,6 +151,16 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/check-slack-channel.sh <re
 **"Cannot check" is never reported as "does not exist", and that distinction is the reason the script exists.** On a locked qfs credential store, an existing channel and a nonexistent one return the *identical* `slack_auth` error — so a naive "did the read succeed?" test marks every channel missing and sends a developer to create channels that are already there. Only a probe that actually reached Slack may set `exists`; everything else is `checked: false` with a named reason (`no_qfs`, `slack_locked`, `slack_not_connected`).
 
 That failure class has already cost this project twice: a survey concluded "no routines are installed" from an empty crontab, on a machine whose routines run in the cloud. Absence of evidence is not evidence of absence.
+
+### Changing a routine: the plan, the digest, and what "remove" means
+
+`plan-routine-change.sh` renders the exact content one change would carry and stamps it with a `confirm_digest`; `authorize-routine-change.sh` re-derives that digest and refuses anything that does not match. The command must pass through both — plan, show verbatim, confirm, authorize, then call the API with the returned `apply` block.
+
+**What the gate actually buys, stated precisely so it is not oversold.** It cannot prove a human was present; no script an agent runs can. What it closes are the two failures a standing outward-facing process cannot survive: **substitution** (`plan_tampered` — the plan no longer hashes to its own digest, so what was read and what would be sent differ) and **batching** (`digest_mismatch` — one confirmation carries exactly one digest, so a single yes can never cover a fleet). The digest covers only what a developer verifies by eye — action, repository, name, trigger, schedule, model, `enabled`, and the whole prompt — never the account plumbing nobody reads.
+
+**A noop is an answer and carries no digest**, so it cannot be forced through: refreshing an undrifted routine reports `no_drift` and changes nothing, and `already_exists`, `not_present`, `already_disabled` and `disabled_routine` each name what to do instead. `disabled_routine` exists because removal *is* disabling: a refresh that silently re-enabled a routine somebody switched off would undo a deliberate act, so it needs `--enable` to say that is what you mean.
+
+**"Remove" means disable, and says so.** The API has no delete, so removal is an update setting `enabled: false`; deleting the entry is a human act at <https://claude.ai/code/routines>. A removal's plan shows the **live** prompt rather than the template's — you are switching off what is actually there, which may have drifted.
 
 ### What the command does with all this
 

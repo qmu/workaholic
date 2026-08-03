@@ -2,16 +2,6 @@
 name: report
 description: Use when the user runs `/report`, asks to "write up this branch", "open the PR", "create the release note", or "assess release readiness". Reads archived tickets, judges previously-deferred concerns, generates a branch story file, creates or updates the GitHub PR, writes the release note, and reports whether the branch is safe to ship.
 allowed-tools: Bash
-user-invocable: false
-skills:
-  - workaholic:branching
-  - workaholic:gather
-  - workaholic:planning
-  - workaholic:design
-  - workaholic:implementation
-  - workaholic:operation
-metadata:
-  internal: true
 ---
 
 # Report
@@ -22,8 +12,8 @@ Guidelines for generating branch stories, creating pull requests, and assessing 
 
 This skill works on any Agent-Skills-compatible agent. The two Claude-Code mechanisms used below are **enhancements, not requirements**:
 
-- **Parallel fan-out** — where a step spawns `general-purpose` subagents to run parts concurrently (the deferred-concern judge, the overview/section-review/release-readiness workers, the PR and release-note writers), that is the Claude Code optimization. On other agents, perform those parts **sequentially** in the same session; the inputs and outputs are identical.
-- **User interaction** — where a step uses `AskUserQuestion`, use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies. Prefix each interactive prompt's (`AskUserQuestion`) `question` body with `[<project label>]` — run `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh` once and reuse its `project` value — so a developer with several sessions open across tmux panes can see which repository is asking; leave the `header` as the decision/topic label.
+- **Parallel fan-out** — where a step spawns parallel workers to run parts concurrently (the deferred-concern judge, the overview/section-review/release-readiness workers, the PR and release-note writers), that is the Claude Code optimization. On other agents, perform those parts **sequentially** in the same session; the inputs and outputs are identical.
+- **User interaction** — where a step uses the agent's selection prompt, use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The decision points are mandatory; only the prompt mechanism varies. Prefix each interactive prompt's (the agent's selection prompt) `question` body with `[<project label>]` — run `bash gather/scripts/project-label.sh` once and reuse its `project` value — so a developer with several sessions open across tmux panes can see which repository is asking; leave the `header` as the decision/topic label.
 
 ## Run Workflow
 
@@ -31,19 +21,19 @@ Context-aware report orchestration. Auto-detects which branch or worktree the ca
 
 ### Policy Lens (read first)
 
-Before assessing the branch, load the project's engineering policies as your judging lens: `workaholic:planning`, `workaholic:design`, `workaholic:implementation`, and `workaholic:operation`. On Claude Code these arrive automatically (this skill preloads them via its `skills:` frontmatter and the `/report` command's `policy-lens.sh` hook injects the reminder); on other agents, open each index skill yourself. Read those indexes, and open the specific policy hard copies they link (`policies/<slug>.md`) when a concern or change maps to one.
+Before assessing the branch, load the project's engineering policies as your judging lens: `planning`, `design`, `implementation`, and `operation`. On Claude Code these arrive automatically (this skill preloads them via its `skills:` frontmatter and the `/report` command's `policy-lens.sh` hook injects the reminder); on other agents, open each index skill yourself. Read those indexes, and open the specific policy hard copies they link (`policies/<slug>.md`) when a concern or change maps to one.
 
 These policies are the lens for the report's judgments: when judging deferred concerns, reviewing the story sections, and assessing release readiness, evaluate the branch's **planning** (business/market/legal grounding), **design** (interaction and behavior), **implementation** (code structure and correctness — `directory-structure` and `coding-standards` always apply to code work), and **operation** (delivery, runtime, and recovery) against the relevant policy's Goal (目標), Responsibility (責務), and Practices (実践). Cite the specific policy when a concern or readiness verdict rests on one.
 
 ### Step 0: Workspace Guard
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-workspace.sh
+bash branching/scripts/check-workspace.sh
 ```
 
 Parse the JSON output. If `clean` is `true`, proceed silently to Step 1.
 
-If `clean` is `false`, display the `summary` to the user and ask via AskUserQuestion with selectable options:
+If `clean` is `false`, display the `summary` to the user and ask via the agent's selection prompt with selectable options:
 - **"Ignore and proceed"** - Continue with the report workflow. The unrelated changes will remain in the workspace after the command completes.
 - **"Stop"** - Halt the command so you can handle the changes first.
 
@@ -52,7 +42,7 @@ If the user selects "Stop", end the command immediately.
 ### Step 1: Detect Context
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/detect-context.sh
+bash branching/scripts/detect-context.sh
 ```
 
 Parse the JSON output. Route to the appropriate workflow based on `context`.
@@ -65,21 +55,21 @@ Parse the JSON output. Route to the appropriate workflow based on `context`.
 
 ##### Write the story (every `mode`)
 
-1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
-2. **Run the Write Story orchestration** (`## Write Story → ### Orchestration`, Phases 0–5) directly in this command (main-agent) context. The command itself spawns the leaf `general-purpose` subagents — there is no intermediate story-writer subagent.
+1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
+2. **Run the Write Story orchestration** (`## Write Story → ### Orchestration`, Phases 0–5) directly in this command (main-agent) context. The command itself spawns the leaf parallel workers — there is no intermediate story-writer subagent.
 3. **Link the rationale, on a legacy branch that has one**: when `detect-context.sh` returned a `trip_name` and `.workaholic/trips/<trip-name>/` exists, add a short note to the story's Notes section linking that directory's design artifacts as the *why* behind the ticket-based Changes, so a reviewer can trace each ticket's **Trip Origin** back to the design that justified it. Do not duplicate the design into the story — link it. `trips/` is read-only history with no writer; a branch created since the retirement has no `trip_name` and skips this step.
 4. **Display story content**: Read the story file at `.workaholic/stories/<branch-name>.md` and output the entire Markdown content so the developer can review inline.
 5. **Display PR URL** captured from Phase 5 (mandatory).
 
 #### Worktree Context (`context: "worktree"`)
 
-Not on a work branch, but worktrees exist. Each is a **claim worktree** (`workaholic:drive`'s *Claims*), so selecting one selects the unit to report.
+Not on a work branch, but worktrees exist. Each is a **claim worktree** (`drive`'s *Claims*), so selecting one selects the unit to report.
 
-1. Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/list-worktrees.sh`
+1. Run `bash branching/scripts/list-worktrees.sh`
 2. Filter to worktrees where `has_pr` is `false` (unreported work)
 3. If no unreported worktrees found: inform the user "No unreported worktrees found." and stop.
-4. If exactly one unreported worktree: ask the user "Found worktree '<name>'. Generate report?" using AskUserQuestion. If confirmed, use it.
-5. If multiple unreported worktrees: list them and ask the user which one to report on using AskUserQuestion.
+4. If exactly one unreported worktree: ask the user "Found worktree '<name>'. Generate report?" using the agent's selection prompt. If confirmed, use it.
+5. If multiple unreported worktrees: list them and ask the user which one to report on using the agent's selection prompt.
 6. Once selected, all subsequent git operations must run from within the worktree directory.
 7. Re-run context detection from within the worktree and follow the appropriate mode workflow.
 
@@ -93,32 +83,32 @@ Generate a branch story that serves as the single source of truth for PR content
 
 ### Orchestration
 
-Generate the story file, then create the PR. The `/report` command (main agent) runs this orchestration directly: it executes the bash/Read/Write steps inline and spawns each leaf worker as a `subagent_type: "general-purpose"` Task whose prompt preloads a `core` skill and runs one section. There is no intermediate subagent — the command does all fan-out, so the fan-out stays one level deep (a subagent cannot spawn further subagents).
+Generate the story file, then create the PR. The `/report` command (main agent) runs this orchestration directly: it executes the bash/Read/Write steps inline and spawns each leaf worker as a parallel worker Task whose prompt preloads a `core` skill and runs one section. There is no intermediate subagent — the command does all fan-out, so the fan-out stays one level deep (a subagent cannot spawn further subagents).
 
 #### Phase 0: Gather Context
 
-Gather all context by running `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/git-context.sh`. Returns: branch, base_branch, repo_url, archived_tickets, git_log.
+Gather all context by running `bash gather/scripts/git-context.sh`. Returns: branch, base_branch, repo_url, archived_tickets, git_log.
 
 #### Phase 1: Judge Open Deferred Concerns
 
 Run before the parallel agent batch. Skip silently when `list-open-concerns.sh` reports zero open concerns.
 
-1. **Spawn a deferred-concern judge** as `subagent_type: "general-purpose"` (`model: "opus"`) in a single Task call. The prompt instructs it to preload `workaholic:report`, follow the `### Judge Deferred Concerns` section with the given branch name and base branch, and return `{verdicts: [...], compounds: [...]}` (compounds are candidate A+B combinations — see that section).
+1. **Spawn a deferred-concern judge** as parallel worker in a single Task call. The prompt instructs it to preload `report`, follow the `### Judge Deferred Concerns` section with the given branch name and base branch, and return `{verdicts: [...], compounds: [...]}` (compounds are candidate A+B combinations — see that section).
 2. **Apply verdicts**: Establish one **private per-run artifact directory** for this `/report` and reuse it for every intermediate file — `RUN_DIR=$(mktemp -d)`. Never park artifacts at a constant `/tmp/...` path: concurrent `/report`s across desks (different repos, by design) would share it, and a stale or foreign payload left there is read silently instead of loudly. Write the judge's returned JSON to `$RUN_DIR/deferred-concern-verdicts.json`. `apply-deferred-concern-verdicts.sh` accepts both the full `{"verdicts": [...]}` object (the judge's natural output) and a bare `[...]` array, so either form works — prefer writing the object verbatim. **Pass the expected concern count** — the number of open concerns `feedback/scripts/list-open-concerns.sh` returned — as the script's first argument, so a stale/foreign `{"verdicts": []}` fails loud (non-zero exit) instead of silently reporting `still_active: 0`. Then run:
 
    ```bash
-   cat "$RUN_DIR/deferred-concern-verdicts.json" | bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/apply-deferred-concern-verdicts.sh "$EXPECTED_CONCERN_COUNT"
+   cat "$RUN_DIR/deferred-concern-verdicts.json" | bash report/scripts/apply-deferred-concern-verdicts.sh "$EXPECTED_CONCERN_COUNT"
    ```
 
    Each `resolved` verdict appends a **superseding feedback record** to the stream (`kind: concern`, `supersedes: <record filename>`, `resolved_by_pr`/`resolved_by_commit` recorded) — the resolved record itself is immutable and never edited or moved; `list-open-concerns.sh` excludes it from the open set from then on. `still_active` verdicts write nothing.
 
 #### Phase 2: Spawn Story Generation Workers
 
-Spawn 3 `subagent_type: "general-purpose"` leaf subagents in parallel (single message with 3 Task calls). Each prompt names the skill to preload, the section to run, the inputs, and the expected return schema:
+Spawn 3 parallel worker leaf subagents in parallel (single message with 3 Task calls). Each prompt names the skill to preload, the section to run, the inputs, and the expected return schema:
 
-- **release-readiness** (`model: "opus"`): preload `workaholic:report`, run `## Assess Release Readiness`, return the releasability JSON. Pass archived tickets list and branch name.
-- **overview-writer** (`model: "haiku"`): preload `workaholic:report`, run `### Overview Generation`, return the overview JSON. Pass branch name and base branch.
-- **section-reviewer** (`model: "haiku"`): preload `workaholic:review-sections`, run it, return its JSON (`historical_context`, `outcome`, `concerns`, `development_patterns`). Pass branch name, archived tickets list, the deferred concern verdicts file path `$RUN_DIR/deferred-concern-verdicts.json` (the per-run path from Phase 1, not a constant `/tmp/...`), **and the collected commit bodies** (`collect-commits.sh` output). `historical_context` is **not a section** — it is folded into Motivation (see the template below), and it is empty far more often than not. The Concerns section records **this branch's** concerns only — open stream concerns are NOT prepended (the `(carried from PR #N)` convention retired with the concern merger; the stream itself is the durable memory). The section-reviewer folds in any `Concerns:` keys from the commit bodies (§6) and `Insights:` keys (§7) so a concern or pattern recorded in a commit is not lost when a ticket is sparse or absent.
+- **release-readiness**: preload `report`, run `## Assess Release Readiness`, return the releasability JSON. Pass archived tickets list and branch name.
+- **overview-writer**: preload `report`, run `### Overview Generation`, return the overview JSON. Pass branch name and base branch.
+- **section-reviewer**: preload `review-sections`, run it, return its JSON (`historical_context`, `outcome`, `concerns`, `development_patterns`). Pass branch name, archived tickets list, the deferred concern verdicts file path `$RUN_DIR/deferred-concern-verdicts.json` (the per-run path from Phase 1, not a constant `/tmp/...`), **and the collected commit bodies** (`collect-commits.sh` output). `historical_context` is **not a section** — it is folded into Motivation (see the template below), and it is empty far more often than not. The Concerns section records **this branch's** concerns only — open stream concerns are NOT prepended (the `(carried from PR #N)` convention retired with the concern merger; the stream itself is the durable memory). The section-reviewer folds in any `Concerns:` keys from the commit bodies (§6) and `Insights:` keys (§7) so a concern or pattern recorded in a commit is not lost when a ticket is sparse or absent.
 
 Wait for all 3 to complete. Track which succeeded and which failed.
 
@@ -129,7 +119,7 @@ Wait for all 3 to complete. Track which succeeded and which failed.
    **Take each ticket's commit hash from git, never from frontmatter:**
 
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/ticket-commits.sh <branch-name>
+   bash report/scripts/ticket-commits.sh <branch-name>
    ```
 
    It returns `[{"ticket": "<basename>.md", "commit": "<short-hash>"}]` — the commit that *added* each archived ticket, which is the commit that implemented it. Use those hashes for the Changes section's links. **Never read a ticket's `commit_hash` frontmatter**: a commit cannot carry its own hash, so the old archive script stamped a pre-amend hash that ends up orphaned and never pushed — tickets archived before that fix still carry those dead values, and every link built from one 404s. Git is the single source of truth (`archive.sh` no longer writes the field). A ticket whose `commit` comes back empty is not committed yet — surface that rather than dropping the ticket.
@@ -139,23 +129,23 @@ Wait for all 3 to complete. Track which succeeded and which failed.
 #### Phase 4: Commit and Push Story
 
 1. **Roll every related mission** (skip this whole step if the story's `mission:` is empty). Run the two steps below **once per slug** in the story's `mission:` list — a branch advancing two missions rolls both. Update each through the shared, idempotent mutators — never hand-edit `mission.md`:
-   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/append-changelog.sh <mission-slug> "story reported" <branch-name>.md` — records that this branch's story advanced the mission.
-   - for **each** ticket filename in the story's `tickets:` list: `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/tick-acceptance.sh <mission-slug> <ticket-filename>` — reconciles the mission's acceptance checklist for the tickets this story covers. Drive's `archive.sh` already ticks per ticket; this idempotent catch-up covers tickets archived outside the mission-aware path.
+   - `bash mission/scripts/append-changelog.sh <mission-slug> "story reported" <branch-name>.md` — records that this branch's story advanced the mission.
+   - for **each** ticket filename in the story's `tickets:` list: `bash mission/scripts/tick-acceptance.sh <mission-slug> <ticket-filename>` — reconciles the mission's acceptance checklist for the tickets this story covers. Drive's `archive.sh` already ticks per ticket; this idempotent catch-up covers tickets archived outside the mission-aware path.
 
    Looping needs no de-duplication: both mutators are keyed and idempotent, and `tick-acceptance.sh` simply finds nothing on a mission whose Acceptance does not list that ticket — so each mission ticks only what it actually claims.
    Resolved deferred concerns judged in Phase 1 already recorded their `concern resolved (unstuck)` line via `apply-deferred-concern-verdicts.sh`, so nothing extra is needed for those here.
-2. **Refresh the OKF bundle indexes** (stages them): `bash ${CLAUDE_PLUGIN_ROOT}/skills/okf/scripts/refresh-index.sh` — keeps the `.workaholic/` hierarchy's `index.md` files in sync with the story and concern files this flow just wrote.
+2. **Refresh the OKF bundle indexes** (stages them): `bash okf/scripts/refresh-index.sh` — keeps the `.workaholic/` hierarchy's `index.md` files in sync with the story and concern files this flow just wrote.
 3. **Stage story, resolved deferred concerns, and any mission updates**: `git add .workaholic/stories/ .workaholic/concerns/ .workaholic/missions/`
 4. **Commit**: `git commit -m "Add branch story for <branch-name>"` (the same commit captures any deferred concern archive moves from Phase 1, the mission changelog/acceptance updates, and the refreshed indexes, keeping audit history coherent)
 5. **Push branch**: `git push -u origin <branch-name>`
 
 #### Phase 5: Create PR
 
-1. **Create PR**: spawn `subagent_type: "general-purpose"` (`model: "opus"`) preloading `workaholic:report` and running `## Create PR`. It reads the story file, derives the title, and runs the `gh` CLI operations. Capture the `PR created/updated: <URL>` line from its response.
+1. **Create PR**: spawn parallel worker preloading `report` and running `## Create PR`. It reads the story file, derives the title, and runs the `gh` CLI operations. Capture the `PR created/updated: <URL>` line from its response.
 
 Capture the PR URL for final output.
 
-**Note**: Release notes are no longer generated here. `workaholic:write-release-note` now runs at **ship time** in the `workaholic:ship` Ship Flow (before merge, committed to the branch), so each ship/release produces its own note and multiple releases per branch are possible.
+**Note**: Release notes are no longer generated here. `write-release-note` now runs at **ship time** in the `ship` Ship Flow (before merge, committed to the branch), so each ship/release produces its own note and multiple releases per branch are possible.
 
 #### Report Output Schema
 
@@ -176,7 +166,7 @@ Once orchestration completes, the report is described by:
 
 ### Worker Output Mapping
 
-Story sections are populated from the parallel leaf subagents' outputs (each is a `general-purpose` subagent running the named role):
+Story sections are populated from the parallel leaf subagents' outputs (each is a parallel workers running the named role):
 
 | Worker role | Sections | Fields |
 | ----------- | -------- | ------ |
@@ -188,12 +178,12 @@ The Changes section comes from archived tickets, prefaced by journey content fro
 
 ### Judge Deferred Concerns
 
-Run by the Phase 1 deferred-concern judge (a `general-purpose` subagent that preloads this skill). Inputs: branch name and base branch (usually `main`).
+Run by the Phase 1 deferred-concern judge (a parallel workers that preloads this skill). Inputs: branch name and base branch (usually `main`).
 
 1. List the open concerns from the feedback stream:
 
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/list-open-concerns.sh
+   bash feedback/scripts/list-open-concerns.sh
    ```
 
    Concerns live in the feedback stream as `kind: concern` records (`docs/loop-engineering-workflow.md` H2); a record is **open** iff no record supersedes it and it carries no migration-only `closed:` stamp. The script first runs the concern-corpus living migration (`feedback/scripts/migrate-concerns.sh`, best-effort, idempotent), so a legacy `concerns/` tree heals on first read. The output is an envelope `{active_count, my_lane_count, owner_counts, should_triage, concerns: [...]}` (`should_triage` is permanently `false` — the triage machinery retired with the merger); each `concerns[]` entry carries `concern_id` (the stable identity), `first_seen`/`last_seen`, `severity`, `owner` (the lane it belongs to, the first owner of the story's mission at extraction — `mission-owners.sh`, the mission's own `assignees` with a legacy `assignee` fallback; empty = unowned), and provenance. If `concerns` is empty, return `{"verdicts": []}` and stop.
@@ -254,14 +244,14 @@ Include `resolved_by_pr` and `resolved_by_commit` only for `resolved` verdicts. 
 
 ### Overview Generation
 
-Generate the four fields consumed by sections 1, 2, and 3 (`overview`, `highlights`, `motivation`, `journey`) by analyzing commit history for the branch. The overview-writer role (a `general-purpose` subagent) runs this generation in parallel with the release-readiness and section-reviewer roles.
+Generate the four fields consumed by sections 1, 2, and 3 (`overview`, `highlights`, `motivation`, `journey`) by analyzing commit history for the branch. The overview-writer role (a parallel workers) runs this generation in parallel with the release-readiness and section-reviewer roles.
 
 #### Collect Commits
 
 Run the bundled script to collect commit information:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/collect-commits.sh [base-branch]
+bash report/scripts/collect-commits.sh [base-branch]
 ```
 
 With no `[base-branch]` arg the base is resolved by `gather/base-ref.sh`, which prefers
@@ -406,7 +396,7 @@ Its content is fixed and short — four elements, no more:
 ```
 
 **"Attempted" is raw output, never a verdict.** `deploy.sh → exit 127: gh: command not
-found` is actionable; "deployment seemed human-only" is not (`workaholic:implementation`
+found` is actionable; "deployment seemed human-only" is not (`implementation`
 / `objective-documentation`). If nothing was attempted, say so plainly rather than
 implying a finding that was never made.
 
@@ -496,10 +486,10 @@ One subsection per ticket, in chronological order:
 **Example**:
 
 ```markdown
-### Inline shell invocations in workaholic:drive
+### Inline shell invocations in drive
 
 - **Severity:** moderate
-- **Description:** `workaholic:drive` still calls `ls -1` inline, violating the Shell Script Principle (see [7eab801](<repo-url>/commit/7eab801) in `plugins/workaholic/skills/drive/SKILL.md`)
+- **Description:** `drive` still calls `ls -1` inline, violating the Shell Script Principle (see [7eab801](<repo-url>/commit/7eab801) in `plugins/workaholic/skills/drive/SKILL.md`)
 - **How to Fix:** Extract the inline invocations into dedicated navigator scripts under the drive skill's `scripts/` directory
 ```
 
@@ -579,7 +569,7 @@ something, and its presence is the signal.
 
 **Release-readiness input:**
 
-The release-readiness JSON is produced by the release-readiness role — a `general-purpose` subagent the command spawns in parallel during Phase 2. The JSON contains:
+The release-readiness JSON is produced by the release-readiness role — a parallel workers the command spawns in parallel during Phase 2. The JSON contains:
 
 ```json
 {
@@ -626,7 +616,7 @@ The `type` key is what makes the story readable as an [Open Knowledge Format](ht
 - `tickets:` — the list of archived ticket **filenames** this story covers (basenames of `.workaholic/tickets/archive/<branch>/*.md`). A story already narrates its tickets in prose (the Changes section); this records the association in frontmatter so a mission can roll them up mechanically (the report→tickets relation). Write `[]` if the branch archived no tickets.
 - `mission:` — every mission this branch advances, **inherited from the archived tickets' `mission:` field**: the **union** of the covered tickets' slugs, de-duplicated, in first-seen order. Write `[]` when none carry one. A single mission is spelled `[<slug>]`, and a legacy bare `mission: <slug>` still reads as one. This is the machine-readable relation `/ship` propagates into any deferred concern extracted from this story.
 
-  **Never ask the developer to choose.** Tickets naming different missions are not a conflict to resolve — a branch really can advance two missions, and the union simply records that. An earlier version of this rule asked, via `AskUserQuestion`, which mission a disagreeing set of tickets belonged to; whichever the developer picked, the other mission silently lost the work from its rolled-up progress. That made the mission graph depend on which option someone clicked, in a model whose whole claim is that progress is *computed, never a hand-set number*. Derive the union and move on.
+  **Never ask the developer to choose.** Tickets naming different missions are not a conflict to resolve — a branch really can advance two missions, and the union simply records that. An earlier version of this rule asked, via the agent's selection prompt, which mission a disagreeing set of tickets belonged to; whichever the developer picked, the other mission silently lost the work from its rolled-up progress. That made the mission graph depend on which option someone clicked, in a model whose whole claim is that progress is *computed, never a hand-set number*. Derive the union and move on.
 
 ### Writing Guidelines
 
@@ -668,7 +658,7 @@ Use that first item as the title. If multiple items exist, append "etc" (e.g., "
 Run the bundled script:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/create-or-update.sh <branch-name> "<title>"
+bash report/scripts/create-or-update.sh <branch-name> "<title>"
 ```
 
 #### What the Script Does
@@ -688,7 +678,7 @@ Steps 3 and 4 are the only two places where the PR body and the story file diver
 A reusable script for removing YAML frontmatter from any markdown file:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/strip-frontmatter.sh <file>
+bash report/scripts/strip-frontmatter.sh <file>
 ```
 
 Outputs clean markdown body to stdout. Handles files with frontmatter, without frontmatter (pass-through), and empty files. Only strips frontmatter starting on line 1 -- content `---` separators elsewhere are preserved.
@@ -718,7 +708,7 @@ Analyze a branch to determine if it's ready for release.
 1. **Run the branch-safety scan** (objective — the same engine `/ship` blocks on): this supersedes eyeballing the diff for secrets. `/report` cannot merge, so it **warns loudly** rather than blocking:
 
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/release-scan/scripts/scan-branch-safety.sh
+   bash release-scan/scripts/scan-branch-safety.sh
    ```
 
    If `verdict` is `block`, list every finding (category, **severity**, `file:line`, rule — the secret value is redacted) in the release-readiness output, and key releasability off the finding **severity**, not the binary verdict: any `hard` (secret) or `confirm` (leak) finding forces `releasable: false` — a `secret` finding especially means the branch must not ship until it is removed. When the **only** findings are `override`-tier (size), report `releasable: true` with each finding recorded as a concern and a `pre_release` instruction saying `/ship` will ask the developer to consciously accept the size override — an oversized-but-legitimate change is exactly what that tier exists for, and forcing `releasable: false` over it made the assessment cry wolf. If `verdict` is `pass`, note the scan is clean.
@@ -735,7 +725,7 @@ Analyze a branch to determine if it's ready for release.
 4. **Assess documentation drift**: run
 
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/doc-drift.sh "<base_branch>"
+   bash report/scripts/doc-drift.sh "<base_branch>"
    ```
 
    passing the resolved `base_branch` from `git-context.sh`. It returns drift
@@ -749,7 +739,7 @@ Analyze a branch to determine if it's ready for release.
    candidate is a hint, not a verdict; dismiss it when the doc legitimately did
    not need the change. Confirmed drift becomes (a) a release-readiness
    `concerns[]` entry plus a `pre_release` instruction (the Release Preparation ship gate),
-   and (b) a durable Concerns entry via `workaholic:review-sections`, so it
+   and (b) a durable Concerns entry via `review-sections`, so it
    carries over on `/ship` if not fixed first. **Exclude** `outputs/` staleness
    and version/manifest drift — the Outputs Freshness CI and `validate-metadata.mjs`
    own those domains; the script already omits them.

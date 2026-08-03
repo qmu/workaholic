@@ -55,3 +55,4 @@ when something must be done.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-03 — ticket archived — 20260801185701-decide-the-fate-of-low-severity-concerns.md
 - 2026-08-03 — ticket archived — 20260801185702-make-the-story-short-by-default.md
+- 2026-08-03 — story reported — work-20260803-212338.md

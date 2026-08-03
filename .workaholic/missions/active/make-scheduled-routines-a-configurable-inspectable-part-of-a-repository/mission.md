@@ -59,3 +59,6 @@ PROPOSED sketch, not a plan. `/mission approve` replans this to drive-ready.
 - 2026-08-03 — ticket archived — 20260801185503-add-remove-and-refresh-a-routine.md
 - 2026-08-03 — story reported — work-20260803-212331.md
 - 2026-08-03 — run recorded (+0.56h) — work-20260803-212331
+- 2026-08-03 — concern deferred (stuck) — 20260803221452-the-digest-gate-cannot-prove-a.md
+- 2026-08-03 — concern deferred (stuck) — 20260803221452-nothing-here-has-been-run-against.md
+- 2026-08-03 — concern deferred (stuck) — 20260803221452-two-commands-now-survey-routines.md

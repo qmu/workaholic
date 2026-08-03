@@ -1,0 +1,441 @@
+# Workaholic
+
+The development workflows we use at [qmu](https://github.com/qmu), written down so our coding agents can run them the way we do. They're tuned to how we work, so they may not fit everyone, and they'll keep changing as we do. We keep it public so the people we work with can share the same base.
+
+**Concretely**, it's a cross-agent distribution of structured development workflows and engineering-standard skills: ticket-driven development, AI-collaborative exploration, and the engineering-policy index (the `planning` / `design` / `implementation` / `operation` skills, mirrored from qmu.co.jp). It's richest on **Claude Code** (a plugin marketplace: slash commands, hooks, always-on policy and mission lenses); the same skills install on **Codex**, **OpenCode**, and 40+ other agents via the [Agent Skills standard](https://skills.sh). Authored once under `plugins/`, generated into portable artifacts under `outputs/`.
+
+**The planning hierarchy is three layers, each at its own granularity — and no layer restates a lower one's detail:** a **mission** is an *optional, epic-equivalent grouping* — a bounded batch of tickets an agent fleet drives together (typically overnight), never a required parent; a **ticket** is one drive-able change (fully first-class on its own); a **commit** is one normalized change kept to a reviewable size. Long-lived *direction* accretes in the `.workaholic/feedbacks/` stream rather than a separate artifact layer. This is the day/night model we work in: the developer spends the **day planning** (interrogating each mission to question-free, drive-ready readiness) and **approving** it, and **coding agents execute at night** in parallel, so the morning starts with reviewable results — open PRs, honest reconciliation lines, and whatever the run learned written back into the feedback stream.
+
+> [!WARNING]
+> **This drives git on your behalf.** Workaholic lets your coding agent autonomously create branches, commit, amend, push, and open pull requests. Review the plugin/skill descriptions below before installing so you know what to expect.
+
+## Quick Start (Claude Code)
+
+```bash
+claude
+/plugin marketplace add qmu/workaholic
+```
+
+Enable the plugins you want after installation. Auto update is recommended. For Codex, OpenCode, and other agents, see [Use with other coding agents](#use-with-other-coding-agents) below.
+
+## Use with other coding agents
+
+Workaholic follows the cross-agent [Agent Skills standard](https://skills.sh). What's portable:
+
+- **Policy skills** (`planning` / `design` / `implementation` / `operation`) — the engineering-policy index (pure prose, self-contained): title, one-line summary, and canonical qmu.co.jp link per policy, organized into the 企画 / 設計 / 実装 / 運用 pillars. Available on every Agent-Skills agent.
+- **`write-release-note`** — release-note structure guidance (pure prose).
+- **Workflows** — `create-ticket`, `drive`, `report`, `ship`, `catch`, `mission` as agent-neutral skills. On non-Claude agents the workflow runs the same steps without Claude's parallel subagents/`AskUserQuestion` — see each skill's **Agent Compatibility** note.
+- **[Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) (OKF v0.1)** — two surfaces, no install needed. The committed `outputs/okf/` bundle exposes the four pillars' policy hard copies to any OKF reader straight from the repo path; and every project using the plugin gets an OKF-compatible `.workaholic/` tree — generated documents carry `type` frontmatter and the workflows regenerate the `index.md` hierarchy (entry point: `.workaholic/index.md`) before each knowledge commit.
+
+### Install matrix
+
+| Agent | How |
+| ----- | --- |
+| **Claude Code** | `/plugin marketplace add qmu/workaholic` (slash commands `/ticket`, `/mission`, `/drive`, `/report`, `/ship`) |
+| **OpenAI Codex** | `codex plugin marketplace add qmu/workaholic --ref main`<br>`codex plugin add workaholic@workaholic`<br>`codex plugin add workflows@workaholic` |
+| **Cursor / OpenCode / Pi / 50+** | `npx skills add qmu/workaholic` (exposes `workaholic` + `workflows`) |
+
+### How the workflows reach other agents
+
+The workflow skills share helper scripts across `plugins/workaholic` via the Claude-only `${CLAUDE_PLUGIN_ROOT}` token, so they are not self-contained in source. `scripts/build-plugins` generates **self-contained** copies (each skill bundling its own scripts, references rewritten to relative paths) and assembles one neutral, committed plugin under `outputs/workflows/`. That single dir serves every non-Claude agent: Codex via `.agents/plugins/marketplace.json` (and the co-located `.codex-plugin/plugin.json`), and OpenCode/Cursor/40+ via the `skills` CLI reading the `workflows` entry in `.claude-plugin/marketplace.json`. Regenerate after changing a workaholic workflow skill:
+
+```bash
+node scripts/build-plugins/build.mjs   # regenerate outputs/workflows artifacts (no args = full build)
+node scripts/build-plugins/verify.mjs  # assert every script reference resolves
+```
+
+The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true`, `${CLAUDE_PLUGIN_ROOT}`); the committed `outputs/workflows/` artifacts are the public, portable versions, kept in sync by the `Outputs Freshness` CI check. The `workaholic` plugin's commands, hooks, and rules remain Claude-Code-only.
+
+## The plugin
+
+`workaholic` is a single plugin combining ticket-driven development (TiDD), AI-collaborative exploration, and context-aware reporting/shipping, plus the engineering-policy index. It auto-detects your development context from the current branch pattern.
+
+| Command    | What it does                                          |
+| ---------- | ----------------------------------------------------- |
+| `/ticket`  | Plan a change with context and steps, then **publish it straight to `main`** so the next `/drive` tick can claim it — run it from any branch, mid-edit; your checkout is left untouched and no branch is created (bare `/ticket` or `/ticket summary` reports your assigned todo tickets instead) |
+| `/request` | Submit a ticket to **another** repository — the only sanctioned way to cross a repo boundary. Masks this project's customer context and requires you to confirm the destination and the exact body, verbatim, in one non-skippable confirmation |
+| `/drive`   | **The sole executor.** Fast-forwards its checkout to the base first — artifacts live on `main`, so a runner that skipped this would survey a stale queue and report it confidently — then surveys what is claimable (approved missions + your unclaimed backlog), partitions it into **PR-units** — "what deserves one merge" — claims each on a pushed branch, implements it in the claim's own worktree, opens its PR via `/report`'s seam, and routes it by the unit's recorded **merge policy**: `auto` ships through the full deploy-and-confirm-then-merge doctrine and cleans the claim up, anything else stops at the PR and posts its URL to Slack (a policy nobody recorded counts as review). Then it accounts for the run: a reconciliation line plus an **honest derived terminal token** — `ok` only when every claimed unit reached its routed end *and* a fresh survey offers nothing claimable, else `pending`, which is what a caller-side loop like `/goal /drive ok` waits on. **It never asks anything** — the same run, interactively or on a 5-minute cron (`docs/drive-loop-runbook.md`); `/drive night` is a synonym. Approval is not a per-ticket prompt: it was given where the work was decided, at mission approval or ticket creation. Work is coordinated by the **claim protocol** — every runner reads the claims in flight from the unmerged remote branches, so two runners (or two machines) never pick the same work. There is no lock file and no server; the repository itself is the coordination medium |
+| `/commit`  | Commit the working changes with a policy-conformant message (for small non-ticketed changes; ticketed work belongs to `/drive`) |
+| `/propose` | Headless proposal batch: read feedback newly merged to main (runner-local cursor) and either stay silent or register **draft** missions with `feedback:` traceability, pushed to main and announced to Slack (bot token optional). The 15-minute cron entry of the loop-engineering model |
+| `/fb` | Register one **immutable** record into the feedback stream — a design conclusion, an instruction, a development-born concern, or customer material. Resolution is a new record naming the old one via `supersedes`, never an edit. Named `/fb` because Claude Code ships a built-in `/feedback` (which sends feedback to Anthropic); **only the trigger is abbreviated** — the artifact, the skill, and the stream keep the full word |
+| `/report`  | Context-aware: generate the branch story and create the PR (warns on the branch-safety scan — credentials/oversize/leakage) |
+| `/ship`    | Context-aware: deploy, verify, merge the PR, and publish the GitHub Release (blocks pre-merge on the branch-safety scan; secrets are non-overridable) |
+| `/mission` | Plan an **optional, epic-equivalent grouping** — a bounded batch of tickets an agent fleet drives together, typically overnight (never a required parent; single tickets drive fine without one): create one (interrogates you to a drive-ready state, then spins up a dedicated `.worktrees/<slug>/` worktree holding the mission statement and the **whole** ordered ticket set it emitted), **approve** a draft into drive-ready work (`/mission approve <slug>` — the one human ruling it asks is whether the mission's completed units may merge automatically), show the **developer-centric roadmap** (bare `/mission`: full treatment — progress, next step, recent movement — for your and unclaimed active missions, one-liners for colleagues' and archived ones; the former `summary` mode is folded into this view), or close one (achieved / abandoned / **carried** — done as framed, with the unmet criteria carried into a successor mission) into the archive area (the archive move only — a mission's worktree belongs to the claim that made it, and is torn down at ship or by an explicit claim release). When a mission's **direction changes** mid-flight, **reorganize-and-carry** is the encouraged move — replan to drop the now-moot criteria, then `carried` into a fresh or existing successor — over grinding to `achieved` or `abandoned` |
+| `/catch`   | Read-only catch-up report over a recent window (commits, tickets, stories, each active mission's derived progress and unmerged in-flight work) plus an orchestration-throughput block, then follow-up Q&A |
+| `/explain` | Answer a question about the repository and export a printer-ready PDF report, rendered from HTML by a real browser |
+| `/workaholify` | Wire the current repo to the standards: refer to the gateway skill, audit `CLAUDE.md` against the documentation standard, and confirm the working-directory hook is active |
+| `/setup-routines` | Answer what a repository could not answer about itself: **what runs against it** — each scheduled Claude Code Web routine with its trigger, schedule, target and whether it still matches the shipped template. The repository declares nothing; the templates live in the plugin and the live routines in the account, so the command asks the account and reports. An unreachable account reports **"could not check"**, never "nothing is configured". It also adds, refreshes and removes routines — each confirmed **verbatim, one at a time**, with the bar enforced by a digest gate rather than by prose, and "remove" meaning *disable* because the routines API has no delete |
+
+**Engineering-policy skills** (`planning` / `design` / `implementation` / `operation`): a catalog mirrored from qmu.co.jp giving each policy's title, one-line summary, and canonical link, organized into the 企画 (planning — grounding a project in business, market, and legal context before design begins), 設計 (design), 実装 (implementation, sub-grouped by 妥当性 / 可用性 / アクセシビリティ), and 運用 (operations) pillars. Pure prose, exposed on every Agent-Skills agent. Security (安全) and working-practice (執務) policies live elsewhere on qmu.co.jp and are out of scope.
+
+> [!NOTE]
+> **How policies stay in sync.** The canonical articles live on [qmu.co.jp](https://qmu.co.jp) — that is the source of truth. This repo carries an English hard copy of each one under the matching policy skill's `policies/` directory, and every file's frontmatter `source:` links back to its canonical article, so the platform and the website share the same knowledge. When the canonical articles change, the refresh arrives as a `standards-sync/*` pull request that updates the hard copies; merging it (with a version bump) republishes the index so every agent installing by repo path picks up the new wording. The sync is produced upstream and lands as a PR — there is no policy-fetching step this repo runs on its own.
+
+**Typical everyday session:**
+
+```bash
+/ticket add dark mode toggle to settings page
+/ticket support system preference detection
+/drive                            # claim both as a PR-unit, implement, open the PR, route it
+/ticket fix flash of light theme on page load
+/drive                            # next claim, next PR
+```
+
+`/report` and `/ship` are still yours to run directly on a branch you drove by hand — `/drive` reaches them through the same seams, so the tail is identical whether you typed it or a cron tick did.
+
+**Typical overnight session:**
+
+```bash
+/mission "make the settings page fully theme-aware"
+# interrogates the goal to a drive-ready state,
+# emits the whole ordered ticket set into .worktrees/<slug>/
+/mission approve <slug>           # the one human ruling: may its units merge automatically?
+/drive                            # claims every approved unit, drives, reports, routes — unattended
+```
+
+## How It Works
+
+### Ticket-Driven Development
+
+A ticket is a markdown file describing a change you want to make — the context, plan, and rationale. Run `/ticket your change request` and a coding agent explores both codebase and history, then writes the ticket for you. It is committed and pushed to `main` immediately — from whatever branch you happen to be on, without disturbing your working tree — so it is visible to every runner, machine, and fresh clone the moment it exists. Committed alongside the code, tickets become searchable history for future coding agents.
+
+Once tickets are queued, `/drive` groups them into PR-units, claims each on its own pushed branch, and implements them in that claim's worktree — no confirmation prompt, because the approval already happened when the work was decided. While one runner drives a claim, others can keep creating tickets or claim a different unit; the unmerged remote branches are what keeps them from colliding.
+
+`/report` generates changelogs and PR descriptions from the accumulated ticket history. Then `/ship` deploys and confirms in production *before* merging — it follows the `## Deploy` instructions in your project's `CLAUDE.md` (or a `.workaholic/deployments/` entry), verifies via the project's `## Verify` steps, and merges the PR as the final, evidence-gated step.
+
+> [!NOTE]
+> **A flavor of Spec-Driven Development**
+>
+> This follows [Spec-Driven Development](https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html) principles with distinct terminology:
+>
+> - **Ticket**: A change request describing what should be different (flowing, temporal)
+> - **Spec**: Current state documentation describing what exists now (snapshot, persistent)
+>
+> Tickets drive implementation; specs document the result. Both are markdown, both are versioned, but they serve complementary purposes.
+
+### Sources and the one executor
+
+Everything converges on the same unit of work — a ticket. The shorthand: **sources fill the queue, one executor drains it.**
+
+- **Sources** write tickets into `todo/`: `/ticket` (you, with discovery) and `/mission` (a whole ordered ticket set emitted at once, plus delta tickets on replan). Both publish straight to `main` from whatever branch you are on, and neither creates a branch or a worktree. `/propose` sits upstream of both, turning newly merged feedback into **draft** missions a human then approves.
+- **The executor** drains `todo/ → archive/`: **`/drive`**, and there is exactly one of it. It takes work in PR-units, drives each in its own claim worktree, opens the PR, and routes it by merge policy — the same run whether you typed it or a cron tick did. Approval is not asked per ticket; it was already given where the work was decided (a mission's approval, or the ticket's own merge policy at creation), and the qualitative review relocates to the PR.
+
+**Where the design conversation went.** Until 2026-07-28 this section described `/trip`, an Agent Teams session in which a Planner, an Architect, and a Constructor designed a concept together, decomposed it into tickets, and drove them. That command, along with `/monitor` (parallel mission execution) and `/carry` (handing in-progress work to a fresh session), has been retired and its ideas absorbed:
+
+- **Design discussion** is now the **feedback stream** — `/fb` records each conclusion, instruction, concern, or piece of customer material as an immutable entry that later planning reads.
+- **Decomposition** is `/mission` (interrogate a goal into its whole ticket set) and `/propose` (read merged feedback, register draft missions).
+- **Execution — including parallel, unattended, many-mission execution — is `/drive`.** What `/monitor` did across mission worktrees, `/drive` now does as its normal survey-and-claim behavior, coordinated through the claim branches instead of a dispatcher.
+- **Handing off in-flight work** needs no command: the work lives on a pushed claim branch by construction, so the next run re-claims the unit (`claim.sh resume <unit-id>`, once the claim's heartbeat lapses and only for its own identity) and continues from the branch tip. A run that knowingly leaves a unit unfinished says so in the PR body's `## Handoff` section. What a hand-off used to capture in prose — the learnings, the deferred concerns — is written at the ship seam as `kind: concern` / `kind: insight` feedback records.
+
+`.workaholic/trips/` remains on disk as **legacy, read-only history**: no command has written to it since 2026-07-28, and nothing deletes it. Knowledge is never deleted.
+
+## Artifacts under `.workaholic/`
+
+Working artifacts live in [.workaholic/](.workaholic/README.md). Each artifact captures a snapshot of the code change at a specific point in the workflow — they are not generic documentation. The table below summarizes what gets stored, when it is written, and how it survives (or is eliminated) through the ship process.
+
+The tree is also an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) bundle: `.workaholic/index.md` is the entry point (declaring `okf_version`), each knowledge area keeps an `index.md` the workflows regenerate before committing (via the internal `okf` skill's `refresh-index.sh`), and every generated document carries YAML frontmatter with a non-empty `type` — so any OKF reader can walk the project's development knowledge.
+
+### Lifecycle Reference
+
+| Artifact | Written by | Snapshot of | Diffed on ship? | Carried over? | Eliminated when |
+| -------- | ---------- | ----------- | --------------- | ------------- | --------------- |
+| `tickets/todo/<ts>-*.md` | `/ticket` | Intended change (not yet implemented) | committed **and pushed to `main`** at creation | no | `/drive` claims it into a PR-unit and archives it once implemented |
+| `tickets/archive/<branch>/*.md` | `/drive` (archive) | Implemented change with final report and commit hash | committed, permanent | no — permanent record | never (institutional history) |
+| `tickets/icebox/*.md` | `/ticket --icebox` (or manual move) | Deferred change | committed | yes (survives across PRs until promoted) | `/drive` (after user promotes from icebox) |
+| `tickets/abandoned/*.md` | `/drive` (abandon flow) | Attempted-then-abandoned change with failure analysis | committed, permanent | no | never |
+| `stories/<branch>.md` | `/report` | PR description: overview, journey, outcome, concerns, ideas, release readiness | committed before PR creation | concerns/ideas sections only (extracted by `/ship`) | never (per-branch permanent record) |
+| `release-notes/<branch>.md` | `/ship` (before merging) | Concise release narrative for GitHub Releases | committed before merge | no | never |
+| `trips/<name>/*` | nothing — **no writer since 2026-07-28** | Legacy multi-agent design output from the retired `/trip` command | already committed; read-only history | no | never (kept as history; knowledge is not deleted) |
+| `missions/active/<slug>/mission.md` | `/mission` | Optional epic-equivalent grouping bundling many tickets: goal, scope, acceptance checklist (progress = checked/total), one `status` lifecycle axis (`draft` → `approved`, then an end state) plus the orthogonal `merge_policy`, `predicted_hours`/`actual_hours` (predicted at creation from the archived trend, actual accumulated by `/drive`), append-only changelog | committed, updated as related work lands | n/a — outlives any branch | `/mission approve` flips `draft` → `approved`; `/mission close` flips `status` to `achieved`, `abandoned` or `carried` and moves the dir to `missions/archive/<slug>/` (file and changelog preserved) |
+| `feedbacks/<ts>-<slug>.md` | `/fb` (conclusions/instructions), `/ship` (`kind: concern` records extracted from a shipped story's section 6), `/report` (superseding resolution records) — all through the feedback skill's writers | One **immutable** inbound record of project context: a conclusion (`kind: insight`), an instruction, a development-born concern, or customer material — the raw material later planning reads | committed when registered | **yes — the stream accumulates forever**; consumers track "new" by commit cursor, and the open concern set is computed as "not superseded" | never (resolution/mootness is a *new* record naming the old one via `supersedes`, not an edit) |
+| `specs/*.md` | manual (hand-edited reference) | Current-state documentation of how things work today | committed | n/a — not branch-scoped | superseded when manually rewritten |
+| `guides/*.md` `policies/*.md` `terms/*.md` | manual | Persistent reference material (user docs, policies, glossary) | committed | n/a | superseded when manually rewritten |
+
+### Command ⇄ artifact maps, by development style
+
+The plugin has one spine — the **ticket** — but the work reaches it through different front doors depending on how it starts. Each map below is one **development style**, and all of them converge on the same tail: `/report` writes the branch story and opens the PR, then `/ship` writes the release note, merges, and deploys. Node style is constant across every map — rounded **blue** = a command, rectangular **grey** = an artifact it writes, **green** = a completed/permanent state, **amber** = carried forward, **red** = dropped. Solid arrow = writes / drives; dashed arrow = reads.
+
+#### Use case 1 — Everyday development: `/ticket` → `/drive`
+
+The unit of work is a single ticket, and it is really *one file that changes state* as commands act on it. `/ticket` writes it into the queue; `/drive` reads the queue, implements it, and moves it to the permanent archive (or, if the attempt is dropped, to `abandoned/`). Then the shared tail turns the archived work into a merged, deployed PR.
+
+```mermaid
+flowchart LR
+  ticket(["/ticket"])
+  drive(["/drive"])
+  report(["/report"])
+  ship(["/ship"])
+
+  subgraph TICKET["A ticket — one file, four states"]
+    direction TB
+    todo["todo/<br/>queued for work"]
+    icebox["icebox/<br/>parked for later"]
+    archived["archive/&lt;branch&gt;/<br/>implemented · permanent"]
+    abandoned["abandoned/<br/>attempted · dropped"]
+    icebox -.->|promote| todo
+    todo ==>|"/drive: claim, implement, archive"| archived
+    todo -.->|"/drive: abandon"| abandoned
+  end
+
+  story["stories/&lt;branch&gt;.md + PR"]
+  relnote["release-notes/&lt;branch&gt;.md"]
+
+  ticket ==>|writes new| todo
+  ticket -.->|"--icebox"| icebox
+  drive -.->|reads the queue| todo
+  archived ==>|read by| report
+  report ==>|writes story, opens PR| story
+  report ==> ship
+  ship ==>|writes note, merges, deploys| relnote
+
+  classDef cmd fill:#dbeafe,stroke:#1e40af,stroke-width:1.5px,color:#1e3a8a;
+  classDef state fill:#eef1f6,stroke:#6b7280,color:#111827;
+  classDef done fill:#dcfce7,stroke:#15803d,color:#14532d;
+  classDef drop fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d;
+  classDef art fill:#f3f4f6,stroke:#6b7280,color:#111827;
+  class ticket,drive,report,ship cmd;
+  class todo,icebox state;
+  class archived done;
+  class abandoned drop;
+  class story,relnote art;
+```
+
+The ticket's resting places **are** its states: `todo/` (queued), `icebox/` (parked until promoted), `archive/<branch>/` (implemented, permanent history), and `abandoned/` (attempted then dropped). `/ticket` only ever writes into `todo/` or `icebox/`; `/drive` is the only command that moves a ticket *out* of `todo/`, into exactly one terminal state — then hands the archived work to `/report` → `/ship`.
+
+#### Use case 2 — Mission-centric: `/mission` → `/drive`
+
+When the work is a long-lived goal spanning many tickets, `/mission` is the front door: it interrogates the goal to a drive-ready state and emits the **whole** ticket set into a dedicated worktree, then `/mission approve` records whether its completed units may merge on their own. `/drive` claims every approved unit and drives them in parallel, one claim worktree each. The mission itself is the state object — its progress is **computed** as checked ÷ total over the acceptance checklist, ticking up as each ticket archives, until it is achieved, carried into a successor (direction changed), or abandoned.
+
+```mermaid
+flowchart LR
+  mission(["/mission"])
+  drive(["/drive"])
+  report(["/report"])
+  ship(["/ship"])
+
+  subgraph MISSION["A mission — progress = checked ÷ total, computed"]
+    direction TB
+    draft["draft<br/>proposed · awaiting approval"]
+    approved["approved<br/>0 / N · claimable"]
+    inprogress["in progress<br/>checked / N rising"]
+    achieved["achieved<br/>all criteria met"]
+    carried["carried → successor<br/>(direction changed)"]
+    abandoned["abandoned"]
+    draft ==>|"/mission approve · records merge policy"| approved
+    approved ==>|acceptance ticks as tickets land| inprogress
+    inprogress ==>|all checked| achieved
+    inprogress -.->|"/mission close: carried"| carried
+    inprogress -.->|"/mission close: abandoned"| abandoned
+  end
+
+  queue["its worktree · tickets/todo/ → archive/"]
+
+  mission ==>|creates goal + whole ticket set| draft
+  mission ==>|emits into| queue
+  mission -.->|replan: delta tickets| inprogress
+  drive ==>|claims every approved unit, in parallel| queue
+  queue -.->|each archived ticket rolls acceptance| inprogress
+  drive ==>|per PR-unit| report
+  report ==> ship
+
+  classDef cmd fill:#dbeafe,stroke:#1e40af,stroke-width:1.5px,color:#1e3a8a;
+  classDef state fill:#eef1f6,stroke:#6b7280,color:#111827;
+  classDef done fill:#dcfce7,stroke:#15803d,color:#14532d;
+  classDef carry fill:#fef3c7,stroke:#b45309,color:#7c2d12;
+  classDef drop fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d;
+  classDef art fill:#f3f4f6,stroke:#6b7280,color:#111827;
+  class mission,drive,report,ship cmd;
+  class draft,approved,inprogress state;
+  class achieved done;
+  class carried carry;
+  class abandoned drop;
+  class queue art;
+```
+
+Parallelism is not a separate command: `/drive`'s survey picks up every approved mission at once, and the claim branches keep the runners off each other's work. A mission whose direction changed mid-flight is closed **carried** — reorganized, its remainder inherited by a successor — rather than force-completed.
+
+#### Use case 3 — Feedback-driven: `/fb` → `/propose` → `/mission` → `/drive`
+
+When the work starts as something someone said rather than something you already scoped, the front door is the feedback stream. `/fb` records the conclusion, instruction, concern, or customer material as an immutable entry; `/propose` reads what merged to main since its cursor and either stays silent or registers **draft** missions carrying `feedback:` traceability; you approve the ones worth doing; `/drive` executes them. This is the loop that replaced the retired `/trip` design session — the conversation lives in records rather than in an agent team.
+
+```mermaid
+flowchart LR
+  feedback(["/fb"])
+  propose(["/propose"])
+  mission(["/mission approve"])
+  drive(["/drive"])
+
+  FBK["feedbacks/<br/>immutable records"]
+  DRAFT["missions/active/<br/>status: draft"]
+  APPR["missions/active/<br/>status: approved"]
+
+  feedback ==>|writes one record| FBK
+  FBK -.->|newly merged since cursor| propose
+  propose ==>|registers, feedback-linked| DRAFT
+  DRAFT ==>|the one human ruling| mission
+  mission ==>|records merge policy| APPR
+  APPR -.->|surveyed as claimable| drive
+
+  classDef cmd fill:#dbeafe,stroke:#1e40af,stroke-width:1.5px,color:#1e3a8a;
+  classDef state fill:#eef1f6,stroke:#6b7280,color:#111827;
+  classDef art fill:#f3f4f6,stroke:#6b7280,color:#111827;
+  class feedback,propose,mission,drive cmd;
+  class DRAFT,APPR state;
+  class FBK art;
+```
+
+`/propose` runs headless on a 15-minute cron and is allowed to say nothing — silence is a valid outcome, and the cursor advances either way. The human ruling stays exactly where it belongs: approving a draft, and deciding whether its units may merge unattended.
+
+<details>
+<summary><strong>The full map</strong> — every command and every artifact in one graph</summary>
+
+Every command communicates with the others **only through the documents it writes to `.workaholic/`** — no command calls another directly. The single flowchart below covers all twelve commands at once (rounded **blue** = command, rectangular **grey** = artifact, dashed grey border = an artifact that lands *outside* `.workaholic/`). It is dense on purpose — the per-use-case maps above are the readable slices.
+
+```mermaid
+flowchart LR
+  %% ---------- commands (blue) ----------
+  ticket(["/ticket"])
+  request(["/request"])
+  mission(["/mission"])
+  propose(["/propose"])
+  feedback(["/fb"])
+  drive(["/drive"])
+  report(["/report"])
+  ship(["/ship"])
+  catch(["/catch"])
+  commit(["/commit"])
+  explain(["/explain"])
+  workaholify(["/workaholify"])
+  setuproutines(["/setup-routines"])
+
+  %% ---------- artifacts under .workaholic/ (grey) ----------
+  TODO["tickets/todo/"]
+  ICE["tickets/icebox/"]
+  ARCH["tickets/archive/&lt;branch&gt;/"]
+  ABD["tickets/abandoned/"]
+  MIS["missions/active + archive/"]
+  STORY["stories/&lt;branch&gt;.md"]
+  FBK["feedbacks/"]
+  REL["release-notes/&lt;branch&gt;.md"]
+  DEP["deployments/"]
+
+  %% ---------- artifacts that land outside .workaholic/ (grey, dashed border) ----------
+  EXT["ticket in ANOTHER repo"]
+  PDF["PDF report"]
+  WT["git commit"]
+  CFG["CLAUDE.md + hooks wiring"]
+  ROUT["Claude Code Web routines"]
+
+  %% ========== generation: solid arrow = writes ==========
+  ticket --> TODO
+  ticket --> ICE
+  request --> EXT
+  mission --> MIS
+  mission --> TODO
+  propose --> MIS
+  feedback --> FBK
+  drive --> ARCH
+  drive --> ABD
+  drive --> TODO
+  report --> STORY
+  report --> FBK
+  ship --> REL
+  ship --> FBK
+  ship --> DEP
+  commit --> WT
+  explain --> PDF
+  workaholify --> CFG
+  setuproutines --> ROUT
+
+  %% ========== reference: dashed arrow = reads / refers ==========
+  drive -.-> TODO
+  drive -.-> MIS
+  propose -.-> FBK
+  report -.-> ARCH
+  report -.-> FBK
+  ship -.-> STORY
+  ship -.-> TODO
+  mission -.-> MIS
+  catch -.-> ARCH
+  catch -.-> STORY
+  catch -.-> MIS
+  catch -.-> DEP
+  explain -.-> ARCH
+  setuproutines -.-> ROUT
+
+  %% ========== mission rolls: dashed, labelled ==========
+  drive -. rolls .-> MIS
+  report -. rolls .-> MIS
+  ship -. rolls .-> MIS
+
+  %% ========== the one living loop: concerns cross PRs ==========
+  FBK -. open concerns re-read each cycle .-> report
+
+  %% ========== node styles: command vs artifact ==========
+  classDef cmd fill:#dbeafe,stroke:#1e40af,stroke-width:1.5px,color:#1e3a8a;
+  classDef art fill:#f3f4f6,stroke:#6b7280,color:#111827;
+  classDef ext fill:#f3f4f6,stroke:#9aa0aa,stroke-dasharray:4 3,color:#374151;
+  class ticket,request,mission,propose,feedback,drive,report,ship,catch,commit,explain,workaholify,setuproutines cmd;
+  class TODO,ICE,ARCH,ABD,MIS,STORY,FBK,REL,DEP art;
+  class EXT,PDF,WT,CFG,ROUT ext;
+```
+
+Reading the map:
+
+- **Solid arrow** = the command *generates* that artifact. **Dashed arrow** = the command *reads / refers to* it. `rolls` = the command updates a named mission's `## Changelog` and `## Acceptance` checklist (via the `mission:` relation any ticket/story/concern carries).
+- **Node style tells the kind apart.** Rounded **blue** = the thirteen commands; rectangular **grey** = the artifacts they generate. A **dashed grey border** marks the artifacts that land *outside* `.workaholic/` — a cross-repo ticket via `/request`, a printed PDF via `/explain`, a plain working-tree commit via `/commit`, repo wiring via `/workaholify`, and the scheduled routines `/setup-routines` reads out of the Claude Code Web account.
+- **`/mission` and `/drive` are the two poles.** `/mission` writes `missions/…` and the kickoff/delta tickets into `tickets/todo/` (with `/propose` registering drafts upstream of it); `/drive` reads the mission set and each worktree's `todo/`, drains them to `tickets/archive/`, and rolls each mission it advances — in parallel across every claim it holds.
+- **The ticket is the spine.** `/ticket`, `/mission`, and (indirectly, through the missions it drafts) `/propose` all *fill* `tickets/todo/`; **`/drive` alone** drains it to `tickets/archive/`. Everything downstream reads the archive.
+- **The feedback stream is the only loop.** `/ship` extracts a shipped story's section-6 concerns into `feedbacks/` as `kind: concern` records; the *next* `/report` re-reads the open set (records nobody superseded) and, for each one this branch resolved, appends a superseding record. Every record is written once and becomes permanent history — the "loop" is reading, never rewriting.
+- **Not shown** (to keep the graph legible): `specs/`, `guides/`, `policies/`, `terms/` are hand-maintained reference material, not command-generated; `trips/` is legacy read-only history with no writer since 2026-07-28, so no arrow touches it; and the OKF `index.md` hierarchy is regenerated automatically by the same commit seams (`/drive`, `/report`, `/ship`) whenever they write knowledge, not by a command of its own.
+
+</details>
+
+### When, Where, and How Changes Occur
+
+The branch lifecycle traverses these artifacts in a fixed order:
+
+```mermaid
+flowchart LR
+  subgraph plan[Plan]
+    direction TB
+    a1["/ticket"] --> a2["tickets/todo/"]
+  end
+  subgraph implement[Implement]
+    direction TB
+    b1["/drive"] --> b2["tickets/archive/&lt;branch&gt;/"]
+  end
+  subgraph report[Report]
+    direction TB
+    c1["/report"] --> c2["stories/&lt;branch&gt;.md"]
+    c1 --> c3["release-notes/&lt;branch&gt;.md"]
+    c1 -.judge open concerns.-> c4["feedbacks/"]
+  end
+  subgraph ship[Ship]
+    direction TB
+    d1["/ship"] --> d2["merge PR"]
+    d2 --> d3["extract deferred concerns<br/>to feedbacks/"]
+  end
+  plan --> implement --> report --> ship
+  d3 -."next /report reads".-> c1
+```
+
+**Plan** — `/ticket` writes a new file under `tickets/todo/` describing the intended change, and publishes it to `main` in one commit. This is the only artifact created before code exists. It creates no branch: the executor's claim is the only thing that ever cuts one.
+
+**Implement** — `/drive` reads `tickets/todo/`, claims a PR-unit's tickets onto its own branch, implements them there, and moves each file to `tickets/archive/<branch>/` as it lands. The archive subdirectory is named after the claim branch so all of a unit's tickets cluster under one folder. Final reports and the resolving `commit_hash` are written into the ticket frontmatter at archive time.
+
+**Report** — `/report` runs after all tickets on a branch are archived. It does four writes in order:
+1. Judges every **open** `kind: concern` record in the feedback stream (`feedback/scripts/list-open-concerns.sh`) via a `general-purpose` deferred-concern-judge subagent. Each resolved one gets a **superseding record** appended (`supersedes: <filename>`, naming the resolving PR/commit); still-open ones simply stay open.
+2. Writes `stories/<branch>.md` — the full PR description; its Concerns section records **this branch's** concerns only (the stream itself is the durable memory). A section with nothing to report is **omitted rather than filled with "None"**, so a small branch gets a short story, and sections are numbered sequentially over whichever ones survive — which is why every consumer matches a section heading by name, never by number.
+3. Commits the story together with any superseding records, so the audit history is coherent.
+4. Opens the GitHub PR (`release-notes/<branch>.md` is written later, by `/ship`, just before merging).
+
+**Ship** — `/ship` merges the PR, then immediately extracts the Concerns section from the just-shipped **story file** into the feedback stream, one `kind: concern` record per item (`feedbacks/<ts>-<concern_id>.md`, every severity — the stream is append-only and id-keyed, so a known `concern_id` is never re-emitted). Each record carries `severity`, provenance (`origin_pr`/branch/commit), and the story's mission/ticket relations. From that point on, the open set is read on every subsequent `/report` until a superseding record resolves each one. The story **file** is the extractor's only source and carries every severity; the PR **body** is a rendering of it with the `low` blocks dropped for the reviewer, so brevity never costs a record.
+
+### What "Carried Over" Means
+
+Most artifacts are written once and never revisited — they form the permanent history of the codebase. The feedback stream is written once **per record** and read forever: risks and improvement ideas raised in one PR cannot silently vanish when it merges, because the `kind: concern` records persist and the **open set is computed** — a concern is open until some later record names it in `supersedes`. Each `/report` judges the open set and appends superseding records for what the branch resolved; nothing is ever rewritten, moved, or deleted, so the audit trail survives misclassification by construction. Curation is the reader's judgment over the stream (the retired promote/triage/demote machinery has no successor on purpose — `docs/loop-engineering-workflow.md` H2).
+
+## Author
+
+tamurayoshiya <a@qmu.jp>

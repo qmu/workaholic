@@ -9,7 +9,7 @@ author: noreply@anthropic.com
 assignees: []
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.7
 feedback: [20260731062209-quality-gates-must-assist-delivery-not-block-well-done-work.md, 20260731062305-every-markerless-acceptance-item-in-this-repo-belongs-to-a-proposed-draft.md]
 tickets: []
 stories: []
@@ -104,3 +104,4 @@ which is precisely the condition the mission exists to fix.
 - 2026-08-03 — ticket archived — 20260801185302-establish-the-link-when-tickets-are-emitted.md
 - 2026-08-03 — ticket archived — 20260801185303-make-the-ticker-measure-satisfaction.md
 - 2026-08-03 — story reported — work-20260803-212324.md
+- 2026-08-03 — run recorded (+0.7h) — work-20260803-212324

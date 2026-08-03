@@ -114,10 +114,14 @@ Both loop runbooks say *"do not install the crontab from an agent session — ap
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/list-routine-templates.sh
 bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/render-routine.sh <template-id> <repo-url>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/resolve-repo-url.sh [name-or-url]
 <RemoteTrigger list JSON> | bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/compare-routines.sh <repo-url>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/workaholify/scripts/list-routines.sh <repo-url> --live <file>
 ```
 
 **Scripts own the templates and the comparison; the command owns the API and the confirmation.** A shell script cannot call `RemoteTrigger` — only the main agent can — so the command fetches the live list and pipes it in. That split is what keeps the logic out of markdown (the Shell Script Principle) *and* testable: `compare-routines.sh` is driven against fixtures in the suite without touching anyone's account.
+
+**`list-routines.sh` is the developer-facing reader, and `/setup-routines` is its command.** `compare-routines.sh` answers "what has drifted, fleet-wide" for whoever is maintaining the templates; `list-routines.sh` answers "what runs against *this* repository" for somebody who has never seen it before — one block per routine with its trigger, schedule, target and template status, plus the fleet's drift as a summary rather than a drop. Its one hard rule: **`checked: false` carries no `routines` key at all.** An absent, empty, unparseable, errored or unrecognised response is *not* an empty account, and the two must never render the same — a developer told a live repository has no routines will believe it. Only a response that actually parsed as a routines list may set `checked: true`.
 
 **A routine belongs to a repository when its `sources[].git_repository.url` matches**, compared after stripping a trailing slash and `.git` — never by name. Names are what drift; matching on them would report a renamed routine as both missing and unknown at once.
 

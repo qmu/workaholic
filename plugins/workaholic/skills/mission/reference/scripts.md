@@ -120,7 +120,13 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/tick-acceptance.sh <mission-sl
 
 Flip the `## Acceptance` item whose `(#<artifact-filename>)` marker matches from `- [ ]` to `- [x]`. The match is **item-scoped**: the marker counts wherever it sits in the item, including a wrapped continuation line. Idempotent (an already-checked or unmatched item is a no-op) and scoped to the `## Acceptance` section. Progress stays derived — this changes only checklist state; `progress.sh` recomputes `checked/total`. Git-stages the mission file.
 
-Its `reason` separates the two answers a caller must not confuse: `no_unchecked_match` means **not satisfied** (the open items are linked; this artifact does not satisfy one), while `unlinked_items` means **not addressable** (the board carries unchecked items with no link at all, so no artifact could tick them). The JSON carries `unlinked` on every call so a seam reports the stranded count without a second read. `unlinked-acceptance.sh` names the items.
+Its `reason` separates the three answers a caller must not confuse: `already_checked` (an item this artifact links to is satisfied already), `unlinked_items` — **not addressable**, the board carries unchecked items with no link at all, so no artifact could tick them — and `no_unchecked_match`, which now means only **not satisfied** (the open items are linked; this artifact does not satisfy one). The JSON carries `unlinked` on every call, so a seam reports the stranded count without a second read.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/unlinked-acceptance.sh [<mission-slug-or-file>]
+```
+
+Name the **unchecked, unlinked** acceptance items — the ones no artifact can ever tick. Pure read. With a mission argument it reports that mission; with none it sweeps every mission in the active area, which is the repo-wide measurement (37 items across six missions on 2026-08-03, every one proposal-scaffolded). Emits `[{slug, path, items: [{index, text}]}]`, omitting missions with nothing unlinked — so `[]` means a clean tree. Each `index` is exactly `link-acceptance.sh`'s selector, which is what makes a stranded board repairable by script rather than by hand.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/predict-duration.sh <planned-item-count>

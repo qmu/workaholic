@@ -83,6 +83,8 @@ The marker stays the link, and three rules define how it is established and read
 
 **The measurement that forced this** (re-measured 2026-08-03, and it had grown since the mission was written): across ten missions, **19 of 47 acceptance items carry a link** — and the split is entirely by authoring route, not by author care. Every one of the **19 items across the four interrogation-authored missions is linked**, and all four closed `achieved` at N/N. Every one of the **37 items across the six `/propose`-scaffolded missions is unlinked** — the five active ones sit at 0/28, and the single one that reached the archive got there as **`abandoned` at 0/9**. No markerless mission has ever been recorded as achieved, because none of them could be.
 
+**Repairing a board that predates the contract is a plan statement, so it is made where the plan is made.** `unlinked-acceptance.sh` names every stranded item with the index `link-acceptance.sh` takes as its selector, so any of them is reachable by script with no checkbox hand-edited — but the *pairing* still has to come from someone who knows the mission's plan. That is the **replan** seam (or the run that drives the mission), not a bulk sweep: a runner linking five missions it never planned would be guessing at scale, which is the one thing the contract forbids. The measurement is the audit; the repair rides the next plan.
+
 **Rejected alternatives**, recorded so they are not re-litigated:
 
 - **Relax the ticker to resolve markerless items by title match or position.** Inference guesses *which* artifact satisfies *which* criterion, and a wrong guess checks a box the work did not satisfy — a false `[x]` is strictly worse than a stuck `[ ]`, and it is the exact class of misreport this contract exists to remove.

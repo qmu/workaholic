@@ -293,7 +293,9 @@ The dedicated hand-off command that once owned the first row is retired (`docs/l
 
 ## Progress Rule
 
-Progress toward achievement is **derived, never stored**: `checked ÷ total` over the `## Acceptance` checklist. No `progress:` percentage is persisted anywhere — a stored number would drift from the checklist. `scripts/progress.sh` computes `{checked, total}` from the file on demand.
+Progress toward achievement is **derived, never stored**: `checked ÷ total` over the `## Acceptance` checklist. No `progress:` percentage is persisted anywhere — a stored number would drift from the checklist. `scripts/progress.sh` computes `{checked, total, unlinked}` from the file on demand.
+
+`unlinked` is what makes a stuck board legible: it counts the unchecked items carrying no `(#<filename>)` link, so `0/8` with `unlinked: 8` reads as *"this board was never wired to its tickets"* rather than *"nothing has been done"*. The two look identical without it, and for six missions they were confused for exactly that reason.
 
 ## Scripts
 
@@ -315,6 +317,7 @@ Every script lives at `${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/<name>`. **T
 | `read-assignees.sh` | The single parser of the `assignees` field shape |
 | `append-changelog.sh` | The single changelog writer; idempotent on its (event, artifact) pair |
 | `link-acceptance.sh` | The only writer of an acceptance item's `(#<filename>)` link; the caller names the pair, nothing is inferred |
+| `unlinked-acceptance.sh` | Name the unchecked items no artifact can tick — the audit half of the link contract |
 | `tick-acceptance.sh` | The only writer of an acceptance `[x]`, keyed on the item's `(#<filename>)` marker |
 | `predict-duration.sh` | Stamp `predicted_hours` once at creation from the archived-mission trend; empty when the basis is 0 |
 | `record-run-hours.sh` | The only writer of `actual_hours`; idempotent per run-id |

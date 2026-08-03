@@ -1491,7 +1491,7 @@ function testMissionExperienceSection() {
     assertTrue("gate.sh does not error on a mission with no gate", !g.error, JSON.stringify(g));
 
     const p = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${path}`).stdout);
-    assertEq("progress computes on a mission with no gate", p, { checked: 0, total: 0 });
+    assertEq("progress computes on a mission with no gate", p, { checked: 0, total: 0, unlinked: 0 });
 
     const s = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSummary}`).stdout);
     assertEq("summary reports a mission with no gate", s.map((x) => x.slug), ["reorder-the-dashboard"]);
@@ -1507,7 +1507,7 @@ function testMissionExperienceSection() {
       `---\ntype: Mission\ntitle: Legacy\nslug: legacy\nstatus: active\nassignee: a@qmu.jp\ngate_type:\ngate_target:\ngate_assert:\n---\n\n## Goal\n\ng\n\n## Acceptance\n\n- [x] One\n- [ ] Two\n`);
     execSync(`git add -A && git commit -q -m seed`, { cwd: old });
     const p = JSON.parse(run(old, `${POSIX_SH} ${SCRIPTS.missionProgress} .workaholic/missions/active/legacy/mission.md`).stdout);
-    assertEq("a mission with no ## Experience still computes progress", p, { checked: 1, total: 2 });
+    assertEq("a mission with no ## Experience still computes progress", p, { checked: 1, total: 2, unlinked: 1 });
     const s = JSON.parse(run(old, `${POSIX_SH} ${SCRIPTS.missionSummary}`).stdout);
     assertEq("a mission with no ## Experience still summarizes", s.map((x) => x.slug), ["legacy"]);
   } finally { cleanup(old); }
@@ -2383,7 +2383,7 @@ In: the dashboard. Out: the API.
       /^- 2026-07-16 — mission carried into successor-mission — mission\.md$/m.test(pred), pred);
     // Checked items were achieved THERE and stay there.
     const pprog = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} .workaholic/missions/archive/predecessor/mission.md`).stdout);
-    assertEq("predecessor keeps its full acceptance list", pprog, { checked: 2, total: 4 });
+    assertEq("predecessor keeps its full acceptance list", pprog, { checked: 2, total: 4, unlinked: 0 });
 
     const succPath = ".workaholic/missions/active/successor-mission/mission.md";
     const succ = readFileSync(join(dir, succPath), "utf8");
@@ -2398,7 +2398,7 @@ In: the dashboard. Out: the API.
 
     // THE assertion: progress falls out of the successor's own list.
     const sprog = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${succPath}`).stdout);
-    assertEq("successor's computed progress is 0/<n unmet>, not the predecessor's count", sprog, { checked: 0, total: 2 });
+    assertEq("successor's computed progress is 0/<n unmet>, not the predecessor's count", sprog, { checked: 0, total: 2, unlinked: 0 });
 
     // Lineage the other way, so the archive does not show two unrelated missions.
     assertTrue("successor records carried_from", /^carried_from:\s*predecessor\s*$/m.test(succ), succ);
@@ -3327,7 +3327,7 @@ function testMission() {
     // Fresh mission (empty ## Acceptance, only a comment) computes 0/0 — the
     // template comment must not be miscounted as a checklist item.
     assertEq("mission progress on fresh mission is 0/0",
-      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${mpath}`).stdout), { checked: 0, total: 0 });
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${mpath}`).stdout), { checked: 0, total: 0, unlinked: 0 });
 
     // progress.sh computes checked/total from the ## Acceptance checklist (2/3),
     // counting [x]/[X] and ignoring items outside the section.
@@ -3360,9 +3360,9 @@ concerns: []
 - 2026-07-06 — mission created — real-time-notifications
 `);
     assertEq("mission progress counts checked/total in the Acceptance section only",
-      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${mpath}`).stdout), { checked: 2, total: 3 });
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${mpath}`).stdout), { checked: 2, total: 3, unlinked: 0 });
     assertEq("mission progress resolves a bare slug",
-      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} real-time-notifications`).stdout), { checked: 2, total: 3 });
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} real-time-notifications`).stdout), { checked: 2, total: 3, unlinked: 0 });
 
     // list.sh returns the mission with its status and computed progress.
     const list = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
@@ -3433,11 +3433,11 @@ concerns: []
       /- \[ \] Second \(#t2\.md\)/.test(readFileSync(mfile, "utf8")));
     r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.tickAcceptance} ${slug} t1.md`).stdout);
     assertEq("tick-acceptance idempotent (already checked)", r.ticked, false);
-    assertEq("progress after one tick", JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${slug}`).stdout), { checked: 1, total: 2 });
+    assertEq("progress after one tick", JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${slug}`).stdout), { checked: 1, total: 2, unlinked: 0 });
     // Ticking an artifact with no matching acceptance item is a no-op.
     r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.tickAcceptance} ${slug} nope.md`).stdout);
     assertEq("tick-acceptance no-match is a no-op", r.ticked, false);
-    assertEq("progress unchanged after a no-op tick", JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${slug}`).stdout), { checked: 1, total: 2 });
+    assertEq("progress unchanged after a no-op tick", JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${slug}`).stdout), { checked: 1, total: 2, unlinked: 0 });
   } finally { cleanup(dir); }
 }
 
@@ -3514,6 +3514,86 @@ author: test@example.com
       JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.tickAcceptance} linkme t1.md`).stdout).ticked, true);
     assertEq("progress moves after the link makes the item addressable",
       JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} linkme`).stdout).checked, 1);
+  } finally { cleanup(dir); }
+}
+
+// ---------- acceptance satisfaction semantics (ticker + progress + audit) ----------
+// The ticker's one negative reason used to mean two different things — "this criterion is
+// not satisfied" and "this criterion is not addressable by me" — and a caller could not
+// tell them apart, so six boards sat at 0/N looking like stalled work. These pin the
+// split, the stranded count that rides on every read, and the audit that names the items.
+function testAcceptanceSatisfactionSemantics() {
+  const dir = makeRepo("main");
+  try {
+    const seed = (slug, acceptance) => {
+      const mdir = join(dir, `.workaholic/missions/active/${slug}`);
+      mkdirSync(mdir, { recursive: true });
+      writeFileSync(join(mdir, "mission.md"), `---
+type: Mission
+title: ${slug}
+slug: ${slug}
+status: active
+created_at: 2026-08-03T00:00:00+09:00
+author: test@example.com
+---
+
+# ${slug}
+
+## Acceptance
+
+${acceptance}
+
+## Changelog
+`);
+      return join(mdir, "mission.md");
+    };
+
+    // A board written the way /propose writes one: every item markerless.
+    const stranded = seed("stranded", "- [ ] Nothing links this one\n- [ ] Nor this one, which wraps\n      onto a second line");
+    let p = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} stranded`).stdout);
+    assertEq("progress reports the stranded count beside checked/total", p, { checked: 0, total: 2, unlinked: 2 });
+    let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.tickAcceptance} stranded t1.md`).stdout);
+    assertEq("an unaddressable board reports unlinked_items, not no_unchecked_match", r.reason, "unlinked_items");
+    assertEq("and carries the stranded count", r.unlinked, 2);
+
+    // A fully linked board: the same artifact now means "not satisfied" — the reason
+    // no_unchecked_match is reserved for, and the distinction the mission exists to make.
+    const wired = seed("wired", "- [ ] First (#a.md)\n- [ ] A wrapped criterion whose link sits\n      on its continuation line (#b.md)");
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.tickAcceptance} wired t1.md`).stdout);
+    assertEq("a linked board reports not-satisfied", r.reason, "no_unchecked_match");
+    assertEq("a linked board reports nothing stranded", r.unlinked, 0);
+
+    // Item-scoped matching: a marker on a wrapped item's continuation line still ticks.
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.tickAcceptance} wired b.md`).stdout);
+    assertEq("a wrapped item whose marker sits on a continuation line ticks", r.ticked, true);
+    assertTrue("the wrapped item's box — not a continuation line — was flipped",
+      /- \[x\] A wrapped criterion whose link sits\n      on its continuation line \(#b\.md\)/
+        .test(readFileSync(wired, "utf8")), readFileSync(wired, "utf8"));
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.tickAcceptance} wired b.md`).stdout);
+    assertEq("an already-satisfied item is its own reason, not a failure to satisfy", r.reason, "already_checked");
+
+    // The audit names exactly the stranded items, with the selector that repairs them.
+    const audit = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.unlinkedAcceptance} stranded`).stdout);
+    assertEq("the audit reports the stranded mission", audit.length, 1);
+    assertEq("with every unlinked item, indexed by its selector",
+      audit[0].items.map((i) => i.index), [1, 2]);
+    assertEq("and the wrapped item's text read whole",
+      audit[0].items[1].text, "Nor this one, which wraps onto a second line");
+
+    // The repair is a script, and it is the one that makes the item tickable.
+    run(dir, `${POSIX_SH} ${SCRIPTS.linkAcceptance} stranded 1 t1.md`);
+    assertEq("linking a stranded item ticks it",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.tickAcceptance} stranded t1.md`).stdout).ticked, true);
+    p = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} stranded`).stdout);
+    assertEq("the board moves, and still reports what remains stranded", p, { checked: 1, total: 2, unlinked: 1 });
+
+    // A clean tree audits as empty — the sweep is a measurement, not a warning generator.
+    run(dir, `${POSIX_SH} ${SCRIPTS.linkAcceptance} stranded 2 t2.md`);
+    assertEq("a fully linked mission drops out of the audit",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.unlinkedAcceptance} stranded`).stdout), []);
+    const sweep = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.unlinkedAcceptance}`).stdout);
+    assertEq("the repo-wide sweep reports every mission that is still stranded, and only those",
+      sweep.map((m) => m.slug), []);
   } finally { cleanup(dir); }
 }
 
@@ -3692,9 +3772,9 @@ concerns: []
 
     // Bare-slug resolution reaches both areas.
     assertEq("progress.sh resolves a slug in active/",
-      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} alpha`).stdout), { checked: 1, total: 2 });
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} alpha`).stdout), { checked: 1, total: 2, unlinked: 0 });
     assertEq("progress.sh resolves a slug in archive/",
-      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} omega`).stdout), { checked: 1, total: 2 });
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} omega`).stdout), { checked: 1, total: 2, unlinked: 0 });
     let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.appendChangelog} omega "story reported" s1.md 2026-07-02`).stdout);
     assertEq("append-changelog resolves a slug in archive/", r.appended, true);
 
@@ -3803,7 +3883,7 @@ Development completed as planned.
       new RegExp(`- \\[x\\] Ship the feature \\(#${ticketName.replace(/\./g, "\\.")}\\)`).test(mbody), mbody);
     assertTrue("drive seam left the non-matching item unchecked", /- \[ \] Another thing/.test(mbody), mbody);
     assertEq("drive seam progress now 1/2",
-      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${join(mdir, "mission.md")}`).stdout), { checked: 1, total: 2 });
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${join(mdir, "mission.md")}`).stdout), { checked: 1, total: 2, unlinked: 0 });
     assertEq("archive.sh workspace clean after the mission roll",
       execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim(), "");
   } finally { cleanup(dir); }
@@ -3886,9 +3966,9 @@ Development completed as planned.
     assertTrue("two-mission ticket leaves alpha's other item unchecked", /- \[ \] Something else/.test(aBody), aBody);
     assertTrue("two-mission ticket ticks nothing beta does not claim", /- \[ \] Unrelated item/.test(bBody), bBody);
     assertEq("alpha progress now 1/2",
-      JSON.parse(run(dirM, `${POSIX_SH} ${SCRIPTS.missionProgress} ${join(aDir, "mission.md")}`).stdout), { checked: 1, total: 2 });
+      JSON.parse(run(dirM, `${POSIX_SH} ${SCRIPTS.missionProgress} ${join(aDir, "mission.md")}`).stdout), { checked: 1, total: 2, unlinked: 0 });
     assertEq("beta progress still 0/1",
-      JSON.parse(run(dirM, `${POSIX_SH} ${SCRIPTS.missionProgress} ${join(bDir, "mission.md")}`).stdout), { checked: 0, total: 1 });
+      JSON.parse(run(dirM, `${POSIX_SH} ${SCRIPTS.missionProgress} ${join(bDir, "mission.md")}`).stdout), { checked: 0, total: 1, unlinked: 0 });
     assertEq("archive.sh workspace clean after the two-mission roll",
       execSync(`git status --porcelain`, { cwd: dirM, encoding: "utf8" }).trim(), "");
   } finally { cleanup(dirM); }
@@ -3943,17 +4023,22 @@ function testArchiveMissionReporting() {
   const archiveCmd = (dir) => run(dir, `${POSIX_SH} ${SCRIPTS.archive} .workaholic/tickets/todo/${TEST_SLUG}/${ticketName} "Add thing" https://x/repo "why" "changes" "None" "None" "verify"`, { env });
   const archivedPath = (dir) => join(dir, `.workaholic/tickets/archive/work-20260719-arep/${ticketName}`);
 
-  // Case A: the acceptance item LACKS the (#ticket) marker. tick-acceptance exits 0 having
+  // Case A: the acceptance item LACKS the (#ticket) link. tick-acceptance exits 0 having
   // done nothing — the exact silent no-op the ticket reproduced live. Archive still
-  // completes, and its stdout names the mission and the reason it changed nothing.
+  // completes, and its stdout names the mission and the reason it changed nothing. That
+  // reason is `unlinked_items`, NOT `no_unchecked_match`: the criterion is unaddressable,
+  // not unsatisfied, and conflating the two is what left six boards reading as stalled
+  // work rather than as boards nobody wired to their tickets.
   const dirA = makeRepo("main");
   try {
     seed(dirA, { missionVal: "mm", acceptance: "- [ ] Ship the thing", changelog: "## Changelog\n" });
     const r = archiveCmd(dirA);
     assertEq("no-op case: archive.sh exits 0", r.status, 0);
     assertTrue("no-op case: ticket still archived", existsSync(archivedPath(dirA)));
-    assertTrue("no-op case: reports the mission and the no_unchecked_match reason (silent case now unreproducible)",
-      /mission mm:.*changed nothing.*no_unchecked_match/.test(r.stdout), r.stdout);
+    assertTrue("no-op case: reports the mission and the unlinked_items reason (not addressable, not unsatisfied)",
+      /mission mm:.*changed nothing.*unlinked_items/.test(r.stdout), r.stdout);
+    assertTrue("no-op case: the not-satisfied reason is NOT used for an unlinked board",
+      !/no_unchecked_match/.test(r.stdout), r.stdout);
   } finally { cleanup(dirA); }
 
   // Case B: the mission has NO changelog section, so append-changelog exits 1. The failure
@@ -9563,6 +9648,7 @@ const tests = [
   ["mission position report at handoffs", testMissionPositionReport],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],
   ["mission/link-acceptance.sh (the acceptance-to-artifact link)", testLinkAcceptance],
+  ["acceptance satisfaction semantics (ticker + progress + audit)", testAcceptanceSatisfactionSemantics],
   ["mission layout migration + close.sh", testMissionLayoutMigrationAndClose],
   ["drive/archive.sh mission seam", testMissionDriveSeam],
   ["drive/archive.sh reports the mission roll (non-blocking, not silent)", testArchiveMissionReporting],

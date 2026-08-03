@@ -150,6 +150,14 @@ says so (`backlog_error: identity_unresolved`; see *Failure modes*).
   a healthy idle loop prints `0 units: 0 shipped, 0 PR'd, 0 blocked` / `ok`.
 - **Worktrees** left in `.worktrees/` are in-flight or stale claims by definition —
   the same fact `list-claims.sh` reports, visible on the filesystem.
+- **`release/*` branches are not the loop's output and never appear because of a tick.**
+  The release tier (decisions L1-L3) is a *batch-level promotion* over `main`, cut and
+  confirmed deliberately by `workaholic:ship` §6 — `/drive` neither cuts nor confirms one.
+  An `auto` unit merging is unchanged by the tier: it lands on `main`, and a later
+  promotion decides when what has landed becomes a production release. If a `release/*`
+  branch appears, a promotion made it, not a tick. It is also invisible to the claim
+  reader, because the scan keys on a `Claim a PR-unit` subject / `Unit:` trailer and a
+  release branch carries no commits at all.
 
 ## 6. Failure modes
 

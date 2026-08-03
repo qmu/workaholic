@@ -5,7 +5,7 @@ type: enhancement
 layer: [Domain]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on: [20260801184802-cut-and-promote-a-release-branch.md]
 mission: adopt-a-git-flow-branching-model-with-durable-ship-records
 merge_policy: auto

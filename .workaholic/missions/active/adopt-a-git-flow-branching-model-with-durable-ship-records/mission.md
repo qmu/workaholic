@@ -9,13 +9,14 @@ author: noreply@anthropic.com
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.7
 feedback: [20260730051313-move-branching-model-from-github-flow-to-git-flow-for-qa-and-ship-traceability.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260803-212310
 ---
 
 # Adopt a release-branch staging tier with durable ship records
@@ -149,3 +150,8 @@ Provisional (see Scope). The demanded, observable behavior:
   `/mission approve adopt-a-git-flow-branching-model-with-durable-ship-records` is still the next
   step.
 - 2026-07-30 — mission approved — merge_policy: auto — mission.md
+- 2026-08-03 — ticket archived — 20260801184801-survey-ship-and-record-the-release-tier-decision.md
+- 2026-08-03 — ticket archived — 20260801184802-cut-and-promote-a-release-branch.md
+- 2026-08-03 — ticket archived — 20260801184803-record-what-a-release-branch-shipped.md
+- 2026-08-03 — story reported — work-20260803-212310.md
+- 2026-08-03 — run recorded (+0.7h) — work-20260803-212310

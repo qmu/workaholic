@@ -352,7 +352,7 @@ Create a new timestamped topic branch from the current branch.
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh
 ```
 
-**Sole branch-name format (mandatory):** branches are **always** named exactly `work-<YYYYMMDD-HHMMSS>` by `create.sh`. This is the only branch-creation path. Never name a branch yourself, never append a feature/description suffix, and never use another prefix. The `drive-*` and `trip/*` forms below are **legacy, detection-only** — recognized for backward compatibility, never created anew.
+**Branch-name format (mandatory):** a unit's branch is **always** named exactly `work-<YYYYMMDD-HHMMSS>` by `create.sh`, and it is the only creator of one. Never name a branch yourself, never append a feature/description suffix, and never use another prefix. The `drive-*` and `trip/*` forms below are **legacy, detection-only** — recognized for backward compatibility, never created anew. The **one** other permitted form is the release tier's `release/<YYYYMMDD-HHMMSS>` (see *Cut a Release Branch*), minted only by `cut-release-branch.sh`; `hooks/guard-git-branch.sh` permits those two literal patterns and blocks everything else.
 
 ### Output Format
 
@@ -361,6 +361,23 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh
   "branch": "work-20260404-014400"
 }
 ```
+
+## Cut a Release Branch
+
+The **release tier** (decision L1/L2, `docs/loop-engineering-workflow.md`) is one extra branch form and nothing else: no `develop`, no `hotfix/*`, and `main` stays the default and production branch. A `release/*` branch is the QA window between *merged onto the base* and *released to production*.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cut-release-branch.sh [base]
+```
+
+Output: `{"ok": true, "branch": "release/YYYYMMDD-HHMMSS", "base": "main", "sha": "<base tip>", "pushed": true}`. Refusals ride stdout with exit 0: `no_origin`, `origin_unreachable`, `base_unresolved`, `branch_collision`, `branch_creation_failed`, `push_failed`.
+
+Four properties, each load-bearing:
+
+- **It is cut FROM the base, so it is structurally post-merge.** A release branch cannot exist before the units it carries have merged. Cutting one is a **batch-level act**, never a step of a per-unit ship — landing a unit on the base is completely unchanged by this tier (L2).
+- **The branch carries no commits of its own.** It is exactly a pointer at a base commit. That is what keeps "which base commits did this release carry" answerable by `git log <previous>..<release tip>` forever; the durable record lives on the base (`.workaholic/releases/`, written by `workaholic:ship`), not on the branch.
+- **It never checks the branch out.** Promotion runs from whatever checkout the caller is standing in, and a cut that moved `HEAD` would let a batch-level act disturb an unrelated working tree.
+- **A collision is reported, never overwritten**, and a push failure rolls the local ref back — the same reasoning as `publish-tree-pr.sh`: a branch only this machine can see reads as a live release window to this runner and to nobody else.
 
 ## Check Version Bump
 

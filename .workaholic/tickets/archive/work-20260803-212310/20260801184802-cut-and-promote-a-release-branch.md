@@ -5,7 +5,7 @@ type: enhancement
 layer: [Infrastructure]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on: [20260801184801-survey-ship-and-record-the-release-tier-decision.md]
 mission: adopt-a-git-flow-branching-model-with-durable-ship-records
 merge_policy: auto

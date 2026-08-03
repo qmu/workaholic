@@ -1,6 +1,14 @@
 #!/bin/sh -eu
 # PreToolUse(Bash) guard: blocks creation of a branch whose name does not match
-# the canonical work-YYYYMMDD-HHMMSS pattern, routing the caller to create.sh.
+# a canonical pattern, routing the caller to the script that mints it.
+#
+# Two tiers, two literal patterns, and nothing else:
+#   work-YYYYMMDD-HHMMSS      a unit's claim/publication branch   (create.sh)
+#   release/YYYYMMDD-HHMMSS   a release staging branch            (cut-release-branch.sh)
+# Both are machine-minted from a timestamp, so the gate stays a literal match and
+# a release branch's human-facing identity (what it carries, when it was cut and
+# confirmed) lives in its durable record rather than in a name nobody can correct
+# once it is pushed.
 #
 # Why this exists: the branch rule ("Never name a branch yourself"; create.sh
 # generates work-<timestamp>) is documented in skills/branching/SKILL.md but
@@ -25,9 +33,10 @@ set -eu
 block() {
   echo "Error: refusing off-policy branch creation: $1" >&2
   echo "" >&2
-  echo "Branches must match work-YYYYMMDD-HHMMSS and are named only by the script." >&2
-  echo "Create one via the sanctioned path:" >&2
-  echo '  sh ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh' >&2
+  echo "Branches must match work-YYYYMMDD-HHMMSS or release/YYYYMMDD-HHMMSS," >&2
+  echo "and are named only by the scripts. Create one via the sanctioned path:" >&2
+  echo '  sh ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/create.sh              # a unit branch' >&2
+  echo '  sh ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cut-release-branch.sh  # a release branch' >&2
   echo "See: plugins/workaholic/skills/branching/SKILL.md (branch pattern)." >&2
   exit 2
 }
@@ -44,8 +53,10 @@ validate() {
   case "$name" in
     work-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9])
       exit 0 ;;
+    release/[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9])
+      exit 0 ;;
     *)
-      block "branch name '$name' is not work-YYYYMMDD-HHMMSS" ;;
+      block "branch name '$name' is neither work-YYYYMMDD-HHMMSS nor release/YYYYMMDD-HHMMSS" ;;
   esac
 }
 

@@ -67,7 +67,7 @@ Parse the JSON output. Route to the appropriate workflow based on `context`.
 
 1. **Bump version** following CLAUDE.md Version Management section (patch increment). **Skip if a "Bump version" commit already exists in the current branch** (check with `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-version-bump.sh`; if `already_bumped` is `true`, skip this step).
 2. **Run the Write Story orchestration** (`## Write Story → ### Orchestration`, Phases 0–5) directly in this command (main-agent) context. The command itself spawns the leaf `general-purpose` subagents — there is no intermediate story-writer subagent.
-3. **Link the rationale, on a legacy branch that has one**: when `detect-context.sh` returned a `trip_name` and `.workaholic/trips/<trip-name>/` exists, add a short note to the story's section 9 (Notes) linking that directory's design artifacts as the *why* behind the ticket-based Changes, so a reviewer can trace each ticket's **Trip Origin** back to the design that justified it. Do not duplicate the design into the story — link it. `trips/` is read-only history with no writer; a branch created since the retirement has no `trip_name` and skips this step.
+3. **Link the rationale, on a legacy branch that has one**: when `detect-context.sh` returned a `trip_name` and `.workaholic/trips/<trip-name>/` exists, add a short note to the story's Notes section linking that directory's design artifacts as the *why* behind the ticket-based Changes, so a reviewer can trace each ticket's **Trip Origin** back to the design that justified it. Do not duplicate the design into the story — link it. `trips/` is read-only history with no writer; a branch created since the retirement has no `trip_name` and skips this step.
 4. **Display story content**: Read the story file at `.workaholic/stories/<branch-name>.md` and output the entire Markdown content so the developer can review inline.
 5. **Display PR URL** captured from Phase 5 (mandatory).
 
@@ -118,7 +118,7 @@ Spawn 3 `subagent_type: "general-purpose"` leaf subagents in parallel (single me
 
 - **release-readiness** (`model: "opus"`): preload `workaholic:report`, run `## Assess Release Readiness`, return the releasability JSON. Pass archived tickets list and branch name.
 - **overview-writer** (`model: "haiku"`): preload `workaholic:report`, run `### Overview Generation`, return the overview JSON. Pass branch name and base branch.
-- **section-reviewer** (`model: "haiku"`): preload `workaholic:review-sections`, run it, return the sections 4-7 JSON (Outcome, Historical Analysis, Concerns, Successful Development Patterns). Pass branch name, archived tickets list, the deferred concern verdicts file path `$RUN_DIR/deferred-concern-verdicts.json` (the per-run path from Phase 1, not a constant `/tmp/...`), **and the collected commit bodies** (`collect-commits.sh` output). Section 6 records **this branch's** concerns only — open stream concerns are NOT prepended (the `(carried from PR #N)` convention retired with the concern merger; the stream itself is the durable memory). The section-reviewer folds in any `Concerns:` keys from the commit bodies (§6) and `Insights:` keys (§7) so a concern or pattern recorded in a commit is not lost when a ticket is sparse or absent.
+- **section-reviewer** (`model: "haiku"`): preload `workaholic:review-sections`, run it, return its JSON (`historical_context`, `outcome`, `concerns`, `development_patterns`). Pass branch name, archived tickets list, the deferred concern verdicts file path `$RUN_DIR/deferred-concern-verdicts.json` (the per-run path from Phase 1, not a constant `/tmp/...`), **and the collected commit bodies** (`collect-commits.sh` output). `historical_context` is **not a section** — it is folded into Motivation (see the template below), and it is empty far more often than not. The Concerns section records **this branch's** concerns only — open stream concerns are NOT prepended (the `(carried from PR #N)` convention retired with the concern merger; the stream itself is the durable memory). The section-reviewer folds in any `Concerns:` keys from the commit bodies (§6) and `Insights:` keys (§7) so a concern or pattern recorded in a commit is not lost when a ticket is sparse or absent.
 
 Wait for all 3 to complete. Track which succeeded and which failed.
 
@@ -132,7 +132,7 @@ Wait for all 3 to complete. Track which succeeded and which failed.
    bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/ticket-commits.sh <branch-name>
    ```
 
-   It returns `[{"ticket": "<basename>.md", "commit": "<short-hash>"}]` — the commit that *added* each archived ticket, which is the commit that implemented it. Use those hashes for section 3's links. **Never read a ticket's `commit_hash` frontmatter**: a commit cannot carry its own hash, so the old archive script stamped a pre-amend hash that ends up orphaned and never pushed — tickets archived before that fix still carry those dead values, and every link built from one 404s. Git is the single source of truth (`archive.sh` no longer writes the field). A ticket whose `commit` comes back empty is not committed yet — surface that rather than dropping the ticket.
+   It returns `[{"ticket": "<basename>.md", "commit": "<short-hash>"}]` — the commit that *added* each archived ticket, which is the commit that implemented it. Use those hashes for the Changes section's links. **Never read a ticket's `commit_hash` frontmatter**: a commit cannot carry its own hash, so the old archive script stamped a pre-amend hash that ends up orphaned and never pushed — tickets archived before that fix still carry those dead values, and every link built from one 404s. Git is the single source of truth (`archive.sh` no longer writes the field). A ticket whose `commit` comes back empty is not committed yet — surface that rather than dropping the ticket.
 2. **Write Story**: Follow the Story Content Structure section below; write the `mission:` and `tickets:` relations into the frontmatter per the **Story Frontmatter** section.
 3. **Update Index**: Add entry to `.workaholic/stories/index.md` (see Updating Stories Index).
 
@@ -180,11 +180,11 @@ Story sections are populated from the parallel leaf subagents' outputs (each is 
 
 | Worker role | Sections | Fields |
 | ----------- | -------- | ------ |
-| overview-writer | 1, 2, 3 (journey preamble) | `overview`, `highlights[]`, `motivation`, `journey.mermaid`, `journey.summary` |
-| section-reviewer | 4, 5, 6, 7 | `outcome`, `historical_analysis`, `concerns`, `development_patterns` |
-| release-readiness | 8 | `verdict`, `concerns[]`, `instructions.pre_release[]`, `instructions.post_release[]` |
+| overview-writer | Overview, Motivation, Changes (journey preamble) | `overview`, `highlights[]`, `motivation`, `journey.mermaid`, `journey.summary` |
+| section-reviewer | Motivation (past-context paragraph), Outcome, Concerns, Successful Development Patterns | `historical_context`, `outcome`, `concerns`, `development_patterns` |
+| release-readiness | Release Preparation | `verdict`, `concerns[]`, `instructions.pre_release[]`, `instructions.post_release[]` |
 
-Section 3 (Changes) comes from archived tickets, prefaced by journey content from the overview-writer role. Section 9 (Notes) is optional context.
+The Changes section comes from archived tickets, prefaced by journey content from the overview-writer role. Motivation has **two** contributors: the overview-writer's `motivation` prose, and — appended as a closing paragraph only when non-empty — the section-reviewer's `historical_context`.
 
 ### Judge Deferred Concerns
 
@@ -250,7 +250,7 @@ Return a JSON object with the verdicts array:
 }
 ```
 
-Include `resolved_by_pr` and `resolved_by_commit` only for `resolved` verdicts. The orchestrator feeds `verdicts` to `apply-deferred-concern-verdicts.sh` (Phase 1), which writes one **superseding feedback record** per resolution (`kind: concern`, `supersedes: <record filename>`, naming the resolving PR/commit) — the resolved record itself is immutable and never edited or moved. Two `still_active` concerns that interact into a bigger combined risk are simply worth a sentence in the new story's section 6 (a fresh concern in its own right); there is no separate compound machinery any more.
+Include `resolved_by_pr` and `resolved_by_commit` only for `resolved` verdicts. The orchestrator feeds `verdicts` to `apply-deferred-concern-verdicts.sh` (Phase 1), which writes one **superseding feedback record** per resolution (`kind: concern`, `supersedes: <record filename>`, naming the resolving PR/commit) — the resolved record itself is immutable and never edited or moved. Two `still_active` concerns that interact into a bigger combined risk are simply worth a sentence in the new story's Concerns section (a fresh concern in its own right); there is no separate compound machinery any more.
 
 ### Overview Generation
 
@@ -359,17 +359,36 @@ Return JSON:
 
 ### Story Content Structure
 
-The story content (this IS the PR description):
+The story content (this IS the PR description).
 
-**Section 0 (Handoff) is written ONLY for a unit `/drive` classified `handoff`** — its
+#### Omit, never pad
+
+**A section with nothing to report is absent.** Do not write "None", "No related
+historical context", or "None - standard release process applies" — an empty section
+still costs the reader a heading, a scan, and a moment deciding it says nothing, and a
+reader who learns that every section is always present stops reading sections. Four of
+the sections below are conditional, and each names its own condition.
+
+Two consequences follow, and both are load-bearing:
+
+- **Numbers are sequential over the sections actually present.** A story with no
+  concerns numbers its patterns section 5, not 6. Numbering exists for navigation
+  within one story, nothing more.
+- **Therefore no consumer may match a section by its number.** A section's number is
+  not stable across stories, so `shrink-pr-body.sh`, `extract-deferred-concerns.sh`,
+  and anything added later match the heading **by name**, tolerating any leading
+  `<n>.` prefix. This is what makes omit-when-empty safe to apply, and it is why a
+  renumbering cannot silently break concern extraction.
+
+**The Handoff section is written ONLY for a unit `/drive` classified `handoff`** — its
 queue is not drained, the work that exists is pushed, and continuing it needs a person
-or another session. Omit it entirely otherwise, exactly as the other optional sections
-omit rather than render "None" — a Handoff heading on finished work trains reviewers to
-skip the one section that must never be skipped.
+or another session. Omit it entirely otherwise, like every other conditional section —
+a Handoff heading on finished work trains reviewers to skip the one section that must
+never be skipped.
 
-It comes **first**, before section 1, and it is not renumbered into the 1-9 sequence:
-those nine sections are the branch's *narrative*, and this is an *instruction to the
-reader*. A handoff a reviewer meets after eight sections has failed at its only job.
+It comes **first**, before Overview, and it carries **no number** at all: the numbered
+sections are the branch's *narrative*, and this is an *instruction to the reader*. A
+handoff a reviewer meets after eight sections has failed at its only job.
 `shrink-pr-body.sh` treats the block as non-droppable when it bounds an over-limit body.
 
 Its content is fixed and short — four elements, no more:
@@ -409,6 +428,10 @@ stdout a caller sees once, and this is what survives in the artifact a person op
 ## 2. Motivation
 
 [Content from overview-writer `motivation` field: paragraph synthesizing the "why" from commit context.]
+
+[Then, ONLY when the section-reviewer returned a non-empty `historical_context`: one closing
+paragraph placing this work against what was solved before. Past context is part of the why,
+so it reads here as prose — there is no Historical Analysis section to fill.]
 
 ## 3. Changes
 
@@ -454,15 +477,13 @@ One subsection per ticket, in chronological order:
 
 [Summarize what was accomplished. Reference key tickets for details.]
 
-## 5. Historical Analysis
+## 5. Concerns
 
-[Context from related past work. What similar problems were solved before? What patterns emerge from the Related History sections of tickets? If no related tickets exist, write "No related historical context."]
-
-## 6. Concerns
+**Omit this whole section when the branch surfaced no concerns.**
 
 [Risks, trade-offs, limitations, and forward-looking suggestions discovered during implementation. Each concern is one insight framed as a title, a description of the problem, and how to fix it. This structure is parsed verbatim by `extract-deferred-concerns.sh` on `/ship`, so follow it exactly.]
 
-**Format** (one `###` block per concern, or "None"):
+**Format** (one `###` block per concern):
 
 ```markdown
 ### <Concise title>
@@ -482,13 +503,46 @@ One subsection per ticket, in chronological order:
 - **How to Fix:** Extract the inline invocations into dedicated navigator scripts under the drive skill's `scripts/` directory
 ```
 
-**Guidelines**:
-- **Severity is an honest signal, not a gate.** Every concern is extracted into the feedback stream at ship time regardless of severity (the promotion floor retired with the concern merger — curation is the reader's judgment over the stream). `urgent` = act now; `moderate` = a real risk you hit or clearly foresee will bite; `low` = a nice-to-have or a passing observation. Do not inflate or deflate — the severity rides on the record and shapes how later readers (the proposal batch, a planning session) weigh it. A legacy `- **Keep:** true` line is tolerated and ignored.
-- Reference the commit hash from section 3 and the file path where readers should investigate, inside the Description.
-- Keep Description and How to Fix to one paragraph each.
-- Write "None" if nothing to report.
+**The story file carries every concern; the PR body shows only what a reviewer must act on.**
+This is the contract, not an implementation detail, and the two halves are deliberately
+different texts:
 
-## 7. Successful Development Patterns
+- **The story file** — written here, committed to the branch — records **every** concern at
+  **every** severity, `low` included. It is the durable artifact and the extractor's only
+  source, so a concern missing from it is a concern that never reaches the feedback stream.
+- **The PR body** — rendered from the story file by `create-or-update.sh` — drops the
+  `low`-severity blocks and says how many it dropped, pointing at the story file. Nothing is
+  lost; it is simply not in front of the reviewer.
+- **What the extractor sees is unchanged.** `extract-deferred-concerns.sh` parses the
+  committed **story file**, never the PR body, so every severity still becomes a `kind:
+  concern` record keyed on its `concern_id`. Render-time filtering cannot make a record go
+  missing, which is the whole reason the filter lives there.
+
+The divergence is established practice, not a new idea: `shrink-pr-body.sh` already replaces
+the Concerns section in the **body** with a pointer while the extractor keeps reading the
+**file**, byte for byte.
+
+Two alternatives were rejected. **Keeping every concern in both** gives up brevity in the one
+section most likely to be long — the section whose length is the actual complaint. **Filtering
+genuinely, and accepting the loss** would delete knowledge: the stream is append-only and keyed
+on `concern_id`, so a `low` concern dropped from one story and re-raised months later arrives as
+a fresh record with no link to the first, and the observability policy is explicit that a record
+which silently stops being written is worse than one never written — the reader cannot tell the
+difference.
+
+**Guidelines**:
+- **Severity is an honest signal, not a gate.** Every concern is extracted into the feedback stream at ship time regardless of severity (the promotion floor retired with the concern merger — curation is the reader's judgment over the stream). `urgent` = act now; `moderate` = a real risk you hit or clearly foresee will bite; `low` = a nice-to-have or a passing observation. Do not inflate or deflate — the severity rides on the record and shapes how later readers (the proposal batch, a planning session) weigh it, **and it now decides whether the reviewer sees the block at all**, so a deflated `moderate` is a concern hidden from review. A legacy `- **Keep:** true` line is tolerated and ignored.
+- Reference the commit hash from the Changes section and the file path where readers should investigate, inside the Description.
+- Keep Description and How to Fix to one paragraph each.
+- Omit the section entirely when there is nothing to report. Never write "None".
+
+## 6. Successful Development Patterns
+
+**Omit this whole section unless a pattern was really found.** This is the section most
+easily padded, because a plausible-sounding pattern can be written about any branch. A
+pattern qualifies when it is specific enough to change what someone does next time and
+came out of *this* work — not a restatement of a standard the repository already documents.
+Most branches have none, and that is the expected outcome.
 
 [Effective patterns discovered during this branch's development that are worth preserving as institutional knowledge.]
 
@@ -505,26 +559,22 @@ One subsection per ticket, in chronological order:
 - Include the reasoning ("why it worked") not just the action ("what was done")
 - Extract from ticket Considerations (positive observations), Final Reports (what went well), and Implementation Steps (approaches that proved effective)
 - Categories to consider: architectural decisions, testing strategies, refactoring approaches, collaboration patterns, tooling choices
-- Write "None" if no noteworthy patterns emerged
+- Omit the section entirely when no noteworthy pattern emerged. Never write "None".
 
-## 8. Release Preparation
+## 7. Release Preparation
+
+**Omit this whole section when the release-readiness role reports `releasable: true` with
+no concerns and no instructions** — a "Ready for release / None / None / None" block is
+four headings saying nothing. The section appears precisely when a person must do
+something, and its presence is the signal.
 
 **Verdict**: [Ready for release / Needs attention before release]
 
-### 8-1. Concerns
+[One flat list. Each item names its own kind so the reader can act without sub-headings:]
 
-- [List any concerns from release-readiness analysis]
-- Or "None - changes are safe for release"
-
-### 8-2. Pre-release Instructions
-
-- [Steps to take before running /release]
-- Or "None - standard release process applies"
-
-### 8-3. Post-release Instructions
-
-- [Steps to take after release]
-- Or "None - no special post-release actions needed"
+- **Concern:** [something that gives pause about releasing]
+- **Before release:** [a step to take before releasing]
+- **After release:** [a step to take after releasing]
 ```
 
 **Release-readiness input:**
@@ -543,12 +593,16 @@ The release-readiness JSON is produced by the release-readiness role — a `gene
 }
 ```
 
-Format this JSON into section 8.
+Format this JSON into the Release Preparation section, flattening `concerns[]`,
+`instructions.pre_release[]`, and `instructions.post_release[]` into the single labelled
+list above — in that order. When all three arrays are empty **and** `releasable` is true,
+write no section at all.
 
 ```markdown
-## 9. Notes
+## 8. Notes
 
-Additional context for reviewers or future reference.
+Additional context for reviewers or future reference. **Omit when there is none** — this
+section exists for the occasional thing that fits nowhere else, not as a closing formality.
 ```
 
 ### Story Frontmatter
@@ -569,7 +623,7 @@ The `type` key is what makes the story readable as an [Open Knowledge Format](ht
 
 **Machine-readable relations** (both derived in Phase 3, from the archived tickets):
 
-- `tickets:` — the list of archived ticket **filenames** this story covers (basenames of `.workaholic/tickets/archive/<branch>/*.md`). A story already narrates its tickets in prose (section 3); this records the association in frontmatter so a mission can roll them up mechanically (the report→tickets relation). Write `[]` if the branch archived no tickets.
+- `tickets:` — the list of archived ticket **filenames** this story covers (basenames of `.workaholic/tickets/archive/<branch>/*.md`). A story already narrates its tickets in prose (the Changes section); this records the association in frontmatter so a mission can roll them up mechanically (the report→tickets relation). Write `[]` if the branch archived no tickets.
 - `mission:` — every mission this branch advances, **inherited from the archived tickets' `mission:` field**: the **union** of the covered tickets' slugs, de-duplicated, in first-seen order. Write `[]` when none carry one. A single mission is spelled `[<slug>]`, and a legacy bare `mission: <slug>` still reads as one. This is the machine-readable relation `/ship` propagates into any deferred concern extracted from this story.
 
   **Never ask the developer to choose.** Tickets naming different missions are not a conflict to resolve — a branch really can advance two missions, and the union simply records that. An earlier version of this rule asked, via `AskUserQuestion`, which mission a disagreeing set of tickets belonged to; whichever the developer picked, the other mission silently lost the work from its rolled-up progress. That made the mission graph depend on which option someone clicked, in a model whose whole claim is that progress is *computed, never a hand-set number*. Derive the union and move on.
@@ -581,7 +635,7 @@ The `type` key is what makes the story readable as an [Open Knowledge Format](ht
 - Highlight decision points and trade-offs
 - Keep Motivation/Journey/Outcome concise (Journey: 50-100 words)
 - Changes section: one entry per ticket, brief descriptions
-- Historical Analysis/Concerns can be "None" if empty
+- **A section with nothing to report is omitted, never written as "None"** (see *Omit, never pad*). Concerns, Successful Development Patterns, Release Preparation, and Notes are all conditional; a short story is a correct story.
 
 ### Updating Stories Index
 
@@ -621,9 +675,13 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/create-or-update.sh <branch-nam
 
 1. Strips YAML frontmatter via `strip-frontmatter.sh` from `.workaholic/stories/<branch-name>.md`
 2. Writes clean content to a private per-run temp file (`mktemp`, removed on exit) — never a constant path two concurrent runs could share
-3. Checks if PR exists for the branch
-4. Creates new PR or updates existing one
-5. Outputs the result in required format
+3. Drops the `low`-severity concern blocks from the **body** via `filter-low-concerns.sh`, leaving a line that names how many were dropped and points at the story file. The story file is untouched, and the ship-time extractor reads the file — so every severity is still recorded (see the Concerns section's contract)
+4. Bounds the body under GitHub's 65,536-character limit via `shrink-pr-body.sh`
+5. Checks if PR exists for the branch
+6. Creates new PR or updates existing one
+7. Outputs the result in required format
+
+Steps 3 and 4 are the only two places where the PR body and the story file diverge, and both diverge in the same direction and for the same reason: the file is the record, the body is the reading experience.
 
 ### Strip Frontmatter Script
 
@@ -690,8 +748,8 @@ Analyze a branch to determine if it's ready for release.
    should have been updated and was not — exactly like the deferred-concern judge. A
    candidate is a hint, not a verdict; dismiss it when the doc legitimately did
    not need the change. Confirmed drift becomes (a) a release-readiness
-   `concerns[]` entry plus a `pre_release` instruction (the Section 8 ship gate),
-   and (b) a durable Section 6 Concern via `workaholic:review-sections`, so it
+   `concerns[]` entry plus a `pre_release` instruction (the Release Preparation ship gate),
+   and (b) a durable Concerns entry via `workaholic:review-sections`, so it
    carries over on `/ship` if not fixed first. **Exclude** `outputs/` staleness
    and version/manifest drift — the Outputs Freshness CI and `validate-metadata.mjs`
    own those domains; the script already omits them.

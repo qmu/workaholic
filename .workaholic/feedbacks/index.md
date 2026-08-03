@@ -351,4 +351,6 @@
 * [A mission slug is still unbounded, and other consumers may have their own limits](20260801210418-a-mission-slug-is-still-unbounded.md)
 * [The legacy subject branch has no expiry](20260801210418-the-legacy-subject-branch-has-no.md)
 * [Throttle repeat drive-blocked notifications for the same unresolved condition](20260802140323-throttle-repeat-drive-blocked-notifications-for-the-same-unresolved-condition.md)
+* [A pre-fix degenerate record keeps its degenerate id](20260803220438-a-pre-fix-degenerate-record-keeps.md)
+* [The ASCII 6-word truncation collision remains by design](20260803220438-the-ascii-6-word-truncation-collision.md)
 <!-- okf:generated:end -->

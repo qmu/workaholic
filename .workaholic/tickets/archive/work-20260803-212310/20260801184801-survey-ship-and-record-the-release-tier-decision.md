@@ -5,7 +5,7 @@ type: housekeeping
 layer: [Config]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: adopt-a-git-flow-branching-model-with-durable-ship-records
 merge_policy: auto

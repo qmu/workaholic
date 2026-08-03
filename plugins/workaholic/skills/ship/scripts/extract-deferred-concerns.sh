@@ -141,7 +141,7 @@ author_email=$(git config user.email 2>/dev/null || echo "unknown@unknown.invali
 owners_script="${SCRIPT_DIR}/../../mission/scripts/mission-owners.sh"
 
 result=$(python3 - "$story_file" "$pr_number" "$pr_url" "$branch" "$origin_commit" "$created_at" "$author_email" "$owners_script" <<'PY'
-import sys, re, os, json, glob, subprocess
+import sys, re, os, json, glob, subprocess, hashlib, unicodedata
 
 story_file, pr_number, pr_url, branch, origin_commit, created_at, author_email, owners_script = sys.argv[1:9]
 
@@ -216,12 +216,29 @@ def strip_carried(title):
 
 
 def slugify(s):
-    s = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', s)
-    s = re.sub(r'`([^`]+)`', r'\1', s)
     s = s.lower()
     s = re.sub(r'[^a-z0-9 ]', ' ', s)
     words = [w for w in s.split() if w][:6]
     return '-'.join(words)[:60].strip('-')
+
+
+def concern_id_for(title):
+    # The id is the stream's PERMANENT key, so the historical ASCII word slug
+    # is kept byte-identical. A title carrying any non-ASCII character cannot
+    # use it: the word slug degenerates (a Japanese title reduces to '' or to
+    # its one incidental English word), collides, and the concern is then
+    # silently dropped as a duplicate. Those titles — and the pathological
+    # all-punctuation ASCII title that yields no words — get a stable hash id
+    # instead, derived from the NFC-normalized, case- and whitespace-folded
+    # title so trivial re-renderings of the same title agree on the id.
+    s = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', title)
+    s = re.sub(r'`([^`]+)`', r'\1', s)
+    if s.isascii():
+        slug = slugify(s)
+        if slug:
+            return slug, False
+    norm = ' '.join(unicodedata.normalize('NFC', s).lower().split())
+    return 'c-' + hashlib.sha1(norm.encode('utf-8')).hexdigest()[:8], True
 
 
 # Index every concern_id already in the stream (open, closed, superseded alike):
@@ -244,6 +261,7 @@ for p in glob.glob('.workaholic/feedbacks/*.md'):
 ts = re.sub(r'[^0-9]', '', created_at)[:14] or '00000000000000'
 
 created = []
+fallback_ids = []
 seen_this_run = set()
 
 for block in blocks:
@@ -257,7 +275,7 @@ for block in blocks:
     description = field(block, 'Description')
     fix = field(block, 'How to Fix') or field(block, 'How To Fix') or field(block, 'Fix')
 
-    concern_id = slugify(strip_carried(title)) or 'concern'
+    concern_id, used_fallback = concern_id_for(strip_carried(title))
     if concern_id in seen_this_run or concern_id in existing_ids:
         continue
     seen_this_run.add(concern_id)
@@ -300,19 +318,25 @@ for block in blocks:
     with open(path, 'w') as h:
         h.write('\n'.join(body))
     created.append(path)
+    if used_fallback:
+        fallback_ids.append(concern_id)
 
-print(json.dumps({"created": created}))
+print(json.dumps({"created": created, "fallback_ids": fallback_ids}))
 PY
 )
 
 created_files=$(printf '%s' "$result" | python3 -c "import json,sys; print('\n'.join(json.load(sys.stdin)['created']))")
 created_json=$(printf '%s' "$result" | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin)['created']))")
 count_created=$(printf '%s' "$result" | python3 -c "import json,sys; print(len(json.load(sys.stdin)['created']))")
+# Which created records used the hash-fallback id (non-ASCII or word-less title).
+# Reported so a fallback id is a visible, greppable event rather than a silent
+# divergence from the word-slug convention.
+fallback_json=$(printf '%s' "$result" | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin).get('fallback_ids', [])))")
 
 if [ "$count_created" -eq 0 ]; then
   # `destination` rides EVERY exit, including this one: a caller reading the JSON must
   # never have to infer where records would have gone.
-  echo "{\"status\":\"ok\",\"created\":0,\"updated\":0,\"extracted\":0,\"story_only\":0,\"pushed\":false,\"push_error\":\"not_attempted\",\"destination\":\"${base}\",\"files\":[]}"
+  echo "{\"status\":\"ok\",\"created\":0,\"updated\":0,\"extracted\":0,\"story_only\":0,\"pushed\":false,\"push_error\":\"not_attempted\",\"destination\":\"${base}\",\"fallback_ids\":[],\"files\":[]}"
   exit 0
 fi
 
@@ -344,4 +368,4 @@ if [ -z "${NO_COMMIT:-}" ]; then
   push_error="$PUSH_ERROR"
 fi
 
-echo "{\"status\":\"ok\",\"created\":${count_created},\"updated\":0,\"extracted\":${count_created},\"story_only\":0,\"pushed\":${pushed},\"push_error\":\"${push_error}\",\"destination\":\"${base}\",\"files\":${created_json}}"
+echo "{\"status\":\"ok\",\"created\":${count_created},\"updated\":0,\"extracted\":${count_created},\"story_only\":0,\"pushed\":${pushed},\"push_error\":\"${push_error}\",\"destination\":\"${base}\",\"fallback_ids\":${fallback_json},\"files\":${created_json}}"

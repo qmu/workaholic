@@ -176,12 +176,9 @@ Stages, commits (`Add release notes for <branch>`), and pushes any note file(s) 
 bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/extract-deferred-concerns.sh "<branch>" "<pr-number>" "<pr-url>"
 ```
 
-Reads the just-shipped story (`.workaholic/stories/<branch>.md`) and parses each `###` concern block in section 6 (Concerns). Each concern is keyed on a **stable identity** — `concern_id`, the slug of its title with any leading `(carried from …)` prefix stripped — so the same logical concern is recognized across PRs. Extraction is **update-or-create**, not append:
+Reads the just-shipped story (`.workaholic/stories/<branch>.md`) and parses each `###` concern block in its Concerns section. Each concern is keyed on a **stable identity** — `concern_id`, the slug of its title with any leading `(carried from …)` prefix stripped — so the same logical concern is recognized across PRs. Extraction is **append-only**: an id already anywhere in the stream (open, closed, or superseded) is skipped, never rewritten and never resurrected, and a new id becomes one immutable `kind: concern` record.
 
-- an **active** concern with that id → **updated in place** (bumps `last_seen`, escalates `severity` to the most severe, refreshes text) — no new file;
-- an **archived** (resolved/superseded) one → skipped (never resurfaces);
-- a **new** concern that clears the **promotion floor** → a fresh `<concern_id>.md` is written (`type: Concern`, `concern_id`, `first_seen`, `last_seen`, `severity`, provenance, and a Title/Description/How-to-Fix body);
-- a **new** concern **below** the floor → left in the story only (**not** promoted to the corpus), counted as `story_only`.
+**The committed story file is the only source, and it carries every severity.** The PR body is a *rendering* of that file with the `low`-severity blocks dropped for the reviewer's benefit (`workaholic:report`, Concerns section) — this script never reads it, so filtering at render can never make a record go missing. Two independent paths already diverge body from file this way, and both are safe for exactly this reason: the low-severity filter, and `shrink-pr-body.sh`'s pointer for an over-limit body. If a future change ever makes extraction read the PR body instead, every `low` concern stops being recorded silently — the failure would be invisible for weeks, which is why the source is named here rather than left to be inferred.
 
 **Concerns land in the feedback stream** (`docs/loop-engineering-workflow.md` H2/H3, 2026-07-28): each section-6 block becomes a `kind: concern` feedback record — every severity, append-only, keyed on `concern_id` so an id already in the stream (open, closed, or superseded) is never rewritten or resurrected. The promotion floor, `Keep:` opt-in, and update-in-place retired with the concern lifecycle machinery; curation is the reader's judgment over the stream, and resolution is a superseding record written by `/report`'s judge seam.
 

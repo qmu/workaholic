@@ -482,8 +482,35 @@ One subsection per ticket, in chronological order:
 - **How to Fix:** Extract the inline invocations into dedicated navigator scripts under the drive skill's `scripts/` directory
 ```
 
+**The story file carries every concern; the PR body shows only what a reviewer must act on.**
+This is the contract, not an implementation detail, and the two halves are deliberately
+different texts:
+
+- **The story file** — written here, committed to the branch — records **every** concern at
+  **every** severity, `low` included. It is the durable artifact and the extractor's only
+  source, so a concern missing from it is a concern that never reaches the feedback stream.
+- **The PR body** — rendered from the story file by `create-or-update.sh` — drops the
+  `low`-severity blocks and says how many it dropped, pointing at the story file. Nothing is
+  lost; it is simply not in front of the reviewer.
+- **What the extractor sees is unchanged.** `extract-deferred-concerns.sh` parses the
+  committed **story file**, never the PR body, so every severity still becomes a `kind:
+  concern` record keyed on its `concern_id`. Render-time filtering cannot make a record go
+  missing, which is the whole reason the filter lives there.
+
+The divergence is established practice, not a new idea: `shrink-pr-body.sh` already replaces
+the Concerns section in the **body** with a pointer while the extractor keeps reading the
+**file**, byte for byte.
+
+Two alternatives were rejected. **Keeping every concern in both** gives up brevity in the one
+section most likely to be long — the section whose length is the actual complaint. **Filtering
+genuinely, and accepting the loss** would delete knowledge: the stream is append-only and keyed
+on `concern_id`, so a `low` concern dropped from one story and re-raised months later arrives as
+a fresh record with no link to the first, and the observability policy is explicit that a record
+which silently stops being written is worse than one never written — the reader cannot tell the
+difference.
+
 **Guidelines**:
-- **Severity is an honest signal, not a gate.** Every concern is extracted into the feedback stream at ship time regardless of severity (the promotion floor retired with the concern merger — curation is the reader's judgment over the stream). `urgent` = act now; `moderate` = a real risk you hit or clearly foresee will bite; `low` = a nice-to-have or a passing observation. Do not inflate or deflate — the severity rides on the record and shapes how later readers (the proposal batch, a planning session) weigh it. A legacy `- **Keep:** true` line is tolerated and ignored.
+- **Severity is an honest signal, not a gate.** Every concern is extracted into the feedback stream at ship time regardless of severity (the promotion floor retired with the concern merger — curation is the reader's judgment over the stream). `urgent` = act now; `moderate` = a real risk you hit or clearly foresee will bite; `low` = a nice-to-have or a passing observation. Do not inflate or deflate — the severity rides on the record and shapes how later readers (the proposal batch, a planning session) weigh it, **and it now decides whether the reviewer sees the block at all**, so a deflated `moderate` is a concern hidden from review. A legacy `- **Keep:** true` line is tolerated and ignored.
 - Reference the commit hash from section 3 and the file path where readers should investigate, inside the Description.
 - Keep Description and How to Fix to one paragraph each.
 - Write "None" if nothing to report.

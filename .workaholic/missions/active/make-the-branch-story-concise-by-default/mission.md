@@ -53,3 +53,4 @@ when something must be done.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-03 — ticket archived — 20260801185701-decide-the-fate-of-low-severity-concerns.md

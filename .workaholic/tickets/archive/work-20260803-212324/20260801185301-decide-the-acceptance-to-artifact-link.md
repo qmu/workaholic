@@ -5,7 +5,7 @@ type: housekeeping
 layer: [Config]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: make-acceptance-ticking-measure-satisfaction-not-marker-shape
 merge_policy: auto

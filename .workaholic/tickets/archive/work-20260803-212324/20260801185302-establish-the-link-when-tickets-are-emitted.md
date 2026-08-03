@@ -5,7 +5,7 @@ type: enhancement
 layer: [Domain]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on: [20260801185301-decide-the-acceptance-to-artifact-link.md]
 mission: make-acceptance-ticking-measure-satisfaction-not-marker-shape
 merge_policy: auto

@@ -426,11 +426,11 @@ flowchart LR
 
 **Report** — `/report` runs after all tickets on a branch are archived. It does four writes in order:
 1. Judges every **open** `kind: concern` record in the feedback stream (`feedback/scripts/list-open-concerns.sh`) via a `general-purpose` deferred-concern-judge subagent. Each resolved one gets a **superseding record** appended (`supersedes: <filename>`, naming the resolving PR/commit); still-open ones simply stay open.
-2. Writes `stories/<branch>.md` — the full PR description; section 6 records **this branch's** concerns only (the stream itself is the durable memory).
+2. Writes `stories/<branch>.md` — the full PR description; its Concerns section records **this branch's** concerns only (the stream itself is the durable memory). A section with nothing to report is **omitted rather than filled with "None"**, so a small branch gets a short story, and sections are numbered sequentially over whichever ones survive — which is why every consumer matches a section heading by name, never by number.
 3. Commits the story together with any superseding records, so the audit history is coherent.
 4. Opens the GitHub PR (`release-notes/<branch>.md` is written later, by `/ship`, just before merging).
 
-**Ship** — `/ship` merges the PR, then immediately extracts section 6 (Concerns) from the just-shipped story into the feedback stream, one `kind: concern` record per item (`feedbacks/<ts>-<concern_id>.md`, every severity — the stream is append-only and id-keyed, so a known `concern_id` is never re-emitted). Each record carries `severity`, provenance (`origin_pr`/branch/commit), and the story's mission/ticket relations. From that point on, the open set is read on every subsequent `/report` until a superseding record resolves each one.
+**Ship** — `/ship` merges the PR, then immediately extracts the Concerns section from the just-shipped **story file** into the feedback stream, one `kind: concern` record per item (`feedbacks/<ts>-<concern_id>.md`, every severity — the stream is append-only and id-keyed, so a known `concern_id` is never re-emitted). Each record carries `severity`, provenance (`origin_pr`/branch/commit), and the story's mission/ticket relations. From that point on, the open set is read on every subsequent `/report` until a superseding record resolves each one. The story **file** is the extractor's only source and carries every severity; the PR **body** is a rendering of it with the `low` blocks dropped for the reviewer, so brevity never costs a record.
 
 ### What "Carried Over" Means
 

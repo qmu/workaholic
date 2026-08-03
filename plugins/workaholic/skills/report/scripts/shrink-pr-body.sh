@@ -3,9 +3,9 @@
 # Usage: shrink-pr-body.sh <body-file> <branch>
 # Output: JSON {shrunk, chars_before, chars_after}
 #
-# A carried concern corpus can push a story's section 6 past the GitHub PR-body
-# limit, which used to hard-stop /report at its very last step (gh refuses the
-# create/update). When the body is over the limit, section 6 (Concerns) is
+# A carried concern corpus can push a story's Concerns section past the GitHub
+# PR-body limit, which used to hard-stop /report at its very last step (gh refuses
+# the create/update). When the body is over the limit, the Concerns section is
 # replaced with a pointer to the committed story file — safe because the
 # ship-time extractor (extract-deferred-concerns.sh) reads the STORY FILE,
 # never the PR body, so extraction is byte-identical either way. If the body
@@ -48,12 +48,24 @@ if before <= LIMIT:
     sys.exit(0)
 
 story = f".workaholic/stories/{branch}.md"
-pointer = (f"## 6. Concerns\n\nThe concern set is too large for a GitHub PR body "
-           f"(65,536-character limit), so it is not inlined here. Read section 6 of the "
-           f"committed story file on this branch: `{story}`. The ship-time deferred-concern "
-           f"extractor reads that file, never this PR body, so nothing is lost.\n\n")
-text = re.sub(r'^## 6\. Concerns\s*\n.*?(?=^## |\Z)', pointer, text,
-              flags=re.MULTILINE | re.DOTALL)
+
+# Match the Concerns heading BY NAME, keeping whatever number it carries. Story
+# sections are numbered sequentially over the sections a story actually has, so
+# Concerns is not always section 6 -- and the pointer that replaces it must keep
+# the body's own numbering intact rather than reintroducing a stale "6.".
+CONCERNS_RE = re.compile(r'^(##\s+(?:\d+[.)]\s*)?Concerns[^\n]*)\n.*?(?=^## |\Z)',
+                         flags=re.MULTILINE | re.DOTALL)
+
+
+def _pointer(m):
+    return (f"{m.group(1)}\n\nThe concern set is too large for a GitHub PR body "
+            f"(65,536-character limit), so it is not inlined here. Read the Concerns "
+            f"section of the committed story file on this branch: `{story}`. The "
+            f"ship-time deferred-concern extractor reads that file, never this PR body, "
+            f"so nothing is lost.\n\n")
+
+
+text = CONCERNS_RE.sub(_pointer, text)
 
 if len(text) > LIMIT:
     note = f"\n\n*(PR body truncated at the GitHub limit — full text: `{story}`)*\n"

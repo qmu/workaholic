@@ -1,11 +1,13 @@
 ---
 name: review-sections
-description: Generate branch-story sections 4-7 (Outcome, Historical Analysis, Concerns, Successful Development Patterns) from archived tickets and deferred concern verdicts. Used by the report workflow when assembling a PR story.
+description: Generate the branch story's review content (a Motivation past-context paragraph, Outcome, Concerns, Successful Development Patterns) from archived tickets and deferred concern verdicts. Used by the report workflow when assembling a PR story.
 ---
 
 # Review Sections
 
-Guidelines for generating story sections 4-7 (Outcome, Historical Analysis, Concerns, Successful Development Patterns) from archived tickets.
+Guidelines for generating the branch story's review content from archived tickets: the past-context paragraph that folds into Motivation, plus the Outcome, Concerns, and Successful Development Patterns sections.
+
+**Omit, never pad.** The rule is stated once, in `workaholic:report`'s *Omit, never pad*: a section with nothing to report is **absent** from the story, not rendered as "None". Two of the fields below are empty far more often than not, and returning an empty string is the correct, expected answer — the report workflow then writes no section at all. Never invent content to fill a heading, and never refer to a section by number: numbers are assigned sequentially over whichever sections survive.
 
 ## Input
 
@@ -26,7 +28,21 @@ Guidelines for generating story sections 4-7 (Outcome, Historical Analysis, Conc
 
 ## Section Guidelines
 
-### Section 4: Outcome
+### `historical_context` — a paragraph inside Motivation, not a section
+
+Past context is part of the **why**, so it reads as a closing paragraph of the story's
+Motivation rather than as a Historical Analysis section that must be filled. Return the
+paragraph itself, with no heading.
+
+- Draw it from the tickets' Related History sections: what similar problem was solved
+  before, and how that shaped this approach.
+- One paragraph. If it needs more, it is a concern or an outcome, not context.
+- **Return `""` when the tickets carry no related history** — which is the common case.
+  The report workflow then appends nothing, and Motivation reads exactly as it would have.
+  Do not write "No significant historical patterns identified."; that sentence is the
+  padding this field exists to stop.
+
+### Outcome
 
 Summarize what was accomplished across all tickets.
 
@@ -35,16 +51,7 @@ Summarize what was accomplished across all tickets.
 - Use bullet points for clarity
 - Include metrics if available (files changed, tests added, etc.)
 
-### Section 5: Historical Analysis
-
-Extract patterns and learnings from Related History sections.
-
-- Identify recurring themes or decisions
-- Note how past decisions influenced current implementation
-- Highlight any patterns that should inform future work
-- If no historical context found, write "No significant historical patterns identified."
-
-### Section 6: Concerns
+### Concerns
 
 Risks, trade-offs, limitations, and forward-looking suggestions discovered during implementation. Each concern is one insight expressed as a title, a description, and how to fix it — with a severity label. Emit one `###` block per concern using this exact structure (it is parsed by `extract-deferred-concerns.sh` on `/ship`):
 
@@ -67,12 +74,20 @@ For new concerns:
 - Frame the risk and the constructive suggestion together (risk in Description, suggestion in How to Fix) — they are two angles on the same insight.
 - Put the commit_hash from ticket frontmatter (if present) and the file path inside the Description.
 - Keep Description and How to Fix to one paragraph each.
+- **Grade honestly in both directions.** Severity rides on the extracted record *and*
+  decides whether the reviewer sees the block: the story file keeps every severity, and
+  the PR body drops the `low` ones (`workaholic:report`, Concerns section). A deflated
+  `moderate` is a real risk hidden from review; an inflated `low` is noise in front of it.
 
-If both sources are empty, write "None".
+If both sources are empty, return `""` — the report workflow then writes no Concerns
+section. Never write "None".
 
-### Section 7: Successful Development Patterns
+### Successful Development Patterns
 
-Capture effective patterns discovered during this branch's development.
+Capture effective patterns discovered during this branch's development. **This is the
+section most easily padded**, because a plausible-sounding pattern can be written about
+any branch — so the bar is deliberately high, and the expected answer on most branches is
+an empty string.
 
 - Extract positive observations from ticket Considerations sections
 - Extract "what went well" insights from Final Report sections and the `Insights:` keys of the collected commit bodies
@@ -85,7 +100,10 @@ Capture effective patterns discovered during this branch's development.
   - Collaboration or workflow patterns that were effective
   - Tooling or automation choices that saved effort
 - Each pattern should include reasoning for why it worked
-- If no noteworthy patterns, write "None"
+- A pattern qualifies when it is specific enough to change what someone does next time
+  **and** came out of *this* work — not a restatement of a standard the repository already
+  documents
+- **Return `""` unless a pattern was really found.** Never write "None"
 
 ## Output Format
 
@@ -93,11 +111,17 @@ Return JSON with the following structure:
 
 ```json
 {
+  "historical_context": "One paragraph of past context for Motivation, or \"\"",
   "outcome": "Bullet list of accomplishments...",
-  "historical_analysis": "Patterns and learnings...",
-  "concerns": "Risks, trade-offs, and forward-looking suggestions, or 'None'",
-  "development_patterns": "Effective patterns or 'None'"
+  "concerns": "One ### block per concern, or \"\"",
+  "development_patterns": "Effective patterns, or \"\""
 }
 ```
 
-Each field should contain markdown-formatted content ready to be inserted into the story file.
+Each field carries markdown-formatted content ready to be inserted into the story file.
+
+**An empty string means the section is omitted, and that is a normal result.** Only
+`outcome` is always written; `historical_context` folds into Motivation when present, and
+`concerns` and `development_patterns` each become a section only when non-empty. The field
+formerly named `historical_analysis` is gone — past context is a Motivation paragraph now,
+not a section — so a caller reading that key will find nothing.

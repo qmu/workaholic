@@ -57,3 +57,6 @@ when something must be done.
 - 2026-08-03 — ticket archived — 20260801185702-make-the-story-short-by-default.md
 - 2026-08-03 — story reported — work-20260803-212338.md
 - 2026-08-03 — run recorded (+0.4h) — work-20260803-212338
+- 2026-08-03 — concern deferred (stuck) — 20260803221121-section-numbers-are-now-unstable-and.md
+- 2026-08-03 — concern deferred (stuck) — 20260803221121-a-mis-graded-severity-now-hides.md
+- 2026-08-03 — concern deferred (stuck) — 20260803221121-the-motivation-fold-is-a-prose.md

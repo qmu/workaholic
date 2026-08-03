@@ -100,3 +100,4 @@ which is precisely the condition the mission exists to fix.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-03 — ticket archived — 20260801185301-decide-the-acceptance-to-artifact-link.md

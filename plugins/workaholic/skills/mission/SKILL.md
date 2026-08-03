@@ -139,7 +139,7 @@ The `tickets` / `stories` lists are reserved for the machine-readable relations 
 
 - `## Goal` — the information-rich "why": business grounding and the outcome the mission pursues.
 - `## Experience` — **the mission's substance**: the user experience, the demanded behavior, and/or the overall structure it pursues. Where `## Goal` says *why* the work is worth doing, this says *what the thing does*. Keep it observable (`workaholic:implementation` / `objective-documentation`) — "the list reorders without a reload" is checkable; "feels fast" is not. This is the persistent content a kickoff-time `gate_*` could never be, and it is what a later session reads to know what is actually demanded.
-- `## Acceptance` — a checklist, and **the mission's plan**: each item names the ticket expected to satisfy it, so the list doubles as the route to completion. **Three items or fewer** — see *Size norms* below. **Progress toward achievement is `checked ÷ total`, computed from this list, never a hand-set number** (`workaholic:implementation` / `objective-documentation`). An unchecked item is a **heading, not a specification** — re-check it against the source before cutting its ticket (see the checklist convention below).
+- `## Acceptance` — a checklist, and **the mission's plan**: each item names the ticket expected to satisfy it — through a `(#<filename>)` link that the **emission seam stamps** rather than the author typing it (decided 2026-08-03; see the reference's *link contract*), so the list doubles as the route to completion. **Three items or fewer** — see *Size norms* below. **Progress toward achievement is `checked ÷ total`, computed from this list, never a hand-set number** (`workaholic:implementation` / `objective-documentation`). An unchecked item is a **heading, not a specification** — re-check it against the source before cutting its ticket (see the checklist convention below).
 - `## Changelog` — an append-only, dated, human-readable timeline (`workaholic:design` / `history-structures`).
 
 **`## Scope` was removed from the template on 2026-08-01**, deleted rather than made optional: no validator, script, or hook ever read it, so it was pure authoring cost, and `## Goal` (why) plus `## Experience` (what) already carry what it was reaching for. Missions written before that date still have the section — it is left verbatim as history and read by nothing. **A carried successor does not inherit it**: the successor is scaffolded from the template, so there is no `## Scope` heading for a carry to land in, and copying one would re-introduce a retired section into a *new* mission — the opposite of the removal's point. The predecessor keeps its own section as history.
@@ -170,7 +170,7 @@ A mission carries **no `## Reflection` section**. The per-run reflection channel
 - **Drivability** — what being in the active area asserts, and the alternatives rejected with `draft`.
 - **Ownership** — the `mission-owners.sh` oracle, its legacy fallback, and the redefinition record.
 - **Duration** — how `predicted_hours` is derived once and `actual_hours` accumulated, and why the actual covers mission units only.
-- **Acceptance-checklist convention** — the `(#<filename>)` marker, and the measured reason an unchecked item is a heading rather than a specification.
+- **Acceptance-checklist convention** — the `(#<filename>)` marker, **the link contract** (item-scoped, stamped at emission, unlinked-is-reported) with the alternatives it rejected, and the measured reason an unchecked item is a heading rather than a specification.
 - **Changelog line format** — the dated append-only line and its idempotent event id.
 
 Read it before writing or interpreting any of these fields; the block above names them, it does not define them.
@@ -217,9 +217,9 @@ Every genuine requirements question is a legitimate `AskUserQuestion` — it is 
 
 The requirement is *all questions before any ticket is created* — and `## Acceptance` items link tickets by `(#<filename>)`, which cannot exist until the tickets do. Both hold, because the **writing** order differs from the **asking** order:
 
-> ask everything → decide the ticket set → write the tickets → write `## Acceptance` naming them.
+> ask everything → decide the ticket set → write the tickets → write `## Acceptance` → stamp each item's link.
 
-Do not read the requirement as "Acceptance first".
+Do not read the requirement as "Acceptance first". The last step is a script, not typing: the criteria are written as prose and `link-acceptance.sh` stamps each `(#<filename>)` once the ticket that satisfies it exists. **A mission whose items are written before its tickets — every `/propose` proposal — is therefore normal, not broken**; it is the *emission without the linking step* that strands the board.
 
 ### Emitting the set
 

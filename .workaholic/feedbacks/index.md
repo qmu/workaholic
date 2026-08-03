@@ -358,4 +358,7 @@
 * [A mis-graded severity now hides a concern from review, not just from a sort order](20260803221121-a-mis-graded-severity-now-hides.md)
 * [Section numbers are now unstable, and nothing stops a future consumer keying on one](20260803221121-section-numbers-are-now-unstable-and.md)
 * [The Motivation fold is a prose contract with no machine check](20260803221121-the-motivation-fold-is-a-prose.md)
+* [Nothing here has been run against the live account](20260803221452-nothing-here-has-been-run-against.md)
+* [The digest gate cannot prove a human was present](20260803221452-the-digest-gate-cannot-prove-a.md)
+* [Two commands now survey routines](20260803221452-two-commands-now-survey-routines.md)
 <!-- okf:generated:end -->

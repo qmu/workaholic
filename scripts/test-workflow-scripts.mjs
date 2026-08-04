@@ -9347,6 +9347,75 @@ function testMissionClaimArtifactsUnaffected() {
 }
 
 // ---------------------------------------------------------------------------
+// A BASE-SIDE `claim:` STAMP IS HISTORY, NOT A CLAIM (decision M1, 2026-08-04).
+//
+// The old invariant was "`main` never shows a claim". It was observed false: a HANDOFF or
+// BLOCKED unit merges its PR with tickets still in todo/ (drive/SKILL.md §7), so the merge
+// carries the branch-only stamp onto the base. This pins the contract that replaced it --
+// the stamp may be there, and it must never be read as a claim.
+//
+// It also pins WHY the tempting fix is rejected (M1a): stripping the stamp before opening
+// the handoff PR would drop the artifact from the claim WHILE THE PR IS STILL OPEN, since
+// lib/claims.sh sources artifacts from stamps at the tip. The second half of this test
+// asserts exactly that failure mode, so nobody re-proposes the strip without seeing it.
+function testMergedStampIsHistoryNotAClaim() {
+  const { origin, A, B } = makeClaimFixture();
+  try {
+    const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const claimed = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.claim} batch ${t1}`).stdout);
+    const wt = claimed.worktree_path, br = claimed.branch;
+
+    // The ticket is stamped on the branch and IS a claim while the branch is unmerged.
+    let r = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout);
+    assertEq("while unmerged, the stamped ticket is a claim", r.claims[0].artifacts, [t1]);
+
+    // Merge the branch WITHOUT archiving the ticket -- the handoff/blocked shape.
+    execSync(`git fetch -q origin ${br} && git merge -q --no-ff -m "Merge ${br}" FETCH_HEAD && git push -q origin main`,
+      { cwd: B });
+
+    // 1. The stamp DID reach the base. That is expected now, not a defect.
+    const onBase = execSync(`git show origin/main:${t1}`, { cwd: B, encoding: "utf8" });
+    assertTrue("the merge carries the claim stamp onto the base",
+      new RegExp(`^claim: ${br}$`, "m").test(onBase), onBase.split("\n").slice(0, 12).join("\n"));
+
+    // 2. But it is NOT a claim: the branch left the unmerged set, so the scan reports none.
+    r = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout);
+    assertEq("a merged branch's claim is released", r.claims.length, 0);
+
+    // 3. And the survey offers the ticket again rather than hiding it behind the stamp --
+    //    the property that makes the leftover stamp harmless.
+    const plan = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    assertTrue("the survey re-offers a ticket whose claim merged",
+      plan.backlog.some((x) => x.path === t1), JSON.stringify(plan.backlog));
+
+    // --- M1a: why the strip-before-handoff fix is rejected --------------------
+    // Re-claim, then remove the stamp the way a "strip before opening the PR" step would,
+    // with the branch still UNMERGED. The artifact must vanish from the claim -- which is
+    // the double-pick this ruling refuses to reintroduce.
+    tickSecond(); // the re-claim must not collide with the first claim's branch name
+    const reclaim = run(A, `${POSIX_SH} ${SCRIPTS.claim} batch ${t1}`);
+    assertTrue("the ticket can be claimed again after its first claim merged",
+      reclaim.status === 0, `status ${reclaim.status}: ${reclaim.stderr.trim()}`);
+    const c2 = JSON.parse(reclaim.stdout);
+    const wt2 = c2.worktree_path, br2 = c2.branch;
+    const live = join(wt2, t1);
+    writeFileSync(live, readFileSync(live, "utf8").replace(/^claim:.*\n/m, ""));
+    execSync(`git add -A && git commit -q -m "Strip a claim stamp" && git push -q origin ${br2}`, { cwd: wt2 });
+
+    r = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout);
+    const row = r.claims.find((c) => c.unit === c2.unit);
+    assertEq("stripping the stamp un-claims the ticket while its PR is still open",
+      row.artifacts, []);
+    const plan2 = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    assertTrue("so the survey offers in-flight work as fresh backlog -- the rejected outcome",
+      plan2.backlog.some((x) => x.path === t1), JSON.stringify(plan2.backlog));
+    void wt;
+  } finally {
+    for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // "Has a plan" means "has a ticket queue", not "has acceptance items".
 //
 // /propose writes a provisional acceptance SKETCH, so an item count is satisfied with
@@ -10497,6 +10566,7 @@ const tests = [
   ["drive claim protocol: two clones, one unit", testClaimProtocol],
   ["drive claim protocol: a claim survives its tickets being archived", testClaimSurvivesArchive],
   ["drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected],
+  ["drive claim protocol: a merged stamp is history, not a claim", testMergedStampIsHistoryNotAClaim],
   ["drive claim protocol: offline reader/writer asymmetry", testClaimOfflineAsymmetry],
   ["drive claim protocol: same-second branch collision", testClaimBranchCollision],
   ["drive claim protocol: a long mission slug round-trips", testLongSlugClaimRoundTrip],

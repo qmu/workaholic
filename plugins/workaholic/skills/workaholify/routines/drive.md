@@ -63,7 +63,7 @@ Run `/drive`. It surveys, partitions, claims, drives, reports and routes on its 
 
 - **A mission is ours only if its `assignees` include a@qmu.jp, or is empty (unowned/claimable).** The survey does NOT enforce this -- `plan-units.sh` offers EVERY approved mission regardless of owner -- so read the mission frontmatter yourself before claiming, skip any mission owned solely by someone else, and name the skip in the report.
 - **There is no per-tick unit limit. Keep going until the survey offers nothing claimable, or the session ends.** A tick that stops early with work still queued has wasted the window; this runs once an hour, so the tick IS the throughput.
-- **But claim ONE unit at a time.** Claim it, drive it, report it, route it, and only then survey again and take the next. Never claim several units up front. The reason is the resume gap in §5: a claim this session cannot finish is a claim nobody can resume, so claiming N units up front orphans N-1 of them if the session ends early, while the sequential loop risks exactly one. Prefer a mission over backlog tickets whenever both are offered.
+- **But claim ONE unit at a time.** Claim it, drive it, report it, route it, and only then survey again and take the next. Never claim several units up front. The reason is **cost, not impossibility** (§5): an unfinished claim is recoverable, but only after its heartbeat lapses — at least `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES` (default 30) during which the unit sits untouched and invisible to every other runner, plus a resume round trip on a later tick. Claiming N units up front puts N-1 of them through that wait; the sequential loop puts at most one through it. The rule stands and its justification is now a measurable delay rather than a dead end. Prefer a mission over backlog tickets whenever both are offered.
 
 ## 2. Announce the start, immediately after each claim
 
@@ -94,7 +94,9 @@ Let /drive work under its own failure contract -- every ticket ends as exactly o
 
 ## 5. Hand off everything unfinished -- mandatory
 
-**This routine cannot resume its own unfinished work, and neither can a developer's local /drive**: a claimed unit is excluded from every later survey, and this sandbox's worktree exists nowhere else. An unfinished unit that is not handed off explicitly is lost work. So for every unit still claimed and unmerged, before the session ends:
+**An unfinished unit is resumable; what is unrecoverable is anything that never left this sandbox.** Since 2026-08-01 a claim whose run stopped is taken over rather than stranded: the next survey offers it back in `resumable[]` once the branch tip -- which **is** the heartbeat -- is older than `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES` (default 30) **and** the claim commit's author is this runner's own `git config user.email`. A colleague's claim is `foreign_identity` and untouchable at any age, so this is your own loop recovering its own work, never a takeover. `claim.sh resume <unit-id>` re-creates the worktree at the pushed branch tip, so already-archived tickets are not re-driven. No human is required to restart it.
+
+That makes the pushed branch the sole surviving copy -- the worktree dies with the container -- and it makes the handoff about **information, not rescue**: the next tick can reach the code either way, and what it cannot reconstruct is what you knew. So for every unit still claimed and unmerged, before the session ends:
 
 1. Commit and **push** everything on the claim branch, partial work included. Nothing may remain only in this sandbox.
 2. Open or update the unit's PR even when the work is incomplete, and lead its body with a `## Handoff` section: what is done, what is not, the exact next step, and any failing command with its raw output.
@@ -102,10 +104,10 @@ Let /drive work under its own failure contract -- every ticket ends as exactly o
 
 ------------
 🟡 drive handoff - [#123 Issue Title]({repo}/pull/123)
-`git fetch && git checkout <branch>` to continue. One sentence, max 25 words, what remains only.
+The next tick resumes it automatically; `git fetch && git checkout <branch>` to take it sooner. One sentence, max 25 words, what remains only.
 ------------
 
-4. **Leave the claim in place.** Do NOT run `release-claim.sh` -- it deletes the remote branch and would discard the pushed work.
+4. **Leave the claim in place.** Do NOT run `release-claim.sh` -- it deletes the remote branch, which discards the pushed work *and* removes the very claim a later tick resumes from. Leaving it is what makes the unit recoverable; releasing it is how a unit becomes genuinely lost.
 
 ## 6. Close
 

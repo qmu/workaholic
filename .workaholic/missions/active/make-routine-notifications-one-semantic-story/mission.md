@@ -47,9 +47,10 @@ template's stated model matches the shipped resumption behavior.
 
 - [ ] The routine templates post the FB lifecycle as one thread — root plus in-thread updates with session URLs — and the per-step top-level posts are gone (#20260804201230-thread-the-fb-lifecycle-into-one-semantic-slack-story.md)
 - [ ] Slack is the sole notification surface and the templates define which events merit a post, reusing the low-severity-drop and same-signature-dedup patterns (#20260804201230-make-slack-the-only-notification-surface-and-filter-it.md)
-- [ ] The [Drive] template's §5 states the shipped resumption model and §1's unit rule is re-derived from it (#20260804201230-truth-up-the-drive-template-s-resumption-model.md)
+- [x] The [Drive] template's §5 states the shipped resumption model and §1's unit rule is re-derived from it (#20260804201230-truth-up-the-drive-template-s-resumption-model.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline relating this mission's tickets and reports over time.
      One line per event ("- YYYY-MM-DD — event — filename"); never rewrite past lines. -->
+- 2026-08-04 — ticket archived — 20260804201230-truth-up-the-drive-template-s-resumption-model.md

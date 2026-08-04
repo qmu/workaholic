@@ -373,4 +373,6 @@
 * [The record's confirmation is not connected to the deployment contract's method list](20260803222459-the-record-s-confirmation-is-not.md)
 * [A `git add -A` caller still sweeps the migration's unstaged work](20260804123427-a-git-add-a-caller-still.md)
 * [The heartbeat's guarantee is asserted in one place and relied on in two](20260804123427-the-heartbeat-s-guarantee-is-asserted.md)
+* [The adjacency rule encodes a judgement the ticket did not specify](20260804123729-the-adjacency-rule-encodes-a-judgement.md)
+* [The clone-URL check matches one remote form, not the repository](20260804123729-the-clone-url-check-matches-one.md)
 <!-- okf:generated:end -->

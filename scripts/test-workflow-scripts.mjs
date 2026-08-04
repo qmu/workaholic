@@ -11087,6 +11087,34 @@ function testRoutineAnnouncementScoping() {
     assertTrue(`${name} carries no concern conditional`,
       !/\{\{#if [a-z_]*concern/i.test(body), body.slice(0, 300));
   }
+
+  // ---- red failure alerts are deduped; event announcements never are ----
+  // Measured 2026-08-02〜04: one near-identical red post per hour for two days from a single
+  // root cause, with nothing new in any repeat. The routine is prose with no hermetic
+  // harness, so the four load-bearing clauses are asserted as text — each is a rule a future
+  // edit could drop silently, and dropping any one of them turns dedupe into silent failure.
+  assertTrue("drive defines a stable failure signature",
+    /failure signature/i.test(drive) && /stable across ticks/i.test(drive), "signature rule missing");
+  assertTrue("and forbids volatile detail in it, which would defeat suppression",
+    /never put a SHA, a timestamp/i.test(drive), "volatility rule missing");
+  assertTrue("drive reads the channel before posting a red alert",
+    /Read the recent history of Slack channel/i.test(drive), "read-before-post rule missing");
+  assertTrue("and suppresses only a same-signature alert inside the cool-down",
+    /same signature/i.test(drive) && /younger than 24 hours/i.test(drive), "cool-down rule missing");
+  assertTrue("a changed signature still posts immediately",
+    /suppresses repeats, never first reports/i.test(drive), "first-report guarantee missing");
+  // FAIL OPEN TOWARD ALERTING. A dedupe that cannot read its own evidence must not
+  // manufacture silence — that would convert a notification bug into a monitoring outage.
+  assertTrue("an unreadable channel history posts the alert anyway",
+    /cannot be read for any reason[^.]*post the alert/i.test(drive), "fail-open clause missing");
+  assertTrue("and says why silence must never come from the silencing mechanism",
+    /Silence must never be produced by a failure of the mechanism/i.test(drive), "fail-open rationale missing");
+  assertTrue("a suppressed tick names the suppression in its own terminal report",
+    /alert suppressed as duplicate/i.test(drive), "suppression-visibility rule missing");
+  // The dedupe is scoped to red alerts. The orange/green/yellow posts announce events this
+  // session produced, which are new every time — deduping them would hide real work.
+  assertTrue("the dedupe applies to red failure alerts only",
+    /red failure alerts only/i.test(drive) && /Never dedupe those/i.test(drive), "scoping missing");
 }
 
 // ---------- /setup-routines: what runs against a repository, or an honest "I could not look"

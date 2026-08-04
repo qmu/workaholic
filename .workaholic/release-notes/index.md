@@ -91,4 +91,5 @@
 * [The branch story is concise by default](work-20260803-212338.md)
 * [A no-op commit and a read now leave your index alone](work-20260804-111346.md)
 * [`/request`'s backstop matches an identifier, not a substring](work-20260804-112404.md)
+* [The hourly drive routine stops repeating the same red alert](work-20260804-113101.md)
 <!-- okf:generated:end -->

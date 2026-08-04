@@ -9,6 +9,7 @@ category: Changed
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260804-185735
 ---
 
 # merge-pr.sh reports the branch head as commit_hash, not the commit that landed on the base

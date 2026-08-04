@@ -4727,6 +4727,76 @@ function testCatchupMain() {
         r.conflicted_files.includes("base.txt"), JSON.stringify(r.conflicted_files));
     } finally { cleanup(origin); cleanup(clone); }
   }
+
+  // Append-only .workaholic/ conflict: both sides only added lines at the tail, so the
+  // resolution is "keep both" and carries no judgement. The script resolves it and the
+  // catch-up COMPLETES -- it must never reach the classifier as "content", which used to
+  // cost an `auto` unit its merge on every concurrent pair.
+  const CL = ".workaholic/missions/active/m/mission.md";
+  const clBase = "# M\n\n## Changelog\n\n- 2026-08-01 — created — mission.md\n";
+  {
+    const { origin, clone } = makeConflictClone(CL, clBase,
+      `${clBase}- 2026-08-03 — archived — t2.md\n`,   // origin/main appends
+      `${clBase}- 2026-08-05 — archived — t1.md\n`);  // the work branch appends
+    try {
+      const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.catchupMain} main`).stdout);
+      assertEq("catchup-main resolves an append-only .workaholic/ conflict instead of classing it",
+        { c: r.caught_up, cls: r.conflict_class }, { c: true, cls: undefined });
+      assertTrue("catchup-main names the file it resolved",
+        Array.isArray(r.resolved_append_only) && r.resolved_append_only.includes(CL),
+        JSON.stringify(r));
+      const merged = readFileSync(join(clone, CL), "utf8");
+      assertTrue("the resolved file keeps BOTH sides' lines",
+        merged.includes("t1.md") && merged.includes("t2.md"), merged);
+      assertTrue("no conflict markers survive", !merged.includes("<<<<<<<"), merged);
+      // Date-led lines are ordered chronologically, not in merge order (ours was later).
+      assertTrue("date-led appended lines are merged chronologically",
+        merged.indexOf("2026-08-03") < merged.indexOf("2026-08-05"), merged);
+      assertTrue("catchup-main committed the merge (clean tree, no merge in progress)",
+        run(clone, `git status --porcelain`).stdout.trim() === "", "tree not clean");
+    } finally { cleanup(origin); cleanup(clone); }
+  }
+
+  // The shape test is a PROOF, not a path rule: modifying an existing line in the very
+  // same file is not an append, so it still needs a human.
+  {
+    const { origin, clone } = makeConflictClone(CL, clBase,
+      "# M\n\n## Changelog\n\n- 2026-08-01 — rewritten — mission.md\n",  // main EDITS the line
+      `${clBase}- 2026-08-05 — archived — t1.md\n`);
+    try {
+      const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.catchupMain} main`).stdout);
+      assertEq("a modified existing line in an append-only file is still content",
+        { c: r.caught_up, cls: r.conflict_class }, { c: false, cls: "content" });
+      assertTrue("and it is not reported as resolvable",
+        Array.isArray(r.append_only_files) && r.append_only_files.length === 0, JSON.stringify(r));
+    } finally { cleanup(origin); cleanup(clone); }
+  }
+
+  // The shape is bounded to .workaholic/ deliberately: two branches appending to the end
+  // of an ordinary file have the same shape and a real content decision behind it.
+  {
+    const { origin, clone } = makeConflictClone("docs/log.md", "a\n", "a\nmainline\n", "a\nbranchline\n");
+    try {
+      const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.catchupMain} main`).stdout);
+      assertEq("an append-shaped conflict outside .workaholic/ stays content",
+        { c: r.caught_up, cls: r.conflict_class }, { c: false, cls: "content" });
+    } finally { cleanup(origin); cleanup(clone); }
+  }
+
+  // A merge that never STARTS has no unmerged paths, so it is not a conflict. Reporting
+  // it as an empty "mechanical" conflict told the caller to reconcile a list of nothing.
+  {
+    const { origin, clone } = makeConflictClone("base.txt", "base\n", "mainside\n", "branchside\n");
+    try {
+      // An untracked file the incoming merge would overwrite makes git refuse outright.
+      execSync(`git rm -q --cached base.txt && git commit -q -m 'Drop the tracked file'`, { cwd: clone });
+      writeFileSync(join(clone, "base.txt"), "untracked local content\n");
+      const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.catchupMain} main`).stdout);
+      assertEq("a merge that never started is reported as merge_failed, not a conflict",
+        { c: r.caught_up, conf: r.conflict, why: r.reason }, { c: false, conf: false, why: "merge_failed" });
+      assertTrue("and it carries no conflict_class to act on", !("conflict_class" in r), JSON.stringify(r));
+    } finally { cleanup(origin); cleanup(clone); }
+  }
 }
 
 // ---------- report/apply-deferred-concern-verdicts.sh (Bug 1: accept object + array) ----------
@@ -9771,6 +9841,22 @@ function testShipWorksFromAClaimWorktree() {
     assertTrue("only a failed merge fails the script",
       /\{"merged": false, "error": "merge failed"\}/.test(src));
     assertTrue("merge-pr.sh takes the base as an argument", /base="\$\{2:-main\}"/.test(src));
+
+    // commit_hash must be the commit that LANDED on the base, not the branch head --
+    // Ship Flow step 7 tags it, and the branch head is not on the base's first-parent
+    // line whenever the base advanced since the branch's last catch-up.
+    assertTrue("merge-pr.sh asks GitHub for the merge commit",
+      /gh pr view "\$pr_number" --json mergeCommit/.test(src), src);
+    assertTrue("merge-pr.sh falls back to the fetched base tip, not to HEAD",
+      /git rev-parse "origin\/\$\{base\}"/.test(src), src);
+    assertTrue("merge-pr.sh names how commit_hash was resolved",
+      /"commit_hash_source":/.test(src) && /pr_merge_commit/.test(src) && /base_tip/.test(src), src);
+    assertTrue("merge-pr.sh reports whether the value is actually on the base",
+      /"on_base":/.test(src) && /git merge-base --is-ancestor/.test(src), src);
+    assertTrue("merge-pr.sh keeps the branch head under its own key",
+      /"branch_head":/.test(src), src);
+    assertTrue("merge-pr.sh no longer reports HEAD as the merge commit",
+      !/^commit_hash=\$\(git rev-parse --short HEAD\)$/m.test(src), src);
 
     // --- extract-deferred-concerns.sh: an explicit destination ---------------------
     // A story with one concern, on the worktree's branch. Extraction from there must

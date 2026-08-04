@@ -148,8 +148,10 @@ List OPEN pull requests referencing a mission slug (slug present in a PR's title
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/close.sh <mission-slug-or-file> <achieved|abandoned|carried> [date] \
-  [--successor-title "<title>" | --successor <slug>]
+  [--successor <slug>]
 ```
+
+`--successor-title` is **refused** (`successor_title_refused`, 2026-08-04): a minted successor arrives with zero tickets and violates the ticket floor by construction. The refusal names the route — create the successor through the ordinary mission path, whose interrogation emits its ticket set, then carry into it.
 
 End a mission — the only sanctioned way. Flips `status`, appends the closing changelog line through `append-changelog.sh` so the transition itself becomes history (`workaholic:design` / `history-structures`), moves the mission dir into `archive/`, refreshes the OKF indexes, and git-stages. Idempotent: re-closing with the same status is a no-op (`{closed: false, reason: "already_closed"}`); re-closing with another status flips it in place and appends its own line. Emits `{closed, slug, status, path}` JSON (plus `successor` / `successor_path` on a carry).
 

@@ -20,28 +20,29 @@
 # false as well. `carried` is that third outcome -- the mission is done AS FRAMED, and
 # its remainder becomes a successor mission that inherits what was not finished.
 #
-#   carried REQUIRES a successor (--successor-title "<t>" to mint one, or
-#   --successor <slug> to carry into an existing active mission). Without one it is
+#   carried REQUIRES an EXISTING successor (--successor <slug>). Without one it is
 #   rejected like any other invalid input: a carry with nowhere to carry to is just an
 #   abandon that avoids saying so.
+#
+# `--successor-title` IS REFUSED (2026-08-04, the ticket floor -- mission/SKILL.md,
+# *Granularity -> The ticket floor*). It minted a successor from a title, and a minted
+# successor arrives with ZERO tickets, violating the floor by construction: that is
+# exactly how the live violation of that date reached main. The refusal names the route
+# rather than only the rule, because an author who is told "no" and not "write this
+# instead" simply retries the same thing (implementation/observability).
 #
 # WHAT THE SUCCESSOR INHERITS, and why:
 #   - The UNCHECKED ## Acceptance items, verbatim, with their (#<filename>) ticket
 #     markers intact. Checked items stay with the predecessor -- they were achieved
 #     THERE, and re-listing them would make the successor's computed progress claim
-#     work it did not do. So the successor starts at 0/<n unmet>, which falls out of
-#     its own list; no number is ever carried across.
-#   - ## Goal and the gate_* fields, verbatim. A carry-over is a CONTINUATION by
-#     definition: the mission is done as framed and the remainder pursues the same
-#     outcome, so the goal is shared and the gate still applies. A genuine re-framing
-#     is a NEW mission, not a carry -- which is also what keeps this independent of the
-#     mission interrogation flow rather than duplicating it.
-#   - ## Scope is NOT carried, because it no longer exists (2026-08-01: dropped from
-#     create.sh's template, since nothing read it). The successor is scaffolded from
-#     that template, so it has no ## Scope heading for a carry to land in; a legacy
-#     predecessor's section simply stays with the predecessor as history. Carrying it
-#     would re-introduce a retired section into a NEW mission, which is the opposite
-#     of what the removal was for.
+#     work it did not do. No number is ever carried across; the successor's progress
+#     falls out of its own list.
+#   - NOTHING ELSE. The successor is an existing mission with its own ## Goal, its own
+#     gate_* fields and its own items, so a carry APPENDS the remainder and touches no
+#     other part of the file. The mint route used to import Goal and gate_* as well --
+#     correct while it owned a freshly scaffolded file, and meaningless now that the
+#     only successor is one that already says what it is for. A genuine re-framing is a
+#     NEW mission created through the normal path, not a carry.
 #
 # LINEAGE IS RECORDED IN BOTH DIRECTIONS (design/history-structures): the predecessor
 # gets a changelog line naming the successor, and the successor records `carried_from`.
@@ -68,7 +69,9 @@
 # no-op -- the successor already exists and is not rebuilt.
 #
 # Usage: close.sh <mission-slug-or-file> <achieved|abandoned|carried> [date]
-#          [--successor-title "<title>" | --successor <slug>]
+#          [--successor <slug>]
+#   --successor-title is still PARSED so it can be refused by name rather than falling
+#   through as an unrecognised word into the positional date slot.
 #   date defaults to today (YYYY-MM-DD); pass it explicitly for deterministic tests.
 # Output: JSON {closed, slug, status, path[, successor, successor_path, reason]}
 
@@ -100,28 +103,29 @@ case "$TARGET" in
     carried)
         # A carry with nowhere to carry to is an abandon wearing a nicer name.
         if [ -z "$SUCCESSOR_TITLE" ] && [ -z "$SUCCESSOR_SLUG" ]; then
-            echo '{"closed": false, "reason": "carried_needs_successor"}' >&2
+            echo '{"closed": false, "reason": "carried_needs_successor", "alternative": "name an existing active mission with --successor <slug>"}' >&2
             exit 1
         fi
         if [ -n "$SUCCESSOR_TITLE" ] && [ -n "$SUCCESSOR_SLUG" ]; then
             echo '{"closed": false, "reason": "carried_needs_one_successor"}' >&2
             exit 1
         fi
-        # THE TICKET FLOOR WILL REFUSE `--successor-title` HERE, BUT NOT YET -- and the
-        # ordering is the whole point (mission/SKILL.md, *Granularity -> The ticket
-        # floor*; ticket 20260804184949-a-carry-into-an-existing-mission-silently-drops-the-remainder.md).
+        # THE TICKET FLOOR REFUSES `--successor-title` (mission/SKILL.md, *Granularity ->
+        # The ticket floor*; the rejected alternatives are in reference/schema.md). A
+        # minted successor arrives with zero tickets and violates the floor by
+        # construction. The refusal was SEQUENCED behind one fix and that fix has landed:
+        # the unmet-acceptance inheritance used to live entirely inside the mint branch,
+        # so refusing the title first would have left no carry route that transfers the
+        # remainder -- trading a record defect for a data-loss one. Both routes inherited
+        # through lib/acceptance.sh as of 2026-08-04, and only the append route remains.
         #
-        # The decision is settled: a minted successor arrives with zero tickets and
-        # violates the floor by construction. But refusing it TODAY would remove the only
-        # carry route that inherits anything. The unmet-acceptance inheritance below lives
-        # entirely inside the mint branch; `--successor <slug>` merely resolves a path and
-        # falls through, despite the docs claiming it "already carries the unmet items".
-        # So refusing the title first would leave `carried` archiving the predecessor,
-        # naming a successor, and silently dropping the remainder it exists to transfer --
-        # trading a record defect for a data-loss one.
-        #
-        # Sequence: relocate the inheritance so BOTH routes perform it (20260804184949-a-carry-into-an-existing-mission-silently-drops-the-remainder.md),
-        # then refuse the title. Do not reverse these two steps.
+        # The cost is real and accepted: a "this direction continues but nothing suitable
+        # exists yet" carry has no one-step path. Creating the successor first IS the
+        # interrogation that produces its tickets, which is what the floor is asking for.
+        if [ -n "$SUCCESSOR_TITLE" ]; then
+            echo '{"closed": false, "reason": "successor_title_refused", "alternative": "create the successor through /mission \"<title>\" -- its interrogation emits the ticket set -- then carry into it with --successor <slug>"}' >&2
+            exit 1
+        fi
         ;;
     *) printf '{"closed": false, "reason": "invalid_status", "status": "%s"}\n' "$TARGET" >&2; exit 1 ;;
 esac
@@ -144,103 +148,33 @@ if [ "$AREA" = "archive" ] && [ "$CURRENT" = "$TARGET" ]; then
     exit 0
 fi
 
-# --- carried: build the successor BEFORE archiving the predecessor ---------------
+# --- carried: resolve the successor BEFORE archiving the predecessor -------------
 # Order matters. The predecessor is still in active/ here, so its Acceptance list is
-# read from a stable path; and if the successor cannot be built we exit without having
-# half-closed anything.
+# read from a stable path; and if the successor cannot be resolved we exit without
+# having half-closed anything.
+#
+# ONE ROUTE. The mint branch that stood here until 2026-08-04 -- slug.sh, a create.sh
+# call and a ~75-line awk rebuild importing Goal, gate_* and the unmet items into a
+# fresh scaffold -- went with the `--successor-title` refusal above. It was unreachable
+# by construction once the flag is refused at argument validation, and unreachable code
+# no test can exercise is a maintenance surface, not documentation. What it knew is
+# recorded where a reader looks for it: the header, reference/schema.md's carry
+# decision, and lib/acceptance.sh's extraction, which the surviving route still calls.
 SUCCESSOR=""
 SUCCESSOR_PATH=""
 if [ "$TARGET" = "carried" ]; then
-    if [ -n "$SUCCESSOR_SLUG" ]; then
-        SUCCESSOR_PATH=$(mission_resolve "$ROOT" "$SUCCESSOR_SLUG")
-        [ -f "$SUCCESSOR_PATH" ] || {
-            printf '{"closed": false, "reason": "successor_not_found", "successor": "%s"}\n' "$SUCCESSOR_SLUG" >&2
-            exit 1
-        }
-        SUCCESSOR="$SUCCESSOR_SLUG"
-    else
-        SUCCESSOR=$(sh "${SCRIPT_DIR}/slug.sh" "$SUCCESSOR_TITLE")
-        [ -n "$SUCCESSOR" ] || { echo '{"closed": false, "reason": "empty_successor_slug"}' >&2; exit 1; }
-        EXISTING_SUCC=$(mission_resolve "$ROOT" "$SUCCESSOR")
-        if [ -f "$EXISTING_SUCC" ]; then
-            # Re-running the same carry: the successor is already there. Do not rebuild
-            # it -- that would re-inherit items the developer may have since ticked.
-            SUCCESSOR_PATH="$EXISTING_SUCC"
-        else
-            # Mint it through create.sh, the single scaffold writer, so the successor is
-            # a normal mission (frontmatter, assignee default, OKF index, staging).
-            sh "${SCRIPT_DIR}/create.sh" "$SUCCESSOR_TITLE" >/dev/null
-            SUCCESSOR_PATH=$(mission_resolve "$ROOT" "$SUCCESSOR")
-            [ -f "$SUCCESSOR_PATH" ] || {
-                printf '{"closed": false, "reason": "successor_create_failed", "successor": "%s"}\n' "$SUCCESSOR" >&2
-                exit 1
-            }
-            # Inherit from the predecessor: unchecked Acceptance items verbatim (markers
-            # intact), Goal/Scope, the gate_* fields, and the carried_from lineage.
-            # Checked items are deliberately left behind -- see the header.
-            TMP_S="${SUCCESSOR_PATH}.$$.tmp"
-            UNMET_F="${SUCCESSOR_PATH}.$$.unmet"
-            mission_unchecked_items "$FILE" > "$UNMET_F"
-            awk -v pred="$SLUG" -v predfile="$FILE" -v unmetfile="$UNMET_F" '
-                function emit_section(file, name,   line, inside, out) {
-                    inside = 0; out = ""
-                    while ((getline line < file) > 0) {
-                        if (line ~ ("^## " name "$")) { inside = 1; continue }
-                        if (inside && line ~ /^## /) break
-                        if (inside) out = out line "\n"
-                    }
-                    close(file)
-                    return out
-                }
-                function slurp(file,   line, out) {
-                    out = ""
-                    while ((getline line < file) > 0) out = out line "\n"
-                    close(file)
-                    return out
-                }
-                NR == 1 && $0 == "---" { in_fm = 1; print; next }
-                in_fm && /^---[ \t]*$/ {
-                    in_fm = 0
-                    # Lineage: traversable predecessor -> successor (changelog) and
-                    # successor -> predecessor (this field).
-                    print "carried_from: " pred
-                    print
-                    next
-                }
-                in_fm && /^gate_type:/  { print "gate_type: "  gt; next }
-                in_fm && /^gate_target:/{ print "gate_target: " gtg; next }
-                in_fm && /^gate_assert:/{ print "gate_assert: " gas; next }
-                in_fm { print; next }
-                /^## Goal$/       { print; printf "%s", goal_body; skip = 1; next }
-                /^## Acceptance$/ { print; printf "\n%s\n", acc_body; skip = 1; next }
-                /^## /            { skip = 0; print; next }
-                skip { next }
-                { print }
-                BEGIN {
-                    goal_body  = emit_section(predfile, "Goal")
-                    acc_body   = slurp(unmetfile)
-                    while ((getline l < predfile) > 0) {
-                        if (l ~ /^gate_type:/)   { gt  = substr(l, 11) }
-                        if (l ~ /^gate_target:/) { gtg = substr(l, 13) }
-                        if (l ~ /^gate_assert:/) { gas = substr(l, 13) }
-                        if (l == "---" && ++c == 2) break
-                    }
-                    close(predfile)
-                    sub(/^[ \t]+/, "", gt); sub(/^[ \t]+/, "", gtg); sub(/^[ \t]+/, "", gas)
-                }
-            ' "$SUCCESSOR_PATH" > "$TMP_S"
-            mv "$TMP_S" "$SUCCESSOR_PATH"
-            rm -f "$UNMET_F"
-            git add "$SUCCESSOR_PATH" 2>/dev/null || true
-        fi
-    fi
-    if [ -n "$SUCCESSOR_SLUG" ]; then
+    SUCCESSOR_PATH=$(mission_resolve "$ROOT" "$SUCCESSOR_SLUG")
+    [ -f "$SUCCESSOR_PATH" ] || {
+        printf '{"closed": false, "reason": "successor_not_found", "successor": "%s"}\n' "$SUCCESSOR_SLUG" >&2
+        exit 1
+    }
+    SUCCESSOR="$SUCCESSOR_SLUG"
         # CARRY INTO AN EXISTING MISSION. Until 2026-08-04 this branch did nothing at
         # all -- it resolved a path above and fell through, so every unmet item was
         # dropped while the operation reported success. The successor already has its
         # own Goal, its own Acceptance list, possibly its own tickets and progress, so
-        # this is an APPEND, never the mint route's rebuild: no Goal import, no gate_*
-        # import, and the successor's own items are untouched.
+        # this is an APPEND: no Goal import, no gate_* import, and the successor's own
+        # items are untouched.
         UNMET_F="${SUCCESSOR_PATH}.$$.unmet"
         mission_unchecked_items "$FILE" > "$UNMET_F"
         if [ -s "$UNMET_F" ]; then
@@ -308,7 +242,6 @@ if [ "$TARGET" = "carried" ]; then
         # idempotent on the (event, artifact) pair, so a re-run adds no second line.
         sh "${SCRIPT_DIR}/append-changelog.sh" "$SUCCESSOR_PATH" \
             "remainder carried from ${SLUG}" "mission.md" ${DATE:+"$DATE"} >/dev/null 2>&1 || true
-    fi
 fi
 
 # Flip the status field inside the frontmatter block only (a `status:` in the

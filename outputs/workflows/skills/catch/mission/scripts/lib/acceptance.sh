@@ -1,16 +1,20 @@
 #!/bin/sh -eu
 # Acceptance-list readers shared by the mission scripts. Sourced, never executed.
 #
-# WHY THIS FILE EXISTS. `close.sh` has two carry routes -- mint a successor
+# WHY THIS FILE EXISTS. `close.sh` had two carry routes -- mint a successor
 # (`--successor-title`) and carry into an existing one (`--successor <slug>`) --
-# and both must transfer the predecessor's unmet acceptance items. Until
+# and both had to transfer the predecessor's unmet acceptance items. Until
 # 2026-08-04 the extraction lived inside the mint route's awk program and the
 # existing-successor route inherited NOTHING: it resolved a path, set a variable,
 # and fell through, while `SKILL.md` and `CLAUDE.md` both promised it "already
 # carries the unmet items". A carry reported success and dropped its payload.
 #
-# The fix is one reader both routes call. Two copies of "which items are unmet"
+# The fix was one reader both routes call. Two copies of "which items are unmet"
 # is exactly the drift that produced the silent drop, so it is defined here once.
+# The ticket floor then refused `--successor-title` and its mint branch went with
+# it, so today exactly ONE route calls this -- and that is precisely why the file
+# stays: the extraction had to exist BEFORE the refusal could be applied without
+# trading a record defect for data loss, and it is the surviving route's reader.
 
 # Emit the predecessor's UNMET acceptance items, verbatim, one per line.
 #

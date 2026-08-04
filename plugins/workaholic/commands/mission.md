@@ -195,8 +195,10 @@ Then run the shared mutator (never hand-edit `status:` or `mv` the directory):
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/close.sh "<slug>" <achieved|abandoned|carried> \
-  [--successor-title "<title>" | --successor <slug>]
+  [--successor <slug>]
 ```
+
+A carry names an **existing** mission; `--successor-title` is refused by the ticket floor, because a minted successor arrives with zero tickets. Create the successor first through the ordinary mission path, then carry into it.
 
 Run it **inside a publish tree** (`open-publish-tree.sh`, then `( cd <publish_path> && … )`) and publish the result with subject `Close mission <slug>`, closing the tree afterwards. The archive move is a mission write like any other; leaving it on the caller's checkout would reintroduce exactly the invisibility this model removes.
 

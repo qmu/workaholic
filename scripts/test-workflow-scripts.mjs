@@ -2330,8 +2330,10 @@ function testMissionWorktreeShipReset() {
 // `abandoned` is false too. `carried` says the mission is done AS FRAMED and its remainder
 // becomes a successor that inherits what was not finished.
 //
-// The load-bearing assertion is the progress one: the successor must start at 0/<n unmet>,
-// falling out of its OWN list. Carrying a number across is exactly what the model forbids.
+// The successor must be an EXISTING mission. `--successor-title` minted one from a title,
+// and a minted successor arrives with zero tickets -- the ticket floor's violation by
+// construction, and how the live one of 2026-08-04 reached main. It is refused here, and
+// the refusal must name the route rather than only the rule.
 function testMissionCloseCarried() {
   const PRED = `---
 type: Mission
@@ -2376,59 +2378,30 @@ In: the dashboard. Out: the API.
     execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
   };
 
+  // THE SEAM THE FLOOR CLOSES. `--successor-title` is refused, and the refusal must be
+  // total: nothing minted, nothing archived, the predecessor still claimable.
   const dir = makeRepo("main");
   try {
     seed(dir);
-    const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} predecessor carried --successor-title "Successor mission" 2026-07-16`).stdout);
-    assertEq("carried closes the predecessor and names the successor",
-      { closed: r.closed, status: r.status, successor: r.successor }, { closed: true, status: "carried", successor: "successor-mission" });
-
-    // Predecessor: archived, status carried, and its OWN history says where the
-    // remainder went (design/history-structures -- half of the two-way lineage).
-    const pred = readFileSync(join(dir, ".workaholic/missions/archive/predecessor/mission.md"), "utf8");
-    assertTrue("predecessor is archived with status: carried", /^status:\s*carried\s*$/m.test(pred), pred);
-    assertTrue("predecessor's changelog names the successor",
-      /^- 2026-07-16 — mission carried into successor-mission — mission\.md$/m.test(pred), pred);
-    // Checked items were achieved THERE and stay there.
-    const pprog = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} .workaholic/missions/archive/predecessor/mission.md`).stdout);
-    assertEq("predecessor keeps its full acceptance list", pprog, { checked: 2, total: 4, unlinked: 0 });
-
-    const succPath = ".workaholic/missions/active/successor-mission/mission.md";
-    const succ = readFileSync(join(dir, succPath), "utf8");
-
-    // Exactly the unchecked items, markers intact -- and NONE of the checked ones.
-    assertTrue("successor carries unmet item one verbatim, marker intact",
-      /^- \[ \] Unmet criterion one \(#20260101120001-todo\.md\)$/m.test(succ), succ);
-    assertTrue("successor carries unmet item two verbatim, marker intact",
-      /^- \[ \] Unmet criterion two \(#20260101120002-todo\.md\)$/m.test(succ), succ);
-    assertTrue("successor does NOT inherit a checked item", !succ.includes("Landed criterion"), succ);
-    assertTrue("successor does NOT inherit the other checked item", !succ.includes("Another landed one"), succ);
-
-    // THE assertion: progress falls out of the successor's own list.
-    const sprog = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${succPath}`).stdout);
-    assertEq("successor's computed progress is 0/<n unmet>, not the predecessor's count", sprog, { checked: 0, total: 2, unlinked: 0 });
-
-    // Lineage the other way, so the archive does not show two unrelated missions.
-    assertTrue("successor records carried_from", /^carried_from:\s*predecessor\s*$/m.test(succ), succ);
-    // A carry is a continuation: the goal and the gate come along.
-    assertTrue("successor inherits the Goal verbatim", succ.includes("The original information-rich why."), succ);
-    // ## Scope does NOT come along. The successor is scaffolded from a template that no
-    // longer has the heading, so there is nowhere for a carry to land -- and copying it
-    // would re-introduce a retired section into a NEW mission, which is the opposite of
-    // what dropping it was for. The predecessor keeps its own section as history.
-    assertTrue("successor does NOT inherit a legacy ## Scope",
-      !succ.includes("In: the dashboard. Out: the API."), succ);
-    assertTrue("and carries no ## Scope heading at all", !/^## Scope$/m.test(succ), succ);
-    assertTrue("successor inherits gate_type", /^gate_type:\s*live-app\s*$/m.test(succ), succ);
-    assertTrue("successor inherits gate_target", /^gate_target:\s*\/dashboard\s*$/m.test(succ), succ);
-    assertTrue("successor inherits gate_assert", /^gate_assert:\s*the chart renders\s*$/m.test(succ), succ);
-    // A minted successor is born in flight like every other mission (K1): it is
-    // fleshed out by a replan, whose pull request is where it is judged.
-    assertTrue("successor is in flight", /^status:\s*active\s*$/m.test(succ), succ);
-
-    // Idempotent, like every other mission mutator.
-    const again = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} predecessor carried --successor-title "Successor mission" 2026-07-16`).stdout);
-    assertEq("re-running the same carry is a no-op", { closed: again.closed, reason: again.reason }, { closed: false, reason: "already_closed" });
+    const r = run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} predecessor carried --successor-title "Successor mission" 2026-07-16`);
+    assertTrue("minting a successor from a title is refused",
+      r.stderr.includes("successor_title_refused"), r.stderr);
+    // A refusal that names only the rule leaves the author to retry the same thing
+    // (implementation/observability), so the sanctioned route is part of the contract.
+    assertTrue("the refusal names the sanctioned route",
+      r.stderr.includes("--successor <slug>"), r.stderr);
+    assertTrue("the refusal names the artifact to write instead",
+      r.stderr.includes("/mission"), r.stderr);
+    // Nothing half-happened: no scaffold, no archive move, no status flip.
+    assertTrue("no successor was minted",
+      !existsSync(join(dir, ".workaholic/missions/active/successor-mission")), "successor-mission exists");
+    assertTrue("the refused carry left the predecessor active",
+      existsSync(join(dir, ".workaholic/missions/active/predecessor/mission.md")), "predecessor moved");
+    const pred = readFileSync(join(dir, ".workaholic/missions/active/predecessor/mission.md"), "utf8");
+    assertTrue("the refused carry did not flip the status", /^status:\s*active\s*$/m.test(pred), pred);
+    // The predecessor's own list is untouched, so its progress still reads as before.
+    const pprog = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} .workaholic/missions/active/predecessor/mission.md`).stdout);
+    assertEq("the refused carry left the acceptance list alone", pprog, { checked: 2, total: 4, unlinked: 0 });
   } finally { cleanup(dir); }
 
   // A carry with nowhere to carry to is an abandon wearing a nicer name -> rejected.

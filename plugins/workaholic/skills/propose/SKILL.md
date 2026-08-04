@@ -74,7 +74,13 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/cursor.sh read
 bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/cursor.sh advance <commit>
 ```
 
-Stores the last-processed main commit in `.workaholic/proposal-cursor` — **runner-local state** (decision C1: one server runs the batch; the phase-3 claim protocol is the multi-runner answer), git-ignored via the repo's shared `info/exclude` (the script ensures the line itself, idempotently). `read` bootstraps an absent cursor to the current `origin/main` HEAD and reports `{"initialized": true, ...}` — pre-existing feedback is treated as already-seen (a safe cold start; backdate the file by hand to replay). `advance` refuses a non-commit.
+Stores the last-processed main commit as **`refs/workaholic/proposal-cursor` on origin** — a pushed ref every runner reads, with the local ref of the same name as the read-through copy. Decision C1's "the cursor may be runner-local" premise is **superseded**: the batch's live deployment is a scheduled routine in a **fresh container each tick**, where a runner-local file never exists — so every read bootstrapped, reported `initialized: true`, and the run stopped there forever. Storing the cursor the way the claim protocol stores claims makes initialization happen **once per repository** instead of once per container.
+
+- `read` → `{commit, initialized, fetched}`. Absent on origin → bootstrap to `origin/main` HEAD **and push it** (`initialized: true`, `pushed: true`); pre-existing feedback is treated as already-seen, the safe cold start. Origin unreachable → the **reader degrades**: the last-fetched local value with `fetched: false` (a stale cursor only re-reads an old window, and dedup absorbs that).
+- `advance <commit>` → pushes under `--force-with-lease` against the value this batch read, so **push is the race arbiter and no clock is ever compared**. A lost race is a reported no-op (`{"advanced": false, "reason": "raced"}`, exit 0) — the winner has already covered that window. A genuine push failure is **loud** (exit 1), because the next tick then re-reads the same window, which is the safe direction. A non-commit is refused.
+- **Migration is living and idempotent**: a legacy `.workaholic/proposal-cursor` file seeds the bootstrap when the shared ref is absent, and is removed once the ref holds the value — after that it is never consulted.
+
+The advance-only-after-the-pull-request-is-open semantics above are unchanged; only where the value lives has changed.
 
 ### new-feedback.sh — the window
 

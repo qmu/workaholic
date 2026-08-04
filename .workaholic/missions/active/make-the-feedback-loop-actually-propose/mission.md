@@ -45,7 +45,7 @@ see the queue".
 
 ## Acceptance
 
-- [ ] A stateless runner can propose: the cursor is read from and advanced on a shared pushed ref, with the bootstrap-and-stop cold start gone (#20260804200555-move-the-proposal-cursor-to-a-shared-pushed-ref.md)
+- [x] A stateless runner can propose: the cursor is read from and advanced on a shared pushed ref, with the bootstrap-and-stop cold start gone (#20260804200555-move-the-proposal-cursor-to-a-shared-pushed-ref.md)
 - [ ] The batch has a scheduled seat: a propose routine template ships, the runbook describes it, and the [FB] template no longer claims to run /propose in-session (#20260804200555-give-the-proposal-batch-a-routine-seat-and-retire-the-cron-premise.md)
 - [ ] An atomic direction becomes a loose backlog ticket behind a PR instead of silence, and a Slack work request reaches the bar as kind: instruction (#20260804200555-emit-a-loose-ticket-when-a-direction-is-atomic.md)
 
@@ -53,3 +53,4 @@ see the queue".
 
 <!-- Append-only, dated timeline relating this mission's tickets and reports over time.
      One line per event ("- YYYY-MM-DD — event — filename"); never rewrite past lines. -->
+- 2026-08-04 — ticket archived — 20260804200555-move-the-proposal-cursor-to-a-shared-pushed-ref.md

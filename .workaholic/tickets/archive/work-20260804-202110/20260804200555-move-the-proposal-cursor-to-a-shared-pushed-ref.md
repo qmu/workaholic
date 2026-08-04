@@ -3,9 +3,9 @@ created_at: 2026-08-04T20:05:55+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: make-the-feedback-loop-actually-propose
 merge_policy:
@@ -96,3 +96,34 @@ arbiter.
   against the git version on the runners.
 - The cursor only ever moves forward in normal operation; a deliberate replay
   is a human `git push --force` and stays documented, not scripted.
+
+## Final Report
+
+Development completed as planned. `cursor.sh` now stores the cursor as
+`refs/workaholic/proposal-cursor` on origin, reads it through a local ref of the
+same name, bootstraps-and-pushes once per repository, advances under
+`--force-with-lease`, degrades on an unreachable origin (`fetched: false`) and
+fails an unpublishable advance loudly. The legacy file is folded into the ref on
+first read and removed. `commands/propose.md` step 2 continues instead of
+stopping, and the SKILL's Cursor contract, the runbook §4, `CLAUDE.md`,
+`README.md`, `rules/workaholic.md` and `layout-doctor.sh`'s comment now describe
+the shared ref.
+
+### Discovered Insights
+
+- **Insight**: git enforces fast-forward on refs outside `refs/heads/` too — a
+  push that would rewind `refs/workaholic/proposal-cursor` is rejected
+  non-fast-forward without any force flag, so the cursor cannot move backwards
+  by accident even before the lease is considered.
+  **Context**: the lease is therefore protecting against the *forward* skip (a
+  runner advancing past a window another runner has not covered), not against a
+  rewind. Both were measured against git 2.50.1 before the script was written.
+- **Insight**: `--force-with-lease` is only consulted when the update actually
+  changes the ref. Pushing the value the remote already holds is
+  "Everything up-to-date" and succeeds with a stale lease.
+  **Context**: this is why the race test advances to a *different* commit — a
+  test that re-pushed the winner's own value would pass while proving nothing.
+- **Insight**: `git fetch` of an absent remote ref is a fatal error, not an
+  empty result, so presence and reachability are read with `ls-remote` first.
+  **Context**: that single call also separates "no cursor yet" from "I could not
+  look", which are opposite situations — one bootstraps, the other degrades.

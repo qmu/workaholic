@@ -59,19 +59,34 @@ installed CLI):
 
 ## 4. Cursor bootstrap and replay
 
-State lives in `.workaholic/proposal-cursor` (git-ignored; the script ensures
-the ignore itself):
+The cursor is the **pushed ref `refs/workaholic/proposal-cursor` on origin** —
+shared by every runner, invisible to branch listings and to the claim scan (it
+lives outside `refs/heads/`), and read through a local ref of the same name.
 
-- **Cold start** — the first `read` bootstraps the cursor to the current
-  `origin/main` tip and proposes nothing: pre-existing feedback is treated as
-  already-seen. This is deliberate (a fresh runner must not spam proposals for
-  months of history).
-- **Replay** — write an older commit sha into the file by hand to re-read a
-  window; dedup (`feedback:` refs on existing missions) keeps replays from
-  double-proposing.
+- **Cold start** — the first `read` in the *repository's* life creates the ref
+  at the current `origin/main` tip and pushes it, reporting
+  `initialized: true`. Pre-existing feedback is treated as already-seen, which
+  is deliberate: a fresh runner must not spam proposals for months of history.
+  Every later read — including the first read of a brand-new container — finds
+  the ref and reports `initialized: false`. Initialization is **once per
+  repository**, never once per runner.
+- **Replay** — `git push --force origin <older-sha>:refs/workaholic/proposal-cursor`
+  re-opens a window. It is a **human act** and stays unscripted; dedup
+  (`feedback:` refs on existing missions and proposed tickets) keeps a replay
+  from double-proposing.
+- **Advance is race-arbited by push** — `advance` pushes under
+  `--force-with-lease` against the value the batch read, so two runners that
+  overlap resolve by push and never by clock. The loser reports
+  `{"advanced": false, "reason": "raced"}` and does nothing; the winner already
+  covered that window.
 - **The cursor advances only after a successful push** — an aborted run
   (dirty tree, diverged main, rejected push) re-reads the same window next
-  tick, so no feedback is ever silently skipped.
+  tick, so no feedback is ever silently skipped. An unreachable origin degrades
+  the *read* (`fetched: false`, last-known value) and fails the *advance*
+  loudly, which is the same asymmetry the claim protocol uses.
+- **Migration** — a legacy runner-local `.workaholic/proposal-cursor` file is
+  folded into the ref on the next `read` (it seeds the bootstrap when the ref
+  is absent) and then removed. Nothing needs to be done by hand.
 
 ## 5. Observability
 

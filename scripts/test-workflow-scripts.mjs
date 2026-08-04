@@ -8017,8 +8017,11 @@ function testFeedback() {
 
 // ---------- propose skill: cursor / window / dedup / draft scaffold ----------
 // The proposal batch's mechanics (docs/loop-engineering-workflow.md C2-C4, B1):
-// runner-local cursor with safe cold start, exact added-records window, the
+// the cursor's safe cold start, the exact added-records window, the
 // mission->feedback dedup set, and the unowned/unauthorized draft scaffold.
+// This repo has NO origin, so it also pins the cursor's degraded shape: a reader
+// with nowhere to fetch from says `fetched: false` rather than pretending.
+// The shared-ref behaviour itself is testProposeCursorRef, which needs two clones.
 function testProposeBatch() {
   const dir = makeRepo("main");
   try {
@@ -8034,10 +8037,12 @@ function testProposeBatch() {
     let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeCursor} read`).stdout);
     assertEq("cursor bootstraps to the current tip", r.initialized, true);
     const c0 = r.commit;
-    assertEq("a bootstrapped cursor reads back stable", JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeCursor} read`).stdout), { commit: c0, initialized: false });
+    assertEq("a bootstrapped cursor reads back stable", JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeCursor} read`).stdout), { commit: c0, initialized: false, fetched: false });
     assertEq("pre-existing feedback is already-seen (empty window)",
       JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeNewFeedback} ${c0}`).stdout), []);
-    assertTrue("the cursor file is git-ignored (runner-local state)",
+    assertTrue("the cursor writes no file into the repository",
+      !existsSync(join(dir, ".workaholic/proposal-cursor")), "the legacy cursor file was recreated");
+    assertTrue("and leaves the checkout clean",
       execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim() === "", "cursor dirtied the tree");
 
     // New records after the cursor appear in the window; index.md never does.
@@ -8085,6 +8090,111 @@ function testProposeBatch() {
       { status: d.status, ready: d.ready, reason: d.ready_reason }, { status: "active", ready: false, reason: "no_plan" });
     assertEq("a proposal is unowned (relation unassigned)", d.relation, "unassigned");
   } finally { cleanup(dir); }
+}
+
+// ---------- the proposal cursor as a shared pushed ref ----------
+// The cursor used to be a git-ignored runner-local FILE, on decision C1's premise
+// that one long-lived server runs the batch. The deployment falsified it: the
+// routine starts a fresh container every tick, so the file never existed there,
+// every read bootstrapped, and the batch reported "initialized" and stopped —
+// permanently, while reading as healthy. The fix stores it the way the claim
+// protocol stores claims: `refs/workaholic/proposal-cursor` on origin, pushed.
+//
+// So what must be proven is not the JSON of one invocation but that TWO
+// INDEPENDENT CLONES share one cursor — the second never cold-starts, and two
+// racing advances are settled by push rather than by a clock. Hermetic: a bare
+// origin, no network, no GitHub.
+function testProposeCursorRef() {
+  const CFG = `git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`;
+  const REF = "refs/workaholic/proposal-cursor";
+  const origin = mkdtempSync(join(tmpdir(), "wh-cursor-origin-"));
+  const seed = mkdtempSync(join(tmpdir(), "wh-cursor-seed-"));
+  const made = [origin, seed];
+  const mkClone = () => {
+    const c = mkdtempSync(join(tmpdir(), "wh-cursor-clone-"));
+    made.push(c);
+    execSync(`git clone -q ${origin} .`, { cwd: c });
+    execSync(CFG, { cwd: c });
+    return c;
+  };
+  try {
+    execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
+    execSync(`git clone -q ${origin} .`, { cwd: seed });
+    execSync(CFG, { cwd: seed });
+    const land = (n) => {
+      writeFileSync(join(seed, `f${n}`), `${n}\n`);
+      execSync(`git add -A && git commit -q -m c${n} && git push -q origin main`, { cwd: seed });
+      return execSync(`git rev-parse HEAD`, { cwd: seed, encoding: "utf8" }).trim();
+    };
+    const c1 = land(1);
+    land(2);
+    const c3 = land(3);
+    const cursor = (cwd, args) => run(cwd, `${POSIX_SH} ${SCRIPTS.proposeCursor} ${args}`);
+    const remoteRef = (cwd) =>
+      execSync(`git ls-remote origin ${REF}`, { cwd, encoding: "utf8" }).trim().split(/\s+/)[0] || "";
+
+    const A = mkClone();
+    const B = mkClone();
+
+    // Bootstrap is once per REPOSITORY: it creates the ref AND pushes it.
+    const boot = JSON.parse(cursor(A, "read").stdout);
+    assertEq("the first read bootstraps the cursor to origin/main's tip",
+      { commit: boot.commit, initialized: boot.initialized }, { commit: c3, initialized: true });
+    assertEq("and publishes it as a shared ref", { pushed: boot.pushed, fetched: boot.fetched }, { pushed: true, fetched: true });
+    assertEq("the ref is readable from origin by anyone", remoteRef(A), c3);
+    assertTrue("the cursor writes no file into the repository",
+      !existsSync(join(A, ".workaholic/proposal-cursor")), "a cursor file was written");
+    assertEq("and the checkout stays clean", execSync(`git status --porcelain`, { cwd: A, encoding: "utf8" }).trim(), "");
+
+    // The failure this replaces: a second fresh clone (the cloud container) must
+    // read the cursor, never bootstrap over it.
+    const second = JSON.parse(cursor(B, "read").stdout);
+    assertEq("a second fresh clone reads the shared cursor without cold-starting",
+      { commit: second.commit, initialized: second.initialized, fetched: second.fetched },
+      { commit: c3, initialized: false, fetched: true });
+
+    // Advance publishes, and the other clone sees it.
+    const c4 = land(4);
+    execSync(`git fetch -q origin`, { cwd: A });
+    assertEq("advance pushes the new value",
+      JSON.parse(cursor(A, `advance ${c4}`).stdout), { advanced: true, commit: c4 });
+    assertEq("the shared ref carries it for every runner", remoteRef(B), c4);
+
+    // B still holds what it READ, so its lease is stale: the race is settled by
+    // push, never by comparing clocks, and the loser takes nothing.
+    const c5 = land(5);
+    execSync(`git fetch -q origin`, { cwd: B });
+    const raced = cursor(B, `advance ${c5}`);
+    assertEq("a lost race is a reported no-op, not a failure", raced.status, 0);
+    assertEq("the loser names the race and the winner's value",
+      JSON.parse(raced.stdout), { advanced: false, reason: "raced", commit: c4 });
+    assertEq("and the cursor is never rewound past the winner", remoteRef(B), c4);
+
+    // The reader degrades, the writer is loud — the claim protocol's asymmetry.
+    execSync(`git remote set-url origin ${origin}-gone`, { cwd: B });
+    const offline = JSON.parse(cursor(B, "read").stdout);
+    assertEq("an unreachable origin degrades the read to the last-known value",
+      { commit: offline.commit, initialized: offline.initialized, fetched: offline.fetched },
+      { commit: c4, initialized: false, fetched: false });
+    const offAdvance = cursor(B, `advance ${c5}`);
+    assertEq("but an advance nobody can see fails loudly", offAdvance.status, 1);
+    assertEq("naming the push failure", JSON.parse(offAdvance.stdout).reason, "push_failed");
+
+    // Living migration: a surviving runner-local file seeds the ref, then goes.
+    execSync(`git update-ref -d ${REF}`, { cwd: origin });
+    const C = mkClone();
+    mkdirSync(join(C, ".workaholic"), { recursive: true });
+    writeFileSync(join(C, ".workaholic/proposal-cursor"), `${c1}\n`);
+    const migrated = JSON.parse(cursor(C, "read").stdout);
+    assertEq("a legacy cursor file seeds the shared ref rather than being discarded",
+      { commit: migrated.commit, initialized: migrated.initialized, pushed: migrated.pushed },
+      { commit: c1, initialized: true, pushed: true });
+    assertTrue("and is removed once the ref holds the value",
+      !existsSync(join(C, ".workaholic/proposal-cursor")), "the legacy file survived the fold");
+    assertEq("so every later runner reads the folded value", remoteRef(C), c1);
+  } finally {
+    for (const d of made) cleanup(d);
+  }
 }
 
 // ---------- propose/notify-slack.sh (env-driven, never load-bearing, secret-safe) ----------
@@ -10784,6 +10894,7 @@ const tests = [
   ["hooks/install-git-hooks.sh", testInstallGitHooks],
   ["feedback/create.sh + list.sh + hooks/validate-feedback.sh", testFeedback],
   ["propose: cursor/window/dedup/draft scaffold", testProposeBatch],
+  ["propose: the cursor is a shared pushed ref", testProposeCursorRef],
   ["propose/notify-slack.sh", testNotifySlack],
   ["drive claim protocol: two clones, one unit", testClaimProtocol],
   ["drive claim protocol: a claim survives its tickets being archived", testClaimSurvivesArchive],

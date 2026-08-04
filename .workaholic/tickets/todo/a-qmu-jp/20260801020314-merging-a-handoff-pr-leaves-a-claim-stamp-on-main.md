@@ -9,6 +9,7 @@ category: Changed
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260804-035024
 ---
 
 # Merging a handoff PR leaves a live `claim:` stamp on `main`, which the design says can never happen

@@ -37,6 +37,8 @@ bash check-deps/scripts/check.sh
 
 If `ok` is `false`, print the `message` and stop — a run on a broken install produces damage, not work. If `missing_guards` is non-empty, **warn and continue**: a stale or partial build is loaded and the listed `PreToolUse` guards are not registered, which matters more here than anywhere else because this run commits, pushes, and may merge without a human in the loop. Record the warning in the run report rather than only printing it.
 
+If `version_drift` is `true`, **warn and continue** the same way, naming both `version` (installed) and `checkout_version` in the run report. Drift is deliberately not a stop — see `check-deps`, *Why drift is a warning, not a stop* — but it is the single most useful line in the report when a tick later dies on `dirty_workspace`, because an installed build running an obsolete always-on migration is what produces that dirty tree. Note the check runs **before** the fast-forward below, so a runner whose clone is itself behind the base can see a falsely-matching pair on this tick and the real drift on the next.
+
 Then **freshen the checkout before reading it** (decision J3):
 
 ```bash

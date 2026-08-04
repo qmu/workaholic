@@ -109,3 +109,18 @@ for example:
 ```
 
 The `<event>` phrase plus the `<artifact-filename>` together form a stable event id, so an append is idempotent (the same event never adds a second line). Never rewrite or reorder past lines — the changelog is append-only history.
+
+### The ticket floor — the carry decision (decided 2026-08-04)
+
+The rule and its boundary are in [`../SKILL.md`](../SKILL.md), *Granularity → The ticket floor*: a mission is created with two or more tickets, counted at the publish seam via `queue-size.sh`'s `meets_floor`. This file carries the part a reader only needs when changing it.
+
+**`close.sh --successor-title` is refused; a carry names an existing mission.** The rejected alternatives, with their costs, so the trade stays visible:
+
+| Option | Why not |
+| ------ | ------- |
+| **(a)** The close emits the successor's ticket set in the same pass | Consistent with the rule, but `close.sh` is a bookkeeping script and this hands it a *planning* responsibility. The planning input — what the remaining tickets actually are — is not derivable from the unmet acceptance items; a person or an interrogation must supply it. Rejected for putting planning in the one seam that has none. |
+| **(c)** A carried successor is exempt from the floor | Rejected on its face: the carry is the **only** seam that has ever produced a violation, so an exemption covering it is not a rule. |
+
+The chosen option's cost is real and accepted: a genuine "this direction continues but nothing suitable exists yet" carry has no one-step path, and the developer must create the successor first. That is not a workaround — **creating it *is* the interrogation that produces its tickets**, which is the behavior the floor is asking for.
+
+**Sequencing — do not reverse these two steps.** The unmet-acceptance inheritance lives *entirely inside* `close.sh`'s mint branch; `--successor <slug>` resolves a path and falls through, inheriting nothing, despite `SKILL.md` and `CLAUDE.md` both claiming it "already carries the unmet items". Refusing `--successor-title` before that is corrected would leave **no** carry route that transfers the remainder — trading a record defect (a ticketless mission on the roadmap) for a data-loss one (a carry that reports success and drops its payload). Relocate the inheritance so both routes perform it (ticket `20260804085209`), **then** refuse the title. `close.sh` carries this note at the refusal site.

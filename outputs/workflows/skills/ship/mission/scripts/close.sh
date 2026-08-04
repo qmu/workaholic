@@ -107,6 +107,21 @@ case "$TARGET" in
             echo '{"closed": false, "reason": "carried_needs_one_successor"}' >&2
             exit 1
         fi
+        # THE TICKET FLOOR WILL REFUSE `--successor-title` HERE, BUT NOT YET -- and the
+        # ordering is the whole point (mission/SKILL.md, *Granularity -> The ticket
+        # floor*; ticket 20260804085209).
+        #
+        # The decision is settled: a minted successor arrives with zero tickets and
+        # violates the floor by construction. But refusing it TODAY would remove the only
+        # carry route that inherits anything. The unmet-acceptance inheritance below lives
+        # entirely inside the mint branch; `--successor <slug>` merely resolves a path and
+        # falls through, despite the docs claiming it "already carries the unmet items".
+        # So refusing the title first would leave `carried` archiving the predecessor,
+        # naming a successor, and silently dropping the remainder it exists to transfer --
+        # trading a record defect for a data-loss one.
+        #
+        # Sequence: relocate the inheritance so BOTH routes perform it (20260804085209),
+        # then refuse the title. Do not reverse these two steps.
         ;;
     *) printf '{"closed": false, "reason": "invalid_status", "status": "%s"}\n' "$TARGET" >&2; exit 1 ;;
 esac

@@ -9383,6 +9383,20 @@ function testPlanFloorCountsQueue() {
     q = JSON.parse(run(A, `${QUEUE} really-planned`).stdout);
     assertEq("queue-size counts the ticket that names the mission", { t: q.todo, tot: q.total }, { t: 1, tot: 1 });
 
+    // THE TICKET FLOOR rides this same counter rather than a second one (mission/SKILL.md,
+    // *Granularity -> The ticket floor*). Four creation seams read `meets_floor`; four
+    // inline counts would drift, and each seam is exercised separately so the drift would
+    // be invisible.
+    q = JSON.parse(run(A, `${QUEUE} sketch-only`).stdout);
+    assertEq("a mission with no tickets fails the floor",
+      { floor: q.floor, meets: q.meets_floor }, { floor: 2, meets: false });
+    q = JSON.parse(run(A, `${QUEUE} really-planned`).stdout);
+    assertTrue("one ticket is still under the floor -- the floor is two, not one",
+      q.meets_floor === false, JSON.stringify(q));
+    seedMissionTicket(A, "really-planned", "20260729000021");
+    q = JSON.parse(run(A, `${QUEUE} really-planned`).stdout);
+    assertEq("two tickets meet the floor", { tot: q.total, meets: q.meets_floor }, { tot: 2, meets: true });
+
     const plan = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
     const offered = plan.missions.map((m) => m.slug);
     const reason = (slug) => (plan.excluded.find((e) => e.id === slug) || {}).reason;

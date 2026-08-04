@@ -51,7 +51,7 @@ told.
 ## 3. Schedule the routine (every 15 minutes)
 
 The batch runs **in the repository, on `main`**, in an isolated cloud session
-started by the `[Propose]` routine. The routine's prompt is the shipped template
+started by the `[Propose Batch]` routine. The routine's prompt is the shipped template
 `plugins/workaholic/skills/workaholify/routines/propose.md`; its cadence is that
 template's `cron_expression` (`*/15 * * * *`), which is where you change it.
 

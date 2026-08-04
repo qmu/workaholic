@@ -71,7 +71,7 @@ Body: free prose in the contributor's own words — the excerpt, the instruction
 
 ## Body style — prose first, structure where it earns its place
 
-**The canonical statement, referenced and not restated** (the `[FB]` routine template links here). A feedback body is written **for its future reader, not as a transcript of its source**, and the style has one default and one licence.
+**The canonical statement, referenced and not restated** (the `[Propose]` routine template — id `fb` — links here). A feedback body is written **for its future reader, not as a transcript of its source**, and the style has one default and one licence.
 
 **Default to prose.** Reach for a short numbered or bulleted list, or a small table, **only when a genuinely multi-step or multi-item ask reads better as one** — an ordered sequence, a set of parallel cases, a two-column mapping. Otherwise write sentences. No deep heading hierarchies: a record is one idea and rarely needs any heading at all, let alone nested ones. **No content-free items** — a bullet that restates its own heading, or a section that says the section is not applicable, is filler, and filler is what makes a reader stop trusting the structure that surrounds it.
 

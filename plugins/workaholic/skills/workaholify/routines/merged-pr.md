@@ -1,14 +1,20 @@
 ---
 type: Routine Template
 id: merged-pr
-name: "Merged PR {repo_name}"
+name: "[Consent] {repo_name}"
 trigger: event
 model: claude-opus-5
 allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 mcp: [Slack]
 ---
 
-# Merged PR — announce a merge into its feedback item's thread
+# [Consent] — announce a merge into its feedback item's thread
+
+Renamed from `Merged PR` on 2026-08-04 by the developer's ruling: merging the pull
+request is the approval in this workflow, so the routine that announces it is named for
+what the event *means* — consent — not for the mechanics. The template `id` stays
+`merged-pr`. A live routine still named `Merged PR <repo>` reads as `unknown` in the
+drift report until renamed through `/setup-routines`' verbatim-confirmed refresh.
 
 Event-driven (no cron). This is the routine that makes a merge an announceable event,
 which is the whole reason every artifact reaches `main` through a pull request.

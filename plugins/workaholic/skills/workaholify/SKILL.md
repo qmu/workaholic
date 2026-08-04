@@ -100,6 +100,19 @@ Keeping the prompt as readable markdown rather than an embedded JSON string is d
 
 This model governs **what a post says and where it lands, and nothing else** — it changes no survey, no claim, and nothing `/drive` picks or implements.
 
+### Slack is the only surface, and an event earns its post (decided 2026-08-04)
+
+**One surface.** A routine notifies through the repository's `dev-<repo_name>` Slack channel and nowhere else. Every template says so in its own prompt, because the instruction has to reach the session that would otherwise reach for a push tool: *post to Slack only; send no mobile or push notification.*
+
+**What a template can and cannot switch off — measured, not assumed.** A live routine record carries `name`, `trigger`, `schedule`, `target repository`, `model`, `enabled` and its MCP connections, and **no notification field of any kind** (`scripts/list-routines.sh`'s documented shape; `lib/compare_routines.py` compares prompt, model, schedule, enabled and the Slack connector — there is nothing else to compare). So the duplicate mobile push is **not** routine configuration: the half a template reaches is the session's own behavior, above; the other half is the Claude app's account-level notification for a routine session completing, which no template, script or drift report can touch. Turning that off is a **developer act in the app's own settings**, surfaced by `/setup-routines` and stated there — a truthful "cannot" beats a claimed "did", and a drift report that silently omitted the field would be the worse outcome.
+
+**Dropping a surface narrows visibility, so the remaining one must be worth reading.** The default for an event is **silence**; it earns a post only by being something a developer must **act on or stay aware of**. Two precedents from this repository decide the hard cases, and both are reused rather than reinvented:
+
+- **Drop the low tier by default** — the branch story keeps every concern and the PR body renders it without the `low` ones (`report/scripts/filter-low-concerns.sh`). Same move here: the session log keeps every step; the channel gets the ones that change what a developer does.
+- **Dedupe a repeat by its signature** — a red failure alert is suppressed while the same failure signature persists inside its cool-down (above). Announcements of events the session itself produced are never deduped, because each is new by construction.
+
+**The bright line, because a vague bar refills the channel.** Post: a run **started** (a fleet that is working must be distinguishable from a dead one), a proposal **opened**, a **merge**, a **handoff**, and a **blocked-on-precondition** failure. Do not post: a survey that found nothing, a claim, a heartbeat, a ticket archived, a commit pushed, a passing test, a build, a rebuild of `outputs/`, or a tick that ran and found nothing to do — an idle tick is correctly **silent**, and silence is a report. When an event is genuinely borderline, the tie goes to silence: an unread post costs attention every time it is scrolled past, while a missing one costs a question that the session log answers.
+
 Changing a template makes every live routine drift by construction, and **the fleet is refreshed by `/workaholify` or `/setup-routines`, one routine at a time, confirmed verbatim** — never as part of the change that edits the template. An unattended run cannot do it at all (`/drive` issues no confirmation of any kind), so a template edit and its rollout are two separate acts by design.
 
 ### Where the configuration lives (decided 2026-08-03)

@@ -76,6 +76,8 @@ Run `/drive`. It surveys, partitions, claims, drives, reports and routes on its 
 
 Slack is never load-bearing: if it fails, continue.
 
+**Slack is also the only surface**, and this routine's postable events are exactly five: this start, a merge requested, a merge, a handoff (§5), and a blocked-on-precondition failure (§0a). Send no mobile or push notification, and post nothing for a survey that found nothing, a claim, a heartbeat, an archived ticket, a pushed commit or a passing build — **an idle tick is silent, and that silence is the report** (`workaholify` skill, *Slack is the only surface*).
+
 ## 3. Drive, then report
 
 Let /drive work under its own failure contract -- every ticket ends as exactly one of implemented / failed / blocked / deferred-as-a-minted-ticket. "Blocked" is a finding, not a forecast: run the command and record its raw output. Then /report composes the branch story and opens the PR.

@@ -39,4 +39,5 @@ One sentence, max 40 words, what the proposal asks for only.
 
 - The `` fb:<stem> `` line is **not decoration**: it is the key every later routine searches for to find this thread. Write the feedback record's filename stem exactly, with no path and no `.md`. A root posted without it strands the item — every subsequent event becomes an unattributable top-level line.
 - Append the session URL on the same line. If it is not discoverable in this session, post the line without it rather than not posting.
-- Post **nothing else**. There is no separate "PR opened" line: this root is it.
+- **Slack is the only notification surface.** Post to the channel and send no mobile or push notification of any kind.
+- Post **nothing else**. There is no separate "PR opened" line: this root is it. This routine's one postable event is the proposal it just opened; a record written without a PR, or a session that opened none, posts nothing (`workaholify` skill, *Slack is the only surface*).

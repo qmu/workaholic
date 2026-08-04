@@ -16,7 +16,7 @@ gate_type:
 gate_target:
 gate_assert:
 feedback: [20260804173526-a-mission-is-created-with-two-or-more-tickets-or-it-is-not-a-mission.md]
-claim: work-20260804-084744
+claim: work-20260804-202044
 ---
 
 # Make a mission impossible to create without its ticket set

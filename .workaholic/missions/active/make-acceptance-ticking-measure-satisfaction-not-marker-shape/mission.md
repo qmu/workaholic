@@ -94,7 +94,7 @@ which is precisely the condition the mission exists to fix.
       measured 0-of-24 split cannot recur silently (#20260801185303-make-the-ticker-measure-satisfaction.md)
 - [x] `node scripts/test-workflow-scripts.mjs` covers the new semantics hermetically, including
       a mission whose acceptance items carry no marker (#20260801185303-make-the-ticker-measure-satisfaction.md)
-- [ ] The gate audit (Scope unit 4) is either completed or split out as its own artifact, with
+- [x] The gate audit (Scope unit 4) is either completed or split out as its own artifact, with
       the decision recorded rather than left implicit (#20260803213000-audit-the-gates-for-shape-dependent-green.md)
 
 ## Changelog
@@ -109,3 +109,4 @@ which is precisely the condition the mission exists to fix.
 - 2026-08-03 — concern deferred (stuck) — 20260803221906-the-link-stamping-step-is-prose.md
 - 2026-08-03 — concern deferred (stuck) — 20260803221906-v1-0-119-may-collide-with.md
 - 2026-08-03 — concern deferred (stuck) — 20260803221906-readme-md-still-describes-the-retired.md
+- 2026-08-04 — ticket archived — 20260803213000-audit-the-gates-for-shape-dependent-green.md

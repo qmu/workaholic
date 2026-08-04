@@ -11,9 +11,10 @@ mcp: [Slack]
 
 # [Drive] — the hourly unattended drive runner
 
-One of the two scheduled templates (the other is `[Propose Batch]`, every 15 minutes). It runs
-`/drive` in an isolated cloud session every hour at :56 UTC. Still marked `(pilot)` in its
-name.
+The **only** scheduled template — `[Propose]` and `[Consent]` fire on events, and the
+`[Propose Batch]` that briefly shared this line was retired on 2026-08-04
+(`docs/proposal-loop-runbook.md` §7). It runs `/drive` in an isolated cloud session every
+hour at :56 UTC. Still marked `(pilot)` in its name.
 
 Its Slack posts name a unit or a PR the session itself just produced, so it has no
 "which one?" ambiguity — unlike `merged-pr`, whose subject is an external event.

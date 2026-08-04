@@ -68,7 +68,7 @@ The hook's own corrections (qmu/workaholic#126) are recorded in its header — i
 
 ## 5. Scheduled routines
 
-Routines are how a project actually runs: a `[Propose]` routine (template id `fb`; named `[FB]` until 2026-08-04) turns a Slack-reported issue into a feedback record and a PR, a `[Consent]` routine (id `merged-pr`; named `Merged PR` until the same ruling) announces a merge — the approval, in this workflow — a `[Drive]` routine runs the queue on a schedule, and a `[Propose Batch]` routine turns the accumulated feedback back into proposed work. Wiring them up is part of *"wire this repository to the standards"*, which is why it lives here and not in a second setup command — the second setup command is the one nobody runs.
+Routines are how a project actually runs, and there are **three** templates: a `[Propose]` routine (template id `fb`; named `[FB]` until 2026-08-04) turns a Slack-reported issue into a record and, when its judgment warrants it, the work that record asks for — both in one PR — a `[Consent]` routine (id `merged-pr`; named `Merged PR` until the same ruling) announces a merge — the approval, in this workflow — and a `[Drive]` routine runs the queue on a schedule. A fourth, `[Propose Batch]`, existed for part of 2026-08-04 and was retired the same day: proposing belongs in the session that receives the ask, not in a sweep over what has already merged (`docs/proposal-loop-runbook.md` §7). Wiring them up is part of *"wire this repository to the standards"*, which is why it lives here and not in a second setup command — the second setup command is the one nobody runs.
 
 **These are Claude Code Web routines, not cron jobs.** Each one is a scheduled or event-driven cloud session with its own checkout, reached through the `RemoteTrigger` tool (`list` / `get` / `create` / `update` / `run`). There is deliberately no local scheduler in this picture, and no crontab: a machine's crontab would be invisible to everyone but its owner, which is the problem this replaces rather than a mechanism to copy.
 
@@ -81,7 +81,6 @@ The templates live in **this skill** (`routines/*.md`), not in any repository's 
 | `fb` | event | A reported issue becomes a `/fb` record and a PR |
 | `merged-pr` | event | A merge is announced to `dev-<repo>` |
 | `drive` | cron `56 * * * *` | The hourly unattended drive runner (still a pilot; bounded to 2 units/tick) |
-| `propose` | cron `*/15 * * * *` | The 15-minute proposal batch — `/propose` once per tick, silent unless it opened a PR |
 
 Everything below a template's `## Prompt` heading is the routine's prompt, verbatim. Three substitutions, each demanded by the live routines: `{repo}` (full URL, for the `…/pull/123` links), `{repo_slug}` (`org/repo`, how the Drive prompt names the repository in prose), and `{repo_name}` (bare name, the routine's own name and the `dev-<name>` Slack channel). **Anything else that differs between two repositories' routines is drift, not configuration.**
 

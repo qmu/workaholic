@@ -16,6 +16,7 @@ gate_type:
 gate_target:
 gate_assert:
 feedback: [20260804221328-propose-at-the-capture-seam-not-from-a-merged-main-window.md]
+claim: work-20260804-221713
 ---
 
 # Propose at the capture seam
@@ -41,10 +42,13 @@ act, and nothing anywhere waits on a cron tick to notice feedback.
 
 ## Acceptance
 
-- [ ] One capture session can emit, in one PR, the feedback record together with its proposed mission/tickets or loose ticket, with record-only as the judged fallback (#20260804221347-judge-and-propose-inside-the-capture-session.md)
-- [ ] The [Propose Batch] template, the pushed cursor ref machinery, and the merged-main window are gone, and every document tells the new truth (#20260804221347-retire-the-batch-seat-and-the-merged-main-window.md)
+- [x] One capture session can emit, in one PR, the feedback record together with its proposed mission/tickets or loose ticket, with record-only as the judged fallback (#20260804221347-judge-and-propose-inside-the-capture-session.md)
+- [x] The [Propose Batch] template, the pushed cursor ref machinery, and the merged-main window are gone, and every document tells the new truth (#20260804221347-retire-the-batch-seat-and-the-merged-main-window.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline relating this mission's tickets and reports over time.
      One line per event ("- YYYY-MM-DD — event — filename"); never rewrite past lines. -->
+- 2026-08-04 — ticket archived — 20260804221347-judge-and-propose-inside-the-capture-session.md
+- 2026-08-04 — ticket archived — 20260804221347-retire-the-batch-seat-and-the-merged-main-window.md
+- 2026-08-04 — story reported — work-20260804-221713.md

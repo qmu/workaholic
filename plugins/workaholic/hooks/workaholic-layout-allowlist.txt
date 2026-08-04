@@ -21,6 +21,7 @@ guides
 missions
 policies
 release-notes
+releases
 specs
 stories
 terms

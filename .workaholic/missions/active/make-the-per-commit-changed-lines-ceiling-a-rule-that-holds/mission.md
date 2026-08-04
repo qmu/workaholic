@@ -9,7 +9,7 @@ author: noreply@anthropic.com
 assignees: []
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 3
 feedback: [20260730190749-a-pure-relocation-cannot-fit-under.md, 20260730185714-the-foundation-commit-is-772-changed.md, 20260730111600-the-ticket-batch-convention-structurally-collides.md]
 tickets: []
 stories: []
@@ -99,3 +99,4 @@ PROPOSED sketch for discussion — not a plan. `/mission approve` replans this t
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-01 — ticket archived — 20260801185101-decide-what-too-large-commit-counts.md
 - 2026-08-01 — ticket archived — 20260801185102-implement-the-chosen-commit-size-semantics.md
+- 2026-08-01 — run recorded (+3h) — 20260801-210440

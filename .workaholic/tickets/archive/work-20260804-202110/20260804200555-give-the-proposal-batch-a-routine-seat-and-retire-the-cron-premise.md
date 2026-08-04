@@ -3,9 +3,9 @@ created_at: 2026-08-04T20:05:55+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on: 20260804200555-move-the-proposal-cursor-to-a-shared-pushed-ref.md
 mission: make-the-feedback-loop-actually-propose
 merge_policy:
@@ -86,3 +86,32 @@ scheduled seat and stop the [FB] template from claiming a step it cannot perform
 - The drive routine's known bootstrap caveats (stale baked-in plugin) apply
   identically; the template should reference the same session-start bootstrap
   requirement rather than restating it.
+
+## Final Report
+
+Development completed as planned. `routines/propose.md` ships as the fourth
+template (scheduled `*/15 * * * *`, one `/propose` per tick, red-alert dedupe,
+Slack only on an opened proposal). `fb.md` no longer instructs an in-session
+`/propose` and says where the step went. The runbook is rewritten around the
+`[Propose]` routine — provisioning through `/setup-routines`, the two
+preconditions, the notifier env kept and its two paths distinguished, the
+private-repo precondition (I9) untouched, and the cron shape demoted to a
+labelled history section. Every enumeration of the template set now names four:
+`workaholify/SKILL.md`, `CLAUDE.md`, `commands/setup-routines.md`, `drive.md`'s
+header, and `list-routine-templates.sh`'s own comment.
+
+### Discovered Insights
+
+- **Insight**: `compare-routines.sh` needed no change at all — the template set
+  is discovered by scanning `routines/*.md`, so a new file is surveyed,
+  rendered and drift-checked the moment it exists.
+  **Context**: the ticket allowed for a hard-coded set; the scan is why adding a
+  template is one file plus its prose. The suite now pins that property with a
+  comment, so a future "optimization" that enumerates ids in code has to argue
+  with a test.
+- **Insight**: the routine and the CLI post to Slack by *different* paths — a
+  cloud container has no env file, so the routine uses the account's Slack
+  connector while `notify-slack.sh` uses `SLACK_BOT_TOKEN`.
+  **Context**: this is why `compare-routines.sh` treats a missing connector as
+  drift, and why the runbook's env section is about the CLI path only. Reading
+  it as the routine's configuration would send someone to fix the wrong thing.

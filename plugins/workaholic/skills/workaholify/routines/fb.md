@@ -19,7 +19,7 @@ in both and the next editor should not have to work out which case they are in.
 ## Prompt
 
 - Use qmu/workaholic skills, don't proceed without workaholic
-- /fb and /propose via pull request
+- /fb via pull request. Do NOT run /propose here: the record you just wrote is still on an unmerged branch, so the proposal batch's window cannot see it by design. Proposals ride the scheduled `[Propose]` routine, which picks the record up once this PR merges.
 - Brief PR description, detail in file, and refer FB issue number to close when merged
 - Notify Slack channel `dev-[repo name]` when PR created by the format below. Announce **only the pull request you just created in this session**, exactly once; never announce another session's PR, and post nothing if you created none:
 

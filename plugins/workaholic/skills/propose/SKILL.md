@@ -1,6 +1,6 @@
 ---
 name: propose
-description: Use when the proposal batch runs — headlessly (cron) or by hand via /propose — to survey the repository's recent state and either stay silent or propose a mission with its ticket set on a work branch behind a pull request. Defines the cursor contract, the judgment bar, the proposal schema, and the batch's scripts.
+description: Use when the proposal batch runs — headlessly on its 15-minute scheduled routine, or by hand via /propose — to survey the repository's recent state and either stay silent or propose a mission with its ticket set on a work branch behind a pull request. Defines the cursor contract, the judgment bar, the proposal schema, and the batch's scripts.
 allowed-tools: Bash
 user-invocable: false
 metadata:
@@ -23,7 +23,7 @@ A mission with a provisional acceptance sketch and no ticket set is a title and 
 
 ## Headless — the defining constraint
 
-This skill runs where **nobody can answer**: a cron tick on a server. Therefore:
+This skill runs where **nobody can answer**: a scheduled cloud session, started by the `[Propose]` routine every 15 minutes in a container nobody is watching. Therefore:
 
 - **No `AskUserQuestion`, ever.** There is no interactive fallback; a situation that would need a human is an abort with a machine-readable reason (or silence), never a prompt.
 - **Silence is a valid outcome.** No new feedback, nothing warranting a mission, everything already referenced — each ends the run quietly with the cursor advanced.
@@ -46,7 +46,7 @@ Whether the surveyed state warrants a proposal is a **model judgment with a cons
 - **The queue** — work already specified as a todo ticket is not proposed again, and a proposal must not duplicate a queued ticket's implementation steps.
 - **Commits** — recently built work narrows what remains. A commit log is evidence about what is *done*; it never by itself says what should come next, and treating "this area changed a lot" as a reason to propose is exactly the pattern that fills a channel with plausible noise.
 
-**The asymmetry is written policy**: a false negative costs one cron cycle (a human can always run `/mission` by hand); a false positive spams the channel and erodes trust in the loop. When unsure, stay silent. On a 15-minute tick, "there is always something proposable" is a symptom of a broken bar, not a productive batch.
+**The asymmetry is written policy**: a false negative costs one tick (a human can always run `/mission` by hand); a false positive spams the channel and erodes trust in the loop. When unsure, stay silent. On a 15-minute tick, "there is always something proposable" is a symptom of a broken bar, not a productive batch.
 
 ## Draft missions
 
@@ -150,7 +150,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/notify-slack.sh "<text>"
 
 - Config: `SLACK_BOT_TOKEN` (xoxb, `chat:write`) + `WORKAHOLIC_SLACK_CHANNEL` (channel id); `WORKAHOLIC_SLACK_API_URL` overrides the endpoint for tests (the hermetic suite never calls Slack). The token is read at call time and never persisted, logged, or echoed.
 - No token/channel → `{"notified": false, "reason": "no_token"|"no_channel"}`, exit 0 — a proposal that pushed is a success whether or not anyone was told; the run report records `notified` per proposal rather than retrying in-loop. Endpoint/API failures are recorded the same way (`http_<code>`/`slack_<error>`/`curl_failed`), never fatal.
-- Provisioning, the cron entry, and failure modes live in `docs/proposal-loop-runbook.md` — the runbook is the developer's page; agents never install the crontab themselves.
+- Provisioning, the scheduled routine, and failure modes live in `docs/proposal-loop-runbook.md` — the runbook is the developer's page. The routine is a standing outward-facing process, so an agent never brings one into existence: `/workaholify` or `/setup-routines` creates it, confirmed verbatim, one at a time.
 
 ## Agent Compatibility
 

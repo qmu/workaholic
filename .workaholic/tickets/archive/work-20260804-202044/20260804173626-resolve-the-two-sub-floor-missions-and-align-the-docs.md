@@ -3,7 +3,7 @@ created_at: 2026-08-04T17:36:26+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
+effort: 1h
 commit_hash:
 category: Changed
 depends_on: 20260804173625-enforce-the-mission-ticket-floor-at-every-creation-seam.md
@@ -90,3 +90,22 @@ The predecessor mission `make-the-branch-story-concise-by-default` was closed `c
 - **The successor may honestly be one ticket.** Do not pad it to two to satisfy the rule — that inverts the rule into a reason to invent work. Dissolving it into a ticket plus a feedback record is a correct outcome and is what the partition is for.
 - **Do not edit the archived mission.** Annotate elsewhere.
 - This ticket depends on enforcement landing first only so that the cleanup is not immediately re-dirtied by a seam that still mints violations.
+
+## Final Report
+
+**The live instance resolved itself before this ticket reached it, which changed what the ticket had to do.** `make-the-branch-story-measurably-shorter` was replanned in the ordinary way earlier the same day and now carries two tickets (`20260804201653-measure-which-story-sections-carry-the-growth.md`, `20260804201653-fix-the-measured-cause-and-verify-a-shorter-story.md`), so it meets the floor and the dissolve-into-a-ticket-plus-feedback path was never needed. The ticket asked for that decision to be made rather than assumed, so it was **re-measured rather than taken on trust**: `check-floor.sh` over every active mission returns `ok` at 4, 4, 2 and 4 tickets. The 29% measurement (127 lines across eight stories before, 164 across ten after) survives in the mission, in both replan tickets, and in the new feedback record.
+
+**The archived instance is annotated, not touched.** `drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main` stays exactly as it is (`git diff .workaholic/missions/archive/` is empty). The annotation lives in the new feedback record `20260804203613-both-sub-floor-missions-are-resolved-one-replanned-one-pre-rule-history.md` and in `mission/SKILL.md`, both saying the same thing an auditor needs: the floor is a rule about **creation**, so only `missions/active/` is auditable against it. A *new* record was written rather than an edit to the rule's own feedback record, because feedback is immutable — resolution is a new record, never an edit.
+
+**All five documents now state the floor**, each at the level it describes a mission: `CLAUDE.md` (the `/mission` row and the Sources paragraph, which now frames the floor and the size ceiling as the two ends of one shape), `mission/SKILL.md` (description, opening definition, the vocabulary partition, the granularity table row), `propose/SKILL.md` (already stated; now pointed at `check-floor.sh`), `.workaholic/README.md` (a new *Which kind of artifact* table making the feedback / ticket / mission partition explicit, plus the missions entry), and `rules/workaholic.md` (the layout table's mission row and a floor paragraph beside the placement rules).
+
+**No audit script was written, and that is a decision.** `check-floor.sh <slug>` over `missions/active/*` is the whole audit; a second script whose entire content is that loop adds a maintenance surface and no information. Recorded in the feedback record so the "optional" step is not left looking unconsidered.
+
+**Two adjacent doc defects were repaired in the paragraphs being edited**, because leaving them would have meant shipping a document that states the floor correctly and the lifecycle wrongly: `.workaholic/README.md`'s missions entry still described `status: draft`/`approved`, `/mission approve`, and publishing straight to `main` (all retired by K1/K2/J4), and `rules/workaholic.md` still listed "approval" as a mission write.
+
+### Discovered Insights
+
+- **Insight**: The `mission/SKILL.md` size ratchet has one line of headroom left.
+  **Context**: `test-workflow-scripts.mjs` asserts the file stays under 420 lines; it sat at 419 before this change, so adding the floor sentences broke it. The fix here was to fold a new bullet into an existing one rather than raise the number — but the next legitimate addition hits the same wall, and bumping the constant is exactly what the ratchet exists to prevent. The real answer when that happens is to relocate a section into `reference/`, which is the pattern the file already uses.
+- **Insight**: A cleanup ticket written against a snapshot of the world can be stale by the time it is driven, and the honest response is to re-measure, not to re-do.
+  **Context**: This ticket named "the two sub-floor missions" as a fact. One had already been fixed. Re-running the count first turned a possible double-fix (replanning an already-replanned mission) into a one-line finding.

@@ -1,5 +1,9 @@
 # missions
 
+## active
+
+* [propose-at-the-capture-seam](active/propose-at-the-capture-seam/mission.md) - Propose at the capture seam
+
 ## archive
 
 * [adopt-a-git-flow-branching-model-with-durable-ship-records](archive/adopt-a-git-flow-branching-model-with-durable-ship-records/mission.md) - Adopt a release-branch staging tier with durable ship records

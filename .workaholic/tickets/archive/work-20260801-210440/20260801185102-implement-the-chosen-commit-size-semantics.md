@@ -3,9 +3,9 @@ created_at: 2026-08-01T18:51:02+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on: [20260801185101-decide-what-too-large-commit-counts.md]
 mission: make-the-per-commit-changed-lines-ceiling-a-rule-that-holds
 merge_policy: auto
@@ -79,3 +79,40 @@ Decided: the hermetic corpus is built by shape rather than by referencing this r
 ## Considerations
 
 - This mission's own implementation commit is a candidate for the ceiling it is changing. If it breaches, that is worth recording in the Final Report as evidence either way.
+
+## Final Report
+
+Implemented as decided. Re-scan of the real corpus, with the scan's own exclusions applied:
+
+| commit | shape | added implementation | verdict | expected |
+| --- | --- | ---: | --- | --- |
+| `fa8033d3` | spec batch | 0 | passes | passes |
+| `1179d916` | implementation | 702 | **fires** | fires |
+| `044a3f8b` | relocation/split | 402 | passes | passes |
+| catch-up merges | merge | — | skipped | passes |
+
+All five instances now get the intended answer.
+
+### Discovered Insights
+
+- **Insight**: The hermetic corpus caught something the paper check could not. A relocation
+  where git's rename detection *does* match (a 600-line file split with one part above the
+  50% similarity threshold) is charged only for the genuinely new part — so it passes where
+  the paper analysis predicted it would still fire. Rename detection and added-only overlap,
+  and the overlap moves the boundary. The corpus now pins both shapes: the split `-M` can
+  match, and the split it cannot.
+  **Context**: This is why the corpus is built by shape rather than by SHA — the shapes
+  disagree with each other in ways a single real commit never revealed.
+
+- **Insight**: The existing suite had a case asserting *"deletions count toward the
+  per-commit total"* — it pinned the old semantics precisely and correctly. Inverting it was
+  the right move and worth doing loudly: the comment now names the decision and says the
+  assertion was flipped deliberately, so a future reader does not "restore" it as a
+  regression.
+  **Context**: A test that encodes a decision should cite where the decision lives, or the
+  next person to read it cannot tell a deliberate inversion from a bug.
+
+- **Insight**: The finding's field is `evidence`, not `detail`. Worth noting only because
+  the assertion that checked it passed the *count* and failed the *content* — the rule fired
+  correctly while the test looked at a field that does not exist, which reads as a rule
+  defect for as long as it takes to check the serializer.

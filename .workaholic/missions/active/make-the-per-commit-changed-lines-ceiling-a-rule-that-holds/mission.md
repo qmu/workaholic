@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260801-210440
 ---
 
 # Make the per-commit changed-lines ceiling a rule that holds
@@ -96,4 +97,6 @@ PROPOSED sketch for discussion — not a plan. `/mission approve` replans this t
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-01 — ticket archived — 20260801185101-decide-what-too-large-commit-counts.md
+- 2026-08-01 — ticket archived — 20260801185102-implement-the-chosen-commit-size-semantics.md
 - 2026-08-01 — run recorded (+3h) — 20260801-210440

@@ -2731,14 +2731,18 @@ function testReleaseScanPerCommit() {
     execSync(`git add -A && git commit -q -m overcap`, { cwd: dir });
     assertTrue("a commit one line over the cap is flagged", tlc(scanMain()).length === 1, "over-cap not flagged");
 
-    // 4. Deletions count toward the total (added + deleted). Seed on main, delete on branch.
+    // 4. Deletions do NOT count. The rule charges added lines only, decided in
+    //    release-scan/scripts/lib/commit-size.sh: counting both charged a relocation twice
+    //    for moving content, and a deletion is not what a reviewer must read. This case
+    //    previously asserted the opposite and is inverted deliberately.
     execSync(`git checkout -q main`, { cwd: dir });
     writeFileSync(join(dir, "seed.txt"), bigLines(600));
     execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
     execSync(`git checkout -q -b work-20260721-000006`, { cwd: dir });
     rmSync(join(dir, "seed.txt"));
     execSync(`git add -A && git commit -q -m rm`, { cwd: dir });
-    assertTrue("deletions count toward the per-commit total", tlc(scanMain()).length === 1, "deletions not counted");
+    assertTrue("a delete-only commit does not fire, however large", tlc(scanMain()).length === 0,
+      "deletions were counted");
 
     // 5. Existing size/secret contract preserved: a small clean commit passes.
     branch("work-20260721-000007");
@@ -10262,7 +10266,112 @@ function testRefusedClaimLeavesNoDebris() {
   } finally { cleanup(origin); cleanup(A); cleanup(B); }
 }
 
+// ---------- too-large-commit counts implementation, not motion ----------
+// The rule had been overridden four times instead of decided once, and two of the three
+// originating breaches were commits that add no throughput at all: a spec batch and a pure
+// relocation. Two more, measured 2026-08-01, fired on the catch-up merge `/ship` creates
+// itself. The semantics chosen in `lib/commit-size.sh` are: added lines only, excluding
+// `.workaholic/` artifact prose, skipping merge commits.
+//
+// THE CORPUS IS BUILT BY SHAPE, NOT BY SHA. The suite runs in throwaway repositories and
+// may not reach into this repository's history, and a shape outlives the commits that
+// motivated it.
+function testCommitSizeSemantics() {
+  const repo = makeRepo("main");
+  const SCAN = `${POSIX_SH} ${SCRIPTS.scanBranchSafety}`;
+  const lines = (n, pfx) => Array.from({ length: n }, (_, i) => `${pfx} line ${i}`).join("\n") + "\n";
+  const commit = (msg) => execSync(`git add -A && git commit -q -m "${msg}"`, { cwd: repo });
+  const findingsFor = (sha) => {
+    const out = JSON.parse(run(repo, `${SCAN}`).stdout);
+    return out.findings.filter((f) => f.rule === "too-large-commit" && f.file === sha);
+  };
+  const shortHead = () => execSync("git rev-parse --short HEAD", { cwd: repo, encoding: "utf8" }).trim();
+
+  try {
+    execSync("git checkout -q -b work-20260801-000000", { cwd: repo });
+
+    // ---- 1. A spec batch: 800 lines of ticket prose, no code. Must pass. ----
+    mkdirSync(join(repo, ".workaholic/tickets/todo/x"), { recursive: true });
+    for (const n of [1, 2, 3, 4]) {
+      writeFileSync(join(repo, `.workaholic/tickets/todo/x/t${n}.md`), lines(200, "spec"));
+    }
+    commit("Add a four-ticket spec batch");
+    const spec = shortHead();
+    assertEq("a spec batch of 800 prose lines does not fire", findingsFor(spec).length, 0);
+
+    // ---- 2. A pure relocation: move 600 code lines into two new files. Must pass. ----
+    writeFileSync(join(repo, "big.js"), lines(600, "code"));
+    commit("Add the source file to be relocated");
+    const seeded = shortHead();
+    assertTrue("the seeding commit itself fires (600 added lines of code)",
+      findingsFor(seeded).length === 1, JSON.stringify(findingsFor(seeded)));
+
+    const body = readFileSync(join(repo, "big.js"), "utf8").split("\n").filter(Boolean);
+    writeFileSync(join(repo, "part-a.js"), body.slice(0, 300).join("\n") + "\n");
+    writeFileSync(join(repo, "part-b.js"), body.slice(300).join("\n") + "\n");
+    rmSync(join(repo, "big.js"));
+    commit("Relocate the source into two parts");
+    const moved = shortHead();
+    // 1200 under the old rule (600 added + 600 deleted). Under the new one `-M` matches the
+    // larger part as a rename of big.js, so only the genuinely new part is charged — which
+    // is rename detection doing the job it can do. The split case that `-M` CANNOT help is
+    // exercised below, where neither part is similar enough to match.
+    assertEq("a relocation git can see as a rename is charged only for the new part",
+      findingsFor(moved).length, 0);
+
+    writeFileSync(join(repo, "small.js"), lines(400, "code"));
+    commit("Add a smaller source file");
+    const small = shortHead();
+    assertEq("400 added lines of code stays under the ceiling", findingsFor(small).length, 0);
+    const smallBody = readFileSync(join(repo, "small.js"), "utf8").split("\n").filter(Boolean);
+    writeFileSync(join(repo, "small-a.js"), smallBody.slice(0, 200).join("\n") + "\n");
+    writeFileSync(join(repo, "small-b.js"), smallBody.slice(200).join("\n") + "\n");
+    rmSync(join(repo, "small.js"));
+    commit("Relocate the smaller source into two parts");
+    const smallMoved = shortHead();
+    // 400 added + 400 deleted = 800 — over the old ceiling, under the new one. This is the
+    // exact case the old rule got wrong: a refactor charged twice for improving the tree.
+    assertEq("a 400-line relocation passes, where added+deleted would have failed it",
+      findingsFor(smallMoved).length, 0);
+
+    // ---- 3. A delete-only commit of any size. Accepted consequence, so it is pinned. ----
+    rmSync(join(repo, "part-a.js")); rmSync(join(repo, "part-b.js"));
+    commit("Remove the relocated parts");
+    assertEq("a delete-only commit passes at any size", findingsFor(shortHead()).length, 0);
+
+    // ---- 4. A merge commit. Must pass — it authors nothing. ----
+    execSync("git checkout -q -b side main", { cwd: repo });
+    writeFileSync(join(repo, "side.js"), lines(900, "code"));
+    commit("Add a large file on a side branch");
+    execSync("git checkout -q work-20260801-000000", { cwd: repo });
+    execSync(`git merge -q --no-ff -m "Merge side into the work branch" side`, { cwd: repo });
+    const mergeSha = shortHead();
+    assertEq("a merge commit never fires, however much it carries", findingsFor(mergeSha).length, 0);
+    assertTrue("but the large commit it merged still does",
+      JSON.parse(run(repo, SCAN).stdout).findings.some((f) => f.rule === "too-large-commit"),
+      "the side branch's 900-line commit should still be flagged");
+
+    // ---- 5. Implementation still fires, and says what it counted ----
+    writeFileSync(join(repo, "impl.js"), lines(700, "code"));
+    commit("Add a genuinely large implementation");
+    const impl = shortHead();
+    const f = findingsFor(impl);
+    assertEq("a 700-line implementation commit still fires", f.length, 1);
+    assertTrue("and the evidence says it counted added implementation lines",
+      /added lines of implementation/.test(f[0].evidence), f[0].evidence);
+    assertEq("at override severity, so it stays consciously acceptable", f[0].severity, "override");
+
+    // ---- 6. Code and artifact prose in one commit: only the code counts ----
+    writeFileSync(join(repo, "mixed.js"), lines(400, "code"));
+    writeFileSync(join(repo, ".workaholic/tickets/todo/x/t5.md"), lines(400, "spec"));
+    commit("Land code alongside its ticket");
+    assertEq("artifact prose does not inflate a code commit's total",
+      findingsFor(shortHead()).length, 0);
+  } finally { cleanup(repo); }
+}
+
 const tests = [
+  ["release-scan: too-large-commit counts implementation, not motion", testCommitSizeSemantics],
   ["branching/check.sh", testBranchCheck],
   ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
   ["explain/resolve-export-path.sh", testResolveExportPath],

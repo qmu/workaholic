@@ -3,9 +3,9 @@ created_at: 2026-08-05T03:36:16+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Added
 depends_on:
 mission:
 merge_policy:
@@ -79,3 +79,44 @@ another commit to cover the non-fast-forward path.
   resume should fast-path to handoff. Possibly its own ticket; noted here for context.
 - Mid-run minted tickets being invisible until merge is by design (J1) and this proposal
   does not change it — it shortens the distance to the merge instead.
+
+## Final Report
+
+Development completed as planned. `land-unit.sh` composes the existing scripts —
+`catchup-main.sh` for the base, `scan-branch-safety.sh` for the gates,
+`cleanup-mission-worktree.sh` for the teardown, `sync-main.sh` for the visibility — and
+adds only the ordering and the human gate around them.
+
+### Discovered Insights
+
+- **Insight**: The landing push is `git push origin <branch>:main`, not a local
+  `git merge` into `main`. A local merge mutates the caller's checkout *before* the push,
+  so a rejected push leaves it ahead of origin, and the only cheap repair for that state
+  is `git reset --hard` — which the drive safety floor forbids outright.
+  **Context**: `publish-tree-commit.sh` already lands this way for the same reason. Any
+  future seam that needs to put a branch on the base should reach for the ref-push idiom
+  rather than reinventing a local merge; the retry story falls out of it for free, because
+  a rejection has changed nothing anywhere.
+
+- **Insight**: `land-unit.sh` is the inverse of `release-claim.sh` in teardown order, and
+  the inversion is load-bearing in both directions. Release tears the worktree down before
+  dropping the claim, so a refused teardown never advertises a free unit over unpushed
+  work; land pushes first, because a failed teardown after a successful land loses nothing
+  while an early teardown would destroy the branch still to be pushed.
+  **Context**: The two scripts look symmetrical enough that a future reader may try to
+  unify their order. They must not be unified — the asymmetry follows from which side of
+  the operation is irreversible.
+
+- **Insight**: The headless backstop is checked *before* the `--developer-present` flag and
+  cannot be overridden by it. The flag is an instruction, not evidence; only the
+  environment marker is something the caller did not choose in the moment.
+  **Context**: `authorize-routine-change.sh` reaches the same conclusion by a different
+  route (a digest that proves content, not presence). Neither script can prove a human was
+  in the room, and neither is sold as doing so — what they buy is that the unsafe path is
+  never reached by omission.
+
+- **Insight**: The scan emits its top-level `verdict` with a space after the colon and its
+  finding objects without one (`"severity":"hard"`). A consumer matching on the pretty form
+  silently never sees a hard finding.
+  **Context**: This bit once during implementation. Any new consumer of
+  `scan-branch-safety.sh` should match the compact form for per-finding fields.

@@ -1,7 +1,7 @@
 ---
 type: Routine Template
 id: propose
-name: "[Propose] {repo_name}"
+name: "[Propose Batch] {repo_name}"
 trigger: cron
 cron_expression: "*/15 * * * *"
 model: claude-opus-5
@@ -9,7 +9,10 @@ allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 mcp: [Slack]
 ---
 
-# [Propose] — the 15-minute proposal batch
+# [Propose Batch] — the 15-minute proposal batch
+
+Named `[Propose Batch]` because `[Propose]` is the event routine a reporter talks to
+(2026-08-04 ruling — the entrance keeps the verb, the sweeper says it is the batch).
 
 The second scheduled template. It runs `/propose` once in an isolated cloud session every
 15 minutes: read the feedback merged since the cursor plus the repository's own state, and
@@ -21,7 +24,7 @@ always something proposable" is a symptom of a broken judgment bar, not a produc
 
 Until this template existed the batch had no runner at all: the runbook prescribed a
 server crontab that was deliberately never installed, and the only place `/propose` ran was
-inside the `[FB]` routine's own session, where the record it had just written was still on
+inside the `[FB]` (since renamed `[Propose]`) routine's own session, where the record it had just written was still on
 an unmerged branch and therefore invisible to its own window by design.
 
 **The cadence is the knob.** 15 minutes is what the loop doctrine prescribes; if account

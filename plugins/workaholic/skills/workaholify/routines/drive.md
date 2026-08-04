@@ -11,7 +11,7 @@ mcp: [Slack]
 
 # [Drive] — the hourly unattended drive runner
 
-One of the two scheduled templates (the other is `[Propose]`, every 15 minutes). It runs
+One of the two scheduled templates (the other is `[Propose Batch]`, every 15 minutes). It runs
 `/drive` in an isolated cloud session every hour at :56 UTC. Still marked `(pilot)` in its
 name.
 

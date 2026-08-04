@@ -3,12 +3,13 @@ created_at: 2026-08-04T09:05:00+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure]
-effort:
+effort: 0.5h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 feedback: [20260802140323-throttle-repeat-drive-blocked-notifications-for-the-same-unresolved-condition.md]
+claim: work-20260804-113101
 ---
 
 # Throttle repeat drive-blocked alerts for the same unresolved condition
@@ -63,3 +64,44 @@ The template states signature, cool-down, fail-open, and the suppression-visibil
 - Reading the channel costs one Slack call per failing tick; a healthy tick pays nothing (the rule only runs on the failure path).
 - Thread-reply-instead-of-suppress is a nicer UX but doubles the rule's surface; the ticket requires only suppression, and a reply/reaction is left as an allowed option, not a requirement.
 - The signature must not include volatile detail (SHAs, timestamps) or every repeat would look "changed"; the precondition name + reason class is the right grain.
+
+## Final Report
+
+Implementation steps 1 and 2 are complete. **Step 3 — refreshing the live routines — was not
+done, and could not be**: it is an outward-facing change to a standing process, confirmed
+verbatim one routine at a time, and `/drive` issues no confirmation of any kind. The
+template change is the deliverable; the rollout is a separate `/workaholify` or
+`/setup-routines` act by a human. Recorded here and in the PR body so it is not mistaken
+for done.
+
+### Discovered Insights
+
+- **Insight**: The dedupe's own failure mode is the dangerous one. A throttle that cannot
+  read its evidence and stays quiet converts a notification defect into a monitoring
+  outage — strictly worse than the spam it replaces. The rule therefore fails **open**:
+  an unreadable channel history posts the alert.
+  **Context**: Stated in the template as "silence must never be produced by a failure of
+  the mechanism that decides to be silent", and asserted as its own test, because it is the
+  clause most likely to be dropped as an edge case by a later edit.
+
+- **Insight**: The signature's *stability* is what makes suppression work, and it is easy
+  to break by making the signature more informative. A SHA, a file count or a branch name
+  in the signature makes every repeat read as a change and nothing is ever suppressed —
+  the feature would look implemented and do nothing.
+  **Context**: The template forbids volatile detail by name rather than describing the
+  grain abstractly, and the test asserts that prohibition specifically.
+
+- **Insight**: The channel is the only state that survives a fresh-container tick, and the
+  routine already reads and writes it. That is what let this be a **read-before-post rule**
+  rather than a stored counter, which would have needed somewhere to live and would have
+  been the third thing that leaks when a runner dies.
+  **Context**: The same reasoning the claim protocol uses to keep liveness on the branch tip
+  rather than in a lock file.
+
+- **Insight**: Editing a routine template makes every live routine drift **by
+  construction** — `compare-routines.sh` will report the whole fleet as drifted on the next
+  survey. That is the intended signal, not a regression, but it means a template change and
+  its rollout are necessarily two acts, and only the first is something an unattended run
+  can perform.
+  **Context**: Recorded in `workaholify/SKILL.md` so a future template edit expects the
+  drift report rather than treating it as a defect.

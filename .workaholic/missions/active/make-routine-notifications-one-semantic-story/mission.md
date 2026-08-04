@@ -16,6 +16,7 @@ gate_type:
 gate_target:
 gate_assert:
 feedback: [20260804101847-make-workaholify-record-the-fb-to-merge-lifecycle-as-one-semantic-slack-thread.md, 20260804085719-make-the-web-routine-notify-slack-only-and-filter-what-it-posts.md, 20260804102558-balance-structure-and-prose-in-fb-issue-authoring.md, 20260804143009-the-drive-routine-s-handoff-section-still-says-resumption-is-impossible.md]
+claim: work-20260804-112542
 ---
 
 # Make routine notifications one semantic story

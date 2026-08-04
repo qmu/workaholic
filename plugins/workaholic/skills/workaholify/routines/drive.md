@@ -57,12 +57,13 @@ One sentence, max 25 words, what failed and what a human must do.
 
 **This applies to red failure alerts only.** The orange (start, §2), green (PR opened, §4), yellow (handoff, §5) and any purple (merge) posts announce **events this session itself produced**, which are new every time and can never be duplicates. Never dedupe those.
 
-## 1. Run /drive, but only take what is ours
+## 1. Drain the queue, one unit at a time
 
-Run `/drive`. It surveys, partitions, claims, drives, reports and routes on its own. Two constraints on top:
+Run `/drive`. It surveys, partitions, claims, drives, reports and routes on its own. Three constraints on top:
 
 - **A mission is ours only if its `assignees` include a@qmu.jp, or is empty (unowned/claimable).** The survey does NOT enforce this -- `plan-units.sh` offers EVERY approved mission regardless of owner -- so read the mission frontmatter yourself before claiming, skip any mission owned solely by someone else, and name the skip in the report.
-- **Claim at most 2 units this tick.** Prefer a mission over backlog tickets when both are available. This is a pilot; a bounded tick is easier to judge than a maximal one.
+- **There is no per-tick unit limit. Keep going until the survey offers nothing claimable, or the session ends.** A tick that stops early with work still queued has wasted the window; this runs once an hour, so the tick IS the throughput.
+- **But claim ONE unit at a time.** Claim it, drive it, report it, route it, and only then survey again and take the next. Never claim several units up front. The reason is the resume gap in §5: a claim this session cannot finish is a claim nobody can resume, so claiming N units up front orphans N-1 of them if the session ends early, while the sequential loop risks exactly one. Prefer a mission over backlog tickets whenever both are offered.
 
 ## 2. Announce the start, immediately after each claim
 

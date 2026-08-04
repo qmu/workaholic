@@ -56,3 +56,4 @@ template's stated model matches the shipped resumption behavior.
 - 2026-08-04 — ticket archived — 20260804201230-truth-up-the-drive-template-s-resumption-model.md
 - 2026-08-04 — ticket archived — 20260804201230-thread-the-fb-lifecycle-into-one-semantic-slack-story.md
 - 2026-08-04 — ticket archived — 20260804201230-make-slack-the-only-notification-surface-and-filter-it.md
+- 2026-08-04 — ticket archived — 20260804201230-balance-structure-and-prose-in-fb-issue-authoring.md

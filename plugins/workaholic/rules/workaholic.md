@@ -14,7 +14,8 @@ The `.workaholic/` directory has a fixed structure. Only these subdirectories ar
 | `guides/`        | User documentation (project-local docs area) |
 | `missions/`      | Long-lived goals spanning many tickets (`active/`, `archive/`) |
 | `policies/`      | Project-local policy documentation         |
-| `release-notes/` | Per-branch release notes                   |
+| `release-notes/` | Per-branch release notes — one per shipped unit branch, written pre-merge |
+| `releases/`      | Per-`release/*`-branch ship records — which base commits a release carried, when it was cut, when it was confirmed or failed. **Not** `release-notes/`: that is one note per shipped unit, this is one record per production release |
 | `specs/`         | Current state reference documentation      |
 | `stories/`       | Development narratives per branch          |
 | `terms/`         | Term definitions                           |
@@ -28,6 +29,8 @@ The `tickets/` queue is partitioned per developer: active tickets live under `ti
 The `missions/` tree mirrors that working-vs-archived split, keyed off the mission's single `status` axis: an **in-flight** mission (`active`) lives at `missions/active/<slug>/mission.md` and an **ended** one (`achieved`, `abandoned` or `carried`) at `missions/archive/<slug>/mission.md`. The mission skill's scripts own both the placement and the status — `close.sh` is the only flip left (to an end state) and performs the move, and living migrations relocate any legacy flat `missions/<slug>/` dir and fold the retired `status: draft`/`status: approved` spellings (plus the long-retired `drive_authorized` stamp) onto `active` on the next mission-script touch. Never `mv` a mission dir or hand-edit its `status:` field.
 
 Every mission write — creation, replan, approval, and close alike — is **published to `main`** through a publish tree (`workaholic:branching`'s *The Publish Tree*; decision J1). Creation makes **no worktree and no branch**: a worktree is claim-born and ship-torn, so `.worktrees/<slug>` exists only while a runner holds the mission as a PR-unit. A mission living on an unmerged branch is a mission `/drive` cannot survey, which is the failure this rule exists to prevent.
+
+The `releases/` tree is **written by the promotion pipeline, never by hand**: `ship/scripts/record-release-cut.sh` creates a record when a `release/*` branch is cut, and `ship/scripts/confirm-release.sh` appends each confirmation attempt to it. Records are **append-only in substance** — a failed confirmation is recorded, not erased, and the next attempt cuts a fresh release branch with its own record, because a release branch's identity is "the commits confirmed, or not, at that moment". Every field is derived from git at cut and confirm time (see decision L3), so the record answers "what did this deploy carry, and when" from the filesystem with `grep` and `git log` alone.
 
 Root-level files allowed at the `.workaholic/` root: `README.md`; `index.md` — the [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) bundle entry point, regenerated together with each area's `index.md` by `okf/scripts/refresh-index.sh` whenever a workflow commits knowledge documents; the release-scan config files `scan-allow` and `leak-denylist` that `release-scan/scripts/scan-branch-safety.sh` reads; and `proposal-cursor` — the proposal batch's runner-local processed-commit cursor (`propose/scripts/cursor.sh`, git-ignored, never committed).
 
@@ -60,6 +63,7 @@ modified_at: <ISO 8601 timestamp>
 | Directory       | Additional Fields                                      |
 | --------------- | ------------------------------------------------------ |
 | `feedbacks/`    | `title`, `kind`, `source`, optional `supersedes`       |
+| `releases/`     | `type: Release`, `release_branch`, `status` (`staging` / `confirmed` / `failed`), `base`, `cut_at`, `cut_sha`, `since_ref`, `since_reason`, `carried_count`; filled at confirmation: `confirmed_at`, `confirmation_method`, `confirmation_status`, `tag` |
 | `specs/`        | `title`, `description`, `category`, `commit_hash`      |
 | `stories/`      | `branch`, `started_at`, `ended_at`, metrics fields     |
 | `terms/`  | `title`, `description`, `category`                     |

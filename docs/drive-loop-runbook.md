@@ -87,6 +87,12 @@ installed CLI):
   the in-flight claim, and works on something else or exits with nothing to do.
 - Do not install the crontab from an agent session — applying a standing
   outward-facing process is the developer's act; this page is the instruction.
+  The rule generalized beyond cron on 2026-08-03: an agent may not bring a
+  standing outward-facing process into existence, or re-point one, without a
+  human seeing exactly what it will be. `/setup-routines` schedules Claude Code
+  Web routines under that same bar — it reads freely, and every create, refresh
+  or removal is confirmed verbatim, one routine at a time, in an interactive
+  session (`skills/workaholify/SKILL.md` §5).
 
 ## 4. What feeds the loop
 
@@ -144,6 +150,14 @@ says so (`backlog_error: identity_unresolved`; see *Failure modes*).
   a healthy idle loop prints `0 units: 0 shipped, 0 PR'd, 0 blocked` / `ok`.
 - **Worktrees** left in `.worktrees/` are in-flight or stale claims by definition —
   the same fact `list-claims.sh` reports, visible on the filesystem.
+- **`release/*` branches are not the loop's output and never appear because of a tick.**
+  The release tier (decisions L1-L3) is a *batch-level promotion* over `main`, cut and
+  confirmed deliberately by `workaholic:ship` §6 — `/drive` neither cuts nor confirms one.
+  An `auto` unit merging is unchanged by the tier: it lands on `main`, and a later
+  promotion decides when what has landed becomes a production release. If a `release/*`
+  branch appears, a promotion made it, not a tick. It is also invisible to the claim
+  reader, because the scan keys on a `Claim a PR-unit` subject / `Unit:` trailer and a
+  release branch carries no commits at all.
 
 ## 6. Failure modes
 

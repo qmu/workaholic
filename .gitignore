@@ -10,6 +10,19 @@
 # throwaway render of an answer, not a repository artifact.
 .explain/
 
+# Python bytecode for the skills' python helpers. It is a build artifact of the .py
+# beside it, regenerated on every run — and a committed copy silently goes stale the
+# moment its source is edited, which is exactly what had happened to the routine
+# comparer's cache before it was removed.
+__pycache__/
+
+# /setup-routines and /workaholify stage the raw RemoteTrigger response here before
+# reading it back. It is staged IN-REPO because guard-repo-confinement.sh refuses every
+# Write outside the repository; it is ignored because it is a snapshot of an account, and
+# a committed snapshot of live routines goes stale silently — the exact failure the
+# "could not check" reporting exists to avoid.
+.routines/
+
 # Developer-maintained leak denylist for release-scan (client names must never ship)
 .workaholic/leak-denylist
 

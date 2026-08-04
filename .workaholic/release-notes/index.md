@@ -85,5 +85,13 @@
 * [v1.0.112 — The ship path works from a claim worktree](work-20260730-193046.md)
 * [The proposal batch now reads the missions, the todo queue, and the commits since the cursor etc](work-20260801-012313.md)
 * [Non-ASCII concern titles get stable hash ids](work-20260803-210404.md)
+* [A release tier with durable ship records](work-20260803-212310.md)
+* [Acceptance ticking measures satisfaction, not marker shape](work-20260803-212324.md)
+* [A repository can say what runs against it](work-20260803-212331.md)
 * [The branch story is concise by default](work-20260803-212338.md)
+* [v1.0.124 — the coordination layer stops lying about itself](work-20260804-105730.md)
+* [A no-op commit and a read now leave your index alone](work-20260804-111346.md)
+* [`/request`'s backstop matches an identifier, not a substring](work-20260804-112404.md)
+* [The hourly drive routine stops repeating the same red alert](work-20260804-113101.md)
+* [Gate audit: no other gate reports on a shape instead of a failure](work-20260804-113856.md)
 <!-- okf:generated:end -->

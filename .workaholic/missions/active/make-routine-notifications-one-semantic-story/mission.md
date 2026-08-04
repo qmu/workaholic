@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.6
 tickets: []
 stories: []
 gate_type:
@@ -57,3 +57,4 @@ template's stated model matches the shipped resumption behavior.
 - 2026-08-04 — ticket archived — 20260804201230-thread-the-fb-lifecycle-into-one-semantic-slack-story.md
 - 2026-08-04 — ticket archived — 20260804201230-make-slack-the-only-notification-surface-and-filter-it.md
 - 2026-08-04 — ticket archived — 20260804201230-balance-structure-and-prose-in-fb-issue-authoring.md
+- 2026-08-04 — run recorded (+0.6h) — drive-20260804-112542

@@ -9,6 +9,8 @@ Guidelines for generating the branch story's review content from archived ticket
 
 **Omit, never pad.** The rule is stated once, in `workaholic:report`'s *Omit, never pad*: a section with nothing to report is **absent** from the story, not rendered as "None". Two of the fields below are empty far more often than not, and returning an empty string is the correct, expected answer — the report workflow then writes no section at all. Never invent content to fill a heading, and never refer to a section by number: numbers are assigned sequentially over whichever sections survive.
 
+**Budget, then omit.** Omitting alone was measured not to work: the sections this skill writes grew 25-115% in length while the number of items in them held steady, because their only limits were "one paragraph" and "bullet points" — phrases with no number in them. Each section below now states a **line budget** (blank lines and heading included), and the budgets are `workaholic:report`'s single source — *Every section has a line budget* carries the table and the reason. A section over budget is **cut**, never justified with an extra sentence.
+
 ## Input
 
 - Branch name
@@ -42,7 +44,7 @@ paragraph itself, with no heading.
   Do not write "No significant historical patterns identified."; that sentence is the
   padding this field exists to stop.
 
-### Outcome
+### Outcome — 5 lines
 
 Summarize what was accomplished across all tickets.
 
@@ -50,6 +52,9 @@ Summarize what was accomplished across all tickets.
 - Focus on user-visible or architecturally significant changes
 - Use bullet points for clarity
 - Include metrics if available (files changed, tests added, etc.)
+- **Five lines.** This section says what the branch achieved; the Changes section already
+  said what each ticket did, so anything here that re-narrates a ticket is a duplicate to
+  delete rather than a line to spend
 
 ### Concerns
 
@@ -73,7 +78,7 @@ For new concerns:
 - **Severity** is a label, not a number: `urgent` (act now), `moderate` (should fix), `low` (nice-to-have). Choose based on impact and urgency; default `moderate`.
 - Frame the risk and the constructive suggestion together (risk in Description, suggestion in How to Fix) — they are two angles on the same insight.
 - Put the commit_hash from ticket frontmatter (if present) and the file path inside the Description.
-- Keep Description and How to Fix to one paragraph each.
+- **Seven lines per block**, heading and severity included — about two lines of Description and two of How to Fix. The previous wording was "one paragraph each", and blocks drifted to 11 lines while the number of concerns per story did not move at all: the growth was words per concern, not concerns. Trim the words; never drop a concern to hit the budget.
 - **Grade honestly in both directions.** Severity rides on the extracted record *and*
   decides whether the reviewer sees the block: the story file keeps every severity, and
   the PR body drops the `low` ones (`workaholic:report`, Concerns section). A deflated
@@ -82,12 +87,18 @@ For new concerns:
 If both sources are empty, return `""` — the report workflow then writes no Concerns
 section. Never write "None".
 
-### Successful Development Patterns
+### Successful Development Patterns — 6 lines, one per pattern
 
 Capture effective patterns discovered during this branch's development. **This is the
 section most easily padded**, because a plausible-sounding pattern can be written about
 any branch — so the bar is deliberately high, and the expected answer on most branches is
 an empty string.
+
+The high bar was already written here and it did not hold: the section appeared in **every
+single** story measured on both sides of the change, and doubled in length. Treat both
+limits as real — the empty string is the normal answer, and when a pattern is genuinely
+found it is **one line**, because a pattern that needs a paragraph to state is an insight
+for the ticket's Final Report, not a reusable practice.
 
 - Extract positive observations from ticket Considerations sections
 - Extract "what went well" insights from Final Report sections and the `Insights:` keys of the collected commit bodies

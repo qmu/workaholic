@@ -46,6 +46,21 @@ supersedes:               # OPTIONAL: filename of an earlier feedback this entry
 - **`source`** is the channel it arrived through: `meeting` (a meeting/transcript), `slack` (chat), `discussion` (a working session with the AI, or any other origin), `development` (born from development work itself — the source every `kind: concern` record extracted at ship time carries).
 - **`supersedes`** is the immutable alternative to a status flip: to record that an earlier feedback is resolved, obsolete, or overtaken, write a **new** entry naming the old one here. Consumers treat a superseded entry as historical context, not current signal.
 
+### Choosing the kind: does the reporter ask for something to be done?
+
+**If yes, it is `kind: instruction`.** That one question decides the case that actually gets decided wrongly, and it is decided **at capture**, where the person and their context are present — never re-guessed downstream by a reader who has only the file.
+
+- **instruction** — an ask. "Fix this", "make it do X", "stop doing Y", and every report that names a defect *and* what should happen about it. A "How to Fix" section is an ask wearing a description.
+- **concern** — a worry with **no ask attached**: something that might bite later, recorded so a future reader can weigh it. If you can point at the sentence requesting work, it was never this.
+- **insight** — an observation or a conclusion worth keeping. It changes what someone believes, not what someone does next.
+- **material** / **answer** — inputs that arrived (files, a customer's reply). Neither asks for anything.
+
+**Why the entry, and not the reader, decides this.** `/propose` deliberately treats `instruction` (and a substantial `insight` naming concrete work) as able to originate a proposal, while a lone `concern` never can — concerns feed replans and planning sessions. That asymmetry is what keeps a 15-minute batch from proposing on every worry anyone ever recorded, so it must not be loosened; a misfiled ask is a *capture* defect and is fixed here. **Measured miss**: `20260804143009-the-drive-routine-s-handoff-section-still-says-resumption-is-impossible.md` — a plain "rewrite this stale section, then refresh the live routine" request, complete with a `## How to Fix`, recorded as `kind: concern`. A correctly running batch judged it to silence, exactly as designed.
+
+**A record already misfiled stays misfiled** — feedback is immutable. The sanctioned correction is a **new record with the right `kind`, naming the old one in `supersedes`** (which also removes the old one from the open-concern set, since that set is computed from `supersedes`).
+
+**This rule is about a person reporting something.** The ship-time extractor writes `kind: concern` for every block of a branch story's Concerns section, and those stay concerns whatever they contain: they are leftovers the loop noticed about its own work, not asks a reporter made. Do not reclassify that lane.
+
 Body: free prose in the contributor's own words — the excerpt, the instruction, the conclusion. A leading `# <title>` and nothing else is mandated. Record what was said or learned faithfully; do not editorialize.
 
 **Keep it to about one paragraph: the contributor's own words plus the measurement that provoked them** (2026-08-01, the same size discipline as `workaholic:mission`'s *Size norms*). A record is an *inbound* fact, not an analysis of it — the analysis belongs to whoever reads the stream later, and a long record buries the sentence that actually carries the direction. This is a norm rather than a gate: `validate-feedback.sh` checks the schema floor (filename, `type`, `kind`/`source` enums) and deliberately does not measure prose, because length is a judgment the writer is present to make. A record that genuinely needs more — a verbatim customer excerpt, a table of measurements — is not a violation; padding is.

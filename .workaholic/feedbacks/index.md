@@ -376,6 +376,7 @@
 * [Make the web routine notify Slack only and filter what it posts](20260804085719-make-the-web-routine-notify-slack-only-and-filter-what-it-posts.md)
 * [Make /workaholify record the FB-to-merge lifecycle as one semantic Slack thread](20260804101847-make-workaholify-record-the-fb-to-merge-lifecycle-as-one-semantic-slack-thread.md)
 * [Balance structure and prose in FB issue authoring](20260804102558-balance-structure-and-prose-in-fb-issue-authoring.md)
+* [/propose has no runner so feedback never becomes planned work](20260804103727-propose-has-no-runner-so-feedback-never-becomes-planned-work.md)
 * [A `git add -A` caller still sweeps the migration's unstaged work](20260804123427-a-git-add-a-caller-still.md)
 * [The heartbeat's guarantee is asserted in one place and relied on in two](20260804123427-the-heartbeat-s-guarantee-is-asserted.md)
 * [The adjacency rule encodes a judgement the ticket did not specify](20260804123729-the-adjacency-rule-encodes-a-judgement.md)
@@ -395,4 +396,8 @@
 * [`.workaholic/` prose is exempted by path, not by nature](20260804125252-workaholic-prose-is-exempted-by-path.md)
 * [The drive routine's handoff section still says resumption is impossible](20260804143009-the-drive-routine-s-handoff-section-still-says-resumption-is-impossible.md)
 * [A mission is created with two or more tickets, or it is not a mission](20260804173526-a-mission-is-created-with-two-or-more-tickets-or-it-is-not-a-mission.md)
+* [Both sub-floor missions are resolved: one replanned, one pre-rule history](20260804203613-both-sub-floor-missions-are-resolved-one-replanned-one-pre-rule-history.md)
+* [Resolved: A ticket-count floor at emission has nothing to count](20260804204740-resolved-20260730111101-a-ticket-count-floor-at-emission-has-nothing-to-count.md)
+* [Resolved: The proposal cursor is runner-local, so an ephemeral runner cold-starts every tick and proposes nothing](20260804210258-resolved-20260730101911-the-proposal-cursor-is-runner-local-so-an-ephemeral-runner-cold-starts-every-tick-and-proposes-nothing.md)
+* [Resolved: The proposal cursor cannot survive an ephemeral runner](20260804210258-resolved-20260730110659-the-proposal-cursor-cannot-survive-an-ephemeral-runner.md)
 <!-- okf:generated:end -->

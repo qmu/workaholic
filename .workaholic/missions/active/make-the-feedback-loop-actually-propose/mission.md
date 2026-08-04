@@ -9,13 +9,14 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.75
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
 feedback: [20260730101911-the-proposal-cursor-is-runner-local-so-an-ephemeral-runner-cold-starts-every-tick-and-proposes-nothing.md, 20260730110659-the-proposal-cursor-cannot-survive-an-ephemeral-runner.md, 20260730111041-propose-should-pick-ticket-vs-mission-by-cardinality.md]
+claim: work-20260804-202110
 ---
 
 # Make the feedback loop actually propose
@@ -44,11 +45,17 @@ see the queue".
 
 ## Acceptance
 
-- [ ] A stateless runner can propose: the cursor is read from and advanced on a shared pushed ref, with the bootstrap-and-stop cold start gone (#20260804200555-move-the-proposal-cursor-to-a-shared-pushed-ref.md)
-- [ ] The batch has a scheduled seat: a propose routine template ships, the runbook describes it, and the [FB] template no longer claims to run /propose in-session (#20260804200555-give-the-proposal-batch-a-routine-seat-and-retire-the-cron-premise.md)
-- [ ] An atomic direction becomes a loose backlog ticket behind a PR instead of silence, and a Slack work request reaches the bar as kind: instruction (#20260804200555-emit-a-loose-ticket-when-a-direction-is-atomic.md)
+- [x] A stateless runner can propose: the cursor is read from and advanced on a shared pushed ref, with the bootstrap-and-stop cold start gone (#20260804200555-move-the-proposal-cursor-to-a-shared-pushed-ref.md)
+- [x] The batch has a scheduled seat: a propose routine template ships, the runbook describes it, and the [FB] template no longer claims to run /propose in-session (#20260804200555-give-the-proposal-batch-a-routine-seat-and-retire-the-cron-premise.md)
+- [x] An atomic direction becomes a loose backlog ticket behind a PR instead of silence, and a Slack work request reaches the bar as kind: instruction (#20260804200555-emit-a-loose-ticket-when-a-direction-is-atomic.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline relating this mission's tickets and reports over time.
      One line per event ("- YYYY-MM-DD — event — filename"); never rewrite past lines. -->
+- 2026-08-04 — ticket archived — 20260804200555-move-the-proposal-cursor-to-a-shared-pushed-ref.md
+- 2026-08-04 — ticket archived — 20260804200555-give-the-proposal-batch-a-routine-seat-and-retire-the-cron-premise.md
+- 2026-08-04 — ticket archived — 20260804200555-record-work-requests-as-instructions-at-the-fb-capture-seam.md
+- 2026-08-04 — ticket archived — 20260804200555-emit-a-loose-ticket-when-a-direction-is-atomic.md
+- 2026-08-04 — story reported — work-20260804-202110.md
+- 2026-08-04 — run recorded (+0.75h) — 20260804-202110

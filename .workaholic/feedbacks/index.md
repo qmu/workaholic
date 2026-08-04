@@ -352,6 +352,7 @@
 * [A mission slug is still unbounded, and other consumers may have their own limits](20260801210418-a-mission-slug-is-still-unbounded.md)
 * [The legacy subject branch has no expiry](20260801210418-the-legacy-subject-branch-has-no.md)
 * [Throttle repeat drive-blocked notifications for the same unresolved condition](20260802140323-throttle-repeat-drive-blocked-notifications-for-the-same-unresolved-condition.md)
+* [Make `/workaholify` a per-developer setup with event-scoped routines and no fixed channel convention](20260803125843-make-workaholify-a-per-developer-setup-with-event-scoped-routines-and-no-fixed-channel-convention.md)
 * [Restructure /workaholify's FB issue template into Motivation/Proposal/Notes sections with mission-ticket breakdown and a "Propose..." title prefix](20260803131441-restructure-workaholifys-fb-issue-template-into-motivation-proposal-notes-sections-with-mission-ticket-breakdown-and-a-propose-title-prefix.md)
 * [Adopt a release-branch staging tier: release/* only](20260803212851-adopt-a-release-branch-staging-tier-release-only.md)
 * [Low-severity concerns are filtered at render, kept at extract](20260803212853-low-severity-concerns-are-filtered-at-render-kept-at-extract.md)

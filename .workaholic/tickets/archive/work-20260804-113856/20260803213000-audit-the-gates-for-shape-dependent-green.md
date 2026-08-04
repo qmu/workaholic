@@ -3,9 +3,9 @@ created_at: 2026-08-03T21:30:00+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on: [20260801185303-make-the-ticker-measure-satisfaction.md]
 mission: make-acceptance-ticking-measure-satisfaction-not-marker-shape
 merge_policy:
@@ -90,3 +90,56 @@ Decided: split out from the mission's fix rather than completed alongside it, be
 ## Considerations
 
 - The audit's own output is a judgment, so it has no machine gate of its own. That is expected — the recorded evidence is what makes it reviewable.
+
+## Final Report
+
+Development completed as planned. The audit is `docs/gate-audit-shape-dependent-green.md`.
+**Nothing was fixed**, because nothing in the list was measured to be misreporting a real
+quality condition today — which is the bar this ticket set for a change. Two findings are
+recorded and carried into the branch story's Concerns, which is the sanctioned route into
+the feedback stream (`extract-deferred-concerns.sh` at ship time) rather than a second
+artifact written by hand.
+
+### Discovered Insights
+
+- **Insight**: Not one gate in the list reproduces the acceptance-marker failure mode.
+  What made `tick-acceptance.sh` a defect was not that its green depended on a shape — most
+  of these do — but that the shape made a real quality condition **unreachable**, with no
+  sanctioned path to satisfy it. Every gate audited here leaves the condition reachable.
+  **Context**: That distinction is the audit's most transferable result. "Depends on a
+  shape" is too wide a net; "the shape makes green unreachable" is the actual defect, and it
+  is what a future audit should look for.
+
+- **Insight**: `validate-ticket.sh` would refuse **434 of 635** tickets in the tree for a
+  missing `## Policies` section, and refuses **0**, because it is scoped to `todo/<user>/`.
+  A gate with that ratio between "would fail" and "is ever asked" is safe only because the
+  scope is deliberate — and it is. The scoping *is* the correctness property, not an
+  optimization.
+  **Context**: Worth knowing before anyone proposes widening a hook's scope "for
+  consistency": 68% of the ticket corpus would become unwritable.
+
+- **Insight**: `size.sh` is satisfied by **0 of 10** missions ever written — the smallest is
+  2646 bytes against a 2048 ceiling, and four missions were closed as *achieved* while
+  outside the norm. The numbers are true and nothing is refused, so this is neither a
+  misreport nor a block; it is a pass/fail signal with no discriminating power, which a
+  reader learns to ignore exactly as they learn to ignore an alert that fires every hour.
+  **Context**: The same failure shape as the drive-routine alert spam fixed on the same day,
+  in a different subsystem — a threshold and an alert both stop carrying information when
+  they never vary.
+
+- **Insight**: **56 of 102** stories carry no `type:`, so the OKF conformance the
+  documentation claims for the live `.workaholic/` tree is false for 55% of that area — and
+  nothing measures it, because `verify.mjs`'s conformance pass covers `outputs/okf/`, not
+  `.workaholic/`. The hook is honest (it grandfathers history by git-tracked-ness, correctly);
+  the *claim* is what has drifted.
+  **Context**: A green gate reading as a conformant corpus is the same misreading the
+  acceptance defect produced, arrived at from the opposite direction — there the gate was
+  wrong and the docs right, here the gate is right and the docs wrong.
+
+- **Insight**: The `resume-*` lint keys on a filename prefix while the condition it guards
+  (a completed step inside `## Implementation Steps`, which `/drive` would re-run) has
+  nothing to do with the filename. It is the clearest shape dependence in the set — and it
+  has **0** measured misjudgments and **0** measured catches: no ticket in the tree, under
+  that name or any other, carries the condition.
+  **Context**: Left alone deliberately. Widening the key would add enforcement with no
+  measured demand, which is how a gate layer grows without anyone deciding to grow it.

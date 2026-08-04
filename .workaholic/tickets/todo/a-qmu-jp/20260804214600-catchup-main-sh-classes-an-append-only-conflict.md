@@ -9,6 +9,7 @@ category: Changed
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260804-185735
 ---
 
 # catchup-main.sh classes an append-only .workaholic/ conflict as content, halting a ship it could reconcile

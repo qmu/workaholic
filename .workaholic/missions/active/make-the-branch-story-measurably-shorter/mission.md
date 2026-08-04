@@ -9,13 +9,14 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.5
 tickets: []
 stories: []
 gate_type: 
 gate_target: 
 gate_assert: 
 carried_from: make-the-branch-story-concise-by-default
+claim: work-20260804-202056
 ---
 
 # Make the branch story measurably shorter
@@ -48,10 +49,14 @@ the same assumption.
 
 ## Acceptance
 
-- [ ] The sections that carry the growth are measured and named, against the same before/after story sets
-- [ ] A story written after the change is shorter than the same branch's story
+- [x] The sections that carry the growth are measured and named, against the same before/after story sets (#20260804201653-measure-which-story-sections-carry-the-growth.md)
+- [x] A story written after the change is shorter than the same branch's story (#20260804201653-fix-the-measured-cause-and-verify-a-shorter-story.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline relating this mission's tickets and reports over time.
      One line per event ("- YYYY-MM-DD — event — filename"); never rewrite past lines. -->
+- 2026-08-04 — ticket archived — 20260804201653-measure-which-story-sections-carry-the-growth.md
+- 2026-08-04 — ticket archived — 20260804201653-fix-the-measured-cause-and-verify-a-shorter-story.md
+- 2026-08-04 — story reported — work-20260804-202056.md
+- 2026-08-04 — run recorded (+0.5h) — 20260804-202056

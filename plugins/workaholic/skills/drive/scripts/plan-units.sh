@@ -55,7 +55,8 @@
 # NOTHING IS EXCLUDED SILENTLY. Every mission and ticket the survey drops is reported
 # in `excluded` with its reason (`claimed_active`, `claimed_reported`,
 # `claimed_by_other`, `claimed_resumable`, `owned_by_other`, `no_plan`, `no_tickets`,
-# `mission_member`; `not_approved` was retired with the draft gate -- K1), because a
+# `queue_drained`, `mission_member`; `not_approved` was retired with the draft gate --
+# K1), because a
 # queue item that vanishes from an unattended run's offer with no trace is
 # indistinguishable from one that was never there (`workaholic:implementation` /
 # observability).
@@ -76,9 +77,10 @@
 # at its pushed branch tip. A resumable unit left untaken is claimable work outstanding
 # and therefore forbids `ok` (drive/SKILL.md §7), exactly as an unclaimed ticket does.
 #
-# `no_plan` and `no_tickets` are DELIBERATELY DISTINCT, because they call for
-# different developer actions: `no_plan` means write the acceptance criteria,
-# `no_tickets` means emit the ticket set (`/mission <instruction>` replans it). The
+# `no_plan`, `no_tickets` and `queue_drained` are DELIBERATELY DISTINCT, because each
+# calls for a different developer action: `no_plan` means write the acceptance criteria,
+# `no_tickets` means emit the ticket set (`/mission <instruction>` replans it), and
+# `queue_drained` means every ticket was driven -- decide the close. The
 # reason vocabulary is read straight out of cron logs, so collapsing them would make
 # the log less actionable.
 #
@@ -315,11 +317,33 @@ if [ -d ".workaholic/missions/active" ]; then
         # Nothing left to drive: the acceptance list may be full, but no ticket in
         # todo/ names this mission, so a claim would create a branch and a worktree
         # for an empty queue.
+        #
+        # AN EMPTY QUEUE IS TWO OPPOSITE STATES, AND ONE REASON WORD CANNOT CARRY BOTH.
+        # `no_tickets` meant "the ticket set was never emitted -- replan it". A mission
+        # whose every ticket was DRIVEN AND ARCHIVED lands in the same branch, and the
+        # operator reading a cron log cannot tell "needs a plan" from "needs a close".
+        # Measured on `main` 2026-08-04: four active missions, 15 archived tickets and
+        # 4.66 recorded agent-hours between them, every one reported `no_tickets` -- for
+        # four days, across every hourly tick. The archive is what distinguishes them,
+        # and `queue-size.sh` already reports it, so this is a verdict on counts already
+        # in hand rather than a second lookup (the ticket preferred extending that script
+        # over adding a reader; it turned out to need no extension at all).
+        #
+        # NEITHER IS CLAIMABLE -- only the reported reason differs. A drained mission has
+        # nothing to drive, and the close is a HUMAN judgment (`achieved` / `carried` /
+        # `abandoned`): of the four closed on 2026-08-04, one turned out not to be
+        # achieved at all, so an automated close would have recorded it wrongly.
         qs=$(sh "${MISSION_SCRIPTS}/queue-size.sh" "$slug" 2>/dev/null || true)
         queued=$(printf '%s' "$qs" | sed -n 's/.*"todo": *\([0-9][0-9]*\).*/\1/p')
         [ -n "$queued" ] || queued=0
+        archived=$(printf '%s' "$qs" | sed -n 's/.*"archive": *\([0-9][0-9]*\).*/\1/p')
+        [ -n "$archived" ] || archived=0
         if [ "$queued" -eq 0 ]; then
-            exclude mission "$slug" "no_tickets"
+            if [ "$archived" -gt 0 ]; then
+                exclude mission "$slug" "queue_drained"
+            else
+                exclude mission "$slug" "no_tickets"
+            fi
             continue
         fi
         title=$(json_escape "$(fm_field "$f" title)")

@@ -70,3 +70,28 @@ Output:
 ```
 
 Field: `project` (repo-root basename, ≤12 chars for the header chip). Deliberately network-free — unlike `git-context.sh` it makes no `git remote` call, because it is invoked at prompt time on every question.
+
+## Story Sections
+
+Measures where a branch story's lines actually are, section by section, over any set of story files. It exists because the story template has been edited on assumption: four structural edits landed to make stories shorter and the mean grew instead, and nobody could say which section had absorbed the difference.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/story-sections.sh [--table] <story-file>...
+```
+
+Output (JSON by default; `--table` renders the same numbers aligned for a report):
+
+```json
+{
+  "files": 9,
+  "total_lines": 1140,
+  "mean_lines": 126.7,
+  "sections": [
+    { "name": "Changes", "files": 9, "total": 281, "mean": 31.2, "blocks": 9 }
+  ]
+}
+```
+
+`mean` is per **story measured**, not per story carrying the section, so a section present in half the set contributes half as much — the question is what a story costs on average. `blocks` counts the `###` subsections beneath a section, which is what separates "long because it has many blocks" from "its blocks are verbose": Concerns held its block count across the two sets above while its lines per block rose 61%. Ordinals are stripped from heading names (`## 5. Concerns` and `## 6. Concerns` aggregate), frontmatter is excluded, and a `##` line inside a fence is body text rather than a heading.
+
+**Control for workload before reading a delta.** Story length tracks how many tickets the branch drove, so compare sets holding that constant — the cleanest control is to restrict both sets to single-ticket stories. Dividing a whole set's lines by its ticket count is the wrong normalization: multi-ticket stories amortize the per-story overhead, so a heavier set looks *shorter* per ticket while every individual story got longer.

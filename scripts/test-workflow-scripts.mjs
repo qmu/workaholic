@@ -113,6 +113,7 @@ const SCRIPTS = {
   proposeNotifySlack: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/notify-slack.sh"),
   feedbackList: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/list.sh"),
   missionQueueSize: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/queue-size.sh"),
+  missionCheckFloor: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/check-floor.sh"),
   syncMain: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/sync-main.sh"),
   openPublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/open-publish-tree.sh"),
   publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
@@ -1154,6 +1155,81 @@ function testDriveAuthorized() {
 // saw this. A test asserting only `authorized: true` from inside the worktree would pass
 // while the bug is live -- so the main-tree and unrelated-dir cwds, and the same-slug
 // row, are the ones with teeth.
+// ---------- resolve.sh: the status fold is a WHITELIST, and only ever folds forward ----------
+//
+// The 2026-08-04 outage: a plugin install thirteen versions behind ran its PRE-K1 status
+// migration against a K1-era repository. That build's rule was directional the other way
+// (`active` -> `draft`) and written as "normalize whatever I find", so it rewrote every
+// active mission on every prompt AND `git add`ed the result -- leaving a dirty tree that
+// made /drive's own sync-main.sh terminate `dirty_workspace` before it could survey. Two
+// days of hourly ticks fired on time and did nothing.
+//
+// The durable guard is that the fold names the dead words explicitly and `continue`s on
+// everything else, so a status word the running build does not recognise -- which is
+// exactly what a NEWER repository's vocabulary looks like to an OLDER build -- is left
+// alone. These rows pin that shape: the forward fold still works, an unknown/newer word
+// is untouched BYTE-FOR-BYTE, and nothing is staged for it.
+function testMissionStatusMigrationIsWhitelistOnly() {
+  const RESOLVE = join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/lib/resolve.sh");
+  const migrateStatus = (cwd, root) =>
+    run(cwd, `${POSIX_SH} -c '. "$0"; missions_migrate_status "$1"' ${RESOLVE} ${root}`);
+  const missionMd = (slug, status) =>
+    `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: ${status}\nassignee: a@qmu.jp\n---\n\n## Experience\n\nx\n\n## Acceptance\n\n- [ ] One (#t.md)\n\n## Changelog\n`;
+
+  const dir = makeRepo("main");
+  try {
+    execSync(`git config user.email a@qmu.jp`, { cwd: dir });
+    const at = (slug) => join(dir, `.workaholic/missions/active/${slug}/mission.md`);
+    const seed = (slug, status) => {
+      mkdirSync(join(dir, `.workaholic/missions/active/${slug}`), { recursive: true });
+      writeFileSync(at(slug), missionMd(slug, status));
+    };
+    // Two retired words (must fold), the live word, and a word from a hypothetical
+    // FUTURE vocabulary this build has never heard of (must not be touched).
+    seed("m-draft", "draft");
+    seed("m-approved", "approved");
+    seed("m-active", "active");
+    seed("m-future", "chartered");
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+
+    const before = Object.fromEntries(
+      ["m-active", "m-future"].map((s) => [s, readFileSync(at(s), "utf8")]));
+
+    assertEq("missions_migrate_status exits 0", migrateStatus(dir, join(dir, ".workaholic")).status, 0);
+
+    const statusOf = (slug) => (readFileSync(at(slug), "utf8").match(/^status:\s*(\S+)/m) || [])[1];
+    assertEq("the retired word `draft` folds forward to active", statusOf("m-draft"), "active");
+    assertEq("the retired word `approved` folds forward to active", statusOf("m-approved"), "active");
+
+    // THE ROW WITH TEETH. An unrecognised (newer) status word is not rewritten, and the
+    // file is byte-identical -- not merely "still says chartered", since a fold that
+    // rewrote the file while preserving the word would still dirty the tree.
+    assertEq("an UNKNOWN/newer status word is left byte-identical — the fold never runs backwards",
+      readFileSync(at("m-future"), "utf8"), before["m-future"]);
+    assertEq("the live word `active` is left byte-identical (idempotence)",
+      readFileSync(at("m-active"), "utf8"), before["m-active"]);
+
+    // And nothing was STAGED for the untouched pair. The staging is the half that turned
+    // a cosmetic rewrite into a loop-stopping dirty tree, so it is asserted separately.
+    const staged = execSync(`git diff --cached --name-only`, { cwd: dir, encoding: "utf8" });
+    assertTrue("no unknown-status mission is staged", !staged.includes("m-future") && !staged.includes("m-active"), staged);
+
+    // Idempotent: a second pass over the now-folded tree changes nothing at all.
+    execSync(`git add -A && git commit -q -m folded`, { cwd: dir });
+    migrateStatus(dir, join(dir, ".workaholic"));
+    assertEq("status migration re-run is a no-op on a folded tree",
+      execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim(), "");
+
+    // The guard is structural: the fold must keep naming its words. A catch-all match
+    // would reintroduce the outage, so pin the whitelist shape in the source itself.
+    const src = readFileSync(RESOLVE, "utf8");
+    assertTrue("the status fold still matches an explicit word list, not a catch-all",
+      /draft \| approved\)/.test(src), "the retired-word whitelist is gone from resolve.sh");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 function testMissionResolutionFollowsTicket() {
   const RESOLVE = join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/lib/resolve.sh");
   // Invoke the resolver library directly ($0 is the lib, $1 the root, $2 the slug), so the
@@ -2330,8 +2406,10 @@ function testMissionWorktreeShipReset() {
 // `abandoned` is false too. `carried` says the mission is done AS FRAMED and its remainder
 // becomes a successor that inherits what was not finished.
 //
-// The load-bearing assertion is the progress one: the successor must start at 0/<n unmet>,
-// falling out of its OWN list. Carrying a number across is exactly what the model forbids.
+// This function covers the ARGUMENT contract: which carries are refused, and that a refusal
+// leaves the tree exactly as it found it. What the surviving route actually moves is
+// testMissionCloseCarriedIntoExisting below -- since the ticket floor refused
+// `--successor-title`, `--successor <slug>` is the only route there is.
 function testMissionCloseCarried() {
   const PRED = `---
 type: Mission
@@ -2376,59 +2454,37 @@ In: the dashboard. Out: the API.
     execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
   };
 
+  // THE TICKET FLOOR REFUSES `--successor-title` (mission/SKILL.md, *Granularity -> The
+  // ticket floor*). It used to MINT a successor from the predecessor's unmet items,
+  // which produced a mission with zero tickets every single time -- and that is exactly
+  // how a ticketless mission reached `main` on 2026-08-04. The route is deleted, not
+  // gated, so these assertions are about a refusal that CHANGES NOTHING: a half-close
+  // (predecessor archived, successor absent) would be worse than either outcome.
   const dir = makeRepo("main");
   try {
     seed(dir);
-    const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} predecessor carried --successor-title "Successor mission" 2026-07-16`).stdout);
-    assertEq("carried closes the predecessor and names the successor",
-      { closed: r.closed, status: r.status, successor: r.successor }, { closed: true, status: "carried", successor: "successor-mission" });
+    const r = run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} predecessor carried --successor-title "Successor mission" 2026-07-16`);
+    assertTrue("minting a successor from a title is refused by the ticket floor",
+      r.stderr.includes("carried_successor_must_exist"), r.stderr);
+    // A refusal that states only the rule leaves the author retrying the same thing.
+    // The alternative is the actionable half: create the successor through the ordinary
+    // mission path (whose interrogation emits the ticket set), then carry into it.
+    assertTrue("the refusal names the alternative, not only the rule",
+      /--successor <slug>/.test(r.stderr) && /interrogation/.test(r.stderr), r.stderr);
 
-    // Predecessor: archived, status carried, and its OWN history says where the
-    // remainder went (design/history-structures -- half of the two-way lineage).
-    const pred = readFileSync(join(dir, ".workaholic/missions/archive/predecessor/mission.md"), "utf8");
-    assertTrue("predecessor is archived with status: carried", /^status:\s*carried\s*$/m.test(pred), pred);
-    assertTrue("predecessor's changelog names the successor",
-      /^- 2026-07-16 — mission carried into successor-mission — mission\.md$/m.test(pred), pred);
-    // Checked items were achieved THERE and stay there.
-    const pprog = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} .workaholic/missions/archive/predecessor/mission.md`).stdout);
-    assertEq("predecessor keeps its full acceptance list", pprog, { checked: 2, total: 4, unlinked: 0 });
-
-    const succPath = ".workaholic/missions/active/successor-mission/mission.md";
-    const succ = readFileSync(join(dir, succPath), "utf8");
-
-    // Exactly the unchecked items, markers intact -- and NONE of the checked ones.
-    assertTrue("successor carries unmet item one verbatim, marker intact",
-      /^- \[ \] Unmet criterion one \(#20260101120001-todo\.md\)$/m.test(succ), succ);
-    assertTrue("successor carries unmet item two verbatim, marker intact",
-      /^- \[ \] Unmet criterion two \(#20260101120002-todo\.md\)$/m.test(succ), succ);
-    assertTrue("successor does NOT inherit a checked item", !succ.includes("Landed criterion"), succ);
-    assertTrue("successor does NOT inherit the other checked item", !succ.includes("Another landed one"), succ);
-
-    // THE assertion: progress falls out of the successor's own list.
-    const sprog = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${succPath}`).stdout);
-    assertEq("successor's computed progress is 0/<n unmet>, not the predecessor's count", sprog, { checked: 0, total: 2, unlinked: 0 });
-
-    // Lineage the other way, so the archive does not show two unrelated missions.
-    assertTrue("successor records carried_from", /^carried_from:\s*predecessor\s*$/m.test(succ), succ);
-    // A carry is a continuation: the goal and the gate come along.
-    assertTrue("successor inherits the Goal verbatim", succ.includes("The original information-rich why."), succ);
-    // ## Scope does NOT come along. The successor is scaffolded from a template that no
-    // longer has the heading, so there is nowhere for a carry to land -- and copying it
-    // would re-introduce a retired section into a NEW mission, which is the opposite of
-    // what dropping it was for. The predecessor keeps its own section as history.
-    assertTrue("successor does NOT inherit a legacy ## Scope",
-      !succ.includes("In: the dashboard. Out: the API."), succ);
-    assertTrue("and carries no ## Scope heading at all", !/^## Scope$/m.test(succ), succ);
-    assertTrue("successor inherits gate_type", /^gate_type:\s*live-app\s*$/m.test(succ), succ);
-    assertTrue("successor inherits gate_target", /^gate_target:\s*\/dashboard\s*$/m.test(succ), succ);
-    assertTrue("successor inherits gate_assert", /^gate_assert:\s*the chart renders\s*$/m.test(succ), succ);
-    // A minted successor is born in flight like every other mission (K1): it is
-    // fleshed out by a replan, whose pull request is where it is judged.
-    assertTrue("successor is in flight", /^status:\s*active\s*$/m.test(succ), succ);
-
-    // Idempotent, like every other mission mutator.
-    const again = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} predecessor carried --successor-title "Successor mission" 2026-07-16`).stdout);
-    assertEq("re-running the same carry is a no-op", { closed: again.closed, reason: again.reason }, { closed: false, reason: "already_closed" });
+    assertTrue("the refused carry left the predecessor active",
+      existsSync(join(dir, ".workaholic/missions/active/predecessor/mission.md")), "predecessor moved");
+    assertTrue("the refused carry archived nothing",
+      !existsSync(join(dir, ".workaholic/missions/archive/predecessor/mission.md")), "predecessor archived");
+    assertTrue("and minted no successor",
+      !existsSync(join(dir, ".workaholic/missions/active/successor-mission/mission.md")), "successor minted");
+    // The predecessor's board is untouched -- no items were extracted anywhere.
+    const pprog = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} .workaholic/missions/active/predecessor/mission.md`).stdout);
+    assertEq("the predecessor keeps its full acceptance list", pprog, { checked: 2, total: 4, unlinked: 0 });
+    const pred = readFileSync(join(dir, ".workaholic/missions/active/predecessor/mission.md"), "utf8");
+    assertTrue("and its status is untouched", /^status:\s*active\s*$/m.test(pred), pred);
+    assertTrue("and nothing was appended to its changelog",
+      !/mission carried into/.test(pred), pred);
   } finally { cleanup(dir); }
 
   // A carry with nowhere to carry to is an abandon wearing a nicer name -> rejected.
@@ -2467,6 +2523,112 @@ In: the dashboard. Out: the API.
     assertTrue("predecessor's changelog names the existing successor",
       /mission carried into existing/.test(pred), pred);
   } finally { cleanup(d3); }
+}
+
+// ---------- mission/close.sh `carried --successor <slug>`: the remainder actually moves ----------
+// Until 2026-08-04 this route inherited NOTHING. It resolved the successor's path, checked
+// the file existed, set a variable, and fell through -- while SKILL.md and CLAUDE.md both
+// promised it "already carries the unmet items". The predecessor was archived, a successor
+// was named in the changelog, and every unmet item was dropped. Data loss reported as
+// success, and the reason the ticket floor could not yet refuse `--successor-title`:
+// refusing it would have left this as the ONLY carry route.
+//
+// The mint route rebuilds a file from a template; this one APPENDS into a mission that
+// already has its own Goal, its own list, and possibly its own progress. So the assertions
+// are about what must NOT change as much as what must.
+function testMissionCloseCarriedIntoExisting() {
+  const mission = (slug, title, accept, extra = "") => `---
+type: Mission
+title: ${title}
+slug: ${slug}
+status: active
+created_at: 2026-08-04T00:00:00+09:00
+author: test@example.com
+assignees: [test@example.com]
+gate_type:
+gate_target:
+gate_assert:
+${extra}---
+
+# ${title}
+
+## Goal
+
+${title} has its own goal.
+
+## Experience
+
+${title} demands its own observable behavior.
+
+## Acceptance
+
+${accept}
+
+## Changelog
+`;
+  const seed = (dir) => {
+    for (const [slug, title, accept] of [
+      ["pred", "Predecessor", "- [x] already achieved (#done.md)\n- [ ] unmet one (#t2.md)\n- [ ] unmet two"],
+      ["pred2", "Second predecessor", "- [ ] from the second (#t9.md)\n- [ ] unmet two"],
+      ["succ", "Successor", "- [ ] the successor's own item (#s1.md)"],
+    ]) {
+      mkdirSync(join(dir, `.workaholic/missions/active/${slug}`), { recursive: true });
+      writeFileSync(join(dir, `.workaholic/missions/active/${slug}/mission.md`), mission(slug, title, accept));
+    }
+  };
+
+  const dir = makeRepo("main");
+  try {
+    seed(dir);
+    const succPath = ".workaholic/missions/active/succ/mission.md";
+    const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} pred carried --successor succ 2026-08-04`).stdout);
+    assertEq("carrying into an existing mission closes the predecessor",
+      { closed: r.closed, status: r.status, successor: r.successor }, { closed: true, status: "carried", successor: "succ" });
+
+    let succ = readFileSync(join(dir, succPath), "utf8");
+
+    // THE DEFECT THIS TEST EXISTS FOR: the remainder reaches the successor.
+    assertTrue("the unmet items reach the existing successor, markers intact",
+      /^- \[ \] unmet one \(#t2\.md\)$/m.test(succ) && /^- \[ \] unmet two$/m.test(succ), succ);
+    assertTrue("a checked predecessor item is NOT carried", !/already achieved/.test(succ), succ);
+    assertTrue("the successor keeps its own acceptance item",
+      /^- \[ \] the successor's own item \(#s1\.md\)$/m.test(succ), succ);
+
+    // An APPEND, not the mint route's rebuild: the successor owns its Goal and gates.
+    assertTrue("the successor's own Goal is untouched", /Successor has its own goal\./.test(succ), succ);
+    assertTrue("the predecessor's Goal is NOT imported", !/Predecessor has its own goal\./.test(succ), succ);
+    assertTrue("gate fields are not imported", /^gate_target:\s*$/m.test(succ), succ);
+
+    // Progress is computed from the merged list -- three unmet, none unlinked-by-accident.
+    assertEq("the successor's board counts the inherited items",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${succPath}`).stdout),
+      { checked: 0, total: 3, unlinked: 1 });
+
+    // Lineage both ways: the predecessor's changelog already names the successor; the
+    // successor records what it absorbed.
+    assertTrue("the successor records the lineage", /^carried_from:\s*pred\s*$/m.test(succ), succ);
+    assertTrue("the successor's changelog names what it absorbed",
+      /^- 2026-08-04 — remainder carried from pred — mission\.md$/m.test(succ), succ);
+
+    // IDEMPOTENCY. A re-run must not duplicate what it already transferred.
+    const before = succ;
+    run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} pred carried --successor succ 2026-08-04`, { allowFail: true });
+    succ = readFileSync(join(dir, succPath), "utf8");
+    assertEq("re-running the same carry changes the successor not at all", succ, before);
+
+    // A SECOND predecessor: carried_from becomes a list, and an item the successor
+    // already carries is not added twice even though a different mission supplied it.
+    run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} pred2 carried --successor succ 2026-08-04`);
+    succ = readFileSync(join(dir, succPath), "utf8");
+    assertTrue("carried_from becomes a list under a second carry",
+      /^carried_from:\s*\[pred, pred2\]\s*$/m.test(succ), succ);
+    assertEq("an item both predecessors shared appears exactly once",
+      (succ.match(/^- \[ \] unmet two$/gm) || []).length, 1);
+    assertTrue("the second predecessor's own item arrives",
+      /^- \[ \] from the second \(#t9\.md\)$/m.test(succ), succ);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 function testMissionCloseRemovesWorktree() {
@@ -7836,8 +7998,11 @@ function testFeedback() {
 
 // ---------- propose skill: cursor / window / dedup / draft scaffold ----------
 // The proposal batch's mechanics (docs/loop-engineering-workflow.md C2-C4, B1):
-// runner-local cursor with safe cold start, exact added-records window, the
+// the cursor's safe cold start, the exact added-records window, the
 // mission->feedback dedup set, and the unowned/unauthorized draft scaffold.
+// This repo has NO origin, so it also pins the cursor's degraded shape: a reader
+// with nowhere to fetch from says `fetched: false` rather than pretending.
+// The shared-ref behaviour itself is testProposeCursorRef, which needs two clones.
 function testProposeBatch() {
   const dir = makeRepo("main");
   try {
@@ -7853,10 +8018,12 @@ function testProposeBatch() {
     let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeCursor} read`).stdout);
     assertEq("cursor bootstraps to the current tip", r.initialized, true);
     const c0 = r.commit;
-    assertEq("a bootstrapped cursor reads back stable", JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeCursor} read`).stdout), { commit: c0, initialized: false });
+    assertEq("a bootstrapped cursor reads back stable", JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeCursor} read`).stdout), { commit: c0, initialized: false, fetched: false });
     assertEq("pre-existing feedback is already-seen (empty window)",
       JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeNewFeedback} ${c0}`).stdout), []);
-    assertTrue("the cursor file is git-ignored (runner-local state)",
+    assertTrue("the cursor writes no file into the repository",
+      !existsSync(join(dir, ".workaholic/proposal-cursor")), "the legacy cursor file was recreated");
+    assertTrue("and leaves the checkout clean",
       execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim() === "", "cursor dirtied the tree");
 
     // New records after the cursor appear in the window; index.md never does.
@@ -7904,6 +8071,111 @@ function testProposeBatch() {
       { status: d.status, ready: d.ready, reason: d.ready_reason }, { status: "active", ready: false, reason: "no_plan" });
     assertEq("a proposal is unowned (relation unassigned)", d.relation, "unassigned");
   } finally { cleanup(dir); }
+}
+
+// ---------- the proposal cursor as a shared pushed ref ----------
+// The cursor used to be a git-ignored runner-local FILE, on decision C1's premise
+// that one long-lived server runs the batch. The deployment falsified it: the
+// routine starts a fresh container every tick, so the file never existed there,
+// every read bootstrapped, and the batch reported "initialized" and stopped —
+// permanently, while reading as healthy. The fix stores it the way the claim
+// protocol stores claims: `refs/workaholic/proposal-cursor` on origin, pushed.
+//
+// So what must be proven is not the JSON of one invocation but that TWO
+// INDEPENDENT CLONES share one cursor — the second never cold-starts, and two
+// racing advances are settled by push rather than by a clock. Hermetic: a bare
+// origin, no network, no GitHub.
+function testProposeCursorRef() {
+  const CFG = `git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`;
+  const REF = "refs/workaholic/proposal-cursor";
+  const origin = mkdtempSync(join(tmpdir(), "wh-cursor-origin-"));
+  const seed = mkdtempSync(join(tmpdir(), "wh-cursor-seed-"));
+  const made = [origin, seed];
+  const mkClone = () => {
+    const c = mkdtempSync(join(tmpdir(), "wh-cursor-clone-"));
+    made.push(c);
+    execSync(`git clone -q ${origin} .`, { cwd: c });
+    execSync(CFG, { cwd: c });
+    return c;
+  };
+  try {
+    execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
+    execSync(`git clone -q ${origin} .`, { cwd: seed });
+    execSync(CFG, { cwd: seed });
+    const land = (n) => {
+      writeFileSync(join(seed, `f${n}`), `${n}\n`);
+      execSync(`git add -A && git commit -q -m c${n} && git push -q origin main`, { cwd: seed });
+      return execSync(`git rev-parse HEAD`, { cwd: seed, encoding: "utf8" }).trim();
+    };
+    const c1 = land(1);
+    land(2);
+    const c3 = land(3);
+    const cursor = (cwd, args) => run(cwd, `${POSIX_SH} ${SCRIPTS.proposeCursor} ${args}`);
+    const remoteRef = (cwd) =>
+      execSync(`git ls-remote origin ${REF}`, { cwd, encoding: "utf8" }).trim().split(/\s+/)[0] || "";
+
+    const A = mkClone();
+    const B = mkClone();
+
+    // Bootstrap is once per REPOSITORY: it creates the ref AND pushes it.
+    const boot = JSON.parse(cursor(A, "read").stdout);
+    assertEq("the first read bootstraps the cursor to origin/main's tip",
+      { commit: boot.commit, initialized: boot.initialized }, { commit: c3, initialized: true });
+    assertEq("and publishes it as a shared ref", { pushed: boot.pushed, fetched: boot.fetched }, { pushed: true, fetched: true });
+    assertEq("the ref is readable from origin by anyone", remoteRef(A), c3);
+    assertTrue("the cursor writes no file into the repository",
+      !existsSync(join(A, ".workaholic/proposal-cursor")), "a cursor file was written");
+    assertEq("and the checkout stays clean", execSync(`git status --porcelain`, { cwd: A, encoding: "utf8" }).trim(), "");
+
+    // The failure this replaces: a second fresh clone (the cloud container) must
+    // read the cursor, never bootstrap over it.
+    const second = JSON.parse(cursor(B, "read").stdout);
+    assertEq("a second fresh clone reads the shared cursor without cold-starting",
+      { commit: second.commit, initialized: second.initialized, fetched: second.fetched },
+      { commit: c3, initialized: false, fetched: true });
+
+    // Advance publishes, and the other clone sees it.
+    const c4 = land(4);
+    execSync(`git fetch -q origin`, { cwd: A });
+    assertEq("advance pushes the new value",
+      JSON.parse(cursor(A, `advance ${c4}`).stdout), { advanced: true, commit: c4 });
+    assertEq("the shared ref carries it for every runner", remoteRef(B), c4);
+
+    // B still holds what it READ, so its lease is stale: the race is settled by
+    // push, never by comparing clocks, and the loser takes nothing.
+    const c5 = land(5);
+    execSync(`git fetch -q origin`, { cwd: B });
+    const raced = cursor(B, `advance ${c5}`);
+    assertEq("a lost race is a reported no-op, not a failure", raced.status, 0);
+    assertEq("the loser names the race and the winner's value",
+      JSON.parse(raced.stdout), { advanced: false, reason: "raced", commit: c4 });
+    assertEq("and the cursor is never rewound past the winner", remoteRef(B), c4);
+
+    // The reader degrades, the writer is loud — the claim protocol's asymmetry.
+    execSync(`git remote set-url origin ${origin}-gone`, { cwd: B });
+    const offline = JSON.parse(cursor(B, "read").stdout);
+    assertEq("an unreachable origin degrades the read to the last-known value",
+      { commit: offline.commit, initialized: offline.initialized, fetched: offline.fetched },
+      { commit: c4, initialized: false, fetched: false });
+    const offAdvance = cursor(B, `advance ${c5}`);
+    assertEq("but an advance nobody can see fails loudly", offAdvance.status, 1);
+    assertEq("naming the push failure", JSON.parse(offAdvance.stdout).reason, "push_failed");
+
+    // Living migration: a surviving runner-local file seeds the ref, then goes.
+    execSync(`git update-ref -d ${REF}`, { cwd: origin });
+    const C = mkClone();
+    mkdirSync(join(C, ".workaholic"), { recursive: true });
+    writeFileSync(join(C, ".workaholic/proposal-cursor"), `${c1}\n`);
+    const migrated = JSON.parse(cursor(C, "read").stdout);
+    assertEq("a legacy cursor file seeds the shared ref rather than being discarded",
+      { commit: migrated.commit, initialized: migrated.initialized, pushed: migrated.pushed },
+      { commit: c1, initialized: true, pushed: true });
+    assertTrue("and is removed once the ref holds the value",
+      !existsSync(join(C, ".workaholic/proposal-cursor")), "the legacy file survived the fold");
+    assertEq("so every later runner reads the folded value", remoteRef(C), c1);
+  } finally {
+    for (const d of made) cleanup(d);
+  }
 }
 
 // ---------- propose/notify-slack.sh (env-driven, never load-bearing, secret-safe) ----------
@@ -9423,6 +9695,67 @@ function testMergedStampIsHistoryNotAClaim() {
 // `tickets: []` and an acceptance block whose first line read "PROPOSED sketch -- not a
 // plan" was offered to /drive as claimable. The old fixtures could only express `0/0`
 // (`no_plan`), never `0/N`-with-no-tickets, which is why it shipped.
+// ---------- mission/check-floor.sh (THE TICKET FLOOR, as an enforceable verdict) ----------
+// A mission is created with two or more tickets, or it is not a mission. queue-size.sh
+// COMPUTES that verdict (it is a pure read the drivability checks also call, so it must
+// never fail on a sub-floor mission); check-floor.sh is its ENFORCEMENT face, and the one
+// place the refusal text lives. Four creation seams share both -- four inline counts would
+// drift, and four hand-written refusals would drift the same way, invisibly, because each
+// seam is exercised separately.
+function testMissionTicketFloorGate() {
+  const dir = makeRepo("main");
+  try {
+    const mk = (slug) => {
+      const d = join(dir, `.workaholic/missions/active/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "mission.md"),
+        `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\nassignees: [test@example.com]\n---\n\n# ${slug}\n\n## Experience\n\nIt does the thing.\n\n## Acceptance\n\n- [ ] a criterion\n\n## Changelog\n`);
+    };
+    mk("zero-tickets");
+    mk("one-ticket");
+    mk("two-tickets");
+    seedMissionTicket(dir, "one-ticket", "20260804000001");
+    seedMissionTicket(dir, "two-tickets", "20260804000002");
+    seedMissionTicket(dir, "two-tickets", "20260804000003");
+
+    const gate = (slug) => run(dir, `${POSIX_SH} ${SCRIPTS.missionCheckFloor} ${slug}`, { allowFail: true });
+
+    // A mission with no tickets is a feedback record wearing a roadmap entry.
+    const zero = gate("zero-tickets");
+    assertEq("a ticketless mission is refused (non-zero exit, not a warning)", zero.status, 1);
+    const zeroJson = JSON.parse(zero.stderr);
+    assertEq("and the refusal is named",
+      { ok: zeroJson.ok, reason: zeroJson.reason, total: zeroJson.total }, { ok: false, reason: "below_ticket_floor", total: 0 });
+    // THE REFUSAL NAMES THE ALTERNATIVE. What the author has is worth recording; it is
+    // just the wrong kind of artifact, and a refusal stating only the rule leaves them
+    // retrying the same thing (implementation/observability).
+    assertTrue("the refusal names the feedback record and the plain ticket",
+      /feedback record/.test(zeroJson.alternative) && /plain ticket/.test(zeroJson.alternative), zeroJson.alternative);
+
+    // ONE ticket has nothing to group -- the wrapper adds a board, a progress fraction
+    // and a close decision to a unit that already had its tracking.
+    const one = gate("one-ticket");
+    assertEq("one ticket is still under the floor -- it is two, not one", one.status, 1);
+    assertEq("and the count is reported so the author can see the gap",
+      JSON.parse(one.stderr).total, 1);
+
+    const two = gate("two-tickets");
+    assertEq("two tickets pass the gate (exit 0)", two.status, 0);
+    assertEq("and the verdict says so on stdout",
+      JSON.parse(two.stdout), { ok: true, slug: "two-tickets", total: 2, floor: 2, meets_floor: true });
+
+    // The floor counts `total`, not `todo`: a mission whose tickets were all driven was
+    // still CREATED with a plan, and the floor is a rule about creation.
+    mkdirSync(join(dir, ".workaholic/tickets/archive/work-20260804-000000"), { recursive: true });
+    execSync(`git add -A && git commit -q -m seed && git mv .workaholic/tickets/todo/${TEST_SLUG}/20260804000002-two-tickets-step.md .workaholic/tickets/archive/work-20260804-000000/`, { cwd: dir });
+    assertEq("a driven mission still meets the floor", gate("two-tickets").status, 0);
+
+    const bare = run(dir, `${POSIX_SH} ${SCRIPTS.missionCheckFloor}`, { allowFail: true });
+    assertTrue("a missing slug is its own reason, never a floor verdict",
+      bare.stderr.includes("slug_required"), bare.stderr);
+  } finally { cleanup(dir); }
+}
+
 function testPlanFloorCountsQueue() {
   const { origin, A } = makePublishFixture();
   const QUEUE = `${POSIX_SH} ${SCRIPTS.missionQueueSize}`;
@@ -9451,6 +9784,20 @@ function testPlanFloorCountsQueue() {
     assertEq("queue-size counts zero for an acceptance sketch", { t: q.todo, tot: q.total }, { t: 0, tot: 0 });
     q = JSON.parse(run(A, `${QUEUE} really-planned`).stdout);
     assertEq("queue-size counts the ticket that names the mission", { t: q.todo, tot: q.total }, { t: 1, tot: 1 });
+
+    // THE TICKET FLOOR rides this same counter rather than a second one (mission/SKILL.md,
+    // *Granularity -> The ticket floor*). Four creation seams read `meets_floor`; four
+    // inline counts would drift, and each seam is exercised separately so the drift would
+    // be invisible.
+    q = JSON.parse(run(A, `${QUEUE} sketch-only`).stdout);
+    assertEq("a mission with no tickets fails the floor",
+      { floor: q.floor, meets: q.meets_floor }, { floor: 2, meets: false });
+    q = JSON.parse(run(A, `${QUEUE} really-planned`).stdout);
+    assertTrue("one ticket is still under the floor -- the floor is two, not one",
+      q.meets_floor === false, JSON.stringify(q));
+    seedMissionTicket(A, "really-planned", "20260729000021");
+    q = JSON.parse(run(A, `${QUEUE} really-planned`).stdout);
+    assertEq("two tickets meet the floor", { tot: q.total, meets: q.meets_floor }, { tot: 2, meets: true });
 
     const plan = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
     const offered = plan.missions.map((m) => m.slug);
@@ -9482,8 +9829,33 @@ function testPlanFloorCountsQueue() {
     assertEq("a driven mission has an empty todo but a non-empty total",
       { t: q.todo, a: q.archive, tot: q.total }, { t: 0, a: 1, tot: 1 });
     const after = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
-    assertEq("but the survey does not offer it — nothing left to drive",
-      (after.excluded.find((e) => e.id === "driven") || {}).reason, "no_tickets");
+    const afterOffered = after.missions.map((m) => m.slug);
+    const afterReason = (slug) => (after.excluded.find((e) => e.id === slug) || {}).reason;
+
+    // AN EMPTY QUEUE IS TWO OPPOSITE STATES. A drained mission is finished and waiting
+    // on a close decision; a sketch-only mission was never planned. Reporting both as
+    // `no_tickets` left four real missions -- 15 archived tickets, 4.66 recorded
+    // agent-hours -- reading as never-planned for four days across every hourly tick.
+    assertTrue("the survey does not offer a drained mission — nothing left to drive",
+      !afterOffered.includes("driven"), JSON.stringify(afterOffered));
+    assertEq("a drained mission is excluded as queue_drained, not no_tickets",
+      afterReason("driven"), "queue_drained");
+    assertEq("a never-planned mission is still no_tickets",
+      afterReason("sketch-only"), "no_tickets");
+    assertTrue("the two empty-queue states never collapse into one reason",
+      afterReason("driven") !== afterReason("sketch-only"));
+    assertEq("and neither is confused with no_plan", afterReason("empty"), "no_plan");
+
+    // The developer-facing roadmap carries the same distinction, because "decide the
+    // close" is a human action and list.sh is where a human looks.
+    const listed = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
+    const row = (slug) => listed.find((m) => m.slug === slug) || {};
+    assertEq("the roadmap marks a drained mission queue_drained",
+      row("driven").ready_reason, "queue_drained");
+    assertEq("a never-planned mission keeps its own reason on the roadmap",
+      row("sketch-only").ready_reason, "");
+    assertEq("a 0/0 mission is still no_plan on the roadmap",
+      row("empty").ready_reason, "no_plan");
   } finally {
     for (const d of [origin, A]) rmSync(d, { recursive: true, force: true });
   }
@@ -10465,6 +10837,7 @@ const tests = [
   ["mission create publish spine: batch to main, no worktree (J1)", testMissionCreatePublishFlow],
   ["mission worktree ship reset", testMissionWorktreeShipReset],
   ["mission/close.sh carried (carry the remainder forward)", testMissionCloseCarried],
+  ["mission/close.sh carried into an existing mission (the remainder actually moves)", testMissionCloseCarriedIntoExisting],
   ["mission replan seams", testMissionReplanSeams],
   ["mission close removes worktree", testMissionCloseRemovesWorktree],
   ["mission worktree port assignment", testMissionWorktreePorts],
@@ -10488,6 +10861,7 @@ const tests = [
   ["mission creation interrogation protocol", testMissionInterrogationProtocol],
   ["mission/drive-authorized.sh (approval relocation)", testDriveAuthorized],
   ["mission status axis (draft retirement + creation-time policy + re-keyed readers)", testMissionStatusAxis],
+  ["mission status migration is whitelist-only (never folds backwards)", testMissionStatusMigrationIsWhitelistOnly],
   ["mission resolution follows the ticket, not the cwd", testMissionResolutionFollowsTicket],
   ["drive mints tickets for mid-run problems", testDriveMintsTicketsForMidrunProblems],
   ["mission position report at handoffs", testMissionPositionReport],
@@ -10562,6 +10936,7 @@ const tests = [
   ["hooks/install-git-hooks.sh", testInstallGitHooks],
   ["feedback/create.sh + list.sh + hooks/validate-feedback.sh", testFeedback],
   ["propose: cursor/window/dedup/draft scaffold", testProposeBatch],
+  ["propose: the cursor is a shared pushed ref", testProposeCursorRef],
   ["propose/notify-slack.sh", testNotifySlack],
   ["drive claim protocol: two clones, one unit", testClaimProtocol],
   ["drive claim protocol: a claim survives its tickets being archived", testClaimSurvivesArchive],
@@ -10576,6 +10951,7 @@ const tests = [
   ["drive/plan-units.sh (exclusions + the dry demo)", testPlanUnitsExclusions],
   ["drive/plan-units.sh (an unreadable backlog is not an empty one)", testPlanUnitsBacklogError],
   ["drive/plan-units.sh (missions are filtered by ownership)", testPlanUnitsOwnership],
+  ["mission: the ticket floor refuses a sub-floor mission and names the alternative", testMissionTicketFloorGate],
   ["drive: the plan floor counts the ticket queue, not acceptance items", testPlanFloorCountsQueue],
   ["drive: the unified run's contract", testUnifiedDriveContract],
   ["branching/sync-main.sh (J3 freshness)", testSyncMain],
@@ -10590,6 +10966,7 @@ const tests = [
   ["branching worktree reclamation: merged AND clean, every skip named", testWorktreeReclamation],
   ["mission size norms: a ceiling on what a mission may say, and the floor it must not touch", testMissionSizeNorms],
   ["propose: widened inputs, emitted tickets, and the mission_member safety property (J4)", testProposeWidenedBatch],
+  ["propose: an atomic direction becomes one loose ticket, and dedup unions both sides", testProposeLooseTicket],
   ["branching/check-worktrees.sh ignores the publish tree", testCheckWorktreesIgnoresPublishTree],
   ["/ticket publishes to main end to end (J1)", testTicketPublishesToMain],
   ["hooks/validate-ticket.sh resolves a mission in the publish tree", testValidateTicketResolvesInPublishTree],
@@ -10827,6 +11204,88 @@ function testProposeWidenedBatch() {
   }
 }
 
+// The proposal's FORM follows the work's shape, not the tool's convenience: two or more
+// related units make a mission with its ticket set, an ATOMIC ask makes one loose backlog
+// ticket. Before the loose form existed, an atomic ask hit the mission-ticket floor and
+// ended in a reported drop -- which is still silence from the reporter's point of view.
+//
+// The load-bearing property is the DEDUP one. A loose ticket has no mission to carry the
+// `feedback:` relation, so it carries it itself, and the dedup set must union both sides
+// over both the queue AND the archive. A set that read only missions would re-propose the
+// same record every tick; one that skipped the archive would re-propose the work it had
+// just finished driving.
+function testProposeLooseTicket() {
+  const root = makeRepo();
+  const SCAFFOLD = `${POSIX_SH} ${SCRIPTS.scaffoldProposedTicket}`;
+  const REFS = `${POSIX_SH} ${SCRIPTS.proposeListRefs}`;
+  const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh");
+  const refs = () => run(root, REFS).stdout.split("\n").filter(Boolean);
+  const validates = (rel) => {
+    try {
+      execSync(`${POSIX_SH} ${HOOK}`, {
+        cwd: root, input: JSON.stringify({ tool_input: { file_path: rel } }),
+        encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
+      });
+      return 0;
+    } catch (e) { return e.status ?? 1; }
+  };
+  try {
+    const slug = "a-decomposable-direction";
+    mkdirSync(join(root, `.workaholic/missions/active/${slug}`), { recursive: true });
+    writeFileSync(join(root, `.workaholic/missions/active/${slug}/mission.md`),
+      `---\ntype: Mission\ntitle: A decomposable direction\nslug: ${slug}\nstatus: active\nmerge_policy:\nassignees: []\nfeedback: [20260801000000-mission-record.md]\n---\n\n# A decomposable direction\n\n## Acceptance\n\n- [ ] proposed criterion\n`);
+
+    // ---- the loose form ----
+    const loose = JSON.parse(run(root, `${SCAFFOLD} "Fix the atomic thing" --loose bugfix Domain --feedback 20260802000000-ask.md`).stdout);
+    assertEq("an atomic direction scaffolds one loose ticket",
+      { created: loose.created, loose: loose.loose, mission: loose.mission }, { created: true, loose: true, mission: "" });
+    const body = readFileSync(join(root, loose.path), "utf8");
+    // NO `mission:` KEY AT ALL -- an empty one would still read as a relation to a mission
+    // named "", which is a dangling relation validate-ticket.sh would be right to refuse.
+    assertTrue("a loose ticket writes no mission key whatsoever", !/^mission:/m.test(body), body.slice(0, 300));
+    assertTrue("and carries its provenance as feedback refs instead",
+      /^feedback: \[20260802000000-ask\.md\]$/m.test(body), body.slice(0, 300));
+    assertTrue("its type and layer come from the arguments, not the defaults",
+      /^type: bugfix$/m.test(body) && /^layer: \[Domain\]$/m.test(body), body.slice(0, 300));
+    assertTrue("merge_policy stays empty, which reads as review",
+      /^merge_policy:\s*$/m.test(body), body.slice(0, 300));
+    // The `feedback:` key is TOLERATED by the validator, like `claim:` -- it validates
+    // named fields only, so an artifact relation needs no schema amendment.
+    assertEq("a loose proposed ticket passes validate-ticket.sh", validates(loose.path), 0);
+
+    // Provenance is mandatory in this form, because it is the ONLY copy of it.
+    assertEq("a loose ticket with nothing to trace it to is refused",
+      JSON.parse(run(root, `${SCAFFOLD} "Nothing to trace" --loose`).stdout).reason, "no_feedback");
+
+    // ---- it is ordinary backlog: no mission unit, no mission_member exclusion ----
+    const plan = JSON.parse(run(root, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    assertTrue("a loose proposed ticket is offered as ordinary backlog",
+      plan.backlog.some((b) => b.path === loose.path), JSON.stringify(plan.backlog));
+
+    // ---- the dedup set is the union over both artifact kinds ----
+    assertTrue("the dedup set unions ticket-side refs with mission-side ones",
+      refs().includes("20260802000000-ask.md") && refs().includes("20260801000000-mission-record.md"),
+      JSON.stringify(refs()));
+
+    // A mission's own ticket may carry refs too; the set is a set.
+    const member = JSON.parse(run(root, `${SCAFFOLD} "Do the missioned work" ${slug} enhancement Config --feedback 20260802000000-ask.md`).stdout);
+    assertTrue("a mission-member ticket still carries its mission relation",
+      readFileSync(join(root, member.path), "utf8").includes(`mission: ${slug}`), member.path);
+    assertEq("a record referenced by several artifacts is listed once",
+      refs().filter((r) => r === "20260802000000-ask.md").length, 1);
+
+    // ---- and the archive counts: a DRIVEN loose ticket must not be re-proposed ----
+    const driven = JSON.parse(run(root, `${SCAFFOLD} "Fix the other atomic thing" --loose --feedback 20260803000000-second-ask.md`).stdout);
+    const archived = ".workaholic/tickets/archive/work-20260804-000000/driven.md";
+    mkdirSync(dirname(join(root, archived)), { recursive: true });
+    execSync(`git mv ${driven.path} ${archived} 2>/dev/null || mv ${driven.path} ${archived}`, { cwd: root });
+    assertTrue("an archived loose ticket still holds its record out of the window",
+      refs().includes("20260803000000-second-ask.md"), JSON.stringify(refs()));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
 // ---------- worktree reclamation (survey / reap / prune) ----------
 // A tool that allocates storage and never reclaims it is not finished: 53 GB was held
 // across four repositories, 31 GB of it fully merged and clean. The reaper's safety rule
@@ -11037,11 +11496,14 @@ function testWorkaholifyRoutines() {
   const WH = "https://github.com/qmu/workaholic";
   try {
     const tpl = JSON.parse(run(dir, LIST).stdout);
-    assertEq("the plugin ships three routine templates", tpl.count, 3);
-    assertEq("and they are the three live patterns",
-      tpl.templates.map((t) => t.id).sort(), ["drive", "fb", "merged-pr"]);
-    assertEq("only the drive template is scheduled",
-      tpl.templates.filter((t) => t.trigger === "cron").map((t) => t.cron_expression), ["56 * * * *"]);
+    assertEq("the plugin ships four routine templates", tpl.count, 4);
+    assertEq("and they are the four live patterns",
+      tpl.templates.map((t) => t.id).sort(), ["drive", "fb", "merged-pr", "propose"]);
+    // The template set is discovered by scanning the routines dir, so a new template is
+    // surveyed, rendered and drift-checked the moment its file exists -- nothing enumerates
+    // the ids in code, which is why adding `propose` needed no script change.
+    assertEq("the two scheduled templates carry their own cadence",
+      tpl.templates.filter((t) => t.trigger === "cron").map((t) => t.cron_expression), ["56 * * * *", "*/15 * * * *"]);
 
     // ---- the three substitutions, each demanded by a real prompt ----
     const drive = JSON.parse(run(dir, `${RENDER} drive ${WH}`).stdout);
@@ -11093,7 +11555,7 @@ function testWorkaholifyRoutines() {
     assertEq("an unset model is named as the field that drifted",
       cmp.this_repo.present.find((x) => x.id === "merged-pr").drift, ["model (unset != claude-opus-5)"]);
     assertEq("a template with no live routine is reported missing",
-      cmp.this_repo.missing.map((m) => m.id), ["fb"]);
+      cmp.this_repo.missing.map((m) => m.id), ["fb", "propose"]);
     // `unknown` is information, never a deletion proposal -- the API has no delete at all.
     assertEq("an untemplated routine is listed as unknown", cmp.this_repo.unknown.length, 1);
     assertEq("and it is the one-off", cmp.this_repo.unknown[0].trigger_id, "trig_oneoff");
@@ -11302,10 +11764,11 @@ function testRoutineAnnouncementScoping() {
   // old wording verbatim, so checking the whole file flags the explanation as the bug.
   const prompt = (f) => { const b = read(f); const i = b.indexOf("## Prompt"); return i < 0 ? b : b.slice(i); };
   const merged = prompt("merged-pr.md"), fb = prompt("fb.md"), drive = prompt("drive.md");
+  const propose = prompt("propose.md");
 
   // The subject must be identified. "about the pull request" with no antecedent is the
   // exact wording that produced the duplicates.
-  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive]]) {
+  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive], ["propose", propose]]) {
     assertTrue(`${name} never says "about the pull request" without saying which`,
       !/about the pull request\b(?![^\n]*(this session|you just|THIS session))/i.test(body),
       body.slice(0, 400));
@@ -11333,12 +11796,20 @@ function testRoutineAnnouncementScoping() {
     /only the pull request THIS session just opened/i.test(drive), "drive scoping missing");
   assertTrue("drive forbids reporting activity it did not produce",
     /did not itself produce/i.test(drive), "drive hard rule missing");
+  assertTrue("propose announces only the PR this session opened",
+    /only for a PR this session itself created/i.test(propose), "propose scoping missing");
+  // Its OTHER outcome is silence, and silence must not be announced: on a 15-minute tick a
+  // routine that posts "nothing to propose" is 96 posts a day saying nothing happened.
+  assertTrue("propose posts nothing when it proposes nothing",
+    /Post nothing to Slack for any of them/i.test(propose), "silence rule missing");
+  assertTrue("and it never merges what it proposed",
+    /Never merge anything/i.test(propose), "propose merge prohibition missing");
 
   // NO "Attention" BLOCK IN ANY ANNOUNCEMENT (developer's ruling, 2026-08-01). The
   // conditional concern block is gone from both the PR-opened and PR-merged formats; a
   // notification carries the fact, and concerns live in the story and the feedback stream
   // where they are read deliberately rather than skimmed in a channel.
-  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive]]) {
+  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive], ["propose", propose]]) {
     assertTrue(`${name} carries no Attention block`, !/Attention/.test(body), body.slice(0, 300));
     assertTrue(`${name} carries no concern conditional`,
       !/\{\{#if [a-z_]*concern/i.test(body), body.slice(0, 300));
@@ -11436,7 +11907,7 @@ function testSetupRoutinesListing() {
     assertTrue("and it is labelled as not-a-problem",
       /one-off, not a problem/.test(byName("nightly docs sweep").note), byName("nightly docs sweep").note);
     assertEq("a template with no live routine is offered, not faulted",
-      populated.missing.map((m) => m.id), ["merged-pr"]);
+      populated.missing.map((m) => m.id), ["merged-pr", "propose"]);
     // The template set has a version; a LIVE routine does not, and nothing claims one.
     assertTrue("the template set reports the version it compared against",
       /^\d+\.\d+\.\d+$/.test(populated.template_set_version), String(populated.template_set_version));
@@ -11450,7 +11921,7 @@ function testSetupRoutinesListing() {
     const empty = listFrom({ data: [] });
     assertEq("an empty account is a CHECKED answer with an empty list",
       [empty.checked, empty.routines.length], [true, 0]);
-    assertEq("and every template is reported as available", empty.missing.length, 3);
+    assertEq("and every template is reported as available", empty.missing.length, 4);
 
     // ---- 3. an account that could not be reached ----
     // EACH OF THESE MUST BE DISTINGUISHABLE FROM CASE 2. `checked: false` carries no

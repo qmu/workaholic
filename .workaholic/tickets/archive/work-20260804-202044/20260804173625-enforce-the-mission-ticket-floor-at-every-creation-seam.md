@@ -3,7 +3,7 @@ created_at: 2026-08-04T17:36:25+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 2h
 commit_hash:
 category: Changed
 depends_on: 20260804173624-decide-the-mission-ticket-floor-and-what-a-carry-does.md
@@ -90,3 +90,21 @@ One implementation, called by the seams — not four counts that can drift. It r
 - **Do not enforce by editing `validate-mission.sh`.** The decision ticket records why; re-deriving it here would reopen a settled question.
 - **Watch the collision with `20260804170111`.** Both tickets touch `queue-size.sh`. Whichever drives second must read the other's change rather than reverting it — they want the same counter for different questions ("is this mission drivable" and "is this mission legitimate").
 - A replan also emits tickets, but it acts on a mission that already exists and already passed the floor. It is out of scope here; the floor is a *creation* rule.
+
+## Final Report
+
+All four seams are accounted for, and the one that was actually unshipped is now closed.
+
+- **`close.sh --successor-title` — refused** (`carried_successor_must_exist`), which was the whole remaining gap: the decision ticket settled it and three documents already described the refusal, so the code was what disagreed with the record. The refusal carries an `alternative` naming the sanctioned route (create the successor through the ordinary mission path, whose interrogation emits its ticket set, then `--successor <slug>`). The **mint branch is deleted, not gated** — a refused flag leaves ~60 lines unreachable and untested, which rots into a false account of what the script does; what it did is recorded in `reference/schema.md` where a session re-proposing option (a) will look. `carried` now has exactly one route, and `successor_not_found` gained the same alternative text.
+- **`check-floor.sh` — new, and the only new script.** The count stayed in `queue-size.sh` as the ticket directed; what was missing was an *act-on-able* verdict. It exits 1 with `below_ticket_floor` plus the refusal's `alternative`, so a seam that forgets to read the JSON still fails rather than publishing a violation, and the refusal text has one home instead of one per seam. The distinction is deliberate: `queue-size.sh` is a pure read the drivability checks call and must never fail on a sub-floor mission; this is its enforcement face.
+- **Creation Interrogation and `/propose` — wired to it.** Both previously said "run `queue-size.sh` and read `meets_floor`", which left each seam to write its own refusal. Both now call `check-floor.sh` and report its `alternative`.
+- **`create.sh` — documented exemption, unchanged.** Its header already carried the reason (the scaffold is minted before the interrogation emits anything, so a floor there refuses the normal authoring order every time); confirmed rather than assumed, per the ticket.
+
+**No mission-creation flow that already emits two or more tickets changed behavior** — the gate is a new call at the publish seam, and every active mission in this repository passes it (4, 4, 2, 4 tickets).
+
+### Discovered Insights
+
+- **Insight**: The docs had shipped ahead of the code, and that is what made this ticket unambiguous.
+  **Context**: `mission/SKILL.md`, `reference/schema.md` and `CLAUDE.md` all described `--successor-title` as refused while `close.sh` carried a "not yet" comment. A reader could not tell which was true. When prose and code disagree about a *decided* rule, the code is the defect — but the reverse case (code ahead of prose) is a documentation defect, and both are worth catching at the same seam.
+- **Insight**: A refusal and a count want different exit behavior, which is why they are two scripts rather than one flag.
+  **Context**: `queue-size.sh` is called by `plan-units.sh` and `list.sh`, which survey sub-floor missions routinely; making it exit non-zero on a sub-floor verdict would break every one of them. Splitting "compute" from "enforce" keeps the number single-sourced while letting the enforcing face fail loudly.

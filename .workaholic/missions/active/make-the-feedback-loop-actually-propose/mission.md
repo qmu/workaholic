@@ -16,6 +16,7 @@ gate_type:
 gate_target:
 gate_assert:
 feedback: [20260730101911-the-proposal-cursor-is-runner-local-so-an-ephemeral-runner-cold-starts-every-tick-and-proposes-nothing.md, 20260730110659-the-proposal-cursor-cannot-survive-an-ephemeral-runner.md, 20260730111041-propose-should-pick-ticket-vs-mission-by-cardinality.md]
+claim: work-20260804-202110
 ---
 
 # Make the feedback loop actually propose

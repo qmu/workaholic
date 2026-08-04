@@ -16,6 +16,7 @@ gate_type:
 gate_target: 
 gate_assert: 
 carried_from: make-the-branch-story-concise-by-default
+claim: work-20260804-202056
 ---
 
 # Make the branch story measurably shorter

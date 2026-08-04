@@ -388,4 +388,8 @@
 * [The by-filename fallback assumes ticket filenames stay unique](20260804124615-the-by-filename-fallback-assumes-ticket.md)
 * [The hermetic suite is flaky in CI, and it failed a merge gate](20260804124615-the-hermetic-suite-is-flaky-in.md)
 * [The per-commit size ceiling counts a catch-up merge as authored work](20260804124615-the-per-commit-size-ceiling-counts.md)
+* [A delete-only commit of any size now passes](20260804125252-a-delete-only-commit-of-any.md)
+* [`.workaholic/` prose is exempted by path, not by nature](20260804125252-workaholic-prose-is-exempted-by-path.md)
+* [The drive routine's handoff section still says resumption is impossible](20260804143009-the-drive-routine-s-handoff-section-still-says-resumption-is-impossible.md)
+* [A mission is created with two or more tickets, or it is not a mission](20260804173526-a-mission-is-created-with-two-or-more-tickets-or-it-is-not-a-mission.md)
 <!-- okf:generated:end -->

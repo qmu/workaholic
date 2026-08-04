@@ -2,7 +2,7 @@
 type: Mission
 title: Adopt a release-branch staging tier with durable ship records
 slug: adopt-a-git-flow-branching-model-with-durable-ship-records
-status: active
+status: achieved
 merge_policy: auto
 created_at: 2026-07-30T05:13:37+00:00
 author: noreply@anthropic.com
@@ -114,25 +114,25 @@ Provisional (see Scope). The demanded, observable behavior:
 
 **PROPOSED sketch for discussion — not a plan.** Approval replans this mission to drive-ready.
 
-- [ ] A design record in the feedback stream states the chosen tier set (`release/*` only) and
-      names the alternatives (full Git Flow, a `develop`-only tier) that were rejected.
-- [ ] `/ship` (or a new promotion step) implements a `release/*` cut-from-`main` flow: cut,
-      staging/QA window, confirmation, and what is actually deployed/tagged.
-- [ ] The release-branch ship-record format is implemented as a new, separate artifact from
+- [x] A design record in the feedback stream states the chosen tier set (`release/*` only) and
+      names the alternatives (full Git Flow, a `develop`-only tier) that were rejected. (#20260801184801-survey-ship-and-record-the-release-tier-decision.md)
+- [x] `/ship` (or a new promotion step) implements a `release/*` cut-from-`main` flow: cut,
+      staging/QA window, confirmation, and what is actually deployed/tagged. (#20260801184802-cut-and-promote-a-release-branch.md)
+- [x] The release-branch ship-record format is implemented as a new, separate artifact from
       `.workaholic/release-notes/`, naming the `main` commits carried, cut time, and
-      confirmation/deploy time — cross-referenced with the release branch.
-- [ ] `hooks/guard-git-branch.sh` and any relevant `branching`/`ship` scripts recognize `release/*`
-      as an allowed branch-name form, alongside the unchanged `work-YYYYMMDD-HHMMSS` pattern.
-- [ ] The per-unit claim protocol (`drive/SKILL.md`'s Claims section, `claim.sh`,
-      `lib/claims.sh`) is verified unchanged by this mission — no edits beyond doc cross-references.
-- [ ] Every doc that describes the branching model tells the truth in the same change:
+      confirmation/deploy time — cross-referenced with the release branch. (#20260801184803-record-what-a-release-branch-shipped.md)
+- [x] `hooks/guard-git-branch.sh` and any relevant `branching`/`ship` scripts recognize `release/*`
+      as an allowed branch-name form, alongside the unchanged `work-YYYYMMDD-HHMMSS` pattern. (#20260801184802-cut-and-promote-a-release-branch.md)
+- [x] The per-unit claim protocol (`drive/SKILL.md`'s Claims section, `claim.sh`,
+      `lib/claims.sh`) is verified unchanged by this mission — no edits beyond doc cross-references. (#20260801184802-cut-and-promote-a-release-branch.md)
+- [x] Every doc that describes the branching model tells the truth in the same change:
       `CLAUDE.md`, `README.md`, `.workaholic/README.md`, `docs/drive-loop-runbook.md`,
-      `docs/loop-engineering-workflow.md`.
-- [ ] `node scripts/build-plugins/build.mjs` regenerated `outputs/`, and `verify.mjs`,
-      `validate-metadata.mjs`, `test-workflow-scripts.mjs`, and `layout-doctor.sh .` all pass.
-- [ ] The first ticket in the set is exploratory — a written survey of `/ship`'s current merge
+      `docs/loop-engineering-workflow.md`. (#20260801184803-record-what-a-release-branch-shipped.md)
+- [x] `node scripts/build-plugins/build.mjs` regenerated `outputs/`, and `verify.mjs`,
+      `validate-metadata.mjs`, `test-workflow-scripts.mjs`, and `layout-doctor.sh .` all pass. (#20260801184803-record-what-a-release-branch-shipped.md)
+- [x] The first ticket in the set is exploratory — a written survey of `/ship`'s current merge
       flow and where a `release/*` cut-and-promote step fits — per the scoping note carried with
-      the original ask.
+      the original ask. (#20260801184801-survey-ship-and-record-the-release-tier-decision.md)
 
 ## Changelog
 
@@ -159,3 +159,4 @@ Provisional (see Scope). The demanded, observable behavior:
 - 2026-08-03 — concern deferred (stuck) — 20260803222459-the-promotion-has-no-entry-point.md
 - 2026-08-03 — concern deferred (stuck) — 20260803222459-the-carried-range-includes-the-promotion.md
 - 2026-08-03 — concern deferred (stuck) — 20260803222459-the-record-s-confirmation-is-not.md
+- 2026-08-04 — mission achieved — mission.md

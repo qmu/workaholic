@@ -5108,6 +5108,91 @@ function testMigrateConcerns() {
   } finally { cleanup(dir); }
 }
 
+// ---------- a "read" that enlarges the caller's next commit ----------
+// The migration used to `git add` every record it wrote and `git rm -r` the retired
+// tree. It runs as a side effect of list-open-concerns.sh, which is documented as a
+// pure read — so a caller that staged two files BY PATH and ran `git commit` got a
+// commit of 154, described by a message about the two (observed 2026-08-04). The index
+// is the caller's shared state; a message that does not describe its own diff is the
+// premise change history rests on.
+function testMigrationLeavesTheIndexAlone() {
+  const dir = makeRepo("main");
+  try {
+    const wk = (rel, body) => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), body); };
+    for (const n of [1, 2, 3]) {
+      wk(`.workaholic/concerns/c${n}.md`,
+        `---\ntype: Concern\nconcern_id: c${n}\nfirst_seen: 2026-06-0${n}T00:00:00+09:00\nseverity: low\nstatus: active\n---\n\n# C${n}\n`);
+    }
+    writeFileSync(join(dir, "mine.md"), "one\n");
+    writeFileSync(join(dir, "other.md"), "two\n");
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+
+    // The caller stages exactly one file, by path — the shape of the observed failure.
+    writeFileSync(join(dir, "mine.md"), "one changed\n");
+    writeFileSync(join(dir, "other.md"), "two changed\n");
+    execSync(`git add mine.md`, { cwd: dir });
+
+    const listed = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listOpenConcerns}`).stdout);
+    assertEq("the migration really ran (3 records written)", listed.migrated, 3);
+    assertEq("and the reader reports the write rather than hiding it", listed.active_count, 3);
+
+    const staged = execSync(`git diff --cached --name-only`, { cwd: dir, encoding: "utf8" }).trim().split("\n").filter(Boolean);
+    assertEq("the caller's staged set is exactly what the caller staged", staged, ["mine.md"]);
+
+    execSync(`git commit -q -m "Commit only mine"`, { cwd: dir });
+    const committed = execSync(`git show --name-only --format= HEAD`, { cwd: dir, encoding: "utf8" }).trim().split("\n").filter(Boolean);
+    assertEq("so the commit contains exactly what its message describes", committed, ["mine.md"]);
+
+    // The migration's own work is not lost — it waits in the working tree.
+    assertTrue("the written records are present, unstaged",
+      existsSync(join(dir, ".workaholic/feedbacks/20260601000000-c1.md")));
+    const second = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.listOpenConcerns}`).stdout);
+    assertEq("an already-migrated repo reports migrated: 0", second.migrated, 0);
+  } finally { cleanup(dir); }
+}
+
+// ---------- `--allow-empty` means EMPTY, not "empty is tolerated" ----------
+// `git commit --allow-empty` still commits whatever the index holds. The flag's only
+// callers are the claim protocol's coordination markers, which document themselves as
+// changing no file and never reaching the PR diff — so a heartbeat fired while a `git
+// rm` sat staged produced a `Refresh heartbeat` commit carrying three real deletions
+// (observed 2026-08-04). Nothing caught it: the commit succeeded and the branch content
+// was right; only the message was wrong, so the story attributed work to coordination.
+function testAllowEmptyIsActuallyEmpty() {
+  const dir = makeRepo("main");
+  try {
+    writeFileSync(join(dir, "keep.md"), "keep\n");
+    writeFileSync(join(dir, "doomed.md"), "doomed\n");
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+    const before = execSync(`git rev-parse HEAD^{tree}`, { cwd: dir, encoding: "utf8" }).trim();
+
+    // A drive mid-ticket: a deletion and an edit staged, plus an unstaged edit.
+    execSync(`git rm -q doomed.md`, { cwd: dir });
+    writeFileSync(join(dir, "keep.md"), "keep, edited\n");
+    execSync(`git add keep.md`, { cwd: dir });
+    writeFileSync(join(dir, "untracked.md"), "loose\n");
+
+    const r = run(dir, `${POSIX_SH} ${SCRIPTS.commit} --allow-empty "Refresh heartbeat" "" "None" "None" "None" "None"`);
+    assertEq("the beat succeeds over a dirty index", r.status, 0);
+
+    assertEq("and the commit's tree is HEAD's tree — genuinely empty",
+      execSync(`git rev-parse HEAD^{tree}`, { cwd: dir, encoding: "utf8" }).trim(), before);
+    assertEq("so the coordination commit carries no files at all",
+      execSync(`git show --name-only --format= HEAD`, { cwd: dir, encoding: "utf8" }).trim(), "");
+
+    // The caller's index is untouched: the staged work is still staged, for its own commit.
+    const staged = execSync(`git diff --cached --name-only`, { cwd: dir, encoding: "utf8" }).trim().split("\n").filter(Boolean);
+    assertEq("the run's staged work survives, still staged", staged.slice().sort(), ["doomed.md", "keep.md"]);
+    assertTrue("and the untracked file is untouched", existsSync(join(dir, "untracked.md")));
+
+    // The real commit that follows carries the work, under a message that describes it.
+    execSync(`git commit -q -m "Remove the doomed file"`, { cwd: dir });
+    assertEq("the work lands in the commit whose subject explains it",
+      execSync(`git show --name-only --format= HEAD`, { cwd: dir, encoding: "utf8" }).trim().split("\n").sort(),
+      ["doomed.md", "keep.md"]);
+  } finally { cleanup(dir); }
+}
+
 // The script runs post-merge (main is checked out), so its concern commit lands
 // on local main; it must PUSH so local main stays level with origin/main instead
 // of one commit ahead. Mirrors commit-release-note.sh's commit-and-push pattern.
@@ -10162,6 +10247,8 @@ const tests = [
   ["ship/extract-deferred-concerns.sh mission seam", testMissionShipSeam],
   ["report/apply-deferred-concern-verdicts.sh mission seam", testMissionReportSeam],
   ["feedback/migrate-concerns.sh (H2 merger)", testMigrateConcerns],
+  ["feedback: a read never enlarges the caller's next commit", testMigrationLeavesTheIndexAlone],
+  ["commit.sh --allow-empty commits nothing, whatever is staged", testAllowEmptyIsActuallyEmpty],
   ["feedback/list-open-concerns.sh", testListOpenConcerns],
   ["drive/promote-icebox.sh", testPromoteIcebox],
   ["ship/publish-release.sh", testPublishRelease],

@@ -3,7 +3,7 @@ created_at: 2026-08-04T04:13:06+00:00
 author: a@qmu.jp
 type: bugfix
 layer: [Infrastructure]
-effort:
+effort: 1h
 commit_hash:
 category: Changed
 depends_on:
@@ -113,3 +113,65 @@ Decision K1 (2026-07-31) reversed the migration direction. Nothing at the time a
 - **Do not fix this by editing the plugin cache.** It is outside the repository, so repository confinement forbids it, and a fix that lives in one container is not a fix. The run that found this deliberately restored the four files with a targeted `git restore` and left the cache alone.
 - **The staging is the dangerous half.** Even if the rewrite were harmless, a hook that leaves changes *staged* in the developer's checkout can contaminate an unrelated commit. Whether an always-on lens should ever `git add` is worth asking separately.
 - Step 3 is the durable fix and step 1 is the visible one; step 1 alone would leave the next vocabulary change to rediscover this.
+
+## Final Report
+
+Development completed as planned. All five implementation steps landed, and the
+drift this ticket describes was **observed live again while driving it** — the
+session that implemented the fix started against a 1.0.112 plugin cache while the
+checkout wanted 1.0.126, which supplied the measurement below.
+
+### Discovered Insights
+
+- **Insight**: Version equality is not install equality, and the gap is wide enough
+  to hide the whole defect. The cache dir named `1.0.112` was missing entire scripts
+  the checkout has (`heartbeat.sh`, `link-acceptance.sh`, `survey-worktrees.sh`, the
+  whole `workaholify/routines/`) while still carrying the retired `approve.sh` and the
+  retired `not_approved` exclusion.
+  **Context**: A survey run from that cache reported `claimed: []` and excluded two
+  missions as `not_approved`, while the same script from the checkout reported a live
+  claim on `work-20260804-084744` and the real exclusion reasons. A runner trusting the
+  stale copy would have double-picked a claimed unit — the exact failure the claim
+  protocol exists to prevent. This is why the drift field reports both numbers rather
+  than a boolean: the reader needs to know *which* build answered.
+
+- **Insight**: The version gate can be defeated by a stale *checkout*, not just a stale
+  install. `session-start.sh` reads `WANTED` from the checkout, which in a cloud
+  container is a clone that may itself be behind the base. Here the clone was at 1.0.112
+  and the baked-in install was at 1.0.112, so they agreed and the fast path skipped —
+  then `/drive`'s `sync-main.sh` fast-forwarded the checkout to 1.0.126 a moment later.
+  **Context**: Recorded in `session-start.sh` as a named limit rather than repaired,
+  because fetching at SessionStart would block session start on the network. This is
+  also why `check-deps` is documented as seeing a falsely-matching pair on the tick that
+  fast-forwards, and the real drift on the next one.
+
+- **Insight**: The durable guard against a backwards migration is that the fold is a
+  **whitelist**, and the reason is one line: unknown means newer.
+  **Context**: An older build cannot enumerate a newer vocabulary, so any rule shaped as
+  "normalize whatever I find" will rewrite words invented after it shipped. Naming the
+  dead words explicitly makes an unrecognised word inert by construction. The test pins
+  the *shape* (`draft | approved)` still present in the source), not only the behavior,
+  because the behavior can be preserved while the shape drifts to a catch-all.
+
+- **Insight**: The staging is a separable half of the harm, and worth asserting on its
+  own. A rewrite that left files merely modified would still be wrong, but it would not
+  have stopped the loop; `git add`ing them is what made `sync-main.sh` terminate
+  `dirty_workspace` before the survey.
+  **Context**: The new test asserts byte-identity *and* an empty staged set for the
+  untouched missions, so a future change that reintroduces staging fails even if it
+  gets the status word right.
+
+### Verification note (honest scope)
+
+The suite is green: 2107 passed, 3 failed — the same 3 failures the unmodified `main`
+checkout produces in this sandbox (2099 passed, 3 failed), all from the container's git
+remote being a local proxy (`http://local_proxy@127.0.0.1:.../git/qmu/workaholic`)
+rather than `github.com`, which `resolve-repo-url.sh` and `submit-request.sh` assert on.
+No new failure was introduced; the 8 new assertions all pass.
+
+The ticket's manual check — "with the 1.0.112 cache in place, a turn no longer leaves
+four staged mission files" — is satisfied only in the weak sense: the tree stayed clean
+for the whole session and both active missions still read `status: active`. It is **not**
+a proof of the fix, because the session's active build turned out to be 1.0.126, so the
+backwards fold never ran; and no edit in this repository can alter a plugin cache outside
+it. The durable proof is the fixture test, which is why the gate asked for one.

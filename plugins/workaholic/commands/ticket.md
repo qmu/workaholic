@@ -42,9 +42,11 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/check-deps/scripts/check.sh
 ```
 
 If `ok` is `false`, display the `message` to the user and stop. Otherwise note the
-reported `version`, and if `missing_guards` is non-empty, **warn** the user that a
-stale or partial plugin install is loaded (the listed PreToolUse guards are not
-registered in this build) before proceeding — do not block on it.
+reported `version`, and **warn** the user before proceeding — without blocking on
+it — when either: `missing_guards` is non-empty (a stale or partial plugin install
+is loaded, and the listed PreToolUse guards are not registered in this build), or
+`version_drift` is `true` (the loaded `version` is not the `checkout_version` this
+repository wants).
 
 ### The worktree guard is gone, and must not come back
 

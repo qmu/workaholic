@@ -145,6 +145,26 @@ missions_migrate_layout() {
 # best-effort: every failure is swallowed so a calling seam is never blocked -- an
 # unmigrated mission is still read correctly, because every reader keeps a
 # legacy-tolerance branch for the pre-migration shape until the touch lands.
+#
+# ---- DIRECTIONAL SAFETY: the fold is a WHITELIST, and must stay one ----
+#
+# The `case` below names the retired words explicitly and `continue`s on everything
+# else. That is the guard, not a stylistic choice: a build can only ever rewrite
+# vocabulary it already knows is legacy, so a status word it does not recognise --
+# which is exactly what a NEWER repository's vocabulary looks like to an OLDER
+# installed build -- is left untouched.
+#
+# The inverse shape is what caused the 2026-08-04 outage. The pre-K1 build folded in
+# the other direction (`active` -> `draft`), and because that rule was written as
+# "normalize whatever I find" rather than "fold these two known-dead words", an
+# install thirteen versions behind happily rewrote every active mission on every
+# prompt -- and `git add`ed the result, so the drive loop's own freshness step saw a
+# dirty tree and terminated before it could survey. A migration that cannot tell
+# "older than me" from "newer than me" will do this again on the next vocabulary
+# change; a whitelist can tell, because unknown means newer.
+#
+# So when a future decision retires another word: ADD it to the case. Never invert
+# the direction, and never widen the match to a catch-all.
 missions_migrate_status() {
     _msroot="${1:-}"
     [ -n "$_msroot" ] || return 0

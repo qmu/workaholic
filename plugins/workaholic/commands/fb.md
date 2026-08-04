@@ -21,7 +21,7 @@ This command is a **thin orchestration** layer over the preloaded `workaholic:fe
 
 1. **Gather the content.** `$ARGUMENT`, when present, is the feedback (or names what to capture from the conversation); when absent, the feedback is the conclusion/instruction the current conversation just reached. Write the body **faithfully in the contributor's own words** — an excerpt, an instruction, a conclusion. Summarize for length, never editorialize.
 
-2. **Classify — decide, do not ask** (`rules/interaction.md`, the Recommended-label test): derive `kind` (`insight` / `instruction` / `concern` / `material` / `answer`) and `source` (`meeting` / `slack` / `discussion`) from the context — both are almost always recommendable from what just happened. If the record moots or resolves an earlier feedback, find its filename via:
+2. **Classify — decide, do not ask** (`rules/interaction.md`, the Recommended-label test): derive `kind` (`insight` / `instruction` / `concern` / `material` / `answer`) and `source` (`meeting` / `slack` / `discussion`) from the context — both are almost always recommendable from what just happened. **Apply the skill's deciding rule for `kind`** (`workaholic:feedback`, *Choosing the kind*): if the reporter asks for something to be done, it is an `instruction`; a `concern` is a worry with no ask attached. This is where that call is made — downstream readers see only the file, and `/propose` will not act on a misfiled ask. If the record moots or resolves an earlier feedback, find its filename via:
 
    ```bash
    bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/list.sh

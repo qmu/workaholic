@@ -1,12 +1,32 @@
 #!/bin/sh -eu
-# Scaffold a PROPOSED TICKET under a draft mission — the second half of a
-# proposal. The batch fills the sections; this script owns the filename, the
-# frontmatter, and the mission relation.
+# Scaffold a PROPOSED TICKET — the second half of a proposal. The batch fills the
+# sections; this script owns the filename, the frontmatter, and the relations.
 #
 #   scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer]
+#   scaffold-proposed-ticket.sh "<title>" --loose [type] [layer] --feedback <record>...
 #
-# Output: JSON {created, path, slug[, reason]}
-#   reasons: no_title | no_mission | mission_missing | exists
+# Output: JSON {created, path, slug[, mission][, feedback][, reason]}
+#   reasons: no_title | no_mission | mission_missing | no_feedback | exists
+#
+# TWO FORMS, BECAUSE THE WORK HAS TWO SHAPES. A direction that decomposes into two
+# or more units becomes a mission with its ticket set (the mission form). A
+# direction that is ATOMIC becomes ONE LOOSE BACKLOG TICKET (`--loose`): no
+# mission wrapper, no `mission:` key, offered by `plan-units.sh` as ordinary
+# backlog. Before this existed an atomic ask ended in a reported drop, which is
+# still silence from the reporter's point of view — the mission-ticket floor had
+# wired the refusal half and not the emission half.
+#
+# A ONE-TICKET MISSION REMAINS IMPOSSIBLE FROM THIS SEAM, and that is the point of
+# having a second form rather than a lower floor: the choice is between two valid
+# artifacts, so nothing is tempted to dress an atomic ask as a mission to get it
+# published.
+#
+# A LOOSE TICKET MUST CARRY ITS `feedback:` REFS (`no_feedback` otherwise). The
+# dedup set is the union of `feedback:` across missions AND tickets
+# (list-proposed-refs.sh); a loose ticket has no mission to hold the relation, so
+# a loose ticket without refs is a record the batch would re-propose on every
+# tick, forever. The mission form may carry them too — harmless, since the set is
+# a union — but does not need to: its mission already does.
 #
 # WHY A PROPOSAL CARRIES TICKETS AT ALL. A draft mission with a provisional
 # acceptance sketch and no ticket set is not something a developer can judge —
@@ -38,24 +58,63 @@ set -eu
 
 TITLE="${1:-}"
 MISSION_SLUG="${2:-}"
-TYPE="${3:-enhancement}"
-LAYER="${4:-Config}"
-
 [ -n "$TITLE" ] || { echo '{"created": false, "reason": "no_title"}'; exit 1; }
 [ -n "$MISSION_SLUG" ] || { echo '{"created": false, "reason": "no_mission"}'; exit 1; }
+shift 2
+
+LOOSE=0
+if [ "$MISSION_SLUG" = "--loose" ]; then
+  LOOSE=1
+  MISSION_SLUG=""
+fi
+
+# What remains is [type] [layer] and, after --feedback, the record filenames.
+TYPE="enhancement"
+LAYER="Config"
+FEEDBACK=""
+POS=0
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --feedback)
+      shift
+      while [ "$#" -gt 0 ]; do
+        if [ -n "$1" ]; then
+          FEEDBACK="${FEEDBACK}${FEEDBACK:+, }$1"
+        fi
+        shift
+      done
+      ;;
+    *)
+      POS=$((POS + 1))
+      if [ "$POS" = "1" ] && [ -n "$1" ]; then
+        TYPE="$1"
+      fi
+      if [ "$POS" = "2" ] && [ -n "$1" ]; then
+        LAYER="$1"
+      fi
+      shift
+      ;;
+  esac
+done
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts"
 
-# The mission must exist before a ticket claims to belong to it: a dangling
-# relation is exactly what validate-ticket.sh refuses, and a scaffold that
-# created one would be writing a known-invalid artifact.
-. "${MISSION_SCRIPTS}/lib/resolve.sh"
-ROOT=$(missions_root_default)
-MISSION_FILE=$(mission_resolve "$ROOT" "$MISSION_SLUG")
-if [ ! -f "$MISSION_FILE" ]; then
-  printf '{"created": false, "reason": "mission_missing", "slug": "%s"}\n' "$MISSION_SLUG"
-  exit 1
+if [ "$LOOSE" = "1" ]; then
+  # A loose ticket is the only carrier of its own provenance, so refuse one that
+  # would be invisible to the dedup set and re-proposed on every tick.
+  [ -n "$FEEDBACK" ] || { echo '{"created": false, "reason": "no_feedback"}'; exit 1; }
+else
+  # The mission must exist before a ticket claims to belong to it: a dangling
+  # relation is exactly what validate-ticket.sh refuses, and a scaffold that
+  # created one would be writing a known-invalid artifact.
+  . "${MISSION_SCRIPTS}/lib/resolve.sh"
+  ROOT=$(missions_root_default)
+  MISSION_FILE=$(mission_resolve "$ROOT" "$MISSION_SLUG")
+  if [ ! -f "$MISSION_FILE" ]; then
+    printf '{"created": false, "reason": "mission_missing", "slug": "%s"}\n' "$MISSION_SLUG"
+    exit 1
+  fi
 fi
 
 META=$(sh "${SCRIPT_DIR}/../../gather/scripts/ticket-metadata.sh")
@@ -75,6 +134,17 @@ if [ -e "$TICKET_PATH" ]; then
   exit 1
 fi
 
+# The relation lines the two forms differ by, and nothing else: a loose ticket
+# writes NO `mission:` key at all (an empty one would still read as a relation to
+# a mission named ""), and carries `feedback:` instead.
+RELATIONS="mission: ${MISSION_SLUG}"
+if [ "$LOOSE" = "1" ]; then
+  RELATIONS="feedback: [${FEEDBACK}]"
+elif [ -n "$FEEDBACK" ]; then
+  RELATIONS="${RELATIONS}
+feedback: [${FEEDBACK}]"
+fi
+
 mkdir -p "$TICKET_DIR"
 cat > "$TICKET_PATH" <<EOTICKET
 ---
@@ -86,7 +156,7 @@ effort:
 commit_hash:
 category:
 depends_on:
-mission: ${MISSION_SLUG}
+${RELATIONS}
 merge_policy:
 ---
 
@@ -95,8 +165,8 @@ merge_policy:
 ## Overview
 
 <!-- PROPOSED. What this ticket would implement and why, from the feedback and
-     repository state the proposal grew from. Approval of the mission is what
-     turns this from a proposal into work. -->
+     repository state the proposal grew from. Merging the pull request this was
+     published on is what turns it from a proposal into queued work. -->
 
 ## Policies
 
@@ -141,4 +211,10 @@ EOTICKET
 
 git add "$TICKET_PATH" 2>/dev/null || true
 
-printf '{"created": true, "path": "%s", "slug": "%s", "mission": "%s"}\n' "$TICKET_PATH" "$SLUG" "$MISSION_SLUG"
+LOOSE_JSON=false
+if [ "$LOOSE" = "1" ]; then
+  LOOSE_JSON=true
+fi
+
+printf '{"created": true, "path": "%s", "slug": "%s", "mission": "%s", "feedback": "%s", "loose": %s}\n' \
+  "$TICKET_PATH" "$SLUG" "$MISSION_SLUG" "$FEEDBACK" "$LOOSE_JSON"

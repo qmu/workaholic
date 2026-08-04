@@ -116,3 +116,4 @@ which is precisely the condition the mission exists to fix.
 - 2026-08-04 — concern deferred (stuck) — 20260804124313-size-sh-s-norm-is-satisfied.md
 - 2026-08-04 — concern deferred (stuck) — 20260804124313-the-resume-lint-keys-on-a.md
 - 2026-08-04 — mission achieved — mission.md
+- 2026-08-04 — concern resolved (unstuck) — 20260803221906-readme-md-still-describes-the-retired.md

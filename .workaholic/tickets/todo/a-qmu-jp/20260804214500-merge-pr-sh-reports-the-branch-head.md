@@ -3,7 +3,7 @@ created_at: 2026-08-04T21:45:00+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Infrastructure]
-effort:
+effort: 0.5h
 commit_hash:
 category: Changed
 depends_on:
@@ -65,3 +65,32 @@ rebase merge widens the gap further: the branch head is not even an ancestor of 
 - This was filed as a deferred concern after the first observation and re-observed on the very next
   ship. The second sighting is what makes it deterministic rather than anecdotal, so it wants a fix
   rather than another deferral.
+
+## Final Report
+
+Development completed as planned.
+
+`merge-pr.sh` now resolves the commit that landed on the base after the merge succeeds,
+inside the existing "nothing below may fail the script" region: the PR's own
+`mergeCommit.oid` first (authoritative under every merge strategy), then a fetch and
+`origin/<base>` as a derived fallback, then a short-form normalization. The branch head is
+kept under `branch_head` rather than dropped, and `commit_hash_source`
+(`pr_merge_commit`|`base_tip`|`unresolved`) reports which path produced the value. Ship
+Flow steps 6 and 7 were updated with the distinction and with the `base_tip` verification
+step.
+
+### Discovered Insights
+
+- **Insight**: The old `git rev-parse --short HEAD` was not merely imprecise — it read a
+  *different* commit depending on where the script ran. The post-merge checkout block that
+  precedes it moves `HEAD` to the base when the checkout succeeds, but reports
+  `base_checked_out_elsewhere` and leaves `HEAD` on the work branch in exactly the layout
+  `/drive` always ships from (a linked claim worktree, primary tree holding `main`).
+  **Context**: The field was therefore *correct* interactively on a desk checkout and
+  *wrong* in the unattended path — which is why it survived review and why both sightings
+  came from ships, not from tests.
+- **Insight**: `base_tip` cannot be silently substituted for the PR's merge commit; it is
+  only equal while nobody else merged in between. **Context**: That is why the fallback is
+  reported as a distinct `commit_hash_source` rather than folded into one value — a
+  release-tagging caller needs to know it should verify with `git merge-base
+  --is-ancestor` before trusting it.

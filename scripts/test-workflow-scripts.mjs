@@ -4546,24 +4546,29 @@ function testRecordEvidenceSharedRules() {
 // Build a bare "origin" whose main and a behind-branch both change `file` from a
 // shared base, so `catchup-main.sh main` hits a conflict on exactly that path.
 // Returns the checked-out work-branch clone (behind main) and the origin, for cleanup.
-function makeConflictClone(file, baseVal, mainVal, branchVal) {
+// `extra`, when given, is a second {file, baseVal, mainVal, branchVal} that diverges
+// on both sides alongside the first — so a test can build a MIXED conflict (one
+// append-only artifact plus one manifest) rather than only single-path ones.
+function makeConflictClone(file, baseVal, mainVal, branchVal, extra = null) {
   const origin = mkdtempSync(join(tmpdir(), "wh-corigin-"));
   const clone = mkdtempSync(join(tmpdir(), "wh-cclone-"));
   const seed = mkdtempSync(join(tmpdir(), "wh-cseed-"));
+  const put = (root, f, v) => { mkdirSync(dirname(join(root, f)), { recursive: true }); writeFileSync(join(root, f), v); };
   execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
   execSync(`git clone -q ${origin} .`, { cwd: seed });
   execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: seed });
-  mkdirSync(dirname(join(seed, file)), { recursive: true });
-  writeFileSync(join(seed, file), baseVal);
+  put(seed, file, baseVal);
+  if (extra) put(seed, extra.file, extra.baseVal);
   execSync(`git add -A && git commit -q -m base && git push -q origin main`, { cwd: seed });
-  writeFileSync(join(seed, file), mainVal); // origin/main diverges
+  put(seed, file, mainVal); // origin/main diverges
+  if (extra) put(seed, extra.file, extra.mainVal);
   execSync(`git add -A && git commit -q -m mainside && git push -q origin main`, { cwd: seed });
   rmSync(seed, { recursive: true, force: true });
   execSync(`git clone -q ${origin} .`, { cwd: clone });
   execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: clone });
   execSync(`git checkout -q -b work-20260706-x HEAD~1`, { cwd: clone }); // branch off the base
-  mkdirSync(dirname(join(clone, file)), { recursive: true });
-  writeFileSync(join(clone, file), branchVal); // branch diverges the same path
+  put(clone, file, branchVal); // branch diverges the same path
+  if (extra) put(clone, extra.file, extra.branchVal);
   execSync(`git add -A && git commit -q -m branchside`, { cwd: clone });
   return { origin, clone };
 }
@@ -4729,6 +4734,113 @@ function testCatchupMain() {
         r.conflicted_files.includes("base.txt"), JSON.stringify(r.conflicted_files));
     } finally { cleanup(origin); cleanup(clone); }
   }
+
+  // --- append-only .workaholic/ artifacts (both sides only INSERTED lines) --------
+  // An OKF index both branches extended: unambiguous ("keep both sides"), so it is
+  // reconciled here rather than reported as needing human judgement.
+  {
+    const idx = ".workaholic/stories/index.md";
+    const { origin, clone } = makeConflictClone(idx,
+      "# Stories\n\n- a\n", "# Stories\n\n- a\n- b (main)\n", "# Stories\n\n- a\n- c (branch)\n");
+    try {
+      const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.catchupMain} main`).stdout);
+      assertTrue("catchup-main reconciles an append-only index instead of halting",
+        r.caught_up === true && !("conflict_class" in r), JSON.stringify(r));
+      assertTrue("catchup-main names the index it reconciled",
+        Array.isArray(r.resolved_append_only) && r.resolved_append_only.includes(idx),
+        JSON.stringify(r.resolved_append_only));
+      const merged = readFileSync(join(clone, idx), "utf8");
+      assertTrue("catchup-main keeps BOTH sides' appended lines",
+        merged.includes("- b (main)") && merged.includes("- c (branch)"), merged);
+      assertTrue("catchup-main leaves no conflict markers in the reconciled file",
+        !merged.includes("<<<<<<<") && !merged.includes(">>>>>>>"), merged);
+      assertTrue("catchup-main commits the reconciled merge (clean tree)",
+        run(clone, `git status --porcelain`).stdout.trim() === "", "tree not clean after reconcile");
+    } finally { cleanup(origin); cleanup(clone); }
+  }
+
+  // A mission's ## Changelog: both sides appended a dated line. The merged section is
+  // ordered by leading date, not by merge order (here the branch's line is LATER than
+  // main's, so union order and chronological order differ).
+  {
+    const m = ".workaholic/missions/active/demo/mission.md";
+    const head = "# Demo\n\n## Acceptance\n\n- [ ] one\n\n## Changelog\n\n- 2026-08-01 — created — mission.md\n";
+    const { origin, clone } = makeConflictClone(m, head,
+      head + "- 2026-08-03 — archived — t-main.md\n",
+      head + "- 2026-08-05 — archived — t-branch.md\n");
+    try {
+      const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.catchupMain} main`).stdout);
+      assertTrue("catchup-main reconciles an append-only mission changelog",
+        r.caught_up === true && r.resolved_append_only.includes(m), JSON.stringify(r));
+      const merged = readFileSync(join(clone, m), "utf8");
+      assertTrue("catchup-main keeps both changelog lines",
+        merged.includes("t-main.md") && merged.includes("t-branch.md"), merged);
+      assertTrue("catchup-main orders the merged changelog by date, not merge order",
+        merged.indexOf("2026-08-03") < merged.indexOf("2026-08-05"), merged);
+    } finally { cleanup(origin); cleanup(clone); }
+  }
+
+  // The shape test is what makes the path scope safe: one side REWRITES an existing
+  // changelog line while the other appends after it, so the two overlap and git
+  // conflicts. That is a modification, not an append — it stays `content` and the ship
+  // still halts for a human. (The rewrite has to touch the line the other side appends
+  // next to; a far-apart edit git merges on its own and never reaches this classifier.)
+  {
+    const m = ".workaholic/missions/active/demo/mission.md";
+    const base = "# Demo\n\n## Acceptance\n\n- [ ] one\n\n## Changelog\n\n- 2026-08-01 — created — mission.md\n";
+    const { origin, clone } = makeConflictClone(m, base,
+      base.replace("created — mission.md", "created — mission.md (revised)"),
+      base + "- 2026-08-02 — archived — t-branch.md\n");
+    try {
+      const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.catchupMain} main`).stdout);
+      assertEq("catchup-main still classes a modified mission line as content",
+        { c: r.caught_up, cls: r.conflict_class }, { c: false, cls: "content" });
+      assertTrue("catchup-main reconciles nothing when the shape test refuses",
+        r.append_only_files.length === 0, JSON.stringify(r.append_only_files));
+      assertTrue("catchup-main aborts to a clean tree after a refused shape",
+        run(clone, `git status --porcelain`).stdout.trim() === "", "tree not clean after abort");
+    } finally { cleanup(origin); cleanup(clone); }
+  }
+
+  // Mixed: an append-only index plus a version manifest. The index no longer drags the
+  // whole catch-up to `content` — the class is decided by what is LEFT unmerged.
+  {
+    const idx = ".workaholic/stories/index.md";
+    const { origin, clone } = makeConflictClone(idx,
+      "# Stories\n\n- a\n", "# Stories\n\n- a\n- b (main)\n", "# Stories\n\n- a\n- c (branch)\n",
+      { file: ".claude-plugin/marketplace.json", baseVal: '{"version":"1.0.0"}\n', mainVal: '{"version":"1.0.1"}\n', branchVal: '{"version":"1.0.2"}\n' });
+    try {
+      const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.catchupMain} main`).stdout);
+      assertEq("catchup-main classes index+manifest as mechanical, not content",
+        { c: r.caught_up, cls: r.conflict_class }, { c: false, cls: "mechanical" });
+      assertTrue("catchup-main tells the agent which paths it may keep both sides of",
+        r.append_only_files.includes(idx), JSON.stringify(r.append_only_files));
+      assertTrue("catchup-main aborts a mixed conflict to a clean tree",
+        run(clone, `git status --porcelain`).stdout.trim() === "", "tree not clean after abort");
+    } finally { cleanup(origin); cleanup(clone); }
+  }
+}
+
+// ---------- ship/merge-pr.sh (commit_hash names the commit that landed) ----------
+function testMergePrCommitHash() {
+  // The defect: `commit_hash` was `git rev-parse --short HEAD` — the WORK BRANCH head,
+  // not the merge commit on the base. Ship Flow step 7 tags that field, so a
+  // release-on-tag project tagged a commit off the base's first-parent line. `gh` is
+  // absent in this harness, so these assertions pin the contract in the source.
+  const src = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/merge-pr.sh"), "utf8");
+  assertTrue("merge-pr no longer reports HEAD as commit_hash",
+    !/commit_hash=\$\(git rev-parse --short HEAD\)/.test(src), "commit_hash still derived from HEAD");
+  assertTrue("merge-pr asks the PR for the commit the merge produced",
+    /gh pr view "\$pr_number" --json mergeCommit/.test(src), "no mergeCommit lookup");
+  assertTrue("merge-pr falls back to the fetched base tip",
+    /git rev-parse "origin\/\$\{base\}"/.test(src), "no base-tip fallback");
+  assertTrue("merge-pr reports which source the hash came from",
+    /"commit_hash_source": "\$commit_hash_source"/.test(src), "commit_hash_source not reported");
+  assertTrue("merge-pr keeps the branch head under its own key rather than dropping it",
+    /"branch_head": "\$branch_head"/.test(src), "branch_head not reported");
+  assertTrue("merge-pr resolves the hash only after the merge has landed",
+    src.indexOf("the merge has LANDED") < src.indexOf("gh pr view \"$pr_number\" --json mergeCommit"),
+    "hash resolution is not inside the post-merge, never-fail region");
 }
 
 // ---------- report/apply-deferred-concern-verdicts.sh (Bug 1: accept object + array) ----------
@@ -10884,6 +10996,7 @@ const tests = [
   ["ship/record-evidence.sh", testRecordEvidence],
   ["ship/record-evidence.sh shared secret rules", testRecordEvidenceSharedRules],
   ["ship/catchup-main.sh", testCatchupMain],
+  ["ship/merge-pr.sh (commit_hash)", testMergePrCommitHash],
   ["report/apply-deferred-concern-verdicts.sh", testApplyVerdicts],
   ["okf/refresh-index.sh preserves content + prunes dead links", testRefreshIndexPreservesContent],
   ["report per-run artifacts (no shared /tmp paths)", testReportArtifacts],

@@ -3,7 +3,7 @@ created_at: 2026-08-04T21:46:00+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Infrastructure]
-effort:
+effort: 2h
 commit_hash:
 category: Changed
 depends_on:
@@ -80,3 +80,57 @@ because both sides always append to the mission changelog and to the story index
 - Ordering a merged changelog by date is only well-defined while every line starts with one. If that
   is not guaranteed, append-in-merge-order is the honest fallback and should be stated as such rather
   than silently assumed.
+
+## Final Report
+
+Development completed as planned.
+
+`catchup-main.sh` gained a pass that reconciles append-only `.workaholic/` conflicts in
+place and completes the merge when nothing is left unmerged; the classifier then runs over
+what *remains*, so an index or changelog no longer drags a manifest-only catch-up to
+`content`. The recognizer and resolver live in the new
+`skills/ship/scripts/lib/append-only.sh`. Four scenarios are pinned in
+`test-workflow-scripts.mjs` (append-only index, mission changelog with date ordering, a
+rewritten line refused, and the mixed index+manifest case).
+
+**Step 2's scope ruling — both tests, and why.** The ticket offered path *or* shape. Neither
+alone satisfies both quality gates, so the implementation uses **path for scope, shape for
+resolution**: gate 1 wants an append-only conflict reconciled, gate 2 wants a modified or
+removed line in *those same files* still reported `content` — which a pure path test cannot
+do. Pure shape would satisfy both but widens insertion-only union merging to every path in
+the repository, silently concatenating two independently added functions in implementation
+code. The path set (`.workaholic/` indexes at any depth, and `missions/*/mission.md`) bounds
+where auto-reconciliation is permitted at all; the shape test decides whether this
+particular conflict earned it. The rationale is recorded in the library header rather than
+here, so the next reader finds it where the code is.
+
+The shape test is exact rather than heuristic: it compares merge stages 1/2/3 with `git
+diff --numstat` and requires **zero deletions on both sides**, since git counts a modified
+line as one addition plus one deletion and a reorder as both. Resolution is `git merge-file
+--union`, which keeps both sides by construction once the shape has been established.
+
+### Discovered Insights
+
+- **Insight**: A shape test written against the *conflicted working file* cannot answer the
+  question at all — the markers show what each side has, not whether those lines are new.
+  The merge index's three stages (`:1:`/`:2:`/`:3:`) are what make "no existing line was
+  modified or removed" decidable, and they are only available while the merge is unresolved.
+  **Context**: This is why the pass has to run before `git merge --abort` rather than as a
+  separate script the ship flow calls afterwards.
+- **Insight**: A missing stage 1 (add/add — both sides created the file) is *not* an append
+  and is deliberately refused. There is no ancestor to prove the shape against, and
+  concatenating two independently created files is a different reconciliation from
+  extending a shared tail.
+  **Context**: Plausible for a newly created area's `index.md`, so the refusal is a decision
+  rather than an oversight, recorded in the library header.
+- **Insight**: The obvious test for the gate-2 case does not actually exercise the
+  classifier. Ticking an acceptance box in `## Acceptance` while the other side appends to
+  `## Changelog` is two edits far apart in the file, which git merges cleanly — no conflict
+  ever reaches the classifier. The test had to rewrite the line the other side appends
+  *next to*.
+  **Context**: Any future test of a refused shape must make the two edits overlap, or it
+  will pass while asserting nothing.
+- **Insight**: `hooks/posix-lint.sh` reads a literal `<<<` as a here-string bashism wherever
+  it appears, including inside a single-quoted grep pattern. A conflict-marker sweep has to
+  be written as a repetition (`<{7}`) instead.
+  **Context**: The same trap waits for any script that greps for conflict markers.

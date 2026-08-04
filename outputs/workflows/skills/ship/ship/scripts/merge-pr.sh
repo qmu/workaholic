@@ -2,6 +2,8 @@
 # Merge a PR, then bring the local base branch up to date when this checkout can.
 # Usage: sh merge-pr.sh <pr-number> [base-branch]
 # Output: {"merged": true, "pr_number": N, "commit_hash": "...",
+#          "commit_hash_source": "pr_merge_commit"|"base_tip"|"unresolved",
+#          "branch_head": "...",
 #          "checked_out": true|false, "checkout_reason": "", "base": "main"}
 #     or: {"merged": false, "error": "merge failed"} on stderr, exit 1
 #     or: {"merged": false, "reason": "gh_unavailable"} on stderr, exit 1 -- the CLI is
@@ -46,6 +48,52 @@ if ! gh pr merge "$pr_number" --merge --delete-branch=false; then
 fi
 
 # --- From here the merge has LANDED. Nothing below may fail the script. --------------
+
+# `commit_hash` NAMES THE COMMIT THIS MERGE PRODUCED ON THE BASE, not the branch head.
+# It used to be `git rev-parse --short HEAD`, which inside a claim worktree is the last
+# commit on the WORK BRANCH — a different commit whenever the base advanced since the
+# branch's last catch-up, and not even an ancestor of what landed under a squash or
+# rebase merge. Ship Flow step 7 feeds this field straight to the release as its
+# target, so a release-on-tag project tagged a commit that was never on the base's
+# first-parent line. Observed on two consecutive ships, deterministically, and both
+# times recovered by hand with `gh pr view --json mergeCommit` — a value that reads
+# true and is not, which is exactly the silent-wrong-answer class the observability
+# policy exists to prevent.
+#
+# The PR's own `mergeCommit` is authoritative for every merge strategy, so it is asked
+# first. `base_tip` is a DERIVED fallback (it is the merge commit only while nobody
+# else merged in between), which is why the source is reported rather than left for
+# the caller to assume.
+branch_head=$(git rev-parse --short HEAD 2>/dev/null || true)
+commit_hash=""
+commit_hash_source="unresolved"
+
+merge_oid=$(gh pr view "$pr_number" --json mergeCommit --jq '.mergeCommit.oid' 2>/dev/null || true)
+case "$merge_oid" in
+  "" | null) ;;
+  *) commit_hash="$merge_oid"; commit_hash_source="pr_merge_commit" ;;
+esac
+
+# Fetch before resolving: the merge commit does not exist in this checkout yet, which
+# both the fallback and the short-form normalization below need it to.
+git fetch origin "$base" >&2 2>&1 || true
+
+if [ -z "$commit_hash" ]; then
+  base_tip=$(git rev-parse "origin/${base}" 2>/dev/null || true)
+  if [ -n "$base_tip" ]; then
+    commit_hash="$base_tip"; commit_hash_source="base_tip"
+  fi
+fi
+
+# Normalize to the short form callers have always been handed. Falls back to the full
+# oid when the object is not present locally — a usable value beats an empty one.
+if [ -n "$commit_hash" ]; then
+  short=$(git rev-parse --short "$commit_hash" 2>/dev/null || true)
+  if [ -n "$short" ]; then
+    commit_hash="$short"
+  fi
+fi
+
 checked_out=false
 checkout_reason=""
 
@@ -69,8 +117,6 @@ if [ "$checked_out" = "true" ]; then
   fi
 fi
 
-commit_hash=$(git rev-parse --short HEAD)
-
 cat <<EOF
-{"merged": true, "pr_number": $pr_number, "commit_hash": "$commit_hash", "checked_out": $checked_out, "checkout_reason": "$checkout_reason", "base": "$base"}
+{"merged": true, "pr_number": $pr_number, "commit_hash": "$commit_hash", "commit_hash_source": "$commit_hash_source", "branch_head": "$branch_head", "checked_out": $checked_out, "checkout_reason": "$checkout_reason", "base": "$base"}
 EOF

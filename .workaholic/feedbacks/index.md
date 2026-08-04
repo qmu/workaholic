@@ -402,4 +402,5 @@
 * [Resolved: The proposal cursor cannot survive an ephemeral runner](20260804210258-resolved-20260730110659-the-proposal-cursor-cannot-survive-an-ephemeral-runner.md)
 * [Resolved: README.md still describes the retired `/mission approve` flow](20260804213426-resolved-readme-md-still-describes-the-retired.md)
 * [The two routine-command entrances are deliberate](20260804215532-the-two-routine-command-entrances-are-deliberate.md)
+* [Propose at the capture seam, not from a merged-main window](20260804221328-propose-at-the-capture-seam-not-from-a-merged-main-window.md)
 <!-- okf:generated:end -->

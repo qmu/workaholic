@@ -2,7 +2,7 @@
 type: Mission
 title: Make the branch story measurably shorter
 slug: make-the-branch-story-measurably-shorter
-status: active
+status: achieved
 merge_policy: 
 created_at: 2026-08-04T17:00:21+09:00
 author: a@qmu.jp
@@ -60,3 +60,4 @@ the same assumption.
 - 2026-08-04 — ticket archived — 20260804201653-fix-the-measured-cause-and-verify-a-shorter-story.md
 - 2026-08-04 — story reported — work-20260804-202056.md
 - 2026-08-04 — run recorded (+0.5h) — 20260804-202056
+- 2026-08-04 — mission achieved — mission.md

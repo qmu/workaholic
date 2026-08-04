@@ -2,7 +2,7 @@
 type: Mission
 title: Make the feedback loop actually propose
 slug: make-the-feedback-loop-actually-propose
-status: active
+status: achieved
 merge_policy: 
 created_at: 2026-08-04T20:05:42+09:00
 author: a@qmu.jp
@@ -59,3 +59,4 @@ see the queue".
 - 2026-08-04 — ticket archived — 20260804200555-emit-a-loose-ticket-when-a-direction-is-atomic.md
 - 2026-08-04 — story reported — work-20260804-202110.md
 - 2026-08-04 — run recorded (+0.75h) — 20260804-202110
+- 2026-08-04 — mission achieved — mission.md

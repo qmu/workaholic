@@ -13,6 +13,15 @@
 # ## Experience and ## Acceptance before the publish commit — but "unfinished" is a
 # property of the working tree, not a status a reader has to interpret.
 #
+# THE TICKET FLOOR IS DELIBERATELY NOT CHECKED HERE, and this absence is a decision
+# rather than an oversight (mission/SKILL.md, *Granularity -> The ticket floor*). The
+# floor is "two or more tickets, or it is not a mission", counted at the PUBLISH seam —
+# the commit where the mission and its ticket set become one artifact. This script mints
+# the scaffold, which by construction runs BEFORE the interrogation has emitted anything,
+# so a floor here would refuse the normal authoring order every single time. Same
+# argument as the acceptance-link contract: a check placed where its data does not yet
+# exist does not enforce the rule, it blocks the workflow.
+#
 # Usage: create.sh "<title>" [assignee] [merge_policy]
 #   Ownership is CARRIED ON THE MISSION as the plural `assignees` list (2026-07-28 —
 #   returned from the 2026-07-24 strategy-layer model; see mission/reference/schema.md Ownership

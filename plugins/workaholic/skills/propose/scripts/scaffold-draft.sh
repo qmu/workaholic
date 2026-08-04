@@ -23,6 +23,13 @@
 # achieved|abandoned|carried only). Refuses an existing slug in either area.
 # Refreshes the OKF indexes and git-stages.
 #
+# THE TICKET FLOOR IS NOT CHECKED HERE, deliberately (mission/SKILL.md, *Granularity ->
+# The ticket floor*). Like create.sh this is a SCAFFOLD writer: it runs before the batch
+# has emitted the ticket set, so it has nothing to count. The floor binds the BATCH — a
+# proposal the batch cannot decompose into two or more tickets is not proposed at all,
+# and silence is already a valid outcome of the run (propose/SKILL.md). Enforcing it in
+# this script would refuse the mission before its tickets could exist.
+#
 # Usage: scaffold-draft.sh "<title>" <feedback-filename>...
 # Output: JSON {created, slug, path[, reason]}
 

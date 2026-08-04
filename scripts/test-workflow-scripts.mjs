@@ -1154,6 +1154,81 @@ function testDriveAuthorized() {
 // saw this. A test asserting only `authorized: true` from inside the worktree would pass
 // while the bug is live -- so the main-tree and unrelated-dir cwds, and the same-slug
 // row, are the ones with teeth.
+// ---------- resolve.sh: the status fold is a WHITELIST, and only ever folds forward ----------
+//
+// The 2026-08-04 outage: a plugin install thirteen versions behind ran its PRE-K1 status
+// migration against a K1-era repository. That build's rule was directional the other way
+// (`active` -> `draft`) and written as "normalize whatever I find", so it rewrote every
+// active mission on every prompt AND `git add`ed the result -- leaving a dirty tree that
+// made /drive's own sync-main.sh terminate `dirty_workspace` before it could survey. Two
+// days of hourly ticks fired on time and did nothing.
+//
+// The durable guard is that the fold names the dead words explicitly and `continue`s on
+// everything else, so a status word the running build does not recognise -- which is
+// exactly what a NEWER repository's vocabulary looks like to an OLDER build -- is left
+// alone. These rows pin that shape: the forward fold still works, an unknown/newer word
+// is untouched BYTE-FOR-BYTE, and nothing is staged for it.
+function testMissionStatusMigrationIsWhitelistOnly() {
+  const RESOLVE = join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/lib/resolve.sh");
+  const migrateStatus = (cwd, root) =>
+    run(cwd, `${POSIX_SH} -c '. "$0"; missions_migrate_status "$1"' ${RESOLVE} ${root}`);
+  const missionMd = (slug, status) =>
+    `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: ${status}\nassignee: a@qmu.jp\n---\n\n## Experience\n\nx\n\n## Acceptance\n\n- [ ] One (#t.md)\n\n## Changelog\n`;
+
+  const dir = makeRepo("main");
+  try {
+    execSync(`git config user.email a@qmu.jp`, { cwd: dir });
+    const at = (slug) => join(dir, `.workaholic/missions/active/${slug}/mission.md`);
+    const seed = (slug, status) => {
+      mkdirSync(join(dir, `.workaholic/missions/active/${slug}`), { recursive: true });
+      writeFileSync(at(slug), missionMd(slug, status));
+    };
+    // Two retired words (must fold), the live word, and a word from a hypothetical
+    // FUTURE vocabulary this build has never heard of (must not be touched).
+    seed("m-draft", "draft");
+    seed("m-approved", "approved");
+    seed("m-active", "active");
+    seed("m-future", "chartered");
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
+
+    const before = Object.fromEntries(
+      ["m-active", "m-future"].map((s) => [s, readFileSync(at(s), "utf8")]));
+
+    assertEq("missions_migrate_status exits 0", migrateStatus(dir, join(dir, ".workaholic")).status, 0);
+
+    const statusOf = (slug) => (readFileSync(at(slug), "utf8").match(/^status:\s*(\S+)/m) || [])[1];
+    assertEq("the retired word `draft` folds forward to active", statusOf("m-draft"), "active");
+    assertEq("the retired word `approved` folds forward to active", statusOf("m-approved"), "active");
+
+    // THE ROW WITH TEETH. An unrecognised (newer) status word is not rewritten, and the
+    // file is byte-identical -- not merely "still says chartered", since a fold that
+    // rewrote the file while preserving the word would still dirty the tree.
+    assertEq("an UNKNOWN/newer status word is left byte-identical — the fold never runs backwards",
+      readFileSync(at("m-future"), "utf8"), before["m-future"]);
+    assertEq("the live word `active` is left byte-identical (idempotence)",
+      readFileSync(at("m-active"), "utf8"), before["m-active"]);
+
+    // And nothing was STAGED for the untouched pair. The staging is the half that turned
+    // a cosmetic rewrite into a loop-stopping dirty tree, so it is asserted separately.
+    const staged = execSync(`git diff --cached --name-only`, { cwd: dir, encoding: "utf8" });
+    assertTrue("no unknown-status mission is staged", !staged.includes("m-future") && !staged.includes("m-active"), staged);
+
+    // Idempotent: a second pass over the now-folded tree changes nothing at all.
+    execSync(`git add -A && git commit -q -m folded`, { cwd: dir });
+    migrateStatus(dir, join(dir, ".workaholic"));
+    assertEq("status migration re-run is a no-op on a folded tree",
+      execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim(), "");
+
+    // The guard is structural: the fold must keep naming its words. A catch-all match
+    // would reintroduce the outage, so pin the whitelist shape in the source itself.
+    const src = readFileSync(RESOLVE, "utf8");
+    assertTrue("the status fold still matches an explicit word list, not a catch-all",
+      /draft \| approved\)/.test(src), "the retired-word whitelist is gone from resolve.sh");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 function testMissionResolutionFollowsTicket() {
   const RESOLVE = join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/lib/resolve.sh");
   // Invoke the resolver library directly ($0 is the lib, $1 the root, $2 the slug), so the
@@ -9575,8 +9650,33 @@ function testPlanFloorCountsQueue() {
     assertEq("a driven mission has an empty todo but a non-empty total",
       { t: q.todo, a: q.archive, tot: q.total }, { t: 0, a: 1, tot: 1 });
     const after = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
-    assertEq("but the survey does not offer it — nothing left to drive",
-      (after.excluded.find((e) => e.id === "driven") || {}).reason, "no_tickets");
+    const afterOffered = after.missions.map((m) => m.slug);
+    const afterReason = (slug) => (after.excluded.find((e) => e.id === slug) || {}).reason;
+
+    // AN EMPTY QUEUE IS TWO OPPOSITE STATES. A drained mission is finished and waiting
+    // on a close decision; a sketch-only mission was never planned. Reporting both as
+    // `no_tickets` left four real missions -- 15 archived tickets, 4.66 recorded
+    // agent-hours -- reading as never-planned for four days across every hourly tick.
+    assertTrue("the survey does not offer a drained mission — nothing left to drive",
+      !afterOffered.includes("driven"), JSON.stringify(afterOffered));
+    assertEq("a drained mission is excluded as queue_drained, not no_tickets",
+      afterReason("driven"), "queue_drained");
+    assertEq("a never-planned mission is still no_tickets",
+      afterReason("sketch-only"), "no_tickets");
+    assertTrue("the two empty-queue states never collapse into one reason",
+      afterReason("driven") !== afterReason("sketch-only"));
+    assertEq("and neither is confused with no_plan", afterReason("empty"), "no_plan");
+
+    // The developer-facing roadmap carries the same distinction, because "decide the
+    // close" is a human action and list.sh is where a human looks.
+    const listed = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
+    const row = (slug) => listed.find((m) => m.slug === slug) || {};
+    assertEq("the roadmap marks a drained mission queue_drained",
+      row("driven").ready_reason, "queue_drained");
+    assertEq("a never-planned mission keeps its own reason on the roadmap",
+      row("sketch-only").ready_reason, "");
+    assertEq("a 0/0 mission is still no_plan on the roadmap",
+      row("empty").ready_reason, "no_plan");
   } finally {
     for (const d of [origin, A]) rmSync(d, { recursive: true, force: true });
   }
@@ -10582,6 +10682,7 @@ const tests = [
   ["mission creation interrogation protocol", testMissionInterrogationProtocol],
   ["mission/drive-authorized.sh (approval relocation)", testDriveAuthorized],
   ["mission status axis (draft retirement + creation-time policy + re-keyed readers)", testMissionStatusAxis],
+  ["mission status migration is whitelist-only (never folds backwards)", testMissionStatusMigrationIsWhitelistOnly],
   ["mission resolution follows the ticket, not the cwd", testMissionResolutionFollowsTicket],
   ["drive mints tickets for mid-run problems", testDriveMintsTicketsForMidrunProblems],
   ["mission position report at handoffs", testMissionPositionReport],

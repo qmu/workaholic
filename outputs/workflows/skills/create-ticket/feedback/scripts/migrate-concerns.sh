@@ -17,9 +17,28 @@
 # idempotent; best-effort throughout so a calling seam (ship extraction, report
 # listing) is never blocked. Direct/test entry here; the seams call it first.
 #
+# IT NEVER TOUCHES THE INDEX, AND THAT IS A CONTRACT (2026-08-04). It used to
+# `git add` each written record and `git rm -r` the retired tree, which meant a
+# caller that had staged two files by path and ran `git commit` got a commit of
+# 154 -- 151 of them this migration's, described by a message about the two. The
+# index is the CALLER's shared state: a seam invoked as a side effect of *reading*
+# (list-open-concerns.sh runs this first) must not enlarge someone else's next
+# commit, and a commit message that does not describe its own diff breaks the
+# premise change history rests on (`workaholic:development` / change-history).
+#
+# Staging the work in its own commit was the other sanctioned option and was
+# rejected: this runs from a documented PURE READ, and a reader that commits is a
+# larger surprise than the one being fixed. The written records and the removed
+# tree are left in the working tree for the caller to stage deliberately, and the
+# fact is REPORTED rather than left to be discovered (`migrated`, below) so a
+# side effect is never silent (`workaholic:implementation` / observability).
+#
 # Usage: migrate-concerns.sh [workaholic-root]
 #   workaholic-root defaults to this repository's .workaholic.
-# Output: JSON {migrated, root}
+# Output: JSON {migrated, had_tree, staged, root}
+#   migrated  - how many records this run WROTE (0 on an already-migrated repo)
+#   had_tree  - whether a concerns/ tree was present at all
+#   staged    - always false; the field exists so the contract is machine-readable
 
 set -eu
 
@@ -31,9 +50,10 @@ fi
 
 HAD="false"
 [ -d "${ROOT}/concerns" ] && HAD="true"
+MIGRATED=0
 
 if [ "$HAD" = "true" ]; then
-    python3 - "$ROOT" <<'PY' || true
+    _written=$(python3 - "$ROOT" <<'PY' || true
 import os, re, subprocess, sys
 
 root = sys.argv[1]
@@ -104,7 +124,8 @@ def migrate(path, closed):
     lines += ['---', '', body.strip(), '']
     with open(out, 'w') as h:
         h.write('\n'.join(lines))
-    subprocess.run(['git', 'add', out], capture_output=True)
+    # NOT STAGED, DELIBERATELY -- see the header. The caller owns its own index.
+    print(out)
 
 for name in sorted(os.listdir(cdir)):
     p = os.path.join(cdir, name)
@@ -118,11 +139,12 @@ if os.path.isdir(adir):
         if name.endswith('.md') and name not in ('README.md', 'index.md') and os.path.isfile(p):
             migrate(p, closed=True)
 PY
+)
+    MIGRATED=$(printf '%s' "$_written" | grep -c . || true)
     # Structure teardown: knowledge already moved; git history keeps the originals.
-    if ! git rm -r -q "${ROOT}/concerns" >/dev/null 2>&1; then
-        rm -rf "${ROOT}/concerns" 2>/dev/null || true
-    fi
-    git add -A "${ROOT}/concerns" >/dev/null 2>&1 || true
+    # `rm -rf`, never `git rm` -- see the header. The removal is left UNSTAGED like
+    # every other change this migration makes.
+    rm -rf "${ROOT}/concerns" 2>/dev/null || true
 fi
 
-printf '{"migrated": %s, "root": "%s"}\n' "$HAD" "$ROOT"
+printf '{"migrated": %s, "had_tree": %s, "staged": false, "root": "%s"}\n' "$MIGRATED" "$HAD" "$ROOT"

@@ -103,8 +103,8 @@ The command owns every `AskUserQuestion` (one-level fan-out; subagents cannot pr
    ```bash
    bash ${CLAUDE_PLUGIN_ROOT}/skills/request/scripts/submit-request.sh <target-root> <filename> <body-file>
    ```
-   Returns `{ok, path}`. The script backstops on this repo's own name and path; that is
-   mechanics, not assurance.
+   Returns `{ok, path}`. The script backstops on this repo's own name, `owner/name` remote
+   form, clone URL and absolute path; that is mechanics, not assurance.
 
 7. **Report** the submitted path and tell the developer the target's `/drive` will pick it up.
 
@@ -120,5 +120,18 @@ and let them commit it.
   not seen — that is how this skill's own script writes, and it means the guard closes the
   path an agent takes by habit, not one taken deliberately. The threat model here is an
   agent doing the natural thing, not one evading a gate.
-- The backstop in `submit-request.sh` knows only this repo's own name and path. Everything
-  else rests on step 5.
+- The backstop in `submit-request.sh` knows only this repo's own name, its `owner/name`
+  remote form, its clone URL and its absolute path. Everything else rests on step 5.
+- **It matches an identifier, not a substring, and that is a usability requirement.** This
+  backstop is the one place a *legitimate* request can be refused **after** the developer
+  has confirmed destination and body verbatim — so its false-positive rate is a usability
+  property, not only a safety one. The bare-name test was a plain case-insensitive
+  substring match until 2026-08-02, when a repository whose basename is an ordinary English
+  word found it could not submit *any* request: its body was seventy path pairs of the form
+  `docs/<name>-reports/x.md -> docs/site-<name>/x.md`, where the right-hand side is the
+  **target** repo's own directory, and the path list *was* the ticket, so the instruction
+  "mask it" named an action that did not exist. The bare name now matches only where it is
+  not glued to a neighbouring identifier character, and every refusal cites the matched
+  text and its line so the next false positive is diagnosable. The narrowing is about
+  adjacency: a standalone mention, the `owner/name` form, the clone URL and the absolute
+  path are all still refused.

@@ -276,9 +276,39 @@ COMMIT_BODY="${COMMIT_BODY}${TRAILERS}"
 # Commit
 echo "==> Committing..."
 if [ "$ALLOW_EMPTY" = "true" ]; then
-    git commit --allow-empty -m "${TITLE}
+    # --allow-empty MEANS EMPTY HERE, not "empty is tolerated".
+    #
+    # `git commit --allow-empty` only PERMITS a commit with no changes; it still commits
+    # whatever the index happens to hold. This flag's only callers are the claim
+    # protocol's coordination markers (heartbeat.sh, the resume marker), which document
+    # themselves as changing no file and therefore never reaching the PR diff. During a
+    # drive the index is frequently non-empty -- a `git rm` staged mid-ticket, a partially
+    # staged edit -- and a heartbeat then swept that work into a commit subjected
+    # `Refresh heartbeat`. Nothing caught it: the commit succeeded, the branch content was
+    # correct, and only the MESSAGE was wrong, so the story and `git log` attributed real
+    # work to coordination noise (observed 2026-08-04).
+    #
+    # A scratch index seeded from HEAD makes the commit's tree equal HEAD's tree by
+    # construction, so the result is empty whatever the caller had staged -- and the real
+    # index is left byte-identical, because `git commit` writes only to GIT_INDEX_FILE.
+    # Refusing instead would be worse: a run mid-ticket is exactly when the index is dirty
+    # and exactly when the beat must not be skipped, since a missed beat makes a working
+    # unit look abandoned.
+    #
+    # On a repository with no commits yet there is no HEAD tree to seed from, and an
+    # index-less root commit is empty anyway, so that case takes the plain path.
+    if git rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
+        _empty_index=$(mktemp)
+        GIT_INDEX_FILE="$_empty_index" git read-tree HEAD
+        GIT_INDEX_FILE="$_empty_index" git commit --allow-empty -m "${TITLE}
 
 ${COMMIT_BODY}"
+        rm -f "$_empty_index"
+    else
+        git commit --allow-empty -m "${TITLE}
+
+${COMMIT_BODY}"
+    fi
 else
     git commit -m "${TITLE}
 

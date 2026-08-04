@@ -172,6 +172,56 @@ claims_current_path() {
     '
 }
 
+# THE RENAME MAP IS A HEURISTIC, AND THE RESOLUTION MUST NOT BE.
+# `git diff --find-renames` pairs a delete with an add only when they are at least 50%
+# similar, and it abandons inexact detection wholesale once a range exceeds
+# `diff.renameLimit`. `archive.sh` does not merely move a ticket: it also stamps `effort`
+# and appends the Final Report, so a short ticket carrying a long report lands UNDER that
+# threshold and the move is reported as a plain add + delete. The rename map then has no
+# row, `claims_current_path` hands back the todo/ path, `git show <tip>:<that>` fails, and
+# THE ARTIFACT SILENTLY LEAVES THE CLAIM.
+#
+# One lost artifact produced both halves of the failure measured on 2026-08-04:
+#   * plan-units.sh subtracted nothing, so a ticket already driven on a pushed branch was
+#     offered again as fresh backlog -- and with no `excluded[]` row, because the survey
+#     only reports items it SAW and dropped;
+#   * claims_has_work fell through to its "no artifacts means unknown, so assume work
+#     remains" branch, flipping a drained unit to `resumable` and inviting a takeover of a
+#     branch whose PR was waiting on a human.
+#
+# So the tip-side path is resolved a second way when the first fails, and the second way is
+# EXACT rather than statistical: `archive.sh` preserves the FILENAME (`todo/<user>/X.md` ->
+# `archive/<branch>/X.md`), and a ticket filename is unique in the tree by construction (the
+# `YYYYMMDDHHMMSS-slug.md` rule). So a lookup by basename under `.workaholic/tickets/` finds
+# it regardless of how much its content changed, and regardless of how large the range is.
+#
+# It is applied ONLY to ticket paths, and only when the basename resolves to exactly one
+# file. `mission.md` is the counter-example that fixes the scope: its basename is shared by
+# every mission, so a general basename fallback would resolve one mission's claim onto
+# another's file. Ambiguity therefore falls back to the mapped path, which drops the
+# artifact -- the same conservative answer as before, never a guess.
+#
+# $1 = branch ref, $2 = the path the rename map produced, $3 = the claim-side path.
+claims_resolve_at_tip() {
+    if git cat-file -e "${1}:${2}" 2>/dev/null; then
+        printf '%s' "$2"
+        return 0
+    fi
+    case "$3" in
+        .workaholic/tickets/*) ;;
+        *) printf '%s' "$2"; return 0 ;;
+    esac
+    _crt_base="${3##*/}"
+    _crt_hits=$(git ls-tree -r --name-only "$1" -- .workaholic/tickets 2>/dev/null \
+        | awk -v b="$_crt_base" '{ n = length($0); m = length(b); if (n > m && substr($0, n - m) == "/" b) print }' || true)
+    _crt_n=$(printf '%s' "$_crt_hits" | grep -c . || true)
+    if [ "$_crt_n" = "1" ]; then
+        printf '%s' "$_crt_hits"
+    else
+        printf '%s' "$2"
+    fi
+}
+
 # Has this unit anything left to drive ON ITS OWN BRANCH? $1 = the branch ref,
 # $2 = the comma-separated TIP-side artifact paths. Echoes true|false.
 #
@@ -310,6 +360,10 @@ claims_scan() {
         _cs_artifacts_tip=""
         for _cs_file in $(git diff-tree --no-commit-id --name-only -r "$_cs_sha" 2>/dev/null || true); do
             _cs_at_tip=$(claims_current_path "$_cs_renames" "$_cs_file")
+            # The rename map first, then the exact by-filename resolution when it missed
+            # (see claims_resolve_at_tip -- a below-threshold or skipped rename is not a
+            # deleted artifact, and must not read as one).
+            _cs_at_tip=$(claims_resolve_at_tip "$_cs_ref" "$_cs_at_tip" "$_cs_file")
             [ "$(claims_blob_field "$_cs_ref" "$_cs_at_tip" claim)" = "$_cs_branch" ] || continue
             if [ -z "$_cs_artifacts" ]; then
                 _cs_artifacts="$_cs_file"

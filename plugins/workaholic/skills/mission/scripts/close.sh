@@ -109,7 +109,7 @@ case "$TARGET" in
         fi
         # THE TICKET FLOOR WILL REFUSE `--successor-title` HERE, BUT NOT YET -- and the
         # ordering is the whole point (mission/SKILL.md, *Granularity -> The ticket
-        # floor*; ticket 20260804085209).
+        # floor*; ticket 20260804184949-a-carry-into-an-existing-mission-silently-drops-the-remainder.md).
         #
         # The decision is settled: a minted successor arrives with zero tickets and
         # violates the floor by construction. But refusing it TODAY would remove the only
@@ -120,7 +120,7 @@ case "$TARGET" in
         # naming a successor, and silently dropping the remainder it exists to transfer --
         # trading a record defect for a data-loss one.
         #
-        # Sequence: relocate the inheritance so BOTH routes perform it (20260804085209),
+        # Sequence: relocate the inheritance so BOTH routes perform it (20260804184949-a-carry-into-an-existing-mission-silently-drops-the-remainder.md),
         # then refuse the title. Do not reverse these two steps.
         ;;
     *) printf '{"closed": false, "reason": "invalid_status", "status": "%s"}\n' "$TARGET" >&2; exit 1 ;;

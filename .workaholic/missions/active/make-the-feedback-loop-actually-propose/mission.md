@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.75
 tickets: []
 stories: []
 gate_type:
@@ -58,3 +58,4 @@ see the queue".
 - 2026-08-04 — ticket archived — 20260804200555-record-work-requests-as-instructions-at-the-fb-capture-seam.md
 - 2026-08-04 — ticket archived — 20260804200555-emit-a-loose-ticket-when-a-direction-is-atomic.md
 - 2026-08-04 — story reported — work-20260804-202110.md
+- 2026-08-04 — run recorded (+0.75h) — 20260804-202110

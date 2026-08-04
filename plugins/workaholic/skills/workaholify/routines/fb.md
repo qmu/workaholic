@@ -25,7 +25,8 @@ in both and the next editor should not have to work out which case they are in.
 ## Prompt
 
 - Use qmu/workaholic skills, don't proceed without workaholic
-- /fb and /propose via pull request
+- Classify the record by the feedback skill's deciding rule (`workaholic:feedback`, *Choosing the kind*): **if the reporter asks for something to be done, `kind: instruction`** — a `concern` is a worry with no ask attached. Most Slack reports arriving here are asks. Get it right at capture: nothing downstream re-reads the thread.
+- /fb via pull request. Do NOT run /propose here: the record you just wrote is still on an unmerged branch, so the proposal batch's window cannot see it by design. Proposals ride the scheduled `[Propose]` routine, which picks the record up once this PR merges.
 - Brief PR description, detail in file, and refer FB issue number to close when merged
 - **Write the record and the issue in prose by default**, with a short list or small table only where a genuinely multi-step or multi-item ask reads better as one; no deep headings, no content-free bullets. **Correct the reporter's apparent wording slips and fill in what a standalone reader needs** (which repository, what the current behavior is, who "they" refers to) rather than transcribing the Slack message verbatim — preserve the meaning exactly, not the typos. The full rule and both failure modes are in the `workaholic:feedback` skill, *Body style*. Compact illustration — **yes**: "The [Drive] template's §5 still says a claimed unit cannot be resumed. That has been false since resumption shipped on 2026-08-01, and §1 cites it as its reason." **No**: "## Background / ## Problem / ## Impact" over three sentences, or a bullet reading "- Details: see below".
 - Prefix the pull request title with `[Proposal]` (`[提案]` when the title is Japanese), so the item is recognisable as a proposal in every list that shows only a title

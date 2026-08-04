@@ -48,8 +48,8 @@ the same assumption.
 
 ## Acceptance
 
-- [ ] The sections that carry the growth are measured and named, against the same before/after story sets
-- [ ] A story written after the change is shorter than the same branch's story
+- [ ] The sections that carry the growth are measured and named, against the same before/after story sets (#20260804201653-measure-which-story-sections-carry-the-growth.md)
+- [ ] A story written after the change is shorter than the same branch's story (#20260804201653-fix-the-measured-cause-and-verify-a-shorter-story.md)
 
 ## Changelog
 

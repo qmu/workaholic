@@ -401,4 +401,5 @@
 * [Resolved: The proposal cursor is runner-local, so an ephemeral runner cold-starts every tick and proposes nothing](20260804210258-resolved-20260730101911-the-proposal-cursor-is-runner-local-so-an-ephemeral-runner-cold-starts-every-tick-and-proposes-nothing.md)
 * [Resolved: The proposal cursor cannot survive an ephemeral runner](20260804210258-resolved-20260730110659-the-proposal-cursor-cannot-survive-an-ephemeral-runner.md)
 * [Resolved: README.md still describes the retired `/mission approve` flow](20260804213426-resolved-readme-md-still-describes-the-retired.md)
+* [The two routine-command entrances are deliberate](20260804215532-the-two-routine-command-entrances-are-deliberate.md)
 <!-- okf:generated:end -->

@@ -3,7 +3,7 @@ created_at: 2026-08-04T18:49:49+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
+effort: 1h
 commit_hash:
 category: Changed
 depends_on:
@@ -97,3 +97,24 @@ That is exactly the failure `drive/SKILL.md` names: *"An observation is not an o
 - **The mint path's tests are the regression guard.** If they need editing to accommodate the extraction, the extraction changed behavior — that is the signal to stop, not to update the test.
 - Sub-question 1 has a real trap: an inherited item whose linked ticket was archived under the *predecessor's* branch is linked to an artifact the successor never drove. Decide whether that link is kept, and say why.
 - Once this lands, `20260804173625` can apply the `--successor-title` refusal. Do not reverse the order.
+
+## Final Report
+
+Development completed as planned. The three sub-questions were answered before any code was written, and the answers are in `reference/schema.md` rather than only in this ticket:
+
+1. **Markers travel verbatim** — both routes must produce the same board from the same predecessor, and an item linked to a known artifact beats an unlinked one, which `progress.sh` counts as *unaddressable*. The named trap (an inherited link pointing at a ticket the predecessor archived, which can never tick again) is real and is left to the successor's replan, where `link-acceptance.sh` refuses `linked_to_other` so re-pointing stays deliberate.
+2. **`carried_from` is many-valued** — a second carry rewrites the scalar to `[first, second]`, matching the `mission:` relation convention so nothing predating it is orphaned. The successor also gains a `remainder carried from <slug>` changelog line.
+3. **Idempotent by item text** — the item line including its marker is the identity, the same key `link-acceptance.sh` and `tick-acceptance.sh` address items by.
+
+The extraction is `lib/acceptance.sh`'s `mission_unchecked_items`, called by both routes. The mint route's awk lost its private `unchecked()` and reads the pre-computed list instead; its behavior is unchanged and **no existing test was edited**, which is the regression guard the ticket asked for.
+
+### Discovered Insights
+
+- **Insight**: The append path had to hold back the blank line that separates `## Acceptance` from the next heading and re-emit it *after* the inherited items. Appending at the section boundary instead put the new items below the separator, leaving the next heading butted against the last item.
+  **Context**: Any future "append into a markdown section" seam in this repo has the same shape — the section's *last item* and the section's *end* are different positions, and only the first one is where content belongs.
+
+- **Insight**: Adding the second branch to `close.sh` broke the shell structure silently at first — the new `else` attached to an `if` that already had one, and `sh -n` was what caught it. The carry block is three levels of nested `if`/`else` around two routes that must not share state.
+  **Context**: `sh -n` before running anything is cheap and catches exactly this. The nesting is also why the fix reads as `if [ -n "$SUCCESSOR_SLUG" ]` twice rather than as one `if/else`: the append must run *after* the resolution block completes, not inside its first arm.
+
+- **Insight**: The dedup guard keys on the item line, so it also deduplicates across *different* predecessors — two missions carried into the same successor that shared a criterion contribute one copy.
+  **Context**: That falls out of the identity choice rather than being designed, and it is the behavior you want; it is asserted in the test so it cannot regress into a duplicate-per-predecessor.

@@ -2469,6 +2469,112 @@ In: the dashboard. Out: the API.
   } finally { cleanup(d3); }
 }
 
+// ---------- mission/close.sh `carried --successor <slug>`: the remainder actually moves ----------
+// Until 2026-08-04 this route inherited NOTHING. It resolved the successor's path, checked
+// the file existed, set a variable, and fell through -- while SKILL.md and CLAUDE.md both
+// promised it "already carries the unmet items". The predecessor was archived, a successor
+// was named in the changelog, and every unmet item was dropped. Data loss reported as
+// success, and the reason the ticket floor could not yet refuse `--successor-title`:
+// refusing it would have left this as the ONLY carry route.
+//
+// The mint route rebuilds a file from a template; this one APPENDS into a mission that
+// already has its own Goal, its own list, and possibly its own progress. So the assertions
+// are about what must NOT change as much as what must.
+function testMissionCloseCarriedIntoExisting() {
+  const mission = (slug, title, accept, extra = "") => `---
+type: Mission
+title: ${title}
+slug: ${slug}
+status: active
+created_at: 2026-08-04T00:00:00+09:00
+author: test@example.com
+assignees: [test@example.com]
+gate_type:
+gate_target:
+gate_assert:
+${extra}---
+
+# ${title}
+
+## Goal
+
+${title} has its own goal.
+
+## Experience
+
+${title} demands its own observable behavior.
+
+## Acceptance
+
+${accept}
+
+## Changelog
+`;
+  const seed = (dir) => {
+    for (const [slug, title, accept] of [
+      ["pred", "Predecessor", "- [x] already achieved (#done.md)\n- [ ] unmet one (#t2.md)\n- [ ] unmet two"],
+      ["pred2", "Second predecessor", "- [ ] from the second (#t9.md)\n- [ ] unmet two"],
+      ["succ", "Successor", "- [ ] the successor's own item (#s1.md)"],
+    ]) {
+      mkdirSync(join(dir, `.workaholic/missions/active/${slug}`), { recursive: true });
+      writeFileSync(join(dir, `.workaholic/missions/active/${slug}/mission.md`), mission(slug, title, accept));
+    }
+  };
+
+  const dir = makeRepo("main");
+  try {
+    seed(dir);
+    const succPath = ".workaholic/missions/active/succ/mission.md";
+    const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} pred carried --successor succ 2026-08-04`).stdout);
+    assertEq("carrying into an existing mission closes the predecessor",
+      { closed: r.closed, status: r.status, successor: r.successor }, { closed: true, status: "carried", successor: "succ" });
+
+    let succ = readFileSync(join(dir, succPath), "utf8");
+
+    // THE DEFECT THIS TEST EXISTS FOR: the remainder reaches the successor.
+    assertTrue("the unmet items reach the existing successor, markers intact",
+      /^- \[ \] unmet one \(#t2\.md\)$/m.test(succ) && /^- \[ \] unmet two$/m.test(succ), succ);
+    assertTrue("a checked predecessor item is NOT carried", !/already achieved/.test(succ), succ);
+    assertTrue("the successor keeps its own acceptance item",
+      /^- \[ \] the successor's own item \(#s1\.md\)$/m.test(succ), succ);
+
+    // An APPEND, not the mint route's rebuild: the successor owns its Goal and gates.
+    assertTrue("the successor's own Goal is untouched", /Successor has its own goal\./.test(succ), succ);
+    assertTrue("the predecessor's Goal is NOT imported", !/Predecessor has its own goal\./.test(succ), succ);
+    assertTrue("gate fields are not imported", /^gate_target:\s*$/m.test(succ), succ);
+
+    // Progress is computed from the merged list -- three unmet, none unlinked-by-accident.
+    assertEq("the successor's board counts the inherited items",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${succPath}`).stdout),
+      { checked: 0, total: 3, unlinked: 1 });
+
+    // Lineage both ways: the predecessor's changelog already names the successor; the
+    // successor records what it absorbed.
+    assertTrue("the successor records the lineage", /^carried_from:\s*pred\s*$/m.test(succ), succ);
+    assertTrue("the successor's changelog names what it absorbed",
+      /^- 2026-08-04 — remainder carried from pred — mission\.md$/m.test(succ), succ);
+
+    // IDEMPOTENCY. A re-run must not duplicate what it already transferred.
+    const before = succ;
+    run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} pred carried --successor succ 2026-08-04`, { allowFail: true });
+    succ = readFileSync(join(dir, succPath), "utf8");
+    assertEq("re-running the same carry changes the successor not at all", succ, before);
+
+    // A SECOND predecessor: carried_from becomes a list, and an item the successor
+    // already carries is not added twice even though a different mission supplied it.
+    run(dir, `${POSIX_SH} ${SCRIPTS.missionClose} pred2 carried --successor succ 2026-08-04`);
+    succ = readFileSync(join(dir, succPath), "utf8");
+    assertTrue("carried_from becomes a list under a second carry",
+      /^carried_from:\s*\[pred, pred2\]\s*$/m.test(succ), succ);
+    assertEq("an item both predecessors shared appears exactly once",
+      (succ.match(/^- \[ \] unmet two$/gm) || []).length, 1);
+    assertTrue("the second predecessor's own item arrives",
+      /^- \[ \] from the second \(#t9\.md\)$/m.test(succ), succ);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 function testMissionCloseRemovesWorktree() {
   const seedMission = (dir, slug, title, checked) => {
     const mdir = join(dir, `.workaholic/missions/active/${slug}`);
@@ -10479,6 +10585,7 @@ const tests = [
   ["mission create publish spine: batch to main, no worktree (J1)", testMissionCreatePublishFlow],
   ["mission worktree ship reset", testMissionWorktreeShipReset],
   ["mission/close.sh carried (carry the remainder forward)", testMissionCloseCarried],
+  ["mission/close.sh carried into an existing mission (the remainder actually moves)", testMissionCloseCarriedIntoExisting],
   ["mission replan seams", testMissionReplanSeams],
   ["mission close removes worktree", testMissionCloseRemovesWorktree],
   ["mission worktree port assignment", testMissionWorktreePorts],

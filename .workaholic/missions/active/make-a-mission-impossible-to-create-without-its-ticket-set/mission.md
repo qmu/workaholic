@@ -51,3 +51,4 @@ hook would refuse the normal authoring order.
      One line per event ("- YYYY-MM-DD — event — filename"); never rewrite past lines. -->
 - 2026-08-04 — ticket archived — 20260804173624-decide-the-mission-ticket-floor-and-what-a-carry-does.md
 - 2026-08-04 — run recorded (+0.5h) — 20260804-184949
+- 2026-08-04 — ticket archived — 20260804184949-a-carry-into-an-existing-mission-silently-drops-the-remainder.md

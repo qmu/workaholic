@@ -89,4 +89,5 @@
 * [Acceptance ticking measures satisfaction, not marker shape](work-20260803-212324.md)
 * [A repository can say what runs against it](work-20260803-212331.md)
 * [The branch story is concise by default](work-20260803-212338.md)
+* [A no-op commit and a read now leave your index alone](work-20260804-111346.md)
 <!-- okf:generated:end -->

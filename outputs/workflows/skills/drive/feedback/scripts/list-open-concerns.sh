@@ -11,7 +11,7 @@
 #     concerns/archive/).
 #
 # Output: JSON envelope {active_count, my_lane_count, owner_counts,
-#                        should_triage, concerns: [...]}, each concern being
+#                        should_triage, migrated, concerns: [...]}, each concern being
 #                {path, concern_id, status, severity, owner, first_seen,
 #                 last_seen, origin_pr, origin_pr_url, origin_branch,
 #                 origin_commit, body} — the same envelope the retired
@@ -20,26 +20,37 @@
 #
 # Runs migrate-concerns.sh first (best-effort), so a not-yet-migrated repo
 # heals on the first read.
+#
+# THAT MIGRATION IS A WRITE, SO THIS READER REPORTS IT. `migrated` carries how many
+# records the migration wrote on this call (0 on every already-migrated repo, which
+# is every call after the first). It is never staged — the migration leaves the
+# caller's index alone by contract — but files did appear in the working tree, and a
+# read that silently changes the tree is exactly the surprise the index defect was
+# (`workaholic:implementation` / observability). The field is always present, so a
+# consumer can tell "nothing happened" from "the key is missing".
 
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
-sh "${SCRIPT_DIR}/migrate-concerns.sh" >/dev/null 2>&1 || true
+migration=$(sh "${SCRIPT_DIR}/migrate-concerns.sh" 2>/dev/null || true)
+migrated=$(printf '%s' "$migration" | sed -n 's/.*"migrated": *\([0-9][0-9]*\).*/\1/p')
+[ -n "$migrated" ] || migrated=0
 
 dir=".workaholic/feedbacks"
 
 if [ ! -d "$dir" ]; then
-  printf '{"active_count": 0, "my_lane_count": 0, "owner_counts": {}, "should_triage": false, "concerns": []}\n'
+  printf '{"active_count": 0, "my_lane_count": 0, "owner_counts": {}, "should_triage": false, "migrated": %s, "concerns": []}\n' "$migrated"
   exit 0
 fi
 
 actor_email=$(git config user.email 2>/dev/null || true)
 
-python3 - "$dir" "${actor_email}" <<'PY'
+python3 - "$dir" "${actor_email}" "${migrated}" <<'PY'
 import json, os, re, sys
 
 d, actor = sys.argv[1], sys.argv[2].strip()
+migrated = int(sys.argv[3]) if len(sys.argv) > 3 and sys.argv[3].isdigit() else 0
 
 records = []      # (name, fields-dict, body)
 superseded = set()
@@ -106,6 +117,7 @@ print(json.dumps({
     'my_lane_count': my_lane_count,
     'owner_counts': owner_counts,
     'should_triage': False,
+    'migrated': migrated,
     'concerns': concerns,
 }))
 PY

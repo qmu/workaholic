@@ -4,6 +4,7 @@
 
 * [make-a-mission-impossible-to-create-without-its-ticket-set](active/make-a-mission-impossible-to-create-without-its-ticket-set/mission.md) - Make a mission impossible to create without its ticket set
 * [make-the-branch-story-measurably-shorter](active/make-the-branch-story-measurably-shorter/mission.md) - Make the branch story measurably shorter
+* [make-the-feedback-loop-actually-propose](active/make-the-feedback-loop-actually-propose/mission.md) - Make the feedback loop actually propose
 
 ## archive
 

@@ -9388,7 +9388,11 @@ function testMergedStampIsHistoryNotAClaim() {
     // Re-claim, then remove the stamp the way a "strip before opening the PR" step would,
     // with the branch still UNMERGED. The artifact must vanish from the claim -- which is
     // the double-pick this ruling refuses to reintroduce.
-    const c2 = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.claim} batch ${t1}`).stdout);
+    tickSecond(); // the re-claim must not collide with the first claim's branch name
+    const reclaim = run(A, `${POSIX_SH} ${SCRIPTS.claim} batch ${t1}`);
+    assertTrue("the ticket can be claimed again after its first claim merged",
+      reclaim.status === 0, `status ${reclaim.status}: ${reclaim.stderr.trim()}`);
+    const c2 = JSON.parse(reclaim.stdout);
     const wt2 = c2.worktree_path, br2 = c2.branch;
     const live = join(wt2, t1);
     writeFileSync(live, readFileSync(live, "utf8").replace(/^claim:.*\n/m, ""));

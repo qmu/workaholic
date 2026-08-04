@@ -2,7 +2,7 @@
 type: Mission
 title: Propose at the capture seam
 slug: propose-at-the-capture-seam
-status: active
+status: achieved
 merge_policy: 
 created_at: 2026-08-04T22:13:41+09:00
 author: a@qmu.jp
@@ -52,3 +52,4 @@ act, and nothing anywhere waits on a cron tick to notice feedback.
 - 2026-08-04 — ticket archived — 20260804221347-judge-and-propose-inside-the-capture-session.md
 - 2026-08-04 — ticket archived — 20260804221347-retire-the-batch-seat-and-the-merged-main-window.md
 - 2026-08-04 — story reported — work-20260804-221713.md
+- 2026-08-04 — mission achieved — mission.md

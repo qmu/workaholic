@@ -84,6 +84,7 @@
 * [v1.0.111 — /drive stops offering work it cannot or should not take](work-20260730-191139.md)
 * [v1.0.112 — The ship path works from a claim worktree](work-20260730-193046.md)
 * [The proposal batch now reads the missions, the todo queue, and the commits since the cursor etc](work-20260801-012313.md)
+* [v1.0.125 — the per-commit size ceiling counts added implementation](work-20260801-210440.md)
 * [Non-ASCII concern titles get stable hash ids](work-20260803-210404.md)
 * [A release tier with durable ship records](work-20260803-212310.md)
 * [Acceptance ticking measures satisfaction, not marker shape](work-20260803-212324.md)

@@ -31,6 +31,7 @@ set -eu
 
 SCRIPT_DIR=$(dirname "$0")
 . "${SCRIPT_DIR}/lib/secret-patterns.sh"
+. "${SCRIPT_DIR}/lib/commit-size.sh"
 
 # Thresholds (tune here). "override" findings are legitimate sometimes, so /ship
 # lets the developer override them; the numbers are named for discoverability.
@@ -116,31 +117,40 @@ done <<EOF
 $numstat
 EOF
 
-# ---- per-commit changed lines (size / override) ----
-# Standardize the commit as a reviewable unit: for each commit in base..HEAD, sum
-# added+deleted lines EXCLUDING generated/bulk files (binary rows, lockfiles,
-# minified/sourcemap/linguist-generated paths, and any single file already over the
-# per-file added-line ceiling — it is flagged separately and must not also inflate the
-# commit total). A commit whose remaining total exceeds MAX_COMMIT_CHANGED_LINES yields
-# one `too-large-commit` finding. Deterministic per-commit walk; override severity so a
-# large-but-reviewed commit can be consciously accepted at /ship.
+# ---- per-commit added lines (size / override) ----
+# Standardize the commit as a reviewable unit. WHAT IS COUNTED IS DECIDED IN
+# scripts/lib/commit-size.sh, which carries the rule's rationale, the five measured
+# instances it was chosen against, and the rejected alternatives — read that before
+# changing anything here. In short: ADDED lines only (a relocation must not be charged
+# twice for moving content), excluding generated/bulk files, excluding `.workaholic/`
+# artifact prose (specs and records are not implementation throughput), and skipping merge
+# commits entirely (a merge authors nothing). A commit whose remaining total exceeds
+# MAX_COMMIT_CHANGED_LINES yields one `too-large-commit` finding, at override severity so
+# a large-but-reviewed commit can still be consciously accepted at /ship.
 for sha in $(git rev-list "${BASE}..HEAD" 2>/dev/null || true); do
+    # A merge commit's diff against its first parent is the whole of what it merges, and
+    # that content was already measured on the commits being brought in.
+    if commit_size_is_merge "$sha"; then continue; fi
     commit_total=0
-    commit_numstat=$(git show --numstat --format= "$sha" 2>/dev/null || true)
+    # -M so a whole-file rename reports 0/0 rather than its full length. It does not help
+    # a SPLIT (content redistributed into new files) — see lib/commit-size.sh — but it
+    # costs nothing and is correct for a true move.
+    commit_numstat=$(git show -M --numstat --format= "$sha" 2>/dev/null || true)
     while IFS="$TAB" read -r cadded cremoved cpath; do
         [ -n "$cpath" ] || continue
         # binary rows carry '-' for both counts: generated/bulk, skip.
         case "$cadded" in ''|*[!0-9]*) continue ;; esac
         case "$cremoved" in ''|*[!0-9]*) cremoved=0 ;; esac
         if is_generated_path "$cpath"; then continue; fi
+        if commit_size_is_artifact_prose "$cpath"; then continue; fi
         if [ "$cadded" -gt "$MAX_FILE_ADDED_LINES" ]; then continue; fi
-        commit_total=$((commit_total + cadded + cremoved))
+        commit_total=$((commit_total + cadded))
     done <<INNER
 $commit_numstat
 INNER
     if [ "$commit_total" -gt "$MAX_COMMIT_CHANGED_LINES" ]; then
         short=$(git rev-parse --short "$sha" 2>/dev/null || echo "$sha")
-        add_finding size override "$short" 0 "too-large-commit" "${commit_total} non-generated changed lines > ${MAX_COMMIT_CHANGED_LINES}"
+        add_finding size override "$short" 0 "too-large-commit" "${commit_total} added lines of implementation > ${MAX_COMMIT_CHANGED_LINES}"
     fi
 done
 

@@ -42,7 +42,7 @@ hook would refuse the normal authoring order.
 ## Acceptance
 
 - [x] The boundary is decided and recorded: what counts, and what a carry does now (#20260804173624-decide-the-mission-ticket-floor-and-what-a-carry-does.md)
-- [ ] All four creation seams enforce it, including the carried close (#20260804173625-enforce-the-mission-ticket-floor-at-every-creation-seam.md)
+- [x] All four creation seams enforce it, including the carried close (#20260804173625-enforce-the-mission-ticket-floor-at-every-creation-seam.md)
 - [ ] The two sub-floor missions are resolved and every doc states the floor (#20260804173626-resolve-the-two-sub-floor-missions-and-align-the-docs.md)
 
 ## Changelog
@@ -53,3 +53,4 @@ hook would refuse the normal authoring order.
 - 2026-08-04 — run recorded (+0.5h) — 20260804-184949
 - 2026-08-04 — ticket archived — 20260804184949-a-carry-into-an-existing-mission-silently-drops-the-remainder.md
 - 2026-08-04 — run recorded (+1h) — 20260804-190000
+- 2026-08-04 — ticket archived — 20260804173625-enforce-the-mission-ticket-floor-at-every-creation-seam.md

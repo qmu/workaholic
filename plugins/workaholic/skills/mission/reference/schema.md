@@ -109,3 +109,24 @@ for example:
 ```
 
 The `<event>` phrase plus the `<artifact-filename>` together form a stable event id, so an append is idempotent (the same event never adds a second line). Never rewrite or reorder past lines — the changelog is append-only history.
+
+### The ticket floor — the carry decision (decided 2026-08-04)
+
+The rule and its boundary are in [`../SKILL.md`](../SKILL.md), *Granularity → The ticket floor*: a mission is created with two or more tickets, counted at the publish seam via `queue-size.sh`'s `meets_floor`. This file carries the part a reader only needs when changing it.
+
+**`close.sh --successor-title` is refused; a carry names an existing mission.** The rejected alternatives, with their costs, so the trade stays visible:
+
+| Option | Why not |
+| ------ | ------- |
+| **(a)** The close emits the successor's ticket set in the same pass | Consistent with the rule, but `close.sh` is a bookkeeping script and this hands it a *planning* responsibility. The planning input — what the remaining tickets actually are — is not derivable from the unmet acceptance items; a person or an interrogation must supply it. Rejected for putting planning in the one seam that has none. |
+| **(c)** A carried successor is exempt from the floor | Rejected on its face: the carry is the **only** seam that has ever produced a violation, so an exemption covering it is not a rule. |
+
+The chosen option's cost is real and accepted: a genuine "this direction continues but nothing suitable exists yet" carry has no one-step path, and the developer must create the successor first. That is not a workaround — **creating it *is* the interrogation that produces its tickets**, which is the behavior the floor is asking for.
+
+**Sequencing — the first step is done, the second is not.** The unmet-acceptance inheritance used to live *entirely inside* `close.sh`'s mint branch; `--successor <slug>` resolved a path and fell through, inheriting nothing, despite `SKILL.md` and `CLAUDE.md` both claiming it "already carries the unmet items" — a carry that reported success and dropped its payload. Refusing `--successor-title` while that held would have left **no** carry route that transfers the remainder, trading a record defect (a ticketless mission on the roadmap) for a data-loss one. **Both routes now inherit** (2026-08-04): the extraction is `lib/acceptance.sh`'s `mission_unchecked_items`, called by the mint route and by an append path for an existing successor. The refusal of `--successor-title` is therefore unblocked and belongs to the enforcement ticket; `close.sh` carries the note at the refusal site.
+
+**How the two routes differ, and why.** The mint route *rebuilds* a scaffold — it imports the predecessor's Goal, its `gate_*` fields and its unmet items, because it owns the whole file. The existing-successor route *appends* — the successor already has its own Goal, its own list, and possibly its own progress, so **only** the unmet items move, and the successor's content is untouched. Three sub-decisions, recorded because each could have gone the other way:
+
+- **Markers travel verbatim.** An inherited item keeps its `(#<filename>)` link. Both routes must produce the same board from the same predecessor, and an item linked to a known artifact carries strictly more information than an unlinked one — `unlinked` is the *unaddressable* state this contract exists to prevent. The trap is real: an inherited link may name a ticket the **predecessor** archived, which can therefore never tick again. That is a plan statement, so its repair is the successor's replan re-linking through `link-acceptance.sh` — which refuses `linked_to_other` precisely so re-pointing stays deliberate.
+- **`carried_from` is many-valued.** A mission can absorb more than one predecessor, so a second carry rewrites the scalar into `[first, second]`. A bare scalar still reads as one, matching the `mission:` relation convention, so nothing predating this is orphaned. The successor also gets a `remainder carried from <slug>` changelog line, which is the half of the lineage a reader greps.
+- **The append is idempotent by item text.** The item line — marker included — is the identity, the same key `link-acceptance.sh` and `tick-acceptance.sh` address items by. An item the successor already carries is skipped whether this carry put it there or the successor wrote it itself, so a re-run changes the file not at all and two predecessors sharing a criterion contribute one copy.

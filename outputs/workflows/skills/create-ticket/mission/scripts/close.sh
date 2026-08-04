@@ -107,12 +107,28 @@ case "$TARGET" in
             echo '{"closed": false, "reason": "carried_needs_one_successor"}' >&2
             exit 1
         fi
+        # THE TICKET FLOOR WILL REFUSE `--successor-title` HERE, BUT NOT YET -- and the
+        # ordering is the whole point (mission/SKILL.md, *Granularity -> The ticket
+        # floor*; ticket 20260804184949-a-carry-into-an-existing-mission-silently-drops-the-remainder.md).
+        #
+        # The decision is settled: a minted successor arrives with zero tickets and
+        # violates the floor by construction. But refusing it TODAY would remove the only
+        # carry route that inherits anything. The unmet-acceptance inheritance below lives
+        # entirely inside the mint branch; `--successor <slug>` merely resolves a path and
+        # falls through, despite the docs claiming it "already carries the unmet items".
+        # So refusing the title first would leave `carried` archiving the predecessor,
+        # naming a successor, and silently dropping the remainder it exists to transfer --
+        # trading a record defect for a data-loss one.
+        #
+        # Sequence: relocate the inheritance so BOTH routes perform it (20260804184949-a-carry-into-an-existing-mission-silently-drops-the-remainder.md),
+        # then refuse the title. Do not reverse these two steps.
         ;;
     *) printf '{"closed": false, "reason": "invalid_status", "status": "%s"}\n' "$TARGET" >&2; exit 1 ;;
 esac
 
 SCRIPT_DIR=$(dirname "$0")
 . "${SCRIPT_DIR}/lib/resolve.sh"
+. "${SCRIPT_DIR}/lib/acceptance.sh"
 ROOT=$(missions_root_for_arg "$ARG")
 missions_migrate_layout "$ROOT"
 FILE=$(mission_resolve "$ROOT" "$ARG")
@@ -163,7 +179,9 @@ if [ "$TARGET" = "carried" ]; then
             # intact), Goal/Scope, the gate_* fields, and the carried_from lineage.
             # Checked items are deliberately left behind -- see the header.
             TMP_S="${SUCCESSOR_PATH}.$$.tmp"
-            awk -v pred="$SLUG" -v predfile="$FILE" '
+            UNMET_F="${SUCCESSOR_PATH}.$$.unmet"
+            mission_unchecked_items "$FILE" > "$UNMET_F"
+            awk -v pred="$SLUG" -v predfile="$FILE" -v unmetfile="$UNMET_F" '
                 function emit_section(file, name,   line, inside, out) {
                     inside = 0; out = ""
                     while ((getline line < file) > 0) {
@@ -174,15 +192,9 @@ if [ "$TARGET" = "carried" ]; then
                     close(file)
                     return out
                 }
-                function unchecked(file,   line, inside, out) {
-                    inside = 0; out = ""
-                    while ((getline line < file) > 0) {
-                        if (line ~ /^## Acceptance$/) { inside = 1; continue }
-                        if (inside && line ~ /^## /) break
-                        # Carry ONLY unticked items, verbatim. A ticked one was achieved
-                        # in the predecessor; re-listing it would inflate the successor.
-                        if (inside && line ~ /^- \[ \]/) out = out line "\n"
-                    }
+                function slurp(file,   line, out) {
+                    out = ""
+                    while ((getline line < file) > 0) out = out line "\n"
                     close(file)
                     return out
                 }
@@ -206,7 +218,7 @@ if [ "$TARGET" = "carried" ]; then
                 { print }
                 BEGIN {
                     goal_body  = emit_section(predfile, "Goal")
-                    acc_body   = unchecked(predfile)
+                    acc_body   = slurp(unmetfile)
                     while ((getline l < predfile) > 0) {
                         if (l ~ /^gate_type:/)   { gt  = substr(l, 11) }
                         if (l ~ /^gate_target:/) { gtg = substr(l, 13) }
@@ -218,8 +230,84 @@ if [ "$TARGET" = "carried" ]; then
                 }
             ' "$SUCCESSOR_PATH" > "$TMP_S"
             mv "$TMP_S" "$SUCCESSOR_PATH"
+            rm -f "$UNMET_F"
             git add "$SUCCESSOR_PATH" 2>/dev/null || true
         fi
+    fi
+    if [ -n "$SUCCESSOR_SLUG" ]; then
+        # CARRY INTO AN EXISTING MISSION. Until 2026-08-04 this branch did nothing at
+        # all -- it resolved a path above and fell through, so every unmet item was
+        # dropped while the operation reported success. The successor already has its
+        # own Goal, its own Acceptance list, possibly its own tickets and progress, so
+        # this is an APPEND, never the mint route's rebuild: no Goal import, no gate_*
+        # import, and the successor's own items are untouched.
+        UNMET_F="${SUCCESSOR_PATH}.$$.unmet"
+        mission_unchecked_items "$FILE" > "$UNMET_F"
+        if [ -s "$UNMET_F" ]; then
+            TMP_S="${SUCCESSOR_PATH}.$$.tmp"
+            # IDEMPOTENT BY ITEM TEXT. A re-run of the same carry must not duplicate
+            # what it already transferred, and the item line (marker included) is the
+            # stable identity -- the same key `link-acceptance.sh` and `tick-acceptance.sh`
+            # address items by. An item the successor already carries is skipped whether
+            # this carry put it there or the successor wrote it itself; either way the
+            # board must not gain a second copy.
+            awk -v pred="$SLUG" -v unmetfile="$UNMET_F" '
+                function load_existing(   line) {
+                    while ((getline line < FILENAME_SAVE) > 0) {
+                        if (line ~ /^## Acceptance$/) { in_a = 1; continue }
+                        if (in_a && line ~ /^## /) { in_a = 0; continue }
+                        if (in_a && line ~ /^- \[/) have[line] = 1
+                    }
+                    close(FILENAME_SAVE)
+                }
+                BEGIN { FILENAME_SAVE = ARGV[1]; load_existing() }
+                # carried_from is many-valued: a mission can absorb more than one
+                # predecessor. A bare scalar still reads as one, matching the `mission:`
+                # relation convention, so nothing predating this is orphaned.
+                NR == 1 && $0 == "---" { in_fm = 1; print; next }
+                in_fm && /^carried_from:/ {
+                    seen_cf = 1
+                    val = $0; sub(/^carried_from:[ \t]*/, "", val)
+                    gsub(/^\[|\][ \t]*$/, "", val)
+                    if (val == "") { print "carried_from: " pred }
+                    else if (index(", " val ", ", ", " pred ", ") || val == pred) { print }
+                    else { print "carried_from: [" val ", " pred "]" }
+                    next
+                }
+                in_fm && /^---[ \t]*$/ {
+                    in_fm = 0
+                    if (!seen_cf) print "carried_from: " pred
+                    print; next
+                }
+                in_fm { print; next }
+                # Append at the END OF THE ITEM LIST, not the end of the section: the
+                # blank line that separates Acceptance from the next heading is held
+                # back and re-emitted after the inherited items, so the section keeps
+                # the shape it had. Without this the appended items land after the
+                # separator and the next heading butts against the last item.
+                function flush_items(   u) {
+                    while ((getline u < unmetfile) > 0) if (!(u in have)) print u
+                    close(unmetfile)
+                }
+                function flush_pending(   i) {
+                    for (i = 1; i <= np; i++) print pend[i]
+                    np = 0
+                }
+                /^## Acceptance$/ { print; in_acc = 1; np = 0; next }
+                in_acc && /^## / { flush_items(); flush_pending(); in_acc = 0; print; next }
+                in_acc && /^[ \t]*$/ { pend[++np] = $0; next }
+                in_acc { flush_pending(); print; next }
+                { print }
+                END { if (in_acc) { flush_items(); flush_pending() } }
+            ' "$SUCCESSOR_PATH" > "$TMP_S"
+            mv "$TMP_S" "$SUCCESSOR_PATH"
+            git add "$SUCCESSOR_PATH" 2>/dev/null || true
+        fi
+        rm -f "$UNMET_F"
+        # The successor's own history records what it absorbed. append-changelog.sh is
+        # idempotent on the (event, artifact) pair, so a re-run adds no second line.
+        sh "${SCRIPT_DIR}/append-changelog.sh" "$SUCCESSOR_PATH" \
+            "remainder carried from ${SLUG}" "mission.md" ${DATE:+"$DATE"} >/dev/null 2>&1 || true
     fi
 fi
 

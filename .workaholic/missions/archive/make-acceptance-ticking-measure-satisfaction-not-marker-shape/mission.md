@@ -2,7 +2,7 @@
 type: Mission
 title: Make acceptance ticking measure satisfaction, not marker shape
 slug: make-acceptance-ticking-measure-satisfaction-not-marker-shape
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-07-31T06:23:49+00:00
 author: noreply@anthropic.com
@@ -115,3 +115,4 @@ which is precisely the condition the mission exists to fix.
 - 2026-08-04 — concern deferred (stuck) — 20260804124313-the-live-workaholic-tree-is-not.md
 - 2026-08-04 — concern deferred (stuck) — 20260804124313-size-sh-s-norm-is-satisfied.md
 - 2026-08-04 — concern deferred (stuck) — 20260804124313-the-resume-lint-keys-on-a.md
+- 2026-08-04 — mission achieved — mission.md

@@ -2,7 +2,7 @@
 type: Mission
 title: Make the branch story concise by default
 slug: make-the-branch-story-concise-by-default
-status: active
+status: carried
 merge_policy:
 created_at: 2026-07-31T16:58:22+00:00
 author: noreply@anthropic.com
@@ -41,12 +41,12 @@ when something must be done.
 <!-- PROPOSED criteria - a sketch for discussion, not a plan. Approval replans
      this mission to drive-ready; only then may it be authorized. -->
 
-- [ ] The four structural changes hold everywhere the template is mirrored:
+- [x] The four structural changes hold everywhere the template is mirrored:
       `report/SKILL.md`, `review-sections/SKILL.md` and its JSON contract, and
-      the regenerated `outputs/` bundle
-- [ ] The fate of low-severity concerns is decided and written down, given that
+      the regenerated `outputs/` bundle (#20260801185702-make-the-story-short-by-default.md)
+- [x] The fate of low-severity concerns is decided and written down, given that
       `extract-deferred-concerns.sh` reads the story as its only source and
-      records every severity
+      records every severity (#20260801185701-decide-the-fate-of-low-severity-concerns.md)
 - [ ] A story written after the change is shorter than the same branch's story
       before it, with no section padded to look complete
 
@@ -60,3 +60,4 @@ when something must be done.
 - 2026-08-03 — concern deferred (stuck) — 20260803221121-section-numbers-are-now-unstable-and.md
 - 2026-08-03 — concern deferred (stuck) — 20260803221121-a-mis-graded-severity-now-hides.md
 - 2026-08-03 — concern deferred (stuck) — 20260803221121-the-motivation-fold-is-a-prose.md
+- 2026-08-04 — mission carried into make-the-branch-story-measurably-shorter — mission.md

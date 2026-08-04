@@ -2,7 +2,7 @@
 type: Mission
 title: Make scheduled routines a configurable, inspectable part of a repository
 slug: make-scheduled-routines-a-configurable-inspectable-part-of-a-repository
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-07-31T16:05:30+00:00
 author: noreply@anthropic.com
@@ -46,10 +46,10 @@ it up.
 
 PROPOSED sketch, not a plan. `/mission approve` replans this to drive-ready.
 
-- [ ] Where routine configuration lives, and what an agent may apply unattended, are decided and
-      written down with the rejected alternatives named
-- [ ] `/setup-routines [repository name]` lists the routines configured for that repository
-- [ ] A routine can be added, removed, or refreshed from its template within the decided boundary
+- [x] Where routine configuration lives, and what an agent may apply unattended, are decided and
+      written down with the rejected alternatives named (#20260801185501-decide-where-routine-config-lives.md)
+- [x] `/setup-routines [repository name]` lists the routines configured for that repository (#20260801185502-list-a-repositorys-routines.md)
+- [x] A routine can be added, removed, or refreshed from its template within the decided boundary (#20260801185503-add-remove-and-refresh-a-routine.md)
 
 ## Changelog
 
@@ -62,3 +62,4 @@ PROPOSED sketch, not a plan. `/mission approve` replans this to drive-ready.
 - 2026-08-03 — concern deferred (stuck) — 20260803221452-the-digest-gate-cannot-prove-a.md
 - 2026-08-03 — concern deferred (stuck) — 20260803221452-nothing-here-has-been-run-against.md
 - 2026-08-03 — concern deferred (stuck) — 20260803221452-two-commands-now-survey-routines.md
+- 2026-08-04 — mission achieved — mission.md

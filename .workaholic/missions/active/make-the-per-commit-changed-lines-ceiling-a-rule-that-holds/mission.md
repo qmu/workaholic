@@ -100,3 +100,5 @@ PROPOSED sketch for discussion — not a plan. `/mission approve` replans this t
 - 2026-08-01 — ticket archived — 20260801185101-decide-what-too-large-commit-counts.md
 - 2026-08-01 — ticket archived — 20260801185102-implement-the-chosen-commit-size-semantics.md
 - 2026-08-01 — run recorded (+3h) — 20260801-210440
+- 2026-08-04 — concern deferred (stuck) — 20260804125252-a-delete-only-commit-of-any.md
+- 2026-08-04 — concern deferred (stuck) — 20260804125252-workaholic-prose-is-exempted-by-path.md

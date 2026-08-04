@@ -9,6 +9,7 @@ category: Changed
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260804-091426
 ---
 
 # `no_tickets` cannot tell a never-planned mission from a finished one, so a drained mission stalls the loop silently

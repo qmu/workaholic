@@ -7998,8 +7998,11 @@ function testFeedback() {
 
 // ---------- propose skill: cursor / window / dedup / draft scaffold ----------
 // The proposal batch's mechanics (docs/loop-engineering-workflow.md C2-C4, B1):
-// runner-local cursor with safe cold start, exact added-records window, the
+// the cursor's safe cold start, the exact added-records window, the
 // mission->feedback dedup set, and the unowned/unauthorized draft scaffold.
+// This repo has NO origin, so it also pins the cursor's degraded shape: a reader
+// with nowhere to fetch from says `fetched: false` rather than pretending.
+// The shared-ref behaviour itself is testProposeCursorRef, which needs two clones.
 function testProposeBatch() {
   const dir = makeRepo("main");
   try {
@@ -8015,10 +8018,12 @@ function testProposeBatch() {
     let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeCursor} read`).stdout);
     assertEq("cursor bootstraps to the current tip", r.initialized, true);
     const c0 = r.commit;
-    assertEq("a bootstrapped cursor reads back stable", JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeCursor} read`).stdout), { commit: c0, initialized: false });
+    assertEq("a bootstrapped cursor reads back stable", JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeCursor} read`).stdout), { commit: c0, initialized: false, fetched: false });
     assertEq("pre-existing feedback is already-seen (empty window)",
       JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeNewFeedback} ${c0}`).stdout), []);
-    assertTrue("the cursor file is git-ignored (runner-local state)",
+    assertTrue("the cursor writes no file into the repository",
+      !existsSync(join(dir, ".workaholic/proposal-cursor")), "the legacy cursor file was recreated");
+    assertTrue("and leaves the checkout clean",
       execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim() === "", "cursor dirtied the tree");
 
     // New records after the cursor appear in the window; index.md never does.
@@ -8066,6 +8071,111 @@ function testProposeBatch() {
       { status: d.status, ready: d.ready, reason: d.ready_reason }, { status: "active", ready: false, reason: "no_plan" });
     assertEq("a proposal is unowned (relation unassigned)", d.relation, "unassigned");
   } finally { cleanup(dir); }
+}
+
+// ---------- the proposal cursor as a shared pushed ref ----------
+// The cursor used to be a git-ignored runner-local FILE, on decision C1's premise
+// that one long-lived server runs the batch. The deployment falsified it: the
+// routine starts a fresh container every tick, so the file never existed there,
+// every read bootstrapped, and the batch reported "initialized" and stopped —
+// permanently, while reading as healthy. The fix stores it the way the claim
+// protocol stores claims: `refs/workaholic/proposal-cursor` on origin, pushed.
+//
+// So what must be proven is not the JSON of one invocation but that TWO
+// INDEPENDENT CLONES share one cursor — the second never cold-starts, and two
+// racing advances are settled by push rather than by a clock. Hermetic: a bare
+// origin, no network, no GitHub.
+function testProposeCursorRef() {
+  const CFG = `git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`;
+  const REF = "refs/workaholic/proposal-cursor";
+  const origin = mkdtempSync(join(tmpdir(), "wh-cursor-origin-"));
+  const seed = mkdtempSync(join(tmpdir(), "wh-cursor-seed-"));
+  const made = [origin, seed];
+  const mkClone = () => {
+    const c = mkdtempSync(join(tmpdir(), "wh-cursor-clone-"));
+    made.push(c);
+    execSync(`git clone -q ${origin} .`, { cwd: c });
+    execSync(CFG, { cwd: c });
+    return c;
+  };
+  try {
+    execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
+    execSync(`git clone -q ${origin} .`, { cwd: seed });
+    execSync(CFG, { cwd: seed });
+    const land = (n) => {
+      writeFileSync(join(seed, `f${n}`), `${n}\n`);
+      execSync(`git add -A && git commit -q -m c${n} && git push -q origin main`, { cwd: seed });
+      return execSync(`git rev-parse HEAD`, { cwd: seed, encoding: "utf8" }).trim();
+    };
+    const c1 = land(1);
+    land(2);
+    const c3 = land(3);
+    const cursor = (cwd, args) => run(cwd, `${POSIX_SH} ${SCRIPTS.proposeCursor} ${args}`);
+    const remoteRef = (cwd) =>
+      execSync(`git ls-remote origin ${REF}`, { cwd, encoding: "utf8" }).trim().split(/\s+/)[0] || "";
+
+    const A = mkClone();
+    const B = mkClone();
+
+    // Bootstrap is once per REPOSITORY: it creates the ref AND pushes it.
+    const boot = JSON.parse(cursor(A, "read").stdout);
+    assertEq("the first read bootstraps the cursor to origin/main's tip",
+      { commit: boot.commit, initialized: boot.initialized }, { commit: c3, initialized: true });
+    assertEq("and publishes it as a shared ref", { pushed: boot.pushed, fetched: boot.fetched }, { pushed: true, fetched: true });
+    assertEq("the ref is readable from origin by anyone", remoteRef(A), c3);
+    assertTrue("the cursor writes no file into the repository",
+      !existsSync(join(A, ".workaholic/proposal-cursor")), "a cursor file was written");
+    assertEq("and the checkout stays clean", execSync(`git status --porcelain`, { cwd: A, encoding: "utf8" }).trim(), "");
+
+    // The failure this replaces: a second fresh clone (the cloud container) must
+    // read the cursor, never bootstrap over it.
+    const second = JSON.parse(cursor(B, "read").stdout);
+    assertEq("a second fresh clone reads the shared cursor without cold-starting",
+      { commit: second.commit, initialized: second.initialized, fetched: second.fetched },
+      { commit: c3, initialized: false, fetched: true });
+
+    // Advance publishes, and the other clone sees it.
+    const c4 = land(4);
+    execSync(`git fetch -q origin`, { cwd: A });
+    assertEq("advance pushes the new value",
+      JSON.parse(cursor(A, `advance ${c4}`).stdout), { advanced: true, commit: c4 });
+    assertEq("the shared ref carries it for every runner", remoteRef(B), c4);
+
+    // B still holds what it READ, so its lease is stale: the race is settled by
+    // push, never by comparing clocks, and the loser takes nothing.
+    const c5 = land(5);
+    execSync(`git fetch -q origin`, { cwd: B });
+    const raced = cursor(B, `advance ${c5}`);
+    assertEq("a lost race is a reported no-op, not a failure", raced.status, 0);
+    assertEq("the loser names the race and the winner's value",
+      JSON.parse(raced.stdout), { advanced: false, reason: "raced", commit: c4 });
+    assertEq("and the cursor is never rewound past the winner", remoteRef(B), c4);
+
+    // The reader degrades, the writer is loud — the claim protocol's asymmetry.
+    execSync(`git remote set-url origin ${origin}-gone`, { cwd: B });
+    const offline = JSON.parse(cursor(B, "read").stdout);
+    assertEq("an unreachable origin degrades the read to the last-known value",
+      { commit: offline.commit, initialized: offline.initialized, fetched: offline.fetched },
+      { commit: c4, initialized: false, fetched: false });
+    const offAdvance = cursor(B, `advance ${c5}`);
+    assertEq("but an advance nobody can see fails loudly", offAdvance.status, 1);
+    assertEq("naming the push failure", JSON.parse(offAdvance.stdout).reason, "push_failed");
+
+    // Living migration: a surviving runner-local file seeds the ref, then goes.
+    execSync(`git update-ref -d ${REF}`, { cwd: origin });
+    const C = mkClone();
+    mkdirSync(join(C, ".workaholic"), { recursive: true });
+    writeFileSync(join(C, ".workaholic/proposal-cursor"), `${c1}\n`);
+    const migrated = JSON.parse(cursor(C, "read").stdout);
+    assertEq("a legacy cursor file seeds the shared ref rather than being discarded",
+      { commit: migrated.commit, initialized: migrated.initialized, pushed: migrated.pushed },
+      { commit: c1, initialized: true, pushed: true });
+    assertTrue("and is removed once the ref holds the value",
+      !existsSync(join(C, ".workaholic/proposal-cursor")), "the legacy file survived the fold");
+    assertEq("so every later runner reads the folded value", remoteRef(C), c1);
+  } finally {
+    for (const d of made) cleanup(d);
+  }
 }
 
 // ---------- propose/notify-slack.sh (env-driven, never load-bearing, secret-safe) ----------
@@ -10826,6 +10936,7 @@ const tests = [
   ["hooks/install-git-hooks.sh", testInstallGitHooks],
   ["feedback/create.sh + list.sh + hooks/validate-feedback.sh", testFeedback],
   ["propose: cursor/window/dedup/draft scaffold", testProposeBatch],
+  ["propose: the cursor is a shared pushed ref", testProposeCursorRef],
   ["propose/notify-slack.sh", testNotifySlack],
   ["drive claim protocol: two clones, one unit", testClaimProtocol],
   ["drive claim protocol: a claim survives its tickets being archived", testClaimSurvivesArchive],
@@ -10855,6 +10966,7 @@ const tests = [
   ["branching worktree reclamation: merged AND clean, every skip named", testWorktreeReclamation],
   ["mission size norms: a ceiling on what a mission may say, and the floor it must not touch", testMissionSizeNorms],
   ["propose: widened inputs, emitted tickets, and the mission_member safety property (J4)", testProposeWidenedBatch],
+  ["propose: an atomic direction becomes one loose ticket, and dedup unions both sides", testProposeLooseTicket],
   ["branching/check-worktrees.sh ignores the publish tree", testCheckWorktreesIgnoresPublishTree],
   ["/ticket publishes to main end to end (J1)", testTicketPublishesToMain],
   ["hooks/validate-ticket.sh resolves a mission in the publish tree", testValidateTicketResolvesInPublishTree],
@@ -11092,6 +11204,88 @@ function testProposeWidenedBatch() {
   }
 }
 
+// The proposal's FORM follows the work's shape, not the tool's convenience: two or more
+// related units make a mission with its ticket set, an ATOMIC ask makes one loose backlog
+// ticket. Before the loose form existed, an atomic ask hit the mission-ticket floor and
+// ended in a reported drop -- which is still silence from the reporter's point of view.
+//
+// The load-bearing property is the DEDUP one. A loose ticket has no mission to carry the
+// `feedback:` relation, so it carries it itself, and the dedup set must union both sides
+// over both the queue AND the archive. A set that read only missions would re-propose the
+// same record every tick; one that skipped the archive would re-propose the work it had
+// just finished driving.
+function testProposeLooseTicket() {
+  const root = makeRepo();
+  const SCAFFOLD = `${POSIX_SH} ${SCRIPTS.scaffoldProposedTicket}`;
+  const REFS = `${POSIX_SH} ${SCRIPTS.proposeListRefs}`;
+  const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh");
+  const refs = () => run(root, REFS).stdout.split("\n").filter(Boolean);
+  const validates = (rel) => {
+    try {
+      execSync(`${POSIX_SH} ${HOOK}`, {
+        cwd: root, input: JSON.stringify({ tool_input: { file_path: rel } }),
+        encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
+      });
+      return 0;
+    } catch (e) { return e.status ?? 1; }
+  };
+  try {
+    const slug = "a-decomposable-direction";
+    mkdirSync(join(root, `.workaholic/missions/active/${slug}`), { recursive: true });
+    writeFileSync(join(root, `.workaholic/missions/active/${slug}/mission.md`),
+      `---\ntype: Mission\ntitle: A decomposable direction\nslug: ${slug}\nstatus: active\nmerge_policy:\nassignees: []\nfeedback: [20260801000000-mission-record.md]\n---\n\n# A decomposable direction\n\n## Acceptance\n\n- [ ] proposed criterion\n`);
+
+    // ---- the loose form ----
+    const loose = JSON.parse(run(root, `${SCAFFOLD} "Fix the atomic thing" --loose bugfix Domain --feedback 20260802000000-ask.md`).stdout);
+    assertEq("an atomic direction scaffolds one loose ticket",
+      { created: loose.created, loose: loose.loose, mission: loose.mission }, { created: true, loose: true, mission: "" });
+    const body = readFileSync(join(root, loose.path), "utf8");
+    // NO `mission:` KEY AT ALL -- an empty one would still read as a relation to a mission
+    // named "", which is a dangling relation validate-ticket.sh would be right to refuse.
+    assertTrue("a loose ticket writes no mission key whatsoever", !/^mission:/m.test(body), body.slice(0, 300));
+    assertTrue("and carries its provenance as feedback refs instead",
+      /^feedback: \[20260802000000-ask\.md\]$/m.test(body), body.slice(0, 300));
+    assertTrue("its type and layer come from the arguments, not the defaults",
+      /^type: bugfix$/m.test(body) && /^layer: \[Domain\]$/m.test(body), body.slice(0, 300));
+    assertTrue("merge_policy stays empty, which reads as review",
+      /^merge_policy:\s*$/m.test(body), body.slice(0, 300));
+    // The `feedback:` key is TOLERATED by the validator, like `claim:` -- it validates
+    // named fields only, so an artifact relation needs no schema amendment.
+    assertEq("a loose proposed ticket passes validate-ticket.sh", validates(loose.path), 0);
+
+    // Provenance is mandatory in this form, because it is the ONLY copy of it.
+    assertEq("a loose ticket with nothing to trace it to is refused",
+      JSON.parse(run(root, `${SCAFFOLD} "Nothing to trace" --loose`).stdout).reason, "no_feedback");
+
+    // ---- it is ordinary backlog: no mission unit, no mission_member exclusion ----
+    const plan = JSON.parse(run(root, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    assertTrue("a loose proposed ticket is offered as ordinary backlog",
+      plan.backlog.some((b) => b.path === loose.path), JSON.stringify(plan.backlog));
+
+    // ---- the dedup set is the union over both artifact kinds ----
+    assertTrue("the dedup set unions ticket-side refs with mission-side ones",
+      refs().includes("20260802000000-ask.md") && refs().includes("20260801000000-mission-record.md"),
+      JSON.stringify(refs()));
+
+    // A mission's own ticket may carry refs too; the set is a set.
+    const member = JSON.parse(run(root, `${SCAFFOLD} "Do the missioned work" ${slug} enhancement Config --feedback 20260802000000-ask.md`).stdout);
+    assertTrue("a mission-member ticket still carries its mission relation",
+      readFileSync(join(root, member.path), "utf8").includes(`mission: ${slug}`), member.path);
+    assertEq("a record referenced by several artifacts is listed once",
+      refs().filter((r) => r === "20260802000000-ask.md").length, 1);
+
+    // ---- and the archive counts: a DRIVEN loose ticket must not be re-proposed ----
+    const driven = JSON.parse(run(root, `${SCAFFOLD} "Fix the other atomic thing" --loose --feedback 20260803000000-second-ask.md`).stdout);
+    const archived = ".workaholic/tickets/archive/work-20260804-000000/driven.md";
+    mkdirSync(dirname(join(root, archived)), { recursive: true });
+    execSync(`git mv ${driven.path} ${archived} 2>/dev/null || mv ${driven.path} ${archived}`, { cwd: root });
+    assertTrue("an archived loose ticket still holds its record out of the window",
+      refs().includes("20260803000000-second-ask.md"), JSON.stringify(refs()));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
 // ---------- worktree reclamation (survey / reap / prune) ----------
 // A tool that allocates storage and never reclaims it is not finished: 53 GB was held
 // across four repositories, 31 GB of it fully merged and clean. The reaper's safety rule
@@ -11302,11 +11496,14 @@ function testWorkaholifyRoutines() {
   const WH = "https://github.com/qmu/workaholic";
   try {
     const tpl = JSON.parse(run(dir, LIST).stdout);
-    assertEq("the plugin ships three routine templates", tpl.count, 3);
-    assertEq("and they are the three live patterns",
-      tpl.templates.map((t) => t.id).sort(), ["drive", "fb", "merged-pr"]);
-    assertEq("only the drive template is scheduled",
-      tpl.templates.filter((t) => t.trigger === "cron").map((t) => t.cron_expression), ["56 * * * *"]);
+    assertEq("the plugin ships four routine templates", tpl.count, 4);
+    assertEq("and they are the four live patterns",
+      tpl.templates.map((t) => t.id).sort(), ["drive", "fb", "merged-pr", "propose"]);
+    // The template set is discovered by scanning the routines dir, so a new template is
+    // surveyed, rendered and drift-checked the moment its file exists -- nothing enumerates
+    // the ids in code, which is why adding `propose` needed no script change.
+    assertEq("the two scheduled templates carry their own cadence",
+      tpl.templates.filter((t) => t.trigger === "cron").map((t) => t.cron_expression), ["56 * * * *", "*/15 * * * *"]);
 
     // ---- the three substitutions, each demanded by a real prompt ----
     const drive = JSON.parse(run(dir, `${RENDER} drive ${WH}`).stdout);
@@ -11358,7 +11555,7 @@ function testWorkaholifyRoutines() {
     assertEq("an unset model is named as the field that drifted",
       cmp.this_repo.present.find((x) => x.id === "merged-pr").drift, ["model (unset != claude-opus-5)"]);
     assertEq("a template with no live routine is reported missing",
-      cmp.this_repo.missing.map((m) => m.id), ["fb"]);
+      cmp.this_repo.missing.map((m) => m.id), ["fb", "propose"]);
     // `unknown` is information, never a deletion proposal -- the API has no delete at all.
     assertEq("an untemplated routine is listed as unknown", cmp.this_repo.unknown.length, 1);
     assertEq("and it is the one-off", cmp.this_repo.unknown[0].trigger_id, "trig_oneoff");
@@ -11567,10 +11764,11 @@ function testRoutineAnnouncementScoping() {
   // old wording verbatim, so checking the whole file flags the explanation as the bug.
   const prompt = (f) => { const b = read(f); const i = b.indexOf("## Prompt"); return i < 0 ? b : b.slice(i); };
   const merged = prompt("merged-pr.md"), fb = prompt("fb.md"), drive = prompt("drive.md");
+  const propose = prompt("propose.md");
 
   // The subject must be identified. "about the pull request" with no antecedent is the
   // exact wording that produced the duplicates.
-  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive]]) {
+  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive], ["propose", propose]]) {
     assertTrue(`${name} never says "about the pull request" without saying which`,
       !/about the pull request\b(?![^\n]*(this session|you just|THIS session))/i.test(body),
       body.slice(0, 400));
@@ -11598,12 +11796,20 @@ function testRoutineAnnouncementScoping() {
     /only the pull request THIS session just opened/i.test(drive), "drive scoping missing");
   assertTrue("drive forbids reporting activity it did not produce",
     /did not itself produce/i.test(drive), "drive hard rule missing");
+  assertTrue("propose announces only the PR this session opened",
+    /only for a PR this session itself created/i.test(propose), "propose scoping missing");
+  // Its OTHER outcome is silence, and silence must not be announced: on a 15-minute tick a
+  // routine that posts "nothing to propose" is 96 posts a day saying nothing happened.
+  assertTrue("propose posts nothing when it proposes nothing",
+    /Post nothing to Slack for any of them/i.test(propose), "silence rule missing");
+  assertTrue("and it never merges what it proposed",
+    /Never merge anything/i.test(propose), "propose merge prohibition missing");
 
   // NO "Attention" BLOCK IN ANY ANNOUNCEMENT (developer's ruling, 2026-08-01). The
   // conditional concern block is gone from both the PR-opened and PR-merged formats; a
   // notification carries the fact, and concerns live in the story and the feedback stream
   // where they are read deliberately rather than skimmed in a channel.
-  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive]]) {
+  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive], ["propose", propose]]) {
     assertTrue(`${name} carries no Attention block`, !/Attention/.test(body), body.slice(0, 300));
     assertTrue(`${name} carries no concern conditional`,
       !/\{\{#if [a-z_]*concern/i.test(body), body.slice(0, 300));
@@ -11701,7 +11907,7 @@ function testSetupRoutinesListing() {
     assertTrue("and it is labelled as not-a-problem",
       /one-off, not a problem/.test(byName("nightly docs sweep").note), byName("nightly docs sweep").note);
     assertEq("a template with no live routine is offered, not faulted",
-      populated.missing.map((m) => m.id), ["merged-pr"]);
+      populated.missing.map((m) => m.id), ["merged-pr", "propose"]);
     // The template set has a version; a LIVE routine does not, and nothing claims one.
     assertTrue("the template set reports the version it compared against",
       /^\d+\.\d+\.\d+$/.test(populated.template_set_version), String(populated.template_set_version));
@@ -11715,7 +11921,7 @@ function testSetupRoutinesListing() {
     const empty = listFrom({ data: [] });
     assertEq("an empty account is a CHECKED answer with an empty list",
       [empty.checked, empty.routines.length], [true, 0]);
-    assertEq("and every template is reported as available", empty.missing.length, 3);
+    assertEq("and every template is reported as available", empty.missing.length, 4);
 
     // ---- 3. an account that could not be reached ----
     // EACH OF THESE MUST BE DISTINGUISHABLE FROM CASE 2. `checked: false` carries no

@@ -3,9 +3,9 @@ created_at: 2026-08-04T20:05:55+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: make-the-feedback-loop-actually-propose
 merge_policy:
@@ -83,3 +83,37 @@ still silence from the reporter's point of view.
 - Do not let the loose mode leak into mission proposals as an easy fallback —
   the bar's conservatism (silence over noise) is unchanged; this adds a form,
   not a lower bar.
+
+## Final Report
+
+Development completed as planned. `scaffold-proposed-ticket.sh` takes a second
+form (`--loose [type] [layer] --feedback <record>...`) that writes no `mission:`
+key at all and carries `feedback: [...]` instead, refusing `no_feedback` because
+those refs are the loose ticket's only provenance. `list-proposed-refs.sh` now
+unions mission-side and ticket-side refs across `todo/` and `archive/`, reading
+every one through `read-feedback-relation.sh` — generalized to take any artifact
+and many files at once. `propose/SKILL.md` gained *The form follows the work's
+shape* (the three-way cardinality decision), `commands/propose.md` steps 6/8–10
+route by it, and `CLAUDE.md`, `README.md` and the propose routine template match.
+`validate-ticket.sh` needed no change: it validates named fields, so `feedback:`
+is tolerated exactly like `claim:`, and a test now pins that.
+
+### Discovered Insights
+
+- **Insight**: the dedup set had to grow into the ticket **archive**, not just
+  the queue. A driven loose ticket is the strongest evidence its feedback was
+  acted on, so a set that dropped it at archive time would make the batch
+  re-propose precisely the work it had just finished.
+  **Context**: this is the failure the union exists to prevent, and it is the
+  one a reviewer would most plausibly "simplify" away by scanning only `todo/`.
+- **Insight**: scanning the archive is 600+ files on the 15-minute path, so the
+  single-parser requirement and the performance requirement pulled in opposite
+  directions until `read-feedback-relation.sh` was made variadic — one awk
+  process over N files costs what one process costs.
+  **Context**: the alternative (a second inlined parser in the caller) would
+  have been the two-parsers-of-one-field state the reader was written to avoid.
+- **Insight**: a loose ticket must write **no** `mission:` line rather than an
+  empty one. An empty key still reads as a relation — to a mission named `""` —
+  which is exactly the dangling relation `validate-ticket.sh` refuses.
+  **Context**: the two forms therefore differ by which relation *line* is
+  emitted, not by a value, which is what the scaffold builds explicitly.

@@ -3,9 +3,9 @@ created_at: 2026-08-04T20:05:55+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 0.5h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: make-the-feedback-loop-actually-propose
 merge_policy:
@@ -77,3 +77,28 @@ the asymmetry exists to prevent.
   `20260804200555-give-the-proposal-batch-a-routine-seat-and-retire-the-cron-premise.md`'s
   fb.md edit — drive them in the mission's order and rebase the later edit on
   the earlier one.
+
+## Final Report
+
+Development completed as planned. The deciding rule is stated once, in
+`feedback/SKILL.md`'s new *Choosing the kind* section — the ask/no-ask question,
+one line per `kind`, why the entry rather than the reader decides it, record
+`20260804143009` as the measured miss, and the `supersedes`-based correction
+path. `commands/fb.md` §2 and the `[FB]` routine template both reference it
+rather than restating it, and `propose/SKILL.md`'s judgment bar now names its
+dependency on the capture rule and refuses the alternative fix (loosening the
+bar to read concerns). No schema change: `instruction` was already in the enum.
+
+The two fb.md edits from the previous ticket and this one were applied in
+mission order, so no rebase was needed.
+
+### Discovered Insights
+
+- **Insight**: the rule needed an explicit boundary it did not obviously need —
+  ship-time extraction writes `kind: concern` for every block of a story's
+  Concerns section, and those blocks carry a `## How to Fix` too.
+  **Context**: read literally, the new rule would reclassify that entire
+  automated lane. The distinction that holds is *who is asking*: an extracted
+  concern is a leftover the loop noticed about its own work, not a request from
+  a reporter. The section says so, because the next reader would otherwise
+  apply the rule where it does not belong.

@@ -378,4 +378,7 @@
 * [A signature is only as stable as the session that writes it](20260804124048-a-signature-is-only-as-stable.md)
 * [The fleet still carries the old template, and nothing here changed that](20260804124048-the-fleet-still-carries-the-old.md)
 * [The rule is prose, so the tests prove presence rather than behavior](20260804124048-the-rule-is-prose-so-the.md)
+* [`size.sh`'s norm is satisfied by nothing ever written](20260804124313-size-sh-s-norm-is-satisfied.md)
+* [The live `.workaholic/` tree is not OKF-conformant, and nothing measures it](20260804124313-the-live-workaholic-tree-is-not.md)
+* [The `resume-*` lint keys on a filename and has never fired](20260804124313-the-resume-lint-keys-on-a.md)
 <!-- okf:generated:end -->

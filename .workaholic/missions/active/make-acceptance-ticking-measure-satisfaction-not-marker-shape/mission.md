@@ -112,3 +112,6 @@ which is precisely the condition the mission exists to fix.
 - 2026-08-04 — ticket archived — 20260803213000-audit-the-gates-for-shape-dependent-green.md
 - 2026-08-04 — story reported — work-20260804-113856.md
 - 2026-08-04 — run recorded (+0.5h) — 20260804-105700
+- 2026-08-04 — concern deferred (stuck) — 20260804124313-the-live-workaholic-tree-is-not.md
+- 2026-08-04 — concern deferred (stuck) — 20260804124313-size-sh-s-norm-is-satisfied.md
+- 2026-08-04 — concern deferred (stuck) — 20260804124313-the-resume-lint-keys-on-a.md

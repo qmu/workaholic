@@ -3,12 +3,13 @@ created_at: 2026-08-01T02:03:14+00:00
 author: a@qmu.jp
 type: bugfix
 layer: [Config]
-effort:
+effort: 1h
 commit_hash:
 category: Changed
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260804-035024
 ---
 
 # Merging a handoff PR leaves a live `claim:` stamp on `main`, which the design says can never happen
@@ -106,3 +107,27 @@ Decision I5 / the 2026-08-01 resumption work made a dropped claim recoverable; t
 - **Do not fix it with a sweep over `main`.** Two writers of claim state is the condition the single shared scan (`lib/claims.sh`) was built to prevent.
 - The defect is *caused by* a protocol that is otherwise working exactly as intended — the handoff PR is what let this run's blocked finding survive a sandbox that gets reclaimed. Nothing here argues against handoff PRs.
 - Under (a), note that `archive.sh`'s carry-the-stamp-into-`archive/` behavior must be left alone; the strip applies only to tickets still in `todo/` at merge time.
+
+## Final Report
+
+Implemented as **option (b)** — narrow the invariant — recorded as decision **M1** in `docs/loop-engineering-workflow.md` (eighth round).
+
+**The ticket's own recommendation was wrong, and that is the main finding.** Step 1 recommended option (a): strip `claim:` from any ticket still in `todo/` in the handoff PR's final commit. Reading `drive/scripts/lib/claims.sh` before implementing showed why that cannot work — a claim's artifacts are sourced as *the files the claim commit touched that still carry `claim: <branch>` **at the tip***, so removing a stamp drops that artifact from the claim. Deliberately: the behaviour is documented and pinned by tests. Stripping at handoff time would therefore un-claim a ticket **while its pull request is still open and unmerged**, offering in-flight work as fresh backlog — the double-pick the claim protocol exists to prevent, observed live on 2026-07-30 and again on 2026-08-04. A fix that creates the failure it was written to prevent is not a fix.
+
+Recorded as M1a rather than silently switching options, and the second half of the new test *asserts that failure mode directly*, so the strip cannot be re-proposed without seeing it fail.
+
+**Also rejected (M1b):** re-sourcing the reader from the claim commit instead of the tip — it would make the strip safe, but reverses the deliberate, tested "a stamp removal releases that artifact" behaviour, which is a design change needing its own ticket and a human, not a side effect of a record fix. And a sweep over the base, on the ticket's own grounds (two writers of claim state is what the single shared scan prevents).
+
+### Acceptance
+
+- **Met** — the contract is documented: a base-side stamp is history, never a claim.
+- **Met** — `drive/SKILL.md`'s Claims section, `CLAUDE.md`, and the §7 handoff route now agree; the Claims bullet names the handoff/blocked merge as the ordinary case that produces a base-side stamp.
+- **Met** — the rejected options and their reasons are in M1a/M1b.
+- **Superseded, not skipped** — "the live stale stamp on `20260724094304` is gone from `main`". That bullet was written assuming (a) would win; under (b) removing it would delete exactly the history the ruling legitimizes. The file has also been **iced** by the developer since this ticket was written (`.workaholic/tickets/icebox/`), which is developer-curated space `/drive` must not edit. Left in place deliberately.
+
+### Discovered Insights
+
+- **Insight**: A coordination marker can be simultaneously load-bearing on a branch and meaningless on the base, and the two readings cannot be separated by removing the marker — only by documenting which reader is authoritative.
+  **Context**: `lib/claims.sh` gives the stamp its meaning *relative to the unmerged set*. Any future change that tries to make frontmatter self-describing about claims will hit this same wall: the file cannot know whether its branch is merged, which is precisely why the scan exists.
+- **Insight**: The `handoff` terminal state changed a precondition of the claim protocol without either document noticing, because each was internally consistent.
+  **Context**: `drive/SKILL.md` held both statements — the Claims section's "`main` never shows a claim" and §7's "open or update its PR even when the work is incomplete" — in one file. When adding a terminal state, check what the other protocols assumed about *when* a branch merges, not only about what the state does.

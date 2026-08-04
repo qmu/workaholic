@@ -170,6 +170,14 @@ Defaults decided without asking (veto anytime):
 
 *(The survey behind these rulings — every `/ship` step's reads, writes, and ordering constraint — is the feedback record `20260803212851-adopt-a-release-branch-staging-tier-release-only.md`.)*
 
+### Eighth round — a base-side `claim:` stamp is history (2026-08-04)
+
+| # | Ruling |
+| - | ------ |
+| M1 | **A `claim:` stamp that reaches the base is history, never a claim. The unmerged-branch scan is the only oracle.** The old invariant — *"`main` never shows a claim"* — was observed false on `b70bb0a9`: merging PR #153, a **handoff** PR for a `blocked` unit, published `claim: work-20260731-221002` onto a ticket still in `todo/`. Both protocols were individually correct. The claim protocol assumed a branch merges only after `archive.sh` has renamed every ticket out of `todo/` (where the stamp is honest history); §7's `handoff`/`blocked` route, and the unattended routine's *"open or update the unit's PR even when the work is incomplete"*, made merging-while-still-queued routine. Nothing was broken by it — `plan-units.sh` subtracts claims from the scan and never from frontmatter, so the ticket was correctly re-offered — so this is a correctness-of-record defect, and the fix is to make the record true. |
+| M1a | **The tempting fix is rejected on evidence: do NOT strip the stamp before opening a handoff PR.** The ticket that raised this recommended exactly that. It is wrong. `lib/claims.sh` sources a claim's artifacts as *the files the claim commit touched that still carry `claim: <branch>` **at the tip***, so removing a stamp drops that artifact from the claim — deliberately, and pinned by tests. Stripping at handoff time would therefore un-claim a ticket **while its PR is still open and unmerged**, offering in-flight work as fresh backlog: the double-pick the protocol exists to prevent, observed live 2026-07-30 and again (as a lost artifact list) 2026-08-04. A gate that creates the failure it was written to prevent is not a fix. |
+| M1b | **Also rejected: re-sourcing the reader from the claim commit instead of the tip, and any sweep over the base.** Re-sourcing would make M1a's strip safe, but it reverses the deliberate, tested "a stamp removal releases that artifact" behaviour — a real design change that needs its own ticket and a human, not a side effect of a record fix. A sweep is rejected because two writers of claim state is precisely what the single shared scan exists to prevent. Validating `claim:` in `validate-ticket.sh` stays rejected on its original grounds: a `PostToolUse` hook reading one file cannot know whether the remote branch still exists. |
+
 ## 5. Strategy-layer removal — migration inventory
 
 Abolishing `strategies/` touches every ownership consumer. The single-reader

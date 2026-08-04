@@ -6794,9 +6794,59 @@ function testRequestScripts() {
   assertEq("submit-request refuses a malformed filename", json(src, SCRIPTS.submitRequest, `${q(tgt)} notaticket.md ${q(clean)}`).ok, false);
   assertEq("submit-request refuses the source repo as target", json(src, SCRIPTS.submitRequest, `${q(src)} 20260715130000-x.md ${q(clean)}`).ok, false);
 
-  // The backstop knows only this repo's own name and path.
+  // The backstop knows only this repo's own name, remote and path.
   const named = body("named.md", `A ticket that still says ${basename(src)} in the text.\n`);
   assertEq("submit-request refuses a body naming the source repo", json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715130000-x.md ${q(named)}`).ok, false);
+
+  // ---- an identifier, not a substring ----
+  // The bare-name test used to be a plain case-insensitive `grep -F`, so a repo whose
+  // basename is an ordinary word could not submit ANY body containing a path segment that
+  // embeds it — including a directory belonging to the TARGET repo. Observed 2026-08-02 on
+  // a body that was seventy such path pairs and nothing else: the refusal was unconditional
+  // and its instruction ("mask it") could not be followed, AFTER the developer had already
+  // confirmed the body verbatim. Narrowing is about adjacency only; every true positive
+  // below must still refuse.
+  const name = basename(src);
+  const seg = body("segments.md",
+    `---\ntype: enhancement\n---\n\n# Request\n\ndocs/${name}-reports/foo.md -> docs/site-${name}/foo.md\ndocs/${name}_reports/bar.md -> docs/site_${name}/bar.md\n`);
+  const segResult = json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131100-x.md ${q(seg)}`);
+  assertEq("a body of path segments that merely EMBED the name submits", segResult.ok, true);
+
+  const glued = body("glued.md", `---\ntype: enhancement\n---\n\n# Request\n\nThe ${name}Reports module needs the guard.\n`);
+  assertEq("a name glued to another identifier is not a mention",
+    json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131101-x.md ${q(glued)}`).ok, true);
+
+  // Every true positive survives the narrowing, and each names what it matched.
+  const standalone = json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131102-x.md ${q(named)}`);
+  assertEq("a standalone mention is still refused", standalone.ok, false);
+  assertTrue("and the refusal names the matched text and its line",
+    /at line \d+:/.test(standalone.error || "") && standalone.error.includes(name), standalone.error);
+
+  const abs = body("abs.md", `---\ntype: bugfix\n---\n\n# Request\n\nSee ${src}/docs for details.\n`);
+  const absR = json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131103-x.md ${q(abs)}`);
+  assertEq("the absolute path is still refused (untouched, exact)", absR.ok, false);
+  assertTrue("and it is reported as the path check, with its line",
+    /repository's path at line \d+:/.test(absR.error || ""), absR.error);
+
+  // The two forms an actual reference takes, matched exactly. Both are new: the old
+  // backstop caught `owner/name` only incidentally, through the bare-name substring.
+  git(src, "remote add origin git@github.com:acme-org/" + name + ".git");
+  const slug = body("slug.md", `---\ntype: bugfix\n---\n\n# Request\n\nMirrors acme-org/${name} exactly.\n`);
+  const slugR = json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131104-x.md ${q(slug)}`);
+  assertEq("the owner/name remote form is refused", slugR.ok, false);
+  assertTrue("and is reported as such", (slugR.error || "").includes(`acme-org/${name}`), slugR.error);
+
+  const url = body("url.md", `---\ntype: bugfix\n---\n\n# Request\n\nClone git@github.com:acme-org/${name}.git first.\n`);
+  const urlR = json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131105-x.md ${q(url)}`);
+  assertEq("the clone URL is refused", urlR.ok, false);
+  assertTrue("and is reported as the clone URL", /clone URL at line \d+:/.test(urlR.error || ""), urlR.error);
+
+  // The segment body still submits with an origin configured — the narrowing is not an
+  // artifact of the remote being absent.
+  const seg2 = body("segments2.md",
+    `---\ntype: enhancement\n---\n\n# Request\n\ndocs/${name}-reports/baz.md -> docs/site-${name}/baz.md\n`);
+  assertEq("path segments still submit once an origin exists",
+    json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131106-x.md ${q(seg2)}`).ok, true);
 
   // Happy path, and no double-submit.
   const filed = json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715130000-x.md ${q(clean)}`);

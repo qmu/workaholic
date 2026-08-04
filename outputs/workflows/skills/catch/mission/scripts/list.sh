@@ -28,7 +28,7 @@
 # merge_policy is the raw frontmatter value (auto | review | "", where "" reads as
 # review), recorded at CREATION since the approval step was retired; ready is the
 # /mission planning session's drive-readiness verdict (in flight AND has a plan);
-# ready_reason names the blocker (no_plan / not_active) so the session can explain
+# ready_reason names the blocker (no_plan / not_active / queue_drained) so the session can explain
 # what is missing. The retired `draft` and `not_authorized` reasons are gone with
 # the draft gate itself (docs/loop-engineering-workflow.md K1), as the
 # drive_authorized key went before them (I2).
@@ -121,6 +121,14 @@ for d in $DIRS; do
     merge_policy=$(json_escape "$(fm_field "$f" merge_policy)")
     ready=false
     ready_reason=""
+    #
+    # `queue_drained` is the fourth reason, and it is the one a DEVELOPER acts on: an
+    # active mission whose every ticket was driven and archived is not waiting on a
+    # plan, it is waiting on a CLOSE decision. Without it the roadmap showed such a
+    # mission as ordinary in-flight work while the survey dropped it as `no_tickets`,
+    # so neither view said "this one is done, decide achieved / carried / abandoned".
+    # It is deliberately NOT a readiness blocker in the `ready` sense the planning
+    # session uses — the mission has a plan; it has finished it.
     case "$status" in
         achieved | abandoned | carried) ready_reason="not_active" ;;
         *)
@@ -128,6 +136,14 @@ for d in $DIRS; do
                 ready_reason="no_plan"
             else
                 ready=true
+                qs=$(sh "${SCRIPT_DIR}/queue-size.sh" "$slug" 2>/dev/null || true)
+                q_todo=$(printf '%s' "$qs" | sed -n 's/.*"todo": *\([0-9][0-9]*\).*/\1/p')
+                q_arch=$(printf '%s' "$qs" | sed -n 's/.*"archive": *\([0-9][0-9]*\).*/\1/p')
+                [ -n "$q_todo" ] || q_todo=0
+                [ -n "$q_arch" ] || q_arch=0
+                if [ "$q_todo" -eq 0 ] && [ "$q_arch" -gt 0 ]; then
+                    ready_reason="queue_drained"
+                fi
             fi
             ;;
     esac

@@ -9,6 +9,7 @@ category: Changed
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260804-085951
 ---
 
 # A session that outlives a plugin version bump runs stale always-on hooks, dirties the workspace, and halts `/drive` before it can survey

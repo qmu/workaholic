@@ -2,7 +2,33 @@
 # Merge a PR, then bring the local base branch up to date when this checkout can.
 # Usage: sh merge-pr.sh <pr-number> [base-branch]
 # Output: {"merged": true, "pr_number": N, "commit_hash": "...",
+#          "commit_hash_source": "pr_merge_commit"|"base_tip"|"branch_head",
+#          "on_base": true|false, "branch_head": "...",
 #          "checked_out": true|false, "checkout_reason": "", "base": "main"}
+#
+# `commit_hash` IS THE COMMIT THAT LANDED ON THE BASE, not the head of the work branch.
+# It used to be `git rev-parse HEAD` — which is the branch head whenever the post-merge
+# checkout is skipped, and skipping it is the NORMAL case (/drive ships every `auto` unit
+# from a claim worktree while the primary tree pins `main`). Ship Flow step 7 feeds this
+# field to publish-release.sh as the release target, and a release-on-tag project tags it,
+# so the defect put release tags on commits that were not on the base's first-parent line.
+# Observed on two consecutive ships, deterministically, each recovered by hand.
+# It is harmless only while the branch's tree happens to equal the merged tree; once the
+# base advances between the branch's last catch-up and the merge, the branch head's tree
+# is not what landed, and a squash or rebase merge makes it not even an ancestor.
+#
+# HOW IT IS RESOLVED, and why the source is reported rather than assumed:
+#   pr_merge_commit — GitHub's own answer (`gh pr view --json mergeCommit`). Correct for
+#                     every merge strategy, including squash and rebase.
+#   base_tip        — the fetched `origin/<base>` tip, when GitHub did not answer.
+#                     Correct in the ordinary case and the honest name for its assumption.
+#   branch_head     — neither was resolvable. The OLD value, reported under its own name
+#                     so a caller can see it is not a merge commit instead of being told
+#                     it is one.
+# `on_base` is the check the caller would otherwise have to run itself
+# (`git merge-base --is-ancestor <commit_hash> origin/<base>`), so a tag step can refuse
+# a target this script could not place on the base line. `branch_head` is kept for any
+# caller that genuinely wants the branch's last commit.
 #     or: {"merged": false, "error": "merge failed"} on stderr, exit 1
 #     or: {"merged": false, "reason": "gh_unavailable"} on stderr, exit 1 -- the CLI is
 #         absent (the cloud runner's condition), so NOTHING was merged. This one still
@@ -34,6 +60,9 @@ if [ -z "$pr_number" ]; then
   echo '{"error": "PR number is required"}' >&2
   exit 1
 fi
+
+# Captured before the merge, while this checkout is still on the work branch.
+branch_head=$(git rev-parse --short HEAD 2>/dev/null || true)
 
 if ! command -v gh >/dev/null 2>&1; then
   echo '{"merged": false, "reason": "gh_unavailable", "pr_number": '"$pr_number"', "detail": "the GitHub CLI is not installed here; nothing was merged -- merge the pull request from an environment that has it"}' >&2
@@ -69,8 +98,38 @@ if [ "$checked_out" = "true" ]; then
   fi
 fi
 
-commit_hash=$(git rev-parse --short HEAD)
+# Resolve the commit that actually landed on the base. Every step is best-effort:
+# nothing below may fail the script, because the merge has already happened.
+git fetch origin "$base" --quiet >/dev/null 2>&1 || true
+
+commit_hash=""
+commit_hash_source=""
+
+resolved=$(gh pr view "$pr_number" --json mergeCommit --jq '.mergeCommit.oid' 2>/dev/null || true)
+if [ -n "$resolved" ] && [ "$resolved" != "null" ]; then
+  commit_hash="$resolved"
+  commit_hash_source="pr_merge_commit"
+else
+  resolved=$(git rev-parse "origin/${base}" 2>/dev/null || true)
+  if [ -n "$resolved" ]; then
+    commit_hash="$resolved"
+    commit_hash_source="base_tip"
+  fi
+fi
+
+if [ -z "$commit_hash" ]; then
+  commit_hash="$branch_head"
+  commit_hash_source="branch_head"
+fi
+
+# Abbreviate when the object is present locally; keep the full oid when it is not.
+commit_hash=$(git rev-parse --short "$commit_hash" 2>/dev/null || printf '%s' "$commit_hash")
+
+on_base=false
+if git merge-base --is-ancestor "$commit_hash" "origin/${base}" >/dev/null 2>&1; then
+  on_base=true
+fi
 
 cat <<EOF
-{"merged": true, "pr_number": $pr_number, "commit_hash": "$commit_hash", "checked_out": $checked_out, "checkout_reason": "$checkout_reason", "base": "$base"}
+{"merged": true, "pr_number": $pr_number, "commit_hash": "$commit_hash", "commit_hash_source": "$commit_hash_source", "on_base": $on_base, "branch_head": "$branch_head", "checked_out": $checked_out, "checkout_reason": "$checkout_reason", "base": "$base"}
 EOF

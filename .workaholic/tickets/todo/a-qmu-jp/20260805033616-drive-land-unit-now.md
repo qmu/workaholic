@@ -9,6 +9,7 @@ category:
 depends_on:
 mission:
 merge_policy:
+claim: work-20260804-195932
 ---
 
 # Add a sanctioned "land this unit now" flow for developer-present sessions

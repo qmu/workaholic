@@ -8,6 +8,7 @@ commit_hash:
 category:
 depends_on:
 mission:
+claim: work-20260804-111346
 ---
 
 # 「何もしない」はずのスクリプトが git index をコミットに巻き込む（heartbeat.sh / list-open-concerns.sh）

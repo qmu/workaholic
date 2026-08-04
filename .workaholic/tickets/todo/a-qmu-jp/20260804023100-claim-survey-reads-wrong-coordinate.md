@@ -8,6 +8,7 @@ commit_hash:
 category:
 depends_on:
 mission:
+claim: work-20260804-105730
 ---
 
 # claim サーベイが誤った座標を読む: 駆動済みチケットが backlog に残り、PR 待ちユニットが resumable になる

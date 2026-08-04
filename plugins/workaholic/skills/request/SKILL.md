@@ -122,6 +122,19 @@ and let them commit it.
   agent doing the natural thing, not one evading a gate.
 - The backstop in `submit-request.sh` knows only this repo's own name, its `owner/name`
   remote form, its clone URL and its absolute path. Everything else rests on step 5.
+- **"Its clone URL" means every form of it.** A repository's origin URL is not one string:
+  git rewrites remotes through `url.<replacement>.insteadOf <original>`, so
+  `git remote get-url` (rewritten) and `git config --get remote.origin.url` (configured)
+  can name the same repository differently — and a host may inject those rules through the
+  `GIT_CONFIG_COUNT`/`KEY`/`VALUE` environment triple, which `git config --global --list`
+  does not show. The developer pastes whichever form their tooling displayed, so the body
+  is checked against **all** forms (`scripts/lib/remote-url.sh`), clone-URL rule first
+  across every form and only then the `owner/name` rule — because every clone URL contains
+  its own slug, and the rule that fires is what the developer is told to mask. Matching one
+  form was measured on 2026-08-04 to let a body carrying this repository's literal clone
+  URL past the clone-URL rule entirely. `resolve-target.sh` takes the opposite branch of
+  the same fact and reports the **configured** URL, since that is the destination a human
+  confirms and a colleague would clone.
 - **It matches an identifier, not a substring, and that is a usability requirement.** This
   backstop is the one place a *legitimate* request can be refused **after** the developer
   has confirmed destination and body verbatim — so its false-positive rate is a usability

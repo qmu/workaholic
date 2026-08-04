@@ -7194,6 +7194,92 @@ function testRequestScripts() {
   rmSync(tmp, { recursive: true, force: true });
 }
 
+// ---------- /request under a git insteadOf URL rewrite ----------
+// A repository's origin URL is not one string. `url.<replacement>.insteadOf <original>`
+// makes `git remote get-url` (rewritten) and `git config --get remote.origin.url`
+// (configured) name the same repository differently, and a host may inject those rules
+// through system/global config OR the GIT_CONFIG_COUNT/KEY/VALUE environment triple —
+// which is invisible to `git config --global --list`.
+//
+// MEASURED 2026-08-04 on the hourly unattended runner: the Claude Code on the web
+// container injected `url.https://github.com/.insteadOf = git@github.com:`, and the whole
+// existing request suite was written against complete, un-rewritten remotes. The result
+// was a body carrying this repository's literal clone URL falling straight through the
+// clone-URL rule — refused only by the unrelated `owner/name` rule, which named the wrong
+// thing to mask, past a human gate that had already confirmed the body verbatim.
+//
+// THE REWRITE IS CONFIGURED HERE, NOT READ FROM THE AMBIENT ENVIRONMENT. CI runners have
+// no rewrite, so an environment-sensing test would be permanently vacuous on the one
+// surface that gates merges; a fixture makes the case run identically everywhere.
+function testRequestUnderUrlRewrite() {
+  const tmp = mkdtempSync(join(tmpdir(), "request-rewrite-"));
+  const src = join(tmp, "source-repo");
+  const tgt = join(tmp, "target-repo");
+  const git = (cwd, args) => execSync(`git ${args}`, { cwd, stdio: "ignore" });
+  for (const r of [src, tgt]) {
+    mkdirSync(r, { recursive: true });
+    git(r, "init -q");
+    git(r, "config user.email a@qmu.jp");
+    git(r, "config user.name t");
+    writeFileSync(join(r, "a.md"), "x\n");
+    git(r, "add -A");
+    git(r, "-c commit.gpgsign=false commit -qm base");
+  }
+  const json = (cwd, script, args) => {
+    try {
+      return JSON.parse(execSync(`${POSIX_SH} ${script} ${args}`, { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }));
+    } catch (e) { return { ok: false, error: `threw: ${e.status}` }; }
+  };
+  const q = (s) => `"${s}"`;
+  const body = (n, text) => { const p = join(tmp, n); writeFileSync(p, text); return p; };
+
+  try {
+    // The repository records the SSH form; the rewrite makes git report the HTTPS one.
+    const configured = "git@github.com:acme-org/widget.git";
+    const rewritten = "https://github.com/acme-org/widget.git";
+    git(src, `remote add origin ${configured}`);
+    git(src, `config url."https://github.com/".insteadOf "git@github.com:"`);
+    git(tgt, `remote add origin git@github.com:other-org/target.git`);
+
+    // The fixture only means something if git actually disagrees with itself here.
+    const effective = execSync(`git remote get-url origin`, { cwd: src, encoding: "utf8" }).trim();
+    const recorded = execSync(`git config --get remote.origin.url`, { cwd: src, encoding: "utf8" }).trim();
+    assertEq("the rewrite fixture makes get-url report the rewritten form", effective, rewritten);
+    assertEq("and leaves the configured form recorded", recorded, configured);
+
+    // BOTH forms are this repository's clone URL, so both must hit the CLONE-URL rule —
+    // not the `owner/name` rule, which every clone URL also contains. The rule that fires
+    // decides what the developer is told to mask.
+    for (const [label, url] of [["configured", configured], ["rewritten", rewritten]]) {
+      const p = body(`${label}.md`, `---\ntype: bugfix\n---\n\n# Request\n\nClone ${url} first.\n`);
+      const r = json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131110-x.md ${q(p)}`);
+      assertEq(`the ${label} clone URL is refused`, r.ok, false);
+      assertTrue(`and the ${label} form is reported as the clone URL`,
+        /clone URL at line \d+:/.test(r.error || ""), r.error);
+    }
+
+    // The slug rule still fires on a bare `owner/name`, which no clone-URL match covers.
+    const slug = body("slug.md", `---\ntype: bugfix\n---\n\n# Request\n\nMirrors acme-org/widget exactly.\n`);
+    const slugR = json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131111-x.md ${q(slug)}`);
+    assertEq("a bare owner/name is still refused", slugR.ok, false);
+    assertTrue("and is reported as the owner/name form",
+      (slugR.error || "").includes("acme-org/widget"), slugR.error);
+
+    // resolve-target reports the destination a human confirms, so it must be the URL a
+    // colleague could clone — never one a local rewrite invented.
+    const resolved = json(src, SCRIPTS.resolveTarget, q(tgt));
+    assertEq("resolve-target reports the configured remote, not the rewritten one",
+      resolved.remote, "git@github.com:other-org/target.git");
+
+    // The widening must not turn into a refusal machine: a clean body still submits.
+    const clean = body("clean.md", `---\ntype: bugfix\n---\n\n# Request\n\nThe parser drops a trailing newline.\n`);
+    assertEq("a clean body still submits under a rewrite",
+      json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131112-x.md ${q(clean)}`).ok, true);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 // ---------- commit/commit.sh refuses flag-shaped titles ----------
 // `--help` used to fall through the flag loop, become the title, and COMMIT with
 // the message `--help` — the one input a user types to avoid doing something was
@@ -10879,6 +10965,7 @@ const tests = [
   ["hooks/guard-repo-confinement.sh", testGuardRepoConfinement],
   ["commit/commit.sh flag guard", testCommitFlagGuard],
   ["request/scripts", testRequestScripts],
+  ["request/scripts under a git insteadOf URL rewrite", testRequestUnderUrlRewrite],
   ["hooks/guard-askuserquestion-label.sh", testGuardAskUserQuestionLabel],
   ["workaholify/audit-claude-md.sh", testAuditClaudeMd],
   ["hooks/guard-working-directory.sh", testGuardWorkingDirectory],

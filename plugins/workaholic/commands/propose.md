@@ -11,11 +11,11 @@ skills:
 
 # Propose
 
-**Notice:** When user input contains `/propose` — whether "run /propose", "run the proposal batch", "check for new feedback", or similar — they likely want this command. It is also the entry the 15-minute cron invokes headlessly (see `docs/proposal-loop-runbook.md`).
+**Notice:** When user input contains `/propose` — whether "run /propose", "run the proposal batch", "check for new feedback", or similar — they likely want this command. It is also what the scheduled `[Propose]` routine invokes headlessly every 15 minutes (see `docs/proposal-loop-runbook.md`).
 
 **Plugin boundary — do not spelunk:** The skills this command needs are already loaded via its `skills:` frontmatter and resolved through `${CLAUDE_PLUGIN_ROOT}`. Invoke them by their loaded namespace (`workaholic:`); never search the filesystem for skill content, never read or run anything under `~/.claude/plugins/marketplaces/` or any other global install, and never guess a namespace — `drivin`, `trippin`, `core`, `standards`, and `work` are obsolete names long since merged into the single `workaholic` plugin. If a skill you expect is missing, ask the user which plugins are loaded; do not hunt for it on disk.
 
-This command is **headless by contract** (`workaholic:propose` — read its Headless section first): it never issues `AskUserQuestion`, silence is a valid outcome, and every abort reports a machine-readable reason. It runs the batch once; looping is the cron's job.
+This command is **headless by contract** (`workaholic:propose` — read its Headless section first): it never issues `AskUserQuestion`, silence is a valid outcome, and every abort reports a machine-readable reason. It runs the batch once; the schedule is the loop.
 
 ## Workflow
 

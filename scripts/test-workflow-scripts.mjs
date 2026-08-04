@@ -11370,11 +11370,14 @@ function testWorkaholifyRoutines() {
   const WH = "https://github.com/qmu/workaholic";
   try {
     const tpl = JSON.parse(run(dir, LIST).stdout);
-    assertEq("the plugin ships three routine templates", tpl.count, 3);
-    assertEq("and they are the three live patterns",
-      tpl.templates.map((t) => t.id).sort(), ["drive", "fb", "merged-pr"]);
-    assertEq("only the drive template is scheduled",
-      tpl.templates.filter((t) => t.trigger === "cron").map((t) => t.cron_expression), ["56 * * * *"]);
+    assertEq("the plugin ships four routine templates", tpl.count, 4);
+    assertEq("and they are the four live patterns",
+      tpl.templates.map((t) => t.id).sort(), ["drive", "fb", "merged-pr", "propose"]);
+    // The template set is discovered by scanning the routines dir, so a new template is
+    // surveyed, rendered and drift-checked the moment its file exists -- nothing enumerates
+    // the ids in code, which is why adding `propose` needed no script change.
+    assertEq("the two scheduled templates carry their own cadence",
+      tpl.templates.filter((t) => t.trigger === "cron").map((t) => t.cron_expression), ["56 * * * *", "*/15 * * * *"]);
 
     // ---- the three substitutions, each demanded by a real prompt ----
     const drive = JSON.parse(run(dir, `${RENDER} drive ${WH}`).stdout);
@@ -11426,7 +11429,7 @@ function testWorkaholifyRoutines() {
     assertEq("an unset model is named as the field that drifted",
       cmp.this_repo.present.find((x) => x.id === "merged-pr").drift, ["model (unset != claude-opus-5)"]);
     assertEq("a template with no live routine is reported missing",
-      cmp.this_repo.missing.map((m) => m.id), ["fb"]);
+      cmp.this_repo.missing.map((m) => m.id), ["fb", "propose"]);
     // `unknown` is information, never a deletion proposal -- the API has no delete at all.
     assertEq("an untemplated routine is listed as unknown", cmp.this_repo.unknown.length, 1);
     assertEq("and it is the one-off", cmp.this_repo.unknown[0].trigger_id, "trig_oneoff");
@@ -11635,10 +11638,11 @@ function testRoutineAnnouncementScoping() {
   // old wording verbatim, so checking the whole file flags the explanation as the bug.
   const prompt = (f) => { const b = read(f); const i = b.indexOf("## Prompt"); return i < 0 ? b : b.slice(i); };
   const merged = prompt("merged-pr.md"), fb = prompt("fb.md"), drive = prompt("drive.md");
+  const propose = prompt("propose.md");
 
   // The subject must be identified. "about the pull request" with no antecedent is the
   // exact wording that produced the duplicates.
-  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive]]) {
+  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive], ["propose", propose]]) {
     assertTrue(`${name} never says "about the pull request" without saying which`,
       !/about the pull request\b(?![^\n]*(this session|you just|THIS session))/i.test(body),
       body.slice(0, 400));
@@ -11666,12 +11670,20 @@ function testRoutineAnnouncementScoping() {
     /only the pull request THIS session just opened/i.test(drive), "drive scoping missing");
   assertTrue("drive forbids reporting activity it did not produce",
     /did not itself produce/i.test(drive), "drive hard rule missing");
+  assertTrue("propose announces only the PR this session opened",
+    /only for a PR this session itself created/i.test(propose), "propose scoping missing");
+  // Its OTHER outcome is silence, and silence must not be announced: on a 15-minute tick a
+  // routine that posts "nothing to propose" is 96 posts a day saying nothing happened.
+  assertTrue("propose posts nothing when it proposes nothing",
+    /Post nothing to Slack for any of them/i.test(propose), "silence rule missing");
+  assertTrue("and it never merges what it proposed",
+    /Never merge anything/i.test(propose), "propose merge prohibition missing");
 
   // NO "Attention" BLOCK IN ANY ANNOUNCEMENT (developer's ruling, 2026-08-01). The
   // conditional concern block is gone from both the PR-opened and PR-merged formats; a
   // notification carries the fact, and concerns live in the story and the feedback stream
   // where they are read deliberately rather than skimmed in a channel.
-  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive]]) {
+  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive], ["propose", propose]]) {
     assertTrue(`${name} carries no Attention block`, !/Attention/.test(body), body.slice(0, 300));
     assertTrue(`${name} carries no concern conditional`,
       !/\{\{#if [a-z_]*concern/i.test(body), body.slice(0, 300));
@@ -11769,7 +11781,7 @@ function testSetupRoutinesListing() {
     assertTrue("and it is labelled as not-a-problem",
       /one-off, not a problem/.test(byName("nightly docs sweep").note), byName("nightly docs sweep").note);
     assertEq("a template with no live routine is offered, not faulted",
-      populated.missing.map((m) => m.id), ["merged-pr"]);
+      populated.missing.map((m) => m.id), ["merged-pr", "propose"]);
     // The template set has a version; a LIVE routine does not, and nothing claims one.
     assertTrue("the template set reports the version it compared against",
       /^\d+\.\d+\.\d+$/.test(populated.template_set_version), String(populated.template_set_version));
@@ -11783,7 +11795,7 @@ function testSetupRoutinesListing() {
     const empty = listFrom({ data: [] });
     assertEq("an empty account is a CHECKED answer with an empty list",
       [empty.checked, empty.routines.length], [true, 0]);
-    assertEq("and every template is reported as available", empty.missing.length, 3);
+    assertEq("and every template is reported as available", empty.missing.length, 4);
 
     // ---- 3. an account that could not be reached ----
     // EACH OF THESE MUST BE DISTINGUISHABLE FROM CASE 2. `checked: false` carries no

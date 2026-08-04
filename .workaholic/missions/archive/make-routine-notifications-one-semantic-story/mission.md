@@ -2,7 +2,7 @@
 type: Mission
 title: Make routine notifications one semantic story
 slug: make-routine-notifications-one-semantic-story
-status: active
+status: achieved
 merge_policy: 
 created_at: 2026-08-04T20:12:16+09:00
 author: a@qmu.jp
@@ -58,3 +58,4 @@ template's stated model matches the shipped resumption behavior.
 - 2026-08-04 — ticket archived — 20260804201230-make-slack-the-only-notification-surface-and-filter-it.md
 - 2026-08-04 — ticket archived — 20260804201230-balance-structure-and-prose-in-fb-issue-authoring.md
 - 2026-08-04 — run recorded (+0.6h) — drive-20260804-112542
+- 2026-08-04 — mission achieved — mission.md

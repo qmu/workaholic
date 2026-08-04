@@ -9,14 +9,14 @@ author: noreply@anthropic.com
 assignees: []
 assignee:
 predicted_hours:
-actual_hours: 0.7
+actual_hours: 1.2
 feedback: [20260731062209-quality-gates-must-assist-delivery-not-block-well-done-work.md, 20260731062305-every-markerless-acceptance-item-in-this-repo-belongs-to-a-proposed-draft.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260803-212324
+claim: work-20260804-113856
 ---
 
 # Make acceptance ticking measure satisfaction, not marker shape
@@ -94,7 +94,7 @@ which is precisely the condition the mission exists to fix.
       measured 0-of-24 split cannot recur silently (#20260801185303-make-the-ticker-measure-satisfaction.md)
 - [x] `node scripts/test-workflow-scripts.mjs` covers the new semantics hermetically, including
       a mission whose acceptance items carry no marker (#20260801185303-make-the-ticker-measure-satisfaction.md)
-- [ ] The gate audit (Scope unit 4) is either completed or split out as its own artifact, with
+- [x] The gate audit (Scope unit 4) is either completed or split out as its own artifact, with
       the decision recorded rather than left implicit (#20260803213000-audit-the-gates-for-shape-dependent-green.md)
 
 ## Changelog
@@ -109,3 +109,6 @@ which is precisely the condition the mission exists to fix.
 - 2026-08-03 — concern deferred (stuck) — 20260803221906-the-link-stamping-step-is-prose.md
 - 2026-08-03 — concern deferred (stuck) — 20260803221906-v1-0-119-may-collide-with.md
 - 2026-08-03 — concern deferred (stuck) — 20260803221906-readme-md-still-describes-the-retired.md
+- 2026-08-04 — ticket archived — 20260803213000-audit-the-gates-for-shape-dependent-green.md
+- 2026-08-04 — story reported — work-20260804-113856.md
+- 2026-08-04 — run recorded (+0.5h) — 20260804-105700

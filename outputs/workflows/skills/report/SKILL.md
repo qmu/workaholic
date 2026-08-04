@@ -292,11 +292,11 @@ A 2-3 sentence summary capturing the branch essence: main goal, approach taken, 
 
 ##### 2. Highlights
 
-Array of 3-5 meaningful changes: extracted from commit subjects, related commits grouped into single highlights, focused on user-visible or architecturally significant changes, ordered by importance not chronology.
+Array of 3-5 meaningful changes: extracted from commit subjects, related commits grouped into single highlights, focused on user-visible or architecturally significant changes, ordered by importance not chronology. **One line each** — the rendered Overview section is budgeted at 12 lines and the highlights are most of it.
 
 ##### 3. Motivation
 
-A paragraph synthesizing the "why": what problem or opportunity started this work, why this approach was chosen, what constraints shaped it. Narrative prose, not a list.
+A paragraph synthesizing the "why": what problem or opportunity started this work, why this approach was chosen, what constraints shaped it. Narrative prose, not a list. **One paragraph means 9 lines** (12 when the section-reviewer supplies a past-context paragraph) — the count is stated because the unqualified word "paragraph" was measured drifting to 15.
 
 ##### 4. Journey
 
@@ -325,7 +325,7 @@ flowchart LR
 - Use `direction TB` inside each subgraph for vertical flow
 - Group by theme: each subgraph is one concern area
 - Connect subgraphs in timeline order
-- Maximum 3-5 subgraphs per diagram
+- Maximum 3-5 subgraphs per diagram, and **16 lines for the whole fence** — the subgraph ceiling alone left the diagram free to grow inside it, and it did, from 16 lines to 25
 
 #### Overview Output Format
 
@@ -369,6 +369,51 @@ Two consequences follow, and both are load-bearing:
   and anything added later match the heading **by name**, tolerating any leading
   `<n>.` prefix. This is what makes omit-when-empty safe to apply, and it is why a
   renumbering cannot silently break concern extraction.
+
+#### Every section has a line budget
+
+Omitting is only half the rule, and on its own it does not work. Measured 2026-08-04
+(`gather/scripts/story-sections.sh`, single-ticket stories on either side so the
+workload is held constant): four *existence* edits — fold Historical Analysis into
+Motivation, omit Release Preparation when clean, omit Patterns unless found, drop `low`
+concerns from the body — each delivered its saving, −23.8 lines together. Over the same
+period the sections that always exist grew **+49.8** on identical work, and the story got
+25% longer. An existence rule has a floor: once a section is gone it saves nothing more.
+Nothing bounded the length of the sections that stayed, because "1-3 sentences", "one
+paragraph each" and "brief" carry no number and cannot be checked.
+
+So each section carries a **budget in lines**, blank lines and heading included. These are
+not aspirations — they are the measured per-section means from before the growth, the
+length these sections had when the story read fine:
+
+| Section | Budget | Notes |
+| ------- | -----: | ----- |
+| Overview | 12 | the 2-3 sentence summary plus at most 3 one-line highlights |
+| Motivation | 9 | +3 more when the section-reviewer returned a past-context paragraph |
+| Changes — the journey diagram | 16 | the whole fence; the 3-5 subgraph ceiling is unchanged |
+| Changes — each `### 3-N.` ticket block | 9 | heading plus the 1-3 sentence summary |
+| Outcome | 5 | |
+| Concerns — each `###` block | 7 | heading, severity, Description, How to Fix |
+| Successful Development Patterns | 6 | when it appears at all; one line per pattern |
+| Notes | 4 | |
+
+**A section over budget is cut, not justified.** The budget is a writing instruction, not
+a validator — nothing rejects a story for exceeding it — so the discipline is to reread the
+section and delete, never to append a sentence explaining why this branch needed more. If
+the content genuinely will not fit, it belongs somewhere that holds detail: a concern, the
+ticket's Final Report, or a doc.
+
+**What is exempt, and why.** `## Handoff` and `## Deployment Evidence` carry no budget:
+the first is an instruction to whoever continues the branch, the second is `/ship`'s record
+of what was deployed and confirmed. Both are evidence rather than prose, and shortening
+evidence deletes a record. Concerns are budgeted **per block** for the same reason — the
+count of concerns is never trimmed to hit a number, only the words spent on each.
+
+Check a story, or a set of them, with the measure that produced the table:
+
+```bash
+bash gather/scripts/story-sections.sh --table .workaholic/stories/<branch>.md
+```
 
 **The Handoff section is written ONLY for a unit `/drive` classified `handoff`** — its
 queue is not drained, the work that exists is pushed, and continuing it needs a person
@@ -459,7 +504,7 @@ One subsection per ticket, in chronological order:
   - Wrong: `(abc1234)` or `(<hash>)`
   - Correct: `([abc1234](<repo-url>/commit/abc1234))`
 - Format: `### 3-N. <Title> ([hash](<repo-url>/commit/<hash>))`
-- **Summarize the change** in 1-3 sentences per ticket -- describe what was done and why, not individual files
+- **Summarize the change** in 1-3 sentences per ticket -- describe what was done and why, not individual files. The block's budget is **9 lines**; the measured regression was 17
 - Focus on intent, scope, and impact rather than enumerating every modified file
 - Chronological order matches ticket creation time
 
@@ -523,7 +568,7 @@ difference.
 **Guidelines**:
 - **Severity is an honest signal, not a gate.** Every concern is extracted into the feedback stream at ship time regardless of severity (the promotion floor retired with the concern merger — curation is the reader's judgment over the stream). `urgent` = act now; `moderate` = a real risk you hit or clearly foresee will bite; `low` = a nice-to-have or a passing observation. Do not inflate or deflate — the severity rides on the record and shapes how later readers (the proposal batch, a planning session) weigh it, **and it now decides whether the reviewer sees the block at all**, so a deflated `moderate` is a concern hidden from review. A legacy `- **Keep:** true` line is tolerated and ignored.
 - Reference the commit hash from the Changes section and the file path where readers should investigate, inside the Description.
-- Keep Description and How to Fix to one paragraph each.
+- **Seven lines per block**, heading and severity included — roughly two lines of Description and two of How to Fix. "One paragraph each" was the previous wording and it drifted to 11 lines per block while the number of concerns held steady. Trim the words, never the concerns.
 - Omit the section entirely when there is nothing to report. Never write "None".
 
 ## 6. Successful Development Patterns
@@ -545,6 +590,7 @@ Most branches have none, and that is the expected outcome.
 
 **Guidelines**:
 - Focus on patterns that worked well, not problems encountered (those belong in Concerns)
+- **One line per pattern, 6 lines for the section.** It appeared in every story measured and doubled in length while claiming a high bar; a pattern needing a paragraph belongs in the ticket's Final Report
 - Each pattern should be specific enough to be actionable in future branches
 - Include the reasoning ("why it worked") not just the action ("what was done")
 - Extract from ticket Considerations (positive observations), Final Reports (what went well), and Implementation Steps (approaches that proved effective)

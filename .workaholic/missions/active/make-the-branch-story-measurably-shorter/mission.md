@@ -50,10 +50,11 @@ the same assumption.
 ## Acceptance
 
 - [x] The sections that carry the growth are measured and named, against the same before/after story sets (#20260804201653-measure-which-story-sections-carry-the-growth.md)
-- [ ] A story written after the change is shorter than the same branch's story (#20260804201653-fix-the-measured-cause-and-verify-a-shorter-story.md)
+- [x] A story written after the change is shorter than the same branch's story (#20260804201653-fix-the-measured-cause-and-verify-a-shorter-story.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline relating this mission's tickets and reports over time.
      One line per event ("- YYYY-MM-DD — event — filename"); never rewrite past lines. -->
 - 2026-08-04 — ticket archived — 20260804201653-measure-which-story-sections-carry-the-growth.md
+- 2026-08-04 — ticket archived — 20260804201653-fix-the-measured-cause-and-verify-a-shorter-story.md

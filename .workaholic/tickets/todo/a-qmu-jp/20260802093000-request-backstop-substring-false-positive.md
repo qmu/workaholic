@@ -8,6 +8,7 @@ effort: 1h
 commit_hash:
 category: Changed
 depends_on:
+claim: work-20260804-112404
 ---
 
 # `submit-request.sh`'s last backstop substring-matches the source repo name, so a repo whose name is a common word can never file any request

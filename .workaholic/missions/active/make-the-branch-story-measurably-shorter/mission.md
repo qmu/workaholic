@@ -48,10 +48,11 @@ the same assumption.
 
 ## Acceptance
 
-- [ ] The sections that carry the growth are measured and named, against the same before/after story sets
-- [ ] A story written after the change is shorter than the same branch's story
+- [ ] The sections that carry the growth are measured and named, against the same before/after story sets (#20260804111006-measure-which-story-sections-carry-the-line-growth.md)
+- [ ] A story written after the change is shorter than the same branch's story (#20260804111007-cut-the-named-sections-and-prove-the-story-shrank.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline relating this mission's tickets and reports over time.
      One line per event ("- YYYY-MM-DD — event — filename"); never rewrite past lines. -->
+- 2026-08-04 — replanned into its two-ticket set (the mission arrived with none) — mission.md

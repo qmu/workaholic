@@ -12,7 +12,7 @@ The `.workaholic/` directory has a fixed structure. Only these subdirectories ar
 | `deployments/`   | Deployment/release procedures and their success-confirmation methods |
 | `feedbacks/`     | The inbound feedback stream — one immutable record per entry (`kind`: insight/instruction/concern/material/answer) |
 | `guides/`        | User documentation (project-local docs area) |
-| `missions/`      | Long-lived goals spanning many tickets (`active/`, `archive/`) |
+| `missions/`      | Goals spanning **two or more** tickets — the ticket floor; below it, write a feedback record or a plain ticket (`active/`, `archive/`) |
 | `policies/`      | Project-local policy documentation         |
 | `release-notes/` | Per-branch release notes — one per shipped unit branch, written pre-merge |
 | `releases/`      | Per-`release/*`-branch ship records — which base commits a release carried, when it was cut, when it was confirmed or failed. **Not** `release-notes/`: that is one note per shipped unit, this is one record per production release |

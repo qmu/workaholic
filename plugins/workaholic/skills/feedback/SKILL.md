@@ -69,6 +69,18 @@ Body: free prose in the contributor's own words — the excerpt, the instruction
 
 **The open concern set is computed, never stored**: a concern is open iff no record names it in `supersedes` and it carries no migration-only `closed:` field. Read it only through `list-open-concerns.sh` (below).
 
+## Body style — prose first, structure where it earns its place
+
+**The canonical statement, referenced and not restated** (the `[FB]` routine template links here). A feedback body is written **for its future reader, not as a transcript of its source**, and the style has one default and one licence.
+
+**Default to prose.** Reach for a short numbered or bulleted list, or a small table, **only when a genuinely multi-step or multi-item ask reads better as one** — an ordered sequence, a set of parallel cases, a two-column mapping. Otherwise write sentences. No deep heading hierarchies: a record is one idea and rarely needs any heading at all, let alone nested ones. **No content-free items** — a bullet that restates its own heading, or a section that says the section is not applicable, is filler, and filler is what makes a reader stop trusting the structure that surrounds it.
+
+**Correct and complete the source; do not transcribe it.** A Slack ask is spoken-register and assumes everything its author had in their head at the time. Turning it into a record means **fixing apparent wording slips** and **filling the gaps a standalone reader needs** — who or what is being referred to, which repository, what the current behavior is that the ask wants changed. Preserve the ask's meaning exactly; do not preserve its typos, its pronouns, or its missing antecedents. If a slip is not *apparently* a slip — if correcting it would be guessing at intent rather than repairing an expression — leave it and say what is unclear.
+
+**This does not loosen "record faithfully; do not editorialize" above, and the line between them is what is being changed.** Repairing an expression and supplying a missing referent change *how* the ask is written; editorializing changes *what it claims* — adding a cause the reporter did not name, a severity they did not assign, or an analysis of why they are right. The first is required, the second stays forbidden, and a record that needs the second is two records: the ask, and a later `kind: insight` naming it.
+
+**Both failure modes have been shipped, which is why the rule is written down.** The earlier era was heading-heavy and filler-laden: structure applied to records that had one thing to say, so a reader scanned four headings to find one sentence. The overcorrection was flat, unstructured prose that ran multi-step asks together — `20260804101847` is that shape, and its four-event lifecycle would have read better as four items. The rule is the midpoint, not a swing back.
+
 ## Immutability
 
 **A feedback file is never edited, moved, or deleted after it is written.** There is no `status` field and none may be added: consumers track "new vs seen" by commit cursor (which commits they have already read), and mutation would silently break that model. Corrections and resolutions are new entries (`supersedes`). The `validate-feedback.sh` hook enforces the write-time floor; immutability itself is a convention this section states once — the hook cannot distinguish a correcting edit from a mutation, so it grandfathers tracked files exactly like the story validator.

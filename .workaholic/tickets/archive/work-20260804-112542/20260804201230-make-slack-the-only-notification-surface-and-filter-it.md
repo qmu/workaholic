@@ -5,7 +5,7 @@ type: enhancement
 layer: [Config]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on: 20260804201230-thread-the-fb-lifecycle-into-one-semantic-slack-story.md
 mission: make-routine-notifications-one-semantic-story
 merge_policy:

@@ -55,7 +55,7 @@ The alert format:
 One sentence, max 25 words, what failed and what a human must do.
 ------------
 
-**This applies to red failure alerts only.** The orange (start, §2), green (PR opened, §4), yellow (handoff, §5) and any purple (merge) posts announce **events this session itself produced**, which are new every time and can never be duplicates. Never dedupe those.
+**This applies to red failure alerts only.** The orange (start, §2), green (merge requested, §4), yellow (handoff, §5) and any purple or rocket (merged, §4) posts announce **events this session itself produced**, which are new every time and can never be duplicates. Never dedupe those.
 
 ## 1. Drain the queue, one unit at a time
 
@@ -84,13 +84,18 @@ Let /drive work under its own failure contract -- every ticket ends as exactly o
 
 `auto` ships through the full evidence-gated /ship doctrine; `review`, and absence, stop at the PR. A `secret` finding hard-stops the unit. A `size`/`leak` block, a missing deployment-confirmation method, or a content conflict with main DEMOTES the unit to the PR path. "No approval needed" is never "no gate applies".
 
-**Announce only the pull request THIS session just opened**, and only once. Post to `dev-{repo_name}`:
+**Announce only the pull request THIS session just opened**, and only once.
+
+**Where it lands depends on whether the unit traces to a feedback item.** Derive the unit's feedback key from the repository — the `feedback:` field of the mission the unit drove, or of the mission its batched tickets name. With a key, search `dev-{repo_name}` for `` fb:<stem> `` and post **in that thread**; with no key, or no thread found, post a new root carrying the key (see the `workaholify` skill, *One thread per feedback item* — the model, the key and the fallback are stated there once and not repeated here). Choose the line by outcome:
 
 ------------
-🟢 PR opened - [#123 Issue Title]({repo}/pull/123)
+🟢 Merge Requested for @<developer> - [#123 Issue Title]({repo}/pull/123)
 `from-branch` → `to-branch`, one sentence, max 40 words, what the PR does only.
+<session URL>
 
 ------------
+
+`review` (and absent) routes here. Use **🚀 Auto Merge by Claude** in the same shape when the unit's recorded `merge_policy` was `auto` and `/ship` merged it, and **🟣 Merged by @<developer>** when a human merged it during this run. The distinction is the point: a developer scanning the thread must be able to tell what merged without approval from what a person approved.
 
 ## 5. Hand off everything unfinished -- mandatory
 
@@ -100,11 +105,12 @@ That makes the pushed branch the sole surviving copy -- the worktree dies with t
 
 1. Commit and **push** everything on the claim branch, partial work included. Nothing may remain only in this sandbox.
 2. Open or update the unit's PR even when the work is incomplete, and lead its body with a `## Handoff` section: what is done, what is not, the exact next step, and any failing command with its raw output.
-3. Post to `dev-{repo_name}`:
+3. Post to `dev-{repo_name}`, **in the unit's feedback thread** when it has one, exactly as §4 routes its outcome lines:
 
 ------------
-🟡 drive handoff - [#123 Issue Title]({repo}/pull/123)
+🟡 Handoff @<developer> - [#123 Issue Title]({repo}/pull/123)
 The next tick resumes it automatically; `git fetch && git checkout <branch>` to take it sooner. One sentence, max 25 words, what remains only.
+<session URL>
 ------------
 
 4. **Leave the claim in place.** Do NOT run `release-claim.sh` -- it deletes the remote branch, which discards the pushed work *and* removes the very claim a later tick resumes from. Leaving it is what makes the unit recoverable; releasing it is how a unit becomes genuinely lost.

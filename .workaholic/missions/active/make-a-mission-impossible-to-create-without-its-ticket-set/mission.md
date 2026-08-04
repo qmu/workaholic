@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours: 1.5
+actual_hours: 1.9
 tickets: []
 stories: []
 gate_type:
@@ -55,3 +55,4 @@ hook would refuse the normal authoring order.
 - 2026-08-04 — run recorded (+1h) — 20260804-190000
 - 2026-08-04 — ticket archived — 20260804173625-enforce-the-mission-ticket-floor-at-every-creation-seam.md
 - 2026-08-04 — ticket archived — 20260804173626-resolve-the-two-sub-floor-missions-and-align-the-docs.md
+- 2026-08-04 — run recorded (+0.4h) — drive-20260804-110000

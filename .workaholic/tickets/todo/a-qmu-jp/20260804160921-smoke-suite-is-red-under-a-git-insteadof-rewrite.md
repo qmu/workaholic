@@ -9,6 +9,7 @@ category: Changed
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260804-194806
 ---
 
 # The smoke suite is red under a git insteadOf rewrite, so the cloud runner cannot trust its own gate

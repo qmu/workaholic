@@ -44,16 +44,69 @@ SOURCE_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 [ "$target_root" != "$SOURCE_ROOT" ] || emit_err "target is this repository — use /ticket, not /request"
 
 # Last backstop. Deterministic, and deliberately narrow: it knows only this repo's own
-# name and path, which are the two things always mechanically knowable. It cannot know a
-# customer's vocabulary — that is what the confirmation is for, and a pass here means
+# name, remote and path, which are the things always mechanically knowable. It cannot know
+# a customer's vocabulary — that is what the confirmation is for, and a pass here means
 # nothing beyond "our own name is absent".
+#
+# IT MATCHES AN IDENTIFIER, NOT A SUBSTRING (2026-08-02). The bare-name test used to be a
+# case-insensitive plain `grep -F`, which refuses any body where this repo's basename
+# appears anywhere at all — including inside a directory name belonging to the TARGET repo.
+# A repo whose basename is an ordinary English word therefore could not submit a request
+# that listed paths on either side (`docs/<name>-reports/x.md -> docs/site-<name>/x.md`),
+# and since the path list WAS the ticket there was nothing to remove: the refusal was
+# unconditional and its instruction ("mask it") could not be followed. Worse, it fired
+# AFTER the developer had already confirmed destination and body verbatim — this backstop
+# is the one place a legitimate request can be refused past the human gate, so its
+# false-positive rate is a usability property and not only a safety one.
+#
+# The narrowing is about ADJACENCY, never about dropping checks. The two forms an actual
+# reference takes — the `owner/name` remote form and the clone URL — are matched exactly
+# and are new; the absolute-path test is untouched (an exact match with no false-positive
+# mode, and the check that carries the real weight); and the bare name still refuses a
+# standalone mention, declining only when it is glued to a neighbouring identifier
+# character. Every refusal now names the matched text and its line, so the next false
+# positive is diagnosable rather than mysterious.
 source_name="$(basename -- "$SOURCE_ROOT")"
-if grep -qiF -- "$source_name" "$body_file" 2>/dev/null; then
-    emit_err "body still names this repository ('${source_name}') — mask it and re-confirm"
+
+# The first `grep -n` hit for a pattern, or empty. `|| true` because grep exits 1 on no
+# match and this script runs under `set -e`.
+first_fixed() { grep -n -i -F -- "$1" "$2" 2>/dev/null | head -1 || true; }
+first_ere()   { grep -n -i -E -- "$1" "$2" 2>/dev/null | head -1 || true; }
+
+# "<line>: <text>" from a `grep -n` hit, trimmed so the message stays one line.
+cite() { printf '%s' "$1" | cut -c1-160 | tr -d '"\\' ; }
+
+# The clone URL and the `owner/name` it implies. Both absent outside a repo with an
+# origin, in which case those two checks simply do not apply.
+source_remote="$(git -C "$SOURCE_ROOT" remote get-url origin 2>/dev/null || true)"
+source_slug=""
+if [ -n "$source_remote" ]; then
+    source_slug="$(printf '%s' "$source_remote" | sed -e 's#\.git$##' -e 's#^.*[:/]\([^/][^/]*\)/\([^/][^/]*\)$#\1/\2#')"
+    case "$source_slug" in
+        */*) ;;
+        *) source_slug="" ;;
+    esac
 fi
-if grep -qF -- "$SOURCE_ROOT" "$body_file" 2>/dev/null; then
-    emit_err "body still contains this repository's path — mask it and re-confirm"
+
+if [ -n "$source_remote" ]; then
+    hit="$(first_fixed "$source_remote" "$body_file")"
+    [ -z "$hit" ] || emit_err "body still contains this repository's clone URL at line $(cite "$hit") — mask it and re-confirm"
 fi
+
+if [ -n "$source_slug" ]; then
+    hit="$(first_fixed "$source_slug" "$body_file")"
+    [ -z "$hit" ] || emit_err "body still names this repository as '${source_slug}' at line $(cite "$hit") — mask it and re-confirm"
+fi
+
+hit="$(first_fixed "$SOURCE_ROOT" "$body_file")"
+[ -z "$hit" ] || emit_err "body still contains this repository's path at line $(cite "$hit") — mask it and re-confirm"
+
+# The bare name, as a standalone identifier. A neighbouring alphanumeric, `-`, `_` or `/`
+# means it is part of some OTHER identifier — `<name>-reports/`, `site-<name>/` — which is
+# exactly the false positive this rule exists to stop refusing.
+name_re="$(printf '%s' "$source_name" | sed -e 's/[][\\.^$*+?(){}|/-]/\\&/g')"
+hit="$(first_ere "(^|[^A-Za-z0-9_/-])${name_re}([^A-Za-z0-9_/-]|\$)" "$body_file")"
+[ -z "$hit" ] || emit_err "body still names this repository ('${source_name}') at line $(cite "$hit") — mask it and re-confirm"
 
 user_slug="$(git -C "$target_root" config user.email 2>/dev/null | tr '@.' '--' || echo "")"
 [ -n "$user_slug" ] || user_slug="$(git config user.email 2>/dev/null | tr '@.' '--' || echo unknown)"

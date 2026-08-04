@@ -52,6 +52,8 @@ Run this workflow:
 
    **`checked: false` is "could not check", never "the channel is missing"** — a locked credential store returns the same error as a nonexistent channel, and conflating them sends a developer to create a channel that already exists.
 
+   **Then name the one thing this command cannot do.** The templates make Slack the sole notification surface for everything a *session* controls, but the Claude app also pushes its own notification when a routine session completes, and **that is an account-level setting with no routine field behind it** — a live routine record carries no notification key at all, so nothing here can read, set or report drift on it. Say so plainly, once, alongside the Slack precondition: *"Routines post to Slack only. The app's own routine-completion push is separate and is turned off in the Claude app's notification settings — this command cannot do it for you."* Reporting a limit is the honest outcome; silently omitting it would let a developer conclude the duplicate push was handled.
+
 6. **Add, refresh or remove — one routine, one confirmation.** Do this only for what the developer asked for, or, when the listing found drift or an unused template, after asking once whether to change anything at all. Then, **per routine**:
 
    ```bash

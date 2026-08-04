@@ -9,13 +9,14 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.6
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
 feedback: [20260804101847-make-workaholify-record-the-fb-to-merge-lifecycle-as-one-semantic-slack-thread.md, 20260804085719-make-the-web-routine-notify-slack-only-and-filter-what-it-posts.md, 20260804102558-balance-structure-and-prose-in-fb-issue-authoring.md, 20260804143009-the-drive-routine-s-handoff-section-still-says-resumption-is-impossible.md]
+claim: work-20260804-112542
 ---
 
 # Make routine notifications one semantic story
@@ -44,11 +45,16 @@ template's stated model matches the shipped resumption behavior.
 
 ## Acceptance
 
-- [ ] The routine templates post the FB lifecycle as one thread — root plus in-thread updates with session URLs — and the per-step top-level posts are gone (#20260804201230-thread-the-fb-lifecycle-into-one-semantic-slack-story.md)
-- [ ] Slack is the sole notification surface and the templates define which events merit a post, reusing the low-severity-drop and same-signature-dedup patterns (#20260804201230-make-slack-the-only-notification-surface-and-filter-it.md)
-- [ ] The [Drive] template's §5 states the shipped resumption model and §1's unit rule is re-derived from it (#20260804201230-truth-up-the-drive-template-s-resumption-model.md)
+- [x] The routine templates post the FB lifecycle as one thread — root plus in-thread updates with session URLs — and the per-step top-level posts are gone (#20260804201230-thread-the-fb-lifecycle-into-one-semantic-slack-story.md)
+- [x] Slack is the sole notification surface and the templates define which events merit a post, reusing the low-severity-drop and same-signature-dedup patterns (#20260804201230-make-slack-the-only-notification-surface-and-filter-it.md)
+- [x] The [Drive] template's §5 states the shipped resumption model and §1's unit rule is re-derived from it (#20260804201230-truth-up-the-drive-template-s-resumption-model.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline relating this mission's tickets and reports over time.
      One line per event ("- YYYY-MM-DD — event — filename"); never rewrite past lines. -->
+- 2026-08-04 — ticket archived — 20260804201230-truth-up-the-drive-template-s-resumption-model.md
+- 2026-08-04 — ticket archived — 20260804201230-thread-the-fb-lifecycle-into-one-semantic-slack-story.md
+- 2026-08-04 — ticket archived — 20260804201230-make-slack-the-only-notification-surface-and-filter-it.md
+- 2026-08-04 — ticket archived — 20260804201230-balance-structure-and-prose-in-fb-issue-authoring.md
+- 2026-08-04 — run recorded (+0.6h) — drive-20260804-112542

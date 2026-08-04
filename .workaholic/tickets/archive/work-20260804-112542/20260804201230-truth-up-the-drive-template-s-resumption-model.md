@@ -5,7 +5,7 @@ type: bugfix
 layer: [Config]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: make-routine-notifications-one-semantic-story
 merge_policy:

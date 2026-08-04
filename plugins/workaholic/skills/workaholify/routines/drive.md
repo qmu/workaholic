@@ -56,7 +56,7 @@ The alert format:
 One sentence, max 25 words, what failed and what a human must do.
 ------------
 
-**This applies to red failure alerts only.** The orange (start, §2), green (PR opened, §4), yellow (handoff, §5) and any purple (merge) posts announce **events this session itself produced**, which are new every time and can never be duplicates. Never dedupe those.
+**This applies to red failure alerts only.** The orange (start, §2), green (merge requested, §4), yellow (handoff, §5) and any purple or rocket (merged, §4) posts announce **events this session itself produced**, which are new every time and can never be duplicates. Never dedupe those.
 
 ## 1. Drain the queue, one unit at a time
 
@@ -64,7 +64,7 @@ Run `/drive`. It surveys, partitions, claims, drives, reports and routes on its 
 
 - **A mission is ours only if its `assignees` include a@qmu.jp, or is empty (unowned/claimable).** The survey does NOT enforce this -- `plan-units.sh` offers EVERY approved mission regardless of owner -- so read the mission frontmatter yourself before claiming, skip any mission owned solely by someone else, and name the skip in the report.
 - **There is no per-tick unit limit. Keep going until the survey offers nothing claimable, or the session ends.** A tick that stops early with work still queued has wasted the window; this runs once an hour, so the tick IS the throughput.
-- **But claim ONE unit at a time.** Claim it, drive it, report it, route it, and only then survey again and take the next. Never claim several units up front. The reason is the resume gap in §5: a claim this session cannot finish is a claim nobody can resume, so claiming N units up front orphans N-1 of them if the session ends early, while the sequential loop risks exactly one. Prefer a mission over backlog tickets whenever both are offered.
+- **But claim ONE unit at a time.** Claim it, drive it, report it, route it, and only then survey again and take the next. Never claim several units up front. The reason is **cost, not impossibility** (§5): an unfinished claim is recoverable, but only after its heartbeat lapses — at least `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES` (default 30) during which the unit sits untouched and invisible to every other runner, plus a resume round trip on a later tick. Claiming N units up front puts N-1 of them through that wait; the sequential loop puts at most one through it. The rule stands and its justification is now a measurable delay rather than a dead end. Prefer a mission over backlog tickets whenever both are offered.
 
 ## 2. Announce the start, immediately after each claim
 
@@ -77,6 +77,8 @@ Run `/drive`. It surveys, partitions, claims, drives, reports and routes on its 
 
 Slack is never load-bearing: if it fails, continue.
 
+**Slack is also the only surface**, and this routine's postable events are exactly five: this start, a merge requested, a merge, a handoff (§5), and a blocked-on-precondition failure (§0a). Send no mobile or push notification, and post nothing for a survey that found nothing, a claim, a heartbeat, an archived ticket, a pushed commit or a passing build — **an idle tick is silent, and that silence is the report** (`workaholify` skill, *Slack is the only surface*).
+
 ## 3. Drive, then report
 
 Let /drive work under its own failure contract -- every ticket ends as exactly one of implemented / failed / blocked / deferred-as-a-minted-ticket. "Blocked" is a finding, not a forecast: run the command and record its raw output. Then /report composes the branch story and opens the PR.
@@ -85,28 +87,36 @@ Let /drive work under its own failure contract -- every ticket ends as exactly o
 
 `auto` ships through the full evidence-gated /ship doctrine; `review`, and absence, stop at the PR. A `secret` finding hard-stops the unit. A `size`/`leak` block, a missing deployment-confirmation method, or a content conflict with main DEMOTES the unit to the PR path. "No approval needed" is never "no gate applies".
 
-**Announce only the pull request THIS session just opened**, and only once. Post to `dev-{repo_name}`:
+**Announce only the pull request THIS session just opened**, and only once.
+
+**Where it lands depends on whether the unit traces to a feedback item.** Derive the unit's feedback key from the repository — the `feedback:` field of the mission the unit drove, or of the mission its batched tickets name. With a key, search `dev-{repo_name}` for `` fb:<stem> `` and post **in that thread**; with no key, or no thread found, post a new root carrying the key (see the `workaholify` skill, *One thread per feedback item* — the model, the key and the fallback are stated there once and not repeated here). Choose the line by outcome:
 
 ------------
-🟢 PR opened - [#123 Issue Title]({repo}/pull/123)
+🟢 Merge Requested for @<developer> - [#123 Issue Title]({repo}/pull/123)
 `from-branch` → `to-branch`, one sentence, max 40 words, what the PR does only.
+<session URL>
 
 ------------
+
+`review` (and absent) routes here. Use **🚀 Auto Merge by Claude** in the same shape when the unit's recorded `merge_policy` was `auto` and `/ship` merged it, and **🟣 Merged by @<developer>** when a human merged it during this run. The distinction is the point: a developer scanning the thread must be able to tell what merged without approval from what a person approved.
 
 ## 5. Hand off everything unfinished -- mandatory
 
-**This routine cannot resume its own unfinished work, and neither can a developer's local /drive**: a claimed unit is excluded from every later survey, and this sandbox's worktree exists nowhere else. An unfinished unit that is not handed off explicitly is lost work. So for every unit still claimed and unmerged, before the session ends:
+**An unfinished unit is resumable; what is unrecoverable is anything that never left this sandbox.** Since 2026-08-01 a claim whose run stopped is taken over rather than stranded: the next survey offers it back in `resumable[]` once the branch tip -- which **is** the heartbeat -- is older than `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES` (default 30) **and** the claim commit's author is this runner's own `git config user.email`. A colleague's claim is `foreign_identity` and untouchable at any age, so this is your own loop recovering its own work, never a takeover. `claim.sh resume <unit-id>` re-creates the worktree at the pushed branch tip, so already-archived tickets are not re-driven. No human is required to restart it.
+
+That makes the pushed branch the sole surviving copy -- the worktree dies with the container -- and it makes the handoff about **information, not rescue**: the next tick can reach the code either way, and what it cannot reconstruct is what you knew. So for every unit still claimed and unmerged, before the session ends:
 
 1. Commit and **push** everything on the claim branch, partial work included. Nothing may remain only in this sandbox.
 2. Open or update the unit's PR even when the work is incomplete, and lead its body with a `## Handoff` section: what is done, what is not, the exact next step, and any failing command with its raw output.
-3. Post to `dev-{repo_name}`:
+3. Post to `dev-{repo_name}`, **in the unit's feedback thread** when it has one, exactly as §4 routes its outcome lines:
 
 ------------
-🟡 drive handoff - [#123 Issue Title]({repo}/pull/123)
-`git fetch && git checkout <branch>` to continue. One sentence, max 25 words, what remains only.
+🟡 Handoff @<developer> - [#123 Issue Title]({repo}/pull/123)
+The next tick resumes it automatically; `git fetch && git checkout <branch>` to take it sooner. One sentence, max 25 words, what remains only.
+<session URL>
 ------------
 
-4. **Leave the claim in place.** Do NOT run `release-claim.sh` -- it deletes the remote branch and would discard the pushed work.
+4. **Leave the claim in place.** Do NOT run `release-claim.sh` -- it deletes the remote branch, which discards the pushed work *and* removes the very claim a later tick resumes from. Leaving it is what makes the unit recoverable; releasing it is how a unit becomes genuinely lost.
 
 ## 6. Close
 

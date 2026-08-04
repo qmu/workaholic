@@ -374,6 +374,7 @@
 * [The promotion has no entry point of its own](20260803222459-the-promotion-has-no-entry-point.md)
 * [The record's confirmation is not connected to the deployment contract's method list](20260803222459-the-record-s-confirmation-is-not.md)
 * [Make the web routine notify Slack only and filter what it posts](20260804085719-make-the-web-routine-notify-slack-only-and-filter-what-it-posts.md)
+* [/propose has no runner so feedback never becomes planned work](20260804103727-propose-has-no-runner-so-feedback-never-becomes-planned-work.md)
 * [A `git add -A` caller still sweeps the migration's unstaged work](20260804123427-a-git-add-a-caller-still.md)
 * [The heartbeat's guarantee is asserted in one place and relied on in two](20260804123427-the-heartbeat-s-guarantee-is-asserted.md)
 * [The adjacency rule encodes a judgement the ticket did not specify](20260804123729-the-adjacency-rule-encodes-a-judgement.md)

@@ -3,7 +3,7 @@ created_at: 2026-08-04T20:55:00+09:00
 author: a@qmu.jp
 type: housekeeping
 layer: [Config]
-effort:
+effort: 0.5h
 commit_hash:
 category: Changed
 depends_on:
@@ -73,3 +73,25 @@ The three decisions the README predates are recorded in `docs/loop-engineering-w
 
 - **Do not re-derive the model from the code.** `CLAUDE.md` is current and was updated with each decision; transcribing from it is both faster and less likely to invent a fifth description of the same thing.
 - The stale text is worth *retiring* rather than deleting where it explains a decision, but the README is a front door and not a history file — the history already lives in `docs/loop-engineering-workflow.md`.
+
+## Final Report
+
+Development completed as planned. The ticket's table named six spots; re-reading the whole file
+per step 3 found roughly twice that, and two of them were diagrams rather than prose.
+
+### Discovered Insights
+
+- **Insight**: The deepest drift was in the two Mermaid diagrams, not the prose. Use case 2 drew
+  `draft ==>|/mission approve| approved` as an explicit state machine, and use case 3 had a
+  `/mission approve` command node with `status: draft` / `status: approved` artifact nodes — the
+  retired gate encoded as topology, in the form a reader absorbs fastest.
+  **Context**: A prose sentence can be corrected word by word, but a diagram encoding a retired
+  model has to be re-drawn, so it silently outlives the prose fix. When a lifecycle changes, grep
+  the ```mermaid fences for the old state names as a distinct pass — the ticket's own acceptance
+  grep (`approve|draft`) would have caught these only because the node *labels* happened to spell
+  them out.
+- **Insight**: `.workaholic/README.md` line 27 is the current, correct statement of the mission
+  lifecycle and was the transcription source alongside `CLAUDE.md`, exactly as the ticket's
+  Considerations directed.
+  **Context**: Three documents describe this model; two were already repaired. Deriving a fourth
+  description from the code would have been slower and would have risked inventing a variant.

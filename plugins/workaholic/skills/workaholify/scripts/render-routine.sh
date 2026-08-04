@@ -10,7 +10,10 @@
 #
 # THREE SUBSTITUTIONS, AND ONLY THREE — each one demanded by the live routines:
 #   {repo}       the full repository URL   — https://github.com/qmu/workaholic
-#                (the `…/pull/123` links in the Slack formats)
+#                (the `…/pull/123` links in the Slack formats). Accepts any of the
+#                three remote spellings and renders the https one, so an SSH-form
+#                checkout does not bake `git@github.com:owner/name/pull/123` into a
+#                live routine. The reported `repo` field stays as the caller wrote it.
 #   {repo_slug}  org/repo                  — qmu/workaholic
 #                (how the Drive prompt names the repository in prose)
 #   {repo_name}  the bare repository name  — workaholic
@@ -48,6 +51,16 @@ REPO_CLEAN=$(printf '%s' "$REPO" | sed -e 's#/$##' -e 's#\.git$##')
 REPO_NAME=$(printf '%s' "$REPO_CLEAN" | sed -e 's#.*/##')
 # org/repo — the last two path segments, however the URL was written.
 REPO_SLUG=$(printf '%s' "$REPO_CLEAN" | sed -e 's#^.*://[^/]*/##' -e 's#^git@[^:]*:##')
+# `{repo}` becomes a LINK: the templates build `…/pull/123` out of it, and a created
+# routine carries whatever is rendered here into a live standing process. An SSH remote
+# names the same repository in a spelling no link can use, so the two SSH forms are
+# canonicalized to https. A URL that already carries a scheme is left EXACTLY as given —
+# a proxied `http://…` remote is not ours to rewrite, and forcing https would break it.
+# For a clean https URL this is a no-op, so nothing that worked before changes.
+REPO_URL=$(printf '%s' "$REPO_CLEAN" \
+  | sed -e 's#^ssh://[^@/]*@#https://#' \
+        -e 's#^ssh://#https://#' \
+        -e 's#^\([^:/]*\)@\([^:/]*\):#https://\2/#')
 
 json_escape() {
   printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/	/\\t/g' | awk '{ printf "%s\\n", $0 }' | sed -e 's/\\n$//'
@@ -73,7 +86,7 @@ subst() {
   printf '%s' "$1" \
     | sed -e "s#{repo_name}#${REPO_NAME}#g" \
           -e "s#{repo_slug}#${REPO_SLUG}#g" \
-          -e "s#{repo}#${REPO}#g"
+          -e "s#{repo}#${REPO_URL}#g"
 }
 
 name=$(subst "$(fm_field "$FILE" name)")

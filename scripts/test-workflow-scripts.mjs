@@ -11678,6 +11678,58 @@ function testWorkaholifyRoutines() {
     assertTrue("an extra prompt line is reported as prompt drift",
       cmp2.this_repo.present.find((x) => x.id === "fb").drift.includes("prompt"), JSON.stringify(cmp2.this_repo.present));
 
+    // ---- ONE REPOSITORY, THREE SPELLINGS ----
+    // A remote is written `https://…`, `git@…:` or `ssh://git@…/`, each ± `.git` and a
+    // trailing slash, and every one of them names the same repository. The match compared
+    // RAW STRINGS, so an SSH-form checkout reported ZERO routines and EVERY template
+    // missing for a repository with three live, working ones (measured 2026-08-05) -- a
+    // confident wrong answer from the one command whose entire job is to say what runs
+    // against this repository. The workaround was passing the https form by hand.
+    const SPELLINGS = [
+      "git@github.com:qmu/workaholic",
+      "git@github.com:qmu/workaholic.git",
+      "ssh://git@github.com/qmu/workaholic",
+      "https://github.com/qmu/workaholic/",
+      "https://github.com/qmu/workaholic.git",
+    ];
+    const httpsLive = { data: [
+      entry("trig_drive", drive.name, drive.prompt, WH, "56 * * * *"),
+      entry("trig_fb", fb.name, fb.prompt, WH),
+      entry("trig_merged", merged.name, merged.prompt, WH),
+    ] };
+    writeFileSync(fixture, JSON.stringify(httpsLive));
+    for (const form of SPELLINGS) {
+      const c = JSON.parse(run(dir, `${COMPARE} '${form}' < ${fixture}`).stdout);
+      assertEq(`'${form}' finds the same three https-form routines`,
+        [c.this_repo.present.length, c.this_repo.missing.length], [3, 0]);
+      // THE RENDER SIDE MUST CANONICALIZE TOO, or matching alone just relocates the bug:
+      // `{repo}` builds the `…/pull/123` links, and `git@github.com:qmu/workaholic/pull/123`
+      // is not a link anything can follow. Left raw it reads as prompt drift on every
+      // routine, and a routine CREATED from it carries the broken URL into a live process.
+      assertEq(`and reports no drift under '${form}'`, c.drifted_total, 0);
+      // MATCHING IS CANONICAL, OUTPUT IS AS GIVEN. A reader must see the URL they passed.
+      assertEq(`while the reported repo stays as written for '${form}'`,
+        c.repo, form.replace(/\/$/, "").replace(/\.git$/, ""));
+    }
+    // ...AND THE OTHER DIRECTION: an https caller against SSH-form routine sources. The
+    // spelling that varies in the wild is whichever side was configured first.
+    const sshLive = { data: [
+      entry("trig_drive", drive.name, drive.prompt, "git@github.com:qmu/workaholic", "56 * * * *"),
+      entry("trig_fb", fb.name, fb.prompt, "ssh://git@github.com/qmu/workaholic"),
+    ] };
+    writeFileSync(fixture, JSON.stringify(sshLive));
+    const cmpSsh = JSON.parse(run(dir, `${COMPARE} ${WH} < ${fixture}`).stdout);
+    assertEq("an https caller matches SSH-form routine sources",
+      [cmpSsh.this_repo.present.length, cmpSsh.drifted_total], [2, 0]);
+    // THE FIX MUST NOT BUY MATCHING BY MATCHING EVERYTHING. A different repository, and a
+    // proxied remote that is genuinely a different host, both still miss.
+    writeFileSync(fixture, JSON.stringify(httpsLive));
+    for (const other of ["https://github.com/qmu/other", "git@github.com:other-org/workaholic",
+                         "http://local_proxy@127.0.0.1:41729/git/qmu/workaholic"]) {
+      const miss = JSON.parse(run(dir, `${COMPARE} '${other}' < ${fixture}`).stdout);
+      assertEq(`'${other}' still matches nothing`, miss.this_repo.present.length, 0);
+    }
+
     // EVERY TEMPLATE POSTS TO SLACK, so a routine without the connector is broken in the
     // most expensive way: it runs, works, and fails silently at the last step.
     const noSlack = { data: [entry("trig_fb", fb.name, fb.prompt, WH, "", "claude-opus-5", [])] };

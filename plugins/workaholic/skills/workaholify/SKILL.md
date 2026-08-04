@@ -86,6 +86,10 @@ Everything below a template's `## Prompt` heading is the routine's prompt, verba
 
 Keeping the prompt as readable markdown rather than an embedded JSON string is deliberate: the prompt *is* the routine, template freshness is the entire point of the issue behind this, and a prompt nobody can read in a diff is a prompt nobody will keep current.
 
+**A red failure alert is deduped by reading the channel; an event announcement never is** (`routines/drive.md` §0a, added 2026-08-04). A repeated alert with no new information trains the operator to ignore alerts, and the hourly runner produced one near-identical red post per hour for two days from a single root cause. Each tick is a fresh container, so no local state survives — but the **Slack channel itself** does, and the routine already reads and writes it, so the throttle is a read-before-post rule rather than a stored counter: a stable *failure signature* (the failed precondition plus its reason class, never a SHA or a timestamp), suppression only when the latest red alert carries the same signature inside a 24-hour cool-down, an immediate post on any changed signature, and **fail-open** — an unreadable history posts the alert, because silence must never be produced by a failure of the mechanism that decides to be silent. A suppressed tick names the suppression in its own terminal report, so a quiet-because-healthy tick and a quiet-because-known-repeat tick are distinguishable from the log alone. The orange/green/yellow/purple posts announce events the session itself produced and are new every time; deduping those would hide real work.
+
+Changing a template makes every live routine drift by construction, and **the fleet is refreshed by `/workaholify` or `/setup-routines`, one routine at a time, confirmed verbatim** — never as part of the change that edits the template. An unattended run cannot do it at all (`/drive` issues no confirmation of any kind), so a template edit and its rollout are two separate acts by design.
+
 ### Where the configuration lives (decided 2026-08-03)
 
 Three places, one kind of fact each, and **the repository declares nothing**:

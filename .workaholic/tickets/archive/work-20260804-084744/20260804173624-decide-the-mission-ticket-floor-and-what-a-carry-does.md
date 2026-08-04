@@ -3,7 +3,7 @@ created_at: 2026-08-04T17:36:24+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 0.5h
 commit_hash:
 category: Changed
 depends_on:
@@ -96,3 +96,22 @@ The ordering argument in question 1 is the same one that put acceptance-link sta
 - **Do not implement enforcement here.** Splitting the decision from the enforcement is deliberate: the carry answer changes what `close.sh` is responsible for, and that is worth deciding on its own before code depends on it.
 - **Do not put the floor in `validate-mission.sh`.** It is a `PostToolUse` hook on a single file write and cannot see tickets that do not exist yet. This is the same shape as the already-rejected idea of validating `claim:` in a hook.
 - The floor counts tickets, but the *reason* is the artifact partition. If a future case argues for an exception, check it against that reason rather than against the number.
+
+## Final Report
+
+All three questions answered in `mission/SKILL.md` under **Granularity → The ticket floor**, which is where the "what makes a mission a mission" rule already lives — so the floor reads as the granularity table's bottom edge rather than as a separate lint.
+
+- **Q1 (what counts, when):** tickets carrying the mission in their `mission:` relation, present in the **same publication commit** as `mission.md`, counted at the **publish seam**. The "why not a write-time hook" reasoning is stated inline, since an implementer's first instinct is `validate-mission.sh` — and the 37-unlinked-acceptance-items measurement is cited as the already-paid cost of putting a check where the data does not yet exist.
+- **Q2 (exactly two, refused not warned):** recorded, with the archived one-ticket instance named so the rule is not read as a judgment on it, and with the requirement that a refusal name the alternative (feedback record / plain ticket).
+- **Q3 (the carry):** option **(b)** — `--successor-title` refused, a carry must name an existing mission. (a) and (c) are recorded in a table **with their costs**, and the chosen option's own cost is stated and accepted rather than glossed.
+
+**Followed the recommendation, but not blindly.** The ticket recommended (b) and the reasoning held up on reading `close.sh`'s actual responsibility: it is bookkeeping, and (a) would hand it a planning input that cannot be derived from the unmet acceptance items. Recorded as a trade rather than an obvious call, because (a) is the option a future session will re-propose.
+
+**Two extra edits beyond the four steps**, both required by the ticket's own verification criterion ("a reader can answer what `--successor-title` does from `mission/SKILL.md` alone"): the carry doctrine at *Outcomes* and the reorganize-and-carry recipe both described `--successor-title` as a live option. Leaving them would have made the document contradict itself in exactly the place a reader checks. Nothing was enforced — all three edits are prose.
+
+### Discovered Insights
+
+- **Insight**: The floor's real subject is the artifact partition, not the number two.
+  **Context**: Recorded in the section deliberately, because the number is the part a future exception will argue against ("this mission is obviously one unit of work"). The test to apply is whether feedback / ticket / mission stay distinguishable, which is what the count is a proxy for.
+- **Insight**: `close.sh --successor-title` was the only seam that could violate the floor by construction, and it is also the only creation seam with no interrogation behind it.
+  **Context**: That correlation is the whole argument for (b) — the seams that emit tickets are the ones that ask a person what the work is. A creation path with no interrogation has no way to produce a compliant mission, so the fix is to remove the path rather than to teach it to plan.

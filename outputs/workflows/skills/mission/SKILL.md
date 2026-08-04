@@ -42,6 +42,29 @@ Recorded here so it is not re-litigated (`planning` / `terminology`):
 
 Every other place that touches granularity **links here** rather than restating it (`create-ticket`, `commit`).
 
+### The ticket floor — two or more, or it is not a mission
+
+**A mission is created with two or more tickets, or it is not a mission** (`.workaholic/feedbacks/20260804173526-a-mission-is-created-with-two-or-more-tickets-or-it-is-not-a-mission.md`). This is the granularity table's bottom edge made checkable: without it a ticketless mission is a feedback record on the roadmap, and a one-ticket mission is a ticket with a progress bar. The three artifact kinds are only distinguishable if the middle one has a lower bound.
+
+**What counts, and when.** Tickets carrying this mission in their `mission:` relation, **present in the same publication commit as the `mission.md`**. The count is taken at the **publish seam** — the moment the mission and its tickets become one artifact — and nowhere else.
+
+**Not at the write of `mission.md`, and the reason is ordering, not convenience.** A `PostToolUse` hook fires when the file is written, which is *before* the interrogation has emitted anything, so a write-time floor would refuse the normal authoring order. This is the same argument that put acceptance-link stamping at the emitting seam rather than at authoring time (`reference/schema.md`, *The link contract*) — and that contract was itself written after 37 acceptance items across six missions were found unlinked, so the cost of putting a check where the data does not yet exist is already measured in this repository. **Do not put the floor in `validate-mission.sh`.**
+
+**The floor is exactly two, and a one-ticket mission is refused, not warned.** One ticket has nothing to group: the wrapper adds a board, a progress fraction and a close decision to a unit that already had its own tracking. A warning would preserve exactly the ambiguity the rule exists to remove. Note the existing instance so the rule is not misread as a judgment on it — `drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main` (archived, 1 ticket) shipped fine. The claim is not that it did harm; it is that "mission" and "ticket" must not both name it.
+
+**A refusal names the alternative.** The author is not wrong to have something to record, only to record it as the wrong kind of thing: a bare direction is a **feedback record**, a single unit of work is a **plain ticket**. A refusal that cites only the rule leaves the author unable to act (`implementation` / `observability`).
+
+**What a carried close does: `--successor-title` is refused; a carry must name an existing mission** (`--successor <slug>`). `close.sh --successor-title` mints a successor from the predecessor's unmet acceptance items and emits **no tickets at all**, so under the floor it produces a violation by construction, every time — and did, on 2026-08-04, an instance that reached `main`. The rejected alternatives, with their costs, so the trade is visible:
+
+| Option | Why not |
+| ------ | ------- |
+| **(a)** The close emits the successor's ticket set in the same pass | Consistent with the rule, but `close.sh` is a bookkeeping script and this hands it a *planning* responsibility. The planning input — what the remaining tickets actually are — is not derivable from the unmet acceptance items; a person or an interrogation must supply it. Rejected for putting planning in the one seam that has none. |
+| **(c)** A carried successor is exempt from the floor | Rejected on its face: the carry is the **only** seam that has ever produced a violation, so an exemption covering it is not a rule. |
+
+The cost of the chosen option is real and accepted: a genuine "this direction continues but nothing suitable exists yet" carry has no one-step path, and the developer must create the successor first. That is not a workaround — **creating it *is* the interrogation that produces its tickets**, which is precisely the behavior the floor is asking for.
+
+**Where the check lives, stated once:** the publish seam shared by every creation path — the Creation Interrogation, `/propose`'s scaffold, and any future minting path. Enforcement is written against this section, not re-derived per seam.
+
 ## Lifecycle — one status axis
 
 **A mission has exactly one lifecycle field.** `status` carries the whole state, and every reader keys on it:
@@ -346,7 +369,7 @@ The status set is closed and validated — anything else is `invalid_status`:
 | `abandoned` | ended without reaching it, and the remainder is not worth doing |
 | `carried` | done **as framed**, with the remainder still worth doing — it becomes a **successor** mission that inherits the unmet criteria |
 
-`carried` exists because the other two could not express the common, honest verdict *"most of this landed, the rest is still worth doing"*. Forcing it into `achieved` lies to a progress model whose entire claim is that progress is **computed** from unchecked items and never hand-set; `abandoned` is simply false. It **requires** a successor — `--successor-title "<t>"` mints one, `--successor <slug>` carries into an existing active mission — because a carry with nowhere to carry to is an abandon wearing a nicer name. Do not let it become a way to avoid `abandoned`: a successor nobody drives is an abandoned mission with a longer name (the bare `/mission` view and the lens surface an unclaimed successor, which is a feature).
+`carried` exists because the other two could not express the common, honest verdict *"most of this landed, the rest is still worth doing"*. Forcing it into `achieved` lies to a progress model whose entire claim is that progress is **computed** from unchecked items and never hand-set; `abandoned` is simply false. It **requires** a successor — and since the ticket floor was decided, that successor must be an **existing** mission: `--successor <slug>` carries into an active one, and **`--successor-title` is refused**, because a freshly minted successor arrives with no tickets and so violates the floor by construction (*Granularity → The ticket floor*, which records the rejected alternatives). Create the successor first through the ordinary mission-creation path — that interrogation is what produces its ticket set. A carry with nowhere to carry to remains an abandon wearing a nicer name. Do not let it become a way to avoid `abandoned`: a successor nobody drives is an abandoned mission with a longer name (the bare `/mission` view and the lens surface an unclaimed successor, which is a feature).
 
 **What the successor inherits, and why:**
 
@@ -370,7 +393,7 @@ Why carry rather than the alternatives: forcing `achieved` **fabricates completi
 **Reorganizing is a replan, then a carry — and it deliberately does not grind quality gates.** The mechanism is the existing **Replan** flow plus `close.sh`, used together and recorded, never hand-editing:
 
 1. **Reorganize** via `/mission <instruction>` (the Replan flow): rewrite `## Goal`/`## Experience` (and a legacy `## Scope`) to the changed direction, and **drop the now-moot unchecked acceptance criteria** — do **not** force them checked. A dropped item is recorded as its own `acceptance dropped — <the item's (#filename) artifact>` changelog line (Replan already owns this), so the plan's shrinkage is history, not a silent rewrite. This is what *"skip filling quality gates"* means here: **stop grinding to check criteria the new direction made obsolete** — it is **not** a relaxation of the write-time floor (`hooks/validate-mission.sh` requires a non-empty `## Acceptance` and `## Experience` on every active mission).
-2. **Carry** the still-valid remainder with `close.sh … carried`: mint a fresh successor (`--successor-title "<t>"`) for a genuinely new heading, or — for the **mergeable** case — **`--successor <existing-slug>`** to carry the unchecked criteria into an existing active mission. Merging needs no new operation: `--successor <slug>` already carries the unmet items and shared goal/scope into the named mission, and lineage is recorded both directions (above).
+2. **Carry** the still-valid remainder with `close.sh … carried --successor <existing-slug>`, carrying the unchecked criteria into an existing active mission. For a genuinely new heading, **create that mission first** (the interrogation emits its ticket set) and then carry into it — `--successor-title` is refused by the ticket floor. Merging needs no new operation: `--successor <slug>` already carries the unmet items and shared goal/scope into the named mission, and lineage is recorded both directions (above).
 
 The three checked-vs-unchecked, inherit, and lineage rules above are unchanged — reorganize-and-carry is those mechanics used *deliberately and early* when the direction turns, framed as the normal move rather than a last resort.
 

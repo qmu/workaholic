@@ -57,3 +57,4 @@ see the queue".
 - 2026-08-04 — ticket archived — 20260804200555-give-the-proposal-batch-a-routine-seat-and-retire-the-cron-premise.md
 - 2026-08-04 — ticket archived — 20260804200555-record-work-requests-as-instructions-at-the-fb-capture-seam.md
 - 2026-08-04 — ticket archived — 20260804200555-emit-a-loose-ticket-when-a-direction-is-atomic.md
+- 2026-08-04 — story reported — work-20260804-202110.md

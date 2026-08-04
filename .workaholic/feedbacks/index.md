@@ -395,4 +395,6 @@
 * [`.workaholic/` prose is exempted by path, not by nature](20260804125252-workaholic-prose-is-exempted-by-path.md)
 * [The drive routine's handoff section still says resumption is impossible](20260804143009-the-drive-routine-s-handoff-section-still-says-resumption-is-impossible.md)
 * [A mission is created with two or more tickets, or it is not a mission](20260804173526-a-mission-is-created-with-two-or-more-tickets-or-it-is-not-a-mission.md)
+* [Resolved: The proposal cursor is runner-local, so an ephemeral runner cold-starts every tick and proposes nothing](20260804210258-resolved-20260730101911-the-proposal-cursor-is-runner-local-so-an-ephemeral-runner-cold-starts-every-tick-and-proposes-nothing.md)
+* [Resolved: The proposal cursor cannot survive an ephemeral runner](20260804210258-resolved-20260730110659-the-proposal-cursor-cannot-survive-an-ephemeral-runner.md)
 <!-- okf:generated:end -->

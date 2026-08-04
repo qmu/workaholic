@@ -10967,6 +10967,7 @@ const tests = [
   ["mission size norms: a ceiling on what a mission may say, and the floor it must not touch", testMissionSizeNorms],
   ["propose: widened inputs, emitted tickets, and the mission_member safety property (J4)", testProposeWidenedBatch],
   ["propose: an atomic direction becomes one loose ticket, and dedup unions both sides", testProposeLooseTicket],
+  ["propose: the capture seam publishes record and proposal in one commit", testProposeCaptureSeam],
   ["branching/check-worktrees.sh ignores the publish tree", testCheckWorktreesIgnoresPublishTree],
   ["/ticket publishes to main end to end (J1)", testTicketPublishesToMain],
   ["hooks/validate-ticket.sh resolves a mission in the publish tree", testValidateTicketResolvesInPublishTree],
@@ -11177,6 +11178,16 @@ function testProposeWidenedBatch() {
     assertTrue("survey-state reports the queue as an array", Array.isArray(survey.queue));
     assertTrue("survey-state reports the commits as an array", Array.isArray(survey.commits));
 
+    // The cursor argument went with the merged-main window: the range is now GIVEN or a
+    // bounded recent slice, and the survey says which. A constraint that quietly became
+    // empty reads exactly like one that found nothing, so `since_reason` is the honesty.
+    assertEq("a given range is reported as given", survey.since_reason, "given");
+    const bare = JSON.parse(run(root, `${POSIX_SH} ${SCRIPTS.surveyState}`).stdout);
+    assertEq("no argument surveys a bounded recent slice rather than refusing",
+      { reason: bare.since_reason, hasCommits: bare.commits.length > 0 }, { reason: "recent", hasCommits: true });
+    assertEq("an unresolvable range is named, never silently empty",
+      JSON.parse(run(root, `${SURVEY} deadbeefdeadbeef main`).stdout).since_reason, "unresolvable");
+
     // A dangling mission relation is refused rather than written.
     assertEq("scaffold-proposed-ticket refuses a mission that does not resolve",
       JSON.parse(run(root, `${SCAFFOLD_TICKET} "Some work" no-such-mission`).stdout).reason, "mission_missing");
@@ -11283,6 +11294,127 @@ function testProposeLooseTicket() {
       refs().includes("20260803000000-second-ask.md"), JSON.stringify(refs()));
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+}
+
+// ---------- proposing at the capture seam (2026-08-04 ruling) ----------
+// The judgment moved into the session that RECEIVES the ask. What that buys is exactly
+// what the retired design could not do: the record the session just wrote is an input to
+// its own judgment, and the record plus whatever the judgment warrants leave in ONE pull
+// request, so merging it approves both at once.
+//
+// The old shape read only feedback already merged to main, which made the just-written
+// record invisible BY CONSTRUCTION — so "no proposal" and "could not see the record"
+// produced the same empty result. The composition case below is what makes them
+// distinguishable, and the record-only case pins that the fallback still writes the
+// record. Hermetic: a bare local origin plus a `gh` stub, no network.
+function testProposeCaptureSeam() {
+  const { origin, A } = makePublishFixture();
+  const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
+  const PR = `${POSIX_SH} ${SCRIPTS.publishTreePr}`;
+  const CLOSE = `${POSIX_SH} ${SCRIPTS.closePublishTree}`;
+  const pub = join(A, ".publish");
+
+  // `gh` cannot open a PR against a bare local origin, and this test is about what the
+  // commit CARRIES, not about gh — so the PR step is stubbed to succeed.
+  const stubDir = mkdtempSync(join(tmpdir(), "workaholic-ghstub-"));
+  writeFileSync(join(stubDir, "gh"), "#!/bin/sh\necho https://example.invalid/pull/1\n");
+  chmodSync(join(stubDir, "gh"), 0o755);
+  const withStub = { env: { ...process.env, PATH: `${stubDir}:${process.env.PATH}` } };
+
+  const newCommits = (branch) =>
+    execSync(`git log --format=%s main..${branch}`, { cwd: origin, encoding: "utf8" })
+      .trim().split("\n").filter(Boolean);
+  const carried = (branch) =>
+    execSync(`git show --name-only --format= ${branch}`, { cwd: origin, encoding: "utf8" })
+      .trim().split("\n").filter(Boolean);
+  // The remote branch name is minted per SECOND, so two publishes inside one second
+  // collide by design. Space them rather than retrying: after a collision the commit is
+  // already made, so a second call stages nothing and reports `nothing_to_commit` — the
+  // recovery publish-tree-pr.sh's own detail advertises does not currently work, and
+  // this test is about what the commit carries, not about that.
+  const publish = (title) => {
+    execSync("sleep 1.1");
+    return JSON.parse(run(A, `${PR} "${title}" "why" "changes" "None" "None" "verify" .workaholic/`, withStub).stdout);
+  };
+
+  try {
+    // An artifact already on the base answering an earlier ask — the dedup input.
+    const answered = "20260801000000-an-earlier-ask.md";
+    mkdirSync(join(A, ".workaholic/missions/active/an-answered-direction"), { recursive: true });
+    writeFileSync(join(A, ".workaholic/missions/active/an-answered-direction/mission.md"),
+      `---\ntype: Mission\ntitle: An answered direction\nslug: an-answered-direction\nstatus: active\nmerge_policy:\nassignees: []\nfeedback: [${answered}]\n---\n\n# An answered direction\n\n## Acceptance\n\n- [ ] proposed criterion\n`);
+    execSync("git add -A && git commit -q -m 'Add an answered direction' && git push -q origin main", { cwd: A });
+
+    // ---- 1. Composition: record + mission + its whole ticket set, in ONE commit ----
+    run(A, OPEN);
+    const rec = JSON.parse(run(pub,
+      `printf 'Build the thing, in two steps.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "Build the thing" instruction slack`).stdout);
+    assertTrue("the record is written where the judgment can see it — the publish tree",
+      rec.created === true && existsSync(join(pub, rec.path)), JSON.stringify(rec));
+
+    // THE VETO INPUT, read at the seam: the dedup set names what the base already
+    // answers. It can never name the record just written — nothing references it yet —
+    // which is why a re-ask is vetoed by the records it RESTATES, not by its own name.
+    const refs = run(pub, `${POSIX_SH} ${SCRIPTS.proposeListRefs}`).stdout.split("\n").filter(Boolean);
+    assertTrue("the dedup set names the record an artifact on the base already answers",
+      refs.includes(answered), JSON.stringify(refs));
+    assertTrue("and never the record this session just wrote",
+      !refs.includes(basename(rec.path)), JSON.stringify(refs));
+
+    const draft = JSON.parse(run(pub,
+      `${POSIX_SH} ${SCRIPTS.proposeScaffoldDraft} "Build the thing" ${basename(rec.path)}`).stdout);
+    assertEq("the mission is scaffolded beside the record, in the same tree", draft.created, true);
+
+    // The session fills the provisional sketch (the command's step 7), then emits the set.
+    const mpath = join(pub, draft.path);
+    writeFileSync(mpath, readFileSync(mpath, "utf8")
+      .replace("## Changelog", "- [ ] the first step lands\n- [ ] the second step lands\n\n## Changelog"));
+    const t1 = JSON.parse(run(pub, `${POSIX_SH} ${SCRIPTS.scaffoldProposedTicket} "First step" ${draft.slug}`).stdout);
+    const t2 = JSON.parse(run(pub, `${POSIX_SH} ${SCRIPTS.scaffoldProposedTicket} "Second step" ${draft.slug}`).stdout);
+    assertTrue("both proposed tickets are written", t1.created === true && t2.created === true,
+      JSON.stringify([t1, t2]));
+
+    // The links the emitting seam owes the board, and the floor at the publish seam.
+    assertEq("the emitting seam stamps the acceptance link it decided",
+      JSON.parse(run(pub, `${POSIX_SH} ${SCRIPTS.linkAcceptance} ${draft.slug} 1 ${basename(t1.path)}`).stdout).linked, true);
+    run(pub, `${POSIX_SH} ${SCRIPTS.linkAcceptance} ${draft.slug} 2 ${basename(t2.path)}`);
+    assertEq("the ticket floor passes with the set emitted",
+      run(pub, `${POSIX_SH} ${SCRIPTS.missionCheckFloor} ${draft.slug}`).status, 0);
+
+    const pr = publish(`Propose mission ${draft.slug}`);
+    assertTrue("the whole decision publishes as one pull request", pr.ok === true, JSON.stringify(pr));
+
+    // THE PROPERTY: one commit, carrying the record AND the proposal it warranted.
+    assertEq("the record and its proposal are one commit, not two", newCommits(pr.branch).length, 1);
+    const files = carried(pr.branch);
+    assertTrue("that commit carries the feedback record", files.includes(rec.path), JSON.stringify(files));
+    assertTrue("and the mission", files.includes(draft.path), JSON.stringify(files));
+    assertTrue("and both of its tickets",
+      files.includes(t1.path) && files.includes(t2.path), JSON.stringify(files));
+    assertTrue("and none of it is on the base until a human merges it",
+      !execSync("git ls-tree -r --name-only main", { cwd: origin, encoding: "utf8" }).includes(rec.path));
+    assertEq("close succeeds after the composed publish", JSON.parse(run(A, CLOSE).stdout).ok, true);
+
+    // ---- 2. Record-only: the JUDGED fallback still writes the record ----
+    run(A, OPEN);
+    const only = JSON.parse(run(pub,
+      `printf 'It would be nice if things were nicer.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} "A wish" insight slack`).stdout);
+    assertEq("the record is written whatever the judgment concludes", only.created, true);
+    const rpr = publish("Register the reported ask");
+    assertTrue("record-only publishes as a pull request too", rpr.ok === true, JSON.stringify(rpr));
+    const rfiles = carried(rpr.branch);
+    assertTrue("the record-only pull request carries the record", rfiles.includes(only.path), JSON.stringify(rfiles));
+    // Regenerated OKF indexes ride along on any knowledge write; a PROPOSAL is a
+    // mission document or a ticket, and this commit carries neither.
+    assertTrue("and proposes no mission and no ticket",
+      !rfiles.some((f) => f.endsWith("/mission.md") || f.startsWith(".workaholic/tickets/")),
+      JSON.stringify(rfiles));
+    run(A, CLOSE);
+  } finally {
+    rmSync(stubDir, { recursive: true, force: true });
+    rmSync(origin, { recursive: true, force: true });
+    rmSync(A, { recursive: true, force: true });
   }
 }
 

@@ -1,20 +1,30 @@
 #!/bin/sh -eu
-# The proposal batch's STATE SURVEY — everything the judgment needs beyond the
-# feedback window.
+# The proposer's STATE SURVEY — everything the judgment needs beyond the ask in
+# hand.
 #
-#   survey-state.sh <cursor-commit> [base-branch]     # base defaults to main
+#   survey-state.sh [since-commit] [base-branch]      # base defaults to main
 #
 # Output (one JSON line):
-#   {"missions": [...], "queue": [{"path","title"}...], "commits": [{"sha","subject"}...]}
+#   {"missions": [...], "queue": [{"path","title"}...],
+#    "commits": [{"sha","subject"}...], "since": "<rev>", "since_reason": "..."}
 #
-# WHY THIS EXISTS. The batch used to read feedback and nothing else, which made
+# WHY THIS EXISTS. The judgment used to read feedback and nothing else, which made
 # it structurally unable to answer the question a developer actually opens the
 # repository with — what should I do next. Three signals constrain that answer
-# and the feedback stream carries none of them: what is already planned (the
-# missions), what is already queued (the todo tickets), and what has just been
-# built (the commits since the cursor). A proposer blind to them re-proposes work
-# that is underway or already decided, which is exactly the noise the judgment
-# bar exists to prevent.
+# and an ask carries none of them: what is already planned (the missions), what is
+# already queued (the todo tickets), and what has just been built (the recent
+# commits). A proposer blind to them proposes work that is underway or already
+# decided, which is exactly the noise the judgment bar exists to prevent.
+#
+# THE RANGE IS AN ARGUMENT, AND ITS ORIGIN IS REPORTED. The cursor this script
+# once took disappeared with the merged-main window (2026-08-04 ruling): the
+# proposer now runs at the capture seam, where there is no window at all. So the
+# commit range is either GIVEN by the caller (`since_reason: given`) or a bounded
+# recent slice of the base (`recent`, WORKAHOLIC_PROPOSE_COMMIT_WINDOW, default
+# 20). It is never inferred from state the caller cannot see, and an unresolvable
+# argument is reported as `unresolvable` with no commits rather than silently
+# falling back — a constraint that quietly became empty is worse than one that
+# says it could not be read.
 #
 # IT IS A PURE READ AND IT COMPOSES THE EXISTING READERS. `mission/scripts/list.sh`
 # owns mission state (including the derived progress and ownership), and
@@ -23,21 +33,11 @@
 # definition, and the one thing a survey must not do is disagree with the
 # machinery that acts on it.
 #
-# THE COMMIT WINDOW IS THE SAME WINDOW AS THE FEEDBACK WINDOW. Both run from the
-# cursor to the base, so "new" means one thing in this batch. An unresolvable
-# cursor yields an empty commit list rather than an error: the feedback window
-# reader is the one that owns cursor validity, and two readers failing
-# differently on the same bad input is harder to diagnose than one.
-
 set -eu
 
-CURSOR="${1:-}"
+SINCE="${1:-}"
 BASE="${2:-main}"
-
-if [ -z "$CURSOR" ]; then
-  echo '{"error": "usage: survey-state.sh <cursor-commit> [base-branch]"}' >&2
-  exit 1
-fi
+WINDOW="${WORKAHOLIC_PROPOSE_COMMIT_WINDOW:-20}"
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 
@@ -65,12 +65,36 @@ for t in $(sh "${SCRIPT_DIR}/../../drive/scripts/list-todo.sh" 2>/dev/null || tr
   q_sep=", "
 done
 
-# --- commits since the cursor ------------------------------------------------
+# --- recent commits ----------------------------------------------------------
+# Resolve the base once: a checkout with no origin (the publish tree's own case is
+# a clone, but a bare fixture is not) still has a local base to read.
+BASE_REV=""
+for candidate in "origin/${BASE}" "$BASE"; do
+  if git rev-parse --verify --quiet "${candidate}^{commit}" >/dev/null 2>&1; then
+    BASE_REV="$candidate"
+    break
+  fi
+done
+
+RANGE=""
+SINCE_REASON="none"
+if [ -n "$SINCE" ]; then
+  if git rev-parse --verify --quiet "${SINCE}^{commit}" >/dev/null 2>&1 && [ -n "$BASE_REV" ]; then
+    RANGE="${SINCE}..${BASE_REV}"
+    SINCE_REASON="given"
+  else
+    SINCE_REASON="unresolvable"
+  fi
+elif [ -n "$BASE_REV" ]; then
+  RANGE="-n ${WINDOW} ${BASE_REV}"
+  SINCE_REASON="recent"
+fi
+
 COMMITS=""
 c_sep=""
-if git rev-parse --verify --quiet "${CURSOR}^{commit}" >/dev/null 2>&1; then
-  RANGE="${CURSOR}..origin/${BASE}"
-  for line in $(git log --format='%h%x1f%s' "$RANGE" 2>/dev/null | tr ' ' '\002' || true); do
+if [ -n "$RANGE" ]; then
+  # shellcheck disable=SC2086 — RANGE is a built argument list, deliberately split.
+  for line in $(git log --format='%h%x1f%s' $RANGE 2>/dev/null | tr ' ' '\002' || true); do
     sha=$(printf '%s' "$line" | cut -d"$(printf '\037')" -f1)
     subject=$(printf '%s' "$line" | cut -d"$(printf '\037')" -f2- | tr '\002' ' ')
     [ -n "$sha" ] || continue
@@ -79,4 +103,5 @@ if git rev-parse --verify --quiet "${CURSOR}^{commit}" >/dev/null 2>&1; then
   done
 fi
 
-printf '{"missions": %s, "queue": [%s], "commits": [%s]}\n' "$MISSIONS" "$QUEUE" "$COMMITS"
+printf '{"missions": %s, "queue": [%s], "commits": [%s], "since": "%s", "since_reason": "%s"}\n' \
+  "$MISSIONS" "$QUEUE" "$COMMITS" "$(json_escape "$SINCE")" "$SINCE_REASON"

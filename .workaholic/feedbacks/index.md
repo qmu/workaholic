@@ -376,6 +376,7 @@
 * [Make the web routine notify Slack only and filter what it posts](20260804085719-make-the-web-routine-notify-slack-only-and-filter-what-it-posts.md)
 * [Make /workaholify record the FB-to-merge lifecycle as one semantic Slack thread](20260804101847-make-workaholify-record-the-fb-to-merge-lifecycle-as-one-semantic-slack-thread.md)
 * [Balance structure and prose in FB issue authoring](20260804102558-balance-structure-and-prose-in-fb-issue-authoring.md)
+* [/propose has no runner so feedback never becomes planned work](20260804103727-propose-has-no-runner-so-feedback-never-becomes-planned-work.md)
 * [A `git add -A` caller still sweeps the migration's unstaged work](20260804123427-a-git-add-a-caller-still.md)
 * [The heartbeat's guarantee is asserted in one place and relied on in two](20260804123427-the-heartbeat-s-guarantee-is-asserted.md)
 * [The adjacency rule encodes a judgement the ticket did not specify](20260804123729-the-adjacency-rule-encodes-a-judgement.md)

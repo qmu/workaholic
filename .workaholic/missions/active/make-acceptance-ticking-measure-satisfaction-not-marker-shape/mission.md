@@ -110,3 +110,4 @@ which is precisely the condition the mission exists to fix.
 - 2026-08-03 — concern deferred (stuck) — 20260803221906-v1-0-119-may-collide-with.md
 - 2026-08-03 — concern deferred (stuck) — 20260803221906-readme-md-still-describes-the-retired.md
 - 2026-08-04 — ticket archived — 20260803213000-audit-the-gates-for-shape-dependent-green.md
+- 2026-08-04 — story reported — work-20260804-113856.md

@@ -8,6 +8,7 @@ effort: 1h
 commit_hash:
 category: Changed
 depends_on:
+claim: work-20260804-112404
 ---
 
 # `submit-request.sh`'s last backstop substring-matches the source repo name, so a repo whose name is a common word can never file any request
@@ -132,3 +133,42 @@ form and confirm criterion 1 fails.
 
 The new fixture test, plus this repository's existing lint and test targets, with
 bare unmasked exit codes.
+
+## Final Report
+
+Development completed as planned. The preference order in the ticket's step 1 was taken
+literally: the `owner/name` and clone-URL forms are matched exactly and are *new* checks,
+and the bare-name test is narrowed to adjacency rather than replaced by them.
+
+### Discovered Insights
+
+- **Insight**: The `owner/name` and clone-URL forms were never checked before — the old
+  backstop caught them only *incidentally*, as a side effect of the bare-name substring
+  match. Narrowing the substring rule without adding them would have been a net loss of
+  true positives, not a neutral change.
+  **Context**: This is why the ticket's "do not weaken the true positive to fix the false
+  one" is not satisfied by adjacency alone. The two exact checks are what let the loose one
+  become strict.
+
+- **Insight**: POSIX ERE has no `\b`, so the adjacency rule is spelled as explicit
+  neighbour classes: `(^|[^A-Za-z0-9_/-])<name>([^A-Za-z0-9_/-]|$)`. Alphanumerics are
+  excluded alongside `-`, `_` and `/`, which is slightly stricter than the ticket asked —
+  `<name>Reports` no longer matches — and is right for the same reason: it is a different
+  identifier, not a mention of this repository.
+  **Context**: `$` inside a double-quoted shell string needs escaping (`\$`) or the shell
+  eats it before grep ever sees the pattern.
+
+- **Insight**: The repository basename can itself contain regex metacharacters (a `.` in
+  the directory name is enough), so the bare name is escaped before it becomes part of an
+  ERE. The three exact checks stay `grep -F` and need no escaping at all — which is a
+  reason to prefer them wherever a form is available.
+  **Context**: A backstop that mis-parses its own repository name would fail open, which is
+  the direction this check must never fail in.
+
+- **Insight**: This backstop is structurally different from every other check in the
+  script: it is the only one that can refuse work the developer has *already approved*.
+  That makes its false-positive rate a usability property, and it is why the refusal now
+  cites the matched text and its line — a mysterious refusal after a verbatim confirmation
+  is the shape that made the original defect unrecoverable.
+  **Context**: Recorded in `request/SKILL.md` §6 and in CLAUDE.md's repository-confinement
+  section, so a future narrowing has the reasoning rather than just the rule.

@@ -54,6 +54,25 @@
 # resume/clear/compact refires pay one marketplace fetch instead of risking a
 # permanently stale install.
 #
+# A LONG-LIVED SESSION IS NOT REFRESHED, AND THAT IS THE ANSWER (2026-08-04). This hook
+# runs at SessionStart and nowhere else, so a session that outlives a release keeps the
+# build it started with for its whole life. That is deliberate rather than unfinished:
+# swapping the plugin under a running session would change the code behind already-loaded
+# skills and always-on hooks mid-turn, which is a worse failure than being one version
+# behind, and there is no signal to hang a mid-session refresh on that is not just "poll".
+# The drift is made VISIBLE instead -- check-deps/scripts/check.sh reports `version` beside
+# `checkout_version` and flags `version_drift`, and /drive prints it in the run report. So
+# the contract is: this hook makes the install correct AT SESSION START; check-deps makes
+# it honest afterwards.
+#
+# WHAT THE VERSION GATE STILL CANNOT SEE. WANTED is read from this checkout, and a cloud
+# container's clone can ITSELF be behind the base -- in which case a stale clone and a
+# stale baked-in install agree, and this fast path skips exactly when it should not. That
+# is how this container reached a matching 1.0.112/1.0.112 pair while origin/main was on
+# 1.0.126. Fetching here to resolve it was rejected: SessionStart must stay fast and must
+# never block a session on the network. /drive's own sync-main.sh fast-forwards the
+# checkout a moment later, so the mismatch becomes visible to check-deps on that tick.
+#
 # HOME IS RESPECTED, NOT IMPOSED (`: "${HOME:=/root}"`): hardcoding /root breaks the moment
 # the hook runs as a non-root user, whose ~/.claude would be unwritable.
 #

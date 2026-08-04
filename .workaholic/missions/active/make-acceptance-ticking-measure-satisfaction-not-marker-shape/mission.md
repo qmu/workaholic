@@ -9,7 +9,7 @@ author: noreply@anthropic.com
 assignees: []
 assignee:
 predicted_hours:
-actual_hours: 0.7
+actual_hours: 1.2
 feedback: [20260731062209-quality-gates-must-assist-delivery-not-block-well-done-work.md, 20260731062305-every-markerless-acceptance-item-in-this-repo-belongs-to-a-proposed-draft.md]
 tickets: []
 stories: []
@@ -111,3 +111,4 @@ which is precisely the condition the mission exists to fix.
 - 2026-08-03 — concern deferred (stuck) — 20260803221906-readme-md-still-describes-the-retired.md
 - 2026-08-04 — ticket archived — 20260803213000-audit-the-gates-for-shape-dependent-green.md
 - 2026-08-04 — story reported — work-20260804-113856.md
+- 2026-08-04 — run recorded (+0.5h) — 20260804-105700

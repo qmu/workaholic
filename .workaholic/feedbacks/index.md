@@ -381,4 +381,9 @@
 * [`size.sh`'s norm is satisfied by nothing ever written](20260804124313-size-sh-s-norm-is-satisfied.md)
 * [The live `.workaholic/` tree is not OKF-conformant, and nothing measures it](20260804124313-the-live-workaholic-tree-is-not.md)
 * [The `resume-*` lint keys on a filename and has never fired](20260804124313-the-resume-lint-keys-on-a.md)
+* [A resolution miss is still silent, and still becomes a takeover](20260804124615-a-resolution-miss-is-still-silent.md)
+* [One extra tree walk per unresolved artifact, on the five-minute path](20260804124615-one-extra-tree-walk-per-unresolved.md)
+* [The by-filename fallback assumes ticket filenames stay unique](20260804124615-the-by-filename-fallback-assumes-ticket.md)
+* [The hermetic suite is flaky in CI, and it failed a merge gate](20260804124615-the-hermetic-suite-is-flaky-in.md)
+* [The per-commit size ceiling counts a catch-up merge as authored work](20260804124615-the-per-commit-size-ceiling-counts.md)
 <!-- okf:generated:end -->

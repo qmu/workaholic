@@ -3,9 +3,9 @@ created_at: 2026-08-04T02:31:00+09:00
 author: a@qmu.jp
 type: bugfix
 layer: [Infrastructure]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 claim: work-20260804-105730
@@ -56,3 +56,45 @@ claim: work-20260804-105730
 - 自身の artifacts を全て駆動し終えた batch ユニットは、heartbeat が失効していても `resumable: false` かつ `resume_reason: "queue_drained"` を報告する。ブランチ tip に無関係なチケットが残っていても影響されないこと。
 - mission ユニットの既存判定（tip でそのミッションを名指すチケットが1件以上残っているか）は変わらないこと。
 - 全チケットを駆動して PR まで到達させた直後の survey が、`missions` / `backlog` / `resumable` すべて空を報告する（= `/drive` が `ok` を返せる）。
+
+## Final Report
+
+Development completed as planned. Both reported symptoms turned out to be **one** root
+cause, which changed the shape of the fix: nothing in `plan-units.sh` needed touching, and
+the whole repair landed in the claim reader's artifact resolution.
+
+### Discovered Insights
+
+- **Insight**: The two symptoms are the same bug. `claims_scan` resolves each claimed
+  artifact's tip-side path through `git diff --find-renames`; when that diff reports the
+  archive as add + delete rather than a rename, the artifact is dropped and the claim's
+  `artifacts` list comes back empty. An empty list makes `plan-units.sh` subtract nothing
+  (symptom 1) **and** makes `claims_has_work` take its deliberate "no artifacts means
+  unknown, so assume work remains" branch (symptom 2).
+  **Context**: The two were reported as separate defects in separate subsystems, and the
+  second one's stated hypothesis — that a batch's `queue_drained` test scans all of
+  `todo/` — is not what the code does; a batch never scans `todo/` at all unless its
+  artifact list is empty. Reproducing before fixing is what made the single cause visible.
+
+- **Insight**: `git diff --find-renames` is a similarity heuristic (50% by default,
+  abandoned entirely past `diff.renameLimit`), and `archive.sh` is not a pure move — it
+  stamps `effort` and appends the Final Report. A short ticket that grows a long report
+  therefore falls below the threshold and is reported as add + delete.
+  **Context**: The pre-existing rename test moves tickets with a bare `git mv`, so git
+  pairs them at 100% similarity and the test was green through the whole defect. A fixture
+  that exercises a heuristic at its easiest input proves nothing about the heuristic.
+
+- **Insight**: A silent artifact drop is worse than a loud one because `excluded[]` is
+  defined as "items the survey saw and dropped". A ticket whose claim lost track of it does
+  not appear there at all — it reappears in `backlog[]` looking untouched, with no trace
+  anywhere in the survey that it is already in flight on a pushed branch.
+  **Context**: This is why the fallback resolution is exact (a unique ticket filename)
+  rather than a widened similarity threshold: a threshold that is merely lower still fails
+  silently at some input, and the failure mode is invisible by construction.
+
+- **Insight**: The by-filename fallback must be scoped to `.workaholic/tickets/`. Every
+  mission's artifact is named `mission.md`, so an unscoped basename lookup would resolve a
+  deleted mission's claim onto a different mission's file — a silent cross-claim, which is
+  strictly worse than the dropped artifact it would be repairing.
+  **Context**: Ambiguity therefore falls back to the mapped path and drops the artifact,
+  which is the conservative pre-existing behavior. Pinned by its own test.

@@ -1,9 +1,9 @@
 #!/bin/sh -eu
-# Scaffold a PROPOSED mission - the proposal batch's writer (docs/
+# Scaffold a PROPOSED mission - the proposer's mission writer (docs/
 # loop-engineering-workflow.md B1/B4). Deliberately NOT mission/scripts/create.sh:
-# that scaffold seeds the CREATOR as owner, and this batch has no business owning
-# what it proposes. What it writes is unowned and carries the mission->feedback
-# relation the proposal grew from:
+# that scaffold seeds the CREATOR as owner, and an unattended proposer has no
+# business owning what it proposes. What it writes is unowned and carries the
+# mission->feedback relation the proposal grew from:
 #
 #   status: active, merge_policy: (empty -> review), assignees: [],
 #   feedback: [<record filenames>]
@@ -94,7 +94,7 @@ gate_assert:
 ## Goal
 
 <!-- Why this mission is proposed: the direction the source feedback asks for.
-     The proposal batch fills this from the feedback records named above. -->
+     The proposing session fills this from the feedback records named above. -->
 
 ## Experience
 

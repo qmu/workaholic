@@ -72,15 +72,16 @@ for entry in "$WH"/* "$WH"/.*; do
   esac
 
   if [ -f "$entry" ]; then
-    # README.md / index.md, the release-scan config files (scan-allow,
-    # leak-denylist), and the proposal batch's LEGACY cursor file
-    # (proposal-cursor, git-ignored — the live cursor is the pushed ref
-    # refs/workaholic/proposal-cursor, and cursor.sh folds any surviving file
-    # into it) are the allowed root files — same set the layout gate allows.
+    # README.md / index.md and the release-scan config files (scan-allow,
+    # leak-denylist) are the allowed root files — same set the layout gate allows.
+    # `proposal-cursor` was allowed here until 2026-08-04, when the merged-main
+    # window it served was retired; nothing writes or folds it any more, so a
+    # surviving git-ignored file is reported for the operator to delete
+    # (docs/proposal-loop-runbook.md §7) rather than silently tolerated.
     case "$name" in
-      README.md|README_ja.md|index.md|scan-allow|leak-denylist|proposal-cursor) : ;;
+      README.md|README_ja.md|index.md|scan-allow|leak-denylist) : ;;
       *) add_finding ".workaholic/${name}" "undesignated-root-file" \
-           "only README.md, index.md, scan-allow, leak-denylist, and proposal-cursor are allowed at the .workaholic/ root" "owner decision required" ;;
+           "only README.md, index.md, scan-allow, and leak-denylist are allowed at the .workaholic/ root" "owner decision required" ;;
     esac
     continue
   fi

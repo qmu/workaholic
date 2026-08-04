@@ -3,9 +3,9 @@ created_at: 2026-08-04T22:13:47+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: propose-at-the-capture-seam
 merge_policy:
@@ -75,3 +75,36 @@ set, a loose ticket, or the record alone. Merging that PR approves both at once.
   where nothing can propose.
 - The live [Propose] routine needs a /setup-routines refresh after merge — a
   human act, out of scope here.
+
+## Final Report
+
+Development completed as planned. The propose skill's flow, the command, and the
+`[Propose]` routine template now take the ask in hand as their input; the record
+and whatever the judgment warrants leave in one publish-tree pull request, and
+record-only is the third row of the cardinality table rather than a mechanical
+silence. `survey-state.sh` lost its required cursor argument for an optional
+range that reports how it was chosen. Three hermetic cases were added
+(composition, record-only, dedup input at the seam) plus three on the survey's
+new range contract; the suite is green at 2190 (baseline on `main`: 2169).
+
+### Discovered Insights
+
+- **Insight**: `publish-tree-pr.sh`'s `branch_collision` recovery does not work as
+  its own detail describes. The detail says "the commit is intact in the publish
+  tree and the next call succeeds", but the next call runs `commit.sh` first,
+  which stages nothing because the commit was already made, so it reports
+  `nothing_to_commit` and never retries the push. The artifact is then stranded
+  in the publish tree with no scripted way out.
+  **Context**: The branch name is minted per second, so two publications in the
+  same second collide — plausible once several capture sessions run in a fleet.
+  Measured while writing the composition test, which now spaces its publishes
+  rather than relying on the advertised retry. Recorded as a concern on this
+  branch's story rather than fixed here: it belongs to `workaholic:branching`,
+  not to the propose seam.
+- **Insight**: The dedup set cannot key on the record a capture session just
+  wrote — nothing references it yet, by construction. The veto therefore keys on
+  the records an ask *restates*, which the seam reads from the base through
+  `list-proposed-refs.sh` before it scaffolds anything.
+  **Context**: Under the retired window model the cursor did most of the
+  idempotence work and dedup was the backstop. At the capture seam dedup is the
+  whole mechanism, so where it is read from and when it is read both matter.

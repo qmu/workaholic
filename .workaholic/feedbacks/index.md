@@ -371,4 +371,6 @@
 * [The carried range includes the promotion's own bookkeeping commits](20260803222459-the-carried-range-includes-the-promotion.md)
 * [The promotion has no entry point of its own](20260803222459-the-promotion-has-no-entry-point.md)
 * [The record's confirmation is not connected to the deployment contract's method list](20260803222459-the-record-s-confirmation-is-not.md)
+* [A `git add -A` caller still sweeps the migration's unstaged work](20260804123427-a-git-add-a-caller-still.md)
+* [The heartbeat's guarantee is asserted in one place and relied on in two](20260804123427-the-heartbeat-s-guarantee-is-asserted.md)
 <!-- okf:generated:end -->

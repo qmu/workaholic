@@ -90,4 +90,5 @@
 * [A repository can say what runs against it](work-20260803-212331.md)
 * [The branch story is concise by default](work-20260803-212338.md)
 * [A no-op commit and a read now leave your index alone](work-20260804-111346.md)
+* [`/request`'s backstop matches an identifier, not a substring](work-20260804-112404.md)
 <!-- okf:generated:end -->

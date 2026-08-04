@@ -2,7 +2,7 @@
 type: Mission
 title: Make a mission impossible to create without its ticket set
 slug: make-a-mission-impossible-to-create-without-its-ticket-set
-status: active
+status: achieved
 merge_policy: 
 created_at: 2026-08-04T17:35:49+09:00
 author: a@qmu.jp
@@ -57,3 +57,4 @@ hook would refuse the normal authoring order.
 - 2026-08-04 — ticket archived — 20260804173626-resolve-the-two-sub-floor-missions-and-align-the-docs.md
 - 2026-08-04 — story reported — work-20260804-202044.md
 - 2026-08-04 — run recorded (+1h) — 20260804-202044
+- 2026-08-04 — mission achieved — mission.md

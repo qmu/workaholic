@@ -1,0 +1,330 @@
+---
+name: ship
+description: Use when the user runs `/ship`, asks to "merge and deploy", "ship this branch", or "push to production". Pre-checks the workspace and todo queue, confirms with the user, merges the current branch's PR on GitHub, runs the deploy steps from CLAUDE.md's `## Deploy` section, and reports the outcome.
+allowed-tools: Bash, Read, Glob, Grep
+user-invocable: false
+metadata:
+  internal: true
+---
+
+# Ship
+
+Merge a pull request, deploy to production, and **confirm the deployment actually succeeded in production**. The agent acts as the deployment agent, following the deployment procedure and — critically — the success-confirmation method declared for the target.
+
+**Core design: ship requires an established way to confirm the deployment, and the merge comes last.** A deployment that cannot be confirmed is not shippable. Deploy and production confirmation happen from the work branch **before** the PR is merged; the merge is the final step, gated on a passing confirmation.
+
+**Catching up with `main` is mandatory before any deploy step, and reconciling with `main` is standard ship behavior — never an optional "your call."** A branch that is behind `main` and deploys anyway either reverts merged work (a deploy-from-branch target pushes stale code over newer `main`) or **silently no-ops the release** (a deploy-on-merge release is idempotent, so if the branch's version is already taken on `main` the colliding merge ships nothing). So ship *always* catches up first (Ship Flow step 2), and when catch-up surfaces a **mechanical** conflict — the version/lockstep manifests or regenerated `outputs/` — the agent **reconciles it as routine**: merge `origin/main`, resolve the manifests, re-run the pre-merge proof, and re-bump the version past the collision. Only a genuinely ambiguous **content** conflict a human must judge is a halt-and-ask. The agent does not ask "should I reconcile with `main` at all?" — reconciliation is what ship does. If no documented confirmation method exists (neither a `.workaholic/deployments/` entry nor a `CLAUDE.md` `## Verify` section), ship does **not** silently skip and does **not** merge — it **halts** and asks the user to provide a verification path or credentials to confirm the change reached production, or to author a `.workaholic/deployments/` entry. The confirmation is **executed** and its evidence recorded into the story/PR before merge; a failed confirmation is a failed ship and the branch stays unmerged (that is the rollback). The one deliberate exception is an **explicit, recorded override**: when a confirmation method cannot be established or executed at all, the developer may consciously choose to merge without production confirmation — that choice is recorded into the story/PR as an accepted-risk, production-unverified merge (never silent, never the default). A confirmation that *ran and returned a failing result* is never overridable this way.
+
+This skill is the **worktree-independent ship essence**: it operates on the current branch's PR. Worktree handling and context routing are not part of this skill — the `/ship` command resolves which claim to ship, and `workaholic:drive` owns the claim lifecycle around it. Any agent can run this skill directly to ship the current branch.
+
+## Agent Compatibility
+
+This skill works on any Agent-Skills-compatible agent. Where a step uses `AskUserQuestion` (workspace/ticket guards, deploy confirmation, the §1-4 no-confirmation-method halt), use the agent's native way of presenting a multiple-choice question (or ask in plain chat). The confirmations are mandatory for an interactive caller; only the prompt mechanism varies. A caller that **cannot** prompt at all — the unified `/drive` run shipping an `auto` unit — takes §0's routing instead of asking. (This skill has no subagent fan-out.) Prefix each interactive prompt's (`AskUserQuestion`) `question` body with `[<project label>]` — run `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh` once and reuse its `project` value — so a developer with several sessions open across tmux panes can see which repository is asking; leave the `header` as the decision/topic label.
+
+## 0. Unattended routing (when the caller cannot prompt)
+
+`/ship` is called two ways: by a developer in a session, and by the unified `/drive` run for a PR-unit whose effective merge policy is `auto` (`workaholic:drive`, *Unified Run* §6). The second caller **cannot prompt at all** — there is nobody to answer.
+
+**This is a routing table over the existing seams, not a second flow.** Every step below runs exactly as written; only what happens *at each `AskUserQuestion`* differs, and in every case the unattended answer is the conservative one — the ship stops or hands the unit back to the PR path, never proceeds on an assumption:
+
+| Interactive seam | Unattended caller |
+| ---------------- | ----------------- |
+| §3 Workspace Guard, dirty tree | **Demote to PR.** Something left uncommitted work in the claim worktree; that is a finding, not a thing to ignore-and-proceed. |
+| §4 Ticket Guard | Unchanged — it is already informational and non-blocking. |
+| §1-3 confirm-before-deploy | **Proceed.** `merge_policy: auto`, recorded at approval or ticket creation, *is* that authorization; re-asking it is the settled question the policy exists to pre-answer. |
+| §1-4 no confirmation method | **Demote to PR.** Never take the accepted-risk bypass: it is explicitly a developer's conscious choice, and an agent choosing it for them is exactly what "never the default" forbids. |
+| Step 2 catch-up, `content` conflict | **Demote to PR.** (A `mechanical` conflict is routine reconciliation the agent already resolves itself — unchanged.) |
+| Step 2b scan, `overridable: true` (`size`/`leak`) | **Demote to PR.** An override is a human ruling. |
+| Step 2b scan, `overridable: false` (`secret`) | **Hard stop**, exactly as interactively — non-overridable is non-overridable, and demoting it to a PR would launder a credential-bearing branch into "routine review". |
+| Step 4 confirmation ran and **failed** | **Hard stop**, exactly as interactively. The unmerged branch is the rollback. |
+| Step 7 release publish, no CI to defer to | **Skip and report** `release_pending`. Publishing is an outward action nobody authorized in this run. |
+
+**Demote to PR** means: stop before the merge, leave the PR open and the branch pushed, and report the unit as demoted **with the gate that caused it**. The work is not lost and not merged — it is waiting for the human the gate asked for.
+
+**`auto` means no *approval* is needed; it never means no *gate* applies.** A gate an unattended run may skip is a gate that does not exist, so nothing here weakens a tier — the tiers are identical, and only the *override* path (which requires a human) is unavailable. `/ship` remains independently usable on a hand-driven branch with every prompt intact.
+
+**Teardown belongs to the caller, not here.** After a successful merge, the unified run removes the unit's claim worktree and deletes its remote claim branch (`workaholic:drive` §6). `/ship` does not tear worktrees down: it may itself be running *inside* the worktree in question, and a merge that cleans up its own working directory is a merge that cannot report its result.
+
+## 1. Deployment Contract
+
+Ship learns **how to deploy** and **how to confirm success** from two sources, in this order of precedence for the confirmation method:
+
+1. **`.workaholic/deployments/*.md`** — the structured deployment contract (see the `deployments/` convention in `workaholic` rules). Each file declares a target's `## Procedure` and an executable `## Confirmation` method, read via `read-deployments.sh`. This is the preferred source.
+2. **`CLAUDE.md` `## Deploy` / `## Verify` sections** — the project's instructions file, located via `find-claude-md.sh`. Used when there is no `.workaholic/deployments/` entry (or as a supplement).
+
+The **confirmation method** (a `.workaholic/deployments/` `## Confirmation`, or a `CLAUDE.md` `## Verify`) is mandatory: ship will not complete a deployment it cannot confirm.
+
+### 1-1. Search Order
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/read-deployments.sh
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/find-claude-md.sh
+```
+
+`read-deployments.sh` searches `.workaholic/deployments/`; `find-claude-md.sh` searches `./CLAUDE.md`.
+
+### 1-2. Expected Content
+
+A `.workaholic/deployments/<target>.md` entry:
+
+```markdown
+---
+title: ...
+environment: production
+confirmation_method: browser   # browser | server-batch | db-query | api-probe | other
+url: ...                       # optional, non-secret locator
+---
+## Procedure
+Step-by-step deployment instructions for the agent to execute.
+## Confirmation
+The exact, executable way to confirm the deploy succeeded in production.
+```
+
+Or, in `CLAUDE.md`:
+
+```markdown
+## Deploy
+Step-by-step deployment instructions for the agent to execute.
+
+## Verify
+Health checks, smoke tests, and expected outcomes.
+```
+
+### 1-3. Confirm-before-deploy gate
+
+Before executing the deploy procedure, display it and ask the user to confirm via AskUserQuestion. If the user declines, deployment is skipped.
+
+### 1-4. The hard gate (no confirmation method ⇒ halt, do not skip)
+
+This gate runs **pre-merge** (Ship Flow step 3), so a failed or impossible confirmation blocks the merge instead of discovering the problem after the change is already on `main`.
+
+Determine whether an established confirmation method exists: `read-deployments.sh` returns `has_confirmation: true`, **or** `CLAUDE.md` has a non-empty `## Verify` section.
+
+- **If a confirmation method exists** — proceed: run the confirm-before-deploy gate (§1-3), deploy, then **execute** the confirmation (§5 step 4), record the evidence, and only then merge.
+- **If no confirmation method exists** — **HALT. Do not deploy, do not merge, do not silently skip.** Ask the user (via AskUserQuestion, at the command/main-agent level) how to establish confirmation. Options:
+  - **Provide a verification path / credentials now** — the user supplies the URL, command, or transient credentials to sign into the production web system or server so the change can be confirmed. (Credentials are used transiently — never written to `.workaholic/deployments/*.md`, shell profiles, or global config.)
+  - **Inspect production first** — ship inspects the production web system (e.g. via browser tooling) to determine how the deploy can be assured, then records it as a `.workaholic/deployments/` entry.
+  - **Author a `.workaholic/deployments/` entry** — pause so the user (or the agent) writes the contract, then re-run.
+  - **Abort the ship** — stop without deploying.
+  - **Merge without production confirmation (accepted-risk bypass)** — proceed to the merge despite no confirmable production proof. Offered **only** for the cannot-confirm cases (no method exists, or a declared method cannot execute in this ship environment); a confirmation that *ran and failed* is never bypassable. The choice is explicit and is **recorded** into the story/PR as an accepted-risk, production-unverified merge before the merge runs (Ship Flow §5 step 5, bypass path) — never silent, never the default.
+
+A docs/config-only project legitimately may have a trivial confirmation (e.g. "the merge to `main` is the deployment; confirm the commit is on `main`"); that still must be stated as a confirmation method, not left absent.
+
+A target follows one of two **deploy models** — *deploy-from-branch* (deploy + confirm from the branch, then merge) or *deploy-on-merge* (the merge is the deployment; confirmation splits into a pre-merge readiness proof and a post-merge promotion check). The `.workaholic/deployments/README.md` "Deploy models" section spells out both with copyable examples; a deploy-on-merge target should label its `## Confirmation` pre-merge vs post-merge so the two phases are unambiguous.
+
+## 2. Shell Scripts
+
+### 2-1. Pre-check
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/pre-check.sh "<branch>"
+```
+
+Verifies a PR exists for the branch. Returns JSON with PR number, URL, and merge status.
+
+### 2-2. Merge PR
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/merge-pr.sh "<pr-number>"
+```
+
+Merges the PR, checks out main, and pulls to sync. Returns JSON with merge status and commit hash.
+
+### 2-3. Find CLAUDE.md
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/find-claude-md.sh
+```
+
+Searches for the project's `CLAUDE.md`. Returns JSON with path or `{"found": false}`.
+
+### 2-3b. Read Deployment Contract
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/read-deployments.sh
+```
+
+Reads `.workaholic/deployments/*.md`. Returns `{"has_confirmation": <bool>, "count": N, "deployments": [{title, environment, confirmation_method, url, endpoint, command, procedure, confirmation}]}`. `has_confirmation` is true iff at least one target declares a `confirmation_method` and a non-empty `## Confirmation` body. Drives the §1-4 hard gate. Returns the empty/no-confirmation result (never errors) when the directory is absent.
+
+### 2-3c. Check Confirmation Capability
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/check-confirmation-capability.sh "<confirmation_method>"
+```
+
+Checks whether the current ship environment has the tooling the matched target's `confirmation_method` needs (`api-probe` → curl/wget; `db-query` → a DB client; `server-batch` → ssh; `browser` → an interactive agent, flagged in CI). Returns `{"method", "capable": <bool>, "missing", "hint"}`. **Advisory only** — it warns and steers toward a headless-executable method; it never blocks on its own (the §1-4 gate and the actual confirmation in §5 step 4 remain authoritative). Run it pre-deploy (Ship Flow step 3).
+
+### 2-4. Check Todo
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/check-todo.sh
+```
+
+Checks if the current user's `.workaholic/tickets/todo/<user>/` queue has remaining tickets. Returns JSON with cleanliness status, count, and ticket list. Drives the **informational, non-blocking** §4 note — it reports the count, but the queued tickets never block the merge (they are future work, unrelated to this branch's PR). The check is scoped to the current user's subdirectory: other developers' tickets (in their own subdirectories, or unswept at the `todo/` root) are never counted.
+
+### 2-4b. Commit Release Note
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/commit-release-note.sh "<branch>"
+```
+
+Stages, commits (`Add release notes for <branch>`), and pushes any note file(s) under `.workaholic/release-notes/` so they ride into the merge. Returns `{committed, branch, pushed, push_error}` or `{committed:false, reason:"no_release_note_changes"}`. Run after `workaholic:write-release-note` has written the note and before `merge-pr.sh`. **A failed push is a pre-merge hard stop**: the script exits 1 with `fatal: "release_note_not_on_remote"` (the note commit stays local), because merging would ship a release without its note while stopping is still cheap — resolve the push (`push_error` names the cause) and re-run before merging. Only `no_remote` stays a soft `pushed: false` outcome, since with no remote there is no remote PR the note could miss.
+
+### 2-5. Extract Deferred Concerns
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/extract-deferred-concerns.sh "<branch>" "<pr-number>" "<pr-url>"
+```
+
+Reads the just-shipped story (`.workaholic/stories/<branch>.md`) and parses each `###` concern block in its Concerns section. Each concern is keyed on a **stable identity** — `concern_id`, the slug of its title with any leading `(carried from …)` prefix stripped; a title carrying non-ASCII characters (e.g. Japanese) or yielding no slug words gets a stable `c-<hash>` id from its normalized title instead, reported in the output's `fallback_ids`, because the word slug degenerates and would silently collide — so the same logical concern is recognized across PRs. Extraction is **append-only**: an id already anywhere in the stream (open, closed, or superseded) is skipped, never rewritten and never resurrected, and a new id becomes one immutable `kind: concern` record.
+
+**The committed story file is the only source, and it carries every severity.** The PR body is a *rendering* of that file with the `low`-severity blocks dropped for the reviewer's benefit (`workaholic:report`, Concerns section) — this script never reads it, so filtering at render can never make a record go missing. Two independent paths already diverge body from file this way, and both are safe for exactly this reason: the low-severity filter, and `shrink-pr-body.sh`'s pointer for an over-limit body. If a future change ever makes extraction read the PR body instead, every `low` concern stops being recorded silently — the failure would be invisible for weeks, which is why the source is named here rather than left to be inferred.
+
+**Concerns land in the feedback stream** (`docs/loop-engineering-workflow.md` H2/H3, 2026-07-28): each section-6 block becomes a `kind: concern` feedback record — every severity, append-only, keyed on `concern_id` so an id already in the stream (open, closed, or superseded) is never rewritten or resurrected. The promotion floor, `Keep:` opt-in, and update-in-place retired with the concern lifecycle machinery; curation is the reader's judgment over the stream, and resolution is a superseding record written by `/report`'s judge seam.
+
+Before parsing, it runs the concern-corpus living migration (`feedback/scripts/migrate-concerns.sh`, best-effort, idempotent), so a legacy `concerns/` tree folds into the stream first. Returns JSON:
+
+```json
+{"status":"ok","created":2,"updated":0,"extracted":2,"story_only":0,"files":["..."]}
+```
+
+`extracted` counts new records (`created`); `updated`/`story_only` are always 0 (kept for consumer stability across the merger); `files` lists the newly-created records. Commits with message `Add deferred concerns from PR #<pr-number>` (whenever anything was created or updated) so the corpus stays under version control, then **pushes**. Because this runs post-merge, the commit lands on local `main` (the merge already checked it out); the push keeps local `main` level with `origin/main`. Skips silently when no story file exists, or when the story has no Concerns section — which is the normal shape for a branch that raised none, since a section with nothing to report is omitted rather than written as "None".
+
+### 2-5b. Catch Up With main
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/catchup-main.sh "<base-branch>"
+```
+
+Fetches origin and merges `origin/<base>` (default `main`) into the current work branch so the artifact that gets deployed and confirmed equals what will land on merge. This step is **mandatory before any deploy step** — never skip it. Returns:
+
+- `{caught_up:true, branch_up_to_date:bool}` — merged cleanly (`branch_up_to_date:true` means merging `origin/<base>` into the work branch was a no-op; it is a claim about the **work branch**, not about the local `main` ref, which catch-up does not touch). Proceed.
+- `{caught_up:false, conflict:true, conflict_class:"mechanical", conflicted_files:[...]}` — every conflict is a version/lockstep manifest (`.claude-plugin/marketplace.json`, either `plugin.json`) or under `outputs/`. **The agent reconciles this itself, as routine ship hygiene — do not ask the developer whether to reconcile.** Merge `origin/main`, resolve the manifest conflicts (take `main`'s side of the version, then re-bump to the next free version), regenerate `outputs/` (`node scripts/build-plugins/build.mjs`), re-run the pre-merge proof (build/verify/tests), and continue. This is the same reconcile-and-re-bump the version-collision guard requires (see below).
+- `{caught_up:false, conflict:true, conflict_class:"content", conflicted_files:[...]}` — a non-manifest path conflicts and needs human judgment. **Halt the Ship Flow and ask the developer to resolve it** before continuing.
+
+**Version-collision guard (fold into this step).** Deploy-on-merge releases are idempotent, so a merge at a version already reached/released on `main` silently goes unreleased. Before deploying, confirm the branch's target version is **greater than** `main`'s current version and is not an already-published tag; if not (which a mechanical catch-up conflict on the manifests reveals), re-bump to the next free version as part of reconciliation. Run this step **before** the deploy gate.
+
+### 2-5c. Record Deployment Evidence
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/record-evidence.sh "<branch>" "<target>" "<method>" "<result>" "<status>"
+```
+
+Appends a `## Deployment Evidence` block (when / by — the configured git `user.email`, recorded so `/catch` reports the deployer as a fact instead of inferring the last story-toucher / target / method / status / observed result) to `.workaholic/stories/<branch>.md` so the proof of a successful production confirmation rides into the merge and shows on the PR. `<result>` must be a **non-secret** observed result; `<status>` is `pass`|`fail`. Run after the confirmation executes and **before** the merge. The script **scans the inputs for common secret shapes** (cloud keys, GitHub/Slack tokens, bearer/basic auth, PEM keys, `password=`/`token=` assignments) and **refuses** (`{"recorded": false, "reason": "possible_secret"}`, non-zero exit) rather than writing a credential into the public story — re-supply a sanitized result if it refuses.
+
+### 2-6. Publish GitHub Release
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/publish-release.sh "<branch>" "<merge-commit>" "<tag>" "<notes-file>"
+```
+
+Publishes a GitHub Release from the generated note **unless** the repo already has a GitHub Actions workflow that publishes releases (scans `.github/workflows/` for `gh release create` / `softprops/action-gh-release` / `actions/create-release`). Returns `{published:false, reason:"ci_publishes"}` when CI owns publishing, `{published:false, reason:"no_notes_file"|"already_exists"}` for the safe no-ops, or `{published:true, tag, url, reason:"created"}`. Idempotent: never errors on an existing tag. Targets the merge commit.
+
+## 3. Workspace Guard
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/check-workspace.sh
+```
+
+Parse the JSON output. If `clean` is `true`, proceed silently to the Ticket Guard.
+
+If `clean` is `false`, display the `summary` to the user and ask via AskUserQuestion with selectable options:
+- **"Ignore and proceed"** - Continue with the ship workflow. The unrelated changes will remain in the workspace after the command completes.
+- **"Stop"** - Halt the workflow so you can handle the changes first.
+
+If the user selects "Stop", end the workflow immediately.
+
+## 4. Ticket Guard (informational, non-blocking)
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/check-todo.sh
+```
+
+Parse the JSON output. If `clean` is `true`, proceed silently to the Ship Flow.
+
+If `clean` is `false`, print **one** non-blocking note and **proceed to the Ship Flow anyway** — never prompt, never block, never move tickets:
+
+> Note: N ticket(s) still queued in your `.workaholic/tickets/todo/<user>/` (not blocking this ship): \<filenames\>.
+
+The queued tickets are future/unstarted work, unrelated to this branch's PR. A branch's shippability is gated by the **Workspace Guard** (§3, uncommitted changes) and the **deployment-confirmation gate** (Ship Flow) — not by the todo queue. Do **not** issue an `AskUserQuestion` here, and do **not** move tickets to icebox. If the developer wants to clear the queue first, that is their call to make outside `/ship` (e.g. via `/drive`).
+
+## 5. Ship Flow
+
+Ship the current branch's PR. (Claim-worktree selection and teardown are not here; the `/ship` command resolves the branch, and `workaholic:drive` §6 owns the teardown.)
+
+**Merge is the LAST step, gated on a passing production confirmation.** Deploy and confirm happen from the work branch *before* the merge, so an unconfirmable change never reaches `main` — if confirmation fails, the branch simply isn't merged (that is the rollback). This order is the whole point of the deployment-confirmation gate; never merge first.
+
+1. **Pre-check**: Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/pre-check.sh "<branch>"`. If `found` is `false`: inform user "No PR found for this branch. Run `/report` first." and stop. If `merged` is `true`: the PR is already on `main` and this confirmation-before-merge flow cannot re-gate it — warn the user, then proceed only to deploy/confirm/release for the already-merged commit. Capture `pr_number` and `url`.
+2. **Catch up with `main`** (mandatory — before any deploy): Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/catchup-main.sh "<base-branch>"` so what you deploy equals what will merge, and apply the §2-5b version-collision guard. On `caught_up:false`, branch on `conflict_class`: **`mechanical`** — the agent reconciles it itself as routine ship hygiene (merge `origin/main`, resolve the version/lockstep manifests, re-bump the version past the collision, regenerate `outputs/`, re-run the pre-merge proof), no user prompt; **`content`** — halt and ask the user to resolve the conflict before continuing. Never present reconciliation itself as an optional choice.
+2b. **Branch-safety scan gate** (PRE-MERGE, blocks the merge exactly like the §1-4 gate — the branch staying open is the rollback). Scan the reconciled branch diff and map it to a decision:
+
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/release-scan/scripts/scan-branch-safety.sh | bash ${CLAUDE_PLUGIN_ROOT}/skills/release-scan/scripts/gate-decision.sh
+   ```
+
+   On `decision: "pass"`, proceed to Deploy. On `decision: "block"`, run the scan again on its own to get the `findings[]` (file:line + rule; secret values are redacted), present them, and act by severity:
+   - **`overridable: false`** (a `secret`/`hard` finding) — a **non-overridable hard block**: report the findings and **stop**. The developer must remove the credential from the diff and re-run; there is no bypass (parallel to a confirmation that ran and failed). NEVER offer a confirm-through that could leave a secret in the merged PR.
+   - **`overridable: true`** (only `size`/`leak` findings) — report the findings and ask the developer via `AskUserQuestion` (command level, §1-3) to either **fix the diff and re-run** (remove the bloat / the leaked term, or scope the `.workaholic/leak-denylist` entry for a false positive), or **accept the risk and override**. On override, record it as accepted-risk evidence so the decision stays auditable — `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/record-evidence.sh "<branch>" "release-scan" "override" "<findings overridden: rules + files>" "bypassed"` — then continue to Deploy. Re-run the scan after any fix.
+
+3. **Deploy** (gated on a confirmation method — see §1-4; this runs PRE-MERGE): Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/read-deployments.sh` and `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/find-claude-md.sh`.
+   - **No confirmation method** (`has_confirmation` is `false` AND `CLAUDE.md` has no `## Verify` section): **HALT — do not deploy, do not merge, do not skip.** Apply the §1-4 hard gate: ask the user (AskUserQuestion, at the command level) to provide a verification path / credentials, inspect production to establish one, author a `.workaholic/deployments/` entry, abort, or — deliberately — **merge without production confirmation** (the §1-4 accepted-risk bypass: record it via the step 5 bypass path, then proceed to merge). Aborting leaves `main` untouched. Resolve before proceeding.
+   - **Confirmation method exists**: first run the **capability check** (§2-3c) for the target's `confirmation_method`. If `capable` is `false`, print the `missing`/`hint` as a warning — the declared method cannot run in this ship environment (e.g. a `browser` confirmation in headless/CI) and will force the post-deploy halt; steer the user toward a headless-executable method (`api-probe`/`db-query`) or an interactive ship before deploying. This is advisory: it does not override the §1-4 gate. Then take the deploy procedure from the matching `.workaholic/deployments/` `## Procedure` (preferred) or `CLAUDE.md` `## Deploy`, display it, ask confirmation via AskUserQuestion (§1-3), and execute if confirmed. For a **deploy-on-merge** project (the deploy is triggered by the merge itself, e.g. a marketplace release published from the merge commit), the pre-merge "deploy + confirm" is the branch/staging-level proof the contract names (build/verify/test green, version correct); the merge then promotes to production and step 7 publishes/confirms the release. Capture the target's `confirmation_method` and `## Confirmation` (or `CLAUDE.md` `## Verify`) for step 4.
+4. **Confirm in production** (execute the confirmation method, PRE-MERGE): run the captured confirmation and capture its observed result. Branch on `confirmation_method`:
+   - `browser` — open the recorded `url` (browser tooling) and check the documented signal.
+   - `server-batch` — run the documented batch command (credentials supplied transiently, never persisted).
+   - `db-query` — run the documented query and compare against the expected result.
+   - `api-probe` — probe the recorded `endpoint`.
+   - `other` / `CLAUDE.md ## Verify` — follow the documented `## Confirmation` / `## Verify` steps.
+   **A confirmation that runs and returns a failing result is a failed ship — do NOT merge, and it is NOT bypassable.** Report it prominently, leave the PR open, and stop. The branch staying open is the rollback. (Distinct from *cannot execute the confirmation at all* — e.g. the §2-3c capability check flagged the method as unrunnable in this environment: that is a cannot-confirm case, which falls back to the §1-4 accepted-risk bypass option, not a force-merge.)
+5. **Record evidence and prepare merge artifacts** (PRE-MERGE): 
+   - Append the proof to the story: `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/record-evidence.sh "<branch>" "<target>" "<method>" "<non-secret result>" "pass"`.
+   - **Bypass path only** (the developer chose the §1-4 accepted-risk override instead of a confirmation): record the bypass rather than a pass — `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/record-evidence.sh "<branch>" "none" "none (accepted-risk bypass)" "<short note: production state unverified; merge-without-confirmation accepted by developer>" "bypassed"`. If it returns `no_story`, still surface the bypass in the PR body (next bullet) and the step-9 summary so the accepted-risk decision stays auditable. Then continue to merge.
+   - Generate the release note: run `workaholic:write-release-note` against `.workaholic/stories/<branch>.md`, passing the PR `url`. Write per its Output Location scheme.
+   - Commit the evidence-updated story and the release note to the branch so both ride into the merge: `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/commit-release-note.sh "<branch>"` (commit the story update alongside — the script commits only the note). **A failed push stops the ship here, pre-merge**: the script exits 1 with `fatal: "release_note_not_on_remote"` when the push fails or is rejected (only `no_remote` is soft), because nothing has landed yet and a merge without the note is precisely what this step exists to prevent. Resolve the named `push_error` cause, push, and re-run before proceeding to step 6.
+   - Update the PR body with the evidence so reviewers see the proof before merge: `bash ${CLAUDE_PLUGIN_ROOT}/skills/report/scripts/create-or-update.sh "<branch>" "<title>"`.
+6. **Merge PR** (LAST — only after a passing confirmation): Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/merge-pr.sh "<pr-number>" [<base-branch>]`. On failure, inform user and stop. Capture the merge `commit_hash`.
+
+   **Its exit status reflects the merge and only the merge**, because the merge is irreversible and the caller's first question is whether it happened. The post-merge base checkout is a reported **field**, not a gate: `checked_out` plus a `checkout_reason` of `base_checked_out_elsewhere` (the normal `/drive` case — the primary tree holds the base, so a linked claim worktree cannot check it out), `checkout_failed`, or `pull_failed`. **Ruling (2026-07-30): the checkout stays best-effort and is never load-bearing.** It used to be a bare `git checkout main`, which git refuses inside a claim worktree — so the script exited non-zero *after* PR #108 had merged, and the caller could not distinguish that from a failed merge. Report `checked_out: false` in the summary rather than treating it as an error.
+7. **Publish GitHub Release** (post-merge, gated on a successful merge): Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/publish-release.sh "<branch>" "<merge-commit>" "<tag>" "<notes-file>"`. The script first checks for an existing release-publishing GitHub Actions workflow and **defers** to it (`reason:"ci_publishes"`) — do nothing in that case, CI owns releases. Otherwise it creates the release (idempotent) targeting `merge-pr.sh`'s `commit_hash`. Derive `<tag>` from the project version (`.claude-plugin/marketplace.json` or the project's version file) when present, else the next semver after `gh release view`/the latest git tag; for an additional release on the same branch, suffix the tag to stay unique. `<notes-file>` is the note written in step 5. When CI is absent and a release will actually be created interactively, confirm via AskUserQuestion first. Report `published`/`reason` from the JSON.
+8. **Extract deferred concerns** (post-merge): Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/extract-deferred-concerns.sh "<branch>" "<pr-number>" "<pr-url>" [<base-branch>]`. **Pass the base explicitly and report the `destination` it comes back with.** Persists the just-merged story's Concerns section into the feedback stream as `kind: concern` records (`.workaholic/feedbacks/`), reading the committed **story file** — which carries every severity, including the `low` ones the PR body does not show. Commits the new files and **attempts** a push, so you normally end on `main` level with `origin/main`. Skips silently when no story file exists or the story has no Concerns section. Report the `extracted` count from the JSON output — **and `pushed`**. The push is best-effort by design (the PR has already merged, so a push failure is not worth aborting the ship over), which is exactly why its outcome must be read rather than assumed: on `pushed: false`, tell the developer that local `main` is ahead of `origin/main`, name the `push_error` cause (`rejected_non_fast_forward`, `no_upstream`, `network`, …), and say that a `git push` is outstanding. A silent no-op here is indistinguishable from success — it happened on PR #86 and left `main` two commits ahead unnoticed.
+
+   **`pushed` alone is not the whole answer: read `destination` too.** The open-concern set is computed from records on the **base**, so a record pushed anywhere else is invisible to `/report`'s judge and to `/propose`. This script used to commit and push on whatever branch it was standing on, assuming step 6 had checked the base out — and when that assumption broke inside a claim worktree, PR #108's four concerns went to the *already-merged claim branch* while the script truthfully reported `pushed: true`. The push had worked; the destination was wrong. It now takes the base explicitly and, when it is not already on it, extracts and publishes **through a publish tree** (`workaholic:branching`) — the same route a source uses to publish from any checkout, which also makes the dedup scan read the base's records rather than the branch's.
+9. **Summarize**: catch-up result, **branch-safety scan result** (pass, or the blocking findings — and, if the developer overrode a size/leak block, the recorded accepted-risk override), deployment status, **confirmation result** (method used and pass/fail, with the recorded evidence, the unresolved-gate outcome if ship halted, or — distinctly — **merged WITHOUT production confirmation (accepted-risk bypass)** with the recorded bypass evidence), PR merge status (number, URL — emphasizing it merged only after confirmation passed), release-note status, GitHub Release status (published/deferred), and deferred concern extraction count **with its `destination`** (a count without a destination does not say whether the records became visible), plus the merge's `checked_out`/`checkout_reason` when the base was not checked out.
+
+## 6. Release Promotion — the `release/*` staging tier
+
+**A separate, explicitly-invoked phase over the base. Never a step of §5.** (Decisions L1-L3, `docs/loop-engineering-workflow.md`.) §5 lands *one unit* on the base; promotion takes *the units already landed there* to production. Running it is a deliberate act — a developer, or a scheduled promotion routine. `/drive` does not call it, and cutting a release branch never happens as a side effect of shipping a unit: if it did, every `auto` unit would open a release window, which is exactly the per-unit behaviour change this tier is defined not to make.
+
+The tier is **one branch form and nothing else**: no `develop`, no `hotfix/*`, and the base stays the default and production branch. A unit still claims, drives, reports and merges into the base exactly as today, so there is still exactly one merge target for a unit.
+
+### 6-1. The flow
+
+1. **Cut the window.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/cut-release-branch.sh [base]` mints `release/YYYYMMDD-HHMMSS` at the base tip and pushes it. It carries no commits of its own and never checks itself out. On a refusal (`no_origin`, `origin_unreachable`, `base_unresolved`, `branch_collision`, `push_failed`) **stop**: nothing has changed and there is no window.
+2. **Hold it open for QA.** The window is the point of the tier: the batch is verified *together*, on a ref that will not move under it, before it is called a release. Nothing about the base is blocked meanwhile — later units keep merging there, and they simply belong to the next release.
+3. **Confirm it.** Run the target's `## Confirmation` from `.workaholic/deployments/` (or `CLAUDE.md`'s `## Verify`) against the release branch's tip, exactly as §5 step 4 runs it against a unit branch. **This is a second confirmation, not a re-run of the first**: the per-unit confirmation is proof about one branch before it lands; this is proof about a batch already on the base. It never defers or weakens the per-unit gate — inverting §5's evidence-before-merge rule is the one thing a promotion must not do.
+4. **Deploy/tag from the confirmed branch.** `publish-release.sh` already targets a commit, so the confirmed release branch's tip is simply what it targets: `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/publish-release.sh "<release-branch>" "<release tip sha>" "<tag>" "<notes-file>"`. It still defers to CI (`ci_publishes`) where a release workflow owns publishing — in a **deploy-on-merge** project the release is published from the merge commit on the base, and the release branch's role there is to be the recorded, confirmed identity of *what that release carried*, not a second publishing path.
+
+### 6-2. When confirmation fails
+
+**The release branch is not deleted.** It is the rollback boundary: the base is unaffected, because its units are already merged there and merging is what landed them — a failed promotion never un-lands anything. Record the failure (§6-3), leave the branch pushed as the durable evidence of what was tried, and cut a **fresh** release branch for the next attempt. Never re-point, force-push, or reuse a failed release branch: its identity is "the commits confirmed, or not, at that moment", and rewriting it destroys the only record of the attempt.
+
+### 6-3. Recording it
+
+Every promotion writes its durable ship record — which base commits the branch carries, when it was cut, when it was confirmed or failed — as a `.workaholic/releases/<release-branch>.md` artifact. This is **additive**: `.workaholic/release-notes/<branch>.md` and the story's `## Deployment Evidence` block keep exactly the shape they have today. Two scripts, one per half of the record, and **both run on the base with a clean tree** (a promotion is a batch-level act over the base, and the record belongs there — a record on the release branch would be invisible to everyone until that branch merged somewhere):
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/record-release-cut.sh "<release-branch>" [since-ref] [base]
+bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/confirm-release.sh "<release-branch>" "<method>" "<non-secret result>" "pass"|"fail" [tag] [base]
+```
+
+**`record-release-cut.sh`** runs immediately after §6-1 step 1 and writes the record: `type: Release`, the release branch, `cut_at`/`cut_sha`, the carried commit range with `carried_count`, and a pending confirmation. Everything is **derived from git at cut time** — the question is about the release, and re-deriving it later from per-unit notes would make it a view rather than a record. The previous boundary is resolved in four steps, most specific first, and the choice is recorded as `since_reason` so a reader can see how the range was picked: an explicit `since-ref` (`given`), else the newest prior `.workaholic/releases/` record whose `cut_sha` still resolves (`prior_release`), else the latest tag reachable from the cut (`latest_tag:<tag>`), else the whole history (`full_history` — a first release genuinely carries everything). It commits (`Record release cut`) and pushes. Refusals: `unknown_release_branch`, `not_on_base`, `dirty_workspace`, `already_recorded` (one record per release branch, never rewritten), `commit_failed`.
+
+**`confirm-release.sh`** runs after §6-1 step 3 and closes the other half: it sets the record's `status` to `confirmed`/`failed` with `confirmed_at`, `confirmation_method`, `confirmation_status` and `tag`, and **appends** a dated block to the body. Body entries are append-only — several attempts against one branch each leave their own — while the frontmatter carries the latest verdict, which is what a reader greps for. It applies the **same secret guard as `record-evidence.sh`, from the same shared rule source**, and refuses (`possible_secret`) rather than writing a credential into a version-controlled record. Refusals: `bad_status`, `no_record`, `not_on_base`, `dirty_workspace`, `commit_failed`.
+
+**Both halves are on the base, so `grep` and `git log` answer the question alone**: `grep -l 'status: confirmed' .workaholic/releases/*.md` finds the releases that reached production, each record names its `cut_sha` and range, and `git log <since_ref>..<cut_sha>` replays exactly what it carried. The range is **literal** — every base commit between the boundaries, this pipeline's own record and confirmation commits included — precisely so that replay works; a filter that hid bookkeeping would have to recognise it by subject, and the first wrong guess would cost the record the one property it has.
+
+**The record and the branch find each other by name, in both directions, and that is deliberate.** The record's `release_branch` names the branch; the branch's record is at `.workaholic/releases/<branch with `/` → `-`>.md`, derived from the name with no lookup. A pointer *on* the branch is impossible by construction — a release branch carries no commits of its own, which is what makes its range replayable — so a deterministic filename is the only both-ways link that costs nothing to keep true.
+
+### 6-4. No prompting
+
+Promotion issues **no `AskUserQuestion` anywhere**, like the rest of the unattended path. Every outcome is a reported JSON refusal or a recorded status; a decision the flow cannot make is a stop with its reason named, never a question.

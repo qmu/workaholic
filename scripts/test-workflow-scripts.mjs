@@ -9482,8 +9482,33 @@ function testPlanFloorCountsQueue() {
     assertEq("a driven mission has an empty todo but a non-empty total",
       { t: q.todo, a: q.archive, tot: q.total }, { t: 0, a: 1, tot: 1 });
     const after = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
-    assertEq("but the survey does not offer it — nothing left to drive",
-      (after.excluded.find((e) => e.id === "driven") || {}).reason, "no_tickets");
+    const afterOffered = after.missions.map((m) => m.slug);
+    const afterReason = (slug) => (after.excluded.find((e) => e.id === slug) || {}).reason;
+
+    // AN EMPTY QUEUE IS TWO OPPOSITE STATES. A drained mission is finished and waiting
+    // on a close decision; a sketch-only mission was never planned. Reporting both as
+    // `no_tickets` left four real missions -- 15 archived tickets, 4.66 recorded
+    // agent-hours -- reading as never-planned for four days across every hourly tick.
+    assertTrue("the survey does not offer a drained mission — nothing left to drive",
+      !afterOffered.includes("driven"), JSON.stringify(afterOffered));
+    assertEq("a drained mission is excluded as queue_drained, not no_tickets",
+      afterReason("driven"), "queue_drained");
+    assertEq("a never-planned mission is still no_tickets",
+      afterReason("sketch-only"), "no_tickets");
+    assertTrue("the two empty-queue states never collapse into one reason",
+      afterReason("driven") !== afterReason("sketch-only"));
+    assertEq("and neither is confused with no_plan", afterReason("empty"), "no_plan");
+
+    // The developer-facing roadmap carries the same distinction, because "decide the
+    // close" is a human action and list.sh is where a human looks.
+    const listed = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.missionList}`).stdout);
+    const row = (slug) => listed.find((m) => m.slug === slug) || {};
+    assertEq("the roadmap marks a drained mission queue_drained",
+      row("driven").ready_reason, "queue_drained");
+    assertEq("a never-planned mission keeps its own reason on the roadmap",
+      row("sketch-only").ready_reason, "");
+    assertEq("a 0/0 mission is still no_plan on the roadmap",
+      row("empty").ready_reason, "no_plan");
   } finally {
     for (const d of [origin, A]) rmSync(d, { recursive: true, force: true });
   }

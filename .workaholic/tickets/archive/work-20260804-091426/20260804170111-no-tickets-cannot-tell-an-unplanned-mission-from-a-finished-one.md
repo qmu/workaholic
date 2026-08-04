@@ -3,7 +3,7 @@ created_at: 2026-08-04T17:01:11+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 1h
 commit_hash:
 category: Changed
 depends_on:
@@ -102,3 +102,24 @@ The reason vocabulary was last amended by decision K1 (2026-07-31), which retire
 - **The reason word is not the whole fix, but it is the part a runner reads.** A drained mission still needs a human to judge whether it is `achieved`, `carried`, or `abandoned`, and that judgment is not automatable — the four closed on 2026-08-04 needed all 21 acceptance criteria checked against `main` by hand, and one of them turned out **not** to be achieved (`make-the-branch-story-concise-by-default`, whose stories measurably got longer). Automating the close would have recorded that one as done.
 - **Watch the interaction with the acceptance-link contract.** A mission can be drained *and* have unlinked acceptance items, which is exactly the state the four were in. `progress.sh` already reports `unlinked` — consider surfacing it alongside the new reason so the operator sees both halves at once rather than discovering the second after acting on the first.
 - Scope note: `no_plan` is untouched. A mission with no acceptance criteria is genuinely not ready regardless of its queue.
+
+## Final Report
+
+`queue_drained` added as a distinct `excluded[]` reason in `plan-units.sh`, plus the matching `ready_reason` in `list.sh` so the developer-facing roadmap carries it too.
+
+**Step 2 needed no work, which is worth recording.** The ticket proposed extending `queue-size.sh` to report both counts and preferred that over a second reader. It already reported `todo`, `archive` and `total` — the archive count has been there since the script was written for the drivability floors. So the distinguishing signal existed and was simply never read; the change is a verdict on counts already in hand. No new script, no second reader, and the rejected option (a separate archive lookup) never had to be weighed.
+
+**Neither state is claimable — only the reported reason differs.** A drained mission has nothing to drive, and the close is a human judgment. That is not a hedge: of the four missions closed on 2026-08-04, one (`make-the-branch-story-concise-by-default`) turned out **not** to be achieved — its stories measurably got longer — so an automated close would have recorded it wrongly. The comment in `plan-units.sh` carries that instance.
+
+### Verification
+
+- `node scripts/test-workflow-scripts.mjs` — **2106 passed, 3 failed**, against a **3-failure environmental baseline** (this sandbox's git remote is a local proxy, so three tests expecting a `github.com` URL fail; they fail on `main` too). Six new assertions: drained → `queue_drained`, never-planned → `no_tickets`, the two never collapse, neither is confused with `no_plan`, and both halves again on the roadmap.
+- `build.mjs` / `verify.mjs` / `validate-metadata.mjs` clean, `layout-doctor.sh .` conforming, branch-safety scan **pass**.
+- **The live check is partial, and here is exactly how.** The ticket asks for a live run against a repo with a drained mission. There is no longer one: the four it measured were all closed on 2026-08-04, before this ticket was driven. What the live run *does* prove is the other half — `make-the-branch-story-measurably-shorter`, a carried successor that never had a ticket, still reports `no_tickets`. That is the discriminating case: the change did not simply relabel every empty queue. The drained side is covered hermetically.
+
+### Discovered Insights
+
+- **Insight**: The signal this defect needed had been in `queue-size.sh` from the start; what was missing was a consumer reading it.
+  **Context**: The script's own header explains that two consumers ask different questions and *both numbers are therefore reported* — and then `plan-units.sh` read only `todo`. When a reader deliberately publishes more than its current caller needs, check what the extra field would answer before adding a lookup.
+- **Insight**: The defect survived four days because two independent failures agreed on a wrong story.
+  **Context**: Every affected mission also had zero linked acceptance items, so the board showed `0/N` (reads as *no work done*) while the survey said `no_tickets` (reads as *no plan*). Neither signal was individually suspicious. Two consistent-but-wrong indicators are harder to notice than one contradiction — worth remembering when a state "looks explainable".

@@ -9,6 +9,7 @@ category:
 depends_on:
 mission:
 merge_policy:
+claim: work-20260804-195257
 ---
 
 # Normalize SSH and HTTPS remote URLs in routine matching

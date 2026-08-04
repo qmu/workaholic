@@ -9,6 +9,7 @@ category:
 depends_on:
 mission:
 feedback: [20260802140323-throttle-repeat-drive-blocked-notifications-for-the-same-unresolved-condition.md]
+claim: work-20260804-113101
 ---
 
 # Throttle repeat drive-blocked alerts for the same unresolved condition

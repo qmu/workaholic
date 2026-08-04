@@ -118,13 +118,13 @@ Once tickets are queued, `/drive` groups them into PR-units, claims each on its 
 
 Everything converges on the same unit of work — a ticket. The shorthand: **sources fill the queue, one executor drains it.**
 
-- **Sources** write tickets into `todo/`: `/ticket` (you, with discovery) and `/mission` (a whole ordered ticket set emitted at once, plus delta tickets on replan). Both publish onto a `work-*` branch behind a pull request from whatever branch you are on, leaving your checkout untouched and creating no worktree; the artifact reaches `main` — and therefore the queue `/drive` surveys — when that pull request merges. `/propose` sits upstream of both, turning newly merged feedback into a mission with its whole ticket set, or a single loose ticket when the work is atomic, behind a pull request of its own.
+- **Sources** write tickets into `todo/`: `/ticket` (you, with discovery) and `/mission` (a whole ordered ticket set emitted at once, plus delta tickets on replan). Both publish onto a `work-*` branch behind a pull request from whatever branch you are on, leaving your checkout untouched and creating no worktree; the artifact reaches `main` — and therefore the queue `/drive` surveys — when that pull request merges. `/propose` sits upstream of both, turning a reported ask — in the session that received it — into a mission with its whole ticket set, or a single loose ticket when the work is atomic, behind the same pull request that carries the feedback record.
 - **The executor** drains `todo/ → archive/`: **`/drive`**, and there is exactly one of it. It takes work in PR-units, drives each in its own claim worktree, opens the PR, and routes it by merge policy — the same run whether you typed it or a cron tick did. Approval is not asked per ticket; it was already given where the work was decided — a human merged the pull request that published the mission or ticket, and the `merge_policy` recorded on it at creation decides whether its units may merge unattended — and the qualitative review relocates to the PR.
 
 **Where the design conversation went.** Until 2026-07-28 this section described `/trip`, an Agent Teams session in which a Planner, an Architect, and a Constructor designed a concept together, decomposed it into tickets, and drove them. That command, along with `/monitor` (parallel mission execution) and `/carry` (handing in-progress work to a fresh session), has been retired and its ideas absorbed:
 
 - **Design discussion** is now the **feedback stream** — `/fb` records each conclusion, instruction, concern, or piece of customer material as an immutable entry that later planning reads.
-- **Decomposition** is `/mission` (interrogate a goal into its whole ticket set) and `/propose` (read merged feedback, propose a mission with its ticket set — or one loose ticket — behind a pull request).
+- **Decomposition** is `/mission` (interrogate a goal into its whole ticket set) and `/propose` (judge the ask in hand, and propose a mission with its ticket set — or one loose ticket — in the same pull request as its feedback record).
 - **Execution — including parallel, unattended, many-mission execution — is `/drive`.** What `/monitor` did across mission worktrees, `/drive` now does as its normal survey-and-claim behavior, coordinated through the claim branches instead of a dispatcher.
 - **Handing off in-flight work** needs no command: the work lives on a pushed claim branch by construction, so the next run re-claims the unit (`claim.sh resume <unit-id>`, once the claim's heartbeat lapses and only for its own identity) and continues from the branch tip. A run that knowingly leaves a unit unfinished says so in the PR body's `## Handoff` section. What a hand-off used to capture in prose — the learnings, the deferred concerns — is written at the ship seam as `kind: concern` / `kind: insight` feedback records.
 
@@ -258,7 +258,7 @@ Parallelism is not a separate command: `/drive`'s survey picks up every claimabl
 
 #### Use case 3 — Feedback-driven: `/fb` → `/propose` → `/mission` → `/drive`
 
-When the work starts as something someone said rather than something you already scoped, the front door is the feedback stream. `/fb` records the conclusion, instruction, concern, or customer material as an immutable entry; `/propose` reads what merged to main since its cursor and either stays silent or proposes — a mission with its whole ticket set when the direction decomposes, one loose ticket when it is atomic — behind a pull request carrying `feedback:` traceability; you merge the proposals worth doing, and that merge is the approval; `/drive` executes them. This is the loop that replaced the retired `/trip` design session — the conversation lives in records rather than in an agent team.
+When the work starts as something someone said rather than something you already scoped, the front door is the feedback stream. `/fb` records the conclusion, instruction, concern, or customer material as an immutable entry; `/propose` judges an ask **in the session that received it** and opens one pull request carrying the record together with what it warrants — a mission with its whole ticket set when the direction decomposes, one loose ticket when it is atomic, or the record alone when it is neither — all `feedback:`-linked; you merge what is worth doing, and that merge approves record and proposal at once; `/drive` executes them. This is the loop that replaced the retired `/trip` design session — the conversation lives in records rather than in an agent team.
 
 ```mermaid
 flowchart LR
@@ -267,12 +267,12 @@ flowchart LR
   drive(["/drive"])
 
   FBK["feedbacks/<br/>immutable records"]
-  PROP["work-* branch + PR<br/>mission + ticket set, or one ticket"]
+  PROP["work-* branch + PR<br/>record + mission and ticket set,<br/>or one ticket, or the record alone"]
   ACTIVE["on main<br/>missions/active/ + tickets/todo/"]
 
   feedback ==>|writes one record| FBK
-  FBK -.->|newly merged since cursor| propose
-  propose ==>|publishes, feedback-linked| PROP
+  FBK -.->|the ask, in hand| propose
+  propose ==>|publishes both in one commit| PROP
   PROP ==>|the human ruling: merging the PR| ACTIVE
   ACTIVE -.->|surveyed as claimable| drive
 
@@ -284,7 +284,7 @@ flowchart LR
   class FBK art;
 ```
 
-`/propose` runs headless every 15 minutes as a scheduled cloud routine and is allowed to say nothing — silence is a valid outcome, and the cursor advances either way. The human ruling stays exactly where it belongs: merging the proposal's pull request, and the `merge_policy` recorded on what that PR publishes.
+`/propose` runs unattended inside the `[Propose]` routine's session, on the reported ask rather than on a clock, and is allowed to propose nothing — record-only is a valid outcome, and one it has to justify rather than fall into. The human ruling stays exactly where it belongs: merging that pull request, and the `merge_policy` recorded on what it publishes.
 
 <details>
 <summary><strong>The full map</strong> — every command and every artifact in one graph</summary>

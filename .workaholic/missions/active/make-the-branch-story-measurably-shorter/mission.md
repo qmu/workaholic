@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.5
 tickets: []
 stories: []
 gate_type: 
@@ -59,3 +59,4 @@ the same assumption.
 - 2026-08-04 — ticket archived — 20260804201653-measure-which-story-sections-carry-the-growth.md
 - 2026-08-04 — ticket archived — 20260804201653-fix-the-measured-cause-and-verify-a-shorter-story.md
 - 2026-08-04 — story reported — work-20260804-202056.md
+- 2026-08-04 — run recorded (+0.5h) — 20260804-202056

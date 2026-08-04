@@ -10,7 +10,8 @@
 #    "user_slug": "<the surveyed developer's queue slug, "" when unresolvable>",
 #    "backlog_error": "<reason, "" when the queue was read>",
 #    "claimed": [{"unit", "branch", "stale", "resumable", "resume_reason"}],
-#    "resumable": [{"unit", "branch", "author", "last_commit_at", "stale", "artifacts"}],
+#    "resumable": [{"unit", "branch", "author", "last_commit_at", "stale",
+#                   "resume_reason", "artifacts"}],
 #    "missions": [{"slug", "title", "merge_policy", "checked", "total", "next", "path"}],
 #    "backlog":  [{"path", "title", "type", "layer", "merge_policy", "depends_on"}],
 #    "excluded": [{"kind": "mission"|"ticket", "id": "...", "reason": "..."}]}
@@ -221,7 +222,7 @@ if [ -n "$ROWS" ]; then
                 a_sep=", "
             done
             IFS="$old_ifs"
-            RESUMABLE="${RESUMABLE}${r_sep}{\"unit\": \"${c_unit}\", \"branch\": \"${c_branch}\", \"author\": \"$(json_escape "$c_author")\", \"last_commit_at\": \"${c_at}\", \"stale\": ${c_stale}, \"artifacts\": [${r_arts}]}"
+            RESUMABLE="${RESUMABLE}${r_sep}{\"unit\": \"${c_unit}\", \"branch\": \"${c_branch}\", \"author\": \"$(json_escape "$c_author")\", \"last_commit_at\": \"${c_at}\", \"stale\": ${c_stale}, \"resume_reason\": \"${c_reason}\", \"artifacts\": [${r_arts}]}"
             r_sep=", "
         fi
     done <<EOF

@@ -2,7 +2,7 @@
 type: Mission
 title: Make the per-commit changed-lines ceiling a rule that holds
 slug: make-the-per-commit-changed-lines-ceiling-a-rule-that-holds
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-07-30T10:19:42+00:00
 author: noreply@anthropic.com
@@ -81,18 +81,18 @@ means something again.
 
 PROPOSED sketch for discussion — not a plan. `/mission approve` replans this to drive-ready.
 
-- [ ] The chosen semantics for `too-large-commit` are decided and the reason is recorded in the
-      scan's `lib/`, not only in a commit message
-- [ ] `scan-branch-safety.sh` implements the chosen semantics
-- [ ] Re-scanning [fa8033d3](https://github.com/qmu/workaholic/commit/fa8033d3) (spec batch) and
+- [x] The chosen semantics for `too-large-commit` are decided and the reason is recorded in the
+      scan's `lib/`, not only in a commit message (#20260801185101-decide-what-too-large-commit-counts.md)
+- [x] `scan-branch-safety.sh` implements the chosen semantics (#20260801185102-implement-the-chosen-commit-size-semantics.md)
+- [x] Re-scanning [fa8033d3](https://github.com/qmu/workaholic/commit/fa8033d3) (spec batch) and
       [044a3f8b](https://github.com/qmu/workaholic/commit/044a3f8b) (pure relocation) yields no
-      `too-large-commit` finding
-- [ ] Re-scanning [1179d916](https://github.com/qmu/workaholic/commit/1179d916) (implementation,
-      772 lines) still yields one
-- [ ] `release-scan/SKILL.md` and `CLAUDE.md`'s release-safety paragraph describe the rule as
-      implemented
-- [ ] `node scripts/test-workflow-scripts.mjs` covers the new semantics hermetically
-- [ ] `node scripts/build-plugins/build.mjs` rebuilt and `outputs/` committed in the same change
+      `too-large-commit` finding (#20260801185102-implement-the-chosen-commit-size-semantics.md)
+- [x] Re-scanning [1179d916](https://github.com/qmu/workaholic/commit/1179d916) (implementation,
+      772 lines) still yields one (#20260801185102-implement-the-chosen-commit-size-semantics.md)
+- [x] `release-scan/SKILL.md` and `CLAUDE.md`'s release-safety paragraph describe the rule as
+      implemented (#20260801185102-implement-the-chosen-commit-size-semantics.md)
+- [x] `node scripts/test-workflow-scripts.mjs` covers the new semantics hermetically (#20260801185102-implement-the-chosen-commit-size-semantics.md)
+- [x] `node scripts/build-plugins/build.mjs` rebuilt and `outputs/` committed in the same change (#20260801185102-implement-the-chosen-commit-size-semantics.md)
 
 ## Changelog
 
@@ -102,3 +102,4 @@ PROPOSED sketch for discussion — not a plan. `/mission approve` replans this t
 - 2026-08-01 — run recorded (+3h) — 20260801-210440
 - 2026-08-04 — concern deferred (stuck) — 20260804125252-a-delete-only-commit-of-any.md
 - 2026-08-04 — concern deferred (stuck) — 20260804125252-workaholic-prose-is-exempted-by-path.md
+- 2026-08-04 — mission achieved — mission.md

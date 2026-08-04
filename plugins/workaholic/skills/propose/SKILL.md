@@ -39,6 +39,7 @@ Whether the surveyed state warrants a proposal is a **model judgment with a cons
 
 - Propose only when a record contains **actionable direction warranting a bounded batch of tickets** — typically `kind: instruction` ("build/change X") or a substantial `insight` that names concrete work. One mission may draw on several records; several independent directions may become several missions.
 - A lone `kind: concern`, a `material`/`answer` record, or a purely informational note is **not** a trigger — concerns feed later replans and planning sessions, not fresh proposals.
+- **This bar depends on the capture rule, and does not compensate for it.** `kind` is decided where the context exists (`workaholic:feedback`, *Choosing the kind*: an ask is an `instruction`; a `concern` is a worry with no ask attached). An ask filed as a `concern` will be judged to silence here, and that is correct behaviour on a wrong input — the fix is a **new record with the right `kind` naming the old one in `supersedes`**, never a bar loose enough to read concerns, which would reopen the false-positive channel this asymmetry exists to close.
 
 **Missions, the queue, and commits are *constraints*, never triggers.** They can only shrink a proposal or veto it — never license one on their own. This asymmetry is the whole reason widening the inputs does not widen the output:
 

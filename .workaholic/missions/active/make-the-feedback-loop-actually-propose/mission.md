@@ -55,3 +55,4 @@ see the queue".
      One line per event ("- YYYY-MM-DD — event — filename"); never rewrite past lines. -->
 - 2026-08-04 — ticket archived — 20260804200555-move-the-proposal-cursor-to-a-shared-pushed-ref.md
 - 2026-08-04 — ticket archived — 20260804200555-give-the-proposal-batch-a-routine-seat-and-retire-the-cron-premise.md
+- 2026-08-04 — ticket archived — 20260804200555-record-work-requests-as-instructions-at-the-fb-capture-seam.md

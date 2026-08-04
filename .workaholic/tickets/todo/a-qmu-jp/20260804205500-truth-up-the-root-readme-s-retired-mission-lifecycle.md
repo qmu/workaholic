@@ -9,6 +9,7 @@ category: Changed
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260804-212445
 ---
 
 # Truth up the root README's mission lifecycle, which still documents the retired draft gate

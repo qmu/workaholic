@@ -43,10 +43,11 @@ act, and nothing anywhere waits on a cron tick to notice feedback.
 ## Acceptance
 
 - [x] One capture session can emit, in one PR, the feedback record together with its proposed mission/tickets or loose ticket, with record-only as the judged fallback (#20260804221347-judge-and-propose-inside-the-capture-session.md)
-- [ ] The [Propose Batch] template, the pushed cursor ref machinery, and the merged-main window are gone, and every document tells the new truth (#20260804221347-retire-the-batch-seat-and-the-merged-main-window.md)
+- [x] The [Propose Batch] template, the pushed cursor ref machinery, and the merged-main window are gone, and every document tells the new truth (#20260804221347-retire-the-batch-seat-and-the-merged-main-window.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline relating this mission's tickets and reports over time.
      One line per event ("- YYYY-MM-DD — event — filename"); never rewrite past lines. -->
 - 2026-08-04 — ticket archived — 20260804221347-judge-and-propose-inside-the-capture-session.md
+- 2026-08-04 — ticket archived — 20260804221347-retire-the-batch-seat-and-the-merged-main-window.md

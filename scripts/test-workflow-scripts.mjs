@@ -105,8 +105,6 @@ const SCRIPTS = {
   recordRunHours: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/record-run-hours.sh"),
   nextAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/next-acceptance.sh"),
   feedbackCreate: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/create.sh"),
-  proposeCursor: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/cursor.sh"),
-  proposeNewFeedback: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/new-feedback.sh"),
   proposeReadFeedbackRelation: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/read-feedback-relation.sh"),
   proposeListRefs: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/list-proposed-refs.sh"),
   proposeScaffoldDraft: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/scaffold-draft.sh"),
@@ -7996,13 +7994,14 @@ function testFeedback() {
   } finally { cleanup(dir); }
 }
 
-// ---------- propose skill: cursor / window / dedup / draft scaffold ----------
-// The proposal batch's mechanics (docs/loop-engineering-workflow.md C2-C4, B1):
-// the cursor's safe cold start, the exact added-records window, the
-// mission->feedback dedup set, and the unowned/unauthorized draft scaffold.
-// This repo has NO origin, so it also pins the cursor's degraded shape: a reader
-// with nowhere to fetch from says `fetched: false` rather than pretending.
-// The shared-ref behaviour itself is testProposeCursorRef, which needs two clones.
+// ---------- propose skill: dedup set / draft scaffold ----------
+// The proposer's mechanics (docs/loop-engineering-workflow.md C2-C4, B1): the
+// artifact->feedback dedup set, and the unowned draft scaffold.
+//
+// The cursor and the merged-main window that this test also covered are GONE
+// (2026-08-04 ruling): proposing happens in the session that receives the ask, so
+// there is no window to advance a cursor over. What survives is everything the
+// capture seam still needs — which is exactly what remains below.
 function testProposeBatch() {
   const dir = makeRepo("main");
   try {
@@ -8011,39 +8010,13 @@ function testProposeBatch() {
       wk(`.workaholic/feedbacks/${name}`,
         `---\ntype: Feedback\ntitle: ${name}\nkind: ${kind}\nsource: slack\ncreated_at: 2026-07-28T00:00:00+09:00\nauthor: test@example.com\nsupersedes:\n---\n\n# ${name}\n\nbody\n`);
 
-    // Cold start: no cursor -> bootstrap to the tip, initialized: true; pre-existing
-    // feedback is already-seen.
-    fb("20260728000001-old-note.md", "insight");
-    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
-    let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeCursor} read`).stdout);
-    assertEq("cursor bootstraps to the current tip", r.initialized, true);
-    const c0 = r.commit;
-    assertEq("a bootstrapped cursor reads back stable", JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeCursor} read`).stdout), { commit: c0, initialized: false, fetched: false });
-    assertEq("pre-existing feedback is already-seen (empty window)",
-      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeNewFeedback} ${c0}`).stdout), []);
-    assertTrue("the cursor writes no file into the repository",
-      !existsSync(join(dir, ".workaholic/proposal-cursor")), "the legacy cursor file was recreated");
-    assertTrue("and leaves the checkout clean",
-      execSync(`git status --porcelain`, { cwd: dir, encoding: "utf8" }).trim() === "", "cursor dirtied the tree");
-
-    // New records after the cursor appear in the window; index.md never does.
     fb("20260728000002-build-x.md", "instruction");
     fb("20260728000003-note.md", "insight");
     wk(".workaholic/feedbacks/index.md", "# feedbacks\n");
-    execSync(`git add -A && git commit -q -m more`, { cwd: dir });
-    const win = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeNewFeedback} ${c0}`).stdout);
-    assertEq("the window lists exactly the records added since the cursor",
-      win.map((w) => w.path).sort(),
-      [".workaholic/feedbacks/20260728000002-build-x.md", ".workaholic/feedbacks/20260728000003-note.md"]);
-    assertEq("the window carries the frontmatter summary", win[0].kind, "instruction");
+    execSync(`git add -A && git commit -q -m seed`, { cwd: dir });
 
-    // advance refuses garbage, accepts a commit.
-    assertTrue("advance refuses a non-commit", run(dir, `${POSIX_SH} ${SCRIPTS.proposeCursor} advance nonsense`).status !== 0);
-    const tip = execSync(`git rev-parse HEAD`, { cwd: dir, encoding: "utf8" }).trim();
-    assertEq("advance accepts the tip", JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeCursor} advance ${tip}`).stdout).advanced, true);
-
-    // Draft scaffold: unowned, unauthorized, draft status in active/, feedback refs.
-    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeScaffoldDraft} "Build X" 20260728000002-build-x.md 20260728000003-note.md`).stdout);
+    // Draft scaffold: unowned, no recorded merge policy, active area, feedback refs.
+    let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposeScaffoldDraft} "Build X" 20260728000002-build-x.md 20260728000003-note.md`).stdout);
     assertEq("scaffold-draft creates the draft", r.created, true);
     const dpath = join(dir, ".workaholic/missions/active/build-x/mission.md");
     assertTrue("the draft lands in the active area", existsSync(dpath));
@@ -8071,111 +8044,6 @@ function testProposeBatch() {
       { status: d.status, ready: d.ready, reason: d.ready_reason }, { status: "active", ready: false, reason: "no_plan" });
     assertEq("a proposal is unowned (relation unassigned)", d.relation, "unassigned");
   } finally { cleanup(dir); }
-}
-
-// ---------- the proposal cursor as a shared pushed ref ----------
-// The cursor used to be a git-ignored runner-local FILE, on decision C1's premise
-// that one long-lived server runs the batch. The deployment falsified it: the
-// routine starts a fresh container every tick, so the file never existed there,
-// every read bootstrapped, and the batch reported "initialized" and stopped —
-// permanently, while reading as healthy. The fix stores it the way the claim
-// protocol stores claims: `refs/workaholic/proposal-cursor` on origin, pushed.
-//
-// So what must be proven is not the JSON of one invocation but that TWO
-// INDEPENDENT CLONES share one cursor — the second never cold-starts, and two
-// racing advances are settled by push rather than by a clock. Hermetic: a bare
-// origin, no network, no GitHub.
-function testProposeCursorRef() {
-  const CFG = `git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`;
-  const REF = "refs/workaholic/proposal-cursor";
-  const origin = mkdtempSync(join(tmpdir(), "wh-cursor-origin-"));
-  const seed = mkdtempSync(join(tmpdir(), "wh-cursor-seed-"));
-  const made = [origin, seed];
-  const mkClone = () => {
-    const c = mkdtempSync(join(tmpdir(), "wh-cursor-clone-"));
-    made.push(c);
-    execSync(`git clone -q ${origin} .`, { cwd: c });
-    execSync(CFG, { cwd: c });
-    return c;
-  };
-  try {
-    execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
-    execSync(`git clone -q ${origin} .`, { cwd: seed });
-    execSync(CFG, { cwd: seed });
-    const land = (n) => {
-      writeFileSync(join(seed, `f${n}`), `${n}\n`);
-      execSync(`git add -A && git commit -q -m c${n} && git push -q origin main`, { cwd: seed });
-      return execSync(`git rev-parse HEAD`, { cwd: seed, encoding: "utf8" }).trim();
-    };
-    const c1 = land(1);
-    land(2);
-    const c3 = land(3);
-    const cursor = (cwd, args) => run(cwd, `${POSIX_SH} ${SCRIPTS.proposeCursor} ${args}`);
-    const remoteRef = (cwd) =>
-      execSync(`git ls-remote origin ${REF}`, { cwd, encoding: "utf8" }).trim().split(/\s+/)[0] || "";
-
-    const A = mkClone();
-    const B = mkClone();
-
-    // Bootstrap is once per REPOSITORY: it creates the ref AND pushes it.
-    const boot = JSON.parse(cursor(A, "read").stdout);
-    assertEq("the first read bootstraps the cursor to origin/main's tip",
-      { commit: boot.commit, initialized: boot.initialized }, { commit: c3, initialized: true });
-    assertEq("and publishes it as a shared ref", { pushed: boot.pushed, fetched: boot.fetched }, { pushed: true, fetched: true });
-    assertEq("the ref is readable from origin by anyone", remoteRef(A), c3);
-    assertTrue("the cursor writes no file into the repository",
-      !existsSync(join(A, ".workaholic/proposal-cursor")), "a cursor file was written");
-    assertEq("and the checkout stays clean", execSync(`git status --porcelain`, { cwd: A, encoding: "utf8" }).trim(), "");
-
-    // The failure this replaces: a second fresh clone (the cloud container) must
-    // read the cursor, never bootstrap over it.
-    const second = JSON.parse(cursor(B, "read").stdout);
-    assertEq("a second fresh clone reads the shared cursor without cold-starting",
-      { commit: second.commit, initialized: second.initialized, fetched: second.fetched },
-      { commit: c3, initialized: false, fetched: true });
-
-    // Advance publishes, and the other clone sees it.
-    const c4 = land(4);
-    execSync(`git fetch -q origin`, { cwd: A });
-    assertEq("advance pushes the new value",
-      JSON.parse(cursor(A, `advance ${c4}`).stdout), { advanced: true, commit: c4 });
-    assertEq("the shared ref carries it for every runner", remoteRef(B), c4);
-
-    // B still holds what it READ, so its lease is stale: the race is settled by
-    // push, never by comparing clocks, and the loser takes nothing.
-    const c5 = land(5);
-    execSync(`git fetch -q origin`, { cwd: B });
-    const raced = cursor(B, `advance ${c5}`);
-    assertEq("a lost race is a reported no-op, not a failure", raced.status, 0);
-    assertEq("the loser names the race and the winner's value",
-      JSON.parse(raced.stdout), { advanced: false, reason: "raced", commit: c4 });
-    assertEq("and the cursor is never rewound past the winner", remoteRef(B), c4);
-
-    // The reader degrades, the writer is loud — the claim protocol's asymmetry.
-    execSync(`git remote set-url origin ${origin}-gone`, { cwd: B });
-    const offline = JSON.parse(cursor(B, "read").stdout);
-    assertEq("an unreachable origin degrades the read to the last-known value",
-      { commit: offline.commit, initialized: offline.initialized, fetched: offline.fetched },
-      { commit: c4, initialized: false, fetched: false });
-    const offAdvance = cursor(B, `advance ${c5}`);
-    assertEq("but an advance nobody can see fails loudly", offAdvance.status, 1);
-    assertEq("naming the push failure", JSON.parse(offAdvance.stdout).reason, "push_failed");
-
-    // Living migration: a surviving runner-local file seeds the ref, then goes.
-    execSync(`git update-ref -d ${REF}`, { cwd: origin });
-    const C = mkClone();
-    mkdirSync(join(C, ".workaholic"), { recursive: true });
-    writeFileSync(join(C, ".workaholic/proposal-cursor"), `${c1}\n`);
-    const migrated = JSON.parse(cursor(C, "read").stdout);
-    assertEq("a legacy cursor file seeds the shared ref rather than being discarded",
-      { commit: migrated.commit, initialized: migrated.initialized, pushed: migrated.pushed },
-      { commit: c1, initialized: true, pushed: true });
-    assertTrue("and is removed once the ref holds the value",
-      !existsSync(join(C, ".workaholic/proposal-cursor")), "the legacy file survived the fold");
-    assertEq("so every later runner reads the folded value", remoteRef(C), c1);
-  } finally {
-    for (const d of made) cleanup(d);
-  }
 }
 
 // ---------- propose/notify-slack.sh (env-driven, never load-bearing, secret-safe) ----------
@@ -10935,8 +10803,7 @@ const tests = [
   ["hooks/git/commit-msg", testCommitMsgHook],
   ["hooks/install-git-hooks.sh", testInstallGitHooks],
   ["feedback/create.sh + list.sh + hooks/validate-feedback.sh", testFeedback],
-  ["propose: cursor/window/dedup/draft scaffold", testProposeBatch],
-  ["propose: the cursor is a shared pushed ref", testProposeCursorRef],
+  ["propose: dedup set and draft scaffold", testProposeBatch],
   ["propose/notify-slack.sh", testNotifySlack],
   ["drive claim protocol: two clones, one unit", testClaimProtocol],
   ["drive claim protocol: a claim survives its tickets being archived", testClaimSurvivesArchive],
@@ -11628,14 +11495,15 @@ function testWorkaholifyRoutines() {
   const WH = "https://github.com/qmu/workaholic";
   try {
     const tpl = JSON.parse(run(dir, LIST).stdout);
-    assertEq("the plugin ships four routine templates", tpl.count, 4);
-    assertEq("and they are the four live patterns",
-      tpl.templates.map((t) => t.id).sort(), ["drive", "fb", "merged-pr", "propose"]);
-    // The template set is discovered by scanning the routines dir, so a new template is
-    // surveyed, rendered and drift-checked the moment its file exists -- nothing enumerates
-    // the ids in code, which is why adding `propose` needed no script change.
-    assertEq("the two scheduled templates carry their own cadence",
-      tpl.templates.filter((t) => t.trigger === "cron").map((t) => t.cron_expression), ["56 * * * *", "*/15 * * * *"]);
+    assertEq("the plugin ships three routine templates", tpl.count, 3);
+    assertEq("and they are the three live patterns",
+      tpl.templates.map((t) => t.id).sort(), ["drive", "fb", "merged-pr"]);
+    // The template set is discovered by scanning the routines dir, so a template is
+    // surveyed, rendered and drift-checked the moment its file exists -- and leaves the
+    // set the moment it does not. Nothing enumerates the ids in code, which is why both
+    // adding `propose` and retiring it again needed no script change.
+    assertEq("the one scheduled template carries its own cadence",
+      tpl.templates.filter((t) => t.trigger === "cron").map((t) => t.cron_expression), ["56 * * * *"]);
 
     // ---- the three substitutions, each demanded by a real prompt ----
     const drive = JSON.parse(run(dir, `${RENDER} drive ${WH}`).stdout);
@@ -11687,7 +11555,7 @@ function testWorkaholifyRoutines() {
     assertEq("an unset model is named as the field that drifted",
       cmp.this_repo.present.find((x) => x.id === "merged-pr").drift, ["model (unset != claude-opus-5)"]);
     assertEq("a template with no live routine is reported missing",
-      cmp.this_repo.missing.map((m) => m.id), ["fb", "propose"]);
+      cmp.this_repo.missing.map((m) => m.id), ["fb"]);
     // `unknown` is information, never a deletion proposal -- the API has no delete at all.
     assertEq("an untemplated routine is listed as unknown", cmp.this_repo.unknown.length, 1);
     assertEq("and it is the one-off", cmp.this_repo.unknown[0].trigger_id, "trig_oneoff");
@@ -11896,11 +11764,10 @@ function testRoutineAnnouncementScoping() {
   // old wording verbatim, so checking the whole file flags the explanation as the bug.
   const prompt = (f) => { const b = read(f); const i = b.indexOf("## Prompt"); return i < 0 ? b : b.slice(i); };
   const merged = prompt("merged-pr.md"), fb = prompt("fb.md"), drive = prompt("drive.md");
-  const propose = prompt("propose.md");
 
   // The subject must be identified. "about the pull request" with no antecedent is the
   // exact wording that produced the duplicates.
-  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive], ["propose", propose]]) {
+  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive]]) {
     assertTrue(`${name} never says "about the pull request" without saying which`,
       !/about the pull request\b(?![^\n]*(this session|you just|THIS session))/i.test(body),
       body.slice(0, 400));
@@ -11928,20 +11795,19 @@ function testRoutineAnnouncementScoping() {
     /only the pull request THIS session just opened/i.test(drive), "drive scoping missing");
   assertTrue("drive forbids reporting activity it did not produce",
     /did not itself produce/i.test(drive), "drive hard rule missing");
-  assertTrue("propose announces only the PR this session opened",
-    /only for a PR this session itself created/i.test(propose), "propose scoping missing");
-  // Its OTHER outcome is silence, and silence must not be announced: on a 15-minute tick a
-  // routine that posts "nothing to propose" is 96 posts a day saying nothing happened.
-  assertTrue("propose posts nothing when it proposes nothing",
-    /Post nothing to Slack for any of them/i.test(propose), "silence rule missing");
-  assertTrue("and it never merges what it proposed",
-    /Never merge anything/i.test(propose), "propose merge prohibition missing");
+  // `fb` IS the propose entrance since the batch template was retired (2026-08-04), and its
+  // one postable event is the pull request it just opened — which is why the two clauses
+  // the retired [Propose Batch] template carried are asserted here instead.
+  assertTrue("fb posts nothing when it opened no pull request",
+    /post nothing if you created none/i.test(fb), "post-nothing rule missing");
+  assertTrue("and it never opens a second pull request for the proposal",
+    /Never open a second pull request/i.test(fb), "one-PR rule missing");
 
   // NO "Attention" BLOCK IN ANY ANNOUNCEMENT (developer's ruling, 2026-08-01). The
   // conditional concern block is gone from both the PR-opened and PR-merged formats; a
   // notification carries the fact, and concerns live in the story and the feedback stream
   // where they are read deliberately rather than skimmed in a channel.
-  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive], ["propose", propose]]) {
+  for (const [name, body] of [["merged-pr", merged], ["fb", fb], ["drive", drive]]) {
     assertTrue(`${name} carries no Attention block`, !/Attention/.test(body), body.slice(0, 300));
     assertTrue(`${name} carries no concern conditional`,
       !/\{\{#if [a-z_]*concern/i.test(body), body.slice(0, 300));
@@ -12039,7 +11905,7 @@ function testSetupRoutinesListing() {
     assertTrue("and it is labelled as not-a-problem",
       /one-off, not a problem/.test(byName("nightly docs sweep").note), byName("nightly docs sweep").note);
     assertEq("a template with no live routine is offered, not faulted",
-      populated.missing.map((m) => m.id), ["merged-pr", "propose"]);
+      populated.missing.map((m) => m.id), ["merged-pr"]);
     // The template set has a version; a LIVE routine does not, and nothing claims one.
     assertTrue("the template set reports the version it compared against",
       /^\d+\.\d+\.\d+$/.test(populated.template_set_version), String(populated.template_set_version));
@@ -12053,7 +11919,7 @@ function testSetupRoutinesListing() {
     const empty = listFrom({ data: [] });
     assertEq("an empty account is a CHECKED answer with an empty list",
       [empty.checked, empty.routines.length], [true, 0]);
-    assertEq("and every template is reported as available", empty.missing.length, 4);
+    assertEq("and every template is reported as available", empty.missing.length, 3);
 
     // ---- 3. an account that could not be reached ----
     // EACH OF THESE MUST BE DISTINGUISHABLE FROM CASE 2. `checked: false` carries no

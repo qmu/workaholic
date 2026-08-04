@@ -3,9 +3,9 @@ created_at: 2026-08-04T22:13:47+09:00
 author: a@qmu.jp
 type: refactoring
 layer: [Config]
-effort:
+effort: 2h
 commit_hash:
-category:
+category: Changed
 depends_on: 20260804221347-judge-and-propose-inside-the-capture-session.md
 mission: propose-at-the-capture-seam
 merge_policy:
@@ -77,3 +77,37 @@ truth — a reversal recorded honestly, not silently.
   deletion here is of live machinery, never of history.
 - `list-proposed-refs.sh` and `survey-state.sh` are NOT retired — the capture
   seam still needs dedup and state constraints.
+
+## Final Report
+
+Development completed as planned. `routines/propose.md`, `cursor.sh` and
+`new-feedback.sh` are deleted with their hermetic cases; the propose skill lost
+its Cursor contract and window sections (175 → 162 lines); the runbook is
+rewritten around the capture-seam flow with the batch chapter as a dated §7 that
+cites the ruling and lists both operator cleanups. Every template-set enumeration
+now reads three (`fb` = `[Propose]`, `merged-pr` = `[Consent]`, `drive` =
+`[Drive]`) across the workaholify SKILL and its table, `routines/drive.md`,
+`list-routine-templates.sh`, `CLAUDE.md`, `README.md`, `commands/setup-routines.md`
+and the propose rows in both top-level documents. The grep gate returns only
+history-labelled prose. Suite green at 2160 (the drop from 2190 is the removed
+cursor and window cases).
+
+### Discovered Insights
+
+- **Insight**: Retiring a `.workaholic/` root file is a lockstep amendment in the
+  same way adding one is. `proposal-cursor` was allowed at the root by two
+  sources of truth (`layout-doctor.sh` and `validate-ticket.sh`) plus
+  `rules/workaholic.md`, and its allowance was justified in prose by a fold that
+  `cursor.sh` performed — a script this ticket deletes. Leaving the entry would
+  have documented a fold that could no longer happen.
+  **Context**: The entry was dropped from all three, so a surviving git-ignored
+  file is now *reported* by `layout-doctor.sh` instead of silently tolerated.
+  Nothing writes that path any more, so no write can be blocked by the change;
+  what a developer sees is a finding naming a stale file, with the `rm` in the
+  runbook's §7. CI clones fresh, so it never sees one.
+- **Insight**: The three template-set assertions in the suite are the thing that
+  actually enforces the enumeration. Deleting `routines/propose.md` failed seven
+  assertions across four test functions, each naming a different document's idea
+  of the set — which is exactly the drift the lockstep rule exists to catch, and
+  the reason `list-routine-templates.sh` enumerates by scanning the directory
+  rather than by listing ids in code.

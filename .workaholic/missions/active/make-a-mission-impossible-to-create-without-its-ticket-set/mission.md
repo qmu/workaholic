@@ -24,28 +24,25 @@ feedback: [20260804173526-a-mission-is-created-with-two-or-more-tickets-or-it-is
 
 "Feedback", "ticket" and "mission" are only distinguishable if a mission has a lower
 bound. Without one, a ticketless mission is a feedback record on the roadmap and a
-one-ticket mission is a ticket with a progress bar — and both are produced today by
-seams that mint a mission without emitting its tickets. Two of the eleven missions ever
-created are in exactly those states, including one minted minutes before this mission.
+one-ticket mission is a ticket with a progress bar. Two of eleven missions ever created
+are in those states, both minted by seams that create without emitting tickets.
 
 ## Experience
 
-Every seam that brings a mission into existence emits at least two tickets in the same
-pass, or refuses and says what to write instead — a feedback record for a bare
-direction, a plain ticket for a single unit of work.
+Every seam that creates a mission emits at least two tickets in the same pass, or
+refuses and names what to write instead — a feedback record for a bare direction, a
+plain ticket for a single unit of work. Naming the alternative is the point: the author
+is not wrong to have something to record, only to record it as the wrong kind of thing.
 
-The refusal names the alternative rather than only the rule, because the author is not
-wrong to have something to record; they are recording it as the wrong kind of thing.
-
-The floor is checked where the mission and its tickets are published together, not at
-the write of `mission.md` alone: the tickets legitimately do not exist yet when the file
-is first written, so a write-time hook would refuse the normal authoring order.
+The floor is checked where the mission and its tickets are published together, never at
+the write of `mission.md` alone — the tickets do not exist yet then, so a write-time
+hook would refuse the normal authoring order.
 
 ## Acceptance
 
-- [ ] The rule's boundary is decided and recorded — what counts toward the floor, and what a carry does now that a bare successor is forbidden (#20260804173624-decide-the-mission-ticket-floor-and-what-a-carry-does.md)
-- [ ] Every creation seam enforces it, including the carried-close successor that produced the live violation (#20260804173625-enforce-the-mission-ticket-floor-at-every-creation-seam.md)
-- [ ] The two existing sub-floor missions are resolved, and the docs describing mission creation say what the code does (#20260804173626-resolve-the-two-sub-floor-missions-and-align-the-docs.md)
+- [ ] The boundary is decided and recorded: what counts, and what a carry does now (#20260804173624-decide-the-mission-ticket-floor-and-what-a-carry-does.md)
+- [ ] All four creation seams enforce it, including the carried close (#20260804173625-enforce-the-mission-ticket-floor-at-every-creation-seam.md)
+- [ ] The two sub-floor missions are resolved and every doc states the floor (#20260804173626-resolve-the-two-sub-floor-missions-and-align-the-docs.md)
 
 ## Changelog
 

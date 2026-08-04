@@ -12,6 +12,12 @@ mcp: [Slack]
 
 Event-driven (no cron): it fires on the inbound report, not on a clock.
 
+**This routine founds the item's thread.** Every later event of the same feedback item —
+the merge, and any `/drive` outcome for work tracing back to it — replies into the root
+this session posts, so a developer reads one item's whole life in one place. The model,
+the key and the fallback are stated once in the `workaholify` SKILL, *One thread per
+feedback item*; this template implements it and does not restate it.
+
 Its announcement names a PR this session created, so the ambiguity that broke `merged-pr`
 does not arise — the scoping is stated anyway, because "the pull request" reads the same
 in both and the next editor should not have to work out which case they are in.
@@ -21,10 +27,16 @@ in both and the next editor should not have to work out which case they are in.
 - Use qmu/workaholic skills, don't proceed without workaholic
 - /fb and /propose via pull request
 - Brief PR description, detail in file, and refer FB issue number to close when merged
-- Notify Slack channel `dev-[repo name]` when PR created by the format below. Announce **only the pull request you just created in this session**, exactly once; never announce another session's PR, and post nothing if you created none:
+- Prefix the pull request title with `[Proposal]` (`[提案]` when the title is Japanese), so the item is recognisable as a proposal in every list that shows only a title
+- Post the **thread root** to Slack channel `dev-[repo name]` in the format below, as a top-level message. Announce **only the pull request you just created in this session**, exactly once; never announce another session's PR, and post nothing if you created none:
 
 ------------
-🟢 PR opened - [#123 Issue Title](https://github.com/org-name/repo-name/pull/123)
-`from-branch` → `to-branch`, one sentence, max 40 words, what the PR does only.
+🟢 Proposed to @<developer> - [#123 [Proposal] Issue Title](https://github.com/org-name/repo-name/pull/123)
+One sentence, max 40 words, what the proposal asks for only.
+`fb:<feedback-record-filename-stem>` · <session URL>
 
-------
+------------
+
+- The `` fb:<stem> `` line is **not decoration**: it is the key every later routine searches for to find this thread. Write the feedback record's filename stem exactly, with no path and no `.md`. A root posted without it strands the item — every subsequent event becomes an unattributable top-level line.
+- Append the session URL on the same line. If it is not discoverable in this session, post the line without it rather than not posting.
+- Post **nothing else**. There is no separate "PR opened" line: this root is it.

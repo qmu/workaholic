@@ -72,8 +72,8 @@ Three things not to do:
 Post to Slack channel `dev-{repo_name}` once per proposal, and only for a PR this session itself created:
 
 ------------
-🟢 proposal opened - [#123 Mission Title]({repo}/pull/123)
-`<mission-slug>`, N tickets, one sentence, max 40 words, what the proposal asks for only.
+🟢 proposal opened - [#123 Proposal Title]({repo}/pull/123)
+`<mission-slug>` with N tickets, or one loose ticket, one sentence, max 40 words, what the proposal asks for only.
 ------------
 
 Merging that pull request is the approval, and it is a human act with no deadline -- so never merge it, never nudge it, and never re-announce it on a later tick.
@@ -94,7 +94,7 @@ If this tick failed and §0a suppressed its alert, say so above that line: `aler
 
 - Never merge anything. This routine opens pull requests; it never accepts one.
 - Never seed `assignees` or record a `merge_policy` on what it proposes -- an unowned mission with an empty policy reads as `review`, which is the only safe default for an unattended writer.
-- Never propose a one-ticket mission. A candidate that cannot be decomposed into two or more tickets is dropped, and the drop is reported in the batch's own output.
+- Never propose a one-ticket mission. The form follows the work: two or more units make a mission with its ticket set, an atomic ask makes one loose backlog ticket, and anything neither decomposable nor clearly actionable is dropped with its reason reported.
 - Never run `git clean`, `git reset --hard`, `git restore .`, or `git stash drop`.
 - Never modify another repository, and never carry another project's context into this one's artifacts.
 - Never announce a pull request this session did not itself open.

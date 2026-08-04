@@ -10923,6 +10923,7 @@ const tests = [
   ["branching worktree reclamation: merged AND clean, every skip named", testWorktreeReclamation],
   ["mission size norms: a ceiling on what a mission may say, and the floor it must not touch", testMissionSizeNorms],
   ["propose: widened inputs, emitted tickets, and the mission_member safety property (J4)", testProposeWidenedBatch],
+  ["propose: an atomic direction becomes one loose ticket, and dedup unions both sides", testProposeLooseTicket],
   ["branching/check-worktrees.sh ignores the publish tree", testCheckWorktreesIgnoresPublishTree],
   ["/ticket publishes to main end to end (J1)", testTicketPublishesToMain],
   ["hooks/validate-ticket.sh resolves a mission in the publish tree", testValidateTicketResolvesInPublishTree],
@@ -11155,6 +11156,88 @@ function testProposeWidenedBatch() {
       !plan.backlog.some((b) => b.path === t.path), JSON.stringify(plan.backlog));
     assertTrue("and it is excluded as mission_member, not silently dropped",
       plan.excluded.some((e) => e.id === t.path && e.reason === "mission_member"), JSON.stringify(plan.excluded));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+// The proposal's FORM follows the work's shape, not the tool's convenience: two or more
+// related units make a mission with its ticket set, an ATOMIC ask makes one loose backlog
+// ticket. Before the loose form existed, an atomic ask hit the mission-ticket floor and
+// ended in a reported drop -- which is still silence from the reporter's point of view.
+//
+// The load-bearing property is the DEDUP one. A loose ticket has no mission to carry the
+// `feedback:` relation, so it carries it itself, and the dedup set must union both sides
+// over both the queue AND the archive. A set that read only missions would re-propose the
+// same record every tick; one that skipped the archive would re-propose the work it had
+// just finished driving.
+function testProposeLooseTicket() {
+  const root = makeRepo();
+  const SCAFFOLD = `${POSIX_SH} ${SCRIPTS.scaffoldProposedTicket}`;
+  const REFS = `${POSIX_SH} ${SCRIPTS.proposeListRefs}`;
+  const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh");
+  const refs = () => run(root, REFS).stdout.split("\n").filter(Boolean);
+  const validates = (rel) => {
+    try {
+      execSync(`${POSIX_SH} ${HOOK}`, {
+        cwd: root, input: JSON.stringify({ tool_input: { file_path: rel } }),
+        encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
+      });
+      return 0;
+    } catch (e) { return e.status ?? 1; }
+  };
+  try {
+    const slug = "a-decomposable-direction";
+    mkdirSync(join(root, `.workaholic/missions/active/${slug}`), { recursive: true });
+    writeFileSync(join(root, `.workaholic/missions/active/${slug}/mission.md`),
+      `---\ntype: Mission\ntitle: A decomposable direction\nslug: ${slug}\nstatus: active\nmerge_policy:\nassignees: []\nfeedback: [20260801000000-mission-record.md]\n---\n\n# A decomposable direction\n\n## Acceptance\n\n- [ ] proposed criterion\n`);
+
+    // ---- the loose form ----
+    const loose = JSON.parse(run(root, `${SCAFFOLD} "Fix the atomic thing" --loose bugfix Domain --feedback 20260802000000-ask.md`).stdout);
+    assertEq("an atomic direction scaffolds one loose ticket",
+      { created: loose.created, loose: loose.loose, mission: loose.mission }, { created: true, loose: true, mission: "" });
+    const body = readFileSync(join(root, loose.path), "utf8");
+    // NO `mission:` KEY AT ALL -- an empty one would still read as a relation to a mission
+    // named "", which is a dangling relation validate-ticket.sh would be right to refuse.
+    assertTrue("a loose ticket writes no mission key whatsoever", !/^mission:/m.test(body), body.slice(0, 300));
+    assertTrue("and carries its provenance as feedback refs instead",
+      /^feedback: \[20260802000000-ask\.md\]$/m.test(body), body.slice(0, 300));
+    assertTrue("its type and layer come from the arguments, not the defaults",
+      /^type: bugfix$/m.test(body) && /^layer: \[Domain\]$/m.test(body), body.slice(0, 300));
+    assertTrue("merge_policy stays empty, which reads as review",
+      /^merge_policy:\s*$/m.test(body), body.slice(0, 300));
+    // The `feedback:` key is TOLERATED by the validator, like `claim:` -- it validates
+    // named fields only, so an artifact relation needs no schema amendment.
+    assertEq("a loose proposed ticket passes validate-ticket.sh", validates(loose.path), 0);
+
+    // Provenance is mandatory in this form, because it is the ONLY copy of it.
+    assertEq("a loose ticket with nothing to trace it to is refused",
+      JSON.parse(run(root, `${SCAFFOLD} "Nothing to trace" --loose`).stdout).reason, "no_feedback");
+
+    // ---- it is ordinary backlog: no mission unit, no mission_member exclusion ----
+    const plan = JSON.parse(run(root, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    assertTrue("a loose proposed ticket is offered as ordinary backlog",
+      plan.backlog.some((b) => b.path === loose.path), JSON.stringify(plan.backlog));
+
+    // ---- the dedup set is the union over both artifact kinds ----
+    assertTrue("the dedup set unions ticket-side refs with mission-side ones",
+      refs().includes("20260802000000-ask.md") && refs().includes("20260801000000-mission-record.md"),
+      JSON.stringify(refs()));
+
+    // A mission's own ticket may carry refs too; the set is a set.
+    const member = JSON.parse(run(root, `${SCAFFOLD} "Do the missioned work" ${slug} enhancement Config --feedback 20260802000000-ask.md`).stdout);
+    assertTrue("a mission-member ticket still carries its mission relation",
+      readFileSync(join(root, member.path), "utf8").includes(`mission: ${slug}`), member.path);
+    assertEq("a record referenced by several artifacts is listed once",
+      refs().filter((r) => r === "20260802000000-ask.md").length, 1);
+
+    // ---- and the archive counts: a DRIVEN loose ticket must not be re-proposed ----
+    const driven = JSON.parse(run(root, `${SCAFFOLD} "Fix the other atomic thing" --loose --feedback 20260803000000-second-ask.md`).stdout);
+    const archived = ".workaholic/tickets/archive/work-20260804-000000/driven.md";
+    mkdirSync(dirname(join(root, archived)), { recursive: true });
+    execSync(`git mv ${driven.path} ${archived} 2>/dev/null || mv ${driven.path} ${archived}`, { cwd: root });
+    assertTrue("an archived loose ticket still holds its record out of the window",
+      refs().includes("20260803000000-second-ask.md"), JSON.stringify(refs()));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

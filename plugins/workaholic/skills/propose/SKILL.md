@@ -11,13 +11,29 @@ metadata:
 
 The AI half of "humans supply feedback, the AI proposes missions" (`docs/loop-engineering-workflow.md` §6.3, decisions C2–C4, B1): a batch that surveys the repository's recent state and either does nothing or proposes **a mission together with the ticket set it implies** — unowned, `feedback:`-linked, `merge_policy` empty — on a `work-*` branch behind a pull request, for humans to discuss and accept. **Merging that pull request is the approval** (2026-07-31, `docs/loop-engineering-workflow.md` K1); the batch marks nothing as unapproved, because the PR already is that state.
 
-**The model, stated before the mechanics** (`workaholic:planning` / `modeling-centric-design`): the relation direction is **mission → feedback** — a proposed mission records the feedback records it grew from in its `feedback:` frontmatter list; nothing is ever stored on the feedback side. The stream stays immutable, dedup reads the missions, and traceability is a walk from any proposal back to the human words that caused it.
+**The model, stated before the mechanics** (`workaholic:planning` / `modeling-centric-design`): the relation direction is **artifact → feedback** — a proposal records the feedback records it grew from in its own `feedback:` frontmatter list; nothing is ever stored on the feedback side. The stream stays immutable, dedup reads the artifacts, and traceability is a walk from any proposal back to the human words that caused it. The artifact is the **mission** when the direction decomposes and the **loose ticket** when it is atomic (below), so both sides are read into the dedup set.
 
 **What the batch answers.** Not "has anyone written feedback lately" but **what should be done next** — and that answer is constrained by more than the feedback stream. Three further signals shape it, and the batch reads all of them (`survey-state.sh`): what is already **planned** (the missions and their derived progress), what is already **queued** (the todo tickets), and what has just been **built** (the commits since the cursor). A proposer blind to those re-proposes work that is underway or already decided, which is the noise the judgment bar exists to prevent — so widening the inputs is what makes the bar's job possible, not a relaxation of it.
 
-**A proposal is a mission *and* its tickets — at least two of them, or it is not proposed at all.** This is the ticket floor (`workaholic:mission`, *Granularity → The ticket floor*) applied to the seam that matters most: this batch creates missions on a schedule with nobody watching, so a creator that can emit a malformed artifact emits many before anyone looks. A candidate the batch cannot decompose into two or more tickets is **dropped, and the drop is reported in the batch's own output** — never published and never left silent. Staying silent is already a valid outcome of this run, so this adds no new failure mode; what it adds is that the reason is stated. The check reads `queue-size.sh`'s `meets_floor` at the publish seam, not in `scaffold-draft.sh`, which runs before any ticket exists.
+## The form follows the work's shape
 
-A mission with a provisional acceptance sketch and no ticket set is a title and a hope, not something a developer can judge; `/drive`'s own survey says so mechanically by dropping such a mission as `no_tickets`. Nothing here is claimable before the pull request merges — the proposal does not exist on `main` until then — and everything here is claimable after it, which is the intended contract. `drive/scripts/plan-units.sh` additionally excludes **any** ticket carrying a `mission:` relation from the *backlog* offer (`mission_member`), so a proposed ticket is never picked up loose, only as part of its mission's unit. Re-check that property if the exclusion is ever narrowed.
+**The judgment decides cardinality before it decides anything else**, and there are exactly three answers:
+
+| The direction | What is proposed |
+| ------------- | ---------------- |
+| Decomposes into **two or more** units of work | One **mission with its whole ordered ticket set** |
+| Is **atomic** — one clearly actionable thing | **One loose backlog ticket**, no mission wrapper |
+| Is neither decomposable nor clearly actionable (vague, a wish, a direction nobody can start) | **Nothing** — dropped, with the reason reported in the batch's own output |
+
+**A mission is never one ticket.** That is the ticket floor (`workaholic:mission`, *Granularity → The ticket floor*) applied to the seam that matters most: this batch creates missions on a schedule with nobody watching, so a creator that can emit a malformed artifact emits many before anyone looks. The check reads `queue-size.sh`'s `meets_floor` at the publish seam, not in `scaffold-draft.sh`, which runs before any ticket exists.
+
+**The loose ticket is what the floor was missing.** The floor wired the refusal half and not the emission half, so an atomic ask — the most obviously actionable thing a reporter can write — ended in a reported drop, which is still silence from the reporter's point of view. The second form fixes that **without lowering the bar**: it adds a shape, not a looser threshold. A loose ticket lands in `todo/<user>/` behind the same publish-tree pull request, carries **no** `mission:` key, is offered by `plan-units.sh` as ordinary backlog, and leaves `merge_policy` empty (which reads as `review`).
+
+**A loose ticket carries its own `feedback:` refs, and must** (`scaffold-proposed-ticket.sh` refuses `no_feedback` otherwise). It has no mission to hold the relation, so those refs are the only record of what it answers — and the dedup set is exactly that union across missions and tickets. Without them the batch would re-propose the same record every tick, forever.
+
+**Do not reach for the loose form to get something published.** The relation a single ticket cannot yet express is recorded in `feedback:` and stays available: a later, related ask can grow into a mission that references the same records. Dressing a decomposable direction as one loose ticket, or an atomic one as a mission, both trade the artifact's honesty for a publication.
+
+A mission with a provisional acceptance sketch and no ticket set is a title and a hope, not something a developer can judge; `/drive`'s own survey says so mechanically by dropping such a mission as `no_tickets`. Nothing here is claimable before the pull request merges — the proposal does not exist on `main` until then — and everything here is claimable after it, which is the intended contract. `drive/scripts/plan-units.sh` additionally excludes **any** ticket carrying a `mission:` relation from the *backlog* offer (`mission_member`), so a mission's ticket is never picked up loose, only as part of its unit. Re-check that property if the exclusion is ever narrowed. A **loose** proposed ticket carries no `mission:` relation and is therefore offered as ordinary backlog — that is the intended reading of the same rule, not a hole in it.
 
 **A proposal arrives as a pull request.** Every workaholic artifact — feedback, mission, ticket — is committed on a `work-*` branch and reaches `main` through a **merged** pull request, because the merge is the event that can be announced. The batch therefore writes through the **publish tree** and lands on a branch via `branching/scripts/publish-tree-pr.sh`, never straight to the base. Writing through the publish tree is what keeps this compatible with an interactive caller: `.publish/` is an independent checkout, so a developer's branch and uncommitted work are untouched (`workaholic:branching`, decision J2).
 
@@ -102,10 +118,10 @@ Everything the judgment needs beyond the feedback window: `{missions, queue, com
 ### read-feedback-relation.sh — the single reader
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/read-feedback-relation.sh <mission-file>
+bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/read-feedback-relation.sh <artifact-file>...
 ```
 
-Reads a mission's `feedback:` list (inline-list + bare forms, frontmatter only, one filename per line, never fails) — the mirror of `mission/scripts/read-relation.sh`. Every consumer goes through this; nothing parses the field itself.
+Reads an artifact's `feedback:` list (inline-list + bare forms, frontmatter only, one filename per line, never fails) — the mirror of `mission/scripts/read-relation.sh`. It takes a **mission or a ticket**, and takes **many at once**: one awk process over N files is what makes a scan of hundreds of archived tickets affordable on the 15-minute path. Every consumer goes through this; nothing parses the field itself, because two parsers of one field eventually disagree and the side that under-reads re-proposes answered feedback.
 
 ### list-proposed-refs.sh — the dedup set
 
@@ -113,7 +129,7 @@ Reads a mission's `feedback:` list (inline-list + bare forms, frontmatter only, 
 bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-proposed-refs.sh
 ```
 
-The union of `feedback:` refs across **every** mission (active + archive), one filename per line. Feedback already referenced by any mission never spawns a second proposal.
+The union of `feedback:` refs across **every proposed artifact** — every mission (active + archive) **and** every ticket (todo + archive) — one filename per line. Feedback already referenced by any of them never spawns a second proposal. **The archive counts as much as the queue**: a driven loose ticket is the strongest evidence its feedback was acted on, and dropping it from the set at archive time would make the batch re-propose exactly the work it had just finished.
 
 ### scaffold-draft.sh — the proposal writer
 
@@ -127,9 +143,10 @@ Writes the proposed `mission.md` (schema above; slug via `mission/scripts/slug.s
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer]
+bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/scaffold-proposed-ticket.sh "<title>" --loose [type] [layer] --feedback <record>...
 ```
 
-Writes one proposed ticket into `todo/<user>/` carrying `mission: <slug>` — the relation that makes it driveable only as part of its mission's unit, never as loose backlog.
+Writes one proposed ticket into `todo/<user>/`. The **mission form** carries `mission: <slug>` — the relation that makes it driveable only as part of its mission's unit, never as loose backlog. The **`--loose` form** writes no `mission:` key at all and carries `feedback: [...]` instead; it is refused as `no_feedback` without refs, since those refs are the only thing that keeps its record out of the next tick's window. Emits `{created, path, slug, mission, feedback, loose}`, or a `reason` (`no_title` / `no_mission` / `mission_missing` / `no_feedback` / `exists`).
 
 **Stamp the acceptance link after the set is written.** This batch is an emitting seam like the Creation Interrogation and the replan, and it is the seam where the defect was measured: every one of the 37 acceptance items across the six missions this batch has scaffolded was unlinked, so no board it wrote could ever move. Once the tickets exist, run `mission/scripts/link-acceptance.sh <slug> <item-selector> <ticket-filename>` once per acceptance item the set satisfies. The batch decided the pairing when it decomposed the proposal, so it is naming what it already knows — **never inferring**; an item no proposed ticket satisfies stays unlinked and is named in the pull request body instead. Refuses a mission that does not resolve (`mission_missing`), because a dangling relation is exactly what `validate-ticket.sh` rejects. `merge_policy` is left **empty**, which reads as `review`: an unattended proposer must not decide that its own output may merge unattended. The mandatory `## Policies` and `## Quality Gate` sections are scaffolded with guidance rather than omitted, so the artifact is valid the moment it is written. Emits `{created, path, slug, mission}`.
 

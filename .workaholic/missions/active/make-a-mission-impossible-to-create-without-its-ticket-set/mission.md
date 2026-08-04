@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours: 0.5
+actual_hours: 1.5
 tickets: []
 stories: []
 gate_type:
@@ -52,3 +52,4 @@ hook would refuse the normal authoring order.
 - 2026-08-04 — ticket archived — 20260804173624-decide-the-mission-ticket-floor-and-what-a-carry-does.md
 - 2026-08-04 — run recorded (+0.5h) — 20260804-184949
 - 2026-08-04 — ticket archived — 20260804184949-a-carry-into-an-existing-mission-silently-drops-the-remainder.md
+- 2026-08-04 — run recorded (+1h) — 20260804-190000

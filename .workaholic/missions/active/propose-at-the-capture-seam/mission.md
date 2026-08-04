@@ -51,3 +51,4 @@ act, and nothing anywhere waits on a cron tick to notice feedback.
      One line per event ("- YYYY-MM-DD — event — filename"); never rewrite past lines. -->
 - 2026-08-04 — ticket archived — 20260804221347-judge-and-propose-inside-the-capture-session.md
 - 2026-08-04 — ticket archived — 20260804221347-retire-the-batch-seat-and-the-merged-main-window.md
+- 2026-08-04 — story reported — work-20260804-221713.md

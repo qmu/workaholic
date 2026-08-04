@@ -16,6 +16,7 @@ gate_type:
 gate_target:
 gate_assert:
 feedback: [20260804221328-propose-at-the-capture-seam-not-from-a-merged-main-window.md]
+claim: work-20260804-221713
 ---
 
 # Propose at the capture seam

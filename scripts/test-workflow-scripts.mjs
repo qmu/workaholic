@@ -10012,6 +10012,81 @@ function testResumeSkipsDrainedUnit() {
   } finally { cleanup(origin); cleanup(A); cleanup(B); }
 }
 
+// ---------- an archive git could not PROVE was a rename is still a rename ----------
+// testClaimSurvivesArchive above moves tickets with a bare `git mv`, so git pairs the
+// delete and the add at 100% similarity and the rename map always has a row. Real
+// `archive.sh` also stamps `effort` and appends the Final Report, and a short ticket
+// carrying a long report lands under git's 50% similarity threshold — the move is then
+// reported as a plain add + delete, the rename map has nothing, and the claim's artifact
+// list comes back EMPTY. (`diff.renameLimit` produces the same outcome on a large range.)
+//
+// One lost artifact list produced both failures reported on 2026-08-04, which is why they
+// are asserted together here: the survey stopped subtracting the claim (offering an
+// already-driven ticket as fresh backlog, and with no `excluded[]` row at all, since the
+// survey only reports what it saw), and claims_has_work fell through to its "no artifacts
+// means unknown" branch and called a drained unit resumable — inviting a takeover of a
+// branch whose PR was waiting on a human.
+function testClaimSurvivesUndetectedRename() {
+  const { origin, A, B } = makeClaimFixture();
+  const lapsed = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0" };
+  try {
+    const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const batch = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.claim} batch ${t1}`).stdout);
+    const wt = join(A, ".worktrees", batch.unit);
+
+    // Drive it the way archive.sh really does: the Final Report dwarfs the ticket body.
+    const src = join(wt, t1);
+    const report = Array.from({ length: 80 }, (_, i) =>
+      `Insight ${i}: a long discovered-insights section that dwarfs the ticket body.`).join("\n");
+    writeFileSync(src, `${readFileSync(src, "utf8")}\n## Final Report\n\n${report}\n`);
+    run(wt, `${POSIX_SH} ${SCRIPTS.update} ${t1} effort 0.1h`);
+    run(wt, `${POSIX_SH} ${SCRIPTS.archive} ${t1} "Drive t1" https://example.test/repo why changes None None verify`);
+    execSync(`git push -q origin ${batch.branch}`, { cwd: wt });
+
+    // The premise: git itself does NOT see a rename here. If this ever stops holding the
+    // test still passes, but it would no longer be exercising the defect — so it is
+    // asserted rather than assumed.
+    const claimSha = execSync(`git log --format=%H --grep="Claim a PR-unit" -1`, { cwd: wt, encoding: "utf8" }).trim();
+    const nameStatus = execSync(`git diff --find-renames --name-status ${claimSha} HEAD -- .workaholic/tickets`,
+      { cwd: wt, encoding: "utf8" });
+    assertTrue("the premise holds: git reports this archive as add+delete, not a rename",
+      !/^R/m.test(nameStatus), nameStatus);
+
+    // ...and the claim still knows exactly what it holds, at the base-side path.
+    const r = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.listClaims}`, { env: lapsed }).stdout);
+    assertEq("a below-threshold archive does not drop the artifact from the claim",
+      r.claims[0].artifacts, [t1]);
+    assertEq("and the drained unit is not offered for takeover",
+      { res: r.claims[0].resumable, why: r.claims[0].resume_reason },
+      { res: false, why: "queue_drained" });
+
+    const plan = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.planUnits}`, { env: lapsed }).stdout);
+    assertTrue("the driven ticket is not offered again as fresh backlog",
+      !plan.backlog.some((x) => x.path === t1), JSON.stringify(plan.backlog));
+    assertTrue("and its exclusion is stated rather than silent",
+      plan.excluded.some((e) => e.id === t1 && e.reason === "claimed_reported"), JSON.stringify(plan.excluded));
+    assertEq("nothing is offered for resumption", plan.resumable.length, 0);
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
+// The by-filename fallback is scoped to tickets ON PURPOSE: every mission's artifact is
+// named `mission.md`, so an unscoped basename lookup could resolve one mission's claim
+// onto another mission's file. Asserted, because that would be a silent cross-claim.
+function testMissionArtifactNeverResolvesByBasename() {
+  const { origin, A, B } = makeClaimFixture();
+  try {
+    const claimed = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.claim} mission m1`).stdout);
+    const wt = join(A, ".worktrees", "m1");
+    // Delete the claimed mission.md on the branch. A basename fallback would find the
+    // OTHER active mission's mission.md; the correct answer is that nothing is claimed.
+    execSync(`git rm -q .workaholic/missions/active/m1/mission.md && git commit -q -m "Remove the mission" && git push -q origin ${claimed.branch}`, { cwd: wt });
+    const r = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout);
+    assertEq("a deleted mission.md is not re-resolved onto another mission's file",
+      r.claims[0].artifacts, []);
+    assertEq("and the unit itself is still in flight", r.claims[0].unit, "m1");
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
 // ---------- the PR seams survive a runner with no `gh` ----------
 // The hourly routine runs in a Claude-Code-on-the-web container that has no GitHub CLI,
 // so on 2026-07-31 `/drive` step 5 died at exit 127 *after* the branch was pushed — the
@@ -10348,6 +10423,8 @@ const tests = [
   ["drive claim protocol: two runners racing to resume, one takeover", testResumeRace],
   ["drive/heartbeat.sh keeps a working unit out of the resumable offer", testHeartbeat],
   ["drive claim protocol: a finished unit is not resumed again", testResumeSkipsDrainedUnit],
+  ["drive claim protocol: an archive git cannot prove is a rename keeps its artifact", testClaimSurvivesUndetectedRename],
+  ["drive claim protocol: a mission artifact never resolves by basename", testMissionArtifactNeverResolvesByBasename],
   ["PR seams degrade when the runner has no gh", testGhAbsentDegrades],
   ["drive: handoff is a first-class terminal state", testHandoffState],
   ["report/shrink-pr-body.sh never drops the Handoff section", testShrinkKeepsHandoff],

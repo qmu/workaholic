@@ -9,6 +9,7 @@ category:
 depends_on:
 feedback: [20260805021414-propose-roots-a-new-slack-thread-even-when-the-trigger-message-already-is-the-item-s-thread.md]
 merge_policy:
+claim: work-20260805-180653
 ---
 
 # Reply in the trigger message's thread, not a new root

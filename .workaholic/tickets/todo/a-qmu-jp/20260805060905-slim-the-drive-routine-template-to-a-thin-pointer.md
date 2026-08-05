@@ -9,6 +9,7 @@ category:
 depends_on:
 feedback: [20260805060855-simplify-the-drive-routine-s-system-instruction-to-match-propose-and-consent.md]
 merge_policy:
+claim: work-20260805-180653
 ---
 
 # Slim the [Drive] routine template to a thin pointer

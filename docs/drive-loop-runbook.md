@@ -1,7 +1,7 @@
 # Drive Loop Runbook
 
 How to stand up the **"Drive Every 5 Minutes"** routine on a server: the cron that
-runs `/drive` headlessly so merged missions and queued tickets are claimed,
+runs `/drive auto` headlessly so merged missions and queued tickets are claimed,
 implemented, reported, and — per the artifacts' recorded merge policy — shipped or
 handed to a human at a PR (`docs/loop-engineering-workflow.md` G4; decision C1 —
 server cron first, Claude Code Web later). It is the execution sibling of the
@@ -19,10 +19,17 @@ without origin surveys, refuses to claim, and exits `pending` — by design (see
 
 ## 1. What the routine actually does
 
-Each tick is one full `/drive` run — survey, partition, claim, drive, report, route
-(`plugins/workaholic/skills/drive/SKILL.md`, *Unified Run*). It is **non-interactive
-by construction**: `/drive` issues no `AskUserQuestion` anywhere, so nothing can
-block a tick waiting for a person.
+Each tick is one full `/drive auto` run — survey, partition, claim, drive, report,
+route (`plugins/workaholic/skills/drive/SKILL.md`, *Unified Run*). **The `auto`
+token is load-bearing and must be in the tick's command line** (decision O1,
+2026-08-05): it names the **unattended** form, which issues no `AskUserQuestion` at
+any step, so nothing can block a tick waiting for a person. Bare `/drive` is the
+**attended** form and asks once which units to take whenever more than one is
+claimable — correct for a developer at a terminal, fatal for a cron tick, which
+would sit on the prompt until its window closed. The form is chosen by the
+invocation and never inferred from the environment, so a runner that drops the
+token gets the prompt no matter how headless its container is. The same applies to
+a caller-side loop: write `/goal /drive auto ok`, never `/goal /drive ok`.
 
 Two things the loop never does, and both are deliberate:
 
@@ -71,7 +78,7 @@ worktrees of that checkout. A working shape (adjust the claude invocation to the
 installed CLI):
 
 ```cron
-*/5 * * * * . "$HOME/.workaholic-drive.env" && claude -p "/drive" --cwd /path/to/repo >> "$HOME/.workaholic-drive.log" 2>&1
+*/5 * * * * . "$HOME/.workaholic-drive.env" && claude -p "/drive auto" --cwd /path/to/repo >> "$HOME/.workaholic-drive.log" 2>&1
 ```
 
 - Keep the token in a `0600` env file (`~/.workaholic-drive.env` with the exports

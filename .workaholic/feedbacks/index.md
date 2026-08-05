@@ -403,6 +403,7 @@
 * [Resolved: README.md still describes the retired `/mission approve` flow](20260804213426-resolved-readme-md-still-describes-the-retired.md)
 * [The two routine-command entrances are deliberate](20260804215532-the-two-routine-command-entrances-are-deliberate.md)
 * [Propose at the capture seam, not from a merged-main window](20260804221328-propose-at-the-capture-seam-not-from-a-merged-main-window.md)
+* [Routine Slack posts name the developer as inert text so nobody is notified](20260805020401-routine-slack-posts-name-the-developer-as-inert-text-so-nobody-is-notified.md)
 * [An aborted catch-up discards the append resolutions it computed](20260805044712-an-aborted-catch-up-discards-the.md)
 * [merge-pr.sh cannot be exercised end to end hermetically](20260805044712-merge-pr-sh-cannot-be-exercised.md)
 * [The append-shape scope is bounded by path, deliberately](20260805044712-the-append-shape-scope-is-bounded.md)

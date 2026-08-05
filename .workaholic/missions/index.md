@@ -1,5 +1,9 @@
 # missions
 
+## active
+
+* [scope-each-user-s-routine-to-the-fb-issues-assigned-to-them](active/scope-each-user-s-routine-to-the-fb-issues-assigned-to-them/mission.md) - Scope each user's routine to the FB issues assigned to them
+
 ## archive
 
 * [adopt-a-git-flow-branching-model-with-durable-ship-records](archive/adopt-a-git-flow-branching-model-with-durable-ship-records/mission.md) - Adopt a release-branch staging tier with durable ship records

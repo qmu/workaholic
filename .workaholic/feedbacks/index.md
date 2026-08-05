@@ -414,6 +414,7 @@
 * [Retire /request; cross-repo asks become /fb issues on the target](20260805101319-retire-request-cross-repo-asks-become-fb-issues-on-the-target.md)
 * [An attended /drive asks which unit to take; only routines run promptless](20260805102621-an-attended-drive-asks-which-unit-to-take-only-routines-run-promptless.md)
 * [The [Propose] thread-reply fix is merged; only the live routine refresh is left](20260805123452-the-propose-thread-reply-fix-is-merged-only-the-live-routine-refresh-is-left.md)
+* [Scope each user's routine to the FB issues assigned to that user](20260805130926-scope-each-user-s-routine-to-the-fb-issues-assigned-to-that-user.md)
 * [A persistent drive failure goes silent for a day under the alert-dedup cool-down](20260805191634-a-persistent-drive-failure-goes-silent-for-a-day-under-the-alert-dedup-cool-down.md)
 * [The routines list API caps at 20, so a fleet drift report silently misses routines](20260805210036-the-routines-list-api-caps-at-20-so-a-fleet-drift-report-silently-misses-routines.md)
 <!-- okf:generated:end -->

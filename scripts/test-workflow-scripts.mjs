@@ -8741,6 +8741,66 @@ function testClaimProtocol() {
       run(origin, `git rev-parse --verify --quiet refs/heads/${batch.branch}`).status, 1);
     assertEq("the reader is empty once every claim is merged or released",
       JSON.parse(run(A, LIST).stdout).claims.length, 0);
+
+    assertEq("a successful release names its state", rel.state, "released");
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
+// ---------- release-claim where the runner may push but not delete ----------
+// The two steps of a release can disagree. `release-claim.sh` tears the worktree down
+// FIRST (so a refused teardown never publishes "this unit is free" over unpushed work),
+// then deletes the remote branch — which assumes the delete can only fail transiently.
+//
+// MEASURED 2026-08-05 on the hourly runner: its container may PUSH but not DELETE a
+// branch (403 twice, on a remote that had accepted several pushes minutes earlier; the
+// GitHub MCP server offers `create_branch` and no delete). So the second step could never
+// succeed, and the unit was left worktree-gone / claim-live with `{"released": false}` as
+// the only signal — indistinguishable from "nothing happened", on a claim that is then
+// re-offered as `resumable` every tick with no path back from inside the loop.
+//
+// `receive.denyDeletes` reproduces exactly that asymmetry with no network, which is what
+// makes the production condition testable at all.
+function testReleaseClaimDenyDeletes() {
+  const { origin, A, B } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const LIST = `${POSIX_SH} ${SCRIPTS.listClaims}`;
+  const RELEASE = `${POSIX_SH} ${SCRIPTS.releaseClaim}`;
+  try {
+    const claimed = JSON.parse(run(A, `${CLAIM} mission m1`).stdout);
+    assertEq("the unit is claimed before the delete is refused", claimed.claimed, true);
+    assertTrue("its worktree exists", existsSync(join(A, ".worktrees", claimed.unit)));
+
+    // From here the remote accepts pushes and refuses deletes — the production shape.
+    execSync(`git config receive.denyDeletes true`, { cwd: origin });
+
+    const out = run(A, `${RELEASE} ${claimed.unit}`);
+    const j = JSON.parse((out.stdout + out.stderr).trim().split("\n").pop());
+
+    assertEq("a refused delete never reports success", j.released, false);
+    assertEq("and names the composite state", j.state, "half_released");
+    assertEq("and says which half happened", j.worktree_removed, true);
+    assertEq("and which half did not", j.remote_branch_deleted, false);
+    assertTrue("and points at the human action",
+      /human must remove it/.test(j.detail || ""), j.detail);
+
+    // The two halves must match reality, not just each other.
+    assertTrue("the worktree really is gone", !existsSync(join(A, ".worktrees", claimed.unit)));
+    assertEq("the claim branch really is still on the remote",
+      run(origin, `git rev-parse --verify --quiet refs/heads/${claimed.branch}`).status, 0);
+
+    // AND THE CLAIM STAYS LIVE — the honest state. A half-released unit that vanished
+    // from the reader would be a claim nobody can see, which is the one thing this
+    // protocol must never produce.
+    const claims = JSON.parse(run(A, LIST).stdout).claims;
+    assertEq("a half-released claim is still reported in flight",
+      claims.map((c) => c.unit), [claimed.unit]);
+
+    // `untouched` must stay distinguishable from `half_released`: a unit that was never
+    // claimed changes nothing at all.
+    const missing = run(A, `${RELEASE} batch-20260101000000`);
+    const mj = JSON.parse((missing.stdout + missing.stderr).trim().split("\n").pop());
+    assertTrue("releasing an unknown unit is not reported as half_released",
+      mj.state !== "half_released", JSON.stringify(mj));
   } finally { cleanup(origin); cleanup(A); cleanup(B); }
 }
 
@@ -11375,6 +11435,7 @@ const tests = [
   ["propose: dedup set and draft scaffold", testProposeBatch],
   ["propose/notify-slack.sh", testNotifySlack],
   ["drive claim protocol: two clones, one unit", testClaimProtocol],
+  ["drive release-claim where the remote refuses deletes", testReleaseClaimDenyDeletes],
   ["drive/land-unit.sh: the third route, and the human gate that guards it", testLandUnit],
   ["drive claim protocol: a claim survives its tickets being archived", testClaimSurvivesArchive],
   ["drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected],

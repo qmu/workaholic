@@ -29,6 +29,39 @@
 # nothing to leak when a runner dies. A merge empties a claim by definition; deleting
 # the branch releases it explicitly.
 #
+# THAT MODEL REQUIRES COMPLETE HISTORY, AND SAYS SO NOW.
+# "commits not yet on the base" is `git rev-list --count base..ref`, which is only
+# meaningful when the merge base is inside the clone. In a SHALLOW clone it is not: the
+# range cannot be reduced, so git counts the whole visible window and a branch whose
+# commits all reached the base still reports a large positive `ahead`. The scan then
+# finds the claim commit in its history and reports a PR-unit that merged days ago.
+#
+# Measured 2026-08-04 on the hourly unattended runner, in the cloud container it always
+# runs in (`git rev-parse --is-shallow-repository` was `true` on the fresh clone). For
+# `origin/claude/sharp-rubin-xiorxm`, merged as PR #109 on 2026-07-30:
+# `rev-list --count` returned 154 while shallow and 0 after `--unshallow`, and the unit
+# was offered as `resumable` -- past BOTH safety gates, since the identity matched and
+# the heartbeat had lapsed five days earlier. ~180 merged-but-undeleted remote branches
+# here are candidates, and which ones surface depends on the container's clone depth, so
+# the symptom is intermittent across ticks.
+#
+# TWO ANSWERS, DELIBERATELY DIFFERENT, because the condition has two very different
+# repairs available:
+#   1. REPAIR when possible -- `claims_fetch` deepens a shallow clone (`--unshallow`)
+#      before anything reads ancestry. This restores the reader's actual question rather
+#      than working around it, and costs one fetch per container lifetime, not per scan.
+#   2. DEGRADE LOUDLY when not -- with an unreachable origin the clone stays shallow, so
+#      `claims_shallow` reports `true` to both consumers (which forbid `ok` on it exactly
+#      as they do on `current: false`) and any branch whose merge base is unreachable is
+#      reported `resumable: false` with reason `shallow_history`. An unanswerable question
+#      must not render as `heartbeat_lapsed`.
+# Doing only (2) would leave a runner that starts shallow permanently unable to see its
+# own genuinely resumable units, which is the recovery path the protocol depends on.
+#
+# The claim is still LISTED when history is truncated, rather than dropped. That follows
+# the same asymmetry as the offline case below: over-reporting a claim makes a runner
+# wait, while under-reporting one double-picks work.
+#
 # Usage (from a drive script, with SCRIPT_DIR its own scripts/ dir):
 #   . "<scripts-dir>/lib/claims.sh"
 #   claims_fetch            # echoes true/false -- NEVER fails (see the asymmetry below)
@@ -106,12 +139,16 @@
 #
 # `resume_reason` always answers "why is it in this state", and is NEVER empty (see the
 # no-empty-field rule below): `heartbeat_lapsed` or `parked_with_pr` when resumable, else
-# `claim_active`, `foreign_identity`, `identity_unresolved`, or `queue_drained`.
-# `parked_with_pr` splits the resumable case in two: a unit that reached its PR (its story
+# `claim_active`, `foreign_identity`, `identity_unresolved`, `shallow_history`, or
+# `queue_drained`.
+# `parked_with_pr` splits the RESUMABLE case in two: a unit that reached its PR (its story
 # file is committed at the branch tip) and merely has follow-up work, versus a run that
 # died mid-drive. Both MAY be taken over; only the latter is a MANDATORY takeover, because
 # forcing the parked one ahead of fresh work is what made an attended run spend its first
-# forty minutes reopening a pull request the developer considered finished. `queue_drained` gets its
+# forty minutes reopening a pull request the developer considered finished.
+# `shallow_history` is the one that blames the INPUT rather than the unit: the clone
+# cannot see far enough to say whether the branch is merged, so no verdict is offered.
+# `queue_drained` gets its
 # own word rather than folding into `claim_active` because the two call for opposite
 # operator responses: `claim_active` means wait for the run, `queue_drained` means the
 # work is done and a human -- not a runner -- is what it is waiting for. It is reported rather than merely implied
@@ -135,11 +172,42 @@ claims_fetch() {
         printf 'false'
         return 0
     fi
+    # REPAIR TRUNCATED HISTORY BEFORE ANYTHING READS ANCESTRY (see the header). A plain
+    # `git fetch --prune` never deepens, so without this the scan's merged/unmerged test
+    # stays unanswerable for the whole life of the container. Guarded on shallowness
+    # because `--unshallow` errors on a complete repository, and best-effort because an
+    # unreachable origin must degrade this reader, never fail it.
+    if [ "$(git rev-parse --is-shallow-repository 2>/dev/null || echo false)" = "true" ]; then
+        git fetch --unshallow --prune --quiet origin >/dev/null 2>&1 || true
+    fi
     if git fetch --prune --quiet origin >/dev/null 2>&1; then
         printf 'true'
     else
         printf 'false'
     fi
+}
+
+# Is this clone's history truncated? Echoes true|false, never fails.
+#
+# Reported OUT to both consumers rather than folded into the TSV row, deliberately: it is
+# a property of the whole scan, not of one claim, and the row's field count is load-bearing
+# (see the no-empty-field note below -- adding a column is exactly how a reader starts
+# shifting fields). `list-claims.sh` and `plan-units.sh` each call this alongside
+# `claims_fetch`.
+claims_shallow() {
+    if [ "$(git rev-parse --is-shallow-repository 2>/dev/null || echo false)" = "true" ]; then
+        printf 'true'
+    else
+        printf 'false'
+    fi
+}
+
+# Can "is this branch merged into the base" actually be answered? True iff a merge base
+# is visible in this clone. In a complete clone this is always true for any two refs with
+# shared history; in a shallow one it is exactly the question the graft boundary makes
+# unanswerable. $1 = base ref, $2 = branch ref.
+claims_ancestry_ok() {
+    [ -n "$(git merge-base "$1" "$2" 2>/dev/null || true)" ]
 }
 
 # The ref the "unmerged" set is measured against. origin/main is the truth; the
@@ -439,6 +507,14 @@ claims_scan() {
         elif [ "$_cs_author" != "$_cs_me" ]; then
             _cs_resumable=false
             _cs_reason=foreign_identity
+        elif ! claims_ancestry_ok "$_cs_base" "$_cs_ref"; then
+            # Truncated history: this branch may already be merged and simply unprovable
+            # here (see the header). Every gate below would pass on a merged unit -- the
+            # identity matches because this runner claimed it, and the heartbeat lapsed
+            # precisely because the work finished -- so the verdict is suppressed at the
+            # one point where the input, not the unit, is the problem.
+            _cs_resumable=false
+            _cs_reason=shallow_history
         elif [ $((_cs_now - _cs_ct)) -lt "$_cs_hb_threshold" ]; then
             _cs_resumable=false
             _cs_reason=claim_active

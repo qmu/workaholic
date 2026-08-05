@@ -3,7 +3,7 @@ created_at: 2026-08-05T00:15:31+00:00
 author: a@qmu.jp
 type: bugfix
 layer: [Infrastructure]
-effort:
+effort: 1h
 commit_hash:
 category: Changed
 depends_on:
@@ -126,3 +126,49 @@ All four criteria hold and the smoke suite passes.
   hourly runner cannot report `ok`.
 - Found by the hourly unattended runner while releasing a duplicate claim it had resumed and
   found already finished on the base.
+
+## Final Report
+
+Implemented as the ticket's step 1 plus the two rulings it deliberately left open, both
+recorded in `release-claim.sh`'s header so they are not re-proposed blind.
+
+**Ruling 1 — no tombstone.** Marking a claim branch "released" with a commit the scan
+honours was rejected. The protocol rests on exactly one invariant — an unmerged branch
+carrying a `Claim` commit *is* a live claim — and a second, weaker release channel would
+have to be consulted by every reader, while a runner that failed to *write* the tombstone
+lands in precisely the state this ticket is about. Over-reporting a claim makes a runner
+wait; under-reporting it double-picks work, which is the asymmetry the whole protocol is
+built around.
+
+**Ruling 2 — the order stays.** Deleting the branch first, so a refused delete leaves the
+worktree intact, was rejected for the reason the order exists: it would publish "this unit
+is free" over a worktree that may hold unpushed work. The teardown is also the cheap half
+to lose — `claim.sh resume` rebuilds the worktree at the branch tip — so a half-released
+unit is recoverable while a wrongly-freed one is not. That disposes of the ticket's step 3
+without a change.
+
+So the fix is honesty rather than recovery: `state: released | half_released | untouched`
+on every outcome, with the refused-delete path now reporting `worktree_removed`,
+`remote_branch_deleted` and a `detail` naming the human action instead of a bare
+`{"released": false}` that could not be told from "nothing happened". `released: true` is
+still never printed on a refused delete (step 4).
+
+Verification: suite **2259 passed / 0 failed**, including a new
+`testReleaseClaimDenyDeletes` whose fixture sets `receive.denyDeletes=true` on the bare
+origin *after* the claim is pushed — reproducing the production asymmetry (pushes accepted,
+deletes refused) hermetically, with no network. It asserts the composite state, that both
+halves match reality rather than each other (worktree really gone, branch really still on
+the remote), that the half-released claim is **still reported in flight** — a claim nobody
+can see is the one state this protocol must not produce — and that `untouched` stays
+distinguishable. `build.mjs` regenerated the bundle (`drive` is in the closure, so
+`outputs/workflows/**/release-claim.sh` moved with it); `verify.mjs`,
+`validate-metadata.mjs`, `layout-doctor` (`conforming: true`) and the branch-safety scan
+(`pass`) all clean.
+
+**What this does not fix, by design.** The leftover branch from the incident,
+`work-20260804-225829`, still needs a human to delete it; no code change can, which is why
+the ticket carried that as a separate operator action rather than an acceptance criterion.
+
+Docs updated in the same commit: `CLAUDE.md`'s claim-protocol **Release** bullet and the
+drive skill's *Release a claim deliberately* section both described a two-step release that
+could only succeed or do nothing.

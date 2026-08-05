@@ -14,7 +14,47 @@ import sys
 
 
 def norm_url(u):
+    """The DISPLAY form: what a reader sees, trimmed of noise but otherwise as given."""
     return (u or "").rstrip("/").removesuffix(".git")
+
+
+def canon_url(u):
+    """The COMPARISON form: `host/owner/name`, host lowercased, userinfo and scheme gone.
+
+    A remote names one repository in several interchangeable spellings --
+    `git@github.com:qmu/workaholic`, `ssh://git@github.com/qmu/workaholic` and
+    `https://github.com/qmu/workaholic`, each with or without `.git` and a trailing
+    slash. `norm_url` reduced only the last two, so an SSH-form checkout never matched
+    an https-form routine and `/setup-routines` reported ZERO routines and every
+    template missing for a repository with three live, working ones (measured
+    2026-08-05). An identity comparison must be canonical before it is trusted to say
+    "nothing exists"; the workaround was passing the https form by hand.
+
+    THE HOST KEEPS ITS PORT AND THE PATH KEEPS ITS CASE. Only the host is lowercased,
+    because `github.com/Qmu/Workaholic` and `github.com/qmu/workaholic` are the same
+    host but not provably the same repository path, and folding them would trade one
+    confident wrong answer for another. A proxy URL such as
+    `http://local_proxy@127.0.0.1:41729/git/qmu/workaholic` therefore stays DISTINCT
+    from the github.com form -- deliberately: whether a rewritten remote should resolve
+    back to its canonical origin is a separate question about `resolve-target.sh`, and
+    silently equating them here would prejudge it.
+    """
+    s = (u or "").strip()
+    if not s:
+        return ""
+    # A scheme tells us any later colon is a port, not the scp-like `host:path`
+    # separator -- so the two forms cannot be disambiguated after the fact.
+    had_scheme = "://" in s
+    if had_scheme:
+        s = s.split("://", 1)[1]
+    if "@" in s:
+        s = s.split("@", 1)[1]
+    if not had_scheme and ":" in s:
+        host, _, path = s.partition(":")
+        s = f"{host}/{path}"
+    s = s.rstrip("/").removesuffix(".git").rstrip("/")
+    host, sep, path = s.partition("/")
+    return f"{host.lower()}{sep}{path}"
 
 
 def ccr(t):
@@ -24,6 +64,12 @@ def ccr(t):
 def sources_of(t):
     ctx = ccr(t).get("session_context") or {}
     return [norm_url((s.get("git_repository") or {}).get("url")) for s in ctx.get("sources") or []]
+
+
+def canon_sources_of(t):
+    """`sources_of` reduced for comparison. Membership is decided here; what gets
+    REPORTED is always the display form, so a caller's own spelling survives."""
+    return [canon_url(s) for s in sources_of(t)]
 
 
 def live_prompt(t):
@@ -104,7 +150,8 @@ def main():
     drifted_total = 0
 
     # ---- this repository: missing AND drifted ----
-    mine = [t for t in items if repo in sources_of(t)]
+    repo_key = canon_url(repo)
+    mine = [t for t in items if repo_key in canon_sources_of(t)]
     missing, present, matched = [], [], set()
     for tpl in templates:
         want = render(tpl["id"], repo)
@@ -140,7 +187,8 @@ def main():
     for t in items:
         srcs = sources_of(t)
         target = srcs[0] if srcs else ""
-        if not target or target == repo:
+        target_key = canon_url(target)
+        if not target or target_key == repo_key:
             continue
         name = (t.get("name") or "").strip()
         for tpl in templates:
@@ -149,11 +197,13 @@ def main():
                 continue
             d = drift_of(t, want)
             drifted_total += 1 if d else 0
+            # Grouped by the CANONICAL key so two routines spelling the same repository
+            # differently land in one group; the first spelling seen is what is reported.
             others.setdefault(
-                target,
+                target_key,
                 {"repo": target, "repo_name": target.rstrip("/").split("/")[-1], "present": []},
             )
-            others[target]["present"].append(
+            others[target_key]["present"].append(
                 {"id": tpl["id"], "name": name, "trigger_id": t.get("id"), "drift": d}
             )
             break

@@ -4799,6 +4799,99 @@ function testCatchupMain() {
   }
 }
 
+// ---------- drive claim protocol: truncated history (shallow clone) ----------
+// THE ONE CONDITION THE PRODUCTION RUNNER ALWAYS STARTS IN, AND NO FIXTURE HAD.
+// `claims_scan` decides in-flight-ness with `git rev-list --count base..ref`, which is
+// meaningful only when the merge base is inside the clone. Every other fixture here is a
+// complete clone, so the whole suite passed while the cloud runner -- whose container
+// clones shallow -- was offered a merged, shipped unit for takeover.
+//
+// Local clones ignore --depth unless the source is a file:// URL, so these use one.
+function testClaimScanShallowClone() {
+  const { origin, A, B } = makeClaimFixture();
+  const LIST = `${POSIX_SH} ${SCRIPTS.listClaims}`;
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const shallows = [];
+  const shallowClone = (depth = 1) => {
+    const s = mkdtempSync(join(tmpdir(), "wh-claim-shallow-"));
+    // --no-single-branch: --depth alone also implies --single-branch, which would hide
+    // the very refs the scan reads. Production clones carry every branch with TRUNCATED
+    // history, which is exactly this shape.
+    execSync(`git clone -q --depth ${depth} --no-single-branch file://${origin} .`, { cwd: s });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: s });
+    shallows.push(s);
+    return s;
+  };
+  try {
+    // A claims m1 and that unit then SHIPS: its branch merges into main and is left
+    // undeleted, exactly like the ~180 merged-but-undeleted branches in the real repo.
+    const shipped = JSON.parse(run(A, `${CLAIM} mission m1`).stdout);
+    // --no-ff on purpose: a PR merge creates a MERGE COMMIT, so the branch tip becomes an
+    // ancestor of main rather than main itself. A fast-forward would make the two refs the
+    // same commit, which every clone reports as 0 ahead -- the defect would not reproduce.
+    execSync(`git fetch -q origin && git merge -q --no-ff --no-edit origin/${shipped.branch} && git push -q origin main`, { cwd: A });
+    tickSecond();
+    // ...and a second unit stays genuinely in flight.
+    const live = JSON.parse(run(A, `${CLAIM} batch .workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`).stdout);
+
+    // ---- Baseline: a COMPLETE clone gets both answers right. ----
+    const full = JSON.parse(run(A, LIST).stdout);
+    assertEq("a complete clone reports the merged unit as released", full.shallow, false);
+    assertEq("a complete clone lists only the unit still in flight",
+      full.claims.map((c) => c.unit), [live.unit]);
+
+    // ---- Gate 1: shallow + reachable origin -> the reader REPAIRS, not degrades. ----
+    const s1 = shallowClone();
+    assertEq("the fixture clone really is shallow",
+      execSync("git rev-parse --is-shallow-repository", { cwd: s1, encoding: "utf8" }).trim(), "true");
+    // Without deepening, the merged branch counts as ahead and reads as a live claim.
+    const naive = execSync(`git fetch -q origin && git rev-list --count origin/main..origin/${shipped.branch}`,
+      { cwd: s1, encoding: "utf8" }).trim();
+    assertTrue("truncated history really does miscount a merged branch as ahead",
+      Number(naive) > 0, `ahead=${naive} -- fixture no longer reproduces the defect`);
+
+    const r1 = JSON.parse(run(s1, LIST).stdout);
+    assertEq("the scan deepened the clone rather than answering from truncated history",
+      r1.shallow, false);
+    assertEq("a merged, shipped unit is NOT reported as a claim in a shallow clone",
+      r1.claims.map((c) => c.unit), [live.unit]);
+    assertTrue("and the clone is left complete for every later read",
+      execSync("git rev-parse --is-shallow-repository", { cwd: s1, encoding: "utf8" }).trim() === "false");
+
+    // Gate 4: the genuine claim survives the repair -- correctness is not bought by
+    // blinding the reader. Heartbeat forced lapsed so the verdict is actually exercised.
+    const lapsed = { WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0" };
+    const r1b = JSON.parse(run(s1, LIST, { env: lapsed }).stdout);
+    const liveRow = r1b.claims.find((c) => c.unit === live.unit);
+    assertEq("a genuinely unmerged claim is still resumable after deepening",
+      { r: liveRow.resumable, why: liveRow.resume_reason }, { r: true, why: "heartbeat_lapsed" });
+
+    // ---- Gate 2: shallow + UNREACHABLE origin -> degrade loudly, never invent. ----
+    const s2 = shallowClone();
+    execSync("git remote set-url origin file:///nonexistent-workaholic-origin", { cwd: s2 });
+    const r2 = JSON.parse(run(s2, LIST, { env: lapsed }).stdout);
+    assertEq("an unreachable origin cannot repair the clone, and says so",
+      { f: r2.fetched, s: r2.shallow }, { f: false, s: true });
+    assertTrue("no claim is offered for resumption over truncated history",
+      r2.claims.every((c) => c.resumable === false), JSON.stringify(r2.claims));
+    assertTrue("and the reason blames the input, not the unit",
+      r2.claims.length > 0 && r2.claims.every((c) => c.resume_reason === "shallow_history"),
+      JSON.stringify(r2.claims.map((c) => [c.unit, c.resume_reason])));
+    // The merged unit is still LISTED here -- over-reporting a claim makes a runner wait,
+    // under-reporting it double-picks work. Suppression is of the VERDICT, not the row.
+    assertTrue("the claim is still listed, since over-reporting is the safe direction",
+      r2.claims.some((c) => c.unit === shipped.unit), JSON.stringify(r2.claims.map((c) => c.unit)));
+
+    // ---- The survey carries the same fact, because it is what forbids `ok`. ----
+    const p2 = JSON.parse(run(s2, `${POSIX_SH} ${SCRIPTS.planUnits}`, { env: lapsed }).stdout);
+    assertEq("plan-units reports truncated history as a property of the survey", p2.shallow, true);
+    assertEq("and offers nothing for resumption on the strength of it", p2.resumable, []);
+  } finally {
+    cleanup(origin); cleanup(A); cleanup(B);
+    for (const s of shallows) cleanup(s);
+  }
+}
+
 // ---------- report/apply-deferred-concern-verdicts.sh (Bug 1: accept object + array) ----------
 function testApplyVerdicts() {
   // {"verdicts":[...]} object form must write a superseding record for a resolved concern.
@@ -7192,6 +7285,92 @@ function testRequestScripts() {
   });
 
   rmSync(tmp, { recursive: true, force: true });
+}
+
+// ---------- /request under a git insteadOf URL rewrite ----------
+// A repository's origin URL is not one string. `url.<replacement>.insteadOf <original>`
+// makes `git remote get-url` (rewritten) and `git config --get remote.origin.url`
+// (configured) name the same repository differently, and a host may inject those rules
+// through system/global config OR the GIT_CONFIG_COUNT/KEY/VALUE environment triple —
+// which is invisible to `git config --global --list`.
+//
+// MEASURED 2026-08-04 on the hourly unattended runner: the Claude Code on the web
+// container injected `url.https://github.com/.insteadOf = git@github.com:`, and the whole
+// existing request suite was written against complete, un-rewritten remotes. The result
+// was a body carrying this repository's literal clone URL falling straight through the
+// clone-URL rule — refused only by the unrelated `owner/name` rule, which named the wrong
+// thing to mask, past a human gate that had already confirmed the body verbatim.
+//
+// THE REWRITE IS CONFIGURED HERE, NOT READ FROM THE AMBIENT ENVIRONMENT. CI runners have
+// no rewrite, so an environment-sensing test would be permanently vacuous on the one
+// surface that gates merges; a fixture makes the case run identically everywhere.
+function testRequestUnderUrlRewrite() {
+  const tmp = mkdtempSync(join(tmpdir(), "request-rewrite-"));
+  const src = join(tmp, "source-repo");
+  const tgt = join(tmp, "target-repo");
+  const git = (cwd, args) => execSync(`git ${args}`, { cwd, stdio: "ignore" });
+  for (const r of [src, tgt]) {
+    mkdirSync(r, { recursive: true });
+    git(r, "init -q");
+    git(r, "config user.email a@qmu.jp");
+    git(r, "config user.name t");
+    writeFileSync(join(r, "a.md"), "x\n");
+    git(r, "add -A");
+    git(r, "-c commit.gpgsign=false commit -qm base");
+  }
+  const json = (cwd, script, args) => {
+    try {
+      return JSON.parse(execSync(`${POSIX_SH} ${script} ${args}`, { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }));
+    } catch (e) { return { ok: false, error: `threw: ${e.status}` }; }
+  };
+  const q = (s) => `"${s}"`;
+  const body = (n, text) => { const p = join(tmp, n); writeFileSync(p, text); return p; };
+
+  try {
+    // The repository records the SSH form; the rewrite makes git report the HTTPS one.
+    const configured = "git@github.com:acme-org/widget.git";
+    const rewritten = "https://github.com/acme-org/widget.git";
+    git(src, `remote add origin ${configured}`);
+    git(src, `config url."https://github.com/".insteadOf "git@github.com:"`);
+    git(tgt, `remote add origin git@github.com:other-org/target.git`);
+
+    // The fixture only means something if git actually disagrees with itself here.
+    const effective = execSync(`git remote get-url origin`, { cwd: src, encoding: "utf8" }).trim();
+    const recorded = execSync(`git config --get remote.origin.url`, { cwd: src, encoding: "utf8" }).trim();
+    assertEq("the rewrite fixture makes get-url report the rewritten form", effective, rewritten);
+    assertEq("and leaves the configured form recorded", recorded, configured);
+
+    // BOTH forms are this repository's clone URL, so both must hit the CLONE-URL rule —
+    // not the `owner/name` rule, which every clone URL also contains. The rule that fires
+    // decides what the developer is told to mask.
+    for (const [label, url] of [["configured", configured], ["rewritten", rewritten]]) {
+      const p = body(`${label}.md`, `---\ntype: bugfix\n---\n\n# Request\n\nClone ${url} first.\n`);
+      const r = json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131110-x.md ${q(p)}`);
+      assertEq(`the ${label} clone URL is refused`, r.ok, false);
+      assertTrue(`and the ${label} form is reported as the clone URL`,
+        /clone URL at line \d+:/.test(r.error || ""), r.error);
+    }
+
+    // The slug rule still fires on a bare `owner/name`, which no clone-URL match covers.
+    const slug = body("slug.md", `---\ntype: bugfix\n---\n\n# Request\n\nMirrors acme-org/widget exactly.\n`);
+    const slugR = json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131111-x.md ${q(slug)}`);
+    assertEq("a bare owner/name is still refused", slugR.ok, false);
+    assertTrue("and is reported as the owner/name form",
+      (slugR.error || "").includes("acme-org/widget"), slugR.error);
+
+    // resolve-target reports the destination a human confirms, so it must be the URL a
+    // colleague could clone — never one a local rewrite invented.
+    const resolved = json(src, SCRIPTS.resolveTarget, q(tgt));
+    assertEq("resolve-target reports the configured remote, not the rewritten one",
+      resolved.remote, "git@github.com:other-org/target.git");
+
+    // The widening must not turn into a refusal machine: a clean body still submits.
+    const clean = body("clean.md", `---\ntype: bugfix\n---\n\n# Request\n\nThe parser drops a trailing newline.\n`);
+    assertEq("a clean body still submits under a rewrite",
+      json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131112-x.md ${q(clean)}`).ok, true);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
 }
 
 // ---------- commit/commit.sh refuses flag-shaped titles ----------
@@ -10953,6 +11132,7 @@ const tests = [
   ["hooks/guard-repo-confinement.sh", testGuardRepoConfinement],
   ["commit/commit.sh flag guard", testCommitFlagGuard],
   ["request/scripts", testRequestScripts],
+  ["request/scripts under a git insteadOf URL rewrite", testRequestUnderUrlRewrite],
   ["hooks/guard-askuserquestion-label.sh", testGuardAskUserQuestionLabel],
   ["workaholify/audit-claude-md.sh", testAuditClaudeMd],
   ["hooks/guard-working-directory.sh", testGuardWorkingDirectory],
@@ -11016,6 +11196,7 @@ const tests = [
   ["report/create-or-update.sh takes the update path for an existing PR", testCreateOrUpdatePaths],
   ["branching/cut-release-branch.sh (the release/* staging tier)", testCutReleaseBranch],
   ["ship: a release branch's durable record answers what shipped, and when", testReleaseRecord],
+  ["drive claim protocol: truncated history never invents a claim", testClaimScanShallowClone],
 ];
 
 for (const [label, fn] of tests) {
@@ -11752,6 +11933,58 @@ function testWorkaholifyRoutines() {
     const cmp2 = JSON.parse(run(dir, `${COMPARE} ${WH} < ${fixture}`).stdout);
     assertTrue("an extra prompt line is reported as prompt drift",
       cmp2.this_repo.present.find((x) => x.id === "fb").drift.includes("prompt"), JSON.stringify(cmp2.this_repo.present));
+
+    // ---- ONE REPOSITORY, THREE SPELLINGS ----
+    // A remote is written `https://…`, `git@…:` or `ssh://git@…/`, each ± `.git` and a
+    // trailing slash, and every one of them names the same repository. The match compared
+    // RAW STRINGS, so an SSH-form checkout reported ZERO routines and EVERY template
+    // missing for a repository with three live, working ones (measured 2026-08-05) -- a
+    // confident wrong answer from the one command whose entire job is to say what runs
+    // against this repository. The workaround was passing the https form by hand.
+    const SPELLINGS = [
+      "git@github.com:qmu/workaholic",
+      "git@github.com:qmu/workaholic.git",
+      "ssh://git@github.com/qmu/workaholic",
+      "https://github.com/qmu/workaholic/",
+      "https://github.com/qmu/workaholic.git",
+    ];
+    const httpsLive = { data: [
+      entry("trig_drive", drive.name, drive.prompt, WH, "56 * * * *"),
+      entry("trig_fb", fb.name, fb.prompt, WH),
+      entry("trig_merged", merged.name, merged.prompt, WH),
+    ] };
+    writeFileSync(fixture, JSON.stringify(httpsLive));
+    for (const form of SPELLINGS) {
+      const c = JSON.parse(run(dir, `${COMPARE} '${form}' < ${fixture}`).stdout);
+      assertEq(`'${form}' finds the same three https-form routines`,
+        [c.this_repo.present.length, c.this_repo.missing.length], [3, 0]);
+      // THE RENDER SIDE MUST CANONICALIZE TOO, or matching alone just relocates the bug:
+      // `{repo}` builds the `…/pull/123` links, and `git@github.com:qmu/workaholic/pull/123`
+      // is not a link anything can follow. Left raw it reads as prompt drift on every
+      // routine, and a routine CREATED from it carries the broken URL into a live process.
+      assertEq(`and reports no drift under '${form}'`, c.drifted_total, 0);
+      // MATCHING IS CANONICAL, OUTPUT IS AS GIVEN. A reader must see the URL they passed.
+      assertEq(`while the reported repo stays as written for '${form}'`,
+        c.repo, form.replace(/\/$/, "").replace(/\.git$/, ""));
+    }
+    // ...AND THE OTHER DIRECTION: an https caller against SSH-form routine sources. The
+    // spelling that varies in the wild is whichever side was configured first.
+    const sshLive = { data: [
+      entry("trig_drive", drive.name, drive.prompt, "git@github.com:qmu/workaholic", "56 * * * *"),
+      entry("trig_fb", fb.name, fb.prompt, "ssh://git@github.com/qmu/workaholic"),
+    ] };
+    writeFileSync(fixture, JSON.stringify(sshLive));
+    const cmpSsh = JSON.parse(run(dir, `${COMPARE} ${WH} < ${fixture}`).stdout);
+    assertEq("an https caller matches SSH-form routine sources",
+      [cmpSsh.this_repo.present.length, cmpSsh.drifted_total], [2, 0]);
+    // THE FIX MUST NOT BUY MATCHING BY MATCHING EVERYTHING. A different repository, and a
+    // proxied remote that is genuinely a different host, both still miss.
+    writeFileSync(fixture, JSON.stringify(httpsLive));
+    for (const other of ["https://github.com/qmu/other", "git@github.com:other-org/workaholic",
+                         "http://local_proxy@127.0.0.1:41729/git/qmu/workaholic"]) {
+      const miss = JSON.parse(run(dir, `${COMPARE} '${other}' < ${fixture}`).stdout);
+      assertEq(`'${other}' still matches nothing`, miss.this_repo.present.length, 0);
+    }
 
     // EVERY TEMPLATE POSTS TO SLACK, so a routine without the connector is broken in the
     // most expensive way: it runs, works, and fails silently at the last step.

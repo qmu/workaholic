@@ -3,9 +3,9 @@ created_at: 2026-08-05T10:26:34+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 1h
 commit_hash:
-category:
+category: Changed
 depends_on:
 feedback: [20260805102621-an-attended-drive-asks-which-unit-to-take-only-routines-run-promptless.md]
 merge_policy:
@@ -86,3 +86,31 @@ resumable-first ordering overrode the developer's stated WIP twice.
   in the runbook.
 - Do not infer attendance from TTY or environment: the form is chosen by the
   caller, which is the only signal that cannot be wrong.
+
+## Final Report
+
+Development completed as planned. The vocabulary landed as specified: bare `/drive`
+is the attended form (one `multiSelect` `AskUserQuestion` over the reported partition,
+only above one claimable/resumable target, `[project label]` prefix), `/drive auto` is
+the unattended form with `night` as its synonym, and attendance is read from the
+invocation form alone. Unchosen units are reported `deferred_by_operator` and forbid
+`ok` in the token table. Recorded as decision O1 in the ledger's tenth round, cited
+from `CLAUDE.md`, `README.md`, the runbook and both drive surfaces.
+
+### Discovered Insights
+
+- **Insight**: The amendment's real blast radius was the *callers*, not the command —
+  every unattended invocation had to be renamed in the same change (`[Drive]` routine
+  prompt, the runbook's cron line, and five `/goal /drive ok` references across
+  `commands/mission.md`, `skills/drive/SKILL.md`, `CLAUDE.md` and `README.md`).
+  **Context**: Because attendance is deliberately *not* inferred, a caller that keeps
+  the bare form silently becomes an attended run — the failure is a cron tick parked
+  on a prompt, which looks like a hung session rather than a misconfiguration. A pin
+  now asserts the routine template and the runbook both carry the `auto` token.
+- **Insight**: The doc-pin asserting "the freshness paths add no prompt" had been
+  vacuous since the step was renumbered `0.` → `0b.`: the slice
+  `cmd.split("0. **Freshen**")[1]` was `undefined`, and `!/AskUserQuestion/.test(undefined)`
+  passes for free. **Context**: It was the one guard standing exactly where this ticket
+  introduces the first prompt into `commands/drive.md`. Sentinel pins that slice a
+  document by a heading silently stop testing anything when the heading is edited, so
+  the slice is now asserted to exist before it is searched.

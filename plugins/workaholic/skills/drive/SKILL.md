@@ -17,14 +17,14 @@ metadata:
 
 `/drive` is the project's **sole executor**. One command picks the work up, whether a developer typed it or a cron tick invoked it, and behaves the same either way: it surveys what is claimable, partitions it into units that each deserve one merge, claims each unit on a pushed branch, implements it in that claim's worktree, reports it as a PR, and routes it by the merge policy the artifacts already recorded.
 
-**There is no drive-time confirmation** (`docs/loop-engineering-workflow.md` G1–G2). The interactive run *reports* its partition; it never asks the developer to approve it, and it never asks per ticket. Approval did not disappear — it moved to where the work was decided (see *Where the per-ticket approval prompt went*). What an interactive invocation adds is narration, not decisions.
+**There is one prompt in the whole run, and only when a person is there to answer it** (`docs/loop-engineering-workflow.md` G1–G2, amended by O1 on 2026-08-05). The **attended** form — a developer typing `/drive` — asks *which* units to take when the survey offers more than one (§2), and asks nothing else at any step. The **unattended** form — `/drive auto`, which the `[Drive]` routine and every caller-side loop invoke by name — keeps the zero-prompt path exactly. Neither form confirms a partition, and neither asks per ticket: approval moved to where the work was decided (see *Where the per-ticket approval prompt went*), and what the attended form recovers is not approval but the *choice among peers*.
 
 ## Agent Compatibility
 
-This skill works on any Agent-Skills-compatible agent. **The unified run issues no `AskUserQuestion` at any point** — that is the contract, not an accommodation, so the only Claude-Code mechanism below is an optimization:
+This skill works on any Agent-Skills-compatible agent. **The attended selection (§2) is the run's only interaction point**, so an agent with no question mechanism runs the unattended shape and loses the choice, nothing else; everything below §2 is mechanism-free:
 
 - **Parallel fan-out** — a run may drive several claimed units at once by spawning one `general-purpose` subagent per unit worktree. On other agents (and by default), drive the claimed units **sequentially**; the outcome is identical. Real throughput comes from the claim protocol rather than from in-run fan-out: several runners, or several ticks, take different units and never collide.
-- The interactive and headless shapes are **one shape**. `/drive night` is a synonym retained for muscle memory: the unified run *is* the unattended shape, so the token changes nothing.
+- The two forms are **one shape below §2**: same survey, same claim, same drive, same routing, same token. `/drive night` is a synonym of `/drive auto` retained for muscle memory.
 
 ## The Unified Run
 
@@ -98,7 +98,22 @@ A **PR-unit** is one merge: one unit ↔ one claim ↔ one branch ↔ one worktr
 
 **Never mix merge policies to force a route.** Batching an `auto` ticket with a `review` one does not make the review ticket merge; it makes the auto ticket wait (§6). Policy is not a grouping input — group on relatedness and let the route fall out.
 
-**Report the partition, never ask it.** State each unit, its members, and the reason it is one unit. An interactive developer reads that and can stop the run; the same text goes to the log on a cron tick.
+**Report the partition in full, always.** State each unit, its members, and the reason it is one unit — the *composition* is never asked in either form. On the unattended path that report is the whole of this step: the run drives every unit it can claim, and the same text goes to the log on a cron tick.
+
+#### The choice among units is the operator's, when one is present
+
+When a developer typed `/drive` (the attended form) **and** the partition offers **more than one** claimable or resumable target, ask once:
+
+- **one** `AskUserQuestion` with `multiSelect: true`, at most once per run — never one question per unit, and never a second round;
+- **one option per unit**: its id, its kind (mission / batch / resumed claim), and a one-line summary of what it contains — a mission's goal or next unchecked acceptance item, a batch's ticket titles;
+- the question body opens with the project label (`bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`), which `hooks/guard-askuserquestion-label.sh` enforces;
+- units are listed in the order §1 and *Ordering within a unit* would have driven them, and when there are more units than one question can carry, the body names the **total** so a narrowed list never reads as the whole offer.
+
+Drive the selected units **in the order selected**, then continue at §3 unchanged. Report every unselected unit as `deferred_by_operator` (§7): it was never claimed, so it stays claimable and **forbids `ok`**. Selecting nothing is a legitimate answer — nothing is driven, every unit is reported deferred, and the run ends `pending`.
+
+**Ask nothing when there is nothing to choose**: a single target, an invocation that already names a unit ("drive the `<slug>` mission"), or the unattended form. A prompt whose answer is foregone is the interaction `rules/interaction.md` forbids.
+
+**Why the choice is asked and the composition still is not.** Composing a unit is derivation over signals the run has already read — the same subsystem, a `depends_on` chain — and a person reading the queue is not better placed to do it. Choosing *among* peer units is a statement about what matters today, and only the person present holds it. Measured 2026-08-05: an attended run spent its first ~40 minutes reopening a parked pull request its `resumable[]` ordering ranked first, while the developer's actual work in progress waited and they interrupted twice to ask why. The ordering fix (`parked_with_pr`, §1) narrowed the heuristic; this hands the decision to the person rather than tuning the heuristic again.
 
 ### 3. Claim
 
@@ -250,6 +265,7 @@ A handoff unit **writes the Handoff section** (`workaholic:report`, *Story Conte
 - **PR per unit** — the URL, or the `pr_error` if creation failed (its own item, affecting nothing else).
 - **Tickets minted mid-run** (`deferred`), one line each: what was found, which ticket provoked it, and the new filename. These are *additional* to the unit's queue and do not affect its reconciliation — but a run that quietly mints tickets is a run that quietly changes the plan, so they are never silent.
 - **Deferred decisions** — every judgment call the run met and recorded instead of asking, one line each. This list is the QA seam `workaholic:development` / `qa-engineering` requires: the developer's looking-through relocates to this report and to each unit's PR, never to a mid-run prompt.
+- **Units the developer deferred** at the attended selection (§2), one line each as `deferred_by_operator`. They were offered and not taken, so they remain claimable — naming them is what keeps a narrowed run distinguishable from a drained queue.
 - **Units another runner holds**, and units the survey excluded with their reasons.
 - **Stashed partial work** and where to find it.
 - **Predicted vs actual hours** per mission unit.
@@ -271,6 +287,7 @@ The token is **derived, never self-asserted**:
 | Any claimed unit was **demoted** and is waiting at a PR it was meant to ship | `pending` |
 | Any unit was left with tickets undriven (failed/blocked tickets remain in its queue) | `pending` |
 | The survey still offers a claimable mission or ticket (including a unit another runner holds) | `pending` |
+| The developer **deferred** a unit at the attended selection (`deferred_by_operator`) | `pending` — the offer is unchanged, so claimable work remains; a narrowed run is not a finished one |
 | The survey offers a **resumable** unit with `resume_reason: heartbeat_lapsed` that this run did not take over | `pending` |
 | The survey offers a **resumable** unit with `resume_reason: parked_with_pr` that this run did not take over | *not by itself* `pending` — it reached its PR and is waiting on a human; report it and the reason for deferring it |
 | The survey ran against a checkout **not** known current with the base (`current: false`, or `sync-main.sh` reported `no_origin`/`origin_unreachable`) | `pending` |
@@ -279,7 +296,7 @@ The token is **derived, never self-asserted**:
 | The claim scan ran over **truncated history** (`shallow: true` — a shallow clone whose origin was unreachable, so merged branches cannot be told from live ones) | `pending` |
 | Nothing was claimable at all and nothing is in flight, over a **current** survey that read the backlog | `ok` |
 
-"I stopped" is not "it's done": a blocked unit is `pending`, not `ok`. This is verbatim the contract a caller-side loop such as `/goal /drive ok` waits on (decision I4 — `/goal` is a harness feature, not a command of this plugin; the token is the whole contract). A confident `ok` over an incomplete run is the masked failure `workaholic:implementation` / `observability` forbids, which is why the reconciliation line always precedes it: the outcome must be graspable from outside without a debugger.
+"I stopped" is not "it's done": a blocked unit is `pending`, not `ok`. This is verbatim the contract a caller-side loop such as `/goal /drive auto ok` waits on (decision I4 — `/goal` is a harness feature, not a command of this plugin; the token is the whole contract). A confident `ok` over an incomplete run is the masked failure `workaholic:implementation` / `observability` forbids, which is why the reconciliation line always precedes it: the outcome must be graspable from outside without a debugger.
 
 ## The failure contract
 
@@ -437,7 +454,7 @@ For each ticket read the frontmatter — `type` (bugfix > enhancement > refactor
 
 Handle missing metadata gracefully: absent fields mean normal priority, and an empty `depends_on` means no dependencies.
 
-On Claude Code this ordering may be delegated to a `general-purpose` subagent (preloading `workaholic:drive`, returning `{tickets[], tiers{}, cycle_warning}`); inline is equally correct and is the default elsewhere. That subagent issues no `AskUserQuestion` — nothing in this run does.
+On Claude Code this ordering may be delegated to a `general-purpose` subagent (preloading `workaholic:drive`, returning `{tickets[], tiers{}, cycle_warning}`); inline is equally correct and is the default elsewhere. That subagent issues no `AskUserQuestion` — no subagent can, and nothing in this run below §2 does.
 
 **Sweep strays first**, so root-level tickets are routed even when `/drive` runs before any `/ticket`:
 
@@ -519,7 +536,7 @@ Then update effort, append the Final Report, and archive (below).
 ### Critical Rules
 
 - **NEVER commit outside the sanctioned scripts** — `archive.sh` and `commit.sh` own the commit seam.
-- **NEVER use AskUserQuestion** — the unified run has no interaction point at all.
+- **NEVER use AskUserQuestion while driving a ticket** — the run's only interaction point is the §2 selection, which happens before any ticket is claimed, and there is no per-ticket prompt in either form.
 - **NEVER archive tickets manually** — `archive.sh` is the only authorized method.
 - **NEVER autonomously move tickets to icebox.** Moving tickets is a developer decision.
 - After implementation, proceed to Final Report and Archive.

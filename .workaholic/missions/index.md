@@ -1,5 +1,9 @@
 # missions
 
+## active
+
+* [cross-the-repo-boundary-as-an-issue](active/cross-the-repo-boundary-as-an-issue/mission.md) - Cross the repo boundary as an issue
+
 ## archive
 
 * [adopt-a-git-flow-branching-model-with-durable-ship-records](archive/adopt-a-git-flow-branching-model-with-durable-ship-records/mission.md) - Adopt a release-branch staging tier with durable ship records

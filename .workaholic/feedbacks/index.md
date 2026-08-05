@@ -406,4 +406,5 @@
 * [An aborted catch-up discards the append resolutions it computed](20260805044712-an-aborted-catch-up-discards-the.md)
 * [merge-pr.sh cannot be exercised end to end hermetically](20260805044712-merge-pr-sh-cannot-be-exercised.md)
 * [The append-shape scope is bounded by path, deliberately](20260805044712-the-append-shape-scope-is-bounded.md)
+* [Retire /request; cross-repo asks become /fb issues on the target](20260805101319-retire-request-cross-repo-asks-become-fb-issues-on-the-target.md)
 <!-- okf:generated:end -->

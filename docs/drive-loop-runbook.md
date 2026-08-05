@@ -172,6 +172,16 @@ says so (`backlog_error: identity_unresolved`; see *Failure modes*).
   is never load-bearing, so its absence proves nothing on its own — check
   `announced` / `announce_reason` in the tick's own output before concluding the
   runner is dead.
+- **Per-unit start and finish posts** land in the **feedback item's own thread**, so an
+  item's ask, its proposal, its run and its merge read as one conversation instead of
+  four scattered lines. The unit's stems come from
+  `drive/scripts/unit-feedback-stems.sh` (the mission's `mission.md`, or the batch's
+  tickets); a unit tracing to no record keys on `unit:<unit-id>` rather than posting
+  keyless. One start, one finish, the finish's shape following the outcome — a handoff
+  *is* the finish. The rules are in `skills/workaholify/SKILL.md`, *Which thread a
+  `/drive` unit's posts land in*. These are the session's posts through the Slack
+  connector; the bot-token notice above is a separate surface and neither is
+  load-bearing.
 - **Handoffs** are units a run half-drove and could not finish. They are readable
   where a person actually looks: the PR body's `## Handoff` section states what is
   done, what is not, the next step, and any command attempted with its raw output.

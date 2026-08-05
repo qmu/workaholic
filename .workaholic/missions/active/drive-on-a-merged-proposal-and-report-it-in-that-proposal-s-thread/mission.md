@@ -42,7 +42,7 @@ thread, without going looking for it.
 - [x] A merged proposal starts a drive run for that proposal's work, and what the
       clock still owes — handoff resumption, lapsed claims, backlog nobody proposed
       — is decided and written down rather than dropped by omission. (#20260805130456-start-the-drive-routine-on-a-merged-proposal.md)
-- [ ] A drive run reports implementation started and finished into the feedback
+- [x] A drive run reports implementation started and finished into the feedback
       item's thread, keyed from the unit's own `feedback:` refs, leaving the
       existing three-case thread routing and its fallback unchanged. (#20260805130457-report-drive-start-and-finish-in-the-item-s-thread.md)
 
@@ -50,3 +50,4 @@ thread, without going looking for it.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-05 — ticket archived — 20260805130456-start-the-drive-routine-on-a-merged-proposal.md
+- 2026-08-05 — ticket archived — 20260805130457-report-drive-start-and-finish-in-the-item-s-thread.md

@@ -3,12 +3,13 @@ created_at: 2026-08-04T23:02:34+00:00
 author: a@qmu.jp
 type: bugfix
 layer: [Infrastructure]
-effort:
+effort: 2h
 commit_hash:
 category: Changed
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260805-002647
 ---
 
 # The version-drift check ships inside the artifact whose staleness it reports, so a stale enough plugin reports itself healthy
@@ -144,3 +145,47 @@ caught only because the runner cross-checked against the checkout by hand.
   mid-run, per `/drive`'s failure contract. The runner released its duplicate claim; the
   remote branch delete was refused with HTTP 403 by this environment, so
   `work-20260804-225829` needs a manual `git push origin --delete`.
+
+## Final Report
+
+Development completed as planned. All four Quality Gate conditions are asserted in
+`testCheckDepsRegistryDrift`, including the pre-fix reporter fixture that gate 1 demands.
+
+Implemented as specified: the verdict's two operands are the harness's binding
+(`${CLAUDE_PLUGIN_ROOT}`) and the harness's registry (`installed_plugins.json`), neither
+of which is plugin content; `/drive` §1 terminates `pending` before surveying rather than
+printing the drift; and `CLAUDE.md`, `check-deps/SKILL.md`, `drive/SKILL.md`,
+`commands/drive.md` and `docs/drive-loop-runbook.md` all moved in the same commit.
+
+### Discovered Insights
+
+- **Insight**: The load-bearing change is not the new fields — it is that `version` now
+  reads the manifest at `${CLAUDE_PLUGIN_ROOT}` instead of the manifest beside `check.sh`.
+  The old source answers "where is this file", which is a different question from "what is
+  this session running".
+  **Context**: This is why the defect survived a reporter that already printed a version.
+  Running `check.sh` from the checkout while the session ran a stale cache produced a
+  confident, matching pair — the reporter agreeing with itself. Any future diagnostic
+  about the loaded plugin must take the harness's binding as its input, not its own path.
+
+- **Insight**: "Behind" had to be an *ordered* comparison, not inequality. A loaded version
+  ahead of the registry is a developer running a local build, and flagging that as the
+  failure would have made the stop fire on exactly the people best placed to ignore it —
+  which is how a gate gets disabled.
+  **Context**: `sort -V` gives the ordering in POSIX sh; the test pins the ahead case
+  explicitly so a later simplification to `!=` fails loudly.
+
+- **Insight**: The absence of `loaded_version_behind_registry` in the output has to count
+  as the condition, and that rule cannot live in the script — only in the consumer.
+  **Context**: A build too old to emit the field is by construction the stale build the
+  field exists to catch, so a consumer reading a missing key as "no drift" lets the defect
+  suppress its own alarm. It is stated in `drive/SKILL.md` §1, `commands/drive.md`, the
+  runbook, and asserted by the legacy-reporter fixture. This is the one part of the fix
+  that is a *contract* rather than code, and it is the part most likely to be dropped by a
+  future refactor.
+
+- **Insight**: This session reproduced the ticket's scenario live before fixing it — its
+  own `${CLAUDE_PLUGIN_ROOT}` expanded to `.../cache/workaholic/workaholic/1.0.112` while
+  the registry recorded `1.0.129`, both directories present from the same unpack.
+  **Context**: Useful for anyone reproducing: the two cache directories coexist, so
+  binding the old path by hand is enough to exercise the whole path without a fixture.

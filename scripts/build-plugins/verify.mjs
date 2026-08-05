@@ -8,7 +8,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generatePolicyIndex, POLICY_INDEX_REL } from "./policy-index.mjs";
 import { generateOkfBundle, OKF_BUNDLE_REL } from "./okf.mjs";
-import { ANY_SKILL_SCRIPT, SKILL_MD_PREFIX, SCRIPT_PREFIX } from "./script-ref-patterns.mjs";
+import { ANY_SKILL_SCRIPT, SKILL_MD_PREFIX, SCRIPT_PREFIX, UNRESOLVED_PLUGIN_ROOT_PATH } from "./script-ref-patterns.mjs";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
 const OUTPUTS_ROOT = join(REPO_ROOT, "outputs");
@@ -43,12 +43,13 @@ if (!skillRoots.length) { console.error("no outputs/<agent>/skills — run build
 for (const [target, skillRoot] of skillRoots) {
   let refs = 0;
 
-  // 1. no plugin-root token anywhere
+  // 1. no unresolved plugin-root PATH anywhere (a bare variable read is legitimate;
+  //    the distinction is the trailing slash — see UNRESOLVED_PLUGIN_ROOT_PATH)
   const scanTokens = (p) => {
     for (const e of readdirSync(p)) {
       const fp = join(p, e);
       if (statSync(fp).isDirectory()) scanTokens(fp);
-      else check("token", !read(fp).includes("${CLAUDE_PLUGIN_ROOT}"), fp);
+      else check("token", !UNRESOLVED_PLUGIN_ROOT_PATH.test(read(fp)), fp);
     }
   };
   scanTokens(skillRoot);

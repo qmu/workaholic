@@ -3243,6 +3243,89 @@ function testReleaseScanAllowlist() {
   } finally { cleanup(pfx); }
 }
 
+// ---------- 8k3. release-scan: generated paths are exempt from the SECRET rule ----------
+// `git diff base..HEAD` reports every line of a file that arrived at a NEW path as
+// added, so when the build grows a bundle's closure it copies whole tracked files into
+// new `outputs/` paths and each line reads as authored. Measured 2026-08-05: a COMMENT
+// in `record-evidence.sh` documenting the secret guard — byte-identical to a line on
+// `main` for weeks — was reported twice as a hard `secret` block, on the one tier that
+// has no override. The named regression case is that exact line.
+function testReleaseScanGeneratedSecretExemption() {
+  // The real line from plugins/workaholic/skills/ship/scripts/record-evidence.sh:19.
+  // `password=` followed by `/token=` satisfies the "6+ value chars to end of line"
+  // literal shape, which is why prose trips a rule that matches on the value.
+  const REGRESSION_LINE =
+    "# (cloud keys, GitHub/Slack tokens, bearer/basic auth, PEM keys, password=/token=\n";
+  const CREDENTIAL = 'aws_secret_access_key = "AKIAIOSFODNN7EXAMPLE1"\n';
+  const secretsIn = (dir) =>
+    JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.scanBranchSafety} main`).stdout)
+      .findings.filter((f) => f.category === "secret").map((f) => f.file);
+
+  // 1. A build-generated copy of an already-tracked file is not re-flagged.
+  const dir = makeRepo("main");
+  try {
+    writeFileSync(join(dir, ".gitattributes"), "outputs/** linguist-generated\n");
+    mkdirSync(join(dir, "plugins/skills/ship"), { recursive: true });
+    writeFileSync(join(dir, "plugins/skills/ship/record-evidence.sh"), REGRESSION_LINE);
+    execSync(`git add -A && git commit -q -m base`, { cwd: dir });
+
+    execSync(`git checkout -q -b work-20260805-000020`, { cwd: dir });
+    mkdirSync(join(dir, "outputs/workflows/skills/drive/ship"), { recursive: true });
+    writeFileSync(join(dir, "outputs/workflows/skills/drive/ship/record-evidence.sh"), REGRESSION_LINE);
+    execSync(`git add -A && git commit -q -m copy`, { cwd: dir });
+
+    assertTrue("a generated copy of a tracked file is not a secret finding",
+      secretsIn(dir).length === 0, JSON.stringify(secretsIn(dir)));
+
+    // 2. A real credential under a NON-generated path is still a hard finding — the
+    //    exemption must not buy quiet by blinding the rule.
+    writeFileSync(join(dir, "plugins/skills/ship/record-evidence.sh"), REGRESSION_LINE + CREDENTIAL);
+    execSync(`git add -A && git commit -q -m src`, { cwd: dir });
+    assertTrue("a credential under a non-generated path is still flagged",
+      secretsIn(dir).includes("plugins/skills/ship/record-evidence.sh"), JSON.stringify(secretsIn(dir)));
+
+    // 3. THE ASSUMPTION THE EXEMPTION RESTS ON: when the build carries that credential
+    //    into the generated tree, the SOURCE finding still fires on the same branch.
+    writeFileSync(join(dir, "outputs/workflows/skills/drive/ship/record-evidence.sh"), REGRESSION_LINE + CREDENTIAL);
+    execSync(`git add -A && git commit -q -m rebuild`, { cwd: dir });
+    assertTrue("a credential copied into the bundle is still caught at its source",
+      secretsIn(dir).includes("plugins/skills/ship/record-evidence.sh"), JSON.stringify(secretsIn(dir)));
+  } finally { cleanup(dir); }
+
+  // 4. THE MEASURED COST, pinned so it cannot be discovered by surprise later: a
+  //    credential written into a generated path BY HAND, with no source counterpart,
+  //    is NOT reported by this rule. `Outputs Freshness` CI is what catches it — it
+  //    rebuilds outputs/ and fails on any diff, so a hand-edit cannot reach a merge.
+  const hand = makeRepo("main");
+  try {
+    writeFileSync(join(hand, ".gitattributes"), "outputs/** linguist-generated\n");
+    execSync(`git add -A && git commit -q -m base`, { cwd: hand });
+    execSync(`git checkout -q -b work-20260805-000021`, { cwd: hand });
+    mkdirSync(join(hand, "outputs/workflows/skills/drive"), { recursive: true });
+    writeFileSync(join(hand, "outputs/workflows/skills/drive/handmade.sh"), CREDENTIAL);
+    execSync(`git add -A && git commit -q -m hand`, { cwd: hand });
+    assertTrue("a hand-planted credential in a generated path is NOT caught here (Outputs Freshness CI is)",
+      secretsIn(hand).length === 0, JSON.stringify(secretsIn(hand)));
+  } finally { cleanup(hand); }
+
+  // 5. The exemption is scoped to the SECRET rule: a generated path still participates
+  //    in the leak rule, which is a different tier with a different override.
+  const leak = makeRepo("main");
+  try {
+    writeFileSync(join(leak, ".gitattributes"), "outputs/** linguist-generated\n");
+    mkdirSync(join(leak, ".workaholic"), { recursive: true });
+    writeFileSync(join(leak, ".workaholic/leak-denylist"), "acmecorp\n");
+    execSync(`git add -A && git commit -q -m base`, { cwd: leak });
+    execSync(`git checkout -q -b work-20260805-000022`, { cwd: leak });
+    mkdirSync(join(leak, "outputs/workflows/skills/drive"), { recursive: true });
+    writeFileSync(join(leak, "outputs/workflows/skills/drive/note.md"), "built for acmecorp\n");
+    execSync(`git add -A && git commit -q -m leak`, { cwd: leak });
+    const out = JSON.parse(run(leak, `${POSIX_SH} ${SCRIPTS.scanBranchSafety} main`).stdout);
+    assertTrue("a generated path is still scanned by the leak rule",
+      out.findings.some((f) => f.category === "leak"), JSON.stringify(out.findings));
+  } finally { cleanup(leak); }
+}
+
 // ---------- 8l. release-scan gate decision (ship tier enforcement) ----------
 function testReleaseScanGateDecision() {
   const dir = makeRepo("main");
@@ -11343,6 +11426,7 @@ const tests = [
   ["release-scan secret suffixed keywords", testReleaseScanSecretSuffixedKeywords],
   ["release-scan secret value inversion", testReleaseScanSecretValueInversion],
   ["release-scan allowlist", testReleaseScanAllowlist],
+  ["release-scan: generated paths are exempt from the secret rule", testReleaseScanGeneratedSecretExemption],
   ["release-scan gate decision", testReleaseScanGateDecision],
   ["gather/commit-kpi.sh orchestration throughput", testCommitKpi],
   ["mission duration predict + record", testMissionDuration],

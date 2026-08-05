@@ -164,7 +164,54 @@ added_lines=$(git diff -U0 "$@" 2>/dev/null | awk '
 ' || true)
 
 # ---- secrets (hard) ----
-secret_hits=$(printf '%s\n' "$added_lines" | secret_grep || true)
+# GENERATED PATHS ARE EXEMPT FROM THE SECRET RULE.
+# A generated tree is a mechanical copy of reviewed source, so a credential that
+# arrives there through a build also sits in that source — which this same scan reads,
+# on this same branch, unexempted. For that case the exemption removes only the
+# DUPLICATE of a finding the scan still makes (measured: source finding fires, copy
+# is silent). `is_generated_path` is the same predicate the per-commit size rule uses,
+# so "generated" means one thing in this script.
+#
+# THE COST, STATED PLAINLY: a credential written into a generated path BY HAND, with
+# no source counterpart, is no longer reported here. That is measured, not assumed.
+# What still catches it is `Outputs Freshness` CI, which rebuilds `outputs/` and fails
+# on any diff — a hand-edit of a generated tree cannot reach a merge whether or not it
+# holds a credential. The exemption is scoped to this rule only: the `size` and `leak`
+# rules are untouched, and `.workaholic/scan-allow` remains the way to drop a path
+# from the whole scan.
+#
+# WHY IT IS NEEDED. `git diff <base>..HEAD` reports every line of a file that arrived
+# at a NEW path as added, so when build.mjs grows a bundle's closure it copies whole
+# tracked files into new `outputs/` paths and every line reads as authored. Measured
+# 2026-08-05: `land-unit.sh` referenced `catchup-main.sh`, which pulled
+# `ship/scripts/` into two more bundles, and `record-evidence.sh:19` — a COMMENT
+# documenting the secret guard, byte-identical to a line on `main` for weeks — was
+# reported twice as a hard `secret` block. `commit-size.sh` had already reasoned this
+# through for the size rule ("a relocation is not charged twice for moving content");
+# the secret rule inherited none of it.
+#
+# This is the general form of a fix the allowlist already made surgically: the
+# committed `.workaholic/scan-allow` carries `outputs/workflows/skills/*/release-scan/**`
+# for exactly this reason. That entry stays — the allowlist drops paths from the WHOLE
+# scan (leak and size too), which is strictly more than this rule does.
+#
+# `secret` is the one non-overridable tier, so a false positive here has no escape
+# hatch by design: any future change that grows a bundle closure would inherit a
+# permanent block on a branch that introduced no credential at all.
+secret_scan_lines=$(
+    gen_paths=$(
+        printf '%s\n' "$added_lines" | cut -f1 | sort -u | while IFS= read -r gp; do
+            [ -n "$gp" ] || continue
+            if is_generated_path "$gp"; then printf '%s\n' "$gp"; fi
+        done
+    )
+    printf '%s\n' "$added_lines" | awk -F"$TAB" -v gen="$gen_paths" '
+BEGIN { n = split(gen, a, "\n"); for (i = 1; i <= n; i++) if (a[i] != "") g[a[i]] = 1 }
+!($1 in g)
+'
+)
+
+secret_hits=$(printf '%s\n' "$secret_scan_lines" | secret_grep || true)
 while IFS="$TAB" read -r f l c; do
     [ -n "$f" ] || continue
     add_finding secret hard "$f" "$l" "credential" "<redacted>"

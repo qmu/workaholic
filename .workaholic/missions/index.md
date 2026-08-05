@@ -1,12 +1,9 @@
 # missions
 
-## active
-
-* [cross-the-repo-boundary-as-an-issue](active/cross-the-repo-boundary-as-an-issue/mission.md) - Cross the repo boundary as an issue
-
 ## archive
 
 * [adopt-a-git-flow-branching-model-with-durable-ship-records](archive/adopt-a-git-flow-branching-model-with-durable-ship-records/mission.md) - Adopt a release-branch staging tier with durable ship records
+* [cross-the-repo-boundary-as-an-issue](archive/cross-the-repo-boundary-as-an-issue/mission.md) - Cross the repo boundary as an issue
 * [drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main](archive/drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main/mission.md) - Drop the draft gate and make /drive own its worktree from refreshed main
 * [loop-engineering-foundation](archive/loop-engineering-foundation/mission.md) - Loop engineering foundation
 * [loop-engineering-proposal-loop](archive/loop-engineering-proposal-loop/mission.md) - Loop engineering proposal loop

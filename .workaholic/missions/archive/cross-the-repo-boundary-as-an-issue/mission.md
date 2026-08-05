@@ -2,7 +2,7 @@
 type: Mission
 title: Cross the repo boundary as an issue
 slug: cross-the-repo-boundary-as-an-issue
-status: active
+status: achieved
 merge_policy: 
 created_at: 2026-08-05T10:13:32+09:00
 author: a@qmu.jp
@@ -54,3 +54,4 @@ replace-the-human-gate rationale survives in the feedback skill.
 - 2026-08-05 — ticket archived — 20260805101337-give-fb-a-cross-repo-issue-mode.md
 - 2026-08-05 — ticket archived — 20260805101337-retire-the-request-command-and-relocate-its-gate.md
 - 2026-08-05 — story reported — work-20260805-101736.md
+- 2026-08-05 — mission achieved — mission.md

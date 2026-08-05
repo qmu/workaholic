@@ -186,6 +186,12 @@ Defaults decided without asking (veto anytime):
 | N2 | **`/request` is retired, and its knowledge is relocated rather than deleted.** The command, `skills/request/` and `submit-request.sh` are gone; `resolve-target.sh`, `check-outbound-body.sh` and `lib/remote-url.sh` moved into `skills/feedback/scripts/`, and `request/SKILL.md` §1-3 and §6 moved into the feedback skill's *Crossing a repository boundary* section. What was load-bearing was never the file write: it was the one non-skippable verbatim confirmation, the judgement that no matcher can replace masking (with its five measured leak classes), the identifier-not-substring narrowing measured 2026-08-02, and the every-URL-form reading measured 2026-08-04 under an injected `insteadOf` rewrite. The destination was built and tested **before** the surface was deleted, which is what made the retirement a relocation; a grep gate over live `plugins/`, `docs/`, `CLAUDE.md` and `README.md` is what proves nothing live still points at the old route. Archived tickets, stories and the measured-incident passages keep the `/request` name with a dated note — history is never rewritten. |
 | N3 | **The second layer is scoped to the body, not to the branch.** `scan-branch-safety.sh` answers "what is this **branch** about to publish", and a crossing body is composed in the session and committed nowhere — so pointing the branch scan at it reports a verdict about the caller's unrelated working branch, which is worse than no verdict because it reads as one. `feedback/scripts/scan-outbound-body.sh` applies the same shared `secret-patterns.sh` and `.workaholic/leak-denylist` rules to one file. `size` is deliberately absent: it is a property of a diff, and an empty tier is honest where a fabricated one would not be. |
 
+### Tenth round — an attended drive chooses its units (2026-08-05)
+
+| # | Ruling |
+| - | ------ |
+| O1 | **`/drive` has two invocation forms, and the attended one asks which units to take.** This amends G2's *"no drive-time confirmation"*, which was written against the per-ticket approval prompt and swept up a different question with it: not *may I do this* but *which of these first*. Bare `/drive` is **attended** — when the partition offers more than one claimable or resumable target it asks once (`multiSelect`, one option per unit, `[project label]` prefix), drives the chosen units in the chosen order, and reports the rest as `deferred_by_operator`, which keeps them claimable and so forbids `ok`. `/drive auto` (synonym: `night`) is **unattended** and keeps the zero-prompt contract verbatim; the `[Drive]` routine template and every caller-side loop name it explicitly. **Attendance is chosen by the caller's invocation form and never inferred** from a TTY or environment: a wrong inference either parks a cron tick on an unanswerable prompt or silently strips the developer's choice, and the invocation is the only signal that cannot be wrong. Nothing else changes — the partition's *composition* is still reported and never asked, there is still no per-ticket prompt, and steps 3–7 are byte-identical between the forms. The measured failure it closes: on 2026-08-05 an attended run spent its first ~40 minutes reopening a pull request the developer considered parked, because `resumable[]` ranked it above their actual work in progress, and they had to interrupt twice to ask why. The ordering half was fixed by the `parked_with_pr` tier; this is the other half — where a person is present, the choice among peers is theirs, and a heuristic decides only where nobody can. |
+
 ## 5. Strategy-layer removal — migration inventory
 
 Abolishing `strategies/` touches every ownership consumer. The single-reader
@@ -248,7 +254,8 @@ design (`mission-owners.sh`) contains the blast radius:
   automated `/ship` (deploy + verify evidence before merge); otherwise → PR
   created and its URL posted to Slack.
 - The "Drive Every 5 Minutes" routine (G4) is simply this command on a
-  schedule; interactive invocation behaves identically.
+  schedule, invoking the unattended form `/drive auto` by name (O1); an
+  attended invocation behaves identically once its units are chosen.
 - Needed pieces: a deterministic claim reader (enumerate unmerged remote
   branches, extract claimed artifact IDs), a stale-claim reclamation rule
   (an abandoned claim branch must not block its work forever), and the

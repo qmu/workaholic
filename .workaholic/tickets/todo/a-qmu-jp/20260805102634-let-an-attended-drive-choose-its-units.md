@@ -9,6 +9,7 @@ category:
 depends_on:
 feedback: [20260805102621-an-attended-drive-asks-which-unit-to-take-only-routines-run-promptless.md]
 merge_policy:
+claim: work-20260805-105141
 ---
 
 # Let an attended drive choose its units

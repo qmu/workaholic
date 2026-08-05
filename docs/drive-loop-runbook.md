@@ -101,6 +101,33 @@ installed CLI):
   or removal is confirmed verbatim, one routine at a time, in an interactive
   session (`skills/workaholify/SKILL.md` §5).
 
+### Why a clock at all, and not a merge event (decided 2026-08-05)
+
+The natural ask is that the loop start **when a proposal's pull request merges** rather
+than on a timer. It cannot, and the reason is a capability rather than a preference: a
+Claude Code Web routine record has **no event-subscription field**. Read back over the
+whole live account, its entire trigger surface is `cron_expression`, `run_once_at`, and an
+API token letting an external caller POST `/v1/code/triggers/<id>/run` — nothing that
+names a repository, a pull request or a merge (`skills/workaholify/SKILL.md`, *What a
+routine can be triggered by*). The `[Propose]` and `[Consent]` templates read as
+"event-driven" only in the sense that they carry no schedule and wait to be invoked, and
+**nothing invokes them**: measured 2026-08-05, no routine of either kind has fired once
+since 2026-07-31.
+
+So a clock is not a floor beneath an event path here; it is the only path. Two further
+reasons keep it even after an invoker exists — which is a standing outward-facing process
+and therefore a human act to stand up:
+
+- **The merge event does not cover the loop's own recovery.** Resuming a handoff and
+  taking back a claim whose heartbeat lapsed are timer work by construction: nothing
+  merges when a runner dies.
+- **Not every ticket comes from a proposal.** Anything `/ticket` wrote has no merge event
+  to key on, and would sit in the queue indefinitely.
+
+The announcement half of the same ask is settled separately and does not need a trigger:
+a drive run posts its own start and finish into the feedback item's thread (§5, and
+`skills/workaholify/SKILL.md`, *One thread per feedback item*).
+
 ## 4. What feeds the loop
 
 The routine consumes what other flows produce, and produces nothing to prime it

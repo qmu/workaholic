@@ -68,9 +68,9 @@ The hook's own corrections (qmu/workaholic#126) are recorded in its header — i
 
 ## 5. Scheduled routines
 
-Routines are how a project actually runs, and there are **three** templates: a `[Propose]` routine (template id `fb`; named `[FB]` until 2026-08-04) turns a Slack-reported issue into a record and, when its judgment warrants it, the work that record asks for — both in one PR — a `[Consent]` routine (id `merged-pr`; named `Merged PR` until the same ruling) announces a merge — the approval, in this workflow — and a `[Drive]` routine runs the queue on a schedule. A fourth, `[Propose Batch]`, existed for part of 2026-08-04 and was retired the same day: proposing belongs in the session that receives the ask, not in a sweep over what has already merged (`docs/proposal-loop-runbook.md` §7). Wiring them up is part of *"wire this repository to the standards"*, which is why it lives here and not in a second setup command — the second setup command is the one nobody runs.
+Routines are how a project actually runs, and there are **three** templates: a `[Propose]` routine (template id `fb`; named `[FB]` until 2026-08-04) turns a Slack-reported issue into a record and, when its judgment warrants it, the work that record asks for — both in one PR — a `[Consent]` routine (id `merged-pr`; named `Merged PR` until the same ruling) announces a merge — the approval, in this workflow — and a `[Drive]` routine runs the queue on a schedule. Only the last of the three is reachable by any trigger the API actually offers, which is measured below and is not a detail of the wiring. A fourth, `[Propose Batch]`, existed for part of 2026-08-04 and was retired the same day: proposing belongs in the session that receives the ask, not in a sweep over what has already merged (`docs/proposal-loop-runbook.md` §7). Wiring them up is part of *"wire this repository to the standards"*, which is why it lives here and not in a second setup command — the second setup command is the one nobody runs.
 
-**These are Claude Code Web routines, not cron jobs.** Each one is a scheduled or event-driven cloud session with its own checkout, reached through the `RemoteTrigger` tool (`list` / `get` / `create` / `update` / `run`). There is deliberately no local scheduler in this picture, and no crontab: a machine's crontab would be invisible to everyone but its owner, which is the problem this replaces rather than a mechanism to copy.
+**These are Claude Code Web routines, not cron jobs.** Each one is a scheduled or externally invoked cloud session with its own checkout, reached through the `RemoteTrigger` tool (`list` / `get` / `create` / `update` / `run`) — and *invoked* is literal, not a synonym for event-driven; see *What a routine can be triggered by* below. There is deliberately no local scheduler in this picture, and no crontab: a machine's crontab would be invisible to everyone but its owner, which is the problem this replaces rather than a mechanism to copy.
 
 ### One set of templates, many repositories
 
@@ -78,9 +78,25 @@ The templates live in **this skill** (`routines/*.md`), not in any repository's 
 
 | Template | Trigger | What it does |
 | -------- | ------- | ------------ |
-| `fb` | event | A reported issue becomes a `/fb` record and a PR |
-| `merged-pr` | event | A merge is announced to `dev-<repo>` |
-| `drive` | cron `56 * * * *` | The hourly unattended drive runner (still a pilot; bounded to 2 units/tick) |
+| `fb` | invoked | A reported issue becomes a `/fb` record and a PR |
+| `merged-pr` | invoked | A merge is announced to `dev-<repo>` |
+| `drive` | cron `56 * * * *` | The hourly unattended drive runner (still a pilot) |
+
+#### What a routine can be triggered by — and what "event" actually means (measured 2026-08-05)
+
+**A routine cannot subscribe to a repository event.** Read back over the whole live account (`RemoteTrigger list`, 20 routines), a routine record's entire trigger surface is three fields and nothing else:
+
+| Field | What fires the routine |
+| ----- | ---------------------- |
+| `cron_expression` | a recurring schedule |
+| `run_once_at` | one scheduled time |
+| `api_token_hint` / `api_token_created_at` | **an external caller** POSTing `/v1/code/triggers/<id>/run` with that token |
+
+There is **no event-subscription field of any kind** — nothing naming a pull request, a merge, a push, a repository or a webhook. So `trigger: event` in a template has never meant "this routine watches an event". It means the routine carries no schedule and **waits to be invoked** by something outside the account. The templates now say `invoked`, which is what the API supports.
+
+**And nothing invokes them.** Every `[Consent]` (8 repositories) and every `[Propose]` (7) carries an empty `cron_expression`, no `run_once_at`, **no API token**, and **no `last_fired_at` at all** — none has fired once since the oldest was created on 2026-07-31. The only routines in the account that have ever run are the two cron ones and four one-off `run_once_at` diagnostics. A template's prose describing what happens "when a merge fires this routine" is therefore describing a path that has never executed, and both runbooks' event-driven claims were written against an intent rather than a measurement.
+
+**The consequence for scheduling.** Until an invoker exists — a token plus something that POSTs `/run`, which is a standing outward-facing process and so a human act under *What may be applied unattended* — a clock is not a *floor beneath* the event path, it is the **only** path. `[Drive]` keeps its cron for that reason first, and for a second reason that survives a working invoker: handoff resumption, a claim whose heartbeat lapsed, and any ticket `/ticket` wrote rather than a proposal have no merge event to key on at all.
 
 Everything below a template's `## Prompt` heading is the routine's prompt, verbatim. Three substitutions, each demanded by the live routines: `{repo}` (full URL, for the `…/pull/123` links), `{repo_slug}` (`org/repo`, how the Drive prompt names the repository in prose), and `{repo_name}` (bare name, the routine's own name and the `dev-<name>` Slack channel). **Anything else that differs between two repositories' routines is drift, not configuration.**
 

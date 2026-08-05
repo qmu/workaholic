@@ -5,7 +5,7 @@ type: bugfix
 layer: [Config]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on:
 feedback: [20260805053636-list-proposed-refs-sh-dedup-misses-feedback-refs-on-unmerged-pull-requests.md]
 merge_policy:

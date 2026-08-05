@@ -8700,6 +8700,81 @@ function testProposeBatch() {
   } finally { cleanup(dir); }
 }
 
+// ---------- the dedup set covers OPEN PULL REQUESTS, not merged artifacts only ----------
+// Measured 2026-08-05: at the propose seam the working tree is the publish tree, a
+// checkout of origin/main, so a proposal still sitting in an open pull request was
+// invisible to the dedup and issue #242 restated an ask already proposed ten minutes
+// earlier in PR #241. The oracle is the one the claim protocol already uses — an
+// unmerged remote branch — so this is network-free and needs no `gh`.
+function testProposedRefsCoverOpenPullRequests() {
+  const origin = mkdtempSync(join(tmpdir(), "wh-prefs-origin-"));
+  const clone = mkdtempSync(join(tmpdir(), "wh-prefs-clone-"));
+  try {
+    execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
+    execSync(`git clone -q ${origin} .`, { cwd: clone });
+    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: clone });
+    const wk = (rel, body) => { mkdirSync(dirname(join(clone, rel)), { recursive: true }); writeFileSync(join(clone, rel), body); };
+    const ticket = (name, ref) => wk(`.workaholic/tickets/todo/u/${name}`, `---\ntype: bugfix\nfeedback: [${ref}]\n---\n\n# ${name}\n`);
+
+    // One proposal merged onto the base...
+    ticket("20260805000001-merged.md", "20260805000001-merged-record.md");
+    execSync(`git add -A && git commit -q -m "Add the merged proposal" && git push -q origin main`, { cwd: clone });
+
+    // ...and one still open on its own branch, exactly as an unmerged pull request.
+    execSync(`git checkout -q -b work-20260805-000002`, { cwd: clone });
+    ticket("20260805000002-open.md", "20260805000002-open-record.md");
+    execSync(`git add -A && git commit -q -m "Add the open proposal" && git push -q origin work-20260805-000002`, { cwd: clone });
+    execSync(`git checkout -q main && git fetch -q origin`, { cwd: clone });
+
+    const refs = run(clone, `${POSIX_SH} ${SCRIPTS.proposeListRefs}`).stdout.split("\n").filter(Boolean);
+    assertTrue("an open pull request's feedback ref is in the dedup set",
+      refs.includes("20260805000002-open-record.md"), refs.join(","));
+    assertTrue("and the merged artifact's ref is still reported",
+      refs.includes("20260805000001-merged-record.md"), refs.join(","));
+
+    // MERGING MUST NOT DOUBLE-COUNT OR DROP. Once the branch merges, its refs come from
+    // the working tree instead of the branch scan — the set is unchanged either way,
+    // which is what makes the widening invisible to every caller.
+    execSync(`git merge -q --no-edit origin/work-20260805-000002 && git push -q origin main && git fetch -q --prune origin`, { cwd: clone });
+    const after = run(clone, `${POSIX_SH} ${SCRIPTS.proposeListRefs}`).stdout.split("\n").filter(Boolean);
+    assertEq("a merged proposal's ref is reported exactly once",
+      after.filter((r) => r === "20260805000002-open-record.md").length, 1);
+
+    // The parser stays single. A second one would eventually disagree, and the side
+    // that under-reads re-proposes answered feedback.
+    const src = readFileSync(SCRIPTS.proposeListRefs, "utf8");
+    assertTrue("list-proposed-refs parses no frontmatter itself",
+      !/feedback:/.test(src.replace(/^#.*$/gm, "")), "an inline parser appeared");
+    assertTrue("and reads every blob through read-feedback-relation.sh",
+      /read-feedback-relation\.sh/.test(src), "the single parser is not invoked");
+
+    // ---- a shallow clone over-reads, and SAYS SO ----
+    // `rev-list --count base..ref` cannot be reduced across a graft, so a truncated
+    // clone cannot always tell a merged branch from an open one. The ticket's
+    // provisional criterion asked that merged branches never leak in; the direction
+    // its own Considerations argue for is the opposite and is what shipped — a
+    // suppressed proposal is the quiet failure, a duplicate is the loud one that was
+    // actually measured. What the test pins is that the over-read is DELIBERATE and
+    // ANNOUNCED: stderr carries the degradation, stdout stays exactly the ref list.
+    const shallow = mkdtempSync(join(tmpdir(), "wh-prefs-shallow-"));
+    try {
+      // --no-single-branch: --depth alone also implies it, which would hide the very
+      // refs the scan reads. A production clone carries every branch with truncated
+      // history, and a local path ignores --depth entirely — hence file://.
+      execSync(`git clone -q --depth 1 --no-single-branch file://${origin} .`, { cwd: shallow });
+      execSync(`git config user.email test@example.com && git config user.name Test`, { cwd: shallow });
+      // `run` reports stderr only for a FAILING command, and this one succeeds — so the
+      // warning is captured through the shell, which is also how a caller would see it.
+      const errFile = join(shallow, "stderr.txt");
+      const r = run(shallow, `${POSIX_SH} ${SCRIPTS.proposeListRefs} 2>${errFile}`);
+      assertTrue("a shallow clone names its degradation on stderr",
+        /shallow clone/.test(readFileSync(errFile, "utf8")), readFileSync(errFile, "utf8"));
+      assertTrue("and stdout carries refs only, never the warning",
+        !/shallow/.test(r.stdout), r.stdout);
+    } finally { cleanup(shallow); }
+  } finally { cleanup(origin); cleanup(clone); }
+}
+
 // ---------- propose/notify-slack.sh (env-driven, never load-bearing, secret-safe) ----------
 // Network-free: the success/error paths run against a local file:// stub via
 // WORKAHOLIC_SLACK_API_URL — the suite never calls Slack.
@@ -11764,6 +11839,7 @@ const tests = [
   ["hooks/install-git-hooks.sh", testInstallGitHooks],
   ["feedback/create.sh + list.sh + hooks/validate-feedback.sh", testFeedback],
   ["propose: dedup set and draft scaffold", testProposeBatch],
+  ["propose: the dedup set covers open pull requests", testProposedRefsCoverOpenPullRequests],
   ["propose/notify-slack.sh", testNotifySlack],
   ["drive claim protocol: two clones, one unit", testClaimProtocol],
   ["drive release-claim where the remote refuses deletes", testReleaseClaimDenyDeletes],

@@ -88,7 +88,31 @@ All three accept the repository URL in **any of its spellings** — `https://git
 
 Keeping the prompt as readable markdown rather than an embedded JSON string is deliberate: the prompt *is* the routine, template freshness is the entire point of the issue behind this, and a prompt nobody can read in a diff is a prompt nobody will keep current.
 
-**A red failure alert is deduped by reading the channel; an event announcement never is** (`routines/drive.md` §0a, added 2026-08-04). A repeated alert with no new information trains the operator to ignore alerts, and the hourly runner produced one near-identical red post per hour for two days from a single root cause. Each tick is a fresh container, so no local state survives — but the **Slack channel itself** does, and the routine already reads and writes it, so the throttle is a read-before-post rule rather than a stored counter: a stable *failure signature* (the failed precondition plus its reason class, never a SHA or a timestamp), suppression only when the latest red alert carries the same signature inside a 24-hour cool-down, an immediate post on any changed signature, and **fail-open** — an unreadable history posts the alert, because silence must never be produced by a failure of the mechanism that decides to be silent. A suppressed tick names the suppression in its own terminal report, so a quiet-because-healthy tick and a quiet-because-known-repeat tick are distinguishable from the log alone. The orange/green/yellow/purple posts announce events the session itself produced and are new every time; deduping those would hide real work.
+**A red failure alert is deduped by reading the channel; an event announcement never is** (added 2026-08-04; the full rule moved here from `routines/drive.md` §0a on 2026-08-05, so the template points at it rather than carrying it). A repeated alert with no new information trains the operator to ignore alerts, and the hourly runner produced one near-identical red post per hour for two days from a single root cause (a stale baked-in plugin install), not one repeat carrying anything the first had not. Each tick is a fresh container, so no local state survives — but the **Slack channel itself** does, and the routine already reads and writes it, so the throttle is a read-before-post rule rather than a stored counter.
+
+**The failure signature** is the precondition or step that failed plus its one-line reason class — `plugin-not-loaded: workaholic absent`, `dirty-tree: uncommitted changes on main`. It must be **stable across ticks**: never a SHA, a timestamp, a file count, a branch name or any other varying detail, or every repeat reads as a change and nothing is ever suppressed. Before posting a red alert, read the channel's recent history (~50 messages), find the most recent red alert from that routine, and suppress **only** when it carries the same signature inside a 24-hour cool-down — a changed signature posts immediately, and a condition recurring after the cool-down posts again. The rule suppresses repeats, never first reports. A suppressed tick **names the suppression in its own terminal report** (`alert suppressed as duplicate - <signature>`), so a quiet-because-healthy tick and a quiet-because-known-repeat tick are distinguishable from the session log alone. It **fails toward alerting**: an unreadable history posts the alert, because silence must never be produced by a failure of the mechanism that decides to be silent.
+
+The orange/green/yellow/purple/rocket posts announce events the session itself produced and are new every time; deduping those would hide real work.
+
+**The shapes of the runner's posts**, so a template names its postable events without restating how each line looks. `<@U…>` follows the mention rule below; `{repo_name}` and `{repo}` are the routine's own substitutions.
+
+```
+🔴 drive blocked - `<signature>`
+One sentence, max 25 words, what failed and what a human must do.
+
+🟠 drive started - `<unit-id>`
+`<branch>`, one sentence, max 25 words, what this unit contains only.
+
+🟢 Merge Requested for <@U…> - [#123 Issue Title]({repo}/pull/123)
+`from-branch` → `to-branch`, one sentence, max 40 words, what the PR does only.
+<session URL>
+
+🟡 Handoff <@U…> - [#123 Issue Title]({repo}/pull/123)
+The next run resumes it automatically; `git fetch && git checkout <branch>` to take it sooner. One sentence, max 25 words, what remains only.
+<session URL>
+```
+
+A merge uses the 🟢 shape with its line swapped for the actor: **🚀 Auto Merge by Claude** when the unit's recorded `merge_policy` was `auto` and `/ship` merged it, **🟣 Merged by `<@U…>`** when a human merged it during the run. That distinction is the point — a developer scanning the thread must be able to tell what merged without approval from what a person approved — and it is why the auto line names no person.
 
 ### One thread per feedback item — the notification model (decided 2026-08-04)
 
@@ -96,11 +120,31 @@ Keeping the prompt as readable markdown rather than an embedded JSON string is d
 
 **The key is the feedback record's filename stem**, embedded verbatim in the thread root as `` `fb:<stem>` `` (for example `` `fb:20260804101847-make-workaholify-record-the-fb-to-merge-lifecycle-as-one-semantic-slack-thread` ``). That identifier was chosen over the GitHub issue number because it is the one that **lives in the repository**: a mission carries `feedback: [<filename>]`, a record carries `supersedes`, and a publishing PR names the file in its own diff — so a later session derives the key from the artifact it is already working on rather than from a channel post it has to find first. The issue number rides the root post too, as a human pointer, but nothing keys on it.
 
-**Finding the thread, and what to do when you cannot.** Search the channel for the key (the Slack MCP tools every routine already loads read channel history), and reply into the thread whose root carries it. **No thread found → post a new root carrying the same key**, never a keyless top-level line: search is eventually consistent and a miss is expected, so the fallback must leave the story reconstructable rather than orphan the event. Two roots with one key is a repairable mess; a keyless post is not attributable to anything.
+**Finding the thread, in three ordered cases.** Take the first that applies:
+
+1. **The session's own trigger message.** When a routine can identify the Slack message or thread that started its run, reply there. That message *is* the item's thread — a developer who asked for something in the channel is already holding the conversation the routine is about to join.
+2. **The `fb:<stem>` key search.** Otherwise search the channel for the key (the Slack MCP tools every routine already loads read channel history) and reply into the thread whose root carries it.
+3. **A new root carrying the same key.** Otherwise post one — never a keyless top-level line: search is eventually consistent and a miss is expected, so the fallback must leave the story reconstructable rather than orphan the event. Two roots with one key is a repairable mess; a keyless post is not attributable to anything.
+
+**Case 1 is not reducible to case 2, which is why it is written separately** (2026-08-05). The key is minted by the very session that posts, so a message a developer wrote *before* the record existed can never carry it and the key search can never match it. On 2026-08-05 that produced two roots for one item: the developer's own thread asking for a fix, and a separate top-level announcement of the resulting PR. Case 2 remains the only answer for routine-originated items, which have no human trigger message to find — so the case was **added to** the search, never substituted for it.
+
+**How a session identifies its trigger message is left to the session; the routine's own trigger payload is the natural source.** Where no reliable identification exists the correct outcome is case 2 — matching by recency or by message content would thread unrelated items together, which is a worse failure than a second root.
 
 **Every post carries its session URL** — the Claude Code Web session that did the work, the same URL the harness gives the session for its `Claude-Session:` commit trailer. It is what turns "merged by Claude" into something a developer can audit. If the URL is not discoverable in a given session, **post without it**; a notification missing one line beats a notification that did not happen.
 
 This model governs **what a post says and where it lands, and nothing else** — it changes no survey, no claim, and nothing `/drive` picks or implements.
+
+### Naming a person means mentioning them (decided 2026-08-05)
+
+**A post that names a developer resolves them to a Slack user id and writes the mention token `<@U…>`.** Plain `@name` is inert text: Slack notifies on the token and on nothing else, so five message formats across the three templates appeared to call someone out while pinging nobody. A notification's job is to reach the person it names (`workaholic:design` / UX); one that names them without reaching them is a notification that did not happen.
+
+**How a session resolves it.** Look the person up through the Slack connector the routine already loads — `slack_search_users` on the identity the session has in hand, `slack_read_user_profile` to confirm the match — and write the resulting `<@U…>` where the format shows it. **Email is the reliable key**; a GitHub login is *not* a Slack handle and must not be passed off as one, so when a session holds only a login it resolves the person through the email git records for them (the merge or claim commit's author) and searches on that. A display-name search is the last resort, and a match it cannot confirm is not a match.
+
+**The fallback is non-blocking, with the same precedence the session-URL rule already sets.** When the id cannot be resolved, **post the line with the plain name** rather than not posting: a missing ping costs a nudge, a missing post costs the event. Nothing about resolution may block, delay, or retry-loop a post.
+
+Which identity each routine starts from: `[Consent]` and `[Drive]`'s merge lines hold the **merging** user, `[Propose]` holds the repository's developer, and `[Drive]`'s handoff line names **whoever the unit is handed to**. The `🚀 Auto Merge by Claude` line names no person and carries no token.
+
+Stated once here; the templates carry the token in their formats and point back at this rule rather than restating it.
 
 ### Slack is the only surface, and an event earns its post (decided 2026-08-04)
 

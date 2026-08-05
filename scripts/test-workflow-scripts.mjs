@@ -12559,8 +12559,12 @@ function testWorkaholifyRoutines() {
       drive.prompt.includes("drive runner for qmu/workaholic,"), drive.prompt.slice(0, 200));
     assertTrue("{repo_name} renders the dev-<name> Slack channel",
       drive.prompt.includes("dev-workaholic"), "missing channel");
+    // The `#123` example left the template with the post formats on 2026-08-05 (they live
+    // in the workaholify SKILL now), so the prompt names the shape of the link rather than
+    // an instance of it. The property is unchanged: {repo} must still reach the prompt, or
+    // a routine would bake an unfollowable PR URL into every post.
     assertTrue("{repo} renders the full URL in the PR links",
-      drive.prompt.includes(`${WH}/pull/123`), "missing pull link");
+      drive.prompt.includes(`${WH}/pull/`), "missing pull link");
     assertTrue("no placeholder survives rendering", !/\{repo(_name|_slug)?\}/.test(drive.prompt), drive.prompt);
 
     const fb = JSON.parse(run(dir, `${RENDER} fb ${WH}`).stdout);
@@ -12913,31 +12917,40 @@ function testRoutineAnnouncementScoping() {
 
   // ---- red failure alerts are deduped; event announcements never are ----
   // Measured 2026-08-02〜04: one near-identical red post per hour for two days from a single
-  // root cause, with nothing new in any repeat. The routine is prose with no hermetic
-  // harness, so the four load-bearing clauses are asserted as text — each is a rule a future
-  // edit could drop silently, and dropping any one of them turns dedupe into silent failure.
-  assertTrue("drive defines a stable failure signature",
-    /failure signature/i.test(drive) && /stable across ticks/i.test(drive), "signature rule missing");
+  // root cause, with nothing new in any repeat. The rule is prose with no hermetic harness,
+  // so the load-bearing clauses are asserted as text — each is a rule a future edit could
+  // drop silently, and dropping any one of them turns dedupe into silent failure.
+  //
+  // ASSERTED AGAINST THE SKILL, NOT THE TEMPLATE, since 2026-08-05: the rule moved into
+  // `workaholify/SKILL.md` when `[Drive]` was slimmed to a thin pointer, because it is
+  // notification policy every routine shares rather than drive procedure. The template now
+  // names the rule and defers, which the last assertion here pins — a pointer that stops
+  // pointing is the one way this relocation could silently lose the rule.
+  const wh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
+  assertTrue("the skill defines a stable failure signature",
+    /failure signature/i.test(wh) && /stable across ticks/i.test(wh), "signature rule missing");
   assertTrue("and forbids volatile detail in it, which would defeat suppression",
-    /never put a SHA, a timestamp/i.test(drive), "volatility rule missing");
-  assertTrue("drive reads the channel before posting a red alert",
-    /Read the recent history of Slack channel/i.test(drive), "read-before-post rule missing");
+    /never a SHA, a timestamp/i.test(wh), "volatility rule missing");
+  assertTrue("a red alert is posted only after reading the channel",
+    /read the channel's recent history/i.test(wh), "read-before-post rule missing");
   assertTrue("and suppresses only a same-signature alert inside the cool-down",
-    /same signature/i.test(drive) && /younger than 24 hours/i.test(drive), "cool-down rule missing");
+    /same signature/i.test(wh) && /24-hour cool-down/i.test(wh), "cool-down rule missing");
   assertTrue("a changed signature still posts immediately",
-    /suppresses repeats, never first reports/i.test(drive), "first-report guarantee missing");
+    /suppresses repeats, never first reports/i.test(wh), "first-report guarantee missing");
   // FAIL OPEN TOWARD ALERTING. A dedupe that cannot read its own evidence must not
   // manufacture silence — that would convert a notification bug into a monitoring outage.
   assertTrue("an unreadable channel history posts the alert anyway",
-    /cannot be read for any reason[^.]*post the alert/i.test(drive), "fail-open clause missing");
+    /unreadable history posts the alert/i.test(wh), "fail-open clause missing");
   assertTrue("and says why silence must never come from the silencing mechanism",
-    /Silence must never be produced by a failure of the mechanism/i.test(drive), "fail-open rationale missing");
+    /silence must never be produced by a failure of the mechanism/i.test(wh), "fail-open rationale missing");
   assertTrue("a suppressed tick names the suppression in its own terminal report",
-    /alert suppressed as duplicate/i.test(drive), "suppression-visibility rule missing");
+    /alert suppressed as duplicate/i.test(wh), "suppression-visibility rule missing");
   // The dedupe is scoped to red alerts. The orange/green/yellow posts announce events this
   // session produced, which are new every time — deduping them would hide real work.
   assertTrue("the dedupe applies to red failure alerts only",
-    /red failure alerts only/i.test(drive) && /Never dedupe those/i.test(drive), "scoping missing");
+    /announce events the session itself produced and are new every time/i.test(wh), "scoping missing");
+  assertTrue("and the slimmed drive template still points at that rule",
+    /red-alert dedup/i.test(drive) && /workaholify. skill/i.test(drive), "template pointer missing");
 }
 
 // ---------- /setup-routines: what runs against a repository, or an honest "I could not look"

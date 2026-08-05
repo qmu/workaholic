@@ -1,9 +1,10 @@
 #!/bin/sh
-# Shared origin-URL reader for /request -- the SINGLE answer to "what URL does this
-# repository's origin have", sourced by both consumers so they cannot drift.
+# Shared origin-URL reader for the cross-repository crossing flow -- the SINGLE answer to
+# "what URL does this repository's origin have", sourced by both consumers so they cannot
+# drift.
 #
-#   resolve-target.sh  reports one URL as the destination a human confirms.
-#   submit-request.sh  matches the body against every form, as a safety backstop.
+#   resolve-target.sh       reports one URL as the destination a human confirms.
+#   check-outbound-body.sh  matches the body against every form, as a safety backstop.
 #
 # THE PROBLEM THIS EXISTS FOR. A repository's origin URL is not one string. git rewrites
 # remote URLs through `url.<replacement>.insteadOf <original>` rules, and a host may set
@@ -34,7 +35,7 @@
 # A safety backstop must ask the third question. A developer pastes whichever form their
 # tooling showed them -- GitHub's UI gives the canonical one, their shell gives the
 # rewritten one -- so checking a body against only one form is a check that silently stops
-# firing under a rewrite. That is not hypothetical: submit-request.sh matched only the
+# firing under a rewrite. That is not hypothetical: the backstop matched only the
 # rewritten form, so a body containing this repository's real clone URL fell through the
 # clone-URL rule entirely and was caught, if at all, by the unrelated `owner/name` rule --
 # which then told the developer to mask something the body did not literally contain.

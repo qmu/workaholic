@@ -193,7 +193,7 @@ The command owns every `AskUserQuestion` (one-level fan-out; subagents cannot pr
 
 1. **Resolve the target.**
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/request/scripts/resolve-target.sh <owner/name-or-url-or-path>
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/resolve-target.sh <owner/name-or-url-or-path>
    ```
    Returns `{ok, path, name, slug, remote, visibility, user_slug, todo_dir, source_repo}`.
    The target need not be on this disk — an `owner/name` or a GitHub URL resolves with
@@ -232,7 +232,7 @@ The command owns every `AskUserQuestion` (one-level fan-out; subagents cannot pr
 
 6. **Let the mechanical backstop have the last word.**
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/request/scripts/check-outbound-body.sh <body-file>
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/check-outbound-body.sh <body-file>
    ```
    Refuses a body still carrying this repository's own name as a standalone identifier, its
    `owner/name` remote form, any form of its clone URL, or its absolute path — citing the
@@ -261,6 +261,55 @@ The command owns every `AskUserQuestion` (one-level fan-out; subagents cannot pr
   evading a gate.
 - `check-outbound-body.sh` knows only this repo's own name, its `owner/name` remote form,
   every form of its clone URL, and its absolute path. Everything else rests on §1 and §4.4.
+- **"Its clone URL" means every form of it.** A repository's origin URL is not one string:
+  git rewrites remotes through `url.<replacement>.insteadOf <original>`, so
+  `git remote get-url` (rewritten) and `git config --get remote.origin.url` (configured)
+  can name the same repository differently — and a host may inject those rules through the
+  `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_n`/`GIT_CONFIG_VALUE_n` environment triple, which
+  `git config --global --list` does not show. The developer pastes whichever form their
+  tooling displayed, so the body is checked against **all** forms
+  (`scripts/lib/remote-url.sh`), clone-URL rule across every form and only then the
+  `owner/name` rule — because every clone URL contains its own slug, and the rule that
+  fires is what the developer is told to mask. Matching one form was measured on
+  2026-08-04 to let a body carrying this repository's literal clone URL past the clone-URL
+  rule entirely. `resolve-target.sh` takes the opposite branch of the same fact and reports
+  the **configured** URL, since that is the destination a human confirms and a colleague
+  would clone.
+- **It matches an identifier, not a substring, and that is a usability requirement.** This
+  backstop is the one place a *legitimate* ask can be refused **after** the developer has
+  confirmed destination and body verbatim — so its false-positive rate is a usability
+  property, not only a safety one. The bare-name test was a plain case-insensitive
+  substring match until 2026-08-02, when a repository whose basename is an ordinary English
+  word found it could not raise *any* ask: its body was seventy path pairs of the form
+  `docs/<name>-reports/x.md -> docs/site-<name>/x.md`, where the right-hand side is the
+  **target** repo's own directory, and the path list *was* the ask, so the instruction
+  "mask it" named an action that did not exist. The bare name now matches only where it is
+  not glued to a neighbouring identifier character, and every refusal cites the matched text
+  and its line so the next false positive is diagnosable. The narrowing is about adjacency:
+  a standalone mention, the `owner/name` form, the clone URL and the absolute path are all
+  still refused.
+- **`visibility` is an enum, never a payload.** `gh api` prints its error body to *stdout*
+  with a non-zero status, so the idiomatic `2>/dev/null || echo unknown` fallback
+  concatenates a JSON blob with the fallback word. `resolve-target.sh` therefore whitelists
+  `public`/`private`/`internal` and answers `unknown` for everything else — a lookup that
+  could not be made must not be able to corrupt the envelope carrying the field the
+  developer's confirmation shows.
+
+### 6. What this replaced, and why it is not coming back
+
+Until **2026-08-05** the crossing was a command, `/request`, whose final step copied a
+conforming ticket file into the target repository's `.workaholic/tickets/todo/` — the only
+sanctioned writer of a cross-repository artifact. FB `20260805101319` retired it. The ask
+now arrives as an issue the target's owners see natively and can triage or decline in their
+own loop, rather than as a file appearing in a checkout they did not expect to change.
+
+Everything that carried weight survived the move and is above: the one non-skippable
+verbatim confirmation (§4.4), the masking judgement no matcher can replace (§1) with its
+five measured leak classes, the identifier-not-substring backstop and the every-URL-form
+reading (§5). What died is the file write and the command surface. `submit-request.sh` is
+gone; `resolve-target.sh`, `check-outbound-body.sh` and `lib/remote-url.sh` moved into this
+skill unchanged in substance. Archived tickets, stories and CLAUDE.md's measured-incident
+passages still name `/request` — that history is never rewritten.
 
 ## Agent Compatibility
 

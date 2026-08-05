@@ -91,9 +91,8 @@ const SCRIPTS = {
   guardGitCommit: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-commit.sh"),
   guardGitBranch: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-branch.sh"),
   guardRepoConfinement: join(REPO_ROOT, "plugins/workaholic/hooks/guard-repo-confinement.sh"),
-  resolveTarget: join(REPO_ROOT, "plugins/workaholic/skills/request/scripts/resolve-target.sh"),
-  submitRequest: join(REPO_ROOT, "plugins/workaholic/skills/request/scripts/submit-request.sh"),
-  checkOutboundBody: join(REPO_ROOT, "plugins/workaholic/skills/request/scripts/check-outbound-body.sh"),
+  resolveTarget: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/resolve-target.sh"),
+  checkOutboundBody: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/check-outbound-body.sh"),
   scanOutboundBody: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/scan-outbound-body.sh"),
   openIssue: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/open-issue.sh"),
   guardAskLabel: join(REPO_ROOT, "plugins/workaholic/hooks/guard-askuserquestion-label.sh"),
@@ -6015,7 +6014,7 @@ function testDocDrift() {
 function testPolicyLens() {
   const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/policy-lens.sh");
   const PILLARS = ["Planning (企画)", "Design (設計)", "Implementation (実装)", "Operation (運用)"];
-  const COMMANDS = ["ticket", "request", "drive", "report", "ship", "catch", "explain"];
+  const COMMANDS = ["ticket", "drive", "report", "ship", "catch", "explain"];
 
   // jq is required by the hook; skip loudly (never silently pass) if it is absent.
   let hasJq = true;
@@ -7251,12 +7250,15 @@ function testGuardGitCommit() {
   assertEq("guard-commit ignores git status", invoke(`git status`).status, 0);
 }
 
-// ---------- hooks/guard-git-branch.sh (PreToolUse Bash branch-name gate) ----------
-// REAL, non-mock: feeds the actual guard a crafted tool_input.command and asserts
-// it BLOCKS (exit 2) off-pattern / variable / missing branch-creation names and
-// ALLOWS work-YYYYMMDD-HHMMSS creation, read/delete/list forms, and non-create cmds.
-function testRequestScripts() {
-  const tmp = mkdtempSync(join(tmpdir(), "request-"));
+// ---------- the cross-repository backstop, at its own entry point ----------
+// `/request` and its `submit-request.sh` file write are RETIRED (2026-08-05, FB
+// 20260805101319): the crossing is now a GitHub issue, so nothing copies a ticket into
+// another repository's tree and the cases that asserted that write died with it. What
+// did NOT die is the mechanical backstop, which is why these assertions moved rather
+// than being deleted — its false-positive rate is a usability property, and each true
+// positive below is a rule someone would otherwise be told to "mask".
+function testCrossRepoBackstop() {
+  const tmp = mkdtempSync(join(tmpdir(), "crossing-"));
   const src = join(tmp, "source-repo");
   const tgt = join(tmp, "target-repo");
   const git = (cwd, args) => execSync(`git ${args}`, { cwd, stdio: "ignore" });
@@ -7275,106 +7277,85 @@ function testRequestScripts() {
     } catch (e) { return { ok: false, error: `threw: ${e.status}` }; }
   };
   const q = (s) => `"${s}"`;
-
-  // resolve-target refuses the source repo itself — that is /ticket's job, not /request's.
-  const self = json(src, SCRIPTS.resolveTarget, q(src));
-  assertEq("resolve-target refuses this repo", self.ok, false);
-  assertTrue("resolve-target names /ticket", /\/ticket/.test(self.error || ""), "should route to /ticket");
-  assertEq("resolve-target refuses a missing dir", json(src, SCRIPTS.resolveTarget, q(join(tmp, "nope"))).ok, false);
-  const ok = json(src, SCRIPTS.resolveTarget, q(tgt));
-  assertEq("resolve-target resolves a real repo", ok.ok, true);
-  assertEq("resolve-target reports the name", ok.name, "target-repo");
-
   const body = (name, text) => { const p = join(tmp, name); writeFileSync(p, text); return p; };
-  const clean = body("clean.md", "---\ntype: enhancement\n---\n\n# Request\n\nA consumer repo needs the guard.\n");
 
-  // Mechanical refusals.
-  assertEq("submit-request refuses an empty body", json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715130000-x.md ${q(body("empty.md", ""))}`).ok, false);
-  assertEq("submit-request refuses a malformed filename", json(src, SCRIPTS.submitRequest, `${q(tgt)} notaticket.md ${q(clean)}`).ok, false);
-  assertEq("submit-request refuses the source repo as target", json(src, SCRIPTS.submitRequest, `${q(src)} 20260715130000-x.md ${q(clean)}`).ok, false);
+  try {
+    // resolve-target refuses the source repo itself — that is /ticket's job.
+    const self = json(src, SCRIPTS.resolveTarget, q(src));
+    assertEq("resolve-target refuses this repo", self.ok, false);
+    assertTrue("resolve-target names /ticket", /\/ticket/.test(self.error || ""), "should route to /ticket");
+    assertEq("resolve-target refuses a missing dir", json(src, SCRIPTS.resolveTarget, q(join(tmp, "nope"))).ok, false);
+    const ok = json(src, SCRIPTS.resolveTarget, q(tgt));
+    assertEq("resolve-target resolves a real repo", ok.ok, true);
+    assertEq("resolve-target reports the name", ok.name, "target-repo");
 
-  // The backstop knows only this repo's own name, remote and path.
-  const named = body("named.md", `A ticket that still says ${basename(src)} in the text.\n`);
-  assertEq("submit-request refuses a body naming the source repo", json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715130000-x.md ${q(named)}`).ok, false);
+    // Mechanical refusals of the body check itself.
+    assertEq("check-outbound-body refuses an empty body",
+      json(src, SCRIPTS.checkOutboundBody, q(body("empty.md", ""))).ok, false);
+    assertEq("check-outbound-body refuses a missing file",
+      json(src, SCRIPTS.checkOutboundBody, q(join(tmp, "absent.md"))).ok, false);
 
-  // ---- an identifier, not a substring ----
-  // The bare-name test used to be a plain case-insensitive `grep -F`, so a repo whose
-  // basename is an ordinary word could not submit ANY body containing a path segment that
-  // embeds it — including a directory belonging to the TARGET repo. Observed 2026-08-02 on
-  // a body that was seventy such path pairs and nothing else: the refusal was unconditional
-  // and its instruction ("mask it") could not be followed, AFTER the developer had already
-  // confirmed the body verbatim. Narrowing is about adjacency only; every true positive
-  // below must still refuse.
-  const name = basename(src);
-  const seg = body("segments.md",
-    `---\ntype: enhancement\n---\n\n# Request\n\ndocs/${name}-reports/foo.md -> docs/site-${name}/foo.md\ndocs/${name}_reports/bar.md -> docs/site_${name}/bar.md\n`);
-  const segResult = json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131100-x.md ${q(seg)}`);
-  assertEq("a body of path segments that merely EMBED the name submits", segResult.ok, true);
+    const named = body("named.md", `A ticket that still says ${basename(src)} in the text.\n`);
+    assertEq("check-outbound-body refuses a body naming the source repo",
+      json(src, SCRIPTS.checkOutboundBody, q(named)).ok, false);
 
-  const glued = body("glued.md", `---\ntype: enhancement\n---\n\n# Request\n\nThe ${name}Reports module needs the guard.\n`);
-  assertEq("a name glued to another identifier is not a mention",
-    json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131101-x.md ${q(glued)}`).ok, true);
+    // ---- an identifier, not a substring ----
+    // The bare-name test used to be a plain case-insensitive `grep -F`, so a repo whose
+    // basename is an ordinary word could not send ANY body containing a path segment that
+    // embeds it — including a directory belonging to the TARGET repo. Observed 2026-08-02 on
+    // a body that was seventy such path pairs and nothing else: the refusal was unconditional
+    // and its instruction ("mask it") could not be followed, AFTER the developer had already
+    // confirmed the body verbatim. Narrowing is about adjacency only; every true positive
+    // below must still refuse.
+    const name = basename(src);
+    const seg = body("segments.md",
+      `# Ask\n\ndocs/${name}-reports/foo.md -> docs/site-${name}/foo.md\ndocs/${name}_reports/bar.md -> docs/site_${name}/bar.md\n`);
+    assertEq("a body of path segments that merely EMBED the name passes",
+      json(src, SCRIPTS.checkOutboundBody, q(seg)).ok, true);
 
-  // Every true positive survives the narrowing, and each names what it matched.
-  const standalone = json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131102-x.md ${q(named)}`);
-  assertEq("a standalone mention is still refused", standalone.ok, false);
-  assertTrue("and the refusal names the matched text and its line",
-    /at line \d+:/.test(standalone.error || "") && standalone.error.includes(name), standalone.error);
+    const glued = body("glued.md", `# Ask\n\nThe ${name}Reports module needs the guard.\n`);
+    assertEq("a name glued to another identifier is not a mention",
+      json(src, SCRIPTS.checkOutboundBody, q(glued)).ok, true);
 
-  const abs = body("abs.md", `---\ntype: bugfix\n---\n\n# Request\n\nSee ${src}/docs for details.\n`);
-  const absR = json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131103-x.md ${q(abs)}`);
-  assertEq("the absolute path is still refused (untouched, exact)", absR.ok, false);
-  assertTrue("and it is reported as the path check, with its line",
-    /repository's path at line \d+:/.test(absR.error || ""), absR.error);
+    // Every true positive survives the narrowing, and each names what it matched.
+    const standalone = json(src, SCRIPTS.checkOutboundBody, q(named));
+    assertEq("a standalone mention is still refused", standalone.ok, false);
+    assertTrue("and the refusal names the matched text and its line",
+      /at line \d+:/.test(standalone.error || "") && standalone.error.includes(name), standalone.error);
 
-  // The two forms an actual reference takes, matched exactly. Both are new: the old
-  // backstop caught `owner/name` only incidentally, through the bare-name substring.
-  git(src, "remote add origin git@github.com:acme-org/" + name + ".git");
-  const slug = body("slug.md", `---\ntype: bugfix\n---\n\n# Request\n\nMirrors acme-org/${name} exactly.\n`);
-  const slugR = json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131104-x.md ${q(slug)}`);
-  assertEq("the owner/name remote form is refused", slugR.ok, false);
-  assertTrue("and is reported as such", (slugR.error || "").includes(`acme-org/${name}`), slugR.error);
+    const abs = body("abs.md", `# Ask\n\nSee ${src}/docs for details.\n`);
+    const absR = json(src, SCRIPTS.checkOutboundBody, q(abs));
+    assertEq("the absolute path is still refused (untouched, exact)", absR.ok, false);
+    assertTrue("and it is reported as the path check, with its line",
+      /repository's path at line \d+:/.test(absR.error || ""), absR.error);
 
-  const url = body("url.md", `---\ntype: bugfix\n---\n\n# Request\n\nClone git@github.com:acme-org/${name}.git first.\n`);
-  const urlR = json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131105-x.md ${q(url)}`);
-  assertEq("the clone URL is refused", urlR.ok, false);
-  assertTrue("and is reported as the clone URL", /clone URL at line \d+:/.test(urlR.error || ""), urlR.error);
+    // The two forms an actual reference takes, matched exactly.
+    git(src, "remote add origin git@github.com:acme-org/" + name + ".git");
+    const slug = body("slug.md", `# Ask\n\nMirrors acme-org/${name} exactly.\n`);
+    const slugR = json(src, SCRIPTS.checkOutboundBody, q(slug));
+    assertEq("the owner/name remote form is refused", slugR.ok, false);
+    assertTrue("and is reported as such", (slugR.error || "").includes(`acme-org/${name}`), slugR.error);
 
-  // The segment body still submits with an origin configured — the narrowing is not an
-  // artifact of the remote being absent.
-  const seg2 = body("segments2.md",
-    `---\ntype: enhancement\n---\n\n# Request\n\ndocs/${name}-reports/baz.md -> docs/site-${name}/baz.md\n`);
-  assertEq("path segments still submit once an origin exists",
-    json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131106-x.md ${q(seg2)}`).ok, true);
+    const url = body("url.md", `# Ask\n\nClone git@github.com:acme-org/${name}.git first.\n`);
+    const urlR = json(src, SCRIPTS.checkOutboundBody, q(url));
+    assertEq("the clone URL is refused", urlR.ok, false);
+    assertTrue("and is reported as the clone URL", /clone URL at line \d+:/.test(urlR.error || ""), urlR.error);
 
-  // Happy path, and no double-submit.
-  const filed = json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715130000-x.md ${q(clean)}`);
-  assertEq("submit-request submits a clean body", filed.ok, true);
-  assertTrue("submit-request lands in the target's todo queue",
-    filed.path.startsWith(join(tgt, ".workaholic/tickets/todo/")), `landed at ${filed.path}`);
-  assertEq("submit-request refuses a duplicate", json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715130000-x.md ${q(clean)}`).ok, false);
+    // The segment body still passes with an origin configured — the narrowing is not an
+    // artifact of the remote being absent.
+    const seg2 = body("segments2.md", `# Ask\n\ndocs/${name}-reports/baz.md -> docs/site-${name}/baz.md\n`);
+    assertEq("path segments still pass once an origin exists",
+      json(src, SCRIPTS.checkOutboundBody, q(seg2)).ok, true);
 
-  // THE POINT. Real leaked sentences from the incident carry no reference to this repo,
-  // so the mechanical backstop cannot see them and submits them without complaint. This is
-  // asserted, not lamented: it is why the developer confirmation in the /request workflow
-  // is non-skippable. If a future change makes these fail here, the confirmation has
-  // probably been quietly demoted to a pattern match — read request/SKILL.md §1 first.
-  const realLeaks = [
-    "The house tsconfig lives at packages/realestate-mcp/tsconfig.json.",
-    "Repro moved seiho-target-matrix.pdf (798.1KB) into /My Drive.",
-    'The fixture uses the mail label "HSS-sama" as a user label.',
-    "Port 5173 collides with poc-host.example.dev on this host.",
-  ];
-  realLeaks.forEach((text, i) => {
-    const p = body(`leak-${i}.md`, `---\ntype: bugfix\n---\n\n# Request\n\n${text}\n`);
-    const r = json(src, SCRIPTS.submitRequest, `${q(tgt)} 2026071513100${i}-x.md ${q(p)}`);
-    assertEq(`submit-request cannot detect leak #${i + 1} (by design — the human gate does)`, r.ok, true);
-  });
-
-  rmSync(tmp, { recursive: true, force: true });
+    // A body with nothing of ours in it passes, which is the ordinary case.
+    assertEq("a clean body passes",
+      json(src, SCRIPTS.checkOutboundBody, q(body("clean.md", "# Ask\n\nA consumer repo needs the guard.\n"))).ok, true);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
 }
 
-// ---------- /request under a git insteadOf URL rewrite ----------
+// ---------- the crossing checks under a git insteadOf URL rewrite ----------
 // A repository's origin URL is not one string. `url.<replacement>.insteadOf <original>`
 // makes `git remote get-url` (rewritten) and `git config --get remote.origin.url`
 // (configured) name the same repository differently, and a host may inject those rules
@@ -7383,16 +7364,16 @@ function testRequestScripts() {
 //
 // MEASURED 2026-08-04 on the hourly unattended runner: the Claude Code on the web
 // container injected `url.https://github.com/.insteadOf = git@github.com:`, and the whole
-// existing request suite was written against complete, un-rewritten remotes. The result
-// was a body carrying this repository's literal clone URL falling straight through the
-// clone-URL rule — refused only by the unrelated `owner/name` rule, which named the wrong
-// thing to mask, past a human gate that had already confirmed the body verbatim.
+// existing suite was written against complete, un-rewritten remotes. The result was a body
+// carrying this repository's literal clone URL falling straight through the clone-URL rule
+// — refused only by the unrelated `owner/name` rule, which named the wrong thing to mask,
+// past a human gate that had already confirmed the body verbatim.
 //
 // THE REWRITE IS CONFIGURED HERE, NOT READ FROM THE AMBIENT ENVIRONMENT. CI runners have
 // no rewrite, so an environment-sensing test would be permanently vacuous on the one
 // surface that gates merges; a fixture makes the case run identically everywhere.
-function testRequestUnderUrlRewrite() {
-  const tmp = mkdtempSync(join(tmpdir(), "request-rewrite-"));
+function testCrossRepoUnderUrlRewrite() {
+  const tmp = mkdtempSync(join(tmpdir(), "crossing-rewrite-"));
   const src = join(tmp, "source-repo");
   const tgt = join(tmp, "target-repo");
   const git = (cwd, args) => execSync(`git ${args}`, { cwd, stdio: "ignore" });
@@ -7431,16 +7412,16 @@ function testRequestUnderUrlRewrite() {
     // not the `owner/name` rule, which every clone URL also contains. The rule that fires
     // decides what the developer is told to mask.
     for (const [label, url] of [["configured", configured], ["rewritten", rewritten]]) {
-      const p = body(`${label}.md`, `---\ntype: bugfix\n---\n\n# Request\n\nClone ${url} first.\n`);
-      const r = json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131110-x.md ${q(p)}`);
+      const p = body(`${label}.md`, `# Ask\n\nClone ${url} first.\n`);
+      const r = json(src, SCRIPTS.checkOutboundBody, q(p));
       assertEq(`the ${label} clone URL is refused`, r.ok, false);
       assertTrue(`and the ${label} form is reported as the clone URL`,
         /clone URL at line \d+:/.test(r.error || ""), r.error);
     }
 
     // The slug rule still fires on a bare `owner/name`, which no clone-URL match covers.
-    const slug = body("slug.md", `---\ntype: bugfix\n---\n\n# Request\n\nMirrors acme-org/widget exactly.\n`);
-    const slugR = json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131111-x.md ${q(slug)}`);
+    const slug = body("slug.md", `# Ask\n\nMirrors acme-org/widget exactly.\n`);
+    const slugR = json(src, SCRIPTS.checkOutboundBody, q(slug));
     assertEq("a bare owner/name is still refused", slugR.ok, false);
     assertTrue("and is reported as the owner/name form",
       (slugR.error || "").includes("acme-org/widget"), slugR.error);
@@ -7451,10 +7432,10 @@ function testRequestUnderUrlRewrite() {
     assertEq("resolve-target reports the configured remote, not the rewritten one",
       resolved.remote, "git@github.com:other-org/target.git");
 
-    // The widening must not turn into a refusal machine: a clean body still submits.
-    const clean = body("clean.md", `---\ntype: bugfix\n---\n\n# Request\n\nThe parser drops a trailing newline.\n`);
-    assertEq("a clean body still submits under a rewrite",
-      json(src, SCRIPTS.submitRequest, `${q(tgt)} 20260715131112-x.md ${q(clean)}`).ok, true);
+    // The widening must not turn into a refusal machine: a clean body still passes.
+    const clean = body("clean.md", `# Ask\n\nThe parser drops a trailing newline.\n`);
+    assertEq("a clean body still passes under a rewrite",
+      json(src, SCRIPTS.checkOutboundBody, q(clean)).ok, true);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -7770,10 +7751,15 @@ function testGuardRepoConfinement() {
   assertEq("confine blocks foreign repo (../ relative)", invoke(repoA, `../repoB/${T}`).status, 2);
   assertEq("confine blocks foreign repo from worktree", invoke(wt, join(repoB, T)).status, 2);
 
-  // The refusal names the sanctioned route.
-  assertTrue("confine block names /request",
-    /\/request/.test(invoke(repoA, join(repoB, T)).err),
-    "block message should route the caller to /request");
+  // The refusal names the sanctioned route, which since 2026-08-05 is /fb's crossing
+  // mode — an issue opened on the target, not a file written into its tree. A guard that
+  // refuses without naming where to go instead is a dead end, so the route is asserted.
+  assertTrue("confine block names /fb as the sanctioned route",
+    /\/fb\b/.test(invoke(repoA, join(repoB, T)).err),
+    "block message should route the caller to /fb");
+  assertTrue("and no longer names the retired /request",
+    !/\/request\b/.test(invoke(repoA, join(repoB, T)).err),
+    "block message should not offer a retired command");
 
   // Refused: an ordinary directory outside the repo that is NOT a repository at all
   // (a Desktop/Home-shaped export destination). This is not an incidental case — it is
@@ -11704,8 +11690,8 @@ const tests = [
   ["hooks/guard-git-branch.sh", testGuardGitBranch],
   ["hooks/guard-repo-confinement.sh", testGuardRepoConfinement],
   ["commit/commit.sh flag guard", testCommitFlagGuard],
-  ["request/scripts", testRequestScripts],
-  ["request/scripts under a git insteadOf URL rewrite", testRequestUnderUrlRewrite],
+  ["the cross-repository backstop", testCrossRepoBackstop],
+  ["the crossing checks under a git insteadOf URL rewrite", testCrossRepoUnderUrlRewrite],
   ["/fb's cross-repository issue mode", testFbCrossRepoIssueMode],
   ["hooks/guard-askuserquestion-label.sh", testGuardAskUserQuestionLabel],
   ["workaholify/audit-claude-md.sh", testAuditClaudeMd],

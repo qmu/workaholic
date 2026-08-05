@@ -404,7 +404,19 @@ Emits `{claimed, resumed, unit, branch, worktree_path, adopted_worktree, resume_
 bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/release-claim.sh <unit-id>
 ```
 
-For a unit that will **not** be finished. Tears the worktree down first (the cleaner refuses a dirty worktree and never discards uncommitted work), then deletes the remote claim branch — that order matters: dropping the claim first would publish "this unit is free" while the worktree still holds unpushed work. Emits `{released, unit, branch, worktree_removed, remote_branch_deleted, local_branch_deleted}`. Run it from the main checkout; git cannot remove the worktree you are standing in.
+For a unit that will **not** be finished. Tears the worktree down first (the cleaner refuses a dirty worktree and never discards uncommitted work), then deletes the remote claim branch — that order matters: dropping the claim first would publish "this unit is free" while the worktree still holds unpushed work. Emits `{released, state, unit, branch, worktree_removed, remote_branch_deleted, local_branch_deleted}`. Run it from the main checkout; git cannot remove the worktree you are standing in.
+
+**`state` exists because the two steps can disagree**, and a bare `released: false` cannot say how. The order above puts a refused *delete* after a successful teardown:
+
+| `state` | Meaning |
+| ------- | ------- |
+| `released` | both steps done — the unit is back in the pickable pool |
+| `half_released` | the worktree is gone and **the claim branch is still live**. A human must delete it; nothing in the loop can. The unit stays claimed and is re-offered as `resumable` once its heartbeat lapses |
+| `untouched` | nothing changed (unreachable origin, or a refused teardown) |
+
+This is not hypothetical: the cloud container the hourly routine runs in may **push but not delete** a branch (measured 2026-08-05 — 403 twice, on a remote that had accepted several pushes minutes earlier; the GitHub MCP server offers `create_branch` and no delete), so the second step can never succeed there and the caller could not tell what had been done on its behalf.
+
+Two alternatives were considered and rejected; the reasoning lives in the script's header so it is not re-proposed blind. A **tombstone** commit the scan reads as released would add a second, weaker release channel to a protocol resting on exactly one invariant — an unmerged branch carrying a `Claim` commit *is* a live claim — and a runner that failed to write the tombstone lands in precisely the state this is meant to fix. **Inverting the order** so a refused delete leaves the worktree intact would publish "this unit is free" over possibly-unpushed work; the teardown is also the cheap half to lose, since `claim.sh resume` rebuilds the worktree at the branch tip.
 
 ## Ordering within a unit
 

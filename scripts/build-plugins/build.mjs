@@ -32,7 +32,7 @@ import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { generatePolicyIndex, POLICY_INDEX_REL } from "./policy-index.mjs";
 import { generateOkfBundle, OKF_BUNDLE_REL } from "./okf.mjs";
-import { SKILL_REF, SCRIPT_CROSS_REF } from "./script-ref-patterns.mjs";
+import { SKILL_REF, SCRIPT_CROSS_REF, UNRESOLVED_PLUGIN_ROOT_PATH } from "./script-ref-patterns.mjs";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
 const CORE_SKILLS = join(REPO_ROOT, "plugins/workaholic/skills");
@@ -157,13 +157,15 @@ function buildTarget(target) {
     }
   }
 
-  // Fail loudly if any unresolved token survived.
+  // Fail loudly if any unresolved plugin-root PATH survived. A bare read of the
+  // variable is a different construct and is allowed through — see
+  // UNRESOLVED_PLUGIN_ROOT_PATH for why the distinction is the trailing slash.
   const leftovers = [];
   const scan = (p) => {
     for (const e of readdirSync(p)) {
       const fp = join(p, e);
       if (statSync(fp).isDirectory()) scan(fp);
-      else if (readText(fp).includes("${CLAUDE_PLUGIN_ROOT}")) leftovers.push(fp);
+      else if (UNRESOLVED_PLUGIN_ROOT_PATH.test(readText(fp))) leftovers.push(fp);
     }
   };
   scan(outDir);
@@ -271,7 +273,7 @@ for (const t of targets) {
   console.log(`built ${t}: closure=[${r.closure.join(", ")}]`);
   if (r.leftovers.length) {
     failed = true;
-    console.error(`  ERROR unresolved \${CLAUDE_PLUGIN_ROOT} in: ${r.leftovers.join(", ")}`);
+    console.error(`  ERROR unresolved \${CLAUDE_PLUGIN_ROOT}/ path in: ${r.leftovers.join(", ")}`);
   }
 }
 if (failed) process.exit(1);

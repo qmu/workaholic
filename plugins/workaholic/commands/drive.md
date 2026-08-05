@@ -17,7 +17,9 @@ skills:
 
 `/drive` is the sole executor. Run the preloaded `workaholic:drive` skill's **Unified Run** section end to end:
 
-0. **Freshen** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/sync-main.sh`, **before** the survey. Artifacts are published to `main`, and the survey reads this working tree, so a checkout behind `origin/main` surveys a stale queue and reports it confidently — the worst shape an unattended tick can take. Same step interactively and on cron: one code path. Handle each `ok: false` as a **reported decision** (this command asks nothing):
+0. **Confirm the install first** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/check-deps/scripts/check.sh`. **Terminate `pending` without surveying** when `loaded_version_behind_registry` is `true`, when `registry_unreadable` is `true`, or when the output carries **neither field** (a build too old to report them is the stale build they exist to catch). Name `version` and `registry_version`; the repair is a fresh session, not a retry. `version_drift` (the checkout axis) is a **warning** — report it and continue.
+
+0b. **Freshen** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/sync-main.sh`, **before** the survey. Artifacts are published to `main`, and the survey reads this working tree, so a checkout behind `origin/main` surveys a stale queue and reports it confidently — the worst shape an unattended tick can take. Same step interactively and on cron: one code path. Handle each `ok: false` as a **reported decision** (this command asks nothing):
 
    | reason | what the run does |
    | ------ | ----------------- |

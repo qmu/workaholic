@@ -17,7 +17,7 @@ import { cpSync, mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync, ex
 import { execSync } from "node:child_process";
 import { join, resolve, dirname, basename } from "node:path";
 import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../..");
 const SCRIPTS = {
@@ -7875,6 +7875,139 @@ function testCheckDeps() {
   } finally { cleanup(dir); }
 }
 
+// A PLUGIN-ROOT PATH IS A DEFECT IN A BUILT ARTIFACT; A BARE READ OF THE VARIABLE IS NOT.
+// The build's leftover scan was a plain substring test until 2026-08-05 and could not
+// tell them apart, so check.sh's `${CLAUDE_PLUGIN_ROOT:-}` — the read that learns what
+// the harness bound, which must come from OUTSIDE the plugin to be worth anything — was
+// rejected as an unresolved path. The distinguishing syntax is the trailing slash.
+async function testPluginRootPathVsRead() {
+  const { UNRESOLVED_PLUGIN_ROOT_PATH } =
+    await import(pathToFileURL(join(REPO_ROOT, "scripts/build-plugins/script-ref-patterns.mjs")).href);
+
+  for (const [label, text] of [
+    ["a SKILL.md-style script path", 'bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/git-context.sh'],
+    ["a bare plugin-root path", '"${CLAUDE_PLUGIN_ROOT}/hooks/hooks.json"'],
+  ]) {
+    assertTrue(`${label} is still rejected`, UNRESOLVED_PLUGIN_ROOT_PATH.test(text), text);
+  }
+
+  for (const [label, text] of [
+    ["a default-valued read", 'loaded_root="${CLAUDE_PLUGIN_ROOT:-}"'],
+    ["an unbraced read", 'root=$CLAUDE_PLUGIN_ROOT'],
+    ["a prose mention", "# the loaded version comes from ${CLAUDE_PLUGIN_ROOT}, not this file's location"],
+  ]) {
+    assertTrue(`${label} is allowed through`, !UNRESOLVED_PLUGIN_ROOT_PATH.test(text), text);
+  }
+
+  // The end-to-end consequence: the read reaches the generated bundle, because on an
+  // agent that sets nothing it yields empty and the registry axis stays silent — the
+  // designed behavior, not a degradation.
+  const bundled = join(REPO_ROOT, "outputs/workflows/skills/drive/check-deps/scripts/check.sh");
+  assertTrue("the bundled check.sh keeps its plugin-root read",
+    existsSync(bundled) && readFileSync(bundled, "utf8").includes('"${CLAUDE_PLUGIN_ROOT:-}"'));
+  assertTrue("...and carries no plugin-root PATH",
+    !UNRESOLVED_PLUGIN_ROOT_PATH.test(readFileSync(bundled, "utf8")));
+}
+
+// THE REPORTER MUST NOT BE THE THING IT REPORTS ON. A session can bind a SUPERSEDED
+// plugin cache directory — `plugin update` unpacks the new version beside the old and
+// deletes neither — and the old build's survey then answers wrongly with full
+// confidence. Both operands here are environment facts (the harness's binding, the
+// harness's registry) precisely so the verdict survives the plugin's own age.
+function testCheckDepsRegistryDrift() {
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  check-deps registry drift (jq not available)"); return; }
+
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-registry-"));
+  try {
+    // Two cache directories, exactly as an update leaves them.
+    const mkCache = (version) => {
+      const root = join(dir, "cache", version);
+      mkdirSync(join(root, ".claude-plugin"), { recursive: true });
+      mkdirSync(join(root, "hooks"), { recursive: true });
+      writeFileSync(join(root, ".claude-plugin/plugin.json"), JSON.stringify({ name: "workaholic", version }));
+      writeFileSync(join(root, "hooks/hooks.json"), JSON.stringify({
+        hooks: { PreToolUse: [{ matcher: "Bash", hooks: [
+          { type: "command", command: "${CLAUDE_PLUGIN_ROOT}/hooks/guard-ticket-structure.sh" },
+          { type: "command", command: "${CLAUDE_PLUGIN_ROOT}/hooks/guard-git-commit.sh" },
+          { type: "command", command: "${CLAUDE_PLUGIN_ROOT}/hooks/guard-git-branch.sh" },
+        ] }] },
+      }));
+      return root;
+    };
+    const oldRoot = mkCache("1.0.112");
+    const newRoot = mkCache("1.0.129");
+
+    const registry = join(dir, "installed_plugins.json");
+    writeFileSync(registry, JSON.stringify({
+      version: 2,
+      plugins: { "workaholic@workaholic": [{ scope: "user", installPath: newRoot, version: "1.0.129" }] },
+    }));
+    const withEnv = (extra) => ({ env: { ...process.env, CLAUDE_PLUGIN_REGISTRY: registry, ...extra } });
+
+    // GATE 1 — the measured defect: bound to the superseded directory.
+    let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.checkDeps}`, withEnv({ CLAUDE_PLUGIN_ROOT: oldRoot })).stdout);
+    assertEq("a superseded binding is reported as behind the registry",
+      { v: r.version, rv: r.registry_version, behind: r.loaded_version_behind_registry, unread: r.registry_unreadable },
+      { v: "1.0.112", rv: "1.0.129", behind: true, unread: false });
+
+    // `version` must describe what the SESSION bound, not where this script happens to
+    // live — the two diverged in exactly the case worth catching, and reading the
+    // script's own manifest is what made a broken tick report a matching pair.
+    assertTrue("version follows CLAUDE_PLUGIN_ROOT, not the script's own location",
+      r.version !== JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkDeps}`,
+        { env: { ...process.env, CLAUDE_PLUGIN_ROOT: "", CLAUDE_PLUGIN_REGISTRY: registry } }).stdout).version);
+
+    // GATE 3 — the fix must not buy safety by refusing to run.
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.checkDeps}`, withEnv({ CLAUDE_PLUGIN_ROOT: newRoot })).stdout);
+    assertEq("a current binding reports no registry drift",
+      { behind: r.loaded_version_behind_registry, unread: r.registry_unreadable, ok: r.ok },
+      { behind: false, unread: false, ok: true });
+
+    // Ahead is NOT behind: a developer running a local build is deliberate.
+    const aheadRoot = mkCache("2.0.0");
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.checkDeps}`, withEnv({ CLAUDE_PLUGIN_ROOT: aheadRoot })).stdout);
+    assertEq("a binding AHEAD of the registry is not reported as behind",
+      r.loaded_version_behind_registry, false);
+
+    // GATE 4 — an unanswerable question must not render as agreement.
+    for (const [name, body] of [["absent", null], ["malformed", "{not json"], ["no entry", '{"plugins":{}}']]) {
+      const bad = join(dir, `registry-${name.replace(/\s/g, "-")}.json`);
+      if (body !== null) writeFileSync(bad, body);
+      r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.checkDeps}`,
+        { env: { ...process.env, CLAUDE_PLUGIN_ROOT: oldRoot, CLAUDE_PLUGIN_REGISTRY: bad } }).stdout);
+      assertEq(`a registry that is ${name} reports registry_unreadable`, r.registry_unreadable, true);
+    }
+
+    // The axis stays SILENT with no binding to compare — a non-Claude agent or a direct
+    // checkout invocation must not be accused of drift it cannot have.
+    r = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkDeps}`,
+      { env: { ...process.env, CLAUDE_PLUGIN_REGISTRY: registry, CLAUDE_PLUGIN_ROOT: "" } }).stdout);
+    assertEq("no plugin root means no registry verdict at all",
+      { rv: r.registry_version, behind: r.loaded_version_behind_registry, unread: r.registry_unreadable },
+      { rv: "", behind: false, unread: false });
+
+    // GATE 1's real point: a check.sh OLD ENOUGH TO PREDATE THE FIELD must not read as
+    // healthy. This fixture is the pre-fix reporter verbatim — it emits neither field —
+    // and the consumer contract (drive SKILL.md §1, the runbook) is that their ABSENCE
+    // counts as the condition. A check that only works in the current version would
+    // reproduce the very defect.
+    const legacyRoot = mkCache("1.0.112");
+    const legacyScripts = join(legacyRoot, "skills/check-deps/scripts");
+    mkdirSync(legacyScripts, { recursive: true });
+    writeFileSync(join(legacyScripts, "check.sh"), [
+      "#!/bin/sh -eu",
+      "# The 2026-08-04 reporter, before the registry axis existed.",
+      'printf \'{"ok": true, "version": "1.0.112", "checkout_version": "1.0.112", "version_drift": false, "guards_present": true, "missing_guards": []}\\n\'',
+    ].join("\n"));
+    const legacy = JSON.parse(run(dir, `${POSIX_SH} ${join(legacyScripts, "check.sh")}`).stdout);
+    assertEq("the pre-fix reporter emits neither registry field (so absence must gate)",
+      { hasBehind: "loaded_version_behind_registry" in legacy, hasUnread: "registry_unreadable" in legacy, ok: legacy.ok },
+      { hasBehind: false, hasUnread: false, ok: true });
+  } finally { cleanup(dir); }
+}
+
 // ---------- catch/scan-window.sh (time-buckets + per-branch axis) ----------
 // Hermetic: a repo with dated commits across two branches. Asserts the scanner
 // emits epoch bucket boundaries, tags each commit into a time-bucket, and builds
@@ -11230,7 +11363,9 @@ const tests = [
   ["hooks/guard-askuserquestion-label.sh", testGuardAskUserQuestionLabel],
   ["workaholify/audit-claude-md.sh", testAuditClaudeMd],
   ["hooks/guard-working-directory.sh", testGuardWorkingDirectory],
+  ["build: a plugin-root PATH is a defect, a bare read is not", testPluginRootPathVsRead],
   ["check-deps/check.sh", testCheckDeps],
+  ["check-deps: a superseded plugin binding is a stop, not a warning", testCheckDepsRegistryDrift],
   ["catch/scan-window.sh buckets+branches", testScanWindowBuckets],
   ["branching/ensure-worktree.sh", testEnsureWorktreeGuard],
   ["hooks/lib/check-subject.sh", testCheckSubject],
@@ -11294,9 +11429,14 @@ const tests = [
   ["drive claim protocol: truncated history never invents a claim", testClaimScanShallowClone],
 ];
 
+// `await` matters even though almost every test is synchronous: without it an async
+// test's assertions run AFTER this loop finishes counting, so it contributes zero
+// passes, zero failures, and no output — a test that silently does not run, which is
+// strictly worse than one that fails. (Measured 2026-08-05, on the first async test.)
+// Top-level await is available here because this is an ES module.
 for (const [label, fn] of tests) {
   console.log(`\n# ${label}`);
-  try { fn(); }
+  try { await fn(); }
   catch (e) { fail(label, e.stack || String(e)); }
 }
 

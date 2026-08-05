@@ -5,10 +5,11 @@ type: bugfix
 layer: [Config]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 merge_policy:
+claim: work-20260804-195257
 ---
 
 # Normalize SSH and HTTPS remote URLs in routine matching

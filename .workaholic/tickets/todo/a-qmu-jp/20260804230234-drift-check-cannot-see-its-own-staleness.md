@@ -9,6 +9,7 @@ category: Changed
 depends_on:
 mission:
 merge_policy: review
+claim: work-20260805-002647
 ---
 
 # The version-drift check ships inside the artifact whose staleness it reports, so a stale enough plugin reports itself healthy

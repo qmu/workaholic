@@ -51,3 +51,4 @@ thread, without going looking for it.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-05 — ticket archived — 20260805130456-start-the-drive-routine-on-a-merged-proposal.md
 - 2026-08-05 — ticket archived — 20260805130457-report-drive-start-and-finish-in-the-item-s-thread.md
+- 2026-08-05 — story reported — work-20260805-221704.md

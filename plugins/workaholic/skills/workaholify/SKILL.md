@@ -88,7 +88,31 @@ All three accept the repository URL in **any of its spellings** — `https://git
 
 Keeping the prompt as readable markdown rather than an embedded JSON string is deliberate: the prompt *is* the routine, template freshness is the entire point of the issue behind this, and a prompt nobody can read in a diff is a prompt nobody will keep current.
 
-**A red failure alert is deduped by reading the channel; an event announcement never is** (`routines/drive.md` §0a, added 2026-08-04). A repeated alert with no new information trains the operator to ignore alerts, and the hourly runner produced one near-identical red post per hour for two days from a single root cause. Each tick is a fresh container, so no local state survives — but the **Slack channel itself** does, and the routine already reads and writes it, so the throttle is a read-before-post rule rather than a stored counter: a stable *failure signature* (the failed precondition plus its reason class, never a SHA or a timestamp), suppression only when the latest red alert carries the same signature inside a 24-hour cool-down, an immediate post on any changed signature, and **fail-open** — an unreadable history posts the alert, because silence must never be produced by a failure of the mechanism that decides to be silent. A suppressed tick names the suppression in its own terminal report, so a quiet-because-healthy tick and a quiet-because-known-repeat tick are distinguishable from the log alone. The orange/green/yellow/purple posts announce events the session itself produced and are new every time; deduping those would hide real work.
+**A red failure alert is deduped by reading the channel; an event announcement never is** (added 2026-08-04; the full rule moved here from `routines/drive.md` §0a on 2026-08-05, so the template points at it rather than carrying it). A repeated alert with no new information trains the operator to ignore alerts, and the hourly runner produced one near-identical red post per hour for two days from a single root cause (a stale baked-in plugin install), not one repeat carrying anything the first had not. Each tick is a fresh container, so no local state survives — but the **Slack channel itself** does, and the routine already reads and writes it, so the throttle is a read-before-post rule rather than a stored counter.
+
+**The failure signature** is the precondition or step that failed plus its one-line reason class — `plugin-not-loaded: workaholic absent`, `dirty-tree: uncommitted changes on main`. It must be **stable across ticks**: never a SHA, a timestamp, a file count, a branch name or any other varying detail, or every repeat reads as a change and nothing is ever suppressed. Before posting a red alert, read the channel's recent history (~50 messages), find the most recent red alert from that routine, and suppress **only** when it carries the same signature inside a 24-hour cool-down — a changed signature posts immediately, and a condition recurring after the cool-down posts again. The rule suppresses repeats, never first reports. A suppressed tick **names the suppression in its own terminal report** (`alert suppressed as duplicate - <signature>`), so a quiet-because-healthy tick and a quiet-because-known-repeat tick are distinguishable from the session log alone. It **fails toward alerting**: an unreadable history posts the alert, because silence must never be produced by a failure of the mechanism that decides to be silent.
+
+The orange/green/yellow/purple/rocket posts announce events the session itself produced and are new every time; deduping those would hide real work.
+
+**The shapes of the runner's posts**, so a template names its postable events without restating how each line looks. `<@U…>` follows the mention rule below; `{repo_name}` and `{repo}` are the routine's own substitutions.
+
+```
+🔴 drive blocked - `<signature>`
+One sentence, max 25 words, what failed and what a human must do.
+
+🟠 drive started - `<unit-id>`
+`<branch>`, one sentence, max 25 words, what this unit contains only.
+
+🟢 Merge Requested for <@U…> - [#123 Issue Title]({repo}/pull/123)
+`from-branch` → `to-branch`, one sentence, max 40 words, what the PR does only.
+<session URL>
+
+🟡 Handoff <@U…> - [#123 Issue Title]({repo}/pull/123)
+The next run resumes it automatically; `git fetch && git checkout <branch>` to take it sooner. One sentence, max 25 words, what remains only.
+<session URL>
+```
+
+A merge uses the 🟢 shape with its line swapped for the actor: **🚀 Auto Merge by Claude** when the unit's recorded `merge_policy` was `auto` and `/ship` merged it, **🟣 Merged by `<@U…>`** when a human merged it during the run. That distinction is the point — a developer scanning the thread must be able to tell what merged without approval from what a person approved — and it is why the auto line names no person.
 
 ### One thread per feedback item — the notification model (decided 2026-08-04)
 

@@ -9,6 +9,7 @@ category:
 depends_on:
 feedback: [20260805191634-a-persistent-drive-failure-goes-silent-for-a-day-under-the-alert-dedup-cool-down.md]
 merge_policy:
+claim: work-20260805-224001
 ---
 
 # Repair a superseded plugin binding, not just report it

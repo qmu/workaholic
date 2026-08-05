@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: []
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.7
 feedback: [20260805130407-trigger-the-drive-routine-on-a-merged-proposal-and-report-start-and-completion-in-its-thread]
 tickets: []
 stories: []
@@ -52,3 +52,4 @@ thread, without going looking for it.
 - 2026-08-05 — ticket archived — 20260805130456-start-the-drive-routine-on-a-merged-proposal.md
 - 2026-08-05 — ticket archived — 20260805130457-report-drive-start-and-finish-in-the-item-s-thread.md
 - 2026-08-05 — story reported — work-20260805-221704.md
+- 2026-08-05 — run recorded (+0.7h) — 20260805-221704

@@ -10392,8 +10392,18 @@ function testHandoffState() {
     /the four ticket outcomes stay four/i.test(drive), "no statement that the four outcomes are unchanged");
   assertTrue("handoff lands on the pending side of the terminal token",
     /ended in \*\*`handoff`\*\*[^|]*\|\s*`pending`/.test(drive), "handoff is not in the token table as pending");
-  assertTrue("an untaken resumable unit also forbids ok",
-    /\*\*resumable\*\* unit this run did not take over[^|]*\|\s*`pending`/.test(drive), "resumable is not pending");
+  // THE RESUMABLE OFFER IS TWO-TIERED, and only the dead tier is mandatory. A unit that
+  // reached its PR and is waiting on a human must not outrank fresh work: forcing that
+  // reading is what made an attended run spend its opening ~40 minutes reopening a pull
+  // request the developer considered finished.
+  assertTrue("an untaken resumable unit that DIED mid-drive still forbids ok",
+    /\*\*resumable\*\* unit with `resume_reason: heartbeat_lapsed`[^|]*\|\s*`pending`/.test(drive),
+    "heartbeat_lapsed is not pending");
+  assertTrue("but one parked at its PR does not, by itself",
+    /\*\*resumable\*\* unit with `resume_reason: parked_with_pr`[^|]*\|[^|]*not by itself/.test(drive),
+    "parked_with_pr is not carved out of the pending rule");
+  assertTrue("and the offer states which tier is mandatory",
+    /reportable rather than mandatory/.test(drive), "the two tiers are not distinguished in the offer");
   assertTrue("the run report names handoff as a route",
     /\/ \*\*handoff\*\* \//.test(drive), "handoff missing from the per-unit report line");
 
@@ -10532,6 +10542,70 @@ esac
 // re-took such a unit three times in one night, each pass adding an empty `Resume`
 // commit to a branch a human was reviewing and doing nothing else. It never terminates:
 // a review PR can sit for days. The third condition is what tells the two apart.
+// ---------- drive claim protocol: parked-at-PR vs died-mid-drive, and same-machine resume ----------
+// TWO DEFECTS FROM ONE ATTENDED RUN. The survey could not tell a unit that STOPPED AT ITS
+// PR from one that DIED mid-drive, and the Unified Run mandated taking the resumable one
+// first -- so the run spent its opening ~40 minutes reopening a pull request the developer
+// considered finished. And `claim.sh resume` failed outright in the case resumption exists
+// for (your own claim, your own machine), because the worktree was still on disk.
+function testResumeParkedAndAdoption() {
+  const { origin, A, B } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const LIST = `${POSIX_SH} ${SCRIPTS.listClaims}`;
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  const lapsed = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0" };
+  try {
+    const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const t2 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`;
+    const batch = JSON.parse(run(A, `${CLAIM} batch ${t1} ${t2}`).stdout);
+    const wt = join(A, ".worktrees", batch.unit);
+
+    // ---- A unit that DIED mid-drive: no story on the branch. Mandatory takeover. ----
+    let r = JSON.parse(run(B, LIST, { env: lapsed }).stdout);
+    assertEq("a unit with no story reads as died-mid-drive",
+      { res: r.claims[0].resumable, why: r.claims[0].resume_reason },
+      { res: true, why: "heartbeat_lapsed" });
+
+    // ---- Now it REPORTS: /report commits the branch story as it opens the PR. ----
+    mkdirSync(join(wt, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(wt, `.workaholic/stories/${batch.branch}.md`),
+      `---\ntype: Story\nbranch: ${batch.branch}\ntickets_completed: 1\nmission: []\ntickets: []\n---\n\n## 1. Overview\n\nparked\n`);
+    execSync(`git add -A && git commit -q -m "Add branch story" && git push -q origin ${batch.branch}`, { cwd: wt });
+
+    r = JSON.parse(run(B, LIST, { env: lapsed }).stdout);
+    assertEq("once it has reported, the same unit reads as parked at its PR",
+      { res: r.claims[0].resumable, why: r.claims[0].resume_reason },
+      { res: true, why: "parked_with_pr" });
+
+    // The survey carries the tier, so a run can tell mandatory from reportable without
+    // re-deriving it -- the reason the verdict lives in the shared scan at all.
+    const plan = JSON.parse(run(B, PLAN, { env: lapsed }).stdout);
+    assertEq("the survey's resumable row carries the tier",
+      plan.resumable.map((x) => [x.unit, x.resume_reason]), [[batch.unit, "parked_with_pr"]]);
+
+    // ---- Same-machine resume ADOPTS the worktree that is still on disk. ----
+    assertTrue("the claim worktree is still present on this machine", existsSync(wt));
+    const resumed = JSON.parse(run(A, `${CLAIM} resume ${batch.unit}`, { env: lapsed }).stdout);
+    assertEq("resume succeeds on the same machine instead of failing to create a worktree",
+      { c: resumed.claimed, res: resumed.resumed, adopted: resumed.adopted_worktree }, { c: true, res: true, adopted: true });
+    assertEq("it adopts the existing worktree rather than a new path", resumed.worktree_path, wt);
+    assertEq("and carries the offer's tier into the takeover", resumed.resume_reason, "parked_with_pr");
+    assertTrue("the adopted worktree still exists after the takeover", existsSync(wt));
+
+    // The takeover is an EMPTY commit: it must never reach the PR diff.
+    assertEq("the takeover commit changes no file",
+      execSync("git show --name-only --format= HEAD", { cwd: wt, encoding: "utf8" }).trim(), "");
+    assertEq("and it is the sanctioned subject",
+      execSync("git log -1 --format=%s", { cwd: wt, encoding: "utf8" }).trim(), "Resume a PR-unit");
+
+    // Taking it over refreshes the heartbeat, so the unit reads active again.
+    r = JSON.parse(run(B, LIST).stdout);
+    assertEq("after the takeover the unit reads as actively driven",
+      { res: r.claims[0].resumable, why: r.claims[0].resume_reason },
+      { res: false, why: "claim_active" });
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
 function testResumeSkipsDrainedUnit() {
   const { origin, A, B } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
@@ -11113,6 +11187,7 @@ const tests = [
   ["drive claim protocol: two runners racing to resume, one takeover", testResumeRace],
   ["drive/heartbeat.sh keeps a working unit out of the resumable offer", testHeartbeat],
   ["drive claim protocol: a finished unit is not resumed again", testResumeSkipsDrainedUnit],
+  ["drive claim protocol: parked-at-PR is not died-mid-drive, and same-machine resume adopts", testResumeParkedAndAdoption],
   ["drive claim protocol: an archive git cannot prove is a rename keeps its artifact", testClaimSurvivesUndetectedRename],
   ["drive claim protocol: a mission artifact never resolves by basename", testMissionArtifactNeverResolvesByBasename],
   ["PR seams degrade when the runner has no gh", testGhAbsentDegrades],

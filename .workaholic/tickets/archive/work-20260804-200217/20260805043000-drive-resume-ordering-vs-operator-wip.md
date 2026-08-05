@@ -5,10 +5,11 @@ type: enhancement
 layer: [Domain]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission:
 merge_policy:
+claim: work-20260804-200217
 ---
 
 # /drive resume ordering overrides the operator's actual WIP, and same-machine resume fails

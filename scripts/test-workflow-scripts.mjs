@@ -64,6 +64,7 @@ const SCRIPTS = {
   effectivePolicy: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/effective-policy.sh"),
   listClaims: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-claims.sh"),
   releaseClaim: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/release-claim.sh"),
+  landUnit: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/land-unit.sh"),
   publishRelease: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/publish-release.sh"),
   shipPreCheck: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/pre-check.sh"),
   readDeployments: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/read-deployments.sh"),
@@ -8610,6 +8611,99 @@ function testClaimProtocol() {
   } finally { cleanup(origin); cleanup(A); cleanup(B); }
 }
 
+// THE THIRD ROUTE. `review` publishes a unit but does not make it CLAIMABLE — tickets
+// minted mid-run sit on the claim branch until a human merges the PR out of band. land
+// closes that distance on a present developer's instruction, and the whole point of the
+// route is that the instruction IS the review, so the refusals matter as much as the land.
+function testLandUnit() {
+  const { origin, A } = makeClaimFixture();
+  // The suite itself runs inside the cloud container, where CLAUDE_CODE_REMOTE=true would
+  // refuse every land. Strip the headless markers for the cases that must SUCCEED, and
+  // set them explicitly for the case that must not.
+  const attended = { ...process.env };
+  delete attended.CLAUDE_CODE_REMOTE;
+  delete attended.CI;
+  delete attended.WORKAHOLIC_HEADLESS;
+  const LAND = `${POSIX_SH} ${SCRIPTS.landUnit}`;
+  try {
+    const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const claimed = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.claim} batch ${t1}`).stdout);
+
+    // A ticket minted mid-run on the claim branch: the artifact that `review` would keep
+    // invisible, and the one the acceptance criterion is actually about.
+    const minted = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000009-minted.md`;
+    writeFileSync(join(A, ".worktrees", claimed.unit, minted),
+      `---\ncreated_at: 2026-07-29T00:00:09+09:00\nauthor: test@example.com\ntype: enhancement\nlayer: [Domain]\n---\n\n# Minted mid-run\n`);
+    execSync(`git add -A && git commit -q -m "Add a minted ticket" && git push -q origin HEAD`,
+      { cwd: join(A, ".worktrees", claimed.unit) });
+
+    // ---- the two refusals, before anything can land ----
+    let r = JSON.parse(run(A, `${LAND} ${claimed.unit} --developer-present`,
+      { env: { ...attended, CLAUDE_CODE_REMOTE: "true" } }).stdout);
+    assertEq("land refuses a headless context even with the flag",
+      { l: r.landed, r: r.reason }, { l: false, r: "headless_context" });
+
+    r = JSON.parse(run(A, `${LAND} ${claimed.unit}`, { env: attended }).stdout);
+    assertEq("land is never taken by omission",
+      { l: r.landed, r: r.reason }, { l: false, r: "no_developer_instruction" });
+
+    // A headless caller must not be able to reach the route by ALSO passing the override.
+    r = JSON.parse(run(A, `${LAND} ${claimed.unit} --developer-present --override-scan`,
+      { env: { ...attended, CI: "1" } }).stdout);
+    assertEq("the headless backstop outranks every flag", r.reason, "headless_context");
+
+    // ---- the base MOVES under the unit, which is the case that was fumbled by hand ----
+    const bystander = mkdtempSync(join(tmpdir(), "wh-land-bystander-"));
+    execSync(`git clone -q ${origin} .`, { cwd: bystander });
+    execSync(`git config user.email other@example.com && git config user.name Other && git config commit.gpgsign false`,
+      { cwd: bystander });
+    writeFileSync(join(bystander, "unrelated.txt"), "moved base\n");
+    execSync(`git add -A && git commit -q -m "Advance the base" && git push -q origin main`, { cwd: bystander });
+
+    // ---- land ----
+    const landed = JSON.parse(run(A, `${LAND} ${claimed.unit} --developer-present`, { env: attended }).stdout);
+    assertEq("land reports the unit it landed",
+      { l: landed.landed, u: landed.unit, b: landed.branch, base: landed.base, v: landed.scan_verdict },
+      { l: true, u: claimed.unit, b: claimed.branch, base: "main", v: "pass" });
+    assertTrue("land absorbs a base that moved under it", landed.retried === true || landed.retried === false);
+
+    // The commits are on the base — which is what releases the claim, by definition.
+    const originMain = execSync("git rev-parse refs/heads/main", { cwd: origin, encoding: "utf8" }).trim();
+    assertTrue("the unit's work is on the base",
+      execSync(`git log --format=%s ${originMain} -20`, { cwd: origin, encoding: "utf8" })
+        .includes("Add a minted ticket"));
+    assertTrue("the moved base was preserved, not overwritten",
+      execSync(`git log --format=%s ${originMain} -20`, { cwd: origin, encoding: "utf8" })
+        .includes("Advance the base"));
+
+    // ---- the claim's housing is gone ----
+    assertEq("land tears the worktree down",
+      { w: landed.worktree_removed, present: existsSync(join(A, ".worktrees", claimed.unit)) },
+      { w: true, present: false });
+    assertEq("land deletes the remote claim branch",
+      run(origin, `git rev-parse --verify --quiet refs/heads/${claimed.branch}`).status, 1);
+    assertEq("the reader sees no claim once the unit has landed",
+      JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout).claims.length, 0);
+
+    // ---- THE ACCEPTANCE CRITERION: the leftover tickets are claimable immediately ----
+    // Not "published" — CLAIMABLE, from this very checkout, with no further sync.
+    assertTrue("land fast-forwards the landing checkout", landed.base_synced === true);
+    const survey = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    const paths = survey.backlog.map((b) => b.path);
+    assertTrue("the mid-run minted ticket is offered as backlog right after landing",
+      paths.includes(minted), JSON.stringify(paths));
+    assertTrue("the landed unit's own ticket is offered again, its base-side stamp being history (M1)",
+      paths.includes(t1), JSON.stringify(paths));
+
+    // ---- landing twice is refused, not repeated ----
+    r = JSON.parse(run(A, `${LAND} ${claimed.unit} --developer-present`, { env: attended }).stdout);
+    assertEq("a landed unit cannot be landed again",
+      { l: r.landed, r: r.reason }, { l: false, r: "not_claimed" });
+
+    cleanup(bystander);
+  } finally { cleanup(origin); cleanup(A); }
+}
+
 // The reader DEGRADES offline; the writer FAILS. False "unclaimed" is the dangerous
 // error — it double-picks work — so a runner that cannot see origin must still be
 // told what it last knew, and must not be allowed to claim on that knowledge.
@@ -11146,6 +11240,7 @@ const tests = [
   ["propose: dedup set and draft scaffold", testProposeBatch],
   ["propose/notify-slack.sh", testNotifySlack],
   ["drive claim protocol: two clones, one unit", testClaimProtocol],
+  ["drive/land-unit.sh: the third route, and the human gate that guards it", testLandUnit],
   ["drive claim protocol: a claim survives its tickets being archived", testClaimSurvivesArchive],
   ["drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected],
   ["drive claim protocol: a merged stamp is history, not a claim", testMergedStampIsHistoryNotAClaim],

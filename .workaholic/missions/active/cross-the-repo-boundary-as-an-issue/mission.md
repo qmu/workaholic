@@ -53,3 +53,4 @@ replace-the-human-gate rationale survives in the feedback skill.
      One line per event ("- YYYY-MM-DD — event — filename"); never rewrite past lines. -->
 - 2026-08-05 — ticket archived — 20260805101337-give-fb-a-cross-repo-issue-mode.md
 - 2026-08-05 — ticket archived — 20260805101337-retire-the-request-command-and-relocate-its-gate.md
+- 2026-08-05 — story reported — work-20260805-101736.md

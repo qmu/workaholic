@@ -1,8 +1,10 @@
 #!/bin/sh -eu
 # PreToolUse(Write|Edit) BLOCKING gate: a write must land inside the current repository
 # or one of its own worktrees. A path resolving outside every one of them is refused and
-# the caller is routed to /request, the only sanctioned way to raise work against another
-# repository.
+# the caller is routed to /fb's cross-repository issue mode, the only sanctioned way to
+# raise work against another repository (it opens a GitHub issue on the target and writes
+# into no checkout of it; /request, which wrote a ticket file into the target's tree, was
+# retired 2026-08-05).
 #
 # This runs PreToolUse on purpose. validate-ticket.sh is PostToolUse, so by the time it
 # speaks the file already exists in the foreign repo; refusing after the write is not
@@ -11,8 +13,9 @@
 # Scope, stated honestly: this is a SYNTACTIC check. It answers "does this path point
 # outside the repo", which is exactly what a matcher is good at. It does NOT and cannot
 # recognise a client's vocabulary carried into a legitimate in-repo write — that is
-# semantic, and it belongs to the rule in rules/general.md and to /request's masking
-# confirmation, where a person decides. Do not grow this hook toward content matching.
+# semantic, and it belongs to the rule in rules/general.md and to the crossing flow's
+# masking confirmation, where a person decides. Do not grow this hook toward content
+# matching.
 #
 # Mirrors guard-git-commit.sh: read .tool_input.file_path from stdin JSON, exit 2 to
 # block, exit 0 to allow. Fails open on anything it cannot resolve — it never blocks a
@@ -88,8 +91,9 @@ Error: refusing to write outside this repository.
   repo:   $roots
 
 Every write must land inside the current repository or one of its worktrees. To raise
-work against another repository, use /request — it is the only sanctioned route, and it
-masks this project's customer context before anything is filed.
+work against another repository, use /fb <the ask> to <owner/name> — it opens the ask as a
+GitHub issue on the target, writing into no checkout of it, and it masks this project's
+customer context before anything is sent. That is the only sanctioned route.
 
 See: plugins/workaholic/rules/general.md ("Never modify another repository")
 EOF

@@ -5,7 +5,7 @@ type: enhancement
 layer: [Config]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on:
 mission: cross-the-repo-boundary-as-an-issue
 merge_policy:

@@ -5,7 +5,7 @@ type: refactoring
 layer: [Config]
 effort:
 commit_hash:
-category:
+category: Changed
 depends_on: 20260805101337-give-fb-a-cross-repo-issue-mode.md
 mission: cross-the-repo-boundary-as-an-issue
 merge_policy:

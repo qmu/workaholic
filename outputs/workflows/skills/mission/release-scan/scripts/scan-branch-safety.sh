@@ -17,7 +17,7 @@
 #
 # Scope, stated plainly: this catches credential SHAPES and re-introduction of terms
 # someone already listed. It does not detect client context — that is semantic and not
-# enumerable in advance, and belongs to /request's masking confirmation. A `pass`
+# enumerable in advance, and belongs to the crossing flow's masking confirmation. A `pass`
 # verdict never means "no client context here".
 #
 # Usage: scan-branch-safety.sh [base-branch]
@@ -225,7 +225,8 @@ EOF
 # `metadata.internal` — the frontmatter field every script-bearing skill must carry.
 # Zero true positives, a standing false positive against our own docs. Do not
 # reintroduce a pattern here: what leaks is a client's vocabulary, which is semantic
-# and not enumerable in advance. That judgement belongs to /request, not to a regex.
+# and not enumerable in advance. That judgement belongs to a person at the crossing, not
+# to a regex.
 denylist="${ROOT}/.workaholic/leak-denylist"
 if [ -f "$denylist" ]; then
     while IFS= read -r term; do

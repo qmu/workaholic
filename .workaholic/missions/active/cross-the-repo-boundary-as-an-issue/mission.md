@@ -16,6 +16,7 @@ gate_type:
 gate_target:
 gate_assert:
 feedback: [20260805101319-retire-request-cross-repo-asks-become-fb-issues-on-the-target.md]
+claim: work-20260805-101736
 ---
 
 # Cross the repo boundary as an issue
@@ -43,10 +44,13 @@ replace-the-human-gate rationale survives in the feedback skill.
 
 ## Acceptance
 
-- [ ] /fb with a target repository opens the ask as an issue there after the one verbatim confirmation, writing no file into the target checkout (#20260805101337-give-fb-a-cross-repo-issue-mode.md)
-- [ ] /request is gone, its load-bearing gate knowledge is relocated not deleted, and every document names the issue path as the only sanctioned crossing (#20260805101337-retire-the-request-command-and-relocate-its-gate.md)
+- [x] /fb with a target repository opens the ask as an issue there after the one verbatim confirmation, writing no file into the target checkout (#20260805101337-give-fb-a-cross-repo-issue-mode.md)
+- [x] /request is gone, its load-bearing gate knowledge is relocated not deleted, and every document names the issue path as the only sanctioned crossing (#20260805101337-retire-the-request-command-and-relocate-its-gate.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline relating this mission's tickets and reports over time.
      One line per event ("- YYYY-MM-DD — event — filename"); never rewrite past lines. -->
+- 2026-08-05 — ticket archived — 20260805101337-give-fb-a-cross-repo-issue-mode.md
+- 2026-08-05 — ticket archived — 20260805101337-retire-the-request-command-and-relocate-its-gate.md
+- 2026-08-05 — story reported — work-20260805-101736.md

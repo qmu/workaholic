@@ -12945,6 +12945,21 @@ function testRoutineAnnouncementScoping() {
     /silence must never be produced by a failure of the mechanism/i.test(wh), "fail-open rationale missing");
   assertTrue("a suppressed tick names the suppression in its own terminal report",
     /alert suppressed as duplicate/i.test(wh), "suppression-visibility rule missing");
+  // A PERSISTING failure is not a repeating one, and the cool-down could not tell them
+  // apart: four consecutive ticks produced nothing while the channel read as a healthy
+  // idle fleet. The reply is what keeps "broken and already reported" distinguishable
+  // from "nothing to do" WITHOUT reintroducing the top-level repeat.
+  assertTrue("a suppressed tick replies in the alert's thread instead of going silent",
+    /threaded reply on the existing alert/i.test(wh), "persisting-failure reply rule missing");
+  assertTrue("and the reply carries what changed, so it is not itself a repeat",
+    /still failing/i.test(wh) && /ticks/i.test(wh), "reply content missing");
+  // The reply REPLACES the suppressed top-level post; it never displaces the two cases
+  // that still post a root. Getting this ordering wrong turns a changed signature or a
+  // first report into a thread reply nobody sees.
+  assertTrue("the reply replaces only the suppressed top-level post",
+    /cool-down suppresses the \*\*top-level\*\* post and nothing else/i.test(wh), "reply ordering missing");
+  assertTrue("and the reply's own rate is decided rather than left to the session",
+    /reply is not itself rate-limited/i.test(wh), "reply-rate decision missing");
   // The dedupe is scoped to red alerts. The orange/green/yellow posts announce events this
   // session produced, which are new every time — deduping them would hide real work.
   assertTrue("the dedupe applies to red failure alerts only",

@@ -3,9 +3,9 @@ created_at: 2026-08-05T19:39:55+09:00
 author: a@qmu.jp
 type: enhancement
 layer: [Config]
-effort:
+effort: 0.5h
 commit_hash:
-category:
+category: Changed
 depends_on:
 feedback: [20260805191634-a-persistent-drive-failure-goes-silent-for-a-day-under-the-alert-dedup-cool-down.md]
 merge_policy:
@@ -112,3 +112,28 @@ persisted.
 - **The routine template must not grow this back.** It was slimmed to a thin pointer hours
   before this was written; adding "and reply in the thread when suppressed" to the prompt
   would recreate the second source of truth that slimming removed.
+
+## Final Report
+
+Development completed as planned. The rule now distinguishes a *persisting* failure from a
+*repeating* one, and the reply-rate question the ticket left open is decided in the SKILL
+with its rejected alternative named.
+
+### Discovered Insights
+
+- **Insight**: A rate-limited reply would have reintroduced, one level down, the exact
+  ambiguity the top-level suppression created — "no reply this tick" meaning either
+  *suppressed* or *the fleet is dead*. The reply is unlimited for that reason, and it
+  escapes being a repeat by carrying elapsed time and a tick count rather than a fixed line.
+  **Context**: The dedup rule's original defect and the obvious fix for its successor are
+  the same shape. Anything later that throttles the reply must first answer how a reader
+  tells a throttled tick from a dead one.
+
+- **Insight**: The ticket's `## Policies` section names `workaholic:design` /
+  `policies/ux.md` and `workaholic:operation` / `policies/observability.md`; neither file
+  exists. The real ones are `design/policies/self-explanatory-ui.md` and
+  `implementation/policies/observability.md`, and the latter's *alerts that cry wolf* and
+  *answerable from outside without a debugger* clauses are exactly this ticket's subject.
+  **Context**: A `## Policies` list is authored at ticket time and nothing validates that
+  its slugs resolve, so a driving session can be pointed at policies that do not exist. The
+  fallback used here — read the nearest real policy, and say which — is worth repeating.

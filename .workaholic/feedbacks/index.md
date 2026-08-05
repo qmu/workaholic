@@ -409,6 +409,7 @@
 * [merge-pr.sh cannot be exercised end to end hermetically](20260805044712-merge-pr-sh-cannot-be-exercised.md)
 * [The append-shape scope is bounded by path, deliberately](20260805044712-the-append-shape-scope-is-bounded.md)
 * [list-proposed-refs.sh dedup misses feedback refs on unmerged pull requests](20260805053636-list-proposed-refs-sh-dedup-misses-feedback-refs-on-unmerged-pull-requests.md)
+* [Refreshing the live [Propose] routine is premature — its template fix is still a queued ticket](20260805062035-refreshing-the-live-propose-routine-is-premature-its-template-fix-is-still-a-queued-ticket.md)
 * [Retire /request; cross-repo asks become /fb issues on the target](20260805101319-retire-request-cross-repo-asks-become-fb-issues-on-the-target.md)
 * [An attended /drive asks which unit to take; only routines run promptless](20260805102621-an-attended-drive-asks-which-unit-to-take-only-routines-run-promptless.md)
 <!-- okf:generated:end -->

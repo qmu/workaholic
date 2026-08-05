@@ -9555,24 +9555,30 @@ function testUnifiedDriveContract() {
   const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/drive.md"), "utf8");
   const ship = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/ship/SKILL.md"), "utf8");
 
-  // --- one executor, one shape, zero prompts ---
+  // --- one executor, two invocation forms, exactly one prompt between them (O1) ---
   assertTrue("the drive skill states the survey→route pipeline as a model",
     /survey → partition → claim → drive → report → route → account/.test(skill));
-  assertTrue("the drive skill declares the run has no interaction point",
-    /NEVER use AskUserQuestion.*no interaction point/is.test(skill));
-  assertTrue("the command declares itself prompt-free in every invocation",
-    /issues no `AskUserQuestion` — anywhere, in any invocation/.test(cmd));
-  assertTrue("the partition is reported, never asked",
-    /Report the partition, never ask it/.test(skill) && /Report the partition; never ask it/.test(cmd));
+  assertTrue("the drive skill scopes its prohibition to the per-ticket workflow",
+    /NEVER use AskUserQuestion while driving a ticket/.test(skill));
+  assertTrue("the command declares the unattended form prompt-free at every step",
+    /The unattended form issues no `AskUserQuestion` — anywhere, at any step/.test(cmd));
+  assertTrue("the command bounds the attended form to exactly one prompt",
+    /The attended form adds exactly one prompt and nothing else/.test(cmd)
+    && /at most once per run/.test(cmd));
+  assertTrue("the partition's composition is reported, never asked",
+    /Report the partition in full, always/.test(skill)
+    && /Report the partition in full, in both forms; never ask how it was composed/.test(cmd));
   assertTrue("night mode is folded in as a synonym, not a second mode",
     /`\/drive night`.*synonym/is.test(skill) && /`\/drive night`\*\* is a synonym/.test(cmd));
 
-  // No AskUserQuestion may survive anywhere in the drive surface — the old per-ticket
-  // approval prompt, the order confirmation, and the icebox picker all lived here.
-  assertTrue("no AskUserQuestion invocation remains in the drive skill",
-    !/use `AskUserQuestion`|Use `AskUserQuestion`|issues? every `AskUserQuestion`/.test(skill));
-  assertTrue("no AskUserQuestion invocation remains in the drive command",
-    !/use `AskUserQuestion`|Use `AskUserQuestion`/.test(cmd));
+  // The one surviving prompt is the §2 selection. It must stay bounded to that step:
+  // the retired per-ticket approval prompt, the order confirmation, and the icebox
+  // picker all lived further down, and none of them may return under this amendment.
+  const workflow = skill.slice(skill.indexOf("## Workflow"));
+  assertTrue("no prompt survives below the selection step",
+    !/AskUserQuestion/.test(workflow.replace(/- \*\*NEVER use AskUserQuestion[^\n]*\n/, "")));
+  assertTrue("the ordering subagent still cannot prompt",
+    /That subagent issues no `AskUserQuestion`/.test(skill));
   assertTrue("the retired per-ticket approval prompt is recorded where it used to be",
     /Where the per-ticket approval prompt went/.test(skill)
     && /approval is relocated, not removed/i.test(skill));
@@ -9626,8 +9632,10 @@ function testUnifiedDriveContract() {
     /derived, never self-asserted/.test(skill) && /a blocked unit is `pending`, not `ok`/.test(skill));
   assertTrue("the command restates the terminal contract for its caller loop",
     /`ok` \*\*only\*\* when nothing claimable remains undone/.test(cmd));
+  // The loop must name the unattended form (O1): pointed at the bare form it would
+  // wait on the selection prompt with nobody there to answer it.
   assertTrue("the /goal caller-side loop is named as the contract's consumer",
-    /\/goal \/drive ok/.test(skill) && /\/goal \/drive ok/.test(cmd));
+    /\/goal \/drive auto ok/.test(skill) && /\/goal \/drive auto ok/.test(cmd));
 
   // --- the claim-born, ship-torn worktree ---
   assertTrue("the skill wires teardown to the merge, not to /mission close",
@@ -10136,8 +10144,11 @@ function testDriveFreshnessContract() {
   for (const reason of ["no_origin", "not_on_main", "dirty_workspace", "origin_unreachable", "diverged"]) {
     assertTrue(`the command decides ${reason} explicitly`, cmd.includes(`\`${reason}\``), reason);
   }
-  assertTrue("the freshness paths add no prompt",
-    !/AskUserQuestion/.test(cmd.split("1. **Survey**")[0].split("0. **Freshen**")[1]));
+  // The slice has to name the heading that actually exists, or the assertion tests
+  // `undefined` and passes over any prompt the freshness paths might grow.
+  const freshen = cmd.split("1. **Survey**")[0].split("0b. **Freshen**")[1];
+  assertTrue("the freshness step is located to be checked", typeof freshen === "string");
+  assertTrue("the freshness paths add no prompt", !/AskUserQuestion/.test(freshen));
   assertTrue("a stale survey forbids ok in the token table",
     /not\*\* known current with the base/.test(skill));
   assertTrue("the skill keeps plan-units.sh a pure reader, with the reason",
@@ -10147,6 +10158,53 @@ function testDriveFreshnessContract() {
     && /cannot occur any more/.test(runbook));
   assertTrue("the runbook documents the stale-checkout symptom instead",
     /the runner's checkout is behind `origin\/main`/.test(runbook));
+}
+
+// ---------- the two invocation forms (decision O1, 2026-08-05) ----------
+// The attended selection is prose in a command and a skill, so nothing mechanical
+// would notice it drifting back into either extreme: a prompt leaking into the
+// unattended path (a cron tick parks forever) or the selection quietly disappearing
+// (the heuristic overrides the operator again, the failure the amendment closes).
+// Both forms are pinned, on every surface that has to agree about them.
+function testDriveAttendedSelection() {
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/drive.md"), "utf8");
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  const routine = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/drive.md"), "utf8");
+  const runbook = readFileSync(join(REPO_ROOT, "docs/drive-loop-runbook.md"), "utf8");
+  const claudeMd = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+
+  assertTrue("the command names both forms",
+    /Bare `\/drive` is the \*\*attended\*\* form/.test(cmd)
+    && /`\/drive auto` is the \*\*unattended\*\* form/.test(cmd));
+  assertTrue("attendance follows the invocation and is never inferred",
+    /never inferred/.test(cmd) && /never from a TTY/.test(cmd)
+    && /never inferred/.test(skill.concat(claudeMd)));
+  assertTrue("the selection fires only above one target",
+    /more than one claimable or resumable target/.test(cmd)
+    && /\*\*more than one\*\* claimable or resumable target/.test(skill));
+  assertTrue("the selection is one multiSelect question, once per run",
+    /`multiSelect`/.test(cmd) && /`multiSelect: true`, at most once per run/.test(skill));
+  assertTrue("the selection body carries the project label",
+    /project-label\.sh/.test(cmd) && /project-label\.sh/.test(skill));
+  assertTrue("a foregone choice is not asked",
+    /A single target, an invocation naming a specific unit, and the unattended form all ask nothing/.test(cmd)
+    && /Ask nothing when there is nothing to choose/.test(skill));
+  assertTrue("unchosen units are reported, not dropped",
+    /`deferred_by_operator`/.test(cmd) && /`deferred_by_operator`/.test(skill));
+  assertTrue("a deferred unit forbids the ok token",
+    /a unit at the attended selection \(`deferred_by_operator`\) \| `pending`/.test(skill)
+    && /still claimable, so it counts/.test(cmd));
+
+  // The unattended callers must name the form: inferring it is exactly what O1 forbids,
+  // so a caller that omits the token gets the prompt however headless it is.
+  assertTrue("the routine template invokes the unattended form by name",
+    /Run `\/drive auto`/.test(routine) && /nobody here to answer/.test(routine));
+  assertTrue("the runbook's cron line and loop contract carry the auto token",
+    /claude -p "\/drive auto"/.test(runbook) && /\/goal \/drive auto ok/.test(runbook));
+  assertTrue("the command points caller-side loops at the unattended form",
+    /`\/goal \/drive auto ok`/.test(cmd));
+  assertTrue("CLAUDE.md records the amendment with its decision id",
+    /decision O1, 2026-08-05/.test(claudeMd));
 }
 
 // ---------------------------------------------------------------------------
@@ -11746,6 +11804,7 @@ const tests = [
   ["/drive surveys a current main (J3)", testDriveSurveysCurrentMain],
   ["drive/claim.sh drops its stranded-artifact tolerance", testClaimNoStrandedTolerance],
   ["/drive freshness contract (one code path, every reason visible)", testDriveFreshnessContract],
+  ["/drive: attended selection vs the unattended form (O1)", testDriveAttendedSelection],
   ["drive/claim.sh announces the claim, never load-bearing", testClaimAnnounces],
   ["drive claim protocol: a dropped unit is resumed, not stranded", testClaimResume],
   ["drive claim protocol: two runners racing to resume, one takeover", testResumeRace],

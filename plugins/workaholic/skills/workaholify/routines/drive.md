@@ -61,7 +61,7 @@ One sentence, max 25 words, what failed and what a human must do.
 
 ## 1. Drain the queue, one unit at a time
 
-Run `/drive`. It surveys, partitions, claims, drives, reports and routes on its own. Three constraints on top:
+Run `/drive auto` -- the **unattended** form, named explicitly because attendance is chosen by the invocation and never inferred. It surveys, partitions, claims, drives, reports and routes on its own, and prompts at no step. The bare `/drive` is the attended form: it would ask which unit to take whenever more than one is claimable, and there is nobody here to answer. Three constraints on top:
 
 - **A mission is ours only if its `assignees` include a@qmu.jp, or is empty (unowned/claimable).** The survey does NOT enforce this -- `plan-units.sh` offers EVERY approved mission regardless of owner -- so read the mission frontmatter yourself before claiming, skip any mission owned solely by someone else, and name the skip in the report.
 - **There is no per-tick unit limit. Keep going until the survey offers nothing claimable, or the session ends.** A tick that stops early with work still queued has wasted the window; this runs once an hour, so the tick IS the throughput.

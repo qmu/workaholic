@@ -45,6 +45,8 @@ skills:
 
 **`/drive night`** is a synonym kept for muscle memory. The unified run *is* the unattended shape, so the token selects nothing.
 
+**Landing a claimed unit is a separate, developer-issued act — never a step of this run.** When a developer present in the session says "land this now so a fresh session can resume", run `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/land-unit.sh <unit-id> --developer-present` (the skill's §6, *The third route*). It refuses outright in a headless context, which is exactly why the unified run above never reaches for it.
+
 **Terminal contract:** the last two lines are always the `N units: X shipped, Y PR'd, Z blocked` reconciliation and then `ok` or `pending` — `ok` **only** when nothing claimable remains undone, **and only over a survey known current with the base** (step 0/1). A caller-side loop (`/goal /drive ok`) waits on that token, so it must never be self-graded.
 
 **Policy Lens**: The `hooks/policy-lens.sh` UserPromptSubmit hook injects the engineering-policy lens on every `/drive` run (via the marker above), including the always-loaded four-pillar policy index. `/drive` is where most code is actually written, so judge each ticket's implementation against the policies the change touches — read the relevant `workaholic:design`/`implementation`/`operation` policy bodies (the index links them) per the ticket's `## Policies` section, exactly as the `workaholic:drive` Workflow's "load the policy lens first" step directs.

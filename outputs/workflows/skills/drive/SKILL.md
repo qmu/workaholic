@@ -184,6 +184,29 @@ git push origin --delete <claim-branch>
 
 The cleaner refuses a dirty worktree and never discards uncommitted work; if it refuses, leave the claim alone and report it. The remote claim branch is deleted after the merge for hygiene only — the merge already released the claim by definition (its commits are on the base), so a failure to delete the branch is a note, not a blocker.
 
+#### The third route: landing a unit on a present developer's instruction
+
+The two routes above are what the *run* chooses. There is a third that the run never chooses and a **present developer** does:
+
+```bash
+bash drive/scripts/land-unit.sh <unit-id> --developer-present [--override-scan]
+```
+
+**`review` publishes a unit; it does not make it claimable.** A ticket minted mid-run lives on the claim branch, and until that branch reaches the base no other session can see it (J1) — so "wrap this up so a fresh session can resume immediately" is served by neither route. `auto` does not apply (the unit's recorded policy is `review`, and a run must never grant itself the policy it was denied), and `review` leaves the artifacts behind a pull request a human must merge out of band. What was actually done instead was a hand-rolled local `git merge`, a manual recovery when `origin/main` had moved under it, a manual worktree cleanup and a manual branch delete — every step already a sanctioned script, with nothing composing them. `land-unit.sh` is that composition: catch up with the base in the unit's own worktree, run the safety gates, push the branch tip onto the base, tear the claim's housing down, and fast-forward the landing checkout so **the very next survey offers the unit's leftover tickets**.
+
+**The review is the developer, which is exactly why it refuses headless.** Two refusals, and the order is the design:
+
+| Refusal | When |
+| ------- | ---- |
+| `headless_context` | `CLAUDE_CODE_REMOTE=true` (the container every routine tick runs in), a non-empty `CI`, or `WORKAHOLIC_HEADLESS=1`. Checked **first** and **not overridable by any flag** — a provably unattended caller must not be able to talk its way past it. |
+| `no_developer_instruction` | `--developer-present` was not passed. It is the instruction, **not a proof**: like `authorize-routine-change.sh` this cannot demonstrate a human was in the room and is not sold as doing so. What it buys is that the route is never taken by *omission* — an unattended caller has to state a falsehood, which this command's own contract forbids. |
+
+**`/drive` never calls it.** The unified run has no interaction point, so it has no instruction to act on; the route exists for a developer typing it in a session. The remaining refusals are facts, not judgments: `not_claimed`, `worktree_missing`, `dirty_worktree`, `no_origin`/`origin_unreachable`, `catchup_conflict` (naming the conflict class), `diverged`.
+
+**The gates apply unchanged.** A `secret` finding refuses with no override, exactly as everywhere else. `size`/`leak` are the tier a developer may override interactively, so they refuse unless `--override-scan` is passed — and the output reports `scan_verdict: "overridden"`, so the ruling is never silent.
+
+Two mechanics worth not re-deriving. It lands by pushing the branch tip **onto the base ref** (`git push origin <branch>:main`, the idiom `publish-tree-commit.sh` already uses) rather than merging into a local `main`: a merge would mutate the caller's checkout before the push and leave it ahead of origin whenever the push were rejected, and the only cheap repair for *that* is `git reset --hard`, which the safety floor forbids. A rejection therefore changes nothing anywhere — re-fetch, re-catch-up, retry **once**, bounded so sustained divergence stays visible. And its order is the **inverse** of `release-claim.sh`'s: there the worktree comes down before the claim is dropped, so a refused teardown never advertises "this unit is free" over unpushed work; here the work lands **first**, because a failed teardown after a successful land loses nothing while tearing down first would destroy the branch still to be pushed.
+
 ### 7. Account, reconcile, and the terminal token
 
 **Agent-hours.** For each **mission** unit, record the run's wall-clock once (decision I7 — the seam absorbed from the retired parallel-mission executor). Mint one **run-id** per invocation (a branch-safe timestamp, e.g. `20260729-034500`) and reuse it, so a mission driven across several passes of one invocation records its time exactly once:
